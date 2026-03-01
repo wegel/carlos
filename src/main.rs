@@ -1,5 +1,6 @@
 mod app;
 mod clipboard;
+mod event;
 mod protocol;
 mod theme;
 

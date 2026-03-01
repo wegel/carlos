@@ -2,8 +2,7 @@ use std::collections::VecDeque;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::io;
-use std::sync::mpsc;
-use std::thread;
+use std::sync::mpsc::RecvTimeoutError;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
@@ -36,6 +35,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
 use crate::clipboard::*;
+use crate::event::{spawn_event_forwarders, UiEvent};
 use crate::protocol::*;
 use crate::theme::*;
 
@@ -2827,7 +2827,6 @@ fn is_newline_enter(mods: KeyModifiers) -> bool {
 
 fn compute_input_layout(app: &AppState, size: TerminalSize) -> InputLayout {
     let text_width = transcript_content_width(size);
-
     let mut wrapped = Vec::new();
     let lines = app.input.lines();
 
@@ -2860,6 +2859,7 @@ fn compute_input_layout(app: &AppState, size: TerminalSize) -> InputLayout {
     if size.height > 1 {
         max_input_rows = max_input_rows.min(size.height - 1);
     }
+
     let input_height = wrapped.len().clamp(1, max_input_rows.max(1));
 
     if !cursor_set {
@@ -4377,42 +4377,13 @@ fn pick_thread(threads: &[ThreadSummary]) -> Result<Option<String>> {
     })
 }
 
-enum UiEvent {
-    Terminal(Event),
-    ServerLine(String),
-}
-
 fn run_conversation_tui(
     client: &AppServerClient,
     app: &mut AppState,
-    server_events_rx: mpsc::Receiver<String>,
+    server_events_rx: std::sync::mpsc::Receiver<String>,
 ) -> Result<()> {
     with_terminal(|terminal| {
-        let (ui_tx, ui_rx) = mpsc::channel::<UiEvent>();
-
-        {
-            let tx = ui_tx.clone();
-            thread::spawn(move || {
-                while let Ok(line) = server_events_rx.recv() {
-                    if tx.send(UiEvent::ServerLine(line)).is_err() {
-                        break;
-                    }
-                }
-            });
-        }
-
-        {
-            let tx = ui_tx.clone();
-            thread::spawn(move || loop {
-                let Ok(ev) = event::read() else {
-                    break;
-                };
-                if tx.send(UiEvent::Terminal(ev)).is_err() {
-                    break;
-                }
-            });
-        }
-        drop(ui_tx);
+        let ui_rx = spawn_event_forwarders(server_events_rx);
 
         let mut needs_draw = true;
         let mut last_anim_tick = 0u128;
@@ -4459,8 +4430,8 @@ fn run_conversation_tui(
             let next_event = if working {
                 match ui_rx.recv_timeout(animation_poll_timeout(true)) {
                     Ok(ev) => Some(ev),
-                    Err(mpsc::RecvTimeoutError::Timeout) => None,
-                    Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
+                    Err(RecvTimeoutError::Timeout) => None,
+                    Err(RecvTimeoutError::Disconnected) => return Ok(()),
                 }
             } else {
                 match ui_rx.recv() {
