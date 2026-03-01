@@ -392,6 +392,7 @@ struct AppState {
     messages: Vec<Message>,
     rendered_lines: Vec<RenderedLine>,
     rendered_width: usize,
+    rendered_hidden_user_message_idx: Option<usize>,
     transcript_dirty: bool,
     agent_item_to_index: HashMap<String, usize>,
     turn_diff_to_index: HashMap<String, usize>,
@@ -399,8 +400,12 @@ struct AppState {
 
     input: TextArea<'static>,
     input_history: Vec<String>,
+    input_history_message_idx: Vec<Option<usize>>,
     input_history_index: Option<usize>,
     input_history_draft: Option<String>,
+    rewind_mode: bool,
+    rewind_restore_draft: Option<String>,
+    esc_armed_at: Option<Instant>,
     status: String,
 
     scroll_top: usize,
@@ -423,14 +428,19 @@ impl AppState {
             messages: Vec::new(),
             rendered_lines: Vec::new(),
             rendered_width: 0,
+            rendered_hidden_user_message_idx: None,
             transcript_dirty: true,
             agent_item_to_index: HashMap::new(),
             turn_diff_to_index: HashMap::new(),
             command_render_overrides: HashMap::new(),
             input: make_input_area(),
             input_history: Vec::new(),
+            input_history_message_idx: Vec::new(),
             input_history_index: None,
             input_history_draft: None,
+            rewind_mode: false,
+            rewind_restore_draft: None,
+            esc_armed_at: None,
             status: String::new(),
             scroll_top: 0,
             auto_follow_bottom: true,
@@ -482,12 +492,84 @@ impl AppState {
         self.input_history_draft = None;
     }
 
+    fn reset_esc_chord(&mut self) {
+        self.esc_armed_at = None;
+    }
+
+    fn expire_esc_chord(&mut self, now: Instant) {
+        const ESC_CHORD_WINDOW: Duration = Duration::from_millis(700);
+        if let Some(armed_at) = self.esc_armed_at {
+            if now.duration_since(armed_at) > ESC_CHORD_WINDOW {
+                self.esc_armed_at = None;
+            }
+        }
+    }
+
+    fn register_escape_press(&mut self, now: Instant) -> bool {
+        const ESC_CHORD_WINDOW: Duration = Duration::from_millis(700);
+        if let Some(armed_at) = self.esc_armed_at {
+            if now.duration_since(armed_at) <= ESC_CHORD_WINDOW {
+                self.esc_armed_at = None;
+                return true;
+            }
+        }
+        self.esc_armed_at = Some(now);
+        false
+    }
+
+    fn enter_rewind_mode(&mut self) {
+        if self.rewind_mode {
+            return;
+        }
+        self.rewind_mode = true;
+        self.auto_follow_bottom = false;
+        self.rewind_restore_draft = Some(self.input_text());
+        self.reset_input_history_navigation();
+        let _ = self.navigate_input_history_up();
+    }
+
+    fn exit_rewind_mode_restore(&mut self) {
+        if !self.rewind_mode {
+            return;
+        }
+        let draft = self.rewind_restore_draft.take().unwrap_or_default();
+        self.rewind_mode = false;
+        self.auto_follow_bottom = true;
+        self.set_input_text(&draft);
+        self.reset_input_history_navigation();
+    }
+
+    fn clear_rewind_mode_state(&mut self) {
+        self.rewind_mode = false;
+        self.auto_follow_bottom = true;
+        self.rewind_restore_draft = None;
+    }
+
     fn push_input_history(&mut self, text: &str) {
+        self.record_input_history(text, None);
+    }
+
+    fn record_input_history(&mut self, text: &str, message_idx: Option<usize>) {
         if text.is_empty() {
             self.reset_input_history_navigation();
             return;
         }
+
+        if let Some(msg_idx) = message_idx {
+            if let (Some(last_text), Some(last_idx)) = (
+                self.input_history.last(),
+                self.input_history_message_idx.last_mut(),
+            ) {
+                if *last_text == text && last_idx.is_none() {
+                    *last_idx = Some(msg_idx);
+                    self.reset_input_history_navigation();
+                    return;
+                }
+            }
+        }
+
         self.input_history.push(text.to_string());
+        self.input_history_message_idx.push(message_idx);
         self.reset_input_history_navigation();
     }
 
@@ -530,12 +612,52 @@ impl AppState {
         true
     }
 
+    fn rewind_selected_message_idx(&self) -> Option<usize> {
+        let idx = self.input_history_index?;
+        self.input_history_message_idx.get(idx).and_then(|v| *v)
+    }
+
+    fn align_rewind_scroll_to_selected_prompt(&mut self, size: TerminalSize) {
+        if !self.rewind_mode {
+            return;
+        }
+        let Some(msg_idx) = self.rewind_selected_message_idx() else {
+            return;
+        };
+        if self.messages.is_empty() {
+            return;
+        }
+        let width = transcript_content_width(size);
+        if width == 0 {
+            return;
+        }
+        let upto = msg_idx.min(self.messages.len().saturating_sub(1));
+        let rendered_upto =
+            build_rendered_lines_with_hidden(&self.messages[..=upto], width, Some(msg_idx));
+        if rendered_upto.is_empty() {
+            return;
+        }
+        let input_layout = compute_input_layout(self, size);
+        let msg_height = if input_layout.msg_bottom >= MSG_TOP {
+            input_layout.msg_bottom - MSG_TOP + 1
+        } else {
+            0
+        };
+        if msg_height == 0 {
+            return;
+        }
+        let target_line = rendered_upto.len().saturating_sub(1);
+        self.scroll_top = target_line.saturating_sub(msg_height.saturating_sub(1));
+    }
+
     fn input_apply_key(&mut self, key: crossterm::event::KeyEvent) {
+        self.reset_esc_chord();
         self.reset_input_history_navigation();
         let _ = self.input.input(textarea_input_from_key(key));
     }
 
     fn input_insert_text(&mut self, text: String) {
+        self.reset_esc_chord();
         self.reset_input_history_navigation();
         let _ = self.input.insert_str(text);
     }
@@ -544,10 +666,15 @@ impl AppState {
         self.transcript_dirty = true;
     }
 
-    fn ensure_rendered_lines(&mut self, width: usize) {
-        if self.transcript_dirty || self.rendered_width != width {
-            self.rendered_lines = build_rendered_lines(&self.messages, width);
+    fn ensure_rendered_lines(&mut self, width: usize, hidden_user_message_idx: Option<usize>) {
+        if self.transcript_dirty
+            || self.rendered_width != width
+            || self.rendered_hidden_user_message_idx != hidden_user_message_idx
+        {
+            self.rendered_lines =
+                build_rendered_lines_with_hidden(&self.messages, width, hidden_user_message_idx);
             self.rendered_width = width;
+            self.rendered_hidden_user_message_idx = hidden_user_message_idx;
             self.transcript_dirty = false;
         }
     }
@@ -1763,8 +1890,8 @@ fn append_history_from_thread(app: &mut AppState, thread_obj: &Value) {
             match kind {
                 "userMessage" => {
                     if let Some(text) = item_text_from_content(item) {
-                        app.append_message(Role::User, text.clone());
-                        app.push_input_history(&text);
+                        let idx = app.append_message(Role::User, text.clone());
+                        app.record_input_history(&text, Some(idx));
                     }
                 }
                 "agentMessage" => {
@@ -2771,11 +2898,27 @@ fn collapse_successive_read_summaries(messages: &[Message]) -> Vec<Message> {
 }
 
 fn build_rendered_lines(messages: &[Message], width: usize) -> Vec<RenderedLine> {
-    let messages = collapse_successive_read_summaries(messages);
-    let mut out = Vec::new();
+    build_rendered_lines_with_hidden(messages, width, None)
+}
 
+fn build_rendered_lines_with_hidden(
+    messages: &[Message],
+    width: usize,
+    hidden_user_message_idx: Option<usize>,
+) -> Vec<RenderedLine> {
+    let mut filtered = Vec::with_capacity(messages.len());
     for (idx, msg) in messages.iter().enumerate() {
-        if idx > 0 {
+        if hidden_user_message_idx == Some(idx) && msg.role == Role::User {
+            continue;
+        }
+        filtered.push(msg.clone());
+    }
+    let messages = collapse_successive_read_summaries(&filtered);
+    let mut out = Vec::new();
+    let mut appended_any = false;
+
+    for msg in &messages {
+        if appended_any {
             out.push(RenderedLine {
                 text: String::new(),
                 styled_segments: Vec::new(),
@@ -2800,6 +2943,7 @@ fn build_rendered_lines(messages: &[Message], width: usize) -> Vec<RenderedLine>
                 _ => append_wrapped_message_lines(&mut out, msg.role, &msg.text, width),
             },
         }
+        appended_any = true;
     }
 
     out
@@ -3633,7 +3777,17 @@ fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppState) {
                 0
             };
             if anim_end > 0 {
-                if working {
+                if app.rewind_mode {
+                    let sep = "━".repeat(anim_end);
+                    draw_str(
+                        buf,
+                        0,
+                        sep_y,
+                        &sep,
+                        Style::default().fg(COLOR_DIFF_REMOVE),
+                        anim_end,
+                    );
+                } else if working {
                     for x in 0..anim_end {
                         let dist = head.abs_diff(x);
                         draw_str(
@@ -3686,13 +3840,18 @@ fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppState) {
     );
     for i in 0..input_layout.input_height {
         let y = input_layout.input_top.saturating_sub(1) + i;
+        let input_gutter_color = if app.rewind_mode {
+            COLOR_DIFF_REMOVE
+        } else {
+            COLOR_GUTTER_USER
+        };
         draw_str(
             buf,
             0,
             y,
             ">",
             Style::default()
-                .fg(COLOR_GUTTER_USER)
+                .fg(input_gutter_color)
                 .add_modifier(Modifier::BOLD),
             1,
         );
@@ -4132,15 +4291,10 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
 
             match t {
                 "userMessage" => {
-                    if let Some(content) = item.get("content").and_then(Value::as_array) {
-                        for part in content {
-                            if part.get("type").and_then(Value::as_str) != Some("text") {
-                                continue;
-                            }
-                            if let Some(text) = part.get("text").and_then(Value::as_str) {
-                                app.append_message(Role::User, text.to_string());
-                            }
-                        }
+                    let item_value = Value::Object(item.clone());
+                    if let Some(text) = item_text_from_content(&item_value) {
+                        let idx = app.append_message(Role::User, text.clone());
+                        app.record_input_history(&text, Some(idx));
                     }
                 }
                 "agentMessage" => {
@@ -4532,7 +4686,12 @@ fn run_conversation_tui(
                 height: size.height as usize,
             };
             let render_started = Instant::now();
-            app.ensure_rendered_lines(transcript_content_width(size));
+            let hidden_user_message_idx = if app.rewind_mode {
+                app.rewind_selected_message_idx()
+            } else {
+                None
+            };
+            app.ensure_rendered_lines(transcript_content_width(size), hidden_user_message_idx);
             if let Some(perf) = app.perf.as_mut() {
                 perf.transcript_render.push(render_started.elapsed());
             }
@@ -4635,6 +4794,11 @@ fn run_conversation_tui(
                                 needs_draw = true;
                                 continue;
                             }
+                            let now = Instant::now();
+                            app.expire_esc_chord(now);
+                            if k.code != KeyCode::Esc {
+                                app.reset_esc_chord();
+                            }
                             if app.show_help {
                                 match (k.code, k.modifiers) {
                                     (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(()),
@@ -4685,8 +4849,12 @@ fn run_conversation_tui(
                                     app.mouse_drag_mode = MouseDragMode::Undecided;
                                     app.set_status("selection cleared");
                                 }
-                                (KeyCode::Esc, _) => {
-                                    if let Some(turn_id) = app.active_turn_id.clone() {
+                                (KeyCode::Esc, mods) if mods.is_empty() => {
+                                    if app.rewind_mode {
+                                        app.exit_rewind_mode_restore();
+                                        app.reset_esc_chord();
+                                    } else if let Some(turn_id) = app.active_turn_id.clone() {
+                                        app.reset_esc_chord();
                                         let params =
                                             params_turn_interrupt(&app.thread_id, &turn_id);
                                         match client.call(
@@ -4700,10 +4868,17 @@ fn run_conversation_tui(
                                             }
                                             Err(e) => app.set_status(format!("{e}")),
                                         }
-                                    } else {
+                                    } else if app.register_escape_press(now) {
                                         app.selection = None;
                                         app.mouse_drag_mode = MouseDragMode::Undecided;
-                                        app.set_status("selection cleared");
+                                        if app.input_is_empty() {
+                                            app.enter_rewind_mode();
+                                            app.align_rewind_scroll_to_selected_prompt(size);
+                                        } else {
+                                            app.clear_input();
+                                        }
+                                    } else {
+                                        // First Esc press arms the chord; second Esc triggers action.
                                     }
                                 }
                                 (KeyCode::Home, _) if app.input_is_empty() => {
@@ -4714,10 +4889,14 @@ fn run_conversation_tui(
                                     app.auto_follow_bottom = true;
                                 }
                                 (KeyCode::Up, _) => {
-                                    let _ = app.navigate_input_history_up();
+                                    if app.navigate_input_history_up() {
+                                        app.align_rewind_scroll_to_selected_prompt(size);
+                                    }
                                 }
                                 (KeyCode::Down, _) => {
-                                    let _ = app.navigate_input_history_down();
+                                    if app.navigate_input_history_down() {
+                                        app.align_rewind_scroll_to_selected_prompt(size);
+                                    }
                                 }
                                 (KeyCode::PageUp, _) => {
                                     app.auto_follow_bottom = false;
@@ -4737,6 +4916,7 @@ fn run_conversation_tui(
                                     }
 
                                     let text = app.input_text();
+                                    app.clear_rewind_mode_state();
                                     app.push_input_history(&text);
                                     app.clear_input();
                                     app.selection = None;

@@ -126,6 +126,28 @@ fn build_rendered_lines_inserts_separator_rows_between_messages() {
 }
 
 #[test]
+fn build_rendered_lines_with_hidden_omits_selected_user_message() {
+    let messages = vec![
+        Message {
+            role: Role::User,
+            text: "first prompt".to_string(),
+            kind: MessageKind::Plain,
+            file_path: None,
+        },
+        Message {
+            role: Role::Assistant,
+            text: "reply".to_string(),
+            kind: MessageKind::Plain,
+            file_path: None,
+        },
+    ];
+
+    let rendered = build_rendered_lines_with_hidden(&messages, 80, Some(0));
+    assert!(!rendered.iter().any(|l| l.text.contains("first prompt")));
+    assert!(rendered.iter().any(|l| l.text.contains("reply")));
+}
+
+#[test]
 fn collapse_successive_read_summaries_merges_same_file() {
     let messages = vec![
         Message {
@@ -259,6 +281,82 @@ fn input_history_up_noops_when_empty() {
     app.set_input_text("draft");
     assert!(!app.navigate_input_history_up());
     assert_eq!(app.input_text(), "draft");
+}
+
+#[test]
+fn esc_chord_triggers_on_second_press_within_window() {
+    let mut app = AppState::new("thread-1".to_string());
+    let now = std::time::Instant::now();
+    assert!(!app.register_escape_press(now));
+    assert!(app.register_escape_press(now + std::time::Duration::from_millis(100)));
+}
+
+#[test]
+fn esc_chord_expires_after_window() {
+    let mut app = AppState::new("thread-1".to_string());
+    let now = std::time::Instant::now();
+    assert!(!app.register_escape_press(now));
+    app.expire_esc_chord(now + std::time::Duration::from_millis(800));
+    assert!(!app.register_escape_press(now + std::time::Duration::from_millis(900)));
+}
+
+#[test]
+fn rewind_mode_populates_latest_history_and_restores_draft() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.push_input_history("first");
+    app.push_input_history("second");
+    app.set_input_text("draft");
+
+    app.enter_rewind_mode();
+    assert!(app.rewind_mode);
+    assert_eq!(app.input_text(), "second");
+
+    let _ = app.navigate_input_history_up();
+    assert_eq!(app.input_text(), "first");
+
+    app.exit_rewind_mode_restore();
+    assert!(!app.rewind_mode);
+    assert_eq!(app.input_text(), "draft");
+}
+
+#[test]
+fn record_input_history_backfills_pending_message_index() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.push_input_history("prompt");
+    assert_eq!(app.input_history_message_idx, vec![None]);
+
+    app.record_input_history("prompt", Some(42));
+    assert_eq!(app.input_history.len(), 1);
+    assert_eq!(app.input_history_message_idx, vec![Some(42)]);
+}
+
+#[test]
+fn rewind_scroll_aligns_to_selected_prompt_history_position() {
+    let mut app = AppState::new("thread-1".to_string());
+    let u1 = app.append_message(Role::User, "first");
+    app.record_input_history("first", Some(u1));
+    let _ = app.append_message(Role::Assistant, "reply one");
+    let u2 = app.append_message(Role::User, "second");
+    app.record_input_history("second", Some(u2));
+    let _ = app.append_message(Role::Assistant, "reply two");
+    let _ = app.append_message(Role::Assistant, "tail");
+
+    app.rewind_mode = true;
+    app.input_history_index = Some(1);
+    app.align_rewind_scroll_to_selected_prompt(TerminalSize {
+        width: 100,
+        height: 6,
+    });
+    let newer_scroll = app.scroll_top;
+
+    app.input_history_index = Some(0);
+    app.align_rewind_scroll_to_selected_prompt(TerminalSize {
+        width: 100,
+        height: 6,
+    });
+    let older_scroll = app.scroll_top;
+
+    assert!(older_scroll <= newer_scroll);
 }
 
 #[test]
