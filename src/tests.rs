@@ -1,4 +1,3 @@
-
 use super::*;
 
 #[test]
@@ -201,6 +200,12 @@ fn wrap_natural_by_cells_prefers_word_boundaries() {
 fn wrap_input_line_uses_natural_word_wrapping() {
     let parts = wrap_input_line("alpha beta gamma", 10);
     assert_eq!(parts, vec!["alpha beta".to_string(), "gamma".to_string()]);
+}
+
+#[test]
+fn wrap_input_line_keeps_trailing_space_visible() {
+    let parts = wrap_input_line("test ", 10);
+    assert_eq!(parts, vec!["test ".to_string()]);
 }
 
 #[test]
@@ -1047,6 +1052,22 @@ fn parse_mobile_mouse_coords_accepts_plain_and_sgr_fragments() {
         Some((76, 46))
     );
     assert_eq!(parse_mobile_mouse_coords("hello"), None);
+}
+
+#[test]
+fn consume_mobile_mouse_char_does_not_swallow_plain_digits() {
+    let mut app = AppState::new("thread-1".to_string());
+    assert!(!consume_mobile_mouse_char(&mut app, '2'));
+    assert!(app.mobile_mouse_buffer.is_empty());
+}
+
+#[test]
+fn consume_mobile_mouse_char_requires_prefix_to_activate() {
+    let mut app = AppState::new("thread-1".to_string());
+    assert!(consume_mobile_mouse_char(&mut app, '<'));
+    assert!(consume_mobile_mouse_char(&mut app, '7'));
+    assert!(consume_mobile_mouse_char(&mut app, '6'));
+    assert!(consume_mobile_mouse_char(&mut app, ';'));
 }
 
 #[test]

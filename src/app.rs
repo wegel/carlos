@@ -2,8 +2,7 @@ use std::collections::VecDeque;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::io;
-use std::thread;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use crossterm::event::{
@@ -128,6 +127,9 @@ struct AppState {
     thread_id: String,
     active_turn_id: Option<String>,
     messages: Vec<Message>,
+    rendered_lines: Vec<RenderedLine>,
+    rendered_width: usize,
+    transcript_dirty: bool,
     agent_item_to_index: HashMap<String, usize>,
     turn_diff_to_index: HashMap<String, usize>,
     command_render_overrides: HashMap<String, String>,
@@ -152,6 +154,9 @@ impl AppState {
             thread_id,
             active_turn_id: None,
             messages: Vec::new(),
+            rendered_lines: Vec::new(),
+            rendered_width: 0,
+            transcript_dirty: true,
             agent_item_to_index: HashMap::new(),
             turn_diff_to_index: HashMap::new(),
             command_render_overrides: HashMap::new(),
@@ -185,6 +190,18 @@ impl AppState {
         self.input = make_input_area();
     }
 
+    fn mark_transcript_dirty(&mut self) {
+        self.transcript_dirty = true;
+    }
+
+    fn ensure_rendered_lines(&mut self, width: usize) {
+        if self.transcript_dirty || self.rendered_width != width {
+            self.rendered_lines = build_rendered_lines(&self.messages, width);
+            self.rendered_width = width;
+            self.transcript_dirty = false;
+        }
+    }
+
     fn append_message(&mut self, role: Role, text: impl Into<String>) -> usize {
         self.messages.push(Message {
             role,
@@ -192,6 +209,7 @@ impl AppState {
             kind: MessageKind::Plain,
             file_path: None,
         });
+        self.mark_transcript_dirty();
         self.messages.len() - 1
     }
 
@@ -207,6 +225,7 @@ impl AppState {
             kind: MessageKind::Diff,
             file_path,
         });
+        self.mark_transcript_dirty();
         self.messages.len() - 1
     }
 
@@ -216,6 +235,7 @@ impl AppState {
 
     fn upsert_agent_delta(&mut self, item_id: &str, delta: &str) {
         if let Some(idx) = self.agent_item_to_index.get(item_id).copied() {
+            let mut changed = false;
             if let Some(msg) = self.messages.get_mut(idx) {
                 if msg.kind != MessageKind::Plain {
                     msg.kind = MessageKind::Plain;
@@ -223,6 +243,10 @@ impl AppState {
                     msg.text.clear();
                 }
                 msg.text.push_str(delta);
+                changed = true;
+            }
+            if changed {
+                self.mark_transcript_dirty();
             }
             return;
         }
@@ -246,6 +270,7 @@ impl AppState {
                 msg.kind = MessageKind::Diff;
                 msg.file_path = None;
                 self.auto_follow_bottom = true;
+                self.mark_transcript_dirty();
                 return;
             }
         }
@@ -258,13 +283,18 @@ impl AppState {
     fn set_command_override(&mut self, call_id: &str, summary: String) {
         self.command_render_overrides
             .insert(call_id.to_string(), summary.clone());
+        let mut changed = false;
         if let Some(idx) = self.agent_item_to_index.get(call_id).copied() {
             if let Some(msg) = self.messages.get_mut(idx) {
                 msg.role = Role::ToolCall;
                 msg.kind = MessageKind::Plain;
                 msg.file_path = None;
                 msg.text = summary;
+                changed = true;
             }
+        }
+        if changed {
+            self.mark_transcript_dirty();
         }
         self.auto_follow_bottom = true;
     }
@@ -1342,6 +1372,7 @@ fn upsert_tool_message(
             msg.kind = kind;
             msg.file_path = file_path;
             app.auto_follow_bottom = true;
+            app.mark_transcript_dirty();
             return;
         }
     }
@@ -2498,7 +2529,41 @@ fn wrap_input_line(line: &str, width: usize) -> Vec<String> {
     if line.is_empty() {
         return vec![String::new()];
     }
-    wrap_natural_by_cells(line, width)
+    let mut out = wrap_natural_by_cells(line, width);
+    if out.is_empty() {
+        out.push(String::new());
+    }
+
+    // Preserve trailing spaces immediately so typing "word " visibly updates
+    // without waiting for the next non-space character.
+    let wanted_trailing_spaces = line.chars().rev().take_while(|c| *c == ' ').count();
+    if wanted_trailing_spaces == 0 {
+        return out;
+    }
+
+    let mut present_trailing_spaces = out
+        .last()
+        .map(|s| s.chars().rev().take_while(|c| *c == ' ').count())
+        .unwrap_or(0);
+    let mut missing = wanted_trailing_spaces.saturating_sub(present_trailing_spaces);
+    while missing > 0 {
+        let last_idx = out.len().saturating_sub(1);
+        let last_width = visual_width(&out[last_idx]);
+        let avail = width.saturating_sub(last_width);
+        if avail == 0 {
+            out.push(String::new());
+            continue;
+        }
+        let add = missing.min(avail);
+        out[last_idx].push_str(&" ".repeat(add));
+        present_trailing_spaces += add;
+        missing = wanted_trailing_spaces.saturating_sub(present_trailing_spaces);
+        if missing > 0 && add == avail {
+            out.push(String::new());
+        }
+    }
+
+    out
 }
 
 fn input_cursor_visual_position(
@@ -3033,11 +3098,7 @@ fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize) {
     );
 }
 
-fn render_main_view(
-    frame: &mut ratatui::Frame<'_>,
-    app: &mut AppState,
-    rendered_lines: &[RenderedLine],
-) {
+fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppState) {
     let area = frame.area();
     let size = TerminalSize {
         width: area.width as usize,
@@ -3058,7 +3119,7 @@ fn render_main_view(
     };
     let msg_width = transcript_content_width(size);
 
-    let total_lines = rendered_lines.len();
+    let total_lines = app.rendered_lines.len();
     let max_scroll = total_lines.saturating_sub(msg_height);
     if app.scroll_top > max_scroll {
         app.scroll_top = max_scroll;
@@ -3092,7 +3153,7 @@ fn render_main_view(
         let row_1b = msg_top + i;
         let y = row_1b - 1;
 
-        let line_opt = rendered_lines.get(line_idx);
+        let line_opt = app.rendered_lines.get(line_idx);
         if let Some(line) = line_opt {
             if !line.separator {
                 let gutter_symbol = role_gutter_symbol(line.role);
@@ -3470,6 +3531,19 @@ fn animation_tick() -> u128 {
         .unwrap_or(0)
 }
 
+fn animation_poll_timeout(working: bool) -> Duration {
+    if !working {
+        return Duration::from_millis(25);
+    }
+
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let rem = KITT_STEP_MS - (now_ms % KITT_STEP_MS);
+    Duration::from_millis(rem.max(1) as u64)
+}
+
 fn kitt_head_index(width: usize, tick: u128) -> usize {
     if width <= 1 {
         return 0;
@@ -3532,8 +3606,20 @@ fn apply_mobile_mouse_scroll(app: &mut AppState, y: usize) {
 }
 
 fn consume_mobile_mouse_char(app: &mut AppState, c: char) -> bool {
-    if app.input_is_empty() && (c.is_ascii_digit() || c == ';' || c == '<' || c == 'M' || c == 'm')
-    {
+    if !app.input_is_empty() {
+        app.mobile_mouse_buffer.clear();
+        return false;
+    }
+
+    if app.mobile_mouse_buffer.is_empty() {
+        if c != '<' {
+            return false;
+        }
+        app.mobile_mouse_buffer.push(c);
+        return true;
+    }
+
+    if c.is_ascii_digit() || c == ';' || c == 'M' || c == 'm' {
         app.mobile_mouse_buffer.push(c);
         if let Some((_, y)) = parse_mobile_mouse_coords(&app.mobile_mouse_buffer) {
             apply_mobile_mouse_scroll(app, y);
@@ -3544,6 +3630,7 @@ fn consume_mobile_mouse_char(app: &mut AppState, c: char) -> bool {
         return true;
     }
 
+    app.mobile_mouse_buffer.clear();
     false
 }
 
@@ -3724,6 +3811,7 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
                                 msg.kind = MessageKind::Plain;
                                 msg.file_path = None;
                             }
+                            app.mark_transcript_dirty();
                             app.auto_follow_bottom = true;
                             return;
                         }
@@ -3742,6 +3830,7 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
                                 msg.kind = MessageKind::Diff;
                                 msg.file_path = None;
                             }
+                            app.mark_transcript_dirty();
                             app.auto_follow_bottom = true;
                             return;
                         }
@@ -3770,6 +3859,7 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
                                 msg.kind = MessageKind::Plain;
                                 msg.file_path = None;
                             }
+                            app.mark_transcript_dirty();
                             app.auto_follow_bottom = true;
                             return;
                         }
@@ -3790,6 +3880,7 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
                             msg.kind = MessageKind::Diff;
                             msg.file_path = first.file_path.clone();
                         }
+                        app.mark_transcript_dirty();
                         for block in diffs.iter().skip(1) {
                             app.append_diff_message(
                                 role,
@@ -4010,10 +4101,15 @@ fn pick_thread(threads: &[ThreadSummary]) -> Result<Option<String>> {
 fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<()> {
     with_terminal(|terminal| {
         let mut inbox = Vec::new();
+        let mut needs_draw = true;
+        let mut last_anim_tick = 0u128;
 
         loop {
             inbox.clear();
             client.drain_events(&mut inbox);
+            if !inbox.is_empty() {
+                needs_draw = true;
+            }
             for line in &inbox {
                 handle_notification_line(app, line);
             }
@@ -4023,18 +4119,26 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                 width: size.width as usize,
                 height: size.height as usize,
             };
-            let rendered = build_rendered_lines(&app.messages, transcript_content_width(size));
+            app.ensure_rendered_lines(transcript_content_width(size));
+            let working = app.active_turn_id.is_some();
+            let tick = if working { animation_tick() } else { 0 };
+            if working {
+                if tick != last_anim_tick {
+                    needs_draw = true;
+                }
+            } else if last_anim_tick != 0 {
+                needs_draw = true;
+            }
 
-            terminal.draw(|frame| {
-                render_main_view(frame, app, &rendered);
-            })?;
+            if needs_draw {
+                terminal.draw(|frame| {
+                    render_main_view(frame, app);
+                })?;
+                needs_draw = false;
+                last_anim_tick = tick;
+            }
 
-            let mut had_input = false;
-            let tick_start = Instant::now();
-            while tick_start.elapsed() < Duration::from_millis(16)
-                && event::poll(Duration::from_millis(0))?
-            {
-                had_input = true;
+            if event::poll(animation_poll_timeout(working))? {
                 match event::read()? {
                     Event::Key(k) if is_key_press_like(k.kind) => {
                         if app.show_help {
@@ -4048,11 +4152,13 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                                 }
                                 _ => {}
                             }
+                            needs_draw = true;
                             continue;
                         }
 
                         if let KeyCode::Char(ch) = k.code {
                             if k.modifiers.is_empty() && consume_mobile_mouse_char(app, ch) {
+                                needs_draw = true;
                                 continue;
                             }
                         }
@@ -4062,8 +4168,12 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                             (KeyCode::Char('y'), KeyModifiers::CONTROL) => {
                                 if let Some(sel) = app.selection {
                                     let msg_bottom = compute_input_layout(app, size).msg_bottom;
-                                    let copied =
-                                        selected_text(sel, &rendered, msg_bottom, app.scroll_top);
+                                    let copied = selected_text(
+                                        sel,
+                                        &app.rendered_lines,
+                                        msg_bottom,
+                                        app.scroll_top,
+                                    );
                                     if !copied.is_empty() {
                                         let _ = try_copy_clipboard(&copied);
                                     }
@@ -4113,6 +4223,7 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                             }
                             (KeyCode::Enter, _) => {
                                 if app.input_is_empty() {
+                                    needs_draw = true;
                                     continue;
                                 }
 
@@ -4154,9 +4265,11 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                                 let _ = app.input.input(textarea_input_from_key(k));
                             }
                         }
+                        needs_draw = true;
                     }
                     Event::Mouse(m) => {
                         if app.show_help {
+                            needs_draw = true;
                             continue;
                         }
 
@@ -4239,7 +4352,7 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                                         } else {
                                             let copied = selected_text(
                                                 *sel,
-                                                &rendered,
+                                                &app.rendered_lines,
                                                 msg_bottom,
                                                 app.scroll_top,
                                             );
@@ -4253,29 +4366,31 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                             }
                             _ => {}
                         }
+                        needs_draw = true;
                     }
                     Event::Paste(pasted) => {
                         if app.show_help {
+                            needs_draw = true;
                             continue;
                         }
                         if app.input_is_empty() {
                             if let Some((_, y)) = parse_mobile_mouse_coords(&pasted) {
                                 apply_mobile_mouse_scroll(app, y);
+                                needs_draw = true;
                                 continue;
                             }
                         }
                         let normalized = normalize_pasted_text(&pasted);
                         if !normalized.is_empty() {
                             let _ = app.input.insert_str(normalized);
+                            needs_draw = true;
                         }
                     }
-                    Event::Resize(_, _) => {}
+                    Event::Resize(_, _) => {
+                        needs_draw = true;
+                    }
                     _ => {}
                 }
-            }
-
-            if !had_input {
-                thread::sleep(Duration::from_millis(16));
             }
         }
     })
