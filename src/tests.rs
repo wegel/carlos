@@ -447,6 +447,23 @@ fn context_usage_label_formats_k_and_percent() {
 }
 
 #[test]
+fn context_label_reserved_cells_uses_fixed_minimum() {
+    assert_eq!(
+        context_label_reserved_cells(None),
+        visual_width("999k/999k (99%)")
+    );
+}
+
+#[test]
+fn context_label_reserved_cells_expands_for_longer_labels() {
+    let label = "12345k/12345k (100%)";
+    assert_eq!(
+        context_label_reserved_cells(Some(label)),
+        visual_width(label)
+    );
+}
+
+#[test]
 fn handle_notification_updates_context_usage_when_present() {
     let mut app = AppState::new("thread-1".to_string());
     handle_notification_line(

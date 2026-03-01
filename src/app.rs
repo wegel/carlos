@@ -838,6 +838,16 @@ fn context_usage_label(usage: ContextUsage) -> String {
     )
 }
 
+fn context_usage_placeholder_label() -> &'static str {
+    "___k/___k (__%)"
+}
+
+fn context_label_reserved_cells(context_label: Option<&str>) -> usize {
+    let base = visual_width("999k/999k (99%)").max(visual_width(context_usage_placeholder_label()));
+    let label_cells = context_label.map(visual_width).unwrap_or(0);
+    base.max(label_cells)
+}
+
 fn command_execution_action_command(item: &Value) -> Option<String> {
     let actions = item.get("commandActions").and_then(Value::as_array)?;
     for a in actions {
@@ -3512,19 +3522,21 @@ fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppState) {
         if size.width > 0 {
             let working = app.active_turn_id.is_some();
             let line_len = size.width.saturating_sub(1);
-            let context_label = app.context_usage.map(context_usage_label);
-            let context_label_cells = context_label
-                .as_ref()
-                .map(|label| visual_width(label))
-                .unwrap_or(0);
-            let can_draw_label = context_label_cells > 0 && context_label_cells + 1 < line_len;
-            let label_x = if can_draw_label {
-                line_len - context_label_cells
+            let context_label = app
+                .context_usage
+                .map(context_usage_label)
+                .unwrap_or_else(|| context_usage_placeholder_label().to_string());
+            let has_context_usage = app.context_usage.is_some();
+            let reserved_label_cells = context_label_reserved_cells(Some(&context_label));
+            let context_label_cells = visual_width(&context_label);
+            let can_reserve_label_area = reserved_label_cells + 1 < line_len;
+            let label_area_start = if can_reserve_label_area {
+                line_len - reserved_label_cells
             } else {
                 line_len
             };
-            let anim_end = if can_draw_label {
-                label_x.saturating_sub(1)
+            let anim_end = if can_reserve_label_area {
+                label_area_start.saturating_sub(1)
             } else {
                 line_len
             };
@@ -3560,17 +3572,20 @@ fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppState) {
                 }
             }
 
-            if can_draw_label {
-                if let Some(label) = context_label.as_ref() {
-                    draw_str(
-                        buf,
-                        label_x,
-                        sep_y,
-                        label,
-                        Style::default().fg(COLOR_STEP8),
-                        context_label_cells,
-                    );
-                }
+            if can_reserve_label_area && context_label_cells > 0 {
+                let label_x = line_len.saturating_sub(context_label_cells);
+                draw_str(
+                    buf,
+                    label_x,
+                    sep_y,
+                    &context_label,
+                    Style::default().fg(if has_context_usage {
+                        COLOR_STEP8
+                    } else {
+                        COLOR_STEP7
+                    }),
+                    context_label_cells,
+                );
             }
         }
     }
