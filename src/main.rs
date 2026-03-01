@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::io::{self, BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
@@ -58,6 +58,10 @@ const COLOR_GUTTER_AGENT_THINKING: Color = Color::Rgb(245, 194, 231); // pink
 const COLOR_GUTTER_TOOL_CALL: Color = Color::Rgb(250, 179, 135); // peach
 const COLOR_GUTTER_TOOL_OUTPUT: Color = Color::Rgb(250, 179, 135); // peach
 const COLOR_GUTTER_SYSTEM: Color = Color::Rgb(137, 220, 235); // sky
+const COLOR_DIFF_ADD: Color = Color::Rgb(166, 227, 161); // green
+const COLOR_DIFF_REMOVE: Color = Color::Rgb(243, 139, 168); // red
+const COLOR_DIFF_HUNK: Color = Color::Rgb(250, 179, 135); // peach
+const COLOR_DIFF_HEADER: Color = Color::Rgb(137, 220, 235); // sky
 
 const MSG_TOP: usize = 1; // 1-based row index
 const MSG_CONTENT_X: usize = 2; // 0-based x
@@ -76,6 +80,20 @@ enum Role {
 struct Message {
     role: Role,
     text: String,
+    kind: MessageKind,
+    file_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MessageKind {
+    Plain,
+    Diff,
+}
+
+#[derive(Debug, Clone)]
+struct DiffBlock {
+    file_path: Option<String>,
+    diff: String,
 }
 
 #[derive(Debug, Clone)]
@@ -169,6 +187,23 @@ impl AppState {
         self.messages.push(Message {
             role,
             text: text.into(),
+            kind: MessageKind::Plain,
+            file_path: None,
+        });
+        self.messages.len() - 1
+    }
+
+    fn append_diff_message(
+        &mut self,
+        role: Role,
+        file_path: Option<String>,
+        diff: impl Into<String>,
+    ) -> usize {
+        self.messages.push(Message {
+            role,
+            text: diff.into(),
+            kind: MessageKind::Diff,
+            file_path,
         });
         self.messages.len() - 1
     }
@@ -180,6 +215,11 @@ impl AppState {
     fn upsert_agent_delta(&mut self, item_id: &str, delta: &str) {
         if let Some(idx) = self.agent_item_to_index.get(item_id).copied() {
             if let Some(msg) = self.messages.get_mut(idx) {
+                if msg.kind != MessageKind::Plain {
+                    msg.kind = MessageKind::Plain;
+                    msg.file_path = None;
+                    msg.text.clear();
+                }
                 msg.text.push_str(delta);
             }
             return;
@@ -461,6 +501,78 @@ fn is_tool_output_type(kind: &str) -> bool {
     )
 }
 
+fn role_for_tool_type(kind: &str) -> Option<Role> {
+    if is_tool_call_type(kind) {
+        return Some(Role::ToolCall);
+    }
+    if is_tool_output_type(kind) {
+        return Some(Role::ToolOutput);
+    }
+    None
+}
+
+fn is_probably_diff_text(text: &str) -> bool {
+    let t = text.trim();
+    t.starts_with("diff --git ")
+        || t.starts_with("@@ ")
+        || (t.contains("\n@@ ") && (t.contains("\n+++ ") || t.contains("\n--- ")))
+        || (t.contains('\n') && t.contains("\n+++ ") && t.contains("\n--- "))
+}
+
+fn infer_file_path_from_object(obj: &serde_json::Map<String, Value>) -> Option<String> {
+    for key in ["filePath", "path", "file", "filename"] {
+        if let Some(v) = obj.get(key).and_then(Value::as_str) {
+            if !v.is_empty() {
+                return Some(v.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn collect_diff_blocks_recursive(
+    value: &Value,
+    current_file_path: Option<&str>,
+    seen: &mut HashSet<String>,
+    out: &mut Vec<DiffBlock>,
+) {
+    match value {
+        Value::Object(obj) => {
+            let inferred_path = infer_file_path_from_object(obj);
+            let local_path = inferred_path.as_deref().or(current_file_path);
+
+            if let Some(diff) = obj.get("diff").and_then(Value::as_str) {
+                if !diff.is_empty() && is_probably_diff_text(diff) {
+                    let key = format!("{}::{}", local_path.unwrap_or(""), diff);
+                    if seen.insert(key) {
+                        out.push(DiffBlock {
+                            file_path: local_path.map(ToOwned::to_owned),
+                            diff: diff.to_string(),
+                        });
+                    }
+                }
+            }
+
+            for nested in obj.values() {
+                collect_diff_blocks_recursive(nested, local_path, seen, out);
+            }
+        }
+        Value::Array(arr) => {
+            for nested in arr {
+                collect_diff_blocks_recursive(nested, current_file_path, seen, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn extract_diff_blocks(item: &Value) -> Vec<DiffBlock> {
+    let mut out = Vec::new();
+    let mut seen = HashSet::new();
+    collect_diff_blocks_recursive(item, None, &mut seen, &mut out);
+    out
+}
+
 fn collect_text_parts(content: &[Value]) -> Vec<&str> {
     let mut text_parts = Vec::new();
     for part in content {
@@ -485,6 +597,14 @@ fn append_item_text_from_content(app: &mut AppState, item: &Value, role: Role) {
 }
 
 fn append_tool_history_item(app: &mut AppState, item: &Value, role: Role) {
+    let diffs = extract_diff_blocks(item);
+    if !diffs.is_empty() {
+        for block in diffs {
+            app.append_diff_message(role, block.file_path, block.diff);
+        }
+        return;
+    }
+
     if let Some(t) = item.get("text").and_then(Value::as_str) {
         if !t.is_empty() {
             app.append_message(role, t.to_string());
@@ -1071,7 +1191,12 @@ fn append_wrapped_message_lines(out: &mut Vec<RenderedLine>, role: Role, text: &
     }
 }
 
-fn append_wrapped_markdown_lines(out: &mut Vec<RenderedLine>, role: Role, text: &str, width: usize) {
+fn append_wrapped_markdown_lines(
+    out: &mut Vec<RenderedLine>,
+    role: Role,
+    text: &str,
+    width: usize,
+) {
     if width < 8 {
         return;
     }
@@ -1111,6 +1236,92 @@ fn append_wrapped_markdown_lines(out: &mut Vec<RenderedLine>, role: Role, text: 
     }
 }
 
+fn diff_line_style(line: &str) -> Style {
+    if line.starts_with("@@") {
+        return Style::default()
+            .fg(COLOR_DIFF_HUNK)
+            .add_modifier(Modifier::BOLD);
+    }
+    if (line.starts_with("+++") || line.starts_with("---")) && line.len() > 3 {
+        return Style::default().fg(COLOR_DIFF_HEADER);
+    }
+    if line.starts_with("diff --git ")
+        || line.starts_with("index ")
+        || line.starts_with("new file mode ")
+        || line.starts_with("deleted file mode ")
+    {
+        return Style::default()
+            .fg(COLOR_DIFF_HEADER)
+            .add_modifier(Modifier::DIM);
+    }
+    if line.starts_with('+') && !line.starts_with("+++") {
+        return Style::default().fg(COLOR_DIFF_ADD);
+    }
+    if line.starts_with('-') && !line.starts_with("---") {
+        return Style::default().fg(COLOR_DIFF_REMOVE);
+    }
+    Style::default().fg(COLOR_TEXT)
+}
+
+fn append_wrapped_diff_lines(
+    out: &mut Vec<RenderedLine>,
+    role: Role,
+    file_path: Option<&str>,
+    diff: &str,
+    width: usize,
+) {
+    if width < 8 {
+        return;
+    }
+
+    if let Some(path) = file_path {
+        if !path.is_empty() {
+            out.push(RenderedLine {
+                cells: visual_width(path),
+                text: path.to_string(),
+                styled_segments: vec![StyledSegment {
+                    text: path.to_string(),
+                    style: Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD),
+                }],
+                role,
+                separator: false,
+                soft_wrap_to_next: false,
+            });
+        }
+    }
+
+    for logical in diff.split('\n') {
+        let line_style = diff_line_style(logical);
+        if logical.is_empty() {
+            out.push(RenderedLine {
+                cells: 0,
+                text: String::new(),
+                styled_segments: Vec::new(),
+                role,
+                separator: false,
+                soft_wrap_to_next: false,
+            });
+            continue;
+        }
+
+        let wrapped_parts = wrap_natural_by_cells(logical, width);
+        for (i, part) in wrapped_parts.iter().enumerate() {
+            let wrapped = i + 1 < wrapped_parts.len();
+            out.push(RenderedLine {
+                cells: visual_width(part),
+                text: part.clone(),
+                styled_segments: vec![StyledSegment {
+                    text: part.clone(),
+                    style: line_style,
+                }],
+                role,
+                separator: false,
+                soft_wrap_to_next: wrapped,
+            });
+        }
+    }
+}
+
 fn build_rendered_lines(messages: &[Message], width: usize) -> Vec<RenderedLine> {
     let mut out = Vec::new();
 
@@ -1125,11 +1336,20 @@ fn build_rendered_lines(messages: &[Message], width: usize) -> Vec<RenderedLine>
                 soft_wrap_to_next: false,
             });
         }
-        match msg.role {
-            Role::Assistant | Role::Reasoning => {
-                append_wrapped_markdown_lines(&mut out, msg.role, &msg.text, width);
-            }
-            _ => append_wrapped_message_lines(&mut out, msg.role, &msg.text, width),
+        match msg.kind {
+            MessageKind::Diff => append_wrapped_diff_lines(
+                &mut out,
+                msg.role,
+                msg.file_path.as_deref(),
+                &msg.text,
+                width,
+            ),
+            MessageKind::Plain => match msg.role {
+                Role::Assistant | Role::Reasoning => {
+                    append_wrapped_markdown_lines(&mut out, msg.role, &msg.text, width);
+                }
+                _ => append_wrapped_message_lines(&mut out, msg.role, &msg.text, width),
+            },
         }
     }
 
@@ -2349,6 +2569,51 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
                 _ => {}
             }
         }
+        "item/completed" => {
+            let Some(item) = params.get("item").and_then(Value::as_object) else {
+                return;
+            };
+            let Some(kind) = item.get("type").and_then(Value::as_str) else {
+                return;
+            };
+            let Some(role) = role_for_tool_type(kind) else {
+                return;
+            };
+
+            let item_value = Value::Object(item.clone());
+            let diffs = extract_diff_blocks(&item_value);
+            if diffs.is_empty() {
+                return;
+            }
+
+            let item_id = item.get("id").and_then(Value::as_str);
+            if let Some(id) = item_id {
+                if let Some(idx) = app.agent_item_to_index.get(id).copied() {
+                    if let Some(first) = diffs.first() {
+                        if let Some(msg) = app.messages.get_mut(idx) {
+                            msg.role = role;
+                            msg.text = first.diff.clone();
+                            msg.kind = MessageKind::Diff;
+                            msg.file_path = first.file_path.clone();
+                        }
+                        for block in diffs.iter().skip(1) {
+                            app.append_diff_message(
+                                role,
+                                block.file_path.clone(),
+                                block.diff.clone(),
+                            );
+                        }
+                        app.auto_follow_bottom = true;
+                        return;
+                    }
+                }
+            }
+
+            for block in diffs {
+                app.append_diff_message(role, block.file_path, block.diff);
+            }
+            app.auto_follow_bottom = true;
+        }
         "item/agentMessage/delta" => {
             if let (Some(item_id), Some(delta)) = (
                 params.get("itemId").and_then(Value::as_str),
@@ -2936,10 +3201,14 @@ mod tests {
             Message {
                 role: Role::User,
                 text: "first".to_string(),
+                kind: MessageKind::Plain,
+                file_path: None,
             },
             Message {
                 role: Role::Assistant,
                 text: "second".to_string(),
+                kind: MessageKind::Plain,
+                file_path: None,
             },
         ];
 
@@ -2960,6 +3229,8 @@ mod tests {
         let messages = vec![Message {
             role: Role::Assistant,
             text: "```zig\nconst x = 1;\n```\n".to_string(),
+            kind: MessageKind::Plain,
+            file_path: None,
         }];
 
         let rendered = build_rendered_lines(&messages, 60);
@@ -2971,6 +3242,8 @@ mod tests {
         let messages = vec![Message {
             role: Role::Assistant,
             text: "```rust\nfn add(a: i32, b: i32) -> i32 {\n    a + b\n}\n```".to_string(),
+            kind: MessageKind::Plain,
+            file_path: None,
         }];
 
         let rendered = build_rendered_lines(&messages, 120);
@@ -2991,6 +3264,8 @@ mod tests {
         let messages = vec![Message {
             role: Role::Reasoning,
             text: "**Committing cleanup with style**".to_string(),
+            kind: MessageKind::Plain,
+            file_path: None,
         }];
 
         let rendered = build_rendered_lines(&messages, 120);
@@ -2998,6 +3273,49 @@ mod tests {
         assert_eq!(rendered[0].text, "Committing cleanup with style");
         assert!(!rendered[0].text.contains("Thinking:"));
         assert!(!rendered[0].text.contains("**"));
+    }
+
+    #[test]
+    fn extract_diff_blocks_reads_nested_metadata_files() {
+        let item = json!({
+            "type": "toolOutput",
+            "metadata": {
+                "files": [
+                    {
+                        "filePath": "src/main.rs",
+                        "diff": "@@ -1,1 +1,1 @@\n-old\n+new\n"
+                    }
+                ]
+            }
+        });
+
+        let blocks = extract_diff_blocks(&item);
+        assert_eq!(blocks.len(), 1);
+        assert_eq!(blocks[0].file_path.as_deref(), Some("src/main.rs"));
+        assert!(blocks[0].diff.contains("@@ -1,1 +1,1 @@"));
+    }
+
+    #[test]
+    fn build_rendered_lines_diff_styles_added_and_removed_lines() {
+        let messages = vec![Message {
+            role: Role::ToolOutput,
+            text: "@@ -1,1 +1,1 @@\n-old\n+new\n".to_string(),
+            kind: MessageKind::Diff,
+            file_path: Some("src/main.rs".to_string()),
+        }];
+
+        let rendered = build_rendered_lines(&messages, 120);
+        let removed = rendered
+            .iter()
+            .find(|l| l.text == "-old")
+            .expect("missing removed line");
+        let added = rendered
+            .iter()
+            .find(|l| l.text == "+new")
+            .expect("missing added line");
+
+        assert_eq!(removed.styled_segments[0].style.fg, Some(COLOR_DIFF_REMOVE));
+        assert_eq!(added.styled_segments[0].style.fg, Some(COLOR_DIFF_ADD));
     }
 
     #[test]
