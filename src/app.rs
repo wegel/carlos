@@ -4524,9 +4524,21 @@ fn run_conversation_tui(
                                 app.set_status("selection cleared");
                             }
                             (KeyCode::Esc, _) => {
-                                app.selection = None;
-                                app.mouse_drag_mode = MouseDragMode::Undecided;
-                                app.set_status("selection cleared");
+                                if let Some(turn_id) = app.active_turn_id.clone() {
+                                    let params = params_turn_interrupt(&app.thread_id, &turn_id);
+                                    match client.call(
+                                        "turn/interrupt",
+                                        params,
+                                        Duration::from_secs(10),
+                                    ) {
+                                        Ok(_) => app.set_status("interrupt requested"),
+                                        Err(e) => app.set_status(format!("{e}")),
+                                    }
+                                } else {
+                                    app.selection = None;
+                                    app.mouse_drag_mode = MouseDragMode::Undecided;
+                                    app.set_status("selection cleared");
+                                }
                             }
                             (KeyCode::Home, _) if app.input_is_empty() => {
                                 app.auto_follow_bottom = false;

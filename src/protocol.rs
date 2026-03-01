@@ -233,6 +233,13 @@ pub(crate) fn params_turn_steer(thread_id: &str, turn_id: &str, text: &str) -> V
     })
 }
 
+pub(crate) fn params_turn_interrupt(thread_id: &str, turn_id: &str) -> Value {
+    json!({
+        "threadId": thread_id,
+        "turnId": turn_id,
+    })
+}
+
 pub(crate) fn initialize_client(client: &AppServerClient) -> Result<()> {
     let resp = client.call("initialize", params_initialize(), Duration::from_secs(10))?;
     extract_result_object(&resp)?;

@@ -887,6 +887,18 @@ fn format_command_execution_output_uses_aggregated_output() {
 }
 
 #[test]
+fn params_turn_interrupt_includes_thread_and_turn_id() {
+    let params = params_turn_interrupt("thread-1", "turn-9");
+    assert_eq!(
+        params,
+        json!({
+            "threadId": "thread-1",
+            "turnId": "turn-9"
+        })
+    );
+}
+
+#[test]
 fn command_execution_diff_output_detects_unified_diff() {
     let item = json!({
         "type": "commandExecution",
