@@ -2,6 +2,8 @@ use std::collections::VecDeque;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::io;
+use std::sync::mpsc;
+use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
@@ -800,80 +802,6 @@ fn context_usage_from_token_count_params(
         used: used.min(max),
         max,
     })
-}
-
-fn context_usage_from_value(value: &Value) -> Option<ContextUsage> {
-    let max = first_i64_at_paths(
-        value,
-        &[
-            &["contextWindow"],
-            &["context_window"],
-            &["modelContextWindow"],
-            &["model_context_window"],
-            &["maxContextTokens"],
-            &["max_context_tokens"],
-        ],
-    )
-    .and_then(|n| (n > 0).then_some(n as u64))?;
-
-    let used_direct = first_i64_at_paths(
-        value,
-        &[
-            &["contextTokens"],
-            &["context_tokens"],
-            &["contextWindowTokens"],
-            &["context_window_tokens"],
-            &["totalTokens"],
-            &["total_tokens"],
-            &["total", "totalTokens"],
-            &["total", "total_tokens"],
-            &["last", "totalTokens"],
-            &["last", "total_tokens"],
-        ],
-    )
-    .and_then(|n| (n >= 0).then_some(n as u64));
-
-    let used = used_direct?;
-    Some(ContextUsage {
-        used: used.min(max),
-        max,
-    })
-}
-
-fn choose_context_usage(current: Option<ContextUsage>, candidate: ContextUsage) -> ContextUsage {
-    match current {
-        Some(existing) if existing.max > candidate.max => existing,
-        Some(existing) if existing.max == candidate.max && existing.used >= candidate.used => {
-            existing
-        }
-        _ => candidate,
-    }
-}
-
-fn collect_context_usage_recursive(value: &Value, out: &mut Option<ContextUsage>) {
-    if let Some(candidate) = context_usage_from_value(value) {
-        *out = Some(choose_context_usage(*out, candidate));
-    }
-
-    match value {
-        Value::Object(obj) => {
-            for nested in obj.values() {
-                collect_context_usage_recursive(nested, out);
-            }
-        }
-        Value::Array(arr) => {
-            for nested in arr {
-                collect_context_usage_recursive(nested, out);
-            }
-        }
-        _ => {}
-    }
-}
-
-fn extract_context_usage(value: &Value) -> Option<ContextUsage> {
-    let mut out = None;
-    collect_context_usage_recursive(value, &mut out);
-    out
 }
 
 fn context_usage_compact_tokens(n: u64) -> String {
@@ -4310,14 +4238,14 @@ fn with_terminal<T>(
     )
     .context("failed to enter alt screen")?;
 
-    // Some terminals (including foot in certain setups) support kitty keyboard flags
-    // but are not detected reliably; probe by trying after alt-screen activation.
+    // Probe kitty keyboard protocol flags after entering alt screen.
     let keyboard_enhancement_enabled = execute!(
         stdout,
         PushKeyboardEnhancementFlags(
             KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
                 | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
                 | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
+                | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
         )
     )
     .is_ok();
@@ -4449,26 +4377,49 @@ fn pick_thread(threads: &[ThreadSummary]) -> Result<Option<String>> {
     })
 }
 
-fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<()> {
+enum UiEvent {
+    Terminal(Event),
+    ServerLine(String),
+}
+
+fn run_conversation_tui(
+    client: &AppServerClient,
+    app: &mut AppState,
+    server_events_rx: mpsc::Receiver<String>,
+) -> Result<()> {
     with_terminal(|terminal| {
-        let mut inbox = Vec::new();
+        let (ui_tx, ui_rx) = mpsc::channel::<UiEvent>();
+
+        {
+            let tx = ui_tx.clone();
+            thread::spawn(move || {
+                while let Ok(line) = server_events_rx.recv() {
+                    if tx.send(UiEvent::ServerLine(line)).is_err() {
+                        break;
+                    }
+                }
+            });
+        }
+
+        {
+            let tx = ui_tx.clone();
+            thread::spawn(move || loop {
+                let Ok(ev) = event::read() else {
+                    break;
+                };
+                if tx.send(UiEvent::Terminal(ev)).is_err() {
+                    break;
+                }
+            });
+        }
+        drop(ui_tx);
+
         let mut needs_draw = true;
         let mut last_anim_tick = 0u128;
 
         loop {
             if let Some(perf) = app.perf.as_mut() {
                 perf.loop_count = perf.loop_count.saturating_add(1);
-            }
-            inbox.clear();
-            client.drain_events(&mut inbox);
-            if !inbox.is_empty() {
-                needs_draw = true;
-                if let Some(perf) = app.perf.as_mut() {
-                    perf.notifications = perf.notifications.saturating_add(inbox.len() as u64);
-                }
-            }
-            for line in &inbox {
-                handle_notification_line(app, line);
             }
 
             let size = terminal.size()?;
@@ -4481,6 +4432,7 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
             if let Some(perf) = app.perf.as_mut() {
                 perf.transcript_render.push(render_started.elapsed());
             }
+
             let working = app.active_turn_id.is_some();
             let tick = if working { animation_tick() } else { 0 };
             if working {
@@ -4503,14 +4455,37 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                 last_anim_tick = tick;
             }
 
-            let poll_started = Instant::now();
-            let has_event = event::poll(animation_poll_timeout(working))?;
+            let wait_started = Instant::now();
+            let next_event = if working {
+                match ui_rx.recv_timeout(animation_poll_timeout(true)) {
+                    Ok(ev) => Some(ev),
+                    Err(mpsc::RecvTimeoutError::Timeout) => None,
+                    Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
+                }
+            } else {
+                match ui_rx.recv() {
+                    Ok(ev) => Some(ev),
+                    Err(_) => return Ok(()),
+                }
+            };
             if let Some(perf) = app.perf.as_mut() {
-                perf.poll_wait.push(poll_started.elapsed());
+                perf.poll_wait.push(wait_started.elapsed());
             }
-            if has_event {
-                let event_started = Instant::now();
-                match event::read()? {
+
+            let Some(next_event) = next_event else {
+                continue;
+            };
+
+            let event_started = Instant::now();
+            match next_event {
+                UiEvent::ServerLine(line) => {
+                    if let Some(perf) = app.perf.as_mut() {
+                        perf.notifications = perf.notifications.saturating_add(1);
+                    }
+                    handle_notification_line(app, &line);
+                    needs_draw = true;
+                }
+                UiEvent::Terminal(ev) => match ev {
                     Event::Key(k) => {
                         if let Some(perf) = app.perf.as_mut() {
                             perf.mark_key_kind(k.kind);
@@ -4659,7 +4634,6 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                             perf.mouse_events = perf.mouse_events.saturating_add(1);
                         }
                         if app.show_help {
-                            needs_draw = true;
                             continue;
                         }
 
@@ -4673,15 +4647,24 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                         let in_messages = row1 >= msg_top && row1 <= msg_bottom;
                         let norm_x = normalize_selection_x(m.column as usize);
                         let clamped_y = row1.clamp(msg_top, msg_bottom);
+                        let mut mouse_changed = false;
 
                         match m.kind {
                             MouseEventKind::ScrollUp => {
+                                let prev_scroll = app.scroll_top;
+                                let prev_follow = app.auto_follow_bottom;
                                 app.auto_follow_bottom = false;
                                 app.scroll_top = app.scroll_top.saturating_sub(3);
+                                mouse_changed = app.scroll_top != prev_scroll
+                                    || app.auto_follow_bottom != prev_follow;
                             }
                             MouseEventKind::ScrollDown => {
+                                let prev_scroll = app.scroll_top;
+                                let prev_follow = app.auto_follow_bottom;
                                 app.auto_follow_bottom = false;
                                 app.scroll_top = app.scroll_top.saturating_add(3);
+                                mouse_changed = app.scroll_top != prev_scroll
+                                    || app.auto_follow_bottom != prev_follow;
                             }
                             MouseEventKind::Down(MouseButton::Left) => {
                                 app.mouse_drag_mode = MouseDragMode::Undecided;
@@ -4694,6 +4677,7 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                                         focus_y: row1,
                                         dragging: true,
                                     });
+                                    mouse_changed = true;
                                 }
                             }
                             MouseEventKind::Drag(MouseButton::Left) => {
@@ -4710,6 +4694,8 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
 
                                         match app.mouse_drag_mode {
                                             MouseDragMode::Scroll => {
+                                                let prev_scroll = app.scroll_top;
+                                                let prev_follow = app.auto_follow_bottom;
                                                 app.auto_follow_bottom = false;
                                                 if clamped_y > app.mouse_drag_last_row {
                                                     app.scroll_top = app.scroll_top.saturating_sub(
@@ -4721,10 +4707,16 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                                                     );
                                                 }
                                                 app.mouse_drag_last_row = clamped_y;
+                                                mouse_changed = app.scroll_top != prev_scroll
+                                                    || app.auto_follow_bottom != prev_follow;
                                             }
                                             MouseDragMode::Select | MouseDragMode::Undecided => {
+                                                let prev_focus_x = sel.focus_x;
+                                                let prev_focus_y = sel.focus_y;
                                                 sel.focus_x = norm_x;
                                                 sel.focus_y = clamped_y;
+                                                mouse_changed = sel.focus_x != prev_focus_x
+                                                    || sel.focus_y != prev_focus_y;
                                             }
                                         }
                                     }
@@ -4733,9 +4725,14 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                             MouseEventKind::Up(MouseButton::Left) => {
                                 if let Some(sel) = app.selection.as_mut() {
                                     if sel.dragging {
+                                        let prev_focus_x = sel.focus_x;
+                                        let prev_focus_y = sel.focus_y;
                                         sel.focus_x = norm_x;
                                         sel.focus_y = clamped_y;
                                         sel.dragging = false;
+                                        mouse_changed = sel.focus_x != prev_focus_x
+                                            || sel.focus_y != prev_focus_y
+                                            || !sel.dragging;
 
                                         if app.mouse_drag_mode == MouseDragMode::Scroll {
                                             app.selection = None;
@@ -4756,7 +4753,9 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                             }
                             _ => {}
                         }
-                        needs_draw = true;
+                        if mouse_changed {
+                            needs_draw = true;
+                        }
                     }
                     Event::Paste(pasted) => {
                         if let Some(perf) = app.perf.as_mut() {
@@ -4786,15 +4785,30 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                         needs_draw = true;
                     }
                     _ => {}
-                }
+                },
+            }
+            if let Some(perf) = app.perf.as_mut() {
+                perf.event_handle.push(event_started.elapsed());
+            }
+
+            if needs_draw {
+                let draw_started = Instant::now();
+                terminal.draw(|frame| {
+                    render_main_view(frame, app);
+                })?;
                 if let Some(perf) = app.perf.as_mut() {
-                    perf.event_handle.push(event_started.elapsed());
+                    perf.record_draw(draw_started.elapsed());
                 }
+                needs_draw = false;
+                last_anim_tick = if app.active_turn_id.is_some() {
+                    animation_tick()
+                } else {
+                    0
+                };
             }
         }
     })
 }
-
 fn usage() {
     eprintln!(
         "Usage:\n  carlos\n  carlos resume [SESSION_ID]\n\nEnv:\n  CARLOS_METRICS=1  enable perf overlay + exit report (toggle: F8 or Ctrl+P)"
@@ -4835,8 +4849,9 @@ pub(crate) fn run() -> Result<()> {
         }
     }
 
-    let client = AppServerClient::start()?;
+    let mut client = AppServerClient::start()?;
     initialize_client(&client)?;
+    let server_events_rx = client.take_events_rx()?;
 
     let cwd = env::current_dir()?.to_string_lossy().to_string();
 
@@ -4886,7 +4901,7 @@ pub(crate) fn run() -> Result<()> {
     load_history_from_start_or_resume(&mut app, &start_resp)?;
     app.set_status("ready");
 
-    let out = run_conversation_tui(&client, &mut app);
+    let out = run_conversation_tui(&client, &mut app, server_events_rx);
     if let Some(report) = app.perf_report() {
         eprintln!("{report}");
     }

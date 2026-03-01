@@ -13,7 +13,7 @@ pub(crate) struct AppServerClient {
     child: Child,
     stdin: Arc<Mutex<ChildStdin>>,
     pending: Arc<Mutex<HashMap<u64, mpsc::Sender<String>>>>,
-    events_rx: mpsc::Receiver<String>,
+    events_rx: Option<mpsc::Receiver<String>>,
     next_id: AtomicU64,
     reader_thread: Option<thread::JoinHandle<()>>,
 }
@@ -93,7 +93,7 @@ impl AppServerClient {
             child,
             stdin: Arc::new(Mutex::new(stdin)),
             pending,
-            events_rx,
+            events_rx: Some(events_rx),
             next_id: AtomicU64::new(1),
             reader_thread: Some(reader_thread),
         })
@@ -135,10 +135,10 @@ impl AppServerClient {
         }
     }
 
-    pub(crate) fn drain_events(&self, out: &mut Vec<String>) {
-        while let Ok(line) = self.events_rx.try_recv() {
-            out.push(line);
-        }
+    pub(crate) fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>> {
+        self.events_rx
+            .take()
+            .ok_or_else(|| anyhow!("events receiver already taken"))
     }
 
     pub(crate) fn stop(&mut self) {

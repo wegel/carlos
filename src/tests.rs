@@ -376,56 +376,6 @@ fn context_usage_label_formats_k_and_percent() {
 }
 
 #[test]
-fn extract_context_usage_reads_nested_usage_fields() {
-    let payload = json!({
-        "result": {
-            "usage": {
-                "contextWindow": 256000,
-                "contextTokens": 120000
-            }
-        },
-        "params": {
-            "metrics": {
-                "context_window": 128000,
-                "input_tokens": 64000
-            }
-        }
-    });
-
-    let usage = extract_context_usage(&payload).expect("context usage");
-    assert_eq!(
-        usage,
-        ContextUsage {
-            used: 120_000,
-            max: 256_000
-        }
-    );
-}
-
-#[test]
-fn extract_context_usage_reads_thread_token_usage_shape() {
-    let payload = json!({
-        "params": {
-            "tokenUsage": {
-                "modelContextWindow": 256000,
-                "total": {
-                    "totalTokens": 111111
-                }
-            }
-        }
-    });
-
-    let usage = extract_context_usage(&payload).expect("context usage");
-    assert_eq!(
-        usage,
-        ContextUsage {
-            used: 111_111,
-            max: 256_000
-        }
-    );
-}
-
-#[test]
 fn handle_notification_updates_context_usage_when_present() {
     let mut app = AppState::new("thread-1".to_string());
     handle_notification_line(
