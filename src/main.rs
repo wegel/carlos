@@ -22,6 +22,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::Terminal;
+use ratatui_textarea::{Input as TextInput, Key as TextKey, TextArea};
 use serde_json::{json, Value};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
@@ -39,7 +40,7 @@ const COLOR_DIM: Color = Color::Rgb(166, 173, 200); // subtext0
 const COLOR_OVERLAY: Color = Color::Rgb(17, 17, 27);
 
 const COLOR_ROW_USER: Color = Color::Rgb(34, 36, 54);
-const COLOR_ROW_AGENT_OUTPUT: Color = Color::Rgb(30, 30, 46);
+const COLOR_ROW_AGENT_OUTPUT: Color = COLOR_ROW_SYSTEM;
 const COLOR_ROW_AGENT_THINKING: Color = Color::Rgb(40, 42, 60);
 const COLOR_ROW_TOOL_CALL: Color = Color::Rgb(44, 40, 58);
 const COLOR_ROW_TOOL_OUTPUT: Color = Color::Rgb(38, 43, 53);
@@ -110,7 +111,7 @@ struct AppState {
     messages: Vec<Message>,
     agent_item_to_index: HashMap<String, usize>,
 
-    input: String,
+    input: TextArea<'static>,
     status: String,
 
     scroll_top: usize,
@@ -126,7 +127,7 @@ impl AppState {
             active_turn_id: None,
             messages: Vec::new(),
             agent_item_to_index: HashMap::new(),
-            input: String::new(),
+            input: make_input_area(),
             status: String::new(),
             scroll_top: 0,
             auto_follow_bottom: true,
@@ -137,6 +138,18 @@ impl AppState {
 
     fn set_status(&mut self, s: impl Into<String>) {
         self.status = s.into();
+    }
+
+    fn input_is_empty(&self) -> bool {
+        self.input.is_empty()
+    }
+
+    fn input_text(&self) -> String {
+        self.input.lines().join("\n")
+    }
+
+    fn clear_input(&mut self) {
+        self.input = make_input_area();
     }
 
     fn append_message(&mut self, role: Role, text: impl Into<String>) -> usize {
@@ -162,6 +175,10 @@ impl AppState {
         let idx = self.append_message(Role::Assistant, delta);
         self.put_agent_item_mapping(item_id, idx);
     }
+}
+
+fn make_input_area() -> TextArea<'static> {
+    TextArea::default()
 }
 
 struct AppServerClient {
@@ -745,6 +762,168 @@ fn transcript_content_width(size: TerminalSize) -> usize {
     }
 }
 
+#[derive(Debug, Clone)]
+struct InputLayout {
+    msg_bottom: usize,   // 1-based; 0 means no transcript row is available
+    input_top: usize,    // 1-based
+    input_height: usize, // rows
+    text_width: usize,   // cells available for input text
+    visible_lines: Vec<String>,
+    cursor_x: usize, // 0-based terminal column
+    cursor_y: usize, // 0-based terminal row
+}
+
+fn char_to_byte_idx(s: &str, char_idx: usize) -> usize {
+    if char_idx == 0 {
+        return 0;
+    }
+    match s.char_indices().nth(char_idx) {
+        Some((i, _)) => i,
+        None => s.len(),
+    }
+}
+
+fn wrap_line_cells(line: &str, width: usize, out: &mut Vec<String>) {
+    if width == 0 {
+        out.push(String::new());
+        return;
+    }
+    if line.is_empty() {
+        out.push(String::new());
+        return;
+    }
+    let mut rest = line;
+    loop {
+        let take = split_at_cells(rest, width);
+        if take == 0 {
+            out.push(rest.to_string());
+            break;
+        }
+        out.push(rest[..take].to_string());
+        if take >= rest.len() {
+            break;
+        }
+        rest = &rest[take..];
+    }
+}
+
+fn wrapped_line_count(line: &str, width: usize) -> usize {
+    if width == 0 || line.is_empty() {
+        return 1;
+    }
+    let mut rest = line;
+    let mut count = 0usize;
+    loop {
+        let take = split_at_cells(rest, width);
+        if take == 0 {
+            count += 1;
+            break;
+        }
+        count += 1;
+        if take >= rest.len() {
+            break;
+        }
+        rest = &rest[take..];
+    }
+    count.max(1)
+}
+
+fn textarea_input_from_key(k: crossterm::event::KeyEvent) -> TextInput {
+    let key = match k.code {
+        KeyCode::Char(c) => TextKey::Char(c),
+        KeyCode::Backspace => TextKey::Backspace,
+        KeyCode::Enter => TextKey::Enter,
+        KeyCode::Left => TextKey::Left,
+        KeyCode::Right => TextKey::Right,
+        KeyCode::Up => TextKey::Up,
+        KeyCode::Down => TextKey::Down,
+        KeyCode::Tab => TextKey::Tab,
+        KeyCode::Delete => TextKey::Delete,
+        KeyCode::Home => TextKey::Home,
+        KeyCode::End => TextKey::End,
+        KeyCode::PageUp => TextKey::PageUp,
+        KeyCode::PageDown => TextKey::PageDown,
+        KeyCode::Esc => TextKey::Esc,
+        KeyCode::F(n) => TextKey::F(n),
+        _ => TextKey::Null,
+    };
+
+    TextInput {
+        key,
+        ctrl: k.modifiers.contains(KeyModifiers::CONTROL),
+        alt: k.modifiers.contains(KeyModifiers::ALT),
+        shift: k.modifiers.contains(KeyModifiers::SHIFT),
+    }
+}
+
+fn compute_input_layout(app: &AppState, size: TerminalSize) -> InputLayout {
+    let text_width = transcript_content_width(size);
+
+    let mut wrapped = Vec::new();
+    for line in app.input.lines() {
+        wrap_line_cells(line, text_width, &mut wrapped);
+    }
+    if wrapped.is_empty() {
+        wrapped.push(String::new());
+    }
+
+    let mut max_input_rows = 8usize.min(size.height.max(1));
+    if size.height > 1 {
+        max_input_rows = max_input_rows.min(size.height - 1);
+    }
+    let input_height = wrapped.len().clamp(1, max_input_rows.max(1));
+
+    let (cursor_row, cursor_col_chars) = app.input.cursor();
+    let mut cursor_wrapped_row = 0usize;
+    for line in app.input.lines().iter().take(cursor_row) {
+        cursor_wrapped_row += wrapped_line_count(line, text_width);
+    }
+    let cursor_line = app
+        .input
+        .lines()
+        .get(cursor_row)
+        .map(String::as_str)
+        .unwrap_or("");
+    let cursor_byte = char_to_byte_idx(cursor_line, cursor_col_chars);
+    let cursor_cells = visual_width(&cursor_line[..cursor_byte.min(cursor_line.len())]);
+    let cursor_wrapped_col = if text_width == 0 {
+        0
+    } else {
+        cursor_wrapped_row += cursor_cells / text_width;
+        cursor_cells % text_width
+    };
+
+    let mut visible_start = wrapped.len().saturating_sub(input_height);
+    if cursor_wrapped_row < visible_start {
+        visible_start = cursor_wrapped_row;
+    }
+    if cursor_wrapped_row >= visible_start + input_height {
+        visible_start = cursor_wrapped_row + 1 - input_height;
+    }
+
+    let visible_end = (visible_start + input_height).min(wrapped.len());
+    let mut visible_lines = wrapped[visible_start..visible_end].to_vec();
+    while visible_lines.len() < input_height {
+        visible_lines.insert(0, String::new());
+    }
+
+    let input_top = size.height + 1 - input_height;
+    let msg_bottom = input_top.saturating_sub(2);
+    let cursor_visual_row = cursor_wrapped_row.saturating_sub(visible_start);
+    let cursor_x = MSG_CONTENT_X + cursor_wrapped_col;
+    let cursor_y = input_top.saturating_sub(1) + cursor_visual_row.min(input_height - 1);
+
+    InputLayout {
+        msg_bottom,
+        input_top,
+        input_height,
+        text_width,
+        visible_lines,
+        cursor_x,
+        cursor_y,
+    }
+}
+
 fn compute_selection_range(
     selection: Selection,
     row: usize,
@@ -794,11 +973,10 @@ fn compute_selection_range(
 fn selected_text(
     selection: Selection,
     rendered_lines: &[RenderedLine],
-    size: TerminalSize,
+    msg_bottom: usize,
     scroll_top: usize,
 ) -> String {
     let msg_top = MSG_TOP;
-    let msg_bottom = size.height.saturating_sub(1);
 
     let mut ax = selection.anchor_x;
     let mut ay = selection.anchor_y;
@@ -809,7 +987,7 @@ fn selected_text(
         std::mem::swap(&mut ay, &mut fy);
     }
 
-    if fy < msg_top || ay > msg_bottom {
+    if msg_bottom < msg_top || fy < msg_top || ay > msg_bottom {
         return String::new();
     }
 
@@ -1206,7 +1384,7 @@ fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize) {
         buf,
         start_x + 3,
         start_y + 3,
-        "Enter send/steer",
+        "Enter send/steer  Shift+Enter newline",
         Style::default().fg(COLOR_TEXT),
         box_w.saturating_sub(6),
     );
@@ -1259,8 +1437,9 @@ fn render_main_view(
         return;
     }
 
+    let input_layout = compute_input_layout(app, size);
     let msg_top = MSG_TOP;
-    let msg_bottom = size.height.saturating_sub(1);
+    let msg_bottom = input_layout.msg_bottom;
     let msg_height = if msg_bottom >= msg_top {
         msg_bottom - msg_top + 1
     } else {
@@ -1403,70 +1582,64 @@ fn render_main_view(
         }
     }
 
-    let input_row = size.height;
-    let input_y = input_row - 1;
+    if input_layout.input_top > 1 {
+        let sep_y = input_layout.input_top - 2;
+        if size.width > 0 {
+            let corner = if msg_height > 0 { "┗" } else { "━" };
+            draw_str(buf, 0, sep_y, corner, Style::default().fg(COLOR_GUTTER_USER), 1);
+            if size.width > 1 {
+                let sep = "━".repeat(size.width - 1);
+                draw_str(
+                    buf,
+                    1,
+                    sep_y,
+                    &sep,
+                    Style::default().fg(COLOR_GUTTER_USER),
+                    size.width - 1,
+                );
+            }
+        }
+    }
+
     fill_rect(
         buf,
         0,
-        input_y,
+        input_layout.input_top.saturating_sub(1),
         size.width,
-        1,
+        input_layout.input_height,
         Style::default().bg(COLOR_STEP3),
     );
-    let input_border = if app.active_turn_id.is_some() {
-        COLOR_STEP8
-    } else {
-        COLOR_STEP7
-    };
-    draw_str(buf, 0, input_y, "┃", Style::default().fg(input_border), 1);
-
-    let marker = if app.active_turn_id.is_some() {
-        "» "
-    } else {
-        "› "
-    };
-    let marker_w = visual_width(marker);
-    draw_str(
-        buf,
-        MSG_CONTENT_X,
-        input_y,
-        marker,
-        Style::default()
-            .fg(COLOR_GUTTER_USER)
-            .add_modifier(Modifier::BOLD),
-        transcript_content_width(size),
-    );
-
-    let input_w = transcript_content_width(size);
-    let available = input_w.saturating_sub(marker_w);
-    let input_tail_idx = if visual_width(&app.input) > available {
-        let full = visual_width(&app.input);
-        let skip_cells = full.saturating_sub(available);
-        split_at_cells(&app.input, skip_cells)
-    } else {
-        0
-    };
-    let input_view = &app.input[input_tail_idx..];
-
-    draw_str(
-        buf,
-        MSG_CONTENT_X + marker_w,
-        input_y,
-        input_view,
-        Style::default().fg(COLOR_TEXT),
-        available,
-    );
+    for i in 0..input_layout.input_height {
+        let y = input_layout.input_top.saturating_sub(1) + i;
+        draw_str(
+            buf,
+            0,
+            y,
+            ">",
+            Style::default()
+                .fg(COLOR_GUTTER_USER)
+                .add_modifier(Modifier::BOLD),
+            1,
+        );
+        if let Some(line) = input_layout.visible_lines.get(i) {
+            draw_str(
+                buf,
+                MSG_CONTENT_X,
+                y,
+                line,
+                Style::default().fg(COLOR_TEXT),
+                input_layout.text_width,
+            );
+        }
+    }
 
     if app.show_help {
         draw_help_overlay(buf, size);
     }
 
-    let mut cursor_x = MSG_CONTENT_X + marker_w + visual_width(input_view);
-    let max_cursor_x = size.width.saturating_sub(1);
-    if cursor_x > max_cursor_x {
-        cursor_x = max_cursor_x;
-    }
-    frame.set_cursor_position((cursor_x as u16, input_y as u16));
+    let cursor_x = input_layout.cursor_x.min(size.width.saturating_sub(1));
+    let cursor_y = input_layout.cursor_y.min(size.height.saturating_sub(1));
+    frame.set_cursor_position((cursor_x as u16, cursor_y as u16));
 }
 
 fn draw_picker(
@@ -1966,8 +2139,9 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                             (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(()),
                             (KeyCode::Char('y'), KeyModifiers::CONTROL) => {
                                 if let Some(sel) = app.selection {
+                                    let msg_bottom = compute_input_layout(app, size).msg_bottom;
                                     let copied =
-                                        selected_text(sel, &rendered, size, app.scroll_top);
+                                        selected_text(sel, &rendered, msg_bottom, app.scroll_top);
                                     if !copied.is_empty() {
                                         let _ = try_copy_clipboard(&copied);
                                     }
@@ -1987,18 +2161,18 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                                 app.selection = None;
                                 app.set_status("selection cleared");
                             }
-                            (KeyCode::Home, _) => {
+                            (KeyCode::Home, _) if app.input_is_empty() => {
                                 app.auto_follow_bottom = false;
                                 app.scroll_top = 0;
                             }
-                            (KeyCode::End, _) => {
+                            (KeyCode::End, _) if app.input_is_empty() => {
                                 app.auto_follow_bottom = true;
                             }
-                            (KeyCode::Up, _) => {
+                            (KeyCode::Up, _) if app.input_is_empty() => {
                                 app.auto_follow_bottom = false;
                                 app.scroll_top = app.scroll_top.saturating_sub(1);
                             }
-                            (KeyCode::Down, _) => {
+                            (KeyCode::Down, _) if app.input_is_empty() => {
                                 app.auto_follow_bottom = false;
                                 app.scroll_top = app.scroll_top.saturating_add(1);
                             }
@@ -2010,15 +2184,16 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                                 app.auto_follow_bottom = false;
                                 app.scroll_top = app.scroll_top.saturating_add(10);
                             }
-                            (KeyCode::Backspace, _) => {
-                                app.input.pop();
+                            (KeyCode::Enter, mods) if mods.contains(KeyModifiers::SHIFT) => {
+                                let _ = app.input.input(textarea_input_from_key(k));
                             }
                             (KeyCode::Enter, _) => {
-                                if app.input.is_empty() {
+                                if app.input_is_empty() {
                                     continue;
                                 }
 
-                                let text = std::mem::take(&mut app.input);
+                                let text = app.input_text();
+                                app.clear_input();
                                 app.selection = None;
 
                                 if let Some(turn_id) = app.active_turn_id.clone() {
@@ -2038,25 +2213,22 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                                 }
                             }
                             (KeyCode::Char('?'), _) => {
-                                if app.input.is_empty() {
+                                if app.input_is_empty() {
                                     app.show_help = true;
                                 } else {
-                                    app.input.push('?');
+                                    let _ = app.input.input(textarea_input_from_key(k));
                                 }
                             }
-                            (KeyCode::Char('g'), _) if app.input.is_empty() => {
+                            (KeyCode::Char('g'), _) if app.input_is_empty() => {
                                 app.auto_follow_bottom = false;
                                 app.scroll_top = 0;
                             }
-                            (KeyCode::Char('G'), _) if app.input.is_empty() => {
+                            (KeyCode::Char('G'), _) if app.input_is_empty() => {
                                 app.auto_follow_bottom = true;
                             }
-                            (KeyCode::Char(ch), mods)
-                                if mods == KeyModifiers::NONE || mods == KeyModifiers::SHIFT =>
-                            {
-                                app.input.push(ch);
+                            _ => {
+                                let _ = app.input.input(textarea_input_from_key(k));
                             }
-                            _ => {}
                         }
                     }
                     Event::Mouse(m) => {
@@ -2065,7 +2237,7 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                         }
 
                         let msg_top = MSG_TOP;
-                        let msg_bottom = size.height.saturating_sub(1);
+                        let msg_bottom = compute_input_layout(app, size).msg_bottom;
                         if msg_bottom < msg_top {
                             continue;
                         }
@@ -2110,8 +2282,12 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                                         sel.focus_y = clamped_y;
                                         sel.dragging = false;
 
-                                        let copied =
-                                            selected_text(*sel, &rendered, size, app.scroll_top);
+                                        let copied = selected_text(
+                                            *sel,
+                                            &rendered,
+                                            msg_bottom,
+                                            app.scroll_top,
+                                        );
                                         if !copied.is_empty() {
                                             let _ = try_copy_clipboard(&copied);
                                         }
@@ -2248,15 +2424,7 @@ mod tests {
             dragging: false,
         };
 
-        let out = selected_text(
-            sel,
-            &lines,
-            TerminalSize {
-                width: 80,
-                height: 20,
-            },
-            0,
-        );
+        let out = selected_text(sel, &lines, 19, 0);
         assert_eq!(out, "  he");
     }
 
@@ -2287,15 +2455,7 @@ mod tests {
             dragging: false,
         };
 
-        let out = selected_text(
-            sel,
-            &lines,
-            TerminalSize {
-                width: 80,
-                height: 20,
-            },
-            0,
-        );
+        let out = selected_text(sel, &lines, 19, 0);
         assert_eq!(out, "abcdefghij");
     }
 
@@ -2326,15 +2486,7 @@ mod tests {
             dragging: false,
         };
 
-        let out = selected_text(
-            sel,
-            &lines,
-            TerminalSize {
-                width: 80,
-                height: 20,
-            },
-            0,
-        );
+        let out = selected_text(sel, &lines, 19, 0);
         assert_eq!(out, "abcde\nfghij");
     }
 
