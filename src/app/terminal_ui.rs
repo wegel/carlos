@@ -1,0 +1,171 @@
+use std::io;
+use std::time::Duration;
+
+use anyhow::{Context, Result};
+use crossterm::event::{
+    self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
+    Event, KeyCode, KeyboardEnhancementFlags, MouseButton, MouseEventKind,
+    PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+};
+use crossterm::execute;
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+};
+use ratatui::backend::CrosstermBackend;
+use ratatui::Terminal;
+
+use super::notifications::{is_ctrl_char, is_key_press_like};
+use super::render::{compute_picker_layout, draw_picker};
+use super::{TerminalSize, ThreadSummary};
+
+pub(super) fn with_terminal<T>(
+    f: impl FnOnce(&mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<T>,
+) -> Result<T> {
+    enable_raw_mode().context("failed to enable raw mode")?;
+    let mut stdout = io::stdout();
+    execute!(
+        stdout,
+        EnterAlternateScreen,
+        EnableMouseCapture,
+        EnableBracketedPaste
+    )
+    .context("failed to enter alt screen")?;
+
+    // Probe kitty keyboard protocol flags after entering alt screen.
+    let keyboard_enhancement_enabled = execute!(
+        stdout,
+        PushKeyboardEnhancementFlags(
+            KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
+                | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
+                | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+        )
+    )
+    .is_ok();
+
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend).context("failed to create terminal")?;
+
+    let result = f(&mut terminal);
+
+    let _ = disable_raw_mode();
+    if keyboard_enhancement_enabled {
+        let _ = execute!(terminal.backend_mut(), PopKeyboardEnhancementFlags);
+    }
+    let _ = execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableBracketedPaste,
+        DisableMouseCapture
+    );
+    let _ = terminal.show_cursor();
+
+    result
+}
+
+pub(super) fn pick_thread(threads: &[ThreadSummary]) -> Result<Option<String>> {
+    if threads.is_empty() {
+        return Ok(None);
+    }
+
+    with_terminal(|terminal| {
+        let mut selected = 0usize;
+        let mut top = 0usize;
+        let mut last_size = TerminalSize {
+            width: 0,
+            height: 0,
+        };
+
+        loop {
+            terminal.draw(|frame| {
+                let area = frame.area();
+                let size = TerminalSize {
+                    width: area.width as usize,
+                    height: area.height as usize,
+                };
+
+                if size.width != last_size.width || size.height != last_size.height {
+                    last_size = size;
+                }
+
+                let layout = compute_picker_layout(size);
+                let list_height = layout.list_h.max(1);
+                if selected < top {
+                    top = selected;
+                }
+                if selected >= top + list_height {
+                    top = selected + 1 - list_height;
+                }
+
+                draw_picker(frame, threads, selected, top);
+            })?;
+
+            if !event::poll(Duration::from_millis(15))? {
+                continue;
+            }
+
+            let ev = event::read()?;
+            match ev {
+                Event::Key(k) if is_key_press_like(k.kind) => match (k.code, k.modifiers) {
+                    (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(None),
+                    (KeyCode::Esc, _) => return Ok(None),
+                    (KeyCode::Up, _) => {
+                        selected = selected.saturating_sub(1);
+                    }
+                    (KeyCode::Down, _) => {
+                        if selected + 1 < threads.len() {
+                            selected += 1;
+                        }
+                    }
+                    (KeyCode::PageUp, _) => {
+                        selected = selected.saturating_sub(10);
+                    }
+                    (KeyCode::PageDown, _) => {
+                        selected = (selected + 10).min(threads.len().saturating_sub(1));
+                    }
+                    (KeyCode::Home, _) | (KeyCode::Char('g'), _) => selected = 0,
+                    (KeyCode::End, _) | (KeyCode::Char('G'), _) => {
+                        selected = threads.len().saturating_sub(1)
+                    }
+                    (KeyCode::Char('j'), _) => {
+                        if selected + 1 < threads.len() {
+                            selected += 1;
+                        }
+                    }
+                    (KeyCode::Char('k'), _) => {
+                        selected = selected.saturating_sub(1);
+                    }
+                    (KeyCode::Enter, _) => return Ok(Some(threads[selected].id.clone())),
+                    _ => {}
+                },
+                Event::Mouse(m) => match m.kind {
+                    MouseEventKind::ScrollUp => {
+                        selected = selected.saturating_sub(1);
+                    }
+                    MouseEventKind::ScrollDown => {
+                        if selected + 1 < threads.len() {
+                            selected += 1;
+                        }
+                    }
+                    MouseEventKind::Down(MouseButton::Left) => {
+                        let size = terminal.size()?;
+                        let layout = compute_picker_layout(TerminalSize {
+                            width: size.width as usize,
+                            height: size.height as usize,
+                        });
+                        let row0 = m.row as usize;
+                        if row0 >= layout.list_y && row0 < layout.list_y + layout.list_h {
+                            let idx = top + (row0 - layout.list_y);
+                            if idx < threads.len() {
+                                selected = idx;
+                                return Ok(Some(threads[selected].id.clone()));
+                            }
+                        }
+                    }
+                    _ => {}
+                },
+                _ => {}
+            }
+        }
+    })
+}
