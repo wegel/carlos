@@ -349,13 +349,6 @@ pub(super) fn run_conversation_tui(
                                         app.input_apply_key(k);
                                     }
                                 }
-                                (KeyCode::Char('g'), _) if app.input_is_empty() => {
-                                    app.auto_follow_bottom = false;
-                                    app.scroll_top = 0;
-                                }
-                                (KeyCode::Char('G'), _) if app.input_is_empty() => {
-                                    app.auto_follow_bottom = true;
-                                }
                                 _ => {
                                     app.input_apply_key(k);
                                 }
