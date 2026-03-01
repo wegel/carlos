@@ -361,9 +361,80 @@ fn build_rendered_lines_diff_viewer_hides_raw_hunk_headers() {
     let rendered = build_rendered_lines(&messages, 120);
     assert!(rendered.iter().any(|l| l.text.starts_with("Hunk 1/2")));
     assert!(rendered.iter().any(|l| l.text.starts_with("Hunk 2/2")));
+    let file_path_rows = rendered.iter().filter(|l| l.text == "src/main.rs").count();
+    assert_eq!(file_path_rows, 2);
     assert!(!rendered
         .iter()
         .any(|l| l.text.trim_start().starts_with("@@ -")));
+}
+
+#[test]
+fn prioritize_events_handles_terminal_first_and_budgets_server_lines() {
+    let mut deferred = std::collections::VecDeque::new();
+    let incoming = vec![
+        UiEvent::ServerLine("s1".to_string()),
+        UiEvent::Terminal(Event::Resize(80, 24)),
+        UiEvent::ServerLine("s2".to_string()),
+    ];
+
+    let prioritized = prioritize_events(incoming, &mut deferred, 1);
+    assert_eq!(prioritized.len(), 2);
+    assert!(matches!(
+        prioritized[0],
+        UiEvent::Terminal(Event::Resize(80, 24))
+    ));
+    assert!(matches!(prioritized[1], UiEvent::ServerLine(ref s) if s == "s1"));
+    assert_eq!(deferred.len(), 1);
+    assert_eq!(deferred.front().map(String::as_str), Some("s2"));
+}
+
+#[test]
+fn prioritize_events_drains_deferred_server_lines_without_new_input() {
+    let mut deferred = std::collections::VecDeque::new();
+    deferred.push_back("a".to_string());
+    deferred.push_back("b".to_string());
+    deferred.push_back("c".to_string());
+
+    let prioritized = prioritize_events(Vec::new(), &mut deferred, 2);
+    assert_eq!(prioritized.len(), 2);
+    assert!(matches!(prioritized[0], UiEvent::ServerLine(ref s) if s == "a"));
+    assert!(matches!(prioritized[1], UiEvent::ServerLine(ref s) if s == "b"));
+    assert_eq!(deferred.len(), 1);
+    assert_eq!(deferred.front().map(String::as_str), Some("c"));
+}
+
+#[test]
+fn prioritize_events_promotes_turn_completed_even_when_budget_is_zero() {
+    let mut deferred = std::collections::VecDeque::new();
+    deferred.push_back("low-1".to_string());
+    deferred.push_back("{\"method\":\"turn/completed\",\"params\":{}}".to_string());
+    deferred.push_back("low-2".to_string());
+
+    let prioritized = prioritize_events(Vec::new(), &mut deferred, 0);
+    assert_eq!(prioritized.len(), 1);
+    assert!(matches!(
+        prioritized[0],
+        UiEvent::ServerLine(ref s) if s.contains("\"method\":\"turn/completed\"")
+    ));
+    assert_eq!(deferred.len(), 2);
+    assert_eq!(deferred.front().map(String::as_str), Some("low-1"));
+}
+
+#[test]
+fn is_priority_server_line_identifies_control_notifications() {
+    assert!(is_priority_server_line(
+        "{\"method\":\"turn/completed\",\"params\":{}}"
+    ));
+    assert!(is_priority_server_line(
+        "{\"method\":\"turn/started\",\"params\":{}}"
+    ));
+    assert!(is_priority_server_line(
+        "{\"method\":\"error\",\"params\":{}}"
+    ));
+    assert!(!is_priority_server_line(
+        "{\"method\":\"item/completed\",\"params\":{}}"
+    ));
+    assert!(!is_priority_server_line("not-json"));
 }
 
 #[test]
@@ -384,6 +455,32 @@ fn handle_notification_updates_context_usage_when_present() {
         );
 
     assert_eq!(app.context_usage, None);
+}
+
+#[test]
+fn handle_notification_turn_completed_interrupted_appends_system_message() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.active_turn_id = Some("turn-1".to_string());
+
+    handle_notification_line(
+        &mut app,
+        "{\"method\":\"turn/completed\",\"params\":{\"threadId\":\"thread-1\",\"turn\":{\"id\":\"turn-1\",\"status\":\"interrupted\"}}}",
+    );
+
+    assert_eq!(app.active_turn_id, None);
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(app.messages[0].role, Role::System);
+    assert_eq!(app.messages[0].text, "Turn interrupted");
+}
+
+#[test]
+fn append_turn_interrupted_marker_is_deduplicated() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.append_turn_interrupted_marker();
+    app.append_turn_interrupted_marker();
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(app.messages[0].role, Role::System);
+    assert_eq!(app.messages[0].text, "Turn interrupted");
 }
 
 #[test]

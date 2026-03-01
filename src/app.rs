@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::io;
-use std::sync::mpsc::RecvTimeoutError;
+use std::sync::mpsc::{RecvTimeoutError, TryRecvError};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
@@ -574,6 +574,17 @@ impl AppState {
 
     fn append_context_compacted_marker(&mut self) {
         const MARKER: &str = "↻ Context compacted";
+        if let Some(last) = self.messages.last() {
+            if last.role == Role::System && last.text == MARKER {
+                return;
+            }
+        }
+        self.append_message(Role::System, MARKER);
+        self.auto_follow_bottom = true;
+    }
+
+    fn append_turn_interrupted_marker(&mut self) {
+        const MARKER: &str = "Turn interrupted";
         if let Some(last) = self.messages.last() {
             if last.role == Role::System && last.text == MARKER {
                 return;
@@ -2420,21 +2431,11 @@ fn append_diff_viewer_lines(
 
     let mut staged = Vec::new();
 
-    if let Some(path) = file_path {
-        if !path.is_empty() {
-            staged.push(RenderedLine {
-                cells: visual_width(path),
-                text: path.to_string(),
-                styled_segments: vec![StyledSegment {
-                    text: path.to_string(),
-                    style: Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD),
-                }],
-                role,
-                separator: false,
-                soft_wrap_to_next: false,
-            });
-        }
-    }
+    let diff_path = file_path
+        .filter(|p| !p.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| parsed.new_path.clone())
+        .or_else(|| parsed.old_path.clone());
 
     let area_w = match u16::try_from(width.saturating_add(2)) {
         Ok(v) => v,
@@ -2458,6 +2459,22 @@ fn append_diff_viewer_lines(
                 separator: false,
                 soft_wrap_to_next: false,
             });
+        }
+
+        if let Some(path) = diff_path.as_deref() {
+            if !path.is_empty() {
+                staged.push(RenderedLine {
+                    cells: visual_width(path),
+                    text: path.to_string(),
+                    styled_segments: vec![StyledSegment {
+                        text: path.to_string(),
+                        style: Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD),
+                    }],
+                    role,
+                    separator: false,
+                    soft_wrap_to_next: false,
+                });
+            }
         }
 
         let hunk_label = format!(
@@ -3953,7 +3970,17 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
         }
         "turn/completed" => {
             app.active_turn_id = None;
-            app.set_status("turn completed");
+            let turn_status = params
+                .get("turn")
+                .and_then(Value::as_object)
+                .and_then(|turn| turn.get("status"))
+                .and_then(Value::as_str);
+            if turn_status == Some("interrupted") {
+                app.append_turn_interrupted_marker();
+                app.set_status("turn interrupted");
+            } else {
+                app.set_status("turn completed");
+            }
         }
         "turn/diff/updated" => {
             if let (Some(turn_id), Some(diff)) = (
@@ -4382,8 +4409,13 @@ fn run_conversation_tui(
     app: &mut AppState,
     server_events_rx: std::sync::mpsc::Receiver<String>,
 ) -> Result<()> {
+    const MAX_UI_DRAIN_PER_CYCLE: usize = 4096;
+    const SERVER_BUDGET_WITH_INPUT: usize = 8;
+    const SERVER_BUDGET_IDLE: usize = 256;
+
     with_terminal(|terminal| {
         let ui_rx = spawn_event_forwarders(server_events_rx);
+        let mut deferred_server_lines: VecDeque<String> = VecDeque::new();
 
         let mut needs_draw = true;
         let mut last_anim_tick = 0u128;
@@ -4427,7 +4459,13 @@ fn run_conversation_tui(
             }
 
             let wait_started = Instant::now();
-            let next_event = if working {
+            let next_event = if !deferred_server_lines.is_empty() {
+                match ui_rx.try_recv() {
+                    Ok(ev) => Some(ev),
+                    Err(TryRecvError::Empty) => None,
+                    Err(TryRecvError::Disconnected) => return Ok(()),
+                }
+            } else if working {
                 match ui_rx.recv_timeout(animation_poll_timeout(true)) {
                     Ok(ev) => Some(ev),
                     Err(RecvTimeoutError::Timeout) => None,
@@ -4443,335 +4481,373 @@ fn run_conversation_tui(
                 perf.poll_wait.push(wait_started.elapsed());
             }
 
-            let Some(next_event) = next_event else {
-                continue;
-            };
-
-            let event_started = Instant::now();
-            match next_event {
-                UiEvent::ServerLine(line) => {
-                    if let Some(perf) = app.perf.as_mut() {
-                        perf.notifications = perf.notifications.saturating_add(1);
-                    }
-                    handle_notification_line(app, &line);
-                    needs_draw = true;
+            let mut incoming_events = Vec::new();
+            if let Some(ev) = next_event {
+                incoming_events.push(ev);
+            }
+            for _ in 0..MAX_UI_DRAIN_PER_CYCLE {
+                match ui_rx.try_recv() {
+                    Ok(ev) => incoming_events.push(ev),
+                    Err(TryRecvError::Empty) => break,
+                    Err(TryRecvError::Disconnected) => return Ok(()),
                 }
-                UiEvent::Terminal(ev) => match ev {
-                    Event::Key(k) => {
-                        if let Some(perf) = app.perf.as_mut() {
-                            perf.mark_key_kind(k.kind);
-                        }
-                        if !is_key_press_like(k.kind) {
-                            continue;
-                        }
-                        if let Some(perf) = app.perf.as_mut() {
-                            perf.mark_key_event();
-                        }
-                        if is_perf_toggle_key(k.code, k.modifiers) {
-                            if let Some(perf) = app.perf.as_mut() {
-                                perf.toggle_overlay();
-                            }
-                            needs_draw = true;
-                            continue;
-                        }
-                        if app.show_help {
-                            match (k.code, k.modifiers) {
-                                (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(()),
-                                (KeyCode::Esc, _) => {
-                                    app.show_help = false;
-                                }
-                                (KeyCode::Char('?'), _) => {
-                                    app.show_help = false;
-                                }
-                                _ => {}
-                            }
-                            needs_draw = true;
-                            continue;
-                        }
+            }
+            let has_terminal_input = incoming_events
+                .iter()
+                .any(|ev| matches!(ev, UiEvent::Terminal(_)));
+            let server_budget = if has_terminal_input {
+                SERVER_BUDGET_WITH_INPUT
+            } else {
+                SERVER_BUDGET_IDLE
+            };
+            let prioritized_events =
+                prioritize_events(incoming_events, &mut deferred_server_lines, server_budget);
+            if prioritized_events.is_empty() {
+                continue;
+            }
 
-                        if let KeyCode::Char(ch) = k.code {
-                            if k.modifiers.is_empty() && consume_mobile_mouse_char(app, ch) {
+            for next_event in prioritized_events {
+                let event_started = Instant::now();
+                match next_event {
+                    UiEvent::ServerLine(line) => {
+                        if let Some(perf) = app.perf.as_mut() {
+                            perf.notifications = perf.notifications.saturating_add(1);
+                        }
+                        handle_notification_line(app, &line);
+                        needs_draw = true;
+                    }
+                    UiEvent::Terminal(ev) => match ev {
+                        Event::Key(k) => {
+                            if let Some(perf) = app.perf.as_mut() {
+                                perf.mark_key_kind(k.kind);
+                            }
+                            if !is_key_press_like(k.kind) {
+                                continue;
+                            }
+                            if let Some(perf) = app.perf.as_mut() {
+                                perf.mark_key_event();
+                            }
+                            if is_perf_toggle_key(k.code, k.modifiers) {
+                                if let Some(perf) = app.perf.as_mut() {
+                                    perf.toggle_overlay();
+                                }
                                 needs_draw = true;
                                 continue;
                             }
-                        }
-
-                        match (k.code, k.modifiers) {
-                            (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(()),
-                            (KeyCode::Char('y'), KeyModifiers::CONTROL) => {
-                                if let Some(sel) = app.selection {
-                                    let msg_bottom = compute_input_layout(app, size).msg_bottom;
-                                    let copied = selected_text(
-                                        sel,
-                                        &app.rendered_lines,
-                                        msg_bottom,
-                                        app.scroll_top,
-                                    );
-                                    if !copied.is_empty() {
-                                        let _ = try_copy_clipboard(&copied);
+                            if app.show_help {
+                                match (k.code, k.modifiers) {
+                                    (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(()),
+                                    (KeyCode::Esc, _) => {
+                                        app.show_help = false;
                                     }
-                                } else if let Some(text) = last_assistant_message(&app.messages) {
-                                    let backend = try_copy_clipboard(text);
-                                    app.set_status(format!(
-                                        "copied last assistant message ({})",
-                                        clipboard_backend_label(backend)
-                                    ));
+                                    (KeyCode::Char('?'), _) => {
+                                        app.show_help = false;
+                                    }
+                                    _ => {}
+                                }
+                                needs_draw = true;
+                                continue;
+                            }
+
+                            if let KeyCode::Char(ch) = k.code {
+                                if k.modifiers.is_empty() && consume_mobile_mouse_char(app, ch) {
+                                    needs_draw = true;
+                                    continue;
                                 }
                             }
-                            (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
-                                app.selection = None;
-                                app.mouse_drag_mode = MouseDragMode::Undecided;
-                                app.set_status("selection cleared");
-                            }
-                            (KeyCode::Esc, _) => {
-                                if let Some(turn_id) = app.active_turn_id.clone() {
-                                    let params = params_turn_interrupt(&app.thread_id, &turn_id);
-                                    match client.call(
-                                        "turn/interrupt",
-                                        params,
-                                        Duration::from_secs(10),
-                                    ) {
-                                        Ok(_) => app.set_status("interrupt requested"),
-                                        Err(e) => app.set_status(format!("{e}")),
+
+                            match (k.code, k.modifiers) {
+                                (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(()),
+                                (KeyCode::Char('y'), KeyModifiers::CONTROL) => {
+                                    if let Some(sel) = app.selection {
+                                        let msg_bottom = compute_input_layout(app, size).msg_bottom;
+                                        let copied = selected_text(
+                                            sel,
+                                            &app.rendered_lines,
+                                            msg_bottom,
+                                            app.scroll_top,
+                                        );
+                                        if !copied.is_empty() {
+                                            let _ = try_copy_clipboard(&copied);
+                                        }
+                                    } else if let Some(text) = last_assistant_message(&app.messages)
+                                    {
+                                        let backend = try_copy_clipboard(text);
+                                        app.set_status(format!(
+                                            "copied last assistant message ({})",
+                                            clipboard_backend_label(backend)
+                                        ));
                                     }
-                                } else {
+                                }
+                                (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
                                     app.selection = None;
                                     app.mouse_drag_mode = MouseDragMode::Undecided;
                                     app.set_status("selection cleared");
                                 }
-                            }
-                            (KeyCode::Home, _) if app.input_is_empty() => {
-                                app.auto_follow_bottom = false;
-                                app.scroll_top = 0;
-                            }
-                            (KeyCode::End, _) if app.input_is_empty() => {
-                                app.auto_follow_bottom = true;
-                            }
-                            (KeyCode::Up, _) if app.input_is_empty() => {
-                                app.auto_follow_bottom = false;
-                                app.scroll_top = app.scroll_top.saturating_sub(1);
-                            }
-                            (KeyCode::Down, _) if app.input_is_empty() => {
-                                app.auto_follow_bottom = false;
-                                app.scroll_top = app.scroll_top.saturating_add(1);
-                            }
-                            (KeyCode::PageUp, _) => {
-                                app.auto_follow_bottom = false;
-                                app.scroll_top = app.scroll_top.saturating_sub(10);
-                            }
-                            (KeyCode::PageDown, _) => {
-                                app.auto_follow_bottom = false;
-                                app.scroll_top = app.scroll_top.saturating_add(10);
-                            }
-                            (KeyCode::Enter, mods) if is_newline_enter(mods) => {
-                                let _ = app.input.input(textarea_input_from_key(k));
-                            }
-                            (KeyCode::Enter, _) => {
-                                if app.input_is_empty() {
-                                    needs_draw = true;
-                                    continue;
-                                }
-
-                                let text = app.input_text();
-                                app.clear_input();
-                                app.selection = None;
-
-                                if let Some(turn_id) = app.active_turn_id.clone() {
-                                    let params = params_turn_steer(&app.thread_id, &turn_id, &text);
-                                    match client.call("turn/steer", params, Duration::from_secs(10))
-                                    {
-                                        Ok(_) => app.set_status("sent steer"),
-                                        Err(e) => app.set_status(format!("{e}")),
-                                    }
-                                } else {
-                                    let params = params_turn_start(&app.thread_id, &text);
-                                    match client.call("turn/start", params, Duration::from_secs(10))
-                                    {
-                                        Ok(_) => app.set_status("sent turn"),
-                                        Err(e) => app.set_status(format!("{e}")),
+                                (KeyCode::Esc, _) => {
+                                    if let Some(turn_id) = app.active_turn_id.clone() {
+                                        let params =
+                                            params_turn_interrupt(&app.thread_id, &turn_id);
+                                        match client.call(
+                                            "turn/interrupt",
+                                            params,
+                                            Duration::from_secs(10),
+                                        ) {
+                                            Ok(_) => {
+                                                app.append_turn_interrupted_marker();
+                                                app.set_status("interrupt requested");
+                                            }
+                                            Err(e) => app.set_status(format!("{e}")),
+                                        }
+                                    } else {
+                                        app.selection = None;
+                                        app.mouse_drag_mode = MouseDragMode::Undecided;
+                                        app.set_status("selection cleared");
                                     }
                                 }
-                            }
-                            (KeyCode::Char('?'), _) => {
-                                if app.input_is_empty() {
-                                    app.show_help = true;
-                                } else {
+                                (KeyCode::Home, _) if app.input_is_empty() => {
+                                    app.auto_follow_bottom = false;
+                                    app.scroll_top = 0;
+                                }
+                                (KeyCode::End, _) if app.input_is_empty() => {
+                                    app.auto_follow_bottom = true;
+                                }
+                                (KeyCode::Up, _) if app.input_is_empty() => {
+                                    app.auto_follow_bottom = false;
+                                    app.scroll_top = app.scroll_top.saturating_sub(1);
+                                }
+                                (KeyCode::Down, _) if app.input_is_empty() => {
+                                    app.auto_follow_bottom = false;
+                                    app.scroll_top = app.scroll_top.saturating_add(1);
+                                }
+                                (KeyCode::PageUp, _) => {
+                                    app.auto_follow_bottom = false;
+                                    app.scroll_top = app.scroll_top.saturating_sub(10);
+                                }
+                                (KeyCode::PageDown, _) => {
+                                    app.auto_follow_bottom = false;
+                                    app.scroll_top = app.scroll_top.saturating_add(10);
+                                }
+                                (KeyCode::Enter, mods) if is_newline_enter(mods) => {
+                                    let _ = app.input.input(textarea_input_from_key(k));
+                                }
+                                (KeyCode::Enter, _) => {
+                                    if app.input_is_empty() {
+                                        needs_draw = true;
+                                        continue;
+                                    }
+
+                                    let text = app.input_text();
+                                    app.clear_input();
+                                    app.selection = None;
+
+                                    if let Some(turn_id) = app.active_turn_id.clone() {
+                                        let params =
+                                            params_turn_steer(&app.thread_id, &turn_id, &text);
+                                        match client.call(
+                                            "turn/steer",
+                                            params,
+                                            Duration::from_secs(10),
+                                        ) {
+                                            Ok(_) => app.set_status("sent steer"),
+                                            Err(e) => app.set_status(format!("{e}")),
+                                        }
+                                    } else {
+                                        let params = params_turn_start(&app.thread_id, &text);
+                                        match client.call(
+                                            "turn/start",
+                                            params,
+                                            Duration::from_secs(10),
+                                        ) {
+                                            Ok(_) => app.set_status("sent turn"),
+                                            Err(e) => app.set_status(format!("{e}")),
+                                        }
+                                    }
+                                }
+                                (KeyCode::Char('?'), _) => {
+                                    if app.input_is_empty() {
+                                        app.show_help = true;
+                                    } else {
+                                        let _ = app.input.input(textarea_input_from_key(k));
+                                    }
+                                }
+                                (KeyCode::Char('g'), _) if app.input_is_empty() => {
+                                    app.auto_follow_bottom = false;
+                                    app.scroll_top = 0;
+                                }
+                                (KeyCode::Char('G'), _) if app.input_is_empty() => {
+                                    app.auto_follow_bottom = true;
+                                }
+                                _ => {
                                     let _ = app.input.input(textarea_input_from_key(k));
                                 }
                             }
-                            (KeyCode::Char('g'), _) if app.input_is_empty() => {
-                                app.auto_follow_bottom = false;
-                                app.scroll_top = 0;
-                            }
-                            (KeyCode::Char('G'), _) if app.input_is_empty() => {
-                                app.auto_follow_bottom = true;
-                            }
-                            _ => {
-                                let _ = app.input.input(textarea_input_from_key(k));
-                            }
+                            needs_draw = true;
                         }
-                        needs_draw = true;
-                    }
-                    Event::Mouse(m) => {
-                        if let Some(perf) = app.perf.as_mut() {
-                            perf.mouse_events = perf.mouse_events.saturating_add(1);
-                        }
-                        if app.show_help {
-                            continue;
-                        }
+                        Event::Mouse(m) => {
+                            if let Some(perf) = app.perf.as_mut() {
+                                perf.mouse_events = perf.mouse_events.saturating_add(1);
+                            }
+                            if app.show_help {
+                                continue;
+                            }
 
-                        let msg_top = MSG_TOP;
-                        let msg_bottom = compute_input_layout(app, size).msg_bottom;
-                        if msg_bottom < msg_top {
-                            continue;
-                        }
-
-                        let row1 = m.row as usize + 1;
-                        let in_messages = row1 >= msg_top && row1 <= msg_bottom;
-                        let norm_x = normalize_selection_x(m.column as usize);
-                        let clamped_y = row1.clamp(msg_top, msg_bottom);
-                        let mut mouse_changed = false;
-
-                        match m.kind {
-                            MouseEventKind::ScrollUp => {
-                                let prev_scroll = app.scroll_top;
-                                let prev_follow = app.auto_follow_bottom;
-                                app.auto_follow_bottom = false;
-                                app.scroll_top = app.scroll_top.saturating_sub(3);
-                                mouse_changed = app.scroll_top != prev_scroll
-                                    || app.auto_follow_bottom != prev_follow;
+                            let msg_top = MSG_TOP;
+                            let msg_bottom = compute_input_layout(app, size).msg_bottom;
+                            if msg_bottom < msg_top {
+                                continue;
                             }
-                            MouseEventKind::ScrollDown => {
-                                let prev_scroll = app.scroll_top;
-                                let prev_follow = app.auto_follow_bottom;
-                                app.auto_follow_bottom = false;
-                                app.scroll_top = app.scroll_top.saturating_add(3);
-                                mouse_changed = app.scroll_top != prev_scroll
-                                    || app.auto_follow_bottom != prev_follow;
-                            }
-                            MouseEventKind::Down(MouseButton::Left) => {
-                                app.mouse_drag_mode = MouseDragMode::Undecided;
-                                app.mouse_drag_last_row = clamped_y;
-                                if in_messages {
-                                    app.selection = Some(Selection {
-                                        anchor_x: norm_x,
-                                        anchor_y: row1,
-                                        focus_x: norm_x,
-                                        focus_y: row1,
-                                        dragging: true,
-                                    });
-                                    mouse_changed = true;
+
+                            let row1 = m.row as usize + 1;
+                            let in_messages = row1 >= msg_top && row1 <= msg_bottom;
+                            let norm_x = normalize_selection_x(m.column as usize);
+                            let clamped_y = row1.clamp(msg_top, msg_bottom);
+                            let mut mouse_changed = false;
+
+                            match m.kind {
+                                MouseEventKind::ScrollUp => {
+                                    let prev_scroll = app.scroll_top;
+                                    let prev_follow = app.auto_follow_bottom;
+                                    app.auto_follow_bottom = false;
+                                    app.scroll_top = app.scroll_top.saturating_sub(3);
+                                    mouse_changed = app.scroll_top != prev_scroll
+                                        || app.auto_follow_bottom != prev_follow;
                                 }
-                            }
-                            MouseEventKind::Drag(MouseButton::Left) => {
-                                if let Some(sel) = app.selection.as_mut() {
-                                    if sel.dragging {
-                                        if app.mouse_drag_mode == MouseDragMode::Undecided {
-                                            app.mouse_drag_mode = decide_mouse_drag_mode(
-                                                sel.anchor_x,
-                                                sel.anchor_y,
-                                                norm_x,
-                                                clamped_y,
-                                            );
-                                        }
+                                MouseEventKind::ScrollDown => {
+                                    let prev_scroll = app.scroll_top;
+                                    let prev_follow = app.auto_follow_bottom;
+                                    app.auto_follow_bottom = false;
+                                    app.scroll_top = app.scroll_top.saturating_add(3);
+                                    mouse_changed = app.scroll_top != prev_scroll
+                                        || app.auto_follow_bottom != prev_follow;
+                                }
+                                MouseEventKind::Down(MouseButton::Left) => {
+                                    app.mouse_drag_mode = MouseDragMode::Undecided;
+                                    app.mouse_drag_last_row = clamped_y;
+                                    if in_messages {
+                                        app.selection = Some(Selection {
+                                            anchor_x: norm_x,
+                                            anchor_y: row1,
+                                            focus_x: norm_x,
+                                            focus_y: row1,
+                                            dragging: true,
+                                        });
+                                        mouse_changed = true;
+                                    }
+                                }
+                                MouseEventKind::Drag(MouseButton::Left) => {
+                                    if let Some(sel) = app.selection.as_mut() {
+                                        if sel.dragging {
+                                            if app.mouse_drag_mode == MouseDragMode::Undecided {
+                                                app.mouse_drag_mode = decide_mouse_drag_mode(
+                                                    sel.anchor_x,
+                                                    sel.anchor_y,
+                                                    norm_x,
+                                                    clamped_y,
+                                                );
+                                            }
 
-                                        match app.mouse_drag_mode {
-                                            MouseDragMode::Scroll => {
-                                                let prev_scroll = app.scroll_top;
-                                                let prev_follow = app.auto_follow_bottom;
-                                                app.auto_follow_bottom = false;
-                                                if clamped_y > app.mouse_drag_last_row {
-                                                    app.scroll_top = app.scroll_top.saturating_sub(
-                                                        clamped_y - app.mouse_drag_last_row,
-                                                    );
-                                                } else if clamped_y < app.mouse_drag_last_row {
-                                                    app.scroll_top = app.scroll_top.saturating_add(
-                                                        app.mouse_drag_last_row - clamped_y,
-                                                    );
+                                            match app.mouse_drag_mode {
+                                                MouseDragMode::Scroll => {
+                                                    let prev_scroll = app.scroll_top;
+                                                    let prev_follow = app.auto_follow_bottom;
+                                                    app.auto_follow_bottom = false;
+                                                    if clamped_y > app.mouse_drag_last_row {
+                                                        app.scroll_top =
+                                                            app.scroll_top.saturating_sub(
+                                                                clamped_y - app.mouse_drag_last_row,
+                                                            );
+                                                    } else if clamped_y < app.mouse_drag_last_row {
+                                                        app.scroll_top =
+                                                            app.scroll_top.saturating_add(
+                                                                app.mouse_drag_last_row - clamped_y,
+                                                            );
+                                                    }
+                                                    app.mouse_drag_last_row = clamped_y;
+                                                    mouse_changed = app.scroll_top != prev_scroll
+                                                        || app.auto_follow_bottom != prev_follow;
                                                 }
-                                                app.mouse_drag_last_row = clamped_y;
-                                                mouse_changed = app.scroll_top != prev_scroll
-                                                    || app.auto_follow_bottom != prev_follow;
-                                            }
-                                            MouseDragMode::Select | MouseDragMode::Undecided => {
-                                                let prev_focus_x = sel.focus_x;
-                                                let prev_focus_y = sel.focus_y;
-                                                sel.focus_x = norm_x;
-                                                sel.focus_y = clamped_y;
-                                                mouse_changed = sel.focus_x != prev_focus_x
-                                                    || sel.focus_y != prev_focus_y;
+                                                MouseDragMode::Select
+                                                | MouseDragMode::Undecided => {
+                                                    let prev_focus_x = sel.focus_x;
+                                                    let prev_focus_y = sel.focus_y;
+                                                    sel.focus_x = norm_x;
+                                                    sel.focus_y = clamped_y;
+                                                    mouse_changed = sel.focus_x != prev_focus_x
+                                                        || sel.focus_y != prev_focus_y;
+                                                }
                                             }
                                         }
                                     }
                                 }
-                            }
-                            MouseEventKind::Up(MouseButton::Left) => {
-                                if let Some(sel) = app.selection.as_mut() {
-                                    if sel.dragging {
-                                        let prev_focus_x = sel.focus_x;
-                                        let prev_focus_y = sel.focus_y;
-                                        sel.focus_x = norm_x;
-                                        sel.focus_y = clamped_y;
-                                        sel.dragging = false;
-                                        mouse_changed = sel.focus_x != prev_focus_x
-                                            || sel.focus_y != prev_focus_y
-                                            || !sel.dragging;
+                                MouseEventKind::Up(MouseButton::Left) => {
+                                    if let Some(sel) = app.selection.as_mut() {
+                                        if sel.dragging {
+                                            let prev_focus_x = sel.focus_x;
+                                            let prev_focus_y = sel.focus_y;
+                                            sel.focus_x = norm_x;
+                                            sel.focus_y = clamped_y;
+                                            sel.dragging = false;
+                                            mouse_changed = sel.focus_x != prev_focus_x
+                                                || sel.focus_y != prev_focus_y
+                                                || !sel.dragging;
 
-                                        if app.mouse_drag_mode == MouseDragMode::Scroll {
-                                            app.selection = None;
-                                        } else {
-                                            let copied = selected_text(
-                                                *sel,
-                                                &app.rendered_lines,
-                                                msg_bottom,
-                                                app.scroll_top,
-                                            );
-                                            if !copied.is_empty() {
-                                                let _ = try_copy_clipboard(&copied);
+                                            if app.mouse_drag_mode == MouseDragMode::Scroll {
+                                                app.selection = None;
+                                            } else {
+                                                let copied = selected_text(
+                                                    *sel,
+                                                    &app.rendered_lines,
+                                                    msg_bottom,
+                                                    app.scroll_top,
+                                                );
+                                                if !copied.is_empty() {
+                                                    let _ = try_copy_clipboard(&copied);
+                                                }
                                             }
                                         }
                                     }
+                                    app.mouse_drag_mode = MouseDragMode::Undecided;
                                 }
-                                app.mouse_drag_mode = MouseDragMode::Undecided;
+                                _ => {}
                             }
-                            _ => {}
+                            if mouse_changed {
+                                needs_draw = true;
+                            }
                         }
-                        if mouse_changed {
-                            needs_draw = true;
-                        }
-                    }
-                    Event::Paste(pasted) => {
-                        if let Some(perf) = app.perf.as_mut() {
-                            perf.paste_events = perf.paste_events.saturating_add(1);
-                        }
-                        if app.show_help {
-                            needs_draw = true;
-                            continue;
-                        }
-                        if app.input_is_empty() {
-                            if let Some((_, y)) = parse_mobile_mouse_coords(&pasted) {
-                                apply_mobile_mouse_scroll(app, y);
+                        Event::Paste(pasted) => {
+                            if let Some(perf) = app.perf.as_mut() {
+                                perf.paste_events = perf.paste_events.saturating_add(1);
+                            }
+                            if app.show_help {
                                 needs_draw = true;
                                 continue;
                             }
+                            if app.input_is_empty() {
+                                if let Some((_, y)) = parse_mobile_mouse_coords(&pasted) {
+                                    apply_mobile_mouse_scroll(app, y);
+                                    needs_draw = true;
+                                    continue;
+                                }
+                            }
+                            let normalized = normalize_pasted_text(&pasted);
+                            if !normalized.is_empty() {
+                                let _ = app.input.insert_str(normalized);
+                                needs_draw = true;
+                            }
                         }
-                        let normalized = normalize_pasted_text(&pasted);
-                        if !normalized.is_empty() {
-                            let _ = app.input.insert_str(normalized);
+                        Event::Resize(_, _) => {
+                            if let Some(perf) = app.perf.as_mut() {
+                                perf.resize_events = perf.resize_events.saturating_add(1);
+                            }
                             needs_draw = true;
                         }
-                    }
-                    Event::Resize(_, _) => {
-                        if let Some(perf) = app.perf.as_mut() {
-                            perf.resize_events = perf.resize_events.saturating_add(1);
-                        }
-                        needs_draw = true;
-                    }
-                    _ => {}
-                },
-            }
-            if let Some(perf) = app.perf.as_mut() {
-                perf.event_handle.push(event_started.elapsed());
+                        _ => {}
+                    },
+                }
+                if let Some(perf) = app.perf.as_mut() {
+                    perf.event_handle.push(event_started.elapsed());
+                }
             }
 
             if needs_draw {
@@ -4791,6 +4867,59 @@ fn run_conversation_tui(
             }
         }
     })
+}
+
+fn prioritize_events(
+    incoming_events: Vec<UiEvent>,
+    deferred_server_lines: &mut VecDeque<String>,
+    server_budget: usize,
+) -> Vec<UiEvent> {
+    let mut prioritized = Vec::with_capacity(incoming_events.len());
+    let mut priority_server_lines: Vec<String> = Vec::new();
+    for event in incoming_events {
+        match event {
+            UiEvent::Terminal(ev) => prioritized.push(UiEvent::Terminal(ev)),
+            UiEvent::ServerLine(line) => {
+                if is_priority_server_line(&line) {
+                    priority_server_lines.push(line);
+                } else {
+                    deferred_server_lines.push_back(line);
+                }
+            }
+        }
+    }
+    for line in priority_server_lines {
+        prioritized.push(UiEvent::ServerLine(line));
+    }
+
+    while let Some(idx) = deferred_server_lines
+        .iter()
+        .position(|line| is_priority_server_line(line))
+    {
+        if let Some(line) = deferred_server_lines.remove(idx) {
+            prioritized.push(UiEvent::ServerLine(line));
+        } else {
+            break;
+        }
+    }
+
+    for _ in 0..server_budget {
+        let Some(line) = deferred_server_lines.pop_front() else {
+            break;
+        };
+        prioritized.push(UiEvent::ServerLine(line));
+    }
+    prioritized
+}
+
+fn is_priority_server_line(line: &str) -> bool {
+    let Ok(parsed) = serde_json::from_str::<Value>(line) else {
+        return false;
+    };
+    let Some(method) = parsed.get("method").and_then(Value::as_str) else {
+        return false;
+    };
+    matches!(method, "turn/completed" | "turn/started" | "error")
 }
 fn usage() {
     eprintln!(
