@@ -142,6 +142,7 @@ struct AppState {
     messages: Vec<Message>,
     agent_item_to_index: HashMap<String, usize>,
     turn_diff_to_index: HashMap<String, usize>,
+    command_render_overrides: HashMap<String, String>,
 
     input: TextArea<'static>,
     status: String,
@@ -160,6 +161,7 @@ impl AppState {
             messages: Vec::new(),
             agent_item_to_index: HashMap::new(),
             turn_diff_to_index: HashMap::new(),
+            command_render_overrides: HashMap::new(),
             input: make_input_area(),
             status: String::new(),
             scroll_top: 0,
@@ -254,6 +256,20 @@ impl AppState {
         self.turn_diff_to_index.insert(turn_id.to_string(), idx);
         self.auto_follow_bottom = true;
     }
+
+    fn set_command_override(&mut self, call_id: &str, summary: String) {
+        self.command_render_overrides
+            .insert(call_id.to_string(), summary.clone());
+        if let Some(idx) = self.agent_item_to_index.get(call_id).copied() {
+            if let Some(msg) = self.messages.get_mut(idx) {
+                msg.role = Role::ToolCall;
+                msg.kind = MessageKind::Plain;
+                msg.file_path = None;
+                msg.text = summary;
+            }
+        }
+        self.auto_follow_bottom = true;
+    }
 }
 
 fn make_input_area() -> TextArea<'static> {
@@ -310,7 +326,14 @@ impl AppServerClient {
                 };
 
                 if let Some(method) = parsed.get("method").and_then(Value::as_str) {
-                    if method.starts_with("codex/event/") {
+                    if method.starts_with("codex/event/")
+                        && !matches!(
+                            method,
+                            "codex/event/raw_response_item"
+                                | "codex/event/exec_command_end"
+                                | "codex/event/turn_diff"
+                        )
+                    {
                         continue;
                     }
                 }
@@ -785,6 +808,68 @@ fn tool_output_text(item: &Value) -> Option<String> {
     }
 }
 
+fn command_execution_diff_output(item: &Value) -> Option<String> {
+    if item.get("type").and_then(Value::as_str) != Some("commandExecution") {
+        return None;
+    }
+    let candidates = [
+        item.get("aggregatedOutput").and_then(Value::as_str),
+        item.get("formattedOutput").and_then(Value::as_str),
+        item.get("stdout").and_then(Value::as_str),
+        item.get("output").and_then(Value::as_str),
+    ];
+    for c in candidates.into_iter().flatten() {
+        if !c.trim().is_empty() && is_probably_diff_text(c) {
+            return Some(c.to_string());
+        }
+    }
+    None
+}
+
+fn compact_command_path(path: &str, cwd: Option<&str>) -> String {
+    if let Some(cwd) = cwd {
+        if let Some(rest) = path.strip_prefix(cwd) {
+            if let Some(trimmed) = rest.strip_prefix('/') {
+                if !trimmed.is_empty() {
+                    return trimmed.to_string();
+                }
+            }
+        }
+    }
+    path.to_string()
+}
+
+fn read_summary_from_parsed_cmd(msg: &Value) -> Option<(String, String)> {
+    let call_id = msg.get("call_id").and_then(Value::as_str)?.to_string();
+    let parsed = msg.get("parsed_cmd").and_then(Value::as_array)?;
+    let cwd = msg.get("cwd").and_then(Value::as_str);
+
+    for part in parsed {
+        let Some(obj) = part.as_object() else {
+            continue;
+        };
+        if obj.get("type").and_then(Value::as_str) != Some("read") {
+            continue;
+        }
+
+        let path = obj
+            .get("path")
+            .and_then(Value::as_str)
+            .or_else(|| obj.get("name").and_then(Value::as_str))
+            .unwrap_or("")
+            .trim();
+
+        if path.is_empty() {
+            continue;
+        }
+
+        let display = compact_command_path(path, cwd);
+        return Some((call_id, format!("→ Read {display}")));
+    }
+
+    None
+}
+
 fn compact_json_summary(value: &Value, max_chars: usize) -> Option<String> {
     let mut s = serde_json::to_string(value).ok()?;
     if s.len() > max_chars {
@@ -1051,6 +1136,13 @@ fn append_tool_history_item(app: &mut AppState, item: &Value, role: Role) {
         return;
     }
 
+    if role == Role::ToolOutput {
+        if let Some(diff) = command_execution_diff_output(item) {
+            app.append_diff_message(role, None, diff);
+            return;
+        }
+    }
+
     if let Some(formatted) = format_tool_item(item, role) {
         if !formatted.is_empty() {
             app.append_message(role, formatted);
@@ -1065,6 +1157,186 @@ fn append_tool_history_item(app: &mut AppState, item: &Value, role: Role) {
         }
     }
     append_item_text_from_content(app, item, role);
+}
+
+fn parse_arguments_value(arguments: &Value) -> Option<Value> {
+    match arguments {
+        Value::Null => None,
+        Value::String(s) => {
+            if s.trim().is_empty() {
+                None
+            } else {
+                serde_json::from_str::<Value>(s)
+                    .ok()
+                    .or_else(|| Some(Value::String(s.clone())))
+            }
+        }
+        other => Some(other.clone()),
+    }
+}
+
+fn raw_function_call_to_tool_item(item: &Value) -> Option<(String, Value)> {
+    if item.get("type").and_then(Value::as_str) != Some("function_call") {
+        return None;
+    }
+    let call_id = item
+        .get("call_id")
+        .and_then(Value::as_str)
+        .or_else(|| item.get("id").and_then(Value::as_str))?
+        .to_string();
+    let name = item.get("name").and_then(Value::as_str).unwrap_or("");
+
+    let mut out = serde_json::Map::new();
+    out.insert(
+        "type".to_string(),
+        Value::String(if name == "exec_command" {
+            "commandExecution".to_string()
+        } else {
+            "toolCall".to_string()
+        }),
+    );
+    if !name.is_empty() {
+        out.insert("tool".to_string(), Value::String(name.to_string()));
+        out.insert("name".to_string(), Value::String(name.to_string()));
+    }
+
+    if let Some(args) = item.get("arguments").and_then(parse_arguments_value) {
+        if let Value::Object(obj) = &args {
+            out.insert("input".to_string(), Value::Object(obj.clone()));
+            if name == "exec_command" {
+                if let Some(cmd) = obj.get("cmd").and_then(Value::as_str) {
+                    out.insert("command".to_string(), Value::String(cmd.to_string()));
+                    out.insert(
+                        "commandActions".to_string(),
+                        json!([{ "type": "unknown", "command": cmd }]),
+                    );
+                }
+            }
+        } else {
+            out.insert("input".to_string(), json!({ "value": args }));
+        }
+    }
+
+    Some((call_id, Value::Object(out)))
+}
+
+fn raw_function_call_output_to_tool_item(item: &Value) -> Option<(String, Value)> {
+    if item.get("type").and_then(Value::as_str) != Some("function_call_output") {
+        return None;
+    }
+    let call_id = item
+        .get("call_id")
+        .and_then(Value::as_str)
+        .or_else(|| item.get("id").and_then(Value::as_str))?
+        .to_string();
+
+    let output_value = item.get("output").cloned().unwrap_or(Value::Null);
+    let mut out = serde_json::Map::new();
+    out.insert("type".to_string(), Value::String("toolOutput".to_string()));
+    match output_value {
+        Value::String(s) => {
+            out.insert("output".to_string(), Value::String(s.clone()));
+            if is_probably_diff_text(&s) {
+                out.insert("diff".to_string(), Value::String(s));
+            }
+        }
+        Value::Object(obj) => {
+            for (k, v) in obj {
+                out.insert(k, v);
+            }
+        }
+        Value::Null => {}
+        other => {
+            out.insert("output".to_string(), other);
+        }
+    }
+
+    Some((call_id, Value::Object(out)))
+}
+
+fn upsert_tool_message(
+    app: &mut AppState,
+    key: &str,
+    role: Role,
+    text: String,
+    kind: MessageKind,
+    file_path: Option<String>,
+) {
+    if let Some(idx) = app.agent_item_to_index.get(key).copied() {
+        if let Some(msg) = app.messages.get_mut(idx) {
+            msg.role = role;
+            msg.text = text;
+            msg.kind = kind;
+            msg.file_path = file_path;
+            app.auto_follow_bottom = true;
+            return;
+        }
+    }
+
+    let idx = if kind == MessageKind::Diff {
+        app.append_diff_message(role, file_path, text)
+    } else {
+        app.append_message(role, text)
+    };
+    app.put_agent_item_mapping(key, idx);
+    app.auto_follow_bottom = true;
+}
+
+fn handle_raw_response_item(app: &mut AppState, item: &Value) {
+    if let Some((call_id, tool_item)) = raw_function_call_to_tool_item(item) {
+        if app.agent_item_to_index.contains_key(&call_id) {
+            return;
+        }
+        if let Some(formatted) = format_tool_item(&tool_item, Role::ToolCall) {
+            if !formatted.trim().is_empty() {
+                upsert_tool_message(
+                    app,
+                    &call_id,
+                    Role::ToolCall,
+                    formatted,
+                    MessageKind::Plain,
+                    None,
+                );
+            }
+        }
+        return;
+    }
+
+    if let Some((call_id, tool_item)) = raw_function_call_output_to_tool_item(item) {
+        let diffs = extract_diff_blocks(&tool_item);
+        if let Some(first) = diffs.first() {
+            upsert_tool_message(
+                app,
+                &call_id,
+                Role::ToolOutput,
+                first.diff.clone(),
+                MessageKind::Diff,
+                first.file_path.clone(),
+            );
+            for block in diffs.iter().skip(1) {
+                app.append_diff_message(
+                    Role::ToolOutput,
+                    block.file_path.clone(),
+                    block.diff.clone(),
+                );
+            }
+            app.auto_follow_bottom = true;
+            return;
+        }
+
+        if let Some(formatted) = format_tool_item(&tool_item, Role::ToolOutput) {
+            if !formatted.trim().is_empty() {
+                upsert_tool_message(
+                    app,
+                    &call_id,
+                    Role::ToolOutput,
+                    formatted,
+                    MessageKind::Plain,
+                    None,
+                );
+            }
+        }
+    }
 }
 
 fn append_history_from_thread(app: &mut AppState, thread_obj: &Value) {
@@ -2999,6 +3271,18 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
                 app.upsert_turn_diff(turn_id, diff);
             }
         }
+        "codex/event/exec_command_end" => {
+            if let Some(msg) = params.get("msg") {
+                if let Some((call_id, summary)) = read_summary_from_parsed_cmd(msg) {
+                    app.set_command_override(&call_id, summary);
+                }
+            }
+        }
+        "codex/event/raw_response_item" => {
+            if let Some(item) = params.get("msg").and_then(|m| m.get("item")) {
+                handle_raw_response_item(app, item);
+            }
+        }
         "item/started" => {
             let Some(item) = params.get("item").and_then(Value::as_object) else {
                 return;
@@ -3034,18 +3318,27 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
                 }
                 "commandExecution" => {
                     if let Some(id) = item.get("id").and_then(Value::as_str) {
+                        if app.agent_item_to_index.contains_key(id) {
+                            return;
+                        }
                         let idx = app.append_message(Role::ToolCall, String::new());
                         app.put_agent_item_mapping(id, idx);
                     }
                 }
                 t if is_tool_call_type(t) => {
                     if let Some(id) = item.get("id").and_then(Value::as_str) {
+                        if app.agent_item_to_index.contains_key(id) {
+                            return;
+                        }
                         let idx = app.append_message(Role::ToolCall, String::new());
                         app.put_agent_item_mapping(id, idx);
                     }
                 }
                 t if is_tool_output_type(t) => {
                     if let Some(id) = item.get("id").and_then(Value::as_str) {
+                        if app.agent_item_to_index.contains_key(id) {
+                            return;
+                        }
                         let idx = app.append_message(Role::ToolOutput, String::new());
                         app.put_agent_item_mapping(id, idx);
                     }
@@ -3070,6 +3363,47 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
             let item_value = Value::Object(item.clone());
             let diffs = extract_diff_blocks(&item_value);
             if diffs.is_empty() {
+                let item_id = item.get("id").and_then(Value::as_str);
+                let exit_code = first_i64_at_paths(&item_value, &[&["exitCode"], &["exit_code"]]);
+                if let (Some(id), Some(summary)) = (
+                    item_id,
+                    item_id.and_then(|id| app.command_render_overrides.get(id).cloned()),
+                ) {
+                    if exit_code.unwrap_or(0) == 0 {
+                        if let Some(idx) = app.agent_item_to_index.get(id).copied() {
+                            if let Some(msg) = app.messages.get_mut(idx) {
+                                msg.role = Role::ToolCall;
+                                msg.text = summary;
+                                msg.kind = MessageKind::Plain;
+                                msg.file_path = None;
+                            }
+                            app.auto_follow_bottom = true;
+                            return;
+                        }
+                        app.append_message(Role::ToolCall, summary);
+                        app.auto_follow_bottom = true;
+                        return;
+                    }
+                }
+
+                if let Some(diff) = command_execution_diff_output(&item_value) {
+                    if let Some(id) = item_id {
+                        if let Some(idx) = app.agent_item_to_index.get(id).copied() {
+                            if let Some(msg) = app.messages.get_mut(idx) {
+                                msg.role = role;
+                                msg.text = diff;
+                                msg.kind = MessageKind::Diff;
+                                msg.file_path = None;
+                            }
+                            app.auto_follow_bottom = true;
+                            return;
+                        }
+                    }
+                    app.append_diff_message(role, None, diff);
+                    app.auto_follow_bottom = true;
+                    return;
+                }
+
                 if let Some(formatted) = format_tool_item(&item_value, role) {
                     let item_id = item.get("id").and_then(Value::as_str);
                     if let Some(id) = item_id {
@@ -3858,6 +4192,104 @@ mod tests {
     }
 
     #[test]
+    fn handle_notification_raw_function_call_renders_tool_call() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/raw_response_item\",\"params\":{\"msg\":{\"item\":{\"type\":\"function_call\",\"name\":\"exec_command\",\"call_id\":\"call_1\",\"arguments\":\"{\\\"cmd\\\":\\\"cat test.txt\\\"}\"}}}}",
+        );
+
+        assert_eq!(app.messages.len(), 1);
+        assert_eq!(app.messages[0].role, Role::ToolCall);
+        assert!(app.messages[0].text.contains("run `cat test.txt`"));
+    }
+
+    #[test]
+    fn handle_notification_raw_function_call_output_updates_existing_call() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/raw_response_item\",\"params\":{\"msg\":{\"item\":{\"type\":\"function_call\",\"name\":\"exec_command\",\"call_id\":\"call_2\",\"arguments\":\"{\\\"cmd\\\":\\\"echo hi\\\"}\"}}}}",
+        );
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/raw_response_item\",\"params\":{\"msg\":{\"item\":{\"type\":\"function_call_output\",\"call_id\":\"call_2\",\"output\":\"hi\\n\"}}}}",
+        );
+
+        assert_eq!(app.messages.len(), 1);
+        assert_eq!(app.messages[0].role, Role::ToolOutput);
+        assert_eq!(app.messages[0].kind, MessageKind::Plain);
+        assert!(app.messages[0].text.contains("hi"));
+    }
+
+    #[test]
+    fn handle_notification_raw_function_call_output_diff_is_rendered_as_diff() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/raw_response_item\",\"params\":{\"msg\":{\"item\":{\"type\":\"function_call_output\",\"call_id\":\"call_3\",\"output\":\"diff --git a/x b/x\\n@@ -1 +1 @@\\n-old\\n+new\\n\"}}}}",
+        );
+
+        assert_eq!(app.messages.len(), 1);
+        assert_eq!(app.messages[0].role, Role::ToolOutput);
+        assert_eq!(app.messages[0].kind, MessageKind::Diff);
+        assert!(app.messages[0].text.contains("+new"));
+    }
+
+    #[test]
+    fn raw_function_call_dedupes_with_command_execution_item_started() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/raw_response_item\",\"params\":{\"msg\":{\"item\":{\"type\":\"function_call\",\"name\":\"exec_command\",\"call_id\":\"call_4\",\"arguments\":\"{\\\"cmd\\\":\\\"pwd\\\"}\"}}}}",
+        );
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_4\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+
+        assert_eq!(app.messages.len(), 1);
+    }
+
+    #[test]
+    fn exec_command_end_read_override_suppresses_large_read_output_on_success() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_read_1\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/exec_command_end\",\"params\":{\"msg\":{\"type\":\"exec_command_end\",\"call_id\":\"call_read_1\",\"cwd\":\"/repo\",\"parsed_cmd\":[{\"type\":\"read\",\"cmd\":\"cat src/main.rs\",\"name\":\"main.rs\",\"path\":\"/repo/src/main.rs\"}]}}}",
+        );
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_read_1\",\"aggregatedOutput\":\"line1\\nline2\\nline3\\n\",\"exitCode\":0},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+
+        assert_eq!(app.messages.len(), 1);
+        assert_eq!(app.messages[0].text, "→ Read src/main.rs");
+        assert_eq!(app.messages[0].role, Role::ToolCall);
+    }
+
+    #[test]
+    fn item_completed_command_execution_diff_output_renders_diff_message_kind() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_diff_1\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_diff_1\",\"aggregatedOutput\":\"diff --git a/test.txt b/test.txt\\n@@ -1 +1 @@\\n-old\\n+new\\n\",\"exitCode\":1},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+
+        assert_eq!(app.messages.len(), 1);
+        assert_eq!(app.messages[0].kind, MessageKind::Diff);
+        assert!(app.messages[0].text.contains("+new"));
+    }
+
+    #[test]
     fn format_tool_item_run_style_from_command_fields() {
         let item = json!({
             "type": "toolCall",
@@ -3934,6 +4366,16 @@ mod tests {
         let rendered = format_tool_item(&item, Role::ToolOutput).expect("formatted command output");
         assert!(rendered.contains("a\nb"), "rendered={rendered:?}");
         assert!(rendered.contains("exit code: 0"), "rendered={rendered:?}");
+    }
+
+    #[test]
+    fn command_execution_diff_output_detects_unified_diff() {
+        let item = json!({
+            "type": "commandExecution",
+            "aggregatedOutput": "diff --git a/x b/x\n@@ -1 +1 @@\n-old\n+new\n"
+        });
+        let diff = command_execution_diff_output(&item).expect("should detect diff");
+        assert!(diff.contains("+new"));
     }
 
     #[test]
