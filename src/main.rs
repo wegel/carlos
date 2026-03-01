@@ -11,12 +11,14 @@ use std::time::{Duration, Instant};
 use anyhow::{anyhow, bail, Context, Result};
 use base64::Engine;
 use crossterm::event::{
-    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers,
-    MouseButton, MouseEventKind,
+    self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
+    Event, KeyCode, KeyEventKind, KeyModifiers, KeyboardEnhancementFlags, MouseButton,
+    MouseEventKind, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
 use crossterm::execute;
 use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+    disable_raw_mode, enable_raw_mode, supports_keyboard_enhancement, EnterAlternateScreen,
+    LeaveAlternateScreen,
 };
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
@@ -839,7 +841,7 @@ fn compact_command_path(path: &str, cwd: Option<&str>) -> String {
     path.to_string()
 }
 
-fn read_summary_from_parsed_cmd(msg: &Value) -> Option<(String, String)> {
+fn command_summary_from_parsed_cmd(msg: &Value) -> Option<(String, String)> {
     let call_id = msg.get("call_id").and_then(Value::as_str)?.to_string();
     let parsed = msg.get("parsed_cmd").and_then(Value::as_array)?;
     let cwd = msg.get("cwd").and_then(Value::as_str);
@@ -848,23 +850,50 @@ fn read_summary_from_parsed_cmd(msg: &Value) -> Option<(String, String)> {
         let Some(obj) = part.as_object() else {
             continue;
         };
-        if obj.get("type").and_then(Value::as_str) != Some("read") {
+        let Some(kind_raw) = obj.get("type").and_then(Value::as_str) else {
             continue;
-        }
+        };
+        let kind = kind_raw.to_ascii_lowercase();
 
         let path = obj
             .get("path")
             .and_then(Value::as_str)
+            .or_else(|| obj.get("filePath").and_then(Value::as_str))
+            .or_else(|| obj.get("file").and_then(Value::as_str))
             .or_else(|| obj.get("name").and_then(Value::as_str))
             .unwrap_or("")
             .trim();
 
-        if path.is_empty() {
-            continue;
+        let path_display = if path.is_empty() {
+            None
+        } else {
+            Some(compact_command_path(path, cwd))
+        };
+
+        let (icon, label) = match kind.as_str() {
+            "read" => ("→", "Read"),
+            "grep" | "rg" | "search" | "glob" | "find" | "codesearch" => ("✱", "Search"),
+            "list" | "listfiles" | "list_files" | "ls" => ("→", "List"),
+            _ => continue,
+        };
+
+        let mut out = format!("{icon} {label}");
+        if let Some(display) = path_display {
+            out.push(' ');
+            out.push_str(&display);
         }
 
-        let display = compact_command_path(path, cwd);
-        return Some((call_id, format!("→ Read {display}")));
+        if let Some(args) = format_input_brackets(
+            obj,
+            &[
+                "type", "cmd", "command", "path", "filePath", "file", "name", "cwd",
+            ],
+        ) {
+            out.push(' ');
+            out.push_str(&args);
+        }
+
+        return Some((call_id, out));
     }
 
     None
@@ -1864,12 +1893,7 @@ fn append_wrapped_message_lines(out: &mut Vec<RenderedLine>, role: Role, text: &
             continue;
         }
 
-        let continuation = match role {
-            Role::Reasoning => "          ",
-            Role::ToolCall => "      ",
-            Role::ToolOutput => "        ",
-            _ => role_prefix(role),
-        };
+        let continuation = role_prefix(role);
 
         if logical.is_empty() {
             let t = prefix.to_string();
@@ -2196,6 +2220,14 @@ fn textarea_input_from_key(k: crossterm::event::KeyEvent) -> TextInput {
         alt: k.modifiers.contains(KeyModifiers::ALT),
         shift: k.modifiers.contains(KeyModifiers::SHIFT),
     }
+}
+
+fn normalize_pasted_text(text: &str) -> String {
+    text.replace("\r\n", "\n").replace('\r', "\n")
+}
+
+fn is_newline_enter(mods: KeyModifiers) -> bool {
+    mods.contains(KeyModifiers::SHIFT) || mods.contains(KeyModifiers::ALT)
 }
 
 fn compute_input_layout(app: &AppState, size: TerminalSize) -> InputLayout {
@@ -2807,7 +2839,7 @@ fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize) {
         buf,
         start_x + 3,
         start_y + 3,
-        "Enter send/steer  Shift+Enter newline",
+        "Enter send/steer  Shift/Alt+Enter newline",
         Style::default().fg(COLOR_TEXT),
         box_w.saturating_sub(6),
     );
@@ -3285,7 +3317,7 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
         }
         "codex/event/exec_command_end" => {
             if let Some(msg) = params.get("msg") {
-                if let Some((call_id, summary)) = read_summary_from_parsed_cmd(msg) {
+                if let Some((call_id, summary)) = command_summary_from_parsed_cmd(msg) {
                     app.set_command_override(&call_id, summary);
                 }
             }
@@ -3515,8 +3547,28 @@ fn with_terminal<T>(
 ) -> Result<T> {
     enable_raw_mode().context("failed to enable raw mode")?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)
-        .context("failed to enter alt screen")?;
+    let keyboard_enhancement_enabled = matches!(supports_keyboard_enhancement(), Ok(true));
+
+    if keyboard_enhancement_enabled {
+        execute!(
+            stdout,
+            PushKeyboardEnhancementFlags(
+                KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                    | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
+                    | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
+                    | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+            )
+        )
+        .context("failed to enable keyboard enhancement flags")?;
+    }
+
+    execute!(
+        stdout,
+        EnterAlternateScreen,
+        EnableMouseCapture,
+        EnableBracketedPaste
+    )
+    .context("failed to enter alt screen")?;
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).context("failed to create terminal")?;
@@ -3524,9 +3576,13 @@ fn with_terminal<T>(
     let result = f(&mut terminal);
 
     let _ = disable_raw_mode();
+    if keyboard_enhancement_enabled {
+        let _ = execute!(terminal.backend_mut(), PopKeyboardEnhancementFlags);
+    }
     let _ = execute!(
         terminal.backend_mut(),
         LeaveAlternateScreen,
+        DisableBracketedPaste,
         DisableMouseCapture
     );
     let _ = terminal.show_cursor();
@@ -3734,7 +3790,7 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                                 app.auto_follow_bottom = false;
                                 app.scroll_top = app.scroll_top.saturating_add(10);
                             }
-                            (KeyCode::Enter, mods) if mods.contains(KeyModifiers::SHIFT) => {
+                            (KeyCode::Enter, mods) if is_newline_enter(mods) => {
                                 let _ = app.input.input(textarea_input_from_key(k));
                             }
                             (KeyCode::Enter, _) => {
@@ -3845,6 +3901,15 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                                 }
                             }
                             _ => {}
+                        }
+                    }
+                    Event::Paste(pasted) => {
+                        if app.show_help {
+                            continue;
+                        }
+                        let normalized = normalize_pasted_text(&pasted);
+                        if !normalized.is_empty() {
+                            let _ = app.input.insert_str(normalized);
                         }
                     }
                     Event::Resize(_, _) => {}
@@ -4126,6 +4191,22 @@ mod tests {
     }
 
     #[test]
+    fn build_rendered_lines_tool_output_multiline_has_no_indent() {
+        let messages = vec![Message {
+            role: Role::ToolOutput,
+            text: "$ rg -n foo src/main.rs\n1:fn a()\n2:fn b()".to_string(),
+            kind: MessageKind::Plain,
+            file_path: None,
+        }];
+
+        let rendered = build_rendered_lines(&messages, 120);
+        assert_eq!(rendered.len(), 3);
+        assert_eq!(rendered[0].text, "$ rg -n foo src/main.rs");
+        assert_eq!(rendered[1].text, "1:fn a()");
+        assert_eq!(rendered[2].text, "2:fn b()");
+    }
+
+    #[test]
     fn extract_diff_blocks_reads_nested_metadata_files() {
         let item = json!({
             "type": "toolOutput",
@@ -4281,6 +4362,27 @@ mod tests {
 
         assert_eq!(app.messages.len(), 1);
         assert_eq!(app.messages[0].text, "→ Read src/main.rs");
+        assert_eq!(app.messages[0].role, Role::ToolCall);
+    }
+
+    #[test]
+    fn exec_command_end_search_override_suppresses_large_output_on_success() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_search_1\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/exec_command_end\",\"params\":{\"msg\":{\"type\":\"exec_command_end\",\"call_id\":\"call_search_1\",\"cwd\":\"/repo\",\"parsed_cmd\":[{\"type\":\"search\",\"cmd\":\"rg -n foo src/main.rs\",\"path\":\"/repo/src/main.rs\",\"pattern\":\"foo\"}]}}}",
+        );
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_search_1\",\"aggregatedOutput\":\"1:fn a()\\n2:fn b()\\n\",\"exitCode\":0},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+
+        assert_eq!(app.messages.len(), 1);
+        assert_eq!(app.messages[0].text, "✱ Search src/main.rs [pattern=foo]");
         assert_eq!(app.messages[0].role, Role::ToolCall);
     }
 
@@ -4451,5 +4553,18 @@ mod tests {
         assert!(is_ssh_session(None, Some("1.2.3.4 22 5.6.7.8 54321"), None));
         assert!(is_ssh_session(None, None, Some("1.2.3.4 54321 22")));
         assert!(!is_ssh_session(None, None, None));
+    }
+
+    #[test]
+    fn normalize_pasted_text_converts_crlf_and_cr() {
+        let text = "a\r\nb\rc";
+        assert_eq!(normalize_pasted_text(text), "a\nb\nc");
+    }
+
+    #[test]
+    fn is_newline_enter_accepts_shift_and_alt() {
+        assert!(is_newline_enter(KeyModifiers::SHIFT));
+        assert!(is_newline_enter(KeyModifiers::ALT));
+        assert!(!is_newline_enter(KeyModifiers::empty()));
     }
 }
