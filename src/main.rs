@@ -154,6 +154,12 @@ struct TerminalSize {
     height: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ContextUsage {
+    used: u64,
+    max: u64,
+}
+
 #[derive(Debug)]
 struct AppState {
     thread_id: String,
@@ -174,6 +180,7 @@ struct AppState {
     mobile_mouse_buffer: String,
     mobile_mouse_last_y: Option<usize>,
     show_help: bool,
+    context_usage: Option<ContextUsage>,
 }
 
 impl AppState {
@@ -195,6 +202,7 @@ impl AppState {
             mobile_mouse_buffer: String::new(),
             mobile_mouse_last_y: None,
             show_help: false,
+            context_usage: None,
         }
     }
 
@@ -295,6 +303,17 @@ impl AppState {
                 msg.text = summary;
             }
         }
+        self.auto_follow_bottom = true;
+    }
+
+    fn append_context_compacted_marker(&mut self) {
+        const MARKER: &str = "↻ Context compacted";
+        if let Some(last) = self.messages.last() {
+            if last.role == Role::System && last.text == MARKER {
+                return;
+            }
+        }
+        self.append_message(Role::System, MARKER);
         self.auto_follow_bottom = true;
     }
 }
@@ -683,6 +702,197 @@ fn first_i64_at_paths(value: &Value, paths: &[&[&str]]) -> Option<i64> {
         }
     }
     None
+}
+
+fn value_to_u64(v: &Value) -> Option<u64> {
+    if let Some(n) = v.as_u64() {
+        return Some(n);
+    }
+    if let Some(n) = v.as_i64() {
+        return (n >= 0).then_some(n as u64);
+    }
+    None
+}
+
+fn select_context_used_tokens(total: Option<u64>, last: Option<u64>, max: u64) -> Option<u64> {
+    match (total, last) {
+        (Some(t), Some(l)) if t > max => Some(l),
+        (Some(t), _) => Some(t),
+        (None, Some(l)) => Some(l),
+        (None, None) => None,
+    }
+}
+
+fn context_usage_from_thread_token_usage_params(
+    params: &serde_json::Map<String, Value>,
+) -> Option<ContextUsage> {
+    let token_usage = params.get("tokenUsage")?.as_object()?;
+    let max = token_usage
+        .get("modelContextWindow")
+        .and_then(value_to_u64)
+        .filter(|n| *n > 0)?;
+
+    let total_used = token_usage
+        .get("total")
+        .and_then(Value::as_object)
+        .and_then(|t| t.get("totalTokens"))
+        .and_then(value_to_u64);
+    let last_used = token_usage
+        .get("last")
+        .and_then(Value::as_object)
+        .and_then(|t| t.get("totalTokens"))
+        .and_then(value_to_u64);
+    let used = select_context_used_tokens(total_used, last_used, max)?;
+
+    Some(ContextUsage {
+        used: used.min(max),
+        max,
+    })
+}
+
+fn context_usage_from_token_count_params(
+    params: &serde_json::Map<String, Value>,
+) -> Option<ContextUsage> {
+    let info = params
+        .get("msg")
+        .and_then(Value::as_object)
+        .and_then(|m| m.get("info"))
+        .or_else(|| params.get("info"))?;
+    let info_obj = info.as_object()?;
+
+    let max = info_obj
+        .get("model_context_window")
+        .or_else(|| info_obj.get("modelContextWindow"))
+        .and_then(value_to_u64)
+        .filter(|n| *n > 0)?;
+
+    let total_used = info_obj
+        .get("total_token_usage")
+        .and_then(Value::as_object)
+        .and_then(|t| t.get("total_tokens"))
+        .and_then(value_to_u64)
+        .or_else(|| {
+            info_obj
+                .get("total")
+                .and_then(Value::as_object)
+                .and_then(|t| t.get("totalTokens").or_else(|| t.get("total_tokens")))
+                .and_then(value_to_u64)
+        });
+    let last_used = info_obj
+        .get("last_token_usage")
+        .and_then(Value::as_object)
+        .and_then(|t| t.get("total_tokens"))
+        .and_then(value_to_u64)
+        .or_else(|| {
+            info_obj
+                .get("last")
+                .and_then(Value::as_object)
+                .and_then(|t| t.get("totalTokens").or_else(|| t.get("total_tokens")))
+                .and_then(value_to_u64)
+        });
+    let used = select_context_used_tokens(total_used, last_used, max)?;
+
+    Some(ContextUsage {
+        used: used.min(max),
+        max,
+    })
+}
+
+fn context_usage_from_value(value: &Value) -> Option<ContextUsage> {
+    let max = first_i64_at_paths(
+        value,
+        &[
+            &["contextWindow"],
+            &["context_window"],
+            &["modelContextWindow"],
+            &["model_context_window"],
+            &["maxContextTokens"],
+            &["max_context_tokens"],
+        ],
+    )
+    .and_then(|n| (n > 0).then_some(n as u64))?;
+
+    let used_direct = first_i64_at_paths(
+        value,
+        &[
+            &["contextTokens"],
+            &["context_tokens"],
+            &["contextWindowTokens"],
+            &["context_window_tokens"],
+            &["totalTokens"],
+            &["total_tokens"],
+            &["total", "totalTokens"],
+            &["total", "total_tokens"],
+            &["last", "totalTokens"],
+            &["last", "total_tokens"],
+        ],
+    )
+    .and_then(|n| (n >= 0).then_some(n as u64));
+
+    let used = used_direct?;
+    Some(ContextUsage {
+        used: used.min(max),
+        max,
+    })
+}
+
+fn choose_context_usage(current: Option<ContextUsage>, candidate: ContextUsage) -> ContextUsage {
+    match current {
+        Some(existing) if existing.max > candidate.max => existing,
+        Some(existing) if existing.max == candidate.max && existing.used >= candidate.used => {
+            existing
+        }
+        _ => candidate,
+    }
+}
+
+fn collect_context_usage_recursive(value: &Value, out: &mut Option<ContextUsage>) {
+    if let Some(candidate) = context_usage_from_value(value) {
+        *out = Some(choose_context_usage(*out, candidate));
+    }
+
+    match value {
+        Value::Object(obj) => {
+            for nested in obj.values() {
+                collect_context_usage_recursive(nested, out);
+            }
+        }
+        Value::Array(arr) => {
+            for nested in arr {
+                collect_context_usage_recursive(nested, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn extract_context_usage(value: &Value) -> Option<ContextUsage> {
+    let mut out = None;
+    collect_context_usage_recursive(value, &mut out);
+    out
+}
+
+fn context_usage_compact_tokens(n: u64) -> String {
+    if n >= 1_000_000 {
+        format!("{}m", n / 1_000_000)
+    } else if n >= 1_000 {
+        format!("{}k", n / 1_000)
+    } else {
+        n.to_string()
+    }
+}
+
+fn context_usage_label(usage: ContextUsage) -> String {
+    if usage.max == 0 {
+        return String::new();
+    }
+    let pct = ((usage.used as f64 / usage.max as f64) * 100.0).round() as u64;
+    format!(
+        "{}/{} ({}%)",
+        context_usage_compact_tokens(usage.used),
+        context_usage_compact_tokens(usage.max),
+        pct.min(100)
+    )
 }
 
 fn command_execution_action_command(item: &Value) -> Option<String> {
@@ -1538,6 +1748,9 @@ fn append_history_from_thread(app: &mut AppState, thread_obj: &Value) {
                 }
                 "commandExecution" => {
                     append_tool_history_item(app, item, Role::ToolOutput);
+                }
+                "contextCompaction" => {
+                    app.append_context_compacted_marker();
                 }
                 k if is_tool_call_type(k) => {
                     append_tool_history_item(app, item, Role::ToolCall);
@@ -2437,7 +2650,82 @@ fn append_wrapped_diff_lines(
     }
 }
 
+fn read_summary_path(text: &str) -> Option<&str> {
+    let trimmed = text.trim();
+    let rest = trimmed.strip_prefix("→ Read")?.trim_start();
+    if rest.is_empty() {
+        return Some("");
+    }
+    let path = rest.split_once(" [").map(|(p, _)| p).unwrap_or(rest).trim();
+    Some(path)
+}
+
+fn format_read_summary_with_count(path: &str, count: usize) -> String {
+    let base = if path.is_empty() {
+        "→ Read".to_string()
+    } else {
+        format!("→ Read {path}")
+    };
+    if count > 1 {
+        format!("{base} ×{count}")
+    } else {
+        base
+    }
+}
+
+fn collapse_successive_read_summaries(messages: &[Message]) -> Vec<Message> {
+    let mut out = Vec::with_capacity(messages.len());
+    let mut i = 0usize;
+
+    while i < messages.len() {
+        let msg = &messages[i];
+        let can_collapse = msg.kind == MessageKind::Plain
+            && msg.role == Role::ToolCall
+            && !msg.text.contains('\n');
+
+        let Some(path) = can_collapse.then(|| read_summary_path(&msg.text)).flatten() else {
+            out.push(msg.clone());
+            i += 1;
+            continue;
+        };
+        let key = path.to_string();
+
+        let mut count = 1usize;
+        let mut j = i + 1;
+        while j < messages.len() {
+            let next = &messages[j];
+            if next.kind != MessageKind::Plain
+                || next.role != Role::ToolCall
+                || next.text.contains('\n')
+            {
+                break;
+            }
+            let Some(next_path) = read_summary_path(&next.text) else {
+                break;
+            };
+            if next_path != key {
+                break;
+            }
+            count += 1;
+            j += 1;
+        }
+
+        if count > 1 {
+            let mut collapsed = msg.clone();
+            collapsed.text = format_read_summary_with_count(&key, count);
+            out.push(collapsed);
+            i = j;
+        } else {
+            out.push(msg.clone());
+            i += 1;
+        }
+    }
+
+    out
+}
+
 fn build_rendered_lines(messages: &[Message], width: usize) -> Vec<RenderedLine> {
+    let messages = collapse_successive_read_summaries(messages);
     let mut out = Vec::new();
 
     for (idx, msg) in messages.iter().enumerate() {
@@ -3358,33 +3646,36 @@ fn render_main_view(
         let sep_y = input_layout.input_top - 2;
         if size.width > 0 {
             let working = app.active_turn_id.is_some();
-            let line_len = size.width.saturating_sub(2);
+            let line_len = size.width.saturating_sub(1);
+            let context_label = app.context_usage.map(context_usage_label);
+            let context_label_cells = context_label
+                .as_ref()
+                .map(|label| visual_width(label))
+                .unwrap_or(0);
+            let can_draw_label = context_label_cells > 0 && context_label_cells + 1 < line_len;
+            let label_x = if can_draw_label {
+                line_len - context_label_cells
+            } else {
+                line_len
+            };
+            let anim_end = if can_draw_label {
+                label_x.saturating_sub(1)
+            } else {
+                line_len
+            };
             let tick = animation_tick();
-            let head = if line_len > 0 {
-                kitt_head_index(line_len, tick)
+            let head = if anim_end > 0 {
+                kitt_head_index(anim_end, tick)
             } else {
                 0
             };
-            let corner = if msg_height > 0 { "┗" } else { "━" };
-            draw_str(
-                buf,
-                0,
-                sep_y,
-                corner,
-                Style::default().fg(if working {
-                    kitt_color_for_distance(head)
-                } else {
-                    COLOR_GUTTER_USER
-                }),
-                1,
-            );
-            if line_len > 0 {
+            if anim_end > 0 {
                 if working {
-                    for x in 0..line_len {
+                    for x in 0..anim_end {
                         let dist = head.abs_diff(x);
                         draw_str(
                             buf,
-                            1 + x,
+                            x,
                             sep_y,
                             "━",
                             Style::default().fg(kitt_color_for_distance(dist)),
@@ -3392,14 +3683,27 @@ fn render_main_view(
                         );
                     }
                 } else {
-                    let sep = "━".repeat(line_len);
+                    let sep = "━".repeat(anim_end);
                     draw_str(
                         buf,
-                        1,
+                        0,
                         sep_y,
                         &sep,
                         Style::default().fg(COLOR_GUTTER_USER),
-                        line_len,
+                        anim_end,
+                    );
+                }
+            }
+
+            if can_draw_label {
+                if let Some(label) = context_label.as_ref() {
+                    draw_str(
+                        buf,
+                        label_x,
+                        sep_y,
+                        label,
+                        Style::default().fg(COLOR_STEP8),
+                        context_label_cells,
                     );
                 }
             }
@@ -3753,7 +4057,16 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
     };
 
     match method {
+        "thread/tokenUsage/updated" => {
+            if let Some(usage) = context_usage_from_thread_token_usage_params(params) {
+                app.context_usage = Some(usage);
+            }
+        }
+        "thread/compacted" => {
+            app.append_context_compacted_marker();
+        }
         "turn/started" => {
+            app.context_usage = None;
             if let Some(id) = params
                 .get("turn")
                 .and_then(Value::as_object)
@@ -3796,6 +4109,11 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
                 if let Some((call_id, summary)) = command_summary_from_parsed_cmd(msg) {
                     app.set_command_override(&call_id, summary);
                 }
+            }
+        }
+        "codex/event/token_count" => {
+            if let Some(usage) = context_usage_from_token_count_params(params) {
+                app.context_usage = Some(usage);
             }
         }
         "codex/event/raw_response_item" => {
@@ -3873,6 +4191,10 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
             let Some(kind) = item.get("type").and_then(Value::as_str) else {
                 return;
             };
+            if kind == "contextCompaction" {
+                app.append_context_compacted_marker();
+                return;
+            }
             let Some(mut role) = role_for_tool_type(kind) else {
                 return;
             };
@@ -4671,6 +4993,71 @@ mod tests {
     }
 
     #[test]
+    fn collapse_successive_read_summaries_merges_same_file() {
+        let messages = vec![
+            Message {
+                role: Role::ToolCall,
+                text: "→ Read src/main.rs [offset=10]".to_string(),
+                kind: MessageKind::Plain,
+                file_path: None,
+            },
+            Message {
+                role: Role::ToolCall,
+                text: "→ Read src/main.rs".to_string(),
+                kind: MessageKind::Plain,
+                file_path: None,
+            },
+            Message {
+                role: Role::ToolCall,
+                text: "→ Read src/main.rs [offset=30]".to_string(),
+                kind: MessageKind::Plain,
+                file_path: None,
+            },
+            Message {
+                role: Role::ToolCall,
+                text: "→ Read src/lib.rs".to_string(),
+                kind: MessageKind::Plain,
+                file_path: None,
+            },
+        ];
+
+        let collapsed = collapse_successive_read_summaries(&messages);
+        assert_eq!(collapsed.len(), 2);
+        assert_eq!(collapsed[0].text, "→ Read src/main.rs ×3");
+        assert_eq!(collapsed[1].text, "→ Read src/lib.rs");
+    }
+
+    #[test]
+    fn collapse_successive_read_summaries_stops_at_non_read_message() {
+        let messages = vec![
+            Message {
+                role: Role::ToolCall,
+                text: "→ Read src/main.rs".to_string(),
+                kind: MessageKind::Plain,
+                file_path: None,
+            },
+            Message {
+                role: Role::Assistant,
+                text: "working".to_string(),
+                kind: MessageKind::Plain,
+                file_path: None,
+            },
+            Message {
+                role: Role::ToolCall,
+                text: "→ Read src/main.rs".to_string(),
+                kind: MessageKind::Plain,
+                file_path: None,
+            },
+        ];
+
+        let collapsed = collapse_successive_read_summaries(&messages);
+        assert_eq!(collapsed.len(), 3);
+        assert_eq!(collapsed[0].text, "→ Read src/main.rs");
+        assert_eq!(collapsed[1].text, "working");
+        assert_eq!(collapsed[2].text, "→ Read src/main.rs");
+    }
+
+    #[test]
     fn wrap_natural_by_cells_prefers_word_boundaries() {
         let parts = wrap_natural_by_cells("alpha beta gamma", 10);
         assert_eq!(parts, vec!["alpha beta".to_string(), "gamma".to_string()]);
@@ -4838,6 +5225,249 @@ mod tests {
         assert!(!rendered
             .iter()
             .any(|l| l.text.trim_start().starts_with("@@ -")));
+    }
+
+    #[test]
+    fn context_usage_label_formats_k_and_percent() {
+        let label = context_usage_label(ContextUsage {
+            used: 128_000,
+            max: 256_000,
+        });
+        assert_eq!(label, "128k/256k (50%)");
+    }
+
+    #[test]
+    fn extract_context_usage_reads_nested_usage_fields() {
+        let payload = json!({
+            "result": {
+                "usage": {
+                    "contextWindow": 256000,
+                    "contextTokens": 120000
+                }
+            },
+            "params": {
+                "metrics": {
+                    "context_window": 128000,
+                    "input_tokens": 64000
+                }
+            }
+        });
+
+        let usage = extract_context_usage(&payload).expect("context usage");
+        assert_eq!(
+            usage,
+            ContextUsage {
+                used: 120_000,
+                max: 256_000
+            }
+        );
+    }
+
+    #[test]
+    fn extract_context_usage_reads_thread_token_usage_shape() {
+        let payload = json!({
+            "params": {
+                "tokenUsage": {
+                    "modelContextWindow": 256000,
+                    "total": {
+                        "totalTokens": 111111
+                    }
+                }
+            }
+        });
+
+        let usage = extract_context_usage(&payload).expect("context usage");
+        assert_eq!(
+            usage,
+            ContextUsage {
+                used: 111_111,
+                max: 256_000
+            }
+        );
+    }
+
+    #[test]
+    fn handle_notification_updates_context_usage_when_present() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"turn/completed\",\"params\":{\"usage\":{\"context_window\":256000,\"context_tokens\":128000}}}",
+        );
+
+        assert_eq!(app.context_usage, None);
+    }
+
+    #[test]
+    fn handle_notification_thread_token_usage_updated_sets_context_usage() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"thread/tokenUsage/updated\",\"params\":{\"threadId\":\"thread-1\",\"turnId\":\"turn-1\",\"tokenUsage\":{\"modelContextWindow\":256000,\"last\":{\"cachedInputTokens\":0,\"inputTokens\":0,\"outputTokens\":0,\"reasoningOutputTokens\":0,\"totalTokens\":0},\"total\":{\"cachedInputTokens\":0,\"inputTokens\":100000,\"outputTokens\":22000,\"reasoningOutputTokens\":0,\"totalTokens\":122000}}}}",
+        );
+
+        assert_eq!(
+            app.context_usage,
+            Some(ContextUsage {
+                used: 122_000,
+                max: 256_000
+            })
+        );
+    }
+
+    #[test]
+    fn handle_notification_thread_token_usage_prefers_last_when_total_exceeds_window() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"thread/tokenUsage/updated\",\"params\":{\"threadId\":\"thread-1\",\"turnId\":\"turn-1\",\"tokenUsage\":{\"modelContextWindow\":258400,\"last\":{\"cachedInputTokens\":0,\"inputTokens\":46000,\"outputTokens\":300,\"reasoningOutputTokens\":37,\"totalTokens\":46337},\"total\":{\"cachedInputTokens\":0,\"inputTokens\":301000,\"outputTokens\":2104,\"reasoningOutputTokens\":30,\"totalTokens\":303134}}}}",
+        );
+
+        assert_eq!(
+            app.context_usage,
+            Some(ContextUsage {
+                used: 46_337,
+                max: 258_400
+            })
+        );
+    }
+
+    #[test]
+    fn handle_notification_codex_event_token_count_sets_context_usage() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/token_count\",\"params\":{\"id\":\"turn-1\",\"msg\":{\"info\":{\"total_token_usage\":{\"input_tokens\":8815,\"cached_input_tokens\":0,\"output_tokens\":41,\"reasoning_output_tokens\":0,\"total_tokens\":8856},\"last_token_usage\":{\"input_tokens\":8815,\"cached_input_tokens\":0,\"output_tokens\":41,\"reasoning_output_tokens\":0,\"total_tokens\":8856},\"model_context_window\":258400,\"cost_usd\":0.0045096,\"total_cost_usd\":0.0045096}}}}",
+        );
+
+        assert_eq!(
+            app.context_usage,
+            Some(ContextUsage {
+                used: 8_856,
+                max: 258_400
+            })
+        );
+    }
+
+    #[test]
+    fn handle_notification_token_count_prefers_last_when_total_exceeds_window() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/token_count\",\"params\":{\"id\":\"turn-1\",\"msg\":{\"info\":{\"total_token_usage\":{\"input_tokens\":301030,\"cached_input_tokens\":264832,\"output_tokens\":2104,\"reasoning_output_tokens\":906,\"total_tokens\":303134},\"last_token_usage\":{\"input_tokens\":46249,\"cached_input_tokens\":43648,\"output_tokens\":88,\"reasoning_output_tokens\":56,\"total_tokens\":46337},\"model_context_window\":258400}}}}",
+        );
+
+        assert_eq!(
+            app.context_usage,
+            Some(ContextUsage {
+                used: 46_337,
+                max: 258_400
+            })
+        );
+    }
+
+    #[test]
+    fn handle_notification_codex_event_token_count_ignores_null_info() {
+        let mut app = AppState::new("thread-1".to_string());
+        app.context_usage = Some(ContextUsage {
+            used: 10_000,
+            max: 256_000,
+        });
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/token_count\",\"params\":{\"id\":\"turn-1\",\"msg\":{\"info\":null}}}",
+        );
+
+        assert_eq!(
+            app.context_usage,
+            Some(ContextUsage {
+                used: 10_000,
+                max: 256_000
+            })
+        );
+    }
+
+    #[test]
+    fn load_history_does_not_seed_context_usage_from_start_response() {
+        let mut app = AppState::new("thread-1".to_string());
+        let response = json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+                "thread": {
+                    "id": "thread-1",
+                    "tokenUsage": {
+                        "modelContextWindow": 256000,
+                        "last": {
+                            "cachedInputTokens": 0,
+                            "inputTokens": 0,
+                            "outputTokens": 0,
+                            "reasoningOutputTokens": 0,
+                            "totalTokens": 0
+                        },
+                        "total": {
+                            "cachedInputTokens": 0,
+                            "inputTokens": 80000,
+                            "outputTokens": 12000,
+                            "reasoningOutputTokens": 0,
+                            "totalTokens": 92000
+                        }
+                    },
+                    "turns": []
+                }
+            }
+        })
+        .to_string();
+
+        load_history_from_start_or_resume(&mut app, &response).expect("load history");
+        assert_eq!(app.context_usage, None);
+    }
+
+    #[test]
+    fn handle_notification_thread_compacted_appends_system_marker() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"thread/compacted\",\"params\":{\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+
+        assert_eq!(app.messages.len(), 1);
+        assert_eq!(app.messages[0].role, Role::System);
+        assert_eq!(app.messages[0].text, "↻ Context compacted");
+    }
+
+    #[test]
+    fn handle_notification_item_completed_context_compaction_appends_marker() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"contextCompaction\",\"id\":\"ctx-1\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+
+        assert_eq!(app.messages.len(), 1);
+        assert_eq!(app.messages[0].role, Role::System);
+        assert_eq!(app.messages[0].text, "↻ Context compacted");
+    }
+
+    #[test]
+    fn append_history_from_thread_includes_context_compaction_marker() {
+        let mut app = AppState::new("thread-1".to_string());
+        let thread = json!({
+            "turns": [
+                {
+                    "items": [
+                        {
+                            "type": "contextCompaction",
+                            "id": "ctx-1"
+                        }
+                    ]
+                }
+            ]
+        });
+
+        append_history_from_thread(&mut app, &thread);
+        assert_eq!(app.messages.len(), 1);
+        assert_eq!(app.messages[0].role, Role::System);
+        assert_eq!(app.messages[0].text, "↻ Context compacted");
     }
 
     #[test]
