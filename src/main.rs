@@ -23,8 +23,12 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
+use ratatui::widgets::Widget;
 use ratatui::Terminal;
 use ratatui_core::style::{Color as CoreColor, Modifier as CoreModifier, Style as CoreStyle};
+use ratatui_interact::components::{
+    DiffData, DiffViewMode, DiffViewer, DiffViewerState, DiffViewerStyle,
+};
 use ratatui_textarea::{Input as TextInput, Key as TextKey, TextArea};
 use serde_json::{json, Value};
 use textwrap::{wrap as wrap_text, Options as WrapOptions, WordSplitter};
@@ -69,6 +73,7 @@ const COLOR_KITT_TRAIL_2: Color = Color::Rgb(137, 180, 250); // blue
 const COLOR_KITT_TRAIL_3: Color = Color::Rgb(108, 112, 134); // overlay0
 const COLOR_KITT_BASE: Color = COLOR_STEP7;
 const KITT_STEP_MS: u128 = 45;
+const TOUCH_SCROLL_DRAG_MIN_ROWS: usize = 3;
 
 const MSG_TOP: usize = 1; // 1-based row index
 const MSG_CONTENT_X: usize = 2; // 0-based x
@@ -95,6 +100,13 @@ struct Message {
 enum MessageKind {
     Plain,
     Diff,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MouseDragMode {
+    Undecided,
+    Select,
+    Scroll,
 }
 
 #[derive(Debug, Clone)]
@@ -157,6 +169,10 @@ struct AppState {
     scroll_top: usize,
     auto_follow_bottom: bool,
     selection: Option<Selection>,
+    mouse_drag_mode: MouseDragMode,
+    mouse_drag_last_row: usize,
+    mobile_mouse_buffer: String,
+    mobile_mouse_last_y: Option<usize>,
     show_help: bool,
 }
 
@@ -174,6 +190,10 @@ impl AppState {
             scroll_top: 0,
             auto_follow_bottom: true,
             selection: None,
+            mouse_drag_mode: MouseDragMode::Undecided,
+            mouse_drag_last_row: 0,
+            mobile_mouse_buffer: String::new(),
+            mobile_mouse_last_y: None,
             show_help: false,
         }
     }
@@ -870,6 +890,12 @@ fn command_summary_from_shell_cmd(cmd: &str, cwd: Option<&str>) -> Option<String
     }
 
     let lower = cmd.to_ascii_lowercase();
+    if lower.starts_with("git diff ") || lower == "git diff" || lower.starts_with("diff ") {
+        return Some("Δ Diff".to_string());
+    }
+    if lower.starts_with("apply_patch") || lower.starts_with("patch ") {
+        return Some("← Edit".to_string());
+    }
     if lower.starts_with("rg ")
         || lower.starts_with("grep ")
         || lower.starts_with("fd ")
@@ -948,6 +974,13 @@ fn command_summary_from_parsed_cmd(msg: &Value) -> Option<(String, String)> {
             "✱ Search".to_string()
         } else if matches!(kind.as_str(), "list" | "listfiles" | "list_files" | "ls") {
             "→ List".to_string()
+        } else if matches!(
+            kind.as_str(),
+            "write" | "edit" | "applypatch" | "apply_patch" | "replace"
+        ) {
+            "← Edit".to_string()
+        } else if matches!(kind.as_str(), "diff" | "gitdiff" | "git_diff") {
+            "Δ Diff".to_string()
         } else if let Some(cmd) = cmd {
             let Some(summary) = command_summary_from_shell_cmd(cmd, cwd) else {
                 continue;
@@ -957,7 +990,12 @@ fn command_summary_from_parsed_cmd(msg: &Value) -> Option<(String, String)> {
             continue;
         };
 
-        if out == "→ Read" || out == "✱ Search" || out == "→ List" {
+        if out == "→ Read"
+            || out == "✱ Search"
+            || out == "→ List"
+            || out == "← Edit"
+            || out == "Δ Diff"
+        {
             if let Some(display) = path_display {
                 out.push(' ');
                 out.push_str(&display);
@@ -2108,6 +2146,217 @@ fn diff_line_style(line: &str) -> Style {
     Style::default().fg(COLOR_TEXT)
 }
 
+fn make_diff_viewer_style() -> DiffViewerStyle {
+    DiffViewerStyle {
+        border_style: Style::default().fg(COLOR_STEP6),
+        line_number_style: Style::default().fg(COLOR_DIM),
+        context_style: Style::default().fg(COLOR_TEXT),
+        addition_style: Style::default().fg(COLOR_DIFF_ADD),
+        addition_bg: Color::Rgb(22, 41, 29),
+        deletion_style: Style::default().fg(COLOR_DIFF_REMOVE),
+        deletion_bg: Color::Rgb(52, 25, 38),
+        inline_addition_style: Style::default().fg(COLOR_STEP1).bg(COLOR_DIFF_ADD),
+        inline_deletion_style: Style::default().fg(COLOR_STEP1).bg(COLOR_DIFF_REMOVE),
+        hunk_header_style: Style::default()
+            .fg(COLOR_DIFF_HUNK)
+            .add_modifier(Modifier::BOLD),
+        match_style: Style::default().bg(COLOR_STEP6).fg(COLOR_TEXT),
+        current_match_style: Style::default().bg(COLOR_PRIMARY).fg(COLOR_STEP1),
+        gutter_separator: "│",
+        side_separator: "│",
+    }
+}
+
+fn diff_total_lines(state: &DiffViewerState) -> usize {
+    state
+        .diff
+        .hunks
+        .iter()
+        .map(|h| h.lines.len() + 1)
+        .sum::<usize>()
+}
+
+fn trim_right_spaces(styled_segments: &mut Vec<StyledSegment>) {
+    while let Some(last) = styled_segments.last_mut() {
+        let trimmed_len = last.text.trim_end_matches(' ').len();
+        if trimmed_len == 0 {
+            styled_segments.pop();
+            continue;
+        }
+        if trimmed_len < last.text.len() {
+            last.text.truncate(trimmed_len);
+        }
+        break;
+    }
+}
+
+fn rendered_line_from_buffer_row(
+    buf: &Buffer,
+    y: u16,
+    x_start: u16,
+    width: u16,
+    role: Role,
+) -> RenderedLine {
+    let mut styled_segments: Vec<StyledSegment> = Vec::new();
+
+    for x in x_start..x_start.saturating_add(width) {
+        let Some(cell) = buf.cell((x, y)) else {
+            continue;
+        };
+        let sym = cell.symbol();
+        if sym.is_empty() {
+            continue;
+        }
+
+        let style = cell.style();
+
+        if let Some(last) = styled_segments.last_mut() {
+            if last.style == style {
+                last.text.push_str(sym);
+                continue;
+            }
+        }
+        styled_segments.push(StyledSegment {
+            text: sym.to_string(),
+            style,
+        });
+    }
+
+    trim_right_spaces(&mut styled_segments);
+    let text = styled_segments
+        .iter()
+        .map(|s| s.text.as_str())
+        .collect::<String>();
+    let cells = visual_width(&text);
+
+    RenderedLine {
+        text,
+        styled_segments,
+        role,
+        separator: false,
+        cells,
+        soft_wrap_to_next: false,
+    }
+}
+
+fn append_diff_viewer_lines(
+    out: &mut Vec<RenderedLine>,
+    role: Role,
+    file_path: Option<&str>,
+    diff: &str,
+    width: usize,
+) -> bool {
+    if width < 8 {
+        return false;
+    }
+
+    let parsed = DiffData::from_unified_diff(diff);
+    if parsed.hunks.is_empty() {
+        return false;
+    }
+
+    let mut staged = Vec::new();
+
+    if let Some(path) = file_path {
+        if !path.is_empty() {
+            staged.push(RenderedLine {
+                cells: visual_width(path),
+                text: path.to_string(),
+                styled_segments: vec![StyledSegment {
+                    text: path.to_string(),
+                    style: Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD),
+                }],
+                role,
+                separator: false,
+                soft_wrap_to_next: false,
+            });
+        }
+    }
+
+    let area_w = match u16::try_from(width.saturating_add(2)) {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+    let content_x = 1u16;
+    let content_y = 1u16;
+    let content_w = area_w.saturating_sub(2);
+    if content_w == 0 {
+        return false;
+    }
+
+    let hunk_total = parsed.hunks.len();
+    for (idx, hunk) in parsed.hunks.iter().enumerate() {
+        if idx > 0 {
+            staged.push(RenderedLine {
+                cells: 0,
+                text: String::new(),
+                styled_segments: Vec::new(),
+                role,
+                separator: false,
+                soft_wrap_to_next: false,
+            });
+        }
+
+        let hunk_label = format!(
+            "Hunk {}/{}  old {}..{} -> new {}..{}",
+            idx + 1,
+            hunk_total,
+            hunk.old_start,
+            hunk.old_start + hunk.old_count.saturating_sub(1),
+            hunk.new_start,
+            hunk.new_start + hunk.new_count.saturating_sub(1)
+        );
+        staged.push(RenderedLine {
+            cells: visual_width(&hunk_label),
+            text: hunk_label.clone(),
+            styled_segments: vec![StyledSegment {
+                text: hunk_label,
+                style: Style::default()
+                    .fg(COLOR_DIFF_HUNK)
+                    .add_modifier(Modifier::BOLD),
+            }],
+            role,
+            separator: false,
+            soft_wrap_to_next: false,
+        });
+
+        let mut one_hunk = DiffData::new(parsed.old_path.clone(), parsed.new_path.clone());
+        one_hunk.hunks.push(hunk.clone());
+
+        let mut state = DiffViewerState::new(one_hunk);
+        state.view_mode = DiffViewMode::Unified;
+        state.show_line_numbers = true;
+        let total_lines = diff_total_lines(&state);
+        if total_lines == 0 {
+            continue;
+        }
+
+        let area_h = match u16::try_from(total_lines.saturating_add(3)) {
+            Ok(v) => v,
+            Err(_) => return false,
+        };
+        let area = Rect::new(0, 0, area_w, area_h);
+        let mut buf = Buffer::empty(area);
+        let viewer = DiffViewer::new(&state)
+            .show_stats(false)
+            .style(make_diff_viewer_style());
+        viewer.render(area, &mut buf);
+
+        let content_h = area_h.saturating_sub(3);
+        for row in 0..content_h {
+            let line =
+                rendered_line_from_buffer_row(&buf, content_y + row, content_x, content_w, role);
+            if line.text.trim_start().starts_with("@@") {
+                continue;
+            }
+            staged.push(line);
+        }
+    }
+
+    out.extend(staged);
+    true
+}
+
 fn append_wrapped_diff_lines(
     out: &mut Vec<RenderedLine>,
     role: Role,
@@ -2115,6 +2364,10 @@ fn append_wrapped_diff_lines(
     diff: &str,
     width: usize,
 ) {
+    if append_diff_viewer_lines(out, role, file_path, diff, width) {
+        return;
+    }
+
     if width < 8 {
         return;
     }
@@ -2791,6 +3044,10 @@ fn draw_rendered_line(
         return;
     }
 
+    if !line.styled_segments.is_empty() {
+        draw_str(buf, x, y, &line.text, base_style, max_width);
+    }
+
     let mut draw_x = x;
     let mut col = 0usize;
 
@@ -3415,6 +3672,64 @@ fn kitt_color_for_distance(distance: usize) -> Color {
     }
 }
 
+fn decide_mouse_drag_mode(anchor_x: usize, anchor_y: usize, x: usize, y: usize) -> MouseDragMode {
+    let row_delta = y.abs_diff(anchor_y);
+    let col_delta = x.abs_diff(anchor_x);
+    if row_delta >= TOUCH_SCROLL_DRAG_MIN_ROWS && col_delta <= 1 {
+        MouseDragMode::Scroll
+    } else if row_delta > 0 || col_delta > 0 {
+        MouseDragMode::Select
+    } else {
+        MouseDragMode::Undecided
+    }
+}
+
+fn parse_mobile_mouse_coords(s: &str) -> Option<(usize, usize)> {
+    if !s.contains(';') {
+        return None;
+    }
+
+    let nums: Vec<usize> = s
+        .split(|ch: char| !ch.is_ascii_digit())
+        .filter(|part| !part.is_empty())
+        .filter_map(|part| part.parse::<usize>().ok())
+        .collect();
+    if nums.len() < 2 {
+        return None;
+    }
+
+    Some((nums[nums.len() - 2], nums[nums.len() - 1]))
+}
+
+fn apply_mobile_mouse_scroll(app: &mut AppState, y: usize) {
+    if let Some(prev) = app.mobile_mouse_last_y {
+        app.auto_follow_bottom = false;
+        let step = y.abs_diff(prev).min(8);
+        if y > prev {
+            app.scroll_top = app.scroll_top.saturating_add(step.max(1));
+        } else if y < prev {
+            app.scroll_top = app.scroll_top.saturating_sub(step.max(1));
+        }
+    }
+    app.mobile_mouse_last_y = Some(y);
+}
+
+fn consume_mobile_mouse_char(app: &mut AppState, c: char) -> bool {
+    if app.input_is_empty() && (c.is_ascii_digit() || c == ';' || c == '<' || c == 'M' || c == 'm')
+    {
+        app.mobile_mouse_buffer.push(c);
+        if let Some((_, y)) = parse_mobile_mouse_coords(&app.mobile_mouse_buffer) {
+            apply_mobile_mouse_scroll(app, y);
+            app.mobile_mouse_buffer.clear();
+        } else if app.mobile_mouse_buffer.len() > 24 {
+            app.mobile_mouse_buffer.clear();
+        }
+        return true;
+    }
+
+    false
+}
+
 fn is_key_press_like(kind: KeyEventKind) -> bool {
     matches!(kind, KeyEventKind::Press | KeyEventKind::Repeat)
 }
@@ -3827,12 +4142,12 @@ fn pick_thread(threads: &[ThreadSummary]) -> Result<Option<String>> {
                 },
                 Event::Mouse(m) => match m.kind {
                     MouseEventKind::ScrollUp => {
-                        selected = selected.saturating_sub(1);
-                    }
-                    MouseEventKind::ScrollDown => {
                         if selected + 1 < threads.len() {
                             selected += 1;
                         }
+                    }
+                    MouseEventKind::ScrollDown => {
+                        selected = selected.saturating_sub(1);
                     }
                     MouseEventKind::Down(MouseButton::Left) => {
                         let size = terminal.size()?;
@@ -3901,6 +4216,12 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                             continue;
                         }
 
+                        if let KeyCode::Char(ch) = k.code {
+                            if k.modifiers.is_empty() && consume_mobile_mouse_char(app, ch) {
+                                continue;
+                            }
+                        }
+
                         match (k.code, k.modifiers) {
                             (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(()),
                             (KeyCode::Char('y'), KeyModifiers::CONTROL) => {
@@ -3921,10 +4242,12 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                             }
                             (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
                                 app.selection = None;
+                                app.mouse_drag_mode = MouseDragMode::Undecided;
                                 app.set_status("selection cleared");
                             }
                             (KeyCode::Esc, _) => {
                                 app.selection = None;
+                                app.mouse_drag_mode = MouseDragMode::Undecided;
                                 app.set_status("selection cleared");
                             }
                             (KeyCode::Home, _) if app.input_is_empty() => {
@@ -3939,6 +4262,14 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                                 app.scroll_top = app.scroll_top.saturating_sub(1);
                             }
                             (KeyCode::Down, _) if app.input_is_empty() => {
+                                app.auto_follow_bottom = false;
+                                app.scroll_top = app.scroll_top.saturating_add(1);
+                            }
+                            (KeyCode::Char('k'), _) if app.input_is_empty() => {
+                                app.auto_follow_bottom = false;
+                                app.scroll_top = app.scroll_top.saturating_sub(1);
+                            }
+                            (KeyCode::Char('j'), _) if app.input_is_empty() => {
                                 app.auto_follow_bottom = false;
                                 app.scroll_top = app.scroll_top.saturating_add(1);
                             }
@@ -4016,13 +4347,15 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                         match m.kind {
                             MouseEventKind::ScrollUp => {
                                 app.auto_follow_bottom = false;
-                                app.scroll_top = app.scroll_top.saturating_sub(3);
+                                app.scroll_top = app.scroll_top.saturating_add(3);
                             }
                             MouseEventKind::ScrollDown => {
                                 app.auto_follow_bottom = false;
-                                app.scroll_top = app.scroll_top.saturating_add(3);
+                                app.scroll_top = app.scroll_top.saturating_sub(3);
                             }
                             MouseEventKind::Down(MouseButton::Left) => {
+                                app.mouse_drag_mode = MouseDragMode::Undecided;
+                                app.mouse_drag_last_row = clamped_y;
                                 if in_messages {
                                     app.selection = Some(Selection {
                                         anchor_x: norm_x,
@@ -4036,8 +4369,34 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                             MouseEventKind::Drag(MouseButton::Left) => {
                                 if let Some(sel) = app.selection.as_mut() {
                                     if sel.dragging {
-                                        sel.focus_x = norm_x;
-                                        sel.focus_y = clamped_y;
+                                        if app.mouse_drag_mode == MouseDragMode::Undecided {
+                                            app.mouse_drag_mode = decide_mouse_drag_mode(
+                                                sel.anchor_x,
+                                                sel.anchor_y,
+                                                norm_x,
+                                                clamped_y,
+                                            );
+                                        }
+
+                                        match app.mouse_drag_mode {
+                                            MouseDragMode::Scroll => {
+                                                app.auto_follow_bottom = false;
+                                                if clamped_y > app.mouse_drag_last_row {
+                                                    app.scroll_top = app.scroll_top.saturating_sub(
+                                                        clamped_y - app.mouse_drag_last_row,
+                                                    );
+                                                } else if clamped_y < app.mouse_drag_last_row {
+                                                    app.scroll_top = app.scroll_top.saturating_add(
+                                                        app.mouse_drag_last_row - clamped_y,
+                                                    );
+                                                }
+                                                app.mouse_drag_last_row = clamped_y;
+                                            }
+                                            MouseDragMode::Select | MouseDragMode::Undecided => {
+                                                sel.focus_x = norm_x;
+                                                sel.focus_y = clamped_y;
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -4048,17 +4407,22 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                                         sel.focus_y = clamped_y;
                                         sel.dragging = false;
 
-                                        let copied = selected_text(
-                                            *sel,
-                                            &rendered,
-                                            msg_bottom,
-                                            app.scroll_top,
-                                        );
-                                        if !copied.is_empty() {
-                                            let _ = try_copy_clipboard(&copied);
+                                        if app.mouse_drag_mode == MouseDragMode::Scroll {
+                                            app.selection = None;
+                                        } else {
+                                            let copied = selected_text(
+                                                *sel,
+                                                &rendered,
+                                                msg_bottom,
+                                                app.scroll_top,
+                                            );
+                                            if !copied.is_empty() {
+                                                let _ = try_copy_clipboard(&copied);
+                                            }
                                         }
                                     }
                                 }
+                                app.mouse_drag_mode = MouseDragMode::Undecided;
                             }
                             _ => {}
                         }
@@ -4066,6 +4430,12 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                     Event::Paste(pasted) => {
                         if app.show_help {
                             continue;
+                        }
+                        if app.input_is_empty() {
+                            if let Some((_, y)) = parse_mobile_mouse_coords(&pasted) {
+                                apply_mobile_mouse_scroll(app, y);
+                                continue;
+                            }
                         }
                         let normalized = normalize_pasted_text(&pasted);
                         if !normalized.is_empty() {
@@ -4398,15 +4768,38 @@ mod tests {
         let rendered = build_rendered_lines(&messages, 120);
         let removed = rendered
             .iter()
-            .find(|l| l.text == "-old")
+            .find(|l| l.text.contains("-old"))
             .expect("missing removed line");
         let added = rendered
             .iter()
-            .find(|l| l.text == "+new")
+            .find(|l| l.text.contains("+new"))
             .expect("missing added line");
 
-        assert_eq!(removed.styled_segments[0].style.fg, Some(COLOR_DIFF_REMOVE));
-        assert_eq!(added.styled_segments[0].style.fg, Some(COLOR_DIFF_ADD));
+        assert!(removed
+            .styled_segments
+            .iter()
+            .any(|s| s.style.fg == Some(COLOR_DIFF_REMOVE)));
+        assert!(added
+            .styled_segments
+            .iter()
+            .any(|s| s.style.fg == Some(COLOR_DIFF_ADD)));
+    }
+
+    #[test]
+    fn build_rendered_lines_diff_viewer_hides_raw_hunk_headers() {
+        let messages = vec![Message {
+            role: Role::ToolOutput,
+            text: "@@ -1,1 +1,1 @@\n-old\n+new\n@@ -10,1 +10,1 @@\n-foo\n+bar\n".to_string(),
+            kind: MessageKind::Diff,
+            file_path: Some("src/main.rs".to_string()),
+        }];
+
+        let rendered = build_rendered_lines(&messages, 120);
+        assert!(rendered.iter().any(|l| l.text.starts_with("Hunk 1/2")));
+        assert!(rendered.iter().any(|l| l.text.starts_with("Hunk 2/2")));
+        assert!(!rendered
+            .iter()
+            .any(|l| l.text.trim_start().starts_with("@@ -")));
     }
 
     #[test]
@@ -4591,6 +4984,47 @@ mod tests {
 
         assert_eq!(app.messages.len(), 1);
         assert_eq!(app.messages[0].text, "→ Read src/main.rs");
+        assert_eq!(app.messages[0].role, Role::ToolCall);
+    }
+
+    #[test]
+    fn exec_command_end_shell_git_diff_is_summarized_as_diff() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_git_diff\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/exec_command_end\",\"params\":{\"msg\":{\"type\":\"exec_command_end\",\"call_id\":\"call_git_diff\",\"cwd\":\"/repo\",\"parsed_cmd\":[{\"type\":\"shell\",\"cmd\":\"git diff -- src/main.rs\"}]}}}",
+        );
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_git_diff\",\"aggregatedOutput\":\"diff --git a/src/main.rs b/src/main.rs\\n@@ -1 +1 @@\\n-old\\n+new\\n\",\"exitCode\":1},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+
+        assert_eq!(app.messages.len(), 1);
+        assert_eq!(app.messages[0].kind, MessageKind::Diff);
+    }
+
+    #[test]
+    fn exec_command_end_parsed_edit_type_is_summarized_as_edit() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_edit_1\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/exec_command_end\",\"params\":{\"msg\":{\"type\":\"exec_command_end\",\"call_id\":\"call_edit_1\",\"cwd\":\"/repo\",\"parsed_cmd\":[{\"type\":\"edit\",\"path\":\"/repo/src/main.rs\"}]}}}",
+        );
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_edit_1\",\"aggregatedOutput\":\"patched\\n\",\"exitCode\":0},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+
+        assert_eq!(app.messages.len(), 1);
+        assert_eq!(app.messages[0].text, "← Edit src/main.rs");
         assert_eq!(app.messages[0].role, Role::ToolCall);
     }
 
@@ -4781,6 +5215,49 @@ mod tests {
         assert!(is_key_press_like(KeyEventKind::Press));
         assert!(is_key_press_like(KeyEventKind::Repeat));
         assert!(!is_key_press_like(KeyEventKind::Release));
+    }
+
+    #[test]
+    fn decide_mouse_drag_mode_prefers_scroll_for_vertical_swipe() {
+        assert_eq!(
+            decide_mouse_drag_mode(10, 10, 10, 14),
+            MouseDragMode::Scroll
+        );
+        assert_eq!(
+            decide_mouse_drag_mode(10, 10, 12, 14),
+            MouseDragMode::Select
+        );
+        assert_eq!(
+            decide_mouse_drag_mode(10, 10, 10, 11),
+            MouseDragMode::Select
+        );
+        assert_eq!(
+            decide_mouse_drag_mode(10, 10, 10, 10),
+            MouseDragMode::Undecided
+        );
+    }
+
+    #[test]
+    fn parse_mobile_mouse_coords_accepts_plain_and_sgr_fragments() {
+        assert_eq!(parse_mobile_mouse_coords("76;46"), Some((76, 46)));
+        assert_eq!(
+            parse_mobile_mouse_coords("\u{1b}[<64;76;46M"),
+            Some((76, 46))
+        );
+        assert_eq!(parse_mobile_mouse_coords("hello"), None);
+    }
+
+    #[test]
+    fn apply_mobile_mouse_scroll_uses_natural_touch_direction() {
+        let mut app = AppState::new("thread-1".to_string());
+        app.scroll_top = 20;
+        app.mobile_mouse_last_y = Some(40);
+
+        apply_mobile_mouse_scroll(&mut app, 44);
+        assert_eq!(app.scroll_top, 24);
+
+        apply_mobile_mouse_scroll(&mut app, 42);
+        assert_eq!(app.scroll_top, 22);
     }
 
     #[test]
