@@ -1953,6 +1953,20 @@ fn take_styled_segments_by_cells(
     out
 }
 
+fn normalize_styled_segments_for_part(
+    part: &str,
+    styled_segments: Vec<StyledSegment>,
+) -> Vec<StyledSegment> {
+    if styled_plain_text(&styled_segments) == part {
+        styled_segments
+    } else {
+        vec![StyledSegment {
+            text: part.to_string(),
+            style: Style::default(),
+        }]
+    }
+}
+
 fn wrap_natural_by_cells(text: &str, width: usize) -> Vec<String> {
     if width == 0 {
         return Vec::new();
@@ -2105,7 +2119,10 @@ fn append_wrapped_markdown_lines(
         for (i, part) in wrapped_parts.iter().enumerate() {
             let part_cells = visual_width(part);
             let wrapped = i + 1 < wrapped_parts.len();
-            let styled_segments = take_styled_segments_by_cells(&mut remaining, part_cells);
+            let styled_segments = normalize_styled_segments_for_part(
+                part,
+                take_styled_segments_by_cells(&mut remaining, part_cells),
+            );
 
             out.push(RenderedLine {
                 cells: part_cells,
@@ -5284,5 +5301,17 @@ mod tests {
 
         draw_rendered_line(&mut buf, 0, 0, 8, &line, Style::default(), None);
         assert_eq!(buf[(5, 0)].symbol(), ".");
+    }
+
+    #[test]
+    fn normalize_styled_segments_for_part_falls_back_on_mismatch() {
+        let styled = vec![StyledSegment {
+            text: "visua".to_string(),
+            style: Style::default().fg(COLOR_PRIMARY),
+        }];
+        let normalized = normalize_styled_segments_for_part("visual.", styled);
+        assert_eq!(normalized.len(), 1);
+        assert_eq!(normalized[0].text, "visual.");
+        assert_eq!(normalized[0].style, Style::default());
     }
 }
