@@ -24,6 +24,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::Terminal;
 use ratatui_textarea::{Input as TextInput, Key as TextKey, TextArea};
 use serde_json::{json, Value};
+use textwrap::{wrap as wrap_text, Options as WrapOptions, WordSplitter};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -656,6 +657,50 @@ fn is_fence_delimiter(line: &str) -> bool {
     line.trim_matches([' ', '\t', '\r']).starts_with("```")
 }
 
+fn wrap_natural_by_cells(text: &str, width: usize) -> Vec<String> {
+    if width == 0 {
+        return Vec::new();
+    }
+    if text.is_empty() {
+        return vec![String::new()];
+    }
+
+    let options = WrapOptions::new(width)
+        .break_words(false)
+        .word_splitter(WordSplitter::NoHyphenation);
+    let wrapped = wrap_text(text, options);
+    if wrapped.is_empty() {
+        return vec![String::new()];
+    }
+
+    let mut out = Vec::new();
+    for piece in wrapped {
+        let s = piece.into_owned();
+        if visual_width(&s) <= width {
+            out.push(s);
+            continue;
+        }
+
+        // Extremely long tokens can still overflow when word breaking is disabled.
+        // Fall back to hard cell wrapping only in that case.
+        let mut rest = s.as_str();
+        loop {
+            let take = split_at_cells(rest, width);
+            if take == 0 {
+                out.push(rest.to_string());
+                break;
+            }
+            out.push(rest[..take].to_string());
+            if take >= rest.len() {
+                break;
+            }
+            rest = &rest[take..];
+        }
+    }
+
+    out
+}
+
 fn append_wrapped_message_lines(out: &mut Vec<RenderedLine>, role: Role, text: &str, width: usize) {
     if width < 8 {
         return;
@@ -671,7 +716,6 @@ fn append_wrapped_message_lines(out: &mut Vec<RenderedLine>, role: Role, text: &
             continue;
         }
 
-        let mut rest = logical;
         let continuation = match role {
             Role::Reasoning => "          ",
             Role::ToolCall => "      ",
@@ -679,7 +723,7 @@ fn append_wrapped_message_lines(out: &mut Vec<RenderedLine>, role: Role, text: &
             _ => role_prefix(role),
         };
 
-        if rest.is_empty() {
+        if logical.is_empty() {
             let t = prefix.to_string();
             out.push(RenderedLine {
                 cells: visual_width(&t),
@@ -692,29 +736,34 @@ fn append_wrapped_message_lines(out: &mut Vec<RenderedLine>, role: Role, text: &
             continue;
         }
 
-        loop {
+        let lead_for_width = if in_code_fence {
+            role_prefix(Role::System)
+        } else if first_physical {
+            prefix
+        } else {
+            continuation
+        };
+        let lead_cells = visual_width(lead_for_width);
+        let avail = width.saturating_sub(lead_cells);
+        if avail == 0 {
+            first_physical = false;
+            continue;
+        }
+        let wrapped_parts = wrap_natural_by_cells(logical, avail);
+
+        for (i, part) in wrapped_parts.iter().enumerate() {
             let lead = if in_code_fence {
                 role_prefix(Role::System)
-            } else if first_physical {
+            } else if first_physical && i == 0 {
                 prefix
             } else {
                 continuation
             };
-            let lead_cells = visual_width(lead);
-            let avail = width.saturating_sub(lead_cells);
-            if avail == 0 {
-                break;
-            }
 
-            let take = split_at_cells(rest, avail);
-            if take == 0 {
-                break;
-            }
-
-            let mut line = String::with_capacity(lead.len() + take);
+            let mut line = String::with_capacity(lead.len() + part.len());
             line.push_str(lead);
-            line.push_str(&rest[..take]);
-            let wrapped = take < rest.len();
+            line.push_str(part);
+            let wrapped = i + 1 < wrapped_parts.len();
 
             out.push(RenderedLine {
                 cells: visual_width(&line),
@@ -723,12 +772,6 @@ fn append_wrapped_message_lines(out: &mut Vec<RenderedLine>, role: Role, text: &
                 separator: false,
                 soft_wrap_to_next: wrapped,
             });
-
-            if !wrapped {
-                break;
-            }
-            rest = &rest[take..];
-            first_physical = false;
         }
 
         first_physical = false;
@@ -755,8 +798,8 @@ fn build_rendered_lines(messages: &[Message], width: usize) -> Vec<RenderedLine>
 }
 
 fn transcript_content_width(size: TerminalSize) -> usize {
-    if size.width > MSG_CONTENT_X {
-        size.width - MSG_CONTENT_X
+    if size.width > MSG_CONTENT_X + 1 {
+        size.width - (MSG_CONTENT_X + 1)
     } else {
         0
     }
@@ -1586,16 +1629,23 @@ fn render_main_view(
         let sep_y = input_layout.input_top - 2;
         if size.width > 0 {
             let corner = if msg_height > 0 { "┗" } else { "━" };
-            draw_str(buf, 0, sep_y, corner, Style::default().fg(COLOR_GUTTER_USER), 1);
-            if size.width > 1 {
-                let sep = "━".repeat(size.width - 1);
+            draw_str(
+                buf,
+                0,
+                sep_y,
+                corner,
+                Style::default().fg(COLOR_GUTTER_USER),
+                1,
+            );
+            if size.width > 2 {
+                let sep = "━".repeat(size.width - 2);
                 draw_str(
                     buf,
                     1,
                     sep_y,
                     &sep,
                     Style::default().fg(COLOR_GUTTER_USER),
-                    size.width - 1,
+                    size.width - 2,
                 );
             }
         }
@@ -1637,7 +1687,7 @@ fn render_main_view(
         draw_help_overlay(buf, size);
     }
 
-    let cursor_x = input_layout.cursor_x.min(size.width.saturating_sub(1));
+    let cursor_x = input_layout.cursor_x.min(size.width.saturating_sub(2));
     let cursor_y = input_layout.cursor_y.min(size.height.saturating_sub(1));
     frame.set_cursor_position((cursor_x as u16, cursor_y as u16));
 }
@@ -2507,6 +2557,12 @@ mod tests {
         assert!(rendered.len() >= 3);
         assert!(rendered[1].separator);
         assert_eq!(rendered[1].role, Role::System);
+    }
+
+    #[test]
+    fn wrap_natural_by_cells_prefers_word_boundaries() {
+        let parts = wrap_natural_by_cells("alpha beta gamma", 10);
+        assert_eq!(parts, vec!["alpha beta".to_string(), "gamma".to_string()]);
     }
 
     #[test]
