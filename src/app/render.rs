@@ -1,0 +1,1849 @@
+use std::collections::VecDeque;
+use std::time::Instant;
+
+use crossterm::event::{KeyCode, KeyModifiers};
+use ratatui::buffer::Buffer;
+use ratatui::layout::Rect;
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::widgets::Widget;
+use ratatui_core::style::{Color as CoreColor, Modifier as CoreModifier, Style as CoreStyle};
+use ratatui_interact::components::{
+    DiffData, DiffViewMode, DiffViewer, DiffViewerState, DiffViewerStyle,
+};
+use ratatui_textarea::{Input as TextInput, Key as TextKey};
+use tui_markdown::{
+    from_str_with_options as markdown_from_str_with_options, Options as MarkdownOptions,
+};
+
+use super::context_usage::{
+    context_label_reserved_cells, context_usage_label, context_usage_placeholder_label,
+};
+use super::perf::PerfMetrics;
+use super::selection::compute_selection_range;
+use super::text::{
+    char_to_byte_idx, slice_by_cells, split_at_cells, visual_width, wrap_input_line,
+    wrap_natural_by_cells,
+};
+use super::{
+    animation_tick, kitt_head_index, AppState, Message, MessageKind, RenderedLine, Role,
+    StyledSegment, TerminalSize, ThreadSummary, MSG_CONTENT_X, MSG_TOP,
+};
+use crate::theme::*;
+
+pub(super) fn role_prefix(role: Role) -> &'static str {
+    match role {
+        Role::User => "",
+        Role::Assistant => "",
+        Role::Reasoning => "",
+        Role::ToolCall => "",
+        Role::ToolOutput => "",
+        Role::System => "",
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct CarlosMarkdownStyleSheet;
+
+pub(super) fn color_to_core(color: Color) -> CoreColor {
+    match color {
+        Color::Reset => CoreColor::Reset,
+        Color::Black => CoreColor::Black,
+        Color::Red => CoreColor::Red,
+        Color::Green => CoreColor::Green,
+        Color::Yellow => CoreColor::Yellow,
+        Color::Blue => CoreColor::Blue,
+        Color::Magenta => CoreColor::Magenta,
+        Color::Cyan => CoreColor::Cyan,
+        Color::Gray => CoreColor::Gray,
+        Color::DarkGray => CoreColor::DarkGray,
+        Color::LightRed => CoreColor::LightRed,
+        Color::LightGreen => CoreColor::LightGreen,
+        Color::LightYellow => CoreColor::LightYellow,
+        Color::LightBlue => CoreColor::LightBlue,
+        Color::LightMagenta => CoreColor::LightMagenta,
+        Color::LightCyan => CoreColor::LightCyan,
+        Color::White => CoreColor::White,
+        Color::Rgb(r, g, b) => CoreColor::Rgb(r, g, b),
+        Color::Indexed(v) => CoreColor::Indexed(v),
+    }
+}
+
+pub(super) fn core_color_to_color(color: CoreColor) -> Color {
+    match color {
+        CoreColor::Reset => Color::Reset,
+        CoreColor::Black => Color::Black,
+        CoreColor::Red => Color::Red,
+        CoreColor::Green => Color::Green,
+        CoreColor::Yellow => Color::Yellow,
+        CoreColor::Blue => Color::Blue,
+        CoreColor::Magenta => Color::Magenta,
+        CoreColor::Cyan => Color::Cyan,
+        CoreColor::Gray => Color::Gray,
+        CoreColor::DarkGray => Color::DarkGray,
+        CoreColor::LightRed => Color::LightRed,
+        CoreColor::LightGreen => Color::LightGreen,
+        CoreColor::LightYellow => Color::LightYellow,
+        CoreColor::LightBlue => Color::LightBlue,
+        CoreColor::LightMagenta => Color::LightMagenta,
+        CoreColor::LightCyan => Color::LightCyan,
+        CoreColor::White => Color::White,
+        CoreColor::Rgb(r, g, b) => Color::Rgb(r, g, b),
+        CoreColor::Indexed(v) => Color::Indexed(v),
+    }
+}
+
+pub(super) fn modifier_to_core(modifier: Modifier) -> CoreModifier {
+    let mut out = CoreModifier::empty();
+    if modifier.contains(Modifier::BOLD) {
+        out |= CoreModifier::BOLD;
+    }
+    if modifier.contains(Modifier::DIM) {
+        out |= CoreModifier::DIM;
+    }
+    if modifier.contains(Modifier::ITALIC) {
+        out |= CoreModifier::ITALIC;
+    }
+    if modifier.contains(Modifier::UNDERLINED) {
+        out |= CoreModifier::UNDERLINED;
+    }
+    if modifier.contains(Modifier::SLOW_BLINK) {
+        out |= CoreModifier::SLOW_BLINK;
+    }
+    if modifier.contains(Modifier::RAPID_BLINK) {
+        out |= CoreModifier::RAPID_BLINK;
+    }
+    if modifier.contains(Modifier::REVERSED) {
+        out |= CoreModifier::REVERSED;
+    }
+    if modifier.contains(Modifier::HIDDEN) {
+        out |= CoreModifier::HIDDEN;
+    }
+    if modifier.contains(Modifier::CROSSED_OUT) {
+        out |= CoreModifier::CROSSED_OUT;
+    }
+    out
+}
+
+pub(super) fn core_modifier_to_modifier(modifier: CoreModifier) -> Modifier {
+    let mut out = Modifier::empty();
+    if modifier.contains(CoreModifier::BOLD) {
+        out |= Modifier::BOLD;
+    }
+    if modifier.contains(CoreModifier::DIM) {
+        out |= Modifier::DIM;
+    }
+    if modifier.contains(CoreModifier::ITALIC) {
+        out |= Modifier::ITALIC;
+    }
+    if modifier.contains(CoreModifier::UNDERLINED) {
+        out |= Modifier::UNDERLINED;
+    }
+    if modifier.contains(CoreModifier::SLOW_BLINK) {
+        out |= Modifier::SLOW_BLINK;
+    }
+    if modifier.contains(CoreModifier::RAPID_BLINK) {
+        out |= Modifier::RAPID_BLINK;
+    }
+    if modifier.contains(CoreModifier::REVERSED) {
+        out |= Modifier::REVERSED;
+    }
+    if modifier.contains(CoreModifier::HIDDEN) {
+        out |= Modifier::HIDDEN;
+    }
+    if modifier.contains(CoreModifier::CROSSED_OUT) {
+        out |= Modifier::CROSSED_OUT;
+    }
+    out
+}
+
+pub(super) fn style_to_core(style: Style) -> CoreStyle {
+    let mut out = CoreStyle::default();
+    if let Some(fg) = style.fg {
+        out = out.fg(color_to_core(fg));
+    }
+    if let Some(bg) = style.bg {
+        out = out.bg(color_to_core(bg));
+    }
+    if let Some(ul) = style.underline_color {
+        out = out.underline_color(color_to_core(ul));
+    }
+    out.add_modifier = modifier_to_core(style.add_modifier);
+    out.sub_modifier = modifier_to_core(style.sub_modifier);
+    out
+}
+
+pub(super) fn core_style_to_style(style: CoreStyle) -> Style {
+    let mut out = Style::default();
+    if let Some(fg) = style.fg {
+        out = out.fg(core_color_to_color(fg));
+    }
+    if let Some(bg) = style.bg {
+        out = out.bg(core_color_to_color(bg));
+    }
+    if let Some(ul) = style.underline_color {
+        out = out.underline_color(core_color_to_color(ul));
+    }
+    out.add_modifier = core_modifier_to_modifier(style.add_modifier);
+    out.sub_modifier = core_modifier_to_modifier(style.sub_modifier);
+    out
+}
+
+impl tui_markdown::StyleSheet for CarlosMarkdownStyleSheet {
+    fn heading(&self, level: u8) -> CoreStyle {
+        match level {
+            1 => style_to_core(
+                Style::default()
+                    .fg(COLOR_TEXT)
+                    .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+            ),
+            2 => style_to_core(Style::default().fg(COLOR_TEXT).add_modifier(Modifier::BOLD)),
+            _ => style_to_core(Style::default().fg(COLOR_TEXT)),
+        }
+    }
+
+    fn code(&self) -> CoreStyle {
+        style_to_core(Style::default().fg(COLOR_TEXT))
+    }
+
+    fn link(&self) -> CoreStyle {
+        style_to_core(
+            Style::default()
+                .fg(COLOR_GUTTER_USER)
+                .add_modifier(Modifier::UNDERLINED),
+        )
+    }
+
+    fn blockquote(&self) -> CoreStyle {
+        style_to_core(Style::default().fg(COLOR_DIM))
+    }
+
+    fn heading_meta(&self) -> CoreStyle {
+        style_to_core(Style::default().fg(COLOR_DIM).add_modifier(Modifier::DIM))
+    }
+
+    fn metadata_block(&self) -> CoreStyle {
+        style_to_core(Style::default().fg(COLOR_DIM))
+    }
+}
+
+pub(super) fn is_fence_delimiter(line: &str) -> bool {
+    line.trim_matches([' ', '\t', '\r']).starts_with("```")
+}
+
+pub(super) fn styled_plain_text(segments: &[StyledSegment]) -> String {
+    let mut out = String::new();
+    for seg in segments {
+        out.push_str(&seg.text);
+    }
+    out
+}
+
+pub(super) fn markdown_line_segments(text: &str) -> Vec<Vec<StyledSegment>> {
+    let opts = MarkdownOptions::new(CarlosMarkdownStyleSheet);
+    let markdown = markdown_from_str_with_options(text, &opts);
+
+    let mut out = Vec::new();
+    for line in markdown.lines {
+        let mut segments = Vec::new();
+        for span in line.spans {
+            if span.content.is_empty() {
+                continue;
+            }
+            segments.push(StyledSegment {
+                text: span.content.to_string(),
+                style: core_style_to_style(span.style),
+            });
+        }
+
+        let plain = styled_plain_text(&segments);
+        if is_fence_delimiter(&plain) {
+            continue;
+        }
+        out.push(segments);
+    }
+    out
+}
+
+pub(super) fn take_styled_segments_by_cells(
+    remaining: &mut VecDeque<StyledSegment>,
+    max_cells: usize,
+) -> Vec<StyledSegment> {
+    if max_cells == 0 {
+        return Vec::new();
+    }
+
+    let mut out = Vec::new();
+    let mut taken_cells = 0usize;
+
+    while let Some(mut seg) = remaining.pop_front() {
+        let seg_cells = visual_width(&seg.text);
+        if seg_cells == 0 {
+            out.push(seg);
+            continue;
+        }
+
+        if taken_cells + seg_cells <= max_cells {
+            taken_cells += seg_cells;
+            out.push(seg);
+            if taken_cells == max_cells {
+                break;
+            }
+            continue;
+        }
+
+        let allowed = max_cells.saturating_sub(taken_cells);
+        if allowed == 0 {
+            remaining.push_front(seg);
+            break;
+        }
+
+        let split = split_at_cells(&seg.text, allowed);
+        if split == 0 {
+            remaining.push_front(seg);
+            break;
+        }
+
+        let left = seg.text[..split].to_string();
+        let right = seg.text[split..].to_string();
+        let seg_style = seg.style;
+        if !right.is_empty() {
+            seg.text = right;
+            remaining.push_front(seg);
+        }
+
+        out.push(StyledSegment {
+            text: left,
+            style: seg_style,
+        });
+        break;
+    }
+
+    out
+}
+
+pub(super) fn normalize_styled_segments_for_part(
+    part: &str,
+    styled_segments: Vec<StyledSegment>,
+) -> Vec<StyledSegment> {
+    if styled_plain_text(&styled_segments) == part {
+        styled_segments
+    } else {
+        vec![StyledSegment {
+            text: part.to_string(),
+            style: Style::default(),
+        }]
+    }
+}
+
+pub(super) fn append_wrapped_message_lines(
+    out: &mut Vec<RenderedLine>,
+    role: Role,
+    text: &str,
+    width: usize,
+) {
+    if width < 8 {
+        return;
+    }
+
+    let prefix = role_prefix(role);
+    let mut first_physical = true;
+    let mut in_code_fence = false;
+
+    for logical in text.split('\n') {
+        if is_fence_delimiter(logical) {
+            in_code_fence = !in_code_fence;
+            continue;
+        }
+
+        let continuation = role_prefix(role);
+
+        if logical.is_empty() {
+            let t = prefix.to_string();
+            out.push(RenderedLine {
+                cells: visual_width(&t),
+                text: t,
+                styled_segments: Vec::new(),
+                role,
+                separator: false,
+                soft_wrap_to_next: false,
+            });
+            first_physical = false;
+            continue;
+        }
+
+        let lead_for_width = if in_code_fence {
+            role_prefix(Role::System)
+        } else if first_physical {
+            prefix
+        } else {
+            continuation
+        };
+        let lead_cells = visual_width(lead_for_width);
+        let avail = width.saturating_sub(lead_cells);
+        if avail == 0 {
+            first_physical = false;
+            continue;
+        }
+        let wrapped_parts = wrap_natural_by_cells(logical, avail);
+
+        for (i, part) in wrapped_parts.iter().enumerate() {
+            let lead = if in_code_fence {
+                role_prefix(Role::System)
+            } else if first_physical && i == 0 {
+                prefix
+            } else {
+                continuation
+            };
+
+            let mut line = String::with_capacity(lead.len() + part.len());
+            line.push_str(lead);
+            line.push_str(part);
+            let wrapped = i + 1 < wrapped_parts.len();
+
+            out.push(RenderedLine {
+                cells: visual_width(&line),
+                text: line.clone(),
+                styled_segments: vec![StyledSegment {
+                    text: line,
+                    style: Style::default(),
+                }],
+                role,
+                separator: false,
+                soft_wrap_to_next: wrapped,
+            });
+        }
+
+        first_physical = false;
+    }
+}
+
+pub(super) fn append_wrapped_markdown_lines(
+    out: &mut Vec<RenderedLine>,
+    role: Role,
+    text: &str,
+    width: usize,
+) {
+    if width < 8 {
+        return;
+    }
+
+    let logical_lines = markdown_line_segments(text);
+    for logical in logical_lines {
+        let plain = styled_plain_text(&logical);
+        if plain.is_empty() {
+            out.push(RenderedLine {
+                cells: 0,
+                text: String::new(),
+                styled_segments: Vec::new(),
+                role,
+                separator: false,
+                soft_wrap_to_next: false,
+            });
+            continue;
+        }
+
+        let wrapped_parts = wrap_natural_by_cells(&plain, width);
+        let mut remaining: VecDeque<StyledSegment> = logical.into();
+
+        for (i, part) in wrapped_parts.iter().enumerate() {
+            let part_cells = visual_width(part);
+            let wrapped = i + 1 < wrapped_parts.len();
+            let styled_segments = normalize_styled_segments_for_part(
+                part,
+                take_styled_segments_by_cells(&mut remaining, part_cells),
+            );
+
+            out.push(RenderedLine {
+                cells: part_cells,
+                text: part.clone(),
+                styled_segments,
+                role,
+                separator: false,
+                soft_wrap_to_next: wrapped,
+            });
+        }
+    }
+}
+
+pub(super) fn diff_line_style(line: &str) -> Style {
+    if line.starts_with("@@") {
+        return Style::default()
+            .fg(COLOR_DIFF_HUNK)
+            .add_modifier(Modifier::BOLD);
+    }
+    if (line.starts_with("+++") || line.starts_with("---")) && line.len() > 3 {
+        return Style::default().fg(COLOR_DIFF_HEADER);
+    }
+    if line.starts_with("diff --git ")
+        || line.starts_with("index ")
+        || line.starts_with("new file mode ")
+        || line.starts_with("deleted file mode ")
+    {
+        return Style::default()
+            .fg(COLOR_DIFF_HEADER)
+            .add_modifier(Modifier::DIM);
+    }
+    if line.starts_with('+') && !line.starts_with("+++") {
+        return Style::default().fg(COLOR_DIFF_ADD);
+    }
+    if line.starts_with('-') && !line.starts_with("---") {
+        return Style::default().fg(COLOR_DIFF_REMOVE);
+    }
+    Style::default().fg(COLOR_TEXT)
+}
+
+pub(super) fn make_diff_viewer_style() -> DiffViewerStyle {
+    DiffViewerStyle {
+        border_style: Style::default().fg(COLOR_STEP6),
+        line_number_style: Style::default().fg(COLOR_DIM),
+        context_style: Style::default().fg(COLOR_TEXT),
+        addition_style: Style::default().fg(COLOR_DIFF_ADD),
+        addition_bg: Color::Rgb(22, 41, 29),
+        deletion_style: Style::default().fg(COLOR_DIFF_REMOVE),
+        deletion_bg: Color::Rgb(52, 25, 38),
+        inline_addition_style: Style::default().fg(COLOR_STEP1).bg(COLOR_DIFF_ADD),
+        inline_deletion_style: Style::default().fg(COLOR_STEP1).bg(COLOR_DIFF_REMOVE),
+        hunk_header_style: Style::default()
+            .fg(COLOR_DIFF_HUNK)
+            .add_modifier(Modifier::BOLD),
+        match_style: Style::default().bg(COLOR_STEP6).fg(COLOR_TEXT),
+        current_match_style: Style::default().bg(COLOR_PRIMARY).fg(COLOR_STEP1),
+        gutter_separator: "│",
+        side_separator: "│",
+    }
+}
+
+pub(super) fn diff_total_lines(state: &DiffViewerState) -> usize {
+    state
+        .diff
+        .hunks
+        .iter()
+        .map(|h| h.lines.len() + 1)
+        .sum::<usize>()
+}
+
+pub(super) fn trim_right_spaces(styled_segments: &mut Vec<StyledSegment>) {
+    while let Some(last) = styled_segments.last_mut() {
+        let trimmed_len = last.text.trim_end_matches(' ').len();
+        if trimmed_len == 0 {
+            styled_segments.pop();
+            continue;
+        }
+        if trimmed_len < last.text.len() {
+            last.text.truncate(trimmed_len);
+        }
+        break;
+    }
+}
+
+pub(super) fn rendered_line_from_buffer_row(
+    buf: &Buffer,
+    y: u16,
+    x_start: u16,
+    width: u16,
+    role: Role,
+) -> RenderedLine {
+    let mut styled_segments: Vec<StyledSegment> = Vec::new();
+
+    for x in x_start..x_start.saturating_add(width) {
+        let Some(cell) = buf.cell((x, y)) else {
+            continue;
+        };
+        let sym = cell.symbol();
+        if sym.is_empty() {
+            continue;
+        }
+
+        let style = cell.style();
+
+        if let Some(last) = styled_segments.last_mut() {
+            if last.style == style {
+                last.text.push_str(sym);
+                continue;
+            }
+        }
+        styled_segments.push(StyledSegment {
+            text: sym.to_string(),
+            style,
+        });
+    }
+
+    trim_right_spaces(&mut styled_segments);
+    let text = styled_segments
+        .iter()
+        .map(|s| s.text.as_str())
+        .collect::<String>();
+    let cells = visual_width(&text);
+
+    RenderedLine {
+        text,
+        styled_segments,
+        role,
+        separator: false,
+        cells,
+        soft_wrap_to_next: false,
+    }
+}
+
+pub(super) fn append_diff_viewer_lines(
+    out: &mut Vec<RenderedLine>,
+    role: Role,
+    file_path: Option<&str>,
+    diff: &str,
+    width: usize,
+) -> bool {
+    if width < 8 {
+        return false;
+    }
+
+    let parsed = DiffData::from_unified_diff(diff);
+    if parsed.hunks.is_empty() {
+        return false;
+    }
+
+    let mut staged = Vec::new();
+
+    let diff_path = file_path
+        .filter(|p| !p.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| parsed.new_path.clone())
+        .or_else(|| parsed.old_path.clone());
+
+    let area_w = match u16::try_from(width.saturating_add(2)) {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+    let content_x = 1u16;
+    let content_y = 1u16;
+    let content_w = area_w.saturating_sub(2);
+    if content_w == 0 {
+        return false;
+    }
+
+    let hunk_total = parsed.hunks.len();
+    for (idx, hunk) in parsed.hunks.iter().enumerate() {
+        if idx > 0 {
+            staged.push(RenderedLine {
+                cells: 0,
+                text: String::new(),
+                styled_segments: Vec::new(),
+                role,
+                separator: false,
+                soft_wrap_to_next: false,
+            });
+        }
+
+        if let Some(path) = diff_path.as_deref() {
+            if !path.is_empty() {
+                staged.push(RenderedLine {
+                    cells: visual_width(path),
+                    text: path.to_string(),
+                    styled_segments: vec![StyledSegment {
+                        text: path.to_string(),
+                        style: Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD),
+                    }],
+                    role,
+                    separator: false,
+                    soft_wrap_to_next: false,
+                });
+            }
+        }
+
+        let hunk_label = format!(
+            "Hunk {}/{}  old {}..{} -> new {}..{}",
+            idx + 1,
+            hunk_total,
+            hunk.old_start,
+            hunk.old_start + hunk.old_count.saturating_sub(1),
+            hunk.new_start,
+            hunk.new_start + hunk.new_count.saturating_sub(1)
+        );
+        staged.push(RenderedLine {
+            cells: visual_width(&hunk_label),
+            text: hunk_label.clone(),
+            styled_segments: vec![StyledSegment {
+                text: hunk_label,
+                style: Style::default()
+                    .fg(COLOR_DIFF_HUNK)
+                    .add_modifier(Modifier::BOLD),
+            }],
+            role,
+            separator: false,
+            soft_wrap_to_next: false,
+        });
+
+        let mut one_hunk = DiffData::new(parsed.old_path.clone(), parsed.new_path.clone());
+        one_hunk.hunks.push(hunk.clone());
+
+        let mut state = DiffViewerState::new(one_hunk);
+        state.view_mode = DiffViewMode::Unified;
+        state.show_line_numbers = true;
+        let total_lines = diff_total_lines(&state);
+        if total_lines == 0 {
+            continue;
+        }
+
+        let area_h = match u16::try_from(total_lines.saturating_add(3)) {
+            Ok(v) => v,
+            Err(_) => return false,
+        };
+        let area = Rect::new(0, 0, area_w, area_h);
+        let mut buf = Buffer::empty(area);
+        let viewer = DiffViewer::new(&state)
+            .show_stats(false)
+            .style(make_diff_viewer_style());
+        viewer.render(area, &mut buf);
+
+        let content_h = area_h.saturating_sub(3);
+        for row in 0..content_h {
+            let line =
+                rendered_line_from_buffer_row(&buf, content_y + row, content_x, content_w, role);
+            if line.text.trim_start().starts_with("@@") {
+                continue;
+            }
+            staged.push(line);
+        }
+    }
+
+    out.extend(staged);
+    true
+}
+
+pub(super) fn append_wrapped_diff_lines(
+    out: &mut Vec<RenderedLine>,
+    role: Role,
+    file_path: Option<&str>,
+    diff: &str,
+    width: usize,
+) {
+    if append_diff_viewer_lines(out, role, file_path, diff, width) {
+        return;
+    }
+
+    if width < 8 {
+        return;
+    }
+
+    if let Some(path) = file_path {
+        if !path.is_empty() {
+            out.push(RenderedLine {
+                cells: visual_width(path),
+                text: path.to_string(),
+                styled_segments: vec![StyledSegment {
+                    text: path.to_string(),
+                    style: Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD),
+                }],
+                role,
+                separator: false,
+                soft_wrap_to_next: false,
+            });
+        }
+    }
+
+    for logical in diff.split('\n') {
+        let line_style = diff_line_style(logical);
+        if logical.is_empty() {
+            out.push(RenderedLine {
+                cells: 0,
+                text: String::new(),
+                styled_segments: Vec::new(),
+                role,
+                separator: false,
+                soft_wrap_to_next: false,
+            });
+            continue;
+        }
+
+        let wrapped_parts = wrap_natural_by_cells(logical, width);
+        for (i, part) in wrapped_parts.iter().enumerate() {
+            let wrapped = i + 1 < wrapped_parts.len();
+            out.push(RenderedLine {
+                cells: visual_width(part),
+                text: part.clone(),
+                styled_segments: vec![StyledSegment {
+                    text: part.clone(),
+                    style: line_style,
+                }],
+                role,
+                separator: false,
+                soft_wrap_to_next: wrapped,
+            });
+        }
+    }
+}
+
+pub(super) fn read_summary_path(text: &str) -> Option<&str> {
+    let trimmed = text.trim();
+    let rest = trimmed.strip_prefix("→ Read")?.trim_start();
+    if rest.is_empty() {
+        return Some("");
+    }
+    let path = rest.split_once(" [").map(|(p, _)| p).unwrap_or(rest).trim();
+    Some(path)
+}
+
+pub(super) fn format_read_summary_with_count(path: &str, count: usize) -> String {
+    let base = if path.is_empty() {
+        "→ Read".to_string()
+    } else {
+        format!("→ Read {path}")
+    };
+    if count > 1 {
+        format!("{base} ×{count}")
+    } else {
+        base
+    }
+}
+
+pub(super) fn collapse_successive_read_summaries(messages: &[Message]) -> Vec<Message> {
+    let mut out = Vec::with_capacity(messages.len());
+    let mut i = 0usize;
+
+    while i < messages.len() {
+        let msg = &messages[i];
+        let can_collapse = msg.kind == MessageKind::Plain
+            && msg.role == Role::ToolCall
+            && !msg.text.contains('\n');
+
+        let Some(path) = can_collapse.then(|| read_summary_path(&msg.text)).flatten() else {
+            out.push(msg.clone());
+            i += 1;
+            continue;
+        };
+        let key = path.to_string();
+
+        let mut count = 1usize;
+        let mut j = i + 1;
+        while j < messages.len() {
+            let next = &messages[j];
+            if next.kind != MessageKind::Plain
+                || next.role != Role::ToolCall
+                || next.text.contains('\n')
+            {
+                break;
+            }
+            let Some(next_path) = read_summary_path(&next.text) else {
+                break;
+            };
+            if next_path != key {
+                break;
+            }
+            count += 1;
+            j += 1;
+        }
+
+        if count > 1 {
+            let mut collapsed = msg.clone();
+            collapsed.text = format_read_summary_with_count(&key, count);
+            out.push(collapsed);
+            i = j;
+        } else {
+            out.push(msg.clone());
+            i += 1;
+        }
+    }
+
+    out
+}
+
+pub(super) fn build_rendered_lines(messages: &[Message], width: usize) -> Vec<RenderedLine> {
+    build_rendered_lines_with_hidden(messages, width, None)
+}
+
+pub(super) fn build_rendered_lines_with_hidden(
+    messages: &[Message],
+    width: usize,
+    hidden_user_message_idx: Option<usize>,
+) -> Vec<RenderedLine> {
+    let mut filtered = Vec::with_capacity(messages.len());
+    for (idx, msg) in messages.iter().enumerate() {
+        if hidden_user_message_idx == Some(idx) && msg.role == Role::User {
+            continue;
+        }
+        filtered.push(msg.clone());
+    }
+    let messages = collapse_successive_read_summaries(&filtered);
+    let mut out = Vec::new();
+    let mut appended_any = false;
+
+    for msg in &messages {
+        if appended_any {
+            out.push(RenderedLine {
+                text: String::new(),
+                styled_segments: Vec::new(),
+                role: Role::System,
+                separator: true,
+                cells: 0,
+                soft_wrap_to_next: false,
+            });
+        }
+        match msg.kind {
+            MessageKind::Diff => append_wrapped_diff_lines(
+                &mut out,
+                msg.role,
+                msg.file_path.as_deref(),
+                &msg.text,
+                width,
+            ),
+            MessageKind::Plain => match msg.role {
+                Role::Assistant | Role::Reasoning => {
+                    append_wrapped_markdown_lines(&mut out, msg.role, &msg.text, width);
+                }
+                _ => append_wrapped_message_lines(&mut out, msg.role, &msg.text, width),
+            },
+        }
+        appended_any = true;
+    }
+
+    out
+}
+
+pub(super) fn transcript_content_width(size: TerminalSize) -> usize {
+    if size.width > MSG_CONTENT_X + 1 {
+        size.width - (MSG_CONTENT_X + 1)
+    } else {
+        0
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct InputLayout {
+    pub(super) msg_bottom: usize, // 1-based; 0 means no transcript row is available
+    pub(super) input_top: usize,  // 1-based
+    pub(super) input_height: usize, // rows
+    pub(super) text_width: usize, // cells available for input text
+    pub(super) visible_lines: Vec<String>,
+    pub(super) cursor_x: usize, // 0-based terminal column
+    pub(super) cursor_y: usize, // 0-based terminal row
+}
+
+pub(super) fn input_cursor_visual_position(
+    line: &str,
+    cursor_col_chars: usize,
+    width: usize,
+) -> (usize, usize) {
+    if width == 0 {
+        return (0, 0);
+    }
+
+    let cursor_byte = char_to_byte_idx(line, cursor_col_chars).min(line.len());
+    let prefix = &line[..cursor_byte];
+    let wrapped_prefix = wrap_input_line(prefix, width);
+    let row = wrapped_prefix.len().saturating_sub(1);
+    let col = wrapped_prefix
+        .last()
+        .map(|part| visual_width(part))
+        .unwrap_or(0);
+    (row, col)
+}
+
+pub(super) fn textarea_input_from_code(code: KeyCode, modifiers: KeyModifiers) -> TextInput {
+    let key = match code {
+        KeyCode::Char(c) => TextKey::Char(c),
+        KeyCode::Backspace => TextKey::Backspace,
+        KeyCode::Enter => TextKey::Enter,
+        KeyCode::Left => TextKey::Left,
+        KeyCode::Right => TextKey::Right,
+        KeyCode::Up => TextKey::Up,
+        KeyCode::Down => TextKey::Down,
+        KeyCode::Tab => TextKey::Tab,
+        KeyCode::Delete => TextKey::Delete,
+        KeyCode::Home => TextKey::Home,
+        KeyCode::End => TextKey::End,
+        KeyCode::PageUp => TextKey::PageUp,
+        KeyCode::PageDown => TextKey::PageDown,
+        KeyCode::Esc => TextKey::Esc,
+        KeyCode::F(n) => TextKey::F(n),
+        _ => TextKey::Null,
+    };
+
+    TextInput {
+        key,
+        ctrl: modifiers.contains(KeyModifiers::CONTROL),
+        alt: modifiers.contains(KeyModifiers::ALT),
+        shift: modifiers.contains(KeyModifiers::SHIFT),
+    }
+}
+
+pub(super) fn textarea_input_from_key(k: crossterm::event::KeyEvent) -> TextInput {
+    textarea_input_from_code(k.code, k.modifiers)
+}
+
+pub(super) fn normalize_pasted_text(text: &str) -> String {
+    text.replace("\r\n", "\n").replace('\r', "\n")
+}
+
+pub(super) fn is_newline_enter(mods: KeyModifiers) -> bool {
+    mods.contains(KeyModifiers::SHIFT) || mods.contains(KeyModifiers::ALT)
+}
+
+pub(super) fn compute_input_layout(app: &AppState, size: TerminalSize) -> InputLayout {
+    let text_width = transcript_content_width(size);
+    let mut wrapped = Vec::new();
+    let lines = app.input.lines();
+
+    let (cursor_row, cursor_col_chars) = app.input.cursor();
+    let mut cursor_wrapped_row = 0usize;
+    let mut cursor_wrapped_col = 0usize;
+    let mut cursor_set = false;
+
+    for (row, line) in lines.iter().enumerate() {
+        let wrapped_line = wrap_input_line(line, text_width);
+
+        if row < cursor_row {
+            cursor_wrapped_row += wrapped_line.len();
+        } else if row == cursor_row {
+            let (line_row, line_col) =
+                input_cursor_visual_position(line, cursor_col_chars, text_width);
+            cursor_wrapped_row += line_row;
+            cursor_wrapped_col = line_col;
+            cursor_set = true;
+        }
+
+        wrapped.extend(wrapped_line);
+    }
+
+    if wrapped.is_empty() {
+        wrapped.push(String::new());
+    }
+
+    let mut max_input_rows = 8usize.min(size.height.max(1));
+    if size.height > 1 {
+        max_input_rows = max_input_rows.min(size.height - 1);
+    }
+
+    let input_height = wrapped.len().clamp(1, max_input_rows.max(1));
+
+    if !cursor_set {
+        cursor_wrapped_row = wrapped.len().saturating_sub(1);
+        cursor_wrapped_col = wrapped.last().map(|line| visual_width(line)).unwrap_or(0);
+    }
+
+    let mut visible_start = wrapped.len().saturating_sub(input_height);
+    if cursor_wrapped_row < visible_start {
+        visible_start = cursor_wrapped_row;
+    }
+    if cursor_wrapped_row >= visible_start + input_height {
+        visible_start = cursor_wrapped_row + 1 - input_height;
+    }
+
+    let visible_end = (visible_start + input_height).min(wrapped.len());
+    let mut visible_lines = wrapped[visible_start..visible_end].to_vec();
+    while visible_lines.len() < input_height {
+        visible_lines.insert(0, String::new());
+    }
+
+    let input_top = size.height + 1 - input_height;
+    let msg_bottom = input_top.saturating_sub(2);
+    let cursor_visual_row = cursor_wrapped_row.saturating_sub(visible_start);
+    let cursor_x = MSG_CONTENT_X + cursor_wrapped_col;
+    let cursor_y = input_top.saturating_sub(1) + cursor_visual_row.min(input_height - 1);
+
+    InputLayout {
+        msg_bottom,
+        input_top,
+        input_height,
+        text_width,
+        visible_lines,
+        cursor_x,
+        cursor_y,
+    }
+}
+
+pub(super) fn last_assistant_message(messages: &[Message]) -> Option<&str> {
+    messages
+        .iter()
+        .rev()
+        .find(|m| m.role == Role::Assistant && !m.text.is_empty())
+        .map(|m| m.text.as_str())
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(super) struct PickerLayout {
+    pub(super) panel_x: usize,
+    pub(super) panel_y: usize,
+    pub(super) panel_w: usize,
+    pub(super) panel_h: usize,
+    pub(super) list_x: usize,
+    pub(super) list_y: usize,
+    pub(super) list_w: usize,
+    pub(super) list_h: usize,
+}
+
+pub(super) fn compute_picker_layout(size: TerminalSize) -> PickerLayout {
+    let panel_w = if size.width > 6 {
+        (size.width - 6).min(92)
+    } else {
+        size.width
+    };
+    let panel_h = if size.height > 4 {
+        (size.height - 2).min(24)
+    } else {
+        size.height
+    };
+    let panel_x = if size.width > panel_w {
+        (size.width - panel_w) / 2
+    } else {
+        0
+    };
+    let panel_y = if size.height > panel_h {
+        (size.height - panel_h) / 3
+    } else {
+        0
+    };
+
+    let list_x = panel_x + 2;
+    let list_y = panel_y + 3;
+    let list_w = if panel_w > 4 { panel_w - 4 } else { 0 };
+    let list_h = if panel_h > 6 { panel_h - 6 } else { 1 };
+
+    PickerLayout {
+        panel_x,
+        panel_y,
+        panel_w,
+        panel_h,
+        list_x,
+        list_y,
+        list_w,
+        list_h,
+    }
+}
+
+pub(super) fn draw_str(
+    buf: &mut Buffer,
+    x: usize,
+    y: usize,
+    text: &str,
+    style: Style,
+    max_width: usize,
+) {
+    if text.is_empty() || max_width == 0 {
+        return;
+    }
+    if let (Ok(x), Ok(y), Ok(w)) = (
+        u16::try_from(x),
+        u16::try_from(y),
+        usize::try_from(max_width),
+    ) {
+        buf.set_stringn(x, y, text, w, style);
+    }
+}
+
+pub(super) fn fill_rect(buf: &mut Buffer, x: usize, y: usize, w: usize, h: usize, style: Style) {
+    if w == 0 || h == 0 {
+        return;
+    }
+    if let (Ok(x), Ok(y), Ok(w), Ok(h)) = (
+        u16::try_from(x),
+        u16::try_from(y),
+        u16::try_from(w),
+        u16::try_from(h),
+    ) {
+        buf.set_style(
+            Rect {
+                x,
+                y,
+                width: w,
+                height: h,
+            },
+            style,
+        );
+    }
+}
+
+pub(super) fn draw_rendered_line(
+    buf: &mut Buffer,
+    x: usize,
+    y: usize,
+    max_width: usize,
+    line: &RenderedLine,
+    base_style: Style,
+    selection: Option<(usize, usize)>,
+) {
+    if max_width == 0 || line.cells == 0 {
+        return;
+    }
+
+    if !line.styled_segments.is_empty() {
+        draw_str(buf, x, y, &line.text, base_style, max_width);
+    }
+
+    let mut draw_x = x;
+    let mut col = 0usize;
+
+    let mut render_segment = |text: &str, seg_style: Style, draw_x: &mut usize, col: &mut usize| {
+        if *draw_x >= x + max_width || text.is_empty() {
+            return;
+        }
+
+        let seg_cells = visual_width(text);
+        if seg_cells == 0 {
+            return;
+        }
+
+        let style = base_style.patch(seg_style);
+        let seg_start = *col;
+        let seg_end = seg_start + seg_cells;
+
+        let mut draw_piece = |piece: &str, piece_style: Style, draw_x: &mut usize| {
+            if piece.is_empty() || *draw_x >= x + max_width {
+                return;
+            }
+            let rem = max_width.saturating_sub(*draw_x - x);
+            draw_str(buf, *draw_x, y, piece, piece_style, rem);
+            *draw_x += visual_width(piece);
+        };
+
+        if let Some((sel_start, sel_end)) = selection {
+            if sel_end <= seg_start || sel_start >= seg_end {
+                draw_piece(text, style, draw_x);
+            } else {
+                let local_start = sel_start.saturating_sub(seg_start).min(seg_cells);
+                let local_end = sel_end.saturating_sub(seg_start).min(seg_cells);
+
+                let before = slice_by_cells(text, 0, local_start);
+                let selected = slice_by_cells(text, local_start, local_end);
+                let after = slice_by_cells(text, local_end, seg_cells);
+
+                draw_piece(&before, style, draw_x);
+                draw_piece(&selected, style.fg(COLOR_TEXT).bg(COLOR_STEP8), draw_x);
+                draw_piece(&after, style, draw_x);
+            }
+        } else {
+            draw_piece(text, style, draw_x);
+        }
+
+        *col = seg_end;
+    };
+
+    if line.styled_segments.is_empty() {
+        render_segment(&line.text, Style::default(), &mut draw_x, &mut col);
+        return;
+    }
+
+    for seg in &line.styled_segments {
+        if draw_x >= x + max_width {
+            break;
+        }
+        render_segment(&seg.text, seg.style, &mut draw_x, &mut col);
+    }
+
+    // Some markdown renderers occasionally leave a trailing token outside
+    // styled spans; render the uncovered tail from canonical line text.
+    if col < line.cells && draw_x < x + max_width {
+        let tail = slice_by_cells(&line.text, col, line.cells);
+        render_segment(&tail, Style::default(), &mut draw_x, &mut col);
+    }
+}
+
+pub(super) fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize) {
+    if !(size.height > 10 && size.width > 44) {
+        return;
+    }
+
+    let box_w = (size.width - 8).min(74);
+    let box_h = 10usize;
+    let start_x = (size.width - box_w) / 2;
+    let start_y = (size.height - box_h) / 2;
+
+    fill_rect(
+        buf,
+        0,
+        0,
+        size.width,
+        size.height,
+        Style::default().bg(COLOR_OVERLAY),
+    );
+    fill_rect(
+        buf,
+        start_x,
+        start_y,
+        box_w,
+        box_h,
+        Style::default().bg(COLOR_STEP2),
+    );
+
+    let left = start_x;
+    let right = start_x + box_w - 1;
+    let top = start_y;
+    let bottom = start_y + box_h - 1;
+
+    draw_str(buf, left, top, "┏", Style::default().fg(COLOR_STEP7), 1);
+    draw_str(buf, right, top, "┓", Style::default().fg(COLOR_STEP7), 1);
+    draw_str(buf, left, bottom, "┗", Style::default().fg(COLOR_STEP7), 1);
+    draw_str(buf, right, bottom, "┛", Style::default().fg(COLOR_STEP7), 1);
+
+    for x in (left + 1)..right {
+        draw_str(buf, x, top, "─", Style::default().fg(COLOR_STEP7), 1);
+        draw_str(buf, x, bottom, "─", Style::default().fg(COLOR_STEP7), 1);
+    }
+    for y in (top + 1)..bottom {
+        draw_str(buf, left, y, "┃", Style::default().fg(COLOR_STEP7), 1);
+        draw_str(buf, right, y, "┃", Style::default().fg(COLOR_STEP7), 1);
+    }
+
+    draw_str(
+        buf,
+        start_x + 3,
+        start_y + 1,
+        "Help",
+        Style::default()
+            .fg(COLOR_PRIMARY)
+            .add_modifier(Modifier::BOLD),
+        box_w.saturating_sub(6),
+    );
+    draw_str(
+        buf,
+        start_x + box_w.saturating_sub(8),
+        start_y + 1,
+        "esc",
+        Style::default().fg(COLOR_DIM),
+        3,
+    );
+    draw_str(
+        buf,
+        start_x + 3,
+        start_y + 3,
+        "Enter send/steer  Shift/Alt+Enter newline",
+        Style::default().fg(COLOR_TEXT),
+        box_w.saturating_sub(6),
+    );
+    draw_str(
+        buf,
+        start_x + 3,
+        start_y + 4,
+        "Ctrl+Y copy selection or last answer",
+        Style::default().fg(COLOR_TEXT),
+        box_w.saturating_sub(6),
+    );
+    draw_str(
+        buf,
+        start_x + 3,
+        start_y + 5,
+        "g/G or Home/End jump transcript",
+        Style::default().fg(COLOR_TEXT),
+        box_w.saturating_sub(6),
+    );
+    draw_str(
+        buf,
+        start_x + 3,
+        start_y + 6,
+        "Wheel scroll, drag to select, release to copy",
+        Style::default().fg(COLOR_TEXT),
+        box_w.saturating_sub(6),
+    );
+    draw_str(
+        buf,
+        start_x + 3,
+        start_y + 7,
+        "? toggle this help",
+        Style::default().fg(COLOR_DIM),
+        box_w.saturating_sub(6),
+    );
+}
+
+pub(super) fn draw_perf_overlay(buf: &mut Buffer, size: TerminalSize, perf: &PerfMetrics) {
+    let lines = perf.overlay_lines();
+    if lines.is_empty() || size.width < 44 || size.height < lines.len() + 4 {
+        return;
+    }
+
+    let inner_w = lines
+        .iter()
+        .map(|line| visual_width(line))
+        .max()
+        .unwrap_or(0)
+        .min(size.width.saturating_sub(6));
+    if inner_w == 0 {
+        return;
+    }
+
+    let box_w = inner_w + 4;
+    let box_h = lines.len() + 2;
+    let start_x = size.width.saturating_sub(box_w + 2);
+    let start_y = 1usize;
+    if start_y + box_h > size.height {
+        return;
+    }
+
+    fill_rect(
+        buf,
+        start_x,
+        start_y,
+        box_w,
+        box_h,
+        Style::default().bg(COLOR_STEP1),
+    );
+
+    let left = start_x;
+    let right = start_x + box_w - 1;
+    let top = start_y;
+    let bottom = start_y + box_h - 1;
+
+    draw_str(buf, left, top, "┌", Style::default().fg(COLOR_STEP7), 1);
+    draw_str(buf, right, top, "┐", Style::default().fg(COLOR_STEP7), 1);
+    draw_str(buf, left, bottom, "└", Style::default().fg(COLOR_STEP7), 1);
+    draw_str(buf, right, bottom, "┘", Style::default().fg(COLOR_STEP7), 1);
+
+    for x in (left + 1)..right {
+        draw_str(buf, x, top, "─", Style::default().fg(COLOR_STEP7), 1);
+        draw_str(buf, x, bottom, "─", Style::default().fg(COLOR_STEP7), 1);
+    }
+    for y in (top + 1)..bottom {
+        draw_str(buf, left, y, "│", Style::default().fg(COLOR_STEP7), 1);
+        draw_str(buf, right, y, "│", Style::default().fg(COLOR_STEP7), 1);
+    }
+
+    for (i, line) in lines.iter().enumerate() {
+        draw_str(
+            buf,
+            start_x + 2,
+            start_y + 1 + i,
+            line,
+            Style::default().fg(COLOR_DIM),
+            inner_w,
+        );
+    }
+}
+
+pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppState) {
+    let area = frame.area();
+    let size = TerminalSize {
+        width: area.width as usize,
+        height: area.height as usize,
+    };
+
+    if size.width == 0 || size.height == 0 {
+        return;
+    }
+
+    let input_layout_started = Instant::now();
+    let input_layout = compute_input_layout(app, size);
+    if let Some(perf) = app.perf.as_mut() {
+        perf.input_layout.push(input_layout_started.elapsed());
+    }
+    let msg_top = MSG_TOP;
+    let msg_bottom = input_layout.msg_bottom;
+    let msg_height = if msg_bottom >= msg_top {
+        msg_bottom - msg_top + 1
+    } else {
+        0
+    };
+    let msg_width = transcript_content_width(size);
+
+    let total_lines = app.rendered_lines.len();
+    let max_scroll = total_lines.saturating_sub(msg_height);
+    if app.scroll_top > max_scroll {
+        app.scroll_top = max_scroll;
+    }
+    if app.auto_follow_bottom && max_scroll > 0 {
+        app.scroll_top = max_scroll;
+    }
+
+    let buf = frame.buffer_mut();
+    fill_rect(
+        buf,
+        0,
+        0,
+        size.width,
+        size.height,
+        Style::default().bg(COLOR_STEP1),
+    );
+    if msg_height > 0 {
+        fill_rect(
+            buf,
+            0,
+            msg_top - 1,
+            size.width,
+            msg_height,
+            Style::default().bg(COLOR_STEP2),
+        );
+    }
+
+    for i in 0..msg_height {
+        let line_idx = app.scroll_top + i;
+        let row_1b = msg_top + i;
+        let y = row_1b - 1;
+
+        let line_opt = app.rendered_lines.get(line_idx);
+        if let Some(line) = line_opt {
+            if !line.separator {
+                let gutter_symbol = role_gutter_symbol(line.role);
+                draw_str(
+                    buf,
+                    0,
+                    y,
+                    gutter_symbol,
+                    Style::default()
+                        .fg(role_gutter_fg(line.role))
+                        .add_modifier(Modifier::BOLD),
+                    1,
+                );
+            }
+        }
+
+        if msg_width == 0 {
+            continue;
+        }
+
+        let Some(line) = line_opt else {
+            continue;
+        };
+        fill_rect(
+            buf,
+            MSG_CONTENT_X,
+            y,
+            msg_width,
+            1,
+            Style::default().bg(role_row_bg(line.role)),
+        );
+        if line.separator {
+            let sep = "─".repeat(msg_width);
+            draw_str(
+                buf,
+                MSG_CONTENT_X,
+                y,
+                &sep,
+                Style::default().fg(COLOR_STEP6),
+                msg_width,
+            );
+            continue;
+        }
+
+        let mut base_style = Style::default().fg(role_fg(line.role));
+        if matches!(line.role, Role::Reasoning) {
+            base_style = base_style.add_modifier(Modifier::DIM);
+        }
+
+        let selection_range = app
+            .selection
+            .and_then(|sel| compute_selection_range(sel, row_1b, line.cells))
+            .map(|(start, end)| (start.min(line.cells), end.min(line.cells)));
+
+        draw_rendered_line(
+            buf,
+            MSG_CONTENT_X,
+            y,
+            msg_width,
+            line,
+            base_style,
+            selection_range,
+        );
+    }
+
+    if input_layout.input_top > 1 {
+        let sep_y = input_layout.input_top - 2;
+        if size.width > 0 {
+            let working = app.active_turn_id.is_some();
+            let line_len = size.width.saturating_sub(1);
+            let context_label = app
+                .context_usage
+                .map(context_usage_label)
+                .unwrap_or_else(|| context_usage_placeholder_label().to_string());
+            let has_context_usage = app.context_usage.is_some();
+            let reserved_label_cells = context_label_reserved_cells(Some(&context_label));
+            let context_label_cells = visual_width(&context_label);
+            let can_reserve_label_area = reserved_label_cells + 1 < line_len;
+            let label_area_start = if can_reserve_label_area {
+                line_len - reserved_label_cells
+            } else {
+                line_len
+            };
+            let anim_end = if can_reserve_label_area {
+                label_area_start.saturating_sub(1)
+            } else {
+                line_len
+            };
+            let tick = animation_tick();
+            let head = if anim_end > 0 {
+                kitt_head_index(anim_end, tick)
+            } else {
+                0
+            };
+            if anim_end > 0 {
+                if app.rewind_mode {
+                    let sep = "━".repeat(anim_end);
+                    draw_str(
+                        buf,
+                        0,
+                        sep_y,
+                        &sep,
+                        Style::default().fg(COLOR_DIFF_REMOVE),
+                        anim_end,
+                    );
+                } else if working {
+                    for x in 0..anim_end {
+                        let dist = head.abs_diff(x);
+                        draw_str(
+                            buf,
+                            x,
+                            sep_y,
+                            "━",
+                            Style::default().fg(kitt_color_for_distance(dist)),
+                            1,
+                        );
+                    }
+                } else {
+                    let sep = "━".repeat(anim_end);
+                    draw_str(
+                        buf,
+                        0,
+                        sep_y,
+                        &sep,
+                        Style::default().fg(COLOR_GUTTER_USER),
+                        anim_end,
+                    );
+                }
+            }
+
+            if can_reserve_label_area && context_label_cells > 0 {
+                let label_x = line_len.saturating_sub(context_label_cells);
+                draw_str(
+                    buf,
+                    label_x,
+                    sep_y,
+                    &context_label,
+                    Style::default().fg(if has_context_usage {
+                        COLOR_STEP8
+                    } else {
+                        COLOR_STEP7
+                    }),
+                    context_label_cells,
+                );
+            }
+        }
+    }
+
+    fill_rect(
+        buf,
+        0,
+        input_layout.input_top.saturating_sub(1),
+        size.width,
+        input_layout.input_height,
+        Style::default().bg(COLOR_STEP3),
+    );
+    for i in 0..input_layout.input_height {
+        let y = input_layout.input_top.saturating_sub(1) + i;
+        let input_gutter_color = if app.rewind_mode {
+            COLOR_DIFF_REMOVE
+        } else {
+            COLOR_GUTTER_USER
+        };
+        draw_str(
+            buf,
+            0,
+            y,
+            ">",
+            Style::default()
+                .fg(input_gutter_color)
+                .add_modifier(Modifier::BOLD),
+            1,
+        );
+        if let Some(line) = input_layout.visible_lines.get(i) {
+            draw_str(
+                buf,
+                MSG_CONTENT_X,
+                y,
+                line,
+                Style::default().fg(COLOR_TEXT),
+                input_layout.text_width,
+            );
+        }
+    }
+
+    if app.show_help {
+        draw_help_overlay(buf, size);
+    }
+    if let Some(perf) = app.perf.as_ref() {
+        if perf.show_overlay {
+            draw_perf_overlay(buf, size, perf);
+        }
+    }
+
+    let cursor_x = input_layout.cursor_x.min(size.width.saturating_sub(2));
+    let cursor_y = input_layout.cursor_y.min(size.height.saturating_sub(1));
+    frame.set_cursor_position((cursor_x as u16, cursor_y as u16));
+}
+
+pub(super) fn draw_picker(
+    frame: &mut ratatui::Frame<'_>,
+    threads: &[ThreadSummary],
+    selected: usize,
+    top: usize,
+) {
+    let area = frame.area();
+    let size = TerminalSize {
+        width: area.width as usize,
+        height: area.height as usize,
+    };
+
+    if size.width == 0 || size.height == 0 {
+        return;
+    }
+
+    let layout = compute_picker_layout(size);
+    let buf = frame.buffer_mut();
+
+    fill_rect(
+        buf,
+        0,
+        0,
+        size.width,
+        size.height,
+        Style::default().bg(COLOR_STEP1),
+    );
+    fill_rect(
+        buf,
+        0,
+        0,
+        size.width,
+        size.height,
+        Style::default().bg(COLOR_OVERLAY),
+    );
+    fill_rect(
+        buf,
+        layout.panel_x,
+        layout.panel_y,
+        layout.panel_w,
+        layout.panel_h,
+        Style::default().bg(COLOR_STEP2),
+    );
+
+    if layout.panel_w < 8 || layout.panel_h < 7 || layout.list_w == 0 {
+        draw_str(
+            buf,
+            1,
+            0,
+            "carlos resume",
+            Style::default().fg(COLOR_TEXT).add_modifier(Modifier::BOLD),
+            size.width.saturating_sub(1),
+        );
+        return;
+    }
+
+    for y in layout.panel_y..(layout.panel_y + layout.panel_h) {
+        draw_str(
+            buf,
+            layout.panel_x,
+            y,
+            "┃",
+            Style::default().fg(COLOR_STEP7),
+            1,
+        );
+        if layout.panel_w > 1 {
+            draw_str(
+                buf,
+                layout.panel_x + layout.panel_w - 1,
+                y,
+                "┃",
+                Style::default().fg(COLOR_STEP7),
+                1,
+            );
+        }
+    }
+
+    draw_str(
+        buf,
+        layout.list_x,
+        layout.panel_y + 1,
+        "Sessions",
+        Style::default().fg(COLOR_TEXT).add_modifier(Modifier::BOLD),
+        layout.list_w,
+    );
+    if layout.panel_w > 5 {
+        draw_str(
+            buf,
+            layout.panel_x + layout.panel_w - 5,
+            layout.panel_y + 1,
+            "esc",
+            Style::default().fg(COLOR_DIM),
+            3,
+        );
+    }
+    draw_str(
+        buf,
+        layout.list_x,
+        layout.panel_y + 2,
+        "Enter open  j/k move  g/G jump",
+        Style::default().fg(COLOR_DIM),
+        layout.list_w,
+    );
+
+    for row in 0..layout.list_h {
+        let idx = top + row;
+        let y = layout.list_y + row;
+        if idx >= threads.len() {
+            continue;
+        }
+
+        let t = &threads[idx];
+        let preview_w = if layout.list_w > 42 {
+            layout.list_w - 42
+        } else {
+            10
+        };
+        let preview = if visual_width(&t.preview) > preview_w {
+            let cut = split_at_cells(&t.preview, preview_w);
+            &t.preview[..cut]
+        } else {
+            &t.preview
+        };
+
+        let cwd_tail = if t.cwd.is_empty() { "" } else { &t.cwd };
+        let mut line = format!("{}  {}  {}", t.id, preview, cwd_tail);
+        if !line.is_empty() {
+            let ts = t.updated_at;
+            line.push_str(&format!("  {}", ts));
+        }
+        let view_width = layout.list_w.saturating_sub(2);
+        if visual_width(&line) > view_width {
+            let cut = split_at_cells(&line, view_width);
+            line.truncate(cut);
+        }
+
+        let active = idx == selected;
+        if active && layout.list_w > 0 {
+            fill_rect(
+                buf,
+                layout.list_x,
+                y,
+                layout.list_w,
+                1,
+                Style::default().bg(COLOR_PRIMARY),
+            );
+        }
+
+        let bullet_style = if active {
+            Style::default().fg(COLOR_STEP1).bg(COLOR_PRIMARY)
+        } else {
+            Style::default().fg(COLOR_DIM)
+        };
+        let line_style = if active {
+            Style::default()
+                .fg(COLOR_STEP1)
+                .bg(COLOR_PRIMARY)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(COLOR_TEXT)
+        };
+
+        draw_str(
+            buf,
+            layout.list_x,
+            y,
+            if active { "●" } else { " " },
+            bullet_style,
+            1,
+        );
+        draw_str(buf, layout.list_x + 2, y, &line, line_style, view_width);
+    }
+
+    draw_str(
+        buf,
+        layout.list_x,
+        layout.panel_y + layout.panel_h - 2,
+        &format!("{} sessions", threads.len()),
+        Style::default().fg(COLOR_DIM),
+        layout.list_w,
+    );
+}
