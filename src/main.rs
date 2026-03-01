@@ -840,6 +840,65 @@ fn compact_command_path(path: &str, cwd: Option<&str>) -> String {
     path.to_string()
 }
 
+fn first_non_option_token(command: &str) -> Option<&str> {
+    command
+        .split_whitespace()
+        .find(|t| !t.is_empty() && !t.starts_with('-'))
+}
+
+fn strip_shell_quotes(token: &str) -> &str {
+    let t = token.trim();
+    if t.len() >= 2 {
+        if (t.starts_with('\'') && t.ends_with('\'')) || (t.starts_with('"') && t.ends_with('"')) {
+            return &t[1..(t.len() - 1)];
+        }
+    }
+    t
+}
+
+fn command_summary_from_shell_cmd(cmd: &str, cwd: Option<&str>) -> Option<String> {
+    let cmd = normalize_shell_command(cmd);
+    let cmd = cmd.trim();
+    if cmd.is_empty() {
+        return None;
+    }
+
+    let lower = cmd.to_ascii_lowercase();
+    if lower.starts_with("rg ")
+        || lower.starts_with("grep ")
+        || lower.starts_with("fd ")
+        || lower.starts_with("find ")
+        || lower.starts_with("git grep ")
+    {
+        return Some("✱ Search".to_string());
+    }
+
+    let lhs = cmd.split('|').next().unwrap_or(cmd).trim();
+    let lhs_lower = lhs.to_ascii_lowercase();
+
+    if lhs_lower.starts_with("nl ")
+        || lhs_lower.starts_with("cat ")
+        || lhs_lower.starts_with("bat ")
+        || lhs_lower.starts_with("head ")
+        || lhs_lower.starts_with("tail ")
+    {
+        let sub = lhs
+            .split_once(' ')
+            .map(|(_, rest)| rest)
+            .unwrap_or("")
+            .trim();
+        if let Some(path_token) = first_non_option_token(sub) {
+            let path = strip_shell_quotes(path_token);
+            if !path.is_empty() {
+                return Some(format!("→ Read {}", compact_command_path(path, cwd)));
+            }
+        }
+        return Some("→ Read".to_string());
+    }
+
+    None
+}
+
 fn command_summary_from_parsed_cmd(msg: &Value) -> Option<(String, String)> {
     let call_id = msg.get("call_id").and_then(Value::as_str)?.to_string();
     let parsed = msg.get("parsed_cmd").and_then(Value::as_array)?;
@@ -849,10 +908,15 @@ fn command_summary_from_parsed_cmd(msg: &Value) -> Option<(String, String)> {
         let Some(obj) = part.as_object() else {
             continue;
         };
-        let Some(kind_raw) = obj.get("type").and_then(Value::as_str) else {
-            continue;
-        };
-        let kind = kind_raw.to_ascii_lowercase();
+        let kind = obj
+            .get("type")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        let cmd = obj
+            .get("cmd")
+            .and_then(Value::as_str)
+            .or_else(|| obj.get("command").and_then(Value::as_str));
 
         let path = obj
             .get("path")
@@ -869,17 +933,29 @@ fn command_summary_from_parsed_cmd(msg: &Value) -> Option<(String, String)> {
             Some(compact_command_path(path, cwd))
         };
 
-        let (icon, label) = match kind.as_str() {
-            "read" => ("→", "Read"),
-            "grep" | "rg" | "search" | "glob" | "find" | "codesearch" => ("✱", "Search"),
-            "list" | "listfiles" | "list_files" | "ls" => ("→", "List"),
-            _ => continue,
+        let mut out = if kind == "read" {
+            "→ Read".to_string()
+        } else if matches!(
+            kind.as_str(),
+            "grep" | "rg" | "search" | "glob" | "find" | "codesearch"
+        ) {
+            "✱ Search".to_string()
+        } else if matches!(kind.as_str(), "list" | "listfiles" | "list_files" | "ls") {
+            "→ List".to_string()
+        } else if let Some(cmd) = cmd {
+            let Some(summary) = command_summary_from_shell_cmd(cmd, cwd) else {
+                continue;
+            };
+            summary
+        } else {
+            continue;
         };
 
-        let mut out = format!("{icon} {label}");
-        if let Some(display) = path_display {
-            out.push(' ');
-            out.push_str(&display);
+        if out == "→ Read" || out == "✱ Search" || out == "→ List" {
+            if let Some(display) = path_display {
+                out.push(' ');
+                out.push_str(&display);
+            }
         }
 
         if let Some(args) = format_input_brackets(
@@ -4416,6 +4492,27 @@ mod tests {
             .text
             .contains("rg: missing.rs: No such file or directory"));
         assert!(app.messages[0].text.contains("exit code: 2"));
+    }
+
+    #[test]
+    fn exec_command_end_generic_shell_nl_sed_is_summarized_as_read() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_read_nl\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/exec_command_end\",\"params\":{\"msg\":{\"type\":\"exec_command_end\",\"call_id\":\"call_read_nl\",\"cwd\":\"/repo\",\"parsed_cmd\":[{\"type\":\"shell\",\"cmd\":\"nl -ba src/main.rs | sed -n '3398,3465p'\"}]}}}",
+        );
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_read_nl\",\"aggregatedOutput\":\"3398 abc\\n3399 def\\n\",\"exitCode\":0},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+
+        assert_eq!(app.messages.len(), 1);
+        assert_eq!(app.messages[0].text, "→ Read src/main.rs");
+        assert_eq!(app.messages[0].role, Role::ToolCall);
     }
 
     #[test]
