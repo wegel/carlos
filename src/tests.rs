@@ -1120,3 +1120,58 @@ fn normalize_styled_segments_for_part_falls_back_on_mismatch() {
     assert_eq!(normalized[0].text, "visual.");
     assert_eq!(normalized[0].style, Style::default());
 }
+
+#[test]
+fn duration_samples_tracks_percentiles_and_window() {
+    let mut samples = DurationSamples::new(3);
+    samples.push(Duration::from_micros(1_000));
+    samples.push(Duration::from_micros(2_000));
+    samples.push(Duration::from_micros(3_000));
+    samples.push(Duration::from_micros(4_000));
+
+    // Window size is 3, so first sample is dropped.
+    assert_eq!(samples.values_us.len(), 3);
+    assert_eq!(samples.percentile_us(0.50), Some(3_000));
+    assert_eq!(samples.percentile_us(0.95), Some(4_000));
+    assert_eq!(samples.avg_ms(), 2.50);
+    assert_eq!(samples.max_ms(), 4.0);
+}
+
+#[test]
+fn perf_metrics_overlay_lines_include_latency_rows() {
+    let mut perf = PerfMetrics::new();
+    perf.poll_wait.push(Duration::from_micros(500));
+    perf.event_handle.push(Duration::from_micros(700));
+    perf.draw.push(Duration::from_micros(900));
+    perf.key_interval.push(Duration::from_micros(1_100));
+    perf.repeat_interval.push(Duration::from_micros(1_300));
+    perf.press_to_first_repeat
+        .push(Duration::from_micros(1_500));
+    perf.release_to_next_key.push(Duration::from_micros(1_700));
+
+    let lines = perf.overlay_lines();
+    assert!(lines.iter().any(|line| line.contains("poll wait")));
+    assert!(lines.iter().any(|line| line.contains("event handle")));
+    assert!(lines.iter().any(|line| line.contains("draw")));
+    assert!(lines.iter().any(|line| line.contains("key interval")));
+    assert!(lines.iter().any(|line| line.contains("repeat intvl")));
+    assert!(lines.iter().any(|line| line.contains("press->repeat")));
+    assert!(lines.iter().any(|line| line.contains("release->key")));
+}
+
+#[test]
+fn perf_metrics_tracks_repeat_transition_buckets() {
+    let mut perf = PerfMetrics::new();
+    perf.mark_key_kind(KeyEventKind::Press);
+    perf.mark_key_kind(KeyEventKind::Repeat);
+    perf.mark_key_kind(KeyEventKind::Repeat);
+    perf.mark_key_kind(KeyEventKind::Release);
+    perf.mark_key_kind(KeyEventKind::Press);
+
+    assert_eq!(perf.key_press_events, 2);
+    assert_eq!(perf.key_repeat_events, 2);
+    assert_eq!(perf.key_release_events, 1);
+    assert_eq!(perf.press_to_first_repeat.values_us.len(), 1);
+    assert_eq!(perf.repeat_interval.values_us.len(), 1);
+    assert_eq!(perf.release_to_next_key.values_us.len(), 1);
+}

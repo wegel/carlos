@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::io;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use crossterm::event::{
@@ -122,6 +122,267 @@ struct ContextUsage {
     max: u64,
 }
 
+const PERF_SAMPLE_WINDOW: usize = 256;
+
+#[derive(Debug, Default)]
+struct DurationSamples {
+    values_us: VecDeque<u32>,
+    max_samples: usize,
+    count: u64,
+    total_us: u128,
+    max_us: u32,
+}
+
+impl DurationSamples {
+    fn new(max_samples: usize) -> Self {
+        Self {
+            values_us: VecDeque::with_capacity(max_samples),
+            max_samples,
+            count: 0,
+            total_us: 0,
+            max_us: 0,
+        }
+    }
+
+    fn push(&mut self, duration: Duration) {
+        let micros = duration.as_micros().min(u128::from(u32::MAX)) as u32;
+        self.count = self.count.saturating_add(1);
+        self.total_us = self.total_us.saturating_add(u128::from(micros));
+        self.max_us = self.max_us.max(micros);
+        self.values_us.push_back(micros);
+        if self.values_us.len() > self.max_samples {
+            self.values_us.pop_front();
+        }
+    }
+
+    fn percentile_us(&self, p: f64) -> Option<u32> {
+        if self.values_us.is_empty() {
+            return None;
+        }
+        let mut sorted: Vec<u32> = self.values_us.iter().copied().collect();
+        sorted.sort_unstable();
+        let len = sorted.len();
+        let rank = ((len as f64 * p).ceil() as usize).saturating_sub(1);
+        sorted.get(rank.min(len - 1)).copied()
+    }
+
+    fn p50_ms(&self) -> f64 {
+        self.percentile_us(0.50).map_or(0.0, |v| v as f64 / 1000.0)
+    }
+
+    fn p95_ms(&self) -> f64 {
+        self.percentile_us(0.95).map_or(0.0, |v| v as f64 / 1000.0)
+    }
+
+    fn max_ms(&self) -> f64 {
+        self.max_us as f64 / 1000.0
+    }
+
+    fn avg_ms(&self) -> f64 {
+        if self.count == 0 {
+            0.0
+        } else {
+            (self.total_us as f64 / self.count as f64) / 1000.0
+        }
+    }
+
+    fn summary(&self) -> String {
+        format!(
+            "p50 {:.2} p95 {:.2} avg {:.2} max {:.2} ms",
+            self.p50_ms(),
+            self.p95_ms(),
+            self.avg_ms(),
+            self.max_ms()
+        )
+    }
+}
+
+#[derive(Debug)]
+struct PerfMetrics {
+    show_overlay: bool,
+    loop_count: u64,
+    frame_count: u64,
+    notifications: u64,
+    key_events: u64,
+    key_press_events: u64,
+    key_repeat_events: u64,
+    key_release_events: u64,
+    mouse_events: u64,
+    paste_events: u64,
+    resize_events: u64,
+    pending_key_at: Option<Instant>,
+    last_key_at: Option<Instant>,
+    last_repeat_at: Option<Instant>,
+    pending_press_for_repeat: Option<Instant>,
+    last_release_at: Option<Instant>,
+
+    poll_wait: DurationSamples,
+    event_handle: DurationSamples,
+    draw: DurationSamples,
+    transcript_render: DurationSamples,
+    input_layout: DurationSamples,
+    key_to_draw: DurationSamples,
+    key_interval: DurationSamples,
+    repeat_interval: DurationSamples,
+    press_to_first_repeat: DurationSamples,
+    release_to_next_key: DurationSamples,
+}
+
+impl PerfMetrics {
+    fn new() -> Self {
+        Self {
+            show_overlay: true,
+            loop_count: 0,
+            frame_count: 0,
+            notifications: 0,
+            key_events: 0,
+            key_press_events: 0,
+            key_repeat_events: 0,
+            key_release_events: 0,
+            mouse_events: 0,
+            paste_events: 0,
+            resize_events: 0,
+            pending_key_at: None,
+            last_key_at: None,
+            last_repeat_at: None,
+            pending_press_for_repeat: None,
+            last_release_at: None,
+            poll_wait: DurationSamples::new(PERF_SAMPLE_WINDOW),
+            event_handle: DurationSamples::new(PERF_SAMPLE_WINDOW),
+            draw: DurationSamples::new(PERF_SAMPLE_WINDOW),
+            transcript_render: DurationSamples::new(PERF_SAMPLE_WINDOW),
+            input_layout: DurationSamples::new(PERF_SAMPLE_WINDOW),
+            key_to_draw: DurationSamples::new(PERF_SAMPLE_WINDOW),
+            key_interval: DurationSamples::new(PERF_SAMPLE_WINDOW),
+            repeat_interval: DurationSamples::new(PERF_SAMPLE_WINDOW),
+            press_to_first_repeat: DurationSamples::new(PERF_SAMPLE_WINDOW),
+            release_to_next_key: DurationSamples::new(PERF_SAMPLE_WINDOW),
+        }
+    }
+
+    fn record_draw(&mut self, duration: Duration) {
+        self.frame_count = self.frame_count.saturating_add(1);
+        self.draw.push(duration);
+        if let Some(started) = self.pending_key_at.take() {
+            self.key_to_draw.push(started.elapsed());
+        }
+    }
+
+    fn mark_key_event(&mut self) {
+        self.key_events = self.key_events.saturating_add(1);
+        let now = Instant::now();
+        if let Some(last) = self.last_key_at.replace(now) {
+            self.key_interval.push(last.elapsed());
+        }
+        if self.pending_key_at.is_none() {
+            self.pending_key_at = Some(now);
+        }
+    }
+
+    fn mark_key_kind(&mut self, kind: KeyEventKind) {
+        let now = Instant::now();
+        match kind {
+            KeyEventKind::Press => {
+                self.key_press_events = self.key_press_events.saturating_add(1);
+                if let Some(released_at) = self.last_release_at.take() {
+                    self.release_to_next_key
+                        .push(now.duration_since(released_at));
+                }
+                self.pending_press_for_repeat = Some(now);
+                self.last_repeat_at = None;
+            }
+            KeyEventKind::Repeat => {
+                self.key_repeat_events = self.key_repeat_events.saturating_add(1);
+                if let Some(last_repeat) = self.last_repeat_at.replace(now) {
+                    self.repeat_interval.push(now.duration_since(last_repeat));
+                }
+                if let Some(pressed_at) = self.pending_press_for_repeat.take() {
+                    self.press_to_first_repeat
+                        .push(now.duration_since(pressed_at));
+                }
+            }
+            KeyEventKind::Release => {
+                self.key_release_events = self.key_release_events.saturating_add(1);
+                self.last_release_at = Some(now);
+                self.pending_press_for_repeat = None;
+                self.last_repeat_at = None;
+            }
+        }
+    }
+
+    fn toggle_overlay(&mut self) {
+        self.show_overlay = !self.show_overlay;
+    }
+
+    fn overlay_lines(&self) -> Vec<String> {
+        vec![
+            format!("loop {}  frame {}", self.loop_count, self.frame_count),
+            format!(
+                "evt key {} (p{} r{} u{}) mouse {} paste {} resize {} notif {}",
+                self.key_events,
+                self.key_press_events,
+                self.key_repeat_events,
+                self.key_release_events,
+                self.mouse_events,
+                self.paste_events,
+                self.resize_events,
+                self.notifications
+            ),
+            format!("draw          {}", self.draw.summary()),
+            format!("poll wait     {}", self.poll_wait.summary()),
+            format!("event handle  {}", self.event_handle.summary()),
+            format!("text render   {}", self.transcript_render.summary()),
+            format!("input layout  {}", self.input_layout.summary()),
+            format!("key -> draw   {}", self.key_to_draw.summary()),
+            format!("key interval  {}", self.key_interval.summary()),
+            format!("repeat intvl  {}", self.repeat_interval.summary()),
+            format!("press->repeat {}", self.press_to_first_repeat.summary()),
+            format!("release->key  {}", self.release_to_next_key.summary()),
+        ]
+    }
+
+    fn final_report(&self) -> String {
+        let mut out = String::new();
+        out.push_str("carlos perf metrics\n");
+        out.push_str(&format!(
+            "counts: loop={} frame={} key={} key_press={} key_repeat={} key_release={} mouse={} paste={} resize={} notifications={}\n",
+            self.loop_count,
+            self.frame_count,
+            self.key_events,
+            self.key_press_events,
+            self.key_repeat_events,
+            self.key_release_events,
+            self.mouse_events,
+            self.paste_events,
+            self.resize_events,
+            self.notifications
+        ));
+        out.push_str(&format!("draw:         {}\n", self.draw.summary()));
+        out.push_str(&format!("poll_wait:    {}\n", self.poll_wait.summary()));
+        out.push_str(&format!("event_handle: {}\n", self.event_handle.summary()));
+        out.push_str(&format!(
+            "text_render:  {}\n",
+            self.transcript_render.summary()
+        ));
+        out.push_str(&format!("input_layout: {}\n", self.input_layout.summary()));
+        out.push_str(&format!("key_to_draw:  {}\n", self.key_to_draw.summary()));
+        out.push_str(&format!("key_interval: {}\n", self.key_interval.summary()));
+        out.push_str(&format!(
+            "repeat_interval: {}\n",
+            self.repeat_interval.summary()
+        ));
+        out.push_str(&format!(
+            "press_to_first_repeat: {}\n",
+            self.press_to_first_repeat.summary()
+        ));
+        out.push_str(&format!(
+            "release_to_next_key: {}",
+            self.release_to_next_key.summary()
+        ));
+        out
+    }
+}
+
 #[derive(Debug)]
 struct AppState {
     thread_id: String,
@@ -146,6 +407,7 @@ struct AppState {
     mobile_mouse_last_y: Option<usize>,
     show_help: bool,
     context_usage: Option<ContextUsage>,
+    perf: Option<PerfMetrics>,
 }
 
 impl AppState {
@@ -171,7 +433,16 @@ impl AppState {
             mobile_mouse_last_y: None,
             show_help: false,
             context_usage: None,
+            perf: None,
         }
+    }
+
+    fn enable_perf_metrics(&mut self) {
+        self.perf = Some(PerfMetrics::new());
+    }
+
+    fn perf_report(&self) -> Option<String> {
+        self.perf.as_ref().map(PerfMetrics::final_report)
     }
 
     fn set_status(&mut self, s: impl Into<String>) {
@@ -2586,8 +2857,8 @@ fn input_cursor_visual_position(
     (row, col)
 }
 
-fn textarea_input_from_key(k: crossterm::event::KeyEvent) -> TextInput {
-    let key = match k.code {
+fn textarea_input_from_code(code: KeyCode, modifiers: KeyModifiers) -> TextInput {
+    let key = match code {
         KeyCode::Char(c) => TextKey::Char(c),
         KeyCode::Backspace => TextKey::Backspace,
         KeyCode::Enter => TextKey::Enter,
@@ -2608,10 +2879,14 @@ fn textarea_input_from_key(k: crossterm::event::KeyEvent) -> TextInput {
 
     TextInput {
         key,
-        ctrl: k.modifiers.contains(KeyModifiers::CONTROL),
-        alt: k.modifiers.contains(KeyModifiers::ALT),
-        shift: k.modifiers.contains(KeyModifiers::SHIFT),
+        ctrl: modifiers.contains(KeyModifiers::CONTROL),
+        alt: modifiers.contains(KeyModifiers::ALT),
+        shift: modifiers.contains(KeyModifiers::SHIFT),
     }
+}
+
+fn textarea_input_from_key(k: crossterm::event::KeyEvent) -> TextInput {
+    textarea_input_from_code(k.code, k.modifiers)
 }
 
 fn normalize_pasted_text(text: &str) -> String {
@@ -3098,6 +3373,70 @@ fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize) {
     );
 }
 
+fn draw_perf_overlay(buf: &mut Buffer, size: TerminalSize, perf: &PerfMetrics) {
+    let lines = perf.overlay_lines();
+    if lines.is_empty() || size.width < 44 || size.height < lines.len() + 4 {
+        return;
+    }
+
+    let inner_w = lines
+        .iter()
+        .map(|line| visual_width(line))
+        .max()
+        .unwrap_or(0)
+        .min(size.width.saturating_sub(6));
+    if inner_w == 0 {
+        return;
+    }
+
+    let box_w = inner_w + 4;
+    let box_h = lines.len() + 2;
+    let start_x = size.width.saturating_sub(box_w + 2);
+    let start_y = 1usize;
+    if start_y + box_h > size.height {
+        return;
+    }
+
+    fill_rect(
+        buf,
+        start_x,
+        start_y,
+        box_w,
+        box_h,
+        Style::default().bg(COLOR_STEP1),
+    );
+
+    let left = start_x;
+    let right = start_x + box_w - 1;
+    let top = start_y;
+    let bottom = start_y + box_h - 1;
+
+    draw_str(buf, left, top, "┌", Style::default().fg(COLOR_STEP7), 1);
+    draw_str(buf, right, top, "┐", Style::default().fg(COLOR_STEP7), 1);
+    draw_str(buf, left, bottom, "└", Style::default().fg(COLOR_STEP7), 1);
+    draw_str(buf, right, bottom, "┘", Style::default().fg(COLOR_STEP7), 1);
+
+    for x in (left + 1)..right {
+        draw_str(buf, x, top, "─", Style::default().fg(COLOR_STEP7), 1);
+        draw_str(buf, x, bottom, "─", Style::default().fg(COLOR_STEP7), 1);
+    }
+    for y in (top + 1)..bottom {
+        draw_str(buf, left, y, "│", Style::default().fg(COLOR_STEP7), 1);
+        draw_str(buf, right, y, "│", Style::default().fg(COLOR_STEP7), 1);
+    }
+
+    for (i, line) in lines.iter().enumerate() {
+        draw_str(
+            buf,
+            start_x + 2,
+            start_y + 1 + i,
+            line,
+            Style::default().fg(COLOR_DIM),
+            inner_w,
+        );
+    }
+}
+
 fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppState) {
     let area = frame.area();
     let size = TerminalSize {
@@ -3109,7 +3448,11 @@ fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppState) {
         return;
     }
 
+    let input_layout_started = Instant::now();
     let input_layout = compute_input_layout(app, size);
+    if let Some(perf) = app.perf.as_mut() {
+        perf.input_layout.push(input_layout_started.elapsed());
+    }
     let msg_top = MSG_TOP;
     let msg_bottom = input_layout.msg_bottom;
     let msg_height = if msg_bottom >= msg_top {
@@ -3322,6 +3665,11 @@ fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppState) {
     if app.show_help {
         draw_help_overlay(buf, size);
     }
+    if let Some(perf) = app.perf.as_ref() {
+        if perf.show_overlay {
+            draw_perf_overlay(buf, size, perf);
+        }
+    }
 
     let cursor_x = input_layout.cursor_x.min(size.width.saturating_sub(2));
     let cursor_y = input_layout.cursor_y.min(size.height.saturating_sub(1));
@@ -3522,6 +3870,10 @@ fn normalize_selection_x(col0: usize) -> usize {
 fn is_ctrl_char(code: KeyCode, modifiers: KeyModifiers, ch: char) -> bool {
     matches!(code, KeyCode::Char(c) if c.eq_ignore_ascii_case(&ch))
         && modifiers.contains(KeyModifiers::CONTROL)
+}
+
+fn is_perf_toggle_key(code: KeyCode, modifiers: KeyModifiers) -> bool {
+    matches!(code, KeyCode::F(8)) || is_ctrl_char(code, modifiers, 'p')
 }
 
 fn animation_tick() -> u128 {
@@ -3966,7 +4318,6 @@ fn with_terminal<T>(
             KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
                 | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
                 | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
-                | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
         )
     )
     .is_ok();
@@ -4068,12 +4419,12 @@ fn pick_thread(threads: &[ThreadSummary]) -> Result<Option<String>> {
                 },
                 Event::Mouse(m) => match m.kind {
                     MouseEventKind::ScrollUp => {
+                        selected = selected.saturating_sub(1);
+                    }
+                    MouseEventKind::ScrollDown => {
                         if selected + 1 < threads.len() {
                             selected += 1;
                         }
-                    }
-                    MouseEventKind::ScrollDown => {
-                        selected = selected.saturating_sub(1);
                     }
                     MouseEventKind::Down(MouseButton::Left) => {
                         let size = terminal.size()?;
@@ -4105,10 +4456,16 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
         let mut last_anim_tick = 0u128;
 
         loop {
+            if let Some(perf) = app.perf.as_mut() {
+                perf.loop_count = perf.loop_count.saturating_add(1);
+            }
             inbox.clear();
             client.drain_events(&mut inbox);
             if !inbox.is_empty() {
                 needs_draw = true;
+                if let Some(perf) = app.perf.as_mut() {
+                    perf.notifications = perf.notifications.saturating_add(inbox.len() as u64);
+                }
             }
             for line in &inbox {
                 handle_notification_line(app, line);
@@ -4119,7 +4476,11 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                 width: size.width as usize,
                 height: size.height as usize,
             };
+            let render_started = Instant::now();
             app.ensure_rendered_lines(transcript_content_width(size));
+            if let Some(perf) = app.perf.as_mut() {
+                perf.transcript_render.push(render_started.elapsed());
+            }
             let working = app.active_turn_id.is_some();
             let tick = if working { animation_tick() } else { 0 };
             if working {
@@ -4131,16 +4492,42 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
             }
 
             if needs_draw {
+                let draw_started = Instant::now();
                 terminal.draw(|frame| {
                     render_main_view(frame, app);
                 })?;
+                if let Some(perf) = app.perf.as_mut() {
+                    perf.record_draw(draw_started.elapsed());
+                }
                 needs_draw = false;
                 last_anim_tick = tick;
             }
 
-            if event::poll(animation_poll_timeout(working))? {
+            let poll_started = Instant::now();
+            let has_event = event::poll(animation_poll_timeout(working))?;
+            if let Some(perf) = app.perf.as_mut() {
+                perf.poll_wait.push(poll_started.elapsed());
+            }
+            if has_event {
+                let event_started = Instant::now();
                 match event::read()? {
-                    Event::Key(k) if is_key_press_like(k.kind) => {
+                    Event::Key(k) => {
+                        if let Some(perf) = app.perf.as_mut() {
+                            perf.mark_key_kind(k.kind);
+                        }
+                        if !is_key_press_like(k.kind) {
+                            continue;
+                        }
+                        if let Some(perf) = app.perf.as_mut() {
+                            perf.mark_key_event();
+                        }
+                        if is_perf_toggle_key(k.code, k.modifiers) {
+                            if let Some(perf) = app.perf.as_mut() {
+                                perf.toggle_overlay();
+                            }
+                            needs_draw = true;
+                            continue;
+                        }
                         if app.show_help {
                             match (k.code, k.modifiers) {
                                 (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(()),
@@ -4268,6 +4655,9 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                         needs_draw = true;
                     }
                     Event::Mouse(m) => {
+                        if let Some(perf) = app.perf.as_mut() {
+                            perf.mouse_events = perf.mouse_events.saturating_add(1);
+                        }
                         if app.show_help {
                             needs_draw = true;
                             continue;
@@ -4287,11 +4677,11 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                         match m.kind {
                             MouseEventKind::ScrollUp => {
                                 app.auto_follow_bottom = false;
-                                app.scroll_top = app.scroll_top.saturating_add(3);
+                                app.scroll_top = app.scroll_top.saturating_sub(3);
                             }
                             MouseEventKind::ScrollDown => {
                                 app.auto_follow_bottom = false;
-                                app.scroll_top = app.scroll_top.saturating_sub(3);
+                                app.scroll_top = app.scroll_top.saturating_add(3);
                             }
                             MouseEventKind::Down(MouseButton::Left) => {
                                 app.mouse_drag_mode = MouseDragMode::Undecided;
@@ -4369,6 +4759,9 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                         needs_draw = true;
                     }
                     Event::Paste(pasted) => {
+                        if let Some(perf) = app.perf.as_mut() {
+                            perf.paste_events = perf.paste_events.saturating_add(1);
+                        }
                         if app.show_help {
                             needs_draw = true;
                             continue;
@@ -4387,9 +4780,15 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                         }
                     }
                     Event::Resize(_, _) => {
+                        if let Some(perf) = app.perf.as_mut() {
+                            perf.resize_events = perf.resize_events.saturating_add(1);
+                        }
                         needs_draw = true;
                     }
                     _ => {}
+                }
+                if let Some(perf) = app.perf.as_mut() {
+                    perf.event_handle.push(event_started.elapsed());
                 }
             }
         }
@@ -4397,7 +4796,25 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
 }
 
 fn usage() {
-    eprintln!("Usage:\n  carlos\n  carlos resume [SESSION_ID]");
+    eprintln!(
+        "Usage:\n  carlos\n  carlos resume [SESSION_ID]\n\nEnv:\n  CARLOS_METRICS=1  enable perf overlay + exit report (toggle: F8 or Ctrl+P)"
+    );
+}
+
+fn env_flag_enabled(name: &str) -> bool {
+    match env::var(name) {
+        Ok(value) => {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                return true;
+            }
+            !matches!(
+                trimmed.to_ascii_lowercase().as_str(),
+                "0" | "false" | "no" | "off"
+            )
+        }
+        Err(_) => false,
+    }
 }
 
 pub(crate) fn run() -> Result<()> {
@@ -4463,10 +4880,17 @@ pub(crate) fn run() -> Result<()> {
     };
 
     let mut app = AppState::new(chosen_thread_id);
+    if env_flag_enabled("CARLOS_METRICS") {
+        app.enable_perf_metrics();
+    }
     load_history_from_start_or_resume(&mut app, &start_resp)?;
     app.set_status("ready");
 
-    run_conversation_tui(&client, &mut app)
+    let out = run_conversation_tui(&client, &mut app);
+    if let Some(report) = app.perf_report() {
+        eprintln!("{report}");
+    }
+    out
 }
 
 #[cfg(test)]
