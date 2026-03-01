@@ -2844,6 +2844,13 @@ fn draw_rendered_line(
         }
         render_segment(&seg.text, seg.style, &mut draw_x, &mut col);
     }
+
+    // Some markdown renderers occasionally leave a trailing token outside
+    // styled spans; render the uncovered tail from canonical line text.
+    if col < line.cells && draw_x < x + max_width {
+        let tail = slice_by_cells(&line.text, col, line.cells);
+        render_segment(&tail, Style::default(), &mut draw_x, &mut col);
+    }
 }
 
 fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize) {
@@ -3340,6 +3347,10 @@ fn is_ctrl_char(code: KeyCode, modifiers: KeyModifiers, ch: char) -> bool {
         && modifiers.contains(KeyModifiers::CONTROL)
 }
 
+fn is_key_press_like(kind: KeyEventKind) -> bool {
+    matches!(kind, KeyEventKind::Press | KeyEventKind::Repeat)
+}
+
 fn handle_notification_line(app: &mut AppState, line: &str) {
     let Ok(parsed) = serde_json::from_str::<Value>(line) else {
         return;
@@ -3714,7 +3725,7 @@ fn pick_thread(threads: &[ThreadSummary]) -> Result<Option<String>> {
 
             let ev = event::read()?;
             match ev {
-                Event::Key(k) if k.kind == KeyEventKind::Press => match (k.code, k.modifiers) {
+                Event::Key(k) if is_key_press_like(k.kind) => match (k.code, k.modifiers) {
                     (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(None),
                     (KeyCode::Esc, _) => return Ok(None),
                     (KeyCode::Up, _) => {
@@ -3807,7 +3818,7 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
             {
                 had_input = true;
                 match event::read()? {
-                    Event::Key(k) if k.kind == KeyEventKind::Press => {
+                    Event::Key(k) if is_key_press_like(k.kind) => {
                         if app.show_help {
                             match (k.code, k.modifiers) {
                                 (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(()),
@@ -4695,5 +4706,31 @@ mod tests {
         assert!(is_newline_enter(KeyModifiers::SHIFT));
         assert!(is_newline_enter(KeyModifiers::ALT));
         assert!(!is_newline_enter(KeyModifiers::empty()));
+    }
+
+    #[test]
+    fn is_key_press_like_accepts_repeat() {
+        assert!(is_key_press_like(KeyEventKind::Press));
+        assert!(is_key_press_like(KeyEventKind::Repeat));
+        assert!(!is_key_press_like(KeyEventKind::Release));
+    }
+
+    #[test]
+    fn draw_rendered_line_renders_uncovered_styled_tail() {
+        let mut buf = Buffer::empty(Rect::new(0, 0, 8, 1));
+        let line = RenderedLine {
+            text: "suite.".to_string(),
+            styled_segments: vec![StyledSegment {
+                text: "suite".to_string(),
+                style: Style::default().fg(COLOR_TEXT),
+            }],
+            role: Role::Assistant,
+            separator: false,
+            cells: visual_width("suite."),
+            soft_wrap_to_next: false,
+        };
+
+        draw_rendered_line(&mut buf, 0, 0, 8, &line, Style::default(), None);
+        assert_eq!(buf[(5, 0)].symbol(), ".");
     }
 }
