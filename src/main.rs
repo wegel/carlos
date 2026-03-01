@@ -1095,6 +1095,18 @@ fn format_tool_item(item: &Value, role: Role) -> Option<String> {
             None
         }
         Role::ToolOutput => {
+            if item.get("type").and_then(Value::as_str) == Some("commandExecution") {
+                let command = tool_command(item);
+                let output = tool_output_text(item);
+
+                return match (command, output) {
+                    (Some(cmd), Some(out)) => Some(format!("$ {cmd}\n{out}")),
+                    (Some(cmd), None) => Some(format!("$ {cmd}")),
+                    (None, Some(out)) => Some(out),
+                    (None, None) => None,
+                };
+            }
+
             if let Some(out) = tool_output_text(item) {
                 return Some(out);
             }
@@ -4357,6 +4369,10 @@ mod tests {
         let item = json!({
             "type": "commandExecution",
             "id": "call_1",
+            "command": "/usr/bin/zsh -lc 'ls -1'",
+            "commandActions": [
+                { "type": "listFiles", "command": "ls -1", "path": null }
+            ],
             "aggregatedOutput": "a\nb\n",
             "exitCode": 0,
             "durationMs": 51,
@@ -4364,6 +4380,7 @@ mod tests {
         });
 
         let rendered = format_tool_item(&item, Role::ToolOutput).expect("formatted command output");
+        assert!(rendered.starts_with("$ ls -1\n"), "rendered={rendered:?}");
         assert!(rendered.contains("a\nb"), "rendered={rendered:?}");
         assert!(rendered.contains("exit code: 0"), "rendered={rendered:?}");
     }
