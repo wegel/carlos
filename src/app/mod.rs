@@ -5301,5 +5301,5 @@ pub(crate) fn run() -> Result<()> {
 }
 
 #[cfg(test)]
-#[path = "tests.rs"]
+#[path = "../tests.rs"]
 mod tests;
