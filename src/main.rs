@@ -1662,6 +1662,13 @@ fn role_row_bg(role: Role) -> Color {
     }
 }
 
+fn role_gutter_symbol(role: Role) -> &'static str {
+    match role {
+        Role::Assistant => " ",
+        _ => "┃",
+    }
+}
+
 fn draw_str(buf: &mut Buffer, x: usize, y: usize, text: &str, style: Style, max_width: usize) {
     if text.is_empty() || max_width == 0 {
         return;
@@ -1939,11 +1946,12 @@ fn render_main_view(
         let line_opt = rendered_lines.get(line_idx);
         if let Some(line) = line_opt {
             if !line.separator {
+                let gutter_symbol = role_gutter_symbol(line.role);
                 draw_str(
                     buf,
                     0,
                     y,
-                    "┃",
+                    gutter_symbol,
                     Style::default()
                         .fg(role_gutter_fg(line.role))
                         .add_modifier(Modifier::BOLD),
