@@ -17,8 +17,7 @@ use crossterm::event::{
 };
 use crossterm::execute;
 use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, supports_keyboard_enhancement, EnterAlternateScreen,
-    LeaveAlternateScreen,
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
@@ -3409,10 +3408,9 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
             if diffs.is_empty() {
                 let item_id = item.get("id").and_then(Value::as_str);
                 let exit_code = first_i64_at_paths(&item_value, &[&["exitCode"], &["exit_code"]]);
-                if let (Some(id), Some(summary)) = (
-                    item_id,
-                    item_id.and_then(|id| app.command_render_overrides.get(id).cloned()),
-                ) {
+                let summary_override =
+                    item_id.and_then(|id| app.command_render_overrides.get(id).cloned());
+                if let (Some(id), Some(summary)) = (item_id, summary_override.clone()) {
                     if exit_code.unwrap_or(0) == 0 {
                         if let Some(idx) = app.agent_item_to_index.get(id).copied() {
                             if let Some(msg) = app.messages.get_mut(idx) {
@@ -3449,12 +3447,21 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
                 }
 
                 if let Some(formatted) = format_tool_item(&item_value, role) {
+                    let text = if exit_code.unwrap_or(0) != 0 {
+                        if let Some(summary) = summary_override {
+                            format!("{summary}\n{formatted}")
+                        } else {
+                            formatted
+                        }
+                    } else {
+                        formatted
+                    };
                     let item_id = item.get("id").and_then(Value::as_str);
                     if let Some(id) = item_id {
                         if let Some(idx) = app.agent_item_to_index.get(id).copied() {
                             if let Some(msg) = app.messages.get_mut(idx) {
                                 msg.role = role;
-                                msg.text = formatted;
+                                msg.text = text;
                                 msg.kind = MessageKind::Plain;
                                 msg.file_path = None;
                             }
@@ -3462,7 +3469,7 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
                             return;
                         }
                     }
-                    app.append_message(role, formatted);
+                    app.append_message(role, text);
                     app.auto_follow_bottom = true;
                 }
                 return;
@@ -3547,21 +3554,6 @@ fn with_terminal<T>(
 ) -> Result<T> {
     enable_raw_mode().context("failed to enable raw mode")?;
     let mut stdout = io::stdout();
-    let keyboard_enhancement_enabled = matches!(supports_keyboard_enhancement(), Ok(true));
-
-    if keyboard_enhancement_enabled {
-        execute!(
-            stdout,
-            PushKeyboardEnhancementFlags(
-                KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
-                    | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
-                    | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
-                    | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
-            )
-        )
-        .context("failed to enable keyboard enhancement flags")?;
-    }
-
     execute!(
         stdout,
         EnterAlternateScreen,
@@ -3569,6 +3561,19 @@ fn with_terminal<T>(
         EnableBracketedPaste
     )
     .context("failed to enter alt screen")?;
+
+    // Some terminals (including foot in certain setups) support kitty keyboard flags
+    // but are not detected reliably; probe by trying after alt-screen activation.
+    let keyboard_enhancement_enabled = execute!(
+        stdout,
+        PushKeyboardEnhancementFlags(
+            KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
+                | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
+                | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+        )
+    )
+    .is_ok();
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).context("failed to create terminal")?;
@@ -4384,6 +4389,33 @@ mod tests {
         assert_eq!(app.messages.len(), 1);
         assert_eq!(app.messages[0].text, "✱ Search src/main.rs [pattern=foo]");
         assert_eq!(app.messages[0].role, Role::ToolCall);
+    }
+
+    #[test]
+    fn exec_command_end_search_override_kept_on_error_with_output() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_search_err\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/exec_command_end\",\"params\":{\"msg\":{\"type\":\"exec_command_end\",\"call_id\":\"call_search_err\",\"cwd\":\"/repo\",\"parsed_cmd\":[{\"type\":\"search\",\"cmd\":\"rg -n foo src/main.rs\",\"path\":\"/repo/src/main.rs\",\"pattern\":\"foo\"}]}}}",
+        );
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_search_err\",\"command\":\"/usr/bin/zsh -lc 'rg -n foo src/main.rs missing.rs'\",\"aggregatedOutput\":\"rg: missing.rs: No such file or directory\\n\",\"exitCode\":2},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+
+        assert_eq!(app.messages.len(), 1);
+        assert_eq!(app.messages[0].role, Role::ToolOutput);
+        assert!(app.messages[0]
+            .text
+            .starts_with("✱ Search src/main.rs [pattern=foo]\n$ rg -n foo src/main.rs missing.rs"));
+        assert!(app.messages[0]
+            .text
+            .contains("rg: missing.rs: No such file or directory"));
+        assert!(app.messages[0].text.contains("exit code: 2"));
     }
 
     #[test]
