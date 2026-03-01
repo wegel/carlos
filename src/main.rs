@@ -6,7 +6,7 @@ use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, bail, Context, Result};
 use base64::Engine;
@@ -63,6 +63,12 @@ const COLOR_DIFF_ADD: Color = Color::Rgb(166, 227, 161); // green
 const COLOR_DIFF_REMOVE: Color = Color::Rgb(243, 139, 168); // red
 const COLOR_DIFF_HUNK: Color = Color::Rgb(250, 179, 135); // peach
 const COLOR_DIFF_HEADER: Color = Color::Rgb(137, 220, 235); // sky
+const COLOR_KITT_HEAD: Color = Color::Rgb(137, 220, 235); // sky
+const COLOR_KITT_TRAIL_1: Color = Color::Rgb(116, 199, 236); // sapphire
+const COLOR_KITT_TRAIL_2: Color = Color::Rgb(137, 180, 250); // blue
+const COLOR_KITT_TRAIL_3: Color = Color::Rgb(108, 112, 134); // overlay0
+const COLOR_KITT_BASE: Color = COLOR_STEP7;
+const KITT_STEP_MS: u128 = 45;
 
 const MSG_TOP: usize = 1; // 1-based row index
 const MSG_CONTENT_X: usize = 2; // 0-based x
@@ -3087,25 +3093,51 @@ fn render_main_view(
     if input_layout.input_top > 1 {
         let sep_y = input_layout.input_top - 2;
         if size.width > 0 {
+            let working = app.active_turn_id.is_some();
+            let line_len = size.width.saturating_sub(2);
+            let tick = animation_tick();
+            let head = if line_len > 0 {
+                kitt_head_index(line_len, tick)
+            } else {
+                0
+            };
             let corner = if msg_height > 0 { "┗" } else { "━" };
             draw_str(
                 buf,
                 0,
                 sep_y,
                 corner,
-                Style::default().fg(COLOR_GUTTER_USER),
+                Style::default().fg(if working {
+                    kitt_color_for_distance(head)
+                } else {
+                    COLOR_GUTTER_USER
+                }),
                 1,
             );
-            if size.width > 2 {
-                let sep = "━".repeat(size.width - 2);
-                draw_str(
-                    buf,
-                    1,
-                    sep_y,
-                    &sep,
-                    Style::default().fg(COLOR_GUTTER_USER),
-                    size.width - 2,
-                );
+            if line_len > 0 {
+                if working {
+                    for x in 0..line_len {
+                        let dist = head.abs_diff(x);
+                        draw_str(
+                            buf,
+                            1 + x,
+                            sep_y,
+                            "━",
+                            Style::default().fg(kitt_color_for_distance(dist)),
+                            1,
+                        );
+                    }
+                } else {
+                    let sep = "━".repeat(line_len);
+                    draw_str(
+                        buf,
+                        1,
+                        sep_y,
+                        &sep,
+                        Style::default().fg(COLOR_GUTTER_USER),
+                        line_len,
+                    );
+                }
             }
         }
     }
@@ -3345,6 +3377,42 @@ fn normalize_selection_x(col0: usize) -> usize {
 fn is_ctrl_char(code: KeyCode, modifiers: KeyModifiers, ch: char) -> bool {
     matches!(code, KeyCode::Char(c) if c.eq_ignore_ascii_case(&ch))
         && modifiers.contains(KeyModifiers::CONTROL)
+}
+
+fn animation_tick() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() / KITT_STEP_MS)
+        .unwrap_or(0)
+}
+
+fn kitt_head_index(width: usize, tick: u128) -> usize {
+    if width <= 1 {
+        return 0;
+    }
+
+    let span = (width - 1) as u128;
+    let cycle = span * 2;
+    if cycle == 0 {
+        return 0;
+    }
+
+    let phase = tick % cycle;
+    if phase <= span {
+        phase as usize
+    } else {
+        (cycle - phase) as usize
+    }
+}
+
+fn kitt_color_for_distance(distance: usize) -> Color {
+    match distance {
+        0 => COLOR_KITT_HEAD,
+        1 => COLOR_KITT_TRAIL_1,
+        2 => COLOR_KITT_TRAIL_2,
+        3 => COLOR_KITT_TRAIL_3,
+        _ => COLOR_KITT_BASE,
+    }
 }
 
 fn is_key_press_like(kind: KeyEventKind) -> bool {
@@ -4713,6 +4781,13 @@ mod tests {
         assert!(is_key_press_like(KeyEventKind::Press));
         assert!(is_key_press_like(KeyEventKind::Repeat));
         assert!(!is_key_press_like(KeyEventKind::Release));
+    }
+
+    #[test]
+    fn kitt_head_index_bounces_across_separator() {
+        let seq: Vec<usize> = (0..9).map(|tick| kitt_head_index(5, tick)).collect();
+        assert_eq!(seq, vec![0, 1, 2, 3, 4, 3, 2, 1, 0]);
+        assert_eq!(kitt_head_index(1, 42), 0);
     }
 
     #[test]
