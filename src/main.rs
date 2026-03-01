@@ -141,6 +141,7 @@ struct AppState {
     active_turn_id: Option<String>,
     messages: Vec<Message>,
     agent_item_to_index: HashMap<String, usize>,
+    turn_diff_to_index: HashMap<String, usize>,
 
     input: TextArea<'static>,
     status: String,
@@ -158,6 +159,7 @@ impl AppState {
             active_turn_id: None,
             messages: Vec::new(),
             agent_item_to_index: HashMap::new(),
+            turn_diff_to_index: HashMap::new(),
             input: make_input_area(),
             status: String::new(),
             scroll_top: 0,
@@ -227,6 +229,30 @@ impl AppState {
 
         let idx = self.append_message(Role::Assistant, delta);
         self.put_agent_item_mapping(item_id, idx);
+    }
+
+    fn upsert_turn_diff(&mut self, turn_id: &str, diff: &str) {
+        if diff.trim().is_empty() {
+            return;
+        }
+
+        if let Some(idx) = self.turn_diff_to_index.get(turn_id).copied() {
+            if let Some(msg) = self.messages.get_mut(idx) {
+                if msg.text == diff && msg.kind == MessageKind::Diff {
+                    return;
+                }
+                msg.role = Role::ToolOutput;
+                msg.text = diff.to_string();
+                msg.kind = MessageKind::Diff;
+                msg.file_path = None;
+                self.auto_follow_bottom = true;
+                return;
+            }
+        }
+
+        let idx = self.append_diff_message(Role::ToolOutput, None, diff.to_string());
+        self.turn_diff_to_index.insert(turn_id.to_string(), idx);
+        self.auto_follow_bottom = true;
     }
 }
 
@@ -502,6 +528,9 @@ fn is_tool_output_type(kind: &str) -> bool {
 }
 
 fn role_for_tool_type(kind: &str) -> Option<Role> {
+    if kind == "commandExecution" {
+        return Some(Role::ToolCall);
+    }
     if is_tool_call_type(kind) {
         return Some(Role::ToolCall);
     }
@@ -573,6 +602,423 @@ fn extract_diff_blocks(item: &Value) -> Vec<DiffBlock> {
     out
 }
 
+fn value_at_path<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Value> {
+    let mut cur = value;
+    for key in path {
+        cur = cur.get(*key)?;
+    }
+    Some(cur)
+}
+
+fn first_string_at_paths(value: &Value, paths: &[&[&str]]) -> Option<String> {
+    for path in paths {
+        if let Some(s) = value_at_path(value, path).and_then(Value::as_str) {
+            if !s.is_empty() {
+                return Some(s.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn first_i64_at_paths(value: &Value, paths: &[&[&str]]) -> Option<i64> {
+    for path in paths {
+        if let Some(v) = value_at_path(value, path) {
+            if let Some(n) = v.as_i64() {
+                return Some(n);
+            }
+            if let Some(n) = v.as_u64() {
+                return i64::try_from(n).ok();
+            }
+        }
+    }
+    None
+}
+
+fn command_execution_action_command(item: &Value) -> Option<String> {
+    let actions = item.get("commandActions").and_then(Value::as_array)?;
+    for a in actions {
+        if let Some(cmd) = a.get("command").and_then(Value::as_str) {
+            if !cmd.is_empty() {
+                return Some(cmd.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn normalize_shell_command(raw: &str) -> String {
+    if let Some(pos) = raw.find(" -lc '") {
+        let s = &raw[(pos + 6)..];
+        if let Some(end) = s.rfind('\'') {
+            return s[..end].to_string();
+        }
+    }
+    raw.to_string()
+}
+
+fn tool_name(item: &Value) -> Option<String> {
+    first_string_at_paths(
+        item,
+        &[
+            &["tool"],
+            &["name"],
+            &["input", "tool"],
+            &["input", "name"],
+            &["function", "name"],
+        ],
+    )
+}
+
+fn tool_command(item: &Value) -> Option<String> {
+    if item.get("type").and_then(Value::as_str) == Some("commandExecution") {
+        if let Some(cmd) = command_execution_action_command(item) {
+            return Some(cmd);
+        }
+        if let Some(raw) = item.get("command").and_then(Value::as_str) {
+            if !raw.is_empty() {
+                return Some(normalize_shell_command(raw));
+            }
+        }
+    }
+
+    first_string_at_paths(
+        item,
+        &[
+            &["command"],
+            &["input", "command"],
+            &["action", "command"],
+            &["args", "command"],
+            &["arguments", "command"],
+            &["metadata", "command"],
+        ],
+    )
+}
+
+fn tool_reasoning(item: &Value) -> Option<String> {
+    first_string_at_paths(
+        item,
+        &[
+            &["reasoning"],
+            &["input", "reasoning"],
+            &["metadata", "reasoning"],
+            &["thought"],
+        ],
+    )
+}
+
+fn tool_description(item: &Value) -> Option<String> {
+    first_string_at_paths(
+        item,
+        &[
+            &["description"],
+            &["input", "description"],
+            &["metadata", "description"],
+            &["title"],
+            &["metadata", "title"],
+        ],
+    )
+}
+
+fn tool_output_text(item: &Value) -> Option<String> {
+    let mut parts = Vec::new();
+
+    if let Some(s) = first_string_at_paths(item, &[&["aggregatedOutput"]]) {
+        parts.push(s);
+    }
+
+    if let Some(s) = first_string_at_paths(
+        item,
+        &[
+            &["output"],
+            &["text"],
+            &["result"],
+            &["metadata", "output"],
+            &["metadata", "result"],
+            &["state", "output"],
+            &["formattedOutput"],
+        ],
+    ) {
+        parts.push(s);
+    }
+    if let Some(s) = first_string_at_paths(
+        item,
+        &[&["stdout"], &["metadata", "stdout"], &["state", "stdout"]],
+    ) {
+        parts.push(s);
+    }
+    if let Some(s) = first_string_at_paths(
+        item,
+        &[&["stderr"], &["metadata", "stderr"], &["state", "stderr"]],
+    ) {
+        parts.push(s);
+    }
+    if let Some(code) = first_i64_at_paths(
+        item,
+        &[
+            &["exitCode"],
+            &["exit_code"],
+            &["metadata", "exitCode"],
+            &["metadata", "exit_code"],
+            &["state", "exitCode"],
+            &["durationMs"],
+        ],
+    ) {
+        if item.get("durationMs").is_some() && item.get("exitCode").is_none() {
+            parts.push(format!("duration: {code} ms"));
+        } else {
+            parts.push(format!("exit code: {code}"));
+        }
+    }
+
+    if let Some(code) = first_i64_at_paths(item, &[&["exitCode"], &["exit_code"]]) {
+        if !parts.iter().any(|p| p.starts_with("exit code:")) {
+            parts.push(format!("exit code: {code}"));
+        }
+    }
+
+    parts.retain(|s| !s.trim().is_empty());
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join("\n"))
+    }
+}
+
+fn compact_json_summary(value: &Value, max_chars: usize) -> Option<String> {
+    let mut s = serde_json::to_string(value).ok()?;
+    if s.len() > max_chars {
+        s.truncate(max_chars.saturating_sub(1));
+        s.push('…');
+    }
+    Some(s)
+}
+
+fn tool_input_object<'a>(item: &'a Value) -> Option<&'a serde_json::Map<String, Value>> {
+    value_at_path(item, &["input"]).and_then(Value::as_object)
+}
+
+fn inline_value(value: &Value) -> Option<String> {
+    match value {
+        Value::String(s) => {
+            if s.is_empty() {
+                None
+            } else {
+                Some(s.clone())
+            }
+        }
+        Value::Number(n) => Some(n.to_string()),
+        Value::Bool(b) => Some(b.to_string()),
+        Value::Null => None,
+        Value::Array(_) | Value::Object(_) => compact_json_summary(value, 64),
+    }
+}
+
+fn format_input_brackets(
+    input: &serde_json::Map<String, Value>,
+    skip_keys: &[&str],
+) -> Option<String> {
+    let skip: HashSet<&str> = skip_keys.iter().copied().collect();
+    let mut keys: Vec<&str> = input
+        .keys()
+        .map(String::as_str)
+        .filter(|k| !skip.contains(*k))
+        .collect();
+    keys.sort_unstable();
+
+    let mut parts = Vec::new();
+    for key in keys {
+        let Some(val) = input.get(key).and_then(inline_value) else {
+            continue;
+        };
+        if val.is_empty() {
+            continue;
+        }
+        parts.push(format!("{key}={val}"));
+    }
+
+    if parts.is_empty() {
+        None
+    } else {
+        Some(format!("[{}]", parts.join(" ")))
+    }
+}
+
+fn titlecase_tool_name(name: &str) -> String {
+    let normalized = name.replace(['_', '-'], " ");
+    let mut out = String::new();
+    for (i, word) in normalized.split_whitespace().enumerate() {
+        if i > 0 {
+            out.push(' ');
+        }
+        let mut chars = word.chars();
+        if let Some(first) = chars.next() {
+            out.push(first.to_ascii_uppercase());
+            out.push_str(chars.as_str());
+        }
+    }
+    if out.is_empty() {
+        name.to_string()
+    } else {
+        out
+    }
+}
+
+fn tool_icon(tool_name: &str) -> &'static str {
+    match tool_name {
+        "read" | "list" => "→",
+        "write" | "edit" | "applypatch" | "apply_patch" => "←",
+        "grep" | "glob" | "codesearch" => "✱",
+        "task" => "#",
+        _ => "◇",
+    }
+}
+
+fn format_tool_call_inline(item: &Value, tool_name: &str) -> Option<String> {
+    let lower = tool_name.to_ascii_lowercase();
+    let input = tool_input_object(item);
+
+    match lower.as_str() {
+        "read" => {
+            let path = input
+                .and_then(|obj| {
+                    obj.get("filePath")
+                        .and_then(Value::as_str)
+                        .or_else(|| obj.get("path").and_then(Value::as_str))
+                })
+                .unwrap_or("");
+            let mut out = format!("{} Read {}", tool_icon(&lower), path);
+            if let Some(args) = input.and_then(|obj| {
+                format_input_brackets(
+                    obj,
+                    &[
+                        "filePath",
+                        "path",
+                        "tool",
+                        "name",
+                        "command",
+                        "description",
+                        "reasoning",
+                    ],
+                )
+            }) {
+                if !args.is_empty() {
+                    out.push(' ');
+                    out.push_str(&args);
+                }
+            }
+            return Some(out.trim_end().to_string());
+        }
+        _ => {}
+    }
+
+    if let Some(obj) = input {
+        let mut out = format!("{} {}", tool_icon(&lower), titlecase_tool_name(tool_name));
+        if let Some(path) = obj
+            .get("filePath")
+            .and_then(Value::as_str)
+            .or_else(|| obj.get("path").and_then(Value::as_str))
+        {
+            if !path.is_empty() {
+                out.push(' ');
+                out.push_str(path);
+            }
+        }
+
+        if let Some(args) = format_input_brackets(
+            obj,
+            &[
+                "filePath",
+                "path",
+                "tool",
+                "name",
+                "command",
+                "description",
+                "reasoning",
+                "content",
+                "patch",
+                "old_string",
+                "new_string",
+                "text",
+            ],
+        ) {
+            out.push(' ');
+            out.push_str(&args);
+        }
+        return Some(out);
+    }
+
+    Some(format!(
+        "{} {}",
+        tool_icon(&lower),
+        titlecase_tool_name(tool_name)
+    ))
+}
+
+fn tool_input_summary(item: &Value) -> Option<String> {
+    if let Some(obj) = value_at_path(item, &["input"]).and_then(Value::as_object) {
+        let mut fields = Vec::new();
+        for key in [
+            "filePath",
+            "path",
+            "pattern",
+            "query",
+            "url",
+            "method",
+            "subagent_type",
+        ] {
+            if let Some(v) = obj.get(key).and_then(Value::as_str) {
+                if !v.is_empty() {
+                    fields.push(format!("{key}={v}"));
+                }
+            }
+        }
+        if !fields.is_empty() {
+            return Some(fields.join(" "));
+        }
+        return compact_json_summary(&Value::Object(obj.clone()), 220);
+    }
+    None
+}
+
+fn format_tool_item(item: &Value, role: Role) -> Option<String> {
+    match role {
+        Role::ToolCall => {
+            if let Some(cmd) = tool_command(item) {
+                let mut lines = Vec::new();
+                lines.push(format!("run `{cmd}`"));
+                if let Some(reason) = tool_reasoning(item) {
+                    lines.push(format!("Thinking: {reason}"));
+                }
+                if let Some(desc) = tool_description(item) {
+                    lines.push(format!("# {desc}"));
+                }
+                lines.push(format!("$ {cmd}"));
+                return Some(lines.join("\n"));
+            }
+
+            if let Some(name) = tool_name(item) {
+                if let Some(inline) = format_tool_call_inline(item, &name) {
+                    return Some(inline);
+                }
+                if let Some(input) = tool_input_summary(item) {
+                    return Some(format!("{} {}", titlecase_tool_name(&name), input));
+                }
+                return Some(titlecase_tool_name(&name));
+            }
+
+            None
+        }
+        Role::ToolOutput => {
+            if let Some(out) = tool_output_text(item) {
+                return Some(out);
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
 fn collect_text_parts(content: &[Value]) -> Vec<&str> {
     let mut text_parts = Vec::new();
     for part in content {
@@ -603,6 +1049,13 @@ fn append_tool_history_item(app: &mut AppState, item: &Value, role: Role) {
             app.append_diff_message(role, block.file_path, block.diff);
         }
         return;
+    }
+
+    if let Some(formatted) = format_tool_item(item, role) {
+        if !formatted.is_empty() {
+            app.append_message(role, formatted);
+            return;
+        }
     }
 
     if let Some(t) = item.get("text").and_then(Value::as_str) {
@@ -650,6 +1103,9 @@ fn append_history_from_thread(app: &mut AppState, thread_obj: &Value) {
                     if !parts.is_empty() {
                         app.append_message(Role::Reasoning, parts.join("\n"));
                     }
+                }
+                "commandExecution" => {
+                    append_tool_history_item(app, item, Role::ToolOutput);
                 }
                 k if is_tool_call_type(k) => {
                     append_tool_history_item(app, item, Role::ToolCall);
@@ -779,8 +1235,8 @@ fn role_prefix(role: Role) -> &'static str {
         Role::User => "",
         Role::Assistant => "",
         Role::Reasoning => "",
-        Role::ToolCall => "Tool: ",
-        Role::ToolOutput => "Result: ",
+        Role::ToolCall => "",
+        Role::ToolOutput => "",
         Role::System => "",
     }
 }
@@ -2521,6 +2977,28 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
             app.active_turn_id = None;
             app.set_status("turn completed");
         }
+        "turn/diff/updated" => {
+            if let (Some(turn_id), Some(diff)) = (
+                params.get("turnId").and_then(Value::as_str),
+                params.get("diff").and_then(Value::as_str),
+            ) {
+                app.upsert_turn_diff(turn_id, diff);
+            }
+        }
+        "codex/event/turn_diff" => {
+            let turn_id = params
+                .get("id")
+                .and_then(Value::as_str)
+                .or_else(|| params.get("turnId").and_then(Value::as_str));
+            let diff = params
+                .get("msg")
+                .and_then(|m| m.get("unified_diff"))
+                .and_then(Value::as_str)
+                .or_else(|| params.get("diff").and_then(Value::as_str));
+            if let (Some(turn_id), Some(diff)) = (turn_id, diff) {
+                app.upsert_turn_diff(turn_id, diff);
+            }
+        }
         "item/started" => {
             let Some(item) = params.get("item").and_then(Value::as_object) else {
                 return;
@@ -2554,6 +3032,12 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
                         app.put_agent_item_mapping(id, idx);
                     }
                 }
+                "commandExecution" => {
+                    if let Some(id) = item.get("id").and_then(Value::as_str) {
+                        let idx = app.append_message(Role::ToolCall, String::new());
+                        app.put_agent_item_mapping(id, idx);
+                    }
+                }
                 t if is_tool_call_type(t) => {
                     if let Some(id) = item.get("id").and_then(Value::as_str) {
                         let idx = app.append_message(Role::ToolCall, String::new());
@@ -2576,13 +3060,33 @@ fn handle_notification_line(app: &mut AppState, line: &str) {
             let Some(kind) = item.get("type").and_then(Value::as_str) else {
                 return;
             };
-            let Some(role) = role_for_tool_type(kind) else {
+            let Some(mut role) = role_for_tool_type(kind) else {
                 return;
             };
+            if kind == "commandExecution" {
+                role = Role::ToolOutput;
+            }
 
             let item_value = Value::Object(item.clone());
             let diffs = extract_diff_blocks(&item_value);
             if diffs.is_empty() {
+                if let Some(formatted) = format_tool_item(&item_value, role) {
+                    let item_id = item.get("id").and_then(Value::as_str);
+                    if let Some(id) = item_id {
+                        if let Some(idx) = app.agent_item_to_index.get(id).copied() {
+                            if let Some(msg) = app.messages.get_mut(idx) {
+                                msg.role = role;
+                                msg.text = formatted;
+                                msg.kind = MessageKind::Plain;
+                                msg.file_path = None;
+                            }
+                            app.auto_follow_bottom = true;
+                            return;
+                        }
+                    }
+                    app.append_message(role, formatted);
+                    app.auto_follow_bottom = true;
+                }
                 return;
             }
 
@@ -3316,6 +3820,120 @@ mod tests {
 
         assert_eq!(removed.styled_segments[0].style.fg, Some(COLOR_DIFF_REMOVE));
         assert_eq!(added.styled_segments[0].style.fg, Some(COLOR_DIFF_ADD));
+    }
+
+    #[test]
+    fn handle_notification_turn_diff_updated_upserts_diff_message() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"turn/diff/updated\",\"params\":{\"threadId\":\"thread-1\",\"turnId\":\"turn-1\",\"diff\":\"diff --git a/test.txt b/test.txt\\n@@ -1 +1 @@\\n-old\\n+new\\n\"}}",
+        );
+
+        assert_eq!(app.messages.len(), 1);
+        assert_eq!(app.messages[0].role, Role::ToolOutput);
+        assert_eq!(app.messages[0].kind, MessageKind::Diff);
+        assert!(app.messages[0].text.contains("+new"));
+
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"turn/diff/updated\",\"params\":{\"threadId\":\"thread-1\",\"turnId\":\"turn-1\",\"diff\":\"diff --git a/test.txt b/test.txt\\n@@ -1 +1 @@\\n-old\\n+newer\\n\"}}",
+        );
+
+        assert_eq!(app.messages.len(), 1);
+        assert!(app.messages[0].text.contains("+newer"));
+    }
+
+    #[test]
+    fn handle_notification_codex_event_turn_diff_adds_diff_message() {
+        let mut app = AppState::new("thread-1".to_string());
+        handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/turn_diff\",\"params\":{\"id\":\"turn-2\",\"msg\":{\"type\":\"turn_diff\",\"unified_diff\":\"diff --git a/a b/a\\n@@ -1 +1 @@\\n-a\\n+b\\n\"}}}",
+        );
+
+        assert_eq!(app.messages.len(), 1);
+        assert_eq!(app.messages[0].kind, MessageKind::Diff);
+        assert!(app.messages[0].text.contains("+b"));
+    }
+
+    #[test]
+    fn format_tool_item_run_style_from_command_fields() {
+        let item = json!({
+            "type": "toolCall",
+            "input": {
+                "command": "cargo test",
+                "reasoning": "Running cargo test in repo",
+                "description": "Runs Rust test suite using Cargo"
+            }
+        });
+
+        let rendered = format_tool_item(&item, Role::ToolCall).expect("formatted tool call");
+        assert!(rendered.contains("run `cargo test`"));
+        assert!(rendered.contains("Thinking: Running cargo test in repo"));
+        assert!(rendered.contains("# Runs Rust test suite using Cargo"));
+        assert!(rendered.contains("$ cargo test"));
+    }
+
+    #[test]
+    fn format_tool_item_collects_stdout_stderr_and_exit_code() {
+        let item = json!({
+            "type": "toolOutput",
+            "stdout": "Finished `test` profile [optimized + debuginfo] target(s) in 0.04s",
+            "stderr": "",
+            "exitCode": 0
+        });
+
+        let rendered = format_tool_item(&item, Role::ToolOutput).expect("formatted output");
+        assert!(rendered.contains("Finished `test` profile"));
+        assert!(rendered.contains("exit code: 0"));
+    }
+
+    #[test]
+    fn format_tool_item_read_call_shows_offset_bracket() {
+        let item = json!({
+            "type": "toolCall",
+            "tool": "read",
+            "input": {
+                "filePath": "src/main.rs",
+                "offset": 1791
+            }
+        });
+
+        let rendered = format_tool_item(&item, Role::ToolCall).expect("formatted read call");
+        assert_eq!(rendered, "→ Read src/main.rs [offset=1791]");
+    }
+
+    #[test]
+    fn format_command_execution_call_uses_action_command() {
+        let item = json!({
+            "type": "commandExecution",
+            "id": "call_1",
+            "command": "/usr/bin/zsh -lc 'ls -1'",
+            "commandActions": [
+                { "type": "listFiles", "command": "ls -1", "path": null }
+            ],
+            "status": "inProgress"
+        });
+
+        let rendered = format_tool_item(&item, Role::ToolCall).expect("formatted command call");
+        assert_eq!(rendered, "run `ls -1`\n$ ls -1");
+    }
+
+    #[test]
+    fn format_command_execution_output_uses_aggregated_output() {
+        let item = json!({
+            "type": "commandExecution",
+            "id": "call_1",
+            "aggregatedOutput": "a\nb\n",
+            "exitCode": 0,
+            "durationMs": 51,
+            "status": "completed"
+        });
+
+        let rendered = format_tool_item(&item, Role::ToolOutput).expect("formatted command output");
+        assert!(rendered.contains("a\nb"), "rendered={rendered:?}");
+        assert!(rendered.contains("exit code: 0"), "rendered={rendered:?}");
     }
 
     #[test]
