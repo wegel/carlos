@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::env;
 use std::io::{self, BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
@@ -22,9 +23,13 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::Terminal;
+use ratatui_core::style::{Color as CoreColor, Modifier as CoreModifier, Style as CoreStyle};
 use ratatui_textarea::{Input as TextInput, Key as TextKey, TextArea};
 use serde_json::{json, Value};
 use textwrap::{wrap as wrap_text, Options as WrapOptions, WordSplitter};
+use tui_markdown::{
+    from_str_with_options as markdown_from_str_with_options, Options as MarkdownOptions,
+};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -91,8 +96,15 @@ struct Selection {
 }
 
 #[derive(Debug, Clone)]
+struct StyledSegment {
+    text: String,
+    style: Style,
+}
+
+#[derive(Debug, Clone)]
 struct RenderedLine {
     text: String,
+    styled_segments: Vec<StyledSegment>,
     role: Role,
     separator: bool,
     cells: usize,
@@ -653,8 +665,284 @@ fn role_prefix(role: Role) -> &'static str {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct CarlosMarkdownStyleSheet;
+
+fn color_to_core(color: Color) -> CoreColor {
+    match color {
+        Color::Reset => CoreColor::Reset,
+        Color::Black => CoreColor::Black,
+        Color::Red => CoreColor::Red,
+        Color::Green => CoreColor::Green,
+        Color::Yellow => CoreColor::Yellow,
+        Color::Blue => CoreColor::Blue,
+        Color::Magenta => CoreColor::Magenta,
+        Color::Cyan => CoreColor::Cyan,
+        Color::Gray => CoreColor::Gray,
+        Color::DarkGray => CoreColor::DarkGray,
+        Color::LightRed => CoreColor::LightRed,
+        Color::LightGreen => CoreColor::LightGreen,
+        Color::LightYellow => CoreColor::LightYellow,
+        Color::LightBlue => CoreColor::LightBlue,
+        Color::LightMagenta => CoreColor::LightMagenta,
+        Color::LightCyan => CoreColor::LightCyan,
+        Color::White => CoreColor::White,
+        Color::Rgb(r, g, b) => CoreColor::Rgb(r, g, b),
+        Color::Indexed(v) => CoreColor::Indexed(v),
+    }
+}
+
+fn core_color_to_color(color: CoreColor) -> Color {
+    match color {
+        CoreColor::Reset => Color::Reset,
+        CoreColor::Black => Color::Black,
+        CoreColor::Red => Color::Red,
+        CoreColor::Green => Color::Green,
+        CoreColor::Yellow => Color::Yellow,
+        CoreColor::Blue => Color::Blue,
+        CoreColor::Magenta => Color::Magenta,
+        CoreColor::Cyan => Color::Cyan,
+        CoreColor::Gray => Color::Gray,
+        CoreColor::DarkGray => Color::DarkGray,
+        CoreColor::LightRed => Color::LightRed,
+        CoreColor::LightGreen => Color::LightGreen,
+        CoreColor::LightYellow => Color::LightYellow,
+        CoreColor::LightBlue => Color::LightBlue,
+        CoreColor::LightMagenta => Color::LightMagenta,
+        CoreColor::LightCyan => Color::LightCyan,
+        CoreColor::White => Color::White,
+        CoreColor::Rgb(r, g, b) => Color::Rgb(r, g, b),
+        CoreColor::Indexed(v) => Color::Indexed(v),
+    }
+}
+
+fn modifier_to_core(modifier: Modifier) -> CoreModifier {
+    let mut out = CoreModifier::empty();
+    if modifier.contains(Modifier::BOLD) {
+        out |= CoreModifier::BOLD;
+    }
+    if modifier.contains(Modifier::DIM) {
+        out |= CoreModifier::DIM;
+    }
+    if modifier.contains(Modifier::ITALIC) {
+        out |= CoreModifier::ITALIC;
+    }
+    if modifier.contains(Modifier::UNDERLINED) {
+        out |= CoreModifier::UNDERLINED;
+    }
+    if modifier.contains(Modifier::SLOW_BLINK) {
+        out |= CoreModifier::SLOW_BLINK;
+    }
+    if modifier.contains(Modifier::RAPID_BLINK) {
+        out |= CoreModifier::RAPID_BLINK;
+    }
+    if modifier.contains(Modifier::REVERSED) {
+        out |= CoreModifier::REVERSED;
+    }
+    if modifier.contains(Modifier::HIDDEN) {
+        out |= CoreModifier::HIDDEN;
+    }
+    if modifier.contains(Modifier::CROSSED_OUT) {
+        out |= CoreModifier::CROSSED_OUT;
+    }
+    out
+}
+
+fn core_modifier_to_modifier(modifier: CoreModifier) -> Modifier {
+    let mut out = Modifier::empty();
+    if modifier.contains(CoreModifier::BOLD) {
+        out |= Modifier::BOLD;
+    }
+    if modifier.contains(CoreModifier::DIM) {
+        out |= Modifier::DIM;
+    }
+    if modifier.contains(CoreModifier::ITALIC) {
+        out |= Modifier::ITALIC;
+    }
+    if modifier.contains(CoreModifier::UNDERLINED) {
+        out |= Modifier::UNDERLINED;
+    }
+    if modifier.contains(CoreModifier::SLOW_BLINK) {
+        out |= Modifier::SLOW_BLINK;
+    }
+    if modifier.contains(CoreModifier::RAPID_BLINK) {
+        out |= Modifier::RAPID_BLINK;
+    }
+    if modifier.contains(CoreModifier::REVERSED) {
+        out |= Modifier::REVERSED;
+    }
+    if modifier.contains(CoreModifier::HIDDEN) {
+        out |= Modifier::HIDDEN;
+    }
+    if modifier.contains(CoreModifier::CROSSED_OUT) {
+        out |= Modifier::CROSSED_OUT;
+    }
+    out
+}
+
+fn style_to_core(style: Style) -> CoreStyle {
+    let mut out = CoreStyle::default();
+    if let Some(fg) = style.fg {
+        out = out.fg(color_to_core(fg));
+    }
+    if let Some(bg) = style.bg {
+        out = out.bg(color_to_core(bg));
+    }
+    if let Some(ul) = style.underline_color {
+        out = out.underline_color(color_to_core(ul));
+    }
+    out.add_modifier = modifier_to_core(style.add_modifier);
+    out.sub_modifier = modifier_to_core(style.sub_modifier);
+    out
+}
+
+fn core_style_to_style(style: CoreStyle) -> Style {
+    let mut out = Style::default();
+    if let Some(fg) = style.fg {
+        out = out.fg(core_color_to_color(fg));
+    }
+    if let Some(bg) = style.bg {
+        out = out.bg(core_color_to_color(bg));
+    }
+    if let Some(ul) = style.underline_color {
+        out = out.underline_color(core_color_to_color(ul));
+    }
+    out.add_modifier = core_modifier_to_modifier(style.add_modifier);
+    out.sub_modifier = core_modifier_to_modifier(style.sub_modifier);
+    out
+}
+
+impl tui_markdown::StyleSheet for CarlosMarkdownStyleSheet {
+    fn heading(&self, level: u8) -> CoreStyle {
+        match level {
+            1 => style_to_core(
+                Style::default()
+                    .fg(COLOR_TEXT)
+                    .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+            ),
+            2 => style_to_core(Style::default().fg(COLOR_TEXT).add_modifier(Modifier::BOLD)),
+            _ => style_to_core(Style::default().fg(COLOR_TEXT)),
+        }
+    }
+
+    fn code(&self) -> CoreStyle {
+        style_to_core(Style::default().fg(COLOR_TEXT))
+    }
+
+    fn link(&self) -> CoreStyle {
+        style_to_core(
+            Style::default()
+                .fg(COLOR_GUTTER_USER)
+                .add_modifier(Modifier::UNDERLINED),
+        )
+    }
+
+    fn blockquote(&self) -> CoreStyle {
+        style_to_core(Style::default().fg(COLOR_DIM))
+    }
+
+    fn heading_meta(&self) -> CoreStyle {
+        style_to_core(Style::default().fg(COLOR_DIM).add_modifier(Modifier::DIM))
+    }
+
+    fn metadata_block(&self) -> CoreStyle {
+        style_to_core(Style::default().fg(COLOR_DIM))
+    }
+}
+
 fn is_fence_delimiter(line: &str) -> bool {
     line.trim_matches([' ', '\t', '\r']).starts_with("```")
+}
+
+fn styled_plain_text(segments: &[StyledSegment]) -> String {
+    let mut out = String::new();
+    for seg in segments {
+        out.push_str(&seg.text);
+    }
+    out
+}
+
+fn markdown_line_segments(text: &str) -> Vec<Vec<StyledSegment>> {
+    let opts = MarkdownOptions::new(CarlosMarkdownStyleSheet);
+    let markdown = markdown_from_str_with_options(text, &opts);
+
+    let mut out = Vec::new();
+    for line in markdown.lines {
+        let mut segments = Vec::new();
+        for span in line.spans {
+            if span.content.is_empty() {
+                continue;
+            }
+            segments.push(StyledSegment {
+                text: span.content.to_string(),
+                style: core_style_to_style(span.style),
+            });
+        }
+
+        let plain = styled_plain_text(&segments);
+        if is_fence_delimiter(&plain) {
+            continue;
+        }
+        out.push(segments);
+    }
+    out
+}
+
+fn take_styled_segments_by_cells(
+    remaining: &mut VecDeque<StyledSegment>,
+    max_cells: usize,
+) -> Vec<StyledSegment> {
+    if max_cells == 0 {
+        return Vec::new();
+    }
+
+    let mut out = Vec::new();
+    let mut taken_cells = 0usize;
+
+    while let Some(mut seg) = remaining.pop_front() {
+        let seg_cells = visual_width(&seg.text);
+        if seg_cells == 0 {
+            out.push(seg);
+            continue;
+        }
+
+        if taken_cells + seg_cells <= max_cells {
+            taken_cells += seg_cells;
+            out.push(seg);
+            if taken_cells == max_cells {
+                break;
+            }
+            continue;
+        }
+
+        let allowed = max_cells.saturating_sub(taken_cells);
+        if allowed == 0 {
+            remaining.push_front(seg);
+            break;
+        }
+
+        let split = split_at_cells(&seg.text, allowed);
+        if split == 0 {
+            remaining.push_front(seg);
+            break;
+        }
+
+        let left = seg.text[..split].to_string();
+        let right = seg.text[split..].to_string();
+        let seg_style = seg.style;
+        if !right.is_empty() {
+            seg.text = right;
+            remaining.push_front(seg);
+        }
+
+        out.push(StyledSegment {
+            text: left,
+            style: seg_style,
+        });
+        break;
+    }
+
+    out
 }
 
 fn wrap_natural_by_cells(text: &str, width: usize) -> Vec<String> {
@@ -728,6 +1016,7 @@ fn append_wrapped_message_lines(out: &mut Vec<RenderedLine>, role: Role, text: &
             out.push(RenderedLine {
                 cells: visual_width(&t),
                 text: t,
+                styled_segments: Vec::new(),
                 role,
                 separator: false,
                 soft_wrap_to_next: false,
@@ -767,7 +1056,11 @@ fn append_wrapped_message_lines(out: &mut Vec<RenderedLine>, role: Role, text: &
 
             out.push(RenderedLine {
                 cells: visual_width(&line),
-                text: line,
+                text: line.clone(),
+                styled_segments: vec![StyledSegment {
+                    text: line,
+                    style: Style::default(),
+                }],
                 role,
                 separator: false,
                 soft_wrap_to_next: wrapped,
@@ -778,6 +1071,46 @@ fn append_wrapped_message_lines(out: &mut Vec<RenderedLine>, role: Role, text: &
     }
 }
 
+fn append_wrapped_assistant_markdown_lines(out: &mut Vec<RenderedLine>, text: &str, width: usize) {
+    if width < 8 {
+        return;
+    }
+
+    let logical_lines = markdown_line_segments(text);
+    for logical in logical_lines {
+        let plain = styled_plain_text(&logical);
+        if plain.is_empty() {
+            out.push(RenderedLine {
+                cells: 0,
+                text: String::new(),
+                styled_segments: Vec::new(),
+                role: Role::Assistant,
+                separator: false,
+                soft_wrap_to_next: false,
+            });
+            continue;
+        }
+
+        let wrapped_parts = wrap_natural_by_cells(&plain, width);
+        let mut remaining: VecDeque<StyledSegment> = logical.into();
+
+        for (i, part) in wrapped_parts.iter().enumerate() {
+            let part_cells = visual_width(part);
+            let wrapped = i + 1 < wrapped_parts.len();
+            let styled_segments = take_styled_segments_by_cells(&mut remaining, part_cells);
+
+            out.push(RenderedLine {
+                cells: part_cells,
+                text: part.clone(),
+                styled_segments,
+                role: Role::Assistant,
+                separator: false,
+                soft_wrap_to_next: wrapped,
+            });
+        }
+    }
+}
+
 fn build_rendered_lines(messages: &[Message], width: usize) -> Vec<RenderedLine> {
     let mut out = Vec::new();
 
@@ -785,13 +1118,18 @@ fn build_rendered_lines(messages: &[Message], width: usize) -> Vec<RenderedLine>
         if idx > 0 {
             out.push(RenderedLine {
                 text: String::new(),
+                styled_segments: Vec::new(),
                 role: Role::System,
                 separator: true,
                 cells: 0,
                 soft_wrap_to_next: false,
             });
         }
-        append_wrapped_message_lines(&mut out, msg.role, &msg.text, width);
+        if msg.role == Role::Assistant {
+            append_wrapped_assistant_markdown_lines(&mut out, &msg.text, width);
+        } else {
+            append_wrapped_message_lines(&mut out, msg.role, &msg.text, width);
+        }
     }
 
     out
@@ -1359,6 +1697,80 @@ fn fill_rect(buf: &mut Buffer, x: usize, y: usize, w: usize, h: usize, style: St
     }
 }
 
+fn draw_rendered_line(
+    buf: &mut Buffer,
+    x: usize,
+    y: usize,
+    max_width: usize,
+    line: &RenderedLine,
+    base_style: Style,
+    selection: Option<(usize, usize)>,
+) {
+    if max_width == 0 || line.cells == 0 {
+        return;
+    }
+
+    let mut draw_x = x;
+    let mut col = 0usize;
+
+    let mut render_segment = |text: &str, seg_style: Style, draw_x: &mut usize, col: &mut usize| {
+        if *draw_x >= x + max_width || text.is_empty() {
+            return;
+        }
+
+        let seg_cells = visual_width(text);
+        if seg_cells == 0 {
+            return;
+        }
+
+        let style = base_style.patch(seg_style);
+        let seg_start = *col;
+        let seg_end = seg_start + seg_cells;
+
+        let mut draw_piece = |piece: &str, piece_style: Style, draw_x: &mut usize| {
+            if piece.is_empty() || *draw_x >= x + max_width {
+                return;
+            }
+            let rem = max_width.saturating_sub(*draw_x - x);
+            draw_str(buf, *draw_x, y, piece, piece_style, rem);
+            *draw_x += visual_width(piece);
+        };
+
+        if let Some((sel_start, sel_end)) = selection {
+            if sel_end <= seg_start || sel_start >= seg_end {
+                draw_piece(text, style, draw_x);
+            } else {
+                let local_start = sel_start.saturating_sub(seg_start).min(seg_cells);
+                let local_end = sel_end.saturating_sub(seg_start).min(seg_cells);
+
+                let before = slice_by_cells(text, 0, local_start);
+                let selected = slice_by_cells(text, local_start, local_end);
+                let after = slice_by_cells(text, local_end, seg_cells);
+
+                draw_piece(&before, style, draw_x);
+                draw_piece(&selected, style.fg(COLOR_TEXT).bg(COLOR_STEP8), draw_x);
+                draw_piece(&after, style, draw_x);
+            }
+        } else {
+            draw_piece(text, style, draw_x);
+        }
+
+        *col = seg_end;
+    };
+
+    if line.styled_segments.is_empty() {
+        render_segment(&line.text, Style::default(), &mut draw_x, &mut col);
+        return;
+    }
+
+    for seg in &line.styled_segments {
+        if draw_x >= x + max_width {
+            break;
+        }
+        render_segment(&seg.text, seg.style, &mut draw_x, &mut col);
+    }
+}
+
 fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize) {
     if !(size.height > 10 && size.width > 44) {
         return;
@@ -1573,56 +1985,20 @@ fn render_main_view(
             base_style = base_style.add_modifier(Modifier::DIM);
         }
 
-        if let Some(sel) = app.selection {
-            if let Some((start, end)) = compute_selection_range(sel, row_1b, line.cells) {
-                let start = start.min(line.cells);
-                let end = end.min(line.cells);
+        let selection_range = app
+            .selection
+            .and_then(|sel| compute_selection_range(sel, row_1b, line.cells))
+            .map(|(start, end)| (start.min(line.cells), end.min(line.cells)));
 
-                let before = slice_by_cells(&line.text, 0, start);
-                let selected = slice_by_cells(&line.text, start, end);
-                let after = slice_by_cells(&line.text, end, line.cells);
-
-                let mut x = MSG_CONTENT_X;
-                if !before.is_empty() {
-                    let w = visual_width(&before);
-                    draw_str(
-                        buf,
-                        x,
-                        y,
-                        &before,
-                        base_style,
-                        msg_width.saturating_sub(x - MSG_CONTENT_X),
-                    );
-                    x += w;
-                }
-                if !selected.is_empty() {
-                    let w = visual_width(&selected);
-                    draw_str(
-                        buf,
-                        x,
-                        y,
-                        &selected,
-                        base_style.fg(COLOR_TEXT).bg(COLOR_STEP8),
-                        msg_width.saturating_sub(x - MSG_CONTENT_X),
-                    );
-                    x += w;
-                }
-                if !after.is_empty() {
-                    draw_str(
-                        buf,
-                        x,
-                        y,
-                        &after,
-                        base_style,
-                        msg_width.saturating_sub(x - MSG_CONTENT_X),
-                    );
-                }
-            } else {
-                draw_str(buf, MSG_CONTENT_X, y, &line.text, base_style, msg_width);
-            }
-        } else {
-            draw_str(buf, MSG_CONTENT_X, y, &line.text, base_style, msg_width);
-        }
+        draw_rendered_line(
+            buf,
+            MSG_CONTENT_X,
+            y,
+            msg_width,
+            line,
+            base_style,
+            selection_range,
+        );
     }
 
     if input_layout.input_top > 1 {
@@ -2460,6 +2836,7 @@ mod tests {
     fn selected_text_keeps_left_padding_in_selection() {
         let lines = vec![RenderedLine {
             text: "  hello".to_string(),
+            styled_segments: Vec::new(),
             role: Role::Assistant,
             separator: false,
             cells: 7,
@@ -2483,6 +2860,7 @@ mod tests {
         let lines = vec![
             RenderedLine {
                 text: "abcde".to_string(),
+                styled_segments: Vec::new(),
                 role: Role::Assistant,
                 separator: false,
                 cells: 5,
@@ -2490,6 +2868,7 @@ mod tests {
             },
             RenderedLine {
                 text: "fghij".to_string(),
+                styled_segments: Vec::new(),
                 role: Role::Assistant,
                 separator: false,
                 cells: 5,
@@ -2514,6 +2893,7 @@ mod tests {
         let lines = vec![
             RenderedLine {
                 text: "abcde".to_string(),
+                styled_segments: Vec::new(),
                 role: Role::Assistant,
                 separator: false,
                 cells: 5,
@@ -2521,6 +2901,7 @@ mod tests {
             },
             RenderedLine {
                 text: "fghij".to_string(),
+                styled_segments: Vec::new(),
                 role: Role::Assistant,
                 separator: false,
                 cells: 5,
@@ -2574,6 +2955,26 @@ mod tests {
 
         let rendered = build_rendered_lines(&messages, 60);
         assert!(rendered.iter().all(|l| !l.text.contains("```")));
+    }
+
+    #[test]
+    fn build_rendered_lines_styles_assistant_code_lines() {
+        let messages = vec![Message {
+            role: Role::Assistant,
+            text: "```rust\nfn add(a: i32, b: i32) -> i32 {\n    a + b\n}\n```".to_string(),
+        }];
+
+        let rendered = build_rendered_lines(&messages, 120);
+        let line = rendered
+            .iter()
+            .find(|l| l.text.contains("fn add"))
+            .expect("expected highlighted code line");
+
+        assert!(!line.styled_segments.is_empty());
+        assert!(line
+            .styled_segments
+            .iter()
+            .any(|s| s.style != Style::default()));
     }
 
     #[test]
