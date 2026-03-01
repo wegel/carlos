@@ -658,7 +658,7 @@ fn role_prefix(role: Role) -> &'static str {
     match role {
         Role::User => "",
         Role::Assistant => "",
-        Role::Reasoning => "Thinking: ",
+        Role::Reasoning => "",
         Role::ToolCall => "Tool: ",
         Role::ToolOutput => "Result: ",
         Role::System => "",
@@ -1071,7 +1071,7 @@ fn append_wrapped_message_lines(out: &mut Vec<RenderedLine>, role: Role, text: &
     }
 }
 
-fn append_wrapped_assistant_markdown_lines(out: &mut Vec<RenderedLine>, text: &str, width: usize) {
+fn append_wrapped_markdown_lines(out: &mut Vec<RenderedLine>, role: Role, text: &str, width: usize) {
     if width < 8 {
         return;
     }
@@ -1084,7 +1084,7 @@ fn append_wrapped_assistant_markdown_lines(out: &mut Vec<RenderedLine>, text: &s
                 cells: 0,
                 text: String::new(),
                 styled_segments: Vec::new(),
-                role: Role::Assistant,
+                role,
                 separator: false,
                 soft_wrap_to_next: false,
             });
@@ -1103,7 +1103,7 @@ fn append_wrapped_assistant_markdown_lines(out: &mut Vec<RenderedLine>, text: &s
                 cells: part_cells,
                 text: part.clone(),
                 styled_segments,
-                role: Role::Assistant,
+                role,
                 separator: false,
                 soft_wrap_to_next: wrapped,
             });
@@ -1125,10 +1125,11 @@ fn build_rendered_lines(messages: &[Message], width: usize) -> Vec<RenderedLine>
                 soft_wrap_to_next: false,
             });
         }
-        if msg.role == Role::Assistant {
-            append_wrapped_assistant_markdown_lines(&mut out, &msg.text, width);
-        } else {
-            append_wrapped_message_lines(&mut out, msg.role, &msg.text, width);
+        match msg.role {
+            Role::Assistant | Role::Reasoning => {
+                append_wrapped_markdown_lines(&mut out, msg.role, &msg.text, width);
+            }
+            _ => append_wrapped_message_lines(&mut out, msg.role, &msg.text, width),
         }
     }
 
@@ -2983,6 +2984,20 @@ mod tests {
             .styled_segments
             .iter()
             .any(|s| s.style != Style::default()));
+    }
+
+    #[test]
+    fn build_rendered_lines_reasoning_uses_markdown_text_without_markers() {
+        let messages = vec![Message {
+            role: Role::Reasoning,
+            text: "**Committing cleanup with style**".to_string(),
+        }];
+
+        let rendered = build_rendered_lines(&messages, 120);
+        assert_eq!(rendered.len(), 1);
+        assert_eq!(rendered[0].text, "Committing cleanup with style");
+        assert!(!rendered[0].text.contains("Thinking:"));
+        assert!(!rendered[0].text.contains("**"));
     }
 
     #[test]
