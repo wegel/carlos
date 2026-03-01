@@ -1,0 +1,432 @@
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
+
+use ratatui_textarea::TextArea;
+
+use super::context_usage::ContextUsage;
+use super::input::make_input_area;
+use super::models::{Message, MessageKind, RenderedLine, Role, TerminalSize};
+use super::perf::PerfMetrics;
+use super::render::{
+    build_rendered_lines_with_hidden, compute_input_layout, textarea_input_from_key,
+    transcript_content_width,
+};
+use super::selection::{MouseDragMode, Selection};
+use super::MSG_TOP;
+
+pub(super) struct AppState {
+    pub(super) thread_id: String,
+    pub(super) active_turn_id: Option<String>,
+    pub(super) messages: Vec<Message>,
+    pub(super) rendered_lines: Vec<RenderedLine>,
+    pub(super) rendered_width: usize,
+    pub(super) rendered_hidden_user_message_idx: Option<usize>,
+    pub(super) transcript_dirty: bool,
+    pub(super) agent_item_to_index: HashMap<String, usize>,
+    pub(super) turn_diff_to_index: HashMap<String, usize>,
+    pub(super) command_render_overrides: HashMap<String, String>,
+
+    pub(super) input: TextArea<'static>,
+    pub(super) input_history: Vec<String>,
+    pub(super) input_history_message_idx: Vec<Option<usize>>,
+    pub(super) input_history_index: Option<usize>,
+    pub(super) input_history_draft: Option<String>,
+    pub(super) rewind_mode: bool,
+    pub(super) rewind_restore_draft: Option<String>,
+    pub(super) esc_armed_at: Option<Instant>,
+    pub(super) status: String,
+
+    pub(super) scroll_top: usize,
+    pub(super) auto_follow_bottom: bool,
+    pub(super) selection: Option<Selection>,
+    pub(super) mouse_drag_mode: MouseDragMode,
+    pub(super) mouse_drag_last_row: usize,
+    pub(super) mobile_mouse_buffer: String,
+    pub(super) mobile_mouse_last_y: Option<usize>,
+    pub(super) show_help: bool,
+    pub(super) context_usage: Option<ContextUsage>,
+    pub(super) perf: Option<PerfMetrics>,
+}
+
+impl AppState {
+    pub(super) fn new(thread_id: String) -> Self {
+        Self {
+            thread_id,
+            active_turn_id: None,
+            messages: Vec::new(),
+            rendered_lines: Vec::new(),
+            rendered_width: 0,
+            rendered_hidden_user_message_idx: None,
+            transcript_dirty: true,
+            agent_item_to_index: HashMap::new(),
+            turn_diff_to_index: HashMap::new(),
+            command_render_overrides: HashMap::new(),
+            input: make_input_area(),
+            input_history: Vec::new(),
+            input_history_message_idx: Vec::new(),
+            input_history_index: None,
+            input_history_draft: None,
+            rewind_mode: false,
+            rewind_restore_draft: None,
+            esc_armed_at: None,
+            status: String::new(),
+            scroll_top: 0,
+            auto_follow_bottom: true,
+            selection: None,
+            mouse_drag_mode: MouseDragMode::Undecided,
+            mouse_drag_last_row: 0,
+            mobile_mouse_buffer: String::new(),
+            mobile_mouse_last_y: None,
+            show_help: false,
+            context_usage: None,
+            perf: None,
+        }
+    }
+
+    pub(super) fn enable_perf_metrics(&mut self) {
+        self.perf = Some(PerfMetrics::new());
+    }
+
+    pub(super) fn perf_report(&self) -> Option<String> {
+        self.perf.as_ref().map(PerfMetrics::final_report)
+    }
+
+    pub(super) fn set_status(&mut self, s: impl Into<String>) {
+        self.status = s.into();
+    }
+
+    pub(super) fn input_is_empty(&self) -> bool {
+        self.input.is_empty()
+    }
+
+    pub(super) fn input_text(&self) -> String {
+        self.input.lines().join("\n")
+    }
+
+    pub(super) fn clear_input(&mut self) {
+        self.input = make_input_area();
+        self.reset_input_history_navigation();
+    }
+
+    pub(super) fn set_input_text(&mut self, text: &str) {
+        self.input = make_input_area();
+        if !text.is_empty() {
+            let _ = self.input.insert_str(text.to_string());
+        }
+    }
+
+    pub(super) fn reset_input_history_navigation(&mut self) {
+        self.input_history_index = None;
+        self.input_history_draft = None;
+    }
+
+    pub(super) fn reset_esc_chord(&mut self) {
+        self.esc_armed_at = None;
+    }
+
+    pub(super) fn expire_esc_chord(&mut self, now: Instant) {
+        const ESC_CHORD_WINDOW: Duration = Duration::from_millis(700);
+        if let Some(armed_at) = self.esc_armed_at {
+            if now.duration_since(armed_at) > ESC_CHORD_WINDOW {
+                self.esc_armed_at = None;
+            }
+        }
+    }
+
+    pub(super) fn register_escape_press(&mut self, now: Instant) -> bool {
+        const ESC_CHORD_WINDOW: Duration = Duration::from_millis(700);
+        if let Some(armed_at) = self.esc_armed_at {
+            if now.duration_since(armed_at) <= ESC_CHORD_WINDOW {
+                self.esc_armed_at = None;
+                return true;
+            }
+        }
+        self.esc_armed_at = Some(now);
+        false
+    }
+
+    pub(super) fn enter_rewind_mode(&mut self) {
+        if self.rewind_mode {
+            return;
+        }
+        self.rewind_mode = true;
+        self.auto_follow_bottom = false;
+        self.rewind_restore_draft = Some(self.input_text());
+        self.reset_input_history_navigation();
+        let _ = self.navigate_input_history_up();
+    }
+
+    pub(super) fn exit_rewind_mode_restore(&mut self) {
+        if !self.rewind_mode {
+            return;
+        }
+        let draft = self.rewind_restore_draft.take().unwrap_or_default();
+        self.rewind_mode = false;
+        self.auto_follow_bottom = true;
+        self.set_input_text(&draft);
+        self.reset_input_history_navigation();
+    }
+
+    pub(super) fn clear_rewind_mode_state(&mut self) {
+        self.rewind_mode = false;
+        self.auto_follow_bottom = true;
+        self.rewind_restore_draft = None;
+    }
+
+    pub(super) fn push_input_history(&mut self, text: &str) {
+        self.record_input_history(text, None);
+    }
+
+    pub(super) fn record_input_history(&mut self, text: &str, message_idx: Option<usize>) {
+        if text.is_empty() {
+            self.reset_input_history_navigation();
+            return;
+        }
+
+        if let Some(msg_idx) = message_idx {
+            if let (Some(last_text), Some(last_idx)) = (
+                self.input_history.last(),
+                self.input_history_message_idx.last_mut(),
+            ) {
+                if *last_text == text && last_idx.is_none() {
+                    *last_idx = Some(msg_idx);
+                    self.reset_input_history_navigation();
+                    return;
+                }
+            }
+        }
+
+        self.input_history.push(text.to_string());
+        self.input_history_message_idx.push(message_idx);
+        self.reset_input_history_navigation();
+    }
+
+    pub(super) fn navigate_input_history_up(&mut self) -> bool {
+        if self.input_history.is_empty() {
+            return false;
+        }
+
+        let next_idx = match self.input_history_index {
+            Some(0) => 0,
+            Some(idx) => idx.saturating_sub(1),
+            None => {
+                self.input_history_draft = Some(self.input_text());
+                self.input_history.len().saturating_sub(1)
+            }
+        };
+
+        self.input_history_index = Some(next_idx);
+        let text = self.input_history[next_idx].clone();
+        self.set_input_text(&text);
+        true
+    }
+
+    pub(super) fn navigate_input_history_down(&mut self) -> bool {
+        let Some(idx) = self.input_history_index else {
+            return false;
+        };
+
+        if idx + 1 < self.input_history.len() {
+            let next_idx = idx + 1;
+            self.input_history_index = Some(next_idx);
+            let text = self.input_history[next_idx].clone();
+            self.set_input_text(&text);
+            return true;
+        }
+
+        let draft = self.input_history_draft.take().unwrap_or_default();
+        self.input_history_index = None;
+        self.set_input_text(&draft);
+        true
+    }
+
+    pub(super) fn rewind_selected_message_idx(&self) -> Option<usize> {
+        let idx = self.input_history_index?;
+        self.input_history_message_idx.get(idx).and_then(|v| *v)
+    }
+
+    pub(super) fn align_rewind_scroll_to_selected_prompt(&mut self, size: TerminalSize) {
+        if !self.rewind_mode {
+            return;
+        }
+        let Some(msg_idx) = self.rewind_selected_message_idx() else {
+            return;
+        };
+        if self.messages.is_empty() {
+            return;
+        }
+        let width = transcript_content_width(size);
+        if width == 0 {
+            return;
+        }
+        let upto = msg_idx.min(self.messages.len().saturating_sub(1));
+        let rendered_upto =
+            build_rendered_lines_with_hidden(&self.messages[..=upto], width, Some(msg_idx));
+        if rendered_upto.is_empty() {
+            return;
+        }
+        let input_layout = compute_input_layout(self, size);
+        let msg_height = if input_layout.msg_bottom >= MSG_TOP {
+            input_layout.msg_bottom - MSG_TOP + 1
+        } else {
+            0
+        };
+        if msg_height == 0 {
+            return;
+        }
+        let target_line = rendered_upto.len().saturating_sub(1);
+        self.scroll_top = target_line.saturating_sub(msg_height.saturating_sub(1));
+    }
+
+    pub(super) fn input_apply_key(&mut self, key: crossterm::event::KeyEvent) {
+        self.reset_esc_chord();
+        self.reset_input_history_navigation();
+        let _ = self.input.input(textarea_input_from_key(key));
+    }
+
+    pub(super) fn input_insert_text(&mut self, text: String) {
+        self.reset_esc_chord();
+        self.reset_input_history_navigation();
+        let _ = self.input.insert_str(text);
+    }
+
+    pub(super) fn mark_transcript_dirty(&mut self) {
+        self.transcript_dirty = true;
+    }
+
+    pub(super) fn ensure_rendered_lines(
+        &mut self,
+        width: usize,
+        hidden_user_message_idx: Option<usize>,
+    ) {
+        if self.transcript_dirty
+            || self.rendered_width != width
+            || self.rendered_hidden_user_message_idx != hidden_user_message_idx
+        {
+            self.rendered_lines =
+                build_rendered_lines_with_hidden(&self.messages, width, hidden_user_message_idx);
+            self.rendered_width = width;
+            self.rendered_hidden_user_message_idx = hidden_user_message_idx;
+            self.transcript_dirty = false;
+        }
+    }
+
+    pub(super) fn append_message(&mut self, role: Role, text: impl Into<String>) -> usize {
+        self.messages.push(Message {
+            role,
+            text: text.into(),
+            kind: MessageKind::Plain,
+            file_path: None,
+        });
+        self.mark_transcript_dirty();
+        self.messages.len() - 1
+    }
+
+    pub(super) fn append_diff_message(
+        &mut self,
+        role: Role,
+        file_path: Option<String>,
+        diff: impl Into<String>,
+    ) -> usize {
+        self.messages.push(Message {
+            role,
+            text: diff.into(),
+            kind: MessageKind::Diff,
+            file_path,
+        });
+        self.mark_transcript_dirty();
+        self.messages.len() - 1
+    }
+
+    pub(super) fn put_agent_item_mapping(&mut self, item_id: &str, idx: usize) {
+        self.agent_item_to_index.insert(item_id.to_string(), idx);
+    }
+
+    pub(super) fn upsert_agent_delta(&mut self, item_id: &str, delta: &str) {
+        if let Some(idx) = self.agent_item_to_index.get(item_id).copied() {
+            let mut changed = false;
+            if let Some(msg) = self.messages.get_mut(idx) {
+                if msg.kind != MessageKind::Plain {
+                    msg.kind = MessageKind::Plain;
+                    msg.file_path = None;
+                    msg.text.clear();
+                }
+                msg.text.push_str(delta);
+                changed = true;
+            }
+            if changed {
+                self.mark_transcript_dirty();
+            }
+            return;
+        }
+
+        let idx = self.append_message(Role::Assistant, delta);
+        self.put_agent_item_mapping(item_id, idx);
+    }
+
+    pub(super) fn upsert_turn_diff(&mut self, turn_id: &str, diff: &str) {
+        if diff.trim().is_empty() {
+            return;
+        }
+
+        if let Some(idx) = self.turn_diff_to_index.get(turn_id).copied() {
+            if let Some(msg) = self.messages.get_mut(idx) {
+                if msg.text == diff && msg.kind == MessageKind::Diff {
+                    return;
+                }
+                msg.role = Role::ToolOutput;
+                msg.text = diff.to_string();
+                msg.kind = MessageKind::Diff;
+                msg.file_path = None;
+                self.auto_follow_bottom = true;
+                self.mark_transcript_dirty();
+                return;
+            }
+        }
+
+        let idx = self.append_diff_message(Role::ToolOutput, None, diff.to_string());
+        self.turn_diff_to_index.insert(turn_id.to_string(), idx);
+        self.auto_follow_bottom = true;
+    }
+
+    pub(super) fn set_command_override(&mut self, call_id: &str, summary: String) {
+        self.command_render_overrides
+            .insert(call_id.to_string(), summary.clone());
+        let mut changed = false;
+        if let Some(idx) = self.agent_item_to_index.get(call_id).copied() {
+            if let Some(msg) = self.messages.get_mut(idx) {
+                msg.role = Role::ToolCall;
+                msg.kind = MessageKind::Plain;
+                msg.file_path = None;
+                msg.text = summary;
+                changed = true;
+            }
+        }
+        if changed {
+            self.mark_transcript_dirty();
+        }
+        self.auto_follow_bottom = true;
+    }
+
+    pub(super) fn append_context_compacted_marker(&mut self) {
+        const MARKER: &str = "↻ Context compacted";
+        if let Some(last) = self.messages.last() {
+            if last.role == Role::System && last.text == MARKER {
+                return;
+            }
+        }
+        self.append_message(Role::System, MARKER);
+        self.auto_follow_bottom = true;
+    }
+
+    pub(super) fn append_turn_interrupted_marker(&mut self) {
+        const MARKER: &str = "Turn interrupted";
+        if let Some(last) = self.messages.last() {
+            if last.role == Role::System && last.text == MARKER {
+                return;
+            }
+        }
+        self.append_message(Role::System, MARKER);
+        self.auto_follow_bottom = true;
+    }
+}
