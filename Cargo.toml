@@ -1,0 +1,21 @@
+[package]
+name = "carlos"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+base64 = "0.22"
+crossterm = "0.28"
+ratatui = "0.28"
+ratatui-textarea = "0.8.0"
+serde_json = "1"
+unicode-segmentation = "1"
+unicode-width = "0.1"
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
