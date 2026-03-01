@@ -234,6 +234,34 @@ fn compute_input_layout_wraps_input_at_word_boundaries() {
 }
 
 #[test]
+fn input_history_up_down_cycles_and_restores_draft() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.push_input_history("first");
+    app.push_input_history("second");
+    app.set_input_text("draft text");
+
+    assert!(app.navigate_input_history_up());
+    assert_eq!(app.input_text(), "second");
+
+    assert!(app.navigate_input_history_up());
+    assert_eq!(app.input_text(), "first");
+
+    assert!(app.navigate_input_history_down());
+    assert_eq!(app.input_text(), "second");
+
+    assert!(app.navigate_input_history_down());
+    assert_eq!(app.input_text(), "draft text");
+}
+
+#[test]
+fn input_history_up_noops_when_empty() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.set_input_text("draft");
+    assert!(!app.navigate_input_history_up());
+    assert_eq!(app.input_text(), "draft");
+}
+
+#[test]
 fn build_rendered_lines_hides_markdown_fence_delimiters() {
     let messages = vec![Message {
         role: Role::Assistant,
@@ -623,6 +651,49 @@ fn load_history_does_not_seed_context_usage_from_start_response() {
 
     load_history_from_start_or_resume(&mut app, &response).expect("load history");
     assert_eq!(app.context_usage, None);
+}
+
+#[test]
+fn load_history_seeds_input_history_from_user_messages() {
+    let mut app = AppState::new("thread-1".to_string());
+    let response = json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+            "thread": {
+                "id": "thread-1",
+                "turns": [
+                    {
+                        "items": [
+                            {
+                                "type": "userMessage",
+                                "content": [
+                                    {"type": "text", "text": "first message"}
+                                ]
+                            },
+                            {
+                                "type": "agentMessage",
+                                "text": "reply"
+                            },
+                            {
+                                "type": "userMessage",
+                                "content": [
+                                    {"type": "text", "text": "second message"}
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    })
+    .to_string();
+
+    load_history_from_start_or_resume(&mut app, &response).expect("load history");
+    assert!(app.navigate_input_history_up());
+    assert_eq!(app.input_text(), "second message");
+    assert!(app.navigate_input_history_up());
+    assert_eq!(app.input_text(), "first message");
 }
 
 #[test]

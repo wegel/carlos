@@ -398,6 +398,9 @@ struct AppState {
     command_render_overrides: HashMap<String, String>,
 
     input: TextArea<'static>,
+    input_history: Vec<String>,
+    input_history_index: Option<usize>,
+    input_history_draft: Option<String>,
     status: String,
 
     scroll_top: usize,
@@ -425,6 +428,9 @@ impl AppState {
             turn_diff_to_index: HashMap::new(),
             command_render_overrides: HashMap::new(),
             input: make_input_area(),
+            input_history: Vec::new(),
+            input_history_index: None,
+            input_history_draft: None,
             status: String::new(),
             scroll_top: 0,
             auto_follow_bottom: true,
@@ -461,6 +467,77 @@ impl AppState {
 
     fn clear_input(&mut self) {
         self.input = make_input_area();
+        self.reset_input_history_navigation();
+    }
+
+    fn set_input_text(&mut self, text: &str) {
+        self.input = make_input_area();
+        if !text.is_empty() {
+            let _ = self.input.insert_str(text.to_string());
+        }
+    }
+
+    fn reset_input_history_navigation(&mut self) {
+        self.input_history_index = None;
+        self.input_history_draft = None;
+    }
+
+    fn push_input_history(&mut self, text: &str) {
+        if text.is_empty() {
+            self.reset_input_history_navigation();
+            return;
+        }
+        self.input_history.push(text.to_string());
+        self.reset_input_history_navigation();
+    }
+
+    fn navigate_input_history_up(&mut self) -> bool {
+        if self.input_history.is_empty() {
+            return false;
+        }
+
+        let next_idx = match self.input_history_index {
+            Some(0) => 0,
+            Some(idx) => idx.saturating_sub(1),
+            None => {
+                self.input_history_draft = Some(self.input_text());
+                self.input_history.len().saturating_sub(1)
+            }
+        };
+
+        self.input_history_index = Some(next_idx);
+        let text = self.input_history[next_idx].clone();
+        self.set_input_text(&text);
+        true
+    }
+
+    fn navigate_input_history_down(&mut self) -> bool {
+        let Some(idx) = self.input_history_index else {
+            return false;
+        };
+
+        if idx + 1 < self.input_history.len() {
+            let next_idx = idx + 1;
+            self.input_history_index = Some(next_idx);
+            let text = self.input_history[next_idx].clone();
+            self.set_input_text(&text);
+            return true;
+        }
+
+        let draft = self.input_history_draft.take().unwrap_or_default();
+        self.input_history_index = None;
+        self.set_input_text(&draft);
+        true
+    }
+
+    fn input_apply_key(&mut self, key: crossterm::event::KeyEvent) {
+        self.reset_input_history_navigation();
+        let _ = self.input.input(textarea_input_from_key(key));
+    }
+
+    fn input_insert_text(&mut self, text: String) {
+        self.reset_input_history_navigation();
+        let _ = self.input.insert_str(text);
     }
 
     fn mark_transcript_dirty(&mut self) {
@@ -1440,13 +1517,19 @@ fn collect_text_parts(content: &[Value]) -> Vec<&str> {
     text_parts
 }
 
-fn append_item_text_from_content(app: &mut AppState, item: &Value, role: Role) {
-    let Some(content) = item.get("content").and_then(Value::as_array) else {
-        return;
-    };
+fn item_text_from_content(item: &Value) -> Option<String> {
+    let content = item.get("content").and_then(Value::as_array)?;
     let text_parts = collect_text_parts(content);
-    if !text_parts.is_empty() {
-        app.append_message(role, text_parts.join("\n"));
+    if text_parts.is_empty() {
+        None
+    } else {
+        Some(text_parts.join("\n"))
+    }
+}
+
+fn append_item_text_from_content(app: &mut AppState, item: &Value, role: Role) {
+    if let Some(text) = item_text_from_content(item) {
+        app.append_message(role, text);
     }
 }
 
@@ -1679,7 +1762,10 @@ fn append_history_from_thread(app: &mut AppState, thread_obj: &Value) {
 
             match kind {
                 "userMessage" => {
-                    append_item_text_from_content(app, item, Role::User);
+                    if let Some(text) = item_text_from_content(item) {
+                        app.append_message(Role::User, text.clone());
+                        app.push_input_history(&text);
+                    }
                 }
                 "agentMessage" => {
                     if let Some(t) = item.get("text").and_then(Value::as_str) {
@@ -4627,13 +4713,11 @@ fn run_conversation_tui(
                                 (KeyCode::End, _) if app.input_is_empty() => {
                                     app.auto_follow_bottom = true;
                                 }
-                                (KeyCode::Up, _) if app.input_is_empty() => {
-                                    app.auto_follow_bottom = false;
-                                    app.scroll_top = app.scroll_top.saturating_sub(1);
+                                (KeyCode::Up, _) => {
+                                    let _ = app.navigate_input_history_up();
                                 }
-                                (KeyCode::Down, _) if app.input_is_empty() => {
-                                    app.auto_follow_bottom = false;
-                                    app.scroll_top = app.scroll_top.saturating_add(1);
+                                (KeyCode::Down, _) => {
+                                    let _ = app.navigate_input_history_down();
                                 }
                                 (KeyCode::PageUp, _) => {
                                     app.auto_follow_bottom = false;
@@ -4644,7 +4728,7 @@ fn run_conversation_tui(
                                     app.scroll_top = app.scroll_top.saturating_add(10);
                                 }
                                 (KeyCode::Enter, mods) if is_newline_enter(mods) => {
-                                    let _ = app.input.input(textarea_input_from_key(k));
+                                    app.input_apply_key(k);
                                 }
                                 (KeyCode::Enter, _) => {
                                     if app.input_is_empty() {
@@ -4653,6 +4737,7 @@ fn run_conversation_tui(
                                     }
 
                                     let text = app.input_text();
+                                    app.push_input_history(&text);
                                     app.clear_input();
                                     app.selection = None;
 
@@ -4683,7 +4768,7 @@ fn run_conversation_tui(
                                     if app.input_is_empty() {
                                         app.show_help = true;
                                     } else {
-                                        let _ = app.input.input(textarea_input_from_key(k));
+                                        app.input_apply_key(k);
                                     }
                                 }
                                 (KeyCode::Char('g'), _) if app.input_is_empty() => {
@@ -4694,7 +4779,7 @@ fn run_conversation_tui(
                                     app.auto_follow_bottom = true;
                                 }
                                 _ => {
-                                    let _ = app.input.input(textarea_input_from_key(k));
+                                    app.input_apply_key(k);
                                 }
                             }
                             needs_draw = true;
@@ -4847,7 +4932,7 @@ fn run_conversation_tui(
                             }
                             let normalized = normalize_pasted_text(&pasted);
                             if !normalized.is_empty() {
-                                let _ = app.input.insert_str(normalized);
+                                app.input_insert_text(normalized);
                                 needs_draw = true;
                             }
                         }
