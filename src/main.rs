@@ -2500,49 +2500,34 @@ fn char_to_byte_idx(s: &str, char_idx: usize) -> usize {
     }
 }
 
-fn wrap_line_cells(line: &str, width: usize, out: &mut Vec<String>) {
+fn wrap_input_line(line: &str, width: usize) -> Vec<String> {
     if width == 0 {
-        out.push(String::new());
-        return;
+        return vec![String::new()];
     }
     if line.is_empty() {
-        out.push(String::new());
-        return;
+        return vec![String::new()];
     }
-    let mut rest = line;
-    loop {
-        let take = split_at_cells(rest, width);
-        if take == 0 {
-            out.push(rest.to_string());
-            break;
-        }
-        out.push(rest[..take].to_string());
-        if take >= rest.len() {
-            break;
-        }
-        rest = &rest[take..];
-    }
+    wrap_natural_by_cells(line, width)
 }
 
-fn wrapped_line_count(line: &str, width: usize) -> usize {
-    if width == 0 || line.is_empty() {
-        return 1;
+fn input_cursor_visual_position(
+    line: &str,
+    cursor_col_chars: usize,
+    width: usize,
+) -> (usize, usize) {
+    if width == 0 {
+        return (0, 0);
     }
-    let mut rest = line;
-    let mut count = 0usize;
-    loop {
-        let take = split_at_cells(rest, width);
-        if take == 0 {
-            count += 1;
-            break;
-        }
-        count += 1;
-        if take >= rest.len() {
-            break;
-        }
-        rest = &rest[take..];
-    }
-    count.max(1)
+
+    let cursor_byte = char_to_byte_idx(line, cursor_col_chars).min(line.len());
+    let prefix = &line[..cursor_byte];
+    let wrapped_prefix = wrap_input_line(prefix, width);
+    let row = wrapped_prefix.len().saturating_sub(1);
+    let col = wrapped_prefix
+        .last()
+        .map(|part| visual_width(part))
+        .unwrap_or(0);
+    (row, col)
 }
 
 fn textarea_input_from_key(k: crossterm::event::KeyEvent) -> TextInput {
@@ -2585,9 +2570,29 @@ fn compute_input_layout(app: &AppState, size: TerminalSize) -> InputLayout {
     let text_width = transcript_content_width(size);
 
     let mut wrapped = Vec::new();
-    for line in app.input.lines() {
-        wrap_line_cells(line, text_width, &mut wrapped);
+    let lines = app.input.lines();
+
+    let (cursor_row, cursor_col_chars) = app.input.cursor();
+    let mut cursor_wrapped_row = 0usize;
+    let mut cursor_wrapped_col = 0usize;
+    let mut cursor_set = false;
+
+    for (row, line) in lines.iter().enumerate() {
+        let wrapped_line = wrap_input_line(line, text_width);
+
+        if row < cursor_row {
+            cursor_wrapped_row += wrapped_line.len();
+        } else if row == cursor_row {
+            let (line_row, line_col) =
+                input_cursor_visual_position(line, cursor_col_chars, text_width);
+            cursor_wrapped_row += line_row;
+            cursor_wrapped_col = line_col;
+            cursor_set = true;
+        }
+
+        wrapped.extend(wrapped_line);
     }
+
     if wrapped.is_empty() {
         wrapped.push(String::new());
     }
@@ -2598,25 +2603,10 @@ fn compute_input_layout(app: &AppState, size: TerminalSize) -> InputLayout {
     }
     let input_height = wrapped.len().clamp(1, max_input_rows.max(1));
 
-    let (cursor_row, cursor_col_chars) = app.input.cursor();
-    let mut cursor_wrapped_row = 0usize;
-    for line in app.input.lines().iter().take(cursor_row) {
-        cursor_wrapped_row += wrapped_line_count(line, text_width);
+    if !cursor_set {
+        cursor_wrapped_row = wrapped.len().saturating_sub(1);
+        cursor_wrapped_col = wrapped.last().map(|line| visual_width(line)).unwrap_or(0);
     }
-    let cursor_line = app
-        .input
-        .lines()
-        .get(cursor_row)
-        .map(String::as_str)
-        .unwrap_or("");
-    let cursor_byte = char_to_byte_idx(cursor_line, cursor_col_chars);
-    let cursor_cells = visual_width(&cursor_line[..cursor_byte.min(cursor_line.len())]);
-    let cursor_wrapped_col = if text_width == 0 {
-        0
-    } else {
-        cursor_wrapped_row += cursor_cells / text_width;
-        cursor_cells % text_width
-    };
 
     let mut visible_start = wrapped.len().saturating_sub(input_height);
     if cursor_wrapped_row < visible_start {
@@ -4684,6 +4674,37 @@ mod tests {
     fn wrap_natural_by_cells_prefers_word_boundaries() {
         let parts = wrap_natural_by_cells("alpha beta gamma", 10);
         assert_eq!(parts, vec!["alpha beta".to_string(), "gamma".to_string()]);
+    }
+
+    #[test]
+    fn wrap_input_line_uses_natural_word_wrapping() {
+        let parts = wrap_input_line("alpha beta gamma", 10);
+        assert_eq!(parts, vec!["alpha beta".to_string(), "gamma".to_string()]);
+    }
+
+    #[test]
+    fn input_cursor_visual_position_tracks_wrapped_rows() {
+        let (row, col) = input_cursor_visual_position("alpha beta gamma", 16, 10);
+        assert_eq!(row, 1);
+        assert_eq!(col, 5);
+    }
+
+    #[test]
+    fn compute_input_layout_wraps_input_at_word_boundaries() {
+        let mut app = AppState::new("thread-1".to_string());
+        let _ = app.input.insert_str("alpha beta gamma");
+
+        let layout = compute_input_layout(
+            &app,
+            TerminalSize {
+                width: MSG_CONTENT_X + 1 + 10,
+                height: 8,
+            },
+        );
+
+        assert_eq!(layout.visible_lines, vec!["alpha beta", "gamma"]);
+        assert_eq!(layout.input_height, 2);
+        assert_eq!(layout.cursor_x, MSG_CONTENT_X + 5);
     }
 
     #[test]
