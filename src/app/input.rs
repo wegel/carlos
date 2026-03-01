@@ -211,13 +211,11 @@ pub(super) fn run_conversation_tui(
                                 } else if let Some(text) = take_mobile_mouse_buffer(app) {
                                     if !text.is_empty() {
                                         app.input_insert_text(text);
-                                        needs_draw = true;
                                     }
                                 }
                             } else if let Some(text) = take_mobile_mouse_buffer(app) {
                                 if !text.is_empty() {
                                     app.input_insert_text(text);
-                                    needs_draw = true;
                                 }
                             }
 

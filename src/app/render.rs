@@ -846,6 +846,7 @@ pub(super) fn collapse_successive_read_summaries(messages: &[Message]) -> Vec<Me
     out
 }
 
+#[cfg(test)]
 pub(super) fn build_rendered_lines(messages: &[Message], width: usize) -> Vec<RenderedLine> {
     build_rendered_lines_with_hidden(messages, width, None)
 }
