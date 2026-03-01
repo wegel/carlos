@@ -4594,14 +4594,6 @@ fn run_conversation_tui(client: &AppServerClient, app: &mut AppState) -> Result<
                                 app.auto_follow_bottom = false;
                                 app.scroll_top = app.scroll_top.saturating_add(1);
                             }
-                            (KeyCode::Char('k'), _) if app.input_is_empty() => {
-                                app.auto_follow_bottom = false;
-                                app.scroll_top = app.scroll_top.saturating_sub(1);
-                            }
-                            (KeyCode::Char('j'), _) if app.input_is_empty() => {
-                                app.auto_follow_bottom = false;
-                                app.scroll_top = app.scroll_top.saturating_add(1);
-                            }
                             (KeyCode::PageUp, _) => {
                                 app.auto_follow_bottom = false;
                                 app.scroll_top = app.scroll_top.saturating_sub(10);
