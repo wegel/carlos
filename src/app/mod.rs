@@ -20,13 +20,16 @@ use self::input::*;
 #[cfg(test)]
 use self::mobile_mouse::{
     apply_mobile_mouse_scroll, consume_mobile_mouse_char, parse_mobile_mouse_coords,
+    MobileMouseConsume,
 };
 pub(crate) use self::models::Role;
-#[cfg(test)]
-use self::models::*;
+use self::models::{
+    DiffBlock, Message, MessageKind, RenderedLine, StyledSegment, TerminalSize, ThreadSummary,
+};
 use self::notifications::*;
 #[cfg(test)]
 use self::perf::{DurationSamples, PerfMetrics};
+#[cfg(test)]
 use self::render::*;
 #[cfg(test)]
 use self::selection::{
@@ -36,6 +39,7 @@ use self::state::AppState;
 use self::terminal_ui::*;
 #[cfg(test)]
 use self::text::{slice_by_cells, visual_width, wrap_input_line, wrap_natural_by_cells};
+#[cfg(test)]
 use self::tools::*;
 #[cfg(test)]
 use crate::clipboard::*;

@@ -44,6 +44,7 @@ pub(super) struct AppState {
     pub(super) mobile_mouse_buffer: String,
     pub(super) mobile_mouse_last_y: Option<usize>,
     pub(super) show_help: bool,
+    pub(super) scroll_inverted: bool,
     pub(super) context_usage: Option<ContextUsage>,
     pub(super) perf: Option<PerfMetrics>,
 }
@@ -78,6 +79,7 @@ impl AppState {
             mobile_mouse_buffer: String::new(),
             mobile_mouse_last_y: None,
             show_help: false,
+            scroll_inverted: false,
             context_usage: None,
             perf: None,
         }

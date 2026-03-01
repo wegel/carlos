@@ -9,6 +9,7 @@ use serde_json::Value;
 
 use super::mobile_mouse::{
     apply_mobile_mouse_scroll, consume_mobile_mouse_char, parse_mobile_mouse_coords,
+    take_mobile_mouse_buffer, MobileMouseConsume,
 };
 use super::notifications::{
     animation_poll_timeout, animation_tick, handle_notification_line, is_ctrl_char,
@@ -166,6 +167,11 @@ pub(super) fn run_conversation_tui(
                                 needs_draw = true;
                                 continue;
                             }
+                            if matches!(k.code, KeyCode::F(6)) && k.modifiers.is_empty() {
+                                app.scroll_inverted = !app.scroll_inverted;
+                                needs_draw = true;
+                                continue;
+                            }
                             let now = Instant::now();
                             app.expire_esc_chord(now);
                             if k.code != KeyCode::Esc {
@@ -186,10 +192,32 @@ pub(super) fn run_conversation_tui(
                                 continue;
                             }
 
-                            if let KeyCode::Char(ch) = k.code {
-                                if k.modifiers.is_empty() && consume_mobile_mouse_char(app, ch) {
+                            if k.modifiers.is_empty() {
+                                if let KeyCode::Char(ch) = k.code {
+                                    match consume_mobile_mouse_char(app, ch) {
+                                        MobileMouseConsume::PassThrough => {}
+                                        MobileMouseConsume::Consumed => {
+                                            needs_draw = true;
+                                            continue;
+                                        }
+                                        MobileMouseConsume::Emit(text) => {
+                                            if !text.is_empty() {
+                                                app.input_insert_text(text);
+                                            }
+                                            needs_draw = true;
+                                            continue;
+                                        }
+                                    }
+                                } else if let Some(text) = take_mobile_mouse_buffer(app) {
+                                    if !text.is_empty() {
+                                        app.input_insert_text(text);
+                                        needs_draw = true;
+                                    }
+                                }
+                            } else if let Some(text) = take_mobile_mouse_buffer(app) {
+                                if !text.is_empty() {
+                                    app.input_insert_text(text);
                                     needs_draw = true;
-                                    continue;
                                 }
                             }
 
@@ -361,7 +389,11 @@ pub(super) fn run_conversation_tui(
                                     let prev_scroll = app.scroll_top;
                                     let prev_follow = app.auto_follow_bottom;
                                     app.auto_follow_bottom = false;
-                                    app.scroll_top = app.scroll_top.saturating_sub(3);
+                                    if app.scroll_inverted {
+                                        app.scroll_top = app.scroll_top.saturating_add(3);
+                                    } else {
+                                        app.scroll_top = app.scroll_top.saturating_sub(3);
+                                    }
                                     mouse_changed = app.scroll_top != prev_scroll
                                         || app.auto_follow_bottom != prev_follow;
                                 }
@@ -369,7 +401,11 @@ pub(super) fn run_conversation_tui(
                                     let prev_scroll = app.scroll_top;
                                     let prev_follow = app.auto_follow_bottom;
                                     app.auto_follow_bottom = false;
-                                    app.scroll_top = app.scroll_top.saturating_add(3);
+                                    if app.scroll_inverted {
+                                        app.scroll_top = app.scroll_top.saturating_sub(3);
+                                    } else {
+                                        app.scroll_top = app.scroll_top.saturating_add(3);
+                                    }
                                     mouse_changed = app.scroll_top != prev_scroll
                                         || app.auto_follow_bottom != prev_follow;
                                 }

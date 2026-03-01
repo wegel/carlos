@@ -1302,17 +1302,52 @@ fn parse_mobile_mouse_coords_accepts_plain_and_sgr_fragments() {
 #[test]
 fn consume_mobile_mouse_char_does_not_swallow_plain_digits() {
     let mut app = AppState::new("thread-1".to_string());
-    assert!(!consume_mobile_mouse_char(&mut app, '2'));
+    assert!(matches!(
+        consume_mobile_mouse_char(&mut app, '2'),
+        MobileMouseConsume::PassThrough
+    ));
     assert!(app.mobile_mouse_buffer.is_empty());
 }
 
 #[test]
 fn consume_mobile_mouse_char_requires_prefix_to_activate() {
     let mut app = AppState::new("thread-1".to_string());
-    assert!(consume_mobile_mouse_char(&mut app, '<'));
-    assert!(consume_mobile_mouse_char(&mut app, '7'));
-    assert!(consume_mobile_mouse_char(&mut app, '6'));
-    assert!(consume_mobile_mouse_char(&mut app, ';'));
+    assert!(matches!(
+        consume_mobile_mouse_char(&mut app, '<'),
+        MobileMouseConsume::Consumed
+    ));
+    assert!(matches!(
+        consume_mobile_mouse_char(&mut app, '7'),
+        MobileMouseConsume::Consumed
+    ));
+    assert!(matches!(
+        consume_mobile_mouse_char(&mut app, '6'),
+        MobileMouseConsume::Consumed
+    ));
+    assert!(matches!(
+        consume_mobile_mouse_char(&mut app, ';'),
+        MobileMouseConsume::Consumed
+    ));
+}
+
+#[test]
+fn consume_mobile_mouse_char_applies_scroll_on_terminator() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.scroll_top = 10;
+    app.mobile_mouse_last_y = Some(40);
+
+    for ch in ['<', '6', '4', ';', '7', '6', ';', '4', '6'] {
+        assert!(matches!(
+            consume_mobile_mouse_char(&mut app, ch),
+            MobileMouseConsume::Consumed
+        ));
+    }
+    assert!(matches!(
+        consume_mobile_mouse_char(&mut app, 'M'),
+        MobileMouseConsume::Consumed
+    ));
+    assert_eq!(app.scroll_top, 16);
+    assert!(app.mobile_mouse_buffer.is_empty());
 }
 
 #[test]
@@ -1326,6 +1361,20 @@ fn apply_mobile_mouse_scroll_uses_natural_touch_direction() {
 
     apply_mobile_mouse_scroll(&mut app, 42);
     assert_eq!(app.scroll_top, 22);
+}
+
+#[test]
+fn apply_mobile_mouse_scroll_honors_invert_toggle() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.scroll_inverted = true;
+    app.scroll_top = 20;
+    app.mobile_mouse_last_y = Some(40);
+
+    apply_mobile_mouse_scroll(&mut app, 44);
+    assert_eq!(app.scroll_top, 16);
+
+    apply_mobile_mouse_scroll(&mut app, 42);
+    assert_eq!(app.scroll_top, 18);
 }
 
 #[test]
