@@ -319,6 +319,7 @@ pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
         }
         "turn/started" => {
             app.context_usage = None;
+            app.mark_turn_started();
             if let Some(id) = params
                 .get("turn")
                 .and_then(Value::as_object)
@@ -342,6 +343,10 @@ pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
                 app.set_status("turn interrupted");
             } else {
                 app.set_status("turn completed");
+            }
+            app.handle_ralph_turn_completed();
+            if let Err(e) = app.apply_pending_ralph_toggle() {
+                app.set_status(format!("ralph: {e}"));
             }
         }
         "turn/diff/updated" => {

@@ -900,11 +900,7 @@ pub(super) fn build_rendered_lines_with_hidden(
 }
 
 pub(super) fn transcript_content_width(size: TerminalSize) -> usize {
-    if size.width > MSG_CONTENT_X + 1 {
-        size.width - (MSG_CONTENT_X + 1)
-    } else {
-        0
-    }
+    size.width.saturating_sub(MSG_CONTENT_X + 1)
 }
 
 #[derive(Debug, Clone)]
@@ -1095,7 +1091,7 @@ pub(super) fn compute_picker_layout(size: TerminalSize) -> PickerLayout {
 
     let list_x = panel_x + 2;
     let list_y = panel_y + 3;
-    let list_w = if panel_w > 4 { panel_w - 4 } else { 0 };
+    let list_w = panel_w.saturating_sub(4);
     let list_h = if panel_h > 6 { panel_h - 6 } else { 1 };
 
     PickerLayout {
@@ -1121,12 +1117,8 @@ pub(super) fn draw_str(
     if text.is_empty() || max_width == 0 {
         return;
     }
-    if let (Ok(x), Ok(y), Ok(w)) = (
-        u16::try_from(x),
-        u16::try_from(y),
-        usize::try_from(max_width),
-    ) {
-        buf.set_stringn(x, y, text, w, style);
+    if let (Ok(x), Ok(y)) = (u16::try_from(x), u16::try_from(y)) {
+        buf.set_stringn(x, y, text, max_width, style);
     }
 }
 

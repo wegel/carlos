@@ -315,10 +315,10 @@ pub(super) fn first_non_option_token(command: &str) -> Option<&str> {
 
 pub(super) fn strip_shell_quotes(token: &str) -> &str {
     let t = token.trim();
-    if t.len() >= 2 {
-        if (t.starts_with('\'') && t.ends_with('\'')) || (t.starts_with('"') && t.ends_with('"')) {
-            return &t[1..(t.len() - 1)];
-        }
+    if t.len() >= 2
+        && ((t.starts_with('\'') && t.ends_with('\'')) || (t.starts_with('"') && t.ends_with('"')))
+    {
+        return &t[1..(t.len() - 1)];
     }
     t
 }
@@ -468,7 +468,7 @@ pub(super) fn compact_json_summary(value: &Value, max_chars: usize) -> Option<St
     Some(s)
 }
 
-pub(super) fn tool_input_object<'a>(item: &'a Value) -> Option<&'a serde_json::Map<String, Value>> {
+pub(super) fn tool_input_object(item: &Value) -> Option<&serde_json::Map<String, Value>> {
     value_at_path(item, &["input"]).and_then(Value::as_object)
 }
 
@@ -552,38 +552,35 @@ pub(super) fn format_tool_call_inline(item: &Value, tool_name: &str) -> Option<S
     let lower = tool_name.to_ascii_lowercase();
     let input = tool_input_object(item);
 
-    match lower.as_str() {
-        "read" => {
-            let path = input
-                .and_then(|obj| {
-                    obj.get("filePath")
-                        .and_then(Value::as_str)
-                        .or_else(|| obj.get("path").and_then(Value::as_str))
-                })
-                .unwrap_or("");
-            let mut out = format!("{} Read {}", tool_icon(&lower), path);
-            if let Some(args) = input.and_then(|obj| {
-                format_input_brackets(
-                    obj,
-                    &[
-                        "filePath",
-                        "path",
-                        "tool",
-                        "name",
-                        "command",
-                        "description",
-                        "reasoning",
-                    ],
-                )
-            }) {
-                if !args.is_empty() {
-                    out.push(' ');
-                    out.push_str(&args);
-                }
+    if lower.as_str() == "read" {
+        let path = input
+            .and_then(|obj| {
+                obj.get("filePath")
+                    .and_then(Value::as_str)
+                    .or_else(|| obj.get("path").and_then(Value::as_str))
+            })
+            .unwrap_or("");
+        let mut out = format!("{} Read {}", tool_icon(&lower), path);
+        if let Some(args) = input.and_then(|obj| {
+            format_input_brackets(
+                obj,
+                &[
+                    "filePath",
+                    "path",
+                    "tool",
+                    "name",
+                    "command",
+                    "description",
+                    "reasoning",
+                ],
+            )
+        }) {
+            if !args.is_empty() {
+                out.push(' ');
+                out.push_str(&args);
             }
-            return Some(out.trim_end().to_string());
         }
-        _ => {}
+        return Some(out.trim_end().to_string());
     }
 
     if let Some(obj) = input {

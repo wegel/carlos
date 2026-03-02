@@ -1,7 +1,8 @@
 use std::env;
+use std::path::PathBuf;
 use std::time::Duration;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 
 #[cfg(test)]
 use crossterm::event::{Event, KeyEventKind, KeyModifiers};
@@ -55,6 +56,7 @@ mod mobile_mouse;
 mod models;
 mod notifications;
 mod perf;
+mod ralph;
 mod render;
 mod selection;
 mod state;
@@ -65,10 +67,67 @@ mod tools;
 const MSG_TOP: usize = 1; // 1-based row index
 const MSG_CONTENT_X: usize = 2; // 0-based x
 
+#[derive(Debug, Clone, Default)]
+struct CliOptions {
+    mode_resume: bool,
+    resume_id: Option<String>,
+    ralph_prompt_path: Option<String>,
+    ralph_done_marker: Option<String>,
+    ralph_blocked_marker: Option<String>,
+    show_help: bool,
+}
+
 fn usage() {
     eprintln!(
-        "Usage:\n  carlos\n  carlos resume [SESSION_ID]\n\nEnv:\n  CARLOS_METRICS=1  enable perf overlay + exit report (toggle: F8 or Ctrl+P)"
+        "Usage:\n  carlos [resume [SESSION_ID]] [options]\n\nOptions:\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  -h, --help                     show this help\n\nKeys:\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_METRICS=1  enable perf overlay + exit report (toggle: F8 or Ctrl+P)"
     );
+}
+
+fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<CliOptions> {
+    let mut opts = CliOptions::default();
+    let mut args = args.into_iter().peekable();
+
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "-h" | "--help" => {
+                opts.show_help = true;
+            }
+            "resume" => {
+                if opts.mode_resume {
+                    bail!("`resume` specified more than once");
+                }
+                opts.mode_resume = true;
+                if let Some(next) = args.peek() {
+                    if !next.starts_with('-') {
+                        opts.resume_id = args.next();
+                    }
+                }
+            }
+            "--ralph-prompt" => {
+                let path = args
+                    .next()
+                    .ok_or_else(|| anyhow::anyhow!("missing value for --ralph-prompt"))?;
+                opts.ralph_prompt_path = Some(path);
+            }
+            "--ralph-done-marker" => {
+                let marker = args
+                    .next()
+                    .ok_or_else(|| anyhow::anyhow!("missing value for --ralph-done-marker"))?;
+                opts.ralph_done_marker = Some(marker);
+            }
+            "--ralph-blocked-marker" => {
+                let marker = args
+                    .next()
+                    .ok_or_else(|| anyhow::anyhow!("missing value for --ralph-blocked-marker"))?;
+                opts.ralph_blocked_marker = Some(marker);
+            }
+            _ => {
+                bail!("unknown argument: {arg}");
+            }
+        }
+    }
+
+    Ok(opts)
 }
 
 fn env_flag_enabled(name: &str) -> bool {
@@ -88,21 +147,17 @@ fn env_flag_enabled(name: &str) -> bool {
 }
 
 pub(crate) fn run() -> Result<()> {
-    let mut args = env::args();
-    let _bin = args.next();
-
-    let cmd = args.next();
-    let mut mode_resume = false;
-    let mut resume_id: Option<String> = None;
-
-    if let Some(cmd) = cmd {
-        if cmd == "resume" {
-            mode_resume = true;
-            resume_id = args.next();
-        } else {
+    let opts = match parse_cli_args(env::args().skip(1)) {
+        Ok(v) => v,
+        Err(err) => {
+            eprintln!("error: {err}");
             usage();
             return Ok(());
         }
+    };
+    if opts.show_help {
+        usage();
+        return Ok(());
     }
 
     let mut client = AppServerClient::start()?;
@@ -111,11 +166,11 @@ pub(crate) fn run() -> Result<()> {
 
     let cwd = env::current_dir()?.to_string_lossy().to_string();
 
-    let (chosen_thread_id, start_resp) = if mode_resume {
-        if let Some(rid) = resume_id {
+    let (chosen_thread_id, start_resp) = if opts.mode_resume {
+        if let Some(rid) = opts.resume_id.as_deref() {
             let resp = client.call(
                 "thread/resume",
-                params_thread_resume(&rid),
+                params_thread_resume(rid),
                 Duration::from_secs(20),
             )?;
             let thread_id = parse_thread_id_from_start_or_resume(&resp)?;
@@ -151,6 +206,12 @@ pub(crate) fn run() -> Result<()> {
     };
 
     let mut app = AppState::new(chosen_thread_id);
+    app.configure_ralph_options(
+        PathBuf::from(&cwd),
+        opts.ralph_prompt_path,
+        opts.ralph_done_marker,
+        opts.ralph_blocked_marker,
+    );
     if env_flag_enabled("CARLOS_METRICS") {
         app.enable_perf_metrics();
     }

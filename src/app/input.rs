@@ -32,6 +32,27 @@ use crate::protocol::{
 pub(super) fn make_input_area() -> TextArea<'static> {
     TextArea::default()
 }
+
+fn submit_turn_text(client: &AppServerClient, app: &mut AppState, text: String) {
+    if text.trim().is_empty() {
+        return;
+    }
+
+    if let Some(turn_id) = app.active_turn_id.clone() {
+        let params = params_turn_steer(&app.thread_id, &turn_id, &text);
+        match client.call("turn/steer", params, Duration::from_secs(10)) {
+            Ok(_) => app.set_status("sent steer"),
+            Err(e) => app.set_status(format!("{e}")),
+        }
+    } else {
+        let params = params_turn_start(&app.thread_id, &text);
+        match client.call("turn/start", params, Duration::from_secs(10)) {
+            Ok(_) => app.set_status("sent turn"),
+            Err(e) => app.set_status(format!("{e}")),
+        }
+    }
+}
+
 pub(super) fn run_conversation_tui(
     client: &AppServerClient,
     app: &mut AppState,
@@ -70,6 +91,13 @@ pub(super) fn run_conversation_tui(
             }
 
             let working = app.active_turn_id.is_some();
+            if !working {
+                if let Some(next_turn_text) = app.dequeue_turn_input() {
+                    submit_turn_text(client, app, next_turn_text);
+                    needs_draw = true;
+                    continue;
+                }
+            }
             let tick = if working { animation_tick() } else { 0 };
             if working {
                 if tick != last_anim_tick {
@@ -221,6 +249,11 @@ pub(super) fn run_conversation_tui(
 
                             match (k.code, k.modifiers) {
                                 (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(()),
+                                (KeyCode::Char('r'), KeyModifiers::CONTROL) => {
+                                    if let Err(e) = app.request_ralph_toggle() {
+                                        app.set_status(format!("ralph: {e}"));
+                                    }
+                                }
                                 (KeyCode::Char('y'), KeyModifiers::CONTROL) => {
                                     if let Some(sel) = app.selection {
                                         let msg_bottom = compute_input_layout(app, size).msg_bottom;
@@ -318,29 +351,8 @@ pub(super) fn run_conversation_tui(
                                     app.push_input_history(&text);
                                     app.clear_input();
                                     app.selection = None;
-
-                                    if let Some(turn_id) = app.active_turn_id.clone() {
-                                        let params =
-                                            params_turn_steer(&app.thread_id, &turn_id, &text);
-                                        match client.call(
-                                            "turn/steer",
-                                            params,
-                                            Duration::from_secs(10),
-                                        ) {
-                                            Ok(_) => app.set_status("sent steer"),
-                                            Err(e) => app.set_status(format!("{e}")),
-                                        }
-                                    } else {
-                                        let params = params_turn_start(&app.thread_id, &text);
-                                        match client.call(
-                                            "turn/start",
-                                            params,
-                                            Duration::from_secs(10),
-                                        ) {
-                                            Ok(_) => app.set_status("sent turn"),
-                                            Err(e) => app.set_status(format!("{e}")),
-                                        }
-                                    }
+                                    app.mark_user_turn_submitted();
+                                    submit_turn_text(client, app, text);
                                 }
                                 (KeyCode::Char('?'), _) => {
                                     if app.input_is_empty() {

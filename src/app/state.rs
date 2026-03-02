@@ -1,12 +1,15 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
+use anyhow::Result;
 use ratatui_textarea::TextArea;
 
 use super::context_usage::ContextUsage;
 use super::input::make_input_area;
 use super::models::{Message, MessageKind, RenderedLine, Role, TerminalSize};
 use super::perf::PerfMetrics;
+use super::ralph::{detect_turn_markers, load_ralph_config, RalphConfig, RalphState};
 use super::render::{
     build_rendered_lines_with_hidden, compute_input_layout, textarea_input_from_key,
     transcript_content_width,
@@ -35,6 +38,14 @@ pub(super) struct AppState {
     pub(super) rewind_restore_draft: Option<String>,
     pub(super) esc_armed_at: Option<Instant>,
     pub(super) status: String,
+    pub(super) turn_start_message_idx: Option<usize>,
+    pub(super) queued_turn_inputs: VecDeque<String>,
+    pub(super) ralph: Option<RalphState>,
+    pub(super) ralph_toggle_pending: bool,
+    pub(super) ralph_cwd: PathBuf,
+    pub(super) ralph_prompt_path_override: Option<String>,
+    pub(super) ralph_done_marker_override: Option<String>,
+    pub(super) ralph_blocked_marker_override: Option<String>,
 
     pub(super) scroll_top: usize,
     pub(super) auto_follow_bottom: bool,
@@ -71,6 +82,14 @@ impl AppState {
             rewind_restore_draft: None,
             esc_armed_at: None,
             status: String::new(),
+            turn_start_message_idx: None,
+            queued_turn_inputs: VecDeque::new(),
+            ralph: None,
+            ralph_toggle_pending: false,
+            ralph_cwd: PathBuf::new(),
+            ralph_prompt_path_override: None,
+            ralph_done_marker_override: None,
+            ralph_blocked_marker_override: None,
             scroll_top: 0,
             auto_follow_bottom: true,
             selection: None,
@@ -89,12 +108,102 @@ impl AppState {
         self.perf = Some(PerfMetrics::new());
     }
 
+    pub(super) fn configure_ralph_options(
+        &mut self,
+        cwd: PathBuf,
+        prompt_path_override: Option<String>,
+        done_marker_override: Option<String>,
+        blocked_marker_override: Option<String>,
+    ) {
+        self.ralph_cwd = cwd;
+        self.ralph_prompt_path_override = prompt_path_override;
+        self.ralph_done_marker_override = done_marker_override;
+        self.ralph_blocked_marker_override = blocked_marker_override;
+    }
+
+    pub(super) fn enable_ralph_mode(&mut self, config: RalphConfig) {
+        let prompt_path = config.prompt_path.display().to_string();
+        self.ralph = Some(RalphState::new(config));
+        self.ralph_toggle_pending = false;
+        self.set_status(format!("ralph on ({prompt_path})"));
+    }
+
+    pub(super) fn disable_ralph_mode(&mut self) {
+        self.ralph = None;
+        self.ralph_toggle_pending = false;
+        self.queued_turn_inputs.clear();
+        self.set_status("ralph off");
+    }
+
+    pub(super) fn queue_ralph_initial_prompt(&mut self) {
+        let Some(ralph) = self.ralph.as_mut() else {
+            return;
+        };
+        if ralph.primed || ralph.completed {
+            return;
+        }
+        ralph.primed = true;
+        let prompt = ralph.config.base_prompt.clone();
+        self.enqueue_turn_input(prompt);
+    }
+
+    pub(super) fn toggle_ralph_mode_now(&mut self) -> Result<()> {
+        if self.ralph.is_some() {
+            self.disable_ralph_mode();
+            return Ok(());
+        }
+
+        let cfg = load_ralph_config(
+            &self.ralph_cwd,
+            self.ralph_prompt_path_override.as_deref(),
+            self.ralph_done_marker_override.as_deref(),
+            self.ralph_blocked_marker_override.as_deref(),
+        )?;
+        self.enable_ralph_mode(cfg);
+        self.queue_ralph_initial_prompt();
+        self.set_status("ralph on");
+        Ok(())
+    }
+
+    pub(super) fn request_ralph_toggle(&mut self) -> Result<()> {
+        if self.active_turn_id.is_some() {
+            self.ralph_toggle_pending = !self.ralph_toggle_pending;
+            if self.ralph_toggle_pending {
+                self.set_status("ralph toggle pending");
+            } else {
+                self.set_status("ralph toggle canceled");
+            }
+            return Ok(());
+        }
+        self.toggle_ralph_mode_now()
+    }
+
+    pub(super) fn apply_pending_ralph_toggle(&mut self) -> Result<()> {
+        if !self.ralph_toggle_pending {
+            return Ok(());
+        }
+        self.ralph_toggle_pending = false;
+        self.toggle_ralph_mode_now()
+    }
+
     pub(super) fn perf_report(&self) -> Option<String> {
         self.perf.as_ref().map(PerfMetrics::final_report)
     }
 
     pub(super) fn set_status(&mut self, s: impl Into<String>) {
         self.status = s.into();
+    }
+
+    pub(super) fn enqueue_turn_input(&mut self, text: impl Into<String>) {
+        let text = text.into();
+        if text.trim().is_empty() {
+            return;
+        }
+        self.queued_turn_inputs.push_back(text);
+    }
+
+    pub(super) fn dequeue_turn_input(&mut self) -> Option<String> {
+        self.queued_turn_inputs.pop_front()
     }
 
     pub(super) fn input_is_empty(&self) -> bool {
@@ -113,7 +222,7 @@ impl AppState {
     pub(super) fn set_input_text(&mut self, text: &str) {
         self.input = make_input_area();
         if !text.is_empty() {
-            let _ = self.input.insert_str(text.to_string());
+            let _ = self.input.insert_str(text);
         }
     }
 
@@ -173,6 +282,12 @@ impl AppState {
         self.rewind_mode = false;
         self.auto_follow_bottom = true;
         self.rewind_restore_draft = None;
+    }
+
+    pub(super) fn mark_user_turn_submitted(&mut self) {
+        if let Some(ralph) = self.ralph.as_mut() {
+            ralph.waiting_for_user = false;
+        }
     }
 
     pub(super) fn push_input_history(&mut self, text: &str) {
@@ -430,5 +545,60 @@ impl AppState {
         }
         self.append_message(Role::System, MARKER);
         self.auto_follow_bottom = true;
+    }
+
+    pub(super) fn mark_turn_started(&mut self) {
+        self.turn_start_message_idx = Some(self.messages.len());
+    }
+
+    pub(super) fn handle_ralph_turn_completed(&mut self) {
+        let start_idx = self
+            .turn_start_message_idx
+            .take()
+            .unwrap_or(self.messages.len());
+        let mut next_status = None;
+        let mut next_message = None;
+        let mut continuation = None;
+
+        if let Some(ralph) = self.ralph.as_mut() {
+            let markers = detect_turn_markers(
+                &self.messages,
+                start_idx,
+                &ralph.config.done_marker,
+                &ralph.config.blocked_marker,
+            );
+            if markers.completed {
+                ralph.completed = true;
+                ralph.waiting_for_user = false;
+                next_message = Some("Ralph complete".to_string());
+                next_status = Some("ralph complete".to_string());
+            } else if markers.blocked {
+                ralph.waiting_for_user = true;
+                next_message = Some("Ralph blocked: waiting for input".to_string());
+                next_status = Some("ralph blocked".to_string());
+            } else if !ralph.completed {
+                ralph.waiting_for_user = false;
+                continuation = Some(ralph.config.continuation_prompt.clone());
+                next_status = Some("ralph continuing".to_string());
+            }
+        }
+
+        if let Some(msg) = next_message {
+            if !self
+                .messages
+                .last()
+                .is_some_and(|last| last.role == Role::System && last.text == msg)
+            {
+                self.append_message(Role::System, msg);
+            }
+            self.auto_follow_bottom = true;
+        }
+        if let Some(text) = continuation {
+            self.enqueue_turn_input(text);
+            self.auto_follow_bottom = true;
+        }
+        if let Some(status) = next_status {
+            self.set_status(status);
+        }
     }
 }

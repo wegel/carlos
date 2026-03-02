@@ -1469,3 +1469,133 @@ fn perf_metrics_tracks_repeat_transition_buckets() {
     assert_eq!(perf.repeat_interval.values_us.len(), 1);
     assert_eq!(perf.release_to_next_key.values_us.len(), 1);
 }
+
+#[test]
+fn parse_cli_args_supports_ralph_resume_and_markers() {
+    let args = vec![
+        "resume".to_string(),
+        "session-123".to_string(),
+        "--ralph-prompt".to_string(),
+        "custom/prompt.md".to_string(),
+        "--ralph-done-marker".to_string(),
+        "DONE".to_string(),
+        "--ralph-blocked-marker".to_string(),
+        "BLOCKED".to_string(),
+    ];
+    let parsed = parse_cli_args(args).expect("parse");
+
+    assert!(parsed.mode_resume);
+    assert_eq!(parsed.resume_id.as_deref(), Some("session-123"));
+    assert_eq!(
+        parsed.ralph_prompt_path.as_deref(),
+        Some("custom/prompt.md")
+    );
+    assert_eq!(parsed.ralph_done_marker.as_deref(), Some("DONE"));
+    assert_eq!(parsed.ralph_blocked_marker.as_deref(), Some("BLOCKED"));
+}
+
+#[test]
+fn detect_turn_markers_matches_trimmed_assistant_marker_lines() {
+    let messages = vec![
+        Message {
+            role: Role::User,
+            text: "@@BLOCKED@@".to_string(),
+            kind: MessageKind::Plain,
+            file_path: None,
+        },
+        Message {
+            role: Role::Assistant,
+            text: "working...\n  @@BLOCKED@@ \nnext".to_string(),
+            kind: MessageKind::Plain,
+            file_path: None,
+        },
+        Message {
+            role: Role::Assistant,
+            text: "@@COMPLETE@@".to_string(),
+            kind: MessageKind::Plain,
+            file_path: None,
+        },
+    ];
+
+    let markers = super::ralph::detect_turn_markers(&messages, 0, "@@COMPLETE@@", "@@BLOCKED@@");
+    assert!(markers.blocked);
+    assert!(markers.completed);
+}
+
+#[test]
+fn ralph_turn_completion_queues_continuation_when_not_blocked_or_complete() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.enable_ralph_mode(super::ralph::RalphConfig {
+        prompt_path: std::path::PathBuf::from(".agents/ralph-prompt.md"),
+        base_prompt: "base".to_string(),
+        done_marker: "@@COMPLETE@@".to_string(),
+        blocked_marker: "@@BLOCKED@@".to_string(),
+        continuation_prompt: "continue".to_string(),
+    });
+    app.turn_start_message_idx = Some(0);
+    app.append_message(Role::Assistant, "still working");
+
+    app.handle_ralph_turn_completed();
+
+    assert_eq!(app.dequeue_turn_input().as_deref(), Some("continue"));
+}
+
+#[test]
+fn ralph_turn_completion_enters_wait_state_on_blocked_marker() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.enable_ralph_mode(super::ralph::RalphConfig {
+        prompt_path: std::path::PathBuf::from(".agents/ralph-prompt.md"),
+        base_prompt: "base".to_string(),
+        done_marker: "@@COMPLETE@@".to_string(),
+        blocked_marker: "@@BLOCKED@@".to_string(),
+        continuation_prompt: "continue".to_string(),
+    });
+    app.turn_start_message_idx = Some(0);
+    app.append_message(Role::Assistant, "@@BLOCKED@@");
+
+    app.handle_ralph_turn_completed();
+
+    assert!(app.queued_turn_inputs.is_empty());
+    assert!(app.ralph.as_ref().is_some_and(|r| r.waiting_for_user));
+}
+
+#[test]
+fn request_ralph_toggle_enables_and_disables_when_idle() {
+    let mut app = AppState::new("thread-1".to_string());
+    let tmp = std::env::temp_dir().join(format!(
+        "carlos-ralph-toggle-{}.md",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("duration")
+            .as_nanos()
+    ));
+    std::fs::write(&tmp, "auto prompt").expect("write prompt");
+    app.configure_ralph_options(
+        std::env::current_dir().expect("cwd"),
+        Some(tmp.to_string_lossy().to_string()),
+        None,
+        None,
+    );
+
+    app.request_ralph_toggle().expect("toggle on");
+    assert!(app.ralph.is_some());
+    assert!(app.dequeue_turn_input().is_some());
+
+    app.request_ralph_toggle().expect("toggle off");
+    assert!(app.ralph.is_none());
+    assert!(app.queued_turn_inputs.is_empty());
+
+    let _ = std::fs::remove_file(tmp);
+}
+
+#[test]
+fn request_ralph_toggle_defers_while_turn_active() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.active_turn_id = Some("turn-1".to_string());
+
+    app.request_ralph_toggle().expect("defer");
+    assert!(app.ralph_toggle_pending);
+
+    app.request_ralph_toggle().expect("cancel");
+    assert!(!app.ralph_toggle_pending);
+}
