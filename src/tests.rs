@@ -1523,6 +1523,20 @@ fn detect_turn_markers_matches_trimmed_assistant_marker_lines() {
 }
 
 #[test]
+fn detect_turn_markers_matches_inline_marker_tokens() {
+    let messages = vec![Message {
+        role: Role::Assistant,
+        text: "@@COMPLETE@@ @@COMPLETE_SUMMARY_START@@ summary".to_string(),
+        kind: MessageKind::Plain,
+        file_path: None,
+    }];
+
+    let markers = super::ralph::detect_turn_markers(&messages, 0, "@@COMPLETE@@", "@@BLOCKED@@");
+    assert!(markers.completed);
+    assert!(!markers.blocked);
+}
+
+#[test]
 fn ralph_turn_completion_queues_continuation_when_not_blocked_or_complete() {
     let mut app = AppState::new("thread-1".to_string());
     app.enable_ralph_mode(super::ralph::RalphConfig {
@@ -1557,6 +1571,28 @@ fn ralph_turn_completion_enters_wait_state_on_blocked_marker() {
 
     assert!(app.queued_turn_inputs.is_empty());
     assert!(app.ralph.as_ref().is_some_and(|r| r.waiting_for_user));
+}
+
+#[test]
+fn ralph_turn_completion_disables_ralph_mode() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.enable_ralph_mode(super::ralph::RalphConfig {
+        prompt_path: std::path::PathBuf::from(".agents/ralph-prompt.md"),
+        base_prompt: "base".to_string(),
+        done_marker: "@@COMPLETE@@".to_string(),
+        blocked_marker: "@@BLOCKED@@".to_string(),
+        continuation_prompt: "continue".to_string(),
+    });
+    app.turn_start_message_idx = Some(0);
+    app.append_message(
+        Role::Assistant,
+        "@@COMPLETE@@ @@COMPLETE_SUMMARY_START@@".to_string(),
+    );
+
+    app.handle_ralph_turn_completed();
+
+    assert!(app.ralph.is_none());
+    assert!(app.queued_turn_inputs.is_empty());
 }
 
 #[test]

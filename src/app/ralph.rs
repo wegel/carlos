@@ -95,20 +95,21 @@ pub(super) fn detect_turn_markers(
         if msg.role != Role::Assistant {
             continue;
         }
-        for line in msg.text.lines() {
-            let t = line.trim();
-            if !done.is_empty() && t == done {
-                out.completed = true;
-            }
-            if !blocked.is_empty() && t == blocked {
-                out.blocked = true;
-            }
+        if !done.is_empty() && text_contains_marker(&msg.text, done) {
+            out.completed = true;
+        }
+        if !blocked.is_empty() && text_contains_marker(&msg.text, blocked) {
+            out.blocked = true;
         }
         if out.completed && out.blocked {
             break;
         }
     }
     out
+}
+
+fn text_contains_marker(text: &str, marker: &str) -> bool {
+    text.contains(marker)
 }
 
 fn resolve_prompt_path(cwd: &Path, prompt_path_override: Option<&str>) -> PathBuf {

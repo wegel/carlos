@@ -1528,13 +1528,21 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
         let sep_y = input_layout.input_top - 2;
         if size.width > 0 {
             let working = app.active_turn_id.is_some();
+            let ralph_mode = app.ralph.is_some();
+            const RALPH_MODE_LABEL: &str = "RALPH MODE";
             let line_len = size.width.saturating_sub(1);
             let context_label = app
                 .context_usage
                 .map(context_usage_label)
                 .unwrap_or_else(|| context_usage_placeholder_label().to_string());
             let has_context_usage = app.context_usage.is_some();
-            let reserved_label_cells = context_label_reserved_cells(Some(&context_label));
+            let ralph_label_cells = if ralph_mode {
+                visual_width(RALPH_MODE_LABEL) + 1
+            } else {
+                0
+            };
+            let reserved_label_cells =
+                context_label_reserved_cells(Some(&context_label)) + ralph_label_cells;
             let context_label_cells = visual_width(&context_label);
             let can_reserve_label_area = reserved_label_cells + 1 < line_len;
             let label_area_start = if can_reserve_label_area {
@@ -1572,7 +1580,7 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
                             x,
                             sep_y,
                             "━",
-                            Style::default().fg(kitt_color_for_distance(dist)),
+                            Style::default().fg(kitt_color_for_distance(dist, ralph_mode)),
                             1,
                         );
                     }
@@ -1583,17 +1591,21 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
                         0,
                         sep_y,
                         &sep,
-                        Style::default().fg(COLOR_GUTTER_USER),
+                        Style::default().fg(if ralph_mode {
+                            COLOR_GUTTER_AGENT_THINKING
+                        } else {
+                            COLOR_GUTTER_USER
+                        }),
                         anim_end,
                     );
                 }
             }
 
             if can_reserve_label_area && context_label_cells > 0 {
-                let label_x = line_len.saturating_sub(context_label_cells);
+                let context_x = line_len.saturating_sub(context_label_cells);
                 draw_str(
                     buf,
-                    label_x,
+                    context_x,
                     sep_y,
                     &context_label,
                     Style::default().fg(if has_context_usage {
@@ -1603,10 +1615,26 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
                     }),
                     context_label_cells,
                 );
+
+                if ralph_mode {
+                    let ralph_label_cells = visual_width(RALPH_MODE_LABEL);
+                    let ralph_x = context_x.saturating_sub(ralph_label_cells + 1);
+                    draw_str(
+                        buf,
+                        ralph_x,
+                        sep_y,
+                        RALPH_MODE_LABEL,
+                        Style::default()
+                            .fg(COLOR_GUTTER_AGENT_THINKING)
+                            .add_modifier(Modifier::BOLD),
+                        ralph_label_cells,
+                    );
+                }
             }
         }
     }
 
+    let ralph_mode = app.ralph.is_some();
     fill_rect(
         buf,
         0,
@@ -1619,6 +1647,8 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
         let y = input_layout.input_top.saturating_sub(1) + i;
         let input_gutter_color = if app.rewind_mode {
             COLOR_DIFF_REMOVE
+        } else if ralph_mode {
+            COLOR_GUTTER_AGENT_THINKING
         } else {
             COLOR_GUTTER_USER
         };

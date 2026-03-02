@@ -559,6 +559,7 @@ impl AppState {
         let mut next_status = None;
         let mut next_message = None;
         let mut continuation = None;
+        let mut disable_ralph_mode = false;
 
         if let Some(ralph) = self.ralph.as_mut() {
             let markers = detect_turn_markers(
@@ -572,6 +573,7 @@ impl AppState {
                 ralph.waiting_for_user = false;
                 next_message = Some("Ralph complete".to_string());
                 next_status = Some("ralph complete".to_string());
+                disable_ralph_mode = true;
             } else if markers.blocked {
                 ralph.waiting_for_user = true;
                 next_message = Some("Ralph blocked: waiting for input".to_string());
@@ -599,6 +601,11 @@ impl AppState {
         }
         if let Some(status) = next_status {
             self.set_status(status);
+        }
+        if disable_ralph_mode {
+            self.ralph = None;
+            self.ralph_toggle_pending = false;
+            self.queued_turn_inputs.clear();
         }
     }
 }

@@ -36,6 +36,10 @@ pub(crate) const COLOR_KITT_TRAIL_1: Color = Color::Rgb(116, 199, 236); // sapph
 pub(crate) const COLOR_KITT_TRAIL_2: Color = Color::Rgb(137, 180, 250); // blue
 pub(crate) const COLOR_KITT_TRAIL_3: Color = Color::Rgb(108, 112, 134); // overlay0
 pub(crate) const COLOR_KITT_BASE: Color = COLOR_STEP7;
+pub(crate) const COLOR_KITT_RALPH_HEAD: Color = Color::Rgb(245, 194, 231); // pink
+pub(crate) const COLOR_KITT_RALPH_TRAIL_1: Color = Color::Rgb(242, 205, 205); // flamingo
+pub(crate) const COLOR_KITT_RALPH_TRAIL_2: Color = Color::Rgb(203, 166, 247); // mauve
+pub(crate) const COLOR_KITT_RALPH_TRAIL_3: Color = Color::Rgb(108, 112, 134); // overlay0
 pub(crate) const KITT_STEP_MS: u128 = 45;
 pub(crate) const TOUCH_SCROLL_DRAG_MIN_ROWS: usize = 3;
 
@@ -79,7 +83,17 @@ pub(crate) fn role_gutter_symbol(role: Role) -> &'static str {
     }
 }
 
-pub(crate) fn kitt_color_for_distance(distance: usize) -> Color {
+pub(crate) fn kitt_color_for_distance(distance: usize, ralph_mode: bool) -> Color {
+    if ralph_mode {
+        return match distance {
+            0 => COLOR_KITT_RALPH_HEAD,
+            1 => COLOR_KITT_RALPH_TRAIL_1,
+            2 => COLOR_KITT_RALPH_TRAIL_2,
+            3 => COLOR_KITT_RALPH_TRAIL_3,
+            _ => COLOR_KITT_BASE,
+        };
+    }
+
     match distance {
         0 => COLOR_KITT_HEAD,
         1 => COLOR_KITT_TRAIL_1,
