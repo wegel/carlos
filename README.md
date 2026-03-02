@@ -2,6 +2,8 @@
 
 Terminal frontend for `codex app-server`.
 
+[<img src="docs/screenshot.png" alt="carlos TUI screenshot" width="760" />](docs/screenshot.png)
+
 ## status
 
 Alpha.
