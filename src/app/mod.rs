@@ -146,6 +146,27 @@ fn env_flag_enabled(name: &str) -> bool {
     }
 }
 
+fn fetch_model_catalog(client: &AppServerClient) -> Result<Vec<ModelInfo>> {
+    let mut cursor: Option<String> = None;
+    let mut out = Vec::new();
+
+    loop {
+        let resp = client.call(
+            "model/list",
+            params_model_list(cursor.as_deref()),
+            Duration::from_secs(10),
+        )?;
+        let (mut page, next_cursor) = parse_model_list_page(&resp)?;
+        out.append(&mut page);
+        if next_cursor.is_none() {
+            break;
+        }
+        cursor = next_cursor;
+    }
+
+    Ok(out)
+}
+
 pub(crate) fn run() -> Result<()> {
     let opts = match parse_cli_args(env::args().skip(1)) {
         Ok(v) => v,
@@ -214,6 +235,9 @@ pub(crate) fn run() -> Result<()> {
     );
     if env_flag_enabled("CARLOS_METRICS") {
         app.enable_perf_metrics();
+    }
+    if let Ok(models) = fetch_model_catalog(&client) {
+        app.set_available_models(models);
     }
     let runtime_settings = parse_thread_runtime_settings(&start_resp)?;
     app.set_runtime_settings(runtime_settings.model, runtime_settings.effort);

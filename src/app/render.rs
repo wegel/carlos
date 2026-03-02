@@ -20,7 +20,7 @@ use super::context_usage::{
 };
 use super::perf::PerfMetrics;
 use super::selection::compute_selection_range;
-use super::state::{ModelSettingsField, MODEL_EFFORT_OPTIONS};
+use super::state::ModelSettingsField;
 use super::text::{
     char_to_byte_idx, slice_by_cells, split_at_cells, visual_width, wrap_input_line,
     wrap_natural_by_cells,
@@ -1133,15 +1133,10 @@ pub(super) fn fill_rect(buf: &mut Buffer, x: usize, y: usize, w: usize, h: usize
         u16::try_from(w),
         u16::try_from(h),
     ) {
-        buf.set_style(
-            Rect {
-                x,
-                y,
-                width: w,
-                height: h,
-            },
-            style,
-        );
+        let blank = " ".repeat(w as usize);
+        for row in 0..h {
+            buf.set_stringn(x, y + row, &blank, w as usize, style);
+        }
     }
 }
 
@@ -1348,14 +1343,6 @@ pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, 
 
     fill_rect(
         buf,
-        0,
-        0,
-        size.width,
-        size.height,
-        Style::default().bg(COLOR_OVERLAY),
-    );
-    fill_rect(
-        buf,
         start_x,
         start_y,
         box_w,
@@ -1416,10 +1403,8 @@ pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, 
     } else {
         Style::default().fg(COLOR_TEXT)
     };
-    let effort_value = MODEL_EFFORT_OPTIONS
-        .get(app.model_settings_effort_index)
-        .copied()
-        .unwrap_or("medium");
+    let model_value = app.model_settings_model_value();
+    let effort_value = app.model_settings_effort_value();
 
     draw_str(
         buf,
@@ -1433,7 +1418,7 @@ pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, 
         buf,
         start_x + 12,
         start_y + 3,
-        &app.model_settings_model_input,
+        model_value,
         model_style,
         box_w.saturating_sub(16),
     );
@@ -1843,16 +1828,9 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
         let start_x = (size.width.saturating_sub(box_w)) / 2;
         let start_y = (size.height.saturating_sub(box_h)) / 2;
         let x = if matches!(app.model_settings_field, ModelSettingsField::Model) {
-            start_x + 12 + visual_width(&app.model_settings_model_input)
+            start_x + 12 + visual_width(app.model_settings_model_value())
         } else {
-            start_x
-                + 12
-                + visual_width(
-                    MODEL_EFFORT_OPTIONS
-                        .get(app.model_settings_effort_index)
-                        .copied()
-                        .unwrap_or("medium"),
-                )
+            start_x + 12 + visual_width(app.model_settings_effort_value())
         };
         let y = if matches!(app.model_settings_field, ModelSettingsField::Model) {
             start_y + 3

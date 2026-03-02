@@ -338,6 +338,29 @@ fn rewind_fork_drops_selected_message_and_newer_history() {
 }
 
 #[test]
+fn rewind_edit_keeps_selected_anchor_for_fork() {
+    let mut app = AppState::new("thread-1".to_string());
+    let u1 = app.append_message(Role::User, "first");
+    app.record_input_history("first", Some(u1));
+    let _ = app.append_message(Role::Assistant, "reply one");
+    let u2 = app.append_message(Role::User, "second");
+    app.record_input_history("second", Some(u2));
+    let _ = app.append_message(Role::Assistant, "reply two");
+
+    app.enter_rewind_mode();
+    let _ = app.navigate_input_history_up(); // select first
+    assert_eq!(app.rewind_selected_message_idx(), Some(u1));
+
+    app.input_insert_text(" edited".to_string()); // mutate text while rewinding
+    assert_eq!(app.rewind_selected_message_idx(), Some(u1));
+
+    app.rewind_fork_from_message_idx(app.rewind_selected_message_idx());
+    assert_eq!(app.messages.len(), u1);
+    assert!(app.messages.iter().all(|m| m.text != "first"));
+    assert!(app.messages.iter().all(|m| m.text != "reply one"));
+}
+
+#[test]
 fn record_input_history_backfills_pending_message_index() {
     let mut app = AppState::new("thread-1".to_string());
     app.push_input_history("prompt");

@@ -16,8 +16,9 @@ use super::render::{
 };
 use super::selection::{MouseDragMode, Selection};
 use super::MSG_TOP;
+use crate::protocol::ModelInfo;
 
-pub(super) const MODEL_EFFORT_OPTIONS: [&str; 6] =
+pub(super) const DEFAULT_EFFORT_OPTIONS: [&str; 6] =
     ["none", "minimal", "low", "medium", "high", "xhigh"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,7 +63,10 @@ pub(super) struct AppState {
     pub(super) show_model_settings: bool,
     pub(super) model_settings_field: ModelSettingsField,
     pub(super) model_settings_model_input: String,
+    pub(super) model_settings_model_index: usize,
+    pub(super) model_settings_effort_options: Vec<String>,
     pub(super) model_settings_effort_index: usize,
+    pub(super) available_models: Vec<ModelInfo>,
 
     pub(super) scroll_top: usize,
     pub(super) auto_follow_bottom: bool,
@@ -114,7 +118,10 @@ impl AppState {
             show_model_settings: false,
             model_settings_field: ModelSettingsField::Model,
             model_settings_model_input: String::new(),
+            model_settings_model_index: 0,
+            model_settings_effort_options: Vec::new(),
             model_settings_effort_index: 3,
+            available_models: Vec::new(),
             scroll_top: 0,
             auto_follow_bottom: true,
             selection: None,
@@ -224,6 +231,11 @@ impl AppState {
         self.current_effort = effort.and_then(normalize_non_empty);
     }
 
+    pub(super) fn set_available_models(&mut self, mut models: Vec<ModelInfo>) {
+        models.sort_by_key(|m| !m.is_default);
+        self.available_models = models;
+    }
+
     pub(super) fn queue_runtime_settings(&mut self, model: Option<String>, effort: Option<String>) {
         self.pending_model = model.and_then(normalize_non_empty);
         self.pending_effort = effort.and_then(normalize_non_empty);
@@ -270,18 +282,25 @@ impl AppState {
     pub(super) fn open_model_settings(&mut self) {
         self.show_model_settings = true;
         self.model_settings_field = ModelSettingsField::Model;
-        self.model_settings_model_input = self
+        let preferred_model = self
             .pending_model
-            .clone()
-            .or_else(|| self.current_model.clone())
-            .unwrap_or_default();
-
-        let effort = self
-            .pending_effort
             .as_deref()
-            .or(self.current_effort.as_deref())
-            .unwrap_or("medium");
-        self.model_settings_effort_index = effort_index(effort);
+            .or(self.current_model.as_deref())
+            .unwrap_or("");
+        self.model_settings_model_index = if self.available_models.is_empty() {
+            0
+        } else {
+            self.available_models
+                .iter()
+                .position(|m| m.model == preferred_model)
+                .unwrap_or(0)
+        };
+        self.model_settings_model_input = self
+            .available_models
+            .get(self.model_settings_model_index)
+            .map(|m| m.model.clone())
+            .unwrap_or_else(|| preferred_model.to_string());
+        self.refresh_model_settings_efforts();
     }
 
     pub(super) fn close_model_settings(&mut self) {
@@ -306,10 +325,34 @@ impl AppState {
     }
 
     pub(super) fn model_settings_cycle_effort(&mut self, step: isize) {
-        let len = MODEL_EFFORT_OPTIONS.len() as isize;
+        if self.model_settings_effort_options.is_empty() {
+            self.model_settings_effort_options = DEFAULT_EFFORT_OPTIONS
+                .iter()
+                .map(|s| (*s).to_string())
+                .collect();
+        }
+        let len = self.model_settings_effort_options.len() as isize;
         let cur = self.model_settings_effort_index as isize;
         let next = (cur + step).rem_euclid(len);
         self.model_settings_effort_index = next as usize;
+    }
+
+    pub(super) fn model_settings_cycle_model(&mut self, step: isize) {
+        if self.available_models.is_empty() {
+            return;
+        }
+        let len = self.available_models.len() as isize;
+        let cur = self.model_settings_model_index as isize;
+        let next = (cur + step).rem_euclid(len);
+        self.model_settings_model_index = next as usize;
+        if let Some(model) = self.available_models.get(self.model_settings_model_index) {
+            self.model_settings_model_input = model.model.clone();
+        }
+        self.refresh_model_settings_efforts();
+    }
+
+    pub(super) fn model_settings_has_model_choices(&self) -> bool {
+        !self.available_models.is_empty()
     }
 
     pub(super) fn model_settings_insert_char(&mut self, ch: char) {
@@ -321,8 +364,8 @@ impl AppState {
     }
 
     pub(super) fn apply_model_settings(&mut self) {
-        let model = normalize_non_empty(self.model_settings_model_input.clone());
-        let effort = Some(MODEL_EFFORT_OPTIONS[self.model_settings_effort_index].to_string());
+        let model = normalize_non_empty(self.model_settings_model_value().to_string());
+        let effort = normalize_non_empty(self.model_settings_effort_value().to_string());
         self.queue_runtime_settings(model, effort);
         self.show_model_settings = false;
         if self.active_turn_id.is_some() {
@@ -330,6 +373,20 @@ impl AppState {
         } else {
             self.set_status("model/effort set for next turn");
         }
+    }
+
+    pub(super) fn model_settings_model_value(&self) -> &str {
+        if let Some(model) = self.available_models.get(self.model_settings_model_index) {
+            return model.model.as_str();
+        }
+        self.model_settings_model_input.as_str()
+    }
+
+    pub(super) fn model_settings_effort_value(&self) -> &str {
+        self.model_settings_effort_options
+            .get(self.model_settings_effort_index)
+            .map(String::as_str)
+            .unwrap_or("medium")
     }
 
     pub(super) fn enqueue_turn_input(&mut self, text: impl Into<String>) {
@@ -559,13 +616,17 @@ impl AppState {
 
     pub(super) fn input_apply_key(&mut self, key: crossterm::event::KeyEvent) {
         self.reset_esc_chord();
-        self.reset_input_history_navigation();
+        if !self.rewind_mode {
+            self.reset_input_history_navigation();
+        }
         let _ = self.input.input(textarea_input_from_key(key));
     }
 
     pub(super) fn input_insert_text(&mut self, text: String) {
         self.reset_esc_chord();
-        self.reset_input_history_navigation();
+        if !self.rewind_mode {
+            self.reset_input_history_navigation();
+        }
         let _ = self.input.insert_str(text);
     }
 
@@ -782,8 +843,57 @@ fn normalize_non_empty(s: String) -> Option<String> {
 }
 
 fn effort_index(value: &str) -> usize {
-    MODEL_EFFORT_OPTIONS
+    DEFAULT_EFFORT_OPTIONS
         .iter()
         .position(|v| v.eq_ignore_ascii_case(value))
         .unwrap_or(3)
+}
+
+impl AppState {
+    fn refresh_model_settings_efforts(&mut self) {
+        let requested = self
+            .pending_effort
+            .as_deref()
+            .or(self.current_effort.as_deref())
+            .unwrap_or("medium")
+            .to_string();
+
+        let (options, default_effort) =
+            if let Some(model) = self.available_models.get(self.model_settings_model_index) {
+                let options = if model.supported_efforts.is_empty() {
+                    DEFAULT_EFFORT_OPTIONS
+                        .iter()
+                        .map(|s| (*s).to_string())
+                        .collect::<Vec<_>>()
+                } else {
+                    model.supported_efforts.clone()
+                };
+                (options, model.default_effort.clone())
+            } else {
+                (
+                    DEFAULT_EFFORT_OPTIONS
+                        .iter()
+                        .map(|s| (*s).to_string())
+                        .collect::<Vec<_>>(),
+                    None,
+                )
+            };
+
+        self.model_settings_effort_options = options;
+        self.model_settings_effort_index = self
+            .model_settings_effort_options
+            .iter()
+            .position(|e| e.eq_ignore_ascii_case(&requested))
+            .or_else(|| {
+                default_effort.as_deref().and_then(|d| {
+                    self.model_settings_effort_options
+                        .iter()
+                        .position(|e| e.eq_ignore_ascii_case(d))
+                })
+            })
+            .unwrap_or_else(|| {
+                effort_index("medium")
+                    .min(self.model_settings_effort_options.len().saturating_sub(1))
+            });
+    }
 }

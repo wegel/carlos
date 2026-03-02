@@ -24,6 +24,15 @@ pub(crate) struct ThreadRuntimeSettings {
     pub(crate) effort: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ModelInfo {
+    pub(crate) model: String,
+    pub(crate) display_name: String,
+    pub(crate) supported_efforts: Vec<String>,
+    pub(crate) default_effort: Option<String>,
+    pub(crate) is_default: bool,
+}
+
 impl AppServerClient {
     pub(crate) fn start() -> Result<Self> {
         let mut child = Command::new("codex")
@@ -216,6 +225,17 @@ pub(crate) fn params_thread_list(cwd: &str) -> Value {
     })
 }
 
+pub(crate) fn params_model_list(cursor: Option<&str>) -> Value {
+    let mut params = json!({
+        "includeHidden": false,
+        "limit": 200,
+    });
+    if let Some(cursor) = cursor.filter(|c| !c.trim().is_empty()) {
+        params["cursor"] = Value::String(cursor.to_string());
+    }
+    params
+}
+
 pub(crate) fn params_turn_start(
     thread_id: &str,
     text: &str,
@@ -317,4 +337,74 @@ pub(crate) fn parse_thread_runtime_settings(response_line: &str) -> Result<Threa
         .map(ToOwned::to_owned);
 
     Ok(ThreadRuntimeSettings { model, effort })
+}
+
+pub(crate) fn parse_model_list_page(
+    response_line: &str,
+) -> Result<(Vec<ModelInfo>, Option<String>)> {
+    let parsed = extract_result_object(response_line)?;
+    let result = parsed
+        .get("result")
+        .and_then(Value::as_object)
+        .context("invalid result object")?;
+
+    let mut out = Vec::new();
+    if let Some(data) = result.get("data").and_then(Value::as_array) {
+        for item in data {
+            let Some(obj) = item.as_object() else {
+                continue;
+            };
+            let Some(model) = obj.get("model").and_then(Value::as_str) else {
+                continue;
+            };
+            if model.trim().is_empty() {
+                continue;
+            }
+            let display_name = obj
+                .get("displayName")
+                .and_then(Value::as_str)
+                .filter(|s| !s.trim().is_empty())
+                .unwrap_or(model)
+                .to_string();
+            let is_default = obj
+                .get("isDefault")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            let default_effort = obj
+                .get("defaultReasoningEffort")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(ToOwned::to_owned);
+            let supported_efforts = obj
+                .get("supportedReasoningEfforts")
+                .and_then(Value::as_array)
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_object())
+                        .filter_map(|o| o.get("reasoningEffort").and_then(Value::as_str))
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty())
+                        .map(ToOwned::to_owned)
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            out.push(ModelInfo {
+                model: model.to_string(),
+                display_name,
+                supported_efforts,
+                default_effort,
+                is_default,
+            });
+        }
+    }
+
+    let next_cursor = result
+        .get("nextCursor")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned);
+
+    Ok((out, next_cursor))
 }

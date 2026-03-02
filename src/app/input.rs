@@ -229,43 +229,29 @@ pub(super) fn run_conversation_tui(
                                     (KeyCode::Esc, _) => app.close_model_settings(),
                                     (KeyCode::Tab, _) => app.model_settings_move_field(true),
                                     (KeyCode::BackTab, _) => app.model_settings_move_field(false),
-                                    (KeyCode::Up, _) => match app.model_settings_field {
+                                    (KeyCode::Up, _) => app.model_settings_move_field(false),
+                                    (KeyCode::Down, _) => app.model_settings_move_field(true),
+                                    (KeyCode::Left, _) => match app.model_settings_field {
                                         super::state::ModelSettingsField::Model => {
-                                            app.model_settings_move_field(false)
+                                            app.model_settings_cycle_model(-1);
                                         }
                                         super::state::ModelSettingsField::Effort => {
-                                            app.model_settings_cycle_effort(-1)
-                                        }
-                                    },
-                                    (KeyCode::Down, _) => match app.model_settings_field {
-                                        super::state::ModelSettingsField::Model => {
-                                            app.model_settings_move_field(true)
-                                        }
-                                        super::state::ModelSettingsField::Effort => {
-                                            app.model_settings_cycle_effort(1)
-                                        }
-                                    },
-                                    (KeyCode::Left, _) => {
-                                        if matches!(
-                                            app.model_settings_field,
-                                            super::state::ModelSettingsField::Effort
-                                        ) {
                                             app.model_settings_cycle_effort(-1);
                                         }
-                                    }
-                                    (KeyCode::Right, _) => {
-                                        if matches!(
-                                            app.model_settings_field,
-                                            super::state::ModelSettingsField::Effort
-                                        ) {
+                                    },
+                                    (KeyCode::Right, _) => match app.model_settings_field {
+                                        super::state::ModelSettingsField::Model => {
+                                            app.model_settings_cycle_model(1);
+                                        }
+                                        super::state::ModelSettingsField::Effort => {
                                             app.model_settings_cycle_effort(1);
                                         }
-                                    }
+                                    },
                                     (KeyCode::Backspace, _)
                                         if matches!(
                                             app.model_settings_field,
                                             super::state::ModelSettingsField::Model
-                                        ) =>
+                                        ) && !app.model_settings_has_model_choices() =>
                                     {
                                         app.model_settings_backspace();
                                     }
@@ -278,7 +264,9 @@ pub(super) fn run_conversation_tui(
                                                 super::state::ModelSettingsField::Model
                                             ) =>
                                     {
-                                        app.model_settings_insert_char(ch);
+                                        if !app.model_settings_has_model_choices() {
+                                            app.model_settings_insert_char(ch);
+                                        }
                                     }
                                     _ => {}
                                 }
@@ -593,7 +581,8 @@ pub(super) fn run_conversation_tui(
                                 if matches!(
                                     app.model_settings_field,
                                     super::state::ModelSettingsField::Model
-                                ) {
+                                ) && !app.model_settings_has_model_choices()
+                                {
                                     let normalized = normalize_pasted_text(&pasted);
                                     let first_line = normalized.lines().next().unwrap_or("");
                                     if !first_line.is_empty() {
