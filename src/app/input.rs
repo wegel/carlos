@@ -415,8 +415,14 @@ pub(super) fn run_conversation_tui(
                                         continue;
                                     }
 
+                                    let rewind_target_idx = if app.rewind_mode {
+                                        app.rewind_selected_message_idx()
+                                    } else {
+                                        None
+                                    };
                                     let text = app.input_text();
                                     app.clear_rewind_mode_state();
+                                    app.rewind_fork_from_message_idx(rewind_target_idx);
                                     app.push_input_history(&text);
                                     app.clear_input();
                                     app.selection = None;

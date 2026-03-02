@@ -422,6 +422,30 @@ impl AppState {
         self.rewind_restore_draft = None;
     }
 
+    pub(super) fn rewind_fork_from_message_idx(&mut self, message_idx: Option<usize>) {
+        let Some(idx) = message_idx else {
+            return;
+        };
+        if idx > self.messages.len() {
+            return;
+        }
+
+        self.messages.truncate(idx);
+        self.selection = None;
+        self.mouse_drag_mode = MouseDragMode::Undecided;
+        self.auto_follow_bottom = true;
+        self.scroll_top = self.scroll_top.min(self.messages.len());
+        self.agent_item_to_index.retain(|_, msg_idx| *msg_idx < idx);
+        self.turn_diff_to_index.retain(|_, msg_idx| *msg_idx < idx);
+        self.command_render_overrides.clear();
+        for msg_idx in &mut self.input_history_message_idx {
+            if msg_idx.is_some_and(|v| v >= idx) {
+                *msg_idx = None;
+            }
+        }
+        self.mark_transcript_dirty();
+    }
+
     pub(super) fn mark_user_turn_submitted(&mut self) {
         if let Some(ralph) = self.ralph.as_mut() {
             ralph.waiting_for_user = false;

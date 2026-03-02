@@ -320,6 +320,24 @@ fn rewind_mode_populates_latest_history_and_restores_draft() {
 }
 
 #[test]
+fn rewind_fork_drops_selected_message_and_newer_history() {
+    let mut app = AppState::new("thread-1".to_string());
+    let u1 = app.append_message(Role::User, "first");
+    app.record_input_history("first", Some(u1));
+    let _ = app.append_message(Role::Assistant, "reply one");
+    let u2 = app.append_message(Role::User, "second");
+    app.record_input_history("second", Some(u2));
+    let _ = app.append_message(Role::Assistant, "reply two");
+
+    app.rewind_fork_from_message_idx(Some(u2));
+
+    assert_eq!(app.messages.len(), u2);
+    assert!(app.messages.iter().all(|m| m.text != "second"));
+    assert!(app.messages.iter().all(|m| m.text != "reply two"));
+    assert_eq!(app.input_history_message_idx, vec![Some(u1), None]);
+}
+
+#[test]
 fn record_input_history_backfills_pending_message_index() {
     let mut app = AppState::new("thread-1".to_string());
     app.push_input_history("prompt");
