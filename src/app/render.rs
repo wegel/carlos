@@ -20,6 +20,7 @@ use super::context_usage::{
 };
 use super::perf::PerfMetrics;
 use super::selection::compute_selection_range;
+use super::state::{ModelSettingsField, MODEL_EFFORT_OPTIONS};
 use super::text::{
     char_to_byte_idx, slice_by_cells, split_at_cells, visual_width, wrap_input_line,
     wrap_natural_by_cells,
@@ -1313,7 +1314,7 @@ pub(super) fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize) {
         buf,
         start_x + 3,
         start_y + 5,
-        "g/G or Home/End jump transcript",
+        "Home/End jump transcript  Ctrl+M model/effort",
         Style::default().fg(COLOR_TEXT),
         box_w.saturating_sub(6),
     );
@@ -1330,6 +1331,135 @@ pub(super) fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize) {
         start_x + 3,
         start_y + 7,
         "? toggle this help",
+        Style::default().fg(COLOR_DIM),
+        box_w.saturating_sub(6),
+    );
+}
+
+pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, app: &AppState) {
+    if !(size.height > 12 && size.width > 56) {
+        return;
+    }
+
+    let box_w = (size.width - 10).min(80);
+    let box_h = 10usize;
+    let start_x = (size.width - box_w) / 2;
+    let start_y = (size.height - box_h) / 2;
+
+    fill_rect(
+        buf,
+        0,
+        0,
+        size.width,
+        size.height,
+        Style::default().bg(COLOR_OVERLAY),
+    );
+    fill_rect(
+        buf,
+        start_x,
+        start_y,
+        box_w,
+        box_h,
+        Style::default().bg(COLOR_STEP2),
+    );
+
+    let left = start_x;
+    let right = start_x + box_w - 1;
+    let top = start_y;
+    let bottom = start_y + box_h - 1;
+
+    draw_str(buf, left, top, "┏", Style::default().fg(COLOR_STEP7), 1);
+    draw_str(buf, right, top, "┓", Style::default().fg(COLOR_STEP7), 1);
+    draw_str(buf, left, bottom, "┗", Style::default().fg(COLOR_STEP7), 1);
+    draw_str(buf, right, bottom, "┛", Style::default().fg(COLOR_STEP7), 1);
+    for x in (left + 1)..right {
+        draw_str(buf, x, top, "─", Style::default().fg(COLOR_STEP7), 1);
+        draw_str(buf, x, bottom, "─", Style::default().fg(COLOR_STEP7), 1);
+    }
+    for y in (top + 1)..bottom {
+        draw_str(buf, left, y, "┃", Style::default().fg(COLOR_STEP7), 1);
+        draw_str(buf, right, y, "┃", Style::default().fg(COLOR_STEP7), 1);
+    }
+
+    draw_str(
+        buf,
+        start_x + 3,
+        start_y + 1,
+        "Model / Thinking",
+        Style::default()
+            .fg(COLOR_PRIMARY)
+            .add_modifier(Modifier::BOLD),
+        box_w.saturating_sub(6),
+    );
+    draw_str(
+        buf,
+        start_x + box_w.saturating_sub(8),
+        start_y + 1,
+        "esc",
+        Style::default().fg(COLOR_DIM),
+        3,
+    );
+
+    let model_style = if matches!(app.model_settings_field, ModelSettingsField::Model) {
+        Style::default()
+            .fg(COLOR_TEXT)
+            .bg(COLOR_STEP6)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(COLOR_TEXT)
+    };
+    let effort_style = if matches!(app.model_settings_field, ModelSettingsField::Effort) {
+        Style::default()
+            .fg(COLOR_TEXT)
+            .bg(COLOR_STEP6)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(COLOR_TEXT)
+    };
+    let effort_value = MODEL_EFFORT_OPTIONS
+        .get(app.model_settings_effort_index)
+        .copied()
+        .unwrap_or("medium");
+
+    draw_str(
+        buf,
+        start_x + 3,
+        start_y + 3,
+        "Model",
+        Style::default().fg(COLOR_DIM),
+        8,
+    );
+    draw_str(
+        buf,
+        start_x + 12,
+        start_y + 3,
+        &app.model_settings_model_input,
+        model_style,
+        box_w.saturating_sub(16),
+    );
+
+    draw_str(
+        buf,
+        start_x + 3,
+        start_y + 5,
+        "Thinking",
+        Style::default().fg(COLOR_DIM),
+        8,
+    );
+    draw_str(
+        buf,
+        start_x + 12,
+        start_y + 5,
+        effort_value,
+        effort_style,
+        box_w.saturating_sub(16),
+    );
+
+    draw_str(
+        buf,
+        start_x + 3,
+        start_y + 7,
+        "Tab switch field, arrows adjust, Enter apply",
         Style::default().fg(COLOR_DIM),
         box_w.saturating_sub(6),
     );
@@ -1535,14 +1665,20 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
                 .context_usage
                 .map(context_usage_label)
                 .unwrap_or_else(|| context_usage_placeholder_label().to_string());
+            let model_label = app.runtime_settings_label();
             let has_context_usage = app.context_usage.is_some();
+            let has_runtime_settings = app.has_runtime_settings();
+            let runtime_settings_pending = app.runtime_settings_pending();
             let ralph_label_cells = if ralph_mode {
                 visual_width(RALPH_MODE_LABEL) + 1
             } else {
                 0
             };
-            let reserved_label_cells =
-                context_label_reserved_cells(Some(&context_label)) + ralph_label_cells;
+            let model_label_cells = visual_width(&model_label);
+            let reserved_label_cells = context_label_reserved_cells(Some(&context_label))
+                + 1
+                + model_label_cells
+                + ralph_label_cells;
             let context_label_cells = visual_width(&context_label);
             let can_reserve_label_area = reserved_label_cells + 1 < line_len;
             let label_area_start = if can_reserve_label_area {
@@ -1603,6 +1739,7 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
 
             if can_reserve_label_area && context_label_cells > 0 {
                 let context_x = line_len.saturating_sub(context_label_cells);
+                let model_x = context_x.saturating_sub(model_label_cells + 1);
                 draw_str(
                     buf,
                     context_x,
@@ -1615,10 +1752,24 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
                     }),
                     context_label_cells,
                 );
+                draw_str(
+                    buf,
+                    model_x,
+                    sep_y,
+                    &model_label,
+                    Style::default().fg(if runtime_settings_pending {
+                        COLOR_DIFF_HUNK
+                    } else if has_runtime_settings {
+                        COLOR_STEP8
+                    } else {
+                        COLOR_STEP7
+                    }),
+                    model_label_cells,
+                );
 
                 if ralph_mode {
                     let ralph_label_cells = visual_width(RALPH_MODE_LABEL);
-                    let ralph_x = context_x.saturating_sub(ralph_label_cells + 1);
+                    let ralph_x = model_x.saturating_sub(ralph_label_cells + 1);
                     draw_str(
                         buf,
                         ralph_x,
@@ -1682,9 +1833,38 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
             draw_perf_overlay(buf, size, perf);
         }
     }
+    if app.show_model_settings {
+        draw_model_settings_overlay(buf, size, app);
+    }
 
-    let cursor_x = input_layout.cursor_x.min(size.width.saturating_sub(2));
-    let cursor_y = input_layout.cursor_y.min(size.height.saturating_sub(1));
+    let (cursor_x, cursor_y) = if app.show_model_settings {
+        let box_w = (size.width.saturating_sub(10)).min(80);
+        let box_h = 10usize;
+        let start_x = (size.width.saturating_sub(box_w)) / 2;
+        let start_y = (size.height.saturating_sub(box_h)) / 2;
+        let x = if matches!(app.model_settings_field, ModelSettingsField::Model) {
+            start_x + 12 + visual_width(&app.model_settings_model_input)
+        } else {
+            start_x
+                + 12
+                + visual_width(
+                    MODEL_EFFORT_OPTIONS
+                        .get(app.model_settings_effort_index)
+                        .copied()
+                        .unwrap_or("medium"),
+                )
+        };
+        let y = if matches!(app.model_settings_field, ModelSettingsField::Model) {
+            start_y + 3
+        } else {
+            start_y + 5
+        };
+        (x, y)
+    } else {
+        (input_layout.cursor_x, input_layout.cursor_y)
+    };
+    let cursor_x = cursor_x.min(size.width.saturating_sub(2));
+    let cursor_y = cursor_y.min(size.height.saturating_sub(1));
     frame.set_cursor_position((cursor_x as u16, cursor_y as u16));
 }
 

@@ -17,6 +17,15 @@ use super::render::{
 use super::selection::{MouseDragMode, Selection};
 use super::MSG_TOP;
 
+pub(super) const MODEL_EFFORT_OPTIONS: [&str; 6] =
+    ["none", "minimal", "low", "medium", "high", "xhigh"];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ModelSettingsField {
+    Model,
+    Effort,
+}
+
 pub(super) struct AppState {
     pub(super) thread_id: String,
     pub(super) active_turn_id: Option<String>,
@@ -46,6 +55,14 @@ pub(super) struct AppState {
     pub(super) ralph_prompt_path_override: Option<String>,
     pub(super) ralph_done_marker_override: Option<String>,
     pub(super) ralph_blocked_marker_override: Option<String>,
+    pub(super) current_model: Option<String>,
+    pub(super) current_effort: Option<String>,
+    pub(super) pending_model: Option<String>,
+    pub(super) pending_effort: Option<String>,
+    pub(super) show_model_settings: bool,
+    pub(super) model_settings_field: ModelSettingsField,
+    pub(super) model_settings_model_input: String,
+    pub(super) model_settings_effort_index: usize,
 
     pub(super) scroll_top: usize,
     pub(super) auto_follow_bottom: bool,
@@ -90,6 +107,14 @@ impl AppState {
             ralph_prompt_path_override: None,
             ralph_done_marker_override: None,
             ralph_blocked_marker_override: None,
+            current_model: None,
+            current_effort: None,
+            pending_model: None,
+            pending_effort: None,
+            show_model_settings: false,
+            model_settings_field: ModelSettingsField::Model,
+            model_settings_model_input: String::new(),
+            model_settings_effort_index: 3,
             scroll_top: 0,
             auto_follow_bottom: true,
             selection: None,
@@ -192,6 +217,119 @@ impl AppState {
 
     pub(super) fn set_status(&mut self, s: impl Into<String>) {
         self.status = s.into();
+    }
+
+    pub(super) fn set_runtime_settings(&mut self, model: Option<String>, effort: Option<String>) {
+        self.current_model = model.and_then(normalize_non_empty);
+        self.current_effort = effort.and_then(normalize_non_empty);
+    }
+
+    pub(super) fn queue_runtime_settings(&mut self, model: Option<String>, effort: Option<String>) {
+        self.pending_model = model.and_then(normalize_non_empty);
+        self.pending_effort = effort.and_then(normalize_non_empty);
+    }
+
+    pub(super) fn take_pending_runtime_settings(&mut self) -> (Option<String>, Option<String>) {
+        (self.pending_model.clone(), self.pending_effort.clone())
+    }
+
+    pub(super) fn mark_runtime_settings_applied(&mut self) {
+        if self.pending_model.is_some() || self.pending_effort.is_some() {
+            self.current_model = self.pending_model.clone();
+            self.current_effort = self.pending_effort.clone();
+            self.pending_model = None;
+            self.pending_effort = None;
+        }
+    }
+
+    pub(super) fn runtime_settings_label(&self) -> String {
+        let current_model = self.current_model.as_deref().unwrap_or("model?");
+        let current_effort = self.current_effort.as_deref().unwrap_or("effort?");
+        let mut out = format!("{current_model}/{current_effort}");
+
+        if let (Some(pm), Some(pe)) = (
+            self.pending_model.as_deref(),
+            self.pending_effort.as_deref(),
+        ) {
+            if pm != current_model || pe != current_effort {
+                out.push('*');
+            }
+        }
+
+        out
+    }
+
+    pub(super) fn has_runtime_settings(&self) -> bool {
+        self.current_model.is_some() || self.current_effort.is_some()
+    }
+
+    pub(super) fn runtime_settings_pending(&self) -> bool {
+        self.pending_model.is_some() || self.pending_effort.is_some()
+    }
+
+    pub(super) fn open_model_settings(&mut self) {
+        self.show_model_settings = true;
+        self.model_settings_field = ModelSettingsField::Model;
+        self.model_settings_model_input = self
+            .pending_model
+            .clone()
+            .or_else(|| self.current_model.clone())
+            .unwrap_or_default();
+
+        let effort = self
+            .pending_effort
+            .as_deref()
+            .or(self.current_effort.as_deref())
+            .unwrap_or("medium");
+        self.model_settings_effort_index = effort_index(effort);
+    }
+
+    pub(super) fn close_model_settings(&mut self) {
+        self.show_model_settings = false;
+    }
+
+    pub(super) fn toggle_model_settings(&mut self) {
+        if self.show_model_settings {
+            self.close_model_settings();
+        } else {
+            self.open_model_settings();
+        }
+    }
+
+    pub(super) fn model_settings_move_field(&mut self, forward: bool) {
+        self.model_settings_field = match (self.model_settings_field, forward) {
+            (ModelSettingsField::Model, true) => ModelSettingsField::Effort,
+            (ModelSettingsField::Effort, true) => ModelSettingsField::Model,
+            (ModelSettingsField::Model, false) => ModelSettingsField::Effort,
+            (ModelSettingsField::Effort, false) => ModelSettingsField::Model,
+        };
+    }
+
+    pub(super) fn model_settings_cycle_effort(&mut self, step: isize) {
+        let len = MODEL_EFFORT_OPTIONS.len() as isize;
+        let cur = self.model_settings_effort_index as isize;
+        let next = (cur + step).rem_euclid(len);
+        self.model_settings_effort_index = next as usize;
+    }
+
+    pub(super) fn model_settings_insert_char(&mut self, ch: char) {
+        self.model_settings_model_input.push(ch);
+    }
+
+    pub(super) fn model_settings_backspace(&mut self) {
+        self.model_settings_model_input.pop();
+    }
+
+    pub(super) fn apply_model_settings(&mut self) {
+        let model = normalize_non_empty(self.model_settings_model_input.clone());
+        let effort = Some(MODEL_EFFORT_OPTIONS[self.model_settings_effort_index].to_string());
+        self.queue_runtime_settings(model, effort);
+        self.show_model_settings = false;
+        if self.active_turn_id.is_some() {
+            self.set_status("model/effort pending next turn");
+        } else {
+            self.set_status("model/effort set for next turn");
+        }
     }
 
     pub(super) fn enqueue_turn_input(&mut self, text: impl Into<String>) {
@@ -608,4 +746,20 @@ impl AppState {
             self.queued_turn_inputs.clear();
         }
     }
+}
+
+fn normalize_non_empty(s: String) -> Option<String> {
+    let trimmed = s.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn effort_index(value: &str) -> usize {
+    MODEL_EFFORT_OPTIONS
+        .iter()
+        .position(|v| v.eq_ignore_ascii_case(value))
+        .unwrap_or(3)
 }

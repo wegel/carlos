@@ -45,9 +45,13 @@ fn submit_turn_text(client: &AppServerClient, app: &mut AppState, text: String) 
             Err(e) => app.set_status(format!("{e}")),
         }
     } else {
-        let params = params_turn_start(&app.thread_id, &text);
+        let (model, effort) = app.take_pending_runtime_settings();
+        let params = params_turn_start(&app.thread_id, &text, model.as_deref(), effort.as_deref());
         match client.call("turn/start", params, Duration::from_secs(10)) {
-            Ok(_) => app.set_status("sent turn"),
+            Ok(_) => {
+                app.mark_runtime_settings_applied();
+                app.set_status("sent turn");
+            }
             Err(e) => app.set_status(format!("{e}")),
         }
     }
@@ -219,6 +223,68 @@ pub(super) fn run_conversation_tui(
                                 needs_draw = true;
                                 continue;
                             }
+                            if app.show_model_settings {
+                                match (k.code, k.modifiers) {
+                                    (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(()),
+                                    (KeyCode::Esc, _) => app.close_model_settings(),
+                                    (KeyCode::Tab, _) => app.model_settings_move_field(true),
+                                    (KeyCode::BackTab, _) => app.model_settings_move_field(false),
+                                    (KeyCode::Up, _) => match app.model_settings_field {
+                                        super::state::ModelSettingsField::Model => {
+                                            app.model_settings_move_field(false)
+                                        }
+                                        super::state::ModelSettingsField::Effort => {
+                                            app.model_settings_cycle_effort(-1)
+                                        }
+                                    },
+                                    (KeyCode::Down, _) => match app.model_settings_field {
+                                        super::state::ModelSettingsField::Model => {
+                                            app.model_settings_move_field(true)
+                                        }
+                                        super::state::ModelSettingsField::Effort => {
+                                            app.model_settings_cycle_effort(1)
+                                        }
+                                    },
+                                    (KeyCode::Left, _) => {
+                                        if matches!(
+                                            app.model_settings_field,
+                                            super::state::ModelSettingsField::Effort
+                                        ) {
+                                            app.model_settings_cycle_effort(-1);
+                                        }
+                                    }
+                                    (KeyCode::Right, _) => {
+                                        if matches!(
+                                            app.model_settings_field,
+                                            super::state::ModelSettingsField::Effort
+                                        ) {
+                                            app.model_settings_cycle_effort(1);
+                                        }
+                                    }
+                                    (KeyCode::Backspace, _)
+                                        if matches!(
+                                            app.model_settings_field,
+                                            super::state::ModelSettingsField::Model
+                                        ) =>
+                                    {
+                                        app.model_settings_backspace();
+                                    }
+                                    (KeyCode::Enter, _) => app.apply_model_settings(),
+                                    (KeyCode::Char(ch), mods)
+                                        if !mods.contains(KeyModifiers::CONTROL)
+                                            && !mods.contains(KeyModifiers::ALT)
+                                            && matches!(
+                                                app.model_settings_field,
+                                                super::state::ModelSettingsField::Model
+                                            ) =>
+                                    {
+                                        app.model_settings_insert_char(ch);
+                                    }
+                                    _ => {}
+                                }
+                                needs_draw = true;
+                                continue;
+                            }
 
                             if k.modifiers.is_empty() {
                                 if let KeyCode::Char(ch) = k.code {
@@ -249,6 +315,9 @@ pub(super) fn run_conversation_tui(
 
                             match (k.code, k.modifiers) {
                                 (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(()),
+                                (KeyCode::Char('m'), KeyModifiers::CONTROL) => {
+                                    app.toggle_model_settings();
+                                }
                                 (KeyCode::Char('r'), KeyModifiers::CONTROL) => {
                                     if let Err(e) = app.request_ralph_toggle() {
                                         app.set_status(format!("ralph: {e}"));
@@ -371,7 +440,7 @@ pub(super) fn run_conversation_tui(
                             if let Some(perf) = app.perf.as_mut() {
                                 perf.mouse_events = perf.mouse_events.saturating_add(1);
                             }
-                            if app.show_help {
+                            if app.show_help || app.show_model_settings {
                                 continue;
                             }
 
@@ -511,6 +580,20 @@ pub(super) fn run_conversation_tui(
                                 perf.paste_events = perf.paste_events.saturating_add(1);
                             }
                             if app.show_help {
+                                needs_draw = true;
+                                continue;
+                            }
+                            if app.show_model_settings {
+                                if matches!(
+                                    app.model_settings_field,
+                                    super::state::ModelSettingsField::Model
+                                ) {
+                                    let normalized = normalize_pasted_text(&pasted);
+                                    let first_line = normalized.lines().next().unwrap_or("");
+                                    if !first_line.is_empty() {
+                                        app.model_settings_model_input.push_str(first_line);
+                                    }
+                                }
                                 needs_draw = true;
                                 continue;
                             }

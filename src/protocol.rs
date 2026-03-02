@@ -18,6 +18,12 @@ pub(crate) struct AppServerClient {
     reader_thread: Option<thread::JoinHandle<()>>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ThreadRuntimeSettings {
+    pub(crate) model: Option<String>,
+    pub(crate) effort: Option<String>,
+}
+
 impl AppServerClient {
     pub(crate) fn start() -> Result<Self> {
         let mut child = Command::new("codex")
@@ -210,15 +216,27 @@ pub(crate) fn params_thread_list(cwd: &str) -> Value {
     })
 }
 
-pub(crate) fn params_turn_start(thread_id: &str, text: &str) -> Value {
-    json!({
+pub(crate) fn params_turn_start(
+    thread_id: &str,
+    text: &str,
+    model: Option<&str>,
+    effort: Option<&str>,
+) -> Value {
+    let mut params = json!({
         "threadId": thread_id,
         "input": [{
             "type": "text",
             "text": text,
             "text_elements": []
         }]
-    })
+    });
+    if let Some(model) = model.filter(|m| !m.trim().is_empty()) {
+        params["model"] = Value::String(model.to_string());
+    }
+    if let Some(effort) = effort.filter(|e| !e.trim().is_empty()) {
+        params["effort"] = Value::String(effort.to_string());
+    }
+    params
 }
 
 pub(crate) fn params_turn_steer(thread_id: &str, turn_id: &str, text: &str) -> Value {
@@ -275,4 +293,28 @@ pub(crate) fn parse_thread_id_from_start_or_resume(response_line: &str) -> Resul
         .and_then(Value::as_str)
         .context("missing thread.id")?;
     Ok(id.to_string())
+}
+
+pub(crate) fn parse_thread_runtime_settings(response_line: &str) -> Result<ThreadRuntimeSettings> {
+    let parsed = extract_result_object(response_line)?;
+    let result = parsed
+        .get("result")
+        .and_then(Value::as_object)
+        .context("invalid result object")?;
+
+    let model = result
+        .get("model")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned);
+
+    let effort = result
+        .get("reasoningEffort")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned);
+
+    Ok(ThreadRuntimeSettings { model, effort })
 }

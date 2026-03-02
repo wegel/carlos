@@ -1495,6 +1495,39 @@ fn parse_cli_args_supports_ralph_resume_and_markers() {
 }
 
 #[test]
+fn parse_thread_runtime_settings_reads_model_and_effort() {
+    let response = json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+            "thread": { "id": "thread-1" },
+            "model": "gpt-5-codex",
+            "reasoningEffort": "high"
+        }
+    })
+    .to_string();
+
+    let settings = parse_thread_runtime_settings(&response).expect("settings");
+    assert_eq!(settings.model.as_deref(), Some("gpt-5-codex"));
+    assert_eq!(settings.effort.as_deref(), Some("high"));
+}
+
+#[test]
+fn params_turn_start_includes_model_and_effort_when_set() {
+    let params = params_turn_start("thread-1", "hello", Some("gpt-5"), Some("high"));
+    assert_eq!(params["threadId"], "thread-1");
+    assert_eq!(params["model"], "gpt-5");
+    assert_eq!(params["effort"], "high");
+}
+
+#[test]
+fn params_turn_start_omits_model_and_effort_when_missing() {
+    let params = params_turn_start("thread-1", "hello", None, None);
+    assert!(params.get("model").is_none());
+    assert!(params.get("effort").is_none());
+}
+
+#[test]
 fn detect_turn_markers_matches_trimmed_assistant_marker_lines() {
     let messages = vec![
         Message {

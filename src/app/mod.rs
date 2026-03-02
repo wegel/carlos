@@ -215,6 +215,8 @@ pub(crate) fn run() -> Result<()> {
     if env_flag_enabled("CARLOS_METRICS") {
         app.enable_perf_metrics();
     }
+    let runtime_settings = parse_thread_runtime_settings(&start_resp)?;
+    app.set_runtime_settings(runtime_settings.model, runtime_settings.effort);
     load_history_from_start_or_resume(&mut app, &start_resp)?;
     app.set_status("ready");
 
