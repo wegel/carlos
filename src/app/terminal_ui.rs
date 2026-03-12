@@ -1,3 +1,4 @@
+use std::env;
 use std::io;
 use std::time::Duration;
 
@@ -8,6 +9,7 @@ use crossterm::event::{
     PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
 use crossterm::execute;
+use crossterm::style::Print;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
@@ -17,6 +19,41 @@ use ratatui::Terminal;
 use super::notifications::{is_ctrl_char, is_key_press_like};
 use super::render::{compute_picker_layout, draw_picker};
 use super::{TerminalSize, ThreadSummary};
+
+fn env_flag(name: &str) -> Option<bool> {
+    let raw = env::var(name).ok()?;
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Some(true);
+    }
+    Some(!matches!(
+        trimmed.to_ascii_lowercase().as_str(),
+        "0" | "false" | "no" | "off"
+    ))
+}
+
+fn is_ssh_session() -> bool {
+    env::var_os("SSH_TTY").is_some()
+        || env::var_os("SSH_CONNECTION").is_some()
+        || env::var_os("SSH_CLIENT").is_some()
+}
+
+fn should_enable_keyboard_enhancement() -> bool {
+    if let Some(force) = env_flag("CARLOS_KEYBOARD_ENHANCEMENT") {
+        return force;
+    }
+    true
+}
+
+fn should_enable_alternate_scroll() -> bool {
+    if let Some(force) = env_flag("CARLOS_ALTERNATE_SCROLL") {
+        return force;
+    }
+    is_ssh_session()
+}
+
+const MOUSE_CAPTURE_ENABLE_SEQ: &str = "\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1006h\x1b[?1015h";
+const MOUSE_CAPTURE_DISABLE_SEQ: &str = "\x1b[?1015l\x1b[?1006l\x1b[?1003l\x1b[?1002l\x1b[?1000l";
 
 pub(super) fn with_terminal<T>(
     f: impl FnOnce(&mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<T>,
@@ -30,18 +67,30 @@ pub(super) fn with_terminal<T>(
         EnableBracketedPaste
     )
     .context("failed to enter alt screen")?;
+    // Force explicit xterm mouse modes for clients that don't fully honor EnableMouseCapture.
+    let _ = execute!(stdout, Print(MOUSE_CAPTURE_ENABLE_SEQ));
 
-    // Probe kitty keyboard protocol flags after entering alt screen.
-    let keyboard_enhancement_enabled = execute!(
-        stdout,
-        PushKeyboardEnhancementFlags(
-            KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
-                | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
-                | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
-                | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+    let alternate_scroll_enabled = if should_enable_alternate_scroll() {
+        execute!(stdout, Print("\x1b[?1007h")).is_ok()
+    } else {
+        false
+    };
+
+    // Mobile SSH clients can mis-handle kitty keyboard protocol; default it off over SSH.
+    let keyboard_enhancement_enabled = if should_enable_keyboard_enhancement() {
+        execute!(
+            stdout,
+            PushKeyboardEnhancementFlags(
+                KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                    | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
+                    | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
+                    | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+            )
         )
-    )
-    .is_ok();
+        .is_ok()
+    } else {
+        false
+    };
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).context("failed to create terminal")?;
@@ -52,6 +101,10 @@ pub(super) fn with_terminal<T>(
     if keyboard_enhancement_enabled {
         let _ = execute!(terminal.backend_mut(), PopKeyboardEnhancementFlags);
     }
+    if alternate_scroll_enabled {
+        let _ = execute!(terminal.backend_mut(), Print("\x1b[?1007l"));
+    }
+    let _ = execute!(terminal.backend_mut(), Print(MOUSE_CAPTURE_DISABLE_SEQ));
     let _ = execute!(
         terminal.backend_mut(),
         LeaveAlternateScreen,

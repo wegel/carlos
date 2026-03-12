@@ -1,5 +1,8 @@
 use std::collections::VecDeque;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::sync::mpsc::{RecvTimeoutError, TryRecvError};
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
@@ -9,7 +12,7 @@ use serde_json::Value;
 
 use super::mobile_mouse::{
     apply_mobile_mouse_scroll, consume_mobile_mouse_char, parse_mobile_mouse_coords,
-    take_mobile_mouse_buffer, MobileMouseConsume,
+    parse_repeated_plain_mobile_pair, take_mobile_mouse_buffer, MobileMouseConsume,
 };
 use super::notifications::{
     animation_poll_timeout, animation_tick, handle_notification_line, is_ctrl_char,
@@ -29,8 +32,74 @@ use crate::protocol::{
     params_turn_interrupt, params_turn_start, params_turn_steer, AppServerClient,
 };
 
+fn trace_terminal_event(ev: &Event) {
+    static TRACE_FILE: OnceLock<Option<Mutex<std::fs::File>>> = OnceLock::new();
+    let trace = TRACE_FILE.get_or_init(|| {
+        let path = std::env::var_os("CARLOS_EVENT_TRACE")?;
+        OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .ok()
+            .map(Mutex::new)
+    });
+    let Some(file_mutex) = trace else {
+        return;
+    };
+    let Ok(mut file) = file_mutex.lock() else {
+        return;
+    };
+    let _ = match ev {
+        Event::Key(k) => writeln!(
+            &mut *file,
+            "key code={:?} mods={:?} kind={:?}",
+            k.code, k.modifiers, k.kind
+        ),
+        Event::Mouse(m) => writeln!(
+            &mut *file,
+            "mouse kind={:?} col={} row={} mods={:?}",
+            m.kind, m.column, m.row, m.modifiers
+        ),
+        Event::Paste(p) => writeln!(&mut *file, "paste bytes={} {:?}", p.len(), p),
+        Event::Resize(w, h) => writeln!(&mut *file, "resize {} {}", w, h),
+        _ => writeln!(&mut *file, "event {:?}", ev),
+    };
+}
+
 pub(super) fn make_input_area() -> TextArea<'static> {
     TextArea::default()
+}
+
+pub(super) fn is_mobile_mouse_key_candidate(
+    app: &AppState,
+    code: KeyCode,
+    modifiers: KeyModifiers,
+) -> bool {
+    if app.mobile_plain_pending_coords || app.mobile_plain_suppress_coords {
+        return matches!(code, KeyCode::Char(ch) if ch.is_ascii_digit() || ch == ';');
+    }
+
+    if !app.mobile_mouse_buffer.is_empty() {
+        return matches!(code, KeyCode::Char(_));
+    }
+
+    let KeyCode::Char(ch) = code else {
+        return false;
+    };
+    if ch == '<' {
+        return true;
+    }
+
+    if modifiers.contains(KeyModifiers::ALT) {
+        return ch == '['
+            || ch == '<'
+            || ch == ';'
+            || ch == 'M'
+            || ch == 'm'
+            || ch.is_ascii_digit();
+    }
+
+    false
 }
 
 fn submit_turn_text(client: &AppServerClient, app: &mut AppState, text: String) {
@@ -181,438 +250,471 @@ pub(super) fn run_conversation_tui(
                         handle_notification_line(app, &line);
                         needs_draw = true;
                     }
-                    UiEvent::Terminal(ev) => match ev {
-                        Event::Key(k) => {
-                            if let Some(perf) = app.perf.as_mut() {
-                                perf.mark_key_kind(k.kind);
-                            }
-                            if !is_key_press_like(k.kind) {
-                                continue;
-                            }
-                            if let Some(perf) = app.perf.as_mut() {
-                                perf.mark_key_event();
-                            }
-                            if is_perf_toggle_key(k.code, k.modifiers) {
+                    UiEvent::Terminal(ev) => {
+                        trace_terminal_event(&ev);
+                        match ev {
+                            Event::Key(k) => {
                                 if let Some(perf) = app.perf.as_mut() {
-                                    perf.toggle_overlay();
+                                    perf.mark_key_kind(k.kind);
                                 }
-                                needs_draw = true;
-                                continue;
-                            }
-                            if matches!(k.code, KeyCode::F(6)) && k.modifiers.is_empty() {
-                                app.scroll_inverted = !app.scroll_inverted;
-                                needs_draw = true;
-                                continue;
-                            }
-                            let now = Instant::now();
-                            app.expire_esc_chord(now);
-                            if k.code != KeyCode::Esc {
-                                app.reset_esc_chord();
-                            }
-                            if app.show_help {
-                                match (k.code, k.modifiers) {
-                                    (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(()),
-                                    (KeyCode::Esc, _) => {
-                                        app.show_help = false;
-                                    }
-                                    (KeyCode::Char('?'), _) => {
-                                        app.show_help = false;
-                                    }
-                                    _ => {}
+                                if !is_key_press_like(k.kind) {
+                                    continue;
                                 }
-                                needs_draw = true;
-                                continue;
-                            }
-                            if app.show_model_settings {
-                                match (k.code, k.modifiers) {
-                                    (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(()),
-                                    (KeyCode::Esc, _) => app.close_model_settings(),
-                                    (KeyCode::Tab, _) => app.model_settings_move_field(true),
-                                    (KeyCode::BackTab, _) => app.model_settings_move_field(false),
-                                    (KeyCode::Up, _) => app.model_settings_move_field(false),
-                                    (KeyCode::Down, _) => app.model_settings_move_field(true),
-                                    (KeyCode::Left, _) => match app.model_settings_field {
-                                        super::state::ModelSettingsField::Model => {
-                                            app.model_settings_cycle_model(-1);
-                                        }
-                                        super::state::ModelSettingsField::Effort => {
-                                            app.model_settings_cycle_effort(-1);
-                                        }
-                                    },
-                                    (KeyCode::Right, _) => match app.model_settings_field {
-                                        super::state::ModelSettingsField::Model => {
-                                            app.model_settings_cycle_model(1);
-                                        }
-                                        super::state::ModelSettingsField::Effort => {
-                                            app.model_settings_cycle_effort(1);
-                                        }
-                                    },
-                                    (KeyCode::Backspace, _)
-                                        if matches!(
-                                            app.model_settings_field,
-                                            super::state::ModelSettingsField::Model
-                                        ) && !app.model_settings_has_model_choices() =>
-                                    {
-                                        app.model_settings_backspace();
+                                if let Some(perf) = app.perf.as_mut() {
+                                    perf.mark_key_event();
+                                }
+                                if is_perf_toggle_key(k.code, k.modifiers) {
+                                    if let Some(perf) = app.perf.as_mut() {
+                                        perf.toggle_overlay();
                                     }
-                                    (KeyCode::Enter, _) => app.apply_model_settings(),
-                                    (KeyCode::Char(ch), mods)
-                                        if !mods.contains(KeyModifiers::CONTROL)
-                                            && !mods.contains(KeyModifiers::ALT)
-                                            && matches!(
+                                    needs_draw = true;
+                                    continue;
+                                }
+                                if matches!(k.code, KeyCode::F(6)) && k.modifiers.is_empty() {
+                                    app.scroll_inverted = !app.scroll_inverted;
+                                    needs_draw = true;
+                                    continue;
+                                }
+                                let now = Instant::now();
+                                app.expire_esc_chord(now);
+                                if k.code != KeyCode::Esc {
+                                    app.reset_esc_chord();
+                                }
+                                if app.show_help {
+                                    match (k.code, k.modifiers) {
+                                        (code, mods) if is_ctrl_char(code, mods, 'c') => {
+                                            return Ok(())
+                                        }
+                                        (KeyCode::Esc, _) => {
+                                            app.show_help = false;
+                                        }
+                                        (KeyCode::Char('?'), _) => {
+                                            app.show_help = false;
+                                        }
+                                        _ => {}
+                                    }
+                                    needs_draw = true;
+                                    continue;
+                                }
+                                if app.show_model_settings {
+                                    match (k.code, k.modifiers) {
+                                        (code, mods) if is_ctrl_char(code, mods, 'c') => {
+                                            return Ok(())
+                                        }
+                                        (KeyCode::Esc, _) => app.close_model_settings(),
+                                        (KeyCode::Tab, _) => app.model_settings_move_field(true),
+                                        (KeyCode::BackTab, _) => {
+                                            app.model_settings_move_field(false)
+                                        }
+                                        (KeyCode::Up, _) => app.model_settings_move_field(false),
+                                        (KeyCode::Down, _) => app.model_settings_move_field(true),
+                                        (KeyCode::Left, _) => match app.model_settings_field {
+                                            super::state::ModelSettingsField::Model => {
+                                                app.model_settings_cycle_model(-1);
+                                            }
+                                            super::state::ModelSettingsField::Effort => {
+                                                app.model_settings_cycle_effort(-1);
+                                            }
+                                        },
+                                        (KeyCode::Right, _) => match app.model_settings_field {
+                                            super::state::ModelSettingsField::Model => {
+                                                app.model_settings_cycle_model(1);
+                                            }
+                                            super::state::ModelSettingsField::Effort => {
+                                                app.model_settings_cycle_effort(1);
+                                            }
+                                        },
+                                        (KeyCode::Backspace, _)
+                                            if matches!(
                                                 app.model_settings_field,
                                                 super::state::ModelSettingsField::Model
-                                            ) =>
-                                    {
-                                        if !app.model_settings_has_model_choices() {
-                                            app.model_settings_insert_char(ch);
+                                            ) && !app.model_settings_has_model_choices() =>
+                                        {
+                                            app.model_settings_backspace();
                                         }
-                                    }
-                                    _ => {}
-                                }
-                                needs_draw = true;
-                                continue;
-                            }
-
-                            if k.modifiers.is_empty() {
-                                if let KeyCode::Char(ch) = k.code {
-                                    match consume_mobile_mouse_char(app, ch) {
-                                        MobileMouseConsume::PassThrough => {}
-                                        MobileMouseConsume::Consumed => {
-                                            needs_draw = true;
-                                            continue;
-                                        }
-                                        MobileMouseConsume::Emit(text) => {
-                                            if !text.is_empty() {
-                                                app.input_insert_text(text);
+                                        (KeyCode::Enter, _) => app.apply_model_settings(),
+                                        (KeyCode::Char(ch), mods)
+                                            if !mods.contains(KeyModifiers::CONTROL)
+                                                && !mods.contains(KeyModifiers::ALT)
+                                                && matches!(
+                                                    app.model_settings_field,
+                                                    super::state::ModelSettingsField::Model
+                                                ) =>
+                                        {
+                                            if !app.model_settings_has_model_choices() {
+                                                app.model_settings_insert_char(ch);
                                             }
-                                            needs_draw = true;
-                                            continue;
+                                        }
+                                        _ => {}
+                                    }
+                                    needs_draw = true;
+                                    continue;
+                                }
+
+                                if is_mobile_mouse_key_candidate(app, k.code, k.modifiers) {
+                                    if let KeyCode::Char(ch) = k.code {
+                                        let was_plain_capture = app.mobile_plain_pending_coords;
+                                        match consume_mobile_mouse_char(app, ch) {
+                                            MobileMouseConsume::PassThrough => {}
+                                            MobileMouseConsume::Consumed => {
+                                                needs_draw = true;
+                                                continue;
+                                            }
+                                            MobileMouseConsume::Emit(text) => {
+                                                if !text.is_empty() && !was_plain_capture {
+                                                    app.input_insert_text(text);
+                                                }
+                                                needs_draw = true;
+                                                continue;
+                                            }
                                         }
                                     }
                                 } else if let Some(text) = take_mobile_mouse_buffer(app) {
-                                    if !text.is_empty() {
+                                    if !text.is_empty()
+                                        && !app.mobile_plain_pending_coords
+                                        && !app.mobile_plain_suppress_coords
+                                    {
                                         app.input_insert_text(text);
                                     }
+                                    app.mobile_plain_pending_coords = false;
+                                    app.mobile_plain_suppress_coords = false;
                                 }
-                            } else if let Some(text) = take_mobile_mouse_buffer(app) {
-                                if !text.is_empty() {
-                                    app.input_insert_text(text);
-                                }
-                            }
 
-                            match (k.code, k.modifiers) {
-                                (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(()),
-                                (KeyCode::Char('m'), KeyModifiers::CONTROL) => {
-                                    app.toggle_model_settings();
-                                }
-                                (KeyCode::Char('r'), KeyModifiers::CONTROL) => {
-                                    if let Err(e) = app.request_ralph_toggle() {
-                                        app.set_status(format!("ralph: {e}"));
+                                match (k.code, k.modifiers) {
+                                    (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(()),
+                                    (KeyCode::Char('m'), KeyModifiers::CONTROL) => {
+                                        app.toggle_model_settings();
                                     }
-                                }
-                                (KeyCode::Char('y'), KeyModifiers::CONTROL) => {
-                                    if let Some(sel) = app.selection {
-                                        let msg_bottom = compute_input_layout(app, size).msg_bottom;
-                                        let copied = selected_text(
-                                            sel,
-                                            &app.rendered_lines,
-                                            msg_bottom,
-                                            app.scroll_top,
-                                        );
-                                        if !copied.is_empty() {
-                                            let _ = try_copy_clipboard(&copied);
+                                    (KeyCode::Char('r'), KeyModifiers::CONTROL) => {
+                                        if let Err(e) = app.request_ralph_toggle() {
+                                            app.set_status(format!("ralph: {e}"));
                                         }
-                                    } else if let Some(text) = last_assistant_message(&app.messages)
-                                    {
-                                        let backend = try_copy_clipboard(text);
-                                        app.set_status(format!(
-                                            "copied last assistant message ({})",
-                                            clipboard_backend_label(backend)
-                                        ));
                                     }
-                                }
-                                (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
-                                    app.selection = None;
-                                    app.mouse_drag_mode = MouseDragMode::Undecided;
-                                    app.set_status("selection cleared");
-                                }
-                                (KeyCode::Esc, mods) if mods.is_empty() => {
-                                    if app.rewind_mode {
-                                        app.exit_rewind_mode_restore();
-                                        app.reset_esc_chord();
-                                    } else if let Some(turn_id) = app.active_turn_id.clone() {
-                                        app.reset_esc_chord();
-                                        let params =
-                                            params_turn_interrupt(&app.thread_id, &turn_id);
-                                        match client.call(
-                                            "turn/interrupt",
-                                            params,
-                                            Duration::from_secs(10),
-                                        ) {
-                                            Ok(_) => {
-                                                app.append_turn_interrupted_marker();
-                                                app.set_status("interrupt requested");
+                                    (KeyCode::Char('y'), KeyModifiers::CONTROL) => {
+                                        if let Some(sel) = app.selection {
+                                            let msg_bottom =
+                                                compute_input_layout(app, size).msg_bottom;
+                                            let copied = selected_text(
+                                                sel,
+                                                &app.rendered_lines,
+                                                msg_bottom,
+                                                app.scroll_top,
+                                            );
+                                            if !copied.is_empty() {
+                                                let _ = try_copy_clipboard(&copied);
                                             }
-                                            Err(e) => app.set_status(format!("{e}")),
+                                        } else if let Some(text) =
+                                            last_assistant_message(&app.messages)
+                                        {
+                                            let backend = try_copy_clipboard(text);
+                                            app.set_status(format!(
+                                                "copied last assistant message ({})",
+                                                clipboard_backend_label(backend)
+                                            ));
                                         }
-                                    } else if app.register_escape_press(now) {
+                                    }
+                                    (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
                                         app.selection = None;
                                         app.mouse_drag_mode = MouseDragMode::Undecided;
-                                        if app.input_is_empty() {
-                                            app.enter_rewind_mode();
-                                            app.align_rewind_scroll_to_selected_prompt(size);
+                                        app.set_status("selection cleared");
+                                    }
+                                    (KeyCode::Esc, mods) if mods.is_empty() => {
+                                        if app.rewind_mode {
+                                            app.exit_rewind_mode_restore();
+                                            app.reset_esc_chord();
+                                        } else if let Some(turn_id) = app.active_turn_id.clone() {
+                                            app.reset_esc_chord();
+                                            let params =
+                                                params_turn_interrupt(&app.thread_id, &turn_id);
+                                            match client.call(
+                                                "turn/interrupt",
+                                                params,
+                                                Duration::from_secs(10),
+                                            ) {
+                                                Ok(_) => {
+                                                    app.append_turn_interrupted_marker();
+                                                    app.set_status("interrupt requested");
+                                                }
+                                                Err(e) => app.set_status(format!("{e}")),
+                                            }
+                                        } else if app.register_escape_press(now) {
+                                            app.selection = None;
+                                            app.mouse_drag_mode = MouseDragMode::Undecided;
+                                            if app.input_is_empty() {
+                                                app.enter_rewind_mode();
+                                                app.align_rewind_scroll_to_selected_prompt(size);
+                                            } else {
+                                                app.clear_input();
+                                            }
                                         } else {
-                                            app.clear_input();
+                                            // First Esc press arms the chord; second Esc triggers action.
                                         }
-                                    } else {
-                                        // First Esc press arms the chord; second Esc triggers action.
                                     }
-                                }
-                                (KeyCode::Home, _) if app.input_is_empty() => {
-                                    app.auto_follow_bottom = false;
-                                    app.scroll_top = 0;
-                                }
-                                (KeyCode::End, _) if app.input_is_empty() => {
-                                    app.auto_follow_bottom = true;
-                                }
-                                (KeyCode::Up, _) => {
-                                    if app.navigate_input_history_up() {
-                                        app.align_rewind_scroll_to_selected_prompt(size);
+                                    (KeyCode::Home, _) if app.input_is_empty() => {
+                                        app.auto_follow_bottom = false;
+                                        app.scroll_top = 0;
                                     }
-                                }
-                                (KeyCode::Down, _) => {
-                                    if app.navigate_input_history_down() {
-                                        app.align_rewind_scroll_to_selected_prompt(size);
+                                    (KeyCode::End, _) if app.input_is_empty() => {
+                                        app.auto_follow_bottom = true;
                                     }
-                                }
-                                (KeyCode::PageUp, _) => {
-                                    app.auto_follow_bottom = false;
-                                    app.scroll_top = app.scroll_top.saturating_sub(10);
-                                }
-                                (KeyCode::PageDown, _) => {
-                                    app.auto_follow_bottom = false;
-                                    app.scroll_top = app.scroll_top.saturating_add(10);
-                                }
-                                (KeyCode::Enter, mods) if is_newline_enter(mods) => {
-                                    app.input_apply_key(k);
-                                }
-                                (KeyCode::Enter, _) => {
-                                    if app.input_is_empty() {
-                                        needs_draw = true;
-                                        continue;
+                                    (KeyCode::Up, _) => {
+                                        if app.navigate_input_history_up() {
+                                            app.align_rewind_scroll_to_selected_prompt(size);
+                                        }
                                     }
+                                    (KeyCode::Down, _) => {
+                                        if app.navigate_input_history_down() {
+                                            app.align_rewind_scroll_to_selected_prompt(size);
+                                        }
+                                    }
+                                    (KeyCode::PageUp, _) => {
+                                        app.auto_follow_bottom = false;
+                                        app.scroll_top = app.scroll_top.saturating_sub(10);
+                                    }
+                                    (KeyCode::PageDown, _) => {
+                                        app.auto_follow_bottom = false;
+                                        app.scroll_top = app.scroll_top.saturating_add(10);
+                                    }
+                                    (KeyCode::Enter, mods) if is_newline_enter(mods) => {
+                                        app.input_apply_key(k);
+                                    }
+                                    (KeyCode::Enter, _) => {
+                                        if app.input_is_empty() {
+                                            needs_draw = true;
+                                            continue;
+                                        }
 
-                                    let rewind_target_idx = if app.rewind_mode {
-                                        app.rewind_selected_message_idx()
-                                    } else {
-                                        None
-                                    };
-                                    let text = app.input_text();
-                                    app.clear_rewind_mode_state();
-                                    app.rewind_fork_from_message_idx(rewind_target_idx);
-                                    app.push_input_history(&text);
-                                    app.clear_input();
-                                    app.selection = None;
-                                    app.mark_user_turn_submitted();
-                                    submit_turn_text(client, app, text);
-                                }
-                                (KeyCode::Char('?'), _) => {
-                                    if app.input_is_empty() {
-                                        app.show_help = true;
-                                    } else {
+                                        let rewind_target_idx = if app.rewind_mode {
+                                            app.rewind_selected_message_idx()
+                                        } else {
+                                            None
+                                        };
+                                        let text = app.input_text();
+                                        app.clear_rewind_mode_state();
+                                        app.rewind_fork_from_message_idx(rewind_target_idx);
+                                        app.push_input_history(&text);
+                                        app.clear_input();
+                                        app.selection = None;
+                                        app.mark_user_turn_submitted();
+                                        submit_turn_text(client, app, text);
+                                    }
+                                    (KeyCode::Char('?'), _) => {
+                                        if app.input_is_empty() {
+                                            app.show_help = true;
+                                        } else {
+                                            app.input_apply_key(k);
+                                        }
+                                    }
+                                    _ => {
                                         app.input_apply_key(k);
                                     }
                                 }
-                                _ => {
-                                    app.input_apply_key(k);
+                                needs_draw = true;
+                            }
+                            Event::Mouse(m) => {
+                                if let Some(perf) = app.perf.as_mut() {
+                                    perf.mouse_events = perf.mouse_events.saturating_add(1);
                                 }
-                            }
-                            needs_draw = true;
-                        }
-                        Event::Mouse(m) => {
-                            if let Some(perf) = app.perf.as_mut() {
-                                perf.mouse_events = perf.mouse_events.saturating_add(1);
-                            }
-                            if app.show_help || app.show_model_settings {
-                                continue;
-                            }
+                                if app.show_help || app.show_model_settings {
+                                    continue;
+                                }
 
-                            let msg_top = MSG_TOP;
-                            let msg_bottom = compute_input_layout(app, size).msg_bottom;
-                            if msg_bottom < msg_top {
-                                continue;
-                            }
+                                let msg_top = MSG_TOP;
+                                let msg_bottom = compute_input_layout(app, size).msg_bottom;
+                                if msg_bottom < msg_top {
+                                    continue;
+                                }
 
-                            let row1 = m.row as usize + 1;
-                            let in_messages = row1 >= msg_top && row1 <= msg_bottom;
-                            let norm_x = normalize_selection_x(m.column as usize);
-                            let clamped_y = row1.clamp(msg_top, msg_bottom);
-                            let mut mouse_changed = false;
+                                let row1 = m.row as usize + 1;
+                                let in_messages = row1 >= msg_top && row1 <= msg_bottom;
+                                let norm_x = normalize_selection_x(m.column as usize);
+                                let clamped_y = row1.clamp(msg_top, msg_bottom);
+                                let mut mouse_changed = false;
 
-                            match m.kind {
-                                MouseEventKind::ScrollUp => {
-                                    let prev_scroll = app.scroll_top;
-                                    let prev_follow = app.auto_follow_bottom;
-                                    app.auto_follow_bottom = false;
-                                    if app.scroll_inverted {
-                                        app.scroll_top = app.scroll_top.saturating_add(3);
-                                    } else {
-                                        app.scroll_top = app.scroll_top.saturating_sub(3);
+                                match m.kind {
+                                    MouseEventKind::ScrollUp => {
+                                        let prev_scroll = app.scroll_top;
+                                        let prev_follow = app.auto_follow_bottom;
+                                        app.auto_follow_bottom = false;
+                                        if app.scroll_inverted {
+                                            app.scroll_top = app.scroll_top.saturating_add(3);
+                                        } else {
+                                            app.scroll_top = app.scroll_top.saturating_sub(3);
+                                        }
+                                        mouse_changed = app.scroll_top != prev_scroll
+                                            || app.auto_follow_bottom != prev_follow;
                                     }
-                                    mouse_changed = app.scroll_top != prev_scroll
-                                        || app.auto_follow_bottom != prev_follow;
-                                }
-                                MouseEventKind::ScrollDown => {
-                                    let prev_scroll = app.scroll_top;
-                                    let prev_follow = app.auto_follow_bottom;
-                                    app.auto_follow_bottom = false;
-                                    if app.scroll_inverted {
-                                        app.scroll_top = app.scroll_top.saturating_sub(3);
-                                    } else {
-                                        app.scroll_top = app.scroll_top.saturating_add(3);
+                                    MouseEventKind::ScrollDown => {
+                                        let prev_scroll = app.scroll_top;
+                                        let prev_follow = app.auto_follow_bottom;
+                                        app.auto_follow_bottom = false;
+                                        if app.scroll_inverted {
+                                            app.scroll_top = app.scroll_top.saturating_sub(3);
+                                        } else {
+                                            app.scroll_top = app.scroll_top.saturating_add(3);
+                                        }
+                                        mouse_changed = app.scroll_top != prev_scroll
+                                            || app.auto_follow_bottom != prev_follow;
                                     }
-                                    mouse_changed = app.scroll_top != prev_scroll
-                                        || app.auto_follow_bottom != prev_follow;
-                                }
-                                MouseEventKind::Down(MouseButton::Left) => {
-                                    app.mouse_drag_mode = MouseDragMode::Undecided;
-                                    app.mouse_drag_last_row = clamped_y;
-                                    if in_messages {
-                                        app.selection = Some(Selection {
-                                            anchor_x: norm_x,
-                                            anchor_y: row1,
-                                            focus_x: norm_x,
-                                            focus_y: row1,
-                                            dragging: true,
-                                        });
-                                        mouse_changed = true;
+                                    MouseEventKind::Down(MouseButton::Middle)
+                                        if m.modifiers.contains(KeyModifiers::CONTROL)
+                                            && m.modifiers.contains(KeyModifiers::ALT) =>
+                                    {
+                                        app.mobile_plain_pending_coords = true;
+                                        app.mobile_plain_suppress_coords = false;
+                                        app.mobile_plain_new_gesture = true;
+                                        app.mobile_mouse_buffer.clear();
                                     }
-                                }
-                                MouseEventKind::Drag(MouseButton::Left) => {
-                                    if let Some(sel) = app.selection.as_mut() {
-                                        if sel.dragging {
-                                            if app.mouse_drag_mode == MouseDragMode::Undecided {
-                                                app.mouse_drag_mode = decide_mouse_drag_mode(
-                                                    sel.anchor_x,
-                                                    sel.anchor_y,
-                                                    norm_x,
-                                                    clamped_y,
-                                                );
-                                            }
+                                    MouseEventKind::Down(MouseButton::Left) => {
+                                        app.mouse_drag_mode = MouseDragMode::Undecided;
+                                        app.mouse_drag_last_row = clamped_y;
+                                        if in_messages {
+                                            app.selection = Some(Selection {
+                                                anchor_x: norm_x,
+                                                anchor_y: row1,
+                                                focus_x: norm_x,
+                                                focus_y: row1,
+                                                dragging: true,
+                                            });
+                                            mouse_changed = true;
+                                        }
+                                    }
+                                    MouseEventKind::Drag(MouseButton::Left) => {
+                                        if let Some(sel) = app.selection.as_mut() {
+                                            if sel.dragging {
+                                                if app.mouse_drag_mode == MouseDragMode::Undecided {
+                                                    app.mouse_drag_mode = decide_mouse_drag_mode(
+                                                        sel.anchor_x,
+                                                        sel.anchor_y,
+                                                        norm_x,
+                                                        clamped_y,
+                                                    );
+                                                }
 
-                                            match app.mouse_drag_mode {
-                                                MouseDragMode::Scroll => {
-                                                    let prev_scroll = app.scroll_top;
-                                                    let prev_follow = app.auto_follow_bottom;
-                                                    app.auto_follow_bottom = false;
-                                                    if clamped_y > app.mouse_drag_last_row {
-                                                        app.scroll_top =
-                                                            app.scroll_top.saturating_sub(
-                                                                clamped_y - app.mouse_drag_last_row,
-                                                            );
-                                                    } else if clamped_y < app.mouse_drag_last_row {
-                                                        app.scroll_top =
-                                                            app.scroll_top.saturating_add(
-                                                                app.mouse_drag_last_row - clamped_y,
-                                                            );
+                                                match app.mouse_drag_mode {
+                                                    MouseDragMode::Scroll => {
+                                                        let prev_scroll = app.scroll_top;
+                                                        let prev_follow = app.auto_follow_bottom;
+                                                        app.auto_follow_bottom = false;
+                                                        if clamped_y > app.mouse_drag_last_row {
+                                                            app.scroll_top =
+                                                                app.scroll_top.saturating_sub(
+                                                                    clamped_y
+                                                                        - app.mouse_drag_last_row,
+                                                                );
+                                                        } else if clamped_y
+                                                            < app.mouse_drag_last_row
+                                                        {
+                                                            app.scroll_top =
+                                                                app.scroll_top.saturating_add(
+                                                                    app.mouse_drag_last_row
+                                                                        - clamped_y,
+                                                                );
+                                                        }
+                                                        app.mouse_drag_last_row = clamped_y;
+                                                        mouse_changed = app.scroll_top
+                                                            != prev_scroll
+                                                            || app.auto_follow_bottom
+                                                                != prev_follow;
                                                     }
-                                                    app.mouse_drag_last_row = clamped_y;
-                                                    mouse_changed = app.scroll_top != prev_scroll
-                                                        || app.auto_follow_bottom != prev_follow;
-                                                }
-                                                MouseDragMode::Select
-                                                | MouseDragMode::Undecided => {
-                                                    let prev_focus_x = sel.focus_x;
-                                                    let prev_focus_y = sel.focus_y;
-                                                    sel.focus_x = norm_x;
-                                                    sel.focus_y = clamped_y;
-                                                    mouse_changed = sel.focus_x != prev_focus_x
-                                                        || sel.focus_y != prev_focus_y;
+                                                    MouseDragMode::Select
+                                                    | MouseDragMode::Undecided => {
+                                                        let prev_focus_x = sel.focus_x;
+                                                        let prev_focus_y = sel.focus_y;
+                                                        sel.focus_x = norm_x;
+                                                        sel.focus_y = clamped_y;
+                                                        mouse_changed = sel.focus_x != prev_focus_x
+                                                            || sel.focus_y != prev_focus_y;
+                                                    }
                                                 }
                                             }
                                         }
                                     }
-                                }
-                                MouseEventKind::Up(MouseButton::Left) => {
-                                    if let Some(sel) = app.selection.as_mut() {
-                                        if sel.dragging {
-                                            let prev_focus_x = sel.focus_x;
-                                            let prev_focus_y = sel.focus_y;
-                                            sel.focus_x = norm_x;
-                                            sel.focus_y = clamped_y;
-                                            sel.dragging = false;
-                                            mouse_changed = sel.focus_x != prev_focus_x
-                                                || sel.focus_y != prev_focus_y
-                                                || !sel.dragging;
+                                    MouseEventKind::Up(MouseButton::Left) => {
+                                        if let Some(sel) = app.selection.as_mut() {
+                                            if sel.dragging {
+                                                let prev_focus_x = sel.focus_x;
+                                                let prev_focus_y = sel.focus_y;
+                                                sel.focus_x = norm_x;
+                                                sel.focus_y = clamped_y;
+                                                sel.dragging = false;
+                                                mouse_changed = sel.focus_x != prev_focus_x
+                                                    || sel.focus_y != prev_focus_y
+                                                    || !sel.dragging;
 
-                                            if app.mouse_drag_mode == MouseDragMode::Scroll {
-                                                app.selection = None;
-                                            } else {
-                                                let copied = selected_text(
-                                                    *sel,
-                                                    &app.rendered_lines,
-                                                    msg_bottom,
-                                                    app.scroll_top,
-                                                );
-                                                if !copied.is_empty() {
-                                                    let _ = try_copy_clipboard(&copied);
+                                                if app.mouse_drag_mode == MouseDragMode::Scroll {
+                                                    app.selection = None;
+                                                } else {
+                                                    let copied = selected_text(
+                                                        *sel,
+                                                        &app.rendered_lines,
+                                                        msg_bottom,
+                                                        app.scroll_top,
+                                                    );
+                                                    if !copied.is_empty() {
+                                                        let _ = try_copy_clipboard(&copied);
+                                                    }
                                                 }
                                             }
                                         }
+                                        app.mouse_drag_mode = MouseDragMode::Undecided;
                                     }
-                                    app.mouse_drag_mode = MouseDragMode::Undecided;
+                                    _ => {}
                                 }
-                                _ => {}
+                                if mouse_changed {
+                                    needs_draw = true;
+                                }
                             }
-                            if mouse_changed {
-                                needs_draw = true;
-                            }
-                        }
-                        Event::Paste(pasted) => {
-                            if let Some(perf) = app.perf.as_mut() {
-                                perf.paste_events = perf.paste_events.saturating_add(1);
-                            }
-                            if app.show_help {
-                                needs_draw = true;
-                                continue;
-                            }
-                            if app.show_model_settings {
-                                if matches!(
-                                    app.model_settings_field,
-                                    super::state::ModelSettingsField::Model
-                                ) && !app.model_settings_has_model_choices()
-                                {
-                                    let normalized = normalize_pasted_text(&pasted);
-                                    let first_line = normalized.lines().next().unwrap_or("");
-                                    if !first_line.is_empty() {
-                                        app.model_settings_model_input.push_str(first_line);
+                            Event::Paste(pasted) => {
+                                if let Some(perf) = app.perf.as_mut() {
+                                    perf.paste_events = perf.paste_events.saturating_add(1);
+                                }
+                                if app.show_help {
+                                    needs_draw = true;
+                                    continue;
+                                }
+                                if app.show_model_settings {
+                                    if matches!(
+                                        app.model_settings_field,
+                                        super::state::ModelSettingsField::Model
+                                    ) && !app.model_settings_has_model_choices()
+                                    {
+                                        let normalized = normalize_pasted_text(&pasted);
+                                        let first_line = normalized.lines().next().unwrap_or("");
+                                        if !first_line.is_empty() {
+                                            app.model_settings_model_input.push_str(first_line);
+                                        }
                                     }
+                                    needs_draw = true;
+                                    continue;
                                 }
-                                needs_draw = true;
-                                continue;
-                            }
-                            if app.input_is_empty() {
-                                if let Some((_, y)) = parse_mobile_mouse_coords(&pasted) {
+                                if let Some((_, y)) = parse_repeated_plain_mobile_pair(&pasted) {
                                     apply_mobile_mouse_scroll(app, y);
                                     needs_draw = true;
                                     continue;
                                 }
+                                if app.input_is_empty() {
+                                    if let Some((_, y)) = parse_mobile_mouse_coords(&pasted) {
+                                        apply_mobile_mouse_scroll(app, y);
+                                        needs_draw = true;
+                                        continue;
+                                    }
+                                }
+                                let normalized = normalize_pasted_text(&pasted);
+                                if !normalized.is_empty() {
+                                    app.input_insert_text(normalized);
+                                    needs_draw = true;
+                                }
                             }
-                            let normalized = normalize_pasted_text(&pasted);
-                            if !normalized.is_empty() {
-                                app.input_insert_text(normalized);
+                            Event::Resize(_, _) => {
+                                if let Some(perf) = app.perf.as_mut() {
+                                    perf.resize_events = perf.resize_events.saturating_add(1);
+                                }
                                 needs_draw = true;
                             }
+                            _ => {}
                         }
-                        Event::Resize(_, _) => {
-                            if let Some(perf) = app.perf.as_mut() {
-                                perf.resize_events = perf.resize_events.saturating_add(1);
-                            }
-                            needs_draw = true;
-                        }
-                        _ => {}
-                    },
+                    }
                 }
                 if let Some(perf) = app.perf.as_mut() {
                     perf.event_handle.push(event_started.elapsed());

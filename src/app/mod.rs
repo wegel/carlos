@@ -5,7 +5,7 @@ use std::time::Duration;
 use anyhow::{bail, Result};
 
 #[cfg(test)]
-use crossterm::event::{Event, KeyEventKind, KeyModifiers};
+use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 #[cfg(test)]
 use ratatui::buffer::Buffer;
 #[cfg(test)]
@@ -21,7 +21,7 @@ use self::input::*;
 #[cfg(test)]
 use self::mobile_mouse::{
     apply_mobile_mouse_scroll, consume_mobile_mouse_char, parse_mobile_mouse_coords,
-    MobileMouseConsume,
+    parse_repeated_plain_mobile_pair, MobileMouseConsume,
 };
 pub(crate) use self::models::Role;
 use self::models::{
@@ -79,7 +79,7 @@ struct CliOptions {
 
 fn usage() {
     eprintln!(
-        "Usage:\n  carlos [resume [SESSION_ID]] [options]\n\nOptions:\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  -h, --help                     show this help\n\nKeys:\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_METRICS=1  enable perf overlay + exit report (toggle: F8 or Ctrl+P)"
+        "Usage:\n  carlos [resume [SESSION_ID]] [options]\n\nOptions:\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  -h, --help                     show this help\n\nKeys:\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)"
     );
 }
 

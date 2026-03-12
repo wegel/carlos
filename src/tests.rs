@@ -1372,6 +1372,131 @@ fn consume_mobile_mouse_char_requires_prefix_to_activate() {
 }
 
 #[test]
+fn consume_mobile_mouse_char_accepts_csi_bracket_prefix() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.scroll_top = 12;
+    app.mobile_mouse_last_y = Some(40);
+
+    for ch in ['[', '<', '6', '4', ';', '7', '6', ';', '4', '6', 'M'] {
+        assert!(matches!(
+            consume_mobile_mouse_char(&mut app, ch),
+            MobileMouseConsume::Consumed
+        ));
+    }
+    assert_eq!(app.scroll_top, 18);
+    assert!(app.mobile_mouse_buffer.is_empty());
+}
+
+#[test]
+fn mobile_mouse_key_candidate_accepts_alt_prefixed_csi_chars() {
+    let app = AppState::new("thread-1".to_string());
+    assert!(is_mobile_mouse_key_candidate(
+        &app,
+        KeyCode::Char('['),
+        KeyModifiers::ALT
+    ));
+    assert!(is_mobile_mouse_key_candidate(
+        &app,
+        KeyCode::Char('7'),
+        KeyModifiers::ALT
+    ));
+    assert!(!is_mobile_mouse_key_candidate(
+        &app,
+        KeyCode::Char('7'),
+        KeyModifiers::empty()
+    ));
+}
+
+#[test]
+fn mobile_mouse_key_candidate_accepts_plain_coords_when_pending() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.mobile_plain_pending_coords = true;
+    assert!(is_mobile_mouse_key_candidate(
+        &app,
+        KeyCode::Char('7'),
+        KeyModifiers::empty()
+    ));
+    assert!(is_mobile_mouse_key_candidate(
+        &app,
+        KeyCode::Char(';'),
+        KeyModifiers::empty()
+    ));
+    assert!(!is_mobile_mouse_key_candidate(
+        &app,
+        KeyCode::Char('a'),
+        KeyModifiers::empty()
+    ));
+}
+
+#[test]
+fn consume_mobile_mouse_char_plain_pending_pair_applies_scroll() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.mobile_plain_pending_coords = true;
+    app.scroll_top = 20;
+    app.mobile_mouse_last_y = Some(50);
+
+    for ch in ['6', '6', ';', '5', '2'] {
+        assert!(matches!(
+            consume_mobile_mouse_char(&mut app, ch),
+            MobileMouseConsume::Consumed
+        ));
+    }
+
+    assert_eq!(app.scroll_top, 23);
+    assert!(!app.mobile_plain_pending_coords);
+    assert!(app.mobile_mouse_buffer.is_empty());
+}
+
+#[test]
+fn consume_mobile_mouse_char_plain_pending_repeated_pair_reuses_direction() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.scroll_top = 20;
+    app.mobile_mouse_last_y = Some(50);
+
+    app.mobile_plain_pending_coords = true;
+    for ch in ['6', '6', ';', '5', '2'] {
+        let _ = consume_mobile_mouse_char(&mut app, ch);
+    }
+    assert_eq!(app.scroll_top, 23);
+
+    app.mobile_plain_pending_coords = true;
+    for ch in ['6', '6', ';', '5', '2'] {
+        let _ = consume_mobile_mouse_char(&mut app, ch);
+    }
+    assert_eq!(app.scroll_top, 26);
+}
+
+#[test]
+fn consume_mobile_mouse_char_plain_pending_new_gesture_keeps_prior_direction() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.scroll_top = 20;
+    app.mobile_mouse_last_y = Some(50);
+    app.mobile_plain_last_direction = 1;
+    app.mobile_plain_new_gesture = true;
+    app.mobile_plain_pending_coords = true;
+
+    for ch in ['6', '4', ';', '4', '7'] {
+        let _ = consume_mobile_mouse_char(&mut app, ch);
+    }
+
+    assert_eq!(app.scroll_top, 23);
+    assert_eq!(app.mobile_plain_last_direction, 1);
+}
+
+#[test]
+fn parse_repeated_plain_mobile_pair_accepts_concatenated_repetition() {
+    assert_eq!(
+        parse_repeated_plain_mobile_pair("75;4375;4375;43"),
+        Some((75, 43))
+    );
+    assert_eq!(
+        parse_repeated_plain_mobile_pair("71;5371;5371;53"),
+        Some((71, 53))
+    );
+    assert_eq!(parse_repeated_plain_mobile_pair("75;43"), None);
+}
+
+#[test]
 fn consume_mobile_mouse_char_applies_scroll_on_terminator() {
     let mut app = AppState::new("thread-1".to_string());
     app.scroll_top = 10;
