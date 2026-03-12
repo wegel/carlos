@@ -1,4 +1,4 @@
-use super::{text::slice_by_cells, RenderedLine, MSG_CONTENT_X, MSG_TOP};
+use super::{text::slice_by_cells, RenderedLine, MSG_CONTENT_X};
 use crate::theme::TOUCH_SCROLL_DRAG_MIN_ROWS;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -11,38 +11,38 @@ pub(super) enum MouseDragMode {
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Selection {
     pub(super) anchor_x: usize, // 1-based, content-relative cell column
-    pub(super) anchor_y: usize, // 1-based screen row
+    pub(super) anchor_line_idx: usize,
     pub(super) focus_x: usize,
-    pub(super) focus_y: usize,
+    pub(super) focus_line_idx: usize,
     pub(super) dragging: bool,
 }
 
 pub(super) fn compute_selection_range(
     selection: Selection,
-    row: usize,
+    line_idx: usize,
     line_cells: usize,
 ) -> Option<(usize, usize)> {
     let mut ax = selection.anchor_x;
-    let mut ay = selection.anchor_y;
+    let mut ay = selection.anchor_line_idx;
     let mut fx = selection.focus_x;
-    let mut fy = selection.focus_y;
+    let mut fy = selection.focus_line_idx;
 
     if fy < ay || (fy == ay && fx < ax) {
         std::mem::swap(&mut ax, &mut fx);
         std::mem::swap(&mut ay, &mut fy);
     }
 
-    if row < ay || row > fy {
+    if line_idx < ay || line_idx > fy {
         return None;
     }
 
     let mut start_col = 1usize;
     let mut end_col = line_cells;
 
-    if row == ay {
+    if line_idx == ay {
         start_col = ax;
     }
-    if row == fy {
+    if line_idx == fy {
         end_col = fx;
     }
 
@@ -63,51 +63,38 @@ pub(super) fn compute_selection_range(
     Some((start_col - 1, end_col))
 }
 
-pub(super) fn selected_text(
-    selection: Selection,
-    rendered_lines: &[RenderedLine],
-    msg_bottom: usize,
-    scroll_top: usize,
-) -> String {
-    let msg_top = MSG_TOP;
-
+pub(super) fn selected_text(selection: Selection, rendered_lines: &[RenderedLine]) -> String {
     let mut ax = selection.anchor_x;
-    let mut ay = selection.anchor_y;
+    let mut ay = selection.anchor_line_idx;
     let mut fx = selection.focus_x;
-    let mut fy = selection.focus_y;
+    let mut fy = selection.focus_line_idx;
     if fy < ay || (fy == ay && fx < ax) {
         std::mem::swap(&mut ax, &mut fx);
         std::mem::swap(&mut ay, &mut fy);
     }
 
-    if msg_bottom < msg_top || fy < msg_top || ay > msg_bottom {
+    if rendered_lines.is_empty() {
         return String::new();
     }
 
-    let start_row = ay.max(msg_top);
-    let end_row = fy.min(msg_bottom);
+    let start_idx = ay.min(rendered_lines.len().saturating_sub(1));
+    let end_idx = fy.min(rendered_lines.len().saturating_sub(1));
 
     let mut out = String::new();
     let mut first = true;
-    let mut prev_row: Option<usize> = None;
     let mut prev_idx: Option<usize> = None;
     let mut prev_soft_wrap = false;
 
-    for row in start_row..=end_row {
-        let idx = scroll_top + (row - msg_top);
-        if idx >= rendered_lines.len() {
-            continue;
-        }
-
+    for idx in start_idx..=end_idx {
         let line = &rendered_lines[idx];
         let line_cells = line.cells;
 
         let mut s_col = 1usize;
         let mut e_col = line_cells;
-        if row == ay {
+        if idx == ay {
             s_col = ax;
         }
-        if row == fy {
+        if idx == fy {
             e_col = fx;
         }
 
@@ -115,8 +102,7 @@ pub(super) fn selected_text(
         e_col = e_col.min(line_cells);
 
         if !first {
-            let contiguous =
-                prev_row.is_some_and(|r| r + 1 == row) && prev_idx.is_some_and(|i| i + 1 == idx);
+            let contiguous = prev_idx.is_some_and(|i| i + 1 == idx);
             if !(contiguous && prev_soft_wrap) {
                 out.push('\n');
             }
@@ -127,7 +113,6 @@ pub(super) fn selected_text(
             out.push_str(&slice_by_cells(&line.text, s_col - 1, e_col));
         }
 
-        prev_row = Some(row);
         prev_idx = Some(idx);
         prev_soft_wrap = line.soft_wrap_to_next;
     }
@@ -141,6 +126,18 @@ pub(super) fn normalize_selection_x(col0: usize) -> usize {
     } else {
         1
     }
+}
+
+pub(super) fn shift_selection_focus(
+    selection: &mut Selection,
+    delta_lines: isize,
+    max_line_idx: usize,
+) {
+    if delta_lines == 0 {
+        return;
+    }
+    let next = selection.focus_line_idx.saturating_add_signed(delta_lines);
+    selection.focus_line_idx = next.min(max_line_idx);
 }
 
 pub(super) fn decide_mouse_drag_mode(

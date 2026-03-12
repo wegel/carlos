@@ -1672,7 +1672,7 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
 
         let selection_range = app
             .selection
-            .and_then(|sel| compute_selection_range(sel, row_1b, line.cells))
+            .and_then(|sel| compute_selection_range(sel, line_idx, line.cells))
             .map(|(start, end)| (start.min(line.cells), end.min(line.cells)));
 
         draw_rendered_line(

@@ -23,7 +23,8 @@ use super::render::{
     render_main_view, transcript_content_width,
 };
 use super::selection::{
-    decide_mouse_drag_mode, normalize_selection_x, selected_text, MouseDragMode, Selection,
+    decide_mouse_drag_mode, normalize_selection_x, selected_text, shift_selection_focus,
+    MouseDragMode, Selection,
 };
 use super::{with_terminal, AppState, TerminalSize, MSG_TOP};
 use crate::clipboard::{clipboard_backend_label, try_copy_clipboard};
@@ -404,14 +405,7 @@ pub(super) fn run_conversation_tui(
                                     }
                                     (KeyCode::Char('y'), KeyModifiers::CONTROL) => {
                                         if let Some(sel) = app.selection {
-                                            let msg_bottom =
-                                                compute_input_layout(app, size).msg_bottom;
-                                            let copied = selected_text(
-                                                sel,
-                                                &app.rendered_lines,
-                                                msg_bottom,
-                                                app.scroll_top,
-                                            );
+                                            let copied = selected_text(sel, &app.rendered_lines);
                                             if !copied.is_empty() {
                                                 let _ = try_copy_clipboard(&copied);
                                             }
@@ -541,6 +535,10 @@ pub(super) fn run_conversation_tui(
                                 let in_messages = row1 >= msg_top && row1 <= msg_bottom;
                                 let norm_x = normalize_selection_x(m.column as usize);
                                 let clamped_y = row1.clamp(msg_top, msg_bottom);
+                                let clamped_line_idx = app.scroll_top + (clamped_y - msg_top);
+                                let msg_height = msg_bottom - msg_top + 1;
+                                let max_scroll =
+                                    app.rendered_lines.len().saturating_sub(msg_height);
                                 let mut mouse_changed = false;
 
                                 match m.kind {
@@ -549,9 +547,27 @@ pub(super) fn run_conversation_tui(
                                         let prev_follow = app.auto_follow_bottom;
                                         app.auto_follow_bottom = false;
                                         if app.scroll_inverted {
-                                            app.scroll_top = app.scroll_top.saturating_add(3);
+                                            app.scroll_top =
+                                                (app.scroll_top.saturating_add(3)).min(max_scroll);
                                         } else {
                                             app.scroll_top = app.scroll_top.saturating_sub(3);
+                                        }
+                                        let scroll_delta =
+                                            app.scroll_top as isize - prev_scroll as isize;
+                                        if scroll_delta != 0
+                                            && app.mouse_drag_mode != MouseDragMode::Scroll
+                                        {
+                                            if let Some(sel) = app.selection.as_mut() {
+                                                if sel.dragging {
+                                                    let max_line_idx =
+                                                        app.rendered_lines.len().saturating_sub(1);
+                                                    shift_selection_focus(
+                                                        sel,
+                                                        scroll_delta,
+                                                        max_line_idx,
+                                                    );
+                                                }
+                                            }
                                         }
                                         mouse_changed = app.scroll_top != prev_scroll
                                             || app.auto_follow_bottom != prev_follow;
@@ -563,7 +579,25 @@ pub(super) fn run_conversation_tui(
                                         if app.scroll_inverted {
                                             app.scroll_top = app.scroll_top.saturating_sub(3);
                                         } else {
-                                            app.scroll_top = app.scroll_top.saturating_add(3);
+                                            app.scroll_top =
+                                                (app.scroll_top.saturating_add(3)).min(max_scroll);
+                                        }
+                                        let scroll_delta =
+                                            app.scroll_top as isize - prev_scroll as isize;
+                                        if scroll_delta != 0
+                                            && app.mouse_drag_mode != MouseDragMode::Scroll
+                                        {
+                                            if let Some(sel) = app.selection.as_mut() {
+                                                if sel.dragging {
+                                                    let max_line_idx =
+                                                        app.rendered_lines.len().saturating_sub(1);
+                                                    shift_selection_focus(
+                                                        sel,
+                                                        scroll_delta,
+                                                        max_line_idx,
+                                                    );
+                                                }
+                                            }
                                         }
                                         mouse_changed = app.scroll_top != prev_scroll
                                             || app.auto_follow_bottom != prev_follow;
@@ -583,9 +617,9 @@ pub(super) fn run_conversation_tui(
                                         if in_messages {
                                             app.selection = Some(Selection {
                                                 anchor_x: norm_x,
-                                                anchor_y: row1,
+                                                anchor_line_idx: clamped_line_idx,
                                                 focus_x: norm_x,
-                                                focus_y: row1,
+                                                focus_line_idx: clamped_line_idx,
                                                 dragging: true,
                                             });
                                             mouse_changed = true;
@@ -597,7 +631,7 @@ pub(super) fn run_conversation_tui(
                                                 if app.mouse_drag_mode == MouseDragMode::Undecided {
                                                     app.mouse_drag_mode = decide_mouse_drag_mode(
                                                         sel.anchor_x,
-                                                        sel.anchor_y,
+                                                        app.mouse_drag_last_row,
                                                         norm_x,
                                                         clamped_y,
                                                     );
@@ -632,11 +666,11 @@ pub(super) fn run_conversation_tui(
                                                     MouseDragMode::Select
                                                     | MouseDragMode::Undecided => {
                                                         let prev_focus_x = sel.focus_x;
-                                                        let prev_focus_y = sel.focus_y;
+                                                        let prev_focus_idx = sel.focus_line_idx;
                                                         sel.focus_x = norm_x;
-                                                        sel.focus_y = clamped_y;
+                                                        sel.focus_line_idx = clamped_line_idx;
                                                         mouse_changed = sel.focus_x != prev_focus_x
-                                                            || sel.focus_y != prev_focus_y;
+                                                            || sel.focus_line_idx != prev_focus_idx;
                                                     }
                                                 }
                                             }
@@ -646,23 +680,19 @@ pub(super) fn run_conversation_tui(
                                         if let Some(sel) = app.selection.as_mut() {
                                             if sel.dragging {
                                                 let prev_focus_x = sel.focus_x;
-                                                let prev_focus_y = sel.focus_y;
+                                                let prev_focus_idx = sel.focus_line_idx;
                                                 sel.focus_x = norm_x;
-                                                sel.focus_y = clamped_y;
+                                                sel.focus_line_idx = clamped_line_idx;
                                                 sel.dragging = false;
                                                 mouse_changed = sel.focus_x != prev_focus_x
-                                                    || sel.focus_y != prev_focus_y
+                                                    || sel.focus_line_idx != prev_focus_idx
                                                     || !sel.dragging;
 
                                                 if app.mouse_drag_mode == MouseDragMode::Scroll {
                                                     app.selection = None;
                                                 } else {
-                                                    let copied = selected_text(
-                                                        *sel,
-                                                        &app.rendered_lines,
-                                                        msg_bottom,
-                                                        app.scroll_top,
-                                                    );
+                                                    let copied =
+                                                        selected_text(*sel, &app.rendered_lines);
                                                     if !copied.is_empty() {
                                                         let _ = try_copy_clipboard(&copied);
                                                     }

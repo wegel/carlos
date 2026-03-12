@@ -1,12 +1,13 @@
+use super::selection::shift_selection_focus;
 use super::*;
 
 #[test]
 fn compute_selection_range_normalizes_reversed_coordinates() {
     let sel = Selection {
         anchor_x: 10,
-        anchor_y: 5,
+        anchor_line_idx: 5,
         focus_x: 3,
-        focus_y: 5,
+        focus_line_idx: 5,
         dragging: false,
     };
     let range = compute_selection_range(sel, 5, 20).unwrap();
@@ -26,13 +27,13 @@ fn selected_text_keeps_left_padding_in_selection() {
 
     let sel = Selection {
         anchor_x: 1,
-        anchor_y: MSG_TOP,
+        anchor_line_idx: 0,
         focus_x: 4,
-        focus_y: MSG_TOP,
+        focus_line_idx: 0,
         dragging: false,
     };
 
-    let out = selected_text(sel, &lines, 19, 0);
+    let out = selected_text(sel, &lines);
     assert_eq!(out, "  he");
 }
 
@@ -59,13 +60,13 @@ fn selected_text_joins_soft_wrapped_rows_without_newline() {
 
     let sel = Selection {
         anchor_x: 1,
-        anchor_y: MSG_TOP,
+        anchor_line_idx: 0,
         focus_x: 5,
-        focus_y: MSG_TOP + 1,
+        focus_line_idx: 1,
         dragging: false,
     };
 
-    let out = selected_text(sel, &lines, 19, 0);
+    let out = selected_text(sel, &lines);
     assert_eq!(out, "abcdefghij");
 }
 
@@ -92,14 +93,56 @@ fn selected_text_keeps_newline_on_hard_break_rows() {
 
     let sel = Selection {
         anchor_x: 1,
-        anchor_y: MSG_TOP,
+        anchor_line_idx: 0,
         focus_x: 5,
-        focus_y: MSG_TOP + 1,
+        focus_line_idx: 1,
         dragging: false,
     };
 
-    let out = selected_text(sel, &lines, 19, 0);
+    let out = selected_text(sel, &lines);
     assert_eq!(out, "abcde\nfghij");
+}
+
+#[test]
+fn shift_selection_focus_extends_copy_beyond_visible_screen() {
+    let lines = vec![
+        RenderedLine {
+            text: "line 1".to_string(),
+            styled_segments: Vec::new(),
+            role: Role::Assistant,
+            separator: false,
+            cells: 6,
+            soft_wrap_to_next: false,
+        },
+        RenderedLine {
+            text: "line 2".to_string(),
+            styled_segments: Vec::new(),
+            role: Role::Assistant,
+            separator: false,
+            cells: 6,
+            soft_wrap_to_next: false,
+        },
+        RenderedLine {
+            text: "line 3".to_string(),
+            styled_segments: Vec::new(),
+            role: Role::Assistant,
+            separator: false,
+            cells: 6,
+            soft_wrap_to_next: false,
+        },
+    ];
+    let mut sel = Selection {
+        anchor_x: 1,
+        anchor_line_idx: 0,
+        focus_x: 6,
+        focus_line_idx: 1,
+        dragging: true,
+    };
+
+    shift_selection_focus(&mut sel, 1, lines.len() - 1);
+
+    let out = selected_text(sel, &lines);
+    assert_eq!(out, "line 1\nline 2\nline 3");
 }
 
 #[test]
