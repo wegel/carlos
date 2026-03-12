@@ -320,7 +320,6 @@ pub(super) fn upsert_tool_message(
             msg.text = text;
             msg.kind = kind;
             msg.file_path = file_path;
-            app.auto_follow_bottom = true;
             app.mark_transcript_dirty();
             return;
         }
@@ -332,7 +331,6 @@ pub(super) fn upsert_tool_message(
         app.append_message(role, text)
     };
     app.put_agent_item_mapping(key, idx);
-    app.auto_follow_bottom = true;
 }
 
 pub(super) fn handle_raw_response_item(app: &mut AppState, item: &Value) {
@@ -373,7 +371,6 @@ pub(super) fn handle_raw_response_item(app: &mut AppState, item: &Value) {
                     block.diff.clone(),
                 );
             }
-            app.auto_follow_bottom = true;
             return;
         }
 
@@ -617,7 +614,6 @@ pub(super) fn handle_server_message_line(
                 .and_then(Value::as_str)
             {
                 app.active_turn_id = Some(id.to_string());
-                app.auto_follow_bottom = true;
                 app.set_status("turn started");
             }
         }
@@ -769,13 +765,11 @@ pub(super) fn handle_server_message_line(
                             msg.file_path = None;
                         }
                         app.mark_transcript_dirty();
-                        app.auto_follow_bottom = true;
                         return None;
                     }
                 }
                 if let Some(text) = text {
                     app.append_message(role, text);
-                    app.auto_follow_bottom = true;
                 }
                 return None;
             }
@@ -803,11 +797,9 @@ pub(super) fn handle_server_message_line(
                                 msg.file_path = None;
                             }
                             app.mark_transcript_dirty();
-                            app.auto_follow_bottom = true;
                             return None;
                         }
                         app.append_message(Role::ToolCall, summary);
-                        app.auto_follow_bottom = true;
                         return None;
                     }
                 }
@@ -822,12 +814,10 @@ pub(super) fn handle_server_message_line(
                                 msg.file_path = None;
                             }
                             app.mark_transcript_dirty();
-                            app.auto_follow_bottom = true;
                             return None;
                         }
                     }
                     app.append_diff_message(role, None, diff);
-                    app.auto_follow_bottom = true;
                     return None;
                 }
 
@@ -851,12 +841,10 @@ pub(super) fn handle_server_message_line(
                                 msg.file_path = None;
                             }
                             app.mark_transcript_dirty();
-                            app.auto_follow_bottom = true;
                             return None;
                         }
                     }
                     app.append_message(role, text);
-                    app.auto_follow_bottom = true;
                 }
                 return None;
             }
@@ -879,7 +867,6 @@ pub(super) fn handle_server_message_line(
                                 block.diff.clone(),
                             );
                         }
-                        app.auto_follow_bottom = true;
                         return None;
                     }
                 }
@@ -888,7 +875,6 @@ pub(super) fn handle_server_message_line(
             for block in diffs {
                 app.append_diff_message(role, block.file_path, block.diff);
             }
-            app.auto_follow_bottom = true;
         }
         "item/agentMessage/delta" => {
             if let (Some(item_id), Some(delta)) = (
@@ -896,7 +882,6 @@ pub(super) fn handle_server_message_line(
                 params.get("delta").and_then(Value::as_str),
             ) {
                 app.upsert_agent_delta(item_id, delta);
-                app.auto_follow_bottom = true;
             }
         }
         "item/reasoning/summaryTextDelta" => {
@@ -922,7 +907,6 @@ pub(super) fn handle_server_message_line(
                 params.get("delta").and_then(Value::as_str),
             ) {
                 app.upsert_agent_delta(item_id, delta);
-                app.auto_follow_bottom = true;
             }
         }
         "error" => {

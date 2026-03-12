@@ -768,6 +768,24 @@ fn handle_notification_turn_completed_interrupted_appends_system_message() {
 }
 
 #[test]
+fn incoming_agent_delta_does_not_reenable_auto_follow_when_scrolled_up() {
+    let mut app = AppState::new("thread-1".to_string());
+    let idx = app.append_message(Role::Assistant, "hello");
+    app.put_agent_item_mapping("item-1", idx);
+    app.auto_follow_bottom = false;
+    app.scroll_top = 4;
+
+    handle_notification_line(
+        &mut app,
+        "{\"method\":\"item/agentMessage/delta\",\"params\":{\"itemId\":\"item-1\",\"delta\":\" world\"}}",
+    );
+
+    assert!(!app.auto_follow_bottom);
+    assert_eq!(app.scroll_top, 4);
+    assert_eq!(app.messages[idx].text, "hello world");
+}
+
+#[test]
 fn handle_server_request_command_execution_sets_pending_approval() {
     let mut app = AppState::new("thread-1".to_string());
 

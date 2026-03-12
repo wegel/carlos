@@ -831,6 +831,15 @@ impl AppState {
         self.transcript_dirty = true;
     }
 
+    pub(super) fn sync_auto_follow_bottom(&mut self, max_scroll: usize) {
+        if self.scroll_top >= max_scroll {
+            self.scroll_top = max_scroll;
+            self.auto_follow_bottom = true;
+        } else {
+            self.auto_follow_bottom = false;
+        }
+    }
+
     pub(super) fn ensure_rendered_lines(
         &mut self,
         width: usize,
@@ -915,7 +924,6 @@ impl AppState {
                 msg.text = diff.to_string();
                 msg.kind = MessageKind::Diff;
                 msg.file_path = None;
-                self.auto_follow_bottom = true;
                 self.mark_transcript_dirty();
                 return;
             }
@@ -923,7 +931,6 @@ impl AppState {
 
         let idx = self.append_diff_message(Role::ToolOutput, None, diff.to_string());
         self.turn_diff_to_index.insert(turn_id.to_string(), idx);
-        self.auto_follow_bottom = true;
     }
 
     pub(super) fn set_command_override(&mut self, call_id: &str, summary: String) {
@@ -942,7 +949,6 @@ impl AppState {
         if changed {
             self.mark_transcript_dirty();
         }
-        self.auto_follow_bottom = true;
     }
 
     pub(super) fn append_context_compacted_marker(&mut self) {
@@ -953,7 +959,6 @@ impl AppState {
             }
         }
         self.append_message(Role::System, MARKER);
-        self.auto_follow_bottom = true;
     }
 
     pub(super) fn append_turn_interrupted_marker(&mut self) {
@@ -964,7 +969,6 @@ impl AppState {
             }
         }
         self.append_message(Role::System, MARKER);
-        self.auto_follow_bottom = true;
     }
 
     pub(super) fn mark_turn_started(&mut self) {
@@ -1013,11 +1017,9 @@ impl AppState {
             {
                 self.append_message(Role::System, msg);
             }
-            self.auto_follow_bottom = true;
         }
         if let Some(text) = continuation {
             self.enqueue_turn_input(text);
-            self.auto_follow_bottom = true;
         }
         if let Some(status) = next_status {
             self.set_status(status);

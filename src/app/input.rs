@@ -571,12 +571,29 @@ pub(super) fn run_conversation_tui(
                                         }
                                     }
                                     (KeyCode::PageUp, _) => {
-                                        app.auto_follow_bottom = false;
+                                        let msg_bottom = compute_input_layout(app, size).msg_bottom;
+                                        let msg_height = if msg_bottom >= MSG_TOP {
+                                            msg_bottom - MSG_TOP + 1
+                                        } else {
+                                            0
+                                        };
+                                        let max_scroll =
+                                            app.rendered_lines.len().saturating_sub(msg_height);
                                         app.scroll_top = app.scroll_top.saturating_sub(10);
+                                        app.sync_auto_follow_bottom(max_scroll);
                                     }
                                     (KeyCode::PageDown, _) => {
-                                        app.auto_follow_bottom = false;
-                                        app.scroll_top = app.scroll_top.saturating_add(10);
+                                        let msg_bottom = compute_input_layout(app, size).msg_bottom;
+                                        let msg_height = if msg_bottom >= MSG_TOP {
+                                            msg_bottom - MSG_TOP + 1
+                                        } else {
+                                            0
+                                        };
+                                        let max_scroll =
+                                            app.rendered_lines.len().saturating_sub(msg_height);
+                                        app.scroll_top =
+                                            app.scroll_top.saturating_add(10).min(max_scroll);
+                                        app.sync_auto_follow_bottom(max_scroll);
                                     }
                                     (KeyCode::Enter, mods) if is_newline_enter(mods) => {
                                         app.input_apply_key(k);
@@ -642,13 +659,13 @@ pub(super) fn run_conversation_tui(
                                     MouseEventKind::ScrollUp => {
                                         let prev_scroll = app.scroll_top;
                                         let prev_follow = app.auto_follow_bottom;
-                                        app.auto_follow_bottom = false;
                                         if app.scroll_inverted {
                                             app.scroll_top =
                                                 (app.scroll_top.saturating_add(3)).min(max_scroll);
                                         } else {
                                             app.scroll_top = app.scroll_top.saturating_sub(3);
                                         }
+                                        app.sync_auto_follow_bottom(max_scroll);
                                         let scroll_delta =
                                             app.scroll_top as isize - prev_scroll as isize;
                                         if scroll_delta != 0
@@ -672,13 +689,13 @@ pub(super) fn run_conversation_tui(
                                     MouseEventKind::ScrollDown => {
                                         let prev_scroll = app.scroll_top;
                                         let prev_follow = app.auto_follow_bottom;
-                                        app.auto_follow_bottom = false;
                                         if app.scroll_inverted {
                                             app.scroll_top = app.scroll_top.saturating_sub(3);
                                         } else {
                                             app.scroll_top =
                                                 (app.scroll_top.saturating_add(3)).min(max_scroll);
                                         }
+                                        app.sync_auto_follow_bottom(max_scroll);
                                         let scroll_delta =
                                             app.scroll_top as isize - prev_scroll as isize;
                                         if scroll_delta != 0
@@ -738,7 +755,6 @@ pub(super) fn run_conversation_tui(
                                                     MouseDragMode::Scroll => {
                                                         let prev_scroll = app.scroll_top;
                                                         let prev_follow = app.auto_follow_bottom;
-                                                        app.auto_follow_bottom = false;
                                                         if clamped_y > app.mouse_drag_last_row {
                                                             app.scroll_top =
                                                                 app.scroll_top.saturating_sub(
@@ -754,6 +770,9 @@ pub(super) fn run_conversation_tui(
                                                                         - clamped_y,
                                                                 );
                                                         }
+                                                        app.scroll_top =
+                                                            app.scroll_top.min(max_scroll);
+                                                        app.sync_auto_follow_bottom(max_scroll);
                                                         app.mouse_drag_last_row = clamped_y;
                                                         mouse_changed = app.scroll_top
                                                             != prev_scroll
