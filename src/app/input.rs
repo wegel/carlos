@@ -26,7 +26,7 @@ use super::selection::{
     decide_mouse_drag_mode, normalize_selection_x, selected_text, shift_selection_focus,
     MouseDragMode, Selection,
 };
-use super::{with_terminal, AppState, TerminalSize, MSG_TOP};
+use super::{persist_runtime_defaults, with_terminal, AppState, TerminalSize, MSG_TOP};
 use crate::clipboard::{clipboard_backend_label, try_copy_clipboard};
 use crate::event::{spawn_event_forwarders, UiEvent};
 use crate::protocol::{
@@ -345,7 +345,14 @@ pub(super) fn run_conversation_tui(
                                         {
                                             app.model_settings_backspace();
                                         }
-                                        (KeyCode::Enter, _) => app.apply_model_settings(),
+                                        (KeyCode::Enter, _) => {
+                                            let defaults = app.apply_model_settings();
+                                            if let Err(err) = persist_runtime_defaults(&defaults) {
+                                                app.set_status(format!(
+                                                    "saved for next turn; default save failed: {err}"
+                                                ));
+                                            }
+                                        }
                                         (KeyCode::Char(ch), mods)
                                             if !mods.contains(KeyModifiers::CONTROL)
                                                 && !mods.contains(KeyModifiers::ALT)

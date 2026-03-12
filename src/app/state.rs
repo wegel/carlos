@@ -15,7 +15,7 @@ use super::render::{
     transcript_content_width,
 };
 use super::selection::{MouseDragMode, Selection};
-use super::MSG_TOP;
+use super::{RuntimeDefaults, MSG_TOP};
 use crate::protocol::ModelInfo;
 
 pub(super) const DEFAULT_EFFORT_OPTIONS: [&str; 6] =
@@ -441,17 +441,23 @@ impl AppState {
         self.model_settings_model_input.pop();
     }
 
-    pub(super) fn apply_model_settings(&mut self) {
+    pub(super) fn apply_model_settings(&mut self) -> RuntimeDefaults {
         let model = normalize_non_empty(self.model_settings_model_value().to_string());
         let effort = normalize_non_empty(self.model_settings_effort_value().to_string());
         let summary = normalize_non_empty(self.model_settings_summary_value().to_string());
+        let defaults = RuntimeDefaults {
+            model: model.clone(),
+            effort: effort.clone(),
+            summary: summary.clone(),
+        };
         self.queue_runtime_settings(model, effort, summary);
         self.show_model_settings = false;
         if self.active_turn_id.is_some() {
-            self.set_status("model/effort/summary pending next turn");
+            self.set_status("model/effort/summary pending next turn; saved as default");
         } else {
-            self.set_status("model/effort/summary set for next turn");
+            self.set_status("model/effort/summary set for next turn; saved as default");
         }
+        defaults
     }
 
     pub(super) fn model_settings_model_value(&self) -> &str {

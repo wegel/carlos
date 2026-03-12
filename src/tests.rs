@@ -1865,6 +1865,66 @@ fn runtime_settings_label_shows_pending_summary_override() {
 }
 
 #[test]
+fn runtime_defaults_round_trip_json_file() {
+    let path = std::env::temp_dir().join(format!(
+        "carlos-runtime-defaults-{}-{}.json",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos()
+    ));
+    let defaults = RuntimeDefaults {
+        model: Some("gpt-5.4".to_string()),
+        effort: Some("high".to_string()),
+        summary: Some("concise".to_string()),
+    };
+
+    persist_runtime_defaults_to(&path, &defaults).expect("persist");
+    let loaded = load_runtime_defaults_from(&path);
+    let _ = std::fs::remove_file(&path);
+
+    assert_eq!(loaded, defaults);
+}
+
+#[test]
+fn apply_model_settings_returns_defaults_for_persistence() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.model_settings_model_input = "gpt-5.4".to_string();
+    app.model_settings_effort_options = super::state::DEFAULT_EFFORT_OPTIONS
+        .iter()
+        .map(|value| (*value).to_string())
+        .collect();
+    app.model_settings_effort_index = 4;
+    app.model_settings_summary_options = super::state::DEFAULT_SUMMARY_OPTIONS
+        .iter()
+        .map(|value| (*value).to_string())
+        .collect();
+    app.model_settings_summary_index = 1;
+    app.show_model_settings = true;
+
+    let defaults = app.apply_model_settings();
+
+    assert_eq!(
+        defaults,
+        RuntimeDefaults {
+            model: Some("gpt-5.4".to_string()),
+            effort: Some("high".to_string()),
+            summary: Some("concise".to_string()),
+        }
+    );
+    assert_eq!(
+        app.take_pending_runtime_settings(),
+        (
+            Some("gpt-5.4".to_string()),
+            Some("high".to_string()),
+            Some("concise".to_string())
+        )
+    );
+    assert!(!app.show_model_settings);
+}
+
+#[test]
 fn detect_turn_markers_matches_trimmed_assistant_marker_lines() {
     let messages = vec![
         Message {

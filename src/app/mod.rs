@@ -1,8 +1,9 @@
 use std::env;
+use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 
 #[cfg(test)]
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
@@ -75,6 +76,13 @@ struct CliOptions {
     ralph_done_marker: Option<String>,
     ralph_blocked_marker: Option<String>,
     show_help: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(super) struct RuntimeDefaults {
+    pub(super) model: Option<String>,
+    pub(super) effort: Option<String>,
+    pub(super) summary: Option<String>,
 }
 
 fn usage() {
@@ -150,15 +158,81 @@ fn env_flag_enabled(name: &str) -> bool {
     }
 }
 
-fn default_reasoning_summary() -> Option<String> {
+fn env_reasoning_summary_override() -> Option<String> {
     match env::var("CARLOS_REASONING_SUMMARY") {
         Ok(value) => match value.trim() {
             "" => Some("auto".to_string()),
             "auto" | "concise" | "detailed" | "none" => Some(value.trim().to_string()),
             _ => Some("auto".to_string()),
         },
-        Err(_) => Some("auto".to_string()),
+        Err(_) => None,
     }
+}
+
+fn runtime_defaults_path() -> Option<PathBuf> {
+    let base = env::var_os("XDG_CONFIG_HOME")
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))?;
+    Some(base.join("carlos").join("runtime-defaults.json"))
+}
+
+fn load_runtime_defaults_from(path: &std::path::Path) -> RuntimeDefaults {
+    let Ok(contents) = fs::read_to_string(path) else {
+        return RuntimeDefaults::default();
+    };
+    let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&contents) else {
+        return RuntimeDefaults::default();
+    };
+    RuntimeDefaults {
+        model: parsed
+            .get("model")
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(ToOwned::to_owned),
+        effort: parsed
+            .get("effort")
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(ToOwned::to_owned),
+        summary: parsed
+            .get("summary")
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(ToOwned::to_owned),
+    }
+}
+
+fn load_runtime_defaults() -> RuntimeDefaults {
+    let Some(path) = runtime_defaults_path() else {
+        return RuntimeDefaults::default();
+    };
+    load_runtime_defaults_from(&path)
+}
+
+fn persist_runtime_defaults_to(path: &std::path::Path, defaults: &RuntimeDefaults) -> Result<()> {
+    let Some(parent) = path.parent() else {
+        bail!("invalid runtime defaults path");
+    };
+    fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
+    let payload = serde_json::json!({
+        "model": defaults.model,
+        "effort": defaults.effort,
+        "summary": defaults.summary,
+    });
+    let bytes = serde_json::to_vec_pretty(&payload)?;
+    fs::write(path, bytes).with_context(|| format!("write {}", path.display()))?;
+    Ok(())
+}
+
+pub(super) fn persist_runtime_defaults(defaults: &RuntimeDefaults) -> Result<()> {
+    let Some(path) = runtime_defaults_path() else {
+        bail!("cannot determine config directory");
+    };
+    persist_runtime_defaults_to(&path, defaults)
 }
 
 fn fetch_model_catalog(client: &AppServerClient) -> Result<Vec<ModelInfo>> {
@@ -201,6 +275,10 @@ pub(crate) fn run() -> Result<()> {
     let server_events_rx = client.take_events_rx()?;
 
     let cwd = env::current_dir()?.to_string_lossy().to_string();
+    let persisted_defaults = load_runtime_defaults();
+    let default_summary = env_reasoning_summary_override()
+        .or(persisted_defaults.summary.clone())
+        .or(Some("auto".to_string()));
 
     let (chosen_thread_id, start_resp) = if opts.mode_resume {
         if let Some(rid) = opts.resume_id.as_deref() {
@@ -256,7 +334,15 @@ pub(crate) fn run() -> Result<()> {
     }
     let runtime_settings = parse_thread_runtime_settings(&start_resp)?;
     app.set_runtime_settings(runtime_settings.model, runtime_settings.effort, None);
-    app.apply_default_reasoning_summary(default_reasoning_summary());
+    if !opts.mode_resume {
+        app.queue_runtime_settings(
+            persisted_defaults.model.clone(),
+            persisted_defaults.effort.clone(),
+            default_summary.clone(),
+        );
+    } else {
+        app.apply_default_reasoning_summary(default_summary);
+    }
     load_history_from_start_or_resume(&mut app, &start_resp)?;
     app.set_status("ready");
 
