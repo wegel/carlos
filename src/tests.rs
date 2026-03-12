@@ -1869,3 +1869,11 @@ fn parse_thread_list_reads_session_summary_fields() {
     assert_eq!(threads[0].created_at, 1_731_100_000);
     assert_eq!(threads[0].updated_at, 1_731_200_430);
 }
+
+#[test]
+fn resume_hint_formats_resume_command() {
+    assert_eq!(
+        resume_hint("xxxx-xxxx"),
+        "to resume this session use `carlos resume xxxx-xxxx`"
+    );
+}

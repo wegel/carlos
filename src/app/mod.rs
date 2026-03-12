@@ -83,6 +83,10 @@ fn usage() {
     );
 }
 
+fn resume_hint(thread_id: &str) -> String {
+    format!("to resume this session use `carlos resume {thread_id}`")
+}
+
 fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<CliOptions> {
     let mut opts = CliOptions::default();
     let mut args = args.into_iter().peekable();
@@ -245,6 +249,7 @@ pub(crate) fn run() -> Result<()> {
     app.set_status("ready");
 
     let out = run_conversation_tui(&client, &mut app, server_events_rx);
+    eprintln!("{}", resume_hint(&app.thread_id));
     if let Some(report) = app.perf_report() {
         eprintln!("{report}");
     }
