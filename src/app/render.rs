@@ -1950,37 +1950,69 @@ pub(super) fn draw_picker(
         layout.list_w,
     );
 
-    for row in 0..layout.list_h {
+    let ts_col_w = 16usize.min(layout.list_w.saturating_sub(8));
+    let gap_w: usize = if layout.list_w > ts_col_w { 2 } else { 0 };
+    let left_col_w = layout
+        .list_w
+        .saturating_sub(ts_col_w.saturating_mul(2))
+        .saturating_sub(gap_w.saturating_mul(2));
+    let data_rows = layout.list_h.saturating_sub(1);
+
+    if layout.list_h > 0 {
+        draw_str(
+            buf,
+            layout.list_x + 2,
+            layout.list_y,
+            "Session",
+            Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD),
+            left_col_w.saturating_sub(2),
+        );
+        if ts_col_w > 0 {
+            draw_str(
+                buf,
+                layout.list_x + left_col_w + gap_w,
+                layout.list_y,
+                "Created",
+                Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD),
+                ts_col_w,
+            );
+            draw_str(
+                buf,
+                layout.list_x + left_col_w + gap_w + ts_col_w + gap_w,
+                layout.list_y,
+                "Last Updated",
+                Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD),
+                ts_col_w,
+            );
+        }
+    }
+
+    for row in 0..data_rows {
         let idx = top + row;
-        let y = layout.list_y + row;
+        let y = layout.list_y + 1 + row;
         if idx >= threads.len() {
             continue;
         }
 
         let t = &threads[idx];
-        let preview_w = if layout.list_w > 42 {
-            layout.list_w - 42
+        let preview_w = if left_col_w > 32 { left_col_w - 32 } else { 10 };
+        let label = t.name.as_deref().unwrap_or(&t.preview);
+        let label = if visual_width(label) > preview_w {
+            let cut = split_at_cells(label, preview_w);
+            &label[..cut]
         } else {
-            10
-        };
-        let preview = if visual_width(&t.preview) > preview_w {
-            let cut = split_at_cells(&t.preview, preview_w);
-            &t.preview[..cut]
-        } else {
-            &t.preview
+            label
         };
 
         let cwd_tail = if t.cwd.is_empty() { "" } else { &t.cwd };
-        let mut line = format!("{}  {}  {}", t.id, preview, cwd_tail);
-        if !line.is_empty() {
-            let ts = t.updated_at;
-            line.push_str(&format!("  {}", ts));
+        let mut left = format!("{}  {}  {}", t.id, label, cwd_tail);
+        let left_view_w = left_col_w.saturating_sub(2);
+        if visual_width(&left) > left_view_w {
+            let cut = split_at_cells(&left, left_view_w);
+            left.truncate(cut);
         }
-        let view_width = layout.list_w.saturating_sub(2);
-        if visual_width(&line) > view_width {
-            let cut = split_at_cells(&line, view_width);
-            line.truncate(cut);
-        }
+        let created = format_picker_timestamp(t.created_at);
+        let updated = format_picker_timestamp(t.updated_at);
 
         let active = idx == selected;
         if active && layout.list_w > 0 {
@@ -2016,7 +2048,25 @@ pub(super) fn draw_picker(
             bullet_style,
             1,
         );
-        draw_str(buf, layout.list_x + 2, y, &line, line_style, view_width);
+        draw_str(buf, layout.list_x + 2, y, &left, line_style, left_view_w);
+        if ts_col_w > 0 {
+            draw_str(
+                buf,
+                layout.list_x + left_col_w + gap_w,
+                y,
+                &created,
+                line_style,
+                ts_col_w,
+            );
+            draw_str(
+                buf,
+                layout.list_x + left_col_w + gap_w + ts_col_w + gap_w,
+                y,
+                &updated,
+                line_style,
+                ts_col_w,
+            );
+        }
     }
 
     draw_str(
@@ -2027,4 +2077,31 @@ pub(super) fn draw_picker(
         Style::default().fg(COLOR_DIM),
         layout.list_w,
     );
+}
+
+fn format_picker_timestamp(ts: i64) -> String {
+    if ts <= 0 {
+        return "-".to_string();
+    }
+
+    let days = ts.div_euclid(86_400);
+    let secs_of_day = ts.rem_euclid(86_400);
+    let hour = secs_of_day / 3_600;
+    let minute = (secs_of_day % 3_600) / 60;
+    let (year, month, day) = civil_from_days(days);
+    format!("{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}")
+}
+
+fn civil_from_days(days_since_unix_epoch: i64) -> (i64, i64, i64) {
+    let z = days_since_unix_epoch + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let mut year = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = mp + if mp < 10 { 3 } else { -9 };
+    year += if month <= 2 { 1 } else { 0 };
+    (year, month, day)
 }

@@ -33,8 +33,10 @@ pub(super) struct DiffBlock {
 #[derive(Debug, Clone)]
 pub(super) struct ThreadSummary {
     pub(super) id: String,
+    pub(super) name: Option<String>,
     pub(super) preview: String,
     pub(super) cwd: String,
+    pub(super) created_at: i64,
     pub(super) updated_at: i64,
 }
 

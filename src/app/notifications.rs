@@ -228,8 +228,18 @@ pub(super) fn parse_thread_list(response_line: &str) -> Result<Vec<ThreadSummary
         let Some(id) = obj.get("id").and_then(Value::as_str) else {
             continue;
         };
+        let name = obj
+            .get("name")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(ToOwned::to_owned);
         let preview = obj.get("preview").and_then(Value::as_str).unwrap_or("");
         let cwd = obj.get("cwd").and_then(Value::as_str).unwrap_or("");
+        let created_at = obj
+            .get("createdAt")
+            .and_then(|v| v.as_i64().or_else(|| v.as_u64().map(|n| n as i64)))
+            .unwrap_or(0);
         let updated_at = obj
             .get("updatedAt")
             .and_then(|v| v.as_i64().or_else(|| v.as_u64().map(|n| n as i64)))
@@ -237,8 +247,10 @@ pub(super) fn parse_thread_list(response_line: &str) -> Result<Vec<ThreadSummary
 
         out.push(ThreadSummary {
             id: id.to_string(),
+            name,
             preview: preview.to_string(),
             cwd: cwd.to_string(),
+            created_at,
             updated_at,
         });
     }

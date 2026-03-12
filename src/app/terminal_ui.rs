@@ -89,7 +89,7 @@ pub(super) fn pick_thread(threads: &[ThreadSummary]) -> Result<Option<String>> {
                 }
 
                 let layout = compute_picker_layout(size);
-                let list_height = layout.list_h.max(1);
+                let list_height = layout.list_h.saturating_sub(1).max(1);
                 if selected < top {
                     top = selected;
                 }
@@ -154,8 +154,9 @@ pub(super) fn pick_thread(threads: &[ThreadSummary]) -> Result<Option<String>> {
                             height: size.height as usize,
                         });
                         let row0 = m.row as usize;
-                        if row0 >= layout.list_y && row0 < layout.list_y + layout.list_h {
-                            let idx = top + (row0 - layout.list_y);
+                        let data_y = layout.list_y + 1;
+                        if row0 >= data_y && row0 < data_y + layout.list_h.saturating_sub(1) {
+                            let idx = top + (row0 - data_y);
                             if idx < threads.len() {
                                 selected = idx;
                                 return Ok(Some(threads[selected].id.clone()));
