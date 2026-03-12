@@ -869,6 +869,9 @@ pub(super) fn build_rendered_lines_with_hidden(
     let mut appended_any = false;
 
     for msg in &messages {
+        if !message_has_visible_content(msg) {
+            continue;
+        }
         if appended_any {
             out.push(RenderedLine {
                 text: String::new(),
@@ -898,6 +901,13 @@ pub(super) fn build_rendered_lines_with_hidden(
     }
 
     out
+}
+
+fn message_has_visible_content(msg: &Message) -> bool {
+    match msg.kind {
+        MessageKind::Diff => !msg.text.trim().is_empty(),
+        MessageKind::Plain => !msg.text.trim().is_empty(),
+    }
 }
 
 pub(super) fn transcript_content_width(size: TerminalSize) -> usize {

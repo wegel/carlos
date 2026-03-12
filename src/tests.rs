@@ -452,6 +452,35 @@ fn build_rendered_lines_reasoning_uses_markdown_text_without_markers() {
 }
 
 #[test]
+fn build_rendered_lines_skips_empty_placeholders_and_their_separators() {
+    let messages = vec![
+        Message {
+            role: Role::Assistant,
+            text: String::new(),
+            kind: MessageKind::Plain,
+            file_path: None,
+        },
+        Message {
+            role: Role::Reasoning,
+            text: "   ".to_string(),
+            kind: MessageKind::Plain,
+            file_path: None,
+        },
+        Message {
+            role: Role::Assistant,
+            text: "visible".to_string(),
+            kind: MessageKind::Plain,
+            file_path: None,
+        },
+    ];
+
+    let rendered = build_rendered_lines(&messages, 120);
+    assert_eq!(rendered.len(), 1);
+    assert_eq!(rendered[0].text, "visible");
+    assert!(!rendered[0].separator);
+}
+
+#[test]
 fn build_rendered_lines_tool_output_multiline_has_no_indent() {
     let messages = vec![Message {
         role: Role::ToolOutput,
