@@ -481,6 +481,44 @@ fn build_rendered_lines_skips_empty_placeholders_and_their_separators() {
 }
 
 #[test]
+fn build_rendered_lines_renders_commentary_as_preamble() {
+    let messages = vec![Message {
+        role: Role::Commentary,
+        text: "checking the diff".to_string(),
+        kind: MessageKind::Plain,
+        file_path: None,
+    }];
+
+    let rendered = build_rendered_lines(&messages, 120);
+    assert_eq!(rendered.len(), 1);
+    assert_eq!(rendered[0].text, "→ checking the diff");
+}
+
+#[test]
+fn build_rendered_lines_groups_commentary_with_following_tool_call() {
+    let messages = vec![
+        Message {
+            role: Role::Commentary,
+            text: "checking the diff".to_string(),
+            kind: MessageKind::Plain,
+            file_path: None,
+        },
+        Message {
+            role: Role::ToolCall,
+            text: "→ Read src/main.rs".to_string(),
+            kind: MessageKind::Plain,
+            file_path: None,
+        },
+    ];
+
+    let rendered = build_rendered_lines(&messages, 120);
+    assert_eq!(rendered.len(), 2);
+    assert!(!rendered.iter().any(|line| line.separator));
+    assert_eq!(rendered[0].text, "→ checking the diff");
+    assert_eq!(rendered[1].text, "→ Read src/main.rs");
+}
+
+#[test]
 fn build_rendered_lines_tool_output_multiline_has_no_indent() {
     let messages = vec![Message {
         role: Role::ToolOutput,

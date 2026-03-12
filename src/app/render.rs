@@ -35,7 +35,7 @@ pub(super) fn role_prefix(role: Role) -> &'static str {
     match role {
         Role::User => "",
         Role::Assistant => "",
-        Role::Commentary => "",
+        Role::Commentary => "→ ",
         Role::Reasoning => "",
         Role::ToolCall => "",
         Role::ToolOutput => "",
@@ -866,14 +866,14 @@ pub(super) fn build_rendered_lines_with_hidden(
         filtered.push(msg.clone());
     }
     let messages = collapse_successive_read_summaries(&filtered);
+    let visible_messages: Vec<_> = messages
+        .iter()
+        .filter(|msg| message_has_visible_content(msg))
+        .collect();
     let mut out = Vec::new();
-    let mut appended_any = false;
 
-    for msg in &messages {
-        if !message_has_visible_content(msg) {
-            continue;
-        }
-        if appended_any {
+    for (i, msg) in visible_messages.iter().enumerate() {
+        if i > 0 && should_insert_separator_between(visible_messages[i - 1], visible_messages[i]) {
             out.push(RenderedLine {
                 text: String::new(),
                 styled_segments: Vec::new(),
@@ -892,13 +892,12 @@ pub(super) fn build_rendered_lines_with_hidden(
                 width,
             ),
             MessageKind::Plain => match msg.role {
-                Role::Assistant | Role::Commentary | Role::Reasoning => {
+                Role::Assistant | Role::Reasoning => {
                     append_wrapped_markdown_lines(&mut out, msg.role, &msg.text, width);
                 }
                 _ => append_wrapped_message_lines(&mut out, msg.role, &msg.text, width),
             },
         }
-        appended_any = true;
     }
 
     out
@@ -909,6 +908,15 @@ fn message_has_visible_content(msg: &Message) -> bool {
         MessageKind::Diff => !msg.text.trim().is_empty(),
         MessageKind::Plain => !msg.text.trim().is_empty(),
     }
+}
+
+fn should_insert_separator_between(prev: &Message, next: &Message) -> bool {
+    if matches!(prev.role, Role::Commentary)
+        && matches!(next.role, Role::ToolCall | Role::ToolOutput)
+    {
+        return false;
+    }
+    true
 }
 
 pub(super) fn transcript_content_width(size: TerminalSize) -> usize {
