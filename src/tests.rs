@@ -913,6 +913,38 @@ fn append_history_from_thread_includes_context_compaction_marker() {
 }
 
 #[test]
+fn append_history_from_thread_preserves_agent_commentary_phase() {
+    let mut app = AppState::new("thread-1".to_string());
+    let thread = json!({
+        "turns": [
+            {
+                "items": [
+                    {
+                        "type": "agentMessage",
+                        "id": "a-1",
+                        "phase": "commentary",
+                        "text": "checking the diff"
+                    },
+                    {
+                        "type": "agentMessage",
+                        "id": "a-2",
+                        "phase": "final",
+                        "text": "done"
+                    }
+                ]
+            }
+        ]
+    });
+
+    append_history_from_thread(&mut app, &thread);
+    assert_eq!(app.messages.len(), 2);
+    assert_eq!(app.messages[0].role, Role::Commentary);
+    assert_eq!(app.messages[0].text, "checking the diff");
+    assert_eq!(app.messages[1].role, Role::Assistant);
+    assert_eq!(app.messages[1].text, "done");
+}
+
+#[test]
 fn handle_notification_turn_diff_updated_upserts_diff_message() {
     let mut app = AppState::new("thread-1".to_string());
     handle_notification_line(
@@ -1005,6 +1037,18 @@ fn raw_function_call_dedupes_with_command_execution_item_started() {
         );
 
     assert_eq!(app.messages.len(), 1);
+}
+
+#[test]
+fn item_started_agent_message_uses_commentary_role_when_phase_present() {
+    let mut app = AppState::new("thread-1".to_string());
+    handle_notification_line(
+        &mut app,
+        "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"agentMessage\",\"id\":\"msg-1\",\"phase\":\"commentary\",\"text\":\"\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+    );
+
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(app.messages[0].role, Role::Commentary);
 }
 
 #[test]

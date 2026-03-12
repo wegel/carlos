@@ -16,6 +16,7 @@ pub(crate) const COLOR_OVERLAY: Color = Color::Rgb(17, 17, 27);
 
 pub(crate) const COLOR_ROW_USER: Color = Color::Rgb(34, 36, 54);
 pub(crate) const COLOR_ROW_AGENT_OUTPUT: Color = COLOR_ROW_SYSTEM;
+pub(crate) const COLOR_ROW_AGENT_COMMENTARY: Color = Color::Rgb(34, 36, 48);
 pub(crate) const COLOR_ROW_AGENT_THINKING: Color = Color::Rgb(40, 42, 60);
 pub(crate) const COLOR_ROW_TOOL_CALL: Color = Color::Rgb(44, 40, 58);
 pub(crate) const COLOR_ROW_TOOL_OUTPUT: Color = Color::Rgb(38, 43, 53);
@@ -23,6 +24,7 @@ pub(crate) const COLOR_ROW_SYSTEM: Color = COLOR_STEP2;
 
 pub(crate) const COLOR_GUTTER_USER: Color = Color::Rgb(137, 180, 250); // blue
 pub(crate) const COLOR_GUTTER_AGENT_OUTPUT: Color = Color::Rgb(166, 227, 161); // green
+pub(crate) const COLOR_GUTTER_AGENT_COMMENTARY: Color = Color::Rgb(137, 220, 235); // sky
 pub(crate) const COLOR_GUTTER_AGENT_THINKING: Color = Color::Rgb(245, 194, 231); // pink
 pub(crate) const COLOR_GUTTER_TOOL_CALL: Color = Color::Rgb(250, 179, 135); // peach
 pub(crate) const COLOR_GUTTER_TOOL_OUTPUT: Color = Color::Rgb(250, 179, 135); // peach
@@ -47,6 +49,7 @@ pub(crate) fn role_fg(role: Role) -> Color {
     match role {
         Role::User => COLOR_TEXT,
         Role::Assistant => COLOR_TEXT,
+        Role::Commentary => COLOR_DIM,
         Role::Reasoning => COLOR_TEXT,
         Role::ToolCall => COLOR_TEXT,
         Role::ToolOutput => COLOR_TEXT,
@@ -58,6 +61,7 @@ pub(crate) fn role_gutter_fg(role: Role) -> Color {
     match role {
         Role::User => COLOR_GUTTER_USER,
         Role::Assistant => COLOR_GUTTER_AGENT_OUTPUT,
+        Role::Commentary => COLOR_GUTTER_AGENT_COMMENTARY,
         Role::Reasoning => COLOR_GUTTER_AGENT_THINKING,
         Role::ToolCall => COLOR_GUTTER_TOOL_CALL,
         Role::ToolOutput => COLOR_GUTTER_TOOL_OUTPUT,
@@ -69,6 +73,7 @@ pub(crate) fn role_row_bg(role: Role) -> Color {
     match role {
         Role::User => COLOR_ROW_USER,
         Role::Assistant => COLOR_ROW_AGENT_OUTPUT,
+        Role::Commentary => COLOR_ROW_AGENT_COMMENTARY,
         Role::Reasoning => COLOR_ROW_AGENT_THINKING,
         Role::ToolCall => COLOR_ROW_TOOL_CALL,
         Role::ToolOutput => COLOR_ROW_TOOL_OUTPUT,
@@ -79,6 +84,7 @@ pub(crate) fn role_row_bg(role: Role) -> Color {
 pub(crate) fn role_gutter_symbol(role: Role) -> &'static str {
     match role {
         Role::Assistant => " ",
+        Role::Commentary => "·",
         _ => "┃",
     }
 }

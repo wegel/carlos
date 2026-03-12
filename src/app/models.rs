@@ -4,6 +4,7 @@ use ratatui::style::Style;
 pub(crate) enum Role {
     User,
     Assistant,
+    Commentary,
     Reasoning,
     ToolCall,
     ToolOutput,

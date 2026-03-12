@@ -50,6 +50,13 @@ pub(super) fn append_tool_history_item(app: &mut AppState, item: &Value, role: R
     append_item_text_from_content(app, item, role);
 }
 
+fn agent_role_from_phase(item: &serde_json::Map<String, Value>) -> Role {
+    match item.get("phase").and_then(Value::as_str) {
+        Some("commentary") => Role::Commentary,
+        _ => Role::Assistant,
+    }
+}
+
 pub(super) fn upsert_tool_message(
     app: &mut AppState,
     key: &str,
@@ -159,7 +166,11 @@ pub(super) fn append_history_from_thread(app: &mut AppState, thread_obj: &Value)
                 }
                 "agentMessage" => {
                     if let Some(t) = item.get("text").and_then(Value::as_str) {
-                        app.append_message(Role::Assistant, t.to_string());
+                        let role = item
+                            .as_object()
+                            .map(agent_role_from_phase)
+                            .unwrap_or(Role::Assistant);
+                        app.append_message(role, t.to_string());
                     }
                 }
                 "reasoning" => {
@@ -418,7 +429,8 @@ pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
                 }
                 "agentMessage" => {
                     if let Some(id) = item.get("id").and_then(Value::as_str) {
-                        let idx = app.append_message(Role::Assistant, String::new());
+                        let role = agent_role_from_phase(item);
+                        let idx = app.append_message(role, String::new());
                         app.put_agent_item_mapping(id, idx);
                     }
                 }
@@ -465,10 +477,41 @@ pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
             let Some(kind) = item.get("type").and_then(Value::as_str) else {
                 return;
             };
+            let item_value = Value::Object(item.clone());
             if kind == "contextCompaction" {
                 app.append_context_compacted_marker();
                 return;
             }
+            if kind == "agentMessage" {
+                let role = agent_role_from_phase(item);
+                let item_id = item.get("id").and_then(Value::as_str);
+                let text = item
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .map(ToOwned::to_owned)
+                    .or_else(|| item_text_from_content(&item_value));
+                if let Some(id) = item_id {
+                    if let Some(idx) = app.agent_item_to_index.get(id).copied() {
+                        if let Some(msg) = app.messages.get_mut(idx) {
+                            msg.role = role;
+                            if let Some(text) = text {
+                                msg.text = text;
+                            }
+                            msg.kind = MessageKind::Plain;
+                            msg.file_path = None;
+                        }
+                        app.mark_transcript_dirty();
+                        app.auto_follow_bottom = true;
+                        return;
+                    }
+                }
+                if let Some(text) = text {
+                    app.append_message(role, text);
+                    app.auto_follow_bottom = true;
+                }
+                return;
+            }
+
             let Some(mut role) = role_for_tool_type(kind) else {
                 return;
             };
@@ -476,7 +519,6 @@ pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
                 role = Role::ToolOutput;
             }
 
-            let item_value = Value::Object(item.clone());
             let diffs = extract_diff_blocks(&item_value);
             if diffs.is_empty() {
                 let item_id = item.get("id").and_then(Value::as_str);

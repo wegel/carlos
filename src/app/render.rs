@@ -35,6 +35,7 @@ pub(super) fn role_prefix(role: Role) -> &'static str {
     match role {
         Role::User => "",
         Role::Assistant => "",
+        Role::Commentary => "",
         Role::Reasoning => "",
         Role::ToolCall => "",
         Role::ToolOutput => "",
@@ -891,7 +892,7 @@ pub(super) fn build_rendered_lines_with_hidden(
                 width,
             ),
             MessageKind::Plain => match msg.role {
-                Role::Assistant | Role::Reasoning => {
+                Role::Assistant | Role::Commentary | Role::Reasoning => {
                     append_wrapped_markdown_lines(&mut out, msg.role, &msg.text, width);
                 }
                 _ => append_wrapped_message_lines(&mut out, msg.role, &msg.text, width),
@@ -1062,7 +1063,7 @@ pub(super) fn last_assistant_message(messages: &[Message]) -> Option<&str> {
     messages
         .iter()
         .rev()
-        .find(|m| m.role == Role::Assistant && !m.text.is_empty())
+        .find(|m| matches!(m.role, Role::Assistant) && !m.text.is_empty())
         .map(|m| m.text.as_str())
 }
 
@@ -1631,6 +1632,8 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
         let mut base_style = Style::default().fg(role_fg(line.role));
         if matches!(line.role, Role::Reasoning) {
             base_style = base_style.add_modifier(Modifier::DIM);
+        } else if matches!(line.role, Role::Commentary) {
+            base_style = base_style.add_modifier(Modifier::DIM | Modifier::ITALIC);
         }
 
         let selection_range = app
