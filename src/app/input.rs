@@ -114,8 +114,14 @@ fn submit_turn_text(client: &AppServerClient, app: &mut AppState, text: String) 
             Err(e) => app.set_status(format!("{e}")),
         }
     } else {
-        let (model, effort) = app.take_pending_runtime_settings();
-        let params = params_turn_start(&app.thread_id, &text, model.as_deref(), effort.as_deref());
+        let (model, effort, summary) = app.take_pending_runtime_settings();
+        let params = params_turn_start(
+            &app.thread_id,
+            &text,
+            model.as_deref(),
+            effort.as_deref(),
+            summary.as_deref(),
+        );
         match client.call("turn/start", params, Duration::from_secs(10)) {
             Ok(_) => {
                 app.mark_runtime_settings_applied();
@@ -315,6 +321,9 @@ pub(super) fn run_conversation_tui(
                                             super::state::ModelSettingsField::Effort => {
                                                 app.model_settings_cycle_effort(-1);
                                             }
+                                            super::state::ModelSettingsField::Summary => {
+                                                app.model_settings_cycle_summary(-1);
+                                            }
                                         },
                                         (KeyCode::Right, _) => match app.model_settings_field {
                                             super::state::ModelSettingsField::Model => {
@@ -322,6 +331,9 @@ pub(super) fn run_conversation_tui(
                                             }
                                             super::state::ModelSettingsField::Effort => {
                                                 app.model_settings_cycle_effort(1);
+                                            }
+                                            super::state::ModelSettingsField::Summary => {
+                                                app.model_settings_cycle_summary(1);
                                             }
                                         },
                                         (KeyCode::Backspace, _)

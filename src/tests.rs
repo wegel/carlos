@@ -1790,18 +1790,35 @@ fn parse_thread_runtime_settings_reads_model_and_effort() {
 }
 
 #[test]
-fn params_turn_start_includes_model_and_effort_when_set() {
-    let params = params_turn_start("thread-1", "hello", Some("gpt-5"), Some("high"));
+fn params_turn_start_includes_model_effort_and_summary_when_set() {
+    let params = params_turn_start(
+        "thread-1",
+        "hello",
+        Some("gpt-5"),
+        Some("high"),
+        Some("auto"),
+    );
     assert_eq!(params["threadId"], "thread-1");
     assert_eq!(params["model"], "gpt-5");
     assert_eq!(params["effort"], "high");
+    assert_eq!(params["summary"], "auto");
 }
 
 #[test]
-fn params_turn_start_omits_model_and_effort_when_missing() {
-    let params = params_turn_start("thread-1", "hello", None, None);
+fn params_turn_start_omits_model_effort_and_summary_when_missing() {
+    let params = params_turn_start("thread-1", "hello", None, None, None);
     assert!(params.get("model").is_none());
     assert!(params.get("effort").is_none());
+    assert!(params.get("summary").is_none());
+}
+
+#[test]
+fn runtime_settings_label_shows_pending_summary_override() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.set_runtime_settings(Some("gpt-5".to_string()), Some("high".to_string()), None);
+    app.apply_default_reasoning_summary(Some("auto".to_string()));
+
+    assert_eq!(app.runtime_settings_label(), "gpt-5/high/auto*");
 }
 
 #[test]

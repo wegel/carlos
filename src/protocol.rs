@@ -241,6 +241,7 @@ pub(crate) fn params_turn_start(
     text: &str,
     model: Option<&str>,
     effort: Option<&str>,
+    summary: Option<&str>,
 ) -> Value {
     let mut params = json!({
         "threadId": thread_id,
@@ -255,6 +256,9 @@ pub(crate) fn params_turn_start(
     }
     if let Some(effort) = effort.filter(|e| !e.trim().is_empty()) {
         params["effort"] = Value::String(effort.to_string());
+    }
+    if let Some(summary) = summary.filter(|s| !s.trim().is_empty()) {
+        params["summary"] = Value::String(summary.to_string());
     }
     params
 }

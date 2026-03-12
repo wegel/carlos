@@ -79,7 +79,7 @@ struct CliOptions {
 
 fn usage() {
     eprintln!(
-        "Usage:\n  carlos [resume [SESSION_ID]] [options]\n\nOptions:\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  -h, --help                     show this help\n\nKeys:\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)"
+        "Usage:\n  carlos [resume [SESSION_ID]] [options]\n\nOptions:\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  -h, --help                     show this help\n\nKeys:\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)\n  CARLOS_REASONING_SUMMARY=...   auto | concise | detailed | none (default: auto)"
     );
 }
 
@@ -147,6 +147,17 @@ fn env_flag_enabled(name: &str) -> bool {
             )
         }
         Err(_) => false,
+    }
+}
+
+fn default_reasoning_summary() -> Option<String> {
+    match env::var("CARLOS_REASONING_SUMMARY") {
+        Ok(value) => match value.trim() {
+            "" => Some("auto".to_string()),
+            "auto" | "concise" | "detailed" | "none" => Some(value.trim().to_string()),
+            _ => Some("auto".to_string()),
+        },
+        Err(_) => Some("auto".to_string()),
     }
 }
 
@@ -244,7 +255,8 @@ pub(crate) fn run() -> Result<()> {
         app.set_available_models(models);
     }
     let runtime_settings = parse_thread_runtime_settings(&start_resp)?;
-    app.set_runtime_settings(runtime_settings.model, runtime_settings.effort);
+    app.set_runtime_settings(runtime_settings.model, runtime_settings.effort, None);
+    app.apply_default_reasoning_summary(default_reasoning_summary());
     load_history_from_start_or_resume(&mut app, &start_resp)?;
     app.set_status("ready");
 

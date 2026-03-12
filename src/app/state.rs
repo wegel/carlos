@@ -20,11 +20,13 @@ use crate::protocol::ModelInfo;
 
 pub(super) const DEFAULT_EFFORT_OPTIONS: [&str; 6] =
     ["none", "minimal", "low", "medium", "high", "xhigh"];
+pub(super) const DEFAULT_SUMMARY_OPTIONS: [&str; 4] = ["auto", "concise", "detailed", "none"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ModelSettingsField {
     Model,
     Effort,
+    Summary,
 }
 
 pub(super) struct AppState {
@@ -58,14 +60,18 @@ pub(super) struct AppState {
     pub(super) ralph_blocked_marker_override: Option<String>,
     pub(super) current_model: Option<String>,
     pub(super) current_effort: Option<String>,
+    pub(super) current_summary: Option<String>,
     pub(super) pending_model: Option<String>,
     pub(super) pending_effort: Option<String>,
+    pub(super) pending_summary: Option<String>,
     pub(super) show_model_settings: bool,
     pub(super) model_settings_field: ModelSettingsField,
     pub(super) model_settings_model_input: String,
     pub(super) model_settings_model_index: usize,
     pub(super) model_settings_effort_options: Vec<String>,
     pub(super) model_settings_effort_index: usize,
+    pub(super) model_settings_summary_options: Vec<String>,
+    pub(super) model_settings_summary_index: usize,
     pub(super) available_models: Vec<ModelInfo>,
 
     pub(super) scroll_top: usize,
@@ -117,14 +123,21 @@ impl AppState {
             ralph_blocked_marker_override: None,
             current_model: None,
             current_effort: None,
+            current_summary: None,
             pending_model: None,
             pending_effort: None,
+            pending_summary: None,
             show_model_settings: false,
             model_settings_field: ModelSettingsField::Model,
             model_settings_model_input: String::new(),
             model_settings_model_index: 0,
             model_settings_effort_options: Vec::new(),
             model_settings_effort_index: 3,
+            model_settings_summary_options: DEFAULT_SUMMARY_OPTIONS
+                .iter()
+                .map(|s| (*s).to_string())
+                .collect(),
+            model_settings_summary_index: 0,
             available_models: Vec::new(),
             scroll_top: 0,
             auto_follow_bottom: true,
@@ -234,9 +247,15 @@ impl AppState {
         self.status = s.into();
     }
 
-    pub(super) fn set_runtime_settings(&mut self, model: Option<String>, effort: Option<String>) {
+    pub(super) fn set_runtime_settings(
+        &mut self,
+        model: Option<String>,
+        effort: Option<String>,
+        summary: Option<String>,
+    ) {
         self.current_model = model.and_then(normalize_non_empty);
         self.current_effort = effort.and_then(normalize_non_empty);
+        self.current_summary = summary.and_then(normalize_non_empty);
     }
 
     pub(super) fn set_available_models(&mut self, mut models: Vec<ModelInfo>) {
@@ -244,47 +263,79 @@ impl AppState {
         self.available_models = models;
     }
 
-    pub(super) fn queue_runtime_settings(&mut self, model: Option<String>, effort: Option<String>) {
+    pub(super) fn queue_runtime_settings(
+        &mut self,
+        model: Option<String>,
+        effort: Option<String>,
+        summary: Option<String>,
+    ) {
         self.pending_model = model.and_then(normalize_non_empty);
         self.pending_effort = effort.and_then(normalize_non_empty);
+        self.pending_summary = summary.and_then(normalize_non_empty);
     }
 
-    pub(super) fn take_pending_runtime_settings(&mut self) -> (Option<String>, Option<String>) {
-        (self.pending_model.clone(), self.pending_effort.clone())
+    pub(super) fn take_pending_runtime_settings(
+        &mut self,
+    ) -> (Option<String>, Option<String>, Option<String>) {
+        (
+            self.pending_model.clone(),
+            self.pending_effort.clone(),
+            self.pending_summary.clone(),
+        )
     }
 
     pub(super) fn mark_runtime_settings_applied(&mut self) {
-        if self.pending_model.is_some() || self.pending_effort.is_some() {
+        if self.pending_model.is_some()
+            || self.pending_effort.is_some()
+            || self.pending_summary.is_some()
+        {
             self.current_model = self.pending_model.clone();
             self.current_effort = self.pending_effort.clone();
+            self.current_summary = self.pending_summary.clone();
             self.pending_model = None;
             self.pending_effort = None;
+            self.pending_summary = None;
         }
     }
 
     pub(super) fn runtime_settings_label(&self) -> String {
-        let current_model = self.current_model.as_deref().unwrap_or("model?");
-        let current_effort = self.current_effort.as_deref().unwrap_or("effort?");
-        let mut out = format!("{current_model}/{current_effort}");
+        let shown_model = self
+            .pending_model
+            .as_deref()
+            .or(self.current_model.as_deref())
+            .unwrap_or("model?");
+        let shown_effort = self
+            .pending_effort
+            .as_deref()
+            .or(self.current_effort.as_deref())
+            .unwrap_or("effort?");
+        let shown_summary = self
+            .pending_summary
+            .as_deref()
+            .or(self.current_summary.as_deref())
+            .unwrap_or("summary?");
+        let mut out = format!("{shown_model}/{shown_effort}/{shown_summary}");
 
-        if let (Some(pm), Some(pe)) = (
-            self.pending_model.as_deref(),
-            self.pending_effort.as_deref(),
-        ) {
-            if pm != current_model || pe != current_effort {
-                out.push('*');
-            }
+        let pending_differs = self.pending_model.as_deref() != self.current_model.as_deref()
+            || self.pending_effort.as_deref() != self.current_effort.as_deref()
+            || self.pending_summary.as_deref() != self.current_summary.as_deref();
+        if self.runtime_settings_pending() && pending_differs {
+            out.push('*');
         }
 
         out
     }
 
     pub(super) fn has_runtime_settings(&self) -> bool {
-        self.current_model.is_some() || self.current_effort.is_some()
+        self.current_model.is_some()
+            || self.current_effort.is_some()
+            || self.current_summary.is_some()
     }
 
     pub(super) fn runtime_settings_pending(&self) -> bool {
-        self.pending_model.is_some() || self.pending_effort.is_some()
+        self.pending_model.is_some()
+            || self.pending_effort.is_some()
+            || self.pending_summary.is_some()
     }
 
     pub(super) fn open_model_settings(&mut self) {
@@ -309,6 +360,16 @@ impl AppState {
             .map(|m| m.model.clone())
             .unwrap_or_else(|| preferred_model.to_string());
         self.refresh_model_settings_efforts();
+        let preferred_summary = self
+            .pending_summary
+            .as_deref()
+            .or(self.current_summary.as_deref())
+            .unwrap_or("auto");
+        self.model_settings_summary_index = self
+            .model_settings_summary_options
+            .iter()
+            .position(|option| option == preferred_summary)
+            .unwrap_or(0);
     }
 
     pub(super) fn close_model_settings(&mut self) {
@@ -326,9 +387,11 @@ impl AppState {
     pub(super) fn model_settings_move_field(&mut self, forward: bool) {
         self.model_settings_field = match (self.model_settings_field, forward) {
             (ModelSettingsField::Model, true) => ModelSettingsField::Effort,
-            (ModelSettingsField::Effort, true) => ModelSettingsField::Model,
-            (ModelSettingsField::Model, false) => ModelSettingsField::Effort,
+            (ModelSettingsField::Effort, true) => ModelSettingsField::Summary,
+            (ModelSettingsField::Summary, true) => ModelSettingsField::Model,
+            (ModelSettingsField::Model, false) => ModelSettingsField::Summary,
             (ModelSettingsField::Effort, false) => ModelSettingsField::Model,
+            (ModelSettingsField::Summary, false) => ModelSettingsField::Effort,
         };
     }
 
@@ -359,6 +422,13 @@ impl AppState {
         self.refresh_model_settings_efforts();
     }
 
+    pub(super) fn model_settings_cycle_summary(&mut self, step: isize) {
+        let len = self.model_settings_summary_options.len() as isize;
+        let cur = self.model_settings_summary_index as isize;
+        let next = (cur + step).rem_euclid(len);
+        self.model_settings_summary_index = next as usize;
+    }
+
     pub(super) fn model_settings_has_model_choices(&self) -> bool {
         !self.available_models.is_empty()
     }
@@ -374,12 +444,13 @@ impl AppState {
     pub(super) fn apply_model_settings(&mut self) {
         let model = normalize_non_empty(self.model_settings_model_value().to_string());
         let effort = normalize_non_empty(self.model_settings_effort_value().to_string());
-        self.queue_runtime_settings(model, effort);
+        let summary = normalize_non_empty(self.model_settings_summary_value().to_string());
+        self.queue_runtime_settings(model, effort, summary);
         self.show_model_settings = false;
         if self.active_turn_id.is_some() {
-            self.set_status("model/effort pending next turn");
+            self.set_status("model/effort/summary pending next turn");
         } else {
-            self.set_status("model/effort set for next turn");
+            self.set_status("model/effort/summary set for next turn");
         }
     }
 
@@ -395,6 +466,19 @@ impl AppState {
             .get(self.model_settings_effort_index)
             .map(String::as_str)
             .unwrap_or("medium")
+    }
+
+    pub(super) fn model_settings_summary_value(&self) -> &str {
+        self.model_settings_summary_options
+            .get(self.model_settings_summary_index)
+            .map(String::as_str)
+            .unwrap_or("auto")
+    }
+
+    pub(super) fn apply_default_reasoning_summary(&mut self, summary: Option<String>) {
+        if self.current_summary.is_none() && self.pending_summary.is_none() {
+            self.pending_summary = summary.and_then(normalize_non_empty);
+        }
     }
 
     pub(super) fn enqueue_turn_input(&mut self, text: impl Into<String>) {

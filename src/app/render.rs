@@ -1328,7 +1328,7 @@ pub(super) fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize) {
         buf,
         start_x + 3,
         start_y + 5,
-        "Home/End jump transcript  Ctrl+M model/effort",
+        "Home/End jump transcript  Ctrl+M model/effort/summary",
         Style::default().fg(COLOR_TEXT),
         box_w.saturating_sub(6),
     );
@@ -1351,12 +1351,12 @@ pub(super) fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize) {
 }
 
 pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, app: &AppState) {
-    if !(size.height > 12 && size.width > 56) {
+    if !(size.height > 14 && size.width > 56) {
         return;
     }
 
     let box_w = (size.width - 10).min(80);
-    let box_h = 10usize;
+    let box_h = 12usize;
     let start_x = (size.width - box_w) / 2;
     let start_y = (size.height - box_h) / 2;
 
@@ -1391,7 +1391,7 @@ pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, 
         buf,
         start_x + 3,
         start_y + 1,
-        "Model / Thinking",
+        "Model / Thinking / Summary",
         Style::default()
             .fg(COLOR_PRIMARY)
             .add_modifier(Modifier::BOLD),
@@ -1422,8 +1422,17 @@ pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, 
     } else {
         Style::default().fg(COLOR_TEXT)
     };
+    let summary_style = if matches!(app.model_settings_field, ModelSettingsField::Summary) {
+        Style::default()
+            .fg(COLOR_TEXT)
+            .bg(COLOR_STEP6)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(COLOR_TEXT)
+    };
     let model_value = app.model_settings_model_value();
     let effort_value = app.model_settings_effort_value();
+    let summary_value = app.model_settings_summary_value();
 
     draw_str(
         buf,
@@ -1463,6 +1472,23 @@ pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, 
         buf,
         start_x + 3,
         start_y + 7,
+        "Summary",
+        Style::default().fg(COLOR_DIM),
+        8,
+    );
+    draw_str(
+        buf,
+        start_x + 12,
+        start_y + 7,
+        summary_value,
+        summary_style,
+        box_w.saturating_sub(16),
+    );
+
+    draw_str(
+        buf,
+        start_x + 3,
+        start_y + 9,
         "Tab switch field, arrows adjust, Enter apply",
         Style::default().fg(COLOR_DIM),
         box_w.saturating_sub(6),
@@ -1845,18 +1871,24 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
 
     let (cursor_x, cursor_y) = if app.show_model_settings {
         let box_w = (size.width.saturating_sub(10)).min(80);
-        let box_h = 10usize;
+        let box_h = 12usize;
         let start_x = (size.width.saturating_sub(box_w)) / 2;
         let start_y = (size.height.saturating_sub(box_h)) / 2;
-        let x = if matches!(app.model_settings_field, ModelSettingsField::Model) {
-            start_x + 12 + visual_width(app.model_settings_model_value())
-        } else {
-            start_x + 12 + visual_width(app.model_settings_effort_value())
+        let x = match app.model_settings_field {
+            ModelSettingsField::Model => {
+                start_x + 12 + visual_width(app.model_settings_model_value())
+            }
+            ModelSettingsField::Effort => {
+                start_x + 12 + visual_width(app.model_settings_effort_value())
+            }
+            ModelSettingsField::Summary => {
+                start_x + 12 + visual_width(app.model_settings_summary_value())
+            }
         };
-        let y = if matches!(app.model_settings_field, ModelSettingsField::Model) {
-            start_y + 3
-        } else {
-            start_y + 5
+        let y = match app.model_settings_field {
+            ModelSettingsField::Model => start_y + 3,
+            ModelSettingsField::Effort => start_y + 5,
+            ModelSettingsField::Summary => start_y + 7,
         };
         (x, y)
     } else {
