@@ -1070,12 +1070,12 @@ pub(super) struct PickerLayout {
 
 pub(super) fn compute_picker_layout(size: TerminalSize) -> PickerLayout {
     let panel_w = if size.width > 6 {
-        (size.width - 6).min(92)
+        size.width - 2
     } else {
         size.width
     };
     let panel_h = if size.height > 4 {
-        (size.height - 2).min(24)
+        size.height - 2
     } else {
         size.height
     };
