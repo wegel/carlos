@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use ratatui_textarea::TextArea;
+use serde_json::{json, Value};
 
 use super::context_usage::ContextUsage;
 use super::input::make_input_area;
@@ -27,6 +28,93 @@ pub(super) enum ModelSettingsField {
     Model,
     Effort,
     Summary,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ApprovalChoice {
+    Accept,
+    AcceptForSession,
+    Decline,
+    Cancel,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ApprovalRequestKind {
+    CommandExecution,
+    FileChange,
+    Permissions,
+    LegacyExecCommand,
+    LegacyApplyPatch,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct PendingApprovalRequest {
+    pub(super) request_id: Value,
+    pub(super) method: String,
+    pub(super) kind: ApprovalRequestKind,
+    pub(super) title: String,
+    pub(super) detail_lines: Vec<String>,
+    pub(super) requested_permissions: Option<Value>,
+    pub(super) can_accept_for_session: bool,
+    pub(super) can_decline: bool,
+    pub(super) can_cancel: bool,
+}
+
+impl PendingApprovalRequest {
+    pub(super) fn response_for_choice(&self, choice: ApprovalChoice) -> Option<Value> {
+        match self.kind {
+            ApprovalRequestKind::CommandExecution => match choice {
+                ApprovalChoice::Accept => Some(json!({ "decision": "accept" })),
+                ApprovalChoice::AcceptForSession if self.can_accept_for_session => {
+                    Some(json!({ "decision": "acceptForSession" }))
+                }
+                ApprovalChoice::Decline if self.can_decline => {
+                    Some(json!({ "decision": "decline" }))
+                }
+                ApprovalChoice::Cancel if self.can_cancel => Some(json!({ "decision": "cancel" })),
+                _ => None,
+            },
+            ApprovalRequestKind::FileChange => match choice {
+                ApprovalChoice::Accept => Some(json!({ "decision": "accept" })),
+                ApprovalChoice::AcceptForSession if self.can_accept_for_session => {
+                    Some(json!({ "decision": "acceptForSession" }))
+                }
+                ApprovalChoice::Decline if self.can_decline => {
+                    Some(json!({ "decision": "decline" }))
+                }
+                ApprovalChoice::Cancel if self.can_cancel => Some(json!({ "decision": "cancel" })),
+                _ => None,
+            },
+            ApprovalRequestKind::Permissions => match choice {
+                ApprovalChoice::Accept => Some(json!({
+                    "permissions": self.requested_permissions.clone().unwrap_or_else(|| json!({}))
+                })),
+                ApprovalChoice::AcceptForSession if self.can_accept_for_session => Some(json!({
+                    "permissions": self.requested_permissions.clone().unwrap_or_else(|| json!({})),
+                    "scope": "session"
+                })),
+                ApprovalChoice::Decline if self.can_decline => Some(json!({
+                    "permissions": {}
+                })),
+                _ => None,
+            },
+            ApprovalRequestKind::LegacyExecCommand | ApprovalRequestKind::LegacyApplyPatch => {
+                match choice {
+                    ApprovalChoice::Accept => Some(json!({ "decision": "approved" })),
+                    ApprovalChoice::AcceptForSession if self.can_accept_for_session => {
+                        Some(json!({ "decision": "approved_for_session" }))
+                    }
+                    ApprovalChoice::Decline if self.can_decline => {
+                        Some(json!({ "decision": "denied" }))
+                    }
+                    ApprovalChoice::Cancel if self.can_cancel => {
+                        Some(json!({ "decision": "abort" }))
+                    }
+                    _ => None,
+                }
+            }
+        }
+    }
 }
 
 pub(super) struct AppState {
@@ -73,6 +161,7 @@ pub(super) struct AppState {
     pub(super) model_settings_summary_options: Vec<String>,
     pub(super) model_settings_summary_index: usize,
     pub(super) available_models: Vec<ModelInfo>,
+    pub(super) pending_approval: Option<PendingApprovalRequest>,
 
     pub(super) scroll_top: usize,
     pub(super) auto_follow_bottom: bool,
@@ -139,6 +228,7 @@ impl AppState {
                 .collect(),
             model_settings_summary_index: 0,
             available_models: Vec::new(),
+            pending_approval: None,
             scroll_top: 0,
             auto_follow_bottom: true,
             selection: None,
@@ -245,6 +335,15 @@ impl AppState {
 
     pub(super) fn set_status(&mut self, s: impl Into<String>) {
         self.status = s.into();
+    }
+
+    pub(super) fn set_pending_approval(&mut self, approval: PendingApprovalRequest) {
+        self.status = format!("approval requested: {}", approval.title);
+        self.pending_approval = Some(approval);
+    }
+
+    pub(super) fn clear_pending_approval(&mut self) {
+        self.pending_approval = None;
     }
 
     pub(super) fn set_runtime_settings(

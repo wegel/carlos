@@ -15,8 +15,8 @@ use super::mobile_mouse::{
     parse_repeated_plain_mobile_pair, take_mobile_mouse_buffer, MobileMouseConsume,
 };
 use super::notifications::{
-    animation_poll_timeout, animation_tick, handle_notification_line, is_ctrl_char,
-    is_key_press_like, is_perf_toggle_key,
+    animation_poll_timeout, animation_tick, handle_server_message_line, is_ctrl_char,
+    is_key_press_like, is_perf_toggle_key, ServerRequestAction,
 };
 use super::render::{
     compute_input_layout, is_newline_enter, last_assistant_message, normalize_pasted_text,
@@ -26,6 +26,7 @@ use super::selection::{
     decide_mouse_drag_mode, normalize_selection_x, selected_text, shift_selection_focus,
     MouseDragMode, Selection,
 };
+use super::state::ApprovalChoice;
 use super::{persist_runtime_defaults, with_terminal, AppState, TerminalSize, MSG_TOP};
 use crate::clipboard::{clipboard_backend_label, try_copy_clipboard};
 use crate::event::{spawn_event_forwarders, UiEvent};
@@ -130,6 +131,34 @@ fn submit_turn_text(client: &AppServerClient, app: &mut AppState, text: String) 
             }
             Err(e) => app.set_status(format!("{e}")),
         }
+    }
+}
+
+fn respond_to_pending_approval(
+    client: &AppServerClient,
+    app: &mut AppState,
+    choice: ApprovalChoice,
+) {
+    let Some(pending) = app.pending_approval.clone() else {
+        return;
+    };
+    let Some(result) = pending.response_for_choice(choice) else {
+        app.set_status("approval choice not available");
+        return;
+    };
+
+    match client.respond(&pending.request_id, result) {
+        Ok(_) => {
+            app.clear_pending_approval();
+            let status = match choice {
+                ApprovalChoice::Accept => "approval accepted",
+                ApprovalChoice::AcceptForSession => "approval accepted for session",
+                ApprovalChoice::Decline => "approval declined",
+                ApprovalChoice::Cancel => "approval canceled",
+            };
+            app.set_status(status);
+        }
+        Err(err) => app.set_status(format!("approval reply failed: {err}")),
     }
 }
 
@@ -254,7 +283,23 @@ pub(super) fn run_conversation_tui(
                         if let Some(perf) = app.perf.as_mut() {
                             perf.notifications = perf.notifications.saturating_add(1);
                         }
-                        handle_notification_line(app, &line);
+                        if let Some(action) = handle_server_message_line(app, &line) {
+                            match action {
+                                ServerRequestAction::ReplyError {
+                                    request_id,
+                                    code,
+                                    message,
+                                } => {
+                                    if let Err(err) =
+                                        client.respond_error(&request_id, code, &message)
+                                    {
+                                        app.set_status(format!(
+                                            "server request reply failed: {err}"
+                                        ));
+                                    }
+                                }
+                            }
+                        }
                         needs_draw = true;
                     }
                     UiEvent::Terminal(ev) => {
@@ -297,6 +342,51 @@ pub(super) fn run_conversation_tui(
                                         }
                                         (KeyCode::Char('?'), _) => {
                                             app.show_help = false;
+                                        }
+                                        _ => {}
+                                    }
+                                    needs_draw = true;
+                                    continue;
+                                }
+                                if app.pending_approval.is_some() {
+                                    match (k.code, k.modifiers) {
+                                        (code, mods) if is_ctrl_char(code, mods, 'c') => {
+                                            return Ok(())
+                                        }
+                                        (KeyCode::Char('y'), mods) if mods.is_empty() => {
+                                            respond_to_pending_approval(
+                                                client,
+                                                app,
+                                                ApprovalChoice::Accept,
+                                            );
+                                        }
+                                        (KeyCode::Char('a'), mods) if mods.is_empty() => {
+                                            respond_to_pending_approval(
+                                                client,
+                                                app,
+                                                ApprovalChoice::Accept,
+                                            );
+                                        }
+                                        (KeyCode::Char('s'), mods) if mods.is_empty() => {
+                                            respond_to_pending_approval(
+                                                client,
+                                                app,
+                                                ApprovalChoice::AcceptForSession,
+                                            );
+                                        }
+                                        (KeyCode::Char('n'), mods) if mods.is_empty() => {
+                                            respond_to_pending_approval(
+                                                client,
+                                                app,
+                                                ApprovalChoice::Decline,
+                                            );
+                                        }
+                                        (KeyCode::Char('c'), mods) if mods.is_empty() => {
+                                            respond_to_pending_approval(
+                                                client,
+                                                app,
+                                                ApprovalChoice::Cancel,
+                                            );
                                         }
                                         _ => {}
                                     }

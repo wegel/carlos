@@ -150,6 +150,25 @@ impl AppServerClient {
         }
     }
 
+    pub(crate) fn respond(&self, request_id: &Value, result: Value) -> Result<()> {
+        self.send_json_line(json!({
+            "jsonrpc": "2.0",
+            "id": request_id.clone(),
+            "result": result,
+        }))
+    }
+
+    pub(crate) fn respond_error(&self, request_id: &Value, code: i64, message: &str) -> Result<()> {
+        self.send_json_line(json!({
+            "jsonrpc": "2.0",
+            "id": request_id.clone(),
+            "error": {
+                "code": code,
+                "message": message,
+            }
+        }))
+    }
+
     pub(crate) fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>> {
         self.events_rx
             .take()
@@ -167,6 +186,20 @@ impl AppServerClient {
             }
         }
         let _ = self.reader_thread.take();
+    }
+}
+
+impl AppServerClient {
+    fn send_json_line(&self, value: Value) -> Result<()> {
+        let line = value.to_string();
+        let mut stdin = self
+            .stdin
+            .lock()
+            .map_err(|_| anyhow!("stdin lock poisoned"))?;
+        stdin.write_all(line.as_bytes())?;
+        stdin.write_all(b"\n")?;
+        stdin.flush()?;
+        Ok(())
     }
 }
 

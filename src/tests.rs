@@ -768,6 +768,77 @@ fn handle_notification_turn_completed_interrupted_appends_system_message() {
 }
 
 #[test]
+fn handle_server_request_command_execution_sets_pending_approval() {
+    let mut app = AppState::new("thread-1".to_string());
+
+    let action = handle_server_message_line(
+        &mut app,
+        "{\"jsonrpc\":\"2.0\",\"id\":\"req-1\",\"method\":\"item/commandExecution/requestApproval\",\"params\":{\"itemId\":\"item-1\",\"threadId\":\"thread-1\",\"turnId\":\"turn-1\",\"command\":\"git diff -- src/main.rs\",\"cwd\":\"/repo\",\"reason\":\"needs write access\",\"availableDecisions\":[\"accept\",\"acceptForSession\",\"decline\",\"cancel\"]}}",
+    );
+
+    assert!(action.is_none());
+    let pending = app.pending_approval.expect("pending approval");
+    assert_eq!(pending.method, "item/commandExecution/requestApproval");
+    assert_eq!(pending.title, "Approve command execution");
+    assert_eq!(pending.detail_lines[0], "git diff -- src/main.rs");
+    assert!(pending.can_accept_for_session);
+    assert!(pending.can_decline);
+    assert!(pending.can_cancel);
+}
+
+#[test]
+fn permissions_approval_response_allows_turn_or_session_grant() {
+    let request = super::state::PendingApprovalRequest {
+        request_id: json!("req-2"),
+        method: "item/permissions/requestApproval".to_string(),
+        kind: super::state::ApprovalRequestKind::Permissions,
+        title: "Grant additional permissions".to_string(),
+        detail_lines: vec!["network access".to_string()],
+        requested_permissions: Some(json!({"network":{"enabled":true}})),
+        can_accept_for_session: true,
+        can_decline: true,
+        can_cancel: false,
+    };
+
+    assert_eq!(
+        request.response_for_choice(super::state::ApprovalChoice::Accept),
+        Some(json!({"permissions":{"network":{"enabled":true}}}))
+    );
+    assert_eq!(
+        request.response_for_choice(super::state::ApprovalChoice::AcceptForSession),
+        Some(json!({"permissions":{"network":{"enabled":true}},"scope":"session"}))
+    );
+    assert_eq!(
+        request.response_for_choice(super::state::ApprovalChoice::Decline),
+        Some(json!({"permissions":{}}))
+    );
+}
+
+#[test]
+fn unsupported_server_request_returns_jsonrpc_error_action() {
+    let mut app = AppState::new("thread-1".to_string());
+
+    let action = handle_server_message_line(
+        &mut app,
+        "{\"jsonrpc\":\"2.0\",\"id\":99,\"method\":\"item/tool/requestUserInput\",\"params\":{\"itemId\":\"item-1\"}}",
+    );
+
+    match action {
+        Some(ServerRequestAction::ReplyError {
+            request_id,
+            code,
+            message,
+        }) => {
+            assert_eq!(request_id, json!(99));
+            assert_eq!(code, -32601);
+            assert!(message.contains("unsupported server request"));
+        }
+        _ => panic!("expected reply error"),
+    }
+    assert!(app.pending_approval.is_none());
+}
+
+#[test]
 fn append_turn_interrupted_marker_is_deduplicated() {
     let mut app = AppState::new("thread-1".to_string());
     app.append_turn_interrupted_marker();

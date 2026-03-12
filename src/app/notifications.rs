@@ -2,15 +2,264 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
+use serde_json::json;
 use serde_json::Value;
 
 use super::context_usage::{
     context_usage_from_thread_token_usage_params, context_usage_from_token_count_params,
 };
+use super::state::{ApprovalRequestKind, PendingApprovalRequest};
 use super::tools::*;
 use super::{AppState, MessageKind, Role, ThreadSummary};
 use crate::protocol::*;
 use crate::theme::KITT_STEP_MS;
+
+pub(super) enum ServerRequestAction {
+    ReplyError {
+        request_id: Value,
+        code: i64,
+        message: String,
+    },
+}
+
+fn approval_decisions(params: &serde_json::Map<String, Value>) -> (bool, bool, bool) {
+    let Some(decisions) = params.get("availableDecisions").and_then(Value::as_array) else {
+        return (true, true, true);
+    };
+
+    let mut allow_session = false;
+    let mut allow_decline = false;
+    let mut allow_cancel = false;
+    for entry in decisions {
+        match entry.as_str() {
+            Some("acceptForSession") => allow_session = true,
+            Some("decline") => allow_decline = true,
+            Some("cancel") => allow_cancel = true,
+            _ => {}
+        }
+    }
+    (allow_session, allow_decline, allow_cancel)
+}
+
+fn summarize_permission_profile(profile: &Value, out: &mut Vec<String>) {
+    if let Some(read) = profile
+        .get("fileSystem")
+        .and_then(|fs| fs.get("read"))
+        .and_then(Value::as_array)
+    {
+        let items: Vec<&str> = read.iter().filter_map(Value::as_str).collect();
+        if !items.is_empty() {
+            out.push(format!("read: {}", items.join(", ")));
+        }
+    }
+    if let Some(write) = profile
+        .get("fileSystem")
+        .and_then(|fs| fs.get("write"))
+        .and_then(Value::as_array)
+    {
+        let items: Vec<&str> = write.iter().filter_map(Value::as_str).collect();
+        if !items.is_empty() {
+            out.push(format!("write: {}", items.join(", ")));
+        }
+    }
+    if profile
+        .get("network")
+        .and_then(|n| n.get("enabled"))
+        .and_then(Value::as_bool)
+        == Some(true)
+    {
+        out.push("network access".to_string());
+    }
+    if profile
+        .get("macos")
+        .and_then(|m| m.get("accessibility"))
+        .and_then(Value::as_bool)
+        == Some(true)
+    {
+        out.push("macOS accessibility".to_string());
+    }
+    if let Some(pref) = profile
+        .get("macos")
+        .and_then(|m| m.get("preferences"))
+        .and_then(Value::as_str)
+        .filter(|value| *value != "none")
+    {
+        out.push(format!("macOS preferences: {pref}"));
+    }
+}
+
+fn pending_approval_from_request(
+    method: &str,
+    params: &serde_json::Map<String, Value>,
+    request_id: Value,
+) -> Option<PendingApprovalRequest> {
+    match method {
+        "item/commandExecution/requestApproval" => {
+            let command = params
+                .get("command")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .unwrap_or("command");
+            let mut detail_lines = vec![command.to_string()];
+            if let Some(cwd) = params
+                .get("cwd")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                detail_lines.push(format!("cwd: {cwd}"));
+            }
+            if let Some(reason) = params
+                .get("reason")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                detail_lines.push(format!("reason: {reason}"));
+            }
+            if let Some(extra) = params.get("additionalPermissions") {
+                summarize_permission_profile(extra, &mut detail_lines);
+            }
+            let (can_accept_for_session, can_decline, can_cancel) = approval_decisions(params);
+            Some(PendingApprovalRequest {
+                request_id,
+                method: method.to_string(),
+                kind: ApprovalRequestKind::CommandExecution,
+                title: "Approve command execution".to_string(),
+                detail_lines,
+                requested_permissions: None,
+                can_accept_for_session,
+                can_decline,
+                can_cancel,
+            })
+        }
+        "item/fileChange/requestApproval" => {
+            let mut detail_lines = Vec::new();
+            if let Some(reason) = params
+                .get("reason")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                detail_lines.push(reason.to_string());
+            }
+            if let Some(root) = params
+                .get("grantRoot")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                detail_lines.push(format!("grant root: {root}"));
+            }
+            Some(PendingApprovalRequest {
+                request_id,
+                method: method.to_string(),
+                kind: ApprovalRequestKind::FileChange,
+                title: "Approve file changes".to_string(),
+                detail_lines,
+                requested_permissions: None,
+                can_accept_for_session: true,
+                can_decline: true,
+                can_cancel: true,
+            })
+        }
+        "item/permissions/requestApproval" => {
+            let permissions = params
+                .get("permissions")
+                .cloned()
+                .unwrap_or_else(|| json!({}));
+            let mut detail_lines = Vec::new();
+            if let Some(reason) = params
+                .get("reason")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                detail_lines.push(reason.to_string());
+            }
+            summarize_permission_profile(&permissions, &mut detail_lines);
+            Some(PendingApprovalRequest {
+                request_id,
+                method: method.to_string(),
+                kind: ApprovalRequestKind::Permissions,
+                title: "Grant additional permissions".to_string(),
+                detail_lines,
+                requested_permissions: Some(permissions),
+                can_accept_for_session: true,
+                can_decline: true,
+                can_cancel: false,
+            })
+        }
+        "execCommandApproval" => {
+            let command = params
+                .get("command")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .unwrap_or("command");
+            let mut detail_lines = vec![command.to_string()];
+            if let Some(cwd) = params
+                .get("cwd")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                detail_lines.push(format!("cwd: {cwd}"));
+            }
+            if let Some(reason) = params
+                .get("reason")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                detail_lines.push(format!("reason: {reason}"));
+            }
+            Some(PendingApprovalRequest {
+                request_id,
+                method: method.to_string(),
+                kind: ApprovalRequestKind::LegacyExecCommand,
+                title: "Approve command execution".to_string(),
+                detail_lines,
+                requested_permissions: None,
+                can_accept_for_session: true,
+                can_decline: true,
+                can_cancel: true,
+            })
+        }
+        "applyPatchApproval" => {
+            let mut detail_lines = Vec::new();
+            if let Some(reason) = params
+                .get("reason")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                detail_lines.push(reason.to_string());
+            }
+            if let Some(root) = params
+                .get("grantRoot")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                detail_lines.push(format!("grant root: {root}"));
+            }
+            Some(PendingApprovalRequest {
+                request_id,
+                method: method.to_string(),
+                kind: ApprovalRequestKind::LegacyApplyPatch,
+                title: "Approve patch application".to_string(),
+                detail_lines,
+                requested_permissions: None,
+                can_accept_for_session: true,
+                can_decline: true,
+                can_cancel: true,
+            })
+        }
+        _ => None,
+    }
+}
 
 pub(super) fn append_item_text_from_content(app: &mut AppState, item: &Value, role: Role) {
     if let Some(text) = item_text_from_content(item) {
@@ -320,15 +569,33 @@ pub(super) fn is_key_press_like(kind: KeyEventKind) -> bool {
     matches!(kind, KeyEventKind::Press | KeyEventKind::Repeat)
 }
 
-pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
+pub(super) fn handle_server_message_line(
+    app: &mut AppState,
+    line: &str,
+) -> Option<ServerRequestAction> {
     let Ok(parsed) = serde_json::from_str::<Value>(line) else {
-        return;
+        return None;
     };
     let Some(method) = parsed.get("method").and_then(Value::as_str) else {
-        return;
+        return None;
     };
+    if let Some(request_id) = parsed.get("id").cloned() {
+        if let Some(prompt) = parsed
+            .get("params")
+            .and_then(Value::as_object)
+            .and_then(|params| pending_approval_from_request(method, params, request_id.clone()))
+        {
+            app.set_pending_approval(prompt);
+            return None;
+        }
+        return Some(ServerRequestAction::ReplyError {
+            request_id,
+            code: -32601,
+            message: format!("unsupported server request: {method}"),
+        });
+    }
     let Some(params) = parsed.get("params").and_then(Value::as_object) else {
-        return;
+        return None;
     };
 
     match method {
@@ -356,6 +623,7 @@ pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
         }
         "turn/completed" => {
             app.active_turn_id = None;
+            app.clear_pending_approval();
             let turn_status = params
                 .get("turn")
                 .and_then(Value::as_object)
@@ -413,10 +681,10 @@ pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
         }
         "item/started" => {
             let Some(item) = params.get("item").and_then(Value::as_object) else {
-                return;
+                return None;
             };
             let Some(t) = item.get("type").and_then(Value::as_str) else {
-                return;
+                return None;
             };
 
             match t {
@@ -443,7 +711,7 @@ pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
                 "commandExecution" => {
                     if let Some(id) = item.get("id").and_then(Value::as_str) {
                         if app.agent_item_to_index.contains_key(id) {
-                            return;
+                            return None;
                         }
                         let idx = app.append_message(Role::ToolCall, String::new());
                         app.put_agent_item_mapping(id, idx);
@@ -452,7 +720,7 @@ pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
                 t if is_tool_call_type(t) => {
                     if let Some(id) = item.get("id").and_then(Value::as_str) {
                         if app.agent_item_to_index.contains_key(id) {
-                            return;
+                            return None;
                         }
                         let idx = app.append_message(Role::ToolCall, String::new());
                         app.put_agent_item_mapping(id, idx);
@@ -461,7 +729,7 @@ pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
                 t if is_tool_output_type(t) => {
                     if let Some(id) = item.get("id").and_then(Value::as_str) {
                         if app.agent_item_to_index.contains_key(id) {
-                            return;
+                            return None;
                         }
                         let idx = app.append_message(Role::ToolOutput, String::new());
                         app.put_agent_item_mapping(id, idx);
@@ -472,15 +740,15 @@ pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
         }
         "item/completed" => {
             let Some(item) = params.get("item").and_then(Value::as_object) else {
-                return;
+                return None;
             };
             let Some(kind) = item.get("type").and_then(Value::as_str) else {
-                return;
+                return None;
             };
             let item_value = Value::Object(item.clone());
             if kind == "contextCompaction" {
                 app.append_context_compacted_marker();
-                return;
+                return None;
             }
             if kind == "agentMessage" {
                 let role = agent_role_from_phase(item);
@@ -502,18 +770,18 @@ pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
                         }
                         app.mark_transcript_dirty();
                         app.auto_follow_bottom = true;
-                        return;
+                        return None;
                     }
                 }
                 if let Some(text) = text {
                     app.append_message(role, text);
                     app.auto_follow_bottom = true;
                 }
-                return;
+                return None;
             }
 
             let Some(mut role) = role_for_tool_type(kind) else {
-                return;
+                return None;
             };
             if kind == "commandExecution" {
                 role = Role::ToolOutput;
@@ -536,11 +804,11 @@ pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
                             }
                             app.mark_transcript_dirty();
                             app.auto_follow_bottom = true;
-                            return;
+                            return None;
                         }
                         app.append_message(Role::ToolCall, summary);
                         app.auto_follow_bottom = true;
-                        return;
+                        return None;
                     }
                 }
 
@@ -555,12 +823,12 @@ pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
                             }
                             app.mark_transcript_dirty();
                             app.auto_follow_bottom = true;
-                            return;
+                            return None;
                         }
                     }
                     app.append_diff_message(role, None, diff);
                     app.auto_follow_bottom = true;
-                    return;
+                    return None;
                 }
 
                 if let Some(formatted) = format_tool_item(&item_value, role) {
@@ -584,13 +852,13 @@ pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
                             }
                             app.mark_transcript_dirty();
                             app.auto_follow_bottom = true;
-                            return;
+                            return None;
                         }
                     }
                     app.append_message(role, text);
                     app.auto_follow_bottom = true;
                 }
-                return;
+                return None;
             }
 
             let item_id = item.get("id").and_then(Value::as_str);
@@ -612,7 +880,7 @@ pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
                             );
                         }
                         app.auto_follow_bottom = true;
-                        return;
+                        return None;
                     }
                 }
             }
@@ -666,4 +934,10 @@ pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
         }
         _ => {}
     }
+
+    None
+}
+
+pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
+    let _ = handle_server_message_line(app, line);
 }

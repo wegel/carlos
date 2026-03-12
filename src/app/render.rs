@@ -1495,6 +1495,125 @@ pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, 
     );
 }
 
+pub(super) fn draw_approval_overlay(buf: &mut Buffer, size: TerminalSize, app: &AppState) {
+    let Some(approval) = app.pending_approval.as_ref() else {
+        return;
+    };
+    if size.width < 36 || size.height < 10 {
+        return;
+    }
+
+    let inner_w = size.width.saturating_sub(12).min(92);
+    let mut detail_lines = Vec::new();
+    for line in &approval.detail_lines {
+        let wrapped = wrap_natural_by_cells(line, inner_w.saturating_sub(6).max(8));
+        if wrapped.is_empty() {
+            detail_lines.push(String::new());
+        } else {
+            detail_lines.extend(wrapped);
+        }
+    }
+    if detail_lines.is_empty() {
+        detail_lines.push("No additional detail provided.".to_string());
+    }
+
+    let mut footer = vec!["y accept".to_string(), "n decline".to_string()];
+    if approval.can_accept_for_session {
+        footer.push("s accept session".to_string());
+    }
+    if approval.can_cancel {
+        footer.push("c cancel turn".to_string());
+    }
+    let footer_text = footer.join("  ");
+
+    let max_body_lines = size.height.saturating_sub(7);
+    if detail_lines.len() > max_body_lines {
+        detail_lines.truncate(max_body_lines);
+        if let Some(last) = detail_lines.last_mut() {
+            *last = "…".to_string();
+        }
+    }
+
+    let box_w = inner_w;
+    let box_h = (detail_lines.len() + 5).min(size.height.saturating_sub(2));
+    let start_x = (size.width - box_w) / 2;
+    let start_y = (size.height - box_h) / 2;
+
+    fill_rect(
+        buf,
+        0,
+        0,
+        size.width,
+        size.height,
+        Style::default().bg(COLOR_OVERLAY),
+    );
+    fill_rect(
+        buf,
+        start_x,
+        start_y,
+        box_w,
+        box_h,
+        Style::default().bg(COLOR_STEP2),
+    );
+
+    let left = start_x;
+    let right = start_x + box_w - 1;
+    let top = start_y;
+    let bottom = start_y + box_h - 1;
+
+    draw_str(buf, left, top, "┏", Style::default().fg(COLOR_STEP7), 1);
+    draw_str(buf, right, top, "┓", Style::default().fg(COLOR_STEP7), 1);
+    draw_str(buf, left, bottom, "┗", Style::default().fg(COLOR_STEP7), 1);
+    draw_str(buf, right, bottom, "┛", Style::default().fg(COLOR_STEP7), 1);
+    for x in (left + 1)..right {
+        draw_str(buf, x, top, "─", Style::default().fg(COLOR_STEP7), 1);
+        draw_str(buf, x, bottom, "─", Style::default().fg(COLOR_STEP7), 1);
+    }
+    for y in (top + 1)..bottom {
+        draw_str(buf, left, y, "┃", Style::default().fg(COLOR_STEP7), 1);
+        draw_str(buf, right, y, "┃", Style::default().fg(COLOR_STEP7), 1);
+    }
+
+    draw_str(
+        buf,
+        start_x + 3,
+        start_y + 1,
+        &approval.title,
+        Style::default()
+            .fg(COLOR_PRIMARY)
+            .add_modifier(Modifier::BOLD),
+        box_w.saturating_sub(6),
+    );
+    draw_str(
+        buf,
+        start_x + 3,
+        start_y + 2,
+        &approval.method,
+        Style::default().fg(COLOR_DIM),
+        box_w.saturating_sub(6),
+    );
+
+    for (i, line) in detail_lines.iter().enumerate() {
+        draw_str(
+            buf,
+            start_x + 3,
+            start_y + 3 + i,
+            line,
+            Style::default().fg(COLOR_TEXT),
+            box_w.saturating_sub(6),
+        );
+    }
+
+    draw_str(
+        buf,
+        start_x + 3,
+        bottom.saturating_sub(1),
+        &footer_text,
+        Style::default().fg(COLOR_DIM),
+        box_w.saturating_sub(6),
+    );
+}
+
 pub(super) fn draw_perf_overlay(buf: &mut Buffer, size: TerminalSize, perf: &PerfMetrics) {
     let lines = perf.overlay_lines();
     if lines.is_empty() || size.width < 44 || size.height < lines.len() + 4 {
@@ -1868,8 +1987,13 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
     if app.show_model_settings {
         draw_model_settings_overlay(buf, size, app);
     }
+    if app.pending_approval.is_some() {
+        draw_approval_overlay(buf, size, app);
+    }
 
-    let (cursor_x, cursor_y) = if app.show_model_settings {
+    let (cursor_x, cursor_y) = if app.pending_approval.is_some() {
+        (0, size.height.saturating_sub(1))
+    } else if app.show_model_settings {
         let box_w = (size.width.saturating_sub(10)).min(80);
         let box_h = 12usize;
         let start_x = (size.width.saturating_sub(box_w)) / 2;
