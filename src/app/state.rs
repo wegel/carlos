@@ -1028,9 +1028,10 @@ impl AppState {
                 next_status = Some("ralph complete".to_string());
                 disable_ralph_mode = true;
             } else if markers.blocked {
-                ralph.waiting_for_user = true;
+                ralph.waiting_for_user = false;
                 next_message = Some("Ralph blocked: waiting for input".to_string());
                 next_status = Some("ralph blocked".to_string());
+                disable_ralph_mode = true;
             } else if interrupted {
                 ralph.waiting_for_user = false;
             } else if !ralph.completed {
@@ -1052,13 +1053,11 @@ impl AppState {
         if let Some(text) = continuation {
             self.queue_ralph_continuation(text);
         }
+        if disable_ralph_mode {
+            self.disable_ralph_mode();
+        }
         if let Some(status) = next_status {
             self.set_status(status);
-        }
-        if disable_ralph_mode {
-            self.ralph = None;
-            self.ralph_toggle_pending = false;
-            self.queued_turn_inputs.clear();
         }
     }
 }

@@ -2095,7 +2095,7 @@ fn ralph_turn_completion_queues_continuation_when_not_blocked_or_complete() {
 }
 
 #[test]
-fn ralph_turn_completion_enters_wait_state_on_blocked_marker() {
+fn ralph_turn_completion_disables_ralph_mode_on_blocked_marker() {
     let mut app = AppState::new("thread-1".to_string());
     app.enable_ralph_mode(super::ralph::RalphConfig {
         prompt_path: std::path::PathBuf::from(".agents/ralph-prompt.md"),
@@ -2110,7 +2110,7 @@ fn ralph_turn_completion_enters_wait_state_on_blocked_marker() {
     app.handle_ralph_turn_completed(false);
 
     assert!(app.queued_turn_inputs.is_empty());
-    assert!(app.ralph.as_ref().is_some_and(|r| r.waiting_for_user));
+    assert!(app.ralph.is_none());
 }
 
 #[test]
