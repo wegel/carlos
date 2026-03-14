@@ -333,7 +333,11 @@ pub(crate) fn run() -> Result<()> {
         app.set_available_models(models);
     }
     let runtime_settings = parse_thread_runtime_settings(&start_resp)?;
-    app.set_runtime_settings(runtime_settings.model, runtime_settings.effort, None);
+    app.set_runtime_settings(
+        runtime_settings.model,
+        runtime_settings.effort,
+        runtime_settings.summary,
+    );
     if !opts.mode_resume {
         app.queue_runtime_settings(
             persisted_defaults.model.clone(),

@@ -22,6 +22,7 @@ pub(crate) struct AppServerClient {
 pub(crate) struct ThreadRuntimeSettings {
     pub(crate) model: Option<String>,
     pub(crate) effort: Option<String>,
+    pub(crate) summary: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -368,12 +369,24 @@ pub(crate) fn parse_thread_runtime_settings(response_line: &str) -> Result<Threa
 
     let effort = result
         .get("reasoningEffort")
+        .or_else(|| result.get("effort"))
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(ToOwned::to_owned);
 
-    Ok(ThreadRuntimeSettings { model, effort })
+    let summary = result
+        .get("summary")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned);
+
+    Ok(ThreadRuntimeSettings {
+        model,
+        effort,
+        summary,
+    })
 }
 
 pub(crate) fn parse_model_list_page(
