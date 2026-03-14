@@ -975,7 +975,7 @@ impl AppState {
         self.turn_start_message_idx = Some(self.messages.len());
     }
 
-    pub(super) fn handle_ralph_turn_completed(&mut self) {
+    pub(super) fn handle_ralph_turn_completed(&mut self, interrupted: bool) {
         let start_idx = self
             .turn_start_message_idx
             .take()
@@ -1002,6 +1002,8 @@ impl AppState {
                 ralph.waiting_for_user = true;
                 next_message = Some("Ralph blocked: waiting for input".to_string());
                 next_status = Some("ralph blocked".to_string());
+            } else if interrupted {
+                ralph.waiting_for_user = false;
             } else if !ralph.completed {
                 ralph.waiting_for_user = false;
                 continuation = Some(ralph.config.continuation_prompt.clone());

@@ -625,13 +625,14 @@ pub(super) fn handle_server_message_line(
                 .and_then(Value::as_object)
                 .and_then(|turn| turn.get("status"))
                 .and_then(Value::as_str);
-            if turn_status == Some("interrupted") {
+            let interrupted = turn_status == Some("interrupted");
+            if interrupted {
                 app.append_turn_interrupted_marker();
                 app.set_status("turn interrupted");
             } else {
                 app.set_status("turn completed");
             }
-            app.handle_ralph_turn_completed();
+            app.handle_ralph_turn_completed(interrupted);
             if let Err(e) = app.apply_pending_ralph_toggle() {
                 app.set_status(format!("ralph: {e}"));
             }
@@ -922,6 +923,7 @@ pub(super) fn handle_server_message_line(
     None
 }
 
+#[cfg(test)]
 pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
     let _ = handle_server_message_line(app, line);
 }

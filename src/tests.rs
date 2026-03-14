@@ -1911,7 +1911,8 @@ fn parse_thread_runtime_settings_reads_model_and_effort() {
         "result": {
             "thread": { "id": "thread-1" },
             "model": "gpt-5-codex",
-            "reasoningEffort": "high"
+            "reasoningEffort": "high",
+            "summary": "auto"
         }
     })
     .to_string();
@@ -1919,6 +1920,25 @@ fn parse_thread_runtime_settings_reads_model_and_effort() {
     let settings = parse_thread_runtime_settings(&response).expect("settings");
     assert_eq!(settings.model.as_deref(), Some("gpt-5-codex"));
     assert_eq!(settings.effort.as_deref(), Some("high"));
+    assert_eq!(settings.summary.as_deref(), Some("auto"));
+}
+
+#[test]
+fn parse_thread_runtime_settings_accepts_effort_alias() {
+    let response = json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+            "thread": { "id": "thread-1" },
+            "model": "gpt-5.4",
+            "effort": "medium"
+        }
+    })
+    .to_string();
+
+    let settings = parse_thread_runtime_settings(&response).expect("settings");
+    assert_eq!(settings.model.as_deref(), Some("gpt-5.4"));
+    assert_eq!(settings.effort.as_deref(), Some("medium"));
 }
 
 #[test]
@@ -2068,7 +2088,7 @@ fn ralph_turn_completion_queues_continuation_when_not_blocked_or_complete() {
     app.turn_start_message_idx = Some(0);
     app.append_message(Role::Assistant, "still working");
 
-    app.handle_ralph_turn_completed();
+    app.handle_ralph_turn_completed(false);
 
     assert_eq!(app.dequeue_turn_input().as_deref(), Some("continue"));
 }
@@ -2086,7 +2106,7 @@ fn ralph_turn_completion_enters_wait_state_on_blocked_marker() {
     app.turn_start_message_idx = Some(0);
     app.append_message(Role::Assistant, "@@BLOCKED@@");
 
-    app.handle_ralph_turn_completed();
+    app.handle_ralph_turn_completed(false);
 
     assert!(app.queued_turn_inputs.is_empty());
     assert!(app.ralph.as_ref().is_some_and(|r| r.waiting_for_user));
@@ -2108,10 +2128,30 @@ fn ralph_turn_completion_disables_ralph_mode() {
         "@@COMPLETE@@ @@COMPLETE_SUMMARY_START@@".to_string(),
     );
 
-    app.handle_ralph_turn_completed();
+    app.handle_ralph_turn_completed(false);
 
     assert!(app.ralph.is_none());
     assert!(app.queued_turn_inputs.is_empty());
+}
+
+#[test]
+fn ralph_interrupted_turn_does_not_queue_continuation() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.enable_ralph_mode(super::ralph::RalphConfig {
+        prompt_path: std::path::PathBuf::from(".agents/ralph-prompt.md"),
+        base_prompt: "base".to_string(),
+        done_marker: "@@COMPLETE@@".to_string(),
+        blocked_marker: "@@BLOCKED@@".to_string(),
+        continuation_prompt: "continue".to_string(),
+    });
+    app.turn_start_message_idx = Some(0);
+    app.append_message(Role::Assistant, "still working");
+
+    app.handle_ralph_turn_completed(true);
+
+    assert!(app.queued_turn_inputs.is_empty());
+    assert!(app.ralph.is_some());
+    assert!(!app.ralph.as_ref().is_some_and(|r| r.waiting_for_user));
 }
 
 #[test]
