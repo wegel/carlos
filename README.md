@@ -30,6 +30,42 @@ Alpha.
 - Ralph mode visual indicators (`RALPH MODE` label, pink KITT/input gutter)
 - context compaction markers in transcript
 
+## Ralph Loop Setup
+
+If you want to run a repository in Ralph mode, this repo includes a generic starter bundle in
+[`examples/ralph-loop/`](examples/ralph-loop/). That directory is laid out to mirror the root of
+the target repository, so you can copy its contents verbatim into another repo and start from
+there.
+
+Copy the bundle into the target repo root with:
+
+```bash
+cp -r examples/ralph-loop/. /path/to/target-repo/
+```
+
+The bundle contains only files that belong at the target repo root or under `.agents/`:
+
+- an example [`AGENTS.md`](examples/ralph-loop/AGENTS.md)
+- an example [`PROGRAM_PLAN.md`](examples/ralph-loop/PROGRAM_PLAN.md)
+- ExecPlan guidance in [`PLANS.md`](examples/ralph-loop/.agents/PLANS.md)
+- a seed ExecPlan in [`EXECPLAN_001_example.md`](examples/ralph-loop/.agents/execplans/EXECPLAN_001_example.md)
+- the Ralph prompt in [`ralph-prompt.md`](examples/ralph-loop/.agents/ralph-prompt.md)
+- the current reviewer prompts: [`spec_reviewer.md`](examples/ralph-loop/.agents/spec_reviewer.md) and [`engineering_reviewer.md`](examples/ralph-loop/.agents/engineering_reviewer.md)
+- an empty `.agents/done/` directory placeholder for completed ExecPlans
+
+The intended flow is:
+
+1. Copy the contents of `examples/ralph-loop/` into the repository you want to automate.
+2. Replace the example ExecPlan with a real one and update `PROGRAM_PLAN.md`.
+3. Start `carlos` and press `Ctrl+R`, or launch with:
+
+```bash
+carlos --ralph-prompt .agents/ralph-prompt.md
+```
+
+`carlos` handles the continuation loop inside the TUI, watches for `@@BLOCKED@@` and
+`@@COMPLETE@@`, and lets you answer blockers directly in the session.
+
 ## build
 
 ```bash
