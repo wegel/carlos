@@ -2090,7 +2090,8 @@ fn ralph_turn_completion_queues_continuation_when_not_blocked_or_complete() {
 
     app.handle_ralph_turn_completed(false);
 
-    assert_eq!(app.dequeue_turn_input().as_deref(), Some("continue"));
+    assert!(app.has_pending_ralph_continuation());
+    assert!(app.dequeue_turn_input(std::time::Instant::now()).is_none());
 }
 
 #[test]
@@ -2174,7 +2175,7 @@ fn request_ralph_toggle_enables_and_disables_when_idle() {
 
     app.request_ralph_toggle().expect("toggle on");
     assert!(app.ralph.is_some());
-    assert!(app.dequeue_turn_input().is_some());
+    assert!(app.dequeue_turn_input(std::time::Instant::now()).is_some());
 
     app.request_ralph_toggle().expect("toggle off");
     assert!(app.ralph.is_none());
@@ -2193,6 +2194,24 @@ fn request_ralph_toggle_defers_while_turn_active() {
 
     app.request_ralph_toggle().expect("cancel");
     assert!(!app.ralph_toggle_pending);
+}
+
+#[test]
+fn pending_ralph_continuation_becomes_ready_after_deadline() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.queue_ralph_continuation("continue");
+    let deadline = app
+        .ralph_pending_continuation_deadline
+        .expect("continuation deadline");
+
+    assert!(app
+        .dequeue_turn_input(deadline - std::time::Duration::from_millis(1))
+        .is_none());
+    assert_eq!(
+        app.dequeue_turn_input(deadline).as_deref(),
+        Some("continue")
+    );
+    assert!(!app.has_pending_ralph_continuation());
 }
 
 #[test]

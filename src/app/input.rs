@@ -199,9 +199,10 @@ pub(super) fn run_conversation_tui(
                 perf.transcript_render.push(render_started.elapsed());
             }
 
+            let loop_now = Instant::now();
             let working = app.active_turn_id.is_some();
             if !working {
-                if let Some(next_turn_text) = app.dequeue_turn_input() {
+                if let Some(next_turn_text) = app.dequeue_turn_input(loop_now) {
                     submit_turn_text(client, app, next_turn_text);
                     needs_draw = true;
                     continue;
@@ -237,6 +238,12 @@ pub(super) fn run_conversation_tui(
                 }
             } else if working {
                 match ui_rx.recv_timeout(animation_poll_timeout(true)) {
+                    Ok(ev) => Some(ev),
+                    Err(RecvTimeoutError::Timeout) => None,
+                    Err(RecvTimeoutError::Disconnected) => return Ok(()),
+                }
+            } else if let Some(wait) = app.pending_ralph_continuation_wait(loop_now) {
+                match ui_rx.recv_timeout(wait) {
                     Ok(ev) => Some(ev),
                     Err(RecvTimeoutError::Timeout) => None,
                     Err(RecvTimeoutError::Disconnected) => return Ok(()),
@@ -543,7 +550,11 @@ pub(super) fn run_conversation_tui(
                                         } else if app.register_escape_press(now) {
                                             app.selection = None;
                                             app.mouse_drag_mode = MouseDragMode::Undecided;
-                                            if app.input_is_empty() {
+                                            if app.input_is_empty()
+                                                && app.has_pending_ralph_continuation()
+                                            {
+                                                app.disable_ralph_mode();
+                                            } else if app.input_is_empty() {
                                                 app.enter_rewind_mode();
                                                 app.align_rewind_scroll_to_selected_prompt(size);
                                             } else {

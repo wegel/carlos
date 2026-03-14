@@ -22,6 +22,7 @@ use crate::protocol::ModelInfo;
 pub(super) const DEFAULT_EFFORT_OPTIONS: [&str; 6] =
     ["none", "minimal", "low", "medium", "high", "xhigh"];
 pub(super) const DEFAULT_SUMMARY_OPTIONS: [&str; 4] = ["auto", "concise", "detailed", "none"];
+const RALPH_CONTINUATION_DELAY: Duration = Duration::from_millis(700);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ModelSettingsField {
@@ -142,6 +143,7 @@ pub(super) struct AppState {
     pub(super) queued_turn_inputs: VecDeque<String>,
     pub(super) ralph: Option<RalphState>,
     pub(super) ralph_toggle_pending: bool,
+    pub(super) ralph_pending_continuation_deadline: Option<Instant>,
     pub(super) ralph_cwd: PathBuf,
     pub(super) ralph_prompt_path_override: Option<String>,
     pub(super) ralph_done_marker_override: Option<String>,
@@ -206,6 +208,7 @@ impl AppState {
             queued_turn_inputs: VecDeque::new(),
             ralph: None,
             ralph_toggle_pending: false,
+            ralph_pending_continuation_deadline: None,
             ralph_cwd: PathBuf::new(),
             ralph_prompt_path_override: None,
             ralph_done_marker_override: None,
@@ -274,6 +277,7 @@ impl AppState {
     pub(super) fn disable_ralph_mode(&mut self) {
         self.ralph = None;
         self.ralph_toggle_pending = false;
+        self.ralph_pending_continuation_deadline = None;
         self.queued_turn_inputs.clear();
         self.set_status("ralph off");
     }
@@ -594,7 +598,32 @@ impl AppState {
         self.queued_turn_inputs.push_back(text);
     }
 
-    pub(super) fn dequeue_turn_input(&mut self) -> Option<String> {
+    pub(super) fn queue_ralph_continuation(&mut self, text: impl Into<String>) {
+        let text = text.into();
+        if text.trim().is_empty() {
+            return;
+        }
+        self.queued_turn_inputs.push_back(text);
+        self.ralph_pending_continuation_deadline = Some(Instant::now() + RALPH_CONTINUATION_DELAY);
+    }
+
+    pub(super) fn has_pending_ralph_continuation(&self) -> bool {
+        self.ralph_pending_continuation_deadline.is_some() && !self.queued_turn_inputs.is_empty()
+    }
+
+    pub(super) fn pending_ralph_continuation_wait(&self, now: Instant) -> Option<Duration> {
+        self.ralph_pending_continuation_deadline
+            .map(|deadline| deadline.saturating_duration_since(now))
+            .filter(|wait| !wait.is_zero())
+    }
+
+    pub(super) fn dequeue_turn_input(&mut self, now: Instant) -> Option<String> {
+        if let Some(deadline) = self.ralph_pending_continuation_deadline {
+            if now < deadline {
+                return None;
+            }
+            self.ralph_pending_continuation_deadline = None;
+        }
         self.queued_turn_inputs.pop_front()
     }
 
@@ -1021,7 +1050,7 @@ impl AppState {
             }
         }
         if let Some(text) = continuation {
-            self.enqueue_turn_input(text);
+            self.queue_ralph_continuation(text);
         }
         if let Some(status) = next_status {
             self.set_status(status);
