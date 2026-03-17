@@ -689,10 +689,10 @@ fn build_rendered_lines_groups_commentary_with_following_tool_call() {
     ];
 
     let rendered = build_rendered_lines(&messages, 120);
-    assert_eq!(rendered.len(), 2);
-    assert!(!rendered.iter().any(|line| line.separator));
+    assert_eq!(rendered.len(), 3);
     assert_eq!(rendered[0].text, "checking the diff");
-    assert_eq!(rendered[1].text, "→ Read src/main.rs");
+    assert!(rendered[1].separator);
+    assert_eq!(rendered[2].text, "→ Read src/main.rs");
 }
 
 #[test]
@@ -1249,6 +1249,32 @@ fn append_history_from_thread_preserves_agent_commentary_phase() {
 }
 
 #[test]
+fn append_history_from_thread_reads_reasoning_summary_text_objects() {
+    let mut app = AppState::new("thread-1".to_string());
+    let thread = json!({
+        "turns": [
+            {
+                "items": [
+                    {
+                        "type": "reasoning",
+                        "id": "r-1",
+                        "summary": [
+                            { "type": "summary_text", "text": "**Plan**\n\nParagraph" },
+                            { "type": "summary_text", "text": "**Check**" }
+                        ]
+                    }
+                ]
+            }
+        ]
+    });
+
+    append_history_from_thread(&mut app, &thread);
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(app.messages[0].role, Role::Reasoning);
+    assert_eq!(app.messages[0].text, "**Plan**\n\nParagraph\n**Check**");
+}
+
+#[test]
 fn handle_notification_turn_diff_updated_upserts_diff_message() {
     let mut app = AppState::new("thread-1".to_string());
     handle_notification_line(
@@ -1268,6 +1294,32 @@ fn handle_notification_turn_diff_updated_upserts_diff_message() {
 
     assert_eq!(app.messages.len(), 1);
     assert!(app.messages[0].text.contains("+newer"));
+}
+
+#[test]
+fn handle_notification_item_completed_reasoning_replaces_live_delta_with_summary_objects() {
+    let mut app = AppState::new("thread-1".to_string());
+    handle_notification_line(
+        &mut app,
+        "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"reasoning\",\"id\":\"reason-1\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+    );
+    app.upsert_reasoning_summary_delta("reason-1", "**Designing fullscreen focus overrides ");
+    app.upsert_reasoning_summary_delta("reason-1", "**");
+
+    handle_notification_line(
+        &mut app,
+        "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"reasoning\",\"id\":\"reason-1\",\"summary\":[{\"type\":\"summary_text\",\"text\":\"**Designing fullscreen focus overrides**\\n\\nI’m working out a helper function.\"},{\"type\":\"summary_text\",\"text\":\"**Analyzing input handling conditions**\"}]},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+    );
+
+    assert_eq!(
+        app.messages[0].text,
+        "**Designing fullscreen focus overrides**\n\nI’m working out a helper function.\n**Analyzing input handling conditions**"
+    );
+
+    let rendered = build_rendered_lines(&app.messages, 120);
+    assert_eq!(rendered[0].text, "Designing fullscreen focus overrides");
+    assert_eq!(rendered[1].text, "I’m working out a helper function.");
+    assert_eq!(rendered[2].text, "Analyzing input handling conditions");
 }
 
 #[test]

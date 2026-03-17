@@ -897,11 +897,7 @@ fn message_has_visible_content(msg: &Message) -> bool {
 }
 
 fn should_insert_separator_between(prev: &Message, next: &Message) -> bool {
-    if matches!(prev.role, Role::Commentary)
-        && matches!(next.role, Role::ToolCall | Role::ToolOutput)
-    {
-        return false;
-    }
+    let _ = (prev, next);
     true
 }
 

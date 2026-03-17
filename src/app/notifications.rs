@@ -420,17 +420,8 @@ pub(super) fn append_history_from_thread(app: &mut AppState, thread_obj: &Value)
                     }
                 }
                 "reasoning" => {
-                    let Some(summary) = item.get("summary").and_then(Value::as_array) else {
-                        continue;
-                    };
-                    let mut parts = Vec::new();
-                    for s in summary {
-                        if let Some(t) = s.as_str() {
-                            parts.push(t);
-                        }
-                    }
-                    if !parts.is_empty() {
-                        app.append_message(Role::Reasoning, parts.join("\n"));
+                    if let Some(text) = reasoning_summary_text(item) {
+                        app.append_message(Role::Reasoning, text);
                     }
                 }
                 "commandExecution" => {
@@ -777,6 +768,26 @@ pub(super) fn handle_server_message_line(
                 return None;
             }
 
+            if kind == "reasoning" {
+                let item_id = item.get("id").and_then(Value::as_str);
+                if let Some(text) = reasoning_summary_text(&item_value) {
+                    if let Some(id) = item_id {
+                        if let Some(idx) = app.agent_item_to_index.get(id).copied() {
+                            if let Some(msg) = app.messages.get_mut(idx) {
+                                msg.role = Role::Reasoning;
+                                msg.text = text;
+                                msg.kind = MessageKind::Plain;
+                                msg.file_path = None;
+                            }
+                            app.mark_transcript_dirty();
+                            return None;
+                        }
+                    }
+                    app.append_message(Role::Reasoning, text);
+                }
+                return None;
+            }
+
             let Some(mut role) = role_for_tool_type(kind) else {
                 return None;
             };
@@ -924,6 +935,33 @@ pub(super) fn handle_server_message_line(
     }
 
     None
+}
+
+fn reasoning_summary_text(item: &Value) -> Option<String> {
+    let summary = item.get("summary")?.as_array()?;
+    let mut parts = Vec::new();
+    for entry in summary {
+        if let Some(text) = entry.as_str() {
+            if !text.trim().is_empty() {
+                parts.push(text.to_string());
+            }
+            continue;
+        }
+
+        let text = entry.get("text").and_then(Value::as_str).or_else(|| {
+            entry
+                .get("content")
+                .and_then(Value::as_array)
+                .and_then(|parts| parts.first())
+                .and_then(|part| part.get("text"))
+                .and_then(Value::as_str)
+        });
+        if let Some(text) = text.filter(|t| !t.trim().is_empty()) {
+            parts.push(text.to_string());
+        }
+    }
+
+    (!parts.is_empty()).then(|| parts.join("\n"))
 }
 
 #[cfg(test)]
