@@ -457,6 +457,29 @@ fn build_rendered_lines_hides_markdown_fence_delimiters() {
 }
 
 #[test]
+fn build_rendered_lines_user_code_block_adds_spacing_and_background() {
+    let messages = vec![Message {
+        role: Role::User,
+        text: "before\n```rust\nlet x = 1;\n```\nafter".to_string(),
+        kind: MessageKind::Plain,
+        file_path: None,
+    }];
+
+    let rendered = build_rendered_lines(&messages, 120);
+    let code_idx = rendered
+        .iter()
+        .position(|l| l.text == "let x = 1;")
+        .expect("expected code line");
+    assert!(rendered.iter().all(|l| !l.text.contains("```")));
+    assert_eq!(rendered[code_idx - 1].cells, 0);
+    assert_eq!(rendered[code_idx + 1].cells, 0);
+    assert!(rendered[code_idx]
+        .styled_segments
+        .iter()
+        .any(|s| s.style.bg == Some(COLOR_STEP2)));
+}
+
+#[test]
 fn build_rendered_lines_styles_assistant_code_lines() {
     let messages = vec![Message {
         role: Role::Assistant,
@@ -2034,7 +2057,7 @@ fn apply_model_settings_returns_defaults_for_persistence() {
 }
 
 #[test]
-fn detect_turn_markers_matches_trimmed_assistant_marker_lines() {
+fn detect_turn_markers_matches_trimmed_commentary_marker_lines() {
     let messages = vec![
         Message {
             role: Role::User,
@@ -2043,7 +2066,7 @@ fn detect_turn_markers_matches_trimmed_assistant_marker_lines() {
             file_path: None,
         },
         Message {
-            role: Role::Assistant,
+            role: Role::Commentary,
             text: "working...\n  @@BLOCKED@@ \nnext".to_string(),
             kind: MessageKind::Plain,
             file_path: None,
@@ -2111,6 +2134,28 @@ fn ralph_turn_completion_disables_ralph_mode_on_blocked_marker() {
 
     assert!(app.queued_turn_inputs.is_empty());
     assert!(app.ralph.is_none());
+}
+
+#[test]
+fn commentary_blocked_marker_disables_ralph_mode_immediately() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.enable_ralph_mode(super::ralph::RalphConfig {
+        prompt_path: std::path::PathBuf::from(".agents/ralph-prompt.md"),
+        base_prompt: "base".to_string(),
+        done_marker: "@@COMPLETE@@".to_string(),
+        blocked_marker: "@@BLOCKED@@".to_string(),
+        continuation_prompt: "continue".to_string(),
+    });
+    app.turn_start_message_idx = Some(0);
+    app.append_message(Role::Commentary, "@@BLOCKED@@");
+
+    app.maybe_disable_ralph_on_blocked_marker();
+
+    assert!(app.ralph.is_none());
+    assert!(app
+        .messages
+        .last()
+        .is_some_and(|msg| msg.role == Role::System && msg.text == "Ralph blocked: waiting for input"));
 }
 
 #[test]

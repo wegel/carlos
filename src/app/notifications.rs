@@ -766,11 +766,13 @@ pub(super) fn handle_server_message_line(
                             msg.file_path = None;
                         }
                         app.mark_transcript_dirty();
+                        app.maybe_disable_ralph_on_blocked_marker();
                         return None;
                     }
                 }
                 if let Some(text) = text {
                     app.append_message(role, text);
+                    app.maybe_disable_ralph_on_blocked_marker();
                 }
                 return None;
             }
@@ -883,6 +885,7 @@ pub(super) fn handle_server_message_line(
                 params.get("delta").and_then(Value::as_str),
             ) {
                 app.upsert_agent_delta(item_id, delta);
+                app.maybe_disable_ralph_on_blocked_marker();
             }
         }
         "item/reasoning/summaryTextDelta" => {

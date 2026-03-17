@@ -1004,6 +1004,31 @@ impl AppState {
         self.turn_start_message_idx = Some(self.messages.len());
     }
 
+    pub(super) fn maybe_disable_ralph_on_blocked_marker(&mut self) {
+        let Some(ralph) = self.ralph.as_ref() else {
+            return;
+        };
+        let start_idx = self
+            .turn_start_message_idx
+            .unwrap_or(self.messages.len());
+        let blocked_marker = ralph.config.blocked_marker.clone();
+        let markers = detect_turn_markers(&self.messages, start_idx, "", &blocked_marker);
+        if !markers.blocked {
+            return;
+        }
+
+        const BLOCKED_MSG: &str = "Ralph blocked: waiting for input";
+        if !self
+            .messages
+            .last()
+            .is_some_and(|last| last.role == Role::System && last.text == BLOCKED_MSG)
+        {
+            self.append_message(Role::System, BLOCKED_MSG);
+        }
+        self.disable_ralph_mode();
+        self.set_status("ralph blocked");
+    }
+
     pub(super) fn handle_ralph_turn_completed(&mut self, interrupted: bool) {
         let start_idx = self
             .turn_start_message_idx

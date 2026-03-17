@@ -92,7 +92,7 @@ pub(super) fn detect_turn_markers(
     }
 
     for msg in messages.iter().skip(start_idx) {
-        if msg.role != Role::Assistant {
+        if !matches!(msg.role, Role::Assistant | Role::Commentary) {
             continue;
         }
         if !done.is_empty() && text_contains_marker(&msg.text, done) {

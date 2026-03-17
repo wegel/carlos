@@ -353,6 +353,16 @@ pub(super) fn append_wrapped_message_lines(
 
     for logical in text.split('\n') {
         if is_fence_delimiter(logical) {
+            if matches!(role, Role::User) {
+                out.push(RenderedLine {
+                    cells: 0,
+                    text: String::new(),
+                    styled_segments: Vec::new(),
+                    role,
+                    separator: false,
+                    soft_wrap_to_next: false,
+                });
+            }
             in_code_fence = !in_code_fence;
             continue;
         }
@@ -407,7 +417,11 @@ pub(super) fn append_wrapped_message_lines(
                 text: line.clone(),
                 styled_segments: vec![StyledSegment {
                     text: line,
-                    style: Style::default(),
+                    style: if matches!(role, Role::User) && in_code_fence {
+                        Style::default().bg(COLOR_STEP2)
+                    } else {
+                        Style::default()
+                    },
                 }],
                 role,
                 separator: false,
