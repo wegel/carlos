@@ -1,8 +1,15 @@
 use std::collections::HashSet;
 
 use serde_json::{json, Value};
+use shlex::split as shlex_split;
 
 use super::{DiffBlock, Role};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ParsedSshCommand {
+    pub(super) destination: String,
+    pub(super) remote_command: String,
+}
 
 pub(super) fn is_tool_call_type(kind: &str) -> bool {
     matches!(
@@ -211,11 +218,174 @@ pub(super) fn tool_description(item: &Value) -> Option<String> {
     )
 }
 
+pub(super) fn parse_ssh_remote_command(command: &str) -> Option<ParsedSshCommand> {
+    let normalized = normalize_shell_command(command);
+    let tokens = shlex_split(&normalized)?;
+    let first = tokens.first()?;
+    let executable = first.rsplit('/').next().unwrap_or(first);
+    if executable != "ssh" {
+        return None;
+    }
+
+    let mut idx = 1usize;
+    let mut destination = None;
+    while idx < tokens.len() {
+        let token = &tokens[idx];
+        if token == "--" {
+            idx += 1;
+            continue;
+        }
+        if token.starts_with('-') {
+            idx += if ssh_option_takes_value(token) { 2 } else { 1 };
+            continue;
+        }
+        destination = Some(token.clone());
+        idx += 1;
+        break;
+    }
+
+    let destination = destination?;
+    if idx >= tokens.len() {
+        return None;
+    }
+
+    let remote_command = tokens[idx..].join(" ").trim().to_string();
+    if remote_command.is_empty() {
+        return None;
+    }
+
+    Some(ParsedSshCommand {
+        destination,
+        remote_command,
+    })
+}
+
+fn ssh_option_takes_value(token: &str) -> bool {
+    matches!(
+        token,
+        "-b" | "-c"
+            | "-D"
+            | "-E"
+            | "-e"
+            | "-F"
+            | "-I"
+            | "-i"
+            | "-J"
+            | "-L"
+            | "-l"
+            | "-m"
+            | "-O"
+            | "-o"
+            | "-p"
+            | "-Q"
+            | "-R"
+            | "-S"
+            | "-W"
+            | "-w"
+    )
+}
+
+pub(super) fn strip_terminal_controls_preserving_sgr(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = String::with_capacity(text.len());
+    let mut i = 0usize;
+
+    while i < bytes.len() {
+        if bytes[i] == 0xC2 && i + 1 < bytes.len() && bytes[i + 1] == 0x9b {
+            i += 2;
+            let params_start = i;
+            while i < bytes.len() && !(0x40..=0x7e).contains(&bytes[i]) {
+                i += 1;
+            }
+            if i < bytes.len() && bytes[i] == b'm' {
+                out.push_str("\u{1b}[");
+                out.push_str(std::str::from_utf8(&bytes[params_start..i]).unwrap_or_default());
+                out.push('m');
+            }
+            i = i.saturating_add(1);
+            continue;
+        }
+
+        match bytes[i] {
+            0x1b => {
+                if i + 1 >= bytes.len() {
+                    break;
+                }
+                match bytes[i + 1] {
+                    b'[' => {
+                        let seq_start = i;
+                        i += 2;
+                        while i < bytes.len() && !(0x40..=0x7e).contains(&bytes[i]) {
+                            i += 1;
+                        }
+                        if i < bytes.len() && bytes[i] == b'm' {
+                            out.push_str(&text[seq_start..=i]);
+                        }
+                        i = i.saturating_add(1);
+                    }
+                    b']' => {
+                        i += 2;
+                        while i < bytes.len() {
+                            if bytes[i] == 0x07 {
+                                i += 1;
+                                break;
+                            }
+                            if bytes[i] == 0x1b && i + 1 < bytes.len() && bytes[i + 1] == b'\\' {
+                                i += 2;
+                                break;
+                            }
+                            i += 1;
+                        }
+                    }
+                    b'P' | b'X' | b'^' | b'_' => {
+                        i += 2;
+                        while i < bytes.len() {
+                            if bytes[i] == 0x1b && i + 1 < bytes.len() && bytes[i + 1] == b'\\' {
+                                i += 2;
+                                break;
+                            }
+                            i += 1;
+                        }
+                    }
+                    _ => {
+                        if bytes[i + 1].is_ascii() {
+                            i += 2;
+                        } else {
+                            i += 1;
+                        }
+                    }
+                }
+            }
+            b'\n' | b'\r' | b'\t' => {
+                out.push(bytes[i] as char);
+                i += 1;
+            }
+            b if b < 0x20 || b == 0x7f => {
+                i += 1;
+            }
+            _ => {
+                let Some(rest) = text.get(i..) else {
+                    i += 1;
+                    continue;
+                };
+                let ch = rest.chars().next().expect("valid utf-8");
+                out.push(ch);
+                i += ch.len_utf8();
+            }
+        }
+    }
+
+    out
+}
+
 pub(super) fn tool_output_text(item: &Value) -> Option<String> {
     let mut parts = Vec::new();
 
     if let Some(s) = first_string_at_paths(item, &[&["aggregatedOutput"]]) {
-        parts.push(s);
+        let cleaned = strip_terminal_controls_preserving_sgr(&s);
+        if !cleaned.is_empty() {
+            parts.push(cleaned);
+        }
     }
 
     if let Some(s) = first_string_at_paths(
@@ -230,19 +400,28 @@ pub(super) fn tool_output_text(item: &Value) -> Option<String> {
             &["formattedOutput"],
         ],
     ) {
-        parts.push(s);
+        let cleaned = strip_terminal_controls_preserving_sgr(&s);
+        if !cleaned.is_empty() {
+            parts.push(cleaned);
+        }
     }
     if let Some(s) = first_string_at_paths(
         item,
         &[&["stdout"], &["metadata", "stdout"], &["state", "stdout"]],
     ) {
-        parts.push(s);
+        let cleaned = strip_terminal_controls_preserving_sgr(&s);
+        if !cleaned.is_empty() {
+            parts.push(cleaned);
+        }
     }
     if let Some(s) = first_string_at_paths(
         item,
         &[&["stderr"], &["metadata", "stderr"], &["state", "stderr"]],
     ) {
-        parts.push(s);
+        let cleaned = strip_terminal_controls_preserving_sgr(&s);
+        if !cleaned.is_empty() {
+            parts.push(cleaned);
+        }
     }
     if let Some(code) = first_i64_at_paths(
         item,
@@ -657,6 +836,18 @@ pub(super) fn format_tool_item(item: &Value, role: Role) -> Option<String> {
         Role::ToolCall => {
             if let Some(cmd) = tool_command(item) {
                 let mut lines = Vec::new();
+                if let Some(ssh) = parse_ssh_remote_command(&cmd) {
+                    lines.push(format!("remote exec on {}", ssh.destination));
+                    if let Some(reason) = tool_reasoning(item) {
+                        lines.push(format!("Thinking: {reason}"));
+                    }
+                    if let Some(desc) = tool_description(item) {
+                        lines.push(format!("# {desc}"));
+                    }
+                    lines.push(format!("$ {}", ssh.remote_command));
+                    return Some(lines.join("\n"));
+                }
+
                 lines.push(format!("run `{cmd}`"));
                 if let Some(reason) = tool_reasoning(item) {
                     lines.push(format!("Thinking: {reason}"));
@@ -686,8 +877,26 @@ pub(super) fn format_tool_item(item: &Value, role: Role) -> Option<String> {
                 let output = tool_output_text(item);
 
                 return match (command, output) {
-                    (Some(cmd), Some(out)) => Some(format!("$ {cmd}\n{out}")),
-                    (Some(cmd), None) => Some(format!("$ {cmd}")),
+                    (Some(cmd), Some(out)) => {
+                        if let Some(ssh) = parse_ssh_remote_command(&cmd) {
+                            Some(format!(
+                                "remote exec on {}\n$ {}\n{}",
+                                ssh.destination, ssh.remote_command, out
+                            ))
+                        } else {
+                            Some(format!("$ {cmd}\n{out}"))
+                        }
+                    }
+                    (Some(cmd), None) => {
+                        if let Some(ssh) = parse_ssh_remote_command(&cmd) {
+                            Some(format!(
+                                "remote exec on {}\n$ {}",
+                                ssh.destination, ssh.remote_command
+                            ))
+                        } else {
+                            Some(format!("$ {cmd}"))
+                        }
+                    }
                     (None, Some(out)) => Some(out),
                     (None, None) => None,
                 };

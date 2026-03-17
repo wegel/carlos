@@ -1619,6 +1619,50 @@ fn format_command_execution_call_uses_action_command() {
 }
 
 #[test]
+fn parse_ssh_remote_command_extracts_destination_and_payload() {
+    let parsed = parse_ssh_remote_command(
+        "ssh -i /tmp/key -o BatchMode=yes wegel@192.168.3.20 'curl -fsS http://127.0.0.1:29091/admin/v1/jobs/123 | jq'",
+    )
+    .expect("parsed ssh command");
+
+    assert_eq!(parsed.destination, "wegel@192.168.3.20");
+    assert_eq!(
+        parsed.remote_command,
+        "curl -fsS http://127.0.0.1:29091/admin/v1/jobs/123 | jq"
+    );
+}
+
+#[test]
+fn strip_terminal_controls_preserving_sgr_removes_control_noise() {
+    let cleaned = strip_terminal_controls_preserving_sgr(
+        "\u{1b}[7l\u{1b}[31mhello\u{1b}[0m\n\u{1b}]0;title\u{07}world\u{1b}[?25h",
+    );
+    assert_eq!(cleaned, "\u{1b}[31mhello\u{1b}[0m\nworld");
+}
+
+#[test]
+fn strip_terminal_controls_preserving_sgr_handles_unknown_escape_before_unicode() {
+    let cleaned = strip_terminal_controls_preserving_sgr("\u{1b}��g��a��������");
+    assert_eq!(cleaned, "��g��a��������");
+}
+
+#[test]
+fn format_command_execution_call_rewrites_ssh_transport_as_remote_exec() {
+    let item = json!({
+        "type": "commandExecution",
+        "id": "call_ssh_1",
+        "command": "ssh -i /tmp/key -o BatchMode=yes wegel@192.168.3.20 'curl -fsS http://127.0.0.1:29091/admin/v1/jobs/123 | jq'",
+        "status": "inProgress"
+    });
+
+    let rendered = format_tool_item(&item, Role::ToolCall).expect("formatted command call");
+    assert_eq!(
+        rendered,
+        "remote exec on wegel@192.168.3.20\n$ curl -fsS http://127.0.0.1:29091/admin/v1/jobs/123 | jq"
+    );
+}
+
+#[test]
 fn format_command_execution_output_uses_aggregated_output() {
     let item = json!({
         "type": "commandExecution",
@@ -1637,6 +1681,62 @@ fn format_command_execution_output_uses_aggregated_output() {
     assert!(rendered.starts_with("$ ls -1\n"), "rendered={rendered:?}");
     assert!(rendered.contains("a\nb"), "rendered={rendered:?}");
     assert!(rendered.contains("exit code: 0"), "rendered={rendered:?}");
+}
+
+#[test]
+fn format_command_execution_output_preserves_sgr_sequences_but_strips_control_noise() {
+    let item = json!({
+        "type": "commandExecution",
+        "id": "call_ansi_1",
+        "command": "/usr/bin/zsh -lc 'printf hello'",
+        "aggregatedOutput": "\u{001b}[7l\u{001b}[31mhello\u{001b}[0m\n",
+        "exitCode": 0,
+        "status": "completed"
+    });
+
+    let rendered = format_tool_item(&item, Role::ToolOutput).expect("formatted output");
+    assert_eq!(
+        rendered,
+        "$ printf hello\n\u{001b}[31mhello\u{001b}[0m\n\nexit code: 0"
+    );
+}
+
+#[test]
+fn format_command_execution_output_rewrites_ssh_transport_as_remote_exec() {
+    let item = json!({
+        "type": "commandExecution",
+        "id": "call_ssh_2",
+        "command": "ssh -i /tmp/key -o BatchMode=yes wegel@192.168.3.20 'curl -fsS http://127.0.0.1:29091/admin/v1/jobs/123 | jq'",
+        "aggregatedOutput": "{\n  \"state\": \"running\"\n}\n",
+        "exitCode": 0,
+        "status": "completed"
+    });
+
+    let rendered = format_tool_item(&item, Role::ToolOutput).expect("formatted output");
+    assert_eq!(
+        rendered,
+        "remote exec on wegel@192.168.3.20\n$ curl -fsS http://127.0.0.1:29091/admin/v1/jobs/123 | jq\n{\n  \"state\": \"running\"\n}\n\nexit code: 0"
+    );
+}
+
+#[test]
+fn build_rendered_lines_tool_output_uses_ansi_styles_without_escape_text() {
+    let messages = vec![Message {
+        role: Role::ToolOutput,
+        text: "$ printf hello\n\u{001b}[31mhello\u{001b}[0m".to_string(),
+        kind: MessageKind::Plain,
+        file_path: None,
+    }];
+
+    let rendered = build_rendered_lines(&messages, 120);
+    assert_eq!(rendered.len(), 2);
+    assert_eq!(rendered[0].text, "$ printf hello");
+    assert_eq!(rendered[1].text, "hello");
+    assert!(!rendered[1].text.contains('\u{001b}'));
+    assert!(rendered[1]
+        .styled_segments
+        .iter()
+        .any(|seg| seg.style.fg.is_some() || !seg.style.add_modifier.is_empty()));
 }
 
 #[test]

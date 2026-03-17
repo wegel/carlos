@@ -67,6 +67,7 @@ checksum = "843867be96c8daad0d758b57df9392b6d8d271134fce549de6ce169ff98a92af"
 name = "carlos"
 version = "0.1.0"
 dependencies = [
+ "ansi-to-tui",
  "anyhow",
  "base64",
  "crossterm 0.29.0",
@@ -75,6 +76,7 @@ dependencies = [
  "ratatui-interact",
  "ratatui-textarea",
  "serde_json",
+ "shlex",
  "textwrap",
  "tui-markdown",
  "unicode-segmentation",

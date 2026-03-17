@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::time::Instant;
 
+use ansi_to_tui::IntoText as _;
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -254,6 +255,29 @@ pub(super) fn markdown_line_segments(text: &str) -> Vec<Vec<StyledSegment>> {
     out
 }
 
+pub(super) fn ansi_line_segments(text: &str) -> Option<Vec<Vec<StyledSegment>>> {
+    let parsed = text.into_text().ok()?;
+    let text_style = parsed.style;
+    let mut out = Vec::new();
+
+    for line in parsed.lines {
+        let line_style = text_style.patch(line.style);
+        let mut segments = Vec::new();
+        for span in line.spans {
+            if span.content.is_empty() {
+                continue;
+            }
+            segments.push(StyledSegment {
+                text: span.content.into_owned(),
+                style: core_style_to_style(line_style.patch(span.style)),
+            });
+        }
+        out.push(segments);
+    }
+
+    Some(out)
+}
+
 pub(super) fn take_styled_segments_by_cells(
     remaining: &mut VecDeque<StyledSegment>,
     max_cells: usize,
@@ -416,6 +440,58 @@ pub(super) fn append_wrapped_markdown_lines(
     } else {
         markdown_line_segments(text)
     };
+    for logical in logical_lines {
+        let plain = styled_plain_text(&logical);
+        if plain.is_empty() {
+            out.push(RenderedLine {
+                cells: 0,
+                text: String::new(),
+                styled_segments: Vec::new(),
+                role,
+                separator: false,
+                soft_wrap_to_next: false,
+            });
+            continue;
+        }
+
+        let wrapped_parts = wrap_natural_by_cells(&plain, width);
+        let mut remaining: VecDeque<StyledSegment> = logical.into();
+
+        for (i, part) in wrapped_parts.iter().enumerate() {
+            let part_cells = visual_width(part);
+            let wrapped = i + 1 < wrapped_parts.len();
+            let styled_segments = normalize_styled_segments_for_part(
+                part,
+                take_styled_segments_by_cells(&mut remaining, part_cells),
+            );
+
+            out.push(RenderedLine {
+                cells: part_cells,
+                text: part.clone(),
+                styled_segments,
+                role,
+                separator: false,
+                soft_wrap_to_next: wrapped,
+            });
+        }
+    }
+}
+
+pub(super) fn append_wrapped_ansi_lines(
+    out: &mut Vec<RenderedLine>,
+    role: Role,
+    text: &str,
+    width: usize,
+) {
+    if width < 8 {
+        return;
+    }
+
+    let Some(logical_lines) = ansi_line_segments(text) else {
+        append_wrapped_message_lines(out, role, text, width);
+        return;
+    };
+
     for logical in logical_lines {
         let plain = styled_plain_text(&logical);
         if plain.is_empty() {
@@ -881,6 +957,7 @@ pub(super) fn build_rendered_lines_with_hidden(
                 Role::Assistant | Role::Reasoning => {
                     append_wrapped_markdown_lines(&mut out, msg.role, &msg.text, width);
                 }
+                Role::ToolOutput => append_wrapped_ansi_lines(&mut out, msg.role, &msg.text, width),
                 _ => append_wrapped_message_lines(&mut out, msg.role, &msg.text, width),
             },
         }
