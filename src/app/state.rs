@@ -948,10 +948,8 @@ impl AppState {
                     msg.file_path = None;
                     msg.text.clear();
                 }
-                if reasoning_delta_starts_new_summary(&msg.text, delta) {
-                    msg.text.push('\n');
-                }
                 msg.text.push_str(delta);
+                msg.text = normalize_reasoning_summary_stream(&msg.text);
                 changed = true;
             }
             if changed {
@@ -1033,9 +1031,7 @@ impl AppState {
         let Some(ralph) = self.ralph.as_ref() else {
             return;
         };
-        let start_idx = self
-            .turn_start_message_idx
-            .unwrap_or(self.messages.len());
+        let start_idx = self.turn_start_message_idx.unwrap_or(self.messages.len());
         let blocked_marker = ralph.config.blocked_marker.clone();
         let markers = detect_turn_markers(&self.messages, start_idx, "", &blocked_marker);
         if !markers.blocked {
@@ -1121,8 +1117,66 @@ fn normalize_non_empty(s: String) -> Option<String> {
     }
 }
 
-fn reasoning_delta_starts_new_summary(existing: &str, delta: &str) -> bool {
-    !existing.is_empty() && delta.trim_start().starts_with("**")
+fn normalize_reasoning_summary_stream(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut i = 0usize;
+    let bytes = text.as_bytes();
+    let mut prev_was_bold_summary = false;
+
+    while i < text.len() {
+        if bytes[i..].starts_with(b"**") {
+            i += 2;
+            let start = i;
+            while i < text.len() && !bytes[i..].starts_with(b"**") {
+                i += 1;
+            }
+            if i < text.len() {
+                let inner = text[start..i].trim_end_matches(' ');
+                if prev_was_bold_summary {
+                    out.push('\n');
+                }
+                out.push_str("**");
+                out.push_str(inner);
+                out.push_str("**");
+                i += 2;
+                prev_was_bold_summary = true;
+
+                while i < text.len() {
+                    let rest = &text[i..];
+                    if rest.starts_with("**") {
+                        break;
+                    }
+                    let mut chars = rest.chars();
+                    let Some(ch) = chars.next() else {
+                        break;
+                    };
+                    if ch.is_whitespace() {
+                        i += ch.len_utf8();
+                        continue;
+                    }
+                    break;
+                }
+                continue;
+            }
+
+            if prev_was_bold_summary {
+                out.push('\n');
+            }
+            out.push_str("**");
+            out.push_str(&text[start..]);
+            break;
+        }
+
+        let rest = &text[i..];
+        let Some(ch) = rest.chars().next() else {
+            break;
+        };
+        out.push(ch);
+        i += ch.len_utf8();
+        prev_was_bold_summary = false;
+    }
+
+    out
 }
 
 fn effort_index(value: &str) -> usize {

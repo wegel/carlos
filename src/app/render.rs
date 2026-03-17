@@ -31,18 +31,6 @@ use super::{
 };
 use crate::theme::*;
 
-pub(super) fn role_prefix(role: Role) -> &'static str {
-    match role {
-        Role::User => "",
-        Role::Assistant => "",
-        Role::Commentary => "→ ",
-        Role::Reasoning => "",
-        Role::ToolCall => "",
-        Role::ToolOutput => "",
-        Role::System => "",
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 struct CarlosMarkdownStyleSheet;
 
@@ -347,8 +335,6 @@ pub(super) fn append_wrapped_message_lines(
         return;
     }
 
-    let prefix = role_prefix(role);
-    let mut first_physical = true;
     let mut in_code_fence = false;
 
     for logical in text.split('\n') {
@@ -367,56 +353,29 @@ pub(super) fn append_wrapped_message_lines(
             continue;
         }
 
-        let continuation = role_prefix(role);
-
         if logical.is_empty() {
-            let t = prefix.to_string();
             out.push(RenderedLine {
-                cells: visual_width(&t),
-                text: t,
+                cells: 0,
+                text: String::new(),
                 styled_segments: Vec::new(),
                 role,
                 separator: false,
                 soft_wrap_to_next: false,
             });
-            first_physical = false;
             continue;
         }
 
-        let lead_for_width = if in_code_fence {
-            role_prefix(Role::System)
-        } else if first_physical {
-            prefix
-        } else {
-            continuation
-        };
-        let lead_cells = visual_width(lead_for_width);
-        let avail = width.saturating_sub(lead_cells);
-        if avail == 0 {
-            first_physical = false;
-            continue;
-        }
+        let avail = width;
         let wrapped_parts = wrap_natural_by_cells(logical, avail);
 
         for (i, part) in wrapped_parts.iter().enumerate() {
-            let lead = if in_code_fence {
-                role_prefix(Role::System)
-            } else if first_physical && i == 0 {
-                prefix
-            } else {
-                continuation
-            };
-
-            let mut line = String::with_capacity(lead.len() + part.len());
-            line.push_str(lead);
-            line.push_str(part);
             let wrapped = i + 1 < wrapped_parts.len();
 
             out.push(RenderedLine {
-                cells: visual_width(&line),
-                text: line.clone(),
+                cells: visual_width(part),
+                text: part.clone(),
                 styled_segments: vec![StyledSegment {
-                    text: line,
+                    text: part.clone(),
                     style: if matches!(role, Role::User) && in_code_fence {
                         Style::default().bg(COLOR_STEP2)
                     } else {
@@ -428,8 +387,6 @@ pub(super) fn append_wrapped_message_lines(
                 soft_wrap_to_next: wrapped,
             });
         }
-
-        first_physical = false;
     }
 }
 
@@ -443,7 +400,22 @@ pub(super) fn append_wrapped_markdown_lines(
         return;
     }
 
-    let logical_lines = markdown_line_segments(text);
+    let logical_lines = if matches!(role, Role::Reasoning) {
+        let mut lines = Vec::new();
+        for raw_line in text.split('\n') {
+            if raw_line.is_empty() {
+                continue;
+            }
+            lines.extend(markdown_line_segments(raw_line));
+        }
+        if lines.is_empty() {
+            markdown_line_segments(text)
+        } else {
+            lines
+        }
+    } else {
+        markdown_line_segments(text)
+    };
     for logical in logical_lines {
         let plain = styled_plain_text(&logical);
         if plain.is_empty() {

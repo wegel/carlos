@@ -104,6 +104,111 @@ fn selected_text_keeps_newline_on_hard_break_rows() {
 }
 
 #[test]
+fn selected_text_restores_space_for_soft_wrapped_words() {
+    let lines = vec![
+        RenderedLine {
+            text: "Analyzing".to_string(),
+            styled_segments: Vec::new(),
+            role: Role::Reasoning,
+            separator: false,
+            cells: 9,
+            soft_wrap_to_next: true,
+        },
+        RenderedLine {
+            text: "delta stream message formatting".to_string(),
+            styled_segments: Vec::new(),
+            role: Role::Reasoning,
+            separator: false,
+            cells: 31,
+            soft_wrap_to_next: false,
+        },
+    ];
+
+    let sel = Selection {
+        anchor_x: 1,
+        anchor_line_idx: 0,
+        focus_x: 31,
+        focus_line_idx: 1,
+        dragging: false,
+    };
+
+    let out = selected_text(sel, &lines);
+    assert_eq!(out, "Analyzing delta stream message formatting");
+}
+
+#[test]
+fn selected_text_soft_wrapped_commentary_strips_prefix_and_restores_space() {
+    let first =
+        "checking whether the remaining glitch is in the markdown renderer itself".to_string();
+    let second = "or in a separate reasoning-message path.".to_string();
+    let lines = vec![
+        RenderedLine {
+            text: first.clone(),
+            styled_segments: Vec::new(),
+            role: Role::Commentary,
+            separator: false,
+            cells: visual_width(&first),
+            soft_wrap_to_next: true,
+        },
+        RenderedLine {
+            text: second.clone(),
+            styled_segments: Vec::new(),
+            role: Role::Commentary,
+            separator: false,
+            cells: visual_width(&second),
+            soft_wrap_to_next: false,
+        },
+    ];
+
+    let sel = Selection {
+        anchor_x: 1,
+        anchor_line_idx: 0,
+        focus_x: visual_width(&second),
+        focus_line_idx: 1,
+        dragging: false,
+    };
+
+    let out = selected_text(sel, &lines);
+    assert_eq!(
+        out,
+        "checking whether the remaining glitch is in the markdown renderer itself or in a separate reasoning-message path."
+    );
+}
+
+#[test]
+fn selected_text_does_not_insert_space_into_hard_wrapped_long_token() {
+    let lines = vec![
+        RenderedLine {
+            text: "averyveryverylong".to_string(),
+            styled_segments: Vec::new(),
+            role: Role::Assistant,
+            separator: false,
+            cells: 17,
+            soft_wrap_to_next: true,
+        },
+        RenderedLine {
+            text: "tokenwithoutspaces".to_string(),
+            styled_segments: Vec::new(),
+            role: Role::Assistant,
+            separator: false,
+            cells: 18,
+            soft_wrap_to_next: false,
+        },
+    ];
+
+    let sel = Selection {
+        anchor_x: 1,
+        anchor_line_idx: 0,
+        focus_x: 18,
+        focus_line_idx: 1,
+        dragging: false,
+    };
+
+    let out = selected_text(sel, &lines);
+    assert_eq!(out, "averyveryverylongtokenwithoutspaces");
+}
+
+#[test]
 fn shift_selection_focus_extends_copy_beyond_visible_screen() {
     let lines = vec![
         RenderedLine {
@@ -563,7 +668,7 @@ fn build_rendered_lines_renders_commentary_as_preamble() {
 
     let rendered = build_rendered_lines(&messages, 120);
     assert_eq!(rendered.len(), 1);
-    assert_eq!(rendered[0].text, "→ checking the diff");
+    assert_eq!(rendered[0].text, "checking the diff");
 }
 
 #[test]
@@ -586,7 +691,7 @@ fn build_rendered_lines_groups_commentary_with_following_tool_call() {
     let rendered = build_rendered_lines(&messages, 120);
     assert_eq!(rendered.len(), 2);
     assert!(!rendered.iter().any(|line| line.separator));
-    assert_eq!(rendered[0].text, "→ checking the diff");
+    assert_eq!(rendered[0].text, "checking the diff");
     assert_eq!(rendered[1].text, "→ Read src/main.rs");
 }
 
@@ -1491,7 +1596,73 @@ fn reasoning_summary_delta_inserts_newline_between_bold_chunks() {
     app.upsert_reasoning_summary_delta("reason-1", "**First thought**");
     app.upsert_reasoning_summary_delta("reason-1", "**Second thought**");
 
-    assert_eq!(app.messages[idx].text, "**First thought**\n**Second thought**");
+    assert_eq!(
+        app.messages[idx].text,
+        "**First thought**\n**Second thought**"
+    );
+}
+
+#[test]
+fn reasoning_summary_delta_trims_space_before_split_closing_marker() {
+    let mut app = AppState::new("thread-1".to_string());
+    let idx = app.append_message(Role::Reasoning, String::new());
+    app.put_agent_item_mapping("reason-1", idx);
+
+    app.upsert_reasoning_summary_delta("reason-1", "**Preparing concise, evidence-based answer ");
+    app.upsert_reasoning_summary_delta("reason-1", "**");
+
+    assert_eq!(
+        app.messages[idx].text,
+        "**Preparing concise, evidence-based answer**"
+    );
+}
+
+#[test]
+fn reasoning_summary_delta_normalizes_split_adjacent_bold_chunks() {
+    let mut app = AppState::new("thread-1".to_string());
+    let idx = app.append_message(Role::Reasoning, String::new());
+    app.put_agent_item_mapping("reason-1", idx);
+
+    app.upsert_reasoning_summary_delta("reason-1", "**Investigating display bug causes ");
+    app.upsert_reasoning_summary_delta("reason-1", "**");
+    app.upsert_reasoning_summary_delta("reason-1", " **Analyzing markdown rendering issues ");
+    app.upsert_reasoning_summary_delta("reason-1", "**");
+
+    assert_eq!(
+        app.messages[idx].text,
+        "**Investigating display bug causes**\n**Analyzing markdown rendering issues**"
+    );
+
+    let rendered = build_rendered_lines(&app.messages, 120);
+    assert_eq!(rendered.len(), 2);
+    assert_eq!(rendered[0].text, "Investigating display bug causes");
+    assert_eq!(rendered[1].text, "Analyzing markdown rendering issues");
+}
+
+#[test]
+fn selected_text_preserves_reasoning_heading_and_paragraph_breaks() {
+    let messages = vec![Message {
+        role: Role::Reasoning,
+        text: "**Planning final-form migration implementation**\n\nI’m preparing to inspect the repo and data layout to understand the migration state.\n**Deciding on one-time migration approach**".to_string(),
+        kind: MessageKind::Plain,
+        file_path: None,
+    }];
+
+    let rendered = build_rendered_lines(&messages, 120);
+    let last_idx = rendered.len() - 1;
+    let sel = Selection {
+        anchor_x: 1,
+        anchor_line_idx: 0,
+        focus_x: rendered[last_idx].cells,
+        focus_line_idx: last_idx,
+        dragging: false,
+    };
+
+    let out = selected_text(sel, &rendered);
+    assert_eq!(
+        out,
+        "Planning final-form migration implementation\nI’m preparing to inspect the repo and data layout to understand the migration state.\nDeciding on one-time migration approach"
+    );
 }
 
 #[test]
@@ -2170,10 +2341,9 @@ fn commentary_blocked_marker_disables_ralph_mode_immediately() {
     app.maybe_disable_ralph_on_blocked_marker();
 
     assert!(app.ralph.is_none());
-    assert!(app
-        .messages
-        .last()
-        .is_some_and(|msg| msg.role == Role::System && msg.text == "Ralph blocked: waiting for input"));
+    assert!(app.messages.last().is_some_and(
+        |msg| msg.role == Role::System && msg.text == "Ralph blocked: waiting for input"
+    ));
 }
 
 #[test]

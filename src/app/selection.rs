@@ -109,15 +109,45 @@ pub(super) fn selected_text(selection: Selection, rendered_lines: &[RenderedLine
         }
         first = false;
 
+        let mut fragment = String::new();
         if line_cells > 0 && s_col <= e_col && s_col <= line_cells {
-            out.push_str(&slice_by_cells(&line.text, s_col - 1, e_col));
+            fragment = slice_by_cells(&line.text, s_col - 1, e_col);
         }
+
+        let contiguous = prev_idx.is_some_and(|i| i + 1 == idx);
+        if contiguous && prev_soft_wrap {
+            if should_insert_soft_wrap_space(&out, &fragment) {
+                out.push(' ');
+            }
+        }
+        out.push_str(&fragment);
 
         prev_idx = Some(idx);
         prev_soft_wrap = line.soft_wrap_to_next;
     }
 
     out
+}
+
+fn should_insert_soft_wrap_space(existing: &str, fragment: &str) -> bool {
+    let Some(prev_ch) = existing.chars().last() else {
+        return false;
+    };
+    let Some(next_ch) = fragment.chars().next() else {
+        return false;
+    };
+
+    if prev_ch.is_whitespace() || next_ch.is_whitespace() {
+        return false;
+    }
+    if matches!(next_ch, ',' | '.' | ';' | ':' | '!' | '?' | ')' | ']' | '}') {
+        return false;
+    }
+    if matches!(prev_ch, '(' | '[' | '{' | '/' | '-' | '_') {
+        return false;
+    }
+
+    existing.chars().any(char::is_whitespace) || fragment.chars().any(char::is_whitespace)
 }
 
 pub(super) fn normalize_selection_x(col0: usize) -> usize {
