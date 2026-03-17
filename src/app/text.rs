@@ -114,6 +114,7 @@ pub(super) fn wrap_natural_by_cells(text: &str, width: usize) -> Vec<String> {
             rest = &rest[take..];
         }
     }
+    preserve_trailing_spaces(&mut out, text, width);
     out
 }
 
@@ -130,11 +131,16 @@ pub(super) fn wrap_input_line(line: &str, width: usize) -> Vec<String> {
         out.push(String::new());
     }
 
-    // Preserve trailing spaces immediately so typing "word " visibly updates
-    // without waiting for the next non-space character.
-    let wanted_trailing_spaces = line.chars().rev().take_while(|c| *c == ' ').count();
+    preserve_trailing_spaces(&mut out, line, width);
+    out
+}
+
+fn preserve_trailing_spaces(out: &mut Vec<String>, text: &str, width: usize) {
+    // Preserve trailing spaces so transcript copy/paste and input editing
+    // can round-trip explicit whitespace at the end of a logical line.
+    let wanted_trailing_spaces = text.chars().rev().take_while(|c| *c == ' ').count();
     if wanted_trailing_spaces == 0 {
-        return out;
+        return;
     }
 
     let mut present_trailing_spaces = out
@@ -158,6 +164,4 @@ pub(super) fn wrap_input_line(line: &str, width: usize) -> Vec<String> {
             out.push(String::new());
         }
     }
-
-    out
 }

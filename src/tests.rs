@@ -262,6 +262,12 @@ fn wrap_natural_by_cells_prefers_word_boundaries() {
 }
 
 #[test]
+fn wrap_natural_by_cells_keeps_trailing_space_visible() {
+    let parts = wrap_natural_by_cells("test ", 10);
+    assert_eq!(parts, vec!["test ".to_string()]);
+}
+
+#[test]
 fn wrap_input_line_uses_natural_word_wrapping() {
     let parts = wrap_input_line("alpha beta gamma", 10);
     assert_eq!(parts, vec!["alpha beta".to_string(), "gamma".to_string()]);
@@ -1474,6 +1480,18 @@ fn format_command_execution_output_uses_aggregated_output() {
     assert!(rendered.starts_with("$ ls -1\n"), "rendered={rendered:?}");
     assert!(rendered.contains("a\nb"), "rendered={rendered:?}");
     assert!(rendered.contains("exit code: 0"), "rendered={rendered:?}");
+}
+
+#[test]
+fn reasoning_summary_delta_inserts_newline_between_bold_chunks() {
+    let mut app = AppState::new("thread-1".to_string());
+    let idx = app.append_message(Role::Reasoning, String::new());
+    app.put_agent_item_mapping("reason-1", idx);
+
+    app.upsert_reasoning_summary_delta("reason-1", "**First thought**");
+    app.upsert_reasoning_summary_delta("reason-1", "**Second thought**");
+
+    assert_eq!(app.messages[idx].text, "**First thought**\n**Second thought**");
 }
 
 #[test]

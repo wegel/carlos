@@ -939,6 +939,31 @@ impl AppState {
         self.put_agent_item_mapping(item_id, idx);
     }
 
+    pub(super) fn upsert_reasoning_summary_delta(&mut self, item_id: &str, delta: &str) {
+        if let Some(idx) = self.agent_item_to_index.get(item_id).copied() {
+            let mut changed = false;
+            if let Some(msg) = self.messages.get_mut(idx) {
+                if msg.kind != MessageKind::Plain {
+                    msg.kind = MessageKind::Plain;
+                    msg.file_path = None;
+                    msg.text.clear();
+                }
+                if reasoning_delta_starts_new_summary(&msg.text, delta) {
+                    msg.text.push('\n');
+                }
+                msg.text.push_str(delta);
+                changed = true;
+            }
+            if changed {
+                self.mark_transcript_dirty();
+            }
+            return;
+        }
+
+        let idx = self.append_message(Role::Reasoning, delta);
+        self.put_agent_item_mapping(item_id, idx);
+    }
+
     pub(super) fn upsert_turn_diff(&mut self, turn_id: &str, diff: &str) {
         if diff.trim().is_empty() {
             return;
@@ -1094,6 +1119,10 @@ fn normalize_non_empty(s: String) -> Option<String> {
     } else {
         Some(trimmed.to_string())
     }
+}
+
+fn reasoning_delta_starts_new_summary(existing: &str, delta: &str) -> bool {
+    !existing.is_empty() && delta.trim_start().starts_with("**")
 }
 
 fn effort_index(value: &str) -> usize {

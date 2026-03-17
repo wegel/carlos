@@ -893,7 +893,7 @@ pub(super) fn handle_server_message_line(
                 params.get("itemId").and_then(Value::as_str),
                 params.get("delta").and_then(Value::as_str),
             ) {
-                app.upsert_agent_delta(item_id, delta);
+                app.upsert_reasoning_summary_delta(item_id, delta);
             }
         }
         "item/toolCall/delta"
