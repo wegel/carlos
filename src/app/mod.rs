@@ -57,6 +57,7 @@ mod mobile_mouse;
 mod models;
 mod notifications;
 mod perf;
+mod perf_session;
 mod ralph;
 mod render;
 mod selection;
@@ -71,7 +72,15 @@ const MSG_CONTENT_X: usize = 2; // 0-based x
 #[derive(Debug, Clone, Default)]
 struct CliOptions {
     mode_resume: bool,
+    mode_perf_session: bool,
+    perf_synthetic: bool,
     resume_id: Option<String>,
+    perf_session_path: Option<String>,
+    perf_width: usize,
+    perf_height: usize,
+    perf_seed: u64,
+    perf_turns: usize,
+    perf_tool_lines: usize,
     ralph_prompt_path: Option<String>,
     ralph_done_marker: Option<String>,
     ralph_blocked_marker: Option<String>,
@@ -87,7 +96,7 @@ pub(super) struct RuntimeDefaults {
 
 fn usage() {
     eprintln!(
-        "Usage:\n  carlos [resume [SESSION_ID]] [options]\n\nOptions:\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  -h, --help                     show this help\n\nKeys:\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)\n  CARLOS_REASONING_SUMMARY=...   auto | concise | detailed | none (default: auto)"
+        "Usage:\n  carlos [resume [SESSION_ID]] [options]\n  carlos perf-session <SESSION_JSONL> [--width N] [--height N]\n  carlos perf-session --synthetic [--turns N] [--seed N] [--tool-lines N] [--width N] [--height N]\n\nOptions:\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  --width <n>                    perf-session viewport width (default: 160)\n  --height <n>                   perf-session viewport height (default: 48)\n  --seed <n>                     perf-session synthetic seed (default: 1)\n  --turns <n>                    perf-session synthetic turns (default: 1000)\n  --tool-lines <n>               perf-session synthetic tool-output lines (default: 24)\n  --synthetic                    use generated perf-session content instead of a jsonl file\n  -h, --help                     show this help\n\nKeys:\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)\n  CARLOS_REASONING_SUMMARY=...   auto | concise | detailed | none (default: auto)"
     );
 }
 
@@ -96,7 +105,14 @@ fn resume_hint(thread_id: &str) -> String {
 }
 
 fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<CliOptions> {
-    let mut opts = CliOptions::default();
+    let mut opts = CliOptions {
+        perf_width: 160,
+        perf_height: 48,
+        perf_seed: 1,
+        perf_turns: 1_000,
+        perf_tool_lines: 24,
+        ..CliOptions::default()
+    };
     let mut args = args.into_iter().peekable();
 
     while let Some(arg) = args.next() {
@@ -105,8 +121,8 @@ fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<CliOptions> 
                 opts.show_help = true;
             }
             "resume" => {
-                if opts.mode_resume {
-                    bail!("`resume` specified more than once");
+                if opts.mode_resume || opts.mode_perf_session {
+                    bail!("choose only one mode");
                 }
                 opts.mode_resume = true;
                 if let Some(next) = args.peek() {
@@ -114,6 +130,50 @@ fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<CliOptions> 
                         opts.resume_id = args.next();
                     }
                 }
+            }
+            "perf-session" => {
+                if opts.mode_resume || opts.mode_perf_session {
+                    bail!("choose only one mode");
+                }
+                opts.mode_perf_session = true;
+                if let Some(next) = args.peek() {
+                    if !next.starts_with('-') {
+                        opts.perf_session_path = args.next();
+                    }
+                }
+            }
+            "--synthetic" => {
+                opts.perf_synthetic = true;
+            }
+            "--width" => {
+                let value = args
+                    .next()
+                    .ok_or_else(|| anyhow::anyhow!("missing value for --width"))?;
+                opts.perf_width = value.parse().context("invalid --width")?;
+            }
+            "--height" => {
+                let value = args
+                    .next()
+                    .ok_or_else(|| anyhow::anyhow!("missing value for --height"))?;
+                opts.perf_height = value.parse().context("invalid --height")?;
+            }
+            "--seed" => {
+                let value = args
+                    .next()
+                    .ok_or_else(|| anyhow::anyhow!("missing value for --seed"))?;
+                opts.perf_seed = value.parse().context("invalid --seed")?;
+            }
+            "--turns" => {
+                let value = args
+                    .next()
+                    .ok_or_else(|| anyhow::anyhow!("missing value for --turns"))?;
+                opts.perf_turns = value.parse().context("invalid --turns")?;
+            }
+            "--tool-lines" => {
+                let value = args
+                    .next()
+                    .ok_or_else(|| anyhow::anyhow!("missing value for --tool-lines"))?;
+                opts.perf_tool_lines = value.parse().context("invalid --tool-lines")?;
             }
             "--ralph-prompt" => {
                 let path = args
@@ -136,6 +196,16 @@ fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<CliOptions> 
             _ => {
                 bail!("unknown argument: {arg}");
             }
+        }
+    }
+
+    if opts.mode_perf_session {
+        if opts.perf_synthetic {
+            if opts.perf_session_path.is_some() {
+                bail!("choose either perf-session <SESSION_JSONL> or perf-session --synthetic");
+            }
+        } else if opts.perf_session_path.is_none() && !opts.show_help {
+            bail!("missing session path for perf-session");
         }
     }
 
@@ -268,6 +338,9 @@ pub(crate) fn run() -> Result<()> {
     if opts.show_help {
         usage();
         return Ok(());
+    }
+    if opts.mode_perf_session {
+        return perf_session::run_perf_session(&opts);
     }
 
     let mut client = AppServerClient::start()?;

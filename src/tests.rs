@@ -296,68 +296,53 @@ fn build_rendered_lines_with_hidden_omits_selected_user_message() {
 }
 
 #[test]
-fn collapse_successive_read_summaries_merges_same_file() {
-    let messages = vec![
-        Message {
-            role: Role::ToolCall,
-            text: "→ Read src/main.rs [offset=10]".to_string(),
-            kind: MessageKind::Plain,
-            file_path: None,
-        },
-        Message {
-            role: Role::ToolCall,
-            text: "→ Read src/main.rs".to_string(),
-            kind: MessageKind::Plain,
-            file_path: None,
-        },
-        Message {
-            role: Role::ToolCall,
-            text: "→ Read src/main.rs [offset=30]".to_string(),
-            kind: MessageKind::Plain,
-            file_path: None,
-        },
-        Message {
-            role: Role::ToolCall,
-            text: "→ Read src/lib.rs".to_string(),
-            kind: MessageKind::Plain,
-            file_path: None,
-        },
-    ];
+fn append_message_coalesces_successive_read_summaries() {
+    let mut app = AppState::new("thread".to_string());
+    app.append_message(Role::ToolCall, "→ Read src/main.rs [offset=10]");
+    app.append_message(Role::ToolCall, "→ Read src/main.rs");
+    app.append_message(Role::ToolCall, "→ Read src/main.rs [offset=30]");
+    app.append_message(Role::ToolCall, "→ Read src/lib.rs");
 
-    let collapsed = collapse_successive_read_summaries(&messages);
-    assert_eq!(collapsed.len(), 2);
-    assert_eq!(collapsed[0].text, "→ Read src/main.rs ×3");
-    assert_eq!(collapsed[1].text, "→ Read src/lib.rs");
+    assert_eq!(app.messages.len(), 4);
+    assert_eq!(app.messages[0].text, "→ Read src/main.rs ×3");
+    assert_eq!(app.messages[1].text, "");
+    assert_eq!(app.messages[2].text, "");
+    assert_eq!(app.messages[3].text, "→ Read src/lib.rs");
+
+    let rendered = build_rendered_lines_with_hidden(&app.messages, 80, None);
+    let visible: Vec<_> = rendered
+        .iter()
+        .filter(|line| !line.separator)
+        .map(|line| line.text.as_str())
+        .collect();
+    assert!(visible.contains(&"→ Read src/main.rs ×3"));
+    assert!(visible.contains(&"→ Read src/lib.rs"));
 }
 
 #[test]
-fn collapse_successive_read_summaries_stops_at_non_read_message() {
-    let messages = vec![
-        Message {
-            role: Role::ToolCall,
-            text: "→ Read src/main.rs".to_string(),
-            kind: MessageKind::Plain,
-            file_path: None,
-        },
-        Message {
-            role: Role::Assistant,
-            text: "working".to_string(),
-            kind: MessageKind::Plain,
-            file_path: None,
-        },
-        Message {
-            role: Role::ToolCall,
-            text: "→ Read src/main.rs".to_string(),
-            kind: MessageKind::Plain,
-            file_path: None,
-        },
-    ];
+fn append_message_does_not_coalesce_read_summaries_across_other_messages() {
+    let mut app = AppState::new("thread".to_string());
+    app.append_message(Role::ToolCall, "→ Read src/main.rs");
+    app.append_message(Role::Assistant, "working");
+    app.append_message(Role::ToolCall, "→ Read src/main.rs");
 
-    let collapsed = collapse_successive_read_summaries(&messages);
-    assert_eq!(collapsed.len(), 3);
-    assert_eq!(collapsed[0].text, "→ Read src/main.rs");
-    assert_eq!(collapsed[1].text, "working");
-    assert_eq!(collapsed[2].text, "→ Read src/main.rs");
+    assert_eq!(app.messages.len(), 3);
+    assert_eq!(app.messages[0].text, "→ Read src/main.rs");
+    assert_eq!(app.messages[1].text, "working");
+    assert_eq!(app.messages[2].text, "→ Read src/main.rs");
+}
+
+#[test]
+fn set_command_override_coalesces_with_previous_read_summary() {
+    let mut app = AppState::new("thread".to_string());
+    app.append_message(Role::ToolCall, "→ Read src/main.rs");
+    let idx = app.append_message(Role::ToolCall, "");
+    app.put_agent_item_mapping("call-2", idx);
+
+    app.set_command_override("call-2", "→ Read src/main.rs [offset=40]".to_string());
+
+    assert_eq!(app.messages[0].text, "→ Read src/main.rs ×2");
+    assert_eq!(app.messages[1].text, "");
 }
 
 #[test]
@@ -2265,6 +2250,90 @@ fn parse_cli_args_supports_ralph_resume_and_markers() {
     );
     assert_eq!(parsed.ralph_done_marker.as_deref(), Some("DONE"));
     assert_eq!(parsed.ralph_blocked_marker.as_deref(), Some("BLOCKED"));
+}
+
+#[test]
+fn parse_cli_args_supports_perf_session_mode() {
+    let args = vec![
+        "perf-session".to_string(),
+        "/tmp/session.jsonl".to_string(),
+        "--width".to_string(),
+        "200".to_string(),
+        "--height".to_string(),
+        "60".to_string(),
+    ];
+    let parsed = parse_cli_args(args).expect("parse");
+
+    assert!(parsed.mode_perf_session);
+    assert!(!parsed.mode_resume);
+    assert_eq!(
+        parsed.perf_session_path.as_deref(),
+        Some("/tmp/session.jsonl")
+    );
+    assert_eq!(parsed.perf_width, 200);
+    assert_eq!(parsed.perf_height, 60);
+}
+
+#[test]
+fn parse_cli_args_supports_synthetic_perf_session_mode() {
+    let args = vec![
+        "perf-session".to_string(),
+        "--synthetic".to_string(),
+        "--turns".to_string(),
+        "250".to_string(),
+        "--seed".to_string(),
+        "17".to_string(),
+        "--tool-lines".to_string(),
+        "40".to_string(),
+    ];
+    let parsed = parse_cli_args(args).expect("parse");
+
+    assert!(parsed.mode_perf_session);
+    assert!(parsed.perf_synthetic);
+    assert_eq!(parsed.perf_session_path, None);
+    assert_eq!(parsed.perf_turns, 250);
+    assert_eq!(parsed.perf_seed, 17);
+    assert_eq!(parsed.perf_tool_lines, 40);
+}
+
+#[test]
+fn synthetic_perf_messages_are_reproducible() {
+    let spec = perf_session::SyntheticPerfSpec {
+        seed: 7,
+        turns: 12,
+        tool_output_lines: 8,
+    };
+    let left = perf_session::build_synthetic_perf_messages(spec);
+    let right = perf_session::build_synthetic_perf_messages(spec);
+
+    assert_eq!(left.len(), spec.turns * 6);
+    assert_eq!(left.len(), right.len());
+    for (lhs, rhs) in left.iter().zip(right.iter()) {
+        assert_eq!(lhs.role, rhs.role);
+        assert_eq!(lhs.kind, rhs.kind);
+        assert_eq!(lhs.text, rhs.text);
+        assert_eq!(lhs.file_path, rhs.file_path);
+    }
+}
+
+#[test]
+fn synthetic_perf_messages_change_with_seed() {
+    let base = perf_session::build_synthetic_perf_messages(perf_session::SyntheticPerfSpec {
+        seed: 7,
+        turns: 4,
+        tool_output_lines: 4,
+    });
+    let changed = perf_session::build_synthetic_perf_messages(perf_session::SyntheticPerfSpec {
+        seed: 8,
+        turns: 4,
+        tool_output_lines: 4,
+    });
+
+    assert_eq!(base.len(), changed.len());
+    assert!(base
+        .iter()
+        .zip(changed.iter())
+        .any(|(lhs, rhs)| lhs.text != rhs.text));
 }
 
 #[test]

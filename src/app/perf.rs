@@ -67,7 +67,7 @@ impl DurationSamples {
         }
     }
 
-    fn summary(&self) -> String {
+    pub(super) fn summary(&self) -> String {
         format!(
             "p50 {:.2} p95 {:.2} avg {:.2} max {:.2} ms",
             self.p50_ms(),

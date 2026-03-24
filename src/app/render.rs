@@ -846,6 +846,15 @@ pub(super) fn read_summary_path(text: &str) -> Option<&str> {
     Some(path)
 }
 
+pub(super) fn parse_read_summary(text: &str) -> Option<(&str, usize)> {
+    let path = read_summary_path(text)?;
+    if let Some((base, count)) = path.rsplit_once(" ×") {
+        let parsed = count.parse::<usize>().ok()?;
+        return Some((base.trim_end(), parsed.max(1)));
+    }
+    Some((path, 1))
+}
+
 pub(super) fn format_read_summary_with_count(path: &str, count: usize) -> String {
     let base = if path.is_empty() {
         "→ Read".to_string()
@@ -857,57 +866,6 @@ pub(super) fn format_read_summary_with_count(path: &str, count: usize) -> String
     } else {
         base
     }
-}
-
-pub(super) fn collapse_successive_read_summaries(messages: &[Message]) -> Vec<Message> {
-    let mut out = Vec::with_capacity(messages.len());
-    let mut i = 0usize;
-
-    while i < messages.len() {
-        let msg = &messages[i];
-        let can_collapse = msg.kind == MessageKind::Plain
-            && msg.role == Role::ToolCall
-            && !msg.text.contains('\n');
-
-        let Some(path) = can_collapse.then(|| read_summary_path(&msg.text)).flatten() else {
-            out.push(msg.clone());
-            i += 1;
-            continue;
-        };
-        let key = path.to_string();
-
-        let mut count = 1usize;
-        let mut j = i + 1;
-        while j < messages.len() {
-            let next = &messages[j];
-            if next.kind != MessageKind::Plain
-                || next.role != Role::ToolCall
-                || next.text.contains('\n')
-            {
-                break;
-            }
-            let Some(next_path) = read_summary_path(&next.text) else {
-                break;
-            };
-            if next_path != key {
-                break;
-            }
-            count += 1;
-            j += 1;
-        }
-
-        if count > 1 {
-            let mut collapsed = msg.clone();
-            collapsed.text = format_read_summary_with_count(&key, count);
-            out.push(collapsed);
-            i = j;
-        } else {
-            out.push(msg.clone());
-            i += 1;
-        }
-    }
-
-    out
 }
 
 #[cfg(test)]
@@ -927,8 +885,7 @@ pub(super) fn build_rendered_lines_with_hidden(
         }
         filtered.push(msg.clone());
     }
-    let messages = collapse_successive_read_summaries(&filtered);
-    let visible_messages: Vec<_> = messages
+    let visible_messages: Vec<_> = filtered
         .iter()
         .filter(|msg| message_has_visible_content(msg))
         .collect();

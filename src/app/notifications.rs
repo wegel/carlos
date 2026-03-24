@@ -320,6 +320,9 @@ pub(super) fn upsert_tool_message(
             msg.text = text;
             msg.kind = kind;
             msg.file_path = file_path;
+            if kind == MessageKind::Plain && role == Role::ToolCall {
+                app.coalesce_successive_read_summary_at(idx);
+            }
             app.mark_transcript_dirty();
             return;
         }
@@ -810,6 +813,7 @@ pub(super) fn handle_server_message_line(
                                 msg.kind = MessageKind::Plain;
                                 msg.file_path = None;
                             }
+                            app.coalesce_successive_read_summary_at(idx);
                             app.mark_transcript_dirty();
                             return None;
                         }
@@ -853,6 +857,9 @@ pub(super) fn handle_server_message_line(
                                 msg.text = text;
                                 msg.kind = MessageKind::Plain;
                                 msg.file_path = None;
+                            }
+                            if role == Role::ToolCall {
+                                app.coalesce_successive_read_summary_at(idx);
                             }
                             app.mark_transcript_dirty();
                             return None;

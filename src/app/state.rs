@@ -12,8 +12,8 @@ use super::models::{Message, MessageKind, RenderedLine, Role, TerminalSize};
 use super::perf::PerfMetrics;
 use super::ralph::{detect_turn_markers, load_ralph_config, RalphConfig, RalphState};
 use super::render::{
-    build_rendered_lines_with_hidden, compute_input_layout, textarea_input_from_key,
-    transcript_content_width,
+    build_rendered_lines_with_hidden, compute_input_layout, format_read_summary_with_count,
+    parse_read_summary, textarea_input_from_key, transcript_content_width,
 };
 use super::selection::{MouseDragMode, Selection};
 use super::{RuntimeDefaults, MSG_TOP};
@@ -893,8 +893,10 @@ impl AppState {
             kind: MessageKind::Plain,
             file_path: None,
         });
+        let idx = self.messages.len() - 1;
+        self.coalesce_successive_read_summary_at(idx);
         self.mark_transcript_dirty();
-        self.messages.len() - 1
+        idx
     }
 
     pub(super) fn append_diff_message(
@@ -997,9 +999,72 @@ impl AppState {
                 msg.text = summary;
                 changed = true;
             }
+            self.coalesce_successive_read_summary_at(idx);
         }
         if changed {
             self.mark_transcript_dirty();
+        }
+    }
+
+    pub(super) fn coalesce_successive_read_summary_at(&mut self, idx: usize) {
+        if idx == 0 || idx >= self.messages.len() {
+            return;
+        }
+
+        let Some(current) = self.messages.get(idx) else {
+            return;
+        };
+        if current.role != Role::ToolCall
+            || current.kind != MessageKind::Plain
+            || current.text.contains('\n')
+            || current.text.trim().is_empty()
+        {
+            return;
+        }
+        let Some((current_path, current_count)) = parse_read_summary(&current.text) else {
+            return;
+        };
+        let current_path = current_path.to_string();
+
+        let mut previous_idx = idx.saturating_sub(1);
+        while previous_idx > 0 {
+            let Some(previous) = self.messages.get(previous_idx) else {
+                return;
+            };
+            let empty_tool_shell = previous.role == Role::ToolCall
+                && previous.kind == MessageKind::Plain
+                && previous.text.trim().is_empty();
+            if !empty_tool_shell {
+                break;
+            }
+            previous_idx -= 1;
+        }
+
+        let Some(previous) = self.messages.get(previous_idx) else {
+            return;
+        };
+        if previous.role != Role::ToolCall
+            || previous.kind != MessageKind::Plain
+            || previous.text.contains('\n')
+            || previous.text.trim().is_empty()
+        {
+            return;
+        }
+        let Some((previous_path, previous_count)) = parse_read_summary(&previous.text) else {
+            return;
+        };
+        if previous_path != current_path {
+            return;
+        }
+
+        if let Some(prev_msg) = self.messages.get_mut(previous_idx) {
+            prev_msg.text =
+                format_read_summary_with_count(&current_path, previous_count + current_count);
+        }
+        if let Some(current_msg) = self.messages.get_mut(idx) {
+            current_msg.text.clear();
+            current_msg.kind = MessageKind::Plain;
+            current_msg.file_path = None;
         }
     }
 

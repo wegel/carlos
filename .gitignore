@@ -9,3 +9,6 @@
 .DS_Store
 *.swp
 *.swo
+
+# Local Ralph/session noise
+.agents/bash_history
