@@ -320,10 +320,12 @@ pub(super) fn upsert_tool_message(
             msg.text = text;
             msg.kind = kind;
             msg.file_path = file_path;
-            if kind == MessageKind::Plain && role == Role::ToolCall {
-                app.coalesce_successive_read_summary_at(idx);
-            }
-            app.mark_transcript_dirty();
+            let dirty_from = if kind == MessageKind::Plain && role == Role::ToolCall {
+                app.coalesce_successive_read_summary_at(idx).unwrap_or(idx)
+            } else {
+                idx
+            };
+            app.mark_transcript_dirty_from(dirty_from);
             return;
         }
     }
@@ -759,7 +761,7 @@ pub(super) fn handle_server_message_line(
                             msg.kind = MessageKind::Plain;
                             msg.file_path = None;
                         }
-                        app.mark_transcript_dirty();
+                        app.mark_transcript_dirty_from(idx);
                         app.maybe_disable_ralph_on_blocked_marker();
                         return None;
                     }
@@ -782,7 +784,7 @@ pub(super) fn handle_server_message_line(
                                 msg.kind = MessageKind::Plain;
                                 msg.file_path = None;
                             }
-                            app.mark_transcript_dirty();
+                            app.mark_transcript_dirty_from(idx);
                             return None;
                         }
                     }
@@ -813,8 +815,9 @@ pub(super) fn handle_server_message_line(
                                 msg.kind = MessageKind::Plain;
                                 msg.file_path = None;
                             }
-                            app.coalesce_successive_read_summary_at(idx);
-                            app.mark_transcript_dirty();
+                            let dirty_from =
+                                app.coalesce_successive_read_summary_at(idx).unwrap_or(idx);
+                            app.mark_transcript_dirty_from(dirty_from);
                             return None;
                         }
                         app.append_message(Role::ToolCall, summary);
@@ -831,7 +834,7 @@ pub(super) fn handle_server_message_line(
                                 msg.kind = MessageKind::Diff;
                                 msg.file_path = None;
                             }
-                            app.mark_transcript_dirty();
+                            app.mark_transcript_dirty_from(idx);
                             return None;
                         }
                     }
@@ -858,10 +861,12 @@ pub(super) fn handle_server_message_line(
                                 msg.kind = MessageKind::Plain;
                                 msg.file_path = None;
                             }
-                            if role == Role::ToolCall {
-                                app.coalesce_successive_read_summary_at(idx);
-                            }
-                            app.mark_transcript_dirty();
+                            let dirty_from = if role == Role::ToolCall {
+                                app.coalesce_successive_read_summary_at(idx).unwrap_or(idx)
+                            } else {
+                                idx
+                            };
+                            app.mark_transcript_dirty_from(dirty_from);
                             return None;
                         }
                     }
@@ -880,7 +885,7 @@ pub(super) fn handle_server_message_line(
                             msg.kind = MessageKind::Diff;
                             msg.file_path = first.file_path.clone();
                         }
-                        app.mark_transcript_dirty();
+                        app.mark_transcript_dirty_from(idx);
                         for block in diffs.iter().skip(1) {
                             app.append_diff_message(
                                 role,

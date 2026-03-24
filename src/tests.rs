@@ -208,6 +208,21 @@ fn selected_text_does_not_insert_space_into_hard_wrapped_long_token() {
     assert_eq!(out, "averyveryverylongtokenwithoutspaces");
 }
 
+fn rendered_signature(lines: &[RenderedLine]) -> Vec<(String, Role, bool, usize, bool)> {
+    lines
+        .iter()
+        .map(|line| {
+            (
+                line.text.clone(),
+                line.role,
+                line.separator,
+                line.cells,
+                line.soft_wrap_to_next,
+            )
+        })
+        .collect()
+}
+
 #[test]
 fn shift_selection_focus_extends_copy_beyond_visible_screen() {
     let lines = vec![
@@ -343,6 +358,61 @@ fn set_command_override_coalesces_with_previous_read_summary() {
 
     assert_eq!(app.messages[0].text, "→ Read src/main.rs ×2");
     assert_eq!(app.messages[1].text, "");
+}
+
+#[test]
+fn ensure_rendered_lines_incremental_append_matches_full_rebuild() {
+    let mut app = AppState::new("thread".to_string());
+    app.append_message(Role::User, "prompt one");
+    app.append_message(Role::Assistant, "reply one");
+    app.append_message(Role::ToolOutput, "line one\nline two");
+
+    app.ensure_rendered_lines(48, None);
+    let before_lines = app.rendered_lines.len();
+
+    let idx = app.append_message(
+        Role::Assistant,
+        "tail reply with enough text to wrap across multiple transcript rows for cache testing",
+    );
+    assert_eq!(app.transcript_dirty_from, Some(idx));
+
+    app.ensure_rendered_lines(48, None);
+
+    let expected = build_rendered_lines_with_hidden(&app.messages, 48, None);
+    assert_eq!(
+        rendered_signature(&app.rendered_lines),
+        rendered_signature(&expected)
+    );
+    assert_eq!(app.rendered_message_blocks.len(), app.messages.len());
+    assert_eq!(app.rendered_block_offsets.len(), app.messages.len());
+    assert_eq!(app.transcript_dirty_from, None);
+    assert!(app.rendered_lines.len() > before_lines);
+}
+
+#[test]
+fn ensure_rendered_lines_incremental_agent_delta_matches_full_rebuild() {
+    let mut app = AppState::new("thread".to_string());
+    app.append_message(Role::User, "prompt one");
+    let idx = app.append_message(Role::Assistant, "starting answer");
+    app.put_agent_item_mapping("item-1", idx);
+
+    app.ensure_rendered_lines(52, None);
+    app.upsert_agent_delta(
+        "item-1",
+        "\ncontinued answer with more text so the last message grows substantially",
+    );
+    assert_eq!(app.transcript_dirty_from, Some(idx));
+
+    app.ensure_rendered_lines(52, None);
+
+    let expected = build_rendered_lines_with_hidden(&app.messages, 52, None);
+    assert_eq!(
+        rendered_signature(&app.rendered_lines),
+        rendered_signature(&expected)
+    );
+    assert_eq!(app.rendered_message_blocks.len(), app.messages.len());
+    assert_eq!(app.rendered_block_offsets.len(), app.messages.len());
+    assert_eq!(app.transcript_dirty_from, None);
 }
 
 #[test]

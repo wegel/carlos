@@ -22,13 +22,14 @@ lower work on the hot paths that currently rebuild too much state.
   `--turns`, `--seed`, and `--tool-lines` so perf work can be reproduced on any machine.
 - [x] (2026-03-24 00:00Z) Removed render-time collapsing of repeated `→ Read ...` summaries and
   moved that coalescing into message/state updates.
-- [ ] Replace full `ensure_rendered_lines()` rebuilds with incremental invalidation so append and
-  last-message update paths do not re-layout the entire transcript.
+- [x] (2026-03-24 01:00Z) Replaced `ensure_rendered_lines()` full rebuilds for append and
+  last-message update paths with dirty-from incremental invalidation backed by per-message
+  rendered blocks and block offsets.
 - [ ] Stop cloning or re-filtering the entire `messages` vector during normal redraws.
 - [ ] Reduce active-turn redraw pressure so animation or idle polling does not dominate CPU on
   large sessions.
-- [ ] Capture before/after perf evidence from both synthetic sessions and at least one real
-  captured session file.
+- [x] (2026-03-24 01:00Z) Captured before/after perf evidence from both the synthetic source and
+  the large real captured session `019c6286-d480-7293-8fd8-bd6459fab3ad`.
 
 ## Surprises & Discoveries
 
@@ -44,6 +45,20 @@ lower work on the hot paths that currently rebuild too much state.
   `97.08 ms`, which means the next bottleneck is the whole-transcript rebuild in
   `AppState::ensure_rendered_lines`.
 
+- Observation: the append benchmark in `perf-session` initially kept forcing a full rebuild even
+  after the incremental cache existed, because the harness still called `mark_transcript_dirty()`
+  instead of the new dirty-from path.
+  Evidence: the first post-cache synthetic run still showed `append_total: p50 97.30 ms`; after
+  fixing the harness to call `mark_transcript_dirty_from(idx)`, the same run dropped to
+  `append_total: p50 0.76 ms`.
+
+- Observation: the incremental cache makes the hot append and last-message update path fast, but
+  it does not yet solve the initial full layout cost for giant histories.
+  Evidence: the real captured session
+  `/home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl`
+  still reports `full_layout: 4348.32 ms` for `139591` messages and `4078383` rendered lines,
+  even though `append_total`, `typing_draw`, and `scroll_draw` are all around `0.6 ms`.
+
 ## Decision Log
 
 - Decision: build a deterministic synthetic perf source before deeper render refactors.
@@ -57,12 +72,19 @@ lower work on the hot paths that currently rebuild too much state.
   actually changes the hot-path measurements.
   Date/Author: 2026-03-24 / Codex
 
+- Decision: accept a small increase in full synthetic layout cost in exchange for collapsing the
+  hot append and last-message update path from tens of milliseconds to sub-millisecond work.
+  Rationale: live interaction smoothness matters more than one-time resume cost for this
+  milestone, and the measurements show the new cache materially improves the interactive path.
+  Date/Author: 2026-03-24 / Codex
+
 ## Outcomes & Retrospective
 
-The work is in progress. The repo now has the measurement tools needed to guide the refactor, and
-the first transcript-wide redraw transform has been removed. The main remaining risk is that the
-current renderer still rebuilds the full flattened transcript after many small changes, so smooth
-large-session behavior is not yet achieved.
+The work is still in progress, but the first major interactive bottleneck has been eliminated.
+Append-only and last-message update paths now rebuild only the tail of the transcript, and the
+measured append cost fell from roughly `92 ms` to roughly `0.6–0.8 ms` on both synthetic and
+real large-session inputs. The main remaining risk is the initial full layout on huge histories,
+which is still several seconds on a very large captured session.
 
 ## Context and Orientation
 
@@ -172,7 +194,7 @@ rerun `cargo test` plus the perf harness before proceeding.
 
 ## Artifacts and Notes
 
-Baseline synthetic evidence from the current tree:
+Baseline synthetic evidence before the incremental cache:
 
     target/release/carlos perf-session --synthetic --turns 2000 --seed 1 --tool-lines 24 --width 160 --height 48
     carlos perf-session
@@ -184,6 +206,32 @@ Baseline synthetic evidence from the current tree:
     scroll_draw:   p50 0.71 p95 0.74 avg 0.72 max 0.83 ms
     typing_draw:   p50 0.68 p95 0.68 avg 0.68 max 0.72 ms
     append_total:  p50 91.70 p95 102.79 avg 92.91 max 102.79 ms
+
+Current synthetic evidence after the incremental cache:
+
+    target/release/carlos perf-session --synthetic --turns 2000 --seed 1 --tool-lines 24 --width 160 --height 48
+    carlos perf-session
+    source: synthetic seed=1 turns=2000 tool_lines=24
+    viewport: 160x48
+    transcript: messages=12000 rendered_lines=80727 relevant_items=12000 replay_elapsed_ms=144.25
+    full_layout:   110.53 ms
+    full_draw:     0.88 ms
+    scroll_draw:   p50 0.76 p95 0.80 avg 0.76 max 0.80 ms
+    typing_draw:   p50 0.71 p95 0.74 avg 0.72 max 0.81 ms
+    append_total:  p50 0.76 p95 0.83 avg 0.77 max 0.83 ms
+
+Current real-session evidence after the incremental cache:
+
+    target/release/carlos perf-session /home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl --width 160 --height 48
+    carlos perf-session
+    source: /home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl
+    viewport: 160x48
+    transcript: messages=139591 rendered_lines=4078383 relevant_items=139591 replay_elapsed_ms=5982.63
+    full_layout:   4348.32 ms
+    full_draw:     0.71 ms
+    scroll_draw:   p50 0.59 p95 0.66 avg 0.60 max 0.70 ms
+    typing_draw:   p50 0.61 p95 0.64 avg 0.61 max 0.66 ms
+    append_total:  p50 0.62 p95 0.67 avg 0.62 max 0.67 ms
 
 ## Interfaces and Dependencies
 
@@ -205,5 +253,6 @@ are:
 - `src/tests.rs`
   - targeted correctness and perf-regression tests
 
-Revision note: created on 2026-03-24 to bootstrap Ralph-mode execution for the large-session
-performance refactor already underway in this working tree.
+Revision note: updated on 2026-03-24 to record the incremental transcript cache milestone,
+including the synthetic and real-session measurements that show the append-path win and the
+remaining initial-layout bottleneck.

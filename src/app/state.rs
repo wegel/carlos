@@ -12,8 +12,9 @@ use super::models::{Message, MessageKind, RenderedLine, Role, TerminalSize};
 use super::perf::PerfMetrics;
 use super::ralph::{detect_turn_markers, load_ralph_config, RalphConfig, RalphState};
 use super::render::{
-    build_rendered_lines_with_hidden, compute_input_layout, format_read_summary_with_count,
-    parse_read_summary, textarea_input_from_key, transcript_content_width,
+    build_rendered_block_for_message, build_rendered_lines_with_hidden, compute_input_layout,
+    format_read_summary_with_count, parse_read_summary, textarea_input_from_key,
+    transcript_content_width,
 };
 use super::selection::{MouseDragMode, Selection};
 use super::{RuntimeDefaults, MSG_TOP};
@@ -123,9 +124,11 @@ pub(super) struct AppState {
     pub(super) active_turn_id: Option<String>,
     pub(super) messages: Vec<Message>,
     pub(super) rendered_lines: Vec<RenderedLine>,
+    pub(super) rendered_message_blocks: Vec<Vec<RenderedLine>>,
+    pub(super) rendered_block_offsets: Vec<usize>,
     pub(super) rendered_width: usize,
     pub(super) rendered_hidden_user_message_idx: Option<usize>,
-    pub(super) transcript_dirty: bool,
+    pub(super) transcript_dirty_from: Option<usize>,
     pub(super) agent_item_to_index: HashMap<String, usize>,
     pub(super) turn_diff_to_index: HashMap<String, usize>,
     pub(super) command_render_overrides: HashMap<String, String>,
@@ -189,9 +192,11 @@ impl AppState {
             active_turn_id: None,
             messages: Vec::new(),
             rendered_lines: Vec::new(),
+            rendered_message_blocks: Vec::new(),
+            rendered_block_offsets: Vec::new(),
             rendered_width: 0,
             rendered_hidden_user_message_idx: None,
-            transcript_dirty: true,
+            transcript_dirty_from: Some(0),
             agent_item_to_index: HashMap::new(),
             turn_diff_to_index: HashMap::new(),
             command_render_overrides: HashMap::new(),
@@ -726,7 +731,7 @@ impl AppState {
                 *msg_idx = None;
             }
         }
-        self.mark_transcript_dirty();
+        self.mark_transcript_dirty_from(idx);
     }
 
     pub(super) fn mark_user_turn_submitted(&mut self) {
@@ -857,7 +862,15 @@ impl AppState {
     }
 
     pub(super) fn mark_transcript_dirty(&mut self) {
-        self.transcript_dirty = true;
+        self.mark_transcript_dirty_from(0);
+    }
+
+    pub(super) fn mark_transcript_dirty_from(&mut self, idx: usize) {
+        let idx = idx.min(self.messages.len());
+        self.transcript_dirty_from = Some(match self.transcript_dirty_from {
+            Some(current) => current.min(idx),
+            None => idx,
+        });
     }
 
     pub(super) fn sync_auto_follow_bottom(&mut self, max_scroll: usize) {
@@ -874,16 +887,70 @@ impl AppState {
         width: usize,
         hidden_user_message_idx: Option<usize>,
     ) {
-        if self.transcript_dirty
-            || self.rendered_width != width
+        let rebuild_from = if self.rendered_width != width
             || self.rendered_hidden_user_message_idx != hidden_user_message_idx
         {
-            self.rendered_lines =
-                build_rendered_lines_with_hidden(&self.messages, width, hidden_user_message_idx);
-            self.rendered_width = width;
-            self.rendered_hidden_user_message_idx = hidden_user_message_idx;
-            self.transcript_dirty = false;
+            Some(0)
+        } else {
+            self.transcript_dirty_from
+        };
+
+        let Some(dirty_from) = rebuild_from else {
+            return;
+        };
+
+        if dirty_from == 0 {
+            self.rendered_lines.clear();
+            self.rendered_message_blocks.clear();
+            self.rendered_block_offsets.clear();
+        } else {
+            let start_offset = self
+                .rendered_block_offsets
+                .get(dirty_from)
+                .copied()
+                .unwrap_or(self.rendered_lines.len());
+            self.rendered_lines.truncate(start_offset);
+            self.rendered_message_blocks.truncate(dirty_from);
+            self.rendered_block_offsets.truncate(dirty_from);
         }
+
+        let mut previous_visible_idx = if dirty_from == 0 {
+            None
+        } else {
+            self.find_previous_visible_message_idx(dirty_from, hidden_user_message_idx)
+        };
+
+        for idx in dirty_from..self.messages.len() {
+            self.rendered_block_offsets.push(self.rendered_lines.len());
+
+            let hidden =
+                hidden_user_message_idx == Some(idx) && self.messages[idx].role == Role::User;
+            if hidden {
+                self.rendered_message_blocks.push(Vec::new());
+                continue;
+            }
+
+            let msg = &self.messages[idx];
+            if msg.text.trim().is_empty() {
+                self.rendered_message_blocks.push(Vec::new());
+                continue;
+            }
+
+            let previous_visible =
+                previous_visible_idx.and_then(|prev_idx| self.messages.get(prev_idx));
+            let block = build_rendered_block_for_message(previous_visible, msg, width);
+            if block.is_empty() {
+                self.rendered_message_blocks.push(block);
+                continue;
+            }
+            self.rendered_lines.extend(block.iter().cloned());
+            self.rendered_message_blocks.push(block);
+            previous_visible_idx = Some(idx);
+        }
+
+        self.rendered_width = width;
+        self.rendered_hidden_user_message_idx = hidden_user_message_idx;
+        self.transcript_dirty_from = None;
     }
 
     pub(super) fn append_message(&mut self, role: Role, text: impl Into<String>) -> usize {
@@ -894,8 +961,8 @@ impl AppState {
             file_path: None,
         });
         let idx = self.messages.len() - 1;
-        self.coalesce_successive_read_summary_at(idx);
-        self.mark_transcript_dirty();
+        let dirty_from = self.coalesce_successive_read_summary_at(idx).unwrap_or(idx);
+        self.mark_transcript_dirty_from(dirty_from);
         idx
     }
 
@@ -911,8 +978,9 @@ impl AppState {
             kind: MessageKind::Diff,
             file_path,
         });
-        self.mark_transcript_dirty();
-        self.messages.len() - 1
+        let idx = self.messages.len() - 1;
+        self.mark_transcript_dirty_from(idx);
+        idx
     }
 
     pub(super) fn put_agent_item_mapping(&mut self, item_id: &str, idx: usize) {
@@ -932,7 +1000,7 @@ impl AppState {
                 changed = true;
             }
             if changed {
-                self.mark_transcript_dirty();
+                self.mark_transcript_dirty_from(idx);
             }
             return;
         }
@@ -955,7 +1023,7 @@ impl AppState {
                 changed = true;
             }
             if changed {
-                self.mark_transcript_dirty();
+                self.mark_transcript_dirty_from(idx);
             }
             return;
         }
@@ -978,7 +1046,7 @@ impl AppState {
                 msg.text = diff.to_string();
                 msg.kind = MessageKind::Diff;
                 msg.file_path = None;
-                self.mark_transcript_dirty();
+                self.mark_transcript_dirty_from(idx);
                 return;
             }
         }
@@ -990,46 +1058,42 @@ impl AppState {
     pub(super) fn set_command_override(&mut self, call_id: &str, summary: String) {
         self.command_render_overrides
             .insert(call_id.to_string(), summary.clone());
-        let mut changed = false;
         if let Some(idx) = self.agent_item_to_index.get(call_id).copied() {
             if let Some(msg) = self.messages.get_mut(idx) {
                 msg.role = Role::ToolCall;
                 msg.kind = MessageKind::Plain;
                 msg.file_path = None;
                 msg.text = summary;
-                changed = true;
             }
-            self.coalesce_successive_read_summary_at(idx);
-        }
-        if changed {
-            self.mark_transcript_dirty();
+            let dirty_from = self.coalesce_successive_read_summary_at(idx).unwrap_or(idx);
+            self.mark_transcript_dirty_from(dirty_from);
         }
     }
 
-    pub(super) fn coalesce_successive_read_summary_at(&mut self, idx: usize) {
+    pub(super) fn coalesce_successive_read_summary_at(&mut self, idx: usize) -> Option<usize> {
         if idx == 0 || idx >= self.messages.len() {
-            return;
+            return None;
         }
 
         let Some(current) = self.messages.get(idx) else {
-            return;
+            return None;
         };
         if current.role != Role::ToolCall
             || current.kind != MessageKind::Plain
             || current.text.contains('\n')
             || current.text.trim().is_empty()
         {
-            return;
+            return None;
         }
         let Some((current_path, current_count)) = parse_read_summary(&current.text) else {
-            return;
+            return None;
         };
         let current_path = current_path.to_string();
 
         let mut previous_idx = idx.saturating_sub(1);
         while previous_idx > 0 {
             let Some(previous) = self.messages.get(previous_idx) else {
-                return;
+                return None;
             };
             let empty_tool_shell = previous.role == Role::ToolCall
                 && previous.kind == MessageKind::Plain
@@ -1041,20 +1105,20 @@ impl AppState {
         }
 
         let Some(previous) = self.messages.get(previous_idx) else {
-            return;
+            return None;
         };
         if previous.role != Role::ToolCall
             || previous.kind != MessageKind::Plain
             || previous.text.contains('\n')
             || previous.text.trim().is_empty()
         {
-            return;
+            return None;
         }
         let Some((previous_path, previous_count)) = parse_read_summary(&previous.text) else {
-            return;
+            return None;
         };
         if previous_path != current_path {
-            return;
+            return None;
         }
 
         if let Some(prev_msg) = self.messages.get_mut(previous_idx) {
@@ -1066,6 +1130,26 @@ impl AppState {
             current_msg.kind = MessageKind::Plain;
             current_msg.file_path = None;
         }
+        Some(previous_idx)
+    }
+
+    fn find_previous_visible_message_idx(
+        &self,
+        start_idx: usize,
+        hidden_user_message_idx: Option<usize>,
+    ) -> Option<usize> {
+        let mut idx = start_idx;
+        while idx > 0 {
+            idx -= 1;
+            let msg = self.messages.get(idx)?;
+            if hidden_user_message_idx == Some(idx) && msg.role == Role::User {
+                continue;
+            }
+            if !msg.text.trim().is_empty() {
+                return Some(idx);
+            }
+        }
+        None
     }
 
     pub(super) fn append_context_compacted_marker(&mut self) {

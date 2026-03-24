@@ -878,21 +878,44 @@ pub(super) fn build_rendered_lines_with_hidden(
     width: usize,
     hidden_user_message_idx: Option<usize>,
 ) -> Vec<RenderedLine> {
-    let mut filtered = Vec::with_capacity(messages.len());
+    let mut out = Vec::new();
+    let mut previous_visible: Option<&Message> = None;
+
     for (idx, msg) in messages.iter().enumerate() {
         if hidden_user_message_idx == Some(idx) && msg.role == Role::User {
             continue;
         }
-        filtered.push(msg.clone());
+        if !message_has_visible_content(msg) {
+            continue;
+        }
+        append_rendered_block_for_message(&mut out, previous_visible, msg, width);
+        previous_visible = Some(msg);
     }
-    let visible_messages: Vec<_> = filtered
-        .iter()
-        .filter(|msg| message_has_visible_content(msg))
-        .collect();
-    let mut out = Vec::new();
 
-    for (i, msg) in visible_messages.iter().enumerate() {
-        if i > 0 && should_insert_separator_between(visible_messages[i - 1], visible_messages[i]) {
+    out
+}
+
+pub(super) fn build_rendered_block_for_message(
+    previous_visible: Option<&Message>,
+    msg: &Message,
+    width: usize,
+) -> Vec<RenderedLine> {
+    let mut out = Vec::new();
+    append_rendered_block_for_message(&mut out, previous_visible, msg, width);
+    out
+}
+
+pub(super) fn append_rendered_block_for_message(
+    out: &mut Vec<RenderedLine>,
+    previous_visible: Option<&Message>,
+    msg: &Message,
+    width: usize,
+) {
+    if !message_has_visible_content(msg) {
+        return;
+    }
+    if let Some(prev) = previous_visible {
+        if should_insert_separator_between(prev, msg) {
             out.push(RenderedLine {
                 text: String::new(),
                 styled_segments: Vec::new(),
@@ -902,25 +925,20 @@ pub(super) fn build_rendered_lines_with_hidden(
                 soft_wrap_to_next: false,
             });
         }
-        match msg.kind {
-            MessageKind::Diff => append_wrapped_diff_lines(
-                &mut out,
-                msg.role,
-                msg.file_path.as_deref(),
-                &msg.text,
-                width,
-            ),
-            MessageKind::Plain => match msg.role {
-                Role::Assistant | Role::Reasoning => {
-                    append_wrapped_markdown_lines(&mut out, msg.role, &msg.text, width);
-                }
-                Role::ToolOutput => append_wrapped_ansi_lines(&mut out, msg.role, &msg.text, width),
-                _ => append_wrapped_message_lines(&mut out, msg.role, &msg.text, width),
-            },
-        }
     }
 
-    out
+    match msg.kind {
+        MessageKind::Diff => {
+            append_wrapped_diff_lines(out, msg.role, msg.file_path.as_deref(), &msg.text, width)
+        }
+        MessageKind::Plain => match msg.role {
+            Role::Assistant | Role::Reasoning => {
+                append_wrapped_markdown_lines(out, msg.role, &msg.text, width);
+            }
+            Role::ToolOutput => append_wrapped_ansi_lines(out, msg.role, &msg.text, width),
+            _ => append_wrapped_message_lines(out, msg.role, &msg.text, width),
+        },
+    }
 }
 
 fn message_has_visible_content(msg: &Message) -> bool {

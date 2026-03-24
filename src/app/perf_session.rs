@@ -384,7 +384,7 @@ fn benchmark_append_draws(
     for _ in 0..APPEND_BENCH_STEPS {
         let started = Instant::now();
         app.messages[idx].text.push_str("\nappend bench line");
-        app.mark_transcript_dirty();
+        app.mark_transcript_dirty_from(idx);
         app.ensure_rendered_lines(transcript_content_width(size), None);
         terminal.draw(|frame| render_main_view(frame, app))?;
         stats.append_total.push(started.elapsed());
