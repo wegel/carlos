@@ -532,6 +532,67 @@ pub(super) fn strip_shell_quotes(token: &str) -> &str {
     t
 }
 
+fn parse_shell_search_summary(cmd: &str, program: &str, cwd: Option<&str>) -> Option<String> {
+    let tokens: Vec<&str> = cmd.split_whitespace().collect();
+    if tokens.first().copied()? != program {
+        return None;
+    }
+
+    let mut i = 1usize;
+    while i < tokens.len() && tokens[i].starts_with('-') {
+        i += 1;
+    }
+
+    let pattern = tokens.get(i).map(|t| strip_shell_quotes(t));
+    let path = tokens
+        .iter()
+        .skip(i.saturating_add(1))
+        .find(|t| !t.starts_with('-'))
+        .map(|t| compact_command_path(strip_shell_quotes(t), cwd));
+
+    let mut out = "✱ Search".to_string();
+    if let Some(path) = path {
+        out.push(' ');
+        out.push_str(&path);
+    }
+    if let Some(pattern) = pattern {
+        if !pattern.is_empty() {
+            out.push_str(&format!(" [pattern={pattern}]"));
+        }
+    }
+    Some(out)
+}
+
+fn parse_shell_sed_summary(cmd: &str, cwd: Option<&str>) -> Option<String> {
+    let tokens: Vec<&str> = cmd.split_whitespace().collect();
+    if tokens.first().copied()? != "sed" {
+        return None;
+    }
+
+    let mut i = 1usize;
+    while i < tokens.len() && tokens[i].starts_with('-') {
+        i += 1;
+    }
+    let script = strip_shell_quotes(tokens.get(i)?);
+    let path = compact_command_path(strip_shell_quotes(tokens.get(i + 1)?), cwd);
+
+    let mut out = format!("✱ Search {path}");
+    if let Some(range) = script.strip_suffix('p') {
+        let range = range.trim();
+        if let Some((start, end)) = range.split_once(',') {
+            if !start.is_empty() && !end.is_empty() {
+                out.push_str(&format!(" [lines={start}..{end}]"));
+                return Some(out);
+            }
+        }
+        if !range.is_empty() {
+            out.push_str(&format!(" [lines={range}]"));
+            return Some(out);
+        }
+    }
+    Some(out)
+}
+
 pub(super) fn command_summary_from_shell_cmd(cmd: &str, cwd: Option<&str>) -> Option<String> {
     let cmd = normalize_shell_command(cmd);
     let cmd = cmd.trim();
@@ -552,6 +613,12 @@ pub(super) fn command_summary_from_shell_cmd(cmd: &str, cwd: Option<&str>) -> Op
         || lower.starts_with("find ")
         || lower.starts_with("git grep ")
     {
+        if lower.starts_with("rg ") {
+            return parse_shell_search_summary(cmd, "rg", cwd).or(Some("✱ Search".to_string()));
+        }
+        if lower.starts_with("grep ") {
+            return parse_shell_search_summary(cmd, "grep", cwd).or(Some("✱ Search".to_string()));
+        }
         return Some("✱ Search".to_string());
     }
 
@@ -576,6 +643,10 @@ pub(super) fn command_summary_from_shell_cmd(cmd: &str, cwd: Option<&str>) -> Op
             }
         }
         return Some("→ Read".to_string());
+    }
+
+    if lhs_lower.starts_with("sed ") {
+        return parse_shell_sed_summary(lhs, cwd).or(Some("✱ Search".to_string()));
     }
 
     None

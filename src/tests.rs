@@ -1677,6 +1677,54 @@ fn exec_command_end_generic_shell_nl_sed_is_summarized_as_read() {
 }
 
 #[test]
+fn exec_command_end_generic_shell_rg_is_summarized_as_search() {
+    let mut app = AppState::new("thread-1".to_string());
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_search_rg\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/exec_command_end\",\"params\":{\"msg\":{\"type\":\"exec_command_end\",\"call_id\":\"call_search_rg\",\"cwd\":\"/repo\",\"parsed_cmd\":[{\"type\":\"shell\",\"cmd\":\"rg -n \\\"count|build\\\\(\\\" src/app/render.rs\"}]}}}",
+        );
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_search_rg\",\"aggregatedOutput\":\"916:build_rendered_block_for_message\\n927:count_rendered_block_for_message\\n\",\"exitCode\":0},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(
+        app.messages[0].text,
+        "✱ Search src/app/render.rs [pattern=count|build\\(]"
+    );
+    assert_eq!(app.messages[0].role, Role::ToolCall);
+}
+
+#[test]
+fn exec_command_end_generic_shell_sed_is_summarized_as_search() {
+    let mut app = AppState::new("thread-1".to_string());
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_search_sed\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/exec_command_end\",\"params\":{\"msg\":{\"type\":\"exec_command_end\",\"call_id\":\"call_search_sed\",\"cwd\":\"/repo\",\"parsed_cmd\":[{\"type\":\"shell\",\"cmd\":\"sed -n '916,1015p' src/app/render.rs\"}]}}}",
+        );
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_search_sed\",\"aggregatedOutput\":\"pub(super) fn build_rendered_block_for_message(\\n\",\"exitCode\":0},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(
+        app.messages[0].text,
+        "✱ Search src/app/render.rs [lines=916..1015]"
+    );
+    assert_eq!(app.messages[0].role, Role::ToolCall);
+}
+
+#[test]
 fn exec_command_end_shell_git_diff_is_summarized_as_diff() {
     let mut app = AppState::new("thread-1".to_string());
     handle_notification_line(

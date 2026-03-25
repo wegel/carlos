@@ -166,10 +166,7 @@ pub(super) fn count_ascii_multiline_by_cells(
         }
 
         let line = &text[start..idx];
-        count += if skip_fence_delimiters
-            && line
-                .trim_matches([' ', '\t', '\r'])
-                .starts_with("```")
+        count += if skip_fence_delimiters && line.trim_matches([' ', '\t', '\r']).starts_with("```")
         {
             0
         } else if line.is_empty() {
@@ -250,7 +247,10 @@ fn wrap_natural_count_ascii_slow_by_cells(text: &str, width: usize) -> usize {
     let mut pending_whitespace = 0usize;
     let mut have_line = false;
 
-    for word in split_words(options.word_separator.find_words(text), &options.word_splitter) {
+    for word in split_words(
+        options.word_separator.find_words(text),
+        &options.word_splitter,
+    ) {
         let word_len = word.len();
         let whitespace_len = word.whitespace.len();
         let projected_width = if have_line {

@@ -395,7 +395,9 @@ impl AppState {
         )
     }
 
-    pub(super) fn next_turn_runtime_settings(&self) -> (Option<String>, Option<String>, Option<String>) {
+    pub(super) fn next_turn_runtime_settings(
+        &self,
+    ) -> (Option<String>, Option<String>, Option<String>) {
         (
             self.pending_model
                 .clone()
