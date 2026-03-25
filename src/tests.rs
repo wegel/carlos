@@ -418,6 +418,24 @@ fn ensure_rendered_lines_incremental_agent_delta_matches_full_rebuild() {
 }
 
 #[test]
+fn ensure_rendered_lines_non_user_fence_counts_match_rendered_block() {
+    let mut app = AppState::new("thread".to_string());
+    app.append_message(
+        Role::ToolOutput,
+        "before\n```text\nliteral fence payload that should remain visible\n```\nafter",
+    );
+
+    app.ensure_rendered_lines(48, None);
+
+    let expected = build_rendered_lines_with_hidden(&app.messages, 48, None);
+    assert_eq!(app.rendered_line_count(), expected.len());
+    assert_eq!(
+        rendered_signature(&app.snapshot_rendered_lines()),
+        rendered_signature(&expected)
+    );
+}
+
+#[test]
 fn wrap_natural_by_cells_prefers_word_boundaries() {
     let parts = wrap_natural_by_cells("alpha beta gamma", 10);
     assert_eq!(parts, vec!["alpha beta".to_string(), "gamma".to_string()]);

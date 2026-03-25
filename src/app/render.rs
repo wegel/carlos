@@ -234,6 +234,10 @@ pub(super) fn is_fence_delimiter(line: &str) -> bool {
     line.trim_matches([' ', '\t', '\r']).starts_with("```")
 }
 
+fn has_fence_delimiter_line(text: &str) -> bool {
+    text.contains("```") && text.split('\n').any(is_fence_delimiter)
+}
+
 pub(super) fn styled_plain_text(segments: &[StyledSegment]) -> String {
     let mut out = String::new();
     for seg in segments {
@@ -1029,7 +1033,7 @@ fn count_wrapped_message_lines(role: Role, text: &str, width: usize) -> usize {
     if width < 8 {
         return 0;
     }
-    if !matches!(role, Role::User) {
+    if !matches!(role, Role::User) && !has_fence_delimiter_line(text) {
         if let Some(count) = count_ascii_multiline_by_cells(text, width) {
             return count;
         }
@@ -1068,7 +1072,7 @@ fn count_wrapped_message_lines_cached<'a>(
     if width < 8 {
         return 0;
     }
-    if !matches!(role, Role::User) {
+    if !matches!(role, Role::User) && !has_fence_delimiter_line(text) {
         if let Some(count) = count_ascii_multiline_by_cells_cached(cache, text, width) {
             return count;
         }

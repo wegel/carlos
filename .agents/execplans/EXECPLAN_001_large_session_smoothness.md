@@ -56,8 +56,11 @@ lower work on the hot paths that currently rebuild too much state.
 - [x] (2026-03-24 05:00Z) Added ASCII fast paths to the shared width/split helpers so the
   remaining plain-text-heavy hot paths stop paying grapheme/Unicode-width cost for ASCII-only
   text.
+- [x] (2026-03-24 06:00Z) Ran engineering review on commits `5bcf8d3..f4b962e`, fixed the
+  reported fenced-block count regression in the non-user ASCII fast path, and added a cached
+  layout regression test for fence-delimited tool output.
 - [ ] Shrink the initial full-layout cost further; it improved materially, but it is still about
-  `1.10 s` on the captured 4M-line session.
+  `1.21 s` on the captured 4M-line session.
 
 ## Surprises & Discoveries
 
@@ -157,6 +160,15 @@ lower work on the hot paths that currently rebuild too much state.
   `189.13 ms` to `171.42 ms`, and the total `full_layout` to `1101.24 ms` while keeping
   `typing_draw`, `working_draw`, and `append_total` around `0.58 ms`.
 
+- Observation: the line-count fast paths must preserve every delimiter rule that the materialized
+  renderer applies, or the cached block offsets become incorrect even when the visible lines still
+  render correctly.
+  Evidence: engineering review found that the non-user ASCII multiline fast path skipped
+  fence-delimiter handling, which caused cached line counts to disagree with rendered blocks for
+  fenced tool output. Tightening the shortcut to bail out only when a real fence-delimiter line is
+  present restored correctness and kept the large-session `full_layout` close to the pre-review
+  snapshot at about `1.21 s`.
+
 ## Decision Log
 
 - Decision: build a deterministic synthetic perf source before deeper render refactors.
@@ -192,11 +204,27 @@ lower work on the hot paths that currently rebuild too much state.
 
 ## Outcomes & Retrospective
 
-The work is still in progress, but the interactive path is now much closer to the target and the
-one-time resume cost is lower than before. The append path, scroll path, typing path, and
-active-turn animation path are all under a millisecond in the perf harness, including the
-captured 4M-line session, and the initial full-layout cost fell by about `1.5 s`. The main
-remaining risk is that `2.8 s` resume cost is still too high for the largest histories.
+The work is still in progress, but the interactive path is now firmly in the target range and the
+remaining cost is concentrated in the one-time full-layout prepass. On the captured 4M-line
+session, `append_total`, `scroll_draw`, `typing_draw`, and `working_draw` are all around
+`0.6–0.8 ms`, so live typing, scrolling, and the animation are no longer the problem. The main
+remaining risk is the `~1.21 s` initial full-layout cost on the largest histories, plus the still
+pending spec review required by the repo process before this ExecPlan can be closed.
+
+## Reviews
+
+### Engineering Review
+
+- Reviewer: separate reviewer session using `.agents/engineering_reviewer.md`
+- Scope: commits `5bcf8d3..f4b962e` plus this ExecPlan
+- Verdict: `PASS WITH ISSUES`
+- Finding resolved: the reviewer identified a `MAJOR` correctness regression in the non-user ASCII
+  line-count fast path, where fence-delimited tool/commentary text could count fewer lines than it
+  rendered. The fix narrows the shortcut to skip only texts without actual fence-delimiter lines,
+  and `ensure_rendered_lines_non_user_fence_counts_match_rendered_block` now covers the cached
+  layout path.
+- Remaining review status: engineering review is satisfied after the fence-count fix. Spec review
+  is still pending explicit authorization.
 
 ## Context and Orientation
 
