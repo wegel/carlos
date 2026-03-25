@@ -867,6 +867,21 @@ fn build_rendered_lines_diff_viewer_hides_raw_hunk_headers() {
 }
 
 #[test]
+fn count_rendered_block_for_diff_matches_materialized_block_len() {
+    let msg = Message {
+        role: Role::ToolOutput,
+        text: "diff --git a/src/example.rs b/src/example.rs\n@@ -1,2 +1,3 @@\n old\n-old line\n+new line\n+extra line\n"
+            .to_string(),
+        kind: MessageKind::Diff,
+        file_path: Some("src/example.rs".to_string()),
+    };
+
+    let count = count_rendered_block_for_message(None, &msg, 80);
+    let block = build_rendered_block_for_message(None, &msg, 80);
+    assert_eq!(count, block.len());
+}
+
+#[test]
 fn prioritize_events_handles_terminal_first_and_budgets_server_lines() {
     let mut deferred = std::collections::VecDeque::new();
     let incoming = vec![

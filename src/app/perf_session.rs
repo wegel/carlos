@@ -400,11 +400,7 @@ fn benchmark_append_draws(
     stats: &mut PerfReplayStats,
 ) -> Result<()> {
     let mut terminal = Terminal::new(TestBackend::new(size.width as u16, size.height as u16))?;
-    let idx = if app.messages.is_empty() {
-        app.append_message(Role::Assistant, String::new())
-    } else {
-        app.messages.len() - 1
-    };
+    let idx = app.append_message(Role::Assistant, String::new());
 
     for _ in 0..APPEND_BENCH_STEPS {
         let started = Instant::now();

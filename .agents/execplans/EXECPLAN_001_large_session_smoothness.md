@@ -37,8 +37,11 @@ lower work on the hot paths that currently rebuild too much state.
   materialization so resume no longer builds every rendered line up front.
 - [x] (2026-03-24 02:40Z) Replaced temporary wrap allocation in the count prepass with count-only
   helpers and fast paths for common reasoning/ANSI cases.
+- [x] (2026-03-24 03:05Z) Replaced diff-viewer rendering in the count prepass with direct hunk
+  counting and stabilized the append benchmark so it always exercises a fresh plain assistant
+  tail message.
 - [ ] Shrink the initial full-layout cost further; it improved materially, but it is still about
-  `2.8 s` on the captured 4M-line session.
+  `2.3 s` on the captured 4M-line session.
 
 ## Surprises & Discoveries
 
@@ -88,6 +91,13 @@ lower work on the hot paths that currently rebuild too much state.
   paths for common reasoning and ANSI cases only moved the captured-session `full_layout` from
   `2828.81 ms` to `2802.99 ms`, which means the remaining time is likely in markdown/diff parsing
   and message-wide preprocessing rather than plain wrapping.
+
+- Observation: diff counting was still a real hot spot because the count path was instantiating
+  the full diff viewer just to measure rows.
+  Evidence: the large captured session contains about `1696` diff-like tool outputs, and
+  replacing viewer rendering with direct parsed-hunk counting reduced `full_layout` from
+  `2802.99 ms` to `2331.66 ms` while keeping `append_total` at `0.67 ms` once the harness was
+  normalized to use a fresh plain tail message.
 
 ## Decision Log
 
@@ -353,6 +363,38 @@ Current real-session evidence after count-only wrap helpers and common-case fast
     working_draw:  p50 0.54 p95 0.56 avg 0.54 max 0.58 ms
     append_total:  p50 0.70 p95 0.78 avg 0.71 max 0.78 ms
 
+Current synthetic evidence after direct diff counting and a stabilized append benchmark:
+
+    target/release/carlos perf-session --synthetic --turns 2000 --seed 1 --tool-lines 24 --width 160 --height 48
+    carlos perf-session
+    source: synthetic seed=1 turns=2000 tool_lines=24
+    viewport: 160x48
+    transcript: messages=12001 rendered_lines=80728 relevant_items=12000 replay_elapsed_ms=88.49
+    memory_kib: before=0 after_replay=0 after_bench=0
+    replay_apply:  p50 28.93 p95 28.93 avg 28.93 max 28.93 ms
+    full_layout:   58.23 ms
+    full_draw:     0.94 ms
+    scroll_draw:   p50 0.79 p95 0.82 avg 0.79 max 0.84 ms
+    typing_draw:   p50 0.68 p95 0.69 avg 0.68 max 0.73 ms
+    working_draw:  p50 0.67 p95 0.69 avg 0.67 max 0.72 ms
+    append_total:  p50 0.70 p95 0.74 avg 0.70 max 0.74 ms
+
+Current real-session evidence after direct diff counting and a stabilized append benchmark:
+
+    target/release/carlos perf-session /home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl --width 160 --height 48
+    carlos perf-session
+    source: /home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl
+    viewport: 160x48
+    transcript: messages=140604 rendered_lines=4142439 relevant_items=140603 replay_elapsed_ms=3946.98
+    memory_kib: before=0 after_replay=0 after_bench=0
+    replay_apply:  p50 0.00 p95 0.01 avg 0.00 max 0.27 ms
+    full_layout:   2331.66 ms
+    full_draw:     0.72 ms
+    scroll_draw:   p50 0.74 p95 1.75 avg 0.94 max 5.12 ms
+    typing_draw:   p50 0.59 p95 0.60 avg 0.59 max 0.63 ms
+    working_draw:  p50 0.57 p95 0.60 avg 0.58 max 0.64 ms
+    append_total:  p50 0.67 p95 0.68 avg 0.66 max 0.68 ms
+
 ## Interfaces and Dependencies
 
 Keep using the existing Rust stack and data model. The important interfaces for this ExecPlan
@@ -374,5 +416,6 @@ are:
   - targeted correctness and perf-regression tests
 
 Revision note: updated on 2026-03-24 to record the lazy block-materialization prepass, the
-follow-up count-only helper pass, the measured reduction in full-layout cost on the large
-captured session, and the evidence that the remaining bottleneck is no longer ordinary wrapping.
+follow-up count-only helper passes, the diff-count fast path, the measured reductions in
+full-layout cost on the large captured session, and the evidence that the remaining bottleneck is
+now deeper than plain wrapping or diff row counting.

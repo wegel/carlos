@@ -1064,9 +1064,47 @@ fn count_wrapped_ansi_lines(role: Role, text: &str, width: usize) -> usize {
 }
 
 fn count_wrapped_diff_lines(file_path: Option<&str>, diff: &str, width: usize) -> usize {
-    let mut out = Vec::new();
-    append_wrapped_diff_lines(&mut out, Role::ToolOutput, file_path, diff, width);
-    out.len()
+    if width < 8 {
+        return 0;
+    }
+
+    let parsed = DiffData::from_unified_diff(diff);
+    if parsed.hunks.is_empty() {
+        let mut count = 0usize;
+        if let Some(path) = file_path {
+            if !path.is_empty() {
+                count += 1;
+            }
+        }
+        for logical in diff.split('\n') {
+            if logical.is_empty() {
+                count += 1;
+            } else {
+                count += wrap_natural_count_by_cells(logical, width);
+            }
+        }
+        return count;
+    }
+
+    let diff_path = file_path
+        .filter(|p| !p.is_empty())
+        .or(parsed.new_path.as_deref())
+        .or(parsed.old_path.as_deref());
+    let show_path = diff_path.is_some_and(|path| !path.is_empty());
+
+    let mut count = 0usize;
+    let hunk_total = parsed.hunks.len();
+    for idx in 0..hunk_total {
+        if idx > 0 {
+            count += 1;
+        }
+        if show_path {
+            count += 1;
+        }
+        count += 1;
+        count += parsed.hunks[idx].lines.len();
+    }
+    count
 }
 
 fn fast_reasoning_summary_plain_text(line: &str) -> Option<&str> {
