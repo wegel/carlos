@@ -13,8 +13,8 @@ use super::perf::PerfMetrics;
 use super::ralph::{detect_turn_markers, load_ralph_config, RalphConfig, RalphState};
 use super::render::{
     build_rendered_block_for_message, build_rendered_lines_with_hidden, compute_input_layout,
-    format_read_summary_with_count, parse_read_summary, textarea_input_from_key,
-    transcript_content_width,
+    count_rendered_block_for_message, format_read_summary_with_count, parse_read_summary,
+    textarea_input_from_key, transcript_content_width,
 };
 use super::selection::{MouseDragMode, RenderedLineSource, Selection};
 use super::{RuntimeDefaults, MSG_TOP};
@@ -123,7 +123,8 @@ pub(super) struct AppState {
     pub(super) thread_id: String,
     pub(super) active_turn_id: Option<String>,
     pub(super) messages: Vec<Message>,
-    pub(super) rendered_message_blocks: Vec<Vec<RenderedLine>>,
+    pub(super) rendered_message_blocks: Vec<Option<Vec<RenderedLine>>>,
+    pub(super) rendered_block_line_counts: Vec<usize>,
     pub(super) rendered_block_offsets: Vec<usize>,
     pub(super) rendered_total_lines: usize,
     pub(super) rendered_width: usize,
@@ -192,6 +193,7 @@ impl AppState {
             active_turn_id: None,
             messages: Vec::new(),
             rendered_message_blocks: Vec::new(),
+            rendered_block_line_counts: Vec::new(),
             rendered_block_offsets: Vec::new(),
             rendered_total_lines: 0,
             rendered_width: 0,
@@ -901,6 +903,7 @@ impl AppState {
 
         if dirty_from == 0 {
             self.rendered_message_blocks.clear();
+            self.rendered_block_line_counts.clear();
             self.rendered_block_offsets.clear();
             self.rendered_total_lines = 0;
         } else {
@@ -910,6 +913,7 @@ impl AppState {
                 .copied()
                 .unwrap_or(self.rendered_total_lines);
             self.rendered_message_blocks.truncate(dirty_from);
+            self.rendered_block_line_counts.truncate(dirty_from);
             self.rendered_block_offsets.truncate(dirty_from);
             self.rendered_total_lines = start_offset;
         }
@@ -926,25 +930,28 @@ impl AppState {
             let hidden =
                 hidden_user_message_idx == Some(idx) && self.messages[idx].role == Role::User;
             if hidden {
-                self.rendered_message_blocks.push(Vec::new());
+                self.rendered_message_blocks.push(None);
+                self.rendered_block_line_counts.push(0);
                 continue;
             }
 
             let msg = &self.messages[idx];
             if msg.text.trim().is_empty() {
-                self.rendered_message_blocks.push(Vec::new());
+                self.rendered_message_blocks.push(None);
+                self.rendered_block_line_counts.push(0);
                 continue;
             }
 
             let previous_visible =
                 previous_visible_idx.and_then(|prev_idx| self.messages.get(prev_idx));
-            let block = build_rendered_block_for_message(previous_visible, msg, width);
-            if block.is_empty() {
-                self.rendered_message_blocks.push(block);
+            let line_count = count_rendered_block_for_message(previous_visible, msg, width);
+            self.rendered_block_line_counts.push(line_count);
+            if line_count == 0 {
+                self.rendered_message_blocks.push(None);
                 continue;
             }
-            self.rendered_total_lines += block.len();
-            self.rendered_message_blocks.push(block);
+            self.rendered_total_lines += line_count;
+            self.rendered_message_blocks.push(None);
             previous_visible_idx = Some(idx);
         }
 
@@ -1165,17 +1172,91 @@ impl AppState {
             .partition_point(|offset| *offset <= idx);
         let block_idx = pos.checked_sub(1)?;
         let block_start = *self.rendered_block_offsets.get(block_idx)?;
-        let block = self.rendered_message_blocks.get(block_idx)?;
+        let block = self.rendered_message_blocks.get(block_idx)?.as_ref()?;
         block.get(idx.saturating_sub(block_start))
     }
 
+    pub(super) fn ensure_rendered_range_materialized(&mut self, start_idx: usize, end_idx: usize) {
+        if start_idx > end_idx || self.rendered_total_lines == 0 {
+            return;
+        }
+
+        let start_block = self
+            .rendered_block_offsets
+            .partition_point(|offset| *offset <= start_idx)
+            .saturating_sub(1);
+        let end_block = self
+            .rendered_block_offsets
+            .partition_point(|offset| *offset <= end_idx)
+            .saturating_sub(1);
+
+        for block_idx in start_block..=end_block {
+            self.ensure_rendered_block_materialized(block_idx);
+        }
+    }
+
+    fn ensure_rendered_block_materialized(&mut self, block_idx: usize) {
+        if self
+            .rendered_message_blocks
+            .get(block_idx)
+            .and_then(Option::as_ref)
+            .is_some()
+        {
+            return;
+        }
+        if self
+            .rendered_block_line_counts
+            .get(block_idx)
+            .copied()
+            .unwrap_or(0)
+            == 0
+        {
+            return;
+        }
+
+        let Some(msg) = self.messages.get(block_idx) else {
+            return;
+        };
+        let previous_visible = self
+            .find_previous_visible_message_idx(block_idx, self.rendered_hidden_user_message_idx)
+            .and_then(|prev_idx| self.messages.get(prev_idx));
+        let block = build_rendered_block_for_message(previous_visible, msg, self.rendered_width);
+        debug_assert_eq!(
+            block.len(),
+            self.rendered_block_line_counts
+                .get(block_idx)
+                .copied()
+                .unwrap_or(0)
+        );
+        if let Some(slot) = self.rendered_message_blocks.get_mut(block_idx) {
+            *slot = Some(block);
+        }
+    }
+
     #[cfg(test)]
-    pub(super) fn snapshot_rendered_lines(&self) -> Vec<RenderedLine> {
+    pub(super) fn snapshot_rendered_lines(&mut self) -> Vec<RenderedLine> {
+        if self.rendered_total_lines > 0 {
+            self.ensure_rendered_range_materialized(0, self.rendered_total_lines - 1);
+        }
         let mut out = Vec::with_capacity(self.rendered_total_lines);
         for block in &self.rendered_message_blocks {
-            out.extend(block.iter().cloned());
+            if let Some(block) = block {
+                out.extend(block.iter().cloned());
+            }
         }
         out
+    }
+
+    pub(super) fn selected_text(&mut self, selection: Selection) -> String {
+        let start_idx = selection.anchor_line_idx.min(selection.focus_line_idx);
+        let end_idx = selection.anchor_line_idx.max(selection.focus_line_idx);
+        if self.rendered_total_lines > 0 {
+            self.ensure_rendered_range_materialized(
+                start_idx.min(self.rendered_total_lines.saturating_sub(1)),
+                end_idx.min(self.rendered_total_lines.saturating_sub(1)),
+            );
+        }
+        super::selection::selected_text(selection, self)
     }
 
     pub(super) fn append_context_compacted_marker(&mut self) {

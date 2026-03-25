@@ -24,7 +24,7 @@ use super::selection::compute_selection_range;
 use super::state::ModelSettingsField;
 use super::text::{
     char_to_byte_idx, slice_by_cells, split_at_cells, visual_width, wrap_input_line,
-    wrap_natural_by_cells,
+    wrap_natural_by_cells, wrap_natural_count_by_cells,
 };
 use super::{
     animation_tick, kitt_head_index, AppState, Message, MessageKind, RenderedLine, Role,
@@ -905,6 +905,37 @@ pub(super) fn build_rendered_block_for_message(
     out
 }
 
+pub(super) fn count_rendered_block_for_message(
+    previous_visible: Option<&Message>,
+    msg: &Message,
+    width: usize,
+) -> usize {
+    if !message_has_visible_content(msg) {
+        return 0;
+    }
+
+    let mut count = 0usize;
+    if let Some(prev) = previous_visible {
+        if should_insert_separator_between(prev, msg) {
+            count += 1;
+        }
+    }
+
+    count
+        + match msg.kind {
+            MessageKind::Diff => {
+                count_wrapped_diff_lines(msg.file_path.as_deref(), &msg.text, width)
+            }
+            MessageKind::Plain => match msg.role {
+                Role::Assistant | Role::Reasoning => {
+                    count_wrapped_markdown_lines(msg.role, &msg.text, width)
+                }
+                Role::ToolOutput => count_wrapped_ansi_lines(msg.role, &msg.text, width),
+                _ => count_wrapped_message_lines(msg.role, &msg.text, width),
+            },
+        }
+}
+
 pub(super) fn append_rendered_block_for_message(
     out: &mut Vec<RenderedLine>,
     previous_visible: Option<&Message>,
@@ -939,6 +970,96 @@ pub(super) fn append_rendered_block_for_message(
             _ => append_wrapped_message_lines(out, msg.role, &msg.text, width),
         },
     }
+}
+
+fn count_wrapped_message_lines(role: Role, text: &str, width: usize) -> usize {
+    if width < 8 {
+        return 0;
+    }
+
+    let mut count = 0usize;
+    let mut in_code_fence = false;
+
+    for logical in text.split('\n') {
+        if is_fence_delimiter(logical) {
+            if matches!(role, Role::User) {
+                count += 1;
+            }
+            in_code_fence = !in_code_fence;
+            continue;
+        }
+
+        if logical.is_empty() {
+            count += 1;
+            continue;
+        }
+
+        let _ = in_code_fence;
+        count += wrap_natural_count_by_cells(logical, width);
+    }
+
+    count
+}
+
+fn count_wrapped_markdown_lines(role: Role, text: &str, width: usize) -> usize {
+    if width < 8 {
+        return 0;
+    }
+
+    let logical_lines = if matches!(role, Role::Reasoning) {
+        let mut lines = Vec::new();
+        for raw_line in text.split('\n') {
+            if raw_line.is_empty() {
+                continue;
+            }
+            lines.extend(markdown_line_segments(raw_line));
+        }
+        if lines.is_empty() {
+            markdown_line_segments(text)
+        } else {
+            lines
+        }
+    } else {
+        markdown_line_segments(text)
+    };
+
+    let mut count = 0usize;
+    for logical in logical_lines {
+        let plain = styled_plain_text(&logical);
+        if plain.is_empty() {
+            count += 1;
+        } else {
+            count += wrap_natural_count_by_cells(&plain, width);
+        }
+    }
+    count
+}
+
+fn count_wrapped_ansi_lines(role: Role, text: &str, width: usize) -> usize {
+    if width < 8 {
+        return 0;
+    }
+
+    let Some(logical_lines) = ansi_line_segments(text) else {
+        return count_wrapped_message_lines(role, text, width);
+    };
+
+    let mut count = 0usize;
+    for logical in logical_lines {
+        let plain = styled_plain_text(&logical);
+        if plain.is_empty() {
+            count += 1;
+        } else {
+            count += wrap_natural_count_by_cells(&plain, width);
+        }
+    }
+    count
+}
+
+fn count_wrapped_diff_lines(file_path: Option<&str>, diff: &str, width: usize) -> usize {
+    let mut out = Vec::new();
+    append_wrapped_diff_lines(&mut out, Role::ToolOutput, file_path, diff, width);
+    out.len()
 }
 
 fn message_has_visible_content(msg: &Message) -> bool {
@@ -1744,6 +1865,12 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
     }
     if app.auto_follow_bottom && max_scroll > 0 {
         app.scroll_top = max_scroll;
+    }
+    if msg_height > 0 && total_lines > 0 {
+        let end_idx = (app.scroll_top + msg_height)
+            .saturating_sub(1)
+            .min(total_lines.saturating_sub(1));
+        app.ensure_rendered_range_materialized(app.scroll_top, end_idx);
     }
 
     let buf = frame.buffer_mut();

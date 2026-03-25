@@ -118,6 +118,59 @@ pub(super) fn wrap_natural_by_cells(text: &str, width: usize) -> Vec<String> {
     out
 }
 
+pub(super) fn wrap_natural_count_by_cells(text: &str, width: usize) -> usize {
+    if width == 0 {
+        return 0;
+    }
+    if text.is_empty() {
+        return 1;
+    }
+
+    let options = WrapOptions::new(width)
+        .break_words(false)
+        .word_splitter(WordSplitter::NoHyphenation);
+    let wrapped = wrap_text(text, options);
+    if wrapped.is_empty() {
+        return 1;
+    }
+
+    let mut line_count = 0usize;
+    let mut last_line_width = 0usize;
+    let mut last_trailing_spaces = 0usize;
+
+    for piece in wrapped {
+        let piece = piece.as_ref();
+        if visual_width(piece) <= width {
+            line_count += 1;
+            last_line_width = visual_width(piece);
+            last_trailing_spaces = piece.chars().rev().take_while(|c| *c == ' ').count();
+            continue;
+        }
+
+        let mut rest = piece;
+        loop {
+            let take = split_at_cells(rest, width);
+            if take == 0 {
+                line_count += 1;
+                last_line_width = visual_width(rest);
+                last_trailing_spaces = rest.chars().rev().take_while(|c| *c == ' ').count();
+                break;
+            }
+            let part = &rest[..take];
+            line_count += 1;
+            last_line_width = visual_width(part);
+            last_trailing_spaces = part.chars().rev().take_while(|c| *c == ' ').count();
+            if take >= rest.len() {
+                break;
+            }
+            rest = &rest[take..];
+        }
+    }
+
+    additional_lines_for_trailing_spaces(text, width, last_line_width, last_trailing_spaces)
+        + line_count
+}
+
 pub(super) fn wrap_input_line(line: &str, width: usize) -> Vec<String> {
     if width == 0 {
         return vec![String::new()];
@@ -133,6 +186,11 @@ pub(super) fn wrap_input_line(line: &str, width: usize) -> Vec<String> {
 
     preserve_trailing_spaces(&mut out, line, width);
     out
+}
+
+#[cfg(test)]
+pub(super) fn wrap_input_line_count(line: &str, width: usize) -> usize {
+    wrap_natural_count_by_cells(line, width)
 }
 
 fn preserve_trailing_spaces(out: &mut Vec<String>, text: &str, width: usize) {
@@ -164,4 +222,25 @@ fn preserve_trailing_spaces(out: &mut Vec<String>, text: &str, width: usize) {
             out.push(String::new());
         }
     }
+}
+
+fn additional_lines_for_trailing_spaces(
+    text: &str,
+    width: usize,
+    last_line_width: usize,
+    present_trailing_spaces: usize,
+) -> usize {
+    let wanted_trailing_spaces = text.chars().rev().take_while(|c| *c == ' ').count();
+    let missing = wanted_trailing_spaces.saturating_sub(present_trailing_spaces);
+    if missing == 0 || width == 0 {
+        return 0;
+    }
+
+    let available_on_last_line = width.saturating_sub(last_line_width);
+    if missing <= available_on_last_line {
+        return 0;
+    }
+
+    let remaining = missing - available_on_last_line;
+    remaining.div_ceil(width)
 }

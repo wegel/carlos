@@ -23,8 +23,7 @@ use super::render::{
     render_main_view, transcript_content_width,
 };
 use super::selection::{
-    decide_mouse_drag_mode, normalize_selection_x, selected_text, shift_selection_focus,
-    MouseDragMode, Selection,
+    decide_mouse_drag_mode, normalize_selection_x, shift_selection_focus, MouseDragMode, Selection,
 };
 use super::state::ApprovalChoice;
 use super::{persist_runtime_defaults, with_terminal, AppState, TerminalSize, MSG_TOP};
@@ -516,7 +515,7 @@ pub(super) fn run_conversation_tui(
                                     }
                                     (KeyCode::Char('y'), KeyModifiers::CONTROL) => {
                                         if let Some(sel) = app.selection {
-                                            let copied = selected_text(sel, app);
+                                            let copied = app.selected_text(sel);
                                             if !copied.is_empty() {
                                                 let _ = try_copy_clipboard(&copied);
                                             }
@@ -816,6 +815,7 @@ pub(super) fn run_conversation_tui(
                                         }
                                     }
                                     MouseEventKind::Up(MouseButton::Left) => {
+                                        let mut selection_to_copy = None;
                                         if let Some(sel) = app.selection.as_mut() {
                                             if sel.dragging {
                                                 let prev_focus_x = sel.focus_x;
@@ -830,11 +830,14 @@ pub(super) fn run_conversation_tui(
                                                 if app.mouse_drag_mode == MouseDragMode::Scroll {
                                                     app.selection = None;
                                                 } else {
-                                                    let copied = selected_text(*sel, app);
-                                                    if !copied.is_empty() {
-                                                        let _ = try_copy_clipboard(&copied);
-                                                    }
+                                                    selection_to_copy = Some(*sel);
                                                 }
+                                            }
+                                        }
+                                        if let Some(selection_to_copy) = selection_to_copy {
+                                            let copied = app.selected_text(selection_to_copy);
+                                            if !copied.is_empty() {
+                                                let _ = try_copy_clipboard(&copied);
                                             }
                                         }
                                         app.mouse_drag_mode = MouseDragMode::Undecided;

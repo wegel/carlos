@@ -40,7 +40,10 @@ use self::selection::{
 use self::state::AppState;
 use self::terminal_ui::*;
 #[cfg(test)]
-use self::text::{slice_by_cells, visual_width, wrap_input_line, wrap_natural_by_cells};
+use self::text::{
+    slice_by_cells, visual_width, wrap_input_line, wrap_input_line_count, wrap_natural_by_cells,
+    wrap_natural_count_by_cells,
+};
 #[cfg(test)]
 use self::tools::*;
 #[cfg(test)]

@@ -33,8 +33,10 @@ lower work on the hot paths that currently rebuild too much state.
   on-demand cached layout and benchmark at the same cost as ordinary viewport draws.
 - [x] (2026-03-24 01:00Z) Captured before/after perf evidence from both the synthetic source and
   the large real captured session `019c6286-d480-7293-8fd8-bd6459fab3ad`.
-- [ ] Shrink the initial full-layout cost on giant histories, which is still several seconds on
-  the captured 4M-line session.
+- [x] (2026-03-24 02:20Z) Split full-layout into an eager line-count prepass plus lazy block
+  materialization so resume no longer builds every rendered line up front.
+- [ ] Shrink the initial full-layout cost further; it improved materially, but it is still about
+  `2.8 s` on the captured 4M-line session.
 
 ## Surprises & Discoveries
 
@@ -71,6 +73,13 @@ lower work on the hot paths that currently rebuild too much state.
   `working_draw: p50 0.58 p95 0.59 avg 0.58 max 0.63 ms`, essentially identical to
   `typing_draw` and `scroll_draw`.
 
+- Observation: eagerly computing exact line counts for the whole transcript is much cheaper than
+  eagerly materializing every `RenderedLine`, even before deeper count-only parser work.
+  Evidence: after changing `ensure_rendered_lines()` to store block offsets plus line counts and
+  materialize only the visible blocks on demand, the real captured session `full_layout` dropped
+  from `4326.11 ms` to `2828.81 ms` while `working_draw`, `typing_draw`, and `append_total`
+  stayed around `0.60 ms`.
+
 ## Decision Log
 
 - Decision: build a deterministic synthetic perf source before deeper render refactors.
@@ -97,13 +106,20 @@ lower work on the hot paths that currently rebuild too much state.
   separately keeps that invariant explicit.
   Date/Author: 2026-03-24 / Codex
 
+- Decision: separate “known scroll bounds” from “fully materialized rendered transcript”.
+  Rationale: resume performance was dominated by building and storing millions of `RenderedLine`
+  values that are not visible initially. Keeping exact per-message line counts while lazily
+  building visible blocks preserves correct scrolling and selection semantics without paying the
+  full materialization cost up front.
+  Date/Author: 2026-03-24 / Codex
+
 ## Outcomes & Retrospective
 
-The work is still in progress, but the interactive path is now much closer to the target. The
-append path, scroll path, typing path, and active-turn animation path are all under a millisecond
-in the perf harness, including the 4M-line captured session. The main remaining risk is the
-initial full layout on huge histories, which is still several seconds on a very large captured
-session.
+The work is still in progress, but the interactive path is now much closer to the target and the
+one-time resume cost is lower than before. The append path, scroll path, typing path, and
+active-turn animation path are all under a millisecond in the perf harness, including the
+captured 4M-line session, and the initial full-layout cost fell by about `1.5 s`. The main
+remaining risk is that `2.8 s` resume cost is still too high for the largest histories.
 
 ## Context and Orientation
 
@@ -140,10 +156,11 @@ mid-transcript mutations such as rewind hiding or tool-call replacement. The tar
 that appending or extending the last message only re-lays out the affected tail, then updates the
 flattened line index without touching earlier stable lines.
 
-The next milestone is to shrink the one-time full layout cost on giant histories. The renderer no
-longer clones the message list during normal redraws, and the working animation now benchmarks as
-ordinary viewport work, so the remaining structural bottleneck is the initial build of the cached
-render blocks during resume or after an invalidate-from-zero event.
+The next milestone is to shrink the one-time full layout cost on giant histories further. The
+renderer no longer clones the message list during normal redraws, the working animation now
+benchmarks as ordinary viewport work, and full layout now means “count everything, materialize
+only the visible blocks.” The remaining bottleneck is the eager count prepass itself, especially
+for markdown, ANSI, and diff-heavy transcripts.
 
 At each milestone, add focused tests in `src/tests.rs` and capture perf evidence with
 `carlos perf-session` against both a deterministic synthetic source and a real recorded session
@@ -279,6 +296,38 @@ Current real-session evidence after the block-backed redraw path and animation s
     working_draw:  p50 0.58 p95 0.59 avg 0.58 max 0.63 ms
     append_total:  p50 0.59 p95 0.62 avg 0.59 max 0.62 ms
 
+Current synthetic evidence after the lazy block-materialization prepass:
+
+    target/release/carlos perf-session --synthetic --turns 2000 --seed 1 --tool-lines 24 --width 160 --height 48
+    carlos perf-session
+    source: synthetic seed=1 turns=2000 tool_lines=24
+    viewport: 160x48
+    transcript: messages=12000 rendered_lines=80727 relevant_items=12000 replay_elapsed_ms=92.05
+    memory_kib: before=0 after_replay=0 after_bench=0
+    replay_apply:  p50 29.54 p95 29.54 avg 29.54 max 29.54 ms
+    full_layout:   60.83 ms
+    full_draw:     1.13 ms
+    scroll_draw:   p50 0.77 p95 0.80 avg 0.77 max 0.92 ms
+    typing_draw:   p50 0.67 p95 0.69 avg 0.66 max 0.69 ms
+    working_draw:  p50 0.67 p95 0.69 avg 0.67 max 0.72 ms
+    append_total:  p50 0.72 p95 0.77 avg 0.72 max 0.77 ms
+
+Current real-session evidence after the lazy block-materialization prepass:
+
+    target/release/carlos perf-session /home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl --width 160 --height 48
+    carlos perf-session
+    source: /home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl
+    viewport: 160x48
+    transcript: messages=139816 rendered_lines=4082463 relevant_items=139816 replay_elapsed_ms=4418.51
+    memory_kib: before=0 after_replay=0 after_bench=0
+    replay_apply:  p50 0.00 p95 0.01 avg 0.00 max 0.27 ms
+    full_layout:   2828.81 ms
+    full_draw:     0.70 ms
+    scroll_draw:   p50 0.69 p95 1.48 avg 0.79 max 2.84 ms
+    typing_draw:   p50 0.60 p95 0.60 avg 0.60 max 0.65 ms
+    working_draw:  p50 0.60 p95 0.61 avg 0.60 max 0.65 ms
+    append_total:  p50 0.60 p95 0.67 avg 0.61 max 0.67 ms
+
 ## Interfaces and Dependencies
 
 Keep using the existing Rust stack and data model. The important interfaces for this ExecPlan
@@ -299,6 +348,6 @@ are:
 - `src/tests.rs`
   - targeted correctness and perf-regression tests
 
-Revision note: updated on 2026-03-24 to record the block-backed redraw path, the removal of the
-remaining whole-history redraw clone/filter path, and the new `working_draw` evidence showing
-that the active-turn animation is now constant-time with respect to transcript size.
+Revision note: updated on 2026-03-24 to record the lazy block-materialization prepass, the
+reduced full-layout cost on the large captured session, and the remaining follow-up work on the
+count prepass itself.

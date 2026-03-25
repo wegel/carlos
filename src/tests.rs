@@ -384,6 +384,7 @@ fn ensure_rendered_lines_incremental_append_matches_full_rebuild() {
         rendered_signature(&expected)
     );
     assert_eq!(app.rendered_message_blocks.len(), app.messages.len());
+    assert_eq!(app.rendered_block_line_counts.len(), app.messages.len());
     assert_eq!(app.rendered_block_offsets.len(), app.messages.len());
     assert_eq!(app.transcript_dirty_from, None);
     assert!(app.rendered_line_count() > before_lines);
@@ -411,6 +412,7 @@ fn ensure_rendered_lines_incremental_agent_delta_matches_full_rebuild() {
         rendered_signature(&expected)
     );
     assert_eq!(app.rendered_message_blocks.len(), app.messages.len());
+    assert_eq!(app.rendered_block_line_counts.len(), app.messages.len());
     assert_eq!(app.rendered_block_offsets.len(), app.messages.len());
     assert_eq!(app.transcript_dirty_from, None);
 }
@@ -428,6 +430,21 @@ fn wrap_natural_by_cells_keeps_trailing_space_visible() {
 }
 
 #[test]
+fn wrap_natural_count_by_cells_matches_wrapped_output_len() {
+    for (text, width) in [
+        ("alpha beta gamma", 10),
+        ("test ", 10),
+        ("averyveryverylongtoken", 6),
+        ("ends with many spaces   ", 5),
+    ] {
+        assert_eq!(
+            wrap_natural_count_by_cells(text, width),
+            wrap_natural_by_cells(text, width).len()
+        );
+    }
+}
+
+#[test]
 fn wrap_input_line_uses_natural_word_wrapping() {
     let parts = wrap_input_line("alpha beta gamma", 10);
     assert_eq!(parts, vec!["alpha beta".to_string(), "gamma".to_string()]);
@@ -437,6 +454,21 @@ fn wrap_input_line_uses_natural_word_wrapping() {
 fn wrap_input_line_keeps_trailing_space_visible() {
     let parts = wrap_input_line("test ", 10);
     assert_eq!(parts, vec!["test ".to_string()]);
+}
+
+#[test]
+fn wrap_input_line_count_matches_wrapped_output_len() {
+    for (text, width) in [
+        ("alpha beta gamma", 10),
+        ("test ", 10),
+        ("averyveryverylongtoken", 6),
+        ("ends with many spaces   ", 5),
+    ] {
+        assert_eq!(
+            wrap_input_line_count(text, width),
+            wrap_input_line(text, width).len()
+        );
+    }
 }
 
 #[test]
