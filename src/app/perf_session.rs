@@ -11,8 +11,8 @@ use serde_json::Value;
 use super::models::{Message, MessageKind, Role};
 use super::perf::DurationSamples;
 use super::render::{
-    compute_input_layout, format_read_summary_with_count, render_main_view,
-    transcript_content_width,
+    compute_input_layout, count_rendered_block_for_message, format_read_summary_with_count,
+    render_main_view, transcript_content_width,
 };
 use super::tools::{
     extract_diff_blocks, format_tool_item, raw_function_call_output_to_tool_item,
@@ -43,6 +43,7 @@ struct PerfReplayStats {
     working_draw: DurationSamples,
     append_total: DurationSamples,
     relevant_items: usize,
+    layout_breakdown: Vec<LayoutBreakdownRow>,
 }
 
 impl PerfReplayStats {
@@ -56,8 +57,17 @@ impl PerfReplayStats {
             working_draw: DurationSamples::new(PERF_SAMPLE_WINDOW),
             append_total: DurationSamples::new(PERF_SAMPLE_WINDOW),
             relevant_items: 0,
+            layout_breakdown: Vec::new(),
         }
     }
+}
+
+#[derive(Debug, Clone)]
+struct LayoutBreakdownRow {
+    label: &'static str,
+    messages: usize,
+    lines: usize,
+    total_ms: f64,
 }
 
 pub(super) fn run_perf_session(opts: &CliOptions) -> Result<()> {
@@ -127,6 +137,15 @@ pub(super) fn run_perf_session(opts: &CliOptions) -> Result<()> {
     println!("typing_draw:   {}", stats.typing_draw.summary());
     println!("working_draw:  {}", stats.working_draw.summary());
     println!("append_total:  {}", stats.append_total.summary());
+    if !stats.layout_breakdown.is_empty() {
+        println!("layout_breakdown:");
+        for row in &stats.layout_breakdown {
+            println!(
+                "  {} msgs={} lines={} total_ms={:.2}",
+                row.label, row.messages, row.lines, row.total_ms
+            );
+        }
+    }
 
     Ok(())
 }
@@ -160,6 +179,7 @@ fn replay_perf_session(path: &str, size: TerminalSize) -> Result<(AppState, Perf
     }
 
     let mut terminal = Terminal::new(TestBackend::new(size.width as u16, size.height as u16))?;
+    stats.layout_breakdown = profile_layout_count_pass(&app, transcript_content_width(size));
     let render_started = Instant::now();
     app.ensure_rendered_lines(transcript_content_width(size), None);
     stats.full_layout_ms = render_started.elapsed().as_secs_f64() * 1000.0;
@@ -184,6 +204,7 @@ fn replay_synthetic_perf_session(
     stats.relevant_items = app.messages.len();
 
     let mut terminal = Terminal::new(TestBackend::new(size.width as u16, size.height as u16))?;
+    stats.layout_breakdown = profile_layout_count_pass(&app, transcript_content_width(size));
     let render_started = Instant::now();
     app.ensure_rendered_lines(transcript_content_width(size), None);
     stats.full_layout_ms = render_started.elapsed().as_secs_f64() * 1000.0;
@@ -412,6 +433,59 @@ fn benchmark_append_draws(
     }
 
     Ok(())
+}
+
+fn profile_layout_count_pass(app: &AppState, width: usize) -> Vec<LayoutBreakdownRow> {
+    use std::collections::BTreeMap;
+
+    if width == 0 {
+        return Vec::new();
+    }
+
+    let mut previous_visible_idx = None;
+    let mut buckets: BTreeMap<&'static str, (usize, usize, f64)> = BTreeMap::new();
+
+    for (idx, msg) in app.messages.iter().enumerate() {
+        if msg.text.trim().is_empty() {
+            continue;
+        }
+        let previous_visible = previous_visible_idx.and_then(|prev_idx| app.messages.get(prev_idx));
+        let started = Instant::now();
+        let lines = count_rendered_block_for_message(previous_visible, msg, width);
+        let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
+        let entry = buckets
+            .entry(layout_breakdown_label(msg))
+            .or_insert((0usize, 0usize, 0.0f64));
+        entry.0 += 1;
+        entry.1 += lines;
+        entry.2 += elapsed_ms;
+        previous_visible_idx = Some(idx);
+    }
+
+    let mut rows: Vec<_> = buckets
+        .into_iter()
+        .map(|(label, (messages, lines, total_ms))| LayoutBreakdownRow {
+            label,
+            messages,
+            lines,
+            total_ms,
+        })
+        .collect();
+    rows.sort_by(|a, b| b.total_ms.total_cmp(&a.total_ms));
+    rows
+}
+
+fn layout_breakdown_label(msg: &Message) -> &'static str {
+    match (msg.kind, msg.role) {
+        (MessageKind::Diff, _) => "diff",
+        (MessageKind::Plain, Role::Reasoning) => "reasoning_markdown",
+        (MessageKind::Plain, Role::Assistant) => "assistant_markdown",
+        (MessageKind::Plain, Role::ToolOutput) => "tool_output_ansi",
+        (MessageKind::Plain, Role::Commentary) => "commentary_plain",
+        (MessageKind::Plain, Role::ToolCall) => "tool_call_plain",
+        (MessageKind::Plain, Role::User) => "user_plain",
+        (MessageKind::Plain, Role::System) => "system_plain",
+    }
 }
 
 fn reasoning_summary_text(item: &Value) -> Option<String> {

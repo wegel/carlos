@@ -488,6 +488,11 @@ pub(super) fn append_wrapped_ansi_lines(
         return;
     }
 
+    if !contains_terminal_escapes(text) {
+        append_wrapped_message_lines(out, role, text, width);
+        return;
+    }
+
     let Some(logical_lines) = ansi_line_segments(text) else {
         append_wrapped_message_lines(out, role, text, width);
         return;
@@ -1059,6 +1064,10 @@ fn count_wrapped_ansi_lines(role: Role, text: &str, width: usize) -> usize {
         return 0;
     }
 
+    if !contains_terminal_escapes(text) {
+        return count_wrapped_message_lines(role, text, width);
+    }
+
     let plain = strip_terminal_controls(text);
     count_wrapped_message_lines(role, &plain, width)
 }
@@ -1113,6 +1122,10 @@ fn fast_reasoning_summary_plain_text(line: &str) -> Option<&str> {
         return None;
     }
     Some(inner.trim_end_matches(' '))
+}
+
+fn contains_terminal_escapes(text: &str) -> bool {
+    text.contains('\u{1b}') || text.contains('\u{009b}')
 }
 
 fn message_has_visible_content(msg: &Message) -> bool {

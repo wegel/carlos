@@ -81,6 +81,9 @@ pub(super) fn wrap_natural_by_cells(text: &str, width: usize) -> Vec<String> {
     if text.is_empty() {
         return vec![String::new()];
     }
+    if visual_width(text) <= width {
+        return vec![text.to_string()];
+    }
 
     let options = WrapOptions::new(width)
         .break_words(false)
@@ -123,6 +126,9 @@ pub(super) fn wrap_natural_count_by_cells(text: &str, width: usize) -> usize {
         return 0;
     }
     if text.is_empty() {
+        return 1;
+    }
+    if visual_width(text) <= width {
         return 1;
     }
 
