@@ -4,13 +4,9 @@ use std::time::Instant;
 use ansi_to_tui::IntoText as _;
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
-use ratatui::widgets::Widget;
 use ratatui_core::style::{Color as CoreColor, Modifier as CoreModifier, Style as CoreStyle};
-use ratatui_interact::components::{
-    DiffData, DiffViewMode, DiffViewer, DiffViewerState, DiffViewerStyle,
-};
+use ratatui_interact::components::{DiffData, DiffLine, DiffLineType, DiffViewerStyle};
 use ratatui_textarea::{Input as TextInput, Key as TextKey};
 use tui_markdown::{
     from_str_with_options as markdown_from_str_with_options, Options as MarkdownOptions,
@@ -490,6 +486,53 @@ pub(super) fn append_wrapped_markdown_lines(
     }
 }
 
+pub(super) fn append_wrapped_styled_logical_lines(
+    out: &mut Vec<RenderedLine>,
+    role: Role,
+    logical_lines: Vec<Vec<StyledSegment>>,
+    width: usize,
+) {
+    if width < 8 {
+        return;
+    }
+
+    for logical in logical_lines {
+        let plain = styled_plain_text(&logical);
+        if plain.is_empty() {
+            out.push(RenderedLine {
+                cells: 0,
+                text: String::new(),
+                styled_segments: Vec::new(),
+                role,
+                separator: false,
+                soft_wrap_to_next: false,
+            });
+            continue;
+        }
+
+        let wrapped_parts = wrap_natural_by_cells(&plain, width);
+        let mut remaining: VecDeque<StyledSegment> = logical.into();
+
+        for (i, part) in wrapped_parts.iter().enumerate() {
+            let part_cells = visual_width(part);
+            let wrapped = i + 1 < wrapped_parts.len();
+            let styled_segments = normalize_styled_segments_for_part(
+                part,
+                take_styled_segments_by_cells(&mut remaining, part_cells),
+            );
+
+            out.push(RenderedLine {
+                cells: part_cells,
+                text: part.clone(),
+                styled_segments,
+                role,
+                separator: false,
+                soft_wrap_to_next: wrapped,
+            });
+        }
+    }
+}
+
 pub(super) fn append_wrapped_ansi_lines(
     out: &mut Vec<RenderedLine>,
     role: Role,
@@ -595,76 +638,134 @@ pub(super) fn make_diff_viewer_style() -> DiffViewerStyle {
     }
 }
 
-pub(super) fn diff_total_lines(state: &DiffViewerState) -> usize {
-    state
-        .diff
+fn diff_line_number_width(parsed: &DiffData) -> usize {
+    let max_line = parsed
         .hunks
         .iter()
-        .map(|h| h.lines.len() + 1)
-        .sum::<usize>()
+        .map(|h| h.old_start + h.old_count.max(h.new_count))
+        .max()
+        .unwrap_or(1);
+    max_line.to_string().len().max(3)
 }
 
-pub(super) fn trim_right_spaces(styled_segments: &mut Vec<StyledSegment>) {
-    while let Some(last) = styled_segments.last_mut() {
-        let trimmed_len = last.text.trim_end_matches(' ').len();
-        if trimmed_len == 0 {
-            styled_segments.pop();
-            continue;
-        }
-        if trimmed_len < last.text.len() {
-            last.text.truncate(trimmed_len);
-        }
-        break;
+fn push_styled_text(segments: &mut Vec<StyledSegment>, text: String, style: Style) {
+    if text.is_empty() {
+        return;
     }
+    if let Some(last) = segments.last_mut() {
+        if last.style == style {
+            last.text.push_str(&text);
+            return;
+        }
+    }
+    segments.push(StyledSegment { text, style });
 }
 
-pub(super) fn rendered_line_from_buffer_row(
-    buf: &Buffer,
-    y: u16,
-    x_start: u16,
-    width: u16,
-    role: Role,
-) -> RenderedLine {
-    let mut styled_segments: Vec<StyledSegment> = Vec::new();
+fn build_diff_transcript_line_segments(
+    line: &DiffLine,
+    line_num_width: usize,
+    style: &DiffViewerStyle,
+) -> Vec<StyledSegment> {
+    let mut segments = Vec::new();
+    let old_num = line
+        .old_line_num
+        .map(|n| format!("{:>width$}", n, width = line_num_width))
+        .unwrap_or_else(|| " ".repeat(line_num_width));
+    let new_num = line
+        .new_line_num
+        .map(|n| format!("{:>width$}", n, width = line_num_width))
+        .unwrap_or_else(|| " ".repeat(line_num_width));
+    push_styled_text(&mut segments, old_num, style.line_number_style);
+    push_styled_text(&mut segments, " ".to_string(), style.line_number_style);
+    push_styled_text(&mut segments, new_num, style.line_number_style);
+    push_styled_text(
+        &mut segments,
+        format!(" {} ", style.gutter_separator),
+        style.line_number_style,
+    );
 
-    for x in x_start..x_start.saturating_add(width) {
-        let Some(cell) = buf.cell((x, y)) else {
-            continue;
-        };
-        let sym = cell.symbol();
-        if sym.is_empty() {
-            continue;
+    let (prefix, content_style) = match line.line_type {
+        DiffLineType::Context => (" ", style.context_style),
+        DiffLineType::Addition => (
+            "+",
+            style
+                .addition_style
+                .patch(Style::default().bg(style.addition_bg)),
+        ),
+        DiffLineType::Deletion => (
+            "-",
+            style
+                .deletion_style
+                .patch(Style::default().bg(style.deletion_bg)),
+        ),
+        DiffLineType::HunkHeader => ("@", style.hunk_header_style),
+    };
+    push_styled_text(&mut segments, prefix.to_string(), content_style);
+    push_styled_text(&mut segments, line.content.clone(), content_style);
+    segments
+}
+
+fn diff_transcript_logical_lines(
+    file_path: Option<&str>,
+    diff: &str,
+) -> Option<Vec<Vec<StyledSegment>>> {
+    let parsed = DiffData::from_unified_diff(diff);
+    if parsed.hunks.is_empty() {
+        return None;
+    }
+
+    let diff_path = file_path
+        .filter(|p| !p.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| parsed.new_path.clone())
+        .or_else(|| parsed.old_path.clone());
+    let style = make_diff_viewer_style();
+    let line_num_width = diff_line_number_width(&parsed);
+    let mut logical_lines = Vec::new();
+
+    for (idx, hunk) in parsed.hunks.iter().enumerate() {
+        if idx > 0 {
+            logical_lines.push(Vec::new());
         }
 
-        let style = cell.style();
-
-        if let Some(last) = styled_segments.last_mut() {
-            if last.style == style {
-                last.text.push_str(sym);
-                continue;
+        if let Some(path) = diff_path.as_deref() {
+            if !path.is_empty() {
+                logical_lines.push(vec![StyledSegment {
+                    text: path.to_string(),
+                    style: Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD),
+                }]);
             }
         }
-        styled_segments.push(StyledSegment {
-            text: sym.to_string(),
-            style,
-        });
+
+        let hunk_label = format!(
+            "Hunk {}/{}  old {}..{} -> new {}..{}",
+            idx + 1,
+            parsed.hunks.len(),
+            hunk.old_start,
+            hunk.old_start + hunk.old_count.saturating_sub(1),
+            hunk.new_start,
+            hunk.new_start + hunk.new_count.saturating_sub(1)
+        );
+        logical_lines.push(vec![StyledSegment {
+            text: hunk_label,
+            style: Style::default()
+                .fg(COLOR_DIFF_HUNK)
+                .add_modifier(Modifier::BOLD),
+        }]);
+
+        for line in &hunk.lines {
+            if line.line_type == DiffLineType::HunkHeader {
+                continue;
+            }
+            logical_lines.push(build_diff_transcript_line_segments(
+                line,
+                line_num_width,
+                &style,
+            ));
+        }
     }
 
-    trim_right_spaces(&mut styled_segments);
-    let text = styled_segments
-        .iter()
-        .map(|s| s.text.as_str())
-        .collect::<String>();
-    let cells = visual_width(&text);
-
-    RenderedLine {
-        text,
-        styled_segments,
-        role,
-        separator: false,
-        cells,
-        soft_wrap_to_next: false,
-    }
+    Some(logical_lines)
 }
 
 pub(super) fn append_diff_viewer_lines(
@@ -674,120 +775,10 @@ pub(super) fn append_diff_viewer_lines(
     diff: &str,
     width: usize,
 ) -> bool {
-    if width < 8 {
+    let Some(logical_lines) = diff_transcript_logical_lines(file_path, diff) else {
         return false;
-    }
-
-    let parsed = DiffData::from_unified_diff(diff);
-    if parsed.hunks.is_empty() {
-        return false;
-    }
-
-    let mut staged = Vec::new();
-
-    let diff_path = file_path
-        .filter(|p| !p.is_empty())
-        .map(ToOwned::to_owned)
-        .or_else(|| parsed.new_path.clone())
-        .or_else(|| parsed.old_path.clone());
-
-    let area_w = match u16::try_from(width.saturating_add(2)) {
-        Ok(v) => v,
-        Err(_) => return false,
     };
-    let content_x = 1u16;
-    let content_y = 1u16;
-    let content_w = area_w.saturating_sub(2);
-    if content_w == 0 {
-        return false;
-    }
-
-    let hunk_total = parsed.hunks.len();
-    for (idx, hunk) in parsed.hunks.iter().enumerate() {
-        if idx > 0 {
-            staged.push(RenderedLine {
-                cells: 0,
-                text: String::new(),
-                styled_segments: Vec::new(),
-                role,
-                separator: false,
-                soft_wrap_to_next: false,
-            });
-        }
-
-        if let Some(path) = diff_path.as_deref() {
-            if !path.is_empty() {
-                staged.push(RenderedLine {
-                    cells: visual_width(path),
-                    text: path.to_string(),
-                    styled_segments: vec![StyledSegment {
-                        text: path.to_string(),
-                        style: Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD),
-                    }],
-                    role,
-                    separator: false,
-                    soft_wrap_to_next: false,
-                });
-            }
-        }
-
-        let hunk_label = format!(
-            "Hunk {}/{}  old {}..{} -> new {}..{}",
-            idx + 1,
-            hunk_total,
-            hunk.old_start,
-            hunk.old_start + hunk.old_count.saturating_sub(1),
-            hunk.new_start,
-            hunk.new_start + hunk.new_count.saturating_sub(1)
-        );
-        staged.push(RenderedLine {
-            cells: visual_width(&hunk_label),
-            text: hunk_label.clone(),
-            styled_segments: vec![StyledSegment {
-                text: hunk_label,
-                style: Style::default()
-                    .fg(COLOR_DIFF_HUNK)
-                    .add_modifier(Modifier::BOLD),
-            }],
-            role,
-            separator: false,
-            soft_wrap_to_next: false,
-        });
-
-        let mut one_hunk = DiffData::new(parsed.old_path.clone(), parsed.new_path.clone());
-        one_hunk.hunks.push(hunk.clone());
-
-        let mut state = DiffViewerState::new(one_hunk);
-        state.view_mode = DiffViewMode::Unified;
-        state.show_line_numbers = true;
-        let total_lines = diff_total_lines(&state);
-        if total_lines == 0 {
-            continue;
-        }
-
-        let area_h = match u16::try_from(total_lines.saturating_add(3)) {
-            Ok(v) => v,
-            Err(_) => return false,
-        };
-        let area = Rect::new(0, 0, area_w, area_h);
-        let mut buf = Buffer::empty(area);
-        let viewer = DiffViewer::new(&state)
-            .show_stats(false)
-            .style(make_diff_viewer_style());
-        viewer.render(area, &mut buf);
-
-        let content_h = area_h.saturating_sub(3);
-        for row in 0..content_h {
-            let line =
-                rendered_line_from_buffer_row(&buf, content_y + row, content_x, content_w, role);
-            if line.text.trim_start().starts_with("@@") {
-                continue;
-            }
-            staged.push(line);
-        }
-    }
-
-    out.extend(staged);
+    append_wrapped_styled_logical_lines(out, role, logical_lines, width);
     true
 }
 
@@ -1173,43 +1164,26 @@ fn count_wrapped_diff_lines(file_path: Option<&str>, diff: &str, width: usize) -
         return 0;
     }
 
-    let parsed = DiffData::from_unified_diff(diff);
-    if parsed.hunks.is_empty() {
-        let mut count = 0usize;
-        if let Some(path) = file_path {
-            if !path.is_empty() {
-                count += 1;
+    let logical_lines = match diff_transcript_logical_lines(file_path, diff) {
+        Some(logical_lines) => logical_lines,
+        None => {
+            let mut count = 0usize;
+            if let Some(path) = file_path {
+                if !path.is_empty() {
+                    count += 1;
+                }
             }
-        }
-        for logical in diff.split('\n') {
-            if logical.is_empty() {
-                count += 1;
-            } else {
-                count += wrap_natural_count_by_cells(logical, width);
+            for logical in diff.split('\n') {
+                if logical.is_empty() {
+                    count += 1;
+                } else {
+                    count += wrap_natural_count_by_cells(logical, width);
+                }
             }
+            return count;
         }
-        return count;
-    }
-
-    let diff_path = file_path
-        .filter(|p| !p.is_empty())
-        .or(parsed.new_path.as_deref())
-        .or(parsed.old_path.as_deref());
-    let show_path = diff_path.is_some_and(|path| !path.is_empty());
-
-    let mut count = 0usize;
-    let hunk_total = parsed.hunks.len();
-    for idx in 0..hunk_total {
-        if idx > 0 {
-            count += 1;
-        }
-        if show_path {
-            count += 1;
-        }
-        count += 1;
-        count += parsed.hunks[idx].lines.len();
-    }
-    count
+    };
+    count_styled_logical_lines(logical_lines, width)
 }
 
 fn count_styled_logical_lines(logical_lines: Vec<Vec<StyledSegment>>, width: usize) -> usize {
@@ -1256,10 +1230,7 @@ fn count_ascii_multiline_by_cells_cached<'a>(
         }
 
         let line = &text[start..idx];
-        count += if skip_fence_delimiters
-            && line
-                .trim_matches([' ', '\t', '\r'])
-                .starts_with("```")
+        count += if skip_fence_delimiters && line.trim_matches([' ', '\t', '\r']).starts_with("```")
         {
             0
         } else if line.is_empty() || line.len() <= width {

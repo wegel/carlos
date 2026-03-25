@@ -885,6 +885,30 @@ fn build_rendered_lines_diff_viewer_hides_raw_hunk_headers() {
 }
 
 #[test]
+fn build_rendered_lines_diff_viewer_wraps_long_hunk_body_lines() {
+    let messages = vec![Message {
+        role: Role::ToolOutput,
+        text: concat!(
+            "@@ -164,1 +185,1 @@\n",
+            "-No decisions recorded yet\n",
+            "+- Decision: EP012 must generate the per-episode labeled extractor inputs itself if they already exist.\n",
+        )
+        .to_string(),
+        kind: MessageKind::Diff,
+        file_path: Some(".agents/execplans/EXECPLAN_012_qwen_customvoice_dataset_export.md".to_string()),
+    }];
+
+    let rendered = build_rendered_lines(&messages, 80);
+    assert!(rendered.iter().any(|l| l.text.contains("Hunk 1/1")));
+    let wrapped_parts: Vec<&RenderedLine> = rendered
+        .iter()
+        .filter(|l| l.text.contains("Decision: EP012") || l.text.contains("already exist."))
+        .collect();
+    assert!(wrapped_parts.len() >= 2);
+    assert!(wrapped_parts.iter().all(|l| l.cells <= 80));
+}
+
+#[test]
 fn count_rendered_block_for_diff_matches_materialized_block_len() {
     let msg = Message {
         role: Role::ToolOutput,
@@ -2662,8 +2686,7 @@ fn resolve_initial_runtime_settings_falls_back_to_persisted_defaults() {
         summary: Some("concise".to_string()),
     };
 
-    let resolved =
-        resolve_initial_runtime_settings(runtime, &defaults, defaults.summary.clone());
+    let resolved = resolve_initial_runtime_settings(runtime, &defaults, defaults.summary.clone());
 
     assert_eq!(resolved.model.as_deref(), Some("gpt-5.4"));
     assert_eq!(resolved.effort.as_deref(), Some("high"));
