@@ -53,8 +53,11 @@ lower work on the hot paths that currently rebuild too much state.
 - [x] (2026-03-24 04:40Z) Replaced the slow count-only path’s wrapped-string allocation with the
   lower-level `textwrap` word/wrap pipeline plus the existing hard-wrap fallback for overlong
   tokens.
+- [x] (2026-03-24 05:00Z) Added ASCII fast paths to the shared width/split helpers so the
+  remaining plain-text-heavy hot paths stop paying grapheme/Unicode-width cost for ASCII-only
+  text.
 - [ ] Shrink the initial full-layout cost further; it improved materially, but it is still about
-  `1.22 s` on the captured 4M-line session.
+  `1.10 s` on the captured 4M-line session.
 
 ## Surprises & Discoveries
 
@@ -146,6 +149,13 @@ lower work on the hot paths that currently rebuild too much state.
   plus wrap-algorithm pipeline reduced the real-session `tool_output_ansi` bucket from
   `903.75 ms` to `838.22 ms`, `tool_call_plain` from `205.34 ms` to `189.13 ms`, and the total
   `full_layout` to `1222.98 ms` on the current snapshot.
+
+- Observation: the shared width helpers were still doing full grapheme/Unicode-width work for the
+  overwhelmingly ASCII transcript hot path.
+  Evidence: adding ASCII fast paths to `visual_width()` and `split_at_cells()` reduced the current
+  real-session `tool_output_ansi` bucket from `838.22 ms` to `743.55 ms`, `tool_call_plain` from
+  `189.13 ms` to `171.42 ms`, and the total `full_layout` to `1101.24 ms` while keeping
+  `typing_draw`, `working_draw`, and `append_total` around `0.58 ms`.
 
 ## Decision Log
 
@@ -563,6 +573,30 @@ Current real-session evidence after the low-level count-only wrap path:
       commentary_plain msgs=2119 lines=7307 total_ms=15.02
       diff msgs=1723 lines=193428 total_ms=14.46
 
+Current real-session evidence after the ASCII width-helper fast paths:
+
+    target/release/carlos perf-session /home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl --width 160 --height 48
+    carlos perf-session
+    source: /home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl
+    viewport: 160x48
+    transcript: messages=140844 rendered_lines=4151080 relevant_items=140843 replay_elapsed_ms=3837.92
+    memory_kib: before=0 after_replay=0 after_bench=0
+    replay_apply:  p50 0.00 p95 0.01 avg 0.00 max 0.28 ms
+    full_layout:   1101.24 ms
+    full_draw:     0.64 ms
+    scroll_draw:   p50 0.65 p95 1.15 avg 0.70 max 1.35 ms
+    typing_draw:   p50 0.57 p95 0.58 avg 0.57 max 0.62 ms
+    working_draw:  p50 0.57 p95 0.59 avg 0.57 max 0.61 ms
+    append_total:  p50 0.58 p95 0.61 avg 0.58 max 0.61 ms
+    layout_breakdown:
+      tool_output_ansi msgs=48829 lines=3388987 total_ms=743.55
+      tool_call_plain msgs=50568 lines=324379 total_ms=171.42
+      assistant_markdown msgs=1370 lines=34965 total_ms=107.61
+      user_plain msgs=2561 lines=127843 total_ms=23.24
+      reasoning_markdown msgs=33673 lines=74168 total_ms=22.95
+      commentary_plain msgs=2119 lines=7307 total_ms=14.50
+      diff msgs=1723 lines=193428 total_ms=14.49
+
 ## Interfaces and Dependencies
 
 Keep using the existing Rust stack and data model. The important interfaces for this ExecPlan
@@ -586,6 +620,7 @@ are:
 Revision note: updated on 2026-03-24 to record the lazy block-materialization prepass, the
 follow-up count-only helper passes, the diff-count fast path, the ANSI no-escape fast path, the
 ASCII single-line fast path, the ASCII multiline count fast path, the repeated-line memoization
-pass, the low-level count-only wrap path, the measured reductions in full-layout cost on the
-large captured session, the `perf-session` layout breakdown, and the evidence that the remaining
-bottleneck is now mostly plain tool-output line counting.
+pass, the low-level count-only wrap path, the ASCII width-helper fast paths, the measured
+reductions in full-layout cost on the large captured session, the `perf-session` layout
+breakdown, and the evidence that the remaining bottleneck is now mostly plain tool-output line
+counting.

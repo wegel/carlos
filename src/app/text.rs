@@ -4,12 +4,18 @@ use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
 pub(super) fn visual_width(s: &str) -> usize {
+    if s.is_ascii() {
+        return s.len();
+    }
     UnicodeWidthStr::width(s)
 }
 
 pub(super) fn split_at_cells(s: &str, max_cells: usize) -> usize {
     if max_cells == 0 || s.is_empty() {
         return 0;
+    }
+    if s.is_ascii() {
+        return s.len().min(max_cells);
     }
 
     let mut cells = 0usize;
