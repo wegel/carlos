@@ -1142,8 +1142,12 @@ fn count_wrapped_ansi_lines(role: Role, text: &str, width: usize) -> usize {
         return count_wrapped_message_lines(role, text, width);
     }
 
-    let plain = strip_terminal_controls(text);
-    count_wrapped_message_lines(role, &plain, width)
+    let Some(logical_lines) = ansi_line_segments(text) else {
+        let plain = strip_terminal_controls(text);
+        return count_wrapped_message_lines(role, &plain, width);
+    };
+
+    count_styled_logical_lines(logical_lines, width)
 }
 
 fn count_wrapped_ansi_lines_cached<'a>(
@@ -1160,8 +1164,12 @@ fn count_wrapped_ansi_lines_cached<'a>(
         return count_wrapped_message_lines_cached(cache, role, text, width);
     }
 
-    let plain = strip_terminal_controls(text);
-    count_wrapped_message_lines(role, &plain, width)
+    let Some(logical_lines) = ansi_line_segments(text) else {
+        let plain = strip_terminal_controls(text);
+        return count_wrapped_message_lines(role, &plain, width);
+    };
+
+    count_styled_logical_lines(logical_lines, width)
 }
 
 fn count_wrapped_diff_lines(file_path: Option<&str>, diff: &str, width: usize) -> usize {
@@ -1204,6 +1212,19 @@ fn count_wrapped_diff_lines(file_path: Option<&str>, diff: &str, width: usize) -
         }
         count += 1;
         count += parsed.hunks[idx].lines.len();
+    }
+    count
+}
+
+fn count_styled_logical_lines(logical_lines: Vec<Vec<StyledSegment>>, width: usize) -> usize {
+    let mut count = 0usize;
+    for logical in logical_lines {
+        let plain = styled_plain_text(&logical);
+        if plain.is_empty() {
+            count += 1;
+        } else {
+            count += wrap_natural_count_by_cells(&plain, width);
+        }
     }
     count
 }

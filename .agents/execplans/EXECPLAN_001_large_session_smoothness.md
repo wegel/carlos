@@ -59,6 +59,8 @@ lower work on the hot paths that currently rebuild too much state.
 - [x] (2026-03-24 06:00Z) Ran engineering review on commits `5bcf8d3..f4b962e`, fixed the
   reported fenced-block count regression in the non-user ASCII fast path, and added a cached
   layout regression test for fence-delimited tool output.
+- [x] (2026-03-24 06:20Z) Aligned escaped ANSI tool-output counting with the parsed ANSI renderer
+  and added a regression so counted line totals match materialized blocks for colored outputs too.
 - [ ] Shrink the initial full-layout cost further; it improved materially, but it is still about
   `1.21 s` on the captured 4M-line session.
 
@@ -168,6 +170,20 @@ lower work on the hot paths that currently rebuild too much state.
   fenced tool output. Tightening the shortcut to bail out only when a real fence-delimiter line is
   present restored correctness and kept the large-session `full_layout` close to the pre-review
   snapshot at about `1.21 s`.
+
+- Observation: the captured-session file chosen for this plan is itself still changing, so direct
+  reruns against the live path are no longer a reliable before/after baseline.
+  Evidence: repeated `perf-session` runs against the original session path kept increasing the
+  message count. Freezing a copy to `/tmp/carlos-perf-019c6286.jsonl` produced a stable `141036`
+  message snapshot for later comparisons.
+
+- Observation: escaped ANSI outputs are rare enough that the simpler parsed-ANSI count path is a
+  better trade than layering a separate micro-optimized escape-detection shortcut into the hot
+  path.
+  Evidence: the frozen snapshot contains only about `2309` tool outputs with terminal escapes out
+  of about `50611`. A one-pass “reject ESC while counting” shortcut was benchmarked and then
+  reverted because it did not outperform the simpler implementation on the stable snapshot, while
+  the parsed-ANSI count fix closed a real correctness gap for escaped outputs.
 
 ## Decision Log
 

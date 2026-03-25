@@ -921,6 +921,20 @@ fn count_rendered_block_for_plain_tool_output_matches_materialized_block_len() {
 }
 
 #[test]
+fn count_rendered_block_for_ansi_tool_output_matches_materialized_block_len() {
+    let msg = Message {
+        role: Role::ToolOutput,
+        text: "\u{1b}[31mcolored status\u{1b}[0m\nplain tail\n".to_string(),
+        kind: MessageKind::Plain,
+        file_path: None,
+    };
+
+    let count = count_rendered_block_for_message(None, &msg, 48);
+    let block = build_rendered_block_for_message(None, &msg, 48);
+    assert_eq!(count, block.len());
+}
+
+#[test]
 fn prioritize_events_handles_terminal_first_and_budgets_server_lines() {
     let mut deferred = std::collections::VecDeque::new();
     let incoming = vec![
