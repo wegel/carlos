@@ -13,8 +13,8 @@ use super::perf::PerfMetrics;
 use super::ralph::{detect_turn_markers, load_ralph_config, RalphConfig, RalphState};
 use super::render::{
     build_rendered_block_for_message, build_rendered_lines_with_hidden, compute_input_layout,
-    count_rendered_block_for_message, format_read_summary_with_count, parse_read_summary,
-    textarea_input_from_key, transcript_content_width,
+    count_rendered_block_for_message_cached, format_read_summary_with_count, parse_read_summary,
+    textarea_input_from_key, transcript_content_width, RenderCountCache,
 };
 use super::selection::{MouseDragMode, RenderedLineSource, Selection};
 use super::{RuntimeDefaults, MSG_TOP};
@@ -923,6 +923,7 @@ impl AppState {
         } else {
             self.find_previous_visible_message_idx(dirty_from, hidden_user_message_idx)
         };
+        let mut count_cache = RenderCountCache::new();
 
         for idx in dirty_from..self.messages.len() {
             self.rendered_block_offsets.push(self.rendered_total_lines);
@@ -944,7 +945,12 @@ impl AppState {
 
             let previous_visible =
                 previous_visible_idx.and_then(|prev_idx| self.messages.get(prev_idx));
-            let line_count = count_rendered_block_for_message(previous_visible, msg, width);
+            let line_count = count_rendered_block_for_message_cached(
+                &mut count_cache,
+                previous_visible,
+                msg,
+                width,
+            );
             self.rendered_block_line_counts.push(line_count);
             if line_count == 0 {
                 self.rendered_message_blocks.push(None);

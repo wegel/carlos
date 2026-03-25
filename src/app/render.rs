@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::time::Instant;
 
 use ansi_to_tui::IntoText as _;
@@ -35,6 +35,18 @@ use crate::theme::*;
 
 #[derive(Debug, Clone, Copy)]
 struct CarlosMarkdownStyleSheet;
+
+pub(super) struct RenderCountCache<'a> {
+    ascii_long_line_counts: HashMap<&'a str, usize>,
+}
+
+impl<'a> RenderCountCache<'a> {
+    pub(super) fn new() -> Self {
+        Self {
+            ascii_long_line_counts: HashMap::new(),
+        }
+    }
+}
 
 pub(super) fn color_to_core(color: Color) -> CoreColor {
     match color {
@@ -911,6 +923,7 @@ pub(super) fn build_rendered_block_for_message(
     out
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn count_rendered_block_for_message(
     previous_visible: Option<&Message>,
     msg: &Message,
@@ -938,6 +951,40 @@ pub(super) fn count_rendered_block_for_message(
                 }
                 Role::ToolOutput => count_wrapped_ansi_lines(msg.role, &msg.text, width),
                 _ => count_wrapped_message_lines(msg.role, &msg.text, width),
+            },
+        }
+}
+
+pub(super) fn count_rendered_block_for_message_cached<'a>(
+    cache: &mut RenderCountCache<'a>,
+    previous_visible: Option<&Message>,
+    msg: &'a Message,
+    width: usize,
+) -> usize {
+    if !message_has_visible_content(msg) {
+        return 0;
+    }
+
+    let mut count = 0usize;
+    if let Some(prev) = previous_visible {
+        if should_insert_separator_between(prev, msg) {
+            count += 1;
+        }
+    }
+
+    count
+        + match msg.kind {
+            MessageKind::Diff => {
+                count_wrapped_diff_lines(msg.file_path.as_deref(), &msg.text, width)
+            }
+            MessageKind::Plain => match msg.role {
+                Role::Assistant | Role::Reasoning => {
+                    count_wrapped_markdown_lines(msg.role, &msg.text, width)
+                }
+                Role::ToolOutput => {
+                    count_wrapped_ansi_lines_cached(cache, msg.role, &msg.text, width)
+                }
+                _ => count_wrapped_message_lines_cached(cache, msg.role, &msg.text, width),
             },
         }
 }
@@ -1012,6 +1059,23 @@ fn count_wrapped_message_lines(role: Role, text: &str, width: usize) -> usize {
     count
 }
 
+fn count_wrapped_message_lines_cached<'a>(
+    cache: &mut RenderCountCache<'a>,
+    role: Role,
+    text: &'a str,
+    width: usize,
+) -> usize {
+    if width < 8 {
+        return 0;
+    }
+    if !matches!(role, Role::User) {
+        if let Some(count) = count_ascii_multiline_by_cells_cached(cache, text, width) {
+            return count;
+        }
+    }
+    count_wrapped_message_lines(role, text, width)
+}
+
 fn count_wrapped_markdown_lines(role: Role, text: &str, width: usize) -> usize {
     if width < 8 {
         return 0;
@@ -1064,6 +1128,7 @@ fn count_wrapped_markdown_lines(role: Role, text: &str, width: usize) -> usize {
     count
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn count_wrapped_ansi_lines(role: Role, text: &str, width: usize) -> usize {
     if width < 8 {
         return 0;
@@ -1071,6 +1136,24 @@ fn count_wrapped_ansi_lines(role: Role, text: &str, width: usize) -> usize {
 
     if !contains_terminal_escapes(text) {
         return count_wrapped_message_lines(role, text, width);
+    }
+
+    let plain = strip_terminal_controls(text);
+    count_wrapped_message_lines(role, &plain, width)
+}
+
+fn count_wrapped_ansi_lines_cached<'a>(
+    cache: &mut RenderCountCache<'a>,
+    role: Role,
+    text: &'a str,
+    width: usize,
+) -> usize {
+    if width < 8 {
+        return 0;
+    }
+
+    if !contains_terminal_escapes(text) {
+        return count_wrapped_message_lines_cached(cache, role, text, width);
     }
 
     let plain = strip_terminal_controls(text);
@@ -1131,6 +1214,39 @@ fn fast_reasoning_summary_plain_text(line: &str) -> Option<&str> {
 
 fn contains_terminal_escapes(text: &str) -> bool {
     text.contains('\u{1b}') || text.contains('\u{009b}')
+}
+
+fn count_ascii_multiline_by_cells_cached<'a>(
+    cache: &mut RenderCountCache<'a>,
+    text: &'a str,
+    width: usize,
+) -> Option<usize> {
+    if width == 0 || !text.is_ascii() {
+        return None;
+    }
+
+    let mut count = 0usize;
+    let mut start = 0usize;
+    let bytes = text.as_bytes();
+    for idx in 0..=bytes.len() {
+        if idx != bytes.len() && bytes[idx] != b'\n' {
+            continue;
+        }
+
+        let line = &text[start..idx];
+        count += if line.is_empty() || line.len() <= width {
+            1
+        } else if let Some(cached) = cache.ascii_long_line_counts.get(line) {
+            *cached
+        } else {
+            let computed = wrap_natural_count_by_cells(line, width);
+            cache.ascii_long_line_counts.insert(line, computed);
+            computed
+        };
+        start = idx.saturating_add(1);
+    }
+
+    Some(count)
 }
 
 fn message_has_visible_content(msg: &Message) -> bool {

@@ -48,8 +48,10 @@ lower work on the hot paths that currently rebuild too much state.
 - [x] (2026-03-24 04:00Z) Added an ASCII multiline count fast path for non-user plain-text
   messages so giant tool-output blocks count fitting lines with a byte scan and only fall back to
   the slower wrapper for the smaller set of overflowing lines.
+- [x] (2026-03-24 04:20Z) Added a per-layout cache for repeated long ASCII logical lines so the
+  count prepass can reuse wrapped-line counts across recurring tool-output and tool-call text.
 - [ ] Shrink the initial full-layout cost further; it improved materially, but it is still about
-  `1.34 s` on the captured 4M-line session.
+  `1.30 s` on the captured 4M-line session.
 
 ## Surprises & Discoveries
 
@@ -126,6 +128,14 @@ lower work on the hot paths that currently rebuild too much state.
   Evidence: adding a byte-scan multiline fast path for non-user plain text reduced the same
   real-session `tool_output_ansi` bucket from `1004.13 ms` to `947.85 ms`, `tool_call_plain`
   from `214.53 ms` to `203.09 ms`, and the total `full_layout` to `1341.73 ms`.
+
+- Observation: repeated boilerplate lines are common enough that memoizing long-line counts within
+  a single layout pass is worthwhile.
+  Evidence: a raw scan of the captured session found about `3.45M` tool-output logical lines but
+  only about `694k` unique lines, with extremely common repeats such as the empty line, `Output:`,
+  and `Process exited with code 0`. Adding a per-layout cache for long ASCII line counts reduced
+  the real-session `tool_output_ansi` bucket from `947.85 ms` to `903.75 ms` and the total
+  `full_layout` to `1300.34 ms`.
 
 ## Decision Log
 
@@ -495,6 +505,30 @@ Current real-session evidence after the ASCII multiline count fast path:
       commentary_plain msgs=2119 lines=7307 total_ms=15.55
       diff msgs=1722 lines=193359 total_ms=14.35
 
+Current real-session evidence after memoizing repeated long ASCII lines:
+
+    target/release/carlos perf-session /home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl --width 160 --height 48
+    carlos perf-session
+    source: /home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl
+    viewport: 160x48
+    transcript: messages=140777 rendered_lines=4148787 relevant_items=140776 replay_elapsed_ms=4254.17
+    memory_kib: before=0 after_replay=0 after_bench=0
+    replay_apply:  p50 0.00 p95 0.01 avg 0.00 max 0.32 ms
+    full_layout:   1300.34 ms
+    full_draw:     0.63 ms
+    scroll_draw:   p50 0.67 p95 1.69 avg 0.79 max 2.45 ms
+    typing_draw:   p50 0.56 p95 0.56 avg 0.56 max 0.59 ms
+    working_draw:  p50 0.56 p95 0.57 avg 0.56 max 0.60 ms
+    append_total:  p50 0.59 p95 0.62 avg 0.59 max 0.62 ms
+    layout_breakdown:
+      tool_output_ansi msgs=48803 lines=3387542 total_ms=903.75
+      tool_call_plain msgs=50540 lines=323701 total_ms=205.34
+      assistant_markdown msgs=1370 lines=34965 total_ms=110.52
+      user_plain msgs=2561 lines=127843 total_ms=27.72
+      reasoning_markdown msgs=33661 lines=74067 total_ms=24.88
+      commentary_plain msgs=2119 lines=7307 total_ms=16.15
+      diff msgs=1722 lines=193359 total_ms=14.66
+
 ## Interfaces and Dependencies
 
 Keep using the existing Rust stack and data model. The important interfaces for this ExecPlan
@@ -517,6 +551,7 @@ are:
 
 Revision note: updated on 2026-03-24 to record the lazy block-materialization prepass, the
 follow-up count-only helper passes, the diff-count fast path, the ANSI no-escape fast path, the
-ASCII single-line fast path, the ASCII multiline count fast path, the measured reductions in
-full-layout cost on the large captured session, the `perf-session` layout breakdown, and the
-evidence that the remaining bottleneck is now mostly plain tool-output line counting.
+ASCII single-line fast path, the ASCII multiline count fast path, the repeated-line memoization
+pass, the measured reductions in full-layout cost on the large captured session, the
+`perf-session` layout breakdown, and the evidence that the remaining bottleneck is now mostly
+plain tool-output line counting.

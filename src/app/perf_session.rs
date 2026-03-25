@@ -11,8 +11,8 @@ use serde_json::Value;
 use super::models::{Message, MessageKind, Role};
 use super::perf::DurationSamples;
 use super::render::{
-    compute_input_layout, count_rendered_block_for_message, format_read_summary_with_count,
-    render_main_view, transcript_content_width,
+    compute_input_layout, count_rendered_block_for_message_cached, format_read_summary_with_count,
+    render_main_view, transcript_content_width, RenderCountCache,
 };
 use super::tools::{
     extract_diff_blocks, format_tool_item, raw_function_call_output_to_tool_item,
@@ -444,6 +444,7 @@ fn profile_layout_count_pass(app: &AppState, width: usize) -> Vec<LayoutBreakdow
 
     let mut previous_visible_idx = None;
     let mut buckets: BTreeMap<&'static str, (usize, usize, f64)> = BTreeMap::new();
+    let mut count_cache = RenderCountCache::new();
 
     for (idx, msg) in app.messages.iter().enumerate() {
         if msg.text.trim().is_empty() {
@@ -451,7 +452,8 @@ fn profile_layout_count_pass(app: &AppState, width: usize) -> Vec<LayoutBreakdow
         }
         let previous_visible = previous_visible_idx.and_then(|prev_idx| app.messages.get(prev_idx));
         let started = Instant::now();
-        let lines = count_rendered_block_for_message(previous_visible, msg, width);
+        let lines =
+            count_rendered_block_for_message_cached(&mut count_cache, previous_visible, msg, width);
         let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
         let entry = buckets
             .entry(layout_breakdown_label(msg))
