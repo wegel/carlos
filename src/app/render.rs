@@ -23,8 +23,8 @@ use super::perf::PerfMetrics;
 use super::selection::compute_selection_range;
 use super::state::ModelSettingsField;
 use super::text::{
-    char_to_byte_idx, slice_by_cells, split_at_cells, visual_width, wrap_input_line,
-    wrap_natural_by_cells, wrap_natural_count_by_cells,
+    char_to_byte_idx, count_ascii_multiline_by_cells, slice_by_cells, split_at_cells, visual_width,
+    wrap_input_line, wrap_natural_by_cells, wrap_natural_count_by_cells,
 };
 use super::tools::strip_terminal_controls;
 use super::{
@@ -981,6 +981,11 @@ pub(super) fn append_rendered_block_for_message(
 fn count_wrapped_message_lines(role: Role, text: &str, width: usize) -> usize {
     if width < 8 {
         return 0;
+    }
+    if !matches!(role, Role::User) {
+        if let Some(count) = count_ascii_multiline_by_cells(text, width) {
+            return count;
+        }
     }
 
     let mut count = 0usize;

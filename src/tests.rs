@@ -882,6 +882,27 @@ fn count_rendered_block_for_diff_matches_materialized_block_len() {
 }
 
 #[test]
+fn count_rendered_block_for_plain_tool_output_matches_materialized_block_len() {
+    let msg = Message {
+        role: Role::ToolOutput,
+        text: concat!(
+            "short line\n",
+            "This is a deliberately long ASCII line that should wrap at natural word boundaries when the width is narrow enough to require multiple rendered rows in the transcript view.\n",
+            "\n",
+            "trailing spaces stay visible   \n",
+            "averyveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryverylongtoken\n",
+        )
+        .to_string(),
+        kind: MessageKind::Plain,
+        file_path: None,
+    };
+
+    let count = count_rendered_block_for_message(None, &msg, 48);
+    let block = build_rendered_block_for_message(None, &msg, 48);
+    assert_eq!(count, block.len());
+}
+
+#[test]
 fn prioritize_events_handles_terminal_first_and_budgets_server_lines() {
     let mut deferred = std::collections::VecDeque::new();
     let incoming = vec![

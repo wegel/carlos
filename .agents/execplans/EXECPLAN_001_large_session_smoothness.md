@@ -45,8 +45,11 @@ lower work on the hot paths that currently rebuild too much state.
 - [x] (2026-03-24 03:40Z) Added an ASCII single-line fast path in the natural wrap/count helpers
   so the dominant plain-text buckets can skip Unicode width work when a line already fits the
   viewport.
+- [x] (2026-03-24 04:00Z) Added an ASCII multiline count fast path for non-user plain-text
+  messages so giant tool-output blocks count fitting lines with a byte scan and only fall back to
+  the slower wrapper for the smaller set of overflowing lines.
 - [ ] Shrink the initial full-layout cost further; it improved materially, but it is still about
-  `1.39 s` on the captured 4M-line session.
+  `1.34 s` on the captured 4M-line session.
 
 ## Surprises & Discoveries
 
@@ -117,6 +120,12 @@ lower work on the hot paths that currently rebuild too much state.
   tool-output logical lines at or under `160` columns, with `3,427,329` ASCII lines overall.
   Adding an ASCII single-line fast path reduced the real-session `tool_output_ansi` bucket from
   `1104.24 ms` to `1004.13 ms` and the total `full_layout` to `1391.56 ms`.
+
+- Observation: after the single-line fast path, the remaining plain-text cost was still inflated
+  by calling the generic wrapper millions of times just to rediscover that most ASCII lines fit.
+  Evidence: adding a byte-scan multiline fast path for non-user plain text reduced the same
+  real-session `tool_output_ansi` bucket from `1004.13 ms` to `947.85 ms`, `tool_call_plain`
+  from `214.53 ms` to `203.09 ms`, and the total `full_layout` to `1341.73 ms`.
 
 ## Decision Log
 
@@ -462,6 +471,30 @@ Current real-session evidence after the ASCII single-line fast path:
       commentary_plain msgs=2119 lines=7307 total_ms=15.95
       diff msgs=1722 lines=193359 total_ms=14.60
 
+Current real-session evidence after the ASCII multiline count fast path:
+
+    target/release/carlos perf-session /home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl --width 160 --height 48
+    carlos perf-session
+    source: /home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl
+    viewport: 160x48
+    transcript: messages=140723 rendered_lines=4148285 relevant_items=140722 replay_elapsed_ms=4329.90
+    memory_kib: before=0 after_replay=0 after_bench=0
+    replay_apply:  p50 0.00 p95 0.01 avg 0.00 max 0.32 ms
+    full_layout:   1341.73 ms
+    full_draw:     0.70 ms
+    scroll_draw:   p50 0.69 p95 1.54 avg 0.80 max 2.64 ms
+    typing_draw:   p50 0.59 p95 0.60 avg 0.59 max 0.63 ms
+    working_draw:  p50 0.58 p95 0.60 avg 0.58 max 0.63 ms
+    append_total:  p50 0.62 p95 0.65 avg 0.62 max 0.65 ms
+    layout_breakdown:
+      tool_output_ansi msgs=48783 lines=3387179 total_ms=947.85
+      tool_call_plain msgs=50520 lines=323648 total_ms=203.09
+      assistant_markdown msgs=1368 lines=34930 total_ms=107.34
+      user_plain msgs=2555 lines=127825 total_ms=26.38
+      reasoning_markdown msgs=33655 lines=74034 total_ms=23.79
+      commentary_plain msgs=2119 lines=7307 total_ms=15.55
+      diff msgs=1722 lines=193359 total_ms=14.35
+
 ## Interfaces and Dependencies
 
 Keep using the existing Rust stack and data model. The important interfaces for this ExecPlan
@@ -484,6 +517,6 @@ are:
 
 Revision note: updated on 2026-03-24 to record the lazy block-materialization prepass, the
 follow-up count-only helper passes, the diff-count fast path, the ANSI no-escape fast path, the
-ASCII single-line fast path, the measured reductions in full-layout cost on the large captured
-session, the `perf-session` layout breakdown, and the evidence that the remaining bottleneck is
-now mostly plain tool-output line counting.
+ASCII single-line fast path, the ASCII multiline count fast path, the measured reductions in
+full-layout cost on the large captured session, the `perf-session` layout breakdown, and the
+evidence that the remaining bottleneck is now mostly plain tool-output line counting.

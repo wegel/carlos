@@ -138,6 +138,40 @@ pub(super) fn wrap_natural_count_by_cells(text: &str, width: usize) -> usize {
         return 1;
     }
 
+    wrap_natural_count_slow_by_cells(text, width)
+}
+
+pub(super) fn count_ascii_multiline_by_cells(text: &str, width: usize) -> Option<usize> {
+    if width == 0 || !text.is_ascii() {
+        return None;
+    }
+
+    let mut count = 0usize;
+    let mut start = 0usize;
+    let bytes = text.as_bytes();
+    for idx in 0..=bytes.len() {
+        if idx != bytes.len() && bytes[idx] != b'\n' {
+            continue;
+        }
+
+        let line = &text[start..idx];
+        count += if line.is_empty() {
+            1
+        } else if line.len() <= width {
+            1
+        } else {
+            wrap_natural_count_slow_by_cells(line, width)
+        };
+        start = idx.saturating_add(1);
+    }
+
+    Some(count)
+}
+
+fn wrap_natural_count_slow_by_cells(text: &str, width: usize) -> usize {
+    debug_assert!(width > 0);
+    debug_assert!(!text.is_empty());
+
     let options = WrapOptions::new(width)
         .break_words(false)
         .word_splitter(WordSplitter::NoHyphenation);
