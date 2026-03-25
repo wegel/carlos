@@ -189,6 +189,10 @@ fn wrap_natural_count_slow_by_cells(text: &str, width: usize) -> usize {
     debug_assert!(width > 0);
     debug_assert!(!text.is_empty());
 
+    if text.is_ascii() {
+        return wrap_natural_count_ascii_slow_by_cells(text, width);
+    }
+
     let options = WrapOptions::new(width)
         .break_words(false)
         .word_splitter(WordSplitter::NoHyphenation);
@@ -203,15 +207,13 @@ fn wrap_natural_count_slow_by_cells(text: &str, width: usize) -> usize {
     let wrapped_words = options.wrap_algorithm.wrap(&broken_words, &line_widths);
 
     let mut line_count = 0usize;
-    let mut last_line_width = 0usize;
-    let mut last_trailing_spaces = 0usize;
+    let mut last_metrics: Option<(usize, usize)> = None;
 
     let mut idx = 0usize;
     for words in wrapped_words {
         let Some(last_word) = words.last() else {
             line_count += 1;
-            last_line_width = 0;
-            last_trailing_spaces = 0;
+            last_metrics = Some((0, 0));
             continue;
         };
 
@@ -224,10 +226,72 @@ fn wrap_natural_count_slow_by_cells(text: &str, width: usize) -> usize {
         let (wrapped_count, wrapped_last_width, wrapped_last_spaces) =
             hard_wrap_count_metrics(line, width);
         line_count += wrapped_count;
-        last_line_width = wrapped_last_width;
-        last_trailing_spaces = wrapped_last_spaces;
+        last_metrics = Some((wrapped_last_width, wrapped_last_spaces));
         idx += len + last_word.whitespace.len();
     }
+
+    let (last_line_width, last_trailing_spaces) = last_metrics.unwrap_or((0, 0));
+
+    additional_lines_for_trailing_spaces(text, width, last_line_width, last_trailing_spaces)
+        + line_count
+}
+
+fn wrap_natural_count_ascii_slow_by_cells(text: &str, width: usize) -> usize {
+    let options = WrapOptions::new(width)
+        .break_words(false)
+        .word_splitter(WordSplitter::NoHyphenation);
+
+    let mut line_count = 0usize;
+
+    let mut current_idx = 0usize;
+    let mut line_start = 0usize;
+    let mut line_visible_len = 0usize;
+    let mut line_visible_width = 0usize;
+    let mut pending_whitespace = 0usize;
+    let mut have_line = false;
+
+    for word in split_words(options.word_separator.find_words(text), &options.word_splitter) {
+        let word_len = word.len();
+        let whitespace_len = word.whitespace.len();
+        let projected_width = if have_line {
+            line_visible_width + pending_whitespace + word_len
+        } else {
+            word_len
+        };
+
+        if !have_line || projected_width <= width {
+            if !have_line {
+                line_start = current_idx;
+                line_visible_len = word_len;
+                line_visible_width = word_len;
+                have_line = true;
+            } else {
+                line_visible_len += pending_whitespace + word_len;
+                line_visible_width = projected_width;
+            }
+            pending_whitespace = whitespace_len;
+        } else {
+            let line = &text[line_start..line_start + line_visible_len];
+            let (wrapped_count, _, _) = hard_wrap_count_metrics(line, width);
+            line_count += wrapped_count;
+
+            line_start = current_idx;
+            line_visible_len = word_len;
+            line_visible_width = word_len;
+            pending_whitespace = whitespace_len;
+        }
+
+        current_idx += word_len + whitespace_len;
+    }
+
+    if !have_line {
+        return 1;
+    }
+
+    let line = &text[line_start..line_start + line_visible_len];
+    let (wrapped_count, last_line_width, last_trailing_spaces) =
+        hard_wrap_count_metrics(line, width);
+    line_count += wrapped_count;
 
     additional_lines_for_trailing_spaces(text, width, last_line_width, last_trailing_spaces)
         + line_count

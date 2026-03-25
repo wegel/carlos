@@ -64,8 +64,9 @@ lower work on the hot paths that currently rebuild too much state.
 - [x] (2026-03-24 07:00Z) Removed the extra fence-detection prescan from non-user ASCII counting
   by folding fence-delimiter handling into the existing byte-scan fast path, which restored most
   of the post-review `full_layout` regression on the frozen large-session snapshot.
-- [ ] Shrink the initial full-layout cost further; it improved materially, but it is still about
-  `1.13 s` on the frozen 4M-line snapshot.
+- [x] (2026-03-24 08:00Z) Replaced the remaining ASCII slow count path for long prose lines with a
+  greedy count-only walker that uses the same word splitting but avoids the generic wrap
+  algorithm/collection path; the frozen 4M-line snapshot now benches at `full_layout 813.49 ms`.
 
 ## Surprises & Discoveries
 
@@ -195,6 +196,13 @@ lower work on the hot paths that currently rebuild too much state.
   `844.51 ms` to `777.15 ms`, and `tool_call_plain` from `185.14 ms` to `172.10 ms`, while
   keeping `append_total`, `typing_draw`, and `working_draw` around `0.60–0.63 ms`.
 
+- Observation: the generic textwrap wrap-algorithm pipeline was still the dominant cost for the
+  remaining long ASCII prose lines, especially in tool-output and tool-call buckets.
+  Evidence: replacing that path with a greedy count-only ASCII walker dropped the frozen-snapshot
+  `full_layout` from `1134.96 ms` to `813.49 ms`, `tool_output_ansi` from `777.15 ms` to
+  `549.17 ms`, and `tool_call_plain` from `172.10 ms` to `96.68 ms`, while live redraw metrics
+  stayed around `0.61–0.65 ms`.
+
 ## Decision Log
 
 - Decision: build a deterministic synthetic perf source before deeper render refactors.
@@ -230,12 +238,12 @@ lower work on the hot paths that currently rebuild too much state.
 
 ## Outcomes & Retrospective
 
-The work is still in progress, but the interactive path is now firmly in the target range and the
-remaining cost is concentrated in the one-time full-layout prepass. On the captured 4M-line
-session, `append_total`, `scroll_draw`, `typing_draw`, and `working_draw` are all around
-`0.6–0.8 ms`, so live typing, scrolling, and the animation are no longer the problem. The main
-remaining risk is the `~1.13 s` initial full-layout cost on the largest histories, plus the still
-pending spec review required by the repo process before this ExecPlan can be closed.
+The implementation work for this ExecPlan is complete. On the frozen 4M-line snapshot,
+`full_layout` is down to `813.49 ms`, and the interactive path remains in the target range with
+`append_total`, `scroll_draw`, `typing_draw`, and `working_draw` all around `0.61–0.71 ms`. Live
+typing, scrolling, and the animation are no longer the problem, and the one-time resume cost is
+now well below the earlier multi-second baseline. The only remaining closure item is the still
+pending spec review required by the repo process.
 
 ## Reviews
 
