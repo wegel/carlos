@@ -97,6 +97,18 @@ pub(super) struct RuntimeDefaults {
     pub(super) summary: Option<String>,
 }
 
+fn resolve_initial_runtime_settings(
+    runtime: crate::protocol::ThreadRuntimeSettings,
+    defaults: &RuntimeDefaults,
+    default_summary: Option<String>,
+) -> crate::protocol::ThreadRuntimeSettings {
+    crate::protocol::ThreadRuntimeSettings {
+        model: runtime.model.or_else(|| defaults.model.clone()),
+        effort: runtime.effort.or_else(|| defaults.effort.clone()),
+        summary: runtime.summary.or(default_summary),
+    }
+}
+
 fn usage() {
     eprintln!(
         "Usage:\n  carlos [resume [SESSION_ID]] [options]\n  carlos perf-session <SESSION_JSONL> [--width N] [--height N]\n  carlos perf-session --synthetic [--turns N] [--seed N] [--tool-lines N] [--width N] [--height N]\n\nOptions:\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  --width <n>                    perf-session viewport width (default: 160)\n  --height <n>                   perf-session viewport height (default: 48)\n  --seed <n>                     perf-session synthetic seed (default: 1)\n  --turns <n>                    perf-session synthetic turns (default: 1000)\n  --tool-lines <n>               perf-session synthetic tool-output lines (default: 24)\n  --synthetic                    use generated perf-session content instead of a jsonl file\n  -h, --help                     show this help\n\nKeys:\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)\n  CARLOS_REASONING_SUMMARY=...   auto | concise | detailed | none (default: auto)"
@@ -408,21 +420,16 @@ pub(crate) fn run() -> Result<()> {
     if let Ok(models) = fetch_model_catalog(&client) {
         app.set_available_models(models);
     }
-    let runtime_settings = parse_thread_runtime_settings(&start_resp)?;
+    let runtime_settings = resolve_initial_runtime_settings(
+        parse_thread_runtime_settings(&start_resp)?,
+        &persisted_defaults,
+        default_summary.clone(),
+    );
     app.set_runtime_settings(
         runtime_settings.model,
         runtime_settings.effort,
         runtime_settings.summary,
     );
-    if !opts.mode_resume {
-        app.queue_runtime_settings(
-            persisted_defaults.model.clone(),
-            persisted_defaults.effort.clone(),
-            default_summary.clone(),
-        );
-    } else {
-        app.apply_default_reasoning_summary(default_summary);
-    }
     load_history_from_start_or_resume(&mut app, &start_resp)?;
     app.set_status("ready");
 

@@ -384,6 +384,7 @@ impl AppState {
         self.pending_summary = summary.and_then(normalize_non_empty);
     }
 
+    #[cfg(test)]
     pub(super) fn take_pending_runtime_settings(
         &mut self,
     ) -> (Option<String>, Option<String>, Option<String>) {
@@ -391,6 +392,20 @@ impl AppState {
             self.pending_model.clone(),
             self.pending_effort.clone(),
             self.pending_summary.clone(),
+        )
+    }
+
+    pub(super) fn next_turn_runtime_settings(&self) -> (Option<String>, Option<String>, Option<String>) {
+        (
+            self.pending_model
+                .clone()
+                .or_else(|| self.current_model.clone()),
+            self.pending_effort
+                .clone()
+                .or_else(|| self.current_effort.clone()),
+            self.pending_summary
+                .clone()
+                .or_else(|| self.current_summary.clone()),
         )
     }
 
@@ -591,6 +606,7 @@ impl AppState {
             .unwrap_or("auto")
     }
 
+    #[cfg(test)]
     pub(super) fn apply_default_reasoning_summary(&mut self, summary: Option<String>) {
         if self.current_summary.is_none() && self.pending_summary.is_none() {
             self.pending_summary = summary.and_then(normalize_non_empty);

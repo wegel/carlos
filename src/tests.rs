@@ -2584,6 +2584,49 @@ fn runtime_settings_label_shows_pending_summary_override() {
 }
 
 #[test]
+fn next_turn_runtime_settings_falls_back_to_current_values() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.set_runtime_settings(
+        Some("gpt-5.4".to_string()),
+        Some("high".to_string()),
+        Some("concise".to_string()),
+    );
+
+    assert_eq!(
+        app.next_turn_runtime_settings(),
+        (
+            Some("gpt-5.4".to_string()),
+            Some("high".to_string()),
+            Some("concise".to_string())
+        )
+    );
+}
+
+#[test]
+fn next_turn_runtime_settings_prefers_pending_over_current_values() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.set_runtime_settings(
+        Some("gpt-5.4".to_string()),
+        Some("high".to_string()),
+        Some("concise".to_string()),
+    );
+    app.queue_runtime_settings(
+        Some("gpt-5.4-mini".to_string()),
+        Some("medium".to_string()),
+        Some("auto".to_string()),
+    );
+
+    assert_eq!(
+        app.next_turn_runtime_settings(),
+        (
+            Some("gpt-5.4-mini".to_string()),
+            Some("medium".to_string()),
+            Some("auto".to_string())
+        )
+    );
+}
+
+#[test]
 fn runtime_defaults_round_trip_json_file() {
     let path = std::env::temp_dir().join(format!(
         "carlos-runtime-defaults-{}-{}.json",
@@ -2604,6 +2647,27 @@ fn runtime_defaults_round_trip_json_file() {
     let _ = std::fs::remove_file(&path);
 
     assert_eq!(loaded, defaults);
+}
+
+#[test]
+fn resolve_initial_runtime_settings_falls_back_to_persisted_defaults() {
+    let runtime = crate::protocol::ThreadRuntimeSettings {
+        model: None,
+        effort: None,
+        summary: None,
+    };
+    let defaults = RuntimeDefaults {
+        model: Some("gpt-5.4".to_string()),
+        effort: Some("high".to_string()),
+        summary: Some("concise".to_string()),
+    };
+
+    let resolved =
+        resolve_initial_runtime_settings(runtime, &defaults, defaults.summary.clone());
+
+    assert_eq!(resolved.model.as_deref(), Some("gpt-5.4"));
+    assert_eq!(resolved.effort.as_deref(), Some("high"));
+    assert_eq!(resolved.summary.as_deref(), Some("concise"));
 }
 
 #[test]

@@ -115,7 +115,7 @@ fn submit_turn_text(client: &AppServerClient, app: &mut AppState, text: String) 
             Err(e) => app.set_status(format!("{e}")),
         }
     } else {
-        let (model, effort, summary) = app.take_pending_runtime_settings();
+        let (model, effort, summary) = app.next_turn_runtime_settings();
         let params = params_turn_start(
             &app.thread_id,
             &text,
