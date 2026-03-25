@@ -1734,6 +1734,13 @@ fn strip_terminal_controls_preserving_sgr_handles_unknown_escape_before_unicode(
 }
 
 #[test]
+fn strip_terminal_controls_removes_sgr_sequences_too() {
+    let cleaned =
+        strip_terminal_controls("\u{1b}[7l\u{1b}[31mhello\u{1b}[0m\n\u{1b}]0;title\u{07}world");
+    assert_eq!(cleaned, "hello\nworld");
+}
+
+#[test]
 fn format_command_execution_call_rewrites_ssh_transport_as_remote_exec() {
     let item = json!({
         "type": "commandExecution",

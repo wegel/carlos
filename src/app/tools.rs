@@ -378,6 +378,36 @@ pub(super) fn strip_terminal_controls_preserving_sgr(text: &str) -> String {
     out
 }
 
+pub(super) fn strip_terminal_controls(text: &str) -> String {
+    let preserved = strip_terminal_controls_preserving_sgr(text);
+    let bytes = preserved.as_bytes();
+    let mut out = String::with_capacity(preserved.len());
+    let mut i = 0usize;
+
+    while i < bytes.len() {
+        if bytes[i] == 0x1b && i + 1 < bytes.len() && bytes[i + 1] == b'[' {
+            i += 2;
+            while i < bytes.len() && !(0x40..=0x7e).contains(&bytes[i]) {
+                i += 1;
+            }
+            i = i.saturating_add(1);
+            continue;
+        }
+
+        let Some(rest) = preserved.get(i..) else {
+            i += 1;
+            continue;
+        };
+        let Some(ch) = rest.chars().next() else {
+            break;
+        };
+        out.push(ch);
+        i += ch.len_utf8();
+    }
+
+    out
+}
+
 pub(super) fn tool_output_text(item: &Value) -> Option<String> {
     let mut parts = Vec::new();
 

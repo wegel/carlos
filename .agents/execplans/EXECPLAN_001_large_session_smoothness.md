@@ -35,6 +35,8 @@ lower work on the hot paths that currently rebuild too much state.
   the large real captured session `019c6286-d480-7293-8fd8-bd6459fab3ad`.
 - [x] (2026-03-24 02:20Z) Split full-layout into an eager line-count prepass plus lazy block
   materialization so resume no longer builds every rendered line up front.
+- [x] (2026-03-24 02:40Z) Replaced temporary wrap allocation in the count prepass with count-only
+  helpers and fast paths for common reasoning/ANSI cases.
 - [ ] Shrink the initial full-layout cost further; it improved materially, but it is still about
   `2.8 s` on the captured 4M-line session.
 
@@ -79,6 +81,13 @@ lower work on the hot paths that currently rebuild too much state.
   materialize only the visible blocks on demand, the real captured session `full_layout` dropped
   from `4326.11 ms` to `2828.81 ms` while `working_draw`, `typing_draw`, and `append_total`
   stayed around `0.60 ms`.
+
+- Observation: once the lazy-materialization split exists, ordinary wrap-count allocation is no
+  longer the dominant remaining cost.
+  Evidence: replacing temporary wrapped-string allocation with count-only helpers and adding fast
+  paths for common reasoning and ANSI cases only moved the captured-session `full_layout` from
+  `2828.81 ms` to `2802.99 ms`, which means the remaining time is likely in markdown/diff parsing
+  and message-wide preprocessing rather than plain wrapping.
 
 ## Decision Log
 
@@ -328,6 +337,22 @@ Current real-session evidence after the lazy block-materialization prepass:
     working_draw:  p50 0.60 p95 0.61 avg 0.60 max 0.65 ms
     append_total:  p50 0.60 p95 0.67 avg 0.61 max 0.67 ms
 
+Current real-session evidence after count-only wrap helpers and common-case fast paths:
+
+    target/release/carlos perf-session /home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl --width 160 --height 48
+    carlos perf-session
+    source: /home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl
+    viewport: 160x48
+    transcript: messages=139856 rendered_lines=4122766 relevant_items=139856 replay_elapsed_ms=4396.60
+    memory_kib: before=0 after_replay=0 after_bench=0
+    replay_apply:  p50 0.00 p95 0.01 avg 0.00 max 0.28 ms
+    full_layout:   2802.99 ms
+    full_draw:     0.72 ms
+    scroll_draw:   p50 0.70 p95 2.08 avg 0.88 max 2.86 ms
+    typing_draw:   p50 0.54 p95 0.56 avg 0.54 max 0.60 ms
+    working_draw:  p50 0.54 p95 0.56 avg 0.54 max 0.58 ms
+    append_total:  p50 0.70 p95 0.78 avg 0.71 max 0.78 ms
+
 ## Interfaces and Dependencies
 
 Keep using the existing Rust stack and data model. The important interfaces for this ExecPlan
@@ -349,5 +374,5 @@ are:
   - targeted correctness and perf-regression tests
 
 Revision note: updated on 2026-03-24 to record the lazy block-materialization prepass, the
-reduced full-layout cost on the large captured session, and the remaining follow-up work on the
-count prepass itself.
+follow-up count-only helper pass, the measured reduction in full-layout cost on the large
+captured session, and the evidence that the remaining bottleneck is no longer ordinary wrapping.

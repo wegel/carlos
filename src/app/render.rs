@@ -26,6 +26,7 @@ use super::text::{
     char_to_byte_idx, slice_by_cells, split_at_cells, visual_width, wrap_input_line,
     wrap_natural_by_cells, wrap_natural_count_by_cells,
 };
+use super::tools::strip_terminal_controls;
 use super::{
     animation_tick, kitt_head_index, AppState, Message, MessageKind, RenderedLine, Role,
     StyledSegment, TerminalSize, ThreadSummary, MSG_CONTENT_X, MSG_TOP,
@@ -1007,17 +1008,35 @@ fn count_wrapped_markdown_lines(role: Role, text: &str, width: usize) -> usize {
     }
 
     let logical_lines = if matches!(role, Role::Reasoning) {
-        let mut lines = Vec::new();
+        let mut count = 0usize;
+        let mut used_fast_path = false;
         for raw_line in text.split('\n') {
             if raw_line.is_empty() {
                 continue;
             }
-            lines.extend(markdown_line_segments(raw_line));
+            if let Some(plain) = fast_reasoning_summary_plain_text(raw_line) {
+                count += wrap_natural_count_by_cells(plain, width);
+                used_fast_path = true;
+                continue;
+            }
+            let lines = markdown_line_segments(raw_line);
+            if lines.is_empty() {
+                continue;
+            }
+            used_fast_path = true;
+            for logical in lines {
+                let plain = styled_plain_text(&logical);
+                if plain.is_empty() {
+                    count += 1;
+                } else {
+                    count += wrap_natural_count_by_cells(&plain, width);
+                }
+            }
         }
-        if lines.is_empty() {
-            markdown_line_segments(text)
+        if used_fast_path {
+            return count;
         } else {
-            lines
+            markdown_line_segments(text)
         }
     } else {
         markdown_line_segments(text)
@@ -1040,26 +1059,22 @@ fn count_wrapped_ansi_lines(role: Role, text: &str, width: usize) -> usize {
         return 0;
     }
 
-    let Some(logical_lines) = ansi_line_segments(text) else {
-        return count_wrapped_message_lines(role, text, width);
-    };
-
-    let mut count = 0usize;
-    for logical in logical_lines {
-        let plain = styled_plain_text(&logical);
-        if plain.is_empty() {
-            count += 1;
-        } else {
-            count += wrap_natural_count_by_cells(&plain, width);
-        }
-    }
-    count
+    let plain = strip_terminal_controls(text);
+    count_wrapped_message_lines(role, &plain, width)
 }
 
 fn count_wrapped_diff_lines(file_path: Option<&str>, diff: &str, width: usize) -> usize {
     let mut out = Vec::new();
     append_wrapped_diff_lines(&mut out, Role::ToolOutput, file_path, diff, width);
     out.len()
+}
+
+fn fast_reasoning_summary_plain_text(line: &str) -> Option<&str> {
+    let inner = line.strip_prefix("**")?.strip_suffix("**")?;
+    if inner.is_empty() || inner.contains("**") {
+        return None;
+    }
+    Some(inner.trim_end_matches(' '))
 }
 
 fn message_has_visible_content(msg: &Message) -> bool {
