@@ -61,8 +61,11 @@ lower work on the hot paths that currently rebuild too much state.
   layout regression test for fence-delimited tool output.
 - [x] (2026-03-24 06:20Z) Aligned escaped ANSI tool-output counting with the parsed ANSI renderer
   and added a regression so counted line totals match materialized blocks for colored outputs too.
+- [x] (2026-03-24 07:00Z) Removed the extra fence-detection prescan from non-user ASCII counting
+  by folding fence-delimiter handling into the existing byte-scan fast path, which restored most
+  of the post-review `full_layout` regression on the frozen large-session snapshot.
 - [ ] Shrink the initial full-layout cost further; it improved materially, but it is still about
-  `1.21 s` on the captured 4M-line session.
+  `1.13 s` on the frozen 4M-line snapshot.
 
 ## Surprises & Discoveries
 
@@ -185,6 +188,13 @@ lower work on the hot paths that currently rebuild too much state.
   reverted because it did not outperform the simpler implementation on the stable snapshot, while
   the parsed-ANSI count fix closed a real correctness gap for escaped outputs.
 
+- Observation: the expensive part of the fence-count correctness fix was the extra full-text fence
+  prescan, not the delimiter handling itself.
+  Evidence: moving delimiter skipping into the existing ASCII multiline count pass dropped the
+  frozen-snapshot `full_layout` from `1210.75 ms` to `1134.96 ms`, `tool_output_ansi` from
+  `844.51 ms` to `777.15 ms`, and `tool_call_plain` from `185.14 ms` to `172.10 ms`, while
+  keeping `append_total`, `typing_draw`, and `working_draw` around `0.60–0.63 ms`.
+
 ## Decision Log
 
 - Decision: build a deterministic synthetic perf source before deeper render refactors.
@@ -224,7 +234,7 @@ The work is still in progress, but the interactive path is now firmly in the tar
 remaining cost is concentrated in the one-time full-layout prepass. On the captured 4M-line
 session, `append_total`, `scroll_draw`, `typing_draw`, and `working_draw` are all around
 `0.6–0.8 ms`, so live typing, scrolling, and the animation are no longer the problem. The main
-remaining risk is the `~1.21 s` initial full-layout cost on the largest histories, plus the still
+remaining risk is the `~1.13 s` initial full-layout cost on the largest histories, plus the still
 pending spec review required by the repo process before this ExecPlan can be closed.
 
 ## Reviews

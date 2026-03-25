@@ -234,10 +234,6 @@ pub(super) fn is_fence_delimiter(line: &str) -> bool {
     line.trim_matches([' ', '\t', '\r']).starts_with("```")
 }
 
-fn has_fence_delimiter_line(text: &str) -> bool {
-    text.contains("```") && text.split('\n').any(is_fence_delimiter)
-}
-
 pub(super) fn styled_plain_text(segments: &[StyledSegment]) -> String {
     let mut out = String::new();
     for seg in segments {
@@ -1033,8 +1029,8 @@ fn count_wrapped_message_lines(role: Role, text: &str, width: usize) -> usize {
     if width < 8 {
         return 0;
     }
-    if !matches!(role, Role::User) && !has_fence_delimiter_line(text) {
-        if let Some(count) = count_ascii_multiline_by_cells(text, width) {
+    if !matches!(role, Role::User) {
+        if let Some(count) = count_ascii_multiline_by_cells(text, width, true) {
             return count;
         }
     }
@@ -1072,8 +1068,8 @@ fn count_wrapped_message_lines_cached<'a>(
     if width < 8 {
         return 0;
     }
-    if !matches!(role, Role::User) && !has_fence_delimiter_line(text) {
-        if let Some(count) = count_ascii_multiline_by_cells_cached(cache, text, width) {
+    if !matches!(role, Role::User) {
+        if let Some(count) = count_ascii_multiline_by_cells_cached(cache, text, width, true) {
             return count;
         }
     }
@@ -1245,6 +1241,7 @@ fn count_ascii_multiline_by_cells_cached<'a>(
     cache: &mut RenderCountCache<'a>,
     text: &'a str,
     width: usize,
+    skip_fence_delimiters: bool,
 ) -> Option<usize> {
     if width == 0 || !text.is_ascii() {
         return None;
@@ -1259,7 +1256,13 @@ fn count_ascii_multiline_by_cells_cached<'a>(
         }
 
         let line = &text[start..idx];
-        count += if line.is_empty() || line.len() <= width {
+        count += if skip_fence_delimiters
+            && line
+                .trim_matches([' ', '\t', '\r'])
+                .starts_with("```")
+        {
+            0
+        } else if line.is_empty() || line.len() <= width {
             1
         } else if let Some(cached) = cache.ascii_long_line_counts.get(line) {
             *cached

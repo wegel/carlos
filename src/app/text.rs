@@ -148,7 +148,11 @@ pub(super) fn wrap_natural_count_by_cells(text: &str, width: usize) -> usize {
     wrap_natural_count_slow_by_cells(text, width)
 }
 
-pub(super) fn count_ascii_multiline_by_cells(text: &str, width: usize) -> Option<usize> {
+pub(super) fn count_ascii_multiline_by_cells(
+    text: &str,
+    width: usize,
+    skip_fence_delimiters: bool,
+) -> Option<usize> {
     if width == 0 || !text.is_ascii() {
         return None;
     }
@@ -162,7 +166,13 @@ pub(super) fn count_ascii_multiline_by_cells(text: &str, width: usize) -> Option
         }
 
         let line = &text[start..idx];
-        count += if line.is_empty() {
+        count += if skip_fence_delimiters
+            && line
+                .trim_matches([' ', '\t', '\r'])
+                .starts_with("```")
+        {
+            0
+        } else if line.is_empty() {
             1
         } else if line.len() <= width {
             1
