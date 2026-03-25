@@ -1,3 +1,4 @@
+use textwrap::word_splitters::split_words;
 use textwrap::{wrap as wrap_text, Options as WrapOptions, WordSplitter};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
@@ -175,46 +176,80 @@ fn wrap_natural_count_slow_by_cells(text: &str, width: usize) -> usize {
     let options = WrapOptions::new(width)
         .break_words(false)
         .word_splitter(WordSplitter::NoHyphenation);
-    let wrapped = wrap_text(text, options);
-    if wrapped.is_empty() {
+
+    let words = options.word_separator.find_words(text);
+    let broken_words = split_words(words, &options.word_splitter).collect::<Vec<_>>();
+    if broken_words.is_empty() {
         return 1;
     }
+
+    let line_widths = [width];
+    let wrapped_words = options.wrap_algorithm.wrap(&broken_words, &line_widths);
 
     let mut line_count = 0usize;
     let mut last_line_width = 0usize;
     let mut last_trailing_spaces = 0usize;
 
-    for piece in wrapped {
-        let piece = piece.as_ref();
-        if visual_width(piece) <= width {
+    let mut idx = 0usize;
+    for words in wrapped_words {
+        let Some(last_word) = words.last() else {
             line_count += 1;
-            last_line_width = visual_width(piece);
-            last_trailing_spaces = piece.chars().rev().take_while(|c| *c == ' ').count();
+            last_line_width = 0;
+            last_trailing_spaces = 0;
             continue;
-        }
+        };
 
-        let mut rest = piece;
-        loop {
-            let take = split_at_cells(rest, width);
-            if take == 0 {
-                line_count += 1;
-                last_line_width = visual_width(rest);
-                last_trailing_spaces = rest.chars().rev().take_while(|c| *c == ' ').count();
-                break;
-            }
-            let part = &rest[..take];
-            line_count += 1;
-            last_line_width = visual_width(part);
-            last_trailing_spaces = part.chars().rev().take_while(|c| *c == ' ').count();
-            if take >= rest.len() {
-                break;
-            }
-            rest = &rest[take..];
-        }
+        let len = words
+            .iter()
+            .map(|word| word.len() + word.whitespace.len())
+            .sum::<usize>()
+            .saturating_sub(last_word.whitespace.len());
+        let line = &text[idx..idx + len];
+        let (wrapped_count, wrapped_last_width, wrapped_last_spaces) =
+            hard_wrap_count_metrics(line, width);
+        line_count += wrapped_count;
+        last_line_width = wrapped_last_width;
+        last_trailing_spaces = wrapped_last_spaces;
+        idx += len + last_word.whitespace.len();
     }
 
     additional_lines_for_trailing_spaces(text, width, last_line_width, last_trailing_spaces)
         + line_count
+}
+
+fn hard_wrap_count_metrics(text: &str, width: usize) -> (usize, usize, usize) {
+    let line_width = visual_width(text);
+    if line_width <= width {
+        return (
+            1,
+            line_width,
+            text.chars().rev().take_while(|c| *c == ' ').count(),
+        );
+    }
+
+    let mut count = 0usize;
+    let mut last_line_width;
+    let mut last_trailing_spaces;
+    let mut rest = text;
+    loop {
+        let take = split_at_cells(rest, width);
+        if take == 0 {
+            count += 1;
+            last_line_width = visual_width(rest);
+            last_trailing_spaces = rest.chars().rev().take_while(|c| *c == ' ').count();
+            break;
+        }
+        let part = &rest[..take];
+        count += 1;
+        last_line_width = visual_width(part);
+        last_trailing_spaces = part.chars().rev().take_while(|c| *c == ' ').count();
+        if take >= rest.len() {
+            break;
+        }
+        rest = &rest[take..];
+    }
+
+    (count, last_line_width, last_trailing_spaces)
 }
 
 pub(super) fn wrap_input_line(line: &str, width: usize) -> Vec<String> {

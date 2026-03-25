@@ -50,8 +50,11 @@ lower work on the hot paths that currently rebuild too much state.
   the slower wrapper for the smaller set of overflowing lines.
 - [x] (2026-03-24 04:20Z) Added a per-layout cache for repeated long ASCII logical lines so the
   count prepass can reuse wrapped-line counts across recurring tool-output and tool-call text.
+- [x] (2026-03-24 04:40Z) Replaced the slow count-only path’s wrapped-string allocation with the
+  lower-level `textwrap` word/wrap pipeline plus the existing hard-wrap fallback for overlong
+  tokens.
 - [ ] Shrink the initial full-layout cost further; it improved materially, but it is still about
-  `1.30 s` on the captured 4M-line session.
+  `1.22 s` on the captured 4M-line session.
 
 ## Surprises & Discoveries
 
@@ -136,6 +139,13 @@ lower work on the hot paths that currently rebuild too much state.
   and `Process exited with code 0`. Adding a per-layout cache for long ASCII line counts reduced
   the real-session `tool_output_ansi` bucket from `947.85 ms` to `903.75 ms` and the total
   `full_layout` to `1300.34 ms`.
+
+- Observation: even after the cheap ASCII fast paths and repeated-line cache, the remaining slow
+  path was still paying to allocate wrapped strings just to count them.
+  Evidence: replacing that count-only slow path with the lower-level `textwrap` word separation
+  plus wrap-algorithm pipeline reduced the real-session `tool_output_ansi` bucket from
+  `903.75 ms` to `838.22 ms`, `tool_call_plain` from `205.34 ms` to `189.13 ms`, and the total
+  `full_layout` to `1222.98 ms` on the current snapshot.
 
 ## Decision Log
 
@@ -529,6 +539,30 @@ Current real-session evidence after memoizing repeated long ASCII lines:
       commentary_plain msgs=2119 lines=7307 total_ms=16.15
       diff msgs=1722 lines=193359 total_ms=14.66
 
+Current real-session evidence after the low-level count-only wrap path:
+
+    target/release/carlos perf-session /home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl --width 160 --height 48
+    carlos perf-session
+    source: /home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl
+    viewport: 160x48
+    transcript: messages=140820 rendered_lines=4150554 relevant_items=140819 replay_elapsed_ms=4091.77
+    memory_kib: before=0 after_replay=0 after_bench=0
+    replay_apply:  p50 0.00 p95 0.01 avg 0.00 max 0.33 ms
+    full_layout:   1222.98 ms
+    full_draw:     0.82 ms
+    scroll_draw:   p50 0.68 p95 1.68 avg 0.78 max 2.20 ms
+    typing_draw:   p50 0.64 p95 0.65 avg 0.64 max 0.69 ms
+    working_draw:  p50 0.64 p95 0.65 avg 0.64 max 0.68 ms
+    append_total:  p50 0.67 p95 0.70 avg 0.67 max 0.70 ms
+    layout_breakdown:
+      tool_output_ansi msgs=48818 lines=3388656 total_ms=838.22
+      tool_call_plain msgs=50556 lines=324189 total_ms=189.13
+      assistant_markdown msgs=1370 lines=34965 total_ms=109.23
+      user_plain msgs=2561 lines=127843 total_ms=25.57
+      reasoning_markdown msgs=33672 lines=74163 total_ms=23.62
+      commentary_plain msgs=2119 lines=7307 total_ms=15.02
+      diff msgs=1723 lines=193428 total_ms=14.46
+
 ## Interfaces and Dependencies
 
 Keep using the existing Rust stack and data model. The important interfaces for this ExecPlan
@@ -552,6 +586,6 @@ are:
 Revision note: updated on 2026-03-24 to record the lazy block-materialization prepass, the
 follow-up count-only helper passes, the diff-count fast path, the ANSI no-escape fast path, the
 ASCII single-line fast path, the ASCII multiline count fast path, the repeated-line memoization
-pass, the measured reductions in full-layout cost on the large captured session, the
-`perf-session` layout breakdown, and the evidence that the remaining bottleneck is now mostly
-plain tool-output line counting.
+pass, the low-level count-only wrap path, the measured reductions in full-layout cost on the
+large captured session, the `perf-session` layout breakdown, and the evidence that the remaining
+bottleneck is now mostly plain tool-output line counting.
