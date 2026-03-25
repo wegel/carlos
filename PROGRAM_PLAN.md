@@ -21,8 +21,8 @@ session contains tens of thousands of rendered lines.
 
 ## Active ExecPlans
 
-- [ ] `.agents/execplans/EXECPLAN_001_large_session_smoothness.md`
+- None currently.
 
 ## Done ExecPlans
 
-- None yet.
+- [x] `.agents/done/EXECPLAN_001_large_session_smoothness.md`

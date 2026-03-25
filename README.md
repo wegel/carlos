@@ -50,7 +50,7 @@ The bundle contains only files that belong at the target repo root or under `.ag
 - ExecPlan guidance in [`PLANS.md`](examples/ralph-loop/.agents/PLANS.md)
 - a seed ExecPlan in [`EXECPLAN_001_example.md`](examples/ralph-loop/.agents/execplans/EXECPLAN_001_example.md)
 - the Ralph prompt in [`ralph-prompt.md`](examples/ralph-loop/.agents/ralph-prompt.md)
-- the current reviewer prompts: [`spec_reviewer.md`](examples/ralph-loop/.agents/spec_reviewer.md) and [`engineering_reviewer.md`](examples/ralph-loop/.agents/engineering_reviewer.md)
+- the current reviewer prompt directory: [`reviewers/`](examples/ralph-loop/.agents/reviewers/) with [`engineering_reviewer.md`](examples/ralph-loop/.agents/reviewers/engineering_reviewer.md)
 - an empty `.agents/done/` directory placeholder for completed ExecPlans
 
 The intended flow is:

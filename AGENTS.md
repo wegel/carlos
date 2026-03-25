@@ -70,22 +70,18 @@ Progress reporting must stay resumable.
 
 ## 5. Review Model
 
-Use two reviewer roles for non-trivial changes:
+Use the reviewer prompts present under `.agents/reviewers/` for non-trivial changes.
 
-- `Spec Reviewer`: checks alignment with the provided requirements, plans, and stated
-  invariants. Prompt file: `.agents/spec_reviewer.md`
-- `Engineering Reviewer`: checks correctness, edge cases, safety, maintainability, and test
-  coverage. Prompt file: `.agents/engineering_reviewer.md`
+- Each reviewer prompt file defines its role, review scope, and expected verdicts.
+- If more than one reviewer prompt is present, run each applicable reviewer in a separate
+  session.
+- If only one reviewer prompt is present, run that reviewer.
 
 Reviews should run in separate sessions. Their output should be copied into the active ExecPlan
 under a clearly labeled review section.
 
-Required outcomes:
-
-- Spec reviewer: `APPROVED`, `APPROVED WITH NOTES`, or `REJECTED`
-- Engineering reviewer: `PASS`, `PASS WITH ISSUES`, or `FAIL`
-
-`REJECTED` and `FAIL` block forward progress until resolved.
+Any reviewer verdict that is marked blocking in its prompt file blocks forward progress until
+resolved.
 
 ## 6. Carlos Repository Discipline
 

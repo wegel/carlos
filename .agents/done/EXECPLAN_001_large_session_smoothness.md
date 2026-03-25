@@ -242,14 +242,13 @@ The implementation work for this ExecPlan is complete. On the frozen 4M-line sna
 `full_layout` is down to `813.49 ms`, and the interactive path remains in the target range with
 `append_total`, `scroll_draw`, `typing_draw`, and `working_draw` all around `0.61–0.71 ms`. Live
 typing, scrolling, and the animation are no longer the problem, and the one-time resume cost is
-now well below the earlier multi-second baseline. The only remaining closure item is the still
-pending spec review required by the repo process.
+now well below the earlier multi-second baseline.
 
 ## Reviews
 
 ### Engineering Review
 
-- Reviewer: separate reviewer session using `.agents/engineering_reviewer.md`
+- Reviewer: separate reviewer session using `.agents/reviewers/engineering_reviewer.md`
 - Scope: commits `5bcf8d3..f4b962e` plus this ExecPlan
 - Verdict: `PASS WITH ISSUES`
 - Finding resolved: the reviewer identified a `MAJOR` correctness regression in the non-user ASCII
@@ -257,8 +256,7 @@ pending spec review required by the repo process.
   rendered. The fix narrows the shortcut to skip only texts without actual fence-delimiter lines,
   and `ensure_rendered_lines_non_user_fence_counts_match_rendered_block` now covers the cached
   layout path.
-- Remaining review status: engineering review is satisfied after the fence-count fix. Spec review
-  is still pending explicit authorization.
+- Remaining review status: engineering review is satisfied after the fence-count fix.
 
 ## Context and Orientation
 
@@ -335,8 +333,8 @@ Work from the repository root `/var/home/wegel/work/perso/carlos`.
        cp target/release/carlos ~/.local/bin/carlos.new
        mv ~/.local/bin/carlos.new ~/.local/bin/carlos
 
-4. When a change is large enough to deserve review, run the spec reviewer and engineering
-   reviewer in separate sessions and copy their verdicts into this ExecPlan.
+4. When a change is large enough to deserve review, run each reviewer prompt present under
+   `.agents/reviewers/` in a separate session and copy the verdicts into this ExecPlan.
 
 ## Validation and Acceptance
 
