@@ -1737,7 +1737,7 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
     };
     let msg_width = transcript_content_width(size);
 
-    let total_lines = app.rendered_lines.len();
+    let total_lines = app.rendered_line_count();
     let max_scroll = total_lines.saturating_sub(msg_height);
     if app.scroll_top > max_scroll {
         app.scroll_top = max_scroll;
@@ -1771,7 +1771,7 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
         let row_1b = msg_top + i;
         let y = row_1b - 1;
 
-        let line_opt = app.rendered_lines.get(line_idx);
+        let line_opt = app.rendered_line_at(line_idx);
         if let Some(line) = line_opt {
             if !line.separator {
                 let gutter_symbol = role_gutter_symbol(line.role);

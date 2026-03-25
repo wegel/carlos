@@ -520,22 +520,31 @@ pub(super) fn is_perf_toggle_key(code: KeyCode, modifiers: KeyModifiers) -> bool
 }
 
 pub(super) fn animation_tick() -> u128 {
+    animation_tick_for_step(KITT_STEP_MS)
+}
+
+pub(super) fn animation_tick_for_step(step_ms: u128) -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() / KITT_STEP_MS)
+        .map(|d| d.as_millis() / step_ms.max(1))
         .unwrap_or(0)
 }
 
-pub(super) fn animation_poll_timeout(working: bool) -> Duration {
-    if !working {
-        return Duration::from_millis(25);
-    }
+pub(super) fn working_animation_step_ms() -> u128 {
+    KITT_STEP_MS
+}
 
+pub(super) fn animation_poll_timeout() -> Duration {
+    animation_poll_timeout_for_step(working_animation_step_ms())
+}
+
+pub(super) fn animation_poll_timeout_for_step(step_ms: u128) -> Duration {
     let now_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis())
         .unwrap_or(0);
-    let rem = KITT_STEP_MS - (now_ms % KITT_STEP_MS);
+    let step_ms = step_ms.max(1);
+    let rem = step_ms - (now_ms % step_ms);
     Duration::from_millis(rem.max(1) as u64)
 }
 

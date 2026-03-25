@@ -40,6 +40,7 @@ struct PerfReplayStats {
     full_draw_ms: f64,
     scroll_draw: DurationSamples,
     typing_draw: DurationSamples,
+    working_draw: DurationSamples,
     append_total: DurationSamples,
     relevant_items: usize,
 }
@@ -52,6 +53,7 @@ impl PerfReplayStats {
             full_draw_ms: 0.0,
             scroll_draw: DurationSamples::new(PERF_SAMPLE_WINDOW),
             typing_draw: DurationSamples::new(PERF_SAMPLE_WINDOW),
+            working_draw: DurationSamples::new(PERF_SAMPLE_WINDOW),
             append_total: DurationSamples::new(PERF_SAMPLE_WINDOW),
             relevant_items: 0,
         }
@@ -98,6 +100,7 @@ pub(super) fn run_perf_session(opts: &CliOptions) -> Result<()> {
 
     benchmark_scroll_draws(&mut app, terminal_size, &mut stats)?;
     benchmark_typing_draws(&mut app, terminal_size, &mut stats)?;
+    benchmark_working_draws(&mut app, terminal_size, &mut stats)?;
     benchmark_append_draws(&mut app, terminal_size, &mut stats)?;
     let rss_after_bench_kib = current_rss_kib();
 
@@ -107,7 +110,7 @@ pub(super) fn run_perf_session(opts: &CliOptions) -> Result<()> {
     println!(
         "transcript: messages={} rendered_lines={} relevant_items={} replay_elapsed_ms={:.2}",
         app.messages.len(),
-        app.rendered_lines.len(),
+        app.rendered_line_count(),
         stats.relevant_items,
         replay_elapsed.as_secs_f64() * 1000.0
     );
@@ -122,6 +125,7 @@ pub(super) fn run_perf_session(opts: &CliOptions) -> Result<()> {
     println!("full_draw:     {:.2} ms", stats.full_draw_ms);
     println!("scroll_draw:   {}", stats.scroll_draw.summary());
     println!("typing_draw:   {}", stats.typing_draw.summary());
+    println!("working_draw:  {}", stats.working_draw.summary());
     println!("append_total:  {}", stats.append_total.summary());
 
     Ok(())
@@ -327,7 +331,7 @@ fn benchmark_scroll_draws(
     } else {
         0
     };
-    let max_scroll = app.rendered_lines.len().saturating_sub(msg_height);
+    let max_scroll = app.rendered_line_count().saturating_sub(msg_height);
     let step = ((max_scroll / MAX_SCROLL_SAMPLES.max(1)).max(msg_height / 2)).max(1);
     let old_scroll = app.scroll_top;
     let old_follow = app.auto_follow_bottom;
@@ -366,6 +370,27 @@ fn benchmark_typing_draws(
     }
 
     app.set_input_text(&original);
+    Ok(())
+}
+
+fn benchmark_working_draws(
+    app: &mut AppState,
+    size: TerminalSize,
+    stats: &mut PerfReplayStats,
+) -> Result<()> {
+    const WORKING_DRAW_SAMPLES: usize = 64;
+
+    let mut terminal = Terminal::new(TestBackend::new(size.width as u16, size.height as u16))?;
+    let original_turn_id = app.active_turn_id.clone();
+    app.active_turn_id = Some("perf-turn".to_string());
+
+    for _ in 0..WORKING_DRAW_SAMPLES {
+        let draw_started = Instant::now();
+        terminal.draw(|frame| render_main_view(frame, app))?;
+        stats.working_draw.push(draw_started.elapsed());
+    }
+
+    app.active_turn_id = original_turn_id;
     Ok(())
 }
 

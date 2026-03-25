@@ -16,7 +16,7 @@ use super::render::{
     format_read_summary_with_count, parse_read_summary, textarea_input_from_key,
     transcript_content_width,
 };
-use super::selection::{MouseDragMode, Selection};
+use super::selection::{MouseDragMode, RenderedLineSource, Selection};
 use super::{RuntimeDefaults, MSG_TOP};
 use crate::protocol::ModelInfo;
 
@@ -123,9 +123,9 @@ pub(super) struct AppState {
     pub(super) thread_id: String,
     pub(super) active_turn_id: Option<String>,
     pub(super) messages: Vec<Message>,
-    pub(super) rendered_lines: Vec<RenderedLine>,
     pub(super) rendered_message_blocks: Vec<Vec<RenderedLine>>,
     pub(super) rendered_block_offsets: Vec<usize>,
+    pub(super) rendered_total_lines: usize,
     pub(super) rendered_width: usize,
     pub(super) rendered_hidden_user_message_idx: Option<usize>,
     pub(super) transcript_dirty_from: Option<usize>,
@@ -191,9 +191,9 @@ impl AppState {
             thread_id,
             active_turn_id: None,
             messages: Vec::new(),
-            rendered_lines: Vec::new(),
             rendered_message_blocks: Vec::new(),
             rendered_block_offsets: Vec::new(),
+            rendered_total_lines: 0,
             rendered_width: 0,
             rendered_hidden_user_message_idx: None,
             transcript_dirty_from: Some(0),
@@ -900,18 +900,18 @@ impl AppState {
         };
 
         if dirty_from == 0 {
-            self.rendered_lines.clear();
             self.rendered_message_blocks.clear();
             self.rendered_block_offsets.clear();
+            self.rendered_total_lines = 0;
         } else {
             let start_offset = self
                 .rendered_block_offsets
                 .get(dirty_from)
                 .copied()
-                .unwrap_or(self.rendered_lines.len());
-            self.rendered_lines.truncate(start_offset);
+                .unwrap_or(self.rendered_total_lines);
             self.rendered_message_blocks.truncate(dirty_from);
             self.rendered_block_offsets.truncate(dirty_from);
+            self.rendered_total_lines = start_offset;
         }
 
         let mut previous_visible_idx = if dirty_from == 0 {
@@ -921,7 +921,7 @@ impl AppState {
         };
 
         for idx in dirty_from..self.messages.len() {
-            self.rendered_block_offsets.push(self.rendered_lines.len());
+            self.rendered_block_offsets.push(self.rendered_total_lines);
 
             let hidden =
                 hidden_user_message_idx == Some(idx) && self.messages[idx].role == Role::User;
@@ -943,7 +943,7 @@ impl AppState {
                 self.rendered_message_blocks.push(block);
                 continue;
             }
-            self.rendered_lines.extend(block.iter().cloned());
+            self.rendered_total_lines += block.len();
             self.rendered_message_blocks.push(block);
             previous_visible_idx = Some(idx);
         }
@@ -1152,6 +1152,32 @@ impl AppState {
         None
     }
 
+    pub(super) fn rendered_line_count(&self) -> usize {
+        self.rendered_total_lines
+    }
+
+    pub(super) fn rendered_line_at(&self, idx: usize) -> Option<&RenderedLine> {
+        if idx >= self.rendered_total_lines {
+            return None;
+        }
+        let pos = self
+            .rendered_block_offsets
+            .partition_point(|offset| *offset <= idx);
+        let block_idx = pos.checked_sub(1)?;
+        let block_start = *self.rendered_block_offsets.get(block_idx)?;
+        let block = self.rendered_message_blocks.get(block_idx)?;
+        block.get(idx.saturating_sub(block_start))
+    }
+
+    #[cfg(test)]
+    pub(super) fn snapshot_rendered_lines(&self) -> Vec<RenderedLine> {
+        let mut out = Vec::with_capacity(self.rendered_total_lines);
+        for block in &self.rendered_message_blocks {
+            out.extend(block.iter().cloned());
+        }
+        out
+    }
+
     pub(super) fn append_context_compacted_marker(&mut self) {
         const MARKER: &str = "↻ Context compacted";
         if let Some(last) = self.messages.last() {
@@ -1254,6 +1280,16 @@ impl AppState {
         if let Some(status) = next_status {
             self.set_status(status);
         }
+    }
+}
+
+impl RenderedLineSource for AppState {
+    fn len(&self) -> usize {
+        self.rendered_line_count()
+    }
+
+    fn get(&self, idx: usize) -> Option<&RenderedLine> {
+        self.rendered_line_at(idx)
     }
 }
 

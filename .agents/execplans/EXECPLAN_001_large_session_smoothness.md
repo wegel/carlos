@@ -25,11 +25,16 @@ lower work on the hot paths that currently rebuild too much state.
 - [x] (2026-03-24 01:00Z) Replaced `ensure_rendered_lines()` full rebuilds for append and
   last-message update paths with dirty-from incremental invalidation backed by per-message
   rendered blocks and block offsets.
-- [ ] Stop cloning or re-filtering the entire `messages` vector during normal redraws.
-- [ ] Reduce active-turn redraw pressure so animation or idle polling does not dominate CPU on
-  large sessions.
+- [x] (2026-03-24 01:20Z) Removed the remaining normal-redraw whole-history clone/filter path by
+  making rendering and selection read from cached message blocks plus block offsets instead of a
+  flattened transcript snapshot.
+- [x] (2026-03-24 01:40Z) Reduced active-turn redraw pressure without degrading the animation:
+  the working separator still animates at the normal cadence, but animation frames now rely on
+  on-demand cached layout and benchmark at the same cost as ordinary viewport draws.
 - [x] (2026-03-24 01:00Z) Captured before/after perf evidence from both the synthetic source and
   the large real captured session `019c6286-d480-7293-8fd8-bd6459fab3ad`.
+- [ ] Shrink the initial full-layout cost on giant histories, which is still several seconds on
+  the captured 4M-line session.
 
 ## Surprises & Discoveries
 
@@ -59,6 +64,13 @@ lower work on the hot paths that currently rebuild too much state.
   still reports `full_layout: 4348.32 ms` for `139591` messages and `4078383` rendered lines,
   even though `append_total`, `typing_draw`, and `scroll_draw` are all around `0.6 ms`.
 
+- Observation: once layout work is gated behind invalidation, the animated working separator is
+  no longer meaningfully more expensive than ordinary redraws, even on the giant captured
+  session.
+  Evidence: after the main-loop/layout change, the real captured session reports
+  `working_draw: p50 0.58 p95 0.59 avg 0.58 max 0.63 ms`, essentially identical to
+  `typing_draw` and `scroll_draw`.
+
 ## Decision Log
 
 - Decision: build a deterministic synthetic perf source before deeper render refactors.
@@ -78,13 +90,20 @@ lower work on the hot paths that currently rebuild too much state.
   milestone, and the measurements show the new cache materially improves the interactive path.
   Date/Author: 2026-03-24 / Codex
 
+- Decision: keep the working animation enabled at its normal cadence and instead make each frame
+  constant-time with respect to transcript size.
+  Rationale: the user requirement is that animation itself must not be a scalability problem. A
+  size-based fallback would hide the bug instead of fixing it. Measuring `working_draw`
+  separately keeps that invariant explicit.
+  Date/Author: 2026-03-24 / Codex
+
 ## Outcomes & Retrospective
 
-The work is still in progress, but the first major interactive bottleneck has been eliminated.
-Append-only and last-message update paths now rebuild only the tail of the transcript, and the
-measured append cost fell from roughly `92 ms` to roughly `0.6–0.8 ms` on both synthetic and
-real large-session inputs. The main remaining risk is the initial full layout on huge histories,
-which is still several seconds on a very large captured session.
+The work is still in progress, but the interactive path is now much closer to the target. The
+append path, scroll path, typing path, and active-turn animation path are all under a millisecond
+in the perf harness, including the 4M-line captured session. The main remaining risk is the
+initial full layout on huge histories, which is still several seconds on a very large captured
+session.
 
 ## Context and Orientation
 
@@ -121,15 +140,10 @@ mid-transcript mutations such as rewind hiding or tool-call replacement. The tar
 that appending or extending the last message only re-lays out the affected tail, then updates the
 flattened line index without touching earlier stable lines.
 
-The second milestone is to stop cloning and filtering the entire message list during rebuilds. In
-`src/app/render.rs`, the renderer should operate over stable message storage plus either cached
-per-message render blocks or a structure that can rebuild from a dirty message index forward. Any
-transforms that still examine all messages each frame must be moved into state updates.
-
-The third milestone is to reduce redraw pressure from the event loop. In `src/app/input.rs` and
-`src/app/notifications.rs`, measure how often the UI redraws while a turn is active and reduce
-avoidable redraws, especially cosmetic animation frames that do not change visible transcript
-content.
+The next milestone is to shrink the one-time full layout cost on giant histories. The renderer no
+longer clones the message list during normal redraws, and the working animation now benchmarks as
+ordinary viewport work, so the remaining structural bottleneck is the initial build of the cached
+render blocks during resume or after an invalidate-from-zero event.
 
 At each milestone, add focused tests in `src/tests.rs` and capture perf evidence with
 `carlos perf-session` against both a deterministic synthetic source and a real recorded session
@@ -233,6 +247,38 @@ Current real-session evidence after the incremental cache:
     typing_draw:   p50 0.61 p95 0.64 avg 0.61 max 0.66 ms
     append_total:  p50 0.62 p95 0.67 avg 0.62 max 0.67 ms
 
+Current synthetic evidence after the block-backed redraw path and animation scheduling cleanup:
+
+    target/release/carlos perf-session --synthetic --turns 2000 --seed 1 --tool-lines 24 --width 160 --height 48
+    carlos perf-session
+    source: synthetic seed=1 turns=2000 tool_lines=24
+    viewport: 160x48
+    transcript: messages=12000 rendered_lines=80727 relevant_items=12000 replay_elapsed_ms=138.75
+    memory_kib: before=0 after_replay=0 after_bench=0
+    replay_apply:  p50 31.74 p95 31.74 avg 31.74 max 31.74 ms
+    full_layout:   105.67 ms
+    full_draw:     0.89 ms
+    scroll_draw:   p50 0.79 p95 0.81 avg 0.79 max 0.82 ms
+    typing_draw:   p50 0.75 p95 0.76 avg 0.75 max 0.84 ms
+    working_draw:  p50 0.74 p95 0.75 avg 0.75 max 0.83 ms
+    append_total:  p50 0.77 p95 0.87 avg 0.78 max 0.87 ms
+
+Current real-session evidence after the block-backed redraw path and animation scheduling cleanup:
+
+    target/release/carlos perf-session /home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl --width 160 --height 48
+    carlos perf-session
+    source: /home/wegel/.codex/sessions/2026/02/15/rollout-2026-02-15T18-18-49-019c6286-d480-7293-8fd8-bd6459fab3ad.jsonl
+    viewport: 160x48
+    transcript: messages=139719 rendered_lines=4079728 relevant_items=139719 replay_elapsed_ms=5969.65
+    memory_kib: before=0 after_replay=0 after_bench=0
+    replay_apply:  p50 0.00 p95 0.01 avg 0.00 max 0.30 ms
+    full_layout:   4326.11 ms
+    full_draw:     0.67 ms
+    scroll_draw:   p50 0.60 p95 0.68 avg 0.60 max 0.72 ms
+    typing_draw:   p50 0.58 p95 0.59 avg 0.58 max 0.63 ms
+    working_draw:  p50 0.58 p95 0.59 avg 0.58 max 0.63 ms
+    append_total:  p50 0.59 p95 0.62 avg 0.59 max 0.62 ms
+
 ## Interfaces and Dependencies
 
 Keep using the existing Rust stack and data model. The important interfaces for this ExecPlan
@@ -253,6 +299,6 @@ are:
 - `src/tests.rs`
   - targeted correctness and perf-regression tests
 
-Revision note: updated on 2026-03-24 to record the incremental transcript cache milestone,
-including the synthetic and real-session measurements that show the append-path win and the
-remaining initial-layout bottleneck.
+Revision note: updated on 2026-03-24 to record the block-backed redraw path, the removal of the
+remaining whole-history redraw clone/filter path, and the new `working_draw` evidence showing
+that the active-turn animation is now constant-time with respect to transcript size.

@@ -1,6 +1,31 @@
 use super::{text::slice_by_cells, RenderedLine, MSG_CONTENT_X};
 use crate::theme::TOUCH_SCROLL_DRAG_MIN_ROWS;
 
+pub(super) trait RenderedLineSource {
+    fn len(&self) -> usize;
+    fn get(&self, idx: usize) -> Option<&RenderedLine>;
+}
+
+impl RenderedLineSource for [RenderedLine] {
+    fn len(&self) -> usize {
+        <[RenderedLine]>::len(self)
+    }
+
+    fn get(&self, idx: usize) -> Option<&RenderedLine> {
+        <[RenderedLine]>::get(self, idx)
+    }
+}
+
+impl RenderedLineSource for Vec<RenderedLine> {
+    fn len(&self) -> usize {
+        self.as_slice().len()
+    }
+
+    fn get(&self, idx: usize) -> Option<&RenderedLine> {
+        self.as_slice().get(idx)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum MouseDragMode {
     Undecided,
@@ -63,7 +88,10 @@ pub(super) fn compute_selection_range(
     Some((start_col - 1, end_col))
 }
 
-pub(super) fn selected_text(selection: Selection, rendered_lines: &[RenderedLine]) -> String {
+pub(super) fn selected_text<S: RenderedLineSource + ?Sized>(
+    selection: Selection,
+    rendered_lines: &S,
+) -> String {
     let mut ax = selection.anchor_x;
     let mut ay = selection.anchor_line_idx;
     let mut fx = selection.focus_x;
@@ -73,7 +101,7 @@ pub(super) fn selected_text(selection: Selection, rendered_lines: &[RenderedLine
         std::mem::swap(&mut ay, &mut fy);
     }
 
-    if rendered_lines.is_empty() {
+    if rendered_lines.len() == 0 {
         return String::new();
     }
 
@@ -86,7 +114,9 @@ pub(super) fn selected_text(selection: Selection, rendered_lines: &[RenderedLine
     let mut prev_soft_wrap = false;
 
     for idx in start_idx..=end_idx {
-        let line = &rendered_lines[idx];
+        let Some(line) = rendered_lines.get(idx) else {
+            continue;
+        };
         let line_cells = line.cells;
 
         let mut s_col = 1usize;

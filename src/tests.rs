@@ -368,7 +368,7 @@ fn ensure_rendered_lines_incremental_append_matches_full_rebuild() {
     app.append_message(Role::ToolOutput, "line one\nline two");
 
     app.ensure_rendered_lines(48, None);
-    let before_lines = app.rendered_lines.len();
+    let before_lines = app.rendered_line_count();
 
     let idx = app.append_message(
         Role::Assistant,
@@ -380,13 +380,13 @@ fn ensure_rendered_lines_incremental_append_matches_full_rebuild() {
 
     let expected = build_rendered_lines_with_hidden(&app.messages, 48, None);
     assert_eq!(
-        rendered_signature(&app.rendered_lines),
+        rendered_signature(&app.snapshot_rendered_lines()),
         rendered_signature(&expected)
     );
     assert_eq!(app.rendered_message_blocks.len(), app.messages.len());
     assert_eq!(app.rendered_block_offsets.len(), app.messages.len());
     assert_eq!(app.transcript_dirty_from, None);
-    assert!(app.rendered_lines.len() > before_lines);
+    assert!(app.rendered_line_count() > before_lines);
 }
 
 #[test]
@@ -407,7 +407,7 @@ fn ensure_rendered_lines_incremental_agent_delta_matches_full_rebuild() {
 
     let expected = build_rendered_lines_with_hidden(&app.messages, 52, None);
     assert_eq!(
-        rendered_signature(&app.rendered_lines),
+        rendered_signature(&app.snapshot_rendered_lines()),
         rendered_signature(&expected)
     );
     assert_eq!(app.rendered_message_blocks.len(), app.messages.len());

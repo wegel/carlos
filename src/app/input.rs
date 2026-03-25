@@ -162,6 +162,22 @@ fn respond_to_pending_approval(
     }
 }
 
+fn hidden_user_message_idx(app: &AppState) -> Option<usize> {
+    if app.rewind_mode {
+        app.rewind_selected_message_idx()
+    } else {
+        None
+    }
+}
+
+fn ensure_transcript_layout(app: &mut AppState, size: TerminalSize) {
+    let render_started = Instant::now();
+    app.ensure_rendered_lines(transcript_content_width(size), hidden_user_message_idx(app));
+    if let Some(perf) = app.perf.as_mut() {
+        perf.transcript_render.push(render_started.elapsed());
+    }
+}
+
 pub(super) fn run_conversation_tui(
     client: &AppServerClient,
     app: &mut AppState,
@@ -188,16 +204,6 @@ pub(super) fn run_conversation_tui(
                 width: size.width as usize,
                 height: size.height as usize,
             };
-            let render_started = Instant::now();
-            let hidden_user_message_idx = if app.rewind_mode {
-                app.rewind_selected_message_idx()
-            } else {
-                None
-            };
-            app.ensure_rendered_lines(transcript_content_width(size), hidden_user_message_idx);
-            if let Some(perf) = app.perf.as_mut() {
-                perf.transcript_render.push(render_started.elapsed());
-            }
 
             let loop_now = Instant::now();
             let working = app.active_turn_id.is_some();
@@ -218,6 +224,7 @@ pub(super) fn run_conversation_tui(
             }
 
             if needs_draw {
+                ensure_transcript_layout(app, size);
                 let draw_started = Instant::now();
                 terminal.draw(|frame| {
                     render_main_view(frame, app);
@@ -237,7 +244,7 @@ pub(super) fn run_conversation_tui(
                     Err(TryRecvError::Disconnected) => return Ok(()),
                 }
             } else if working {
-                match ui_rx.recv_timeout(animation_poll_timeout(true)) {
+                match ui_rx.recv_timeout(animation_poll_timeout()) {
                     Ok(ev) => Some(ev),
                     Err(RecvTimeoutError::Timeout) => None,
                     Err(RecvTimeoutError::Disconnected) => return Ok(()),
@@ -509,7 +516,7 @@ pub(super) fn run_conversation_tui(
                                     }
                                     (KeyCode::Char('y'), KeyModifiers::CONTROL) => {
                                         if let Some(sel) = app.selection {
-                                            let copied = selected_text(sel, &app.rendered_lines);
+                                            let copied = selected_text(sel, app);
                                             if !copied.is_empty() {
                                                 let _ = try_copy_clipboard(&copied);
                                             }
@@ -565,10 +572,12 @@ pub(super) fn run_conversation_tui(
                                         }
                                     }
                                     (KeyCode::Home, _) if app.input_is_empty() => {
+                                        ensure_transcript_layout(app, size);
                                         app.auto_follow_bottom = false;
                                         app.scroll_top = 0;
                                     }
                                     (KeyCode::End, _) if app.input_is_empty() => {
+                                        ensure_transcript_layout(app, size);
                                         app.auto_follow_bottom = true;
                                     }
                                     (KeyCode::Up, _) => {
@@ -582,6 +591,7 @@ pub(super) fn run_conversation_tui(
                                         }
                                     }
                                     (KeyCode::PageUp, _) => {
+                                        ensure_transcript_layout(app, size);
                                         let msg_bottom = compute_input_layout(app, size).msg_bottom;
                                         let msg_height = if msg_bottom >= MSG_TOP {
                                             msg_bottom - MSG_TOP + 1
@@ -589,11 +599,12 @@ pub(super) fn run_conversation_tui(
                                             0
                                         };
                                         let max_scroll =
-                                            app.rendered_lines.len().saturating_sub(msg_height);
+                                            app.rendered_line_count().saturating_sub(msg_height);
                                         app.scroll_top = app.scroll_top.saturating_sub(10);
                                         app.sync_auto_follow_bottom(max_scroll);
                                     }
                                     (KeyCode::PageDown, _) => {
+                                        ensure_transcript_layout(app, size);
                                         let msg_bottom = compute_input_layout(app, size).msg_bottom;
                                         let msg_height = if msg_bottom >= MSG_TOP {
                                             msg_bottom - MSG_TOP + 1
@@ -601,7 +612,7 @@ pub(super) fn run_conversation_tui(
                                             0
                                         };
                                         let max_scroll =
-                                            app.rendered_lines.len().saturating_sub(msg_height);
+                                            app.rendered_line_count().saturating_sub(msg_height);
                                         app.scroll_top =
                                             app.scroll_top.saturating_add(10).min(max_scroll);
                                         app.sync_auto_follow_bottom(max_scroll);
@@ -649,6 +660,7 @@ pub(super) fn run_conversation_tui(
                                 if app.show_help || app.show_model_settings {
                                     continue;
                                 }
+                                ensure_transcript_layout(app, size);
 
                                 let msg_top = MSG_TOP;
                                 let msg_bottom = compute_input_layout(app, size).msg_bottom;
@@ -663,7 +675,7 @@ pub(super) fn run_conversation_tui(
                                 let clamped_line_idx = app.scroll_top + (clamped_y - msg_top);
                                 let msg_height = msg_bottom - msg_top + 1;
                                 let max_scroll =
-                                    app.rendered_lines.len().saturating_sub(msg_height);
+                                    app.rendered_line_count().saturating_sub(msg_height);
                                 let mut mouse_changed = false;
 
                                 match m.kind {
@@ -682,10 +694,10 @@ pub(super) fn run_conversation_tui(
                                         if scroll_delta != 0
                                             && app.mouse_drag_mode != MouseDragMode::Scroll
                                         {
+                                            let max_line_idx =
+                                                app.rendered_line_count().saturating_sub(1);
                                             if let Some(sel) = app.selection.as_mut() {
                                                 if sel.dragging {
-                                                    let max_line_idx =
-                                                        app.rendered_lines.len().saturating_sub(1);
                                                     shift_selection_focus(
                                                         sel,
                                                         scroll_delta,
@@ -712,10 +724,10 @@ pub(super) fn run_conversation_tui(
                                         if scroll_delta != 0
                                             && app.mouse_drag_mode != MouseDragMode::Scroll
                                         {
+                                            let max_line_idx =
+                                                app.rendered_line_count().saturating_sub(1);
                                             if let Some(sel) = app.selection.as_mut() {
                                                 if sel.dragging {
-                                                    let max_line_idx =
-                                                        app.rendered_lines.len().saturating_sub(1);
                                                     shift_selection_focus(
                                                         sel,
                                                         scroll_delta,
@@ -818,8 +830,7 @@ pub(super) fn run_conversation_tui(
                                                 if app.mouse_drag_mode == MouseDragMode::Scroll {
                                                     app.selection = None;
                                                 } else {
-                                                    let copied =
-                                                        selected_text(*sel, &app.rendered_lines);
+                                                    let copied = selected_text(*sel, app);
                                                     if !copied.is_empty() {
                                                         let _ = try_copy_clipboard(&copied);
                                                     }
@@ -891,6 +902,7 @@ pub(super) fn run_conversation_tui(
             }
 
             if needs_draw {
+                ensure_transcript_layout(app, size);
                 let draw_started = Instant::now();
                 terminal.draw(|frame| {
                     render_main_view(frame, app);
