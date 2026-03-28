@@ -14,8 +14,8 @@ After this change, contributors should be able to work on transcript rendering, 
 - [x] Split `src/app/render.rs` into responsibility-focused modules while preserving all rendering behavior and tests (completed: recorded baseline file-size and perf measurements; extracted resume picker rendering into `src/app/picker_render.rs`; extracted help/model-settings/approval/perf overlays into `src/app/overlay_render.rs`; extracted transcript layout/counting and markdown/ANSI/diff helpers into `src/app/transcript_render.rs`; `render.rs` now owns only input/layout helpers plus main-frame composition).
 - [ ] Split `src/app/state.rs` into focused state structures and helper modules without changing runtime semantics (completed: extracted runtime/model-settings ownership into `src/app/runtime_settings_state.rs`; extracted approval choice/request state into `src/app/approval_state.rs`; extracted render-cache ownership into `src/app/render_cache_state.rs`; extracted Ralph automation plus queued-turn ownership into `src/app/ralph_runtime_state.rs`; extracted input-history plus rewind-mode ownership into `src/app/input_history_state.rs`; extracted viewport, selection, and mobile-pointer ownership into `src/app/viewport_state.rs`; remaining: transcript/message ownership boundary).
 - [x] Split `src/app/input.rs` and `src/app/notifications.rs` into narrower orchestration plus domain-specific helpers (completed: extracted terminal-event dispatch plus key/mouse/paste/resize handling into `src/app/input_events.rs`; extracted item/history/raw-response handling into `src/app/notification_items.rs`; `input.rs` now owns polling/prioritization/draw cadence while `notifications.rs` owns top-level request and turn/thread dispatch).
-- [ ] Split `src/tests.rs` to mirror the runtime module boundaries.
-- [ ] Re-run correctness and perf validation, update this ExecPlan, and move it to `.agents/done/` when complete.
+- [x] Split `src/tests.rs` to mirror the runtime module boundaries (completed: `src/tests.rs` is now a thin root that fans out to `src/tests/ui_render_tests.rs`, `src/tests/notification_tests.rs`, `src/tests/tool_tests.rs`, `src/tests/input_tests.rs`, and `src/tests/runtime_tests.rs`).
+- [ ] Re-run correctness and perf validation, update this ExecPlan, collect the required engineering review, and move it to `.agents/done/` when complete.
 
 ## Surprises & Discoveries
 
@@ -54,6 +54,9 @@ After this change, contributors should be able to work on transcript rendering, 
 
 - Observation: notification item/history handling was likewise a clean domain seam once `AppState` ownership had already been split. The item lifecycle match could move almost verbatim into a new module, leaving `notifications.rs` as request + turn/thread dispatch without changing the perf profile in any meaningful way.
   Evidence: after extracting `src/app/notification_items.rs`, `src/app/notifications.rs` dropped to `501` lines while the new module holds `523`, and the frozen perf snapshot remained within noise at `full_layout=49.19 ms`, `full_draw=0.78 ms`, and `append_total p50=0.69 ms`.
+
+- Observation: the test split did not require any runtime code movement once the module boundaries already existed; the main care point was preserving `#[test]` attributes and avoiding duplicate coverage when slicing the old sink into child modules.
+  Evidence: after splitting `src/tests.rs` into five child modules, the suite still passed at `175` tests and the root file dropped from `3216` lines to `13`.
 
 ## Decision Log
 
@@ -109,6 +112,10 @@ After this change, contributors should be able to work on transcript rendering, 
   Rationale: the item path was the single densest block in the dispatcher and already depended on a coherent set of tool/history helpers. Extracting that domain first halves the file size and leaves the top-level dispatcher readable without committing to an over-factored notification-module taxonomy prematurely.
   Date/Author: 2026-03-28 / codex
 
+- Decision: keep `src/tests.rs` as a thin root module instead of changing the `app::tests` inclusion path.
+  Rationale: preserving the existing `#[path = "../tests.rs"] mod tests;` entry point avoided broader module-path churn, kept all existing helper imports available to child modules through `use super::*;`, and let the milestone focus on responsibility grouping rather than test-harness rewiring.
+  Date/Author: 2026-03-28 / codex
+
 ## Outcomes & Retrospective
 
 Partial Milestone 1 outcome: the resume picker layout and delete-confirmation rendering now live in `src/app/picker_render.rs` instead of `src/app/render.rs`, with no observed correctness regressions in the test suite. The runtime behavior remains intact, and the next Milestone 1 slices can focus on transcript and overlay rendering without mixing picker changes back into the main transcript renderer.
@@ -132,6 +139,12 @@ Sixth partial Milestone 2 outcome: scroll position, follow mode, selection/drag 
 First partial Milestone 3 outcome: `run_conversation_tui` now delegates terminal-event semantics to `src/app/input_events.rs`, leaving `src/app/input.rs` focused on event polling, prioritization, draw cadence, and top-level orchestration. The visible behavior and frozen-session perf numbers stayed flat, so the remaining Milestone 3 work is now concentrated in the notification dispatcher and any final input cleanup that falls out of that split.
 
 Milestone 3 outcome: both orchestration-heavy runtime files now delegate their densest domain logic. `src/app/input.rs` owns event-loop structure while `src/app/input_events.rs` owns terminal-event semantics, and `src/app/notifications.rs` owns top-level request/turn/thread dispatch while `src/app/notification_items.rs` owns item/history/raw-response handling. The runtime behavior and frozen-session perf profile remained flat across both extractions, so the remaining work for this ExecPlan is the `tests.rs` split.
+
+Milestone 4 outcome: `src/tests.rs` is now only a thin test root, and the actual coverage lives in five child modules grouped by runtime domain: render/UI, notifications, tools, input, and runtime/session behavior. This makes the test surface discoverable without changing runtime code or losing coverage, and it leaves the ExecPlan with only the final review/closeout step remaining.
+
+## Reviews
+
+- Pending: engineering reviewer run against the completed modularization series.
 
 ## Context and Orientation
 
