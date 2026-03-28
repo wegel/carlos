@@ -20,6 +20,7 @@ use ratatui::Terminal;
 use super::notifications::{is_ctrl_char, is_key_press_like};
 use super::render::{compute_picker_layout, draw_picker};
 use super::{TerminalSize, ThreadSummary};
+use crate::protocol::{extract_result_object, params_thread_archive, AppServerClient};
 
 fn env_flag(name: &str) -> Option<bool> {
     let raw = env::var(name).ok()?;
@@ -123,8 +124,11 @@ pub(super) fn with_terminal<T>(
     result
 }
 
-pub(super) fn pick_thread(threads: &[ThreadSummary]) -> Result<Option<String>> {
-    let threads = sort_threads_for_picker(threads);
+pub(super) fn pick_thread(
+    client: &AppServerClient,
+    threads: &[ThreadSummary],
+) -> Result<Option<String>> {
+    let mut threads = sort_threads_for_picker(threads);
     if threads.is_empty() {
         return Ok(None);
     }
@@ -136,6 +140,8 @@ pub(super) fn pick_thread(threads: &[ThreadSummary]) -> Result<Option<String>> {
             width: 0,
             height: 0,
         };
+        let mut confirm_delete = false;
+        let mut status: Option<String> = None;
 
         loop {
             terminal.draw(|frame| {
@@ -158,7 +164,15 @@ pub(super) fn pick_thread(threads: &[ThreadSummary]) -> Result<Option<String>> {
                     top = selected + 1 - list_height;
                 }
 
-                draw_picker(frame, &threads, selected, top);
+                let delete_target = confirm_delete.then(|| threads.get(selected)).flatten();
+                draw_picker(
+                    frame,
+                    &threads,
+                    selected,
+                    top,
+                    delete_target,
+                    status.as_deref(),
+                );
             })?;
 
             if !event::poll(Duration::from_millis(15))? {
@@ -167,48 +181,115 @@ pub(super) fn pick_thread(threads: &[ThreadSummary]) -> Result<Option<String>> {
 
             let ev = event::read()?;
             match ev {
-                Event::Key(k) if is_key_press_like(k.kind) => match (k.code, k.modifiers) {
-                    (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(None),
-                    (KeyCode::Esc, _) => return Ok(None),
-                    (KeyCode::Up, _) => {
-                        selected = selected.saturating_sub(1);
-                    }
-                    (KeyCode::Down, _) => {
-                        if selected + 1 < threads.len() {
-                            selected += 1;
+                Event::Key(k) if is_key_press_like(k.kind) => {
+                    if confirm_delete {
+                        match (k.code, k.modifiers) {
+                            (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(None),
+                            (KeyCode::Esc, _) | (KeyCode::Char('n'), _) => {
+                                confirm_delete = false;
+                                status = None;
+                            }
+                            (KeyCode::Enter, _) | (KeyCode::Char('y'), _) => {
+                                let Some(thread) = threads.get(selected).cloned() else {
+                                    confirm_delete = false;
+                                    status = None;
+                                    continue;
+                                };
+                                match client.call(
+                                    "thread/archive",
+                                    params_thread_archive(&thread.id),
+                                    Duration::from_secs(20),
+                                ) {
+                                    Ok(resp) => {
+                                        if let Err(err) = extract_result_object(&resp) {
+                                            status = Some(format!("archive failed: {err}"));
+                                        } else {
+                                            threads.remove(selected);
+                                            confirm_delete = false;
+                                            status = Some(format!("Archived {}", thread.id));
+                                            if threads.is_empty() {
+                                                return Ok(None);
+                                            }
+                                            selected =
+                                                selected.min(threads.len().saturating_sub(1));
+                                        }
+                                    }
+                                    Err(err) => {
+                                        status = Some(format!("archive failed: {err}"));
+                                    }
+                                }
+                            }
+                            _ => {}
                         }
+                        continue;
                     }
-                    (KeyCode::PageUp, _) => {
-                        selected = selected.saturating_sub(10);
-                    }
-                    (KeyCode::PageDown, _) => {
-                        selected = (selected + 10).min(threads.len().saturating_sub(1));
-                    }
-                    (KeyCode::Home, _) | (KeyCode::Char('g'), _) => selected = 0,
-                    (KeyCode::End, _) | (KeyCode::Char('G'), _) => {
-                        selected = threads.len().saturating_sub(1)
-                    }
-                    (KeyCode::Char('j'), _) => {
-                        if selected + 1 < threads.len() {
-                            selected += 1;
+
+                    match (k.code, k.modifiers) {
+                        (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(None),
+                        (KeyCode::Esc, _) => return Ok(None),
+                        (KeyCode::Up, _) => {
+                            selected = selected.saturating_sub(1);
+                            status = None;
                         }
+                        (KeyCode::Down, _) => {
+                            if selected + 1 < threads.len() {
+                                selected += 1;
+                                status = None;
+                            }
+                        }
+                        (KeyCode::PageUp, _) => {
+                            selected = selected.saturating_sub(10);
+                            status = None;
+                        }
+                        (KeyCode::PageDown, _) => {
+                            selected = (selected + 10).min(threads.len().saturating_sub(1));
+                            status = None;
+                        }
+                        (KeyCode::Home, _) | (KeyCode::Char('g'), _) => {
+                            selected = 0;
+                            status = None;
+                        }
+                        (KeyCode::End, _) | (KeyCode::Char('G'), _) => {
+                            selected = threads.len().saturating_sub(1);
+                            status = None;
+                        }
+                        (KeyCode::Char('j'), _) => {
+                            if selected + 1 < threads.len() {
+                                selected += 1;
+                                status = None;
+                            }
+                        }
+                        (KeyCode::Char('k'), _) => {
+                            selected = selected.saturating_sub(1);
+                            status = None;
+                        }
+                        (KeyCode::Char('d'), _) => {
+                            confirm_delete = true;
+                            status = None;
+                        }
+                        (KeyCode::Enter, _) => return Ok(Some(threads[selected].id.clone())),
+                        _ => {}
                     }
-                    (KeyCode::Char('k'), _) => {
-                        selected = selected.saturating_sub(1);
-                    }
-                    (KeyCode::Enter, _) => return Ok(Some(threads[selected].id.clone())),
-                    _ => {}
-                },
+                }
                 Event::Mouse(m) => match m.kind {
                     MouseEventKind::ScrollUp => {
-                        selected = selected.saturating_sub(1);
+                        if !confirm_delete {
+                            selected = selected.saturating_sub(1);
+                            status = None;
+                        }
                     }
                     MouseEventKind::ScrollDown => {
-                        if selected + 1 < threads.len() {
+                        if !confirm_delete && selected + 1 < threads.len() {
                             selected += 1;
+                            status = None;
                         }
                     }
                     MouseEventKind::Down(MouseButton::Left) => {
+                        if confirm_delete {
+                            confirm_delete = false;
+                            status = None;
+                            continue;
+                        }
                         let size = terminal.size()?;
                         let layout = compute_picker_layout(TerminalSize {
                             width: size.width as usize,

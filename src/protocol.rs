@@ -259,6 +259,12 @@ pub(crate) fn params_thread_list(cwd: &str) -> Value {
     })
 }
 
+pub(crate) fn params_thread_archive(thread_id: &str) -> Value {
+    json!({
+        "threadId": thread_id,
+    })
+}
+
 pub(crate) fn params_model_list(cursor: Option<&str>) -> Value {
     let mut params = json!({
         "includeHidden": false,

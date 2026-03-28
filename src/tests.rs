@@ -2494,6 +2494,38 @@ fn draw_rendered_line_renders_uncovered_styled_tail() {
 }
 
 #[test]
+fn draw_picker_delete_dialog_shows_prompt_and_session_id() {
+    let mut buf = Buffer::empty(Rect::new(0, 0, 72, 20));
+    let target = ThreadSummary {
+        id: "thread-123".to_string(),
+        name: Some("Parser follow-up".to_string()),
+        preview: "preview".to_string(),
+        cwd: "/repo".to_string(),
+        created_at: 1,
+        updated_at: 2,
+    };
+
+    draw_picker_delete_dialog(
+        &mut buf,
+        TerminalSize {
+            width: 72,
+            height: 20,
+        },
+        &target,
+    );
+
+    let rendered = (0..20)
+        .map(|y| (0..72).map(|x| buf[(x, y)].symbol()).collect::<String>())
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(rendered.contains("Delete session?"));
+    assert!(rendered.contains("Parser follow-up"));
+    assert!(rendered.contains("thread-123"));
+    assert!(rendered.contains("y/Enter delete  n/Esc cancel"));
+}
+
+#[test]
 fn normalize_styled_segments_for_part_falls_back_on_mismatch() {
     let styled = vec![StyledSegment {
         text: "visua".to_string(),
@@ -2738,6 +2770,13 @@ fn params_turn_start_omits_model_effort_and_summary_when_missing() {
     assert!(params.get("model").is_none());
     assert!(params.get("effort").is_none());
     assert!(params.get("summary").is_none());
+}
+
+#[test]
+fn params_thread_archive_includes_thread_id() {
+    let params = params_thread_archive("thread-123");
+
+    assert_eq!(params["threadId"], "thread-123");
 }
 
 #[test]

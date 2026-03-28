@@ -403,7 +403,7 @@ pub(crate) fn run() -> Result<()> {
                     .next()
                     .map(|t| t.id)
             } else {
-                pick_thread(&list)?
+                pick_thread(&client, &list)?
             };
             let Some(session_id) = picked else {
                 return Ok(());

@@ -2375,6 +2375,8 @@ pub(super) fn draw_picker(
     threads: &[ThreadSummary],
     selected: usize,
     top: usize,
+    delete_target: Option<&ThreadSummary>,
+    status: Option<&str>,
 ) {
     let area = frame.area();
     let size = TerminalSize {
@@ -2469,7 +2471,7 @@ pub(super) fn draw_picker(
         buf,
         layout.list_x,
         layout.panel_y + 2,
-        "Enter open  j/k move  g/G jump",
+        "Enter open  j/k move  g/G jump  d delete",
         Style::default().fg(COLOR_DIM),
         layout.list_w,
     );
@@ -2593,13 +2595,134 @@ pub(super) fn draw_picker(
         }
     }
 
+    let footer = status
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| format!("{} sessions", threads.len()));
     draw_str(
         buf,
         layout.list_x,
         layout.panel_y + layout.panel_h - 2,
-        &format!("{} sessions", threads.len()),
+        &footer,
         Style::default().fg(COLOR_DIM),
         layout.list_w,
+    );
+
+    if let Some(target) = delete_target {
+        draw_picker_delete_dialog(buf, size, target);
+    }
+}
+
+pub(super) fn draw_picker_delete_dialog(
+    buf: &mut Buffer,
+    size: TerminalSize,
+    target: &ThreadSummary,
+) {
+    if size.width < 24 || size.height < 8 {
+        return;
+    }
+
+    let dialog_w = size.width.saturating_sub(8).min(72).max(24);
+    let dialog_h = 8usize;
+    let left = (size.width.saturating_sub(dialog_w)) / 2;
+    let top = (size.height.saturating_sub(dialog_h)) / 2;
+    let right = left + dialog_w.saturating_sub(1);
+    let bottom = top + dialog_h.saturating_sub(1);
+    let text_w = dialog_w.saturating_sub(4);
+
+    fill_rect(
+        buf,
+        left,
+        top,
+        dialog_w,
+        dialog_h,
+        Style::default().bg(COLOR_STEP2),
+    );
+    draw_str(
+        buf,
+        left,
+        top,
+        "┏",
+        Style::default().fg(COLOR_DIFF_REMOVE),
+        1,
+    );
+    draw_str(
+        buf,
+        right,
+        top,
+        "┓",
+        Style::default().fg(COLOR_DIFF_REMOVE),
+        1,
+    );
+    draw_str(
+        buf,
+        left,
+        bottom,
+        "┗",
+        Style::default().fg(COLOR_DIFF_REMOVE),
+        1,
+    );
+    draw_str(
+        buf,
+        right,
+        bottom,
+        "┛",
+        Style::default().fg(COLOR_DIFF_REMOVE),
+        1,
+    );
+    for x in (left + 1)..right {
+        draw_str(buf, x, top, "─", Style::default().fg(COLOR_DIFF_REMOVE), 1);
+        draw_str(
+            buf,
+            x,
+            bottom,
+            "─",
+            Style::default().fg(COLOR_DIFF_REMOVE),
+            1,
+        );
+    }
+    for y in (top + 1)..bottom {
+        draw_str(buf, left, y, "┃", Style::default().fg(COLOR_DIFF_REMOVE), 1);
+        draw_str(
+            buf,
+            right,
+            y,
+            "┃",
+            Style::default().fg(COLOR_DIFF_REMOVE),
+            1,
+        );
+    }
+
+    draw_str(
+        buf,
+        left + 2,
+        top + 1,
+        "Delete session?",
+        Style::default().fg(COLOR_TEXT).add_modifier(Modifier::BOLD),
+        text_w,
+    );
+    draw_str(
+        buf,
+        left + 2,
+        top + 3,
+        target.name.as_deref().unwrap_or(&target.preview),
+        Style::default().fg(COLOR_TEXT),
+        text_w,
+    );
+    draw_str(
+        buf,
+        left + 2,
+        top + 4,
+        &target.id,
+        Style::default().fg(COLOR_DIM),
+        text_w,
+    );
+    draw_str(
+        buf,
+        left + 2,
+        top + 6,
+        "y/Enter delete  n/Esc cancel",
+        Style::default().fg(COLOR_DIM),
+        text_w,
     );
 }
 
