@@ -1,4 +1,10 @@
-use super::*;
+use serde_json::json;
+
+use super::{
+    append_history_from_thread, build_rendered_lines, handle_notification_line,
+    handle_server_message_line, load_history_from_start_or_resume, AppState, ContextUsage,
+    MessageKind, Role, ServerRequestAction,
+};
 
 #[test]
 fn handle_notification_updates_context_usage_when_present() {
@@ -532,4 +538,3 @@ fn item_started_agent_message_uses_commentary_role_when_phase_present() {
     assert_eq!(app.messages.len(), 1);
     assert_eq!(app.messages[0].role, Role::Commentary);
 }
-
