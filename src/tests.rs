@@ -585,14 +585,14 @@ fn rewind_mode_populates_latest_history_and_restores_draft() {
     app.set_input_text("draft");
 
     app.enter_rewind_mode();
-    assert!(app.rewind_mode);
+    assert!(app.rewind_mode());
     assert_eq!(app.input_text(), "second");
 
     let _ = app.navigate_input_history_up();
     assert_eq!(app.input_text(), "first");
 
     app.exit_rewind_mode_restore();
-    assert!(!app.rewind_mode);
+    assert!(!app.rewind_mode());
     assert_eq!(app.input_text(), "draft");
 }
 
@@ -611,7 +611,7 @@ fn rewind_fork_drops_selected_message_and_newer_history() {
     assert_eq!(app.messages.len(), u2);
     assert!(app.messages.iter().all(|m| m.text != "second"));
     assert!(app.messages.iter().all(|m| m.text != "reply two"));
-    assert_eq!(app.input_history_message_idx, vec![Some(u1), None]);
+    assert_eq!(app.input_history_message_indices(), &[Some(u1), None]);
 }
 
 #[test]
@@ -641,11 +641,11 @@ fn rewind_edit_keeps_selected_anchor_for_fork() {
 fn record_input_history_backfills_pending_message_index() {
     let mut app = AppState::new("thread-1".to_string());
     app.push_input_history("prompt");
-    assert_eq!(app.input_history_message_idx, vec![None]);
+    assert_eq!(app.input_history_message_indices(), &[None]);
 
     app.record_input_history("prompt", Some(42));
-    assert_eq!(app.input_history.len(), 1);
-    assert_eq!(app.input_history_message_idx, vec![Some(42)]);
+    assert_eq!(app.input_history_len(), 1);
+    assert_eq!(app.input_history_message_indices(), &[Some(42)]);
 }
 
 #[test]
@@ -659,15 +659,14 @@ fn rewind_scroll_aligns_to_selected_prompt_history_position() {
     let _ = app.append_message(Role::Assistant, "reply two");
     let _ = app.append_message(Role::Assistant, "tail");
 
-    app.rewind_mode = true;
-    app.input_history_index = Some(1);
+    app.set_rewind_selection_for_test(Some(1));
     app.align_rewind_scroll_to_selected_prompt(TerminalSize {
         width: 100,
         height: 6,
     });
     let newer_scroll = app.scroll_top;
 
-    app.input_history_index = Some(0);
+    app.set_rewind_selection_for_test(Some(0));
     app.align_rewind_scroll_to_selected_prompt(TerminalSize {
         width: 100,
         height: 6,

@@ -163,7 +163,7 @@ fn respond_to_pending_approval(
 }
 
 fn hidden_user_message_idx(app: &AppState) -> Option<usize> {
-    if app.rewind_mode {
+    if app.rewind_mode() {
         app.rewind_selected_message_idx()
     } else {
         None
@@ -540,7 +540,7 @@ pub(super) fn run_conversation_tui(
                                         app.set_status("selection cleared");
                                     }
                                     (KeyCode::Esc, mods) if mods.is_empty() => {
-                                        if app.rewind_mode {
+                                        if app.rewind_mode() {
                                             app.exit_rewind_mode_restore();
                                             app.reset_esc_chord();
                                         } else if let Some(turn_id) = app.active_turn_id.clone() {
@@ -630,7 +630,7 @@ pub(super) fn run_conversation_tui(
                                             continue;
                                         }
 
-                                        let rewind_target_idx = if app.rewind_mode {
+                                        let rewind_target_idx = if app.rewind_mode() {
                                             app.rewind_selected_message_idx()
                                         } else {
                                             None

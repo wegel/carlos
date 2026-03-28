@@ -61,6 +61,7 @@ use crate::theme::*;
 mod approval_state;
 mod context_usage;
 mod input;
+mod input_history_state;
 mod mobile_mouse;
 mod models;
 mod notifications;

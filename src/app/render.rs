@@ -468,7 +468,7 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
                 0
             };
             if anim_end > 0 {
-                if app.rewind_mode {
+                if app.rewind_mode() {
                     let sep = "━".repeat(anim_end);
                     draw_str(
                         buf,
@@ -566,7 +566,7 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
     );
     for i in 0..input_layout.input_height {
         let y = input_layout.input_top.saturating_sub(1) + i;
-        let input_gutter_color = if app.rewind_mode {
+        let input_gutter_color = if app.rewind_mode() {
             COLOR_DIFF_REMOVE
         } else if ralph_mode {
             COLOR_GUTTER_AGENT_THINKING
