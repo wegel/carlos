@@ -80,6 +80,8 @@ mod selection;
 mod state;
 mod terminal_ui;
 mod text;
+mod tool_diff;
+mod tool_shell;
 mod tools;
 mod transcript_diff;
 mod transcript_render;

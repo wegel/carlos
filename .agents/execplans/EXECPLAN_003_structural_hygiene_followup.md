@@ -16,7 +16,7 @@ This is not a cosmetic line-count exercise. The goal is to convert the reviewer‚
 - [x] (2026-03-28 16:43Z) Recorded the file-size baseline for this ExecPlan: `transcript_render.rs 1288`, `tools.rs 1179`, `ui_render_tests.rs 1169`, `state.rs 879`, `perf_session.rs 824`, with `notification_items.rs` still at `523`.
 - [x] (2026-03-28 16:57Z) Introduced an explicit mapped-item mutation boundary in `AppState` and moved the ordinary `notification_items.rs` item-started/item-completed lifecycle off direct transcript/index mutation.
 - [x] (2026-03-28 17:22Z) Split `src/app/transcript_render.rs` into orchestration plus `transcript_styles.rs` and `transcript_diff.rs`, keeping the public render/count surface stable while preserving the frozen-session perf baseline (`full_layout 48.43 ms`, `append_total p50 0.68 ms`).
-- [ ] Split `src/app/tools.rs` into coherent subdomains without regressing command/tool rendering behavior.
+- [x] (2026-03-28 17:41Z) Split `src/app/tools.rs` into a fa√ßade plus `tool_shell.rs` and `tool_diff.rs`, reducing `tools.rs` itself to `692` lines while preserving command/tool rendering behavior and frozen-session perf (`full_layout 48.00 ms`, `append_total p50 0.68 ms`).
 - [ ] Reduce the test-module implicit-prelude dependency where it materially improves maintainability without creating busywork.
 - [ ] Re-run correctness/perf validation, collect the required engineering review, and move this ExecPlan to `.agents/done/` when complete.
 
@@ -24,6 +24,7 @@ This is not a cosmetic line-count exercise. The goal is to convert the reviewer‚
 
 - The broad invariant-leak the reviewer called out was concentrated much more narrowly than the line counts suggested: the ordinary `item/started` and `item/completed` paths in `notification_items.rs` were the main place still reaching directly into `messages`, `agent_item_to_index`, and dirty/coalesce behavior.
 - `transcript_render.rs` split cleanly only once it was treated as an orchestration layer with a stable outward surface. Keeping the block-building/counting entry points in place while moving styled-text and diff logic underneath avoided churn in render cache, perf harness, and tests.
+- `tools.rs` had the same pattern as `transcript_render.rs`: the stable surface was the fa√ßade of high-level tool-item helpers, while the real split seams were shell/SSH/control handling and diff extraction underneath it.
 
 ## Decision Log
 
@@ -41,6 +42,10 @@ This is not a cosmetic line-count exercise. The goal is to convert the reviewer‚
 
 - Decision: split `transcript_render.rs` into `transcript_styles.rs` and `transcript_diff.rs` under a smaller orchestration module, instead of pushing block-counting/materialization into yet another top-level file first.
   Rationale: the stable API surface for the rest of the app is the transcript block builder/counter. Preserving that surface minimized collateral edits while isolating the real subdomains that contributors naturally search for: styled-text shaping and diff rendering.
+  Date/Author: 2026-03-28 / codex
+
+- Decision: split `tools.rs` into `tool_shell.rs` and `tool_diff.rs` underneath a smaller `tools.rs` fa√ßade instead of scattering tool-item formatting across multiple new top-level entry points.
+  Rationale: the app and tests naturally depend on `tools.rs` as the tool-behavior surface. Preserving that entry point let the shell/SSH/control logic and diff extraction move into coherent modules without forcing wide call-site churn.
   Date/Author: 2026-03-28 / codex
 
 ## Outcomes & Retrospective
