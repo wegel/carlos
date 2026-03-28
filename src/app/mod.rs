@@ -58,6 +58,7 @@ use crate::protocol::*;
 #[cfg(test)]
 use crate::theme::*;
 
+mod approval_state;
 mod context_usage;
 mod input;
 mod mobile_mouse;

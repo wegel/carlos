@@ -1108,7 +1108,7 @@ fn handle_server_request_command_execution_sets_pending_approval() {
     );
 
     assert!(action.is_none());
-    let pending = app.pending_approval.expect("pending approval");
+    let pending = app.approval.pending.expect("pending approval");
     assert_eq!(pending.method, "item/commandExecution/requestApproval");
     assert_eq!(pending.title, "Approve command execution");
     assert_eq!(pending.detail_lines[0], "git diff -- src/main.rs");
@@ -1166,7 +1166,7 @@ fn unsupported_server_request_returns_jsonrpc_error_action() {
         }
         _ => panic!("expected reply error"),
     }
-    assert!(app.pending_approval.is_none());
+    assert!(app.approval.pending.is_none());
 }
 
 #[test]

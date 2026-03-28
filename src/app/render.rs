@@ -606,11 +606,11 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
     if app.runtime.show_model_settings {
         draw_model_settings_overlay(buf, size, app);
     }
-    if app.pending_approval.is_some() {
+    if app.approval.pending.is_some() {
         draw_approval_overlay(buf, size, app);
     }
 
-    let (cursor_x, cursor_y) = if app.pending_approval.is_some() {
+    let (cursor_x, cursor_y) = if app.approval.pending.is_some() {
         (0, size.height.saturating_sub(1))
     } else if app.runtime.show_model_settings {
         let box_w = (size.width.saturating_sub(10)).min(80);

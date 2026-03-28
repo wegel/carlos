@@ -280,7 +280,7 @@ pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, 
 }
 
 pub(super) fn draw_approval_overlay(buf: &mut Buffer, size: TerminalSize, app: &AppState) {
-    let Some(approval) = app.pending_approval.as_ref() else {
+    let Some(approval) = app.approval.pending.as_ref() else {
         return;
     };
     if size.width < 36 || size.height < 10 {

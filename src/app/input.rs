@@ -139,7 +139,7 @@ fn respond_to_pending_approval(
     app: &mut AppState,
     choice: ApprovalChoice,
 ) {
-    let Some(pending) = app.pending_approval.clone() else {
+    let Some(pending) = app.approval.pending.clone() else {
         return;
     };
     let Some(result) = pending.response_for_choice(choice) else {
@@ -362,7 +362,7 @@ pub(super) fn run_conversation_tui(
                                     needs_draw = true;
                                     continue;
                                 }
-                                if app.pending_approval.is_some() {
+                                if app.approval.pending.is_some() {
                                     match (k.code, k.modifiers) {
                                         (code, mods) if is_ctrl_char(code, mods, 'c') => {
                                             return Ok(())
