@@ -19,7 +19,8 @@ This is not a cosmetic line-count exercise. The goal is to convert the reviewer‚
 - [x] (2026-03-28 17:41Z) Split `src/app/tools.rs` into a fa√ßade plus `tool_shell.rs` and `tool_diff.rs`, reducing `tools.rs` itself to `692` lines while preserving command/tool rendering behavior and frozen-session perf (`full_layout 48.00 ms`, `append_total p50 0.68 ms`).
 - [x] (2026-03-28 17:49Z) Reduced the broad implicit test prelude in the maintenance-sensitive tool and notification test modules by replacing `use super::*;` with explicit imports, while intentionally leaving the much larger UI-render test module for a future pass to avoid busywork.
 - [x] (2026-03-28 17:56Z) Re-ran final validation on exact `HEAD`: `cargo test` passed, `cargo build --release` passed, the installed binary was refreshed, and the frozen perf snapshot remained flat (`full_layout 47.59 ms`, `full_draw 1.06 ms`, `append_total p50 0.68 ms`).
-- [ ] Re-run correctness/perf validation, collect the required engineering review, and move this ExecPlan to `.agents/done/` when complete.
+- [x] (2026-03-28 18:10Z) Collected the required engineering review. Verdict: `PASS` with no findings.
+- [ ] Move this ExecPlan to `.agents/done/` and close it out in `PROGRAM_PLAN.md`.
 
 ## Surprises & Discoveries
 
@@ -57,7 +58,26 @@ This is not a cosmetic line-count exercise. The goal is to convert the reviewer‚
 
 ## Outcomes & Retrospective
 
-- No outcomes recorded yet.
+- Outcome: the remaining non-pedantic hygiene work is complete. Transcript/item lifecycle updates now go through narrower `AppState` helpers, transcript rendering is split into orchestration plus styled-text and diff subdomains, tool behavior is split into fa√ßade plus shell/diff subdomains, and the most maintenance-sensitive non-UI test modules no longer depend on the broad implicit prelude.
+- Outcome: the work stayed within noise on the frozen large-session benchmark. The structural cleanup did not reopen the responsiveness problem that motivated the earlier performance EPs.
+- Follow-up context: the largest remaining broad runtime file is now `src/app/state.rs`, but the residual risk there is much lower than before because the highest-value invariant leakage and mixed-responsibility modules from this plan have been addressed. A future EP could keep tightening state encapsulation or further decompose the very large UI-render test module if that begins to create real maintenance pain.
+
+## Review
+
+### Engineering Review
+
+Reviewer: `.agents/reviewers/engineering_reviewer.md`
+Change range: `3d46bda..a0fa3f3`
+Verdict: `PASS`
+
+Summary:
+- Reviewed the transcript/item mutation-boundary tightening, transcript-render split, tool-layer split, and targeted test import cleanup against the stated invariants, local validation, and frozen perf evidence.
+
+Findings:
+- No findings.
+
+Corrective guidance:
+- No corrective changes required.
 
 ## Context and Orientation
 

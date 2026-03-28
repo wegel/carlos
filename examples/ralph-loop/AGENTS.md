@@ -76,6 +76,15 @@ Use the reviewer prompts present under `.agents/reviewers/` for non-trivial chan
 - If more than one reviewer prompt is present, run each applicable reviewer in a separate
   session.
 - If only one reviewer prompt is present, run that reviewer.
+- Start each reviewer in a fresh separate session whose first message is the reviewer prompt
+  itself.
+- Supply only the concrete review subject as additional context: the change range, change
+  intent, validation/perf evidence, and any invariants the reviewer should check.
+- Do not wrap reviewer invocation in extra process narration, Ralph workflow instructions, or
+  blocker language unless the reviewer prompt explicitly requires it.
+- If a reviewer responds without following its required output shape, treat that as a bad
+  invocation or prompt issue and retry once with a stricter role-preserving invocation before
+  treating review as blocked.
 
 Reviews should run in separate sessions. Their output should be copied into the active ExecPlan
 under a clearly labeled review section.
