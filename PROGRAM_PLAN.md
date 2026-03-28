@@ -21,9 +21,10 @@ while reducing the architectural risk caused by oversized, mixed-responsibility 
 
 ## Active ExecPlans
 
-- `.agents/execplans/EXECPLAN_003_structural_hygiene_followup.md`
+- None.
 
 ## Done ExecPlans
 
 - [x] `.agents/done/EXECPLAN_001_large_session_smoothness.md`
 - [x] `.agents/done/EXECPLAN_002_runtime_modularization.md`
+- [x] `.agents/done/EXECPLAN_003_structural_hygiene_followup.md`
