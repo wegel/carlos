@@ -58,33 +58,12 @@ pub(super) fn upsert_tool_message(
     kind: MessageKind,
     file_path: Option<String>,
 ) {
-    if let Some(idx) = app.agent_item_to_index.get(key).copied() {
-        if let Some(msg) = app.messages.get_mut(idx) {
-            msg.role = role;
-            msg.text = text;
-            msg.kind = kind;
-            msg.file_path = file_path;
-            let dirty_from = if kind == MessageKind::Plain && role == Role::ToolCall {
-                app.coalesce_successive_read_summary_at(idx).unwrap_or(idx)
-            } else {
-                idx
-            };
-            app.mark_transcript_dirty_from(dirty_from);
-            return;
-        }
-    }
-
-    let idx = if kind == MessageKind::Diff {
-        app.append_diff_message(role, file_path, text)
-    } else {
-        app.append_message(role, text)
-    };
-    app.put_agent_item_mapping(key, idx);
+    app.upsert_mapped_message(key, role, text, kind, file_path);
 }
 
 pub(super) fn handle_raw_response_item(app: &mut AppState, item: &Value) {
     if let Some((call_id, tool_item)) = raw_function_call_to_tool_item(item) {
-        if app.agent_item_to_index.contains_key(&call_id) {
+        if app.has_agent_item_mapping(&call_id) {
             return;
         }
         if let Some(formatted) = format_tool_item(&tool_item, Role::ToolCall) {
@@ -237,41 +216,27 @@ pub(super) fn handle_item_notification(
                 "agentMessage" => {
                     if let Some(id) = item.get("id").and_then(Value::as_str) {
                         let role = agent_role_from_phase(item);
-                        let idx = app.append_message(role, String::new());
-                        app.put_agent_item_mapping(id, idx);
+                        app.ensure_item_placeholder(id, role);
                     }
                 }
                 "reasoning" => {
                     if let Some(id) = item.get("id").and_then(Value::as_str) {
-                        let idx = app.append_message(Role::Reasoning, String::new());
-                        app.put_agent_item_mapping(id, idx);
+                        app.ensure_item_placeholder(id, Role::Reasoning);
                     }
                 }
                 "commandExecution" => {
                     if let Some(id) = item.get("id").and_then(Value::as_str) {
-                        if app.agent_item_to_index.contains_key(id) {
-                            return true;
-                        }
-                        let idx = app.append_message(Role::ToolCall, String::new());
-                        app.put_agent_item_mapping(id, idx);
+                        app.ensure_item_placeholder(id, Role::ToolCall);
                     }
                 }
                 t if is_tool_call_type(t) => {
                     if let Some(id) = item.get("id").and_then(Value::as_str) {
-                        if app.agent_item_to_index.contains_key(id) {
-                            return true;
-                        }
-                        let idx = app.append_message(Role::ToolCall, String::new());
-                        app.put_agent_item_mapping(id, idx);
+                        app.ensure_item_placeholder(id, Role::ToolCall);
                     }
                 }
                 t if is_tool_output_type(t) => {
                     if let Some(id) = item.get("id").and_then(Value::as_str) {
-                        if app.agent_item_to_index.contains_key(id) {
-                            return true;
-                        }
-                        let idx = app.append_message(Role::ToolOutput, String::new());
-                        app.put_agent_item_mapping(id, idx);
+                        app.ensure_item_placeholder(id, Role::ToolOutput);
                     }
                 }
                 _ => {}
@@ -299,16 +264,7 @@ pub(super) fn handle_item_notification(
                     .map(ToOwned::to_owned)
                     .or_else(|| item_text_from_content(&item_value));
                 if let Some(id) = item_id {
-                    if let Some(idx) = app.agent_item_to_index.get(id).copied() {
-                        if let Some(msg) = app.messages.get_mut(idx) {
-                            msg.role = role;
-                            if let Some(text) = text {
-                                msg.text = text;
-                            }
-                            msg.kind = MessageKind::Plain;
-                            msg.file_path = None;
-                        }
-                        app.mark_transcript_dirty_from(idx);
+                    if app.update_mapped_message(id, role, text.clone(), MessageKind::Plain, None) {
                         app.maybe_disable_ralph_on_blocked_marker();
                         return true;
                     }
@@ -324,14 +280,13 @@ pub(super) fn handle_item_notification(
                 let item_id = item.get("id").and_then(Value::as_str);
                 if let Some(text) = reasoning_summary_text(&item_value) {
                     if let Some(id) = item_id {
-                        if let Some(idx) = app.agent_item_to_index.get(id).copied() {
-                            if let Some(msg) = app.messages.get_mut(idx) {
-                                msg.role = Role::Reasoning;
-                                msg.text = text;
-                                msg.kind = MessageKind::Plain;
-                                msg.file_path = None;
-                            }
-                            app.mark_transcript_dirty_from(idx);
+                        if app.update_mapped_message(
+                            id,
+                            Role::Reasoning,
+                            Some(text.clone()),
+                            MessageKind::Plain,
+                            None,
+                        ) {
                             return true;
                         }
                     }
@@ -352,40 +307,33 @@ pub(super) fn handle_item_notification(
                 let item_id = item.get("id").and_then(Value::as_str);
                 let exit_code = first_i64_at_paths(&item_value, &[&["exitCode"], &["exit_code"]]);
                 let command_summary = item_id
-                    .and_then(|id| app.command_render_overrides.get(id).cloned())
+                    .and_then(|id| app.command_override(id))
                     .or_else(|| {
                         tool_command(&item_value)
                             .and_then(|cmd| command_summary_from_shell_cmd(&cmd, None))
                     });
                 if let (Some(id), Some(summary)) = (item_id, command_summary.clone()) {
                     if exit_code.unwrap_or(0) == 0 {
-                        if let Some(idx) = app.agent_item_to_index.get(id).copied() {
-                            if let Some(msg) = app.messages.get_mut(idx) {
-                                msg.role = Role::ToolCall;
-                                msg.text = summary;
-                                msg.kind = MessageKind::Plain;
-                                msg.file_path = None;
-                            }
-                            let dirty_from =
-                                app.coalesce_successive_read_summary_at(idx).unwrap_or(idx);
-                            app.mark_transcript_dirty_from(dirty_from);
-                            return true;
-                        }
-                        app.append_message(Role::ToolCall, summary);
+                        app.upsert_mapped_message(
+                            id,
+                            Role::ToolCall,
+                            summary,
+                            MessageKind::Plain,
+                            None,
+                        );
                         return true;
                     }
                 }
 
                 if let Some(diff) = command_execution_diff_output(&item_value) {
                     if let Some(id) = item_id {
-                        if let Some(idx) = app.agent_item_to_index.get(id).copied() {
-                            if let Some(msg) = app.messages.get_mut(idx) {
-                                msg.role = role;
-                                msg.text = diff;
-                                msg.kind = MessageKind::Diff;
-                                msg.file_path = None;
-                            }
-                            app.mark_transcript_dirty_from(idx);
+                        if app.update_mapped_message(
+                            id,
+                            role,
+                            Some(diff.clone()),
+                            MessageKind::Diff,
+                            None,
+                        ) {
                             return true;
                         }
                     }
@@ -405,19 +353,13 @@ pub(super) fn handle_item_notification(
                     };
                     let item_id = item.get("id").and_then(Value::as_str);
                     if let Some(id) = item_id {
-                        if let Some(idx) = app.agent_item_to_index.get(id).copied() {
-                            if let Some(msg) = app.messages.get_mut(idx) {
-                                msg.role = role;
-                                msg.text = text;
-                                msg.kind = MessageKind::Plain;
-                                msg.file_path = None;
-                            }
-                            let dirty_from = if role == Role::ToolCall {
-                                app.coalesce_successive_read_summary_at(idx).unwrap_or(idx)
-                            } else {
-                                idx
-                            };
-                            app.mark_transcript_dirty_from(dirty_from);
+                        if app.update_mapped_message(
+                            id,
+                            role,
+                            Some(text.clone()),
+                            MessageKind::Plain,
+                            None,
+                        ) {
                             return true;
                         }
                     }
@@ -428,15 +370,14 @@ pub(super) fn handle_item_notification(
 
             let item_id = item.get("id").and_then(Value::as_str);
             if let Some(id) = item_id {
-                if let Some(idx) = app.agent_item_to_index.get(id).copied() {
-                    if let Some(first) = diffs.first() {
-                        if let Some(msg) = app.messages.get_mut(idx) {
-                            msg.role = role;
-                            msg.text = first.diff.clone();
-                            msg.kind = MessageKind::Diff;
-                            msg.file_path = first.file_path.clone();
-                        }
-                        app.mark_transcript_dirty_from(idx);
+                if let Some(first) = diffs.first() {
+                    if app.update_mapped_message(
+                        id,
+                        role,
+                        Some(first.diff.clone()),
+                        MessageKind::Diff,
+                        first.file_path.clone(),
+                    ) {
                         for block in diffs.iter().skip(1) {
                             app.append_diff_message(
                                 role,

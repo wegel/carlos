@@ -501,8 +501,60 @@ impl AppState {
         idx
     }
 
+    pub(super) fn has_agent_item_mapping(&self, item_id: &str) -> bool {
+        self.agent_item_to_index.contains_key(item_id)
+    }
+
     pub(super) fn put_agent_item_mapping(&mut self, item_id: &str, idx: usize) {
         self.agent_item_to_index.insert(item_id.to_string(), idx);
+    }
+
+    pub(super) fn ensure_item_placeholder(&mut self, item_id: &str, role: Role) -> bool {
+        if self.has_agent_item_mapping(item_id) {
+            return false;
+        }
+        let idx = self.append_message(role, String::new());
+        self.put_agent_item_mapping(item_id, idx);
+        true
+    }
+
+    pub(super) fn command_override(&self, call_id: &str) -> Option<String> {
+        self.command_render_overrides.get(call_id).cloned()
+    }
+
+    pub(super) fn update_mapped_message(
+        &mut self,
+        item_id: &str,
+        role: Role,
+        text: Option<String>,
+        kind: MessageKind,
+        file_path: Option<String>,
+    ) -> bool {
+        let Some(idx) = self.agent_item_to_index.get(item_id).copied() else {
+            return false;
+        };
+        self.update_message_at_index(idx, role, text, kind, file_path);
+        true
+    }
+
+    pub(super) fn upsert_mapped_message(
+        &mut self,
+        item_id: &str,
+        role: Role,
+        text: String,
+        kind: MessageKind,
+        file_path: Option<String>,
+    ) {
+        if self.update_mapped_message(item_id, role, Some(text.clone()), kind, file_path.clone()) {
+            return;
+        }
+
+        let idx = if kind == MessageKind::Diff {
+            self.append_diff_message(role, file_path, text)
+        } else {
+            self.append_message(role, text)
+        };
+        self.put_agent_item_mapping(item_id, idx);
     }
 
     pub(super) fn upsert_agent_delta(&mut self, item_id: &str, delta: &str) {
@@ -576,16 +628,13 @@ impl AppState {
     pub(super) fn set_command_override(&mut self, call_id: &str, summary: String) {
         self.command_render_overrides
             .insert(call_id.to_string(), summary.clone());
-        if let Some(idx) = self.agent_item_to_index.get(call_id).copied() {
-            if let Some(msg) = self.messages.get_mut(idx) {
-                msg.role = Role::ToolCall;
-                msg.kind = MessageKind::Plain;
-                msg.file_path = None;
-                msg.text = summary;
-            }
-            let dirty_from = self.coalesce_successive_read_summary_at(idx).unwrap_or(idx);
-            self.mark_transcript_dirty_from(dirty_from);
-        }
+        let _ = self.update_mapped_message(
+            call_id,
+            Role::ToolCall,
+            Some(summary),
+            MessageKind::Plain,
+            None,
+        );
     }
 
     pub(super) fn coalesce_successive_read_summary_at(&mut self, idx: usize) -> Option<usize> {
@@ -649,6 +698,36 @@ impl AppState {
             current_msg.file_path = None;
         }
         Some(previous_idx)
+    }
+
+    fn update_message_at_index(
+        &mut self,
+        idx: usize,
+        role: Role,
+        text: Option<String>,
+        kind: MessageKind,
+        file_path: Option<String>,
+    ) {
+        let mut changed = false;
+        if let Some(msg) = self.messages.get_mut(idx) {
+            msg.role = role;
+            msg.kind = kind;
+            msg.file_path = file_path;
+            if let Some(text) = text {
+                msg.text = text;
+            }
+            changed = true;
+        }
+        if !changed {
+            return;
+        }
+
+        let dirty_from = if kind == MessageKind::Plain && role == Role::ToolCall {
+            self.coalesce_successive_read_summary_at(idx).unwrap_or(idx)
+        } else {
+            idx
+        };
+        self.mark_transcript_dirty_from(dirty_from);
     }
 
     pub(super) fn rendered_line_count(&self) -> usize {

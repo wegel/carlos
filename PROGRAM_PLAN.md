@@ -21,7 +21,7 @@ while reducing the architectural risk caused by oversized, mixed-responsibility 
 
 ## Active ExecPlans
 
-- None.
+- `.agents/execplans/EXECPLAN_003_structural_hygiene_followup.md`
 
 ## Done ExecPlans
 
