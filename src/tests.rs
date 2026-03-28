@@ -374,7 +374,7 @@ fn ensure_rendered_lines_incremental_append_matches_full_rebuild() {
         Role::Assistant,
         "tail reply with enough text to wrap across multiple transcript rows for cache testing",
     );
-    assert_eq!(app.transcript_dirty_from, Some(idx));
+    assert_eq!(app.render_cache.transcript_dirty_from, Some(idx));
 
     app.ensure_rendered_lines(48, None);
 
@@ -383,10 +383,19 @@ fn ensure_rendered_lines_incremental_append_matches_full_rebuild() {
         rendered_signature(&app.snapshot_rendered_lines()),
         rendered_signature(&expected)
     );
-    assert_eq!(app.rendered_message_blocks.len(), app.messages.len());
-    assert_eq!(app.rendered_block_line_counts.len(), app.messages.len());
-    assert_eq!(app.rendered_block_offsets.len(), app.messages.len());
-    assert_eq!(app.transcript_dirty_from, None);
+    assert_eq!(
+        app.render_cache.rendered_message_blocks.len(),
+        app.messages.len()
+    );
+    assert_eq!(
+        app.render_cache.rendered_block_line_counts.len(),
+        app.messages.len()
+    );
+    assert_eq!(
+        app.render_cache.rendered_block_offsets.len(),
+        app.messages.len()
+    );
+    assert_eq!(app.render_cache.transcript_dirty_from, None);
     assert!(app.rendered_line_count() > before_lines);
 }
 
@@ -402,7 +411,7 @@ fn ensure_rendered_lines_incremental_agent_delta_matches_full_rebuild() {
         "item-1",
         "\ncontinued answer with more text so the last message grows substantially",
     );
-    assert_eq!(app.transcript_dirty_from, Some(idx));
+    assert_eq!(app.render_cache.transcript_dirty_from, Some(idx));
 
     app.ensure_rendered_lines(52, None);
 
@@ -411,10 +420,19 @@ fn ensure_rendered_lines_incremental_agent_delta_matches_full_rebuild() {
         rendered_signature(&app.snapshot_rendered_lines()),
         rendered_signature(&expected)
     );
-    assert_eq!(app.rendered_message_blocks.len(), app.messages.len());
-    assert_eq!(app.rendered_block_line_counts.len(), app.messages.len());
-    assert_eq!(app.rendered_block_offsets.len(), app.messages.len());
-    assert_eq!(app.transcript_dirty_from, None);
+    assert_eq!(
+        app.render_cache.rendered_message_blocks.len(),
+        app.messages.len()
+    );
+    assert_eq!(
+        app.render_cache.rendered_block_line_counts.len(),
+        app.messages.len()
+    );
+    assert_eq!(
+        app.render_cache.rendered_block_offsets.len(),
+        app.messages.len()
+    );
+    assert_eq!(app.render_cache.transcript_dirty_from, None);
 }
 
 #[test]

@@ -70,6 +70,7 @@ mod perf_session;
 mod picker_render;
 mod ralph;
 mod render;
+mod render_cache_state;
 mod runtime_settings_state;
 mod selection;
 mod state;

@@ -12,7 +12,7 @@ After this change, contributors should be able to work on transcript rendering, 
 
 - [x] (2026-03-28 01:15Z) Created the modularization ExecPlan and registered it in `PROGRAM_PLAN.md`.
 - [x] Split `src/app/render.rs` into responsibility-focused modules while preserving all rendering behavior and tests (completed: recorded baseline file-size and perf measurements; extracted resume picker rendering into `src/app/picker_render.rs`; extracted help/model-settings/approval/perf overlays into `src/app/overlay_render.rs`; extracted transcript layout/counting and markdown/ANSI/diff helpers into `src/app/transcript_render.rs`; `render.rs` now owns only input/layout helpers plus main-frame composition).
-- [ ] Split `src/app/state.rs` into focused state structures and helper modules without changing runtime semantics (completed: extracted runtime/model-settings ownership into `src/app/runtime_settings_state.rs`; extracted approval choice/request state into `src/app/approval_state.rs`; remaining: transcript/render-cache, Ralph/input-history, and scroll/selection ownership boundaries).
+- [ ] Split `src/app/state.rs` into focused state structures and helper modules without changing runtime semantics (completed: extracted runtime/model-settings ownership into `src/app/runtime_settings_state.rs`; extracted approval choice/request state into `src/app/approval_state.rs`; extracted render-cache ownership into `src/app/render_cache_state.rs`; remaining: transcript/message ownership, Ralph/input-history, and scroll/selection ownership boundaries).
 - [ ] Split `src/app/input.rs` and `src/app/notifications.rs` into narrower orchestration plus domain-specific helpers.
 - [ ] Split `src/tests.rs` to mirror the runtime module boundaries.
 - [ ] Re-run correctness and perf validation, update this ExecPlan, and move it to `.agents/done/` when complete.
@@ -36,6 +36,9 @@ After this change, contributors should be able to work on transcript rendering, 
 
 - Observation: approval handling was a second low-risk seam after runtime settings because it touched few call sites but removed another self-contained block of request/response logic from `state.rs`.
   Evidence: after moving approval state into `src/app/approval_state.rs`, `src/app/state.rs` dropped again to `1204` lines, and the frozen perf snapshot remained in the same range (`full_layout=51.09 ms`, `full_draw=0.78 ms`, `append_total p50=0.69 ms`).
+
+- Observation: render-cache ownership was separable from message ownership. Pulling the cache and dirty-range bookkeeping into `RenderCacheState` reduced `state.rs` again without forcing the broader `messages` API rewrite that the remaining transcript split will require.
+  Evidence: after moving the render-cache fields and materialization logic into `src/app/render_cache_state.rs`, `src/app/state.rs` dropped to `1027` lines and the frozen perf snapshot stayed effectively flat at `full_layout=50.17 ms`, `full_draw=0.77 ms`, and `append_total p50=0.68 ms`.
 
 ## Decision Log
 
@@ -67,6 +70,10 @@ After this change, contributors should be able to work on transcript rendering, 
   Rationale: approval state was another isolated domain that reduced `state.rs` without introducing broader message-storage churn, which keeps Milestone 2 moving while preserving momentum toward the harder transcript split.
   Date/Author: 2026-03-28 / codex
 
+- Decision: split transcript work into render-cache ownership first, then message/transcript ownership later.
+  Rationale: the cache/materialization fields were already a coherent subdomain with limited external usage, while `messages` still have broad read/write touchpoints in notifications, perf tooling, and tests. Taking the cache first shrinks `state.rs` and reduces coupling without forcing a disruptive API transition.
+  Date/Author: 2026-03-28 / codex
+
 ## Outcomes & Retrospective
 
 Partial Milestone 1 outcome: the resume picker layout and delete-confirmation rendering now live in `src/app/picker_render.rs` instead of `src/app/render.rs`, with no observed correctness regressions in the test suite. The runtime behavior remains intact, and the next Milestone 1 slices can focus on transcript and overlay rendering without mixing picker changes back into the main transcript renderer.
@@ -78,6 +85,8 @@ Milestone 1 outcome: transcript layout/counting plus markdown, ANSI, and diff re
 Partial Milestone 2 outcome: runtime settings, model-settings dialog state, and available-model ownership now live in `src/app/runtime_settings_state.rs` instead of remaining as a large field/method cluster inside `AppState`. The external behavior is unchanged, but `AppState` is now starting to act like a coordinator over sub-states rather than a single ever-growing bag of mutable fields.
 
 Second partial Milestone 2 outcome: approval choice/request modeling and pending-approval ownership now live in `src/app/approval_state.rs`. `AppState` still exposes the same behavior to the rest of the TUI, but another isolated concern has moved out of the main state file, which keeps the remaining debt focused on the larger transcript, rewind, and selection domains.
+
+Third partial Milestone 2 outcome: rendered-block caches, dirty-range tracking, and materialization logic now live in `src/app/render_cache_state.rs`. `AppState` still owns the message list, but the render-cache machinery is no longer mixed into every other state concern, which makes the remaining transcript split much more explicit.
 
 ## Context and Orientation
 
@@ -361,6 +370,37 @@ Post-slice perf snapshot after extracting `src/app/approval_state.rs`:
       tool_call_plain msgs=1795 lines=6827 total_ms=1.28
       reasoning_markdown msgs=334 lines=1131 total_ms=1.05
       user_plain msgs=197 lines=1515 total_ms=0.45
+
+Post-slice file-size report after extracting `src/app/render_cache_state.rs`:
+
+    wc -l src/app/state.rs src/app/render_cache_state.rs src/app/runtime_settings_state.rs src/app/approval_state.rs
+      1027 src/app/state.rs
+       232 src/app/render_cache_state.rs
+       364 src/app/runtime_settings_state.rs
+        98 src/app/approval_state.rs
+      1721 total
+
+Post-slice perf snapshot after extracting `src/app/render_cache_state.rs`:
+
+    target/release/carlos perf-session /tmp/carlos-perf-session-019cdf51-snapshot.jsonl --width 160 --height 48
+    carlos perf-session
+    source: /tmp/carlos-perf-session-019cdf51-snapshot.jsonl
+    viewport: 160x48
+    transcript: messages=4962 rendered_lines=150333 relevant_items=4961 replay_elapsed_ms=151.04
+    full_layout:   50.17 ms
+    full_draw:     0.77 ms
+    scroll_draw:   p50 0.69 p95 2.31 avg 0.88 max 3.29 ms
+    typing_draw:   p50 0.67 p95 0.68 avg 0.67 max 0.73 ms
+    working_draw:  p50 0.65 p95 0.68 avg 0.65 max 0.71 ms
+    append_total:  p50 0.68 p95 0.72 avg 0.68 max 0.72 ms
+    layout_breakdown:
+      tool_output_ansi msgs=1770 lines=129844 total_ms=37.96
+      commentary_plain msgs=710 lines=2124 total_ms=5.65
+      assistant_markdown msgs=132 lines=2400 total_ms=4.59
+      diff msgs=23 lines=6489 total_ms=2.78
+      tool_call_plain msgs=1795 lines=6827 total_ms=1.29
+      reasoning_markdown msgs=334 lines=1131 total_ms=1.04
+      user_plain msgs=197 lines=1515 total_ms=0.46
 
 ## Interfaces and Dependencies
 
