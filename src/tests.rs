@@ -1672,7 +1672,10 @@ fn exec_command_end_generic_shell_nl_sed_is_summarized_as_search() {
         );
 
     assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].text, "✱ Search src/main.rs [lines=3398..3465]");
+    assert_eq!(
+        app.messages[0].text,
+        "✱ Search src/main.rs [lines=3398..3465]"
+    );
     assert_eq!(app.messages[0].role, Role::ToolCall);
 }
 
@@ -3099,6 +3102,48 @@ fn parse_thread_list_reads_session_summary_fields() {
 fn resume_hint_formats_resume_command() {
     assert_eq!(
         resume_hint("xxxx-xxxx"),
-        "to resume this session use `carlos resume xxxx-xxxx`"
+        "to resume this session use:\ncarlos resume xxxx-xxxx"
     );
+}
+
+#[test]
+fn styled_resume_hint_colors_only_command_line() {
+    assert_eq!(
+        styled_resume_hint("xxxx-xxxx"),
+        "to resume this session use:\n\x1b[94mcarlos resume xxxx-xxxx\x1b[0m"
+    );
+}
+
+#[test]
+fn sort_threads_for_picker_prefers_most_recent_update_first() {
+    let threads = vec![
+        ThreadSummary {
+            id: "older".to_string(),
+            name: None,
+            preview: "older".to_string(),
+            cwd: "/repo".to_string(),
+            created_at: 10,
+            updated_at: 20,
+        },
+        ThreadSummary {
+            id: "newer".to_string(),
+            name: None,
+            preview: "newer".to_string(),
+            cwd: "/repo".to_string(),
+            created_at: 11,
+            updated_at: 30,
+        },
+        ThreadSummary {
+            id: "same-update-later-created".to_string(),
+            name: None,
+            preview: "same".to_string(),
+            cwd: "/repo".to_string(),
+            created_at: 15,
+            updated_at: 20,
+        },
+    ];
+
+    let sorted = sort_threads_for_picker(&threads);
+    let ids: Vec<&str> = sorted.iter().map(|t| t.id.as_str()).collect();
+    assert_eq!(ids, vec!["newer", "same-update-later-created", "older"]);
 }

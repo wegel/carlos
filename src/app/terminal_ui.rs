@@ -1,3 +1,4 @@
+use std::cmp::Reverse;
 use std::env;
 use std::io;
 use std::time::Duration;
@@ -54,6 +55,12 @@ fn should_enable_alternate_scroll() -> bool {
 
 const MOUSE_CAPTURE_ENABLE_SEQ: &str = "\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1006h\x1b[?1015h";
 const MOUSE_CAPTURE_DISABLE_SEQ: &str = "\x1b[?1015l\x1b[?1006l\x1b[?1003l\x1b[?1002l\x1b[?1000l";
+
+pub(super) fn sort_threads_for_picker(threads: &[ThreadSummary]) -> Vec<ThreadSummary> {
+    let mut sorted = threads.to_vec();
+    sorted.sort_by_key(|t| (Reverse(t.updated_at), Reverse(t.created_at), t.id.clone()));
+    sorted
+}
 
 pub(super) fn with_terminal<T>(
     f: impl FnOnce(&mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<T>,
@@ -117,6 +124,7 @@ pub(super) fn with_terminal<T>(
 }
 
 pub(super) fn pick_thread(threads: &[ThreadSummary]) -> Result<Option<String>> {
+    let threads = sort_threads_for_picker(threads);
     if threads.is_empty() {
         return Ok(None);
     }
@@ -150,7 +158,7 @@ pub(super) fn pick_thread(threads: &[ThreadSummary]) -> Result<Option<String>> {
                     top = selected + 1 - list_height;
                 }
 
-                draw_picker(frame, threads, selected, top);
+                draw_picker(frame, &threads, selected, top);
             })?;
 
             if !event::poll(Duration::from_millis(15))? {
