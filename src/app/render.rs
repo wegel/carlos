@@ -428,7 +428,7 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
         let sep_y = input_layout.input_top - 2;
         if size.width > 0 {
             let working = app.active_turn_id.is_some();
-            let ralph_mode = app.ralph.is_some();
+            let ralph_mode = app.ralph_enabled();
             const RALPH_MODE_LABEL: &str = "RALPH MODE";
             let line_len = size.width.saturating_sub(1);
             let context_label = app
@@ -555,7 +555,7 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
         }
     }
 
-    let ralph_mode = app.ralph.is_some();
+    let ralph_mode = app.ralph_enabled();
     fill_rect(
         buf,
         0,

@@ -3005,8 +3005,8 @@ fn ralph_turn_completion_disables_ralph_mode_on_blocked_marker() {
 
     app.handle_ralph_turn_completed(false);
 
-    assert!(app.queued_turn_inputs.is_empty());
-    assert!(app.ralph.is_none());
+    assert!(app.queued_turn_inputs_is_empty());
+    assert!(!app.ralph_enabled());
 }
 
 #[test]
@@ -3024,7 +3024,7 @@ fn commentary_blocked_marker_disables_ralph_mode_immediately() {
 
     app.maybe_disable_ralph_on_blocked_marker();
 
-    assert!(app.ralph.is_none());
+    assert!(!app.ralph_enabled());
     assert!(app.messages.last().is_some_and(
         |msg| msg.role == Role::System && msg.text == "Ralph blocked: waiting for input"
     ));
@@ -3048,8 +3048,8 @@ fn ralph_turn_completion_disables_ralph_mode() {
 
     app.handle_ralph_turn_completed(false);
 
-    assert!(app.ralph.is_none());
-    assert!(app.queued_turn_inputs.is_empty());
+    assert!(!app.ralph_enabled());
+    assert!(app.queued_turn_inputs_is_empty());
 }
 
 #[test]
@@ -3067,9 +3067,9 @@ fn ralph_interrupted_turn_does_not_queue_continuation() {
 
     app.handle_ralph_turn_completed(true);
 
-    assert!(app.queued_turn_inputs.is_empty());
-    assert!(app.ralph.is_some());
-    assert!(!app.ralph.as_ref().is_some_and(|r| r.waiting_for_user));
+    assert!(app.queued_turn_inputs_is_empty());
+    assert!(app.ralph_enabled());
+    assert!(!app.ralph_waiting_for_user());
 }
 
 #[test]
@@ -3091,12 +3091,12 @@ fn request_ralph_toggle_enables_and_disables_when_idle() {
     );
 
     app.request_ralph_toggle().expect("toggle on");
-    assert!(app.ralph.is_some());
+    assert!(app.ralph_enabled());
     assert!(app.dequeue_turn_input(std::time::Instant::now()).is_some());
 
     app.request_ralph_toggle().expect("toggle off");
-    assert!(app.ralph.is_none());
-    assert!(app.queued_turn_inputs.is_empty());
+    assert!(!app.ralph_enabled());
+    assert!(app.queued_turn_inputs_is_empty());
 
     let _ = std::fs::remove_file(tmp);
 }
@@ -3107,10 +3107,10 @@ fn request_ralph_toggle_defers_while_turn_active() {
     app.active_turn_id = Some("turn-1".to_string());
 
     app.request_ralph_toggle().expect("defer");
-    assert!(app.ralph_toggle_pending);
+    assert!(app.ralph_toggle_pending());
 
     app.request_ralph_toggle().expect("cancel");
-    assert!(!app.ralph_toggle_pending);
+    assert!(!app.ralph_toggle_pending());
 }
 
 #[test]
@@ -3118,7 +3118,7 @@ fn pending_ralph_continuation_becomes_ready_after_deadline() {
     let mut app = AppState::new("thread-1".to_string());
     app.queue_ralph_continuation("continue");
     let deadline = app
-        .ralph_pending_continuation_deadline
+        .ralph_pending_continuation_deadline()
         .expect("continuation deadline");
 
     assert!(app

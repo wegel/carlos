@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
@@ -13,7 +13,9 @@ use super::context_usage::ContextUsage;
 use super::input::make_input_area;
 use super::models::{Message, MessageKind, RenderedLine, Role, TerminalSize};
 use super::perf::PerfMetrics;
-use super::ralph::{detect_turn_markers, load_ralph_config, RalphConfig, RalphState};
+#[cfg(test)]
+use super::ralph::RalphConfig;
+use super::ralph_runtime_state::RalphRuntimeState;
 use super::render::{compute_input_layout, textarea_input_from_key};
 use super::render_cache_state::RenderCacheState;
 pub(super) use super::runtime_settings_state::ModelSettingsField;
@@ -26,8 +28,6 @@ use super::transcript_render::{
     transcript_content_width,
 };
 use super::{RuntimeDefaults, MSG_TOP};
-const RALPH_CONTINUATION_DELAY: Duration = Duration::from_millis(700);
-
 pub(super) struct AppState {
     pub(super) thread_id: String,
     pub(super) active_turn_id: Option<String>,
@@ -47,14 +47,7 @@ pub(super) struct AppState {
     pub(super) esc_armed_at: Option<Instant>,
     pub(super) status: String,
     pub(super) turn_start_message_idx: Option<usize>,
-    pub(super) queued_turn_inputs: VecDeque<String>,
-    pub(super) ralph: Option<RalphState>,
-    pub(super) ralph_toggle_pending: bool,
-    pub(super) ralph_pending_continuation_deadline: Option<Instant>,
-    pub(super) ralph_cwd: PathBuf,
-    pub(super) ralph_prompt_path_override: Option<String>,
-    pub(super) ralph_done_marker_override: Option<String>,
-    pub(super) ralph_blocked_marker_override: Option<String>,
+    pub(super) ralph_runtime: RalphRuntimeState,
     pub(super) runtime: RuntimeSettingsState,
     pub(super) approval: ApprovalState,
 
@@ -95,14 +88,7 @@ impl AppState {
             esc_armed_at: None,
             status: String::new(),
             turn_start_message_idx: None,
-            queued_turn_inputs: VecDeque::new(),
-            ralph: None,
-            ralph_toggle_pending: false,
-            ralph_pending_continuation_deadline: None,
-            ralph_cwd: PathBuf::new(),
-            ralph_prompt_path_override: None,
-            ralph_done_marker_override: None,
-            ralph_blocked_marker_override: None,
+            ralph_runtime: RalphRuntimeState::new(),
             runtime: RuntimeSettingsState::new(),
             approval: ApprovalState::new(),
             scroll_top: 0,
@@ -134,76 +120,38 @@ impl AppState {
         done_marker_override: Option<String>,
         blocked_marker_override: Option<String>,
     ) {
-        self.ralph_cwd = cwd;
-        self.ralph_prompt_path_override = prompt_path_override;
-        self.ralph_done_marker_override = done_marker_override;
-        self.ralph_blocked_marker_override = blocked_marker_override;
+        self.ralph_runtime.configure_options(
+            cwd,
+            prompt_path_override,
+            done_marker_override,
+            blocked_marker_override,
+        );
     }
 
+    #[cfg(test)]
     pub(super) fn enable_ralph_mode(&mut self, config: RalphConfig) {
-        let prompt_path = config.prompt_path.display().to_string();
-        self.ralph = Some(RalphState::new(config));
-        self.ralph_toggle_pending = false;
-        self.set_status(format!("ralph on ({prompt_path})"));
+        let status = self.ralph_runtime.enable(config);
+        self.set_status(status);
     }
 
     pub(super) fn disable_ralph_mode(&mut self) {
-        self.ralph = None;
-        self.ralph_toggle_pending = false;
-        self.ralph_pending_continuation_deadline = None;
-        self.queued_turn_inputs.clear();
-        self.set_status("ralph off");
-    }
-
-    pub(super) fn queue_ralph_initial_prompt(&mut self) {
-        let Some(ralph) = self.ralph.as_mut() else {
-            return;
-        };
-        if ralph.primed || ralph.completed {
-            return;
-        }
-        ralph.primed = true;
-        let prompt = ralph.config.base_prompt.clone();
-        self.enqueue_turn_input(prompt);
-    }
-
-    pub(super) fn toggle_ralph_mode_now(&mut self) -> Result<()> {
-        if self.ralph.is_some() {
-            self.disable_ralph_mode();
-            return Ok(());
-        }
-
-        let cfg = load_ralph_config(
-            &self.ralph_cwd,
-            self.ralph_prompt_path_override.as_deref(),
-            self.ralph_done_marker_override.as_deref(),
-            self.ralph_blocked_marker_override.as_deref(),
-        )?;
-        self.enable_ralph_mode(cfg);
-        self.queue_ralph_initial_prompt();
-        self.set_status("ralph on");
-        Ok(())
+        let status = self.ralph_runtime.disable();
+        self.set_status(status);
     }
 
     pub(super) fn request_ralph_toggle(&mut self) -> Result<()> {
-        if self.active_turn_id.is_some() {
-            self.ralph_toggle_pending = !self.ralph_toggle_pending;
-            if self.ralph_toggle_pending {
-                self.set_status("ralph toggle pending");
-            } else {
-                self.set_status("ralph toggle canceled");
-            }
-            return Ok(());
-        }
-        self.toggle_ralph_mode_now()
+        let status = self
+            .ralph_runtime
+            .request_toggle(self.active_turn_id.is_some())?;
+        self.set_status(status);
+        Ok(())
     }
 
     pub(super) fn apply_pending_ralph_toggle(&mut self) -> Result<()> {
-        if !self.ralph_toggle_pending {
-            return Ok(());
+        if let Some(status) = self.ralph_runtime.apply_pending_toggle()? {
+            self.set_status(status);
         }
-        self.ralph_toggle_pending = false;
-        self.toggle_ralph_mode_now()
+        Ok(())
     }
 
     pub(super) fn perf_report(&self) -> Option<String> {
@@ -346,41 +294,20 @@ impl AppState {
         self.runtime.apply_default_reasoning_summary(summary);
     }
 
-    pub(super) fn enqueue_turn_input(&mut self, text: impl Into<String>) {
-        let text = text.into();
-        if text.trim().is_empty() {
-            return;
-        }
-        self.queued_turn_inputs.push_back(text);
-    }
-
     pub(super) fn queue_ralph_continuation(&mut self, text: impl Into<String>) {
-        let text = text.into();
-        if text.trim().is_empty() {
-            return;
-        }
-        self.queued_turn_inputs.push_back(text);
-        self.ralph_pending_continuation_deadline = Some(Instant::now() + RALPH_CONTINUATION_DELAY);
+        self.ralph_runtime.queue_continuation(text);
     }
 
     pub(super) fn has_pending_ralph_continuation(&self) -> bool {
-        self.ralph_pending_continuation_deadline.is_some() && !self.queued_turn_inputs.is_empty()
+        self.ralph_runtime.has_pending_continuation()
     }
 
     pub(super) fn pending_ralph_continuation_wait(&self, now: Instant) -> Option<Duration> {
-        self.ralph_pending_continuation_deadline
-            .map(|deadline| deadline.saturating_duration_since(now))
-            .filter(|wait| !wait.is_zero())
+        self.ralph_runtime.pending_continuation_wait(now)
     }
 
     pub(super) fn dequeue_turn_input(&mut self, now: Instant) -> Option<String> {
-        if let Some(deadline) = self.ralph_pending_continuation_deadline {
-            if now < deadline {
-                return None;
-            }
-            self.ralph_pending_continuation_deadline = None;
-        }
-        self.queued_turn_inputs.pop_front()
+        self.ralph_runtime.dequeue_turn_input(now)
     }
 
     pub(super) fn input_is_empty(&self) -> bool {
@@ -486,9 +413,7 @@ impl AppState {
     }
 
     pub(super) fn mark_user_turn_submitted(&mut self) {
-        if let Some(ralph) = self.ralph.as_mut() {
-            ralph.waiting_for_user = false;
-        }
+        self.ralph_runtime.mark_user_turn_submitted();
     }
 
     pub(super) fn push_input_history(&mut self, text: &str) {
@@ -874,66 +799,15 @@ impl AppState {
     }
 
     pub(super) fn maybe_disable_ralph_on_blocked_marker(&mut self) {
-        let Some(ralph) = self.ralph.as_ref() else {
+        let start_idx = self.turn_start_message_idx.unwrap_or(self.messages.len());
+        let Some(outcome) = self
+            .ralph_runtime
+            .blocked_marker_outcome(&self.messages, start_idx)
+        else {
             return;
         };
-        let start_idx = self.turn_start_message_idx.unwrap_or(self.messages.len());
-        let blocked_marker = ralph.config.blocked_marker.clone();
-        let markers = detect_turn_markers(&self.messages, start_idx, "", &blocked_marker);
-        if !markers.blocked {
-            return;
-        }
 
-        const BLOCKED_MSG: &str = "Ralph blocked: waiting for input";
-        if !self
-            .messages
-            .last()
-            .is_some_and(|last| last.role == Role::System && last.text == BLOCKED_MSG)
-        {
-            self.append_message(Role::System, BLOCKED_MSG);
-        }
-        self.disable_ralph_mode();
-        self.set_status("ralph blocked");
-    }
-
-    pub(super) fn handle_ralph_turn_completed(&mut self, interrupted: bool) {
-        let start_idx = self
-            .turn_start_message_idx
-            .take()
-            .unwrap_or(self.messages.len());
-        let mut next_status = None;
-        let mut next_message = None;
-        let mut continuation = None;
-        let mut disable_ralph_mode = false;
-
-        if let Some(ralph) = self.ralph.as_mut() {
-            let markers = detect_turn_markers(
-                &self.messages,
-                start_idx,
-                &ralph.config.done_marker,
-                &ralph.config.blocked_marker,
-            );
-            if markers.completed {
-                ralph.completed = true;
-                ralph.waiting_for_user = false;
-                next_message = Some("Ralph complete".to_string());
-                next_status = Some("ralph complete".to_string());
-                disable_ralph_mode = true;
-            } else if markers.blocked {
-                ralph.waiting_for_user = false;
-                next_message = Some("Ralph blocked: waiting for input".to_string());
-                next_status = Some("ralph blocked".to_string());
-                disable_ralph_mode = true;
-            } else if interrupted {
-                ralph.waiting_for_user = false;
-            } else if !ralph.completed {
-                ralph.waiting_for_user = false;
-                continuation = Some(ralph.config.continuation_prompt.clone());
-                next_status = Some("ralph continuing".to_string());
-            }
-        }
-
-        if let Some(msg) = next_message {
+        if let Some(msg) = outcome.system_message {
             if !self
                 .messages
                 .last()
@@ -942,15 +816,67 @@ impl AppState {
                 self.append_message(Role::System, msg);
             }
         }
-        if let Some(text) = continuation {
-            self.queue_ralph_continuation(text);
-        }
-        if disable_ralph_mode {
+        if outcome.disable {
             self.disable_ralph_mode();
         }
-        if let Some(status) = next_status {
+        if let Some(status) = outcome.status {
             self.set_status(status);
         }
+    }
+
+    pub(super) fn handle_ralph_turn_completed(&mut self, interrupted: bool) {
+        let start_idx = self
+            .turn_start_message_idx
+            .take()
+            .unwrap_or(self.messages.len());
+        let outcome = self
+            .ralph_runtime
+            .handle_turn_completed(&self.messages, start_idx, interrupted);
+
+        if let Some(msg) = outcome.system_message {
+            if !self
+                .messages
+                .last()
+                .is_some_and(|last| last.role == Role::System && last.text == msg)
+            {
+                self.append_message(Role::System, msg);
+            }
+        }
+        if let Some(text) = outcome.continuation {
+            self.queue_ralph_continuation(text);
+        }
+        if outcome.disable {
+            self.disable_ralph_mode();
+        }
+        if let Some(status) = outcome.status {
+            self.set_status(status);
+        }
+    }
+
+    pub(super) fn ralph_enabled(&self) -> bool {
+        self.ralph_runtime.is_enabled()
+    }
+
+    #[cfg(test)]
+    pub(super) fn queued_turn_inputs_is_empty(&self) -> bool {
+        self.ralph_runtime.queued_turn_inputs_is_empty()
+    }
+
+    #[cfg(test)]
+    pub(super) fn ralph_toggle_pending(&self) -> bool {
+        self.ralph_runtime.toggle_pending()
+    }
+
+    #[cfg(test)]
+    pub(super) fn ralph_pending_continuation_deadline(&self) -> Option<Instant> {
+        self.ralph_runtime.pending_continuation_deadline()
+    }
+
+    #[cfg(test)]
+    pub(super) fn ralph_waiting_for_user(&self) -> bool {
+        self.ralph_runtime
+            .state()
+            .is_some_and(|ralph| ralph.waiting_for_user)
     }
 }
 

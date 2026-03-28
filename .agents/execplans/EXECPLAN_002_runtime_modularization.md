@@ -12,7 +12,7 @@ After this change, contributors should be able to work on transcript rendering, 
 
 - [x] (2026-03-28 01:15Z) Created the modularization ExecPlan and registered it in `PROGRAM_PLAN.md`.
 - [x] Split `src/app/render.rs` into responsibility-focused modules while preserving all rendering behavior and tests (completed: recorded baseline file-size and perf measurements; extracted resume picker rendering into `src/app/picker_render.rs`; extracted help/model-settings/approval/perf overlays into `src/app/overlay_render.rs`; extracted transcript layout/counting and markdown/ANSI/diff helpers into `src/app/transcript_render.rs`; `render.rs` now owns only input/layout helpers plus main-frame composition).
-- [ ] Split `src/app/state.rs` into focused state structures and helper modules without changing runtime semantics (completed: extracted runtime/model-settings ownership into `src/app/runtime_settings_state.rs`; extracted approval choice/request state into `src/app/approval_state.rs`; extracted render-cache ownership into `src/app/render_cache_state.rs`; remaining: transcript/message ownership, Ralph/input-history, and scroll/selection ownership boundaries).
+- [ ] Split `src/app/state.rs` into focused state structures and helper modules without changing runtime semantics (completed: extracted runtime/model-settings ownership into `src/app/runtime_settings_state.rs`; extracted approval choice/request state into `src/app/approval_state.rs`; extracted render-cache ownership into `src/app/render_cache_state.rs`; extracted Ralph automation plus queued-turn ownership into `src/app/ralph_runtime_state.rs`; remaining: transcript/message ownership, input-history/rewind, and scroll/selection ownership boundaries).
 - [ ] Split `src/app/input.rs` and `src/app/notifications.rs` into narrower orchestration plus domain-specific helpers.
 - [ ] Split `src/tests.rs` to mirror the runtime module boundaries.
 - [ ] Re-run correctness and perf validation, update this ExecPlan, and move it to `.agents/done/` when complete.
@@ -39,6 +39,9 @@ After this change, contributors should be able to work on transcript rendering, 
 
 - Observation: render-cache ownership was separable from message ownership. Pulling the cache and dirty-range bookkeeping into `RenderCacheState` reduced `state.rs` again without forcing the broader `messages` API rewrite that the remaining transcript split will require.
   Evidence: after moving the render-cache fields and materialization logic into `src/app/render_cache_state.rs`, `src/app/state.rs` dropped to `1027` lines and the frozen perf snapshot stayed effectively flat at `full_layout=50.17 ms`, `full_draw=0.77 ms`, and `append_total p50=0.68 ms`.
+
+- Observation: Ralph automation was a narrower ownership seam than transcript-message storage. Moving the queue, toggle/deadline bookkeeping, prompt-path overrides, and completion logic into `RalphRuntimeState` cut another meaningful chunk out of `state.rs` while touching only a small set of render/input/test call sites.
+  Evidence: after extracting `src/app/ralph_runtime_state.rs`, `src/app/state.rs` dropped to `953` lines while the new module holds `271`, and the frozen perf snapshot remained flat at `full_layout=47.63 ms`, `full_draw=0.76 ms`, and `append_total p50=0.68 ms`.
 
 ## Decision Log
 
@@ -74,6 +77,10 @@ After this change, contributors should be able to work on transcript rendering, 
   Rationale: the cache/materialization fields were already a coherent subdomain with limited external usage, while `messages` still have broad read/write touchpoints in notifications, perf tooling, and tests. Taking the cache first shrinks `state.rs` and reduces coupling without forcing a disruptive API transition.
   Date/Author: 2026-03-28 / codex
 
+- Decision: extract Ralph automation before input history or message ownership.
+  Rationale: Ralph state already had a narrow runtime surface through a handful of queue/toggle/completion methods, so moving it out of `AppState` reduced direct mutable state without forcing the wider `messages` rewrite or the more intertwined rewind/history split.
+  Date/Author: 2026-03-28 / codex
+
 ## Outcomes & Retrospective
 
 Partial Milestone 1 outcome: the resume picker layout and delete-confirmation rendering now live in `src/app/picker_render.rs` instead of `src/app/render.rs`, with no observed correctness regressions in the test suite. The runtime behavior remains intact, and the next Milestone 1 slices can focus on transcript and overlay rendering without mixing picker changes back into the main transcript renderer.
@@ -87,6 +94,8 @@ Partial Milestone 2 outcome: runtime settings, model-settings dialog state, and 
 Second partial Milestone 2 outcome: approval choice/request modeling and pending-approval ownership now live in `src/app/approval_state.rs`. `AppState` still exposes the same behavior to the rest of the TUI, but another isolated concern has moved out of the main state file, which keeps the remaining debt focused on the larger transcript, rewind, and selection domains.
 
 Third partial Milestone 2 outcome: rendered-block caches, dirty-range tracking, and materialization logic now live in `src/app/render_cache_state.rs`. `AppState` still owns the message list, but the render-cache machinery is no longer mixed into every other state concern, which makes the remaining transcript split much more explicit.
+
+Fourth partial Milestone 2 outcome: Ralph automation, queued turn submission, continuation deadlines, and prompt override/config ownership now live in `src/app/ralph_runtime_state.rs`. `AppState` still exposes the same behavior to input handling, notifications, and the renderer, but another multi-field runtime state machine no longer lives inline with transcript, rewind, and selection ownership.
 
 ## Context and Orientation
 
@@ -258,6 +267,35 @@ Post-slice perf snapshot after extracting `src/app/picker_render.rs`:
     typing_draw:   p50 0.64 p95 0.68 avg 0.65 max 0.72 ms
     working_draw:  p50 0.66 p95 0.68 avg 0.65 max 0.75 ms
     append_total:  p50 0.69 p95 0.80 avg 0.69 max 0.80 ms
+
+Post-slice file-size and perf snapshot after extracting `src/app/ralph_runtime_state.rs`:
+
+    wc -l src/app/state.rs src/app/ralph_runtime_state.rs
+      953 src/app/state.rs
+      271 src/app/ralph_runtime_state.rs
+     1224 total
+
+    target/release/carlos perf-session /tmp/carlos-perf-session-019cdf51-snapshot.jsonl --width 160 --height 48
+    carlos perf-session
+    source: /tmp/carlos-perf-session-019cdf51-snapshot.jsonl
+    viewport: 160x48
+    transcript: messages=4962 rendered_lines=150333 relevant_items=4961 replay_elapsed_ms=144.82
+    memory_kib: before=0 after_replay=0 after_bench=0
+    replay_apply:  p50 0.00 p95 0.02 avg 0.00 max 0.29 ms
+    full_layout:   47.63 ms
+    full_draw:     0.76 ms
+    scroll_draw:   p50 0.69 p95 2.26 avg 0.87 max 3.22 ms
+    typing_draw:   p50 0.65 p95 0.71 avg 0.66 max 0.88 ms
+    working_draw:  p50 0.65 p95 0.67 avg 0.65 max 0.71 ms
+    append_total:  p50 0.68 p95 0.72 avg 0.68 max 0.72 ms
+    layout_breakdown:
+      tool_output_ansi msgs=1770 lines=129844 total_ms=35.18
+      commentary_plain msgs=710 lines=2124 total_ms=5.42
+      assistant_markdown msgs=132 lines=2400 total_ms=4.39
+      diff msgs=23 lines=6489 total_ms=2.73
+      tool_call_plain msgs=1795 lines=6827 total_ms=1.23
+      reasoning_markdown msgs=334 lines=1131 total_ms=1.02
+      user_plain msgs=197 lines=1515 total_ms=0.45
 
 Post-slice file-size report after extracting `src/app/overlay_render.rs`:
 
