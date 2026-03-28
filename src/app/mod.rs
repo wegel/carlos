@@ -65,6 +65,7 @@ mod input_events;
 mod input_history_state;
 mod mobile_mouse;
 mod models;
+mod notification_items;
 mod notifications;
 mod overlay_render;
 mod perf;
