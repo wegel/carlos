@@ -193,7 +193,7 @@ pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, 
         3,
     );
 
-    let model_style = if matches!(app.model_settings_field, ModelSettingsField::Model) {
+    let model_style = if matches!(app.runtime.model_settings_field, ModelSettingsField::Model) {
         Style::default()
             .fg(COLOR_TEXT)
             .bg(COLOR_STEP6)
@@ -201,7 +201,7 @@ pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, 
     } else {
         Style::default().fg(COLOR_TEXT)
     };
-    let effort_style = if matches!(app.model_settings_field, ModelSettingsField::Effort) {
+    let effort_style = if matches!(app.runtime.model_settings_field, ModelSettingsField::Effort) {
         Style::default()
             .fg(COLOR_TEXT)
             .bg(COLOR_STEP6)
@@ -209,7 +209,10 @@ pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, 
     } else {
         Style::default().fg(COLOR_TEXT)
     };
-    let summary_style = if matches!(app.model_settings_field, ModelSettingsField::Summary) {
+    let summary_style = if matches!(
+        app.runtime.model_settings_field,
+        ModelSettingsField::Summary
+    ) {
         Style::default()
             .fg(COLOR_TEXT)
             .bg(COLOR_STEP6)

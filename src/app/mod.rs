@@ -25,9 +25,9 @@ use self::mobile_mouse::{
     parse_repeated_plain_mobile_pair, MobileMouseConsume,
 };
 pub(crate) use self::models::Role;
-use self::models::{
-    DiffBlock, Message, MessageKind, RenderedLine, TerminalSize, ThreadSummary,
-};
+#[cfg(test)]
+use self::models::StyledSegment;
+use self::models::{DiffBlock, Message, MessageKind, RenderedLine, TerminalSize, ThreadSummary};
 use self::notifications::*;
 #[cfg(test)]
 use self::perf::{DurationSamples, PerfMetrics};
@@ -69,6 +69,7 @@ mod perf_session;
 mod picker_render;
 mod ralph;
 mod render;
+mod runtime_settings_state;
 mod selection;
 mod state;
 mod terminal_ui;

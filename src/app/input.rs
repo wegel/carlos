@@ -407,7 +407,7 @@ pub(super) fn run_conversation_tui(
                                     needs_draw = true;
                                     continue;
                                 }
-                                if app.show_model_settings {
+                                if app.runtime.show_model_settings {
                                     match (k.code, k.modifiers) {
                                         (code, mods) if is_ctrl_char(code, mods, 'c') => {
                                             return Ok(())
@@ -419,31 +419,35 @@ pub(super) fn run_conversation_tui(
                                         }
                                         (KeyCode::Up, _) => app.model_settings_move_field(false),
                                         (KeyCode::Down, _) => app.model_settings_move_field(true),
-                                        (KeyCode::Left, _) => match app.model_settings_field {
-                                            super::state::ModelSettingsField::Model => {
-                                                app.model_settings_cycle_model(-1);
+                                        (KeyCode::Left, _) => {
+                                            match app.runtime.model_settings_field {
+                                                super::state::ModelSettingsField::Model => {
+                                                    app.model_settings_cycle_model(-1);
+                                                }
+                                                super::state::ModelSettingsField::Effort => {
+                                                    app.model_settings_cycle_effort(-1);
+                                                }
+                                                super::state::ModelSettingsField::Summary => {
+                                                    app.model_settings_cycle_summary(-1);
+                                                }
                                             }
-                                            super::state::ModelSettingsField::Effort => {
-                                                app.model_settings_cycle_effort(-1);
+                                        }
+                                        (KeyCode::Right, _) => {
+                                            match app.runtime.model_settings_field {
+                                                super::state::ModelSettingsField::Model => {
+                                                    app.model_settings_cycle_model(1);
+                                                }
+                                                super::state::ModelSettingsField::Effort => {
+                                                    app.model_settings_cycle_effort(1);
+                                                }
+                                                super::state::ModelSettingsField::Summary => {
+                                                    app.model_settings_cycle_summary(1);
+                                                }
                                             }
-                                            super::state::ModelSettingsField::Summary => {
-                                                app.model_settings_cycle_summary(-1);
-                                            }
-                                        },
-                                        (KeyCode::Right, _) => match app.model_settings_field {
-                                            super::state::ModelSettingsField::Model => {
-                                                app.model_settings_cycle_model(1);
-                                            }
-                                            super::state::ModelSettingsField::Effort => {
-                                                app.model_settings_cycle_effort(1);
-                                            }
-                                            super::state::ModelSettingsField::Summary => {
-                                                app.model_settings_cycle_summary(1);
-                                            }
-                                        },
+                                        }
                                         (KeyCode::Backspace, _)
                                             if matches!(
-                                                app.model_settings_field,
+                                                app.runtime.model_settings_field,
                                                 super::state::ModelSettingsField::Model
                                             ) && !app.model_settings_has_model_choices() =>
                                         {
@@ -461,7 +465,7 @@ pub(super) fn run_conversation_tui(
                                             if !mods.contains(KeyModifiers::CONTROL)
                                                 && !mods.contains(KeyModifiers::ALT)
                                                 && matches!(
-                                                    app.model_settings_field,
+                                                    app.runtime.model_settings_field,
                                                     super::state::ModelSettingsField::Model
                                                 ) =>
                                         {
@@ -657,7 +661,7 @@ pub(super) fn run_conversation_tui(
                                 if let Some(perf) = app.perf.as_mut() {
                                     perf.mouse_events = perf.mouse_events.saturating_add(1);
                                 }
-                                if app.show_help || app.show_model_settings {
+                                if app.show_help || app.runtime.show_model_settings {
                                     continue;
                                 }
                                 ensure_transcript_layout(app, size);
@@ -857,16 +861,18 @@ pub(super) fn run_conversation_tui(
                                     needs_draw = true;
                                     continue;
                                 }
-                                if app.show_model_settings {
+                                if app.runtime.show_model_settings {
                                     if matches!(
-                                        app.model_settings_field,
+                                        app.runtime.model_settings_field,
                                         super::state::ModelSettingsField::Model
                                     ) && !app.model_settings_has_model_choices()
                                     {
                                         let normalized = normalize_pasted_text(&pasted);
                                         let first_line = normalized.lines().next().unwrap_or("");
                                         if !first_line.is_empty() {
-                                            app.model_settings_model_input.push_str(first_line);
+                                            app.runtime
+                                                .model_settings_model_input
+                                                .push_str(first_line);
                                         }
                                     }
                                     needs_draw = true;

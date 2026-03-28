@@ -12,7 +12,7 @@ After this change, contributors should be able to work on transcript rendering, 
 
 - [x] (2026-03-28 01:15Z) Created the modularization ExecPlan and registered it in `PROGRAM_PLAN.md`.
 - [x] Split `src/app/render.rs` into responsibility-focused modules while preserving all rendering behavior and tests (completed: recorded baseline file-size and perf measurements; extracted resume picker rendering into `src/app/picker_render.rs`; extracted help/model-settings/approval/perf overlays into `src/app/overlay_render.rs`; extracted transcript layout/counting and markdown/ANSI/diff helpers into `src/app/transcript_render.rs`; `render.rs` now owns only input/layout helpers plus main-frame composition).
-- [ ] Split `src/app/state.rs` into focused state structures and helper modules without changing runtime semantics.
+- [ ] Split `src/app/state.rs` into focused state structures and helper modules without changing runtime semantics (completed: extracted runtime/model-settings ownership into `src/app/runtime_settings_state.rs` and converted `AppState` to delegate there; remaining: transcript/render-cache, Ralph/input-history, approval, and scroll/selection ownership boundaries).
 - [ ] Split `src/app/input.rs` and `src/app/notifications.rs` into narrower orchestration plus domain-specific helpers.
 - [ ] Split `src/tests.rs` to mirror the runtime module boundaries.
 - [ ] Re-run correctness and perf validation, update this ExecPlan, and move it to `.agents/done/` when complete.
@@ -30,6 +30,9 @@ After this change, contributors should be able to work on transcript rendering, 
 
 - Observation: the transcript pipeline was a viable standalone boundary: once build/count/wrap helpers moved into `src/app/transcript_render.rs`, the remaining `render.rs` shrank to frame composition and input-layout concerns without needing any behavioral compromises or new shared “misc” glue.
   Evidence: after the extraction, `src/app/render.rs` measured `643` lines while `src/app/transcript_render.rs` measured `1288`, and the frozen perf snapshot stayed at `full_layout=49.48 ms`, `full_draw=0.77 ms`, and `append_total p50=0.69 ms`.
+
+- Observation: runtime/model-settings ownership was also a clean seam inside `AppState`: moving it into `RuntimeSettingsState` reduced `state.rs` materially without forcing broad call-site churn because the existing `AppState` methods could stay as delegators.
+  Evidence: after the extraction, `src/app/state.rs` dropped to `1290` lines while `src/app/runtime_settings_state.rs` holds `364`, and the frozen perf snapshot stayed at `full_layout=49.17 ms`, `full_draw=0.77 ms`, and `append_total p50=0.69 ms`.
 
 ## Decision Log
 
@@ -53,6 +56,10 @@ After this change, contributors should be able to work on transcript rendering, 
   Rationale: other subsystems already depend on transcript build/count helpers, so extracting that pipeline into a literal domain module reduces coupling immediately while preserving existing call patterns and perf instrumentation.
   Date/Author: 2026-03-28 / codex
 
+- Decision: start Milestone 2 with runtime/model-settings state instead of transcript-cache or selection state.
+  Rationale: that cluster already had a narrow method surface and minimal cross-coupling, so converting it into a real sub-structure provides an immediate ownership win without entangling the more perf-sensitive transcript cache or the more stateful rewind/selection logic.
+  Date/Author: 2026-03-28 / codex
+
 ## Outcomes & Retrospective
 
 Partial Milestone 1 outcome: the resume picker layout and delete-confirmation rendering now live in `src/app/picker_render.rs` instead of `src/app/render.rs`, with no observed correctness regressions in the test suite. The runtime behavior remains intact, and the next Milestone 1 slices can focus on transcript and overlay rendering without mixing picker changes back into the main transcript renderer.
@@ -60,6 +67,8 @@ Partial Milestone 1 outcome: the resume picker layout and delete-confirmation re
 Second partial Milestone 1 outcome: the help, model-settings, approval, and perf overlays now live in `src/app/overlay_render.rs`, further shrinking `render.rs` while keeping the runtime behavior and perf characteristics stable on the frozen session snapshot. After this slice, the remaining `render.rs` work is more clearly about transcript rendering, styling conversion, and main-frame composition rather than every modal in the TUI.
 
 Milestone 1 outcome: transcript layout/counting plus markdown, ANSI, and diff rendering now live in `src/app/transcript_render.rs`, leaving `src/app/render.rs` as a much narrower frame compositor with input-layout and line-drawing helpers. This keeps the visible behavior and perf budget intact while turning the rendering layer into three clear domains: transcript, overlays, and picker.
+
+Partial Milestone 2 outcome: runtime settings, model-settings dialog state, and available-model ownership now live in `src/app/runtime_settings_state.rs` instead of remaining as a large field/method cluster inside `AppState`. The external behavior is unchanged, but `AppState` is now starting to act like a coordinator over sub-states rather than a single ever-growing bag of mutable fields.
 
 ## Context and Orientation
 
@@ -284,6 +293,35 @@ Post-slice perf snapshot after extracting `src/app/transcript_render.rs`:
       tool_call_plain msgs=1795 lines=6827 total_ms=1.25
       reasoning_markdown msgs=334 lines=1131 total_ms=1.04
       user_plain msgs=197 lines=1515 total_ms=0.46
+
+Post-slice file-size report after extracting `src/app/runtime_settings_state.rs`:
+
+    wc -l src/app/state.rs src/app/runtime_settings_state.rs
+      1290 src/app/state.rs
+       364 src/app/runtime_settings_state.rs
+      1654 total
+
+Post-slice perf snapshot after extracting `src/app/runtime_settings_state.rs`:
+
+    target/release/carlos perf-session /tmp/carlos-perf-session-019cdf51-snapshot.jsonl --width 160 --height 48
+    carlos perf-session
+    source: /tmp/carlos-perf-session-019cdf51-snapshot.jsonl
+    viewport: 160x48
+    transcript: messages=4962 rendered_lines=150333 relevant_items=4961 replay_elapsed_ms=148.41
+    full_layout:   49.17 ms
+    full_draw:     0.77 ms
+    scroll_draw:   p50 0.70 p95 2.36 avg 0.88 max 3.38 ms
+    typing_draw:   p50 0.66 p95 0.69 avg 0.67 max 0.72 ms
+    working_draw:  p50 0.66 p95 0.68 avg 0.67 max 0.71 ms
+    append_total:  p50 0.69 p95 0.76 avg 0.70 max 0.76 ms
+    layout_breakdown:
+      tool_output_ansi msgs=1770 lines=129844 total_ms=36.19
+      commentary_plain msgs=710 lines=2124 total_ms=5.58
+      assistant_markdown msgs=132 lines=2400 total_ms=4.52
+      diff msgs=23 lines=6489 total_ms=2.81
+      tool_call_plain msgs=1795 lines=6827 total_ms=1.32
+      reasoning_markdown msgs=334 lines=1131 total_ms=1.06
+      user_plain msgs=197 lines=1515 total_ms=0.48
 
 ## Interfaces and Dependencies
 

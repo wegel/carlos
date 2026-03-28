@@ -2877,18 +2877,18 @@ fn resolve_initial_runtime_settings_falls_back_to_persisted_defaults() {
 #[test]
 fn apply_model_settings_returns_defaults_for_persistence() {
     let mut app = AppState::new("thread-1".to_string());
-    app.model_settings_model_input = "gpt-5.4".to_string();
-    app.model_settings_effort_options = super::state::DEFAULT_EFFORT_OPTIONS
+    app.runtime.model_settings_model_input = "gpt-5.4".to_string();
+    app.runtime.model_settings_effort_options = super::state::DEFAULT_EFFORT_OPTIONS
         .iter()
         .map(|value| (*value).to_string())
         .collect();
-    app.model_settings_effort_index = 4;
-    app.model_settings_summary_options = super::state::DEFAULT_SUMMARY_OPTIONS
+    app.runtime.model_settings_effort_index = 4;
+    app.runtime.model_settings_summary_options = super::state::DEFAULT_SUMMARY_OPTIONS
         .iter()
         .map(|value| (*value).to_string())
         .collect();
-    app.model_settings_summary_index = 1;
-    app.show_model_settings = true;
+    app.runtime.model_settings_summary_index = 1;
+    app.runtime.show_model_settings = true;
 
     let defaults = app.apply_model_settings();
 
@@ -2908,7 +2908,7 @@ fn apply_model_settings_returns_defaults_for_persistence() {
             Some("concise".to_string())
         )
     );
-    assert!(!app.show_model_settings);
+    assert!(!app.runtime.show_model_settings);
 }
 
 #[test]

@@ -603,7 +603,7 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
             draw_perf_overlay(buf, size, perf);
         }
     }
-    if app.show_model_settings {
+    if app.runtime.show_model_settings {
         draw_model_settings_overlay(buf, size, app);
     }
     if app.pending_approval.is_some() {
@@ -612,12 +612,12 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
 
     let (cursor_x, cursor_y) = if app.pending_approval.is_some() {
         (0, size.height.saturating_sub(1))
-    } else if app.show_model_settings {
+    } else if app.runtime.show_model_settings {
         let box_w = (size.width.saturating_sub(10)).min(80);
         let box_h = 12usize;
         let start_x = (size.width.saturating_sub(box_w)) / 2;
         let start_y = (size.height.saturating_sub(box_h)) / 2;
-        let x = match app.model_settings_field {
+        let x = match app.runtime.model_settings_field {
             ModelSettingsField::Model => {
                 start_x + 12 + visual_width(app.model_settings_model_value())
             }
@@ -628,7 +628,7 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
                 start_x + 12 + visual_width(app.model_settings_summary_value())
             }
         };
-        let y = match app.model_settings_field {
+        let y = match app.runtime.model_settings_field {
             ModelSettingsField::Model => start_y + 3,
             ModelSettingsField::Effort => start_y + 5,
             ModelSettingsField::Summary => start_y + 7,
