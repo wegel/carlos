@@ -4,10 +4,10 @@ This file coordinates Ralph-mode execution for the `carlos` repository.
 
 ## Goal
 
-Make `carlos` stay smooth and responsive on very large sessions while preserving transcript
-correctness, copy behavior, model/tool visibility, and the existing TUI feature set. The main
-user-visible goal is that scrolling, typing, and live transcript updates stay fast even when a
-session contains tens of thousands of rendered lines.
+Keep `carlos` smooth and responsive on very large sessions while also making the runtime easier
+to evolve safely. The user-visible goal remains fast scrolling, typing, and live transcript
+updates even on very large sessions, but the codebase goal is now to preserve that performance
+while reducing the architectural risk caused by oversized, mixed-responsibility runtime files.
 
 ## Global Invariants
 
@@ -21,7 +21,7 @@ session contains tens of thousands of rendered lines.
 
 ## Active ExecPlans
 
-- None currently.
+- `.agents/execplans/EXECPLAN_002_runtime_modularization.md`
 
 ## Done ExecPlans
 
