@@ -11,7 +11,7 @@ After this change, contributors should be able to work on transcript rendering, 
 ## Progress
 
 - [x] (2026-03-28 01:15Z) Created the modularization ExecPlan and registered it in `PROGRAM_PLAN.md`.
-- [ ] Split `src/app/render.rs` into responsibility-focused modules while preserving all rendering behavior and tests.
+- [ ] Split `src/app/render.rs` into responsibility-focused modules while preserving all rendering behavior and tests (completed: recorded baseline file-size and perf measurements; extracted resume picker rendering into `src/app/picker_render.rs`; remaining: extract transcript/overlay domains).
 - [ ] Split `src/app/state.rs` into focused state structures and helper modules without changing runtime semantics.
 - [ ] Split `src/app/input.rs` and `src/app/notifications.rs` into narrower orchestration plus domain-specific helpers.
 - [ ] Split `src/tests.rs` to mirror the runtime module boundaries.
@@ -19,8 +19,11 @@ After this change, contributors should be able to work on transcript rendering, 
 
 ## Surprises & Discoveries
 
-- Observation: None yet.
-  Evidence: Plan creation only; implementation has not started.
+- Observation: The current large captured-session baseline is materially smaller than the earlier 4M-line snapshot used during the performance EP, so Milestone 1 needs to preserve current latency rather than compare against older multi-second layout numbers.
+  Evidence: `target/release/carlos perf-session /home/wegel/.codex/sessions/2026/03/11/rollout-2026-03-11T19-53-18-019cdf51-af31-7f62-bcf4-90e84f543a11.jsonl --width 160 --height 48` reported `messages=4920`, `rendered_lines=149347`, `full_layout=44.56 ms`, `full_draw=0.66 ms`.
+
+- Observation: Using a live session file as a perf baseline is not stable because resuming the session mutates the underlying `.jsonl`, changing the message and line counts between runs even when the code slice is unrelated.
+  Evidence: the same path moved from `messages=4920 rendered_lines=149347` to `messages=4958 rendered_lines=150293` before any rendering-domain logic changed, so a frozen snapshot at `/tmp/carlos-perf-session-019cdf51-snapshot.jsonl` is now the comparison source for subsequent slices.
 
 ## Decision Log
 
@@ -32,9 +35,13 @@ After this change, contributors should be able to work on transcript rendering, 
   Rationale: The repo has recently done substantial correctness and performance work. A large rewrite would create unnecessary regression risk. Splitting by responsibility keeps the code buildable and measurable after each step.
   Date/Author: 2026-03-28 / codex
 
+- Decision: Use a frozen copy of the captured large session for Milestone 1 and later perf comparisons instead of reading directly from the live Codex session log.
+  Rationale: the live session log grows during normal use, which makes before/after perf comparisons meaningless even when the code being changed is unrelated to transcript semantics.
+  Date/Author: 2026-03-28 / codex
+
 ## Outcomes & Retrospective
 
-No outcomes yet. This section must be updated after each major milestone and at completion with the modules created, behavior preserved, validation run, and any remaining architectural debt.
+Partial Milestone 1 outcome: the resume picker layout and delete-confirmation rendering now live in `src/app/picker_render.rs` instead of `src/app/render.rs`, with no observed correctness regressions in the test suite. The runtime behavior remains intact, and the next Milestone 1 slices can focus on transcript and overlay rendering without mixing picker changes back into the main transcript renderer.
 
 ## Context and Orientation
 
@@ -159,7 +166,53 @@ When replacing the installed binary, use the temporary-file-and-rename pattern a
 
 ## Artifacts and Notes
 
-Add short terminal transcripts here as work proceeds. The first artifact to add during implementation is the baseline file-size report and the first perf-session baseline used for comparison.
+Baseline file-size report before Milestone 1:
+
+    find src -type f -name '*.rs' -print0 | xargs -0 wc -l | sort -nr | head -n 15
+      14446 total
+       3199 src/tests.rs
+       2754 src/app/render.rs
+       1526 src/app/state.rs
+       1179 src/app/tools.rs
+        995 src/app/notifications.rs
+        978 src/app/input.rs
+        823 src/app/perf_session.rs
+        466 src/protocol.rs
+        466 src/app/mod.rs
+        407 src/app/text.rs
+        314 src/app/terminal_ui.rs
+
+Baseline large-session perf snapshot before Milestone 1:
+
+    target/release/carlos perf-session /home/wegel/.codex/sessions/2026/03/11/rollout-2026-03-11T19-53-18-019cdf51-af31-7f62-bcf4-90e84f543a11.jsonl --width 160 --height 48
+    carlos perf-session
+    source: /home/wegel/.codex/sessions/2026/03/11/rollout-2026-03-11T19-53-18-019cdf51-af31-7f62-bcf4-90e84f543a11.jsonl
+    viewport: 160x48
+    transcript: messages=4920 rendered_lines=149347 relevant_items=4919 replay_elapsed_ms=133.83
+    full_layout:   44.56 ms
+    full_draw:     0.66 ms
+    scroll_draw:   p50 0.64 p95 1.22 avg 0.74 max 2.31 ms
+    typing_draw:   p50 0.58 p95 0.61 avg 0.58 max 0.64 ms
+    working_draw:  p50 0.58 p95 0.75 avg 0.59 max 0.89 ms
+    append_total:  p50 0.61 p95 0.65 avg 0.61 max 0.65 ms
+
+Frozen comparison source for subsequent Milestone 1 slices:
+
+    /tmp/carlos-perf-session-019cdf51-snapshot.jsonl
+
+Post-slice perf snapshot after extracting `src/app/picker_render.rs`:
+
+    target/release/carlos perf-session /tmp/carlos-perf-session-019cdf51-snapshot.jsonl --width 160 --height 48
+    carlos perf-session
+    source: /tmp/carlos-perf-session-019cdf51-snapshot.jsonl
+    viewport: 160x48
+    transcript: messages=4962 rendered_lines=150333 relevant_items=4961 replay_elapsed_ms=145.98
+    full_layout:   48.21 ms
+    full_draw:     0.76 ms
+    scroll_draw:   p50 0.69 p95 2.32 avg 0.87 max 3.26 ms
+    typing_draw:   p50 0.64 p95 0.68 avg 0.65 max 0.72 ms
+    working_draw:  p50 0.66 p95 0.68 avg 0.65 max 0.75 ms
+    append_total:  p50 0.69 p95 0.80 avg 0.69 max 0.80 ms
 
 ## Interfaces and Dependencies
 

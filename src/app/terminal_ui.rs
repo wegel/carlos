@@ -18,7 +18,7 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 
 use super::notifications::{is_ctrl_char, is_key_press_like};
-use super::render::{compute_picker_layout, draw_picker};
+use super::picker_render::{compute_picker_layout, draw_picker};
 use super::{TerminalSize, ThreadSummary};
 use crate::protocol::{extract_result_object, params_thread_archive, AppServerClient};
 

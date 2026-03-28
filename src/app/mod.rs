@@ -32,6 +32,8 @@ use self::notifications::*;
 #[cfg(test)]
 use self::perf::{DurationSamples, PerfMetrics};
 #[cfg(test)]
+use self::picker_render::*;
+#[cfg(test)]
 use self::render::*;
 #[cfg(test)]
 use self::selection::{
@@ -61,6 +63,7 @@ mod models;
 mod notifications;
 mod perf;
 mod perf_session;
+mod picker_render;
 mod ralph;
 mod render;
 mod selection;
