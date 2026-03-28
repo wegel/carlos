@@ -813,9 +813,13 @@ pub(super) fn handle_server_message_line(
             if diffs.is_empty() {
                 let item_id = item.get("id").and_then(Value::as_str);
                 let exit_code = first_i64_at_paths(&item_value, &[&["exitCode"], &["exit_code"]]);
-                let summary_override =
-                    item_id.and_then(|id| app.command_render_overrides.get(id).cloned());
-                if let (Some(id), Some(summary)) = (item_id, summary_override.clone()) {
+                let command_summary = item_id
+                    .and_then(|id| app.command_render_overrides.get(id).cloned())
+                    .or_else(|| {
+                        tool_command(&item_value)
+                            .and_then(|cmd| command_summary_from_shell_cmd(&cmd, None))
+                    });
+                if let (Some(id), Some(summary)) = (item_id, command_summary.clone()) {
                     if exit_code.unwrap_or(0) == 0 {
                         if let Some(idx) = app.agent_item_to_index.get(id).copied() {
                             if let Some(msg) = app.messages.get_mut(idx) {
@@ -853,7 +857,7 @@ pub(super) fn handle_server_message_line(
 
                 if let Some(formatted) = format_tool_item(&item_value, role) {
                     let text = if exit_code.unwrap_or(0) != 0 {
-                        if let Some(summary) = summary_override {
+                        if let Some(summary) = command_summary {
                             format!("{summary}\n{formatted}")
                         } else {
                             formatted

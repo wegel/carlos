@@ -532,28 +532,33 @@ pub(super) fn strip_shell_quotes(token: &str) -> &str {
     t
 }
 
-fn parse_shell_search_summary(cmd: &str, program: &str, cwd: Option<&str>) -> Option<String> {
-    let tokens: Vec<&str> = cmd.split_whitespace().collect();
-    if tokens.first().copied()? != program {
-        return None;
-    }
-
+fn tokens_without_program_options(tokens: &[String]) -> &[String] {
     let mut i = 1usize;
     while i < tokens.len() && tokens[i].starts_with('-') {
         i += 1;
     }
+    &tokens[i..]
+}
 
-    let pattern = tokens.get(i).map(|t| strip_shell_quotes(t));
-    let path = tokens
+fn parse_shell_search_summary(cmd: &str, program: &str, cwd: Option<&str>) -> Option<String> {
+    let tokens = shlex_split(cmd)?;
+    if tokens.first().map(String::as_str)? != program {
+        return None;
+    }
+
+    let args = tokens_without_program_options(&tokens);
+    let pattern = args.first().map(|t| strip_shell_quotes(t));
+    let paths: Vec<String> = args
         .iter()
-        .skip(i.saturating_add(1))
-        .find(|t| !t.starts_with('-'))
-        .map(|t| compact_command_path(strip_shell_quotes(t), cwd));
+        .skip(1)
+        .filter(|t| !t.starts_with('-'))
+        .map(|t| compact_command_path(strip_shell_quotes(t), cwd))
+        .collect();
 
     let mut out = "✱ Search".to_string();
-    if let Some(path) = path {
+    if !paths.is_empty() {
         out.push(' ');
-        out.push_str(&path);
+        out.push_str(&paths.join(" "));
     }
     if let Some(pattern) = pattern {
         if !pattern.is_empty() {
@@ -563,34 +568,73 @@ fn parse_shell_search_summary(cmd: &str, program: &str, cwd: Option<&str>) -> Op
     Some(out)
 }
 
-fn parse_shell_sed_summary(cmd: &str, cwd: Option<&str>) -> Option<String> {
-    let tokens: Vec<&str> = cmd.split_whitespace().collect();
-    if tokens.first().copied()? != "sed" {
-        return None;
-    }
-
-    let mut i = 1usize;
-    while i < tokens.len() && tokens[i].starts_with('-') {
-        i += 1;
-    }
-    let script = strip_shell_quotes(tokens.get(i)?);
-    let path = compact_command_path(strip_shell_quotes(tokens.get(i + 1)?), cwd);
-
-    let mut out = format!("✱ Search {path}");
+fn parse_sed_range(script: &str) -> Option<String> {
     if let Some(range) = script.strip_suffix('p') {
         let range = range.trim();
         if let Some((start, end)) = range.split_once(',') {
             if !start.is_empty() && !end.is_empty() {
-                out.push_str(&format!(" [lines={start}..{end}]"));
-                return Some(out);
+                return Some(format!("[lines={start}..{end}]"));
             }
         }
         if !range.is_empty() {
-            out.push_str(&format!(" [lines={range}]"));
-            return Some(out);
+            return Some(format!("[lines={range}]"));
         }
     }
+    None
+}
+
+fn parse_shell_sed_summary(cmd: &str, cwd: Option<&str>) -> Option<String> {
+    let tokens = shlex_split(cmd)?;
+    if tokens.first().map(String::as_str)? != "sed" {
+        return None;
+    }
+
+    let args = tokens_without_program_options(&tokens);
+    let script = strip_shell_quotes(args.first()?);
+    let path = compact_command_path(strip_shell_quotes(args.get(1)?), cwd);
+
+    let mut out = format!("✱ Search {path}");
+    if let Some(range) = parse_sed_range(script) {
+        out.push(' ');
+        out.push_str(&range);
+    }
     Some(out)
+}
+
+fn parse_shell_read_path(cmd: &str, cwd: Option<&str>) -> Option<String> {
+    let tokens = shlex_split(cmd)?;
+    let first = tokens
+        .first()?
+        .rsplit('/')
+        .next()
+        .unwrap_or(tokens.first()?);
+    if !matches!(first, "nl" | "cat" | "bat" | "head" | "tail") {
+        return None;
+    }
+
+    tokens
+        .iter()
+        .skip(1)
+        .rev()
+        .find(|t| !t.starts_with('-'))
+        .map(|t| compact_command_path(strip_shell_quotes(t), cwd))
+}
+
+fn parse_shell_pipeline_summary(cmd: &str, cwd: Option<&str>) -> Option<String> {
+    let (lhs, rhs) = cmd.split_once('|')?;
+    let lhs = lhs.trim();
+    let rhs = rhs.trim();
+
+    if let Some(range) = shlex_split(rhs)
+        .and_then(|tokens| tokens_without_program_options(&tokens).first().cloned())
+        .and_then(|script| parse_sed_range(strip_shell_quotes(&script)))
+    {
+        if let Some(path) = parse_shell_read_path(lhs, cwd) {
+            return Some(format!("✱ Search {path} {range}"));
+        }
+    }
+
+    None
 }
 
 pub(super) fn command_summary_from_shell_cmd(cmd: &str, cwd: Option<&str>) -> Option<String> {
@@ -598,6 +642,10 @@ pub(super) fn command_summary_from_shell_cmd(cmd: &str, cwd: Option<&str>) -> Op
     let cmd = cmd.trim();
     if cmd.is_empty() {
         return None;
+    }
+
+    if let Some(summary) = parse_shell_pipeline_summary(cmd, cwd) {
+        return Some(summary);
     }
 
     let lower = cmd.to_ascii_lowercase();
