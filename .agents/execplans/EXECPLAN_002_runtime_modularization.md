@@ -12,7 +12,7 @@ After this change, contributors should be able to work on transcript rendering, 
 
 - [x] (2026-03-28 01:15Z) Created the modularization ExecPlan and registered it in `PROGRAM_PLAN.md`.
 - [x] Split `src/app/render.rs` into responsibility-focused modules while preserving all rendering behavior and tests (completed: recorded baseline file-size and perf measurements; extracted resume picker rendering into `src/app/picker_render.rs`; extracted help/model-settings/approval/perf overlays into `src/app/overlay_render.rs`; extracted transcript layout/counting and markdown/ANSI/diff helpers into `src/app/transcript_render.rs`; `render.rs` now owns only input/layout helpers plus main-frame composition).
-- [ ] Split `src/app/state.rs` into focused state structures and helper modules without changing runtime semantics (completed: extracted runtime/model-settings ownership into `src/app/runtime_settings_state.rs`; extracted approval choice/request state into `src/app/approval_state.rs`; extracted render-cache ownership into `src/app/render_cache_state.rs`; extracted Ralph automation plus queued-turn ownership into `src/app/ralph_runtime_state.rs`; extracted input-history plus rewind-mode ownership into `src/app/input_history_state.rs`; remaining: transcript/message ownership and scroll/selection ownership boundaries).
+- [ ] Split `src/app/state.rs` into focused state structures and helper modules without changing runtime semantics (completed: extracted runtime/model-settings ownership into `src/app/runtime_settings_state.rs`; extracted approval choice/request state into `src/app/approval_state.rs`; extracted render-cache ownership into `src/app/render_cache_state.rs`; extracted Ralph automation plus queued-turn ownership into `src/app/ralph_runtime_state.rs`; extracted input-history plus rewind-mode ownership into `src/app/input_history_state.rs`; extracted viewport, selection, and mobile-pointer ownership into `src/app/viewport_state.rs`; remaining: transcript/message ownership boundary).
 - [ ] Split `src/app/input.rs` and `src/app/notifications.rs` into narrower orchestration plus domain-specific helpers.
 - [ ] Split `src/tests.rs` to mirror the runtime module boundaries.
 - [ ] Re-run correctness and perf validation, update this ExecPlan, and move it to `.agents/done/` when complete.
@@ -45,6 +45,9 @@ After this change, contributors should be able to work on transcript rendering, 
 
 - Observation: input history and rewind mode were also a stable ownership seam once split together. The rewind flags depend on the same navigation indices and stored draft state as input history, so extracting them as one `InputHistoryState` removed more mutable UI bookkeeping without touching the transcript pipeline itself.
   Evidence: after extracting `src/app/input_history_state.rs`, `src/app/state.rs` dropped to `907` lines while the new module holds `144`, and the frozen perf snapshot stayed close to prior runs at `full_layout=49.70 ms`, `full_draw=0.88 ms`, and `append_total p50=0.68 ms`.
+
+- Observation: viewport and selection state were easier to extract than transcript/message ownership because the remaining churn was almost entirely mechanical field-path updates. Moving scroll/follow, selection/drag, mobile-pointer gesture state, and help/scroll toggles into `ViewportState` reduced `AppState` further without touching the notification or transcript mutation flows.
+  Evidence: after extracting `src/app/viewport_state.rs`, `src/app/state.rs` dropped to `879` lines while the new module holds `46`, and the frozen perf snapshot remained flat at `full_layout=47.44 ms`, `full_draw=0.76 ms`, and `append_total p50=0.69 ms`.
 
 ## Decision Log
 
@@ -88,6 +91,10 @@ After this change, contributors should be able to work on transcript rendering, 
   Rationale: the rewind selection index, saved draft, and history traversal are tightly coupled; splitting them apart would only add getters/setters without reducing conceptual coupling. Moving them together leaves the remaining `AppState` debt concentrated in transcript and viewport ownership.
   Date/Author: 2026-03-28 / codex
 
+- Decision: extract viewport/selection/mobile-pointer state before attempting transcript/message ownership.
+  Rationale: once Ralph and rewind state were out of `AppState`, the viewport cluster became the last narrow mechanical seam. Taking it first keeps momentum and leaves the final state split focused on the genuinely broad transcript/message ownership problem.
+  Date/Author: 2026-03-28 / codex
+
 ## Outcomes & Retrospective
 
 Partial Milestone 1 outcome: the resume picker layout and delete-confirmation rendering now live in `src/app/picker_render.rs` instead of `src/app/render.rs`, with no observed correctness regressions in the test suite. The runtime behavior remains intact, and the next Milestone 1 slices can focus on transcript and overlay rendering without mixing picker changes back into the main transcript renderer.
@@ -105,6 +112,8 @@ Third partial Milestone 2 outcome: rendered-block caches, dirty-range tracking, 
 Fourth partial Milestone 2 outcome: Ralph automation, queued turn submission, continuation deadlines, and prompt override/config ownership now live in `src/app/ralph_runtime_state.rs`. `AppState` still exposes the same behavior to input handling, notifications, and the renderer, but another multi-field runtime state machine no longer lives inline with transcript, rewind, and selection ownership.
 
 Fifth partial Milestone 2 outcome: input history, prompt-to-message anchoring, rewind-mode flags, and stored rewind draft text now live in `src/app/input_history_state.rs`. `AppState` still coordinates rewind effects on scroll position and transcript truncation, but the actual history/rewind bookkeeping is no longer mixed into unrelated runtime state.
+
+Sixth partial Milestone 2 outcome: scroll position, follow mode, selection/drag state, mobile-pointer gesture buffers, help-overlay visibility, and scroll inversion now live in `src/app/viewport_state.rs`. `AppState` still coordinates transcript materialization and selection copy, but the viewport/UI bookkeeping no longer lives inline with transcript, Ralph, and history state.
 
 ## Context and Orientation
 
@@ -334,6 +343,35 @@ Post-slice file-size and perf snapshot after extracting `src/app/input_history_s
       tool_call_plain msgs=1795 lines=6827 total_ms=1.25
       reasoning_markdown msgs=334 lines=1131 total_ms=1.05
       user_plain msgs=197 lines=1515 total_ms=0.45
+
+Post-slice file-size and perf snapshot after extracting `src/app/viewport_state.rs`:
+
+    wc -l src/app/state.rs src/app/viewport_state.rs
+      879 src/app/state.rs
+       46 src/app/viewport_state.rs
+      925 total
+
+    target/release/carlos perf-session /tmp/carlos-perf-session-019cdf51-snapshot.jsonl --width 160 --height 48
+    carlos perf-session
+    source: /tmp/carlos-perf-session-019cdf51-snapshot.jsonl
+    viewport: 160x48
+    transcript: messages=4962 rendered_lines=150333 relevant_items=4961 replay_elapsed_ms=145.25
+    memory_kib: before=0 after_replay=0 after_bench=0
+    replay_apply:  p50 0.00 p95 0.02 avg 0.00 max 0.32 ms
+    full_layout:   47.44 ms
+    full_draw:     0.76 ms
+    scroll_draw:   p50 0.69 p95 2.28 avg 0.87 max 3.25 ms
+    typing_draw:   p50 0.67 p95 0.67 avg 0.67 max 0.72 ms
+    working_draw:  p50 0.67 p95 0.67 avg 0.66 max 0.71 ms
+    append_total:  p50 0.69 p95 0.72 avg 0.69 max 0.72 ms
+    layout_breakdown:
+      tool_output_ansi msgs=1770 lines=129844 total_ms=34.81
+      commentary_plain msgs=710 lines=2124 total_ms=5.35
+      assistant_markdown msgs=132 lines=2400 total_ms=4.39
+      diff msgs=23 lines=6489 total_ms=2.64
+      tool_call_plain msgs=1795 lines=6827 total_ms=1.22
+      reasoning_markdown msgs=334 lines=1131 total_ms=1.02
+      user_plain msgs=197 lines=1515 total_ms=0.44
 
 Post-slice file-size report after extracting `src/app/overlay_render.rs`:
 

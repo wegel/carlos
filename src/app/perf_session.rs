@@ -355,13 +355,13 @@ fn benchmark_scroll_draws(
     };
     let max_scroll = app.rendered_line_count().saturating_sub(msg_height);
     let step = ((max_scroll / MAX_SCROLL_SAMPLES.max(1)).max(msg_height / 2)).max(1);
-    let old_scroll = app.scroll_top;
-    let old_follow = app.auto_follow_bottom;
+    let old_scroll = app.viewport.scroll_top;
+    let old_follow = app.viewport.auto_follow_bottom;
 
     let mut pos = 0usize;
     while pos <= max_scroll {
-        app.scroll_top = pos;
-        app.auto_follow_bottom = pos >= max_scroll;
+        app.viewport.scroll_top = pos;
+        app.viewport.auto_follow_bottom = pos >= max_scroll;
         let draw_started = Instant::now();
         terminal.draw(|frame| render_main_view(frame, app))?;
         stats.scroll_draw.push(draw_started.elapsed());
@@ -371,8 +371,8 @@ fn benchmark_scroll_draws(
         pos = (pos + step).min(max_scroll);
     }
 
-    app.scroll_top = old_scroll.min(max_scroll);
-    app.auto_follow_bottom = old_follow;
+    app.viewport.scroll_top = old_scroll.min(max_scroll);
+    app.viewport.auto_follow_bottom = old_follow;
     Ok(())
 }
 

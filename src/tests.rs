@@ -664,14 +664,14 @@ fn rewind_scroll_aligns_to_selected_prompt_history_position() {
         width: 100,
         height: 6,
     });
-    let newer_scroll = app.scroll_top;
+    let newer_scroll = app.viewport.scroll_top;
 
     app.set_rewind_selection_for_test(Some(0));
     app.align_rewind_scroll_to_selected_prompt(TerminalSize {
         width: 100,
         height: 6,
     });
-    let older_scroll = app.scroll_top;
+    let older_scroll = app.viewport.scroll_top;
 
     assert!(older_scroll <= newer_scroll);
 }
@@ -1102,16 +1102,16 @@ fn incoming_agent_delta_does_not_reenable_auto_follow_when_scrolled_up() {
     let mut app = AppState::new("thread-1".to_string());
     let idx = app.append_message(Role::Assistant, "hello");
     app.put_agent_item_mapping("item-1", idx);
-    app.auto_follow_bottom = false;
-    app.scroll_top = 4;
+    app.viewport.auto_follow_bottom = false;
+    app.viewport.scroll_top = 4;
 
     handle_notification_line(
         &mut app,
         "{\"method\":\"item/agentMessage/delta\",\"params\":{\"itemId\":\"item-1\",\"delta\":\" world\"}}",
     );
 
-    assert!(!app.auto_follow_bottom);
-    assert_eq!(app.scroll_top, 4);
+    assert!(!app.viewport.auto_follow_bottom);
+    assert_eq!(app.viewport.scroll_top, 4);
     assert_eq!(app.messages[idx].text, "hello world");
 }
 
@@ -2288,7 +2288,7 @@ fn consume_mobile_mouse_char_does_not_swallow_plain_digits() {
         consume_mobile_mouse_char(&mut app, '2'),
         MobileMouseConsume::PassThrough
     ));
-    assert!(app.mobile_mouse_buffer.is_empty());
+    assert!(app.viewport.mobile_mouse_buffer.is_empty());
 }
 
 #[test]
@@ -2315,8 +2315,8 @@ fn consume_mobile_mouse_char_requires_prefix_to_activate() {
 #[test]
 fn consume_mobile_mouse_char_accepts_csi_bracket_prefix() {
     let mut app = AppState::new("thread-1".to_string());
-    app.scroll_top = 12;
-    app.mobile_mouse_last_y = Some(40);
+    app.viewport.scroll_top = 12;
+    app.viewport.mobile_mouse_last_y = Some(40);
 
     for ch in ['[', '<', '6', '4', ';', '7', '6', ';', '4', '6', 'M'] {
         assert!(matches!(
@@ -2324,8 +2324,8 @@ fn consume_mobile_mouse_char_accepts_csi_bracket_prefix() {
             MobileMouseConsume::Consumed
         ));
     }
-    assert_eq!(app.scroll_top, 18);
-    assert!(app.mobile_mouse_buffer.is_empty());
+    assert_eq!(app.viewport.scroll_top, 18);
+    assert!(app.viewport.mobile_mouse_buffer.is_empty());
 }
 
 #[test]
@@ -2351,7 +2351,7 @@ fn mobile_mouse_key_candidate_accepts_alt_prefixed_csi_chars() {
 #[test]
 fn mobile_mouse_key_candidate_accepts_plain_coords_when_pending() {
     let mut app = AppState::new("thread-1".to_string());
-    app.mobile_plain_pending_coords = true;
+    app.viewport.mobile_plain_pending_coords = true;
     assert!(is_mobile_mouse_key_candidate(
         &app,
         KeyCode::Char('7'),
@@ -2372,9 +2372,9 @@ fn mobile_mouse_key_candidate_accepts_plain_coords_when_pending() {
 #[test]
 fn consume_mobile_mouse_char_plain_pending_pair_applies_scroll() {
     let mut app = AppState::new("thread-1".to_string());
-    app.mobile_plain_pending_coords = true;
-    app.scroll_top = 20;
-    app.mobile_mouse_last_y = Some(50);
+    app.viewport.mobile_plain_pending_coords = true;
+    app.viewport.scroll_top = 20;
+    app.viewport.mobile_mouse_last_y = Some(50);
 
     for ch in ['6', '6', ';', '5', '2'] {
         assert!(matches!(
@@ -2383,45 +2383,45 @@ fn consume_mobile_mouse_char_plain_pending_pair_applies_scroll() {
         ));
     }
 
-    assert_eq!(app.scroll_top, 23);
-    assert!(!app.mobile_plain_pending_coords);
-    assert!(app.mobile_mouse_buffer.is_empty());
+    assert_eq!(app.viewport.scroll_top, 23);
+    assert!(!app.viewport.mobile_plain_pending_coords);
+    assert!(app.viewport.mobile_mouse_buffer.is_empty());
 }
 
 #[test]
 fn consume_mobile_mouse_char_plain_pending_repeated_pair_reuses_direction() {
     let mut app = AppState::new("thread-1".to_string());
-    app.scroll_top = 20;
-    app.mobile_mouse_last_y = Some(50);
+    app.viewport.scroll_top = 20;
+    app.viewport.mobile_mouse_last_y = Some(50);
 
-    app.mobile_plain_pending_coords = true;
+    app.viewport.mobile_plain_pending_coords = true;
     for ch in ['6', '6', ';', '5', '2'] {
         let _ = consume_mobile_mouse_char(&mut app, ch);
     }
-    assert_eq!(app.scroll_top, 23);
+    assert_eq!(app.viewport.scroll_top, 23);
 
-    app.mobile_plain_pending_coords = true;
+    app.viewport.mobile_plain_pending_coords = true;
     for ch in ['6', '6', ';', '5', '2'] {
         let _ = consume_mobile_mouse_char(&mut app, ch);
     }
-    assert_eq!(app.scroll_top, 26);
+    assert_eq!(app.viewport.scroll_top, 26);
 }
 
 #[test]
 fn consume_mobile_mouse_char_plain_pending_new_gesture_keeps_prior_direction() {
     let mut app = AppState::new("thread-1".to_string());
-    app.scroll_top = 20;
-    app.mobile_mouse_last_y = Some(50);
-    app.mobile_plain_last_direction = 1;
-    app.mobile_plain_new_gesture = true;
-    app.mobile_plain_pending_coords = true;
+    app.viewport.scroll_top = 20;
+    app.viewport.mobile_mouse_last_y = Some(50);
+    app.viewport.mobile_plain_last_direction = 1;
+    app.viewport.mobile_plain_new_gesture = true;
+    app.viewport.mobile_plain_pending_coords = true;
 
     for ch in ['6', '4', ';', '4', '7'] {
         let _ = consume_mobile_mouse_char(&mut app, ch);
     }
 
-    assert_eq!(app.scroll_top, 23);
-    assert_eq!(app.mobile_plain_last_direction, 1);
+    assert_eq!(app.viewport.scroll_top, 23);
+    assert_eq!(app.viewport.mobile_plain_last_direction, 1);
 }
 
 #[test]
@@ -2440,8 +2440,8 @@ fn parse_repeated_plain_mobile_pair_accepts_concatenated_repetition() {
 #[test]
 fn consume_mobile_mouse_char_applies_scroll_on_terminator() {
     let mut app = AppState::new("thread-1".to_string());
-    app.scroll_top = 10;
-    app.mobile_mouse_last_y = Some(40);
+    app.viewport.scroll_top = 10;
+    app.viewport.mobile_mouse_last_y = Some(40);
 
     for ch in ['<', '6', '4', ';', '7', '6', ';', '4', '6'] {
         assert!(matches!(
@@ -2453,35 +2453,35 @@ fn consume_mobile_mouse_char_applies_scroll_on_terminator() {
         consume_mobile_mouse_char(&mut app, 'M'),
         MobileMouseConsume::Consumed
     ));
-    assert_eq!(app.scroll_top, 16);
-    assert!(app.mobile_mouse_buffer.is_empty());
+    assert_eq!(app.viewport.scroll_top, 16);
+    assert!(app.viewport.mobile_mouse_buffer.is_empty());
 }
 
 #[test]
 fn apply_mobile_mouse_scroll_uses_natural_touch_direction() {
     let mut app = AppState::new("thread-1".to_string());
-    app.scroll_top = 20;
-    app.mobile_mouse_last_y = Some(40);
+    app.viewport.scroll_top = 20;
+    app.viewport.mobile_mouse_last_y = Some(40);
 
     apply_mobile_mouse_scroll(&mut app, 44);
-    assert_eq!(app.scroll_top, 24);
+    assert_eq!(app.viewport.scroll_top, 24);
 
     apply_mobile_mouse_scroll(&mut app, 42);
-    assert_eq!(app.scroll_top, 22);
+    assert_eq!(app.viewport.scroll_top, 22);
 }
 
 #[test]
 fn apply_mobile_mouse_scroll_honors_invert_toggle() {
     let mut app = AppState::new("thread-1".to_string());
-    app.scroll_inverted = true;
-    app.scroll_top = 20;
-    app.mobile_mouse_last_y = Some(40);
+    app.viewport.scroll_inverted = true;
+    app.viewport.scroll_top = 20;
+    app.viewport.mobile_mouse_last_y = Some(40);
 
     apply_mobile_mouse_scroll(&mut app, 44);
-    assert_eq!(app.scroll_top, 16);
+    assert_eq!(app.viewport.scroll_top, 16);
 
     apply_mobile_mouse_scroll(&mut app, 42);
-    assert_eq!(app.scroll_top, 18);
+    assert_eq!(app.viewport.scroll_top, 18);
 }
 
 #[test]

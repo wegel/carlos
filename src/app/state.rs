@@ -28,6 +28,7 @@ use super::transcript_render::{
     build_rendered_lines_with_hidden, format_read_summary_with_count, parse_read_summary,
     transcript_content_width,
 };
+use super::viewport_state::ViewportState;
 use super::{RuntimeDefaults, MSG_TOP};
 pub(super) struct AppState {
     pub(super) thread_id: String,
@@ -47,19 +48,7 @@ pub(super) struct AppState {
     pub(super) runtime: RuntimeSettingsState,
     pub(super) approval: ApprovalState,
 
-    pub(super) scroll_top: usize,
-    pub(super) auto_follow_bottom: bool,
-    pub(super) selection: Option<Selection>,
-    pub(super) mouse_drag_mode: MouseDragMode,
-    pub(super) mouse_drag_last_row: usize,
-    pub(super) mobile_mouse_buffer: String,
-    pub(super) mobile_mouse_last_y: Option<usize>,
-    pub(super) mobile_plain_pending_coords: bool,
-    pub(super) mobile_plain_suppress_coords: bool,
-    pub(super) mobile_plain_last_direction: i8,
-    pub(super) mobile_plain_new_gesture: bool,
-    pub(super) show_help: bool,
-    pub(super) scroll_inverted: bool,
+    pub(super) viewport: ViewportState,
     pub(super) context_usage: Option<ContextUsage>,
     pub(super) perf: Option<PerfMetrics>,
 }
@@ -82,19 +71,7 @@ impl AppState {
             ralph_runtime: RalphRuntimeState::new(),
             runtime: RuntimeSettingsState::new(),
             approval: ApprovalState::new(),
-            scroll_top: 0,
-            auto_follow_bottom: true,
-            selection: None,
-            mouse_drag_mode: MouseDragMode::Undecided,
-            mouse_drag_last_row: 0,
-            mobile_mouse_buffer: String::new(),
-            mobile_mouse_last_y: None,
-            mobile_plain_pending_coords: false,
-            mobile_plain_suppress_coords: false,
-            mobile_plain_last_direction: 0,
-            mobile_plain_new_gesture: false,
-            show_help: false,
-            scroll_inverted: false,
+            viewport: ViewportState::new(),
             context_usage: None,
             perf: None,
         }
@@ -354,7 +331,7 @@ impl AppState {
         if !self.input_history.enter_rewind_mode(self.input_text()) {
             return;
         }
-        self.auto_follow_bottom = false;
+        self.viewport.auto_follow_bottom = false;
         let _ = self.navigate_input_history_up();
     }
 
@@ -362,13 +339,13 @@ impl AppState {
         let Some(draft) = self.input_history.exit_rewind_mode_restore() else {
             return;
         };
-        self.auto_follow_bottom = true;
+        self.viewport.auto_follow_bottom = true;
         self.set_input_text(&draft);
     }
 
     pub(super) fn clear_rewind_mode_state(&mut self) {
         self.input_history.clear_rewind_mode_state();
-        self.auto_follow_bottom = true;
+        self.viewport.auto_follow_bottom = true;
     }
 
     pub(super) fn rewind_fork_from_message_idx(&mut self, message_idx: Option<usize>) {
@@ -380,10 +357,10 @@ impl AppState {
         }
 
         self.messages.truncate(idx);
-        self.selection = None;
-        self.mouse_drag_mode = MouseDragMode::Undecided;
-        self.auto_follow_bottom = true;
-        self.scroll_top = self.scroll_top.min(self.messages.len());
+        self.viewport.selection = None;
+        self.viewport.mouse_drag_mode = MouseDragMode::Undecided;
+        self.viewport.auto_follow_bottom = true;
+        self.viewport.scroll_top = self.viewport.scroll_top.min(self.messages.len());
         self.agent_item_to_index.retain(|_, msg_idx| *msg_idx < idx);
         self.turn_diff_to_index.retain(|_, msg_idx| *msg_idx < idx);
         self.command_render_overrides.clear();
@@ -453,7 +430,7 @@ impl AppState {
             return;
         }
         let target_line = rendered_upto.len().saturating_sub(1);
-        self.scroll_top = target_line.saturating_sub(msg_height.saturating_sub(1));
+        self.viewport.scroll_top = target_line.saturating_sub(msg_height.saturating_sub(1));
     }
 
     pub(super) fn input_apply_key(&mut self, key: crossterm::event::KeyEvent) {
@@ -482,12 +459,7 @@ impl AppState {
     }
 
     pub(super) fn sync_auto_follow_bottom(&mut self, max_scroll: usize) {
-        if self.scroll_top >= max_scroll {
-            self.scroll_top = max_scroll;
-            self.auto_follow_bottom = true;
-        } else {
-            self.auto_follow_bottom = false;
-        }
+        self.viewport.sync_auto_follow_bottom(max_scroll);
     }
 
     pub(super) fn ensure_rendered_lines(

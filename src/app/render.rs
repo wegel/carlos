@@ -318,17 +318,17 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
 
     let total_lines = app.rendered_line_count();
     let max_scroll = total_lines.saturating_sub(msg_height);
-    if app.scroll_top > max_scroll {
-        app.scroll_top = max_scroll;
+    if app.viewport.scroll_top > max_scroll {
+        app.viewport.scroll_top = max_scroll;
     }
-    if app.auto_follow_bottom && max_scroll > 0 {
-        app.scroll_top = max_scroll;
+    if app.viewport.auto_follow_bottom && max_scroll > 0 {
+        app.viewport.scroll_top = max_scroll;
     }
     if msg_height > 0 && total_lines > 0 {
-        let end_idx = (app.scroll_top + msg_height)
+        let end_idx = (app.viewport.scroll_top + msg_height)
             .saturating_sub(1)
             .min(total_lines.saturating_sub(1));
-        app.ensure_rendered_range_materialized(app.scroll_top, end_idx);
+        app.ensure_rendered_range_materialized(app.viewport.scroll_top, end_idx);
     }
 
     let buf = frame.buffer_mut();
@@ -352,7 +352,7 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
     }
 
     for i in 0..msg_height {
-        let line_idx = app.scroll_top + i;
+        let line_idx = app.viewport.scroll_top + i;
         let row_1b = msg_top + i;
         let y = row_1b - 1;
 
@@ -409,6 +409,7 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
         }
 
         let selection_range = app
+            .viewport
             .selection
             .and_then(|sel| compute_selection_range(sel, line_idx, line.cells))
             .map(|(start, end)| (start.min(line.cells), end.min(line.cells)));
@@ -595,7 +596,7 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
         }
     }
 
-    if app.show_help {
+    if app.viewport.show_help {
         draw_help_overlay(buf, size);
     }
     if let Some(perf) = app.perf.as_ref() {

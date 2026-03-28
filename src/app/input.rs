@@ -77,11 +77,11 @@ pub(super) fn is_mobile_mouse_key_candidate(
     code: KeyCode,
     modifiers: KeyModifiers,
 ) -> bool {
-    if app.mobile_plain_pending_coords || app.mobile_plain_suppress_coords {
+    if app.viewport.mobile_plain_pending_coords || app.viewport.mobile_plain_suppress_coords {
         return matches!(code, KeyCode::Char(ch) if ch.is_ascii_digit() || ch == ';');
     }
 
-    if !app.mobile_mouse_buffer.is_empty() {
+    if !app.viewport.mobile_mouse_buffer.is_empty() {
         return matches!(code, KeyCode::Char(_));
     }
 
@@ -337,7 +337,7 @@ pub(super) fn run_conversation_tui(
                                     continue;
                                 }
                                 if matches!(k.code, KeyCode::F(6)) && k.modifiers.is_empty() {
-                                    app.scroll_inverted = !app.scroll_inverted;
+                                    app.viewport.scroll_inverted = !app.viewport.scroll_inverted;
                                     needs_draw = true;
                                     continue;
                                 }
@@ -346,16 +346,16 @@ pub(super) fn run_conversation_tui(
                                 if k.code != KeyCode::Esc {
                                     app.reset_esc_chord();
                                 }
-                                if app.show_help {
+                                if app.viewport.show_help {
                                     match (k.code, k.modifiers) {
                                         (code, mods) if is_ctrl_char(code, mods, 'c') => {
                                             return Ok(())
                                         }
                                         (KeyCode::Esc, _) => {
-                                            app.show_help = false;
+                                            app.viewport.show_help = false;
                                         }
                                         (KeyCode::Char('?'), _) => {
-                                            app.show_help = false;
+                                            app.viewport.show_help = false;
                                         }
                                         _ => {}
                                     }
@@ -481,7 +481,7 @@ pub(super) fn run_conversation_tui(
 
                                 if is_mobile_mouse_key_candidate(app, k.code, k.modifiers) {
                                     if let KeyCode::Char(ch) = k.code {
-                                        let was_plain_capture = app.mobile_plain_pending_coords;
+                                        let was_plain_capture = app.viewport.mobile_plain_pending_coords;
                                         match consume_mobile_mouse_char(app, ch) {
                                             MobileMouseConsume::PassThrough => {}
                                             MobileMouseConsume::Consumed => {
@@ -499,13 +499,13 @@ pub(super) fn run_conversation_tui(
                                     }
                                 } else if let Some(text) = take_mobile_mouse_buffer(app) {
                                     if !text.is_empty()
-                                        && !app.mobile_plain_pending_coords
-                                        && !app.mobile_plain_suppress_coords
+                                        && !app.viewport.mobile_plain_pending_coords
+                                        && !app.viewport.mobile_plain_suppress_coords
                                     {
                                         app.input_insert_text(text);
                                     }
-                                    app.mobile_plain_pending_coords = false;
-                                    app.mobile_plain_suppress_coords = false;
+                                    app.viewport.mobile_plain_pending_coords = false;
+                                    app.viewport.mobile_plain_suppress_coords = false;
                                 }
 
                                 match (k.code, k.modifiers) {
@@ -519,7 +519,7 @@ pub(super) fn run_conversation_tui(
                                         }
                                     }
                                     (KeyCode::Char('y'), KeyModifiers::CONTROL) => {
-                                        if let Some(sel) = app.selection {
+                                        if let Some(sel) = app.viewport.selection {
                                             let copied = app.selected_text(sel);
                                             if !copied.is_empty() {
                                                 let _ = try_copy_clipboard(&copied);
@@ -535,8 +535,8 @@ pub(super) fn run_conversation_tui(
                                         }
                                     }
                                     (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
-                                        app.selection = None;
-                                        app.mouse_drag_mode = MouseDragMode::Undecided;
+                                        app.viewport.selection = None;
+                                        app.viewport.mouse_drag_mode = MouseDragMode::Undecided;
                                         app.set_status("selection cleared");
                                     }
                                     (KeyCode::Esc, mods) if mods.is_empty() => {
@@ -559,8 +559,8 @@ pub(super) fn run_conversation_tui(
                                                 Err(e) => app.set_status(format!("{e}")),
                                             }
                                         } else if app.register_escape_press(now) {
-                                            app.selection = None;
-                                            app.mouse_drag_mode = MouseDragMode::Undecided;
+                                            app.viewport.selection = None;
+                                            app.viewport.mouse_drag_mode = MouseDragMode::Undecided;
                                             if app.input_is_empty()
                                                 && app.has_pending_ralph_continuation()
                                             {
@@ -577,12 +577,12 @@ pub(super) fn run_conversation_tui(
                                     }
                                     (KeyCode::Home, _) if app.input_is_empty() => {
                                         ensure_transcript_layout(app, size);
-                                        app.auto_follow_bottom = false;
-                                        app.scroll_top = 0;
+                                        app.viewport.auto_follow_bottom = false;
+                                        app.viewport.scroll_top = 0;
                                     }
                                     (KeyCode::End, _) if app.input_is_empty() => {
                                         ensure_transcript_layout(app, size);
-                                        app.auto_follow_bottom = true;
+                                        app.viewport.auto_follow_bottom = true;
                                     }
                                     (KeyCode::Up, _) => {
                                         if app.navigate_input_history_up() {
@@ -604,7 +604,7 @@ pub(super) fn run_conversation_tui(
                                         };
                                         let max_scroll =
                                             app.rendered_line_count().saturating_sub(msg_height);
-                                        app.scroll_top = app.scroll_top.saturating_sub(10);
+                                        app.viewport.scroll_top = app.viewport.scroll_top.saturating_sub(10);
                                         app.sync_auto_follow_bottom(max_scroll);
                                     }
                                     (KeyCode::PageDown, _) => {
@@ -617,8 +617,8 @@ pub(super) fn run_conversation_tui(
                                         };
                                         let max_scroll =
                                             app.rendered_line_count().saturating_sub(msg_height);
-                                        app.scroll_top =
-                                            app.scroll_top.saturating_add(10).min(max_scroll);
+                                        app.viewport.scroll_top =
+                                            app.viewport.scroll_top.saturating_add(10).min(max_scroll);
                                         app.sync_auto_follow_bottom(max_scroll);
                                     }
                                     (KeyCode::Enter, mods) if is_newline_enter(mods) => {
@@ -640,13 +640,13 @@ pub(super) fn run_conversation_tui(
                                         app.rewind_fork_from_message_idx(rewind_target_idx);
                                         app.push_input_history(&text);
                                         app.clear_input();
-                                        app.selection = None;
+                                        app.viewport.selection = None;
                                         app.mark_user_turn_submitted();
                                         submit_turn_text(client, app, text);
                                     }
                                     (KeyCode::Char('?'), _) => {
                                         if app.input_is_empty() {
-                                            app.show_help = true;
+                                            app.viewport.show_help = true;
                                         } else {
                                             app.input_apply_key(k);
                                         }
@@ -661,7 +661,7 @@ pub(super) fn run_conversation_tui(
                                 if let Some(perf) = app.perf.as_mut() {
                                     perf.mouse_events = perf.mouse_events.saturating_add(1);
                                 }
-                                if app.show_help || app.runtime.show_model_settings {
+                                if app.viewport.show_help || app.runtime.show_model_settings {
                                     continue;
                                 }
                                 ensure_transcript_layout(app, size);
@@ -676,7 +676,7 @@ pub(super) fn run_conversation_tui(
                                 let in_messages = row1 >= msg_top && row1 <= msg_bottom;
                                 let norm_x = normalize_selection_x(m.column as usize);
                                 let clamped_y = row1.clamp(msg_top, msg_bottom);
-                                let clamped_line_idx = app.scroll_top + (clamped_y - msg_top);
+                                let clamped_line_idx = app.viewport.scroll_top + (clamped_y - msg_top);
                                 let msg_height = msg_bottom - msg_top + 1;
                                 let max_scroll =
                                     app.rendered_line_count().saturating_sub(msg_height);
@@ -684,23 +684,23 @@ pub(super) fn run_conversation_tui(
 
                                 match m.kind {
                                     MouseEventKind::ScrollUp => {
-                                        let prev_scroll = app.scroll_top;
-                                        let prev_follow = app.auto_follow_bottom;
-                                        if app.scroll_inverted {
-                                            app.scroll_top =
-                                                (app.scroll_top.saturating_add(3)).min(max_scroll);
+                                        let prev_scroll = app.viewport.scroll_top;
+                                        let prev_follow = app.viewport.auto_follow_bottom;
+                                        if app.viewport.scroll_inverted {
+                                            app.viewport.scroll_top =
+                                                (app.viewport.scroll_top.saturating_add(3)).min(max_scroll);
                                         } else {
-                                            app.scroll_top = app.scroll_top.saturating_sub(3);
+                                            app.viewport.scroll_top = app.viewport.scroll_top.saturating_sub(3);
                                         }
                                         app.sync_auto_follow_bottom(max_scroll);
                                         let scroll_delta =
-                                            app.scroll_top as isize - prev_scroll as isize;
+                                            app.viewport.scroll_top as isize - prev_scroll as isize;
                                         if scroll_delta != 0
-                                            && app.mouse_drag_mode != MouseDragMode::Scroll
+                                            && app.viewport.mouse_drag_mode != MouseDragMode::Scroll
                                         {
                                             let max_line_idx =
                                                 app.rendered_line_count().saturating_sub(1);
-                                            if let Some(sel) = app.selection.as_mut() {
+                                            if let Some(sel) = app.viewport.selection.as_mut() {
                                                 if sel.dragging {
                                                     shift_selection_focus(
                                                         sel,
@@ -710,27 +710,27 @@ pub(super) fn run_conversation_tui(
                                                 }
                                             }
                                         }
-                                        mouse_changed = app.scroll_top != prev_scroll
-                                            || app.auto_follow_bottom != prev_follow;
+                                        mouse_changed = app.viewport.scroll_top != prev_scroll
+                                            || app.viewport.auto_follow_bottom != prev_follow;
                                     }
                                     MouseEventKind::ScrollDown => {
-                                        let prev_scroll = app.scroll_top;
-                                        let prev_follow = app.auto_follow_bottom;
-                                        if app.scroll_inverted {
-                                            app.scroll_top = app.scroll_top.saturating_sub(3);
+                                        let prev_scroll = app.viewport.scroll_top;
+                                        let prev_follow = app.viewport.auto_follow_bottom;
+                                        if app.viewport.scroll_inverted {
+                                            app.viewport.scroll_top = app.viewport.scroll_top.saturating_sub(3);
                                         } else {
-                                            app.scroll_top =
-                                                (app.scroll_top.saturating_add(3)).min(max_scroll);
+                                            app.viewport.scroll_top =
+                                                (app.viewport.scroll_top.saturating_add(3)).min(max_scroll);
                                         }
                                         app.sync_auto_follow_bottom(max_scroll);
                                         let scroll_delta =
-                                            app.scroll_top as isize - prev_scroll as isize;
+                                            app.viewport.scroll_top as isize - prev_scroll as isize;
                                         if scroll_delta != 0
-                                            && app.mouse_drag_mode != MouseDragMode::Scroll
+                                            && app.viewport.mouse_drag_mode != MouseDragMode::Scroll
                                         {
                                             let max_line_idx =
                                                 app.rendered_line_count().saturating_sub(1);
-                                            if let Some(sel) = app.selection.as_mut() {
+                                            if let Some(sel) = app.viewport.selection.as_mut() {
                                                 if sel.dragging {
                                                     shift_selection_focus(
                                                         sel,
@@ -740,23 +740,23 @@ pub(super) fn run_conversation_tui(
                                                 }
                                             }
                                         }
-                                        mouse_changed = app.scroll_top != prev_scroll
-                                            || app.auto_follow_bottom != prev_follow;
+                                        mouse_changed = app.viewport.scroll_top != prev_scroll
+                                            || app.viewport.auto_follow_bottom != prev_follow;
                                     }
                                     MouseEventKind::Down(MouseButton::Middle)
                                         if m.modifiers.contains(KeyModifiers::CONTROL)
                                             && m.modifiers.contains(KeyModifiers::ALT) =>
                                     {
-                                        app.mobile_plain_pending_coords = true;
-                                        app.mobile_plain_suppress_coords = false;
-                                        app.mobile_plain_new_gesture = true;
-                                        app.mobile_mouse_buffer.clear();
+                                        app.viewport.mobile_plain_pending_coords = true;
+                                        app.viewport.mobile_plain_suppress_coords = false;
+                                        app.viewport.mobile_plain_new_gesture = true;
+                                        app.viewport.mobile_mouse_buffer.clear();
                                     }
                                     MouseEventKind::Down(MouseButton::Left) => {
-                                        app.mouse_drag_mode = MouseDragMode::Undecided;
-                                        app.mouse_drag_last_row = clamped_y;
+                                        app.viewport.mouse_drag_mode = MouseDragMode::Undecided;
+                                        app.viewport.mouse_drag_last_row = clamped_y;
                                         if in_messages {
-                                            app.selection = Some(Selection {
+                                            app.viewport.selection = Some(Selection {
                                                 anchor_x: norm_x,
                                                 anchor_line_idx: clamped_line_idx,
                                                 focus_x: norm_x,
@@ -767,43 +767,43 @@ pub(super) fn run_conversation_tui(
                                         }
                                     }
                                     MouseEventKind::Drag(MouseButton::Left) => {
-                                        if let Some(sel) = app.selection.as_mut() {
+                                        if let Some(sel) = app.viewport.selection.as_mut() {
                                             if sel.dragging {
-                                                if app.mouse_drag_mode == MouseDragMode::Undecided {
-                                                    app.mouse_drag_mode = decide_mouse_drag_mode(
+                                                if app.viewport.mouse_drag_mode == MouseDragMode::Undecided {
+                                                    app.viewport.mouse_drag_mode = decide_mouse_drag_mode(
                                                         sel.anchor_x,
-                                                        app.mouse_drag_last_row,
+                                                        app.viewport.mouse_drag_last_row,
                                                         norm_x,
                                                         clamped_y,
                                                     );
                                                 }
 
-                                                match app.mouse_drag_mode {
+                                                match app.viewport.mouse_drag_mode {
                                                     MouseDragMode::Scroll => {
-                                                        let prev_scroll = app.scroll_top;
-                                                        let prev_follow = app.auto_follow_bottom;
-                                                        if clamped_y > app.mouse_drag_last_row {
-                                                            app.scroll_top =
-                                                                app.scroll_top.saturating_sub(
+                                                        let prev_scroll = app.viewport.scroll_top;
+                                                        let prev_follow = app.viewport.auto_follow_bottom;
+                                                        if clamped_y > app.viewport.mouse_drag_last_row {
+                                                            app.viewport.scroll_top =
+                                                                app.viewport.scroll_top.saturating_sub(
                                                                     clamped_y
-                                                                        - app.mouse_drag_last_row,
+                                                                        - app.viewport.mouse_drag_last_row,
                                                                 );
                                                         } else if clamped_y
-                                                            < app.mouse_drag_last_row
+                                                            < app.viewport.mouse_drag_last_row
                                                         {
-                                                            app.scroll_top =
-                                                                app.scroll_top.saturating_add(
-                                                                    app.mouse_drag_last_row
+                                                            app.viewport.scroll_top =
+                                                                app.viewport.scroll_top.saturating_add(
+                                                                    app.viewport.mouse_drag_last_row
                                                                         - clamped_y,
                                                                 );
                                                         }
-                                                        app.scroll_top =
-                                                            app.scroll_top.min(max_scroll);
+                                                        app.viewport.scroll_top =
+                                                            app.viewport.scroll_top.min(max_scroll);
                                                         app.sync_auto_follow_bottom(max_scroll);
-                                                        app.mouse_drag_last_row = clamped_y;
-                                                        mouse_changed = app.scroll_top
+                                                        app.viewport.mouse_drag_last_row = clamped_y;
+                                                        mouse_changed = app.viewport.scroll_top
                                                             != prev_scroll
-                                                            || app.auto_follow_bottom
+                                                            || app.viewport.auto_follow_bottom
                                                                 != prev_follow;
                                                     }
                                                     MouseDragMode::Select
@@ -821,7 +821,7 @@ pub(super) fn run_conversation_tui(
                                     }
                                     MouseEventKind::Up(MouseButton::Left) => {
                                         let mut selection_to_copy = None;
-                                        if let Some(sel) = app.selection.as_mut() {
+                                        if let Some(sel) = app.viewport.selection.as_mut() {
                                             if sel.dragging {
                                                 let prev_focus_x = sel.focus_x;
                                                 let prev_focus_idx = sel.focus_line_idx;
@@ -832,8 +832,8 @@ pub(super) fn run_conversation_tui(
                                                     || sel.focus_line_idx != prev_focus_idx
                                                     || !sel.dragging;
 
-                                                if app.mouse_drag_mode == MouseDragMode::Scroll {
-                                                    app.selection = None;
+                                                if app.viewport.mouse_drag_mode == MouseDragMode::Scroll {
+                                                    app.viewport.selection = None;
                                                 } else {
                                                     selection_to_copy = Some(*sel);
                                                 }
@@ -845,7 +845,7 @@ pub(super) fn run_conversation_tui(
                                                 let _ = try_copy_clipboard(&copied);
                                             }
                                         }
-                                        app.mouse_drag_mode = MouseDragMode::Undecided;
+                                        app.viewport.mouse_drag_mode = MouseDragMode::Undecided;
                                     }
                                     _ => {}
                                 }
@@ -857,7 +857,7 @@ pub(super) fn run_conversation_tui(
                                 if let Some(perf) = app.perf.as_mut() {
                                     perf.paste_events = perf.paste_events.saturating_add(1);
                                 }
-                                if app.show_help {
+                                if app.viewport.show_help {
                                     needs_draw = true;
                                     continue;
                                 }

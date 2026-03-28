@@ -26,30 +26,30 @@ pub(super) fn parse_mobile_mouse_coords(s: &str) -> Option<(usize, usize)> {
 }
 
 pub(super) fn apply_mobile_mouse_scroll(app: &mut AppState, y: usize) {
-    if let Some(prev) = app.mobile_mouse_last_y {
-        app.auto_follow_bottom = false;
+    if let Some(prev) = app.viewport.mobile_mouse_last_y {
+        app.viewport.auto_follow_bottom = false;
         let step = y.abs_diff(prev).min(8);
         let step = step.max(1);
         let drag_down = y > prev;
-        let move_down_history = if app.scroll_inverted {
+        let move_down_history = if app.viewport.scroll_inverted {
             !drag_down
         } else {
             drag_down
         };
         if move_down_history {
-            app.scroll_top = app.scroll_top.saturating_add(step);
+            app.viewport.scroll_top = app.viewport.scroll_top.saturating_add(step);
         } else if y != prev {
-            app.scroll_top = app.scroll_top.saturating_sub(step);
+            app.viewport.scroll_top = app.viewport.scroll_top.saturating_sub(step);
         }
     }
-    app.mobile_mouse_last_y = Some(y);
+    app.viewport.mobile_mouse_last_y = Some(y);
 }
 
 fn apply_mobile_plain_scroll(app: &mut AppState, y: usize) {
-    let direction = if app.mobile_plain_new_gesture {
-        app.mobile_plain_new_gesture = false;
-        match app.mobile_plain_last_direction {
-            0 => match app.mobile_mouse_last_y {
+    let direction = if app.viewport.mobile_plain_new_gesture {
+        app.viewport.mobile_plain_new_gesture = false;
+        match app.viewport.mobile_plain_last_direction {
+            0 => match app.viewport.mobile_mouse_last_y {
                 Some(prev) if y > prev => 1,
                 Some(prev) if y < prev => -1,
                 _ => 0,
@@ -57,89 +57,95 @@ fn apply_mobile_plain_scroll(app: &mut AppState, y: usize) {
             prev_dir => prev_dir,
         }
     } else {
-        match app.mobile_mouse_last_y {
+        match app.viewport.mobile_mouse_last_y {
             Some(prev) if y > prev => 1,
             Some(prev) if y < prev => -1,
-            _ => app.mobile_plain_last_direction,
+            _ => app.viewport.mobile_plain_last_direction,
         }
     };
 
-    app.auto_follow_bottom = false;
-    let move_down_history = if app.scroll_inverted {
+    app.viewport.auto_follow_bottom = false;
+    let move_down_history = if app.viewport.scroll_inverted {
         direction < 0
     } else {
         direction > 0
     };
     if move_down_history {
-        app.scroll_top = app.scroll_top.saturating_add(MOBILE_PLAIN_SCROLL_STEP);
+        app.viewport.scroll_top = app
+            .viewport
+            .scroll_top
+            .saturating_add(MOBILE_PLAIN_SCROLL_STEP);
     } else if direction != 0 {
-        app.scroll_top = app.scroll_top.saturating_sub(MOBILE_PLAIN_SCROLL_STEP);
+        app.viewport.scroll_top = app
+            .viewport
+            .scroll_top
+            .saturating_sub(MOBILE_PLAIN_SCROLL_STEP);
     }
 
-    app.mobile_mouse_last_y = Some(y);
-    app.mobile_plain_last_direction = direction;
+    app.viewport.mobile_mouse_last_y = Some(y);
+    app.viewport.mobile_plain_last_direction = direction;
 }
 
 pub(super) fn take_mobile_mouse_buffer(app: &mut AppState) -> Option<String> {
-    if app.mobile_mouse_buffer.is_empty() {
+    if app.viewport.mobile_mouse_buffer.is_empty() {
         return None;
     }
-    Some(std::mem::take(&mut app.mobile_mouse_buffer))
+    Some(std::mem::take(&mut app.viewport.mobile_mouse_buffer))
 }
 
 pub(super) fn consume_mobile_mouse_char(app: &mut AppState, c: char) -> MobileMouseConsume {
-    if app.mobile_mouse_buffer.is_empty() {
-        if (app.mobile_plain_pending_coords || app.mobile_plain_suppress_coords)
+    if app.viewport.mobile_mouse_buffer.is_empty() {
+        if (app.viewport.mobile_plain_pending_coords || app.viewport.mobile_plain_suppress_coords)
             && (c.is_ascii_digit() || c == ';')
         {
-            app.mobile_mouse_buffer.push(c);
+            app.viewport.mobile_mouse_buffer.push(c);
             return MobileMouseConsume::Consumed;
         }
         // Activate only on explicit CSI/SGR-style prefix to avoid swallowing normal typing.
         if c == '<' || c == '[' {
-            app.mobile_mouse_buffer.push(c);
+            app.viewport.mobile_mouse_buffer.push(c);
             return MobileMouseConsume::Consumed;
         }
         return MobileMouseConsume::PassThrough;
     }
 
-    let valid = if app.mobile_plain_pending_coords || app.mobile_plain_suppress_coords {
+    let valid = if app.viewport.mobile_plain_pending_coords || app.viewport.mobile_plain_suppress_coords {
         c.is_ascii_digit() || c == ';'
     } else {
         c.is_ascii_digit() || c == ';' || c == 'M' || c == 'm' || c == '<' || c == '['
     };
     if !valid {
-        let mut out = std::mem::take(&mut app.mobile_mouse_buffer);
-        app.mobile_plain_pending_coords = false;
-        app.mobile_plain_suppress_coords = false;
-        app.mobile_plain_last_direction = 0;
-        app.mobile_plain_new_gesture = false;
+        let mut out = std::mem::take(&mut app.viewport.mobile_mouse_buffer);
+        app.viewport.mobile_plain_pending_coords = false;
+        app.viewport.mobile_plain_suppress_coords = false;
+        app.viewport.mobile_plain_last_direction = 0;
+        app.viewport.mobile_plain_new_gesture = false;
         out.push(c);
         return MobileMouseConsume::Emit(out);
     }
 
-    app.mobile_mouse_buffer.push(c);
+    app.viewport.mobile_mouse_buffer.push(c);
 
-    if app.mobile_plain_pending_coords || app.mobile_plain_suppress_coords {
-        if let Some((_, y)) = parse_plain_mobile_pair(&app.mobile_mouse_buffer) {
-            if app.mobile_plain_pending_coords {
+    if app.viewport.mobile_plain_pending_coords || app.viewport.mobile_plain_suppress_coords {
+        if let Some((_, y)) = parse_plain_mobile_pair(&app.viewport.mobile_mouse_buffer) {
+            if app.viewport.mobile_plain_pending_coords {
                 apply_mobile_plain_scroll(app, y);
             }
-            app.mobile_mouse_buffer.clear();
-            app.mobile_plain_pending_coords = false;
-            app.mobile_plain_suppress_coords = false;
+            app.viewport.mobile_mouse_buffer.clear();
+            app.viewport.mobile_plain_pending_coords = false;
+            app.viewport.mobile_plain_suppress_coords = false;
             return MobileMouseConsume::Consumed;
         }
-        if app.mobile_mouse_buffer.len() > 8 {
-            let emit = app.mobile_plain_pending_coords;
-            app.mobile_plain_pending_coords = false;
-            app.mobile_plain_suppress_coords = false;
-            app.mobile_plain_last_direction = 0;
-            app.mobile_plain_new_gesture = false;
+        if app.viewport.mobile_mouse_buffer.len() > 8 {
+            let emit = app.viewport.mobile_plain_pending_coords;
+            app.viewport.mobile_plain_pending_coords = false;
+            app.viewport.mobile_plain_suppress_coords = false;
+            app.viewport.mobile_plain_last_direction = 0;
+            app.viewport.mobile_plain_new_gesture = false;
             if emit {
-                return MobileMouseConsume::Emit(std::mem::take(&mut app.mobile_mouse_buffer));
+                return MobileMouseConsume::Emit(std::mem::take(&mut app.viewport.mobile_mouse_buffer));
             }
-            let _ = std::mem::take(&mut app.mobile_mouse_buffer);
+            let _ = std::mem::take(&mut app.viewport.mobile_mouse_buffer);
             return MobileMouseConsume::Consumed;
         }
         return MobileMouseConsume::Consumed;
@@ -147,16 +153,16 @@ pub(super) fn consume_mobile_mouse_char(app: &mut AppState, c: char) -> MobileMo
 
     // Apply only on explicit terminator to reduce false positives while typing.
     if c == 'M' || c == 'm' {
-        if let Some((_, y)) = parse_mobile_mouse_coords(&app.mobile_mouse_buffer) {
+        if let Some((_, y)) = parse_mobile_mouse_coords(&app.viewport.mobile_mouse_buffer) {
             apply_mobile_mouse_scroll(app, y);
-            let _ = std::mem::take(&mut app.mobile_mouse_buffer);
+            let _ = std::mem::take(&mut app.viewport.mobile_mouse_buffer);
             return MobileMouseConsume::Consumed;
         }
-        return MobileMouseConsume::Emit(std::mem::take(&mut app.mobile_mouse_buffer));
+        return MobileMouseConsume::Emit(std::mem::take(&mut app.viewport.mobile_mouse_buffer));
     }
 
-    if app.mobile_mouse_buffer.len() > 24 {
-        return MobileMouseConsume::Emit(std::mem::take(&mut app.mobile_mouse_buffer));
+    if app.viewport.mobile_mouse_buffer.len() > 24 {
+        return MobileMouseConsume::Emit(std::mem::take(&mut app.viewport.mobile_mouse_buffer));
     }
 
     MobileMouseConsume::Consumed
