@@ -61,6 +61,7 @@ mod input;
 mod mobile_mouse;
 mod models;
 mod notifications;
+mod overlay_render;
 mod perf;
 mod perf_session;
 mod picker_render;

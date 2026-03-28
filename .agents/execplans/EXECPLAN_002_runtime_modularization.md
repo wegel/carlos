@@ -11,7 +11,7 @@ After this change, contributors should be able to work on transcript rendering, 
 ## Progress
 
 - [x] (2026-03-28 01:15Z) Created the modularization ExecPlan and registered it in `PROGRAM_PLAN.md`.
-- [ ] Split `src/app/render.rs` into responsibility-focused modules while preserving all rendering behavior and tests (completed: recorded baseline file-size and perf measurements; extracted resume picker rendering into `src/app/picker_render.rs`; remaining: extract transcript/overlay domains).
+- [ ] Split `src/app/render.rs` into responsibility-focused modules while preserving all rendering behavior and tests (completed: recorded baseline file-size and perf measurements; extracted resume picker rendering into `src/app/picker_render.rs`; extracted help/model-settings/approval/perf overlays into `src/app/overlay_render.rs`; remaining: extract transcript and text-rendering domains).
 - [ ] Split `src/app/state.rs` into focused state structures and helper modules without changing runtime semantics.
 - [ ] Split `src/app/input.rs` and `src/app/notifications.rs` into narrower orchestration plus domain-specific helpers.
 - [ ] Split `src/tests.rs` to mirror the runtime module boundaries.
@@ -24,6 +24,9 @@ After this change, contributors should be able to work on transcript rendering, 
 
 - Observation: Using a live session file as a perf baseline is not stable because resuming the session mutates the underlying `.jsonl`, changing the message and line counts between runs even when the code slice is unrelated.
   Evidence: the same path moved from `messages=4920 rendered_lines=149347` to `messages=4958 rendered_lines=150293` before any rendering-domain logic changed, so a frozen snapshot at `/tmp/carlos-perf-session-019cdf51-snapshot.jsonl` is now the comparison source for subsequent slices.
+
+- Observation: Overlay rendering moved cleanly out of `render.rs` with only a small `full_draw` increase while layout and append timings stayed effectively flat, so the remaining rendering debt is concentrated in transcript/text responsibilities rather than the modal overlays.
+  Evidence: after extracting `src/app/overlay_render.rs`, the frozen perf snapshot stayed at `full_layout=47.75 ms`, `append_total p50=0.69 ms`, and `working_draw p50=0.66 ms`, while `full_draw` moved from `0.76 ms` to `1.06 ms`.
 
 ## Decision Log
 
@@ -39,9 +42,15 @@ After this change, contributors should be able to work on transcript rendering, 
   Rationale: the live session log grows during normal use, which makes before/after perf comparisons meaningless even when the code being changed is unrelated to transcript semantics.
   Date/Author: 2026-03-28 / codex
 
+- Decision: Extract `render.rs` by visible UI domain first, starting with picker and overlays before transcript/text internals.
+  Rationale: picker and overlays have narrower dependencies and cleaner seams, so they reduce file size immediately without destabilizing the performance-sensitive transcript layout code.
+  Date/Author: 2026-03-28 / codex
+
 ## Outcomes & Retrospective
 
 Partial Milestone 1 outcome: the resume picker layout and delete-confirmation rendering now live in `src/app/picker_render.rs` instead of `src/app/render.rs`, with no observed correctness regressions in the test suite. The runtime behavior remains intact, and the next Milestone 1 slices can focus on transcript and overlay rendering without mixing picker changes back into the main transcript renderer.
+
+Second partial Milestone 1 outcome: the help, model-settings, approval, and perf overlays now live in `src/app/overlay_render.rs`, further shrinking `render.rs` while keeping the runtime behavior and perf characteristics stable on the frozen session snapshot. After this slice, the remaining `render.rs` work is more clearly about transcript rendering, styling conversion, and main-frame composition rather than every modal in the TUI.
 
 ## Context and Orientation
 
@@ -213,6 +222,28 @@ Post-slice perf snapshot after extracting `src/app/picker_render.rs`:
     typing_draw:   p50 0.64 p95 0.68 avg 0.65 max 0.72 ms
     working_draw:  p50 0.66 p95 0.68 avg 0.65 max 0.75 ms
     append_total:  p50 0.69 p95 0.80 avg 0.69 max 0.80 ms
+
+Post-slice file-size report after extracting `src/app/overlay_render.rs`:
+
+    wc -l src/app/render.rs src/app/overlay_render.rs src/app/picker_render.rs
+      1888 src/app/render.rs
+       455 src/app/overlay_render.rs
+       446 src/app/picker_render.rs
+      2789 total
+
+Post-slice perf snapshot after extracting `src/app/overlay_render.rs`:
+
+    target/release/carlos perf-session /tmp/carlos-perf-session-019cdf51-snapshot.jsonl --width 160 --height 48
+    carlos perf-session
+    source: /tmp/carlos-perf-session-019cdf51-snapshot.jsonl
+    viewport: 160x48
+    transcript: messages=4962 rendered_lines=150333 relevant_items=4961 replay_elapsed_ms=145.04
+    full_layout:   47.75 ms
+    full_draw:     1.06 ms
+    scroll_draw:   p50 0.69 p95 2.29 avg 0.88 max 3.23 ms
+    typing_draw:   p50 0.66 p95 0.77 avg 0.67 max 0.85 ms
+    working_draw:  p50 0.66 p95 0.86 avg 0.68 max 0.91 ms
+    append_total:  p50 0.69 p95 0.74 avg 0.69 max 0.74 ms
 
 ## Interfaces and Dependencies
 
