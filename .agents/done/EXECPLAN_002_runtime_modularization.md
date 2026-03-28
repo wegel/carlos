@@ -15,7 +15,7 @@ After this change, contributors should be able to work on transcript rendering, 
 - [ ] Split `src/app/state.rs` into focused state structures and helper modules without changing runtime semantics (completed: extracted runtime/model-settings ownership into `src/app/runtime_settings_state.rs`; extracted approval choice/request state into `src/app/approval_state.rs`; extracted render-cache ownership into `src/app/render_cache_state.rs`; extracted Ralph automation plus queued-turn ownership into `src/app/ralph_runtime_state.rs`; extracted input-history plus rewind-mode ownership into `src/app/input_history_state.rs`; extracted viewport, selection, and mobile-pointer ownership into `src/app/viewport_state.rs`; remaining: transcript/message ownership boundary).
 - [x] Split `src/app/input.rs` and `src/app/notifications.rs` into narrower orchestration plus domain-specific helpers (completed: extracted terminal-event dispatch plus key/mouse/paste/resize handling into `src/app/input_events.rs`; extracted item/history/raw-response handling into `src/app/notification_items.rs`; `input.rs` now owns polling/prioritization/draw cadence while `notifications.rs` owns top-level request and turn/thread dispatch).
 - [x] Split `src/tests.rs` to mirror the runtime module boundaries (completed: `src/tests.rs` is now a thin root that fans out to `src/tests/ui_render_tests.rs`, `src/tests/notification_tests.rs`, `src/tests/tool_tests.rs`, `src/tests/input_tests.rs`, and `src/tests/runtime_tests.rs`).
-- [ ] Re-run correctness and perf validation, update this ExecPlan, collect the required engineering review, and move it to `.agents/done/` when complete.
+- [x] Re-run correctness and perf validation, update this ExecPlan, collect the required engineering review, and move it to `.agents/done/` when complete.
 
 ## Surprises & Discoveries
 
@@ -144,7 +144,8 @@ Milestone 4 outcome: `src/tests.rs` is now only a thin test root, and the actual
 
 ## Reviews
 
-- Pending: engineering reviewer run against the completed modularization series.
+- Engineering review (`PASS WITH ISSUES`): no correctness defect or measured perf regression was found in the modularization series, but the reviewer called out one remaining maintainability hazard: `AppState` still exposes substate and transcript/index structures as `pub(super)` field bags, so invariants such as transcript-dirty marking and Ralph blocked-marker handling are now enforced by convention across more files instead of one narrow API. Additional minor notes were that the new test child modules still rely on a large implicit prelude and that `input_events.rs` / `notification_items.rs` are still sizeable dispatcher modules. These findings do not block completion, but they are recorded as the next architectural follow-up if modularization continues.
+  Date/Reviewer: 2026-03-28 / engineering reviewer
 
 ## Context and Orientation
 
