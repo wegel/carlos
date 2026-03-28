@@ -2585,6 +2585,17 @@ fn parse_cli_args_supports_ralph_resume_and_markers() {
 }
 
 #[test]
+fn parse_cli_args_supports_continue_mode() {
+    let args = vec!["continue".to_string()];
+    let parsed = parse_cli_args(args).expect("parse");
+
+    assert!(parsed.mode_continue);
+    assert!(!parsed.mode_resume);
+    assert!(!parsed.mode_perf_session);
+    assert_eq!(parsed.resume_id, None);
+}
+
+#[test]
 fn parse_cli_args_supports_perf_session_mode() {
     let args = vec![
         "perf-session".to_string(),

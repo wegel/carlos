@@ -75,6 +75,7 @@ const MSG_CONTENT_X: usize = 2; // 0-based x
 #[derive(Debug, Clone, Default)]
 struct CliOptions {
     mode_resume: bool,
+    mode_continue: bool,
     mode_perf_session: bool,
     perf_synthetic: bool,
     resume_id: Option<String>,
@@ -111,7 +112,7 @@ fn resolve_initial_runtime_settings(
 
 fn usage() {
     eprintln!(
-        "Usage:\n  carlos [resume [SESSION_ID]] [options]\n  carlos perf-session <SESSION_JSONL> [--width N] [--height N]\n  carlos perf-session --synthetic [--turns N] [--seed N] [--tool-lines N] [--width N] [--height N]\n\nOptions:\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  --width <n>                    perf-session viewport width (default: 160)\n  --height <n>                   perf-session viewport height (default: 48)\n  --seed <n>                     perf-session synthetic seed (default: 1)\n  --turns <n>                    perf-session synthetic turns (default: 1000)\n  --tool-lines <n>               perf-session synthetic tool-output lines (default: 24)\n  --synthetic                    use generated perf-session content instead of a jsonl file\n  -h, --help                     show this help\n\nKeys:\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)\n  CARLOS_REASONING_SUMMARY=...   auto | concise | detailed | none (default: auto)"
+        "Usage:\n  carlos [resume [SESSION_ID] | continue] [options]\n  carlos perf-session <SESSION_JSONL> [--width N] [--height N]\n  carlos perf-session --synthetic [--turns N] [--seed N] [--tool-lines N] [--width N] [--height N]\n\nOptions:\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  --width <n>                    perf-session viewport width (default: 160)\n  --height <n>                   perf-session viewport height (default: 48)\n  --seed <n>                     perf-session synthetic seed (default: 1)\n  --turns <n>                    perf-session synthetic turns (default: 1000)\n  --tool-lines <n>               perf-session synthetic tool-output lines (default: 24)\n  --synthetic                    use generated perf-session content instead of a jsonl file\n  -h, --help                     show this help\n\nKeys:\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)\n  CARLOS_REASONING_SUMMARY=...   auto | concise | detailed | none (default: auto)"
     );
 }
 
@@ -142,7 +143,7 @@ fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<CliOptions> 
                 opts.show_help = true;
             }
             "resume" => {
-                if opts.mode_resume || opts.mode_perf_session {
+                if opts.mode_resume || opts.mode_continue || opts.mode_perf_session {
                     bail!("choose only one mode");
                 }
                 opts.mode_resume = true;
@@ -152,8 +153,14 @@ fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<CliOptions> 
                     }
                 }
             }
+            "continue" => {
+                if opts.mode_resume || opts.mode_continue || opts.mode_perf_session {
+                    bail!("choose only one mode");
+                }
+                opts.mode_continue = true;
+            }
             "perf-session" => {
-                if opts.mode_resume || opts.mode_perf_session {
+                if opts.mode_resume || opts.mode_continue || opts.mode_perf_session {
                     bail!("choose only one mode");
                 }
                 opts.mode_perf_session = true;
@@ -374,7 +381,7 @@ pub(crate) fn run() -> Result<()> {
         .or(persisted_defaults.summary.clone())
         .or(Some("auto".to_string()));
 
-    let (chosen_thread_id, start_resp) = if opts.mode_resume {
+    let (chosen_thread_id, start_resp) = if opts.mode_resume || opts.mode_continue {
         if let Some(rid) = opts.resume_id.as_deref() {
             let resp = client.call(
                 "thread/resume",
@@ -390,7 +397,14 @@ pub(crate) fn run() -> Result<()> {
                 Duration::from_secs(15),
             )?;
             let list = parse_thread_list(&list_resp)?;
-            let picked = pick_thread(&list)?;
+            let picked = if opts.mode_continue {
+                sort_threads_for_picker(&list)
+                    .into_iter()
+                    .next()
+                    .map(|t| t.id)
+            } else {
+                pick_thread(&list)?
+            };
             let Some(session_id) = picked else {
                 return Ok(());
             };
