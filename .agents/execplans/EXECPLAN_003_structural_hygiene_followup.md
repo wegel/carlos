@@ -15,7 +15,7 @@ This is not a cosmetic line-count exercise. The goal is to convert the reviewerâ
 - [x] (2026-03-28 16:20Z) Created the structural-hygiene follow-up ExecPlan and registered it in `PROGRAM_PLAN.md`.
 - [x] (2026-03-28 16:43Z) Recorded the file-size baseline for this ExecPlan: `transcript_render.rs 1288`, `tools.rs 1179`, `ui_render_tests.rs 1169`, `state.rs 879`, `perf_session.rs 824`, with `notification_items.rs` still at `523`.
 - [x] (2026-03-28 16:57Z) Introduced an explicit mapped-item mutation boundary in `AppState` and moved the ordinary `notification_items.rs` item-started/item-completed lifecycle off direct transcript/index mutation.
-- [ ] Split `src/app/transcript_render.rs` into coherent subdomains without regressing transcript behavior or measured perf.
+- [x] (2026-03-28 17:22Z) Split `src/app/transcript_render.rs` into orchestration plus `transcript_styles.rs` and `transcript_diff.rs`, keeping the public render/count surface stable while preserving the frozen-session perf baseline (`full_layout 48.43 ms`, `append_total p50 0.68 ms`).
 - [ ] Split `src/app/tools.rs` into coherent subdomains without regressing command/tool rendering behavior.
 - [ ] Reduce the test-module implicit-prelude dependency where it materially improves maintainability without creating busywork.
 - [ ] Re-run correctness/perf validation, collect the required engineering review, and move this ExecPlan to `.agents/done/` when complete.
@@ -23,6 +23,7 @@ This is not a cosmetic line-count exercise. The goal is to convert the reviewerâ
 ## Surprises & Discoveries
 
 - The broad invariant-leak the reviewer called out was concentrated much more narrowly than the line counts suggested: the ordinary `item/started` and `item/completed` paths in `notification_items.rs` were the main place still reaching directly into `messages`, `agent_item_to_index`, and dirty/coalesce behavior.
+- `transcript_render.rs` split cleanly only once it was treated as an orchestration layer with a stable outward surface. Keeping the block-building/counting entry points in place while moving styled-text and diff logic underneath avoided churn in render cache, perf harness, and tests.
 
 ## Decision Log
 
@@ -36,6 +37,10 @@ This is not a cosmetic line-count exercise. The goal is to convert the reviewerâ
 
 - Decision: narrow the mutation boundary first by routing mapped item lifecycle updates through explicit `AppState` helpers before attempting to privatize every transcript/index field.
   Rationale: this removes the highest-risk cross-module mutation patterns immediately while keeping the change set small and behavior-preserving. Full field privacy can follow later if it still provides value after the main splits.
+  Date/Author: 2026-03-28 / codex
+
+- Decision: split `transcript_render.rs` into `transcript_styles.rs` and `transcript_diff.rs` under a smaller orchestration module, instead of pushing block-counting/materialization into yet another top-level file first.
+  Rationale: the stable API surface for the rest of the app is the transcript block builder/counter. Preserving that surface minimized collateral edits while isolating the real subdomains that contributors naturally search for: styled-text shaping and diff rendering.
   Date/Author: 2026-03-28 / codex
 
 ## Outcomes & Retrospective

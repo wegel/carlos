@@ -81,7 +81,9 @@ mod state;
 mod terminal_ui;
 mod text;
 mod tools;
+mod transcript_diff;
 mod transcript_render;
+mod transcript_styles;
 mod viewport_state;
 
 const MSG_TOP: usize = 1; // 1-based row index
