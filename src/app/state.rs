@@ -11,12 +11,13 @@ use super::input::make_input_area;
 use super::models::{Message, MessageKind, RenderedLine, Role, TerminalSize};
 use super::perf::PerfMetrics;
 use super::ralph::{detect_turn_markers, load_ralph_config, RalphConfig, RalphState};
-use super::render::{
-    build_rendered_block_for_message, build_rendered_lines_with_hidden, compute_input_layout,
-    count_rendered_block_for_message_cached, format_read_summary_with_count, parse_read_summary,
-    textarea_input_from_key, transcript_content_width, RenderCountCache,
-};
+use super::render::{compute_input_layout, textarea_input_from_key};
 use super::selection::{MouseDragMode, RenderedLineSource, Selection};
+use super::transcript_render::{
+    build_rendered_block_for_message, build_rendered_lines_with_hidden,
+    count_rendered_block_for_message_cached, format_read_summary_with_count, parse_read_summary,
+    transcript_content_width, RenderCountCache,
+};
 use super::{RuntimeDefaults, MSG_TOP};
 use crate::protocol::ModelInfo;
 

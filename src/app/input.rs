@@ -20,12 +20,13 @@ use super::notifications::{
 };
 use super::render::{
     compute_input_layout, is_newline_enter, last_assistant_message, normalize_pasted_text,
-    render_main_view, transcript_content_width,
+    render_main_view,
 };
 use super::selection::{
     decide_mouse_drag_mode, normalize_selection_x, shift_selection_focus, MouseDragMode, Selection,
 };
 use super::state::ApprovalChoice;
+use super::transcript_render::transcript_content_width;
 use super::{persist_runtime_defaults, with_terminal, AppState, TerminalSize, MSG_TOP};
 use crate::clipboard::{clipboard_backend_label, try_copy_clipboard};
 use crate::event::{spawn_event_forwarders, UiEvent};

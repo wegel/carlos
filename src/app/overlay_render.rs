@@ -7,8 +7,8 @@ use super::state::ModelSettingsField;
 use super::text::{visual_width, wrap_natural_by_cells};
 use super::{AppState, TerminalSize};
 use crate::theme::{
-    COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_STEP1, COLOR_STEP2, COLOR_STEP6,
-    COLOR_STEP7, COLOR_TEXT,
+    COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_STEP1, COLOR_STEP2, COLOR_STEP6, COLOR_STEP7,
+    COLOR_TEXT,
 };
 
 fn draw_box_border(

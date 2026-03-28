@@ -26,7 +26,7 @@ use self::mobile_mouse::{
 };
 pub(crate) use self::models::Role;
 use self::models::{
-    DiffBlock, Message, MessageKind, RenderedLine, StyledSegment, TerminalSize, ThreadSummary,
+    DiffBlock, Message, MessageKind, RenderedLine, TerminalSize, ThreadSummary,
 };
 use self::notifications::*;
 #[cfg(test)]
@@ -48,6 +48,8 @@ use self::text::{
 };
 #[cfg(test)]
 use self::tools::*;
+#[cfg(test)]
+use self::transcript_render::*;
 #[cfg(test)]
 use crate::clipboard::*;
 #[cfg(test)]
@@ -72,6 +74,7 @@ mod state;
 mod terminal_ui;
 mod text;
 mod tools;
+mod transcript_render;
 
 const MSG_TOP: usize = 1; // 1-based row index
 const MSG_CONTENT_X: usize = 2; // 0-based x

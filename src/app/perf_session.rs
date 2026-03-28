@@ -10,13 +10,14 @@ use serde_json::Value;
 
 use super::models::{Message, MessageKind, Role};
 use super::perf::DurationSamples;
-use super::render::{
-    compute_input_layout, count_rendered_block_for_message_cached, format_read_summary_with_count,
-    render_main_view, transcript_content_width, RenderCountCache,
-};
+use super::render::{compute_input_layout, render_main_view};
 use super::tools::{
     extract_diff_blocks, format_tool_item, raw_function_call_output_to_tool_item,
     raw_function_call_to_tool_item,
+};
+use super::transcript_render::{
+    count_rendered_block_for_message_cached, format_read_summary_with_count,
+    transcript_content_width, RenderCountCache,
 };
 use super::{AppState, CliOptions, TerminalSize, MSG_TOP};
 

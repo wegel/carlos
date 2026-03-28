@@ -11,7 +11,7 @@ After this change, contributors should be able to work on transcript rendering, 
 ## Progress
 
 - [x] (2026-03-28 01:15Z) Created the modularization ExecPlan and registered it in `PROGRAM_PLAN.md`.
-- [ ] Split `src/app/render.rs` into responsibility-focused modules while preserving all rendering behavior and tests (completed: recorded baseline file-size and perf measurements; extracted resume picker rendering into `src/app/picker_render.rs`; extracted help/model-settings/approval/perf overlays into `src/app/overlay_render.rs`; remaining: extract transcript and text-rendering domains).
+- [x] Split `src/app/render.rs` into responsibility-focused modules while preserving all rendering behavior and tests (completed: recorded baseline file-size and perf measurements; extracted resume picker rendering into `src/app/picker_render.rs`; extracted help/model-settings/approval/perf overlays into `src/app/overlay_render.rs`; extracted transcript layout/counting and markdown/ANSI/diff helpers into `src/app/transcript_render.rs`; `render.rs` now owns only input/layout helpers plus main-frame composition).
 - [ ] Split `src/app/state.rs` into focused state structures and helper modules without changing runtime semantics.
 - [ ] Split `src/app/input.rs` and `src/app/notifications.rs` into narrower orchestration plus domain-specific helpers.
 - [ ] Split `src/tests.rs` to mirror the runtime module boundaries.
@@ -27,6 +27,9 @@ After this change, contributors should be able to work on transcript rendering, 
 
 - Observation: Overlay rendering moved cleanly out of `render.rs` with only a small `full_draw` increase while layout and append timings stayed effectively flat, so the remaining rendering debt is concentrated in transcript/text responsibilities rather than the modal overlays.
   Evidence: after extracting `src/app/overlay_render.rs`, the frozen perf snapshot stayed at `full_layout=47.75 ms`, `append_total p50=0.69 ms`, and `working_draw p50=0.66 ms`, while `full_draw` moved from `0.76 ms` to `1.06 ms`.
+
+- Observation: the transcript pipeline was a viable standalone boundary: once build/count/wrap helpers moved into `src/app/transcript_render.rs`, the remaining `render.rs` shrank to frame composition and input-layout concerns without needing any behavioral compromises or new shared “misc” glue.
+  Evidence: after the extraction, `src/app/render.rs` measured `643` lines while `src/app/transcript_render.rs` measured `1288`, and the frozen perf snapshot stayed at `full_layout=49.48 ms`, `full_draw=0.77 ms`, and `append_total p50=0.69 ms`.
 
 ## Decision Log
 
@@ -46,11 +49,17 @@ After this change, contributors should be able to work on transcript rendering, 
   Rationale: picker and overlays have narrower dependencies and cleaner seams, so they reduce file size immediately without destabilizing the performance-sensitive transcript layout code.
   Date/Author: 2026-03-28 / codex
 
+- Decision: keep `render.rs` as the thin frame compositor and move transcript layout/counting into `src/app/transcript_render.rs` rather than inventing a deeper layering scheme mid-refactor.
+  Rationale: other subsystems already depend on transcript build/count helpers, so extracting that pipeline into a literal domain module reduces coupling immediately while preserving existing call patterns and perf instrumentation.
+  Date/Author: 2026-03-28 / codex
+
 ## Outcomes & Retrospective
 
 Partial Milestone 1 outcome: the resume picker layout and delete-confirmation rendering now live in `src/app/picker_render.rs` instead of `src/app/render.rs`, with no observed correctness regressions in the test suite. The runtime behavior remains intact, and the next Milestone 1 slices can focus on transcript and overlay rendering without mixing picker changes back into the main transcript renderer.
 
 Second partial Milestone 1 outcome: the help, model-settings, approval, and perf overlays now live in `src/app/overlay_render.rs`, further shrinking `render.rs` while keeping the runtime behavior and perf characteristics stable on the frozen session snapshot. After this slice, the remaining `render.rs` work is more clearly about transcript rendering, styling conversion, and main-frame composition rather than every modal in the TUI.
+
+Milestone 1 outcome: transcript layout/counting plus markdown, ANSI, and diff rendering now live in `src/app/transcript_render.rs`, leaving `src/app/render.rs` as a much narrower frame compositor with input-layout and line-drawing helpers. This keeps the visible behavior and perf budget intact while turning the rendering layer into three clear domains: transcript, overlays, and picker.
 
 ## Context and Orientation
 
@@ -244,6 +253,37 @@ Post-slice perf snapshot after extracting `src/app/overlay_render.rs`:
     typing_draw:   p50 0.66 p95 0.77 avg 0.67 max 0.85 ms
     working_draw:  p50 0.66 p95 0.86 avg 0.68 max 0.91 ms
     append_total:  p50 0.69 p95 0.74 avg 0.69 max 0.74 ms
+
+Post-slice file-size report after extracting `src/app/transcript_render.rs`:
+
+    wc -l src/app/render.rs src/app/transcript_render.rs src/app/overlay_render.rs src/app/picker_render.rs
+       643 src/app/render.rs
+      1288 src/app/transcript_render.rs
+       455 src/app/overlay_render.rs
+       446 src/app/picker_render.rs
+      2832 total
+
+Post-slice perf snapshot after extracting `src/app/transcript_render.rs`:
+
+    target/release/carlos perf-session /tmp/carlos-perf-session-019cdf51-snapshot.jsonl --width 160 --height 48
+    carlos perf-session
+    source: /tmp/carlos-perf-session-019cdf51-snapshot.jsonl
+    viewport: 160x48
+    transcript: messages=4962 rendered_lines=150333 relevant_items=4961 replay_elapsed_ms=147.42
+    full_layout:   49.48 ms
+    full_draw:     0.77 ms
+    scroll_draw:   p50 0.70 p95 2.32 avg 0.88 max 3.31 ms
+    typing_draw:   p50 0.66 p95 0.68 avg 0.67 max 0.80 ms
+    working_draw:  p50 0.66 p95 0.67 avg 0.66 max 0.72 ms
+    append_total:  p50 0.69 p95 0.75 avg 0.69 max 0.75 ms
+    layout_breakdown:
+      tool_output_ansi msgs=1770 lines=129844 total_ms=35.67
+      commentary_plain msgs=710 lines=2124 total_ms=5.49
+      assistant_markdown msgs=132 lines=2400 total_ms=4.50
+      diff msgs=23 lines=6489 total_ms=2.71
+      tool_call_plain msgs=1795 lines=6827 total_ms=1.25
+      reasoning_markdown msgs=334 lines=1131 total_ms=1.04
+      user_plain msgs=197 lines=1515 total_ms=0.46
 
 ## Interfaces and Dependencies
 
