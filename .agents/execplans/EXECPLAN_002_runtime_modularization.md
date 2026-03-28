@@ -13,7 +13,7 @@ After this change, contributors should be able to work on transcript rendering, 
 - [x] (2026-03-28 01:15Z) Created the modularization ExecPlan and registered it in `PROGRAM_PLAN.md`.
 - [x] Split `src/app/render.rs` into responsibility-focused modules while preserving all rendering behavior and tests (completed: recorded baseline file-size and perf measurements; extracted resume picker rendering into `src/app/picker_render.rs`; extracted help/model-settings/approval/perf overlays into `src/app/overlay_render.rs`; extracted transcript layout/counting and markdown/ANSI/diff helpers into `src/app/transcript_render.rs`; `render.rs` now owns only input/layout helpers plus main-frame composition).
 - [ ] Split `src/app/state.rs` into focused state structures and helper modules without changing runtime semantics (completed: extracted runtime/model-settings ownership into `src/app/runtime_settings_state.rs`; extracted approval choice/request state into `src/app/approval_state.rs`; extracted render-cache ownership into `src/app/render_cache_state.rs`; extracted Ralph automation plus queued-turn ownership into `src/app/ralph_runtime_state.rs`; extracted input-history plus rewind-mode ownership into `src/app/input_history_state.rs`; extracted viewport, selection, and mobile-pointer ownership into `src/app/viewport_state.rs`; remaining: transcript/message ownership boundary).
-- [ ] Split `src/app/input.rs` and `src/app/notifications.rs` into narrower orchestration plus domain-specific helpers.
+- [ ] Split `src/app/input.rs` and `src/app/notifications.rs` into narrower orchestration plus domain-specific helpers (completed: extracted terminal-event dispatch plus key/mouse/paste/resize handling into `src/app/input_events.rs`; remaining: notification-domain split and any final `input.rs` cleanup once the notification boundary is in place).
 - [ ] Split `src/tests.rs` to mirror the runtime module boundaries.
 - [ ] Re-run correctness and perf validation, update this ExecPlan, and move it to `.agents/done/` when complete.
 
@@ -48,6 +48,9 @@ After this change, contributors should be able to work on transcript rendering, 
 
 - Observation: viewport and selection state were easier to extract than transcript/message ownership because the remaining churn was almost entirely mechanical field-path updates. Moving scroll/follow, selection/drag, mobile-pointer gesture state, and help/scroll toggles into `ViewportState` reduced `AppState` further without touching the notification or transcript mutation flows.
   Evidence: after extracting `src/app/viewport_state.rs`, `src/app/state.rs` dropped to `879` lines while the new module holds `46`, and the frozen perf snapshot remained flat at `full_layout=47.44 ms`, `full_draw=0.76 ms`, and `append_total p50=0.69 ms`.
+
+- Observation: terminal-event handling was a clean `input.rs` boundary once the state ownership work was done first. After the earlier state splits, the giant `UiEvent::Terminal` branch could move intact into a focused module with almost no semantic changes, and the perf profile remained flat.
+  Evidence: after extracting `src/app/input_events.rs`, `src/app/input.rs` dropped to `251` lines while the new module holds `691`, and the frozen perf snapshot stayed effectively unchanged at `full_layout=47.90 ms`, `full_draw=0.76 ms`, and `append_total p50=0.69 ms`.
 
 ## Decision Log
 
@@ -95,6 +98,10 @@ After this change, contributors should be able to work on transcript rendering, 
   Rationale: once Ralph and rewind state were out of `AppState`, the viewport cluster became the last narrow mechanical seam. Taking it first keeps momentum and leaves the final state split focused on the genuinely broad transcript/message ownership problem.
   Date/Author: 2026-03-28 / codex
 
+- Decision: start Milestone 3 by extracting terminal-event semantics out of `run_conversation_tui` before touching `notifications.rs`.
+  Rationale: `run_conversation_tui` was already an obvious orchestration boundary, and the earlier state splits had removed most cross-cutting ownership concerns from its key/mouse/paste branches. Taking that seam first materially shrinks `input.rs` and gives a clearer template for the later notification-domain split.
+  Date/Author: 2026-03-28 / codex
+
 ## Outcomes & Retrospective
 
 Partial Milestone 1 outcome: the resume picker layout and delete-confirmation rendering now live in `src/app/picker_render.rs` instead of `src/app/render.rs`, with no observed correctness regressions in the test suite. The runtime behavior remains intact, and the next Milestone 1 slices can focus on transcript and overlay rendering without mixing picker changes back into the main transcript renderer.
@@ -114,6 +121,8 @@ Fourth partial Milestone 2 outcome: Ralph automation, queued turn submission, co
 Fifth partial Milestone 2 outcome: input history, prompt-to-message anchoring, rewind-mode flags, and stored rewind draft text now live in `src/app/input_history_state.rs`. `AppState` still coordinates rewind effects on scroll position and transcript truncation, but the actual history/rewind bookkeeping is no longer mixed into unrelated runtime state.
 
 Sixth partial Milestone 2 outcome: scroll position, follow mode, selection/drag state, mobile-pointer gesture buffers, help-overlay visibility, and scroll inversion now live in `src/app/viewport_state.rs`. `AppState` still coordinates transcript materialization and selection copy, but the viewport/UI bookkeeping no longer lives inline with transcript, Ralph, and history state.
+
+First partial Milestone 3 outcome: `run_conversation_tui` now delegates terminal-event semantics to `src/app/input_events.rs`, leaving `src/app/input.rs` focused on event polling, prioritization, draw cadence, and top-level orchestration. The visible behavior and frozen-session perf numbers stayed flat, so the remaining Milestone 3 work is now concentrated in the notification dispatcher and any final input cleanup that falls out of that split.
 
 ## Context and Orientation
 
