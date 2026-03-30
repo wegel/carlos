@@ -465,6 +465,12 @@ fn wrap_natural_by_cells_keeps_trailing_space_visible() {
 }
 
 #[test]
+fn wrap_natural_by_cells_expands_tabs_for_display_width() {
+    let parts = wrap_natural_by_cells("a\tb", 20);
+    assert_eq!(parts, vec!["a       b".to_string()]);
+}
+
+#[test]
 fn wrap_natural_count_by_cells_matches_wrapped_output_len() {
     for (text, width) in [
         ("alpha beta gamma", 10),
@@ -489,6 +495,21 @@ fn wrap_input_line_uses_natural_word_wrapping() {
 fn wrap_input_line_keeps_trailing_space_visible() {
     let parts = wrap_input_line("test ", 10);
     assert_eq!(parts, vec!["test ".to_string()]);
+}
+
+#[test]
+fn build_rendered_lines_expands_user_tabs_for_display() {
+    let messages = vec![Message {
+        role: Role::User,
+        text: "col1\tcol2".to_string(),
+        kind: MessageKind::Plain,
+        file_path: None,
+    }];
+
+    let rendered = build_rendered_lines(&messages, 120);
+    assert_eq!(rendered.len(), 1);
+    assert_eq!(rendered[0].text, "col1    col2");
+    assert_eq!(rendered[0].cells, 12);
 }
 
 #[test]
@@ -1166,4 +1187,3 @@ fn normalize_styled_segments_for_part_falls_back_on_mismatch() {
     assert_eq!(normalized[0].text, "visual.");
     assert_eq!(normalized[0].style, Style::default());
 }
-

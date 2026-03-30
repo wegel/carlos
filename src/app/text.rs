@@ -3,9 +3,14 @@ use textwrap::{wrap as wrap_text, Options as WrapOptions, WordSplitter};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
+const TAB_STOP: usize = 8;
+
 pub(super) fn visual_width(s: &str) -> usize {
-    if s.is_ascii() {
+    if !s.contains('\t') && s.is_ascii() {
         return s.len();
+    }
+    if s.contains('\t') {
+        return UnicodeWidthStr::width(expand_tabs(s).as_str());
     }
     UnicodeWidthStr::width(s)
 }
@@ -88,6 +93,13 @@ pub(super) fn wrap_natural_by_cells(text: &str, width: usize) -> Vec<String> {
     if text.is_empty() {
         return vec![String::new()];
     }
+    let expanded_storage;
+    let text = if text.contains('\t') {
+        expanded_storage = expand_tabs(text);
+        expanded_storage.as_str()
+    } else {
+        text
+    };
     if text.is_ascii() && text.len() <= width {
         return vec![text.to_string()];
     }
@@ -138,6 +150,13 @@ pub(super) fn wrap_natural_count_by_cells(text: &str, width: usize) -> usize {
     if text.is_empty() {
         return 1;
     }
+    let expanded_storage;
+    let text = if text.contains('\t') {
+        expanded_storage = expand_tabs(text);
+        expanded_storage.as_str()
+    } else {
+        text
+    };
     if text.is_ascii() && text.len() <= width {
         return 1;
     }
@@ -370,4 +389,33 @@ fn additional_lines_for_trailing_spaces(
 
     let remaining = missing - available_on_last_line;
     remaining.div_ceil(width)
+}
+
+fn expand_tabs(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut col = 0usize;
+
+    for grapheme in text.graphemes(true) {
+        match grapheme {
+            "\n" => {
+                out.push('\n');
+                col = 0;
+            }
+            "\r" => {
+                out.push('\r');
+                col = 0;
+            }
+            "\t" => {
+                let spaces = TAB_STOP - (col % TAB_STOP);
+                out.push_str(&" ".repeat(spaces));
+                col += spaces;
+            }
+            other => {
+                out.push_str(other);
+                col += UnicodeWidthStr::width(other);
+            }
+        }
+    }
+
+    out
 }
