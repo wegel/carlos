@@ -23,6 +23,7 @@ This work matters because `carlos` is already a useful terminal shell around the
 - [x] (2026-04-06 17:18Z) Closed two late functional gaps before review signoff: Claude turn submission now emits a synthetic `userMessage` row so user prompts appear in the shared transcript, and the Claude runtime path no longer inherits stale Codex runtime defaults into the top-bar label. Validation now passes at `cargo test` 184, `cargo build --release`, installed-binary refresh, and a live release-binary smoke confirming prompt visibility plus a Claude-native runtime label.
 - [ ] (2026-04-06 18:26Z) Final engineering-review signoff is still pending. Two separate reviewer invocations were attempted after the fixup commit: one custom `codex exec` reviewer session and one stricter retry that provided the exact diff in stdin. Both sessions kept exploring the repository but did not return a final verdict in the required output shape before this run had to stop, so the ExecPlan cannot be closed yet under the repo review rules.
 - [x] (2026-04-06 18:39Z) The longer-running built-in reviewer finally returned a concrete finding instead of process chatter: the prompt-echo fix introduced a cross-sender ordering race between synthetic user prompts and reader-thread Claude output. Fixed by moving Claude prompt surfacing into synchronous app-side turn submission instead of injecting it from the backend event channel. Validation reran cleanly: `cargo test` 184, `cargo build --release`, and release-binary reinstall.
+- [x] (2026-04-06 19:28Z) A fresh reviewer pass against the prompt-ordering fix found two follow-up regressions in the queued-turn path: Claude follow-up prompts could still jump ahead of deferred output from the prior turn, and auto-queued Ralph turns polluted editable input history on the Claude backend. Fixed by tagging queued turns with history intent, skipping auto-history for Ralph/internal turns, and refusing to auto-submit a queued turn until both deferred output and immediately pending UI/server events have been drained. Validation reran cleanly: `cargo test` 188, `cargo build --release`, and release-binary reinstall.
 
 ## Surprises & Discoveries
 
@@ -62,6 +63,9 @@ This work matters because `carlos` is already a useful terminal shell around the
 - Observation: inheriting persisted runtime defaults into the Claude path leaks Codex-specific labels into the Claude status bar even though Claude model/effort/summary editing is disabled.
   Evidence: the first release smoke showed `gpt-5.4/high/concise` in the Claude top bar. The Claude startup path now seeds no shared runtime defaults, and the later `thread/initialized` notification sets only the actual Claude model name.
 
+- Observation: the shared queued-turn path serves two distinct producers with different history semantics: explicit user follow-ups queued during an active Claude turn should still bind back to input-history rewind entries, while Ralph bootstrap and continuation turns should never appear as editable prompt history.
+  Evidence: the second engineering-review pass showed that recording history unconditionally on successful Claude `turn/start` polluted prompt navigation with Ralph’s base prompt and automatic continuations.
+
 ## Decision Log
 
 - Decision: keep the TUI protocol surface stable by introducing a small backend trait with Codex-shaped request/response methods, then make `ClaudeClient` synthesize JSON-RPC-shaped responses and notifications on top of its NDJSON transport.
@@ -100,6 +104,10 @@ This work matters because `carlos` is already a useful terminal shell around the
   Rationale: Claude returns full file contents in many `Read` tool results, which would spam the transcript and drown the assistant turn. The file path is still visible from the preceding tool-call item, so hiding the success payload is the safer MVP default.
   Date/Author: 2026-04-06 / codex
 
+- Decision: attach explicit history-intent metadata to queued turns and delay queued-turn submission until prior output has been drained from both deferred buffers and the UI event channel.
+  Rationale: a plain queued string was no longer enough once Claude started appending prompts locally. The queue must distinguish user-authored follow-ups from internal Ralph turns, and the loop must not submit the next Claude turn ahead of already-produced output from the previous one.
+  Date/Author: 2026-04-06 / codex
+
 ## Outcomes & Retrospective
 
 Pending. On completion, `carlos` should have one shared TUI that can speak to either backend, with Codex behavior preserved and Claude support added behind an explicit backend selection. The expected tradeoff for the first version is that Claude session browsing, archiving, and interactive approvals remain out of scope, but the common interactive experience for new work, explicit resume, streaming text, tools, interruption, and context usage becomes available.
@@ -119,6 +127,8 @@ Review note (2026-04-06 / codex): the first engineering-review pass surfaced two
 Open review-status note (2026-04-06 / codex): after the fixup commit, the required fresh reviewer invocation was retried with a stricter prompt that supplied the exact diff in stdin and explicitly forbade extra repo exploration. The reviewer tooling still failed to return a final shaped verdict during this run, so reviewer signoff remains the only blocker to moving this ExecPlan to `.agents/done/`.
 
 Follow-up review note (2026-04-06 / codex): once allowed to run longer, the built-in `codex review --commit 1b1df95` session did return a concrete bug report. It flagged a prompt-ordering race caused by sending synthetic Claude user-message events from a different `mpsc` producer than the reader-thread-translated Claude output. That finding was resolved by removing backend-side prompt injection and appending the Claude user prompt synchronously in `submit_turn_text()` after a successful Claude `turn/start` call.
+
+Second follow-up review note (2026-04-06 / codex): the next built-in `codex review --commit 824d816` pass found that the first fix still allowed queued Claude prompts to overtake deferred output from the previous turn, and that the new unconditional Claude history-recording path leaked Ralph auto-prompts into editable history. The implementation now tags queued turns with `record_input_history`, keeps Ralph/internal turns out of input history, and only auto-submits a queued turn once no deferred or prefetched events remain to be rendered from the previous turn.
 
 ## Context and Orientation
 

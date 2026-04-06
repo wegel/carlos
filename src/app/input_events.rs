@@ -97,6 +97,15 @@ pub(super) fn is_mobile_mouse_key_candidate(
 }
 
 pub(super) fn submit_turn_text(client: &dyn BackendClient, app: &mut AppState, text: String) {
+    submit_turn_text_with_history(client, app, text, true);
+}
+
+pub(super) fn submit_turn_text_with_history(
+    client: &dyn BackendClient,
+    app: &mut AppState,
+    text: String,
+    record_input_history: bool,
+) {
     if text.trim().is_empty() {
         return;
     }
@@ -125,7 +134,9 @@ pub(super) fn submit_turn_text(client: &dyn BackendClient, app: &mut AppState, t
             Ok(_) => {
                 if client.kind() == BackendKind::Claude {
                     let idx = app.append_message(super::Role::User, text.clone());
-                    app.record_input_history(&text, Some(idx));
+                    if record_input_history {
+                        app.record_input_history(&text, Some(idx));
+                    }
                 }
                 app.mark_runtime_settings_applied();
                 app.set_status("sent turn");

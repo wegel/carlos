@@ -6,7 +6,8 @@ use anyhow::Result;
 use serde_json::Value;
 
 use super::input_events::{
-    ensure_transcript_layout, handle_terminal_event, submit_turn_text, TerminalEventResult,
+    ensure_transcript_layout, handle_terminal_event, submit_turn_text_with_history,
+    TerminalEventResult,
 };
 #[cfg(test)]
 pub(super) use super::input_events::is_mobile_mouse_key_candidate;
@@ -51,9 +52,22 @@ pub(super) fn run_conversation_tui(
 
             let loop_now = Instant::now();
             let working = app.active_turn_id.is_some();
-            if !working {
-                if let Some(next_turn_text) = app.dequeue_turn_input(loop_now) {
-                    submit_turn_text(client, app, next_turn_text);
+            let mut prefetched_event = None;
+            if !working && deferred_server_lines.is_empty() {
+                match ui_rx.try_recv() {
+                    Ok(ev) => prefetched_event = Some(ev),
+                    Err(TryRecvError::Empty) => {}
+                    Err(TryRecvError::Disconnected) => return Ok(()),
+                }
+            }
+            if can_submit_queued_turn(working, &deferred_server_lines, prefetched_event.as_ref()) {
+                if let Some(next_turn) = app.dequeue_turn_input(loop_now) {
+                    submit_turn_text_with_history(
+                        client,
+                        app,
+                        next_turn.text,
+                        next_turn.record_input_history,
+                    );
                     needs_draw = true;
                     continue;
                 }
@@ -81,7 +95,9 @@ pub(super) fn run_conversation_tui(
             }
 
             let wait_started = Instant::now();
-            let next_event = if !deferred_server_lines.is_empty() {
+            let next_event = if let Some(ev) = prefetched_event {
+                Some(ev)
+            } else if !deferred_server_lines.is_empty() {
                 match ui_rx.try_recv() {
                     Ok(ev) => Some(ev),
                     Err(TryRecvError::Empty) => None,
@@ -196,6 +212,14 @@ pub(super) fn run_conversation_tui(
             }
         }
     })
+}
+
+pub(super) fn can_submit_queued_turn(
+    working: bool,
+    deferred_server_lines: &VecDeque<String>,
+    prefetched_event: Option<&UiEvent>,
+) -> bool {
+    !working && deferred_server_lines.is_empty() && prefetched_event.is_none()
 }
 
 pub(super) fn prioritize_events(

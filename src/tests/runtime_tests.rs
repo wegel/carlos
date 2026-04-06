@@ -565,11 +565,29 @@ fn pending_ralph_continuation_becomes_ready_after_deadline() {
     assert!(app
         .dequeue_turn_input(deadline - std::time::Duration::from_millis(1))
         .is_none());
-    assert_eq!(
-        app.dequeue_turn_input(deadline).as_deref(),
-        Some("continue")
-    );
+    let queued = app.dequeue_turn_input(deadline).expect("queued continuation");
+    assert_eq!(queued.text, "continue");
+    assert!(!queued.record_input_history);
     assert!(!app.has_pending_ralph_continuation());
+}
+
+#[test]
+fn queued_user_turns_record_history_but_ralph_turns_do_not() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.queue_turn_input("follow up");
+    let user_turn = app
+        .dequeue_turn_input(std::time::Instant::now())
+        .expect("queued user turn");
+    assert_eq!(user_turn.text, "follow up");
+    assert!(user_turn.record_input_history);
+
+    app.queue_ralph_continuation("continue");
+    let deadline = app
+        .ralph_pending_continuation_deadline()
+        .expect("continuation deadline");
+    let ralph_turn = app.dequeue_turn_input(deadline).expect("queued Ralph turn");
+    assert_eq!(ralph_turn.text, "continue");
+    assert!(!ralph_turn.record_input_history);
 }
 
 #[test]

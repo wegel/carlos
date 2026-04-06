@@ -6,7 +6,7 @@ use anyhow::{bail, Result};
 use serde_json::Value;
 
 use super::*;
-use super::input_events::submit_turn_text;
+use super::input_events::{submit_turn_text, submit_turn_text_with_history};
 use crate::backend::{BackendClient, BackendKind};
 use crate::claude_backend::{translate_claude_line, ClaudeTranslationState};
 
@@ -120,10 +120,9 @@ fn submit_turn_text_queues_next_claude_turn_when_turn_active() {
 
     submit_turn_text(&client, &mut app, "follow up".to_string());
 
-    assert_eq!(
-        app.dequeue_turn_input(Instant::now()).as_deref(),
-        Some("follow up")
-    );
+    let queued = app.dequeue_turn_input(Instant::now()).expect("queued turn");
+    assert_eq!(queued.text, "follow up");
+    assert!(queued.record_input_history);
     assert_eq!(app.status, "queued for next Claude turn");
 }
 
@@ -137,6 +136,29 @@ fn submit_turn_text_appends_user_message_for_claude_start() {
     assert_eq!(app.messages.len(), 1);
     assert_eq!(app.messages[0].role, Role::User);
     assert_eq!(app.messages[0].text, "hello");
+}
+
+#[test]
+fn submit_turn_text_backfills_existing_history_for_claude_start() {
+    let client = ClaudeStartMock;
+    let mut app = AppState::new("thread-1".to_string());
+    app.push_input_history("hello");
+
+    submit_turn_text(&client, &mut app, "hello".to_string());
+
+    assert_eq!(app.input_history_len(), 1);
+    assert_eq!(app.input_history_message_indices(), &[Some(0)]);
+}
+
+#[test]
+fn submit_turn_text_skips_history_for_internal_claude_turns() {
+    let client = ClaudeStartMock;
+    let mut app = AppState::new("thread-1".to_string());
+
+    submit_turn_text_with_history(&client, &mut app, "auto".to_string(), false);
+
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(app.input_history_len(), 0);
 }
 
 #[test]

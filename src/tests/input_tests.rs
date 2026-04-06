@@ -70,6 +70,20 @@ fn is_priority_server_line_identifies_control_notifications() {
 }
 
 #[test]
+fn can_submit_queued_turn_requires_no_deferred_or_prefetched_events() {
+    let mut deferred = std::collections::VecDeque::new();
+    assert!(can_submit_queued_turn(false, &deferred, None));
+
+    deferred.push_back("tail".to_string());
+    assert!(!can_submit_queued_turn(false, &deferred, None));
+
+    deferred.clear();
+    let prefetched = UiEvent::Terminal(Event::Resize(80, 24));
+    assert!(!can_submit_queued_turn(false, &deferred, Some(&prefetched)));
+    assert!(!can_submit_queued_turn(true, &deferred, None));
+}
+
+#[test]
 fn context_usage_label_formats_k_and_percent() {
     let label = context_usage_label(ContextUsage {
         used: 128_000,
@@ -411,4 +425,3 @@ fn perf_metrics_tracks_repeat_transition_buckets() {
     assert_eq!(perf.repeat_interval.values_us.len(), 1);
     assert_eq!(perf.release_to_next_key.values_us.len(), 1);
 }
-

@@ -16,7 +16,7 @@ use super::models::{Message, MessageKind, RenderedLine, Role, TerminalSize};
 use super::perf::PerfMetrics;
 #[cfg(test)]
 use super::ralph::RalphConfig;
-use super::ralph_runtime_state::RalphRuntimeState;
+use super::ralph_runtime_state::{QueuedTurnInput, RalphRuntimeState};
 use super::render::{compute_input_layout, textarea_input_from_key};
 use super::render_cache_state::RenderCacheState;
 pub(super) use super::runtime_settings_state::ModelSettingsField;
@@ -271,7 +271,7 @@ impl AppState {
     }
 
     pub(super) fn queue_turn_input(&mut self, text: impl Into<String>) {
-        self.ralph_runtime.enqueue_turn_input(text);
+        self.ralph_runtime.enqueue_turn_input(text, true);
     }
 
     pub(super) fn has_pending_ralph_continuation(&self) -> bool {
@@ -282,7 +282,7 @@ impl AppState {
         self.ralph_runtime.pending_continuation_wait(now)
     }
 
-    pub(super) fn dequeue_turn_input(&mut self, now: Instant) -> Option<String> {
+    pub(super) fn dequeue_turn_input(&mut self, now: Instant) -> Option<QueuedTurnInput> {
         self.ralph_runtime.dequeue_turn_input(now)
     }
 

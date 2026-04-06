@@ -9,9 +9,14 @@ use super::ralph::{detect_turn_markers, load_ralph_config, RalphConfig, RalphSta
 
 const RALPH_CONTINUATION_DELAY: Duration = Duration::from_millis(700);
 
+pub(super) struct QueuedTurnInput {
+    pub(super) text: String,
+    pub(super) record_input_history: bool,
+}
+
 pub(super) struct RalphRuntimeState {
     current: Option<RalphState>,
-    queued_turn_inputs: VecDeque<String>,
+    queued_turn_inputs: VecDeque<QueuedTurnInput>,
     toggle_pending: bool,
     pending_continuation_deadline: Option<Instant>,
     cwd: PathBuf,
@@ -87,7 +92,7 @@ impl RalphRuntimeState {
         }
         ralph.primed = true;
         let prompt = ralph.config.base_prompt.clone();
-        self.enqueue_turn_input(prompt);
+        self.enqueue_turn_input(prompt, false);
     }
 
     pub(super) fn toggle_now(&mut self) -> Result<&'static str> {
@@ -131,12 +136,19 @@ impl RalphRuntimeState {
         self.toggle_pending
     }
 
-    pub(super) fn enqueue_turn_input(&mut self, text: impl Into<String>) {
+    pub(super) fn enqueue_turn_input(
+        &mut self,
+        text: impl Into<String>,
+        record_input_history: bool,
+    ) {
         let text = text.into();
         if text.trim().is_empty() {
             return;
         }
-        self.queued_turn_inputs.push_back(text);
+        self.queued_turn_inputs.push_back(QueuedTurnInput {
+            text,
+            record_input_history,
+        });
     }
 
     pub(super) fn queue_continuation(&mut self, text: impl Into<String>) {
@@ -144,7 +156,10 @@ impl RalphRuntimeState {
         if text.trim().is_empty() {
             return;
         }
-        self.queued_turn_inputs.push_back(text);
+        self.queued_turn_inputs.push_back(QueuedTurnInput {
+            text,
+            record_input_history: false,
+        });
         self.pending_continuation_deadline = Some(Instant::now() + RALPH_CONTINUATION_DELAY);
     }
 
@@ -163,7 +178,7 @@ impl RalphRuntimeState {
         self.pending_continuation_deadline
     }
 
-    pub(super) fn dequeue_turn_input(&mut self, now: Instant) -> Option<String> {
+    pub(super) fn dequeue_turn_input(&mut self, now: Instant) -> Option<QueuedTurnInput> {
         if let Some(deadline) = self.pending_continuation_deadline {
             if now < deadline {
                 return None;
