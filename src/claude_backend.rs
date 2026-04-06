@@ -517,7 +517,7 @@ fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<Claude
         }
     }
 
-    if items.is_empty() && saw_malformed_record {
+    if saw_malformed_record {
         bail!("Claude session file contained malformed JSONL records");
     }
 
