@@ -1,6 +1,8 @@
+use std::env;
 use std::collections::HashMap;
+use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
@@ -56,6 +58,13 @@ pub(crate) struct ClaudeTranslationState {
 #[derive(Debug, Default)]
 pub(crate) struct TranslateOutput {
     pub(crate) lines: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ClaudeLocalHistory {
+    pub(crate) session_id: String,
+    pub(crate) thread: Value,
+    pub(crate) imported_item_count: usize,
 }
 
 pub(crate) struct ClaudeClient {
@@ -141,13 +150,18 @@ impl ClaudeClient {
         })
     }
 
-    pub(crate) fn synthetic_start_response(&self) -> String {
+    pub(crate) fn synthetic_start_response(
+        &self,
+        thread_id: &str,
+        history_thread: Option<&Value>,
+    ) -> String {
+        let thread = history_thread
+            .cloned()
+            .unwrap_or_else(|| json!({ "id": thread_id }));
         json!({
             "jsonrpc": "2.0",
             "result": {
-                "thread": {
-                    "id": CLAUDE_PENDING_THREAD_ID
-                }
+                "thread": thread
             },
         })
         .to_string()
@@ -294,6 +308,284 @@ pub(crate) fn claude_model_catalog() -> Vec<ModelInfo> {
             is_default: false,
         },
     ]
+}
+
+fn claude_projects_root() -> Option<PathBuf> {
+    env::var_os("HOME")
+        .map(PathBuf::from)
+        .map(|home| home.join(".claude").join("projects"))
+}
+
+pub(crate) fn claude_project_dir_name(cwd: &Path) -> String {
+    cwd.to_string_lossy()
+        .chars()
+        .map(|ch| if ch == '/' || ch == '\\' { '-' } else { ch })
+        .collect()
+}
+
+fn find_session_file_for_resume(projects_root: &Path, cwd: &Path, session_id: &str) -> Option<PathBuf> {
+    let file_name = format!("{session_id}.jsonl");
+    let preferred = projects_root
+        .join(claude_project_dir_name(cwd))
+        .join(&file_name);
+    if preferred.is_file() {
+        return Some(preferred);
+    }
+
+    let entries = fs::read_dir(projects_root).ok()?;
+    for entry in entries.flatten() {
+        let candidate = entry.path().join(&file_name);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
+fn find_session_file_for_continue(projects_root: &Path, cwd: &Path) -> Option<PathBuf> {
+    let project_dir = projects_root.join(claude_project_dir_name(cwd));
+    let entries = fs::read_dir(project_dir).ok()?;
+    let mut newest: Option<(std::time::SystemTime, PathBuf)> = None;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("jsonl") {
+            continue;
+        }
+        let modified = match entry.metadata().and_then(|meta| meta.modified()) {
+            Ok(ts) => ts,
+            Err(_) => continue,
+        };
+        match &newest {
+            Some((best, _)) if modified <= *best => {}
+            _ => newest = Some((modified, path)),
+        }
+    }
+    newest.map(|(_, path)| path)
+}
+
+fn user_message_item(text: &str) -> Value {
+    json!({
+        "type": "userMessage",
+        "content": [{
+            "type": "text",
+            "text": text,
+        }]
+    })
+}
+
+fn agent_message_item(text: &str) -> Value {
+    json!({
+        "type": "agentMessage",
+        "text": text,
+    })
+}
+
+fn tool_call_item(tool_use_id: &str, tool_call: &ClaudeToolCall) -> Value {
+    json!({
+        "id": tool_use_id,
+        "type": "toolCall",
+        "tool": tool_call.name,
+        "name": tool_call.name,
+        "input": tool_call.input,
+    })
+}
+
+fn fallback_tool_result_item(tool_use_id: &str, part: &Value) -> Option<Value> {
+    let content_text = value_to_string(part.get("content")?);
+    if content_text.trim().is_empty() {
+        return None;
+    }
+    Some(json!({
+        "id": format!("{tool_use_id}:result"),
+        "type": "toolResult",
+        "output": content_text,
+    }))
+}
+
+fn append_assistant_history_record(
+    record: &Value,
+    pending_tool_calls: &mut HashMap<String, ClaudeToolCall>,
+    items: &mut Vec<Value>,
+) {
+    let Some(message) = record.get("message").and_then(Value::as_object) else {
+        return;
+    };
+    if message.get("role").and_then(Value::as_str) != Some("assistant") {
+        return;
+    }
+    let Some(content) = message.get("content").and_then(Value::as_array) else {
+        return;
+    };
+
+    for part in content {
+        match part.get("type").and_then(Value::as_str) {
+            Some("text") => {
+                if let Some(text) = part.get("text").and_then(Value::as_str) {
+                    if !text.trim().is_empty() {
+                        items.push(agent_message_item(text));
+                    }
+                }
+            }
+            Some("tool_use") => {
+                let tool_use_id = part
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .map(ToOwned::to_owned)
+                    .unwrap_or_else(|| format!("claude-history-tool-{}", pending_tool_calls.len() + 1));
+                let tool_call = ClaudeToolCall {
+                    name: part
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .unwrap_or("Tool")
+                        .to_string(),
+                    input: part.get("input").cloned().unwrap_or_else(|| json!({})),
+                };
+                items.push(tool_call_item(&tool_use_id, &tool_call));
+                pending_tool_calls.insert(tool_use_id, tool_call);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn append_user_history_record(
+    record: &Value,
+    pending_tool_calls: &mut HashMap<String, ClaudeToolCall>,
+    items: &mut Vec<Value>,
+) {
+    let Some(message) = record.get("message").and_then(Value::as_object) else {
+        return;
+    };
+    if message.get("role").and_then(Value::as_str) != Some("user") {
+        return;
+    }
+
+    match message.get("content") {
+        Some(Value::String(text)) => {
+            if !text.trim().is_empty() {
+                items.push(user_message_item(text));
+            }
+        }
+        Some(Value::Array(parts)) => {
+            let text_parts: Vec<&str> = parts
+                .iter()
+                .filter(|part| part.get("type").and_then(Value::as_str) == Some("text"))
+                .filter_map(|part| part.get("text").and_then(Value::as_str))
+                .filter(|text| !text.trim().is_empty())
+                .collect();
+            if !text_parts.is_empty() {
+                items.push(user_message_item(&text_parts.join("\n")));
+            }
+
+            let tool_use_result = record
+                .get("toolUseResult")
+                .or_else(|| record.get("tool_use_result"));
+            for part in parts {
+                if part.get("type").and_then(Value::as_str) != Some("tool_result") {
+                    continue;
+                }
+                let tool_use_id = part
+                    .get("tool_use_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                if tool_use_id.is_empty() {
+                    continue;
+                }
+
+                let item = if let Some(tool_call) = pending_tool_calls.remove(tool_use_id) {
+                    synthetic_tool_result_item(&tool_call, tool_use_id, part, tool_use_result)
+                } else {
+                    fallback_tool_result_item(tool_use_id, part)
+                };
+                if let Some(item) = item {
+                    items.push(item);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<ClaudeLocalHistory> {
+    let file = File::open(path).with_context(|| format!("failed to open Claude session file {}", path.display()))?;
+    let reader = BufReader::new(file);
+    let mut items = Vec::new();
+    let mut pending_tool_calls = HashMap::new();
+
+    for line in reader.lines() {
+        let Ok(line) = line else {
+            continue;
+        };
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let Ok(record) = serde_json::from_str::<Value>(trimmed) else {
+            continue;
+        };
+        match record.get("type").and_then(Value::as_str) {
+            Some("assistant") => {
+                append_assistant_history_record(&record, &mut pending_tool_calls, &mut items)
+            }
+            Some("user") => {
+                append_user_history_record(&record, &mut pending_tool_calls, &mut items)
+            }
+            _ => {}
+        }
+    }
+
+    let imported_item_count = items.len();
+    Ok(ClaudeLocalHistory {
+        session_id: session_id.to_string(),
+        thread: json!({
+            "id": session_id,
+            "turns": [{
+                "items": items,
+            }]
+        }),
+        imported_item_count,
+    })
+}
+
+pub(crate) fn load_claude_local_history_from_projects_root(
+    projects_root: &Path,
+    cwd: &Path,
+    launch_mode: &ClaudeLaunchMode,
+) -> Result<Option<ClaudeLocalHistory>> {
+    let session_path = match launch_mode {
+        ClaudeLaunchMode::New => return Ok(None),
+        ClaudeLaunchMode::Resume(session_id) => {
+            find_session_file_for_resume(projects_root, cwd, session_id)
+                .map(|path| (session_id.clone(), path))
+        }
+        ClaudeLaunchMode::Continue => find_session_file_for_continue(projects_root, cwd).and_then(
+            |path| {
+                let session_id = path
+                    .file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .map(|stem| stem.to_string())?;
+                Some((session_id, path))
+            },
+        ),
+    };
+
+    let Some((session_id, path)) = session_path else {
+        return Ok(None);
+    };
+    Ok(Some(parse_local_history_from_file(&path, &session_id)?))
+}
+
+pub(crate) fn load_claude_local_history(
+    cwd: &Path,
+    launch_mode: &ClaudeLaunchMode,
+) -> Result<Option<ClaudeLocalHistory>> {
+    let Some(projects_root) = claude_projects_root() else {
+        return Ok(None);
+    };
+    if !projects_root.is_dir() {
+        return Ok(None);
+    }
+    load_claude_local_history_from_projects_root(&projects_root, cwd, launch_mode)
 }
 
 pub(crate) fn translate_claude_line(
@@ -648,12 +940,12 @@ fn synthetic_token_usage_line(
     .to_string()
 }
 
-fn synthetic_tool_result_line(
+fn synthetic_tool_result_item(
     tool_call: &ClaudeToolCall,
     tool_use_id: &str,
     part: &Value,
     tool_use_result: Option<&Value>,
-) -> Option<String> {
+) -> Option<Value> {
     let lower = tool_call.name.to_ascii_lowercase();
     let is_error = part
         .get("is_error")
@@ -712,15 +1004,7 @@ fn synthetic_tool_result_line(
             item.insert("diff".to_string(), Value::String(raw_output));
         }
 
-        return Some(
-            json!({
-                "method": "item/completed",
-                "params": {
-                    "item": Value::Object(item)
-                }
-            })
-            .to_string(),
-        );
+        return Some(Value::Object(item));
     }
 
     if !is_error && lower == "read" {
@@ -757,11 +1041,21 @@ fn synthetic_tool_result_line(
         );
     }
 
+    Some(Value::Object(item))
+}
+
+fn synthetic_tool_result_line(
+    tool_call: &ClaudeToolCall,
+    tool_use_id: &str,
+    part: &Value,
+    tool_use_result: Option<&Value>,
+) -> Option<String> {
+    let item = synthetic_tool_result_item(tool_call, tool_use_id, part, tool_use_result)?;
     Some(
         json!({
             "method": "item/completed",
             "params": {
-                "item": Value::Object(item)
+                "item": item
             }
         })
         .to_string(),

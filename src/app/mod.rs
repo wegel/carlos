@@ -53,7 +53,10 @@ use self::transcript_render::*;
 #[cfg(test)]
 use crate::clipboard::*;
 use crate::backend::BackendClient;
-use crate::claude_backend::{claude_model_catalog, ClaudeClient, ClaudeLaunchMode};
+use crate::claude_backend::{
+    claude_model_catalog, load_claude_local_history, ClaudeClient, ClaudeLaunchMode,
+    CLAUDE_PENDING_THREAD_ID,
+};
 #[cfg(test)]
 use crate::event::UiEvent;
 use crate::protocol::*;
@@ -577,9 +580,21 @@ fn run_claude_backend(
         ClaudeLaunchMode::New
     };
 
+    let local_history = load_claude_local_history(cwd_path, &launch_mode)?;
+    let initial_thread_id = match &launch_mode {
+        ClaudeLaunchMode::Resume(session_id) => session_id.clone(),
+        ClaudeLaunchMode::Continue => local_history
+            .as_ref()
+            .map(|history| history.session_id.clone())
+            .unwrap_or_else(|| CLAUDE_PENDING_THREAD_ID.to_string()),
+        ClaudeLaunchMode::New => CLAUDE_PENDING_THREAD_ID.to_string(),
+    };
     let mut client = ClaudeClient::start(cwd_path, launch_mode)?;
     let server_events_rx = client.take_events_rx()?;
-    let start_resp = client.synthetic_start_response();
+    let start_resp = client.synthetic_start_response(
+        &initial_thread_id,
+        local_history.as_ref().map(|history| &history.thread),
+    );
     let chosen_thread_id = parse_thread_id_from_start_or_resume(&start_resp)?;
 
     let mut app = AppState::new(chosen_thread_id);
@@ -597,10 +612,15 @@ fn run_claude_backend(
         None,
     );
     load_history_from_start_or_resume(&mut app, &start_resp)?;
-    if opts.mode_resume || opts.mode_continue {
+    if (opts.mode_resume || opts.mode_continue)
+        && local_history
+            .as_ref()
+            .map(|history| history.imported_item_count == 0)
+            .unwrap_or(true)
+    {
         app.append_message(
             Role::System,
-            "Claude resume starts without replayed transcript history in print/stream-json mode"
+            "Claude local transcript history could not be reconstructed from session storage"
                 .to_string(),
         );
     }

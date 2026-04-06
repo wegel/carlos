@@ -1,3 +1,5 @@
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -8,7 +10,10 @@ use serde_json::Value;
 use super::*;
 use super::input_events::{submit_turn_text, submit_turn_text_with_history};
 use crate::backend::{BackendClient, BackendKind};
-use crate::claude_backend::{translate_claude_line, ClaudeTranslationState};
+use crate::claude_backend::{
+    claude_project_dir_name, load_claude_local_history_from_projects_root, translate_claude_line,
+    ClaudeLaunchMode, ClaudeTranslationState,
+};
 
 fn collect_synthetic_lines(lines: &[&str]) -> Vec<String> {
     let mut state = ClaudeTranslationState::default();
@@ -24,6 +29,28 @@ fn parse_method(line: &str) -> Option<String> {
     serde_json::from_str::<Value>(line)
         .ok()
         .and_then(|value| value.get("method").and_then(Value::as_str).map(str::to_string))
+}
+
+fn temp_test_dir(name: &str) -> PathBuf {
+    let unique = format!(
+        "carlos-{}-{}-{}",
+        name,
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("unix epoch")
+            .as_nanos()
+    );
+    std::env::temp_dir().join(unique)
+}
+
+fn write_session_file(root: &Path, cwd: &Path, session_id: &str, lines: &[&str]) -> PathBuf {
+    let project_dir = root.join(claude_project_dir_name(cwd));
+    fs::create_dir_all(&project_dir).expect("create project dir");
+    let path = project_dir.join(format!("{session_id}.jsonl"));
+    let body = format!("{}\n", lines.join("\n"));
+    fs::write(&path, body).expect("write session file");
+    path
 }
 
 struct ClaudeSteerMock;
@@ -242,4 +269,102 @@ fn translate_claude_bash_tool_result_emits_tool_call_and_tool_output_rows() {
             .unwrap_or("")
             .contains("$ pwd")
     );
+}
+
+#[test]
+fn claude_project_dir_name_encodes_current_worktree_path() {
+    assert_eq!(
+        claude_project_dir_name(Path::new("/var/home/wegel/work/perso/stormvault")),
+        "-var-home-wegel-work-perso-stormvault"
+    );
+}
+
+#[test]
+fn local_claude_history_imports_user_assistant_and_tool_items() {
+    let root = temp_test_dir("claude-history-import");
+    let cwd = Path::new("/repo");
+    write_session_file(
+        &root,
+        cwd,
+        "session-123",
+        &[
+            r#"{"type":"user","message":{"role":"user","content":"hello"},"sessionId":"session-123"}"#,
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"hi there"},{"type":"tool_use","id":"toolu_1","name":"Bash","input":{"command":"pwd","description":"Print working directory"}}]},"sessionId":"session-123"}"#,
+            r#"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_1","type":"tool_result","content":"/repo","is_error":false}]},"toolUseResult":{"stdout":"/repo","stderr":"","interrupted":false},"sessionId":"session-123"}"#,
+        ],
+    );
+
+    let imported = load_claude_local_history_from_projects_root(
+        &root,
+        cwd,
+        &ClaudeLaunchMode::Resume("session-123".to_string()),
+    )
+    .expect("import")
+    .expect("history");
+
+    assert_eq!(imported.session_id, "session-123");
+    assert_eq!(imported.imported_item_count, 4);
+    let items = imported.thread["turns"][0]["items"]
+        .as_array()
+        .expect("items");
+    assert_eq!(items[0]["type"].as_str(), Some("userMessage"));
+    assert_eq!(items[1]["type"].as_str(), Some("agentMessage"));
+    assert_eq!(items[2]["type"].as_str(), Some("toolCall"));
+    assert_eq!(items[3]["type"].as_str(), Some("toolResult"));
+    assert!(items[3]["output"].as_str().unwrap_or("").contains("$ pwd"));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn local_claude_history_continue_uses_most_recent_session_file() {
+    let root = temp_test_dir("claude-history-continue");
+    let cwd = Path::new("/repo");
+    write_session_file(
+        &root,
+        cwd,
+        "older-session",
+        &[r#"{"type":"user","message":{"role":"user","content":"older"},"sessionId":"older-session"}"#],
+    );
+    std::thread::sleep(Duration::from_millis(20));
+    write_session_file(
+        &root,
+        cwd,
+        "newer-session",
+        &[r#"{"type":"user","message":{"role":"user","content":"newer"},"sessionId":"newer-session"}"#],
+    );
+
+    let imported = load_claude_local_history_from_projects_root(
+        &root,
+        cwd,
+        &ClaudeLaunchMode::Continue,
+    )
+    .expect("import")
+    .expect("history");
+
+    assert_eq!(imported.session_id, "newer-session");
+    let items = imported.thread["turns"][0]["items"]
+        .as_array()
+        .expect("items");
+    assert_eq!(items.len(), 1);
+    assert_eq!(
+        items[0]["content"][0]["text"].as_str(),
+        Some("newer")
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn local_claude_history_returns_none_when_session_file_is_missing() {
+    let root = temp_test_dir("claude-history-missing");
+    fs::create_dir_all(&root).expect("create root");
+    let imported = load_claude_local_history_from_projects_root(
+        &root,
+        Path::new("/repo"),
+        &ClaudeLaunchMode::Resume("missing-session".to_string()),
+    )
+    .expect("import");
+    assert!(imported.is_none());
+    let _ = fs::remove_dir_all(root);
 }

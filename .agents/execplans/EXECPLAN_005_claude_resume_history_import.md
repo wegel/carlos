@@ -13,8 +13,8 @@ This matters because the current Claude backend already has enough runtime behav
 ## Progress
 
 - [x] (2026-04-06 16:09Z) Created this ExecPlan, registered it in `PROGRAM_PLAN.md`, and grounded the scope in the shipped Claude adapter plus the local Claude session-store format observed on disk.
-- [ ] Implement local Claude session resolution and JSONL transcript import for explicit `resume <SESSION_ID>` and `continue`.
-- [ ] Add focused tests for session-path resolution, local history import, and fallback behavior when local session files are unavailable or malformed.
+- [x] (2026-04-06 16:24Z) Implemented local Claude session resolution and JSONL transcript import for explicit `resume <SESSION_ID>` and `continue`. Claude startup now resolves the local session file, converts persisted JSONL records into Codex-shaped history items, and seeds the synthetic start response with that reconstructed thread when available.
+- [x] (2026-04-06 16:24Z) Added focused tests for session-path resolution, continue-session selection, local history import of user/assistant/tool items, and missing-session fallback behavior. `cargo test` now passes with 197 tests.
 - [ ] Run `cargo test`, `cargo build --release`, refresh `~/.local/bin/carlos`, collect engineering review, and close out the ExecPlan.
 
 ## Surprises & Discoveries
@@ -24,6 +24,12 @@ This matters because the current Claude backend already has enough runtime behav
 
 - Observation: the current `carlos` Claude startup path is already structured to accept synthetic history from a start response. `run_claude_backend()` calls `load_history_from_start_or_resume()` just like the Codex path, but today the Claude synthetic response includes only a placeholder thread id and no turns.
   Evidence: `src/app/mod.rs::run_claude_backend()` creates `start_resp` with `ClaudeClient::synthetic_start_response()`, then immediately calls `load_history_from_start_or_resume(&mut app, &start_resp)` before appending the no-history system note.
+
+- Observation: the existing app-side history loader does not actually care about original turn boundaries for replay. It just walks `turns[*].items[*]` in order and appends messages/items as it sees them.
+  Evidence: `src/app/notification_items.rs::append_history_from_thread()` only iterates ordered items and never reads turn metadata beyond the `items` arrays themselves.
+
+- Observation: the local Claude JSONL store is sufficient for a best-effort `continue` implementation because the current-directory project folder contains one JSONL file per persisted session, and filesystem modification time is a workable proxy for “most recent session”.
+  Evidence: the importer test now resolves `ClaudeLaunchMode::Continue` by choosing the newest `<SESSION_ID>.jsonl` file under the encoded Claude project directory for the current working tree.
 
 ## Decision Log
 
@@ -35,9 +41,17 @@ This matters because the current Claude backend already has enough runtime behav
   Rationale: Claude’s disk format is not a published protocol contract. The importer should improve the happy path without turning unavailable local files or format drift into a hard startup failure.
   Date/Author: 2026-04-06 / codex
 
+- Decision: represent imported Claude history as one synthetic thread containing one ordered `items` list instead of trying to reconstruct exact turn boundaries from the local JSONL graph.
+  Rationale: the current app-side history loader only needs ordered items, not precise turn segmentation, to rebuild the transcript and input history correctly. One ordered synthetic turn keeps the importer simple and avoids brittle parent/uuid graph reconstruction.
+  Date/Author: 2026-04-06 / codex
+
+- Decision: reuse the live Claude tool-result shaping rules for imported history by factoring the tool-result builder into an item-producing helper shared by both live translation and local history import.
+  Rationale: imported Bash, Write, and Edit history should render the same way as live streamed Claude tool results. Sharing the shaping logic reduces drift between startup history and ongoing live events.
+  Date/Author: 2026-04-06 / codex
+
 ## Outcomes & Retrospective
 
-Pending. On completion, Claude resume/continue in `carlos` should seed the transcript from local Claude session storage when available, preserve the existing live-stream translation for new activity, and fall back gracefully when local reconstruction is impossible.
+Partial outcome (2026-04-06 / codex): the Claude startup path now performs best-effort local transcript reconstruction for explicit `resume <SESSION_ID>` and `continue`. It resolves the local session JSONL file, translates persisted user/assistant/tool records into the existing history-item surface, and uses that reconstructed thread in the synthetic start response so the shared app history loader can seed the transcript immediately. The remaining closeout work is release-build/install validation plus engineering review.
 
 ## Context and Orientation
 
