@@ -24,6 +24,7 @@ This work matters because `carlos` is already a useful terminal shell around the
 - [ ] (2026-04-06 18:26Z) Final engineering-review signoff is still pending. Two separate reviewer invocations were attempted after the fixup commit: one custom `codex exec` reviewer session and one stricter retry that provided the exact diff in stdin. Both sessions kept exploring the repository but did not return a final verdict in the required output shape before this run had to stop, so the ExecPlan cannot be closed yet under the repo review rules.
 - [x] (2026-04-06 18:39Z) The longer-running built-in reviewer finally returned a concrete finding instead of process chatter: the prompt-echo fix introduced a cross-sender ordering race between synthetic user prompts and reader-thread Claude output. Fixed by moving Claude prompt surfacing into synchronous app-side turn submission instead of injecting it from the backend event channel. Validation reran cleanly: `cargo test` 184, `cargo build --release`, and release-binary reinstall.
 - [x] (2026-04-06 19:28Z) A fresh reviewer pass against the prompt-ordering fix found two follow-up regressions in the queued-turn path: Claude follow-up prompts could still jump ahead of deferred output from the prior turn, and auto-queued Ralph turns polluted editable input history on the Claude backend. Fixed by tagging queued turns with history intent, skipping auto-history for Ralph/internal turns, and refusing to auto-submit a queued turn until both deferred output and immediately pending UI/server events have been drained. Validation reran cleanly: `cargo test` 188, `cargo build --release`, and release-binary reinstall.
+- [x] (2026-04-06 19:56Z) The next reviewer pass found that the first queued-turn gate was still too coarse: later manual Claude input could overtake an older queued turn, and non-server terminal noise could stall queued turns indefinitely. Fixed by prefetching a persistent batch of pending UI events, blocking queued-turn submission only on pending server output, and queueing newly submitted Claude turns behind any already-pending queued turn instead of starting them immediately. Validation reran cleanly: `cargo test` 189, `cargo build --release`, and release-binary reinstall.
 
 ## Surprises & Discoveries
 
@@ -65,6 +66,9 @@ This work matters because `carlos` is already a useful terminal shell around the
 
 - Observation: the shared queued-turn path serves two distinct producers with different history semantics: explicit user follow-ups queued during an active Claude turn should still bind back to input-history rewind entries, while Ralph bootstrap and continuation turns should never appear as editable prompt history.
   Evidence: the second engineering-review pass showed that recording history unconditionally on successful Claude `turn/start` polluted prompt navigation with Ralph’s base prompt and automatic continuations.
+
+- Observation: once Claude turns can be queued while the previous turn is still draining output, later manual input must also respect that queue order. Otherwise an `Enter` event processed during the drain window can start a newer turn ahead of an older queued one.
+  Evidence: the third engineering-review pass showed that a queued follow-up `B` from turn `A` could still be overtaken by a later prompt `C` typed after `turn/completed` but before the remaining low-priority output had drained.
 
 ## Decision Log
 
@@ -108,6 +112,10 @@ This work matters because `carlos` is already a useful terminal shell around the
   Rationale: a plain queued string was no longer enough once Claude started appending prompts locally. The queue must distinguish user-authored follow-ups from internal Ralph turns, and the loop must not submit the next Claude turn ahead of already-produced output from the previous one.
   Date/Author: 2026-04-06 / codex
 
+- Decision: when Claude already has a queued turn pending, treat any later Claude submission as another queued turn rather than starting it immediately, and only let prefetched server events block queued-turn dispatch.
+  Rationale: queue order must remain stable even if the user presses `Enter` during the old turn’s drain window, while unrelated terminal noise such as mouse-move or resize events should not freeze the scheduler.
+  Date/Author: 2026-04-06 / codex
+
 ## Outcomes & Retrospective
 
 Pending. On completion, `carlos` should have one shared TUI that can speak to either backend, with Codex behavior preserved and Claude support added behind an explicit backend selection. The expected tradeoff for the first version is that Claude session browsing, archiving, and interactive approvals remain out of scope, but the common interactive experience for new work, explicit resume, streaming text, tools, interruption, and context usage becomes available.
@@ -129,6 +137,8 @@ Open review-status note (2026-04-06 / codex): after the fixup commit, the requir
 Follow-up review note (2026-04-06 / codex): once allowed to run longer, the built-in `codex review --commit 1b1df95` session did return a concrete bug report. It flagged a prompt-ordering race caused by sending synthetic Claude user-message events from a different `mpsc` producer than the reader-thread-translated Claude output. That finding was resolved by removing backend-side prompt injection and appending the Claude user prompt synchronously in `submit_turn_text()` after a successful Claude `turn/start` call.
 
 Second follow-up review note (2026-04-06 / codex): the next built-in `codex review --commit 824d816` pass found that the first fix still allowed queued Claude prompts to overtake deferred output from the previous turn, and that the new unconditional Claude history-recording path leaked Ralph auto-prompts into editable history. The implementation now tags queued turns with `record_input_history`, keeps Ralph/internal turns out of input history, and only auto-submits a queued turn once no deferred or prefetched events remain to be rendered from the previous turn.
+
+Third follow-up review note (2026-04-06 / codex): the next built-in `codex review --commit 69fa9a4` pass found that the previous gate still let later manual Claude input jump ahead of an older queued turn, and that blocking on any prefetched UI event could make queued turns appear hung under resize or mouse-move noise. The implementation now keeps a persistent prefetched-event buffer, blocks queued-turn dispatch only when that buffer contains server output, and queues later Claude submissions behind any already-pending queued turn so prompt order stays FIFO.
 
 ## Context and Orientation
 

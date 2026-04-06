@@ -122,6 +122,11 @@ pub(super) fn submit_turn_text_with_history(
             Err(e) => app.set_status(format!("{e}")),
         }
     } else {
+        if client.kind() == BackendKind::Claude && app.has_queued_turn_inputs() {
+            app.queue_turn_input_with_history(text, record_input_history);
+            app.set_status("queued behind pending Claude turn");
+            return;
+        }
         let (model, effort, summary) = app.next_turn_runtime_settings();
         let params = params_turn_start(
             &app.thread_id,

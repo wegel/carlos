@@ -35,6 +35,7 @@ pub(super) fn run_conversation_tui(
     with_terminal(|terminal| {
         let ui_rx = spawn_event_forwarders(server_events_rx);
         let mut deferred_server_lines: VecDeque<String> = VecDeque::new();
+        let mut prefetched_events: VecDeque<UiEvent> = VecDeque::new();
 
         let mut needs_draw = true;
         let mut last_anim_tick = 0u128;
@@ -52,15 +53,16 @@ pub(super) fn run_conversation_tui(
 
             let loop_now = Instant::now();
             let working = app.active_turn_id.is_some();
-            let mut prefetched_event = None;
             if !working && deferred_server_lines.is_empty() {
-                match ui_rx.try_recv() {
-                    Ok(ev) => prefetched_event = Some(ev),
-                    Err(TryRecvError::Empty) => {}
-                    Err(TryRecvError::Disconnected) => return Ok(()),
+                while prefetched_events.len() < MAX_UI_DRAIN_PER_CYCLE {
+                    match ui_rx.try_recv() {
+                        Ok(ev) => prefetched_events.push_back(ev),
+                        Err(TryRecvError::Empty) => break,
+                        Err(TryRecvError::Disconnected) => return Ok(()),
+                    }
                 }
             }
-            if can_submit_queued_turn(working, &deferred_server_lines, prefetched_event.as_ref()) {
+            if can_submit_queued_turn(working, &deferred_server_lines, &prefetched_events) {
                 if let Some(next_turn) = app.dequeue_turn_input(loop_now) {
                     submit_turn_text_with_history(
                         client,
@@ -95,7 +97,7 @@ pub(super) fn run_conversation_tui(
             }
 
             let wait_started = Instant::now();
-            let next_event = if let Some(ev) = prefetched_event {
+            let next_event = if let Some(ev) = prefetched_events.pop_front() {
                 Some(ev)
             } else if !deferred_server_lines.is_empty() {
                 match ui_rx.try_recv() {
@@ -129,7 +131,11 @@ pub(super) fn run_conversation_tui(
             if let Some(ev) = next_event {
                 incoming_events.push(ev);
             }
-            for _ in 0..MAX_UI_DRAIN_PER_CYCLE {
+            while incoming_events.len() < MAX_UI_DRAIN_PER_CYCLE {
+                if let Some(ev) = prefetched_events.pop_front() {
+                    incoming_events.push(ev);
+                    continue;
+                }
                 match ui_rx.try_recv() {
                     Ok(ev) => incoming_events.push(ev),
                     Err(TryRecvError::Empty) => break,
@@ -217,9 +223,13 @@ pub(super) fn run_conversation_tui(
 pub(super) fn can_submit_queued_turn(
     working: bool,
     deferred_server_lines: &VecDeque<String>,
-    prefetched_event: Option<&UiEvent>,
+    prefetched_events: &VecDeque<UiEvent>,
 ) -> bool {
-    !working && deferred_server_lines.is_empty() && prefetched_event.is_none()
+    !working
+        && deferred_server_lines.is_empty()
+        && !prefetched_events
+            .iter()
+            .any(|event| matches!(event, UiEvent::ServerLine(_)))
 }
 
 pub(super) fn prioritize_events(

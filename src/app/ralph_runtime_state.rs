@@ -193,6 +193,10 @@ impl RalphRuntimeState {
         self.queued_turn_inputs.is_empty()
     }
 
+    pub(super) fn has_queued_turn_inputs(&self) -> bool {
+        !self.queued_turn_inputs.is_empty()
+    }
+
     pub(super) fn mark_user_turn_submitted(&mut self) {
         if let Some(ralph) = self.current.as_mut() {
             ralph.waiting_for_user = false;

@@ -271,7 +271,20 @@ impl AppState {
     }
 
     pub(super) fn queue_turn_input(&mut self, text: impl Into<String>) {
-        self.ralph_runtime.enqueue_turn_input(text, true);
+        self.queue_turn_input_with_history(text, true);
+    }
+
+    pub(super) fn queue_turn_input_with_history(
+        &mut self,
+        text: impl Into<String>,
+        record_input_history: bool,
+    ) {
+        self.ralph_runtime
+            .enqueue_turn_input(text, record_input_history);
+    }
+
+    pub(super) fn has_queued_turn_inputs(&self) -> bool {
+        self.ralph_runtime.has_queued_turn_inputs()
     }
 
     pub(super) fn has_pending_ralph_continuation(&self) -> bool {

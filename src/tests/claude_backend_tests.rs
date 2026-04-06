@@ -127,6 +127,21 @@ fn submit_turn_text_queues_next_claude_turn_when_turn_active() {
 }
 
 #[test]
+fn submit_turn_text_queues_behind_existing_claude_turns() {
+    let client = ClaudeSteerMock;
+    let mut app = AppState::new("thread-1".to_string());
+    app.queue_turn_input("first");
+
+    submit_turn_text(&client, &mut app, "second".to_string());
+
+    let first = app.dequeue_turn_input(Instant::now()).expect("first queued turn");
+    let second = app.dequeue_turn_input(Instant::now()).expect("second queued turn");
+    assert_eq!(first.text, "first");
+    assert_eq!(second.text, "second");
+    assert_eq!(app.status, "queued behind pending Claude turn");
+}
+
+#[test]
 fn submit_turn_text_appends_user_message_for_claude_start() {
     let client = ClaudeStartMock;
     let mut app = AppState::new("thread-1".to_string());

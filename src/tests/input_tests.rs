@@ -70,17 +70,22 @@ fn is_priority_server_line_identifies_control_notifications() {
 }
 
 #[test]
-fn can_submit_queued_turn_requires_no_deferred_or_prefetched_events() {
+fn can_submit_queued_turn_only_blocks_on_pending_server_output() {
     let mut deferred = std::collections::VecDeque::new();
-    assert!(can_submit_queued_turn(false, &deferred, None));
+    let prefetched = std::collections::VecDeque::new();
+    assert!(can_submit_queued_turn(false, &deferred, &prefetched));
 
     deferred.push_back("tail".to_string());
-    assert!(!can_submit_queued_turn(false, &deferred, None));
+    assert!(!can_submit_queued_turn(false, &deferred, &prefetched));
 
     deferred.clear();
-    let prefetched = UiEvent::Terminal(Event::Resize(80, 24));
-    assert!(!can_submit_queued_turn(false, &deferred, Some(&prefetched)));
-    assert!(!can_submit_queued_turn(true, &deferred, None));
+    let mut prefetched = std::collections::VecDeque::new();
+    prefetched.push_back(UiEvent::Terminal(Event::Resize(80, 24)));
+    assert!(can_submit_queued_turn(false, &deferred, &prefetched));
+
+    prefetched.push_back(UiEvent::ServerLine("tail".to_string()));
+    assert!(!can_submit_queued_turn(false, &deferred, &prefetched));
+    assert!(!can_submit_queued_turn(true, &deferred, &prefetched));
 }
 
 #[test]
