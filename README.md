@@ -1,6 +1,6 @@
 # carlos
 
-Terminal frontend for `codex app-server`.
+Terminal frontend for `codex app-server` and the `claude` CLI.
 
 [<img src="docs/screenshot.png" alt="carlos TUI screenshot" width="760" />](docs/screenshot.png)
 
@@ -10,8 +10,11 @@ Alpha.
 
 ## features
 
-- start a new codex thread with `carlos`
-- resume with `carlos resume <SESSION_ID>` or pick from `carlos resume`
+- start a new Codex thread with `carlos`
+- start a new Claude session with `carlos --backend claude`
+- resume Codex with `carlos resume <SESSION_ID>` or pick from `carlos resume`
+- resume Claude with `carlos --backend claude resume <SESSION_ID>` or pick from `carlos --backend claude resume`
+- backend selection via `--backend <codex|claude>` or `CARLOS_BACKEND=claude`
 - runtime Ralph mode toggle (`Ctrl+R`) with:
   - prompt auto-injection from `.agents/ralph-prompt.md` (or `--ralph-prompt`)
   - blocked marker wait state (`@@BLOCKED@@` by default)
@@ -76,8 +79,11 @@ cargo build --release
 
 ```bash
 cargo run
+cargo run -- --backend claude
 cargo run -- resume
 cargo run -- resume <SESSION_ID>
+cargo run -- --backend claude resume
+cargo run -- --backend claude resume <SESSION_ID>
 cargo run -- --ralph-prompt .agents/ralph-prompt.md
 ```
 
@@ -115,3 +121,4 @@ cargo test
 - SSH clipboard uses OSC52
 - currently tested mainly on Linux terminals
 - optional perf overlay/report: `CARLOS_METRICS=1`
+- Claude backend requires the `claude` CLI to be installed and available on `PATH`
