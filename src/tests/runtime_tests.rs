@@ -378,6 +378,45 @@ fn apply_model_settings_returns_defaults_for_persistence() {
 }
 
 #[test]
+fn apply_model_settings_omits_summary_when_backend_does_not_support_it() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.set_runtime_capabilities(true, false);
+    app.runtime.model_settings_model_input = "claude-opus-4-6".to_string();
+    app.runtime.model_settings_effort_options = vec![
+        "low".to_string(),
+        "medium".to_string(),
+        "high".to_string(),
+        "max".to_string(),
+    ];
+    app.runtime.model_settings_effort_index = 2;
+    app.runtime.model_settings_summary_options = super::state::DEFAULT_SUMMARY_OPTIONS
+        .iter()
+        .map(|value| (*value).to_string())
+        .collect();
+    app.runtime.model_settings_summary_index = 1;
+    app.runtime.show_model_settings = true;
+
+    let defaults = app.apply_model_settings();
+
+    assert_eq!(
+        defaults,
+        RuntimeDefaults {
+            model: Some("claude-opus-4-6".to_string()),
+            effort: Some("high".to_string()),
+            summary: None,
+        }
+    );
+    assert_eq!(
+        app.take_pending_runtime_settings(),
+        (
+            Some("claude-opus-4-6".to_string()),
+            Some("high".to_string()),
+            None
+        )
+    );
+}
+
+#[test]
 fn detect_turn_markers_matches_trimmed_commentary_marker_lines() {
     let messages = vec![
         Message {

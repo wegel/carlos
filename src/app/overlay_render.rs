@@ -117,7 +117,7 @@ pub(super) fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize) {
         buf,
         start_x + 3,
         start_y + 5,
-        "Home/End jump transcript  Ctrl+M model/effort/summary",
+        "Home/End jump transcript  Ctrl+M model settings",
         Style::default().fg(COLOR_TEXT),
         box_w.saturating_sub(6),
     );
@@ -178,7 +178,11 @@ pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, 
         buf,
         start_x + 3,
         start_y + 1,
-        "Model / Thinking / Summary",
+        if app.runtime_supports_summary() {
+            "Model / Thinking / Summary"
+        } else {
+            "Model / Thinking"
+        },
         Style::default()
             .fg(COLOR_PRIMARY)
             .add_modifier(Modifier::BOLD),
@@ -209,10 +213,7 @@ pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, 
     } else {
         Style::default().fg(COLOR_TEXT)
     };
-    let summary_style = if matches!(
-        app.runtime.model_settings_field,
-        ModelSettingsField::Summary
-    ) {
+    let summary_style = if matches!(app.runtime.model_settings_field, ModelSettingsField::Summary) {
         Style::default()
             .fg(COLOR_TEXT)
             .bg(COLOR_STEP6)
@@ -253,26 +254,32 @@ pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, 
         effort_style,
         box_w.saturating_sub(16),
     );
+    if app.runtime_supports_summary() {
+        draw_str(
+            buf,
+            start_x + 3,
+            start_y + 7,
+            "Summary",
+            Style::default().fg(COLOR_DIM),
+            8,
+        );
+        draw_str(
+            buf,
+            start_x + 12,
+            start_y + 7,
+            app.model_settings_summary_value(),
+            summary_style,
+            box_w.saturating_sub(16),
+        );
+    }
     draw_str(
         buf,
         start_x + 3,
-        start_y + 7,
-        "Summary",
-        Style::default().fg(COLOR_DIM),
-        8,
-    );
-    draw_str(
-        buf,
-        start_x + 12,
-        start_y + 7,
-        app.model_settings_summary_value(),
-        summary_style,
-        box_w.saturating_sub(16),
-    );
-    draw_str(
-        buf,
-        start_x + 3,
-        start_y + 9,
+        if app.runtime_supports_summary() {
+            start_y + 9
+        } else {
+            start_y + 7
+        },
         "Tab switch field, arrows adjust, Enter apply",
         Style::default().fg(COLOR_DIM),
         box_w.saturating_sub(6),

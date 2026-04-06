@@ -13,6 +13,8 @@ pub(super) enum ModelSettingsField {
 }
 
 pub(super) struct RuntimeSettingsState {
+    pub(super) supports_effort: bool,
+    pub(super) supports_summary: bool,
     pub(super) current_model: Option<String>,
     pub(super) current_effort: Option<String>,
     pub(super) current_summary: Option<String>,
@@ -33,6 +35,8 @@ pub(super) struct RuntimeSettingsState {
 impl RuntimeSettingsState {
     pub(super) fn new() -> Self {
         Self {
+            supports_effort: true,
+            supports_summary: true,
             current_model: None,
             current_effort: None,
             current_summary: None,
@@ -54,6 +58,19 @@ impl RuntimeSettingsState {
         }
     }
 
+    pub(super) fn set_capabilities(&mut self, supports_effort: bool, supports_summary: bool) {
+        self.supports_effort = supports_effort;
+        self.supports_summary = supports_summary;
+        if !supports_effort {
+            self.current_effort = None;
+            self.pending_effort = None;
+        }
+        if !supports_summary {
+            self.current_summary = None;
+            self.pending_summary = None;
+        }
+    }
+
     pub(super) fn set_runtime_settings(
         &mut self,
         model: Option<String>,
@@ -63,6 +80,27 @@ impl RuntimeSettingsState {
         self.current_model = model.and_then(normalize_non_empty);
         self.current_effort = effort.and_then(normalize_non_empty);
         self.current_summary = summary.and_then(normalize_non_empty);
+    }
+
+    pub(super) fn merge_runtime_settings(
+        &mut self,
+        model: Option<String>,
+        effort: Option<String>,
+        summary: Option<String>,
+    ) {
+        if let Some(model) = model.and_then(normalize_non_empty) {
+            self.current_model = Some(model);
+        }
+        if self.supports_effort {
+            if let Some(effort) = effort.and_then(normalize_non_empty) {
+                self.current_effort = Some(effort);
+            }
+        }
+        if self.supports_summary {
+            if let Some(summary) = summary.and_then(normalize_non_empty) {
+                self.current_summary = Some(summary);
+            }
+        }
     }
 
     pub(super) fn set_available_models(&mut self, mut models: Vec<ModelInfo>) {
@@ -208,14 +246,28 @@ impl RuntimeSettingsState {
     }
 
     pub(super) fn model_settings_move_field(&mut self, forward: bool) {
-        self.model_settings_field = match (self.model_settings_field, forward) {
-            (ModelSettingsField::Model, true) => ModelSettingsField::Effort,
-            (ModelSettingsField::Effort, true) => ModelSettingsField::Summary,
-            (ModelSettingsField::Summary, true) => ModelSettingsField::Model,
-            (ModelSettingsField::Model, false) => ModelSettingsField::Summary,
-            (ModelSettingsField::Effort, false) => ModelSettingsField::Model,
-            (ModelSettingsField::Summary, false) => ModelSettingsField::Effort,
+        let mut fields = vec![ModelSettingsField::Model];
+        if self.supports_effort {
+            fields.push(ModelSettingsField::Effort);
+        }
+        if self.supports_summary {
+            fields.push(ModelSettingsField::Summary);
+        }
+        let len = fields.len();
+        if len <= 1 {
+            self.model_settings_field = ModelSettingsField::Model;
+            return;
+        }
+        let current = fields
+            .iter()
+            .position(|field| *field == self.model_settings_field)
+            .unwrap_or(0);
+        let next = if forward {
+            (current + 1) % len
+        } else {
+            (current + len - 1) % len
         };
+        self.model_settings_field = fields[next];
     }
 
     pub(super) fn model_settings_cycle_effort(&mut self, step: isize) {
@@ -266,8 +318,14 @@ impl RuntimeSettingsState {
 
     pub(super) fn apply_model_settings(&mut self) -> RuntimeDefaults {
         let model = normalize_non_empty(self.model_settings_model_value().to_string());
-        let effort = normalize_non_empty(self.model_settings_effort_value().to_string());
-        let summary = normalize_non_empty(self.model_settings_summary_value().to_string());
+        let effort = self
+            .supports_effort
+            .then(|| normalize_non_empty(self.model_settings_effort_value().to_string()))
+            .flatten();
+        let summary = self
+            .supports_summary
+            .then(|| normalize_non_empty(self.model_settings_summary_value().to_string()))
+            .flatten();
         let defaults = RuntimeDefaults {
             model: model.clone(),
             effort: effort.clone(),
@@ -293,6 +351,9 @@ impl RuntimeSettingsState {
     }
 
     pub(super) fn model_settings_summary_value(&self) -> &str {
+        if !self.supports_summary {
+            return "";
+        }
         self.model_settings_summary_options
             .get(self.model_settings_summary_index)
             .map(String::as_str)

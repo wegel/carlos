@@ -351,11 +351,7 @@ fn handle_key_event(
     match (k.code, k.modifiers) {
         (code, mods) if is_ctrl_char(code, mods, 'c') => TerminalEventResult::Quit,
         (KeyCode::Char('m'), KeyModifiers::CONTROL) => {
-            if client.kind() == BackendKind::Claude {
-                app.set_status("model settings unavailable for Claude backend");
-            } else {
-                app.toggle_model_settings();
-            }
+            app.toggle_model_settings();
             TerminalEventResult::Continue { needs_draw: true }
         }
         (KeyCode::Char('r'), KeyModifiers::CONTROL) => {

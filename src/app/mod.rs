@@ -538,6 +538,7 @@ fn run_codex_backend(
     };
 
     let mut app = AppState::new(chosen_thread_id);
+    app.set_runtime_capabilities(true, true);
     if let Ok(models) = fetch_model_catalog(&client) {
         app.set_available_models(models);
     }
@@ -557,7 +558,7 @@ fn run_claude_backend(
     opts: &CliOptions,
     cwd_path: &std::path::Path,
     cwd: &str,
-    _persisted_defaults: RuntimeDefaults,
+    persisted_defaults: RuntimeDefaults,
     _default_summary: Option<String>,
 ) -> Result<()> {
     if opts.backend == Backend::Claude && opts.mode_resume && opts.resume_id.is_none() {
@@ -590,6 +591,7 @@ fn run_claude_backend(
     let chosen_thread_id = parse_thread_id_from_start_or_resume(&start_resp)?;
 
     let mut app = AppState::new(chosen_thread_id);
+    app.set_runtime_capabilities(true, false);
     app.set_available_models(claude_model_catalog());
     configure_app_common(
         &mut app,
@@ -603,6 +605,13 @@ fn run_claude_backend(
         &RuntimeDefaults::default(),
         None,
     );
+    if persisted_defaults.model.is_some() || persisted_defaults.effort.is_some() {
+        app.queue_runtime_settings(
+            persisted_defaults.model.clone(),
+            persisted_defaults.effort.clone(),
+            None,
+        );
+    }
     load_history_from_start_or_resume(&mut app, &start_resp)?;
     if let Some(request_line) = local_history
         .as_ref()

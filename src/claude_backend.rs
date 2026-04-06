@@ -18,6 +18,7 @@ const CLAUDE_CONTEXT_WINDOW: u64 = 1_000_000;
 pub(crate) const CLAUDE_PENDING_THREAD_ID: &str = "claude-pending-session";
 const CLAUDE_EXIT_PLAN_REQUEST_METHOD: &str = "claude/exitPlan/requestApproval";
 const CLAUDE_EXIT_PLAN_FALLBACK_TEXT: &str = "Exit plan mode?";
+const CLAUDE_SUPPORTED_EFFORTS: [&str; 4] = ["low", "medium", "high", "max"];
 
 #[derive(Debug, Clone)]
 pub(crate) enum ClaudeLaunchMode {
@@ -88,6 +89,7 @@ pub(crate) struct ClaudeClient {
     cwd: PathBuf,
     launch_mode: ClaudeLaunchMode,
     current_session_id: Arc<Mutex<Option<String>>>,
+    runtime_settings: Mutex<ClaudeRuntimeSettings>,
     process: Mutex<ClaudeProcess>,
     events_tx: mpsc::Sender<String>,
     events_rx: Option<mpsc::Receiver<String>>,
@@ -99,13 +101,21 @@ struct ClaudeProcess {
     reader_thread: Option<thread::JoinHandle<()>>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct ClaudeRuntimeSettings {
+    model: Option<String>,
+    effort: Option<String>,
+}
+
 impl ClaudeClient {
     pub(crate) fn start(cwd: &Path, launch_mode: ClaudeLaunchMode) -> Result<Self> {
         let (events_tx, events_rx) = mpsc::channel::<String>();
         let current_session_id = Arc::new(Mutex::new(Self::initial_session_id(&launch_mode)));
+        let runtime_settings = ClaudeRuntimeSettings::default();
         let process = Self::spawn_process(
             cwd,
             &launch_mode,
+            &runtime_settings,
             events_tx.clone(),
             Arc::clone(&current_session_id),
         )?;
@@ -114,6 +124,7 @@ impl ClaudeClient {
             cwd: cwd.to_path_buf(),
             launch_mode,
             current_session_id,
+            runtime_settings: Mutex::new(runtime_settings),
             process: Mutex::new(process),
             events_tx,
             events_rx: Some(events_rx),
@@ -130,6 +141,7 @@ impl ClaudeClient {
     fn spawn_process(
         cwd: &Path,
         launch_mode: &ClaudeLaunchMode,
+        runtime_settings: &ClaudeRuntimeSettings,
         events_tx: mpsc::Sender<String>,
         current_session_id: Arc<Mutex<Option<String>>>,
     ) -> Result<ClaudeProcess> {
@@ -157,6 +169,12 @@ impl ClaudeClient {
             ClaudeLaunchMode::Continue => {
                 command.arg("--continue");
             }
+        }
+        if let Some(model) = runtime_settings.model.as_deref() {
+            command.arg("--model").arg(model);
+        }
+        if let Some(effort) = runtime_settings.effort.as_deref() {
+            command.arg("--effort").arg(effort);
         }
 
         let mut child = command.spawn().context("failed to spawn `claude`")?;
@@ -276,13 +294,43 @@ impl ClaudeClient {
 
     fn respawn_process_locked(&self, process: &mut ClaudeProcess) -> Result<()> {
         let launch_mode = self.recovery_launch_mode()?;
+        let runtime_settings = self
+            .runtime_settings
+            .lock()
+            .map_err(|_| anyhow!("Claude runtime settings lock poisoned"))?
+            .clone();
         process.stop();
         *process = Self::spawn_process(
             &self.cwd,
             &launch_mode,
+            &runtime_settings,
             self.events_tx.clone(),
             Arc::clone(&self.current_session_id),
         )?;
+        Ok(())
+    }
+
+    fn ensure_runtime_settings(&self, model: Option<&str>, effort: Option<&str>) -> Result<()> {
+        let desired = ClaudeRuntimeSettings {
+            model: normalize_runtime_arg(model),
+            effort: normalize_runtime_arg(effort),
+        };
+        let mut current = self
+            .runtime_settings
+            .lock()
+            .map_err(|_| anyhow!("Claude runtime settings lock poisoned"))?;
+        if *current == desired {
+            return Ok(());
+        }
+        *current = desired;
+        drop(current);
+
+        let mut process = self
+            .process
+            .lock()
+            .map_err(|_| anyhow!("Claude process lock poisoned"))?;
+        self.respawn_process_locked(&mut process)
+            .context("failed to apply Claude runtime settings")?;
         Ok(())
     }
 
@@ -343,6 +391,10 @@ impl BackendClient for ClaudeClient {
     fn call(&self, method: &str, params: Value, _timeout: Duration) -> Result<String> {
         match method {
             "turn/start" | "turn/steer" => {
+                self.ensure_runtime_settings(
+                    params.get("model").and_then(Value::as_str),
+                    params.get("effort").and_then(Value::as_str),
+                )?;
                 let text = params
                     .get("input")
                     .and_then(Value::as_array)
@@ -415,25 +467,41 @@ pub(crate) fn claude_model_catalog() -> Vec<ModelInfo> {
         ModelInfo {
             model: "claude-opus-4-6".to_string(),
             display_name: "Claude Opus 4.6".to_string(),
-            supported_efforts: Vec::new(),
-            default_effort: None,
+            supported_efforts: CLAUDE_SUPPORTED_EFFORTS
+                .iter()
+                .map(|effort| (*effort).to_string())
+                .collect(),
+            default_effort: Some("medium".to_string()),
             is_default: true,
         },
         ModelInfo {
             model: "claude-sonnet-4-6".to_string(),
             display_name: "Claude Sonnet 4.6".to_string(),
-            supported_efforts: Vec::new(),
-            default_effort: None,
+            supported_efforts: CLAUDE_SUPPORTED_EFFORTS
+                .iter()
+                .map(|effort| (*effort).to_string())
+                .collect(),
+            default_effort: Some("medium".to_string()),
             is_default: false,
         },
         ModelInfo {
             model: "claude-haiku-4-5".to_string(),
             display_name: "Claude Haiku 4.5".to_string(),
-            supported_efforts: Vec::new(),
-            default_effort: None,
+            supported_efforts: CLAUDE_SUPPORTED_EFFORTS
+                .iter()
+                .map(|effort| (*effort).to_string())
+                .collect(),
+            default_effort: Some("medium".to_string()),
             is_default: false,
         },
     ]
+}
+
+fn normalize_runtime_arg(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty() && !value.eq_ignore_ascii_case("none"))
+        .map(ToOwned::to_owned)
 }
 
 fn claude_projects_root() -> Option<PathBuf> {

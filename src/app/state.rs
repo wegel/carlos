@@ -152,8 +152,26 @@ impl AppState {
         self.runtime.set_runtime_settings(model, effort, summary);
     }
 
+    pub(super) fn merge_runtime_settings(
+        &mut self,
+        model: Option<String>,
+        effort: Option<String>,
+        summary: Option<String>,
+    ) {
+        self.runtime.merge_runtime_settings(model, effort, summary);
+    }
+
     pub(super) fn set_available_models(&mut self, models: Vec<crate::protocol::ModelInfo>) {
         self.runtime.set_available_models(models);
+    }
+
+    pub(super) fn set_runtime_capabilities(
+        &mut self,
+        supports_effort: bool,
+        supports_summary: bool,
+    ) {
+        self.runtime
+            .set_capabilities(supports_effort, supports_summary);
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
@@ -241,10 +259,15 @@ impl AppState {
 
     pub(super) fn apply_model_settings(&mut self) -> RuntimeDefaults {
         let defaults = self.runtime.apply_model_settings();
-        if self.active_turn_id.is_some() {
-            self.set_status("model/effort/summary pending next turn; saved as default");
+        let label = if self.runtime.supports_summary {
+            "model/effort/summary"
         } else {
-            self.set_status("model/effort/summary set for next turn; saved as default");
+            "model/effort"
+        };
+        if self.active_turn_id.is_some() {
+            self.set_status(format!("{label} pending next turn; saved as default"));
+        } else {
+            self.set_status(format!("{label} set for next turn; saved as default"));
         }
         defaults
     }
@@ -259,6 +282,10 @@ impl AppState {
 
     pub(super) fn model_settings_summary_value(&self) -> &str {
         self.runtime.model_settings_summary_value()
+    }
+
+    pub(super) fn runtime_supports_summary(&self) -> bool {
+        self.runtime.supports_summary
     }
 
     #[cfg(test)]

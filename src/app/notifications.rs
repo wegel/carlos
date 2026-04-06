@@ -480,13 +480,27 @@ pub(super) fn handle_server_message_line(
             {
                 app.set_thread_id(id.to_string());
             }
-            if let Some(model) = params
+            let model = params
                 .get("model")
                 .and_then(Value::as_str)
                 .map(str::trim)
                 .filter(|model| !model.is_empty())
-            {
-                app.set_runtime_settings(Some(model.to_string()), None, None);
+                .map(ToOwned::to_owned);
+            let effort = params
+                .get("reasoningEffort")
+                .or_else(|| params.get("effort"))
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|effort| !effort.is_empty())
+                .map(ToOwned::to_owned);
+            let summary = params
+                .get("summary")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|summary| !summary.is_empty())
+                .map(ToOwned::to_owned);
+            if model.is_some() || effort.is_some() || summary.is_some() {
+                app.merge_runtime_settings(model, effort, summary);
             }
         }
         "thread/tokenUsage/updated" => {
