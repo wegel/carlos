@@ -632,6 +632,22 @@ fn ready_ralph_continuation_stays_ahead_of_later_user_turns() {
 }
 
 #[test]
+fn promoted_ralph_continuation_still_counts_as_pending_until_sent() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.queue_ralph_continuation("continue");
+    let deadline = app
+        .ralph_pending_continuation_deadline()
+        .expect("continuation deadline");
+
+    app.promote_ready_continuation(deadline);
+    assert!(app.has_pending_ralph_continuation());
+
+    let continuation = app.dequeue_turn_input(std::time::Instant::now()).expect("continuation");
+    assert_eq!(continuation.text, "continue");
+    assert!(!app.has_pending_ralph_continuation());
+}
+
+#[test]
 fn parse_thread_list_reads_session_summary_fields() {
     let response = json!({
         "jsonrpc": "2.0",

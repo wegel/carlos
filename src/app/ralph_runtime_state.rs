@@ -12,6 +12,7 @@ const RALPH_CONTINUATION_DELAY: Duration = Duration::from_millis(700);
 pub(super) struct QueuedTurnInput {
     pub(super) text: String,
     pub(super) record_input_history: bool,
+    keeps_ralph_pending: bool,
     available_at: Option<Instant>,
 }
 
@@ -149,6 +150,7 @@ impl RalphRuntimeState {
         self.queued_turn_inputs.push_back(QueuedTurnInput {
             text,
             record_input_history,
+            keeps_ralph_pending: false,
             available_at: None,
         });
     }
@@ -161,12 +163,17 @@ impl RalphRuntimeState {
         self.pending_continuation = Some(QueuedTurnInput {
             text,
             record_input_history: false,
+            keeps_ralph_pending: true,
             available_at: Some(Instant::now() + RALPH_CONTINUATION_DELAY),
         });
     }
 
     pub(super) fn has_pending_continuation(&self) -> bool {
         self.pending_continuation.is_some()
+            || self
+                .queued_turn_inputs
+                .iter()
+                .any(|turn| turn.keeps_ralph_pending)
     }
 
     pub(super) fn pending_continuation_wait(&self, now: Instant) -> Option<Duration> {

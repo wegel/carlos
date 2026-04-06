@@ -29,6 +29,7 @@ This work matters because `carlos` is already a useful terminal shell around the
 - [x] (2026-04-06 20:34Z) The next reviewer pass found that the ready-queued-turn helper was still modeled too coarsely: one delayed Ralph continuation could hide older ready Claude turns for the whole grace window. Fixed by separating delayed Ralph continuations from the ordinary ready queue so user turns stay FIFO among themselves while the continuation only competes once its delay expires. Validation reran cleanly: `cargo test` 191, `cargo build --release`, and release-binary reinstall.
 - [x] (2026-04-06 20:52Z) The next reviewer pass found one final mixed-window ordering bug: once a delayed Ralph continuation became ready, a later Claude prompt could still land ahead of it because new queued turns always appended to the ordinary queue first. Fixed by promoting ready continuations into the ordinary FIFO at eligibility time so later queued Claude input lands behind them while older queued user turns still stay ahead. Validation reran cleanly: `cargo test` 192, `cargo build --release`, and release-binary reinstall.
 - [x] (2026-04-06 21:03Z) Corrected the repo review protocol after discovering the current `AGENTS.md` wording was backwards for this workflow. Reviewer sessions are now required to be persisted under `.agents/reviewer_sessions.json` and reused by default, with a new session created only when no resumable session exists. Seeded the registry with the current engineering-review session id so the remaining review closeout can resume the existing reviewer instead of spawning another one.
+- [x] (2026-04-06 21:16Z) The next reviewer pass on the reused engineering-review session found one more Ralph cancelability regression: after a continuation was promoted into the ready FIFO, `Esc,Esc` on empty input no longer disabled Ralph because the continuation stopped counting as pending. Fixed by carrying a `keeps_ralph_pending` bit on queued turns so promoted continuations still satisfy the existing pending-continuation cancel path until they are actually dequeued. Validation reran cleanly: `cargo test` 193, `cargo build --release`, and release-binary reinstall.
 
 ## Surprises & Discoveries
 
@@ -85,6 +86,9 @@ This work matters because `carlos` is already a useful terminal shell around the
 
 - Observation: the repository-level review workflow itself needed correction. The old `AGENTS.md` wording told Ralph to start every reviewer in a fresh session, but the intended workflow is the opposite: persist and resume reviewer sessions unless none exist.
   Evidence: after the user flagged the mismatch, `AGENTS.md` was updated to require a `.agents/reviewer_sessions.json` registry and reviewer-session reuse by default.
+
+- Observation: a continuation can remain cancelable even after it becomes “ready” for dispatch. Once promoted into the ordinary FIFO, it is no longer delayed, but it is still a pending Ralph auto-turn from the UI’s perspective until it actually starts.
+  Evidence: the next engineering-review pass on the reused reviewer session showed that promoting a continuation into `queued_turn_inputs` broke the existing `Esc,Esc` empty-input cancel path because `has_pending_ralph_continuation()` only looked at the side-channel continuation slot.
 
 ## Decision Log
 
@@ -148,6 +152,10 @@ This work matters because `carlos` is already a useful terminal shell around the
   Rationale: reviewer context is part of the ongoing review process, not disposable scratch state. Reusing the existing session preserves continuity across review/fix cycles and matches the intended Ralph workflow for this repository.
   Date/Author: 2026-04-06 / codex
 
+- Decision: queued turns need a separate “keeps Ralph pending” bit in addition to history intent and readiness timing.
+  Rationale: readiness and cancelability are different concerns. A promoted continuation should behave like an ordinary ready queued turn for FIFO ordering, while still behaving like a pending Ralph auto-turn for the empty-input `Esc,Esc` cancel path until it is actually sent.
+  Date/Author: 2026-04-06 / codex
+
 ## Outcomes & Retrospective
 
 Pending. On completion, `carlos` should have one shared TUI that can speak to either backend, with Codex behavior preserved and Claude support added behind an explicit backend selection. The expected tradeoff for the first version is that Claude session browsing, archiving, and interactive approvals remain out of scope, but the common interactive experience for new work, explicit resume, streaming text, tools, interruption, and context usage becomes available.
@@ -179,6 +187,8 @@ Fifth follow-up review note (2026-04-06 / codex): the next built-in `codex revie
 Sixth follow-up review note (2026-04-06 / codex): the next built-in `codex review --commit 5b73026` pass found that once a delayed continuation had become ready, a newer Claude prompt could still queue ahead of it because the continuation remained in a side slot until the next auto-dispatch. The implementation now promotes ready continuations into the ordinary FIFO as soon as they are observed, so newer queued Claude input lands behind them instead of overtaking them.
 
 Review workflow note (2026-04-06 / codex): the repo review protocol was corrected during this ExecPlan. Future reviewer retries for this plan should resume the persisted engineering-review session recorded in `.agents/reviewer_sessions.json` instead of creating a fresh reviewer session for each follow-up slice.
+
+Reused-reviewer note (2026-04-06 / codex): after the review workflow correction landed, the next follow-up review continued on the persisted engineering-review session instead of starting fresh. That resumed session caught one more UI regression in the queued-turn scheduler: promoted continuations were no longer cancelable via `Esc,Esc` on empty input because they stopped counting as a pending Ralph turn once they moved into the ordinary FIFO. The fix keeps a dedicated pending-Ralph bit on queued turns until dequeue.
 
 ## Context and Orientation
 
