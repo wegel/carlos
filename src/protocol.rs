@@ -9,6 +9,8 @@ use std::time::{Duration, Instant};
 use anyhow::{anyhow, bail, Context, Result};
 use serde_json::{json, Value};
 
+use crate::backend::{BackendClient, BackendKind};
+
 pub(crate) struct AppServerClient {
     child: Child,
     stdin: Arc<Mutex<ChildStdin>>,
@@ -210,6 +212,32 @@ impl Drop for AppServerClient {
     }
 }
 
+impl BackendClient for AppServerClient {
+    fn kind(&self) -> BackendKind {
+        BackendKind::Codex
+    }
+
+    fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String> {
+        AppServerClient::call(self, method, params, timeout)
+    }
+
+    fn respond(&self, request_id: &Value, result: Value) -> Result<()> {
+        AppServerClient::respond(self, request_id, result)
+    }
+
+    fn respond_error(&self, request_id: &Value, code: i64, message: &str) -> Result<()> {
+        AppServerClient::respond_error(self, request_id, code, message)
+    }
+
+    fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>> {
+        AppServerClient::take_events_rx(self)
+    }
+
+    fn stop(&mut self) {
+        AppServerClient::stop(self);
+    }
+}
+
 fn json_id_to_u64(v: Option<&Value>) -> Option<u64> {
     let v = v?;
     if let Some(n) = v.as_u64() {
@@ -322,7 +350,7 @@ pub(crate) fn params_turn_interrupt(thread_id: &str, turn_id: &str) -> Value {
     })
 }
 
-pub(crate) fn initialize_client(client: &AppServerClient) -> Result<()> {
+pub(crate) fn initialize_client(client: &dyn BackendClient) -> Result<()> {
     let resp = client.call("initialize", params_initialize(), Duration::from_secs(10))?;
     extract_result_object(&resp)?;
     Ok(())

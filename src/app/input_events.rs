@@ -20,8 +20,9 @@ use super::state::{AppState, ApprovalChoice, ModelSettingsField};
 use super::transcript_render::transcript_content_width;
 use super::{persist_runtime_defaults, TerminalSize, MSG_TOP};
 use crate::clipboard::{clipboard_backend_label, try_copy_clipboard};
+use crate::backend::BackendClient;
 use crate::protocol::{
-    params_turn_interrupt, params_turn_start, params_turn_steer, AppServerClient,
+    params_turn_interrupt, params_turn_start, params_turn_steer,
 };
 
 pub(super) enum TerminalEventResult {
@@ -95,7 +96,7 @@ pub(super) fn is_mobile_mouse_key_candidate(
     false
 }
 
-pub(super) fn submit_turn_text(client: &AppServerClient, app: &mut AppState, text: String) {
+pub(super) fn submit_turn_text(client: &dyn BackendClient, app: &mut AppState, text: String) {
     if text.trim().is_empty() {
         return;
     }
@@ -126,7 +127,7 @@ pub(super) fn submit_turn_text(client: &AppServerClient, app: &mut AppState, tex
 }
 
 fn respond_to_pending_approval(
-    client: &AppServerClient,
+    client: &dyn BackendClient,
     app: &mut AppState,
     choice: ApprovalChoice,
 ) {
@@ -170,7 +171,7 @@ pub(super) fn ensure_transcript_layout(app: &mut AppState, size: TerminalSize) {
 }
 
 pub(super) fn handle_terminal_event(
-    client: &AppServerClient,
+    client: &dyn BackendClient,
     app: &mut AppState,
     ev: Event,
     size: TerminalSize,
@@ -191,7 +192,7 @@ pub(super) fn handle_terminal_event(
 }
 
 fn handle_key_event(
-    client: &AppServerClient,
+    client: &dyn BackendClient,
     app: &mut AppState,
     k: crossterm::event::KeyEvent,
     size: TerminalSize,
@@ -441,7 +442,7 @@ fn handle_key_event(
 }
 
 fn handle_escape_key(
-    client: &AppServerClient,
+    client: &dyn BackendClient,
     app: &mut AppState,
     size: TerminalSize,
     now: Instant,

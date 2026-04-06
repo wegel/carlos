@@ -8,6 +8,8 @@ Keep `carlos` smooth and responsive on very large sessions while also making the
 to evolve safely. The user-visible goal remains fast scrolling, typing, and live transcript
 updates even on very large sessions, but the codebase goal is now to preserve that performance
 while reducing the architectural risk caused by oversized, mixed-responsibility runtime files.
+The next feature goal is to add a Claude Code backend without regressing the existing Codex path
+or weakening the runtime discipline established by the earlier ExecPlans.
 
 ## Global Invariants
 
@@ -17,11 +19,12 @@ while reducing the architectural risk caused by oversized, mixed-responsibility 
   judgment.
 - Do not regress transcript fidelity, selection/copy behavior, reasoning/tool rendering, or
   approval handling while optimizing performance.
+- Do not regress the existing Codex backend while adding alternative backend support.
 - Move completed ExecPlans to `.agents/done/` without editing them after completion.
 
 ## Active ExecPlans
 
-- None.
+- [ ] `.agents/execplans/EXECPLAN_004_claude_backend.md`
 
 ## Done ExecPlans
 

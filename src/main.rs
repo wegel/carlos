@@ -1,4 +1,5 @@
 mod app;
+mod backend;
 mod clipboard;
 mod event;
 mod protocol;

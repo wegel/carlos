@@ -15,15 +15,15 @@ use super::notifications::{
 };
 use super::render::render_main_view;
 use super::{with_terminal, AppState, TerminalSize};
+use crate::backend::BackendClient;
 use crate::event::{spawn_event_forwarders, UiEvent};
-use crate::protocol::AppServerClient;
 
 pub(super) fn make_input_area() -> ratatui_textarea::TextArea<'static> {
     ratatui_textarea::TextArea::default()
 }
 
 pub(super) fn run_conversation_tui(
-    client: &AppServerClient,
+    client: &dyn BackendClient,
     app: &mut AppState,
     server_events_rx: std::sync::mpsc::Receiver<String>,
 ) -> Result<()> {

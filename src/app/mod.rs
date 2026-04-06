@@ -52,6 +52,7 @@ use self::tools::*;
 use self::transcript_render::*;
 #[cfg(test)]
 use crate::clipboard::*;
+use crate::backend::BackendClient;
 #[cfg(test)]
 use crate::event::UiEvent;
 use crate::protocol::*;
@@ -352,7 +353,7 @@ pub(super) fn persist_runtime_defaults(defaults: &RuntimeDefaults) -> Result<()>
     persist_runtime_defaults_to(&path, defaults)
 }
 
-fn fetch_model_catalog(client: &AppServerClient) -> Result<Vec<ModelInfo>> {
+fn fetch_model_catalog(client: &dyn BackendClient) -> Result<Vec<ModelInfo>> {
     let mut cursor: Option<String> = None;
     let mut out = Vec::new();
 
