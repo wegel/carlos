@@ -1002,22 +1002,7 @@ fn normalize_reasoning_summary_stream(text: &str) -> String {
                 out.push_str("**");
                 i += 2;
                 prev_was_bold_summary = true;
-
-                while i < text.len() {
-                    let rest = &text[i..];
-                    if rest.starts_with("**") {
-                        break;
-                    }
-                    let mut chars = rest.chars();
-                    let Some(ch) = chars.next() else {
-                        break;
-                    };
-                    if ch.is_whitespace() {
-                        i += ch.len_utf8();
-                        continue;
-                    }
-                    break;
-                }
+                i = skip_whitespace_before_bold(text, i);
                 continue;
             }
 
@@ -1039,4 +1024,21 @@ fn normalize_reasoning_summary_stream(text: &str) -> String {
     }
 
     out
+}
+
+fn skip_whitespace_before_bold(text: &str, mut i: usize) -> usize {
+    while i < text.len() {
+        let rest = &text[i..];
+        if rest.starts_with("**") {
+            break;
+        }
+        let Some(ch) = rest.chars().next() else {
+            break;
+        };
+        if !ch.is_whitespace() {
+            break;
+        }
+        i += ch.len_utf8();
+    }
+    i
 }

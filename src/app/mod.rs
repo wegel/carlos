@@ -189,111 +189,79 @@ fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<CliOptions> 
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "-h" | "--help" => {
-                opts.show_help = true;
-            }
-            "--backend" => {
-                let value = args
-                    .next()
-                    .ok_or_else(|| anyhow::anyhow!("missing value for --backend"))?;
-                opts.backend = parse_backend_name(&value)?;
-            }
-            "resume" => {
-                if opts.mode_resume || opts.mode_continue || opts.mode_perf_session {
-                    bail!("choose only one mode");
-                }
-                opts.mode_resume = true;
-                if let Some(next) = args.peek() {
-                    if !next.starts_with('-') {
-                        opts.resume_id = args.next();
-                    }
-                }
-            }
-            "continue" => {
-                if opts.mode_resume || opts.mode_continue || opts.mode_perf_session {
-                    bail!("choose only one mode");
-                }
-                opts.mode_continue = true;
-            }
-            "perf-session" => {
-                if opts.mode_resume || opts.mode_continue || opts.mode_perf_session {
-                    bail!("choose only one mode");
-                }
-                opts.mode_perf_session = true;
-                if let Some(next) = args.peek() {
-                    if !next.starts_with('-') {
-                        opts.perf_session_path = args.next();
-                    }
-                }
-            }
-            "--synthetic" => {
-                opts.perf_synthetic = true;
-            }
-            "--width" => {
-                let value = args
-                    .next()
-                    .ok_or_else(|| anyhow::anyhow!("missing value for --width"))?;
-                opts.perf_width = value.parse().context("invalid --width")?;
-            }
-            "--height" => {
-                let value = args
-                    .next()
-                    .ok_or_else(|| anyhow::anyhow!("missing value for --height"))?;
-                opts.perf_height = value.parse().context("invalid --height")?;
-            }
-            "--seed" => {
-                let value = args
-                    .next()
-                    .ok_or_else(|| anyhow::anyhow!("missing value for --seed"))?;
-                opts.perf_seed = value.parse().context("invalid --seed")?;
-            }
-            "--turns" => {
-                let value = args
-                    .next()
-                    .ok_or_else(|| anyhow::anyhow!("missing value for --turns"))?;
-                opts.perf_turns = value.parse().context("invalid --turns")?;
-            }
-            "--tool-lines" => {
-                let value = args
-                    .next()
-                    .ok_or_else(|| anyhow::anyhow!("missing value for --tool-lines"))?;
-                opts.perf_tool_lines = value.parse().context("invalid --tool-lines")?;
-            }
-            "--ralph-prompt" => {
-                let path = args
-                    .next()
-                    .ok_or_else(|| anyhow::anyhow!("missing value for --ralph-prompt"))?;
-                opts.ralph_prompt_path = Some(path);
-            }
-            "--ralph-done-marker" => {
-                let marker = args
-                    .next()
-                    .ok_or_else(|| anyhow::anyhow!("missing value for --ralph-done-marker"))?;
-                opts.ralph_done_marker = Some(marker);
-            }
+            "-h" | "--help" => opts.show_help = true,
+            "--backend" => opts.backend = parse_backend_name(&take_value(&mut args, &arg)?)?,
+            "--synthetic" => opts.perf_synthetic = true,
+            "--width" => opts.perf_width = parse_value(&mut args, &arg)?,
+            "--height" => opts.perf_height = parse_value(&mut args, &arg)?,
+            "--seed" => opts.perf_seed = parse_value(&mut args, &arg)?,
+            "--turns" => opts.perf_turns = parse_value(&mut args, &arg)?,
+            "--tool-lines" => opts.perf_tool_lines = parse_value(&mut args, &arg)?,
+            "--ralph-prompt" => opts.ralph_prompt_path = Some(take_value(&mut args, &arg)?),
+            "--ralph-done-marker" => opts.ralph_done_marker = Some(take_value(&mut args, &arg)?),
             "--ralph-blocked-marker" => {
-                let marker = args
-                    .next()
-                    .ok_or_else(|| anyhow::anyhow!("missing value for --ralph-blocked-marker"))?;
-                opts.ralph_blocked_marker = Some(marker);
+                opts.ralph_blocked_marker = Some(take_value(&mut args, &arg)?);
             }
-            _ => {
-                bail!("unknown argument: {arg}");
+            sub @ ("resume" | "continue" | "perf-session") => {
+                parse_mode_subcommand(sub, &mut opts, &mut args)?;
             }
+            _ => bail!("unknown argument: {arg}"),
         }
     }
-
-    if opts.mode_perf_session {
-        if opts.perf_synthetic {
-            if opts.perf_session_path.is_some() {
-                bail!("choose either perf-session <SESSION_JSONL> or perf-session --synthetic");
-            }
-        } else if opts.perf_session_path.is_none() && !opts.show_help {
-            bail!("missing session path for perf-session");
-        }
-    }
-
+    validate_perf_session_opts(&opts)?;
     Ok(opts)
+}
+
+fn take_value(args: &mut impl Iterator<Item = String>, flag: &str) -> Result<String> {
+    args.next()
+        .ok_or_else(|| anyhow::anyhow!("missing value for {flag}"))
+}
+
+fn parse_value<T: std::str::FromStr>(args: &mut impl Iterator<Item = String>, flag: &str) -> Result<T>
+where
+    T::Err: std::error::Error + Send + Sync + 'static,
+{
+    take_value(args, flag)?.parse().context(format!("invalid {flag}"))
+}
+
+fn parse_mode_subcommand(
+    sub: &str,
+    opts: &mut CliOptions,
+    args: &mut std::iter::Peekable<impl Iterator<Item = String>>,
+) -> Result<()> {
+    if opts.mode_resume || opts.mode_continue || opts.mode_perf_session {
+        bail!("choose only one mode");
+    }
+    match sub {
+        "resume" => {
+            opts.mode_resume = true;
+            if args.peek().is_some_and(|n| !n.starts_with('-')) {
+                opts.resume_id = args.next();
+            }
+        }
+        "continue" => opts.mode_continue = true,
+        "perf-session" => {
+            opts.mode_perf_session = true;
+            if args.peek().is_some_and(|n| !n.starts_with('-')) {
+                opts.perf_session_path = args.next();
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn validate_perf_session_opts(opts: &CliOptions) -> Result<()> {
+    if !opts.mode_perf_session {
+        return Ok(());
+    }
+    if opts.perf_synthetic && opts.perf_session_path.is_some() {
+        bail!("choose either perf-session <SESSION_JSONL> or perf-session --synthetic");
+    }
+    if !opts.perf_synthetic && opts.perf_session_path.is_none() && !opts.show_help {
+        bail!("missing session path for perf-session");
+    }
+    Ok(())
 }
 
 // --- Environment Helpers ---

@@ -226,14 +226,12 @@ fn wrap_natural_count_ascii_slow_by_cells(text: &str, width: usize) -> usize {
         .word_splitter(WordSplitter::NoHyphenation);
 
     let mut line_count = 0usize;
-
     let mut current_idx = 0usize;
     let mut line_start = 0usize;
     let mut line_visible_len = 0usize;
     let mut line_visible_width = 0usize;
     let mut pending_whitespace = 0usize;
     let mut have_line = false;
-
     for word in split_words(
         options.word_separator.find_words(text),
         &options.word_splitter,
@@ -256,17 +254,15 @@ fn wrap_natural_count_ascii_slow_by_cells(text: &str, width: usize) -> usize {
                 line_visible_len += pending_whitespace + word_len;
                 line_visible_width = projected_width;
             }
-            pending_whitespace = whitespace_len;
         } else {
-            let line = &text[line_start..line_start + line_visible_len];
-            let (wrapped_count, _, _) = hard_wrap_count_metrics(line, width);
-            line_count += wrapped_count;
-
+            line_count += hard_wrap_count_metrics(
+                &text[line_start..line_start + line_visible_len], width,
+            ).0;
             line_start = current_idx;
             line_visible_len = word_len;
             line_visible_width = word_len;
-            pending_whitespace = whitespace_len;
         }
+        pending_whitespace = whitespace_len;
 
         current_idx += word_len + whitespace_len;
     }

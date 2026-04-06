@@ -266,82 +266,81 @@ fn append_perf_session_item(app: &mut AppState, payload: &Value) -> bool {
     let Some(kind) = payload.get("type").and_then(Value::as_str) else {
         return false;
     };
-
     match kind {
-        "message" => {
-            let role = match payload.get("role").and_then(Value::as_str) {
-                Some("user") => Role::User,
-                Some("assistant") => {
-                    if payload.get("phase").and_then(Value::as_str) == Some("commentary") {
-                        Role::Commentary
-                    } else {
-                        Role::Assistant
-                    }
-                }
-                _ => return false,
-            };
-            let text = payload
-                .get("text")
-                .and_then(Value::as_str)
-                .map(ToOwned::to_owned)
-                .or_else(|| session_message_text(payload));
-            if let Some(text) = text.filter(|text| !text.trim().is_empty()) {
-                app.append_message(role, text);
-                return true;
-            }
-            false
-        }
-        "reasoning" => {
-            let Some(text) = reasoning_summary_text(payload) else {
-                return false;
-            };
-            app.append_message(Role::Reasoning, text);
-            true
-        }
-        "function_call" => {
-            let Some((_, tool_item)) = raw_function_call_to_tool_item(payload) else {
-                return false;
-            };
-            let Some(text) = format_tool_item(&tool_item, Role::ToolCall) else {
-                return false;
-            };
-            if text.trim().is_empty() {
-                return false;
-            }
-            app.append_message(Role::ToolCall, text);
-            true
-        }
-        "function_call_output" => {
-            let Some((_, tool_item)) = raw_function_call_output_to_tool_item(payload) else {
-                return false;
-            };
-            let diffs = extract_diff_blocks(&tool_item);
-            if let Some(first) = diffs.first() {
-                app.append_diff_message(
-                    Role::ToolOutput,
-                    first.file_path.clone(),
-                    first.diff.clone(),
-                );
-                for block in diffs.iter().skip(1) {
-                    app.append_diff_message(
-                        Role::ToolOutput,
-                        block.file_path.clone(),
-                        block.diff.clone(),
-                    );
-                }
-                return true;
-            }
-            let Some(text) = format_tool_item(&tool_item, Role::ToolOutput) else {
-                return false;
-            };
-            if text.trim().is_empty() {
-                return false;
-            }
-            app.append_message(Role::ToolOutput, text);
-            true
-        }
+        "message" => append_perf_message(app, payload),
+        "reasoning" => append_perf_reasoning(app, payload),
+        "function_call" => append_perf_function_call(app, payload),
+        "function_call_output" => append_perf_function_call_output(app, payload),
         _ => false,
     }
+}
+
+fn append_perf_message(app: &mut AppState, payload: &Value) -> bool {
+    let role = match payload.get("role").and_then(Value::as_str) {
+        Some("user") => Role::User,
+        Some("assistant") => {
+            if payload.get("phase").and_then(Value::as_str) == Some("commentary") {
+                Role::Commentary
+            } else {
+                Role::Assistant
+            }
+        }
+        _ => return false,
+    };
+    let text = payload
+        .get("text")
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned)
+        .or_else(|| session_message_text(payload));
+    if let Some(text) = text.filter(|text| !text.trim().is_empty()) {
+        app.append_message(role, text);
+        return true;
+    }
+    false
+}
+
+fn append_perf_reasoning(app: &mut AppState, payload: &Value) -> bool {
+    let Some(text) = reasoning_summary_text(payload) else {
+        return false;
+    };
+    app.append_message(Role::Reasoning, text);
+    true
+}
+
+fn append_perf_function_call(app: &mut AppState, payload: &Value) -> bool {
+    let Some((_, tool_item)) = raw_function_call_to_tool_item(payload) else {
+        return false;
+    };
+    let Some(text) = format_tool_item(&tool_item, Role::ToolCall) else {
+        return false;
+    };
+    if text.trim().is_empty() {
+        return false;
+    }
+    app.append_message(Role::ToolCall, text);
+    true
+}
+
+fn append_perf_function_call_output(app: &mut AppState, payload: &Value) -> bool {
+    let Some((_, tool_item)) = raw_function_call_output_to_tool_item(payload) else {
+        return false;
+    };
+    let diffs = extract_diff_blocks(&tool_item);
+    if let Some(first) = diffs.first() {
+        app.append_diff_message(Role::ToolOutput, first.file_path.clone(), first.diff.clone());
+        for block in diffs.iter().skip(1) {
+            app.append_diff_message(Role::ToolOutput, block.file_path.clone(), block.diff.clone());
+        }
+        return true;
+    }
+    let Some(text) = format_tool_item(&tool_item, Role::ToolOutput) else {
+        return false;
+    };
+    if text.trim().is_empty() {
+        return false;
+    }
+    app.append_message(Role::ToolOutput, text);
+    true
 }
 
 // --- Benchmarking ---
