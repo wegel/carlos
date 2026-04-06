@@ -67,6 +67,7 @@ pub(crate) struct ClaudeTranslationState {
     next_turn_seq: u64,
     current_turn_id: Option<String>,
     current_message_seq: u64,
+    current_message_has_content_blocks: bool,
     current_blocks: HashMap<usize, ClaudeBlockState>,
     tool_calls: HashMap<String, ClaudeToolCall>,
     interrupt_requested: bool,
@@ -75,6 +76,136 @@ pub(crate) struct ClaudeTranslationState {
 #[derive(Debug, Default)]
 pub(crate) struct TranslateOutput {
     pub(crate) lines: Vec<String>,
+}
+
+fn ensure_claude_turn_started(state: &mut ClaudeTranslationState, out: &mut TranslateOutput) {
+    if state.current_turn_id.is_some() {
+        return;
+    }
+
+    state.next_turn_seq = state.next_turn_seq.saturating_add(1);
+    let turn_id = format!("claude-turn-{}", state.next_turn_seq);
+    state.current_turn_id = Some(turn_id.clone());
+    out.lines.push(
+        json!({
+            "method": "turn/started",
+            "params": {
+                "turn": { "id": turn_id }
+            }
+        })
+        .to_string(),
+    );
+}
+
+fn begin_claude_message(state: &mut ClaudeTranslationState) {
+    state.current_message_seq = state.current_message_seq.saturating_add(1);
+    state.current_message_has_content_blocks = false;
+    state.current_blocks.clear();
+}
+
+fn synthesize_assistant_snapshot(
+    state: &mut ClaudeTranslationState,
+    root: &Map<String, Value>,
+    out: &mut TranslateOutput,
+) {
+    let Some(message) = root.get("message").and_then(Value::as_object) else {
+        return;
+    };
+    if message.get("role").and_then(Value::as_str) != Some("assistant") {
+        return;
+    }
+    if state.current_message_has_content_blocks {
+        return;
+    }
+
+    let Some(content) = message.get("content").and_then(Value::as_array) else {
+        return;
+    };
+    if content.is_empty() {
+        return;
+    }
+
+    let had_live_turn = state.current_turn_id.is_some();
+    ensure_claude_turn_started(state, out);
+    if !had_live_turn || state.current_message_seq == 0 {
+        begin_claude_message(state);
+    } else if state.current_message_has_content_blocks {
+        return;
+    }
+
+    let mut emitted_any = false;
+    for (index, part) in content.iter().enumerate() {
+        match part.get("type").and_then(Value::as_str) {
+            Some("text") => {
+                let Some(text) = part
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+                    .filter(|text| !text.trim().is_empty())
+                else {
+                    continue;
+                };
+                let item_id = format!("claude-msg-{}-{}", state.current_message_seq, index);
+                out.lines.push(
+                    json!({
+                        "method": "item/completed",
+                        "params": {
+                            "item": {
+                                "id": item_id,
+                                "type": "agentMessage",
+                                "text": text,
+                            }
+                        }
+                    })
+                    .to_string(),
+                );
+                emitted_any = true;
+            }
+            Some("tool_use") => {
+                let item_id = part
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .map(ToOwned::to_owned)
+                    .unwrap_or_else(|| {
+                        format!("claude-tool-{}-{}", state.current_message_seq, index)
+                    });
+                let name = part
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .unwrap_or("Tool")
+                    .to_string();
+                let input = part.get("input").cloned().unwrap_or_else(|| json!({}));
+                state.tool_calls.insert(
+                    item_id.clone(),
+                    ClaudeToolCall {
+                        name: name.clone(),
+                        input: input.clone(),
+                    },
+                );
+                out.lines.push(
+                    json!({
+                        "method": "item/completed",
+                        "params": {
+                            "item": {
+                                "id": item_id,
+                                "type": "toolCall",
+                                "tool": name,
+                                "name": name,
+                                "input": input,
+                            }
+                        }
+                    })
+                    .to_string(),
+                );
+                emitted_any = true;
+            }
+            _ => {}
+        }
+    }
+
+    if emitted_any {
+        state.current_message_has_content_blocks = true;
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -998,22 +1129,8 @@ pub(crate) fn translate_claude_line(
                 .context("missing Claude stream event")?;
             match event.get("type").and_then(Value::as_str) {
                 Some("message_start") => {
-                    if state.current_turn_id.is_none() {
-                        state.next_turn_seq = state.next_turn_seq.saturating_add(1);
-                        let turn_id = format!("claude-turn-{}", state.next_turn_seq);
-                        state.current_turn_id = Some(turn_id.clone());
-                        out.lines.push(
-                            json!({
-                                "method": "turn/started",
-                                "params": {
-                                    "turn": { "id": turn_id }
-                                }
-                            })
-                            .to_string(),
-                        );
-                    }
-                    state.current_message_seq = state.current_message_seq.saturating_add(1);
-                    state.current_blocks.clear();
+                    ensure_claude_turn_started(state, &mut out);
+                    begin_claude_message(state);
                 }
                 Some("content_block_start") => {
                     let index = event
@@ -1027,6 +1144,7 @@ pub(crate) fn translate_claude_line(
                         .context("missing Claude content_block")?;
                     match block.get("type").and_then(Value::as_str) {
                         Some("text") => {
+                            state.current_message_has_content_blocks = true;
                             let item_id =
                                 format!("claude-msg-{}-{}", state.current_message_seq, index);
                             state.current_blocks.insert(
@@ -1050,6 +1168,7 @@ pub(crate) fn translate_claude_line(
                             );
                         }
                         Some("tool_use") => {
+                            state.current_message_has_content_blocks = true;
                             let item_id = block
                                 .get("id")
                                 .and_then(Value::as_str)
@@ -1191,6 +1310,27 @@ pub(crate) fn translate_claude_line(
                 Some("message_stop") => {}
                 _ => {}
             }
+        }
+        Some("assistant") => {
+            if let Some(session_id) = root
+                .get("session_id")
+                .or_else(|| root.get("sessionId"))
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+            {
+                state.session_id = Some(session_id.to_string());
+            }
+            if let Some(model) = root
+                .get("message")
+                .and_then(Value::as_object)
+                .and_then(|message| message.get("model"))
+                .and_then(Value::as_str)
+                .map(normalize_claude_model_name)
+            {
+                state.model = Some(model);
+            }
+            synthesize_assistant_snapshot(state, root, &mut out);
         }
         Some("user") => {
             let message = root

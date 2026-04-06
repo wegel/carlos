@@ -280,6 +280,57 @@ fn translate_claude_text_turn_emits_codex_style_notifications() {
 }
 
 #[test]
+fn translate_claude_assistant_snapshot_backfills_missing_text_blocks() {
+    let synthetic = collect_synthetic_lines(&[
+        r#"{"type":"system","subtype":"init","session_id":"session-1","model":"claude-opus-4-6"}"#,
+        r#"{"type":"assistant","session_id":"session-1","message":{"id":"msg-1","role":"assistant","model":"claude-opus-4-6","content":[{"type":"text","text":"OK"}]}}"#,
+        r#"{"type":"result","session_id":"session-1","terminal_reason":"completed","usage":{"input_tokens":3,"cache_creation_input_tokens":544,"cache_read_input_tokens":8762,"output_tokens":4}}"#,
+    ]);
+
+    let methods: Vec<String> = synthetic
+        .iter()
+        .filter_map(|line| parse_method(line))
+        .collect();
+    assert!(methods.contains(&"turn/started".to_string()));
+    assert!(methods.contains(&"item/completed".to_string()));
+    assert!(methods.contains(&"turn/completed".to_string()));
+
+    let completed: Vec<Value> = synthetic
+        .iter()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .filter(|value| value.get("method").and_then(Value::as_str) == Some("item/completed"))
+        .collect();
+    assert_eq!(completed.len(), 1);
+    assert_eq!(
+        completed[0]["params"]["item"]["text"].as_str(),
+        Some("OK")
+    );
+}
+
+#[test]
+fn translate_claude_assistant_snapshot_does_not_duplicate_streamed_text() {
+    let synthetic = collect_synthetic_lines(&[
+        r#"{"type":"stream_event","event":{"type":"message_start","message":{"id":"msg-1"}},"session_id":"session-1"}"#,
+        r#"{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}},"session_id":"session-1"}"#,
+        r#"{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"OK"}},"session_id":"session-1"}"#,
+        r#"{"type":"assistant","session_id":"session-1","message":{"id":"msg-1","role":"assistant","model":"claude-opus-4-6","content":[{"type":"text","text":"OK"}]}}"#,
+        r#"{"type":"stream_event","event":{"type":"content_block_stop","index":0},"session_id":"session-1"}"#,
+        r#"{"type":"result","session_id":"session-1","terminal_reason":"completed","usage":{"input_tokens":3,"cache_creation_input_tokens":544,"cache_read_input_tokens":8762,"output_tokens":4}}"#,
+    ]);
+
+    let completed: Vec<Value> = synthetic
+        .iter()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .filter(|value| value.get("method").and_then(Value::as_str) == Some("item/completed"))
+        .collect();
+    assert_eq!(completed.len(), 1);
+    assert_eq!(
+        completed[0]["params"]["item"]["text"].as_str(),
+        Some("OK")
+    );
+}
+
+#[test]
 fn translate_claude_bash_tool_result_emits_tool_call_and_tool_output_rows() {
     let synthetic = collect_synthetic_lines(&[
         r#"{"type":"stream_event","event":{"type":"message_start","message":{"id":"msg-1"}},"session_id":"session-1"}"#,
