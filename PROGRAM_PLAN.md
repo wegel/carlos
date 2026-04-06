@@ -24,7 +24,7 @@ or weakening the runtime discipline established by the earlier ExecPlans.
 
 ## Active ExecPlans
 
-- None.
+- [ ] `.agents/execplans/EXECPLAN_005_claude_resume_history_import.md`
 
 ## Done ExecPlans
 
