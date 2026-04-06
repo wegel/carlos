@@ -247,6 +247,14 @@ fn runtime_settings_label_shows_pending_summary_override() {
 }
 
 #[test]
+fn runtime_settings_label_omits_missing_trailing_fields() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.set_runtime_settings(Some("claude-opus-4-6".to_string()), None, None);
+
+    assert_eq!(app.runtime_settings_label(), "claude-opus-4-6");
+}
+
+#[test]
 fn next_turn_runtime_settings_falls_back_to_current_values() {
     let mut app = AppState::new("thread-1".to_string());
     app.set_runtime_settings(

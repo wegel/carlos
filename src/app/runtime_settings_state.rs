@@ -131,14 +131,21 @@ impl RuntimeSettingsState {
         let shown_effort = self
             .pending_effort
             .as_deref()
-            .or(self.current_effort.as_deref())
-            .unwrap_or("effort?");
+            .or(self.current_effort.as_deref());
         let shown_summary = self
             .pending_summary
             .as_deref()
-            .or(self.current_summary.as_deref())
-            .unwrap_or("summary?");
-        let mut out = format!("{shown_model}/{shown_effort}/{shown_summary}");
+            .or(self.current_summary.as_deref());
+
+        let mut parts = vec![shown_model.to_string()];
+        if let Some(effort) = shown_effort {
+            parts.push(effort.to_string());
+        }
+        if let Some(summary) = shown_summary {
+            parts.push(summary.to_string());
+        }
+
+        let mut out = parts.join("/");
 
         let pending_differs = self.pending_model.as_deref() != self.current_model.as_deref()
             || self.pending_effort.as_deref() != self.current_effort.as_deref()
