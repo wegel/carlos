@@ -1,0 +1,10 @@
+{
+  "engineering_reviewer": {
+    "prompt_path": ".agents/reviewers/engineering_reviewer.md",
+    "session_id": "",
+    "status": "empty",
+    "last_commit_reviewed": "",
+    "last_updated": "",
+    "notes": "Populate this when the first reviewer session is created, then keep reusing that session until it can no longer be resumed."
+  }
+}
