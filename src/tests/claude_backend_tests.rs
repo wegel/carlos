@@ -8,7 +8,9 @@ use serde_json::Value;
 use super::*;
 use super::input_events::submit_turn_text;
 use crate::backend::{BackendClient, BackendKind};
-use crate::claude_backend::{translate_claude_line, ClaudeTranslationState};
+use crate::claude_backend::{
+    synthetic_user_message_line, translate_claude_line, ClaudeTranslationState,
+};
 
 fn collect_synthetic_lines(lines: &[&str]) -> Vec<String> {
     let mut state = ClaudeTranslationState::default();
@@ -152,5 +154,19 @@ fn translate_claude_bash_tool_result_emits_tool_call_and_tool_output_rows() {
             .as_str()
             .unwrap_or("")
             .contains("$ pwd")
+    );
+}
+
+#[test]
+fn synthetic_user_message_line_uses_user_message_shape() {
+    let line = synthetic_user_message_line(7, "hello");
+    let parsed: Value = serde_json::from_str(&line).expect("json");
+
+    assert_eq!(parsed["method"].as_str(), Some("item/started"));
+    assert_eq!(parsed["params"]["item"]["id"].as_str(), Some("claude-user-7"));
+    assert_eq!(parsed["params"]["item"]["type"].as_str(), Some("userMessage"));
+    assert_eq!(
+        parsed["params"]["item"]["content"][0]["text"].as_str(),
+        Some("hello")
     );
 }

@@ -27,6 +27,7 @@ fn handle_notification_thread_initialized_updates_thread_id() {
     );
 
     assert_eq!(app.thread_id, "session-123");
+    assert_eq!(app.runtime_settings_label(), "claude-opus-4-6/effort?/summary?");
 }
 
 #[test]

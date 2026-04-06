@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -64,6 +65,7 @@ pub(crate) struct ClaudeClient {
     events_tx: mpsc::Sender<String>,
     events_rx: Option<mpsc::Receiver<String>>,
     reader_thread: Option<thread::JoinHandle<()>>,
+    next_user_message_seq: AtomicU64,
 }
 
 impl ClaudeClient {
@@ -138,6 +140,7 @@ impl ClaudeClient {
             events_tx,
             events_rx: Some(events_rx),
             reader_thread: Some(reader_thread),
+            next_user_message_seq: AtomicU64::new(1),
         })
     }
 
@@ -173,6 +176,10 @@ impl ClaudeClient {
         stdin.write_all(line.as_bytes())?;
         stdin.write_all(b"\n")?;
         stdin.flush()?;
+        let user_message_seq = self.next_user_message_seq.fetch_add(1, Ordering::SeqCst);
+        let _ = self
+            .events_tx
+            .send(synthetic_user_message_line(user_message_seq, text));
 
         Ok(json!({
             "jsonrpc": "2.0",
@@ -608,6 +615,23 @@ fn parse_partial_json_object(input_json: &str) -> Map<String, Value> {
         return Map::new();
     }
     serde_json::from_str::<Map<String, Value>>(input_json).unwrap_or_default()
+}
+
+pub(crate) fn synthetic_user_message_line(seq: u64, text: &str) -> String {
+    json!({
+        "method": "item/started",
+        "params": {
+            "item": {
+                "id": format!("claude-user-{seq}"),
+                "type": "userMessage",
+                "content": [{
+                    "type": "text",
+                    "text": text,
+                }]
+            }
+        }
+    })
+    .to_string()
 }
 
 fn synthetic_token_usage_line(

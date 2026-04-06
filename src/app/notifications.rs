@@ -418,6 +418,14 @@ pub(super) fn handle_server_message_line(
             {
                 app.set_thread_id(id.to_string());
             }
+            if let Some(model) = params
+                .get("model")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|model| !model.is_empty())
+            {
+                app.set_runtime_settings(Some(model.to_string()), None, None);
+            }
         }
         "thread/tokenUsage/updated" => {
             if let Some(usage) = context_usage_from_thread_token_usage_params(params) {

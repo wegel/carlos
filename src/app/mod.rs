@@ -562,8 +562,8 @@ fn run_claude_backend(
     opts: &CliOptions,
     cwd_path: &std::path::Path,
     cwd: &str,
-    persisted_defaults: RuntimeDefaults,
-    default_summary: Option<String>,
+    _persisted_defaults: RuntimeDefaults,
+    _default_summary: Option<String>,
 ) -> Result<()> {
     if opts.backend == Backend::Claude && opts.mode_resume && opts.resume_id.is_none() {
         bail!("Claude backend requires `resume <SESSION_ID>`; picker resume is not supported");
@@ -588,9 +588,13 @@ fn run_claude_backend(
         &mut app,
         cwd,
         opts,
-        parse_thread_runtime_settings(&start_resp)?,
-        &persisted_defaults,
-        default_summary,
+        crate::protocol::ThreadRuntimeSettings {
+            model: None,
+            effort: None,
+            summary: None,
+        },
+        &RuntimeDefaults::default(),
+        None,
     );
     load_history_from_start_or_resume(&mut app, &start_resp)?;
     if opts.mode_resume || opts.mode_continue {

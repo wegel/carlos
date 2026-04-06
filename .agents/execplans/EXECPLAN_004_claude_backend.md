@@ -20,6 +20,7 @@ This work matters because `carlos` is already a useful terminal shell around the
 - [ ] Finish closeout for the current implementation slice: collect the required engineering review, resolve any blocking findings, commit the Claude adapter slice, and then move this ExecPlan to `.agents/done/`.
 - [x] (2026-04-06 16:28Z) Re-ran full automated validation after fixing the startup handshake mismatch: `cargo test` now passes with 183 tests, `cargo build --release` succeeds, and `~/.local/bin/carlos` has been refreshed from the release build.
 - [x] (2026-04-06 16:37Z) Passed live Claude smoke checks with the built binary for `--backend claude`, `--backend claude continue`, and `--backend claude resume <SESSION_ID>`. The new-session path streamed assistant text and updated the exit resume hint to the real Claude session id after the first turn; continue and explicit resume both displayed the expected no-history system note and accepted a follow-up turn successfully.
+- [x] (2026-04-06 17:18Z) Closed two late functional gaps before review signoff: Claude turn submission now emits a synthetic `userMessage` row so user prompts appear in the shared transcript, and the Claude runtime path no longer inherits stale Codex runtime defaults into the top-bar label. Validation now passes at `cargo test` 184, `cargo build --release`, installed-binary refresh, and a live release-binary smoke confirming prompt visibility plus a Claude-native runtime label.
 
 ## Surprises & Discoveries
 
@@ -52,6 +53,12 @@ This work matters because `carlos` is already a useful terminal shell around the
 
 - Observation: Claude does not emit `system/init` immediately on process startup in stream-json mode. The init event arrives only after the first streamed user turn is submitted.
   Evidence: the initial TUI smoke failed with `timed out waiting for Claude session init`, while a direct pipe test and the repaired TUI run showed `system/init` as the first stdout line only after sending a stream-json user message. The implementation now starts with a placeholder thread id and swaps in the real Claude session id through a synthetic `thread/initialized` notification.
+
+- Observation: without an explicit synthetic user-message event, Claude-backed turns do not show the human prompt in the shared transcript model.
+  Evidence: the first live smoke after backend bring-up showed only assistant output for Claude turns because the translator never emits `userMessage` items and the shared UI only appends user prompts from that synthetic surface. The backend now emits a synthetic `item/started` `userMessage` line after successful turn submission.
+
+- Observation: inheriting persisted runtime defaults into the Claude path leaks Codex-specific labels into the Claude status bar even though Claude model/effort/summary editing is disabled.
+  Evidence: the first release smoke showed `gpt-5.4/high/concise` in the Claude top bar. The Claude startup path now seeds no shared runtime defaults, and the later `thread/initialized` notification sets only the actual Claude model name.
 
 ## Decision Log
 
@@ -104,6 +111,8 @@ Milestone 2 and Milestone 3 partial outcome: the repository now has a concrete C
 Plan change note (2026-04-06 / codex): the implementation narrowed one user-visible detail relative to the original prompt examples. Bash tool activity currently renders through the generic `toolCall` + `toolResult` transcript path rather than the compact `commandExecution` row, because that preserves output fidelity with the existing renderer. If later UX work wants the compact shell row, that should be a follow-up on top of the now-working transport boundary instead of being forced into the initial backend landing.
 
 Validation note (2026-04-06 / codex): the first end-to-end TUI smoke exposed a real startup bug in the initial adapter design. Waiting for Claude session init during `ClaudeClient::start()` deadlocked startup because `system/init` only appears after the first user message. The shipped implementation now handles that lazily, and the repaired release binary was verified interactively for new-session, continue, and explicit-resume flows.
+
+Review note (2026-04-06 / codex): the first engineering-review pass surfaced two real user-facing correctness issues in the just-landed adapter slice: missing Claude user prompts in the transcript and misleading inherited runtime labels from the Codex defaults path. Both were fixed in a follow-up slice before final review signoff.
 
 ## Context and Orientation
 
