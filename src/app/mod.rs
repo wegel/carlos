@@ -1,5 +1,7 @@
 //! Application entry point, CLI parsing, backend setup, and module declarations.
 
+// --- Imports ---
+
 use std::env;
 use std::fs;
 use std::fs::File;
@@ -68,6 +70,8 @@ use crate::protocol::*;
 #[cfg(test)]
 use crate::theme::*;
 
+// --- Module Declarations ---
+
 mod approval_state;
 mod context_usage;
 mod input;
@@ -98,8 +102,12 @@ mod transcript_render;
 mod transcript_styles;
 mod viewport_state;
 
+// --- Constants ---
+
 const MSG_TOP: usize = 1; // 1-based row index
 const MSG_CONTENT_X: usize = 2; // 0-based x
+
+// --- Types ---
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 enum Backend {
@@ -135,6 +143,8 @@ pub(super) struct RuntimeDefaults {
     pub(super) summary: Option<String>,
 }
 
+// --- Runtime Settings ---
+
 fn resolve_initial_runtime_settings(
     runtime: crate::protocol::ThreadRuntimeSettings,
     defaults: &RuntimeDefaults,
@@ -146,6 +156,8 @@ fn resolve_initial_runtime_settings(
         summary: runtime.summary.or(default_summary),
     }
 }
+
+// --- CLI Parsing ---
 
 fn usage() {
     eprintln!(
@@ -284,6 +296,8 @@ fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<CliOptions> 
     Ok(opts)
 }
 
+// --- Environment Helpers ---
+
 fn env_flag_enabled(name: &str) -> bool {
     match env::var(name) {
         Ok(value) => {
@@ -323,6 +337,8 @@ fn env_backend() -> Option<Backend> {
     let value = env::var("CARLOS_BACKEND").ok()?;
     parse_backend_name(value.trim()).ok()
 }
+
+// --- Runtime Defaults Persistence ---
 
 fn runtime_defaults_path() -> Option<PathBuf> {
     let base = env::var_os("XDG_CONFIG_HOME")
@@ -390,6 +406,8 @@ pub(super) fn persist_runtime_defaults(defaults: &RuntimeDefaults) -> Result<()>
     persist_runtime_defaults_to(&path, defaults)
 }
 
+// --- Model Catalog ---
+
 fn fetch_model_catalog(client: &dyn BackendClient) -> Result<Vec<ModelInfo>> {
     let mut cursor: Option<String> = None;
     let mut out = Vec::new();
@@ -410,6 +428,8 @@ fn fetch_model_catalog(client: &dyn BackendClient) -> Result<Vec<ModelInfo>> {
 
     Ok(out)
 }
+
+// --- Run Entry Point ---
 
 pub(crate) fn run() -> Result<()> {
     let opts = match parse_cli_args(env::args().skip(1)) {
@@ -444,6 +464,8 @@ pub(crate) fn run() -> Result<()> {
         }
     }
 }
+
+// --- App Configuration Helpers ---
 
 fn configure_app_common(
     app: &mut AppState,
@@ -484,6 +506,8 @@ fn finish_run(
     }
     out
 }
+
+// --- Claude Session Helpers ---
 
 fn claude_projects_root() -> Option<PathBuf> {
     env::var_os("HOME")
@@ -599,6 +623,8 @@ fn load_claude_thread_summaries(cwd_path: &std::path::Path, cwd: &str) -> Result
     Ok(out)
 }
 
+// --- Codex Backend ---
+
 fn run_codex_backend(
     opts: &CliOptions,
     _cwd_path: &std::path::Path,
@@ -679,6 +705,8 @@ fn run_codex_backend(
     load_history_from_start_or_resume(&mut app, &start_resp)?;
     finish_run(&mut app, &client, server_events_rx)
 }
+
+// --- Claude Backend ---
 
 fn run_claude_backend(
     opts: &CliOptions,
@@ -761,6 +789,8 @@ fn run_claude_backend(
     }
     finish_run(&mut app, &client, server_events_rx)
 }
+
+// --- Tests ---
 
 #[cfg(test)]
 #[path = "../tests.rs"]

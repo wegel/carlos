@@ -1,5 +1,7 @@
 //! Application state: transcript, input, display mode, and sub-state aggregation.
 
+// --- Imports ---
+
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -32,6 +34,9 @@ use super::transcript_render::{
 };
 use super::viewport_state::ViewportState;
 use super::{RuntimeDefaults, MSG_TOP};
+
+// --- Types ---
+
 pub(super) struct AppState {
     pub(super) thread_id: String,
     pub(super) active_turn_id: Option<String>,
@@ -54,6 +59,8 @@ pub(super) struct AppState {
     pub(super) context_usage: Option<ContextUsage>,
     pub(super) perf: Option<PerfMetrics>,
 }
+
+// --- Construction ---
 
 impl AppState {
     pub(super) fn new(thread_id: String) -> Self {
@@ -78,6 +85,8 @@ impl AppState {
             perf: None,
         }
     }
+
+    // --- Configuration & status ---
 
     pub(super) fn enable_perf_metrics(&mut self) {
         self.perf = Some(PerfMetrics::new());
@@ -144,6 +153,8 @@ impl AppState {
     pub(super) fn clear_pending_approval(&mut self) {
         self.approval.pending = None;
     }
+
+    // --- Runtime settings ---
 
     pub(super) fn set_runtime_settings(
         &mut self,
@@ -295,6 +306,8 @@ impl AppState {
         self.runtime.apply_default_reasoning_summary(summary);
     }
 
+    // --- Turn input queue ---
+
     pub(super) fn queue_ralph_continuation(&mut self, text: impl Into<String>) {
         self.ralph_runtime.queue_continuation(text);
     }
@@ -332,6 +345,8 @@ impl AppState {
     pub(super) fn dequeue_turn_input(&mut self, now: Instant) -> Option<QueuedTurnInput> {
         self.ralph_runtime.dequeue_turn_input(now)
     }
+
+    // --- Input handling ---
 
     pub(super) fn input_is_empty(&self) -> bool {
         self.input.is_empty()
@@ -381,6 +396,8 @@ impl AppState {
         self.esc_armed_at = Some(now);
         false
     }
+
+    // --- Rewind ---
 
     pub(super) fn enter_rewind_mode(&mut self) {
         if !self.input_history.enter_rewind_mode(self.input_text()) {
@@ -503,6 +520,8 @@ impl AppState {
         }
         let _ = self.input.insert_str(text);
     }
+
+    // --- Transcript mutation ---
 
     pub(super) fn mark_transcript_dirty(&mut self) {
         self.mark_transcript_dirty_from(0);
@@ -785,6 +804,8 @@ impl AppState {
         self.mark_transcript_dirty_from(dirty_from);
     }
 
+    // --- Rendered lines & selection ---
+
     pub(super) fn rendered_line_count(&self) -> usize {
         self.render_cache.rendered_line_count()
     }
@@ -814,6 +835,8 @@ impl AppState {
         }
         super::selection::selected_text(selection, self)
     }
+
+    // --- Turn lifecycle ---
 
     pub(super) fn append_context_compacted_marker(&mut self) {
         const MARKER: &str = "↻ Context compacted";
@@ -894,6 +917,8 @@ impl AppState {
         }
     }
 
+    // --- Query helpers & test utilities ---
+
     pub(super) fn ralph_enabled(&self) -> bool {
         self.ralph_runtime.is_enabled()
     }
@@ -940,6 +965,8 @@ impl AppState {
     }
 }
 
+// --- Trait impls ---
+
 impl RenderedLineSource for AppState {
     fn len(&self) -> usize {
         self.rendered_line_count()
@@ -949,6 +976,8 @@ impl RenderedLineSource for AppState {
         self.rendered_line_at(idx)
     }
 }
+
+// --- Free functions ---
 
 fn normalize_reasoning_summary_stream(text: &str) -> String {
     let mut out = String::with_capacity(text.len());

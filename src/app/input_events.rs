@@ -27,10 +27,14 @@ use crate::protocol::{params_turn_interrupt, params_turn_start, params_turn_stee
 
 const CLAUDE_PENDING_TURN_ID: &str = "claude-turn-pending";
 
+// --- Types ---
+
 pub(super) enum TerminalEventResult {
     Quit,
     Continue { needs_draw: bool },
 }
+
+// --- Event tracing ---
 
 pub(super) fn trace_terminal_event(ev: &Event) {
     static TRACE_FILE: OnceLock<Option<Mutex<std::fs::File>>> = OnceLock::new();
@@ -66,6 +70,8 @@ pub(super) fn trace_terminal_event(ev: &Event) {
     };
 }
 
+// --- Mobile mouse detection ---
+
 pub(super) fn is_mobile_mouse_key_candidate(
     app: &AppState,
     code: KeyCode,
@@ -97,6 +103,8 @@ pub(super) fn is_mobile_mouse_key_candidate(
 
     false
 }
+
+// --- Turn submission ---
 
 pub(super) fn submit_turn_text(client: &dyn BackendClient, app: &mut AppState, text: String) {
     submit_turn_text_with_history(client, app, text, true);
@@ -188,6 +196,8 @@ fn respond_to_pending_approval(
     }
 }
 
+// --- Transcript layout ---
+
 fn hidden_user_message_idx(app: &AppState) -> Option<usize> {
     if app.rewind_mode() {
         app.rewind_selected_message_idx()
@@ -203,6 +213,8 @@ pub(super) fn ensure_transcript_layout(app: &mut AppState, size: TerminalSize) {
         perf.transcript_render.push(render_started.elapsed());
     }
 }
+
+// --- Event dispatch ---
 
 pub(super) fn handle_terminal_event(
     client: &dyn BackendClient,
@@ -224,6 +236,8 @@ pub(super) fn handle_terminal_event(
         _ => TerminalEventResult::Continue { needs_draw: false },
     }
 }
+
+// --- Key event handling ---
 
 fn handle_key_event(
     client: &dyn BackendClient,
@@ -513,6 +527,8 @@ fn handle_escape_key(
     TerminalEventResult::Continue { needs_draw: true }
 }
 
+// --- Mouse event handling ---
+
 fn handle_mouse_event(
     app: &mut AppState,
     m: crossterm::event::MouseEvent,
@@ -689,6 +705,8 @@ fn handle_mouse_event(
         needs_draw: mouse_changed,
     }
 }
+
+// --- Paste event handling ---
 
 fn handle_paste_event(app: &mut AppState, pasted: String) -> TerminalEventResult {
     if let Some(perf) = app.perf.as_mut() {

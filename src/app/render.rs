@@ -23,6 +23,8 @@ use super::{
 };
 use crate::theme::*;
 
+// --- Types ---
+
 #[derive(Debug, Clone)]
 pub(super) struct InputLayout {
     pub(super) msg_bottom: usize, // 1-based; 0 means no transcript row is available
@@ -33,6 +35,8 @@ pub(super) struct InputLayout {
     pub(super) cursor_x: usize, // 0-based terminal column
     pub(super) cursor_y: usize, // 0-based terminal row
 }
+
+// --- Input layout helpers ---
 
 pub(super) fn input_cursor_visual_position(
     line: &str,
@@ -93,6 +97,8 @@ pub(super) fn normalize_pasted_text(text: &str) -> String {
 pub(super) fn is_newline_enter(mods: KeyModifiers) -> bool {
     mods.contains(KeyModifiers::SHIFT) || mods.contains(KeyModifiers::ALT)
 }
+
+// --- Input layout computation ---
 
 pub(super) fn compute_input_layout(app: &AppState, size: TerminalSize) -> InputLayout {
     let text_width = transcript_content_width(size);
@@ -166,6 +172,8 @@ pub(super) fn compute_input_layout(app: &AppState, size: TerminalSize) -> InputL
         cursor_y,
     }
 }
+
+// --- Drawing helpers ---
 
 pub(super) fn last_assistant_message(messages: &[Message]) -> Option<&str> {
     messages
@@ -292,6 +300,8 @@ pub(super) fn draw_rendered_line(
         render_segment(&tail, Style::default(), &mut draw_x, &mut col, buf);
     }
 }
+
+// --- Main view rendering ---
 
 pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppState) {
     let area = frame.area();

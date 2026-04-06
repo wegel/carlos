@@ -22,6 +22,8 @@ const CLAUDE_EXIT_PLAN_REQUEST_METHOD: &str = "claude/exitPlan/requestApproval";
 const CLAUDE_EXIT_PLAN_FALLBACK_TEXT: &str = "Exit plan mode?";
 const CLAUDE_SUPPORTED_EFFORTS: [&str; 4] = ["low", "medium", "high", "max"];
 
+// --- Types ---
+
 #[derive(Debug, Clone)]
 pub(crate) enum ClaudeLaunchMode {
     New,
@@ -80,6 +82,8 @@ pub(crate) struct TranslateOutput {
     pub(crate) lines: Vec<String>,
 }
 
+// --- Turn management helpers ---
+
 fn ensure_claude_turn_started(state: &mut ClaudeTranslationState, out: &mut TranslateOutput) {
     if state.current_turn_id.is_some() {
         return;
@@ -104,6 +108,8 @@ fn begin_claude_message(state: &mut ClaudeTranslationState) {
     state.current_message_has_content_blocks = false;
     state.current_blocks.clear();
 }
+
+// --- Snapshot synthesis ---
 
 fn synthesize_assistant_snapshot(
     state: &mut ClaudeTranslationState,
@@ -209,6 +215,8 @@ fn synthesize_assistant_snapshot(
         state.current_message_has_content_blocks = true;
     }
 }
+
+// --- Client types and construction ---
 
 #[derive(Debug, Clone)]
 pub(crate) struct ClaudeLocalHistory {
@@ -595,6 +603,8 @@ impl Drop for ClaudeClient {
     }
 }
 
+// --- Model catalog and path helpers ---
+
 pub(crate) fn claude_model_catalog() -> Vec<ModelInfo> {
     vec![
         ModelInfo {
@@ -685,6 +695,8 @@ fn find_session_file_for_resume(
     }
     None
 }
+
+// --- History record construction ---
 
 fn user_message_item(text: &str) -> Value {
     json!({
@@ -863,6 +875,8 @@ fn fallback_tool_result_item(tool_use_id: &str, part: &Value) -> Option<Value> {
         "output": content_text,
     }))
 }
+
+// --- History import and parsing ---
 
 fn append_assistant_history_record(
     record: &Value,
@@ -1090,6 +1104,8 @@ pub(crate) fn load_claude_local_history(
     }
     load_claude_local_history_from_projects_root(&projects_root, cwd, launch_mode)
 }
+
+// --- Event translation ---
 
 pub(crate) fn translate_claude_line(
     state: &mut ClaudeTranslationState,
@@ -1403,6 +1419,8 @@ pub(crate) fn translate_claude_line(
 
     Ok(out)
 }
+
+// --- Utility helpers ---
 
 fn normalize_claude_model_name(raw: &str) -> String {
     raw.split('[').next().unwrap_or(raw).trim().to_string()

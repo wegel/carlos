@@ -73,6 +73,8 @@ struct LayoutBreakdownRow {
     total_ms: f64,
 }
 
+// --- Session Replay ---
+
 pub(super) fn run_perf_session(opts: &CliOptions) -> Result<()> {
     let terminal_size = TerminalSize {
         width: opts.perf_width,
@@ -342,6 +344,8 @@ fn append_perf_session_item(app: &mut AppState, payload: &Value) -> bool {
     }
 }
 
+// --- Benchmarking ---
+
 fn benchmark_scroll_draws(
     app: &mut AppState,
     size: TerminalSize,
@@ -437,6 +441,8 @@ fn benchmark_append_draws(
 
     Ok(())
 }
+
+// --- Profiling ---
 
 fn profile_layout_count_pass(app: &AppState, width: usize) -> Vec<LayoutBreakdownRow> {
     use std::collections::BTreeMap;
@@ -558,6 +564,8 @@ fn thread_id_from_session_path(path: &str) -> String {
         .unwrap_or("perf-session")
         .to_string()
 }
+
+// --- Synthetic Data ---
 
 #[derive(Debug, Clone, Copy)]
 struct SyntheticRng(u64);

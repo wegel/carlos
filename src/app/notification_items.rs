@@ -7,6 +7,8 @@ use super::tools::*;
 use super::{AppState, MessageKind, Role};
 use crate::protocol::extract_result_object;
 
+// --- History Helpers ---
+
 pub(super) fn append_item_text_from_content(app: &mut AppState, item: &Value, role: Role) {
     if let Some(text) = item_text_from_content(item) {
         app.append_message(role, text);
@@ -186,6 +188,8 @@ pub(super) fn load_history_from_start_or_resume(
     }
     Ok(())
 }
+
+// --- Item Notification Handling ---
 
 pub(super) fn handle_item_notification(
     app: &mut AppState,

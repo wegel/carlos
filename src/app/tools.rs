@@ -15,6 +15,8 @@ pub(super) use super::tool_shell::{
 };
 use super::Role;
 
+// --- JSON Utilities ---
+
 pub(super) fn is_tool_call_type(kind: &str) -> bool {
     matches!(
         kind,
@@ -74,6 +76,8 @@ pub(super) fn first_i64_at_paths(value: &Value, paths: &[&[&str]]) -> Option<i64
     }
     None
 }
+
+// --- Tool Extraction ---
 
 pub(super) fn tool_name(item: &Value) -> Option<String> {
     first_string_at_paths(
@@ -214,6 +218,8 @@ pub(super) fn tool_output_text(item: &Value) -> Option<String> {
         Some(parts.join("\n"))
     }
 }
+
+// --- Command Summarization ---
 
 pub(super) fn command_summary_from_parsed_cmd(msg: &Value) -> Option<(String, String)> {
     let call_id = msg.get("call_id").and_then(Value::as_str)?.to_string();
@@ -360,6 +366,8 @@ pub(super) fn format_input_brackets(
         Some(format!("[{}]", parts.join(" ")))
     }
 }
+
+// --- Formatting ---
 
 pub(super) fn titlecase_tool_name(name: &str) -> String {
     let normalized = name.replace(['_', '-'], " ");

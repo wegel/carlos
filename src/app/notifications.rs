@@ -20,6 +20,8 @@ use super::{AppState, ThreadSummary};
 use crate::protocol::*;
 use crate::theme::KITT_STEP_MS;
 
+// --- Approval Parsing ---
+
 pub(super) enum ServerRequestAction {
     ReplyError {
         request_id: Value,
@@ -329,6 +331,8 @@ fn pending_approval_from_request(
     }
 }
 
+// --- Key Helpers ---
+
 pub(super) fn parse_thread_list(response_line: &str) -> Result<Vec<ThreadSummary>> {
     let parsed = extract_result_object(response_line)?;
     let Some(data) = parsed
@@ -386,6 +390,8 @@ pub(super) fn is_perf_toggle_key(code: KeyCode, modifiers: KeyModifiers) -> bool
     matches!(code, KeyCode::F(8)) || is_ctrl_char(code, modifiers, 'p')
 }
 
+// --- Animation ---
+
 pub(super) fn animation_tick() -> u128 {
     animation_tick_for_step(KITT_STEP_MS)
 }
@@ -437,6 +443,8 @@ pub(super) fn kitt_head_index(width: usize, tick: u128) -> usize {
 pub(super) fn is_key_press_like(kind: KeyEventKind) -> bool {
     matches!(kind, KeyEventKind::Press | KeyEventKind::Repeat)
 }
+
+// --- Server Message Routing ---
 
 pub(super) fn handle_server_message_line(
     app: &mut AppState,

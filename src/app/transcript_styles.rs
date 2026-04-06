@@ -16,6 +16,8 @@ use super::text::{
 use super::tools::strip_terminal_controls;
 use crate::theme::*;
 
+// --- Style Conversion ---
+
 #[derive(Debug, Clone, Copy)]
 struct CarlosMarkdownStyleSheet;
 
@@ -213,6 +215,8 @@ impl tui_markdown::StyleSheet for CarlosMarkdownStyleSheet {
     }
 }
 
+// --- Segment Building ---
+
 pub(super) fn is_fence_delimiter(line: &str) -> bool {
     line.trim_matches([' ', '\t', '\r']).starts_with("```")
 }
@@ -344,6 +348,8 @@ pub(super) fn normalize_styled_segments_for_part(
         }]
     }
 }
+
+// --- Wrapping and Appending ---
 
 pub(super) fn append_wrapped_message_lines(
     out: &mut Vec<RenderedLine>,
@@ -576,6 +582,8 @@ pub(super) fn append_wrapped_ansi_lines(
     }
 }
 
+// --- Counting ---
+
 pub(super) fn count_wrapped_message_lines(role: Role, text: &str, width: usize) -> usize {
     if width < 8 {
         return 0;
@@ -746,6 +754,8 @@ fn fast_reasoning_summary_plain_text(line: &str) -> Option<&str> {
 fn contains_terminal_escapes(text: &str) -> bool {
     text.contains('\u{1b}') || text.contains('\u{009b}')
 }
+
+// --- Caching ---
 
 fn count_ascii_multiline_by_cells(
     text: &str,
