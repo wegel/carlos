@@ -145,66 +145,30 @@ pub(super) fn tool_description(item: &Value) -> Option<String> {
 pub(super) fn tool_output_text(item: &Value) -> Option<String> {
     let mut parts = Vec::new();
 
-    if let Some(s) = first_string_at_paths(item, &[&["aggregatedOutput"]]) {
-        let cleaned = strip_terminal_controls_preserving_sgr(&s);
-        if !cleaned.is_empty() {
-            parts.push(cleaned);
-        }
-    }
+    push_cleaned(item, &mut parts, &[&["aggregatedOutput"]]);
+    push_cleaned(item, &mut parts, &[
+        &["output"], &["text"], &["result"],
+        &["metadata", "output"], &["metadata", "result"],
+        &["state", "output"], &["formattedOutput"],
+    ]);
+    push_cleaned(item, &mut parts, &[
+        &["stdout"], &["metadata", "stdout"], &["state", "stdout"],
+    ]);
+    push_cleaned(item, &mut parts, &[
+        &["stderr"], &["metadata", "stderr"], &["state", "stderr"],
+    ]);
 
-    if let Some(s) = first_string_at_paths(
-        item,
-        &[
-            &["output"],
-            &["text"],
-            &["result"],
-            &["metadata", "output"],
-            &["metadata", "result"],
-            &["state", "output"],
-            &["formattedOutput"],
-        ],
-    ) {
-        let cleaned = strip_terminal_controls_preserving_sgr(&s);
-        if !cleaned.is_empty() {
-            parts.push(cleaned);
-        }
-    }
-    if let Some(s) = first_string_at_paths(
-        item,
-        &[&["stdout"], &["metadata", "stdout"], &["state", "stdout"]],
-    ) {
-        let cleaned = strip_terminal_controls_preserving_sgr(&s);
-        if !cleaned.is_empty() {
-            parts.push(cleaned);
-        }
-    }
-    if let Some(s) = first_string_at_paths(
-        item,
-        &[&["stderr"], &["metadata", "stderr"], &["state", "stderr"]],
-    ) {
-        let cleaned = strip_terminal_controls_preserving_sgr(&s);
-        if !cleaned.is_empty() {
-            parts.push(cleaned);
-        }
-    }
-    if let Some(code) = first_i64_at_paths(
-        item,
-        &[
-            &["exitCode"],
-            &["exit_code"],
-            &["metadata", "exitCode"],
-            &["metadata", "exit_code"],
-            &["state", "exitCode"],
-            &["durationMs"],
-        ],
-    ) {
+    if let Some(code) = first_i64_at_paths(item, &[
+        &["exitCode"], &["exit_code"],
+        &["metadata", "exitCode"], &["metadata", "exit_code"],
+        &["state", "exitCode"], &["durationMs"],
+    ]) {
         if item.get("durationMs").is_some() && item.get("exitCode").is_none() {
             parts.push(format!("duration: {code} ms"));
         } else {
             parts.push(format!("exit code: {code}"));
         }
     }
-
     if let Some(code) = first_i64_at_paths(item, &[&["exitCode"], &["exit_code"]]) {
         if !parts.iter().any(|p| p.starts_with("exit code:")) {
             parts.push(format!("exit code: {code}"));
@@ -212,10 +176,15 @@ pub(super) fn tool_output_text(item: &Value) -> Option<String> {
     }
 
     parts.retain(|s| !s.trim().is_empty());
-    if parts.is_empty() {
-        None
-    } else {
-        Some(parts.join("\n"))
+    if parts.is_empty() { None } else { Some(parts.join("\n")) }
+}
+
+fn push_cleaned(item: &Value, parts: &mut Vec<String>, paths: &[&[&str]]) {
+    if let Some(s) = first_string_at_paths(item, paths) {
+        let cleaned = strip_terminal_controls_preserving_sgr(&s);
+        if !cleaned.is_empty() {
+            parts.push(cleaned);
+        }
     }
 }
 
@@ -230,82 +199,64 @@ pub(super) fn command_summary_from_parsed_cmd(msg: &Value) -> Option<(String, St
         let Some(obj) = part.as_object() else {
             continue;
         };
-        let kind = obj
-            .get("type")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_ascii_lowercase();
-        let cmd = obj
-            .get("cmd")
-            .and_then(Value::as_str)
-            .or_else(|| obj.get("command").and_then(Value::as_str));
-
-        let path = obj
-            .get("path")
-            .and_then(Value::as_str)
-            .or_else(|| obj.get("filePath").and_then(Value::as_str))
-            .or_else(|| obj.get("file").and_then(Value::as_str))
-            .or_else(|| obj.get("name").and_then(Value::as_str))
-            .unwrap_or("")
-            .trim();
-
-        let path_display = if path.is_empty() {
-            None
-        } else {
-            Some(compact_command_path(path, cwd))
-        };
-
-        let mut out = if kind == "read" {
-            "→ Read".to_string()
-        } else if matches!(
-            kind.as_str(),
-            "grep" | "rg" | "search" | "glob" | "find" | "codesearch"
-        ) {
-            "✱ Search".to_string()
-        } else if matches!(kind.as_str(), "list" | "listfiles" | "list_files" | "ls") {
-            "→ List".to_string()
-        } else if matches!(
-            kind.as_str(),
-            "write" | "edit" | "applypatch" | "apply_patch" | "replace"
-        ) {
-            "← Edit".to_string()
-        } else if matches!(kind.as_str(), "diff" | "gitdiff" | "git_diff") {
-            "Δ Diff".to_string()
-        } else if let Some(cmd) = cmd {
-            let Some(summary) = command_summary_from_shell_cmd(cmd, cwd) else {
-                continue;
-            };
-            summary
-        } else {
-            continue;
-        };
-
-        if out == "→ Read"
-            || out == "✱ Search"
-            || out == "→ List"
-            || out == "← Edit"
-            || out == "Δ Diff"
-        {
-            if let Some(display) = path_display {
-                out.push(' ');
-                out.push_str(&display);
-            }
+        if let Some(summary) = summarize_parsed_cmd_part(obj, cwd) {
+            return Some((call_id, summary));
         }
-
-        if let Some(args) = format_input_brackets(
-            obj,
-            &[
-                "type", "cmd", "command", "path", "filePath", "file", "name", "cwd",
-            ],
-        ) {
-            out.push(' ');
-            out.push_str(&args);
-        }
-
-        return Some((call_id, out));
     }
-
     None
+}
+
+fn summarize_parsed_cmd_part(
+    obj: &serde_json::Map<String, Value>,
+    cwd: Option<&str>,
+) -> Option<String> {
+    let kind = obj
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let cmd = obj
+        .get("cmd")
+        .and_then(Value::as_str)
+        .or_else(|| obj.get("command").and_then(Value::as_str));
+
+    let path = obj
+        .get("path")
+        .and_then(Value::as_str)
+        .or_else(|| obj.get("filePath").and_then(Value::as_str))
+        .or_else(|| obj.get("file").and_then(Value::as_str))
+        .or_else(|| obj.get("name").and_then(Value::as_str))
+        .unwrap_or("")
+        .trim();
+
+    let mut out = match kind.as_str() {
+        "read" => "→ Read".to_string(),
+        "grep" | "rg" | "search" | "glob" | "find" | "codesearch" => "✱ Search".to_string(),
+        "list" | "listfiles" | "list_files" | "ls" => "→ List".to_string(),
+        "write" | "edit" | "applypatch" | "apply_patch" | "replace" => "← Edit".to_string(),
+        "diff" | "gitdiff" | "git_diff" => "Δ Diff".to_string(),
+        _ => {
+            let summary = command_summary_from_shell_cmd(cmd?, cwd)?;
+            return Some(append_input_brackets(obj, summary));
+        }
+    };
+
+    if !path.is_empty() {
+        out.push(' ');
+        out.push_str(&compact_command_path(path, cwd));
+    }
+    Some(append_input_brackets(obj, out))
+}
+
+fn append_input_brackets(obj: &serde_json::Map<String, Value>, mut out: String) -> String {
+    if let Some(args) = format_input_brackets(
+        obj,
+        &["type", "cmd", "command", "path", "filePath", "file", "name", "cwd"],
+    ) {
+        out.push(' ');
+        out.push_str(&args);
+    }
+    out
 }
 
 pub(super) fn compact_json_summary(value: &Value, max_chars: usize) -> Option<String> {

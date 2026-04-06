@@ -20,7 +20,7 @@ use crate::backend::{BackendClient, BackendKind};
 
 pub(crate) use self::exit_plan::claude_approval_follow_up_text;
 pub(crate) use self::history::{
-    load_claude_local_history, load_claude_local_history_from_projects_root,
+    load_claude_local_history, load_claude_local_history_from_projects_root, ClaudeLocalHistory,
 };
 pub(crate) use self::translate::translate_claude_line;
 pub(crate) use self::types::{
@@ -49,6 +49,89 @@ struct ClaudeProcess {
 }
 
 // --- Client construction and lifecycle ---
+
+fn build_claude_command(
+    cwd: &Path,
+    launch_mode: &ClaudeLaunchMode,
+    runtime_settings: &ClaudeRuntimeSettings,
+) -> Command {
+    let mut command = Command::new("claude");
+    command.args([
+        "-p",
+        "--input-format", "stream-json",
+        "--output-format", "stream-json",
+        "--verbose",
+        "--include-partial-messages",
+        "--permission-mode", "bypassPermissions",
+    ]);
+    command.current_dir(cwd).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
+    match launch_mode {
+        ClaudeLaunchMode::New => {}
+        ClaudeLaunchMode::Resume(session_id) => {
+            command.arg("--resume").arg(session_id);
+        }
+        ClaudeLaunchMode::Continue => {
+            command.arg("--continue");
+        }
+    }
+    if let Some(model) = runtime_settings.model.as_deref() {
+        command.arg("--model").arg(model);
+    }
+    if let Some(effort) = runtime_settings.effort.as_deref() {
+        command.arg("--effort").arg(effort);
+    }
+    command
+}
+
+fn spawn_reader_thread(
+    stdout: std::process::ChildStdout,
+    events_tx: mpsc::Sender<String>,
+    current_session_id: Arc<Mutex<Option<String>>>,
+) -> thread::JoinHandle<()> {
+    thread::spawn(move || {
+        let mut reader = std::io::BufReader::new(stdout);
+        let mut line = String::new();
+        let mut state = ClaudeTranslationState::default();
+
+        loop {
+            line.clear();
+            let n = match std::io::BufRead::read_line(&mut reader, &mut line) {
+                Ok(n) => n,
+                Err(_) => break,
+            };
+            if n == 0 {
+                break;
+            }
+
+            let trimmed = line.trim_end_matches(['\n', '\r']);
+            if trimmed.is_empty() {
+                continue;
+            }
+
+            let translated = match translate_claude_line(&mut state, trimmed) {
+                Ok(output) => output,
+                Err(_) => continue,
+            };
+
+            if let Some(session_id) = state
+                .session_id
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                if let Ok(mut current) = current_session_id.lock() {
+                    if current.as_deref() != Some(session_id) {
+                        *current = Some(session_id.to_string());
+                    }
+                }
+            }
+
+            for synthetic in translated.lines {
+                let _ = events_tx.send(synthetic);
+            }
+        }
+    })
+}
 
 impl ClaudeClient {
     pub(crate) fn start(cwd: &Path, launch_mode: ClaudeLaunchMode) -> Result<Self> {
@@ -84,83 +167,12 @@ impl ClaudeClient {
         events_tx: mpsc::Sender<String>,
         current_session_id: Arc<Mutex<Option<String>>>,
     ) -> Result<ClaudeProcess> {
-        let mut command = Command::new("claude");
-        command.args([
-            "-p",
-            "--input-format", "stream-json",
-            "--output-format", "stream-json",
-            "--verbose",
-            "--include-partial-messages",
-            "--permission-mode", "bypassPermissions",
-        ]);
-        command.current_dir(cwd).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
-
-        match launch_mode {
-            ClaudeLaunchMode::New => {}
-            ClaudeLaunchMode::Resume(session_id) => {
-                command.arg("--resume").arg(session_id);
-            }
-            ClaudeLaunchMode::Continue => {
-                command.arg("--continue");
-            }
-        }
-        if let Some(model) = runtime_settings.model.as_deref() {
-            command.arg("--model").arg(model);
-        }
-        if let Some(effort) = runtime_settings.effort.as_deref() {
-            command.arg("--effort").arg(effort);
-        }
-
+        let mut command = build_claude_command(cwd, launch_mode, runtime_settings);
         let mut child = command.spawn().context("failed to spawn `claude`")?;
         let stdin = child.stdin.take().context("missing child stdin")?;
         let stdout = child.stdout.take().context("missing child stdout")?;
 
-        let events_tx_for_thread = events_tx.clone();
-        let current_session_id_for_thread = Arc::clone(&current_session_id);
-
-        let reader_thread = thread::spawn(move || {
-            let mut reader = std::io::BufReader::new(stdout);
-            let mut line = String::new();
-            let mut state = ClaudeTranslationState::default();
-
-            loop {
-                line.clear();
-                let n = match std::io::BufRead::read_line(&mut reader, &mut line) {
-                    Ok(n) => n,
-                    Err(_) => break,
-                };
-                if n == 0 {
-                    break;
-                }
-
-                let trimmed = line.trim_end_matches(['\n', '\r']);
-                if trimmed.is_empty() {
-                    continue;
-                }
-
-                let translated = match translate_claude_line(&mut state, trimmed) {
-                    Ok(output) => output,
-                    Err(_) => continue,
-                };
-
-                if let Some(session_id) = state
-                    .session_id
-                    .as_deref()
-                    .map(str::trim)
-                    .filter(|s| !s.is_empty())
-                {
-                    if let Ok(mut current) = current_session_id_for_thread.lock() {
-                        if current.as_deref() != Some(session_id) {
-                            *current = Some(session_id.to_string());
-                        }
-                    }
-                }
-
-                for synthetic in translated.lines {
-                    let _ = events_tx_for_thread.send(synthetic);
-                }
-            }
-        });
+        let reader_thread = spawn_reader_thread(stdout, events_tx, current_session_id);
 
         Ok(ClaudeProcess {
             child,

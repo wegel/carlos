@@ -54,32 +54,7 @@ pub(super) fn claude_exit_plan_approval_from_tool_call(
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(ToOwned::to_owned);
-    let allowed_prompts = tool_call
-        .input
-        .get("allowedPrompts")
-        .and_then(Value::as_array)
-        .map(|entries| {
-            entries
-                .iter()
-                .filter_map(|entry| {
-                    let obj = entry.as_object()?;
-                    let prompt = obj
-                        .get("prompt")
-                        .and_then(Value::as_str)
-                        .map(str::trim)
-                        .filter(|s| !s.is_empty())?
-                        .to_string();
-                    let tool = obj
-                        .get("tool")
-                        .and_then(Value::as_str)
-                        .map(str::trim)
-                        .filter(|s| !s.is_empty())
-                        .map(ToOwned::to_owned);
-                    Some(ClaudeAllowedPrompt { prompt, tool })
-                })
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
+    let allowed_prompts = parse_allowed_prompts(&tool_call.input);
 
     Some(ClaudeExitPlanApproval {
         tool_use_id: tool_use_id.to_string(),
@@ -87,6 +62,31 @@ pub(super) fn claude_exit_plan_approval_from_tool_call(
         plan_file_path,
         allowed_prompts,
     })
+}
+
+fn parse_allowed_prompts(input: &Value) -> Vec<ClaudeAllowedPrompt> {
+    let Some(entries) = input.get("allowedPrompts").and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    entries
+        .iter()
+        .filter_map(|entry| {
+            let obj = entry.as_object()?;
+            let prompt = obj
+                .get("prompt")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())?
+                .to_string();
+            let tool = obj
+                .get("tool")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(ToOwned::to_owned);
+            Some(ClaudeAllowedPrompt { prompt, tool })
+        })
+        .collect()
 }
 
 pub(super) fn claude_exit_plan_request_line(approval: &ClaudeExitPlanApproval) -> String {
@@ -166,93 +166,99 @@ pub(super) fn synthetic_tool_result_item(
     let content_text = value_to_string(content);
 
     if lower == "bash" {
-        let command = tool_call
-            .input
-            .get("command")
-            .and_then(Value::as_str)
-            .unwrap_or("");
-        let (stdout, stderr, interrupted) = tool_use_result
-            .and_then(Value::as_object)
-            .map(|obj| {
-                let stdout = obj.get("stdout").and_then(Value::as_str).unwrap_or("");
-                let stderr = obj.get("stderr").and_then(Value::as_str).unwrap_or("");
-                let interrupted = obj
-                    .get("interrupted")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(false);
-                (stdout.to_string(), stderr.to_string(), interrupted)
-            })
-            .unwrap_or_else(|| (String::new(), String::new(), false));
+        return Some(synthetic_bash_result(
+            tool_call, tool_use_id, is_error, &content_text, tool_use_result,
+        ));
+    }
+    if !is_error && (lower == "read" || (lower != "write" && lower != "edit")) {
+        return None;
+    }
+    Some(synthetic_file_tool_result(
+        tool_call, tool_use_id, is_error, &content_text, tool_use_result,
+    ))
+}
 
-        let raw_output = if !stdout.is_empty() || !stderr.is_empty() {
-            match (stdout.trim_end(), stderr.trim_end()) {
-                ("", stderr) => stderr.to_string(),
-                (stdout, "") => stdout.to_string(),
-                (stdout, stderr) => format!("{stdout}\n{stderr}"),
-            }
-        } else {
-            content_text.clone()
-        };
+fn synthetic_bash_result(
+    tool_call: &ClaudeToolCall,
+    tool_use_id: &str,
+    is_error: bool,
+    content_text: &str,
+    tool_use_result: Option<&Value>,
+) -> Value {
+    let command = tool_call
+        .input
+        .get("command")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let (stdout, stderr, interrupted) = tool_use_result
+        .and_then(Value::as_object)
+        .map(|obj| {
+            let stdout = obj.get("stdout").and_then(Value::as_str).unwrap_or("");
+            let stderr = obj.get("stderr").and_then(Value::as_str).unwrap_or("");
+            let interrupted = obj
+                .get("interrupted")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            (stdout.to_string(), stderr.to_string(), interrupted)
+        })
+        .unwrap_or_else(|| (String::new(), String::new(), false));
 
-        let exit_code = if is_error || interrupted { 1 } else { 0 };
-        let formatted_output = if raw_output.trim().is_empty() {
-            format!("$ {command}\nexit code: {exit_code}")
-        } else {
-            format!("$ {command}\n{raw_output}\n\nexit code: {exit_code}")
-        };
-
-        let mut item = Map::new();
-        item.insert(
-            "id".to_string(),
-            Value::String(format!("{tool_use_id}:result")),
-        );
-        item.insert("type".to_string(), Value::String("toolResult".to_string()));
-        item.insert("tool".to_string(), Value::String(tool_call.name.clone()));
-        item.insert("name".to_string(), Value::String(tool_call.name.clone()));
-        item.insert("output".to_string(), Value::String(formatted_output));
-        item.insert("command".to_string(), Value::String(command.to_string()));
-        if is_probably_diff_text(&raw_output) {
-            item.insert("diff".to_string(), Value::String(raw_output));
+    let raw_output = if !stdout.is_empty() || !stderr.is_empty() {
+        match (stdout.trim_end(), stderr.trim_end()) {
+            ("", s) => s.to_string(),
+            (s, "") => s.to_string(),
+            (o, e) => format!("{o}\n{e}"),
         }
+    } else {
+        content_text.to_string()
+    };
 
-        return Some(Value::Object(item));
-    }
-
-    if !is_error && lower == "read" {
-        return None;
-    }
-
-    if !is_error && lower != "write" && lower != "edit" {
-        return None;
-    }
+    let exit_code = if is_error || interrupted { 1 } else { 0 };
+    let formatted_output = if raw_output.trim().is_empty() {
+        format!("$ {command}\nexit code: {exit_code}")
+    } else {
+        format!("$ {command}\n{raw_output}\n\nexit code: {exit_code}")
+    };
 
     let mut item = Map::new();
-    item.insert(
-        "id".to_string(),
-        Value::String(format!("{tool_use_id}:result")),
-    );
-    item.insert("type".to_string(), Value::String("toolResult".to_string()));
-    item.insert("tool".to_string(), Value::String(tool_call.name.clone()));
-    item.insert("name".to_string(), Value::String(tool_call.name.clone()));
-    item.insert("input".to_string(), tool_call.input.clone());
+    item.insert("id".into(), Value::String(format!("{tool_use_id}:result")));
+    item.insert("type".into(), Value::String("toolResult".into()));
+    item.insert("tool".into(), Value::String(tool_call.name.clone()));
+    item.insert("name".into(), Value::String(tool_call.name.clone()));
+    item.insert("output".into(), Value::String(formatted_output));
+    item.insert("command".into(), Value::String(command.to_string()));
+    if is_probably_diff_text(&raw_output) {
+        item.insert("diff".into(), Value::String(raw_output));
+    }
+    Value::Object(item)
+}
+
+fn synthetic_file_tool_result(
+    tool_call: &ClaudeToolCall,
+    tool_use_id: &str,
+    is_error: bool,
+    content_text: &str,
+    tool_use_result: Option<&Value>,
+) -> Value {
+    let mut item = Map::new();
+    item.insert("id".into(), Value::String(format!("{tool_use_id}:result")));
+    item.insert("type".into(), Value::String("toolResult".into()));
+    item.insert("tool".into(), Value::String(tool_call.name.clone()));
+    item.insert("name".into(), Value::String(tool_call.name.clone()));
+    item.insert("input".into(), tool_call.input.clone());
 
     if let Some(result) = tool_use_result.cloned() {
-        item.insert("result".to_string(), result);
+        item.insert("result".into(), result);
     }
-
     if !content_text.trim().is_empty() {
-        item.insert("output".to_string(), Value::String(content_text.clone()));
-        if is_probably_diff_text(&content_text) {
-            item.insert("diff".to_string(), Value::String(content_text));
+        item.insert("output".into(), Value::String(content_text.to_string()));
+        if is_probably_diff_text(content_text) {
+            item.insert("diff".into(), Value::String(content_text.to_string()));
         }
     } else if is_error {
-        item.insert(
-            "output".to_string(),
-            Value::String("tool failed".to_string()),
-        );
+        item.insert("output".into(), Value::String("tool failed".into()));
     }
-
-    Some(Value::Object(item))
+    Value::Object(item)
 }
 
 pub(super) fn synthetic_tool_result_line(

@@ -59,8 +59,7 @@ use self::transcript_render::*;
 use crate::backend::BackendClient;
 use crate::claude_backend::{
     claude_model_catalog, claude_project_dir_name, load_claude_local_history, ClaudeClient,
-    ClaudeLaunchMode,
-    CLAUDE_PENDING_THREAD_ID,
+    ClaudeLocalHistory, ClaudeLaunchMode, CLAUDE_PENDING_THREAD_ID,
 };
 #[cfg(test)]
 use crate::clipboard::*;
@@ -604,49 +603,30 @@ fn run_codex_backend(
     initialize_client(&client)?;
     let server_events_rx = client.take_events_rx()?;
 
-    let (chosen_thread_id, start_resp) = if opts.mode_resume || opts.mode_continue {
-        if let Some(rid) = opts.resume_id.as_deref() {
-            let resp = client.call(
-                "thread/resume",
-                params_thread_resume(rid),
-                Duration::from_secs(20),
-            )?;
-            let thread_id = parse_thread_id_from_start_or_resume(&resp)?;
-            (thread_id, resp)
-        } else {
-            let list_resp = client.call(
-                "thread/list",
-                params_thread_list(cwd),
-                Duration::from_secs(15),
-            )?;
-            let list = parse_thread_list(&list_resp)?;
-            let picked = if opts.mode_continue {
-                sort_threads_for_picker(&list)
-                    .into_iter()
-                    .next()
-                    .map(|t| t.id)
-            } else {
-                pick_thread(&list, true, |thread| {
-                    let resp = client.call(
-                        "thread/archive",
-                        params_thread_archive(&thread.id),
-                        Duration::from_secs(20),
-                    )?;
-                    extract_result_object(&resp).map(|_| ())
-                })?
-            };
-            let Some(session_id) = picked else {
-                return Ok(());
-            };
+    let Some((chosen_thread_id, start_resp)) = resolve_codex_thread(opts, &client, cwd)? else {
+        return Ok(());
+    };
 
-            let resp = client.call(
-                "thread/resume",
-                params_thread_resume(&session_id),
-                Duration::from_secs(20),
-            )?;
-            let thread_id = parse_thread_id_from_start_or_resume(&resp)?;
-            (thread_id, resp)
-        }
+    let mut app = AppState::new(chosen_thread_id);
+    configure_codex_app(
+        &mut app,
+        &client,
+        cwd,
+        opts,
+        &start_resp,
+        &persisted_defaults,
+        default_summary,
+    )?;
+    finish_run(&mut app, &client, server_events_rx)
+}
+
+fn resolve_codex_thread(
+    opts: &CliOptions,
+    client: &AppServerClient,
+    cwd: &str,
+) -> Result<Option<(String, String)>> {
+    if opts.mode_resume || opts.mode_continue {
+        resolve_codex_resume_or_continue(opts, client, cwd)
     } else {
         let resp = client.call(
             "thread/start",
@@ -654,24 +634,79 @@ fn run_codex_backend(
             Duration::from_secs(20),
         )?;
         let thread_id = parse_thread_id_from_start_or_resume(&resp)?;
-        (thread_id, resp)
-    };
+        Ok(Some((thread_id, resp)))
+    }
+}
 
-    let mut app = AppState::new(chosen_thread_id);
+fn resolve_codex_resume_or_continue(
+    opts: &CliOptions,
+    client: &AppServerClient,
+    cwd: &str,
+) -> Result<Option<(String, String)>> {
+    if let Some(rid) = opts.resume_id.as_deref() {
+        return codex_resume_by_id(client, rid).map(Some);
+    }
+
+    let list_resp = client.call(
+        "thread/list",
+        params_thread_list(cwd),
+        Duration::from_secs(15),
+    )?;
+    let list = parse_thread_list(&list_resp)?;
+    let picked = if opts.mode_continue {
+        sort_threads_for_picker(&list)
+            .into_iter()
+            .next()
+            .map(|t| t.id)
+    } else {
+        pick_thread(&list, true, |thread| {
+            let resp = client.call(
+                "thread/archive",
+                params_thread_archive(&thread.id),
+                Duration::from_secs(20),
+            )?;
+            extract_result_object(&resp).map(|_| ())
+        })?
+    };
+    let Some(session_id) = picked else {
+        return Ok(None);
+    };
+    codex_resume_by_id(client, &session_id).map(Some)
+}
+
+fn codex_resume_by_id(client: &AppServerClient, session_id: &str) -> Result<(String, String)> {
+    let resp = client.call(
+        "thread/resume",
+        params_thread_resume(session_id),
+        Duration::from_secs(20),
+    )?;
+    let thread_id = parse_thread_id_from_start_or_resume(&resp)?;
+    Ok((thread_id, resp))
+}
+
+fn configure_codex_app(
+    app: &mut AppState,
+    client: &AppServerClient,
+    cwd: &str,
+    opts: &CliOptions,
+    start_resp: &str,
+    persisted_defaults: &RuntimeDefaults,
+    default_summary: Option<String>,
+) -> Result<()> {
     app.set_runtime_capabilities(true, true);
-    if let Ok(models) = fetch_model_catalog(&client) {
+    if let Ok(models) = fetch_model_catalog(client) {
         app.set_available_models(models);
     }
     configure_app_common(
-        &mut app,
+        app,
         cwd,
         opts,
-        parse_thread_runtime_settings(&start_resp)?,
-        &persisted_defaults,
+        parse_thread_runtime_settings(start_resp)?,
+        persisted_defaults,
         default_summary,
     );
-    load_history_from_start_or_resume(&mut app, &start_resp)?;
-    finish_run(&mut app, &client, server_events_rx)
+    load_history_from_start_or_resume(app, start_resp)?;
+    Ok(())
 }
 
 // --- Claude Backend ---
@@ -683,21 +718,46 @@ fn run_claude_backend(
     persisted_defaults: RuntimeDefaults,
     _default_summary: Option<String>,
 ) -> Result<()> {
-    let launch_mode = if opts.mode_continue {
-        ClaudeLaunchMode::Continue
-    } else if opts.mode_resume && opts.resume_id.is_none() {
-        let list = load_claude_thread_summaries(cwd_path, cwd)?;
-        let Some(session_id) = pick_thread(&list, false, |_| Ok(()))? else {
-            return Ok(());
-        };
-        ClaudeLaunchMode::Resume(session_id)
-    } else if let Some(session_id) = opts.resume_id.clone() {
-        ClaudeLaunchMode::Resume(session_id)
-    } else {
-        ClaudeLaunchMode::New
+    let Some(launch_mode) = resolve_claude_launch_mode(opts, cwd_path, cwd)? else {
+        return Ok(());
     };
 
     let local_history = load_claude_local_history(cwd_path, &launch_mode)?;
+    let (client, server_events_rx, start_resp) =
+        start_claude_session(cwd_path, launch_mode, &local_history)?;
+
+    let chosen_thread_id = parse_thread_id_from_start_or_resume(&start_resp)?;
+    let mut app = AppState::new(chosen_thread_id);
+    configure_claude_app(&mut app, cwd, opts, &persisted_defaults, &start_resp)?;
+    apply_claude_local_history(&mut app, opts, &local_history)?;
+    finish_run(&mut app, &client, server_events_rx)
+}
+
+fn resolve_claude_launch_mode(
+    opts: &CliOptions,
+    cwd_path: &std::path::Path,
+    cwd: &str,
+) -> Result<Option<ClaudeLaunchMode>> {
+    if opts.mode_continue {
+        Ok(Some(ClaudeLaunchMode::Continue))
+    } else if opts.mode_resume && opts.resume_id.is_none() {
+        let list = load_claude_thread_summaries(cwd_path, cwd)?;
+        let Some(session_id) = pick_thread(&list, false, |_| Ok(()))? else {
+            return Ok(None);
+        };
+        Ok(Some(ClaudeLaunchMode::Resume(session_id)))
+    } else if let Some(session_id) = opts.resume_id.clone() {
+        Ok(Some(ClaudeLaunchMode::Resume(session_id)))
+    } else {
+        Ok(Some(ClaudeLaunchMode::New))
+    }
+}
+
+fn start_claude_session(
+    cwd_path: &std::path::Path,
+    launch_mode: ClaudeLaunchMode,
+    local_history: &Option<ClaudeLocalHistory>,
+) -> Result<(ClaudeClient, std::sync::mpsc::Receiver<String>, String)> {
     let initial_thread_id = match &launch_mode {
         ClaudeLaunchMode::Resume(session_id) => session_id.clone(),
         ClaudeLaunchMode::Continue => local_history
@@ -712,13 +772,20 @@ fn run_claude_backend(
         &initial_thread_id,
         local_history.as_ref().map(|history| &history.thread),
     );
-    let chosen_thread_id = parse_thread_id_from_start_or_resume(&start_resp)?;
+    Ok((client, server_events_rx, start_resp))
+}
 
-    let mut app = AppState::new(chosen_thread_id);
+fn configure_claude_app(
+    app: &mut AppState,
+    cwd: &str,
+    opts: &CliOptions,
+    persisted_defaults: &RuntimeDefaults,
+    start_resp: &str,
+) -> Result<()> {
     app.set_runtime_capabilities(true, false);
     app.set_available_models(claude_model_catalog());
     configure_app_common(
-        &mut app,
+        app,
         cwd,
         opts,
         crate::protocol::ThreadRuntimeSettings {
@@ -736,12 +803,20 @@ fn run_claude_backend(
             None,
         );
     }
-    load_history_from_start_or_resume(&mut app, &start_resp)?;
+    load_history_from_start_or_resume(app, start_resp)?;
+    Ok(())
+}
+
+fn apply_claude_local_history(
+    app: &mut AppState,
+    opts: &CliOptions,
+    local_history: &Option<ClaudeLocalHistory>,
+) -> Result<()> {
     if let Some(request_line) = local_history
         .as_ref()
         .and_then(|history| history.pending_approval_request.as_deref())
     {
-        let _ = handle_server_message_line(&mut app, request_line);
+        let _ = handle_server_message_line(app, request_line);
     }
     if (opts.mode_resume || opts.mode_continue)
         && local_history
@@ -755,7 +830,7 @@ fn run_claude_backend(
                 .to_string(),
         );
     }
-    finish_run(&mut app, &client, server_events_rx)
+    Ok(())
 }
 
 // --- Tests ---

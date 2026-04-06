@@ -1,5 +1,3 @@
-//! Session picker rendering: thread list, date grouping, and delete confirmation.
-
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
@@ -62,6 +60,30 @@ pub(super) fn compute_picker_layout(size: TerminalSize) -> PickerLayout {
     }
 }
 
+/// Column widths for the picker list.
+struct PickerColumns {
+    left_col_w: usize,
+    ts_col_w: usize,
+    gap_w: usize,
+    data_rows: usize,
+}
+
+fn compute_picker_columns(layout: &PickerLayout) -> PickerColumns {
+    let ts_col_w = 16usize.min(layout.list_w.saturating_sub(8));
+    let gap_w: usize = if layout.list_w > ts_col_w { 2 } else { 0 };
+    let left_col_w = layout
+        .list_w
+        .saturating_sub(ts_col_w.saturating_mul(2))
+        .saturating_sub(gap_w.saturating_mul(2));
+    let data_rows = layout.list_h.saturating_sub(1);
+    PickerColumns {
+        left_col_w,
+        ts_col_w,
+        gap_w,
+        data_rows,
+    }
+}
+
 pub(super) fn draw_picker(
     frame: &mut ratatui::Frame<'_>,
     threads: &[ThreadSummary],
@@ -84,6 +106,41 @@ pub(super) fn draw_picker(
     let layout = compute_picker_layout(size);
     let buf = frame.buffer_mut();
 
+    draw_picker_background(buf, size, &layout);
+
+    if layout.panel_w < 8 || layout.panel_h < 7 || layout.list_w == 0 {
+        draw_str(
+            buf,
+            1,
+            0,
+            "carlos resume",
+            Style::default().fg(COLOR_TEXT).add_modifier(Modifier::BOLD),
+            size.width.saturating_sub(1),
+        );
+        return;
+    }
+
+    draw_picker_panel_borders(buf, &layout);
+    draw_picker_header(buf, &layout, allow_delete);
+
+    let cols = compute_picker_columns(&layout);
+    draw_picker_column_headers(buf, &layout, &cols);
+
+    for row in 0..cols.data_rows {
+        let idx = top + row;
+        if idx < threads.len() {
+            draw_picker_list_row(buf, &layout, &cols, &threads[idx], idx == selected, row);
+        }
+    }
+
+    draw_picker_footer(buf, &layout, threads.len(), status);
+
+    if let Some(target) = delete_target {
+        draw_picker_delete_dialog(buf, size, target);
+    }
+}
+
+fn draw_picker_background(buf: &mut Buffer, size: TerminalSize, layout: &PickerLayout) {
     fill_rect(
         buf,
         0,
@@ -108,40 +165,26 @@ pub(super) fn draw_picker(
         layout.panel_h,
         Style::default().bg(COLOR_STEP2),
     );
+}
 
-    if layout.panel_w < 8 || layout.panel_h < 7 || layout.list_w == 0 {
-        draw_str(
-            buf,
-            1,
-            0,
-            "carlos resume",
-            Style::default().fg(COLOR_TEXT).add_modifier(Modifier::BOLD),
-            size.width.saturating_sub(1),
-        );
-        return;
-    }
-
+fn draw_picker_panel_borders(buf: &mut Buffer, layout: &PickerLayout) {
+    let border_style = Style::default().fg(COLOR_STEP7);
     for y in layout.panel_y..(layout.panel_y + layout.panel_h) {
-        draw_str(
-            buf,
-            layout.panel_x,
-            y,
-            "┃",
-            Style::default().fg(COLOR_STEP7),
-            1,
-        );
+        draw_str(buf, layout.panel_x, y, "┃", border_style, 1);
         if layout.panel_w > 1 {
             draw_str(
                 buf,
                 layout.panel_x + layout.panel_w - 1,
                 y,
                 "┃",
-                Style::default().fg(COLOR_STEP7),
+                border_style,
                 1,
             );
         }
     }
+}
 
+fn draw_picker_header(buf: &mut Buffer, layout: &PickerLayout, allow_delete: bool) {
     draw_str(
         buf,
         layout.list_x,
@@ -172,129 +215,126 @@ pub(super) fn draw_picker(
         Style::default().fg(COLOR_DIM),
         layout.list_w,
     );
+}
 
-    let ts_col_w = 16usize.min(layout.list_w.saturating_sub(8));
-    let gap_w: usize = if layout.list_w > ts_col_w { 2 } else { 0 };
-    let left_col_w = layout
-        .list_w
-        .saturating_sub(ts_col_w.saturating_mul(2))
-        .saturating_sub(gap_w.saturating_mul(2));
-    let data_rows = layout.list_h.saturating_sub(1);
-
-    if layout.list_h > 0 {
+fn draw_picker_column_headers(
+    buf: &mut Buffer,
+    layout: &PickerLayout,
+    cols: &PickerColumns,
+) {
+    if layout.list_h == 0 {
+        return;
+    }
+    let header_style = Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD);
+    draw_str(
+        buf,
+        layout.list_x + 2,
+        layout.list_y,
+        "Session",
+        header_style,
+        cols.left_col_w.saturating_sub(2),
+    );
+    if cols.ts_col_w > 0 {
         draw_str(
             buf,
-            layout.list_x + 2,
+            layout.list_x + cols.left_col_w + cols.gap_w,
             layout.list_y,
-            "Session",
-            Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD),
-            left_col_w.saturating_sub(2),
+            "Created",
+            header_style,
+            cols.ts_col_w,
         );
-        if ts_col_w > 0 {
-            draw_str(
-                buf,
-                layout.list_x + left_col_w + gap_w,
-                layout.list_y,
-                "Created",
-                Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD),
-                ts_col_w,
-            );
-            draw_str(
-                buf,
-                layout.list_x + left_col_w + gap_w + ts_col_w + gap_w,
-                layout.list_y,
-                "Last Updated",
-                Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD),
-                ts_col_w,
-            );
-        }
+        draw_str(
+            buf,
+            layout.list_x + cols.left_col_w + cols.gap_w + cols.ts_col_w + cols.gap_w,
+            layout.list_y,
+            "Last Updated",
+            header_style,
+            cols.ts_col_w,
+        );
+    }
+}
+
+fn draw_picker_list_row(
+    buf: &mut Buffer,
+    layout: &PickerLayout,
+    cols: &PickerColumns,
+    t: &ThreadSummary,
+    active: bool,
+    row: usize,
+) {
+    let y = layout.list_y + 1 + row;
+    let left_text = format_row_left_text(t, cols.left_col_w);
+    let created = format_picker_timestamp(t.created_at);
+    let updated = format_picker_timestamp(t.updated_at);
+
+    if active && layout.list_w > 0 {
+        fill_rect(buf, layout.list_x, y, layout.list_w, 1, Style::default().bg(COLOR_PRIMARY));
     }
 
-    for row in 0..data_rows {
-        let idx = top + row;
-        let y = layout.list_y + 1 + row;
-        if idx >= threads.len() {
-            continue;
-        }
+    let (bullet_style, line_style) = row_styles(active);
+    let left_view_w = cols.left_col_w.saturating_sub(2);
 
-        let t = &threads[idx];
-        let preview_w = if left_col_w > 32 { left_col_w - 32 } else { 10 };
-        let label = t.name.as_deref().unwrap_or(&t.preview);
-        let label = if visual_width(label) > preview_w {
-            let cut = split_at_cells(label, preview_w);
-            &label[..cut]
-        } else {
-            label
-        };
+    draw_str(buf, layout.list_x, y, if active { "●" } else { " " }, bullet_style, 1);
+    draw_str(buf, layout.list_x + 2, y, &left_text, line_style, left_view_w);
+    if cols.ts_col_w > 0 {
+        draw_str(buf, layout.list_x + cols.left_col_w + cols.gap_w, y, &created, line_style, cols.ts_col_w);
+        draw_str(
+            buf,
+            layout.list_x + cols.left_col_w + cols.gap_w + cols.ts_col_w + cols.gap_w,
+            y,
+            &updated,
+            line_style,
+            cols.ts_col_w,
+        );
+    }
+}
 
-        let cwd_tail = if t.cwd.is_empty() { "" } else { &t.cwd };
-        let mut left = format!("{}  {}  {}", t.id, label, cwd_tail);
-        let left_view_w = left_col_w.saturating_sub(2);
-        if visual_width(&left) > left_view_w {
-            let cut = split_at_cells(&left, left_view_w);
-            left.truncate(cut);
-        }
-        let created = format_picker_timestamp(t.created_at);
-        let updated = format_picker_timestamp(t.updated_at);
+fn format_row_left_text(t: &ThreadSummary, left_col_w: usize) -> String {
+    let preview_w = if left_col_w > 32 { left_col_w - 32 } else { 10 };
+    let label = t.name.as_deref().unwrap_or(&t.preview);
+    let label = if visual_width(label) > preview_w {
+        let cut = split_at_cells(label, preview_w);
+        &label[..cut]
+    } else {
+        label
+    };
 
-        let active = idx == selected;
-        if active && layout.list_w > 0 {
-            fill_rect(
-                buf,
-                layout.list_x,
-                y,
-                layout.list_w,
-                1,
-                Style::default().bg(COLOR_PRIMARY),
-            );
-        }
+    let cwd_tail = if t.cwd.is_empty() { "" } else { &t.cwd };
+    let mut left = format!("{}  {}  {}", t.id, label, cwd_tail);
+    let left_view_w = left_col_w.saturating_sub(2);
+    if visual_width(&left) > left_view_w {
+        let cut = split_at_cells(&left, left_view_w);
+        left.truncate(cut);
+    }
+    left
+}
 
-        let bullet_style = if active {
-            Style::default().fg(COLOR_STEP1).bg(COLOR_PRIMARY)
-        } else {
-            Style::default().fg(COLOR_DIM)
-        };
-        let line_style = if active {
+fn row_styles(active: bool) -> (Style, Style) {
+    if active {
+        (
+            Style::default().fg(COLOR_STEP1).bg(COLOR_PRIMARY),
             Style::default()
                 .fg(COLOR_STEP1)
                 .bg(COLOR_PRIMARY)
-                .add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(COLOR_TEXT)
-        };
-
-        draw_str(
-            buf,
-            layout.list_x,
-            y,
-            if active { "●" } else { " " },
-            bullet_style,
-            1,
-        );
-        draw_str(buf, layout.list_x + 2, y, &left, line_style, left_view_w);
-        if ts_col_w > 0 {
-            draw_str(
-                buf,
-                layout.list_x + left_col_w + gap_w,
-                y,
-                &created,
-                line_style,
-                ts_col_w,
-            );
-            draw_str(
-                buf,
-                layout.list_x + left_col_w + gap_w + ts_col_w + gap_w,
-                y,
-                &updated,
-                line_style,
-                ts_col_w,
-            );
-        }
+                .add_modifier(Modifier::BOLD),
+        )
+    } else {
+        (
+            Style::default().fg(COLOR_DIM),
+            Style::default().fg(COLOR_TEXT),
+        )
     }
+}
 
+fn draw_picker_footer(
+    buf: &mut Buffer,
+    layout: &PickerLayout,
+    thread_count: usize,
+    status: Option<&str>,
+) {
     let footer = status
         .map(ToOwned::to_owned)
-        .unwrap_or_else(|| format!("{} sessions", threads.len()));
+        .unwrap_or_else(|| format!("{} sessions", thread_count));
     draw_str(
         buf,
         layout.list_x,
@@ -303,11 +343,11 @@ pub(super) fn draw_picker(
         Style::default().fg(COLOR_DIM),
         layout.list_w,
     );
-
-    if let Some(target) = delete_target {
-        draw_picker_delete_dialog(buf, size, target);
-    }
 }
+
+// ---------------------------------------------------------------------------
+// Delete-confirmation dialog
+// ---------------------------------------------------------------------------
 
 pub(super) fn draw_picker_delete_dialog(
     buf: &mut Buffer,
@@ -322,73 +362,51 @@ pub(super) fn draw_picker_delete_dialog(
     let dialog_h = 8usize;
     let left = (size.width.saturating_sub(dialog_w)) / 2;
     let top = (size.height.saturating_sub(dialog_h)) / 2;
+
+    draw_delete_dialog_border(buf, left, top, dialog_w, dialog_h);
+    draw_delete_dialog_content(buf, left, top, dialog_w, target);
+}
+
+fn draw_delete_dialog_border(
+    buf: &mut Buffer,
+    left: usize,
+    top: usize,
+    dialog_w: usize,
+    dialog_h: usize,
+) {
     let right = left + dialog_w.saturating_sub(1);
     let bottom = top + dialog_h.saturating_sub(1);
-    let text_w = dialog_w.saturating_sub(4);
+    let border = Style::default().fg(COLOR_DIFF_REMOVE);
 
-    fill_rect(
-        buf,
-        left,
-        top,
-        dialog_w,
-        dialog_h,
-        Style::default().bg(COLOR_STEP2),
-    );
-    draw_str(
-        buf,
-        left,
-        top,
-        "┏",
-        Style::default().fg(COLOR_DIFF_REMOVE),
-        1,
-    );
-    draw_str(
-        buf,
-        right,
-        top,
-        "┓",
-        Style::default().fg(COLOR_DIFF_REMOVE),
-        1,
-    );
-    draw_str(
-        buf,
-        left,
-        bottom,
-        "┗",
-        Style::default().fg(COLOR_DIFF_REMOVE),
-        1,
-    );
-    draw_str(
-        buf,
-        right,
-        bottom,
-        "┛",
-        Style::default().fg(COLOR_DIFF_REMOVE),
-        1,
-    );
+    fill_rect(buf, left, top, dialog_w, dialog_h, Style::default().bg(COLOR_STEP2));
+
+    // corners
+    draw_str(buf, left, top, "┏", border, 1);
+    draw_str(buf, right, top, "┓", border, 1);
+    draw_str(buf, left, bottom, "┗", border, 1);
+    draw_str(buf, right, bottom, "┛", border, 1);
+
+    // horizontal edges
     for x in (left + 1)..right {
-        draw_str(buf, x, top, "─", Style::default().fg(COLOR_DIFF_REMOVE), 1);
-        draw_str(
-            buf,
-            x,
-            bottom,
-            "─",
-            Style::default().fg(COLOR_DIFF_REMOVE),
-            1,
-        );
-    }
-    for y in (top + 1)..bottom {
-        draw_str(buf, left, y, "┃", Style::default().fg(COLOR_DIFF_REMOVE), 1);
-        draw_str(
-            buf,
-            right,
-            y,
-            "┃",
-            Style::default().fg(COLOR_DIFF_REMOVE),
-            1,
-        );
+        draw_str(buf, x, top, "─", border, 1);
+        draw_str(buf, x, bottom, "─", border, 1);
     }
 
+    // vertical edges
+    for y in (top + 1)..bottom {
+        draw_str(buf, left, y, "┃", border, 1);
+        draw_str(buf, right, y, "┃", border, 1);
+    }
+}
+
+fn draw_delete_dialog_content(
+    buf: &mut Buffer,
+    left: usize,
+    top: usize,
+    dialog_w: usize,
+    target: &ThreadSummary,
+) {
+    let text_w = dialog_w.saturating_sub(4);
     draw_str(
         buf,
         left + 2,

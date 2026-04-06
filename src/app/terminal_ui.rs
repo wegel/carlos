@@ -1,5 +1,3 @@
-//! Terminal raw-mode lifecycle, alternate screen management, and thread picker UI.
-
 use std::cmp::Reverse;
 use std::env;
 use std::io;
@@ -125,6 +123,21 @@ pub(super) fn with_terminal<T>(
     result
 }
 
+/// Outcome of processing a single event in the picker loop.
+enum PickerAction {
+    Continue,
+    Exit,
+    Select(String),
+}
+
+struct PickerState {
+    selected: usize,
+    top: usize,
+    last_size: TerminalSize,
+    confirm_delete: bool,
+    status: Option<String>,
+}
+
 pub(super) fn pick_thread<F>(
     threads: &[ThreadSummary],
     allow_delete: bool,
@@ -139,175 +152,244 @@ where
     }
 
     with_terminal(|terminal| {
-        let mut selected = 0usize;
-        let mut top = 0usize;
-        let mut last_size = TerminalSize {
-            width: 0,
-            height: 0,
+        let mut st = PickerState {
+            selected: 0,
+            top: 0,
+            last_size: TerminalSize { width: 0, height: 0 },
+            confirm_delete: false,
+            status: None,
         };
-        let mut confirm_delete = false;
-        let mut status: Option<String> = None;
 
         loop {
-            terminal.draw(|frame| {
-                let area = frame.area();
-                let size = TerminalSize {
-                    width: area.width as usize,
-                    height: area.height as usize,
-                };
-
-                if size.width != last_size.width || size.height != last_size.height {
-                    last_size = size;
-                }
-
-                let layout = compute_picker_layout(size);
-                let list_height = layout.list_h.saturating_sub(1).max(1);
-                if selected < top {
-                    top = selected;
-                }
-                if selected >= top + list_height {
-                    top = selected + 1 - list_height;
-                }
-
-                let delete_target = confirm_delete.then(|| threads.get(selected)).flatten();
-                draw_picker(
-                    frame,
-                    &threads,
-                    selected,
-                    top,
-                    allow_delete,
-                    delete_target,
-                    status.as_deref(),
-                );
-            })?;
+            draw_picker_frame(terminal, &threads, &mut st, allow_delete)?;
 
             if !event::poll(Duration::from_millis(15))? {
                 continue;
             }
 
             let ev = event::read()?;
-            match ev {
+            let action = match ev {
                 Event::Key(k) if is_key_press_like(k.kind) => {
-                    if confirm_delete {
-                        match (k.code, k.modifiers) {
-                            (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(None),
-                            (KeyCode::Esc, _) | (KeyCode::Char('n'), _) => {
-                                confirm_delete = false;
-                                status = None;
-                            }
-                            (KeyCode::Enter, _) | (KeyCode::Char('y'), _) => {
-                                let Some(thread) = threads.get(selected).cloned() else {
-                                    confirm_delete = false;
-                                    status = None;
-                                    continue;
-                                };
-                                match on_delete(&thread) {
-                                    Ok(()) => {
-                                        threads.remove(selected);
-                                        confirm_delete = false;
-                                        status = Some(format!("Archived {}", thread.id));
-                                        if threads.is_empty() {
-                                            return Ok(None);
-                                        }
-                                        selected = selected.min(threads.len().saturating_sub(1));
-                                    }
-                                    Err(err) => {
-                                        status = Some(format!("archive failed: {err}"));
-                                    }
-                                }
-                            }
-                            _ => {}
-                        }
-                        continue;
-                    }
-
-                    match (k.code, k.modifiers) {
-                        (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(None),
-                        (KeyCode::Esc, _) => return Ok(None),
-                        (KeyCode::Up, _) => {
-                            selected = selected.saturating_sub(1);
-                            status = None;
-                        }
-                        (KeyCode::Down, _) => {
-                            if selected + 1 < threads.len() {
-                                selected += 1;
-                                status = None;
-                            }
-                        }
-                        (KeyCode::PageUp, _) => {
-                            selected = selected.saturating_sub(10);
-                            status = None;
-                        }
-                        (KeyCode::PageDown, _) => {
-                            selected = (selected + 10).min(threads.len().saturating_sub(1));
-                            status = None;
-                        }
-                        (KeyCode::Home, _) | (KeyCode::Char('g'), _) => {
-                            selected = 0;
-                            status = None;
-                        }
-                        (KeyCode::End, _) | (KeyCode::Char('G'), _) => {
-                            selected = threads.len().saturating_sub(1);
-                            status = None;
-                        }
-                        (KeyCode::Char('j'), _) => {
-                            if selected + 1 < threads.len() {
-                                selected += 1;
-                                status = None;
-                            }
-                        }
-                        (KeyCode::Char('k'), _) => {
-                            selected = selected.saturating_sub(1);
-                            status = None;
-                        }
-                        (KeyCode::Char('d'), _) => {
-                            if allow_delete {
-                                confirm_delete = true;
-                                status = None;
-                            }
-                        }
-                        (KeyCode::Enter, _) => return Ok(Some(threads[selected].id.clone())),
-                        _ => {}
-                    }
+                    handle_picker_key(&mut st, &mut threads, allow_delete, &mut on_delete, k)?
                 }
-                Event::Mouse(m) => match m.kind {
-                    MouseEventKind::ScrollUp => {
-                        if !confirm_delete {
-                            selected = selected.saturating_sub(1);
-                            status = None;
-                        }
-                    }
-                    MouseEventKind::ScrollDown => {
-                        if !confirm_delete && selected + 1 < threads.len() {
-                            selected += 1;
-                            status = None;
-                        }
-                    }
-                    MouseEventKind::Down(MouseButton::Left) => {
-                        if confirm_delete {
-                            confirm_delete = false;
-                            status = None;
-                            continue;
-                        }
-                        let size = terminal.size()?;
-                        let layout = compute_picker_layout(TerminalSize {
-                            width: size.width as usize,
-                            height: size.height as usize,
-                        });
-                        let row0 = m.row as usize;
-                        let data_y = layout.list_y + 1;
-                        if row0 >= data_y && row0 < data_y + layout.list_h.saturating_sub(1) {
-                            let idx = top + (row0 - data_y);
-                            if idx < threads.len() {
-                                selected = idx;
-                                return Ok(Some(threads[selected].id.clone()));
-                            }
-                        }
-                    }
-                    _ => {}
-                },
-                _ => {}
+                Event::Mouse(m) => {
+                    handle_picker_mouse(&mut st, &threads, terminal, m)?
+                }
+                _ => PickerAction::Continue,
+            };
+
+            match action {
+                PickerAction::Continue => {}
+                PickerAction::Exit => return Ok(None),
+                PickerAction::Select(id) => return Ok(Some(id)),
             }
         }
     })
+}
+
+fn draw_picker_frame(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    threads: &[ThreadSummary],
+    st: &mut PickerState,
+    allow_delete: bool,
+) -> Result<()> {
+    terminal.draw(|frame| {
+        let area = frame.area();
+        let size = TerminalSize {
+            width: area.width as usize,
+            height: area.height as usize,
+        };
+
+        if size.width != st.last_size.width || size.height != st.last_size.height {
+            st.last_size = size;
+        }
+
+        let layout = compute_picker_layout(size);
+        let list_height = layout.list_h.saturating_sub(1).max(1);
+        if st.selected < st.top {
+            st.top = st.selected;
+        }
+        if st.selected >= st.top + list_height {
+            st.top = st.selected + 1 - list_height;
+        }
+
+        let delete_target = st.confirm_delete.then(|| threads.get(st.selected)).flatten();
+        draw_picker(
+            frame,
+            threads,
+            st.selected,
+            st.top,
+            allow_delete,
+            delete_target,
+            st.status.as_deref(),
+        );
+    })?;
+    Ok(())
+}
+
+fn handle_picker_key<F>(
+    st: &mut PickerState,
+    threads: &mut Vec<ThreadSummary>,
+    allow_delete: bool,
+    on_delete: &mut F,
+    k: crossterm::event::KeyEvent,
+) -> Result<PickerAction>
+where
+    F: FnMut(&ThreadSummary) -> Result<()>,
+{
+    if st.confirm_delete {
+        return handle_delete_confirm_key(st, threads, on_delete, k);
+    }
+    handle_normal_key(st, threads, allow_delete, k)
+}
+
+fn handle_delete_confirm_key<F>(
+    st: &mut PickerState,
+    threads: &mut Vec<ThreadSummary>,
+    on_delete: &mut F,
+    k: crossterm::event::KeyEvent,
+) -> Result<PickerAction>
+where
+    F: FnMut(&ThreadSummary) -> Result<()>,
+{
+    match (k.code, k.modifiers) {
+        (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(PickerAction::Exit),
+        (KeyCode::Esc, _) | (KeyCode::Char('n'), _) => {
+            st.confirm_delete = false;
+            st.status = None;
+        }
+        (KeyCode::Enter, _) | (KeyCode::Char('y'), _) => {
+            return execute_delete(st, threads, on_delete);
+        }
+        _ => {}
+    }
+    Ok(PickerAction::Continue)
+}
+
+fn execute_delete<F>(
+    st: &mut PickerState,
+    threads: &mut Vec<ThreadSummary>,
+    on_delete: &mut F,
+) -> Result<PickerAction>
+where
+    F: FnMut(&ThreadSummary) -> Result<()>,
+{
+    let Some(thread) = threads.get(st.selected).cloned() else {
+        st.confirm_delete = false;
+        st.status = None;
+        return Ok(PickerAction::Continue);
+    };
+    match on_delete(&thread) {
+        Ok(()) => {
+            threads.remove(st.selected);
+            st.confirm_delete = false;
+            st.status = Some(format!("Archived {}", thread.id));
+            if threads.is_empty() {
+                return Ok(PickerAction::Exit);
+            }
+            st.selected = st.selected.min(threads.len().saturating_sub(1));
+        }
+        Err(err) => {
+            st.status = Some(format!("archive failed: {err}"));
+        }
+    }
+    Ok(PickerAction::Continue)
+}
+
+fn handle_normal_key(
+    st: &mut PickerState,
+    threads: &[ThreadSummary],
+    allow_delete: bool,
+    k: crossterm::event::KeyEvent,
+) -> Result<PickerAction> {
+    match (k.code, k.modifiers) {
+        (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(PickerAction::Exit),
+        (KeyCode::Esc, _) => return Ok(PickerAction::Exit),
+        (KeyCode::Up | KeyCode::Char('k'), _) => {
+            st.selected = st.selected.saturating_sub(1);
+            st.status = None;
+        }
+        (KeyCode::Down | KeyCode::Char('j'), _) => {
+            if st.selected + 1 < threads.len() {
+                st.selected += 1;
+                st.status = None;
+            }
+        }
+        (KeyCode::PageUp, _) => {
+            st.selected = st.selected.saturating_sub(10);
+            st.status = None;
+        }
+        (KeyCode::PageDown, _) => {
+            st.selected = (st.selected + 10).min(threads.len().saturating_sub(1));
+            st.status = None;
+        }
+        (KeyCode::Home | KeyCode::Char('g'), _) => {
+            st.selected = 0;
+            st.status = None;
+        }
+        (KeyCode::End | KeyCode::Char('G'), _) => {
+            st.selected = threads.len().saturating_sub(1);
+            st.status = None;
+        }
+        (KeyCode::Char('d'), _) if allow_delete => {
+            st.confirm_delete = true;
+            st.status = None;
+        }
+        (KeyCode::Enter, _) => {
+            return Ok(PickerAction::Select(threads[st.selected].id.clone()));
+        }
+        _ => {}
+    }
+    Ok(PickerAction::Continue)
+}
+
+fn handle_picker_mouse(
+    st: &mut PickerState,
+    threads: &[ThreadSummary],
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    m: crossterm::event::MouseEvent,
+) -> Result<PickerAction> {
+    match m.kind {
+        MouseEventKind::ScrollUp if !st.confirm_delete => {
+            st.selected = st.selected.saturating_sub(1);
+            st.status = None;
+        }
+        MouseEventKind::ScrollDown if !st.confirm_delete && st.selected + 1 < threads.len() => {
+            st.selected += 1;
+            st.status = None;
+        }
+        MouseEventKind::Down(MouseButton::Left) => {
+            return handle_mouse_click(st, threads, terminal, m);
+        }
+        _ => {}
+    }
+    Ok(PickerAction::Continue)
+}
+
+fn handle_mouse_click(
+    st: &mut PickerState,
+    threads: &[ThreadSummary],
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    m: crossterm::event::MouseEvent,
+) -> Result<PickerAction> {
+    if st.confirm_delete {
+        st.confirm_delete = false;
+        st.status = None;
+        return Ok(PickerAction::Continue);
+    }
+    let size = terminal.size()?;
+    let layout = compute_picker_layout(TerminalSize {
+        width: size.width as usize,
+        height: size.height as usize,
+    });
+    let row0 = m.row as usize;
+    let data_y = layout.list_y + 1;
+    if row0 >= data_y && row0 < data_y + layout.list_h.saturating_sub(1) {
+        let idx = st.top + (row0 - data_y);
+        if idx < threads.len() {
+            st.selected = idx;
+            return Ok(PickerAction::Select(threads[st.selected].id.clone()));
+        }
+    }
+    Ok(PickerAction::Continue)
 }

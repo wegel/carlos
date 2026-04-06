@@ -106,90 +106,100 @@ pub(super) fn strip_terminal_controls_preserving_sgr(text: &str) -> String {
 
     while i < bytes.len() {
         if bytes[i] == 0xC2 && i + 1 < bytes.len() && bytes[i + 1] == 0x9b {
-            i += 2;
-            let params_start = i;
-            while i < bytes.len() && !(0x40..=0x7e).contains(&bytes[i]) {
-                i += 1;
-            }
-            if i < bytes.len() && bytes[i] == b'm' {
-                out.push_str("\u{1b}[");
-                out.push_str(std::str::from_utf8(&bytes[params_start..i]).unwrap_or_default());
-                out.push('m');
-            }
-            i = i.saturating_add(1);
+            i = skip_c1_csi(bytes, i, &mut out);
             continue;
         }
-
-        match bytes[i] {
-            0x1b => {
-                if i + 1 >= bytes.len() {
-                    break;
-                }
-                match bytes[i + 1] {
-                    b'[' => {
-                        let seq_start = i;
-                        i += 2;
-                        while i < bytes.len() && !(0x40..=0x7e).contains(&bytes[i]) {
-                            i += 1;
-                        }
-                        if i < bytes.len() && bytes[i] == b'm' {
-                            out.push_str(&text[seq_start..=i]);
-                        }
-                        i = i.saturating_add(1);
-                    }
-                    b']' => {
-                        i += 2;
-                        while i < bytes.len() {
-                            if bytes[i] == 0x07 {
-                                i += 1;
-                                break;
-                            }
-                            if bytes[i] == 0x1b && i + 1 < bytes.len() && bytes[i + 1] == b'\\' {
-                                i += 2;
-                                break;
-                            }
-                            i += 1;
-                        }
-                    }
-                    b'P' | b'X' | b'^' | b'_' => {
-                        i += 2;
-                        while i < bytes.len() {
-                            if bytes[i] == 0x1b && i + 1 < bytes.len() && bytes[i + 1] == b'\\' {
-                                i += 2;
-                                break;
-                            }
-                            i += 1;
-                        }
-                    }
-                    _ => {
-                        if bytes[i + 1].is_ascii() {
-                            i += 2;
-                        } else {
-                            i += 1;
-                        }
-                    }
-                }
-            }
-            b'\n' | b'\r' | b'\t' => {
-                out.push(bytes[i] as char);
-                i += 1;
-            }
-            b if b < 0x20 || b == 0x7f => {
-                i += 1;
-            }
-            _ => {
-                let Some(rest) = text.get(i..) else {
-                    i += 1;
-                    continue;
-                };
-                let ch = rest.chars().next().expect("valid utf-8");
-                out.push(ch);
-                i += ch.len_utf8();
-            }
-        }
+        i = consume_byte(text, bytes, i, &mut out);
     }
 
     out
+}
+
+fn skip_c1_csi(bytes: &[u8], start: usize, out: &mut String) -> usize {
+    let mut i = start + 2;
+    let params_start = i;
+    while i < bytes.len() && !(0x40..=0x7e).contains(&bytes[i]) {
+        i += 1;
+    }
+    if i < bytes.len() && bytes[i] == b'm' {
+        out.push_str("\u{1b}[");
+        out.push_str(std::str::from_utf8(&bytes[params_start..i]).unwrap_or_default());
+        out.push('m');
+    }
+    i.saturating_add(1)
+}
+
+fn consume_byte(text: &str, bytes: &[u8], pos: usize, out: &mut String) -> usize {
+    match bytes[pos] {
+        0x1b => consume_esc_sequence(text, bytes, pos, out),
+        b'\n' | b'\r' | b'\t' => {
+            out.push(bytes[pos] as char);
+            pos + 1
+        }
+        b if b < 0x20 || b == 0x7f => pos + 1,
+        _ => {
+            let Some(rest) = text.get(pos..) else {
+                return pos + 1;
+            };
+            let ch = rest.chars().next().expect("valid utf-8");
+            out.push(ch);
+            pos + ch.len_utf8()
+        }
+    }
+}
+
+fn consume_esc_sequence(text: &str, bytes: &[u8], pos: usize, out: &mut String) -> usize {
+    if pos + 1 >= bytes.len() {
+        return bytes.len();
+    }
+    match bytes[pos + 1] {
+        b'[' => skip_csi_keep_sgr(text, bytes, pos, out),
+        b']' => skip_osc(bytes, pos),
+        b'P' | b'X' | b'^' | b'_' => skip_string_sequence(bytes, pos),
+        _ => {
+            if bytes[pos + 1].is_ascii() {
+                pos + 2
+            } else {
+                pos + 1
+            }
+        }
+    }
+}
+
+fn skip_csi_keep_sgr(text: &str, bytes: &[u8], seq_start: usize, out: &mut String) -> usize {
+    let mut i = seq_start + 2;
+    while i < bytes.len() && !(0x40..=0x7e).contains(&bytes[i]) {
+        i += 1;
+    }
+    if i < bytes.len() && bytes[i] == b'm' {
+        out.push_str(&text[seq_start..=i]);
+    }
+    i.saturating_add(1)
+}
+
+fn skip_osc(bytes: &[u8], pos: usize) -> usize {
+    let mut i = pos + 2;
+    while i < bytes.len() {
+        if bytes[i] == 0x07 {
+            return i + 1;
+        }
+        if bytes[i] == 0x1b && i + 1 < bytes.len() && bytes[i + 1] == b'\\' {
+            return i + 2;
+        }
+        i += 1;
+    }
+    i
+}
+
+fn skip_string_sequence(bytes: &[u8], pos: usize) -> usize {
+    let mut i = pos + 2;
+    while i < bytes.len() {
+        if bytes[i] == 0x1b && i + 1 < bytes.len() && bytes[i + 1] == b'\\' {
+            return i + 2;
+        }
+        i += 1;
+    }
+    i
 }
 
 pub(super) fn strip_terminal_controls(text: &str) -> String {
