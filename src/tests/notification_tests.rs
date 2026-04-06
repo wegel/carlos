@@ -18,6 +18,18 @@ fn handle_notification_updates_context_usage_when_present() {
 }
 
 #[test]
+fn handle_notification_thread_initialized_updates_thread_id() {
+    let mut app = AppState::new("claude-pending-session".to_string());
+
+    handle_notification_line(
+        &mut app,
+        "{\"method\":\"thread/initialized\",\"params\":{\"thread\":{\"id\":\"session-123\"},\"model\":\"claude-opus-4-6\"}}",
+    );
+
+    assert_eq!(app.thread_id, "session-123");
+}
+
+#[test]
 fn handle_notification_turn_completed_interrupted_appends_system_message() {
     let mut app = AppState::new("thread-1".to_string());
     app.active_turn_id = Some("turn-1".to_string());

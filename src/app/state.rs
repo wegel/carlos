@@ -130,6 +130,10 @@ impl AppState {
         self.status = s.into();
     }
 
+    pub(super) fn set_thread_id(&mut self, thread_id: impl Into<String>) {
+        self.thread_id = thread_id.into();
+    }
+
     pub(super) fn set_pending_approval(&mut self, approval: PendingApprovalRequest) {
         self.status = format!("approval requested: {}", approval.title);
         self.approval.pending = Some(approval);
@@ -264,6 +268,10 @@ impl AppState {
 
     pub(super) fn queue_ralph_continuation(&mut self, text: impl Into<String>) {
         self.ralph_runtime.queue_continuation(text);
+    }
+
+    pub(super) fn queue_turn_input(&mut self, text: impl Into<String>) {
+        self.ralph_runtime.enqueue_turn_input(text);
     }
 
     pub(super) fn has_pending_ralph_continuation(&self) -> bool {

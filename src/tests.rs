@@ -11,3 +11,5 @@ mod tool_tests;
 mod input_tests;
 #[path = "tests/runtime_tests.rs"]
 mod runtime_tests;
+#[path = "tests/claude_backend_tests.rs"]
+mod claude_backend_tests;

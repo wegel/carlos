@@ -14,10 +14,12 @@ This work matters because `carlos` is already a useful terminal shell around the
 
 - [x] (2026-04-06 13:08Z) Created this ExecPlan from `carlos-claude-backend-prompt.md`, grounded it in the current repository structure, and registered it in `PROGRAM_PLAN.md`.
 - [x] (2026-04-06 13:16Z) Introduced `src/backend.rs`, implemented `BackendClient` for `AppServerClient`, and routed the shared startup/event/input paths through the trait-backed surface while intentionally leaving the Codex-only picker/archive flow concrete in `src/app/terminal_ui.rs`.
-- [ ] Prototype and document the Claude launch contract that this repository will rely on: accepted stdin envelope for a user turn, observed `--resume` and `--continue` behavior, and whether resume provides any prior transcript history.
-- [ ] Implement `ClaudeClient` plus the NDJSON-to-synthetic-JSON-RPC translation layer for streamed text, tool calls, tool outputs, turn lifecycle, interruption, and token usage.
-- [ ] Integrate CLI/backend selection, Claude-specific session bootstrap rules, queued-next-turn behavior instead of mid-turn steer, and user-facing guards for unsupported picker/archive flows.
-- [ ] Add and pass focused tests for backend translation and CLI behavior, run `cargo test`, run `cargo build --release`, refresh `~/.local/bin/carlos`, collect the required engineering review, and then move this ExecPlan to `.agents/done/` (completed so far: full regression suite still passes after the backend-boundary slice: `cargo test`, 177 passed).
+- [x] (2026-04-06 15:04Z) Prototyped the Claude launch contract against a real local `claude` CLI and confirmed the stdin stream-json envelope, the `system/init` session payload, the top-level tool-result event shape, and the practical behavior of `--continue` / `--resume`.
+- [x] (2026-04-06 15:31Z) Implemented `src/claude_backend.rs` with a `ClaudeClient`, a stream-json subprocess launch path, synthetic start metadata, and an NDJSON-to-synthetic-JSON-RPC translation layer for streamed text, tool calls, tool outputs, turn lifecycle, interruption, and token usage.
+- [x] (2026-04-06 15:39Z) Integrated CLI/backend selection, Claude-specific bootstrap rules, queued-next-turn behavior in place of unsupported mid-turn steer, a Claude model catalog, and user-facing guards for unsupported picker resume / archive / runtime-model editing flows.
+- [ ] Finish closeout for the current implementation slice: collect the required engineering review, resolve any blocking findings, commit the Claude adapter slice, and then move this ExecPlan to `.agents/done/`.
+- [x] (2026-04-06 16:28Z) Re-ran full automated validation after fixing the startup handshake mismatch: `cargo test` now passes with 183 tests, `cargo build --release` succeeds, and `~/.local/bin/carlos` has been refreshed from the release build.
+- [x] (2026-04-06 16:37Z) Passed live Claude smoke checks with the built binary for `--backend claude`, `--backend claude continue`, and `--backend claude resume <SESSION_ID>`. The new-session path streamed assistant text and updated the exit resume hint to the real Claude session id after the first turn; continue and explicit resume both displayed the expected no-history system note and accepted a follow-up turn successfully.
 
 ## Surprises & Discoveries
 
@@ -38,6 +40,18 @@ This work matters because `carlos` is already a useful terminal shell around the
 
 - Observation: the cleanest Milestone 1 seam was narrower than the whole bootstrap path. The event loop, turn submission, and model-catalog fetch converted cleanly to `&dyn BackendClient`, but the no-id resume picker is still intentionally concrete because it owns Codex-only archive semantics.
   Evidence: the trait-backed changes were limited to `src/backend.rs`, `src/protocol.rs`, `src/app/mod.rs`, `src/app/input.rs`, and `src/app/input_events.rs`, while `src/app/terminal_ui.rs` still takes `&AppServerClient`.
+
+- Observation: Claude stream-json input for a user turn is not a bare prompt string. The accepted envelope is a top-level `type: "user"` object with `message.role = "user"` and a content array of text blocks.
+  Evidence: a real `claude -p --input-format stream-json --output-format stream-json` session accepted input shaped as `{"type":"user","message":{"role":"user","content":[{"type":"text","text":"..."}]}}`, and `src/claude_backend.rs::send_stream_user_message()` now emits that exact form.
+
+- Observation: `claude -p --resume <SESSION_ID>` in stream-json mode does not replay prior transcript history and does not even idle successfully without a fresh prompt.
+  Evidence: the CLI returned `Error: No deferred tool marker found in the resumed session... Provide a prompt to continue the conversation.` during the transport spike, and the Claude startup path now injects a system note instead of attempting undocumented session-history scraping.
+
+- Observation: Claude tool execution is a multi-message lifecycle: assistant tool-use blocks arrive first, then tool results arrive as a top-level user event, and finally a follow-up assistant message may continue the turn.
+  Evidence: the transport spike captured `stream_event.content_block_start/content_block_delta/content_block_stop` with `tool_use`, followed by a top-level `{"type":"user", ... "tool_use_result": ...}` record, then a second assistant message and terminal `result`.
+
+- Observation: Claude does not emit `system/init` immediately on process startup in stream-json mode. The init event arrives only after the first streamed user turn is submitted.
+  Evidence: the initial TUI smoke failed with `timed out waiting for Claude session init`, while a direct pipe test and the repaired TUI run showed `system/init` as the first stdout line only after sending a stream-json user message. The implementation now starts with a placeholder thread id and swaps in the real Claude session id through a synthetic `thread/initialized` notification.
 
 ## Decision Log
 
@@ -69,6 +83,14 @@ This work matters because `carlos` is already a useful terminal shell around the
   Rationale: scraping implementation-specific session files would create a brittle coupling to an external tool. A clear limitation message is a safer MVP behavior.
   Date/Author: 2026-04-06 / codex
 
+- Decision: translate Claude `Bash` activity as a `toolCall` row plus a separate `toolResult` row instead of a synthetic `commandExecution` completion item in the first pass.
+  Rationale: the current transcript machinery already renders generic tool-call/tool-result pairs reliably, while the success-path `commandExecution` formatting suppresses the streamed output details that are most useful for Claude’s tool-result events. This keeps the MVP honest and avoids losing stdout/stderr context.
+  Date/Author: 2026-04-06 / codex
+
+- Decision: suppress successful Claude `Read` tool results from the transcript unless they carry an error.
+  Rationale: Claude returns full file contents in many `Read` tool results, which would spam the transcript and drown the assistant turn. The file path is still visible from the preceding tool-call item, so hiding the success payload is the safer MVP default.
+  Date/Author: 2026-04-06 / codex
+
 ## Outcomes & Retrospective
 
 Pending. On completion, `carlos` should have one shared TUI that can speak to either backend, with Codex behavior preserved and Claude support added behind an explicit backend selection. The expected tradeoff for the first version is that Claude session browsing, archiving, and interactive approvals remain out of scope, but the common interactive experience for new work, explicit resume, streaming text, tools, interruption, and context usage becomes available.
@@ -76,6 +98,12 @@ Pending. On completion, `carlos` should have one shared TUI that can speak to ei
 The milestone order below intentionally favors transport containment over breadth. The most important outcome is not “there is a Claude subprocess.” The important outcome is that the new backend fits the current app architecture cleanly enough that future Claude-specific follow-up work can stay localized.
 
 Milestone 1 partial outcome: the shared runtime no longer depends directly on `AppServerClient`. The new `BackendClient` trait now covers shared request/response and event-stream behavior, `AppServerClient` implements it without changing the Codex transport, and the main event loop plus input-handling paths compile against the trait. The Codex-only picker/archive path remains concrete by design, and the full suite still passes after the refactor.
+
+Milestone 2 and Milestone 3 partial outcome: the repository now has a concrete Claude adapter slice. `carlos` can select `--backend claude` or `CARLOS_BACKEND=claude`, start a `claude` subprocess in stream-json mode, reuse the Claude session id as the thread id, translate streamed assistant text and tool activity into the existing synthetic notification surface, queue follow-up user input instead of pretending to steer an active Claude turn, and reject unsupported no-id resume behavior clearly. Focused Claude tests now cover CLI parsing, queued-next-turn behavior, streamed text translation, and Bash tool-result translation, and the full suite currently passes at 182 tests before the final runtime smoke/build/install pass.
+
+Plan change note (2026-04-06 / codex): the implementation narrowed one user-visible detail relative to the original prompt examples. Bash tool activity currently renders through the generic `toolCall` + `toolResult` transcript path rather than the compact `commandExecution` row, because that preserves output fidelity with the existing renderer. If later UX work wants the compact shell row, that should be a follow-up on top of the now-working transport boundary instead of being forced into the initial backend landing.
+
+Validation note (2026-04-06 / codex): the first end-to-end TUI smoke exposed a real startup bug in the initial adapter design. Waiting for Claude session init during `ClaudeClient::start()` deadlocked startup because `system/init` only appears after the first user message. The shipped implementation now handles that lazily, and the repaired release binary was verified interactively for new-session, continue, and explicit-resume flows.
 
 ## Context and Orientation
 

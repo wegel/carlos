@@ -19,8 +19,8 @@ use super::selection::{
 use super::state::{AppState, ApprovalChoice, ModelSettingsField};
 use super::transcript_render::transcript_content_width;
 use super::{persist_runtime_defaults, TerminalSize, MSG_TOP};
+use crate::backend::{BackendClient, BackendKind};
 use crate::clipboard::{clipboard_backend_label, try_copy_clipboard};
-use crate::backend::BackendClient;
 use crate::protocol::{
     params_turn_interrupt, params_turn_start, params_turn_steer,
 };
@@ -102,6 +102,11 @@ pub(super) fn submit_turn_text(client: &dyn BackendClient, app: &mut AppState, t
     }
 
     if let Some(turn_id) = app.active_turn_id.clone() {
+        if client.kind() == BackendKind::Claude {
+            app.queue_turn_input(text);
+            app.set_status("queued for next Claude turn");
+            return;
+        }
         let params = params_turn_steer(&app.thread_id, &turn_id, &text);
         match client.call("turn/steer", params, Duration::from_secs(10)) {
             Ok(_) => app.set_status("sent steer"),
@@ -322,7 +327,11 @@ fn handle_key_event(
     match (k.code, k.modifiers) {
         (code, mods) if is_ctrl_char(code, mods, 'c') => TerminalEventResult::Quit,
         (KeyCode::Char('m'), KeyModifiers::CONTROL) => {
-            app.toggle_model_settings();
+            if client.kind() == BackendKind::Claude {
+                app.set_status("model settings unavailable for Claude backend");
+            } else {
+                app.toggle_model_settings();
+            }
             TerminalEventResult::Continue { needs_draw: true }
         }
         (KeyCode::Char('r'), KeyModifiers::CONTROL) => {

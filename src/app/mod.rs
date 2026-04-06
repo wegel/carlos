@@ -53,6 +53,7 @@ use self::transcript_render::*;
 #[cfg(test)]
 use crate::clipboard::*;
 use crate::backend::BackendClient;
+use crate::claude_backend::{claude_model_catalog, ClaudeClient, ClaudeLaunchMode};
 #[cfg(test)]
 use crate::event::UiEvent;
 use crate::protocol::*;
@@ -92,8 +93,16 @@ mod viewport_state;
 const MSG_TOP: usize = 1; // 1-based row index
 const MSG_CONTENT_X: usize = 2; // 0-based x
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+enum Backend {
+    #[default]
+    Codex,
+    Claude,
+}
+
 #[derive(Debug, Clone, Default)]
 struct CliOptions {
+    backend: Backend,
     mode_resume: bool,
     mode_continue: bool,
     mode_perf_session: bool,
@@ -132,7 +141,7 @@ fn resolve_initial_runtime_settings(
 
 fn usage() {
     eprintln!(
-        "Usage:\n  carlos [resume [SESSION_ID] | continue] [options]\n  carlos perf-session <SESSION_JSONL> [--width N] [--height N]\n  carlos perf-session --synthetic [--turns N] [--seed N] [--tool-lines N] [--width N] [--height N]\n\nOptions:\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  --width <n>                    perf-session viewport width (default: 160)\n  --height <n>                   perf-session viewport height (default: 48)\n  --seed <n>                     perf-session synthetic seed (default: 1)\n  --turns <n>                    perf-session synthetic turns (default: 1000)\n  --tool-lines <n>               perf-session synthetic tool-output lines (default: 24)\n  --synthetic                    use generated perf-session content instead of a jsonl file\n  -h, --help                     show this help\n\nKeys:\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)\n  CARLOS_REASONING_SUMMARY=...   auto | concise | detailed | none (default: auto)"
+        "Usage:\n  carlos [resume [SESSION_ID] | continue] [options]\n  carlos perf-session <SESSION_JSONL> [--width N] [--height N]\n  carlos perf-session --synthetic [--turns N] [--seed N] [--tool-lines N] [--width N] [--height N]\n\nOptions:\n  --backend <codex|claude>       backend to use (default: codex)\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  --width <n>                    perf-session viewport width (default: 160)\n  --height <n>                   perf-session viewport height (default: 48)\n  --seed <n>                     perf-session synthetic seed (default: 1)\n  --turns <n>                    perf-session synthetic turns (default: 1000)\n  --tool-lines <n>               perf-session synthetic tool-output lines (default: 24)\n  --synthetic                    use generated perf-session content instead of a jsonl file\n  -h, --help                     show this help\n\nKeys:\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_BACKEND=claude          use Claude Code instead of codex app-server\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)\n  CARLOS_REASONING_SUMMARY=...   auto | concise | detailed | none (default: auto)"
     );
 }
 
@@ -148,6 +157,7 @@ fn styled_resume_hint(thread_id: &str) -> String {
 
 fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<CliOptions> {
     let mut opts = CliOptions {
+        backend: env_backend().unwrap_or(Backend::Codex),
         perf_width: 160,
         perf_height: 48,
         perf_seed: 1,
@@ -161,6 +171,12 @@ fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<CliOptions> 
         match arg.as_str() {
             "-h" | "--help" => {
                 opts.show_help = true;
+            }
+            "--backend" => {
+                let value = args
+                    .next()
+                    .ok_or_else(|| anyhow::anyhow!("missing value for --backend"))?;
+                opts.backend = parse_backend_name(&value)?;
             }
             "resume" => {
                 if opts.mode_resume || opts.mode_continue || opts.mode_perf_session {
@@ -287,6 +303,19 @@ fn env_reasoning_summary_override() -> Option<String> {
     }
 }
 
+fn parse_backend_name(value: &str) -> Result<Backend> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "codex" => Ok(Backend::Codex),
+        "claude" => Ok(Backend::Claude),
+        other => bail!("invalid backend: {other}"),
+    }
+}
+
+fn env_backend() -> Option<Backend> {
+    let value = env::var("CARLOS_BACKEND").ok()?;
+    parse_backend_name(value.trim()).ok()
+}
+
 fn runtime_defaults_path() -> Option<PathBuf> {
     let base = env::var_os("XDG_CONFIG_HOME")
         .filter(|v| !v.is_empty())
@@ -391,15 +420,81 @@ pub(crate) fn run() -> Result<()> {
         return perf_session::run_perf_session(&opts);
     }
 
-    let mut client = AppServerClient::start()?;
-    initialize_client(&client)?;
-    let server_events_rx = client.take_events_rx()?;
-
-    let cwd = env::current_dir()?.to_string_lossy().to_string();
+    let cwd_path = env::current_dir()?;
+    let cwd = cwd_path.to_string_lossy().to_string();
     let persisted_defaults = load_runtime_defaults();
     let default_summary = env_reasoning_summary_override()
         .or(persisted_defaults.summary.clone())
         .or(Some("auto".to_string()));
+
+    match opts.backend {
+        Backend::Codex => run_codex_backend(
+            &opts,
+            &cwd_path,
+            &cwd,
+            persisted_defaults,
+            default_summary,
+        ),
+        Backend::Claude => run_claude_backend(
+            &opts,
+            &cwd_path,
+            &cwd,
+            persisted_defaults,
+            default_summary,
+        ),
+    }
+}
+
+fn configure_app_common(
+    app: &mut AppState,
+    cwd: &str,
+    opts: &CliOptions,
+    runtime_settings: crate::protocol::ThreadRuntimeSettings,
+    persisted_defaults: &RuntimeDefaults,
+    default_summary: Option<String>,
+) {
+    app.configure_ralph_options(
+        PathBuf::from(cwd),
+        opts.ralph_prompt_path.clone(),
+        opts.ralph_done_marker.clone(),
+        opts.ralph_blocked_marker.clone(),
+    );
+    if env_flag_enabled("CARLOS_METRICS") {
+        app.enable_perf_metrics();
+    }
+    let runtime_settings =
+        resolve_initial_runtime_settings(runtime_settings, persisted_defaults, default_summary);
+    app.set_runtime_settings(
+        runtime_settings.model,
+        runtime_settings.effort,
+        runtime_settings.summary,
+    );
+    app.set_status("ready");
+}
+
+fn finish_run(
+    app: &mut AppState,
+    client: &dyn BackendClient,
+    server_events_rx: std::sync::mpsc::Receiver<String>,
+) -> Result<()> {
+    let out = run_conversation_tui(client, app, server_events_rx);
+    eprintln!("{}", styled_resume_hint(&app.thread_id));
+    if let Some(report) = app.perf_report() {
+        eprintln!("{report}");
+    }
+    out
+}
+
+fn run_codex_backend(
+    opts: &CliOptions,
+    _cwd_path: &std::path::Path,
+    cwd: &str,
+    persisted_defaults: RuntimeDefaults,
+    default_summary: Option<String>,
+) -> Result<()> {
+    let mut client = AppServerClient::start()?;
+    initialize_client(&client)?;
+    let server_events_rx = client.take_events_rx()?;
 
     let (chosen_thread_id, start_resp) = if opts.mode_resume || opts.mode_continue {
         if let Some(rid) = opts.resume_id.as_deref() {
@@ -413,7 +508,7 @@ pub(crate) fn run() -> Result<()> {
         } else {
             let list_resp = client.call(
                 "thread/list",
-                params_thread_list(&cwd),
+                params_thread_list(cwd),
                 Duration::from_secs(15),
             )?;
             let list = parse_thread_list(&list_resp)?;
@@ -440,7 +535,7 @@ pub(crate) fn run() -> Result<()> {
     } else {
         let resp = client.call(
             "thread/start",
-            params_thread_start(&cwd),
+            params_thread_start(cwd),
             Duration::from_secs(20),
         )?;
         let thread_id = parse_thread_id_from_start_or_resume(&resp)?;
@@ -448,37 +543,64 @@ pub(crate) fn run() -> Result<()> {
     };
 
     let mut app = AppState::new(chosen_thread_id);
-    app.configure_ralph_options(
-        PathBuf::from(&cwd),
-        opts.ralph_prompt_path,
-        opts.ralph_done_marker,
-        opts.ralph_blocked_marker,
-    );
-    if env_flag_enabled("CARLOS_METRICS") {
-        app.enable_perf_metrics();
-    }
     if let Ok(models) = fetch_model_catalog(&client) {
         app.set_available_models(models);
     }
-    let runtime_settings = resolve_initial_runtime_settings(
+    configure_app_common(
+        &mut app,
+        cwd,
+        opts,
         parse_thread_runtime_settings(&start_resp)?,
         &persisted_defaults,
-        default_summary.clone(),
-    );
-    app.set_runtime_settings(
-        runtime_settings.model,
-        runtime_settings.effort,
-        runtime_settings.summary,
+        default_summary,
     );
     load_history_from_start_or_resume(&mut app, &start_resp)?;
-    app.set_status("ready");
+    finish_run(&mut app, &client, server_events_rx)
+}
 
-    let out = run_conversation_tui(&client, &mut app, server_events_rx);
-    eprintln!("{}", styled_resume_hint(&app.thread_id));
-    if let Some(report) = app.perf_report() {
-        eprintln!("{report}");
+fn run_claude_backend(
+    opts: &CliOptions,
+    cwd_path: &std::path::Path,
+    cwd: &str,
+    persisted_defaults: RuntimeDefaults,
+    default_summary: Option<String>,
+) -> Result<()> {
+    if opts.backend == Backend::Claude && opts.mode_resume && opts.resume_id.is_none() {
+        bail!("Claude backend requires `resume <SESSION_ID>`; picker resume is not supported");
     }
-    out
+
+    let launch_mode = if opts.mode_continue {
+        ClaudeLaunchMode::Continue
+    } else if let Some(session_id) = opts.resume_id.clone() {
+        ClaudeLaunchMode::Resume(session_id)
+    } else {
+        ClaudeLaunchMode::New
+    };
+
+    let mut client = ClaudeClient::start(cwd_path, launch_mode)?;
+    let server_events_rx = client.take_events_rx()?;
+    let start_resp = client.synthetic_start_response();
+    let chosen_thread_id = parse_thread_id_from_start_or_resume(&start_resp)?;
+
+    let mut app = AppState::new(chosen_thread_id);
+    app.set_available_models(claude_model_catalog());
+    configure_app_common(
+        &mut app,
+        cwd,
+        opts,
+        parse_thread_runtime_settings(&start_resp)?,
+        &persisted_defaults,
+        default_summary,
+    );
+    load_history_from_start_or_resume(&mut app, &start_resp)?;
+    if opts.mode_resume || opts.mode_continue {
+        app.append_message(
+            Role::System,
+            "Claude resume starts without replayed transcript history in print/stream-json mode"
+                .to_string(),
+        );
+    }
+    finish_run(&mut app, &client, server_events_rx)
 }
 
 #[cfg(test)]

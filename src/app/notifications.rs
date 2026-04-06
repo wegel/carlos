@@ -407,6 +407,18 @@ pub(super) fn handle_server_message_line(
     }
 
     match method {
+        "thread/initialized" => {
+            if let Some(id) = params
+                .get("thread")
+                .and_then(Value::as_object)
+                .and_then(|thread| thread.get("id"))
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|id| !id.is_empty())
+            {
+                app.set_thread_id(id.to_string());
+            }
+        }
         "thread/tokenUsage/updated" => {
             if let Some(usage) = context_usage_from_thread_token_usage_params(params) {
                 app.context_usage = Some(usage);
