@@ -297,6 +297,7 @@ impl AppState {
         self.ralph_runtime.queue_continuation(text);
     }
 
+    #[cfg(test)]
     pub(super) fn queue_turn_input(&mut self, text: impl Into<String>) {
         self.queue_turn_input_with_history(text, true);
     }

@@ -111,14 +111,17 @@ pub(super) fn submit_turn_text_with_history(
     }
 
     if let Some(turn_id) = app.active_turn_id.clone() {
-        if client.kind() == BackendKind::Claude {
-            app.queue_turn_input(text);
-            app.set_status("queued for next Claude turn");
-            return;
-        }
         let params = params_turn_steer(&app.thread_id, &turn_id, &text);
         match client.call("turn/steer", params, Duration::from_secs(10)) {
-            Ok(_) => app.set_status("sent steer"),
+            Ok(_) => {
+                if client.kind() == BackendKind::Claude {
+                    let idx = app.append_message(super::Role::User, text.clone());
+                    if record_input_history {
+                        app.record_input_history(&text, Some(idx));
+                    }
+                }
+                app.set_status("sent steer");
+            }
             Err(e) => app.set_status(format!("{e}")),
         }
     } else {

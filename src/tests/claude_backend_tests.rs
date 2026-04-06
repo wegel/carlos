@@ -57,15 +57,29 @@ fn write_session_file(root: &Path, cwd: &Path, session_id: &str, lines: &[&str])
     path
 }
 
-struct ClaudeSteerMock;
+struct ClaudeSteerMock {
+    calls: std::sync::Mutex<Vec<String>>,
+}
+
+impl ClaudeSteerMock {
+    fn new() -> Self {
+        Self {
+            calls: std::sync::Mutex::new(Vec::new()),
+        }
+    }
+}
 
 impl BackendClient for ClaudeSteerMock {
     fn kind(&self) -> BackendKind {
         BackendKind::Claude
     }
 
-    fn call(&self, _method: &str, _params: Value, _timeout: Duration) -> Result<String> {
-        bail!("Claude steer path should queue instead of calling backend")
+    fn call(&self, method: &str, _params: Value, _timeout: Duration) -> Result<String> {
+        self.calls
+            .lock()
+            .expect("calls lock")
+            .push(method.to_string());
+        Ok("{\"jsonrpc\":\"2.0\",\"result\":{}}".to_string())
     }
 
     fn respond(&self, _request_id: &Value, _result: Value) -> Result<()> {
@@ -144,22 +158,27 @@ fn parse_cli_args_uses_backend_env_default() {
 }
 
 #[test]
-fn submit_turn_text_queues_next_claude_turn_when_turn_active() {
-    let client = ClaudeSteerMock;
+fn submit_turn_text_sends_claude_steer_when_turn_active() {
+    let client = ClaudeSteerMock::new();
     let mut app = AppState::new("thread-1".to_string());
     app.active_turn_id = Some("turn-1".to_string());
 
     submit_turn_text(&client, &mut app, "follow up".to_string());
 
-    let queued = app.dequeue_turn_input(Instant::now()).expect("queued turn");
-    assert_eq!(queued.text, "follow up");
-    assert!(queued.record_input_history);
-    assert_eq!(app.status, "queued for next Claude turn");
+    assert_eq!(
+        client.calls.lock().expect("calls lock").as_slice(),
+        ["turn/steer"]
+    );
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(app.messages[0].role, Role::User);
+    assert_eq!(app.messages[0].text, "follow up");
+    assert_eq!(app.input_history_len(), 1);
+    assert_eq!(app.status, "sent steer");
 }
 
 #[test]
 fn submit_turn_text_queues_behind_existing_claude_turns() {
-    let client = ClaudeSteerMock;
+    let client = ClaudeSteerMock::new();
     let mut app = AppState::new("thread-1".to_string());
     app.queue_turn_input("first");
 
