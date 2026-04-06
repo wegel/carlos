@@ -8,9 +8,7 @@ use serde_json::Value;
 use super::*;
 use super::input_events::submit_turn_text;
 use crate::backend::{BackendClient, BackendKind};
-use crate::claude_backend::{
-    synthetic_user_message_line, translate_claude_line, ClaudeTranslationState,
-};
+use crate::claude_backend::{translate_claude_line, ClaudeTranslationState};
 
 fn collect_synthetic_lines(lines: &[&str]) -> Vec<String> {
     let mut state = ClaudeTranslationState::default();
@@ -37,6 +35,33 @@ impl BackendClient for ClaudeSteerMock {
 
     fn call(&self, _method: &str, _params: Value, _timeout: Duration) -> Result<String> {
         bail!("Claude steer path should queue instead of calling backend")
+    }
+
+    fn respond(&self, _request_id: &Value, _result: Value) -> Result<()> {
+        bail!("unused in test")
+    }
+
+    fn respond_error(&self, _request_id: &Value, _code: i64, _message: &str) -> Result<()> {
+        bail!("unused in test")
+    }
+
+    fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>> {
+        bail!("unused in test")
+    }
+
+    fn stop(&mut self) {}
+}
+
+struct ClaudeStartMock;
+
+impl BackendClient for ClaudeStartMock {
+    fn kind(&self) -> BackendKind {
+        BackendKind::Claude
+    }
+
+    fn call(&self, method: &str, _params: Value, _timeout: Duration) -> Result<String> {
+        assert_eq!(method, "turn/start");
+        Ok("{\"jsonrpc\":\"2.0\",\"result\":{}}".to_string())
     }
 
     fn respond(&self, _request_id: &Value, _result: Value) -> Result<()> {
@@ -103,6 +128,18 @@ fn submit_turn_text_queues_next_claude_turn_when_turn_active() {
 }
 
 #[test]
+fn submit_turn_text_appends_user_message_for_claude_start() {
+    let client = ClaudeStartMock;
+    let mut app = AppState::new("thread-1".to_string());
+
+    submit_turn_text(&client, &mut app, "hello".to_string());
+
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(app.messages[0].role, Role::User);
+    assert_eq!(app.messages[0].text, "hello");
+}
+
+#[test]
 fn translate_claude_text_turn_emits_codex_style_notifications() {
     let synthetic = collect_synthetic_lines(&[
         r#"{"type":"system","subtype":"init","session_id":"session-1","model":"claude-opus-4-6[1m]"}"#,
@@ -154,19 +191,5 @@ fn translate_claude_bash_tool_result_emits_tool_call_and_tool_output_rows() {
             .as_str()
             .unwrap_or("")
             .contains("$ pwd")
-    );
-}
-
-#[test]
-fn synthetic_user_message_line_uses_user_message_shape() {
-    let line = synthetic_user_message_line(7, "hello");
-    let parsed: Value = serde_json::from_str(&line).expect("json");
-
-    assert_eq!(parsed["method"].as_str(), Some("item/started"));
-    assert_eq!(parsed["params"]["item"]["id"].as_str(), Some("claude-user-7"));
-    assert_eq!(parsed["params"]["item"]["type"].as_str(), Some("userMessage"));
-    assert_eq!(
-        parsed["params"]["item"]["content"][0]["text"].as_str(),
-        Some("hello")
     );
 }

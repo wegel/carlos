@@ -123,6 +123,10 @@ pub(super) fn submit_turn_text(client: &dyn BackendClient, app: &mut AppState, t
         );
         match client.call("turn/start", params, Duration::from_secs(10)) {
             Ok(_) => {
+                if client.kind() == BackendKind::Claude {
+                    let idx = app.append_message(super::Role::User, text.clone());
+                    app.record_input_history(&text, Some(idx));
+                }
                 app.mark_runtime_settings_applied();
                 app.set_status("sent turn");
             }
