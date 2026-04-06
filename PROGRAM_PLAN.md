@@ -8,8 +8,9 @@ Keep `carlos` smooth and responsive on very large sessions while also making the
 to evolve safely. The user-visible goal remains fast scrolling, typing, and live transcript
 updates even on very large sessions, but the codebase goal is now to preserve that performance
 while reducing the architectural risk caused by oversized, mixed-responsibility runtime files.
-The next feature goal is to add a Claude Code backend without regressing the existing Codex path
-or weakening the runtime discipline established by the earlier ExecPlans.
+The next feature goal is to finish the Claude Code integration so Claude-native approval flows,
+starting with `ExitPlanMode`, work inside `carlos` without regressing the existing Codex path or
+weakening the runtime discipline established by the earlier ExecPlans.
 
 ## Global Invariants
 
@@ -23,6 +24,8 @@ or weakening the runtime discipline established by the earlier ExecPlans.
 - Move completed ExecPlans to `.agents/done/` without editing them after completion.
 
 ## Active ExecPlans
+
+- [ ] `.agents/execplans/EXECPLAN_006_claude_exit_plan_mode.md`
 
 
 ## Done ExecPlans
