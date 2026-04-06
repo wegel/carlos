@@ -14,9 +14,11 @@ The key constraint is that none of this may regress runtime behavior, transcript
 
 ## Progress
 
-- [ ] Record file-size and function-size baselines.
-- [ ] Milestone 1: Documentation pass (module docs, section landmarks, public API docs).
-- [ ] Milestone 2: Split `claude_backend.rs` (1,594 lines).
+- [x] (2026-04-06 16:00Z) Recorded file-size and function-size baselines in this plan.
+- [x] (2026-04-06 16:30Z) Milestone 1a: Added `//!` module doc comments to all 29 source files. Committed as `6fa1a87`.
+- [x] (2026-04-06 16:45Z) Milestone 1b: Added `// --- Section ---` landmarks to 10 large files (claude_backend, state, mod, render, input_events, notifications, transcript_styles, tools, notification_items, perf_session). Committed as `a126e48`.
+- [ ] Milestone 1c: Add `///` doc comments to public types/functions/methods (deferred to incremental pass alongside later milestones).
+- [x] (2026-04-06) Milestone 2: Split `claude_backend.rs` (1,594 → 6 files, all ≤399 lines).
 - [ ] Milestone 3: Decompose oversized functions (the "outline pattern" pass).
 - [ ] Milestone 4: Split remaining oversized files.
 - [ ] Milestone 5: Eliminate repetition.
@@ -25,7 +27,7 @@ The key constraint is that none of this may regress runtime behavior, transcript
 
 ## Surprises & Discoveries
 
-(None yet.)
+- The documentation pass split naturally into two commits (module docs, then section landmarks). Deferring `///` doc comments on individual public items to later milestones avoids a large churn-only commit and lets those docs be written alongside the code changes that will reshape the public APIs.
 
 ## Decision Log
 
