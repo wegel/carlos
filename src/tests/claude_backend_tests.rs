@@ -202,6 +202,17 @@ fn submit_turn_text_appends_user_message_for_claude_start() {
 }
 
 #[test]
+fn submit_turn_text_marks_claude_turn_active_immediately() {
+    let client = ClaudeStartMock;
+    let mut app = AppState::new("thread-1".to_string());
+
+    submit_turn_text(&client, &mut app, "hello".to_string());
+
+    assert_eq!(app.active_turn_id.as_deref(), Some("claude-turn-pending"));
+    assert_eq!(app.turn_start_message_idx, Some(1));
+}
+
+#[test]
 fn submit_turn_text_backfills_existing_history_for_claude_start() {
     let client = ClaudeStartMock;
     let mut app = AppState::new("thread-1".to_string());

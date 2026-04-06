@@ -23,6 +23,8 @@ use crate::backend::{BackendClient, BackendKind};
 use crate::clipboard::{clipboard_backend_label, try_copy_clipboard};
 use crate::protocol::{params_turn_interrupt, params_turn_start, params_turn_steer};
 
+const CLAUDE_PENDING_TURN_ID: &str = "claude-turn-pending";
+
 pub(super) enum TerminalEventResult {
     Quit,
     Continue { needs_draw: bool },
@@ -142,6 +144,8 @@ pub(super) fn submit_turn_text_with_history(
                     if record_input_history {
                         app.record_input_history(&text, Some(idx));
                     }
+                    app.mark_turn_started();
+                    app.active_turn_id = Some(CLAUDE_PENDING_TURN_ID.to_string());
                 }
                 app.mark_runtime_settings_applied();
                 app.set_status("sent turn");
