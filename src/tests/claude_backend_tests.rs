@@ -11,8 +11,9 @@ use super::input_events::{submit_turn_text, submit_turn_text_with_history};
 use super::*;
 use crate::backend::{BackendClient, BackendKind};
 use crate::claude_backend::{
-    claude_project_dir_name, load_claude_local_history_from_projects_root, translate_claude_line,
-    ClaudeLaunchMode, ClaudeTranslationState,
+    claude_approval_follow_up_text, claude_project_dir_name,
+    load_claude_local_history_from_projects_root, translate_claude_line, ClaudeLaunchMode,
+    ClaudeTranslationState,
 };
 
 fn collect_synthetic_lines(lines: &[&str]) -> Vec<String> {
@@ -311,11 +312,65 @@ fn translate_claude_exit_plan_fallback_emits_pending_approval_request() {
 }
 
 #[test]
+fn claude_exit_plan_follow_up_text_matches_accept_and_decline() {
+    let request_id = serde_json::json!({
+        "backend": "claude",
+        "kind": "exitPlanMode",
+        "toolUseId": "toolu_exit",
+    });
+
+    assert_eq!(
+        claude_approval_follow_up_text(&request_id, &serde_json::json!({"decision":"accept"}))
+            .expect("accept"),
+        Some("The plan is approved. Continue with the planned implementation now.")
+    );
+    assert_eq!(
+        claude_approval_follow_up_text(&request_id, &serde_json::json!({"decision":"decline"}))
+            .expect("decline"),
+        Some(
+            "Do not exit plan mode yet. Stay in plan mode, revise the plan, and then present an updated plan for approval."
+        )
+    );
+}
+
+#[test]
 fn claude_project_dir_name_encodes_current_worktree_path() {
     assert_eq!(
         claude_project_dir_name(Path::new("/var/home/wegel/work/perso/stormvault")),
         "-var-home-wegel-work-perso-stormvault"
     );
+}
+
+#[test]
+fn local_claude_history_keeps_pending_exit_plan_when_later_tool_result_shares_record() {
+    let root = temp_test_dir("claude-history-exit-plan-shared-record");
+    let cwd = Path::new("/repo");
+    write_session_file(
+        &root,
+        cwd,
+        "session-exit-plan-shared-record",
+        &[
+            r##"{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_exit","name":"ExitPlanMode","input":{"plan":"# Plan\nShip it"}},{"type":"tool_use","id":"toolu_bash","name":"Bash","input":{"command":"pwd","description":"Print working directory"}}]},"sessionId":"session-exit-plan-shared-record"}"##,
+            r#"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_exit","type":"tool_result","content":"Exit plan mode?","is_error":true},{"tool_use_id":"toolu_bash","type":"tool_result","content":"/repo","is_error":false}]},"toolUseResult":{"stdout":"/repo","stderr":"","interrupted":false},"sessionId":"session-exit-plan-shared-record"}"#,
+        ],
+    );
+
+    let imported = load_claude_local_history_from_projects_root(
+        &root,
+        cwd,
+        &ClaudeLaunchMode::Resume("session-exit-plan-shared-record".to_string()),
+    )
+    .expect("import")
+    .expect("history");
+
+    let pending = imported
+        .pending_approval_request
+        .as_deref()
+        .expect("pending approval request");
+    let parsed: Value = serde_json::from_str(pending).expect("parse request");
+    assert_eq!(parsed["params"]["toolUseId"].as_str(), Some("toolu_exit"));
+
+    let _ = fs::remove_dir_all(root);
 }
 
 #[test]

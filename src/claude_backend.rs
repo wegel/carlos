@@ -267,31 +267,7 @@ impl BackendClient for ClaudeClient {
     }
 
     fn respond(&self, request_id: &Value, result: Value) -> Result<()> {
-        let backend = request_id
-            .get("backend")
-            .and_then(Value::as_str)
-            .unwrap_or("");
-        let kind = request_id.get("kind").and_then(Value::as_str).unwrap_or("");
-
-        if backend == "claude" && kind == "exitPlanMode" {
-            let _tool_use_id = request_id
-                .get("toolUseId")
-                .and_then(Value::as_str)
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-                .context("missing Claude approval toolUseId")?;
-            let decision = result
-                .get("decision")
-                .and_then(Value::as_str)
-                .context("missing Claude approval decision")?;
-            let follow_up = match decision {
-                "accept" => "The plan is approved. Continue with the planned implementation now.",
-                "decline" => {
-                    "Do not exit plan mode yet. Stay in plan mode, revise the plan, and then present an updated plan for approval."
-                }
-                "cancel" => "Cancel the exit from plan mode and stay in plan mode.",
-                other => bail!("unsupported Claude approval decision: {other}"),
-            };
+        if let Some(follow_up) = claude_approval_follow_up_text(request_id, &result)? {
             self.send_stream_user_message(follow_up)?;
             return Ok(());
         }
@@ -522,6 +498,41 @@ fn claude_exit_plan_request_line(approval: &ClaudeExitPlanApproval) -> String {
     .to_string()
 }
 
+pub(crate) fn claude_approval_follow_up_text<'a>(
+    request_id: &Value,
+    result: &Value,
+) -> Result<Option<&'a str>> {
+    let backend = request_id
+        .get("backend")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let kind = request_id.get("kind").and_then(Value::as_str).unwrap_or("");
+
+    if backend != "claude" || kind != "exitPlanMode" {
+        return Ok(None);
+    }
+
+    let _tool_use_id = request_id
+        .get("toolUseId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .context("missing Claude approval toolUseId")?;
+    let decision = result
+        .get("decision")
+        .and_then(Value::as_str)
+        .context("missing Claude approval decision")?;
+    let follow_up = match decision {
+        "accept" => "The plan is approved. Continue with the planned implementation now.",
+        "decline" => {
+            "Do not exit plan mode yet. Stay in plan mode, revise the plan, and then present an updated plan for approval."
+        }
+        "cancel" => "Cancel the exit from plan mode and stay in plan mode.",
+        other => bail!("unsupported Claude approval decision: {other}"),
+    };
+    Ok(Some(follow_up))
+}
+
 fn fallback_tool_result_item(tool_use_id: &str, part: &Value) -> Option<Value> {
     let content_text = value_to_string(part.get("content")?);
     if content_text.trim().is_empty() {
@@ -620,10 +631,13 @@ fn append_user_history_record(
             let tool_use_result = record
                 .get("toolUseResult")
                 .or_else(|| record.get("tool_use_result"));
+            let mut saw_tool_result = false;
+            let mut exit_plan_approval_in_record = None;
             for part in parts {
                 if part.get("type").and_then(Value::as_str) != Some("tool_result") {
                     continue;
                 }
+                saw_tool_result = true;
                 let tool_use_id = part
                     .get("tool_use_id")
                     .and_then(Value::as_str)
@@ -647,10 +661,13 @@ fn append_user_history_record(
                     items.push(item);
                 }
                 if let Some(approval) = exit_plan_approval {
-                    *pending_exit_plan_approval = Some(approval);
-                } else {
-                    *pending_exit_plan_approval = None;
+                    exit_plan_approval_in_record = Some(approval);
                 }
+            }
+            if let Some(approval) = exit_plan_approval_in_record {
+                *pending_exit_plan_approval = Some(approval);
+            } else if saw_tool_result {
+                *pending_exit_plan_approval = None;
             }
         }
         _ => {}
