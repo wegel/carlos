@@ -65,6 +65,7 @@ pub(super) fn draw_picker(
     threads: &[ThreadSummary],
     selected: usize,
     top: usize,
+    allow_delete: bool,
     delete_target: Option<&ThreadSummary>,
     status: Option<&str>,
 ) {
@@ -161,7 +162,11 @@ pub(super) fn draw_picker(
         buf,
         layout.list_x,
         layout.panel_y + 2,
-        "Enter open  j/k move  g/G jump  d delete",
+        if allow_delete {
+            "Enter open  j/k move  g/G jump  d delete"
+        } else {
+            "Enter open  j/k move  g/G jump"
+        },
         Style::default().fg(COLOR_DIM),
         layout.list_w,
     );

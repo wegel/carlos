@@ -20,7 +20,6 @@ use ratatui::Terminal;
 use super::notifications::{is_ctrl_char, is_key_press_like};
 use super::picker_render::{compute_picker_layout, draw_picker};
 use super::{TerminalSize, ThreadSummary};
-use crate::protocol::{extract_result_object, params_thread_archive, AppServerClient};
 
 fn env_flag(name: &str) -> Option<bool> {
     let raw = env::var(name).ok()?;
@@ -124,10 +123,14 @@ pub(super) fn with_terminal<T>(
     result
 }
 
-pub(super) fn pick_thread(
-    client: &AppServerClient,
+pub(super) fn pick_thread<F>(
     threads: &[ThreadSummary],
-) -> Result<Option<String>> {
+    allow_delete: bool,
+    mut on_delete: F,
+) -> Result<Option<String>>
+where
+    F: FnMut(&ThreadSummary) -> Result<()>,
+{
     let mut threads = sort_threads_for_picker(threads);
     if threads.is_empty() {
         return Ok(None);
@@ -170,6 +173,7 @@ pub(super) fn pick_thread(
                     &threads,
                     selected,
                     top,
+                    allow_delete,
                     delete_target,
                     status.as_deref(),
                 );
@@ -195,24 +199,15 @@ pub(super) fn pick_thread(
                                     status = None;
                                     continue;
                                 };
-                                match client.call(
-                                    "thread/archive",
-                                    params_thread_archive(&thread.id),
-                                    Duration::from_secs(20),
-                                ) {
-                                    Ok(resp) => {
-                                        if let Err(err) = extract_result_object(&resp) {
-                                            status = Some(format!("archive failed: {err}"));
-                                        } else {
-                                            threads.remove(selected);
-                                            confirm_delete = false;
-                                            status = Some(format!("Archived {}", thread.id));
-                                            if threads.is_empty() {
-                                                return Ok(None);
-                                            }
-                                            selected =
-                                                selected.min(threads.len().saturating_sub(1));
+                                match on_delete(&thread) {
+                                    Ok(()) => {
+                                        threads.remove(selected);
+                                        confirm_delete = false;
+                                        status = Some(format!("Archived {}", thread.id));
+                                        if threads.is_empty() {
+                                            return Ok(None);
                                         }
+                                        selected = selected.min(threads.len().saturating_sub(1));
                                     }
                                     Err(err) => {
                                         status = Some(format!("archive failed: {err}"));
@@ -264,8 +259,10 @@ pub(super) fn pick_thread(
                             status = None;
                         }
                         (KeyCode::Char('d'), _) => {
-                            confirm_delete = true;
-                            status = None;
+                            if allow_delete {
+                                confirm_delete = true;
+                                status = None;
+                            }
                         }
                         (KeyCode::Enter, _) => return Ok(Some(threads[selected].id.clone())),
                         _ => {}

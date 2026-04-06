@@ -1,4 +1,10 @@
 use super::*;
+use std::sync::{Mutex, OnceLock};
+
+fn runtime_env_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
 
 #[test]
 fn osc52_wrap_detects_tmux_and_screen() {
@@ -786,4 +792,58 @@ fn sort_threads_for_picker_prefers_most_recent_update_first() {
     let sorted = sort_threads_for_picker(&threads);
     let ids: Vec<&str> = sorted.iter().map(|t| t.id.as_str()).collect();
     assert_eq!(ids, vec!["newer", "same-update-later-created", "older"]);
+}
+
+#[test]
+fn load_claude_thread_summaries_reads_local_session_metadata() {
+    let _guard = runtime_env_lock().lock().expect("env lock");
+    let old_home = std::env::var_os("HOME");
+    let temp_root = std::env::temp_dir().join(format!(
+        "carlos-claude-picker-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("duration")
+            .as_nanos()
+    ));
+    let cwd = "/repo";
+    let project_dir = temp_root
+        .join(".claude")
+        .join("projects")
+        .join(crate::claude_backend::claude_project_dir_name(std::path::Path::new(cwd)));
+    std::fs::create_dir_all(&project_dir).expect("create project dir");
+    std::fs::write(
+        project_dir.join("session-a.jsonl"),
+        concat!(
+            "{\"type\":\"user\",\"customTitle\":\"media-pipeline-worker-pool\",\"message\":{\"role\":\"user\",\"content\":\"Investigate streaming slowdown\"},\"cwd\":\"/repo\"}\n",
+            "{\"type\":\"assistant\",\"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Looking into it.\"}]},\"cwd\":\"/repo\"}\n"
+        ),
+    )
+    .expect("write session a");
+    std::fs::write(
+        project_dir.join("session-b.jsonl"),
+        "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"Second session\"},\"cwd\":\"/repo\",\"slug\":\"sleepy-river-otter\"}\n",
+    )
+    .expect("write session b");
+    std::env::set_var("HOME", &temp_root);
+
+    let mut threads =
+        load_claude_thread_summaries(std::path::Path::new(cwd), cwd).expect("load summaries");
+    threads.sort_by(|lhs, rhs| lhs.id.cmp(&rhs.id));
+
+    assert_eq!(threads.len(), 2);
+    assert_eq!(threads[0].id, "session-a");
+    assert_eq!(
+        threads[0].name.as_deref(),
+        Some("media-pipeline-worker-pool")
+    );
+    assert_eq!(threads[0].preview, "Investigate streaming slowdown");
+    assert_eq!(threads[1].id, "session-b");
+    assert_eq!(threads[1].name.as_deref(), Some("sleepy-river-otter"));
+    assert_eq!(threads[1].preview, "Second session");
+
+    match old_home {
+        Some(value) => std::env::set_var("HOME", value),
+        None => std::env::remove_var("HOME"),
+    }
+    let _ = std::fs::remove_dir_all(temp_root);
 }

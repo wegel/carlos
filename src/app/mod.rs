@@ -1,5 +1,7 @@
 use std::env;
 use std::fs;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -52,7 +54,8 @@ use self::tools::*;
 use self::transcript_render::*;
 use crate::backend::BackendClient;
 use crate::claude_backend::{
-    claude_model_catalog, load_claude_local_history, ClaudeClient, ClaudeLaunchMode,
+    claude_model_catalog, claude_project_dir_name, load_claude_local_history, ClaudeClient,
+    ClaudeLaunchMode,
     CLAUDE_PENDING_THREAD_ID,
 };
 #[cfg(test)]
@@ -480,6 +483,120 @@ fn finish_run(
     out
 }
 
+fn claude_projects_root() -> Option<PathBuf> {
+    env::var_os("HOME")
+        .map(PathBuf::from)
+        .map(|home| home.join(".claude").join("projects"))
+}
+
+fn file_mtime_secs(path: &std::path::Path) -> i64 {
+    fs::metadata(path)
+        .ok()
+        .and_then(|meta| meta.modified().ok())
+        .and_then(|mtime| mtime.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|duration| duration.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+fn claude_preview_text_from_record(record: &serde_json::Value) -> Option<String> {
+    let message = record.get("message")?.as_object()?;
+    match message.get("content")? {
+        serde_json::Value::String(text) => {
+            let trimmed = text.trim();
+            (!trimmed.is_empty()).then(|| trimmed.to_string())
+        }
+        serde_json::Value::Array(parts) => parts.iter().find_map(|part| {
+            let text = match part.get("type").and_then(serde_json::Value::as_str) {
+                Some("text") => part.get("text").and_then(serde_json::Value::as_str),
+                Some("tool_result") => part.get("content").and_then(serde_json::Value::as_str),
+                _ => None,
+            }?;
+            let trimmed = text.trim();
+            (!trimmed.is_empty()).then(|| trimmed.to_string())
+        }),
+        _ => None,
+    }
+}
+
+fn summarize_claude_session_file(path: &std::path::Path, cwd: &str) -> Option<ThreadSummary> {
+    let session_id = path.file_stem()?.to_string_lossy().to_string();
+    let file = File::open(path).ok()?;
+    let reader = BufReader::new(file);
+    let modified = file_mtime_secs(path);
+
+    let mut name = None;
+    let mut preview = None;
+    let mut record_cwd = None;
+
+    for line in reader.lines().filter_map(|line| line.ok()) {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let Ok(record) = serde_json::from_str::<serde_json::Value>(trimmed) else {
+            continue;
+        };
+
+        if name.is_none() {
+            name = record
+                .get("customTitle")
+                .or_else(|| record.get("agentName"))
+                .or_else(|| record.get("slug"))
+                .and_then(serde_json::Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned);
+        }
+
+        if record_cwd.is_none() {
+            record_cwd = record
+                .get("cwd")
+                .and_then(serde_json::Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned);
+        }
+
+        if preview.is_none() {
+            preview = claude_preview_text_from_record(&record);
+        }
+    }
+
+    Some(ThreadSummary {
+        id: session_id.clone(),
+        name,
+        preview: preview.unwrap_or_else(|| session_id.clone()),
+        cwd: record_cwd.unwrap_or_else(|| cwd.to_string()),
+        created_at: modified,
+        updated_at: modified,
+    })
+}
+
+fn load_claude_thread_summaries(cwd_path: &std::path::Path, cwd: &str) -> Result<Vec<ThreadSummary>> {
+    let Some(projects_root) = claude_projects_root() else {
+        return Ok(Vec::new());
+    };
+    let project_dir = projects_root.join(claude_project_dir_name(cwd_path));
+    if !project_dir.is_dir() {
+        return Ok(Vec::new());
+    }
+
+    let mut out = Vec::new();
+    for entry in fs::read_dir(&project_dir)
+        .with_context(|| format!("failed to read Claude projects dir {}", project_dir.display()))?
+    {
+        let entry = entry?;
+        let path = entry.path();
+        if !path.is_file() || path.extension().and_then(|ext| ext.to_str()) != Some("jsonl") {
+            continue;
+        }
+        if let Some(summary) = summarize_claude_session_file(&path, cwd) {
+            out.push(summary);
+        }
+    }
+    Ok(out)
+}
+
 fn run_codex_backend(
     opts: &CliOptions,
     _cwd_path: &std::path::Path,
@@ -513,7 +630,14 @@ fn run_codex_backend(
                     .next()
                     .map(|t| t.id)
             } else {
-                pick_thread(&client, &list)?
+                pick_thread(&list, true, |thread| {
+                    let resp = client.call(
+                        "thread/archive",
+                        params_thread_archive(&thread.id),
+                        Duration::from_secs(20),
+                    )?;
+                    extract_result_object(&resp).map(|_| ())
+                })?
             };
             let Some(session_id) = picked else {
                 return Ok(());
@@ -561,12 +685,14 @@ fn run_claude_backend(
     persisted_defaults: RuntimeDefaults,
     _default_summary: Option<String>,
 ) -> Result<()> {
-    if opts.backend == Backend::Claude && opts.mode_resume && opts.resume_id.is_none() {
-        bail!("Claude backend requires `resume <SESSION_ID>`; picker resume is not supported");
-    }
-
     let launch_mode = if opts.mode_continue {
         ClaudeLaunchMode::Continue
+    } else if opts.mode_resume && opts.resume_id.is_none() {
+        let list = load_claude_thread_summaries(cwd_path, cwd)?;
+        let Some(session_id) = pick_thread(&list, false, |_| Ok(()))? else {
+            return Ok(());
+        };
+        ClaudeLaunchMode::Resume(session_id)
     } else if let Some(session_id) = opts.resume_id.clone() {
         ClaudeLaunchMode::Resume(session_id)
     } else {
