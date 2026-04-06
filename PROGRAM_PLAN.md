@@ -24,7 +24,6 @@ or weakening the runtime discipline established by the earlier ExecPlans.
 
 ## Active ExecPlans
 
-- [ ] `.agents/execplans/EXECPLAN_005_claude_resume_history_import.md`
 
 ## Done ExecPlans
 
@@ -32,3 +31,4 @@ or weakening the runtime discipline established by the earlier ExecPlans.
 - [x] `.agents/done/EXECPLAN_002_runtime_modularization.md`
 - [x] `.agents/done/EXECPLAN_003_structural_hygiene_followup.md`
 - [x] `.agents/done/EXECPLAN_004_claude_backend.md`
+- [x] `.agents/done/EXECPLAN_005_claude_resume_history_import.md`

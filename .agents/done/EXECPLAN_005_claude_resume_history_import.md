@@ -16,7 +16,7 @@ This matters because the current Claude backend already has enough runtime behav
 - [x] (2026-04-06 16:24Z) Implemented local Claude session resolution and JSONL transcript import for explicit `resume <SESSION_ID>` and `continue`. Claude startup now resolves the local session file, converts persisted JSONL records into Codex-shaped history items, and seeds the synthetic start response with that reconstructed thread when available.
 - [x] (2026-04-06 16:24Z) Added focused tests for session-path resolution, continue-session selection, local history import of user/assistant/tool items, and missing-session fallback behavior. `cargo test` now passes with 197 tests.
 - [x] (2026-04-06 16:38Z) Addressed the first engineering-review findings by degrading selected-file import failures to `None`, restricting eager preload to explicit `resume <SESSION_ID>`, rerunning validation, and refreshing the release binary. `cargo test` passed with 198 tests and `cargo build --release` passed.
-- [ ] Close the remaining minor review gap around malformed-readable session-file coverage, rerun validation, and close out the ExecPlan.
+- [x] (2026-04-06 16:46Z) Closed the remaining malformed-readable and partially-malformed coverage gaps, reran validation, refreshed `~/.local/bin/carlos`, and collected a final engineering-review `PASS` on commit `6a7f596`. `cargo test` passed with 200 tests and `cargo build --release` passed.
 
 ## Surprises & Discoveries
 
@@ -66,7 +66,19 @@ This matters because the current Claude backend already has enough runtime behav
 
 ## Outcomes & Retrospective
 
-Partial outcome (2026-04-06 / codex): the Claude startup path now performs best-effort local transcript reconstruction for explicit `resume <SESSION_ID>`, with shared tool-result shaping and non-fatal fallback when local session files are missing, unreadable, or malformed. `continue` remains on the existing no-history startup path for now because the current Claude transport does not expose an authoritative resumed session id early enough to preload the transcript safely. The remaining closeout work is final reviewer confirmation plus plan closeout.
+Outcome (2026-04-06 / codex): the Claude startup path now performs best-effort local transcript reconstruction for explicit `resume <SESSION_ID>`, with shared tool-result shaping and non-fatal fallback when local session files are missing, unreadable, or malformed. `continue` intentionally remains on the existing no-history startup path because the current Claude transport does not expose an authoritative resumed session id early enough to preload transcript history safely. Validation finished cleanly with `cargo test` at 200 passing tests, `cargo build --release`, and a refreshed installed binary.
+
+Retrospective:
+- The main implementation risk was not JSONL parsing itself but deciding when local filesystem state is authoritative enough to seed startup transcript history. Explicit `resume <SESSION_ID>` is safe because the session id is user-selected; `continue` is not, given the current Claude transport.
+- Best-effort local import needs file-level failure semantics, not line-by-line partial tolerance. Importing a truncated transcript from a partially malformed file is materially worse than falling back to no preloaded history.
+- Reusing the live tool-result shaping path paid off: the review iterations focused on startup authority and fallback semantics, not transcript-format drift between imported and live Claude activity.
+
+## Review Notes
+
+- Engineering review on commit `130ff46` returned `FAIL` with two major findings: selected-file import failures could still abort startup, and eager `continue` preload relied on an unverified filesystem-recency heuristic.
+- Engineering review on commit `ef1766a` returned `PASS WITH ISSUES`, calling out missing direct coverage for malformed readable JSONL.
+- Engineering review on commit `af20139` returned `PASS WITH ISSUES`, calling out that partially malformed files could still seed truncated startup history.
+- Engineering review on commit `6a7f596` returned `PASS` with no findings.
 
 ## Context and Orientation
 
