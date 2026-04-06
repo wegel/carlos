@@ -2,9 +2,8 @@ use std::collections::HashSet;
 
 use serde_json::{json, Value};
 
-use super::Role;
-pub(super) use super::tool_diff::{command_execution_diff_output, extract_diff_blocks};
 use super::tool_diff::is_probably_diff_text;
+pub(super) use super::tool_diff::{command_execution_diff_output, extract_diff_blocks};
 use super::tool_shell::{
     command_execution_action_command, compact_command_path, normalize_shell_command,
 };
@@ -12,6 +11,7 @@ pub(super) use super::tool_shell::{
     command_summary_from_shell_cmd, parse_ssh_remote_command, strip_terminal_controls,
     strip_terminal_controls_preserving_sgr,
 };
+use super::Role;
 
 pub(super) fn is_tool_call_type(kind: &str) -> bool {
     matches!(

@@ -306,9 +306,8 @@ pub(super) fn handle_item_notification(
             if diffs.is_empty() {
                 let item_id = item.get("id").and_then(Value::as_str);
                 let exit_code = first_i64_at_paths(&item_value, &[&["exitCode"], &["exit_code"]]);
-                let command_summary = item_id
-                    .and_then(|id| app.command_override(id))
-                    .or_else(|| {
+                let command_summary =
+                    item_id.and_then(|id| app.command_override(id)).or_else(|| {
                         tool_command(&item_value)
                             .and_then(|cmd| command_summary_from_shell_cmd(&cmd, None))
                     });

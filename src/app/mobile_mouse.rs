@@ -109,11 +109,12 @@ pub(super) fn consume_mobile_mouse_char(app: &mut AppState, c: char) -> MobileMo
         return MobileMouseConsume::PassThrough;
     }
 
-    let valid = if app.viewport.mobile_plain_pending_coords || app.viewport.mobile_plain_suppress_coords {
-        c.is_ascii_digit() || c == ';'
-    } else {
-        c.is_ascii_digit() || c == ';' || c == 'M' || c == 'm' || c == '<' || c == '['
-    };
+    let valid =
+        if app.viewport.mobile_plain_pending_coords || app.viewport.mobile_plain_suppress_coords {
+            c.is_ascii_digit() || c == ';'
+        } else {
+            c.is_ascii_digit() || c == ';' || c == 'M' || c == 'm' || c == '<' || c == '['
+        };
     if !valid {
         let mut out = std::mem::take(&mut app.viewport.mobile_mouse_buffer);
         app.viewport.mobile_plain_pending_coords = false;
@@ -143,7 +144,9 @@ pub(super) fn consume_mobile_mouse_char(app: &mut AppState, c: char) -> MobileMo
             app.viewport.mobile_plain_last_direction = 0;
             app.viewport.mobile_plain_new_gesture = false;
             if emit {
-                return MobileMouseConsume::Emit(std::mem::take(&mut app.viewport.mobile_mouse_buffer));
+                return MobileMouseConsume::Emit(std::mem::take(
+                    &mut app.viewport.mobile_mouse_buffer,
+                ));
             }
             let _ = std::mem::take(&mut app.viewport.mobile_mouse_buffer);
             return MobileMouseConsume::Consumed;

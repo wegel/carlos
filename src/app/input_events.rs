@@ -21,9 +21,7 @@ use super::transcript_render::transcript_content_width;
 use super::{persist_runtime_defaults, TerminalSize, MSG_TOP};
 use crate::backend::{BackendClient, BackendKind};
 use crate::clipboard::{clipboard_backend_label, try_copy_clipboard};
-use crate::protocol::{
-    params_turn_interrupt, params_turn_start, params_turn_steer,
-};
+use crate::protocol::{params_turn_interrupt, params_turn_start, params_turn_steer};
 
 pub(super) enum TerminalEventResult {
     Quit,
@@ -123,9 +121,7 @@ pub(super) fn submit_turn_text_with_history(
         }
     } else {
         let now = Instant::now();
-        if client.kind() == BackendKind::Claude
-            && app.has_ready_queued_turn_input(now)
-        {
+        if client.kind() == BackendKind::Claude && app.has_ready_queued_turn_input(now) {
             app.promote_ready_continuation(now);
             app.queue_turn_input_with_history(text, record_input_history);
             app.set_status("queued behind pending Claude turn");
@@ -545,7 +541,8 @@ fn handle_mouse_event(
             let prev_scroll = app.viewport.scroll_top;
             let prev_follow = app.viewport.auto_follow_bottom;
             if app.viewport.scroll_inverted {
-                app.viewport.scroll_top = (app.viewport.scroll_top.saturating_add(3)).min(max_scroll);
+                app.viewport.scroll_top =
+                    (app.viewport.scroll_top.saturating_add(3)).min(max_scroll);
             } else {
                 app.viewport.scroll_top = app.viewport.scroll_top.saturating_sub(3);
             }
@@ -559,8 +556,8 @@ fn handle_mouse_event(
                     }
                 }
             }
-            mouse_changed =
-                app.viewport.scroll_top != prev_scroll || app.viewport.auto_follow_bottom != prev_follow;
+            mouse_changed = app.viewport.scroll_top != prev_scroll
+                || app.viewport.auto_follow_bottom != prev_follow;
         }
         MouseEventKind::ScrollDown => {
             let prev_scroll = app.viewport.scroll_top;
@@ -568,7 +565,8 @@ fn handle_mouse_event(
             if app.viewport.scroll_inverted {
                 app.viewport.scroll_top = app.viewport.scroll_top.saturating_sub(3);
             } else {
-                app.viewport.scroll_top = (app.viewport.scroll_top.saturating_add(3)).min(max_scroll);
+                app.viewport.scroll_top =
+                    (app.viewport.scroll_top.saturating_add(3)).min(max_scroll);
             }
             app.sync_auto_follow_bottom(max_scroll);
             let scroll_delta = app.viewport.scroll_top as isize - prev_scroll as isize;
@@ -580,8 +578,8 @@ fn handle_mouse_event(
                     }
                 }
             }
-            mouse_changed =
-                app.viewport.scroll_top != prev_scroll || app.viewport.auto_follow_bottom != prev_follow;
+            mouse_changed = app.viewport.scroll_top != prev_scroll
+                || app.viewport.auto_follow_bottom != prev_follow;
         }
         MouseEventKind::Down(MouseButton::Middle)
             if m.modifiers.contains(KeyModifiers::CONTROL)

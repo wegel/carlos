@@ -1,7 +1,7 @@
 mod app;
 mod backend;
-mod clipboard;
 mod claude_backend;
+mod clipboard;
 mod event;
 mod protocol;
 mod theme;

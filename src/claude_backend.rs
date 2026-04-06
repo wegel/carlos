@@ -1,5 +1,5 @@
-use std::env;
 use std::collections::HashMap;
+use std::env;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -16,6 +16,8 @@ use crate::protocol::ModelInfo;
 
 const CLAUDE_CONTEXT_WINDOW: u64 = 1_000_000;
 pub(crate) const CLAUDE_PENDING_THREAD_ID: &str = "claude-pending-session";
+const CLAUDE_EXIT_PLAN_REQUEST_METHOD: &str = "claude/exitPlan/requestApproval";
+const CLAUDE_EXIT_PLAN_FALLBACK_TEXT: &str = "Exit plan mode?";
 
 #[derive(Debug, Clone)]
 pub(crate) enum ClaudeLaunchMode {
@@ -28,6 +30,20 @@ pub(crate) enum ClaudeLaunchMode {
 struct ClaudeToolCall {
     name: String,
     input: Value,
+}
+
+#[derive(Debug, Clone)]
+struct ClaudeAllowedPrompt {
+    prompt: String,
+    tool: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct ClaudeExitPlanApproval {
+    tool_use_id: String,
+    plan: String,
+    plan_file_path: Option<String>,
+    allowed_prompts: Vec<ClaudeAllowedPrompt>,
 }
 
 #[derive(Debug, Clone)]
@@ -65,6 +81,7 @@ pub(crate) struct ClaudeLocalHistory {
     pub(crate) session_id: String,
     pub(crate) thread: Value,
     pub(crate) imported_item_count: usize,
+    pub(crate) pending_approval_request: Option<String>,
 }
 
 pub(crate) struct ClaudeClient {
@@ -194,7 +211,6 @@ impl ClaudeClient {
         })
         .to_string())
     }
-
 }
 
 impl BackendClient for ClaudeClient {
@@ -250,8 +266,37 @@ impl BackendClient for ClaudeClient {
         }
     }
 
-    fn respond(&self, _request_id: &Value, _result: Value) -> Result<()> {
-        bail!("Claude backend approvals are not implemented")
+    fn respond(&self, request_id: &Value, result: Value) -> Result<()> {
+        let backend = request_id
+            .get("backend")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let kind = request_id.get("kind").and_then(Value::as_str).unwrap_or("");
+
+        if backend == "claude" && kind == "exitPlanMode" {
+            let _tool_use_id = request_id
+                .get("toolUseId")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .context("missing Claude approval toolUseId")?;
+            let decision = result
+                .get("decision")
+                .and_then(Value::as_str)
+                .context("missing Claude approval decision")?;
+            let follow_up = match decision {
+                "accept" => "The plan is approved. Continue with the planned implementation now.",
+                "decline" => {
+                    "Do not exit plan mode yet. Stay in plan mode, revise the plan, and then present an updated plan for approval."
+                }
+                "cancel" => "Cancel the exit from plan mode and stay in plan mode.",
+                other => bail!("unsupported Claude approval decision: {other}"),
+            };
+            self.send_stream_user_message(follow_up)?;
+            return Ok(());
+        }
+
+        bail!("unsupported Claude approval request: {request_id}")
     }
 
     fn respond_error(&self, _request_id: &Value, _code: i64, _message: &str) -> Result<()> {
@@ -323,7 +368,11 @@ pub(crate) fn claude_project_dir_name(cwd: &Path) -> String {
         .collect()
 }
 
-fn find_session_file_for_resume(projects_root: &Path, cwd: &Path, session_id: &str) -> Option<PathBuf> {
+fn find_session_file_for_resume(
+    projects_root: &Path,
+    cwd: &Path,
+    session_id: &str,
+) -> Option<PathBuf> {
     let file_name = format!("{session_id}.jsonl");
     let preferred = projects_root
         .join(claude_project_dir_name(cwd))
@@ -369,6 +418,110 @@ fn tool_call_item(tool_use_id: &str, tool_call: &ClaudeToolCall) -> Value {
     })
 }
 
+fn claude_exit_plan_request_id(tool_use_id: &str) -> Value {
+    json!({
+        "backend": "claude",
+        "kind": "exitPlanMode",
+        "toolUseId": tool_use_id,
+    })
+}
+
+fn claude_exit_plan_approval_from_tool_call(
+    tool_call: &ClaudeToolCall,
+    tool_use_id: &str,
+    part: &Value,
+) -> Option<ClaudeExitPlanApproval> {
+    if tool_call.name != "ExitPlanMode" {
+        return None;
+    }
+
+    let is_error = part
+        .get("is_error")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    if !is_error {
+        return None;
+    }
+
+    let content_text = value_to_string(part.get("content")?);
+    if !content_text.contains(CLAUDE_EXIT_PLAN_FALLBACK_TEXT) {
+        return None;
+    }
+
+    let plan = tool_call
+        .input
+        .get("plan")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())?
+        .to_string();
+    let plan_file_path = tool_call
+        .input
+        .get("planFilePath")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned);
+    let allowed_prompts = tool_call
+        .input
+        .get("allowedPrompts")
+        .and_then(Value::as_array)
+        .map(|entries| {
+            entries
+                .iter()
+                .filter_map(|entry| {
+                    let obj = entry.as_object()?;
+                    let prompt = obj
+                        .get("prompt")
+                        .and_then(Value::as_str)
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty())?
+                        .to_string();
+                    let tool = obj
+                        .get("tool")
+                        .and_then(Value::as_str)
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty())
+                        .map(ToOwned::to_owned);
+                    Some(ClaudeAllowedPrompt { prompt, tool })
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    Some(ClaudeExitPlanApproval {
+        tool_use_id: tool_use_id.to_string(),
+        plan,
+        plan_file_path,
+        allowed_prompts,
+    })
+}
+
+fn claude_exit_plan_request_line(approval: &ClaudeExitPlanApproval) -> String {
+    let allowed_prompts = approval
+        .allowed_prompts
+        .iter()
+        .map(|prompt| {
+            json!({
+                "prompt": prompt.prompt,
+                "tool": prompt.tool,
+            })
+        })
+        .collect::<Vec<_>>();
+    json!({
+        "jsonrpc": "2.0",
+        "id": claude_exit_plan_request_id(&approval.tool_use_id),
+        "method": CLAUDE_EXIT_PLAN_REQUEST_METHOD,
+        "params": {
+            "toolUseId": approval.tool_use_id,
+            "plan": approval.plan,
+            "planFilePath": approval.plan_file_path,
+            "allowedPrompts": allowed_prompts,
+        }
+    })
+    .to_string()
+}
+
 fn fallback_tool_result_item(tool_use_id: &str, part: &Value) -> Option<Value> {
     let content_text = value_to_string(part.get("content")?);
     if content_text.trim().is_empty() {
@@ -385,6 +538,7 @@ fn append_assistant_history_record(
     record: &Value,
     pending_tool_calls: &mut HashMap<String, ClaudeToolCall>,
     items: &mut Vec<Value>,
+    pending_exit_plan_approval: &mut Option<ClaudeExitPlanApproval>,
 ) {
     let Some(message) = record.get("message").and_then(Value::as_object) else {
         return;
@@ -401,16 +555,20 @@ fn append_assistant_history_record(
             Some("text") => {
                 if let Some(text) = part.get("text").and_then(Value::as_str) {
                     if !text.trim().is_empty() {
+                        *pending_exit_plan_approval = None;
                         items.push(agent_message_item(text));
                     }
                 }
             }
             Some("tool_use") => {
+                *pending_exit_plan_approval = None;
                 let tool_use_id = part
                     .get("id")
                     .and_then(Value::as_str)
                     .map(ToOwned::to_owned)
-                    .unwrap_or_else(|| format!("claude-history-tool-{}", pending_tool_calls.len() + 1));
+                    .unwrap_or_else(|| {
+                        format!("claude-history-tool-{}", pending_tool_calls.len() + 1)
+                    });
                 let tool_call = ClaudeToolCall {
                     name: part
                         .get("name")
@@ -431,6 +589,7 @@ fn append_user_history_record(
     record: &Value,
     pending_tool_calls: &mut HashMap<String, ClaudeToolCall>,
     items: &mut Vec<Value>,
+    pending_exit_plan_approval: &mut Option<ClaudeExitPlanApproval>,
 ) {
     let Some(message) = record.get("message").and_then(Value::as_object) else {
         return;
@@ -442,6 +601,7 @@ fn append_user_history_record(
     match message.get("content") {
         Some(Value::String(text)) => {
             if !text.trim().is_empty() {
+                *pending_exit_plan_approval = None;
                 items.push(user_message_item(text));
             }
         }
@@ -453,6 +613,7 @@ fn append_user_history_record(
                 .filter(|text| !text.trim().is_empty())
                 .collect();
             if !text_parts.is_empty() {
+                *pending_exit_plan_approval = None;
                 items.push(user_message_item(&text_parts.join("\n")));
             }
 
@@ -471,13 +632,24 @@ fn append_user_history_record(
                     continue;
                 }
 
-                let item = if let Some(tool_call) = pending_tool_calls.remove(tool_use_id) {
-                    synthetic_tool_result_item(&tool_call, tool_use_id, part, tool_use_result)
+                let (item, exit_plan_approval) = if let Some(tool_call) =
+                    pending_tool_calls.remove(tool_use_id)
+                {
+                    let approval =
+                        claude_exit_plan_approval_from_tool_call(&tool_call, tool_use_id, part);
+                    let item =
+                        synthetic_tool_result_item(&tool_call, tool_use_id, part, tool_use_result);
+                    (item, approval)
                 } else {
-                    fallback_tool_result_item(tool_use_id, part)
+                    (fallback_tool_result_item(tool_use_id, part), None)
                 };
                 if let Some(item) = item {
                     items.push(item);
+                }
+                if let Some(approval) = exit_plan_approval {
+                    *pending_exit_plan_approval = Some(approval);
+                } else {
+                    *pending_exit_plan_approval = None;
                 }
             }
         }
@@ -491,6 +663,7 @@ fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<Claude
     let reader = BufReader::new(file);
     let mut items = Vec::new();
     let mut pending_tool_calls = HashMap::new();
+    let mut pending_exit_plan_approval = None;
     let mut saw_malformed_record = false;
 
     for line in reader.lines() {
@@ -507,12 +680,18 @@ fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<Claude
             continue;
         };
         match record.get("type").and_then(Value::as_str) {
-            Some("assistant") => {
-                append_assistant_history_record(&record, &mut pending_tool_calls, &mut items)
-            }
-            Some("user") => {
-                append_user_history_record(&record, &mut pending_tool_calls, &mut items)
-            }
+            Some("assistant") => append_assistant_history_record(
+                &record,
+                &mut pending_tool_calls,
+                &mut items,
+                &mut pending_exit_plan_approval,
+            ),
+            Some("user") => append_user_history_record(
+                &record,
+                &mut pending_tool_calls,
+                &mut items,
+                &mut pending_exit_plan_approval,
+            ),
             _ => {}
         }
     }
@@ -531,6 +710,9 @@ fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<Claude
             }]
         }),
         imported_item_count,
+        pending_approval_request: pending_exit_plan_approval
+            .as_ref()
+            .map(claude_exit_plan_request_line),
     })
 }
 
@@ -578,9 +760,7 @@ pub(crate) fn translate_claude_line(
     line: &str,
 ) -> Result<TranslateOutput> {
     let parsed: Value = serde_json::from_str(line).context("invalid Claude JSON line")?;
-    let root = parsed
-        .as_object()
-        .context("expected Claude JSON object")?;
+    let root = parsed.as_object().context("expected Claude JSON object")?;
 
     let mut out = TranslateOutput::default();
     match root.get("type").and_then(Value::as_str) {
@@ -672,10 +852,7 @@ pub(crate) fn translate_claude_line(
                                 .and_then(Value::as_str)
                                 .map(ToOwned::to_owned)
                                 .unwrap_or_else(|| {
-                                    format!(
-                                        "claude-tool-{}-{}",
-                                        state.current_message_seq, index
-                                    )
+                                    format!("claude-tool-{}-{}", state.current_message_seq, index)
                                 });
                             let name = block
                                 .get("name")
@@ -719,10 +896,8 @@ pub(crate) fn translate_claude_line(
                     match state.current_blocks.get_mut(&index) {
                         Some(ClaudeBlockState::Text { item_id, text }) => {
                             if delta.get("type").and_then(Value::as_str) == Some("text_delta") {
-                                let fragment = delta
-                                    .get("text")
-                                    .and_then(Value::as_str)
-                                    .unwrap_or("");
+                                let fragment =
+                                    delta.get("text").and_then(Value::as_str).unwrap_or("");
                                 text.push_str(fragment);
                                 out.lines.push(
                                     json!({
@@ -806,10 +981,8 @@ pub(crate) fn translate_claude_line(
                 }
                 Some("message_delta") => {
                     if let Some(usage) = event.get("usage").and_then(Value::as_object) {
-                        out.lines.push(synthetic_token_usage_line(
-                            usage,
-                            state.model.as_deref(),
-                        ));
+                        out.lines
+                            .push(synthetic_token_usage_line(usage, state.model.as_deref()));
                     }
                 }
                 Some("message_stop") => {}
@@ -834,8 +1007,18 @@ pub(crate) fn translate_claude_line(
                         let Some(tool_call) = state.tool_calls.remove(tool_use_id) else {
                             continue;
                         };
-                        if let Some(line) = synthetic_tool_result_line(&tool_call, tool_use_id, part, root.get("tool_use_result")) {
+                        let pending_approval =
+                            claude_exit_plan_approval_from_tool_call(&tool_call, tool_use_id, part);
+                        if let Some(line) = synthetic_tool_result_line(
+                            &tool_call,
+                            tool_use_id,
+                            part,
+                            root.get("tool_use_result"),
+                        ) {
                             out.lines.push(line);
+                        }
+                        if let Some(approval) = pending_approval {
+                            out.lines.push(claude_exit_plan_request_line(&approval));
                         }
                     }
                 }
@@ -887,10 +1070,7 @@ fn parse_partial_json_object(input_json: &str) -> Map<String, Value> {
     serde_json::from_str::<Map<String, Value>>(input_json).unwrap_or_default()
 }
 
-fn synthetic_token_usage_line(
-    usage: &Map<String, Value>,
-    model: Option<&str>,
-) -> String {
+fn synthetic_token_usage_line(usage: &Map<String, Value>, model: Option<&str>) -> String {
     let total_tokens = [
         usage.get("input_tokens").and_then(Value::as_u64),
         usage
@@ -1066,7 +1246,6 @@ fn is_probably_diff_text(text: &str) -> bool {
     let trimmed = text.trim();
     trimmed.starts_with("diff --git ")
         || trimmed.starts_with("@@ ")
-        || (trimmed.contains("\n@@ ")
-            && (trimmed.contains("\n+++ ") || trimmed.contains("\n--- ")))
+        || (trimmed.contains("\n@@ ") && (trimmed.contains("\n+++ ") || trimmed.contains("\n--- ")))
         || (trimmed.contains('\n') && trimmed.contains("\n+++ ") && trimmed.contains("\n--- "))
 }

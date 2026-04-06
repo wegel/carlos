@@ -1,6 +1,50 @@
 use crossterm::event::KeyEvent;
+use serde_json::Value;
+use std::sync::mpsc;
+use std::time::Duration;
 
 use super::*;
+use crate::backend::{BackendClient, BackendKind};
+
+struct ApprovalRespondMock {
+    responses: std::sync::Mutex<Vec<(Value, Value)>>,
+}
+
+impl ApprovalRespondMock {
+    fn new() -> Self {
+        Self {
+            responses: std::sync::Mutex::new(Vec::new()),
+        }
+    }
+}
+
+impl BackendClient for ApprovalRespondMock {
+    fn kind(&self) -> BackendKind {
+        BackendKind::Claude
+    }
+
+    fn call(&self, _method: &str, _params: Value, _timeout: Duration) -> anyhow::Result<String> {
+        anyhow::bail!("unused in test")
+    }
+
+    fn respond(&self, request_id: &Value, result: Value) -> anyhow::Result<()> {
+        self.responses
+            .lock()
+            .expect("responses lock")
+            .push((request_id.clone(), result));
+        Ok(())
+    }
+
+    fn respond_error(&self, _request_id: &Value, _code: i64, _message: &str) -> anyhow::Result<()> {
+        anyhow::bail!("unused in test")
+    }
+
+    fn take_events_rx(&mut self) -> anyhow::Result<mpsc::Receiver<String>> {
+        anyhow::bail!("unused in test")
+    }
+
+    fn stop(&mut self) {}
+}
 
 #[test]
 fn prioritize_events_handles_terminal_first_and_budgets_server_lines() {
@@ -123,7 +167,6 @@ fn context_label_reserved_cells_expands_for_longer_labels() {
     );
 }
 
-
 #[test]
 fn normalize_pasted_text_converts_crlf_and_cr() {
     let text = "a\r\nb\rc";
@@ -142,6 +185,44 @@ fn is_key_press_like_accepts_repeat() {
     assert!(is_key_press_like(KeyEventKind::Press));
     assert!(is_key_press_like(KeyEventKind::Repeat));
     assert!(!is_key_press_like(KeyEventKind::Release));
+}
+
+#[test]
+fn pending_claude_exit_plan_accept_uses_approval_path_not_chat_input() {
+    let client = ApprovalRespondMock::new();
+    let mut app = AppState::new("thread-1".to_string());
+    app.set_pending_approval(super::state::PendingApprovalRequest {
+        request_id: json!({"backend":"claude","kind":"exitPlanMode","toolUseId":"toolu_1"}),
+        method: "claude/exitPlan/requestApproval".to_string(),
+        kind: super::state::ApprovalRequestKind::ClaudeExitPlanMode,
+        title: "Approve Claude plan".to_string(),
+        detail_lines: vec!["Do the work".to_string()],
+        requested_permissions: None,
+        can_accept_for_session: false,
+        can_decline: true,
+        can_cancel: false,
+    });
+
+    let result = super::input_events::handle_terminal_event(
+        &client,
+        &mut app,
+        Event::Key(KeyEvent::new(KeyCode::Char('y'), KeyModifiers::empty())),
+        TerminalSize {
+            width: 120,
+            height: 40,
+        },
+    );
+
+    assert!(matches!(
+        result,
+        super::input_events::TerminalEventResult::Continue { needs_draw: true }
+    ));
+    assert!(app.approval.pending.is_none());
+    assert!(app.messages.is_empty());
+    assert_eq!(app.input.lines(), [""]);
+    let responses = client.responses.lock().expect("responses lock");
+    assert_eq!(responses.len(), 1);
+    assert_eq!(responses[0].1, json!({"decision":"accept"}));
 }
 
 #[test]

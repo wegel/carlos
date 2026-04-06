@@ -15,6 +15,7 @@ pub(super) enum ApprovalRequestKind {
     Permissions,
     LegacyExecCommand,
     LegacyApplyPatch,
+    ClaudeExitPlanMode,
 }
 
 #[derive(Debug, Clone)]
@@ -83,7 +84,19 @@ impl PendingApprovalRequest {
                     _ => None,
                 }
             }
+            ApprovalRequestKind::ClaudeExitPlanMode => match choice {
+                ApprovalChoice::Accept => Some(json!({ "decision": "accept" })),
+                ApprovalChoice::Decline if self.can_decline => {
+                    Some(json!({ "decision": "decline" }))
+                }
+                ApprovalChoice::Cancel if self.can_cancel => Some(json!({ "decision": "cancel" })),
+                _ => None,
+            },
         }
+    }
+
+    pub(super) fn persists_after_turn_completed(&self) -> bool {
+        matches!(self.kind, ApprovalRequestKind::ClaudeExitPlanMode)
     }
 }
 

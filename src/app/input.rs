@@ -6,12 +6,12 @@ use anyhow::Result;
 use crossterm::event::{Event as CrosstermEvent, MouseEventKind};
 use serde_json::Value;
 
+#[cfg(test)]
+pub(super) use super::input_events::is_mobile_mouse_key_candidate;
 use super::input_events::{
     ensure_transcript_layout, handle_terminal_event, submit_turn_text_with_history,
     TerminalEventResult,
 };
-#[cfg(test)]
-pub(super) use super::input_events::is_mobile_mouse_key_candidate;
 use super::notifications::{
     animation_poll_timeout, animation_tick, handle_server_message_line, ServerRequestAction,
 };
@@ -183,18 +183,16 @@ pub(super) fn run_conversation_tui(
                         }
                         needs_draw = true;
                     }
-                    UiEvent::Terminal(ev) => {
-                        match handle_terminal_event(client, app, ev, size) {
-                            TerminalEventResult::Quit => return Ok(()),
-                            TerminalEventResult::Continue {
-                                needs_draw: event_needs_draw,
-                            } => {
-                                if event_needs_draw {
-                                    needs_draw = true;
-                                }
+                    UiEvent::Terminal(ev) => match handle_terminal_event(client, app, ev, size) {
+                        TerminalEventResult::Quit => return Ok(()),
+                        TerminalEventResult::Continue {
+                            needs_draw: event_needs_draw,
+                        } => {
+                            if event_needs_draw {
+                                needs_draw = true;
                             }
                         }
-                    }
+                    },
                 }
                 if let Some(perf) = app.perf.as_mut() {
                     perf.event_handle.push(event_started.elapsed());

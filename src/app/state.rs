@@ -10,8 +10,8 @@ pub(super) use super::approval_state::{
     ApprovalChoice, ApprovalRequestKind, PendingApprovalRequest,
 };
 use super::context_usage::ContextUsage;
-use super::input_history_state::InputHistoryState;
 use super::input::make_input_area;
+use super::input_history_state::InputHistoryState;
 use super::models::{Message, MessageKind, RenderedLine, Role, TerminalSize};
 use super::perf::PerfMetrics;
 #[cfg(test)]
@@ -840,9 +840,9 @@ impl AppState {
             .turn_start_message_idx
             .take()
             .unwrap_or(self.messages.len());
-        let outcome = self
-            .ralph_runtime
-            .handle_turn_completed(&self.messages, start_idx, interrupted);
+        let outcome =
+            self.ralph_runtime
+                .handle_turn_completed(&self.messages, start_idx, interrupted);
 
         if let Some(msg) = outcome.system_message {
             if !self

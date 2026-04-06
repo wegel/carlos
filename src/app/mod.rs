@@ -50,13 +50,13 @@ use self::text::{
 use self::tools::*;
 #[cfg(test)]
 use self::transcript_render::*;
-#[cfg(test)]
-use crate::clipboard::*;
 use crate::backend::BackendClient;
 use crate::claude_backend::{
     claude_model_catalog, load_claude_local_history, ClaudeClient, ClaudeLaunchMode,
     CLAUDE_PENDING_THREAD_ID,
 };
+#[cfg(test)]
+use crate::clipboard::*;
 #[cfg(test)]
 use crate::event::UiEvent;
 use crate::protocol::*;
@@ -431,20 +431,12 @@ pub(crate) fn run() -> Result<()> {
         .or(Some("auto".to_string()));
 
     match opts.backend {
-        Backend::Codex => run_codex_backend(
-            &opts,
-            &cwd_path,
-            &cwd,
-            persisted_defaults,
-            default_summary,
-        ),
-        Backend::Claude => run_claude_backend(
-            &opts,
-            &cwd_path,
-            &cwd,
-            persisted_defaults,
-            default_summary,
-        ),
+        Backend::Codex => {
+            run_codex_backend(&opts, &cwd_path, &cwd, persisted_defaults, default_summary)
+        }
+        Backend::Claude => {
+            run_claude_backend(&opts, &cwd_path, &cwd, persisted_defaults, default_summary)
+        }
     }
 }
 
@@ -612,6 +604,12 @@ fn run_claude_backend(
         None,
     );
     load_history_from_start_or_resume(&mut app, &start_resp)?;
+    if let Some(request_line) = local_history
+        .as_ref()
+        .and_then(|history| history.pending_approval_request.as_deref())
+    {
+        let _ = handle_server_message_line(&mut app, request_line);
+    }
     if (opts.mode_resume || opts.mode_continue)
         && local_history
             .as_ref()

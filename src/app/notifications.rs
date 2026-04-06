@@ -8,9 +8,9 @@ use serde_json::Value;
 use super::context_usage::{
     context_usage_from_thread_token_usage_params, context_usage_from_token_count_params,
 };
-use super::notification_items::handle_item_notification;
 #[cfg(test)]
 pub(super) use super::notification_items::append_history_from_thread;
+use super::notification_items::handle_item_notification;
 pub(super) use super::notification_items::load_history_from_start_or_resume;
 use super::state::{ApprovalRequestKind, PendingApprovalRequest};
 use super::tools::command_summary_from_parsed_cmd;
@@ -261,6 +261,68 @@ fn pending_approval_from_request(
                 can_cancel: true,
             })
         }
+        "claude/exitPlan/requestApproval" => {
+            let mut detail_lines =
+                vec!["Claude wants to exit plan mode and continue with this plan.".to_string()];
+            if let Some(plan_file_path) = params
+                .get("planFilePath")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                detail_lines.push(format!("plan file: {plan_file_path}"));
+            }
+            if let Some(plan) = params
+                .get("plan")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                detail_lines.push(String::new());
+                detail_lines.extend(plan.lines().map(ToOwned::to_owned));
+            }
+            if let Some(allowed_prompts) = params.get("allowedPrompts").and_then(Value::as_array) {
+                let mut allowed_lines = Vec::new();
+                for prompt in allowed_prompts {
+                    let Some(obj) = prompt.as_object() else {
+                        continue;
+                    };
+                    let Some(prompt_text) = obj
+                        .get("prompt")
+                        .and_then(Value::as_str)
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty())
+                    else {
+                        continue;
+                    };
+                    let tool = obj
+                        .get("tool")
+                        .and_then(Value::as_str)
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty());
+                    let line = match tool {
+                        Some(tool) => format!("allowed: {prompt_text} ({tool})"),
+                        None => format!("allowed: {prompt_text}"),
+                    };
+                    allowed_lines.push(line);
+                }
+                if !allowed_lines.is_empty() {
+                    detail_lines.push(String::new());
+                    detail_lines.extend(allowed_lines);
+                }
+            }
+            Some(PendingApprovalRequest {
+                request_id,
+                method: method.to_string(),
+                kind: ApprovalRequestKind::ClaudeExitPlanMode,
+                title: "Approve Claude plan".to_string(),
+                detail_lines,
+                requested_permissions: None,
+                can_accept_for_session: false,
+                can_decline: true,
+                can_cancel: false,
+            })
+        }
         _ => None,
     }
 }
@@ -450,7 +512,15 @@ pub(super) fn handle_server_message_line(
         }
         "turn/completed" => {
             app.active_turn_id = None;
-            app.clear_pending_approval();
+            let keep_pending = app
+                .approval
+                .pending
+                .as_ref()
+                .map(PendingApprovalRequest::persists_after_turn_completed)
+                .unwrap_or(false);
+            if !keep_pending {
+                app.clear_pending_approval();
+            }
             let turn_status = params
                 .get("turn")
                 .and_then(Value::as_object)

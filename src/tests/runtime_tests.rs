@@ -1,6 +1,5 @@
 use super::*;
 
-
 #[test]
 fn osc52_wrap_detects_tmux_and_screen() {
     assert_eq!(
@@ -565,7 +564,9 @@ fn pending_ralph_continuation_becomes_ready_after_deadline() {
     assert!(app
         .dequeue_turn_input(deadline - std::time::Duration::from_millis(1))
         .is_none());
-    let queued = app.dequeue_turn_input(deadline).expect("queued continuation");
+    let queued = app
+        .dequeue_turn_input(deadline)
+        .expect("queued continuation");
     assert_eq!(queued.text, "continue");
     assert!(!queued.record_input_history);
     assert!(!app.has_pending_ralph_continuation());
@@ -610,7 +611,9 @@ fn delayed_ralph_continuation_does_not_block_ready_user_turns() {
     let deadline = app
         .ralph_pending_continuation_deadline()
         .expect("continuation deadline");
-    let continuation = app.dequeue_turn_input(deadline).expect("queued continuation");
+    let continuation = app
+        .dequeue_turn_input(deadline)
+        .expect("queued continuation");
     assert_eq!(continuation.text, "continue");
 }
 
@@ -625,9 +628,13 @@ fn ready_ralph_continuation_stays_ahead_of_later_user_turns() {
     app.promote_ready_continuation(deadline);
     app.queue_turn_input("later");
 
-    let continuation = app.dequeue_turn_input(std::time::Instant::now()).expect("continuation");
+    let continuation = app
+        .dequeue_turn_input(std::time::Instant::now())
+        .expect("continuation");
     assert_eq!(continuation.text, "continue");
-    let later = app.dequeue_turn_input(std::time::Instant::now()).expect("later user turn");
+    let later = app
+        .dequeue_turn_input(std::time::Instant::now())
+        .expect("later user turn");
     assert_eq!(later.text, "later");
 }
 
@@ -642,7 +649,9 @@ fn promoted_ralph_continuation_still_counts_as_pending_until_sent() {
     app.promote_ready_continuation(deadline);
     assert!(app.has_pending_ralph_continuation());
 
-    let continuation = app.dequeue_turn_input(std::time::Instant::now()).expect("continuation");
+    let continuation = app
+        .dequeue_turn_input(std::time::Instant::now())
+        .expect("continuation");
     assert_eq!(continuation.text, "continue");
     assert!(!app.has_pending_ralph_continuation());
 }

@@ -7,8 +7,8 @@ use std::time::{Duration, Instant};
 use anyhow::{bail, Result};
 use serde_json::Value;
 
-use super::*;
 use super::input_events::{submit_turn_text, submit_turn_text_with_history};
+use super::*;
 use crate::backend::{BackendClient, BackendKind};
 use crate::claude_backend::{
     claude_project_dir_name, load_claude_local_history_from_projects_root, translate_claude_line,
@@ -26,9 +26,12 @@ fn collect_synthetic_lines(lines: &[&str]) -> Vec<String> {
 }
 
 fn parse_method(line: &str) -> Option<String> {
-    serde_json::from_str::<Value>(line)
-        .ok()
-        .and_then(|value| value.get("method").and_then(Value::as_str).map(str::to_string))
+    serde_json::from_str::<Value>(line).ok().and_then(|value| {
+        value
+            .get("method")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+    })
 }
 
 fn temp_test_dir(name: &str) -> PathBuf {
@@ -161,8 +164,12 @@ fn submit_turn_text_queues_behind_existing_claude_turns() {
 
     submit_turn_text(&client, &mut app, "second".to_string());
 
-    let first = app.dequeue_turn_input(Instant::now()).expect("first queued turn");
-    let second = app.dequeue_turn_input(Instant::now()).expect("second queued turn");
+    let first = app
+        .dequeue_turn_input(Instant::now())
+        .expect("first queued turn");
+    let second = app
+        .dequeue_turn_input(Instant::now())
+        .expect("second queued turn");
     assert_eq!(first.text, "first");
     assert_eq!(second.text, "second");
     assert_eq!(app.status, "queued behind pending Claude turn");
@@ -228,7 +235,10 @@ fn translate_claude_text_turn_emits_codex_style_notifications() {
         r#"{"type":"result","session_id":"session-1","terminal_reason":"completed","usage":{"input_tokens":3,"cache_creation_input_tokens":544,"cache_read_input_tokens":8762,"output_tokens":4}}"#,
     ]);
 
-    let methods: Vec<String> = synthetic.iter().filter_map(|line| parse_method(line)).collect();
+    let methods: Vec<String> = synthetic
+        .iter()
+        .filter_map(|line| parse_method(line))
+        .collect();
     assert!(methods.contains(&"thread/initialized".to_string()));
     assert!(methods.contains(&"turn/started".to_string()));
     assert!(methods.contains(&"item/started".to_string()));
@@ -263,11 +273,40 @@ fn translate_claude_bash_tool_result_emits_tool_call_and_tool_output_rows() {
         completed[1]["params"]["item"]["type"].as_str(),
         Some("toolResult")
     );
-    assert!(
-        completed[1]["params"]["item"]["output"]
-            .as_str()
-            .unwrap_or("")
-            .contains("$ pwd")
+    assert!(completed[1]["params"]["item"]["output"]
+        .as_str()
+        .unwrap_or("")
+        .contains("$ pwd"));
+}
+
+#[test]
+fn translate_claude_exit_plan_fallback_emits_pending_approval_request() {
+    let synthetic = collect_synthetic_lines(&[
+        r#"{"type":"stream_event","event":{"type":"message_start","message":{"id":"msg-1"}},"session_id":"session-1"}"#,
+        r#"{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_exit","name":"ExitPlanMode","input":{},"caller":{"type":"direct"}}},"session_id":"session-1"}"#,
+        r##"{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"plan\":\"# Plan\\nShip it\",\"planFilePath\":\"/tmp/plan.md\",\"allowedPrompts\":[{\"prompt\":\"run cargo test\",\"tool\":\"Bash\"}]}"}},"session_id":"session-1"}"##,
+        r#"{"type":"stream_event","event":{"type":"content_block_stop","index":0},"session_id":"session-1"}"#,
+        r#"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_exit","type":"tool_result","content":"Exit plan mode?","is_error":true}]},"session_id":"session-1"}"#,
+    ]);
+
+    let request = synthetic
+        .iter()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .find(|value| {
+            value.get("method").and_then(Value::as_str) == Some("claude/exitPlan/requestApproval")
+        })
+        .expect("approval request");
+
+    assert_eq!(request["id"]["backend"].as_str(), Some("claude"));
+    assert_eq!(request["id"]["kind"].as_str(), Some("exitPlanMode"));
+    assert_eq!(request["params"]["toolUseId"].as_str(), Some("toolu_exit"));
+    assert_eq!(
+        request["params"]["planFilePath"].as_str(),
+        Some("/tmp/plan.md")
+    );
+    assert_eq!(
+        request["params"]["allowedPrompts"][0]["prompt"].as_str(),
+        Some("run cargo test")
     );
 }
 
@@ -277,6 +316,70 @@ fn claude_project_dir_name_encodes_current_worktree_path() {
         claude_project_dir_name(Path::new("/var/home/wegel/work/perso/stormvault")),
         "-var-home-wegel-work-perso-stormvault"
     );
+}
+
+#[test]
+fn local_claude_history_recovers_pending_exit_plan_approval() {
+    let root = temp_test_dir("claude-history-exit-plan");
+    let cwd = Path::new("/repo");
+    write_session_file(
+        &root,
+        cwd,
+        "session-exit-plan",
+        &[
+            r##"{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_exit","name":"ExitPlanMode","input":{"plan":"# Plan\nShip it","planFilePath":"/tmp/plan.md","allowedPrompts":[{"prompt":"run cargo test","tool":"Bash"}]}}]},"sessionId":"session-exit-plan"}"##,
+            r#"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_exit","type":"tool_result","content":"Exit plan mode?","is_error":true}]},"sessionId":"session-exit-plan"}"#,
+        ],
+    );
+
+    let imported = load_claude_local_history_from_projects_root(
+        &root,
+        cwd,
+        &ClaudeLaunchMode::Resume("session-exit-plan".to_string()),
+    )
+    .expect("import")
+    .expect("history");
+
+    let pending = imported
+        .pending_approval_request
+        .as_deref()
+        .expect("pending approval request");
+    let parsed: Value = serde_json::from_str(pending).expect("parse request");
+    assert_eq!(
+        parsed["method"].as_str(),
+        Some("claude/exitPlan/requestApproval")
+    );
+    assert_eq!(parsed["params"]["toolUseId"].as_str(), Some("toolu_exit"));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn local_claude_history_clears_pending_exit_plan_when_session_progresses() {
+    let root = temp_test_dir("claude-history-exit-plan-cleared");
+    let cwd = Path::new("/repo");
+    write_session_file(
+        &root,
+        cwd,
+        "session-exit-plan-cleared",
+        &[
+            r##"{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_exit","name":"ExitPlanMode","input":{"plan":"# Plan\nShip it"}}]},"sessionId":"session-exit-plan-cleared"}"##,
+            r#"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_exit","type":"tool_result","content":"Exit plan mode?","is_error":true}]},"sessionId":"session-exit-plan-cleared"}"#,
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Revising the plan."}]},"sessionId":"session-exit-plan-cleared"}"#,
+        ],
+    );
+
+    let imported = load_claude_local_history_from_projects_root(
+        &root,
+        cwd,
+        &ClaudeLaunchMode::Resume("session-exit-plan-cleared".to_string()),
+    )
+    .expect("import")
+    .expect("history");
+
+    assert!(imported.pending_approval_request.is_none());
+
+    let _ = fs::remove_dir_all(root);
 }
 
 #[test]
@@ -324,15 +427,14 @@ fn local_claude_history_continue_is_disabled_without_authoritative_session_id() 
         &root,
         cwd,
         "some-session",
-        &[r#"{"type":"user","message":{"role":"user","content":"ignored"},"sessionId":"some-session"}"#],
+        &[
+            r#"{"type":"user","message":{"role":"user","content":"ignored"},"sessionId":"some-session"}"#,
+        ],
     );
 
-    let imported = load_claude_local_history_from_projects_root(
-        &root,
-        cwd,
-        &ClaudeLaunchMode::Continue,
-    )
-    .expect("import");
+    let imported =
+        load_claude_local_history_from_projects_root(&root, cwd, &ClaudeLaunchMode::Continue)
+            .expect("import");
 
     assert!(imported.is_none());
     let _ = fs::remove_dir_all(root);

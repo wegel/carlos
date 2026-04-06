@@ -1,16 +1,16 @@
 use super::models::{Message, MessageKind, RenderedLine, Role, TerminalSize};
-use super::transcript_diff::count_wrapped_diff_lines;
-use super::transcript_styles::{
-    count_wrapped_ansi_lines_cached, count_wrapped_markdown_lines,
-    count_wrapped_message_lines_cached,
-};
 pub(super) use super::transcript_diff::append_wrapped_diff_lines;
+use super::transcript_diff::count_wrapped_diff_lines;
+#[cfg(test)]
+pub(super) use super::transcript_styles::normalize_styled_segments_for_part;
 pub(super) use super::transcript_styles::{
     append_wrapped_ansi_lines, append_wrapped_markdown_lines, append_wrapped_message_lines,
     RenderCountCache,
 };
-#[cfg(test)]
-pub(super) use super::transcript_styles::normalize_styled_segments_for_part;
+use super::transcript_styles::{
+    count_wrapped_ansi_lines_cached, count_wrapped_markdown_lines,
+    count_wrapped_message_lines_cached,
+};
 use super::MSG_CONTENT_X;
 
 pub(super) fn read_summary_path(text: &str) -> Option<&str> {
@@ -111,7 +111,9 @@ pub(super) fn count_rendered_block_for_message(
                 Role::ToolOutput => {
                     super::transcript_styles::count_wrapped_ansi_lines(msg.role, &msg.text, width)
                 }
-                _ => super::transcript_styles::count_wrapped_message_lines(msg.role, &msg.text, width),
+                _ => super::transcript_styles::count_wrapped_message_lines(
+                    msg.role, &msg.text, width,
+                ),
             },
         }
 }

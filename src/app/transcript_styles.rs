@@ -717,7 +717,10 @@ pub(super) fn count_wrapped_ansi_lines_cached<'a>(
     count_styled_logical_lines(logical_lines, width)
 }
 
-pub(super) fn count_styled_logical_lines(logical_lines: Vec<Vec<StyledSegment>>, width: usize) -> usize {
+pub(super) fn count_styled_logical_lines(
+    logical_lines: Vec<Vec<StyledSegment>>,
+    width: usize,
+) -> usize {
     let mut count = 0usize;
     for logical in logical_lines {
         let plain = styled_plain_text(&logical);
