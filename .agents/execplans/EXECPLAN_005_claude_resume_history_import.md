@@ -15,7 +15,8 @@ This matters because the current Claude backend already has enough runtime behav
 - [x] (2026-04-06 16:09Z) Created this ExecPlan, registered it in `PROGRAM_PLAN.md`, and grounded the scope in the shipped Claude adapter plus the local Claude session-store format observed on disk.
 - [x] (2026-04-06 16:24Z) Implemented local Claude session resolution and JSONL transcript import for explicit `resume <SESSION_ID>` and `continue`. Claude startup now resolves the local session file, converts persisted JSONL records into Codex-shaped history items, and seeds the synthetic start response with that reconstructed thread when available.
 - [x] (2026-04-06 16:24Z) Added focused tests for session-path resolution, continue-session selection, local history import of user/assistant/tool items, and missing-session fallback behavior. `cargo test` now passes with 197 tests.
-- [ ] Address engineering-review findings around malformed-file fallback and `continue` session authority, rerun validation, and close out the ExecPlan.
+- [x] (2026-04-06 16:38Z) Addressed the first engineering-review findings by degrading selected-file import failures to `None`, restricting eager preload to explicit `resume <SESSION_ID>`, rerunning validation, and refreshing the release binary. `cargo test` passed with 198 tests and `cargo build --release` passed.
+- [ ] Close the remaining minor review gap around malformed-readable session-file coverage, rerun validation, and close out the ExecPlan.
 
 ## Surprises & Discoveries
 
@@ -33,6 +34,9 @@ This matters because the current Claude backend already has enough runtime behav
 
 - Observation: eager `continue` history import is not safe unless the preloaded local session id is the same one Claude actually resumes. The current transport does not expose that authoritative session id before startup history is seeded.
   Evidence: engineering review on commit `130ff46` flagged that the mtime heuristic can preload one local session while the live `claude --continue` process resumes another.
+
+- Observation: a readable but malformed Claude JSONL file should be treated as reconstruction failure, not as a successfully imported empty transcript.
+  Evidence: follow-up engineering review on commit `ef1766a` returned `PASS WITH ISSUES` and called out the lack of explicit malformed-readable coverage even though unreadable files already degraded correctly.
 
 ## Decision Log
 
@@ -62,7 +66,7 @@ This matters because the current Claude backend already has enough runtime behav
 
 ## Outcomes & Retrospective
 
-Partial outcome (2026-04-06 / codex): the Claude startup path now performs best-effort local transcript reconstruction for explicit `resume <SESSION_ID>`, with shared tool-result shaping and non-fatal fallback when local session files are missing or unreadable. `continue` remains on the existing no-history startup path for now because the current Claude transport does not expose an authoritative resumed session id early enough to preload the transcript safely. The remaining closeout work is rerun validation plus confirming that the engineering-review findings are resolved.
+Partial outcome (2026-04-06 / codex): the Claude startup path now performs best-effort local transcript reconstruction for explicit `resume <SESSION_ID>`, with shared tool-result shaping and non-fatal fallback when local session files are missing, unreadable, or malformed. `continue` remains on the existing no-history startup path for now because the current Claude transport does not expose an authoritative resumed session id early enough to preload the transcript safely. The remaining closeout work is final reviewer confirmation plus plan closeout.
 
 ## Context and Orientation
 

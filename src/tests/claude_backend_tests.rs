@@ -353,6 +353,23 @@ fn local_claude_history_returns_none_when_session_file_is_missing() {
 }
 
 #[test]
+fn local_claude_history_returns_none_for_malformed_jsonl() {
+    let root = temp_test_dir("claude-history-malformed");
+    let cwd = Path::new("/repo");
+    write_session_file(&root, cwd, "broken-session", &["{not-json"]);
+
+    let imported = load_claude_local_history_from_projects_root(
+        &root,
+        cwd,
+        &ClaudeLaunchMode::Resume("broken-session".to_string()),
+    )
+    .expect("import");
+
+    assert!(imported.is_none());
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn local_claude_history_returns_none_when_session_file_cannot_be_opened() {
     let root = temp_test_dir("claude-history-unreadable");
     let cwd = Path::new("/repo");

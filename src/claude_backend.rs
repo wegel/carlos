@@ -491,9 +491,11 @@ fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<Claude
     let reader = BufReader::new(file);
     let mut items = Vec::new();
     let mut pending_tool_calls = HashMap::new();
+    let mut saw_malformed_record = false;
 
     for line in reader.lines() {
         let Ok(line) = line else {
+            saw_malformed_record = true;
             continue;
         };
         let trimmed = line.trim();
@@ -501,6 +503,7 @@ fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<Claude
             continue;
         }
         let Ok(record) = serde_json::from_str::<Value>(trimmed) else {
+            saw_malformed_record = true;
             continue;
         };
         match record.get("type").and_then(Value::as_str) {
@@ -512,6 +515,10 @@ fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<Claude
             }
             _ => {}
         }
+    }
+
+    if items.is_empty() && saw_malformed_record {
+        bail!("Claude session file contained malformed JSONL records");
     }
 
     let imported_item_count = items.len();
