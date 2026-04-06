@@ -1,3 +1,5 @@
+//! Model, effort, and summary settings state with pending-vs-confirmed cycling.
+
 use crate::app::RuntimeDefaults;
 use crate::protocol::ModelInfo;
 

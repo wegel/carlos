@@ -1,3 +1,5 @@
+//! Server notification routing, approval request parsing, and animation ticks.
+
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;

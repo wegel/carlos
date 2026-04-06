@@ -25,7 +25,7 @@ weakening the runtime discipline established by the earlier ExecPlans.
 
 ## Active ExecPlans
 
-- None.
+- [ ] `.agents/execplans/EXECPLAN_007_code_quality_bar.md`
 
 
 ## Done ExecPlans

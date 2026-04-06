@@ -1,3 +1,5 @@
+//! Offline performance benchmarking: session replay, synthetic data, and metric reporting.
+
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;

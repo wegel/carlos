@@ -1,3 +1,5 @@
+//! Context-window token usage parsing and compact label formatting.
+
 use serde_json::Value;
 
 use super::text::visual_width;

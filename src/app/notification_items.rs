@@ -1,3 +1,5 @@
+//! Item-level notification handling: transcript mutation for tool calls, outputs, and history.
+
 use anyhow::Result;
 use serde_json::Value;
 

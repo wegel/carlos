@@ -1,3 +1,5 @@
+//! Carlos: a terminal frontend for codex app-server and the claude CLI.
+
 mod app;
 mod backend;
 mod claude_backend;

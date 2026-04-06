@@ -1,3 +1,5 @@
+//! Styled-text shaping: markdown rendering, ANSI conversion, and cell-based wrapping.
+
 use std::collections::{HashMap, VecDeque};
 
 use ansi_to_tui::IntoText as _;

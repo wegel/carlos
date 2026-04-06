@@ -1,3 +1,5 @@
+//! Terminal raw-mode lifecycle, alternate screen management, and thread picker UI.
+
 use std::cmp::Reverse;
 use std::env;
 use std::io;

@@ -1,6 +1,9 @@
+//! Shell command extraction, SSH rewriting, and ANSI/control-character stripping.
+
 use serde_json::Value;
 use shlex::split as shlex_split;
 
+/// An SSH command decomposed into destination and remote command.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ParsedSshCommand {
     pub(super) destination: String,

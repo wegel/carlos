@@ -1,3 +1,5 @@
+//! Catppuccin Mocha colour palette and role-based styling constants.
+
 use ratatui::style::Color;
 
 use crate::app::Role;

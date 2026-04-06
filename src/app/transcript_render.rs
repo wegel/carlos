@@ -1,3 +1,5 @@
+//! Transcript block building, counting, and separator insertion orchestration.
+
 use super::models::{Message, MessageKind, RenderedLine, Role, TerminalSize};
 pub(super) use super::transcript_diff::append_wrapped_diff_lines;
 use super::transcript_diff::count_wrapped_diff_lines;

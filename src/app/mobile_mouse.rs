@@ -1,3 +1,5 @@
+//! Mobile terminal mouse-event parsing and scroll emulation.
+
 use super::AppState;
 
 const MOBILE_PLAIN_SCROLL_STEP: usize = 3;

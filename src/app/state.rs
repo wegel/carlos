@@ -1,3 +1,5 @@
+//! Application state: transcript, input, display mode, and sub-state aggregation.
+
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};

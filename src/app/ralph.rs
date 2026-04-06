@@ -1,3 +1,5 @@
+//! Ralph-mode configuration, prompt loading, and turn-marker detection.
+
 use std::fs;
 use std::path::{Path, PathBuf};
 

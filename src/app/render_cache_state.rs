@@ -1,3 +1,5 @@
+//! Lazy render cache that counts lines eagerly and materializes blocks on demand.
+
 use super::models::{Message, RenderedLine, Role};
 use super::transcript_render::{
     build_rendered_block_for_message, count_rendered_block_for_message_cached, RenderCountCache,

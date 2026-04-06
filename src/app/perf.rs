@@ -1,3 +1,5 @@
+//! Performance metrics collection for the event loop and rendering pipeline.
+
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 

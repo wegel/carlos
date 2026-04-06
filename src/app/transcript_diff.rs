@@ -1,3 +1,5 @@
+//! Diff rendering: hunk-oriented display with line numbers and colour coding.
+
 use ratatui::style::{Modifier, Style};
 use ratatui_interact::components::{DiffData, DiffLine, DiffLineType, DiffViewerStyle};
 

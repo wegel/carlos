@@ -1,3 +1,5 @@
+//! Main rendering pipeline: layout computation, transcript drawing, and input area.
+
 use std::time::Instant;
 
 use crossterm::event::{KeyCode, KeyModifiers};

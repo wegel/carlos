@@ -1,3 +1,5 @@
+//! Tool-call parsing, JSON summarisation, and formatted rendering for transcript items.
+
 use std::collections::HashSet;
 
 use serde_json::{json, Value};

@@ -1,9 +1,12 @@
+//! Backend trait abstracting over codex and claude CLI transports.
+
 use std::sync::mpsc;
 use std::time::Duration;
 
 use anyhow::Result;
 use serde_json::Value;
 
+/// Identifies which backend implementation is active.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BackendKind {
     Codex,

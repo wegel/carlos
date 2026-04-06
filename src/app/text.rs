@@ -1,3 +1,5 @@
+//! Unicode-aware text measurement, cell-based wrapping, and tab expansion.
+
 use textwrap::word_splitters::split_words;
 use textwrap::{wrap as wrap_text, Options as WrapOptions, WordSplitter};
 use unicode_segmentation::UnicodeSegmentation;

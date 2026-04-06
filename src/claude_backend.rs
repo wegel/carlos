@@ -1,3 +1,5 @@
+//! Claude CLI backend: process management, history import, and event translation.
+
 use std::collections::HashMap;
 use std::env;
 use std::fs::{self, File};

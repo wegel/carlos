@@ -1,3 +1,5 @@
+//! Clipboard integration via native programs and OSC52 escape sequences.
+
 use std::env;
 use std::io::{self, Write};
 use std::process::{Command, Stdio};

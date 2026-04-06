@@ -1,3 +1,5 @@
+//! Terminal event dispatch: keyboard, mouse, paste, and resize handling.
+
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::sync::{Mutex, OnceLock};

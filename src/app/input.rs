@@ -1,3 +1,5 @@
+//! Main conversation event loop: input polling, server message draining, and render scheduling.
+
 use std::collections::VecDeque;
 use std::sync::mpsc::{RecvTimeoutError, TryRecvError};
 use std::time::Instant;

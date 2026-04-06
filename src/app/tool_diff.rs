@@ -1,3 +1,5 @@
+//! Diff-block extraction and heuristic detection from tool output JSON.
+
 use std::collections::HashSet;
 
 use serde_json::Value;

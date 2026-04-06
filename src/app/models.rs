@@ -1,5 +1,8 @@
+//! Core data types for transcript messages and rendered lines.
+
 use ratatui::style::Style;
 
+/// The speaker role for a transcript message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Role {
     User,

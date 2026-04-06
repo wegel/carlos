@@ -1,8 +1,11 @@
+//! Unified event channel merging terminal input and server-line streams.
+
 use std::sync::mpsc;
 use std::thread;
 
 use crossterm::event::{self, Event as CrosstermEvent};
 
+/// A single event delivered to the main UI loop.
 #[derive(Debug)]
 pub(crate) enum UiEvent {
     Terminal(CrosstermEvent),

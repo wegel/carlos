@@ -1,3 +1,5 @@
+//! Runtime lifecycle for Ralph mode: enable/disable, turn queueing, and continuation logic.
+
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};

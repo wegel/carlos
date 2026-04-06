@@ -1,3 +1,5 @@
+//! Modal overlay rendering: help, model settings, approval, and performance panels.
+
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 

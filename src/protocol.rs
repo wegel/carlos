@@ -1,3 +1,5 @@
+//! JSON-RPC client for `codex app-server` and protocol helper functions.
+
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
@@ -11,6 +13,7 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendClient, BackendKind};
 
+/// Manages a `codex app-server` child process and multiplexes request/response and event streams.
 pub(crate) struct AppServerClient {
     child: Child,
     stdin: Arc<Mutex<ChildStdin>>,

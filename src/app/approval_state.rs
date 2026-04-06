@@ -1,5 +1,8 @@
+//! Approval request types and response generation for tool-use confirmations.
+
 use serde_json::{json, Value};
 
+/// User's choice when responding to an approval prompt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ApprovalChoice {
     Accept,

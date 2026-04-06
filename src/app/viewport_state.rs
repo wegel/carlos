@@ -1,5 +1,8 @@
+//! Scroll position, mouse drag, and help-overlay toggle state.
+
 use super::selection::{MouseDragMode, Selection};
 
+/// Viewport and scroll tracking for the transcript pane.
 pub(super) struct ViewportState {
     pub(super) scroll_top: usize,
     pub(super) auto_follow_bottom: bool,

@@ -1,3 +1,5 @@
+//! Session picker rendering: thread list, date grouping, and delete confirmation.
+
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 

@@ -1,3 +1,6 @@
+//! Input history navigation and rewind-mode state.
+
+/// Tracks submitted prompts and supports up/down history navigation.
 pub(super) struct InputHistoryState {
     input_history: Vec<String>,
     input_history_message_idx: Vec<Option<usize>>,
