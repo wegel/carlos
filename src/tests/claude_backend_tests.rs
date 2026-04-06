@@ -11,7 +11,7 @@ use super::input_events::{submit_turn_text, submit_turn_text_with_history};
 use super::*;
 use crate::backend::{BackendClient, BackendKind};
 use crate::claude_backend::{
-    claude_approval_follow_up_text, claude_project_dir_name,
+    claude_approval_follow_up_text, claude_project_dir_name, claude_recovery_launch_mode,
     load_claude_local_history_from_projects_root, translate_claude_line, ClaudeLaunchMode,
     ClaudeTranslationState,
 };
@@ -339,6 +339,27 @@ fn claude_project_dir_name_encodes_current_worktree_path() {
         claude_project_dir_name(Path::new("/var/home/wegel/work/perso/stormvault")),
         "-var-home-wegel-work-perso-stormvault"
     );
+}
+
+#[test]
+fn claude_recovery_launch_mode_prefers_live_session_id() {
+    let recovered = claude_recovery_launch_mode(&ClaudeLaunchMode::Continue, Some("session-123"));
+
+    match recovered {
+        ClaudeLaunchMode::Resume(session_id) => assert_eq!(session_id, "session-123"),
+        other => panic!("expected resume launch mode, got {other:?}"),
+    }
+}
+
+#[test]
+fn claude_recovery_launch_mode_falls_back_without_live_session_id() {
+    let recovered =
+        claude_recovery_launch_mode(&ClaudeLaunchMode::Resume("session-123".to_string()), None);
+
+    match recovered {
+        ClaudeLaunchMode::Resume(session_id) => assert_eq!(session_id, "session-123"),
+        other => panic!("expected resume launch mode, got {other:?}"),
+    }
 }
 
 #[test]

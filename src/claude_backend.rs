@@ -85,15 +85,54 @@ pub(crate) struct ClaudeLocalHistory {
 }
 
 pub(crate) struct ClaudeClient {
-    child: Child,
-    stdin: Arc<Mutex<ChildStdin>>,
+    cwd: PathBuf,
+    launch_mode: ClaudeLaunchMode,
+    current_session_id: Arc<Mutex<Option<String>>>,
+    process: Mutex<ClaudeProcess>,
     events_tx: mpsc::Sender<String>,
     events_rx: Option<mpsc::Receiver<String>>,
+}
+
+struct ClaudeProcess {
+    child: Child,
+    stdin: ChildStdin,
     reader_thread: Option<thread::JoinHandle<()>>,
 }
 
 impl ClaudeClient {
     pub(crate) fn start(cwd: &Path, launch_mode: ClaudeLaunchMode) -> Result<Self> {
+        let (events_tx, events_rx) = mpsc::channel::<String>();
+        let current_session_id = Arc::new(Mutex::new(Self::initial_session_id(&launch_mode)));
+        let process = Self::spawn_process(
+            cwd,
+            &launch_mode,
+            events_tx.clone(),
+            Arc::clone(&current_session_id),
+        )?;
+
+        Ok(Self {
+            cwd: cwd.to_path_buf(),
+            launch_mode,
+            current_session_id,
+            process: Mutex::new(process),
+            events_tx,
+            events_rx: Some(events_rx),
+        })
+    }
+
+    fn initial_session_id(launch_mode: &ClaudeLaunchMode) -> Option<String> {
+        match launch_mode {
+            ClaudeLaunchMode::Resume(session_id) => Some(session_id.clone()),
+            ClaudeLaunchMode::New | ClaudeLaunchMode::Continue => None,
+        }
+    }
+
+    fn spawn_process(
+        cwd: &Path,
+        launch_mode: &ClaudeLaunchMode,
+        events_tx: mpsc::Sender<String>,
+        current_session_id: Arc<Mutex<Option<String>>>,
+    ) -> Result<ClaudeProcess> {
         let mut command = Command::new("claude");
         command
             .arg("-p")
@@ -124,8 +163,8 @@ impl ClaudeClient {
         let stdin = child.stdin.take().context("missing child stdin")?;
         let stdout = child.stdout.take().context("missing child stdout")?;
 
-        let (events_tx, events_rx) = mpsc::channel::<String>();
         let events_tx_for_thread = events_tx.clone();
+        let current_session_id_for_thread = Arc::clone(&current_session_id);
 
         let reader_thread = thread::spawn(move || {
             let mut reader = BufReader::new(stdout);
@@ -152,17 +191,28 @@ impl ClaudeClient {
                     Err(_) => continue,
                 };
 
+                if let Some(session_id) = state
+                    .session_id
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                {
+                    if let Ok(mut current) = current_session_id_for_thread.lock() {
+                        if current.as_deref() != Some(session_id) {
+                            *current = Some(session_id.to_string());
+                        }
+                    }
+                }
+
                 for synthetic in translated.lines {
                     let _ = events_tx_for_thread.send(synthetic);
                 }
             }
         });
 
-        Ok(Self {
+        Ok(ClaudeProcess {
             child,
-            stdin: Arc::new(Mutex::new(stdin)),
-            events_tx,
-            events_rx: Some(events_rx),
+            stdin,
             reader_thread: Some(reader_thread),
         })
     }
@@ -197,19 +247,91 @@ impl ClaudeClient {
         })
         .to_string();
 
-        let mut stdin = self
-            .stdin
+        let mut process = self
+            .process
             .lock()
-            .map_err(|_| anyhow!("Claude stdin lock poisoned"))?;
-        stdin.write_all(line.as_bytes())?;
-        stdin.write_all(b"\n")?;
-        stdin.flush()?;
+            .map_err(|_| anyhow!("Claude process lock poisoned"))?;
+        process.stdin.write_all(line.as_bytes())?;
+        process.stdin.write_all(b"\n")?;
+        process.stdin.flush()?;
 
         Ok(json!({
             "jsonrpc": "2.0",
             "result": {}
         })
         .to_string())
+    }
+
+    fn recovery_launch_mode(&self) -> Result<ClaudeLaunchMode> {
+        let current_session_id = self
+            .current_session_id
+            .lock()
+            .map_err(|_| anyhow!("Claude session id lock poisoned"))?
+            .clone();
+        Ok(claude_recovery_launch_mode(
+            &self.launch_mode,
+            current_session_id.as_deref(),
+        ))
+    }
+
+    fn respawn_process_locked(&self, process: &mut ClaudeProcess) -> Result<()> {
+        let launch_mode = self.recovery_launch_mode()?;
+        process.stop();
+        *process = Self::spawn_process(
+            &self.cwd,
+            &launch_mode,
+            self.events_tx.clone(),
+            Arc::clone(&self.current_session_id),
+        )?;
+        Ok(())
+    }
+
+    fn interrupt_process(&self) -> Result<()> {
+        let mut process = self
+            .process
+            .lock()
+            .map_err(|_| anyhow!("Claude process lock poisoned"))?;
+        let pid = process.child.id();
+        let status = Command::new("kill")
+            .arg("-INT")
+            .arg(pid.to_string())
+            .status()
+            .context("failed to send SIGINT to Claude")?;
+        if !status.success() {
+            bail!("failed to interrupt Claude process");
+        }
+
+        let deadline = Instant::now() + Duration::from_secs(1);
+        loop {
+            match process.child.try_wait() {
+                Ok(Some(_)) => {
+                    self.respawn_process_locked(&mut process)
+                        .context("failed to restart Claude after interrupt")?;
+                    break;
+                }
+                Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(10)),
+                Ok(None) => break,
+                Err(err) => {
+                    return Err(err).context("failed to poll Claude process after SIGINT");
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl ClaudeProcess {
+    fn stop(&mut self) {
+        let _ = self.child.kill();
+        let deadline = Instant::now() + Duration::from_millis(250);
+        loop {
+            match self.child.try_wait() {
+                Ok(Some(_)) => break,
+                Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(10)),
+                _ => break,
+            }
+        }
+        let _ = self.reader_thread.take();
     }
 }
 
@@ -233,17 +355,7 @@ impl BackendClient for ClaudeClient {
                 self.send_stream_user_message(text)
             }
             "turn/interrupt" => {
-                // This branch requires mutable child access through `&self`, so use interior mutability
-                // by reusing the process id and emitting a synthetic interrupt completion.
-                let pid = self.child.id();
-                let status = Command::new("kill")
-                    .arg("-INT")
-                    .arg(pid.to_string())
-                    .status()
-                    .context("failed to send SIGINT to Claude")?;
-                if !status.success() {
-                    bail!("failed to interrupt Claude process");
-                }
+                self.interrupt_process()?;
                 let _ = self.events_tx.send(
                     json!({
                         "method": "turn/completed",
@@ -286,16 +398,9 @@ impl BackendClient for ClaudeClient {
     }
 
     fn stop(&mut self) {
-        let _ = self.child.kill();
-        let deadline = Instant::now() + Duration::from_millis(250);
-        loop {
-            match self.child.try_wait() {
-                Ok(Some(_)) => break,
-                Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(10)),
-                _ => break,
-            }
+        if let Ok(mut process) = self.process.lock() {
+            process.stop();
         }
-        let _ = self.reader_thread.take();
     }
 }
 
@@ -342,6 +447,19 @@ pub(crate) fn claude_project_dir_name(cwd: &Path) -> String {
         .chars()
         .map(|ch| if ch == '/' || ch == '\\' { '-' } else { ch })
         .collect()
+}
+
+pub(crate) fn claude_recovery_launch_mode(
+    launch_mode: &ClaudeLaunchMode,
+    current_session_id: Option<&str>,
+) -> ClaudeLaunchMode {
+    match current_session_id
+        .map(str::trim)
+        .filter(|session_id| !session_id.is_empty())
+    {
+        Some(session_id) => ClaudeLaunchMode::Resume(session_id.to_string()),
+        None => launch_mode.clone(),
+    }
 }
 
 fn find_session_file_for_resume(
