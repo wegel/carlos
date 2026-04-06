@@ -86,49 +86,27 @@ fn build_claude_command(
 fn spawn_reader_thread(
     stdout: std::process::ChildStdout,
     events_tx: mpsc::Sender<String>,
-    current_session_id: Arc<Mutex<Option<String>>>,
+    session_id: Arc<Mutex<Option<String>>>,
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
         let mut reader = std::io::BufReader::new(stdout);
         let mut line = String::new();
         let mut state = ClaudeTranslationState::default();
-
         loop {
             line.clear();
-            let n = match std::io::BufRead::read_line(&mut reader, &mut line) {
-                Ok(n) => n,
-                Err(_) => break,
-            };
-            if n == 0 {
-                break;
+            match std::io::BufRead::read_line(&mut reader, &mut line) {
+                Ok(0) | Err(_) => break,
+                _ => {}
             }
-
             let trimmed = line.trim_end_matches(['\n', '\r']);
-            if trimmed.is_empty() {
-                continue;
-            }
-
-            let translated = match translate_claude_line(&mut state, trimmed) {
-                Ok(output) => output,
-                Err(_) => continue,
-            };
-
-            if let Some(session_id) = state
-                .session_id
-                .as_deref()
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-            {
-                if let Ok(mut current) = current_session_id.lock() {
-                    if current.as_deref() != Some(session_id) {
-                        *current = Some(session_id.to_string());
-                    }
+            if trimmed.is_empty() { continue; }
+            let Ok(translated) = translate_claude_line(&mut state, trimmed) else { continue };
+            if let Some(sid) = state.session_id.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+                if let Ok(mut cur) = session_id.lock() {
+                    if cur.as_deref() != Some(sid) { *cur = Some(sid.to_string()); }
                 }
             }
-
-            for synthetic in translated.lines {
-                let _ = events_tx.send(synthetic);
-            }
+            for synthetic in translated.lines { let _ = events_tx.send(synthetic); }
         }
     })
 }
