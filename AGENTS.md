@@ -76,8 +76,13 @@ Use the reviewer prompts present under `.agents/reviewers/` for non-trivial chan
 - If more than one reviewer prompt is present, run each applicable reviewer in a separate
   session.
 - If only one reviewer prompt is present, run that reviewer.
-- Start each reviewer in a fresh separate session whose first message is the reviewer prompt
-  itself.
+- Persist reviewer session ids under `.agents/reviewer_sessions.json`.
+- When a reviewer session already exists for a reviewer, always resume and reuse that existing
+  session instead of starting a new one.
+- Only create a new reviewer session when no stored session exists for that reviewer, or when
+  the stored session can no longer be resumed. In that case, replace the stored session id with
+  the new one.
+- The first message in a newly created reviewer session must be the reviewer prompt itself.
 - Supply only the concrete review subject as additional context: the change range, change
   intent, validation/perf evidence, and any invariants the reviewer should check.
 - Do not wrap reviewer invocation in extra process narration, Ralph workflow instructions, or
