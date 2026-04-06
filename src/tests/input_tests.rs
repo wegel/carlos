@@ -1,3 +1,5 @@
+use crossterm::event::KeyEvent;
+
 use super::*;
 
 #[test]
@@ -83,6 +85,13 @@ fn can_submit_queued_turn_only_blocks_on_pending_server_output() {
     prefetched.push_back(UiEvent::Terminal(Event::Resize(80, 24)));
     assert!(can_submit_queued_turn(false, &deferred, &prefetched));
 
+    prefetched.push_back(UiEvent::Terminal(Event::Key(KeyEvent::new(
+        KeyCode::Esc,
+        KeyModifiers::empty(),
+    ))));
+    assert!(!can_submit_queued_turn(false, &deferred, &prefetched));
+
+    prefetched.pop_back();
     prefetched.push_back(UiEvent::ServerLine("tail".to_string()));
     assert!(!can_submit_queued_turn(false, &deferred, &prefetched));
     assert!(!can_submit_queued_turn(true, &deferred, &prefetched));

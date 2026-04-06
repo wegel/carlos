@@ -283,8 +283,8 @@ impl AppState {
             .enqueue_turn_input(text, record_input_history);
     }
 
-    pub(super) fn has_queued_turn_inputs(&self) -> bool {
-        self.ralph_runtime.has_queued_turn_inputs()
+    pub(super) fn has_ready_queued_turn_input(&self, now: Instant) -> bool {
+        self.ralph_runtime.has_ready_queued_turn_input(now)
     }
 
     pub(super) fn has_pending_ralph_continuation(&self) -> bool {

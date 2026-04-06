@@ -3,6 +3,7 @@ use std::sync::mpsc::{RecvTimeoutError, TryRecvError};
 use std::time::Instant;
 
 use anyhow::Result;
+use crossterm::event::{Event as CrosstermEvent, MouseEventKind};
 use serde_json::Value;
 
 use super::input_events::{
@@ -227,9 +228,16 @@ pub(super) fn can_submit_queued_turn(
 ) -> bool {
     !working
         && deferred_server_lines.is_empty()
-        && !prefetched_events
-            .iter()
-            .any(|event| matches!(event, UiEvent::ServerLine(_)))
+        && !prefetched_events.iter().any(queued_turn_blocking_event)
+}
+
+fn queued_turn_blocking_event(event: &UiEvent) -> bool {
+    match event {
+        UiEvent::ServerLine(_) => true,
+        UiEvent::Terminal(CrosstermEvent::Resize(_, _)) => false,
+        UiEvent::Terminal(CrosstermEvent::Mouse(mouse)) => mouse.kind != MouseEventKind::Moved,
+        UiEvent::Terminal(_) => true,
+    }
 }
 
 pub(super) fn prioritize_events(

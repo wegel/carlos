@@ -142,6 +142,19 @@ fn submit_turn_text_queues_behind_existing_claude_turns() {
 }
 
 #[test]
+fn submit_turn_text_does_not_queue_behind_delayed_ralph_continuation() {
+    let client = ClaudeStartMock;
+    let mut app = AppState::new("thread-1".to_string());
+    app.queue_ralph_continuation("continue");
+
+    submit_turn_text(&client, &mut app, "user prompt".to_string());
+
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(app.messages[0].text, "user prompt");
+    assert_eq!(app.status, "sent turn");
+}
+
+#[test]
 fn submit_turn_text_appends_user_message_for_claude_start() {
     let client = ClaudeStartMock;
     let mut app = AppState::new("thread-1".to_string());

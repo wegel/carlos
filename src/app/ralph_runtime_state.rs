@@ -193,8 +193,11 @@ impl RalphRuntimeState {
         self.queued_turn_inputs.is_empty()
     }
 
-    pub(super) fn has_queued_turn_inputs(&self) -> bool {
-        !self.queued_turn_inputs.is_empty()
+    pub(super) fn has_ready_queued_turn_input(&self, now: Instant) -> bool {
+        if self.queued_turn_inputs.is_empty() {
+            return false;
+        }
+        self.pending_continuation_wait(now).is_none()
     }
 
     pub(super) fn mark_user_turn_submitted(&mut self) {

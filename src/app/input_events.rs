@@ -122,7 +122,9 @@ pub(super) fn submit_turn_text_with_history(
             Err(e) => app.set_status(format!("{e}")),
         }
     } else {
-        if client.kind() == BackendKind::Claude && app.has_queued_turn_inputs() {
+        if client.kind() == BackendKind::Claude
+            && app.has_ready_queued_turn_input(Instant::now())
+        {
             app.queue_turn_input_with_history(text, record_input_history);
             app.set_status("queued behind pending Claude turn");
             return;
