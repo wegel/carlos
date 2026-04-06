@@ -25,7 +25,7 @@ weakening the runtime discipline established by the earlier ExecPlans.
 
 ## Active ExecPlans
 
-- [ ] `.agents/execplans/EXECPLAN_006_claude_exit_plan_mode.md`
+- None.
 
 
 ## Done ExecPlans
@@ -35,3 +35,4 @@ weakening the runtime discipline established by the earlier ExecPlans.
 - [x] `.agents/done/EXECPLAN_003_structural_hygiene_followup.md`
 - [x] `.agents/done/EXECPLAN_004_claude_backend.md`
 - [x] `.agents/done/EXECPLAN_005_claude_resume_history_import.md`
+- [x] `.agents/done/EXECPLAN_006_claude_exit_plan_mode.md`

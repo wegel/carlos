@@ -15,10 +15,10 @@ This matters because the current Claude backend already renders Claude tool call
 - [x] (2026-04-06 18:00Z) Created this ExecPlan, registered it in `PROGRAM_PLAN.md`, and grounded the scope in the shipped Claude adapter, the existing app approval overlay, and a captured failing Claude session log.
 - [x] (2026-04-06 16:48Z) Probed the raw `claude -p --input-format stream-json --output-format stream-json` transport in `/tmp` and captured the real `ExitPlanMode` flow: `ToolSearch(select:ExitPlanMode)` -> `ExitPlanMode` tool call -> immediate fallback `tool_result` with `content: "Exit plan mode?"` and `is_error: true` when no host approval UI answers it.
 - [x] (2026-04-06 16:49Z) Proved the practical recovery path for `carlos`’ current backend mode: resuming the same session with `--permission-mode bypassPermissions` changes the live Claude process to `permissionMode: "bypassPermissions"`, after which a follow-up user message like `Continue with the approved plan now.` causes Claude to execute the already-approved write plan successfully.
-- [ ] Update the app and backend design to treat `ExitPlanMode` as a local recovery/continue flow for the bypass-permissions Claude backend, not as a synchronous tool-result approval that the user can race in real time.
-- [ ] Translate Claude `ExitPlanMode` failures into a pending approval request that the app can render through the existing overlay, including startup recovery for imported Claude history when the last persisted turn failed with `Exit plan mode?`.
-- [ ] Implement Claude backend approval responses so accepting or declining the overlay sends the correct follow-up user message for the active bypass-permissions Claude process.
-- [ ] Add focused tests, run `cargo test`, rebuild the release binary, reinstall `~/.local/bin/carlos`, and capture reviewer feedback.
+- [x] (2026-04-06 17:01Z) Implemented the Claude-side recovery flow in the app and backend: `ExitPlanMode` fallback turns now emit a synthetic approval request, imported resume history can rehydrate the same pending approval on startup, and `turn/completed` preserves Claude exit-plan approvals instead of clearing them immediately.
+- [x] (2026-04-06 17:08Z) Implemented Claude approval responses for the bypass-permissions backend by mapping accept and decline onto explicit follow-up user messages, and added direct coverage for the serialized follow-up text.
+- [x] (2026-04-06 17:13Z) Hardened imported-history reconstruction after engineering review: batched tool results no longer drop a pending exit-plan approval, malformed tool-result fragments without usable identifiers no longer clear recovered approval state, and focused regression tests cover both cases.
+- [x] (2026-04-06 17:13Z) Revalidated the finished slice with `cargo test` (210 tests), `cargo build --release`, a refreshed `~/.local/bin/carlos`, and a final engineering review verdict of `PASS WITH ISSUES`.
 
 ## Surprises & Discoveries
 
@@ -42,6 +42,12 @@ This matters because the current Claude backend already renders Claude tool call
 
 - Observation: resuming the same Claude session under `--permission-mode bypassPermissions` does override the live process permission mode even when the persisted session history contains a failed `ExitPlanMode`. In that resumed process, a normal user message asking Claude to continue the approved plan successfully executes the write.
   Evidence: the direct resume probe on session `778b4606-ed45-4787-bcf6-c5d34efd93ba` reported `permissionMode: "bypassPermissions"` in the `system/init` event, then wrote `/tmp/carlos-exit-plan-probe-2` successfully after the user message `Continue with the approved plan now.`
+
+- Observation: imported Claude history can batch multiple `tool_result` parts inside one user record, so the resume-time approval detector cannot treat “last tool result wins” as authoritative state.
+  Evidence: the first engineering reviewer pass on commit `ab65ee8` found that `append_user_history_record` overwrote `pending_exit_plan_approval` per tool-result part. The follow-up fix in commit `5ebd552` switched that logic to accumulate an `ExitPlanMode` approval across the whole record and added regression coverage for a shared-record `ExitPlanMode` plus `Bash` result case.
+
+- Observation: malformed imported `tool_result` fragments should not be treated as proof that the session progressed past a pending `ExitPlanMode` approval.
+  Evidence: the final engineering review pass on commit `4b8411b` returned `PASS WITH ISSUES` with one remaining minor note about orphaned or unusable `tool_result` fragments. The implementation now ignores fragments with missing `tool_use_id`, and the final residual reviewer concern is limited to stricter malformed-fragment filtering for unknown-but-nonempty ids.
 
 ## Decision Log
 
@@ -69,14 +75,27 @@ This matters because the current Claude backend already renders Claude tool call
   Rationale: the only observed reliable path with the current backend launch mode is `resume under bypassPermissions` plus a follow-up prompt. A guessed low-level approval payload would be brittle and was not sufficient in the direct probe.
   Date/Author: 2026-04-06 / codex
 
+- Decision: imported-history resume should only clear a recovered pending `ExitPlanMode` approval when the parser sees real forward progress, not merely any later `tool_result` fragment.
+  Rationale: Claude session JSONL can batch multiple tool results in one record and can contain malformed fragments. Clearing the pending approval on every later part would silently lose a valid resume-time approval prompt, which is the main user-visible recovery path for this feature.
+  Date/Author: 2026-04-06 / codex
+
+## Review
+
+Engineering review on commit `ab65ee8` returned `FAIL`. The blocker was that imported history could drop a still-pending `ExitPlanMode` approval when another `tool_result` appeared later in the same user record, and there was no direct backend-level test for the approval follow-up message text. Those findings were addressed in commits `5ebd552` and `4b8411b`.
+
+Engineering review on commit `5ebd552` returned `PASS WITH ISSUES`. The remaining issue was that malformed imported `tool_result` fragments without usable identifiers could still clear a recovered approval. Commit `4b8411b` fixed the missing-identifier case and added a regression test.
+
+Engineering review on commit `4b8411b` returned `PASS WITH ISSUES`. The remaining note was minor: the history importer still treats some orphaned `tool_result` fragments with non-empty unknown ids as evidence of forward progress. The reviewer explicitly confirmed that the important invariants held: Codex approval behavior remained untouched, `ClaudeLaunchMode::Continue` still avoided preload, `turn/completed` still preserved Claude exit-plan approvals, and approval responses still went through the backend response path instead of raw chat text.
+
 ## Outcomes & Retrospective
 
-Outcome (2026-04-06 / codex): the protocol reconnaissance is complete enough to replace the original assumption. The implementation has not started yet, but the actual transport behavior, viable recovery path, and updated target behavior are now explicit enough for a stateless implementer to begin work safely.
+Outcome (2026-04-06 / codex): `carlos` now handles Claude `ExitPlanMode` as a recoverable approval flow in the bypass-permissions backend it actually runs. Live fallback turns emit a synthetic approval request, imported explicit-resume history can rehydrate that same pending approval at startup, approval keys route through the backend response path instead of leaking plain chat text, and accepting or declining sends the expected follow-up user message into Claude.
 
 Retrospective:
 - The key insight is that this is not fundamentally a “plan mode” feature. It is a missing Claude approval round-trip layered on top of an approval UI the app already has.
 - The first protocol assumption in this plan was wrong for the transport `carlos` actually uses. Raw `print/stream-json` does surface `ExitPlanMode`, but it also auto-falls back quickly enough that a human-driven approval cannot race it.
-- The largest technical risk is no longer discovering a hidden “perfect” approval payload. It is turning the observed recovery path into a clean user experience in `carlos` without lying about what the backend can do synchronously.
+- The highest-value fixes after the first implementation were in transcript reconstruction, not in the live approval UI. Resume-time recovery is where malformed or batched Claude history can silently erase the pending approval unless the parser is conservative about what counts as real forward progress.
+- Validation finished at `cargo test` 210/210 passing plus `cargo build --release` and a refreshed `~/.local/bin/carlos`. I did not run a fresh post-implementation interactive smoke inside the TUI; the confidence here comes from the earlier Claude transport probes plus the focused regression tests and engineering review passes.
 
 ## Context and Orientation
 
