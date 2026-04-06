@@ -76,29 +76,24 @@ Use the reviewer prompts present under `.agents/reviewers/` for non-trivial chan
 - If more than one reviewer prompt is present, run each applicable reviewer in a separate
   session.
 - If only one reviewer prompt is present, run that reviewer.
-- Persist reviewer session ids under `.agents/reviewer_sessions.json`. Record at least the
-  reviewer prompt path, session id, status, and the latest reviewed change so later Ralph runs
-  can resume cleanly.
-- When a reviewer session already exists for a reviewer, always resume and reuse that existing
-  session instead of starting a new one.
-- Only create a new reviewer session when no stored session exists for that reviewer, or when
-  the stored session can no longer be resumed. In that case, replace the stored session id with
-  the new one.
-- The first message in a newly created reviewer session must be the reviewer prompt itself.
+- Use `codex exec` or an equivalent non-interactive bounded invocation as the default transport
+  for reviews. Do not use `codex resume` as the primary review path.
+- Prefer ephemeral review runs that terminate with a capturable verdict over long-lived
+  interactive reviewer threads.
 - Supply only the concrete review subject as additional context: the change range, change
   intent, validation/perf evidence, and any invariants the reviewer should check.
 - Do not wrap reviewer invocation in extra process narration, Ralph workflow instructions, or
   blocker language unless the reviewer prompt explicitly requires it.
-- A reviewer session that is still exploring files or narrating interim reasoning is not blocked
-  just because it has not produced a verdict yet. Let it continue, do other work if possible,
-  and resume the same session later.
-- When a reviewer session needs to produce a capturable final verdict, reattach to that same
-  session in an inline or no-alt-screen mode so the verdict text is visible in logs instead of
-  hidden behind a terminal UI buffer.
-- If a reviewer responds without following its required output shape, treat that as a bad
-  invocation or prompt issue. First ask the same reviewer session for the required output shape
-  only. If that still fails, retry once with a stricter role-preserving invocation before
-  treating review as blocked.
+- Persist reviewer metadata under `.agents/reviewer_sessions.json` only when that metadata helps
+  later follow-up work. Record at least the reviewer prompt path, status, and the latest
+  reviewed change. If a real reusable reviewer session is stored, treat it as follow-up context,
+  not as the default transport for the next review.
+- Use a stored reviewer session only for narrow follow-up questions on an already completed
+  review, or when the primary non-interactive review output needs one clarifying pass.
+- Never run more than one live local attachment against the same reviewer session at the same
+  time.
+- If a review invocation responds without following its required output shape, retry once with a
+  stricter but still non-interactive invocation before treating review as blocked.
 
 Reviews should run in separate sessions. Their output should be copied into the active ExecPlan
 under a clearly labeled review section.
