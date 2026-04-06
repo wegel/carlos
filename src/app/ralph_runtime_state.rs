@@ -187,17 +187,25 @@ impl RalphRuntimeState {
             .and_then(|turn| turn.available_at)
     }
 
-    pub(super) fn dequeue_turn_input(&mut self, now: Instant) -> Option<QueuedTurnInput> {
-        if let Some(turn) = self.queued_turn_inputs.pop_front() {
-            return Some(turn);
-        }
+    pub(super) fn promote_ready_continuation(&mut self, now: Instant) {
         let ready = self
             .pending_continuation
             .as_ref()
             .and_then(|turn| turn.available_at)
-            .is_none_or(|deadline| now >= deadline);
-        if ready {
-            return self.pending_continuation.take();
+            .is_some_and(|deadline| now >= deadline);
+        if !ready {
+            return;
+        }
+        if let Some(mut continuation) = self.pending_continuation.take() {
+            continuation.available_at = None;
+            self.queued_turn_inputs.push_back(continuation);
+        }
+    }
+
+    pub(super) fn dequeue_turn_input(&mut self, now: Instant) -> Option<QueuedTurnInput> {
+        self.promote_ready_continuation(now);
+        if let Some(turn) = self.queued_turn_inputs.pop_front() {
+            return Some(turn);
         }
         None
     }

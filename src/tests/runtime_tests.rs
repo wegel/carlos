@@ -615,6 +615,23 @@ fn delayed_ralph_continuation_does_not_block_ready_user_turns() {
 }
 
 #[test]
+fn ready_ralph_continuation_stays_ahead_of_later_user_turns() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.queue_ralph_continuation("continue");
+    let deadline = app
+        .ralph_pending_continuation_deadline()
+        .expect("continuation deadline");
+
+    app.promote_ready_continuation(deadline);
+    app.queue_turn_input("later");
+
+    let continuation = app.dequeue_turn_input(std::time::Instant::now()).expect("continuation");
+    assert_eq!(continuation.text, "continue");
+    let later = app.dequeue_turn_input(std::time::Instant::now()).expect("later user turn");
+    assert_eq!(later.text, "later");
+}
+
+#[test]
 fn parse_thread_list_reads_session_summary_fields() {
     let response = json!({
         "jsonrpc": "2.0",

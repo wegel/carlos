@@ -287,6 +287,10 @@ impl AppState {
         self.ralph_runtime.has_ready_queued_turn_input(now)
     }
 
+    pub(super) fn promote_ready_continuation(&mut self, now: Instant) {
+        self.ralph_runtime.promote_ready_continuation(now);
+    }
+
     pub(super) fn has_pending_ralph_continuation(&self) -> bool {
         self.ralph_runtime.has_pending_continuation()
     }
