@@ -24,10 +24,11 @@ or weakening the runtime discipline established by the earlier ExecPlans.
 
 ## Active ExecPlans
 
-- [ ] `.agents/execplans/EXECPLAN_004_claude_backend.md`
+- None.
 
 ## Done ExecPlans
 
 - [x] `.agents/done/EXECPLAN_001_large_session_smoothness.md`
 - [x] `.agents/done/EXECPLAN_002_runtime_modularization.md`
 - [x] `.agents/done/EXECPLAN_003_structural_hygiene_followup.md`
+- [x] `.agents/done/EXECPLAN_004_claude_backend.md`
