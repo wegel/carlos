@@ -13,9 +13,11 @@ This matters because the current Claude backend already renders Claude tool call
 ## Progress
 
 - [x] (2026-04-06 18:00Z) Created this ExecPlan, registered it in `PROGRAM_PLAN.md`, and grounded the scope in the shipped Claude adapter, the existing app approval overlay, and a captured failing Claude session log.
-- [ ] Prove the accepted and declined Claude `tool_result` envelope for `ExitPlanMode` with a focused subprocess probe instead of guessing from the failing log.
-- [ ] Translate Claude `ExitPlanMode` tool calls into a pending approval request that the app can render through the existing overlay.
-- [ ] Implement Claude backend approval responses so accepting or declining the overlay sends a real `tool_result` bound to the original Claude `tool_use_id`.
+- [x] (2026-04-06 16:48Z) Probed the raw `claude -p --input-format stream-json --output-format stream-json` transport in `/tmp` and captured the real `ExitPlanMode` flow: `ToolSearch(select:ExitPlanMode)` -> `ExitPlanMode` tool call -> immediate fallback `tool_result` with `content: "Exit plan mode?"` and `is_error: true` when no host approval UI answers it.
+- [x] (2026-04-06 16:49Z) Proved the practical recovery path for `carlos`’ current backend mode: resuming the same session with `--permission-mode bypassPermissions` changes the live Claude process to `permissionMode: "bypassPermissions"`, after which a follow-up user message like `Continue with the approved plan now.` causes Claude to execute the already-approved write plan successfully.
+- [ ] Update the app and backend design to treat `ExitPlanMode` as a local recovery/continue flow for the bypass-permissions Claude backend, not as a synchronous tool-result approval that the user can race in real time.
+- [ ] Translate Claude `ExitPlanMode` failures into a pending approval request that the app can render through the existing overlay, including startup recovery for imported Claude history when the last persisted turn failed with `Exit plan mode?`.
+- [ ] Implement Claude backend approval responses so accepting or declining the overlay sends the correct follow-up user message for the active bypass-permissions Claude process.
 - [ ] Add focused tests, run `cargo test`, rebuild the release binary, reinstall `~/.local/bin/carlos`, and capture reviewer feedback.
 
 ## Surprises & Discoveries
@@ -31,6 +33,15 @@ This matters because the current Claude backend already renders Claude tool call
 
 - Observation: we do not yet have a captured successful `ExitPlanMode` acceptance or decline envelope from Claude’s stream-json transport.
   Evidence: local session search under `~/.claude/projects/` found multiple failing `ExitPlanMode` retries but no successful `tool_result` shape to copy, so the exact response payload must be probed directly before implementation hardens around an assumed schema.
+
+- Observation: the raw print/stream-json transport does expose `ExitPlanMode`, but it does not wait for a human-scale approval round trip. In the direct probe, Claude emitted `ToolSearch(select:ExitPlanMode)`, then `ExitPlanMode`, then almost immediately wrote its own fallback user-side `tool_result` with `content: "Exit plan mode?"` and `is_error: true`.
+  Evidence: the `/tmp` probe session `778b4606-ed45-4787-bcf6-c5d34efd93ba` logged `ToolSearch` at `16:47:20Z`, `ExitPlanMode` at `16:47:22Z`, and the fallback error tool result at `16:47:22Z` in the persisted session JSONL under `~/.claude/projects/-tmp/778b4606-ed45-4787-bcf6-c5d34efd93ba.jsonl`.
+
+- Observation: sending a delayed success `tool_result` with plain content `approved` for the same `ExitPlanMode` tool call does not, by itself, lift the session out of plan-mode restrictions.
+  Evidence: after injecting `{"type":"tool_result","content":"approved","is_error":false,...}` for `toolu_01HRuUf81gvH3CxnSeoZD4Qk`, the same session remained `permissionMode: "plan"` and follow-up writes failed with `Claude requested permissions to write ... but you haven't granted it yet.`
+
+- Observation: resuming the same Claude session under `--permission-mode bypassPermissions` does override the live process permission mode even when the persisted session history contains a failed `ExitPlanMode`. In that resumed process, a normal user message asking Claude to continue the approved plan successfully executes the write.
+  Evidence: the direct resume probe on session `778b4606-ed45-4787-bcf6-c5d34efd93ba` reported `permissionMode: "bypassPermissions"` in the `system/init` event, then wrote `/tmp/carlos-exit-plan-probe-2` successfully after the user message `Continue with the approved plan now.`
 
 ## Decision Log
 
@@ -50,13 +61,22 @@ This matters because the current Claude backend already renders Claude tool call
   Rationale: the transcript should remain faithful to what Claude asked for, but the app also needs a structured pending approval so user input is bound to the original tool call instead of becoming free-form chat text.
   Date/Author: 2026-04-06 / codex
 
+- Decision: adapt the implementation to the transport `carlos` actually uses today: a bypass-permissions Claude process with best-effort recovery from persisted or freshly observed `ExitPlanMode` fallback turns.
+  Rationale: the raw print/stream-json transport does not leave enough time for a human to answer `ExitPlanMode` before Claude emits its own fallback error tool result. The directly reachable recovery path in `carlos` is to resume the session under `--permission-mode bypassPermissions`, surface the pending approval to the user, and on acceptance send a normal follow-up user message that tells Claude to continue with the approved plan.
+  Date/Author: 2026-04-06 / codex
+
+- Decision: treat `ExitPlanMode` acceptance in `carlos` as a local recovery action that sends a follow-up user message, not as a direct attempt to synthesize the entire hidden internal approval state transition.
+  Rationale: the only observed reliable path with the current backend launch mode is `resume under bypassPermissions` plus a follow-up prompt. A guessed low-level approval payload would be brittle and was not sufficient in the direct probe.
+  Date/Author: 2026-04-06 / codex
+
 ## Outcomes & Retrospective
 
-Outcome (2026-04-06 / codex): planning only. The implementation has not started yet, but the failure mode, target files, and first protocol unknown are now explicit enough for a stateless implementer to begin work safely.
+Outcome (2026-04-06 / codex): the protocol reconnaissance is complete enough to replace the original assumption. The implementation has not started yet, but the actual transport behavior, viable recovery path, and updated target behavior are now explicit enough for a stateless implementer to begin work safely.
 
 Retrospective:
 - The key insight is that this is not fundamentally a “plan mode” feature. It is a missing Claude approval round-trip layered on top of an approval UI the app already has.
-- The largest technical risk is not rendering or keyboard handling; it is replying to Claude with the exact accepted or declined `tool_result` envelope it expects.
+- The first protocol assumption in this plan was wrong for the transport `carlos` actually uses. Raw `print/stream-json` does surface `ExitPlanMode`, but it also auto-falls back quickly enough that a human-driven approval cannot race it.
+- The largest technical risk is no longer discovering a hidden “perfect” approval payload. It is turning the observed recovery path into a clean user experience in `carlos` without lying about what the backend can do synchronously.
 
 ## Context and Orientation
 
@@ -64,41 +84,48 @@ The Claude backend boundary lives in `src/claude_backend.rs`. It starts a `claud
 
 The app-side approval machinery already exists and is backend-agnostic. `src/app/notifications.rs` recognizes server requests with an `id` and converts specific methods into `PendingApprovalRequest` values. `src/app/approval_state.rs` defines the approval kinds and the result payloads to send back when the user chooses accept, decline, or cancel. `src/app/input_events.rs` blocks normal typing while an approval is pending and routes `y`, `n`, `s`, and `c` into `client.respond(...)`. `src/app/overlay_render.rs` draws the modal overlay that shows the approval title, method, details, and footer hints.
 
-For this ExecPlan, “Claude `ExitPlanMode` approval” means the following exact sequence:
+For this ExecPlan, “Claude `ExitPlanMode` approval” now means the following exact sequence for the current `carlos` backend design:
 
 1. Claude emits a `tool_use` block with `name: "ExitPlanMode"` and a unique Claude `tool_use` identifier.
-2. `carlos` records that tool call in the transcript, then creates a pending approval request keyed to that exact `tool_use` identifier.
-3. The app overlay shows the proposed plan text and the `allowedPrompts` list, preventing normal chat input while the approval is pending.
-4. When the user accepts or declines, `carlos` sends a Claude `tool_result` back to the subprocess for that same `tool_use` identifier.
-5. Claude either exits plan mode and continues, or remains in plan mode according to the response. In either case, the reply must not appear as a stray user chat message.
+2. In the raw print/stream-json transport, Claude immediately falls back to a user-side error `tool_result` with `content: "Exit plan mode?"` if no host approval UI answers it.
+3. `carlos` treats that pair as a pending approval request and shows the plan text to the user, preventing normal chat input while the approval is pending.
+4. When the user accepts, `carlos` uses its live bypass-permissions Claude process to send a normal follow-up user message instructing Claude to continue the approved plan. When the user declines, `carlos` sends a normal follow-up user message asking Claude to revise the plan.
+5. Because the active Claude process in `carlos` runs with `--permission-mode bypassPermissions`, the accepted follow-up can execute the planned write without getting trapped in plan mode or write-permission prompts.
 
-The captured failing example lives outside this repository in Claude’s local session store at `~/.claude/projects/-var-home-wegel-work-perso-stormvault/82f024a0-f05c-4eff-b8e5-0f2272063cad.jsonl`. That file proves the current bug but not the correct reply schema, so this plan starts with a transport probe milestone.
+The captured failing examples live outside this repository in Claude’s local session store. The external user session `~/.claude/projects/-var-home-wegel-work-perso-stormvault/82f024a0-f05c-4eff-b8e5-0f2272063cad.jsonl` proves the original stuck-session bug. The direct `/tmp` probes under `~/.claude/projects/-tmp/` prove the raw print/stream-json transport behavior that `carlos` actually sees.
 
 ## Plan of Work
 
-Start by adding a focused protocol probe to `src/claude_backend.rs` development work, not as shipped production code. The implementer should run a small standalone `claude -p --input-format stream-json --output-format stream-json` interaction that intentionally reaches an `ExitPlanMode` tool call and captures the exact successful and declined `tool_result` payloads Claude accepts. Record the observed shape in this ExecPlan under `Artifacts and Notes` before relying on it in code.
+Keep the protocol probe notes in this ExecPlan as durable context, then implement the feature against the behavior actually observed in the raw transport.
 
-Once the envelope is known, extend the Claude translator in `src/claude_backend.rs` so that when a `tool_use` block with `name: "ExitPlanMode"` completes, the translator emits two things. First, it should keep the normal `item/completed` tool-call row so the transcript stays faithful. Second, it should emit a synthetic request notification with an `id`, a method name dedicated to Claude plan exit approval, the original Claude `tool_use` identifier, and the structured fields needed by the overlay: `plan`, `planFilePath` if present, and `allowedPrompts`. The translator must also retain enough state to answer that request later.
+Extend `src/claude_backend.rs` so that when a `tool_use` block with `name: "ExitPlanMode"` completes, the translator records the plan payload and emits a synthetic request notification that the app can render. The synthetic request should carry the Claude `tool_use` identifier, the full `plan` text, and `planFilePath` when present. The translator should also recognize the immediate fallback user-side `tool_result` with `content: "Exit plan mode?"` and keep enough state to mark the pending plan approval as unresolved rather than just appending an opaque error transcript row.
 
-Then extend `src/app/approval_state.rs` and `src/app/notifications.rs` so the app recognizes the synthetic Claude request and turns it into a `PendingApprovalRequest`. This request should use a dedicated approval kind such as `ClaudeExitPlanMode` rather than overloading an unrelated command approval kind. The detail lines should present the plan body in readable wrapped text, followed by a compact summary of each allowed prompt in the form `<tool>: <prompt>`. This approval should offer accept and decline. It should not offer “accept for session”, because the Claude tool call is about the current transition, not a reusable permission grant.
+Extend `src/app/approval_state.rs` and `src/app/notifications.rs` so the app recognizes the synthetic Claude request and turns it into a `PendingApprovalRequest`. This request should use a dedicated approval kind such as `ClaudeExitPlanMode`. The detail lines should show the plan text clearly. This approval should offer accept and decline. It should not offer “accept for session” or “cancel turn”.
 
-Finally, implement the backend response path in `src/claude_backend.rs`. `ClaudeClient::respond()` should detect the Claude exit-plan approval request, map the app’s accept or decline choice into the observed Claude `tool_result` envelope, and write that JSON line to the subprocess stdin using the original Claude `tool_use` identifier. If the app sends an unsupported choice, the backend should fail clearly instead of inventing behavior. `respond_error()` should either map explicit declines if the protocol requires an error-form result, or remain unused if both accept and decline are ordinary `tool_result` payloads. The app should clear the pending approval only after the backend acknowledges the write succeeded.
+Then implement the backend response path in `src/claude_backend.rs` for the current bypass-permissions backend mode. `ClaudeClient::respond()` should detect the Claude exit-plan approval request and convert the user choice into a normal follow-up user message:
 
-Keep the Codex backend untouched except where shared approval plumbing requires additive support for the new approval kind. The app must continue to block normal typing while any approval is pending, so the existing bug where `yes` becomes a user message cannot recur once a Claude exit-plan approval is active.
+- accept: send a user message that tells Claude the plan is approved and it should continue with the planned implementation now.
+- decline: send a user message that tells Claude the plan is not approved and it should revise the plan before requesting approval again.
+
+This is intentionally not a low-level `tool_result` reply attempt. The direct probes showed that the current print/stream-json transport already emitted its fallback error by the time a human could respond, while the resumed bypass-permissions process successfully continued the plan after an ordinary follow-up user message.
+
+Also extend startup handling in `src/app/mod.rs` and the Claude local-history import path so that if imported Claude history ends with an unresolved failed `ExitPlanMode` turn, `carlos` surfaces the approval overlay immediately after loading history. This is the directly user-reachable scenario for resumed external Claude sessions.
+
+Keep the Codex backend untouched except where shared approval plumbing requires additive support for the new approval kind. The app must continue to block normal typing while any approval is pending, so the existing bug where `yes` becomes a user message cannot recur once a Claude exit-plan approval is active in `carlos`.
 
 ## Milestones
 
 ### Milestone 1: Prove the Claude `ExitPlanMode` reply envelope
 
-At the end of this milestone, the repository maintainers should know the exact accepted and declined `tool_result` payloads Claude expects for `ExitPlanMode`. The work is a bounded subprocess probe and documentation update, not production code. Acceptance is a short captured transcript in this ExecPlan showing the successful response shape for at least the accept path, plus the implementer’s conclusion about whether decline uses a normal result or an error-shaped result.
+At the end of this milestone, the repository maintainers should know the raw `ExitPlanMode` stream that `carlos` actually receives. The work is a bounded subprocess probe and documentation update, not production code. Acceptance is a short captured transcript in this ExecPlan showing `ToolSearch(select:ExitPlanMode)`, the `ExitPlanMode` tool call, the immediate fallback `Exit plan mode?` error tool result, and the proven resume-with-bypass recovery path.
 
 ### Milestone 2: Surface `ExitPlanMode` as a pending approval
 
-At the end of this milestone, a live Claude `ExitPlanMode` tool call should create a pending approval overlay in `carlos` instead of falling through to transcript-only behavior. Acceptance is a focused test proving that the translator emits the synthetic approval request and an app-level test proving that normal text entry is blocked while that request is pending.
+At the end of this milestone, a live or imported Claude `ExitPlanMode` failure should create a pending approval overlay in `carlos` instead of falling through to transcript-only behavior. Acceptance is a focused test proving that the translator or startup recovery path emits the synthetic approval request and an app-level test proving that normal text entry is blocked while that request is pending.
 
 ### Milestone 3: Reply to Claude and leave plan mode
 
-At the end of this milestone, pressing the approval keys in `carlos` should cause the Claude backend to send a real `tool_result` response back to Claude for the original `tool_use` identifier. Acceptance is a backend-level test for the serialized response line plus a manual smoke test where a Claude session reaches `ExitPlanMode`, the user approves through `carlos`, and the session proceeds without trapping the user in plan mode.
+At the end of this milestone, pressing the approval keys in `carlos` should cause the Claude backend to send the correct follow-up user message for the current bypass-permissions process, allowing the approved plan to continue. Acceptance is a backend-level test for the serialized follow-up user message plus a manual smoke test where a resumed Claude session with a failed `ExitPlanMode` turn is approved through `carlos` and then proceeds with the planned write.
 
 ### Milestone 4: Validate, review, and close out
 
@@ -115,11 +142,11 @@ Run the following commands from the repository root at `/var/home/wegel/work/per
        sed -n '1,320p' src/app/notifications.rs
        sed -n '140,320p' src/app/input_events.rs
 
-2. Probe the Claude CLI outside the app to capture the `ExitPlanMode` reply envelope. The exact prompt may evolve, but the output must include the raw NDJSON lines for the `tool_use` and the accepted response:
+2. Probe the Claude CLI outside the app to capture the `ExitPlanMode` transport behavior. The exact prompt may evolve, but the output must include the raw NDJSON lines for `ToolSearch`, `ExitPlanMode`, the fallback `Exit plan mode?` tool result, and the resume-under-bypass recovery path:
 
        claude -p --input-format stream-json --output-format stream-json --verbose
 
-   Feed a controlled prompt sequence until Claude emits `ExitPlanMode`, then answer it by writing a raw `tool_result` line. Record the observed accepted and declined payloads in this ExecPlan before coding the response path.
+   Feed a controlled prompt sequence until Claude emits `ExitPlanMode`, record the fallback error behavior, then verify that resuming the same session with `--permission-mode bypassPermissions` plus a follow-up user message continues the approved plan. Record those transcripts in this ExecPlan before coding the response path.
 
 3. Implement the translator, approval mapping, and backend response path in:
 
@@ -151,9 +178,9 @@ Expected validation result after implementation:
 
 Acceptance is behavior, not just compilation.
 
-For the automated path, run `cargo test` and expect the full suite to pass with new coverage for Claude exit-plan translation and reply serialization. The new tests should prove three concrete behaviors: Claude `ExitPlanMode` tool calls become a pending approval request, normal input is blocked while that approval is pending, and approving or declining serializes a backend response bound to the original Claude `tool_use` identifier.
+For the automated path, run `cargo test` and expect the full suite to pass with new coverage for Claude exit-plan translation, startup recovery, and follow-up prompt serialization. The new tests should prove three concrete behaviors: Claude `ExitPlanMode` failures become a pending approval request, normal input is blocked while that approval is pending, and approving or declining serializes the expected follow-up user message.
 
-For the manual path, start `carlos` against the Claude backend and drive or resume a Claude session that emits `ExitPlanMode`. When the tool call appears, the app should render a modal approval overlay instead of accepting raw chat text. Press the accept key and observe that Claude leaves plan mode and continues the session. Repeat with decline if the transport probe establishes a supported decline path. At no point should typing `yes` appear in the transcript as a user message while the approval is pending.
+For the manual path, start `carlos` against the Claude backend and resume a Claude session whose last persisted turn failed with `Exit plan mode?`. The app should render a modal approval overlay instead of requiring the user to type raw chat text. Press the accept key and observe that `carlos` sends the follow-up approval prompt into the bypass-permissions Claude process, after which Claude continues with the planned implementation. At no point should typing `yes` appear in the transcript as a user message while the approval is pending.
 
 Because this changes installed runtime behavior for `carlos`, a successful implementation must also include `cargo build --release` and a refreshed `~/.local/bin/carlos`.
 
@@ -161,11 +188,11 @@ Because this changes installed runtime behavior for `carlos`, a successful imple
 
 The code changes in this plan are additive and can be applied incrementally. The protocol probe can be rerun as many times as needed, and its outputs should be recorded in this ExecPlan so a later contributor does not need to rediscover the reply envelope from scratch.
 
-If the transport probe shows that decline is unsupported or that the reply format differs across Claude versions, stop and update this ExecPlan before proceeding. Do not guess a fallback schema in code. If a partial implementation leaves the backend compiling but the manual smoke test still traps the session in plan mode, remove or guard the new approval translation until the backend response path is correct; a visible modal that cannot successfully answer Claude is worse than the current transcript-only behavior.
+If a future Claude version changes the raw `ExitPlanMode` flow again, update this ExecPlan before changing code. Do not guess a hidden synchronous approval schema. If a partial implementation leaves the backend compiling but the manual smoke test cannot continue the approved plan in a bypass-permissions Claude process, remove or guard the new approval translation until the response path is correct; a visible modal that cannot actually unblock the user is worse than the current transcript-only behavior.
 
 ## Artifacts and Notes
 
-Known failing behavior before this ExecPlan:
+Known failing behavior before implementation:
 
     assistant tool_use:
       name: "ExitPlanMode"
@@ -186,9 +213,42 @@ Known failing behavior before this ExecPlan:
         "permissionMode": "plan"
       }
 
-That sequence proves the current bug: the answer path is not bound to the original tool call.
+That sequence proves the original bug: the answer path was not bound to a user-visible recovery flow.
 
-The first implementation milestone must replace this section with short captured examples of the real accepted and declined `tool_result` envelopes observed from a standalone Claude subprocess probe.
+Observed raw transport behavior from the direct `/tmp` probes:
+
+    system/init:
+      permissionMode: "plan"
+      tools include "ToolSearch" and "ExitPlanMode"
+
+    assistant:
+      tool_use ToolSearch { query: "select:ExitPlanMode", max_results: 1 }
+
+    user:
+      tool_result { content: [{ "type": "tool_reference", "tool_name": "ExitPlanMode" }] }
+
+    assistant:
+      tool_use ExitPlanMode {
+        plan: "# Plan: Create file ...",
+        planFilePath: "/home/wegel/.claude/plans/greedy-inventing-river.md"
+      }
+
+    immediate fallback from Claude when no host approval responds:
+      user tool_result {
+        content: "Exit plan mode?",
+        is_error: true,
+        tool_use_id: "<ExitPlanMode tool_use_id>"
+      }
+
+Observed recovery path:
+
+    1. Resume the same session with:
+         claude -p --resume <SESSION_ID> --permission-mode bypassPermissions ...
+    2. Confirm system/init now reports:
+         permissionMode: "bypassPermissions"
+    3. Send a normal user message:
+         "Continue with the approved plan now."
+    4. Claude executes the planned Write tool successfully.
 
 ## Interfaces and Dependencies
 
@@ -206,9 +266,10 @@ The existing backend boundary in `src/backend.rs` must remain:
 At the end of this ExecPlan, the following interfaces and behaviors must exist:
 
 - In `src/app/approval_state.rs`, add a dedicated approval kind for Claude plan exit, with response mapping that supports accept and decline and rejects unsupported session-wide or cancel semantics.
-- In `src/app/notifications.rs`, add parsing for a synthetic Claude approval request method whose params include the original Claude `tool_use` identifier, `plan`, optional `planFilePath`, and `allowedPrompts`.
-- In `src/claude_backend.rs`, retain the existing transcript item translation for Claude tool calls and add a synthetic approval request emission for `ExitPlanMode`.
-- In `src/claude_backend.rs`, implement `ClaudeClient::respond()` so it can serialize and write the observed Claude `tool_result` payload for the stored `tool_use` identifier.
-- In `src/tests/claude_backend_tests.rs`, add regression coverage for the translator and response serializer.
+- In `src/app/notifications.rs`, add parsing for a synthetic Claude approval request method whose params include the original Claude `tool_use` identifier, `plan`, and optional `planFilePath`.
+- In `src/claude_backend.rs`, retain the existing transcript item translation for Claude tool calls and add a synthetic approval request emission for `ExitPlanMode` plus its fallback error result.
+- In `src/claude_backend.rs`, implement `ClaudeClient::respond()` so it serializes and writes the follow-up user prompt that continues or rejects the plan in the active bypass-permissions Claude process.
+- In `src/app/mod.rs` or the Claude startup recovery path, surface a pending approval immediately when imported Claude history ends with an unresolved failed `ExitPlanMode`.
+- In `src/tests/claude_backend_tests.rs`, add regression coverage for live translation, startup recovery detection, and response serialization.
 
-Plan change note (2026-04-06 / codex): Initial ExecPlan created after confirming from a local Claude session log that `carlos` currently treats `ExitPlanMode` as a transcript artifact instead of a real approval round-trip. The plan intentionally starts with a protocol probe because the failure logs do not reveal the accepted success envelope.
+Plan change note (2026-04-06 / codex): Revised after direct raw transport probes in `/tmp`. The original plan assumed `carlos` needed to synthesize an immediate low-level `tool_result` approval. The probes showed the raw print/stream-json transport falls back too quickly for that to be the practical UX, while resume under `--permission-mode bypassPermissions` plus a follow-up user message reliably continues the approved plan. The implementation is now scoped to that observed recovery path.
