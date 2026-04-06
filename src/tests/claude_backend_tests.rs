@@ -317,21 +317,14 @@ fn local_claude_history_imports_user_assistant_and_tool_items() {
 }
 
 #[test]
-fn local_claude_history_continue_uses_most_recent_session_file() {
+fn local_claude_history_continue_is_disabled_without_authoritative_session_id() {
     let root = temp_test_dir("claude-history-continue");
     let cwd = Path::new("/repo");
     write_session_file(
         &root,
         cwd,
-        "older-session",
-        &[r#"{"type":"user","message":{"role":"user","content":"older"},"sessionId":"older-session"}"#],
-    );
-    std::thread::sleep(Duration::from_millis(20));
-    write_session_file(
-        &root,
-        cwd,
-        "newer-session",
-        &[r#"{"type":"user","message":{"role":"user","content":"newer"},"sessionId":"newer-session"}"#],
+        "some-session",
+        &[r#"{"type":"user","message":{"role":"user","content":"ignored"},"sessionId":"some-session"}"#],
     );
 
     let imported = load_claude_local_history_from_projects_root(
@@ -339,19 +332,9 @@ fn local_claude_history_continue_uses_most_recent_session_file() {
         cwd,
         &ClaudeLaunchMode::Continue,
     )
-    .expect("import")
-    .expect("history");
+    .expect("import");
 
-    assert_eq!(imported.session_id, "newer-session");
-    let items = imported.thread["turns"][0]["items"]
-        .as_array()
-        .expect("items");
-    assert_eq!(items.len(), 1);
-    assert_eq!(
-        items[0]["content"][0]["text"].as_str(),
-        Some("newer")
-    );
-
+    assert!(imported.is_none());
     let _ = fs::remove_dir_all(root);
 }
 
@@ -365,6 +348,25 @@ fn local_claude_history_returns_none_when_session_file_is_missing() {
         &ClaudeLaunchMode::Resume("missing-session".to_string()),
     )
     .expect("import");
+    assert!(imported.is_none());
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn local_claude_history_returns_none_when_session_file_cannot_be_opened() {
+    let root = temp_test_dir("claude-history-unreadable");
+    let cwd = Path::new("/repo");
+    let project_dir = root.join(claude_project_dir_name(cwd));
+    fs::create_dir_all(project_dir.join("broken-session.jsonl"))
+        .expect("create directory in place of session file");
+
+    let imported = load_claude_local_history_from_projects_root(
+        &root,
+        cwd,
+        &ClaudeLaunchMode::Resume("broken-session".to_string()),
+    )
+    .expect("import");
+
     assert!(imported.is_none());
     let _ = fs::remove_dir_all(root);
 }

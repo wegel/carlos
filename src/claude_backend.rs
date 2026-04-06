@@ -342,27 +342,6 @@ fn find_session_file_for_resume(projects_root: &Path, cwd: &Path, session_id: &s
     None
 }
 
-fn find_session_file_for_continue(projects_root: &Path, cwd: &Path) -> Option<PathBuf> {
-    let project_dir = projects_root.join(claude_project_dir_name(cwd));
-    let entries = fs::read_dir(project_dir).ok()?;
-    let mut newest: Option<(std::time::SystemTime, PathBuf)> = None;
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|ext| ext.to_str()) != Some("jsonl") {
-            continue;
-        }
-        let modified = match entry.metadata().and_then(|meta| meta.modified()) {
-            Ok(ts) => ts,
-            Err(_) => continue,
-        };
-        match &newest {
-            Some((best, _)) if modified <= *best => {}
-            _ => newest = Some((modified, path)),
-        }
-    }
-    newest.map(|(_, path)| path)
-}
-
 fn user_message_item(text: &str) -> Value {
     json!({
         "type": "userMessage",
@@ -507,7 +486,8 @@ fn append_user_history_record(
 }
 
 fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<ClaudeLocalHistory> {
-    let file = File::open(path).with_context(|| format!("failed to open Claude session file {}", path.display()))?;
+    let file = File::open(path)
+        .with_context(|| format!("failed to open Claude session file {}", path.display()))?;
     let reader = BufReader::new(file);
     let mut items = Vec::new();
     let mut pending_tool_calls = HashMap::new();
@@ -558,21 +538,19 @@ pub(crate) fn load_claude_local_history_from_projects_root(
             find_session_file_for_resume(projects_root, cwd, session_id)
                 .map(|path| (session_id.clone(), path))
         }
-        ClaudeLaunchMode::Continue => find_session_file_for_continue(projects_root, cwd).and_then(
-            |path| {
-                let session_id = path
-                    .file_stem()
-                    .and_then(|stem| stem.to_str())
-                    .map(|stem| stem.to_string())?;
-                Some((session_id, path))
-            },
-        ),
+        // `claude --continue` does not expose its chosen resumed session up front, so
+        // preloading local history here risks showing the wrong transcript before the live
+        // backend confirms which session it actually continued.
+        ClaudeLaunchMode::Continue => return Ok(None),
     };
 
     let Some((session_id, path)) = session_path else {
         return Ok(None);
     };
-    Ok(Some(parse_local_history_from_file(&path, &session_id)?))
+    match parse_local_history_from_file(&path, &session_id) {
+        Ok(history) => Ok(Some(history)),
+        Err(_) => Ok(None),
+    }
 }
 
 pub(crate) fn load_claude_local_history(

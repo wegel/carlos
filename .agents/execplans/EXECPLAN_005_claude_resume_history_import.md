@@ -15,7 +15,7 @@ This matters because the current Claude backend already has enough runtime behav
 - [x] (2026-04-06 16:09Z) Created this ExecPlan, registered it in `PROGRAM_PLAN.md`, and grounded the scope in the shipped Claude adapter plus the local Claude session-store format observed on disk.
 - [x] (2026-04-06 16:24Z) Implemented local Claude session resolution and JSONL transcript import for explicit `resume <SESSION_ID>` and `continue`. Claude startup now resolves the local session file, converts persisted JSONL records into Codex-shaped history items, and seeds the synthetic start response with that reconstructed thread when available.
 - [x] (2026-04-06 16:24Z) Added focused tests for session-path resolution, continue-session selection, local history import of user/assistant/tool items, and missing-session fallback behavior. `cargo test` now passes with 197 tests.
-- [ ] Run `cargo test`, `cargo build --release`, refresh `~/.local/bin/carlos`, collect engineering review, and close out the ExecPlan.
+- [ ] Address engineering-review findings around malformed-file fallback and `continue` session authority, rerun validation, and close out the ExecPlan.
 
 ## Surprises & Discoveries
 
@@ -30,6 +30,9 @@ This matters because the current Claude backend already has enough runtime behav
 
 - Observation: the local Claude JSONL store is sufficient for a best-effort `continue` implementation because the current-directory project folder contains one JSONL file per persisted session, and filesystem modification time is a workable proxy for “most recent session”.
   Evidence: the importer test now resolves `ClaudeLaunchMode::Continue` by choosing the newest `<SESSION_ID>.jsonl` file under the encoded Claude project directory for the current working tree.
+
+- Observation: eager `continue` history import is not safe unless the preloaded local session id is the same one Claude actually resumes. The current transport does not expose that authoritative session id before startup history is seeded.
+  Evidence: engineering review on commit `130ff46` flagged that the mtime heuristic can preload one local session while the live `claude --continue` process resumes another.
 
 ## Decision Log
 
@@ -49,9 +52,17 @@ This matters because the current Claude backend already has enough runtime behav
   Rationale: imported Bash, Write, and Edit history should render the same way as live streamed Claude tool results. Sharing the shaping logic reduces drift between startup history and ongoing live events.
   Date/Author: 2026-04-06 / codex
 
+- Decision: keep eager local history import only for explicit `resume <SESSION_ID>` for now. Leave `continue` on the existing fallback path until the Claude transport exposes an authoritative resumed session id before startup history is seeded.
+  Rationale: the best available local heuristic for `continue` is filesystem recency, which is not strong enough to authoritatively bind startup transcript history to the live resumed session.
+  Date/Author: 2026-04-06 / codex
+
+- Decision: treat selected-file local history failures as non-fatal and degrade to `None`.
+  Rationale: the user-visible contract is best-effort transcript reconstruction, not a startup dependency on Claude’s private local session files.
+  Date/Author: 2026-04-06 / codex
+
 ## Outcomes & Retrospective
 
-Partial outcome (2026-04-06 / codex): the Claude startup path now performs best-effort local transcript reconstruction for explicit `resume <SESSION_ID>` and `continue`. It resolves the local session JSONL file, translates persisted user/assistant/tool records into the existing history-item surface, and uses that reconstructed thread in the synthetic start response so the shared app history loader can seed the transcript immediately. The remaining closeout work is release-build/install validation plus engineering review.
+Partial outcome (2026-04-06 / codex): the Claude startup path now performs best-effort local transcript reconstruction for explicit `resume <SESSION_ID>`, with shared tool-result shaping and non-fatal fallback when local session files are missing or unreadable. `continue` remains on the existing no-history startup path for now because the current Claude transport does not expose an authoritative resumed session id early enough to preload the transcript safely. The remaining closeout work is rerun validation plus confirming that the engineering-review findings are resolved.
 
 ## Context and Orientation
 
