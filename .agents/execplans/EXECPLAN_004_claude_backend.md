@@ -26,6 +26,7 @@ This work matters because `carlos` is already a useful terminal shell around the
 - [x] (2026-04-06 19:28Z) A fresh reviewer pass against the prompt-ordering fix found two follow-up regressions in the queued-turn path: Claude follow-up prompts could still jump ahead of deferred output from the prior turn, and auto-queued Ralph turns polluted editable input history on the Claude backend. Fixed by tagging queued turns with history intent, skipping auto-history for Ralph/internal turns, and refusing to auto-submit a queued turn until both deferred output and immediately pending UI/server events have been drained. Validation reran cleanly: `cargo test` 188, `cargo build --release`, and release-binary reinstall.
 - [x] (2026-04-06 19:56Z) The next reviewer pass found that the first queued-turn gate was still too coarse: later manual Claude input could overtake an older queued turn, and non-server terminal noise could stall queued turns indefinitely. Fixed by prefetching a persistent batch of pending UI events, blocking queued-turn submission only on pending server output, and queueing newly submitted Claude turns behind any already-pending queued turn instead of starting them immediately. Validation reran cleanly: `cargo test` 189, `cargo build --release`, and release-binary reinstall.
 - [x] (2026-04-06 20:15Z) The next reviewer pass found two more scheduler edge cases: buffered intentional key commands such as `Esc`/`Ctrl-C` were being ignored in favor of queued-turn auto-start, and delayed Ralph continuations were incorrectly treated as hard FIFO blockers for new Claude input. Fixed by treating prefetched key, paste, and deliberate mouse events as queued-turn blockers while still ignoring resize and mouse-motion noise, and by queueing behind only ready queued turns rather than delayed continuations. Validation reran cleanly: `cargo test` 190, `cargo build --release`, and release-binary reinstall.
+- [x] (2026-04-06 20:34Z) The next reviewer pass found that the ready-queued-turn helper was still modeled too coarsely: one delayed Ralph continuation could hide older ready Claude turns for the whole grace window. Fixed by separating delayed Ralph continuations from the ordinary ready queue so user turns stay FIFO among themselves while the continuation only competes once its delay expires. Validation reran cleanly: `cargo test` 191, `cargo build --release`, and release-binary reinstall.
 
 ## Surprises & Discoveries
 
@@ -73,6 +74,9 @@ This work matters because `carlos` is already a useful terminal shell around the
 
 - Observation: not all prefetched terminal events are alike for queued-turn dispatch. Resize and mouse-move noise should not freeze the scheduler, but buffered key commands, paste, clicks, and scroll gestures are deliberate user intent and must be handled before auto-starting another queued turn.
   Evidence: the fourth engineering-review pass showed that the terminal-noise carve-out was too broad: a queued turn could still auto-start ahead of buffered `Esc`/`Ctrl-C`, while a delayed Ralph continuation that was not yet ready could still block a real user prompt from starting immediately.
+
+- Observation: a delayed Ralph continuation is not the same thing as a blocked queue head. If the continuation is modeled as a single global deadline for the whole queue, it can incorrectly hide older ready Claude turns that were enqueued earlier and should still run first.
+  Evidence: the fifth engineering-review pass showed that a queued Claude follow-up `B` could be hidden for the entire continuation grace period after Ralph appended delayed continuation `C`, letting a newer prompt bypass `B`.
 
 ## Decision Log
 
@@ -124,6 +128,10 @@ This work matters because `carlos` is already a useful terminal shell around the
   Rationale: quitting, canceling, or clicking should take effect before background auto-dispatch mutates the session, but a continuation that is still inside Ralph’s grace period should not steal priority from a fresh user prompt.
   Date/Author: 2026-04-06 / codex
 
+- Decision: represent delayed Ralph continuations separately from the ordinary queued-turn FIFO instead of using one queue-wide deadline.
+  Rationale: delayed continuations have different scheduling semantics from user-authored turns. Keeping them separate lets ready queued user turns continue to dispatch immediately while the continuation waits for its grace period, and it preserves the intended “user may interject before auto-continuation” behavior.
+  Date/Author: 2026-04-06 / codex
+
 ## Outcomes & Retrospective
 
 Pending. On completion, `carlos` should have one shared TUI that can speak to either backend, with Codex behavior preserved and Claude support added behind an explicit backend selection. The expected tradeoff for the first version is that Claude session browsing, archiving, and interactive approvals remain out of scope, but the common interactive experience for new work, explicit resume, streaming text, tools, interruption, and context usage becomes available.
@@ -149,6 +157,8 @@ Second follow-up review note (2026-04-06 / codex): the next built-in `codex revi
 Third follow-up review note (2026-04-06 / codex): the next built-in `codex review --commit 69fa9a4` pass found that the previous gate still let later manual Claude input jump ahead of an older queued turn, and that blocking on any prefetched UI event could make queued turns appear hung under resize or mouse-move noise. The implementation now keeps a persistent prefetched-event buffer, blocks queued-turn dispatch only when that buffer contains server output, and queues later Claude submissions behind any already-pending queued turn so prompt order stays FIFO.
 
 Fourth follow-up review note (2026-04-06 / codex): the next built-in `codex review --commit ea22390` pass found that the noise carve-out was still too broad. Buffered key commands like `Esc`/`Ctrl-C` could be bypassed by queued-turn auto-start, and delayed Ralph continuations were incorrectly treated as FIFO blockers for fresh Claude input. The implementation now blocks queued-turn dispatch on prefetched server output plus intentional terminal actions, still ignores resize and mouse-move noise, and only queues behind ready queued turns rather than continuations that are still waiting on Ralph’s delay window.
+
+Fifth follow-up review note (2026-04-06 / codex): the next built-in `codex review --commit e0760f6` pass found that the “ready queued turn” helper was still hiding older ready Claude turns whenever any delayed Ralph continuation existed. The implementation now keeps delayed Ralph continuations out of the ordinary ready queue entirely, so queued user turns remain visible and FIFO-ordered while the continuation only becomes eligible after its grace-period deadline.
 
 ## Context and Orientation
 

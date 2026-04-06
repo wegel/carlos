@@ -12,13 +12,14 @@ const RALPH_CONTINUATION_DELAY: Duration = Duration::from_millis(700);
 pub(super) struct QueuedTurnInput {
     pub(super) text: String,
     pub(super) record_input_history: bool,
+    available_at: Option<Instant>,
 }
 
 pub(super) struct RalphRuntimeState {
     current: Option<RalphState>,
     queued_turn_inputs: VecDeque<QueuedTurnInput>,
     toggle_pending: bool,
-    pending_continuation_deadline: Option<Instant>,
+    pending_continuation: Option<QueuedTurnInput>,
     cwd: PathBuf,
     prompt_path_override: Option<String>,
     done_marker_override: Option<String>,
@@ -38,7 +39,7 @@ impl RalphRuntimeState {
             current: None,
             queued_turn_inputs: VecDeque::new(),
             toggle_pending: false,
-            pending_continuation_deadline: None,
+            pending_continuation: None,
             cwd: PathBuf::new(),
             prompt_path_override: None,
             done_marker_override: None,
@@ -78,7 +79,7 @@ impl RalphRuntimeState {
     pub(super) fn disable(&mut self) -> &'static str {
         self.current = None;
         self.toggle_pending = false;
-        self.pending_continuation_deadline = None;
+        self.pending_continuation = None;
         self.queued_turn_inputs.clear();
         "ralph off"
     }
@@ -148,6 +149,7 @@ impl RalphRuntimeState {
         self.queued_turn_inputs.push_back(QueuedTurnInput {
             text,
             record_input_history,
+            available_at: None,
         });
     }
 
@@ -156,36 +158,48 @@ impl RalphRuntimeState {
         if text.trim().is_empty() {
             return;
         }
-        self.queued_turn_inputs.push_back(QueuedTurnInput {
+        self.pending_continuation = Some(QueuedTurnInput {
             text,
             record_input_history: false,
+            available_at: Some(Instant::now() + RALPH_CONTINUATION_DELAY),
         });
-        self.pending_continuation_deadline = Some(Instant::now() + RALPH_CONTINUATION_DELAY);
     }
 
     pub(super) fn has_pending_continuation(&self) -> bool {
-        self.pending_continuation_deadline.is_some() && !self.queued_turn_inputs.is_empty()
+        self.pending_continuation.is_some()
     }
 
     pub(super) fn pending_continuation_wait(&self, now: Instant) -> Option<Duration> {
-        self.pending_continuation_deadline
+        if !self.queued_turn_inputs.is_empty() {
+            return None;
+        }
+        self.pending_continuation
+            .as_ref()
+            .and_then(|turn| turn.available_at)
             .map(|deadline| deadline.saturating_duration_since(now))
             .filter(|wait| !wait.is_zero())
     }
 
     #[cfg(test)]
     pub(super) fn pending_continuation_deadline(&self) -> Option<Instant> {
-        self.pending_continuation_deadline
+        self.pending_continuation
+            .as_ref()
+            .and_then(|turn| turn.available_at)
     }
 
     pub(super) fn dequeue_turn_input(&mut self, now: Instant) -> Option<QueuedTurnInput> {
-        if let Some(deadline) = self.pending_continuation_deadline {
-            if now < deadline {
-                return None;
-            }
-            self.pending_continuation_deadline = None;
+        if let Some(turn) = self.queued_turn_inputs.pop_front() {
+            return Some(turn);
         }
-        self.queued_turn_inputs.pop_front()
+        let ready = self
+            .pending_continuation
+            .as_ref()
+            .and_then(|turn| turn.available_at)
+            .is_none_or(|deadline| now >= deadline);
+        if ready {
+            return self.pending_continuation.take();
+        }
+        None
     }
 
     #[cfg(test)]
@@ -194,10 +208,13 @@ impl RalphRuntimeState {
     }
 
     pub(super) fn has_ready_queued_turn_input(&self, now: Instant) -> bool {
-        if self.queued_turn_inputs.is_empty() {
-            return false;
+        if !self.queued_turn_inputs.is_empty() {
+            return true;
         }
-        self.pending_continuation_wait(now).is_none()
+        self.pending_continuation
+            .as_ref()
+            .and_then(|turn| turn.available_at)
+            .is_some_and(|deadline| now >= deadline)
     }
 
     pub(super) fn mark_user_turn_submitted(&mut self) {

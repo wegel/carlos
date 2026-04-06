@@ -591,6 +591,30 @@ fn queued_user_turns_record_history_but_ralph_turns_do_not() {
 }
 
 #[test]
+fn delayed_ralph_continuation_does_not_block_ready_user_turns() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.queue_turn_input("first");
+    app.queue_ralph_continuation("continue");
+    app.queue_turn_input("second");
+
+    let first = app
+        .dequeue_turn_input(std::time::Instant::now())
+        .expect("first queued turn");
+    assert_eq!(first.text, "first");
+
+    let second = app
+        .dequeue_turn_input(std::time::Instant::now())
+        .expect("second queued turn");
+    assert_eq!(second.text, "second");
+
+    let deadline = app
+        .ralph_pending_continuation_deadline()
+        .expect("continuation deadline");
+    let continuation = app.dequeue_turn_input(deadline).expect("queued continuation");
+    assert_eq!(continuation.text, "continue");
+}
+
+#[test]
 fn parse_thread_list_reads_session_summary_fields() {
     let response = json!({
         "jsonrpc": "2.0",
