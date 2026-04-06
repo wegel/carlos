@@ -374,6 +374,39 @@ fn local_claude_history_keeps_pending_exit_plan_when_later_tool_result_shares_re
 }
 
 #[test]
+fn local_claude_history_ignores_malformed_tool_result_after_pending_exit_plan() {
+    let root = temp_test_dir("claude-history-exit-plan-malformed-followup");
+    let cwd = Path::new("/repo");
+    write_session_file(
+        &root,
+        cwd,
+        "session-exit-plan-malformed-followup",
+        &[
+            r##"{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_exit","name":"ExitPlanMode","input":{"plan":"# Plan\nShip it"}}]},"sessionId":"session-exit-plan-malformed-followup"}"##,
+            r#"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_exit","type":"tool_result","content":"Exit plan mode?","is_error":true}]},"sessionId":"session-exit-plan-malformed-followup"}"#,
+            r#"{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"ignored malformed fragment","is_error":false}]},"sessionId":"session-exit-plan-malformed-followup"}"#,
+        ],
+    );
+
+    let imported = load_claude_local_history_from_projects_root(
+        &root,
+        cwd,
+        &ClaudeLaunchMode::Resume("session-exit-plan-malformed-followup".to_string()),
+    )
+    .expect("import")
+    .expect("history");
+
+    let pending = imported
+        .pending_approval_request
+        .as_deref()
+        .expect("pending approval request");
+    let parsed: Value = serde_json::from_str(pending).expect("parse request");
+    assert_eq!(parsed["params"]["toolUseId"].as_str(), Some("toolu_exit"));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn local_claude_history_recovers_pending_exit_plan_approval() {
     let root = temp_test_dir("claude-history-exit-plan");
     let cwd = Path::new("/repo");

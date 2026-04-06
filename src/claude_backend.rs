@@ -631,13 +631,12 @@ fn append_user_history_record(
             let tool_use_result = record
                 .get("toolUseResult")
                 .or_else(|| record.get("tool_use_result"));
-            let mut saw_tool_result = false;
+            let mut saw_valid_tool_result = false;
             let mut exit_plan_approval_in_record = None;
             for part in parts {
                 if part.get("type").and_then(Value::as_str) != Some("tool_result") {
                     continue;
                 }
-                saw_tool_result = true;
                 let tool_use_id = part
                     .get("tool_use_id")
                     .and_then(Value::as_str)
@@ -645,6 +644,7 @@ fn append_user_history_record(
                 if tool_use_id.is_empty() {
                     continue;
                 }
+                saw_valid_tool_result = true;
 
                 let (item, exit_plan_approval) = if let Some(tool_call) =
                     pending_tool_calls.remove(tool_use_id)
@@ -666,7 +666,7 @@ fn append_user_history_record(
             }
             if let Some(approval) = exit_plan_approval_in_record {
                 *pending_exit_plan_approval = Some(approval);
-            } else if saw_tool_result {
+            } else if saw_valid_tool_result {
                 *pending_exit_plan_approval = None;
             }
         }
