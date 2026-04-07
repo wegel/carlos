@@ -6,6 +6,7 @@ mod claude_backend;
 mod clipboard;
 mod event;
 mod protocol;
+mod protocol_params;
 mod theme;
 
 fn main() {

@@ -328,7 +328,7 @@ fn runtime_defaults_round_trip_json_file() {
 
 #[test]
 fn resolve_initial_runtime_settings_falls_back_to_persisted_defaults() {
-    let runtime = crate::protocol::ThreadRuntimeSettings {
+    let runtime = crate::protocol_params::ThreadRuntimeSettings {
         model: None,
         effort: None,
         summary: None,

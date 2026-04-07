@@ -10,10 +10,8 @@ use serde_json::Value;
 
 #[cfg(test)]
 pub(super) use super::input_events::is_mobile_mouse_key_candidate;
-use super::input_events::{
-    ensure_transcript_layout, handle_terminal_event, submit_turn_text_with_history,
-    TerminalEventResult,
-};
+use super::input_events::{ensure_transcript_layout, handle_terminal_event, TerminalEventResult};
+use super::turn_submit::submit_turn_text_with_history;
 use super::notifications::{
     animation_poll_timeout, animation_tick, handle_server_message_line, ServerRequestAction,
 };

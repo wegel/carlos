@@ -53,6 +53,8 @@ use self::text::{
     wrap_natural_count_by_cells,
 };
 #[cfg(test)]
+use self::tool_shell::parse_ssh_remote_command;
+#[cfg(test)]
 use self::tools::*;
 #[cfg(test)]
 use self::transcript_render::*;
@@ -66,23 +68,29 @@ use crate::clipboard::*;
 #[cfg(test)]
 use crate::event::UiEvent;
 use crate::protocol::*;
+use crate::protocol_params::*;
 #[cfg(test)]
 use crate::theme::*;
 
 // --- Module Declarations ---
 
+mod approval_parsing;
 mod approval_state;
 mod context_usage;
 mod input;
 mod input_events;
 mod input_history_state;
+mod item_history;
 mod mobile_mouse;
 mod models;
+mod mouse_events;
 mod notification_items;
 mod notifications;
 mod overlay_render;
 mod perf;
+mod perf_bench;
 mod perf_session;
+mod perf_synthetic;
 mod picker_delete_dialog;
 mod picker_render;
 mod ralph;
@@ -92,14 +100,21 @@ mod render_cache_state;
 mod runtime_settings_state;
 mod selection;
 mod state;
+mod state_input;
+mod state_settings;
+mod state_transcript;
+mod style_convert;
 mod terminal_ui;
 mod text;
 mod tool_diff;
+mod tool_format;
 mod tool_shell;
 mod tools;
 mod transcript_diff;
 mod transcript_render;
 mod transcript_styles;
+mod transcript_wrap;
+mod turn_submit;
 mod viewport_state;
 
 // --- Constants ---
@@ -146,11 +161,11 @@ pub(super) struct RuntimeDefaults {
 // --- Runtime Settings ---
 
 fn resolve_initial_runtime_settings(
-    runtime: crate::protocol::ThreadRuntimeSettings,
+    runtime: ThreadRuntimeSettings,
     defaults: &RuntimeDefaults,
     default_summary: Option<String>,
-) -> crate::protocol::ThreadRuntimeSettings {
-    crate::protocol::ThreadRuntimeSettings {
+) -> ThreadRuntimeSettings {
+    ThreadRuntimeSettings {
         model: runtime.model.or_else(|| defaults.model.clone()),
         effort: runtime.effort.or_else(|| defaults.effort.clone()),
         summary: runtime.summary.or(default_summary),
@@ -439,7 +454,7 @@ fn configure_app_common(
     app: &mut AppState,
     cwd: &str,
     opts: &CliOptions,
-    runtime_settings: crate::protocol::ThreadRuntimeSettings,
+    runtime_settings: ThreadRuntimeSettings,
     persisted_defaults: &RuntimeDefaults,
     default_summary: Option<String>,
 ) {
@@ -789,7 +804,7 @@ fn configure_claude_app(
         app,
         cwd,
         opts,
-        crate::protocol::ThreadRuntimeSettings {
+        ThreadRuntimeSettings {
             model: None,
             effort: None,
             summary: None,

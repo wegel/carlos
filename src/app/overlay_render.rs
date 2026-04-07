@@ -61,60 +61,22 @@ fn draw_box_border(
 }
 
 fn draw_rounded_border(buf: &mut Buffer, ob: &OverlayBox) {
-    draw_box_border(
-        buf,
-        ob.left,
-        ob.top,
-        ob.right,
-        ob.bottom,
-        Style::default().fg(COLOR_STEP7),
-        ("┏", "┓", "┗", "┛"),
-        "─",
-        "┃",
-    );
+    let style = Style::default().fg(COLOR_STEP7);
+    draw_box_border(buf, ob.left, ob.top, ob.right, ob.bottom, style, ("┏", "┓", "┗", "┛"), "─", "┃");
 }
 
 fn draw_overlay_title(buf: &mut Buffer, ob: &OverlayBox, title: &str) {
-    draw_str(
-        buf,
-        ob.start_x + 3,
-        ob.start_y + 1,
-        title,
-        Style::default()
-            .fg(COLOR_PRIMARY)
-            .add_modifier(Modifier::BOLD),
-        ob.box_w.saturating_sub(6),
-    );
-    draw_str(
-        buf,
-        ob.start_x + ob.box_w.saturating_sub(8),
-        ob.start_y + 1,
-        "esc",
-        Style::default().fg(COLOR_DIM),
-        3,
-    );
+    let bold = Style::default().fg(COLOR_PRIMARY).add_modifier(Modifier::BOLD);
+    draw_str(buf, ob.start_x + 3, ob.start_y + 1, title, bold, ob.box_w.saturating_sub(6));
+    draw_str(buf, ob.start_x + ob.box_w.saturating_sub(8), ob.start_y + 1, "esc", Style::default().fg(COLOR_DIM), 3);
 }
 
 fn fill_fullscreen_overlay(buf: &mut Buffer, size: TerminalSize) {
-    fill_rect(
-        buf,
-        0,
-        0,
-        size.width,
-        size.height,
-        Style::default().bg(COLOR_OVERLAY),
-    );
+    fill_rect(buf, 0, 0, size.width, size.height, Style::default().bg(COLOR_OVERLAY));
 }
 
 fn fill_box_background(buf: &mut Buffer, ob: &OverlayBox, box_h: usize) {
-    fill_rect(
-        buf,
-        ob.start_x,
-        ob.start_y,
-        ob.box_w,
-        box_h,
-        Style::default().bg(COLOR_STEP2),
-    );
+    fill_rect(buf, ob.start_x, ob.start_y, ob.box_w, box_h, Style::default().bg(COLOR_STEP2));
 }
 
 fn content_width(ob: &OverlayBox) -> usize {

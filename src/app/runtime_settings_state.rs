@@ -1,7 +1,7 @@
 //! Model, effort, and summary settings state with pending-vs-confirmed cycling.
 
 use crate::app::RuntimeDefaults;
-use crate::protocol::ModelInfo;
+use crate::protocol_params::ModelInfo;
 
 pub(super) const DEFAULT_EFFORT_OPTIONS: [&str; 6] =
     ["none", "minimal", "low", "medium", "high", "xhigh"];

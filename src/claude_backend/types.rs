@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use serde_json::{json, Map, Value};
 
-use crate::protocol::ModelInfo;
+use crate::protocol_params::ModelInfo;
 
 // --- Constants ---
 

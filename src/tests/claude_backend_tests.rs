@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use anyhow::{bail, Result};
 use serde_json::Value;
 
-use super::input_events::{submit_turn_text, submit_turn_text_with_history};
+use super::turn_submit::{submit_turn_text, submit_turn_text_with_history};
 use super::*;
 use crate::backend::{BackendClient, BackendKind};
 use crate::claude_backend::{
