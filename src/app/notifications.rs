@@ -13,11 +13,11 @@ use super::context_usage::{
 #[cfg(test)]
 pub(super) use super::item_history::append_history_from_thread;
 use super::notification_items::handle_item_notification;
-pub(super) use super::item_history::load_history_from_start_or_resume;
+pub(crate) use super::item_history::load_history_from_start_or_resume;
 use super::state::PendingApprovalRequest;
 use super::tools::command_summary_from_parsed_cmd;
 use super::{AppState, ThreadSummary};
-use crate::protocol_params::*;
+use crate::protocol_params::extract_result_object;
 use crate::theme::KITT_STEP_MS;
 
 // --- Approval Routing ---
@@ -32,7 +32,7 @@ pub(super) enum ServerRequestAction {
 
 // --- Key Helpers ---
 
-pub(super) fn parse_thread_list(response_line: &str) -> Result<Vec<ThreadSummary>> {
+pub(crate) fn parse_thread_list(response_line: &str) -> Result<Vec<ThreadSummary>> {
     let parsed = extract_result_object(response_line)?;
     let Some(data) = parsed
         .get("result")
@@ -145,7 +145,7 @@ pub(super) fn is_key_press_like(kind: KeyEventKind) -> bool {
 
 // --- Server Message Routing ---
 
-pub(super) fn handle_server_message_line(
+pub(crate) fn handle_server_message_line(
     app: &mut AppState,
     line: &str,
 ) -> Option<ServerRequestAction> {

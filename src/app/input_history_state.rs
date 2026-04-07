@@ -1,5 +1,6 @@
 //! Input history navigation and rewind-mode state.
 
+// --- History State ---
 /// Tracks submitted prompts and supports up/down history navigation.
 pub(super) struct InputHistoryState {
     input_history: Vec<String>,
@@ -22,6 +23,7 @@ impl InputHistoryState {
         }
     }
 
+    // --- Mode Control ---
     pub(super) fn rewind_mode(&self) -> bool {
         self.rewind_mode
     }
@@ -56,6 +58,7 @@ impl InputHistoryState {
         self.rewind_restore_draft = None;
     }
 
+    // --- History Recording ---
     pub(super) fn push_history(&mut self, text: &str) {
         self.record_history(text, None);
     }
@@ -84,6 +87,7 @@ impl InputHistoryState {
         self.reset_navigation();
     }
 
+    // --- History Navigation ---
     pub(super) fn navigate_up(&mut self, current_input_text: String) -> Option<String> {
         if self.input_history.is_empty() {
             return None;
@@ -116,6 +120,7 @@ impl InputHistoryState {
         Some(draft)
     }
 
+    // --- Rewind Selection ---
     pub(super) fn rewind_selected_message_idx(&self) -> Option<usize> {
         let idx = self.input_history_index?;
         self.input_history_message_idx.get(idx).and_then(|v| *v)
@@ -129,6 +134,7 @@ impl InputHistoryState {
         }
     }
 
+    // --- Test Helpers ---
     #[cfg(test)]
     pub(super) fn history_len(&self) -> usize {
         self.input_history.len()

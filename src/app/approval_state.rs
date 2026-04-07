@@ -2,6 +2,7 @@
 
 use serde_json::{json, Value};
 
+// --- Approval Types ---
 /// User's choice when responding to an approval prompt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ApprovalChoice {
@@ -34,6 +35,7 @@ pub(super) struct PendingApprovalRequest {
     pub(super) can_cancel: bool,
 }
 
+// --- Response Mapping ---
 impl PendingApprovalRequest {
     pub(super) fn response_for_choice(&self, choice: ApprovalChoice) -> Option<Value> {
         match self.kind {
@@ -103,6 +105,7 @@ impl PendingApprovalRequest {
     }
 }
 
+// --- Approval State ---
 pub(super) struct ApprovalState {
     pub(super) pending: Option<PendingApprovalRequest>,
 }

@@ -1,55 +1,31 @@
 //! History loading helpers: reconstruct transcript from thread start/resume responses.
 
+// --- Imports ---
+
 use anyhow::Result;
 use serde_json::Value;
 
-use super::tools::*;
+use super::tool_diff::{command_execution_diff_output, extract_diff_blocks};
+use super::tool_format::format_tool_item;
+use super::tools::{is_tool_call_type, is_tool_output_type, item_text_from_content};
 use super::{AppState, Role};
 use crate::protocol_params::extract_result_object;
 
-pub(super) fn append_item_text_from_content(app: &mut AppState, item: &Value, role: Role) {
-    if let Some(text) = item_text_from_content(item) {
-        app.append_message(role, text);
-    }
-}
+// --- Thread history reconstruction ---
 
-pub(super) fn append_tool_history_item(app: &mut AppState, item: &Value, role: Role) {
-    let diffs = extract_diff_blocks(item);
-    if !diffs.is_empty() {
-        for block in diffs {
-            app.append_diff_message(role, block.file_path, block.diff);
-        }
-        return;
+pub(crate) fn load_history_from_start_or_resume(
+    app: &mut AppState,
+    response_line: &str,
+) -> Result<()> {
+    let parsed = extract_result_object(response_line)?;
+    if let Some(thread_obj) = parsed
+        .get("result")
+        .and_then(Value::as_object)
+        .and_then(|r| r.get("thread"))
+    {
+        append_history_from_thread(app, thread_obj);
     }
-
-    if role == Role::ToolOutput {
-        if let Some(diff) = command_execution_diff_output(item) {
-            app.append_diff_message(role, None, diff);
-            return;
-        }
-    }
-
-    if let Some(formatted) = format_tool_item(item, role) {
-        if !formatted.is_empty() {
-            app.append_message(role, formatted);
-            return;
-        }
-    }
-
-    if let Some(t) = item.get("text").and_then(Value::as_str) {
-        if !t.is_empty() {
-            app.append_message(role, t.to_string());
-            return;
-        }
-    }
-    append_item_text_from_content(app, item, role);
-}
-
-pub(super) fn agent_role_from_phase(item: &serde_json::Map<String, Value>) -> Role {
-    match item.get("phase").and_then(Value::as_str) {
-        Some("commentary") => Role::Commentary,
-        _ => Role::Assistant,
-    }
+    Ok(())
 }
 
 pub(super) fn append_history_from_thread(app: &mut AppState, thread_obj: &Value) {
@@ -105,20 +81,54 @@ pub(super) fn append_history_from_thread(app: &mut AppState, thread_obj: &Value)
     }
 }
 
-pub(super) fn load_history_from_start_or_resume(
-    app: &mut AppState,
-    response_line: &str,
-) -> Result<()> {
-    let parsed = extract_result_object(response_line)?;
-    if let Some(thread_obj) = parsed
-        .get("result")
-        .and_then(Value::as_object)
-        .and_then(|r| r.get("thread"))
-    {
-        append_history_from_thread(app, thread_obj);
+// --- History item helpers ---
+
+pub(super) fn append_item_text_from_content(app: &mut AppState, item: &Value, role: Role) {
+    if let Some(text) = item_text_from_content(item) {
+        app.append_message(role, text);
     }
-    Ok(())
 }
+
+pub(super) fn append_tool_history_item(app: &mut AppState, item: &Value, role: Role) {
+    let diffs = extract_diff_blocks(item);
+    if !diffs.is_empty() {
+        for block in diffs {
+            app.append_diff_message(role, block.file_path, block.diff);
+        }
+        return;
+    }
+
+    if role == Role::ToolOutput {
+        if let Some(diff) = command_execution_diff_output(item) {
+            app.append_diff_message(role, None, diff);
+            return;
+        }
+    }
+
+    if let Some(formatted) = format_tool_item(item, role) {
+        if !formatted.is_empty() {
+            app.append_message(role, formatted);
+            return;
+        }
+    }
+
+    if let Some(t) = item.get("text").and_then(Value::as_str) {
+        if !t.is_empty() {
+            app.append_message(role, t.to_string());
+            return;
+        }
+    }
+    append_item_text_from_content(app, item, role);
+}
+
+pub(super) fn agent_role_from_phase(item: &serde_json::Map<String, Value>) -> Role {
+    match item.get("phase").and_then(Value::as_str) {
+        Some("commentary") => Role::Commentary,
+        _ => Role::Assistant,
+    }
+}
+
+// --- Reasoning summary ---
 
 pub(super) fn reasoning_summary_text(item: &Value) -> Option<String> {
     let summary = item.get("summary")?.as_array()?;

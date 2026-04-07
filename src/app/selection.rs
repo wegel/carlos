@@ -3,6 +3,7 @@
 use super::{text::slice_by_cells, RenderedLine, MSG_CONTENT_X};
 use crate::theme::TOUCH_SCROLL_DRAG_MIN_ROWS;
 
+// --- Selection Types ---
 pub(super) trait RenderedLineSource {
     fn len(&self) -> usize;
     fn get(&self, idx: usize) -> Option<&RenderedLine>;
@@ -44,6 +45,7 @@ pub(super) struct Selection {
     pub(super) dragging: bool,
 }
 
+// --- Selection Range ---
 pub(super) fn compute_selection_range(
     selection: Selection,
     line_idx: usize,
@@ -90,6 +92,7 @@ pub(super) fn compute_selection_range(
     Some((start_col - 1, end_col))
 }
 
+// --- Text Extraction ---
 pub(super) fn selected_text<S: RenderedLineSource + ?Sized>(
     selection: Selection,
     rendered_lines: &S,
@@ -182,6 +185,7 @@ fn should_insert_soft_wrap_space(existing: &str, fragment: &str) -> bool {
     existing.chars().any(char::is_whitespace) || fragment.chars().any(char::is_whitespace)
 }
 
+// --- Selection Helpers ---
 pub(super) fn normalize_selection_x(col0: usize) -> usize {
     if col0 >= MSG_CONTENT_X {
         col0 - MSG_CONTENT_X + 1
@@ -202,6 +206,7 @@ pub(super) fn shift_selection_focus(
     selection.focus_line_idx = next.min(max_line_idx);
 }
 
+// --- Drag Mode ---
 pub(super) fn decide_mouse_drag_mode(
     anchor_x: usize,
     anchor_y: usize,

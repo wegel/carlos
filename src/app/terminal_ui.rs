@@ -1,3 +1,5 @@
+//! Terminal setup, thread picker UI, and raw-mode lifecycle helpers.
+
 use std::cmp::Reverse;
 use std::env;
 use std::io;
@@ -21,6 +23,7 @@ use super::notifications::{is_ctrl_char, is_key_press_like};
 use super::picker_render::{compute_picker_layout, draw_picker};
 use super::{TerminalSize, ThreadSummary};
 
+// --- Terminal Policy ---
 fn env_flag(name: &str) -> Option<bool> {
     let raw = env::var(name).ok()?;
     let trimmed = raw.trim();
@@ -53,15 +56,17 @@ fn should_enable_alternate_scroll() -> bool {
     is_ssh_session()
 }
 
+// --- Terminal Control ---
 const MOUSE_CAPTURE_ENABLE_SEQ: &str = "\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1006h\x1b[?1015h";
 const MOUSE_CAPTURE_DISABLE_SEQ: &str = "\x1b[?1015l\x1b[?1006l\x1b[?1003l\x1b[?1002l\x1b[?1000l";
 
-pub(super) fn sort_threads_for_picker(threads: &[ThreadSummary]) -> Vec<ThreadSummary> {
+pub(crate) fn sort_threads_for_picker(threads: &[ThreadSummary]) -> Vec<ThreadSummary> {
     let mut sorted = threads.to_vec();
     sorted.sort_by_key(|t| (Reverse(t.updated_at), Reverse(t.created_at), t.id.clone()));
     sorted
 }
 
+// --- Terminal Lifecycle ---
 pub(super) fn with_terminal<T>(
     f: impl FnOnce(&mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<T>,
 ) -> Result<T> {
@@ -123,6 +128,7 @@ pub(super) fn with_terminal<T>(
     result
 }
 
+// --- Picker Types ---
 /// Outcome of processing a single event in the picker loop.
 enum PickerAction {
     Continue,
@@ -138,7 +144,8 @@ struct PickerState {
     status: Option<String>,
 }
 
-pub(super) fn pick_thread<F>(
+// --- Thread Picker ---
+pub(crate) fn pick_thread<F>(
     threads: &[ThreadSummary],
     allow_delete: bool,
     mut on_delete: F,
@@ -187,6 +194,7 @@ where
     })
 }
 
+// --- Picker Rendering ---
 fn draw_picker_frame(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     threads: &[ThreadSummary],
@@ -227,6 +235,7 @@ fn draw_picker_frame(
     Ok(())
 }
 
+// --- Picker Events ---
 fn handle_picker_key<F>(
     st: &mut PickerState,
     threads: &mut Vec<ThreadSummary>,

@@ -1,3 +1,5 @@
+//! Thread picker rendering: session list display and navigation.
+
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
@@ -9,6 +11,7 @@ use crate::theme::{
     COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_STEP1, COLOR_STEP2, COLOR_STEP7, COLOR_TEXT,
 };
 
+// --- Picker Types ---
 #[derive(Debug, Clone, Copy)]
 pub(super) struct PickerLayout {
     pub(super) panel_x: usize,
@@ -21,6 +24,7 @@ pub(super) struct PickerLayout {
     pub(super) list_h: usize,
 }
 
+// --- Picker Layout ---
 pub(super) fn compute_picker_layout(size: TerminalSize) -> PickerLayout {
     let panel_w = if size.width > 6 {
         size.width - 2
@@ -60,6 +64,7 @@ pub(super) fn compute_picker_layout(size: TerminalSize) -> PickerLayout {
     }
 }
 
+// --- Column Layout ---
 /// Column widths for the picker list.
 struct PickerColumns {
     left_col_w: usize,
@@ -84,6 +89,7 @@ fn compute_picker_columns(layout: &PickerLayout) -> PickerColumns {
     }
 }
 
+// --- Panel Rendering ---
 pub(super) fn draw_picker(
     frame: &mut ratatui::Frame<'_>,
     threads: &[ThreadSummary],
@@ -254,6 +260,7 @@ fn draw_picker_column_headers(
     }
 }
 
+// --- Row Rendering ---
 fn draw_picker_list_row(
     buf: &mut Buffer,
     layout: &PickerLayout,
@@ -345,6 +352,7 @@ fn draw_picker_footer(
     );
 }
 
+// --- Time Helpers ---
 fn format_picker_timestamp(ts: i64) -> String {
     if ts <= 0 {
         return "-".to_string();

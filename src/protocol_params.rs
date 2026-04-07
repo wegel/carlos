@@ -9,7 +9,7 @@ use crate::backend::BackendClient;
 
 // --- Data Types ---
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct ThreadRuntimeSettings {
     pub(crate) model: Option<String>,
     pub(crate) effort: Option<String>,

@@ -7,6 +7,7 @@ use unicode_width::UnicodeWidthStr;
 
 const TAB_STOP: usize = 8;
 
+// --- Text Measurement ---
 pub(super) fn visual_width(s: &str) -> usize {
     if !s.contains('\t') && s.is_ascii() {
         return s.len();
@@ -17,6 +18,7 @@ pub(super) fn visual_width(s: &str) -> usize {
     UnicodeWidthStr::width(s)
 }
 
+// --- Cell Slicing ---
 pub(super) fn split_at_cells(s: &str, max_cells: usize) -> usize {
     if max_cells == 0 || s.is_empty() {
         return 0;
@@ -88,6 +90,7 @@ pub(super) fn char_to_byte_idx(s: &str, char_idx: usize) -> usize {
         .unwrap_or(s.len())
 }
 
+// --- Natural Wrapping ---
 pub(super) fn wrap_natural_by_cells(text: &str, width: usize) -> Vec<String> {
     if width == 0 {
         return Vec::new();
@@ -95,13 +98,8 @@ pub(super) fn wrap_natural_by_cells(text: &str, width: usize) -> Vec<String> {
     if text.is_empty() {
         return vec![String::new()];
     }
-    let expanded_storage;
-    let text = if text.contains('\t') {
-        expanded_storage = expand_tabs(text);
-        expanded_storage.as_str()
-    } else {
-        text
-    };
+    let storage;
+    let text = if text.contains('\t') { storage = expand_tabs(text); storage.as_str() } else { text };
     if text.is_ascii() && text.len() <= width {
         return vec![text.to_string()];
     }
@@ -152,13 +150,8 @@ pub(super) fn wrap_natural_count_by_cells(text: &str, width: usize) -> usize {
     if text.is_empty() {
         return 1;
     }
-    let expanded_storage;
-    let text = if text.contains('\t') {
-        expanded_storage = expand_tabs(text);
-        expanded_storage.as_str()
-    } else {
-        text
-    };
+    let storage;
+    let text = if text.contains('\t') { storage = expand_tabs(text); storage.as_str() } else { text };
     if text.is_ascii() && text.len() <= width {
         return 1;
     }
@@ -280,14 +273,12 @@ fn wrap_natural_count_ascii_slow_by_cells(text: &str, width: usize) -> usize {
         + line_count
 }
 
+// --- Wrap Metrics ---
 fn hard_wrap_count_metrics(text: &str, width: usize) -> (usize, usize, usize) {
+    let trailing_sp = |s: &str| s.chars().rev().take_while(|c| *c == ' ').count();
     let line_width = visual_width(text);
     if line_width <= width {
-        return (
-            1,
-            line_width,
-            text.chars().rev().take_while(|c| *c == ' ').count(),
-        );
+        return (1, line_width, trailing_sp(text));
     }
 
     let mut count = 0usize;
@@ -299,13 +290,13 @@ fn hard_wrap_count_metrics(text: &str, width: usize) -> (usize, usize, usize) {
         if take == 0 {
             count += 1;
             last_line_width = visual_width(rest);
-            last_trailing_spaces = rest.chars().rev().take_while(|c| *c == ' ').count();
+            last_trailing_spaces = trailing_sp(rest);
             break;
         }
         let part = &rest[..take];
         count += 1;
         last_line_width = visual_width(part);
-        last_trailing_spaces = part.chars().rev().take_while(|c| *c == ' ').count();
+        last_trailing_spaces = trailing_sp(part);
         if take >= rest.len() {
             break;
         }
@@ -315,6 +306,7 @@ fn hard_wrap_count_metrics(text: &str, width: usize) -> (usize, usize, usize) {
     (count, last_line_width, last_trailing_spaces)
 }
 
+// --- Input Wrapping ---
 pub(super) fn wrap_input_line(line: &str, width: usize) -> Vec<String> {
     if width == 0 {
         return vec![String::new()];
@@ -337,6 +329,7 @@ pub(super) fn wrap_input_line_count(line: &str, width: usize) -> usize {
     wrap_natural_count_by_cells(line, width)
 }
 
+// --- Trailing Spaces ---
 fn preserve_trailing_spaces(out: &mut Vec<String>, text: &str, width: usize) {
     // Preserve trailing spaces so transcript copy/paste and input editing
     // can round-trip explicit whitespace at the end of a logical line.
@@ -389,31 +382,22 @@ fn additional_lines_for_trailing_spaces(
     remaining.div_ceil(width)
 }
 
+// --- Tab Expansion ---
 fn expand_tabs(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut col = 0usize;
-
     for grapheme in text.graphemes(true) {
-        match grapheme {
-            "\n" => {
-                out.push('\n');
-                col = 0;
-            }
-            "\r" => {
-                out.push('\r');
-                col = 0;
-            }
-            "\t" => {
-                let spaces = TAB_STOP - (col % TAB_STOP);
-                out.push_str(&" ".repeat(spaces));
-                col += spaces;
-            }
-            other => {
-                out.push_str(other);
-                col += UnicodeWidthStr::width(other);
-            }
+        if grapheme == "\n" || grapheme == "\r" {
+            out.push_str(grapheme);
+            col = 0;
+        } else if grapheme == "\t" {
+            let spaces = TAB_STOP - (col % TAB_STOP);
+            out.push_str(&" ".repeat(spaces));
+            col += spaces;
+        } else {
+            out.push_str(grapheme);
+            col += UnicodeWidthStr::width(grapheme);
         }
     }
-
     out
 }

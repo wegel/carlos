@@ -15,6 +15,7 @@ use super::transcript_styles::{
 };
 use super::MSG_CONTENT_X;
 
+// --- Read Summaries ---
 pub(super) fn read_summary_path(text: &str) -> Option<&str> {
     let trimmed = text.trim();
     let rest = trimmed.strip_prefix("→ Read")?.trim_start();
@@ -47,6 +48,7 @@ pub(super) fn format_read_summary_with_count(path: &str, count: usize) -> String
     }
 }
 
+// --- Transcript Build ---
 #[cfg(test)]
 pub(super) fn build_rendered_lines(messages: &[Message], width: usize) -> Vec<RenderedLine> {
     build_rendered_lines_with_hidden(messages, width, None)
@@ -84,6 +86,7 @@ pub(super) fn build_rendered_block_for_message(
     out
 }
 
+// --- Block Counting ---
 #[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn count_rendered_block_for_message(
     previous_visible: Option<&Message>,
@@ -154,6 +157,7 @@ pub(super) fn count_rendered_block_for_message_cached<'a>(
         }
 }
 
+// --- Block Rendering ---
 pub(super) fn append_rendered_block_for_message(
     out: &mut Vec<RenderedLine>,
     previous_visible: Option<&Message>,
@@ -190,6 +194,7 @@ pub(super) fn append_rendered_block_for_message(
     }
 }
 
+// --- Visibility Rules ---
 fn message_has_visible_content(msg: &Message) -> bool {
     match msg.kind {
         MessageKind::Diff => !msg.text.trim().is_empty(),
@@ -202,6 +207,7 @@ fn should_insert_separator_between(prev: &Message, next: &Message) -> bool {
     true
 }
 
+// --- Layout Helpers ---
 pub(super) fn transcript_content_width(size: TerminalSize) -> usize {
     size.width.saturating_sub(MSG_CONTENT_X + 1)
 }

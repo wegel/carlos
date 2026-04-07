@@ -1,3 +1,5 @@
+//! Overlay rendering: help, approval, model settings, and perf overlays.
+
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 

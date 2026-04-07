@@ -7,6 +7,7 @@ use crossterm::event::KeyEventKind;
 
 const PERF_SAMPLE_WINDOW: usize = 256;
 
+// --- Sample Window ---
 #[derive(Debug, Default)]
 pub(super) struct DurationSamples {
     pub(super) values_us: VecDeque<u32>,
@@ -80,6 +81,7 @@ impl DurationSamples {
     }
 }
 
+// --- Perf Metrics ---
 #[derive(Debug)]
 pub(super) struct PerfMetrics {
     pub(super) show_overlay: bool,
@@ -143,6 +145,7 @@ impl PerfMetrics {
         }
     }
 
+    // --- Event Recording ---
     pub(super) fn record_draw(&mut self, duration: Duration) {
         self.frame_count = self.frame_count.saturating_add(1);
         self.draw.push(duration);
@@ -197,6 +200,7 @@ impl PerfMetrics {
         self.show_overlay = !self.show_overlay;
     }
 
+    // --- Overlay Output ---
     pub(super) fn overlay_lines(&self) -> Vec<String> {
         vec![
             format!("loop {}  frame {}", self.loop_count, self.frame_count),
@@ -224,6 +228,7 @@ impl PerfMetrics {
         ]
     }
 
+    // --- Report Formatting ---
     pub(super) fn final_report(&self) -> String {
         let mut out = String::new();
         out.push_str("carlos perf metrics\n");

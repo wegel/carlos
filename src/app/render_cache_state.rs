@@ -5,6 +5,7 @@ use super::transcript_render::{
     build_rendered_block_for_message, count_rendered_block_for_message_cached, RenderCountCache,
 };
 
+// --- Cache State ---
 pub(super) struct RenderCacheState {
     pub(super) rendered_message_blocks: Vec<Option<Vec<RenderedLine>>>,
     pub(super) rendered_block_line_counts: Vec<usize>,
@@ -28,6 +29,7 @@ impl RenderCacheState {
         }
     }
 
+    // --- Cache Lifecycle ---
     pub(super) fn mark_transcript_dirty_from(&mut self, messages_len: usize, idx: usize) {
         let idx = idx.min(messages_len);
         self.transcript_dirty_from = Some(match self.transcript_dirty_from {
@@ -36,6 +38,7 @@ impl RenderCacheState {
         });
     }
 
+    // --- Count Pass ---
     pub(super) fn ensure_rendered_lines(
         &mut self,
         messages: &[Message],
@@ -117,6 +120,7 @@ impl RenderCacheState {
         self.transcript_dirty_from = None;
     }
 
+    // --- Line Access ---
     pub(super) fn rendered_line_count(&self) -> usize {
         self.rendered_total_lines
     }
@@ -134,6 +138,7 @@ impl RenderCacheState {
         block.get(idx - block_start)
     }
 
+    // --- Materialization ---
     pub(super) fn ensure_rendered_range_materialized(
         &mut self,
         messages: &[Message],
@@ -214,6 +219,7 @@ impl RenderCacheState {
     }
 }
 
+// --- Visibility Lookup ---
 fn find_previous_visible_message_idx(
     messages: &[Message],
     start_idx: usize,

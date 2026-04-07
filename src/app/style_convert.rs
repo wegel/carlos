@@ -4,157 +4,116 @@
 use ratatui::style::{Color, Modifier, Style};
 use ratatui_core::style::{Color as CoreColor, Modifier as CoreModifier, Style as CoreStyle};
 
-use crate::theme::*;
+use crate::theme::{COLOR_DIM, COLOR_GUTTER_USER, COLOR_TEXT};
+
+macro_rules! convert_enum {
+    (
+        $to_core_fn:ident,
+        $from_core_fn:ident,
+        $from_ty:ident,
+        $to_ty:ident,
+        [$($unit_variant:ident),* $(,)?],
+        [$($data_variant:ident($($field:ident),+)),* $(,)?]
+    ) => {
+        pub(super) fn $to_core_fn(value: $from_ty) -> $to_ty {
+            match value {
+                $($from_ty::$unit_variant => $to_ty::$unit_variant,)*
+                $($from_ty::$data_variant($($field),+) => $to_ty::$data_variant($($field),+),)*
+            }
+        }
+
+        pub(super) fn $from_core_fn(value: $to_ty) -> $from_ty {
+            match value {
+                $($to_ty::$unit_variant => $from_ty::$unit_variant,)*
+                $($to_ty::$data_variant($($field),+) => $from_ty::$data_variant($($field),+),)*
+            }
+        }
+    };
+}
+
+macro_rules! convert_modifiers {
+    ($to_core_fn:ident, $from_core_fn:ident, $from_ty:ident, $to_ty:ident, [$($flag:ident),* $(,)?]) => {
+        pub(super) fn $to_core_fn(value: $from_ty) -> $to_ty {
+            let mut out = $to_ty::empty();
+            $(if value.contains($from_ty::$flag) { out |= $to_ty::$flag; })*
+            out
+        }
+
+        pub(super) fn $from_core_fn(value: $to_ty) -> $from_ty {
+            let mut out = $from_ty::empty();
+            $(if value.contains($to_ty::$flag) { out |= $from_ty::$flag; })*
+            out
+        }
+    };
+}
+
+macro_rules! convert_style {
+    (
+        $to_core_fn:ident,
+        $from_core_fn:ident,
+        $from_ty:ident,
+        $to_ty:ident,
+        $color_to_core_fn:ident,
+        $color_from_core_fn:ident,
+        $modifier_to_core_fn:ident,
+        $modifier_from_core_fn:ident,
+        [$($field:ident => $setter:ident),* $(,)?]
+    ) => {
+        pub(super) fn $to_core_fn(style: $from_ty) -> $to_ty {
+            let mut out = $to_ty::default();
+            $(if let Some(value) = style.$field { out = out.$setter($color_to_core_fn(value)); })*
+            out.add_modifier = $modifier_to_core_fn(style.add_modifier);
+            out.sub_modifier = $modifier_to_core_fn(style.sub_modifier);
+            out
+        }
+
+        pub(super) fn $from_core_fn(style: $to_ty) -> $from_ty {
+            let mut out = $from_ty::default();
+            $(if let Some(value) = style.$field { out = out.$setter($color_from_core_fn(value)); })*
+            out.add_modifier = $modifier_from_core_fn(style.add_modifier);
+            out.sub_modifier = $modifier_from_core_fn(style.sub_modifier);
+            out
+        }
+    };
+}
 
 // --- Colour Conversion ---
 
-pub(super) fn color_to_core(color: Color) -> CoreColor {
-    match color {
-        Color::Reset => CoreColor::Reset,
-        Color::Black => CoreColor::Black,
-        Color::Red => CoreColor::Red,
-        Color::Green => CoreColor::Green,
-        Color::Yellow => CoreColor::Yellow,
-        Color::Blue => CoreColor::Blue,
-        Color::Magenta => CoreColor::Magenta,
-        Color::Cyan => CoreColor::Cyan,
-        Color::Gray => CoreColor::Gray,
-        Color::DarkGray => CoreColor::DarkGray,
-        Color::LightRed => CoreColor::LightRed,
-        Color::LightGreen => CoreColor::LightGreen,
-        Color::LightYellow => CoreColor::LightYellow,
-        Color::LightBlue => CoreColor::LightBlue,
-        Color::LightMagenta => CoreColor::LightMagenta,
-        Color::LightCyan => CoreColor::LightCyan,
-        Color::White => CoreColor::White,
-        Color::Rgb(r, g, b) => CoreColor::Rgb(r, g, b),
-        Color::Indexed(v) => CoreColor::Indexed(v),
-    }
-}
-
-pub(super) fn core_color_to_color(color: CoreColor) -> Color {
-    match color {
-        CoreColor::Reset => Color::Reset,
-        CoreColor::Black => Color::Black,
-        CoreColor::Red => Color::Red,
-        CoreColor::Green => Color::Green,
-        CoreColor::Yellow => Color::Yellow,
-        CoreColor::Blue => Color::Blue,
-        CoreColor::Magenta => Color::Magenta,
-        CoreColor::Cyan => Color::Cyan,
-        CoreColor::Gray => Color::Gray,
-        CoreColor::DarkGray => Color::DarkGray,
-        CoreColor::LightRed => Color::LightRed,
-        CoreColor::LightGreen => Color::LightGreen,
-        CoreColor::LightYellow => Color::LightYellow,
-        CoreColor::LightBlue => Color::LightBlue,
-        CoreColor::LightMagenta => Color::LightMagenta,
-        CoreColor::LightCyan => Color::LightCyan,
-        CoreColor::White => Color::White,
-        CoreColor::Rgb(r, g, b) => Color::Rgb(r, g, b),
-        CoreColor::Indexed(v) => Color::Indexed(v),
-    }
-}
+convert_enum!(
+    color_to_core,
+    core_color_to_color,
+    Color,
+    CoreColor,
+    [
+        Reset, Black, Red, Green, Yellow, Blue, Magenta, Cyan, Gray, DarkGray, LightRed,
+        LightGreen, LightYellow, LightBlue, LightMagenta, LightCyan, White
+    ],
+    [Rgb(r, g, b), Indexed(v)]
+);
 
 // --- Modifier Conversion ---
 
-pub(super) fn modifier_to_core(modifier: Modifier) -> CoreModifier {
-    let mut out = CoreModifier::empty();
-    if modifier.contains(Modifier::BOLD) {
-        out |= CoreModifier::BOLD;
-    }
-    if modifier.contains(Modifier::DIM) {
-        out |= CoreModifier::DIM;
-    }
-    if modifier.contains(Modifier::ITALIC) {
-        out |= CoreModifier::ITALIC;
-    }
-    if modifier.contains(Modifier::UNDERLINED) {
-        out |= CoreModifier::UNDERLINED;
-    }
-    if modifier.contains(Modifier::SLOW_BLINK) {
-        out |= CoreModifier::SLOW_BLINK;
-    }
-    if modifier.contains(Modifier::RAPID_BLINK) {
-        out |= CoreModifier::RAPID_BLINK;
-    }
-    if modifier.contains(Modifier::REVERSED) {
-        out |= CoreModifier::REVERSED;
-    }
-    if modifier.contains(Modifier::HIDDEN) {
-        out |= CoreModifier::HIDDEN;
-    }
-    if modifier.contains(Modifier::CROSSED_OUT) {
-        out |= CoreModifier::CROSSED_OUT;
-    }
-    out
-}
-
-pub(super) fn core_modifier_to_modifier(modifier: CoreModifier) -> Modifier {
-    let mut out = Modifier::empty();
-    if modifier.contains(CoreModifier::BOLD) {
-        out |= Modifier::BOLD;
-    }
-    if modifier.contains(CoreModifier::DIM) {
-        out |= Modifier::DIM;
-    }
-    if modifier.contains(CoreModifier::ITALIC) {
-        out |= Modifier::ITALIC;
-    }
-    if modifier.contains(CoreModifier::UNDERLINED) {
-        out |= Modifier::UNDERLINED;
-    }
-    if modifier.contains(CoreModifier::SLOW_BLINK) {
-        out |= Modifier::SLOW_BLINK;
-    }
-    if modifier.contains(CoreModifier::RAPID_BLINK) {
-        out |= Modifier::RAPID_BLINK;
-    }
-    if modifier.contains(CoreModifier::REVERSED) {
-        out |= Modifier::REVERSED;
-    }
-    if modifier.contains(CoreModifier::HIDDEN) {
-        out |= Modifier::HIDDEN;
-    }
-    if modifier.contains(CoreModifier::CROSSED_OUT) {
-        out |= Modifier::CROSSED_OUT;
-    }
-    out
-}
+convert_modifiers!(
+    modifier_to_core,
+    core_modifier_to_modifier,
+    Modifier,
+    CoreModifier,
+    [BOLD, DIM, ITALIC, UNDERLINED, SLOW_BLINK, RAPID_BLINK, REVERSED, HIDDEN, CROSSED_OUT]
+);
 
 // --- Style Conversion ---
 
-pub(super) fn style_to_core(style: Style) -> CoreStyle {
-    let mut out = CoreStyle::default();
-    if let Some(fg) = style.fg {
-        out = out.fg(color_to_core(fg));
-    }
-    if let Some(bg) = style.bg {
-        out = out.bg(color_to_core(bg));
-    }
-    if let Some(ul) = style.underline_color {
-        out = out.underline_color(color_to_core(ul));
-    }
-    out.add_modifier = modifier_to_core(style.add_modifier);
-    out.sub_modifier = modifier_to_core(style.sub_modifier);
-    out
-}
-
-pub(super) fn core_style_to_style(style: CoreStyle) -> Style {
-    let mut out = Style::default();
-    if let Some(fg) = style.fg {
-        out = out.fg(core_color_to_color(fg));
-    }
-    if let Some(bg) = style.bg {
-        out = out.bg(core_color_to_color(bg));
-    }
-    if let Some(ul) = style.underline_color {
-        out = out.underline_color(core_color_to_color(ul));
-    }
-    out.add_modifier = core_modifier_to_modifier(style.add_modifier);
-    out.sub_modifier = core_modifier_to_modifier(style.sub_modifier);
-    out
-}
+convert_style!(
+    style_to_core,
+    core_style_to_style,
+    Style,
+    CoreStyle,
+    color_to_core,
+    core_color_to_color,
+    modifier_to_core,
+    core_modifier_to_modifier,
+    [fg => fg, bg => bg, underline_color => underline_color]
+);
 
 // --- Markdown Stylesheet ---
 

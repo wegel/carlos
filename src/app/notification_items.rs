@@ -3,7 +3,12 @@
 use serde_json::Value;
 
 use super::item_history::{agent_role_from_phase, reasoning_summary_text};
-use super::tools::*;
+use super::tools::{
+    command_execution_diff_output, command_summary_from_shell_cmd, extract_diff_blocks,
+    first_i64_at_paths, format_tool_item, is_tool_call_type, is_tool_output_type,
+    item_text_from_content, raw_function_call_output_to_tool_item, raw_function_call_to_tool_item,
+    role_for_tool_type, tool_command,
+};
 use super::{AppState, DiffBlock, MessageKind, Role};
 
 pub(super) fn upsert_tool_message(
@@ -351,4 +356,3 @@ fn complete_tool_item_with_diffs(
     }
     true
 }
-

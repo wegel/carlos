@@ -108,79 +108,54 @@ pub(super) fn tool_icon(tool_name: &str) -> &'static str {
 pub(super) fn format_tool_call_inline(item: &Value, tool_name: &str) -> Option<String> {
     let lower = tool_name.to_ascii_lowercase();
     let input = tool_input_object(item);
+    let icon = tool_icon(&lower);
 
     if lower.as_str() == "read" {
-        let path = input
-            .and_then(|obj| {
-                obj.get("filePath")
-                    .and_then(Value::as_str)
-                    .or_else(|| obj.get("path").and_then(Value::as_str))
-            })
-            .unwrap_or("");
-        let mut out = format!("{} Read {}", tool_icon(&lower), path);
-        if let Some(args) = input.and_then(|obj| {
-            format_input_brackets(
-                obj,
-                &[
-                    "filePath",
-                    "path",
-                    "tool",
-                    "name",
-                    "command",
-                    "description",
-                    "reasoning",
-                ],
-            )
-        }) {
-            if !args.is_empty() {
-                out.push(' ');
-                out.push_str(&args);
-            }
-        }
-        return Some(out.trim_end().to_string());
+        return Some(format_read_call_inline(input, icon));
     }
-
     if let Some(obj) = input {
-        let mut out = format!("{} {}", tool_icon(&lower), titlecase_tool_name(tool_name));
-        if let Some(path) = obj
-            .get("filePath")
-            .and_then(Value::as_str)
-            .or_else(|| obj.get("path").and_then(Value::as_str))
-        {
-            if !path.is_empty() {
-                out.push(' ');
-                out.push_str(path);
-            }
-        }
+        return Some(format_generic_call_inline(obj, tool_name, icon));
+    }
+    Some(format!("{icon} {}", titlecase_tool_name(tool_name)))
+}
 
-        if let Some(args) = format_input_brackets(
-            obj,
-            &[
-                "filePath",
-                "path",
-                "tool",
-                "name",
-                "command",
-                "description",
-                "reasoning",
-                "content",
-                "patch",
-                "old_string",
-                "new_string",
-                "text",
-            ],
-        ) {
+const READ_EXCLUDE_KEYS: &[&str] = &[
+    "filePath", "path", "tool", "name", "command", "description", "reasoning",
+];
+const GENERIC_EXCLUDE_KEYS: &[&str] = &[
+    "filePath", "path", "tool", "name", "command", "description", "reasoning",
+    "content", "patch", "old_string", "new_string", "text",
+];
+
+fn format_read_call_inline(input: Option<&serde_json::Map<String, Value>>, icon: &str) -> String {
+    let path = input
+        .and_then(|obj| obj.get("filePath").or_else(|| obj.get("path")))
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let mut out = format!("{icon} Read {path}");
+    append_input_brackets(input, READ_EXCLUDE_KEYS, &mut out);
+    out.trim_end().to_string()
+}
+
+fn format_generic_call_inline(obj: &serde_json::Map<String, Value>, tool_name: &str, icon: &str) -> String {
+    let mut out = format!("{icon} {}", titlecase_tool_name(tool_name));
+    if let Some(path) = obj.get("filePath").or_else(|| obj.get("path")).and_then(Value::as_str) {
+        if !path.is_empty() {
+            out.push(' ');
+            out.push_str(path);
+        }
+    }
+    append_input_brackets(Some(obj), GENERIC_EXCLUDE_KEYS, &mut out);
+    out
+}
+
+fn append_input_brackets(input: Option<&serde_json::Map<String, Value>>, exclude: &[&str], out: &mut String) {
+    if let Some(args) = input.and_then(|obj| format_input_brackets(obj, exclude)) {
+        if !args.is_empty() {
             out.push(' ');
             out.push_str(&args);
         }
-        return Some(out);
     }
-
-    Some(format!(
-        "{} {}",
-        tool_icon(&lower),
-        titlecase_tool_name(tool_name)
-    ))
 }
 
 // --- Input Summary ---
@@ -215,81 +190,68 @@ pub(super) fn tool_input_summary(item: &Value) -> Option<String> {
 
 pub(super) fn format_tool_item(item: &Value, role: Role) -> Option<String> {
     match role {
-        Role::ToolCall => {
-            if let Some(cmd) = tool_command(item) {
-                let mut lines = Vec::new();
-                if let Some(ssh) = parse_ssh_remote_command(&cmd) {
-                    lines.push(format!("remote exec on {}", ssh.destination));
-                    if let Some(reason) = tool_reasoning(item) {
-                        lines.push(format!("Thinking: {reason}"));
-                    }
-                    if let Some(desc) = tool_description(item) {
-                        lines.push(format!("# {desc}"));
-                    }
-                    lines.push(format!("$ {}", ssh.remote_command));
-                    return Some(lines.join("\n"));
-                }
-
-                lines.push(format!("run `{cmd}`"));
-                if let Some(reason) = tool_reasoning(item) {
-                    lines.push(format!("Thinking: {reason}"));
-                }
-                if let Some(desc) = tool_description(item) {
-                    lines.push(format!("# {desc}"));
-                }
-                lines.push(format!("$ {cmd}"));
-                return Some(lines.join("\n"));
-            }
-
-            if let Some(name) = tool_name(item) {
-                if let Some(inline) = format_tool_call_inline(item, &name) {
-                    return Some(inline);
-                }
-                if let Some(input) = tool_input_summary(item) {
-                    return Some(format!("{} {}", titlecase_tool_name(&name), input));
-                }
-                return Some(titlecase_tool_name(&name));
-            }
-
-            None
-        }
-        Role::ToolOutput => {
-            if item.get("type").and_then(Value::as_str) == Some("commandExecution") {
-                let command = tool_command(item);
-                let output = tool_output_text(item);
-
-                return match (command, output) {
-                    (Some(cmd), Some(out)) => {
-                        if let Some(ssh) = parse_ssh_remote_command(&cmd) {
-                            Some(format!(
-                                "remote exec on {}\n$ {}\n{}",
-                                ssh.destination, ssh.remote_command, out
-                            ))
-                        } else {
-                            Some(format!("$ {cmd}\n{out}"))
-                        }
-                    }
-                    (Some(cmd), None) => {
-                        if let Some(ssh) = parse_ssh_remote_command(&cmd) {
-                            Some(format!(
-                                "remote exec on {}\n$ {}",
-                                ssh.destination, ssh.remote_command
-                            ))
-                        } else {
-                            Some(format!("$ {cmd}"))
-                        }
-                    }
-                    (None, Some(out)) => Some(out),
-                    (None, None) => None,
-                };
-            }
-
-            if let Some(out) = tool_output_text(item) {
-                return Some(out);
-            }
-            None
-        }
+        Role::ToolCall => format_tool_call(item),
+        Role::ToolOutput => format_tool_output(item),
         _ => None,
+    }
+}
+
+fn format_tool_call(item: &Value) -> Option<String> {
+    if let Some(cmd) = tool_command(item) {
+        return Some(format_command_call(item, &cmd));
+    }
+    let name = tool_name(item)?;
+    format_tool_call_inline(item, &name)
+        .or_else(|| tool_input_summary(item).map(|input| format!("{} {}", titlecase_tool_name(&name), input)))
+        .or_else(|| Some(titlecase_tool_name(&name)))
+}
+
+fn format_command_call(item: &Value, cmd: &str) -> String {
+    let mut lines = Vec::new();
+    if let Some(ssh) = parse_ssh_remote_command(cmd) {
+        lines.push(format!("remote exec on {}", ssh.destination));
+        push_reasoning_and_description(&mut lines, item);
+        lines.push(format!("$ {}", ssh.remote_command));
+    } else {
+        lines.push(format!("run `{cmd}`"));
+        push_reasoning_and_description(&mut lines, item);
+        lines.push(format!("$ {cmd}"));
+    }
+    lines.join("\n")
+}
+
+fn push_reasoning_and_description(lines: &mut Vec<String>, item: &Value) {
+    if let Some(reason) = tool_reasoning(item) {
+        lines.push(format!("Thinking: {reason}"));
+    }
+    if let Some(desc) = tool_description(item) {
+        lines.push(format!("# {desc}"));
+    }
+}
+
+fn format_tool_output(item: &Value) -> Option<String> {
+    if item.get("type").and_then(Value::as_str) == Some("commandExecution") {
+        return format_command_output(item);
+    }
+    tool_output_text(item)
+}
+
+fn format_command_output(item: &Value) -> Option<String> {
+    let cmd = tool_command(item);
+    let output = tool_output_text(item);
+    match (cmd, output) {
+        (Some(cmd), Some(out)) => Some(format!("{}\n{out}", format_cmd_prefix(&cmd))),
+        (Some(cmd), None) => Some(format_cmd_prefix(&cmd)),
+        (None, Some(out)) => Some(out),
+        (None, None) => None,
+    }
+}
+
+fn format_cmd_prefix(cmd: &str) -> String {
+    if let Some(ssh) = parse_ssh_remote_command(cmd) {
+        format!("remote exec on {}\n$ {}", ssh.destination, ssh.remote_command)
+    } else {
+        format!("$ {cmd}")
     }
 }
 
@@ -342,7 +304,7 @@ fn summarize_parsed_cmd_part(
         "diff" | "gitdiff" | "git_diff" => "Δ Diff".to_string(),
         _ => {
             let summary = command_summary_from_shell_cmd(cmd?, cwd)?;
-            return Some(append_input_brackets(obj, summary));
+            return Some(append_cmd_brackets(obj, summary));
         }
     };
 
@@ -350,10 +312,10 @@ fn summarize_parsed_cmd_part(
         out.push(' ');
         out.push_str(&compact_command_path(path, cwd));
     }
-    Some(append_input_brackets(obj, out))
+    Some(append_cmd_brackets(obj, out))
 }
 
-fn append_input_brackets(obj: &serde_json::Map<String, Value>, mut out: String) -> String {
+fn append_cmd_brackets(obj: &serde_json::Map<String, Value>, mut out: String) -> String {
     if let Some(args) = format_input_brackets(
         obj,
         &["type", "cmd", "command", "path", "filePath", "file", "name", "cwd"],

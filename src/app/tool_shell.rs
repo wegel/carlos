@@ -3,6 +3,7 @@
 use serde_json::Value;
 use shlex::split as shlex_split;
 
+// --- Shell Types ---
 /// An SSH command decomposed into destination and remote command.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ParsedSshCommand {
@@ -10,16 +11,10 @@ pub(super) struct ParsedSshCommand {
     pub(super) remote_command: String,
 }
 
+// --- Shell Normalization ---
 pub(super) fn command_execution_action_command(item: &Value) -> Option<String> {
-    let actions = item.get("commandActions").and_then(Value::as_array)?;
-    for a in actions {
-        if let Some(cmd) = a.get("command").and_then(Value::as_str) {
-            if !cmd.is_empty() {
-                return Some(cmd.to_string());
-            }
-        }
-    }
-    None
+    item.get("commandActions")?.as_array()?.iter()
+        .find_map(|a| a.get("command")?.as_str().filter(|s| !s.is_empty()).map(str::to_string))
 }
 
 pub(super) fn normalize_shell_command(raw: &str) -> String {
@@ -32,6 +27,7 @@ pub(super) fn normalize_shell_command(raw: &str) -> String {
     raw.to_string()
 }
 
+// --- SSH Parsing ---
 pub(super) fn parse_ssh_remote_command(command: &str) -> Option<ParsedSshCommand> {
     let normalized = normalize_shell_command(command);
     let tokens = shlex_split(&normalized)?;
@@ -99,6 +95,7 @@ fn ssh_option_takes_value(token: &str) -> bool {
     )
 }
 
+// --- Control Stripping ---
 pub(super) fn strip_terminal_controls_preserving_sgr(text: &str) -> String {
     let bytes = text.as_bytes();
     let mut out = String::with_capacity(text.len());
@@ -232,17 +229,12 @@ pub(super) fn strip_terminal_controls(text: &str) -> String {
     out
 }
 
+// --- Summary Helpers ---
 pub(super) fn compact_command_path(path: &str, cwd: Option<&str>) -> String {
-    if let Some(cwd) = cwd {
-        if let Some(rest) = path.strip_prefix(cwd) {
-            if let Some(trimmed) = rest.strip_prefix('/') {
-                if !trimmed.is_empty() {
-                    return trimmed.to_string();
-                }
-            }
-        }
-    }
-    path.to_string()
+    cwd.and_then(|c| path.strip_prefix(c)?.strip_prefix('/'))
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| path.to_string())
 }
 
 pub(super) fn first_non_option_token(command: &str) -> Option<&str> {
@@ -269,6 +261,7 @@ fn tokens_without_program_options(tokens: &[String]) -> &[String] {
     &tokens[i..]
 }
 
+// --- Command Summaries ---
 fn parse_shell_search_summary(cmd: &str, program: &str, cwd: Option<&str>) -> Option<String> {
     let tokens = shlex_split(cmd)?;
     if tokens.first().map(String::as_str)? != program {
@@ -284,15 +277,9 @@ fn parse_shell_search_summary(cmd: &str, program: &str, cwd: Option<&str>) -> Op
         .map(|t| compact_command_path(strip_shell_quotes(t), cwd))
         .collect();
 
-    let mut out = "✱ Search".to_string();
-    if !paths.is_empty() {
-        out.push(' ');
-        out.push_str(&paths.join(" "));
-    }
-    if let Some(pattern) = pattern {
-        if !pattern.is_empty() {
-            out.push_str(&format!(" [pattern={pattern}]"));
-        }
+    let mut out = if paths.is_empty() { "✱ Search".to_string() } else { format!("✱ Search {}", paths.join(" ")) };
+    if let Some(p) = pattern.filter(|p| !p.is_empty()) {
+        out.push_str(&format!(" [pattern={p}]"));
     }
     Some(out)
 }
@@ -322,12 +309,8 @@ fn parse_shell_sed_summary(cmd: &str, cwd: Option<&str>) -> Option<String> {
     let script = strip_shell_quotes(args.first()?);
     let path = compact_command_path(strip_shell_quotes(args.get(1)?), cwd);
 
-    let mut out = format!("✱ Search {path}");
-    if let Some(range) = parse_sed_range(script) {
-        out.push(' ');
-        out.push_str(&range);
-    }
-    Some(out)
+    let suffix = parse_sed_range(script).map(|r| format!(" {r}")).unwrap_or_default();
+    Some(format!("✱ Search {path}{suffix}"))
 }
 
 fn parse_shell_read_path(cmd: &str, cwd: Option<&str>) -> Option<String> {
@@ -384,18 +367,16 @@ pub(super) fn command_summary_from_shell_cmd(cmd: &str, cwd: Option<&str>) -> Op
     if lower.starts_with("apply_patch") || lower.starts_with("patch ") {
         return Some("← Edit".to_string());
     }
-    if lower.starts_with("rg ")
-        || lower.starts_with("grep ")
-        || lower.starts_with("fd ")
+    if lower.starts_with("rg ") {
+        return parse_shell_search_summary(cmd, "rg", cwd).or(Some("✱ Search".to_string()));
+    }
+    if lower.starts_with("grep ") {
+        return parse_shell_search_summary(cmd, "grep", cwd).or(Some("✱ Search".to_string()));
+    }
+    if lower.starts_with("fd ")
         || lower.starts_with("find ")
         || lower.starts_with("git grep ")
     {
-        if lower.starts_with("rg ") {
-            return parse_shell_search_summary(cmd, "rg", cwd).or(Some("✱ Search".to_string()));
-        }
-        if lower.starts_with("grep ") {
-            return parse_shell_search_summary(cmd, "grep", cwd).or(Some("✱ Search".to_string()));
-        }
         return Some("✱ Search".to_string());
     }
 
@@ -408,18 +389,13 @@ pub(super) fn command_summary_from_shell_cmd(cmd: &str, cwd: Option<&str>) -> Op
         || lhs_lower.starts_with("head ")
         || lhs_lower.starts_with("tail ")
     {
-        let sub = lhs
-            .split_once(' ')
-            .map(|(_, rest)| rest)
-            .unwrap_or("")
-            .trim();
-        if let Some(path_token) = first_non_option_token(sub) {
-            let path = strip_shell_quotes(path_token);
-            if !path.is_empty() {
-                return Some(format!("→ Read {}", compact_command_path(path, cwd)));
-            }
-        }
-        return Some("→ Read".to_string());
+        let sub = lhs.split_once(' ').map(|(_, r)| r).unwrap_or("").trim();
+        let label = first_non_option_token(sub)
+            .map(strip_shell_quotes)
+            .filter(|p| !p.is_empty())
+            .map(|p| format!("→ Read {}", compact_command_path(p, cwd)))
+            .unwrap_or_else(|| "→ Read".to_string());
+        return Some(label);
     }
 
     if lhs_lower.starts_with("sed ") {

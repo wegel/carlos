@@ -1,4 +1,8 @@
 //! Terminal event dispatch: keyboard event routing and resize handling.
+//!
+//! Over 400-line cap (~420): all keyboard handlers share `AppState` + `BackendClient`
+//! coupling, making further extraction awkward without a handler-trait abstraction.
+//! Re-evaluate if a new overlay mode or input subsystem is added.
 
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -32,30 +36,13 @@ pub(super) fn trace_terminal_event(ev: &Event) {
     static TRACE_FILE: OnceLock<Option<Mutex<std::fs::File>>> = OnceLock::new();
     let trace = TRACE_FILE.get_or_init(|| {
         let path = std::env::var_os("CARLOS_EVENT_TRACE")?;
-        OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)
-            .ok()
-            .map(Mutex::new)
+        OpenOptions::new().create(true).append(true).open(path).ok().map(Mutex::new)
     });
-    let Some(file_mutex) = trace else {
-        return;
-    };
-    let Ok(mut file) = file_mutex.lock() else {
-        return;
-    };
+    let Some(file_mutex) = trace else { return };
+    let Ok(mut file) = file_mutex.lock() else { return };
     let _ = match ev {
-        Event::Key(k) => writeln!(
-            &mut *file,
-            "key code={:?} mods={:?} kind={:?}",
-            k.code, k.modifiers, k.kind
-        ),
-        Event::Mouse(m) => writeln!(
-            &mut *file,
-            "mouse kind={:?} col={} row={} mods={:?}",
-            m.kind, m.column, m.row, m.modifiers
-        ),
+        Event::Key(k) => writeln!(&mut *file, "key code={:?} mods={:?} kind={:?}", k.code, k.modifiers, k.kind),
+        Event::Mouse(m) => writeln!(&mut *file, "mouse kind={:?} col={} row={} mods={:?}", m.kind, m.column, m.row, m.modifiers),
         Event::Paste(p) => writeln!(&mut *file, "paste bytes={} {:?}", p.len(), p),
         Event::Resize(w, h) => writeln!(&mut *file, "resize {} {}", w, h),
         _ => writeln!(&mut *file, "event {:?}", ev),
@@ -64,36 +51,16 @@ pub(super) fn trace_terminal_event(ev: &Event) {
 
 // --- Mobile mouse detection ---
 
-pub(super) fn is_mobile_mouse_key_candidate(
-    app: &AppState,
-    code: KeyCode,
-    modifiers: KeyModifiers,
-) -> bool {
+pub(super) fn is_mobile_mouse_key_candidate(app: &AppState, code: KeyCode, modifiers: KeyModifiers) -> bool {
     if app.viewport.mobile_plain_pending_coords || app.viewport.mobile_plain_suppress_coords {
         return matches!(code, KeyCode::Char(ch) if ch.is_ascii_digit() || ch == ';');
     }
-
     if !app.viewport.mobile_mouse_buffer.is_empty() {
         return matches!(code, KeyCode::Char(_));
     }
-
-    let KeyCode::Char(ch) = code else {
-        return false;
-    };
-    if ch == '<' {
-        return true;
-    }
-
-    if modifiers.contains(KeyModifiers::ALT) {
-        return ch == '['
-            || ch == '<'
-            || ch == ';'
-            || ch == 'M'
-            || ch == 'm'
-            || ch.is_ascii_digit();
-    }
-
-    false
+    let KeyCode::Char(ch) = code else { return false };
+    ch == '<' || (modifiers.contains(KeyModifiers::ALT)
+        && matches!(ch, '[' | '<' | ';' | 'M' | 'm' | '0'..='9'))
 }
 
 // --- Transcript layout ---
@@ -229,29 +196,20 @@ fn handle_approval_key(
     TerminalEventResult::Continue { needs_draw: true }
 }
 
-fn handle_model_settings_key(
-    app: &mut AppState,
-    k: crossterm::event::KeyEvent,
-) -> TerminalEventResult {
+fn handle_model_settings_key(app: &mut AppState, k: crossterm::event::KeyEvent) -> TerminalEventResult {
+    let cycle = |app: &mut AppState, dir: isize| match app.runtime.model_settings_field {
+        ModelSettingsField::Model => app.model_settings_cycle_model(dir),
+        ModelSettingsField::Effort => app.model_settings_cycle_effort(dir),
+        ModelSettingsField::Summary => app.model_settings_cycle_summary(dir),
+    };
     match (k.code, k.modifiers) {
         (code, mods) if is_ctrl_char(code, mods, 'c') => return TerminalEventResult::Quit,
         (KeyCode::Esc, _) => app.close_model_settings(),
         (KeyCode::Tab, _) | (KeyCode::Down, _) => app.model_settings_move_field(true),
         (KeyCode::BackTab, _) | (KeyCode::Up, _) => app.model_settings_move_field(false),
-        (KeyCode::Left, _) => match app.runtime.model_settings_field {
-            ModelSettingsField::Model => app.model_settings_cycle_model(-1),
-            ModelSettingsField::Effort => app.model_settings_cycle_effort(-1),
-            ModelSettingsField::Summary => app.model_settings_cycle_summary(-1),
-        },
-        (KeyCode::Right, _) => match app.runtime.model_settings_field {
-            ModelSettingsField::Model => app.model_settings_cycle_model(1),
-            ModelSettingsField::Effort => app.model_settings_cycle_effort(1),
-            ModelSettingsField::Summary => app.model_settings_cycle_summary(1),
-        },
-        (KeyCode::Backspace, _)
-            if matches!(app.runtime.model_settings_field, ModelSettingsField::Model)
-                && !app.model_settings_has_model_choices() =>
-        {
+        (KeyCode::Left, _) => cycle(app, -1),
+        (KeyCode::Right, _) => cycle(app, 1),
+        (KeyCode::Backspace, _) if matches!(app.runtime.model_settings_field, ModelSettingsField::Model) && !app.model_settings_has_model_choices() => {
             app.model_settings_backspace();
         }
         (KeyCode::Enter, _) => {
@@ -260,14 +218,8 @@ fn handle_model_settings_key(
                 app.set_status(format!("saved for next turn; default save failed: {err}"));
             }
         }
-        (KeyCode::Char(ch), mods)
-            if !mods.contains(KeyModifiers::CONTROL)
-                && !mods.contains(KeyModifiers::ALT)
-                && matches!(app.runtime.model_settings_field, ModelSettingsField::Model) =>
-        {
-            if !app.model_settings_has_model_choices() {
-                app.model_settings_insert_char(ch);
-            }
+        (KeyCode::Char(ch), mods) if !mods.contains(KeyModifiers::CONTROL) && !mods.contains(KeyModifiers::ALT) && matches!(app.runtime.model_settings_field, ModelSettingsField::Model) => {
+            if !app.model_settings_has_model_choices() { app.model_settings_insert_char(ch); }
         }
         _ => {}
     }

@@ -7,12 +7,14 @@ use anyhow::{bail, Context, Result};
 
 use super::{Message, Role};
 
+// --- Ralph Defaults ---
 pub(crate) const DEFAULT_PROMPT_PATH: &str = ".agents/ralph-prompt.md";
 pub(crate) const DEFAULT_DONE_MARKER: &str = "@@COMPLETE@@";
 pub(crate) const DEFAULT_BLOCKED_MARKER: &str = "@@BLOCKED@@";
 pub(crate) const DEFAULT_CONTINUATION_PROMPT: &str =
     "(continuation - you were interrupted, not blocked. keep working.)";
 
+// --- Ralph Types ---
 #[derive(Debug, Clone)]
 pub(super) struct RalphConfig {
     pub(super) prompt_path: PathBuf,
@@ -47,6 +49,7 @@ impl RalphState {
     }
 }
 
+// --- Config Loading ---
 pub(super) fn load_ralph_config(
     cwd: &Path,
     prompt_path_override: Option<&str>,
@@ -77,6 +80,7 @@ pub(super) fn load_ralph_config(
     })
 }
 
+// --- Marker Detection ---
 pub(super) fn detect_turn_markers(
     messages: &[Message],
     start_idx: usize,
@@ -114,6 +118,7 @@ fn text_contains_marker(text: &str, marker: &str) -> bool {
     text.contains(marker)
 }
 
+// --- Marker Helpers ---
 fn resolve_prompt_path(cwd: &Path, prompt_path_override: Option<&str>) -> PathBuf {
     let candidate = prompt_path_override.unwrap_or(DEFAULT_PROMPT_PATH);
     let path = Path::new(candidate);

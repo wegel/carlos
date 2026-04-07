@@ -12,7 +12,7 @@ use super::transcript_styles::{
     ansi_line_segments, is_fence_delimiter, markdown_line_segments, normalize_styled_segments_for_part,
     styled_plain_text, take_styled_segments_by_cells,
 };
-use crate::theme::*;
+use crate::theme::COLOR_STEP2;
 
 // --- Cache ---
 

@@ -3,6 +3,7 @@
 use super::models::{Message, MessageKind, Role};
 use super::transcript_render::format_read_summary_with_count;
 
+// --- Core Types ---
 const SYNTHETIC_USER: &str = "perf-user";
 const SYNTHETIC_HOST: &str = "perfbox.local";
 
@@ -16,6 +17,7 @@ pub(super) struct SyntheticPerfSpec {
 #[derive(Debug, Clone, Copy)]
 pub(super) struct SyntheticRng(u64);
 
+// --- RNG Helpers ---
 impl SyntheticRng {
     pub(super) fn new(seed: u64) -> Self {
         Self(if seed == 0 { 1 } else { seed })
@@ -43,6 +45,7 @@ impl SyntheticRng {
     }
 }
 
+// --- Message Builders ---
 pub(super) fn build_synthetic_perf_messages(spec: SyntheticPerfSpec) -> Vec<Message> {
     let mut rng = SyntheticRng::new(spec.seed);
     let mut messages = Vec::with_capacity(spec.turns.saturating_mul(6));
@@ -84,6 +87,7 @@ pub(super) fn build_synthetic_perf_messages(spec: SyntheticPerfSpec) -> Vec<Mess
     messages
 }
 
+// --- Turn Content ---
 fn synthetic_user_message(turn: usize, rng: &mut SyntheticRng) -> String {
     let intro = synthetic_paragraph(rng, 2, 9, 14);
     if turn % 7 == 0 {
@@ -187,6 +191,7 @@ fn synthetic_assistant_message(turn: usize, rng: &mut SyntheticRng) -> String {
     sections.join("\n\n")
 }
 
+// --- Content Generators ---
 fn synthetic_code_block(turn: usize, rng: &mut SyntheticRng) -> String {
     let value = 10 + rng.range(90);
     format!(
@@ -278,6 +283,7 @@ fn synthetic_identifier(rng: &mut SyntheticRng) -> String {
     format!("{}_{}", rng.choose(&SYNTHETIC_WORDS), 10 + rng.range(990))
 }
 
+// --- Word Lists ---
 const SYNTHETIC_WORDS: [&str; 40] = [
     "atlas", "buffer", "cache", "delta", "engine", "frame", "graph", "handle", "index", "journal",
     "kernel", "layout", "marker", "native", "offset", "packet", "queue", "render", "sample",

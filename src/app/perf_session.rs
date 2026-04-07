@@ -3,7 +3,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use ratatui::backend::TestBackend;
@@ -71,21 +71,32 @@ pub(super) fn run_perf_session(opts: &CliOptions) -> Result<()> {
     benchmark_append_draws(&mut app, terminal_size, &mut stats)?;
     let rss_after_bench_kib = current_rss_kib();
 
+    print_perf_report(&app, &stats, &source_label, terminal_size, replay_elapsed,
+        rss_before_kib, rss_after_replay_kib, rss_after_bench_kib);
+    Ok(())
+}
+
+fn print_perf_report(
+    app: &AppState,
+    stats: &PerfReplayStats,
+    source_label: &str,
+    size: TerminalSize,
+    replay_elapsed: Duration,
+    rss_before: Option<u64>,
+    rss_after_replay: Option<u64>,
+    rss_after_bench: Option<u64>,
+) {
     println!("carlos perf-session");
     println!("source: {source_label}");
-    println!("viewport: {}x{}", terminal_size.width, terminal_size.height);
+    println!("viewport: {}x{}", size.width, size.height);
     println!(
         "transcript: messages={} rendered_lines={} relevant_items={} replay_elapsed_ms={:.2}",
-        app.messages.len(),
-        app.rendered_line_count(),
-        stats.relevant_items,
+        app.messages.len(), app.rendered_line_count(), stats.relevant_items,
         replay_elapsed.as_secs_f64() * 1000.0
     );
     println!(
         "memory_kib: before={} after_replay={} after_bench={}",
-        rss_before_kib.unwrap_or(0),
-        rss_after_replay_kib.unwrap_or(0),
-        rss_after_bench_kib.unwrap_or(0)
+        rss_before.unwrap_or(0), rss_after_replay.unwrap_or(0), rss_after_bench.unwrap_or(0)
     );
     println!("replay_apply:  {}", stats.replay_apply.summary());
     println!("full_layout:   {:.2} ms", stats.full_layout_ms);
@@ -97,14 +108,9 @@ pub(super) fn run_perf_session(opts: &CliOptions) -> Result<()> {
     if !stats.layout_breakdown.is_empty() {
         println!("layout_breakdown:");
         for row in &stats.layout_breakdown {
-            println!(
-                "  {} msgs={} lines={} total_ms={:.2}",
-                row.label, row.messages, row.lines, row.total_ms
-            );
+            println!("  {} msgs={} lines={} total_ms={:.2}", row.label, row.messages, row.lines, row.total_ms);
         }
     }
-
-    Ok(())
 }
 
 fn replay_perf_session(path: &str, size: TerminalSize) -> Result<(AppState, PerfReplayStats)> {
