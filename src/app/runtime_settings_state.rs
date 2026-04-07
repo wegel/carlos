@@ -212,35 +212,14 @@ impl RuntimeSettingsState {
     pub(super) fn open_model_settings(&mut self) {
         self.show_model_settings = true;
         self.model_settings_field = ModelSettingsField::Model;
-        let preferred_model = self
-            .pending_model
-            .as_deref()
-            .or(self.current_model.as_deref())
-            .unwrap_or("");
-        self.model_settings_model_index = if self.available_models.is_empty() {
-            0
-        } else {
-            self.available_models
-                .iter()
-                .position(|m| m.model == preferred_model)
-                .unwrap_or(0)
-        };
-        self.model_settings_model_input = self
-            .available_models
-            .get(self.model_settings_model_index)
+        let preferred_model = self.pending_model.as_deref().or(self.current_model.as_deref()).unwrap_or("");
+        self.model_settings_model_index = self.available_models.iter().position(|m| m.model == preferred_model).unwrap_or(0);
+        self.model_settings_model_input = self.available_models.get(self.model_settings_model_index)
             .map(|m| m.model.clone())
             .unwrap_or_else(|| preferred_model.to_string());
         self.refresh_model_settings_efforts();
-        let preferred_summary = self
-            .pending_summary
-            .as_deref()
-            .or(self.current_summary.as_deref())
-            .unwrap_or("auto");
-        self.model_settings_summary_index = self
-            .model_settings_summary_options
-            .iter()
-            .position(|option| option == preferred_summary)
-            .unwrap_or(0);
+        let preferred_summary = self.pending_summary.as_deref().or(self.current_summary.as_deref()).unwrap_or("auto");
+        self.model_settings_summary_index = self.model_settings_summary_options.iter().position(|o| o == preferred_summary).unwrap_or(0);
     }
 
     pub(super) fn close_model_settings(&mut self) {
@@ -274,10 +253,7 @@ impl RuntimeSettingsState {
 
     pub(super) fn model_settings_cycle_effort(&mut self, step: isize) {
         if self.model_settings_effort_options.is_empty() {
-            self.model_settings_effort_options = DEFAULT_EFFORT_OPTIONS
-                .iter()
-                .map(|s| (*s).to_string())
-                .collect();
+            self.model_settings_effort_options = default_effort_vec();
         }
         let len = self.model_settings_effort_options.len() as isize;
         let cur = self.model_settings_effort_index as isize;
@@ -380,22 +356,13 @@ impl RuntimeSettingsState {
         let (options, default_effort) =
             if let Some(model) = self.available_models.get(self.model_settings_model_index) {
                 let options = if model.supported_efforts.is_empty() {
-                    DEFAULT_EFFORT_OPTIONS
-                        .iter()
-                        .map(|s| (*s).to_string())
-                        .collect::<Vec<_>>()
+                    default_effort_vec()
                 } else {
                     model.supported_efforts.clone()
                 };
                 (options, model.default_effort.clone())
             } else {
-                (
-                    DEFAULT_EFFORT_OPTIONS
-                        .iter()
-                        .map(|s| (*s).to_string())
-                        .collect::<Vec<_>>(),
-                    None,
-                )
+                (default_effort_vec(), None)
             };
 
         self.model_settings_effort_options = options;
@@ -419,16 +386,13 @@ impl RuntimeSettingsState {
 
 fn normalize_non_empty(s: String) -> Option<String> {
     let trimmed = s.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
+    (!trimmed.is_empty()).then(|| trimmed.to_string())
+}
+
+fn default_effort_vec() -> Vec<String> {
+    DEFAULT_EFFORT_OPTIONS.iter().map(|s| s.to_string()).collect()
 }
 
 fn effort_index(value: &str) -> usize {
-    DEFAULT_EFFORT_OPTIONS
-        .iter()
-        .position(|v| v.eq_ignore_ascii_case(value))
-        .unwrap_or(3)
+    DEFAULT_EFFORT_OPTIONS.iter().position(|v| v.eq_ignore_ascii_case(value)).unwrap_or(3)
 }

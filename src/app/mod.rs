@@ -38,7 +38,7 @@ use self::notifications::*;
 #[cfg(test)]
 use self::perf::{DurationSamples, PerfMetrics};
 #[cfg(test)]
-use self::picker_render::*;
+use self::picker_delete_dialog::*;
 #[cfg(test)]
 use self::render::*;
 #[cfg(test)]
@@ -83,6 +83,7 @@ mod notifications;
 mod overlay_render;
 mod perf;
 mod perf_session;
+mod picker_delete_dialog;
 mod picker_render;
 mod ralph;
 mod ralph_runtime_state;
