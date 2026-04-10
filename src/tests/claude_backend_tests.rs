@@ -11,9 +11,10 @@ use super::turn_submit::{submit_turn_text, submit_turn_text_with_history};
 use super::*;
 use crate::backend::{BackendClient, BackendKind};
 use crate::claude_backend::{
-    claude_approval_follow_up_text, claude_project_dir_name, claude_recovery_launch_mode,
-    load_claude_local_history_from_projects_root, translate_claude_line, ClaudeLaunchMode,
-    ClaudeTranslationState,
+    build_claude_command_for_test, claude_approval_follow_up_text, claude_project_dir_name,
+    claude_recovery_launch_mode, load_claude_local_history,
+    load_claude_local_history_from_projects_root,
+    translate_claude_line, ClaudeLaunchMode, ClaudeTranslationState,
 };
 
 fn collect_synthetic_lines(lines: &[&str]) -> Vec<String> {
@@ -33,6 +34,13 @@ fn parse_method(line: &str) -> Option<String> {
             .and_then(Value::as_str)
             .map(str::to_string)
     })
+}
+
+fn command_args(command: &std::process::Command) -> Vec<String> {
+    command
+        .get_args()
+        .map(|arg| arg.to_string_lossy().into_owned())
+        .collect()
 }
 
 fn temp_test_dir(name: &str) -> PathBuf {
@@ -154,6 +162,141 @@ fn parse_cli_args_uses_backend_env_default() {
     match old {
         Some(value) => std::env::set_var("CARLOS_BACKEND", value),
         None => std::env::remove_var("CARLOS_BACKEND"),
+    }
+}
+
+#[test]
+fn build_claude_command_disallows_plan_mode_by_default() {
+    let _guard = env_lock().lock().expect("env lock");
+    let old = std::env::var_os("CARLOS_CLAUDE_ALLOW_PLAN_MODE");
+    std::env::remove_var("CARLOS_CLAUDE_ALLOW_PLAN_MODE");
+
+    let command = build_claude_command_for_test(
+        Path::new("/repo"),
+        &ClaudeLaunchMode::Continue,
+    );
+    let args = command_args(&command);
+    assert!(args.windows(3).any(|window| {
+        window[0] == "--disallowedTools"
+            && window[1] == "EnterPlanMode"
+            && window[2] == "Agent(Plan)"
+    }));
+
+    match old {
+        Some(value) => std::env::set_var("CARLOS_CLAUDE_ALLOW_PLAN_MODE", value),
+        None => std::env::remove_var("CARLOS_CLAUDE_ALLOW_PLAN_MODE"),
+    }
+}
+
+#[test]
+fn build_claude_command_allows_plan_mode_when_opted_in() {
+    let _guard = env_lock().lock().expect("env lock");
+    let old = std::env::var_os("CARLOS_CLAUDE_ALLOW_PLAN_MODE");
+    std::env::set_var("CARLOS_CLAUDE_ALLOW_PLAN_MODE", "1");
+
+    let command = build_claude_command_for_test(
+        Path::new("/repo"),
+        &ClaudeLaunchMode::Continue,
+    );
+    let args = command_args(&command);
+    assert!(!args.iter().any(|arg| arg == "--disallowedTools"));
+
+    match old {
+        Some(value) => std::env::set_var("CARLOS_CLAUDE_ALLOW_PLAN_MODE", value),
+        None => std::env::remove_var("CARLOS_CLAUDE_ALLOW_PLAN_MODE"),
+    }
+}
+
+#[test]
+fn load_claude_local_history_uses_tilde_claude_config_dir() {
+    let _guard = env_lock().lock().expect("env lock");
+    let old_home = std::env::var_os("HOME");
+    let old_config_dir = std::env::var_os("CLAUDE_CONFIG_DIR");
+    let root = temp_test_dir("claude-config-dir-tilde");
+    let home = root.join("home");
+    let config_dir = home.join(".claude-tt");
+    let projects_root = config_dir.join("projects");
+    let cwd = Path::new("/repo");
+    let session_id = "session-tilde-config";
+    let _ = fs::create_dir_all(&projects_root);
+    write_session_file(
+        &projects_root,
+        cwd,
+        session_id,
+        &[r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Hello from custom config"}]},"sessionId":"session-tilde-config"}"#],
+    );
+
+    std::env::set_var("HOME", &home);
+    std::env::set_var("CLAUDE_CONFIG_DIR", "~/.claude-tt");
+
+    let imported = load_claude_local_history(
+        cwd,
+        &ClaudeLaunchMode::Resume(session_id.to_string()),
+    )
+    .expect("history")
+    .expect("imported history");
+    assert_eq!(imported.session_id, session_id);
+    assert_eq!(imported.imported_item_count, 1);
+
+    match old_home {
+        Some(value) => std::env::set_var("HOME", value),
+        None => std::env::remove_var("HOME"),
+    }
+    match old_config_dir {
+        Some(value) => std::env::set_var("CLAUDE_CONFIG_DIR", value),
+        None => std::env::remove_var("CLAUDE_CONFIG_DIR"),
+    }
+}
+
+#[test]
+fn translate_claude_hides_plan_write_tools_under_tilde_config_dir() {
+    let _guard = env_lock().lock().expect("env lock");
+    let old_home = std::env::var_os("HOME");
+    let old_config_dir = std::env::var_os("CLAUDE_CONFIG_DIR");
+    let root = temp_test_dir("claude-config-dir-plan-write");
+    let home = root.join("home");
+    let plan_path = home.join(".claude-tt").join("plans").join("test-plan.md");
+    let plan_path_json =
+        serde_json::to_string(plan_path.to_str().expect("utf-8 plan path")).expect("json path");
+    let delta_line = serde_json::json!({
+        "type": "stream_event",
+        "event": {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {
+                "type": "input_json_delta",
+                "partial_json": format!("{{\"file_path\":{},\"content\":\"# Plan\"}}", plan_path_json),
+            }
+        },
+        "session_id": "session-1",
+    })
+    .to_string();
+    let _ = fs::create_dir_all(home.join(".claude-tt").join("plans"));
+    std::env::set_var("HOME", &home);
+    std::env::set_var("CLAUDE_CONFIG_DIR", "~/.claude-tt");
+
+    let synthetic = collect_synthetic_lines(&[
+        r#"{"type":"stream_event","event":{"type":"message_start","message":{"id":"msg-1"}},"session_id":"session-1"}"#,
+        r#"{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_write","name":"Write","input":{},"caller":{"type":"direct"}}},"session_id":"session-1"}"#,
+        &delta_line,
+        r#"{"type":"stream_event","event":{"type":"content_block_stop","index":0},"session_id":"session-1"}"#,
+        r#"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_write","type":"tool_result","content":"File created successfully","is_error":false}]},"session_id":"session-1"}"#,
+    ]);
+
+    let completed: Vec<Value> = synthetic
+        .iter()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .filter(|value| value.get("method").and_then(Value::as_str) == Some("item/completed"))
+        .collect();
+    assert!(completed.is_empty());
+
+    match old_home {
+        Some(value) => std::env::set_var("HOME", value),
+        None => std::env::remove_var("HOME"),
+    }
+    match old_config_dir {
+        Some(value) => std::env::set_var("CLAUDE_CONFIG_DIR", value),
+        None => std::env::remove_var("CLAUDE_CONFIG_DIR"),
     }
 }
 
@@ -390,6 +533,35 @@ fn translate_claude_exit_plan_fallback_emits_pending_approval_request() {
         request["params"]["allowedPrompts"][0]["prompt"].as_str(),
         Some("run cargo test")
     );
+
+    let completed: Vec<Value> = synthetic
+        .iter()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .filter(|value| value.get("method").and_then(Value::as_str) == Some("item/completed"))
+        .collect();
+    assert!(completed.is_empty());
+}
+
+#[test]
+fn translate_claude_hides_internal_agent_and_plan_write_tools() {
+    let synthetic = collect_synthetic_lines(&[
+        r#"{"type":"stream_event","event":{"type":"message_start","message":{"id":"msg-1"}},"session_id":"session-1"}"#,
+        r#"{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_agent","name":"Agent","input":{},"caller":{"type":"direct"}}},"session_id":"session-1"}"#,
+        r##"{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"subagent_type\":\"Plan\",\"description\":\"Draft plan\",\"prompt\":\"Do the plan\"}"}},"session_id":"session-1"}"##,
+        r#"{"type":"stream_event","event":{"type":"content_block_stop","index":0},"session_id":"session-1"}"#,
+        r#"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_agent","type":"tool_result","content":"done","is_error":false}]},"session_id":"session-1"}"#,
+        r#"{"type":"stream_event","event":{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_write","name":"Write","input":{},"caller":{"type":"direct"}}},"session_id":"session-1"}"#,
+        r##"{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"file_path\":\"/home/wegel/.claude/plans/test-plan.md\",\"content\":\"# Plan\"}"}},"session_id":"session-1"}"##,
+        r#"{"type":"stream_event","event":{"type":"content_block_stop","index":1},"session_id":"session-1"}"#,
+        r#"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_write","type":"tool_result","content":"File created successfully","is_error":false}]},"session_id":"session-1"}"#,
+    ]);
+
+    let completed: Vec<Value> = synthetic
+        .iter()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .filter(|value| value.get("method").and_then(Value::as_str) == Some("item/completed"))
+        .collect();
+    assert!(completed.is_empty());
 }
 
 #[test]
@@ -605,6 +777,39 @@ fn local_claude_history_imports_user_assistant_and_tool_items() {
     assert_eq!(items[2]["type"].as_str(), Some("toolCall"));
     assert_eq!(items[3]["type"].as_str(), Some("toolResult"));
     assert!(items[3]["output"].as_str().unwrap_or("").contains("$ pwd"));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn local_claude_history_hides_internal_plan_mode_tool_rows() {
+    let root = temp_test_dir("claude-history-hide-plan-mode-tools");
+    let cwd = Path::new("/repo");
+    write_session_file(
+        &root,
+        cwd,
+        "session-plan-tools-hidden",
+        &[
+            r##"{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Plan complete."},{"type":"tool_use","id":"toolu_write","name":"Write","input":{"file_path":"/home/wegel/.claude/plans/test-plan.md","content":"# Plan"}},{"type":"tool_use","id":"toolu_search","name":"ToolSearch","input":{"query":"select:ExitPlanMode","max_results":1}},{"type":"tool_use","id":"toolu_exit","name":"ExitPlanMode","input":{"plan":"# Plan\nShip it"}}]},"sessionId":"session-plan-tools-hidden"}"##,
+            r#"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_write","type":"tool_result","content":"File created successfully","is_error":false},{"tool_use_id":"toolu_search","type":"tool_result","content":[{"type":"tool_reference","tool_name":"ExitPlanMode"}],"is_error":false},{"tool_use_id":"toolu_exit","type":"tool_result","content":"Exit plan mode?","is_error":true}]},"sessionId":"session-plan-tools-hidden"}"#,
+        ],
+    );
+
+    let imported = load_claude_local_history_from_projects_root(
+        &root,
+        cwd,
+        &ClaudeLaunchMode::Resume("session-plan-tools-hidden".to_string()),
+    )
+    .expect("import")
+    .expect("history");
+
+    let items = imported.thread["turns"][0]["items"]
+        .as_array()
+        .expect("items");
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["type"].as_str(), Some("agentMessage"));
+    assert_eq!(items[0]["text"].as_str(), Some("Plan complete."));
+    assert!(imported.pending_approval_request.is_some());
 
     let _ = fs::remove_dir_all(root);
 }

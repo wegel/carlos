@@ -4,7 +4,7 @@ use serde_json::{json, Map, Value};
 
 use super::types::{
     begin_claude_message, ensure_claude_turn_started, ClaudeToolCall, ClaudeTranslationState,
-    TranslateOutput,
+    TranslateOutput, should_hide_claude_tool_transcript,
 };
 
 pub(super) fn synthesize_assistant_snapshot(
@@ -93,6 +93,7 @@ fn emit_tool_use_snapshot(
         .unwrap_or("Tool")
         .to_string();
     let input = part.get("input").cloned().unwrap_or_else(|| json!({}));
+    let hidden = should_hide_claude_tool_transcript(&name, &input);
     state.tool_calls.insert(
         item_id.clone(),
         ClaudeToolCall {
@@ -100,6 +101,9 @@ fn emit_tool_use_snapshot(
             input: input.clone(),
         },
     );
+    if hidden {
+        return false;
+    }
     out.lines.push(
         json!({
             "method": "item/completed",

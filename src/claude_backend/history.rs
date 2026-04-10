@@ -1,7 +1,6 @@
 //! Claude CLI history import, parsing, and record construction.
 
 use std::collections::HashMap;
-use std::env;
 use std::fs::{self, File};
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
@@ -14,7 +13,8 @@ use super::exit_plan::{
     fallback_tool_result_item, synthetic_tool_result_item,
 };
 use super::types::{
-    claude_project_dir_name, ClaudeExitPlanApproval, ClaudeLaunchMode, ClaudeToolCall,
+    claude_project_dir_name, claude_projects_root, should_hide_claude_tool_transcript,
+    ClaudeExitPlanApproval, ClaudeLaunchMode, ClaudeToolCall,
 };
 
 // --- Public types ---
@@ -101,7 +101,9 @@ fn append_assistant_history_record(
                         .to_string(),
                     input: part.get("input").cloned().unwrap_or_else(|| json!({})),
                 };
-                items.push(tool_call_item(&tool_use_id, &tool_call));
+                if !should_hide_claude_tool_transcript(&tool_call.name, &tool_call.input) {
+                    items.push(tool_call_item(&tool_use_id, &tool_call));
+                }
                 pending_tool_calls.insert(tool_use_id, tool_call);
             }
             _ => {}
@@ -162,10 +164,20 @@ fn append_user_history_record(
                 let (item, exit_plan_approval) = if let Some(tool_call) =
                     pending_tool_calls.remove(tool_use_id)
                 {
+                    let hide_transcript =
+                        should_hide_claude_tool_transcript(&tool_call.name, &tool_call.input);
                     let approval =
                         claude_exit_plan_approval_from_tool_call(&tool_call, tool_use_id, part);
-                    let item =
-                        synthetic_tool_result_item(&tool_call, tool_use_id, part, tool_use_result);
+                    let item = if hide_transcript {
+                        None
+                    } else {
+                        synthetic_tool_result_item(
+                            &tool_call,
+                            tool_use_id,
+                            part,
+                            tool_use_result,
+                        )
+                    };
                     (item, approval)
                 } else {
                     (fallback_tool_result_item(tool_use_id, part), None)
@@ -246,14 +258,6 @@ fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<Claude
             .as_ref()
             .map(claude_exit_plan_request_line),
     })
-}
-
-// --- Path helpers ---
-
-fn claude_projects_root() -> Option<PathBuf> {
-    env::var_os("HOME")
-        .map(PathBuf::from)
-        .map(|home| home.join(".claude").join("projects"))
 }
 
 fn find_session_file_for_resume(

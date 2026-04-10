@@ -10,8 +10,8 @@ use super::exit_plan::{
 use super::snapshot::synthesize_assistant_snapshot;
 use super::types::{
     begin_claude_message, ensure_claude_turn_started, normalize_claude_model_name,
-    parse_partial_json_object, synthetic_token_usage_line, ClaudeBlockState, ClaudeToolCall,
-    ClaudeTranslationState, TranslateOutput,
+    parse_partial_json_object, should_hide_claude_tool_transcript, synthetic_token_usage_line,
+    ClaudeBlockState, ClaudeToolCall, ClaudeTranslationState, TranslateOutput,
 };
 
 // --- Event translation ---
@@ -172,18 +172,6 @@ fn translate_content_block_start(
                     input_json: String::new(),
                 },
             );
-            out.lines.push(
-                json!({
-                    "method": "item/started",
-                    "params": {
-                        "item": {
-                            "id": item_id,
-                            "type": "toolCall"
-                        }
-                    }
-                })
-                .to_string(),
-            );
         }
         _ => {}
     }
@@ -264,6 +252,7 @@ fn translate_content_block_stop(
                 input_json,
             } => {
                 let input = parse_partial_json_object(&input_json);
+                let hidden = should_hide_claude_tool_transcript(&name, &Value::Object(input.clone()));
                 state.tool_calls.insert(
                     item_id.clone(),
                     ClaudeToolCall {
@@ -271,6 +260,9 @@ fn translate_content_block_stop(
                         input: Value::Object(input.clone()),
                     },
                 );
+                if hidden {
+                    return Ok(());
+                }
                 out.lines.push(
                     json!({
                         "method": "item/completed",
@@ -342,15 +334,18 @@ fn translate_user_record(
         let Some(tool_call) = state.tool_calls.remove(tool_use_id) else {
             continue;
         };
+        let hide_transcript = should_hide_claude_tool_transcript(&tool_call.name, &tool_call.input);
         let pending_approval =
             claude_exit_plan_approval_from_tool_call(&tool_call, tool_use_id, part);
-        if let Some(line) = synthetic_tool_result_line(
-            &tool_call,
-            tool_use_id,
-            part,
-            root.get("tool_use_result"),
-        ) {
-            out.lines.push(line);
+        if !hide_transcript {
+            if let Some(line) = synthetic_tool_result_line(
+                &tool_call,
+                tool_use_id,
+                part,
+                root.get("tool_use_result"),
+            ) {
+                out.lines.push(line);
+            }
         }
         if let Some(approval) = pending_approval {
             out.lines.push(claude_exit_plan_request_line(&approval));

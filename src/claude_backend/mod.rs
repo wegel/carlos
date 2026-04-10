@@ -6,6 +6,7 @@ mod snapshot;
 mod translate;
 mod types;
 
+use std::env;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
@@ -19,9 +20,9 @@ use serde_json::{json, Value};
 use crate::backend::{BackendClient, BackendKind};
 
 pub(crate) use self::exit_plan::claude_approval_follow_up_text;
-pub(crate) use self::history::{
-    load_claude_local_history, load_claude_local_history_from_projects_root, ClaudeLocalHistory,
-};
+pub(crate) use self::history::{load_claude_local_history, ClaudeLocalHistory};
+#[cfg(test)]
+pub(crate) use self::history::load_claude_local_history_from_projects_root;
 pub(crate) use self::translate::translate_claude_line;
 pub(crate) use self::types::{
     claude_model_catalog, claude_project_dir_name, claude_recovery_launch_mode, ClaudeLaunchMode,
@@ -29,6 +30,8 @@ pub(crate) use self::types::{
 };
 
 use self::types::{normalize_runtime_arg, ClaudeRuntimeSettings};
+
+const CLAUDE_PLAN_MODE_BLOCKLIST: [&str; 2] = ["EnterPlanMode", "Agent(Plan)"];
 
 // --- Client types ---
 
@@ -50,6 +53,22 @@ struct ClaudeProcess {
 
 // --- Client construction and lifecycle ---
 
+fn claude_allow_plan_mode() -> bool {
+    env::var("CARLOS_CLAUDE_ALLOW_PLAN_MODE")
+        .ok()
+        .map(|value| {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                return true;
+            }
+            !matches!(
+                trimmed.to_ascii_lowercase().as_str(),
+                "0" | "false" | "no" | "off"
+            )
+        })
+        .unwrap_or(false)
+}
+
 fn build_claude_command(
     cwd: &Path,
     launch_mode: &ClaudeLaunchMode,
@@ -64,6 +83,15 @@ fn build_claude_command(
         "--include-partial-messages",
         "--permission-mode", "bypassPermissions",
     ]);
+    if !claude_allow_plan_mode() {
+        command.arg("--disallowedTools");
+        for tool in CLAUDE_PLAN_MODE_BLOCKLIST {
+            command.arg(tool);
+        }
+    }
+    if let Some(config_dir) = env::var_os("CLAUDE_CONFIG_DIR") {
+        command.env("CLAUDE_CONFIG_DIR", config_dir);
+    }
     command.current_dir(cwd).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
     match launch_mode {
         ClaudeLaunchMode::New => {}
@@ -81,6 +109,14 @@ fn build_claude_command(
         command.arg("--effort").arg(effort);
     }
     command
+}
+
+#[cfg(test)]
+pub(crate) fn build_claude_command_for_test(
+    cwd: &Path,
+    launch_mode: &ClaudeLaunchMode,
+) -> Command {
+    build_claude_command(cwd, launch_mode, &ClaudeRuntimeSettings::default())
 }
 
 fn spawn_reader_thread(

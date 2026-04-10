@@ -1,6 +1,8 @@
 //! Type definitions, constants, and small helpers for the Claude CLI backend.
 
 use std::collections::HashMap;
+use std::env;
+use std::path::PathBuf;
 
 use serde_json::{json, Map, Value};
 
@@ -149,11 +151,43 @@ pub(crate) fn claude_model_catalog() -> Vec<ModelInfo> {
 
 // --- Path helpers ---
 
+pub(crate) fn claude_config_dir() -> Option<PathBuf> {
+    env::var("CLAUDE_CONFIG_DIR")
+        .ok()
+        .and_then(|value| normalize_claude_config_dir(&value))
+        .or_else(|| env::var_os("HOME").map(PathBuf::from).map(|home| home.join(".claude")))
+}
+
+pub(crate) fn claude_projects_root() -> Option<PathBuf> {
+    claude_config_dir().map(|dir| dir.join("projects"))
+}
+
 pub(crate) fn claude_project_dir_name(cwd: &std::path::Path) -> String {
     cwd.to_string_lossy()
         .chars()
         .map(|ch| if ch == '/' || ch == '\\' { '-' } else { ch })
         .collect()
+}
+
+fn normalize_claude_config_dir(raw: &str) -> Option<PathBuf> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(expand_home_path(trimmed))
+}
+
+fn expand_home_path(raw: &str) -> PathBuf {
+    if raw == "~" {
+        return env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(raw));
+    }
+    if let Some(stripped) = raw.strip_prefix("~/") {
+        return env::var_os("HOME")
+            .map(PathBuf::from)
+            .map(|home| home.join(stripped))
+            .unwrap_or_else(|| PathBuf::from(raw));
+    }
+    PathBuf::from(raw)
 }
 
 pub(crate) fn claude_recovery_launch_mode(
@@ -174,6 +208,43 @@ pub(super) fn normalize_runtime_arg(value: Option<&str>) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty() && !value.eq_ignore_ascii_case("none"))
         .map(ToOwned::to_owned)
+}
+
+// --- Transcript filtering ---
+
+pub(super) fn should_hide_claude_tool_transcript(tool_name: &str, input: &Value) -> bool {
+    let lower = tool_name.trim().to_ascii_lowercase();
+    match lower.as_str() {
+        "agent"
+        | "enterplanmode"
+        | "enterworktree"
+        | "exitplanmode"
+        | "exitworktree"
+        | "toolsearch"
+        | "todowrite" => true,
+        "write" => input
+            .get("file_path")
+            .or_else(|| input.get("filePath"))
+            .and_then(Value::as_str)
+            .is_some_and(is_claude_plan_artifact_path),
+        _ => false,
+    }
+}
+
+fn is_claude_plan_artifact_path(path: &str) -> bool {
+    let normalized = path.trim().replace('\\', "/");
+    if let Some(config_dir) = claude_config_dir() {
+        let config_plans_prefix = format!(
+            "{}/plans/",
+            config_dir.to_string_lossy().replace('\\', "/").trim_end_matches('/')
+        );
+        if normalized.starts_with(&config_plans_prefix) {
+            return true;
+        }
+    }
+    normalized.contains("/.claude/plans/")
+        || normalized.starts_with(".claude/plans/")
+        || normalized.starts_with("~/.claude/plans/")
 }
 
 // --- Translation utility helpers ---
