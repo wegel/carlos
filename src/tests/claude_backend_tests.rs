@@ -13,7 +13,7 @@ use crate::backend::{BackendClient, BackendKind};
 use crate::claude_backend::{
     build_claude_command_for_test, claude_approval_follow_up_text, claude_project_dir_name,
     claude_recovery_launch_mode, load_claude_local_history,
-    load_claude_local_history_from_projects_root,
+    load_claude_local_history_from_projects_root, probe_claude_startup_for_test,
     translate_claude_line, ClaudeLaunchMode, ClaudeTranslationState,
 };
 
@@ -205,6 +205,23 @@ fn build_claude_command_allows_plan_mode_when_opted_in() {
         Some(value) => std::env::set_var("CARLOS_CLAUDE_ALLOW_PLAN_MODE", value),
         None => std::env::remove_var("CARLOS_CLAUDE_ALLOW_PLAN_MODE"),
     }
+}
+
+#[test]
+fn probe_claude_startup_reports_early_stderr_exit() {
+    let mut command = std::process::Command::new("sh");
+    command.args(["-c", "printf 'startup failed\\n' >&2; exit 1"]);
+
+    let err = probe_claude_startup_for_test(&mut command).expect_err("startup should fail");
+    assert!(err.to_string().contains("startup failed"));
+}
+
+#[test]
+fn probe_claude_startup_accepts_first_stdout_line() {
+    let mut command = std::process::Command::new("sh");
+    command.args(["-c", "printf 'ready\\n'; sleep 1"]);
+
+    probe_claude_startup_for_test(&mut command).expect("startup should succeed");
 }
 
 #[test]

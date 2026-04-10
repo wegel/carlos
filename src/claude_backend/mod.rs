@@ -7,9 +7,10 @@ mod translate;
 mod types;
 
 use std::env;
+use std::io::Read;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, Command, Stdio};
+use std::process::{Child, ChildStderr, ChildStdin, Command, ExitStatus, Stdio};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -32,6 +33,7 @@ pub(crate) use self::types::{
 use self::types::{normalize_runtime_arg, ClaudeRuntimeSettings};
 
 const CLAUDE_PLAN_MODE_BLOCKLIST: [&str; 2] = ["EnterPlanMode", "Agent(Plan)"];
+const CLAUDE_STARTUP_TIMEOUT: Duration = Duration::from_secs(2);
 
 // --- Client types ---
 
@@ -49,6 +51,12 @@ struct ClaudeProcess {
     child: Child,
     stdin: ChildStdin,
     reader_thread: Option<thread::JoinHandle<()>>,
+    stderr_thread: Option<thread::JoinHandle<()>>,
+}
+
+enum ClaudeStartupEvent {
+    StreamReady,
+    StreamClosed,
 }
 
 // --- Client construction and lifecycle ---
@@ -92,7 +100,7 @@ fn build_claude_command(
     if let Some(config_dir) = env::var_os("CLAUDE_CONFIG_DIR") {
         command.env("CLAUDE_CONFIG_DIR", config_dir);
     }
-    command.current_dir(cwd).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
+    command.current_dir(cwd).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
     match launch_mode {
         ClaudeLaunchMode::New => {}
         ClaudeLaunchMode::Resume(session_id) => {
@@ -119,20 +127,53 @@ pub(crate) fn build_claude_command_for_test(
     build_claude_command(cwd, launch_mode, &ClaudeRuntimeSettings::default())
 }
 
+#[cfg(test)]
+pub(crate) fn probe_claude_startup_for_test(command: &mut Command) -> Result<()> {
+    command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = command.spawn().context("failed to spawn startup probe")?;
+    let stdout = child.stdout.take().context("missing probe stdout")?;
+    let stderr = child.stderr.take().context("missing probe stderr")?;
+    let (startup_tx, startup_rx) = mpsc::channel();
+    let captured_stderr = Arc::new(Mutex::new(String::new()));
+    let reader_thread = spawn_reader_thread(
+        stdout,
+        mpsc::channel::<String>().0,
+        Arc::new(Mutex::new(None)),
+        Some(startup_tx),
+    );
+    let stderr_thread = spawn_stderr_thread(stderr, Arc::clone(&captured_stderr));
+    let result = await_claude_startup(&mut child, &startup_rx, &captured_stderr);
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = reader_thread.join();
+    let _ = stderr_thread.join();
+    result
+}
+
 fn spawn_reader_thread(
     stdout: std::process::ChildStdout,
     events_tx: mpsc::Sender<String>,
     session_id: Arc<Mutex<Option<String>>>,
+    startup_tx: Option<mpsc::Sender<ClaudeStartupEvent>>,
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
         let mut reader = std::io::BufReader::new(stdout);
         let mut line = String::new();
         let mut state = ClaudeTranslationState::default();
+        let mut startup_tx = startup_tx;
         loop {
             line.clear();
             match std::io::BufRead::read_line(&mut reader, &mut line) {
-                Ok(0) | Err(_) => break,
+                Ok(0) | Err(_) => {
+                    if let Some(tx) = startup_tx.take() {
+                        let _ = tx.send(ClaudeStartupEvent::StreamClosed);
+                    }
+                    break;
+                }
                 _ => {}
+            }
+            if let Some(tx) = startup_tx.take() {
+                let _ = tx.send(ClaudeStartupEvent::StreamReady);
             }
             let trimmed = line.trim_end_matches(['\n', '\r']);
             if trimmed.is_empty() { continue; }
@@ -145,6 +186,83 @@ fn spawn_reader_thread(
             for synthetic in translated.lines { let _ = events_tx.send(synthetic); }
         }
     })
+}
+
+fn spawn_stderr_thread(
+    stderr: ChildStderr,
+    captured_stderr: Arc<Mutex<String>>,
+) -> thread::JoinHandle<()> {
+    thread::spawn(move || {
+        let mut reader = std::io::BufReader::new(stderr);
+        let mut buf = [0u8; 4096];
+        loop {
+            match reader.read(&mut buf) {
+                Ok(0) | Err(_) => break,
+                Ok(count) => {
+                    if let Ok(text) = std::str::from_utf8(&buf[..count]) {
+                        if let Ok(mut captured) = captured_stderr.lock() {
+                            captured.push_str(text);
+                        }
+                    } else {
+                        let text = String::from_utf8_lossy(&buf[..count]);
+                        if let Ok(mut captured) = captured_stderr.lock() {
+                            captured.push_str(&text);
+                        }
+                    }
+                }
+            }
+        }
+    })
+}
+
+fn await_claude_startup(
+    child: &mut Child,
+    startup_rx: &mpsc::Receiver<ClaudeStartupEvent>,
+    captured_stderr: &Arc<Mutex<String>>,
+) -> Result<()> {
+    let deadline = Instant::now() + CLAUDE_STARTUP_TIMEOUT;
+    loop {
+        match startup_rx.try_recv() {
+            Ok(ClaudeStartupEvent::StreamReady) => return Ok(()),
+            Ok(ClaudeStartupEvent::StreamClosed) => {
+                if let Some(status) = child.try_wait()? {
+                    bail!(format_claude_startup_error(status, captured_stderr));
+                }
+                return Ok(());
+            }
+            Err(mpsc::TryRecvError::Disconnected) => {
+                if let Some(status) = child.try_wait()? {
+                    bail!(format_claude_startup_error(status, captured_stderr));
+                }
+                return Ok(());
+            }
+            Err(mpsc::TryRecvError::Empty) => {}
+        }
+
+        if let Some(status) = child.try_wait()? {
+            thread::sleep(Duration::from_millis(10));
+            bail!(format_claude_startup_error(status, captured_stderr));
+        }
+        if Instant::now() >= deadline {
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+fn format_claude_startup_error(
+    status: ExitStatus,
+    captured_stderr: &Arc<Mutex<String>>,
+) -> String {
+    let stderr = captured_stderr
+        .lock()
+        .ok()
+        .map(|captured| captured.trim().to_string())
+        .filter(|captured| !captured.is_empty());
+    match stderr {
+        Some(stderr) => format!("`claude` exited during startup ({status}): {stderr}"),
+        None => format!("`claude` exited during startup ({status})"),
+    }
 }
 
 impl ClaudeClient {
@@ -185,13 +303,25 @@ impl ClaudeClient {
         let mut child = command.spawn().context("failed to spawn `claude`")?;
         let stdin = child.stdin.take().context("missing child stdin")?;
         let stdout = child.stdout.take().context("missing child stdout")?;
-
-        let reader_thread = spawn_reader_thread(stdout, events_tx, current_session_id);
+        let stderr = child.stderr.take().context("missing child stderr")?;
+        let (startup_tx, startup_rx) = mpsc::channel();
+        let captured_stderr = Arc::new(Mutex::new(String::new()));
+        let reader_thread =
+            spawn_reader_thread(stdout, events_tx, current_session_id, Some(startup_tx));
+        let stderr_thread = spawn_stderr_thread(stderr, Arc::clone(&captured_stderr));
+        if let Err(err) = await_claude_startup(&mut child, &startup_rx, &captured_stderr) {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = reader_thread.join();
+            let _ = stderr_thread.join();
+            return Err(err);
+        }
 
         Ok(ClaudeProcess {
             child,
             stdin,
             reader_thread: Some(reader_thread),
+            stderr_thread: Some(stderr_thread),
         })
     }
 
@@ -340,6 +470,7 @@ impl ClaudeProcess {
             }
         }
         let _ = self.reader_thread.take();
+        let _ = self.stderr_thread.take();
     }
 }
 
