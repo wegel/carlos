@@ -12,3 +12,7 @@
 
 # Local Ralph/session noise
 .agents/bash_history
+
+.claude/
+.codex/
+
