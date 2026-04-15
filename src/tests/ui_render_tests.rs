@@ -747,11 +747,31 @@ fn build_rendered_lines_styles_assistant_code_lines() {
         .find(|l| l.text.contains("fn add"))
         .expect("expected highlighted code line");
 
+    assert!(!line.text.contains("│"));
     assert!(!line.styled_segments.is_empty());
     assert!(line
         .styled_segments
         .iter()
         .any(|s| s.style != Style::default()));
+}
+
+#[test]
+fn build_rendered_lines_renders_assistant_tables() {
+    let messages = vec![Message {
+        role: Role::Assistant,
+        text: "| Level | Effort |\n|---|---|\n| L0 | Low |\n| L1 | Medium |".to_string(),
+        kind: MessageKind::Plain,
+        file_path: None,
+    }];
+
+    let rendered = build_rendered_lines(&messages, 120);
+
+    assert!(rendered.iter().any(|line| line.text.contains('┌')));
+    assert!(rendered.iter().any(|line| line.text.contains("Level")));
+    assert!(rendered.iter().any(|line| line.text.contains("L0")));
+    assert!(rendered
+        .iter()
+        .all(|line| !line.text.contains("|---|---|")));
 }
 
 #[test]

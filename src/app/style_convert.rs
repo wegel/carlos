@@ -156,4 +156,16 @@ impl tui_markdown::StyleSheet for CarlosMarkdownStyleSheet {
     fn metadata_block(&self) -> CoreStyle {
         style_to_core(Style::default().fg(COLOR_DIM))
     }
+
+    fn image_alt(&self) -> CoreStyle {
+        style_to_core(Style::default().fg(COLOR_DIM).add_modifier(Modifier::DIM | Modifier::ITALIC))
+    }
+
+    fn table_header(&self) -> CoreStyle {
+        style_to_core(Style::default().fg(COLOR_TEXT).add_modifier(Modifier::BOLD))
+    }
+
+    fn table_border(&self) -> CoreStyle {
+        style_to_core(Style::default().fg(COLOR_DIM))
+    }
 }

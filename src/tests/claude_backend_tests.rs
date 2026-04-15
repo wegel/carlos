@@ -491,6 +491,29 @@ fn translate_claude_assistant_snapshot_does_not_duplicate_streamed_text() {
 }
 
 #[test]
+fn translate_claude_assistant_snapshot_emits_follow_up_message_after_tool_result() {
+    let synthetic = collect_synthetic_lines(&[
+        r#"{"type":"stream_event","event":{"type":"message_start","message":{"id":"msg-1"}},"session_id":"session-1"}"#,
+        r#"{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_edit","name":"Edit","input":{},"caller":{"type":"direct"}}},"session_id":"session-1"}"#,
+        r#"{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"file_path\":\"/repo/file.swift\",\"replace_all\":false}"}},"session_id":"session-1"}"#,
+        r#"{"type":"stream_event","event":{"type":"content_block_stop","index":0},"session_id":"session-1"}"#,
+        r#"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_edit","type":"tool_result","content":"updated","is_error":false}]},"session_id":"session-1"}"#,
+        r#"{"type":"assistant","session_id":"session-1","message":{"id":"msg-2","role":"assistant","model":"claude-opus-4-6","content":[{"type":"text","text":"Done. Here's the summary."}]}}"#,
+    ]);
+
+    let completed: Vec<Value> = synthetic
+        .iter()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .filter(|value| value.get("method").and_then(Value::as_str) == Some("item/completed"))
+        .collect();
+
+    assert!(completed.iter().any(|value| {
+        value["params"]["item"]["type"].as_str() == Some("agentMessage")
+            && value["params"]["item"]["text"].as_str() == Some("Done. Here's the summary.")
+    }));
+}
+
+#[test]
 fn translate_claude_bash_tool_result_emits_tool_call_and_tool_output_rows() {
     let synthetic = collect_synthetic_lines(&[
         r#"{"type":"stream_event","event":{"type":"message_start","message":{"id":"msg-1"}},"session_id":"session-1"}"#,

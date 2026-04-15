@@ -90,7 +90,12 @@ fn translate_stream_event(
     match event.get("type").and_then(Value::as_str) {
         Some("message_start") => {
             ensure_claude_turn_started(state, out);
-            begin_claude_message(state);
+            let message_id = event
+                .get("message")
+                .and_then(Value::as_object)
+                .and_then(|message| message.get("id"))
+                .and_then(Value::as_str);
+            begin_claude_message(state, message_id);
         }
         Some("content_block_start") => {
             translate_content_block_start(state, event, out)?;

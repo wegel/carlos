@@ -18,7 +18,15 @@ pub(super) fn synthesize_assistant_snapshot(
     if message.get("role").and_then(Value::as_str) != Some("assistant") {
         return;
     }
-    if state.current_message_has_content_blocks {
+    let message_id = message
+        .get("id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|message_id| !message_id.is_empty());
+    if state.current_message_has_content_blocks
+        && message_id.is_some()
+        && message_id == state.current_message_id.as_deref()
+    {
         return;
     }
 
@@ -31,10 +39,13 @@ pub(super) fn synthesize_assistant_snapshot(
 
     let had_live_turn = state.current_turn_id.is_some();
     ensure_claude_turn_started(state, out);
-    if !had_live_turn || state.current_message_seq == 0 {
-        begin_claude_message(state);
+    let starts_new_message = message_id.is_some() && message_id != state.current_message_id.as_deref();
+    if !had_live_turn || state.current_message_seq == 0 || starts_new_message {
+        begin_claude_message(state, message_id);
     } else if state.current_message_has_content_blocks {
         return;
+    } else if state.current_message_id.is_none() {
+        state.current_message_id = message_id.map(ToOwned::to_owned);
     }
 
     let mut emitted_any = false;

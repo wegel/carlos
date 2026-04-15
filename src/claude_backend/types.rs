@@ -65,6 +65,7 @@ pub(crate) struct ClaudeTranslationState {
     pub(super) next_turn_seq: u64,
     pub(super) current_turn_id: Option<String>,
     pub(super) current_message_seq: u64,
+    pub(super) current_message_id: Option<String>,
     pub(super) current_message_has_content_blocks: bool,
     pub(super) current_blocks: HashMap<usize, ClaudeBlockState>,
     pub(super) tool_calls: HashMap<String, ClaudeToolCall>,
@@ -106,8 +107,12 @@ pub(super) fn ensure_claude_turn_started(
     );
 }
 
-pub(super) fn begin_claude_message(state: &mut ClaudeTranslationState) {
+pub(super) fn begin_claude_message(state: &mut ClaudeTranslationState, message_id: Option<&str>) {
     state.current_message_seq = state.current_message_seq.saturating_add(1);
+    state.current_message_id = message_id
+        .map(str::trim)
+        .filter(|message_id| !message_id.is_empty())
+        .map(ToOwned::to_owned);
     state.current_message_has_content_blocks = false;
     state.current_blocks.clear();
 }

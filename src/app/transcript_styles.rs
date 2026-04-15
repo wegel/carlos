@@ -50,6 +50,7 @@ pub(super) fn markdown_line_segments(text: &str) -> Vec<Vec<StyledSegment>> {
                 style: core_style_to_style(span.style),
             });
         }
+        strip_code_line_gutter(&mut segments);
 
         let plain = styled_plain_text(&segments);
         if is_fence_delimiter(&plain) {
@@ -58,6 +59,71 @@ pub(super) fn markdown_line_segments(text: &str) -> Vec<Vec<StyledSegment>> {
         out.push(segments);
     }
     out
+}
+
+fn strip_code_line_gutter(segments: &mut Vec<StyledSegment>) {
+    let Some(first) = segments.first_mut() else {
+        return;
+    };
+    // Temporary workaround for the pinned tui-markdown fork, which always prefixes
+    // fenced code lines with a `NNN │ ` gutter and does not yet expose a way to disable it.
+    let Some(prefix_len) = code_line_gutter_prefix_len(&first.text) else {
+        return;
+    };
+    let remainder = first.text[prefix_len..].to_string();
+    if remainder.is_empty() {
+        segments.remove(0);
+    } else {
+        first.text = remainder;
+    }
+}
+
+fn code_line_gutter_prefix_len(text: &str) -> Option<usize> {
+    let mut chars = text.char_indices().peekable();
+
+    while let Some((_, ch)) = chars.peek().copied() {
+        if ch == ' ' {
+            chars.next();
+        } else {
+            break;
+        }
+    }
+
+    let mut saw_digit = false;
+    while let Some((_, ch)) = chars.peek().copied() {
+        if ch.is_ascii_digit() {
+            saw_digit = true;
+            chars.next();
+        } else {
+            break;
+        }
+    }
+    if !saw_digit {
+        return None;
+    }
+
+    let mut saw_post_digit_space = false;
+    while let Some((_, ch)) = chars.peek().copied() {
+        if ch == ' ' {
+            saw_post_digit_space = true;
+            chars.next();
+        } else {
+            break;
+        }
+    }
+    if !saw_post_digit_space {
+        return None;
+    }
+
+    let (_, bar) = chars.next()?;
+    if bar != '│' {
+        return None;
+    }
+    let (space_idx, space) = chars.next()?;
+    if space != ' ' {
+        return None;
+    }
+    Some(space_idx + space.len_utf8())
 }
 
 pub(super) fn ansi_line_segments(text: &str) -> Option<Vec<Vec<StyledSegment>>> {
