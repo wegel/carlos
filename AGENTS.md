@@ -2,6 +2,8 @@
 
 This file defines the repository-level operating model for `carlos`.
 
+Always read and apply the principles of `.agents/CODE_STYLE.md`.
+
 ## 0. Operating Modes
 
 There are two modes:

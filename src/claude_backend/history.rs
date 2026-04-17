@@ -1,20 +1,25 @@
 //! Claude CLI history import, parsing, and record construction.
 
-use std::collections::{HashMap, HashSet};
-use std::fs::{self, File};
-use std::io::BufRead;
-use std::path::{Path, PathBuf};
+// --- Imports ---
 
-use anyhow::{bail, Context, Result};
+use std::collections::HashMap;
+use std::path::Path;
+
+use anyhow::{bail, Result};
 use serde_json::{json, Value};
 
 use super::exit_plan::{
     claude_exit_plan_approval_from_tool_call, claude_exit_plan_request_line,
     fallback_tool_result_item, synthetic_tool_result_item,
 };
+use super::session_file::{
+    active_branch_uuids, find_session_file_for_resume, read_session_records_from_file,
+    user_record_text,
+};
+use super::session_fork::fork_claude_session_from_projects_root;
 use super::types::{
-    claude_project_dir_name, claude_projects_root, should_hide_claude_tool_transcript,
-    ClaudeExitPlanApproval, ClaudeLaunchMode, ClaudeToolCall,
+    claude_projects_root, should_hide_claude_tool_transcript, ClaudeExitPlanApproval,
+    ClaudeLaunchMode, ClaudeToolCall,
 };
 
 // --- Public types ---
@@ -25,14 +30,6 @@ pub(crate) struct ClaudeLocalHistory {
     pub(crate) thread: Value,
     pub(crate) imported_item_count: usize,
     pub(crate) pending_approval_request: Option<String>,
-}
-
-#[derive(Debug)]
-struct ClaudeSessionRecord {
-    record: Value,
-    uuid: Option<String>,
-    parent_uuid: Option<String>,
-    is_sidechain: bool,
 }
 
 // --- Record builders ---
@@ -193,110 +190,11 @@ fn append_user_history_record(
     }
 }
 
-fn user_record_text(record: &Value) -> Option<String> {
-    let message = record.get("message").and_then(Value::as_object)?;
-    if message.get("role").and_then(Value::as_str) != Some("user") {
-        return None;
-    }
-
-    match message.get("content") {
-        Some(Value::String(text)) => {
-            let trimmed = text.trim();
-            (!trimmed.is_empty()).then(|| trimmed.to_string())
-        }
-        Some(Value::Array(parts)) => {
-            let text_parts: Vec<&str> = parts
-                .iter()
-                .filter(|part| part.get("type").and_then(Value::as_str) == Some("text"))
-                .filter_map(|part| part.get("text").and_then(Value::as_str))
-                .filter(|text| !text.trim().is_empty())
-                .collect();
-            (!text_parts.is_empty()).then(|| text_parts.join("\n"))
-        }
-        _ => None,
-    }
-}
-
-// --- Session file parsing ---
-
-fn parse_session_record(record: Value) -> ClaudeSessionRecord {
-    ClaudeSessionRecord {
-        uuid: record
-            .get("uuid")
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned),
-        parent_uuid: record
-            .get("parentUuid")
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned),
-        is_sidechain: record
-            .get("isSidechain")
-            .and_then(Value::as_bool)
-            .unwrap_or(false),
-        record,
-    }
-}
-
-fn active_branch_uuids(records: &[ClaudeSessionRecord]) -> Option<HashSet<String>> {
-    let mut parent_by_uuid = HashMap::new();
-    let mut active_tip_uuid = None;
-    for record in records {
-        if record.is_sidechain {
-            continue;
-        }
-        let Some(uuid) = record.uuid.as_deref() else {
-            continue;
-        };
-        parent_by_uuid.insert(uuid.to_string(), record.parent_uuid.clone());
-        active_tip_uuid = Some(uuid.to_string());
-    }
-
-    let mut active_branch = HashSet::new();
-    let mut cursor = active_tip_uuid?;
-    loop {
-        if !active_branch.insert(cursor.clone()) {
-            break;
-        }
-        let Some(parent_uuid) = parent_by_uuid
-            .get(&cursor)
-            .and_then(|parent| parent.as_deref())
-        else {
-            break;
-        };
-        cursor = parent_uuid.to_string();
-    }
-    Some(active_branch)
-}
-
 fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<ClaudeLocalHistory> {
-    let file = File::open(path)
-        .with_context(|| format!("failed to open Claude session file {}", path.display()))?;
-    let reader = std::io::BufReader::new(file);
     let mut items = Vec::new();
     let mut pending_tool_calls = HashMap::new();
     let mut pending_exit_plan_approval = None;
-    let mut saw_malformed_record = false;
-    let mut records = Vec::new();
-
-    for line in reader.lines() {
-        let Ok(line) = line else {
-            saw_malformed_record = true;
-            continue;
-        };
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        let Ok(record) = serde_json::from_str::<Value>(trimmed) else {
-            saw_malformed_record = true;
-            continue;
-        };
-        records.push(parse_session_record(record));
-    }
-
-    if saw_malformed_record {
-        bail!("Claude session file contained malformed JSONL records");
-    }
+    let records = read_session_records_from_file(path)?;
 
     let active_branch_uuids = active_branch_uuids(&records);
     for session_record in records {
@@ -343,27 +241,19 @@ fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<Claude
     })
 }
 
-fn find_session_file_for_resume(
+pub(crate) fn fork_claude_local_history_from_projects_root(
     projects_root: &Path,
     cwd: &Path,
-    session_id: &str,
-) -> Option<PathBuf> {
-    let file_name = format!("{session_id}.jsonl");
-    let preferred = projects_root
-        .join(claude_project_dir_name(cwd))
-        .join(&file_name);
-    if preferred.is_file() {
-        return Some(preferred);
-    }
-
-    let entries = fs::read_dir(projects_root).ok()?;
-    for entry in entries.flatten() {
-        let candidate = entry.path().join(&file_name);
-        if candidate.is_file() {
-            return Some(candidate);
-        }
-    }
-    None
+    source_session_id: &str,
+    keep_turns: usize,
+) -> Result<ClaudeLocalHistory> {
+    let forked = fork_claude_session_from_projects_root(
+        projects_root,
+        cwd,
+        source_session_id,
+        keep_turns,
+    )?;
+    parse_local_history_from_file(&forked.path, &forked.session_id)
 }
 
 // --- Public loading API ---
@@ -405,4 +295,23 @@ pub(crate) fn load_claude_local_history(
         return Ok(None);
     }
     load_claude_local_history_from_projects_root(&projects_root, cwd, launch_mode)
+}
+
+pub(crate) fn fork_claude_local_history(
+    cwd: &Path,
+    source_session_id: &str,
+    keep_turns: usize,
+) -> Result<ClaudeLocalHistory> {
+    let Some(projects_root) = claude_projects_root() else {
+        bail!("Claude config directory is unavailable");
+    };
+    if !projects_root.is_dir() {
+        bail!("Claude projects directory does not exist");
+    }
+    fork_claude_local_history_from_projects_root(
+        &projects_root,
+        cwd,
+        source_session_id,
+        keep_turns,
+    )
 }

@@ -18,6 +18,7 @@ textwrap = "0.16"
 tui-markdown = { git = "https://github.com/lightsofapollo/tui-markdown.git", rev = "819cbca7675178947357a88e9e4a007bfb085ccf" }
 unicode-segmentation = "1"
 unicode-width = "0.1"
+uuid = { version = "1", features = ["v4"] }
 
 [profile.dev]
 opt-level = 1

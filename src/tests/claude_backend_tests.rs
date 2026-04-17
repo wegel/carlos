@@ -13,9 +13,9 @@ use crate::backend::{BackendClient, BackendKind};
 use crate::claude_backend::{
     build_claude_command_for_test, claude_approval_follow_up_text, claude_project_dir_name,
     claude_recovery_launch_mode, collect_live_forwarded_lines_for_test,
-    load_claude_local_history, load_claude_local_history_from_projects_root,
-    probe_claude_startup_for_test, translate_claude_line, ClaudeLaunchMode,
-    ClaudeTranslationState,
+    fork_claude_local_history_from_projects_root, load_claude_local_history,
+    load_claude_local_history_from_projects_root, probe_claude_startup_for_test,
+    translate_claude_line, ClaudeLaunchMode, ClaudeTranslationState,
 };
 
 fn collect_synthetic_lines(lines: &[&str]) -> Vec<String> {
@@ -309,6 +309,82 @@ fn local_claude_history_follows_latest_active_branch() {
     let rendered = serde_json::to_string(items).expect("serialize items");
     assert!(!rendered.contains("another"));
     assert!(!rendered.contains("old branch reply"));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn fork_claude_local_history_branches_from_selected_prefix() {
+    let root = temp_test_dir("claude-fork-history");
+    let projects_root = root.join("projects");
+    let cwd = Path::new("/repo");
+    let source_session_id = "session-source";
+    let source_path = write_session_file(
+        &projects_root,
+        cwd,
+        source_session_id,
+        &[
+            r#"{"type":"permission-mode","permissionMode":"default","sessionId":"session-source"}"#,
+            r#"{"parentUuid":null,"isSidechain":false,"type":"user","message":{"role":"user","content":"first"},"uuid":"user-1","sessionId":"session-source"}"#,
+            r#"{"parentUuid":"user-1","isSidechain":false,"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"reply one"}]},"uuid":"assistant-1","sessionId":"session-source"}"#,
+            r#"{"parentUuid":"assistant-1","isSidechain":false,"type":"system","subtype":"stop_hook_summary","uuid":"stop-1","sessionId":"session-source"}"#,
+            r#"{"parentUuid":"stop-1","isSidechain":false,"type":"user","message":{"role":"user","content":"second-old"},"uuid":"user-2-old","sessionId":"session-source"}"#,
+            r#"{"parentUuid":"user-2-old","isSidechain":false,"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"reply old"}]},"uuid":"assistant-2-old","sessionId":"session-source"}"#,
+            r#"{"type":"last-prompt","lastPrompt":"second-old","sessionId":"session-source"}"#,
+            r#"{"parentUuid":"stop-1","isSidechain":false,"type":"user","message":{"role":"user","content":"second-new"},"uuid":"user-2-new","sessionId":"session-source"}"#,
+            r#"{"parentUuid":"user-2-new","isSidechain":false,"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"reply new"}]},"uuid":"assistant-2-new","sessionId":"session-source"}"#,
+        ],
+    );
+    let source_support_dir = source_path.with_extension("");
+    fs::create_dir_all(&source_support_dir).expect("create support dir");
+    fs::write(
+        source_support_dir.join("child.jsonl"),
+        "{\"type\":\"note\",\"sessionId\":\"session-source\"}\n",
+    )
+    .expect("write support jsonl");
+
+    let forked = fork_claude_local_history_from_projects_root(
+        &projects_root,
+        cwd,
+        source_session_id,
+        1,
+    )
+    .expect("fork history");
+
+    assert_ne!(forked.session_id, source_session_id);
+    let items = forked.thread["turns"][0]["items"]
+        .as_array()
+        .expect("thread items");
+    assert_eq!(items.len(), 2);
+    assert_eq!(items[0]["content"][0]["text"], "first");
+    assert_eq!(items[1]["text"], "reply one");
+
+    let forked_path = projects_root
+        .join(claude_project_dir_name(cwd))
+        .join(format!("{}.jsonl", forked.session_id));
+    let forked_lines: Vec<Value> = fs::read_to_string(&forked_path)
+        .expect("read forked session")
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| serde_json::from_str(line).expect("parse forked line"))
+        .collect();
+    assert_eq!(forked_lines.len(), 3);
+    assert_eq!(forked_lines[0]["sessionId"].as_str(), Some(forked.session_id.as_str()));
+    let fork_user_uuid = forked_lines[1]["uuid"].as_str().expect("fork user uuid");
+    let fork_assistant_uuid = forked_lines[2]["uuid"].as_str().expect("fork assistant uuid");
+    assert_ne!(fork_user_uuid, "user-1");
+    assert_ne!(fork_assistant_uuid, "assistant-1");
+    assert_eq!(forked_lines[1]["parentUuid"], Value::Null);
+    assert_eq!(forked_lines[2]["parentUuid"].as_str(), Some(fork_user_uuid));
+    let forked_body = serde_json::to_string(&forked_lines).expect("serialize fork");
+    assert!(!forked_body.contains("second-old"));
+    assert!(!forked_body.contains("second-new"));
+    assert!(!forked_body.contains(source_session_id));
+
+    let copied_support = fs::read_to_string(forked_path.with_extension("").join("child.jsonl"))
+        .expect("read copied support jsonl");
+    assert!(copied_support.contains(&forked.session_id));
+    assert!(!copied_support.contains(source_session_id));
 
     let _ = fs::remove_dir_all(root);
 }
