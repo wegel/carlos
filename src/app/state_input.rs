@@ -83,6 +83,7 @@ impl AppState {
         self.viewport.auto_follow_bottom = true;
     }
 
+    #[cfg(test)]
     pub(super) fn rewind_fork_from_message_idx(&mut self, message_idx: Option<usize>) {
         let Some(idx) = message_idx else {
             return;

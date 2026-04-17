@@ -12,9 +12,10 @@ use super::*;
 use crate::backend::{BackendClient, BackendKind};
 use crate::claude_backend::{
     build_claude_command_for_test, claude_approval_follow_up_text, claude_project_dir_name,
-    claude_recovery_launch_mode, collect_live_forwarded_lines_for_test, load_claude_local_history,
-    load_claude_local_history_from_projects_root, probe_claude_startup_for_test,
-    translate_claude_line, ClaudeLaunchMode, ClaudeTranslationState,
+    claude_recovery_launch_mode, collect_live_forwarded_lines_for_test,
+    load_claude_local_history, load_claude_local_history_from_projects_root,
+    probe_claude_startup_for_test, translate_claude_line, ClaudeLaunchMode,
+    ClaudeTranslationState,
 };
 
 fn collect_synthetic_lines(lines: &[&str]) -> Vec<String> {
@@ -263,6 +264,53 @@ fn load_claude_local_history_uses_tilde_claude_config_dir() {
         Some(value) => std::env::set_var("CLAUDE_CONFIG_DIR", value),
         None => std::env::remove_var("CLAUDE_CONFIG_DIR"),
     }
+}
+
+#[test]
+fn local_claude_history_follows_latest_active_branch() {
+    let root = temp_test_dir("claude-history-branch-dag");
+    let projects_root = root.join("projects");
+    let cwd = Path::new("/repo");
+    let session_id = "session-branch-dag";
+    write_session_file(
+        &projects_root,
+        cwd,
+        session_id,
+        &[
+            r#"{"type":"permission-mode","permissionMode":"default","sessionId":"session-branch-dag"}"#,
+            r#"{"parentUuid":null,"isSidechain":false,"type":"user","message":{"role":"user","content":"first"},"uuid":"user-1","sessionId":"session-branch-dag"}"#,
+            r#"{"parentUuid":"user-1","isSidechain":false,"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"reply one"}]},"uuid":"assistant-1","sessionId":"session-branch-dag"}"#,
+            r#"{"parentUuid":"assistant-1","isSidechain":false,"type":"system","subtype":"stop_hook_summary","uuid":"stop-1","sessionId":"session-branch-dag"}"#,
+            r#"{"parentUuid":"stop-1","isSidechain":false,"type":"user","message":{"role":"user","content":"another"},"uuid":"user-2-old","sessionId":"session-branch-dag"}"#,
+            r#"{"parentUuid":"user-2-old","isSidechain":false,"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"old branch reply"}]},"uuid":"assistant-2-old","sessionId":"session-branch-dag"}"#,
+            r#"{"parentUuid":"assistant-2-old","isSidechain":false,"type":"system","subtype":"stop_hook_summary","uuid":"stop-2-old","sessionId":"session-branch-dag"}"#,
+            r#"{"parentUuid":"stop-1","isSidechain":false,"type":"user","message":{"role":"user","content":"output a 2 line story"},"uuid":"user-2-new","sessionId":"session-branch-dag"}"#,
+            r#"{"parentUuid":"user-2-new","isSidechain":false,"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"new branch reply"}]},"uuid":"assistant-2-new","sessionId":"session-branch-dag"}"#,
+            r#"{"parentUuid":"assistant-2-new","isSidechain":false,"type":"system","subtype":"stop_hook_summary","uuid":"stop-2-new","sessionId":"session-branch-dag"}"#,
+        ],
+    );
+
+    let imported = load_claude_local_history_from_projects_root(
+        &projects_root,
+        cwd,
+        &ClaudeLaunchMode::Resume(session_id.to_string()),
+    )
+    .expect("import")
+    .expect("history");
+
+    let items = imported.thread["turns"][0]["items"]
+        .as_array()
+        .expect("thread items");
+    assert_eq!(items.len(), 4);
+    assert_eq!(items[0]["content"][0]["text"], "first");
+    assert_eq!(items[1]["text"], "reply one");
+    assert_eq!(items[2]["content"][0]["text"], "output a 2 line story");
+    assert_eq!(items[3]["text"], "new branch reply");
+    let rendered = serde_json::to_string(items).expect("serialize items");
+    assert!(!rendered.contains("another"));
+    assert!(!rendered.contains("old branch reply"));
+
+    let _ = fs::remove_dir_all(root);
 }
 
 #[test]

@@ -562,7 +562,6 @@ impl BackendClient for ClaudeClient {
             other => bail!("unsupported Claude backend method: {other}"),
         }
     }
-
     fn respond(&self, request_id: &Value, result: Value) -> Result<()> {
         if let Some(follow_up) = claude_approval_follow_up_text(request_id, &result)? {
             self.send_stream_user_message(follow_up)?;

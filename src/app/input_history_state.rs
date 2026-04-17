@@ -134,6 +134,7 @@ impl InputHistoryState {
         self.input_history.len()
     }
 
+    #[cfg(test)]
     pub(super) fn clear_message_indices_from(&mut self, idx: usize) {
         for msg_idx in &mut self.input_history_message_idx {
             if msg_idx.is_some_and(|v| v >= idx) {

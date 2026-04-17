@@ -1,6 +1,6 @@
 //! Claude CLI history import, parsing, and record construction.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
@@ -25,6 +25,14 @@ pub(crate) struct ClaudeLocalHistory {
     pub(crate) thread: Value,
     pub(crate) imported_item_count: usize,
     pub(crate) pending_approval_request: Option<String>,
+}
+
+#[derive(Debug)]
+struct ClaudeSessionRecord {
+    record: Value,
+    uuid: Option<String>,
+    parent_uuid: Option<String>,
+    is_sidechain: bool,
 }
 
 // --- Record builders ---
@@ -124,12 +132,77 @@ fn append_user_history_record(
         return;
     }
 
+    if let Some(text) = user_record_text(record) {
+        *pending_exit_plan_approval = None;
+        items.push(user_message_item(&text));
+    }
+
+    let Some(parts) = message.get("content").and_then(Value::as_array) else {
+        return;
+    };
+    let tool_use_result = record
+        .get("toolUseResult")
+        .or_else(|| record.get("tool_use_result"));
+    let mut saw_valid_tool_result = false;
+    let mut exit_plan_approval_in_record = None;
+    for part in parts {
+        if part.get("type").and_then(Value::as_str) != Some("tool_result") {
+            continue;
+        }
+        let tool_use_id = part
+            .get("tool_use_id")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if tool_use_id.is_empty() {
+            continue;
+        }
+        saw_valid_tool_result = true;
+
+        let (item, exit_plan_approval) = if let Some(tool_call) =
+            pending_tool_calls.remove(tool_use_id)
+        {
+            let hide_transcript =
+                should_hide_claude_tool_transcript(&tool_call.name, &tool_call.input);
+            let approval =
+                claude_exit_plan_approval_from_tool_call(&tool_call, tool_use_id, part);
+            let item = if hide_transcript {
+                None
+            } else {
+                synthetic_tool_result_item(
+                    &tool_call,
+                    tool_use_id,
+                    part,
+                    tool_use_result,
+                )
+            };
+            (item, approval)
+        } else {
+            (fallback_tool_result_item(tool_use_id, part), None)
+        };
+        if let Some(item) = item {
+            items.push(item);
+        }
+        if let Some(approval) = exit_plan_approval {
+            exit_plan_approval_in_record = Some(approval);
+        }
+    }
+    if let Some(approval) = exit_plan_approval_in_record {
+        *pending_exit_plan_approval = Some(approval);
+    } else if saw_valid_tool_result {
+        *pending_exit_plan_approval = None;
+    }
+}
+
+fn user_record_text(record: &Value) -> Option<String> {
+    let message = record.get("message").and_then(Value::as_object)?;
+    if message.get("role").and_then(Value::as_str) != Some("user") {
+        return None;
+    }
+
     match message.get("content") {
         Some(Value::String(text)) => {
-            if !text.trim().is_empty() {
-                *pending_exit_plan_approval = None;
-                items.push(user_message_item(text));
-            }
+            let trimmed = text.trim();
+            (!trimmed.is_empty()).then(|| trimmed.to_string())
         }
         Some(Value::Array(parts)) => {
             let text_parts: Vec<&str> = parts
@@ -138,68 +211,62 @@ fn append_user_history_record(
                 .filter_map(|part| part.get("text").and_then(Value::as_str))
                 .filter(|text| !text.trim().is_empty())
                 .collect();
-            if !text_parts.is_empty() {
-                *pending_exit_plan_approval = None;
-                items.push(user_message_item(&text_parts.join("\n")));
-            }
-
-            let tool_use_result = record
-                .get("toolUseResult")
-                .or_else(|| record.get("tool_use_result"));
-            let mut saw_valid_tool_result = false;
-            let mut exit_plan_approval_in_record = None;
-            for part in parts {
-                if part.get("type").and_then(Value::as_str) != Some("tool_result") {
-                    continue;
-                }
-                let tool_use_id = part
-                    .get("tool_use_id")
-                    .and_then(Value::as_str)
-                    .unwrap_or("");
-                if tool_use_id.is_empty() {
-                    continue;
-                }
-                saw_valid_tool_result = true;
-
-                let (item, exit_plan_approval) = if let Some(tool_call) =
-                    pending_tool_calls.remove(tool_use_id)
-                {
-                    let hide_transcript =
-                        should_hide_claude_tool_transcript(&tool_call.name, &tool_call.input);
-                    let approval =
-                        claude_exit_plan_approval_from_tool_call(&tool_call, tool_use_id, part);
-                    let item = if hide_transcript {
-                        None
-                    } else {
-                        synthetic_tool_result_item(
-                            &tool_call,
-                            tool_use_id,
-                            part,
-                            tool_use_result,
-                        )
-                    };
-                    (item, approval)
-                } else {
-                    (fallback_tool_result_item(tool_use_id, part), None)
-                };
-                if let Some(item) = item {
-                    items.push(item);
-                }
-                if let Some(approval) = exit_plan_approval {
-                    exit_plan_approval_in_record = Some(approval);
-                }
-            }
-            if let Some(approval) = exit_plan_approval_in_record {
-                *pending_exit_plan_approval = Some(approval);
-            } else if saw_valid_tool_result {
-                *pending_exit_plan_approval = None;
-            }
+            (!text_parts.is_empty()).then(|| text_parts.join("\n"))
         }
-        _ => {}
+        _ => None,
     }
 }
 
 // --- Session file parsing ---
+
+fn parse_session_record(record: Value) -> ClaudeSessionRecord {
+    ClaudeSessionRecord {
+        uuid: record
+            .get("uuid")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned),
+        parent_uuid: record
+            .get("parentUuid")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned),
+        is_sidechain: record
+            .get("isSidechain")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        record,
+    }
+}
+
+fn active_branch_uuids(records: &[ClaudeSessionRecord]) -> Option<HashSet<String>> {
+    let mut parent_by_uuid = HashMap::new();
+    let mut active_tip_uuid = None;
+    for record in records {
+        if record.is_sidechain {
+            continue;
+        }
+        let Some(uuid) = record.uuid.as_deref() else {
+            continue;
+        };
+        parent_by_uuid.insert(uuid.to_string(), record.parent_uuid.clone());
+        active_tip_uuid = Some(uuid.to_string());
+    }
+
+    let mut active_branch = HashSet::new();
+    let mut cursor = active_tip_uuid?;
+    loop {
+        if !active_branch.insert(cursor.clone()) {
+            break;
+        }
+        let Some(parent_uuid) = parent_by_uuid
+            .get(&cursor)
+            .and_then(|parent| parent.as_deref())
+        else {
+            break;
+        };
+        cursor = parent_uuid.to_string();
+    }
+    Some(active_branch)
+}
 
 fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<ClaudeLocalHistory> {
     let file = File::open(path)
@@ -209,6 +276,7 @@ fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<Claude
     let mut pending_tool_calls = HashMap::new();
     let mut pending_exit_plan_approval = None;
     let mut saw_malformed_record = false;
+    let mut records = Vec::new();
 
     for line in reader.lines() {
         let Ok(line) = line else {
@@ -223,25 +291,40 @@ fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<Claude
             saw_malformed_record = true;
             continue;
         };
-        match record.get("type").and_then(Value::as_str) {
+        records.push(parse_session_record(record));
+    }
+
+    if saw_malformed_record {
+        bail!("Claude session file contained malformed JSONL records");
+    }
+
+    let active_branch_uuids = active_branch_uuids(&records);
+    for session_record in records {
+        if session_record.is_sidechain {
+            continue;
+        }
+        if let (Some(active_branch_uuids), Some(uuid)) =
+            (active_branch_uuids.as_ref(), session_record.uuid.as_deref())
+        {
+            if !active_branch_uuids.contains(uuid) {
+                continue;
+            }
+        }
+        match session_record.record.get("type").and_then(Value::as_str) {
             Some("assistant") => append_assistant_history_record(
-                &record,
+                &session_record.record,
                 &mut pending_tool_calls,
                 &mut items,
                 &mut pending_exit_plan_approval,
             ),
             Some("user") => append_user_history_record(
-                &record,
+                &session_record.record,
                 &mut pending_tool_calls,
                 &mut items,
                 &mut pending_exit_plan_approval,
             ),
             _ => {}
         }
-    }
-
-    if saw_malformed_record {
-        bail!("Claude session file contained malformed JSONL records");
     }
 
     let imported_item_count = items.len();
