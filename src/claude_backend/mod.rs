@@ -11,6 +11,7 @@ use std::io::Read;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStderr, ChildStdin, Command, ExitStatus, Stdio};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -26,14 +27,15 @@ pub(crate) use self::history::{load_claude_local_history, ClaudeLocalHistory};
 pub(crate) use self::history::load_claude_local_history_from_projects_root;
 pub(crate) use self::translate::translate_claude_line;
 pub(crate) use self::types::{
-    claude_model_catalog, claude_project_dir_name, claude_recovery_launch_mode, ClaudeLaunchMode,
-    ClaudeTranslationState, CLAUDE_PENDING_THREAD_ID,
+    claude_model_catalog, claude_project_dir_name, claude_recovery_launch_mode,
+    ClaudeLaunchMode, ClaudeTranslationState, CLAUDE_PENDING_THREAD_ID,
 };
 
 use self::types::{normalize_runtime_arg, ClaudeRuntimeSettings};
 
 const CLAUDE_PLAN_MODE_BLOCKLIST: [&str; 2] = ["EnterPlanMode", "Agent(Plan)"];
 const CLAUDE_STARTUP_TIMEOUT: Duration = Duration::from_secs(2);
+static CLAUDE_STREAM_INSTANCE_SEQ: AtomicU64 = AtomicU64::new(1);
 
 // --- Client types ---
 
@@ -75,6 +77,10 @@ fn claude_allow_plan_mode() -> bool {
             )
         })
         .unwrap_or(false)
+}
+
+fn next_claude_stream_instance_seq() -> u64 {
+    CLAUDE_STREAM_INSTANCE_SEQ.fetch_add(1, Ordering::Relaxed)
 }
 
 fn build_claude_command(
@@ -159,7 +165,10 @@ fn spawn_reader_thread(
     thread::spawn(move || {
         let mut reader = std::io::BufReader::new(stdout);
         let mut line = String::new();
-        let mut state = ClaudeTranslationState::default();
+        let mut state = ClaudeTranslationState {
+            stream_instance_seq: next_claude_stream_instance_seq(),
+            ..ClaudeTranslationState::default()
+        };
         let mut startup_tx = startup_tx;
         loop {
             line.clear();
@@ -176,14 +185,27 @@ fn spawn_reader_thread(
                 let _ = tx.send(ClaudeStartupEvent::StreamReady);
             }
             let trimmed = line.trim_end_matches(['\n', '\r']);
-            if trimmed.is_empty() { continue; }
-            let Ok(translated) = translate_claude_line(&mut state, trimmed) else { continue };
-            if let Some(sid) = state.session_id.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            if trimmed.is_empty() {
+                continue;
+            }
+            let Ok(translated) = translate_claude_line(&mut state, trimmed) else {
+                continue;
+            };
+            if let Some(sid) = state
+                .session_id
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
                 if let Ok(mut cur) = session_id.lock() {
-                    if cur.as_deref() != Some(sid) { *cur = Some(sid.to_string()); }
+                    if cur.as_deref() != Some(sid) {
+                        *cur = Some(sid.to_string());
+                    }
                 }
             }
-            for synthetic in translated.lines { let _ = events_tx.send(synthetic); }
+            for synthetic in translated.lines {
+                let _ = events_tx.send(synthetic);
+            }
         }
     })
 }
@@ -213,6 +235,20 @@ fn spawn_stderr_thread(
             }
         }
     })
+}
+
+#[cfg(test)]
+pub(crate) fn collect_live_forwarded_lines_for_test(lines: &[&str]) -> Vec<String> {
+    let mut state = ClaudeTranslationState {
+        stream_instance_seq: next_claude_stream_instance_seq(),
+        ..ClaudeTranslationState::default()
+    };
+    let mut out = Vec::new();
+    for line in lines {
+        let translated = translate_claude_line(&mut state, line).expect("translate");
+        out.extend(translated.lines);
+    }
+    out
 }
 
 fn await_claude_startup(
@@ -306,8 +342,12 @@ impl ClaudeClient {
         let stderr = child.stderr.take().context("missing child stderr")?;
         let (startup_tx, startup_rx) = mpsc::channel();
         let captured_stderr = Arc::new(Mutex::new(String::new()));
-        let reader_thread =
-            spawn_reader_thread(stdout, events_tx, current_session_id, Some(startup_tx));
+        let reader_thread = spawn_reader_thread(
+            stdout,
+            events_tx,
+            current_session_id,
+            Some(startup_tx),
+        );
         let stderr_thread = spawn_stderr_thread(stderr, Arc::clone(&captured_stderr));
         if let Err(err) = await_claude_startup(&mut child, &startup_rx, &captured_stderr) {
             let _ = child.kill();

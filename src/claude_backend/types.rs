@@ -61,6 +61,7 @@ pub(crate) enum ClaudeBlockState {
 #[derive(Debug, Default)]
 pub(crate) struct ClaudeTranslationState {
     pub(super) session_id: Option<String>,
+    pub(super) stream_instance_seq: u64,
     pub(super) model: Option<String>,
     pub(super) next_turn_seq: u64,
     pub(super) current_turn_id: Option<String>,
@@ -94,7 +95,7 @@ pub(super) fn ensure_claude_turn_started(
     }
 
     state.next_turn_seq = state.next_turn_seq.saturating_add(1);
-    let turn_id = format!("claude-turn-{}", state.next_turn_seq);
+    let turn_id = claude_turn_item_id(state, state.next_turn_seq);
     state.current_turn_id = Some(turn_id.clone());
     out.lines.push(
         json!({
@@ -115,6 +116,33 @@ pub(super) fn begin_claude_message(state: &mut ClaudeTranslationState, message_i
         .map(ToOwned::to_owned);
     state.current_message_has_content_blocks = false;
     state.current_blocks.clear();
+}
+
+pub(super) fn claude_message_item_id(
+    state: &ClaudeTranslationState,
+    index: usize,
+) -> String {
+    format!(
+        "claude-msg-{}-{}-{}",
+        state.stream_instance_seq, state.current_message_seq, index
+    )
+}
+
+pub(super) fn claude_tool_item_id(
+    state: &ClaudeTranslationState,
+    index: usize,
+) -> String {
+    format!(
+        "claude-tool-{}-{}-{}",
+        state.stream_instance_seq, state.current_message_seq, index
+    )
+}
+
+pub(super) fn claude_turn_item_id(
+    state: &ClaudeTranslationState,
+    turn_seq: u64,
+) -> String {
+    format!("claude-turn-{}-{}", state.stream_instance_seq, turn_seq)
 }
 
 // --- Model catalog ---

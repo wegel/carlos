@@ -3,8 +3,9 @@
 use serde_json::{json, Map, Value};
 
 use super::types::{
-    begin_claude_message, ensure_claude_turn_started, ClaudeToolCall, ClaudeTranslationState,
-    TranslateOutput, should_hide_claude_tool_transcript,
+    begin_claude_message, claude_message_item_id, claude_tool_item_id,
+    ensure_claude_turn_started, ClaudeToolCall, ClaudeTranslationState, TranslateOutput,
+    should_hide_claude_tool_transcript,
 };
 
 pub(super) fn synthesize_assistant_snapshot(
@@ -76,7 +77,7 @@ fn emit_text_snapshot(
     else {
         return false;
     };
-    let item_id = format!("claude-msg-{}-{}", state.current_message_seq, index);
+    let item_id = claude_message_item_id(state, index);
     out.lines.push(
         json!({
             "method": "item/completed",
@@ -97,7 +98,7 @@ fn emit_tool_use_snapshot(
         .get("id")
         .and_then(Value::as_str)
         .map(ToOwned::to_owned)
-        .unwrap_or_else(|| format!("claude-tool-{}-{}", state.current_message_seq, index));
+        .unwrap_or_else(|| claude_tool_item_id(state, index));
     let name = part
         .get("name")
         .and_then(Value::as_str)

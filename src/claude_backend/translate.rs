@@ -9,9 +9,10 @@ use super::exit_plan::{
 };
 use super::snapshot::synthesize_assistant_snapshot;
 use super::types::{
-    begin_claude_message, ensure_claude_turn_started, normalize_claude_model_name,
-    parse_partial_json_object, should_hide_claude_tool_transcript, synthetic_token_usage_line,
-    ClaudeBlockState, ClaudeToolCall, ClaudeTranslationState, TranslateOutput,
+    begin_claude_message, claude_message_item_id, claude_tool_item_id,
+    ensure_claude_turn_started, normalize_claude_model_name, parse_partial_json_object,
+    should_hide_claude_tool_transcript, synthetic_token_usage_line, ClaudeBlockState,
+    ClaudeToolCall, ClaudeTranslationState, TranslateOutput,
 };
 
 // --- Event translation ---
@@ -134,7 +135,7 @@ fn translate_content_block_start(
     match block.get("type").and_then(Value::as_str) {
         Some("text") => {
             state.current_message_has_content_blocks = true;
-            let item_id = format!("claude-msg-{}-{}", state.current_message_seq, index);
+            let item_id = claude_message_item_id(state, index);
             state.current_blocks.insert(
                 index,
                 ClaudeBlockState::Text {
@@ -161,9 +162,7 @@ fn translate_content_block_start(
                 .get("id")
                 .and_then(Value::as_str)
                 .map(ToOwned::to_owned)
-                .unwrap_or_else(|| {
-                    format!("claude-tool-{}-{}", state.current_message_seq, index)
-                });
+                .unwrap_or_else(|| claude_tool_item_id(state, index));
             let name = block
                 .get("name")
                 .and_then(Value::as_str)
