@@ -17,6 +17,15 @@ pub(super) enum Backend {
     Claude,
 }
 
+impl Backend {
+    fn cli_name(self) -> &'static str {
+        match self {
+            Self::Codex => "codex",
+            Self::Claude => "claude",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub(super) struct CliOptions {
     pub(super) backend: Backend,
@@ -56,13 +65,19 @@ pub(super) fn usage() {
     );
 }
 
-pub(super) fn resume_hint(thread_id: &str) -> String {
-    format!("to resume this session use:\ncarlos resume {thread_id}")
+pub(super) fn resume_hint(backend: Backend, thread_id: &str) -> String {
+    format!(
+        "to resume this session use:\ncarlos --backend {} resume {thread_id}",
+        backend.cli_name()
+    )
 }
 
-pub(super) fn styled_resume_hint(thread_id: &str) -> String {
-    let plain = resume_hint(thread_id);
-    let command = format!("carlos resume {thread_id}");
+pub(super) fn styled_resume_hint(backend: Backend, thread_id: &str) -> String {
+    let plain = resume_hint(backend, thread_id);
+    let command = format!(
+        "carlos --backend {} resume {thread_id}",
+        backend.cli_name()
+    );
     plain.replace(&command, &format!("\x1b[94m{command}\x1b[0m"))
 }
 

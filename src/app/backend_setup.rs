@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
 use std::time::Duration;
 use anyhow::{Context, Result};
-use super::cli::{env_flag_enabled, resolve_initial_runtime_settings, styled_resume_hint, CliOptions};
+use super::cli::{
+    env_flag_enabled, resolve_initial_runtime_settings, styled_resume_hint, Backend, CliOptions,
+};
 use super::input::run_conversation_tui;
 use super::models::{Role, ThreadSummary};
 use super::notifications::{handle_server_message_line, load_history_from_start_or_resume, parse_thread_list};
@@ -65,9 +67,14 @@ pub(super) fn configure_app_common(app: &mut AppState, cwd: &str, opts: &CliOpti
     );
     app.set_status("ready");
 }
-pub(super) fn finish_run(app: &mut AppState, client: &dyn BackendClient, server_events_rx: Receiver<String>) -> Result<()> {
+pub(super) fn finish_run(
+    app: &mut AppState,
+    backend: Backend,
+    client: &dyn BackendClient,
+    server_events_rx: Receiver<String>,
+) -> Result<()> {
     let out = run_conversation_tui(client, app, server_events_rx);
-    eprintln!("{}", styled_resume_hint(&app.thread_id));
+    eprintln!("{}", styled_resume_hint(backend, &app.thread_id));
     if let Some(report) = app.perf_report() {
         eprintln!("{report}");
     }
@@ -193,7 +200,7 @@ pub(super) fn run_codex_backend(opts: &CliOptions, _cwd_path: &Path, cwd: &str, 
         &persisted_defaults,
         default_summary,
     )?;
-    finish_run(&mut app, &client, server_events_rx)
+    finish_run(&mut app, opts.backend, &client, server_events_rx)
 }
 pub(super) fn resolve_codex_thread(opts: &CliOptions, client: &AppServerClient, cwd: &str) -> Result<Option<(String, String)>> {
     if opts.mode_resume || opts.mode_continue {
@@ -272,7 +279,7 @@ pub(super) fn run_claude_backend(opts: &CliOptions, cwd_path: &Path, cwd: &str, 
     let mut app = AppState::new(chosen_thread_id);
     configure_claude_app(&mut app, cwd, opts, &persisted_defaults, &start_resp)?;
     apply_claude_local_history(&mut app, opts, &local_history)?;
-    finish_run(&mut app, &client, server_events_rx)
+    finish_run(&mut app, opts.backend, &client, server_events_rx)
 }
 pub(super) fn resolve_claude_launch_mode(opts: &CliOptions, cwd_path: &Path, cwd: &str) -> Result<Option<ClaudeLaunchMode>> {
     if opts.mode_continue {

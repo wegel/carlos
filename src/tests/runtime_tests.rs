@@ -747,16 +747,16 @@ fn parse_thread_list_reads_session_summary_fields() {
 #[test]
 fn resume_hint_formats_resume_command() {
     assert_eq!(
-        resume_hint("xxxx-xxxx"),
-        "to resume this session use:\ncarlos resume xxxx-xxxx"
+        resume_hint(Backend::Codex, "xxxx-xxxx"),
+        "to resume this session use:\ncarlos --backend codex resume xxxx-xxxx"
     );
 }
 
 #[test]
 fn styled_resume_hint_colors_only_command_line() {
     assert_eq!(
-        styled_resume_hint("xxxx-xxxx"),
-        "to resume this session use:\n\x1b[94mcarlos resume xxxx-xxxx\x1b[0m"
+        styled_resume_hint(Backend::Claude, "xxxx-xxxx"),
+        "to resume this session use:\n\x1b[94mcarlos --backend claude resume xxxx-xxxx\x1b[0m"
     );
 }
 
