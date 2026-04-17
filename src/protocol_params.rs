@@ -55,6 +55,20 @@ pub(crate) fn params_thread_resume(thread_id: &str) -> Value {
     })
 }
 
+pub(crate) fn params_thread_fork(thread_id: &str) -> Value {
+    json!({
+        "threadId": thread_id,
+        "persistExtendedHistory": true,
+    })
+}
+
+pub(crate) fn params_thread_rollback(thread_id: &str, num_turns: usize) -> Value {
+    json!({
+        "threadId": thread_id,
+        "numTurns": num_turns,
+    })
+}
+
 pub(crate) fn params_thread_list(cwd: &str) -> Value {
     json!({
         "limit": 100,

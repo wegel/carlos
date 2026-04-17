@@ -135,6 +135,14 @@ impl AppState {
         self.input_history.rewind_selected_message_idx()
     }
 
+    pub(super) fn rewind_selected_history_index(&self) -> Option<usize> {
+        self.input_history.rewind_selected_history_index()
+    }
+
+    pub(super) fn submitted_turn_count(&self) -> usize {
+        self.input_history.history_len()
+    }
+
     pub(super) fn align_rewind_scroll_to_selected_prompt(&mut self, size: TerminalSize) {
         if !self.rewind_mode() {
             return;

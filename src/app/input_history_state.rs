@@ -126,6 +126,14 @@ impl InputHistoryState {
         self.input_history_message_idx.get(idx).and_then(|v| *v)
     }
 
+    pub(super) fn rewind_selected_history_index(&self) -> Option<usize> {
+        self.input_history_index
+    }
+
+    pub(super) fn history_len(&self) -> usize {
+        self.input_history.len()
+    }
+
     pub(super) fn clear_message_indices_from(&mut self, idx: usize) {
         for msg_idx in &mut self.input_history_message_idx {
             if msg_idx.is_some_and(|v| v >= idx) {
@@ -135,11 +143,6 @@ impl InputHistoryState {
     }
 
     // --- Test Helpers ---
-    #[cfg(test)]
-    pub(super) fn history_len(&self) -> usize {
-        self.input_history.len()
-    }
-
     #[cfg(test)]
     pub(super) fn message_indices(&self) -> &[Option<usize>] {
         &self.input_history_message_idx

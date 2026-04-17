@@ -3,10 +3,16 @@
 
 use std::time::{Duration, Instant};
 
+use anyhow::Context;
+
+use super::notifications::load_history_from_start_or_resume;
 use super::state::{AppState, ApprovalChoice};
 use super::Role;
-use crate::backend::{BackendClient, BackendKind};
-use crate::protocol_params::{params_turn_interrupt, params_turn_start, params_turn_steer};
+use crate::backend::{BackendClient, BackendKind, RewindForkRequest};
+use crate::protocol_params::{
+    params_turn_interrupt, params_turn_start, params_turn_steer,
+    parse_thread_id_from_start_or_resume,
+};
 
 pub(super) const CLAUDE_PENDING_TURN_ID: &str = "claude-turn-pending";
 
@@ -14,6 +20,51 @@ pub(super) const CLAUDE_PENDING_TURN_ID: &str = "claude-turn-pending";
 
 pub(super) fn submit_turn_text(client: &dyn BackendClient, app: &mut AppState, text: String) {
     submit_turn_text_with_history(client, app, text, true);
+}
+
+pub(super) fn submit_rewind_turn_text(
+    client: &dyn BackendClient,
+    app: &mut AppState,
+    rewind_history_idx: usize,
+    text: String,
+) {
+    if text.trim().is_empty() {
+        return;
+    }
+
+    let total_turns = app.submitted_turn_count();
+    let drop_turns = total_turns.saturating_sub(rewind_history_idx);
+    if drop_turns == 0 {
+        submit_turn_text_with_history(client, app, text, true);
+        return;
+    }
+
+    let response = match client.fork_from_rewind(
+        &app.thread_id,
+        RewindForkRequest {
+            keep_turns: rewind_history_idx,
+            drop_turns,
+        },
+        Duration::from_secs(20),
+    ) {
+        Ok(response) => response,
+        Err(err) => {
+            app.set_status(format!("fork failed: {err}"));
+            return;
+        }
+    };
+
+    if let Err(err) = apply_forked_thread_history(app, &response) {
+        app.set_status(format!("fork failed: {err}"));
+        return;
+    }
+
+    app.clear_rewind_mode_state();
+    app.push_input_history(&text);
+    app.clear_input();
+    app.viewport.selection = None;
+    app.mark_user_turn_submitted();
+    start_new_turn(client, app, text, true);
 }
 
 pub(super) fn submit_turn_text_with_history(
@@ -83,6 +134,15 @@ pub(super) fn interrupt_active_turn(
 }
 
 // --- Private helpers ---
+
+fn apply_forked_thread_history(app: &mut AppState, response_line: &str) -> anyhow::Result<()> {
+    let thread_id = parse_thread_id_from_start_or_resume(response_line)
+        .context("missing forked thread id")?;
+    app.reset_for_forked_thread(thread_id);
+    load_history_from_start_or_resume(app, response_line)
+        .context("failed to load forked thread history")?;
+    Ok(())
+}
 
 fn steer_existing_turn(
     client: &dyn BackendClient,

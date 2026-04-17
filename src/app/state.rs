@@ -138,6 +138,21 @@ impl AppState {
         self.thread_id = thread_id.into();
     }
 
+    pub(super) fn reset_for_forked_thread(&mut self, thread_id: impl Into<String>) {
+        self.thread_id = thread_id.into();
+        self.active_turn_id = None;
+        self.messages.clear();
+        self.render_cache = RenderCacheState::new();
+        self.agent_item_to_index.clear();
+        self.turn_diff_to_index.clear();
+        self.command_render_overrides.clear();
+        self.input_history = InputHistoryState::new();
+        self.turn_start_message_idx = None;
+        self.viewport = ViewportState::new();
+        self.context_usage = None;
+        self.clear_pending_approval();
+    }
+
     pub(super) fn set_pending_approval(&mut self, approval: PendingApprovalRequest) {
         self.status = format!("approval requested: {}", approval.title);
         self.approval.pending = Some(approval);

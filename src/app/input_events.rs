@@ -18,7 +18,10 @@ use super::render::{compute_input_layout, is_newline_enter, last_assistant_messa
 use super::selection::MouseDragMode;
 use super::state::{AppState, ApprovalChoice, ModelSettingsField};
 use super::transcript_render::transcript_content_width;
-use super::turn_submit::{interrupt_active_turn, respond_to_pending_approval, submit_turn_text};
+use super::turn_submit::{
+    interrupt_active_turn, respond_to_pending_approval, submit_rewind_turn_text,
+    submit_turn_text,
+};
 use super::{persist_runtime_defaults, TerminalSize, MSG_TOP};
 use crate::backend::BackendClient;
 use crate::clipboard::{clipboard_backend_label, try_copy_clipboard};
@@ -379,14 +382,15 @@ fn handle_enter_submit(
         return TerminalEventResult::Continue { needs_draw: true };
     }
 
-    let rewind_target_idx = if app.rewind_mode() {
-        app.rewind_selected_message_idx()
-    } else {
-        None
-    };
     let text = app.input_text();
+    if app.rewind_mode() {
+        if let Some(rewind_history_idx) = app.rewind_selected_history_index() {
+            submit_rewind_turn_text(client, app, rewind_history_idx, text);
+            return TerminalEventResult::Continue { needs_draw: true };
+        }
+    }
+
     app.clear_rewind_mode_state();
-    app.rewind_fork_from_message_idx(rewind_target_idx);
     app.push_input_history(&text);
     app.clear_input();
     app.viewport.selection = None;

@@ -1,10 +1,11 @@
 use crossterm::event::KeyEvent;
 use serde_json::Value;
+use std::sync::Mutex;
 use std::sync::mpsc;
 use std::time::Duration;
 
 use super::*;
-use crate::backend::{BackendClient, BackendKind};
+use crate::backend::{BackendClient, BackendKind, RewindForkRequest};
 
 struct ApprovalRespondMock {
     responses: std::sync::Mutex<Vec<(Value, Value)>>,
@@ -33,6 +34,64 @@ impl BackendClient for ApprovalRespondMock {
             .expect("responses lock")
             .push((request_id.clone(), result));
         Ok(())
+    }
+
+    fn respond_error(&self, _request_id: &Value, _code: i64, _message: &str) -> anyhow::Result<()> {
+        anyhow::bail!("unused in test")
+    }
+
+    fn take_events_rx(&mut self) -> anyhow::Result<mpsc::Receiver<String>> {
+        anyhow::bail!("unused in test")
+    }
+
+    fn stop(&mut self) {}
+}
+
+struct CodexRewindMock {
+    fork_calls: Mutex<Vec<(String, RewindForkRequest)>>,
+    turn_start_calls: Mutex<Vec<Value>>,
+    fork_response: String,
+}
+
+impl CodexRewindMock {
+    fn new(fork_response: String) -> Self {
+        Self {
+            fork_calls: Mutex::new(Vec::new()),
+            turn_start_calls: Mutex::new(Vec::new()),
+            fork_response,
+        }
+    }
+}
+
+impl BackendClient for CodexRewindMock {
+    fn kind(&self) -> BackendKind {
+        BackendKind::Codex
+    }
+
+    fn call(&self, method: &str, params: Value, _timeout: Duration) -> anyhow::Result<String> {
+        assert_eq!(method, "turn/start");
+        self.turn_start_calls
+            .lock()
+            .expect("turn start calls lock")
+            .push(params);
+        Ok("{\"jsonrpc\":\"2.0\",\"result\":{}}".to_string())
+    }
+
+    fn fork_from_rewind(
+        &self,
+        thread_id: &str,
+        request: RewindForkRequest,
+        _timeout: Duration,
+    ) -> anyhow::Result<String> {
+        self.fork_calls
+            .lock()
+            .expect("fork calls lock")
+            .push((thread_id.to_string(), request));
+        Ok(self.fork_response.clone())
+    }
+
+    fn respond(&self, _request_id: &Value, _result: Value) -> anyhow::Result<()> {
+        anyhow::bail!("unused in test")
     }
 
     fn respond_error(&self, _request_id: &Value, _code: i64, _message: &str) -> anyhow::Result<()> {
@@ -223,6 +282,77 @@ fn pending_claude_exit_plan_accept_uses_approval_path_not_chat_input() {
     let responses = client.responses.lock().expect("responses lock");
     assert_eq!(responses.len(), 1);
     assert_eq!(responses[0].1, json!({"decision":"accept"}));
+}
+
+#[test]
+fn submit_rewind_turn_text_forks_codex_thread_before_resubmitting() {
+    let fork_response = json!({
+        "jsonrpc": "2.0",
+        "result": {
+            "thread": {
+                "id": "thread-fork",
+                "turns": [{
+                    "items": [
+                        {
+                            "type": "userMessage",
+                            "content": [{
+                                "type": "text",
+                                "text": "first"
+                            }]
+                        },
+                        {
+                            "type": "agentMessage",
+                            "text": "reply one"
+                        }
+                    ]
+                }]
+            }
+        }
+    })
+    .to_string();
+    let client = CodexRewindMock::new(fork_response);
+    let mut app = AppState::new("thread-original".to_string());
+    let u1 = app.append_message(Role::User, "first");
+    app.record_input_history("first", Some(u1));
+    let _ = app.append_message(Role::Assistant, "reply one");
+    let u2 = app.append_message(Role::User, "second");
+    app.record_input_history("second", Some(u2));
+    let _ = app.append_message(Role::Assistant, "reply two");
+    app.set_input_text("edited second");
+    app.enter_rewind_mode();
+    let rewind_history_idx = app
+        .rewind_selected_history_index()
+        .expect("rewind history index");
+
+    super::turn_submit::submit_rewind_turn_text(
+        &client,
+        &mut app,
+        rewind_history_idx,
+        "edited second".to_string(),
+    );
+
+    assert_eq!(app.thread_id, "thread-fork");
+    assert_eq!(app.messages.len(), 2);
+    assert_eq!(app.messages[0].text, "first");
+    assert_eq!(app.messages[1].text, "reply one");
+    assert_eq!(app.input_history_message_indices(), &[Some(0), None]);
+
+    let fork_calls = client.fork_calls.lock().expect("fork calls lock");
+    assert_eq!(fork_calls.as_slice(), &[(
+        "thread-original".to_string(),
+        RewindForkRequest {
+            keep_turns: 1,
+            drop_turns: 1,
+        },
+    )]);
+
+    let turn_start_calls = client
+        .turn_start_calls
+        .lock()
+        .expect("turn start calls lock");
+    assert_eq!(turn_start_calls.len(), 1);
+    assert_eq!(turn_start_calls[0]["threadId"], "thread-fork");
+    assert_eq!(turn_start_calls[0]["input"][0]["text"], "edited second");
 }
 
 #[test]
