@@ -254,6 +254,9 @@ pub(super) fn strip_shell_quotes(token: &str) -> &str {
 }
 
 fn tokens_without_program_options(tokens: &[String]) -> &[String] {
+    if tokens.is_empty() {
+        return &[];
+    }
     let mut i = 1usize;
     while i < tokens.len() && tokens[i].starts_with('-') {
         i += 1;

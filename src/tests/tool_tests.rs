@@ -227,6 +227,42 @@ fn item_completed_shell_rg_multi_path_falls_back_to_search_summary_without_exec_
 }
 
 #[test]
+fn item_completed_shell_pipeline_with_empty_rhs_does_not_panic() {
+    let mut app = AppState::new("thread-1".to_string());
+    handle_notification_line(
+        &mut app,
+        "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_bad_pipe\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+    );
+    handle_notification_line(
+        &mut app,
+        "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_bad_pipe\",\"command\":\"cat src/main.rs |\",\"aggregatedOutput\":\"\",\"exitCode\":2},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+    );
+
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(app.messages[0].role, Role::ToolOutput);
+    assert!(app.messages[0].text.starts_with("→ Read src/main.rs\n$ cat src/main.rs |"));
+    assert!(app.messages[0].text.contains("exit code: 2"));
+}
+
+#[test]
+fn item_completed_shell_bare_pipe_does_not_panic() {
+    let mut app = AppState::new("thread-1".to_string());
+    handle_notification_line(
+        &mut app,
+        "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_bare_pipe\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+    );
+    handle_notification_line(
+        &mut app,
+        "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_bare_pipe\",\"command\":\"|\",\"aggregatedOutput\":\"\",\"exitCode\":2},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+    );
+
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(app.messages[0].role, Role::ToolOutput);
+    assert!(app.messages[0].text.starts_with("$ |"));
+    assert!(app.messages[0].text.contains("exit code: 2"));
+}
+
+#[test]
 fn exec_command_end_shell_git_diff_is_summarized_as_diff() {
     let mut app = AppState::new("thread-1".to_string());
     handle_notification_line(
