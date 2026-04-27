@@ -564,6 +564,45 @@ fn translate_claude_text_turn_emits_codex_style_notifications() {
 }
 
 #[test]
+fn translate_claude_system_init_does_not_export_backend_model() {
+    let synthetic = collect_synthetic_lines(&[
+        r#"{"type":"system","subtype":"init","session_id":"session-1","model":"claude-opus-4-7"}"#,
+    ]);
+
+    let initialized = synthetic
+        .iter()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .find(|value| value.get("method").and_then(Value::as_str) == Some("thread/initialized"))
+        .expect("thread initialized");
+
+    assert_eq!(
+        initialized["params"]["thread"]["id"].as_str(),
+        Some("session-1")
+    );
+    assert!(initialized["params"].get("model").is_none());
+}
+
+#[test]
+fn translated_claude_init_preserves_selected_runtime_settings() {
+    let synthetic = collect_synthetic_lines(&[
+        r#"{"type":"system","subtype":"init","session_id":"session-1","model":"claude-opus-4-7"}"#,
+    ]);
+    let mut app = AppState::new("claude-pending-session".to_string());
+    app.set_runtime_settings(
+        Some("claude-opus-4-6".to_string()),
+        Some("high".to_string()),
+        None,
+    );
+
+    for line in synthetic {
+        handle_notification_line(&mut app, &line);
+    }
+
+    assert_eq!(app.thread_id, "session-1");
+    assert_eq!(app.runtime_settings_label(), "claude-opus-4-6/high");
+}
+
+#[test]
 fn translate_claude_assistant_snapshot_backfills_missing_text_blocks() {
     let synthetic = collect_synthetic_lines(&[
         r#"{"type":"system","subtype":"init","session_id":"session-1","model":"claude-opus-4-6"}"#,

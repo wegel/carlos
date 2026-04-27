@@ -63,6 +63,7 @@ pub(crate) struct ClaudeTranslationState {
     pub(super) session_id: Option<String>,
     pub(super) stream_instance_seq: u64,
     pub(super) model: Option<String>,
+    pub(super) raw_model: Option<String>,
     pub(super) next_turn_seq: u64,
     pub(super) current_turn_id: Option<String>,
     pub(super) current_message_seq: u64,

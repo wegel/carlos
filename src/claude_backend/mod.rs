@@ -8,6 +8,7 @@ mod session_fork;
 mod snapshot;
 mod translate;
 mod types;
+mod user_record;
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
