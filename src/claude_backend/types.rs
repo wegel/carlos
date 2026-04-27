@@ -9,8 +9,6 @@ use serde_json::{json, Map, Value};
 use crate::protocol_params::ModelInfo;
 
 // --- Constants ---
-
-pub(crate) const CLAUDE_CONTEXT_WINDOW: u64 = 1_000_000;
 pub(crate) const CLAUDE_PENDING_THREAD_ID: &str = "claude-pending-session";
 pub(crate) const CLAUDE_EXIT_PLAN_REQUEST_METHOD: &str = "claude/exitPlan/requestApproval";
 pub(crate) const CLAUDE_EXIT_PLAN_FALLBACK_TEXT: &str = "Exit plan mode?";
@@ -292,39 +290,4 @@ pub(super) fn parse_partial_json_object(input_json: &str) -> Map<String, Value> 
         return Map::new();
     }
     serde_json::from_str::<Map<String, Value>>(input_json).unwrap_or_default()
-}
-
-pub(super) fn synthetic_token_usage_line(usage: &Map<String, Value>, model: Option<&str>) -> String {
-    let total_tokens = [
-        usage.get("input_tokens").and_then(Value::as_u64),
-        usage
-            .get("cache_creation_input_tokens")
-            .and_then(Value::as_u64),
-        usage.get("cache_read_input_tokens").and_then(Value::as_u64),
-        usage.get("output_tokens").and_then(Value::as_u64),
-    ]
-    .into_iter()
-    .flatten()
-    .sum::<u64>();
-
-    let context_window = match model.unwrap_or_default() {
-        "claude-haiku-4-5" | "claude-sonnet-4-6" | "claude-opus-4-6" => CLAUDE_CONTEXT_WINDOW,
-        _ => CLAUDE_CONTEXT_WINDOW,
-    };
-
-    json!({
-        "method": "thread/tokenUsage/updated",
-        "params": {
-            "tokenUsage": {
-                "modelContextWindow": context_window,
-                "last": {
-                    "totalTokens": total_tokens,
-                },
-                "total": {
-                    "totalTokens": total_tokens,
-                }
-            }
-        }
-    })
-    .to_string()
 }

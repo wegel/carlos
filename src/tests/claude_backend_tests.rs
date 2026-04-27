@@ -985,6 +985,61 @@ fn local_claude_history_imports_user_assistant_and_tool_items() {
 }
 
 #[test]
+fn local_claude_history_recovers_context_usage_from_hinted_assistant_usage() {
+    let root = temp_test_dir("claude-history-context-usage");
+    let cwd = Path::new("/repo");
+    write_session_file(
+        &root,
+        cwd,
+        "session-context-usage",
+        &[
+            r#"{"type":"user","message":{"role":"user","content":"hello"},"sessionId":"session-context-usage"}"#,
+            r#"{"type":"assistant","message":{"role":"assistant","model":"claude-opus-4-6[1m]","content":[{"type":"text","text":"hi"}],"usage":{"input_tokens":1,"cache_creation_input_tokens":685,"cache_read_input_tokens":79716,"output_tokens":93}},"sessionId":"session-context-usage"}"#,
+        ],
+    );
+
+    let imported = load_claude_local_history_from_projects_root(
+        &root,
+        cwd,
+        &ClaudeLaunchMode::Resume("session-context-usage".to_string()),
+    )
+    .expect("import")
+    .expect("history");
+
+    let usage = imported.context_usage.expect("context usage");
+    assert_eq!(usage.used, 80_495);
+    assert_eq!(usage.max, 1_000_000);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn local_claude_history_skips_context_usage_without_authoritative_window() {
+    let root = temp_test_dir("claude-history-context-usage-plain");
+    let cwd = Path::new("/repo");
+    write_session_file(
+        &root,
+        cwd,
+        "session-context-usage-plain",
+        &[
+            r#"{"type":"assistant","message":{"role":"assistant","model":"claude-opus-4-6","content":[{"type":"text","text":"hi"}],"usage":{"input_tokens":3,"cache_creation_input_tokens":88328,"cache_read_input_tokens":11929,"output_tokens":8}},"sessionId":"session-context-usage-plain"}"#,
+        ],
+    );
+
+    let imported = load_claude_local_history_from_projects_root(
+        &root,
+        cwd,
+        &ClaudeLaunchMode::Resume("session-context-usage-plain".to_string()),
+    )
+    .expect("import")
+    .expect("history");
+
+    assert!(imported.context_usage.is_none());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn local_claude_history_hides_internal_plan_mode_tool_rows() {
     let root = temp_test_dir("claude-history-hide-plan-mode-tools");
     let cwd = Path::new("/repo");
@@ -1015,6 +1070,43 @@ fn local_claude_history_hides_internal_plan_mode_tool_rows() {
     assert!(imported.pending_approval_request.is_some());
 
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn translate_claude_result_prefers_model_usage_when_available() {
+    let synthetic = collect_synthetic_lines(&[
+        r#"{"type":"system","subtype":"init","session_id":"session-1","model":"claude-opus-4-7[1m]"}"#,
+        r#"{"type":"result","session_id":"session-1","terminal_reason":"completed","usage":{"input_tokens":3,"cache_creation_input_tokens":544,"cache_read_input_tokens":8762,"output_tokens":4},"modelUsage":{"claude-opus-4-7[1m]":{"inputTokens":1,"outputTokens":93,"cacheReadInputTokens":79716,"cacheCreationInputTokens":685,"contextWindow":1000000}}}"#,
+    ]);
+
+    let token_update = synthetic
+        .iter()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .find(|value| value.get("method").and_then(Value::as_str) == Some("thread/tokenUsage/updated"))
+        .expect("token usage update");
+
+    assert_eq!(
+        token_update["params"]["tokenUsage"]["total"]["totalTokens"].as_u64(),
+        Some(80_495)
+    );
+    assert_eq!(
+        token_update["params"]["tokenUsage"]["modelContextWindow"].as_u64(),
+        Some(1_000_000)
+    );
+}
+
+#[test]
+fn translate_claude_usage_without_window_hint_skips_token_update() {
+    let synthetic = collect_synthetic_lines(&[
+        r#"{"type":"system","subtype":"init","session_id":"session-1","model":"claude-opus-4-6"}"#,
+        r#"{"type":"stream_event","event":{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":3,"cache_creation_input_tokens":88328,"cache_read_input_tokens":11929,"output_tokens":8}},"session_id":"session-1"}"#,
+    ]);
+
+    let methods: Vec<String> = synthetic
+        .iter()
+        .filter_map(|line| parse_method(line))
+        .collect();
+    assert!(!methods.contains(&"thread/tokenUsage/updated".to_string()));
 }
 
 #[test]

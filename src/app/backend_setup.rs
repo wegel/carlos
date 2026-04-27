@@ -339,6 +339,12 @@ pub(super) fn configure_claude_app(app: &mut AppState, cwd: &str, opts: &CliOpti
     Ok(())
 }
 pub(super) fn apply_claude_local_history(app: &mut AppState, opts: &CliOptions, local_history: &Option<ClaudeLocalHistory>) -> Result<()> {
+    if let Some(usage) = local_history.as_ref().and_then(|history| history.context_usage) {
+        app.context_usage = Some(super::context_usage::ContextUsage {
+            used: usage.used,
+            max: usage.max,
+        });
+    }
     if let Some(request_line) = local_history
         .as_ref()
         .and_then(|history| history.pending_approval_request.as_deref())

@@ -17,6 +17,7 @@ use super::session_file::{
     user_record_text,
 };
 use super::session_fork::fork_claude_session_from_projects_root;
+use super::token_usage::{claude_context_usage_from_record, ClaudeContextUsage};
 use super::types::{
     claude_projects_root, should_hide_claude_tool_transcript, ClaudeExitPlanApproval,
     ClaudeLaunchMode, ClaudeToolCall,
@@ -29,6 +30,7 @@ pub(crate) struct ClaudeLocalHistory {
     pub(crate) session_id: String,
     pub(crate) thread: Value,
     pub(crate) imported_item_count: usize,
+    pub(crate) context_usage: Option<ClaudeContextUsage>,
     pub(crate) pending_approval_request: Option<String>,
 }
 
@@ -194,6 +196,7 @@ fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<Claude
     let mut items = Vec::new();
     let mut pending_tool_calls = HashMap::new();
     let mut pending_exit_plan_approval = None;
+    let mut context_usage = None;
     let records = read_session_records_from_file(path)?;
 
     let active_branch_uuids = active_branch_uuids(&records);
@@ -207,6 +210,9 @@ fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<Claude
             if !active_branch_uuids.contains(uuid) {
                 continue;
             }
+        }
+        if let Some(usage) = claude_context_usage_from_record(&session_record.record) {
+            context_usage = Some(usage);
         }
         match session_record.record.get("type").and_then(Value::as_str) {
             Some("assistant") => append_assistant_history_record(
@@ -235,6 +241,7 @@ fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<Claude
             }]
         }),
         imported_item_count,
+        context_usage,
         pending_approval_request: pending_exit_plan_approval
             .as_ref()
             .map(claude_exit_plan_request_line),

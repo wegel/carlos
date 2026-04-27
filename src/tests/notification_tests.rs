@@ -31,6 +31,45 @@ fn handle_notification_thread_initialized_updates_thread_id() {
 }
 
 #[test]
+fn handle_notification_thread_initialized_clears_context_usage_when_thread_changes() {
+    let mut app = AppState::new("claude-pending-session".to_string());
+    app.context_usage = Some(ContextUsage {
+        used: 1_000_000,
+        max: 1_000_000,
+    });
+
+    handle_notification_line(
+        &mut app,
+        "{\"method\":\"thread/initialized\",\"params\":{\"thread\":{\"id\":\"session-123\"},\"model\":\"claude-opus-4-6\"}}",
+    );
+
+    assert_eq!(app.thread_id, "session-123");
+    assert_eq!(app.context_usage, None);
+}
+
+#[test]
+fn handle_notification_thread_initialized_preserves_context_usage_for_same_thread() {
+    let mut app = AppState::new("session-123".to_string());
+    app.context_usage = Some(ContextUsage {
+        used: 80_495,
+        max: 1_000_000,
+    });
+
+    handle_notification_line(
+        &mut app,
+        "{\"method\":\"thread/initialized\",\"params\":{\"thread\":{\"id\":\"session-123\"},\"model\":\"claude-opus-4-6\"}}",
+    );
+
+    assert_eq!(
+        app.context_usage,
+        Some(ContextUsage {
+            used: 80_495,
+            max: 1_000_000,
+        })
+    );
+}
+
+#[test]
 fn handle_notification_thread_initialized_preserves_existing_effort_when_only_model_arrives() {
     let mut app = AppState::new("claude-pending-session".to_string());
     app.set_runtime_settings(None, Some("high".to_string()), None);
@@ -42,6 +81,24 @@ fn handle_notification_thread_initialized_preserves_existing_effort_when_only_mo
 
     assert_eq!(app.thread_id, "session-123");
     assert_eq!(app.runtime_settings_label(), "claude-opus-4-6/high");
+}
+
+#[test]
+fn handle_notification_thread_compacted_clears_context_usage() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.context_usage = Some(ContextUsage {
+        used: 80_495,
+        max: 1_000_000,
+    });
+
+    handle_notification_line(
+        &mut app,
+        "{\"method\":\"thread/compacted\",\"params\":{\"threadId\":\"thread-1\"}}",
+    );
+
+    assert_eq!(app.context_usage, None);
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(app.messages[0].text, "↻ Context compacted");
 }
 
 #[test]

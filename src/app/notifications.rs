@@ -201,7 +201,10 @@ fn dispatch_notification(
                 app.context_usage = Some(usage);
             }
         }
-        "thread/compacted" => app.append_context_compacted_marker(),
+        "thread/compacted" => {
+            app.context_usage = None;
+            app.append_context_compacted_marker();
+        }
         "turn/started" => handle_turn_started(app, params),
         "turn/completed" => handle_turn_completed(app, params),
         "turn/diff/updated" => {
@@ -245,6 +248,9 @@ fn handle_thread_initialized(app: &mut AppState, params: &serde_json::Map<String
         .map(str::trim)
         .filter(|id| !id.is_empty())
     {
+        if app.thread_id != id {
+            app.context_usage = None;
+        }
         app.set_thread_id(id.to_string());
     }
     let model = params

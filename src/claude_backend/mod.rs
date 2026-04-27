@@ -6,6 +6,7 @@ mod process;
 mod session_file;
 mod session_fork;
 mod snapshot;
+mod token_usage;
 mod translate;
 mod types;
 mod user_record;

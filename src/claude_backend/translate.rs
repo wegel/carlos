@@ -4,11 +4,14 @@ use anyhow::{Context, Result};
 use serde_json::{json, Map, Value};
 
 use super::snapshot::synthesize_assistant_snapshot;
+use super::token_usage::{
+    synthetic_token_usage_line, synthetic_token_usage_line_from_model_usage,
+};
 use super::types::{
     begin_claude_message, claude_message_item_id, claude_tool_item_id,
     ensure_claude_turn_started, normalize_claude_model_name, parse_partial_json_object,
-    should_hide_claude_tool_transcript, synthetic_token_usage_line, ClaudeBlockState,
-    ClaudeToolCall, ClaudeTranslationState, TranslateOutput,
+    should_hide_claude_tool_transcript, ClaudeBlockState, ClaudeToolCall,
+    ClaudeTranslationState, TranslateOutput,
 };
 use super::user_record::translate_user_record;
 
@@ -102,8 +105,13 @@ fn translate_stream_event(
         }
         Some("message_delta") => {
             if let Some(usage) = event.get("usage").and_then(Value::as_object) {
-                out.lines
-                    .push(synthetic_token_usage_line(usage, state.model.as_deref()));
+                if let Some(line) = synthetic_token_usage_line(
+                    usage,
+                    state.raw_model.as_deref(),
+                    state.model.as_deref(),
+                ) {
+                    out.lines.push(line);
+                }
             }
         }
         Some("message_stop") => {}
@@ -300,9 +308,10 @@ fn translate_assistant_record(
         .and_then(Value::as_object)
         .and_then(|message| message.get("model"))
         .and_then(Value::as_str)
-        .map(normalize_claude_model_name)
+        .map(str::to_string)
     {
-        state.model = Some(model);
+        state.raw_model = Some(model.clone());
+        state.model = Some(normalize_claude_model_name(&model));
     }
     synthesize_assistant_snapshot(state, root, out);
 }
@@ -312,9 +321,18 @@ fn translate_result_record(
     root: &Map<String, Value>,
     out: &mut TranslateOutput,
 ) {
-    if let Some(usage) = root.get("usage").and_then(Value::as_object) {
-        out.lines
-            .push(synthetic_token_usage_line(usage, state.model.as_deref()));
+    if let Some(model_usage) = root.get("modelUsage").and_then(Value::as_object) {
+        if let Some(line) = synthetic_token_usage_line_from_model_usage(model_usage) {
+            out.lines.push(line);
+        }
+    } else if let Some(usage) = root.get("usage").and_then(Value::as_object) {
+        if let Some(line) = synthetic_token_usage_line(
+            usage,
+            state.raw_model.as_deref(),
+            state.model.as_deref(),
+        ) {
+            out.lines.push(line);
+        }
     }
     if let Some(turn_id) = state.current_turn_id.take() {
         let status = if state.interrupt_requested
