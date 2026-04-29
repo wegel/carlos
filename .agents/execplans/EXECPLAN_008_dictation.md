@@ -22,6 +22,8 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 - [ ] (2026-04-29 19:20Z) Milestone 5 partial: Added runtime profile cycling with `F7`, wired startup to retain all configured profiles, updated README guidance for dictation profiles, vocabulary, controls, and recommended GGML models, and reran release validation. Validation: `cargo test` passed with 257 tests, `cargo test --features dictation` passed with 291 tests and 1 ignored integration test, `cargo build --no-default-features` passed warning-clean, `cargo build --release --features dictation` passed warning-clean, `cargo build --release --no-default-features` passed warning-clean, and `install -Dm755 target/release/carlos ~/.local/bin/carlos` refreshed the installed no-feature binary. Remaining: required engineering review and manual microphone/model smokes.
 - [x] (2026-04-29 20:19Z) Addressed the first engineering review verdict by bounding the Whisper worker command queue with nonblocking send, preserving completed capture audio for idempotent manual-stop/auto-stop races, and removing the full-audio clone from UI dictation event processing. Validation after the fix: `cargo test` passed with 257 tests, `cargo test --features dictation` passed with 293 tests and 1 ignored integration test, `cargo build --no-default-features` passed warning-clean, `cargo build --release --features dictation` passed warning-clean, `cargo build --release --no-default-features` passed warning-clean, and `install -Dm755 target/release/carlos ~/.local/bin/carlos` refreshed the installed no-feature binary.
 - [ ] (2026-04-29 20:25Z) Human instruction received: do not run a re-review. Completion remains blocked on the Milestone 5 manual French-profile, English-profile, and missing-model smokes because this environment has no `~/.config/carlos/dictation.toml` and no `~/.cache/carlos` model directory. `pactl info` does show a default PipeWire/PulseAudio source (`alsa_input.usb-Yamaha_Corporation_Yamaha_AG03MK2-00.analog-stereo`), so audio hardware may be available once model/profile setup exists.
+- [x] (2026-04-29 20:37Z) Created local dictation runtime files and downloaded the recommended GGML models. Files created: `~/.config/carlos/dictation.toml`, `~/.config/carlos/vocab-fr-qc.txt`, and `~/.config/carlos/vocab-en.txt`. Models downloaded: `~/.cache/carlos/ggml-large-v3-turbo.bin` and `~/.cache/carlos/ggml-large-v3-turbo-q5_0.bin`. Validation: `cargo build --release --features dictation` passed, `install -Dm755 target/release/carlos ~/.local/bin/carlos` installed the dictation-enabled binary, `cargo test --features dictation` passed with 293 tests and 1 ignored integration test, and the ignored raw-f32 integration test was run successfully against both downloaded models using a converted JFK fixture at `/tmp/carlos-jfk.f32`.
+- [ ] (2026-04-29 20:38Z) Remaining Milestone 5 acceptance: live manual microphone smokes for the configured French and English profiles, plus the missing-model TUI smoke. These require a human to speak the exact acceptance phrases into the configured microphone and inspect the TUI input buffer/status.
 
 ## Surprises & Discoveries
 
@@ -76,6 +78,9 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 - Observation: The local runtime does not currently have dictation profiles or models installed.
   Evidence: `ls -la ~/.config/carlos` showed only `runtime-defaults.json`; `ls -la ~/.cache/carlos` failed because the directory does not exist. `pactl info` did report a default input source, so the current blocker is model/profile setup plus an actual manual dictation pass, not obvious absence of an audio device.
 
+- Observation: The local runtime now has profiles and models installed, and both downloaded models load through the worker path.
+  Evidence: `~/.config/carlos/dictation.toml` defines `fr-qc` and `en` profiles; `~/.cache/carlos` contains `ggml-large-v3-turbo.bin` at about 1.6 GB and `ggml-large-v3-turbo-q5_0.bin` at about 548 MB. SHA-256 values recorded during setup were `1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69` for the full model and `394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2` for the q5 model. The ignored integration test `ignored_integration_transcribes_raw_f32_fixture_with_tiny_model` passed against both model paths using `/tmp/carlos-jfk.f32`.
+
 ## Decision Log
 
 - Decision: Use `Ctrl+D` as the start/stop dictation key unless implementation-time testing proves a terminal conflict in the supported environments.
@@ -124,6 +129,10 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 
 - Decision: Do not run a second engineering review after `db958cf`.
   Rationale: The human explicitly instructed "no re-review" after the blocking findings were remediated. The original review verdict and remediation are preserved in this plan.
+  Date/Author: 2026-04-29 / codex
+
+- Decision: Install `~/.local/bin/carlos` from the release binary built with `--features dictation` for local smoke testing.
+  Rationale: The default Cargo feature set remains empty, so installing the no-feature release binary makes the downloaded profiles unusable. The human explicitly asked to download models and create needed files, which implies the local installed binary should be able to exercise dictation.
   Date/Author: 2026-04-29 / codex
 
 ## Outcomes & Retrospective
@@ -445,3 +454,5 @@ Whisper inference parameters must enforce:
 2026-04-29 / codex: Completed Milestone 4 by adding the reusable Whisper worker, cancellation tokens wired into the abort callback, request-id based stale-event dropping, vocabulary prompt loading, final text insertion, and an ignored model/audio integration test. Milestone 5 remains for runtime profile switching, README completion, manual smoke tests, release validation, and review.
 
 2026-04-29 / codex: Completed the code and documentation pieces of Milestone 5 by adding `F7` profile cycling, preserving all configured profiles in app state, updating README dictation instructions, and rerunning required automated validation. Completion is blocked on the mandated engineering review because both `codex exec` reviewer attempts failed with a usage-limit error before producing a verdict.
+
+2026-04-29 / codex: After the user asked to download the models and create files as needed, created the local dictation config/vocabulary files, downloaded the full and q5 large-v3-turbo GGML models from the README URLs, installed the dictation-enabled release binary, and proved both model files load and transcribe a known raw-f32 fixture through the existing ignored integration test. The only remaining acceptance items require a human live microphone/TUI pass.
