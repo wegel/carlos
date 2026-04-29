@@ -75,16 +75,18 @@ pub(super) fn configure_app_common(app: &mut AppState, cwd: &str, opts: &CliOpti
 fn configure_dictation(app: &mut AppState, opts: &CliOptions) {
     match crate::dictation::config::load_dictation_config(opts.dictation_profile.as_deref()) {
         Ok(config) => {
-            let profile = &config.profiles[&config.active_profile];
-            app.configure_dictation(DictationProfileState {
-                id: profile.id.clone(),
-                name: profile.name.clone(),
-                model_label: Some(profile.model.display().to_string()),
-                model_usable: profile.model_is_usable(),
-                model_path: Some(profile.model.clone()),
-                language: Some(profile.language.clone()),
-                vocabulary: profile.vocabulary.clone(),
-            });
+            let profiles = config.profiles.values()
+                .map(|profile| DictationProfileState {
+                    id: profile.id.clone(),
+                    name: profile.name.clone(),
+                    model_label: Some(profile.model.display().to_string()),
+                    model_usable: profile.model_is_usable(),
+                    model_path: Some(profile.model.clone()),
+                    language: Some(profile.language.clone()),
+                    vocabulary: profile.vocabulary.clone(),
+                })
+                .collect::<Vec<_>>();
+            app.configure_dictation_profiles(profiles, &config.active_profile);
         }
         Err(err) => app.disable_dictation(format!("dictation unavailable: {err}")),
     }

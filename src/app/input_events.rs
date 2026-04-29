@@ -311,6 +311,7 @@ fn handle_normal_key(
             TerminalEventResult::Continue { needs_draw: true }
         }
         (code, mods) if is_ctrl_char(code, mods, 'd') => handle_ctrl_d_dictation(app),
+        (KeyCode::F(7), mods) if mods.is_empty() => handle_f7_dictation_profile(app),
         (KeyCode::Char('r'), KeyModifiers::CONTROL) => handle_ctrl_r_ralph(app),
         (KeyCode::Char('y'), KeyModifiers::CONTROL) => handle_ctrl_y_copy(app),
         (KeyCode::Char('l'), KeyModifiers::CONTROL) => handle_ctrl_l_clear_selection(app),
@@ -350,6 +351,11 @@ fn handle_ctrl_r_ralph(app: &mut AppState) -> TerminalEventResult {
     if let Err(e) = app.request_ralph_toggle() {
         app.set_status(format!("ralph: {e}"));
     }
+    TerminalEventResult::Continue { needs_draw: true }
+}
+
+fn handle_f7_dictation_profile(app: &mut AppState) -> TerminalEventResult {
+    app.switch_dictation_profile_next();
     TerminalEventResult::Continue { needs_draw: true }
 }
 

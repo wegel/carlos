@@ -33,6 +33,8 @@ pub(super) struct DictationProfileState {
 pub(super) struct DictationRuntimeState {
     phase: DictationPhase,
     profile: Option<DictationProfileState>,
+    #[cfg(feature = "dictation")]
+    profiles: Vec<DictationProfileState>,
     picker_open: bool,
     disabled_reason: Option<String>,
 }
@@ -44,16 +46,40 @@ impl DictationRuntimeState {
         Self {
             phase: DictationPhase::Disabled,
             profile: None,
+            #[cfg(feature = "dictation")]
+            profiles: Vec::new(),
             picker_open: false,
             disabled_reason: Some(reason.into()),
         }
     }
 
-    #[cfg(any(test, feature = "dictation"))]
+    #[cfg(test)]
     pub(super) fn with_profile(profile: DictationProfileState) -> Self {
         Self {
             phase: DictationPhase::Idle,
-            profile: Some(profile),
+            profile: Some(profile.clone()),
+            #[cfg(feature = "dictation")]
+            profiles: vec![profile],
+            picker_open: false,
+            disabled_reason: None,
+        }
+    }
+
+    #[cfg(feature = "dictation")]
+    pub(super) fn with_profiles(profiles: Vec<DictationProfileState>, active_id: &str) -> Self {
+        let profile = profiles
+            .iter()
+            .find(|profile| profile.id == active_id)
+            .cloned()
+            .or_else(|| profiles.first().cloned());
+        Self {
+            phase: if profile.is_some() {
+                DictationPhase::Idle
+            } else {
+                DictationPhase::Disabled
+            },
+            profile,
+            profiles,
             picker_open: false,
             disabled_reason: None,
         }
@@ -67,6 +93,26 @@ impl DictationRuntimeState {
     #[cfg(feature = "dictation")]
     pub(super) fn profile(&self) -> Option<&DictationProfileState> {
         self.profile.as_ref()
+    }
+
+    #[cfg(feature = "dictation")]
+    pub(super) fn cycle_profile(&mut self) -> Result<&DictationProfileState, String> {
+        if self.profiles.is_empty() {
+            return Err("dictation profile list is empty".to_string());
+        }
+        let current_idx = self
+            .profile
+            .as_ref()
+            .and_then(|active| {
+                self.profiles
+                    .iter()
+                    .position(|profile| profile.id == active.id)
+            })
+            .unwrap_or(0);
+        let next_idx = (current_idx + 1) % self.profiles.len();
+        self.profile = Some(self.profiles[next_idx].clone());
+        self.phase = DictationPhase::Idle;
+        Ok(self.profile.as_ref().expect("profile was just selected"))
     }
 
     pub(super) fn is_active(&self) -> bool {

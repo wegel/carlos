@@ -16,9 +16,18 @@ use crate::dictation::worker::{DictationCancelToken, DictationWorker, DictationW
 impl AppState {
     // --- Configuration ---
 
-    #[cfg(any(test, feature = "dictation"))]
+    #[cfg(test)]
     pub(super) fn configure_dictation(&mut self, profile: DictationProfileState) {
         self.dictation = DictationRuntimeState::with_profile(profile);
+    }
+
+    #[cfg(feature = "dictation")]
+    pub(super) fn configure_dictation_profiles(
+        &mut self,
+        profiles: Vec<DictationProfileState>,
+        active_id: &str,
+    ) {
+        self.dictation = DictationRuntimeState::with_profiles(profiles, active_id);
     }
 
     pub(super) fn disable_dictation(&mut self, reason: impl Into<String>) {
@@ -115,6 +124,25 @@ impl AppState {
     pub(super) fn restart_dictation_recording(&mut self) {
         self.cancel_dictation();
         self.start_dictation_recording();
+    }
+
+    #[cfg(feature = "dictation")]
+    pub(super) fn switch_dictation_profile_next(&mut self) {
+        if self.dictation_active() {
+            self.cancel_dictation();
+        }
+        match self.dictation.cycle_profile() {
+            Ok(profile) => {
+                let name = profile.name.clone();
+                self.set_status(format!("dictation profile: {name}"));
+            }
+            Err(err) => self.set_status(format!("dictation profile unavailable: {err}")),
+        }
+    }
+
+    #[cfg(not(feature = "dictation"))]
+    pub(super) fn switch_dictation_profile_next(&mut self) {
+        self.set_status("dictation unavailable: rebuild with --features dictation");
     }
 
     #[cfg(test)]

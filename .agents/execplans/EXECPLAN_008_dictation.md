@@ -19,7 +19,7 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 - [x] (2026-04-29 18:53Z) Milestone 2: Added app-side dictation state to `AppState`, startup profile configuration when the `dictation` feature is enabled, `Ctrl+D` recording/transcribing toggles, `Esc` cancellation, profile-picker state methods, fake final-text commit support, and activity-line indicators. Validation: `cargo test` passed with 256 tests, `cargo test --features dictation` passed with 266 tests, `cargo build --no-default-features` passed warning-clean, `cargo build --release` passed, and `install -Dm755 target/release/carlos ~/.local/bin/carlos` refreshed the installed binary.
 - [x] (2026-04-29 19:04Z) Milestone 3: Added CPAL default-input capture behind the `dictation` feature, mono conversion for f32/i16/u16 input streams, `rubato` resampling to 16 kHz mono f32, WebRTC VAD framing with roughly 800 ms silence auto-stop, a 30-second bounded audio buffer, typed dictation UI events, manual stop and auto-stop state transitions, `Ctrl+D` restart from transcribing, and fake capture-event tests that require no microphone. Validation: `cargo test` passed with 257 tests, `cargo test --features dictation` passed with 285 tests, `cargo build --no-default-features` passed, `cargo build --release --features dictation` passed warning-clean, `cargo build --release --no-default-features` passed, and `install -Dm755 target/release/carlos ~/.local/bin/carlos` refreshed the installed no-feature binary. A manual microphone smoke was not run in this non-interactive execution pass; Milestone 5 still requires end-to-end manual dictation smokes with a model.
 - [x] (2026-04-29 19:14Z) Milestone 4: Added a single-threaded Whisper worker behind the `dictation` feature, typed transcription events, reusable model-context loading keyed by model/language/vocabulary, vocabulary prompt construction in worker requests, abort-callback cancellation through `FullParams::set_abort_callback_safe`, panic containment around inference, final text insertion at the existing input cursor, stale-request dropping after cancellation, and an ignored raw-f32 fixture integration test for `ggml-tiny.bin`. Validation: `cargo test` passed with 257 tests, `cargo test --features dictation` passed with 290 tests and 1 ignored integration test, `cargo build --no-default-features` passed warning-clean, `cargo build --release --features dictation` passed warning-clean, `cargo build --release --no-default-features` passed warning-clean, and `install -Dm755 target/release/carlos ~/.local/bin/carlos` refreshed the installed no-feature binary.
-- [ ] Milestone 5: Integrate runtime profile switching, final README guidance, manual smoke tests, release build, installation, and engineering review.
+- [ ] (2026-04-29 19:20Z) Milestone 5 partial: Added runtime profile cycling with `F7`, wired startup to retain all configured profiles, updated README guidance for dictation profiles, vocabulary, controls, and recommended GGML models, and reran release validation. Validation: `cargo test` passed with 257 tests, `cargo test --features dictation` passed with 291 tests and 1 ignored integration test, `cargo build --no-default-features` passed warning-clean, `cargo build --release --features dictation` passed warning-clean, `cargo build --release --no-default-features` passed warning-clean, and `install -Dm755 target/release/carlos ~/.local/bin/carlos` refreshed the installed no-feature binary. Remaining: required engineering review and manual microphone/model smokes. The review is currently blocked because `codex exec` hit the local usage limit twice.
 
 ## Surprises & Discoveries
 
@@ -68,6 +68,9 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 - Observation: Late transcription events need request IDs, not just cancellation flags.
   Evidence: `AppState` now tracks `dictation_request_id` and ignores `TranscriptionFinal`, `TranscriptionError`, and `TranscriptionCancelled` events whose request id no longer matches. The test `dictation_worker_late_final_is_ignored_after_cancel` covers the ghost-text case.
 
+- Observation: The required engineering review could not run in this session because the local `codex exec` transport hit its usage limit before producing a verdict.
+  Evidence: `codex exec -C /var/home/wegel/work/perso/carlos -s read-only -` failed with `You've hit your usage limit`; a retry with `-m gpt-5.4-mini` failed with the same usage-limit message. No reviewer verdict was produced, so the review requirement remains open.
+
 ## Decision Log
 
 - Decision: Use `Ctrl+D` as the start/stop dictation key unless implementation-time testing proves a terminal conflict in the supported environments.
@@ -104,6 +107,14 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 
 - Decision: Keep the model-dependent integration test ignored and driven by `CARLOS_DICTATION_TEST_MODEL` plus `CARLOS_DICTATION_TEST_AUDIO_F32`.
   Rationale: Normal automated tests must not require a downloaded model or audio fixture, but the repository still needs a concrete command-level hook for validating the worker against `ggml-tiny.bin` and a 16 kHz mono f32 sample.
+  Date/Author: 2026-04-29 / codex
+
+- Decision: Use `F7` as the reliable runtime dictation profile switch key.
+  Rationale: The planned `Ctrl+Shift+D` chord is terminal-dependent. `F7` is adjacent to the existing `F6`/`F8` runtime controls, is not already used by Carlos, and is reliably reported by crossterm.
+  Date/Author: 2026-04-29 / codex
+
+- Decision: Block completion until the engineering reviewer can run.
+  Rationale: `AGENTS.md` requires reviewer prompts for non-trivial changes, and the retry also failed before a verdict. This is an external quota/transport blocker, not a code or test failure.
   Date/Author: 2026-04-29 / codex
 
 ## Outcomes & Retrospective
@@ -413,3 +424,5 @@ Whisper inference parameters must enforce:
 2026-04-29 / codex: Completed Milestone 3 by adding feature-gated CPAL capture, 16 kHz mono resampling, WebRTC VAD auto-stop, bounded recording storage, typed dictation UI events, and fake capture-event tests. The next milestone should replace the staging `last_dictation_audio` field with a request to the single Whisper worker and should keep the tests hardware-free unless explicitly marked ignored.
 
 2026-04-29 / codex: Completed Milestone 4 by adding the reusable Whisper worker, cancellation tokens wired into the abort callback, request-id based stale-event dropping, vocabulary prompt loading, final text insertion, and an ignored model/audio integration test. Milestone 5 remains for runtime profile switching, README completion, manual smoke tests, release validation, and review.
+
+2026-04-29 / codex: Completed the code and documentation pieces of Milestone 5 by adding `F7` profile cycling, preserving all configured profiles in app state, updating README dictation instructions, and rerunning required automated validation. Completion is blocked on the mandated engineering review because both `codex exec` reviewer attempts failed with a usage-limit error before producing a verdict.

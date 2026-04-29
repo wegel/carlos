@@ -120,6 +120,19 @@ fn usable_dictation_profile() -> DictationProfileState {
     }
 }
 
+#[cfg(feature = "dictation")]
+fn usable_dictation_profile_with(id: &str, name: &str) -> DictationProfileState {
+    DictationProfileState {
+        id: id.to_string(),
+        name: name.to_string(),
+        model_label: Some(format!("/tmp/{id}.bin")),
+        model_usable: true,
+        model_path: Some(std::path::PathBuf::from(format!("/tmp/{id}.bin"))),
+        language: Some(id.to_string()),
+        vocabulary: None,
+    }
+}
+
 #[test]
 fn prioritize_events_handles_terminal_first_and_budgets_server_lines() {
     let mut deferred = std::collections::VecDeque::new();
@@ -358,6 +371,38 @@ fn dictation_profile_picker_state_is_tracked() {
     assert!(app.dictation_profile_picker_open());
     app.close_dictation_profile_picker();
     assert!(!app.dictation_profile_picker_open());
+}
+
+#[cfg(feature = "dictation")]
+#[test]
+fn f7_cycles_dictation_profiles() {
+    let client = ApprovalRespondMock::new();
+    let mut app = AppState::new("thread-1".to_string());
+    app.configure_dictation_profiles(
+        vec![
+            usable_dictation_profile_with("en", "English"),
+            usable_dictation_profile_with("fr", "French"),
+        ],
+        "en",
+    );
+    let size = TerminalSize {
+        width: 100,
+        height: 30,
+    };
+
+    handle_terminal_event(
+        &client,
+        &mut app,
+        Event::Key(KeyEvent::new(KeyCode::F(7), KeyModifiers::empty())),
+        size,
+    );
+
+    app.start_dictation_recording();
+    assert_eq!(
+        app.dictation_status_label(),
+        Some("DICTATING [French]".to_string())
+    );
+    assert_eq!(app.status, "dictation recording");
 }
 
 #[test]

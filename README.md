@@ -15,7 +15,7 @@ Alpha.
 - resume Codex with `carlos resume <SESSION_ID>` or pick from `carlos resume`
 - resume Claude with `carlos --backend claude resume <SESSION_ID>` or pick from `carlos --backend claude resume`
 - backend selection via `--backend <codex|claude>` or `CARLOS_BACKEND=claude`
-- feature-gated dictation profile configuration via `--dictation-profile <name>`
+- feature-gated local voice dictation (`Ctrl+D`) with Whisper profiles selected by `--dictation-profile <name>`
 - runtime Ralph mode toggle (`Ctrl+R`) with:
   - prompt auto-injection from `.agents/ralph-prompt.md` (or `--ralph-prompt`)
   - blocked marker wait state (`@@BLOCKED@@` by default)
@@ -77,9 +77,57 @@ cargo build --release
 cargo build --release --features dictation
 ```
 
-The optional `dictation` Cargo feature enables local profile configuration for the in-process
-voice dictation work. The audio capture and Whisper inference path is still being wired under
-the active ExecPlan; builds without the feature do not link audio or Whisper dependencies.
+The optional `dictation` Cargo feature enables in-process microphone capture, VAD, resampling,
+and local Whisper inference. Builds without the feature do not link audio or Whisper dependencies.
+
+## dictation
+
+Build with:
+
+```bash
+cargo build --release --features dictation
+```
+
+Configure profiles in `~/.config/carlos/dictation.toml`:
+
+```toml
+default_profile = "fr-qc"
+
+[profiles.fr-qc]
+name = "French"
+model = "~/.cache/carlos/ggml-large-v3-turbo-q5_0.bin"
+language = "fr"
+vocabulary = "~/.config/carlos/vocab-fr.txt"
+
+[profiles.en]
+name = "English"
+model = "~/.cache/carlos/ggml-large-v3-turbo-q5_0.bin"
+language = "en"
+vocabulary = "~/.config/carlos/vocab-en.txt"
+```
+
+Vocabulary files are one term per line. Blank lines are ignored, and `#` starts a comment.
+If a vocabulary file is missing or empty, Carlos uses a built-in technical vocabulary list.
+
+Start with a specific profile:
+
+```bash
+carlos --dictation-profile en
+```
+
+Recommended whisper.cpp GGML models:
+
+```bash
+mkdir -p ~/.cache/carlos
+curl -L -o ~/.cache/carlos/ggml-large-v3-turbo.bin \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin
+curl -L -o ~/.cache/carlos/ggml-large-v3-turbo-q5_0.bin \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin
+```
+
+Use `ggml-large-v3-turbo.bin` for best multilingual quality. Use
+`ggml-large-v3-turbo-q5_0.bin` as the smaller CPU-friendly option. English-only `.en` models
+are useful only if you dictate exclusively in English.
 
 ## run
 
@@ -112,6 +160,7 @@ cargo test
 - rewind mode `Esc`: leave rewind mode and restore current draft
 - `Ctrl+R`: toggle Ralph mode on/off (queued if a turn is currently active)
 - `Ctrl+D`: start/stop dictation when the `dictation` feature is enabled
+- `F7`: cycle dictation profile when the `dictation` feature is enabled
 - `Ctrl+Y`: copy selection or last assistant message
 - `Ctrl+L`: clear selection
 - `PageUp/PageDown`: transcript scroll
