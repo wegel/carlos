@@ -11,7 +11,9 @@ use std::time::Instant;
 
 use crossterm::event::{Event, KeyCode, KeyModifiers};
 
-use super::mobile_mouse::{consume_mobile_mouse_char, take_mobile_mouse_buffer, MobileMouseConsume};
+use super::mobile_mouse::{
+    consume_mobile_mouse_char, take_mobile_mouse_buffer, MobileMouseConsume,
+};
 use super::mouse_events::{handle_mouse_event, handle_paste_event};
 use super::notifications::{is_ctrl_char, is_key_press_like, is_perf_toggle_key};
 use super::render::{compute_input_layout, is_newline_enter, last_assistant_message};
@@ -19,8 +21,7 @@ use super::selection::MouseDragMode;
 use super::state::{AppState, ApprovalChoice, ModelSettingsField};
 use super::transcript_render::transcript_content_width;
 use super::turn_submit::{
-    interrupt_active_turn, respond_to_pending_approval, submit_rewind_turn_text,
-    submit_turn_text,
+    interrupt_active_turn, respond_to_pending_approval, submit_rewind_turn_text, submit_turn_text,
 };
 use super::{persist_runtime_defaults, TerminalSize, MSG_TOP};
 use crate::backend::BackendClient;
@@ -39,13 +40,28 @@ pub(super) fn trace_terminal_event(ev: &Event) {
     static TRACE_FILE: OnceLock<Option<Mutex<std::fs::File>>> = OnceLock::new();
     let trace = TRACE_FILE.get_or_init(|| {
         let path = std::env::var_os("CARLOS_EVENT_TRACE")?;
-        OpenOptions::new().create(true).append(true).open(path).ok().map(Mutex::new)
+        OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .ok()
+            .map(Mutex::new)
     });
     let Some(file_mutex) = trace else { return };
-    let Ok(mut file) = file_mutex.lock() else { return };
+    let Ok(mut file) = file_mutex.lock() else {
+        return;
+    };
     let _ = match ev {
-        Event::Key(k) => writeln!(&mut *file, "key code={:?} mods={:?} kind={:?}", k.code, k.modifiers, k.kind),
-        Event::Mouse(m) => writeln!(&mut *file, "mouse kind={:?} col={} row={} mods={:?}", m.kind, m.column, m.row, m.modifiers),
+        Event::Key(k) => writeln!(
+            &mut *file,
+            "key code={:?} mods={:?} kind={:?}",
+            k.code, k.modifiers, k.kind
+        ),
+        Event::Mouse(m) => writeln!(
+            &mut *file,
+            "mouse kind={:?} col={} row={} mods={:?}",
+            m.kind, m.column, m.row, m.modifiers
+        ),
         Event::Paste(p) => writeln!(&mut *file, "paste bytes={} {:?}", p.len(), p),
         Event::Resize(w, h) => writeln!(&mut *file, "resize {} {}", w, h),
         _ => writeln!(&mut *file, "event {:?}", ev),
@@ -54,16 +70,23 @@ pub(super) fn trace_terminal_event(ev: &Event) {
 
 // --- Mobile mouse detection ---
 
-pub(super) fn is_mobile_mouse_key_candidate(app: &AppState, code: KeyCode, modifiers: KeyModifiers) -> bool {
+pub(super) fn is_mobile_mouse_key_candidate(
+    app: &AppState,
+    code: KeyCode,
+    modifiers: KeyModifiers,
+) -> bool {
     if app.viewport.mobile_plain_pending_coords || app.viewport.mobile_plain_suppress_coords {
         return matches!(code, KeyCode::Char(ch) if ch.is_ascii_digit() || ch == ';');
     }
     if !app.viewport.mobile_mouse_buffer.is_empty() {
         return matches!(code, KeyCode::Char(_));
     }
-    let KeyCode::Char(ch) = code else { return false };
-    ch == '<' || (modifiers.contains(KeyModifiers::ALT)
-        && matches!(ch, '[' | '<' | ';' | 'M' | 'm' | '0'..='9'))
+    let KeyCode::Char(ch) = code else {
+        return false;
+    };
+    ch == '<'
+        || (modifiers.contains(KeyModifiers::ALT)
+            && matches!(ch, '[' | '<' | ';' | 'M' | 'm' | '0'..='9'))
 }
 
 // --- Transcript layout ---
@@ -199,7 +222,10 @@ fn handle_approval_key(
     TerminalEventResult::Continue { needs_draw: true }
 }
 
-fn handle_model_settings_key(app: &mut AppState, k: crossterm::event::KeyEvent) -> TerminalEventResult {
+fn handle_model_settings_key(
+    app: &mut AppState,
+    k: crossterm::event::KeyEvent,
+) -> TerminalEventResult {
     let cycle = |app: &mut AppState, dir: isize| match app.runtime.model_settings_field {
         ModelSettingsField::Model => app.model_settings_cycle_model(dir),
         ModelSettingsField::Effort => app.model_settings_cycle_effort(dir),
@@ -212,7 +238,10 @@ fn handle_model_settings_key(app: &mut AppState, k: crossterm::event::KeyEvent) 
         (KeyCode::BackTab, _) | (KeyCode::Up, _) => app.model_settings_move_field(false),
         (KeyCode::Left, _) => cycle(app, -1),
         (KeyCode::Right, _) => cycle(app, 1),
-        (KeyCode::Backspace, _) if matches!(app.runtime.model_settings_field, ModelSettingsField::Model) && !app.model_settings_has_model_choices() => {
+        (KeyCode::Backspace, _)
+            if matches!(app.runtime.model_settings_field, ModelSettingsField::Model)
+                && !app.model_settings_has_model_choices() =>
+        {
             app.model_settings_backspace();
         }
         (KeyCode::Enter, _) => {
@@ -221,8 +250,14 @@ fn handle_model_settings_key(app: &mut AppState, k: crossterm::event::KeyEvent) 
                 app.set_status(format!("saved for next turn; default save failed: {err}"));
             }
         }
-        (KeyCode::Char(ch), mods) if !mods.contains(KeyModifiers::CONTROL) && !mods.contains(KeyModifiers::ALT) && matches!(app.runtime.model_settings_field, ModelSettingsField::Model) => {
-            if !app.model_settings_has_model_choices() { app.model_settings_insert_char(ch); }
+        (KeyCode::Char(ch), mods)
+            if !mods.contains(KeyModifiers::CONTROL)
+                && !mods.contains(KeyModifiers::ALT)
+                && matches!(app.runtime.model_settings_field, ModelSettingsField::Model) =>
+        {
+            if !app.model_settings_has_model_choices() {
+                app.model_settings_insert_char(ch);
+            }
         }
         _ => {}
     }
@@ -319,8 +354,10 @@ fn handle_ctrl_r_ralph(app: &mut AppState) -> TerminalEventResult {
 }
 
 fn handle_ctrl_d_dictation(app: &mut AppState) -> TerminalEventResult {
-    if app.dictation_active() {
+    if app.dictation_recording() {
         app.stop_dictation_recording();
+    } else if app.dictation_active() {
+        app.restart_dictation_recording();
     } else {
         app.start_dictation_recording();
     }
@@ -384,10 +421,7 @@ fn handle_page_scroll(app: &mut AppState, size: TerminalSize, down: bool) -> Ter
     TerminalEventResult::Continue { needs_draw: true }
 }
 
-fn handle_enter_submit(
-    client: &dyn BackendClient,
-    app: &mut AppState,
-) -> TerminalEventResult {
+fn handle_enter_submit(client: &dyn BackendClient, app: &mut AppState) -> TerminalEventResult {
     if app.input_is_empty() {
         return TerminalEventResult::Continue { needs_draw: true };
     }

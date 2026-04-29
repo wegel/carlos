@@ -60,13 +60,15 @@ impl DictationRuntimeState {
         )
     }
 
+    pub(super) fn is_recording(&self) -> bool {
+        matches!(self.phase, DictationPhase::Recording)
+    }
+
     pub(super) fn status_label(&self) -> Option<String> {
         let profile = self.profile.as_ref()?;
         match &self.phase {
             DictationPhase::Recording => Some(format!("DICTATING [{}]", profile.name)),
-            DictationPhase::Transcribing { .. } => {
-                Some(format!("TRANSCRIBING [{}]", profile.name))
-            }
+            DictationPhase::Transcribing { .. } => Some(format!("TRANSCRIBING [{}]", profile.name)),
             DictationPhase::Disabled | DictationPhase::Idle => None,
         }
     }
@@ -82,10 +84,7 @@ impl DictationRuntimeState {
                 .unwrap_or_else(|| "dictation unavailable".to_string())
         })?;
         if !profile.model_usable {
-            let model = profile
-                .model_label
-                .as_deref()
-                .unwrap_or("configured model");
+            let model = profile.model_label.as_deref().unwrap_or("configured model");
             return Err(format!("dictation model unavailable: {model}"));
         }
         self.phase = DictationPhase::Recording;

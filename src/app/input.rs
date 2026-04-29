@@ -13,15 +13,19 @@ use serde_json::Value;
 #[cfg(test)]
 pub(super) use super::input_events::is_mobile_mouse_key_candidate;
 use super::input_events::{ensure_transcript_layout, handle_terminal_event, TerminalEventResult};
-use super::turn_submit::submit_turn_text_with_history;
 use super::notifications::{
     animation_poll_timeout, animation_tick, handle_server_message_line, ServerRequestAction,
 };
 use super::render::render_main_view;
 use super::terminal_ui::with_terminal;
+use super::turn_submit::submit_turn_text_with_history;
 use super::{AppState, TerminalSize};
 use crate::backend::BackendClient;
-use crate::event::{spawn_event_forwarders, UiEvent};
+#[cfg(not(feature = "dictation"))]
+use crate::event::spawn_event_forwarders;
+#[cfg(feature = "dictation")]
+use crate::event::spawn_event_forwarders_with_dictation;
+use crate::event::UiEvent;
 
 const MAX_UI_DRAIN_PER_CYCLE: usize = 4096;
 const SERVER_BUDGET_WITH_INPUT: usize = 8;
@@ -52,13 +56,22 @@ pub(crate) fn run_conversation_tui(
     server_events_rx: std::sync::mpsc::Receiver<String>,
 ) -> Result<()> {
     with_terminal(|terminal| {
+        #[cfg(feature = "dictation")]
+        let ui_rx = {
+            let (dictation_tx, dictation_rx) = std::sync::mpsc::channel();
+            app.configure_dictation_event_sender(dictation_tx);
+            spawn_event_forwarders_with_dictation(server_events_rx, dictation_rx)
+        };
+        #[cfg(not(feature = "dictation"))]
         let ui_rx = spawn_event_forwarders(server_events_rx);
         let mut deferred = VecDeque::<String>::new();
         let mut prefetched = VecDeque::<UiEvent>::new();
         let mut needs_draw = true;
         let mut last_anim_tick = 0u128;
         loop {
-            if let Some(p) = app.perf.as_mut() { p.loop_count = p.loop_count.saturating_add(1); }
+            if let Some(p) = app.perf.as_mut() {
+                p.loop_count = p.loop_count.saturating_add(1);
+            }
             let size = terminal_size(terminal)?;
             let (loop_now, working) = (Instant::now(), app.active_turn_id.is_some());
             if drain_prefetched_idle(&ui_rx, working, &deferred, &mut prefetched).disconnected() {
@@ -71,24 +84,42 @@ pub(crate) fn run_conversation_tui(
             last_anim_tick = update_animation_state(working, last_anim_tick, &mut needs_draw);
             let tick = if working { animation_tick() } else { 0 };
             if needs_draw {
-                draw_frame(terminal, app, size, tick, &mut needs_draw, &mut last_anim_tick)?;
+                draw_frame(
+                    terminal,
+                    app,
+                    size,
+                    tick,
+                    &mut needs_draw,
+                    &mut last_anim_tick,
+                )?;
             }
-            let next_event = match poll_next_event(&ui_rx, &mut prefetched, &deferred, working, app, loop_now) {
-                ChannelOk::Disconnected => return Ok(()),
-                ChannelOk::Ok(ev) => ev,
-            };
-            if let Some(p) = app.perf.as_mut() { p.poll_wait.push(loop_now.elapsed()); }
+            let next_event =
+                match poll_next_event(&ui_rx, &mut prefetched, &deferred, working, app, loop_now) {
+                    ChannelOk::Disconnected => return Ok(()),
+                    ChannelOk::Ok(ev) => ev,
+                };
+            if let Some(p) = app.perf.as_mut() {
+                p.poll_wait.push(loop_now.elapsed());
+            }
             let incoming = match gather_incoming_events(next_event, &mut prefetched, &ui_rx) {
                 ChannelOk::Disconnected => return Ok(()),
                 ChannelOk::Ok(v) => v,
             };
             let events = budgeted_events(incoming, &mut deferred);
-            if events.is_empty() { continue; }
+            if events.is_empty() {
+                continue;
+            }
             for ev in &events {
-                if process_event(ev, client, app, size, &mut needs_draw) { return Ok(()); }
+                if process_event(ev, client, app, size, &mut needs_draw) {
+                    return Ok(());
+                }
             }
             if needs_draw {
-                let t = if app.active_turn_id.is_some() { animation_tick() } else { 0 };
+                let t = if app.active_turn_id.is_some() {
+                    animation_tick()
+                } else {
+                    0
+                };
                 draw_frame(terminal, app, size, t, &mut needs_draw, &mut last_anim_tick)?;
             }
         }
@@ -96,9 +127,7 @@ pub(crate) fn run_conversation_tui(
 }
 
 // --- Loop Helpers ---
-fn terminal_size(
-    terminal: &Terminal<CrosstermBackend<std::io::Stdout>>,
-) -> Result<TerminalSize> {
+fn terminal_size(terminal: &Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<TerminalSize> {
     let size = terminal.size()?;
     Ok(TerminalSize {
         width: size.width as usize,
@@ -141,12 +170,7 @@ fn try_submit_queued_turn(
         return false;
     }
     if let Some(next_turn) = app.dequeue_turn_input(now) {
-        submit_turn_text_with_history(
-            client,
-            app,
-            next_turn.text,
-            next_turn.record_input_history,
-        );
+        submit_turn_text_with_history(client, app, next_turn.text, next_turn.record_input_history);
         return true;
     }
     false
@@ -259,9 +283,7 @@ fn budgeted_events(
     incoming: Vec<UiEvent>,
     deferred_server_lines: &mut VecDeque<String>,
 ) -> Vec<UiEvent> {
-    let has_terminal_input = incoming
-        .iter()
-        .any(|ev| matches!(ev, UiEvent::Terminal(_)));
+    let has_terminal_input = incoming.iter().any(|ev| matches!(ev, UiEvent::Terminal(_)));
     let server_budget = if has_terminal_input {
         SERVER_BUDGET_WITH_INPUT
     } else {
@@ -283,6 +305,12 @@ fn process_event(
     let quit = match event {
         UiEvent::ServerLine(line) => {
             handle_server_line(client, app, line);
+            *needs_draw = true;
+            false
+        }
+        #[cfg(feature = "dictation")]
+        UiEvent::Dictation(event) => {
+            app.handle_dictation_event(event.clone());
             *needs_draw = true;
             false
         }
@@ -339,6 +367,8 @@ pub(super) fn can_submit_queued_turn(
 fn queued_turn_blocking_event(event: &UiEvent) -> bool {
     match event {
         UiEvent::ServerLine(_) => true,
+        #[cfg(feature = "dictation")]
+        UiEvent::Dictation(_) => true,
         UiEvent::Terminal(CrosstermEvent::Resize(_, _)) => false,
         UiEvent::Terminal(CrosstermEvent::Mouse(mouse)) => mouse.kind != MouseEventKind::Moved,
         UiEvent::Terminal(_) => true,
@@ -355,6 +385,8 @@ pub(super) fn prioritize_events(
     for event in incoming_events {
         match event {
             UiEvent::Terminal(ev) => prioritized.push(UiEvent::Terminal(ev)),
+            #[cfg(feature = "dictation")]
+            UiEvent::Dictation(event) => prioritized.push(UiEvent::Dictation(event)),
             UiEvent::ServerLine(line) => {
                 if is_priority_server_line(&line) {
                     priority_server_lines.push(line);

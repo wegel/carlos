@@ -4,6 +4,8 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+#[cfg(feature = "dictation")]
+use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
@@ -28,6 +30,8 @@ use super::runtime_settings_state::RuntimeSettingsState;
 #[cfg(test)]
 pub(super) use super::runtime_settings_state::{DEFAULT_EFFORT_OPTIONS, DEFAULT_SUMMARY_OPTIONS};
 use super::viewport_state::ViewportState;
+#[cfg(feature = "dictation")]
+use crate::dictation::capture::{DictationCaptureSession, DictationEvent};
 
 // --- Types ---
 
@@ -47,6 +51,12 @@ pub(super) struct AppState {
     pub(super) turn_start_message_idx: Option<usize>,
     pub(super) ralph_runtime: RalphRuntimeState,
     pub(super) dictation: DictationRuntimeState,
+    #[cfg(feature = "dictation")]
+    pub(super) dictation_capture: Option<DictationCaptureSession>,
+    #[cfg(feature = "dictation")]
+    pub(super) dictation_events_tx: Option<mpsc::Sender<DictationEvent>>,
+    #[cfg(feature = "dictation")]
+    pub(super) last_dictation_audio: Option<Vec<f32>>,
     pub(super) runtime: RuntimeSettingsState,
     pub(super) approval: ApprovalState,
 
@@ -74,6 +84,12 @@ impl AppState {
             turn_start_message_idx: None,
             ralph_runtime: RalphRuntimeState::new(),
             dictation: DictationRuntimeState::disabled("dictation feature is not configured"),
+            #[cfg(feature = "dictation")]
+            dictation_capture: None,
+            #[cfg(feature = "dictation")]
+            dictation_events_tx: None,
+            #[cfg(feature = "dictation")]
+            last_dictation_audio: None,
             runtime: RuntimeSettingsState::new(),
             approval: ApprovalState::new(),
             viewport: ViewportState::new(),

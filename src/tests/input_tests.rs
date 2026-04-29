@@ -1,7 +1,7 @@
 use crossterm::event::KeyEvent;
 use serde_json::Value;
-use std::sync::Mutex;
 use std::sync::mpsc;
+use std::sync::Mutex;
 use std::time::Duration;
 
 use super::*;
@@ -165,6 +165,28 @@ fn ctrl_d_toggles_dictation_recording_to_transcribing() {
 }
 
 #[test]
+fn ctrl_d_restarts_dictation_while_transcribing() {
+    let client = ApprovalRespondMock::new();
+    let mut app = AppState::new("thread-1".to_string());
+    app.configure_dictation(usable_dictation_profile());
+    let size = TerminalSize {
+        width: 100,
+        height: 30,
+    };
+
+    app.start_dictation_recording();
+    app.stop_dictation_recording();
+    handle_terminal_event(
+        &client,
+        &mut app,
+        Event::Key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL)),
+        size,
+    );
+
+    assert!(matches!(app.dictation_phase(), DictationPhase::Recording));
+}
+
+#[test]
 fn escape_cancels_recording_and_transcribing() {
     let client = ApprovalRespondMock::new();
     let mut app = AppState::new("thread-1".to_string());
@@ -238,6 +260,40 @@ fn dictation_final_text_commits_and_returns_to_idle() {
     assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
     assert_eq!(app.input_text(), "final text");
     assert_eq!(app.status, "dictation inserted");
+}
+
+#[cfg(feature = "dictation")]
+#[test]
+fn dictation_auto_stop_event_moves_recording_to_transcribing() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.configure_dictation(usable_dictation_profile());
+
+    app.start_dictation_recording();
+    app.handle_dictation_event(crate::dictation::capture::DictationEvent::AutoStopped(
+        vec![0.1, 0.2, 0.3],
+    ));
+
+    assert!(matches!(
+        app.dictation_phase(),
+        DictationPhase::Transcribing { .. }
+    ));
+    assert_eq!(app.last_dictation_audio_len(), Some(3));
+    assert_eq!(app.status, "dictation transcribing (3 samples)");
+}
+
+#[cfg(feature = "dictation")]
+#[test]
+fn dictation_capture_error_returns_to_idle() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.configure_dictation(usable_dictation_profile());
+
+    app.start_dictation_recording();
+    app.handle_dictation_event(crate::dictation::capture::DictationEvent::CaptureError(
+        "device disconnected".to_string(),
+    ));
+
+    assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
+    assert_eq!(app.status, "dictation capture failed: device disconnected");
 }
 
 #[test]
@@ -495,13 +551,16 @@ fn submit_rewind_turn_text_forks_codex_thread_before_resubmitting() {
     assert_eq!(app.input_history_message_indices(), &[Some(0), None]);
 
     let fork_calls = client.fork_calls.lock().expect("fork calls lock");
-    assert_eq!(fork_calls.as_slice(), &[(
-        "thread-original".to_string(),
-        RewindForkRequest {
-            keep_turns: 1,
-            drop_turns: 1,
-        },
-    )]);
+    assert_eq!(
+        fork_calls.as_slice(),
+        &[(
+            "thread-original".to_string(),
+            RewindForkRequest {
+                keep_turns: 1,
+                drop_turns: 1,
+            },
+        )]
+    );
 
     let turn_start_calls = client
         .turn_start_calls

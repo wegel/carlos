@@ -1,4 +1,5 @@
 //! Dictation vocabulary loading for Whisper initial prompts.
+#![allow(dead_code)]
 
 // --- Imports ---
 

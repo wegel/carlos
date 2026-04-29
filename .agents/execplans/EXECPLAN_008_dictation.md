@@ -17,7 +17,7 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 - [x] (2026-04-29 15:53Z) Created this ExecPlan from `stt.md`, grounded it in the current source layout, and moved the previous active code-quality ExecPlan to `.agents/done/` as requested.
 - [x] (2026-04-29 18:43Z) Milestone 1: Added `dictation`, `dictation-cuda`, and `dictation-vulkan` Cargo features; optional audio/Whisper/config dependencies; `--dictation-profile` parsing; feature-gated profile and vocabulary loaders; README stubs; and tests. Validation: `cargo test` passed with 247 tests, `cargo test --features dictation` passed with 259 tests, and `cargo build --no-default-features` passed.
 - [x] (2026-04-29 18:53Z) Milestone 2: Added app-side dictation state to `AppState`, startup profile configuration when the `dictation` feature is enabled, `Ctrl+D` recording/transcribing toggles, `Esc` cancellation, profile-picker state methods, fake final-text commit support, and activity-line indicators. Validation: `cargo test` passed with 256 tests, `cargo test --features dictation` passed with 266 tests, `cargo build --no-default-features` passed warning-clean, `cargo build --release` passed, and `install -Dm755 target/release/carlos ~/.local/bin/carlos` refreshed the installed binary.
-- [ ] Milestone 3: Implement audio capture, resampling, voice activity detection, bounded recording, and state transitions without requiring a Whisper model in normal tests.
+- [x] (2026-04-29 19:04Z) Milestone 3: Added CPAL default-input capture behind the `dictation` feature, mono conversion for f32/i16/u16 input streams, `rubato` resampling to 16 kHz mono f32, WebRTC VAD framing with roughly 800 ms silence auto-stop, a 30-second bounded audio buffer, typed dictation UI events, manual stop and auto-stop state transitions, `Ctrl+D` restart from transcribing, and fake capture-event tests that require no microphone. Validation: `cargo test` passed with 257 tests, `cargo test --features dictation` passed with 285 tests, `cargo build --no-default-features` passed, `cargo build --release --features dictation` passed warning-clean, `cargo build --release --no-default-features` passed, and `install -Dm755 target/release/carlos ~/.local/bin/carlos` refreshed the installed no-feature binary. A manual microphone smoke was not run in this non-interactive execution pass; Milestone 5 still requires end-to-end manual dictation smokes with a model.
 - [ ] Milestone 4: Implement the single Whisper worker thread, model loading, vocabulary priming, transcription events, and cancellation inside the Whisper abort callback.
 - [ ] Milestone 5: Integrate runtime profile switching, final README guidance, manual smoke tests, release build, installation, and engineering review.
 
@@ -50,6 +50,15 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 - Observation: Some app-side dictation methods are only test-only until the real capture and worker event sources land.
   Evidence: `cargo build --no-default-features` initially warned about dead code for fake-event helpers. Those helpers are now compiled only for tests until Milestone 3/4 wires real events.
 
+- Observation: `rubato 2.0.0` exposes `Async::<f32>::new_poly` and the `process_all_into_buffer` helper for clip-style resampling, while the default `Fft` resampler API is behind the crate's `fft_resampler` feature.
+  Evidence: `src/dictation/audio.rs` uses `Async::<f32>::new_poly` with `FixedAsync::Input` and `audioadapter_buffers::direct::InterleavedSlice`; `cargo test --features dictation` covers 48 kHz to 16 kHz output length.
+
+- Observation: `webrtc-vad 0.4.0` owns a raw `Fvad` pointer and does not implement `Send`, but the wrapper only requires mutable access and is held behind a mutex in the CPAL capture state.
+  Evidence: the first `cargo test --features dictation` after adding capture failed with `*mut webrtc_vad::bindgen::Fvad cannot be sent between threads safely`; `src/dictation/vad.rs` now gives the local `WebRtcVad` wrapper an explicit `Send` implementation with the capture-state mutex as the synchronization boundary.
+
+- Observation: Unit tests must not start real microphone capture even when compiled with `--features dictation`.
+  Evidence: `AppState::start_dictation_capture` keeps a test-only fake path when the TUI dictation event channel has not been installed. The tests `dictation_auto_stop_event_moves_recording_to_transcribing` and `dictation_capture_error_returns_to_idle` inject typed `DictationEvent` values directly.
+
 ## Decision Log
 
 - Decision: Use `Ctrl+D` as the start/stop dictation key unless implementation-time testing proves a terminal conflict in the supported environments.
@@ -70,6 +79,14 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 
 - Decision: Model the implementation around a single reusable Whisper context and one transcription worker thread.
   Rationale: Whisper model loading takes seconds and models are large. Loading per press would make the feature unusable, and concurrent inference against one context is unnecessary and risky.
+  Date/Author: 2026-04-29 / codex
+
+- Decision: Route dictation capture events through the existing UI event channel instead of adding an async runtime.
+  Rationale: Carlos already multiplexes terminal and backend notifications with standard channels. A typed `UiEvent::Dictation` keeps microphone errors and auto-stop notifications on the same draw loop without blocking terminal rendering or requiring `tokio`.
+  Date/Author: 2026-04-29 / codex
+
+- Decision: Store the completed 16 kHz mono recording in app state as `last_dictation_audio` until the Whisper worker lands.
+  Rationale: Milestone 3 must prove capture can hand a bounded normalized buffer to the transcription path, but Milestone 4 owns the actual worker request queue. Keeping the buffer in state is a narrow staging point that can be replaced by a worker request send in the next milestone.
   Date/Author: 2026-04-29 / codex
 
 ## Outcomes & Retrospective
@@ -375,3 +392,5 @@ Whisper inference parameters must enforce:
 2026-04-29 / codex: Completed Milestone 1 by adding feature gates, optional dependencies, CLI profile parsing, profile/vocabulary config loading, README stubs, and validation evidence. Default dictation builds remain opt-in through `--features dictation` to preserve the existing default build footprint.
 
 2026-04-29 / codex: Completed Milestone 2 by adding the app-side dictation state machine, input routing, cancellation, startup profile configuration, status rendering, and fake-event tests. Real microphone capture, VAD, resampling, and worker events remain for Milestones 3 and 4.
+
+2026-04-29 / codex: Completed Milestone 3 by adding feature-gated CPAL capture, 16 kHz mono resampling, WebRTC VAD auto-stop, bounded recording storage, typed dictation UI events, and fake capture-event tests. The next milestone should replace the staging `last_dictation_audio` field with a request to the single Whisper worker and should keep the tests hardware-free unless explicitly marked ignored.
