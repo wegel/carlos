@@ -111,6 +111,12 @@ fn usable_dictation_profile() -> DictationProfileState {
         name: "English".to_string(),
         model_label: Some("/tmp/model.bin".to_string()),
         model_usable: true,
+        #[cfg(feature = "dictation")]
+        model_path: Some(std::path::PathBuf::from("/tmp/model.bin")),
+        #[cfg(feature = "dictation")]
+        language: Some("en".to_string()),
+        #[cfg(feature = "dictation")]
+        vocabulary: None,
     }
 }
 
@@ -236,6 +242,12 @@ fn missing_dictation_model_reports_error_without_recording() {
         name: "English".to_string(),
         model_label: Some("/tmp/missing-model.bin".to_string()),
         model_usable: false,
+        #[cfg(feature = "dictation")]
+        model_path: Some(std::path::PathBuf::from("/tmp/missing-model.bin")),
+        #[cfg(feature = "dictation")]
+        language: Some("en".to_string()),
+        #[cfg(feature = "dictation")]
+        vocabulary: None,
     });
 
     app.start_dictation_recording();
@@ -269,9 +281,9 @@ fn dictation_auto_stop_event_moves_recording_to_transcribing() {
     app.configure_dictation(usable_dictation_profile());
 
     app.start_dictation_recording();
-    app.handle_dictation_event(crate::dictation::capture::DictationEvent::AutoStopped(
-        vec![0.1, 0.2, 0.3],
-    ));
+    app.handle_dictation_event(
+        crate::dictation::events::DictationEvent::CaptureAutoStopped(vec![0.1, 0.2, 0.3]),
+    );
 
     assert!(matches!(
         app.dictation_phase(),
@@ -288,12 +300,54 @@ fn dictation_capture_error_returns_to_idle() {
     app.configure_dictation(usable_dictation_profile());
 
     app.start_dictation_recording();
-    app.handle_dictation_event(crate::dictation::capture::DictationEvent::CaptureError(
+    app.handle_dictation_event(crate::dictation::events::DictationEvent::CaptureError(
         "device disconnected".to_string(),
     ));
 
     assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
     assert_eq!(app.status, "dictation capture failed: device disconnected");
+}
+
+#[cfg(feature = "dictation")]
+#[test]
+fn dictation_worker_final_commits_matching_request() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.configure_dictation(usable_dictation_profile());
+
+    app.start_dictation_recording();
+    app.stop_dictation_recording();
+    app.dictation_request_id = Some(7);
+    app.handle_dictation_event(
+        crate::dictation::events::DictationEvent::TranscriptionFinal {
+            request_id: 7,
+            text: "final dictation".to_string(),
+        },
+    );
+
+    assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
+    assert_eq!(app.input_text(), "final dictation");
+    assert_eq!(app.status, "dictation inserted");
+}
+
+#[cfg(feature = "dictation")]
+#[test]
+fn dictation_worker_late_final_is_ignored_after_cancel() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.configure_dictation(usable_dictation_profile());
+
+    app.start_dictation_recording();
+    app.stop_dictation_recording();
+    app.dictation_request_id = Some(7);
+    app.cancel_dictation();
+    app.handle_dictation_event(
+        crate::dictation::events::DictationEvent::TranscriptionFinal {
+            request_id: 7,
+            text: "late text".to_string(),
+        },
+    );
+
+    assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
+    assert_eq!(app.input_text(), "");
 }
 
 #[test]

@@ -18,7 +18,7 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 - [x] (2026-04-29 18:43Z) Milestone 1: Added `dictation`, `dictation-cuda`, and `dictation-vulkan` Cargo features; optional audio/Whisper/config dependencies; `--dictation-profile` parsing; feature-gated profile and vocabulary loaders; README stubs; and tests. Validation: `cargo test` passed with 247 tests, `cargo test --features dictation` passed with 259 tests, and `cargo build --no-default-features` passed.
 - [x] (2026-04-29 18:53Z) Milestone 2: Added app-side dictation state to `AppState`, startup profile configuration when the `dictation` feature is enabled, `Ctrl+D` recording/transcribing toggles, `Esc` cancellation, profile-picker state methods, fake final-text commit support, and activity-line indicators. Validation: `cargo test` passed with 256 tests, `cargo test --features dictation` passed with 266 tests, `cargo build --no-default-features` passed warning-clean, `cargo build --release` passed, and `install -Dm755 target/release/carlos ~/.local/bin/carlos` refreshed the installed binary.
 - [x] (2026-04-29 19:04Z) Milestone 3: Added CPAL default-input capture behind the `dictation` feature, mono conversion for f32/i16/u16 input streams, `rubato` resampling to 16 kHz mono f32, WebRTC VAD framing with roughly 800 ms silence auto-stop, a 30-second bounded audio buffer, typed dictation UI events, manual stop and auto-stop state transitions, `Ctrl+D` restart from transcribing, and fake capture-event tests that require no microphone. Validation: `cargo test` passed with 257 tests, `cargo test --features dictation` passed with 285 tests, `cargo build --no-default-features` passed, `cargo build --release --features dictation` passed warning-clean, `cargo build --release --no-default-features` passed, and `install -Dm755 target/release/carlos ~/.local/bin/carlos` refreshed the installed no-feature binary. A manual microphone smoke was not run in this non-interactive execution pass; Milestone 5 still requires end-to-end manual dictation smokes with a model.
-- [ ] Milestone 4: Implement the single Whisper worker thread, model loading, vocabulary priming, transcription events, and cancellation inside the Whisper abort callback.
+- [x] (2026-04-29 19:14Z) Milestone 4: Added a single-threaded Whisper worker behind the `dictation` feature, typed transcription events, reusable model-context loading keyed by model/language/vocabulary, vocabulary prompt construction in worker requests, abort-callback cancellation through `FullParams::set_abort_callback_safe`, panic containment around inference, final text insertion at the existing input cursor, stale-request dropping after cancellation, and an ignored raw-f32 fixture integration test for `ggml-tiny.bin`. Validation: `cargo test` passed with 257 tests, `cargo test --features dictation` passed with 290 tests and 1 ignored integration test, `cargo build --no-default-features` passed warning-clean, `cargo build --release --features dictation` passed warning-clean, `cargo build --release --no-default-features` passed warning-clean, and `install -Dm755 target/release/carlos ~/.local/bin/carlos` refreshed the installed no-feature binary.
 - [ ] Milestone 5: Integrate runtime profile switching, final README guidance, manual smoke tests, release build, installation, and engineering review.
 
 ## Surprises & Discoveries
@@ -59,6 +59,15 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 - Observation: Unit tests must not start real microphone capture even when compiled with `--features dictation`.
   Evidence: `AppState::start_dictation_capture` keeps a test-only fake path when the TUI dictation event channel has not been installed. The tests `dictation_auto_stop_event_moves_recording_to_transcribing` and `dictation_capture_error_returns_to_idle` inject typed `DictationEvent` values directly.
 
+- Observation: `whisper-rs 0.16.0` exposes the parameters needed by this feature directly on `FullParams`, including `set_abort_callback_safe`, `set_initial_prompt`, explicit language selection, no-context mode, no timestamps, and non-speech-token suppression.
+  Evidence: `src/dictation/worker.rs` builds `FullParams` with `set_language(Some(language))`, `set_detect_language(false)`, `set_no_context(true)`, `set_no_timestamps(true)`, `set_single_segment(true)`, `set_suppress_blank(true)`, `set_suppress_nst(true)`, `set_initial_prompt`, and `set_abort_callback_safe`.
+
+- Observation: The safe abort-callback helper needs an explicit boxed closure type in this crate.
+  Evidence: the first `cargo test --features dictation` after adding the worker could not infer `set_abort_callback_safe`'s generic `F`; `src/dictation/worker.rs` now passes `Box<dyn FnMut() -> bool>` explicitly.
+
+- Observation: Late transcription events need request IDs, not just cancellation flags.
+  Evidence: `AppState` now tracks `dictation_request_id` and ignores `TranscriptionFinal`, `TranscriptionError`, and `TranscriptionCancelled` events whose request id no longer matches. The test `dictation_worker_late_final_is_ignored_after_cancel` covers the ghost-text case.
+
 ## Decision Log
 
 - Decision: Use `Ctrl+D` as the start/stop dictation key unless implementation-time testing proves a terminal conflict in the supported environments.
@@ -87,6 +96,14 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 
 - Decision: Store the completed 16 kHz mono recording in app state as `last_dictation_audio` until the Whisper worker lands.
   Rationale: Milestone 3 must prove capture can hand a bounded normalized buffer to the transcription path, but Milestone 4 owns the actual worker request queue. Keeping the buffer in state is a narrow staging point that can be replaced by a worker request send in the next milestone.
+  Date/Author: 2026-04-29 / codex
+
+- Decision: Reuse one loaded Whisper context per active worker profile and reload only when the model, language, or vocabulary path changes.
+  Rationale: This satisfies the single-worker invariant and avoids paying model load cost on every dictation while still keeping profile switching simple for Milestone 5.
+  Date/Author: 2026-04-29 / codex
+
+- Decision: Keep the model-dependent integration test ignored and driven by `CARLOS_DICTATION_TEST_MODEL` plus `CARLOS_DICTATION_TEST_AUDIO_F32`.
+  Rationale: Normal automated tests must not require a downloaded model or audio fixture, but the repository still needs a concrete command-level hook for validating the worker against `ggml-tiny.bin` and a 16 kHz mono f32 sample.
   Date/Author: 2026-04-29 / codex
 
 ## Outcomes & Retrospective
@@ -394,3 +411,5 @@ Whisper inference parameters must enforce:
 2026-04-29 / codex: Completed Milestone 2 by adding the app-side dictation state machine, input routing, cancellation, startup profile configuration, status rendering, and fake-event tests. Real microphone capture, VAD, resampling, and worker events remain for Milestones 3 and 4.
 
 2026-04-29 / codex: Completed Milestone 3 by adding feature-gated CPAL capture, 16 kHz mono resampling, WebRTC VAD auto-stop, bounded recording storage, typed dictation UI events, and fake capture-event tests. The next milestone should replace the staging `last_dictation_audio` field with a request to the single Whisper worker and should keep the tests hardware-free unless explicitly marked ignored.
+
+2026-04-29 / codex: Completed Milestone 4 by adding the reusable Whisper worker, cancellation tokens wired into the abort callback, request-id based stale-event dropping, vocabulary prompt loading, final text insertion, and an ignored model/audio integration test. Milestone 5 remains for runtime profile switching, README completion, manual smoke tests, release validation, and review.

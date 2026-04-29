@@ -6,7 +6,7 @@ use std::thread;
 use crossterm::event::{self, Event as CrosstermEvent};
 
 #[cfg(feature = "dictation")]
-use crate::dictation::capture::DictationEvent;
+use crate::dictation::events::DictationEvent;
 
 /// A single event delivered to the main UI loop.
 #[derive(Debug)]

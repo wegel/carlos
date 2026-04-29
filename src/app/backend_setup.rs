@@ -81,6 +81,9 @@ fn configure_dictation(app: &mut AppState, opts: &CliOptions) {
                 name: profile.name.clone(),
                 model_label: Some(profile.model.display().to_string()),
                 model_usable: profile.model_is_usable(),
+                model_path: Some(profile.model.clone()),
+                language: Some(profile.language.clone()),
+                vocabulary: profile.vocabulary.clone(),
             });
         }
         Err(err) => app.disable_dictation(format!("dictation unavailable: {err}")),

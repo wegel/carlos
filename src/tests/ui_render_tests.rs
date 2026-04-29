@@ -6,6 +6,12 @@ fn usable_dictation_profile() -> DictationProfileState {
         name: "English".to_string(),
         model_label: Some("/tmp/model.bin".to_string()),
         model_usable: true,
+        #[cfg(feature = "dictation")]
+        model_path: Some(std::path::PathBuf::from("/tmp/model.bin")),
+        #[cfg(feature = "dictation")]
+        language: Some("en".to_string()),
+        #[cfg(feature = "dictation")]
+        vocabulary: None,
     }
 }
 
@@ -833,9 +839,7 @@ fn build_rendered_lines_renders_assistant_tables() {
     assert!(rendered.iter().any(|line| line.text.contains('┌')));
     assert!(rendered.iter().any(|line| line.text.contains("Level")));
     assert!(rendered.iter().any(|line| line.text.contains("L0")));
-    assert!(rendered
-        .iter()
-        .all(|line| !line.text.contains("|---|---|")));
+    assert!(rendered.iter().all(|line| !line.text.contains("|---|---|")));
 }
 
 #[test]

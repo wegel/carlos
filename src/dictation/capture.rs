@@ -14,15 +14,10 @@ use super::audio::{
     f32_interleaved_to_mono, i16_interleaved_to_mono, resample_to_target_rate,
     u16_interleaved_to_mono, BoundedAudioBuffer, MAX_RECORDING_SAMPLES, TARGET_SAMPLE_RATE,
 };
+use super::events::DictationEvent;
 use super::vad::{frame_len, VadDecision, VadGate, WebRtcVad, VAD_FRAME_MS};
 
 // --- Types ---
-
-#[derive(Debug, Clone)]
-pub(crate) enum DictationEvent {
-    AutoStopped(Vec<f32>),
-    CaptureError(String),
-}
 
 pub(crate) struct DictationCaptureSession {
     stream: Stream,
@@ -235,7 +230,7 @@ fn handle_input_data<T>(
     match result {
         Ok(Some(samples)) => {
             if !stopped.swap(true, Ordering::SeqCst) {
-                let _ = tx.send(DictationEvent::AutoStopped(samples));
+                let _ = tx.send(DictationEvent::CaptureAutoStopped(samples));
             }
         }
         Ok(None) => {}

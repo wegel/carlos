@@ -7,7 +7,11 @@ use super::dictation_state::DictationProfileState;
 use super::dictation_state::DictationRuntimeState;
 use super::state::AppState;
 #[cfg(feature = "dictation")]
-use crate::dictation::capture::{DictationCaptureSession, DictationEvent};
+use crate::dictation::capture::DictationCaptureSession;
+#[cfg(feature = "dictation")]
+use crate::dictation::events::DictationEvent;
+#[cfg(feature = "dictation")]
+use crate::dictation::worker::{DictationCancelToken, DictationWorker, DictationWorkerProfile};
 
 impl AppState {
     // --- Configuration ---
@@ -43,14 +47,25 @@ impl AppState {
         &mut self,
         tx: std::sync::mpsc::Sender<DictationEvent>,
     ) {
+        self.dictation_worker = Some(DictationWorker::spawn(tx.clone()));
         self.dictation_events_tx = Some(tx);
     }
 
     #[cfg(feature = "dictation")]
     pub(super) fn handle_dictation_event(&mut self, event: DictationEvent) {
         match event {
-            DictationEvent::AutoStopped(samples) => self.handle_dictation_auto_stop(samples),
+            DictationEvent::CaptureAutoStopped(samples) => self.handle_dictation_auto_stop(samples),
             DictationEvent::CaptureError(err) => self.handle_dictation_capture_error(err),
+            DictationEvent::TranscriptionCancelled { request_id } => {
+                self.handle_dictation_transcription_cancelled(request_id);
+            }
+            DictationEvent::TranscriptionError {
+                request_id,
+                message,
+            } => self.handle_dictation_transcription_error(request_id, message),
+            DictationEvent::TranscriptionFinal { request_id, text } => {
+                self.handle_dictation_transcription_final(request_id, text);
+            }
         }
     }
 
@@ -81,6 +96,14 @@ impl AppState {
 
     pub(super) fn cancel_dictation(&mut self) {
         if self.dictation.cancel() {
+            #[cfg(feature = "dictation")]
+            if let Some(cancel) = self.dictation_cancel.take() {
+                cancel.cancel();
+            }
+            #[cfg(feature = "dictation")]
+            {
+                self.dictation_request_id = None;
+            }
             #[cfg(feature = "dictation")]
             if let Some(session) = self.dictation_capture.take() {
                 session.cancel();
@@ -166,7 +189,7 @@ impl AppState {
             return;
         };
         match session.finish() {
-            Ok(samples) => self.store_recorded_dictation(samples),
+            Ok(samples) => self.request_dictation_transcription(samples),
             Err(err) => {
                 self.dictation.cancel();
                 self.set_status(format!("dictation capture failed: {err}"));
@@ -187,7 +210,7 @@ impl AppState {
         if let Some(session) = self.dictation_capture.take() {
             session.cancel();
         }
-        self.store_recorded_dictation(samples);
+        self.request_dictation_transcription(samples);
     }
 
     #[cfg(feature = "dictation")]
@@ -200,9 +223,80 @@ impl AppState {
     }
 
     #[cfg(feature = "dictation")]
-    fn store_recorded_dictation(&mut self, samples: Vec<f32>) {
+    fn request_dictation_transcription(&mut self, samples: Vec<f32>) {
         let sample_count = samples.len();
-        self.last_dictation_audio = Some(samples);
-        self.set_status(format!("dictation transcribing ({sample_count} samples)"));
+        let Some(profile) = self.worker_profile() else {
+            self.last_dictation_audio = Some(samples);
+            self.set_status(format!("dictation transcribing ({sample_count} samples)"));
+            return;
+        };
+        let Some(worker) = &self.dictation_worker else {
+            self.last_dictation_audio = Some(samples);
+            self.set_status(format!("dictation transcribing ({sample_count} samples)"));
+            return;
+        };
+
+        let request_id = self.next_dictation_request_id;
+        self.next_dictation_request_id = self.next_dictation_request_id.saturating_add(1);
+        let cancel = DictationCancelToken::new();
+        match worker.transcribe(request_id, profile, samples, cancel.clone()) {
+            Ok(()) => {
+                self.dictation_cancel = Some(cancel);
+                self.dictation_request_id = Some(request_id);
+                self.set_status("dictation transcribing");
+            }
+            Err(err) => {
+                self.dictation.cancel();
+                self.set_status(format!("dictation worker unavailable: {err}"));
+            }
+        }
+    }
+
+    #[cfg(feature = "dictation")]
+    fn handle_dictation_transcription_final(&mut self, request_id: u64, text: String) {
+        if self.dictation_request_id != Some(request_id) {
+            return;
+        }
+        self.dictation_cancel = None;
+        self.dictation_request_id = None;
+        if self.dictation.finish_transcription().is_some() {
+            if !text.is_empty() {
+                self.input_insert_text(text);
+            }
+            self.set_status("dictation inserted");
+        }
+    }
+
+    #[cfg(feature = "dictation")]
+    fn handle_dictation_transcription_error(&mut self, request_id: u64, message: String) {
+        if self.dictation_request_id != Some(request_id) {
+            return;
+        }
+        self.dictation_cancel = None;
+        self.dictation_request_id = None;
+        self.dictation.cancel();
+        self.set_status(format!("dictation transcription failed: {message}"));
+    }
+
+    #[cfg(feature = "dictation")]
+    fn handle_dictation_transcription_cancelled(&mut self, request_id: u64) {
+        if self.dictation_request_id != Some(request_id) {
+            return;
+        }
+        self.dictation_cancel = None;
+        self.dictation_request_id = None;
+        self.dictation.cancel();
+        self.set_status("dictation cancelled");
+    }
+
+    #[cfg(feature = "dictation")]
+    fn worker_profile(&self) -> Option<DictationWorkerProfile> {
+        let profile = self.dictation.profile()?;
+        Some(DictationWorkerProfile {
+            id: profile.id.clone(),
+            model: profile.model_path.clone()?,
+            language: profile.language.clone()?,
+            vocabulary: profile.vocabulary.clone(),
+        })
     }
 }

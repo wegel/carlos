@@ -1,5 +1,10 @@
 //! App-side dictation state machine and display labels.
 
+// --- Imports ---
+
+#[cfg(feature = "dictation")]
+use std::path::PathBuf;
+
 // --- Types ---
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -16,6 +21,12 @@ pub(super) struct DictationProfileState {
     pub(super) name: String,
     pub(super) model_label: Option<String>,
     pub(super) model_usable: bool,
+    #[cfg(feature = "dictation")]
+    pub(super) model_path: Option<PathBuf>,
+    #[cfg(feature = "dictation")]
+    pub(super) language: Option<String>,
+    #[cfg(feature = "dictation")]
+    pub(super) vocabulary: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,6 +62,11 @@ impl DictationRuntimeState {
     #[cfg(test)]
     pub(super) fn phase(&self) -> &DictationPhase {
         &self.phase
+    }
+
+    #[cfg(feature = "dictation")]
+    pub(super) fn profile(&self) -> Option<&DictationProfileState> {
+        self.profile.as_ref()
     }
 
     pub(super) fn is_active(&self) -> bool {
@@ -122,7 +138,7 @@ impl DictationRuntimeState {
         true
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "dictation"))]
     pub(super) fn finish_transcription(&mut self) -> Option<String> {
         let DictationPhase::Transcribing { partial } =
             std::mem::replace(&mut self.phase, DictationPhase::Idle)
