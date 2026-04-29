@@ -11,8 +11,8 @@ use super::turn_submit::{submit_turn_text, submit_turn_text_with_history};
 use super::*;
 use crate::backend::{BackendClient, BackendKind};
 use crate::claude_backend::{
-    build_claude_command_for_test, claude_approval_follow_up_text, claude_project_dir_name,
-    claude_recovery_launch_mode, collect_live_forwarded_lines_for_test,
+    build_claude_command_for_test, claude_approval_follow_up_text, claude_model_catalog,
+    claude_project_dir_name, claude_recovery_launch_mode, collect_live_forwarded_lines_for_test,
     fork_claude_local_history_from_projects_root, load_claude_local_history,
     load_claude_local_history_from_projects_root, probe_claude_startup_for_test,
     translate_claude_line, ClaudeLaunchMode, ClaudeTranslationState,
@@ -205,6 +205,32 @@ fn build_claude_command_allows_plan_mode_when_opted_in() {
     match old {
         Some(value) => std::env::set_var("CARLOS_CLAUDE_ALLOW_PLAN_MODE", value),
         None => std::env::remove_var("CARLOS_CLAUDE_ALLOW_PLAN_MODE"),
+    }
+}
+
+#[test]
+fn claude_model_catalog_includes_current_claude_code_models() {
+    let catalog = claude_model_catalog();
+    let models = catalog
+        .iter()
+        .map(|model| model.model.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(models.first().copied(), Some("opus"));
+    assert!(catalog.first().is_some_and(|model| model.is_default));
+    for expected in [
+        "opus",
+        "opusplan",
+        "sonnet",
+        "sonnet[1m]",
+        "haiku",
+        "claude-opus-4-7",
+        "claude-opus-4-7[1m]",
+        "claude-opus-4-6",
+        "claude-sonnet-4-6",
+        "claude-haiku-4-5",
+    ] {
+        assert!(models.contains(&expected), "missing {expected}");
     }
 }
 

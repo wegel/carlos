@@ -146,39 +146,104 @@ pub(super) fn claude_turn_item_id(
 
 // --- Model catalog ---
 
+struct ClaudeModelCatalogEntry {
+    model: &'static str,
+    display_name: &'static str,
+    is_default: bool,
+}
+
+const CLAUDE_MODEL_CATALOG: &[ClaudeModelCatalogEntry] = &[
+    ClaudeModelCatalogEntry {
+        model: "opus",
+        display_name: "Claude Opus",
+        is_default: true,
+    },
+    ClaudeModelCatalogEntry {
+        model: "opusplan",
+        display_name: "Claude Opus Plan Mode",
+        is_default: false,
+    },
+    ClaudeModelCatalogEntry {
+        model: "sonnet",
+        display_name: "Claude Sonnet",
+        is_default: false,
+    },
+    ClaudeModelCatalogEntry {
+        model: "sonnet[1m]",
+        display_name: "Claude Sonnet (1M context)",
+        is_default: false,
+    },
+    ClaudeModelCatalogEntry {
+        model: "haiku",
+        display_name: "Claude Haiku",
+        is_default: false,
+    },
+    ClaudeModelCatalogEntry {
+        model: "claude-opus-4-7",
+        display_name: "Claude Opus 4.7",
+        is_default: false,
+    },
+    ClaudeModelCatalogEntry {
+        model: "claude-opus-4-7[1m]",
+        display_name: "Claude Opus 4.7 (1M context)",
+        is_default: false,
+    },
+    ClaudeModelCatalogEntry {
+        model: "claude-opus-4-6",
+        display_name: "Claude Opus 4.6",
+        is_default: false,
+    },
+    ClaudeModelCatalogEntry {
+        model: "claude-opus-4-6[1m]",
+        display_name: "Claude Opus 4.6 (1M context)",
+        is_default: false,
+    },
+    ClaudeModelCatalogEntry {
+        model: "claude-opus-4-5",
+        display_name: "Claude Opus 4.5",
+        is_default: false,
+    },
+    ClaudeModelCatalogEntry {
+        model: "claude-opus-4-1",
+        display_name: "Claude Opus 4.1",
+        is_default: false,
+    },
+    ClaudeModelCatalogEntry {
+        model: "claude-sonnet-4-6",
+        display_name: "Claude Sonnet 4.6",
+        is_default: false,
+    },
+    ClaudeModelCatalogEntry {
+        model: "claude-sonnet-4-6[1m]",
+        display_name: "Claude Sonnet 4.6 (1M context)",
+        is_default: false,
+    },
+    ClaudeModelCatalogEntry {
+        model: "claude-sonnet-4-5",
+        display_name: "Claude Sonnet 4.5",
+        is_default: false,
+    },
+    ClaudeModelCatalogEntry {
+        model: "claude-haiku-4-5",
+        display_name: "Claude Haiku 4.5",
+        is_default: false,
+    },
+];
+
 pub(crate) fn claude_model_catalog() -> Vec<ModelInfo> {
-    vec![
-        ModelInfo {
-            model: "claude-opus-4-6".to_string(),
-            display_name: "Claude Opus 4.6".to_string(),
+    CLAUDE_MODEL_CATALOG
+        .iter()
+        .map(|entry| ModelInfo {
+            model: entry.model.to_string(),
+            display_name: entry.display_name.to_string(),
             supported_efforts: CLAUDE_SUPPORTED_EFFORTS
                 .iter()
                 .map(|effort| (*effort).to_string())
                 .collect(),
             default_effort: Some("medium".to_string()),
-            is_default: true,
-        },
-        ModelInfo {
-            model: "claude-sonnet-4-6".to_string(),
-            display_name: "Claude Sonnet 4.6".to_string(),
-            supported_efforts: CLAUDE_SUPPORTED_EFFORTS
-                .iter()
-                .map(|effort| (*effort).to_string())
-                .collect(),
-            default_effort: Some("medium".to_string()),
-            is_default: false,
-        },
-        ModelInfo {
-            model: "claude-haiku-4-5".to_string(),
-            display_name: "Claude Haiku 4.5".to_string(),
-            supported_efforts: CLAUDE_SUPPORTED_EFFORTS
-                .iter()
-                .map(|effort| (*effort).to_string())
-                .collect(),
-            default_effort: Some("medium".to_string()),
-            is_default: false,
-        },
-    ]
+            is_default: entry.is_default,
+        })
+        .collect()
 }
 
 // --- Path helpers ---
