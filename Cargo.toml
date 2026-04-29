@@ -7,6 +7,7 @@ edition = "2021"
 default = []
 dictation = [
     "dep:cpal",
+    "dep:libc",
     "dep:rubato",
     "dep:serde",
     "dep:toml",
@@ -22,6 +23,7 @@ ansi-to-tui = "8.0.1"
 base64 = "0.22"
 cpal = { version = "0.17.3", optional = true }
 crossterm = "0.29"
+libc = { version = "0.2", optional = true }
 ratatui = "0.29"
 ratatui-core = "0.1.0"
 ratatui-interact = "0.2.0"

@@ -178,6 +178,7 @@ dependencies = [
  "base64",
  "cpal",
  "crossterm 0.29.0",
+ "libc",
  "ratatui",
  "ratatui-core",
  "ratatui-interact",

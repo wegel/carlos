@@ -94,5 +94,10 @@ fn ignored_integration_transcribes_raw_f32_fixture_with_tiny_model() {
     let WorkerOutput::Final(text) = output else {
         panic!("fixture should not be cancelled");
     };
+    eprintln!("dictation fixture transcript: {text:?}");
     assert!(!text.is_empty());
+    assert!(
+        text.to_lowercase().contains("country"),
+        "expected fixture transcript to contain 'country', got {text:?}"
+    );
 }

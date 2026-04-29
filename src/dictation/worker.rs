@@ -6,18 +6,18 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, TrySendError};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use anyhow::{Context, Result};
-use whisper_rs::{
-    install_logging_hooks, FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters,
-};
+use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
 use super::events::DictationEvent;
 use super::vocabulary::{vocabulary_prompt, DEFAULT_MAX_PROMPT_CHARS};
 
 // --- Types ---
+
+static STDERR_REDIRECT_LOCK: Mutex<()> = Mutex::new(());
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DictationWorkerProfile {
@@ -224,9 +224,10 @@ fn load_model_if_needed<'a>(
 }
 
 fn load_model(profile: &DictationWorkerProfile) -> Result<LoadedModel> {
-    install_logging_hooks();
-    let ctx = WhisperContext::new_with_params(&profile.model, WhisperContextParameters::default())
-        .with_context(|| format!("failed to load Whisper model {}", profile.model.display()))?;
+    let ctx = suppress_native_stderr(|| {
+        WhisperContext::new_with_params(&profile.model, WhisperContextParameters::default())
+    })
+    .with_context(|| format!("failed to load Whisper model {}", profile.model.display()))?;
     let vocabulary_prompt = vocabulary_prompt(
         &profile.language,
         profile.vocabulary.as_deref(),
@@ -252,13 +253,9 @@ fn transcribe_with_model(
     }
     let prompt = model.vocabulary_prompt.as_deref();
     let params = whisper_params(language, prompt, cancel.clone());
-    let mut state = model
-        .ctx
-        .create_state()
+    let mut state = suppress_native_stderr(|| model.ctx.create_state())
         .context("failed to create Whisper state")?;
-    state
-        .full(params, &audio)
-        .context("Whisper inference failed")?;
+    suppress_native_stderr(|| state.full(params, &audio)).context("Whisper inference failed")?;
     if cancel.is_cancelled() {
         return Ok(WorkerOutput::Cancelled);
     }
@@ -273,6 +270,51 @@ fn collect_segments(state: &whisper_rs::WhisperState) -> String {
         .join("")
         .trim()
         .to_string()
+}
+
+#[cfg(unix)]
+fn suppress_native_stderr<T>(f: impl FnOnce() -> T) -> T {
+    use std::fs::OpenOptions;
+    use std::os::fd::AsRawFd;
+
+    let Ok(_guard) = STDERR_REDIRECT_LOCK.lock() else {
+        return f();
+    };
+    let Ok(dev_null) = OpenOptions::new().write(true).open("/dev/null") else {
+        return f();
+    };
+
+    let stderr_fd = std::io::stderr().as_raw_fd();
+    // SAFETY: dup/dup2 operate on process file descriptors. The saved fd is
+    // restored before returning, and fallback paths run the closure unchanged.
+    let saved_fd = unsafe { libc::dup(stderr_fd) };
+    if saved_fd < 0 {
+        return f();
+    }
+
+    // SAFETY: both fds are valid if dup succeeded and /dev/null opened.
+    if unsafe { libc::dup2(dev_null.as_raw_fd(), stderr_fd) } < 0 {
+        // SAFETY: saved_fd came from dup and must be closed on this branch.
+        unsafe {
+            libc::close(saved_fd);
+        }
+        return f();
+    }
+
+    let out = f();
+
+    // SAFETY: restore stderr from the saved duplicate, then close it.
+    unsafe {
+        libc::dup2(saved_fd, stderr_fd);
+        libc::close(saved_fd);
+    }
+    out
+}
+
+#[cfg(not(unix))]
+fn suppress_native_stderr<T>(f: impl FnOnce() -> T) -> T {
+    let _ = &STDERR_REDIRECT_LOCK;
+    f()
 }
 
 // --- Tests ---
