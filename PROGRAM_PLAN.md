@@ -27,7 +27,7 @@ making audio and Whisper dependencies mandatory for users who do not need dictat
 
 ## Active ExecPlans
 
-- [ ] `.agents/execplans/EXECPLAN_008_dictation.md`
+None.
 
 
 ## Done ExecPlans
@@ -39,3 +39,4 @@ making audio and Whisper dependencies mandatory for users who do not need dictat
 - [x] `.agents/done/EXECPLAN_005_claude_resume_history_import.md`
 - [x] `.agents/done/EXECPLAN_006_claude_exit_plan_mode.md`
 - [x] `.agents/done/EXECPLAN_007_code_quality_bar.md`
+- [x] `.agents/done/EXECPLAN_008_dictation.md`
