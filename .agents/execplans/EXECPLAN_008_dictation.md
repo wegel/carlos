@@ -15,7 +15,7 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 ## Progress
 
 - [x] (2026-04-29 15:53Z) Created this ExecPlan from `stt.md`, grounded it in the current source layout, and moved the previous active code-quality ExecPlan to `.agents/done/` as requested.
-- [ ] Milestone 1: Add compile-time feature gates, configuration loading, profile selection, and documentation stubs without enabling microphone capture yet.
+- [x] (2026-04-29 18:43Z) Milestone 1: Added `dictation`, `dictation-cuda`, and `dictation-vulkan` Cargo features; optional audio/Whisper/config dependencies; `--dictation-profile` parsing; feature-gated profile and vocabulary loaders; README stubs; and tests. Validation: `cargo test` passed with 247 tests, `cargo test --features dictation` passed with 259 tests, and `cargo build --no-default-features` passed.
 - [ ] Milestone 2: Add app-level dictation state, key handling, cancellation semantics, profile picker state, and rendering indicators using fake transcription events in tests.
 - [ ] Milestone 3: Implement audio capture, resampling, voice activity detection, bounded recording, and state transitions without requiring a Whisper model in normal tests.
 - [ ] Milestone 4: Implement the single Whisper worker thread, model loading, vocabulary priming, transcription events, and cancellation inside the Whisper abort callback.
@@ -35,6 +35,15 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 - Observation: The current status bar can accept another mode label, but its reserved label area is tight. The dictation indicator should be integrated with `draw_status_bar` deliberately so it does not overlap context usage, model settings, or the Ralph label on narrow terminals.
   Evidence: `src/app/render.rs` computes reserved cells for context, model, and `RALPH MODE` before drawing the separator/status line.
 
+- Observation: The crates.io versions selected for the first implementation slice are `whisper-rs 0.16.0`, `cpal 0.17.3`, `rubato 2.0.0`, `webrtc-vad 0.4.0`, and `toml 1.1.2`. `whisper-rs 0.16.0` exposes `cuda` and `vulkan` features, so the pass-through Cargo features can use those names directly.
+  Evidence: `cargo info whisper-rs`, `cargo info cpal`, `cargo info rubato`, `cargo info webrtc-vad`, and `cargo info toml` were run on 2026-04-29 before editing `Cargo.toml`.
+
+- Observation: A full `cargo fmt` rewrites many pre-existing files unrelated to dictation.
+  Evidence: after running `cargo fmt`, `git status --short` showed formatting changes across app, Claude backend, protocol, and test modules. Those accidental format-only edits were restored before committing the Milestone 1 slice.
+
+- Observation: Dictation path expansion should not require `HOME` for absolute model paths.
+  Evidence: the Milestone 1 config loader initially called XDG and HOME expansion helpers unconditionally. A regression test named `absolute_paths_do_not_require_home` now covers the intended behavior.
+
 ## Decision Log
 
 - Decision: Use `Ctrl+D` as the start/stop dictation key unless implementation-time testing proves a terminal conflict in the supported environments.
@@ -47,6 +56,10 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 
 - Decision: Keep dictation optional behind Cargo features, with `dictation` as the user-facing feature and backend-specific Whisper acceleration features passing through only when explicitly requested.
   Rationale: `cpal`, `whisper-rs`, and their native dependencies are expensive for users who do not need microphone dictation. `cargo build --no-default-features` must still produce a working `carlos` with no audio or Whisper libraries linked.
+  Date/Author: 2026-04-29 / codex
+
+- Decision: Keep `default = []` in `Cargo.toml` for now instead of enabling `dictation` by default.
+  Rationale: The source requirement only says default-on is acceptable, not mandatory. Keeping dictation default-off preserves the current lightweight default build while still making the full stack available and tested with `--features dictation`.
   Date/Author: 2026-04-29 / codex
 
 - Decision: Model the implementation around a single reusable Whisper context and one transcription worker thread.
@@ -352,3 +365,5 @@ Whisper inference parameters must enforce:
 ## Revision Notes
 
 2026-04-29 / codex: Created this ExecPlan from `stt.md` and repository inspection so Ralph or a fresh agent can implement dictation without needing the untracked source note. The previous active ExecPlan was moved to done because the user explicitly requested that any previously active EP be moved to done.
+
+2026-04-29 / codex: Completed Milestone 1 by adding feature gates, optional dependencies, CLI profile parsing, profile/vocabulary config loading, README stubs, and validation evidence. Default dictation builds remain opt-in through `--features dictation` to preserve the existing default build footprint.

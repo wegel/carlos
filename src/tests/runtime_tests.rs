@@ -81,6 +81,14 @@ fn parse_cli_args_supports_ralph_resume_and_markers() {
 }
 
 #[test]
+fn parse_cli_args_supports_dictation_profile() {
+    let parsed = parse_cli_args(vec!["--dictation-profile".to_string(), "fr-qc".to_string()])
+        .expect("parse");
+
+    assert_eq!(parsed.dictation_profile.as_deref(), Some("fr-qc"));
+}
+
+#[test]
 fn parse_cli_args_supports_continue_mode() {
     let args = vec!["continue".to_string()];
     let parsed = parse_cli_args(args).expect("parse");

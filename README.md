@@ -15,6 +15,7 @@ Alpha.
 - resume Codex with `carlos resume <SESSION_ID>` or pick from `carlos resume`
 - resume Claude with `carlos --backend claude resume <SESSION_ID>` or pick from `carlos --backend claude resume`
 - backend selection via `--backend <codex|claude>` or `CARLOS_BACKEND=claude`
+- feature-gated dictation profile configuration via `--dictation-profile <name>`
 - runtime Ralph mode toggle (`Ctrl+R`) with:
   - prompt auto-injection from `.agents/ralph-prompt.md` (or `--ralph-prompt`)
   - blocked marker wait state (`@@BLOCKED@@` by default)
@@ -73,7 +74,12 @@ carlos --ralph-prompt .agents/ralph-prompt.md
 
 ```bash
 cargo build --release
+cargo build --release --features dictation
 ```
+
+The optional `dictation` Cargo feature enables local profile configuration for the in-process
+voice dictation work. The audio capture and Whisper inference path is still being wired under
+the active ExecPlan; builds without the feature do not link audio or Whisper dependencies.
 
 ## run
 
@@ -105,6 +111,7 @@ cargo test
 - rewind mode `Enter`: send selected/edited prompt
 - rewind mode `Esc`: leave rewind mode and restore current draft
 - `Ctrl+R`: toggle Ralph mode on/off (queued if a turn is currently active)
+- `Ctrl+D`: start/stop dictation when the `dictation` feature is enabled
 - `Ctrl+Y`: copy selection or last assistant message
 - `Ctrl+L`: clear selection
 - `PageUp/PageDown`: transcript scroll

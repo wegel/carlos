@@ -4,6 +4,8 @@ mod app;
 mod backend;
 mod claude_backend;
 mod clipboard;
+#[cfg(feature = "dictation")]
+mod dictation;
 mod event;
 mod protocol;
 mod protocol_params;

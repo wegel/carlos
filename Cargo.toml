@@ -3,22 +3,41 @@ name = "carlos"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+dictation = [
+    "dep:cpal",
+    "dep:rubato",
+    "dep:serde",
+    "dep:toml",
+    "dep:webrtc-vad",
+    "dep:whisper-rs",
+]
+dictation-cuda = ["dictation", "whisper-rs/cuda"]
+dictation-vulkan = ["dictation", "whisper-rs/vulkan"]
+
 [dependencies]
 anyhow = "1"
 ansi-to-tui = "8.0.1"
 base64 = "0.22"
+cpal = { version = "0.17.3", optional = true }
 crossterm = "0.29"
 ratatui = "0.29"
 ratatui-core = "0.1.0"
 ratatui-interact = "0.2.0"
 ratatui-textarea = "0.8.0"
+rubato = { version = "2.0.0", optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
 serde_json = "1"
 shlex = "1"
 textwrap = "0.16"
+toml = { version = "1.1.2", optional = true }
 tui-markdown = { git = "https://github.com/lightsofapollo/tui-markdown.git", rev = "819cbca7675178947357a88e9e4a007bfb085ccf" }
 unicode-segmentation = "1"
 unicode-width = "0.1"
 uuid = { version = "1", features = ["v4"] }
+webrtc-vad = { version = "0.4.0", optional = true }
+whisper-rs = { version = "0.16.0", optional = true }
 
 [profile.dev]
 opt-level = 1
