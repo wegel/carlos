@@ -10,7 +10,9 @@ updates even on very large sessions, but the codebase goal is now to preserve th
 while reducing the architectural risk caused by oversized, mixed-responsibility runtime files.
 The next feature goal is to finish the Claude Code integration so Claude-native approval flows,
 starting with `ExitPlanMode`, work inside `carlos` without regressing the existing Codex path or
-weakening the runtime discipline established by the earlier ExecPlans.
+weakening the runtime discipline established by the earlier ExecPlans. The current feature goal is
+to add optional in-process voice dictation to the prompt input box without blocking the TUI or
+making audio and Whisper dependencies mandatory for users who do not need dictation.
 
 ## Global Invariants
 
@@ -25,7 +27,7 @@ weakening the runtime discipline established by the earlier ExecPlans.
 
 ## Active ExecPlans
 
-- [ ] `.agents/execplans/EXECPLAN_007_code_quality_bar.md`
+- [ ] `.agents/execplans/EXECPLAN_008_dictation.md`
 
 
 ## Done ExecPlans
@@ -36,3 +38,4 @@ weakening the runtime discipline established by the earlier ExecPlans.
 - [x] `.agents/done/EXECPLAN_004_claude_backend.md`
 - [x] `.agents/done/EXECPLAN_005_claude_resume_history_import.md`
 - [x] `.agents/done/EXECPLAN_006_claude_exit_plan_mode.md`
+- [x] `.agents/done/EXECPLAN_007_code_quality_bar.md`
