@@ -19,7 +19,9 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 - [x] (2026-04-29 18:53Z) Milestone 2: Added app-side dictation state to `AppState`, startup profile configuration when the `dictation` feature is enabled, `Ctrl+D` recording/transcribing toggles, `Esc` cancellation, profile-picker state methods, fake final-text commit support, and activity-line indicators. Validation: `cargo test` passed with 256 tests, `cargo test --features dictation` passed with 266 tests, `cargo build --no-default-features` passed warning-clean, `cargo build --release` passed, and `install -Dm755 target/release/carlos ~/.local/bin/carlos` refreshed the installed binary.
 - [x] (2026-04-29 19:04Z) Milestone 3: Added CPAL default-input capture behind the `dictation` feature, mono conversion for f32/i16/u16 input streams, `rubato` resampling to 16 kHz mono f32, WebRTC VAD framing with roughly 800 ms silence auto-stop, a 30-second bounded audio buffer, typed dictation UI events, manual stop and auto-stop state transitions, `Ctrl+D` restart from transcribing, and fake capture-event tests that require no microphone. Validation: `cargo test` passed with 257 tests, `cargo test --features dictation` passed with 285 tests, `cargo build --no-default-features` passed, `cargo build --release --features dictation` passed warning-clean, `cargo build --release --no-default-features` passed, and `install -Dm755 target/release/carlos ~/.local/bin/carlos` refreshed the installed no-feature binary. A manual microphone smoke was not run in this non-interactive execution pass; Milestone 5 still requires end-to-end manual dictation smokes with a model.
 - [x] (2026-04-29 19:14Z) Milestone 4: Added a single-threaded Whisper worker behind the `dictation` feature, typed transcription events, reusable model-context loading keyed by model/language/vocabulary, vocabulary prompt construction in worker requests, abort-callback cancellation through `FullParams::set_abort_callback_safe`, panic containment around inference, final text insertion at the existing input cursor, stale-request dropping after cancellation, and an ignored raw-f32 fixture integration test for `ggml-tiny.bin`. Validation: `cargo test` passed with 257 tests, `cargo test --features dictation` passed with 290 tests and 1 ignored integration test, `cargo build --no-default-features` passed warning-clean, `cargo build --release --features dictation` passed warning-clean, `cargo build --release --no-default-features` passed warning-clean, and `install -Dm755 target/release/carlos ~/.local/bin/carlos` refreshed the installed no-feature binary.
-- [ ] (2026-04-29 19:20Z) Milestone 5 partial: Added runtime profile cycling with `F7`, wired startup to retain all configured profiles, updated README guidance for dictation profiles, vocabulary, controls, and recommended GGML models, and reran release validation. Validation: `cargo test` passed with 257 tests, `cargo test --features dictation` passed with 291 tests and 1 ignored integration test, `cargo build --no-default-features` passed warning-clean, `cargo build --release --features dictation` passed warning-clean, `cargo build --release --no-default-features` passed warning-clean, and `install -Dm755 target/release/carlos ~/.local/bin/carlos` refreshed the installed no-feature binary. Remaining: required engineering review and manual microphone/model smokes. The review is currently blocked because `codex exec` hit the local usage limit twice.
+- [ ] (2026-04-29 19:20Z) Milestone 5 partial: Added runtime profile cycling with `F7`, wired startup to retain all configured profiles, updated README guidance for dictation profiles, vocabulary, controls, and recommended GGML models, and reran release validation. Validation: `cargo test` passed with 257 tests, `cargo test --features dictation` passed with 291 tests and 1 ignored integration test, `cargo build --no-default-features` passed warning-clean, `cargo build --release --features dictation` passed warning-clean, `cargo build --release --no-default-features` passed warning-clean, and `install -Dm755 target/release/carlos ~/.local/bin/carlos` refreshed the installed no-feature binary. Remaining: required engineering review and manual microphone/model smokes.
+- [x] (2026-04-29 20:19Z) Addressed the first engineering review verdict by bounding the Whisper worker command queue with nonblocking send, preserving completed capture audio for idempotent manual-stop/auto-stop races, and removing the full-audio clone from UI dictation event processing. Validation after the fix: `cargo test` passed with 257 tests, `cargo test --features dictation` passed with 293 tests and 1 ignored integration test, `cargo build --no-default-features` passed warning-clean, `cargo build --release --features dictation` passed warning-clean, `cargo build --release --no-default-features` passed warning-clean, and `install -Dm755 target/release/carlos ~/.local/bin/carlos` refreshed the installed no-feature binary.
+- [ ] (2026-04-29 20:25Z) Human instruction received: do not run a re-review. Completion remains blocked on the Milestone 5 manual French-profile, English-profile, and missing-model smokes because this environment has no `~/.config/carlos/dictation.toml` and no `~/.cache/carlos` model directory. `pactl info` does show a default PipeWire/PulseAudio source (`alsa_input.usb-Yamaha_Corporation_Yamaha_AG03MK2-00.analog-stereo`), so audio hardware may be available once model/profile setup exists.
 
 ## Surprises & Discoveries
 
@@ -68,8 +70,11 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 - Observation: Late transcription events need request IDs, not just cancellation flags.
   Evidence: `AppState` now tracks `dictation_request_id` and ignores `TranscriptionFinal`, `TranscriptionError`, and `TranscriptionCancelled` events whose request id no longer matches. The test `dictation_worker_late_final_is_ignored_after_cancel` covers the ghost-text case.
 
-- Observation: The required engineering review could not run in this session because the local `codex exec` transport hit its usage limit before producing a verdict.
-  Evidence: `codex exec -C /var/home/wegel/work/perso/carlos -s read-only -` failed with `You've hit your usage limit`; a retry with `-m gpt-5.4-mini` failed with the same usage-limit message. No reviewer verdict was produced, so the review requirement remains open.
+- Observation: The first successful engineering review found two blocking invariant risks in the dictation implementation.
+  Evidence: reviewer verdict `FAIL` reported an unbounded `mpsc::channel` carrying full recordings, an auto-stop/manual-stop race that could lose drained samples, and a minor full-audio clone in UI dictation event handling. Commit `db958cf` replaced the worker queue with a bounded nonblocking `sync_channel(1)`, made capture completion idempotent with a retained completed sample handoff, and processed UI events by value.
+
+- Observation: The local runtime does not currently have dictation profiles or models installed.
+  Evidence: `ls -la ~/.config/carlos` showed only `runtime-defaults.json`; `ls -la ~/.cache/carlos` failed because the directory does not exist. `pactl info` did report a default input source, so the current blocker is model/profile setup plus an actual manual dictation pass, not obvious absence of an audio device.
 
 ## Decision Log
 
@@ -113,13 +118,27 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
   Rationale: The planned `Ctrl+Shift+D` chord is terminal-dependent. `F7` is adjacent to the existing `F6`/`F8` runtime controls, is not already used by Carlos, and is reliably reported by crossterm.
   Date/Author: 2026-04-29 / codex
 
-- Decision: Block completion until the engineering reviewer can run.
-  Rationale: `AGENTS.md` requires reviewer prompts for non-trivial changes, and the retry also failed before a verdict. This is an external quota/transport blocker, not a code or test failure.
+- Decision: Treat bounded worker queuing as one in-flight transcription plus at most one pending recording.
+  Rationale: This preserves the single-worker model, keeps `Ctrl+D` restart responsive through nonblocking send, and satisfies the repository invariant against unbounded audio buffers. When the queue is already full, the UI reports the worker as busy instead of retaining another full recording.
+  Date/Author: 2026-04-29 / codex
+
+- Decision: Do not run a second engineering review after `db958cf`.
+  Rationale: The human explicitly instructed "no re-review" after the blocking findings were remediated. The original review verdict and remediation are preserved in this plan.
   Date/Author: 2026-04-29 / codex
 
 ## Outcomes & Retrospective
 
-(To be filled as milestones complete.)
+Engineering review attempt 1, 2026-04-29, subject `57346cb..9a243a4`, verdict `FAIL`:
+
+- `MAJOR`: Worker queue could accumulate unbounded audio buffers because `src/dictation/worker.rs` used an unbounded `mpsc::channel` while `src/app/state_dictation.rs` sent full `Vec<f32>` recordings into it. Corrective guidance was to bound the worker command path to one in-flight plus at most one pending request or otherwise drop superseded pending audio.
+- `MAJOR`: Auto-stop samples could be lost if the CPAL callback drained the capture buffer and sent `CaptureAutoStopped`, then the user manually stopped before the UI processed that event. Corrective guidance was to make capture completion idempotent so `finish()` can return already auto-stopped samples.
+- `MINOR`: Dictation UI event handling cloned full audio buffers because `DictationEvent` derived `Clone` and `process_event` cloned dictation events before handling.
+
+Remediation in `db958cf`:
+
+- `DictationWorker` now uses `mpsc::sync_channel(1)` plus `try_send`, returning `dictation worker is busy` instead of queuing unbounded recordings.
+- `CaptureState` stores completed auto-stop samples in an `Arc<Vec<f32>>`; manual `finish()` can consume the already completed recording if it wins the UI race.
+- `run_conversation_tui` now processes `UiEvent` values by value, so dictation events and terminal events are not cloned for dispatch.
 
 ## Context and Orientation
 
