@@ -18,10 +18,14 @@ use serde_json::json;
 #[cfg(test)]
 use self::context_usage::{context_label_reserved_cells, context_usage_label, ContextUsage};
 #[cfg(test)]
+use self::dictation_state::{DictationPhase, DictationProfileState};
+#[cfg(test)]
 use self::input::{
     can_submit_queued_turn, is_mobile_mouse_key_candidate, is_priority_server_line,
     prioritize_events,
 };
+#[cfg(test)]
+use self::input_events::handle_terminal_event;
 #[cfg(test)]
 use self::mobile_mouse::{
     apply_mobile_mouse_scroll, consume_mobile_mouse_char, parse_mobile_mouse_coords,
@@ -44,6 +48,7 @@ use self::picker_delete_dialog::draw_picker_delete_dialog;
 #[cfg(test)]
 use self::render::{
     compute_input_layout, draw_rendered_line, is_newline_enter, normalize_pasted_text,
+    render_main_view,
 };
 #[cfg(test)]
 use self::selection::{
@@ -86,6 +91,7 @@ mod approval_state;
 mod backend_setup;
 mod cli;
 mod context_usage;
+mod dictation_state;
 mod input;
 mod input_events;
 mod input_history_state;
@@ -110,6 +116,7 @@ mod render_input;
 mod runtime_settings_state;
 mod selection;
 mod state;
+mod state_dictation;
 mod state_input;
 mod state_settings;
 mod state_transcript;

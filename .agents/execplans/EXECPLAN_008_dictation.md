@@ -16,7 +16,7 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 
 - [x] (2026-04-29 15:53Z) Created this ExecPlan from `stt.md`, grounded it in the current source layout, and moved the previous active code-quality ExecPlan to `.agents/done/` as requested.
 - [x] (2026-04-29 18:43Z) Milestone 1: Added `dictation`, `dictation-cuda`, and `dictation-vulkan` Cargo features; optional audio/Whisper/config dependencies; `--dictation-profile` parsing; feature-gated profile and vocabulary loaders; README stubs; and tests. Validation: `cargo test` passed with 247 tests, `cargo test --features dictation` passed with 259 tests, and `cargo build --no-default-features` passed.
-- [ ] Milestone 2: Add app-level dictation state, key handling, cancellation semantics, profile picker state, and rendering indicators using fake transcription events in tests.
+- [x] (2026-04-29 18:53Z) Milestone 2: Added app-side dictation state to `AppState`, startup profile configuration when the `dictation` feature is enabled, `Ctrl+D` recording/transcribing toggles, `Esc` cancellation, profile-picker state methods, fake final-text commit support, and activity-line indicators. Validation: `cargo test` passed with 256 tests, `cargo test --features dictation` passed with 266 tests, `cargo build --no-default-features` passed warning-clean, `cargo build --release` passed, and `install -Dm755 target/release/carlos ~/.local/bin/carlos` refreshed the installed binary.
 - [ ] Milestone 3: Implement audio capture, resampling, voice activity detection, bounded recording, and state transitions without requiring a Whisper model in normal tests.
 - [ ] Milestone 4: Implement the single Whisper worker thread, model loading, vocabulary priming, transcription events, and cancellation inside the Whisper abort callback.
 - [ ] Milestone 5: Integrate runtime profile switching, final README guidance, manual smoke tests, release build, installation, and engineering review.
@@ -43,6 +43,12 @@ The feature is intentionally in-process. Carlos must not shell out to `whisper-c
 
 - Observation: Dictation path expansion should not require `HOME` for absolute model paths.
   Evidence: the Milestone 1 config loader initially called XDG and HOME expansion helpers unconditionally. A regression test named `absolute_paths_do_not_require_home` now covers the intended behavior.
+
+- Observation: The app can support dictation UI state without introducing a real audio worker yet.
+  Evidence: Milestone 2 added tests for `Ctrl+D` start/stop, `Esc` cancellation while recording and transcribing, active-turn gating, missing-model errors, final text insertion, profile-picker state, and rendering in normal, Ralph-mode, and rewind-mode contexts.
+
+- Observation: Some app-side dictation methods are only test-only until the real capture and worker event sources land.
+  Evidence: `cargo build --no-default-features` initially warned about dead code for fake-event helpers. Those helpers are now compiled only for tests until Milestone 3/4 wires real events.
 
 ## Decision Log
 
@@ -367,3 +373,5 @@ Whisper inference parameters must enforce:
 2026-04-29 / codex: Created this ExecPlan from `stt.md` and repository inspection so Ralph or a fresh agent can implement dictation without needing the untracked source note. The previous active ExecPlan was moved to done because the user explicitly requested that any previously active EP be moved to done.
 
 2026-04-29 / codex: Completed Milestone 1 by adding feature gates, optional dependencies, CLI profile parsing, profile/vocabulary config loading, README stubs, and validation evidence. Default dictation builds remain opt-in through `--features dictation` to preserve the existing default build footprint.
+
+2026-04-29 / codex: Completed Milestone 2 by adding the app-side dictation state machine, input routing, cancellation, startup profile configuration, status rendering, and fake-event tests. Real microphone capture, VAD, resampling, and worker events remain for Milestones 3 and 4.

@@ -105,6 +105,15 @@ impl BackendClient for CodexRewindMock {
     fn stop(&mut self) {}
 }
 
+fn usable_dictation_profile() -> DictationProfileState {
+    DictationProfileState {
+        id: "en".to_string(),
+        name: "English".to_string(),
+        model_label: Some("/tmp/model.bin".to_string()),
+        model_usable: true,
+    }
+}
+
 #[test]
 fn prioritize_events_handles_terminal_first_and_budgets_server_lines() {
     let mut deferred = std::collections::VecDeque::new();
@@ -123,6 +132,122 @@ fn prioritize_events_handles_terminal_first_and_budgets_server_lines() {
     assert!(matches!(prioritized[1], UiEvent::ServerLine(ref s) if s == "s1"));
     assert_eq!(deferred.len(), 1);
     assert_eq!(deferred.front().map(String::as_str), Some("s2"));
+}
+
+#[test]
+fn ctrl_d_toggles_dictation_recording_to_transcribing() {
+    let client = ApprovalRespondMock::new();
+    let mut app = AppState::new("thread-1".to_string());
+    app.configure_dictation(usable_dictation_profile());
+    let size = TerminalSize {
+        width: 100,
+        height: 30,
+    };
+
+    handle_terminal_event(
+        &client,
+        &mut app,
+        Event::Key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL)),
+        size,
+    );
+    assert!(matches!(app.dictation_phase(), DictationPhase::Recording));
+
+    handle_terminal_event(
+        &client,
+        &mut app,
+        Event::Key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL)),
+        size,
+    );
+    assert!(matches!(
+        app.dictation_phase(),
+        DictationPhase::Transcribing { .. }
+    ));
+}
+
+#[test]
+fn escape_cancels_recording_and_transcribing() {
+    let client = ApprovalRespondMock::new();
+    let mut app = AppState::new("thread-1".to_string());
+    app.configure_dictation(usable_dictation_profile());
+    let size = TerminalSize {
+        width: 100,
+        height: 30,
+    };
+
+    app.start_dictation_recording();
+    handle_terminal_event(
+        &client,
+        &mut app,
+        Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::empty())),
+        size,
+    );
+    assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
+
+    app.start_dictation_recording();
+    app.stop_dictation_recording();
+    handle_terminal_event(
+        &client,
+        &mut app,
+        Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::empty())),
+        size,
+    );
+    assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
+}
+
+#[test]
+fn dictation_does_not_start_during_active_turn() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.configure_dictation(usable_dictation_profile());
+    app.active_turn_id = Some("turn-1".to_string());
+
+    app.start_dictation_recording();
+
+    assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
+    assert_eq!(app.status, "dictation unavailable while turn is active");
+}
+
+#[test]
+fn missing_dictation_model_reports_error_without_recording() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.configure_dictation(DictationProfileState {
+        id: "en".to_string(),
+        name: "English".to_string(),
+        model_label: Some("/tmp/missing-model.bin".to_string()),
+        model_usable: false,
+    });
+
+    app.start_dictation_recording();
+
+    assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
+    assert_eq!(
+        app.status,
+        "dictation model unavailable: /tmp/missing-model.bin"
+    );
+}
+
+#[test]
+fn dictation_final_text_commits_and_returns_to_idle() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.configure_dictation(usable_dictation_profile());
+
+    app.start_dictation_recording();
+    app.stop_dictation_recording();
+    app.apply_dictation_partial("draft text");
+    app.commit_dictation_final("final text");
+
+    assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
+    assert_eq!(app.input_text(), "final text");
+    assert_eq!(app.status, "dictation inserted");
+}
+
+#[test]
+fn dictation_profile_picker_state_is_tracked() {
+    let mut app = AppState::new("thread-1".to_string());
+
+    app.open_dictation_profile_picker();
+    assert!(app.dictation_profile_picker_open());
+    app.close_dictation_profile_picker();
+    assert!(!app.dictation_profile_picker_open());
 }
 
 #[test]

@@ -275,6 +275,7 @@ fn handle_normal_key(
             app.toggle_model_settings();
             TerminalEventResult::Continue { needs_draw: true }
         }
+        (code, mods) if is_ctrl_char(code, mods, 'd') => handle_ctrl_d_dictation(app),
         (KeyCode::Char('r'), KeyModifiers::CONTROL) => handle_ctrl_r_ralph(app),
         (KeyCode::Char('y'), KeyModifiers::CONTROL) => handle_ctrl_y_copy(app),
         (KeyCode::Char('l'), KeyModifiers::CONTROL) => handle_ctrl_l_clear_selection(app),
@@ -313,6 +314,15 @@ fn handle_normal_key(
 fn handle_ctrl_r_ralph(app: &mut AppState) -> TerminalEventResult {
     if let Err(e) = app.request_ralph_toggle() {
         app.set_status(format!("ralph: {e}"));
+    }
+    TerminalEventResult::Continue { needs_draw: true }
+}
+
+fn handle_ctrl_d_dictation(app: &mut AppState) -> TerminalEventResult {
+    if app.dictation_active() {
+        app.stop_dictation_recording();
+    } else {
+        app.start_dictation_recording();
     }
     TerminalEventResult::Continue { needs_draw: true }
 }
@@ -405,6 +415,11 @@ fn handle_escape_key(
     size: TerminalSize,
     now: Instant,
 ) -> TerminalEventResult {
+    if app.dictation_active() {
+        app.cancel_dictation();
+        app.reset_esc_chord();
+        return TerminalEventResult::Continue { needs_draw: true };
+    }
     if app.ralph_enabled() {
         app.reset_esc_chord();
         app.disable_ralph_mode();

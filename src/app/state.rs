@@ -14,6 +14,7 @@ pub(super) use super::approval_state::{
     ApprovalChoice, ApprovalRequestKind, PendingApprovalRequest,
 };
 use super::context_usage::ContextUsage;
+use super::dictation_state::DictationRuntimeState;
 use super::input::make_input_area;
 use super::input_history_state::InputHistoryState;
 use super::models::{Message, Role};
@@ -45,6 +46,7 @@ pub(super) struct AppState {
     pub(super) status: String,
     pub(super) turn_start_message_idx: Option<usize>,
     pub(super) ralph_runtime: RalphRuntimeState,
+    pub(super) dictation: DictationRuntimeState,
     pub(super) runtime: RuntimeSettingsState,
     pub(super) approval: ApprovalState,
 
@@ -71,6 +73,7 @@ impl AppState {
             status: String::new(),
             turn_start_message_idx: None,
             ralph_runtime: RalphRuntimeState::new(),
+            dictation: DictationRuntimeState::disabled("dictation feature is not configured"),
             runtime: RuntimeSettingsState::new(),
             approval: ApprovalState::new(),
             viewport: ViewportState::new(),

@@ -1,0 +1,150 @@
+//! App-side dictation state machine and display labels.
+
+// --- Types ---
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum DictationPhase {
+    Disabled,
+    Idle,
+    Recording,
+    Transcribing { partial: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct DictationProfileState {
+    pub(super) id: String,
+    pub(super) name: String,
+    pub(super) model_label: Option<String>,
+    pub(super) model_usable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct DictationRuntimeState {
+    phase: DictationPhase,
+    profile: Option<DictationProfileState>,
+    picker_open: bool,
+    disabled_reason: Option<String>,
+}
+
+// --- Lifecycle ---
+
+impl DictationRuntimeState {
+    pub(super) fn disabled(reason: impl Into<String>) -> Self {
+        Self {
+            phase: DictationPhase::Disabled,
+            profile: None,
+            picker_open: false,
+            disabled_reason: Some(reason.into()),
+        }
+    }
+
+    #[cfg(any(test, feature = "dictation"))]
+    pub(super) fn with_profile(profile: DictationProfileState) -> Self {
+        Self {
+            phase: DictationPhase::Idle,
+            profile: Some(profile),
+            picker_open: false,
+            disabled_reason: None,
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn phase(&self) -> &DictationPhase {
+        &self.phase
+    }
+
+    pub(super) fn is_active(&self) -> bool {
+        matches!(
+            self.phase,
+            DictationPhase::Recording | DictationPhase::Transcribing { .. }
+        )
+    }
+
+    pub(super) fn status_label(&self) -> Option<String> {
+        let profile = self.profile.as_ref()?;
+        match &self.phase {
+            DictationPhase::Recording => Some(format!("DICTATING [{}]", profile.name)),
+            DictationPhase::Transcribing { .. } => {
+                Some(format!("TRANSCRIBING [{}]", profile.name))
+            }
+            DictationPhase::Disabled | DictationPhase::Idle => None,
+        }
+    }
+}
+
+// --- Transitions ---
+
+impl DictationRuntimeState {
+    pub(super) fn start_recording(&mut self) -> Result<(), String> {
+        let profile = self.profile.as_ref().ok_or_else(|| {
+            self.disabled_reason
+                .clone()
+                .unwrap_or_else(|| "dictation unavailable".to_string())
+        })?;
+        if !profile.model_usable {
+            let model = profile
+                .model_label
+                .as_deref()
+                .unwrap_or("configured model");
+            return Err(format!("dictation model unavailable: {model}"));
+        }
+        self.phase = DictationPhase::Recording;
+        Ok(())
+    }
+
+    pub(super) fn stop_recording(&mut self) -> bool {
+        if !matches!(self.phase, DictationPhase::Recording) {
+            return false;
+        }
+        self.phase = DictationPhase::Transcribing {
+            partial: String::new(),
+        };
+        true
+    }
+
+    pub(super) fn cancel(&mut self) -> bool {
+        if !self.is_active() {
+            return false;
+        }
+        self.phase = if self.profile.is_some() {
+            DictationPhase::Idle
+        } else {
+            DictationPhase::Disabled
+        };
+        true
+    }
+
+    #[cfg(test)]
+    pub(super) fn apply_partial(&mut self, text: impl Into<String>) -> bool {
+        let DictationPhase::Transcribing { partial } = &mut self.phase else {
+            return false;
+        };
+        *partial = text.into();
+        true
+    }
+
+    #[cfg(test)]
+    pub(super) fn finish_transcription(&mut self) -> Option<String> {
+        let DictationPhase::Transcribing { partial } =
+            std::mem::replace(&mut self.phase, DictationPhase::Idle)
+        else {
+            return None;
+        };
+        Some(partial)
+    }
+
+    #[cfg(test)]
+    pub(super) fn open_picker(&mut self) {
+        self.picker_open = true;
+    }
+
+    #[cfg(test)]
+    pub(super) fn close_picker(&mut self) {
+        self.picker_open = false;
+    }
+
+    #[cfg(test)]
+    pub(super) fn picker_open(&self) -> bool {
+        self.picker_open
+    }
+}

@@ -22,8 +22,9 @@ use super::{
 };
 use crate::theme::{
     kitt_color_for_distance, role_fg, role_gutter_fg, role_gutter_symbol, role_row_bg,
-    COLOR_DIFF_HUNK, COLOR_DIFF_REMOVE, COLOR_GUTTER_AGENT_THINKING, COLOR_GUTTER_USER,
-    COLOR_STEP1, COLOR_STEP2, COLOR_STEP3, COLOR_STEP6, COLOR_STEP7, COLOR_STEP8, COLOR_TEXT,
+    COLOR_DIFF_HUNK, COLOR_DIFF_REMOVE, COLOR_GUTTER_AGENT_COMMENTARY,
+    COLOR_GUTTER_AGENT_THINKING, COLOR_GUTTER_USER, COLOR_STEP1, COLOR_STEP2, COLOR_STEP3,
+    COLOR_STEP6, COLOR_STEP7, COLOR_STEP8, COLOR_TEXT,
 };
 
 // --- Re-exports: items moved to render_input but accessed via super::render:: by other modules ---
@@ -250,13 +251,21 @@ fn draw_status_bar(buf: &mut Buffer, app: &AppState, size: TerminalSize, input_t
         .map(context_usage_label)
         .unwrap_or_else(|| context_usage_placeholder_label().to_string());
     let model_label = app.runtime_settings_label();
+    let dictation_label = app.dictation_status_label();
     let has_context_usage = app.context_usage.is_some();
     let has_runtime_settings = app.has_runtime_settings();
     let runtime_settings_pending = app.runtime_settings_pending();
     let ralph_label_cells = if ralph_mode { visual_width(RALPH_MODE_LABEL) + 1 } else { 0 };
+    let dictation_label_cells = dictation_label
+        .as_deref()
+        .map(|label| visual_width(label) + 1)
+        .unwrap_or(0);
     let model_label_cells = visual_width(&model_label);
-    let reserved_label_cells =
-        context_label_reserved_cells(Some(&context_label)) + 1 + model_label_cells + ralph_label_cells;
+    let reserved_label_cells = context_label_reserved_cells(Some(&context_label))
+        + 1
+        + model_label_cells
+        + ralph_label_cells
+        + dictation_label_cells;
     let context_label_cells = visual_width(&context_label);
     let can_reserve_label_area = reserved_label_cells + 1 < line_len;
     let label_area_start = if can_reserve_label_area { line_len - reserved_label_cells } else { line_len };
@@ -284,9 +293,24 @@ fn draw_status_bar(buf: &mut Buffer, app: &AppState, size: TerminalSize, input_t
         let model_x = context_x.saturating_sub(model_label_cells + 1);
         draw_str(buf, context_x, sep_y, &context_label, Style::default().fg(if has_context_usage { COLOR_STEP8 } else { COLOR_STEP7 }), context_label_cells);
         draw_str(buf, model_x, sep_y, &model_label, Style::default().fg(if runtime_settings_pending { COLOR_DIFF_HUNK } else if has_runtime_settings { COLOR_STEP8 } else { COLOR_STEP7 }), model_label_cells);
+        let mut label_x = model_x;
+        if let Some(label) = dictation_label.as_deref() {
+            let label_w = visual_width(label);
+            label_x = label_x.saturating_sub(label_w + 1);
+            draw_str(
+                buf,
+                label_x,
+                sep_y,
+                label,
+                Style::default()
+                    .fg(COLOR_GUTTER_AGENT_COMMENTARY)
+                    .add_modifier(Modifier::BOLD),
+                label_w,
+            );
+        }
         if ralph_mode {
             let ralph_w = visual_width(RALPH_MODE_LABEL);
-            let ralph_x = model_x.saturating_sub(ralph_w + 1);
+            let ralph_x = label_x.saturating_sub(ralph_w + 1);
             draw_str(buf, ralph_x, sep_y, RALPH_MODE_LABEL, Style::default().fg(COLOR_GUTTER_AGENT_THINKING).add_modifier(Modifier::BOLD), ralph_w);
         }
     }

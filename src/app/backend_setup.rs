@@ -10,6 +10,8 @@ use anyhow::{Context, Result};
 use super::cli::{
     env_flag_enabled, resolve_initial_runtime_settings, styled_resume_hint, Backend, CliOptions,
 };
+#[cfg(feature = "dictation")]
+use super::dictation_state::DictationProfileState;
 use super::input::run_conversation_tui;
 use super::models::{Role, ThreadSummary};
 use super::notifications::{handle_server_message_line, load_history_from_start_or_resume, parse_thread_list};
@@ -66,6 +68,33 @@ pub(super) fn configure_app_common(app: &mut AppState, cwd: &str, opts: &CliOpti
         runtime_settings.summary,
     );
     app.set_status("ready");
+    configure_dictation(app, opts);
+}
+
+#[cfg(feature = "dictation")]
+fn configure_dictation(app: &mut AppState, opts: &CliOptions) {
+    match crate::dictation::config::load_dictation_config(opts.dictation_profile.as_deref()) {
+        Ok(config) => {
+            let profile = &config.profiles[&config.active_profile];
+            app.configure_dictation(DictationProfileState {
+                id: profile.id.clone(),
+                name: profile.name.clone(),
+                model_label: Some(profile.model.display().to_string()),
+                model_usable: profile.model_is_usable(),
+            });
+        }
+        Err(err) => app.disable_dictation(format!("dictation unavailable: {err}")),
+    }
+}
+
+#[cfg(not(feature = "dictation"))]
+fn configure_dictation(app: &mut AppState, opts: &CliOptions) {
+    let reason = if opts.dictation_profile.is_some() {
+        "dictation unavailable: rebuild with --features dictation"
+    } else {
+        "dictation feature is not configured"
+    };
+    app.disable_dictation(reason);
 }
 pub(super) fn finish_run(
     app: &mut AppState,
