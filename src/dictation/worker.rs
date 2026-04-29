@@ -10,7 +10,9 @@ use std::sync::Arc;
 use std::thread;
 
 use anyhow::{Context, Result};
-use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
+use whisper_rs::{
+    install_logging_hooks, FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters,
+};
 
 use super::events::DictationEvent;
 use super::vocabulary::{vocabulary_prompt, DEFAULT_MAX_PROMPT_CHARS};
@@ -222,6 +224,7 @@ fn load_model_if_needed<'a>(
 }
 
 fn load_model(profile: &DictationWorkerProfile) -> Result<LoadedModel> {
+    install_logging_hooks();
     let ctx = WhisperContext::new_with_params(&profile.model, WhisperContextParameters::default())
         .with_context(|| format!("failed to load Whisper model {}", profile.model.display()))?;
     let vocabulary_prompt = vocabulary_prompt(
