@@ -1,6 +1,8 @@
 use crossterm::event::KeyEvent;
 use serde_json::Value;
 use std::sync::mpsc;
+#[cfg(feature = "dictation")]
+use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -295,7 +297,7 @@ fn dictation_auto_stop_event_moves_recording_to_transcribing() {
 
     app.start_dictation_recording();
     app.handle_dictation_event(
-        crate::dictation::events::DictationEvent::CaptureAutoStopped(vec![0.1, 0.2, 0.3]),
+        crate::dictation::events::DictationEvent::CaptureAutoStopped(Arc::new(vec![0.1, 0.2, 0.3])),
     );
 
     assert!(matches!(

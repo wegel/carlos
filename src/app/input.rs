@@ -109,7 +109,7 @@ pub(crate) fn run_conversation_tui(
             if events.is_empty() {
                 continue;
             }
-            for ev in &events {
+            for ev in events {
                 if process_event(ev, client, app, size, &mut needs_draw) {
                     return Ok(());
                 }
@@ -295,7 +295,7 @@ fn budgeted_events(
 // --- Event Processing ---
 /// Handle a single UI event. Returns `true` when the caller should quit.
 fn process_event(
-    event: &UiEvent,
+    event: UiEvent,
     client: &dyn BackendClient,
     app: &mut AppState,
     size: TerminalSize,
@@ -304,17 +304,17 @@ fn process_event(
     let event_started = Instant::now();
     let quit = match event {
         UiEvent::ServerLine(line) => {
-            handle_server_line(client, app, line);
+            handle_server_line(client, app, &line);
             *needs_draw = true;
             false
         }
         #[cfg(feature = "dictation")]
         UiEvent::Dictation(event) => {
-            app.handle_dictation_event(event.clone());
+            app.handle_dictation_event(event);
             *needs_draw = true;
             false
         }
-        UiEvent::Terminal(ev) => match handle_terminal_event(client, app, ev.clone(), size) {
+        UiEvent::Terminal(ev) => match handle_terminal_event(client, app, ev, size) {
             TerminalEventResult::Quit => true,
             TerminalEventResult::Continue {
                 needs_draw: event_needs_draw,

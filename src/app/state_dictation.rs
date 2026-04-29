@@ -1,5 +1,8 @@
 //! AppState impl: dictation profile setup, state transitions, and text commits.
 
+#[cfg(feature = "dictation")]
+use std::sync::Arc;
+
 #[cfg(test)]
 use super::dictation_state::DictationPhase;
 #[cfg(any(test, feature = "dictation"))]
@@ -231,13 +234,14 @@ impl AppState {
     }
 
     #[cfg(feature = "dictation")]
-    fn handle_dictation_auto_stop(&mut self, samples: Vec<f32>) {
+    fn handle_dictation_auto_stop(&mut self, samples: Arc<Vec<f32>>) {
         if !self.dictation.stop_recording() {
             return;
         }
         if let Some(session) = self.dictation_capture.take() {
             session.cancel();
         }
+        let samples = Arc::try_unwrap(samples).unwrap_or_else(|samples| (*samples).clone());
         self.request_dictation_transcription(samples);
     }
 

@@ -29,6 +29,7 @@ struct CaptureState {
     channels: usize,
     sample_rate: u32,
     buffer: BoundedAudioBuffer,
+    completed: Option<Arc<Vec<f32>>>,
     vad_pending: Vec<f32>,
     vad_frame_samples: usize,
     vad: WebRtcVad,
@@ -86,6 +87,7 @@ impl CaptureState {
             channels,
             sample_rate: config.sample_rate(),
             buffer: BoundedAudioBuffer::new(MAX_RECORDING_SAMPLES),
+            completed: None,
             vad_pending: Vec::new(),
             vad_frame_samples: frame_len(TARGET_SAMPLE_RATE, VAD_FRAME_MS),
             vad: WebRtcVad::new_aggressive_16khz(),
@@ -93,27 +95,27 @@ impl CaptureState {
         })
     }
 
-    fn push_f32_interleaved(&mut self, samples: &[f32]) -> Result<Option<Vec<f32>>> {
+    fn push_f32_interleaved(&mut self, samples: &[f32]) -> Result<Option<Arc<Vec<f32>>>> {
         let mono = f32_interleaved_to_mono(samples, self.channels)?;
         self.push_mono_samples(mono)
     }
 
-    fn push_i16_interleaved(&mut self, samples: &[i16]) -> Result<Option<Vec<f32>>> {
+    fn push_i16_interleaved(&mut self, samples: &[i16]) -> Result<Option<Arc<Vec<f32>>>> {
         let mono = i16_interleaved_to_mono(samples, self.channels)?;
         self.push_mono_samples(mono)
     }
 
-    fn push_u16_interleaved(&mut self, samples: &[u16]) -> Result<Option<Vec<f32>>> {
+    fn push_u16_interleaved(&mut self, samples: &[u16]) -> Result<Option<Arc<Vec<f32>>>> {
         let mono = u16_interleaved_to_mono(samples, self.channels)?;
         self.push_mono_samples(mono)
     }
 
-    fn push_mono_samples(&mut self, samples: Vec<f32>) -> Result<Option<Vec<f32>>> {
+    fn push_mono_samples(&mut self, samples: Vec<f32>) -> Result<Option<Arc<Vec<f32>>>> {
         let target_samples = resample_to_target_rate(&samples, self.sample_rate)?;
         let reached_cap = self.buffer.push_samples(&target_samples);
         self.vad_pending.extend(target_samples);
         if reached_cap || self.observe_vad_frames()? {
-            return self.take_audio().map(Some);
+            return self.complete_audio().map(Some);
         }
         Ok(None)
     }
@@ -132,6 +134,9 @@ impl CaptureState {
     }
 
     fn take_audio(&mut self) -> Result<Vec<f32>> {
+        if let Some(samples) = self.completed.take() {
+            return Ok(Arc::try_unwrap(samples).unwrap_or_else(|samples| (*samples).clone()));
+        }
         let buffer = std::mem::replace(
             &mut self.buffer,
             BoundedAudioBuffer::new(MAX_RECORDING_SAMPLES),
@@ -140,6 +145,15 @@ impl CaptureState {
             bail!("dictation captured no audio");
         }
         let samples = buffer.finish();
+        Ok(samples)
+    }
+
+    fn complete_audio(&mut self) -> Result<Arc<Vec<f32>>> {
+        if let Some(samples) = &self.completed {
+            return Ok(samples.clone());
+        }
+        let samples = Arc::new(self.take_audio()?);
+        self.completed = Some(samples.clone());
         Ok(samples)
     }
 }
@@ -189,7 +203,7 @@ fn build_typed_input_stream<T>(
     state: Arc<Mutex<CaptureState>>,
     stopped: Arc<AtomicBool>,
     tx: mpsc::Sender<DictationEvent>,
-    push: fn(&mut CaptureState, &[T]) -> Result<Option<Vec<f32>>>,
+    push: fn(&mut CaptureState, &[T]) -> Result<Option<Arc<Vec<f32>>>>,
 ) -> Result<Stream>
 where
     T: cpal::SizedSample + Send + 'static,
@@ -218,7 +232,7 @@ fn handle_input_data<T>(
     state: &Arc<Mutex<CaptureState>>,
     stopped: &Arc<AtomicBool>,
     tx: &mpsc::Sender<DictationEvent>,
-    push: fn(&mut CaptureState, &[T]) -> Result<Option<Vec<f32>>>,
+    push: fn(&mut CaptureState, &[T]) -> Result<Option<Arc<Vec<f32>>>>,
 ) {
     if stopped.load(Ordering::SeqCst) {
         return;
@@ -239,5 +253,35 @@ fn handle_input_data<T>(
                 let _ = tx.send(DictationEvent::CaptureError(err.to_string()));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_capture_state() -> CaptureState {
+        CaptureState {
+            channels: 1,
+            sample_rate: TARGET_SAMPLE_RATE,
+            buffer: BoundedAudioBuffer::new(MAX_RECORDING_SAMPLES),
+            completed: None,
+            vad_pending: Vec::new(),
+            vad_frame_samples: frame_len(TARGET_SAMPLE_RATE, VAD_FRAME_MS),
+            vad: WebRtcVad::new_aggressive_16khz(),
+            gate: VadGate::for_dictation(),
+        }
+    }
+
+    #[test]
+    fn completed_audio_can_be_taken_after_auto_stop_drains_buffer() {
+        let mut state = test_capture_state();
+        state.buffer.push_samples(&[0.1, 0.2, 0.3]);
+
+        let auto_stop_samples = state.complete_audio().expect("complete audio");
+        let manual_stop_samples = state.take_audio().expect("take completed audio");
+
+        assert_eq!(auto_stop_samples.as_slice(), &[0.1, 0.2, 0.3]);
+        assert_eq!(manual_stop_samples, vec![0.1, 0.2, 0.3]);
     }
 }

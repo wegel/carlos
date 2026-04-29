@@ -5,7 +5,7 @@
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc;
+use std::sync::mpsc::{self, TrySendError};
 use std::sync::Arc;
 use std::thread;
 
@@ -31,7 +31,7 @@ pub(crate) struct DictationCancelToken {
 }
 
 pub(crate) struct DictationWorker {
-    tx: mpsc::Sender<WorkerCommand>,
+    tx: mpsc::SyncSender<WorkerCommand>,
 }
 
 enum WorkerCommand {
@@ -77,7 +77,7 @@ impl DictationCancelToken {
 
 impl DictationWorker {
     pub(crate) fn spawn(ui_tx: mpsc::Sender<DictationEvent>) -> Self {
-        let (tx, rx) = mpsc::channel();
+        let (tx, rx) = mpsc::sync_channel(1);
         thread::spawn(move || run_worker(rx, ui_tx));
         Self { tx }
     }
@@ -90,19 +90,22 @@ impl DictationWorker {
         cancel: DictationCancelToken,
     ) -> Result<()> {
         self.tx
-            .send(WorkerCommand::Transcribe {
+            .try_send(WorkerCommand::Transcribe {
                 request_id,
                 profile,
                 audio,
                 cancel,
             })
-            .context("dictation worker is not running")
+            .map_err(|err| match err {
+                TrySendError::Full(_) => anyhow::anyhow!("dictation worker is busy"),
+                TrySendError::Disconnected(_) => anyhow::anyhow!("dictation worker is not running"),
+            })
     }
 }
 
 impl Drop for DictationWorker {
     fn drop(&mut self) {
-        let _ = self.tx.send(WorkerCommand::Shutdown);
+        let _ = self.tx.try_send(WorkerCommand::Shutdown);
     }
 }
 

@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::mpsc;
 
 use super::{
     load_model, transcribe_with_model, DictationCancelToken, DictationWorkerProfile, WorkerOutput,
@@ -36,6 +37,32 @@ fn default_vocabulary_prompt_is_available_for_worker_params() {
 
     assert!(prompt.contains("TypeScript"));
     assert!(prompt.contains("Rust"));
+}
+
+#[test]
+fn worker_queue_rejects_more_than_one_pending_recording() {
+    let (tx, _rx) = mpsc::sync_channel(1);
+    let worker = super::DictationWorker { tx };
+    let profile = DictationWorkerProfile {
+        id: "en".to_string(),
+        model: PathBuf::from("/tmp/model.bin"),
+        language: "en".to_string(),
+        vocabulary: None,
+    };
+
+    worker
+        .transcribe(
+            1,
+            profile.clone(),
+            vec![0.0; 16],
+            DictationCancelToken::new(),
+        )
+        .expect("first pending recording fits bounded queue");
+    let err = worker
+        .transcribe(2, profile, vec![0.0; 16], DictationCancelToken::new())
+        .expect_err("second pending recording is rejected");
+
+    assert_eq!(err.to_string(), "dictation worker is busy");
 }
 
 #[test]

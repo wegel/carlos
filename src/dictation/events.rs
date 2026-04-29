@@ -1,10 +1,12 @@
 //! Typed dictation events delivered to the TUI loop.
 
+use std::sync::Arc;
+
 // --- Types ---
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) enum DictationEvent {
-    CaptureAutoStopped(Vec<f32>),
+    CaptureAutoStopped(Arc<Vec<f32>>),
     CaptureError(String),
     TranscriptionCancelled { request_id: u64 },
     TranscriptionError { request_id: u64, message: String },
