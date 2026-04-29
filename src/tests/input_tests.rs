@@ -285,6 +285,38 @@ fn pending_claude_exit_plan_accept_uses_approval_path_not_chat_input() {
 }
 
 #[test]
+fn escape_key_disables_ralph_mode() {
+    let client = ApprovalRespondMock::new();
+    let mut app = AppState::new("thread-1".to_string());
+    app.enable_ralph_mode(super::ralph::RalphConfig {
+        prompt_path: std::path::PathBuf::from(".agents/ralph-prompt.md"),
+        base_prompt: "base".to_string(),
+        done_marker: "@@COMPLETE@@".to_string(),
+        blocked_marker: "@@BLOCKED@@".to_string(),
+        continuation_prompt: "continue".to_string(),
+    });
+    app.queue_ralph_continuation("continue");
+
+    let result = super::input_events::handle_terminal_event(
+        &client,
+        &mut app,
+        Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::empty())),
+        TerminalSize {
+            width: 120,
+            height: 40,
+        },
+    );
+
+    assert!(matches!(
+        result,
+        super::input_events::TerminalEventResult::Continue { needs_draw: true }
+    ));
+    assert!(!app.ralph_enabled());
+    assert!(!app.has_pending_ralph_continuation());
+    assert_eq!(app.status, "ralph off");
+}
+
+#[test]
 fn submit_rewind_turn_text_forks_codex_thread_before_resubmitting() {
     let fork_response = json!({
         "jsonrpc": "2.0",

@@ -405,6 +405,14 @@ fn handle_escape_key(
     size: TerminalSize,
     now: Instant,
 ) -> TerminalEventResult {
+    if app.ralph_enabled() {
+        app.reset_esc_chord();
+        app.disable_ralph_mode();
+        if app.active_turn_id.is_some() {
+            interrupt_active_turn(client, app);
+        }
+        return TerminalEventResult::Continue { needs_draw: true };
+    }
     if app.rewind_mode() {
         app.exit_rewind_mode_restore();
         app.reset_esc_chord();
