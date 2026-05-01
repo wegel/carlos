@@ -3,6 +3,7 @@
 #[cfg(feature = "dictation")]
 use std::sync::Arc;
 
+use super::dictation_state::DictationEndpointMode;
 #[cfg(test)]
 use super::dictation_state::DictationPhase;
 #[cfg(any(test, feature = "dictation"))]
@@ -52,6 +53,28 @@ impl AppState {
 
     pub(super) fn dictation_recording(&self) -> bool {
         self.dictation.is_recording()
+    }
+
+    pub(super) fn dictation_endpoint_mode_label(&self) -> &str {
+        self.dictation.endpoint_mode_label()
+    }
+
+    pub(super) fn toggle_dictation_endpoint_mode(&mut self) {
+        let mode = match self.dictation.toggle_endpoint_mode() {
+            Ok(mode) => mode,
+            Err(err) => {
+                self.set_status(err);
+                return;
+            }
+        };
+        #[cfg(feature = "dictation")]
+        if let Some(session) = &self.dictation_capture {
+            session.set_auto_stop_enabled(mode == DictationEndpointMode::Auto);
+        }
+        self.set_status(match mode {
+            DictationEndpointMode::Auto => "dictation endpoint: auto",
+            DictationEndpointMode::Manual => "dictation endpoint: manual (Enter to stop)",
+        });
     }
 
     #[cfg(feature = "dictation")]
@@ -196,7 +219,10 @@ impl AppState {
                 return;
             }
         };
-        match DictationCaptureSession::start_default_input(tx) {
+        match DictationCaptureSession::start_default_input(
+            tx,
+            self.dictation.auto_endpoint_enabled(),
+        ) {
             Ok(session) => {
                 self.dictation_capture = Some(session);
                 self.set_status("dictation recording");

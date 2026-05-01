@@ -341,16 +341,24 @@ fn cursor_position(app: &AppState, size: TerminalSize, input_layout: &InputLayou
     } else if app.runtime.show_model_settings {
         let box_w = (size.width.saturating_sub(10)).min(80);
         let start_x = (size.width.saturating_sub(box_w)) / 2;
-        let start_y = (size.height.saturating_sub(12)) / 2;
+        let start_y = (size.height.saturating_sub(14)) / 2;
         let x = match app.runtime.model_settings_field {
             ModelSettingsField::Model => start_x + 12 + visual_width(app.model_settings_model_value()),
             ModelSettingsField::Effort => start_x + 12 + visual_width(app.model_settings_effort_value()),
             ModelSettingsField::Summary => start_x + 12 + visual_width(app.model_settings_summary_value()),
+            ModelSettingsField::DictationEndpoint => start_x + 12 + visual_width(app.dictation_endpoint_mode_label()),
         };
         let y = match app.runtime.model_settings_field {
             ModelSettingsField::Model => start_y + 3,
             ModelSettingsField::Effort => start_y + 5,
             ModelSettingsField::Summary => start_y + 7,
+            ModelSettingsField::DictationEndpoint => {
+                if app.runtime_supports_summary() {
+                    start_y + 9
+                } else {
+                    start_y + 7
+                }
+            }
         };
         (x, y)
     } else {

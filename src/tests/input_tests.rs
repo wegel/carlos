@@ -186,6 +186,103 @@ fn ctrl_d_toggles_dictation_recording_to_transcribing() {
 }
 
 #[test]
+fn enter_stops_dictation_recording_to_transcribing() {
+    let client = ApprovalRespondMock::new();
+    let mut app = AppState::new("thread-1".to_string());
+    app.configure_dictation(usable_dictation_profile());
+    let size = TerminalSize {
+        width: 100,
+        height: 30,
+    };
+
+    app.start_dictation_recording();
+    handle_terminal_event(
+        &client,
+        &mut app,
+        Event::Key(KeyEvent::new(KeyCode::Enter, KeyModifiers::empty())),
+        size,
+    );
+
+    assert!(matches!(
+        app.dictation_phase(),
+        DictationPhase::Transcribing { .. }
+    ));
+}
+
+#[test]
+fn f9_toggles_dictation_endpoint_mode() {
+    let client = ApprovalRespondMock::new();
+    let mut app = AppState::new("thread-1".to_string());
+    app.configure_dictation(usable_dictation_profile());
+    let size = TerminalSize {
+        width: 100,
+        height: 30,
+    };
+
+    handle_terminal_event(
+        &client,
+        &mut app,
+        Event::Key(KeyEvent::new(KeyCode::F(9), KeyModifiers::empty())),
+        size,
+    );
+    assert_eq!(app.status, "dictation endpoint: manual (Enter to stop)");
+
+    app.start_dictation_recording();
+    assert_eq!(
+        app.dictation_status_label(),
+        Some("DICTATING MANUAL [English]".to_string())
+    );
+
+    handle_terminal_event(
+        &client,
+        &mut app,
+        Event::Key(KeyEvent::new(KeyCode::F(9), KeyModifiers::empty())),
+        size,
+    );
+    assert_eq!(app.status, "dictation endpoint: auto");
+    assert_eq!(
+        app.dictation_status_label(),
+        Some("DICTATING AUTO [English]".to_string())
+    );
+}
+
+#[test]
+fn model_settings_can_toggle_dictation_endpoint_mode() {
+    let client = ApprovalRespondMock::new();
+    let mut app = AppState::new("thread-1".to_string());
+    app.configure_dictation(usable_dictation_profile());
+    let size = TerminalSize {
+        width: 100,
+        height: 30,
+    };
+
+    app.open_model_settings();
+    app.model_settings_move_field(true);
+    app.model_settings_move_field(true);
+    app.model_settings_move_field(true);
+    handle_terminal_event(
+        &client,
+        &mut app,
+        Event::Key(KeyEvent::new(KeyCode::Right, KeyModifiers::empty())),
+        size,
+    );
+
+    assert!(app.runtime.show_model_settings);
+    assert_eq!(app.status, "dictation endpoint: manual (Enter to stop)");
+    assert_eq!(
+        app.dictation_status_label(),
+        None,
+        "toggling endpoint mode should not start recording"
+    );
+
+    app.start_dictation_recording();
+    assert_eq!(
+        app.dictation_status_label(),
+        Some("DICTATING MANUAL [English]".to_string())
+    );
+}
+
+#[test]
 fn ctrl_d_restarts_dictation_while_transcribing() {
     let client = ApprovalRespondMock::new();
     let mut app = AppState::new("thread-1".to_string());
@@ -402,7 +499,7 @@ fn f7_cycles_dictation_profiles() {
     app.start_dictation_recording();
     assert_eq!(
         app.dictation_status_label(),
-        Some("DICTATING [French]".to_string())
+        Some("DICTATING AUTO [French]".to_string())
     );
     assert_eq!(app.status, "dictation recording");
 }

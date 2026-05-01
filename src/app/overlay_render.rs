@@ -112,9 +112,10 @@ fn draw_help_lines(buf: &mut Buffer, ob: &OverlayBox) {
     let dim_style = Style::default().fg(COLOR_DIM);
 
     let lines: &[(&str, Style)] = &[
-        ("Enter send/steer  Shift/Alt+Enter newline", text_style),
+        ("Enter send/steer or stop dictation", text_style),
+        ("Shift/Alt+Enter newline  F9 dictation endpoint", text_style),
         ("Ctrl+Y copy selection or last answer", text_style),
-        ("Home/End jump transcript  Ctrl+M model settings", text_style),
+        ("Home/End jump transcript  Ctrl+M settings", text_style),
         ("Wheel scroll, drag to select, release to copy", text_style),
         ("? toggle this help", dim_style),
     ];
@@ -128,21 +129,21 @@ fn draw_help_lines(buf: &mut Buffer, ob: &OverlayBox) {
 // ---------------------------------------------------------------------------
 
 pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, app: &AppState) {
-    if !(size.height > 14 && size.width > 56) {
+    if !(size.height > 16 && size.width > 56) {
         return;
     }
 
     let box_w = (size.width - 10).min(80);
-    let box_h = 12usize;
+    let box_h = 14usize;
     let ob = compute_overlay_box(size, box_w, box_h);
 
     fill_box_background(buf, &ob, box_h);
     draw_rounded_border(buf, &ob);
 
     let title = if app.runtime_supports_summary() {
-        "Model / Thinking / Summary"
+        "Model / Thinking / Summary / Dictation"
     } else {
-        "Model / Thinking"
+        "Model / Thinking / Dictation"
     };
     draw_overlay_title(buf, &ob, title);
     draw_model_settings_fields(buf, &ob, app);
@@ -184,7 +185,7 @@ fn draw_model_settings_fields(buf: &mut Buffer, ob: &OverlayBox, app: &AppState)
         value_w,
     );
 
-    let footer_y = if app.runtime_supports_summary() {
+    let dictation_y = if app.runtime_supports_summary() {
         draw_str(buf, x_label, ob.start_y + 7, "Summary", label_style, 8);
         draw_str(
             buf,
@@ -198,12 +199,24 @@ fn draw_model_settings_fields(buf: &mut Buffer, ob: &OverlayBox, app: &AppState)
     } else {
         ob.start_y + 7
     };
+    draw_str(buf, x_label, dictation_y, "Dictation", label_style, 9);
+    draw_str(
+        buf,
+        x_value,
+        dictation_y,
+        app.dictation_endpoint_mode_label(),
+        field_style(matches!(
+            app.runtime.model_settings_field,
+            ModelSettingsField::DictationEndpoint
+        )),
+        value_w,
+    );
 
     draw_str(
         buf,
         x_label,
-        footer_y,
-        "Tab switch field, arrows adjust, Enter apply",
+        dictation_y + 2,
+        "Tab switch field, arrows adjust, Enter apply/toggle",
         Style::default().fg(COLOR_DIM),
         content_width(ob),
     );

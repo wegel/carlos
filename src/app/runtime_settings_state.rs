@@ -14,6 +14,7 @@ pub(super) enum ModelSettingsField {
     Model,
     Effort,
     Summary,
+    DictationEndpoint,
 }
 
 // --- Settings State ---
@@ -238,6 +239,7 @@ impl RuntimeSettingsState {
         if self.supports_summary {
             fields.push(ModelSettingsField::Summary);
         }
+        fields.push(ModelSettingsField::DictationEndpoint);
         let len = fields.len();
         if len <= 1 {
             self.model_settings_field = ModelSettingsField::Model;

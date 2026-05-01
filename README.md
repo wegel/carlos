@@ -149,7 +149,7 @@ cargo test
 
 ## controls
 
-- `Enter`: send message (or steer while a turn is active)
+- `Enter`: send message, or stop recording while dictating
 - `Shift+Enter` / `Alt+Enter`: newline in input
 - `Up/Down`: input history navigation
 - `Esc` (while turn active): interrupt running turn
@@ -159,8 +159,10 @@ cargo test
 - rewind mode `Enter`: send selected/edited prompt
 - rewind mode `Esc`: leave rewind mode and restore current draft
 - `Ctrl+R`: toggle Ralph mode on/off (queued if a turn is currently active)
+- `Ctrl+M`: open settings for model, thinking, summary, and dictation endpoint mode
 - `Ctrl+D`: start/stop dictation when the `dictation` feature is enabled
 - `F7`: cycle dictation profile when the `dictation` feature is enabled
+- `F9`: toggle dictation endpoint mode between auto-stop and manual Enter stop
 - `Ctrl+Y`: copy selection or last assistant message
 - `Ctrl+L`: clear selection
 - `PageUp/PageDown`: transcript scroll

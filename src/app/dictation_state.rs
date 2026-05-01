@@ -15,6 +15,12 @@ pub(super) enum DictationPhase {
     Transcribing { partial: String },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum DictationEndpointMode {
+    Auto,
+    Manual,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct DictationProfileState {
     pub(super) id: String,
@@ -32,6 +38,7 @@ pub(super) struct DictationProfileState {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct DictationRuntimeState {
     phase: DictationPhase,
+    endpoint_mode: DictationEndpointMode,
     profile: Option<DictationProfileState>,
     #[cfg(feature = "dictation")]
     profiles: Vec<DictationProfileState>,
@@ -45,6 +52,7 @@ impl DictationRuntimeState {
     pub(super) fn disabled(reason: impl Into<String>) -> Self {
         Self {
             phase: DictationPhase::Disabled,
+            endpoint_mode: DictationEndpointMode::Auto,
             profile: None,
             #[cfg(feature = "dictation")]
             profiles: Vec::new(),
@@ -57,6 +65,7 @@ impl DictationRuntimeState {
     pub(super) fn with_profile(profile: DictationProfileState) -> Self {
         Self {
             phase: DictationPhase::Idle,
+            endpoint_mode: DictationEndpointMode::Auto,
             profile: Some(profile.clone()),
             #[cfg(feature = "dictation")]
             profiles: vec![profile],
@@ -78,6 +87,7 @@ impl DictationRuntimeState {
             } else {
                 DictationPhase::Disabled
             },
+            endpoint_mode: DictationEndpointMode::Auto,
             profile,
             profiles,
             picker_open: false,
@@ -126,13 +136,26 @@ impl DictationRuntimeState {
         matches!(self.phase, DictationPhase::Recording)
     }
 
+    #[cfg(feature = "dictation")]
+    pub(super) fn auto_endpoint_enabled(&self) -> bool {
+        self.endpoint_mode == DictationEndpointMode::Auto
+    }
+
     pub(super) fn status_label(&self) -> Option<String> {
         let profile = self.profile.as_ref()?;
         match &self.phase {
-            DictationPhase::Recording => Some(format!("DICTATING [{}]", profile.name)),
+            DictationPhase::Recording => Some(format!(
+                "DICTATING {} [{}]",
+                self.endpoint_mode.label().to_ascii_uppercase(),
+                profile.name
+            )),
             DictationPhase::Transcribing { .. } => Some(format!("TRANSCRIBING [{}]", profile.name)),
             DictationPhase::Disabled | DictationPhase::Idle => None,
         }
+    }
+
+    pub(super) fn endpoint_mode_label(&self) -> &'static str {
+        self.endpoint_mode.label()
     }
 }
 
@@ -175,6 +198,20 @@ impl DictationRuntimeState {
         true
     }
 
+    pub(super) fn toggle_endpoint_mode(&mut self) -> Result<DictationEndpointMode, String> {
+        if self.profile.is_none() {
+            return Err(self
+                .disabled_reason
+                .clone()
+                .unwrap_or_else(|| "dictation unavailable".to_string()));
+        }
+        self.endpoint_mode = match self.endpoint_mode {
+            DictationEndpointMode::Auto => DictationEndpointMode::Manual,
+            DictationEndpointMode::Manual => DictationEndpointMode::Auto,
+        };
+        Ok(self.endpoint_mode)
+    }
+
     #[cfg(test)]
     pub(super) fn apply_partial(&mut self, text: impl Into<String>) -> bool {
         let DictationPhase::Transcribing { partial } = &mut self.phase else {
@@ -207,5 +244,14 @@ impl DictationRuntimeState {
     #[cfg(test)]
     pub(super) fn picker_open(&self) -> bool {
         self.picker_open
+    }
+}
+
+impl DictationEndpointMode {
+    pub(super) fn label(self) -> &'static str {
+        match self {
+            DictationEndpointMode::Auto => "auto",
+            DictationEndpointMode::Manual => "manual",
+        }
     }
 }

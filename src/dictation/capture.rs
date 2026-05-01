@@ -22,6 +22,7 @@ use super::vad::{frame_len, VadDecision, VadGate, WebRtcVad, VAD_FRAME_MS};
 pub(crate) struct DictationCaptureSession {
     stream: Stream,
     state: Arc<Mutex<CaptureState>>,
+    auto_stop_enabled: Arc<AtomicBool>,
     stopped: Arc<AtomicBool>,
 }
 
@@ -34,12 +35,16 @@ struct CaptureState {
     vad_frame_samples: usize,
     vad: WebRtcVad,
     gate: VadGate,
+    auto_stop_enabled: Arc<AtomicBool>,
 }
 
 // --- Public API ---
 
 impl DictationCaptureSession {
-    pub(crate) fn start_default_input(tx: mpsc::Sender<DictationEvent>) -> Result<Self> {
+    pub(crate) fn start_default_input(
+        tx: mpsc::Sender<DictationEvent>,
+        auto_stop_enabled: bool,
+    ) -> Result<Self> {
         let host = cpal::default_host();
         let device = host
             .default_input_device()
@@ -47,7 +52,11 @@ impl DictationCaptureSession {
         let supported_config = device
             .default_input_config()
             .context("failed to read default input config")?;
-        let state = Arc::new(Mutex::new(CaptureState::new(&supported_config)?));
+        let auto_stop_enabled = Arc::new(AtomicBool::new(auto_stop_enabled));
+        let state = Arc::new(Mutex::new(CaptureState::new(
+            &supported_config,
+            auto_stop_enabled.clone(),
+        )?));
         let stopped = Arc::new(AtomicBool::new(false));
         let stream =
             build_input_stream(device, supported_config, state.clone(), stopped.clone(), tx)?;
@@ -55,8 +64,13 @@ impl DictationCaptureSession {
         Ok(Self {
             stream,
             state,
+            auto_stop_enabled,
             stopped,
         })
+    }
+
+    pub(crate) fn set_auto_stop_enabled(&self, enabled: bool) {
+        self.auto_stop_enabled.store(enabled, Ordering::SeqCst);
     }
 
     pub(crate) fn finish(self) -> Result<Vec<f32>> {
@@ -78,7 +92,7 @@ impl DictationCaptureSession {
 // --- Capture State ---
 
 impl CaptureState {
-    fn new(config: &SupportedStreamConfig) -> Result<Self> {
+    fn new(config: &SupportedStreamConfig, auto_stop_enabled: Arc<AtomicBool>) -> Result<Self> {
         let channels = usize::from(config.channels());
         if channels == 0 {
             bail!("input device reports zero channels");
@@ -92,6 +106,7 @@ impl CaptureState {
             vad_frame_samples: frame_len(TARGET_SAMPLE_RATE, VAD_FRAME_MS),
             vad: WebRtcVad::new_aggressive_16khz(),
             gate: VadGate::for_dictation(),
+            auto_stop_enabled,
         })
     }
 
@@ -114,7 +129,8 @@ impl CaptureState {
         let target_samples = resample_to_target_rate(&samples, self.sample_rate)?;
         let reached_cap = self.buffer.push_samples(&target_samples);
         self.vad_pending.extend(target_samples);
-        if reached_cap || self.observe_vad_frames()? {
+        let vad_auto_stop = self.observe_vad_frames()?;
+        if reached_cap || (vad_auto_stop && self.auto_stop_enabled.load(Ordering::SeqCst)) {
             return self.complete_audio().map(Some);
         }
         Ok(None)
@@ -270,6 +286,7 @@ mod tests {
             vad_frame_samples: frame_len(TARGET_SAMPLE_RATE, VAD_FRAME_MS),
             vad: WebRtcVad::new_aggressive_16khz(),
             gate: VadGate::for_dictation(),
+            auto_stop_enabled: Arc::new(AtomicBool::new(true)),
         }
     }
 

@@ -35,7 +35,7 @@ fn render_main_view_shows_dictation_indicator() {
     app.start_dictation_recording();
     let text = render_app_text(&mut app);
 
-    assert!(text.contains("DICTATING [English]"));
+    assert!(text.contains("DICTATING AUTO [English]"));
 }
 
 #[test]
@@ -52,7 +52,7 @@ fn render_main_view_shows_dictation_indicator_with_ralph_label() {
     app.start_dictation_recording();
     let text = render_app_text(&mut app);
 
-    assert!(text.contains("DICTATING [English]"));
+    assert!(text.contains("DICTATING AUTO [English]"));
     assert!(text.contains("RALPH MODE"));
 }
 
@@ -67,7 +67,7 @@ fn render_main_view_shows_dictation_indicator_in_rewind_mode() {
     let text = render_app_text(&mut app);
 
     assert!(app.rewind_mode());
-    assert!(text.contains("DICTATING [English]"));
+    assert!(text.contains("DICTATING AUTO [English]"));
 }
 
 #[test]

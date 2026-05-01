@@ -230,6 +230,7 @@ fn handle_model_settings_key(
         ModelSettingsField::Model => app.model_settings_cycle_model(dir),
         ModelSettingsField::Effort => app.model_settings_cycle_effort(dir),
         ModelSettingsField::Summary => app.model_settings_cycle_summary(dir),
+        ModelSettingsField::DictationEndpoint => app.toggle_dictation_endpoint_mode(),
     };
     match (k.code, k.modifiers) {
         (code, mods) if is_ctrl_char(code, mods, 'c') => return TerminalEventResult::Quit,
@@ -243,6 +244,14 @@ fn handle_model_settings_key(
                 && !app.model_settings_has_model_choices() =>
         {
             app.model_settings_backspace();
+        }
+        (KeyCode::Enter, _)
+            if matches!(
+                app.runtime.model_settings_field,
+                ModelSettingsField::DictationEndpoint
+            ) =>
+        {
+            app.toggle_dictation_endpoint_mode();
         }
         (KeyCode::Enter, _) => {
             let defaults = app.apply_model_settings();
@@ -312,6 +321,7 @@ fn handle_normal_key(
         }
         (code, mods) if is_ctrl_char(code, mods, 'd') => handle_ctrl_d_dictation(app),
         (KeyCode::F(7), mods) if mods.is_empty() => handle_f7_dictation_profile(app),
+        (KeyCode::F(9), mods) if mods.is_empty() => handle_f9_dictation_endpoint(app),
         (KeyCode::Char('r'), KeyModifiers::CONTROL) => handle_ctrl_r_ralph(app),
         (KeyCode::Char('y'), KeyModifiers::CONTROL) => handle_ctrl_y_copy(app),
         (KeyCode::Char('l'), KeyModifiers::CONTROL) => handle_ctrl_l_clear_selection(app),
@@ -331,6 +341,9 @@ fn handle_normal_key(
         (KeyCode::Down, _) => handle_history_navigate(app, size, false),
         (KeyCode::PageUp, _) => handle_page_scroll(app, size, false),
         (KeyCode::PageDown, _) => handle_page_scroll(app, size, true),
+        (KeyCode::Enter, mods) if mods.is_empty() && app.dictation_recording() => {
+            handle_enter_stop_dictation(app)
+        }
         (KeyCode::Enter, mods) if is_newline_enter(mods) => {
             app.input_apply_key(k);
             TerminalEventResult::Continue { needs_draw: true }
@@ -359,6 +372,11 @@ fn handle_f7_dictation_profile(app: &mut AppState) -> TerminalEventResult {
     TerminalEventResult::Continue { needs_draw: true }
 }
 
+fn handle_f9_dictation_endpoint(app: &mut AppState) -> TerminalEventResult {
+    app.toggle_dictation_endpoint_mode();
+    TerminalEventResult::Continue { needs_draw: true }
+}
+
 fn handle_ctrl_d_dictation(app: &mut AppState) -> TerminalEventResult {
     if app.dictation_recording() {
         app.stop_dictation_recording();
@@ -367,6 +385,11 @@ fn handle_ctrl_d_dictation(app: &mut AppState) -> TerminalEventResult {
     } else {
         app.start_dictation_recording();
     }
+    TerminalEventResult::Continue { needs_draw: true }
+}
+
+fn handle_enter_stop_dictation(app: &mut AppState) -> TerminalEventResult {
+    app.stop_dictation_recording();
     TerminalEventResult::Continue { needs_draw: true }
 }
 
