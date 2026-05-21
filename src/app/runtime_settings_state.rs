@@ -217,14 +217,32 @@ impl RuntimeSettingsState {
     pub(super) fn open_model_settings(&mut self) {
         self.show_model_settings = true;
         self.model_settings_field = ModelSettingsField::Model;
-        let preferred_model = self.pending_model.as_deref().or(self.current_model.as_deref()).unwrap_or("");
-        self.model_settings_model_index = self.available_models.iter().position(|m| m.model == preferred_model).unwrap_or(0);
-        self.model_settings_model_input = self.available_models.get(self.model_settings_model_index)
+        let preferred_model = self
+            .pending_model
+            .as_deref()
+            .or(self.current_model.as_deref())
+            .unwrap_or("");
+        self.model_settings_model_index = self
+            .available_models
+            .iter()
+            .position(|m| m.model == preferred_model)
+            .unwrap_or(0);
+        self.model_settings_model_input = self
+            .available_models
+            .get(self.model_settings_model_index)
             .map(|m| m.model.clone())
             .unwrap_or_else(|| preferred_model.to_string());
         self.refresh_model_settings_efforts();
-        let preferred_summary = self.pending_summary.as_deref().or(self.current_summary.as_deref()).unwrap_or("auto");
-        self.model_settings_summary_index = self.model_settings_summary_options.iter().position(|o| o == preferred_summary).unwrap_or(0);
+        let preferred_summary = self
+            .pending_summary
+            .as_deref()
+            .or(self.current_summary.as_deref())
+            .unwrap_or("auto");
+        self.model_settings_summary_index = self
+            .model_settings_summary_options
+            .iter()
+            .position(|o| o == preferred_summary)
+            .unwrap_or(0);
     }
 
     pub(super) fn close_model_settings(&mut self) {
@@ -397,9 +415,15 @@ fn normalize_non_empty(s: String) -> Option<String> {
 }
 
 fn default_effort_vec() -> Vec<String> {
-    DEFAULT_EFFORT_OPTIONS.iter().map(|s| s.to_string()).collect()
+    DEFAULT_EFFORT_OPTIONS
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
 }
 
 fn effort_index(value: &str) -> usize {
-    DEFAULT_EFFORT_OPTIONS.iter().position(|v| v.eq_ignore_ascii_case(value)).unwrap_or(3)
+    DEFAULT_EFFORT_OPTIONS
+        .iter()
+        .position(|v| v.eq_ignore_ascii_case(value))
+        .unwrap_or(3)
 }

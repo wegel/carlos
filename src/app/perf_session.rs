@@ -71,8 +71,16 @@ pub(super) fn run_perf_session(opts: &CliOptions) -> Result<()> {
     benchmark_append_draws(&mut app, terminal_size, &mut stats)?;
     let rss_after_bench_kib = current_rss_kib();
 
-    print_perf_report(&app, &stats, &source_label, terminal_size, replay_elapsed,
-        rss_before_kib, rss_after_replay_kib, rss_after_bench_kib);
+    print_perf_report(
+        &app,
+        &stats,
+        &source_label,
+        terminal_size,
+        replay_elapsed,
+        rss_before_kib,
+        rss_after_replay_kib,
+        rss_after_bench_kib,
+    );
     Ok(())
 }
 
@@ -91,12 +99,16 @@ fn print_perf_report(
     println!("viewport: {}x{}", size.width, size.height);
     println!(
         "transcript: messages={} rendered_lines={} relevant_items={} replay_elapsed_ms={:.2}",
-        app.messages.len(), app.rendered_line_count(), stats.relevant_items,
+        app.messages.len(),
+        app.rendered_line_count(),
+        stats.relevant_items,
         replay_elapsed.as_secs_f64() * 1000.0
     );
     println!(
         "memory_kib: before={} after_replay={} after_bench={}",
-        rss_before.unwrap_or(0), rss_after_replay.unwrap_or(0), rss_after_bench.unwrap_or(0)
+        rss_before.unwrap_or(0),
+        rss_after_replay.unwrap_or(0),
+        rss_after_bench.unwrap_or(0)
     );
     println!("replay_apply:  {}", stats.replay_apply.summary());
     println!("full_layout:   {:.2} ms", stats.full_layout_ms);
@@ -108,7 +120,10 @@ fn print_perf_report(
     if !stats.layout_breakdown.is_empty() {
         println!("layout_breakdown:");
         for row in &stats.layout_breakdown {
-            println!("  {} msgs={} lines={} total_ms={:.2}", row.label, row.messages, row.lines, row.total_ms);
+            println!(
+                "  {} msgs={} lines={} total_ms={:.2}",
+                row.label, row.messages, row.lines, row.total_ms
+            );
         }
     }
 }
@@ -246,9 +261,17 @@ fn append_perf_function_call_output(app: &mut AppState, payload: &Value) -> bool
     };
     let diffs = extract_diff_blocks(&tool_item);
     if let Some(first) = diffs.first() {
-        app.append_diff_message(Role::ToolOutput, first.file_path.clone(), first.diff.clone());
+        app.append_diff_message(
+            Role::ToolOutput,
+            first.file_path.clone(),
+            first.diff.clone(),
+        );
         for block in diffs.iter().skip(1) {
-            app.append_diff_message(Role::ToolOutput, block.file_path.clone(), block.diff.clone());
+            app.append_diff_message(
+                Role::ToolOutput,
+                block.file_path.clone(),
+                block.diff.clone(),
+            );
         }
         return true;
     }

@@ -75,10 +75,7 @@ pub(super) fn resume_hint(backend: Backend, thread_id: &str) -> String {
 
 pub(super) fn styled_resume_hint(backend: Backend, thread_id: &str) -> String {
     let plain = resume_hint(backend, thread_id);
-    let command = format!(
-        "carlos --backend {} resume {thread_id}",
-        backend.cli_name()
-    );
+    let command = format!("carlos --backend {} resume {thread_id}", backend.cli_name());
     plain.replace(&command, &format!("\x1b[94m{command}\x1b[0m"))
 }
 
@@ -126,11 +123,16 @@ fn take_value(args: &mut impl Iterator<Item = String>, flag: &str) -> Result<Str
         .ok_or_else(|| anyhow::anyhow!("missing value for {flag}"))
 }
 
-fn parse_value<T: std::str::FromStr>(args: &mut impl Iterator<Item = String>, flag: &str) -> Result<T>
+fn parse_value<T: std::str::FromStr>(
+    args: &mut impl Iterator<Item = String>,
+    flag: &str,
+) -> Result<T>
 where
     T::Err: std::error::Error + Send + Sync + 'static,
 {
-    take_value(args, flag)?.parse().context(format!("invalid {flag}"))
+    take_value(args, flag)?
+        .parse()
+        .context(format!("invalid {flag}"))
 }
 
 fn parse_mode_subcommand(

@@ -116,10 +116,7 @@ pub(super) fn respond_to_pending_approval(
 
 // --- Turn interruption ---
 
-pub(super) fn interrupt_active_turn(
-    client: &dyn BackendClient,
-    app: &mut AppState,
-) {
+pub(super) fn interrupt_active_turn(client: &dyn BackendClient, app: &mut AppState) {
     let Some(turn_id) = app.active_turn_id.clone() else {
         return;
     };
@@ -136,8 +133,8 @@ pub(super) fn interrupt_active_turn(
 // --- Private helpers ---
 
 fn apply_forked_thread_history(app: &mut AppState, response_line: &str) -> anyhow::Result<()> {
-    let thread_id = parse_thread_id_from_start_or_resume(response_line)
-        .context("missing forked thread id")?;
+    let thread_id =
+        parse_thread_id_from_start_or_resume(response_line).context("missing forked thread id")?;
     app.reset_for_forked_thread(thread_id);
     load_history_from_start_or_resume(app, response_line)
         .context("failed to load forked thread history")?;

@@ -118,8 +118,8 @@ pub(super) fn consume_mobile_mouse_char(app: &mut AppState, c: char) -> MobileMo
 
 // --- State Machine ---
 fn consume_first_char(app: &mut AppState, c: char) -> MobileMouseConsume {
-    let in_plain = app.viewport.mobile_plain_pending_coords
-        || app.viewport.mobile_plain_suppress_coords;
+    let in_plain =
+        app.viewport.mobile_plain_pending_coords || app.viewport.mobile_plain_suppress_coords;
     if in_plain && (c.is_ascii_digit() || c == ';') {
         app.viewport.mobile_mouse_buffer.push(c);
         return MobileMouseConsume::Consumed;

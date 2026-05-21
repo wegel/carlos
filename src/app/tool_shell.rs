@@ -13,8 +13,15 @@ pub(super) struct ParsedSshCommand {
 
 // --- Shell Normalization ---
 pub(super) fn command_execution_action_command(item: &Value) -> Option<String> {
-    item.get("commandActions")?.as_array()?.iter()
-        .find_map(|a| a.get("command")?.as_str().filter(|s| !s.is_empty()).map(str::to_string))
+    item.get("commandActions")?
+        .as_array()?
+        .iter()
+        .find_map(|a| {
+            a.get("command")?
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+        })
 }
 
 pub(super) fn normalize_shell_command(raw: &str) -> String {
@@ -280,7 +287,11 @@ fn parse_shell_search_summary(cmd: &str, program: &str, cwd: Option<&str>) -> Op
         .map(|t| compact_command_path(strip_shell_quotes(t), cwd))
         .collect();
 
-    let mut out = if paths.is_empty() { "✱ Search".to_string() } else { format!("✱ Search {}", paths.join(" ")) };
+    let mut out = if paths.is_empty() {
+        "✱ Search".to_string()
+    } else {
+        format!("✱ Search {}", paths.join(" "))
+    };
     if let Some(p) = pattern.filter(|p| !p.is_empty()) {
         out.push_str(&format!(" [pattern={p}]"));
     }
@@ -312,7 +323,9 @@ fn parse_shell_sed_summary(cmd: &str, cwd: Option<&str>) -> Option<String> {
     let script = strip_shell_quotes(args.first()?);
     let path = compact_command_path(strip_shell_quotes(args.get(1)?), cwd);
 
-    let suffix = parse_sed_range(script).map(|r| format!(" {r}")).unwrap_or_default();
+    let suffix = parse_sed_range(script)
+        .map(|r| format!(" {r}"))
+        .unwrap_or_default();
     Some(format!("✱ Search {path}{suffix}"))
 }
 
@@ -376,10 +389,7 @@ pub(super) fn command_summary_from_shell_cmd(cmd: &str, cwd: Option<&str>) -> Op
     if lower.starts_with("grep ") {
         return parse_shell_search_summary(cmd, "grep", cwd).or(Some("✱ Search".to_string()));
     }
-    if lower.starts_with("fd ")
-        || lower.starts_with("find ")
-        || lower.starts_with("git grep ")
-    {
+    if lower.starts_with("fd ") || lower.starts_with("find ") || lower.starts_with("git grep ") {
         return Some("✱ Search".to_string());
     }
 

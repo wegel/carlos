@@ -814,10 +814,9 @@ fn load_claude_thread_summaries_reads_local_session_metadata() {
             .as_nanos()
     ));
     let cwd = "/repo";
-    let project_dir = temp_root
-        .join(".claude")
-        .join("projects")
-        .join(crate::claude_backend::claude_project_dir_name(std::path::Path::new(cwd)));
+    let project_dir = temp_root.join(".claude").join("projects").join(
+        crate::claude_backend::claude_project_dir_name(std::path::Path::new(cwd)),
+    );
     std::fs::create_dir_all(&project_dir).expect("create project dir");
     std::fs::write(
         project_dir.join("session-a.jsonl"),

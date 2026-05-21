@@ -4,8 +4,8 @@ use anyhow::{bail, Context, Result};
 use serde_json::{json, Map, Value};
 
 use super::types::{
-    ClaudeAllowedPrompt, ClaudeExitPlanApproval, ClaudeToolCall,
-    CLAUDE_EXIT_PLAN_FALLBACK_TEXT, CLAUDE_EXIT_PLAN_REQUEST_METHOD,
+    ClaudeAllowedPrompt, ClaudeExitPlanApproval, ClaudeToolCall, CLAUDE_EXIT_PLAN_FALLBACK_TEXT,
+    CLAUDE_EXIT_PLAN_REQUEST_METHOD,
 };
 
 // --- Exit plan approval ---
@@ -167,14 +167,22 @@ pub(super) fn synthetic_tool_result_item(
 
     if lower == "bash" {
         return Some(synthetic_bash_result(
-            tool_call, tool_use_id, is_error, &content_text, tool_use_result,
+            tool_call,
+            tool_use_id,
+            is_error,
+            &content_text,
+            tool_use_result,
         ));
     }
     if !is_error && (lower == "read" || (lower != "write" && lower != "edit")) {
         return None;
     }
     Some(synthetic_file_tool_result(
-        tool_call, tool_use_id, is_error, &content_text, tool_use_result,
+        tool_call,
+        tool_use_id,
+        is_error,
+        &content_text,
+        tool_use_result,
     ))
 }
 

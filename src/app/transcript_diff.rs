@@ -7,8 +7,8 @@ use super::models::{RenderedLine, Role, StyledSegment};
 use super::text::{visual_width, wrap_natural_by_cells, wrap_natural_count_by_cells};
 use super::transcript_styles::{append_wrapped_styled_logical_lines, count_styled_logical_lines};
 use crate::theme::{
-    COLOR_DIFF_ADD, COLOR_DIFF_HEADER, COLOR_DIFF_HUNK, COLOR_DIFF_REMOVE, COLOR_DIM,
-    COLOR_STEP1, COLOR_STEP2, COLOR_STEP6, COLOR_STEP8, COLOR_TEXT,
+    COLOR_DIFF_ADD, COLOR_DIFF_HEADER, COLOR_DIFF_HUNK, COLOR_DIFF_REMOVE, COLOR_DIM, COLOR_STEP1,
+    COLOR_STEP2, COLOR_STEP6, COLOR_STEP8, COLOR_TEXT,
 };
 
 // --- Diff Styles ---

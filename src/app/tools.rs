@@ -5,15 +5,10 @@ use serde_json::{json, Value};
 
 use super::tool_diff::is_probably_diff_text;
 pub(super) use super::tool_diff::{command_execution_diff_output, extract_diff_blocks};
-use super::tool_shell::{
-    command_execution_action_command, normalize_shell_command,
-};
+pub(super) use super::tool_format::{command_summary_from_parsed_cmd, format_tool_item};
+use super::tool_shell::{command_execution_action_command, normalize_shell_command};
 pub(super) use super::tool_shell::{
-    command_summary_from_shell_cmd, strip_terminal_controls,
-    strip_terminal_controls_preserving_sgr,
-};
-pub(super) use super::tool_format::{
-    command_summary_from_parsed_cmd, format_tool_item,
+    command_summary_from_shell_cmd, strip_terminal_controls, strip_terminal_controls_preserving_sgr,
 };
 use super::Role;
 
@@ -148,23 +143,41 @@ pub(super) fn tool_output_text(item: &Value) -> Option<String> {
     let mut parts = Vec::new();
 
     push_cleaned(item, &mut parts, &[&["aggregatedOutput"]]);
-    push_cleaned(item, &mut parts, &[
-        &["output"], &["text"], &["result"],
-        &["metadata", "output"], &["metadata", "result"],
-        &["state", "output"], &["formattedOutput"],
-    ]);
-    push_cleaned(item, &mut parts, &[
-        &["stdout"], &["metadata", "stdout"], &["state", "stdout"],
-    ]);
-    push_cleaned(item, &mut parts, &[
-        &["stderr"], &["metadata", "stderr"], &["state", "stderr"],
-    ]);
+    push_cleaned(
+        item,
+        &mut parts,
+        &[
+            &["output"],
+            &["text"],
+            &["result"],
+            &["metadata", "output"],
+            &["metadata", "result"],
+            &["state", "output"],
+            &["formattedOutput"],
+        ],
+    );
+    push_cleaned(
+        item,
+        &mut parts,
+        &[&["stdout"], &["metadata", "stdout"], &["state", "stdout"]],
+    );
+    push_cleaned(
+        item,
+        &mut parts,
+        &[&["stderr"], &["metadata", "stderr"], &["state", "stderr"]],
+    );
 
-    if let Some(code) = first_i64_at_paths(item, &[
-        &["exitCode"], &["exit_code"],
-        &["metadata", "exitCode"], &["metadata", "exit_code"],
-        &["state", "exitCode"], &["durationMs"],
-    ]) {
+    if let Some(code) = first_i64_at_paths(
+        item,
+        &[
+            &["exitCode"],
+            &["exit_code"],
+            &["metadata", "exitCode"],
+            &["metadata", "exit_code"],
+            &["state", "exitCode"],
+            &["durationMs"],
+        ],
+    ) {
         if item.get("durationMs").is_some() && item.get("exitCode").is_none() {
             parts.push(format!("duration: {code} ms"));
         } else {
@@ -178,7 +191,11 @@ pub(super) fn tool_output_text(item: &Value) -> Option<String> {
     }
 
     parts.retain(|s| !s.trim().is_empty());
-    if parts.is_empty() { None } else { Some(parts.join("\n")) }
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join("\n"))
+    }
 }
 
 fn push_cleaned(item: &Value, parts: &mut Vec<String>, paths: &[&[&str]]) {

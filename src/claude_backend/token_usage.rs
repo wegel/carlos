@@ -107,24 +107,19 @@ pub(super) fn claude_context_usage_from_record(record: &Value) -> Option<ClaudeC
         }
     }
 
-    let raw_model = record
-        .get("model")
-        .and_then(Value::as_str)
-        .or_else(|| {
-            record
-                .get("message")
-                .and_then(Value::as_object)
-                .and_then(|message| message.get("model"))
-                .and_then(Value::as_str)
-        });
+    let raw_model = record.get("model").and_then(Value::as_str).or_else(|| {
+        record
+            .get("message")
+            .and_then(Value::as_object)
+            .and_then(|message| message.get("model"))
+            .and_then(Value::as_str)
+    });
     let model = raw_model.map(normalize_claude_model_name);
 
     record
         .get("usage")
         .and_then(Value::as_object)
-        .and_then(|usage| {
-            claude_context_usage_from_usage(usage, raw_model, model.as_deref())
-        })
+        .and_then(|usage| claude_context_usage_from_usage(usage, raw_model, model.as_deref()))
         .or_else(|| {
             record
                 .get("message")
@@ -139,9 +134,7 @@ pub(super) fn claude_context_usage_from_record(record: &Value) -> Option<ClaudeC
 
 // --- Notification synthesis ---
 
-pub(super) fn synthetic_token_usage_line_from_context_usage(
-    usage: ClaudeContextUsage,
-) -> String {
+pub(super) fn synthetic_token_usage_line_from_context_usage(usage: ClaudeContextUsage) -> String {
     json!({
         "method": "thread/tokenUsage/updated",
         "params": {

@@ -117,30 +117,21 @@ pub(super) fn begin_claude_message(state: &mut ClaudeTranslationState, message_i
     state.current_blocks.clear();
 }
 
-pub(super) fn claude_message_item_id(
-    state: &ClaudeTranslationState,
-    index: usize,
-) -> String {
+pub(super) fn claude_message_item_id(state: &ClaudeTranslationState, index: usize) -> String {
     format!(
         "claude-msg-{}-{}-{}",
         state.stream_instance_seq, state.current_message_seq, index
     )
 }
 
-pub(super) fn claude_tool_item_id(
-    state: &ClaudeTranslationState,
-    index: usize,
-) -> String {
+pub(super) fn claude_tool_item_id(state: &ClaudeTranslationState, index: usize) -> String {
     format!(
         "claude-tool-{}-{}-{}",
         state.stream_instance_seq, state.current_message_seq, index
     )
 }
 
-pub(super) fn claude_turn_item_id(
-    state: &ClaudeTranslationState,
-    turn_seq: u64,
-) -> String {
+pub(super) fn claude_turn_item_id(state: &ClaudeTranslationState, turn_seq: u64) -> String {
     format!("claude-turn-{}-{}", state.stream_instance_seq, turn_seq)
 }
 
@@ -252,7 +243,11 @@ pub(crate) fn claude_config_dir() -> Option<PathBuf> {
     env::var("CLAUDE_CONFIG_DIR")
         .ok()
         .and_then(|value| normalize_claude_config_dir(&value))
-        .or_else(|| env::var_os("HOME").map(PathBuf::from).map(|home| home.join(".claude")))
+        .or_else(|| {
+            env::var_os("HOME")
+                .map(PathBuf::from)
+                .map(|home| home.join(".claude"))
+        })
 }
 
 pub(crate) fn claude_projects_root() -> Option<PathBuf> {
@@ -276,7 +271,9 @@ fn normalize_claude_config_dir(raw: &str) -> Option<PathBuf> {
 
 fn expand_home_path(raw: &str) -> PathBuf {
     if raw == "~" {
-        return env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(raw));
+        return env::var_os("HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(raw));
     }
     if let Some(stripped) = raw.strip_prefix("~/") {
         return env::var_os("HOME")
@@ -312,13 +309,8 @@ pub(super) fn normalize_runtime_arg(value: Option<&str>) -> Option<String> {
 pub(super) fn should_hide_claude_tool_transcript(tool_name: &str, input: &Value) -> bool {
     let lower = tool_name.trim().to_ascii_lowercase();
     match lower.as_str() {
-        "agent"
-        | "enterplanmode"
-        | "enterworktree"
-        | "exitplanmode"
-        | "exitworktree"
-        | "toolsearch"
-        | "todowrite" => true,
+        "agent" | "enterplanmode" | "enterworktree" | "exitplanmode" | "exitworktree"
+        | "toolsearch" | "todowrite" => true,
         "write" => input
             .get("file_path")
             .or_else(|| input.get("filePath"))
@@ -333,7 +325,10 @@ fn is_claude_plan_artifact_path(path: &str) -> bool {
     if let Some(config_dir) = claude_config_dir() {
         let config_plans_prefix = format!(
             "{}/plans/",
-            config_dir.to_string_lossy().replace('\\', "/").trim_end_matches('/')
+            config_dir
+                .to_string_lossy()
+                .replace('\\', "/")
+                .trim_end_matches('/')
         );
         if normalized.starts_with(&config_plans_prefix) {
             return true;

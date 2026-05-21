@@ -15,9 +15,7 @@ use anyhow::{bail, Context, Result};
 use serde_json::json;
 
 use super::translate::translate_claude_line;
-use super::types::{
-    ClaudeLaunchMode, ClaudeRuntimeSettings, ClaudeTranslationState,
-};
+use super::types::{ClaudeLaunchMode, ClaudeRuntimeSettings, ClaudeTranslationState};
 
 const CLAUDE_PLAN_MODE_BLOCKLIST: [&str; 2] = ["EnterPlanMode", "Agent(Plan)"];
 const CLAUDE_STARTUP_TIMEOUT: Duration = Duration::from_secs(2);
@@ -67,11 +65,14 @@ fn build_claude_command(
     let mut command = Command::new("claude");
     command.args([
         "-p",
-        "--input-format", "stream-json",
-        "--output-format", "stream-json",
+        "--input-format",
+        "stream-json",
+        "--output-format",
+        "stream-json",
         "--verbose",
         "--include-partial-messages",
-        "--permission-mode", "bypassPermissions",
+        "--permission-mode",
+        "bypassPermissions",
     ]);
     if !claude_allow_plan_mode() {
         command.arg("--disallowedTools");
@@ -82,7 +83,11 @@ fn build_claude_command(
     if let Some(config_dir) = env::var_os("CLAUDE_CONFIG_DIR") {
         command.env("CLAUDE_CONFIG_DIR", config_dir);
     }
-    command.current_dir(cwd).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    command
+        .current_dir(cwd)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
     match launch_mode {
         ClaudeLaunchMode::New => {}
         ClaudeLaunchMode::Resume(session_id) => {
@@ -102,10 +107,7 @@ fn build_claude_command(
 }
 
 #[cfg(test)]
-pub(crate) fn build_claude_command_for_test(
-    cwd: &Path,
-    launch_mode: &ClaudeLaunchMode,
-) -> Command {
+pub(crate) fn build_claude_command_for_test(cwd: &Path, launch_mode: &ClaudeLaunchMode) -> Command {
     build_claude_command(cwd, launch_mode, &ClaudeRuntimeSettings::default())
 }
 
@@ -113,7 +115,10 @@ pub(crate) fn build_claude_command_for_test(
 
 #[cfg(test)]
 pub(crate) fn probe_claude_startup_for_test(command: &mut Command) -> Result<()> {
-    command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
     let mut child = command.spawn().context("failed to spawn startup probe")?;
     let stdout = child.stdout.take().context("missing probe stdout")?;
     let stderr = child.stderr.take().context("missing probe stderr")?;
@@ -169,10 +174,7 @@ fn await_claude_startup(
     }
 }
 
-fn format_claude_startup_error(
-    status: ExitStatus,
-    captured_stderr: &Arc<Mutex<String>>,
-) -> String {
+fn format_claude_startup_error(status: ExitStatus, captured_stderr: &Arc<Mutex<String>>) -> String {
     let stderr = captured_stderr
         .lock()
         .ok()
@@ -297,12 +299,8 @@ pub(super) fn start_claude_process(
     let stderr = child.stderr.take().context("missing child stderr")?;
     let (startup_tx, startup_rx) = mpsc::channel();
     let captured_stderr = Arc::new(Mutex::new(String::new()));
-    let reader_thread = spawn_reader_thread(
-        stdout,
-        events_tx,
-        current_session_id,
-        Some(startup_tx),
-    );
+    let reader_thread =
+        spawn_reader_thread(stdout, events_tx, current_session_id, Some(startup_tx));
     let stderr_thread = spawn_stderr_thread(stderr, Arc::clone(&captured_stderr));
     if let Err(err) = await_claude_startup(&mut child, &startup_rx, &captured_stderr) {
         let _ = child.kill();

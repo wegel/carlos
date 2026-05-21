@@ -6,9 +6,7 @@ use super::exit_plan::{
     claude_exit_plan_approval_from_tool_call, claude_exit_plan_request_line,
     synthetic_tool_result_line,
 };
-use super::types::{
-    should_hide_claude_tool_transcript, ClaudeTranslationState, TranslateOutput,
-};
+use super::types::{should_hide_claude_tool_transcript, ClaudeTranslationState, TranslateOutput};
 
 // --- User Records ---
 

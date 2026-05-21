@@ -162,7 +162,10 @@ where
         let mut st = PickerState {
             selected: 0,
             top: 0,
-            last_size: TerminalSize { width: 0, height: 0 },
+            last_size: TerminalSize {
+                width: 0,
+                height: 0,
+            },
             confirm_delete: false,
             status: None,
         };
@@ -179,9 +182,7 @@ where
                 Event::Key(k) if is_key_press_like(k.kind) => {
                     handle_picker_key(&mut st, &mut threads, allow_delete, &mut on_delete, k)?
                 }
-                Event::Mouse(m) => {
-                    handle_picker_mouse(&mut st, &threads, terminal, m)?
-                }
+                Event::Mouse(m) => handle_picker_mouse(&mut st, &threads, terminal, m)?,
                 _ => PickerAction::Continue,
             };
 
@@ -221,7 +222,10 @@ fn draw_picker_frame(
             st.top = st.selected + 1 - list_height;
         }
 
-        let delete_target = st.confirm_delete.then(|| threads.get(st.selected)).flatten();
+        let delete_target = st
+            .confirm_delete
+            .then(|| threads.get(st.selected))
+            .flatten();
         draw_picker(
             frame,
             threads,

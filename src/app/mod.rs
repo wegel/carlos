@@ -66,8 +66,8 @@ use self::text::{
 use self::tool_shell::parse_ssh_remote_command;
 #[cfg(test)]
 use self::tools::{
-    command_execution_diff_output, extract_diff_blocks, format_tool_item,
-    strip_terminal_controls, strip_terminal_controls_preserving_sgr,
+    command_execution_diff_output, extract_diff_blocks, format_tool_item, strip_terminal_controls,
+    strip_terminal_controls_preserving_sgr,
 };
 #[cfg(test)]
 use self::transcript_render::{
@@ -146,13 +146,13 @@ pub(super) struct RuntimeDefaults {
 }
 
 // --- Runtime Wiring ---
-use self::backend_setup::{run_claude_backend, run_codex_backend};
-use self::cli::{
-    env_reasoning_summary_override, load_runtime_defaults, parse_cli_args, persist_runtime_defaults,
-    usage, Backend, CliOptions,
-};
 #[cfg(test)]
 use self::backend_setup::load_claude_thread_summaries;
+use self::backend_setup::{run_claude_backend, run_codex_backend};
+use self::cli::{
+    env_reasoning_summary_override, load_runtime_defaults, parse_cli_args,
+    persist_runtime_defaults, usage, Backend, CliOptions,
+};
 #[cfg(test)]
 use self::cli::{
     load_runtime_defaults_from, persist_runtime_defaults_to, resolve_initial_runtime_settings,

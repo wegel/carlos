@@ -99,7 +99,12 @@ pub(super) fn wrap_natural_by_cells(text: &str, width: usize) -> Vec<String> {
         return vec![String::new()];
     }
     let storage;
-    let text = if text.contains('\t') { storage = expand_tabs(text); storage.as_str() } else { text };
+    let text = if text.contains('\t') {
+        storage = expand_tabs(text);
+        storage.as_str()
+    } else {
+        text
+    };
     if text.is_ascii() && text.len() <= width {
         return vec![text.to_string()];
     }
@@ -151,7 +156,12 @@ pub(super) fn wrap_natural_count_by_cells(text: &str, width: usize) -> usize {
         return 1;
     }
     let storage;
-    let text = if text.contains('\t') { storage = expand_tabs(text); storage.as_str() } else { text };
+    let text = if text.contains('\t') {
+        storage = expand_tabs(text);
+        storage.as_str()
+    } else {
+        text
+    };
     if text.is_ascii() && text.len() <= width {
         return 1;
     }
@@ -248,9 +258,8 @@ fn wrap_natural_count_ascii_slow_by_cells(text: &str, width: usize) -> usize {
                 line_visible_width = projected_width;
             }
         } else {
-            line_count += hard_wrap_count_metrics(
-                &text[line_start..line_start + line_visible_len], width,
-            ).0;
+            line_count +=
+                hard_wrap_count_metrics(&text[line_start..line_start + line_visible_len], width).0;
             line_start = current_idx;
             line_visible_len = word_len;
             line_visible_width = word_len;

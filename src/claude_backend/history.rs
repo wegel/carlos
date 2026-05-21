@@ -162,17 +162,11 @@ fn append_user_history_record(
         {
             let hide_transcript =
                 should_hide_claude_tool_transcript(&tool_call.name, &tool_call.input);
-            let approval =
-                claude_exit_plan_approval_from_tool_call(&tool_call, tool_use_id, part);
+            let approval = claude_exit_plan_approval_from_tool_call(&tool_call, tool_use_id, part);
             let item = if hide_transcript {
                 None
             } else {
-                synthetic_tool_result_item(
-                    &tool_call,
-                    tool_use_id,
-                    part,
-                    tool_use_result,
-                )
+                synthetic_tool_result_item(&tool_call, tool_use_id, part, tool_use_result)
             };
             (item, approval)
         } else {
@@ -254,12 +248,8 @@ pub(crate) fn fork_claude_local_history_from_projects_root(
     source_session_id: &str,
     keep_turns: usize,
 ) -> Result<ClaudeLocalHistory> {
-    let forked = fork_claude_session_from_projects_root(
-        projects_root,
-        cwd,
-        source_session_id,
-        keep_turns,
-    )?;
+    let forked =
+        fork_claude_session_from_projects_root(projects_root, cwd, source_session_id, keep_turns)?;
     parse_local_history_from_file(&forked.path, &forked.session_id)
 }
 
@@ -315,10 +305,5 @@ pub(crate) fn fork_claude_local_history(
     if !projects_root.is_dir() {
         bail!("Claude projects directory does not exist");
     }
-    fork_claude_local_history_from_projects_root(
-        &projects_root,
-        cwd,
-        source_session_id,
-        keep_turns,
-    )
+    fork_claude_local_history_from_projects_root(&projects_root, cwd, source_session_id, keep_turns)
 }

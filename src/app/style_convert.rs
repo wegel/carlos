@@ -85,8 +85,23 @@ convert_enum!(
     Color,
     CoreColor,
     [
-        Reset, Black, Red, Green, Yellow, Blue, Magenta, Cyan, Gray, DarkGray, LightRed,
-        LightGreen, LightYellow, LightBlue, LightMagenta, LightCyan, White
+        Reset,
+        Black,
+        Red,
+        Green,
+        Yellow,
+        Blue,
+        Magenta,
+        Cyan,
+        Gray,
+        DarkGray,
+        LightRed,
+        LightGreen,
+        LightYellow,
+        LightBlue,
+        LightMagenta,
+        LightCyan,
+        White
     ],
     [Rgb(r, g, b), Indexed(v)]
 );
@@ -98,7 +113,17 @@ convert_modifiers!(
     core_modifier_to_modifier,
     Modifier,
     CoreModifier,
-    [BOLD, DIM, ITALIC, UNDERLINED, SLOW_BLINK, RAPID_BLINK, REVERSED, HIDDEN, CROSSED_OUT]
+    [
+        BOLD,
+        DIM,
+        ITALIC,
+        UNDERLINED,
+        SLOW_BLINK,
+        RAPID_BLINK,
+        REVERSED,
+        HIDDEN,
+        CROSSED_OUT
+    ]
 );
 
 // --- Style Conversion ---
@@ -158,7 +183,11 @@ impl tui_markdown::StyleSheet for CarlosMarkdownStyleSheet {
     }
 
     fn image_alt(&self) -> CoreStyle {
-        style_to_core(Style::default().fg(COLOR_DIM).add_modifier(Modifier::DIM | Modifier::ITALIC))
+        style_to_core(
+            Style::default()
+                .fg(COLOR_DIM)
+                .add_modifier(Modifier::DIM | Modifier::ITALIC),
+        )
     }
 
     fn table_header(&self) -> CoreStyle {

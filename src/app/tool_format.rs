@@ -4,7 +4,9 @@ use std::collections::HashSet;
 
 use serde_json::Value;
 
-use super::tool_shell::{command_summary_from_shell_cmd, compact_command_path, parse_ssh_remote_command};
+use super::tool_shell::{
+    command_summary_from_shell_cmd, compact_command_path, parse_ssh_remote_command,
+};
 use super::tools::{
     tool_command, tool_description, tool_name, tool_output_text, tool_reasoning, value_at_path,
 };
@@ -120,11 +122,27 @@ pub(super) fn format_tool_call_inline(item: &Value, tool_name: &str) -> Option<S
 }
 
 const READ_EXCLUDE_KEYS: &[&str] = &[
-    "filePath", "path", "tool", "name", "command", "description", "reasoning",
+    "filePath",
+    "path",
+    "tool",
+    "name",
+    "command",
+    "description",
+    "reasoning",
 ];
 const GENERIC_EXCLUDE_KEYS: &[&str] = &[
-    "filePath", "path", "tool", "name", "command", "description", "reasoning",
-    "content", "patch", "old_string", "new_string", "text",
+    "filePath",
+    "path",
+    "tool",
+    "name",
+    "command",
+    "description",
+    "reasoning",
+    "content",
+    "patch",
+    "old_string",
+    "new_string",
+    "text",
 ];
 
 fn format_read_call_inline(input: Option<&serde_json::Map<String, Value>>, icon: &str) -> String {
@@ -137,9 +155,17 @@ fn format_read_call_inline(input: Option<&serde_json::Map<String, Value>>, icon:
     out.trim_end().to_string()
 }
 
-fn format_generic_call_inline(obj: &serde_json::Map<String, Value>, tool_name: &str, icon: &str) -> String {
+fn format_generic_call_inline(
+    obj: &serde_json::Map<String, Value>,
+    tool_name: &str,
+    icon: &str,
+) -> String {
     let mut out = format!("{icon} {}", titlecase_tool_name(tool_name));
-    if let Some(path) = obj.get("filePath").or_else(|| obj.get("path")).and_then(Value::as_str) {
+    if let Some(path) = obj
+        .get("filePath")
+        .or_else(|| obj.get("path"))
+        .and_then(Value::as_str)
+    {
         if !path.is_empty() {
             out.push(' ');
             out.push_str(path);
@@ -149,7 +175,11 @@ fn format_generic_call_inline(obj: &serde_json::Map<String, Value>, tool_name: &
     out
 }
 
-fn append_input_brackets(input: Option<&serde_json::Map<String, Value>>, exclude: &[&str], out: &mut String) {
+fn append_input_brackets(
+    input: Option<&serde_json::Map<String, Value>>,
+    exclude: &[&str],
+    out: &mut String,
+) {
     if let Some(args) = input.and_then(|obj| format_input_brackets(obj, exclude)) {
         if !args.is_empty() {
             out.push(' ');
@@ -202,7 +232,10 @@ fn format_tool_call(item: &Value) -> Option<String> {
     }
     let name = tool_name(item)?;
     format_tool_call_inline(item, &name)
-        .or_else(|| tool_input_summary(item).map(|input| format!("{} {}", titlecase_tool_name(&name), input)))
+        .or_else(|| {
+            tool_input_summary(item)
+                .map(|input| format!("{} {}", titlecase_tool_name(&name), input))
+        })
         .or_else(|| Some(titlecase_tool_name(&name)))
 }
 
@@ -249,7 +282,10 @@ fn format_command_output(item: &Value) -> Option<String> {
 
 fn format_cmd_prefix(cmd: &str) -> String {
     if let Some(ssh) = parse_ssh_remote_command(cmd) {
-        format!("remote exec on {}\n$ {}", ssh.destination, ssh.remote_command)
+        format!(
+            "remote exec on {}\n$ {}",
+            ssh.destination, ssh.remote_command
+        )
     } else {
         format!("$ {cmd}")
     }
@@ -318,7 +354,9 @@ fn summarize_parsed_cmd_part(
 fn append_cmd_brackets(obj: &serde_json::Map<String, Value>, mut out: String) -> String {
     if let Some(args) = format_input_brackets(
         obj,
-        &["type", "cmd", "command", "path", "filePath", "file", "name", "cwd"],
+        &[
+            "type", "cmd", "command", "path", "filePath", "file", "name", "cwd",
+        ],
     ) {
         out.push(' ');
         out.push_str(&args);

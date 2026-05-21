@@ -4,14 +4,11 @@ use anyhow::{Context, Result};
 use serde_json::{json, Map, Value};
 
 use super::snapshot::synthesize_assistant_snapshot;
-use super::token_usage::{
-    synthetic_token_usage_line, synthetic_token_usage_line_from_model_usage,
-};
+use super::token_usage::{synthetic_token_usage_line, synthetic_token_usage_line_from_model_usage};
 use super::types::{
-    begin_claude_message, claude_message_item_id, claude_tool_item_id,
-    ensure_claude_turn_started, normalize_claude_model_name, parse_partial_json_object,
-    should_hide_claude_tool_transcript, ClaudeBlockState, ClaudeToolCall,
-    ClaudeTranslationState, TranslateOutput,
+    begin_claude_message, claude_message_item_id, claude_tool_item_id, ensure_claude_turn_started,
+    normalize_claude_model_name, parse_partial_json_object, should_hide_claude_tool_transcript,
+    ClaudeBlockState, ClaudeToolCall, ClaudeTranslationState, TranslateOutput,
 };
 use super::user_record::translate_user_record;
 
@@ -257,7 +254,8 @@ fn translate_content_block_stop(
                 input_json,
             } => {
                 let input = parse_partial_json_object(&input_json);
-                let hidden = should_hide_claude_tool_transcript(&name, &Value::Object(input.clone()));
+                let hidden =
+                    should_hide_claude_tool_transcript(&name, &Value::Object(input.clone()));
                 state.tool_calls.insert(
                     item_id.clone(),
                     ClaudeToolCall {
@@ -326,11 +324,9 @@ fn translate_result_record(
             out.lines.push(line);
         }
     } else if let Some(usage) = root.get("usage").and_then(Value::as_object) {
-        if let Some(line) = synthetic_token_usage_line(
-            usage,
-            state.raw_model.as_deref(),
-            state.model.as_deref(),
-        ) {
+        if let Some(line) =
+            synthetic_token_usage_line(usage, state.raw_model.as_deref(), state.model.as_deref())
+        {
             out.lines.push(line);
         }
     }

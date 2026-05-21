@@ -3,9 +3,8 @@
 use serde_json::{json, Map, Value};
 
 use super::types::{
-    begin_claude_message, claude_message_item_id, claude_tool_item_id,
-    ensure_claude_turn_started, ClaudeToolCall, ClaudeTranslationState, TranslateOutput,
-    should_hide_claude_tool_transcript,
+    begin_claude_message, claude_message_item_id, claude_tool_item_id, ensure_claude_turn_started,
+    should_hide_claude_tool_transcript, ClaudeToolCall, ClaudeTranslationState, TranslateOutput,
 };
 
 pub(super) fn synthesize_assistant_snapshot(
@@ -40,7 +39,8 @@ pub(super) fn synthesize_assistant_snapshot(
 
     let had_live_turn = state.current_turn_id.is_some();
     ensure_claude_turn_started(state, out);
-    let starts_new_message = message_id.is_some() && message_id != state.current_message_id.as_deref();
+    let starts_new_message =
+        message_id.is_some() && message_id != state.current_message_id.as_deref();
     if !had_live_turn || state.current_message_seq == 0 || starts_new_message {
         begin_claude_message(state, message_id);
     } else if state.current_message_has_content_blocks {

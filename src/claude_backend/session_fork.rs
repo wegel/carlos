@@ -25,45 +25,7 @@ pub(super) struct ForkedClaudeSession {
     pub(super) path: PathBuf,
 }
 
-#[derive(Debug)]
-struct ClaudeVisibleMessage {
-    uuid: String,
-    is_user_prompt: bool,
-}
-
 // --- Branch prefix selection ---
-
-fn visible_active_branch_messages(
-    records: &[ClaudeSessionRecord],
-    active_branch_uuids: Option<&HashSet<String>>,
-) -> Vec<ClaudeVisibleMessage> {
-    let mut visible = Vec::new();
-    for record in records {
-        if record.is_sidechain {
-            continue;
-        }
-        let Some(uuid) = record.uuid.as_deref() else {
-            continue;
-        };
-        if let Some(active_branch_uuids) = active_branch_uuids {
-            if !active_branch_uuids.contains(uuid) {
-                continue;
-            }
-        }
-        match record.record.get("type").and_then(Value::as_str) {
-            Some("user") => visible.push(ClaudeVisibleMessage {
-                uuid: uuid.to_string(),
-                is_user_prompt: user_record_text(&record.record).is_some(),
-            }),
-            Some("assistant") => visible.push(ClaudeVisibleMessage {
-                uuid: uuid.to_string(),
-                is_user_prompt: false,
-            }),
-            _ => {}
-        }
-    }
-    visible
-}
 
 fn prefix_uuid_chain(
     records: &[ClaudeSessionRecord],
@@ -100,23 +62,45 @@ fn prefix_uuid_chain(
     kept
 }
 
-fn session_prefix_message_uuid(records: &[ClaudeSessionRecord], keep_turns: usize) -> Option<String> {
-    let active_branch_uuids = active_branch_uuids(records);
-    let visible = visible_active_branch_messages(records, active_branch_uuids.as_ref());
-    let mut kept_turns = 0usize;
-    let mut last_visible_uuid = None;
+fn active_branch_record<'a>(
+    record: &'a ClaudeSessionRecord,
+    active_branch_uuids: Option<&HashSet<String>>,
+) -> Option<(&'a str, bool)> {
+    if record.is_sidechain {
+        return None;
+    }
+    let uuid = record.uuid.as_deref()?;
+    if active_branch_uuids.is_some_and(|active| !active.contains(uuid)) {
+        return None;
+    }
 
-    for message in visible {
-        if message.is_user_prompt {
+    Some((uuid, user_record_text(&record.record).is_some()))
+}
+
+fn session_prefix_message_uuid(
+    records: &[ClaudeSessionRecord],
+    keep_turns: usize,
+) -> Option<String> {
+    let active_branch_uuids = active_branch_uuids(records);
+    let mut kept_turns = 0usize;
+    let mut last_kept_uuid = None;
+
+    for record in records {
+        let Some((uuid, is_user_prompt)) =
+            active_branch_record(record, active_branch_uuids.as_ref())
+        else {
+            continue;
+        };
+        if is_user_prompt {
             if kept_turns >= keep_turns {
                 break;
             }
             kept_turns += 1;
         }
-        last_visible_uuid = Some(message.uuid);
+        last_kept_uuid = Some(uuid.to_string());
     }
 
-    last_visible_uuid
+    last_kept_uuid
 }
 
 // --- Transcript rewriting ---
@@ -160,6 +144,16 @@ fn rewrite_uuid_fields(
                     map.insert("parentUuid".to_string(), Value::String(remapped));
                 }
             }
+            if let Some(leaf_uuid) = map.get("leafUuid").and_then(Value::as_str) {
+                if let Some(remapped) = uuid_map.get(leaf_uuid).cloned() {
+                    map.insert("leafUuid".to_string(), Value::String(remapped));
+                }
+            }
+            if let Some(leaf_uuid) = map.get("leaf_uuid").and_then(Value::as_str) {
+                if let Some(remapped) = uuid_map.get(leaf_uuid).cloned() {
+                    map.insert("leaf_uuid".to_string(), Value::String(remapped));
+                }
+            }
             for child in map.values_mut() {
                 rewrite_uuid_fields(child, new_session_id, uuid_map);
             }
@@ -171,6 +165,13 @@ fn rewrite_uuid_fields(
         }
         _ => {}
     }
+}
+
+fn linked_leaf_uuid(record: &Value) -> Option<&str> {
+    record
+        .get("leafUuid")
+        .or_else(|| record.get("leaf_uuid"))
+        .and_then(Value::as_str)
 }
 
 fn copy_session_support_tree(
@@ -281,6 +282,13 @@ pub(super) fn fork_claude_session_from_projects_root(
             None if leading_metadata => {
                 let mut rewritten = record.record;
                 rewrite_session_id(&mut rewritten, &new_session_id);
+                lines.push(rewritten.to_string());
+            }
+            None if linked_leaf_uuid(&record.record)
+                .is_some_and(|uuid| kept_uuid_chain.contains(uuid)) =>
+            {
+                let mut rewritten = record.record;
+                rewrite_uuid_fields(&mut rewritten, &new_session_id, &uuid_map);
                 lines.push(rewritten.to_string());
             }
             None => {}

@@ -223,11 +223,7 @@ fn draw_picker_header(buf: &mut Buffer, layout: &PickerLayout, allow_delete: boo
     );
 }
 
-fn draw_picker_column_headers(
-    buf: &mut Buffer,
-    layout: &PickerLayout,
-    cols: &PickerColumns,
-) {
+fn draw_picker_column_headers(buf: &mut Buffer, layout: &PickerLayout, cols: &PickerColumns) {
     if layout.list_h == 0 {
         return;
     }
@@ -275,16 +271,44 @@ fn draw_picker_list_row(
     let updated = format_picker_timestamp(t.updated_at);
 
     if active && layout.list_w > 0 {
-        fill_rect(buf, layout.list_x, y, layout.list_w, 1, Style::default().bg(COLOR_PRIMARY));
+        fill_rect(
+            buf,
+            layout.list_x,
+            y,
+            layout.list_w,
+            1,
+            Style::default().bg(COLOR_PRIMARY),
+        );
     }
 
     let (bullet_style, line_style) = row_styles(active);
     let left_view_w = cols.left_col_w.saturating_sub(2);
 
-    draw_str(buf, layout.list_x, y, if active { "●" } else { " " }, bullet_style, 1);
-    draw_str(buf, layout.list_x + 2, y, &left_text, line_style, left_view_w);
+    draw_str(
+        buf,
+        layout.list_x,
+        y,
+        if active { "●" } else { " " },
+        bullet_style,
+        1,
+    );
+    draw_str(
+        buf,
+        layout.list_x + 2,
+        y,
+        &left_text,
+        line_style,
+        left_view_w,
+    );
     if cols.ts_col_w > 0 {
-        draw_str(buf, layout.list_x + cols.left_col_w + cols.gap_w, y, &created, line_style, cols.ts_col_w);
+        draw_str(
+            buf,
+            layout.list_x + cols.left_col_w + cols.gap_w,
+            y,
+            &created,
+            line_style,
+            cols.ts_col_w,
+        );
         draw_str(
             buf,
             layout.list_x + cols.left_col_w + cols.gap_w + cols.ts_col_w + cols.gap_w,

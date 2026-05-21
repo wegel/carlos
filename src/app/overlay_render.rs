@@ -64,21 +64,61 @@ fn draw_box_border(
 
 fn draw_rounded_border(buf: &mut Buffer, ob: &OverlayBox) {
     let style = Style::default().fg(COLOR_STEP7);
-    draw_box_border(buf, ob.left, ob.top, ob.right, ob.bottom, style, ("┏", "┓", "┗", "┛"), "─", "┃");
+    draw_box_border(
+        buf,
+        ob.left,
+        ob.top,
+        ob.right,
+        ob.bottom,
+        style,
+        ("┏", "┓", "┗", "┛"),
+        "─",
+        "┃",
+    );
 }
 
 fn draw_overlay_title(buf: &mut Buffer, ob: &OverlayBox, title: &str) {
-    let bold = Style::default().fg(COLOR_PRIMARY).add_modifier(Modifier::BOLD);
-    draw_str(buf, ob.start_x + 3, ob.start_y + 1, title, bold, ob.box_w.saturating_sub(6));
-    draw_str(buf, ob.start_x + ob.box_w.saturating_sub(8), ob.start_y + 1, "esc", Style::default().fg(COLOR_DIM), 3);
+    let bold = Style::default()
+        .fg(COLOR_PRIMARY)
+        .add_modifier(Modifier::BOLD);
+    draw_str(
+        buf,
+        ob.start_x + 3,
+        ob.start_y + 1,
+        title,
+        bold,
+        ob.box_w.saturating_sub(6),
+    );
+    draw_str(
+        buf,
+        ob.start_x + ob.box_w.saturating_sub(8),
+        ob.start_y + 1,
+        "esc",
+        Style::default().fg(COLOR_DIM),
+        3,
+    );
 }
 
 fn fill_fullscreen_overlay(buf: &mut Buffer, size: TerminalSize) {
-    fill_rect(buf, 0, 0, size.width, size.height, Style::default().bg(COLOR_OVERLAY));
+    fill_rect(
+        buf,
+        0,
+        0,
+        size.width,
+        size.height,
+        Style::default().bg(COLOR_OVERLAY),
+    );
 }
 
 fn fill_box_background(buf: &mut Buffer, ob: &OverlayBox, box_h: usize) {
-    fill_rect(buf, ob.start_x, ob.start_y, ob.box_w, box_h, Style::default().bg(COLOR_STEP2));
+    fill_rect(
+        buf,
+        ob.start_x,
+        ob.start_y,
+        ob.box_w,
+        box_h,
+        Style::default().bg(COLOR_STEP2),
+    );
 }
 
 fn content_width(ob: &OverlayBox) -> usize {
@@ -172,7 +212,10 @@ fn draw_model_settings_fields(buf: &mut Buffer, ob: &OverlayBox, app: &AppState)
         x_value,
         ob.start_y + 3,
         app.model_settings_model_value(),
-        field_style(matches!(app.runtime.model_settings_field, ModelSettingsField::Model)),
+        field_style(matches!(
+            app.runtime.model_settings_field,
+            ModelSettingsField::Model
+        )),
         value_w,
     );
     draw_str(buf, x_label, ob.start_y + 5, "Thinking", label_style, 8);
@@ -181,7 +224,10 @@ fn draw_model_settings_fields(buf: &mut Buffer, ob: &OverlayBox, app: &AppState)
         x_value,
         ob.start_y + 5,
         app.model_settings_effort_value(),
-        field_style(matches!(app.runtime.model_settings_field, ModelSettingsField::Effort)),
+        field_style(matches!(
+            app.runtime.model_settings_field,
+            ModelSettingsField::Effort
+        )),
         value_w,
     );
 
@@ -192,7 +238,10 @@ fn draw_model_settings_fields(buf: &mut Buffer, ob: &OverlayBox, app: &AppState)
             x_value,
             ob.start_y + 7,
             app.model_settings_summary_value(),
-            field_style(matches!(app.runtime.model_settings_field, ModelSettingsField::Summary)),
+            field_style(matches!(
+                app.runtime.model_settings_field,
+                ModelSettingsField::Summary
+            )),
             value_w,
         );
         ob.start_y + 9

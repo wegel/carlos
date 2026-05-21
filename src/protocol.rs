@@ -217,12 +217,8 @@ impl BackendClient for AppServerClient {
         request: RewindForkRequest,
         timeout: Duration,
     ) -> Result<String> {
-        let forked = AppServerClient::call(
-            self,
-            "thread/fork",
-            params_thread_fork(thread_id),
-            timeout,
-        )?;
+        let forked =
+            AppServerClient::call(self, "thread/fork", params_thread_fork(thread_id), timeout)?;
         if request.drop_turns == 0 {
             return Ok(forked);
         }

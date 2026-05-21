@@ -9,8 +9,8 @@ use super::models::{RenderedLine, Role, StyledSegment};
 use super::text::{visual_width, wrap_natural_by_cells, wrap_natural_count_by_cells};
 use super::tools::strip_terminal_controls;
 use super::transcript_styles::{
-    ansi_line_segments, is_fence_delimiter, markdown_line_segments, normalize_styled_segments_for_part,
-    styled_plain_text, take_styled_segments_by_cells,
+    ansi_line_segments, is_fence_delimiter, markdown_line_segments,
+    normalize_styled_segments_for_part, styled_plain_text, take_styled_segments_by_cells,
 };
 use crate::theme::COLOR_STEP2;
 
@@ -22,7 +22,9 @@ pub(super) struct RenderCountCache<'a> {
 
 impl<'a> RenderCountCache<'a> {
     pub(super) fn new() -> Self {
-        Self { ascii_long_line_counts: HashMap::new() }
+        Self {
+            ascii_long_line_counts: HashMap::new(),
+        }
     }
 }
 
@@ -56,7 +58,8 @@ fn count_ascii_multiline_by_cells(
             continue;
         }
         let line = &text[start..idx];
-        count += if skip_fence_delimiters && line.trim_matches([' ', '\t', '\r']).starts_with("```") {
+        count += if skip_fence_delimiters && line.trim_matches([' ', '\t', '\r']).starts_with("```")
+        {
             0
         } else if line.is_empty() || line.len() <= width {
             1
@@ -85,7 +88,8 @@ fn count_ascii_multiline_by_cells_cached<'a>(
             continue;
         }
         let line = &text[start..idx];
-        count += if skip_fence_delimiters && line.trim_matches([' ', '\t', '\r']).starts_with("```") {
+        count += if skip_fence_delimiters && line.trim_matches([' ', '\t', '\r']).starts_with("```")
+        {
             0
         } else if line.is_empty() || line.len() <= width {
             1
@@ -105,12 +109,32 @@ fn count_ascii_multiline_by_cells_cached<'a>(
 
 #[inline]
 fn blank_line(role: Role) -> RenderedLine {
-    RenderedLine { cells: 0, text: String::new(), styled_segments: Vec::new(), role, separator: false, soft_wrap_to_next: false }
+    RenderedLine {
+        cells: 0,
+        text: String::new(),
+        styled_segments: Vec::new(),
+        role,
+        separator: false,
+        soft_wrap_to_next: false,
+    }
 }
 
 #[inline]
-fn content_line(role: Role, part: &str, cells: usize, segments: Vec<StyledSegment>, wrapped: bool) -> RenderedLine {
-    RenderedLine { cells, text: part.to_owned(), styled_segments: segments, role, separator: false, soft_wrap_to_next: wrapped }
+fn content_line(
+    role: Role,
+    part: &str,
+    cells: usize,
+    segments: Vec<StyledSegment>,
+    wrapped: bool,
+) -> RenderedLine {
+    RenderedLine {
+        cells,
+        text: part.to_owned(),
+        styled_segments: segments,
+        role,
+        separator: false,
+        soft_wrap_to_next: wrapped,
+    }
 }
 
 // --- Shared inner loop ---
@@ -137,7 +161,13 @@ fn append_styled_logical_lines_inner(
                 part,
                 take_styled_segments_by_cells(&mut remaining, part_cells),
             );
-            out.push(content_line(role, part, part_cells, segs, i + 1 < wrapped_parts.len()));
+            out.push(content_line(
+                role,
+                part,
+                part_cells,
+                segs,
+                i + 1 < wrapped_parts.len(),
+            ));
         }
     }
 }
@@ -175,8 +205,17 @@ pub(super) fn append_wrapped_message_lines(
             } else {
                 Style::default()
             };
-            let segs = vec![StyledSegment { text: part.clone(), style: fence_style }];
-            out.push(content_line(role, part, visual_width(part), segs, i + 1 < wrapped_parts.len()));
+            let segs = vec![StyledSegment {
+                text: part.clone(),
+                style: fence_style,
+            }];
+            out.push(content_line(
+                role,
+                part,
+                visual_width(part),
+                segs,
+                i + 1 < wrapped_parts.len(),
+            ));
         }
     }
 }
@@ -338,10 +377,17 @@ pub(super) fn count_wrapped_markdown_lines(role: Role, text: &str, width: usize)
         markdown_line_segments(text)
     };
 
-    logical_lines.into_iter().map(|logical| {
-        let plain = styled_plain_text(&logical);
-        if plain.is_empty() { 1 } else { wrap_natural_count_by_cells(&plain, width) }
-    }).sum()
+    logical_lines
+        .into_iter()
+        .map(|logical| {
+            let plain = styled_plain_text(&logical);
+            if plain.is_empty() {
+                1
+            } else {
+                wrap_natural_count_by_cells(&plain, width)
+            }
+        })
+        .sum()
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -378,9 +424,19 @@ pub(super) fn count_wrapped_ansi_lines_cached<'a>(
     count_styled_logical_lines(logical_lines, width)
 }
 
-pub(super) fn count_styled_logical_lines(logical_lines: Vec<Vec<StyledSegment>>, width: usize) -> usize {
-    logical_lines.into_iter().map(|logical| {
-        let plain = styled_plain_text(&logical);
-        if plain.is_empty() { 1 } else { wrap_natural_count_by_cells(&plain, width) }
-    }).sum()
+pub(super) fn count_styled_logical_lines(
+    logical_lines: Vec<Vec<StyledSegment>>,
+    width: usize,
+) -> usize {
+    logical_lines
+        .into_iter()
+        .map(|logical| {
+            let plain = styled_plain_text(&logical);
+            if plain.is_empty() {
+                1
+            } else {
+                wrap_natural_count_by_cells(&plain, width)
+            }
+        })
+        .sum()
 }

@@ -354,6 +354,7 @@ fn fork_claude_local_history_branches_from_selected_prefix() {
             r#"{"parentUuid":null,"isSidechain":false,"type":"user","message":{"role":"user","content":"first"},"uuid":"user-1","sessionId":"session-source"}"#,
             r#"{"parentUuid":"user-1","isSidechain":false,"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"reply one"}]},"uuid":"assistant-1","sessionId":"session-source"}"#,
             r#"{"parentUuid":"assistant-1","isSidechain":false,"type":"system","subtype":"stop_hook_summary","uuid":"stop-1","sessionId":"session-source"}"#,
+            r#"{"type":"summary","summary":"compact context","leafUuid":"stop-1","sessionId":"session-source"}"#,
             r#"{"parentUuid":"stop-1","isSidechain":false,"type":"user","message":{"role":"user","content":"second-old"},"uuid":"user-2-old","sessionId":"session-source"}"#,
             r#"{"parentUuid":"user-2-old","isSidechain":false,"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"reply old"}]},"uuid":"assistant-2-old","sessionId":"session-source"}"#,
             r#"{"type":"last-prompt","lastPrompt":"second-old","sessionId":"session-source"}"#,
@@ -394,14 +395,26 @@ fn fork_claude_local_history_branches_from_selected_prefix() {
         .filter(|line| !line.trim().is_empty())
         .map(|line| serde_json::from_str(line).expect("parse forked line"))
         .collect();
-    assert_eq!(forked_lines.len(), 3);
-    assert_eq!(forked_lines[0]["sessionId"].as_str(), Some(forked.session_id.as_str()));
+    assert_eq!(forked_lines.len(), 5);
+    assert_eq!(
+        forked_lines[0]["sessionId"].as_str(),
+        Some(forked.session_id.as_str())
+    );
     let fork_user_uuid = forked_lines[1]["uuid"].as_str().expect("fork user uuid");
-    let fork_assistant_uuid = forked_lines[2]["uuid"].as_str().expect("fork assistant uuid");
+    let fork_assistant_uuid = forked_lines[2]["uuid"]
+        .as_str()
+        .expect("fork assistant uuid");
+    let fork_stop_uuid = forked_lines[3]["uuid"].as_str().expect("fork stop uuid");
     assert_ne!(fork_user_uuid, "user-1");
     assert_ne!(fork_assistant_uuid, "assistant-1");
+    assert_ne!(fork_stop_uuid, "stop-1");
     assert_eq!(forked_lines[1]["parentUuid"], Value::Null);
     assert_eq!(forked_lines[2]["parentUuid"].as_str(), Some(fork_user_uuid));
+    assert_eq!(
+        forked_lines[3]["parentUuid"].as_str(),
+        Some(fork_assistant_uuid)
+    );
+    assert_eq!(forked_lines[4]["leafUuid"].as_str(), Some(fork_stop_uuid));
     let forked_body = serde_json::to_string(&forked_lines).expect("serialize fork");
     assert!(!forked_body.contains("second-old"));
     assert!(!forked_body.contains("second-new"));

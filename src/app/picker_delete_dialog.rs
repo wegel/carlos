@@ -36,7 +36,14 @@ fn draw_delete_dialog_border(
     let bottom = top + dialog_h.saturating_sub(1);
     let border = Style::default().fg(COLOR_DIFF_REMOVE);
 
-    fill_rect(buf, left, top, dialog_w, dialog_h, Style::default().bg(COLOR_STEP2));
+    fill_rect(
+        buf,
+        left,
+        top,
+        dialog_w,
+        dialog_h,
+        Style::default().bg(COLOR_STEP2),
+    );
 
     // corners
     draw_str(buf, left, top, "┏", border, 1);

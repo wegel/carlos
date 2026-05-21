@@ -135,10 +135,7 @@ pub(super) fn handle_item_notification(
     }
 }
 
-fn handle_item_started(
-    app: &mut AppState,
-    params: &serde_json::Map<String, Value>,
-) -> bool {
+fn handle_item_started(app: &mut AppState, params: &serde_json::Map<String, Value>) -> bool {
     let Some(item) = params.get("item").and_then(Value::as_object) else {
         return true;
     };
@@ -184,10 +181,7 @@ fn handle_item_started(
     true
 }
 
-fn handle_item_completed(
-    app: &mut AppState,
-    params: &serde_json::Map<String, Value>,
-) -> bool {
+fn handle_item_completed(app: &mut AppState, params: &serde_json::Map<String, Value>) -> bool {
     let Some(item) = params.get("item").and_then(Value::as_object) else {
         return true;
     };
@@ -285,11 +279,9 @@ fn complete_tool_item_no_diff(
 ) -> bool {
     let item_id = item.get("id").and_then(Value::as_str);
     let exit_code = first_i64_at_paths(item_value, &[&["exitCode"], &["exit_code"]]);
-    let command_summary = item_id
-        .and_then(|id| app.command_override(id))
-        .or_else(|| {
-            tool_command(item_value).and_then(|cmd| command_summary_from_shell_cmd(&cmd, None))
-        });
+    let command_summary = item_id.and_then(|id| app.command_override(id)).or_else(|| {
+        tool_command(item_value).and_then(|cmd| command_summary_from_shell_cmd(&cmd, None))
+    });
 
     if let (Some(id), Some(summary)) = (item_id, command_summary.clone()) {
         if exit_code.unwrap_or(0) == 0 {

@@ -26,7 +26,6 @@ pub(crate) use self::exit_plan::claude_approval_follow_up_text;
 pub(crate) use self::history::{
     fork_claude_local_history, load_claude_local_history, ClaudeLocalHistory,
 };
-use self::process::{start_claude_process, ClaudeProcess};
 #[cfg(test)]
 pub(crate) use self::history::{
     fork_claude_local_history_from_projects_root, load_claude_local_history_from_projects_root,
@@ -36,14 +35,15 @@ pub(crate) use self::process::{
     build_claude_command_for_test, collect_live_forwarded_lines_for_test,
     probe_claude_startup_for_test,
 };
+use self::process::{start_claude_process, ClaudeProcess};
 #[cfg(test)]
 pub(crate) use self::translate::translate_claude_line;
-pub(crate) use self::types::{
-    claude_model_catalog, claude_project_dir_name, claude_recovery_launch_mode,
-    ClaudeLaunchMode, CLAUDE_PENDING_THREAD_ID,
-};
 #[cfg(test)]
 pub(crate) use self::types::ClaudeTranslationState;
+pub(crate) use self::types::{
+    claude_model_catalog, claude_project_dir_name, claude_recovery_launch_mode, ClaudeLaunchMode,
+    CLAUDE_PENDING_THREAD_ID,
+};
 
 use self::types::{normalize_runtime_arg, ClaudeRuntimeSettings};
 

@@ -7,7 +7,9 @@ use super::mobile_mouse::{
     apply_mobile_mouse_scroll, parse_mobile_mouse_coords, parse_repeated_plain_mobile_pair,
 };
 use super::render::{compute_input_layout, normalize_pasted_text};
-use super::selection::{decide_mouse_drag_mode, normalize_selection_x, shift_selection_focus, MouseDragMode, Selection};
+use super::selection::{
+    decide_mouse_drag_mode, normalize_selection_x, shift_selection_focus, MouseDragMode, Selection,
+};
 use super::state::{AppState, ModelSettingsField};
 use super::TerminalSize;
 use super::MSG_TOP;
@@ -85,8 +87,7 @@ fn handle_mouse_wheel(app: &mut AppState, hit: &MouseHitContext, is_up: bool) ->
     if natural_up {
         app.viewport.scroll_top = app.viewport.scroll_top.saturating_sub(3);
     } else {
-        app.viewport.scroll_top =
-            (app.viewport.scroll_top.saturating_add(3)).min(hit.max_scroll);
+        app.viewport.scroll_top = (app.viewport.scroll_top.saturating_add(3)).min(hit.max_scroll);
     }
     app.sync_auto_follow_bottom(hit.max_scroll);
     let scroll_delta = app.viewport.scroll_top as isize - prev_scroll as isize;
@@ -159,8 +160,7 @@ fn handle_mouse_drag_left(app: &mut AppState, hit: &MouseHitContext) -> bool {
             app.viewport.scroll_top = app.viewport.scroll_top.min(hit.max_scroll);
             app.sync_auto_follow_bottom(hit.max_scroll);
             app.viewport.mouse_drag_last_row = hit.clamped_y;
-            app.viewport.scroll_top != prev_scroll
-                || app.viewport.auto_follow_bottom != prev_follow
+            app.viewport.scroll_top != prev_scroll || app.viewport.auto_follow_bottom != prev_follow
         }
         MouseDragMode::Select | MouseDragMode::Undecided => {
             let prev_focus_x = sel.focus_x;

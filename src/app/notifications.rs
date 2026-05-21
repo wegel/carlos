@@ -12,8 +12,8 @@ use super::context_usage::{
 };
 #[cfg(test)]
 pub(super) use super::item_history::append_history_from_thread;
-use super::notification_items::handle_item_notification;
 pub(crate) use super::item_history::load_history_from_start_or_resume;
+use super::notification_items::handle_item_notification;
 use super::state::PendingApprovalRequest;
 use super::tools::command_summary_from_parsed_cmd;
 use super::{AppState, ThreadSummary};

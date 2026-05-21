@@ -16,17 +16,11 @@ pub(super) fn pending_approval_from_request(
         "item/commandExecution/requestApproval" => {
             approval_command_execution(method, params, request_id)
         }
-        "item/fileChange/requestApproval" => {
-            approval_file_change(method, params, request_id)
-        }
-        "item/permissions/requestApproval" => {
-            approval_permissions(method, params, request_id)
-        }
+        "item/fileChange/requestApproval" => approval_file_change(method, params, request_id),
+        "item/permissions/requestApproval" => approval_permissions(method, params, request_id),
         "execCommandApproval" => approval_legacy_exec(method, params, request_id),
         "applyPatchApproval" => approval_legacy_patch(method, params, request_id),
-        "claude/exitPlan/requestApproval" => {
-            approval_claude_exit_plan(method, params, request_id)
-        }
+        "claude/exitPlan/requestApproval" => approval_claude_exit_plan(method, params, request_id),
         _ => None,
     }
 }

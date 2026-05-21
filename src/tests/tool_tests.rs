@@ -240,7 +240,9 @@ fn item_completed_shell_pipeline_with_empty_rhs_does_not_panic() {
 
     assert_eq!(app.messages.len(), 1);
     assert_eq!(app.messages[0].role, Role::ToolOutput);
-    assert!(app.messages[0].text.starts_with("→ Read src/main.rs\n$ cat src/main.rs |"));
+    assert!(app.messages[0]
+        .text
+        .starts_with("→ Read src/main.rs\n$ cat src/main.rs |"));
     assert!(app.messages[0].text.contains("exit code: 2"));
 }
 
