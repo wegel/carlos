@@ -340,6 +340,46 @@ fn local_claude_history_follows_latest_active_branch() {
 }
 
 #[test]
+fn local_claude_history_ignores_synthetic_interrupt_records() {
+    let root = temp_test_dir("claude-history-interrupted-user");
+    let projects_root = root.join("projects");
+    let cwd = Path::new("/repo");
+    let session_id = "session-interrupted-user";
+    write_session_file(
+        &projects_root,
+        cwd,
+        session_id,
+        &[
+            r#"{"parentUuid":null,"isSidechain":false,"type":"user","message":{"role":"user","content":"first"},"uuid":"user-1","sessionId":"session-interrupted-user"}"#,
+            r#"{"parentUuid":"user-1","isSidechain":false,"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"reply one"}]},"uuid":"assistant-1","sessionId":"session-interrupted-user"}"#,
+            r#"{"parentUuid":"assistant-1","isSidechain":false,"type":"user","message":{"role":"user","content":[{"type":"text","text":"second"}]},"uuid":"user-2","sessionId":"session-interrupted-user"}"#,
+            r#"{"type":"last-prompt","lastPrompt":"second","leafUuid":"user-2","sessionId":"session-interrupted-user"}"#,
+            r#"{"parentUuid":"user-2","isSidechain":false,"type":"user","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user]"}]},"uuid":"interrupt-1","sessionId":"session-interrupted-user"}"#,
+        ],
+    );
+
+    let imported = load_claude_local_history_from_projects_root(
+        &projects_root,
+        cwd,
+        &ClaudeLaunchMode::Resume(session_id.to_string()),
+    )
+    .expect("import")
+    .expect("history");
+
+    let items = imported.thread["turns"][0]["items"]
+        .as_array()
+        .expect("thread items");
+    assert_eq!(items.len(), 3);
+    assert_eq!(items[0]["content"][0]["text"], "first");
+    assert_eq!(items[1]["text"], "reply one");
+    assert_eq!(items[2]["content"][0]["text"], "second");
+    let rendered = serde_json::to_string(items).expect("serialize items");
+    assert!(!rendered.contains("[Request interrupted by user]"));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn fork_claude_local_history_branches_from_selected_prefix() {
     let root = temp_test_dir("claude-fork-history");
     let projects_root = root.join("projects");

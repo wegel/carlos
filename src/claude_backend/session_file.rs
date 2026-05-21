@@ -24,6 +24,13 @@ pub(super) struct ClaudeSessionRecord {
 
 // --- Record parsing ---
 
+fn is_synthetic_interrupt_text(text: &str) -> bool {
+    matches!(
+        text.trim(),
+        "[Request interrupted by user]" | "[Request interrupted by user for tool use]"
+    )
+}
+
 pub(super) fn user_record_text(record: &Value) -> Option<String> {
     let message = record.get("message").and_then(Value::as_object)?;
     if message.get("role").and_then(Value::as_str) != Some("user") {
@@ -33,14 +40,18 @@ pub(super) fn user_record_text(record: &Value) -> Option<String> {
     match message.get("content") {
         Some(Value::String(text)) => {
             let trimmed = text.trim();
-            (!trimmed.is_empty()).then(|| trimmed.to_string())
+            (!trimmed.is_empty() && !is_synthetic_interrupt_text(trimmed))
+                .then(|| trimmed.to_string())
         }
         Some(Value::Array(parts)) => {
             let text_parts: Vec<&str> = parts
                 .iter()
                 .filter(|part| part.get("type").and_then(Value::as_str) == Some("text"))
                 .filter_map(|part| part.get("text").and_then(Value::as_str))
-                .filter(|text| !text.trim().is_empty())
+                .filter(|text| {
+                    let trimmed = text.trim();
+                    !trimmed.is_empty() && !is_synthetic_interrupt_text(trimmed)
+                })
                 .collect();
             (!text_parts.is_empty()).then(|| text_parts.join("\n"))
         }
