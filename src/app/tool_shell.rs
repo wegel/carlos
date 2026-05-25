@@ -298,6 +298,62 @@ fn parse_shell_search_summary(cmd: &str, program: &str, cwd: Option<&str>) -> Op
     Some(out)
 }
 
+fn parse_shell_semeja_summary(cmd: &str, cwd: Option<&str>) -> Option<String> {
+    let tokens = shlex_split(cmd)?;
+    let first = tokens
+        .first()?
+        .rsplit('/')
+        .next()
+        .unwrap_or(tokens.first()?);
+    if first != "semeja" {
+        return None;
+    }
+
+    let subcommand = tokens.get(1).map(String::as_str)?;
+    match subcommand {
+        "search" => parse_shell_semeja_search_summary(&tokens, cwd),
+        "find-related" => parse_shell_semeja_related_summary(&tokens, cwd),
+        _ => Some("✱ Search".to_string()),
+    }
+}
+
+fn parse_shell_semeja_search_summary(tokens: &[String], cwd: Option<&str>) -> Option<String> {
+    let args: Vec<&String> = tokens
+        .iter()
+        .skip(2)
+        .filter(|token| !token.starts_with('-'))
+        .collect();
+    let query = args.first().map(|token| strip_shell_quotes(token));
+    let paths: Vec<String> = args
+        .iter()
+        .skip(1)
+        .map(|token| compact_command_path(strip_shell_quotes(token), cwd))
+        .collect();
+
+    let mut out = if paths.is_empty() {
+        "✱ Search".to_string()
+    } else {
+        format!("✱ Search {}", paths.join(" "))
+    };
+    if let Some(query) = query.filter(|query| !query.is_empty()) {
+        out.push_str(&format!(" [pattern={query}]"));
+    }
+    Some(out)
+}
+
+fn parse_shell_semeja_related_summary(tokens: &[String], cwd: Option<&str>) -> Option<String> {
+    let path = tokens.get(2).map(|token| compact_command_path(token, cwd));
+    let line = tokens.get(3).map(|token| strip_shell_quotes(token));
+    let mut out = path
+        .filter(|path| !path.is_empty())
+        .map(|path| format!("✱ Search {path}"))
+        .unwrap_or_else(|| "✱ Search".to_string());
+    if let Some(line) = line.filter(|line| !line.is_empty()) {
+        out.push_str(&format!(" [line={line}]"));
+    }
+    Some(out)
+}
+
 fn parse_sed_range(script: &str) -> Option<String> {
     if let Some(range) = script.strip_suffix('p') {
         let range = range.trim();
@@ -388,6 +444,9 @@ pub(super) fn command_summary_from_shell_cmd(cmd: &str, cwd: Option<&str>) -> Op
     }
     if lower.starts_with("grep ") {
         return parse_shell_search_summary(cmd, "grep", cwd).or(Some("✱ Search".to_string()));
+    }
+    if lower.starts_with("semeja ") {
+        return parse_shell_semeja_summary(cmd, cwd).or(Some("✱ Search".to_string()));
     }
     if lower.starts_with("fd ") || lower.starts_with("find ") || lower.starts_with("git grep ") {
         return Some("✱ Search".to_string());

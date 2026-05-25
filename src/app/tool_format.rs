@@ -99,7 +99,7 @@ pub(super) fn tool_icon(tool_name: &str) -> &'static str {
     match tool_name {
         "read" | "list" => "→",
         "write" | "edit" | "applypatch" | "apply_patch" => "←",
-        "grep" | "glob" | "codesearch" => "✱",
+        "grep" | "rg" | "search" | "glob" | "find" | "codesearch" | "semeja" => "✱",
         "task" => "#",
         _ => "◇",
     }
@@ -334,7 +334,9 @@ fn summarize_parsed_cmd_part(
 
     let mut out = match kind.as_str() {
         "read" => "→ Read".to_string(),
-        "grep" | "rg" | "search" | "glob" | "find" | "codesearch" => "✱ Search".to_string(),
+        "grep" | "rg" | "search" | "glob" | "find" | "codesearch" | "semeja" => {
+            "✱ Search".to_string()
+        }
         "list" | "listfiles" | "list_files" | "ls" => "→ List".to_string(),
         "write" | "edit" | "applypatch" | "apply_patch" | "replace" => "← Edit".to_string(),
         "diff" | "gitdiff" | "git_diff" => "Δ Diff".to_string(),

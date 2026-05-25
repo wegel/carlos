@@ -123,6 +123,54 @@ fn exec_command_end_generic_shell_rg_is_summarized_as_search() {
 }
 
 #[test]
+fn exec_command_end_generic_shell_semeja_search_is_summarized_as_search() {
+    let mut app = AppState::new("thread-1".to_string());
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_search_semeja\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/exec_command_end\",\"params\":{\"msg\":{\"type\":\"exec_command_end\",\"call_id\":\"call_search_semeja\",\"cwd\":\"/repo\",\"parsed_cmd\":[{\"type\":\"shell\",\"cmd\":\"semeja search \\\"grep and rg command summaries\\\" src/app\"}]}}}",
+        );
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_search_semeja\",\"aggregatedOutput\":\"Search results for: grep and rg command summaries\\n\",\"exitCode\":0},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(
+        app.messages[0].text,
+        "✱ Search src/app [pattern=grep and rg command summaries]"
+    );
+    assert_eq!(app.messages[0].role, Role::ToolCall);
+}
+
+#[test]
+fn exec_command_end_generic_shell_semeja_related_is_summarized_as_search() {
+    let mut app = AppState::new("thread-1".to_string());
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_related_semeja\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/exec_command_end\",\"params\":{\"msg\":{\"type\":\"exec_command_end\",\"call_id\":\"call_related_semeja\",\"cwd\":\"/repo\",\"parsed_cmd\":[{\"type\":\"shell\",\"cmd\":\"semeja find-related /repo/src/app/tool_shell.rs 372\"}]}}}",
+        );
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_related_semeja\",\"aggregatedOutput\":\"related snippets\\n\",\"exitCode\":0},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(
+        app.messages[0].text,
+        "✱ Search src/app/tool_shell.rs [line=372]"
+    );
+    assert_eq!(app.messages[0].role, Role::ToolCall);
+}
+
+#[test]
 fn exec_command_end_generic_shell_sed_is_summarized_as_search() {
     let mut app = AppState::new("thread-1".to_string());
     handle_notification_line(
@@ -162,6 +210,26 @@ fn item_completed_shell_rg_falls_back_to_search_summary_without_exec_command_end
     assert_eq!(
         app.messages[0].text,
         "✱ Search pkg/core/userland/util_linux.yaml [pattern=bundles:|runtime:|full:|bin:|misc:]"
+    );
+    assert_eq!(app.messages[0].role, Role::ToolCall);
+}
+
+#[test]
+fn item_completed_shell_semeja_falls_back_to_search_summary_without_exec_command_end() {
+    let mut app = AppState::new("thread-1".to_string());
+    handle_notification_line(
+        &mut app,
+        "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_search_semeja_fallback\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+    );
+    handle_notification_line(
+        &mut app,
+        "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_search_semeja_fallback\",\"command\":\"semeja search 'grep and rg command summaries' .\",\"aggregatedOutput\":\"Search results for: grep and rg command summaries\\n\",\"exitCode\":0},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+    );
+
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(
+        app.messages[0].text,
+        "✱ Search . [pattern=grep and rg command summaries]"
     );
     assert_eq!(app.messages[0].role, Role::ToolCall);
 }
