@@ -68,7 +68,7 @@ impl AppState {
             }
         };
         #[cfg(feature = "dictation")]
-        if let Some(session) = &self.dictation_capture {
+        if let Some(session) = &self.dictation_io.capture {
             session.set_auto_stop_enabled(mode == DictationEndpointMode::Auto);
         }
         self.set_status(match mode {
@@ -82,8 +82,8 @@ impl AppState {
         &mut self,
         tx: std::sync::mpsc::Sender<DictationEvent>,
     ) {
-        self.dictation_worker = Some(DictationWorker::spawn(tx.clone()));
-        self.dictation_events_tx = Some(tx);
+        self.dictation_io.worker = Some(DictationWorker::spawn(tx.clone()));
+        self.dictation_io.events_tx = Some(tx);
     }
 
     #[cfg(feature = "dictation")]
@@ -106,7 +106,7 @@ impl AppState {
 
     #[cfg(all(test, feature = "dictation"))]
     pub(super) fn last_dictation_audio_len(&self) -> Option<usize> {
-        self.last_dictation_audio.as_ref().map(Vec::len)
+        self.dictation_io.last_audio.as_ref().map(Vec::len)
     }
 
     // --- Recording lifecycle ---
@@ -132,16 +132,14 @@ impl AppState {
     pub(super) fn cancel_dictation(&mut self) {
         if self.dictation.cancel() {
             #[cfg(feature = "dictation")]
-            if let Some(cancel) = self.dictation_cancel.take() {
-                cancel.cancel();
-            }
-            #[cfg(feature = "dictation")]
             {
-                self.dictation_request_id = None;
-            }
-            #[cfg(feature = "dictation")]
-            if let Some(session) = self.dictation_capture.take() {
-                session.cancel();
+                if let Some(cancel) = self.dictation_io.cancel.take() {
+                    cancel.cancel();
+                }
+                self.dictation_io.request_id = None;
+                if let Some(session) = self.dictation_io.capture.take() {
+                    session.cancel();
+                }
             }
             self.set_status("dictation cancelled");
         }
@@ -205,8 +203,8 @@ impl AppState {
 impl AppState {
     #[cfg(feature = "dictation")]
     fn start_dictation_capture(&mut self) {
-        self.last_dictation_audio = None;
-        let Some(tx) = self.dictation_events_tx.clone() else {
+        self.dictation_io.last_audio = None;
+        let Some(tx) = self.dictation_io.events_tx.clone() else {
             #[cfg(test)]
             {
                 self.set_status("dictation recording");
@@ -224,7 +222,7 @@ impl AppState {
             self.dictation.auto_endpoint_enabled(),
         ) {
             Ok(session) => {
-                self.dictation_capture = Some(session);
+                self.dictation_io.capture = Some(session);
                 self.set_status("dictation recording");
             }
             Err(err) => {
@@ -241,7 +239,7 @@ impl AppState {
 
     #[cfg(feature = "dictation")]
     fn finish_dictation_capture(&mut self) {
-        let Some(session) = self.dictation_capture.take() else {
+        let Some(session) = self.dictation_io.capture.take() else {
             self.set_status("dictation transcribing");
             return;
         };
@@ -264,7 +262,7 @@ impl AppState {
         if !self.dictation.stop_recording() {
             return;
         }
-        if let Some(session) = self.dictation_capture.take() {
+        if let Some(session) = self.dictation_io.capture.take() {
             session.cancel();
         }
         let samples = Arc::try_unwrap(samples).unwrap_or_else(|samples| (*samples).clone());
@@ -273,7 +271,7 @@ impl AppState {
 
     #[cfg(feature = "dictation")]
     fn handle_dictation_capture_error(&mut self, err: String) {
-        if let Some(session) = self.dictation_capture.take() {
+        if let Some(session) = self.dictation_io.capture.take() {
             session.cancel();
         }
         self.dictation.cancel();
@@ -284,23 +282,23 @@ impl AppState {
     fn request_dictation_transcription(&mut self, samples: Vec<f32>) {
         let sample_count = samples.len();
         let Some(profile) = self.worker_profile() else {
-            self.last_dictation_audio = Some(samples);
+            self.dictation_io.last_audio = Some(samples);
             self.set_status(format!("dictation transcribing ({sample_count} samples)"));
             return;
         };
-        let Some(worker) = &self.dictation_worker else {
-            self.last_dictation_audio = Some(samples);
+        let Some(worker) = &self.dictation_io.worker else {
+            self.dictation_io.last_audio = Some(samples);
             self.set_status(format!("dictation transcribing ({sample_count} samples)"));
             return;
         };
 
-        let request_id = self.next_dictation_request_id;
-        self.next_dictation_request_id = self.next_dictation_request_id.saturating_add(1);
+        let request_id = self.dictation_io.next_request_id;
+        self.dictation_io.next_request_id = self.dictation_io.next_request_id.saturating_add(1);
         let cancel = DictationCancelToken::new();
         match worker.transcribe(request_id, profile, samples, cancel.clone()) {
             Ok(()) => {
-                self.dictation_cancel = Some(cancel);
-                self.dictation_request_id = Some(request_id);
+                self.dictation_io.cancel = Some(cancel);
+                self.dictation_io.request_id = Some(request_id);
                 self.set_status("dictation transcribing");
             }
             Err(err) => {
@@ -312,11 +310,11 @@ impl AppState {
 
     #[cfg(feature = "dictation")]
     fn handle_dictation_transcription_final(&mut self, request_id: u64, text: String) {
-        if self.dictation_request_id != Some(request_id) {
+        if self.dictation_io.request_id != Some(request_id) {
             return;
         }
-        self.dictation_cancel = None;
-        self.dictation_request_id = None;
+        self.dictation_io.cancel = None;
+        self.dictation_io.request_id = None;
         if self.dictation.finish_transcription().is_some() {
             if !text.is_empty() {
                 self.input_insert_text(text);
@@ -327,22 +325,22 @@ impl AppState {
 
     #[cfg(feature = "dictation")]
     fn handle_dictation_transcription_error(&mut self, request_id: u64, message: String) {
-        if self.dictation_request_id != Some(request_id) {
+        if self.dictation_io.request_id != Some(request_id) {
             return;
         }
-        self.dictation_cancel = None;
-        self.dictation_request_id = None;
+        self.dictation_io.cancel = None;
+        self.dictation_io.request_id = None;
         self.dictation.cancel();
         self.set_status(format!("dictation transcription failed: {message}"));
     }
 
     #[cfg(feature = "dictation")]
     fn handle_dictation_transcription_cancelled(&mut self, request_id: u64) {
-        if self.dictation_request_id != Some(request_id) {
+        if self.dictation_io.request_id != Some(request_id) {
             return;
         }
-        self.dictation_cancel = None;
-        self.dictation_request_id = None;
+        self.dictation_io.cancel = None;
+        self.dictation_io.request_id = None;
         self.dictation.cancel();
         self.set_status("dictation cancelled");
     }

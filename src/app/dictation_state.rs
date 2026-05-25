@@ -4,6 +4,45 @@
 
 #[cfg(feature = "dictation")]
 use std::path::PathBuf;
+#[cfg(feature = "dictation")]
+use std::sync::mpsc;
+
+#[cfg(feature = "dictation")]
+use crate::dictation::capture::DictationCaptureSession;
+#[cfg(feature = "dictation")]
+use crate::dictation::events::DictationEvent;
+#[cfg(feature = "dictation")]
+use crate::dictation::worker::{DictationCancelToken, DictationWorker};
+
+// --- Capture I/O state ---
+
+/// Capture, worker, and transcription bookkeeping for the dictation subsystem.
+/// Only present when the `dictation` feature is enabled.
+#[cfg(feature = "dictation")]
+pub(super) struct DictationCaptureState {
+    pub(super) capture: Option<DictationCaptureSession>,
+    pub(super) events_tx: Option<mpsc::Sender<DictationEvent>>,
+    pub(super) worker: Option<DictationWorker>,
+    pub(super) cancel: Option<DictationCancelToken>,
+    pub(super) request_id: Option<u64>,
+    pub(super) next_request_id: u64,
+    pub(super) last_audio: Option<Vec<f32>>,
+}
+
+#[cfg(feature = "dictation")]
+impl Default for DictationCaptureState {
+    fn default() -> Self {
+        Self {
+            capture: None,
+            events_tx: None,
+            worker: None,
+            cancel: None,
+            request_id: None,
+            next_request_id: 1,
+            last_audio: None,
+        }
+    }
+}
 
 // --- Types ---
 

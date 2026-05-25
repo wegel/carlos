@@ -293,7 +293,7 @@ fn dictation_worker_final_commits_matching_request() {
 
     app.start_dictation_recording();
     app.stop_dictation_recording();
-    app.dictation_request_id = Some(7);
+    app.dictation_io.request_id = Some(7);
     app.handle_dictation_event(
         crate::dictation::events::DictationEvent::TranscriptionFinal {
             request_id: 7,
@@ -314,7 +314,7 @@ fn dictation_worker_late_final_is_ignored_after_cancel() {
 
     app.start_dictation_recording();
     app.stop_dictation_recording();
-    app.dictation_request_id = Some(7);
+    app.dictation_io.request_id = Some(7);
     app.cancel_dictation();
     app.handle_dictation_event(
         crate::dictation::events::DictationEvent::TranscriptionFinal {

@@ -14,10 +14,10 @@ use anyhow::Result;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 
+use self::input_dispatch::process_event;
 #[cfg(test)]
 pub(super) use self::input_queue_rules::is_priority_server_line;
 pub(super) use self::input_queue_rules::{can_submit_queued_turn, prioritize_events};
-
 use super::input_events::ensure_transcript_layout;
 #[cfg(test)]
 pub(super) use super::input_events::is_mobile_mouse_key_candidate;
@@ -33,54 +33,13 @@ use crate::event::spawn_event_forwarders;
 use crate::event::spawn_event_forwarders_with_dictation;
 use crate::event::UiEvent;
 
-use self::input_dispatch::process_event;
-
 const MAX_UI_DRAIN_PER_CYCLE: usize = 4096;
 const SERVER_BUDGET_WITH_INPUT: usize = 8;
 const SERVER_BUDGET_IDLE: usize = 256;
 
-// --- Loop Setup ---
+// --- Types ---
 
-pub(super) fn make_input_area() -> ratatui_textarea::TextArea<'static> {
-    ratatui_textarea::TextArea::default()
-}
-
-// --- Channel State ---
-
-/// Result of draining or polling that may detect a channel disconnect.
-enum ChannelOk<T> {
-    Ok(T),
-    Disconnected,
-}
-
-impl ChannelOk<()> {
-    fn disconnected(&self) -> bool {
-        matches!(self, ChannelOk::Disconnected)
-    }
-}
-
-// --- Main Loop ---
-
-pub(crate) fn run_conversation_tui(
-    client: &dyn BackendClient,
-    app: &mut AppState,
-    server_events_rx: std::sync::mpsc::Receiver<String>,
-) -> Result<()> {
-    with_terminal(|terminal| {
-        let ui_rx = wire_event_forwarders(app, server_events_rx);
-        let mut state = LoopState::default();
-        loop {
-            if let Some(p) = app.perf.as_mut() {
-                p.loop_count = p.loop_count.saturating_add(1);
-            }
-            match run_one_loop_iteration(terminal, client, app, &ui_rx, &mut state)? {
-                LoopOutcome::Continue => continue,
-                LoopOutcome::Exit => return Ok(()),
-            }
-        }
-    })
-}
-
+/// Mutable state carried across loop iterations.
 struct LoopState {
     deferred: VecDeque<String>,
     prefetched: VecDeque<UiEvent>,
@@ -99,41 +58,68 @@ impl Default for LoopState {
     }
 }
 
-enum LoopOutcome {
-    Continue,
-    Exit,
+/// Result of draining or polling that may detect a channel disconnect.
+enum ChannelOk<T> {
+    Ok(T),
+    Disconnected,
 }
 
-#[cfg(feature = "dictation")]
-fn wire_event_forwarders(
+impl ChannelOk<()> {
+    fn disconnected(&self) -> bool {
+        matches!(self, ChannelOk::Disconnected)
+    }
+}
+
+/// Outcome of trying to collect a batch of events for this loop iteration.
+enum EventBatchOutcome {
+    Disconnected,
+    Empty,
+    Events(Vec<UiEvent>),
+}
+
+// --- Public API ---
+
+pub(super) fn make_input_area() -> ratatui_textarea::TextArea<'static> {
+    ratatui_textarea::TextArea::default()
+}
+
+pub(crate) fn run_conversation_tui(
+    client: &dyn BackendClient,
     app: &mut AppState,
     server_events_rx: std::sync::mpsc::Receiver<String>,
-) -> std::sync::mpsc::Receiver<UiEvent> {
-    let (dictation_tx, dictation_rx) = std::sync::mpsc::channel();
-    app.configure_dictation_event_sender(dictation_tx);
-    spawn_event_forwarders_with_dictation(server_events_rx, dictation_rx)
+) -> Result<()> {
+    with_terminal(|terminal| {
+        let ui_rx = wire_event_forwarders(app, server_events_rx);
+        let mut state = LoopState::default();
+        loop {
+            if let Some(p) = app.perf.as_mut() {
+                p.loop_count = p.loop_count.saturating_add(1);
+            }
+            let exit = run_one_loop_iteration(terminal, client, app, &ui_rx, &mut state)?;
+            if exit {
+                return Ok(());
+            }
+        }
+    })
 }
 
-#[cfg(not(feature = "dictation"))]
-fn wire_event_forwarders(
-    _app: &mut AppState,
-    server_events_rx: std::sync::mpsc::Receiver<String>,
-) -> std::sync::mpsc::Receiver<UiEvent> {
-    spawn_event_forwarders(server_events_rx)
-}
+// --- Loop iteration ---
 
+/// Run a single iteration of the event loop. Returns `true` to exit the loop.
 fn run_one_loop_iteration(
     terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
     client: &dyn BackendClient,
     app: &mut AppState,
-    ui_rx: &std::sync::mpsc::Receiver<UiEvent>,
+    ui_rx: &Receiver<UiEvent>,
     state: &mut LoopState,
-) -> Result<LoopOutcome> {
+) -> Result<bool> {
     let size = terminal_size(terminal)?;
-    let (loop_now, working) = (Instant::now(), app.active_turn_id.is_some());
+    let loop_now = Instant::now();
+    let working = app.active_turn_id.is_some();
+
     if drain_prefetched_idle(ui_rx, working, &state.deferred, &mut state.prefetched).disconnected()
     {
-        return Ok(LoopOutcome::Exit);
+        return Ok(true);
     }
     if try_submit_queued_turn(
         client,
@@ -144,24 +130,45 @@ fn run_one_loop_iteration(
         loop_now,
     ) {
         state.needs_draw = true;
-        return Ok(LoopOutcome::Continue);
+        return Ok(false);
     }
     state.last_anim_tick =
         update_animation_state(working, state.last_anim_tick, &mut state.needs_draw);
     maybe_draw(terminal, app, size, working, state)?;
 
     let events = match collect_loop_events(ui_rx, app, working, loop_now, state) {
-        EventBatchOutcome::Disconnected => return Ok(LoopOutcome::Exit),
-        EventBatchOutcome::Empty => return Ok(LoopOutcome::Continue),
+        EventBatchOutcome::Disconnected => return Ok(true),
+        EventBatchOutcome::Empty => return Ok(false),
         EventBatchOutcome::Events(v) => v,
     };
     for ev in events {
         if process_event(ev, client, app, size, &mut state.needs_draw) {
-            return Ok(LoopOutcome::Exit);
+            return Ok(true);
         }
     }
-    maybe_draw(terminal, app, size, app.active_turn_id.is_some(), state)?;
-    Ok(LoopOutcome::Continue)
+    // Working state may have changed inside process_event (turn started or completed),
+    // so recompute it before deciding whether to animate the next frame.
+    let working_after_events = app.active_turn_id.is_some();
+    maybe_draw(terminal, app, size, working_after_events, state)?;
+    Ok(false)
+}
+
+#[cfg(feature = "dictation")]
+fn wire_event_forwarders(
+    app: &mut AppState,
+    server_events_rx: std::sync::mpsc::Receiver<String>,
+) -> Receiver<UiEvent> {
+    let (dictation_tx, dictation_rx) = std::sync::mpsc::channel();
+    app.configure_dictation_event_sender(dictation_tx);
+    spawn_event_forwarders_with_dictation(server_events_rx, dictation_rx)
+}
+
+#[cfg(not(feature = "dictation"))]
+fn wire_event_forwarders(
+    _app: &mut AppState,
+    server_events_rx: std::sync::mpsc::Receiver<String>,
+) -> Receiver<UiEvent> {
+    spawn_event_forwarders(server_events_rx)
 }
 
 fn maybe_draw(
@@ -185,14 +192,8 @@ fn maybe_draw(
     )
 }
 
-enum EventBatchOutcome {
-    Disconnected,
-    Empty,
-    Events(Vec<UiEvent>),
-}
-
 fn collect_loop_events(
-    ui_rx: &std::sync::mpsc::Receiver<UiEvent>,
+    ui_rx: &Receiver<UiEvent>,
     app: &mut AppState,
     working: bool,
     loop_now: Instant,
@@ -224,7 +225,7 @@ fn collect_loop_events(
     }
 }
 
-// --- Loop Helpers ---
+// --- Frame and turn helpers ---
 
 fn terminal_size(terminal: &Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<TerminalSize> {
     let size = terminal.size()?;
@@ -312,6 +313,8 @@ fn draw_frame(
     Ok(())
 }
 
+// --- Channel polling ---
+
 /// Block (or non-block) for the next event, choosing the right wait
 /// strategy based on whether we are working, have deferred lines, etc.
 fn poll_next_event(
@@ -390,5 +393,3 @@ fn budgeted_events(
     };
     prioritize_events(incoming, deferred_server_lines, server_budget)
 }
-
-// --- Event Processing ---

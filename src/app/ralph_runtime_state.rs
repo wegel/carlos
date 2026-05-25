@@ -45,6 +45,43 @@ pub(super) struct RalphTurnOutcome {
     pub(super) continuation: Option<String>,
 }
 
+impl RalphTurnOutcome {
+    /// Nothing to report (idle or interrupted with no marker hit).
+    fn idle() -> Self {
+        Self::default()
+    }
+
+    /// Ralph reached the done marker. Disables ralph mode.
+    fn complete() -> Self {
+        Self {
+            system_message: Some("Ralph complete".to_string()),
+            status: Some("ralph complete".to_string()),
+            disable: true,
+            continuation: None,
+        }
+    }
+
+    /// Ralph reached the blocked marker. Disables ralph mode.
+    fn blocked() -> Self {
+        Self {
+            system_message: Some("Ralph blocked: waiting for input".to_string()),
+            status: Some("ralph blocked".to_string()),
+            disable: true,
+            continuation: None,
+        }
+    }
+
+    /// Ralph turn finished without a marker. Queue the continuation prompt.
+    fn continuing(prompt: String) -> Self {
+        Self {
+            system_message: None,
+            status: Some("ralph continuing".to_string()),
+            disable: false,
+            continuation: Some(prompt),
+        }
+    }
+}
+
 // --- Ralph Logic ---
 
 impl RalphRuntimeState {
@@ -276,7 +313,7 @@ impl RalphRuntimeState {
         interrupted: bool,
     ) -> RalphTurnOutcome {
         let Some(ralph) = self.current.as_mut() else {
-            return RalphTurnOutcome::default();
+            return RalphTurnOutcome::idle();
         };
 
         let markers = detect_turn_markers(
@@ -288,34 +325,20 @@ impl RalphRuntimeState {
         if markers.completed {
             ralph.completed = true;
             ralph.waiting_for_user = false;
-            return RalphTurnOutcome {
-                system_message: Some("Ralph complete".to_string()),
-                status: Some("ralph complete".to_string()),
-                disable: true,
-                ..Default::default()
-            };
+            return RalphTurnOutcome::complete();
         }
         if markers.blocked {
             ralph.waiting_for_user = false;
-            return RalphTurnOutcome {
-                system_message: Some("Ralph blocked: waiting for input".to_string()),
-                status: Some("ralph blocked".to_string()),
-                disable: true,
-                ..Default::default()
-            };
+            return RalphTurnOutcome::blocked();
         }
         if interrupted {
             ralph.waiting_for_user = false;
-            return RalphTurnOutcome::default();
+            return RalphTurnOutcome::idle();
         }
         if !ralph.completed {
             ralph.waiting_for_user = false;
-            return RalphTurnOutcome {
-                status: Some("ralph continuing".to_string()),
-                continuation: Some(ralph.config.continuation_prompt.clone()),
-                ..Default::default()
-            };
+            return RalphTurnOutcome::continuing(ralph.config.continuation_prompt.clone());
         }
-        RalphTurnOutcome::default()
+        RalphTurnOutcome::idle()
     }
 }

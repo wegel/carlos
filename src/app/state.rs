@@ -4,8 +4,6 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-#[cfg(feature = "dictation")]
-use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
@@ -16,6 +14,8 @@ pub(super) use super::approval_state::{
     ApprovalChoice, ApprovalRequestKind, PendingApprovalRequest,
 };
 use super::context_usage::ContextUsage;
+#[cfg(feature = "dictation")]
+use super::dictation_state::DictationCaptureState;
 use super::dictation_state::DictationRuntimeState;
 use super::input::make_input_area;
 use super::input_history_state::InputHistoryState;
@@ -30,12 +30,6 @@ use super::runtime_settings_state::RuntimeSettingsState;
 #[cfg(test)]
 pub(super) use super::runtime_settings_state::{DEFAULT_EFFORT_OPTIONS, DEFAULT_SUMMARY_OPTIONS};
 use super::viewport_state::ViewportState;
-#[cfg(feature = "dictation")]
-use crate::dictation::capture::DictationCaptureSession;
-#[cfg(feature = "dictation")]
-use crate::dictation::events::DictationEvent;
-#[cfg(feature = "dictation")]
-use crate::dictation::worker::{DictationCancelToken, DictationWorker};
 
 // --- Types ---
 
@@ -56,19 +50,7 @@ pub(super) struct AppState {
     pub(super) ralph_runtime: RalphRuntimeState,
     pub(super) dictation: DictationRuntimeState,
     #[cfg(feature = "dictation")]
-    pub(super) dictation_capture: Option<DictationCaptureSession>,
-    #[cfg(feature = "dictation")]
-    pub(super) dictation_events_tx: Option<mpsc::Sender<DictationEvent>>,
-    #[cfg(feature = "dictation")]
-    pub(super) dictation_worker: Option<DictationWorker>,
-    #[cfg(feature = "dictation")]
-    pub(super) dictation_cancel: Option<DictationCancelToken>,
-    #[cfg(feature = "dictation")]
-    pub(super) dictation_request_id: Option<u64>,
-    #[cfg(feature = "dictation")]
-    pub(super) next_dictation_request_id: u64,
-    #[cfg(feature = "dictation")]
-    pub(super) last_dictation_audio: Option<Vec<f32>>,
+    pub(super) dictation_io: DictationCaptureState,
     pub(super) runtime: RuntimeSettingsState,
     pub(super) approval: ApprovalState,
 
@@ -97,19 +79,7 @@ impl AppState {
             ralph_runtime: RalphRuntimeState::new(),
             dictation: DictationRuntimeState::disabled("dictation feature is not configured"),
             #[cfg(feature = "dictation")]
-            dictation_capture: None,
-            #[cfg(feature = "dictation")]
-            dictation_events_tx: None,
-            #[cfg(feature = "dictation")]
-            dictation_worker: None,
-            #[cfg(feature = "dictation")]
-            dictation_cancel: None,
-            #[cfg(feature = "dictation")]
-            dictation_request_id: None,
-            #[cfg(feature = "dictation")]
-            next_dictation_request_id: 1,
-            #[cfg(feature = "dictation")]
-            last_dictation_audio: None,
+            dictation_io: DictationCaptureState::default(),
             runtime: RuntimeSettingsState::new(),
             approval: ApprovalState::new(),
             viewport: ViewportState::new(),

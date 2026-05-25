@@ -14,7 +14,10 @@ use super::text::wrap_natural_by_cells;
 use super::{AppState, TerminalSize};
 use crate::theme::{COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_STEP2, COLOR_STEP7, COLOR_TEXT};
 
-use self::overlay_render_model_settings::draw_model_settings_fields;
+pub(super) use self::overlay_render_model_settings::model_settings_cursor_position;
+use self::overlay_render_model_settings::{
+    draw_model_settings_fields, model_settings_overlay_box, MODEL_SETTINGS_BOX_HEIGHT,
+};
 pub(super) use self::overlay_render_perf::draw_perf_overlay;
 
 pub(super) struct OverlayBox {
@@ -176,12 +179,8 @@ pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, 
     if !(size.height > 16 && size.width > 56) {
         return;
     }
-
-    let box_w = (size.width - 10).min(80);
-    let box_h = 14usize;
-    let ob = compute_overlay_box(size, box_w, box_h);
-
-    fill_box_background(buf, &ob, box_h);
+    let ob = model_settings_overlay_box(size);
+    fill_box_background(buf, &ob, MODEL_SETTINGS_BOX_HEIGHT);
     draw_rounded_border(buf, &ob);
 
     let title = if app.runtime_supports_summary() {
