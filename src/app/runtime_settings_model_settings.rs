@@ -1,5 +1,9 @@
+use super::{
+    default_effort_vec, effort_index, normalize_non_empty, RuntimeDefaults, RuntimeSettingsState,
+};
+
 impl RuntimeSettingsState {
-    pub(super) fn apply_model_settings(&mut self) -> RuntimeDefaults {
+    pub(in crate::app) fn apply_model_settings(&mut self) -> RuntimeDefaults {
         let model = normalize_non_empty(self.model_settings_model_value().to_string());
         let effort = self
             .supports_effort
@@ -19,21 +23,21 @@ impl RuntimeSettingsState {
         defaults
     }
 
-    pub(super) fn model_settings_model_value(&self) -> &str {
+    pub(in crate::app) fn model_settings_model_value(&self) -> &str {
         if let Some(model) = self.available_models.get(self.model_settings_model_index) {
             return model.model.as_str();
         }
         self.model_settings_model_input.as_str()
     }
 
-    pub(super) fn model_settings_effort_value(&self) -> &str {
+    pub(in crate::app) fn model_settings_effort_value(&self) -> &str {
         self.model_settings_effort_options
             .get(self.model_settings_effort_index)
             .map(String::as_str)
             .unwrap_or("medium")
     }
 
-    pub(super) fn model_settings_summary_value(&self) -> &str {
+    pub(in crate::app) fn model_settings_summary_value(&self) -> &str {
         if !self.supports_summary {
             return "";
         }
@@ -44,13 +48,13 @@ impl RuntimeSettingsState {
     }
 
     #[cfg(test)]
-    pub(super) fn apply_default_reasoning_summary(&mut self, summary: Option<String>) {
+    pub(in crate::app) fn apply_default_reasoning_summary(&mut self, summary: Option<String>) {
         if self.current_summary.is_none() && self.pending_summary.is_none() {
             self.pending_summary = summary.and_then(normalize_non_empty);
         }
     }
 
-    fn refresh_model_settings_efforts(&mut self) {
+    pub(super) fn refresh_model_settings_efforts(&mut self) {
         let requested = self
             .pending_effort
             .as_deref()

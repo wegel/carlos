@@ -1,18 +1,25 @@
 //! Wrapping and line-count logic: `append_wrapped_*` and `count_wrapped_*` functions,
 //! cell-accurate natural wrapping, and caching helpers for ASCII long-lines.
 
+#[path = "transcript_wrap_counting.rs"]
+mod transcript_wrap_counting;
+
 use std::collections::{HashMap, VecDeque};
 
 use ratatui::style::Style;
 
 use super::models::{RenderedLine, Role, StyledSegment};
 use super::text::{visual_width, wrap_natural_by_cells, wrap_natural_count_by_cells};
-use super::tools::strip_terminal_controls;
 use super::transcript_styles::{
     ansi_line_segments, is_fence_delimiter, markdown_line_segments,
     normalize_styled_segments_for_part, styled_plain_text, take_styled_segments_by_cells,
 };
 use crate::theme::COLOR_STEP2;
+
+pub(super) use self::transcript_wrap_counting::{
+    count_styled_logical_lines, count_wrapped_ansi_lines, count_wrapped_ansi_lines_cached,
+    count_wrapped_markdown_lines, count_wrapped_message_lines, count_wrapped_message_lines_cached,
+};
 
 // --- Cache ---
 
@@ -283,5 +290,3 @@ pub(super) fn append_wrapped_ansi_lines(
 
     append_styled_logical_lines_inner(out, role, logical_lines, width);
 }
-
-include!("transcript_wrap_counting.rs");

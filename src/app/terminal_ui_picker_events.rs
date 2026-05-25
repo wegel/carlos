@@ -1,5 +1,18 @@
 // --- Picker Events ---
-fn handle_picker_key<F>(
+use std::io;
+
+use anyhow::Result;
+use crossterm::event::{KeyCode, MouseButton, MouseEventKind};
+use ratatui::backend::CrosstermBackend;
+use ratatui::Terminal;
+
+use super::{PickerAction, PickerState};
+use crate::app::models::ThreadSummary;
+use crate::app::notifications::is_ctrl_char;
+use crate::app::picker_render::compute_picker_layout;
+use crate::app::TerminalSize;
+
+pub(super) fn handle_picker_key<F>(
     st: &mut PickerState,
     threads: &mut Vec<ThreadSummary>,
     allow_delete: bool,
@@ -115,7 +128,7 @@ fn handle_normal_key(
     Ok(PickerAction::Continue)
 }
 
-fn handle_picker_mouse(
+pub(super) fn handle_picker_mouse(
     st: &mut PickerState,
     threads: &[ThreadSummary],
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,

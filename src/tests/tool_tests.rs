@@ -5,6 +5,6 @@ use super::{
     strip_terminal_controls_preserving_sgr, AppState, MessageKind, Role,
 };
 
-include!("tool_tests/part_1.rs");
+include!("tool_tests/command_summaries.rs");
 
-include!("tool_tests/part_2.rs");
+include!("tool_tests/shell_rendering.rs");

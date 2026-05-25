@@ -1,5 +1,8 @@
 //! Terminal setup, thread picker UI, and raw-mode lifecycle helpers.
 
+#[path = "terminal_ui_picker_events.rs"]
+mod terminal_ui_picker_events;
+
 use std::cmp::Reverse;
 use std::env;
 use std::io;
@@ -8,8 +11,7 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use crossterm::event::{
     self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
-    Event, KeyCode, KeyboardEnhancementFlags, MouseButton, MouseEventKind,
-    PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+    Event, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
 use crossterm::execute;
 use crossterm::style::Print;
@@ -19,9 +21,11 @@ use crossterm::terminal::{
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 
-use super::notifications::{is_ctrl_char, is_key_press_like};
+use super::notifications::is_key_press_like;
 use super::picker_render::{compute_picker_layout, draw_picker};
 use super::{TerminalSize, ThreadSummary};
+
+use self::terminal_ui_picker_events::{handle_picker_key, handle_picker_mouse};
 
 // --- Terminal Policy ---
 fn env_flag(name: &str) -> Option<bool> {
@@ -136,7 +140,7 @@ enum PickerAction {
     Select(String),
 }
 
-struct PickerState {
+pub(super) struct PickerState {
     selected: usize,
     top: usize,
     last_size: TerminalSize,
@@ -238,5 +242,3 @@ fn draw_picker_frame(
     })?;
     Ok(())
 }
-
-include!("terminal_ui_picker_events.rs");

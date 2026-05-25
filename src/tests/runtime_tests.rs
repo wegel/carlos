@@ -14,8 +14,8 @@ fn runtime_env_lock() -> &'static Mutex<()> {
     LOCK.get_or_init(|| Mutex::new(()))
 }
 
-include!("runtime_tests/part_1.rs");
+include!("runtime_tests/cli_runtime_settings.rs");
 
-include!("runtime_tests/part_2.rs");
+include!("runtime_tests/ralph_runtime.rs");
 
-include!("runtime_tests/part_3.rs");
+include!("runtime_tests/picker_and_local_history.rs");

@@ -1,7 +1,12 @@
 //! Shell command extraction, SSH rewriting, and ANSI/control-character stripping.
 
+#[path = "tool_shell_command_summaries.rs"]
+mod tool_shell_command_summaries;
+
 use serde_json::Value;
 use shlex::split as shlex_split;
+
+pub(super) use self::tool_shell_command_summaries::command_summary_from_shell_cmd;
 
 // --- Shell Types ---
 /// An SSH command decomposed into destination and remote command.
@@ -270,5 +275,3 @@ fn tokens_without_program_options(tokens: &[String]) -> &[String] {
     }
     &tokens[i..]
 }
-
-include!("tool_shell_command_summaries.rs");

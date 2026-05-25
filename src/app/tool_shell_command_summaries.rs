@@ -1,4 +1,9 @@
 // --- Command Summaries ---
+use super::{
+    compact_command_path, first_non_option_token, normalize_shell_command, shlex_split,
+    strip_shell_quotes, tokens_without_program_options,
+};
+
 fn parse_shell_search_summary(cmd: &str, program: &str, cwd: Option<&str>) -> Option<String> {
     let tokens = shlex_split(cmd)?;
     if tokens.first().map(String::as_str)? != program {
@@ -148,7 +153,10 @@ fn parse_shell_pipeline_summary(cmd: &str, cwd: Option<&str>) -> Option<String> 
     None
 }
 
-pub(super) fn command_summary_from_shell_cmd(cmd: &str, cwd: Option<&str>) -> Option<String> {
+pub(in crate::app) fn command_summary_from_shell_cmd(
+    cmd: &str,
+    cwd: Option<&str>,
+) -> Option<String> {
     let cmd = normalize_shell_command(cmd);
     let cmd = cmd.trim();
     if cmd.is_empty() {

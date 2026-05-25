@@ -1,29 +1,21 @@
 //! Backend launch and app setup helpers.
 
+#[path = "backend_setup_launch.rs"]
+mod backend_setup_launch;
+
 use super::cli::{
     env_flag_enabled, resolve_initial_runtime_settings, styled_resume_hint, Backend, CliOptions,
 };
 #[cfg(feature = "dictation")]
 use super::dictation_state::DictationProfileState;
 use super::input::run_conversation_tui;
-use super::models::{Role, ThreadSummary};
-use super::notifications::{
-    handle_server_message_line, load_history_from_start_or_resume, parse_thread_list,
-};
+use super::models::ThreadSummary;
 use super::state::AppState;
-use super::terminal_ui::{pick_thread, sort_threads_for_picker};
 use super::RuntimeDefaults;
 use crate::backend::BackendClient;
-use crate::claude_backend::{
-    claude_model_catalog, claude_project_dir_name, load_claude_local_history, ClaudeClient,
-    ClaudeLaunchMode, ClaudeLocalHistory, CLAUDE_PENDING_THREAD_ID,
-};
-use crate::protocol::AppServerClient;
+use crate::claude_backend::claude_project_dir_name;
 use crate::protocol_params::{
-    extract_result_object, initialize_client, params_model_list, params_thread_archive,
-    params_thread_list, params_thread_resume, params_thread_start, parse_model_list_page,
-    parse_thread_id_from_start_or_resume, parse_thread_runtime_settings, ModelInfo,
-    ThreadRuntimeSettings,
+    params_model_list, parse_model_list_page, ModelInfo, ThreadRuntimeSettings,
 };
 use anyhow::{Context, Result};
 use std::env;
@@ -32,6 +24,8 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
 use std::time::Duration;
+
+pub(super) use self::backend_setup_launch::{run_claude_backend, run_codex_backend};
 // --- Model Catalog ---
 pub(super) fn fetch_model_catalog(client: &dyn BackendClient) -> Result<Vec<ModelInfo>> {
     let mut cursor = None;
@@ -237,5 +231,3 @@ pub(super) fn load_claude_thread_summaries(
     }
     Ok(out)
 }
-
-include!("backend_setup_launch.rs");

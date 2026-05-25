@@ -1,6 +1,17 @@
 // --- Counting ---
 
-pub(super) fn count_wrapped_message_lines(role: Role, text: &str, width: usize) -> usize {
+use super::{
+    contains_terminal_escapes, count_ascii_multiline_by_cells,
+    count_ascii_multiline_by_cells_cached, fast_reasoning_summary_plain_text, RenderCountCache,
+};
+use crate::app::models::{Role, StyledSegment};
+use crate::app::text::wrap_natural_count_by_cells;
+use crate::app::tools::strip_terminal_controls;
+use crate::app::transcript_styles::{
+    ansi_line_segments, is_fence_delimiter, markdown_line_segments, styled_plain_text,
+};
+
+pub(in crate::app) fn count_wrapped_message_lines(role: Role, text: &str, width: usize) -> usize {
     if width < 8 {
         return 0;
     }
@@ -34,7 +45,7 @@ pub(super) fn count_wrapped_message_lines(role: Role, text: &str, width: usize) 
     count
 }
 
-pub(super) fn count_wrapped_message_lines_cached<'a>(
+pub(in crate::app) fn count_wrapped_message_lines_cached<'a>(
     cache: &mut RenderCountCache<'a>,
     role: Role,
     text: &'a str,
@@ -51,7 +62,7 @@ pub(super) fn count_wrapped_message_lines_cached<'a>(
     count_wrapped_message_lines(role, text, width)
 }
 
-pub(super) fn count_wrapped_markdown_lines(role: Role, text: &str, width: usize) -> usize {
+pub(in crate::app) fn count_wrapped_markdown_lines(role: Role, text: &str, width: usize) -> usize {
     if width < 8 {
         return 0;
     }
@@ -105,7 +116,7 @@ pub(super) fn count_wrapped_markdown_lines(role: Role, text: &str, width: usize)
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
-pub(super) fn count_wrapped_ansi_lines(role: Role, text: &str, width: usize) -> usize {
+pub(in crate::app) fn count_wrapped_ansi_lines(role: Role, text: &str, width: usize) -> usize {
     if width < 8 {
         return 0;
     }
@@ -119,7 +130,7 @@ pub(super) fn count_wrapped_ansi_lines(role: Role, text: &str, width: usize) -> 
     count_styled_logical_lines(logical_lines, width)
 }
 
-pub(super) fn count_wrapped_ansi_lines_cached<'a>(
+pub(in crate::app) fn count_wrapped_ansi_lines_cached<'a>(
     cache: &mut RenderCountCache<'a>,
     role: Role,
     text: &'a str,
@@ -138,7 +149,7 @@ pub(super) fn count_wrapped_ansi_lines_cached<'a>(
     count_styled_logical_lines(logical_lines, width)
 }
 
-pub(super) fn count_styled_logical_lines(
+pub(in crate::app) fn count_styled_logical_lines(
     logical_lines: Vec<Vec<StyledSegment>>,
     width: usize,
 ) -> usize {

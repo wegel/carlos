@@ -1,5 +1,33 @@
 // --- Codex Backend ---
-pub(super) fn run_codex_backend(
+use std::path::Path;
+use std::sync::mpsc::Receiver;
+use std::time::Duration;
+
+use anyhow::Result;
+
+use super::{configure_app_common, fetch_model_catalog, finish_run, load_claude_thread_summaries};
+use crate::backend::BackendClient;
+use crate::claude_backend::{
+    claude_model_catalog, load_claude_local_history, ClaudeClient, ClaudeLaunchMode,
+    ClaudeLocalHistory, CLAUDE_PENDING_THREAD_ID,
+};
+use crate::protocol::AppServerClient;
+use crate::protocol_params::{
+    extract_result_object, initialize_client, params_thread_archive, params_thread_list,
+    params_thread_resume, params_thread_start, parse_thread_id_from_start_or_resume,
+    parse_thread_runtime_settings, ThreadRuntimeSettings,
+};
+
+use super::super::cli::CliOptions;
+use super::super::models::Role;
+use super::super::notifications::{
+    handle_server_message_line, load_history_from_start_or_resume, parse_thread_list,
+};
+use super::super::state::AppState;
+use super::super::terminal_ui::{pick_thread, sort_threads_for_picker};
+use super::super::RuntimeDefaults;
+
+pub(in crate::app) fn run_codex_backend(
     opts: &CliOptions,
     _cwd_path: &Path,
     cwd: &str,
@@ -112,7 +140,7 @@ pub(super) fn configure_codex_app(
     Ok(())
 }
 // --- Claude Backend ---
-pub(super) fn run_claude_backend(
+pub(in crate::app) fn run_claude_backend(
     opts: &CliOptions,
     cwd_path: &Path,
     cwd: &str,
@@ -211,7 +239,7 @@ pub(super) fn apply_claude_local_history(
         .as_ref()
         .and_then(|history| history.context_usage)
     {
-        app.context_usage = Some(super::context_usage::ContextUsage {
+        app.context_usage = Some(crate::app::context_usage::ContextUsage {
             used: usage.used,
             max: usage.max,
         });

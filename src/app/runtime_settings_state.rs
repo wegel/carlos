@@ -1,5 +1,8 @@
 //! Model, effort, and summary settings state with pending-vs-confirmed cycling.
 
+#[path = "runtime_settings_model_settings.rs"]
+mod runtime_settings_model_settings;
+
 use crate::app::RuntimeDefaults;
 use crate::protocol_params::ModelInfo;
 
@@ -318,8 +321,6 @@ impl RuntimeSettingsState {
         self.model_settings_model_input.pop();
     }
 }
-
-include!("runtime_settings_model_settings.rs");
 
 // --- State Helpers ---
 fn normalize_non_empty(s: String) -> Option<String> {

@@ -1,6 +1,28 @@
 // --- Input area ---
 
-fn draw_input_area(
+use ratatui::buffer::Buffer;
+use ratatui::style::{Modifier, Style};
+
+use super::{draw_str, fill_rect};
+use crate::app::context_usage::{
+    context_label_reserved_cells, context_usage_label, context_usage_placeholder_label,
+};
+use crate::app::models::TerminalSize;
+use crate::app::notifications::{animation_tick, kitt_head_index};
+use crate::app::overlay_render::{
+    draw_approval_overlay, draw_help_overlay, draw_model_settings_overlay, draw_perf_overlay,
+};
+use crate::app::render_input::InputLayout;
+use crate::app::state::{AppState, ModelSettingsField};
+use crate::app::text::visual_width;
+use crate::app::MSG_CONTENT_X;
+use crate::theme::{
+    kitt_color_for_distance, COLOR_DIFF_HUNK, COLOR_DIFF_REMOVE, COLOR_GUTTER_AGENT_COMMENTARY,
+    COLOR_GUTTER_AGENT_THINKING, COLOR_GUTTER_USER, COLOR_STEP3, COLOR_STEP7, COLOR_STEP8,
+    COLOR_TEXT,
+};
+
+pub(super) fn draw_input_area(
     buf: &mut Buffer,
     app: &AppState,
     size: TerminalSize,
@@ -50,7 +72,12 @@ fn draw_input_area(
 
 // --- Status bar ---
 
-fn draw_status_bar(buf: &mut Buffer, app: &AppState, size: TerminalSize, input_top: usize) {
+pub(super) fn draw_status_bar(
+    buf: &mut Buffer,
+    app: &AppState,
+    size: TerminalSize,
+    input_top: usize,
+) {
     if input_top <= 1 || size.width == 0 {
         return;
     }
@@ -205,7 +232,7 @@ fn draw_status_bar(buf: &mut Buffer, app: &AppState, size: TerminalSize, input_t
 
 // --- Overlays ---
 
-fn draw_overlays(buf: &mut Buffer, size: TerminalSize, app: &AppState) {
+pub(super) fn draw_overlays(buf: &mut Buffer, size: TerminalSize, app: &AppState) {
     if app.viewport.show_help {
         draw_help_overlay(buf, size);
     }
@@ -222,7 +249,7 @@ fn draw_overlays(buf: &mut Buffer, size: TerminalSize, app: &AppState) {
 
 // --- Cursor ---
 
-fn cursor_position(
+pub(super) fn cursor_position(
     app: &AppState,
     size: TerminalSize,
     input_layout: &InputLayout,

@@ -2,7 +2,16 @@
 // Perf overlay
 // ---------------------------------------------------------------------------
 
-pub(super) fn draw_perf_overlay(buf: &mut Buffer, size: TerminalSize, perf: &PerfMetrics) {
+use ratatui::buffer::Buffer;
+use ratatui::style::Style;
+
+use super::{draw_box_border, draw_str, fill_rect};
+use crate::app::perf::PerfMetrics;
+use crate::app::text::visual_width;
+use crate::app::TerminalSize;
+use crate::theme::{COLOR_DIM, COLOR_STEP1, COLOR_STEP7};
+
+pub(in crate::app) fn draw_perf_overlay(buf: &mut Buffer, size: TerminalSize, perf: &PerfMetrics) {
     let lines = perf.overlay_lines();
     if lines.is_empty() || size.width < 44 || size.height < lines.len() + 4 {
         return;

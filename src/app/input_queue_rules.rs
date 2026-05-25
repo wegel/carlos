@@ -1,5 +1,12 @@
 // --- Queue Rules ---
-pub(super) fn can_submit_queued_turn(
+use std::collections::VecDeque;
+
+use crossterm::event::{Event as CrosstermEvent, MouseEventKind};
+use serde_json::Value;
+
+use crate::event::UiEvent;
+
+pub(in crate::app) fn can_submit_queued_turn(
     working: bool,
     deferred_server_lines: &VecDeque<String>,
     prefetched_events: &VecDeque<UiEvent>,
@@ -20,7 +27,7 @@ fn queued_turn_blocking_event(event: &UiEvent) -> bool {
     }
 }
 
-pub(super) fn prioritize_events(
+pub(in crate::app) fn prioritize_events(
     incoming_events: Vec<UiEvent>,
     deferred_server_lines: &mut VecDeque<String>,
     server_budget: usize,
@@ -65,7 +72,7 @@ pub(super) fn prioritize_events(
     prioritized
 }
 
-pub(super) fn is_priority_server_line(line: &str) -> bool {
+pub(in crate::app) fn is_priority_server_line(line: &str) -> bool {
     let Ok(parsed) = serde_json::from_str::<Value>(line) else {
         return false;
     };

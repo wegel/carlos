@@ -1,5 +1,10 @@
 // --- Trailing Spaces ---
-fn preserve_trailing_spaces(out: &mut Vec<String>, text: &str, width: usize) {
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
+
+use super::{visual_width, TAB_STOP};
+
+pub(super) fn preserve_trailing_spaces(out: &mut Vec<String>, text: &str, width: usize) {
     // Preserve trailing spaces so transcript copy/paste and input editing
     // can round-trip explicit whitespace at the end of a logical line.
     let wanted_trailing_spaces = text.chars().rev().take_while(|c| *c == ' ').count();
@@ -30,7 +35,7 @@ fn preserve_trailing_spaces(out: &mut Vec<String>, text: &str, width: usize) {
     }
 }
 
-fn additional_lines_for_trailing_spaces(
+pub(super) fn additional_lines_for_trailing_spaces(
     text: &str,
     width: usize,
     last_line_width: usize,
@@ -52,7 +57,7 @@ fn additional_lines_for_trailing_spaces(
 }
 
 // --- Tab Expansion ---
-fn expand_tabs(text: &str) -> String {
+pub(super) fn expand_tabs(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut col = 0usize;
     for grapheme in text.graphemes(true) {

@@ -1,14 +1,19 @@
 //! Conversation event loop: poll terminal and server events, dispatch to handlers.
 
+#[path = "input_queue_rules.rs"]
+mod input_queue_rules;
+
 use std::collections::VecDeque;
 use std::sync::mpsc::{Receiver, RecvTimeoutError, TryRecvError};
 use std::time::Instant;
 
 use anyhow::Result;
-use crossterm::event::{Event as CrosstermEvent, MouseEventKind};
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
-use serde_json::Value;
+
+#[cfg(test)]
+pub(super) use self::input_queue_rules::is_priority_server_line;
+pub(super) use self::input_queue_rules::{can_submit_queued_turn, prioritize_events};
 
 #[cfg(test)]
 pub(super) use super::input_events::is_mobile_mouse_key_candidate;
@@ -352,5 +357,3 @@ fn handle_server_line(client: &dyn BackendClient, app: &mut AppState, line: &str
         }
     }
 }
-
-include!("input_queue_rules.rs");

@@ -1,8 +1,12 @@
 //! Thread picker rendering: session list display and navigation.
 
+#[path = "picker_render_time.rs"]
+mod picker_render_time;
+
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
+use self::picker_render_time::format_picker_timestamp;
 use super::picker_delete_dialog::draw_picker_delete_dialog;
 use super::render::{draw_str, fill_rect};
 use super::text::{split_at_cells, visual_width};
@@ -375,5 +379,3 @@ fn draw_picker_footer(
         layout.list_w,
     );
 }
-
-include!("picker_render_time.rs");

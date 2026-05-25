@@ -6,8 +6,8 @@ use super::{
     MessageKind, Role, ServerRequestAction,
 };
 
-include!("notification_tests/part_1.rs");
+include!("notification_tests/context_and_approvals.rs");
 
-include!("notification_tests/part_2.rs");
+include!("notification_tests/history_and_tools.rs");
 
-include!("notification_tests/part_3.rs");
+include!("notification_tests/diff_notifications.rs");

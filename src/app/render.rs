@@ -1,35 +1,28 @@
 //! Main rendering pipeline: transcript drawing, input area, and status bar.
 
+#[path = "render_sections.rs"]
+mod render_sections;
+
 use std::time::Instant;
 
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
-use super::context_usage::{
-    context_label_reserved_cells, context_usage_label, context_usage_placeholder_label,
-};
-use super::notifications::{animation_tick, kitt_head_index};
-use super::overlay_render::{
-    draw_approval_overlay, draw_help_overlay, draw_model_settings_overlay, draw_perf_overlay,
-};
-use super::render_input::InputLayout;
 use super::selection::compute_selection_range;
-use super::state::ModelSettingsField;
 use super::text::{slice_by_cells, visual_width};
 use super::transcript_render::transcript_content_width;
 use super::{AppState, RenderedLine, Role, TerminalSize, MSG_CONTENT_X, MSG_TOP};
 use crate::theme::{
-    kitt_color_for_distance, role_fg, role_gutter_fg, role_gutter_symbol, role_row_bg,
-    COLOR_DIFF_HUNK, COLOR_DIFF_REMOVE, COLOR_GUTTER_AGENT_COMMENTARY, COLOR_GUTTER_AGENT_THINKING,
-    COLOR_GUTTER_USER, COLOR_STEP1, COLOR_STEP2, COLOR_STEP3, COLOR_STEP6, COLOR_STEP7,
-    COLOR_STEP8, COLOR_TEXT,
+    role_fg, role_gutter_fg, role_gutter_symbol, role_row_bg, COLOR_STEP1, COLOR_STEP2,
+    COLOR_STEP6, COLOR_STEP8, COLOR_TEXT,
 };
+
+use self::render_sections::{cursor_position, draw_input_area, draw_overlays, draw_status_bar};
 
 // --- Re-exports: items moved to render_input but accessed via super::render:: by other modules ---
 
 pub(super) use super::render_input::{
-    compute_input_layout, is_newline_enter, last_assistant_message, normalize_pasted_text,
-    textarea_input_from_key,
+    compute_input_layout, is_newline_enter, normalize_pasted_text, textarea_input_from_key,
 };
 
 // --- Drawing primitives (used by picker_render, overlay_render, and render_lines) ---
@@ -358,5 +351,3 @@ fn transcript_line_style(role: Role) -> Style {
         style
     }
 }
-
-include!("render_sections.rs");

@@ -1,9 +1,16 @@
 //! Unicode-aware text measurement, cell-based wrapping, and tab expansion.
 
+#[path = "text_trailing.rs"]
+mod text_trailing;
+
 use textwrap::word_splitters::split_words;
 use textwrap::{wrap as wrap_text, Options as WrapOptions, WordSplitter};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
+
+use self::text_trailing::{
+    additional_lines_for_trailing_spaces, expand_tabs, preserve_trailing_spaces,
+};
 
 const TAB_STOP: usize = 8;
 
@@ -337,5 +344,3 @@ pub(super) fn wrap_input_line(line: &str, width: usize) -> Vec<String> {
 pub(super) fn wrap_input_line_count(line: &str, width: usize) -> usize {
     wrap_natural_count_by_cells(line, width)
 }
-
-include!("text_trailing.rs");

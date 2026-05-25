@@ -144,8 +144,8 @@ fn usable_dictation_profile_with(id: &str, name: &str) -> DictationProfileState 
     }
 }
 
-include!("input_tests/part_1.rs");
+include!("input_tests/dictation.rs");
 
-include!("input_tests/part_2.rs");
+include!("input_tests/approvals_and_rewind.rs");
 
-include!("input_tests/part_3.rs");
+include!("input_tests/mobile_mouse_and_perf.rs");

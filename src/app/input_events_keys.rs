@@ -1,6 +1,34 @@
 // --- Key event handling ---
 
-fn handle_key_event(
+#[path = "input_events_dictation.rs"]
+mod input_events_dictation;
+
+use std::time::Instant;
+
+use crossterm::event::{KeyCode, KeyModifiers};
+
+use super::{ensure_transcript_layout, is_mobile_mouse_key_candidate, TerminalEventResult};
+use crate::app::mobile_mouse::{
+    consume_mobile_mouse_char, take_mobile_mouse_buffer, MobileMouseConsume,
+};
+use crate::app::notifications::{is_ctrl_char, is_key_press_like, is_perf_toggle_key};
+use crate::app::render::{compute_input_layout, is_newline_enter};
+use crate::app::render_input::last_assistant_message;
+use crate::app::selection::MouseDragMode;
+use crate::app::state::{AppState, ApprovalChoice, ModelSettingsField};
+use crate::app::turn_submit::{
+    interrupt_active_turn, respond_to_pending_approval, submit_rewind_turn_text, submit_turn_text,
+};
+use crate::app::{persist_runtime_defaults, TerminalSize, MSG_TOP};
+use crate::backend::BackendClient;
+use crate::clipboard::{clipboard_backend_label, try_copy_clipboard};
+
+use self::input_events_dictation::{
+    handle_ctrl_d_dictation, handle_enter_stop_dictation, handle_f7_dictation_profile,
+    handle_f9_dictation_endpoint,
+};
+
+pub(super) fn handle_key_event(
     client: &dyn BackendClient,
     app: &mut AppState,
     k: crossterm::event::KeyEvent,
@@ -232,32 +260,6 @@ fn handle_ctrl_r_ralph(app: &mut AppState) -> TerminalEventResult {
     if let Err(e) = app.request_ralph_toggle() {
         app.set_status(format!("ralph: {e}"));
     }
-    TerminalEventResult::Continue { needs_draw: true }
-}
-
-fn handle_f7_dictation_profile(app: &mut AppState) -> TerminalEventResult {
-    app.switch_dictation_profile_next();
-    TerminalEventResult::Continue { needs_draw: true }
-}
-
-fn handle_f9_dictation_endpoint(app: &mut AppState) -> TerminalEventResult {
-    app.toggle_dictation_endpoint_mode();
-    TerminalEventResult::Continue { needs_draw: true }
-}
-
-fn handle_ctrl_d_dictation(app: &mut AppState) -> TerminalEventResult {
-    if app.dictation_recording() {
-        app.stop_dictation_recording();
-    } else if app.dictation_active() {
-        app.restart_dictation_recording();
-    } else {
-        app.start_dictation_recording();
-    }
-    TerminalEventResult::Continue { needs_draw: true }
-}
-
-fn handle_enter_stop_dictation(app: &mut AppState) -> TerminalEventResult {
-    app.stop_dictation_recording();
     TerminalEventResult::Continue { needs_draw: true }
 }
 

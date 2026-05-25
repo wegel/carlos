@@ -1,6 +1,9 @@
 //! Terminal event dispatch: keyboard event routing and resize handling.
 //! Re-evaluate if a new overlay mode or input subsystem is added.
 
+#[path = "input_events_keys.rs"]
+mod input_events_keys;
+
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::sync::{Mutex, OnceLock};
@@ -8,21 +11,13 @@ use std::time::Instant;
 
 use crossterm::event::{Event, KeyCode, KeyModifiers};
 
-use super::mobile_mouse::{
-    consume_mobile_mouse_char, take_mobile_mouse_buffer, MobileMouseConsume,
-};
 use super::mouse_events::{handle_mouse_event, handle_paste_event};
-use super::notifications::{is_ctrl_char, is_key_press_like, is_perf_toggle_key};
-use super::render::{compute_input_layout, is_newline_enter, last_assistant_message};
-use super::selection::MouseDragMode;
-use super::state::{AppState, ApprovalChoice, ModelSettingsField};
+use super::state::AppState;
 use super::transcript_render::transcript_content_width;
-use super::turn_submit::{
-    interrupt_active_turn, respond_to_pending_approval, submit_rewind_turn_text, submit_turn_text,
-};
-use super::{persist_runtime_defaults, TerminalSize, MSG_TOP};
+use super::TerminalSize;
 use crate::backend::BackendClient;
-use crate::clipboard::{clipboard_backend_label, try_copy_clipboard};
+
+use self::input_events_keys::handle_key_event;
 
 // --- Types ---
 
@@ -126,5 +121,3 @@ pub(super) fn handle_terminal_event(
         _ => TerminalEventResult::Continue { needs_draw: false },
     }
 }
-
-include!("input_events_keys.rs");

@@ -140,10 +140,10 @@ fn env_lock() -> &'static Mutex<()> {
     LOCK.get_or_init(|| Mutex::new(()))
 }
 
-include!("claude_backend_tests/part_1.rs");
+include!("claude_backend_tests/cli_and_session_history.rs");
 
-include!("claude_backend_tests/part_2.rs");
+include!("claude_backend_tests/translation_and_submit.rs");
 
-include!("claude_backend_tests/part_3.rs");
+include!("claude_backend_tests/local_history_recovery.rs");
 
-include!("claude_backend_tests/part_4.rs");
+include!("claude_backend_tests/failure_paths.rs");

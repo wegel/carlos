@@ -38,10 +38,10 @@ fn render_app_text(app: &mut AppState) -> String {
     rendered_buffer_text(terminal.backend().buffer())
 }
 
-include!("ui_render_tests/part_1.rs");
+include!("ui_render_tests/selection_and_history.rs");
 
-include!("ui_render_tests/part_2.rs");
+include!("ui_render_tests/transcript_and_input.rs");
 
-include!("ui_render_tests/part_3.rs");
+include!("ui_render_tests/markdown_and_diff.rs");
 
-include!("ui_render_tests/part_4.rs");
+include!("ui_render_tests/drawing_and_wrapping.rs");
