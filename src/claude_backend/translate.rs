@@ -131,53 +131,61 @@ fn translate_content_block_start(
         .and_then(Value::as_object)
         .context("missing Claude content_block")?;
     match block.get("type").and_then(Value::as_str) {
-        Some("text") => {
-            state.current_message_has_content_blocks = true;
-            let item_id = claude_message_item_id(state, index);
-            state.current_blocks.insert(
-                index,
-                ClaudeBlockState::Text {
-                    item_id: item_id.clone(),
-                    text: String::new(),
-                },
-            );
-            out.lines.push(
-                json!({
-                    "method": "item/started",
-                    "params": {
-                        "item": {
-                            "id": item_id,
-                            "type": "agentMessage"
-                        }
-                    }
-                })
-                .to_string(),
-            );
-        }
-        Some("tool_use") => {
-            state.current_message_has_content_blocks = true;
-            let item_id = block
-                .get("id")
-                .and_then(Value::as_str)
-                .map(ToOwned::to_owned)
-                .unwrap_or_else(|| claude_tool_item_id(state, index));
-            let name = block
-                .get("name")
-                .and_then(Value::as_str)
-                .unwrap_or("Tool")
-                .to_string();
-            state.current_blocks.insert(
-                index,
-                ClaudeBlockState::ToolUse {
-                    item_id: item_id.clone(),
-                    name,
-                    input_json: String::new(),
-                },
-            );
-        }
+        Some("text") => start_text_block(state, index, out),
+        Some("tool_use") => start_tool_use_block(state, index, block),
         _ => {}
     }
     Ok(())
+}
+
+fn start_text_block(state: &mut ClaudeTranslationState, index: usize, out: &mut TranslateOutput) {
+    state.current_message_has_content_blocks = true;
+    let item_id = claude_message_item_id(state, index);
+    state.current_blocks.insert(
+        index,
+        ClaudeBlockState::Text {
+            item_id: item_id.clone(),
+            text: String::new(),
+        },
+    );
+    out.lines.push(
+        json!({
+            "method": "item/started",
+            "params": {
+                "item": {
+                    "id": item_id,
+                    "type": "agentMessage"
+                }
+            }
+        })
+        .to_string(),
+    );
+}
+
+fn start_tool_use_block(
+    state: &mut ClaudeTranslationState,
+    index: usize,
+    block: &Map<String, Value>,
+) {
+    state.current_message_has_content_blocks = true;
+    let item_id = block
+        .get("id")
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| claude_tool_item_id(state, index));
+    let name = block
+        .get("name")
+        .and_then(Value::as_str)
+        .unwrap_or("Tool")
+        .to_string();
+    state.current_blocks.insert(
+        index,
+        ClaudeBlockState::ToolUse {
+            item_id,
+            name,
+            input_json: String::new(),
+        },
+    );
 }
 
 fn translate_content_block_delta(
@@ -231,60 +239,70 @@ fn translate_content_block_stop(
         .get("index")
         .and_then(Value::as_u64)
         .context("missing Claude content block stop index")? as usize;
-    if let Some(block) = state.current_blocks.remove(&index) {
-        match block {
-            ClaudeBlockState::Text { item_id, text } => {
-                out.lines.push(
-                    json!({
-                        "method": "item/completed",
-                        "params": {
-                            "item": {
-                                "id": item_id,
-                                "type": "agentMessage",
-                                "text": text,
-                            }
-                        }
-                    })
-                    .to_string(),
-                );
-            }
-            ClaudeBlockState::ToolUse {
-                item_id,
-                name,
-                input_json,
-            } => {
-                let input = parse_partial_json_object(&input_json);
-                let hidden =
-                    should_hide_claude_tool_transcript(&name, &Value::Object(input.clone()));
-                state.tool_calls.insert(
-                    item_id.clone(),
-                    ClaudeToolCall {
-                        name: name.clone(),
-                        input: Value::Object(input.clone()),
-                    },
-                );
-                if hidden {
-                    return Ok(());
-                }
-                out.lines.push(
-                    json!({
-                        "method": "item/completed",
-                        "params": {
-                            "item": {
-                                "id": item_id,
-                                "type": "toolCall",
-                                "tool": name,
-                                "name": name,
-                                "input": input,
-                            }
-                        }
-                    })
-                    .to_string(),
-                );
-            }
-        }
+    let Some(block) = state.current_blocks.remove(&index) else {
+        return Ok(());
+    };
+    match block {
+        ClaudeBlockState::Text { item_id, text } => emit_text_block_completed(item_id, text, out),
+        ClaudeBlockState::ToolUse {
+            item_id,
+            name,
+            input_json,
+        } => emit_tool_use_block_completed(state, item_id, name, input_json, out),
     }
     Ok(())
+}
+
+fn emit_text_block_completed(item_id: String, text: String, out: &mut TranslateOutput) {
+    out.lines.push(
+        json!({
+            "method": "item/completed",
+            "params": {
+                "item": {
+                    "id": item_id,
+                    "type": "agentMessage",
+                    "text": text,
+                }
+            }
+        })
+        .to_string(),
+    );
+}
+
+fn emit_tool_use_block_completed(
+    state: &mut ClaudeTranslationState,
+    item_id: String,
+    name: String,
+    input_json: String,
+    out: &mut TranslateOutput,
+) {
+    let input = parse_partial_json_object(&input_json);
+    let hidden = should_hide_claude_tool_transcript(&name, &Value::Object(input.clone()));
+    state.tool_calls.insert(
+        item_id.clone(),
+        ClaudeToolCall {
+            name: name.clone(),
+            input: Value::Object(input.clone()),
+        },
+    );
+    if hidden {
+        return;
+    }
+    out.lines.push(
+        json!({
+            "method": "item/completed",
+            "params": {
+                "item": {
+                    "id": item_id,
+                    "type": "toolCall",
+                    "tool": name,
+                    "name": name,
+                    "input": input,
+                }
+            }
+        })
+        .to_string(),
+    );
 }
 
 fn translate_assistant_record(

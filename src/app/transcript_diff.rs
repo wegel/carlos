@@ -1,7 +1,7 @@
 //! Diff rendering: hunk-oriented display with line numbers and colour coding.
 
 use ratatui::style::{Modifier, Style};
-use ratatui_interact::components::{DiffData, DiffLine, DiffLineType, DiffViewerStyle};
+use ratatui_interact::components::{DiffData, DiffHunk, DiffLine, DiffLineType, DiffViewerStyle};
 
 use super::models::{RenderedLine, Role, StyledSegment};
 use super::text::{visual_width, wrap_natural_by_cells, wrap_natural_count_by_cells};
@@ -159,32 +159,10 @@ fn diff_transcript_logical_lines(
         if idx > 0 {
             logical_lines.push(Vec::new());
         }
-
-        if let Some(path) = diff_path.as_deref() {
-            if !path.is_empty() {
-                logical_lines.push(vec![StyledSegment {
-                    text: path.to_string(),
-                    style: Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD),
-                }]);
-            }
+        if let Some(path) = diff_path.as_deref().filter(|p| !p.is_empty()) {
+            logical_lines.push(diff_path_segments(path));
         }
-
-        let hunk_label = format!(
-            "Hunk {}/{}  old {}..{} -> new {}..{}",
-            idx + 1,
-            parsed.hunks.len(),
-            hunk.old_start,
-            hunk.old_start + hunk.old_count.saturating_sub(1),
-            hunk.new_start,
-            hunk.new_start + hunk.new_count.saturating_sub(1)
-        );
-        logical_lines.push(vec![StyledSegment {
-            text: hunk_label,
-            style: Style::default()
-                .fg(COLOR_DIFF_HUNK)
-                .add_modifier(Modifier::BOLD),
-        }]);
-
+        logical_lines.push(diff_hunk_label_segments(idx, &parsed, hunk));
         for line in &hunk.lines {
             if line.line_type == DiffLineType::HunkHeader {
                 continue;
@@ -198,6 +176,31 @@ fn diff_transcript_logical_lines(
     }
 
     Some(logical_lines)
+}
+
+fn diff_path_segments(path: &str) -> Vec<StyledSegment> {
+    vec![StyledSegment {
+        text: path.to_string(),
+        style: Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD),
+    }]
+}
+
+fn diff_hunk_label_segments(idx: usize, parsed: &DiffData, hunk: &DiffHunk) -> Vec<StyledSegment> {
+    let hunk_label = format!(
+        "Hunk {}/{}  old {}..{} -> new {}..{}",
+        idx + 1,
+        parsed.hunks.len(),
+        hunk.old_start,
+        hunk.old_start + hunk.old_count.saturating_sub(1),
+        hunk.new_start,
+        hunk.new_start + hunk.new_count.saturating_sub(1)
+    );
+    vec![StyledSegment {
+        text: hunk_label,
+        style: Style::default()
+            .fg(COLOR_DIFF_HUNK)
+            .add_modifier(Modifier::BOLD),
+    }]
 }
 
 // --- Diff Rendering ---
@@ -226,56 +229,58 @@ pub(super) fn append_wrapped_diff_lines(
     if append_diff_viewer_lines(out, role, file_path, diff, width) {
         return;
     }
-
     if width < 8 {
         return;
     }
-
-    if let Some(path) = file_path {
-        if !path.is_empty() {
-            out.push(RenderedLine {
-                cells: visual_width(path),
-                text: path.to_string(),
-                styled_segments: vec![StyledSegment {
-                    text: path.to_string(),
-                    style: Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD),
-                }],
-                role,
-                separator: false,
-                soft_wrap_to_next: false,
-            });
-        }
+    if let Some(path) = file_path.filter(|p| !p.is_empty()) {
+        out.push(diff_path_rendered_line(path, role));
     }
-
     for logical in diff.split('\n') {
-        let line_style = diff_line_style(logical);
-        if logical.is_empty() {
-            out.push(RenderedLine {
-                cells: 0,
-                text: String::new(),
-                styled_segments: Vec::new(),
-                role,
-                separator: false,
-                soft_wrap_to_next: false,
-            });
-            continue;
-        }
+        append_diff_text_line(out, logical, role, width);
+    }
+}
 
-        let wrapped_parts = wrap_natural_by_cells(logical, width);
-        for (i, part) in wrapped_parts.iter().enumerate() {
-            let wrapped = i + 1 < wrapped_parts.len();
-            out.push(RenderedLine {
-                cells: visual_width(part),
+fn diff_path_rendered_line(path: &str, role: Role) -> RenderedLine {
+    RenderedLine {
+        cells: visual_width(path),
+        text: path.to_string(),
+        styled_segments: vec![StyledSegment {
+            text: path.to_string(),
+            style: Style::default().fg(COLOR_DIM).add_modifier(Modifier::BOLD),
+        }],
+        role,
+        separator: false,
+        soft_wrap_to_next: false,
+    }
+}
+
+fn append_diff_text_line(out: &mut Vec<RenderedLine>, logical: &str, role: Role, width: usize) {
+    if logical.is_empty() {
+        out.push(RenderedLine {
+            cells: 0,
+            text: String::new(),
+            styled_segments: Vec::new(),
+            role,
+            separator: false,
+            soft_wrap_to_next: false,
+        });
+        return;
+    }
+    let line_style = diff_line_style(logical);
+    let wrapped_parts = wrap_natural_by_cells(logical, width);
+    for (i, part) in wrapped_parts.iter().enumerate() {
+        let wrapped = i + 1 < wrapped_parts.len();
+        out.push(RenderedLine {
+            cells: visual_width(part),
+            text: part.clone(),
+            styled_segments: vec![StyledSegment {
                 text: part.clone(),
-                styled_segments: vec![StyledSegment {
-                    text: part.clone(),
-                    style: line_style,
-                }],
-                role,
-                separator: false,
-                soft_wrap_to_next: wrapped,
-            });
-        }
+                style: line_style,
+            }],
+            role,
+            separator: false,
+            soft_wrap_to_next: wrapped,
+        });
     }
 }
 

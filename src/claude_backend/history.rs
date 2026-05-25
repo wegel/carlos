@@ -142,40 +142,19 @@ fn append_user_history_record(
     let tool_use_result = record
         .get("toolUseResult")
         .or_else(|| record.get("tool_use_result"));
+
     let mut saw_valid_tool_result = false;
     let mut exit_plan_approval_in_record = None;
     for part in parts {
-        if part.get("type").and_then(Value::as_str) != Some("tool_result") {
+        let Some(result) = process_tool_result_part(part, pending_tool_calls, tool_use_result)
+        else {
             continue;
-        }
-        let tool_use_id = part
-            .get("tool_use_id")
-            .and_then(Value::as_str)
-            .unwrap_or("");
-        if tool_use_id.is_empty() {
-            continue;
-        }
-        saw_valid_tool_result = true;
-
-        let (item, exit_plan_approval) = if let Some(tool_call) =
-            pending_tool_calls.remove(tool_use_id)
-        {
-            let hide_transcript =
-                should_hide_claude_tool_transcript(&tool_call.name, &tool_call.input);
-            let approval = claude_exit_plan_approval_from_tool_call(&tool_call, tool_use_id, part);
-            let item = if hide_transcript {
-                None
-            } else {
-                synthetic_tool_result_item(&tool_call, tool_use_id, part, tool_use_result)
-            };
-            (item, approval)
-        } else {
-            (fallback_tool_result_item(tool_use_id, part), None)
         };
-        if let Some(item) = item {
+        saw_valid_tool_result = true;
+        if let Some(item) = result.item {
             items.push(item);
         }
-        if let Some(approval) = exit_plan_approval {
+        if let Some(approval) = result.exit_plan_approval {
             exit_plan_approval_in_record = Some(approval);
         }
     }
@@ -184,6 +163,43 @@ fn append_user_history_record(
     } else if saw_valid_tool_result {
         *pending_exit_plan_approval = None;
     }
+}
+
+struct ToolResultOutcome {
+    item: Option<Value>,
+    exit_plan_approval: Option<ClaudeExitPlanApproval>,
+}
+
+fn process_tool_result_part(
+    part: &Value,
+    pending_tool_calls: &mut HashMap<String, ClaudeToolCall>,
+    tool_use_result: Option<&Value>,
+) -> Option<ToolResultOutcome> {
+    if part.get("type").and_then(Value::as_str) != Some("tool_result") {
+        return None;
+    }
+    let tool_use_id = part
+        .get("tool_use_id")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())?;
+
+    let (item, exit_plan_approval) = if let Some(tool_call) = pending_tool_calls.remove(tool_use_id)
+    {
+        let hide_transcript = should_hide_claude_tool_transcript(&tool_call.name, &tool_call.input);
+        let approval = claude_exit_plan_approval_from_tool_call(&tool_call, tool_use_id, part);
+        let item = if hide_transcript {
+            None
+        } else {
+            synthetic_tool_result_item(&tool_call, tool_use_id, part, tool_use_result)
+        };
+        (item, approval)
+    } else {
+        (fallback_tool_result_item(tool_use_id, part), None)
+    };
+    Some(ToolResultOutcome {
+        item,
+        exit_plan_approval,
+    })
 }
 
 fn parse_local_history_from_file(path: &Path, session_id: &str) -> Result<ClaudeLocalHistory> {

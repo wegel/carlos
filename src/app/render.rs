@@ -126,52 +126,25 @@ pub(super) fn draw_rendered_line(
     }
     let mut draw_x = x;
     let mut col = 0usize;
-    if line.styled_segments.is_empty() {
+    let mut emit = |text: &str, style: Style, draw_x: &mut usize, col: &mut usize| {
         render_segment(
-            buf,
-            y,
-            x,
-            max_width,
-            &line.text,
-            base_style,
-            Style::default(),
-            selection,
-            &mut draw_x,
-            &mut col,
+            buf, y, x, max_width, text, base_style, style, selection, draw_x, col,
         );
+    };
+
+    if line.styled_segments.is_empty() {
+        emit(&line.text, Style::default(), &mut draw_x, &mut col);
         return;
     }
     for seg in &line.styled_segments {
         if draw_x >= x + max_width {
             break;
         }
-        render_segment(
-            buf,
-            y,
-            x,
-            max_width,
-            &seg.text,
-            base_style,
-            seg.style,
-            selection,
-            &mut draw_x,
-            &mut col,
-        );
+        emit(&seg.text, seg.style, &mut draw_x, &mut col);
     }
     if col < line.cells && draw_x < x + max_width {
         let tail = slice_by_cells(&line.text, col, line.cells);
-        render_segment(
-            buf,
-            y,
-            x,
-            max_width,
-            &tail,
-            base_style,
-            Style::default(),
-            selection,
-            &mut draw_x,
-            &mut col,
-        );
+        emit(&tail, Style::default(), &mut draw_x, &mut col);
     }
 }
 
@@ -286,21 +259,11 @@ fn draw_transcript_row(
 ) {
     let line_opt = app.rendered_line_at(line_idx);
     if let Some(line) = line_opt.filter(|line| !line.separator) {
-        draw_str(
-            buf,
-            0,
-            y,
-            role_gutter_symbol(line.role),
-            Style::default()
-                .fg(role_gutter_fg(line.role))
-                .add_modifier(Modifier::BOLD),
-            1,
-        );
+        draw_role_gutter(buf, y, line.role);
     }
     if msg_width == 0 {
         return;
     }
-
     let Some(line) = line_opt else {
         return;
     };
@@ -313,23 +276,10 @@ fn draw_transcript_row(
         Style::default().bg(role_row_bg(line.role)),
     );
     if line.separator {
-        let sep = "─".repeat(msg_width);
-        draw_str(
-            buf,
-            MSG_CONTENT_X,
-            y,
-            &sep,
-            Style::default().fg(COLOR_STEP6),
-            msg_width,
-        );
+        draw_separator_row(buf, y, msg_width);
         return;
     }
-
-    let selection = app
-        .viewport
-        .selection
-        .and_then(|sel| compute_selection_range(sel, line_idx, line.cells))
-        .map(|(start, end)| (start.min(line.cells), end.min(line.cells)));
+    let selection = compute_row_selection(app, line_idx, line.cells);
     draw_rendered_line(
         buf,
         MSG_CONTENT_X,
@@ -339,6 +289,42 @@ fn draw_transcript_row(
         transcript_line_style(line.role),
         selection,
     );
+}
+
+fn draw_role_gutter(buf: &mut Buffer, y: usize, role: Role) {
+    draw_str(
+        buf,
+        0,
+        y,
+        role_gutter_symbol(role),
+        Style::default()
+            .fg(role_gutter_fg(role))
+            .add_modifier(Modifier::BOLD),
+        1,
+    );
+}
+
+fn draw_separator_row(buf: &mut Buffer, y: usize, msg_width: usize) {
+    let sep = "─".repeat(msg_width);
+    draw_str(
+        buf,
+        MSG_CONTENT_X,
+        y,
+        &sep,
+        Style::default().fg(COLOR_STEP6),
+        msg_width,
+    );
+}
+
+fn compute_row_selection(
+    app: &AppState,
+    line_idx: usize,
+    line_cells: usize,
+) -> Option<(usize, usize)> {
+    app.viewport
+        .selection
+        .and_then(|sel| compute_selection_range(sel, line_idx, line_cells))
+        .map(|(start, end)| (start.min(line_cells), end.min(line_cells)))
 }
 
 fn transcript_line_style(role: Role) -> Style {

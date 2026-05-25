@@ -74,6 +74,21 @@ pub(super) fn draw_input_area(
 
 // --- Status bar ---
 
+const RALPH_MODE_LABEL: &str = "RALPH MODE";
+
+struct StatusBarLayout {
+    line_len: usize,
+    anim_end: usize,
+    show_labels: bool,
+    context_label: String,
+    model_label: String,
+    dictation_label: Option<String>,
+    has_context_usage: bool,
+    has_runtime_settings: bool,
+    runtime_settings_pending: bool,
+    ralph_mode: bool,
+}
+
 pub(super) fn draw_status_bar(
     buf: &mut Buffer,
     app: &AppState,
@@ -84,9 +99,15 @@ pub(super) fn draw_status_bar(
         return;
     }
     let sep_y = input_top - 2;
-    let working = app.active_turn_id.is_some();
+    let layout = compute_status_bar_layout(app, size);
+    draw_status_separator(buf, app, sep_y, &layout);
+    if layout.show_labels {
+        draw_status_labels(buf, sep_y, &layout);
+    }
+}
+
+fn compute_status_bar_layout(app: &AppState, size: TerminalSize) -> StatusBarLayout {
     let ralph_mode = app.ralph_enabled();
-    const RALPH_MODE_LABEL: &str = "RALPH MODE";
     let line_len = size.width.saturating_sub(1);
     let context_label = app
         .context_usage
@@ -94,9 +115,8 @@ pub(super) fn draw_status_bar(
         .unwrap_or_else(|| context_usage_placeholder_label().to_string());
     let model_label = app.runtime_settings_label();
     let dictation_label = app.dictation_status_label();
-    let has_context_usage = app.context_usage.is_some();
-    let has_runtime_settings = app.has_runtime_settings();
-    let runtime_settings_pending = app.runtime_settings_pending();
+
+    let model_label_cells = visual_width(&model_label);
     let ralph_label_cells = if ralph_mode {
         visual_width(RALPH_MODE_LABEL) + 1
     } else {
@@ -106,130 +126,135 @@ pub(super) fn draw_status_bar(
         .as_deref()
         .map(|label| visual_width(label) + 1)
         .unwrap_or(0);
-    let model_label_cells = visual_width(&model_label);
     let reserved_label_cells = context_label_reserved_cells(Some(&context_label))
         + 1
         + model_label_cells
         + ralph_label_cells
         + dictation_label_cells;
-    let context_label_cells = visual_width(&context_label);
     let can_reserve_label_area = reserved_label_cells + 1 < line_len;
-    let label_area_start = if can_reserve_label_area {
-        line_len - reserved_label_cells
-    } else {
-        line_len
-    };
     let anim_end = if can_reserve_label_area {
-        label_area_start.saturating_sub(1)
+        (line_len - reserved_label_cells).saturating_sub(1)
     } else {
         line_len
     };
-    let tick = animation_tick();
-    let head = if anim_end > 0 {
-        kitt_head_index(anim_end, tick)
+
+    StatusBarLayout {
+        line_len,
+        anim_end,
+        show_labels: can_reserve_label_area && visual_width(&context_label) > 0,
+        context_label,
+        model_label,
+        dictation_label,
+        has_context_usage: app.context_usage.is_some(),
+        has_runtime_settings: app.has_runtime_settings(),
+        runtime_settings_pending: app.runtime_settings_pending(),
+        ralph_mode,
+    }
+}
+
+fn draw_status_separator(buf: &mut Buffer, app: &AppState, sep_y: usize, layout: &StatusBarLayout) {
+    let anim_end = layout.anim_end;
+    if anim_end == 0 {
+        return;
+    }
+    if app.rewind_mode() {
+        fill_separator(buf, sep_y, anim_end, COLOR_DIFF_REMOVE);
+    } else if app.active_turn_id.is_some() {
+        let head = kitt_head_index(anim_end, animation_tick());
+        for x in 0..anim_end {
+            let dist = head.abs_diff(x);
+            draw_str(
+                buf,
+                x,
+                sep_y,
+                "━",
+                Style::default().fg(kitt_color_for_distance(dist, layout.ralph_mode)),
+                1,
+            );
+        }
     } else {
-        0
-    };
-
-    if anim_end > 0 {
-        if app.rewind_mode() {
-            let sep = "━".repeat(anim_end);
-            draw_str(
-                buf,
-                0,
-                sep_y,
-                &sep,
-                Style::default().fg(COLOR_DIFF_REMOVE),
-                anim_end,
-            );
-        } else if working {
-            for x in 0..anim_end {
-                let dist = head.abs_diff(x);
-                draw_str(
-                    buf,
-                    x,
-                    sep_y,
-                    "━",
-                    Style::default().fg(kitt_color_for_distance(dist, ralph_mode)),
-                    1,
-                );
-            }
+        let color = if layout.ralph_mode {
+            COLOR_GUTTER_AGENT_THINKING
         } else {
-            let sep = "━".repeat(anim_end);
-            draw_str(
-                buf,
-                0,
-                sep_y,
-                &sep,
-                Style::default().fg(if ralph_mode {
-                    COLOR_GUTTER_AGENT_THINKING
-                } else {
-                    COLOR_GUTTER_USER
-                }),
-                anim_end,
-            );
-        }
+            COLOR_GUTTER_USER
+        };
+        fill_separator(buf, sep_y, anim_end, color);
     }
+}
 
-    if can_reserve_label_area && context_label_cells > 0 {
-        let context_x = line_len.saturating_sub(context_label_cells);
-        let model_x = context_x.saturating_sub(model_label_cells + 1);
-        draw_str(
+fn fill_separator(buf: &mut Buffer, sep_y: usize, width: usize, color: ratatui::style::Color) {
+    let sep = "━".repeat(width);
+    draw_str(buf, 0, sep_y, &sep, Style::default().fg(color), width);
+}
+
+fn draw_status_labels(buf: &mut Buffer, sep_y: usize, layout: &StatusBarLayout) {
+    let context_label_cells = visual_width(&layout.context_label);
+    let model_label_cells = visual_width(&layout.model_label);
+    let context_x = layout.line_len.saturating_sub(context_label_cells);
+    let model_x = context_x.saturating_sub(model_label_cells + 1);
+
+    let context_color = if layout.has_context_usage {
+        COLOR_STEP8
+    } else {
+        COLOR_STEP7
+    };
+    let model_color = if layout.runtime_settings_pending {
+        COLOR_DIFF_HUNK
+    } else if layout.has_runtime_settings {
+        COLOR_STEP8
+    } else {
+        COLOR_STEP7
+    };
+    draw_label(
+        buf,
+        context_x,
+        sep_y,
+        &layout.context_label,
+        context_color,
+        false,
+    );
+    draw_label(buf, model_x, sep_y, &layout.model_label, model_color, false);
+
+    let mut label_x = model_x;
+    if let Some(label) = layout.dictation_label.as_deref() {
+        let label_w = visual_width(label);
+        label_x = label_x.saturating_sub(label_w + 1);
+        draw_label(
             buf,
-            context_x,
+            label_x,
             sep_y,
-            &context_label,
-            Style::default().fg(if has_context_usage {
-                COLOR_STEP8
-            } else {
-                COLOR_STEP7
-            }),
-            context_label_cells,
+            label,
+            COLOR_GUTTER_AGENT_COMMENTARY,
+            true,
         );
-        draw_str(
-            buf,
-            model_x,
-            sep_y,
-            &model_label,
-            Style::default().fg(if runtime_settings_pending {
-                COLOR_DIFF_HUNK
-            } else if has_runtime_settings {
-                COLOR_STEP8
-            } else {
-                COLOR_STEP7
-            }),
-            model_label_cells,
-        );
-        let mut label_x = model_x;
-        if let Some(label) = dictation_label.as_deref() {
-            let label_w = visual_width(label);
-            label_x = label_x.saturating_sub(label_w + 1);
-            draw_str(
-                buf,
-                label_x,
-                sep_y,
-                label,
-                Style::default()
-                    .fg(COLOR_GUTTER_AGENT_COMMENTARY)
-                    .add_modifier(Modifier::BOLD),
-                label_w,
-            );
-        }
-        if ralph_mode {
-            let ralph_w = visual_width(RALPH_MODE_LABEL);
-            let ralph_x = label_x.saturating_sub(ralph_w + 1);
-            draw_str(
-                buf,
-                ralph_x,
-                sep_y,
-                RALPH_MODE_LABEL,
-                Style::default()
-                    .fg(COLOR_GUTTER_AGENT_THINKING)
-                    .add_modifier(Modifier::BOLD),
-                ralph_w,
-            );
-        }
     }
+    if layout.ralph_mode {
+        let ralph_w = visual_width(RALPH_MODE_LABEL);
+        let ralph_x = label_x.saturating_sub(ralph_w + 1);
+        draw_label(
+            buf,
+            ralph_x,
+            sep_y,
+            RALPH_MODE_LABEL,
+            COLOR_GUTTER_AGENT_THINKING,
+            true,
+        );
+    }
+}
+
+fn draw_label(
+    buf: &mut Buffer,
+    x: usize,
+    y: usize,
+    text: &str,
+    color: ratatui::style::Color,
+    bold: bool,
+) {
+    let mut style = Style::default().fg(color);
+    if bold {
+        style = style.add_modifier(Modifier::BOLD);
+    }
+    draw_str(buf, x, y, text, style, visual_width(text));
 }
 
 // --- Overlays ---

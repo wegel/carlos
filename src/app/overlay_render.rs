@@ -3,27 +3,28 @@
 #[path = "overlay_render_perf.rs"]
 mod overlay_render_perf;
 
+#[path = "overlay_render_model_settings.rs"]
+mod overlay_render_model_settings;
+
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
 use super::render::{draw_str, fill_rect};
-use super::state::ModelSettingsField;
 use super::text::wrap_natural_by_cells;
 use super::{AppState, TerminalSize};
-use crate::theme::{
-    COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_STEP2, COLOR_STEP6, COLOR_STEP7, COLOR_TEXT,
-};
+use crate::theme::{COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_STEP2, COLOR_STEP7, COLOR_TEXT};
 
+use self::overlay_render_model_settings::draw_model_settings_fields;
 pub(super) use self::overlay_render_perf::draw_perf_overlay;
 
-struct OverlayBox {
-    start_x: usize,
-    start_y: usize,
-    box_w: usize,
-    left: usize,
-    right: usize,
-    top: usize,
-    bottom: usize,
+pub(super) struct OverlayBox {
+    pub(super) start_x: usize,
+    pub(super) start_y: usize,
+    pub(super) box_w: usize,
+    pub(super) left: usize,
+    pub(super) right: usize,
+    pub(super) top: usize,
+    pub(super) bottom: usize,
 }
 
 fn compute_overlay_box(size: TerminalSize, box_w: usize, box_h: usize) -> OverlayBox {
@@ -124,7 +125,7 @@ fn fill_box_background(buf: &mut Buffer, ob: &OverlayBox, box_h: usize) {
     );
 }
 
-fn content_width(ob: &OverlayBox) -> usize {
+pub(super) fn content_width(ob: &OverlayBox) -> usize {
     ob.box_w.saturating_sub(6)
 }
 
@@ -190,88 +191,6 @@ pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, 
     };
     draw_overlay_title(buf, &ob, title);
     draw_model_settings_fields(buf, &ob, app);
-}
-
-fn field_style(active: bool) -> Style {
-    if active {
-        Style::default()
-            .fg(COLOR_TEXT)
-            .bg(COLOR_STEP6)
-            .add_modifier(Modifier::BOLD)
-    } else {
-        Style::default().fg(COLOR_TEXT)
-    }
-}
-
-fn draw_model_settings_fields(buf: &mut Buffer, ob: &OverlayBox, app: &AppState) {
-    let label_style = Style::default().fg(COLOR_DIM);
-    let value_w = ob.box_w.saturating_sub(16);
-    let x_label = ob.start_x + 3;
-    let x_value = ob.start_x + 12;
-
-    draw_str(buf, x_label, ob.start_y + 3, "Model", label_style, 8);
-    draw_str(
-        buf,
-        x_value,
-        ob.start_y + 3,
-        app.model_settings_model_value(),
-        field_style(matches!(
-            app.runtime.model_settings_field,
-            ModelSettingsField::Model
-        )),
-        value_w,
-    );
-    draw_str(buf, x_label, ob.start_y + 5, "Thinking", label_style, 8);
-    draw_str(
-        buf,
-        x_value,
-        ob.start_y + 5,
-        app.model_settings_effort_value(),
-        field_style(matches!(
-            app.runtime.model_settings_field,
-            ModelSettingsField::Effort
-        )),
-        value_w,
-    );
-
-    let dictation_y = if app.runtime_supports_summary() {
-        draw_str(buf, x_label, ob.start_y + 7, "Summary", label_style, 8);
-        draw_str(
-            buf,
-            x_value,
-            ob.start_y + 7,
-            app.model_settings_summary_value(),
-            field_style(matches!(
-                app.runtime.model_settings_field,
-                ModelSettingsField::Summary
-            )),
-            value_w,
-        );
-        ob.start_y + 9
-    } else {
-        ob.start_y + 7
-    };
-    draw_str(buf, x_label, dictation_y, "Dictation", label_style, 9);
-    draw_str(
-        buf,
-        x_value,
-        dictation_y,
-        app.dictation_endpoint_mode_label(),
-        field_style(matches!(
-            app.runtime.model_settings_field,
-            ModelSettingsField::DictationEndpoint
-        )),
-        value_w,
-    );
-
-    draw_str(
-        buf,
-        x_label,
-        dictation_y + 2,
-        "Tab switch field, arrows adjust, Enter apply/toggle",
-        Style::default().fg(COLOR_DIM),
-        content_width(ob),
-    );
 }
 
 // ---------------------------------------------------------------------------

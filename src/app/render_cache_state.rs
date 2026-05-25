@@ -58,23 +58,40 @@ impl RenderCacheState {
             return;
         };
 
+        self.truncate_rendered_blocks_to(dirty_from);
+        self.rebuild_rendered_blocks_from(messages, width, hidden_user_message_idx, dirty_from);
+
+        self.rendered_width = width;
+        self.rendered_hidden_user_message_idx = hidden_user_message_idx;
+        self.transcript_dirty_from = None;
+    }
+
+    fn truncate_rendered_blocks_to(&mut self, dirty_from: usize) {
         if dirty_from == 0 {
             self.rendered_message_blocks.clear();
             self.rendered_block_line_counts.clear();
             self.rendered_block_offsets.clear();
             self.rendered_total_lines = 0;
-        } else {
-            let start_offset = self
-                .rendered_block_offsets
-                .get(dirty_from)
-                .copied()
-                .unwrap_or(self.rendered_total_lines);
-            self.rendered_message_blocks.truncate(dirty_from);
-            self.rendered_block_line_counts.truncate(dirty_from);
-            self.rendered_block_offsets.truncate(dirty_from);
-            self.rendered_total_lines = start_offset;
+            return;
         }
+        let start_offset = self
+            .rendered_block_offsets
+            .get(dirty_from)
+            .copied()
+            .unwrap_or(self.rendered_total_lines);
+        self.rendered_message_blocks.truncate(dirty_from);
+        self.rendered_block_line_counts.truncate(dirty_from);
+        self.rendered_block_offsets.truncate(dirty_from);
+        self.rendered_total_lines = start_offset;
+    }
 
+    fn rebuild_rendered_blocks_from(
+        &mut self,
+        messages: &[Message],
+        width: usize,
+        hidden_user_message_idx: Option<usize>,
+        dirty_from: usize,
+    ) {
         let mut previous_visible_idx = if dirty_from == 0 {
             None
         } else {
@@ -115,10 +132,6 @@ impl RenderCacheState {
             self.rendered_message_blocks.push(None);
             previous_visible_idx = Some(idx);
         }
-
-        self.rendered_width = width;
-        self.rendered_hidden_user_message_idx = hidden_user_message_idx;
-        self.transcript_dirty_from = None;
     }
 
     // --- Line Access ---

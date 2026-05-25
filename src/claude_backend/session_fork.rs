@@ -248,59 +248,10 @@ pub(super) fn fork_claude_session_from_projects_root(
     let kept_uuid_chain = prefix_uuid_chain(&records, up_to_message_uuid.as_deref());
 
     let new_session_id = Uuid::new_v4().to_string();
-    let project_dir = projects_root.join(claude_project_dir_name(cwd));
-    fs::create_dir_all(&project_dir)
-        .with_context(|| format!("failed to create {}", project_dir.display()))?;
-    let dest_session_path = project_dir.join(format!("{new_session_id}.jsonl"));
+    let dest_session_path = create_dest_session_path(projects_root, cwd, &new_session_id)?;
 
-    let mut uuid_map = HashMap::new();
-    for record in &records {
-        let Some(uuid) = record.uuid.as_deref() else {
-            continue;
-        };
-        if kept_uuid_chain.contains(uuid) {
-            uuid_map.insert(uuid.to_string(), Uuid::new_v4().to_string());
-        }
-    }
-
-    let mut leading_metadata = true;
-    let mut lines = Vec::new();
-    for record in records {
-        if record.is_sidechain {
-            continue;
-        }
-
-        match record.uuid.as_deref() {
-            Some(uuid) if kept_uuid_chain.contains(uuid) => {
-                leading_metadata = false;
-                let mut rewritten = record.record;
-                rewrite_uuid_fields(&mut rewritten, &new_session_id, &uuid_map);
-                lines.push(rewritten.to_string());
-            }
-            Some(_) => {
-                leading_metadata = false;
-            }
-            None if leading_metadata => {
-                let mut rewritten = record.record;
-                rewrite_session_id(&mut rewritten, &new_session_id);
-                lines.push(rewritten.to_string());
-            }
-            None if linked_leaf_uuid(&record.record)
-                .is_some_and(|uuid| kept_uuid_chain.contains(uuid)) =>
-            {
-                let mut rewritten = record.record;
-                rewrite_uuid_fields(&mut rewritten, &new_session_id, &uuid_map);
-                lines.push(rewritten.to_string());
-            }
-            None => {}
-        }
-    }
-
-    let body = if lines.is_empty() {
-        String::new()
-    } else {
-        format!("{}\n", lines.join("\n"))
-    };
+    let uuid_map = build_uuid_remap(&records, &kept_uuid_chain);
+    let body = render_forked_session_body(records, &kept_uuid_chain, &uuid_map, &new_session_id);
     fs::write(&dest_session_path, body)
         .with_context(|| format!("failed to write {}", dest_session_path.display()))?;
 
@@ -314,4 +265,75 @@ pub(super) fn fork_claude_session_from_projects_root(
         session_id: new_session_id,
         path: dest_session_path,
     })
+}
+
+fn create_dest_session_path(
+    projects_root: &Path,
+    cwd: &Path,
+    new_session_id: &str,
+) -> Result<PathBuf> {
+    let project_dir = projects_root.join(claude_project_dir_name(cwd));
+    fs::create_dir_all(&project_dir)
+        .with_context(|| format!("failed to create {}", project_dir.display()))?;
+    Ok(project_dir.join(format!("{new_session_id}.jsonl")))
+}
+
+fn build_uuid_remap(
+    records: &[ClaudeSessionRecord],
+    kept_uuid_chain: &HashSet<String>,
+) -> HashMap<String, String> {
+    let mut uuid_map = HashMap::new();
+    for record in records {
+        let Some(uuid) = record.uuid.as_deref() else {
+            continue;
+        };
+        if kept_uuid_chain.contains(uuid) {
+            uuid_map.insert(uuid.to_string(), Uuid::new_v4().to_string());
+        }
+    }
+    uuid_map
+}
+
+fn render_forked_session_body(
+    records: Vec<ClaudeSessionRecord>,
+    kept_uuid_chain: &HashSet<String>,
+    uuid_map: &HashMap<String, String>,
+    new_session_id: &str,
+) -> String {
+    let mut leading_metadata = true;
+    let mut lines = Vec::new();
+    for record in records {
+        if record.is_sidechain {
+            continue;
+        }
+        match record.uuid.as_deref() {
+            Some(uuid) if kept_uuid_chain.contains(uuid) => {
+                leading_metadata = false;
+                let mut rewritten = record.record;
+                rewrite_uuid_fields(&mut rewritten, new_session_id, uuid_map);
+                lines.push(rewritten.to_string());
+            }
+            Some(_) => {
+                leading_metadata = false;
+            }
+            None if leading_metadata => {
+                let mut rewritten = record.record;
+                rewrite_session_id(&mut rewritten, new_session_id);
+                lines.push(rewritten.to_string());
+            }
+            None if linked_leaf_uuid(&record.record)
+                .is_some_and(|uuid| kept_uuid_chain.contains(uuid)) =>
+            {
+                let mut rewritten = record.record;
+                rewrite_uuid_fields(&mut rewritten, new_session_id, uuid_map);
+                lines.push(rewritten.to_string());
+            }
+            None => {}
+        }
+    }
+    if lines.is_empty() {
+        String::new()
+    } else {
+        format!("{}\n", lines.join("\n"))
+    }
 }

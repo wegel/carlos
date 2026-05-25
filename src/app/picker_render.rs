@@ -275,10 +275,6 @@ fn draw_picker_list_row(
     row: usize,
 ) {
     let y = layout.list_y + 1 + row;
-    let left_text = format_row_left_text(t, cols.left_col_w);
-    let created = format_picker_timestamp(t.created_at);
-    let updated = format_picker_timestamp(t.updated_at);
-
     if active && layout.list_w > 0 {
         fill_rect(
             buf,
@@ -289,10 +285,7 @@ fn draw_picker_list_row(
             Style::default().bg(COLOR_PRIMARY),
         );
     }
-
     let (bullet_style, line_style) = row_styles(active);
-    let left_view_w = cols.left_col_w.saturating_sub(2);
-
     draw_str(
         buf,
         layout.list_x,
@@ -305,28 +298,39 @@ fn draw_picker_list_row(
         buf,
         layout.list_x + 2,
         y,
-        &left_text,
+        &format_row_left_text(t, cols.left_col_w),
         line_style,
-        left_view_w,
+        cols.left_col_w.saturating_sub(2),
     );
     if cols.ts_col_w > 0 {
-        draw_str(
-            buf,
-            layout.list_x + cols.left_col_w + cols.gap_w,
-            y,
-            &created,
-            line_style,
-            cols.ts_col_w,
-        );
-        draw_str(
-            buf,
-            layout.list_x + cols.left_col_w + cols.gap_w + cols.ts_col_w + cols.gap_w,
-            y,
-            &updated,
-            line_style,
-            cols.ts_col_w,
-        );
+        draw_row_timestamps(buf, layout, cols, t, y, line_style);
     }
+}
+
+fn draw_row_timestamps(
+    buf: &mut Buffer,
+    layout: &PickerLayout,
+    cols: &PickerColumns,
+    t: &ThreadSummary,
+    y: usize,
+    line_style: Style,
+) {
+    draw_str(
+        buf,
+        layout.list_x + cols.left_col_w + cols.gap_w,
+        y,
+        &format_picker_timestamp(t.created_at),
+        line_style,
+        cols.ts_col_w,
+    );
+    draw_str(
+        buf,
+        layout.list_x + cols.left_col_w + cols.gap_w + cols.ts_col_w + cols.gap_w,
+        y,
+        &format_picker_timestamp(t.updated_at),
+        line_style,
+        cols.ts_col_w,
+    );
 }
 
 fn format_row_left_text(t: &ThreadSummary, left_col_w: usize) -> String {

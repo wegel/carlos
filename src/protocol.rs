@@ -42,60 +42,7 @@ impl AppServerClient {
         let (events_tx, events_rx) = mpsc::channel::<String>();
         let pending: Arc<Mutex<HashMap<u64, mpsc::Sender<String>>>> =
             Arc::new(Mutex::new(HashMap::new()));
-        let pending_for_thread = Arc::clone(&pending);
-
-        let reader_thread = thread::spawn(move || {
-            let mut reader = BufReader::new(stdout);
-            let mut line = String::new();
-            loop {
-                line.clear();
-                let n = match reader.read_line(&mut line) {
-                    Ok(n) => n,
-                    Err(_) => break,
-                };
-                if n == 0 {
-                    break;
-                }
-                let trimmed = line.trim_end_matches(['\n', '\r']);
-                if trimmed.is_empty() {
-                    continue;
-                }
-
-                let parsed: Value = match serde_json::from_str(trimmed) {
-                    Ok(v) => v,
-                    Err(_) => continue,
-                };
-
-                if let Some(method) = parsed.get("method").and_then(Value::as_str) {
-                    if method.starts_with("codex/event/")
-                        && !matches!(
-                            method,
-                            "codex/event/raw_response_item"
-                                | "codex/event/exec_command_end"
-                                | "codex/event/turn_diff"
-                                | "codex/event/token_count"
-                        )
-                    {
-                        continue;
-                    }
-                }
-
-                if parsed.get("method").is_none() {
-                    if let Some(id) = json_id_to_u64(parsed.get("id")) {
-                        if let Some(tx) = pending_for_thread
-                            .lock()
-                            .ok()
-                            .and_then(|mut p| p.remove(&id))
-                        {
-                            let _ = tx.send(trimmed.to_string());
-                            continue;
-                        }
-                    }
-                }
-
-                let _ = events_tx.send(trimmed.to_string());
-            }
-        });
+        let reader_thread = spawn_codex_reader_thread(stdout, events_tx, Arc::clone(&pending));
 
         Ok(Self {
             child,
@@ -256,6 +203,63 @@ impl BackendClient for AppServerClient {
     fn stop(&mut self) {
         AppServerClient::stop(self);
     }
+}
+
+fn spawn_codex_reader_thread(
+    stdout: std::process::ChildStdout,
+    events_tx: mpsc::Sender<String>,
+    pending: Arc<Mutex<HashMap<u64, mpsc::Sender<String>>>>,
+) -> thread::JoinHandle<()> {
+    thread::spawn(move || {
+        let mut reader = BufReader::new(stdout);
+        let mut line = String::new();
+        loop {
+            line.clear();
+            let n = match reader.read_line(&mut line) {
+                Ok(n) => n,
+                Err(_) => break,
+            };
+            if n == 0 {
+                break;
+            }
+            let trimmed = line.trim_end_matches(['\n', '\r']);
+            if trimmed.is_empty() {
+                continue;
+            }
+            route_codex_reader_line(trimmed, &events_tx, &pending);
+        }
+    })
+}
+
+fn route_codex_reader_line(
+    line: &str,
+    events_tx: &mpsc::Sender<String>,
+    pending: &Arc<Mutex<HashMap<u64, mpsc::Sender<String>>>>,
+) {
+    let Ok(parsed): Result<Value, _> = serde_json::from_str(line) else {
+        return;
+    };
+
+    if let Some(method) = parsed.get("method").and_then(Value::as_str) {
+        if method.starts_with("codex/event/")
+            && !matches!(
+                method,
+                "codex/event/raw_response_item"
+                    | "codex/event/exec_command_end"
+                    | "codex/event/turn_diff"
+                    | "codex/event/token_count"
+            )
+        {
+            return;
+        }
+    } else if let Some(id) = json_id_to_u64(parsed.get("id")) {
+        if let Some(tx) = pending.lock().ok().and_then(|mut p| p.remove(&id)) {
+            let _ = tx.send(line.to_string());
+            return;
+        }
+    }
+
+    let _ = events_tx.send(line.to_string());
 }
 
 fn json_id_to_u64(v: Option<&Value>) -> Option<u64> {

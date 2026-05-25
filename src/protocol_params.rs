@@ -225,57 +225,11 @@ pub(crate) fn parse_model_list_page(
         .and_then(Value::as_object)
         .context("invalid result object")?;
 
-    let mut out = Vec::new();
-    if let Some(data) = result.get("data").and_then(Value::as_array) {
-        for item in data {
-            let Some(obj) = item.as_object() else {
-                continue;
-            };
-            let Some(model) = obj.get("model").and_then(Value::as_str) else {
-                continue;
-            };
-            if model.trim().is_empty() {
-                continue;
-            }
-            let display_name = obj
-                .get("displayName")
-                .and_then(Value::as_str)
-                .filter(|s| !s.trim().is_empty())
-                .unwrap_or(model)
-                .to_string();
-            let is_default = obj
-                .get("isDefault")
-                .and_then(Value::as_bool)
-                .unwrap_or(false);
-            let default_effort = obj
-                .get("defaultReasoningEffort")
-                .and_then(Value::as_str)
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-                .map(ToOwned::to_owned);
-            let supported_efforts = obj
-                .get("supportedReasoningEfforts")
-                .and_then(Value::as_array)
-                .map(|arr| {
-                    arr.iter()
-                        .filter_map(|v| v.as_object())
-                        .filter_map(|o| o.get("reasoningEffort").and_then(Value::as_str))
-                        .map(str::trim)
-                        .filter(|s| !s.is_empty())
-                        .map(ToOwned::to_owned)
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or_default();
-            out.push(ModelInfo {
-                model: model.to_string(),
-                display_name,
-                supported_efforts,
-                default_effort,
-                is_default,
-            });
-        }
-    }
-
+    let models = result
+        .get("data")
+        .and_then(Value::as_array)
+        .map(|data| data.iter().filter_map(parse_model_entry).collect())
+        .unwrap_or_default();
     let next_cursor = result
         .get("nextCursor")
         .and_then(Value::as_str)
@@ -283,5 +237,49 @@ pub(crate) fn parse_model_list_page(
         .filter(|s| !s.is_empty())
         .map(ToOwned::to_owned);
 
-    Ok((out, next_cursor))
+    Ok((models, next_cursor))
+}
+
+fn parse_model_entry(item: &Value) -> Option<ModelInfo> {
+    let obj = item.as_object()?;
+    let model = obj.get("model").and_then(Value::as_str)?;
+    if model.trim().is_empty() {
+        return None;
+    }
+    let display_name = obj
+        .get("displayName")
+        .and_then(Value::as_str)
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or(model)
+        .to_string();
+    let is_default = obj
+        .get("isDefault")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let default_effort = obj
+        .get("defaultReasoningEffort")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned);
+    let supported_efforts = obj
+        .get("supportedReasoningEfforts")
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_object())
+                .filter_map(|o| o.get("reasoningEffort").and_then(Value::as_str))
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    Some(ModelInfo {
+        model: model.to_string(),
+        display_name,
+        supported_efforts,
+        default_effort,
+        is_default,
+    })
 }

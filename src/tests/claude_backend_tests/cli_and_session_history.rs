@@ -235,16 +235,11 @@ fn local_claude_history_ignores_synthetic_interrupt_records() {
     let _ = fs::remove_dir_all(root);
 }
 
-#[test]
-fn fork_claude_local_history_branches_from_selected_prefix() {
-    let root = temp_test_dir("claude-fork-history");
-    let projects_root = root.join("projects");
-    let cwd = Path::new("/repo");
-    let source_session_id = "session-source";
+fn write_branching_session_fixture(projects_root: &Path, cwd: &Path) -> PathBuf {
     let source_path = write_session_file(
-        &projects_root,
+        projects_root,
         cwd,
-        source_session_id,
+        "session-source",
         &[
             r#"{"type":"permission-mode","permissionMode":"default","sessionId":"session-source"}"#,
             r#"{"parentUuid":null,"isSidechain":false,"type":"user","message":{"role":"user","content":"first"},"uuid":"user-1","sessionId":"session-source"}"#,
@@ -258,26 +253,21 @@ fn fork_claude_local_history_branches_from_selected_prefix() {
             r#"{"parentUuid":"user-2-new","isSidechain":false,"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"reply new"}]},"uuid":"assistant-2-new","sessionId":"session-source"}"#,
         ],
     );
-    let source_support_dir = source_path.with_extension("");
-    fs::create_dir_all(&source_support_dir).expect("create support dir");
+    let support_dir = source_path.with_extension("");
+    fs::create_dir_all(&support_dir).expect("create support dir");
     fs::write(
-        source_support_dir.join("child.jsonl"),
+        support_dir.join("child.jsonl"),
         "{\"type\":\"note\",\"sessionId\":\"session-source\"}\n",
     )
     .expect("write support jsonl");
+    source_path
+}
 
-    let forked =
-        fork_claude_local_history_from_projects_root(&projects_root, cwd, source_session_id, 1)
-            .expect("fork history");
-
-    assert_ne!(forked.session_id, source_session_id);
-    let items = forked.thread["turns"][0]["items"]
-        .as_array()
-        .expect("thread items");
-    assert_eq!(items.len(), 2);
-    assert_eq!(items[0]["content"][0]["text"], "first");
-    assert_eq!(items[1]["text"], "reply one");
-
+fn assert_forked_session_lines(
+    projects_root: &Path,
+    cwd: &Path,
+    forked: &crate::claude_backend::ClaudeLocalHistory,
+) {
     let forked_path = projects_root
         .join(claude_project_dir_name(cwd))
         .join(format!("{}.jsonl", forked.session_id));
@@ -310,12 +300,34 @@ fn fork_claude_local_history_branches_from_selected_prefix() {
     let forked_body = serde_json::to_string(&forked_lines).expect("serialize fork");
     assert!(!forked_body.contains("second-old"));
     assert!(!forked_body.contains("second-new"));
-    assert!(!forked_body.contains(source_session_id));
+    assert!(!forked_body.contains("session-source"));
 
     let copied_support = fs::read_to_string(forked_path.with_extension("").join("child.jsonl"))
         .expect("read copied support jsonl");
     assert!(copied_support.contains(&forked.session_id));
-    assert!(!copied_support.contains(source_session_id));
+    assert!(!copied_support.contains("session-source"));
+}
+
+#[test]
+fn fork_claude_local_history_branches_from_selected_prefix() {
+    let root = temp_test_dir("claude-fork-history");
+    let projects_root = root.join("projects");
+    let cwd = Path::new("/repo");
+    write_branching_session_fixture(&projects_root, cwd);
+
+    let forked =
+        fork_claude_local_history_from_projects_root(&projects_root, cwd, "session-source", 1)
+            .expect("fork history");
+
+    assert_ne!(forked.session_id, "session-source");
+    let items = forked.thread["turns"][0]["items"]
+        .as_array()
+        .expect("thread items");
+    assert_eq!(items.len(), 2);
+    assert_eq!(items[0]["content"][0]["text"], "first");
+    assert_eq!(items[1]["text"], "reply one");
+
+    assert_forked_session_lines(&projects_root, cwd, &forked);
 
     let _ = fs::remove_dir_all(root);
 }

@@ -3,6 +3,9 @@
 #[path = "input_queue_rules.rs"]
 mod input_queue_rules;
 
+#[path = "input_dispatch.rs"]
+mod input_dispatch;
+
 use std::collections::VecDeque;
 use std::sync::mpsc::{Receiver, RecvTimeoutError, TryRecvError};
 use std::time::Instant;
@@ -15,12 +18,10 @@ use ratatui::Terminal;
 pub(super) use self::input_queue_rules::is_priority_server_line;
 pub(super) use self::input_queue_rules::{can_submit_queued_turn, prioritize_events};
 
+use super::input_events::ensure_transcript_layout;
 #[cfg(test)]
 pub(super) use super::input_events::is_mobile_mouse_key_candidate;
-use super::input_events::{ensure_transcript_layout, handle_terminal_event, TerminalEventResult};
-use super::notifications::{
-    animation_poll_timeout, animation_tick, handle_server_message_line, ServerRequestAction,
-};
+use super::notifications::{animation_poll_timeout, animation_tick};
 use super::render::render_main_view;
 use super::terminal_ui::with_terminal;
 use super::turn_submit::submit_turn_text_with_history;
@@ -31,6 +32,8 @@ use crate::event::spawn_event_forwarders;
 #[cfg(feature = "dictation")]
 use crate::event::spawn_event_forwarders_with_dictation;
 use crate::event::UiEvent;
+
+use self::input_dispatch::process_event;
 
 const MAX_UI_DRAIN_PER_CYCLE: usize = 4096;
 const SERVER_BUDGET_WITH_INPUT: usize = 8;
@@ -64,74 +67,161 @@ pub(crate) fn run_conversation_tui(
     server_events_rx: std::sync::mpsc::Receiver<String>,
 ) -> Result<()> {
     with_terminal(|terminal| {
-        #[cfg(feature = "dictation")]
-        let ui_rx = {
-            let (dictation_tx, dictation_rx) = std::sync::mpsc::channel();
-            app.configure_dictation_event_sender(dictation_tx);
-            spawn_event_forwarders_with_dictation(server_events_rx, dictation_rx)
-        };
-        #[cfg(not(feature = "dictation"))]
-        let ui_rx = spawn_event_forwarders(server_events_rx);
-        let mut deferred = VecDeque::<String>::new();
-        let mut prefetched = VecDeque::<UiEvent>::new();
-        let mut needs_draw = true;
-        let mut last_anim_tick = 0u128;
+        let ui_rx = wire_event_forwarders(app, server_events_rx);
+        let mut state = LoopState::default();
         loop {
             if let Some(p) = app.perf.as_mut() {
                 p.loop_count = p.loop_count.saturating_add(1);
             }
-            let size = terminal_size(terminal)?;
-            let (loop_now, working) = (Instant::now(), app.active_turn_id.is_some());
-            if drain_prefetched_idle(&ui_rx, working, &deferred, &mut prefetched).disconnected() {
-                return Ok(());
-            }
-            if try_submit_queued_turn(client, app, working, &deferred, &prefetched, loop_now) {
-                needs_draw = true;
-                continue;
-            }
-            last_anim_tick = update_animation_state(working, last_anim_tick, &mut needs_draw);
-            let tick = if working { animation_tick() } else { 0 };
-            if needs_draw {
-                draw_frame(
-                    terminal,
-                    app,
-                    size,
-                    tick,
-                    &mut needs_draw,
-                    &mut last_anim_tick,
-                )?;
-            }
-            let next_event =
-                match poll_next_event(&ui_rx, &mut prefetched, &deferred, working, app, loop_now) {
-                    ChannelOk::Disconnected => return Ok(()),
-                    ChannelOk::Ok(ev) => ev,
-                };
-            if let Some(p) = app.perf.as_mut() {
-                p.poll_wait.push(loop_now.elapsed());
-            }
-            let incoming = match gather_incoming_events(next_event, &mut prefetched, &ui_rx) {
-                ChannelOk::Disconnected => return Ok(()),
-                ChannelOk::Ok(v) => v,
-            };
-            let events = budgeted_events(incoming, &mut deferred);
-            if events.is_empty() {
-                continue;
-            }
-            for ev in events {
-                if process_event(ev, client, app, size, &mut needs_draw) {
-                    return Ok(());
-                }
-            }
-            if needs_draw {
-                let t = if app.active_turn_id.is_some() {
-                    animation_tick()
-                } else {
-                    0
-                };
-                draw_frame(terminal, app, size, t, &mut needs_draw, &mut last_anim_tick)?;
+            match run_one_loop_iteration(terminal, client, app, &ui_rx, &mut state)? {
+                LoopOutcome::Continue => continue,
+                LoopOutcome::Exit => return Ok(()),
             }
         }
     })
+}
+
+struct LoopState {
+    deferred: VecDeque<String>,
+    prefetched: VecDeque<UiEvent>,
+    needs_draw: bool,
+    last_anim_tick: u128,
+}
+
+impl Default for LoopState {
+    fn default() -> Self {
+        Self {
+            deferred: VecDeque::new(),
+            prefetched: VecDeque::new(),
+            needs_draw: true,
+            last_anim_tick: 0,
+        }
+    }
+}
+
+enum LoopOutcome {
+    Continue,
+    Exit,
+}
+
+#[cfg(feature = "dictation")]
+fn wire_event_forwarders(
+    app: &mut AppState,
+    server_events_rx: std::sync::mpsc::Receiver<String>,
+) -> std::sync::mpsc::Receiver<UiEvent> {
+    let (dictation_tx, dictation_rx) = std::sync::mpsc::channel();
+    app.configure_dictation_event_sender(dictation_tx);
+    spawn_event_forwarders_with_dictation(server_events_rx, dictation_rx)
+}
+
+#[cfg(not(feature = "dictation"))]
+fn wire_event_forwarders(
+    _app: &mut AppState,
+    server_events_rx: std::sync::mpsc::Receiver<String>,
+) -> std::sync::mpsc::Receiver<UiEvent> {
+    spawn_event_forwarders(server_events_rx)
+}
+
+fn run_one_loop_iteration(
+    terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
+    client: &dyn BackendClient,
+    app: &mut AppState,
+    ui_rx: &std::sync::mpsc::Receiver<UiEvent>,
+    state: &mut LoopState,
+) -> Result<LoopOutcome> {
+    let size = terminal_size(terminal)?;
+    let (loop_now, working) = (Instant::now(), app.active_turn_id.is_some());
+    if drain_prefetched_idle(ui_rx, working, &state.deferred, &mut state.prefetched).disconnected()
+    {
+        return Ok(LoopOutcome::Exit);
+    }
+    if try_submit_queued_turn(
+        client,
+        app,
+        working,
+        &state.deferred,
+        &state.prefetched,
+        loop_now,
+    ) {
+        state.needs_draw = true;
+        return Ok(LoopOutcome::Continue);
+    }
+    state.last_anim_tick =
+        update_animation_state(working, state.last_anim_tick, &mut state.needs_draw);
+    maybe_draw(terminal, app, size, working, state)?;
+
+    let events = match collect_loop_events(ui_rx, app, working, loop_now, state) {
+        EventBatchOutcome::Disconnected => return Ok(LoopOutcome::Exit),
+        EventBatchOutcome::Empty => return Ok(LoopOutcome::Continue),
+        EventBatchOutcome::Events(v) => v,
+    };
+    for ev in events {
+        if process_event(ev, client, app, size, &mut state.needs_draw) {
+            return Ok(LoopOutcome::Exit);
+        }
+    }
+    maybe_draw(terminal, app, size, app.active_turn_id.is_some(), state)?;
+    Ok(LoopOutcome::Continue)
+}
+
+fn maybe_draw(
+    terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
+    app: &mut AppState,
+    size: TerminalSize,
+    working: bool,
+    state: &mut LoopState,
+) -> Result<()> {
+    if !state.needs_draw {
+        return Ok(());
+    }
+    let tick = if working { animation_tick() } else { 0 };
+    draw_frame(
+        terminal,
+        app,
+        size,
+        tick,
+        &mut state.needs_draw,
+        &mut state.last_anim_tick,
+    )
+}
+
+enum EventBatchOutcome {
+    Disconnected,
+    Empty,
+    Events(Vec<UiEvent>),
+}
+
+fn collect_loop_events(
+    ui_rx: &std::sync::mpsc::Receiver<UiEvent>,
+    app: &mut AppState,
+    working: bool,
+    loop_now: Instant,
+    state: &mut LoopState,
+) -> EventBatchOutcome {
+    let next_event = match poll_next_event(
+        ui_rx,
+        &mut state.prefetched,
+        &state.deferred,
+        working,
+        app,
+        loop_now,
+    ) {
+        ChannelOk::Disconnected => return EventBatchOutcome::Disconnected,
+        ChannelOk::Ok(ev) => ev,
+    };
+    if let Some(p) = app.perf.as_mut() {
+        p.poll_wait.push(loop_now.elapsed());
+    }
+    let incoming = match gather_incoming_events(next_event, &mut state.prefetched, ui_rx) {
+        ChannelOk::Disconnected => return EventBatchOutcome::Disconnected,
+        ChannelOk::Ok(v) => v,
+    };
+    let events = budgeted_events(incoming, &mut state.deferred);
+    if events.is_empty() {
+        EventBatchOutcome::Empty
+    } else {
+        EventBatchOutcome::Events(events)
+    }
 }
 
 // --- Loop Helpers ---
@@ -302,64 +392,3 @@ fn budgeted_events(
 }
 
 // --- Event Processing ---
-
-/// Handle a single UI event. Returns `true` when the caller should quit.
-fn process_event(
-    event: UiEvent,
-    client: &dyn BackendClient,
-    app: &mut AppState,
-    size: TerminalSize,
-    needs_draw: &mut bool,
-) -> bool {
-    let event_started = Instant::now();
-    let quit = match event {
-        UiEvent::ServerLine(line) => {
-            handle_server_line(client, app, &line);
-            *needs_draw = true;
-            false
-        }
-        #[cfg(feature = "dictation")]
-        UiEvent::Dictation(event) => {
-            app.handle_dictation_event(event);
-            *needs_draw = true;
-            false
-        }
-        UiEvent::Terminal(ev) => match handle_terminal_event(client, app, ev, size) {
-            TerminalEventResult::Quit => true,
-            TerminalEventResult::Continue {
-                needs_draw: event_needs_draw,
-            } => {
-                if event_needs_draw {
-                    *needs_draw = true;
-                }
-                false
-            }
-        },
-    };
-    if let Some(perf) = app.perf.as_mut() {
-        perf.event_handle.push(event_started.elapsed());
-    }
-    quit
-}
-
-// --- Server Handling ---
-
-/// Process a single server JSON line, dispatching any resulting actions.
-fn handle_server_line(client: &dyn BackendClient, app: &mut AppState, line: &str) {
-    if let Some(perf) = app.perf.as_mut() {
-        perf.notifications = perf.notifications.saturating_add(1);
-    }
-    if let Some(action) = handle_server_message_line(app, line) {
-        match action {
-            ServerRequestAction::ReplyError {
-                request_id,
-                code,
-                message,
-            } => {
-                if let Err(err) = client.respond_error(&request_id, code, &message) {
-                    app.set_status(format!("server request reply failed: {err}"));
-                }
-            }
-        }
-    }
-}

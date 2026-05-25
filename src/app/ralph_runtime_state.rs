@@ -37,6 +37,7 @@ pub(super) struct RalphRuntimeState {
 
 // --- Turn Outcome ---
 
+#[derive(Default)]
 pub(super) struct RalphTurnOutcome {
     pub(super) system_message: Option<String>,
     pub(super) status: Option<String>,
@@ -275,12 +276,7 @@ impl RalphRuntimeState {
         interrupted: bool,
     ) -> RalphTurnOutcome {
         let Some(ralph) = self.current.as_mut() else {
-            return RalphTurnOutcome {
-                system_message: None,
-                status: None,
-                disable: false,
-                continuation: None,
-            };
+            return RalphTurnOutcome::default();
         };
 
         let markers = detect_turn_markers(
@@ -296,7 +292,7 @@ impl RalphRuntimeState {
                 system_message: Some("Ralph complete".to_string()),
                 status: Some("ralph complete".to_string()),
                 disable: true,
-                continuation: None,
+                ..Default::default()
             };
         }
         if markers.blocked {
@@ -305,33 +301,21 @@ impl RalphRuntimeState {
                 system_message: Some("Ralph blocked: waiting for input".to_string()),
                 status: Some("ralph blocked".to_string()),
                 disable: true,
-                continuation: None,
+                ..Default::default()
             };
         }
         if interrupted {
             ralph.waiting_for_user = false;
-            return RalphTurnOutcome {
-                system_message: None,
-                status: None,
-                disable: false,
-                continuation: None,
-            };
+            return RalphTurnOutcome::default();
         }
         if !ralph.completed {
             ralph.waiting_for_user = false;
             return RalphTurnOutcome {
-                system_message: None,
                 status: Some("ralph continuing".to_string()),
-                disable: false,
                 continuation: Some(ralph.config.continuation_prompt.clone()),
+                ..Default::default()
             };
         }
-
-        RalphTurnOutcome {
-            system_message: None,
-            status: None,
-            disable: false,
-            continuation: None,
-        }
+        RalphTurnOutcome::default()
     }
 }

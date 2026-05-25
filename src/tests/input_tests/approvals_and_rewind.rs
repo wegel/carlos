@@ -223,9 +223,8 @@ fn escape_key_disables_ralph_mode() {
     assert_eq!(app.status, "ralph off");
 }
 
-#[test]
-fn submit_rewind_turn_text_forks_codex_thread_before_resubmitting() {
-    let fork_response = json!({
+fn build_rewind_fork_response() -> String {
+    json!({
         "jsonrpc": "2.0",
         "result": {
             "thread": {
@@ -234,10 +233,7 @@ fn submit_rewind_turn_text_forks_codex_thread_before_resubmitting() {
                     "items": [
                         {
                             "type": "userMessage",
-                            "content": [{
-                                "type": "text",
-                                "text": "first"
-                            }]
+                            "content": [{ "type": "text", "text": "first" }]
                         },
                         {
                             "type": "agentMessage",
@@ -248,8 +244,10 @@ fn submit_rewind_turn_text_forks_codex_thread_before_resubmitting() {
             }
         }
     })
-    .to_string();
-    let client = CodexRewindMock::new(fork_response);
+    .to_string()
+}
+
+fn build_two_turn_rewind_app() -> AppState {
     let mut app = AppState::new("thread-original".to_string());
     let u1 = app.append_message(Role::User, "first");
     app.record_input_history("first", Some(u1));
@@ -259,6 +257,13 @@ fn submit_rewind_turn_text_forks_codex_thread_before_resubmitting() {
     let _ = app.append_message(Role::Assistant, "reply two");
     app.set_input_text("edited second");
     app.enter_rewind_mode();
+    app
+}
+
+#[test]
+fn submit_rewind_turn_text_forks_codex_thread_before_resubmitting() {
+    let client = CodexRewindMock::new(build_rewind_fork_response());
+    let mut app = build_two_turn_rewind_app();
     let rewind_history_idx = app
         .rewind_selected_history_index()
         .expect("rewind history index");

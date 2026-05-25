@@ -41,56 +41,17 @@ pub(super) struct PendingApprovalRequest {
 impl PendingApprovalRequest {
     pub(super) fn response_for_choice(&self, choice: ApprovalChoice) -> Option<Value> {
         match self.kind {
-            ApprovalRequestKind::CommandExecution => match choice {
-                ApprovalChoice::Accept => Some(json!({ "decision": "accept" })),
-                ApprovalChoice::AcceptForSession if self.can_accept_for_session => {
-                    Some(json!({ "decision": "acceptForSession" }))
-                }
-                ApprovalChoice::Decline if self.can_decline => {
-                    Some(json!({ "decision": "decline" }))
-                }
-                ApprovalChoice::Cancel if self.can_cancel => Some(json!({ "decision": "cancel" })),
-                _ => None,
-            },
-            ApprovalRequestKind::FileChange => match choice {
-                ApprovalChoice::Accept => Some(json!({ "decision": "accept" })),
-                ApprovalChoice::AcceptForSession if self.can_accept_for_session => {
-                    Some(json!({ "decision": "acceptForSession" }))
-                }
-                ApprovalChoice::Decline if self.can_decline => {
-                    Some(json!({ "decision": "decline" }))
-                }
-                ApprovalChoice::Cancel if self.can_cancel => Some(json!({ "decision": "cancel" })),
-                _ => None,
-            },
-            ApprovalRequestKind::Permissions => match choice {
-                ApprovalChoice::Accept => Some(json!({
-                    "permissions": self.requested_permissions.clone().unwrap_or_else(|| json!({}))
-                })),
-                ApprovalChoice::AcceptForSession if self.can_accept_for_session => Some(json!({
-                    "permissions": self.requested_permissions.clone().unwrap_or_else(|| json!({})),
-                    "scope": "session"
-                })),
-                ApprovalChoice::Decline if self.can_decline => Some(json!({
-                    "permissions": {}
-                })),
-                _ => None,
-            },
-            ApprovalRequestKind::LegacyExecCommand | ApprovalRequestKind::LegacyApplyPatch => {
-                match choice {
-                    ApprovalChoice::Accept => Some(json!({ "decision": "approved" })),
-                    ApprovalChoice::AcceptForSession if self.can_accept_for_session => {
-                        Some(json!({ "decision": "approved_for_session" }))
-                    }
-                    ApprovalChoice::Decline if self.can_decline => {
-                        Some(json!({ "decision": "denied" }))
-                    }
-                    ApprovalChoice::Cancel if self.can_cancel => {
-                        Some(json!({ "decision": "abort" }))
-                    }
-                    _ => None,
-                }
+            ApprovalRequestKind::CommandExecution | ApprovalRequestKind::FileChange => {
+                self.decision_response(choice, "accept", "acceptForSession", "decline", "cancel")
             }
+            ApprovalRequestKind::LegacyExecCommand | ApprovalRequestKind::LegacyApplyPatch => self
+                .decision_response(
+                    choice,
+                    "approved",
+                    "approved_for_session",
+                    "denied",
+                    "abort",
+                ),
             ApprovalRequestKind::ClaudeExitPlanMode => match choice {
                 ApprovalChoice::Accept => Some(json!({ "decision": "accept" })),
                 ApprovalChoice::Decline if self.can_decline => {
@@ -99,6 +60,40 @@ impl PendingApprovalRequest {
                 ApprovalChoice::Cancel if self.can_cancel => Some(json!({ "decision": "cancel" })),
                 _ => None,
             },
+            ApprovalRequestKind::Permissions => self.permissions_response(choice),
+        }
+    }
+
+    fn decision_response(
+        &self,
+        choice: ApprovalChoice,
+        accept: &str,
+        accept_for_session: &str,
+        decline: &str,
+        cancel: &str,
+    ) -> Option<Value> {
+        match choice {
+            ApprovalChoice::Accept => Some(json!({ "decision": accept })),
+            ApprovalChoice::AcceptForSession if self.can_accept_for_session => {
+                Some(json!({ "decision": accept_for_session }))
+            }
+            ApprovalChoice::Decline if self.can_decline => Some(json!({ "decision": decline })),
+            ApprovalChoice::Cancel if self.can_cancel => Some(json!({ "decision": cancel })),
+            _ => None,
+        }
+    }
+
+    fn permissions_response(&self, choice: ApprovalChoice) -> Option<Value> {
+        match choice {
+            ApprovalChoice::Accept => Some(json!({
+                "permissions": self.requested_permissions.clone().unwrap_or_else(|| json!({}))
+            })),
+            ApprovalChoice::AcceptForSession if self.can_accept_for_session => Some(json!({
+                "permissions": self.requested_permissions.clone().unwrap_or_else(|| json!({})),
+                "scope": "session"
+            })),
+            ApprovalChoice::Decline if self.can_decline => Some(json!({ "permissions": {} })),
+            _ => None,
         }
     }
 

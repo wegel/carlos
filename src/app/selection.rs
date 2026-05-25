@@ -100,15 +100,7 @@ pub(super) fn selected_text<S: RenderedLineSource + ?Sized>(
     selection: Selection,
     rendered_lines: &S,
 ) -> String {
-    let mut ax = selection.anchor_x;
-    let mut ay = selection.anchor_line_idx;
-    let mut fx = selection.focus_x;
-    let mut fy = selection.focus_line_idx;
-    if fy < ay || (fy == ay && fx < ax) {
-        std::mem::swap(&mut ax, &mut fx);
-        std::mem::swap(&mut ay, &mut fy);
-    }
-
+    let (ax, ay, fx, fy) = normalize_selection_bounds(selection);
     if rendered_lines.len() == 0 {
         return String::new();
     }
@@ -117,7 +109,6 @@ pub(super) fn selected_text<S: RenderedLineSource + ?Sized>(
     let end_idx = fy.min(rendered_lines.len().saturating_sub(1));
 
     let mut out = String::new();
-    let mut first = true;
     let mut prev_idx: Option<usize> = None;
     let mut prev_soft_wrap = false;
 
@@ -125,38 +116,14 @@ pub(super) fn selected_text<S: RenderedLineSource + ?Sized>(
         let Some(line) = rendered_lines.get(idx) else {
             continue;
         };
-        let line_cells = line.cells;
-
-        let mut s_col = 1usize;
-        let mut e_col = line_cells;
-        if idx == ay {
-            s_col = ax;
-        }
-        if idx == fy {
-            e_col = fx;
-        }
-
-        s_col = s_col.max(1);
-        e_col = e_col.min(line_cells);
-
-        if !first {
-            let contiguous = prev_idx.is_some_and(|i| i + 1 == idx);
-            if !(contiguous && prev_soft_wrap) {
-                out.push('\n');
-            }
-        }
-        first = false;
-
-        let mut fragment = String::new();
-        if line_cells > 0 && s_col <= e_col && s_col <= line_cells {
-            fragment = slice_by_cells(&line.text, s_col - 1, e_col);
-        }
+        let (s_col, e_col) = column_range_for_line(idx, line.cells, ax, ay, fx, fy);
+        let fragment = extract_line_fragment(&line.text, line.cells, s_col, e_col);
 
         let contiguous = prev_idx.is_some_and(|i| i + 1 == idx);
-        if contiguous && prev_soft_wrap {
-            if should_insert_soft_wrap_space(&out, &fragment) {
-                out.push(' ');
-            }
+        if prev_idx.is_some() && !(contiguous && prev_soft_wrap) {
+            out.push('\n');
+        } else if contiguous && prev_soft_wrap && should_insert_soft_wrap_space(&out, &fragment) {
+            out.push(' ');
         }
         out.push_str(&fragment);
 
@@ -165,6 +132,38 @@ pub(super) fn selected_text<S: RenderedLineSource + ?Sized>(
     }
 
     out
+}
+
+fn normalize_selection_bounds(selection: Selection) -> (usize, usize, usize, usize) {
+    let mut ax = selection.anchor_x;
+    let mut ay = selection.anchor_line_idx;
+    let mut fx = selection.focus_x;
+    let mut fy = selection.focus_line_idx;
+    if fy < ay || (fy == ay && fx < ax) {
+        std::mem::swap(&mut ax, &mut fx);
+        std::mem::swap(&mut ay, &mut fy);
+    }
+    (ax, ay, fx, fy)
+}
+
+fn column_range_for_line(
+    idx: usize,
+    line_cells: usize,
+    ax: usize,
+    ay: usize,
+    fx: usize,
+    fy: usize,
+) -> (usize, usize) {
+    let s_col = if idx == ay { ax } else { 1 };
+    let e_col = if idx == fy { fx } else { line_cells };
+    (s_col.max(1), e_col.min(line_cells))
+}
+
+fn extract_line_fragment(text: &str, line_cells: usize, s_col: usize, e_col: usize) -> String {
+    if line_cells == 0 || s_col > e_col || s_col > line_cells {
+        return String::new();
+    }
+    slice_by_cells(text, s_col - 1, e_col)
 }
 
 fn should_insert_soft_wrap_space(existing: &str, fragment: &str) -> bool {

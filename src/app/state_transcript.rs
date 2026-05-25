@@ -200,49 +200,9 @@ impl AppState {
         if idx == 0 || idx >= self.messages.len() {
             return None;
         }
-
-        let Some(current) = self.messages.get(idx) else {
-            return None;
-        };
-        if current.role != Role::ToolCall
-            || current.kind != MessageKind::Plain
-            || current.text.contains('\n')
-            || current.text.trim().is_empty()
-        {
-            return None;
-        }
-        let Some((current_path, current_count)) = parse_read_summary(&current.text) else {
-            return None;
-        };
-        let current_path = current_path.to_string();
-
-        let mut previous_idx = idx.saturating_sub(1);
-        while previous_idx > 0 {
-            let Some(previous) = self.messages.get(previous_idx) else {
-                return None;
-            };
-            let empty_tool_shell = previous.role == Role::ToolCall
-                && previous.kind == MessageKind::Plain
-                && previous.text.trim().is_empty();
-            if !empty_tool_shell {
-                break;
-            }
-            previous_idx -= 1;
-        }
-
-        let Some(previous) = self.messages.get(previous_idx) else {
-            return None;
-        };
-        if previous.role != Role::ToolCall
-            || previous.kind != MessageKind::Plain
-            || previous.text.contains('\n')
-            || previous.text.trim().is_empty()
-        {
-            return None;
-        }
-        let Some((previous_path, previous_count)) = parse_read_summary(&previous.text) else {
-            return None;
-        };
+        let (current_path, current_count) = read_summary_at(self.messages.get(idx)?)?;
+        let previous_idx = scan_back_past_empty_tool_shells(&self.messages, idx);
+        let (previous_path, previous_count) = read_summary_at(self.messages.get(previous_idx)?)?;
         if previous_path != current_path {
             return None;
         }
@@ -320,6 +280,35 @@ impl AppState {
         }
         super::selection::selected_text(selection, self)
     }
+}
+
+fn read_summary_at(message: &Message) -> Option<(String, usize)> {
+    if message.role != Role::ToolCall
+        || message.kind != MessageKind::Plain
+        || message.text.contains('\n')
+        || message.text.trim().is_empty()
+    {
+        return None;
+    }
+    let (path, count) = parse_read_summary(&message.text)?;
+    Some((path.to_string(), count))
+}
+
+fn scan_back_past_empty_tool_shells(messages: &[Message], from_idx: usize) -> usize {
+    let mut previous_idx = from_idx.saturating_sub(1);
+    while previous_idx > 0 {
+        let Some(previous) = messages.get(previous_idx) else {
+            return previous_idx;
+        };
+        let empty_tool_shell = previous.role == Role::ToolCall
+            && previous.kind == MessageKind::Plain
+            && previous.text.trim().is_empty();
+        if !empty_tool_shell {
+            break;
+        }
+        previous_idx -= 1;
+    }
+    previous_idx
 }
 
 impl RenderedLineSource for AppState {
