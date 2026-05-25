@@ -274,7 +274,13 @@ fn handle_input_data<T>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::Arc;
+
+    use super::{
+        frame_len, BoundedAudioBuffer, CaptureState, VadGate, WebRtcVad, MAX_RECORDING_SAMPLES,
+        TARGET_SAMPLE_RATE, VAD_FRAME_MS,
+    };
 
     fn test_capture_state() -> CaptureState {
         CaptureState {

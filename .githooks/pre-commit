@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+if git diff --cached --quiet -- '*.rs' Cargo.toml Cargo.lock; then
+  exit 0
+fi
+
+scripts/check-rust-style.sh --staged
+cargo fmt --check
+cargo test

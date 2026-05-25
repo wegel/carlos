@@ -200,8 +200,8 @@ fn copy_session_support_tree(
             let reader = std::io::BufReader::new(file);
             let mut lines = Vec::new();
             for line in reader.lines() {
-                let line = line
-                    .with_context(|| format!("failed to read {}", source_path.display()))?;
+                let line =
+                    line.with_context(|| format!("failed to read {}", source_path.display()))?;
                 let trimmed = line.trim();
                 if trimmed.is_empty() {
                     lines.push(String::new());
@@ -240,8 +240,9 @@ pub(super) fn fork_claude_session_from_projects_root(
     source_session_id: &str,
     keep_turns: usize,
 ) -> Result<ForkedClaudeSession> {
-    let source_session_path = find_session_file_for_resume(projects_root, cwd, source_session_id)
-        .with_context(|| format!("Claude session not found: {source_session_id}"))?;
+    let source_session_path =
+        find_session_file_for_resume(projects_root, cwd, source_session_id)
+            .with_context(|| format!("Claude session not found: {source_session_id}"))?;
     let records = read_session_records_from_file(&source_session_path)?;
     let up_to_message_uuid = session_prefix_message_uuid(&records, keep_turns);
     let kept_uuid_chain = prefix_uuid_chain(&records, up_to_message_uuid.as_deref());
