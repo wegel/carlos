@@ -37,11 +37,13 @@ const SERVER_BUDGET_WITH_INPUT: usize = 8;
 const SERVER_BUDGET_IDLE: usize = 256;
 
 // --- Loop Setup ---
+
 pub(super) fn make_input_area() -> ratatui_textarea::TextArea<'static> {
     ratatui_textarea::TextArea::default()
 }
 
 // --- Channel State ---
+
 /// Result of draining or polling that may detect a channel disconnect.
 enum ChannelOk<T> {
     Ok(T),
@@ -55,6 +57,7 @@ impl ChannelOk<()> {
 }
 
 // --- Main Loop ---
+
 pub(crate) fn run_conversation_tui(
     client: &dyn BackendClient,
     app: &mut AppState,
@@ -132,6 +135,7 @@ pub(crate) fn run_conversation_tui(
 }
 
 // --- Loop Helpers ---
+
 fn terminal_size(terminal: &Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<TerminalSize> {
     let size = terminal.size()?;
     Ok(TerminalSize {
@@ -298,6 +302,7 @@ fn budgeted_events(
 }
 
 // --- Event Processing ---
+
 /// Handle a single UI event. Returns `true` when the caller should quit.
 fn process_event(
     event: UiEvent,
@@ -338,6 +343,7 @@ fn process_event(
 }
 
 // --- Server Handling ---
+
 /// Process a single server JSON line, dispatching any resulting actions.
 fn handle_server_line(client: &dyn BackendClient, app: &mut AppState, line: &str) {
     if let Some(perf) = app.perf.as_mut() {

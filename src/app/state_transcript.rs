@@ -322,7 +322,6 @@ impl AppState {
     }
 }
 
-// --- Trait impl ---
 impl RenderedLineSource for AppState {
     fn len(&self) -> usize {
         self.rendered_line_count()

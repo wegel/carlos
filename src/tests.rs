@@ -1,3 +1,5 @@
+//! Top-level test module aggregator: re-exports the per-subsystem test trees.
+
 pub(super) use super::backend_setup::load_claude_thread_summaries;
 pub(super) use super::cli::{
     load_runtime_defaults_from, parse_cli_args, persist_runtime_defaults_to,

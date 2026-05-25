@@ -1,3 +1,5 @@
+//! Tests for the WebRTC voice-activity gate: frame conversion and silence detection.
+
 use super::{
     f32_frame_to_pcm16, frame_len, VadDecision, VadGate, WebRtcVad, SILENCE_AUTO_STOP_MS,
     VAD_FRAME_MS,

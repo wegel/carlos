@@ -1,3 +1,5 @@
+// Tests for transcript layout and input-area rendering.
+
 #[test]
 fn build_rendered_lines_with_hidden_omits_selected_user_message() {
     let messages = vec![

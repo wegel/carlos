@@ -1,4 +1,5 @@
-// --- Picker Events ---
+//! Thread-picker event loop: keyboard navigation, selection, and archive action.
+
 use std::io;
 
 use anyhow::Result;

@@ -1,4 +1,5 @@
-// --- Queue Rules ---
+//! Event queue coalescing rules: drop redundant mouse motion and resize events.
+
 use std::collections::VecDeque;
 
 use crossterm::event::{Event as CrosstermEvent, MouseEventKind};

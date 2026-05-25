@@ -1,3 +1,5 @@
+//! Dictation key shortcuts: Ctrl-D toggle, F7 profile cycling, F9 endpoint switching.
+
 use super::TerminalEventResult;
 use crate::app::state::AppState;
 

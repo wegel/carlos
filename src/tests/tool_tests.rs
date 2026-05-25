@@ -1,3 +1,5 @@
+//! Tool-rendering test tree: command summaries and shell rendering.
+
 use serde_json::json;
 
 use super::{

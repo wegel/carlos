@@ -10,6 +10,7 @@ use super::RuntimeDefaults;
 use crate::protocol_params::ThreadRuntimeSettings;
 
 // --- CLI Types ---
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(super) enum Backend {
     #[default]
@@ -48,6 +49,7 @@ pub(super) struct CliOptions {
 }
 
 // --- Runtime Settings ---
+
 pub(super) fn resolve_initial_runtime_settings(
     runtime: ThreadRuntimeSettings,
     defaults: &RuntimeDefaults,
@@ -80,6 +82,7 @@ pub(super) fn styled_resume_hint(backend: Backend, thread_id: &str) -> String {
 }
 
 // --- CLI Parsing ---
+
 pub(super) fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<CliOptions> {
     let mut opts = CliOptions {
         backend: env_backend().unwrap_or(Backend::Codex),
@@ -176,6 +179,7 @@ fn validate_perf_session_opts(opts: &CliOptions) -> Result<()> {
 }
 
 // --- Env Helpers ---
+
 pub(super) fn env_flag_enabled(name: &str) -> bool {
     match env::var(name) {
         Ok(value) => {
@@ -217,6 +221,7 @@ fn env_backend() -> Option<Backend> {
 }
 
 // --- Runtime Defaults ---
+
 fn runtime_defaults_path() -> Option<PathBuf> {
     let base = env::var_os("XDG_CONFIG_HOME")
         .filter(|v| !v.is_empty())

@@ -1,3 +1,5 @@
+// Tests for reconstructing local Claude transcript history from session files.
+
 #[test]
 fn translate_claude_exit_plan_fallback_emits_pending_approval_request() {
     let synthetic = collect_synthetic_lines(&[

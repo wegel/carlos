@@ -12,6 +12,7 @@ use crate::theme::{
 };
 
 // --- Diff Styles ---
+
 pub(super) fn diff_line_style(line: &str) -> Style {
     if line.starts_with("@@") {
         return Style::default()
@@ -67,6 +68,7 @@ pub(super) fn make_diff_viewer_style() -> DiffViewerStyle {
 }
 
 // --- Segment Helpers ---
+
 fn diff_line_number_width(parsed: &DiffData) -> usize {
     let mut max_line = 0usize;
     for hunk in &parsed.hunks {
@@ -134,6 +136,7 @@ fn build_diff_transcript_line_segments(
 }
 
 // --- Logical Lines ---
+
 fn diff_transcript_logical_lines(
     file_path: Option<&str>,
     diff: &str,
@@ -198,6 +201,7 @@ fn diff_transcript_logical_lines(
 }
 
 // --- Diff Rendering ---
+
 pub(super) fn append_diff_viewer_lines(
     out: &mut Vec<RenderedLine>,
     role: Role,
@@ -276,6 +280,7 @@ pub(super) fn append_wrapped_diff_lines(
 }
 
 // --- Diff Counting ---
+
 pub(super) fn count_wrapped_diff_lines(file_path: Option<&str>, diff: &str, width: usize) -> usize {
     if width < 8 {
         return 0;

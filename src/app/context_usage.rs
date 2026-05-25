@@ -5,6 +5,7 @@ use serde_json::Value;
 use super::text::visual_width;
 
 // --- Usage Types ---
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct ContextUsage {
     pub(super) used: u64,
@@ -12,6 +13,7 @@ pub(super) struct ContextUsage {
 }
 
 // --- Usage Parsing ---
+
 fn value_to_u64(v: &Value) -> Option<u64> {
     if let Some(n) = v.as_u64() {
         return Some(n);
@@ -107,6 +109,7 @@ pub(super) fn context_usage_from_token_count_params(
 }
 
 // --- Label Formatting ---
+
 fn context_usage_compact_tokens(n: u64) -> String {
     if n >= 1_000_000 {
         format!("{}m", n / 1_000_000)

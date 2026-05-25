@@ -1,4 +1,4 @@
-// --- Input area ---
+//! Input area, status bar, overlay layering, and cursor placement for the main draw loop.
 
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
@@ -21,6 +21,8 @@ use crate::theme::{
     COLOR_GUTTER_AGENT_THINKING, COLOR_GUTTER_USER, COLOR_STEP3, COLOR_STEP7, COLOR_STEP8,
     COLOR_TEXT,
 };
+
+// --- Input area ---
 
 pub(super) fn draw_input_area(
     buf: &mut Buffer,

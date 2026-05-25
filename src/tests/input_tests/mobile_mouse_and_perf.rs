@@ -1,3 +1,5 @@
+// Tests for mobile-mouse decoding and perf-overlay key handling.
+
 #[test]
 fn consume_mobile_mouse_char_requires_prefix_to_activate() {
     let mut app = AppState::new("thread-1".to_string());

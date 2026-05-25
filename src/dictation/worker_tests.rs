@@ -1,3 +1,5 @@
+//! Tests for the dictation worker: capture lifecycle, status reporting, and error paths.
+
 use std::path::PathBuf;
 use std::sync::mpsc;
 

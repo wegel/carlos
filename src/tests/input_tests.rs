@@ -1,3 +1,5 @@
+//! Input subsystem test tree: dictation, approvals/rewind, and mobile mouse/perf.
+
 use crossterm::event::KeyEvent;
 use serde_json::Value;
 use std::sync::mpsc;

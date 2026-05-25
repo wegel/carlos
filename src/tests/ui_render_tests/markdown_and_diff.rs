@@ -1,3 +1,5 @@
+// Tests for markdown rendering and diff hunk display.
+
 #[test]
 fn rewind_fork_drops_selected_message_and_newer_history() {
     let mut app = AppState::new("thread-1".to_string());

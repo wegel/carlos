@@ -1,3 +1,5 @@
+// Tests for history hydration and tool-call notifications.
+
 #[test]
 fn handle_notification_codex_event_token_count_sets_context_usage() {
     let mut app = AppState::new("thread-1".to_string());

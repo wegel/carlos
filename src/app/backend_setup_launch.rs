@@ -1,4 +1,5 @@
-// --- Codex Backend ---
+//! Codex and Claude backend launch sequences: thread resume, session start, history hydration.
+
 use std::path::Path;
 use std::sync::mpsc::Receiver;
 use std::time::Duration;
@@ -6,6 +7,14 @@ use std::time::Duration;
 use anyhow::Result;
 
 use super::{configure_app_common, fetch_model_catalog, finish_run, load_claude_thread_summaries};
+use crate::app::cli::CliOptions;
+use crate::app::models::Role;
+use crate::app::notifications::{
+    handle_server_message_line, load_history_from_start_or_resume, parse_thread_list,
+};
+use crate::app::state::AppState;
+use crate::app::terminal_ui::{pick_thread, sort_threads_for_picker};
+use crate::app::RuntimeDefaults;
 use crate::backend::BackendClient;
 use crate::claude_backend::{
     claude_model_catalog, load_claude_local_history, ClaudeClient, ClaudeLaunchMode,
@@ -18,14 +27,7 @@ use crate::protocol_params::{
     parse_thread_runtime_settings, ThreadRuntimeSettings,
 };
 
-use super::super::cli::CliOptions;
-use super::super::models::Role;
-use super::super::notifications::{
-    handle_server_message_line, load_history_from_start_or_resume, parse_thread_list,
-};
-use super::super::state::AppState;
-use super::super::terminal_ui::{pick_thread, sort_threads_for_picker};
-use super::super::RuntimeDefaults;
+// --- Codex Backend ---
 
 pub(in crate::app) fn run_codex_backend(
     opts: &CliOptions,
@@ -52,6 +54,7 @@ pub(in crate::app) fn run_codex_backend(
     )?;
     finish_run(&mut app, opts.backend, &client, server_events_rx)
 }
+
 pub(super) fn resolve_codex_thread(
     opts: &CliOptions,
     client: &AppServerClient,
@@ -69,6 +72,7 @@ pub(super) fn resolve_codex_thread(
         Ok(Some((thread_id, resp)))
     }
 }
+
 pub(super) fn resolve_codex_resume_or_continue(
     opts: &CliOptions,
     client: &AppServerClient,
@@ -103,6 +107,7 @@ pub(super) fn resolve_codex_resume_or_continue(
     };
     codex_resume_by_id(client, &session_id).map(Some)
 }
+
 pub(super) fn codex_resume_by_id(
     client: &AppServerClient,
     session_id: &str,
@@ -115,6 +120,7 @@ pub(super) fn codex_resume_by_id(
     let thread_id = parse_thread_id_from_start_or_resume(&resp)?;
     Ok((thread_id, resp))
 }
+
 pub(super) fn configure_codex_app(
     app: &mut AppState,
     client: &AppServerClient,
@@ -139,7 +145,9 @@ pub(super) fn configure_codex_app(
     load_history_from_start_or_resume(app, start_resp)?;
     Ok(())
 }
+
 // --- Claude Backend ---
+
 pub(in crate::app) fn run_claude_backend(
     opts: &CliOptions,
     cwd_path: &Path,
@@ -159,6 +167,7 @@ pub(in crate::app) fn run_claude_backend(
     apply_claude_local_history(&mut app, opts, &local_history)?;
     finish_run(&mut app, opts.backend, &client, server_events_rx)
 }
+
 pub(super) fn resolve_claude_launch_mode(
     opts: &CliOptions,
     cwd_path: &Path,
@@ -178,6 +187,7 @@ pub(super) fn resolve_claude_launch_mode(
         Ok(Some(ClaudeLaunchMode::New))
     }
 }
+
 pub(super) fn start_claude_session(
     cwd_path: &Path,
     launch_mode: ClaudeLaunchMode,
@@ -199,6 +209,7 @@ pub(super) fn start_claude_session(
     );
     Ok((client, server_events_rx, start_resp))
 }
+
 pub(super) fn configure_claude_app(
     app: &mut AppState,
     cwd: &str,
@@ -230,6 +241,7 @@ pub(super) fn configure_claude_app(
     load_history_from_start_or_resume(app, start_resp)?;
     Ok(())
 }
+
 pub(super) fn apply_claude_local_history(
     app: &mut AppState,
     opts: &CliOptions,

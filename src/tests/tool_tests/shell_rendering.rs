@@ -1,3 +1,5 @@
+// Tests for shell command rendering, SSH rewrites, and ANSI stripping.
+
 #[test]
 fn exec_command_end_shell_git_diff_is_summarized_as_diff() {
     let mut app = AppState::new("thread-1".to_string());

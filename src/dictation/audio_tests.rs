@@ -1,3 +1,5 @@
+//! Tests for sample-format conversion, resampling, and the bounded audio buffer.
+
 use super::{
     f32_interleaved_to_mono, i16_interleaved_to_mono, resample_to_target_rate,
     u16_interleaved_to_mono, BoundedAudioBuffer, TARGET_SAMPLE_RATE,

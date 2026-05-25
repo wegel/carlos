@@ -1,4 +1,5 @@
-// --- Time Helpers ---
+//! Relative and absolute timestamp formatting for the thread picker.
+
 pub(super) fn format_picker_timestamp(ts: i64) -> String {
     if ts <= 0 {
         return "-".to_string();

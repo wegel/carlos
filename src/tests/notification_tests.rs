@@ -1,3 +1,5 @@
+//! Notification subsystem test tree: context, approvals, history, tools, diffs.
+
 use serde_json::json;
 
 use super::{

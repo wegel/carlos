@@ -1,3 +1,5 @@
+// Tests for Claude protocol translation and turn submission.
+
 #[test]
 fn translate_claude_hides_plan_write_tools_under_tilde_config_dir() {
     let _guard = env_lock().lock().expect("env lock");

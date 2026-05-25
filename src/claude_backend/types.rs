@@ -9,6 +9,7 @@ use serde_json::{json, Map, Value};
 use crate::protocol_params::ModelInfo;
 
 // --- Constants ---
+
 pub(crate) const CLAUDE_PENDING_THREAD_ID: &str = "claude-pending-session";
 pub(crate) const CLAUDE_EXIT_PLAN_REQUEST_METHOD: &str = "claude/exitPlan/requestApproval";
 pub(crate) const CLAUDE_EXIT_PLAN_FALLBACK_TEXT: &str = "Exit plan mode?";

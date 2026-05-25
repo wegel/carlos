@@ -3,6 +3,15 @@
 #[path = "backend_setup_launch.rs"]
 mod backend_setup_launch;
 
+use std::env;
+use std::fs::{self, File};
+use std::io::{BufRead, BufReader};
+use std::path::{Path, PathBuf};
+use std::sync::mpsc::Receiver;
+use std::time::Duration;
+
+use anyhow::{Context, Result};
+
 use super::cli::{
     env_flag_enabled, resolve_initial_runtime_settings, styled_resume_hint, Backend, CliOptions,
 };
@@ -17,16 +26,11 @@ use crate::claude_backend::claude_project_dir_name;
 use crate::protocol_params::{
     params_model_list, parse_model_list_page, ModelInfo, ThreadRuntimeSettings,
 };
-use anyhow::{Context, Result};
-use std::env;
-use std::fs::{self, File};
-use std::io::{BufRead, BufReader};
-use std::path::{Path, PathBuf};
-use std::sync::mpsc::Receiver;
-use std::time::Duration;
 
 pub(super) use self::backend_setup_launch::{run_claude_backend, run_codex_backend};
+
 // --- Model Catalog ---
+
 pub(super) fn fetch_model_catalog(client: &dyn BackendClient) -> Result<Vec<ModelInfo>> {
     let mut cursor = None;
     let mut out = Vec::new();
@@ -45,7 +49,9 @@ pub(super) fn fetch_model_catalog(client: &dyn BackendClient) -> Result<Vec<Mode
     }
     Ok(out)
 }
+
 // --- App Helpers ---
+
 pub(super) fn configure_app_common(
     app: &mut AppState,
     cwd: &str,
@@ -106,6 +112,7 @@ fn configure_dictation(app: &mut AppState, opts: &CliOptions) {
     };
     app.disable_dictation(reason);
 }
+
 pub(super) fn finish_run(
     app: &mut AppState,
     backend: Backend,
@@ -119,12 +126,15 @@ pub(super) fn finish_run(
     }
     out
 }
+
 // --- Claude History ---
+
 pub(super) fn claude_projects_root() -> Option<PathBuf> {
     env::var_os("HOME")
         .map(PathBuf::from)
         .map(|home| home.join(".claude").join("projects"))
 }
+
 pub(super) fn file_mtime_secs(path: &Path) -> i64 {
     fs::metadata(path)
         .ok()
@@ -133,6 +143,7 @@ pub(super) fn file_mtime_secs(path: &Path) -> i64 {
         .map(|duration| duration.as_secs() as i64)
         .unwrap_or(0)
 }
+
 pub(super) fn claude_preview_text_from_record(record: &serde_json::Value) -> Option<String> {
     let message = record.get("message")?.as_object()?;
     match message.get("content")? {
@@ -152,6 +163,7 @@ pub(super) fn claude_preview_text_from_record(record: &serde_json::Value) -> Opt
         _ => None,
     }
 }
+
 pub(super) fn summarize_claude_session_file(path: &Path, cwd: &str) -> Option<ThreadSummary> {
     let session_id = path.file_stem()?.to_string_lossy().to_string();
     let file = File::open(path).ok()?;
@@ -201,6 +213,7 @@ pub(super) fn summarize_claude_session_file(path: &Path, cwd: &str) -> Option<Th
         updated_at: modified,
     })
 }
+
 pub(super) fn load_claude_thread_summaries(
     cwd_path: &Path,
     cwd: &str,

@@ -1,4 +1,5 @@
-// --- Trailing Spaces ---
+//! Trailing-space preservation, tab expansion, and overflow-row counting for wrapped text.
+
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -57,6 +58,7 @@ pub(super) fn additional_lines_for_trailing_spaces(
 }
 
 // --- Tab Expansion ---
+
 pub(super) fn expand_tabs(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut col = 0usize;

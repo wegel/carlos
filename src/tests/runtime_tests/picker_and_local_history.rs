@@ -1,3 +1,5 @@
+// Tests for the thread picker and local-history-driven session selection.
+
 #[test]
 fn delayed_ralph_continuation_does_not_block_ready_user_turns() {
     let mut app = AppState::new("thread-1".to_string());

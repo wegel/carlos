@@ -1,3 +1,5 @@
+//! Tests for dictation config TOML parsing, defaults, and profile selection.
+
 use std::fs;
 use std::path::{Path, PathBuf};
 

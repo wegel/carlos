@@ -1,3 +1,5 @@
+// Tests for diff-style notification rendering and chunking.
+
 #[test]
 fn handle_notification_raw_function_call_output_diff_is_rendered_as_diff() {
     let mut app = AppState::new("thread-1".to_string());

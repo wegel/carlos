@@ -10,9 +10,11 @@ use super::models::Message;
 use super::ralph::{detect_turn_markers, load_ralph_config, RalphConfig, RalphState};
 
 // --- Continuation Delay ---
+
 const RALPH_CONTINUATION_DELAY: Duration = Duration::from_millis(700);
 
 // --- Turn Queue ---
+
 pub(super) struct QueuedTurnInput {
     pub(super) text: String,
     pub(super) record_input_history: bool,
@@ -21,6 +23,7 @@ pub(super) struct QueuedTurnInput {
 }
 
 // --- Runtime State ---
+
 pub(super) struct RalphRuntimeState {
     current: Option<RalphState>,
     queued_turn_inputs: VecDeque<QueuedTurnInput>,
@@ -33,6 +36,7 @@ pub(super) struct RalphRuntimeState {
 }
 
 // --- Turn Outcome ---
+
 pub(super) struct RalphTurnOutcome {
     pub(super) system_message: Option<String>,
     pub(super) status: Option<String>,
@@ -41,6 +45,7 @@ pub(super) struct RalphTurnOutcome {
 }
 
 // --- Ralph Logic ---
+
 impl RalphRuntimeState {
     pub(super) fn new() -> Self {
         Self {

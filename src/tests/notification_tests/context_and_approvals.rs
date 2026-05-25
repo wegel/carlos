@@ -1,3 +1,5 @@
+// Tests for context-usage updates and approval-request notifications.
+
 #[test]
 fn handle_notification_updates_context_usage_when_present() {
     let mut app = AppState::new("thread-1".to_string());

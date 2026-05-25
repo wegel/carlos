@@ -1,4 +1,4 @@
-// --- Key event handling ---
+//! Keyboard event routing: global toggles, overlay handlers, and normal input dispatch.
 
 #[path = "input_events_dictation.rs"]
 mod input_events_dictation;

@@ -1,3 +1,5 @@
+//! Model-settings overlay state: field cycling, value edits, and apply/persist logic.
+
 use super::{
     default_effort_vec, effort_index, normalize_non_empty, RuntimeDefaults, RuntimeSettingsState,
 };

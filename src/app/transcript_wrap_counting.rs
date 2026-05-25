@@ -1,4 +1,4 @@
-// --- Counting ---
+//! Wrapped-line counters for transcript messages, used to size the scrollback height.
 
 use super::{
     contains_terminal_escapes, count_ascii_multiline_by_cells,

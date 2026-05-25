@@ -9,6 +9,7 @@ use self::models::{DiffBlock, Message, MessageKind, RenderedLine, TerminalSize, 
 use self::state::AppState;
 
 // --- Module Tree ---
+
 mod approval_parsing;
 mod approval_state;
 mod backend_setup;
@@ -58,6 +59,7 @@ mod turn_submit;
 mod viewport_state;
 
 // --- Shared Types ---
+
 const MSG_TOP: usize = 1;
 const MSG_CONTENT_X: usize = 2;
 
@@ -69,6 +71,7 @@ pub(super) struct RuntimeDefaults {
 }
 
 // --- Runtime Wiring ---
+
 use self::backend_setup::{run_claude_backend, run_codex_backend};
 use self::cli::{
     env_reasoning_summary_override, load_runtime_defaults, parse_cli_args,
@@ -76,6 +79,7 @@ use self::cli::{
 };
 
 // --- App Entry ---
+
 pub(crate) fn run() -> Result<()> {
     let opts = match parse_cli_args(env::args().skip(1)) {
         Ok(v) => v,
@@ -111,6 +115,7 @@ pub(crate) fn run() -> Result<()> {
 }
 
 // --- Test Bridge ---
+
 #[cfg(test)]
 #[path = "../tests.rs"]
 mod tests;

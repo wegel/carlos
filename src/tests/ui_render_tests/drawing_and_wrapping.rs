@@ -1,3 +1,5 @@
+// Tests for low-level drawing primitives and cell-based wrapping.
+
 #[test]
 fn build_rendered_lines_diff_viewer_wraps_long_hunk_body_lines() {
     let messages = vec![Message {

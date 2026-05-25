@@ -1,3 +1,5 @@
+// Tests for approval prompts and rewind-mode keyboard handling.
+
 #[cfg(feature = "dictation")]
 #[test]
 fn f7_cycles_dictation_profiles() {

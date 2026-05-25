@@ -1,3 +1,5 @@
+// Tests for per-program one-line command summaries.
+
 #[test]
 fn exec_command_end_read_override_suppresses_large_read_output_on_success() {
     let mut app = AppState::new("thread-1".to_string());

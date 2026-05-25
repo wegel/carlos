@@ -16,6 +16,7 @@ use crate::theme::{
 };
 
 // --- Picker Types ---
+
 #[derive(Debug, Clone, Copy)]
 pub(super) struct PickerLayout {
     pub(super) panel_x: usize,
@@ -29,6 +30,7 @@ pub(super) struct PickerLayout {
 }
 
 // --- Picker Layout ---
+
 pub(super) fn compute_picker_layout(size: TerminalSize) -> PickerLayout {
     let panel_w = if size.width > 6 {
         size.width - 2
@@ -69,6 +71,7 @@ pub(super) fn compute_picker_layout(size: TerminalSize) -> PickerLayout {
 }
 
 // --- Column Layout ---
+
 /// Column widths for the picker list.
 struct PickerColumns {
     left_col_w: usize,
@@ -94,6 +97,7 @@ fn compute_picker_columns(layout: &PickerLayout) -> PickerColumns {
 }
 
 // --- Panel Rendering ---
+
 pub(super) fn draw_picker(
     frame: &mut ratatui::Frame<'_>,
     threads: &[ThreadSummary],
@@ -261,6 +265,7 @@ fn draw_picker_column_headers(buf: &mut Buffer, layout: &PickerLayout, cols: &Pi
 }
 
 // --- Row Rendering ---
+
 fn draw_picker_list_row(
     buf: &mut Buffer,
     layout: &PickerLayout,

@@ -3,6 +3,7 @@
 use super::AppState;
 
 // --- Mouse Types ---
+
 const MOBILE_PLAIN_SCROLL_STEP: usize = 3;
 
 pub(super) enum MobileMouseConsume {
@@ -12,6 +13,7 @@ pub(super) enum MobileMouseConsume {
 }
 
 // --- Coord Parsing ---
+
 pub(super) fn parse_mobile_mouse_coords(s: &str) -> Option<(usize, usize)> {
     if !s.contains(';') {
         return None;
@@ -30,6 +32,7 @@ pub(super) fn parse_mobile_mouse_coords(s: &str) -> Option<(usize, usize)> {
 }
 
 // --- Scroll Helpers ---
+
 pub(super) fn apply_mobile_mouse_scroll(app: &mut AppState, y: usize) {
     if let Some(prev) = app.viewport.mobile_mouse_last_y {
         app.viewport.auto_follow_bottom = false;
@@ -92,6 +95,7 @@ fn apply_mobile_plain_scroll(app: &mut AppState, y: usize) {
 }
 
 // --- Public API ---
+
 pub(super) fn take_mobile_mouse_buffer(app: &mut AppState) -> Option<String> {
     if app.viewport.mobile_mouse_buffer.is_empty() {
         return None;
@@ -117,6 +121,7 @@ pub(super) fn consume_mobile_mouse_char(app: &mut AppState, c: char) -> MobileMo
 }
 
 // --- State Machine ---
+
 fn consume_first_char(app: &mut AppState, c: char) -> MobileMouseConsume {
     let in_plain =
         app.viewport.mobile_plain_pending_coords || app.viewport.mobile_plain_suppress_coords;
@@ -186,6 +191,7 @@ fn reset_plain_state(app: &mut AppState) {
 }
 
 // --- Plain Parsing ---
+
 fn parse_plain_mobile_pair(s: &str) -> Option<(usize, usize)> {
     let mut parts = s.split(';');
     let x = parts.next()?;

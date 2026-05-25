@@ -1,3 +1,5 @@
+// Tests for ralph-mode runtime state transitions and persistence.
+
 #[test]
 fn resolve_initial_runtime_settings_falls_back_to_persisted_defaults() {
     let runtime = crate::protocol_params::ThreadRuntimeSettings {

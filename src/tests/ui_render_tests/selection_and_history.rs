@@ -1,3 +1,5 @@
+// Tests for selection handling and rewind/history rendering.
+
 #[test]
 fn render_main_view_shows_dictation_indicator() {
     let mut app = AppState::new("thread-1".to_string());

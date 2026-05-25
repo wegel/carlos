@@ -8,6 +8,7 @@ use crossterm::event::KeyEventKind;
 const PERF_SAMPLE_WINDOW: usize = 256;
 
 // --- Sample Window ---
+
 #[derive(Debug, Default)]
 pub(super) struct DurationSamples {
     pub(super) values_us: VecDeque<u32>,
@@ -82,6 +83,7 @@ impl DurationSamples {
 }
 
 // --- Perf Metrics ---
+
 #[derive(Debug)]
 pub(super) struct PerfMetrics {
     pub(super) show_overlay: bool,

@@ -1,3 +1,5 @@
+// Tests for dictation key shortcuts and state transitions.
+
 #[test]
 fn prioritize_events_handles_terminal_first_and_budgets_server_lines() {
     let mut deferred = std::collections::VecDeque::new();

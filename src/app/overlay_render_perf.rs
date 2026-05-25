@@ -1,6 +1,4 @@
-// ---------------------------------------------------------------------------
-// Perf overlay
-// ---------------------------------------------------------------------------
+//! Performance metrics overlay: render the in-app stats panel.
 
 use ratatui::buffer::Buffer;
 use ratatui::style::Style;

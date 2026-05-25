@@ -1,3 +1,5 @@
+//! Tests for the vocabulary file loader and case-insensitive deduplication.
+
 use std::fs;
 use std::path::{Path, PathBuf};
 

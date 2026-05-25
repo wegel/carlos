@@ -7,11 +7,13 @@ use crate::app::RuntimeDefaults;
 use crate::protocol_params::ModelInfo;
 
 // --- Default Options ---
+
 pub(super) const DEFAULT_EFFORT_OPTIONS: [&str; 6] =
     ["none", "minimal", "low", "medium", "high", "xhigh"];
 pub(super) const DEFAULT_SUMMARY_OPTIONS: [&str; 4] = ["auto", "concise", "detailed", "none"];
 
 // --- Field Types ---
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ModelSettingsField {
     Model,
@@ -21,6 +23,7 @@ pub(super) enum ModelSettingsField {
 }
 
 // --- Settings State ---
+
 pub(super) struct RuntimeSettingsState {
     pub(super) supports_effort: bool,
     pub(super) supports_summary: bool,
@@ -42,6 +45,7 @@ pub(super) struct RuntimeSettingsState {
 }
 
 // --- Settings Logic ---
+
 impl RuntimeSettingsState {
     pub(super) fn new() -> Self {
         Self {
@@ -323,6 +327,7 @@ impl RuntimeSettingsState {
 }
 
 // --- State Helpers ---
+
 fn normalize_non_empty(s: String) -> Option<String> {
     let trimmed = s.trim();
     (!trimmed.is_empty()).then(|| trimmed.to_string())

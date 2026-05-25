@@ -1,3 +1,5 @@
+//! Runtime subsystem test tree: CLI settings, ralph mode, picker, local history.
+
 use std::sync::{Mutex, OnceLock};
 
 use super::{

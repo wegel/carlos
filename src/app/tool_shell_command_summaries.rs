@@ -1,4 +1,5 @@
-// --- Command Summaries ---
+//! Per-program one-line summaries of shell commands shown in the tool feed.
+
 use super::{
     compact_command_path, first_non_option_token, normalize_shell_command, shlex_split,
     strip_shell_quotes, tokens_without_program_options,

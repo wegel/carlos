@@ -1,3 +1,5 @@
+//! Claude backend test tree: CLI handshake, history recovery, translation, and failures.
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;

@@ -20,6 +20,7 @@ const MAX_SCROLL_SAMPLES: usize = 64;
 const TYPING_BENCH_TEXT: &str = "the quick brown fox jumps over the lazy dog";
 
 // --- Benchmark Types ---
+
 pub(super) struct PerfReplayStats {
     pub(super) replay_apply: DurationSamples,
     pub(super) full_layout_ms: f64,
@@ -57,6 +58,7 @@ pub(super) struct LayoutBreakdownRow {
 }
 
 // --- Draw Benchmarks ---
+
 pub(super) fn benchmark_scroll_draws(
     app: &mut AppState,
     size: TerminalSize,
@@ -154,6 +156,7 @@ pub(super) fn benchmark_append_draws(
 }
 
 // --- Layout Profiling ---
+
 pub(super) fn profile_layout_count_pass(app: &AppState, width: usize) -> Vec<LayoutBreakdownRow> {
     use std::collections::BTreeMap;
 
@@ -197,6 +200,7 @@ pub(super) fn profile_layout_count_pass(app: &AppState, width: usize) -> Vec<Lay
 }
 
 // --- Bucket Labels ---
+
 fn layout_breakdown_label(msg: &Message) -> &'static str {
     match (msg.kind, msg.role) {
         (MessageKind::Diff, _) => "diff",

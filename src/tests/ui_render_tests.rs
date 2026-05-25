@@ -1,3 +1,5 @@
+//! UI rendering test tree: drawing, wrapping, markdown/diff, selection, transcript.
+
 use super::{
     build_rendered_block_for_message, build_rendered_lines, build_rendered_lines_with_hidden,
     command_execution_diff_output, compute_input_layout, compute_selection_range,

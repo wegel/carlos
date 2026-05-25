@@ -6,6 +6,7 @@ use super::transcript_render::{
 };
 
 // --- Cache State ---
+
 pub(super) struct RenderCacheState {
     pub(super) rendered_message_blocks: Vec<Option<Vec<RenderedLine>>>,
     pub(super) rendered_block_line_counts: Vec<usize>,
@@ -220,6 +221,7 @@ impl RenderCacheState {
 }
 
 // --- Visibility Lookup ---
+
 fn find_previous_visible_message_idx(
     messages: &[Message],
     start_idx: usize,

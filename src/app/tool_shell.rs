@@ -9,6 +9,7 @@ use shlex::split as shlex_split;
 pub(super) use self::tool_shell_command_summaries::command_summary_from_shell_cmd;
 
 // --- Shell Types ---
+
 /// An SSH command decomposed into destination and remote command.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ParsedSshCommand {
@@ -17,6 +18,7 @@ pub(super) struct ParsedSshCommand {
 }
 
 // --- Shell Normalization ---
+
 pub(super) fn command_execution_action_command(item: &Value) -> Option<String> {
     item.get("commandActions")?
         .as_array()?
@@ -40,6 +42,7 @@ pub(super) fn normalize_shell_command(raw: &str) -> String {
 }
 
 // --- SSH Parsing ---
+
 pub(super) fn parse_ssh_remote_command(command: &str) -> Option<ParsedSshCommand> {
     let normalized = normalize_shell_command(command);
     let tokens = shlex_split(&normalized)?;
@@ -108,6 +111,7 @@ fn ssh_option_takes_value(token: &str) -> bool {
 }
 
 // --- Control Stripping ---
+
 pub(super) fn strip_terminal_controls_preserving_sgr(text: &str) -> String {
     let bytes = text.as_bytes();
     let mut out = String::with_capacity(text.len());
@@ -242,6 +246,7 @@ pub(super) fn strip_terminal_controls(text: &str) -> String {
 }
 
 // --- Summary Helpers ---
+
 pub(super) fn compact_command_path(path: &str, cwd: Option<&str>) -> String {
     cwd.and_then(|c| path.strip_prefix(c)?.strip_prefix('/'))
         .filter(|s| !s.is_empty())

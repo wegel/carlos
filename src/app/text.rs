@@ -15,6 +15,7 @@ use self::text_trailing::{
 const TAB_STOP: usize = 8;
 
 // --- Text Measurement ---
+
 pub(super) fn visual_width(s: &str) -> usize {
     if !s.contains('\t') && s.is_ascii() {
         return s.len();
@@ -26,6 +27,7 @@ pub(super) fn visual_width(s: &str) -> usize {
 }
 
 // --- Cell Slicing ---
+
 pub(super) fn split_at_cells(s: &str, max_cells: usize) -> usize {
     if max_cells == 0 || s.is_empty() {
         return 0;
@@ -98,6 +100,7 @@ pub(super) fn char_to_byte_idx(s: &str, char_idx: usize) -> usize {
 }
 
 // --- Natural Wrapping ---
+
 pub(super) fn wrap_natural_by_cells(text: &str, width: usize) -> Vec<String> {
     if width == 0 {
         return Vec::new();
@@ -290,6 +293,7 @@ fn wrap_natural_count_ascii_slow_by_cells(text: &str, width: usize) -> usize {
 }
 
 // --- Wrap Metrics ---
+
 fn hard_wrap_count_metrics(text: &str, width: usize) -> (usize, usize, usize) {
     let trailing_sp = |s: &str| s.chars().rev().take_while(|c| *c == ' ').count();
     let line_width = visual_width(text);
@@ -323,6 +327,7 @@ fn hard_wrap_count_metrics(text: &str, width: usize) -> (usize, usize, usize) {
 }
 
 // --- Input Wrapping ---
+
 pub(super) fn wrap_input_line(line: &str, width: usize) -> Vec<String> {
     if width == 0 {
         return vec![String::new()];

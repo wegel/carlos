@@ -1,3 +1,5 @@
+// Tests for CLI-provided runtime defaults and per-thread settings overrides.
+
 #[test]
 fn osc52_wrap_detects_tmux_and_screen() {
     assert_eq!(

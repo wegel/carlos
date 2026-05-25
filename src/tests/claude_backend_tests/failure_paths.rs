@@ -1,3 +1,5 @@
+// Failure-path tests for the Claude backend: spawn errors and broken JSON.
+
 #[test]
 fn local_claude_history_hides_internal_plan_mode_tool_rows() {
     let root = temp_test_dir("claude-history-hide-plan-mode-tools");

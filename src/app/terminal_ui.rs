@@ -28,6 +28,7 @@ use super::{TerminalSize, ThreadSummary};
 use self::terminal_ui_picker_events::{handle_picker_key, handle_picker_mouse};
 
 // --- Terminal Policy ---
+
 fn env_flag(name: &str) -> Option<bool> {
     let raw = env::var(name).ok()?;
     let trimmed = raw.trim();
@@ -61,6 +62,7 @@ fn should_enable_alternate_scroll() -> bool {
 }
 
 // --- Terminal Control ---
+
 const MOUSE_CAPTURE_ENABLE_SEQ: &str = "\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1006h\x1b[?1015h";
 const MOUSE_CAPTURE_DISABLE_SEQ: &str = "\x1b[?1015l\x1b[?1006l\x1b[?1003l\x1b[?1002l\x1b[?1000l";
 
@@ -71,6 +73,7 @@ pub(crate) fn sort_threads_for_picker(threads: &[ThreadSummary]) -> Vec<ThreadSu
 }
 
 // --- Terminal Lifecycle ---
+
 pub(super) fn with_terminal<T>(
     f: impl FnOnce(&mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<T>,
 ) -> Result<T> {
@@ -133,6 +136,7 @@ pub(super) fn with_terminal<T>(
 }
 
 // --- Picker Types ---
+
 /// Outcome of processing a single event in the picker loop.
 enum PickerAction {
     Continue,
@@ -149,6 +153,7 @@ pub(super) struct PickerState {
 }
 
 // --- Thread Picker ---
+
 pub(crate) fn pick_thread<F>(
     threads: &[ThreadSummary],
     allow_delete: bool,
@@ -200,6 +205,7 @@ where
 }
 
 // --- Picker Rendering ---
+
 fn draw_picker_frame(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     threads: &[ThreadSummary],

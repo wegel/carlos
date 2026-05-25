@@ -1,3 +1,5 @@
+// CLI handshake and session-history-file replay tests for the Claude backend.
+
 #[test]
 fn parse_cli_args_supports_backend_flag() {
     let parsed = parse_cli_args(vec![
