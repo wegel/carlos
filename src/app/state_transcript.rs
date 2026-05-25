@@ -227,18 +227,14 @@ impl AppState {
         kind: MessageKind,
         file_path: Option<String>,
     ) {
-        let mut changed = false;
-        if let Some(msg) = self.messages.get_mut(idx) {
-            msg.role = role;
-            msg.kind = kind;
-            msg.file_path = file_path;
-            if let Some(text) = text {
-                msg.text = text;
-            }
-            changed = true;
-        }
-        if !changed {
+        let Some(msg) = self.messages.get_mut(idx) else {
             return;
+        };
+        msg.role = role;
+        msg.kind = kind;
+        msg.file_path = file_path;
+        if let Some(text) = text {
+            msg.text = text;
         }
 
         let dirty_from = if kind == MessageKind::Plain && role == Role::ToolCall {

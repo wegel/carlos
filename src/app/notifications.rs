@@ -20,7 +20,7 @@ use super::{AppState, ThreadSummary};
 use crate::protocol_params::extract_result_object;
 use crate::theme::KITT_STEP_MS;
 
-// --- Approval Routing ---
+// --- Types ---
 
 pub(super) enum ServerRequestAction {
     ReplyError {
@@ -30,7 +30,17 @@ pub(super) enum ServerRequestAction {
     },
 }
 
-// --- Key Helpers ---
+/// Outcome of inspecting a server message that has an `id`.
+enum ServerRequestOutcome {
+    /// The message was not a server request (no `id`, or non-request method).
+    NotRequest,
+    /// The message was a server request and has been handled in-place.
+    Handled,
+    /// The message was a server request that the caller should reply to.
+    Reply(ServerRequestAction),
+}
+
+// --- Thread list parsing ---
 
 pub(crate) fn parse_thread_list(response_line: &str) -> Result<Vec<ThreadSummary>> {
     let parsed = extract_result_object(response_line)?;
@@ -79,6 +89,8 @@ pub(crate) fn parse_thread_list(response_line: &str) -> Result<Vec<ThreadSummary
     }
     Ok(out)
 }
+
+// --- Key helpers ---
 
 pub(super) fn is_ctrl_char(code: KeyCode, modifiers: KeyModifiers, ch: char) -> bool {
     matches!(code, KeyCode::Char(c) if c.eq_ignore_ascii_case(&ch))
@@ -155,8 +167,10 @@ pub(crate) fn handle_server_message_line(
     let Some(method) = parsed.get("method").and_then(Value::as_str) else {
         return None;
     };
-    if let Some(action) = try_handle_server_request(app, method, &parsed) {
-        return action;
+    match try_handle_server_request(app, method, &parsed) {
+        ServerRequestOutcome::Handled => return None,
+        ServerRequestOutcome::Reply(action) => return Some(action),
+        ServerRequestOutcome::NotRequest => {}
     }
     let Some(params) = parsed.get("params").and_then(Value::as_object) else {
         return None;
@@ -172,21 +186,23 @@ fn try_handle_server_request(
     app: &mut AppState,
     method: &str,
     parsed: &Value,
-) -> Option<Option<ServerRequestAction>> {
-    let request_id = parsed.get("id").cloned()?;
+) -> ServerRequestOutcome {
+    let Some(request_id) = parsed.get("id").cloned() else {
+        return ServerRequestOutcome::NotRequest;
+    };
     if let Some(prompt) = parsed
         .get("params")
         .and_then(Value::as_object)
         .and_then(|params| pending_approval_from_request(method, params, request_id.clone()))
     {
         app.set_pending_approval(prompt);
-        return Some(None);
+        return ServerRequestOutcome::Handled;
     }
-    Some(Some(ServerRequestAction::ReplyError {
+    ServerRequestOutcome::Reply(ServerRequestAction::ReplyError {
         request_id,
         code: -32601,
         message: format!("unsupported server request: {method}"),
-    }))
+    })
 }
 
 fn dispatch_notification(
