@@ -91,6 +91,17 @@ fn claude_model_catalog_includes_current_claude_code_models() {
 }
 
 #[test]
+fn claude_model_catalog_includes_all_supported_efforts() {
+    let catalog = claude_model_catalog();
+    let efforts = catalog
+        .first()
+        .map(|model| model.supported_efforts.as_slice())
+        .expect("catalog has a default model");
+
+    assert_eq!(efforts, ["low", "medium", "high", "xhigh", "max"]);
+}
+
+#[test]
 fn probe_claude_startup_reports_early_stderr_exit() {
     let mut command = std::process::Command::new("sh");
     command.args(["-c", "printf 'startup failed\\n' >&2; exit 1"]);

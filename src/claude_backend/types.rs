@@ -13,7 +13,7 @@ use crate::protocol_params::ModelInfo;
 pub(crate) const CLAUDE_PENDING_THREAD_ID: &str = "claude-pending-session";
 pub(crate) const CLAUDE_EXIT_PLAN_REQUEST_METHOD: &str = "claude/exitPlan/requestApproval";
 pub(crate) const CLAUDE_EXIT_PLAN_FALLBACK_TEXT: &str = "Exit plan mode?";
-pub(crate) const CLAUDE_SUPPORTED_EFFORTS: [&str; 4] = ["low", "medium", "high", "max"];
+pub(crate) const CLAUDE_SUPPORTED_EFFORTS: [&str; 5] = ["low", "medium", "high", "xhigh", "max"];
 
 // --- Types ---
 
