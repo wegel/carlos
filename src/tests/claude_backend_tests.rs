@@ -19,7 +19,7 @@ use crate::claude_backend::{
     claude_project_dir_name, claude_recovery_launch_mode, collect_live_forwarded_lines_for_test,
     fork_claude_local_history_from_projects_root, load_claude_local_history,
     load_claude_local_history_from_projects_root, probe_claude_startup_for_test,
-    translate_claude_line, ClaudeLaunchMode, ClaudeTranslationState,
+    session_misroute_event, translate_claude_line, ClaudeLaunchMode, ClaudeTranslationState,
 };
 
 fn collect_synthetic_lines(lines: &[&str]) -> Vec<String> {

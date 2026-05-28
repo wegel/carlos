@@ -3,8 +3,8 @@
 // --- Imports ---
 
 use std::collections::{HashMap, HashSet};
-use std::fs::{self, File};
-use std::io::BufRead;
+use std::fs::{self, File, OpenOptions};
+use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
@@ -252,8 +252,7 @@ pub(super) fn fork_claude_session_from_projects_root(
 
     let uuid_map = build_uuid_remap(&records, &kept_uuid_chain);
     let body = render_forked_session_body(records, &kept_uuid_chain, &uuid_map, &new_session_id);
-    fs::write(&dest_session_path, body)
-        .with_context(|| format!("failed to write {}", dest_session_path.display()))?;
+    write_new_session_file(&dest_session_path, body.as_bytes())?;
 
     copy_session_support_tree(
         &source_session_path.with_extension(""),
@@ -276,6 +275,19 @@ fn create_dest_session_path(
     fs::create_dir_all(&project_dir)
         .with_context(|| format!("failed to create {}", project_dir.display()))?;
     Ok(project_dir.join(format!("{new_session_id}.jsonl")))
+}
+
+// `create_new` so a UUID collision with an existing session file aborts the fork
+// instead of silently overwriting that session's transcript.
+fn write_new_session_file(path: &Path, body: &[u8]) -> Result<()> {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .with_context(|| format!("failed to create {}", path.display()))?;
+    file.write_all(body)
+        .with_context(|| format!("failed to write {}", path.display()))?;
+    Ok(())
 }
 
 fn build_uuid_remap(

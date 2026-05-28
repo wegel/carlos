@@ -2,11 +2,14 @@
 
 // --- Imports ---
 
+#[path = "process_stream.rs"]
+mod process_stream;
+
 use std::env;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::Path;
-use std::process::{Child, ChildStderr, ChildStdin, Command, ExitStatus, Stdio};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::process::{Child, ChildStdin, Command, ExitStatus, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -14,12 +17,15 @@ use std::time::{Duration, Instant};
 use anyhow::{bail, Context, Result};
 use serde_json::json;
 
-use super::translate::translate_claude_line;
-use super::types::{ClaudeLaunchMode, ClaudeRuntimeSettings, ClaudeTranslationState};
+#[cfg(test)]
+pub(crate) use self::process_stream::{
+    collect_live_forwarded_lines_for_test, session_misroute_event,
+};
+use self::process_stream::{spawn_reader_thread, spawn_stderr_thread, ClaudeStartupEvent};
+use super::types::{ClaudeLaunchMode, ClaudeRuntimeSettings};
 
 const CLAUDE_PLAN_MODE_BLOCKLIST: [&str; 2] = ["EnterPlanMode", "Agent(Plan)"];
 const CLAUDE_STARTUP_TIMEOUT: Duration = Duration::from_secs(2);
-static CLAUDE_STREAM_INSTANCE_SEQ: AtomicU64 = AtomicU64::new(1);
 
 // --- Process types ---
 
@@ -28,11 +34,10 @@ pub(super) struct ClaudeProcess {
     pub(super) stdin: ChildStdin,
     pub(super) reader_thread: Option<thread::JoinHandle<()>>,
     pub(super) stderr_thread: Option<thread::JoinHandle<()>>,
-}
-
-enum ClaudeStartupEvent {
-    StreamReady,
-    StreamClosed,
+    // Set by the reader thread when claude emits a session id that does not match the one we
+    // asked it to resume. Subsequent writes refuse to send so user input cannot leak into the
+    // wrong session file before the parent observes the error and respawns.
+    pub(super) misrouted: Arc<AtomicBool>,
 }
 
 // --- Command building ---
@@ -51,10 +56,6 @@ fn claude_allow_plan_mode() -> bool {
             )
         })
         .unwrap_or(false)
-}
-
-fn next_claude_stream_instance_seq() -> u64 {
-    CLAUDE_STREAM_INSTANCE_SEQ.fetch_add(1, Ordering::Relaxed)
 }
 
 fn build_claude_command(
@@ -128,6 +129,9 @@ pub(crate) fn probe_claude_startup_for_test(command: &mut Command) -> Result<()>
         stdout,
         mpsc::channel::<String>().0,
         Arc::new(Mutex::new(None)),
+        None,
+        child.id(),
+        Arc::new(AtomicBool::new(false)),
         Some(startup_tx),
     );
     let stderr_thread = spawn_stderr_thread(stderr, Arc::clone(&captured_stderr));
@@ -186,103 +190,6 @@ fn format_claude_startup_error(status: ExitStatus, captured_stderr: &Arc<Mutex<S
     }
 }
 
-// --- Live stream forwarding ---
-
-fn spawn_reader_thread(
-    stdout: std::process::ChildStdout,
-    events_tx: mpsc::Sender<String>,
-    session_id: Arc<Mutex<Option<String>>>,
-    startup_tx: Option<mpsc::Sender<ClaudeStartupEvent>>,
-) -> thread::JoinHandle<()> {
-    thread::spawn(move || {
-        let mut reader = std::io::BufReader::new(stdout);
-        let mut line = String::new();
-        let mut state = ClaudeTranslationState {
-            stream_instance_seq: next_claude_stream_instance_seq(),
-            ..ClaudeTranslationState::default()
-        };
-        let mut startup_tx = startup_tx;
-        loop {
-            line.clear();
-            match std::io::BufRead::read_line(&mut reader, &mut line) {
-                Ok(0) | Err(_) => {
-                    if let Some(tx) = startup_tx.take() {
-                        let _ = tx.send(ClaudeStartupEvent::StreamClosed);
-                    }
-                    break;
-                }
-                _ => {}
-            }
-            if let Some(tx) = startup_tx.take() {
-                let _ = tx.send(ClaudeStartupEvent::StreamReady);
-            }
-            let trimmed = line.trim_end_matches(['\n', '\r']);
-            if trimmed.is_empty() {
-                continue;
-            }
-            let Ok(translated) = translate_claude_line(&mut state, trimmed) else {
-                continue;
-            };
-            if let Some(sid) = state
-                .session_id
-                .as_deref()
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-            {
-                if let Ok(mut cur) = session_id.lock() {
-                    if cur.as_deref() != Some(sid) {
-                        *cur = Some(sid.to_string());
-                    }
-                }
-            }
-            for synthetic in translated.lines {
-                let _ = events_tx.send(synthetic);
-            }
-        }
-    })
-}
-
-fn spawn_stderr_thread(
-    stderr: ChildStderr,
-    captured_stderr: Arc<Mutex<String>>,
-) -> thread::JoinHandle<()> {
-    thread::spawn(move || {
-        let mut reader = std::io::BufReader::new(stderr);
-        let mut buf = [0u8; 4096];
-        loop {
-            match reader.read(&mut buf) {
-                Ok(0) | Err(_) => break,
-                Ok(count) => {
-                    if let Ok(text) = std::str::from_utf8(&buf[..count]) {
-                        if let Ok(mut captured) = captured_stderr.lock() {
-                            captured.push_str(text);
-                        }
-                    } else {
-                        let text = String::from_utf8_lossy(&buf[..count]);
-                        if let Ok(mut captured) = captured_stderr.lock() {
-                            captured.push_str(&text);
-                        }
-                    }
-                }
-            }
-        }
-    })
-}
-
-#[cfg(test)]
-pub(crate) fn collect_live_forwarded_lines_for_test(lines: &[&str]) -> Vec<String> {
-    let mut state = ClaudeTranslationState {
-        stream_instance_seq: next_claude_stream_instance_seq(),
-        ..ClaudeTranslationState::default()
-    };
-    let mut out = Vec::new();
-    for line in lines {
-        let translated = translate_claude_line(&mut state, line).expect("translate");
-        out.extend(translated.lines);
-    }
-    out
-}
-
 // --- Public API ---
 
 pub(super) fn start_claude_process(
@@ -299,8 +206,20 @@ pub(super) fn start_claude_process(
     let stderr = child.stderr.take().context("missing child stderr")?;
     let (startup_tx, startup_rx) = mpsc::channel();
     let captured_stderr = Arc::new(Mutex::new(String::new()));
-    let reader_thread =
-        spawn_reader_thread(stdout, events_tx, current_session_id, Some(startup_tx));
+    let expected_session_id = match launch_mode {
+        ClaudeLaunchMode::Resume(id) => Some(id.clone()),
+        ClaudeLaunchMode::New | ClaudeLaunchMode::Continue => None,
+    };
+    let misrouted = Arc::new(AtomicBool::new(false));
+    let reader_thread = spawn_reader_thread(
+        stdout,
+        events_tx,
+        current_session_id,
+        expected_session_id,
+        child.id(),
+        Arc::clone(&misrouted),
+        Some(startup_tx),
+    );
     let stderr_thread = spawn_stderr_thread(stderr, Arc::clone(&captured_stderr));
     if let Err(err) = await_claude_startup(&mut child, &startup_rx, &captured_stderr) {
         let _ = child.kill();
@@ -315,6 +234,7 @@ pub(super) fn start_claude_process(
         stdin,
         reader_thread: Some(reader_thread),
         stderr_thread: Some(stderr_thread),
+        misrouted,
     })
 }
 
@@ -334,6 +254,12 @@ impl ClaudeProcess {
     }
 
     pub(super) fn write_user_message(&mut self, text: &str) -> Result<String> {
+        if self.misrouted.load(Ordering::SeqCst) {
+            bail!(
+                "Claude session was misrouted to the wrong file; respawn before sending more \
+                 input"
+            );
+        }
         let line = json!({
             "type": "user",
             "message": {

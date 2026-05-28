@@ -33,7 +33,7 @@ pub(crate) use self::history::{
 #[cfg(test)]
 pub(crate) use self::process::{
     build_claude_command_for_test, collect_live_forwarded_lines_for_test,
-    probe_claude_startup_for_test,
+    probe_claude_startup_for_test, session_misroute_event,
 };
 use self::process::{start_claude_process, ClaudeProcess};
 #[cfg(test)]
