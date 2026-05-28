@@ -6,7 +6,10 @@ use std::time::Duration;
 
 use anyhow::Result;
 
-use super::{configure_app_common, fetch_model_catalog, finish_run, load_claude_thread_summaries};
+use super::{
+    claude_runtime_defaults, codex_runtime_defaults, configure_app_common, fetch_model_catalog,
+    finish_run, load_claude_thread_summaries, resolve_backend_runtime_settings,
+};
 use crate::app::cli::CliOptions;
 use crate::app::models::Role;
 use crate::app::notifications::{
@@ -131,16 +134,23 @@ pub(super) fn configure_codex_app(
     default_summary: Option<String>,
 ) -> Result<()> {
     app.set_runtime_capabilities(true, true);
-    if let Ok(models) = fetch_model_catalog(client) {
-        app.set_available_models(models);
-    }
+    let models = fetch_model_catalog(client).unwrap_or_default();
+    app.set_available_models(models.clone());
+    let fallback_defaults = codex_runtime_defaults(default_summary);
+    let runtime_settings = resolve_backend_runtime_settings(
+        parse_thread_runtime_settings(start_resp)?,
+        persisted_defaults,
+        &fallback_defaults,
+        &models,
+        true,
+    );
     configure_app_common(
         app,
         cwd,
         opts,
-        parse_thread_runtime_settings(start_resp)?,
-        persisted_defaults,
-        default_summary,
+        runtime_settings,
+        &RuntimeDefaults::default(),
+        None,
     );
     load_history_from_start_or_resume(app, start_resp)?;
     Ok(())
@@ -218,26 +228,28 @@ pub(super) fn configure_claude_app(
     start_resp: &str,
 ) -> Result<()> {
     app.set_runtime_capabilities(true, false);
-    app.set_available_models(claude_model_catalog());
-    configure_app_common(
-        app,
-        cwd,
-        opts,
+    let models = claude_model_catalog();
+    app.set_available_models(models.clone());
+    let fallback_defaults = claude_runtime_defaults();
+    let runtime_settings = resolve_backend_runtime_settings(
         ThreadRuntimeSettings {
             model: None,
             effort: None,
             summary: None,
         },
+        persisted_defaults,
+        &fallback_defaults,
+        &models,
+        false,
+    );
+    configure_app_common(
+        app,
+        cwd,
+        opts,
+        runtime_settings,
         &RuntimeDefaults::default(),
         None,
     );
-    if persisted_defaults.model.is_some() || persisted_defaults.effort.is_some() {
-        app.queue_runtime_settings(
-            persisted_defaults.model.clone(),
-            persisted_defaults.effort.clone(),
-            None,
-        );
-    }
     load_history_from_start_or_resume(app, start_resp)?;
     Ok(())
 }

@@ -102,7 +102,7 @@ pub(crate) fn run() -> Result<()> {
     let persisted_defaults = load_runtime_defaults();
     let default_summary = env_reasoning_summary_override()
         .or(persisted_defaults.summary.clone())
-        .or(Some("auto".to_string()));
+        .or(Some("concise".to_string()));
 
     match opts.backend {
         Backend::Codex => {
