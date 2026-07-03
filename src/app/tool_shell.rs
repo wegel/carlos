@@ -32,13 +32,56 @@ pub(super) fn command_execution_action_command(item: &Value) -> Option<String> {
 }
 
 pub(super) fn normalize_shell_command(raw: &str) -> String {
-    if let Some(pos) = raw.find(" -lc '") {
+    let command = if let Some(pos) = raw.find(" -lc '") {
         let s = &raw[(pos + 6)..];
         if let Some(end) = s.rfind('\'') {
-            return s[..end].to_string();
+            &s[..end]
+        } else {
+            raw
         }
+    } else {
+        raw
+    };
+
+    strip_rtk_wrapper(command).to_string()
+}
+
+fn strip_rtk_wrapper(command: &str) -> &str {
+    let command = command.trim();
+    let Some((program, rest)) = split_first_shell_word(command) else {
+        return command;
+    };
+    if shell_program_basename(program) != "rtk" {
+        return command;
     }
-    raw.to_string()
+
+    let rest = rest.trim_start();
+    let Some((subcommand, inner)) = split_first_shell_word(rest) else {
+        return rest;
+    };
+    if subcommand == "proxy" {
+        inner.trim_start()
+    } else {
+        rest
+    }
+}
+
+fn split_first_shell_word(command: &str) -> Option<(&str, &str)> {
+    let command = command.trim_start();
+    if command.is_empty() {
+        return None;
+    }
+    let end = command
+        .char_indices()
+        .find(|(_, ch)| ch.is_whitespace())
+        .map(|(idx, _)| idx)
+        .unwrap_or(command.len());
+    Some((&command[..end], &command[end..]))
+}
+
+fn shell_program_basename(program: &str) -> &str {
+    let program = strip_shell_quotes(program);
+    program.rsplit('/').next().unwrap_or(program)
 }
 
 // --- SSH Parsing ---

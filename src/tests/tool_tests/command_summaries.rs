@@ -142,6 +142,30 @@ fn exec_command_end_generic_shell_semeja_search_is_summarized_as_search() {
 }
 
 #[test]
+fn exec_command_end_generic_shell_rtk_semeja_search_is_summarized_as_search() {
+    let mut app = AppState::new("thread-1".to_string());
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_search_rtk_semeja\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/exec_command_end\",\"params\":{\"msg\":{\"type\":\"exec_command_end\",\"call_id\":\"call_search_rtk_semeja\",\"cwd\":\"/repo\",\"parsed_cmd\":[{\"type\":\"shell\",\"cmd\":\"rtk semeja search \\\"Cinero Android app package existing Android TV Screen app\\\" .\"}]}}}",
+        );
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_search_rtk_semeja\",\"aggregatedOutput\":\"Search results for: Cinero Android app package existing Android TV Screen app\\n\",\"exitCode\":0},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(
+        app.messages[0].text,
+        "✱ Search . [pattern=Cinero Android app package existing Android TV Screen app]"
+    );
+    assert_eq!(app.messages[0].role, Role::ToolCall);
+}
+
+#[test]
 fn exec_command_end_generic_shell_semeja_related_is_summarized_as_search() {
     let mut app = AppState::new("thread-1".to_string());
     handle_notification_line(
@@ -155,6 +179,30 @@ fn exec_command_end_generic_shell_semeja_related_is_summarized_as_search() {
     handle_notification_line(
             &mut app,
             "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_related_semeja\",\"aggregatedOutput\":\"related snippets\\n\",\"exitCode\":0},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(
+        app.messages[0].text,
+        "✱ Search src/app/tool_shell.rs [line=372]"
+    );
+    assert_eq!(app.messages[0].role, Role::ToolCall);
+}
+
+#[test]
+fn exec_command_end_generic_shell_rtk_proxy_semeja_related_is_summarized_as_search() {
+    let mut app = AppState::new("thread-1".to_string());
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_related_rtk_semeja\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/exec_command_end\",\"params\":{\"msg\":{\"type\":\"exec_command_end\",\"call_id\":\"call_related_rtk_semeja\",\"cwd\":\"/repo\",\"parsed_cmd\":[{\"type\":\"shell\",\"cmd\":\"rtk proxy semeja find-related /repo/src/app/tool_shell.rs 372\"}]}}}",
+        );
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_related_rtk_semeja\",\"aggregatedOutput\":\"related snippets\\n\",\"exitCode\":0},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
         );
 
     assert_eq!(app.messages.len(), 1);
@@ -185,6 +233,30 @@ fn exec_command_end_generic_shell_sed_is_summarized_as_search() {
     assert_eq!(
         app.messages[0].text,
         "✱ Search src/app/render.rs [lines=916..1015]"
+    );
+    assert_eq!(app.messages[0].role, Role::ToolCall);
+}
+
+#[test]
+fn exec_command_end_generic_shell_rtk_nl_sed_is_summarized_as_search() {
+    let mut app = AppState::new("thread-1".to_string());
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_read_rtk_nl\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"codex/event/exec_command_end\",\"params\":{\"msg\":{\"type\":\"exec_command_end\",\"call_id\":\"call_read_rtk_nl\",\"cwd\":\"/repo\",\"parsed_cmd\":[{\"type\":\"shell\",\"cmd\":\"rtk nl -ba src/main.rs | sed -n '1,40p'\"}]}}}",
+        );
+    handle_notification_line(
+            &mut app,
+            "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_read_rtk_nl\",\"aggregatedOutput\":\"1 abc\\n2 def\\n\",\"exitCode\":0},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
+        );
+
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(
+        app.messages[0].text,
+        "✱ Search src/main.rs [lines=1..40]"
     );
     assert_eq!(app.messages[0].role, Role::ToolCall);
 }
