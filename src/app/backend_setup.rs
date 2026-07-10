@@ -1,5 +1,7 @@
 //! Backend launch and app setup helpers.
 
+#[path = "backend_setup_codex_models.rs"]
+mod backend_setup_codex_models;
 #[path = "backend_setup_launch.rs"]
 mod backend_setup_launch;
 
@@ -27,6 +29,7 @@ use crate::protocol_params::{
     params_model_list, parse_model_list_page, ModelInfo, ThreadRuntimeSettings,
 };
 
+pub(super) use self::backend_setup_codex_models::complete_codex_model_catalog;
 pub(super) use self::backend_setup_launch::{run_claude_backend, run_codex_backend};
 
 const CODEX_DEFAULT_MODEL: &str = "gpt-5.5";
@@ -53,7 +56,7 @@ pub(super) fn fetch_model_catalog(client: &dyn BackendClient) -> Result<Vec<Mode
         }
         cursor = next_cursor;
     }
-    Ok(out)
+    Ok(complete_codex_model_catalog(out))
 }
 
 // --- App Helpers ---

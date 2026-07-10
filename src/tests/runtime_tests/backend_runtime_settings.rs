@@ -69,6 +69,79 @@ fn backend_runtime_settings_replace_incompatible_persisted_model() {
 }
 
 #[test]
+fn codex_model_catalog_includes_gpt56_family_with_extended_efforts() {
+    let models = complete_codex_model_catalog(vec![runtime_test_model(
+        "gpt-5.5",
+        &["low", "medium", "high"],
+        "high",
+        true,
+    )]);
+    let expected_efforts = ["low", "medium", "high", "xhigh", "max", "ultra"];
+
+    for model_name in ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"] {
+        let model = models
+            .iter()
+            .find(|model| model.model == model_name)
+            .expect("gpt-5.6 model");
+        let efforts = model
+            .supported_efforts
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+
+        assert_eq!(efforts, expected_efforts);
+        assert_eq!(model.default_effort.as_deref(), Some("high"));
+    }
+}
+
+#[test]
+fn codex_model_catalog_refreshes_stale_gpt56_efforts() {
+    let models = complete_codex_model_catalog(vec![runtime_test_model(
+        "gpt-5.6-sol",
+        &["low", "medium", "high"],
+        "medium",
+        false,
+    )]);
+    let model = models
+        .iter()
+        .find(|model| model.model == "gpt-5.6-sol")
+        .expect("gpt-5.6-sol model");
+    let efforts = model
+        .supported_efforts
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        efforts,
+        ["low", "medium", "high", "xhigh", "max", "ultra"]
+    );
+    assert_eq!(model.default_effort.as_deref(), Some("medium"));
+}
+
+#[test]
+fn backend_runtime_settings_keep_gpt56_ultra_effort() {
+    let models = complete_codex_model_catalog(Vec::new());
+    let persisted = RuntimeDefaults {
+        model: Some("gpt-5.6-luna".to_string()),
+        effort: Some("ultra".to_string()),
+        summary: Some("concise".to_string()),
+    };
+
+    let resolved = resolve_backend_runtime_settings(
+        ThreadRuntimeSettings::default(),
+        &persisted,
+        &codex_runtime_defaults(None),
+        &models,
+        true,
+    );
+
+    assert_eq!(resolved.model.as_deref(), Some("gpt-5.6-luna"));
+    assert_eq!(resolved.effort.as_deref(), Some("ultra"));
+    assert_eq!(resolved.summary.as_deref(), Some("concise"));
+}
+
+#[test]
 fn backend_runtime_settings_keep_compatible_model_and_clamp_effort() {
     let models = vec![
         runtime_test_model("gpt-5.5", &["low", "medium", "high"], "high", true),
