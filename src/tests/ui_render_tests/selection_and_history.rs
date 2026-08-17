@@ -18,6 +18,7 @@ fn render_main_view_shows_dictation_indicator_with_ralph_label() {
         base_prompt: "keep working".to_string(),
         done_marker: "@@COMPLETE@@".to_string(),
         blocked_marker: "@@BLOCKED@@".to_string(),
+        waiting_marker: "@@AWAITING_HUMAN@@".to_string(),
         continuation_prompt: "continue".to_string(),
     });
     app.configure_dictation(usable_dictation_profile());

@@ -97,48 +97,6 @@ fn apply_model_settings_omits_summary_when_backend_does_not_support_it() {
 }
 
 #[test]
-fn detect_turn_markers_matches_trimmed_commentary_marker_lines() {
-    let messages = vec![
-        Message {
-            role: Role::User,
-            text: "@@BLOCKED@@".to_string(),
-            kind: MessageKind::Plain,
-            file_path: None,
-        },
-        Message {
-            role: Role::Commentary,
-            text: "working...\n  @@BLOCKED@@ \nnext".to_string(),
-            kind: MessageKind::Plain,
-            file_path: None,
-        },
-        Message {
-            role: Role::Assistant,
-            text: "@@COMPLETE@@".to_string(),
-            kind: MessageKind::Plain,
-            file_path: None,
-        },
-    ];
-
-    let markers = super::ralph::detect_turn_markers(&messages, 0, "@@COMPLETE@@", "@@BLOCKED@@");
-    assert!(markers.blocked);
-    assert!(markers.completed);
-}
-
-#[test]
-fn detect_turn_markers_matches_inline_marker_tokens() {
-    let messages = vec![Message {
-        role: Role::Assistant,
-        text: "@@COMPLETE@@ @@COMPLETE_SUMMARY_START@@ summary".to_string(),
-        kind: MessageKind::Plain,
-        file_path: None,
-    }];
-
-    let markers = super::ralph::detect_turn_markers(&messages, 0, "@@COMPLETE@@", "@@BLOCKED@@");
-    assert!(markers.completed);
-    assert!(!markers.blocked);
-}
-
-#[test]
 fn ralph_turn_completion_queues_continuation_when_not_blocked_or_complete() {
     let mut app = AppState::new("thread-1".to_string());
     app.enable_ralph_mode(super::ralph::RalphConfig {
@@ -146,6 +104,7 @@ fn ralph_turn_completion_queues_continuation_when_not_blocked_or_complete() {
         base_prompt: "base".to_string(),
         done_marker: "@@COMPLETE@@".to_string(),
         blocked_marker: "@@BLOCKED@@".to_string(),
+        waiting_marker: "@@AWAITING_HUMAN@@".to_string(),
         continuation_prompt: "continue".to_string(),
     });
     app.turn_start_message_idx = Some(0);
@@ -158,6 +117,29 @@ fn ralph_turn_completion_queues_continuation_when_not_blocked_or_complete() {
 }
 
 #[test]
+fn ralph_turn_completion_disables_ralph_on_human_gate() {
+    let mut app = AppState::new("thread-1".to_string());
+    app.enable_ralph_mode(super::ralph::RalphConfig {
+        prompt_path: std::path::PathBuf::from(".agents/ralph-prompt.md"),
+        base_prompt: "base".to_string(),
+        done_marker: "@@COMPLETE@@".to_string(),
+        blocked_marker: "@@BLOCKED@@".to_string(),
+        waiting_marker: "@@AWAITING_HUMAN@@".to_string(),
+        continuation_prompt: "continue".to_string(),
+    });
+    app.turn_start_message_idx = Some(0);
+    app.append_message(Role::Assistant, "@@AWAITING_HUMAN@@");
+
+    app.handle_ralph_turn_completed(false);
+
+    assert!(!app.ralph_enabled());
+    assert!(app.queued_turn_inputs_is_empty());
+    assert!(app.messages.last().is_some_and(
+        |msg| msg.role == Role::System && msg.text == "Ralph waiting for human input"
+    ));
+}
+
+#[test]
 fn ralph_turn_completion_disables_ralph_mode_on_blocked_marker() {
     let mut app = AppState::new("thread-1".to_string());
     app.enable_ralph_mode(super::ralph::RalphConfig {
@@ -165,6 +147,7 @@ fn ralph_turn_completion_disables_ralph_mode_on_blocked_marker() {
         base_prompt: "base".to_string(),
         done_marker: "@@COMPLETE@@".to_string(),
         blocked_marker: "@@BLOCKED@@".to_string(),
+        waiting_marker: "@@AWAITING_HUMAN@@".to_string(),
         continuation_prompt: "continue".to_string(),
     });
     app.turn_start_message_idx = Some(0);
@@ -184,6 +167,7 @@ fn commentary_blocked_marker_disables_ralph_mode_immediately() {
         base_prompt: "base".to_string(),
         done_marker: "@@COMPLETE@@".to_string(),
         blocked_marker: "@@BLOCKED@@".to_string(),
+        waiting_marker: "@@AWAITING_HUMAN@@".to_string(),
         continuation_prompt: "continue".to_string(),
     });
     app.turn_start_message_idx = Some(0);
@@ -205,6 +189,7 @@ fn ralph_turn_completion_disables_ralph_mode() {
         base_prompt: "base".to_string(),
         done_marker: "@@COMPLETE@@".to_string(),
         blocked_marker: "@@BLOCKED@@".to_string(),
+        waiting_marker: "@@AWAITING_HUMAN@@".to_string(),
         continuation_prompt: "continue".to_string(),
     });
     app.turn_start_message_idx = Some(0);
@@ -227,6 +212,7 @@ fn ralph_interrupted_turn_does_not_queue_continuation() {
         base_prompt: "base".to_string(),
         done_marker: "@@COMPLETE@@".to_string(),
         blocked_marker: "@@BLOCKED@@".to_string(),
+        waiting_marker: "@@AWAITING_HUMAN@@".to_string(),
         continuation_prompt: "continue".to_string(),
     });
     app.turn_start_message_idx = Some(0);
@@ -253,6 +239,7 @@ fn request_ralph_toggle_enables_and_disables_when_idle() {
     app.configure_ralph_options(
         std::env::current_dir().expect("cwd"),
         Some(tmp.to_string_lossy().to_string()),
+        None,
         None,
         None,
     );

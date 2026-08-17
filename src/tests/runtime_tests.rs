@@ -22,6 +22,8 @@ include!("runtime_tests/backend_runtime_settings.rs");
 
 include!("runtime_tests/cli_runtime_settings.rs");
 
+include!("runtime_tests/ralph_marker_tests.rs");
+
 include!("runtime_tests/ralph_runtime.rs");
 
 include!("runtime_tests/picker_and_local_history.rs");

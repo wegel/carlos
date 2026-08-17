@@ -188,6 +188,7 @@ pub(super) fn configure_app_common(
         opts.ralph_prompt_path.clone(),
         opts.ralph_done_marker.clone(),
         opts.ralph_blocked_marker.clone(),
+        opts.ralph_waiting_marker.clone(),
     );
     if env_flag_enabled("CARLOS_METRICS") {
         app.enable_perf_metrics();

@@ -44,6 +44,7 @@ pub(super) struct CliOptions {
     pub(super) ralph_prompt_path: Option<String>,
     pub(super) ralph_done_marker: Option<String>,
     pub(super) ralph_blocked_marker: Option<String>,
+    pub(super) ralph_waiting_marker: Option<String>,
     pub(super) dictation_profile: Option<String>,
     pub(super) show_help: bool,
 }
@@ -64,7 +65,7 @@ pub(super) fn resolve_initial_runtime_settings(
 
 pub(super) fn usage() {
     eprintln!(
-        "Usage:\n  carlos [resume [SESSION_ID] | continue] [options]\n  carlos perf-session <SESSION_JSONL> [--width N] [--height N]\n  carlos perf-session --synthetic [--turns N] [--seed N] [--tool-lines N] [--width N] [--height N]\n\nOptions:\n  --backend <codex|claude>       backend to use (default: codex)\n  --dictation-profile <name>     dictation profile to activate for this session\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  --width <n>                    perf-session viewport width (default: 160)\n  --height <n>                   perf-session viewport height (default: 48)\n  --seed <n>                     perf-session synthetic seed (default: 1)\n  --turns <n>                    perf-session synthetic turns (default: 1000)\n  --tool-lines <n>               perf-session synthetic tool-output lines (default: 24)\n  --synthetic                    use generated perf-session content instead of a jsonl file\n  -h, --help                     show this help\n\nKeys:\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_BACKEND=claude          use Claude Code instead of codex app-server\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)\n  CARLOS_REASONING_SUMMARY=...   auto | concise | detailed | none (default: concise)"
+        "Usage:\n  carlos [resume [SESSION_ID] | continue] [options]\n  carlos perf-session <SESSION_JSONL> [--width N] [--height N]\n  carlos perf-session --synthetic [--turns N] [--seed N] [--tool-lines N] [--width N] [--height N]\n\nOptions:\n  --backend <codex|claude>       backend to use (default: codex)\n  --dictation-profile <name>     dictation profile to activate for this session\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  --ralph-waiting-marker <text>  human gate marker (default: @@AWAITING_HUMAN@@)\n  --width <n>                    perf-session viewport width (default: 160)\n  --height <n>                   perf-session viewport height (default: 48)\n  --seed <n>                     perf-session synthetic seed (default: 1)\n  --turns <n>                    perf-session synthetic turns (default: 1000)\n  --tool-lines <n>               perf-session synthetic tool-output lines (default: 24)\n  --synthetic                    use generated perf-session content instead of a jsonl file\n  -h, --help                     show this help\n\nKeys:\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_BACKEND=claude          use Claude Code instead of codex app-server\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)\n  CARLOS_REASONING_SUMMARY=...   auto | concise | detailed | none (default: concise)"
     );
 }
 
@@ -110,6 +111,9 @@ pub(super) fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<C
             "--ralph-done-marker" => opts.ralph_done_marker = Some(take_value(&mut args, &arg)?),
             "--ralph-blocked-marker" => {
                 opts.ralph_blocked_marker = Some(take_value(&mut args, &arg)?);
+            }
+            "--ralph-waiting-marker" => {
+                opts.ralph_waiting_marker = Some(take_value(&mut args, &arg)?);
             }
             sub @ ("resume" | "continue" | "perf-session") => {
                 parse_mode_subcommand(sub, &mut opts, &mut args)?;

@@ -33,6 +33,7 @@ pub(super) struct RalphRuntimeState {
     prompt_path_override: Option<String>,
     done_marker_override: Option<String>,
     blocked_marker_override: Option<String>,
+    waiting_marker_override: Option<String>,
 }
 
 // --- Turn Outcome ---
@@ -71,6 +72,16 @@ impl RalphTurnOutcome {
         }
     }
 
+    /// Ralph reached a human gate. Disable Ralph and wait for input.
+    fn waiting() -> Self {
+        Self {
+            system_message: Some("Ralph waiting for human input".to_string()),
+            status: Some("ralph waiting".to_string()),
+            disable: true,
+            continuation: None,
+        }
+    }
+
     /// Ralph turn finished without a marker. Queue the continuation prompt.
     fn continuing(prompt: String) -> Self {
         Self {
@@ -95,6 +106,7 @@ impl RalphRuntimeState {
             prompt_path_override: None,
             done_marker_override: None,
             blocked_marker_override: None,
+            waiting_marker_override: None,
         }
     }
 
@@ -104,11 +116,13 @@ impl RalphRuntimeState {
         prompt_path_override: Option<String>,
         done_marker_override: Option<String>,
         blocked_marker_override: Option<String>,
+        waiting_marker_override: Option<String>,
     ) {
         self.cwd = cwd;
         self.prompt_path_override = prompt_path_override;
         self.done_marker_override = done_marker_override;
         self.blocked_marker_override = blocked_marker_override;
+        self.waiting_marker_override = waiting_marker_override;
     }
 
     pub(super) fn is_enabled(&self) -> bool {
@@ -158,6 +172,7 @@ impl RalphRuntimeState {
             self.prompt_path_override.as_deref(),
             self.done_marker_override.as_deref(),
             self.blocked_marker_override.as_deref(),
+            self.waiting_marker_override.as_deref(),
         )?;
         self.enable(cfg);
         self.queue_initial_prompt();
@@ -294,7 +309,7 @@ impl RalphRuntimeState {
         start_idx: usize,
     ) -> Option<RalphTurnOutcome> {
         let blocked_marker = self.current.as_ref()?.config.blocked_marker.clone();
-        let markers = detect_turn_markers(messages, start_idx, "", &blocked_marker);
+        let markers = detect_turn_markers(messages, start_idx, "", &blocked_marker, "");
         if !markers.blocked {
             return None;
         }
@@ -321,6 +336,7 @@ impl RalphRuntimeState {
             start_idx,
             &ralph.config.done_marker,
             &ralph.config.blocked_marker,
+            &ralph.config.waiting_marker,
         );
         if markers.completed {
             ralph.completed = true;
@@ -330,6 +346,10 @@ impl RalphRuntimeState {
         if markers.blocked {
             ralph.waiting_for_user = false;
             return RalphTurnOutcome::blocked();
+        }
+        if markers.waiting {
+            ralph.waiting_for_user = false;
+            return RalphTurnOutcome::waiting();
         }
         if interrupted {
             ralph.waiting_for_user = false;

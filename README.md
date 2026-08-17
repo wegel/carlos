@@ -19,8 +19,10 @@ Alpha.
 - runtime Ralph mode toggle (`Ctrl+R`) with:
   - prompt auto-injection from `.agents/ralph-prompt.md` (or `--ralph-prompt`)
   - blocked marker wait state (`@@BLOCKED@@` by default)
+  - human approval gate marker (`@@AWAITING_HUMAN@@` by default), which exits Ralph
+    instead of preserving a paused loop
   - completion marker detection + auto-exit from Ralph mode (`@@COMPLETE@@` by default)
-  - configurable markers (`--ralph-done-marker`, `--ralph-blocked-marker`)
+  - configurable done, blocked, and human-gate markers
 - multiline input with `Shift+Enter` / `Alt+Enter`
 - shell-like input history navigation with `Up/Down`
 - rewind mode for prompt replay/edit (`Esc,Esc` on empty input)

@@ -100,12 +100,14 @@ impl AppState {
         prompt_path_override: Option<String>,
         done_marker_override: Option<String>,
         blocked_marker_override: Option<String>,
+        waiting_marker_override: Option<String>,
     ) {
         self.ralph_runtime.configure_options(
             cwd,
             prompt_path_override,
             done_marker_override,
             blocked_marker_override,
+            waiting_marker_override,
         );
     }
 

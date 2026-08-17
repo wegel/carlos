@@ -200,6 +200,7 @@ fn escape_key_disables_ralph_mode() {
         base_prompt: "base".to_string(),
         done_marker: "@@COMPLETE@@".to_string(),
         blocked_marker: "@@BLOCKED@@".to_string(),
+        waiting_marker: "@@AWAITING_HUMAN@@".to_string(),
         continuation_prompt: "continue".to_string(),
     });
     app.queue_ralph_continuation("continue");

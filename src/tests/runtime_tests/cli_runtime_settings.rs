@@ -61,6 +61,8 @@ fn parse_cli_args_supports_ralph_resume_and_markers() {
         "DONE".to_string(),
         "--ralph-blocked-marker".to_string(),
         "BLOCKED".to_string(),
+        "--ralph-waiting-marker".to_string(),
+        "WAITING".to_string(),
     ];
     let parsed = parse_cli_args(args).expect("parse");
 
@@ -72,6 +74,7 @@ fn parse_cli_args_supports_ralph_resume_and_markers() {
     );
     assert_eq!(parsed.ralph_done_marker.as_deref(), Some("DONE"));
     assert_eq!(parsed.ralph_blocked_marker.as_deref(), Some("BLOCKED"));
+    assert_eq!(parsed.ralph_waiting_marker.as_deref(), Some("WAITING"));
 }
 
 #[test]

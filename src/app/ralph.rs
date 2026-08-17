@@ -12,8 +12,16 @@ use super::{Message, Role};
 pub(crate) const DEFAULT_PROMPT_PATH: &str = ".agents/ralph-prompt.md";
 pub(crate) const DEFAULT_DONE_MARKER: &str = "@@COMPLETE@@";
 pub(crate) const DEFAULT_BLOCKED_MARKER: &str = "@@BLOCKED@@";
-pub(crate) const DEFAULT_CONTINUATION_PROMPT: &str =
-    "(continuation - you were interrupted, not blocked. keep working.)";
+pub(crate) const DEFAULT_WAITING_MARKER: &str = "@@AWAITING_HUMAN@@";
+pub(crate) const DEFAULT_CONTINUATION_PROMPT: &str = concat!(
+    "Ralph continuation: your previous turn ended without a stop marker.\n",
+    "Resume only the current incomplete ExecPlan. Do not start another ExecPlan.\n\n",
+    "Keep working unless you reached one of these states:\n",
+    "- Human validation, completion, or landing gate: output @@AWAITING_HUMAN@@\n",
+    "- Hard blocker: output @@BLOCKED@@\n",
+    "- Every ExecPlan is complete and archived: output @@COMPLETE@@\n\n",
+    "Put the marker on its own line. Never stop without a marker."
+);
 
 // --- Ralph Types ---
 
@@ -23,6 +31,7 @@ pub(super) struct RalphConfig {
     pub(super) base_prompt: String,
     pub(super) done_marker: String,
     pub(super) blocked_marker: String,
+    pub(super) waiting_marker: String,
     pub(super) continuation_prompt: String,
 }
 
@@ -38,6 +47,7 @@ pub(super) struct RalphState {
 pub(super) struct RalphTurnMarkers {
     pub(super) blocked: bool,
     pub(super) completed: bool,
+    pub(super) waiting: bool,
 }
 
 impl RalphState {
@@ -58,6 +68,7 @@ pub(super) fn load_ralph_config(
     prompt_path_override: Option<&str>,
     done_marker_override: Option<&str>,
     blocked_marker_override: Option<&str>,
+    waiting_marker_override: Option<&str>,
 ) -> Result<RalphConfig> {
     let prompt_path = resolve_prompt_path(cwd, prompt_path_override);
     let base_prompt = fs::read_to_string(&prompt_path)
@@ -73,12 +84,17 @@ pub(super) fn load_ralph_config(
         blocked_marker_override.unwrap_or(DEFAULT_BLOCKED_MARKER),
         "blocked",
     )?;
+    let waiting_marker = normalize_marker(
+        waiting_marker_override.unwrap_or(DEFAULT_WAITING_MARKER),
+        "waiting",
+    )?;
 
     Ok(RalphConfig {
         prompt_path,
         base_prompt,
         done_marker,
         blocked_marker,
+        waiting_marker,
         continuation_prompt: DEFAULT_CONTINUATION_PROMPT.to_string(),
     })
 }
@@ -90,14 +106,17 @@ pub(super) fn detect_turn_markers(
     start_idx: usize,
     done_marker: &str,
     blocked_marker: &str,
+    waiting_marker: &str,
 ) -> RalphTurnMarkers {
     let done = done_marker.trim();
     let blocked = blocked_marker.trim();
+    let waiting = waiting_marker.trim();
     let mut out = RalphTurnMarkers {
         blocked: false,
         completed: false,
+        waiting: false,
     };
-    if done.is_empty() && blocked.is_empty() {
+    if done.is_empty() && blocked.is_empty() && waiting.is_empty() {
         return out;
     }
 
@@ -111,7 +130,10 @@ pub(super) fn detect_turn_markers(
         if !blocked.is_empty() && text_contains_marker(&msg.text, blocked) {
             out.blocked = true;
         }
-        if out.completed && out.blocked {
+        if !waiting.is_empty() && text_contains_marker(&msg.text, waiting) {
+            out.waiting = true;
+        }
+        if out.completed && out.blocked && out.waiting {
             break;
         }
     }
@@ -119,7 +141,13 @@ pub(super) fn detect_turn_markers(
 }
 
 fn text_contains_marker(text: &str, marker: &str) -> bool {
-    text.contains(marker)
+    text.lines().any(|line| {
+        let trimmed = line.trim();
+        trimmed == marker
+            || trimmed
+                .strip_prefix(marker)
+                .is_some_and(|suffix| suffix.starts_with(" @@"))
+    })
 }
 
 // --- Marker Helpers ---
