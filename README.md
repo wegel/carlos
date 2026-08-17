@@ -1,6 +1,6 @@
 # carlos
 
-Terminal frontend for `codex app-server` and the `claude` CLI.
+Terminal frontend for `codex app-server`, the `claude` CLI, and `grok agent`.
 
 [<img src="docs/screenshot.png" alt="carlos TUI screenshot" width="760" />](docs/screenshot.png)
 
@@ -12,9 +12,11 @@ Alpha.
 
 - start a new Codex thread with `carlos`
 - start a new Claude session with `carlos --backend claude`
+- start a new Grok session with `carlos --backend grok`
 - resume Codex with `carlos resume <SESSION_ID>` or pick from `carlos resume`
 - resume Claude with `carlos --backend claude resume <SESSION_ID>` or pick from `carlos --backend claude resume`
-- backend selection via `--backend <codex|claude>` or `CARLOS_BACKEND=claude`
+- resume Grok with `carlos --backend grok resume <SESSION_ID>` or pick from `carlos --backend grok resume`
+- backend selection via `--backend <codex|claude|grok>` or `CARLOS_BACKEND=grok`
 - feature-gated local voice dictation (`Ctrl+D`) with Whisper profiles selected by `--dictation-profile <name>`
 - runtime Ralph mode toggle (`Ctrl+R`) with:
   - prompt auto-injection from `.agents/ralph-prompt.md` (or `--ralph-prompt`)
@@ -136,10 +138,13 @@ are useful only if you dictate exclusively in English.
 ```bash
 cargo run
 cargo run -- --backend claude
+cargo run -- --backend grok
 cargo run -- resume
 cargo run -- resume <SESSION_ID>
 cargo run -- --backend claude resume
 cargo run -- --backend claude resume <SESSION_ID>
+cargo run -- --backend grok resume
+cargo run -- --backend grok resume <SESSION_ID>
 cargo run -- --ralph-prompt .agents/ralph-prompt.md
 ```
 

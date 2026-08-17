@@ -1,4 +1,4 @@
-//! Backend trait abstracting over codex and claude CLI transports.
+//! Backend trait abstracting over Codex, Claude, and Grok CLI transports.
 
 use std::sync::mpsc;
 use std::time::Duration;
@@ -11,6 +11,24 @@ use serde_json::Value;
 pub(crate) enum BackendKind {
     Codex,
     Claude,
+    Grok,
+}
+
+impl BackendKind {
+    /// Whether the UI should append the user prompt locally after `turn/start`.
+    pub(crate) fn echoes_local_user_prompt(self) -> bool {
+        matches!(self, Self::Claude | Self::Grok)
+    }
+
+    /// Whether a later prompt must wait behind an already-queued follow-up.
+    pub(crate) fn queues_follow_up_turns(self) -> bool {
+        matches!(self, Self::Claude | Self::Grok)
+    }
+
+    /// Whether input during an active turn should queue instead of `turn/steer`.
+    pub(crate) fn queues_instead_of_steer(self) -> bool {
+        matches!(self, Self::Grok)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

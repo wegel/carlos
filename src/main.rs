@@ -1,4 +1,4 @@
-//! Carlos: a terminal frontend for codex app-server and the claude CLI.
+//! Carlos: a terminal frontend for Codex, Claude, and Grok.
 
 mod app;
 mod backend;
@@ -7,6 +7,7 @@ mod clipboard;
 #[cfg(feature = "dictation")]
 mod dictation;
 mod event;
+mod grok_backend;
 mod protocol;
 mod protocol_params;
 mod theme;

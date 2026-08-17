@@ -12,6 +12,7 @@
 
 # Local Ralph/session noise
 .agents/bash_history
+.agents/carlos-runtime-defaults.json
 
 .claude/
 .codex/

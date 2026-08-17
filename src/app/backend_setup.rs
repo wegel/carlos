@@ -2,6 +2,8 @@
 
 #[path = "backend_setup_codex_models.rs"]
 mod backend_setup_codex_models;
+#[path = "backend_setup_grok.rs"]
+mod backend_setup_grok;
 #[path = "backend_setup_launch.rs"]
 mod backend_setup_launch;
 
@@ -30,6 +32,7 @@ use crate::protocol_params::{
 };
 
 pub(super) use self::backend_setup_codex_models::complete_codex_model_catalog;
+pub(super) use self::backend_setup_grok::run_grok_backend;
 pub(super) use self::backend_setup_launch::{run_claude_backend, run_codex_backend};
 
 const CODEX_DEFAULT_MODEL: &str = "gpt-5.5";
@@ -37,6 +40,8 @@ const CODEX_DEFAULT_EFFORT: &str = "high";
 const CODEX_DEFAULT_SUMMARY: &str = "concise";
 const CLAUDE_DEFAULT_MODEL: &str = "opus";
 const CLAUDE_DEFAULT_EFFORT: &str = "xhigh";
+const GROK_DEFAULT_MODEL: &str = "grok-4.6";
+const GROK_DEFAULT_EFFORT: &str = "high";
 
 // --- Model Catalog ---
 
@@ -73,6 +78,14 @@ pub(super) fn claude_runtime_defaults() -> RuntimeDefaults {
     RuntimeDefaults {
         model: Some(CLAUDE_DEFAULT_MODEL.to_string()),
         effort: Some(CLAUDE_DEFAULT_EFFORT.to_string()),
+        summary: None,
+    }
+}
+
+pub(super) fn grok_runtime_defaults() -> RuntimeDefaults {
+    RuntimeDefaults {
+        model: Some(GROK_DEFAULT_MODEL.to_string()),
+        effort: Some(GROK_DEFAULT_EFFORT.to_string()),
         summary: None,
     }
 }

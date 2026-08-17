@@ -9,6 +9,7 @@ use super::notifications::load_history_from_start_or_resume;
 use super::state::{AppState, ApprovalChoice};
 use super::Role;
 use crate::backend::{BackendClient, BackendKind, RewindForkRequest};
+use crate::grok_backend::GROK_PENDING_TURN_ID;
 use crate::protocol_params::{
     params_turn_interrupt, params_turn_start, params_turn_steer,
     parse_thread_id_from_start_or_resume,
@@ -39,6 +40,9 @@ pub(super) fn submit_rewind_turn_text(
         return;
     }
 
+    let grok_prefix = (client.kind() == BackendKind::Grok)
+        .then(|| snapshot_grok_rewind_prefix(app, rewind_history_idx));
+
     let response = match client.fork_from_rewind(
         &app.thread_id,
         RewindForkRequest {
@@ -54,7 +58,11 @@ pub(super) fn submit_rewind_turn_text(
         }
     };
 
-    if let Err(err) = apply_forked_thread_history(app, &response) {
+    let apply = match grok_prefix {
+        Some(prefix) => apply_grok_rewound_history(app, &response, prefix),
+        None => apply_forked_thread_history(app, &response),
+    };
+    if let Err(err) = apply {
         app.set_status(format!("fork failed: {err}"));
         return;
     }
@@ -74,6 +82,12 @@ pub(super) fn submit_turn_text_with_history(
     record_input_history: bool,
 ) {
     if text.trim().is_empty() {
+        return;
+    }
+
+    if app.active_turn_id.is_some() && client.kind().queues_instead_of_steer() {
+        app.queue_turn_input_with_history(text, record_input_history);
+        app.set_status("queued behind pending Grok turn");
         return;
     }
 
@@ -132,6 +146,48 @@ pub(super) fn interrupt_active_turn(client: &dyn BackendClient, app: &mut AppSta
 
 // --- Private helpers ---
 
+fn snapshot_grok_rewind_prefix(
+    app: &AppState,
+    rewind_history_idx: usize,
+) -> Vec<crate::app::models::Message> {
+    let cut = app
+        .rewind_selected_message_idx()
+        .or_else(|| nth_user_message_idx(app, rewind_history_idx))
+        .unwrap_or(app.messages.len());
+    let cut = cut.min(app.messages.len());
+    app.messages[..cut].to_vec()
+}
+
+fn nth_user_message_idx(app: &AppState, rewind_history_idx: usize) -> Option<usize> {
+    app.messages
+        .iter()
+        .enumerate()
+        .filter(|(_, message)| message.role == Role::User)
+        .nth(rewind_history_idx)
+        .map(|(idx, _)| idx)
+}
+
+fn apply_grok_rewound_history(
+    app: &mut AppState,
+    response_line: &str,
+    prefix: Vec<crate::app::models::Message>,
+) -> anyhow::Result<()> {
+    let thread_id =
+        parse_thread_id_from_start_or_resume(response_line).context("missing rewound thread id")?;
+    app.reset_for_forked_thread(thread_id);
+    for message in prefix {
+        let record_user = message.role == Role::User && !message.text.is_empty();
+        let text = message.text.clone();
+        app.messages.push(message);
+        let idx = app.messages.len() - 1;
+        if record_user {
+            app.record_input_history(&text, Some(idx));
+        }
+        app.mark_transcript_dirty_from(idx);
+    }
+    Ok(())
+}
+
 fn apply_forked_thread_history(app: &mut AppState, response_line: &str) -> anyhow::Result<()> {
     let thread_id =
         parse_thread_id_from_start_or_resume(response_line).context("missing forked thread id")?;
@@ -151,7 +207,7 @@ fn steer_existing_turn(
     let params = params_turn_steer(&app.thread_id, turn_id, text);
     match client.call("turn/steer", params, Duration::from_secs(10)) {
         Ok(_) => {
-            if client.kind() == BackendKind::Claude {
+            if client.kind().echoes_local_user_prompt() {
                 let idx = app.append_message(Role::User, text.to_string());
                 if record_input_history {
                     app.record_input_history(text, Some(idx));
@@ -170,10 +226,13 @@ fn start_new_turn(
     record_input_history: bool,
 ) {
     let now = Instant::now();
-    if client.kind() == BackendKind::Claude && app.has_ready_queued_turn_input(now) {
+    if client.kind().queues_follow_up_turns() && app.has_ready_queued_turn_input(now) {
         app.promote_ready_continuation(now);
         app.queue_turn_input_with_history(text, record_input_history);
-        app.set_status("queued behind pending Claude turn");
+        app.set_status(match client.kind() {
+            BackendKind::Grok => "queued behind pending Grok turn",
+            _ => "queued behind pending Claude turn",
+        });
         return;
     }
 
@@ -187,17 +246,24 @@ fn start_new_turn(
     );
     match client.call("turn/start", params, Duration::from_secs(10)) {
         Ok(_) => {
-            if client.kind() == BackendKind::Claude {
+            if client.kind().echoes_local_user_prompt() {
                 let idx = app.append_message(Role::User, text.clone());
                 if record_input_history {
                     app.record_input_history(&text, Some(idx));
                 }
                 app.mark_turn_started();
-                app.active_turn_id = Some(CLAUDE_PENDING_TURN_ID.to_string());
+                app.active_turn_id = Some(pending_turn_id(client.kind()).to_string());
             }
             app.mark_runtime_settings_applied();
             app.set_status("sent turn");
         }
         Err(e) => app.set_status(format!("{e}")),
+    }
+}
+
+fn pending_turn_id(kind: BackendKind) -> &'static str {
+    match kind {
+        BackendKind::Grok => GROK_PENDING_TURN_ID,
+        _ => CLAUDE_PENDING_TURN_ID,
     }
 }

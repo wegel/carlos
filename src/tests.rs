@@ -78,6 +78,8 @@ pub(super) use serde_json::json;
 
 #[path = "tests/claude_backend_tests.rs"]
 mod claude_backend_tests;
+#[path = "tests/grok_backend_tests.rs"]
+mod grok_backend_tests;
 #[path = "tests/input_tests.rs"]
 mod input_tests;
 #[path = "tests/notification_tests.rs"]

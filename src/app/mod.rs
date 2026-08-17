@@ -72,7 +72,7 @@ pub(super) struct RuntimeDefaults {
 
 // --- Runtime Wiring ---
 
-use self::backend_setup::{run_claude_backend, run_codex_backend};
+use self::backend_setup::{run_claude_backend, run_codex_backend, run_grok_backend};
 use self::cli::{
     env_reasoning_summary_override, load_runtime_defaults, parse_cli_args,
     persist_runtime_defaults, usage, Backend, CliOptions,
@@ -110,6 +110,9 @@ pub(crate) fn run() -> Result<()> {
         }
         Backend::Claude => {
             run_claude_backend(&opts, &cwd_path, &cwd, persisted_defaults, default_summary)
+        }
+        Backend::Grok => {
+            run_grok_backend(&opts, &cwd_path, &cwd, persisted_defaults, default_summary)
         }
     }
 }
