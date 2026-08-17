@@ -52,15 +52,21 @@ fn load_grok_local_history_filters_by_cwd() {
 }
 
 #[test]
-fn submit_turn_text_queues_grok_input_while_turn_active() {
+fn submit_turn_text_sends_grok_follow_up_while_turn_active() {
     let client = GrokStartMock::new();
     let mut app = AppState::new("thread-1".to_string());
     app.active_turn_id = Some("turn-1".to_string());
 
     submit_turn_text(&client, &mut app, "follow up".to_string());
 
-    assert!(client.calls.lock().expect("calls lock").is_empty());
-    assert_eq!(app.status, "queued behind pending Grok turn");
+    assert_eq!(
+        client.calls.lock().expect("calls lock").as_slice(),
+        ["turn/start"]
+    );
+    assert_eq!(app.messages.len(), 1);
+    assert_eq!(app.messages[0].text, "follow up");
+    assert_eq!(app.active_turn_id.as_deref(), Some("turn-1"));
+    assert_eq!(app.status, "sent turn");
 }
 
 #[test]
@@ -183,6 +189,28 @@ fn submit_rewind_turn_text_keeps_prefix_and_resubmits() {
             .expect("start lock")
             .as_slice(),
         ["edited second"]
+    );
+}
+
+#[test]
+fn submit_dequeued_grok_turn_starts_even_when_more_are_queued() {
+    let client = GrokStartMock::new();
+    let mut app = AppState::new("thread-1".to_string());
+    app.queue_turn_input("second");
+
+    submit_dequeued_turn_text(&client, &mut app, "first".to_string(), false);
+
+    assert_eq!(
+        client.calls.lock().expect("calls lock").as_slice(),
+        ["turn/start"]
+    );
+    assert_eq!(app.messages[0].text, "first");
+    assert_eq!(app.active_turn_id.as_deref(), Some("grok-turn-pending"));
+    assert_eq!(
+        app.dequeue_turn_input(std::time::Instant::now())
+            .expect("remaining")
+            .text,
+        "second"
     );
 }
 

@@ -72,6 +72,9 @@ pub(crate) struct GrokTranslationState {
     pub(super) tools: HashMap<String, GrokToolCall>,
     pub(super) last_usage: Option<GrokContextUsage>,
     pub(super) interrupt_requested: bool,
+    pub(super) turn_completed_emitted: bool,
+    pub(super) suppress_user_echo: bool,
+    pub(super) ignore_stale_updates: bool,
 }
 
 impl GrokTranslationState {
@@ -79,6 +82,14 @@ impl GrokTranslationState {
     pub(crate) fn replaying() -> Self {
         Self {
             replaying: true,
+            ..Self::default()
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn suppressing_user_echo() -> Self {
+        Self {
+            suppress_user_echo: true,
             ..Self::default()
         }
     }

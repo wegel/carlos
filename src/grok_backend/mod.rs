@@ -18,13 +18,12 @@ use crate::protocol_params::ModelInfo;
 
 use self::history::parse_grok_session_list;
 use self::process::{start_grok_process, GrokProcess};
+use self::translate::{interrupt_prompt_turn, mark_prompt_started};
 use self::types::{
     normalize_runtime_arg, parse_grok_model_catalog, response_error_message, response_is_error,
     synthetic_start_response, token_usage_line, turn_input_text,
 };
 
-#[cfg(test)]
-pub(crate) use self::history::load_grok_thread_summaries_from;
 pub(crate) use self::history::{load_grok_thread_summaries, GrokSessionSummary};
 pub(crate) use self::types::{
     grok_model_catalog, GrokLaunchMode, GrokRuntimeSettings, GrokTranslationState,
@@ -32,7 +31,7 @@ pub(crate) use self::types::{
 };
 
 #[cfg(test)]
-pub(crate) use self::history::parse_iso_timestamp_secs;
+pub(crate) use self::history::{load_grok_thread_summaries_from, parse_iso_timestamp_secs};
 #[cfg(test)]
 pub(crate) use self::process::build_grok_command_for_test;
 #[cfg(test)]
@@ -294,6 +293,40 @@ impl GrokClient {
         }
         Ok(())
     }
+
+    fn begin_prompt_translation(&self) -> Result<()> {
+        let mut state = self
+            .translation
+            .lock()
+            .map_err(|_| anyhow!("Grok translation lock poisoned"))?;
+        mark_prompt_started(&mut state);
+        Ok(())
+    }
+
+    fn interrupt_session(&self) -> Result<String> {
+        let lines = {
+            let mut state = self
+                .translation
+                .lock()
+                .map_err(|_| anyhow!("Grok translation lock poisoned"))?;
+            interrupt_prompt_turn(&mut state).lines
+        };
+        for line in lines {
+            let _ = self.events_tx.send(line);
+        }
+        let session_id = self.current_session_id()?;
+        let process = self
+            .process
+            .lock()
+            .map_err(|_| anyhow!("Grok process lock poisoned"))?;
+        process.clear_in_flight_prompts();
+        process.notify(
+            "session/cancel",
+            json!({ "sessionId": session_id, "cancelTrigger": "esc" }),
+        )?;
+        let _ = process.notify("x.ai/queue/clear", json!({ "sessionId": session_id }));
+        Ok(json!({ "jsonrpc": "2.0", "result": {} }).to_string())
+    }
 }
 
 // --- BackendClient ---
@@ -312,6 +345,7 @@ impl BackendClient for GrokClient {
                 )?;
                 let text = turn_input_text(&params)?;
                 let session_id = self.current_session_id()?;
+                self.begin_prompt_translation()?;
                 let process = self
                     .process
                     .lock()
@@ -323,18 +357,7 @@ impl BackendClient for GrokClient {
                 Ok(json!({ "jsonrpc": "2.0", "result": {} }).to_string())
             }
             "turn/steer" => bail!("Grok does not support mid-turn steer"),
-            "turn/interrupt" => {
-                if let Ok(mut state) = self.translation.lock() {
-                    state.interrupt_requested = true;
-                }
-                let session_id = self.current_session_id()?;
-                let process = self
-                    .process
-                    .lock()
-                    .map_err(|_| anyhow!("Grok process lock poisoned"))?;
-                process.notify("session/cancel", json!({ "sessionId": session_id }))?;
-                Ok(json!({ "jsonrpc": "2.0", "result": {} }).to_string())
-            }
+            "turn/interrupt" => self.interrupt_session(),
             other => bail!("unsupported Grok backend method: {other}"),
         }
     }

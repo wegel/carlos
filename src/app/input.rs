@@ -24,7 +24,7 @@ pub(super) use super::input_events::is_mobile_mouse_key_candidate;
 use super::notifications::{animation_poll_timeout, animation_tick};
 use super::render::render_main_view;
 use super::terminal_ui::with_terminal;
-use super::turn_submit::submit_turn_text_with_history;
+use super::turn_submit::submit_dequeued_turn_text;
 use super::{AppState, TerminalSize};
 use crate::backend::BackendClient;
 #[cfg(not(feature = "dictation"))]
@@ -270,7 +270,7 @@ fn try_submit_queued_turn(
         return false;
     }
     if let Some(next_turn) = app.dequeue_turn_input(now) {
-        submit_turn_text_with_history(client, app, next_turn.text, next_turn.record_input_history);
+        submit_dequeued_turn_text(client, app, next_turn.text, next_turn.record_input_history);
         return true;
     }
     false

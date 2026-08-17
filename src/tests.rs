@@ -55,7 +55,9 @@ pub(super) use super::transcript_render::{
     build_rendered_block_for_message, build_rendered_lines, build_rendered_lines_with_hidden,
     count_rendered_block_for_message, normalize_styled_segments_for_part,
 };
-pub(super) use super::turn_submit::{submit_turn_text, submit_turn_text_with_history};
+pub(super) use super::turn_submit::{
+    submit_dequeued_turn_text, submit_turn_text, submit_turn_text_with_history,
+};
 pub(super) use super::{
     input_events, perf_session, ralph, state, turn_submit, RuntimeDefaults, MSG_CONTENT_X,
 };

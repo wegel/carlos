@@ -1,6 +1,9 @@
 //! Grok ACP stdio process: spawn, JSON-RPC IO, and stream routing.
 
-use std::collections::HashMap;
+#[path = "process_client.rs"]
+mod process_client;
+
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
@@ -13,6 +16,7 @@ use std::time::{Duration, Instant};
 use anyhow::{anyhow, bail, Context, Result};
 use serde_json::{json, Value};
 
+use self::process_client::respond_to_agent_request;
 use super::translate::{finish_prompt_turn, translate_grok_notification};
 use super::types::{GrokRuntimeSettings, GrokTranslationState};
 
@@ -24,7 +28,7 @@ pub(super) struct GrokProcess {
     child: Child,
     stdin: Arc<Mutex<ChildStdin>>,
     pending: Arc<Mutex<HashMap<u64, mpsc::Sender<String>>>>,
-    prompt_in_flight: Arc<Mutex<Option<u64>>>,
+    prompt_in_flight: Arc<Mutex<HashSet<u64>>>,
     next_id: AtomicU64,
     reader_thread: Option<thread::JoinHandle<()>>,
     stderr_thread: Option<thread::JoinHandle<()>>,
@@ -45,7 +49,7 @@ pub(super) fn start_grok_process(
     let stdout = child.stdout.take().context("missing Grok stdout")?;
     let stderr = child.stderr.take().context("missing Grok stderr")?;
     let pending = Arc::new(Mutex::new(HashMap::new()));
-    let prompt_in_flight = Arc::new(Mutex::new(None));
+    let prompt_in_flight = Arc::new(Mutex::new(HashSet::new()));
     let stdin = Arc::new(Mutex::new(stdin));
     let captured_stderr = Arc::new(Mutex::new(String::new()));
     let reader_thread = spawn_reader_thread(
@@ -169,16 +173,23 @@ impl GrokProcess {
 
     pub(super) fn start_prompt(&self, params: Value) -> Result<()> {
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
-        *self
-            .prompt_in_flight
+        self.prompt_in_flight
             .lock()
-            .map_err(|_| anyhow!("Grok prompt lock poisoned"))? = Some(id);
+            .map_err(|_| anyhow!("Grok prompt lock poisoned"))?
+            .insert(id);
         self.send_json(json!({
             "jsonrpc": "2.0",
             "id": id,
             "method": "session/prompt",
             "params": params,
         }))
+    }
+
+    pub(super) fn clear_in_flight_prompts(&self) {
+        let _ = self
+            .prompt_in_flight
+            .lock()
+            .map(|mut prompts| prompts.clear());
     }
 
     pub(super) fn stop(&mut self) {
@@ -214,7 +225,7 @@ fn spawn_reader_thread(
     stdout: std::process::ChildStdout,
     events_tx: mpsc::Sender<String>,
     pending: Arc<Mutex<HashMap<u64, mpsc::Sender<String>>>>,
-    prompt_in_flight: Arc<Mutex<Option<u64>>>,
+    prompt_in_flight: Arc<Mutex<HashSet<u64>>>,
     stdin: Arc<Mutex<ChildStdin>>,
     translation: Arc<Mutex<GrokTranslationState>>,
 ) -> thread::JoinHandle<()> {
@@ -271,7 +282,7 @@ fn route_line(
     line: &str,
     events_tx: &mpsc::Sender<String>,
     pending: &Arc<Mutex<HashMap<u64, mpsc::Sender<String>>>>,
-    prompt_in_flight: &Arc<Mutex<Option<u64>>>,
+    prompt_in_flight: &Arc<Mutex<HashSet<u64>>>,
     stdin: &Arc<Mutex<ChildStdin>>,
     translation: &Arc<Mutex<GrokTranslationState>>,
 ) {
@@ -283,8 +294,8 @@ fn route_line(
             respond_to_agent_request(&parsed, stdin);
             return;
         }
-        if take_prompt_id(prompt_in_flight, id) {
-            emit_prompt_finished(&parsed, events_tx, translation);
+        if let Some(last) = take_prompt_id(prompt_in_flight, id) {
+            emit_prompt_finished(&parsed, events_tx, translation, last);
             return;
         }
         if let Ok(mut pending) = pending.lock() {
@@ -306,22 +317,21 @@ fn route_line(
     }
 }
 
-fn take_prompt_id(prompt_in_flight: &Arc<Mutex<Option<u64>>>, id: u64) -> bool {
-    let Ok(mut prompt) = prompt_in_flight.lock() else {
-        return false;
+fn take_prompt_id(prompt_in_flight: &Arc<Mutex<HashSet<u64>>>, id: u64) -> Option<bool> {
+    let Ok(mut prompts) = prompt_in_flight.lock() else {
+        return None;
     };
-    if *prompt == Some(id) {
-        *prompt = None;
-        true
-    } else {
-        false
+    if !prompts.remove(&id) {
+        return None;
     }
+    Some(prompts.is_empty())
 }
 
 fn emit_prompt_finished(
     parsed: &Value,
     events_tx: &mpsc::Sender<String>,
     translation: &Arc<Mutex<GrokTranslationState>>,
+    last: bool,
 ) {
     let interrupted = parsed
         .get("result")
@@ -342,54 +352,13 @@ fn emit_prompt_finished(
             .to_string(),
         );
     }
+    if !last {
+        return;
+    }
     let Ok(mut state) = translation.lock() else {
         return;
     };
     for synthetic in finish_prompt_turn(&mut state, interrupted).lines {
         let _ = events_tx.send(synthetic);
     }
-}
-
-fn respond_to_agent_request(parsed: &Value, stdin: &Arc<Mutex<ChildStdin>>) {
-    let Some(id) = parsed.get("id").cloned() else {
-        return;
-    };
-    let method = parsed.get("method").and_then(Value::as_str).unwrap_or("");
-    let reply = match method {
-        "session/request_permission" => permission_allow_reply(id, parsed.get("params")),
-        _ => json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "error": { "code": -32601, "message": format!("unsupported client method: {method}") },
-        }),
-    };
-    if let Ok(mut stdin) = stdin.lock() {
-        let _ = writeln!(stdin, "{reply}");
-        let _ = stdin.flush();
-    }
-}
-
-fn permission_allow_reply(id: Value, params: Option<&Value>) -> Value {
-    let option_id = params
-        .and_then(|params| params.get("options"))
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .find_map(|option| {
-            let kind = option.get("kind").and_then(Value::as_str)?;
-            matches!(kind, "allow_once" | "allow_always")
-                .then(|| option.get("optionId").and_then(Value::as_str))
-                .flatten()
-        })
-        .unwrap_or("allow-once");
-    json!({
-        "jsonrpc": "2.0",
-        "id": id,
-        "result": {
-            "outcome": {
-                "outcome": "selected",
-                "optionId": option_id,
-            }
-        }
-    })
 }

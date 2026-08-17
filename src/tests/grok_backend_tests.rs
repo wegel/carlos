@@ -9,7 +9,8 @@ use anyhow::{bail, Result};
 use serde_json::{json, Value};
 
 use super::{
-    parse_cli_args, submit_turn_text, submit_turn_text_with_history, AppState, Backend, Role,
+    parse_cli_args, submit_dequeued_turn_text, submit_turn_text, submit_turn_text_with_history,
+    AppState, Backend, Role,
 };
 use crate::backend::{BackendClient, BackendKind, RewindForkRequest};
 use crate::grok_backend::{

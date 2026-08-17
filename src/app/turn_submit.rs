@@ -72,7 +72,7 @@ pub(super) fn submit_rewind_turn_text(
     app.clear_input();
     app.viewport.selection = None;
     app.mark_user_turn_submitted();
-    start_new_turn(client, app, text, true);
+    start_new_turn(client, app, text, true, true);
 }
 
 pub(super) fn submit_turn_text_with_history(
@@ -81,20 +81,38 @@ pub(super) fn submit_turn_text_with_history(
     text: String,
     record_input_history: bool,
 ) {
+    submit_turn(client, app, text, record_input_history, false);
+}
+
+pub(super) fn submit_dequeued_turn_text(
+    client: &dyn BackendClient,
+    app: &mut AppState,
+    text: String,
+    record_input_history: bool,
+) {
+    submit_turn(client, app, text, record_input_history, true);
+}
+
+fn submit_turn(
+    client: &dyn BackendClient,
+    app: &mut AppState,
+    text: String,
+    record_input_history: bool,
+    force_start: bool,
+) {
     if text.trim().is_empty() {
         return;
     }
 
-    if app.active_turn_id.is_some() && client.kind().queues_instead_of_steer() {
-        app.queue_turn_input_with_history(text, record_input_history);
-        app.set_status("queued behind pending Grok turn");
+    if !force_start && app.active_turn_id.is_some() && client.kind().queues_instead_of_steer() {
+        start_new_turn(client, app, text, record_input_history, true);
         return;
     }
 
     if let Some(turn_id) = app.active_turn_id.clone() {
         steer_existing_turn(client, app, &turn_id, &text, record_input_history);
     } else {
-        start_new_turn(client, app, text, record_input_history);
+        start_new_turn(client, app, text, record_input_history, force_start);
     }
 }
 
@@ -224,9 +242,13 @@ fn start_new_turn(
     app: &mut AppState,
     text: String,
     record_input_history: bool,
+    force_start: bool,
 ) {
     let now = Instant::now();
-    if client.kind().queues_follow_up_turns() && app.has_ready_queued_turn_input(now) {
+    if !force_start
+        && client.kind().queues_follow_up_turns()
+        && app.has_ready_queued_turn_input(now)
+    {
         app.promote_ready_continuation(now);
         app.queue_turn_input_with_history(text, record_input_history);
         app.set_status(match client.kind() {
@@ -245,20 +267,29 @@ fn start_new_turn(
         summary.as_deref(),
     );
     match client.call("turn/start", params, Duration::from_secs(10)) {
-        Ok(_) => {
-            if client.kind().echoes_local_user_prompt() {
-                let idx = app.append_message(Role::User, text.clone());
-                if record_input_history {
-                    app.record_input_history(&text, Some(idx));
-                }
-                app.mark_turn_started();
-                app.active_turn_id = Some(pending_turn_id(client.kind()).to_string());
-            }
-            app.mark_runtime_settings_applied();
-            app.set_status("sent turn");
-        }
+        Ok(_) => mark_turn_sent(client, app, text, record_input_history),
         Err(e) => app.set_status(format!("{e}")),
     }
+}
+
+fn mark_turn_sent(
+    client: &dyn BackendClient,
+    app: &mut AppState,
+    text: String,
+    record_input_history: bool,
+) {
+    if client.kind().echoes_local_user_prompt() {
+        let idx = app.append_message(Role::User, text.clone());
+        if record_input_history {
+            app.record_input_history(&text, Some(idx));
+        }
+        if app.active_turn_id.is_none() {
+            app.mark_turn_started();
+            app.active_turn_id = Some(pending_turn_id(client.kind()).to_string());
+        }
+    }
+    app.mark_runtime_settings_applied();
+    app.set_status("sent turn");
 }
 
 fn pending_turn_id(kind: BackendKind) -> &'static str {

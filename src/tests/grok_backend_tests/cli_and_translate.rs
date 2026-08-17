@@ -184,7 +184,7 @@ fn translate_grok_emits_execute_tool_result() {
 
 #[test]
 fn translate_grok_replays_user_chunks_only_while_replaying() {
-    let mut live = GrokTranslationState::default();
+    let mut live = GrokTranslationState::suppressing_user_echo();
     let live_lines = collect_lines(
         &mut live,
         &[(
@@ -229,4 +229,90 @@ fn translate_grok_replays_user_chunks_only_while_replaying() {
         .filter(|value| value.get("method").and_then(Value::as_str) == Some("item/started"))
         .collect();
     assert_eq!(started[0]["params"]["item"]["type"], "userMessage");
+}
+
+#[test]
+fn translate_grok_adopts_injected_user_prompt_as_new_turn() {
+    let mut state = GrokTranslationState::default();
+    let lines = collect_lines(
+        &mut state,
+        &[(
+            "session/update",
+            json!({
+                "update": {
+                    "sessionUpdate": "user_message_chunk",
+                    "content": { "type": "text", "text": "<system-reminder>done" }
+                }
+            }),
+        )],
+    );
+    let methods = methods(&lines);
+    assert!(methods.contains(&"turn/started".to_string()));
+    assert!(methods.contains(&"item/started".to_string()));
+}
+
+#[test]
+fn translate_grok_emits_turn_completed_once() {
+    let mut state = GrokTranslationState::default();
+    let mut lines = collect_lines(
+        &mut state,
+        &[
+            (
+                "session/update",
+                json!({
+                    "update": {
+                        "sessionUpdate": "agent_message_chunk",
+                        "content": { "type": "text", "text": "hi" }
+                    }
+                }),
+            ),
+            (
+                "_x.ai/session/update",
+                json!({
+                    "update": {
+                        "sessionUpdate": "turn_completed",
+                        "stop_reason": "end_turn"
+                    }
+                }),
+            ),
+        ],
+    );
+    lines.extend(finish_grok_prompt_turn_for_test(&mut state, false).lines);
+    let completed = methods(&lines)
+        .into_iter()
+        .filter(|method| method == "turn/completed")
+        .count();
+    assert_eq!(completed, 1);
+}
+
+#[test]
+fn translate_grok_drops_stale_chunks_after_interrupt() {
+    let mut state = GrokTranslationState::default();
+    let started = collect_lines(
+        &mut state,
+        &[(
+            "session/update",
+            json!({
+                "update": {
+                    "sessionUpdate": "agent_message_chunk",
+                    "content": { "type": "text", "text": "working" }
+                }
+            }),
+        )],
+    );
+    assert!(methods(&started).contains(&"turn/started".to_string()));
+    let _ = finish_grok_prompt_turn_for_test(&mut state, true);
+    let stale = collect_lines(
+        &mut state,
+        &[(
+            "session/update",
+            json!({
+                "update": {
+                    "sessionUpdate": "agent_message_chunk",
+                    "content": { "type": "text", "text": "leftover" }
+                }
+            }),
+        )],
+    );
+    assert!(stale.is_empty());
 }

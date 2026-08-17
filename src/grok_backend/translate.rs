@@ -29,6 +29,19 @@ pub(super) fn translate_grok_notification(
     out
 }
 
+pub(super) fn mark_prompt_started(state: &mut GrokTranslationState) {
+    state.suppress_user_echo = true;
+    state.ignore_stale_updates = false;
+    state.turn_completed_emitted = false;
+}
+
+pub(super) fn interrupt_prompt_turn(state: &mut GrokTranslationState) -> TranslateOutput {
+    state.interrupt_requested = true;
+    state.ignore_stale_updates = true;
+    state.suppress_user_echo = false;
+    finish_prompt_turn(state, true)
+}
+
 pub(crate) fn finish_prompt_turn(
     state: &mut GrokTranslationState,
     interrupted: bool,
@@ -37,6 +50,9 @@ pub(crate) fn finish_prompt_turn(
     flush_open_items(state, &mut out);
     if !state.replaying {
         emit_turn_completed(state, interrupted, &mut out);
+    }
+    if interrupted {
+        state.ignore_stale_updates = true;
     }
     state.interrupt_requested = false;
     out
@@ -59,7 +75,11 @@ fn translate_session_update(
     let Some(update) = params.get("update").and_then(Value::as_object) else {
         return;
     };
-    match update.get("sessionUpdate").and_then(Value::as_str) {
+    let kind = update.get("sessionUpdate").and_then(Value::as_str);
+    if should_drop_stale(state, kind) {
+        return;
+    }
+    match kind {
         Some("user_message_chunk") => translate_user_chunk(state, update, out),
         Some("agent_message_chunk") => translate_agent_chunk(state, update, out),
         Some("agent_thought_chunk") => translate_thought_chunk(state, update, out),
@@ -142,15 +162,24 @@ fn translate_session_notification(
 fn translate_user_chunk(
     state: &mut GrokTranslationState,
     update: &Map<String, Value>,
-    _out: &mut TranslateOutput,
+    out: &mut TranslateOutput,
 ) {
-    if !state.replaying {
-        return;
-    }
     let Some(text) = content_text(update.get("content").unwrap_or(&Value::Null)) else {
         return;
     };
+    if state.replaying {
+        state.current_user_text.push_str(&text);
+        return;
+    }
+    if state.suppress_user_echo {
+        return;
+    }
+    state.ignore_stale_updates = false;
+    flush_thought(state, out);
+    flush_message(state, out);
+    ensure_turn_started(state, out);
     state.current_user_text.push_str(&text);
+    flush_user_text(state, out);
 }
 
 fn translate_agent_chunk(
@@ -252,12 +281,13 @@ fn flush_thought(state: &mut GrokTranslationState, out: &mut TranslateOutput) {
 }
 
 pub(super) fn ensure_turn_started(state: &mut GrokTranslationState, out: &mut TranslateOutput) {
-    if state.replaying || state.current_turn_id.is_some() {
+    if state.replaying || state.current_turn_id.is_some() || state.ignore_stale_updates {
         return;
     }
     state.next_turn_seq = state.next_turn_seq.saturating_add(1);
     let turn_id = format!("grok-turn-{}", state.next_turn_seq);
     state.current_turn_id = Some(turn_id.clone());
+    state.turn_completed_emitted = false;
     out.lines.push(jsonrpc_notification(
         "turn/started",
         json!({ "turn": { "id": turn_id } }),
@@ -269,10 +299,15 @@ fn emit_turn_completed(
     interrupted: bool,
     out: &mut TranslateOutput,
 ) {
+    if state.turn_completed_emitted && state.current_turn_id.is_none() {
+        return;
+    }
     let turn_id = state
         .current_turn_id
         .take()
         .unwrap_or_else(|| "grok-turn-pending".to_string());
+    state.turn_completed_emitted = true;
+    state.suppress_user_echo = false;
     let status = if interrupted {
         "interrupted"
     } else {
@@ -282,6 +317,10 @@ fn emit_turn_completed(
         "turn/completed",
         json!({ "turn": { "id": turn_id, "status": status } }),
     ));
+}
+
+fn should_drop_stale(state: &GrokTranslationState, kind: Option<&str>) -> bool {
+    state.ignore_stale_updates && !matches!(kind, Some("user_message_chunk" | "usage_update"))
 }
 
 fn ensure_message_item(state: &mut GrokTranslationState, out: &mut TranslateOutput) -> String {
