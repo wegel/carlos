@@ -1,0 +1,35 @@
+name: check
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install current Codex CLI for protocol checks
+        run: npm install --global @openai/codex
+      - name: Test Rust and terminal workflows
+        run: bash scripts/test.sh --codex-contract
+      - name: Save terminal screens, keystrokes, and JSON-RPC traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-artifacts
+          path: target/ui-artifacts/
+          if-no-files-found: ignore

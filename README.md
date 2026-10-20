@@ -150,8 +150,26 @@ cargo run -- --ralph-prompt .agents/ralph-prompt.md
 
 ## test
 
+Run `bash scripts/test.sh` for the Rust suite and terminal workflow tests. The
+runner installs its pinned Python test packages into `target/ui-venv`, then starts
+the real Carlos executable in a terminal and sends keys and pasted text. Local
+Codex and Claude peers supply fixed responses, so the tests need no account or model.
+
+The tests cover editing the first or a later message, repeated edits, canceling
+an edit, fork/send failures, older servers, paginated history, streaming, resize,
+resume, replayed starts, and Claude interrupts. They check the screen and backend
+messages. Screens, keystrokes, raw terminal bytes, and requests/responses remain
+under `target/ui-artifacts/`.
+CI runs these checks and the isolated protocol check against the current public
+Codex CLI on every push and pull request.
+
+Use `bash scripts/test.sh --release --codex-contract` before installing a release
+that changes the Codex protocol. The extra check calls the installed Codex server
+against a generated session in a temporary Codex home; it makes no model request.
+To test an installed executable directly:
+
 ```bash
-cargo test
+target/ui-venv/bin/python tests/ui/test_workflows.py --binary ~/.local/bin/carlos -v
 ```
 
 ## controls

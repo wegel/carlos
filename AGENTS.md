@@ -120,7 +120,29 @@ These rules apply in Ralph Mode for this repository:
   alone.
 - Do not silently weaken invariants or erase important context from the plan documents.
 
-## 7. App-Server Schema Extraction
+## 7. Repeatable UI Checks (Both Modes)
+
+Run `bash scripts/test.sh` after changing keyboard handling, transcript loading,
+thread history, or a backend protocol. It runs Rust tests and drives the actual
+Carlos executable through a terminal with a deterministic app-server peer.
+The peer needs no account, model call, or user session.
+
+Add a terminal test under `tests/ui/` for each user workflow that breaks. Assert
+both the visible screen and the requests sent to the backend. Keep failures
+reproducible with fixed fixtures. The runner saves screens, raw terminal bytes,
+keystrokes, and both sides of JSON-RPC under `target/ui-artifacts/`.
+
+For Codex protocol changes, also run `bash scripts/test.sh --codex-contract`.
+This checks the installed Codex binary against a generated session in a temporary
+Codex home, without inference or access to user sessions. Refresh the schema when
+the installed CLI changes the methods or fields Carlos uses.
+
+Before installing a changed binary, run `bash scripts/test.sh --release` so the
+terminal tests exercise the same executable that will be installed. CI runs the
+same checks on pushes and pull requests, checks the current public Codex CLI in an
+isolated home, and saves the test artifacts.
+
+## 8. App-Server Schema Extraction
 
 Use the Codex CLI generator to refresh the local protocol schema bundle:
 
