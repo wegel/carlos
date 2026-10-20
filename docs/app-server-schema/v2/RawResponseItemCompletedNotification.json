@@ -1,129 +1,110 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "RawResponseItemCompletedNotification",
-  "type": "object",
-  "required": [
-    "item",
-    "threadId",
-    "turnId"
-  ],
-  "properties": {
-    "item": {
-      "$ref": "#/definitions/ResponseItem"
-    },
-    "threadId": {
-      "type": "string"
-    },
-    "turnId": {
-      "type": "string"
-    }
-  },
   "definitions": {
+    "AgentMessageInputContent": {
+      "oneOf": [
+        {
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "input_text"
+              ],
+              "title": "InputTextAgentMessageInputContentType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "text",
+            "type"
+          ],
+          "title": "InputTextAgentMessageInputContent",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "encrypted_content": {
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "encrypted_content"
+              ],
+              "title": "EncryptedContentAgentMessageInputContentType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "encrypted_content",
+            "type"
+          ],
+          "title": "EncryptedContentAgentMessageInputContent",
+          "type": "object"
+        }
+      ]
+    },
+    "ConfigurationReasoning": {
+      "description": "Reasoning settings interpreted by the backend for the routed model.",
+      "properties": {
+        "effort": {
+          "$ref": "#/definitions/ReasoningEffort"
+        }
+      },
+      "required": [
+        "effort"
+      ],
+      "type": "object"
+    },
     "ContentItem": {
       "oneOf": [
         {
-          "type": "object",
-          "required": [
-            "text",
-            "type"
-          ],
           "properties": {
             "text": {
               "type": "string"
             },
             "type": {
-              "type": "string",
               "enum": [
                 "input_text"
               ],
-              "title": "InputTextContentItemType"
-            }
-          },
-          "title": "InputTextContentItem"
-        },
-        {
-          "type": "object",
-          "required": [
-            "image_url",
-            "type"
-          ],
-          "properties": {
-            "image_url": {
+              "title": "InputTextContentItemType",
               "type": "string"
-            },
-            "type": {
-              "type": "string",
-              "enum": [
-                "input_image"
-              ],
-              "title": "InputImageContentItemType"
             }
           },
-          "title": "InputImageContentItem"
-        },
-        {
-          "type": "object",
           "required": [
             "text",
             "type"
           ],
-          "properties": {
-            "text": {
-              "type": "string"
-            },
-            "type": {
-              "type": "string",
-              "enum": [
-                "output_text"
-              ],
-              "title": "OutputTextContentItemType"
-            }
-          },
-          "title": "OutputTextContentItem"
-        }
-      ]
-    },
-    "FunctionCallOutputBody": {
-      "anyOf": [
-        {
-          "type": "string"
+          "title": "InputTextContentItem",
+          "type": "object"
         },
         {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/FunctionCallOutputContentItem"
-          }
-        }
-      ]
-    },
-    "FunctionCallOutputContentItem": {
-      "description": "Responses API compatible content items that can be returned by a tool call. This is a subset of ContentItem with the types we support as function call outputs.",
-      "oneOf": [
-        {
-          "type": "object",
-          "required": [
-            "text",
-            "type"
-          ],
-          "properties": {
-            "text": {
-              "type": "string"
-            },
-            "type": {
-              "type": "string",
-              "enum": [
-                "input_text"
+          "anyOf": [
+            {
+              "properties": {
+                "image_url": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "image_url"
               ],
-              "title": "InputTextFunctionCallOutputContentItemType"
+              "title": "ImageUrlContentItem",
+              "type": "object"
+            },
+            {
+              "properties": {
+                "file_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "file_id"
+              ],
+              "title": "FileIdContentItem",
+              "type": "object"
             }
-          },
-          "title": "InputTextFunctionCallOutputContentItem"
-        },
-        {
-          "type": "object",
-          "required": [
-            "image_url",
-            "type"
           ],
           "properties": {
             "detail": {
@@ -136,118 +117,260 @@
                 }
               ]
             },
-            "image_url": {
-              "type": "string"
-            },
             "type": {
-              "type": "string",
               "enum": [
                 "input_image"
               ],
-              "title": "InputImageFunctionCallOutputContentItemType"
+              "title": "InputImageContentItemType",
+              "type": "string"
             }
           },
-          "title": "InputImageFunctionCallOutputContentItem"
+          "required": [
+            "type"
+          ],
+          "title": "InputImageContentItem",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "audio_url": {
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "input_audio"
+              ],
+              "title": "InputAudioContentItemType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "audio_url",
+            "type"
+          ],
+          "title": "InputAudioContentItem",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "annotations": {
+              "items": true,
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "logprobs": {
+              "items": true,
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "text": {
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "output_text"
+              ],
+              "title": "OutputTextContentItemType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "text",
+            "type"
+          ],
+          "title": "OutputTextContentItem",
+          "type": "object"
         }
       ]
     },
-    "FunctionCallOutputPayload": {
-      "description": "The payload we send back to OpenAI when reporting a tool call result.\n\n`body` serializes directly as the wire value for `function_call_output.output`. `success` remains internal metadata for downstream handling.",
-      "type": "object",
-      "required": [
-        "body"
-      ],
-      "properties": {
-        "body": {
-          "$ref": "#/definitions/FunctionCallOutputBody"
-        },
-        "success": {
-          "type": [
-            "boolean",
-            "null"
-          ]
-        }
-      }
-    },
-    "GhostCommit": {
-      "description": "Details of a ghost commit created from a repository state.",
-      "type": "object",
-      "required": [
-        "id",
-        "preexisting_untracked_dirs",
-        "preexisting_untracked_files"
-      ],
-      "properties": {
-        "id": {
+    "FunctionCallOutputBody": {
+      "anyOf": [
+        {
           "type": "string"
         },
-        "parent": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "preexisting_untracked_dirs": {
-          "type": "array",
+        {
           "items": {
-            "type": "string"
-          }
-        },
-        "preexisting_untracked_files": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+            "$ref": "#/definitions/FunctionCallOutputContentItem"
+          },
+          "type": "array"
         }
-      }
+      ]
+    },
+    "FunctionCallOutputContentItem": {
+      "description": "Responses API compatible content items that can be returned by a tool call. This is a subset of ContentItem with the types we support as function call outputs.",
+      "oneOf": [
+        {
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "input_text"
+              ],
+              "title": "InputTextFunctionCallOutputContentItemType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "text",
+            "type"
+          ],
+          "title": "InputTextFunctionCallOutputContentItem",
+          "type": "object"
+        },
+        {
+          "anyOf": [
+            {
+              "properties": {
+                "image_url": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "image_url"
+              ],
+              "title": "ImageUrlFunctionCallOutputContentItem",
+              "type": "object"
+            },
+            {
+              "properties": {
+                "file_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "file_id"
+              ],
+              "title": "FileIdFunctionCallOutputContentItem",
+              "type": "object"
+            }
+          ],
+          "properties": {
+            "detail": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/ImageDetail"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": {
+              "enum": [
+                "input_image"
+              ],
+              "title": "InputImageFunctionCallOutputContentItemType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "title": "InputImageFunctionCallOutputContentItem",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "audio_url": {
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "input_audio"
+              ],
+              "title": "InputAudioFunctionCallOutputContentItemType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "audio_url",
+            "type"
+          ],
+          "title": "InputAudioFunctionCallOutputContentItem",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "encrypted_content": {
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "encrypted_content"
+              ],
+              "title": "EncryptedContentFunctionCallOutputContentItemType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "encrypted_content",
+            "type"
+          ],
+          "title": "EncryptedContentFunctionCallOutputContentItem",
+          "type": "object"
+        }
+      ]
     },
     "ImageDetail": {
-      "type": "string",
       "enum": [
         "auto",
         "low",
         "high",
         "original"
-      ]
+      ],
+      "type": "string"
+    },
+    "InternalChatMessageMetadataPassthrough": {
+      "description": "Internal Responses API passthrough metadata copied into underlying chat messages.\n\nResponses API strongly types this payload. Do not modify it without first getting API approval and making the corresponding Responses API change.",
+      "properties": {
+        "turn_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
     },
     "LocalShellAction": {
       "oneOf": [
         {
-          "type": "object",
-          "required": [
-            "command",
-            "type"
-          ],
           "properties": {
             "command": {
-              "type": "array",
               "items": {
                 "type": "string"
-              }
+              },
+              "type": "array"
             },
             "env": {
+              "additionalProperties": {
+                "type": "string"
+              },
               "type": [
                 "object",
                 "null"
-              ],
-              "additionalProperties": {
-                "type": "string"
-              }
+              ]
             },
             "timeout_ms": {
+              "format": "uint64",
+              "minimum": 0.0,
               "type": [
                 "integer",
                 "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
+              ]
             },
             "type": {
-              "type": "string",
               "enum": [
                 "exec"
               ],
-              "title": "ExecLocalShellActionType"
+              "title": "ExecLocalShellActionType",
+              "type": "string"
             },
             "user": {
               "type": [
@@ -262,132 +385,183 @@
               ]
             }
           },
-          "title": "ExecLocalShellAction"
+          "required": [
+            "command",
+            "type"
+          ],
+          "title": "ExecLocalShellAction",
+          "type": "object"
         }
       ]
     },
     "LocalShellStatus": {
-      "type": "string",
       "enum": [
         "completed",
         "in_progress",
         "incomplete"
-      ]
+      ],
+      "type": "string"
     },
     "MessagePhase": {
-      "description": "Classifies an assistant message as interim commentary or final answer text.\n\nProviders do not emit this consistently, so callers must treat `None` as \"phase unknown\" and keep compatibility behavior for legacy models.",
+      "description": "Classifies assistant text as commentary, a partial answer, or a terminal answer.\n\nProviders do not emit this consistently, so callers must treat `None` as \"phase unknown\" and keep compatibility behavior for legacy models.",
       "oneOf": [
         {
           "description": "Mid-turn assistant text (for example preamble/progress narration).\n\nAdditional tool calls or assistant output may follow before turn completion.",
-          "type": "string",
           "enum": [
             "commentary"
-          ]
+          ],
+          "type": "string"
         },
         {
-          "description": "The assistant's terminal answer text for the current turn.",
-          "type": "string",
+          "description": "Stable answer text that may be followed by more assistant output or tools.",
+          "enum": [
+            "partial_answer"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "The assistant's declared terminal answer text for the current turn.",
           "enum": [
             "final_answer"
-          ]
+          ],
+          "type": "string"
         }
       ]
+    },
+    "ReasoningEffort": {
+      "description": "A non-empty reasoning effort value advertised by the model.",
+      "minLength": 1,
+      "type": "string"
     },
     "ReasoningItemContent": {
       "oneOf": [
         {
-          "type": "object",
-          "required": [
-            "text",
-            "type"
-          ],
           "properties": {
             "text": {
               "type": "string"
             },
             "type": {
-              "type": "string",
               "enum": [
                 "reasoning_text"
               ],
-              "title": "ReasoningTextReasoningItemContentType"
+              "title": "ReasoningTextReasoningItemContentType",
+              "type": "string"
             }
           },
-          "title": "ReasoningTextReasoningItemContent"
-        },
-        {
-          "type": "object",
           "required": [
             "text",
             "type"
           ],
+          "title": "ReasoningTextReasoningItemContent",
+          "type": "object"
+        },
+        {
           "properties": {
             "text": {
               "type": "string"
             },
             "type": {
-              "type": "string",
               "enum": [
                 "text"
               ],
-              "title": "TextReasoningItemContentType"
+              "title": "TextReasoningItemContentType",
+              "type": "string"
             }
           },
-          "title": "TextReasoningItemContent"
+          "required": [
+            "text",
+            "type"
+          ],
+          "title": "TextReasoningItemContent",
+          "type": "object"
         }
       ]
     },
     "ReasoningItemReasoningSummary": {
       "oneOf": [
         {
-          "type": "object",
-          "required": [
-            "text",
-            "type"
-          ],
           "properties": {
             "text": {
               "type": "string"
             },
             "type": {
-              "type": "string",
               "enum": [
                 "summary_text"
               ],
-              "title": "SummaryTextReasoningItemReasoningSummaryType"
+              "title": "SummaryTextReasoningItemReasoningSummaryType",
+              "type": "string"
             }
           },
-          "title": "SummaryTextReasoningItemReasoningSummary"
+          "required": [
+            "text",
+            "type"
+          ],
+          "title": "SummaryTextReasoningItemReasoningSummary",
+          "type": "object"
         }
       ]
     },
     "ResponseItem": {
       "oneOf": [
         {
-          "type": "object",
+          "properties": {
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "role": {
+              "type": "string"
+            },
+            "tools": {
+              "items": true,
+              "type": "array"
+            },
+            "type": {
+              "enum": [
+                "additional_tools"
+              ],
+              "title": "AdditionalToolsResponseItemType",
+              "type": "string"
+            }
+          },
           "required": [
-            "content",
             "role",
+            "tools",
             "type"
           ],
+          "title": "AdditionalToolsResponseItem",
+          "type": "object"
+        },
+        {
           "properties": {
             "content": {
-              "type": "array",
               "items": {
                 "$ref": "#/definitions/ContentItem"
-              }
+              },
+              "type": "array"
             },
-            "end_turn": {
+            "encrypted_content": {
               "type": [
-                "boolean",
+                "string",
                 "null"
               ]
             },
             "id": {
-              "writeOnly": true,
               "type": [
                 "string",
                 "null"
+              ]
+            },
+            "internal_chat_message_metadata_passthrough": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
+                },
+                {
+                  "type": "null"
+                }
               ]
             },
             "phase": {
@@ -403,33 +577,86 @@
             "role": {
               "type": "string"
             },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "type": {
-              "type": "string",
               "enum": [
                 "message"
               ],
-              "title": "MessageResponseItemType"
+              "title": "MessageResponseItemType",
+              "type": "string"
             }
           },
-          "title": "MessageResponseItem"
-        },
-        {
-          "type": "object",
           "required": [
-            "id",
-            "summary",
+            "content",
+            "role",
             "type"
           ],
+          "title": "MessageResponseItem",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "author": {
+              "type": "string"
+            },
+            "content": {
+              "items": {
+                "$ref": "#/definitions/AgentMessageInputContent"
+              },
+              "type": "array"
+            },
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "internal_chat_message_metadata_passthrough": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "recipient": {
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "agent_message"
+              ],
+              "title": "AgentMessageResponseItemType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "author",
+            "content",
+            "recipient",
+            "type"
+          ],
+          "title": "AgentMessageResponseItem",
+          "type": "object"
+        },
+        {
           "properties": {
             "content": {
               "default": null,
+              "items": {
+                "$ref": "#/definitions/ReasoningItemContent"
+              },
               "type": [
                 "array",
                 "null"
-              ],
-              "items": {
-                "$ref": "#/definitions/ReasoningItemContent"
-              }
+              ]
             },
             "encrypted_content": {
               "type": [
@@ -438,32 +665,43 @@
               ]
             },
             "id": {
-              "writeOnly": true,
-              "type": "string"
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "internal_chat_message_metadata_passthrough": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "summary": {
-              "type": "array",
               "items": {
                 "$ref": "#/definitions/ReasoningItemReasoningSummary"
-              }
+              },
+              "type": "array"
             },
             "type": {
-              "type": "string",
               "enum": [
                 "reasoning"
               ],
-              "title": "ReasoningResponseItemType"
+              "title": "ReasoningResponseItemType",
+              "type": "string"
             }
           },
-          "title": "ReasoningResponseItem"
-        },
-        {
-          "type": "object",
           "required": [
-            "action",
-            "status",
+            "summary",
             "type"
           ],
+          "title": "ReasoningResponseItem",
+          "type": "object"
+        },
+        {
           "properties": {
             "action": {
               "$ref": "#/definitions/LocalShellAction"
@@ -475,35 +713,49 @@
                 "null"
               ]
             },
-            "id": {
-              "description": "Legacy id field retained for compatibility with older payloads.",
-              "writeOnly": true,
+            "encrypted_content": {
               "type": [
                 "string",
                 "null"
+              ]
+            },
+            "id": {
+              "description": "Legacy id field retained for compatibility with older payloads.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "internal_chat_message_metadata_passthrough": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
+                },
+                {
+                  "type": "null"
+                }
               ]
             },
             "status": {
               "$ref": "#/definitions/LocalShellStatus"
             },
             "type": {
-              "type": "string",
               "enum": [
                 "local_shell_call"
               ],
-              "title": "LocalShellCallResponseItemType"
+              "title": "LocalShellCallResponseItemType",
+              "type": "string"
             }
           },
-          "title": "LocalShellCallResponseItem"
-        },
-        {
-          "type": "object",
           "required": [
-            "arguments",
-            "call_id",
-            "name",
+            "action",
+            "status",
             "type"
           ],
+          "title": "LocalShellCallResponseItem",
+          "type": "object"
+        },
+        {
           "properties": {
             "arguments": {
               "type": "string"
@@ -511,64 +763,191 @@
             "call_id": {
               "type": "string"
             },
-            "id": {
-              "writeOnly": true,
+            "encrypted_content": {
               "type": [
                 "string",
                 "null"
               ]
             },
+            "encrypted_function_args": {
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "internal_chat_message_metadata_passthrough": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "name": {
               "type": "string"
             },
+            "namespace": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "type": {
-              "type": "string",
               "enum": [
                 "function_call"
               ],
-              "title": "FunctionCallResponseItemType"
-            }
-          },
-          "title": "FunctionCallResponseItem"
-        },
-        {
-          "type": "object",
-          "required": [
-            "call_id",
-            "output",
-            "type"
-          ],
-          "properties": {
-            "call_id": {
+              "title": "FunctionCallResponseItemType",
               "type": "string"
-            },
-            "output": {
-              "$ref": "#/definitions/FunctionCallOutputPayload"
-            },
-            "type": {
-              "type": "string",
-              "enum": [
-                "function_call_output"
-              ],
-              "title": "FunctionCallOutputResponseItemType"
             }
           },
-          "title": "FunctionCallOutputResponseItem"
-        },
-        {
-          "type": "object",
           "required": [
+            "arguments",
             "call_id",
-            "input",
             "name",
             "type"
           ],
+          "title": "FunctionCallResponseItem",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "arguments": true,
+            "call_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "encrypted_content": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "execution": {
+              "type": "string"
+            },
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "internal_chat_message_metadata_passthrough": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "enum": [
+                "tool_search_call"
+              ],
+              "title": "ToolSearchCallResponseItemType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "arguments",
+            "execution",
+            "type"
+          ],
+          "title": "ToolSearchCallResponseItem",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "call_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "internal_chat_message_metadata_passthrough": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "namespace": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "output": {
+              "$ref": "#/definitions/FunctionCallOutputBody"
+            },
+            "type": {
+              "enum": [
+                "function_call_output"
+              ],
+              "title": "FunctionCallOutputResponseItemType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "output",
+            "type"
+          ],
+          "title": "FunctionCallOutputResponseItem",
+          "type": "object"
+        },
+        {
           "properties": {
             "call_id": {
               "type": "string"
             },
+            "encrypted_content": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "id": {
-              "writeOnly": true,
               "type": [
                 "string",
                 "null"
@@ -577,8 +956,24 @@
             "input": {
               "type": "string"
             },
+            "internal_chat_message_metadata_passthrough": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "name": {
               "type": "string"
+            },
+            "namespace": {
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "status": {
               "type": [
@@ -587,44 +982,120 @@
               ]
             },
             "type": {
-              "type": "string",
               "enum": [
                 "custom_tool_call"
               ],
-              "title": "CustomToolCallResponseItemType"
+              "title": "CustomToolCallResponseItemType",
+              "type": "string"
             }
           },
-          "title": "CustomToolCallResponseItem"
+          "required": [
+            "call_id",
+            "input",
+            "name",
+            "type"
+          ],
+          "title": "CustomToolCallResponseItem",
+          "type": "object"
         },
         {
-          "type": "object",
+          "properties": {
+            "call_id": {
+              "type": "string"
+            },
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "internal_chat_message_metadata_passthrough": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "output": {
+              "$ref": "#/definitions/FunctionCallOutputBody"
+            },
+            "type": {
+              "enum": [
+                "custom_tool_call_output"
+              ],
+              "title": "CustomToolCallOutputResponseItemType",
+              "type": "string"
+            }
+          },
           "required": [
             "call_id",
             "output",
             "type"
           ],
-          "properties": {
-            "call_id": {
-              "type": "string"
-            },
-            "output": {
-              "$ref": "#/definitions/FunctionCallOutputPayload"
-            },
-            "type": {
-              "type": "string",
-              "enum": [
-                "custom_tool_call_output"
-              ],
-              "title": "CustomToolCallOutputResponseItemType"
-            }
-          },
-          "title": "CustomToolCallOutputResponseItem"
+          "title": "CustomToolCallOutputResponseItem",
+          "type": "object"
         },
         {
-          "type": "object",
+          "properties": {
+            "call_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "execution": {
+              "type": "string"
+            },
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "internal_chat_message_metadata_passthrough": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "status": {
+              "type": "string"
+            },
+            "tools": {
+              "items": true,
+              "type": "array"
+            },
+            "type": {
+              "enum": [
+                "tool_search_output"
+              ],
+              "title": "ToolSearchOutputResponseItemType",
+              "type": "string"
+            }
+          },
           "required": [
+            "execution",
+            "status",
+            "tools",
             "type"
           ],
+          "title": "ToolSearchOutputResponseItem",
+          "type": "object"
+        },
+        {
           "properties": {
             "action": {
               "anyOf": [
@@ -636,11 +1107,26 @@
                 }
               ]
             },
-            "id": {
-              "writeOnly": true,
+            "encrypted_content": {
               "type": [
                 "string",
                 "null"
+              ]
+            },
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "internal_chat_message_metadata_passthrough": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
+                },
+                {
+                  "type": "null"
+                }
               ]
             },
             "status": {
@@ -650,26 +1136,42 @@
               ]
             },
             "type": {
-              "type": "string",
               "enum": [
                 "web_search_call"
               ],
-              "title": "WebSearchCallResponseItemType"
+              "title": "WebSearchCallResponseItemType",
+              "type": "string"
             }
           },
-          "title": "WebSearchCallResponseItem"
-        },
-        {
-          "type": "object",
           "required": [
-            "id",
-            "result",
-            "status",
             "type"
           ],
+          "title": "WebSearchCallResponseItem",
+          "type": "object"
+        },
+        {
           "properties": {
+            "encrypted_content": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "id": {
-              "type": "string"
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "internal_chat_message_metadata_passthrough": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "result": {
               "type": "string"
@@ -684,89 +1186,162 @@
               "type": "string"
             },
             "type": {
-              "type": "string",
               "enum": [
                 "image_generation_call"
               ],
-              "title": "ImageGenerationCallResponseItemType"
+              "title": "ImageGenerationCallResponseItemType",
+              "type": "string"
             }
           },
-          "title": "ImageGenerationCallResponseItem"
-        },
-        {
-          "type": "object",
           "required": [
-            "ghost_commit",
+            "result",
+            "status",
             "type"
           ],
-          "properties": {
-            "ghost_commit": {
-              "$ref": "#/definitions/GhostCommit"
-            },
-            "type": {
-              "type": "string",
-              "enum": [
-                "ghost_snapshot"
-              ],
-              "title": "GhostSnapshotResponseItemType"
-            }
-          },
-          "title": "GhostSnapshotResponseItem"
+          "title": "ImageGenerationCallResponseItem",
+          "type": "object"
         },
         {
-          "type": "object",
-          "required": [
-            "encrypted_content",
-            "type"
-          ],
           "properties": {
             "encrypted_content": {
               "type": "string"
             },
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "internal_chat_message_metadata_passthrough": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "type": {
-              "type": "string",
               "enum": [
                 "compaction"
               ],
-              "title": "CompactionResponseItemType"
+              "title": "CompactionResponseItemType",
+              "type": "string"
             }
           },
-          "title": "CompactionResponseItem"
+          "required": [
+            "encrypted_content",
+            "type"
+          ],
+          "title": "CompactionResponseItem",
+          "type": "object"
         },
         {
-          "type": "object",
+          "description": "A durable input control interpreted by the backend at its position in history.",
+          "properties": {
+            "reasoning": {
+              "$ref": "#/definitions/ConfigurationReasoning"
+            },
+            "type": {
+              "enum": [
+                "configuration_update"
+              ],
+              "title": "ConfigurationUpdateResponseItemType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reasoning",
+            "type"
+          ],
+          "title": "ConfigurationUpdateResponseItem",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "enum": [
+                "compaction_trigger"
+              ],
+              "title": "CompactionTriggerResponseItemType",
+              "type": "string"
+            }
+          },
           "required": [
             "type"
           ],
+          "title": "CompactionTriggerResponseItem",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "encrypted_content": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "internal_chat_message_metadata_passthrough": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/InternalChatMessageMetadataPassthrough"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": {
+              "enum": [
+                "context_compaction"
+              ],
+              "title": "ContextCompactionResponseItemType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "title": "ContextCompactionResponseItem",
+          "type": "object"
+        },
+        {
           "properties": {
             "type": {
-              "type": "string",
               "enum": [
                 "other"
               ],
-              "title": "OtherResponseItemType"
+              "title": "OtherResponseItemType",
+              "type": "string"
             }
           },
-          "title": "OtherResponseItem"
+          "required": [
+            "type"
+          ],
+          "title": "OtherResponseItem",
+          "type": "object"
         }
       ]
     },
     "ResponsesApiWebSearchAction": {
       "oneOf": [
         {
-          "type": "object",
-          "required": [
-            "type"
-          ],
           "properties": {
             "queries": {
+              "items": {
+                "type": "string"
+              },
               "type": [
                 "array",
                 "null"
-              ],
-              "items": {
-                "type": "string"
-              }
+              ]
             },
             "query": {
               "type": [
@@ -775,27 +1350,27 @@
               ]
             },
             "type": {
-              "type": "string",
               "enum": [
                 "search"
               ],
-              "title": "SearchResponsesApiWebSearchActionType"
+              "title": "SearchResponsesApiWebSearchActionType",
+              "type": "string"
             }
           },
-          "title": "SearchResponsesApiWebSearchAction"
-        },
-        {
-          "type": "object",
           "required": [
             "type"
           ],
+          "title": "SearchResponsesApiWebSearchAction",
+          "type": "object"
+        },
+        {
           "properties": {
             "type": {
-              "type": "string",
               "enum": [
                 "open_page"
               ],
-              "title": "OpenPageResponsesApiWebSearchActionType"
+              "title": "OpenPageResponsesApiWebSearchActionType",
+              "type": "string"
             },
             "url": {
               "type": [
@@ -804,13 +1379,13 @@
               ]
             }
           },
-          "title": "OpenPageResponsesApiWebSearchAction"
-        },
-        {
-          "type": "object",
           "required": [
             "type"
           ],
+          "title": "OpenPageResponsesApiWebSearchAction",
+          "type": "object"
+        },
+        {
           "properties": {
             "pattern": {
               "type": [
@@ -819,11 +1394,11 @@
               ]
             },
             "type": {
-              "type": "string",
               "enum": [
                 "find_in_page"
               ],
-              "title": "FindInPageResponsesApiWebSearchActionType"
+              "title": "FindInPageResponsesApiWebSearchActionType",
+              "type": "string"
             },
             "url": {
               "type": [
@@ -832,25 +1407,47 @@
               ]
             }
           },
-          "title": "FindInPageResponsesApiWebSearchAction"
-        },
-        {
-          "type": "object",
           "required": [
             "type"
           ],
+          "title": "FindInPageResponsesApiWebSearchAction",
+          "type": "object"
+        },
+        {
           "properties": {
             "type": {
-              "type": "string",
               "enum": [
                 "other"
               ],
-              "title": "OtherResponsesApiWebSearchActionType"
+              "title": "OtherResponsesApiWebSearchActionType",
+              "type": "string"
             }
           },
-          "title": "OtherResponsesApiWebSearchAction"
+          "required": [
+            "type"
+          ],
+          "title": "OtherResponsesApiWebSearchAction",
+          "type": "object"
         }
       ]
     }
-  }
+  },
+  "properties": {
+    "item": {
+      "$ref": "#/definitions/ResponseItem"
+    },
+    "threadId": {
+      "type": "string"
+    },
+    "turnId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "item",
+    "threadId",
+    "turnId"
+  ],
+  "title": "RawResponseItemCompletedNotification",
+  "type": "object"
 }

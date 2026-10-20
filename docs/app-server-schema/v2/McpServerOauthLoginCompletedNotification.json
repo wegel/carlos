@@ -1,13 +1,14 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "McpServerOauthLoginCompletedNotification",
-  "type": "object",
-  "required": [
-    "name",
-    "success"
-  ],
   "properties": {
     "error": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "loginId": {
+      "description": "Identifies the explicit login attempt. Older servers omit this field.",
       "type": [
         "string",
         "null"
@@ -18,6 +19,18 @@
     },
     "success": {
       "type": "boolean"
+    },
+    "threadId": {
+      "type": [
+        "string",
+        "null"
+      ]
     }
-  }
+  },
+  "required": [
+    "name",
+    "success"
+  ],
+  "title": "McpServerOauthLoginCompletedNotification",
+  "type": "object"
 }
