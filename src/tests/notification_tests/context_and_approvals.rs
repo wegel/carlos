@@ -115,7 +115,7 @@ fn handle_notification_turn_completed_interrupted_appends_system_message() {
 fn incoming_agent_delta_does_not_reenable_auto_follow_when_scrolled_up() {
     let mut app = AppState::new("thread-1".to_string());
     let idx = app.append_message(Role::Assistant, "hello");
-    app.put_agent_item_mapping("item-1", idx);
+    app.put_item_mapping("item-1", idx);
     app.viewport.auto_follow_bottom = false;
     app.viewport.scroll_top = 4;
 

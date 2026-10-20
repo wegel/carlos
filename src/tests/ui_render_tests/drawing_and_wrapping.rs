@@ -99,7 +99,7 @@ fn build_rendered_lines_tool_output_uses_ansi_styles_without_escape_text() {
 fn reasoning_summary_delta_inserts_newline_between_bold_chunks() {
     let mut app = AppState::new("thread-1".to_string());
     let idx = app.append_message(Role::Reasoning, String::new());
-    app.put_agent_item_mapping("reason-1", idx);
+    app.put_item_mapping("reason-1", idx);
 
     app.upsert_reasoning_summary_delta("reason-1", "**First thought**");
     app.upsert_reasoning_summary_delta("reason-1", "**Second thought**");
@@ -114,7 +114,7 @@ fn reasoning_summary_delta_inserts_newline_between_bold_chunks() {
 fn reasoning_summary_delta_trims_space_before_split_closing_marker() {
     let mut app = AppState::new("thread-1".to_string());
     let idx = app.append_message(Role::Reasoning, String::new());
-    app.put_agent_item_mapping("reason-1", idx);
+    app.put_item_mapping("reason-1", idx);
 
     app.upsert_reasoning_summary_delta("reason-1", "**Preparing concise, evidence-based answer ");
     app.upsert_reasoning_summary_delta("reason-1", "**");
@@ -129,7 +129,7 @@ fn reasoning_summary_delta_trims_space_before_split_closing_marker() {
 fn reasoning_summary_delta_normalizes_split_adjacent_bold_chunks() {
     let mut app = AppState::new("thread-1".to_string());
     let idx = app.append_message(Role::Reasoning, String::new());
-    app.put_agent_item_mapping("reason-1", idx);
+    app.put_item_mapping("reason-1", idx);
 
     app.upsert_reasoning_summary_delta("reason-1", "**Investigating display bug causes ");
     app.upsert_reasoning_summary_delta("reason-1", "**");

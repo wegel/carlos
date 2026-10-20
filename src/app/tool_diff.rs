@@ -74,7 +74,9 @@ pub(super) fn command_execution_diff_output(item: &Value) -> Option<String> {
     }
     let candidates = [
         item.get("aggregatedOutput").and_then(Value::as_str),
+        item.get("aggregated_output").and_then(Value::as_str),
         item.get("formattedOutput").and_then(Value::as_str),
+        item.get("formatted_output").and_then(Value::as_str),
         item.get("stdout").and_then(Value::as_str),
         item.get("output").and_then(Value::as_str),
     ];

@@ -9,7 +9,9 @@ mod dictation;
 mod event;
 mod grok_backend;
 mod protocol;
+mod protocol_history;
 mod protocol_params;
+mod protocol_rewind;
 mod theme;
 
 fn main() {

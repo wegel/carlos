@@ -99,6 +99,18 @@ pub(super) fn tool_command(item: &Value) -> Option<String> {
                 return Some(normalize_shell_command(raw));
             }
         }
+        if let Some(command) = item.get("command").and_then(Value::as_array) {
+            let arguments: Vec<&str> = command.iter().filter_map(Value::as_str).collect();
+            if arguments.len() >= 3
+                && matches!(arguments[0].rsplit('/').next(), Some("sh" | "bash" | "zsh"))
+                && matches!(arguments[1], "-c" | "-lc")
+            {
+                return Some(normalize_shell_command(arguments[2]));
+            }
+            if !arguments.is_empty() {
+                return Some(arguments.join(" "));
+            }
+        }
     }
 
     first_string_at_paths(
@@ -142,7 +154,11 @@ pub(super) fn tool_description(item: &Value) -> Option<String> {
 pub(super) fn tool_output_text(item: &Value) -> Option<String> {
     let mut parts = Vec::new();
 
-    push_cleaned(item, &mut parts, &[&["aggregatedOutput"]]);
+    push_cleaned(
+        item,
+        &mut parts,
+        &[&["aggregatedOutput"], &["aggregated_output"]],
+    );
     push_cleaned(
         item,
         &mut parts,
@@ -154,6 +170,7 @@ pub(super) fn tool_output_text(item: &Value) -> Option<String> {
             &["metadata", "result"],
             &["state", "output"],
             &["formattedOutput"],
+            &["formatted_output"],
         ],
     );
     push_cleaned(
@@ -210,7 +227,10 @@ fn push_cleaned(item: &Value, parts: &mut Vec<String>, paths: &[&[&str]]) {
 pub(super) fn collect_text_parts(content: &[Value]) -> Vec<&str> {
     let mut text_parts = Vec::new();
     for part in content {
-        if part.get("type").and_then(Value::as_str) != Some("text") {
+        if !matches!(
+            part.get("type").and_then(Value::as_str),
+            Some("text" | "Text" | "input_text" | "output_text")
+        ) {
             continue;
         }
         if let Some(t) = part.get("text").and_then(Value::as_str) {

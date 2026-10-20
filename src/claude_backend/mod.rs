@@ -254,19 +254,9 @@ impl BackendClient for ClaudeClient {
                 self.send_stream_user_message(text)
             }
             "turn/interrupt" => {
+                let notification = claude_interrupted_turn_notification(&params)?;
                 self.interrupt_process()?;
-                let _ = self.events_tx.send(
-                    json!({
-                        "method": "turn/completed",
-                        "params": {
-                            "turn": {
-                                "id": "claude-turn-interrupted",
-                                "status": "interrupted"
-                            }
-                        }
-                    })
-                    .to_string(),
-                );
+                let _ = self.events_tx.send(notification);
                 Ok(json!({
                     "jsonrpc": "2.0",
                     "result": {}
@@ -312,6 +302,23 @@ impl BackendClient for ClaudeClient {
             process.stop();
         }
     }
+}
+
+/// Complete the exact thread and turn requested by the caller after an interrupt.
+pub(crate) fn claude_interrupted_turn_notification(params: &Value) -> Result<String> {
+    let thread_id = params
+        .get("threadId")
+        .and_then(Value::as_str)
+        .context("missing interrupt threadId")?;
+    let turn_id = params
+        .get("turnId")
+        .and_then(Value::as_str)
+        .context("missing interrupt turnId")?;
+    Ok(json!({
+        "method": "turn/completed",
+        "params": {"threadId": thread_id, "turn": {"id": turn_id, "status": "interrupted"}}
+    })
+    .to_string())
 }
 
 impl Drop for ClaudeClient {

@@ -2,7 +2,7 @@
 
 // --- Imports ---
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
@@ -19,7 +19,7 @@ use super::dictation_state::DictationCaptureState;
 use super::dictation_state::DictationRuntimeState;
 use super::input::make_input_area;
 use super::input_history_state::InputHistoryState;
-use super::models::{Message, Role};
+use super::models::{Message, Role, TurnStatus};
 use super::perf::PerfMetrics;
 #[cfg(test)]
 use super::ralph::RalphConfig;
@@ -38,7 +38,9 @@ pub(super) struct AppState {
     pub(super) active_turn_id: Option<String>,
     pub(super) messages: Vec<Message>,
     pub(super) render_cache: RenderCacheState,
-    pub(super) agent_item_to_index: HashMap<String, usize>,
+    pub(super) item_to_message_index: HashMap<String, usize>,
+    pub(super) completed_item_ids: HashSet<String>,
+    pub(super) turn_status_by_id: HashMap<String, TurnStatus>,
     pub(super) turn_diff_to_index: HashMap<String, usize>,
     pub(super) command_render_overrides: HashMap<String, String>,
 
@@ -68,7 +70,9 @@ impl AppState {
             active_turn_id: None,
             messages: Vec::new(),
             render_cache: RenderCacheState::new(),
-            agent_item_to_index: HashMap::new(),
+            item_to_message_index: HashMap::new(),
+            completed_item_ids: HashSet::new(),
+            turn_status_by_id: HashMap::new(),
             turn_diff_to_index: HashMap::new(),
             command_render_overrides: HashMap::new(),
             input: make_input_area(),
@@ -149,12 +153,28 @@ impl AppState {
         self.thread_id = thread_id.into();
     }
 
+    pub(super) fn replace_transcript_from(&mut self, replacement: AppState) {
+        self.messages = replacement.messages;
+        self.item_to_message_index = replacement.item_to_message_index;
+        self.completed_item_ids = replacement.completed_item_ids;
+        self.turn_status_by_id = replacement.turn_status_by_id;
+        self.turn_diff_to_index = replacement.turn_diff_to_index;
+        self.command_render_overrides = replacement.command_render_overrides;
+        self.input_history = replacement.input_history;
+        self.render_cache = RenderCacheState::new();
+        self.viewport = ViewportState::new();
+        self.turn_start_message_idx = self.active_turn_id.as_ref().map(|_| self.messages.len());
+        self.mark_transcript_dirty();
+    }
+
     pub(super) fn reset_for_forked_thread(&mut self, thread_id: impl Into<String>) {
         self.thread_id = thread_id.into();
         self.active_turn_id = None;
         self.messages.clear();
         self.render_cache = RenderCacheState::new();
-        self.agent_item_to_index.clear();
+        self.item_to_message_index.clear();
+        self.completed_item_ids.clear();
+        self.turn_status_by_id.clear();
         self.turn_diff_to_index.clear();
         self.command_render_overrides.clear();
         self.input_history = InputHistoryState::new();
@@ -237,6 +257,38 @@ impl AppState {
 
     pub(super) fn mark_turn_started(&mut self) {
         self.turn_start_message_idx = Some(self.messages.len());
+    }
+
+    pub(super) fn record_turn_started(&mut self, turn_id: &str) -> bool {
+        if self.active_turn_id.as_deref() == Some(turn_id)
+            || self
+                .turn_status_by_id
+                .get(turn_id)
+                .is_some_and(|status| status.is_terminal())
+        {
+            return false;
+        }
+        self.active_turn_id = Some(turn_id.to_string());
+        self.turn_status_by_id
+            .insert(turn_id.to_string(), TurnStatus::InProgress);
+        self.mark_turn_started();
+        true
+    }
+
+    pub(super) fn record_turn_completed(&mut self, turn_id: &str, status: TurnStatus) -> bool {
+        if !status.is_terminal() {
+            return false;
+        }
+        self.turn_status_by_id.insert(turn_id.to_string(), status);
+        if self.active_turn_id.as_deref() != Some(turn_id) {
+            return false;
+        }
+        self.active_turn_id = None;
+        true
+    }
+
+    pub(super) fn record_historical_turn_status(&mut self, turn_id: &str, status: TurnStatus) {
+        self.turn_status_by_id.insert(turn_id.to_string(), status);
     }
 
     pub(super) fn maybe_disable_ralph_on_blocked_marker(&mut self) {

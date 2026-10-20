@@ -290,6 +290,7 @@ fn submit_rewind_turn_text_forks_codex_thread_before_resubmitting() {
             RewindForkRequest {
                 keep_turns: 1,
                 drop_turns: 1,
+                before_turn_id: None,
             },
         )]
     );

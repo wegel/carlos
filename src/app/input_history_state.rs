@@ -1,5 +1,7 @@
 //! Input history navigation and rewind-mode state.
 
+use std::collections::HashMap;
+
 // --- History State ---
 
 /// Tracks submitted prompts and supports up/down history navigation.
@@ -10,6 +12,7 @@ pub(super) struct InputHistoryState {
     input_history_draft: Option<String>,
     rewind_mode: bool,
     rewind_restore_draft: Option<String>,
+    turn_ids_by_message: HashMap<usize, String>,
 }
 
 impl InputHistoryState {
@@ -21,6 +24,7 @@ impl InputHistoryState {
             input_history_draft: None,
             rewind_mode: false,
             rewind_restore_draft: None,
+            turn_ids_by_message: HashMap::new(),
         }
     }
 
@@ -62,6 +66,19 @@ impl InputHistoryState {
     // --- History Recording ---
     pub(super) fn push_history(&mut self, text: &str) {
         self.record_history(text, None);
+    }
+
+    pub(super) fn discard_pending_history(&mut self, text: &str) {
+        if self
+            .input_history
+            .last()
+            .is_some_and(|pending| pending == text)
+            && self.input_history_message_idx.last() == Some(&None)
+        {
+            self.input_history.pop();
+            self.input_history_message_idx.pop();
+            self.reset_navigation();
+        }
     }
 
     pub(super) fn record_history(&mut self, text: &str, message_idx: Option<usize>) {
@@ -133,6 +150,18 @@ impl InputHistoryState {
 
     pub(super) fn history_len(&self) -> usize {
         self.input_history.len()
+    }
+
+    pub(super) fn record_turn_id(&mut self, message_idx: usize, turn_id: &str) {
+        self.turn_ids_by_message
+            .insert(message_idx, turn_id.to_string());
+    }
+
+    pub(super) fn selected_turn_id(&self) -> Option<&str> {
+        let message_idx = self.rewind_selected_message_idx()?;
+        self.turn_ids_by_message
+            .get(&message_idx)
+            .map(String::as_str)
     }
 
     #[cfg(test)]

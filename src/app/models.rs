@@ -14,6 +14,33 @@ pub(crate) enum Role {
     System,
 }
 
+/// Final or current state reported for one app-server turn.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum TurnStatus {
+    InProgress,
+    Completed,
+    Interrupted,
+    Failed,
+}
+
+impl TurnStatus {
+    /// Parse the app-server wire value for a turn status.
+    pub(super) fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "inProgress" => Some(Self::InProgress),
+            "completed" => Some(Self::Completed),
+            "interrupted" => Some(Self::Interrupted),
+            "failed" => Some(Self::Failed),
+            _ => None,
+        }
+    }
+
+    /// Return whether app-server has ended the turn.
+    pub(super) fn is_terminal(self) -> bool {
+        self != Self::InProgress
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct Message {
     pub(super) role: Role,

@@ -300,34 +300,3 @@ fn handle_notification_codex_event_turn_diff_adds_diff_message() {
     assert_eq!(app.messages[0].kind, MessageKind::Diff);
     assert!(app.messages[0].text.contains("+b"));
 }
-
-#[test]
-fn handle_notification_raw_function_call_renders_tool_call() {
-    let mut app = AppState::new("thread-1".to_string());
-    handle_notification_line(
-            &mut app,
-            "{\"method\":\"codex/event/raw_response_item\",\"params\":{\"msg\":{\"item\":{\"type\":\"function_call\",\"name\":\"exec_command\",\"call_id\":\"call_1\",\"arguments\":\"{\\\"cmd\\\":\\\"cat test.txt\\\"}\"}}}}",
-        );
-
-    assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].role, Role::ToolCall);
-    assert!(app.messages[0].text.contains("run `cat test.txt`"));
-}
-
-#[test]
-fn handle_notification_raw_function_call_output_updates_existing_call() {
-    let mut app = AppState::new("thread-1".to_string());
-    handle_notification_line(
-            &mut app,
-            "{\"method\":\"codex/event/raw_response_item\",\"params\":{\"msg\":{\"item\":{\"type\":\"function_call\",\"name\":\"exec_command\",\"call_id\":\"call_2\",\"arguments\":\"{\\\"cmd\\\":\\\"echo hi\\\"}\"}}}}",
-        );
-    handle_notification_line(
-            &mut app,
-            "{\"method\":\"codex/event/raw_response_item\",\"params\":{\"msg\":{\"item\":{\"type\":\"function_call_output\",\"call_id\":\"call_2\",\"output\":\"hi\\n\"}}}}",
-        );
-
-    assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].role, Role::ToolOutput);
-    assert_eq!(app.messages[0].kind, MessageKind::Plain);
-    assert!(app.messages[0].text.contains("hi"));
-}

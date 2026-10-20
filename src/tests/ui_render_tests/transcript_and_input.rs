@@ -64,7 +64,7 @@ fn set_command_override_coalesces_with_previous_read_summary() {
     let mut app = AppState::new("thread".to_string());
     app.append_message(Role::ToolCall, "→ Read src/main.rs");
     let idx = app.append_message(Role::ToolCall, "");
-    app.put_agent_item_mapping("call-2", idx);
+    app.put_item_mapping("call-2", idx);
 
     app.set_command_override("call-2", "→ Read src/main.rs [offset=40]".to_string());
 
@@ -116,7 +116,7 @@ fn ensure_rendered_lines_incremental_agent_delta_matches_full_rebuild() {
     let mut app = AppState::new("thread".to_string());
     app.append_message(Role::User, "prompt one");
     let idx = app.append_message(Role::Assistant, "starting answer");
-    app.put_agent_item_mapping("item-1", idx);
+    app.put_item_mapping("item-1", idx);
 
     app.ensure_rendered_lines(52, None);
     app.upsert_agent_delta(

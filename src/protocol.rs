@@ -14,7 +14,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendClient, BackendKind, RewindForkRequest};
-use crate::protocol_params::{params_thread_fork, params_thread_rollback};
+use crate::protocol_rewind::fork_before_edited_turn;
 
 /// Manages a `codex app-server` child process and multiplexes request/response and event streams.
 pub(crate) struct AppServerClient {
@@ -164,28 +164,7 @@ impl BackendClient for AppServerClient {
         request: RewindForkRequest,
         timeout: Duration,
     ) -> Result<String> {
-        let forked =
-            AppServerClient::call(self, "thread/fork", params_thread_fork(thread_id), timeout)?;
-        if request.drop_turns == 0 {
-            return Ok(forked);
-        }
-
-        let parsed: Value = serde_json::from_str(&forked).context("invalid JSON response")?;
-        let forked_thread_id = parsed
-            .get("result")
-            .and_then(Value::as_object)
-            .and_then(|result| result.get("thread"))
-            .and_then(Value::as_object)
-            .and_then(|thread| thread.get("id"))
-            .and_then(Value::as_str)
-            .context("missing thread.id in thread/fork response")?;
-
-        AppServerClient::call(
-            self,
-            "thread/rollback",
-            params_thread_rollback(forked_thread_id, request.drop_turns),
-            timeout,
-        )
+        fork_before_edited_turn(self, thread_id, request, timeout)
     }
 
     fn respond(&self, request_id: &Value, result: Value) -> Result<()> {
@@ -244,8 +223,7 @@ fn route_codex_reader_line(
         if method.starts_with("codex/event/")
             && !matches!(
                 method,
-                "codex/event/raw_response_item"
-                    | "codex/event/exec_command_end"
+                "codex/event/exec_command_end"
                     | "codex/event/turn_diff"
                     | "codex/event/token_count"
             )

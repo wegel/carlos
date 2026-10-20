@@ -97,7 +97,8 @@ impl AppState {
         self.viewport.mouse_drag_mode = super::selection::MouseDragMode::Undecided;
         self.viewport.auto_follow_bottom = true;
         self.viewport.scroll_top = self.viewport.scroll_top.min(self.messages.len());
-        self.agent_item_to_index.retain(|_, msg_idx| *msg_idx < idx);
+        self.item_to_message_index
+            .retain(|_, msg_idx| *msg_idx < idx);
         self.turn_diff_to_index.retain(|_, msg_idx| *msg_idx < idx);
         self.command_render_overrides.clear();
         self.input_history.clear_message_indices_from(idx);
@@ -112,8 +113,22 @@ impl AppState {
         self.input_history.push_history(text);
     }
 
+    pub(super) fn discard_pending_input_history(&mut self, text: &str) {
+        self.input_history.discard_pending_history(text);
+    }
+
     pub(super) fn record_input_history(&mut self, text: &str, message_idx: Option<usize>) {
         self.input_history.record_history(text, message_idx);
+    }
+
+    pub(super) fn record_input_turn_id(&mut self, item_id: &str, turn_id: &str) {
+        if let Some(message_idx) = self.item_to_message_index.get(item_id) {
+            self.input_history.record_turn_id(*message_idx, turn_id);
+        }
+    }
+
+    pub(super) fn rewind_selected_turn_id(&self) -> Option<&str> {
+        self.input_history.selected_turn_id()
     }
 
     pub(super) fn navigate_input_history_up(&mut self) -> bool {

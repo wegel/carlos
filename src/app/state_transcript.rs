@@ -60,105 +60,8 @@ impl AppState {
         idx
     }
 
-    pub(super) fn has_agent_item_mapping(&self, item_id: &str) -> bool {
-        self.agent_item_to_index.contains_key(item_id)
-    }
-
-    pub(super) fn put_agent_item_mapping(&mut self, item_id: &str, idx: usize) {
-        self.agent_item_to_index.insert(item_id.to_string(), idx);
-    }
-
-    pub(super) fn ensure_item_placeholder(&mut self, item_id: &str, role: Role) -> bool {
-        if self.has_agent_item_mapping(item_id) {
-            return false;
-        }
-        let idx = self.append_message(role, String::new());
-        self.put_agent_item_mapping(item_id, idx);
-        true
-    }
-
     pub(super) fn command_override(&self, call_id: &str) -> Option<String> {
         self.command_render_overrides.get(call_id).cloned()
-    }
-
-    pub(super) fn update_mapped_message(
-        &mut self,
-        item_id: &str,
-        role: Role,
-        text: Option<String>,
-        kind: MessageKind,
-        file_path: Option<String>,
-    ) -> bool {
-        let Some(idx) = self.agent_item_to_index.get(item_id).copied() else {
-            return false;
-        };
-        self.update_message_at_index(idx, role, text, kind, file_path);
-        true
-    }
-
-    pub(super) fn upsert_mapped_message(
-        &mut self,
-        item_id: &str,
-        role: Role,
-        text: String,
-        kind: MessageKind,
-        file_path: Option<String>,
-    ) {
-        if self.update_mapped_message(item_id, role, Some(text.clone()), kind, file_path.clone()) {
-            return;
-        }
-
-        let idx = if kind == MessageKind::Diff {
-            self.append_diff_message(role, file_path, text)
-        } else {
-            self.append_message(role, text)
-        };
-        self.put_agent_item_mapping(item_id, idx);
-    }
-
-    pub(super) fn upsert_agent_delta(&mut self, item_id: &str, delta: &str) {
-        if let Some(idx) = self.agent_item_to_index.get(item_id).copied() {
-            let mut changed = false;
-            if let Some(msg) = self.messages.get_mut(idx) {
-                if msg.kind != MessageKind::Plain {
-                    msg.kind = MessageKind::Plain;
-                    msg.file_path = None;
-                    msg.text.clear();
-                }
-                msg.text.push_str(delta);
-                changed = true;
-            }
-            if changed {
-                self.mark_transcript_dirty_from(idx);
-            }
-            return;
-        }
-
-        let idx = self.append_message(Role::Assistant, delta);
-        self.put_agent_item_mapping(item_id, idx);
-    }
-
-    pub(super) fn upsert_reasoning_summary_delta(&mut self, item_id: &str, delta: &str) {
-        if let Some(idx) = self.agent_item_to_index.get(item_id).copied() {
-            let mut changed = false;
-            if let Some(msg) = self.messages.get_mut(idx) {
-                if msg.kind != MessageKind::Plain {
-                    msg.kind = MessageKind::Plain;
-                    msg.file_path = None;
-                    msg.text.clear();
-                }
-                msg.text.push_str(delta);
-                msg.text = normalize_reasoning_summary_stream(&msg.text);
-                changed = true;
-            }
-            if changed {
-                self.mark_transcript_dirty_from(idx);
-            }
-            return;
-        }
-
-        let idx = self.append_message(Role::Reasoning, delta);
-        self.put_agent_item_mapping(item_id, idx);
     }
 
     pub(super) fn upsert_turn_diff(&mut self, turn_id: &str, diff: &str) {
@@ -219,7 +122,7 @@ impl AppState {
         Some(previous_idx)
     }
 
-    fn update_message_at_index(
+    pub(super) fn update_message_at_index(
         &mut self,
         idx: usize,
         role: Role,

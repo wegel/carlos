@@ -55,6 +55,13 @@ pub(crate) fn params_thread_resume(thread_id: &str) -> Value {
     })
 }
 
+pub(crate) fn params_thread_read(thread_id: &str) -> Value {
+    json!({
+        "threadId": thread_id,
+        "includeTurns": true,
+    })
+}
+
 pub(crate) fn params_thread_fork(thread_id: &str) -> Value {
     json!({
         "threadId": thread_id,

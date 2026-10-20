@@ -11,6 +11,8 @@ use super::{
     finish_run, load_claude_thread_summaries, resolve_backend_runtime_settings,
 };
 use crate::app::cli::CliOptions;
+use crate::app::codex_history::preferred_codex_thread;
+use crate::app::item_history::replace_history_from_thread;
 use crate::app::models::Role;
 use crate::app::notifications::{
     handle_server_message_line, load_history_from_start_or_resume, parse_thread_list,
@@ -24,13 +26,21 @@ use crate::claude_backend::{
     ClaudeLocalHistory, CLAUDE_PENDING_THREAD_ID,
 };
 use crate::protocol::AppServerClient;
+use crate::protocol_history::load_thread_history;
 use crate::protocol_params::{
     extract_result_object, initialize_client, params_thread_archive, params_thread_list,
-    params_thread_resume, params_thread_start, parse_thread_id_from_start_or_resume,
-    parse_thread_runtime_settings, ThreadRuntimeSettings,
+    params_thread_read, params_thread_resume, params_thread_start,
+    parse_thread_id_from_start_or_resume, parse_thread_runtime_settings, ThreadRuntimeSettings,
 };
 
 // --- Codex Backend ---
+
+/// Responses needed to resume one Codex thread and rebuild its transcript.
+pub(super) struct CodexThreadLaunch {
+    thread_id: String,
+    runtime_response: String,
+    history_response: String,
+}
 
 pub(in crate::app) fn run_codex_backend(
     opts: &CliOptions,
@@ -42,16 +52,16 @@ pub(in crate::app) fn run_codex_backend(
     let mut client = AppServerClient::start()?;
     initialize_client(&client)?;
     let server_events_rx = client.take_events_rx()?;
-    let Some((chosen_thread_id, start_resp)) = resolve_codex_thread(opts, &client, cwd)? else {
+    let Some(launch) = resolve_codex_thread(opts, &client, cwd)? else {
         return Ok(());
     };
-    let mut app = AppState::new(chosen_thread_id);
+    let mut app = AppState::new(launch.thread_id.clone());
     configure_codex_app(
         &mut app,
         &client,
         cwd,
         opts,
-        &start_resp,
+        &launch,
         &persisted_defaults,
         default_summary,
     )?;
@@ -62,7 +72,7 @@ pub(super) fn resolve_codex_thread(
     opts: &CliOptions,
     client: &AppServerClient,
     cwd: &str,
-) -> Result<Option<(String, String)>> {
+) -> Result<Option<CodexThreadLaunch>> {
     if opts.mode_resume || opts.mode_continue {
         resolve_codex_resume_or_continue(opts, client, cwd)
     } else {
@@ -72,7 +82,11 @@ pub(super) fn resolve_codex_thread(
             Duration::from_secs(20),
         )?;
         let thread_id = parse_thread_id_from_start_or_resume(&resp)?;
-        Ok(Some((thread_id, resp)))
+        Ok(Some(CodexThreadLaunch {
+            thread_id,
+            runtime_response: resp.clone(),
+            history_response: resp,
+        }))
     }
 }
 
@@ -80,7 +94,7 @@ pub(super) fn resolve_codex_resume_or_continue(
     opts: &CliOptions,
     client: &AppServerClient,
     cwd: &str,
-) -> Result<Option<(String, String)>> {
+) -> Result<Option<CodexThreadLaunch>> {
     if let Some(rid) = opts.resume_id.as_deref() {
         return codex_resume_by_id(client, rid).map(Some);
     }
@@ -114,14 +128,31 @@ pub(super) fn resolve_codex_resume_or_continue(
 pub(super) fn codex_resume_by_id(
     client: &AppServerClient,
     session_id: &str,
-) -> Result<(String, String)> {
+) -> Result<CodexThreadLaunch> {
+    let history_resp = client
+        .call(
+            "thread/read",
+            params_thread_read(session_id),
+            Duration::from_secs(20),
+        )
+        .ok()
+        .filter(|response| {
+            parse_thread_id_from_start_or_resume(response)
+                .is_ok_and(|thread_id| thread_id == session_id)
+        });
     let resp = client.call(
         "thread/resume",
         params_thread_resume(session_id),
         Duration::from_secs(20),
     )?;
     let thread_id = parse_thread_id_from_start_or_resume(&resp)?;
-    Ok((thread_id, resp))
+    let history_resp = history_resp.unwrap_or_else(|| resp.clone());
+    let history_resp = load_thread_history(client, &history_resp, Duration::from_secs(20))?;
+    Ok(CodexThreadLaunch {
+        thread_id,
+        runtime_response: resp,
+        history_response: history_resp,
+    })
 }
 
 pub(super) fn configure_codex_app(
@@ -129,7 +160,7 @@ pub(super) fn configure_codex_app(
     client: &AppServerClient,
     cwd: &str,
     opts: &CliOptions,
-    start_resp: &str,
+    launch: &CodexThreadLaunch,
     persisted_defaults: &RuntimeDefaults,
     default_summary: Option<String>,
 ) -> Result<()> {
@@ -138,7 +169,7 @@ pub(super) fn configure_codex_app(
     app.set_available_models(models.clone());
     let fallback_defaults = codex_runtime_defaults(default_summary);
     let runtime_settings = resolve_backend_runtime_settings(
-        parse_thread_runtime_settings(start_resp)?,
+        parse_thread_runtime_settings(&launch.runtime_response)?,
         persisted_defaults,
         &fallback_defaults,
         &models,
@@ -152,7 +183,8 @@ pub(super) fn configure_codex_app(
         &RuntimeDefaults::default(),
         None,
     );
-    load_history_from_start_or_resume(app, start_resp)?;
+    let history = preferred_codex_thread(&launch.history_response, &app.thread_id)?;
+    replace_history_from_thread(app, &history);
     Ok(())
 }
 

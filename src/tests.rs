@@ -8,6 +8,7 @@ pub(super) use super::cli::{
     load_runtime_defaults_from, parse_cli_args, persist_runtime_defaults_to,
     resolve_initial_runtime_settings, resume_hint, styled_resume_hint, Backend,
 };
+pub(super) use super::codex_history::{parse_rollout_history, prefer_complete_rollout_history};
 pub(super) use super::context_usage::{
     context_label_reserved_cells, context_usage_label, ContextUsage,
 };
@@ -80,6 +81,8 @@ pub(super) use serde_json::json;
 
 #[path = "tests/claude_backend_tests.rs"]
 mod claude_backend_tests;
+#[path = "tests/codex_history_tests.rs"]
+mod codex_history_tests;
 #[path = "tests/grok_backend_tests.rs"]
 mod grok_backend_tests;
 #[path = "tests/input_tests.rs"]
@@ -90,5 +93,7 @@ mod notification_tests;
 mod runtime_tests;
 #[path = "tests/tool_tests.rs"]
 mod tool_tests;
+#[path = "tests/turn_lifecycle_tests.rs"]
+mod turn_lifecycle_tests;
 #[path = "tests/ui_render_tests.rs"]
 mod ui_render_tests;

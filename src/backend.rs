@@ -31,10 +31,11 @@ impl BackendKind {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct RewindForkRequest {
     pub(crate) keep_turns: usize,
     pub(crate) drop_turns: usize,
+    pub(crate) before_turn_id: Option<String>,
 }
 
 pub(crate) trait BackendClient {

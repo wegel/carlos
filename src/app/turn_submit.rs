@@ -11,7 +11,7 @@ use super::Role;
 use crate::backend::{BackendClient, BackendKind, RewindForkRequest};
 use crate::grok_backend::GROK_PENDING_TURN_ID;
 use crate::protocol_params::{
-    params_turn_interrupt, params_turn_start, params_turn_steer,
+    extract_result_object, params_turn_interrupt, params_turn_start, params_turn_steer,
     parse_thread_id_from_start_or_resume,
 };
 
@@ -48,12 +48,14 @@ pub(super) fn submit_rewind_turn_text(
         RewindForkRequest {
             keep_turns: rewind_history_idx,
             drop_turns,
+            before_turn_id: app.rewind_selected_turn_id().map(str::to_string),
         },
         Duration::from_secs(20),
     ) {
         Ok(response) => response,
         Err(err) => {
             app.set_status(format!("fork failed: {err}"));
+            app.append_message(Role::System, format!("Could not edit message: {err}"));
             return;
         }
     };
@@ -68,11 +70,14 @@ pub(super) fn submit_rewind_turn_text(
     }
 
     app.clear_rewind_mode_state();
-    app.push_input_history(&text);
-    app.clear_input();
     app.viewport.selection = None;
     app.mark_user_turn_submitted();
-    start_new_turn(client, app, text, true, true);
+    if start_new_turn(client, app, text.clone(), true, true) {
+        if client.kind() == BackendKind::Codex {
+            app.push_input_history(&text);
+        }
+        app.clear_input();
+    }
 }
 
 pub(super) fn submit_turn_text_with_history(
@@ -243,7 +248,7 @@ fn start_new_turn(
     text: String,
     record_input_history: bool,
     force_start: bool,
-) {
+) -> bool {
     let now = Instant::now();
     if !force_start
         && client.kind().queues_follow_up_turns()
@@ -255,7 +260,7 @@ fn start_new_turn(
             BackendKind::Grok => "queued behind pending Grok turn",
             _ => "queued behind pending Claude turn",
         });
-        return;
+        return true;
     }
 
     let (model, effort, summary) = app.next_turn_runtime_settings();
@@ -266,9 +271,23 @@ fn start_new_turn(
         effort.as_deref(),
         summary.as_deref(),
     );
-    match client.call("turn/start", params, Duration::from_secs(10)) {
-        Ok(_) => mark_turn_sent(client, app, text, record_input_history),
-        Err(e) => app.set_status(format!("{e}")),
+    let response = client
+        .call("turn/start", params, Duration::from_secs(10))
+        .and_then(|response| extract_result_object(&response));
+    match response {
+        Ok(_) => {
+            mark_turn_sent(client, app, text, record_input_history);
+            true
+        }
+        Err(err) => {
+            if record_input_history {
+                app.discard_pending_input_history(&text);
+            }
+            app.set_input_text(&text);
+            app.set_status(format!("send failed: {err}"));
+            app.append_message(Role::System, format!("Could not send message: {err}"));
+            false
+        }
     }
 }
 

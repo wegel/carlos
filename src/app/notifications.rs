@@ -13,6 +13,7 @@ use super::context_usage::{
 #[cfg(test)]
 pub(super) use super::item_history::append_history_from_thread;
 pub(crate) use super::item_history::load_history_from_start_or_resume;
+use super::models::TurnStatus;
 use super::notification_items::handle_item_notification;
 use super::state::PendingApprovalRequest;
 use super::tools::command_summary_from_parsed_cmd;
@@ -164,17 +165,20 @@ pub(crate) fn handle_server_message_line(
     let Ok(parsed) = serde_json::from_str::<Value>(line) else {
         return None;
     };
-    let Some(method) = parsed.get("method").and_then(Value::as_str) else {
+    let method = parsed.get("method").and_then(Value::as_str)?;
+    let params = parsed.get("params").and_then(Value::as_object)?;
+    if params
+        .get("threadId")
+        .and_then(Value::as_str)
+        .is_some_and(|thread_id| thread_id != app.thread_id)
+    {
         return None;
-    };
+    }
     match try_handle_server_request(app, method, &parsed) {
         ServerRequestOutcome::Handled => return None,
         ServerRequestOutcome::Reply(action) => return Some(action),
         ServerRequestOutcome::NotRequest => {}
     }
-    let Some(params) = parsed.get("params").and_then(Value::as_object) else {
-        return None;
-    };
     if handle_item_notification(app, method, params) {
         return None;
     }
@@ -294,21 +298,39 @@ fn handle_thread_initialized(app: &mut AppState, params: &serde_json::Map<String
 }
 
 fn handle_turn_started(app: &mut AppState, params: &serde_json::Map<String, Value>) {
-    app.context_usage = None;
-    app.mark_turn_started();
     if let Some(id) = params
         .get("turn")
         .and_then(Value::as_object)
         .and_then(|t| t.get("id"))
         .and_then(Value::as_str)
     {
-        app.active_turn_id = Some(id.to_string());
+        if !app.record_turn_started(id) {
+            return;
+        }
+        app.context_usage = None;
         app.set_status("turn started");
+    } else {
+        app.mark_turn_started();
     }
 }
 
 fn handle_turn_completed(app: &mut AppState, params: &serde_json::Map<String, Value>) {
-    app.active_turn_id = None;
+    let Some(turn) = params.get("turn").and_then(Value::as_object) else {
+        return;
+    };
+    let Some(turn_id) = turn.get("id").and_then(Value::as_str) else {
+        return;
+    };
+    let Some(turn_status) = turn
+        .get("status")
+        .and_then(Value::as_str)
+        .and_then(TurnStatus::from_wire)
+    else {
+        return;
+    };
+    if !app.record_turn_completed(turn_id, turn_status) {
+        return;
+    }
     let keep_pending = app
         .approval
         .pending
@@ -318,12 +340,7 @@ fn handle_turn_completed(app: &mut AppState, params: &serde_json::Map<String, Va
     if !keep_pending {
         app.clear_pending_approval();
     }
-    let turn_status = params
-        .get("turn")
-        .and_then(Value::as_object)
-        .and_then(|turn| turn.get("status"))
-        .and_then(Value::as_str);
-    let interrupted = turn_status == Some("interrupted");
+    let interrupted = turn_status == TurnStatus::Interrupted;
     if interrupted {
         app.append_turn_interrupted_marker();
         app.set_status("turn interrupted");
