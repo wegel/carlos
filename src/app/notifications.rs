@@ -216,6 +216,7 @@ fn dispatch_notification(
 ) {
     match method {
         "thread/initialized" => handle_thread_initialized(app, params),
+        "thread/name/updated" => super::session_name::handle_name_updated(app, params),
         "thread/tokenUsage/updated" => {
             if let Some(usage) = context_usage_from_thread_token_usage_params(params) {
                 app.context_usage = Some(usage);
@@ -272,6 +273,9 @@ fn handle_thread_initialized(app: &mut AppState, params: &serde_json::Map<String
             app.context_usage = None;
         }
         app.set_thread_id(id.to_string());
+    }
+    if let Some(thread) = params.get("thread") {
+        app.read_thread_name(thread);
     }
     let model = params
         .get("model")

@@ -35,6 +35,7 @@ use super::viewport_state::ViewportState;
 
 pub(super) struct AppState {
     pub(super) thread_id: String,
+    pub(super) thread_name: Option<String>,
     pub(super) active_turn_id: Option<String>,
     pub(super) messages: Vec<Message>,
     pub(super) render_cache: RenderCacheState,
@@ -67,6 +68,7 @@ impl AppState {
     pub(super) fn new(thread_id: String) -> Self {
         Self {
             thread_id,
+            thread_name: None,
             active_turn_id: None,
             messages: Vec::new(),
             render_cache: RenderCacheState::new(),
@@ -149,10 +151,6 @@ impl AppState {
         self.status = s.into();
     }
 
-    pub(super) fn set_thread_id(&mut self, thread_id: impl Into<String>) {
-        self.thread_id = thread_id.into();
-    }
-
     pub(super) fn replace_transcript_from(&mut self, replacement: AppState) {
         self.messages = replacement.messages;
         self.item_to_message_index = replacement.item_to_message_index;
@@ -168,7 +166,7 @@ impl AppState {
     }
 
     pub(super) fn reset_for_forked_thread(&mut self, thread_id: impl Into<String>) {
-        self.thread_id = thread_id.into();
+        self.set_thread_id(thread_id);
         self.active_turn_id = None;
         self.messages.clear();
         self.render_cache = RenderCacheState::new();

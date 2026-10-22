@@ -15,6 +15,7 @@ use crate::app::notifications::{is_ctrl_char, is_key_press_like, is_perf_toggle_
 use crate::app::render::{compute_input_layout, is_newline_enter};
 use crate::app::render_input::last_assistant_message;
 use crate::app::selection::MouseDragMode;
+use crate::app::session_name::handle_rename_command;
 use crate::app::state::{AppState, ApprovalChoice, ModelSettingsField};
 use crate::app::turn_submit::{
     interrupt_active_turn, respond_to_pending_approval, submit_rewind_turn_text, submit_turn_text,
@@ -333,6 +334,9 @@ fn handle_enter_submit(client: &dyn BackendClient, app: &mut AppState) -> Termin
         }
     }
 
+    if handle_rename_command(client, app, &text) {
+        return TerminalEventResult::Continue { needs_draw: true };
+    }
     app.clear_rewind_mode_state();
     app.push_input_history(&text);
     app.clear_input();

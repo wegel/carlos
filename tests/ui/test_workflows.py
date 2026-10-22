@@ -7,9 +7,24 @@ import tempfile
 import unittest
 
 from terminal import Terminal
+from test_session_names import SessionNames
 
 
-class Workflows(unittest.TestCase):
+class Workflows(SessionNames, unittest.TestCase):
+    def test_native_monitor_activity_after_parent_completion_is_not_lost_or_duplicated(self):
+        terminal = self.launch(mode="native-activity", resume=None)
+        terminal.wait(lambda: terminal.input_is(""), "new thread ready")
+        terminal.paste("Monitor cleanup")
+        terminal.send(b"\r")
+        terminal.contains("Answer: Monitor cleanup")
+        terminal.contains("Wait up to 30 s")
+        terminal.contains("Agent /root/monitor started")
+        terminal.contains("Agent /root/monitor completed")
+        self.assertEqual(terminal.text.count("Agent /root/monitor completed"), 1)
+        self.assertEqual(len(terminal.requests("turn/start")), 1)
+        self.assertEqual(terminal.requests("turn/start")[0]["params"]["threadId"], "thread-new")
+        terminal.snapshot("native-monitor-completed")
+
     def launch(self, mode="modern", resume="thread-original", width=100, directory=None, backend="codex"):
         directory = directory or ARTIFACTS / self._testMethodName
         terminal = Terminal(BINARY, directory, mode, resume, width, backend)

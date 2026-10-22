@@ -37,6 +37,36 @@ Alpha.
 - context usage indicator (`used/max (%)`) on the activity line
 - Ralph mode visual indicators (`RALPH MODE` label, pink KITT/input gutter)
 - context compaction markers in transcript
+- native Codex waits and child-agent start/completion notices, including notices after the main answer
+- dim, right-aligned session-name placeholder in the empty composer; `/rename [name]` edits the saved Codex name
+
+## Session names
+
+When the composer is empty, Carlos shows the saved session name in gray on the
+right. The name is only a placeholder: typing hides it, clearing your draft brings it back, and
+pressing Enter on an empty composer does not send the name as a message.
+
+For Codex sessions, enter `/rename New name` to save a name, or enter `/rename`
+to load the current name into the composer for editing. Carlos saves the name
+through Codex's app-server, without starting an agent turn. The name survives
+restarting Carlos and appears in the native Codex session picker too. Carlos also
+shows name changes sent by Codex while the session is open. Unnamed sessions keep
+the empty composer.
+
+## Codex background monitors
+
+Carlos uses the installed Codex app-server to run tools and child agents. Ask Codex
+to monitor a task just as you would in the native Codex CLI. Carlos shows Codex's
+waits and child-agent notices, and you can send another message while Codex waits.
+An incoming message wakes Codex's interruptible `clock.sleep` tool. The same notices
+remain visible when you reload the thread.
+
+Codex can also launch an independent script through a shell or a remote process
+manager. Such a script may keep running and writing logs, but Carlos cannot turn
+those logs into agent messages by itself. Ask Codex to use its own child-agent or
+wait tools when you need results in the conversation. Carlos does not add a timer
+that sends prompts, create another agent turn when a child finishes, or promise
+that a monitor will survive exiting Carlos.
 
 ## Ralph Loop Setup
 
@@ -157,15 +187,19 @@ Codex and Claude peers supply fixed responses, so the tests need no account or m
 
 The tests cover editing the first or a later message, repeated edits, canceling
 an edit, fork/send failures, older servers, paginated history, streaming, resize,
-resume, replayed starts, and Claude interrupts. They check the screen and backend
+resume, saved session names, replayed starts, and Claude interrupts. They check the screen and backend
 messages. Screens, keystrokes, raw terminal bytes, and requests/responses remain
 under `target/ui-artifacts/`.
-CI runs these checks and the isolated protocol check against the current public
+CI runs these checks and the isolated Codex checks against the current public
 Codex CLI on every push and pull request.
 
 Use `bash scripts/test.sh --release --codex-contract` before installing a release
-that changes the Codex protocol. The extra check calls the installed Codex server
-against a generated session in a temporary Codex home; it makes no model request.
+that changes the Codex protocol. The extra checks call the installed Codex server
+against a generated session in a temporary Codex home. They also drive Carlos
+through native Codex waits and child-agent completion after the parent answers,
+then reload the thread. A local HTTP peer supplies fixed model replies; these
+checks need no account, paid inference, or access to user sessions. The runner
+saves both the app-server traffic and local model requests with the screen captures.
 To test an installed executable directly:
 
 ```bash
@@ -175,6 +209,7 @@ target/ui-venv/bin/python tests/ui/test_workflows.py --binary ~/.local/bin/carlo
 ## controls
 
 - `Enter`: send message, or stop recording while dictating
+- `/rename [name]`: change the Codex session name, or load the current name to edit
 - `Shift+Enter` / `Alt+Enter`: newline in input
 - `Up/Down`: input history navigation
 - `Esc` (while turn active): interrupt running turn

@@ -185,6 +185,7 @@ pub(super) fn configure_codex_app(
     );
     let history = preferred_codex_thread(&launch.history_response, &app.thread_id)?;
     replace_history_from_thread(app, &history);
+    crate::app::session_name::read_response_name(app, &launch.runtime_response);
     Ok(())
 }
 

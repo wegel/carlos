@@ -87,10 +87,14 @@ mod codex_history_tests;
 mod grok_backend_tests;
 #[path = "tests/input_tests.rs"]
 mod input_tests;
+#[path = "tests/native_activity_tests.rs"]
+mod native_activity_tests;
 #[path = "tests/notification_tests.rs"]
 mod notification_tests;
 #[path = "tests/runtime_tests.rs"]
 mod runtime_tests;
+#[path = "tests/session_name_tests.rs"]
+mod session_name_tests;
 #[path = "tests/tool_tests.rs"]
 mod tool_tests;
 #[path = "tests/turn_lifecycle_tests.rs"]

@@ -15,7 +15,7 @@ use crate::app::overlay_render::{
 };
 use crate::app::render_input::InputLayout;
 use crate::app::state::AppState;
-use crate::app::text::visual_width;
+use crate::app::text::{split_at_cells, visual_width};
 use crate::app::MSG_CONTENT_X;
 use crate::theme::{
     kitt_color_for_distance, COLOR_DIFF_HUNK, COLOR_DIFF_REMOVE, COLOR_GUTTER_AGENT_COMMENTARY,
@@ -70,6 +70,28 @@ pub(super) fn draw_input_area(
                 input_layout.text_width,
             );
         }
+    }
+    draw_session_placeholder(buf, app, input_layout);
+}
+
+fn draw_session_placeholder(buf: &mut Buffer, app: &AppState, layout: &InputLayout) {
+    if !app.input_is_empty() || app.rewind_mode() {
+        return;
+    }
+    if let Some(name) = app.thread_name.as_deref() {
+        let name = &name[..split_at_cells(name, layout.text_width)];
+        let name_width = visual_width(name);
+        if name_width > layout.text_width {
+            return;
+        }
+        draw_str(
+            buf,
+            MSG_CONTENT_X + layout.text_width - name_width,
+            layout.input_top.saturating_sub(1),
+            name,
+            Style::default().fg(COLOR_STEP8).add_modifier(Modifier::DIM),
+            layout.text_width,
+        );
     }
 }
 

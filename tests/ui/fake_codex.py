@@ -35,6 +35,9 @@ class Server:
         self.counter = 0
         self.failed_fork = False
         self.failed_start = False
+        self.failed_rename = False
+        if self.mode.startswith("named"):
+            self.threads["thread-original"].setdefault("name", "Cleanup monitor")
         if self.mode == "automatic":
             self.threads["thread-original"]["turns"].insert(
                 1, {"id": "turn-automatic", "status": "completed", "items": []})
@@ -82,6 +85,8 @@ class Server:
         elif method == "thread/start":
             self.threads["thread-new"] = {"id": "thread-new", "turns": []}
             self.reply(request, {"thread": self.threads["thread-new"]})
+        elif method == "thread/name/set":
+            self.rename(request, params)
         elif method == "thread/fork":
             self.fork(request, params)
         elif method == "thread/rollback":
@@ -96,6 +101,15 @@ class Server:
             self.list_turns(request, params)
         else:
             self.reply(request, error="Unexpected method: " + method)
+
+    def rename(self, request, params):
+        if self.mode == "named-error" and not self.failed_rename:
+            self.failed_rename = True
+            self.reply(request, error="injected rename failure")
+            return
+        self.threads[params["threadId"]]["name"] = params["name"]
+        self.reply(request, {})
+        self.notify("thread/name/updated", {"threadId": params["threadId"], "threadName": params["name"]})
 
     def list_turns(self, request, params):
         if self.mode == "legacy":
@@ -121,6 +135,8 @@ class Server:
             key = "thread-fork-" + str(self.counter)
         thread = copy.deepcopy(self.threads[params["threadId"]])
         thread["id"] = key
+        if self.mode == "named-fork":
+            thread["name"] = None
         before = params.get("beforeTurnId")
         if self.mode != "legacy" and before:
             index = next(i for i, turn in enumerate(thread["turns"]) if turn["id"] == before)
@@ -150,6 +166,15 @@ class Server:
         text = params["input"][0]["text"]
         key = "turn-" + str(len(self.threads[thread_id]["turns"]) + 1)
         turn = completed_turn(key, text)
+        if self.mode == "named-live":
+            turn["status"] = "inProgress"
+            turn["items"] = turn["items"][:1]
+        if self.mode == "native-activity":
+            turn["items"][1:1] = [
+                {"type": "sleep", "id": "monitor-sleep", "durationMs": 30000},
+                {"type": "subAgentActivity", "id": "monitor-start", "kind": "started",
+                 "agentPath": "/root/monitor", "agentThreadId": "child"},
+            ]
         self.reply(request, {"turn": {"id": key, "status": "inProgress"}})
         self.notify("turn/started", {"threadId": thread_id,
                     "turn": {"id": key, "status": "inProgress"}})
@@ -161,7 +186,19 @@ class Server:
                             "turnId": key, "itemId": item["id"], "delta": item["text"]})
             self.notify("item/completed", {"threadId": thread_id, "turnId": key, "item": item})
         self.threads[thread_id]["turns"].append(turn)
+        if self.mode == "named-live":
+            return
         self.notify("turn/completed", {"threadId": thread_id, "turn": turn})
+        if self.mode == "named-external":
+            self.threads[thread_id]["name"] = "Changed in native Codex"
+            self.notify("thread/name/updated", {"threadId": thread_id, "threadName": "Changed in native Codex"})
+            self.notify("thread/name/updated", {"threadId": "another-thread", "threadName": "Wrong name"})
+        if self.mode == "native-activity":
+            done = {"type": "subAgentActivity", "id": "monitor-done", "kind": "completed",
+                    "agentPath": "/root/monitor", "agentThreadId": "child"}
+            turn["items"].append(done)
+            for _ in range(2):
+                self.notify("item/completed", {"threadId": thread_id, "turnId": key, "item": done})
         if self.mode == "replayed-start":
             self.notify("turn/started", {"threadId": thread_id,
                         "turn": {"id": key, "status": "inProgress"}})

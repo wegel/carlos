@@ -89,6 +89,11 @@ pub(crate) fn params_thread_archive(thread_id: &str) -> Value {
     })
 }
 
+/// Set the persisted display name without starting an agent turn.
+pub(crate) fn params_thread_set_name(thread_id: &str, name: &str) -> Value {
+    json!({ "threadId": thread_id, "name": name })
+}
+
 pub(crate) fn params_model_list(cursor: Option<&str>) -> Value {
     let mut params = json!({
         "includeHidden": false,

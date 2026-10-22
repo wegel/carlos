@@ -5,6 +5,7 @@
 use anyhow::Result;
 use serde_json::Value;
 
+use super::native_activity::upsert_native_activity;
 use super::tool_diff::{command_execution_diff_output, extract_diff_blocks};
 use super::tool_format::format_tool_item;
 use super::tools::{is_tool_call_type, is_tool_output_type, item_text_from_content};
@@ -38,6 +39,7 @@ pub(super) fn replace_history_from_thread(app: &mut AppState, thread_obj: &Value
     let mut replacement = AppState::new(thread_id);
     append_history_from_thread(&mut replacement, thread_obj);
     app.replace_transcript_from(replacement);
+    app.read_thread_name(thread_obj);
 }
 
 pub(super) fn append_history_from_thread(app: &mut AppState, thread_obj: &Value) {
@@ -79,6 +81,9 @@ pub(super) fn append_history_from_thread(app: &mut AppState, thread_obj: &Value)
 // --- History item helpers ---
 
 fn append_history_item(app: &mut AppState, item: &Value) {
+    if upsert_native_activity(app, item) {
+        return;
+    }
     let Some(kind) = item.get("type").and_then(Value::as_str) else {
         return;
     };

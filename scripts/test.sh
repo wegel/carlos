@@ -32,4 +32,6 @@ target/ui-venv/bin/python tests/ui/test_workflows.py \
   --binary "target/$profile/carlos" --artifacts "$artifacts/ui" -v
 if [[ "$check_codex" == true ]]; then
   python3 tests/ui/test_codex_contract.py --artifacts "$artifacts/codex"
+  target/ui-venv/bin/python tests/ui/test_native_monitor.py \
+    --binary "target/$profile/carlos" --artifacts "$artifacts/native-monitor" -v
 fi

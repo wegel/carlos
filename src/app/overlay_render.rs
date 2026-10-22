@@ -142,7 +142,7 @@ pub(super) fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize) {
     }
 
     let box_w = (size.width - 8).min(74);
-    let box_h = 10usize;
+    let box_h = 11usize;
     let ob = compute_overlay_box(size, box_w, box_h);
 
     fill_fullscreen_overlay(buf, size);
@@ -164,6 +164,7 @@ fn draw_help_lines(buf: &mut Buffer, ob: &OverlayBox) {
         ("Ctrl+Y copy selection or last answer", text_style),
         ("Home/End jump transcript  Ctrl+M settings", text_style),
         ("Wheel scroll, drag to select, release to copy", text_style),
+        ("/rename [name] change the Codex session name", text_style),
         ("? toggle this help", dim_style),
     ];
     for (i, (text, style)) in lines.iter().enumerate() {

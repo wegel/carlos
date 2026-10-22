@@ -1,4 +1,4 @@
-"""Check installed Codex history/fork methods without inference or user sessions."""
+"""Check installed Codex history, forks, and saved names without inference or user sessions."""
 
 import argparse
 import json
@@ -15,7 +15,7 @@ class Codex:
     def __init__(self, binary, root):
         self.root = root
         self.root.mkdir(parents=True, exist_ok=True)
-        self.log = (root / "rpc.jsonl").open("w")
+        self.log = (root / "rpc.jsonl").open("a")
         self.stderr = (root / "stderr.log").open("w")
         self.process = subprocess.Popen(
             [binary, "app-server"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -125,7 +125,33 @@ def check(binary, root):
                 "sortDirection": "asc", "itemsView": "full"})
             assert [turn["id"] for turn in history["data"]] == expected, history
         assert path.read_bytes() == original, "source fixture changed"
+        check_rename(server, fork_id)
         print("PASS: installed Codex forks before first and later turns; source is intact")
+    finally:
+        server.close()
+    verify_saved_name(binary, root, fork_id)
+
+
+def check_rename(server, thread_id):
+    before = server.call("thread/read", {"threadId": thread_id, "includeTurns": True})
+    server.call("thread/name/set", {"threadId": thread_id, "name": "Renamed test session"})
+    after = server.call("thread/read", {"threadId": thread_id, "includeTurns": True})
+    assert after["thread"]["name"] == "Renamed test session"
+    assert before["thread"]["turns"] == after["thread"]["turns"], "rename changed transcript"
+    events = [json.loads(line)["message"] for line in (server.root / "rpc.jsonl").read_text().splitlines()]
+    assert any(event.get("method") == "thread/name/updated"
+               and event["params"].get("threadId") == thread_id
+               and event["params"].get("threadName") == "Renamed test session" for event in events)
+
+
+def verify_saved_name(binary, root, thread_id):
+    server = Codex(binary, root)
+    try:
+        server.call("initialize", {"clientInfo": {"name": "carlos-contract-test", "version": "1"}})
+        server.send({"method": "initialized"})
+        thread = server.call("thread/read", {"threadId": thread_id})["thread"]
+        assert thread["name"] == "Renamed test session", "name lost after server restart"
+        print("PASS: installed Codex saves names across server restarts and leaves transcript unchanged")
     finally:
         server.close()
 

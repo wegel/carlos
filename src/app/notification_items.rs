@@ -3,6 +3,7 @@
 use serde_json::Value;
 
 use super::item_history::{agent_role_from_phase, reasoning_summary_text};
+use super::native_activity::upsert_native_activity;
 use super::tools::{
     command_execution_diff_output, command_summary_from_shell_cmd, extract_diff_blocks,
     first_i64_at_paths, format_tool_item, is_tool_call_type, is_tool_output_type,
@@ -107,25 +108,13 @@ fn handle_item_started(app: &mut AppState, params: &serde_json::Map<String, Valu
     {
         return true;
     }
+    if matches!(t, "sleep" | "subAgentActivity" | "collabAgentToolCall")
+        && upsert_native_activity(app, &Value::Object(item.clone()))
+    {
+        return true;
+    }
     match t {
-        "userMessage" => {
-            if let Some(id) = item.get("id").and_then(Value::as_str) {
-                let item_value = Value::Object(item.clone());
-                if let Some(text) = item_text_from_content(&item_value) {
-                    let inserted = app.upsert_mapped_message(
-                        id,
-                        Role::User,
-                        text.clone(),
-                        MessageKind::Plain,
-                        None,
-                    );
-                    if inserted {
-                        let idx = app.item_to_message_index[id];
-                        app.record_input_history(&text, Some(idx));
-                    }
-                }
-            }
-        }
+        "userMessage" => start_user_message(app, item),
         "agentMessage" => {
             if let Some(id) = item.get("id").and_then(Value::as_str) {
                 let role = agent_role_from_phase(item);
@@ -157,6 +146,21 @@ fn handle_item_started(app: &mut AppState, params: &serde_json::Map<String, Valu
     true
 }
 
+fn start_user_message(app: &mut AppState, item: &serde_json::Map<String, Value>) {
+    let Some(id) = item.get("id").and_then(Value::as_str) else {
+        return;
+    };
+    let Some(text) = item_text_from_content(&Value::Object(item.clone())) else {
+        return;
+    };
+    let inserted =
+        app.upsert_mapped_message(id, Role::User, text.clone(), MessageKind::Plain, None);
+    if inserted {
+        let idx = app.item_to_message_index[id];
+        app.record_input_history(&text, Some(idx));
+    }
+}
+
 fn handle_item_completed(app: &mut AppState, params: &serde_json::Map<String, Value>) -> bool {
     let Some(item) = params.get("item").and_then(Value::as_object) else {
         return true;
@@ -165,12 +169,16 @@ fn handle_item_completed(app: &mut AppState, params: &serde_json::Map<String, Va
         return true;
     };
     let item_value = Value::Object(item.clone());
-    let handled = match kind {
-        "userMessage" => complete_user_message(app, item, &item_value),
-        "agentMessage" => complete_agent_message(app, item, &item_value),
-        "reasoning" => complete_reasoning(app, item, &item_value),
-        "contextCompaction" => complete_context_compaction(app, item),
-        _ => complete_tool_item(app, item, kind, &item_value),
+    let handled = if upsert_native_activity(app, &item_value) {
+        true
+    } else {
+        match kind {
+            "userMessage" => complete_user_message(app, item, &item_value),
+            "agentMessage" => complete_agent_message(app, item, &item_value),
+            "reasoning" => complete_reasoning(app, item, &item_value),
+            "contextCompaction" => complete_context_compaction(app, item),
+            _ => complete_tool_item(app, item, kind, &item_value),
+        }
     };
     if let Some(item_id) = item.get("id").and_then(Value::as_str) {
         app.mark_item_completed(item_id);
