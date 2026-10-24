@@ -196,6 +196,7 @@ pub(super) fn configure_app_common(
     persisted_defaults: &RuntimeDefaults,
     default_summary: Option<String>,
 ) {
+    app.tool_output.mode = super::tool_output_preferences::load_mode();
     app.configure_ralph_options(
         PathBuf::from(cwd),
         opts.ralph_prompt_path.clone(),

@@ -1,6 +1,7 @@
 //! Lazy render cache that counts lines eagerly and materializes blocks on demand.
 
 use super::models::{Message, RenderedLine, Role};
+use super::tool_output_state::compact_tool_message;
 use super::transcript_render::{
     build_rendered_block_for_message, count_rendered_block_for_message_cached, RenderCountCache,
 };
@@ -13,6 +14,8 @@ pub(super) struct RenderCacheState {
     pub(super) rendered_block_offsets: Vec<usize>,
     pub(super) rendered_total_lines: usize,
     pub(super) rendered_width: usize,
+    pub(super) rendered_compact: bool,
+    compact_messages: Vec<Option<Box<Message>>>,
     pub(super) rendered_hidden_user_message_idx: Option<usize>,
     pub(super) transcript_dirty_from: Option<usize>,
 }
@@ -25,6 +28,8 @@ impl RenderCacheState {
             rendered_block_offsets: Vec::new(),
             rendered_total_lines: 0,
             rendered_width: 0,
+            rendered_compact: false,
+            compact_messages: Vec::new(),
             rendered_hidden_user_message_idx: None,
             transcript_dirty_from: Some(0),
         }
@@ -45,8 +50,10 @@ impl RenderCacheState {
         messages: &[Message],
         width: usize,
         hidden_user_message_idx: Option<usize>,
+        compact: bool,
     ) {
         let rebuild_from = if self.rendered_width != width
+            || self.rendered_compact != compact
             || self.rendered_hidden_user_message_idx != hidden_user_message_idx
         {
             Some(0)
@@ -59,9 +66,16 @@ impl RenderCacheState {
         };
 
         self.truncate_rendered_blocks_to(dirty_from);
-        self.rebuild_rendered_blocks_from(messages, width, hidden_user_message_idx, dirty_from);
+        self.rebuild_rendered_blocks_from(
+            messages,
+            width,
+            hidden_user_message_idx,
+            dirty_from,
+            compact,
+        );
 
         self.rendered_width = width;
+        self.rendered_compact = compact;
         self.rendered_hidden_user_message_idx = hidden_user_message_idx;
         self.transcript_dirty_from = None;
     }
@@ -69,6 +83,7 @@ impl RenderCacheState {
     fn truncate_rendered_blocks_to(&mut self, dirty_from: usize) {
         if dirty_from == 0 {
             self.rendered_message_blocks.clear();
+            self.compact_messages.clear();
             self.rendered_block_line_counts.clear();
             self.rendered_block_offsets.clear();
             self.rendered_total_lines = 0;
@@ -80,6 +95,7 @@ impl RenderCacheState {
             .copied()
             .unwrap_or(self.rendered_total_lines);
         self.rendered_message_blocks.truncate(dirty_from);
+        self.compact_messages.truncate(dirty_from);
         self.rendered_block_line_counts.truncate(dirty_from);
         self.rendered_block_offsets.truncate(dirty_from);
         self.rendered_total_lines = start_offset;
@@ -91,6 +107,7 @@ impl RenderCacheState {
         width: usize,
         hidden_user_message_idx: Option<usize>,
         dirty_from: usize,
+        compact: bool,
     ) {
         let mut previous_visible_idx = if dirty_from == 0 {
             None
@@ -101,6 +118,7 @@ impl RenderCacheState {
 
         for idx in dirty_from..messages.len() {
             self.rendered_block_offsets.push(self.rendered_total_lines);
+            self.compact_messages.push(None);
 
             let hidden = hidden_user_message_idx == Some(idx) && messages[idx].role == Role::User;
             if hidden {
@@ -117,12 +135,9 @@ impl RenderCacheState {
             }
 
             let previous_visible = previous_visible_idx.and_then(|prev_idx| messages.get(prev_idx));
-            let line_count = count_rendered_block_for_message_cached(
-                &mut count_cache,
-                previous_visible,
-                msg,
-                width,
-            );
+            let (folded, line_count) =
+                count_display_block(&mut count_cache, previous_visible, msg, width, compact);
+            self.compact_messages[idx] = folded.map(Box::new);
             self.rendered_block_line_counts.push(line_count);
             if line_count == 0 {
                 self.rendered_message_blocks.push(None);
@@ -150,6 +165,25 @@ impl RenderCacheState {
         let block_start = *self.rendered_block_offsets.get(block_idx)?;
         let block = self.rendered_message_blocks.get(block_idx)?.as_ref()?;
         block.get(idx - block_start)
+    }
+
+    /// Locate a message and row before a resize or view change changes row counts.
+    pub(super) fn message_anchor(&self, line: usize) -> Option<(usize, usize)> {
+        let index = self
+            .rendered_block_offsets
+            .partition_point(|&start| start <= line)
+            .checked_sub(1)?;
+        Some((
+            index,
+            line.saturating_sub(self.rendered_block_offsets[index]),
+        ))
+    }
+
+    /// Keep the same message visible after rebuilding the row counts.
+    pub(super) fn line_for_anchor(&self, (index, row): (usize, usize)) -> Option<usize> {
+        let start = *self.rendered_block_offsets.get(index)?;
+        let count = *self.rendered_block_line_counts.get(index)?;
+        Some(start + row.min(count.saturating_sub(1)))
     }
 
     // --- Materialization ---
@@ -210,7 +244,12 @@ impl RenderCacheState {
             return;
         }
 
-        let Some(msg) = messages.get(block_idx) else {
+        let Some(msg) = self
+            .compact_messages
+            .get(block_idx)
+            .and_then(Option::as_deref)
+            .or_else(|| messages.get(block_idx))
+        else {
             return;
         };
         let previous_visible = find_previous_visible_message_idx(
@@ -234,6 +273,33 @@ impl RenderCacheState {
 }
 
 // --- Visibility Lookup ---
+
+/// Count the same full or folded message that the cache will draw.
+pub(super) fn count_display_block<'a>(
+    cache: &mut RenderCountCache<'a>,
+    previous: Option<&Message>,
+    message: &'a Message,
+    width: usize,
+    compact: bool,
+) -> (Option<Message>, usize) {
+    let full_count = count_rendered_block_for_message_cached(cache, previous, message, width);
+    let rows = full_count.saturating_sub(usize::from(previous.is_some()));
+    let folded = compact
+        .then(|| compact_tool_message(message, rows, width))
+        .flatten();
+    let count = folded
+        .as_ref()
+        .map(|summary| {
+            count_rendered_block_for_message_cached(
+                &mut RenderCountCache::new(),
+                previous,
+                summary,
+                width,
+            )
+        })
+        .unwrap_or(full_count);
+    (folded, count)
+}
 
 fn find_previous_visible_message_idx(
     messages: &[Message],

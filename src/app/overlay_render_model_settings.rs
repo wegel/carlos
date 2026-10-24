@@ -1,4 +1,4 @@
-//! Row layout, per-field drawing, and cursor position for the model-settings overlay.
+//! Draw settings rows and place the cursor, including on phone-sized terminals.
 
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
@@ -10,83 +10,47 @@ use crate::app::state::{AppState, ModelSettingsField};
 use crate::app::text::visual_width;
 use crate::theme::{COLOR_DIM, COLOR_STEP6, COLOR_TEXT};
 
-pub(super) const MODEL_SETTINGS_BOX_HEIGHT: usize = 14;
-
-/// Return the overlay box used for the model-settings panel.
+/// Fit the settings panel to the terminal, using closer rows on short screens.
 pub(super) fn model_settings_overlay_box(size: TerminalSize) -> OverlayBox {
-    let box_w = (size.width.saturating_sub(10)).min(80);
-    compute_overlay_box(size, box_w, MODEL_SETTINGS_BOX_HEIGHT)
+    let box_w = size.width.saturating_sub(4).min(84).max(1).min(size.width);
+    let box_h = if size.height < 20 { 12 } else { 16 };
+    compute_overlay_box(size, box_w, box_h.min(size.height))
 }
 
-/// Cursor `(x, y)` for the currently-focused field of the model-settings overlay.
+/// Place the cursor beside the selected value without crossing the panel edge.
 pub(in crate::app) fn model_settings_cursor_position(
     app: &AppState,
     size: TerminalSize,
 ) -> (usize, usize) {
     let ob = model_settings_overlay_box(size);
     let layout = FieldLayout::new(&ob);
-    let field = app.runtime.model_settings_field;
-    let value_width = visual_width(field_value(app, field));
-    let x = layout.x_value + value_width;
-    let y = match field {
-        ModelSettingsField::Model => ob.start_y + 3,
-        ModelSettingsField::Effort => ob.start_y + 5,
-        ModelSettingsField::Summary => ob.start_y + 7,
-        ModelSettingsField::DictationEndpoint => {
-            if app.runtime_supports_summary() {
-                ob.start_y + 9
-            } else {
-                ob.start_y + 7
-            }
-        }
-    };
+    let fields = app.runtime.model_settings_fields();
+    let index = fields
+        .iter()
+        .position(|&field| field == app.runtime.model_settings_field)
+        .unwrap_or(0);
+    let value_width = visual_width(field_value(app, app.runtime.model_settings_field));
+    let x = (layout.x_value + value_width.min(layout.value_w)).min(ob.right.saturating_sub(1));
+    let y = layout.row_y(&ob, index).min(size.height.saturating_sub(1));
     (x, y)
 }
 
 pub(super) fn draw_model_settings_fields(buf: &mut Buffer, ob: &OverlayBox, app: &AppState) {
     let layout = FieldLayout::new(ob);
-    layout.draw_row(
-        buf,
-        app,
-        ob.start_y + 3,
-        "Model",
-        8,
-        ModelSettingsField::Model,
-    );
-    layout.draw_row(
-        buf,
-        app,
-        ob.start_y + 5,
-        "Thinking",
-        8,
-        ModelSettingsField::Effort,
-    );
-    let dictation_y = if app.runtime_supports_summary() {
-        layout.draw_row(
-            buf,
-            app,
-            ob.start_y + 7,
-            "Summary",
-            8,
-            ModelSettingsField::Summary,
-        );
-        ob.start_y + 9
+    let fields = app.runtime.model_settings_fields();
+    for (index, &field) in fields.iter().enumerate() {
+        layout.draw_row(buf, app, layout.row_y(ob, index), field);
+    }
+    let help = if app.runtime.model_settings_field == ModelSettingsField::DictationEndpoint {
+        "Arrows/Enter toggle, Esc close"
     } else {
-        ob.start_y + 7
+        "Tab field, arrows, Enter save"
     };
-    layout.draw_row(
-        buf,
-        app,
-        dictation_y,
-        "Dictation",
-        9,
-        ModelSettingsField::DictationEndpoint,
-    );
     draw_str(
         buf,
         layout.x_label,
-        dictation_y + 2,
-        "Tab switch field, arrows adjust, Enter apply/toggle",
+        layout.row_y(ob, fields.len()),
+        help,
         Style::default().fg(COLOR_DIM),
         content_width(ob),
     );
@@ -96,29 +60,43 @@ struct FieldLayout {
     x_label: usize,
     x_value: usize,
     value_w: usize,
-    label_style: Style,
+    row_step: usize,
 }
 
 impl FieldLayout {
     fn new(ob: &OverlayBox) -> Self {
         Self {
             x_label: ob.start_x + 3,
-            x_value: ob.start_x + 12,
-            value_w: ob.box_w.saturating_sub(16),
-            label_style: Style::default().fg(COLOR_DIM),
+            x_value: ob.start_x + 15,
+            value_w: ob.box_w.saturating_sub(18),
+            row_step: if ob.bottom.saturating_sub(ob.top) + 1 < 16 {
+                1
+            } else {
+                2
+            },
         }
     }
 
-    fn draw_row(
-        &self,
-        buf: &mut Buffer,
-        app: &AppState,
-        y: usize,
-        label: &str,
-        label_w: usize,
-        field: ModelSettingsField,
-    ) {
-        draw_str(buf, self.x_label, y, label, self.label_style, label_w);
+    fn row_y(&self, ob: &OverlayBox, index: usize) -> usize {
+        ob.start_y + 3 + index * self.row_step
+    }
+
+    fn draw_row(&self, buf: &mut Buffer, app: &AppState, y: usize, field: ModelSettingsField) {
+        let label = match field {
+            ModelSettingsField::Model => "Model",
+            ModelSettingsField::Effort => "Thinking",
+            ModelSettingsField::Summary => "Summary",
+            ModelSettingsField::DictationEndpoint => "Dictation",
+            ModelSettingsField::ToolOutput => "Tool output",
+        };
+        draw_str(
+            buf,
+            self.x_label,
+            y,
+            label,
+            Style::default().fg(COLOR_DIM),
+            11,
+        );
         draw_str(
             buf,
             self.x_value,
@@ -136,6 +114,9 @@ fn field_value(app: &AppState, field: ModelSettingsField) -> &str {
         ModelSettingsField::Effort => app.model_settings_effort_value(),
         ModelSettingsField::Summary => app.model_settings_summary_value(),
         ModelSettingsField::DictationEndpoint => app.dictation_endpoint_mode_label(),
+        ModelSettingsField::ToolOutput => app
+            .tool_output
+            .settings_label(app.runtime.model_settings_tool_output),
     }
 }
 

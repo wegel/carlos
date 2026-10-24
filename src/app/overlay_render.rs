@@ -15,9 +15,7 @@ use super::{AppState, TerminalSize};
 use crate::theme::{COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_STEP2, COLOR_STEP7, COLOR_TEXT};
 
 pub(super) use self::overlay_render_model_settings::model_settings_cursor_position;
-use self::overlay_render_model_settings::{
-    draw_model_settings_fields, model_settings_overlay_box, MODEL_SETTINGS_BOX_HEIGHT,
-};
+use self::overlay_render_model_settings::{draw_model_settings_fields, model_settings_overlay_box};
 pub(super) use self::overlay_render_perf::draw_perf_overlay;
 
 pub(super) struct OverlayBox {
@@ -142,7 +140,7 @@ pub(super) fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize) {
     }
 
     let box_w = (size.width - 8).min(74);
-    let box_h = 11usize;
+    let box_h = 12usize;
     let ob = compute_overlay_box(size, box_w, box_h);
 
     fill_fullscreen_overlay(buf, size);
@@ -165,6 +163,10 @@ fn draw_help_lines(buf: &mut Buffer, ob: &OverlayBox) {
         ("Home/End jump transcript  Ctrl+M settings", text_style),
         ("Wheel scroll, drag to select, release to copy", text_style),
         ("/rename [name] change the Codex session name", text_style),
+        (
+            "/tools [auto|compact|full] fold long tool output",
+            text_style,
+        ),
         ("? toggle this help", dim_style),
     ];
     for (i, (text, style)) in lines.iter().enumerate() {
@@ -177,19 +179,14 @@ fn draw_help_lines(buf: &mut Buffer, ob: &OverlayBox) {
 // ---------------------------------------------------------------------------
 
 pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, app: &AppState) {
-    if !(size.height > 16 && size.width > 56) {
+    if size.height < 12 || size.width < 36 {
         return;
     }
     let ob = model_settings_overlay_box(size);
-    fill_box_background(buf, &ob, MODEL_SETTINGS_BOX_HEIGHT);
+    fill_box_background(buf, &ob, ob.bottom - ob.top + 1);
     draw_rounded_border(buf, &ob);
 
-    let title = if app.runtime_supports_summary() {
-        "Model / Thinking / Summary / Dictation"
-    } else {
-        "Model / Thinking / Dictation"
-    };
-    draw_overlay_title(buf, &ob, title);
+    draw_overlay_title(buf, &ob, "Settings");
     draw_model_settings_fields(buf, &ob, app);
 }
 

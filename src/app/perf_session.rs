@@ -157,6 +157,7 @@ fn replay_perf_session(path: &str, size: TerminalSize) -> Result<(AppState, Perf
     }
 
     let mut terminal = Terminal::new(TestBackend::new(size.width as u16, size.height as u16))?;
+    app.tool_output.update_size(size);
     stats.layout_breakdown = profile_layout_count_pass(&app, transcript_content_width(size));
     let render_started = Instant::now();
     app.ensure_rendered_lines(transcript_content_width(size), None);
@@ -182,6 +183,7 @@ fn replay_synthetic_perf_session(
     stats.relevant_items = app.messages.len();
 
     let mut terminal = Terminal::new(TestBackend::new(size.width as u16, size.height as u16))?;
+    app.tool_output.update_size(size);
     stats.layout_breakdown = profile_layout_count_pass(&app, transcript_content_width(size));
     let render_started = Instant::now();
     app.ensure_rendered_lines(transcript_content_width(size), None);

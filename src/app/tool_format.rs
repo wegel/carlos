@@ -123,6 +123,7 @@ pub(super) fn format_tool_call_inline(item: &Value, tool_name: &str) -> Option<S
 
 const READ_EXCLUDE_KEYS: &[&str] = &[
     "filePath",
+    "file_path",
     "path",
     "tool",
     "name",
@@ -147,7 +148,11 @@ const GENERIC_EXCLUDE_KEYS: &[&str] = &[
 
 fn format_read_call_inline(input: Option<&serde_json::Map<String, Value>>, icon: &str) -> String {
     let path = input
-        .and_then(|obj| obj.get("filePath").or_else(|| obj.get("path")))
+        .and_then(|obj| {
+            obj.get("filePath")
+                .or_else(|| obj.get("file_path"))
+                .or_else(|| obj.get("path"))
+        })
         .and_then(Value::as_str)
         .unwrap_or("");
     let mut out = format!("{icon} Read {path}");

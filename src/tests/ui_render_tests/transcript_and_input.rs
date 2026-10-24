@@ -4,12 +4,14 @@
 fn build_rendered_lines_with_hidden_omits_selected_user_message() {
     let messages = vec![
         Message {
+            tool_output: None,
             role: Role::User,
             text: "first prompt".to_string(),
             kind: MessageKind::Plain,
             file_path: None,
         },
         Message {
+            tool_output: None,
             role: Role::Assistant,
             text: "reply".to_string(),
             kind: MessageKind::Plain,
@@ -213,6 +215,7 @@ fn wrap_input_line_keeps_trailing_space_visible() {
 #[test]
 fn build_rendered_lines_expands_user_tabs_for_display() {
     let messages = vec![Message {
+        tool_output: None,
         role: Role::User,
         text: "col1\tcol2".to_string(),
         kind: MessageKind::Plain,

@@ -174,7 +174,7 @@ pub(super) fn synthetic_tool_result_item(
             tool_use_result,
         ));
     }
-    if !is_error && (lower == "read" || (lower != "write" && lower != "edit")) {
+    if !is_error && !matches!(lower.as_str(), "read" | "write" | "edit") {
         return None;
     }
     Some(synthetic_file_tool_result(
@@ -235,6 +235,7 @@ fn synthetic_bash_result(
     item.insert("name".into(), Value::String(tool_call.name.clone()));
     item.insert("output".into(), Value::String(formatted_output));
     item.insert("command".into(), Value::String(command.to_string()));
+    item.insert("isError".into(), json!(is_error || interrupted));
     if is_probably_diff_text(&raw_output) {
         item.insert("diff".into(), Value::String(raw_output));
     }
@@ -254,6 +255,7 @@ fn synthetic_file_tool_result(
     item.insert("tool".into(), Value::String(tool_call.name.clone()));
     item.insert("name".into(), Value::String(tool_call.name.clone()));
     item.insert("input".into(), tool_call.input.clone());
+    item.insert("isError".into(), json!(is_error));
 
     if let Some(result) = tool_use_result.cloned() {
         item.insert("result".into(), result);
@@ -296,6 +298,7 @@ pub(super) fn fallback_tool_result_item(tool_use_id: &str, part: &Value) -> Opti
         "id": format!("{tool_use_id}:result"),
         "type": "toolResult",
         "output": content_text,
+        "isError": part.get("is_error").and_then(Value::as_bool).unwrap_or(false),
     }))
 }
 

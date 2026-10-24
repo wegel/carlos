@@ -77,6 +77,7 @@ impl AppState {
     }
 
     pub(super) fn open_model_settings(&mut self) {
+        self.runtime.model_settings_tool_output = self.tool_output.mode;
         self.runtime.open_model_settings();
     }
 
@@ -121,6 +122,7 @@ impl AppState {
     }
 
     pub(super) fn apply_model_settings(&mut self) -> RuntimeDefaults {
+        self.tool_output.mode = self.runtime.model_settings_tool_output;
         let defaults = self.runtime.apply_model_settings();
         let label = if self.runtime.supports_summary {
             "model/effort/summary"
@@ -145,10 +147,6 @@ impl AppState {
 
     pub(super) fn model_settings_summary_value(&self) -> &str {
         self.runtime.model_settings_summary_value()
-    }
-
-    pub(super) fn runtime_supports_summary(&self) -> bool {
-        self.runtime.supports_summary
     }
 
     #[cfg(test)]

@@ -32,6 +32,7 @@ Alpha.
 - markdown rendering and code syntax highlighting
 - diff rendering with hunk-oriented display
 - compact tool/action rows (`Read`, `Search`, `Edit`, `Diff`, `run ...`)
+- Ctrl+M settings and `/tools auto|compact|full` control tool contents, with Auto hiding them on small terminals
 - mouse scroll and drag selection with auto-copy on release
 - OSC52 clipboard support for SSH sessions
 - context usage indicator (`used/max (%)`) on the activity line
@@ -39,6 +40,31 @@ Alpha.
 - context compaction markers in transcript
 - native Codex waits and child-agent start/completion notices, including notices after the main answer
 - dim, right-aligned session-name placeholder in the empty composer; `/rename [name]` edits the saved Codex name
+
+## Tool output on small terminals
+
+Carlos keeps the tool output it receives in memory and lets you choose how much
+to show. Open Ctrl+M, select **Tool output**, use the arrow keys, and press Enter
+to save. Escape cancels unsaved edits. You can also enter `/tools auto`,
+`/tools compact`, or `/tools full`. A bare `/tools`
+cycles through the three choices. These commands stay inside Carlos and never
+send a message to the agent.
+
+- `auto` is the default. Carlos folds tool contents below 80 columns or 20
+  rows. It unfolds them once the terminal has at least 84 columns and 22 rows,
+  so small resize changes do not repeatedly fold and unfold the transcript.
+- `compact` replaces tool contents with summaries, including short command
+  results, multiline scripts, reads, diffs, and failure details. Failed tools
+  keep a `Failed:` label. Full mode reveals their details. Assistant answers
+  and approval prompts remain visible.
+- `full` shows all received tool output, even on a small terminal.
+
+The Ctrl+M panel shows the chosen mode and, in Auto, the current view. Carlos
+saves your explicit choice in `~/.config/carlos/ui-settings.json` (or under
+`XDG_CONFIG_HOME` when set). Auto's temporary choice for a phone-sized terminal
+does not change that saved preference. You can reveal earlier output without
+rerunning a tool; reopened sessions use the contents available in the backend's
+saved history.
 
 ## Session names
 
@@ -210,6 +236,7 @@ target/ui-venv/bin/python tests/ui/test_workflows.py --binary ~/.local/bin/carlo
 
 - `Enter`: send message, or stop recording while dictating
 - `/rename [name]`: change the Codex session name, or load the current name to edit
+- `/tools [auto|compact|full]`: choose how much tool output to show; omit the mode to cycle
 - `Shift+Enter` / `Alt+Enter`: newline in input
 - `Up/Down`: input history navigation
 - `Esc` (while turn active): interrupt running turn

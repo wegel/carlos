@@ -43,10 +43,18 @@ impl TurnStatus {
 
 #[derive(Debug, Clone)]
 pub(super) struct Message {
+    pub(super) tool_output: Option<ToolOutputDetails>,
     pub(super) role: Role,
     pub(super) text: String,
     pub(super) kind: MessageKind,
     pub(super) file_path: Option<String>,
+}
+
+/// Keep a tool's label and failure state alongside its original contents.
+#[derive(Debug, Clone)]
+pub(super) struct ToolOutputDetails {
+    pub(super) summary: String,
+    pub(super) failed: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

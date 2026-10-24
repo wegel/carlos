@@ -1,7 +1,7 @@
 // Tests for per-program one-line command summaries.
 
 #[test]
-fn exec_command_end_read_override_suppresses_large_read_output_on_success() {
+fn exec_command_end_read_override_retains_read_output_and_summary_on_success() {
     let mut app = AppState::new("thread-1".to_string());
     handle_notification_line(
             &mut app,
@@ -17,12 +17,12 @@ fn exec_command_end_read_override_suppresses_large_read_output_on_success() {
         );
 
     assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].text, "→ Read src/main.rs");
-    assert_eq!(app.messages[0].role, Role::ToolCall);
+    assert_eq!(app.messages[0].tool_output.as_ref().expect("tool details").summary, "→ Read src/main.rs");
+    assert_eq!(app.messages[0].role, Role::ToolOutput);
 }
 
 #[test]
-fn exec_command_end_search_override_suppresses_large_output_on_success() {
+fn exec_command_end_search_override_retains_output_and_summary_on_success() {
     let mut app = AppState::new("thread-1".to_string());
     handle_notification_line(
             &mut app,
@@ -38,8 +38,8 @@ fn exec_command_end_search_override_suppresses_large_output_on_success() {
         );
 
     assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].text, "✱ Search src/main.rs [pattern=foo]");
-    assert_eq!(app.messages[0].role, Role::ToolCall);
+    assert_eq!(app.messages[0].tool_output.as_ref().expect("tool details").summary, "✱ Search src/main.rs [pattern=foo]");
+    assert_eq!(app.messages[0].role, Role::ToolOutput);
 }
 
 #[test]
@@ -87,10 +87,10 @@ fn exec_command_end_generic_shell_nl_sed_is_summarized_as_search() {
 
     assert_eq!(app.messages.len(), 1);
     assert_eq!(
-        app.messages[0].text,
+        app.messages[0].tool_output.as_ref().expect("tool details").summary,
         "✱ Search src/main.rs [lines=3398..3465]"
     );
-    assert_eq!(app.messages[0].role, Role::ToolCall);
+    assert_eq!(app.messages[0].role, Role::ToolOutput);
 }
 
 #[test]
@@ -111,10 +111,10 @@ fn exec_command_end_generic_shell_rg_is_summarized_as_search() {
 
     assert_eq!(app.messages.len(), 1);
     assert_eq!(
-        app.messages[0].text,
+        app.messages[0].tool_output.as_ref().expect("tool details").summary,
         "✱ Search src/app/render.rs [pattern=count|build\\(]"
     );
-    assert_eq!(app.messages[0].role, Role::ToolCall);
+    assert_eq!(app.messages[0].role, Role::ToolOutput);
 }
 
 #[test]
@@ -135,10 +135,10 @@ fn exec_command_end_generic_shell_semeja_search_is_summarized_as_search() {
 
     assert_eq!(app.messages.len(), 1);
     assert_eq!(
-        app.messages[0].text,
+        app.messages[0].tool_output.as_ref().expect("tool details").summary,
         "✱ Search src/app [pattern=grep and rg command summaries]"
     );
-    assert_eq!(app.messages[0].role, Role::ToolCall);
+    assert_eq!(app.messages[0].role, Role::ToolOutput);
 }
 
 #[test]
@@ -159,10 +159,10 @@ fn exec_command_end_generic_shell_rtk_semeja_search_is_summarized_as_search() {
 
     assert_eq!(app.messages.len(), 1);
     assert_eq!(
-        app.messages[0].text,
+        app.messages[0].tool_output.as_ref().expect("tool details").summary,
         "✱ Search . [pattern=Cinero Android app package existing Android TV Screen app]"
     );
-    assert_eq!(app.messages[0].role, Role::ToolCall);
+    assert_eq!(app.messages[0].role, Role::ToolOutput);
 }
 
 #[test]
@@ -183,10 +183,10 @@ fn exec_command_end_generic_shell_semeja_related_is_summarized_as_search() {
 
     assert_eq!(app.messages.len(), 1);
     assert_eq!(
-        app.messages[0].text,
+        app.messages[0].tool_output.as_ref().expect("tool details").summary,
         "✱ Search src/app/tool_shell.rs [line=372]"
     );
-    assert_eq!(app.messages[0].role, Role::ToolCall);
+    assert_eq!(app.messages[0].role, Role::ToolOutput);
 }
 
 #[test]
@@ -207,10 +207,10 @@ fn exec_command_end_generic_shell_rtk_proxy_semeja_related_is_summarized_as_sear
 
     assert_eq!(app.messages.len(), 1);
     assert_eq!(
-        app.messages[0].text,
+        app.messages[0].tool_output.as_ref().expect("tool details").summary,
         "✱ Search src/app/tool_shell.rs [line=372]"
     );
-    assert_eq!(app.messages[0].role, Role::ToolCall);
+    assert_eq!(app.messages[0].role, Role::ToolOutput);
 }
 
 #[test]
@@ -231,10 +231,10 @@ fn exec_command_end_generic_shell_sed_is_summarized_as_search() {
 
     assert_eq!(app.messages.len(), 1);
     assert_eq!(
-        app.messages[0].text,
+        app.messages[0].tool_output.as_ref().expect("tool details").summary,
         "✱ Search src/app/render.rs [lines=916..1015]"
     );
-    assert_eq!(app.messages[0].role, Role::ToolCall);
+    assert_eq!(app.messages[0].role, Role::ToolOutput);
 }
 
 #[test]
@@ -255,10 +255,10 @@ fn exec_command_end_generic_shell_rtk_nl_sed_is_summarized_as_search() {
 
     assert_eq!(app.messages.len(), 1);
     assert_eq!(
-        app.messages[0].text,
+        app.messages[0].tool_output.as_ref().expect("tool details").summary,
         "✱ Search src/main.rs [lines=1..40]"
     );
-    assert_eq!(app.messages[0].role, Role::ToolCall);
+    assert_eq!(app.messages[0].role, Role::ToolOutput);
 }
 
 #[test]
@@ -275,10 +275,10 @@ fn item_completed_shell_rg_falls_back_to_search_summary_without_exec_command_end
 
     assert_eq!(app.messages.len(), 1);
     assert_eq!(
-        app.messages[0].text,
+        app.messages[0].tool_output.as_ref().expect("tool details").summary,
         "✱ Search pkg/core/userland/util_linux.yaml [pattern=bundles:|runtime:|full:|bin:|misc:]"
     );
-    assert_eq!(app.messages[0].role, Role::ToolCall);
+    assert_eq!(app.messages[0].role, Role::ToolOutput);
 }
 
 #[test]
@@ -295,10 +295,10 @@ fn item_completed_shell_semeja_falls_back_to_search_summary_without_exec_command
 
     assert_eq!(app.messages.len(), 1);
     assert_eq!(
-        app.messages[0].text,
+        app.messages[0].tool_output.as_ref().expect("tool details").summary,
         "✱ Search . [pattern=grep and rg command summaries]"
     );
-    assert_eq!(app.messages[0].role, Role::ToolCall);
+    assert_eq!(app.messages[0].role, Role::ToolOutput);
 }
 
 #[test]
@@ -315,10 +315,10 @@ fn item_completed_shell_sed_falls_back_to_search_summary_without_exec_command_en
 
     assert_eq!(app.messages.len(), 1);
     assert_eq!(
-        app.messages[0].text,
+        app.messages[0].tool_output.as_ref().expect("tool details").summary,
         "✱ Search pkg/core/userland/util_linux.yaml [lines=95..125]"
     );
-    assert_eq!(app.messages[0].role, Role::ToolCall);
+    assert_eq!(app.messages[0].role, Role::ToolOutput);
 }
 
 #[test]
@@ -335,10 +335,10 @@ fn item_completed_shell_nl_sed_pipeline_falls_back_to_search_summary_without_exe
 
     assert_eq!(app.messages.len(), 1);
     assert_eq!(
-        app.messages[0].text,
+        app.messages[0].tool_output.as_ref().expect("tool details").summary,
         "✱ Search /home/wegel/work/tt/projects/soniq/wegel/apps/tools/rootfs-builder/meta-soniq/recipes-multimedia/wireplumber/wireplumber_%.bbappend [lines=1..120]"
     );
-    assert_eq!(app.messages[0].role, Role::ToolCall);
+    assert_eq!(app.messages[0].role, Role::ToolOutput);
 }
 
 #[test]
@@ -355,10 +355,10 @@ fn item_completed_shell_rg_multi_path_falls_back_to_search_summary_without_exec_
 
     assert_eq!(app.messages.len(), 1);
     assert_eq!(
-        app.messages[0].text,
+        app.messages[0].tool_output.as_ref().expect("tool details").summary,
         "✱ Search asm pkg [pattern=bash_completion|bash-completion]"
     );
-    assert_eq!(app.messages[0].role, Role::ToolCall);
+    assert_eq!(app.messages[0].role, Role::ToolOutput);
 }
 
 #[test]

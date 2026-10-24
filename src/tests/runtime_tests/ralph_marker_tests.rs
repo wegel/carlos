@@ -4,24 +4,28 @@
 fn detect_turn_markers_matches_trimmed_commentary_marker_lines() {
     let messages = vec![
         Message {
+            tool_output: None,
             role: Role::User,
             text: "@@BLOCKED@@".to_string(),
             kind: MessageKind::Plain,
             file_path: None,
         },
         Message {
+            tool_output: None,
             role: Role::Commentary,
             text: "working...\n  @@BLOCKED@@ \nnext".to_string(),
             kind: MessageKind::Plain,
             file_path: None,
         },
         Message {
+            tool_output: None,
             role: Role::Assistant,
             text: "@@COMPLETE@@".to_string(),
             kind: MessageKind::Plain,
             file_path: None,
         },
         Message {
+            tool_output: None,
             role: Role::Assistant,
             text: "@@AWAITING_HUMAN@@".to_string(),
             kind: MessageKind::Plain,
@@ -44,6 +48,7 @@ fn detect_turn_markers_matches_trimmed_commentary_marker_lines() {
 #[test]
 fn detect_turn_markers_matches_leading_marker_with_summary_tokens() {
     let messages = vec![Message {
+        tool_output: None,
         role: Role::Assistant,
         text: "@@COMPLETE@@ @@COMPLETE_SUMMARY_START@@ summary".to_string(),
         kind: MessageKind::Plain,
@@ -65,6 +70,7 @@ fn detect_turn_markers_matches_leading_marker_with_summary_tokens() {
 #[test]
 fn detect_turn_markers_ignore_explanatory_marker_mentions() {
     let messages = vec![Message {
+        tool_output: None,
         role: Role::Assistant,
         text: concat!(
             "Do not output @@COMPLETE@@ until every plan is done.\n",

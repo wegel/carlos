@@ -1,10 +1,27 @@
 //! Model-settings overlay state: field cycling, value edits, and apply/persist logic.
 
 use super::{
-    default_effort_vec, effort_index, normalize_non_empty, RuntimeDefaults, RuntimeSettingsState,
+    default_effort_vec, effort_index, normalize_non_empty, ModelSettingsField, RuntimeDefaults,
+    RuntimeSettingsState,
 };
 
 impl RuntimeSettingsState {
+    /// List the visible settings in the same order for drawing and keyboard focus.
+    pub(in crate::app) fn model_settings_fields(&self) -> Vec<ModelSettingsField> {
+        let mut fields = vec![ModelSettingsField::Model];
+        if self.supports_effort {
+            fields.push(ModelSettingsField::Effort);
+        }
+        if self.supports_summary {
+            fields.push(ModelSettingsField::Summary);
+        }
+        fields.extend([
+            ModelSettingsField::DictationEndpoint,
+            ModelSettingsField::ToolOutput,
+        ]);
+        fields
+    }
+
     pub(in crate::app) fn apply_model_settings(&mut self) -> RuntimeDefaults {
         let model = normalize_non_empty(self.model_settings_model_value().to_string());
         let effort = self

@@ -3,6 +3,11 @@
 #[path = "input_events_dictation.rs"]
 mod input_events_dictation;
 
+#[path = "input_events_model_settings.rs"]
+mod input_events_model_settings;
+
+use self::input_events_model_settings::handle_model_settings_key;
+
 use std::time::Instant;
 
 use crossterm::event::{KeyCode, KeyModifiers};
@@ -16,11 +21,12 @@ use crate::app::render::{compute_input_layout, is_newline_enter};
 use crate::app::render_input::last_assistant_message;
 use crate::app::selection::MouseDragMode;
 use crate::app::session_name::handle_rename_command;
-use crate::app::state::{AppState, ApprovalChoice, ModelSettingsField};
+use crate::app::state::{AppState, ApprovalChoice};
+use crate::app::tool_output_command::handle_tools_command;
 use crate::app::turn_submit::{
     interrupt_active_turn, respond_to_pending_approval, submit_rewind_turn_text, submit_turn_text,
 };
-use crate::app::{persist_runtime_defaults, TerminalSize, MSG_TOP};
+use crate::app::{TerminalSize, MSG_TOP};
 use crate::backend::BackendClient;
 use crate::clipboard::{clipboard_backend_label, try_copy_clipboard};
 
@@ -113,57 +119,6 @@ fn handle_approval_key(
         }
         (KeyCode::Char('c'), mods) if mods.is_empty() => {
             respond_to_pending_approval(client, app, ApprovalChoice::Cancel);
-        }
-        _ => {}
-    }
-    TerminalEventResult::Continue { needs_draw: true }
-}
-
-fn handle_model_settings_key(
-    app: &mut AppState,
-    k: crossterm::event::KeyEvent,
-) -> TerminalEventResult {
-    let cycle = |app: &mut AppState, dir: isize| match app.runtime.model_settings_field {
-        ModelSettingsField::Model => app.model_settings_cycle_model(dir),
-        ModelSettingsField::Effort => app.model_settings_cycle_effort(dir),
-        ModelSettingsField::Summary => app.model_settings_cycle_summary(dir),
-        ModelSettingsField::DictationEndpoint => app.toggle_dictation_endpoint_mode(),
-    };
-    match (k.code, k.modifiers) {
-        (code, mods) if is_ctrl_char(code, mods, 'c') => return TerminalEventResult::Quit,
-        (KeyCode::Esc, _) => app.close_model_settings(),
-        (KeyCode::Tab, _) | (KeyCode::Down, _) => app.model_settings_move_field(true),
-        (KeyCode::BackTab, _) | (KeyCode::Up, _) => app.model_settings_move_field(false),
-        (KeyCode::Left, _) => cycle(app, -1),
-        (KeyCode::Right, _) => cycle(app, 1),
-        (KeyCode::Backspace, _)
-            if matches!(app.runtime.model_settings_field, ModelSettingsField::Model)
-                && !app.model_settings_has_model_choices() =>
-        {
-            app.model_settings_backspace();
-        }
-        (KeyCode::Enter, _)
-            if matches!(
-                app.runtime.model_settings_field,
-                ModelSettingsField::DictationEndpoint
-            ) =>
-        {
-            app.toggle_dictation_endpoint_mode();
-        }
-        (KeyCode::Enter, _) => {
-            let defaults = app.apply_model_settings();
-            if let Err(err) = persist_runtime_defaults(&defaults) {
-                app.set_status(format!("saved for next turn; default save failed: {err}"));
-            }
-        }
-        (KeyCode::Char(ch), mods)
-            if !mods.contains(KeyModifiers::CONTROL)
-                && !mods.contains(KeyModifiers::ALT)
-                && matches!(app.runtime.model_settings_field, ModelSettingsField::Model) =>
-        {
-            if !app.model_settings_has_model_choices() {
-                app.model_settings_insert_char(ch);
-            }
         }
         _ => {}
     }
@@ -327,6 +282,9 @@ fn handle_enter_submit(client: &dyn BackendClient, app: &mut AppState) -> Termin
     }
 
     let text = app.input_text();
+    if handle_tools_command(app, &text) {
+        return TerminalEventResult::Continue { needs_draw: true };
+    }
     if app.rewind_mode() {
         if let Some(rewind_history_idx) = app.rewind_selected_history_index() {
             submit_rewind_turn_text(client, app, rewind_history_idx, text);

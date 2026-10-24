@@ -26,12 +26,29 @@ impl AppState {
         width: usize,
         hidden_user_message_idx: Option<usize>,
     ) {
-        self.render_cache
-            .ensure_rendered_lines(&self.messages, width, hidden_user_message_idx);
+        if self.render_cache.rendered_width != width
+            || self.render_cache.rendered_compact != self.tool_output.compact()
+        {
+            self.viewport.selection = None;
+            self.viewport.mouse_drag_mode = super::selection::MouseDragMode::Undecided;
+        }
+        let anchor = (!self.viewport.auto_follow_bottom)
+            .then(|| self.render_cache.message_anchor(self.viewport.scroll_top))
+            .flatten();
+        self.render_cache.ensure_rendered_lines(
+            &self.messages,
+            width,
+            hidden_user_message_idx,
+            self.tool_output.compact(),
+        );
+        if let Some(line) = anchor.and_then(|anchor| self.render_cache.line_for_anchor(anchor)) {
+            self.viewport.scroll_top = line;
+        }
     }
 
     pub(super) fn append_message(&mut self, role: Role, text: impl Into<String>) -> usize {
         self.messages.push(Message {
+            tool_output: None,
             role,
             text: text.into(),
             kind: MessageKind::Plain,
@@ -50,6 +67,7 @@ impl AppState {
         diff: impl Into<String>,
     ) -> usize {
         self.messages.push(Message {
+            tool_output: None,
             role,
             text: diff.into(),
             kind: MessageKind::Diff,
@@ -90,6 +108,13 @@ impl AppState {
     pub(super) fn set_command_override(&mut self, call_id: &str, summary: String) {
         self.command_render_overrides
             .insert(call_id.to_string(), summary.clone());
+        if let Some(&idx) = self.item_to_message_index.get(call_id) {
+            if let Some(tool) = self.messages[idx].tool_output.as_mut() {
+                tool.summary = summary;
+                self.mark_transcript_dirty_from(idx);
+                return;
+            }
+        }
         let _ = self.update_mapped_message(
             call_id,
             Role::ToolCall,

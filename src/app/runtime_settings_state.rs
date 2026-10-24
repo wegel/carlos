@@ -3,6 +3,7 @@
 #[path = "runtime_settings_model_settings.rs"]
 mod runtime_settings_model_settings;
 
+use crate::app::tool_output_state::ToolOutputMode;
 use crate::app::RuntimeDefaults;
 use crate::protocol_params::ModelInfo;
 
@@ -20,6 +21,7 @@ pub(super) enum ModelSettingsField {
     Effort,
     Summary,
     DictationEndpoint,
+    ToolOutput,
 }
 
 // --- Settings State ---
@@ -35,6 +37,7 @@ pub(super) struct RuntimeSettingsState {
     pub(super) pending_summary: Option<String>,
     pub(super) show_model_settings: bool,
     pub(super) model_settings_field: ModelSettingsField,
+    pub(super) model_settings_tool_output: ToolOutputMode,
     pub(super) model_settings_model_input: String,
     pub(super) model_settings_model_index: usize,
     pub(super) model_settings_effort_options: Vec<String>,
@@ -59,6 +62,7 @@ impl RuntimeSettingsState {
             pending_summary: None,
             show_model_settings: false,
             model_settings_field: ModelSettingsField::Model,
+            model_settings_tool_output: ToolOutputMode::Auto,
             model_settings_model_input: String::new(),
             model_settings_model_index: 0,
             model_settings_effort_options: Vec::new(),
@@ -257,14 +261,7 @@ impl RuntimeSettingsState {
     }
 
     pub(super) fn model_settings_move_field(&mut self, forward: bool) {
-        let mut fields = vec![ModelSettingsField::Model];
-        if self.supports_effort {
-            fields.push(ModelSettingsField::Effort);
-        }
-        if self.supports_summary {
-            fields.push(ModelSettingsField::Summary);
-        }
-        fields.push(ModelSettingsField::DictationEndpoint);
+        let fields = self.model_settings_fields();
         let len = fields.len();
         if len <= 1 {
             self.model_settings_field = ModelSettingsField::Model;

@@ -219,11 +219,15 @@ fn upsert_history_message(
     part_index: usize,
 ) {
     let Some(item_id) = item.get("id").and_then(Value::as_str) else {
-        if kind == MessageKind::Diff {
-            app.append_diff_message(role, file_path, text);
+        let idx = if kind == MessageKind::Diff {
+            app.append_diff_message(role, file_path, text)
         } else {
             let idx = app.append_message(role, text);
             app.messages[idx].file_path = file_path;
+            idx
+        };
+        if role == Role::ToolOutput || kind == MessageKind::Diff {
+            app.describe_tool_output(idx, item);
         }
         return;
     };
@@ -233,6 +237,9 @@ fn upsert_history_message(
         format!("{item_id}#part-{part_index}")
     };
     app.upsert_mapped_message(&key, role, text, kind, file_path);
+    if role == Role::ToolOutput || kind == MessageKind::Diff {
+        app.describe_tool_output(app.item_to_message_index[&key], item);
+    }
 }
 
 fn has_terminal_item_status(item: &Value) -> bool {

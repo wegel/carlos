@@ -176,6 +176,12 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
     if size.width == 0 || size.height == 0 {
         return;
     }
+    app.tool_output.update_size(size);
+    let hidden = app
+        .rewind_mode()
+        .then(|| app.rewind_selected_message_idx())
+        .flatten();
+    app.ensure_rendered_lines(transcript_content_width(size), hidden);
 
     // --- Layout ---
     let input_layout_started = Instant::now();

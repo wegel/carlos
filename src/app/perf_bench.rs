@@ -9,9 +9,8 @@ use ratatui::Terminal;
 use super::models::{Message, MessageKind, Role};
 use super::perf::DurationSamples;
 use super::render::{compute_input_layout, render_main_view};
-use super::transcript_render::{
-    count_rendered_block_for_message_cached, transcript_content_width, RenderCountCache,
-};
+use super::render_cache_state::count_display_block;
+use super::transcript_render::{transcript_content_width, RenderCountCache};
 use super::{AppState, TerminalSize, MSG_TOP};
 
 const PERF_SAMPLE_WINDOW: usize = 4096;
@@ -174,8 +173,13 @@ pub(super) fn profile_layout_count_pass(app: &AppState, width: usize) -> Vec<Lay
         }
         let previous_visible = previous_visible_idx.and_then(|prev_idx| app.messages.get(prev_idx));
         let started = Instant::now();
-        let lines =
-            count_rendered_block_for_message_cached(&mut count_cache, previous_visible, msg, width);
+        let (_, lines) = count_display_block(
+            &mut count_cache,
+            previous_visible,
+            msg,
+            width,
+            app.tool_output.compact(),
+        );
         let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
         let entry = buckets
             .entry(layout_breakdown_label(msg))

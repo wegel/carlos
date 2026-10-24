@@ -9,9 +9,10 @@ import unittest
 from terminal import Terminal
 from test_session_names import SessionNames
 from test_source_colors import SourceColors
+from test_tool_output import ToolOutput
 
 
-class Workflows(SessionNames, SourceColors, unittest.TestCase):
+class Workflows(SessionNames, SourceColors, ToolOutput, unittest.TestCase):
     def test_native_monitor_activity_after_parent_completion_is_not_lost_or_duplicated(self):
         terminal = self.launch(mode="native-activity", resume=None)
         terminal.wait(lambda: terminal.input_is(""), "new thread ready")

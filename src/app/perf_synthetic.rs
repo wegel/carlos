@@ -55,24 +55,28 @@ pub(super) fn build_synthetic_perf_messages(spec: SyntheticPerfSpec) -> Vec<Mess
 
     for turn in 0..spec.turns {
         messages.push(Message {
+            tool_output: None,
             role: Role::User,
             text: synthetic_user_message(turn, &mut rng),
             kind: MessageKind::Plain,
             file_path: None,
         });
         messages.push(Message {
+            tool_output: None,
             role: Role::Commentary,
             text: synthetic_commentary_message(turn, &mut rng),
             kind: MessageKind::Plain,
             file_path: None,
         });
         messages.push(Message {
+            tool_output: None,
             role: Role::Reasoning,
             text: synthetic_reasoning_message(turn, &mut rng),
             kind: MessageKind::Plain,
             file_path: None,
         });
         messages.push(Message {
+            tool_output: None,
             role: Role::ToolCall,
             text: synthetic_tool_call(turn, &mut rng),
             kind: MessageKind::Plain,
@@ -80,6 +84,7 @@ pub(super) fn build_synthetic_perf_messages(spec: SyntheticPerfSpec) -> Vec<Mess
         });
         messages.push(synthetic_tool_output(turn, spec, &mut rng));
         messages.push(Message {
+            tool_output: None,
             role: Role::Assistant,
             text: synthetic_assistant_message(turn, &mut rng),
             kind: MessageKind::Plain,
@@ -148,6 +153,7 @@ fn synthetic_tool_call(turn: usize, rng: &mut SyntheticRng) -> String {
 fn synthetic_tool_output(turn: usize, spec: SyntheticPerfSpec, rng: &mut SyntheticRng) -> Message {
     if turn % 9 == 0 {
         return Message {
+            tool_output: None,
             role: Role::ToolOutput,
             kind: MessageKind::Diff,
             file_path: Some(format!(
@@ -175,6 +181,7 @@ fn synthetic_tool_output(turn: usize, spec: SyntheticPerfSpec, rng: &mut Synthet
     }
 
     Message {
+        tool_output: None,
         role: Role::ToolOutput,
         kind: MessageKind::Plain,
         file_path: None,

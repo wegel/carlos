@@ -34,6 +34,7 @@ class SourceColors:
         self.assertEqual(requests[0]["params"]["threadId"], "thread-new")
         self.assertEqual(requests[0]["params"]["input"][0]["text"], "show source")
         terminal.snapshot("source-colors-live")
+        self.tools_command(terminal, "/tools full", "full")
         terminal.resize(54, 32)
         self.assert_source_colors(terminal)
         terminal.snapshot("source-colors-narrow")

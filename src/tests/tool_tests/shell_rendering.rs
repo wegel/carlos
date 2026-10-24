@@ -37,8 +37,8 @@ fn exec_command_end_parsed_edit_type_is_summarized_as_edit() {
         );
 
     assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].text, "← Edit src/main.rs");
-    assert_eq!(app.messages[0].role, Role::ToolCall);
+    assert_eq!(app.messages[0].tool_output.as_ref().expect("tool details").summary, "← Edit src/main.rs");
+    assert_eq!(app.messages[0].role, Role::ToolOutput);
 }
 
 #[test]

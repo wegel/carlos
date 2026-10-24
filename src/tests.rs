@@ -95,6 +95,10 @@ mod notification_tests;
 mod runtime_tests;
 #[path = "tests/session_name_tests.rs"]
 mod session_name_tests;
+#[path = "tests/tool_output_item_tests.rs"]
+mod tool_output_item_tests;
+#[path = "tests/tool_output_tests.rs"]
+mod tool_output_tests;
 #[path = "tests/tool_tests.rs"]
 mod tool_tests;
 #[path = "tests/turn_lifecycle_tests.rs"]

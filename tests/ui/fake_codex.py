@@ -33,6 +33,27 @@ def source_items(command_read=False):
     }]}]
 
 
+def long_tool_items(failure=False):
+    if failure:
+        return [{"type": "commandExecution", "id": "failed-command", "command": "run-check",
+                 "aggregatedOutput": "\n".join(f"failure detail {i}" for i in range(8)), "exitCode": 2}]
+    return [{"type": "commandExecution", "id": "long-read", "command": "cat source.rs",
+             "commandActions": [{"type": "read", "command": "cat source.rs", "path": "source.rs"}],
+             "aggregatedOutput": "\n".join(f"let read_{i} = {i};" for i in range(8)), "exitCode": 0},
+            {"type": "toolOutput", "id": "long-diff", "files": [{"filePath": "source.rs",
+             "diff": "@@ -1,4 +1,4 @@\n" + "\n".join(
+                 [f"-let before_{i} = {i};" for i in range(4)] +
+                 [f"+let after_{i} = {i};" for i in range(4)])}]}]
+
+
+def short_tool_items():
+    script = "python3 - <<'PY'\nfrom pathlib import Path\nprint('short script marker')\nPY"
+    return [{"type": "commandExecution", "id": "short-script", "command": script,
+             "aggregatedOutput": "short script marker", "exitCode": 0},
+            {"type": "commandExecution", "id": "short-git", "command": "git add source.rs",
+             "aggregatedOutput": "", "exitCode": 0}]
+
+
 class Server:
     def __init__(self):
         self.root = Path(os.environ["CARLOS_TEST_ROOT"])
@@ -51,6 +72,9 @@ class Server:
         if self.mode == "source-history":
             self.threads["thread-original"]["turns"] = [{
                 "id": "source-turn", "status": "completed", "items": source_items(command_read=True)}]
+        if self.mode == "tool-history":
+            self.threads["thread-original"]["turns"] = [{
+                "id": "tools-turn", "status": "completed", "items": long_tool_items()}]
         if self.mode.startswith("named"):
             self.threads["thread-original"].setdefault("name", "Cleanup monitor")
         if self.mode == "automatic":
@@ -183,6 +207,12 @@ class Server:
         turn = completed_turn(key, text)
         if self.mode == "source-colors":
             turn["items"][1:1] = source_items()
+        if self.mode in ("tool-output", "tool-live", "tool-failure"):
+            turn["items"][1:1] = long_tool_items(failure=self.mode == "tool-failure")
+        if self.mode == "tool-short":
+            turn["items"][1:1] = short_tool_items()
+        if self.mode == "tool-live":
+            turn["status"] = "inProgress"
         if self.mode == "named-live":
             turn["status"] = "inProgress"
             turn["items"] = turn["items"][:1]
@@ -203,7 +233,7 @@ class Server:
                             "turnId": key, "itemId": item["id"], "delta": item["text"]})
             self.notify("item/completed", {"threadId": thread_id, "turnId": key, "item": item})
         self.threads[thread_id]["turns"].append(turn)
-        if self.mode == "named-live":
+        if self.mode in ("named-live", "tool-live"):
             return
         self.notify("turn/completed", {"threadId": thread_id, "turn": turn})
         if self.mode == "named-external":

@@ -16,6 +16,7 @@ use crate::theme::{COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_STEP2};
 
 fn diff_message(path: Option<&str>, text: &str) -> Message {
     Message {
+        tool_output: None,
         role: Role::ToolOutput,
         kind: MessageKind::Diff,
         text: text.to_string(),
@@ -155,12 +156,14 @@ fn colored_reads_and_diffs_keep_scroll_counts_and_wrapped_text() {
             "@@ -1 +1 @@\n-old\n+let greeting = \"héllo 🌍 and a long line of source code\";\n",
         ),
         Message {
+            tool_output: None,
             role: Role::ToolOutput,
             kind: MessageKind::Plain,
             file_path: Some("main.rs".to_string()),
             text: "1:let greeting = \"héllo 🌍 and a long line of source code\";\n".to_string(),
         },
         Message {
+            tool_output: None,
             role: Role::ToolOutput,
             kind: MessageKind::Plain,
             file_path: Some("notes.unknown".to_string()),
@@ -240,6 +243,7 @@ fn saved_command_reads_color_source_but_leave_command_and_status_plain() {
 #[test]
 fn read_output_keeps_explicit_terminal_colors() {
     let msg = Message {
+        tool_output: None,
         role: Role::ToolOutput,
         kind: MessageKind::Plain,
         file_path: Some("main.rs".to_string()),

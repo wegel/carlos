@@ -29,6 +29,7 @@ pub(super) use super::runtime_settings_state::ModelSettingsField;
 use super::runtime_settings_state::RuntimeSettingsState;
 #[cfg(test)]
 pub(super) use super::runtime_settings_state::{DEFAULT_EFFORT_OPTIONS, DEFAULT_SUMMARY_OPTIONS};
+use super::tool_output_state::ToolOutputState;
 use super::viewport_state::ViewportState;
 
 // --- Types ---
@@ -39,6 +40,7 @@ pub(super) struct AppState {
     pub(super) active_turn_id: Option<String>,
     pub(super) messages: Vec<Message>,
     pub(super) render_cache: RenderCacheState,
+    pub(super) tool_output: ToolOutputState,
     pub(super) item_to_message_index: HashMap<String, usize>,
     pub(super) completed_item_ids: HashSet<String>,
     pub(super) turn_status_by_id: HashMap<String, TurnStatus>,
@@ -72,6 +74,7 @@ impl AppState {
             active_turn_id: None,
             messages: Vec::new(),
             render_cache: RenderCacheState::new(),
+            tool_output: ToolOutputState::default(),
             item_to_message_index: HashMap::new(),
             completed_item_ids: HashSet::new(),
             turn_status_by_id: HashMap::new(),

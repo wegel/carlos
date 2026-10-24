@@ -25,8 +25,10 @@ class Terminal:
         shim = root / "bin"
         shim.mkdir(exist_ok=True)
         peer = "native_codex_peer.py" if codex else "fake_codex.py"
-        (shim / "codex").symlink_to(Path(__file__).with_name(peer).resolve())
-        (shim / "claude").symlink_to(Path(__file__).with_name("fake_claude.py").resolve())
+        if not (shim / "codex").exists():
+            (shim / "codex").symlink_to(Path(__file__).with_name(peer).resolve())
+        if not (shim / "claude").exists():
+            (shim / "claude").symlink_to(Path(__file__).with_name("fake_claude.py").resolve())
         self.screen = pyte.Screen(width, 32)
         self.stream = pyte.Stream(self.screen)
         self.decoder = codecs.getincrementaldecoder("utf-8")("replace")
@@ -34,6 +36,7 @@ class Terminal:
         env = {**os.environ, "TERM": "xterm-256color", "CARLOS_TEST_ROOT": str(root),
                "CARLOS_TEST_SERVER": mode, "HOME": str(root),
                "CODEX_HOME": str(root / "codex-home"), "CARLOS_METRICS": "0",
+               "XDG_CONFIG_HOME": str(root / "config"),
                "CLAUDE_CONFIG_DIR": str(root / "claude-home"),
                "CARLOS_EVENT_TRACE": str(root / "keys.log"),
                "PATH": str(shim) + os.pathsep + os.environ["PATH"]}

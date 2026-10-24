@@ -31,6 +31,12 @@ def event(kind, **fields):
 
 
 def respond(text):
+    if text == "read source":
+        send({"type": "assistant", "message": {"id": "claude-tool", "role": "assistant", "content": [
+            {"type": "tool_use", "id": "claude-read", "name": "Read", "input": {"file_path": "source.rs"}}]}})
+        send({"type": "user", "message": {"role": "user", "content": [{"type": "tool_result",
+            "tool_use_id": "claude-read", "is_error": False,
+            "content": "\n".join(f"let claude_read_{i} = {i};" for i in range(8))}]}})
     event("message_start", message={"id": "message-test", "role": "assistant", "content": []})
     event("content_block_start", index=0, content_block={"type": "text", "text": ""})
     event("content_block_delta", index=0, delta={"type": "text_delta", "text": "Answer: " + text})

@@ -93,6 +93,7 @@ fn hidden_user_message_idx(app: &AppState) -> Option<usize> {
 
 pub(super) fn ensure_transcript_layout(app: &mut AppState, size: TerminalSize) {
     let render_started = Instant::now();
+    app.tool_output.update_size(size);
     app.ensure_rendered_lines(transcript_content_width(size), hidden_user_message_idx(app));
     if let Some(perf) = app.perf.as_mut() {
         perf.transcript_render.push(render_started.elapsed());
