@@ -21,6 +21,18 @@ def completed_turn(key, text):
     ]}
 
 
+def source_items(command_read=False):
+    read = {"type": "toolOutput", "id": "source-read", "name": "Read",
+            "input": {"file_path": "main.rs"}, 'output': '1:let greeting = "hello";'}
+    if command_read:
+        read = {"type": "commandExecution", "id": "source-read", "command": "cat main.rs",
+                "commandActions": [{"type": "read", "command": "cat main.rs", "path": "main.rs"}],
+                "aggregatedOutput": '1:let greeting = "hello";', "exitCode": 0}
+    return [read, {"type": "toolOutput", "id": "source-diff", "files": [{
+        "filePath": "main.rs", "diff": '@@ -1 +1 @@\n-let value = "before";\n+let value = "after";\n'
+    }]}]
+
+
 class Server:
     def __init__(self):
         self.root = Path(os.environ["CARLOS_TEST_ROOT"])
@@ -36,6 +48,9 @@ class Server:
         self.failed_fork = False
         self.failed_start = False
         self.failed_rename = False
+        if self.mode == "source-history":
+            self.threads["thread-original"]["turns"] = [{
+                "id": "source-turn", "status": "completed", "items": source_items(command_read=True)}]
         if self.mode.startswith("named"):
             self.threads["thread-original"].setdefault("name", "Cleanup monitor")
         if self.mode == "automatic":
@@ -166,6 +181,8 @@ class Server:
         text = params["input"][0]["text"]
         key = "turn-" + str(len(self.threads[thread_id]["turns"]) + 1)
         turn = completed_turn(key, text)
+        if self.mode == "source-colors":
+            turn["items"][1:1] = source_items()
         if self.mode == "named-live":
             turn["status"] = "inProgress"
             turn["items"] = turn["items"][:1]

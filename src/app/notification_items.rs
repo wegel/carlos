@@ -9,6 +9,7 @@ use super::tools::{
     first_i64_at_paths, format_tool_item, is_tool_call_type, is_tool_output_type,
     item_text_from_content, role_for_tool_type, tool_command,
 };
+use super::transcript_source::source_path_from_item;
 use super::{AppState, DiffBlock, MessageKind, Role};
 
 // --- Item Notification Handling ---
@@ -323,10 +324,17 @@ fn complete_tool_item_no_diff(
             formatted
         };
         if let Some(id) = item_id {
-            app.upsert_mapped_message(id, role, text, MessageKind::Plain, None);
+            app.upsert_mapped_message(
+                id,
+                role,
+                text,
+                MessageKind::Plain,
+                source_path_from_item(item_value),
+            );
             return true;
         }
-        app.append_message(role, text);
+        let idx = app.append_message(role, text);
+        app.messages[idx].file_path = source_path_from_item(item_value);
         return true;
     }
     if let Some(id) = item_id {

@@ -47,3 +47,6 @@ include!("ui_render_tests/transcript_and_input.rs");
 include!("ui_render_tests/markdown_and_diff.rs");
 
 include!("ui_render_tests/drawing_and_wrapping.rs");
+
+#[path = "ui_render_tests/source_highlight.rs"]
+mod source_highlight;

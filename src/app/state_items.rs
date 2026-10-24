@@ -63,7 +63,9 @@ impl AppState {
         let idx = if kind == MessageKind::Diff {
             self.append_diff_message(role, file_path, text)
         } else {
-            self.append_message(role, text)
+            let idx = self.append_message(role, text);
+            self.messages[idx].file_path = file_path;
+            idx
         };
         self.put_item_mapping(item_id, idx);
         true

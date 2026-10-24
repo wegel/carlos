@@ -9,6 +9,7 @@ use super::native_activity::upsert_native_activity;
 use super::tool_diff::{command_execution_diff_output, extract_diff_blocks};
 use super::tool_format::format_tool_item;
 use super::tools::{is_tool_call_type, is_tool_output_type, item_text_from_content};
+use super::transcript_source::source_path_from_item;
 use super::{AppState, MessageKind, Role};
 use crate::app::models::TurnStatus;
 use crate::protocol_params::extract_result_object;
@@ -184,7 +185,15 @@ fn append_tool_history_item(app: &mut AppState, item: &Value, role: Role) {
 
     if let Some(formatted) = format_tool_item(item, role) {
         if !formatted.is_empty() {
-            upsert_history_message(app, item, role, formatted, MessageKind::Plain, None, 0);
+            upsert_history_message(
+                app,
+                item,
+                role,
+                formatted,
+                MessageKind::Plain,
+                source_path_from_item(item),
+                0,
+            );
             return;
         }
     }
@@ -213,7 +222,8 @@ fn upsert_history_message(
         if kind == MessageKind::Diff {
             app.append_diff_message(role, file_path, text);
         } else {
-            app.append_message(role, text);
+            let idx = app.append_message(role, text);
+            app.messages[idx].file_path = file_path;
         }
         return;
     };

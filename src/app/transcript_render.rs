@@ -3,6 +3,7 @@
 use super::models::{Message, MessageKind, RenderedLine, Role, TerminalSize};
 pub(super) use super::transcript_diff::append_wrapped_diff_lines;
 use super::transcript_diff::count_wrapped_diff_lines;
+use super::transcript_source::{append_source_lines, count_source_lines};
 #[cfg(test)]
 pub(super) use super::transcript_styles::normalize_styled_segments_for_part;
 pub(super) use super::transcript_styles::{
@@ -117,6 +118,11 @@ pub(super) fn count_rendered_block_for_message(
                     count_wrapped_markdown_lines(msg.role, &msg.text, width)
                 }
                 Role::ToolOutput => {
+                    if msg.file_path.is_some() {
+                        if let Some(lines) = count_source_lines(&msg.text, width) {
+                            return count + lines;
+                        }
+                    }
                     super::transcript_styles::count_wrapped_ansi_lines(msg.role, &msg.text, width)
                 }
                 _ => super::transcript_styles::count_wrapped_message_lines(
@@ -153,6 +159,11 @@ pub(super) fn count_rendered_block_for_message_cached<'a>(
                     count_wrapped_markdown_lines(msg.role, &msg.text, width)
                 }
                 Role::ToolOutput => {
+                    if msg.file_path.is_some() {
+                        if let Some(lines) = count_source_lines(&msg.text, width) {
+                            return count + lines;
+                        }
+                    }
                     count_wrapped_ansi_lines_cached(cache, msg.role, &msg.text, width)
                 }
                 _ => count_wrapped_message_lines_cached(cache, msg.role, &msg.text, width),
@@ -192,7 +203,15 @@ pub(super) fn append_rendered_block_for_message(
             Role::Assistant | Role::Reasoning => {
                 append_wrapped_markdown_lines(out, msg.role, &msg.text, width);
             }
-            Role::ToolOutput => append_wrapped_ansi_lines(out, msg.role, &msg.text, width),
+            Role::ToolOutput => {
+                if !msg
+                    .file_path
+                    .as_deref()
+                    .is_some_and(|path| append_source_lines(out, path, &msg.text, width))
+                {
+                    append_wrapped_ansi_lines(out, msg.role, &msg.text, width);
+                }
+            }
             _ => append_wrapped_message_lines(out, msg.role, &msg.text, width),
         },
     }

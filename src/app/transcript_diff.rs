@@ -5,6 +5,7 @@ use ratatui_interact::components::{DiffData, DiffHunk, DiffLine, DiffLineType, D
 
 use super::models::{RenderedLine, Role, StyledSegment};
 use super::text::{visual_width, wrap_natural_by_cells, wrap_natural_count_by_cells};
+use super::transcript_diff_source::{split_file_diffs, DiffHighlighters};
 use super::transcript_styles::{append_wrapped_styled_logical_lines, count_styled_logical_lines};
 use crate::theme::{
     COLOR_DIFF_ADD, COLOR_DIFF_HEADER, COLOR_DIFF_HUNK, COLOR_DIFF_REMOVE, COLOR_DIM, COLOR_STEP1,
@@ -95,6 +96,7 @@ fn build_diff_transcript_line_segments(
     line: &DiffLine,
     line_num_width: usize,
     style: &DiffViewerStyle,
+    highlighters: Option<&mut DiffHighlighters>,
 ) -> Vec<StyledSegment> {
     let mut segments = Vec::new();
     let old_num = line
@@ -131,7 +133,11 @@ fn build_diff_transcript_line_segments(
         DiffLineType::HunkHeader => ("@", style.hunk_header_style),
     };
     push_styled_text(&mut segments, prefix.to_string(), content_style);
-    push_styled_text(&mut segments, line.content.clone(), content_style);
+    if let Some(highlighters) = highlighters {
+        segments.extend(highlighters.highlight(line, content_style));
+    } else {
+        push_styled_text(&mut segments, line.content.clone(), content_style);
+    }
     segments
 }
 
@@ -140,6 +146,21 @@ fn build_diff_transcript_line_segments(
 fn diff_transcript_logical_lines(
     file_path: Option<&str>,
     diff: &str,
+    highlight: bool,
+) -> Option<Vec<Vec<StyledSegment>>> {
+    let files = split_file_diffs(diff);
+    let mut lines = Vec::new();
+    for file in &files {
+        let path = if files.len() == 1 { file_path } else { None };
+        lines.extend(diff_file_logical_lines(path, file, highlight)?);
+    }
+    Some(lines)
+}
+
+fn diff_file_logical_lines(
+    file_path: Option<&str>,
+    diff: &str,
+    highlight: bool,
 ) -> Option<Vec<Vec<StyledSegment>>> {
     let parsed = DiffData::from_unified_diff(diff);
     if parsed.hunks.is_empty() {
@@ -149,13 +170,23 @@ fn diff_transcript_logical_lines(
     let diff_path = file_path
         .filter(|p| !p.is_empty())
         .map(ToOwned::to_owned)
-        .or_else(|| parsed.new_path.clone())
-        .or_else(|| parsed.old_path.clone());
+        .or_else(|| parsed.new_path.clone().filter(|path| path != "/dev/null"))
+        .or_else(|| parsed.old_path.clone().filter(|path| path != "/dev/null"));
     let style = make_diff_viewer_style();
     let line_num_width = diff_line_number_width(&parsed);
     let mut logical_lines = Vec::new();
 
     for (idx, hunk) in parsed.hunks.iter().enumerate() {
+        let mut highlighters = highlight.then(|| {
+            DiffHighlighters::new(
+                file_path
+                    .or(parsed.old_path.as_deref())
+                    .or(diff_path.as_deref()),
+                file_path
+                    .or(parsed.new_path.as_deref())
+                    .or(diff_path.as_deref()),
+            )
+        });
         if idx > 0 {
             logical_lines.push(Vec::new());
         }
@@ -171,6 +202,7 @@ fn diff_transcript_logical_lines(
                 line,
                 line_num_width,
                 &style,
+                highlighters.as_mut(),
             ));
         }
     }
@@ -212,7 +244,7 @@ pub(super) fn append_diff_viewer_lines(
     diff: &str,
     width: usize,
 ) -> bool {
-    let Some(logical_lines) = diff_transcript_logical_lines(file_path, diff) else {
+    let Some(logical_lines) = diff_transcript_logical_lines(file_path, diff, true) else {
         return false;
     };
     append_wrapped_styled_logical_lines(out, role, logical_lines, width);
@@ -291,7 +323,7 @@ pub(super) fn count_wrapped_diff_lines(file_path: Option<&str>, diff: &str, widt
         return 0;
     }
 
-    let logical_lines = match diff_transcript_logical_lines(file_path, diff) {
+    let logical_lines = match diff_transcript_logical_lines(file_path, diff, false) {
         Some(logical_lines) => logical_lines,
         None => {
             let mut count = 0usize;
