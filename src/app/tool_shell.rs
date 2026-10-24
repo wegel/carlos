@@ -4,6 +4,8 @@
 mod tool_shell_command_summaries;
 
 use serde_json::Value;
+
+use super::shell_command::analyze_shell_command;
 use shlex::split as shlex_split;
 
 pub(super) use self::tool_shell_command_summaries::command_summary_from_shell_cmd;
@@ -20,68 +22,19 @@ pub(super) struct ParsedSshCommand {
 // --- Shell Normalization ---
 
 pub(super) fn command_execution_action_command(item: &Value) -> Option<String> {
-    item.get("commandActions")?
-        .as_array()?
-        .iter()
-        .find_map(|a| {
-            a.get("command")?
-                .as_str()
-                .filter(|s| !s.is_empty())
-                .map(str::to_string)
-        })
+    let actions = item.get("commandActions")?.as_array()?;
+    let [action] = actions.as_slice() else {
+        return None;
+    };
+    action
+        .get("command")?
+        .as_str()
+        .filter(|command| !command.is_empty())
+        .map(str::to_string)
 }
 
 pub(super) fn normalize_shell_command(raw: &str) -> String {
-    let command = if let Some(pos) = raw.find(" -lc '") {
-        let s = &raw[(pos + 6)..];
-        if let Some(end) = s.rfind('\'') {
-            &s[..end]
-        } else {
-            raw
-        }
-    } else {
-        raw
-    };
-
-    strip_rtk_wrapper(command).to_string()
-}
-
-fn strip_rtk_wrapper(command: &str) -> &str {
-    let command = command.trim();
-    let Some((program, rest)) = split_first_shell_word(command) else {
-        return command;
-    };
-    if shell_program_basename(program) != "rtk" {
-        return command;
-    }
-
-    let rest = rest.trim_start();
-    let Some((subcommand, inner)) = split_first_shell_word(rest) else {
-        return rest;
-    };
-    if subcommand == "proxy" {
-        inner.trim_start()
-    } else {
-        rest
-    }
-}
-
-fn split_first_shell_word(command: &str) -> Option<(&str, &str)> {
-    let command = command.trim_start();
-    if command.is_empty() {
-        return None;
-    }
-    let end = command
-        .char_indices()
-        .find(|(_, ch)| ch.is_whitespace())
-        .map(|(idx, _)| idx)
-        .unwrap_or(command.len());
-    Some((&command[..end], &command[end..]))
-}
-
-fn shell_program_basename(program: &str) -> &str {
-    let program = strip_shell_quotes(program);
-    program.rsplit('/').next().unwrap_or(program)
+    analyze_shell_command(raw).text
 }
 
 // --- SSH Parsing ---
@@ -295,12 +248,6 @@ pub(super) fn compact_command_path(path: &str, cwd: Option<&str>) -> String {
         .filter(|s| !s.is_empty())
         .map(str::to_string)
         .unwrap_or_else(|| path.to_string())
-}
-
-pub(super) fn first_non_option_token(command: &str) -> Option<&str> {
-    command
-        .split_whitespace()
-        .find(|t| !t.is_empty() && !t.starts_with('-'))
 }
 
 pub(super) fn strip_shell_quotes(token: &str) -> &str {

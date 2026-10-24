@@ -143,7 +143,7 @@ fn synthetic_tool_call(turn: usize, rng: &mut SyntheticRng) -> String {
             synthetic_shell_pipeline(turn, rng)
         ),
         _ => format!(
-            "run `cargo test -p crate_{:02} {} -- --nocapture`",
+            "run cargo test -p crate_{:02} {} -- --nocapture",
             turn % 19,
             synthetic_identifier(rng)
         ),

@@ -4,9 +4,10 @@ use ratatui::style::Style;
 use serde_json::Value;
 
 use super::models::{RenderedLine, Role, StyledSegment};
+use super::shell_read::single_source_path;
 use super::source_highlight::SourceHighlighter;
 use super::text::wrap_natural_count_by_cells;
-use super::tools::{first_i64_at_paths, first_string_at_paths, tool_name};
+use super::tools::{first_i64_at_paths, first_string_at_paths, tool_command, tool_name};
 use super::transcript_styles::append_wrapped_styled_logical_lines;
 use crate::theme::COLOR_DIM;
 
@@ -32,14 +33,20 @@ pub(super) fn source_path_from_item(item: &Value) -> Option<String> {
             ],
         );
     }
-    let actions = item.get("commandActions")?.as_array()?;
-    let [action] = actions.as_slice() else {
-        return None;
-    };
-    if action.get("type")?.as_str()? != "read" {
-        return None;
+    if let Some(actions) = item.get("commandActions").and_then(Value::as_array) {
+        if actions.len() > 1 {
+            return None;
+        }
+        if let Some(action) = actions
+            .first()
+            .filter(|action| action.get("type").and_then(Value::as_str) == Some("read"))
+        {
+            if let Some(path) = action.get("path").and_then(Value::as_str) {
+                return Some(path.to_string());
+            }
+        }
     }
-    action.get("path")?.as_str().map(str::to_string)
+    single_source_path(&tool_command(item)?)
 }
 
 /// Color the saved read output, keeping terminal colors when a tool supplied them.
@@ -107,6 +114,9 @@ pub(super) fn count_source_lines(text: &str, width: usize) -> Option<usize> {
 }
 
 fn split_read_gutter(line: &str) -> (&str, &str) {
+    if let Some(end) = super::transcript_styles::code_line_gutter_prefix_len(line) {
+        return (&line[..end], &line[end..]);
+    }
     let trimmed = line.trim_start_matches(' ');
     let digits = trimmed.bytes().take_while(u8::is_ascii_digit).count();
     if digits == 0 {

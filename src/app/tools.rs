@@ -3,10 +3,11 @@
 
 use serde_json::{json, Value};
 
+use super::shell_command::display_shell_command;
 use super::tool_diff::is_probably_diff_text;
 pub(super) use super::tool_diff::{command_execution_diff_output, extract_diff_blocks};
 pub(super) use super::tool_format::{command_summary_from_parsed_cmd, format_tool_item};
-use super::tool_shell::{command_execution_action_command, normalize_shell_command};
+use super::tool_shell::command_execution_action_command;
 pub(super) use super::tool_shell::{
     command_summary_from_shell_cmd, strip_terminal_controls, strip_terminal_controls_preserving_sgr,
 };
@@ -91,24 +92,23 @@ pub(super) fn tool_name(item: &Value) -> Option<String> {
 
 pub(super) fn tool_command(item: &Value) -> Option<String> {
     if item.get("type").and_then(Value::as_str) == Some("commandExecution") {
-        if let Some(cmd) = command_execution_action_command(item) {
-            return Some(cmd);
-        }
         if let Some(raw) = item.get("command").and_then(Value::as_str) {
             if !raw.is_empty() {
-                return Some(normalize_shell_command(raw));
+                return Some(display_shell_command(raw));
             }
         }
         if let Some(command) = item.get("command").and_then(Value::as_array) {
             let arguments: Vec<&str> = command.iter().filter_map(Value::as_str).collect();
-            if arguments.len() >= 3
+            if arguments.len() == 3
                 && matches!(arguments[0].rsplit('/').next(), Some("sh" | "bash" | "zsh"))
                 && matches!(arguments[1], "-c" | "-lc")
             {
-                return Some(normalize_shell_command(arguments[2]));
+                return Some(display_shell_command(arguments[2]));
             }
             if !arguments.is_empty() {
-                return Some(arguments.join(" "));
+                return shlex::try_join(arguments)
+                    .ok()
+                    .map(|command| display_shell_command(&command));
             }
         }
     }
@@ -124,6 +124,10 @@ pub(super) fn tool_command(item: &Value) -> Option<String> {
             &["metadata", "command"],
         ],
     )
+    .map(|command| display_shell_command(&command))
+    .or_else(|| {
+        command_execution_action_command(item).map(|command| display_shell_command(&command))
+    })
 }
 
 pub(super) fn tool_reasoning(item: &Value) -> Option<String> {

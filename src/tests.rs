@@ -91,10 +91,14 @@ mod input_tests;
 mod native_activity_tests;
 #[path = "tests/notification_tests.rs"]
 mod notification_tests;
+#[path = "tests/rtk_transcript_tests.rs"]
+mod rtk_transcript_tests;
 #[path = "tests/runtime_tests.rs"]
 mod runtime_tests;
 #[path = "tests/session_name_tests.rs"]
 mod session_name_tests;
+#[path = "tests/shell_command_tests.rs"]
+mod shell_command_tests;
 #[path = "tests/tool_output_item_tests.rs"]
 mod tool_output_item_tests;
 #[path = "tests/tool_output_tests.rs"]

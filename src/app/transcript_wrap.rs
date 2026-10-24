@@ -14,7 +14,7 @@ use super::transcript_styles::{
     ansi_line_segments, is_fence_delimiter, markdown_line_segments,
     normalize_styled_segments_for_part, styled_plain_text, take_styled_segments_by_cells,
 };
-use crate::theme::COLOR_STEP2;
+use crate::theme::{COLOR_DIM, COLOR_STEP2};
 
 pub(super) use self::transcript_wrap_counting::{
     count_styled_logical_lines, count_wrapped_ansi_lines, count_wrapped_ansi_lines_cached,
@@ -181,6 +181,40 @@ fn append_styled_logical_lines_inner(
 
 // --- Append ---
 
+fn tool_call_logical_lines(text: &str) -> Vec<Vec<StyledSegment>> {
+    text.split('\n')
+        .enumerate()
+        .filter(|(_, line)| !is_fence_delimiter(line))
+        .map(|(index, line)| {
+            let header = if index == 0 { line } else { "" };
+            let prefix = if header.starts_with("run ") {
+                ""
+            } else if header.starts_with("Failed: run ") {
+                "Failed: "
+            } else {
+                return vec![StyledSegment {
+                    text: line.to_owned(),
+                    style: Style::default(),
+                }];
+            };
+            vec![
+                StyledSegment {
+                    text: prefix.to_owned(),
+                    style: Style::default(),
+                },
+                StyledSegment {
+                    text: "run ".to_owned(),
+                    style: Style::default().fg(COLOR_DIM),
+                },
+                StyledSegment {
+                    text: line[prefix.len() + 4..].to_owned(),
+                    style: Style::default(),
+                },
+            ]
+        })
+        .collect()
+}
+
 pub(super) fn append_wrapped_message_lines(
     out: &mut Vec<RenderedLine>,
     role: Role,
@@ -188,6 +222,10 @@ pub(super) fn append_wrapped_message_lines(
     width: usize,
 ) {
     if width < 8 {
+        return;
+    }
+    if matches!(role, Role::ToolCall) {
+        append_styled_logical_lines_inner(out, role, tool_call_logical_lines(text), width);
         return;
     }
 

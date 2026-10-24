@@ -4,6 +4,7 @@ use std::collections::HashSet;
 
 use serde_json::Value;
 
+use super::shell_command::analyze_shell_command;
 use super::tool_shell::{
     command_summary_from_shell_cmd, compact_command_path, parse_ssh_remote_command,
 };
@@ -246,12 +247,13 @@ fn format_tool_call(item: &Value) -> Option<String> {
 
 fn format_command_call(item: &Value, cmd: &str) -> String {
     let mut lines = Vec::new();
-    if let Some(ssh) = parse_ssh_remote_command(cmd) {
+    if let Some(ssh) = parse_ssh_remote_command(cmd).filter(|_| !analyze_shell_command(cmd).has_rtk)
+    {
         lines.push(format!("remote exec on {}", ssh.destination));
         push_reasoning_and_description(&mut lines, item);
         lines.push(format!("$ {}", ssh.remote_command));
     } else {
-        lines.push(format!("run `{cmd}`"));
+        lines.push(format!("run {cmd}"));
         push_reasoning_and_description(&mut lines, item);
         lines.push(format!("$ {cmd}"));
     }
@@ -286,7 +288,8 @@ fn format_command_output(item: &Value) -> Option<String> {
 }
 
 fn format_cmd_prefix(cmd: &str) -> String {
-    if let Some(ssh) = parse_ssh_remote_command(cmd) {
+    if let Some(ssh) = parse_ssh_remote_command(cmd).filter(|_| !analyze_shell_command(cmd).has_rtk)
+    {
         format!(
             "remote exec on {}\n$ {}",
             ssh.destination, ssh.remote_command

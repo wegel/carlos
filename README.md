@@ -66,6 +66,24 @@ does not change that saved preference. You can reveal earlier output without
 rerunning a tool; reopened sessions use the contents available in the backend's
 saved history.
 
+## RTK commands
+
+Carlos recognizes `rtk`, `rtk proxy`, `rtk bypass`, and `rtk run -c` when it builds
+tool summaries, including global flags, nested wrappers, and quoted paths. It
+labels native `rtk read`, `rtk smart`, search commands, tests, and builds by what
+they do. Full mode keeps the RTK command and its flags, including complete command
+chains when the backend provides them.
+
+Single-file `rtk read` and wrapped `cat`, `head`, `tail`, `nl`, and print-only `sed`
+commands get source colors even when the backend cannot identify the file. RTK's
+numbered `│` gutters remain visible. Carlos leaves multiple-file and transformed
+outputs as received.
+
+RTK may shorten output before Carlos receives it. Full mode shows that received
+text, including any saved-log references RTK prints. See the
+[RTK README](https://github.com/rtk-ai/rtk/blob/master/README.md) for its command
+filters and wrappers.
+
 ## Session names
 
 When the composer is empty, Carlos shows the saved session name in gray on the

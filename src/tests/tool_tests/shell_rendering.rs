@@ -70,7 +70,7 @@ fn format_tool_item_run_style_from_command_fields() {
     });
 
     let rendered = format_tool_item(&item, Role::ToolCall).expect("formatted tool call");
-    assert!(rendered.contains("run `cargo test`"));
+    assert!(rendered.contains("run cargo test"));
     assert!(rendered.contains("Thinking: Running cargo test in repo"));
     assert!(rendered.contains("# Runs Rust test suite using Cargo"));
     assert!(rendered.contains("$ cargo test"));
@@ -118,7 +118,7 @@ fn format_command_execution_call_uses_action_command() {
     });
 
     let rendered = format_tool_item(&item, Role::ToolCall).expect("formatted command call");
-    assert_eq!(rendered, "run `ls -1`\n$ ls -1");
+    assert_eq!(rendered, "run ls -1\n$ ls -1");
 }
 
 #[test]

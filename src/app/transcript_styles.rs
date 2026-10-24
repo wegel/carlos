@@ -78,7 +78,8 @@ fn strip_code_line_gutter(segments: &mut Vec<StyledSegment>) {
     }
 }
 
-fn code_line_gutter_prefix_len(text: &str) -> Option<usize> {
+/// Find the numbered `│` gutter used by Markdown and RTK read output.
+pub(super) fn code_line_gutter_prefix_len(text: &str) -> Option<usize> {
     let mut chars = text.char_indices().peekable();
 
     while let Some((_, ch)) = chars.peek().copied() {

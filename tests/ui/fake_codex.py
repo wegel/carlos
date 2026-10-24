@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 import sys
 
+from rtk_fixture import rtk_items
+
 
 def user_item(key, text):
     return {"type": "userMessage", "id": key,
@@ -75,6 +77,9 @@ class Server:
         if self.mode == "tool-history":
             self.threads["thread-original"]["turns"] = [{
                 "id": "tools-turn", "status": "completed", "items": long_tool_items()}]
+        if self.mode == "rtk-history":
+            self.threads["thread-original"]["turns"] = [{
+                "id": "rtk-turn", "status": "completed", "items": rtk_items()}]
         if self.mode.startswith("named"):
             self.threads["thread-original"].setdefault("name", "Cleanup monitor")
         if self.mode == "automatic":
@@ -211,6 +216,8 @@ class Server:
             turn["items"][1:1] = long_tool_items(failure=self.mode == "tool-failure")
         if self.mode == "tool-short":
             turn["items"][1:1] = short_tool_items()
+        if self.mode in ("rtk", "rtk-failure"):
+            turn["items"][1:1] = rtk_items(failure=self.mode == "rtk-failure")
         if self.mode == "tool-live":
             turn["status"] = "inProgress"
         if self.mode == "named-live":
