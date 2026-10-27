@@ -192,3 +192,47 @@ fn rtk_commands_get_read_search_build_test_and_meta_labels() {
         );
     }
 }
+
+#[test]
+fn search_pipelines_keep_search_labels_when_only_limiting_results() {
+    let search = "rg -n 'withPrivateMovieSource|catalogServiceURL|seriesHierarchyKey' apps/ios/Cinero/VendorEnrollmentProofTests/Catalog* apps/ios/Cinero/Cinero/Services/CatalogStore*";
+    let expected = "✱ Search apps/ios/Cinero/VendorEnrollmentProofTests/Catalog* apps/ios/Cinero/Cinero/Services/CatalogStore* [pattern=withPrivateMovieSource|catalogServiceURL|seriesHierarchyKey]";
+    for limiter in [
+        "head -n 55",
+        "head",
+        "head -55",
+        "head --lines=55",
+        "tail -n +2",
+        "sed -n '1,55p'",
+        "rtk proxy head -n 55",
+    ] {
+        let command = format!("rtk proxy {search} | {limiter}");
+        assert_eq!(
+            command_summary_from_shell_cmd(&command, None).as_deref(),
+            Some(expected),
+            "{command}"
+        );
+    }
+    assert_eq!(
+        command_summary_from_shell_cmd("grep -n 'a|b' src | head -n 5", None).as_deref(),
+        Some("✱ Search src [pattern=a|b]")
+    );
+    for suffix in [
+        "head file.txt",
+        "head -n 55 > report.txt",
+        "tee report.txt",
+        "sh",
+        "head -n 55 && rm old.txt",
+        "head -n 55 | sh",
+        "sed -n '1e touch marker'",
+        "sed -n '1w /tmp/map'",
+        "head $(touch marker)",
+    ] {
+        let command = format!("rtk proxy {search} | {suffix}");
+        assert!(
+            command_summary_from_shell_cmd(&command, None)
+                .is_none_or(|label| !label.starts_with("✱ Search")),
+            "{command}"
+        );
+    }
+}

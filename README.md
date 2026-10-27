@@ -66,6 +66,103 @@ does not change that saved preference. You can reveal earlier output without
 rerunning a tool; reopened sessions use the contents available in the backend's
 saved history.
 
+## AI tool labels
+
+Carlos shows its normal command label immediately, then asks a background worker
+for a short description of selected commands. Open **Ctrl+M → AI labels** to turn
+this on or off; it starts enabled. Nothing is added to the activity/status gauge.
+You can also set `CARLOS_TOOL_SUMMARIES=off` before starting Carlos.
+AI descriptions wrap across as many rows as needed, including in Compact mode;
+the underlying commands and output stay folded there.
+
+Carlos selects commands containing more than one actual line, inline
+`-c`/`-e` programs with roughly 200 characters, named Python/shell/JavaScript scripts,
+and command chains of at least 200 characters with multiple shell stages.
+It keeps useful deterministic labels and ordinary short commands such as `cp`.
+Quoted operators and terminal line wrapping do not make a command eligible.
+Carlos also checks quoted SSH commands for substantial inline scripts or chains.
+It summarizes their visible source without reading remote script paths locally.
+
+The default worker calls `gpt-6-luna` through the installed `codex` CLI and your
+existing ChatGPT login. It uses the subscription allowance, with no separate API
+key. It starts fresh ephemeral threads in a separate Codex home, disables shell
+execution, and offers only bounded source-file reads and directory listings.
+Luna can inspect a named script and local imports itself. Each request has a
+45-second deadline, four source-tool calls, and a 64 KiB source budget. An invalid
+label, timeout, unavailable login, or full queue leaves the original label intact.
+Descriptions can still be wrong; the full command, output, and failure state stay
+available in Full tool-output mode.
+
+Carlos saves labels in `$XDG_STATE_HOME/carlos/tool-summaries.sqlite3`, normally
+`~/.local/state/carlos/tool-summaries.sqlite3`. SQLite performs indexed lookups
+with a bounded page cache; Carlos never loads the entire database. BLAKE3 hashes
+the exact command text. The model and prompt version are metadata, so changing
+them does not regenerate old labels. For file reads, Carlos also saves source
+fingerprints and a per-entry link: new invocations validate source contents,
+while resume restores the label originally generated for that entry. Historical
+cache misses never trigger inference. File reads describe the source seen by the
+worker, which may differ from the source present when a command began execution.
+
+The separate home is `~/.local/state/carlos/summary-codex-home` by default. Carlos
+initially links its `auth.json` to the existing Codex login and lets the official
+CLI handle refreshes. If the dedicated login needs repair, sign in with
+`CODEX_HOME=~/.local/state/carlos/summary-codex-home codex login`. Normal Codex
+settings and sessions remain separate.
+
+To change the model or executable, create `~/.config/carlos/tool-summaries.json`
+(or use `$XDG_CONFIG_HOME/carlos/`) and restart Carlos:
+
+```json
+{"provider":"codex","model":"gpt-6-luna","executable":"codex","timeout_seconds":45}
+```
+
+A replaceable command adapter accepts one JSON object on stdin containing
+`command`, `cwd`, and `instructions`, and returns one plain label on stdout:
+
+```json
+{"provider":"command","executable":"/absolute/path/to/summarizer","arguments":["--label"],"timeout_seconds":30}
+```
+
+Carlos passes arguments directly, without interpolating the command into a shell.
+The adapter should describe input without executing it. Native Codex source tools
+are implemented in Carlos itself; no Python runtime is needed for this feature.
+
+## Transcript theme
+
+Carlos uses the 3c Catppuccin Mocha theme on a shared Mantle background. User
+messages have a darker blue band and bold text. Reasoning uses muted mauve in
+italic, commentary uses pale pink, and answers use normal text with a green check.
+Desktop blocks start with a colored glyph and a space; later lines keep a bar
+in that color, except for answers. Phone blocks use colored section lines such
+as `─ ❯ you ─` and `─ ✓ answer ─`. The body has one blank column
+on each side and no vertical gutter. Adjacent entries of the same type share a
+heading, with a blank line between entries; copied text leaves out those headings.
+Each new block starts after a blank line, including blocks with horizontal headings.
+Runs, reads, searches, diffs, and edits put their colored symbol beside the entry label
+instead of using a horizontal heading. Reasoning that fits one row beside its
+diamond uses the same style; longer reasoning keeps its heading.
+Consecutive entries of these types form one block, with a blank line before and
+after it, and no added blank lines inside it. An unfinished reasoning step uses
+a mauve diamond and spinner.
+
+Choose **Layout: Auto / Desktop / Phone** in Ctrl+M. Auto selects Phone below
+80 columns or 20 rows and switches as the terminal resizes. An explicit choice
+persists across restarts and stays independent of the tool-output setting.
+
+Literal tool labels occupy one row in Compact mode; AI descriptions wrap in full.
+Their glyph replaces the verb: `$` for commands,
+`→` for reads, `✱` for searches, and `Δ` for diffs and edits. Hidden-row counts
+appear at the right, with green/red diff counts and a bold red `failed` label
+when needed. Full mode still shows the original tool contents and syntax colors.
+Both layouts keep consecutive tools and single-line reasoning together, with a
+blank line around the block. Separate user messages, commentary, answers, and
+longer reasoning have a blank line between them. Desktop keeps its colored
+gutter and continuation bars. The K2000 scanner moves while Carlos works, using its original colors
+and pink trail in Ralph mode. Below 80 columns or 20 rows, a single-cell spinner
+replaces the scanner and leaves the context gauge visible. While idle, the line
+shows the context gauge. The gauge and percentage turn yellow above 70% and red above 90%; token counts and
+the model name keep separate gray text.
+
 ## RTK commands
 
 Carlos recognizes `rtk`, `rtk proxy`, `rtk bypass`, and `rtk run -c` when it builds
@@ -264,7 +361,7 @@ target/ui-venv/bin/python tests/ui/test_workflows.py --binary ~/.local/bin/carlo
 - rewind mode `Enter`: send selected/edited prompt
 - rewind mode `Esc`: leave rewind mode and restore current draft
 - `Ctrl+R`: toggle Ralph mode on/off (queued if a turn is currently active)
-- `Ctrl+M`: open settings for model, thinking, summary, and dictation endpoint mode
+- `Ctrl+M`: open settings for model, thinking, summary, AI labels, dictation, layout, and tool output
 - `Ctrl+D`: start/stop dictation when the `dictation` feature is enabled
 - `F7`: cycle dictation profile when the `dictation` feature is enabled
 - `F9`: toggle dictation endpoint mode between auto-stop and manual Enter stop

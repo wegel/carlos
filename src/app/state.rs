@@ -19,6 +19,7 @@ use super::dictation_state::DictationCaptureState;
 use super::dictation_state::DictationRuntimeState;
 use super::input::make_input_area;
 use super::input_history_state::InputHistoryState;
+use super::layout_state::LayoutState;
 use super::models::{Message, Role, TurnStatus};
 use super::perf::PerfMetrics;
 #[cfg(test)]
@@ -41,6 +42,8 @@ pub(super) struct AppState {
     pub(super) messages: Vec<Message>,
     pub(super) render_cache: RenderCacheState,
     pub(super) tool_output: ToolOutputState,
+    pub(super) summaries: super::state_summaries::SummaryState,
+    pub(super) layout: LayoutState,
     pub(super) item_to_message_index: HashMap<String, usize>,
     pub(super) completed_item_ids: HashSet<String>,
     pub(super) turn_status_by_id: HashMap<String, TurnStatus>,
@@ -75,6 +78,8 @@ impl AppState {
             messages: Vec::new(),
             render_cache: RenderCacheState::new(),
             tool_output: ToolOutputState::default(),
+            summaries: super::state_summaries::SummaryState::default(),
+            layout: LayoutState::default(),
             item_to_message_index: HashMap::new(),
             completed_item_ids: HashSet::new(),
             turn_status_by_id: HashMap::new(),
@@ -152,37 +157,6 @@ impl AppState {
 
     pub(super) fn set_status(&mut self, s: impl Into<String>) {
         self.status = s.into();
-    }
-
-    pub(super) fn replace_transcript_from(&mut self, replacement: AppState) {
-        self.messages = replacement.messages;
-        self.item_to_message_index = replacement.item_to_message_index;
-        self.completed_item_ids = replacement.completed_item_ids;
-        self.turn_status_by_id = replacement.turn_status_by_id;
-        self.turn_diff_to_index = replacement.turn_diff_to_index;
-        self.command_render_overrides = replacement.command_render_overrides;
-        self.input_history = replacement.input_history;
-        self.render_cache = RenderCacheState::new();
-        self.viewport = ViewportState::new();
-        self.turn_start_message_idx = self.active_turn_id.as_ref().map(|_| self.messages.len());
-        self.mark_transcript_dirty();
-    }
-
-    pub(super) fn reset_for_forked_thread(&mut self, thread_id: impl Into<String>) {
-        self.set_thread_id(thread_id);
-        self.active_turn_id = None;
-        self.messages.clear();
-        self.render_cache = RenderCacheState::new();
-        self.item_to_message_index.clear();
-        self.completed_item_ids.clear();
-        self.turn_status_by_id.clear();
-        self.turn_diff_to_index.clear();
-        self.command_render_overrides.clear();
-        self.input_history = InputHistoryState::new();
-        self.turn_start_message_idx = None;
-        self.viewport = ViewportState::new();
-        self.context_usage = None;
-        self.clear_pending_approval();
     }
 
     pub(super) fn set_pending_approval(&mut self, approval: PendingApprovalRequest) {

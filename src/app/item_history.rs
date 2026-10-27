@@ -98,6 +98,7 @@ fn append_history_item(app: &mut AppState, item: &Value) {
         kind if is_tool_output_type(kind) => append_tool_history_item(app, item, Role::ToolOutput),
         _ => {}
     }
+    app.observe_summary_item(item, false);
 }
 
 fn append_user_history_item(app: &mut AppState, item: &Value) {

@@ -53,6 +53,7 @@ pub(super) struct Message {
 /// Keep a tool's label and failure state alongside its original contents.
 #[derive(Debug, Clone)]
 pub(super) struct ToolOutputDetails {
+    pub(super) generated: bool,
     pub(super) summary: String,
     pub(super) failed: bool,
 }
@@ -61,6 +62,7 @@ pub(super) struct ToolOutputDetails {
 pub(super) enum MessageKind {
     Plain,
     Diff,
+    ToolSummary { rows: usize },
 }
 
 #[derive(Debug, Clone)]
@@ -99,4 +101,11 @@ pub(super) struct RenderedLine {
 pub(super) struct TerminalSize {
     pub(super) width: usize,
     pub(super) height: usize,
+}
+
+impl TerminalSize {
+    /// Use the phone layout on narrow or short terminals, independently of tool mode.
+    pub(super) fn is_small(self) -> bool {
+        self.width < 80 || self.height < 20
+    }
 }

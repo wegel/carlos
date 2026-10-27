@@ -98,7 +98,7 @@ fn live_and_reopened_rtk_reads_have_the_same_path_colors_and_gutter() {
         assert!(app
             .snapshot_rendered_lines()
             .iter()
-            .any(|line| line.text.contains("→ Read src/main file.rs")));
+            .any(|line| line.text.contains("src/main file.rs")));
     }
 }
 
@@ -119,7 +119,9 @@ fn rtk_failures_keep_received_details_and_saved_log_references_in_full() {
     assert!(app
         .snapshot_rendered_lines()
         .iter()
-        .any(|line| line.text == "Failed: Test cargo test -p example"));
+        .any(
+            |line| line.text.contains("Test cargo test -p example") && line.text.contains("failed")
+        ));
     app.tool_output.mode = ToolOutputMode::Full;
     app.ensure_rendered_lines(80, None);
     assert!(app.snapshot_rendered_lines().iter().any(|line| line

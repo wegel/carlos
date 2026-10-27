@@ -1,6 +1,6 @@
 //! Mouse-drag text selection, copy extraction, and drag-mode detection.
 
-use super::{text::slice_by_cells, RenderedLine, MSG_CONTENT_X};
+use super::{text::slice_by_cells, RenderedLine};
 use crate::theme::TOUCH_SCROLL_DRAG_MIN_ROWS;
 
 // --- Selection Types ---
@@ -116,6 +116,9 @@ pub(super) fn selected_text<S: RenderedLineSource + ?Sized>(
         let Some(line) = rendered_lines.get(idx) else {
             continue;
         };
+        if line.separator && !line.text.is_empty() {
+            continue;
+        }
         let (s_col, e_col) = column_range_for_line(idx, line.cells, ax, ay, fx, fy);
         let fragment = extract_line_fragment(&line.text, line.cells, s_col, e_col);
 
@@ -189,9 +192,9 @@ fn should_insert_soft_wrap_space(existing: &str, fragment: &str) -> bool {
 
 // --- Selection Helpers ---
 
-pub(super) fn normalize_selection_x(col0: usize) -> usize {
-    if col0 >= MSG_CONTENT_X {
-        col0 - MSG_CONTENT_X + 1
+pub(super) fn normalize_selection_x(col0: usize, content_x: usize) -> usize {
+    if col0 >= content_x {
+        col0 - content_x + 1
     } else {
         1
     }

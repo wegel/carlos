@@ -14,7 +14,11 @@ use anyhow::Result;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 
+#[path = "input_forwarders.rs"]
+mod input_forwarders;
+
 use self::input_dispatch::process_event;
+use self::input_forwarders::wire_event_forwarders;
 #[cfg(test)]
 pub(super) use self::input_queue_rules::is_priority_server_line;
 pub(super) use self::input_queue_rules::{can_submit_queued_turn, prioritize_events};
@@ -27,10 +31,6 @@ use super::terminal_ui::with_terminal;
 use super::turn_submit::submit_dequeued_turn_text;
 use super::{AppState, TerminalSize};
 use crate::backend::BackendClient;
-#[cfg(not(feature = "dictation"))]
-use crate::event::spawn_event_forwarders;
-#[cfg(feature = "dictation")]
-use crate::event::spawn_event_forwarders_with_dictation;
 use crate::event::UiEvent;
 
 const MAX_UI_DRAIN_PER_CYCLE: usize = 4096;
@@ -151,24 +151,6 @@ fn run_one_loop_iteration(
     let working_after_events = app.active_turn_id.is_some();
     maybe_draw(terminal, app, size, working_after_events, state)?;
     Ok(false)
-}
-
-#[cfg(feature = "dictation")]
-fn wire_event_forwarders(
-    app: &mut AppState,
-    server_events_rx: std::sync::mpsc::Receiver<String>,
-) -> Receiver<UiEvent> {
-    let (dictation_tx, dictation_rx) = std::sync::mpsc::channel();
-    app.configure_dictation_event_sender(dictation_tx);
-    spawn_event_forwarders_with_dictation(server_events_rx, dictation_rx)
-}
-
-#[cfg(not(feature = "dictation"))]
-fn wire_event_forwarders(
-    _app: &mut AppState,
-    server_events_rx: std::sync::mpsc::Receiver<String>,
-) -> Receiver<UiEvent> {
-    spawn_event_forwarders(server_events_rx)
 }
 
 fn maybe_draw(

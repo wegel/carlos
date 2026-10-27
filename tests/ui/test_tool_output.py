@@ -1,9 +1,17 @@
 """Exercise phone-sized terminals, reversible folds, and local tool commands."""
 
 import json
+import re
 
 
 class ToolOutput:
+    def assert_folded_row(self, terminal, label):
+        terminal.contains(label)
+        row = next(y for y, line in enumerate(terminal.screen.display) if label in line)
+        match = re.search(r"\d+\s*$", terminal.screen.display[row])
+        self.assertIsNotNone(match, "folded row has a count at the right")
+        self.assertEqual(terminal.screen.buffer[row][match.start()].fg, "6c7086")
+
     def open_tool_settings(self, terminal, expected):
         terminal.send(b"\x1b[109;5u")  # Ctrl+M, encoded distinctly from Enter.
         terminal.contains("Settings")
@@ -52,14 +60,13 @@ class ToolOutput:
         self.start_tools(terminal)
         self.assertNotIn("from pathlib import Path", terminal.text)
         self.assertNotIn("short script marker", terminal.text)
-        self.assertNotIn("$ git add source.rs", terminal.text)
+        terminal.contains("$ git add source.rs")
         self.assertNotIn("exit code: 0", terminal.text)
-        terminal.contains("run git add source.rs")
+        terminal.contains("git add source.rs")
         self.assertNotIn("run `", terminal.text)
-        label = self.source_cell(terminal, "run git add source.rs", "run")
-        command = self.source_cell(terminal, "run git add source.rs", "git")
-        self.assertEqual(label.fg, "a6adc8")
-        self.assertEqual(command.fg, "cdd6f4")
+        command = self.source_cell(terminal, "git add source.rs", "git")
+        self.assertEqual(command.fg, "9399b2")
+        self.assertNotIn("run git add", terminal.text)
         terminal.snapshot("command-label-colors")
         self.tools_command(terminal, "/tools full", "full")
         terminal.contains("from pathlib import Path")
@@ -73,7 +80,7 @@ class ToolOutput:
         terminal.paste("read source")
         terminal.send(b"\r")
         terminal.contains("Answer: read source")
-        terminal.contains("rows hidden")
+        self.assert_folded_row(terminal, "source.rs")
         self.assertNotIn("let claude_read_7", terminal.text)
         self.tools_command(terminal, "/tools full", "full")
         terminal.contains("let claude_read_7 = 7;")
@@ -101,9 +108,9 @@ class ToolOutput:
         self.assertNotIn("rows hidden", terminal.text)
 
     def assert_compact_tools(self, terminal):
-        terminal.contains("→ Read source.rs")
-        terminal.contains("Δ Diff source.rs (+4, -4)")
-        terminal.contains("rows hidden")
+        terminal.contains("source.rs")
+        terminal.contains("source.rs +4 −4")
+        self.assert_folded_row(terminal, "source.rs")
         self.assertNotIn("let read_7", terminal.text)
         self.assertNotIn("let after_3", terminal.text)
 
@@ -167,8 +174,8 @@ class ToolOutput:
     def test_compact_marks_failures_and_hides_their_details(self):
         terminal = self.launch(mode="tool-failure", resume=None, width=54)
         self.start_tools(terminal)
-        terminal.contains("Failed:")
-        terminal.contains("rows hidden")
+        terminal.contains("failed")
+        self.assert_folded_row(terminal, "run-check")
         self.assertNotIn("failure detail 0", terminal.text)
         self.assertNotIn("failure detail 7", terminal.text)
         self.tools_command(terminal, "/tools full", "full")

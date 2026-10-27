@@ -17,10 +17,10 @@ impl AppState {
         let Some(message) = self.messages.get(idx) else {
             return;
         };
-        let summary = item
-            .get("id")
-            .and_then(Value::as_str)
-            .and_then(|id| self.command_override(id))
+        let generated = item["id"].as_str().and_then(|id| self.summaries.label(id));
+        let is_generated = generated.is_some() && message.kind != MessageKind::Diff;
+        let summary = generated
+            .or_else(|| item["id"].as_str().and_then(|id| self.command_override(id)))
             .or_else(|| {
                 tool_command(item)
                     .and_then(|command| command_summary_from_shell_cmd(&command, None))
@@ -39,6 +39,7 @@ impl AppState {
             .chars()
             .collect();
         let details = ToolOutputDetails {
+            generated: is_generated,
             summary,
             failed: tool_failed(item),
         };

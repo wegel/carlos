@@ -19,6 +19,7 @@ fn long_output(app: &mut AppState) -> usize {
         .join("\n");
     let idx = app.append_message(Role::ToolOutput, text);
     app.messages[idx].tool_output = Some(ToolOutputDetails {
+        generated: false,
         summary: "→ Read main.rs".into(),
         failed: false,
     });
@@ -113,8 +114,8 @@ fn folding_and_unfolding_never_changes_the_saved_message() {
     assert!(screen(&mut app, 80).contains("source line 11"));
     app.tool_output.mode = ToolOutputMode::Compact;
     let compact = screen(&mut app, 80);
-    assert!(compact.contains("→ Read main.rs"));
-    assert!(compact.contains("12 rows hidden"));
+    assert!(compact.contains("main.rs"));
+    assert!(compact.trim_end().ends_with("12"));
     assert!(!compact.contains("source line 11"));
     assert_eq!(app.messages[idx].text, original);
     app.tool_output.mode = ToolOutputMode::Full;
@@ -136,9 +137,9 @@ fn compact_hides_short_results_and_failure_details_but_keeps_answers_visible() {
     let text = screen(&mut app, 80);
     assert!(!text.contains("short output"));
     assert!(!text.contains("source line 11"));
-    assert!(text.contains("Failed:"));
+    assert!(text.contains("failed"));
     assert_eq!(text.matches("answer").count(), 10);
-    assert!(text.contains("rows hidden"));
+    assert!(text.lines().any(|line| line.trim_end().ends_with("12")));
 }
 
 #[test]
@@ -150,7 +151,10 @@ fn compact_counts_wrapped_rows_and_keeps_the_cache_consistent_at_phone_widths() 
         app.ensure_rendered_lines(width, None);
         let count = app.rendered_line_count();
         assert_eq!(app.snapshot_rendered_lines().len(), count);
-        assert!(screen(&mut app, width).contains("Tool"));
+        assert!(app
+            .snapshot_rendered_lines()
+            .iter()
+            .all(|line| line.cells <= width));
     }
 }
 
@@ -164,7 +168,7 @@ fn a_folded_diff_keeps_filename_and_change_counts() {
         "@@ -1,4 +1,4 @@\n-old1\n-old2\n-old3\n-old4\n+new1\n+new2\n+new3\n+new4\n",
     );
     assert_eq!(app.messages[0].kind, MessageKind::Diff);
-    assert!(screen(&mut app, 80).contains("Δ Diff main.rs (+4, -4)"));
+    assert!(screen(&mut app, 80).contains("main.rs +4 −4"));
     app.tool_output.mode = ToolOutputMode::Full;
     assert!(screen(&mut app, 80).contains("+new4"));
 }
@@ -202,7 +206,7 @@ fn reload_and_fork_keep_the_preference_but_replace_message_contents() {
     let mut replacement = AppState::new("thread".into());
     long_output(&mut replacement);
     app.replace_transcript_from(replacement);
-    assert!(screen(&mut app, 80).contains("rows hidden"));
+    assert!(screen(&mut app, 80).trim_end().ends_with("12"));
     app.reset_for_forked_thread("fork");
     assert_eq!(app.tool_output.mode, ToolOutputMode::Compact);
     assert!(app.messages.is_empty());

@@ -15,11 +15,11 @@ class SessionNames:
         self.assertEqual(len(terminal.requests("turn/start")), 1)
 
     def assert_placeholder(self, terminal, name):
-        terminal.wait(lambda: terminal.placeholder_is(name) and terminal.screen.cursor.x == 2,
+        terminal.wait(lambda: terminal.placeholder_is(name) and terminal.screen.cursor.x == terminal.content_x,
                       "session name placeholder: " + name)
         self.assertTrue(terminal.screen.display[-1].endswith(name + " "), "name must meet the right margin")
-        self.assertEqual(terminal.screen.cursor.x, 2, "the empty composer cursor stays at the left")
-        self.assertIn(b"\x1b[2m", (terminal.root / "terminal.ansi").read_bytes())
+        self.assertEqual(terminal.screen.cursor.x, terminal.content_x, "the empty composer cursor stays at the left")
+        self.assertEqual(terminal.screen.buffer[terminal.screen.lines - 1][terminal.screen.columns - 2].fg, "6c7086")
 
     def test_name_is_a_dim_placeholder_not_an_editable_or_submitted_prompt(self):
         terminal = self.launch(mode="named")
@@ -27,7 +27,7 @@ class SessionNames:
         terminal.send(b"\r")
         terminal.paste("draft")
         terminal.wait(lambda: terminal.input_is("draft"), "draft replaces placeholder")
-        self.assertNotEqual(terminal.screen.buffer[terminal.screen.lines - 1][2].fg, "6c7086")
+        self.assertNotEqual(terminal.screen.buffer[terminal.screen.lines - 1][terminal.content_x].fg, "6c7086")
         terminal.send(b"\x01\x0b")
         self.assert_placeholder(terminal, "Cleanup monitor")
         self.assertEqual(terminal.requests("turn/start"), [])
@@ -52,7 +52,7 @@ class SessionNames:
         terminal.paste("/rename")
         terminal.send(b"\r")
         terminal.wait(lambda: terminal.input_is("/rename Cleanup monitor"), "edit current name")
-        self.assertNotEqual(terminal.screen.buffer[terminal.screen.lines - 1][2].fg, "6c7086")
+        self.assertNotEqual(terminal.screen.buffer[terminal.screen.lines - 1][terminal.content_x].fg, "6c7086")
         self.assertEqual(terminal.requests("thread/name/set"), [])
         terminal.replace_input("/rename Updated name")
         terminal.send(b"\r")
@@ -101,7 +101,7 @@ class SessionNames:
         terminal = self.launch(mode="named-fork")
         self.assert_placeholder(terminal, "Cleanup monitor")
         self.edit(terminal, "second", "edited second")
-        terminal.wait(lambda: terminal.screen.display[-1].strip() == ">", "fork has no name")
+        terminal.wait(lambda: terminal.input_is(""), "fork has no name")
         terminal.paste("/rename Fork name")
         terminal.send(b"\r")
         self.assert_placeholder(terminal, "Fork name")

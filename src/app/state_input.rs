@@ -5,7 +5,6 @@ use std::time::{Duration, Instant};
 use super::models::TerminalSize;
 use super::render::{compute_input_layout, textarea_input_from_key};
 use super::state::AppState;
-use super::transcript_render::{build_rendered_lines_with_hidden, transcript_content_width};
 use super::MSG_TOP;
 
 impl AppState {
@@ -101,6 +100,7 @@ impl AppState {
             .retain(|_, msg_idx| *msg_idx < idx);
         self.turn_diff_to_index.retain(|_, msg_idx| *msg_idx < idx);
         self.command_render_overrides.clear();
+        self.summaries.retain_items(&self.item_to_message_index);
         self.input_history.clear_message_indices_from(idx);
         self.mark_transcript_dirty_from(idx);
     }
@@ -169,14 +169,15 @@ impl AppState {
         if self.messages.is_empty() {
             return;
         }
-        let width = transcript_content_width(size);
+        let width = self.transcript_width(size);
         if width == 0 {
             return;
         }
         let upto = msg_idx.min(self.messages.len().saturating_sub(1));
-        let rendered_upto =
-            build_rendered_lines_with_hidden(&self.messages[..=upto], width, Some(msg_idx));
-        if rendered_upto.is_empty() {
+        self.layout.update_size(size);
+        self.ensure_rendered_lines(width, Some(msg_idx));
+        let rendered_upto = self.render_cache.rendered_block_offsets[upto];
+        if rendered_upto == 0 {
             return;
         }
         let input_layout = compute_input_layout(self, size);
@@ -188,7 +189,7 @@ impl AppState {
         if msg_height == 0 {
             return;
         }
-        let target_line = rendered_upto.len().saturating_sub(1);
+        let target_line = rendered_upto.saturating_sub(1);
         self.viewport.scroll_top = target_line.saturating_sub(msg_height.saturating_sub(1));
     }
 

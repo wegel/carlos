@@ -19,7 +19,7 @@ use super::state::PendingApprovalRequest;
 use super::tools::command_summary_from_parsed_cmd;
 use super::{AppState, ThreadSummary};
 use crate::protocol_params::extract_result_object;
-use crate::theme::KITT_STEP_MS;
+use crate::theme::ANIMATION_STEP_MS;
 
 // --- Types ---
 
@@ -105,7 +105,13 @@ pub(super) fn is_perf_toggle_key(code: KeyCode, modifiers: KeyModifiers) -> bool
 // --- Animation ---
 
 pub(super) fn animation_tick() -> u128 {
-    animation_tick_for_step(KITT_STEP_MS)
+    animation_tick_for_step(ANIMATION_STEP_MS)
+}
+
+/// Share a single-cell spinner at half the scanner's frame rate.
+pub(super) fn spinner_frame() -> &'static str {
+    const FRAMES: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+    FRAMES[((animation_tick() / 2) % FRAMES.len() as u128) as usize]
 }
 
 pub(super) fn animation_tick_for_step(step_ms: u128) -> u128 {
@@ -116,7 +122,7 @@ pub(super) fn animation_tick_for_step(step_ms: u128) -> u128 {
 }
 
 pub(super) fn working_animation_step_ms() -> u128 {
-    KITT_STEP_MS
+    ANIMATION_STEP_MS
 }
 
 pub(super) fn animation_poll_timeout() -> Duration {

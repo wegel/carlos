@@ -4,8 +4,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui_textarea::{Input as TextInput, Key as TextKey};
 
 use super::text::{char_to_byte_idx, visual_width, wrap_input_line};
-use super::transcript_render::transcript_content_width;
-use super::{AppState, Message, Role, TerminalSize, MSG_CONTENT_X};
+use super::{AppState, Message, Role, TerminalSize};
 
 // --- Types ---
 
@@ -111,7 +110,7 @@ fn wrap_input_with_cursor(app: &AppState, text_width: usize) -> (Vec<String>, us
 }
 
 pub(super) fn compute_input_layout(app: &AppState, size: TerminalSize) -> InputLayout {
-    let text_width = transcript_content_width(size);
+    let text_width = app.transcript_width(size);
     let (wrapped, mut cursor_wrapped_row, mut cursor_wrapped_col, cursor_set) =
         wrap_input_with_cursor(app, text_width);
 
@@ -143,7 +142,7 @@ pub(super) fn compute_input_layout(app: &AppState, size: TerminalSize) -> InputL
     let input_top = size.height + 1 - input_height;
     let msg_bottom = input_top.saturating_sub(2);
     let cursor_visual_row = cursor_wrapped_row.saturating_sub(visible_start);
-    let cursor_x = MSG_CONTENT_X + cursor_wrapped_col;
+    let cursor_x = app.content_x(size) + cursor_wrapped_col;
     let cursor_y = input_top.saturating_sub(1) + cursor_visual_row.min(input_height - 1);
 
     InputLayout {

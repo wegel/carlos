@@ -51,7 +51,7 @@ pub(super) fn handle_mouse_event(
     let msg_height = msg_bottom - msg_top + 1;
     let hit = MouseHitContext {
         in_messages: row1 >= msg_top && row1 <= msg_bottom,
-        norm_x: normalize_selection_x(m.column as usize),
+        norm_x: normalize_selection_x(m.column as usize, app.content_x(size)),
         clamped_y,
         clamped_line_idx: app.viewport.scroll_top + (clamped_y - msg_top),
         max_scroll: app.rendered_line_count().saturating_sub(msg_height),

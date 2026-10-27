@@ -6,16 +6,12 @@ mod render_sections;
 use std::time::Instant;
 
 use ratatui::buffer::Buffer;
-use ratatui::style::{Modifier, Style};
+use ratatui::style::Style;
 
-use super::selection::compute_selection_range;
+use super::render_transcript::draw_transcript;
 use super::text::{slice_by_cells, visual_width};
-use super::transcript_render::transcript_content_width;
-use super::{AppState, RenderedLine, Role, TerminalSize, MSG_CONTENT_X, MSG_TOP};
-use crate::theme::{
-    role_fg, role_gutter_fg, role_gutter_symbol, role_row_bg, COLOR_STEP1, COLOR_STEP2,
-    COLOR_STEP6, COLOR_STEP8, COLOR_TEXT,
-};
+use super::{AppState, RenderedLine, TerminalSize, MSG_TOP};
+use crate::theme::{COLOR_STEP2, COLOR_STEP8, COLOR_TEXT};
 
 use self::render_sections::{cursor_position, draw_input_area, draw_overlays, draw_status_bar};
 
@@ -176,12 +172,13 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
     if size.width == 0 || size.height == 0 {
         return;
     }
+    app.layout.update_size(size);
     app.tool_output.update_size(size);
     let hidden = app
         .rewind_mode()
         .then(|| app.rewind_selected_message_idx())
         .flatten();
-    app.ensure_rendered_lines(transcript_content_width(size), hidden);
+    app.ensure_rendered_lines(app.transcript_width(size), hidden);
 
     // --- Layout ---
     let input_layout_started = Instant::now();
@@ -193,7 +190,7 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
         .msg_bottom
         .checked_sub(MSG_TOP)
         .map_or(0, |rows| rows + 1);
-    let msg_width = transcript_content_width(size);
+    let msg_width = app.transcript_width(size);
     sync_transcript_viewport(app, msg_height);
 
     // --- Draw ---
@@ -204,7 +201,7 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
         0,
         size.width,
         size.height,
-        Style::default().bg(COLOR_STEP1),
+        Style::default().bg(COLOR_STEP2),
     );
     if msg_height > 0 {
         fill_rect(
@@ -244,102 +241,4 @@ fn sync_transcript_viewport(app: &mut AppState, msg_height: usize) {
         .saturating_sub(1)
         .min(total_lines - 1);
     app.ensure_rendered_range_materialized(app.viewport.scroll_top, end_idx);
-}
-
-// --- Transcript ---
-
-fn draw_transcript(buf: &mut Buffer, app: &AppState, msg_height: usize, msg_width: usize) {
-    for row in 0..msg_height {
-        let line_idx = app.viewport.scroll_top + row;
-        let y = MSG_TOP + row - 1;
-        draw_transcript_row(buf, app, line_idx, y, msg_width);
-    }
-}
-
-fn draw_transcript_row(
-    buf: &mut Buffer,
-    app: &AppState,
-    line_idx: usize,
-    y: usize,
-    msg_width: usize,
-) {
-    let line_opt = app.rendered_line_at(line_idx);
-    if let Some(line) = line_opt.filter(|line| !line.separator) {
-        draw_role_gutter(buf, y, line.role);
-    }
-    if msg_width == 0 {
-        return;
-    }
-    let Some(line) = line_opt else {
-        return;
-    };
-    fill_rect(
-        buf,
-        MSG_CONTENT_X,
-        y,
-        msg_width,
-        1,
-        Style::default().bg(role_row_bg(line.role)),
-    );
-    if line.separator {
-        draw_separator_row(buf, y, msg_width);
-        return;
-    }
-    let selection = compute_row_selection(app, line_idx, line.cells);
-    draw_rendered_line(
-        buf,
-        MSG_CONTENT_X,
-        y,
-        msg_width,
-        line,
-        transcript_line_style(line.role),
-        selection,
-    );
-}
-
-fn draw_role_gutter(buf: &mut Buffer, y: usize, role: Role) {
-    draw_str(
-        buf,
-        0,
-        y,
-        role_gutter_symbol(role),
-        Style::default()
-            .fg(role_gutter_fg(role))
-            .add_modifier(Modifier::BOLD),
-        1,
-    );
-}
-
-fn draw_separator_row(buf: &mut Buffer, y: usize, msg_width: usize) {
-    let sep = "─".repeat(msg_width);
-    draw_str(
-        buf,
-        MSG_CONTENT_X,
-        y,
-        &sep,
-        Style::default().fg(COLOR_STEP6),
-        msg_width,
-    );
-}
-
-fn compute_row_selection(
-    app: &AppState,
-    line_idx: usize,
-    line_cells: usize,
-) -> Option<(usize, usize)> {
-    app.viewport
-        .selection
-        .and_then(|sel| compute_selection_range(sel, line_idx, line_cells))
-        .map(|(start, end)| (start.min(line_cells), end.min(line_cells)))
-}
-
-fn transcript_line_style(role: Role) -> Style {
-    let style = Style::default().fg(role_fg(role));
-    if matches!(role, Role::Reasoning) {
-        style.add_modifier(Modifier::DIM)
-    } else if matches!(role, Role::Commentary) {
-        style.add_modifier(Modifier::DIM | Modifier::ITALIC)
-    } else {
-        style
-    }
 }

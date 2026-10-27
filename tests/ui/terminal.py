@@ -37,6 +37,8 @@ class Terminal:
                "CARLOS_TEST_SERVER": mode, "HOME": str(root),
                "CODEX_HOME": str(root / "codex-home"), "CARLOS_METRICS": "0",
                "XDG_CONFIG_HOME": str(root / "config"),
+               "XDG_STATE_HOME": str(root / "state"),
+               "CARLOS_TOOL_SUMMARIES": "on" if mode.startswith("summary") else "off",
                "CLAUDE_CONFIG_DIR": str(root / "claude-home"),
                "CARLOS_EVENT_TRACE": str(root / "keys.log"),
                "PATH": str(shim) + os.pathsep + os.environ["PATH"]}
@@ -89,18 +91,29 @@ class Terminal:
     def contains(self, text):
         self.wait(lambda: text in self.text, "screen contains " + repr(text))
 
+    @property
+    def phone_layout(self):
+        path = self.root / "config/carlos/ui-settings.json"
+        mode = json.loads(path.read_text()).get("layout", "auto") if path.exists() else "auto"
+        return mode == "phone" or (mode == "auto" and
+                (self.screen.columns < 80 or self.screen.lines < 20))
+
+    @property
+    def content_x(self):
+        return 1 if self.phone_layout else 2
+
     def input_is(self, text):
         line = self.screen.display[-1].strip()
         if text:
-            return line == "> " + text
-        return line == ">" or self.placeholder_is()
+            return line == ("" if self.phone_layout else "❯ ") + text
+        return line == ("" if self.phone_layout else "❯") or self.placeholder_is()
 
     def placeholder_is(self, name=None):
         line = self.screen.display[-1]
         cells = [self.screen.buffer[self.screen.lines - 1][x]
-                 for x in range(2, self.screen.columns)
+                 for x in range(self.content_x, self.screen.columns)
                  if self.screen.buffer[self.screen.lines - 1][x].data.strip()]
-        return (line.startswith(">") and bool(cells)
+        return ((line.startswith(" ") if self.phone_layout else line.startswith("❯")) and bool(cells)
                 and all(cell.fg == "6c7086" for cell in cells)
                 and (name is None or line[1:].strip() == name))
 

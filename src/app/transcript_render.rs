@@ -1,9 +1,11 @@
 //! Transcript block building, counting, and separator insertion orchestration.
 
-use super::models::{Message, MessageKind, RenderedLine, Role, TerminalSize};
+use super::models::{Message, MessageKind, RenderedLine, Role};
+use super::tool_summary::{summary_line_count, summary_lines, tool_failed};
 pub(super) use super::transcript_diff::append_wrapped_diff_lines;
 use super::transcript_diff::count_wrapped_diff_lines;
 use super::transcript_source::{append_source_lines, count_source_lines};
+pub(super) use super::transcript_spacing::should_insert_separator_between;
 #[cfg(test)]
 pub(super) use super::transcript_styles::normalize_styled_segments_for_part;
 pub(super) use super::transcript_styles::{
@@ -14,7 +16,6 @@ use super::transcript_styles::{
     count_wrapped_ansi_lines_cached, count_wrapped_markdown_lines,
     count_wrapped_message_lines_cached,
 };
-use super::MSG_CONTENT_X;
 
 // --- Read Summaries ---
 
@@ -57,6 +58,7 @@ pub(super) fn build_rendered_lines(messages: &[Message], width: usize) -> Vec<Re
     build_rendered_lines_with_hidden(messages, width, None)
 }
 
+#[cfg(test)]
 pub(super) fn build_rendered_lines_with_hidden(
     messages: &[Message],
     width: usize,
@@ -103,24 +105,27 @@ pub(super) fn count_rendered_block_for_message(
 
     let mut count = 0usize;
     if let Some(prev) = previous_visible {
-        if should_insert_separator_between(prev, msg) {
+        if should_insert_separator_between(prev, msg, width) {
             count += 1;
         }
     }
 
     count
+        + tool_header_rows(msg, width)
         + match msg.kind {
+            MessageKind::ToolSummary { rows } => summary_line_count(msg, width, rows),
             MessageKind::Diff => {
                 count_wrapped_diff_lines(msg.file_path.as_deref(), &msg.text, width)
             }
             MessageKind::Plain => match msg.role {
+                Role::ToolCall => count_tool_call_lines(msg, width),
                 Role::Assistant | Role::Reasoning => {
                     count_wrapped_markdown_lines(msg.role, &msg.text, width)
                 }
                 Role::ToolOutput => {
                     if msg.file_path.is_some() {
                         if let Some(lines) = count_source_lines(&msg.text, width) {
-                            return count + lines;
+                            return count + tool_header_rows(msg, width) + lines;
                         }
                     }
                     super::transcript_styles::count_wrapped_ansi_lines(msg.role, &msg.text, width)
@@ -144,24 +149,27 @@ pub(super) fn count_rendered_block_for_message_cached<'a>(
 
     let mut count = 0usize;
     if let Some(prev) = previous_visible {
-        if should_insert_separator_between(prev, msg) {
+        if should_insert_separator_between(prev, msg, width) {
             count += 1;
         }
     }
 
     count
+        + tool_header_rows(msg, width)
         + match msg.kind {
+            MessageKind::ToolSummary { rows } => summary_line_count(msg, width, rows),
             MessageKind::Diff => {
                 count_wrapped_diff_lines(msg.file_path.as_deref(), &msg.text, width)
             }
             MessageKind::Plain => match msg.role {
+                Role::ToolCall => count_tool_call_lines(msg, width),
                 Role::Assistant | Role::Reasoning => {
                     count_wrapped_markdown_lines(msg.role, &msg.text, width)
                 }
                 Role::ToolOutput => {
                     if msg.file_path.is_some() {
                         if let Some(lines) = count_source_lines(&msg.text, width) {
-                            return count + lines;
+                            return count + tool_header_rows(msg, width) + lines;
                         }
                     }
                     count_wrapped_ansi_lines_cached(cache, msg.role, &msg.text, width)
@@ -183,7 +191,7 @@ pub(super) fn append_rendered_block_for_message(
         return;
     }
     if let Some(prev) = previous_visible {
-        if should_insert_separator_between(prev, msg) {
+        if should_insert_separator_between(prev, msg, width) {
             out.push(RenderedLine {
                 text: String::new(),
                 styled_segments: Vec::new(),
@@ -195,11 +203,20 @@ pub(super) fn append_rendered_block_for_message(
         }
     }
 
+    if tool_header_rows(msg, width) > 0 {
+        out.extend(summary_lines(msg, width, 0));
+    }
     match msg.kind {
+        MessageKind::ToolSummary { rows } => {
+            if width >= 8 {
+                out.extend(summary_lines(msg, width, rows));
+            }
+        }
         MessageKind::Diff => {
             append_wrapped_diff_lines(out, msg.role, msg.file_path.as_deref(), &msg.text, width)
         }
         MessageKind::Plain => match msg.role {
+            Role::ToolCall => append_tool_call_lines(out, msg, width),
             Role::Assistant | Role::Reasoning => {
                 append_wrapped_markdown_lines(out, msg.role, &msg.text, width);
             }
@@ -220,19 +237,39 @@ pub(super) fn append_rendered_block_for_message(
 // --- Visibility Rules ---
 
 fn message_has_visible_content(msg: &Message) -> bool {
+    if msg.role == Role::ToolCall && msg.tool_output.is_some() {
+        return true;
+    }
     match msg.kind {
         MessageKind::Diff => !msg.text.trim().is_empty(),
-        MessageKind::Plain => !msg.text.trim().is_empty(),
+        MessageKind::Plain | MessageKind::ToolSummary { .. } => !msg.text.trim().is_empty(),
     }
 }
 
-fn should_insert_separator_between(prev: &Message, next: &Message) -> bool {
-    let _ = (prev, next);
-    true
+/// Count label rows shown before a full tool-output body.
+pub(super) fn tool_header_rows(msg: &Message, width: usize) -> usize {
+    if msg.role == Role::ToolOutput
+        && (tool_failed(msg) || msg.tool_output.as_ref().is_some_and(|tool| tool.generated))
+    {
+        summary_line_count(msg, width, 0)
+    } else {
+        0
+    }
 }
 
-// --- Layout Helpers ---
+fn count_tool_call_lines(msg: &Message, width: usize) -> usize {
+    summary_line_count(msg, width, 0)
+        + msg.text.split_once('\n').map_or(0, |(_, body)| {
+            super::transcript_styles::count_wrapped_message_lines(msg.role, body, width)
+        })
+}
 
-pub(super) fn transcript_content_width(size: TerminalSize) -> usize {
-    size.width.saturating_sub(MSG_CONTENT_X + 1)
+fn append_tool_call_lines(out: &mut Vec<RenderedLine>, msg: &Message, width: usize) {
+    if width < 8 {
+        return;
+    }
+    out.extend(summary_lines(msg, width, 0));
+    if let Some((_, body)) = msg.text.split_once('\n') {
+        append_wrapped_message_lines(out, msg.role, body, width);
+    }
 }

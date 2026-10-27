@@ -59,9 +59,7 @@ pub(super) use super::transcript_render::{
 pub(super) use super::turn_submit::{
     submit_dequeued_turn_text, submit_turn_text, submit_turn_text_with_history,
 };
-pub(super) use super::{
-    input_events, perf_session, ralph, state, turn_submit, RuntimeDefaults, MSG_CONTENT_X,
-};
+pub(super) use super::{input_events, perf_session, ralph, state, turn_submit, RuntimeDefaults};
 pub(super) use crate::clipboard::{
     detect_osc52_wrap, is_ssh_session, osc52_sequences_for_env, Osc52Wrap,
 };
@@ -70,9 +68,7 @@ pub(super) use crate::protocol_params::{
     params_thread_archive, params_turn_interrupt, params_turn_start, parse_thread_runtime_settings,
     ModelInfo, ThreadRuntimeSettings,
 };
-pub(super) use crate::theme::{
-    COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_PRIMARY, COLOR_STEP2, COLOR_TEXT,
-};
+pub(super) use crate::theme::{COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_PRIMARY, COLOR_TEXT};
 pub(super) use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 pub(super) use ratatui::buffer::Buffer;
 pub(super) use ratatui::layout::Rect;
@@ -91,6 +87,8 @@ mod input_tests;
 mod native_activity_tests;
 #[path = "tests/notification_tests.rs"]
 mod notification_tests;
+#[path = "tests/phone_layout_tests.rs"]
+mod phone_layout_tests;
 #[path = "tests/rtk_transcript_tests.rs"]
 mod rtk_transcript_tests;
 #[path = "tests/runtime_tests.rs"]
@@ -99,12 +97,20 @@ mod runtime_tests;
 mod session_name_tests;
 #[path = "tests/shell_command_tests.rs"]
 mod shell_command_tests;
+#[path = "tests/summary_render_tests.rs"]
+mod summary_render_tests;
+#[path = "tests/summary_tests.rs"]
+mod summary_tests;
+#[path = "tests/three_c_tests.rs"]
+mod three_c_tests;
 #[path = "tests/tool_output_item_tests.rs"]
 mod tool_output_item_tests;
 #[path = "tests/tool_output_tests.rs"]
 mod tool_output_tests;
 #[path = "tests/tool_tests.rs"]
 mod tool_tests;
+#[path = "tests/transcript_spacing_tests.rs"]
+mod transcript_spacing_tests;
 #[path = "tests/turn_lifecycle_tests.rs"]
 mod turn_lifecycle_tests;
 #[path = "tests/ui_render_tests.rs"]

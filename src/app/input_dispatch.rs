@@ -18,6 +18,11 @@ pub(super) fn process_event(
 ) -> bool {
     let event_started = Instant::now();
     let quit = match event {
+        UiEvent::Summary(event) => {
+            app.handle_summary_event(event);
+            *needs_draw = true;
+            false
+        }
         UiEvent::ServerLine(line) => {
             handle_server_line(client, app, &line);
             *needs_draw = true;

@@ -13,7 +13,6 @@ use crossterm::event::{Event, KeyCode, KeyModifiers};
 
 use super::mouse_events::{handle_mouse_event, handle_paste_event};
 use super::state::AppState;
-use super::transcript_render::transcript_content_width;
 use super::TerminalSize;
 use crate::backend::BackendClient;
 
@@ -94,7 +93,8 @@ fn hidden_user_message_idx(app: &AppState) -> Option<usize> {
 pub(super) fn ensure_transcript_layout(app: &mut AppState, size: TerminalSize) {
     let render_started = Instant::now();
     app.tool_output.update_size(size);
-    app.ensure_rendered_lines(transcript_content_width(size), hidden_user_message_idx(app));
+    app.layout.update_size(size);
+    app.ensure_rendered_lines(app.transcript_width(size), hidden_user_message_idx(app));
     if let Some(perf) = app.perf.as_mut() {
         perf.transcript_render.push(render_started.elapsed());
     }

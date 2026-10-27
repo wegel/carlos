@@ -1,9 +1,11 @@
 //! Lazy render cache that counts lines eagerly and materializes blocks on demand.
 
 use super::models::{Message, RenderedLine, Role};
+use super::phone_transcript::{count_rows, format_block};
 use super::tool_output_state::compact_tool_message;
 use super::transcript_render::{
-    build_rendered_block_for_message, count_rendered_block_for_message_cached, RenderCountCache,
+    build_rendered_block_for_message, count_rendered_block_for_message_cached,
+    should_insert_separator_between, tool_header_rows, RenderCountCache,
 };
 
 // --- Cache State ---
@@ -15,6 +17,7 @@ pub(super) struct RenderCacheState {
     pub(super) rendered_total_lines: usize,
     pub(super) rendered_width: usize,
     pub(super) rendered_compact: bool,
+    pub(super) rendered_phone: bool,
     compact_messages: Vec<Option<Box<Message>>>,
     pub(super) rendered_hidden_user_message_idx: Option<usize>,
     pub(super) transcript_dirty_from: Option<usize>,
@@ -29,6 +32,7 @@ impl RenderCacheState {
             rendered_total_lines: 0,
             rendered_width: 0,
             rendered_compact: false,
+            rendered_phone: false,
             compact_messages: Vec::new(),
             rendered_hidden_user_message_idx: None,
             transcript_dirty_from: Some(0),
@@ -51,9 +55,11 @@ impl RenderCacheState {
         width: usize,
         hidden_user_message_idx: Option<usize>,
         compact: bool,
+        phone: bool,
     ) {
         let rebuild_from = if self.rendered_width != width
             || self.rendered_compact != compact
+            || self.rendered_phone != phone
             || self.rendered_hidden_user_message_idx != hidden_user_message_idx
         {
             Some(0)
@@ -65,6 +71,7 @@ impl RenderCacheState {
             return;
         };
 
+        self.rendered_phone = phone;
         self.truncate_rendered_blocks_to(dirty_from);
         self.rebuild_rendered_blocks_from(
             messages,
@@ -135,8 +142,12 @@ impl RenderCacheState {
             }
 
             let previous_visible = previous_visible_idx.and_then(|prev_idx| messages.get(prev_idx));
-            let (folded, line_count) =
+            let (folded, mut line_count) =
                 count_display_block(&mut count_cache, previous_visible, msg, width, compact);
+            if self.rendered_phone {
+                let display = folded.as_ref().unwrap_or(msg);
+                line_count = count_rows(previous_visible, msg, display, width, line_count);
+            }
             self.compact_messages[idx] = folded.map(Box::new);
             self.rendered_block_line_counts.push(line_count);
             if line_count == 0 {
@@ -165,6 +176,16 @@ impl RenderCacheState {
         let block_start = *self.rendered_block_offsets.get(block_idx)?;
         let block = self.rendered_message_blocks.get(block_idx)?.as_ref()?;
         block.get(idx - block_start)
+    }
+
+    /// Return the first body row after blank lines and phone headings.
+    pub(super) fn first_content_row(&self, message: usize) -> usize {
+        self.rendered_message_blocks
+            .get(message)
+            .and_then(Option::as_ref)
+            .map_or(0, |block| {
+                block.iter().take_while(|line| line.separator).count()
+            })
     }
 
     /// Locate a message and row before a resize or view change changes row counts.
@@ -258,7 +279,17 @@ impl RenderCacheState {
             self.rendered_hidden_user_message_idx,
         )
         .and_then(|prev_idx| messages.get(prev_idx));
-        let block = build_rendered_block_for_message(previous_visible, msg, self.rendered_width);
+        let mut block =
+            build_rendered_block_for_message(previous_visible, msg, self.rendered_width);
+        if self.rendered_phone {
+            format_block(
+                &mut block,
+                previous_visible,
+                &messages[block_idx],
+                msg,
+                self.rendered_width,
+            );
+        }
         debug_assert_eq!(
             block.len(),
             self.rendered_block_line_counts
@@ -283,9 +314,11 @@ pub(super) fn count_display_block<'a>(
     compact: bool,
 ) -> (Option<Message>, usize) {
     let full_count = count_rendered_block_for_message_cached(cache, previous, message, width);
-    let rows = full_count.saturating_sub(usize::from(previous.is_some()));
+    let separator =
+        previous.is_some_and(|prev| should_insert_separator_between(prev, message, width));
+    let rows = full_count.saturating_sub(usize::from(separator) + tool_header_rows(message, width));
     let folded = compact
-        .then(|| compact_tool_message(message, rows, width))
+        .then(|| compact_tool_message(message, rows))
         .flatten();
     let count = folded
         .as_ref()

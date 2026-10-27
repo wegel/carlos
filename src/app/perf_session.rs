@@ -22,7 +22,6 @@ use super::tools::{
     extract_diff_blocks, format_tool_item, raw_function_call_output_to_tool_item,
     raw_function_call_to_tool_item,
 };
-use super::transcript_render::transcript_content_width;
 use super::{AppState, CliOptions, TerminalSize};
 
 // --- Session Replay ---
@@ -158,9 +157,10 @@ fn replay_perf_session(path: &str, size: TerminalSize) -> Result<(AppState, Perf
 
     let mut terminal = Terminal::new(TestBackend::new(size.width as u16, size.height as u16))?;
     app.tool_output.update_size(size);
-    stats.layout_breakdown = profile_layout_count_pass(&app, transcript_content_width(size));
+    app.layout.update_size(size);
+    stats.layout_breakdown = profile_layout_count_pass(&app, app.transcript_width(size));
     let render_started = Instant::now();
-    app.ensure_rendered_lines(transcript_content_width(size), None);
+    app.ensure_rendered_lines(app.transcript_width(size), None);
     stats.full_layout_ms = render_started.elapsed().as_secs_f64() * 1000.0;
 
     let draw_started = Instant::now();
@@ -184,9 +184,10 @@ fn replay_synthetic_perf_session(
 
     let mut terminal = Terminal::new(TestBackend::new(size.width as u16, size.height as u16))?;
     app.tool_output.update_size(size);
-    stats.layout_breakdown = profile_layout_count_pass(&app, transcript_content_width(size));
+    app.layout.update_size(size);
+    stats.layout_breakdown = profile_layout_count_pass(&app, app.transcript_width(size));
     let render_started = Instant::now();
-    app.ensure_rendered_lines(transcript_content_width(size), None);
+    app.ensure_rendered_lines(app.transcript_width(size), None);
     stats.full_layout_ms = render_started.elapsed().as_secs_f64() * 1000.0;
 
     let draw_started = Instant::now();

@@ -3,6 +3,12 @@
 READ_COMMAND = "rtk --verbose proxy --skip-env -- rtk read -n 'main file.rs'"
 TEST_COMMAND = "rtk --ultra-compact cargo test -p demo"
 CHAIN_COMMAND = "rtk proxy git status && rtk proxy git diff --stat"
+SEARCH_COMMAND = "rtk proxy rg -n 'withPrivateMovieSource|catalogServiceURL|seriesHierarchyKey' apps/ios/Cinero/VendorEnrollmentProofTests/Catalog* apps/ios/Cinero/Cinero/Services/CatalogStore* | head -n 55"
+
+
+def search_items():
+    return [{"type": "commandExecution", "id": "ep130-search", "command": SEARCH_COMMAND,
+             "aggregatedOutput": "CatalogStore.swift:55:catalogServiceURL", "exitCode": 0}]
 
 
 def rtk_items(failure=False):

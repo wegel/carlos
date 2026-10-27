@@ -17,6 +17,8 @@ impl RuntimeSettingsState {
         }
         fields.extend([
             ModelSettingsField::DictationEndpoint,
+            ModelSettingsField::ToolLabels,
+            ModelSettingsField::Layout,
             ModelSettingsField::ToolOutput,
         ]);
         fields

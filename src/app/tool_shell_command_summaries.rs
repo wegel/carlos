@@ -6,7 +6,7 @@ use super::{
 };
 
 use crate::app::shell_command::{analyze_shell_command, ShellCommand};
-use crate::app::shell_read::{read_paths, single_pipe};
+use crate::app::shell_read::{is_print_range, read_paths, single_pipe};
 use crate::app::shell_search::search_operands;
 use crate::app::shell_words::{has_shell_operators, program_name};
 
@@ -124,8 +124,14 @@ fn parse_shell_pipeline_summary(cmd: &str, cwd: Option<&str>) -> Option<String> 
     let (lhs, rhs) = single_pipe(cmd)?;
     let left = analyze_shell_command(lhs);
     let right = analyze_shell_command(rhs);
-    let paths = read_paths(&left)?;
     let words = shlex_split(&right.text)?;
+    if is_output_limiter(&words) {
+        let search = shlex_split(&left.text)?;
+        if matches!(program_name(search.first()?), "rg" | "grep") {
+            return parse_shell_search_summary(&left.text, &search[0], cwd);
+        }
+    }
+    let paths = read_paths(&left)?;
     if program_name(words.first()?) != "sed" || words.len() != 3 || words[1] != "-n" {
         return None;
     }
@@ -138,6 +144,35 @@ fn parse_shell_pipeline_summary(cmd: &str, cwd: Option<&str>) -> Option<String> 
             .collect::<Vec<_>>()
             .join(", ")
     ))
+}
+
+fn is_output_limiter(words: &[String]) -> bool {
+    let Some(program) = words.first().map(|word| program_name(word)) else {
+        return false;
+    };
+    let args: Vec<&str> = words.iter().skip(1).map(String::as_str).collect();
+    if program == "sed" {
+        return matches!(args.as_slice(), ["-n", script] if is_print_range(script));
+    }
+    if !matches!(program, "head" | "tail") {
+        return false;
+    }
+    match args.as_slice() {
+        [] => true,
+        ["-n" | "--lines" | "-c" | "--bytes", count] => is_line_count(count),
+        [flag] => ["--lines=", "--bytes=", "-n", "-c", "-"]
+            .iter()
+            .any(|prefix| flag.strip_prefix(prefix).is_some_and(is_line_count)),
+        _ => false,
+    }
+}
+
+fn is_line_count(count: &str) -> bool {
+    let count = count
+        .strip_prefix('+')
+        .or_else(|| count.strip_prefix('-'))
+        .unwrap_or(count);
+    !count.is_empty() && count.bytes().all(|byte| byte.is_ascii_digit())
 }
 
 pub(in crate::app) fn command_summary_from_shell_cmd(

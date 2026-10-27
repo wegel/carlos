@@ -21,6 +21,8 @@ pub(super) enum ModelSettingsField {
     Effort,
     Summary,
     DictationEndpoint,
+    Layout,
+    ToolLabels,
     ToolOutput,
 }
 
@@ -211,12 +213,6 @@ impl RuntimeSettingsState {
         }
 
         out
-    }
-
-    pub(super) fn has_runtime_settings(&self) -> bool {
-        self.current_model.is_some()
-            || self.current_effort.is_some()
-            || self.current_summary.is_some()
     }
 
     pub(super) fn runtime_settings_pending(&self) -> bool {

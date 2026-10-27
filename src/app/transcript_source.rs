@@ -9,7 +9,7 @@ use super::source_highlight::SourceHighlighter;
 use super::text::wrap_natural_count_by_cells;
 use super::tools::{first_i64_at_paths, first_string_at_paths, tool_command, tool_name};
 use super::transcript_styles::append_wrapped_styled_logical_lines;
-use crate::theme::COLOR_DIM;
+use crate::theme::COLOR_STEP8;
 
 /// Read a source path only from a successful read tool or a single read action.
 pub(super) fn source_path_from_item(item: &Value) -> Option<String> {
@@ -74,7 +74,7 @@ pub(super) fn append_source_lines(
             if !gutter.is_empty() {
                 segments.push(StyledSegment {
                     text: gutter.to_string(),
-                    style: Style::default().fg(COLOR_DIM),
+                    style: Style::default().fg(COLOR_STEP8),
                 });
             }
             if let Some(highlighter) = highlighter.as_mut() {

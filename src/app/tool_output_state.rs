@@ -1,7 +1,6 @@
 //! Choose full or folded tool output from an explicit preference and terminal size.
 
-use super::models::{Message, MessageKind, Role, TerminalSize};
-use super::text::{slice_by_cells, visual_width};
+use super::models::{Message, MessageKind, Role, TerminalSize, ToolOutputDetails};
 use super::transcript_diff_source::split_file_diffs;
 
 /// Let the terminal size choose, or force one view until the user changes it.
@@ -54,7 +53,7 @@ impl ToolOutputState {
         if size.width == 0 || size.height == 0 {
             return;
         }
-        let small = size.width < 80 || size.height < 20;
+        let small = size.is_small();
         let roomy = size.width >= 84 && size.height >= 22;
         self.auto_compact = Some(match self.auto_compact {
             Some(true) => !roomy,
@@ -87,13 +86,11 @@ impl ToolOutputState {
 }
 
 /// Replace tool contents with a label, including short results and failures.
-pub(super) fn compact_tool_message(
-    message: &Message,
-    rows: usize,
-    width: usize,
-) -> Option<Message> {
+pub(super) fn compact_tool_message(message: &Message, rows: usize) -> Option<Message> {
     let command_body = message.role == Role::ToolCall && message.text.contains('\n');
-    if message.role != Role::ToolOutput && message.kind != MessageKind::Diff && !command_body {
+    if !matches!(message.role, Role::ToolCall | Role::ToolOutput)
+        && message.kind != MessageKind::Diff
+    {
         return None;
     }
     let label = message
@@ -103,7 +100,7 @@ pub(super) fn compact_tool_message(
         .unwrap_or_else(|| {
             if message.kind == MessageKind::Diff {
                 diff_summary(message)
-            } else if command_body {
+            } else if message.role == Role::ToolCall {
                 message
                     .text
                     .lines()
@@ -114,26 +111,21 @@ pub(super) fn compact_tool_message(
                 "Tool output".to_string()
             }
         });
-    let label = if message.tool_output.as_ref().is_some_and(|tool| tool.failed) {
-        format!("Failed: {label}")
-    } else {
-        label
-    };
-    let label = if visual_width(&label) > width {
-        format!("{}…", slice_by_cells(&label, 0, width.saturating_sub(1)))
-    } else {
-        label
-    };
     Some(Message {
-        tool_output: None,
+        tool_output: Some(ToolOutputDetails {
+            generated: message
+                .tool_output
+                .as_ref()
+                .is_some_and(|tool| tool.generated),
+            summary: label.clone(),
+            failed: message.tool_output.as_ref().is_some_and(|tool| tool.failed),
+        }),
         role: Role::ToolCall,
-        kind: MessageKind::Plain,
-        file_path: None,
-        text: if rows > 2 {
-            format!("{label}\n({rows} rows hidden)")
-        } else {
-            label
+        kind: MessageKind::ToolSummary {
+            rows: if command_body { 0 } else { rows },
         },
+        file_path: None,
+        text: label,
     })
 }
 

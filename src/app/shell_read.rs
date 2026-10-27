@@ -117,7 +117,7 @@ fn rtk_read_flag(word: &str) -> bool {
             .any(|prefix| word.starts_with(prefix))
 }
 
-fn is_print_range(script: &str) -> bool {
+pub(super) fn is_print_range(script: &str) -> bool {
     script.strip_suffix('p').is_some_and(|range| {
         !range.is_empty()
             && range.split(',').count() <= 2

@@ -13,7 +13,7 @@ use crate::theme::{COLOR_DIM, COLOR_STEP6, COLOR_TEXT};
 /// Fit the settings panel to the terminal, using closer rows on short screens.
 pub(super) fn model_settings_overlay_box(size: TerminalSize) -> OverlayBox {
     let box_w = size.width.saturating_sub(4).min(84).max(1).min(size.width);
-    let box_h = if size.height < 20 { 12 } else { 16 };
+    let box_h = if size.height < 22 { 12 } else { 20 };
     compute_overlay_box(size, box_w, box_h.min(size.height))
 }
 
@@ -69,7 +69,7 @@ impl FieldLayout {
             x_label: ob.start_x + 3,
             x_value: ob.start_x + 15,
             value_w: ob.box_w.saturating_sub(18),
-            row_step: if ob.bottom.saturating_sub(ob.top) + 1 < 16 {
+            row_step: if ob.bottom.saturating_sub(ob.top) + 1 < 18 {
                 1
             } else {
                 2
@@ -87,6 +87,8 @@ impl FieldLayout {
             ModelSettingsField::Effort => "Thinking",
             ModelSettingsField::Summary => "Summary",
             ModelSettingsField::DictationEndpoint => "Dictation",
+            ModelSettingsField::Layout => "Layout",
+            ModelSettingsField::ToolLabels => "AI labels",
             ModelSettingsField::ToolOutput => "Tool output",
         };
         draw_str(
@@ -114,6 +116,14 @@ fn field_value(app: &AppState, field: ModelSettingsField) -> &str {
         ModelSettingsField::Effort => app.model_settings_effort_value(),
         ModelSettingsField::Summary => app.model_settings_summary_value(),
         ModelSettingsField::DictationEndpoint => app.dictation_endpoint_mode_label(),
+        ModelSettingsField::Layout => app.layout.draft_label(),
+        ModelSettingsField::ToolLabels => {
+            if app.summaries.draft {
+                "On"
+            } else {
+                "Off"
+            }
+        }
         ModelSettingsField::ToolOutput => app
             .tool_output
             .settings_label(app.runtime.model_settings_tool_output),

@@ -11,9 +11,17 @@ from test_session_names import SessionNames
 from test_source_colors import SourceColors
 from test_tool_output import ToolOutput
 from test_rtk import RtkWorkflows
+from test_theme import Theme
+from test_phone_layout import PhoneLayout
+from test_summaries import Summaries
 
 
-class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, unittest.TestCase):
+class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, unittest.TestCase):
+    def summary_root(self):
+        root = ARTIFACTS / self._testMethodName
+        root.mkdir(parents=True, exist_ok=True)
+        return root
+
     def test_native_monitor_activity_after_parent_completion_is_not_lost_or_duplicated(self):
         terminal = self.launch(mode="native-activity", resume=None)
         terminal.wait(lambda: terminal.input_is(""), "new thread ready")
@@ -28,8 +36,12 @@ class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, unittest.T
         self.assertEqual(terminal.requests("turn/start")[0]["params"]["threadId"], "thread-new")
         terminal.snapshot("native-monitor-completed")
 
-    def launch(self, mode="modern", resume="thread-original", width=100, directory=None, backend="codex"):
+    def launch(self, mode="modern", resume="thread-original", width=100, directory=None, backend="codex", layout=None):
         directory = directory or ARTIFACTS / self._testMethodName
+        if layout:
+            settings = directory / "config/carlos/ui-settings.json"
+            settings.parent.mkdir(parents=True, exist_ok=True)
+            settings.write_text(json.dumps({"layout": layout}))
         terminal = Terminal(BINARY, directory, mode, resume, width, backend)
         self.addCleanup(terminal.close)
         return terminal

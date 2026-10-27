@@ -28,6 +28,7 @@ impl AppState {
     ) {
         if self.render_cache.rendered_width != width
             || self.render_cache.rendered_compact != self.tool_output.compact()
+            || self.render_cache.rendered_phone != self.layout.phone
         {
             self.viewport.selection = None;
             self.viewport.mouse_drag_mode = super::selection::MouseDragMode::Undecided;
@@ -40,6 +41,7 @@ impl AppState {
             width,
             hidden_user_message_idx,
             self.tool_output.compact(),
+            self.layout.phone,
         );
         if let Some(line) = anchor.and_then(|anchor| self.render_cache.line_for_anchor(anchor)) {
             self.viewport.scroll_top = line;

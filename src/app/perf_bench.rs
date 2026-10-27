@@ -10,7 +10,7 @@ use super::models::{Message, MessageKind, Role};
 use super::perf::DurationSamples;
 use super::render::{compute_input_layout, render_main_view};
 use super::render_cache_state::count_display_block;
-use super::transcript_render::{transcript_content_width, RenderCountCache};
+use super::transcript_render::RenderCountCache;
 use super::{AppState, TerminalSize, MSG_TOP};
 
 const PERF_SAMPLE_WINDOW: usize = 4096;
@@ -64,7 +64,7 @@ pub(super) fn benchmark_scroll_draws(
     stats: &mut PerfReplayStats,
 ) -> Result<()> {
     let mut terminal = Terminal::new(TestBackend::new(size.width as u16, size.height as u16))?;
-    app.ensure_rendered_lines(transcript_content_width(size), None);
+    app.ensure_rendered_lines(app.transcript_width(size), None);
     let input_layout = compute_input_layout(app, size);
     let msg_height = if input_layout.msg_bottom >= MSG_TOP {
         input_layout.msg_bottom - MSG_TOP + 1
@@ -146,7 +146,7 @@ pub(super) fn benchmark_append_draws(
         let started = Instant::now();
         app.messages[idx].text.push_str("\nappend bench line");
         app.mark_transcript_dirty_from(idx);
-        app.ensure_rendered_lines(transcript_content_width(size), None);
+        app.ensure_rendered_lines(app.transcript_width(size), None);
         terminal.draw(|frame| render_main_view(frame, app))?;
         stats.append_total.push(started.elapsed());
     }
@@ -207,6 +207,7 @@ pub(super) fn profile_layout_count_pass(app: &AppState, width: usize) -> Vec<Lay
 
 fn layout_breakdown_label(msg: &Message) -> &'static str {
     match (msg.kind, msg.role) {
+        (MessageKind::ToolSummary { .. }, _) => "tool_summary",
         (MessageKind::Diff, _) => "diff",
         (MessageKind::Plain, Role::Reasoning) => "reasoning_markdown",
         (MessageKind::Plain, Role::Assistant) => "assistant_markdown",

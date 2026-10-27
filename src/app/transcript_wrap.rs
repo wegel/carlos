@@ -6,7 +6,7 @@ mod transcript_wrap_counting;
 
 use std::collections::{HashMap, VecDeque};
 
-use ratatui::style::Style;
+use ratatui::style::{Modifier, Style};
 
 use super::models::{RenderedLine, Role, StyledSegment};
 use super::text::{visual_width, wrap_natural_by_cells, wrap_natural_count_by_cells};
@@ -14,7 +14,7 @@ use super::transcript_styles::{
     ansi_line_segments, is_fence_delimiter, markdown_line_segments,
     normalize_styled_segments_for_part, styled_plain_text, take_styled_segments_by_cells,
 };
-use crate::theme::{COLOR_DIM, COLOR_STEP2};
+use crate::theme::{COLOR_REASONING, COLOR_ROW_USER};
 
 pub(super) use self::transcript_wrap_counting::{
     count_styled_logical_lines, count_wrapped_ansi_lines, count_wrapped_ansi_lines_cached,
@@ -181,40 +181,6 @@ fn append_styled_logical_lines_inner(
 
 // --- Append ---
 
-fn tool_call_logical_lines(text: &str) -> Vec<Vec<StyledSegment>> {
-    text.split('\n')
-        .enumerate()
-        .filter(|(_, line)| !is_fence_delimiter(line))
-        .map(|(index, line)| {
-            let header = if index == 0 { line } else { "" };
-            let prefix = if header.starts_with("run ") {
-                ""
-            } else if header.starts_with("Failed: run ") {
-                "Failed: "
-            } else {
-                return vec![StyledSegment {
-                    text: line.to_owned(),
-                    style: Style::default(),
-                }];
-            };
-            vec![
-                StyledSegment {
-                    text: prefix.to_owned(),
-                    style: Style::default(),
-                },
-                StyledSegment {
-                    text: "run ".to_owned(),
-                    style: Style::default().fg(COLOR_DIM),
-                },
-                StyledSegment {
-                    text: line[prefix.len() + 4..].to_owned(),
-                    style: Style::default(),
-                },
-            ]
-        })
-        .collect()
-}
-
 pub(super) fn append_wrapped_message_lines(
     out: &mut Vec<RenderedLine>,
     role: Role,
@@ -222,10 +188,6 @@ pub(super) fn append_wrapped_message_lines(
     width: usize,
 ) {
     if width < 8 {
-        return;
-    }
-    if matches!(role, Role::ToolCall) {
-        append_styled_logical_lines_inner(out, role, tool_call_logical_lines(text), width);
         return;
     }
 
@@ -246,7 +208,7 @@ pub(super) fn append_wrapped_message_lines(
         let wrapped_parts = wrap_natural_by_cells(logical, width);
         for (i, part) in wrapped_parts.iter().enumerate() {
             let fence_style = if matches!(role, Role::User) && in_code_fence {
-                Style::default().bg(COLOR_STEP2)
+                Style::default().bg(COLOR_ROW_USER)
             } else {
                 Style::default()
             };
@@ -275,7 +237,7 @@ pub(super) fn append_wrapped_markdown_lines(
         return;
     }
 
-    let logical_lines = if matches!(role, Role::Reasoning) {
+    let mut logical_lines = if matches!(role, Role::Reasoning) {
         let mut lines = Vec::new();
         for raw_line in text.split('\n') {
             if raw_line.is_empty() {
@@ -291,6 +253,15 @@ pub(super) fn append_wrapped_markdown_lines(
     } else {
         markdown_line_segments(text)
     };
+    if role == Role::Reasoning {
+        for segment in logical_lines.iter_mut().flatten() {
+            segment.style = segment
+                .style
+                .fg(COLOR_REASONING)
+                .remove_modifier(Modifier::BOLD | Modifier::DIM)
+                .add_modifier(Modifier::ITALIC);
+        }
+    }
     append_styled_logical_lines_inner(out, role, logical_lines, width);
 }
 

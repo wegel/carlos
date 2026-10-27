@@ -20,6 +20,7 @@ pub(in crate::app) fn can_submit_queued_turn(
 fn queued_turn_blocking_event(event: &UiEvent) -> bool {
     match event {
         UiEvent::ServerLine(_) => true,
+        UiEvent::Summary(_) => false,
         #[cfg(feature = "dictation")]
         UiEvent::Dictation(_) => true,
         UiEvent::Terminal(CrosstermEvent::Resize(_, _)) => false,
@@ -37,6 +38,7 @@ pub(in crate::app) fn prioritize_events(
     let mut priority_server_lines: Vec<String> = Vec::new();
     for event in incoming_events {
         match event {
+            UiEvent::Summary(event) => prioritized.push(UiEvent::Summary(event)),
             UiEvent::Terminal(ev) => prioritized.push(UiEvent::Terminal(ev)),
             #[cfg(feature = "dictation")]
             UiEvent::Dictation(event) => prioritized.push(UiEvent::Dictation(event)),

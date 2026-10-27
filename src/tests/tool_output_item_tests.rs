@@ -34,10 +34,11 @@ fn live_and_reopened_read_outputs_show_the_same_contents_and_summary() {
         assert_eq!(app.messages[0].file_path.as_deref(), Some("main.rs"));
         app.tool_output.mode = ToolOutputMode::Compact;
         app.ensure_rendered_lines(50, None);
-        assert!(app
-            .snapshot_rendered_lines()
-            .iter()
-            .any(|line| line.text.contains("rows hidden")));
+        assert!(app.snapshot_rendered_lines().iter().any(|line| line
+            .text
+            .split_whitespace()
+            .last()
+            .is_some_and(|n| n.parse::<usize>().is_ok())));
         app.tool_output.mode = ToolOutputMode::Full;
         app.ensure_rendered_lines(50, None);
         assert!(app
@@ -80,10 +81,11 @@ fn switching_modes_during_a_stream_keeps_every_delta_and_labels_failures() {
         handle_notification_line(&mut app, &json!({"method":"item/commandExecution/outputDelta", "params":{"itemId":"read","delta":delta}}).to_string());
         app.tool_output.mode = ToolOutputMode::Compact;
         app.ensure_rendered_lines(50, None);
-        assert!(app
-            .snapshot_rendered_lines()
-            .iter()
-            .any(|line| line.text.contains("rows hidden")));
+        assert!(app.snapshot_rendered_lines().iter().any(|line| line
+            .text
+            .split_whitespace()
+            .last()
+            .is_some_and(|n| n.parse::<usize>().is_ok())));
     }
     assert!(app.messages[0].text.ends_with("last streamed line"));
     let mut failed = item;
@@ -92,7 +94,7 @@ fn switching_modes_during_a_stream_keeps_every_delta_and_labels_failures() {
     complete(&mut app, &failed);
     app.ensure_rendered_lines(50, None);
     let lines = app.snapshot_rendered_lines();
-    assert!(lines.iter().any(|line| line.text.contains("Failed:")));
+    assert!(lines.iter().any(|line| line.text.contains("failed")));
     assert!(lines
         .iter()
         .all(|line| !line.text.contains("command failed")));
@@ -123,9 +125,11 @@ fn valid_diff_exit_one_is_not_a_failure_and_explicit_errors_are_labeled() {
             error
         );
         assert_eq!(
-            app.snapshot_rendered_lines()
-                .iter()
-                .any(|line| line.text.contains("rows hidden")),
+            app.snapshot_rendered_lines().iter().any(|line| line
+                .text
+                .split_whitespace()
+                .last()
+                .is_some_and(|n| n.parse::<usize>().is_ok())),
             true
         );
     }

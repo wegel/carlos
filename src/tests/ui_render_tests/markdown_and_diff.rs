@@ -115,7 +115,7 @@ fn build_rendered_lines_user_code_block_adds_spacing_and_background() {
     assert!(rendered[code_idx]
         .styled_segments
         .iter()
-        .any(|s| s.style.bg == Some(COLOR_STEP2)));
+        .any(|s| s.style.bg == Some(crate::theme::COLOR_ROW_USER)));
 }
 
 #[test]
@@ -247,7 +247,7 @@ fn build_rendered_lines_groups_commentary_with_following_tool_call() {
     assert_eq!(rendered.len(), 3);
     assert_eq!(rendered[0].text, "checking the diff");
     assert!(rendered[1].separator);
-    assert_eq!(rendered[2].text, "→ Read src/main.rs");
+    assert_eq!(rendered[2].text, "src/main.rs");
 }
 
 #[test]

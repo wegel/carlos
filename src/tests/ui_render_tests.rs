@@ -9,7 +9,7 @@ use super::{
     slice_by_cells, visual_width, wrap_input_line, wrap_input_line_count, wrap_natural_by_cells,
     wrap_natural_count_by_cells, AppState, Buffer, DictationProfileState, Message, MessageKind,
     Rect, RenderedLine, Role, Selection, Style, StyledSegment, TerminalSize, ThreadSummary,
-    COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_PRIMARY, COLOR_STEP2, COLOR_TEXT, MSG_CONTENT_X,
+    COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_PRIMARY, COLOR_TEXT,
 };
 
 fn usable_dictation_profile() -> DictationProfileState {

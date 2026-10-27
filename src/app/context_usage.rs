@@ -139,6 +139,5 @@ pub(super) fn context_usage_placeholder_label() -> &'static str {
 
 pub(super) fn context_label_reserved_cells(context_label: Option<&str>) -> usize {
     let base = visual_width("999k/999k (99%)").max(visual_width(context_usage_placeholder_label()));
-    let label_cells = context_label.map(visual_width).unwrap_or(0);
-    base.max(label_cells)
+    context_label.map(visual_width).unwrap_or(base)
 }

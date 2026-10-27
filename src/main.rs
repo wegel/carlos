@@ -12,10 +12,13 @@ mod protocol;
 mod protocol_history;
 mod protocol_params;
 mod protocol_rewind;
+mod summaries;
 mod theme;
 
 fn main() {
-    if let Err(err) = app::run() {
+    let result = summaries::reader::maybe_run()
+        .and_then(|handled| if handled { Ok(()) } else { app::run() });
+    if let Err(err) = result {
         eprintln!("error: {err:#}");
         std::process::exit(1);
     }

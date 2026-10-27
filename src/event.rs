@@ -13,6 +13,7 @@ use crate::dictation::events::DictationEvent;
 pub(crate) enum UiEvent {
     Terminal(CrosstermEvent),
     ServerLine(String),
+    Summary(crate::summaries::SummaryEvent),
     #[cfg(feature = "dictation")]
     Dictation(DictationEvent),
 }
@@ -20,8 +21,10 @@ pub(crate) enum UiEvent {
 #[cfg(not(feature = "dictation"))]
 pub(crate) fn spawn_event_forwarders(
     server_events_rx: mpsc::Receiver<String>,
+    summary_rx: mpsc::Receiver<crate::summaries::SummaryEvent>,
 ) -> mpsc::Receiver<UiEvent> {
     let (ui_tx, ui_rx) = mpsc::channel::<UiEvent>();
+    forward_summaries(summary_rx, ui_tx.clone());
 
     {
         let tx = ui_tx.clone();
@@ -54,8 +57,10 @@ pub(crate) fn spawn_event_forwarders(
 pub(crate) fn spawn_event_forwarders_with_dictation(
     server_events_rx: mpsc::Receiver<String>,
     dictation_events_rx: mpsc::Receiver<DictationEvent>,
+    summary_rx: mpsc::Receiver<crate::summaries::SummaryEvent>,
 ) -> mpsc::Receiver<UiEvent> {
     let (ui_tx, ui_rx) = mpsc::channel::<UiEvent>();
+    forward_summaries(summary_rx, ui_tx.clone());
 
     {
         let tx = ui_tx.clone();
@@ -93,4 +98,17 @@ pub(crate) fn spawn_event_forwarders_with_dictation(
 
     drop(ui_tx);
     ui_rx
+}
+
+fn forward_summaries(
+    rx: mpsc::Receiver<crate::summaries::SummaryEvent>,
+    tx: mpsc::Sender<UiEvent>,
+) {
+    thread::spawn(move || {
+        while let Ok(event) = rx.recv() {
+            if tx.send(UiEvent::Summary(event)).is_err() {
+                break;
+            }
+        }
+    });
 }

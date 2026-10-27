@@ -29,14 +29,14 @@ fn name_placeholder_does_not_change_input_layout_cursor_or_history() {
     assert_eq!(buffer[(78, 15)].symbol(), "r");
     assert_eq!(buffer[(79, 15)].symbol(), " ");
     assert_eq!(buffer[(64, 15)].fg, COLOR_STEP8);
-    assert!(buffer[(64, 15)].modifier.contains(Modifier::DIM));
+    assert!(!buffer[(64, 15)].modifier.contains(Modifier::DIM));
     assert_eq!(app.input_text(), "");
     assert_eq!(app.input.cursor(), (0, 0));
     assert_eq!(app.submitted_turn_count(), 0);
     assert!(app.messages.is_empty());
     app.set_input_text("x");
     let buffer = render(&mut app, 80);
-    assert_eq!(buffer[(2, 15)].symbol(), "x");
+    assert_eq!(buffer[(1, 15)].symbol(), "x");
     assert!(!buffer[(2, 15)].modifier.contains(Modifier::DIM));
 }
 
@@ -50,15 +50,17 @@ fn right_aligned_names_clip_at_whole_unicode_characters_when_resizing() {
     assert_eq!(buffer[(18, 15)].symbol(), "x");
     assert_eq!(buffer[(19, 15)].symbol(), " ");
     let buffer = render(&mut app, 7);
-    assert_eq!(buffer[(2, 15)].symbol(), "漢");
-    assert_eq!(buffer[(4, 15)].symbol(), "🦀");
+    assert_eq!(buffer[(1, 15)].symbol(), "漢");
+    assert_eq!(buffer[(3, 15)].symbol(), "🦀");
+    assert_eq!(buffer[(5, 15)].symbol(), "x");
     assert_eq!(buffer[(6, 15)].symbol(), " ");
     let buffer = render(&mut app, 6);
-    assert_eq!(buffer[(2, 15)].symbol(), " ");
-    assert_eq!(buffer[(3, 15)].symbol(), "漢");
+    assert_eq!(buffer[(1, 15)].symbol(), "漢");
+    assert_eq!(buffer[(3, 15)].symbol(), "🦀");
     assert_eq!(buffer[(5, 15)].symbol(), " ");
     let buffer = render(&mut app, 4);
-    assert_eq!(buffer[(2, 15)].symbol(), " ");
+    assert_eq!(buffer[(1, 15)].symbol(), "漢");
+    assert_eq!(buffer[(3, 15)].symbol(), " ");
     assert!(app.input_is_empty());
 }
 

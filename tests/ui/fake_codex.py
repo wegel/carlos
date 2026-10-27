@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 
 from rtk_fixture import rtk_items
+from theme_fixture import theme_turn, spacing_turn, start_theme_step
 
 
 def user_item(key, text):
@@ -71,12 +72,22 @@ class Server:
         self.failed_fork = False
         self.failed_start = False
         self.failed_rename = False
+        if self.mode == "phone-history":
+            self.threads["thread-original"]["turns"] = [theme_turn(extra_read=True)]
+        if self.mode == "desktop-spacing":
+            self.threads["thread-original"]["turns"] = [spacing_turn()]
+        if self.mode.startswith("theme-"):
+            self.threads["thread-original"]["turns"] = [theme_turn()]
         if self.mode == "source-history":
             self.threads["thread-original"]["turns"] = [{
                 "id": "source-turn", "status": "completed", "items": source_items(command_read=True)}]
         if self.mode == "tool-history":
             self.threads["thread-original"]["turns"] = [{
                 "id": "tools-turn", "status": "completed", "items": long_tool_items()}]
+        if self.mode == "summary-history":
+            from summary_fixture import summary_items
+            self.threads["thread-original"]["turns"] = [{
+                "id": "summary-turn", "status": "completed", "items": summary_items()}]
         if self.mode == "rtk-history":
             self.threads["thread-original"]["turns"] = [{
                 "id": "rtk-turn", "status": "completed", "items": rtk_items()}]
@@ -126,6 +137,10 @@ class Server:
             if self.mode == "paginated":
                 thread["turns"] = []
             self.reply(request, {"thread": thread})
+            if self.mode.startswith("theme-") and self.mode.removeprefix("theme-").isdigit():
+                self.notify("thread/tokenUsage/updated", {"threadId": params["threadId"],
+                            "tokenUsage": {"modelContextWindow": 100000,
+                                          "total": {"totalTokens": int(self.mode.split("-")[1]) * 1000}}})
         elif method == "thread/start":
             self.threads["thread-new"] = {"id": "thread-new", "turns": []}
             self.reply(request, {"thread": self.threads["thread-new"]})
@@ -202,6 +217,9 @@ class Server:
         self.reply(request, {"thread": thread})
 
     def start_turn(self, request, params):
+        if self.mode == "theme-active":
+            start_theme_step(self, request, params)
+            return
         if self.mode == "start-error" and not self.failed_start:
             self.failed_start = True
             self.reply(request, error="injected turn failure")
@@ -212,13 +230,25 @@ class Server:
         turn = completed_turn(key, text)
         if self.mode == "source-colors":
             turn["items"][1:1] = source_items()
-        if self.mode in ("tool-output", "tool-live", "tool-failure"):
+        if self.mode in ("tool-output", "tool-live", "tool-live-context", "tool-failure"):
             turn["items"][1:1] = long_tool_items(failure=self.mode == "tool-failure")
         if self.mode == "tool-short":
             turn["items"][1:1] = short_tool_items()
+        if self.mode == "summary-live":
+            from summary_fixture import summary_items
+            turn["items"][1:1] = summary_items()
+        if self.mode == "summary-ep130":
+            from summary_fixture import ep130_items
+            turn["items"][1:1] = ep130_items()
+        if self.mode == "summary-file":
+            turn["items"][1:1] = [{"type": "commandExecution", "id": "summary-file",
+                "command": "python3 process.py", "aggregatedOutput": "script was not executed", "exitCode": 0}]
         if self.mode in ("rtk", "rtk-failure"):
             turn["items"][1:1] = rtk_items(failure=self.mode == "rtk-failure")
-        if self.mode == "tool-live":
+        if self.mode == "rtk-search":
+            from rtk_fixture import search_items
+            turn["items"][1:1] = search_items()
+        if self.mode in ("tool-live", "tool-live-context"):
             turn["status"] = "inProgress"
         if self.mode == "named-live":
             turn["status"] = "inProgress"
@@ -240,7 +270,10 @@ class Server:
                             "turnId": key, "itemId": item["id"], "delta": item["text"]})
             self.notify("item/completed", {"threadId": thread_id, "turnId": key, "item": item})
         self.threads[thread_id]["turns"].append(turn)
-        if self.mode in ("named-live", "tool-live"):
+        if self.mode == "tool-live-context":
+            self.notify("thread/tokenUsage/updated", {"threadId": thread_id,
+                        "tokenUsage": {"modelContextWindow": 100000, "total": {"totalTokens": 91000}}})
+        if self.mode in ("named-live", "tool-live", "tool-live-context"):
             return
         self.notify("turn/completed", {"threadId": thread_id, "turn": turn})
         if self.mode == "named-external":

@@ -68,16 +68,10 @@ impl AppState {
         self.runtime.runtime_settings_label()
     }
 
-    pub(super) fn has_runtime_settings(&self) -> bool {
-        self.runtime.has_runtime_settings()
-    }
-
-    pub(super) fn runtime_settings_pending(&self) -> bool {
-        self.runtime.runtime_settings_pending()
-    }
-
     pub(super) fn open_model_settings(&mut self) {
         self.runtime.model_settings_tool_output = self.tool_output.mode;
+        self.layout.draft = self.layout.mode;
+        self.summaries.draft = self.summaries.enabled;
         self.runtime.open_model_settings();
     }
 
@@ -122,7 +116,9 @@ impl AppState {
     }
 
     pub(super) fn apply_model_settings(&mut self) -> RuntimeDefaults {
+        self.apply_summary_setting();
         self.tool_output.mode = self.runtime.model_settings_tool_output;
+        self.layout.mode = self.layout.draft;
         let defaults = self.runtime.apply_model_settings();
         let label = if self.runtime.supports_summary {
             "model/effort/summary"

@@ -44,8 +44,8 @@ fn append_message_coalesces_successive_read_summaries() {
         .filter(|line| !line.separator)
         .map(|line| line.text.as_str())
         .collect();
-    assert!(visible.contains(&"→ Read src/main.rs ×3"));
-    assert!(visible.contains(&"→ Read src/lib.rs"));
+    assert!(visible.contains(&"src/main.rs ×3"));
+    assert!(visible.contains(&"src/lib.rs"));
 }
 
 #[test]
@@ -258,14 +258,14 @@ fn compute_input_layout_wraps_input_at_word_boundaries() {
     let layout = compute_input_layout(
         &app,
         TerminalSize {
-            width: MSG_CONTENT_X + 1 + 10,
+            width: 1 + 1 + 10,
             height: 8,
         },
     );
 
     assert_eq!(layout.visible_lines, vec!["alpha beta", "gamma"]);
     assert_eq!(layout.input_height, 2);
-    assert_eq!(layout.cursor_x, MSG_CONTENT_X + 5);
+    assert_eq!(layout.cursor_x, 1 + 5);
 }
 
 #[test]

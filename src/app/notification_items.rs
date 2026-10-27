@@ -18,12 +18,19 @@ pub(super) fn handle_item_notification(
     match method {
         "codex/event/raw_response_item" => true,
         "item/started" | "item/completed" => {
+            let live = params
+                .get("item")
+                .and_then(|v| v["id"].as_str())
+                .is_some_and(|id| !app.is_item_completed(id));
             let handled = if method == "item/started" {
                 handle_item_started(app, params)
             } else {
                 handle_item_completed(app, params)
             };
             record_user_turn_id(app, params);
+            if let Some(item) = params.get("item") {
+                app.observe_summary_item(item, live);
+            }
             handled
         }
         "item/agentMessage/delta" => {
