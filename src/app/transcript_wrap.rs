@@ -17,8 +17,8 @@ use super::transcript_styles::{
 use crate::theme::{COLOR_REASONING, COLOR_ROW_USER};
 
 pub(super) use self::transcript_wrap_counting::{
-    count_styled_logical_lines, count_wrapped_ansi_lines, count_wrapped_ansi_lines_cached,
-    count_wrapped_markdown_lines, count_wrapped_message_lines, count_wrapped_message_lines_cached,
+    count_styled_logical_lines, count_wrapped_ansi_lines_cached, count_wrapped_markdown_lines,
+    count_wrapped_message_lines_cached,
 };
 
 // --- Cache ---

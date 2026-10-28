@@ -101,6 +101,8 @@ mod shell_command_tests;
 mod summary_render_tests;
 #[path = "tests/summary_tests.rs"]
 mod summary_tests;
+#[path = "tests/theme_preferences_tests.rs"]
+mod theme_preferences_tests;
 #[path = "tests/three_c_tests.rs"]
 mod three_c_tests;
 #[path = "tests/tool_output_item_tests.rs"]

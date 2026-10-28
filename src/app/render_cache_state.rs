@@ -1,12 +1,9 @@
 //! Lazy render cache that counts lines eagerly and materializes blocks on demand.
 
+use super::layout_state::TranscriptTheme;
 use super::models::{Message, RenderedLine, Role};
-use super::phone_transcript::{count_rows, format_block};
-use super::tool_output_state::compact_tool_message;
-use super::transcript_render::{
-    build_rendered_block_for_message, count_rendered_block_for_message_cached,
-    should_insert_separator_between, tool_header_rows, RenderCountCache,
-};
+use super::transcript_block::{plan_display_block, BlockPlan};
+use super::transcript_styles::RenderCountCache;
 
 // --- Cache State ---
 
@@ -17,8 +14,9 @@ pub(super) struct RenderCacheState {
     pub(super) rendered_total_lines: usize,
     pub(super) rendered_width: usize,
     pub(super) rendered_compact: bool,
-    pub(super) rendered_phone: bool,
+    pub(super) rendered_theme: TranscriptTheme,
     compact_messages: Vec<Option<Box<Message>>>,
+    block_plans: Vec<Option<Box<BlockPlan>>>,
     pub(super) rendered_hidden_user_message_idx: Option<usize>,
     pub(super) transcript_dirty_from: Option<usize>,
 }
@@ -32,8 +30,9 @@ impl RenderCacheState {
             rendered_total_lines: 0,
             rendered_width: 0,
             rendered_compact: false,
-            rendered_phone: false,
+            rendered_theme: TranscriptTheme::Gutter,
             compact_messages: Vec::new(),
+            block_plans: Vec::new(),
             rendered_hidden_user_message_idx: None,
             transcript_dirty_from: Some(0),
         }
@@ -55,11 +54,11 @@ impl RenderCacheState {
         width: usize,
         hidden_user_message_idx: Option<usize>,
         compact: bool,
-        phone: bool,
+        theme: TranscriptTheme,
     ) {
         let rebuild_from = if self.rendered_width != width
             || self.rendered_compact != compact
-            || self.rendered_phone != phone
+            || self.rendered_theme != theme
             || self.rendered_hidden_user_message_idx != hidden_user_message_idx
         {
             Some(0)
@@ -71,7 +70,7 @@ impl RenderCacheState {
             return;
         };
 
-        self.rendered_phone = phone;
+        self.rendered_theme = theme;
         self.truncate_rendered_blocks_to(dirty_from);
         self.rebuild_rendered_blocks_from(
             messages,
@@ -91,6 +90,7 @@ impl RenderCacheState {
         if dirty_from == 0 {
             self.rendered_message_blocks.clear();
             self.compact_messages.clear();
+            self.block_plans.clear();
             self.rendered_block_line_counts.clear();
             self.rendered_block_offsets.clear();
             self.rendered_total_lines = 0;
@@ -103,6 +103,7 @@ impl RenderCacheState {
             .unwrap_or(self.rendered_total_lines);
         self.rendered_message_blocks.truncate(dirty_from);
         self.compact_messages.truncate(dirty_from);
+        self.block_plans.truncate(dirty_from);
         self.rendered_block_line_counts.truncate(dirty_from);
         self.rendered_block_offsets.truncate(dirty_from);
         self.rendered_total_lines = start_offset;
@@ -116,38 +117,42 @@ impl RenderCacheState {
         dirty_from: usize,
         compact: bool,
     ) {
-        let mut previous_visible_idx = if dirty_from == 0 {
-            None
-        } else {
-            find_previous_visible_message_idx(messages, dirty_from, hidden_user_message_idx)
-        };
+        let mut previous_visible_idx = self
+            .rendered_block_line_counts
+            .iter()
+            .rposition(|count| *count > 0);
         let mut count_cache = RenderCountCache::new();
 
         for idx in dirty_from..messages.len() {
             self.rendered_block_offsets.push(self.rendered_total_lines);
             self.compact_messages.push(None);
-
-            let hidden = hidden_user_message_idx == Some(idx) && messages[idx].role == Role::User;
-            if hidden {
-                self.rendered_message_blocks.push(None);
-                self.rendered_block_line_counts.push(0);
-                continue;
-            }
+            self.block_plans.push(None);
 
             let msg = &messages[idx];
-            if msg.text.trim().is_empty() {
+            let hidden = hidden_user_message_idx == Some(idx) && msg.role == Role::User;
+            // Backends may retain empty tool placeholders beside a separate result.
+            if hidden || msg.text.trim().is_empty() {
                 self.rendered_message_blocks.push(None);
                 self.rendered_block_line_counts.push(0);
                 continue;
             }
 
             let previous_visible = previous_visible_idx.and_then(|prev_idx| messages.get(prev_idx));
-            let (folded, mut line_count) =
-                count_display_block(&mut count_cache, previous_visible, msg, width, compact);
-            if self.rendered_phone {
-                let display = folded.as_ref().unwrap_or(msg);
-                line_count = count_rows(previous_visible, msg, display, width, line_count);
-            }
+            let (folded, plan) = plan_display_block(
+                &mut count_cache,
+                previous_visible,
+                msg,
+                width,
+                compact,
+                self.rendered_theme,
+            );
+            let display = folded.as_ref().unwrap_or(msg);
+            let line_count = if folded.is_some() {
+                plan.count(&mut RenderCountCache::new(), display)
+            } else {
+                plan.count(&mut count_cache, msg)
+            };
+            self.block_plans[idx] = Some(Box::new(plan));
             self.compact_messages[idx] = folded.map(Box::new);
             self.rendered_block_line_counts.push(line_count);
             if line_count == 0 {
@@ -178,7 +183,7 @@ impl RenderCacheState {
         block.get(idx - block_start)
     }
 
-    /// Return the first body row after blank lines and phone headings.
+    /// Return the first body row after blank lines and section headings.
     pub(super) fn first_content_row(&self, message: usize) -> usize {
         self.rendered_message_blocks
             .get(message)
@@ -273,23 +278,10 @@ impl RenderCacheState {
         else {
             return;
         };
-        let previous_visible = find_previous_visible_message_idx(
-            messages,
-            block_idx,
-            self.rendered_hidden_user_message_idx,
-        )
-        .and_then(|prev_idx| messages.get(prev_idx));
-        let mut block =
-            build_rendered_block_for_message(previous_visible, msg, self.rendered_width);
-        if self.rendered_phone {
-            format_block(
-                &mut block,
-                previous_visible,
-                &messages[block_idx],
-                msg,
-                self.rendered_width,
-            );
-        }
+        let Some(plan) = self.block_plans.get(block_idx).and_then(Option::as_deref) else {
+            return;
+        };
+        let block = plan.render(msg);
         debug_assert_eq!(
             block.len(),
             self.rendered_block_line_counts
@@ -305,50 +297,19 @@ impl RenderCacheState {
 
 // --- Visibility Lookup ---
 
-/// Count the same full or folded message that the cache will draw.
+/// Count the same shared plan used by the lazy render cache.
 pub(super) fn count_display_block<'a>(
     cache: &mut RenderCountCache<'a>,
     previous: Option<&Message>,
     message: &'a Message,
     width: usize,
     compact: bool,
+    theme: TranscriptTheme,
 ) -> (Option<Message>, usize) {
-    let full_count = count_rendered_block_for_message_cached(cache, previous, message, width);
-    let separator =
-        previous.is_some_and(|prev| should_insert_separator_between(prev, message, width));
-    let rows = full_count.saturating_sub(usize::from(separator) + tool_header_rows(message, width));
-    let folded = compact
-        .then(|| compact_tool_message(message, rows))
-        .flatten();
-    let count = folded
-        .as_ref()
-        .map(|summary| {
-            count_rendered_block_for_message_cached(
-                &mut RenderCountCache::new(),
-                previous,
-                summary,
-                width,
-            )
-        })
-        .unwrap_or(full_count);
+    let (folded, plan) = plan_display_block(cache, previous, message, width, compact, theme);
+    let count = match &folded {
+        Some(display) => plan.count(&mut RenderCountCache::new(), display),
+        None => plan.count(cache, message),
+    };
     (folded, count)
-}
-
-fn find_previous_visible_message_idx(
-    messages: &[Message],
-    start_idx: usize,
-    hidden_user_message_idx: Option<usize>,
-) -> Option<usize> {
-    let mut idx = start_idx;
-    while idx > 0 {
-        idx -= 1;
-        let msg = messages.get(idx)?;
-        if hidden_user_message_idx == Some(idx) && msg.role == Role::User {
-            continue;
-        }
-        if !msg.text.trim().is_empty() {
-            return Some(idx);
-        }
-    }
-    None
 }

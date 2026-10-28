@@ -94,9 +94,12 @@ class Terminal:
     @property
     def phone_layout(self):
         path = self.root / "config/carlos/ui-settings.json"
-        mode = json.loads(path.read_text()).get("layout", "auto") if path.exists() else "auto"
-        return mode == "phone" or (mode == "auto" and
-                (self.screen.columns < 80 or self.screen.lines < 20))
+        settings = json.loads(path.read_text()) if path.exists() else {}
+        profile = "phone" if self.screen.columns < 80 or self.screen.lines < 20 else "desktop"
+        legacy = settings.get("layout", "auto")
+        default = legacy if legacy != "auto" else profile
+        theme = settings.get("themes", {}).get(profile, default)
+        return theme in ("phone", "flow")
 
     @property
     def content_x(self):
@@ -104,6 +107,8 @@ class Terminal:
 
     def input_is(self, text):
         line = self.screen.display[-1].strip()
+        if not text and self.phone_layout and '━' not in self.screen.display[-2]:
+            return False  # A blank screen before the first frame is not an empty composer.
         if text:
             return line == ("" if self.phone_layout else "❯ ") + text
         return line == ("" if self.phone_layout else "❯") or self.placeholder_is()

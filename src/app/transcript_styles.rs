@@ -15,8 +15,8 @@ use tui_markdown::{
 // Re-export everything from transcript_wrap so callers of transcript_styles keep working.
 pub(super) use super::transcript_wrap::{
     append_wrapped_ansi_lines, append_wrapped_markdown_lines, append_wrapped_message_lines,
-    append_wrapped_styled_logical_lines, count_styled_logical_lines, count_wrapped_ansi_lines,
-    count_wrapped_ansi_lines_cached, count_wrapped_markdown_lines, count_wrapped_message_lines,
+    append_wrapped_styled_logical_lines, count_styled_logical_lines,
+    count_wrapped_ansi_lines_cached, count_wrapped_markdown_lines,
     count_wrapped_message_lines_cached, RenderCountCache,
 };
 

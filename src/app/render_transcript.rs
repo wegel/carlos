@@ -3,9 +3,9 @@
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
+use super::flow_transcript::inline_reasoning;
 use super::models::{Message, Role, TerminalSize};
 use super::notifications::spinner_frame;
-use super::phone_transcript::inline_reasoning;
 use super::render::{draw_rendered_line, draw_str, fill_rect};
 use super::selection::compute_selection_range;
 use super::state::AppState;
@@ -65,16 +65,16 @@ fn draw_transcript_row(
         return;
     };
     if line.separator {
-        if app.layout.phone {
+        if app.layout.active.is_flow() {
             let active = heading_is_active(app, message_index, active, width);
-            draw_phone_header(buf, line, y, content_x, width, active);
+            draw_section_header(buf, line, y, content_x, width, active);
         }
         return;
     }
     let first = row == app.render_cache.first_content_row(message_index);
     let active = active == Some(message_index);
     fill_message_row(buf, y, line.role);
-    if !app.layout.phone {
+    if !app.layout.active.is_flow() {
         draw_gutter(buf, message, y, first, active);
     }
     let selection = selected_cells(app, index, line.cells);
@@ -91,7 +91,7 @@ fn draw_transcript_row(
         let last = app.render_cache.rendered_message_blocks[message_index]
             .as_ref()
             .is_some_and(|block| row + 1 == block.len());
-        let inline = app.layout.phone && inline_reasoning(message, width);
+        let inline = app.layout.active.is_flow() && inline_reasoning(message, width);
         paint_active_step(
             buf,
             y,
@@ -131,7 +131,7 @@ fn fill_message_row(buf: &mut Buffer, y: usize, role: Role) {
     );
 }
 
-fn draw_phone_header(
+fn draw_section_header(
     buf: &mut Buffer,
     line: &super::models::RenderedLine,
     y: usize,

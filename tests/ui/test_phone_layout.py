@@ -21,19 +21,27 @@ class PhoneLayout:
         self.assertTrue(terminal.requests("thread/resume"))
         terminal.snapshot("desktop-shared-spacing")
 
-    def open_layout_settings(self, terminal):
+    def open_theme_settings(self, terminal, profile):
         terminal.send(b"\x1b[109;5u")
         terminal.contains("Settings")
-        terminal.contains("Layout")
-        terminal.send(b"\x1b[Z\x1b[Z")  # Model -> Tool output -> Layout.
+        terminal.contains("Desktop")
+        terminal.contains("Phone")
+        terminal.send(b"\x1b[Z" * (3 if profile == "desktop" else 2))
+        terminal.contains("Theme for wide screens" if profile == "desktop" else "Theme for small screens")
 
-    def save_layout(self, terminal, mode):
+    def save_themes(self, terminal, desktop, phone):
         terminal.send(b"\r")
         settings = terminal.root / "config/carlos/ui-settings.json"
-        terminal.wait(lambda: settings.exists() and json.loads(settings.read_text()).get("layout") == mode
-                      and "Settings" not in terminal.text, "layout saved and applied")
+        terminal.wait(lambda: settings.exists() and json.loads(settings.read_text()).get("themes")
+                      == {"desktop": desktop, "phone": phone} and "Settings" not in terminal.text,
+                      "themes saved and applied")
 
     def assert_inline_tool_block(self, terminal, labels):
+        def ready():
+            row = next((y for y, line in enumerate(terminal.screen.display) if labels[0] in line), None)
+            return row is not None and row + len(labels) < terminal.screen.lines and all(
+                label in terminal.screen.display[row + offset] for offset, label in enumerate(labels))
+        terminal.wait(ready, "complete tool block frame")
         row = self.theme_row(terminal, labels[0])
         self.assertEqual(terminal.screen.display[row - 1].strip(), "")
         for offset, label in enumerate(labels):
@@ -83,53 +91,59 @@ class PhoneLayout:
         self.assertTrue(terminal.requests("thread/resume"))
         terminal.snapshot("phone-full-output")
 
-    def test_layout_settings_cancel_save_restart_and_stay_independent_of_tool_mode(self):
+    def test_per_screen_themes_cancel_save_restart_resize_and_keep_tool_mode(self):
         terminal = self.launch(mode="tool-history")
         self.tools_command(terminal, "/tools full", "full")
         settings = terminal.root / "config/carlos/ui-settings.json"
         saved = settings.read_bytes()
-        self.open_layout_settings(terminal)
-        terminal.contains("Auto (Desktop)")
-        terminal.send(b"\x1b[D")  # Auto -> Phone, still a draft.
-        terminal.contains("Phone")
+        self.open_theme_settings(terminal, "desktop")
+        terminal.send(b"\x1b[C")  # Gutter -> Flow, still a draft.
         terminal.send(b"\x1b")
-        terminal.wait(lambda: "Settings" not in terminal.text, "cancel layout draft")
+        terminal.wait(lambda: "Settings" not in terminal.text, "cancel theme draft")
         self.assertNotIn("→ source.rs", terminal.text)
         self.assertEqual(settings.read_bytes(), saved)
-        self.open_layout_settings(terminal)
-        terminal.send(b"\x1b[D")
-        self.save_layout(terminal, "phone")
-        terminal.contains("→ source.rs")
-        terminal.contains("let read_7 = 7;")
-        terminal.resize(40, 18)
-        terminal.wait(lambda: terminal.screen.cursor.y == 17 and terminal.input_is(""),
-                      "resized phone frame reaches the composer")
-        self.open_layout_settings(terminal)
+        self.open_theme_settings(terminal, "desktop")
+        terminal.send(b"\x1b[C")
+        self.save_themes(terminal, "flow", "flow")
+        for width, height in [(100, 32), (54, 32), (40, 18)]:
+            terminal.resize(width, height)
+            if height >= 22:
+                terminal.contains("→ source.rs")
+            terminal.contains("let read_7 = 7;")
+            terminal.wait(lambda: terminal.input_is(""), "Flow composer")
+            self.assertEqual(terminal.screen.buffer[0][0].data, " ")
+        self.open_theme_settings(terminal, "phone")  # Both rows fit on a short phone.
+        terminal.resize(40, 12)
+        terminal.contains("Desktop")
         terminal.contains("Phone")
+        terminal.contains("Theme for small screens")
+        terminal.snapshot("themes-minimum-height")
         terminal.send(b"\x1b")
-        terminal.wait(lambda: "Settings" not in terminal.text, "close phone settings")
-        self.assertEqual(json.loads(settings.read_text())["tool_output"], "full")
         terminal.close()
         resumed = self.launch(mode="tool-history", directory=terminal.root)
         resumed.contains("→ source.rs")
-        resumed.contains("let read_7 = 7;")
-        self.open_layout_settings(resumed)
-        resumed.send(b"\x1b[D")  # Phone -> Desktop.
-        self.save_layout(resumed, "desktop")
-        resumed.resize(54, 32)
-        resumed.wait(lambda: "→ source.rs" not in resumed.text and "let read_7" in resumed.text,
-                     "desktop override keeps the gutter on a phone")
-        row = self.theme_row(resumed, "let read_7")
-        self.assertEqual(resumed.screen.buffer[row][0].data, "┃")
-        self.assertEqual(resumed.screen.display[row].index("let"), 2)
-        self.open_layout_settings(resumed)
-        resumed.send(b"\x1b[D")  # Desktop -> Auto.
-        self.save_layout(resumed, "auto")
+        self.open_theme_settings(resumed, "phone")
+        resumed.send(b"\x1b[C")  # Only the small-screen choice changes.
+        self.save_themes(resumed, "flow", "gutter")
         resumed.contains("→ source.rs")
+        for width, height in [(54, 32), (100, 18)]:
+            resumed.resize(width, height)
+            resumed.wait(lambda: "→ source.rs" not in resumed.text and "let read_7" in resumed.text,
+                         "small screen uses Gutter")
+            row = self.theme_row(resumed, "let read_7")
+            self.assertEqual(resumed.screen.buffer[row][0].data, "┃")
+            self.assertEqual(resumed.screen.display[row].index("let"), 2)
         resumed.resize(100, 32)
-        resumed.wait(lambda: "→ source.rs" not in resumed.text, "Auto returns to desktop")
+        resumed.contains("→ source.rs")
+        self.open_theme_settings(resumed, "desktop")
+        resumed.send(b"\x1b[C")
+        self.save_themes(resumed, "gutter", "gutter")
+        resumed.wait(lambda: "→ source.rs" not in resumed.text, "wide screen uses Gutter")
+        self.assertEqual(json.loads(settings.read_text())["tool_output"], "full")
         self.assertEqual(resumed.requests("turn/start"), [])
         self.assertEqual(resumed.requests("turn/steer"), [])
+        self.assertTrue(resumed.requests("thread/resume"))
+        resumed.snapshot("independent-screen-themes")
 
     def test_phone_reasoning_symbol_and_heading_follow_activity_and_width(self):
         terminal = self.launch(mode="theme-active", resume=None, width=54)
@@ -141,7 +155,7 @@ class PhoneLayout:
         row = self.theme_row(terminal, "◆ Analyzing")
         self.assertRegex(terminal.screen.display[row], "[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]")
         self.assertTrue(self.source_cell(terminal, "◆ Analyzing", "Analyzing").bold)
-        self.assert_status_spinner_moves(terminal, "89dceb")
+        self.assert_status_sweep_moves(terminal, "cba6f7")
         terminal.resize(18, 32)
         terminal.contains("◆ reasoning")
         terminal.resize(54, 32)

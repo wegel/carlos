@@ -13,7 +13,7 @@ use crate::theme::{COLOR_DIM, COLOR_STEP6, COLOR_TEXT};
 /// Fit the settings panel to the terminal, using closer rows on short screens.
 pub(super) fn model_settings_overlay_box(size: TerminalSize) -> OverlayBox {
     let box_w = size.width.saturating_sub(4).min(84).max(1).min(size.width);
-    let box_h = if size.height < 22 { 12 } else { 20 };
+    let box_h = if size.height < 24 { 13 } else { 22 };
     compute_overlay_box(size, box_w, box_h.min(size.height))
 }
 
@@ -41,10 +41,11 @@ pub(super) fn draw_model_settings_fields(buf: &mut Buffer, ob: &OverlayBox, app:
     for (index, &field) in fields.iter().enumerate() {
         layout.draw_row(buf, app, layout.row_y(ob, index), field);
     }
-    let help = if app.runtime.model_settings_field == ModelSettingsField::DictationEndpoint {
-        "Arrows/Enter toggle, Esc close"
-    } else {
-        "Tab field, arrows, Enter save"
+    let help = match app.runtime.model_settings_field {
+        ModelSettingsField::DictationEndpoint => "Arrows/Enter toggle, Esc close",
+        ModelSettingsField::DesktopTheme => "Theme for wide screens",
+        ModelSettingsField::PhoneTheme => "Theme for small screens",
+        _ => "Tab field, arrows, Enter save",
     };
     draw_str(
         buf,
@@ -78,7 +79,12 @@ impl FieldLayout {
     }
 
     fn row_y(&self, ob: &OverlayBox, index: usize) -> usize {
-        ob.start_y + 3 + index * self.row_step
+        let padding = if ob.bottom.saturating_sub(ob.top) + 1 < 13 {
+            2
+        } else {
+            3
+        };
+        ob.start_y + padding + index * self.row_step
     }
 
     fn draw_row(&self, buf: &mut Buffer, app: &AppState, y: usize, field: ModelSettingsField) {
@@ -87,7 +93,8 @@ impl FieldLayout {
             ModelSettingsField::Effort => "Thinking",
             ModelSettingsField::Summary => "Summary",
             ModelSettingsField::DictationEndpoint => "Dictation",
-            ModelSettingsField::Layout => "Layout",
+            ModelSettingsField::DesktopTheme => "Desktop",
+            ModelSettingsField::PhoneTheme => "Phone",
             ModelSettingsField::ToolLabels => "AI labels",
             ModelSettingsField::ToolOutput => "Tool output",
         };
@@ -116,7 +123,8 @@ fn field_value(app: &AppState, field: ModelSettingsField) -> &str {
         ModelSettingsField::Effort => app.model_settings_effort_value(),
         ModelSettingsField::Summary => app.model_settings_summary_value(),
         ModelSettingsField::DictationEndpoint => app.dictation_endpoint_mode_label(),
-        ModelSettingsField::Layout => app.layout.draft_label(),
+        ModelSettingsField::DesktopTheme => app.layout.draft.desktop.label(),
+        ModelSettingsField::PhoneTheme => app.layout.draft.phone.label(),
         ModelSettingsField::ToolLabels => {
             if app.summaries.draft {
                 "On"

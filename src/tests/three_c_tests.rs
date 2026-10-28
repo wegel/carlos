@@ -103,7 +103,7 @@ fn mouse_selection_uses_the_same_gutter_as_the_terminal_after_resize() {
         terminal
             .draw(|frame| render_main_view(frame, &mut app))
             .expect("draw after resize");
-        let row = u16::from(app.layout.phone);
+        let row = u16::from(app.layout.active.is_flow());
         for (kind, column) in [
             (MouseEventKind::Down(MouseButton::Left), content_x + 2),
             (MouseEventKind::Drag(MouseButton::Left), content_x + 4),

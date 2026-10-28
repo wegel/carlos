@@ -1,12 +1,12 @@
 //! Check shared spacing while text wraps, tools unfold, and the viewport changes.
 
 use super::{AppState, Role};
-use crate::app::layout_state::LayoutMode;
+use crate::app::layout_state::TranscriptTheme;
 use crate::app::tool_output_state::ToolOutputMode;
 
 fn desktop() -> AppState {
     let mut app = AppState::new("thread".into());
-    app.layout.mode = LayoutMode::Desktop;
+    app.layout.active = TranscriptTheme::Gutter;
     app
 }
 
@@ -81,7 +81,11 @@ fn phone_and_desktop_count_spacing_using_the_space_available_for_reasoning() {
     app.append_message(Role::Reasoning, "12345678901234567");
     app.append_message(Role::ToolOutput, "first\n\nsecond");
     for phone in [false, true, false] {
-        app.layout.phone = phone;
+        app.layout.active = if phone {
+            TranscriptTheme::Flow
+        } else {
+            TranscriptTheme::Gutter
+        };
         app.ensure_rendered_lines(18, None);
         let count = app.rendered_line_count();
         let lines = app.snapshot_rendered_lines();

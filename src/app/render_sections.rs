@@ -3,12 +3,16 @@
 use ratatui::buffer::Buffer;
 use ratatui::style::{Color, Modifier, Style};
 
+#[cfg(test)]
+#[path = "../tests/status_sweep_tests.rs"]
+mod status_sweep_tests;
+
 use super::{draw_str, fill_rect};
 use crate::app::context_usage::{
     context_label_reserved_cells, context_usage_label, context_usage_placeholder_label,
 };
 use crate::app::models::TerminalSize;
-use crate::app::notifications::{animation_tick, kitt_head_index, spinner_frame};
+use crate::app::notifications::{animation_tick, kitt_head_index};
 use crate::app::overlay_render::{
     draw_approval_overlay, draw_help_overlay, draw_model_settings_overlay, draw_perf_overlay,
     model_settings_cursor_position,
@@ -18,8 +22,8 @@ use crate::app::state::AppState;
 use crate::app::text::{split_at_cells, visual_width};
 use crate::theme::{
     context_color, kitt_color_for_distance, COLOR_DIFF_REMOVE, COLOR_GUTTER_AGENT_COMMENTARY,
-    COLOR_GUTTER_AGENT_THINKING, COLOR_GUTTER_USER, COLOR_STEP2, COLOR_STEP6, COLOR_STEP8,
-    COLOR_TEXT, COLOR_TOOL_TEXT,
+    COLOR_GUTTER_AGENT_THINKING, COLOR_GUTTER_USER, COLOR_STATUS_SEPARATOR, COLOR_STEP2,
+    COLOR_STEP8, COLOR_TEXT, COLOR_TOOL_TEXT,
 };
 
 // --- Input area ---
@@ -47,7 +51,7 @@ pub(super) fn draw_input_area(
     );
     for row in 0..input_layout.input_height {
         let y = y0 + row;
-        if !app.layout.mode.phone(size) {
+        if !app.layout.uses_flow(size) {
             draw_str(
                 buf,
                 0,
@@ -137,6 +141,15 @@ pub(super) fn draw_status_bar(
     if geometry.show_labels {
         draw_status_labels(buf, sep_y, &geometry, &labels);
     }
+    if geometry.compact_activity && app.active_turn_id.is_some() && !app.rewind_mode() {
+        sweep_status_line(
+            buf,
+            sep_y,
+            geometry.line_len,
+            geometry.ralph_mode,
+            animation_tick(),
+        );
+    }
 }
 
 fn collect_status_labels(app: &AppState) -> StatusLabels {
@@ -193,7 +206,7 @@ fn compute_status_geometry(
         anim_end,
         show_labels: can_reserve_label_area && visual_width(&labels.context) > 0,
         ralph_mode,
-        compact_activity: app.layout.mode.phone(size) || size.is_small() || anim_end < 8,
+        compact_activity: app.layout.uses_flow(size) || size.is_small() || anim_end < 8,
     }
 }
 
@@ -216,37 +229,25 @@ fn draw_status_separator(
         draw_kitt_scanner(buf, sep_y, anim_end, geometry.ralph_mode);
         return;
     }
-    fill_separator(buf, sep_y, anim_end, COLOR_STEP6);
-    if let Some(usage) = app.context_usage.filter(|usage| usage.max > 0) {
-        let filled = (u128::from(usage.used.min(usage.max)) * anim_end as u128
-            / u128::from(usage.max)) as usize;
-        let color = context_color(usage.used, usage.max);
-        fill_separator(buf, sep_y, filled, color);
-    }
-    if working {
-        draw_str(
-            buf,
-            0,
-            sep_y,
-            spinner_frame(),
-            Style::default().fg(kitt_color_for_distance(0, geometry.ralph_mode)),
-            1,
-        );
+    fill_separator(buf, sep_y, anim_end, COLOR_STATUS_SEPARATOR);
+}
+
+fn sweep_status_line(buf: &mut Buffer, y: usize, width: usize, ralph_mode: bool, tick: u128) {
+    let head = kitt_head_index(width, tick);
+    for x in 0..width {
+        let distance = head.abs_diff(x);
+        if distance <= 3 {
+            buf[(x as u16, y as u16)].fg = kitt_color_for_distance(distance, ralph_mode);
+        }
+        if distance == 0 {
+            buf[(x as u16, y as u16)].modifier.insert(Modifier::BOLD);
+        }
     }
 }
 
 fn draw_kitt_scanner(buf: &mut Buffer, y: usize, width: usize, ralph_mode: bool) {
-    let head = kitt_head_index(width, animation_tick());
-    for x in 0..width {
-        draw_str(
-            buf,
-            x,
-            y,
-            "━",
-            Style::default().fg(kitt_color_for_distance(head.abs_diff(x), ralph_mode)),
-            1,
-        );
-    }
+    fill_separator(buf, y, width, COLOR_STATUS_SEPARATOR);
+    sweep_status_line(buf, y, width, ralph_mode, animation_tick());
 }
 
 fn fill_separator(buf: &mut Buffer, sep_y: usize, width: usize, color: ratatui::style::Color) {

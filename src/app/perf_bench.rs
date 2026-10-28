@@ -179,6 +179,7 @@ pub(super) fn profile_layout_count_pass(app: &AppState, width: usize) -> Vec<Lay
             msg,
             width,
             app.tool_output.compact(),
+            app.layout.active,
         );
         let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
         let entry = buckets

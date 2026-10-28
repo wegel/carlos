@@ -116,20 +116,6 @@ pub(in crate::app) fn count_wrapped_markdown_lines(role: Role, text: &str, width
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
-pub(in crate::app) fn count_wrapped_ansi_lines(role: Role, text: &str, width: usize) -> usize {
-    if width < 8 {
-        return 0;
-    }
-    if !contains_terminal_escapes(text) {
-        return count_wrapped_message_lines(role, text, width);
-    }
-    let Some(logical_lines) = ansi_line_segments(text) else {
-        let plain = strip_terminal_controls(text);
-        return count_wrapped_message_lines(role, &plain, width);
-    };
-    count_styled_logical_lines(logical_lines, width)
-}
-
 pub(in crate::app) fn count_wrapped_ansi_lines_cached<'a>(
     cache: &mut RenderCountCache<'a>,
     role: Role,

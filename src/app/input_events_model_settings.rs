@@ -40,7 +40,7 @@ pub(super) fn handle_model_settings_key(
             {
                 app.set_status(format!("Could not save AI tool labels: {error}"));
             }
-            if let Err(error) = save_appearance(app.tool_output.mode, app.layout.mode) {
+            if let Err(error) = save_appearance(app.tool_output.mode, app.layout.themes) {
                 app.append_message(
                     crate::app::Role::System,
                     format!("Could not save appearance choices: {error}"),
@@ -70,7 +70,12 @@ fn cycle(app: &mut AppState, dir: isize) {
         ModelSettingsField::Effort => app.model_settings_cycle_effort(dir),
         ModelSettingsField::Summary => app.model_settings_cycle_summary(dir),
         ModelSettingsField::DictationEndpoint => app.toggle_dictation_endpoint_mode(),
-        ModelSettingsField::Layout => app.layout.draft = app.layout.draft.cycle(dir),
+        ModelSettingsField::DesktopTheme => {
+            app.layout.draft.desktop = app.layout.draft.desktop.cycle(dir)
+        }
+        ModelSettingsField::PhoneTheme => {
+            app.layout.draft.phone = app.layout.draft.phone.cycle(dir)
+        }
         ModelSettingsField::ToolLabels => app.summaries.draft = !app.summaries.draft,
         ModelSettingsField::ToolOutput => {
             app.runtime.model_settings_tool_output =

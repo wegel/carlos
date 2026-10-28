@@ -21,7 +21,8 @@ pub(super) enum ModelSettingsField {
     Effort,
     Summary,
     DictationEndpoint,
-    Layout,
+    DesktopTheme,
+    PhoneTheme,
     ToolLabels,
     ToolOutput,
 }

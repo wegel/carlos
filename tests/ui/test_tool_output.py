@@ -6,8 +6,10 @@ import re
 
 class ToolOutput:
     def assert_folded_row(self, terminal, label):
-        terminal.contains(label)
-        row = next(y for y, line in enumerate(terminal.screen.display) if label in line)
+        terminal.wait(lambda: any(label in line and re.search(r"\s\d+\s*$", line)
+                      for line in terminal.screen.display), "folded result has its row count")
+        row = next(y for y, line in enumerate(terminal.screen.display)
+                   if label in line and re.search(r"\s\d+\s*$", line))
         match = re.search(r"\d+\s*$", terminal.screen.display[row])
         self.assertIsNotNone(match, "folded row has a count at the right")
         self.assertEqual(terminal.screen.buffer[row][match.start()].fg, "6c7086")

@@ -18,7 +18,8 @@ impl RuntimeSettingsState {
         fields.extend([
             ModelSettingsField::DictationEndpoint,
             ModelSettingsField::ToolLabels,
-            ModelSettingsField::Layout,
+            ModelSettingsField::DesktopTheme,
+            ModelSettingsField::PhoneTheme,
             ModelSettingsField::ToolOutput,
         ]);
         fields

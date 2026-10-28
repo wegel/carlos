@@ -232,21 +232,6 @@ pub(super) fn summary_lines(message: &Message, width: usize, rows: usize) -> Vec
     lines
 }
 
-/// Count exactly the label rows that the desktop transcript will draw.
-pub(super) fn summary_line_count(message: &Message, width: usize, rows: usize) -> usize {
-    if width < 8 {
-        0
-    } else if message
-        .tool_output
-        .as_ref()
-        .is_some_and(|tool| tool.generated)
-    {
-        summary_lines(message, width, rows).len()
-    } else {
-        1
-    }
-}
-
 fn ai_label_line(text: String) -> RenderedLine {
     let cells = visual_width(&text);
     RenderedLine {

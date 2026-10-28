@@ -1,7 +1,7 @@
 //! Keep phone headings out of copied text and preserve anchors when layouts change.
 
 use super::{AppState, Message, MessageKind, Role, TerminalSize};
-use crate::app::layout_state::LayoutMode;
+use crate::app::layout_state::TranscriptTheme;
 use crate::app::models::ToolOutputDetails;
 use crate::app::selection::Selection;
 use crate::app::tool_output_state::ToolOutputMode;
@@ -16,8 +16,9 @@ fn transcript() -> AppState {
     app
 }
 
-fn set_layout(app: &mut AppState, mode: LayoutMode) {
-    app.layout.mode = mode;
+fn set_layout(app: &mut AppState, mode: TranscriptTheme) {
+    app.layout.themes.desktop = mode;
+    app.layout.themes.phone = mode;
     app.layout.update_size(TerminalSize {
         width: 100,
         height: 32,
@@ -30,7 +31,7 @@ fn set_layout(app: &mut AppState, mode: LayoutMode) {
 fn phone_groups_adjacent_reads_and_copy_keeps_only_the_body_text() {
     let mut app = transcript();
     let original: Vec<_> = app.messages.iter().map(|m| m.text.clone()).collect();
-    set_layout(&mut app, LayoutMode::Phone);
+    set_layout(&mut app, TranscriptTheme::Flow);
     let lines = app.snapshot_rendered_lines();
     assert_eq!(
         lines
@@ -70,7 +71,7 @@ fn phone_groups_adjacent_reads_and_copy_keeps_only_the_body_text() {
             .collect::<Vec<_>>(),
         original
     );
-    set_layout(&mut app, LayoutMode::Desktop);
+    set_layout(&mut app, TranscriptTheme::Gutter);
     let desktop = app.snapshot_rendered_lines();
     assert!(desktop
         .iter()
@@ -82,10 +83,14 @@ fn phone_groups_adjacent_reads_and_copy_keeps_only_the_body_text() {
 #[test]
 fn switching_layouts_at_the_same_width_keeps_the_scrolled_message_visible() {
     let mut app = transcript();
-    set_layout(&mut app, LayoutMode::Desktop);
+    set_layout(&mut app, TranscriptTheme::Gutter);
     app.viewport.auto_follow_bottom = false;
     app.viewport.scroll_top = app.render_cache.rendered_block_offsets[2];
-    for mode in [LayoutMode::Phone, LayoutMode::Desktop, LayoutMode::Phone] {
+    for mode in [
+        TranscriptTheme::Flow,
+        TranscriptTheme::Gutter,
+        TranscriptTheme::Flow,
+    ] {
         set_layout(&mut app, mode);
         app.snapshot_rendered_lines();
         assert_eq!(
@@ -104,11 +109,11 @@ fn switching_layouts_at_the_same_width_keeps_the_scrolled_message_visible() {
 #[test]
 fn fork_and_history_reload_keep_the_local_layout_choice() {
     let mut app = transcript();
-    set_layout(&mut app, LayoutMode::Phone);
+    set_layout(&mut app, TranscriptTheme::Flow);
     app.replace_transcript_from(transcript());
-    assert_eq!(app.layout.mode, LayoutMode::Phone);
+    assert_eq!(app.layout.themes.desktop, TranscriptTheme::Flow);
     app.reset_for_forked_thread("fork");
-    assert_eq!(app.layout.mode, LayoutMode::Phone);
+    assert_eq!(app.layout.themes.desktop, TranscriptTheme::Flow);
 }
 
 #[test]
@@ -118,7 +123,7 @@ fn phone_shares_headings_and_keeps_blank_lines_between_same_type_entries() {
         app.append_message(role, "First entry");
         app.append_message(role, "Second entry");
     }
-    set_layout(&mut app, LayoutMode::Phone);
+    set_layout(&mut app, TranscriptTheme::Flow);
     let lines = app.snapshot_rendered_lines();
     assert_eq!(lines.len(), 14);
     let mut start = 0;
@@ -171,7 +176,7 @@ fn phone_tool_labels_preserve_full_output_and_counts_at_narrow_widths() {
             let mut app = AppState::new("thread".into());
             app.messages = tool_entries();
             app.tool_output.mode = mode;
-            app.layout.phone = true;
+            app.layout.active = TranscriptTheme::Flow;
             app.ensure_rendered_lines(width, None);
             let count = app.rendered_line_count();
             let lines = app.snapshot_rendered_lines();
@@ -209,7 +214,7 @@ fn phone_keeps_searches_and_short_reasoning_inside_the_tool_block() {
     );
     app.messages
         .insert(4, tool_entries().pop().expect("search entry"));
-    set_layout(&mut app, LayoutMode::Phone);
+    set_layout(&mut app, TranscriptTheme::Flow);
     let lines = app.snapshot_rendered_lines();
     let read = lines
         .iter()
@@ -227,7 +232,7 @@ fn phone_reasoning_gains_a_heading_when_it_wraps_or_grows() {
     let mut app = AppState::new("thread".into());
     app.append_message(Role::Reasoning, "**Checking the palette**");
     app.append_message(Role::Reasoning, "First paragraph\n\nSecond paragraph");
-    set_layout(&mut app, LayoutMode::Phone);
+    set_layout(&mut app, TranscriptTheme::Flow);
     let lines = app.snapshot_rendered_lines();
     assert_eq!(lines[0].text, "◇ Checking the palette");
     assert!(lines[1].text.is_empty());

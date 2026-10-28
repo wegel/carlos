@@ -15,19 +15,22 @@ class Theme:
         terminal.wait(lambda: (head := self.scanner_head(terminal, color)) is not None
                       and head != first, "K2000 scanner moves without new backend output")
 
-    def status_spinner(self, terminal, color):
-        cell = terminal.screen.buffer[terminal.screen.lines - 2][0]
-        return cell.data if cell.fg == color and cell.data in "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏" else None
-
-    def assert_status_spinner_moves(self, terminal, color):
-        terminal.wait(lambda: self.status_spinner(terminal, color) is not None,
-                      "one-cell status spinner is visible")
-        first = self.status_spinner(terminal, color)
-        terminal.wait(lambda: (frame := self.status_spinner(terminal, color)) is not None
-                      and frame != first, "status spinner advances without backend output")
+    def status_sweep_head(self, terminal, color):
         cells = terminal.screen.buffer[terminal.screen.lines - 2]
-        self.assertEqual(sum(c.data in "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏" for c in cells.values()), 1)
-        self.assertIsNone(self.scanner_head(terminal, color))
+        return next((x for x in range(terminal.screen.columns - 1)
+                     if cells[x].fg == color), None)
+
+    def assert_status_sweep_moves(self, terminal, color):
+        terminal.wait(lambda: self.status_sweep_head(terminal, color) is not None,
+                      "status-line scanner head is visible")
+        row = terminal.screen.display[-2]
+        first = self.status_sweep_head(terminal, color)
+        self.assertTrue(terminal.screen.buffer[terminal.screen.lines - 2][first].bold)
+        terminal.wait(lambda: (head := self.status_sweep_head(terminal, color)) is not None
+                      and head != first, "status-line scanner moves without backend output")
+        self.assertEqual(terminal.screen.display[-2], row)
+        self.assertFalse(any(c.data in "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+                             for c in terminal.screen.buffer[terminal.screen.lines - 2].values()))
 
     def test_gutter_cursor_and_mouse_selection_follow_terminal_size(self):
         terminal = self.launch(resume=None)
@@ -55,33 +58,31 @@ class Theme:
         self.assertEqual(len(terminal.requests("turn/start")), 1)
         self.assertEqual(terminal.requests("turn/steer"), [])
 
-    def test_k2000_moves_during_quiet_turns_and_returns_to_the_idle_gauge(self):
+    def test_k2000_moves_during_quiet_turns_and_returns_to_the_idle_separator(self):
         terminal = self.launch(mode="tool-live-context", resume=None)
         self.start_tools(terminal)
         terminal.contains("91%")
-        self.assert_scanner_moves(terminal, "89dceb")
+        self.assert_scanner_moves(terminal, "cba6f7")
         terminal.snapshot("k2000-working-wide")
         self.tools_command(terminal, "/tools full", "full")
         for width, height in [(54, 32), (18, 32), (100, 18)]:
             terminal.resize(width, height)
-            self.assert_status_spinner_moves(terminal, "89dceb")
-            terminal.snapshot(f"status-spinner-{width}-{height}")
+            self.assert_status_sweep_moves(terminal, "cba6f7")
+            terminal.snapshot(f"status-sweep-{width}-{height}")
         terminal.resize(100, 32)
-        self.assert_scanner_moves(terminal, "89dceb")
+        self.assert_scanner_moves(terminal, "cba6f7")
         terminal.contains("91%")
         self.assertEqual(self.source_cell(terminal, "91%", "91%").fg, "f38ba8")
         self.assertEqual(self.source_cell(terminal, "91%", "91k/100k").fg, "9399b2")
         terminal.send(b"\x1b")
         terminal.wait(lambda: terminal.requests("turn/interrupt"), "interrupt quiet turn")
         terminal.contains("Turn interrupted")
-        self.assertIsNone(self.scanner_head(terminal, "89dceb"))
-        cells = terminal.screen.buffer[terminal.screen.lines - 2]
-        self.assertTrue(any(c.data == "━" and c.fg == "f38ba8" for c in cells.values()))
-        self.assertTrue(any(c.data == "━" and c.fg == "313244" for c in cells.values()))
+        self.assertIsNone(self.scanner_head(terminal, "cba6f7"))
+        self.assert_status_separator(terminal)
         self.assertEqual(len(terminal.requests("turn/start")), 1)
         self.assertEqual(len(terminal.requests("turn/interrupt")), 1)
         self.assertEqual(terminal.requests("turn/steer"), [])
-        terminal.snapshot("k2000-idle-gauge")
+        terminal.snapshot("k2000-idle-separator")
 
     def test_k2000_keeps_its_pink_ralph_trail(self):
         terminal = self.launch(mode="tool-live-context", resume=None)
@@ -100,8 +101,36 @@ class Theme:
         self.assertEqual(terminal.requests("turn/steer"), [])
         terminal.snapshot("k2000-ralph")
         terminal.resize(54, 32)
-        self.assert_status_spinner_moves(terminal, "f5c2e7")
-        terminal.snapshot("status-spinner-ralph-phone")
+        self.assert_status_sweep_moves(terminal, "f5c2e7")
+        terminal.snapshot("status-sweep-ralph-phone")
+
+    def test_phone_kitt_crosses_model_and_token_text_then_restores_idle_colors(self):
+        terminal = self.launch(mode="tool-live-context", resume=None)
+        self.start_tools(terminal)
+        terminal.resize(54, 32)
+        terminal.contains("91%")
+        self.assert_status_sweep_moves(terminal, "cba6f7")
+        row = terminal.screen.lines - 2
+        label = terminal.screen.display[row].index("gpt-")
+        terminal.wait(lambda: any(terminal.screen.buffer[row][x].fg == "cba6f7"
+                      and terminal.screen.buffer[row][x].data.isalpha()
+                      for x in range(label, terminal.screen.columns - 1)),
+                      "KITT head sweeps over status text")
+        head = self.status_sweep_head(terminal, "cba6f7")
+        self.assertTrue(terminal.screen.buffer[row][head].bold)
+        terminal.contains("91k/100k 91%")
+        terminal.snapshot("phone-kitt-status-text")
+        terminal.send(b"\x1b")
+        terminal.wait(lambda: terminal.requests("turn/interrupt"), "interrupt quiet turn")
+        terminal.contains("Turn interrupted")
+        self.assertIsNone(self.status_sweep_head(terminal, "cba6f7"))
+        self.assertEqual(self.source_cell(terminal, "91%", "91%").fg, "f38ba8")
+        self.assertEqual(self.source_cell(terminal, "91%", "91k/100k").fg, "9399b2")
+        self.assertFalse(self.source_cell(terminal, "91%", "91k/100k").bold)
+        self.assert_status_separator(terminal)
+        self.assertEqual(len(terminal.requests("turn/start")), 1)
+        self.assertEqual(len(terminal.requests("turn/interrupt")), 1)
+        self.assertEqual(terminal.requests("turn/steer"), [])
 
     def theme_row(self, terminal, label):
         terminal.contains(label)
@@ -182,7 +211,13 @@ class Theme:
         self.assertTrue(self.source_cell(terminal, "Analyzing key config files", "Analyzing").italics)
         self.assertEqual(len(terminal.requests("turn/start")), 1)
 
-    def test_context_gauge_warns_strictly_above_seventy_and_ninety_percent(self):
+    def assert_status_separator(self, terminal):
+        cells = terminal.screen.buffer[terminal.screen.lines - 2]
+        separator = [cell for cell in cells.values() if cell.data == "━"]
+        self.assertTrue(separator)
+        self.assertTrue(all(cell.fg == "725f8e" for cell in separator))
+
+    def test_context_percentage_warns_while_separator_keeps_one_color(self):
         case_root = None
         for percent, color in [(70, "89b4fa"), (71, "f9e2af"), (90, "f9e2af"), (91, "f38ba8")]:
             terminal = self.launch(mode=f"theme-{percent}", width=100,
@@ -191,14 +226,14 @@ class Theme:
             row = self.theme_row(terminal, f"{percent}%")
             self.assertEqual(self.source_cell(terminal, f"{percent}%", f"{percent}%").fg, color)
             self.assertEqual(self.source_cell(terminal, f"{percent}%", f"{percent}k/100k").fg, "9399b2")
-            cells = terminal.screen.buffer[row]
-            self.assertTrue(any(c.data == "━" and c.fg == color for c in cells.values()))
-            self.assertTrue(any(c.data == "━" and c.fg == "313244" for c in cells.values()))
+            self.assert_status_separator(terminal)
             self.assertEqual(terminal.requests("turn/start"), [])
             model = self.source_cell(terminal, f"{percent}%", "gpt-5.6-sol")
             self.assertEqual(model.fg, "6c7086")
             terminal.resize(40, 32)
             terminal.contains(f"{percent}%")
+            self.assert_status_separator(terminal)
+            self.assertEqual(self.source_cell(terminal, f"{percent}%", f"{percent}%").fg, color)
             terminal.snapshot(f"3c-context-phone-{percent}")
             terminal.snapshot(f"3c-context-{percent}")
             terminal.close()

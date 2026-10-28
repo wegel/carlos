@@ -1,4 +1,4 @@
-//! Save local tool-output and transcript-layout choices without saving Auto's current view.
+//! Save tool-output choices and transcript themes for each screen size.
 
 use std::env;
 use std::fs;
@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
 
-use super::layout_state::LayoutMode;
+use super::layout_state::{ThemePreferences, TranscriptTheme};
 use super::tool_output_state::ToolOutputMode;
 
 fn preferences_path() -> Option<PathBuf> {
@@ -64,23 +64,52 @@ pub(super) fn save_mode_to(path: &Path, mode: ToolOutputMode) -> Result<()> {
     save_fields(path, &[("tool_output", json!(mode.name()))])
 }
 
-/// Read the saved transcript layout, falling back to Auto.
-pub(super) fn load_layout() -> LayoutMode {
+/// Read per-screen themes, migrating the former global layout choice.
+pub(super) fn load_themes() -> ThemePreferences {
     preferences_path()
-        .and_then(|path| fs::read(path).ok())
-        .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
-        .and_then(|value| LayoutMode::parse(value.get("layout")?.as_str()?))
+        .map(|path| load_themes_from(&path))
         .unwrap_or_default()
 }
 
-/// Save both appearance choices in one write when the settings panel closes.
-pub(super) fn save_appearance(mode: ToolOutputMode, layout: LayoutMode) -> Result<()> {
+/// Read theme preferences without consulting process-wide environment variables.
+pub(super) fn load_themes_from(path: &Path) -> ThemePreferences {
+    let value = fs::read(path)
+        .ok()
+        .and_then(|raw| serde_json::from_slice::<Value>(&raw).ok())
+        .unwrap_or(Value::Null);
+    let legacy = ThemePreferences::from_legacy(value["layout"].as_str());
+    ThemePreferences {
+        desktop: value["themes"]["desktop"]
+            .as_str()
+            .and_then(TranscriptTheme::parse)
+            .unwrap_or(legacy.desktop),
+        phone: value["themes"]["phone"]
+            .as_str()
+            .and_then(TranscriptTheme::parse)
+            .unwrap_or(legacy.phone),
+    }
+}
+
+/// Save the output preference and both themes when the settings panel closes.
+pub(super) fn save_appearance(mode: ToolOutputMode, themes: ThemePreferences) -> Result<()> {
     let path = preferences_path().context("cannot determine config directory")?;
+    save_appearance_to(&path, mode, themes)
+}
+
+/// Save per-screen themes atomically and replace the old global field.
+pub(super) fn save_appearance_to(
+    path: &Path,
+    mode: ToolOutputMode,
+    themes: ThemePreferences,
+) -> Result<()> {
     save_fields(
-        &path,
+        path,
         &[
             ("tool_output", json!(mode.name())),
-            ("layout", json!(layout.name())),
+            (
+                "themes",
+                json!({"desktop":themes.desktop.name(),"phone":themes.phone.name()}),
+            ),
         ],
     )
 }
@@ -95,6 +124,11 @@ fn save_fields(path: &Path, fields: &[(&str, Value)]) -> Result<()> {
         .unwrap_or_else(|| json!({}));
     for (key, setting) in fields {
         value[key] = setting.clone();
+        if *key == "themes" {
+            if let Some(object) = value.as_object_mut() {
+                object.remove("layout");
+            }
+        }
     }
     let temporary = parent.join(format!(".ui-settings-{}.json", std::process::id()));
     fs::write(&temporary, serde_json::to_vec_pretty(&value)?).context("write UI settings")?;

@@ -132,8 +132,8 @@ are implemented in Carlos itself; no Python runtime is needed for this feature.
 Carlos uses the 3c Catppuccin Mocha theme on a shared Mantle background. User
 messages have a darker blue band and bold text. Reasoning uses muted mauve in
 italic, commentary uses pale pink, and answers use normal text with a green check.
-Desktop blocks start with a colored glyph and a space; later lines keep a bar
-in that color, except for answers. Phone blocks use colored section lines such
+Gutter blocks start with a colored glyph and a space; later lines keep a bar
+in that color, except for answers. Flow blocks use colored section lines such
 as `─ ❯ you ─` and `─ ✓ answer ─`. The body has one blank column
 on each side and no vertical gutter. Adjacent entries of the same type share a
 heading, with a blank line between entries; copied text leaves out those headings.
@@ -145,9 +145,11 @@ Consecutive entries of these types form one block, with a blank line before and
 after it, and no added blank lines inside it. An unfinished reasoning step uses
 a mauve diamond and spinner.
 
-Choose **Layout: Auto / Desktop / Phone** in Ctrl+M. Auto selects Phone below
-80 columns or 20 rows and switches as the terminal resizes. An explicit choice
-persists across restarts and stays independent of the tool-output setting.
+Choose **Gutter** or **Flow** independently for **Desktop** and **Phone** in Ctrl+M.
+Carlos uses the Phone choice below 80 columns or 20 rows and the Desktop choice
+otherwise. Choose Flow for both to keep the section style at every size, or mix
+the two themes. Both choices persist across restarts and stay independent of
+the tool-output setting. Older global layout choices migrate automatically.
 
 Literal tool labels occupy one row in Compact mode; AI descriptions wrap in full.
 Their glyph replaces the verb: `$` for commands,
@@ -156,12 +158,13 @@ appear at the right, with green/red diff counts and a bold red `failed` label
 when needed. Full mode still shows the original tool contents and syntax colors.
 Both layouts keep consecutive tools and single-line reasoning together, with a
 blank line around the block. Separate user messages, commentary, answers, and
-longer reasoning have a blank line between them. Desktop keeps its colored
-gutter and continuation bars. The K2000 scanner moves while Carlos works, using its original colors
-and pink trail in Ralph mode. Below 80 columns or 20 rows, a single-cell spinner
-replaces the scanner and leaves the context gauge visible. While idle, the line
-shows the context gauge. The gauge and percentage turn yellow above 70% and red above 90%; token counts and
-the model name keep separate gray text.
+longer reasoning have a blank line between them. Gutter keeps its colored
+gutter and continuation bars. The K2000 scanner moves while Carlos works, using
+a mauve light and fading violet trail, or pink in Ralph mode. On small screens
+and in Flow, the light sweeps across the whole status line, including its text.
+Text turns bold under the head. The separator is muted mauve and does not show
+context usage. The percentage stays blue through 70%, yellow above 70%, and red
+above 90%; token counts and the model name keep separate gray text.
 
 ## RTK commands
 
@@ -361,7 +364,7 @@ target/ui-venv/bin/python tests/ui/test_workflows.py --binary ~/.local/bin/carlo
 - rewind mode `Enter`: send selected/edited prompt
 - rewind mode `Esc`: leave rewind mode and restore current draft
 - `Ctrl+R`: toggle Ralph mode on/off (queued if a turn is currently active)
-- `Ctrl+M`: open settings for model, thinking, summary, AI labels, dictation, layout, and tool output
+- `Ctrl+M`: open settings for model, thinking, summary, AI labels, dictation, desktop/phone themes, and tool output
 - `Ctrl+D`: start/stop dictation when the `dictation` feature is enabled
 - `F7`: cycle dictation profile when the `dictation` feature is enabled
 - `F9`: toggle dictation endpoint mode between auto-stop and manual Enter stop

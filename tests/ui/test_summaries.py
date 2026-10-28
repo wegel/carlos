@@ -56,7 +56,7 @@ class Summaries:
         terminal.contains('original output marker')
         terminal.send(b'\x1b[109;5u')
         terminal.contains('AI labels')
-        terminal.send(b'\x1b[Z\x1b[Z\x1b[Z')  # Tool output, Layout, AI labels.
+        terminal.send(b'\x1b[Z\x1b[Z\x1b[Z\x1b[Z')  # Tool output, Phone, Desktop, AI labels.
         terminal.send(b'\x1b[D')
         terminal.contains('Off')
         terminal.send(b'\r')

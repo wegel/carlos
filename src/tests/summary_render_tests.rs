@@ -1,6 +1,6 @@
 //! Keep complete AI descriptions and accurate row counts in both transcript layouts.
 
-use crate::app::layout_state::LayoutMode;
+use crate::app::layout_state::TranscriptTheme;
 use crate::app::models::{Role, ToolOutputDetails};
 use crate::app::tool_output_state::ToolOutputMode;
 use crate::app::AppState;
@@ -21,11 +21,15 @@ fn ai_descriptions_wrap_completely_with_matching_cache_counts_and_one_footer() {
     for phone in [false, true] {
         for failed in [false, true] {
             let mut app = AppState::new("thread".into());
-            app.layout.phone = phone;
-            app.layout.mode = if phone {
-                LayoutMode::Phone
+            app.layout.active = if phone {
+                TranscriptTheme::Flow
             } else {
-                LayoutMode::Desktop
+                TranscriptTheme::Gutter
+            };
+            app.layout.themes.desktop = if phone {
+                TranscriptTheme::Flow
+            } else {
+                TranscriptTheme::Gutter
             };
             generated_output(&mut app, failed);
             let original = app.messages[0].text.clone();
@@ -70,7 +74,7 @@ fn assert_label_rows(app: &mut AppState, width: usize, failed: bool) {
         assert_eq!(text.matches("raw").count(), 12);
     }
     assert_eq!(text.matches("failed").count(), usize::from(failed));
-    if app.layout.phone {
+    if app.layout.active.is_flow() {
         assert_eq!(text.matches('$').count(), 1);
     }
 }
