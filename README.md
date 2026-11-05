@@ -17,7 +17,7 @@ Alpha.
 - resume Claude with `carlos --backend claude resume <SESSION_ID>` or pick from `carlos --backend claude resume`
 - resume Grok with `carlos --backend grok resume <SESSION_ID>` or pick from `carlos --backend grok resume`
 - backend selection via `--backend <codex|claude|grok>` or `CARLOS_BACKEND=grok`
-- feature-gated local voice dictation (`Ctrl+D`) with Whisper profiles selected by `--dictation-profile <name>`
+- local voice dictation (`Ctrl+D`), enabled in default builds, with Whisper profiles selected by `--dictation-profile <name>`
 - runtime Ralph mode toggle (`Ctrl+R`) with:
   - prompt auto-injection from `.agents/ralph-prompt.md` (or `--ralph-prompt`)
   - blocked marker wait state (`@@BLOCKED@@` by default)
@@ -252,18 +252,23 @@ carlos --ralph-prompt .agents/ralph-prompt.md
 
 ```bash
 cargo build --release
-cargo build --release --features dictation
+cargo build --release --no-default-features
 ```
 
-The optional `dictation` Cargo feature enables in-process microphone capture, VAD, resampling,
-and local Whisper inference. Builds without the feature do not link audio or Whisper dependencies.
+The default `dictation` Cargo feature enables microphone capture, voice activity detection,
+audio resampling, and local Whisper inference. Use `--no-default-features` to build without
+audio or Whisper dependencies.
+
+Linux builds with dictation need a C/C++ compiler, CMake, pkg-config, libclang, and
+ALSA development headers. On Ubuntu, install `build-essential cmake pkg-config
+libclang-dev libasound2-dev`.
 
 ## dictation
 
 Build with:
 
 ```bash
-cargo build --release --features dictation
+cargo build --release
 ```
 
 Configure profiles in `~/.config/carlos/dictation.toml`:

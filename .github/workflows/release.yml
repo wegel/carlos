@@ -23,11 +23,15 @@ jobs:
       - name: Cargo fmt
         run: cargo fmt --check
 
+      - name: Install native dictation build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libclang-dev cmake pkg-config
+
       - name: Cargo clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        # The default dictation backend runs on the CPU; GPU features need separate SDKs.
+        run: cargo clippy --all-targets -- -D warnings
 
       - name: Cargo test
-        run: cargo test --all-targets --all-features
+        run: cargo test --all-targets
 
   build:
     needs: checks
@@ -61,6 +65,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+
+      - name: Install native dictation build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libclang-dev cmake pkg-config
 
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
