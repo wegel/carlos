@@ -117,23 +117,6 @@ fn context_usage_label_formats_k_and_percent() {
 }
 
 #[test]
-fn context_label_reserved_cells_uses_fixed_minimum() {
-    assert_eq!(
-        context_label_reserved_cells(None),
-        visual_width("999k/999k (99%)")
-    );
-}
-
-#[test]
-fn context_label_reserved_cells_expands_for_longer_labels() {
-    let label = "12345k/12345k (100%)";
-    assert_eq!(
-        context_label_reserved_cells(Some(label)),
-        visual_width(label)
-    );
-}
-
-#[test]
 fn normalize_pasted_text_converts_crlf_and_cr() {
     let text = "a\r\nb\rc";
     assert_eq!(normalize_pasted_text(text), "a\nb\nc");

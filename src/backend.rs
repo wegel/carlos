@@ -41,6 +41,10 @@ pub(crate) struct RewindForkRequest {
 pub(crate) trait BackendClient {
     fn kind(&self) -> BackendKind;
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String>;
+    /// Start a quota read whose response arrives on the event stream, if supported.
+    fn request_rate_limits(&self) -> Result<Option<String>> {
+        Ok(None)
+    }
     fn fork_from_rewind(
         &self,
         _thread_id: &str,

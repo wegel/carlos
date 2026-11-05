@@ -171,6 +171,9 @@ pub(crate) fn handle_server_message_line(
     let Ok(parsed) = serde_json::from_str::<Value>(line) else {
         return None;
     };
+    if app.rate_limits.response(&parsed) {
+        return None;
+    }
     let method = parsed.get("method").and_then(Value::as_str)?;
     let params = parsed.get("params").and_then(Value::as_object)?;
     if params
@@ -221,6 +224,12 @@ fn dispatch_notification(
     params: &serde_json::Map<String, Value>,
 ) {
     match method {
+        "account/rateLimits/updated" => {
+            if let Some(snapshot) = params.get("rateLimits") {
+                app.rate_limits.update(snapshot);
+            }
+        }
+        "account/updated" => app.rate_limits.clear(),
         "thread/initialized" => handle_thread_initialized(app, params),
         "thread/name/updated" => super::session_name::handle_name_updated(app, params),
         "thread/tokenUsage/updated" => {

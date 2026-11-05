@@ -64,6 +64,7 @@ pub(super) struct AppState {
 
     pub(super) viewport: ViewportState,
     pub(super) context_usage: Option<ContextUsage>,
+    pub(super) rate_limits: super::rate_limits::RateLimits,
     pub(super) perf: Option<PerfMetrics>,
 }
 
@@ -98,6 +99,7 @@ impl AppState {
             approval: ApprovalState::new(),
             viewport: ViewportState::new(),
             context_usage: None,
+            rate_limits: super::rate_limits::RateLimits::default(),
             perf: None,
         }
     }

@@ -115,6 +115,7 @@ fn run_one_loop_iteration(
 ) -> Result<bool> {
     let size = terminal_size(terminal)?;
     let loop_now = Instant::now();
+    state.needs_draw |= app.rate_limits.tick(client, loop_now);
     let working = app.active_turn_id.is_some();
 
     if drain_prefetched_idle(ui_rx, working, &state.deferred, &mut state.prefetched).disconnected()
@@ -324,7 +325,12 @@ fn poll_next_event(
             Err(RecvTimeoutError::Disconnected) => ChannelOk::Disconnected,
         };
     }
-    if let Some(wait) = app.pending_ralph_continuation_wait(loop_now) {
+    let wait = app
+        .pending_ralph_continuation_wait(loop_now)
+        .into_iter()
+        .chain(app.rate_limits.wait(loop_now))
+        .min();
+    if let Some(wait) = wait {
         return match ui_rx.recv_timeout(wait) {
             Ok(ev) => ChannelOk::Ok(Some(ev)),
             Err(RecvTimeoutError::Timeout) => ChannelOk::Ok(None),

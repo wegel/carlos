@@ -13,7 +13,8 @@ use super::text::{slice_by_cells, visual_width};
 use super::{AppState, RenderedLine, TerminalSize, MSG_TOP};
 use crate::theme::{COLOR_STEP2, COLOR_STEP8, COLOR_TEXT};
 
-use self::render_sections::{cursor_position, draw_input_area, draw_overlays, draw_status_bar};
+use self::render_sections::{cursor_position, draw_input_area, draw_overlays};
+use super::render_status::draw_status_bar;
 
 // --- Re-exports: items moved to render_input but accessed via super::render:: by other modules ---
 

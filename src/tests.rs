@@ -9,9 +9,7 @@ pub(super) use super::cli::{
     resolve_initial_runtime_settings, resume_hint, styled_resume_hint, Backend,
 };
 pub(super) use super::codex_history::{parse_rollout_history, prefer_complete_rollout_history};
-pub(super) use super::context_usage::{
-    context_label_reserved_cells, context_usage_label, ContextUsage,
-};
+pub(super) use super::context_usage::{context_usage_label, ContextUsage};
 pub(super) use super::dictation_state::{DictationPhase, DictationProfileState};
 pub(super) use super::input::{
     can_submit_queued_turn, is_mobile_mouse_key_candidate, is_priority_server_line,

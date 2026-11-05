@@ -166,6 +166,17 @@ Text turns bold under the head. The separator is muted mauve and does not show
 context usage. The percentage stays blue through 70%, yellow above 70%, and red
 above 90%; token counts and the model name keep separate gray text.
 
+For Codex accounts that report a weekly quota, the far right shows `W40%/2.1d`:
+40% of the weekly allowance remains, and the quota resets in 2.1 days. The format
+stays the same on every screen; Carlos shortens the model label first when space
+runs out. The percentage is blue when the remaining allowance covers the fraction
+of the week left, yellow when it covers at least three quarters of that fraction,
+and red otherwise. An exhausted quota is always red. The countdown stays dim.
+Carlos reads quotas asynchronously at startup and every five minutes, merges live
+updates, and redraws the countdown each minute while idle. Missing or expired
+weekly windows stay hidden until the server supplies current values. Carlos never
+assumes that a quota has reset or that the account can send requests again.
+
 ## RTK commands
 
 Carlos recognizes `rtk`, `rtk proxy`, `rtk bypass`, and `rtk run -c` when it builds

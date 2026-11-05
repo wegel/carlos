@@ -10,13 +10,12 @@ use std::time::Duration;
 
 use super::{
     apply_mobile_mouse_scroll, can_submit_queued_turn, consume_mobile_mouse_char,
-    context_label_reserved_cells, context_usage_label, decide_mouse_drag_mode,
-    handle_terminal_event, is_key_press_like, is_mobile_mouse_key_candidate, is_newline_enter,
-    is_priority_server_line, json, kitt_head_index, normalize_pasted_text,
-    parse_mobile_mouse_coords, parse_repeated_plain_mobile_pair, prioritize_events, visual_width,
-    AppState, ContextUsage, DictationPhase, DictationProfileState, DurationSamples, Event, KeyCode,
-    KeyEventKind, KeyModifiers, MobileMouseConsume, MouseDragMode, PerfMetrics, Role, TerminalSize,
-    UiEvent,
+    context_usage_label, decide_mouse_drag_mode, handle_terminal_event, is_key_press_like,
+    is_mobile_mouse_key_candidate, is_newline_enter, is_priority_server_line, json,
+    kitt_head_index, normalize_pasted_text, parse_mobile_mouse_coords,
+    parse_repeated_plain_mobile_pair, prioritize_events, AppState, ContextUsage, DictationPhase,
+    DictationProfileState, DurationSamples, Event, KeyCode, KeyEventKind, KeyModifiers,
+    MobileMouseConsume, MouseDragMode, PerfMetrics, Role, TerminalSize, UiEvent,
 };
 use crate::backend::{BackendClient, BackendKind, RewindForkRequest};
 

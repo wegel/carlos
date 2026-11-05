@@ -132,6 +132,9 @@ class Server:
             self.reply(request, {"userAgent": "carlos-test-server"})
         elif method == "model/list":
             self.reply(request, {"data": [], "nextCursor": None})
+        elif method == "account/rateLimits/read":
+            from quota_fixture import reply_limits
+            reply_limits(self, request)
         elif method in ("thread/read", "thread/resume"):
             thread = copy.deepcopy(self.threads[params["threadId"]])
             if self.mode == "paginated":
@@ -276,6 +279,9 @@ class Server:
         if self.mode in ("named-live", "tool-live", "tool-live-context"):
             return
         self.notify("turn/completed", {"threadId": thread_id, "turn": turn})
+        if self.mode.startswith("weekly-"):
+            from quota_fixture import after_turn
+            after_turn(self, text)
         if self.mode == "named-external":
             self.threads[thread_id]["name"] = "Changed in native Codex"
             self.notify("thread/name/updated", {"threadId": thread_id, "threadName": "Changed in native Codex"})

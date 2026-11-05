@@ -158,6 +158,17 @@ impl BackendClient for AppServerClient {
         AppServerClient::call(self, method, params, timeout)
     }
 
+    fn request_rate_limits(&self) -> Result<Option<String>> {
+        let id = format!(
+            "carlos-rate-limits-{}",
+            self.next_id.fetch_add(1, Ordering::SeqCst)
+        );
+        self.send_json_line(json!({
+            "id": id, "method": "account/rateLimits/read", "params": {}
+        }))?;
+        Ok(Some(id))
+    }
+
     fn fork_from_rewind(
         &self,
         thread_id: &str,

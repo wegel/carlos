@@ -107,6 +107,12 @@ def check(binary, root):
                    check=True, capture_output=True)
     fork_schema = json.loads((schema / "v2" / "ThreadForkParams.json").read_text())
     assert "beforeTurnId" in fork_schema["properties"], "Codex lacks beforeTurnId"
+    quota_schema = json.loads((schema / "v2" / "GetAccountRateLimitsResponse.json").read_text())
+    assert "rateLimits" in quota_schema["properties"], "Codex lacks quota snapshots"
+    window = quota_schema["definitions"]["RateLimitWindow"]["properties"]
+    assert {"usedPercent", "windowDurationMins", "resetsAt"} <= window.keys()
+    notifications = (schema / "ServerNotification.json").read_text()
+    assert "account/rateLimits/updated" in notifications, "Codex lacks quota updates"
     session_id, turn_ids, path = fixture(root)
     original = path.read_bytes()
     server = Codex(binary, root)

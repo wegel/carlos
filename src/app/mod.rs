@@ -39,9 +39,11 @@ mod picker_delete_dialog;
 mod picker_render;
 mod ralph;
 mod ralph_runtime_state;
+mod rate_limits;
 mod render;
 mod render_cache_state;
 mod render_input;
+mod render_status;
 mod render_transcript;
 mod runtime_settings_state;
 mod selection;
@@ -82,6 +84,7 @@ mod transcript_styles;
 mod transcript_wrap;
 mod turn_submit;
 mod viewport_state;
+mod weekly_usage;
 
 // --- Shared Types ---
 

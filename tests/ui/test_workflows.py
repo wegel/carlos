@@ -14,9 +14,10 @@ from test_rtk import RtkWorkflows
 from test_theme import Theme
 from test_phone_layout import PhoneLayout
 from test_summaries import Summaries
+from test_weekly_usage import WeeklyUsage
 
 
-class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, unittest.TestCase):
+class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, WeeklyUsage, unittest.TestCase):
     def summary_root(self):
         root = ARTIFACTS / self._testMethodName
         root.mkdir(parents=True, exist_ok=True)

@@ -112,7 +112,7 @@ class Summaries:
             terminal.wait(lambda: terminal.text.count('Read playback records') == 2, 'both complete labels')
             text = ' '.join(terminal.text.split())
             self.assertEqual(text.count('session archive'), 2)
-            self.assertNotIn('…', terminal.text)
+            self.assertNotIn('…', '\n'.join(terminal.screen.display[:-2]))
             self.assertNotIn('original output marker', terminal.text)
             terminal.snapshot(f'complete-ai-label-{width}')
         terminal.close()

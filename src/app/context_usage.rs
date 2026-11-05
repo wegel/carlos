@@ -2,8 +2,6 @@
 
 use serde_json::Value;
 
-use super::text::visual_width;
-
 // --- Usage Types ---
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -135,9 +133,4 @@ pub(super) fn context_usage_label(usage: ContextUsage) -> String {
 
 pub(super) fn context_usage_placeholder_label() -> &'static str {
     "___k/___k (__%)"
-}
-
-pub(super) fn context_label_reserved_cells(context_label: Option<&str>) -> usize {
-    let base = visual_width("999k/999k (99%)").max(visual_width(context_usage_placeholder_label()));
-    context_label.map(visual_width).unwrap_or(base)
 }
