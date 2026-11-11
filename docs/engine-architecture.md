@@ -193,6 +193,28 @@ Types:
 Only the next ExecPlan is written in full. Each later plan is written when the
 plan before it ends, because its details depend on what that plan finds.
 
+## Rust toolchain
+
+Decision (owner, 2026-11-11): use Rust 1.100.0 on every build machine, unless
+something fails with it.
+
+State on 2026-11-11: `rustup` cannot download 1.100.0 yet. The stable channel
+serves 1.99.1 and the beta channel already serves 1.101.0, so the 1.100.0
+release is expected within days. The development machine and the Mac both
+have 1.93.0.
+
+To do when 1.100.0 is available:
+
+1. Add `rust-toolchain.toml` with `channel = "1.100.0"` and the components
+   `clippy` and `rustfmt`. `rustup` then selects the version on every machine.
+2. Pin the same version in `.github/workflows/check.yml` and `release.yml`
+   (both use `stable` today).
+3. On the Mac, install 1.100.0 as an additional toolchain with the targets
+   `x86_64-apple-ios`, `aarch64-apple-ios` and `aarch64-apple-ios-sim`. Do not
+   change the Mac's default toolchain; other projects use it.
+4. Run `cargo test`, `bash scripts/test.sh` and the `perf-session` baseline
+   again, and record new baseline figures, because a compiler change moves them.
+
 ## How the work is driven
 
 - Claude plans, splits tasks, runs the gates, reads diffs, commits to `main`.
