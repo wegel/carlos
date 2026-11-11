@@ -42,6 +42,9 @@ Build, test, install and launch commands arrive with the app in ExecPlan 022.
 - iOS 26.0 simulator runtime. The carlos simulator is an iPhone 17 Pro.
 - About 72 GB free. Old test results from other projects fill the home
   directory; do not delete them.
+- Rust 1.93.0 with targets `aarch64-apple-ios`, `aarch64-apple-ios-sim` and
+  `x86_64-apple-ios`. `cargo` is in `~/.cargo/bin`, which a non-interactive SSH
+  shell does not put on `PATH`.
 - Three signing identities exist (two development, one distribution).
 - No interactive Apple account is configured in Xcode.
 
@@ -76,10 +79,13 @@ Build, test, install and launch commands arrive with the app in ExecPlan 022.
 
 ## Design consequences for the app
 
-- The app is pure Swift (SwiftUI). It speaks the WebSocket protocol from
-  `docs/engine-architecture.md` and links no Rust code, so the Mac needs no
-  Rust toolchain for carlos.
-- Swift wire types come from the JSON Schema that `carlos-proto` emits.
+- The UI is Swift (SwiftUI). The app links the Rust crate `carlos-client`
+  (see "Shared client core" in `docs/engine-architecture.md`) through Swift
+  bindings that UniFFI generates. Swift owns the WebSocket and passes each
+  message to the crate.
+- The Mac compiles the crate. The Mac is an Intel machine, so the simulator
+  needs the `x86_64-apple-ios` target and a phone needs `aarch64-apple-ios`.
+  The build packs both into one XCFramework.
 - A simulator on the Mac reaches a daemon on the development machine over the
   local network. This is the normal test setup: the daemon and its fixture
   peer run on Linux, the app runs in the simulator.

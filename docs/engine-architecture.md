@@ -44,7 +44,8 @@ baseline; a regression blocks a commit.
 | `carlos-proto` | Wire types (serde). Emits a JSON Schema for Swift, Kotlin and TypeScript clients. | No I/O. |
 | `carlos-core` | Backends, session logic, tool labels, Ralph mode. | No terminal crate. The compiler enforces the boundary. |
 | `carlosd` | Session manager, Unix socket listener, WebSocket listener. | No terminal crate. |
-| `carlos` | Terminal UI. A client of the daemon. | Holds view state only. |
+| `carlos-client` | Client core shared by every client: wire codec, connection steps, local copy of each session, derived display facts. | No socket, no thread, no async runtime, no terminal crate. |
+| `carlos` | Terminal UI. A client of the daemon; the first user of `carlos-client`. | Holds view state only. |
 
 ## Session core
 
@@ -71,6 +72,30 @@ baseline; a regression blocks a commit.
   by host. There is no central hub.
 - Dictation stays in each client. The TUI keeps in-process Whisper. A phone
   captures its own audio.
+
+## Shared client core (decided 2026-11-11)
+
+Every client must decode messages, greet the daemon, subscribe, reconnect,
+resume from the last `seq`, apply events to a local copy of the session, and
+match a locally echoed message with the daemon's entry. The TUI needs this
+logic in Rust anyway. The phone apps and the web app reuse it, so there is one
+copy, tested once against the daemon, where four copies would drift apart.
+
+- `carlos-client` is a pure state machine. The platform owns the socket:
+  `tungstenite` in the TUI, `URLSessionWebSocketTask` on iOS, OkHttp on
+  Android, the browser `WebSocket` on the web.
+- The platform passes each received message to the core. The core returns the
+  ids of the entries that changed and the messages to send. The UI reads only
+  the changed entries, so one call per batch of events crosses the language
+  boundary.
+- The core also takes the current time as an argument where it needs one
+  (reconnect delays), so tests are deterministic.
+- UniFFI generates the Swift and Kotlin bindings. The web app compiles the
+  crate to WebAssembly or uses a TypeScript copy; decide in the web plan.
+- Markdown structure (`pulldown-cmark`) belongs in the core. Syntax colours
+  need a larger library; measure the app size before they go in.
+- Native code keeps layout, scroll, text wrap, sheets, dictation, device
+  settings and notifications.
 
 ## Transport
 
@@ -160,10 +185,10 @@ Types:
 | 1 | 016 | Stable entry ids. Split `AppState` into session facts and view state. Move Claude translation into the Claude backend. No behaviour change. |
 | 2 | 017 | Cargo workspace; `carlos-core` compiles without terminal crates. |
 | 3 | 018 | The core emits sequenced events; the TUI consumes them in-process. Freeze protocol version 1. Delete the old path in a separate commit. |
-| 4 | 019 | Session manager, `carlosd`, Unix socket; the TUI becomes a client; turns survive a TUI quit. |
+| 4 | 019 | Session manager, `carlosd`, Unix socket; `carlos-client`; the TUI becomes a client through it; turns survive a TUI quit. |
 | 5 | 020 | WebSocket listener, tokens, JSON Schema output, `perf-session` replay through the socket. |
 | 6 | 021 | Paged history, Grok approvals, tool summaries as data. |
-| 7 | 022 | iPhone app. It compiles on the remote Mac; see `docs/ios-build.md`. |
+| 7 | 022 | UniFFI bindings and iOS packaging of `carlos-client`; iPhone app. It compiles on the remote Mac; see `docs/ios-build.md`. |
 
 Only the next ExecPlan is written in full. Each later plan is written when the
 plan before it ends, because its details depend on what that plan finds.
