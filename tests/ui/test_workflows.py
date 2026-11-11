@@ -20,9 +20,10 @@ from test_claude_questions import ClaudeQuestions
 from test_claude_sessions import ClaudeSessions
 from test_claude_activity import ClaudeActivity
 from test_markdown_tables import MarkdownTables
+from test_codex_rewind import CodexRewind
 
 
-class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, WeeklyUsage, ClaudeSdk, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, unittest.TestCase):
+class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, WeeklyUsage, ClaudeSdk, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, CodexRewind, unittest.TestCase):
     def summary_root(self):
         root = ARTIFACTS / self._testMethodName
         root.mkdir(parents=True, exist_ok=True)

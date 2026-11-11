@@ -2,7 +2,7 @@
 
 use ratatui::style::{Color, Modifier, Style};
 
-use super::models::{Message, RenderedLine, Role, StyledSegment};
+use super::models::{Message, MessageKind, RenderedLine, Role, StyledSegment};
 use super::text::{split_at_cells, visual_width};
 use super::tool_summary::tool_gutter;
 use super::transcript_spacing::{inline_entry, single_line_reasoning};
@@ -25,6 +25,7 @@ fn section(message: &Message) -> Section {
         )
     };
     let label = match message.role {
+        Role::User if message.kind == MessageKind::UserSteer => "you (steer)",
         Role::User => "you",
         Role::Assistant => "answer",
         Role::Reasoning => "reasoning",
@@ -59,9 +60,10 @@ pub(super) fn section_header(
         return None;
     }
     let current = section(message);
-    let shared = previous.is_some_and(|previous| {
-        !inline_entry(previous, width.saturating_sub(2)) && section(previous) == current
-    });
+    let shared = message.kind != MessageKind::UserSteer
+        && previous.is_some_and(|previous| {
+            !inline_entry(previous, width.saturating_sub(2)) && section(previous) == current
+        });
     (!shared).then(|| header(message, width))
 }
 
@@ -71,7 +73,11 @@ fn header(message: &Message, width: usize) -> RenderedLine {
         label,
         color,
     } = section(message);
-    let title = format!("─ {glyph} {label} ");
+    let title = if message.kind == MessageKind::UserSteer && width < 16 {
+        format!("{glyph} steer ")
+    } else {
+        format!("─ {glyph} {label} ")
+    };
     let title = &title[..split_at_cells(&title, width)];
     let text = format!(
         "{title}{}",

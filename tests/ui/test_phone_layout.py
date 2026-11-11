@@ -9,13 +9,16 @@ class PhoneLayout:
         labels = ["palette.rs", "second.rs", "src [pattern=palette]", "Checking results",
                   "Checking matches", "palette.rs +1 −1", "theme-check", "printf"]
         self.assert_inline_tool_block(terminal, labels)
-        for label in ["Keep this second user", "Checking the palette", "First detailed thought",
+        for label in ["Checking the palette", "First detailed thought",
                       "I will check the tool colors.", "Here is a second update.", "The colors are ready."]:
             row = self.theme_row(terminal, label)
             self.assertEqual(terminal.screen.display[row - 1].strip(), "")
         self.assertEqual(self.source_cell(terminal, "Checking results", "Checking").fg, "ac9fd1")
         self.assertTrue(self.source_cell(terminal, "Checking results", "Checking").italics)
-        self.assertNotIn("─", terminal.text)
+        second = self.theme_row(terminal, "Keep this second user")
+        self.assertIn("❯ you (steer)", terminal.screen.display[second - 1])
+        self.assertEqual(terminal.screen.display[second - 2].strip(), "")
+        self.assertEqual(len([line for line in terminal.screen.display if "─" in line]), 1)
         self.assertEqual(terminal.requests("turn/start"), [])
         self.assertEqual(terminal.requests("turn/steer"), [])
         self.assertTrue(terminal.requests("thread/resume"))
@@ -64,10 +67,12 @@ class PhoneLayout:
         self.assertNotIn("Δ diff/edit", terminal.text)
         self.assertNotIn("$ run", terminal.text)
         self.assertNotIn("✱ search", terminal.text)
-        self.assertEqual(terminal.text.count("❯ you"), 1)
+        self.assertEqual(terminal.text.count("❯ you"), 2)
+        self.assertEqual(terminal.text.count("❯ you (steer)"), 1)
         row = self.theme_row(terminal, "Please inspect the theme")
         self.assertEqual(terminal.screen.display[row + 1].strip(), "")
-        self.assertIn("Keep this second user", terminal.screen.display[row + 2])
+        self.assertIn("❯ you (steer)", terminal.screen.display[row + 2])
+        self.assertIn("Keep this second user", terminal.screen.display[row + 3])
         self.assert_inline_tool_block(terminal, ["→ palette.rs", "→ second.rs",
             "✱ src [pattern=palette]", "◇ Checking results", "Δ palette.rs", "$ theme-check", "$ printf"])
         self.assertEqual(self.source_cell(terminal, "◇ Checking results", "◇").fg, "cba6f7")

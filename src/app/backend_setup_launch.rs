@@ -158,6 +158,7 @@ pub(super) fn configure_codex_app(
     persisted_defaults: &RuntimeDefaults,
     default_summary: Option<String>,
 ) -> Result<()> {
+    app.input_history.enable_native();
     app.set_runtime_capabilities(true, true);
     let models = fetch_model_catalog(client).unwrap_or_default();
     app.set_available_models(models.clone());

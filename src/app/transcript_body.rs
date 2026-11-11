@@ -33,7 +33,7 @@ impl BlockBody {
         let kind = match message.kind {
             MessageKind::ToolSummary { .. } => BodyKind::Empty,
             MessageKind::Diff => BodyKind::Diff,
-            MessageKind::Plain => match message.role {
+            MessageKind::Plain | MessageKind::UserSteer => match message.role {
                 Role::ToolCall => BodyKind::ToolCall,
                 Role::Assistant | Role::Reasoning => BodyKind::Markdown,
                 Role::ToolOutput => BodyKind::Output,

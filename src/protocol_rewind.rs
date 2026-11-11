@@ -19,6 +19,7 @@ pub(crate) fn fork_before_edited_turn(
     request: RewindForkRequest,
     timeout: Duration,
 ) -> Result<String> {
+    crate::protocol_rewind_guard::validate_rewind(client, thread_id, &request, timeout)?;
     let mut params = params_thread_fork(thread_id);
     if let Some(before_turn_id) = &request.before_turn_id {
         params["beforeTurnId"] = Value::String(before_turn_id.clone());

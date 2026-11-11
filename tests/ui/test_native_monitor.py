@@ -38,6 +38,58 @@ class NativeMonitor(unittest.TestCase):
         resumed.contains("Saved conversation")
         resumed.wait(lambda: resumed.placeholder_is("Native session name"), "restored name")
 
+    def test_native_codex_steer_edit_is_refused_before_fork_and_first_prompt_stays_editable(self):
+        def reply(body):
+            texts = [part.get("text", "") for item in body.get("input", []) if item.get("role") == "user"
+                     for part in item.get("content", [])]
+            if "edited initial native" in texts:
+                return [answer("NATIVE_EDITED_INITIAL")]
+            if "native-shared-sleep" in outputs(body):
+                return [answer("NATIVE_AFTER_STEER")]
+            return [{**answer("NATIVE_BEFORE_STEER"), "phase":"commentary"},
+                    tool("native-shared-sleep", "clock", "sleep", {"duration_ms":120000})]
+
+        terminal, model = self.launch(reply)
+        for expected in ["Wait up to 120 s", "NATIVE_AFTER_STEER"]:
+            terminal.paste("same native prompt")
+            terminal.send(b"\r")
+            terminal.contains(expected)
+        terminal.wait(lambda: any(row.get("method") == "turn/completed" for row in terminal.messages("server")), "shared turn complete")
+        terminal.contains("you (steer)")
+        thread = terminal.requests("turn/start")[0]["params"]["threadId"]
+        source = next((terminal.root / "codex-home/sessions").rglob("*" + thread + ".jsonl"))
+        terminal.wait(lambda: any(json.loads(row).get("payload", {}).get("type") == "task_complete"
+                      for row in source.read_text().splitlines()), "source turn persisted")
+        original = source.read_bytes()
+        terminal.rewind("same native prompt")
+        terminal.replace_input("keep this rejected draft")
+        terminal.send(b"\r")
+        terminal.contains("This message is a steer")
+        self.assertTrue(terminal.input_is("keep this rejected draft"))
+        self.assertEqual(terminal.requests("thread/fork"), [])
+        self.assertEqual(len(terminal.requests("turn/start")), 1)
+        self.assertEqual(source.read_bytes(), original)
+        terminal.snapshot("native-steer-rejected")
+        terminal.close()
+        root = terminal.root / "resumed"
+        root.mkdir()
+        (root / "codex-home").symlink_to(terminal.root / "codex-home", target_is_directory=True)
+        resumed = Terminal(BINARY, root, resume=thread, codex=CODEX)
+        self.addCleanup(resumed.close)
+        resumed.contains("NATIVE_AFTER_STEER")
+        resumed.contains("you (steer)")
+        resumed.rewind("same native prompt")
+        resumed.send(b"\x1b[A")  # Same text, but the earlier exact user item.
+        resumed.replace_input("edited initial native")
+        resumed.send(b"\r")
+        resumed.contains("NATIVE_EDITED_INITIAL")
+        self.assertEqual(len(resumed.requests("thread/fork")), 1)
+        self.assertEqual(source.read_bytes(), original)
+        self.assertNotIn("NATIVE_BEFORE_STEER", resumed.text)
+        self.assertNotIn("(steer)", json.dumps(resumed.requests("turn/start")[-1]["params"]["input"]))
+        self.assertEqual(len(model.requests), 3)
+        resumed.snapshot("native-initial-edit-after-resume")
+
     def launch(self, reply):
         root = ARTIFACTS / self._testMethodName
         root.mkdir(parents=True)

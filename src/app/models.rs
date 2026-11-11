@@ -61,6 +61,7 @@ pub(super) struct ToolOutputDetails {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum MessageKind {
     Plain,
+    UserSteer,
     Diff,
     ToolSummary { rows: usize },
 }

@@ -181,6 +181,7 @@ fn submit_rewind_turn_text_keeps_prefix_and_resubmits() {
             keep_turns: 1,
             drop_turns: 1,
             before_turn_id: None,
+            before_user_item: None,
         }]
     );
     assert_eq!(

@@ -68,6 +68,9 @@ class Server:
                 completed_turn("turn-second", "second"),
             ]}
         }
+        if self.mode == "codex-shared-turn":
+            from fake_codex_rewind import shared_history
+            self.threads["thread-original"] = shared_history()
         self.counter = 0
         self.failed_fork = False
         self.failed_start = False
@@ -114,7 +117,9 @@ class Server:
             if error else {"result": result})})
 
     def persist(self):
-        self.state_path.write_text(json.dumps(self.threads))
+        temporary = self.state_path.with_name(f".server-state-{os.getpid()}.json")
+        temporary.write_text(json.dumps(self.threads))
+        temporary.replace(self.state_path)
 
     def run(self):
         for line in sys.stdin:
@@ -159,6 +164,9 @@ class Server:
             self.reply(request, {})
             self.notify("turn/completed", {"threadId": params["threadId"],
                         "turn": {"id": params["turnId"], "status": "interrupted"}})
+        elif method == "thread/items/list":
+            from fake_codex_rewind import list_items
+            list_items(self, request, params)
         elif method == "thread/turns/list":
             self.list_turns(request, params)
         else:

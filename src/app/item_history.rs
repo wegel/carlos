@@ -38,6 +38,9 @@ pub(super) fn replace_history_from_thread(app: &mut AppState, thread_obj: &Value
         .unwrap_or(&app.thread_id)
         .to_string();
     let mut replacement = AppState::new(thread_id);
+    if app.input_history.native_enabled() {
+        replacement.input_history.enable_native();
+    }
     append_history_from_thread(&mut replacement, thread_obj);
     app.replace_transcript_from(replacement);
     app.read_thread_name(thread_obj);

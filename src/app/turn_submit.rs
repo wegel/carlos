@@ -55,6 +55,9 @@ pub(super) fn submit_rewind_turn_text(
             keep_turns: rewind_history_idx,
             drop_turns,
             before_turn_id: app.rewind_selected_turn_id().map(str::to_string),
+            before_user_item: (client.kind() == BackendKind::Codex)
+                .then(|| app.input_history.selected_native_request())
+                .flatten(),
         },
         Duration::from_secs(20),
     ) {
@@ -62,6 +65,9 @@ pub(super) fn submit_rewind_turn_text(
         Err(err) => {
             app.set_status(format!("fork failed: {err}"));
             app.append_message(Role::System, format!("Could not edit message: {err}"));
+            if client.kind() == BackendKind::Codex {
+                app.viewport.auto_follow_bottom = true;
+            }
             return;
         }
     };

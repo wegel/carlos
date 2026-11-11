@@ -127,8 +127,23 @@ impl AppState {
     }
 
     pub(super) fn record_input_turn_id(&mut self, item_id: &str, turn_id: &str) {
-        if let Some(message_idx) = self.item_to_message_index.get(item_id) {
-            self.input_history.record_turn_id(*message_idx, turn_id);
+        let message_idx = self.item_to_message_index.get(item_id).copied();
+        if let Some(index) = message_idx {
+            self.input_history.record_turn_id(index, turn_id);
+        }
+        let position = self
+            .input_history
+            .record_native(item_id, turn_id, message_idx);
+        if let (Some(index), Some(position)) = (message_idx, position) {
+            let kind = if position == 0 {
+                super::models::MessageKind::Plain
+            } else {
+                super::models::MessageKind::UserSteer
+            };
+            if self.messages[index].kind != kind {
+                self.messages[index].kind = kind;
+                self.mark_transcript_dirty_from(index);
+            }
         }
     }
 

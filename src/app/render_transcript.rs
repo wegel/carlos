@@ -65,7 +65,7 @@ fn draw_transcript_row(
         return;
     };
     if line.separator {
-        if app.layout.active.is_flow() {
+        if !line.text.is_empty() {
             let active = heading_is_active(app, message_index, active, width);
             draw_section_header(buf, line, y, content_x, width, active);
         }

@@ -215,7 +215,8 @@ fn layout_breakdown_label(msg: &Message) -> &'static str {
         (MessageKind::Plain, Role::ToolOutput) => "tool_output_ansi",
         (MessageKind::Plain, Role::Commentary) => "commentary_plain",
         (MessageKind::Plain, Role::ToolCall) => "tool_call_plain",
-        (MessageKind::Plain, Role::User) => "user_plain",
+        (MessageKind::Plain | MessageKind::UserSteer, Role::User) => "user_plain",
+        (MessageKind::UserSteer, _) => "user_steer",
         (MessageKind::Plain, Role::System) => "system_plain",
     }
 }

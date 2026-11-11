@@ -32,7 +32,11 @@ impl AppState {
         self.turn_diff_to_index.clear();
         self.command_render_overrides.clear();
         self.summaries.clear();
+        let native = self.input_history.native_enabled();
         self.input_history = InputHistoryState::new();
+        if native {
+            self.input_history.enable_native();
+        }
         self.turn_start_message_idx = None;
         self.viewport = ViewportState::new();
         self.context_usage = None;

@@ -39,7 +39,7 @@ impl BlockPlan {
         }) {
             plan.prefix.push(blank_line());
         }
-        if flow {
+        if flow || original.kind == MessageKind::UserSteer {
             if let Some(header) = section_header(previous, original, width) {
                 plan.prefix.push(header);
             }

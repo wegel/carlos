@@ -56,6 +56,7 @@ mod dictation_state;
 mod flow_transcript;
 mod input;
 mod input_events;
+mod input_history_native;
 mod input_history_state;
 mod item_history;
 mod layout_state;

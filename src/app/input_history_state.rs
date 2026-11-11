@@ -2,6 +2,9 @@
 
 use std::collections::HashMap;
 
+use super::input_history_native::{NativeUserHistory, NativeUserPosition};
+use crate::backend::RewindUserMessage;
+
 // --- History State ---
 
 /// Tracks submitted prompts and supports up/down history navigation.
@@ -13,6 +16,7 @@ pub(super) struct InputHistoryState {
     rewind_mode: bool,
     rewind_restore_draft: Option<String>,
     turn_ids_by_message: HashMap<usize, String>,
+    native: Option<NativeUserHistory>,
 }
 
 impl InputHistoryState {
@@ -25,7 +29,47 @@ impl InputHistoryState {
             rewind_mode: false,
             rewind_restore_draft: None,
             turn_ids_by_message: HashMap::new(),
+            native: None,
         }
+    }
+
+    /// Enable Codex user-item metadata without changing Claude or Grok history.
+    pub(super) fn enable_native(&mut self) {
+        self.native.get_or_insert_with(NativeUserHistory::default);
+    }
+
+    /// Report whether replacement history must also track Codex identities.
+    pub(super) fn native_enabled(&self) -> bool {
+        self.native.is_some()
+    }
+
+    /// Record every native user item before choosing its visible row label.
+    pub(super) fn record_native(
+        &mut self,
+        item_id: &str,
+        turn_id: &str,
+        message: Option<usize>,
+    ) -> Option<usize> {
+        self.native
+            .as_mut()
+            .map(|native| native.record(item_id, turn_id, message))
+    }
+
+    /// Resolve the selected row's exact native position, independently of its text.
+    pub(super) fn selected_native(&self) -> Option<&NativeUserPosition> {
+        self.native
+            .as_ref()?
+            .message(self.rewind_selected_message_idx()?)
+    }
+
+    /// Retain the original selected text when the composer contains an edited draft.
+    pub(super) fn selected_native_request(&self) -> Option<RewindUserMessage> {
+        let selected = self.selected_native()?;
+        Some(RewindUserMessage {
+            item_id: selected.item_id.clone(),
+            position: selected.position,
+            text: self.input_history.get(self.input_history_index?)?.clone(),
+        })
     }
 
     // --- Mode Control ---
@@ -158,6 +202,9 @@ impl InputHistoryState {
     }
 
     pub(super) fn selected_turn_id(&self) -> Option<&str> {
+        if let Some(selected) = self.selected_native() {
+            return Some(&selected.turn_id);
+        }
         let message_idx = self.rewind_selected_message_idx()?;
         self.turn_ids_by_message
             .get(&message_idx)

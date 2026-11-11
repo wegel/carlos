@@ -266,6 +266,14 @@ See [the helper guide](helpers/claude-controller/README.md) and
 
 ## Codex background monitors
 
+When Codex is already working, a new message steers its current turn instead of
+starting another turn. Carlos marks these user rows as `you (steer)`, or `steer`
+on very narrow screens. The label stays out of copied text and model prompts.
+Rewind can edit a turn's initial prompt, including one followed by steers. Codex
+cannot edit a later steer independently: Carlos keeps your edited draft and the
+conversation intact, shows an error, and creates no fork. Press Up to select an
+earlier prompt, or Esc to cancel rewind.
+
 Carlos uses the installed Codex app-server to run tools and child agents. Ask Codex
 to monitor a task just as you would in the native Codex CLI. Carlos shows Codex's
 waits and child-agent notices, and you can send another message while Codex waits.

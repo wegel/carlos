@@ -36,6 +36,15 @@ pub(crate) struct RewindForkRequest {
     pub(crate) keep_turns: usize,
     pub(crate) drop_turns: usize,
     pub(crate) before_turn_id: Option<String>,
+    pub(crate) before_user_item: Option<RewindUserMessage>,
+}
+
+/// Keeps the exact selected native user item separate from its edited draft.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct RewindUserMessage {
+    pub(crate) item_id: String,
+    pub(crate) text: String,
+    pub(crate) position: usize,
 }
 
 /// Identifies the person or automatic loop that supplied a prompt.
