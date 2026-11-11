@@ -2,9 +2,9 @@
 
 use std::time::{Duration, Instant};
 
-use super::models::TerminalSize;
 use super::render::{compute_input_layout, textarea_input_from_key};
 use super::state::AppState;
+use super::view_models::TerminalSize;
 use super::MSG_TOP;
 
 const ESC_CHORD_WINDOW: Duration = Duration::from_millis(700);

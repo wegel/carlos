@@ -2,12 +2,13 @@
 
 use super::flow_transcript::{inline_reasoning, section_header};
 use super::layout_state::TranscriptTheme;
-use super::models::{Message, MessageKind, RenderedLine, Role};
+use super::models::{Message, MessageKind, Role};
 use super::tool_output_state::compact_tool_message;
 use super::tool_summary::{summary_lines, tool_failed, tool_gutter};
 use super::transcript_body::{prepend_symbol, BlockBody};
 use super::transcript_spacing::should_insert_separator_between;
 use super::transcript_styles::RenderCountCache;
+use super::view_models::{DisplayKind, DisplayMessage, RenderedLine};
 use crate::theme::role_gutter_fg;
 
 /// Keep only small heading/label rows eager; large bodies remain lazy.
@@ -20,11 +21,11 @@ impl BlockPlan {
     /// Resolve all theme-specific row choices before counting or highlighting text.
     pub(super) fn new(
         previous: Option<&Message>,
-        original: &Message,
-        display: &Message,
+        display: DisplayMessage<'_>,
         width: usize,
         theme: TranscriptTheme,
     ) -> Self {
+        let original = display.source;
         let mut plan = Self {
             prefix: Vec::new(),
             body: None,
@@ -45,8 +46,7 @@ impl BlockPlan {
             }
         }
         if needs_tool_label(display, flow) {
-            plan.prefix
-                .extend(tool_labels(original, display, width, flow));
+            plan.prefix.extend(tool_labels(display, width, flow));
         }
         let mut body = BlockBody::new(display, width);
         if flow && inline_reasoning(original, width) {
@@ -85,7 +85,7 @@ pub(super) fn has_visible_content(message: &Message) -> bool {
         || !message.text.trim().is_empty()
 }
 
-/// Choose the folded message and the plan that both passes will use.
+/// Plan a full or folded view while borrowing the stored source message.
 pub(super) fn plan_display_block<'a>(
     cache: &mut RenderCountCache<'a>,
     previous: Option<&Message>,
@@ -93,25 +93,23 @@ pub(super) fn plan_display_block<'a>(
     width: usize,
     compact: bool,
     theme: TranscriptTheme,
-) -> (Option<Message>, BlockPlan) {
-    let folded = if compact
+) -> BlockPlan {
+    let full = DisplayMessage::full(message);
+    let display = if compact
         && (matches!(message.role, Role::ToolCall | Role::ToolOutput)
             || message.kind == MessageKind::Diff)
     {
-        compact_tool_message(
-            message,
-            BlockBody::new(message, width).count(cache, message),
-        )
+        let rows = BlockBody::new(full, width).count(cache, message);
+        compact_tool_message(message, rows).unwrap_or(full)
     } else {
-        None
+        full
     };
-    let display = folded.as_ref().unwrap_or(message);
-    let plan = BlockPlan::new(previous, message, display, width, theme);
-    (folded, plan)
+    BlockPlan::new(previous, display, width, theme)
 }
 
-fn needs_tool_label(message: &Message, flow: bool) -> bool {
-    matches!(message.kind, MessageKind::ToolSummary { .. })
+fn needs_tool_label(display: DisplayMessage<'_>, flow: bool) -> bool {
+    let message = display.source;
+    matches!(display.kind, DisplayKind::ToolSummary { .. })
         || message.role == Role::ToolCall
         || (message.role == Role::ToolOutput
             && (flow
@@ -122,25 +120,15 @@ fn needs_tool_label(message: &Message, flow: bool) -> bool {
                     .is_some_and(|tool| tool.generated)))
 }
 
-fn tool_labels(
-    original: &Message,
-    display: &Message,
-    width: usize,
-    flow: bool,
-) -> Vec<RenderedLine> {
-    let rows = match display.kind {
-        MessageKind::ToolSummary { rows } => rows,
-        _ => 0,
-    };
+fn tool_labels(display: DisplayMessage<'_>, width: usize, flow: bool) -> Vec<RenderedLine> {
+    let original = display.source;
     let inline = flow && matches!(original.role, Role::ToolCall | Role::ToolOutput);
-    let summary = inline
-        .then(|| compact_tool_message(display, rows))
-        .flatten();
-    let mut lines = summary_lines(
-        summary.as_ref().unwrap_or(display),
-        width.saturating_sub(if inline { 2 } else { 0 }),
-        rows,
-    );
+    let summary = if inline {
+        compact_tool_message(original, display.hidden_rows()).unwrap_or(display)
+    } else {
+        display
+    };
+    let mut lines = summary_lines(summary, width.saturating_sub(if inline { 2 } else { 0 }));
     if inline {
         let (glyph, color) = tool_gutter(original);
         for (index, line) in lines.iter_mut().enumerate() {

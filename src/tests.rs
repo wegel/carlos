@@ -23,9 +23,7 @@ pub(super) use super::mobile_mouse::{
     apply_mobile_mouse_scroll, consume_mobile_mouse_char, parse_mobile_mouse_coords,
     parse_repeated_plain_mobile_pair, MobileMouseConsume,
 };
-pub(super) use super::models::{
-    Message, MessageKind, RenderedLine, Role, StyledSegment, TerminalSize, ThreadSummary,
-};
+pub(super) use super::models::{Message, MessageKind, Role, ThreadSummary};
 pub(super) use super::notifications::{
     append_history_from_thread, handle_notification_line, handle_server_message_line,
     is_key_press_like, kitt_head_index, load_history_from_start_or_resume, parse_thread_list,
@@ -60,6 +58,7 @@ pub(super) use super::transcript_render::{
 pub(super) use super::turn_submit::{
     submit_dequeued_turn_text, submit_turn_text, submit_turn_text_with_history,
 };
+pub(super) use super::view_models::{RenderedLine, StyledSegment, TerminalSize};
 pub(super) use super::{input_events, perf_session, ralph, state, turn_submit, RuntimeDefaults};
 pub(super) use crate::clipboard::{
     detect_osc52_wrap, is_ssh_session, osc52_sequences_for_env, Osc52Wrap,

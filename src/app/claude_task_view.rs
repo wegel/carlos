@@ -8,9 +8,9 @@ use serde_json::json;
 use super::claude_question_state::safe_label;
 use super::claude_task_stops::StopState;
 use super::input_events::TerminalEventResult;
-use super::models::TerminalSize;
 use super::render::{draw_str, fill_rect};
 use super::state::AppState;
+use super::view_models::TerminalSize;
 use crate::backend::{BackendClient, BackendKind};
 use crate::theme::{COLOR_DIM, COLOR_PRIMARY, COLOR_STEP2, COLOR_TEXT};
 

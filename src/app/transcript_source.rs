@@ -3,12 +3,13 @@
 use ratatui::style::Style;
 use serde_json::Value;
 
-use super::models::{RenderedLine, Role, StyledSegment};
+use super::models::Role;
 use super::shell_read::single_source_path;
 use super::source_highlight::SourceHighlighter;
 use super::text::wrap_natural_count_by_cells;
 use super::tools::{first_i64_at_paths, first_string_at_paths, tool_command, tool_name};
 use super::transcript_styles::append_wrapped_styled_logical_lines;
+use super::view_models::{RenderedLine, StyledSegment};
 use crate::theme::COLOR_STEP8;
 
 /// Read a source path only from a successful read tool or a single read action.

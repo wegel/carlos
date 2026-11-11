@@ -5,9 +5,9 @@ use std::fs;
 use serde_json::json;
 
 use crate::app::layout_state::{ThemePreferences, TranscriptTheme};
-use crate::app::models::TerminalSize;
 use crate::app::tool_output_preferences::{load_themes_from, save_appearance_to};
 use crate::app::tool_output_state::ToolOutputMode;
+use crate::app::view_models::TerminalSize;
 
 #[test]
 fn each_screen_size_can_select_either_theme() {

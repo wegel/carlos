@@ -1,7 +1,8 @@
 //! Choose full or folded tool output from an explicit preference and terminal size.
 
-use super::models::{Message, MessageKind, Role, TerminalSize, ToolOutputDetails};
+use super::models::{Message, MessageKind, Role};
 use super::transcript_diff_source::split_file_diffs;
+use super::view_models::{DisplayKind, DisplayMessage, TerminalSize};
 
 /// Let the terminal size choose, or force one view until the user changes it.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -86,46 +87,18 @@ impl ToolOutputState {
 }
 
 /// Replace tool contents with a label, including short results and failures.
-pub(super) fn compact_tool_message(message: &Message, rows: usize) -> Option<Message> {
-    let command_body = message.role == Role::ToolCall && message.text.contains('\n');
+pub(super) fn compact_tool_message(message: &Message, rows: usize) -> Option<DisplayMessage<'_>> {
     if !matches!(message.role, Role::ToolCall | Role::ToolOutput)
         && message.kind != MessageKind::Diff
     {
         return None;
     }
-    let label = message
-        .tool_output
-        .as_ref()
-        .map(|tool| tool.summary.clone())
-        .unwrap_or_else(|| {
-            if message.kind == MessageKind::Diff {
-                diff_summary(message)
-            } else if message.role == Role::ToolCall {
-                message
-                    .text
-                    .lines()
-                    .next()
-                    .unwrap_or("Tool call")
-                    .to_string()
-            } else {
-                "Tool output".to_string()
-            }
-        });
-    Some(Message {
-        tool_output: Some(ToolOutputDetails {
-            generated: message
-                .tool_output
-                .as_ref()
-                .is_some_and(|tool| tool.generated),
-            summary: label.clone(),
-            failed: message.tool_output.as_ref().is_some_and(|tool| tool.failed),
-        }),
-        role: Role::ToolCall,
-        kind: MessageKind::ToolSummary {
+    let command_body = message.role == Role::ToolCall && message.text.contains('\n');
+    Some(DisplayMessage {
+        source: message,
+        kind: DisplayKind::ToolSummary {
             rows: if command_body { 0 } else { rows },
         },
-        file_path: None,
-        text: label,
     })
 }
 

@@ -3,8 +3,8 @@
 use ratatui::style::Style;
 use ratatui_interact::components::{DiffLine, DiffLineType};
 
-use super::models::StyledSegment;
 use super::source_highlight::SourceHighlighter;
+use super::view_models::StyledSegment;
 
 /// Give each side its own parser so a removed comment cannot color added code.
 pub(super) struct DiffHighlighters {

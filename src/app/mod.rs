@@ -4,9 +4,10 @@ use std::env;
 
 use anyhow::Result;
 
-pub(crate) use self::models::Role;
-use self::models::{DiffBlock, Message, MessageKind, RenderedLine, TerminalSize, ThreadSummary};
+use self::models::{DiffBlock, Message, MessageKind, ThreadSummary};
 use self::state::AppState;
+use self::view_models::{RenderedLine, TerminalSize};
+pub(crate) use crate::session::models::Role;
 
 // --- Module Tree ---
 
@@ -169,6 +170,7 @@ mod turn_approval;
 mod turn_interrupt;
 mod turn_settings;
 mod turn_submit;
+mod view_models;
 mod viewport_state;
 mod weekly_usage;
 

@@ -25,7 +25,7 @@ fn diff_message(path: Option<&str>, text: &str) -> Message {
 }
 
 fn token_color(
-    lines: &[crate::app::models::RenderedLine],
+    lines: &[crate::app::view_models::RenderedLine],
     needle: &str,
     token: &str,
 ) -> Option<Color> {

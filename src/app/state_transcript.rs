@@ -1,9 +1,10 @@
 //! AppState impl: transcript/message manipulation, rendered lines, and selection.
 
-use super::models::{Message, MessageKind, RenderedLine, Role};
+use super::models::{Message, MessageKind, Role};
 use super::selection::{RenderedLineSource, Selection};
 use super::state::AppState;
 use super::transcript_render::{format_read_summary_with_count, parse_read_summary};
+use super::view_models::RenderedLine;
 
 impl AppState {
     // --- Transcript mutation ---

@@ -14,6 +14,7 @@ use crate::app::transcript_render::{
     count_rendered_block_for_message_cached,
 };
 use crate::app::transcript_styles::RenderCountCache;
+use crate::app::view_models::{DisplayKind, DisplayMessage};
 use crate::theme::{context_color, COLOR_DIFF_REMOVE, COLOR_GUTTER_USER, COLOR_TOOL_EDIT};
 
 fn failed_read() -> Message {
@@ -68,7 +69,13 @@ fn compact_unicode_labels_leave_room_for_failure_and_large_counts() {
     for failed in [false, true] {
         message.tool_output.as_mut().expect("details").failed = failed;
         for width in [8, 12, 20, 40, 120] {
-            let line = summary_line(&message, width, usize::MAX);
+            let line = summary_line(
+                DisplayMessage {
+                    source: &message,
+                    kind: DisplayKind::ToolSummary { rows: usize::MAX },
+                },
+                width,
+            );
             assert!(line.cells <= width, "{width}: {:?}", line.text);
             assert!(!line.soft_wrap_to_next);
             if failed {

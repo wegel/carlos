@@ -4,13 +4,14 @@ use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
 use super::flow_transcript::inline_reasoning;
-use super::models::{Message, Role, TerminalSize};
+use super::models::{Message, Role};
 use super::notifications::spinner_frame;
 use super::render::{draw_rendered_line, draw_str, fill_rect};
 use super::selection::compute_selection_range;
 use super::state::AppState;
 use super::text::visual_width;
 use super::tool_summary::tool_gutter;
+use super::view_models::TerminalSize;
 use super::MSG_TOP;
 use crate::theme::{
     role_gutter_fg, role_gutter_symbol, role_row_bg, role_text_style, COLOR_PRIMARY,
@@ -133,7 +134,7 @@ fn fill_message_row(buf: &mut Buffer, y: usize, role: Role) {
 
 fn draw_section_header(
     buf: &mut Buffer,
-    line: &super::models::RenderedLine,
+    line: &super::view_models::RenderedLine,
     y: usize,
     x: usize,
     width: usize,

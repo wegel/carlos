@@ -1,9 +1,13 @@
 //! Draw one tool label with its icon, diff counts, failure, and hidden-row count.
 
+use std::borrow::Cow;
+
 use ratatui::style::{Color, Modifier, Style};
 
-use super::models::{Message, MessageKind, RenderedLine, Role, StyledSegment};
+use super::models::{Message, MessageKind, Role};
 use super::text::{split_at_cells, visual_width, wrap_natural_by_cells};
+use super::tool_output_state::diff_summary;
+use super::view_models::{DisplayKind, DisplayMessage, RenderedLine, StyledSegment};
 use crate::theme::{
     COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_GUTTER_TOOL_CALL, COLOR_STEP8, COLOR_TOOL_EDIT,
     COLOR_TOOL_READ, COLOR_TOOL_SEARCH, COLOR_TOOL_TEXT,
@@ -25,10 +29,15 @@ pub(super) fn tool_failed(message: &Message) -> bool {
 
 /// Choose the tool glyph and let failures override its color.
 pub(super) fn tool_gutter(message: &Message) -> (&'static str, Color) {
-    let label = tool_label(message);
-    let (icon, color) = if message.kind == MessageKind::Diff
-        || (label.starts_with("Δ") || label.starts_with("←"))
-    {
+    gutter_for_label(
+        tool_label(message),
+        message.kind == MessageKind::Diff,
+        tool_failed(message),
+    )
+}
+
+fn gutter_for_label(label: &str, diff: bool, failed: bool) -> (&'static str, Color) {
+    let (icon, color) = if diff || (label.starts_with("Δ") || label.starts_with("←")) {
         ("Δ", COLOR_TOOL_EDIT)
     } else if label.starts_with("→ Read") || label.starts_with("→ Inspect") {
         ("→", COLOR_TOOL_READ)
@@ -37,14 +46,26 @@ pub(super) fn tool_gutter(message: &Message) -> (&'static str, Color) {
     } else {
         ("$", COLOR_GUTTER_TOOL_CALL)
     };
-    (
-        icon,
-        if tool_failed(message) {
-            COLOR_DIFF_REMOVE
-        } else {
-            color
-        },
-    )
+    (icon, if failed { COLOR_DIFF_REMOVE } else { color })
+}
+
+/// Read the same label as the old compact copy, without copying the source message.
+fn summary_label(display: DisplayMessage<'_>) -> Cow<'_, str> {
+    let message = display.source;
+    if display.kind == DisplayKind::Full {
+        return Cow::Borrowed(tool_label(message));
+    }
+    if let Some(tool) = &message.tool_output {
+        return Cow::Borrowed(&tool.summary);
+    }
+    if message.kind == MessageKind::Diff {
+        return Cow::Owned(diff_summary(message));
+    }
+    Cow::Borrowed(if message.role == Role::ToolCall {
+        message.text.lines().next().unwrap_or("Tool call")
+    } else {
+        "Tool output"
+    })
 }
 
 fn tool_arguments(label: &str) -> &str {
@@ -132,10 +153,11 @@ fn summary_footer(width: usize, rows: usize, failed: bool) -> Vec<StyledSegment>
     segments
 }
 
-fn summary_arguments(message: &Message, width: usize) -> Vec<StyledSegment> {
-    let label = tool_arguments(tool_label(message));
-    let counts = (tool_gutter(message).0 == "Δ")
-        .then(|| split_diff_counts(label))
+fn summary_arguments(display: DisplayMessage<'_>, width: usize) -> Vec<StyledSegment> {
+    let label = summary_label(display);
+    let diff = display.kind == DisplayKind::Full && display.source.kind == MessageKind::Diff;
+    let counts = (gutter_for_label(&label, diff, tool_failed(display.source)).0 == "Δ")
+        .then(|| split_diff_counts(tool_arguments(&label)))
         .flatten();
     let mut segments = Vec::new();
     let style = Style::default().fg(COLOR_TOOL_TEXT);
@@ -154,17 +176,21 @@ fn summary_arguments(message: &Message, width: usize) -> Vec<StyledSegment> {
             Style::default().fg(COLOR_DIFF_REMOVE),
         );
     } else {
-        push_segment(&mut segments, &clipped_label(label, width), style);
+        push_segment(
+            &mut segments,
+            &clipped_label(tool_arguments(&label), width),
+            style,
+        );
     }
     segments
 }
 
 /// Keep compact rows on one line even when the command contains a long script.
-pub(super) fn summary_line(message: &Message, width: usize, rows: usize) -> RenderedLine {
-    let footer = summary_footer(width, rows, tool_failed(message));
+pub(super) fn summary_line(display: DisplayMessage<'_>, width: usize) -> RenderedLine {
+    let footer = summary_footer(width, display.hidden_rows(), tool_failed(display.source));
     let footer_width: usize = footer.iter().map(|s| visual_width(&s.text)).sum();
     let available = width.saturating_sub(footer_width);
-    let mut segments = summary_arguments(message, available);
+    let mut segments = summary_arguments(display, available);
     if footer_width > 0 {
         let label_width: usize = segments.iter().map(|s| visual_width(&s.text)).sum();
         push_segment(
@@ -186,7 +212,8 @@ pub(super) fn summary_line(message: &Message, width: usize, rows: usize) -> Rend
 }
 
 /// Wrap AI descriptions completely while keeping literal command labels on one row.
-pub(super) fn summary_lines(message: &Message, width: usize, rows: usize) -> Vec<RenderedLine> {
+pub(super) fn summary_lines(display: DisplayMessage<'_>, width: usize) -> Vec<RenderedLine> {
+    let message = display.source;
     if width == 0 {
         return Vec::new();
     }
@@ -195,14 +222,14 @@ pub(super) fn summary_lines(message: &Message, width: usize, rows: usize) -> Vec
         .as_ref()
         .is_some_and(|tool| tool.generated)
     {
-        return vec![summary_line(message, width, rows)];
+        return vec![summary_line(display, width)];
     }
-    let footer = summary_footer(width, rows, tool_failed(message));
+    let footer = summary_footer(width, display.hidden_rows(), tool_failed(message));
     let footer_width: usize = footer
         .iter()
         .map(|segment| visual_width(&segment.text))
         .sum();
-    let mut lines: Vec<_> = wrap_natural_by_cells(tool_arguments(tool_label(message)), width)
+    let mut lines: Vec<_> = wrap_natural_by_cells(tool_arguments(&summary_label(display)), width)
         .into_iter()
         .map(ai_label_line)
         .collect();

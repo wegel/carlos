@@ -173,7 +173,7 @@ pub(super) fn profile_layout_count_pass(app: &AppState, width: usize) -> Vec<Lay
         }
         let previous_visible = previous_visible_idx.and_then(|prev_idx| app.messages.get(prev_idx));
         let started = Instant::now();
-        let (_, lines) = count_display_block(
+        let lines = count_display_block(
             &mut count_cache,
             previous_visible,
             msg,
@@ -208,7 +208,6 @@ pub(super) fn profile_layout_count_pass(app: &AppState, width: usize) -> Vec<Lay
 
 fn layout_breakdown_label(msg: &Message) -> &'static str {
     match (msg.kind, msg.role) {
-        (MessageKind::ToolSummary { .. }, _) => "tool_summary",
         (MessageKind::Diff, _) => "diff",
         (MessageKind::Plain, Role::Reasoning) => "reasoning_markdown",
         (MessageKind::Plain, Role::Assistant) => "assistant_markdown",

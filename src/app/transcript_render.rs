@@ -3,12 +3,14 @@
 #[cfg(test)]
 use super::layout_state::TranscriptTheme;
 #[cfg(test)]
-use super::models::{Message, RenderedLine, Role};
+use super::models::{Message, Role};
 #[cfg(test)]
 use super::transcript_block::{has_visible_content, BlockPlan};
 #[cfg(test)]
 pub(super) use super::transcript_styles::normalize_styled_segments_for_part;
 pub(super) use super::transcript_styles::RenderCountCache;
+#[cfg(test)]
+use super::view_models::{DisplayMessage, RenderedLine};
 
 // --- Read Summaries ---
 
@@ -86,7 +88,13 @@ pub(super) fn build_rendered_block_for_message(
     msg: &Message,
     width: usize,
 ) -> Vec<RenderedLine> {
-    BlockPlan::new(previous_visible, msg, msg, width, TranscriptTheme::Gutter).render(msg)
+    BlockPlan::new(
+        previous_visible,
+        DisplayMessage::full(msg),
+        width,
+        TranscriptTheme::Gutter,
+    )
+    .render(msg)
 }
 
 /// Count a Gutter block through the shared plan.
@@ -108,7 +116,13 @@ pub(super) fn count_rendered_block_for_message_cached<'a>(
     message: &'a Message,
     width: usize,
 ) -> usize {
-    BlockPlan::new(previous, message, message, width, TranscriptTheme::Gutter).count(cache, message)
+    BlockPlan::new(
+        previous,
+        DisplayMessage::full(message),
+        width,
+        TranscriptTheme::Gutter,
+    )
+    .count(cache, message)
 }
 
 /// Append the rows described by a Gutter block plan.
@@ -120,6 +134,12 @@ pub(super) fn append_rendered_block_for_message(
     width: usize,
 ) {
     out.extend(
-        BlockPlan::new(previous, message, message, width, TranscriptTheme::Gutter).render(message),
+        BlockPlan::new(
+            previous,
+            DisplayMessage::full(message),
+            width,
+            TranscriptTheme::Gutter,
+        )
+        .render(message),
     );
 }

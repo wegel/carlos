@@ -2,7 +2,7 @@
 
 use ratatui::style::{Color, Style};
 
-use super::models::{Message, MessageKind, RenderedLine, Role, StyledSegment};
+use super::models::{Message, MessageKind, Role};
 use super::transcript_diff::{append_wrapped_diff_lines, count_wrapped_diff_lines};
 use super::transcript_source::{append_source_lines, count_source_lines};
 use super::transcript_styles::{
@@ -10,6 +10,7 @@ use super::transcript_styles::{
     count_wrapped_ansi_lines_cached, count_wrapped_markdown_lines,
     count_wrapped_message_lines_cached, RenderCountCache,
 };
+use super::view_models::{DisplayKind, DisplayMessage, RenderedLine, StyledSegment};
 
 enum BodyKind {
     Empty,
@@ -29,11 +30,12 @@ pub(super) struct BlockBody {
 
 impl BlockBody {
     /// Choose a body format independently of the transcript theme.
-    pub(super) fn new(message: &Message, width: usize) -> Self {
-        let kind = match message.kind {
-            MessageKind::ToolSummary { .. } => BodyKind::Empty,
-            MessageKind::Diff => BodyKind::Diff,
-            MessageKind::Plain | MessageKind::UserSteer => match message.role {
+    pub(super) fn new(display: DisplayMessage<'_>, width: usize) -> Self {
+        let message = display.source;
+        let kind = match (display.kind, message.kind) {
+            (DisplayKind::ToolSummary { .. }, _) => BodyKind::Empty,
+            (_, MessageKind::Diff) => BodyKind::Diff,
+            (_, MessageKind::Plain | MessageKind::UserSteer) => match message.role {
                 Role::ToolCall => BodyKind::ToolCall,
                 Role::Assistant | Role::Reasoning => BodyKind::Markdown,
                 Role::ToolOutput => BodyKind::Output,

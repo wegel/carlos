@@ -9,7 +9,7 @@ use two_face::re_exports::syntect::highlighting::{FontStyle, Theme};
 use two_face::re_exports::syntect::parsing::SyntaxSet;
 use two_face::theme::EmbeddedThemeName;
 
-use super::models::StyledSegment;
+use super::view_models::StyledSegment;
 
 static SYNTAXES: LazyLock<SyntaxSet> = LazyLock::new(two_face::syntax::extra_no_newlines);
 static THEME: LazyLock<Theme> =

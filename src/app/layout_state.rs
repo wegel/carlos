@@ -1,7 +1,7 @@
 //! Choose a transcript theme independently for wide and small terminals.
 
-use super::models::TerminalSize;
 use super::state::AppState;
+use super::view_models::TerminalSize;
 
 /// Choose how Carlos separates transcript entries.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]

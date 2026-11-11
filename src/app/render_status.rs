@@ -4,11 +4,11 @@ use ratatui::buffer::Buffer;
 use ratatui::style::{Color, Modifier, Style};
 
 use super::context_usage::{context_usage_label, context_usage_placeholder_label};
-use super::models::TerminalSize;
 use super::notifications::{animation_tick, kitt_head_index};
 use super::render::draw_str;
 use super::state::AppState;
 use super::text::{split_at_cells, visual_width};
+use super::view_models::TerminalSize;
 use crate::theme::{
     context_color, kitt_color_for_distance, COLOR_DIFF_REMOVE, COLOR_GUTTER_AGENT_COMMENTARY,
     COLOR_GUTTER_AGENT_THINKING, COLOR_GUTTER_USER, COLOR_STATUS_SEPARATOR, COLOR_STEP8,

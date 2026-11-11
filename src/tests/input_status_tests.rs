@@ -12,10 +12,11 @@ use crate::app::claude_notifications::record_submitted_prompt;
 use crate::app::context_usage::ContextUsage;
 use crate::app::input_events::handle_terminal_event;
 use crate::app::input_mode;
-use crate::app::models::{MessageKind, Role, TerminalSize};
+use crate::app::models::{MessageKind, Role};
 use crate::app::notifications::handle_server_message_line;
 use crate::app::render_status::draw_status_bar;
 use crate::app::state::AppState;
+use crate::app::view_models::TerminalSize;
 
 fn status(app: &AppState, width: usize) -> String {
     let mut buffer = Buffer::empty(Rect::new(0, 0, width as u16, 3));

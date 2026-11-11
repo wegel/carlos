@@ -1,9 +1,10 @@
 //! Lazy render cache that counts lines eagerly and materializes blocks on demand.
 
 use super::layout_state::TranscriptTheme;
-use super::models::{Message, RenderedLine, Role};
+use super::models::{Message, Role};
 use super::transcript_block::{plan_display_block, BlockPlan};
 use super::transcript_styles::RenderCountCache;
+use super::view_models::RenderedLine;
 
 // --- Cache State ---
 
@@ -15,7 +16,6 @@ pub(super) struct RenderCacheState {
     pub(super) rendered_width: usize,
     pub(super) rendered_compact: bool,
     pub(super) rendered_theme: TranscriptTheme,
-    compact_messages: Vec<Option<Box<Message>>>,
     block_plans: Vec<Option<Box<BlockPlan>>>,
     pub(super) rendered_hidden_user_message_idx: Option<usize>,
     pub(super) transcript_dirty_from: Option<usize>,
@@ -31,7 +31,6 @@ impl RenderCacheState {
             rendered_width: 0,
             rendered_compact: false,
             rendered_theme: TranscriptTheme::Gutter,
-            compact_messages: Vec::new(),
             block_plans: Vec::new(),
             rendered_hidden_user_message_idx: None,
             transcript_dirty_from: Some(0),
@@ -89,7 +88,6 @@ impl RenderCacheState {
     fn truncate_rendered_blocks_to(&mut self, dirty_from: usize) {
         if dirty_from == 0 {
             self.rendered_message_blocks.clear();
-            self.compact_messages.clear();
             self.block_plans.clear();
             self.rendered_block_line_counts.clear();
             self.rendered_block_offsets.clear();
@@ -102,7 +100,6 @@ impl RenderCacheState {
             .copied()
             .unwrap_or(self.rendered_total_lines);
         self.rendered_message_blocks.truncate(dirty_from);
-        self.compact_messages.truncate(dirty_from);
         self.block_plans.truncate(dirty_from);
         self.rendered_block_line_counts.truncate(dirty_from);
         self.rendered_block_offsets.truncate(dirty_from);
@@ -125,7 +122,6 @@ impl RenderCacheState {
 
         for idx in dirty_from..messages.len() {
             self.rendered_block_offsets.push(self.rendered_total_lines);
-            self.compact_messages.push(None);
             self.block_plans.push(None);
 
             let msg = &messages[idx];
@@ -138,7 +134,7 @@ impl RenderCacheState {
             }
 
             let previous_visible = previous_visible_idx.and_then(|prev_idx| messages.get(prev_idx));
-            let (folded, plan) = plan_display_block(
+            let plan = plan_display_block(
                 &mut count_cache,
                 previous_visible,
                 msg,
@@ -146,14 +142,8 @@ impl RenderCacheState {
                 compact,
                 self.rendered_theme,
             );
-            let display = folded.as_ref().unwrap_or(msg);
-            let line_count = if folded.is_some() {
-                plan.count(&mut RenderCountCache::new(), display)
-            } else {
-                plan.count(&mut count_cache, msg)
-            };
+            let line_count = plan.count(&mut count_cache, msg);
             self.block_plans[idx] = Some(Box::new(plan));
-            self.compact_messages[idx] = folded.map(Box::new);
             self.rendered_block_line_counts.push(line_count);
             if line_count == 0 {
                 self.rendered_message_blocks.push(None);
@@ -268,12 +258,7 @@ impl RenderCacheState {
             return;
         }
 
-        let Some(msg) = self
-            .compact_messages
-            .get(block_idx)
-            .and_then(Option::as_deref)
-            .or_else(|| messages.get(block_idx))
-        else {
+        let Some(msg) = messages.get(block_idx) else {
             return;
         };
         let Some(plan) = self.block_plans.get(block_idx).and_then(Option::as_deref) else {
@@ -303,11 +288,6 @@ pub(super) fn count_display_block<'a>(
     width: usize,
     compact: bool,
     theme: TranscriptTheme,
-) -> (Option<Message>, usize) {
-    let (folded, plan) = plan_display_block(cache, previous, message, width, compact, theme);
-    let count = match &folded {
-        Some(display) => plan.count(&mut RenderCountCache::new(), display),
-        None => plan.count(cache, message),
-    };
-    (folded, count)
+) -> usize {
+    plan_display_block(cache, previous, message, width, compact, theme).count(cache, message)
 }

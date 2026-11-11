@@ -6,9 +6,9 @@ use ratatui::style::Style;
 
 use super::codex_panel_state::PanelId;
 use super::input_events::TerminalEventResult;
-use super::models::TerminalSize;
 use super::render::{draw_str, fill_rect};
 use super::state::AppState;
+use super::view_models::TerminalSize;
 use crate::backend::{BackendClient, BackendKind};
 use crate::theme::{COLOR_DIM, COLOR_PRIMARY, COLOR_STEP2, COLOR_TEXT};
 
