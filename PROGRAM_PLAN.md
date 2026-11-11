@@ -14,6 +14,11 @@ weakening the runtime discipline established by the earlier ExecPlans. The curre
 to add optional in-process voice dictation to the prompt input box without blocking the TUI or
 making audio and Whisper dependencies mandatory for users who do not need dictation.
 
+The current architecture goal is to split `carlos` into a daemon (`carlosd`) that owns the
+sessions and several clients: the terminal UI, phone apps, a web app and later a desktop app.
+`docs/engine-architecture.md` holds the design, the wire protocol draft, the order of work and
+the reasons. Read it before any work on ExecPlan 016 or later.
+
 ## Global Invariants
 
 - Keep the repository buildable and `cargo test` green after meaningful changes.
@@ -24,10 +29,20 @@ making audio and Whisper dependencies mandatory for users who do not need dictat
   approval handling while optimizing performance.
 - Do not regress the existing Codex backend while adding alternative backend support.
 - Move completed ExecPlans to `.agents/done/` without editing them after completion.
+- Carlos must never feel slow or bloated. For the daemon split, follow the speed rules in
+  `docs/engine-architecture.md` and compare `carlos perf-session` figures with the baseline
+  recorded in ExecPlan 016.
+- Code that will move to `carlos-core` must not gain new references to terminal crates.
 
 ## Active ExecPlans
 
-None.
+- [ ] `.agents/execplans/EXECPLAN_016_session_state_split.md` (step 1 of 7 of the daemon split)
+
+ExecPlans 017 to 022 are listed in `docs/engine-architecture.md`. Each one is written when the
+plan before it ends.
+
+ExecPlans 009 to 015 remain under `.agents/execplans/`. Their status was not reviewed when the
+daemon split started.
 
 
 ## Done ExecPlans
