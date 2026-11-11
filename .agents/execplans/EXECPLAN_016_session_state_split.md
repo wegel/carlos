@@ -20,7 +20,7 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 - [x] (2026-11-11 UTC) Attempt the default release build; verify that missing `libclang` and `cmake` prevent it in this container.
 - [x] (2026-11-11 UTC) Build the unchanged source with `--release --no-default-features`; run the synthetic case three times and the repository history fixture three times. Record commands and results below.
 - [x] (2026-11-11 UTC) Milestone 0: `cmake`, `clang` and Bun 1.3.10 installed in the development container. On Rust 1.100.0 with default features: release build passes, `cargo test` passes (705 passed, 1 ignored), `bash scripts/test.sh` passes (165 tests). The binding before-change baseline is the Rust 1.100.0 one under `Artifacts and Notes`.
-- [ ] Milestone 1: separate plain message types from terminal rendering types.
+- [x] (2026-11-11 UTC) Milestone 1: plain types live in `src/session/models.rs`, styled types in `src/app/view_models.rs`. 35 files, all in the allowed list. Gates: `cargo test` 705 passed, `scripts/test.sh` 165 workflows passed, review verdict PASS (see `Reviews`).
 - [ ] Milestone 2: assign entry ids and replace backend-to-index maps.
 - [ ] Milestone 3: translate Claude live events and history before the backend receiver.
 - [ ] Milestone 4: introduce the two state owners and move transcript and turn facts.
@@ -57,6 +57,15 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 
 - Observation: Rust 1.100.0 prints 3 warnings on the unchanged tree; one suggests `try_update` in place of the current atomic update call.
   Evidence: release build of 2026-11-11. Not fixed in this plan.
+
+- Observation: `DisplayMessage` borrows the stored `Message`, so milestone 2 can read the entry id through the display view without a copied id. The render cache already saves the row plan and no longer keeps compact message copies.
+  Evidence: milestone 1 worker report, `src/app/view_models.rs`, `src/app/render_cache_state.rs`.
+
+- Observation: speed figures taken while another build runs on the machine are useless: the same binary measured 84 to 105 ms replay under load and 49 ms a few minutes later. Timing tests also fail more often under load (one terminal workflow timeout, one 20 ms stdin deadline in `unanswered_large_read_ids_stay_bounded_and_do_not_disable_other_controls`; both passed on retry).
+  Evidence: integrator runs of 2026-11-11. Method from now on: keep a release binary of the pre-change commit (`/tmp/carlos-base`, commit `a59221c`) and alternate runs of the old and new binary in one loop; compare the medians of those runs, not a figure from another hour.
+
+- Observation: milestone 1 side-by-side medians over 7 alternated runs, old then new: replay 50.39 / 49.30 ms, full layout 15.92 / 15.12, full draw 3.47 / 3.81, scroll p50 0.71 / 0.71, typing p50 0.60 / 0.60. Full draw varies between 3.4 and 4.5 ms for both binaries; no regression.
+  Evidence: integrator runs of 2026-11-11 with load average 9 to 13.
 
 ## Decision Log
 
@@ -100,6 +109,10 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 - Decision: record the newer design decisions without expanding 016 to add the shared client crate or pin a new compiler.
   Rationale: the shared client belongs to the later client/daemon work. The agreed compiler target is Rust 1.100.0 when available, while these reports used installed Rust 1.93.0. A worker who changes compiler must collect a fresh before-change baseline with that compiler, as the design now requires.
   Date/Author: 2026-11-11 / Codex, plan author.
+
+## Reviews
+
+- Milestone 1, engineering reviewer (`.agents/reviewers/engineering_reviewer.md`, Codex `gpt-6.1-sol`, fresh session, 2026-11-11): verdict PASS. No BLOCKER, MAJOR or MINOR finding. Confirmed: no terminal dependency or row count in session models; `app/models.rs` re-exports plain types only; compact and full labels, diff styles, row counts and selection rows preserved; no per-frame message clone; no test weakened. The reviewer ran `cargo fmt --check` and `git diff --check`; it relied on the integrator for tests and speed.
 
 ## Outcomes & Retrospective
 
