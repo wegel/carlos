@@ -76,11 +76,19 @@ pub(super) fn run_perf_session(opts: &CliOptions) -> Result<()> {
         &source_label,
         terminal_size,
         replay_elapsed,
-        rss_before_kib,
-        rss_after_replay_kib,
-        rss_after_bench_kib,
+        ReplayMemory {
+            before: rss_before_kib,
+            after_replay: rss_after_replay_kib,
+            after_bench: rss_after_bench_kib,
+        },
     );
     Ok(())
+}
+
+struct ReplayMemory {
+    before: Option<u64>,
+    after_replay: Option<u64>,
+    after_bench: Option<u64>,
 }
 
 fn print_perf_report(
@@ -89,9 +97,7 @@ fn print_perf_report(
     source_label: &str,
     size: TerminalSize,
     replay_elapsed: Duration,
-    rss_before: Option<u64>,
-    rss_after_replay: Option<u64>,
-    rss_after_bench: Option<u64>,
+    memory: ReplayMemory,
 ) {
     println!("carlos perf-session");
     println!("source: {source_label}");
@@ -105,9 +111,9 @@ fn print_perf_report(
     );
     println!(
         "memory_kib: before={} after_replay={} after_bench={}",
-        rss_before.unwrap_or(0),
-        rss_after_replay.unwrap_or(0),
-        rss_after_bench.unwrap_or(0)
+        memory.before.unwrap_or(0),
+        memory.after_replay.unwrap_or(0),
+        memory.after_bench.unwrap_or(0)
     );
     println!("replay_apply:  {}", stats.replay_apply.summary());
     println!("full_layout:   {:.2} ms", stats.full_layout_ms);

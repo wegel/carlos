@@ -57,18 +57,34 @@ fn draw_piece(
     *draw_x += visual_width(piece);
 }
 
-fn render_segment(
-    buf: &mut Buffer,
+struct SegmentRow {
     y: usize,
     x_origin: usize,
     max_width: usize,
-    text: &str,
     base_style: Style,
-    seg_style: Style,
     selection: Option<(usize, usize)>,
-    draw_x: &mut usize,
-    col: &mut usize,
+}
+
+struct SegmentCursor {
+    draw_x: usize,
+    col: usize,
+}
+
+fn render_segment(
+    buf: &mut Buffer,
+    row: &SegmentRow,
+    text: &str,
+    seg_style: Style,
+    cursor: &mut SegmentCursor,
 ) {
+    let SegmentRow {
+        y,
+        x_origin,
+        max_width,
+        base_style,
+        selection,
+    } = *row;
+    let SegmentCursor { draw_x, col } = cursor;
     if *draw_x >= x_origin + max_width || text.is_empty() {
         return;
     }
@@ -121,27 +137,27 @@ pub(super) fn draw_rendered_line(
     if !line.styled_segments.is_empty() {
         draw_str(buf, x, y, &line.text, base_style, max_width);
     }
-    let mut draw_x = x;
-    let mut col = 0usize;
-    let mut emit = |text: &str, style: Style, draw_x: &mut usize, col: &mut usize| {
-        render_segment(
-            buf, y, x, max_width, text, base_style, style, selection, draw_x, col,
-        );
+    let row = SegmentRow {
+        y,
+        x_origin: x,
+        max_width,
+        base_style,
+        selection,
     };
-
+    let mut cursor = SegmentCursor { draw_x: x, col: 0 };
     if line.styled_segments.is_empty() {
-        emit(&line.text, Style::default(), &mut draw_x, &mut col);
+        render_segment(buf, &row, &line.text, Style::default(), &mut cursor);
         return;
     }
     for seg in &line.styled_segments {
-        if draw_x >= x + max_width {
+        if cursor.draw_x >= x + max_width {
             break;
         }
-        emit(&seg.text, seg.style, &mut draw_x, &mut col);
+        render_segment(buf, &row, &seg.text, seg.style, &mut cursor);
     }
-    if col < line.cells && draw_x < x + max_width {
-        let tail = slice_by_cells(&line.text, col, line.cells);
-        emit(&tail, Style::default(), &mut draw_x, &mut col);
+    if cursor.col < line.cells && cursor.draw_x < x + max_width {
+        let tail = slice_by_cells(&line.text, cursor.col, line.cells);
+        render_segment(buf, &row, &tail, Style::default(), &mut cursor);
     }
 }
 

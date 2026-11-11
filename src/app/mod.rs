@@ -13,6 +13,43 @@ use self::state::AppState;
 mod approval_parsing;
 mod approval_state;
 mod backend_setup;
+mod claude_activity;
+mod claude_browser;
+mod claude_callbacks;
+mod claude_children;
+mod claude_control_replies;
+mod claude_models;
+mod claude_notices;
+mod claude_notifications;
+mod claude_prompts;
+mod claude_question_field;
+mod claude_question_input;
+mod claude_question_state;
+#[cfg(test)]
+#[path = "../tests/claude_question_tests.rs"]
+mod claude_question_tests;
+mod claude_question_view;
+mod claude_quota;
+mod claude_reset;
+mod claude_rewind;
+mod claude_sdk_events;
+#[cfg(test)]
+#[path = "../tests/claude_sdk_tests.rs"]
+mod claude_sdk_tests;
+mod claude_session_history;
+#[cfg(test)]
+#[path = "../tests/claude_session_tests.rs"]
+mod claude_session_tests;
+mod claude_state;
+mod claude_task_stops;
+#[cfg(test)]
+#[path = "../tests/claude_task_tests.rs"]
+mod claude_task_tests;
+mod claude_task_view;
+mod claude_tasks;
+#[cfg(test)]
+#[path = "../tests/claude_thinking_tests.rs"]
+mod claude_thinking_tests;
 mod cli;
 mod codex_history;
 mod context_usage;
@@ -23,12 +60,14 @@ mod input_events;
 mod input_history_state;
 mod item_history;
 mod layout_state;
+mod markdown_tables;
 mod mobile_mouse;
 mod models;
 mod mouse_events;
 mod native_activity;
 mod notification_items;
 mod notification_tools;
+mod notification_turns;
 mod notifications;
 mod overlay_render;
 mod perf;
@@ -82,6 +121,8 @@ mod transcript_source;
 mod transcript_spacing;
 mod transcript_styles;
 mod transcript_wrap;
+mod turn_approval;
+mod turn_interrupt;
 mod turn_submit;
 mod viewport_state;
 mod weekly_usage;
@@ -150,3 +191,11 @@ pub(crate) fn run() -> Result<()> {
 #[cfg(test)]
 #[path = "../tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../tests/claude_native_state_tests.rs"]
+mod claude_native_state_tests;
+
+#[cfg(test)]
+#[path = "../tests/claude_quota_tests.rs"]
+mod claude_quota_tests;

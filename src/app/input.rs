@@ -103,8 +103,6 @@ pub(crate) fn run_conversation_tui(
     })
 }
 
-// --- Loop iteration ---
-
 /// Run a single iteration of the event loop. Returns `true` to exit the loop.
 fn run_one_loop_iteration(
     terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
@@ -116,7 +114,14 @@ fn run_one_loop_iteration(
     let size = terminal_size(terminal)?;
     let loop_now = Instant::now();
     state.needs_draw |= app.rate_limits.tick(client, loop_now);
-    let working = app.active_turn_id.is_some();
+    state.needs_draw |= app.claude.quota.tick(
+        client,
+        loop_now,
+        app.claude.phase == super::claude_state::ClaudePhase::Ready,
+    );
+    let working = app.active_turn_id.is_some()
+        || app.claude.activity.state == super::claude_activity::NativeState::Running;
+    let animating = working || app.claude.tasks.active_count() > 0;
 
     if drain_prefetched_idle(ui_rx, working, &state.deferred, &mut state.prefetched).disconnected()
     {
@@ -134,10 +139,10 @@ fn run_one_loop_iteration(
         return Ok(false);
     }
     state.last_anim_tick =
-        update_animation_state(working, state.last_anim_tick, &mut state.needs_draw);
-    maybe_draw(terminal, app, size, working, state)?;
+        update_animation_state(animating, state.last_anim_tick, &mut state.needs_draw);
+    maybe_draw(terminal, app, size, animating, state)?;
 
-    let events = match collect_loop_events(ui_rx, app, working, loop_now, state) {
+    let events = match collect_loop_events(ui_rx, app, animating, loop_now, state) {
         EventBatchOutcome::Disconnected => return Ok(true),
         EventBatchOutcome::Empty => return Ok(false),
         EventBatchOutcome::Events(v) => v,
@@ -147,9 +152,10 @@ fn run_one_loop_iteration(
             return Ok(true);
         }
     }
-    // Working state may have changed inside process_event (turn started or completed),
-    // so recompute it before deciding whether to animate the next frame.
-    let working_after_events = app.active_turn_id.is_some();
+    // Events can change native main activity and process-level task membership.
+    let working_after_events = app.active_turn_id.is_some()
+        || app.claude.activity.state == super::claude_activity::NativeState::Running
+        || app.claude.tasks.active_count() > 0;
     maybe_draw(terminal, app, size, working_after_events, state)?;
     Ok(false)
 }
@@ -249,11 +255,22 @@ fn try_submit_queued_turn(
     prefetched_events: &VecDeque<UiEvent>,
     now: Instant,
 ) -> bool {
+    if client.kind() == crate::backend::BackendKind::Claude
+        && app.claude.phase != crate::app::claude_state::ClaudePhase::Ready
+    {
+        return false;
+    }
     if !can_submit_queued_turn(working, deferred_server_lines, prefetched_events) {
         return false;
     }
     if let Some(next_turn) = app.dequeue_turn_input(now) {
-        submit_dequeued_turn_text(client, app, next_turn.text, next_turn.record_input_history);
+        submit_dequeued_turn_text(
+            client,
+            app,
+            next_turn.text,
+            next_turn.record_input_history,
+            next_turn.origin,
+        );
         return true;
     }
     false
@@ -296,8 +313,6 @@ fn draw_frame(
     Ok(())
 }
 
-// --- Channel polling ---
-
 /// Block (or non-block) for the next event, choosing the right wait
 /// strategy based on whether we are working, have deferred lines, etc.
 fn poll_next_event(
@@ -329,6 +344,7 @@ fn poll_next_event(
         .pending_ralph_continuation_wait(loop_now)
         .into_iter()
         .chain(app.rate_limits.wait(loop_now))
+        .chain(app.claude.quota.wait(loop_now))
         .min();
     if let Some(wait) = wait {
         return match ui_rx.recv_timeout(wait) {

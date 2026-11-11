@@ -18,7 +18,9 @@ rust_paths() {
       git diff --cached --name-only --diff-filter=ACMR -- '*.rs'
       ;;
     --all)
-      git ls-files -- '*.rs'
+      git ls-files --cached --others --exclude-standard -- '*.rs' | while IFS= read -r path; do
+        [[ -f "$path" ]] && printf '%s\n' "$path"
+      done
       ;;
     *)
       usage

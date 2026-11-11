@@ -67,6 +67,8 @@ class Theme:
         self.tools_command(terminal, "/tools full", "full")
         for width, height in [(54, 32), (18, 32), (100, 18)]:
             terminal.resize(width, height)
+            terminal.wait(lambda: terminal.screen.display[-2].endswith("91% "),
+                          "context redrawn at the resized right edge")
             self.assert_status_sweep_moves(terminal, "cba6f7")
             terminal.snapshot(f"status-sweep-{width}-{height}")
         terminal.resize(100, 32)

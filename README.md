@@ -39,7 +39,7 @@ Alpha.
 - Ralph mode visual indicators (`RALPH MODE` label, pink KITT/input gutter)
 - context compaction markers in transcript
 - native Codex waits and child-agent start/completion notices, including notices after the main answer
-- dim, right-aligned session-name placeholder in the empty composer; `/rename [name]` edits the saved Codex name
+- dim, right-aligned session-name placeholder in the empty composer; `/rename [name]` edits the saved Codex or Claude name
 
 ## Tool output on small terminals
 
@@ -208,6 +208,58 @@ restarting Carlos and appears in the native Codex session picker too. Carlos als
 shows name changes sent by Codex while the session is open. Unnamed sessions keep
 the empty composer.
 
+## Claude sessions, questions, and background work
+
+Carlos runs the official Claude Agent SDK in a packaged helper. That helper starts
+your installed native `claude` executable. Claude keeps its normal login,
+subscription or configured provider, settings, plugins, and tool permissions.
+Carlos does not need a separate API key, copy login credentials, or replace Claude
+with a direct model client. Sign in through native Claude as usual.
+
+Carlos shows native model choices and context counts, and applies model/effort
+changes to the current process. It leaves omitted choices to native settings.
+Native permission requests, plans, AskUserQuestion choices, typed MCP forms, and
+browser consent use their real request IDs. Each pending child keeps its own
+answer draft. Replies return through native callbacks without another human
+prompt. Unsupported forms can still be declined or cancelled.
+
+- F2 opens native tasks and quota windows. Arrows select a task, x requests stop,
+  and F2/Esc closes the panel. A stop acknowledgement says requested until Claude
+  reports the task's outcome. Page Up/Down reveals details on small screens.
+- F3 selects Enter behavior while Claude works: steer now or queue behind current
+  work. The activity line shows the choice. Interrupting the main turn may leave
+  accepted queued prompts with Claude; Carlos reports those survivors.
+- In a question, Tab changes fields, arrows/Space choose answers, and Ctrl+S sends.
+  Alt+N declines, Alt+C cancels, F4 changes requests, and F10 interrupts main work.
+  Ctrl+M still opens settings. The main composer and question caret stay separate.
+- Native thinking appears in reasoning rows. Redacted-thinking token estimates
+  show progress only. Context reads use native summary controls, never a new prompt.
+- Native quota windows stay separate by time window and model. The shared weekly
+  bucket uses the same remaining-percentage indicator as Codex. Missing or expired
+  readings stay hidden; the optional experimental quota read cannot block a turn.
+
+`/rename` saves through the SDK. The picker and Continue read native CLI and SDK
+sessions, including linked worktrees and custom `CLAUDE_CONFIG_DIR` folders.
+Rewind forks before the selected human prompt and leaves the original intact.
+Editing the first prompt starts an empty session. Automatic and child messages
+are excluded from ordinary human rewind history. Older messages with unknown
+sources remain labeled unknown; F4 in rewind explicitly selects one to branch.
+
+Carlos reads older compacted history through the SDK's imported session cache.
+A small read-only adapter follows pinned native compaction metadata. SDK upgrades
+need the matching contract tests. History pages target 512 KiB; individual records
+are capped at 16 MiB, imported caches at 256 MiB, and cumulative SDK reads at 512 MiB.
+Carlos reports a limit failure instead of silently changing a fork's cut.
+
+A native conversation reset clears the transcript once and adopts the next native
+session ID. Unanswered callbacks, surviving background tasks, queued human UUIDs,
+and unsent drafts keep their own lifetimes. A closed helper preserves unsent human
+drafts; F5 loads a saved draft when the composer is empty. Failed turns stop Ralph
+follow-ups. Ralph input remains automatic, including after session changes.
+
+See [the helper guide](helpers/claude-controller/README.md) and
+[local protocol](helpers/claude-controller/PROTOCOL.md) for developer details.
+
 ## Codex background monitors
 
 Carlos uses the installed Codex app-server to run tools and child agents. Ask Codex
@@ -263,8 +315,18 @@ carlos --ralph-prompt .agents/ralph-prompt.md
 
 ```bash
 cargo build --release
+python3 scripts/build-claude-controller.py
+# Optional Rust build without local dictation:
 cargo build --release --no-default-features
 ```
+
+The helper build requires pinned Bun 1.3.10 and Python 3. It fetches the locked
+SDK 0.3.322 packages at build time, checks them, and embeds the runtime. End users
+need neither Node, Bun, npm, nor a package download. Native Claude remains a
+separate installation. The helper disables runtime `.env`, bunfig, tsconfig,
+and package.json loading, so project files cannot change the helper's process
+environment or preload code. Explicit process environment and native settings
+still apply.
 
 The default `dictation` Cargo feature enables microphone capture, voice activity detection,
 audio resampling, and local Whisper inference. Use `--no-default-features` to build without
@@ -273,6 +335,44 @@ audio or Whisper dependencies.
 Linux builds with dictation need a C/C++ compiler, CMake, pkg-config, libclang, and
 ALSA development headers. On Ubuntu, install `build-essential cmake pkg-config
 libclang-dev libasound2-dev`.
+
+## release packages and local install
+
+Release archives contain `carlos`, `carlos-claude-controller`, their license
+notices, a build manifest, checksums, and an optional helper relink bundle.
+Windows uses `.exe` for both executables. Keep the pair together when unpacking;
+you can put that directory on PATH. For a local Linux install, copy both as
+regular executable files to `~/.local/bin/carlos` and
+`~/.local/bin/carlos-claude-controller`. Keep the notices, relink folder, build
+manifest, and checksums in the saved package folder. Back up existing executables
+before replacing them. Copy the new pair to temporary files in `~/.local/bin`,
+then rename the helper into place first and Carlos second.
+
+The release workflow builds Linux x64, macOS Intel, macOS Apple Silicon, and
+Windows x64 on matching native hosts. Each host runs package/runtime smoke checks
+and native Claude startup/controls without inference. Linux also runs the full
+terminal contracts against real native CLIs and localhost model fixtures. A
+cross-compiled helper alone does not prove that its foreign platform works.
+The default Linux build includes dictation and needs the usual ALSA/C++ system
+libraries; Whisper models remain separate. The helper adds roughly 100 MiB on
+Linux, 59–64 MiB on macOS, and 110 MiB on Windows before archive compression.
+
+Build a fresh local package explicitly after the two executables are ready:
+
+```sh
+python3 scripts/package-release.py --target x86_64-unknown-linux-gnu \
+  --binary target/release/carlos \
+  --helper target/claude-controller/carlos-claude-controller \
+  --output target/local-package --archive target/carlos-linux-x86_64.tar.gz
+```
+
+Carlos looks for `CARLOS_CLAUDE_CONTROLLER`, a helper beside its executable,
+`../libexec/carlos/`, then the development target helper when running from
+`target/debug` or `target/release`. These are paths to an already-built helper;
+Carlos never downloads or builds one at launch. `CARLOS_CLAUDE_EXECUTABLE` can
+select your native Claude executable explicitly; otherwise Carlos searches PATH.
+Windows drive and UNC paths are supported. Native Windows users should use the
+native `claude.exe` installation.
 
 ## dictation
 
@@ -350,16 +450,24 @@ an edit, fork/send failures, older servers, paginated history, streaming, resize
 resume, saved session names, replayed starts, and Claude interrupts. They check the screen and backend
 messages. Screens, keystrokes, raw terminal bytes, and requests/responses remain
 under `target/ui-artifacts/`.
-CI runs these checks and the isolated Codex checks against the current public
-Codex CLI on every push and pull request.
+CI runs these checks plus public Codex and native Claude checks on every push
+and pull request. The native Claude contracts currently test 2.1.322.
 
-Use `bash scripts/test.sh --release --codex-contract` before installing a release
-that changes the Codex protocol. The extra checks call the installed Codex server
+Use `bash scripts/test.sh --release --codex-contract --claude-contract` before
+installing a release that changes either backend. Release mode also runs strict
+Clippy and the optimized Rust tests. The extra checks call the installed Codex server
 against a generated session in a temporary Codex home. They also drive Carlos
 through native Codex waits and child-agent completion after the parent answers,
 then reload the thread. A local HTTP peer supplies fixed model replies; these
 checks need no account, paid inference, or access to user sessions. The runner
 saves both the app-server traffic and local model requests with the screen captures.
+The Claude contracts stage a colocated Rust/helper pair outside development
+fallback paths, use the installed unmodified CLI with isolated fake credentials,
+and send every model request to a localhost fixture. They cover native sessions,
+questions/plans, background completion/stop, and queued input across clear.
+Package checks also run from a hostile folder with Node/Bun absent from PATH.
+No normal test uses the user's account or needs paid inference.
+
 To test an installed executable directly:
 
 ```bash
@@ -369,7 +477,13 @@ target/ui-venv/bin/python tests/ui/test_workflows.py --binary ~/.local/bin/carlo
 ## controls
 
 - `Enter`: send message, or stop recording while dictating
-- `/rename [name]`: change the Codex session name, or load the current name to edit
+- `/rename [name]`: change the Codex or Claude session name, or load the current name to edit
+- Claude `F2`: native tasks/quotas; arrows select, x requests task stop
+- Claude `F3`: choose steer or queue for Enter while Claude works
+- Claude question `Tab`/arrows/Space: edit answers; Ctrl+S sends, Alt+N declines, Alt+C cancels
+- Claude question `F4`: next pending request; F10 interrupts main work
+- Claude rewind `F4`: explicitly choose older unknown-source records
+- Claude closed session `F5`: recover a saved human draft into an empty composer
 - `/tools [auto|compact|full]`: choose how much tool output to show; omit the mode to cycle
 - `Shift+Enter` / `Alt+Enter`: newline in input
 - `Up/Down`: input history navigation

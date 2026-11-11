@@ -12,7 +12,7 @@ use crate::theme::{COLOR_DIM, COLOR_STEP6, COLOR_TEXT};
 
 /// Fit the settings panel to the terminal, using closer rows on short screens.
 pub(super) fn model_settings_overlay_box(size: TerminalSize) -> OverlayBox {
-    let box_w = size.width.saturating_sub(4).min(84).max(1).min(size.width);
+    let box_w = size.width.saturating_sub(4).clamp(1, 84).min(size.width);
     let box_h = if size.height < 24 { 13 } else { 22 };
     compute_overlay_box(size, box_w, box_h.min(size.height))
 }

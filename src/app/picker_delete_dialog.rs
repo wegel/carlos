@@ -16,7 +16,7 @@ pub(super) fn draw_picker_delete_dialog(
         return;
     }
 
-    let dialog_w = size.width.saturating_sub(8).min(72).max(24);
+    let dialog_w = size.width.saturating_sub(8).clamp(24, 72);
     let dialog_h = 8usize;
     let left = (size.width.saturating_sub(dialog_w)) / 2;
     let top = (size.height.saturating_sub(dialog_h)) / 2;

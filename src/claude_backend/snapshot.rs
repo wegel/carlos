@@ -23,13 +23,6 @@ pub(super) fn synthesize_assistant_snapshot(
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|message_id| !message_id.is_empty());
-    if state.current_message_has_content_blocks
-        && message_id.is_some()
-        && message_id == state.current_message_id.as_deref()
-    {
-        return;
-    }
-
     let Some(content) = message.get("content").and_then(Value::as_array) else {
         return;
     };
@@ -37,29 +30,67 @@ pub(super) fn synthesize_assistant_snapshot(
         return;
     }
 
-    let had_live_turn = state.current_turn_id.is_some();
     ensure_claude_turn_started(state, out);
-    let starts_new_message =
-        message_id.is_some() && message_id != state.current_message_id.as_deref();
-    if !had_live_turn || state.current_message_seq == 0 || starts_new_message {
+    if state.current_message_seq == 0 || message_id != state.current_message_id.as_deref() {
         begin_claude_message(state, message_id);
-    } else if state.current_message_has_content_blocks {
-        return;
-    } else if state.current_message_id.is_none() {
-        state.current_message_id = message_id.map(ToOwned::to_owned);
     }
+    let key = root
+        .get("uuid")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .unwrap_or_else(|| serde_json::to_string(content).unwrap_or_default());
+    if !state.snapshot_keys.insert(key) {
+        return;
+    }
+    emit_snapshot_parts(state, content, out);
+}
 
-    let mut emitted_any = false;
-    for (index, part) in content.iter().enumerate() {
-        match part.get("type").and_then(Value::as_str) {
-            Some("text") => emitted_any |= emit_text_snapshot(state, part, index, out),
-            Some("tool_use") => emitted_any |= emit_tool_use_snapshot(state, part, index, out),
+fn emit_snapshot_parts(
+    state: &mut ClaudeTranslationState,
+    content: &[Value],
+    out: &mut TranslateOutput,
+) {
+    for (position, part) in content.iter().enumerate() {
+        let kind = part.get("type").and_then(Value::as_str).unwrap_or("");
+        let index = if content.len() > 1 {
+            position
+        } else {
+            state
+                .streamed_blocks
+                .iter()
+                .filter(|(index, streamed)| {
+                    **index >= state.next_snapshot_block && streamed.as_str() == kind
+                })
+                .map(|(index, _)| *index)
+                .min()
+                .unwrap_or(state.next_snapshot_block)
+        };
+        state.next_snapshot_block = state.next_snapshot_block.max(index + 1);
+        if state.streamed_blocks.contains_key(&index) {
+            continue;
+        }
+        match kind {
+            "text" => {
+                emit_text_snapshot(state, part, index, out);
+            }
+            "thinking" => {
+                if let Some(text) = part
+                    .get("thinking")
+                    .and_then(Value::as_str)
+                    .filter(|text| !text.is_empty())
+                {
+                    super::thinking::thinking_completed(
+                        claude_message_item_id(state, index),
+                        text.to_string(),
+                        out,
+                    );
+                }
+            }
+            "tool_use" => {
+                emit_tool_use_snapshot(state, part, index, out);
+            }
             _ => {}
         }
-    }
-
-    if emitted_any {
-        state.current_message_has_content_blocks = true;
     }
 }
 

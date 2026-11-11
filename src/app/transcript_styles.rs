@@ -34,8 +34,16 @@ pub(super) fn styled_plain_text(segments: &[StyledSegment]) -> String {
     out
 }
 
-pub(super) fn markdown_line_segments(text: &str) -> Vec<Vec<StyledSegment>> {
-    let opts = MarkdownOptions::new(CarlosMarkdownStyleSheet);
+/// Fit real Markdown tables before the ordinary logical-line wrapper runs.
+pub(super) fn markdown_line_segments(text: &str, width: usize) -> Vec<Vec<StyledSegment>> {
+    let source = super::markdown_tables::table_source(text, width);
+    markdown_document_segments(source.as_deref().unwrap_or(text), width)
+}
+
+/// Render the whole document with upstream's cell wrapping at the actual viewport width.
+pub(super) fn markdown_document_segments(text: &str, width: usize) -> Vec<Vec<StyledSegment>> {
+    let opts = MarkdownOptions::new(CarlosMarkdownStyleSheet)
+        .table_width(width.min(u16::MAX as usize) as u16);
     let markdown = markdown_from_str_with_options(text, &opts);
 
     let mut out = Vec::new();
@@ -50,35 +58,12 @@ pub(super) fn markdown_line_segments(text: &str) -> Vec<Vec<StyledSegment>> {
                 style: core_style_to_style(span.style),
             });
         }
-        strip_code_line_gutter(&mut segments);
-
-        let plain = styled_plain_text(&segments);
-        if is_fence_delimiter(&plain) {
-            continue;
-        }
         out.push(segments);
     }
     out
 }
 
-fn strip_code_line_gutter(segments: &mut Vec<StyledSegment>) {
-    let Some(first) = segments.first_mut() else {
-        return;
-    };
-    // Temporary workaround for the pinned tui-markdown fork, which always prefixes
-    // fenced code lines with a `NNN │ ` gutter and does not yet expose a way to disable it.
-    let Some(prefix_len) = code_line_gutter_prefix_len(&first.text) else {
-        return;
-    };
-    let remainder = first.text[prefix_len..].to_string();
-    if remainder.is_empty() {
-        segments.remove(0);
-    } else {
-        first.text = remainder;
-    }
-}
-
-/// Find the numbered `│` gutter used by Markdown and RTK read output.
+/// Find the numbered `│` gutter used by RTK read output.
 pub(super) fn code_line_gutter_prefix_len(text: &str) -> Option<usize> {
     let mut chars = text.char_indices().peekable();
 

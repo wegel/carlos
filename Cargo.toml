@@ -34,9 +34,10 @@ serde = { version = "1", features = ["derive"], optional = true }
 serde_json = "1"
 shlex = "1"
 textwrap = "0.16"
+pulldown-cmark = "0.13.5"
 tempfile = "3"
 toml = { version = "1.1.2", optional = true }
-tui-markdown = { git = "https://github.com/lightsofapollo/tui-markdown.git", rev = "819cbca7675178947357a88e9e4a007bfb085ccf" }
+tui-markdown = "=0.3.13"
 unicode-segmentation = "1"
 unicode-width = "0.1"
 uuid = { version = "1", features = ["v4"] }

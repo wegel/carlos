@@ -124,14 +124,11 @@ fn valid_diff_exit_one_is_not_a_failure_and_explicit_errors_are_labeled() {
                 .failed,
             error
         );
-        assert_eq!(
-            app.snapshot_rendered_lines().iter().any(|line| line
-                .text
-                .split_whitespace()
-                .last()
-                .is_some_and(|n| n.parse::<usize>().is_ok())),
-            true
-        );
+        assert!(app.snapshot_rendered_lines().iter().any(|line| line
+            .text
+            .split_whitespace()
+            .last()
+            .is_some_and(|n| n.parse::<usize>().is_ok())));
     }
 }
 

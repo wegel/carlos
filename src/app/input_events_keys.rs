@@ -53,6 +53,9 @@ pub(super) fn handle_key_event(
     if let Some(result) = handle_global_toggle_keys(app, k) {
         return result;
     }
+    if let Some(result) = crate::app::claude_task_view::key(client, app, k) {
+        return result;
+    }
     let now = Instant::now();
     app.expire_esc_chord(now);
     if k.code != KeyCode::Esc {
@@ -61,16 +64,56 @@ pub(super) fn handle_key_event(
     if app.viewport.show_help {
         return handle_help_key(app, k);
     }
+    if app.runtime.show_model_settings && !app.claude.answers.drafts.is_empty() {
+        return handle_model_settings_key(client, app, k);
+    }
+    if app
+        .approval
+        .pending
+        .as_ref()
+        .and_then(|pending| pending.request_id.as_str())
+        .is_some_and(|id| app.claude.answers.drafts.contains_key(id))
+    {
+        return super::super::claude_question_input::handle_key(client, app, k, size);
+    }
     if app.approval.pending.is_some() {
         return handle_approval_key(client, app, k);
     }
     if app.runtime.show_model_settings {
-        return handle_model_settings_key(app, k);
+        return handle_model_settings_key(client, app, k);
+    }
+    if let Some(result) = handle_claude_session_keys(client, app, k, size) {
+        return result;
     }
     if let Some(result) = handle_mobile_mouse_keys(app, k) {
         return result;
     }
     handle_normal_key(client, app, k, size, now)
+}
+
+fn handle_claude_session_keys(
+    client: &dyn BackendClient,
+    app: &mut AppState,
+    key: crossterm::event::KeyEvent,
+    size: TerminalSize,
+) -> Option<TerminalEventResult> {
+    if client.kind() != crate::backend::BackendKind::Claude || !key.modifiers.is_empty() {
+        return None;
+    }
+    match key.code {
+        KeyCode::F(3) => {
+            app.claude.prompts.queue = !app.claude.prompts.queue;
+        }
+        KeyCode::F(4) if app.rewind_mode() => {
+            crate::app::claude_rewind::toggle_unknown(app);
+            app.align_rewind_scroll_to_selected_prompt(size);
+        }
+        KeyCode::F(5) if app.claude.phase == crate::app::claude_state::ClaudePhase::Closed => {
+            crate::app::claude_session_history::load_unsent(app);
+        }
+        _ => return None,
+    }
+    Some(TerminalEventResult::Continue { needs_draw: true })
 }
 
 fn handle_global_toggle_keys(
@@ -328,7 +371,9 @@ fn handle_escape_key(
         app.reset_esc_chord();
         return TerminalEventResult::Continue { needs_draw: true };
     }
-    if app.active_turn_id.is_some() {
+    if app.active_turn_id.is_some()
+        || app.claude.activity.state == crate::app::claude_activity::NativeState::Running
+    {
         app.reset_esc_chord();
         interrupt_active_turn(client, app);
         return TerminalEventResult::Continue { needs_draw: true };

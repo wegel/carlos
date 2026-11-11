@@ -39,12 +39,11 @@ pub(crate) fn spawn_event_forwarders(
 
     {
         let tx = ui_tx.clone();
-        thread::spawn(move || loop {
-            let Ok(ev) = event::read() else {
-                break;
-            };
-            if tx.send(UiEvent::Terminal(ev)).is_err() {
-                break;
+        thread::spawn(move || {
+            while let Ok(ev) = event::read() {
+                if tx.send(UiEvent::Terminal(ev)).is_err() {
+                    break;
+                }
             }
         });
     }
@@ -86,12 +85,11 @@ pub(crate) fn spawn_event_forwarders_with_dictation(
 
     {
         let tx = ui_tx.clone();
-        thread::spawn(move || loop {
-            let Ok(ev) = event::read() else {
-                break;
-            };
-            if tx.send(UiEvent::Terminal(ev)).is_err() {
-                break;
+        thread::spawn(move || {
+            while let Ok(ev) = event::read() {
+                if tx.send(UiEvent::Terminal(ev)).is_err() {
+                    break;
+                }
             }
         });
     }

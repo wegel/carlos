@@ -13,9 +13,8 @@ use super::context_usage::{
 #[cfg(test)]
 pub(super) use super::item_history::append_history_from_thread;
 pub(crate) use super::item_history::load_history_from_start_or_resume;
-use super::models::TurnStatus;
 use super::notification_items::handle_item_notification;
-use super::state::PendingApprovalRequest;
+use super::notification_turns::{handle_turn_completed, handle_turn_started};
 use super::tools::command_summary_from_parsed_cmd;
 use super::{AppState, ThreadSummary};
 use crate::protocol_params::extract_result_object;
@@ -24,6 +23,12 @@ use crate::theme::ANIMATION_STEP_MS;
 // --- Types ---
 
 pub(super) enum ServerRequestAction {
+    ClaudeControl {
+        method: String,
+        params: Value,
+    },
+    ApplyClaudeSettings,
+    RefreshContext,
     ReplyError {
         request_id: Value,
         code: i64,
@@ -176,6 +181,17 @@ pub(crate) fn handle_server_message_line(
     }
     let method = parsed.get("method").and_then(Value::as_str)?;
     let params = parsed.get("params").and_then(Value::as_object)?;
+    if matches!(
+        method,
+        "claude/controller"
+            | "claude/promptSubmitted"
+            | "claude/promptRejected"
+            | "claude/sessionChanged"
+            | "claude/forkFailed"
+            | "claude/sessionStartFailed"
+    ) {
+        return super::claude_notifications::handle(app, method, params);
+    }
     if params
         .get("threadId")
         .and_then(Value::as_str)
@@ -313,62 +329,6 @@ fn handle_thread_initialized(app: &mut AppState, params: &serde_json::Map<String
         .map(ToOwned::to_owned);
     if model.is_some() || effort.is_some() || summary.is_some() {
         app.merge_runtime_settings(model, effort, summary);
-    }
-}
-
-fn handle_turn_started(app: &mut AppState, params: &serde_json::Map<String, Value>) {
-    if let Some(id) = params
-        .get("turn")
-        .and_then(Value::as_object)
-        .and_then(|t| t.get("id"))
-        .and_then(Value::as_str)
-    {
-        if !app.record_turn_started(id) {
-            return;
-        }
-        app.context_usage = None;
-        app.set_status("turn started");
-    } else {
-        app.mark_turn_started();
-    }
-}
-
-fn handle_turn_completed(app: &mut AppState, params: &serde_json::Map<String, Value>) {
-    let Some(turn) = params.get("turn").and_then(Value::as_object) else {
-        return;
-    };
-    let Some(turn_id) = turn.get("id").and_then(Value::as_str) else {
-        return;
-    };
-    let Some(turn_status) = turn
-        .get("status")
-        .and_then(Value::as_str)
-        .and_then(TurnStatus::from_wire)
-    else {
-        return;
-    };
-    if !app.record_turn_completed(turn_id, turn_status) {
-        return;
-    }
-    let keep_pending = app
-        .approval
-        .pending
-        .as_ref()
-        .map(PendingApprovalRequest::persists_after_turn_completed)
-        .unwrap_or(false);
-    if !keep_pending {
-        app.clear_pending_approval();
-    }
-    let interrupted = turn_status == TurnStatus::Interrupted;
-    if interrupted {
-        app.append_turn_interrupted_marker();
-        app.set_status("turn interrupted");
-    } else {
-        app.set_status("turn completed");
-    }
-    app.handle_ralph_turn_completed(interrupted);
-    if let Err(e) = app.apply_pending_ralph_toggle() {
-        app.set_status(format!("ralph: {e}"));
     }
 }
 

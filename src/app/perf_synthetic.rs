@@ -99,7 +99,7 @@ pub(super) fn build_synthetic_perf_messages(spec: SyntheticPerfSpec) -> Vec<Mess
 
 fn synthetic_user_message(turn: usize, rng: &mut SyntheticRng) -> String {
     let intro = synthetic_paragraph(rng, 2, 9, 14);
-    if turn % 7 == 0 {
+    if turn.is_multiple_of(7) {
         format!(
             "{intro}\n\n```rust\n{}\n```",
             synthetic_code_block(turn, rng)
@@ -151,7 +151,7 @@ fn synthetic_tool_call(turn: usize, rng: &mut SyntheticRng) -> String {
 }
 
 fn synthetic_tool_output(turn: usize, spec: SyntheticPerfSpec, rng: &mut SyntheticRng) -> Message {
-    if turn % 9 == 0 {
+    if turn.is_multiple_of(9) {
         return Message {
             tool_output: None,
             role: Role::ToolOutput,
@@ -191,7 +191,7 @@ fn synthetic_tool_output(turn: usize, spec: SyntheticPerfSpec, rng: &mut Synthet
 
 fn synthetic_assistant_message(turn: usize, rng: &mut SyntheticRng) -> String {
     let mut sections = vec![synthetic_paragraph(rng, 2, 10, 16)];
-    if turn % 5 == 0 {
+    if turn.is_multiple_of(5) {
         sections.push(format!(
             "- {}\n- {}\n- {}",
             synthetic_sentence(rng, 8, 12),
@@ -243,16 +243,15 @@ fn synthetic_remote_path(turn: usize, rng: &mut SyntheticRng) -> String {
 }
 
 fn synthetic_heading(rng: &mut SyntheticRng) -> String {
-    let mut words = vec![
+    let mut words = [
         rng.choose(&HEADING_VERBS).to_string(),
         rng.choose(&HEADING_OBJECTS).to_string(),
         rng.choose(&HEADING_OBJECTS).to_string(),
     ];
-    for word in &mut words {
+    if let Some(word) = words.first_mut() {
         if let Some(first) = word.get_mut(0..1) {
             first.make_ascii_uppercase();
         }
-        break;
     }
     words.join(" ")
 }

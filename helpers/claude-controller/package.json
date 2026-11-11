@@ -1,0 +1,20 @@
+{
+  "name": "@carlos/claude-controller",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "bun test",
+    "build": "bun build --compile --minify --define CARLOS_STANDALONE=true --no-compile-autoload-dotenv --no-compile-autoload-bunfig --no-compile-autoload-tsconfig --no-compile-autoload-package-json src/main.ts --outfile ../../target/claude-controller/carlos-claude-controller"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.322",
+    "ajv-formats": "3.0.1",
+    "validator": "13.15.35"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.2",
+    "typescript": "5.9.3"
+  }
+}

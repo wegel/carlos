@@ -21,6 +21,8 @@ pub(super) enum ApprovalRequestKind {
     LegacyExecCommand,
     LegacyApplyPatch,
     ClaudeExitPlanMode,
+    ClaudeNative,
+    ClaudeQuestion,
 }
 
 #[derive(Debug, Clone)]
@@ -41,6 +43,30 @@ pub(super) struct PendingApprovalRequest {
 impl PendingApprovalRequest {
     pub(super) fn response_for_choice(&self, choice: ApprovalChoice) -> Option<Value> {
         match self.kind {
+            ApprovalRequestKind::ClaudeNative => match choice {
+                ApprovalChoice::Accept
+                    if self
+                        .requested_permissions
+                        .as_ref()
+                        .is_some_and(|payload| payload["toolName"] == "AskUserQuestion") =>
+                {
+                    None
+                }
+                ApprovalChoice::Accept => Some(json!({ "behavior": "allow" })),
+                ApprovalChoice::Decline => {
+                    Some(json!({ "behavior": "deny", "message": "User declined" }))
+                }
+                ApprovalChoice::Cancel => Some(
+                    json!({ "behavior": "deny", "message": "User cancelled", "interrupt": true }),
+                ),
+                _ => None,
+            },
+            ApprovalRequestKind::ClaudeQuestion => match choice {
+                ApprovalChoice::Accept => self.empty_question_answer(),
+                ApprovalChoice::Decline => Some(json!({ "action": "decline" })),
+                ApprovalChoice::Cancel => Some(json!({ "action": "cancel" })),
+                _ => None,
+            },
             ApprovalRequestKind::CommandExecution | ApprovalRequestKind::FileChange => {
                 self.decision_response(choice, "accept", "acceptForSession", "decline", "cancel")
             }
@@ -62,6 +88,24 @@ impl PendingApprovalRequest {
             },
             ApprovalRequestKind::Permissions => self.permissions_response(choice),
         }
+    }
+
+    fn empty_question_answer(&self) -> Option<Value> {
+        let payload = self.requested_permissions.as_ref()?;
+        if payload["mode"] == "url" {
+            return None;
+        }
+        let schema = &payload["requestedSchema"];
+        if schema["required"]
+            .as_array()
+            .is_some_and(|fields| !fields.is_empty())
+            || schema["properties"]
+                .as_object()
+                .is_some_and(|fields| !fields.is_empty())
+        {
+            return None;
+        }
+        Some(json!({ "action": "accept", "content": {} }))
     }
 
     fn decision_response(
@@ -98,7 +142,12 @@ impl PendingApprovalRequest {
     }
 
     pub(super) fn persists_after_turn_completed(&self) -> bool {
-        matches!(self.kind, ApprovalRequestKind::ClaudeExitPlanMode)
+        matches!(
+            self.kind,
+            ApprovalRequestKind::ClaudeExitPlanMode
+                | ApprovalRequestKind::ClaudeNative
+                | ApprovalRequestKind::ClaudeQuestion
+        )
     }
 }
 

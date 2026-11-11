@@ -1,0 +1,12 @@
+[
+  {
+    "file": "LICENSE-APACHE",
+    "source": "https://raw.githubusercontent.com/joshka/tui-markdown/9c4fcaa6888ba32f03ce3a54fd21991e820b3c7f/LICENSE-APACHE",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  {
+    "file": "LICENSE-MIT",
+    "source": "https://raw.githubusercontent.com/joshka/tui-markdown/9c4fcaa6888ba32f03ce3a54fd21991e820b3c7f/LICENSE-MIT",
+    "sha256": "520a93f9b172b4c8d2a7ab6f0da1f5f987eba7270ab64a02972095cd87df7fc4"
+  }
+]

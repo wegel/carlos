@@ -67,6 +67,9 @@ impl AppState {
         }
         self.viewport.auto_follow_bottom = false;
         let _ = self.navigate_input_history_up();
+        if !self.claude.history.unknown.is_empty() {
+            self.set_status("Edit human prompt; F4 selects older prompts with unknown source");
+        }
     }
 
     pub(super) fn exit_rewind_mode_restore(&mut self) {
@@ -74,11 +77,13 @@ impl AppState {
             return;
         };
         self.viewport.auto_follow_bottom = true;
+        self.claude.history.unknown_selection = None;
         self.set_input_text(&draft);
     }
 
     pub(super) fn clear_rewind_mode_state(&mut self) {
         self.input_history.clear_rewind_mode_state();
+        self.claude.history.unknown_selection = None;
         self.viewport.auto_follow_bottom = true;
     }
 
@@ -128,10 +133,18 @@ impl AppState {
     }
 
     pub(super) fn rewind_selected_turn_id(&self) -> Option<&str> {
-        self.input_history.selected_turn_id()
+        self.claude
+            .history
+            .unknown_selection
+            .and_then(|index| self.claude.history.unknown.get(index))
+            .map(|prompt| prompt.uuid.as_str())
+            .or_else(|| self.input_history.selected_turn_id())
     }
 
     pub(super) fn navigate_input_history_up(&mut self) -> bool {
+        if super::claude_rewind::navigate(self, true) {
+            return true;
+        }
         let Some(text) = self.input_history.navigate_up(self.input_text()) else {
             return false;
         };
@@ -140,6 +153,9 @@ impl AppState {
     }
 
     pub(super) fn navigate_input_history_down(&mut self) -> bool {
+        if super::claude_rewind::navigate(self, false) {
+            return true;
+        }
         let Some(text) = self.input_history.navigate_down() else {
             return false;
         };
@@ -148,11 +164,20 @@ impl AppState {
     }
 
     pub(super) fn rewind_selected_message_idx(&self) -> Option<usize> {
-        self.input_history.rewind_selected_message_idx()
+        self.claude
+            .history
+            .unknown_selection
+            .and_then(|index| self.claude.history.unknown.get(index))
+            .map(|prompt| prompt.message_idx)
+            .or_else(|| self.input_history.rewind_selected_message_idx())
     }
 
     pub(super) fn rewind_selected_history_index(&self) -> Option<usize> {
-        self.input_history.rewind_selected_history_index()
+        self.claude
+            .history
+            .unknown_selection
+            .map(|_| usize::MAX)
+            .or_else(|| self.input_history.rewind_selected_history_index())
     }
 
     pub(super) fn submitted_turn_count(&self) -> usize {

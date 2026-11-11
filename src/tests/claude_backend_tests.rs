@@ -1,7 +1,7 @@
 //! Claude backend test tree: CLI handshake, history recovery, translation, and failures.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::mpsc;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -15,11 +15,8 @@ use super::{
 };
 use crate::backend::{BackendClient, BackendKind};
 use crate::claude_backend::{
-    build_claude_command_for_test, claude_approval_follow_up_text, claude_model_catalog,
-    claude_project_dir_name, claude_recovery_launch_mode, collect_live_forwarded_lines_for_test,
-    fork_claude_local_history_from_projects_root, load_claude_local_history,
-    load_claude_local_history_from_projects_root, probe_claude_startup_for_test,
-    session_misroute_event, translate_claude_line, ClaudeLaunchMode, ClaudeTranslationState,
+    collect_live_forwarded_lines_for_test, session_misroute_event, translate_claude_line,
+    ClaudeTranslationState,
 };
 
 fn collect_synthetic_lines(lines: &[&str]) -> Vec<String> {
@@ -41,13 +38,6 @@ fn parse_method(line: &str) -> Option<String> {
     })
 }
 
-fn command_args(command: &std::process::Command) -> Vec<String> {
-    command
-        .get_args()
-        .map(|arg| arg.to_string_lossy().into_owned())
-        .collect()
-}
-
 fn temp_test_dir(name: &str) -> PathBuf {
     let unique = format!(
         "carlos-{}-{}-{}",
@@ -59,15 +49,6 @@ fn temp_test_dir(name: &str) -> PathBuf {
             .as_nanos()
     );
     std::env::temp_dir().join(unique)
-}
-
-fn write_session_file(root: &Path, cwd: &Path, session_id: &str, lines: &[&str]) -> PathBuf {
-    let project_dir = root.join(claude_project_dir_name(cwd));
-    fs::create_dir_all(&project_dir).expect("create project dir");
-    let path = project_dir.join(format!("{session_id}.jsonl"));
-    let body = format!("{}\n", lines.join("\n"));
-    fs::write(&path, body).expect("write session file");
-    path
 }
 
 struct ClaudeSteerMock {

@@ -19,7 +19,7 @@ import pyte
 
 class Terminal:
     def __init__(self, binary, root, mode="modern", resume="thread-original", width=100, backend="codex",
-                 codex=None):
+                 codex=None, claude=None, extra_env=None):
         self.root = root
         self.root.mkdir(parents=True, exist_ok=True)
         shim = root / "bin"
@@ -28,12 +28,13 @@ class Terminal:
         if not (shim / "codex").exists():
             (shim / "codex").symlink_to(Path(__file__).with_name(peer).resolve())
         if not (shim / "claude").exists():
-            (shim / "claude").symlink_to(Path(__file__).with_name("fake_claude.py").resolve())
+            (shim / "claude").symlink_to(claude or Path(__file__).with_name("fake_claude.py").resolve())
         self.screen = pyte.Screen(width, 32)
         self.stream = pyte.Stream(self.screen)
         self.decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self.output = (root / "terminal.ansi").open("ab")
-        env = {**os.environ, "TERM": "xterm-256color", "CARLOS_TEST_ROOT": str(root),
+        inherited = os.environ if not claude else {key:value for key,value in os.environ.items() if not key.startswith(("ANTHROPIC_", "CLAUDE_", "CARLOS_CLAUDE_"))}
+        env = {**inherited, "TERM": "xterm-256color", "CARLOS_TEST_ROOT": str(root),
                "CARLOS_TEST_SERVER": mode, "HOME": str(root),
                "CODEX_HOME": str(root / "codex-home"), "CARLOS_METRICS": "0",
                "XDG_CONFIG_HOME": str(root / "config"),
@@ -41,13 +42,23 @@ class Terminal:
                "CARLOS_TOOL_SUMMARIES": "on" if mode.startswith("summary") else "off",
                "CLAUDE_CONFIG_DIR": str(root / "claude-home"),
                "CARLOS_EVENT_TRACE": str(root / "keys.log"),
+               "CARLOS_CLAUDE_WIRE_TRACE": str(root / "claude-controller.jsonl"),
                "PATH": str(shim) + os.pathsep + os.environ["PATH"]}
+        if extra_env:
+            env.update(extra_env)
         env.pop("NO_COLOR", None)
         env["COLORTERM"] = "truecolor"
         if codex:
             env["CARLOS_TEST_CODEX"] = str(codex)
+        if mode == "claude-reply-error":
+            env["CARLOS_CLAUDE_CONTROLLER"] = str(Path(__file__).with_name("flaky_claude_controller.py").resolve())
+            env["CARLOS_REAL_CLAUDE_CONTROLLER"] = str(binary.parent.parent / "claude-controller/carlos-claude-controller")
         args = [str(binary), "--backend", backend]
-        if resume:
+        if resume == "__continue__":
+            args += ["continue"]
+        elif resume == "__picker__":
+            args += ["resume"]
+        elif resume:
             args += ["resume", resume]
         self.fd, slave = pty.openpty()
         try:
@@ -147,7 +158,7 @@ class Terminal:
         log = self.root / "rpc.jsonl"
         if not log.exists():
             return []
-        return [record["message"] for line in log.read_text().splitlines()
+        return [record["message"] for line in log.read_bytes().splitlines(keepends=True) if line.endswith(b"\n")
                 if (record := json.loads(line))["direction"] == direction]
 
     def requests(self, method):

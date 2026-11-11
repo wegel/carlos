@@ -146,6 +146,14 @@ convert_style!(
 pub(super) struct CarlosMarkdownStyleSheet;
 
 impl tui_markdown::StyleSheet for CarlosMarkdownStyleSheet {
+    fn heading_marker(&self, _level: u8) -> &str {
+        ""
+    }
+
+    fn code_block_fence(&self) -> &str {
+        ""
+    }
+
     fn heading(&self, level: u8) -> CoreStyle {
         match level {
             1 => style_to_core(

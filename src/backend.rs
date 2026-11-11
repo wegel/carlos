@@ -38,9 +38,48 @@ pub(crate) struct RewindForkRequest {
     pub(crate) before_turn_id: Option<String>,
 }
 
+/// Identifies the person or automatic loop that supplied a prompt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PromptOrigin {
+    Human,
+    Automatic,
+}
+
+/// Selects when an agent should consume a prompt during an active turn.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PromptPriority {
+    Steer,
+    Queue,
+}
+
 pub(crate) trait BackendClient {
     fn kind(&self) -> BackendKind;
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String>;
+    /// Submit a prompt without adding backend-specific fields to other backends' JSON.
+    fn submit_prompt(
+        &self,
+        method: &str,
+        params: Value,
+        _origin: PromptOrigin,
+        _priority: PromptPriority,
+        timeout: Duration,
+    ) -> Result<String> {
+        self.call(method, params, timeout)
+    }
+    /// Apply choices immediately when the backend supports live settings.
+    fn apply_runtime_settings(&self, _model: Option<&str>, _effort: Option<&str>) -> Result<bool> {
+        Ok(false)
+    }
+    /// Send an optional native control whose reply arrives through backend events.
+    fn request_native_control(&self, _method: &str, _params: Value) -> Result<()> {
+        bail!("backend does not support native controls")
+    }
+    /// Ask the backend to publish its current context-window counts.
+    fn refresh_context(&self) -> Result<()> {
+        Ok(())
+    }
+    /// Release a backend's event budget after the UI has processed a frame.
+    fn acknowledge_event(&self, _length: usize) {}
     /// Start a quota read whose response arrives on the event stream, if supported.
     fn request_rate_limits(&self) -> Result<Option<String>> {
         Ok(None)

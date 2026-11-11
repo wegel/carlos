@@ -6,6 +6,8 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 
+use crate::backend::PromptOrigin;
+
 use super::models::Message;
 use super::ralph::{detect_turn_markers, load_ralph_config, RalphConfig, RalphState};
 
@@ -18,6 +20,7 @@ const RALPH_CONTINUATION_DELAY: Duration = Duration::from_millis(700);
 pub(super) struct QueuedTurnInput {
     pub(super) text: String,
     pub(super) record_input_history: bool,
+    pub(super) origin: PromptOrigin,
     keeps_ralph_pending: bool,
     available_at: Option<Instant>,
 }
@@ -149,6 +152,24 @@ impl RalphRuntimeState {
         "ralph off"
     }
 
+    /// Stop automatic Ralph work while retaining queued human input.
+    pub(super) fn stop_after_failure(&mut self) {
+        self.current = None;
+        self.toggle_pending = false;
+        self.pending_continuation = None;
+        self.queued_turn_inputs
+            .retain(|turn| turn.origin == PromptOrigin::Human);
+    }
+
+    /// Return unsent human drafts after a terminal backend failure.
+    pub(super) fn take_queued_human_drafts(&mut self) -> Vec<String> {
+        self.queued_turn_inputs
+            .drain(..)
+            .filter(|turn| turn.origin == PromptOrigin::Human)
+            .map(|turn| turn.text)
+            .collect()
+    }
+
     pub(super) fn queue_initial_prompt(&mut self) {
         let Some(ralph) = self.current.as_mut() else {
             return;
@@ -158,7 +179,7 @@ impl RalphRuntimeState {
         }
         ralph.primed = true;
         let prompt = ralph.config.base_prompt.clone();
-        self.enqueue_turn_input(prompt, false);
+        self.enqueue_prompt(prompt, false, PromptOrigin::Automatic);
     }
 
     pub(super) fn toggle_now(&mut self) -> Result<&'static str> {
@@ -208,13 +229,22 @@ impl RalphRuntimeState {
         text: impl Into<String>,
         record_input_history: bool,
     ) {
-        let text = text.into();
+        self.enqueue_prompt(text.into(), record_input_history, PromptOrigin::Human);
+    }
+
+    pub(super) fn enqueue_prompt(
+        &mut self,
+        text: String,
+        record_input_history: bool,
+        origin: PromptOrigin,
+    ) {
         if text.trim().is_empty() {
             return;
         }
         self.queued_turn_inputs.push_back(QueuedTurnInput {
             text,
             record_input_history,
+            origin,
             keeps_ralph_pending: false,
             available_at: None,
         });
@@ -228,6 +258,7 @@ impl RalphRuntimeState {
         self.pending_continuation = Some(QueuedTurnInput {
             text,
             record_input_history: false,
+            origin: PromptOrigin::Automatic,
             keeps_ralph_pending: true,
             available_at: Some(Instant::now() + RALPH_CONTINUATION_DELAY),
         });

@@ -1,0 +1,12 @@
+[
+  {
+    "file": "README.md",
+    "source": "https://raw.githubusercontent.com/HEnquist/realfft/d0d4eee0525fd27c96c8a046d6d107acd5ed84a6/README.md",
+    "sha256": "1e92c54e7fa08298d2a34ea9aa63b85626c47519873a91cd1028f234e1221608"
+  },
+  {
+    "file": "LICENSE-SPDX-MIT.txt",
+    "source": "https://raw.githubusercontent.com/spdx/license-list-data/31846481de7ea17d92f2f46fad76abe58b2e9bb0/text/MIT.txt",
+    "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+  }
+]

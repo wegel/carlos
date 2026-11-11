@@ -6,6 +6,9 @@ mod overlay_render_perf;
 #[path = "overlay_render_model_settings.rs"]
 mod overlay_render_model_settings;
 
+#[path = "overlay_render_claude.rs"]
+mod overlay_render_claude;
+
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
@@ -44,15 +47,13 @@ fn compute_overlay_box(size: TerminalSize, box_w: usize, box_h: usize) -> Overla
 
 fn draw_box_border(
     buf: &mut Buffer,
-    left: usize,
-    top: usize,
-    right: usize,
-    bottom: usize,
+    edges: (usize, usize, usize, usize),
     style: Style,
     corners: (&str, &str, &str, &str),
     horizontal: &str,
     vertical: &str,
 ) {
+    let (left, top, right, bottom) = edges;
     draw_str(buf, left, top, corners.0, style, 1);
     draw_str(buf, right, top, corners.1, style, 1);
     draw_str(buf, left, bottom, corners.2, style, 1);
@@ -71,10 +72,7 @@ fn draw_rounded_border(buf: &mut Buffer, ob: &OverlayBox) {
     let style = Style::default().fg(COLOR_STEP7);
     draw_box_border(
         buf,
-        ob.left,
-        ob.top,
-        ob.right,
-        ob.bottom,
+        (ob.left, ob.top, ob.right, ob.bottom),
         style,
         ("┏", "┓", "┗", "┛"),
         "─",
@@ -128,6 +126,17 @@ fn fill_box_background(buf: &mut Buffer, ob: &OverlayBox, box_h: usize) {
 
 pub(super) fn content_width(ob: &OverlayBox) -> usize {
     ob.box_w.saturating_sub(6)
+}
+
+/// Locate the current native answer caret without moving the main composer.
+pub(super) fn claude_question_cursor(app: &AppState, size: TerminalSize) -> Option<(usize, usize)> {
+    let pending = app.approval.pending.as_ref()?;
+    let draft = app
+        .claude
+        .answers
+        .drafts
+        .get(pending.request_id.as_str()?)?;
+    overlay_render_claude::cursor(size, draft)
 }
 
 // ---------------------------------------------------------------------------
@@ -198,6 +207,13 @@ pub(super) fn draw_approval_overlay(buf: &mut Buffer, size: TerminalSize, app: &
     let Some(approval) = app.approval.pending.as_ref() else {
         return;
     };
+    if let Some(draft) = approval
+        .request_id
+        .as_str()
+        .and_then(|id| app.claude.answers.drafts.get(id))
+    {
+        return overlay_render_claude::draw(buf, size, app, approval, draft);
+    }
     if size.width < 36 || size.height < 10 {
         return;
     }

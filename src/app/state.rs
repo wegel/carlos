@@ -61,6 +61,7 @@ pub(super) struct AppState {
     pub(super) dictation_io: DictationCaptureState,
     pub(super) runtime: RuntimeSettingsState,
     pub(super) approval: ApprovalState,
+    pub(super) claude: super::claude_state::ClaudeUiState,
 
     pub(super) viewport: ViewportState,
     pub(super) context_usage: Option<ContextUsage>,
@@ -97,6 +98,7 @@ impl AppState {
             dictation_io: DictationCaptureState::default(),
             runtime: RuntimeSettingsState::new(),
             approval: ApprovalState::new(),
+            claude: super::claude_state::ClaudeUiState::default(),
             viewport: ViewportState::new(),
             context_usage: None,
             rate_limits: super::rate_limits::RateLimits::default(),
@@ -167,7 +169,15 @@ impl AppState {
     }
 
     pub(super) fn clear_pending_approval(&mut self) {
-        self.approval.pending = None;
+        if let Some(id) = self
+            .approval
+            .pending
+            .as_ref()
+            .and_then(|pending| pending.request_id.as_str())
+        {
+            self.claude.answers.drafts.remove(id);
+        }
+        self.approval.pending = self.claude.questions.pop_front();
     }
 
     // --- Turn input queue ---

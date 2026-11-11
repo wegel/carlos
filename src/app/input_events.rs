@@ -112,7 +112,7 @@ pub(super) fn handle_terminal_event(
     match ev {
         Event::Key(k) => handle_key_event(client, app, k, size),
         Event::Mouse(m) => handle_mouse_event(app, m, size),
-        Event::Paste(pasted) => handle_paste_event(app, pasted),
+        Event::Paste(pasted) => handle_paste_event(app, pasted, size),
         Event::Resize(_, _) => {
             if let Some(perf) = app.perf.as_mut() {
                 perf.resize_events = perf.resize_events.saturating_add(1);

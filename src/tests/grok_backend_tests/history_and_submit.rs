@@ -199,7 +199,7 @@ fn submit_dequeued_grok_turn_starts_even_when_more_are_queued() {
     let mut app = AppState::new("thread-1".to_string());
     app.queue_turn_input("second");
 
-    submit_dequeued_turn_text(&client, &mut app, "first".to_string(), false);
+    submit_dequeued_turn_text(&client, &mut app, "first".to_string(), false, crate::backend::PromptOrigin::Human);
 
     assert_eq!(
         client.calls.lock().expect("calls lock").as_slice(),

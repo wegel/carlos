@@ -100,11 +100,17 @@ pub(super) fn draw_overlays(buf: &mut Buffer, size: TerminalSize, app: &AppState
     if let Some(perf) = app.perf.as_ref().filter(|perf| perf.show_overlay) {
         draw_perf_overlay(buf, size, perf);
     }
-    if app.runtime.show_model_settings {
-        draw_model_settings_overlay(buf, size, app);
-    }
     if app.approval.pending.is_some() {
         draw_approval_overlay(buf, size, app);
+    }
+    if app.runtime.show_model_settings {
+        draw_model_settings_overlay(buf, size, app);
+        if app.claude.answers.drafts.is_empty() && app.approval.pending.is_some() {
+            draw_approval_overlay(buf, size, app);
+        }
+    }
+    if app.claude.tasks.show {
+        crate::app::claude_task_view::draw(buf, app, size);
     }
 }
 
@@ -115,10 +121,13 @@ pub(super) fn cursor_position(
     size: TerminalSize,
     input_layout: &InputLayout,
 ) -> (usize, usize) {
-    let (cursor_x, cursor_y) = if app.approval.pending.is_some() {
-        (0, size.height.saturating_sub(1))
+    let (cursor_x, cursor_y) = if app.claude.tasks.show {
+        (0, 0)
     } else if app.runtime.show_model_settings {
         model_settings_cursor_position(app, size)
+    } else if app.approval.pending.is_some() {
+        crate::app::overlay_render::claude_question_cursor(app, size)
+            .unwrap_or((0, size.height.saturating_sub(1)))
     } else {
         (input_layout.cursor_x, input_layout.cursor_y)
     };

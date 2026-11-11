@@ -13,18 +13,12 @@ use super::{
 use crate::app::cli::CliOptions;
 use crate::app::codex_history::preferred_codex_thread;
 use crate::app::item_history::replace_history_from_thread;
-use crate::app::models::Role;
-use crate::app::notifications::{
-    handle_server_message_line, load_history_from_start_or_resume, parse_thread_list,
-};
+use crate::app::notifications::{load_history_from_start_or_resume, parse_thread_list};
 use crate::app::state::AppState;
 use crate::app::terminal_ui::{pick_thread, sort_threads_for_picker};
 use crate::app::RuntimeDefaults;
 use crate::backend::BackendClient;
-use crate::claude_backend::{
-    claude_model_catalog, load_claude_local_history, ClaudeClient, ClaudeLaunchMode,
-    ClaudeLocalHistory, CLAUDE_PENDING_THREAD_ID,
-};
+use crate::claude_backend::{ClaudeClient, ClaudeLaunchMode};
 use crate::protocol::AppServerClient;
 use crate::protocol_history::load_thread_history;
 use crate::protocol_params::{
@@ -201,13 +195,10 @@ pub(in crate::app) fn run_claude_backend(
     let Some(launch_mode) = resolve_claude_launch_mode(opts, cwd_path, cwd)? else {
         return Ok(());
     };
-    let local_history = load_claude_local_history(cwd_path, &launch_mode)?;
-    let (client, server_events_rx, start_resp) =
-        start_claude_session(cwd_path, launch_mode, &local_history)?;
+    let (client, server_events_rx, start_resp) = start_claude_session(cwd_path, launch_mode)?;
     let chosen_thread_id = parse_thread_id_from_start_or_resume(&start_resp)?;
     let mut app = AppState::new(chosen_thread_id);
     configure_claude_app(&mut app, cwd, opts, &persisted_defaults, &start_resp)?;
-    apply_claude_local_history(&mut app, opts, &local_history)?;
     finish_run(&mut app, opts.backend, &client, server_events_rx)
 }
 
@@ -217,7 +208,13 @@ pub(super) fn resolve_claude_launch_mode(
     cwd: &str,
 ) -> Result<Option<ClaudeLaunchMode>> {
     if opts.mode_continue {
-        Ok(Some(ClaudeLaunchMode::Continue))
+        let list = load_claude_thread_summaries(cwd_path, cwd)?;
+        Ok(Some(
+            sort_threads_for_picker(&list)
+                .first()
+                .map(|session| ClaudeLaunchMode::Resume(session.id.clone()))
+                .unwrap_or(ClaudeLaunchMode::New),
+        ))
     } else if opts.mode_resume && opts.resume_id.is_none() {
         let list = load_claude_thread_summaries(cwd_path, cwd)?;
         let Some(session_id) = pick_thread(&list, false, |_| Ok(()))? else {
@@ -234,22 +231,10 @@ pub(super) fn resolve_claude_launch_mode(
 pub(super) fn start_claude_session(
     cwd_path: &Path,
     launch_mode: ClaudeLaunchMode,
-    local_history: &Option<ClaudeLocalHistory>,
 ) -> Result<(ClaudeClient, Receiver<String>, String)> {
-    let initial_thread_id = match &launch_mode {
-        ClaudeLaunchMode::Resume(session_id) => session_id.clone(),
-        ClaudeLaunchMode::Continue => local_history
-            .as_ref()
-            .map(|history| history.session_id.clone())
-            .unwrap_or_else(|| CLAUDE_PENDING_THREAD_ID.to_string()),
-        ClaudeLaunchMode::New => CLAUDE_PENDING_THREAD_ID.to_string(),
-    };
     let mut client = ClaudeClient::start(cwd_path, launch_mode)?;
     let server_events_rx = client.take_events_rx()?;
-    let start_resp = client.synthetic_start_response(
-        &initial_thread_id,
-        local_history.as_ref().map(|history| &history.thread),
-    );
+    let start_resp = client.synthetic_start_response(client.session_id(), None);
     Ok((client, server_events_rx, start_resp))
 }
 
@@ -261,7 +246,7 @@ pub(super) fn configure_claude_app(
     start_resp: &str,
 ) -> Result<()> {
     app.set_runtime_capabilities(true, false);
-    let models = claude_model_catalog();
+    let models = Vec::new();
     app.set_available_models(models.clone());
     let fallback_defaults = claude_runtime_defaults();
     let runtime_settings = resolve_backend_runtime_settings(
@@ -284,40 +269,14 @@ pub(super) fn configure_claude_app(
         None,
     );
     load_history_from_start_or_resume(app, start_resp)?;
-    Ok(())
-}
-
-pub(super) fn apply_claude_local_history(
-    app: &mut AppState,
-    opts: &CliOptions,
-    local_history: &Option<ClaudeLocalHistory>,
-) -> Result<()> {
-    if let Some(usage) = local_history
-        .as_ref()
-        .and_then(|history| history.context_usage)
-    {
-        app.context_usage = Some(crate::app::context_usage::ContextUsage {
-            used: usage.used,
-            max: usage.max,
-        });
-    }
-    if let Some(request_line) = local_history
-        .as_ref()
-        .and_then(|history| history.pending_approval_request.as_deref())
-    {
-        let _ = handle_server_message_line(app, request_line);
-    }
-    if (opts.mode_resume || opts.mode_continue)
-        && local_history
-            .as_ref()
-            .map(|history| history.imported_item_count == 0)
-            .unwrap_or(true)
-    {
-        app.append_message(
-            Role::System,
-            "Claude local transcript history could not be reconstructed from session storage"
-                .to_string(),
-        );
-    }
+    app.claude.enabled = true;
+    app.claude.phase = super::super::claude_state::ClaudePhase::Starting;
+    app.claude.selection.inherits_model = app.runtime.current_model.is_none();
+    app.claude.selection.inherits_effort = app
+        .runtime
+        .current_effort
+        .as_deref()
+        .is_none_or(|effort| effort == "auto");
+    app.set_status("Claude starting");
     Ok(())
 }

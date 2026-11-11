@@ -76,7 +76,12 @@ pub(super) fn draw_status_bar(
         plan.anim_end,
     );
     draw_labels(buf, y, &plan.labels);
-    if app.active_turn_id.is_some() && !app.rewind_mode() {
+    draw_claude_rewind_hint(buf, app, y, plan.anim_end);
+    if (app.active_turn_id.is_some()
+        || app.claude.activity.state == super::claude_activity::NativeState::Running
+        || app.claude.tasks.active_count() > 0)
+        && !app.rewind_mode()
+    {
         let width = if plan.compact_activity {
             plan.line_len
         } else {
@@ -90,7 +95,11 @@ fn status_plan(app: &AppState, size: TerminalSize) -> StatusPlan {
     let line_len = size.width.saturating_sub(1);
     let mut edge = line_len;
     let mut labels = Vec::new();
-    if let Some(weekly) = app.rate_limits.indicator() {
+    if let Some(weekly) = if app.claude.enabled {
+        app.claude.quota.indicator()
+    } else {
+        app.rate_limits.indicator()
+    } {
         place(
             &mut labels,
             &mut edge,
@@ -102,6 +111,23 @@ fn status_plan(app: &AppState, size: TerminalSize) -> StatusPlan {
                 ],
                 bold: false,
             },
+        );
+    }
+    if app.claude.enabled && !app.rewind_mode() {
+        let mode = if app.claude.prompts.queue {
+            "Queue"
+        } else {
+            "Steer"
+        };
+        let hint = if size.width < 60 {
+            format!("{mode}:F3 Tasks:F2")
+        } else {
+            format!("Enter: {mode} F3 · Tasks F2")
+        };
+        place(
+            &mut labels,
+            &mut edge,
+            Label::plain(hint, COLOR_GUTTER_USER),
         );
     }
     place_context(&mut labels, &mut edge, app);
@@ -139,6 +165,11 @@ fn place_context(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState
 
 fn place_model_and_activity(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState) {
     let mut badges = Vec::new();
+    if app.claude.enabled {
+        if let Some(text) = app.claude.activity.label() {
+            badges.push(Label::plain(text, COLOR_GUTTER_AGENT_THINKING));
+        }
+    }
     if let Some(text) = app.dictation_status_label() {
         badges.push(Label {
             parts: vec![(text, COLOR_GUTTER_AGENT_COMMENTARY)],
@@ -206,4 +237,23 @@ fn sweep_status_line(buf: &mut Buffer, y: usize, width: usize, ralph_mode: bool,
             buf[(x as u16, y as u16)].modifier.insert(Modifier::BOLD);
         }
     }
+}
+
+fn draw_claude_rewind_hint(buf: &mut Buffer, app: &AppState, y: usize, width: usize) {
+    if !app.rewind_mode() || app.claude.history.unknown.is_empty() {
+        return;
+    }
+    let hint = if app.claude.history.unknown_selection.is_some() {
+        "Unknown source: Enter branches; F4 human"
+    } else {
+        "F4: older unknown prompts"
+    };
+    draw_str(
+        buf,
+        0,
+        y,
+        hint,
+        Style::default().fg(COLOR_DIFF_REMOVE),
+        width,
+    );
 }

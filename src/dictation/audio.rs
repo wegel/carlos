@@ -120,7 +120,7 @@ where
     if samples.is_empty() {
         return Ok(Vec::new());
     }
-    if samples.len() % channels != 0 {
+    if !samples.len().is_multiple_of(channels) {
         bail!("interleaved audio does not divide evenly by channel count");
     }
 

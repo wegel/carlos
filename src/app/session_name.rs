@@ -69,7 +69,7 @@ pub(super) fn handle_rename_command(
     if !rest.is_empty() && !rest.starts_with(char::is_whitespace) {
         return false;
     }
-    if client.kind() != BackendKind::Codex {
+    if !matches!(client.kind(), BackendKind::Codex | BackendKind::Claude) {
         report_rename_error(app, "this backend does not support renaming sessions");
     } else if rest.trim().is_empty() {
         app.set_input_text(&format!(

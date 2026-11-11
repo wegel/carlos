@@ -59,6 +59,27 @@ fn handle_server_line(client: &dyn BackendClient, app: &mut AppState, line: &str
     }
     if let Some(action) = handle_server_message_line(app, line) {
         match action {
+            ServerRequestAction::ClaudeControl { method, params } => {
+                if let Err(error) = client.request_native_control(&method, params) {
+                    crate::app::claude_notifications::fail_session(app);
+                    app.set_status(format!("Claude session failed: {error}"));
+                }
+            }
+            ServerRequestAction::ApplyClaudeSettings => {
+                let (model, effort, _) = app.next_turn_runtime_settings();
+                let (model, effort) = crate::app::claude_models::prompt_choices(app, model, effort);
+                match client.apply_runtime_settings(model.as_deref(), effort.as_deref()) {
+                    Ok(true) => app.mark_runtime_settings_applied(),
+                    Ok(false) => {}
+                    Err(error) => {
+                        app.ralph_runtime.stop_after_failure();
+                        app.set_status(format!("Could not apply Claude settings: {error}"));
+                    }
+                }
+                if let Err(error) = read_context(client, app) {
+                    app.set_status(format!("Could not read context: {error}"));
+                }
+            }
             ServerRequestAction::ReplyError {
                 request_id,
                 code,
@@ -68,6 +89,24 @@ fn handle_server_line(client: &dyn BackendClient, app: &mut AppState, line: &str
                     app.set_status(format!("server request reply failed: {err}"));
                 }
             }
+            ServerRequestAction::RefreshContext => {
+                if let Err(error) = read_context(client, app) {
+                    app.set_status(format!("Could not read context: {error}"));
+                }
+            }
         }
+    }
+    client.acknowledge_event(line.len());
+}
+
+/// Tag native context reads so late pre-compaction replies cannot restore stale counts.
+fn read_context(client: &dyn BackendClient, app: &AppState) -> anyhow::Result<()> {
+    if client.kind() == crate::backend::BackendKind::Claude {
+        client.request_native_control(
+            "context",
+            serde_json::json!({"revision":app.claude.activity.context_revision}),
+        )
+    } else {
+        client.refresh_context()
     }
 }

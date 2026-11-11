@@ -184,7 +184,7 @@ fn finish(
         for request in requests {
             let event = match &result {
                 Ok(label) => {
-                    store.save(&request, label, &config)?;
+                    store.save(&request, label, config)?;
                     SummaryEvent::Ready(request.key, request.entry, Some(label.text.clone()))
                 }
                 Err(error) => SummaryEvent::Failed(request.entry, error.to_string()),

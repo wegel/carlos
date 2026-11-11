@@ -67,6 +67,12 @@ pub(in crate::app) fn count_wrapped_markdown_lines(role: Role, text: &str, width
         return 0;
     }
 
+    if role == Role::Reasoning {
+        if let Some(source) = crate::app::markdown_tables::table_source(text, width) {
+            let lines = crate::app::transcript_styles::markdown_document_segments(&source, width);
+            return count_styled_logical_lines(lines, width);
+        }
+    }
     let logical_lines = if matches!(role, Role::Reasoning) {
         let mut count = 0usize;
         let mut used_fast_path = false;
@@ -79,7 +85,7 @@ pub(in crate::app) fn count_wrapped_markdown_lines(role: Role, text: &str, width
                 used_fast_path = true;
                 continue;
             }
-            let lines = markdown_line_segments(raw_line);
+            let lines = markdown_line_segments(raw_line, width);
             if lines.is_empty() {
                 continue;
             }
@@ -96,10 +102,10 @@ pub(in crate::app) fn count_wrapped_markdown_lines(role: Role, text: &str, width
         if used_fast_path {
             return count;
         } else {
-            markdown_line_segments(text)
+            markdown_line_segments(text, width)
         }
     } else {
-        markdown_line_segments(text)
+        markdown_line_segments(text, width)
     };
 
     logical_lines

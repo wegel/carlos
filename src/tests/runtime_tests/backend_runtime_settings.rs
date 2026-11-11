@@ -30,14 +30,14 @@ fn codex_startup_defaults_use_gpt55_high_concise() {
 }
 
 #[test]
-fn claude_startup_defaults_use_opus_xhigh_without_summary() {
+fn claude_startup_defaults_preserve_native_model_and_effort() {
     let defaults = claude_runtime_defaults();
 
     assert_eq!(
         defaults,
         RuntimeDefaults {
-            model: Some("opus".to_string()),
-            effort: Some("xhigh".to_string()),
+            model: None,
+            effort: None,
             summary: None,
         }
     );
@@ -189,6 +189,6 @@ fn backend_runtime_settings_drop_summary_when_backend_cannot_use_it() {
     );
 
     assert_eq!(resolved.model.as_deref(), Some("opus"));
-    assert_eq!(resolved.effort.as_deref(), Some("xhigh"));
+    assert_eq!(resolved.effort.as_deref(), Some("medium"));
     assert_eq!(resolved.summary, None);
 }

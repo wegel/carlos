@@ -1,270 +1,242 @@
-//! Claude CLI backend: process management, client lifecycle, and BackendClient trait impl.
+//! Claude Agent SDK client backed by a compiled local controller and the native CLI.
 
-mod exit_plan;
-mod history;
-mod process;
-mod session_file;
-mod session_fork;
+mod conversation;
+#[cfg(test)]
+mod conversation_tests;
+mod event_queue;
+mod helper;
+mod sessions;
 mod snapshot;
-mod token_usage;
+#[cfg(test)]
+mod test_support;
+mod thinking;
+mod tool_results;
 mod translate;
+mod transport;
+mod transport_reader;
+#[cfg(all(test, unix))]
+mod transport_tests;
+mod transport_writer;
 mod types;
 mod user_record;
 
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::sync::{mpsc, Arc, Mutex};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
 use serde_json::{json, Value};
+use uuid::Uuid;
 
-use crate::backend::{BackendClient, BackendKind};
+use crate::backend::{BackendClient, BackendKind, PromptOrigin, PromptPriority};
 
-pub(crate) use self::exit_plan::claude_approval_follow_up_text;
-pub(crate) use self::history::{
-    fork_claude_local_history, load_claude_local_history, ClaudeLocalHistory,
-};
+pub(crate) use self::conversation::process_message as is_process_message;
+pub(crate) use self::sessions::list_claude_sessions;
 #[cfg(test)]
-pub(crate) use self::history::{
-    fork_claude_local_history_from_projects_root, load_claude_local_history_from_projects_root,
+pub(crate) use self::test_support::{
+    collect_live_forwarded_lines_for_test, session_misroute_event,
 };
-#[cfg(test)]
-pub(crate) use self::process::{
-    build_claude_command_for_test, collect_live_forwarded_lines_for_test,
-    probe_claude_startup_for_test, session_misroute_event,
-};
-use self::process::{start_claude_process, ClaudeProcess};
-#[cfg(test)]
 pub(crate) use self::translate::translate_claude_line;
-#[cfg(test)]
+pub(crate) use self::types::ClaudeLaunchMode;
 pub(crate) use self::types::ClaudeTranslationState;
-pub(crate) use self::types::{
-    claude_model_catalog, claude_project_dir_name, claude_recovery_launch_mode, ClaudeLaunchMode,
-    CLAUDE_PENDING_THREAD_ID,
-};
 
+use self::event_queue::EventSender;
+use self::helper::start_params;
+use self::transport::ControllerTransport;
 use self::types::{normalize_runtime_arg, ClaudeRuntimeSettings};
 
-// --- Client types ---
-
+/// Owns the helper transport; startup callbacks reach the UI before startup completes.
 pub(crate) struct ClaudeClient {
     cwd: PathBuf,
-    launch_mode: ClaudeLaunchMode,
-    current_session_id: Arc<Mutex<Option<String>>>,
+    transport: Arc<Mutex<Arc<ControllerTransport>>>,
+    session_id: String,
     runtime_settings: Mutex<ClaudeRuntimeSettings>,
-    process: Mutex<ClaudeProcess>,
-    events_tx: mpsc::Sender<String>,
+    events_tx: EventSender,
     events_rx: Option<mpsc::Receiver<String>>,
 }
 
-// --- Client construction and lifecycle ---
-
 impl ClaudeClient {
-    pub(crate) fn start(cwd: &Path, launch_mode: ClaudeLaunchMode) -> Result<Self> {
-        let (events_tx, events_rx) = mpsc::channel::<String>();
-        let current_session_id = Arc::new(Mutex::new(match &launch_mode {
-            ClaudeLaunchMode::Resume(id) => Some(id.clone()),
-            _ => None,
-        }));
-        let runtime_settings = ClaudeRuntimeSettings::default();
-        let process = start_claude_process(
-            cwd,
-            &launch_mode,
-            &runtime_settings,
-            events_tx.clone(),
-            Arc::clone(&current_session_id),
-        )?;
-
+    /// Start the helper and let the UI answer questions during SDK startup.
+    pub(crate) fn start(cwd: &Path, launch: ClaudeLaunchMode) -> Result<Self> {
+        let (sender, events_rx) = mpsc::sync_channel(1024);
+        let events_tx = EventSender::new(sender);
+        let settings = ClaudeRuntimeSettings::default();
+        let session_id = match &launch {
+            ClaudeLaunchMode::Resume(id) => id.clone(),
+            _ => sessions::fresh_session_id(),
+        };
+        let transport = Arc::new(ControllerTransport::start(events_tx.clone())?);
+        sessions::begin_session(&transport, cwd, &launch, &settings, &session_id)?;
         Ok(Self {
             cwd: cwd.to_path_buf(),
-            launch_mode,
-            current_session_id,
-            runtime_settings: Mutex::new(runtime_settings),
-            process: Mutex::new(process),
+            transport: Arc::new(Mutex::new(transport)),
+            session_id,
+            runtime_settings: Mutex::new(settings),
             events_tx,
             events_rx: Some(events_rx),
         })
     }
 
+    /// Report the chosen session ID before native startup completes.
+    pub(crate) fn session_id(&self) -> &str {
+        &self.session_id
+    }
+
+    /// Wrap a session identity for the shared UI startup parser.
     pub(crate) fn synthetic_start_response(
         &self,
         thread_id: &str,
-        history_thread: Option<&Value>,
+        history: Option<&Value>,
     ) -> String {
-        let thread = history_thread
-            .cloned()
-            .unwrap_or_else(|| json!({ "id": thread_id }));
-        json!({
-            "jsonrpc": "2.0",
-            "result": {
-                "thread": thread
-            },
-        })
-        .to_string()
+        json!({ "result": { "thread": history.cloned().unwrap_or_else(|| json!({ "id": thread_id })) } }).to_string()
     }
 
-    fn send_stream_user_message(&self, text: &str) -> Result<String> {
-        let mut process = self
-            .process
+    fn current_events(&self) -> Result<EventSender> {
+        let generation = self
+            .transport
             .lock()
-            .map_err(|_| anyhow!("Claude process lock poisoned"))?;
-        process.write_user_message(text)
+            .map_err(|_| anyhow!("Claude transport lock poisoned"))?
+            .generation;
+        Ok(self.events_tx.for_generation(generation))
     }
 
-    fn recovery_launch_mode(&self) -> Result<ClaudeLaunchMode> {
-        let current_session_id = self
-            .current_session_id
+    fn helper_call(&self, method: &str, params: Value, timeout: Duration) -> Result<Value> {
+        self.transport
             .lock()
-            .map_err(|_| anyhow!("Claude session id lock poisoned"))?
-            .clone();
-        Ok(claude_recovery_launch_mode(
-            &self.launch_mode,
-            current_session_id.as_deref(),
-        ))
+            .map_err(|_| anyhow!("Claude transport lock poisoned"))?
+            .call(method, params, timeout)
     }
 
-    fn respawn_process_locked(&self, process: &mut ClaudeProcess) -> Result<()> {
-        let launch_mode = self.recovery_launch_mode()?;
-        let runtime_settings = self
-            .runtime_settings
-            .lock()
-            .map_err(|_| anyhow!("Claude runtime settings lock poisoned"))?
-            .clone();
-        process.stop();
-        *process = start_claude_process(
-            &self.cwd,
-            &launch_mode,
-            &runtime_settings,
-            self.events_tx.clone(),
-            Arc::clone(&self.current_session_id),
+    fn submit(
+        &self,
+        params: &Value,
+        origin: PromptOrigin,
+        priority: PromptPriority,
+        timeout: Duration,
+    ) -> Result<String> {
+        if params.get("model").is_some() || params.get("effort").is_some() {
+            self.apply_runtime_settings(params["model"].as_str(), params["effort"].as_str())?;
+        }
+        let text = params["input"][0]["text"]
+            .as_str()
+            .filter(|text| !text.trim().is_empty())
+            .context("missing prompt text")?;
+        let uuid = Uuid::new_v4().to_string();
+        let events = self.current_events()?;
+        events.send(
+            json!({ "method": "claude/promptSubmitted", "params": { "uuid": uuid,"text":text,"origin": match origin { PromptOrigin::Human => "human", PromptOrigin::Automatic => "automatic" },"priority":match priority { PromptPriority::Steer => "now", PromptPriority::Queue => "later" } } }).to_string(),
         )?;
-        Ok(())
-    }
-
-    fn ensure_runtime_settings(&self, model: Option<&str>, effort: Option<&str>) -> Result<()> {
-        let desired = ClaudeRuntimeSettings {
-            model: normalize_runtime_arg(model),
-            effort: normalize_runtime_arg(effort),
-        };
-        let mut current = self
-            .runtime_settings
-            .lock()
-            .map_err(|_| anyhow!("Claude runtime settings lock poisoned"))?;
-        if *current == desired {
-            return Ok(());
+        let result = self.helper_call("prompt", json!({ "uuid": uuid, "text": text,
+            "origin": { "kind": match origin { PromptOrigin::Human => "human", PromptOrigin::Automatic => "auto-continuation" } },
+            "priority": match priority { PromptPriority::Steer => "now", PromptPriority::Queue => "later" } }), timeout);
+        if let Err(error) = result {
+            let _ = events.send(
+                json!({ "method": "claude/promptRejected", "params": { "uuid": uuid } })
+                    .to_string(),
+            );
+            return Err(error);
         }
-        *current = desired;
-        drop(current);
-
-        let mut process = self
-            .process
-            .lock()
-            .map_err(|_| anyhow!("Claude process lock poisoned"))?;
-        self.respawn_process_locked(&mut process)
-            .context("failed to apply Claude runtime settings")?;
-        Ok(())
-    }
-
-    fn interrupt_process(&self) -> Result<()> {
-        let mut process = self
-            .process
-            .lock()
-            .map_err(|_| anyhow!("Claude process lock poisoned"))?;
-        let pid = process.child.id();
-        let status = Command::new("kill")
-            .arg("-INT")
-            .arg(pid.to_string())
-            .status()
-            .context("failed to send SIGINT to Claude")?;
-        if !status.success() {
-            bail!("failed to interrupt Claude process");
-        }
-
-        let deadline = Instant::now() + Duration::from_secs(1);
-        loop {
-            match process.child.try_wait() {
-                Ok(Some(_)) => {
-                    self.respawn_process_locked(&mut process)
-                        .context("failed to restart Claude after interrupt")?;
-                    break;
-                }
-                Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(10)),
-                Ok(None) => break,
-                Err(err) => {
-                    return Err(err).context("failed to poll Claude process after SIGINT");
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn switch_to_session(&self, session_id: String) -> Result<()> {
-        let previous_session_id = self
-            .current_session_id
-            .lock()
-            .map_err(|_| anyhow!("Claude session id lock poisoned"))?
-            .clone();
-        {
-            let mut current_session_id = self
-                .current_session_id
-                .lock()
-                .map_err(|_| anyhow!("Claude session id lock poisoned"))?;
-            *current_session_id = Some(session_id);
-        }
-
-        let mut process = self
-            .process
-            .lock()
-            .map_err(|_| anyhow!("Claude process lock poisoned"))?;
-        if let Err(err) = self.respawn_process_locked(&mut process) {
-            if let Ok(mut current_session_id) = self.current_session_id.lock() {
-                *current_session_id = previous_session_id;
-            }
-            return Err(err).context("failed to switch Claude to forked session");
-        }
-        Ok(())
+        Ok(json!({ "result": { "turn": { "id": uuid } } }).to_string())
     }
 }
-
-// --- BackendClient trait impl ---
 
 impl BackendClient for ClaudeClient {
     fn kind(&self) -> BackendKind {
         BackendKind::Claude
     }
 
-    fn call(&self, method: &str, params: Value, _timeout: Duration) -> Result<String> {
+    fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String> {
         match method {
             "turn/start" | "turn/steer" => {
-                self.ensure_runtime_settings(
-                    params.get("model").and_then(Value::as_str),
-                    params.get("effort").and_then(Value::as_str),
+                bail!("Claude prompts require explicit author and priority")
+            }
+            "thread/name/set" => {
+                let result = self.helper_call(
+                    "sessions.rename",
+                    json!({"cwd":self.cwd,
+                    "sessionId":params["threadId"],"title":params["name"]}),
+                    timeout,
                 )?;
-                let text = params
-                    .get("input")
-                    .and_then(Value::as_array)
-                    .and_then(|items| items.first())
-                    .and_then(|item| item.get("text"))
-                    .and_then(Value::as_str)
-                    .map(str::trim)
-                    .filter(|s| !s.is_empty())
-                    .context("missing turn input text")?;
-                self.send_stream_user_message(text)
+                Ok(json!({"result":result}).to_string())
             }
             "turn/interrupt" => {
-                let notification = claude_interrupted_turn_notification(&params)?;
-                self.interrupt_process()?;
-                let _ = self.events_tx.send(notification);
-                Ok(json!({
-                    "jsonrpc": "2.0",
-                    "result": {}
-                })
-                .to_string())
+                let result = self.helper_call("interrupt", json!({}), timeout)?;
+                Ok(json!({ "result": result }).to_string())
             }
-            other => bail!("unsupported Claude backend method: {other}"),
+            other => bail!("unsupported Claude method: {other}"),
         }
+    }
+
+    fn submit_prompt(
+        &self,
+        _method: &str,
+        params: Value,
+        origin: PromptOrigin,
+        priority: PromptPriority,
+        timeout: Duration,
+    ) -> Result<String> {
+        self.submit(&params, origin, priority, timeout)
+    }
+
+    fn apply_runtime_settings(&self, model: Option<&str>, effort: Option<&str>) -> Result<bool> {
+        let desired = ClaudeRuntimeSettings {
+            model: normalize_runtime_arg(model),
+            effort: normalize_runtime_arg(effort).filter(|effort| effort != "auto"),
+        };
+        let mut current = self
+            .runtime_settings
+            .lock()
+            .map_err(|_| anyhow!("Claude settings lock poisoned"))?;
+        if current.model != desired.model {
+            self.helper_call(
+                "model.set",
+                json!({ "model": desired.model }),
+                Duration::from_secs(10),
+            )?;
+            current.model = desired.model;
+        }
+        if current.effort != desired.effort {
+            self.helper_call(
+                "effort.set",
+                json!({ "effort": desired.effort }),
+                Duration::from_secs(10),
+            )?;
+            current.effort = desired.effort;
+        }
+        Ok(true)
+    }
+
+    fn request_native_control(&self, method: &str, mut params: Value) -> Result<()> {
+        params["cwd"] = json!(self.cwd);
+        if method == "start" {
+            let settings = self
+                .runtime_settings
+                .lock()
+                .map_err(|_| anyhow!("Claude settings lock poisoned"))?;
+            let id = params["sessionId"]
+                .as_str()
+                .context("Resume has no session ID")?;
+            params = start_params(
+                &self.cwd,
+                &ClaudeLaunchMode::Resume(id.to_string()),
+                &settings,
+            )?;
+        }
+        self.transport
+            .lock()
+            .map_err(|_| anyhow!("Claude transport lock poisoned"))?
+            .request(method, params)
+    }
+
+    fn refresh_context(&self) -> Result<()> {
+        self.transport
+            .lock()
+            .map_err(|_| anyhow!("Claude transport lock poisoned"))?
+            .request("context", json!({}))
+    }
+
+    fn acknowledge_event(&self, length: usize) {
+        self.events_tx.handled(length);
     }
 
     fn fork_from_rewind(
@@ -273,56 +245,76 @@ impl BackendClient for ClaudeClient {
         request: crate::backend::RewindForkRequest,
         _timeout: Duration,
     ) -> Result<String> {
-        let history = fork_claude_local_history(&self.cwd, thread_id, request.keep_turns)?;
-        self.switch_to_session(history.session_id.clone())?;
-        Ok(self.synthetic_start_response(&history.session_id, Some(&history.thread)))
+        let before = request
+            .before_turn_id
+            .context("Select a prompt with a native UUID before editing")?;
+        let settings = self
+            .runtime_settings
+            .lock()
+            .map_err(|_| anyhow!("Claude settings lock poisoned"))?
+            .clone();
+        let generation = self
+            .transport
+            .lock()
+            .map_err(|_| anyhow!("Claude transport lock poisoned"))?
+            .generation;
+        sessions::fork_session(
+            self.transport.clone(),
+            self.events_tx.for_generation(generation),
+            self.cwd.clone(),
+            settings,
+            thread_id.to_string(),
+            before,
+        );
+        Ok(json!({"result":{"claudeForkPending":true}}).to_string())
     }
 
     fn respond(&self, request_id: &Value, result: Value) -> Result<()> {
-        if let Some(follow_up) = claude_approval_follow_up_text(request_id, &result)? {
-            self.send_stream_user_message(follow_up)?;
-            return Ok(());
-        }
-
-        bail!("unsupported Claude approval request: {request_id}")
+        let callback_id = request_id
+            .as_str()
+            .context("native callback ID must be a string")?;
+        self.helper_call(
+            "callback.respond",
+            json!({ "callbackId": callback_id, "answer": result }),
+            Duration::from_secs(10),
+        )?;
+        Ok(())
     }
 
-    fn respond_error(&self, _request_id: &Value, _code: i64, _message: &str) -> Result<()> {
-        bail!("Claude backend approvals are not implemented")
+    fn respond_error(&self, request_id: &Value, _code: i64, message: &str) -> Result<()> {
+        bail!("Cannot answer native callback {request_id}: {message}")
     }
 
     fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>> {
         self.events_rx
             .take()
-            .ok_or_else(|| anyhow!("Claude events receiver already taken"))
+            .ok_or_else(|| anyhow!("Claude events already taken"))
     }
 
     fn stop(&mut self) {
-        if let Ok(mut process) = self.process.lock() {
-            process.stop();
+        if let Ok(transport) = self.transport.lock() {
+            transport.stop();
         }
     }
 }
 
-/// Complete the exact thread and turn requested by the caller after an interrupt.
-pub(crate) fn claude_interrupted_turn_notification(params: &Value) -> Result<String> {
-    let thread_id = params
-        .get("threadId")
-        .and_then(Value::as_str)
-        .context("missing interrupt threadId")?;
-    let turn_id = params
-        .get("turnId")
-        .and_then(Value::as_str)
-        .context("missing interrupt turnId")?;
-    Ok(json!({
-        "method": "turn/completed",
-        "params": {"threadId": thread_id, "turn": {"id": turn_id, "status": "interrupted"}}
-    })
-    .to_string())
-}
-
 impl Drop for ClaudeClient {
     fn drop(&mut self) {
-        BackendClient::stop(self);
+        self.stop();
     }
+}
+
+#[cfg(test)]
+pub(crate) fn claude_interrupted_turn_notification(params: &Value) -> Result<String> {
+    let thread_id = params["threadId"]
+        .as_str()
+        .context("missing interrupt threadId")?;
+    let turn_id = params["turnId"]
+        .as_str()
+        .context("missing interrupt turnId")?;
+    Ok(
+        json!({ "method": "turn/completed", "params": { "threadId": thread_id,
+        "turn": { "id": turn_id, "status": "interrupted" } } })
+        .to_string(),
+    )
 }

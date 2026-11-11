@@ -238,20 +238,9 @@ pub(super) fn append_wrapped_markdown_lines(
     }
 
     let mut logical_lines = if matches!(role, Role::Reasoning) {
-        let mut lines = Vec::new();
-        for raw_line in text.split('\n') {
-            if raw_line.is_empty() {
-                continue;
-            }
-            lines.extend(markdown_line_segments(raw_line));
-        }
-        if lines.is_empty() {
-            markdown_line_segments(text)
-        } else {
-            lines
-        }
+        reasoning_markdown_lines(text, width)
     } else {
-        markdown_line_segments(text)
+        markdown_line_segments(text, width)
     };
     if role == Role::Reasoning {
         for segment in logical_lines.iter_mut().flatten() {
@@ -263,6 +252,25 @@ pub(super) fn append_wrapped_markdown_lines(
         }
     }
     append_styled_logical_lines_inner(out, role, logical_lines, width);
+}
+
+fn reasoning_markdown_lines(text: &str, width: usize) -> Vec<Vec<StyledSegment>> {
+    if let Some(source) = super::markdown_tables::table_source(text, width) {
+        super::transcript_styles::markdown_document_segments(&source, width)
+    } else {
+        let mut lines = Vec::new();
+        for raw_line in text.split('\n') {
+            if raw_line.is_empty() {
+                continue;
+            }
+            lines.extend(markdown_line_segments(raw_line, width));
+        }
+        if lines.is_empty() {
+            markdown_line_segments(text, width)
+        } else {
+            lines
+        }
+    }
 }
 
 pub(super) fn append_wrapped_styled_logical_lines(

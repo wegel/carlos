@@ -170,7 +170,7 @@ fn translate_claude_text_turn_emits_codex_style_notifications() {
     assert!(methods.contains(&"item/started".to_string()));
     assert!(methods.contains(&"item/agentMessage/delta".to_string()));
     assert!(methods.contains(&"item/completed".to_string()));
-    assert!(methods.contains(&"thread/tokenUsage/updated".to_string()));
+    assert!(!methods.contains(&"thread/tokenUsage/updated".to_string()));
     assert!(methods.contains(&"turn/completed".to_string()));
 }
 

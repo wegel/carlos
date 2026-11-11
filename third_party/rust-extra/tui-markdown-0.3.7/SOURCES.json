@@ -1,0 +1,12 @@
+[
+  {
+    "file": "LICENSE-MIT",
+    "source": "https://raw.githubusercontent.com/lightsofapollo/tui-markdown/819cbca7675178947357a88e9e4a007bfb085ccf/LICENSE-MIT",
+    "sha256": "520a93f9b172b4c8d2a7ab6f0da1f5f987eba7270ab64a02972095cd87df7fc4"
+  },
+  {
+    "file": "LICENSE-APACHE",
+    "source": "https://raw.githubusercontent.com/lightsofapollo/tui-markdown/819cbca7675178947357a88e9e4a007bfb085ccf/LICENSE-APACHE",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  }
+]

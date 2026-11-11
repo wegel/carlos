@@ -32,10 +32,22 @@ pub(super) fn handle_mouse_event(
     m: crossterm::event::MouseEvent,
     size: TerminalSize,
 ) -> TerminalEventResult {
+    if app.claude.tasks.show {
+        return TerminalEventResult::Continue { needs_draw: false };
+    }
     if let Some(perf) = app.perf.as_mut() {
         perf.mouse_events = perf.mouse_events.saturating_add(1);
     }
     if app.viewport.show_help || app.runtime.show_model_settings {
+        return TerminalEventResult::Continue { needs_draw: false };
+    }
+    if app
+        .approval
+        .pending
+        .as_ref()
+        .and_then(|pending| pending.request_id.as_str())
+        .is_some_and(|id| app.claude.answers.drafts.contains_key(id))
+    {
         return TerminalEventResult::Continue { needs_draw: false };
     }
     ensure_transcript_layout(app, size);
@@ -205,7 +217,14 @@ fn handle_mouse_up_left(app: &mut AppState, hit: &MouseHitContext) -> bool {
 
 // --- Paste event handling ---
 
-pub(super) fn handle_paste_event(app: &mut AppState, pasted: String) -> TerminalEventResult {
+pub(super) fn handle_paste_event(
+    app: &mut AppState,
+    pasted: String,
+    size: TerminalSize,
+) -> TerminalEventResult {
+    if app.claude.tasks.show {
+        return TerminalEventResult::Continue { needs_draw: false };
+    }
     if let Some(perf) = app.perf.as_mut() {
         perf.paste_events = perf.paste_events.saturating_add(1);
     }
@@ -222,6 +241,9 @@ pub(super) fn handle_paste_event(app: &mut AppState, pasted: String) -> Terminal
                 app.runtime.model_settings_model_input.push_str(first_line);
             }
         }
+        return TerminalEventResult::Continue { needs_draw: true };
+    }
+    if super::claude_question_input::paste(app, &normalize_pasted_text(&pasted), size) {
         return TerminalEventResult::Continue { needs_draw: true };
     }
     if let Some((_, y)) = parse_repeated_plain_mobile_pair(&pasted) {

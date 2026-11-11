@@ -15,9 +15,14 @@ from test_theme import Theme
 from test_phone_layout import PhoneLayout
 from test_summaries import Summaries
 from test_weekly_usage import WeeklyUsage
+from test_claude_sdk import ClaudeSdk
+from test_claude_questions import ClaudeQuestions
+from test_claude_sessions import ClaudeSessions
+from test_claude_activity import ClaudeActivity
+from test_markdown_tables import MarkdownTables
 
 
-class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, WeeklyUsage, unittest.TestCase):
+class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, WeeklyUsage, ClaudeSdk, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, unittest.TestCase):
     def summary_root(self):
         root = ARTIFACTS / self._testMethodName
         root.mkdir(parents=True, exist_ok=True)
@@ -181,8 +186,7 @@ class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, Pho
         terminal.contains("Answer: hold this turn")
 
         terminal.send(b"\x1b")
-        terminal.wait(lambda: any(message.get("signal") == "SIGINT"
-                                 for message in terminal.messages()), "interrupt Claude process")
+        terminal.wait(lambda: bool(self.native_controls(terminal, "interrupt")), "native SDK interrupt")
         terminal.contains("Turn interrupted")
         terminal.rewind("hold this turn")
         terminal.send(b"\x1b")
@@ -191,8 +195,9 @@ class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, Pho
         terminal.send(b"\r")
         terminal.contains("Answer: after interrupt")
 
-        interrupts = [message for message in terminal.messages() if message.get("signal") == "SIGINT"]
+        interrupts = self.native_controls(terminal, "interrupt")
         self.assertEqual(len(interrupts), 1)
+        self.assertEqual(len([frame for frame in terminal.messages() if frame.get("event") == "launch"]), 1)
 
     def test_new_thread_streams_and_resumes(self):
         terminal = self.launch(resume=None, width=72)

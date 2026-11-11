@@ -4,11 +4,11 @@ use anyhow::{Context, Result};
 use serde_json::{json, Map, Value};
 
 use super::snapshot::synthesize_assistant_snapshot;
-use super::token_usage::{synthetic_token_usage_line, synthetic_token_usage_line_from_model_usage};
+use super::thinking::{start_thinking_block, thinking_completed, thinking_delta};
 use super::types::{
     begin_claude_message, claude_message_item_id, claude_tool_item_id, ensure_claude_turn_started,
-    normalize_claude_model_name, parse_partial_json_object, should_hide_claude_tool_transcript,
-    ClaudeBlockState, ClaudeToolCall, ClaudeTranslationState, TranslateOutput,
+    parse_partial_json_object, should_hide_claude_tool_transcript, ClaudeBlockState,
+    ClaudeToolCall, ClaudeTranslationState, TranslateOutput,
 };
 use super::user_record::translate_user_record;
 
@@ -55,13 +55,7 @@ fn translate_system_init(
         .get("session_id")
         .and_then(Value::as_str)
         .context("missing Claude session_id")?;
-    let model = root
-        .get("model")
-        .and_then(Value::as_str)
-        .map(str::to_string);
     state.session_id = Some(session_id.to_string());
-    state.raw_model = model.clone();
-    state.model = model.as_deref().map(normalize_claude_model_name);
     out.lines.push(
         json!({
             "method": "thread/initialized",
@@ -100,17 +94,6 @@ fn translate_stream_event(
         Some("content_block_stop") => {
             translate_content_block_stop(state, event, out)?;
         }
-        Some("message_delta") => {
-            if let Some(usage) = event.get("usage").and_then(Value::as_object) {
-                if let Some(line) = synthetic_token_usage_line(
-                    usage,
-                    state.raw_model.as_deref(),
-                    state.model.as_deref(),
-                ) {
-                    out.lines.push(line);
-                }
-            }
-        }
         Some("message_stop") => {}
         _ => {}
     }
@@ -130,22 +113,35 @@ fn translate_content_block_start(
         .get("content_block")
         .and_then(Value::as_object)
         .context("missing Claude content_block")?;
+    if let Some(kind) = block.get("type").and_then(Value::as_str) {
+        state.streamed_blocks.insert(index, kind.to_string());
+    }
     match block.get("type").and_then(Value::as_str) {
-        Some("text") => start_text_block(state, index, out),
+        Some("thinking") => start_thinking_block(state, index, block, out),
+        Some("text") => start_text_block(state, index, block, out),
         Some("tool_use") => start_tool_use_block(state, index, block),
         _ => {}
     }
     Ok(())
 }
 
-fn start_text_block(state: &mut ClaudeTranslationState, index: usize, out: &mut TranslateOutput) {
+fn start_text_block(
+    state: &mut ClaudeTranslationState,
+    index: usize,
+    block: &Map<String, Value>,
+    out: &mut TranslateOutput,
+) {
     state.current_message_has_content_blocks = true;
     let item_id = claude_message_item_id(state, index);
     state.current_blocks.insert(
         index,
         ClaudeBlockState::Text {
             item_id: item_id.clone(),
-            text: String::new(),
+            text: block
+                .get("text")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
         },
     );
     out.lines.push(
@@ -160,6 +156,16 @@ fn start_text_block(state: &mut ClaudeTranslationState, index: usize, out: &mut 
         })
         .to_string(),
     );
+    if let Some(text) = block
+        .get("text")
+        .and_then(Value::as_str)
+        .filter(|text| !text.is_empty())
+    {
+        out.lines.push(
+            json!({"method":"item/agentMessage/delta","params":{"itemId":item_id,"delta":text}})
+                .to_string(),
+        );
+    }
 }
 
 fn start_tool_use_block(
@@ -202,6 +208,9 @@ fn translate_content_block_delta(
         .and_then(Value::as_object)
         .context("missing Claude delta")?;
     match state.current_blocks.get_mut(&index) {
+        Some(ClaudeBlockState::Thinking { item_id, text }) => {
+            thinking_delta(item_id, text, delta, out)
+        }
         Some(ClaudeBlockState::Text { item_id, text }) => {
             if delta.get("type").and_then(Value::as_str) == Some("text_delta") {
                 let fragment = delta.get("text").and_then(Value::as_str).unwrap_or("");
@@ -218,14 +227,14 @@ fn translate_content_block_delta(
                 );
             }
         }
-        Some(ClaudeBlockState::ToolUse { input_json, .. }) => {
-            if delta.get("type").and_then(Value::as_str) == Some("input_json_delta") {
-                if let Some(fragment) = delta.get("partial_json").and_then(Value::as_str) {
-                    input_json.push_str(fragment);
-                }
+        Some(ClaudeBlockState::ToolUse { input_json, .. })
+            if delta.get("type").and_then(Value::as_str) == Some("input_json_delta") =>
+        {
+            if let Some(fragment) = delta.get("partial_json").and_then(Value::as_str) {
+                input_json.push_str(fragment);
             }
         }
-        None => {}
+        Some(ClaudeBlockState::ToolUse { .. }) | None => {}
     }
     Ok(())
 }
@@ -243,6 +252,7 @@ fn translate_content_block_stop(
         return Ok(());
     };
     match block {
+        ClaudeBlockState::Thinking { item_id, text } => thinking_completed(item_id, text, out),
         ClaudeBlockState::Text { item_id, text } => emit_text_block_completed(item_id, text, out),
         ClaudeBlockState::ToolUse {
             item_id,
@@ -319,16 +329,6 @@ fn translate_assistant_record(
     {
         state.session_id = Some(session_id.to_string());
     }
-    if let Some(model) = root
-        .get("message")
-        .and_then(Value::as_object)
-        .and_then(|message| message.get("model"))
-        .and_then(Value::as_str)
-        .map(str::to_string)
-    {
-        state.raw_model = Some(model.clone());
-        state.model = Some(normalize_claude_model_name(&model));
-    }
     synthesize_assistant_snapshot(state, root, out);
 }
 
@@ -337,21 +337,12 @@ fn translate_result_record(
     root: &Map<String, Value>,
     out: &mut TranslateOutput,
 ) {
-    if let Some(model_usage) = root.get("modelUsage").and_then(Value::as_object) {
-        if let Some(line) = synthetic_token_usage_line_from_model_usage(model_usage) {
-            out.lines.push(line);
-        }
-    } else if let Some(usage) = root.get("usage").and_then(Value::as_object) {
-        if let Some(line) =
-            synthetic_token_usage_line(usage, state.raw_model.as_deref(), state.model.as_deref())
-        {
-            out.lines.push(line);
-        }
-    }
     if let Some(turn_id) = state.current_turn_id.take() {
         let status = if state.interrupt_requested
-            || root.get("terminal_reason").and_then(Value::as_str) == Some("interrupted")
-        {
+            || matches!(
+                root.get("terminal_reason").and_then(Value::as_str),
+                Some("aborted_streaming" | "aborted_tools")
+            ) {
             state.interrupt_requested = false;
             "interrupted"
         } else {

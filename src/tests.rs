@@ -1,8 +1,11 @@
 //! Top-level test module aggregator: re-exports the per-subsystem test trees.
 
+#[path = "tests/markdown_table_tests.rs"]
+mod markdown_table_tests;
+
 pub(super) use super::backend_setup::{
     claude_runtime_defaults, codex_runtime_defaults, complete_codex_model_catalog,
-    load_claude_thread_summaries, resolve_backend_runtime_settings,
+    resolve_backend_runtime_settings,
 };
 pub(super) use super::cli::{
     load_runtime_defaults_from, parse_cli_args, persist_runtime_defaults_to,

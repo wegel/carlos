@@ -48,10 +48,7 @@ pub(in crate::app) fn draw_perf_overlay(buf: &mut Buffer, size: TerminalSize, pe
     let bottom = start_y + box_h - 1;
     draw_box_border(
         buf,
-        left,
-        top,
-        right,
-        bottom,
+        (left, top, right, bottom),
         Style::default().fg(COLOR_STEP7),
         ("┌", "┐", "└", "┘"),
         "─",

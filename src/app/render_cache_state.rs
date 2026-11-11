@@ -243,10 +243,8 @@ impl RenderCacheState {
             self.ensure_rendered_range_materialized(messages, 0, self.rendered_total_lines - 1);
         }
         let mut out = Vec::with_capacity(self.rendered_total_lines);
-        for block in &self.rendered_message_blocks {
-            if let Some(block) = block {
-                out.extend(block.iter().cloned());
-            }
+        for block in self.rendered_message_blocks.iter().flatten() {
+            out.extend(block.iter().cloned());
         }
         out
     }

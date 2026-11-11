@@ -220,6 +220,10 @@ class Server:
         self.reply(request, {"thread": thread})
 
     def start_turn(self, request, params):
+        if self.mode == "markdown-table":
+            from markdown_table_fixture import start_turn
+            start_turn(self, request, params)
+            return
         if self.mode == "theme-active":
             start_theme_step(self, request, params)
             return

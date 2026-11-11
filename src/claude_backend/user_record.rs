@@ -2,10 +2,7 @@
 
 use serde_json::{Map, Value};
 
-use super::exit_plan::{
-    claude_exit_plan_approval_from_tool_call, claude_exit_plan_request_line,
-    synthetic_tool_result_line,
-};
+use super::tool_results::{fallback_tool_result_item, synthetic_tool_result_line};
 use super::types::{should_hide_claude_tool_transcript, ClaudeTranslationState, TranslateOutput};
 
 // --- User Records ---
@@ -32,23 +29,25 @@ pub(super) fn translate_user_record(
             .and_then(Value::as_str)
             .unwrap_or("");
         let Some(tool_call) = state.tool_calls.remove(tool_use_id) else {
+            if let Some(item) = fallback_tool_result_item(tool_use_id, part) {
+                out.lines.push(
+                    serde_json::json!({"method":"item/completed","params":{"item":item}})
+                        .to_string(),
+                );
+            }
             continue;
         };
         let hide_transcript = should_hide_claude_tool_transcript(&tool_call.name, &tool_call.input);
-        let pending_approval =
-            claude_exit_plan_approval_from_tool_call(&tool_call, tool_use_id, part);
         if !hide_transcript {
             if let Some(line) = synthetic_tool_result_line(
                 &tool_call,
                 tool_use_id,
                 part,
-                root.get("tool_use_result"),
+                root.get("tool_use_result")
+                    .or_else(|| root.get("toolUseResult")),
             ) {
                 out.lines.push(line);
             }
-        }
-        if let Some(approval) = pending_approval {
-            out.lines.push(claude_exit_plan_request_line(&approval));
         }
     }
 }

@@ -100,8 +100,10 @@ fn sparse_notifications_keep_the_week_and_ignore_other_buckets() {
 
 #[test]
 fn read_selects_the_shared_bucket_and_keeps_newer_notifications() {
-    let mut limits = RateLimits::default();
-    limits.pending = Some(("read-1".to_string(), Instant::now() + REQUEST_TIMEOUT));
+    let mut limits = RateLimits {
+        pending: Some(("read-1".to_string(), Instant::now() + REQUEST_TIMEOUT)),
+        ..RateLimits::default()
+    };
     limits.update(&json!({"limitId":"codex","primary":{"usedPercent":70}}));
     assert!(!limits.response(&json!({"id":"stale-read","result":{}})));
     assert!(limits.response(&json!({"id":"read-1","result":{

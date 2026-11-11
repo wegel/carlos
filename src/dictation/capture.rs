@@ -213,13 +213,15 @@ fn build_input_stream(
     }
 }
 
+type PushSamples<T> = fn(&mut CaptureState, &[T]) -> Result<Option<Arc<Vec<f32>>>>;
+
 fn build_typed_input_stream<T>(
     device: cpal::Device,
     config: &cpal::StreamConfig,
     state: Arc<Mutex<CaptureState>>,
     stopped: Arc<AtomicBool>,
     tx: mpsc::Sender<DictationEvent>,
-    push: fn(&mut CaptureState, &[T]) -> Result<Option<Arc<Vec<f32>>>>,
+    push: PushSamples<T>,
 ) -> Result<Stream>
 where
     T: cpal::SizedSample + Send + 'static,
@@ -248,7 +250,7 @@ fn handle_input_data<T>(
     state: &Arc<Mutex<CaptureState>>,
     stopped: &Arc<AtomicBool>,
     tx: &mpsc::Sender<DictationEvent>,
-    push: fn(&mut CaptureState, &[T]) -> Result<Option<Arc<Vec<f32>>>>,
+    push: PushSamples<T>,
 ) {
     if stopped.load(Ordering::SeqCst) {
         return;
