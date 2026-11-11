@@ -16,7 +16,6 @@ mod backend_setup;
 mod claude_activity;
 mod claude_browser;
 mod claude_callbacks;
-mod claude_children;
 mod claude_control_replies;
 mod claude_models;
 mod claude_notices;
@@ -195,6 +194,9 @@ mod tests;
 #[cfg(test)]
 #[path = "../tests/claude_native_state_tests.rs"]
 mod claude_native_state_tests;
+#[cfg(test)]
+#[path = "../tests/claude_visibility_tests.rs"]
+mod claude_visibility_tests;
 
 #[cfg(test)]
 #[path = "../tests/claude_quota_tests.rs"]

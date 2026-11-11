@@ -5,6 +5,7 @@ mod conversation;
 mod conversation_tests;
 mod event_queue;
 mod helper;
+mod message_visibility;
 mod sessions;
 mod snapshot;
 #[cfg(test)]
@@ -31,6 +32,7 @@ use uuid::Uuid;
 use crate::backend::{BackendClient, BackendKind, PromptOrigin, PromptPriority};
 
 pub(crate) use self::conversation::process_message as is_process_message;
+pub(crate) use self::message_visibility::{is_child_message, is_child_report_notice};
 pub(crate) use self::sessions::list_claude_sessions;
 #[cfg(test)]
 pub(crate) use self::test_support::{

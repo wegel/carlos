@@ -166,8 +166,7 @@ fn unowned_native_task_wakeup_never_consumes_the_next_human_or_runs_ralph_comple
 }
 
 #[test]
-fn late_child_text_is_tool_output_and_thinking_estimates_never_become_visible_hidden_text_or_usage()
-{
+fn late_child_text_stays_hidden_and_thinking_estimates_never_become_text_or_usage() {
     let mut app = AppState::new("session".to_string());
     sdk(
         &mut app,
@@ -182,16 +181,7 @@ fn late_child_text_is_tool_output_and_thinking_estimates_never_become_visible_hi
         json!({"type":"assistant","agent_id":"child","parent_tool_use_id":"caller","uuid":"child-text","message":{"id":"child-message","role":"assistant","content":[{"type":"text","text":"Late child 日本語"}]}}),
         0,
     );
-    assert!(app
-        .messages
-        .iter()
-        .any(|message| message.role == Role::ToolOutput
-            && message.text.contains("Late child 日本語")
-            && message.text.contains("child")));
-    assert!(!app
-        .messages
-        .iter()
-        .any(|message| message.role == Role::Assistant));
+    assert!(app.messages.is_empty());
     assert!(app.active_turn_id.is_none());
 }
 
@@ -311,8 +301,7 @@ fn reset_keeps_every_active_queued_callback_draft_and_confirmation_until_its_exa
 }
 
 #[test]
-fn sequential_completed_children_retire_their_stream_cursors_without_closing_or_losing_transcript()
-{
+fn many_hidden_children_keep_the_session_healthy_and_task_state_available() {
     let mut app = AppState::new("session".to_string());
     for index in 0..180 {
         let child = format!("child-{index}");
@@ -328,23 +317,12 @@ fn sequential_completed_children_retire_their_stream_cursors_without_closing_or_
         );
     }
     assert!(app.claude.phase == ClaudePhase::Ready);
-    for index in [0, 179] {
-        assert!(app
-            .messages
-            .iter()
-            .any(|message| message.text.contains(&format!("Child output {index}"))));
-    }
-    assert_eq!(
-        app.messages
-            .iter()
-            .filter(|message| message.text.contains("Child output"))
-            .count(),
-        180
-    );
+    assert!(app.messages.is_empty());
+    assert!(app.claude.tasks.data("child-179").is_some());
 }
 
 #[test]
-fn older_child_messages_without_agent_ids_retire_via_the_saved_task_caller() {
+fn older_child_messages_without_agent_ids_stay_hidden_without_cursor_allocations() {
     let mut app = AppState::new("session".to_string());
     for index in 0..140 {
         let child = format!("child-{index}");
@@ -366,11 +344,6 @@ fn older_child_messages_without_agent_ids_retire_via_the_saved_task_caller() {
         );
     }
     assert!(app.claude.phase == ClaudePhase::Ready);
-    assert_eq!(
-        app.messages
-            .iter()
-            .filter(|message| message.text.contains("Legacy child output"))
-            .count(),
-        140
-    );
+    assert!(app.messages.is_empty());
+    assert!(app.claude.tasks.data("child-139").is_some());
 }

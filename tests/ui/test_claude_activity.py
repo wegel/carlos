@@ -1,7 +1,4 @@
 """Assert visible native task/state controls and the actual helper/CLI wire together."""
-import time
-import os
-
 F2 = b"\x1bOQ"
 F3 = b"\x1bOR"
 
@@ -38,7 +35,12 @@ class ClaudeActivity:
         terminal.contains("Child permission after parent result")
         self.fence_native(terminal, 1)
         terminal.send(b"n")
-        terminal.contains("Late child output 日本語")
+        terminal.contains("Parent finished")
+        self.assertNotIn("PRIVATE_CHILD", terminal.text)
+        terminal.contains("MAIN_TOOL_OUTPUT")
+        terminal.contains("echo MAIN_TOOL_COMMAND")
+        self.assertNotIn("Independent child", terminal.text)
+        self.assertTrue(any(frame.get("agent_id") == "child" for frame in terminal.messages("server")))
         terminal.paste("composer draft")
         terminal.send(F2)
         terminal.contains("Tasks 1/1")
@@ -52,7 +54,9 @@ class ClaudeActivity:
         terminal.wait(lambda: terminal.input_is("composer draft"), "composer preserved")
         terminal.replace_input("finish task")
         terminal.send(b"\r")
-        terminal.contains("Native child stopped")
+        terminal.contains("Task is done")
+        self.assertNotIn("Native child stopped", terminal.text)
+        self.assertNotIn("Child got its answer", terminal.text)
         terminal.send(F2)
         terminal.contains("0 active")
         terminal.contains("stopped")
@@ -247,26 +251,21 @@ class ClaudeActivity:
         self.assertEqual([frame["request"]["task_id"] for frame in self.native_controls(terminal,"stop_task")],["beta"])
         terminal.snapshot("stop-selection-pinned")
 
-    def test_claude_native_child_cap_stops_process_and_automatic_work_but_keeps_composer(self):
+    def test_claude_many_hidden_children_keep_process_and_composer_usable(self):
         terminal = self.launch(backend="claude",resume=None,width=120)
         self.claude_ready(terminal)
-        prompt = terminal.root/".agents/ralph-prompt.md"
-        prompt.parent.mkdir(exist_ok=True)
-        prompt.write_text("native child overflow")
+        self.submit_native(terminal,"native hidden children")
+        terminal.contains("Parent before hidden children")
+        terminal.wait(lambda: len([frame for frame in self.helper_messages(terminal,"server")
+                      if frame.get("message",{}).get("agent_id","").startswith("active-child-")]) == 180,
+                      "all raw child frames preserved")
         terminal.paste("recoverable human draft 日本語")
-        terminal.send(b"\x12")
-        terminal.contains("More than 128 child streams are active")
-        terminal.wait(lambda: any(frame.get("event") == "closed" for frame in self.helper_messages(terminal,"server")),"helper actually closed")
-        launches = [frame for frame in terminal.messages() if frame.get("event") == "launch"]
-        pid = launches[0]["pid"]
-        def gone():
-            try: os.kill(pid,0)
-            except ProcessLookupError: return True
-            return False
-        terminal.wait(gone,"native process reaped",timeout=6)
-        deadline = time.monotonic()+.8
-        while time.monotonic()<deadline: terminal.pump(.05)
-        self.assertEqual(len(self.helper_requests(terminal,"prompt")),1)
-        self.assertEqual(len(self.helper_requests(terminal,"shutdown")),1)
-        self.assertTrue(terminal.input_is("recoverable human draft 日本語"))
-        terminal.snapshot("child-cap-native-stopped-draft-kept")
+        terminal.wait(lambda: terminal.input_is("recoverable human draft 日本語"),"composer still usable")
+        self.assertNotIn("PRIVATE_CHILD",terminal.text)
+        self.assertFalse(any(frame.get("event") == "closed" for frame in self.helper_messages(terminal,"server")))
+        terminal.replace_input("after hidden children")
+        terminal.send(b"\r")
+        terminal.contains("Answer: after hidden children")
+        self.assertEqual(len(self.helper_requests(terminal,"prompt")),2)
+        self.assertEqual(len(self.helper_requests(terminal,"shutdown")),0)
+        terminal.snapshot("hidden-children-healthy")

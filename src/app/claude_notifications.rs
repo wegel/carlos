@@ -203,7 +203,10 @@ fn handle_controller(
     if epoch < app.claude.epoch && !process {
         return None;
     }
-    if frame["event"] == "sdk" && frame["message"]["type"] == "conversation_reset" {
+    if frame["event"] == "sdk"
+        && frame["message"]["type"] == "conversation_reset"
+        && !crate::claude_backend::is_child_message(&frame["message"])
+    {
         app.claude.epoch = epoch;
     }
     handle_frame(

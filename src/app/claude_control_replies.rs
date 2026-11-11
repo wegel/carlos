@@ -37,7 +37,6 @@ pub(super) fn receive(
                 app.claude
                     .tasks
                     .stop_reply(id, context["runId"].as_str(), None);
-                super::claude_task_view::update_row(app, id);
             }
         }
         Some("usage.optional") => {
@@ -71,7 +70,6 @@ fn failed(
                         .to_string(),
                 ),
             );
-            super::claude_task_view::update_row(app, id);
         }
         return None;
     }

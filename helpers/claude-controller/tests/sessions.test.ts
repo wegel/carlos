@@ -186,3 +186,22 @@ test("concurrent completed reads retain no more than two stable snapshots", asyn
   expect(accepted.filter(reply => reply.ok)).toHaveLength(2);
   expect(accepted.filter(reply => !reply.ok)[0]!.error.code).toBe("stale_snapshot");
 });
+
+
+test("SDK history projection keeps explicit raw child ownership instead of projected null parents", async () => {
+  const { cli, id, path, records } = await fixture(4);
+  const tags = [{ agent_id: "agent-only" }, { parent_tool_use_id: "caller-only" },
+    { parent_agent_id: "nested-only" }, { parent_tool_use_id: null, parent_agent_id: null }];
+  tags.forEach((tag, index) => { Object.assign(records[index * 2]!, tag); Object.assign(records[index * 2 + 1]!, tag); });
+  await writeFile(path, records.map(record => JSON.stringify(record)).join("\n") + "\n");
+  const read = await cli.send("sessions.read", params(cli, id));
+  expect(read.ok).toBe(true);
+  expect(read.result.messages).toHaveLength(8);
+  tags.forEach((tag, index) => {
+    expect(read.result.messages[index * 2].message).toMatchObject(tag);
+    expect(read.result.messages[index * 2 + 1].message).toMatchObject(tag);
+  });
+  expect(read.result.messages[6].message.agent_id).toBeUndefined();
+  const original = await readFile(path, "utf8");
+  expect(original).toContain("nested-only");
+});

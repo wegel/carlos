@@ -8,7 +8,7 @@ use serde_json::json;
 use super::claude_question_state::safe_label;
 use super::claude_task_stops::StopState;
 use super::input_events::TerminalEventResult;
-use super::models::{Role, TerminalSize};
+use super::models::TerminalSize;
 use super::render::{draw_str, fill_rect};
 use super::state::AppState;
 use crate::backend::{BackendClient, BackendKind};
@@ -83,24 +83,6 @@ pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
         );
     }
     draw_footer(buf, app, size);
-}
-
-/// Replace one transcript row per task ID, retaining actual native usage and summary text.
-pub(super) fn update_row(app: &mut AppState, id: &str) {
-    let Some(data) = app.claude.tasks.data(id) else {
-        return;
-    };
-    if data["ambient"] == true || data["skip_transcript"] == true {
-        return;
-    }
-    let text = detail(app, Some(id)).join("\n");
-    app.upsert_mapped_message(
-        &format!("claude-task:{}:{id}", app.claude.generation),
-        Role::ToolOutput,
-        text,
-        super::models::MessageKind::Plain,
-        None,
-    );
 }
 
 fn detail(app: &AppState, id: Option<&str>) -> Vec<String> {

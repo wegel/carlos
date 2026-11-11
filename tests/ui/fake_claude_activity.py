@@ -96,12 +96,12 @@ class Activity:
             self.queued.append(message)
             self.emit("command_lifecycle", command_uuid=prompt, state="queued")
             return True
-        if text not in ("native tasks", "native compact", "native thinking", "native quotas", "finish task", "task levels", "failed task", "native notice", "native phone tasks", "reset questions", "native changing tasks", "native child overflow"):
+        if text not in ("native tasks", "native compact", "native thinking", "native quotas", "finish task", "task levels", "failed task", "native notice", "native phone tasks", "reset questions", "native changing tasks", "native hidden children"):
             return False
         self.h.sessions.prompt(message)
         self.h.state("running")
         self.h.active = prompt
-        task_prompts = {"native child overflow", "reset questions", "native changing tasks", "native phone tasks",
+        task_prompts = {"native hidden children", "reset questions", "native changing tasks", "native phone tasks",
             "native tasks", "failed task", "finish task", "task levels"}
         if text in task_prompts:
             self.task_prompt(text,prompt)
@@ -110,10 +110,10 @@ class Activity:
         return True
 
     def task_prompt(self,text,prompt):
-        if text == "native child overflow":
-            self.done(prompt,"Parent before child cap")
-            for index in range(129):
-                self.h.send({"type":"assistant","session_id":self.h.SESSION,"agent_id":f"active-child-{index}","parent_tool_use_id":f"caller-{index}","uuid":str(uuid.uuid4()),"message":{"id":f"child-{index}","role":"assistant","content":[{"type":"text","text":f"Active child {index}"}]}})
+        if text == "native hidden children":
+            self.done(prompt,"Parent before hidden children")
+            for index in range(180):
+                self.h.send({"type":"assistant","session_id":self.h.SESSION,"agent_id":f"active-child-{index}","parent_tool_use_id":f"caller-{index}","uuid":str(uuid.uuid4()),"message":{"id":f"child-{index}","role":"assistant","content":[{"type":"text","text":f"PRIVATE_CHILD {index}"}]}})
         elif text == "reset questions":
             self.level([self.task("reset-trigger", description="Reset while children wait")])
             self.done(prompt, "Parent before callback reset")
@@ -137,8 +137,19 @@ class Activity:
         elif text == "native tasks":
             task = self.task()
             self.level([task])
+            self.tool_records({}, "main-call", "echo MAIN_TOOL_COMMAND", "MAIN_TOOL_OUTPUT")
             self.done(prompt, "Parent finished")
-            self.h.send({"type": "assistant", "session_id": self.h.SESSION, "uuid": str(uuid.uuid4()), "agent_id": "child", "parent_tool_use_id": "child-caller", "message": {"id": "child-api", "role": "assistant", "content": [{"type": "text", "text": "Late child output 日本語"}]}})
+            for tags in [{"agent_id":"child"}, {"parent_tool_use_id":"child-caller"}, {"parent_agent_id":"nested-parent"}]:
+                self.tool_records(tags, str(uuid.uuid4()), "echo PRIVATE_CHILD_COMMAND", "PRIVATE_CHILD_RESULT")
+                for event in [{"type":"message_start","message":{"id":str(uuid.uuid4()),"role":"assistant","content":[]}},
+                              {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}},
+                              {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"PRIVATE_CHILD_STREAM"}},
+                              {"type":"content_block_stop","index":0}]:
+                    self.h.send({"type":"stream_event","session_id":self.h.SESSION,"uuid":str(uuid.uuid4()),"event":event,**tags})
+                self.h.send({"type":"assistant","session_id":self.h.SESSION,"uuid":str(uuid.uuid4()),**tags,
+                             "message":{"id":str(uuid.uuid4()),"role":"assistant","content":[
+                                 {"type":"thinking","thinking":"PRIVATE_CHILD_THOUGHT"},
+                                 {"type":"text","text":"PRIVATE_CHILD Late 日本語"}]}})
             self.h.send({"type": "control_request", "request_id": "late-child-question", "request": {"subtype": "can_use_tool", "tool_name": "Bash", "tool_use_id": "child-question-tool", "agent_id": "child", "title": "Child permission after parent result", "input": {"command": "echo child"}}})
         elif text == "failed task":
             self.level([self.task("fail-child", description="Stop failure fixture")])
@@ -204,3 +215,10 @@ class Activity:
         self.h.sessions = type(self.h.sessions)(["--session-id", self.h.SESSION], self.h.Path.cwd())
         self.emit("init",model=self.h.model)
         self.h.send({"type":"control_cancel_request","request_id":"reset-two"})
+
+    def tool_records(self, tags, identifier, command, output):
+        self.h.send({"type":"assistant","session_id":self.h.SESSION,"uuid":str(uuid.uuid4()),**tags,
+                     "message":{"id":str(uuid.uuid4()),"role":"assistant","content":[
+                         {"type":"tool_use","id":identifier,"name":"Bash","input":{"command":command}}]}})
+        self.h.send({"type":"user","session_id":self.h.SESSION,"uuid":str(uuid.uuid4()),**tags,
+                     "message":{"role":"user","content":[{"type":"tool_result","tool_use_id":identifier,"content":output}]}})

@@ -223,6 +223,10 @@ browser consent use their real request IDs. Each pending child keeps its own
 answer draft. Replies return through native callbacks without another human
 prompt. Unsupported forms can still be declined or cancelled.
 
+Child text, thinking, tool calls, and tool results stay out of the main conversation,
+including resumed history. F2 shows task details; child questions still ask for your
+answer. The main assistant's own tools and reports remain visible.
+
 - F2 opens native tasks and quota windows. Arrows select a task, x requests stop,
   and F2/Esc closes the panel. A stop acknowledgement says requested until Claude
   reports the task's outcome. Page Up/Down reveals details on small screens.

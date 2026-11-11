@@ -5,6 +5,8 @@ use std::collections::VecDeque;
 use anyhow::{bail, Result};
 use serde_json::Value;
 
+use super::message_visibility::is_child_message;
+
 /// Grants one observed reset permission to adopt the next native init identity.
 #[derive(Default)]
 pub(super) struct ConversationGuard {
@@ -23,6 +25,9 @@ impl ConversationGuard {
             return Ok(vec![(frame, self.epoch)]);
         }
         let message = &frame["message"];
+        if is_child_message(message) {
+            return Ok(vec![(frame, self.epoch)]);
+        }
         if message["type"] == "conversation_reset" {
             return self.reset(frame);
         }
@@ -115,8 +120,7 @@ impl ConversationGuard {
 
 /// Native tasks and child callbacks belong to the process even when its transcript resets.
 pub(crate) fn process_message(message: &Value) -> bool {
-    message["agent_id"].is_string()
-        || !message["parent_tool_use_id"].is_null()
+    is_child_message(message)
         || matches!(
             message["subtype"].as_str(),
             Some(

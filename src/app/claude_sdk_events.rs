@@ -2,7 +2,7 @@
 
 use serde_json::Value;
 
-use crate::claude_backend::translate_claude_line;
+use crate::claude_backend::{is_child_message, is_child_report_notice, translate_claude_line};
 
 use super::claude_models::observe_model;
 use super::claude_state::prompt_ids;
@@ -12,10 +12,6 @@ use super::state::AppState;
 
 /// Process raw SDK state, child events, and main conversation items without synthetic turns.
 pub(super) fn receive(app: &mut AppState, message: &Value) -> Option<ServerRequestAction> {
-    if message["type"] == "conversation_reset" {
-        super::claude_reset::receive(app, message);
-        return None;
-    }
     if message["type"] == "rate_limit_event" {
         app.claude.quota.event(&message["rate_limit_info"]);
         return None;
@@ -27,10 +23,11 @@ pub(super) fn receive(app: &mut AppState, message: &Value) -> Option<ServerReque
     if task_message(message) {
         return task(app, message);
     }
-    if !message["parent_tool_use_id"].is_null() || message["agent_id"].is_string() {
-        if let Err(error) = super::claude_children::receive(app, message) {
-            return bounded_failure(app, error);
-        }
+    if is_child_message(message) || is_child_report_notice(message) {
+        return None;
+    }
+    if message["type"] == "conversation_reset" {
+        super::claude_reset::receive(app, message);
         return None;
     }
     match (message["type"].as_str(), message["subtype"].as_str()) {
@@ -153,33 +150,8 @@ fn task_message(message: &Value) -> bool {
 }
 
 fn task(app: &mut AppState, message: &Value) -> Option<ServerRequestAction> {
-    match app.claude.tasks.update(message) {
-        Ok(Some(id)) => {
-            if app
-                .claude
-                .tasks
-                .records
-                .get(&id)
-                .is_some_and(|record| record.status.terminal())
-            {
-                let caller = app
-                    .claude
-                    .tasks
-                    .data(&id)
-                    .and_then(|data| data["tool_use_id"].as_str())
-                    .map(str::to_string);
-                app.claude.children.finish(&id, caller.as_deref());
-            }
-            super::claude_task_view::update_row(app, &id);
-        }
-        Ok(None) => {}
-        Err(error) => return bounded_failure(app, error),
-    }
-    // The native level set alone controls activity. Task edges never create a main turn.
-    if message["subtype"] == "background_tasks_changed" {
-        for id in app.claude.tasks.ids() {
-            super::claude_task_view::update_row(app, &id);
-        }
+    if let Err(error) = app.claude.tasks.update(message) {
+        return bounded_failure(app, error);
     }
     None
 }

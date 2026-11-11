@@ -3,7 +3,7 @@
 import json
 import time
 
-from claude_session_fixtures import session_file, write_session
+from claude_session_fixtures import session_file, write_private_children, write_session
 
 
 class ClaudeSessions:
@@ -280,3 +280,21 @@ class ClaudeSessions:
         for _ in range(3): terminal.pump(.05)
         self.assertTrue(terminal.input_is(""))
         terminal.snapshot("startup-queued-drafts-recovered")
+
+    def test_claude_resumed_child_workstreams_stay_private_and_main_report_tools_remain(self):
+        root = self.summary_root()
+        session = write_private_children(root)
+        terminal = self.launch(backend="claude",resume=session,directory=root,width=140)
+        self.claude_ready(terminal)
+        terminal.contains("MAIN_HISTORY_REPORT")
+        terminal.contains("MAIN_HISTORY_COMMAND")
+        terminal.contains("MAIN_HISTORY_OUTPUT")
+        terminal.contains("Visible cross-session peer")
+        terminal.contains("Human <task-notification> literal")
+        self.assertNotIn("PRIVATE_HISTORY",terminal.text)
+        pages = [frame for frame in self.helper_messages(terminal,"server") if frame.get("result",{}).get("messages")]
+        self.assertTrue(any(row["message"].get("agent_id") == "child" for page in pages for row in page["result"]["messages"]))
+        terminal.rewind("Human <task-notification> literal")
+        terminal.send(b"\x1b[A")
+        terminal.wait(lambda: terminal.input_is("saved main human"),"hidden child records excluded from human rewind")
+        terminal.snapshot("resumed-private-child-workstream")

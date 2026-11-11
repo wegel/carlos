@@ -120,7 +120,9 @@ fn append_record(app: &mut AppState, record: &Value) -> Result<()> {
         bail!("Claude history belongs to a different session");
     }
     app.claude.history.records.push(message.clone());
-    if !message["parent_tool_use_id"].is_null() || !message["parent_agent_id"].is_null() {
+    if crate::claude_backend::is_child_message(message)
+        || crate::claude_backend::is_child_report_notice(message)
+    {
         return Ok(());
     }
     if message["type"] == "user" {

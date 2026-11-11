@@ -85,3 +85,34 @@ fn reset_trigger_is_informational_and_missing_or_future_values_still_open_the_gu
         assert_eq!(guard.expected.as_deref(), Some(NEW));
     }
 }
+
+#[test]
+fn child_init_and_reset_frames_never_change_main_identity_or_open_reset_permits() {
+    let mut guard = ConversationGuard::default();
+    guard.route(init(OLD)).expect("main init");
+    for tags in [
+        json!({"agent_id":"child"}),
+        json!({"parent_agent_id":"parent"}),
+        json!({"isSidechain":true}),
+    ] {
+        for mut message in [
+            json!({"type":"system","subtype":"init","session_id":NEW}),
+            json!({"type":"conversation_reset","session_id":OLD,"uuid":"child-reset","new_conversation_id":"child-key"}),
+        ] {
+            message
+                .as_object_mut()
+                .expect("message")
+                .extend(tags.as_object().expect("tags").clone());
+            assert_eq!(
+                guard
+                    .route(event(message))
+                    .expect("preserve native child frame")
+                    .len(),
+                1
+            );
+            assert_eq!(guard.expected.as_deref(), Some(OLD));
+            assert_eq!(guard.epoch, 0);
+        }
+    }
+    assert!(guard.route(init(NEW)).is_err());
+}

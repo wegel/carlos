@@ -195,8 +195,9 @@ shows stop requested until a native event reports the outcome. It pins the
 selected task above queued prompts and quota rows on a phone. Closing it restores
 the composer or question caret and draft. Ambient watchers do not animate the
 main status, and a replaced native background set cannot leave phantom work.
-Child output remains labeled with its actual agent/caller and does not become a
-main human prompt or an extra Ralph completion.
+Child text, thinking, tools, and results stay out of the main conversation,
+including loaded history. F2 retains native task details and stop controls. Child
+questions remain answerable, and the main assistant can still report its findings.
 
 F3 changes Enter between steering now and queuing behind current work. The status
 bar shows the choice. Both choices keep real human origin; Ralph remains

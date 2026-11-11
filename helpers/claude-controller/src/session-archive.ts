@@ -33,9 +33,13 @@ export class SessionArchive {
       if (seen.has(String(message.uuid))) continue;
       seen.add(String(message.uuid));
       if (seen.size > 100000) throw new ProtocolError("history_too_large", "Native history exceeds 100000 visible entries");
+      const raw = this.entry(String(message.uuid))?.entry;
       this.database.query("UPDATE entries SET data=? WHERE subpath='' AND uuid=?")
-        .run(JSON.stringify({ ...this.entry(String(message.uuid))?.entry, ...message,
-          origin: this.entry(String(message.uuid))?.entry.origin ?? message.origin }), String(message.uuid));
+        .run(JSON.stringify({ ...raw, ...message, origin: raw?.origin ?? message.origin,
+          agent_id: raw?.agent_id ?? message.agent_id,
+          parent_tool_use_id: raw?.parent_tool_use_id ?? message.parent_tool_use_id,
+          parent_agent_id: raw?.parent_agent_id ?? message.parent_agent_id,
+          isSidechain: raw?.isSidechain ?? message.isSidechain }), String(message.uuid));
       this.database.query("INSERT INTO branch VALUES (?, ?)").run(seen.size, String(message.uuid));
     }
   }
