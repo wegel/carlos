@@ -67,6 +67,9 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 - Observation: milestone 1 side-by-side medians over 7 alternated runs, old then new: replay 50.39 / 49.30 ms, full layout 15.92 / 15.12, full draw 3.47 / 3.81, scroll p50 0.71 / 0.71, typing p50 0.60 / 0.60. Full draw varies between 3.4 and 4.5 ms for both binaries; no regression.
   Evidence: integrator runs of 2026-11-11 with load average 9 to 13.
 
+- Observation: a synchronous test fixture that applies each native frame at once (`normalized_app`) cannot show defects that depend on which thread has seen which event. 729 Rust tests and 165 terminal workflows passed on a branch with three reproducible MAJOR ordering defects.
+  Evidence: milestone 3 reviews. When code moves a decision across a thread boundary, require a differential test against the old logic over generated event orders, and real-thread tests with barriers.
+
 ## Decision Log
 
 
@@ -114,6 +117,12 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 
 - Milestone 1, engineering reviewer (`.agents/reviewers/engineering_reviewer.md`, Codex `gpt-6.1-sol`, fresh session, 2026-11-11): verdict PASS. No BLOCKER, MAJOR or MINOR finding. Confirmed: no terminal dependency or row count in session models; `app/models.rs` re-exports plain types only; compact and full labels, diff styles, row counts and selection rows preserved; no per-frame message clone; no test weakened. The reviewer ran `cargo fmt --check` and `git diff --check`; it relied on the integrator for tests and speed.
 
+- Milestone 3, engineering reviewer, three fresh sessions on branch `exec016-m3` (2026-11-11): FAIL, FAIL, FAIL.
+  Review 1 (commit `a3865a3`): rejected interrupt can mark a good turn interrupted; stderr can complete a turn inside a stdout batch; UUID source keys differ between live and history; two MINOR (final sender waits forever after receiver drop; queue send under a lock at EOF).
+  Review 2 (after fix `ab1d050`): four of five fixed; rejected interrupt still wrong for result-before-rejection; a stderr failure that fills the queue no longer stops the helper.
+  Review 3 (after fix `f9e6a40`): a reset or a second prompt erases or blocks a held completion; stderr bypasses the overflow stop while a completion is held; the interrupt captures the reader's prompt state, not the app's; failed interrupts after EOF retain tickets. The reviewer also showed that the exhaustive tests modelled one prompt and one interrupt only.
+  Outcome: redesign per the Decision Log entry on the Claude turn-end state machine. Full review texts: `/tmp/carlos-survey/m3-review*.md` (not kept in the repository).
+
 ## Outcomes & Retrospective
 
 
@@ -133,6 +142,10 @@ Run commands from `/var/home/wegel/work/perso/carlos`. `Cargo.toml` defines one 
 `src/app/item_history.rs::replace_history_from_thread` constructs a temporary `AppState`, fills it, then calls `state_thread.rs::replace_transcript_from`. Codex reconnect calls this through `codex_reconnect_install.rs::install_history_runtime`. `turn_submit.rs::apply_forked_thread_history` clears the old conversation before loading a new one. Grok instead clones a prefix in `snapshot_grok_rewind_prefix` and pushes it back in `apply_grok_rewound_history`. Claude reads history in `claude_session_history.rs`, changes sessions in `switch_session`, and clears a conversation in `claude_reset.rs`. All these paths must follow the same id rules.
 
 The phone notes in `tmp/main-screen.md` sections 6 and 11 explain why a client needs entry identity, Markdown source, reasoning/tool completion, tool labels and failures, approval facts, context counts, and quota facts. They do not authorize implementing those future screens here. In 016, the session keeps existing facts and exposes them without colors or widgets. The view still wraps text, chooses one-row reasoning, colors output, folds tools, and draws approvals. Preserve current strings, output bytes, order, and choices, including current backend limitations.
+
+- Decision: the Claude reader thread only translates. The turn-end state machine lives in `src/claude_backend/` but runs on the thread that handles events, at the moment the app handles a line, through one new `BackendClient` method. The interrupt control reads and updates the same state on that thread. This replaces the earlier decision in this log to run the completion tracker in the backend's reader-side normalizer.
+  Rationale: on `main`, one thread decides when a Claude turn ends, in the order in which the app handles events. Running that decision in the reader thread created two clocks (read by the reader, handled by the app). Three independent reviews of milestone 3 found 3, 2 and 3 MAJOR event-order defects, and each fix (interrupt tickets, held completions, deferred terminal facts) produced new ones; the third review showed that an interrupt used the reader's state and not the state the user sees. With one clock those defects cannot occur. The daemon keeps the property: its session thread is the handler. Translation and parsing stay off the handling thread.
+  Date/Author: 2026-11-11 / Claude, integrator. The owner delegated this choice.
 
 ### Entry identity and history rules
 
