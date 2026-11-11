@@ -18,3 +18,6 @@ __pycache__/
 .claude/
 .codex/
 
+
+# Machine-specific build settings and keys (never commit)
+/etc/

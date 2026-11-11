@@ -163,7 +163,7 @@ Types:
 | 4 | 019 | Session manager, `carlosd`, Unix socket; the TUI becomes a client; turns survive a TUI quit. |
 | 5 | 020 | WebSocket listener, tokens, JSON Schema output, `perf-session` replay through the socket. |
 | 6 | 021 | Paged history, Grok approvals, tool summaries as data. |
-| 7 | 022 | iPhone app. |
+| 7 | 022 | iPhone app. It compiles on the remote Mac; see `docs/ios-build.md`. |
 
 Only the next ExecPlan is written in full. Each later plan is written when the
 plan before it ends, because its details depend on what that plan finds.
