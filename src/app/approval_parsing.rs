@@ -38,12 +38,22 @@ fn approval_command_execution(
     if let Some(extra) = params.get("additionalPermissions") {
         summarize_permission_profile(extra, &mut detail_lines);
     }
-    let (can_accept_for_session, can_decline, can_cancel) = approval_decisions(params);
+    let (mut can_accept_for_session, can_decline, can_cancel) = approval_decisions(params);
+    let human = params.get("kind").and_then(Value::as_str) == Some("humanCommand");
+    if human {
+        can_accept_for_session = false;
+        detail_lines.insert(0, "One-time human approval".into());
+    }
     Some(PendingApprovalRequest {
         request_id,
         method: method.to_string(),
         kind: ApprovalRequestKind::CommandExecution,
-        title: "Approve command execution".to_string(),
+        title: if human {
+            "Codex needs your approval"
+        } else {
+            "Approve command execution"
+        }
+        .to_string(),
         detail_lines,
         requested_permissions: None,
         can_accept_for_session,
@@ -109,8 +119,16 @@ fn approval_legacy_exec(
     params: &serde_json::Map<String, Value>,
     request_id: Value,
 ) -> Option<PendingApprovalRequest> {
-    let command = trimmed_str_param(params, "command").unwrap_or("command");
-    let mut detail_lines = vec![command.to_string()];
+    let command = trimmed_str_param(params, "command")
+        .map(str::to_string)
+        .or_else(|| {
+            params
+                .get("command")
+                .filter(|command| command.is_array())
+                .map(Value::to_string)
+        })
+        .unwrap_or_else(|| "command".into());
+    let mut detail_lines = vec![command];
     push_reason_and_cwd(params, &mut detail_lines);
     Some(PendingApprovalRequest {
         request_id,
@@ -131,6 +149,9 @@ fn approval_legacy_patch(
     request_id: Value,
 ) -> Option<PendingApprovalRequest> {
     let mut detail_lines = Vec::new();
+    if let Some(changes) = params.get("fileChanges") {
+        detail_lines.push(serde_json::to_string_pretty(changes).unwrap_or_default());
+    }
     if let Some(reason) = trimmed_str_param(params, "reason") {
         detail_lines.push(reason.to_string());
     }

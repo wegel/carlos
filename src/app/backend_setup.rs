@@ -14,7 +14,8 @@ use std::time::Duration;
 use anyhow::Result;
 
 use super::cli::{
-    env_flag_enabled, resolve_initial_runtime_settings, styled_resume_hint, Backend, CliOptions,
+    env_flag_enabled, resolve_initial_runtime_settings, styled_resume_hint_with_socket, Backend,
+    CliOptions,
 };
 #[cfg(feature = "dictation")]
 use super::dictation_state::DictationProfileState;
@@ -55,7 +56,10 @@ pub(super) fn fetch_model_catalog(client: &dyn BackendClient) -> Result<Vec<Mode
         }
         cursor = next_cursor;
     }
-    Ok(complete_codex_model_catalog(out))
+    if out.is_empty() {
+        return Ok(complete_codex_model_catalog(out));
+    }
+    Ok(out)
 }
 
 // --- App Helpers ---
@@ -250,7 +254,14 @@ pub(super) fn finish_run(
     server_events_rx: Receiver<String>,
 ) -> Result<()> {
     let out = run_conversation_tui(client, app, server_events_rx);
-    eprintln!("{}", styled_resume_hint(backend, &app.thread_id));
+    eprintln!(
+        "{}",
+        styled_resume_hint_with_socket(
+            backend,
+            &app.thread_id,
+            app.codex.connection.socket.as_deref()
+        )
+    );
     if let Some(report) = app.perf_report() {
         eprintln!("{report}");
     }

@@ -32,7 +32,7 @@ pub(super) fn draw(
     draft: &NativeDraft,
 ) {
     fill_fullscreen_overlay(buf, size);
-    let Some(layout) = question_layout(size, draft) else {
+    let Some(layout) = question_layout(size, draft, pending) else {
         draw_small(buf, size, pending);
         return;
     };
@@ -41,7 +41,7 @@ pub(super) fn draw(
     draw_rounded_border(buf, ob);
     let title = format!(
         "[{} waiting] {}",
-        app.claude.questions.len() + 1,
+        crate::app::native_questions::count(app),
         pending.title
     );
     draw_str(
@@ -86,14 +86,22 @@ pub(super) fn draw(
 }
 
 /// Put the terminal caret in the native answer editor, including after a resize.
-pub(super) fn cursor(size: TerminalSize, draft: &NativeDraft) -> Option<(usize, usize)> {
-    let layout = question_layout(size, draft)?;
+pub(super) fn cursor(
+    size: TerminalSize,
+    draft: &NativeDraft,
+    pending: &PendingApprovalRequest,
+) -> Option<(usize, usize)> {
+    let layout = question_layout(size, draft, pending)?;
     layout
         .editor
         .map(|(_, column)| (layout.bounds.left + 2 + column, layout.editor_y))
 }
 
-fn question_layout(size: TerminalSize, draft: &NativeDraft) -> Option<QuestionLayout> {
+fn question_layout(
+    size: TerminalSize,
+    draft: &NativeDraft,
+    pending: &PendingApprovalRequest,
+) -> Option<QuestionLayout> {
     if !crate::app::claude_question_state::can_edit_question(size) {
         return None;
     }
@@ -109,7 +117,7 @@ fn question_layout(size: TerminalSize, draft: &NativeDraft) -> Option<QuestionLa
         size.height - 2
     };
     let bounds = compute_overlay_box(size, width, height);
-    let footer = footer_lines(draft, width - 4, height < 18 || width < 40);
+    let footer = footer_lines(draft, pending, width - 4, height < 18 || width < 40);
     let editor = editor_line(draft, width - 4);
     let editor_y = bounds.bottom - footer.len() - 1;
     let body_height = height.saturating_sub(footer.len() + 4 + usize::from(editor.is_some()));
@@ -174,14 +182,31 @@ fn draw_body(
 }
 
 fn draw_small(buf: &mut Buffer, size: TerminalSize, pending: &PendingApprovalRequest) {
-    let rows = [
-        "Claude question",
+    let question = pending.kind == crate::app::state::ApprovalRequestKind::CodexQuestion;
+    let mut rows = vec![
+        if pending.method == "claude/native" {
+            "Claude question"
+        } else {
+            "Codex question"
+        },
         &pending.title,
         "Resize to edit",
-        "Alt+N decline",
-        "Alt+C cancel",
-        "F10 interrupt",
     ];
+    if pending.can_decline {
+        rows.push(if question {
+            "Alt+N skip"
+        } else {
+            "Alt+N decline"
+        });
+    }
+    if pending.can_cancel {
+        rows.push(if question {
+            "Alt+C interrupt"
+        } else {
+            "Alt+C cancel"
+        });
+    }
+    rows.push("F10 interrupt");
     for (row, text) in rows.into_iter().take(size.height).enumerate() {
         draw_str(
             buf,

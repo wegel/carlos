@@ -43,7 +43,10 @@ export class Sessions {
     if (method === "sessions.read") {
       const archive = await this.archive(dir, sessionId, params.snapshotId);
       const messages = archive.entries(offset, limit);
-      return { ...page(messages.map(message => ({ message, source: this.sources.source(message) })),
+      return { ...page(messages.map(message => {
+        const source = this.sources.source(message);
+        return { message, source, inputKind: source === "human" ? this.sources.inputKind(String(message.uuid)) : undefined };
+      }),
         offset, limit, "messages", integer(params.chunkOffset ?? 0, "chunkOffset", 0, 16 * 1024 * 1024)), snapshotId: archive.id };
     }
     if (method === "sessions.forkBefore") return forkBefore(this.api, this.sources, this.signal, dir, sessionId,

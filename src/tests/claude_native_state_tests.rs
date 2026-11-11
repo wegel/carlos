@@ -28,7 +28,7 @@ fn sdk(app: &mut AppState, message: Value, epoch: u64) {
 fn submitted(app: &mut AppState, id: &str, text: &str) {
     let index = app.append_message(Role::User, text);
     app.record_input_history(text, Some(index));
-    super::claude_prompts::attach_echo(app, id);
+    super::claude_prompts::attach_echo(app, id, None);
     let _ = handle_server_message_line(app,&json!({"method":"claude/promptSubmitted","params":{"uuid":id,"text":text,"origin":"human","priority":"later"}}).to_string());
 }
 fn init(app: &mut AppState, id: &str, prompts: Value, epoch: u64) {

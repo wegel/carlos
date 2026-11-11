@@ -1,7 +1,7 @@
 /** Exercises official SDK session readers and mutations against isolated native-format fixtures. */
 import { afterEach, expect, test } from "bun:test";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { Peer, type Frame } from "./peer";
 
@@ -61,6 +61,45 @@ test("official fork excludes selected prompt, remaps UUIDs, and keeps source byt
   const empty = await cli.send("sessions.forkBefore", params(cli, id, { beforeMessageId: records[0]!.uuid }));
   expect(empty.result).toMatchObject({ fresh: true });
   expect(empty.result.sessionId).not.toBe(id);
+});
+
+test("SDK-hidden hook suffix validates exactly after plain or compacted history without changing normal projection", async () => {
+  for (const compact of [false, true]) {
+    const { cli, id, path, records } = await fixture(2);
+    const prefix = records.slice(0, 2);
+    if (compact) {
+      const boundary = { ...records[1], type: "system", subtype: "compact_boundary", uuid: crypto.randomUUID(),
+        parentUuid: null, logicalParentUuid: records[1]!.uuid, message: undefined };
+      const summary = { ...records[0], uuid: crypto.randomUUID(), parentUuid: boundary.uuid,
+        origin: undefined, isCompactSummary: true, isVisibleInTranscriptOnly: true };
+      prefix.push(boundary, summary, { ...records[1], uuid: crypto.randomUUID(), parentUuid: summary.uuid });
+    }
+    const attachment = { ...records[1], type: "attachment", uuid: crypto.randomUUID(), parentUuid: prefix.at(-1)!.uuid,
+      message: undefined, attachment: { type: "deferred_tools_record", source_uuid: prefix.at(-1)!.uuid } };
+    const hook = { ...records[1], type: "system", subtype: "stop_hook_summary", uuid: crypto.randomUUID(), parentUuid: attachment.uuid,
+      message: undefined, hookCount: 1, hookInfos: [{ command: "true", status: "completed" }], preventedContinuation: false };
+    const secondHook = { ...hook, uuid: crypto.randomUUID(), parentUuid: hook.uuid, hookCount: 2 };
+    records[2]!.parentUuid = secondHook.uuid;
+    await writeFile(path, [...prefix, attachment, hook, secondHook, ...records.slice(2)].map(record => JSON.stringify(record)).join("\n") + "\n");
+    const original = await readFile(path, "utf8");
+    const wrongProject = join(cli.directory, "claude", "projects", "-different-project");
+    await mkdir(wrongProject);
+    await writeFile(join(wrongProject, id + ".jsonl"), records.slice(0, 2).map(record => JSON.stringify(record)).join("\n") + "\n");
+    const read = await cli.send("sessions.read", params(cli, id));
+    expect(read.result.messages.filter((row: Frame) => row.message.subtype === "stop_hook_summary")).toHaveLength(2);
+    const fork = await cli.send("sessions.forkBefore", params(cli, id, { beforeMessageId: records[2]!.uuid }));
+    expect(fork.ok, JSON.stringify(fork)).toBe(true);
+    const copied = (await cli.send("sessions.read", params(cli, fork.result.sessionId))).result.messages;
+    expect(copied).toHaveLength(prefix.length);
+    expect(copied.some((row: Frame) => row.message.subtype === "stop_hook_summary")).toBe(false);
+    const file = (await readFile(join(dirname(path), fork.result.sessionId + ".jsonl"), "utf8"))
+      .trim().split("\n").map(line => JSON.parse(line)) as Frame[];
+    const hooks = file.filter(row => row.subtype === "stop_hook_summary");
+    expect(hooks.map(row => row.forkedFrom.messageUuid)).toEqual([hook.uuid, secondHook.uuid]);
+    expect(hooks.map(row => row.hookCount)).toEqual([1, 2]);
+    expect(hooks.every(row => row.preventedContinuation === false)).toBe(true);
+    expect(await readFile(path, "utf8")).toBe(original);
+  }
 });
 
 test("read-only archive keeps the selected branch before compaction and excludes abandoned prompts", async () => {
@@ -204,4 +243,45 @@ test("SDK history projection keeps explicit raw child ownership instead of proje
   expect(read.result.messages[6].message.agent_id).toBeUndefined();
   const original = await readFile(path, "utf8");
   expect(original).toContain("nested-only");
+});
+
+test("explicit input kinds survive resume and validated fork remaps without guessing from priority or identical text", async () => {
+  const { cli, id, path, records } = await fixture(5);
+  await cli.start();
+  const inputs = [
+    { priority: "later", inputKind: "prompt" },
+    { priority: "now", inputKind: "steer" },
+    { priority: "later", inputKind: "prompt" },
+    { priority: "now" },
+  ];
+  for (let index = 0; index < inputs.length; index++) {
+    expect((await cli.prompt("identical é🦊", { uuid: records[index * 2]!.uuid, ...inputs[index] })).ok).toBe(true);
+    delete records[index * 2]!.origin;
+  }
+  const rejected = await cli.prompt("identical é🦊", { uuid: records[8]!.uuid, priority: "later", inputKind: "steer" });
+  expect(rejected).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+  for (const record of records.filter(record => record.type === "user")) record.message.content = "identical é🦊";
+  await writeFile(path, records.map(record => JSON.stringify(record)).join("\n") + "\n");
+  const original = await readFile(path, "utf8");
+  await cli.wait(frame => frame.event === "sdk" && frame.message.type === "user" && frame.message.uuid === records[6]!.uuid);
+  const nativeInputs = (await cli.cliFrames()).filter(frame => frame.type === "user");
+  expect(nativeInputs).toHaveLength(4);
+  expect(nativeInputs.every(frame => !("inputKind" in frame))).toBe(true);
+  await cli.send("shutdown");
+  await cli.exited;
+  const restarted = new Peer(cli.directory, process.env.CARLOS_CONTROLLER_TEST_EXECUTABLE);
+  peers.push(restarted);
+  const read = (await restarted.send("sessions.read", params(restarted, id))).result.messages;
+  expect(read.filter((row: Frame) => row.message.type === "user").map((row: Frame) => row.inputKind))
+    .toEqual(["prompt", "steer", "prompt", undefined, undefined]);
+  expect(read.filter((row: Frame) => row.message.type === "user").every((row: Frame) => row.source === "human")).toBe(true);
+  const fork = await restarted.send("sessions.forkBefore", params(restarted, id, { beforeMessageId: records[8]!.uuid }));
+  expect(fork.ok).toBe(true);
+  const copied = (await restarted.send("sessions.read", params(restarted, fork.result.sessionId))).result.messages;
+  expect(copied).toHaveLength(8);
+  expect(copied[2].message.uuid).not.toBe(records[2]!.uuid);
+  expect(copied.filter((row: Frame) => row.message.type === "user").map((row: Frame) => row.inputKind))
+    .toEqual(["prompt", "steer", "prompt", undefined]);
+  expect(copied.every((row: Frame) => !("inputKind" in row.message))).toBe(true);
+  expect(await readFile(path, "utf8")).toBe(original);
 });

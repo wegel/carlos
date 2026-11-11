@@ -70,7 +70,8 @@ fn sleep_and_legacy_agent_calls_merge_completed_items() {
     item(&mut app, "item/completed", &call);
     item(&mut app, "item/started", &call);
     assert_eq!(app.messages.len(), 2);
-    assert!(app.messages[1].text.contains("Cleanup finished"));
+    assert!(!app.messages[1].text.contains("Cleanup finished"));
+    assert!(app.messages[1].text.contains("child: completed"));
     assert_eq!(app.messages[1].role, Role::ToolCall);
 }
 

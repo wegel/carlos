@@ -15,8 +15,10 @@ class SessionNames:
         self.assertEqual(len(terminal.requests("turn/start")), 1)
 
     def assert_placeholder(self, terminal, name):
-        terminal.wait(lambda: terminal.placeholder_is(name) and terminal.screen.cursor.x == terminal.content_x,
-                      "session name placeholder: " + name)
+        terminal.wait(lambda: terminal.placeholder_is(name) and terminal.screen.cursor.x == terminal.content_x
+                      and not any(label in terminal.screen.display[-2] for label in
+                          ("Codex connecting", "Codex reconnecting", "Codex offline")),
+                      "ready session name placeholder: " + name)
         self.assertTrue(terminal.screen.display[-1].endswith(name + " "), "name must meet the right margin")
         self.assertEqual(terminal.screen.cursor.x, terminal.content_x, "the empty composer cursor stays at the left")
         self.assertEqual(terminal.screen.buffer[terminal.screen.lines - 1][terminal.screen.columns - 2].fg, "6c7086")
@@ -88,6 +90,7 @@ class SessionNames:
         self.assert_placeholder(terminal, "Cleanup monitor")
         terminal.paste("Monitor cleanup")
         terminal.send(b"\r")
+        terminal.wait(lambda:len(terminal.requests("turn/start")) == 1,"native live turn started")
         terminal.contains("Monitor cleanup")
         self.assert_placeholder(terminal, "Cleanup monitor")
         terminal.paste("/rename Live monitor")

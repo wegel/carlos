@@ -94,20 +94,31 @@ fn draw_session_placeholder(
 // --- Overlays ---
 
 pub(super) fn draw_overlays(buf: &mut Buffer, size: TerminalSize, app: &AppState) {
+    if app.codex.queue.show {
+        crate::app::codex_queue_view::draw(buf, app, size);
+    }
+    if app.codex.goals.show {
+        crate::app::codex_goal_view::draw(buf, app, size);
+    }
     if app.viewport.show_help {
-        draw_help_overlay(buf, size);
+        draw_help_overlay(buf, size, app);
     }
     if let Some(perf) = app.perf.as_ref().filter(|perf| perf.show_overlay) {
         draw_perf_overlay(buf, size, perf);
     }
-    if app.approval.pending.is_some() {
+    if crate::app::native_questions::modal(app) {
         draw_approval_overlay(buf, size, app);
     }
     if app.runtime.show_model_settings {
         draw_model_settings_overlay(buf, size, app);
-        if app.claude.answers.drafts.is_empty() && app.approval.pending.is_some() {
+        if crate::app::native_questions::draft(app).is_none()
+            && crate::app::native_questions::modal(app)
+        {
             draw_approval_overlay(buf, size, app);
         }
+    }
+    if app.codex.panel.show {
+        crate::app::codex_panel_view::draw(buf, app, size);
     }
     if app.claude.tasks.show {
         crate::app::claude_task_view::draw(buf, app, size);
@@ -121,13 +132,17 @@ pub(super) fn cursor_position(
     size: TerminalSize,
     input_layout: &InputLayout,
 ) -> (usize, usize) {
-    let (cursor_x, cursor_y) = if app.claude.tasks.show {
+    let (cursor_x, cursor_y) = if app.claude.tasks.show || app.codex.panel.show {
         (0, 0)
     } else if app.runtime.show_model_settings {
         model_settings_cursor_position(app, size)
-    } else if app.approval.pending.is_some() {
+    } else if crate::app::native_questions::modal(app) {
         crate::app::overlay_render::claude_question_cursor(app, size)
             .unwrap_or((0, size.height.saturating_sub(1)))
+    } else if app.codex.goals.show {
+        crate::app::codex_goal_view::cursor(app, size)
+    } else if app.codex.queue.show {
+        crate::app::codex_queue_view::cursor(app, size)
     } else {
         (input_layout.cursor_x, input_layout.cursor_y)
     };

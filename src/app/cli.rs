@@ -32,6 +32,7 @@ impl Backend {
 #[derive(Debug, Clone, Default)]
 pub(super) struct CliOptions {
     pub(super) backend: Backend,
+    pub(super) codex_socket: Option<PathBuf>,
     pub(super) mode_resume: bool,
     pub(super) mode_continue: bool,
     pub(super) mode_perf_session: bool,
@@ -67,21 +68,55 @@ pub(super) fn resolve_initial_runtime_settings(
 
 pub(super) fn usage() {
     eprintln!(
-        "Usage:\n  carlos [resume [SESSION_ID] | continue] [options]\n  carlos perf-session <SESSION_JSONL> [--width N] [--height N]\n  carlos perf-session --synthetic [--turns N] [--seed N] [--tool-lines N] [--width N] [--height N]\n\nOptions:\n  --backend <codex|claude|grok>  backend to use (default: codex)\n  --dictation-profile <name>     dictation profile to activate for this session\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  --ralph-waiting-marker <text>  human gate marker (default: @@AWAITING_HUMAN@@)\n  --width <n>                    perf-session viewport width (default: 160)\n  --height <n>                   perf-session viewport height (default: 48)\n  --seed <n>                     perf-session synthetic seed (default: 1)\n  --turns <n>                    perf-session synthetic turns (default: 1000)\n  --tool-lines <n>               perf-session synthetic tool-output lines (default: 24)\n  --synthetic                    use generated perf-session content instead of a jsonl file\n  -h, --help                     show this help\n\nKeys:\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_BACKEND=claude|grok     use Claude Code or Grok instead of codex app-server\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)\n  CARLOS_REASONING_SUMMARY=...   auto | concise | detailed | none (default: concise)"
+        "Usage:\n  carlos [resume [SESSION_ID] | continue] [options]\n  carlos perf-session <SESSION_JSONL> [--width N] [--height N]\n  carlos perf-session --synthetic [--turns N] [--seed N] [--tool-lines N] [--width N] [--height N]\n\nOptions:\n  --backend <codex|claude|grok>  backend to use (default: codex)\n  --codex-socket <path>          attach to an existing local Codex server\n  --dictation-profile <name>     dictation profile to activate for this session\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  --ralph-waiting-marker <text>  human gate marker (default: @@AWAITING_HUMAN@@)\n  --width <n>                    perf-session viewport width (default: 160)\n  --height <n>                   perf-session viewport height (default: 48)\n  --seed <n>                     perf-session synthetic seed (default: 1)\n  --turns <n>                    perf-session synthetic turns (default: 1000)\n  --tool-lines <n>               perf-session synthetic tool-output lines (default: 24)\n  --synthetic                    use generated perf-session content instead of a jsonl file\n  -h, --help                     show this help\n\nKeys:\n  F5                             reconnect a disconnected Codex session\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_BACKEND=claude|grok     use Claude Code or Grok instead of codex app-server\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)\n  CARLOS_REASONING_SUMMARY=...   auto | concise | detailed | none (default: concise)"
     );
 }
 
+#[cfg(test)]
 pub(super) fn resume_hint(backend: Backend, thread_id: &str) -> String {
+    resume_hint_with_socket(backend, thread_id, None)
+}
+
+pub(super) fn resume_hint_with_socket(
+    backend: Backend,
+    thread_id: &str,
+    socket: Option<&Path>,
+) -> String {
+    let socket = socket
+        .map(|path| format!(" --codex-socket {}", shell_quote(&path.to_string_lossy())))
+        .unwrap_or_default();
     format!(
-        "to resume this session use:\ncarlos --backend {} resume {thread_id}",
-        backend.cli_name()
+        "to resume this session use:\ncarlos --backend {}{socket} resume {}",
+        backend.cli_name(),
+        shell_quote(thread_id)
     )
 }
 
+#[cfg(test)]
 pub(super) fn styled_resume_hint(backend: Backend, thread_id: &str) -> String {
-    let plain = resume_hint(backend, thread_id);
-    let command = format!("carlos --backend {} resume {thread_id}", backend.cli_name());
-    plain.replace(&command, &format!("\x1b[94m{command}\x1b[0m"))
+    styled_resume_hint_with_socket(backend, thread_id, None)
+}
+
+pub(super) fn styled_resume_hint_with_socket(
+    backend: Backend,
+    thread_id: &str,
+    socket: Option<&Path>,
+) -> String {
+    let plain = resume_hint_with_socket(backend, thread_id, socket);
+    let (label, command) = plain.split_once('\n').expect("resume command");
+    format!("{label}\n\x1b[94m{command}\x1b[0m")
+}
+
+fn shell_quote(value: &str) -> String {
+    if !value.is_empty()
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"/_-.".contains(&byte))
+    {
+        value.into()
+    } else {
+        format!("'{}'", value.replace('\'', "'\"'\"'"))
+    }
 }
 
 // --- CLI Parsing ---
@@ -101,6 +136,14 @@ pub(super) fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<C
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "-h" | "--help" => opts.show_help = true,
+            "--codex-socket" => {
+                let path = PathBuf::from(take_value(&mut args, &arg)?);
+                opts.codex_socket = Some(if path.is_absolute() {
+                    path
+                } else {
+                    env::current_dir()?.join(path)
+                });
+            }
             "--backend" => opts.backend = parse_backend_name(&take_value(&mut args, &arg)?)?,
             "--dictation-profile" => opts.dictation_profile = Some(take_value(&mut args, &arg)?),
             "--synthetic" => opts.perf_synthetic = true,
@@ -122,6 +165,9 @@ pub(super) fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<C
             }
             _ => bail!("unknown argument: {arg}"),
         }
+    }
+    if opts.codex_socket.is_some() && (opts.backend != Backend::Codex || opts.mode_perf_session) {
+        bail!("--codex-socket requires the Codex conversation backend");
     }
     validate_perf_session_opts(&opts)?;
     Ok(opts)

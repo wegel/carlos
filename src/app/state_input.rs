@@ -78,11 +78,20 @@ impl AppState {
         };
         self.viewport.auto_follow_bottom = true;
         self.claude.history.unknown_selection = None;
+        if !super::claude_edit::waiting(self) {
+            self.claude.history.edit = None;
+        }
         self.set_input_text(&draft);
     }
 
     pub(super) fn clear_rewind_mode_state(&mut self) {
         self.input_history.clear_rewind_mode_state();
+        if matches!(
+            self.claude.history.edit,
+            Some(super::claude_edit::EditState::Failed)
+        ) {
+            self.claude.history.edit = None;
+        }
         self.claude.history.unknown_selection = None;
         self.viewport.auto_follow_bottom = true;
     }
@@ -127,7 +136,9 @@ impl AppState {
     }
 
     pub(super) fn record_input_turn_id(&mut self, item_id: &str, turn_id: &str) {
-        let message_idx = self.item_to_message_index.get(item_id).copied();
+        let previous = self.codex.item_turn.replace(turn_id.to_string());
+        let message_idx = self.item_message_index(item_id);
+        self.codex.item_turn = previous;
         if let Some(index) = message_idx {
             self.input_history.record_turn_id(index, turn_id);
         }
@@ -200,7 +211,7 @@ impl AppState {
     }
 
     pub(super) fn align_rewind_scroll_to_selected_prompt(&mut self, size: TerminalSize) {
-        if !self.rewind_mode() {
+        if !self.rewind_mode() || self.claude.history.edit.is_some() {
             return;
         }
         let Some(msg_idx) = self.rewind_selected_message_idx() else {

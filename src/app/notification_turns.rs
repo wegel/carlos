@@ -16,6 +16,9 @@ pub(super) fn handle_turn_started(app: &mut AppState, params: &serde_json::Map<S
         if !app.record_turn_started(id) {
             return;
         }
+        if app.codex.enabled {
+            super::codex_settings::started(app, id);
+        }
         app.context_usage = None;
         app.set_status("turn started");
     } else {
@@ -41,12 +44,21 @@ pub(super) fn handle_turn_completed(app: &mut AppState, params: &serde_json::Map
     if !app.record_turn_completed(turn_id, turn_status) {
         return;
     }
-    let keep_pending = app
+    if app.codex.enabled {
+        app.codex.queue.invalidate();
+    }
+    let keep_codex = app
         .approval
         .pending
         .as_ref()
-        .map(PendingApprovalRequest::persists_after_turn_completed)
-        .unwrap_or(false);
+        .is_some_and(|pending| app.codex.callbacks.get(&pending.request_id).is_some());
+    let keep_pending = keep_codex
+        || app
+            .approval
+            .pending
+            .as_ref()
+            .map(PendingApprovalRequest::persists_after_turn_completed)
+            .unwrap_or(false);
     if !keep_pending {
         app.clear_pending_approval();
     }

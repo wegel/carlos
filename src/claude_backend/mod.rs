@@ -124,13 +124,21 @@ impl ClaudeClient {
             .filter(|text| !text.trim().is_empty())
             .context("missing prompt text")?;
         let uuid = Uuid::new_v4().to_string();
+        let input_kind = (origin == PromptOrigin::Human).then_some(match priority {
+            PromptPriority::Steer => "steer",
+            PromptPriority::Queue => "prompt",
+        });
         let events = self.current_events()?;
         events.send(
-            json!({ "method": "claude/promptSubmitted", "params": { "uuid": uuid,"text":text,"origin": match origin { PromptOrigin::Human => "human", PromptOrigin::Automatic => "automatic" },"priority":match priority { PromptPriority::Steer => "now", PromptPriority::Queue => "later" } } }).to_string(),
+            json!({ "method": "claude/promptSubmitted", "params": { "uuid": uuid,"text":text,"inputKind":input_kind,"origin": match origin { PromptOrigin::Human => "human", PromptOrigin::Automatic => "automatic" },"priority":match priority { PromptPriority::Steer => "now", PromptPriority::Queue => "later" } } }).to_string(),
         )?;
-        let result = self.helper_call("prompt", json!({ "uuid": uuid, "text": text,
+        let mut prompt = json!({ "uuid": uuid, "text": text,
             "origin": { "kind": match origin { PromptOrigin::Human => "human", PromptOrigin::Automatic => "auto-continuation" } },
-            "priority": match priority { PromptPriority::Steer => "now", PromptPriority::Queue => "later" } }), timeout);
+            "priority": match priority { PromptPriority::Steer => "now", PromptPriority::Queue => "later" } });
+        if let Some(kind) = input_kind {
+            prompt["inputKind"] = json!(kind);
+        }
+        let result = self.helper_call("prompt", prompt, timeout);
         if let Err(error) = result {
             let _ = events.send(
                 json!({ "method": "claude/promptRejected", "params": { "uuid": uuid } })
@@ -138,7 +146,7 @@ impl ClaudeClient {
             );
             return Err(error);
         }
-        Ok(json!({ "result": { "turn": { "id": uuid } } }).to_string())
+        Ok(json!({ "result": { "turn": { "id": uuid }, "inputKind":input_kind } }).to_string())
     }
 }
 

@@ -88,7 +88,11 @@ class Theme:
 
     def test_k2000_keeps_its_pink_ralph_trail(self):
         terminal = self.launch(mode="tool-live-context", resume=None)
-        terminal.wait(lambda: terminal.requests("model/list"), "thread ready")
+        terminal.wait(lambda: terminal.input_is(""), "initial composer")
+        terminal.send(b"\x1bg")
+        terminal.contains("Goal state: Known")
+        terminal.send(b"\x1b")
+        terminal.wait(lambda: "Codex goal · Esc back" not in terminal.text, "known goal panel closed")
         prompt = terminal.root / ".agents/ralph-prompt.md"
         prompt.parent.mkdir()
         prompt.write_text("inspect source")

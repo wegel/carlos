@@ -11,15 +11,23 @@ const MAX_BYTES: usize = 65_536;
 
 pub(super) struct Reader {
     root: PathBuf,
+    cwd: PathBuf,
     audit: PathBuf,
     calls: usize,
     bytes: usize,
 }
 
 impl Reader {
-    pub fn new(root: &Path, audit: &Path) -> Result<Self> {
+    pub fn new(root: &Path, cwd: &Path, audit: &Path) -> Result<Self> {
+        let root = root.canonicalize()?;
+        let cwd = cwd.canonicalize()?;
+        anyhow::ensure!(
+            cwd.starts_with(&root),
+            "Command directory is outside the source workspace"
+        );
         Ok(Self {
-            root: root.canonicalize()?,
+            root,
+            cwd,
             audit: audit.to_owned(),
             calls: 0,
             bytes: 0,
@@ -31,7 +39,7 @@ impl Reader {
         if self.calls > 4 {
             bail!("Four-call source inspection budget exhausted");
         }
-        let path = self.root.join(path).canonicalize()?;
+        let path = self.cwd.join(path).canonicalize()?;
         if !path.starts_with(&self.root) {
             bail!("Path outside command workspace");
         }
@@ -128,8 +136,12 @@ pub(crate) fn maybe_run() -> Result<bool> {
         return Ok(false);
     }
     let root = args.next().context("missing source workspace")?;
-    let audit = args.next().context("missing source audit path")?;
-    let mut reader = Reader::new(Path::new(&root), Path::new(&audit))?;
+    let second = args.next().context("missing source audit path")?;
+    let (cwd, audit) = match args.next() {
+        Some(audit) => (second, audit),
+        None => (root.clone(), second),
+    };
+    let mut reader = Reader::new(Path::new(&root), Path::new(&cwd), Path::new(&audit))?;
     for line in io::stdin().lock().lines() {
         let request: Value = serde_json::from_str(&line?)?;
         if request.get("id").is_none() {

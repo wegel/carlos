@@ -6,11 +6,9 @@ use std::sync::mpsc;
 
 use serde_json::Value;
 
-use super::shell_command::analyze_shell_command;
 use super::state::AppState;
-use super::tool_shell::parse_ssh_remote_command;
-use super::tools::{command_summary_from_shell_cmd, tool_command};
-use crate::summaries::{command_key, eligibility, Key, Request, SummaryEvent, SummaryService};
+use super::summary_request::summary_input;
+use crate::summaries::{Key, Request, SummaryEvent, SummaryService};
 
 struct Binding {
     request: Request,
@@ -25,6 +23,7 @@ pub(super) struct SummaryState {
     bindings: HashMap<String, Binding>,
     pending: VecDeque<String>,
     service: Option<SummaryService>,
+    replaying: bool,
 }
 
 impl Default for SummaryState {
@@ -37,6 +36,7 @@ impl Default for SummaryState {
             bindings: HashMap::new(),
             pending: VecDeque::new(),
             service: None,
+            replaying: false,
         }
     }
 }
@@ -90,15 +90,24 @@ impl SummaryState {
 }
 
 impl AppState {
+    /// Restore historical tool labels from cache without granting model generation to replayed events.
+    pub(super) fn with_historical_tools<T>(&mut self, read: impl FnOnce(&mut Self) -> T) -> T {
+        let previous = self.summaries.replaying;
+        self.summaries.replaying = true;
+        let result = read(self);
+        self.summaries.replaying = previous;
+        result
+    }
+
     /// Only explicit live notification handlers may permit model generation.
     pub(super) fn observe_summary_item(&mut self, item: &Value, live: bool) {
         let Some(id) = item["id"].as_str() else {
             return;
         };
-        let Some(command) = raw_command(item) else {
+        if !super::summary_request::has_command(item) {
             return;
-        };
-        let Some(&idx) = self.item_to_message_index.get(id) else {
+        }
+        let Some(idx) = self.item_message_index(id) else {
             return;
         };
         if self.messages[idx].kind == super::MessageKind::Diff {
@@ -110,44 +119,36 @@ impl AppState {
         ) {
             return;
         }
-        let key = command_key(&command);
+        let id = self.item_key(id);
+        let Some(input) = summary_input(item, &self.summaries.cwd) else {
+            if self.summaries.bindings.remove(&id).is_some() {
+                self.summaries.pending.retain(|pending| pending != &id);
+                self.describe_tool_output(idx, item);
+            }
+            return;
+        };
         if self
             .summaries
             .bindings
-            .get(id)
-            .is_some_and(|b| b.request.key == key)
+            .get(&id)
+            .is_some_and(|b| b.request.key == input.key)
         {
             return;
         }
-        if command_summary_from_shell_cmd(&command, None).is_some_and(|s| !s.starts_with("run ")) {
-            return;
-        }
-        let Some(file_based) = summary_file_based(&command) else {
-            return;
-        };
-        if self.messages[idx].tool_output.is_none() {
+        let replaced = self.summaries.bindings.remove(&id).is_some();
+        self.summaries.pending.retain(|pending| pending != &id);
+        if replaced || self.messages[idx].tool_output.is_none() {
             self.describe_tool_output(idx, item);
         }
-        let cwd = item["cwd"]
-            .as_str()
-            .map(PathBuf::from)
-            .map(|path| {
-                if path.is_absolute() {
-                    path
-                } else {
-                    self.summaries.cwd.join(path)
-                }
-            })
-            .unwrap_or_else(|| self.summaries.cwd.clone());
         let request = Request {
-            key,
-            command,
-            cwd,
-            generate: live && self.summaries.enabled,
+            key: input.key,
+            command: input.command,
+            location: input.location,
+            generate: live && self.summaries.enabled && !self.summaries.replaying,
             entry: format!("{}:{id}", self.thread_id),
-            file_based,
+            file_based: input.file_based,
         };
-        self.bind_summary_request(id, idx, request);
+        self.bind_summary_request(&id, idx, request);
     }
 
     fn bind_summary_request(&mut self, id: &str, idx: usize, request: Request) {
@@ -199,7 +200,10 @@ impl AppState {
             if binding.request.key != key || binding.request.entry != entry {
                 continue;
             }
-            binding.label = Some(format!("run {label}"));
+            binding.label = Some(match &binding.request.location.directory {
+                Some(path) => format!("run {label} (in {path})"),
+                None => format!("run {label}"),
+            });
             if !self.summaries.enabled {
                 continue;
             }
@@ -248,31 +252,4 @@ impl AppState {
         }
         self.summaries.flush();
     }
-}
-
-fn summary_file_based(command: &str) -> Option<bool> {
-    let analyzed = analyze_shell_command(command);
-    if eligibility::eligible(&analyzed.text) {
-        return Some(eligibility::file_based(&analyzed.text));
-    }
-    let remote = parse_ssh_remote_command(command)?;
-    let remote = analyze_shell_command(&remote.remote_command);
-    // Remote source cannot be inspected through the local source reader.
-    (eligibility::eligible(&remote.text) && !eligibility::file_based(&remote.text)).then_some(false)
-}
-
-fn raw_command(item: &Value) -> Option<String> {
-    for path in [
-        ["command"].as_slice(),
-        &["input", "command"],
-        &["args", "command"],
-        &["arguments", "command"],
-    ] {
-        if let Some(value) = path.iter().try_fold(item, |value, key| value.get(key)) {
-            if let Some(text) = value.as_str() {
-                return Some(text.to_owned());
-            }
-        }
-    }
-    tool_command(item)
 }

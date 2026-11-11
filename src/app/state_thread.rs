@@ -40,6 +40,10 @@ impl AppState {
         self.turn_start_message_idx = None;
         self.viewport = ViewportState::new();
         self.context_usage = None;
-        self.clear_pending_approval();
+        if self.codex.enabled {
+            super::codex_callbacks::reset(self);
+        } else {
+            self.clear_pending_approval();
+        }
     }
 }

@@ -1,4 +1,7 @@
-//! Runtime lifecycle for Ralph mode: enable/disable, turn queueing, and continuation logic.
+//! Runtime lifecycle for Ralph mode: enable/disable and turn-marker decisions.
+
+#[path = "ralph_turn_queue.rs"]
+mod ralph_turn_queue;
 
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -219,113 +222,9 @@ impl RalphRuntimeState {
         self.toggle_now().map(Some)
     }
 
-    #[cfg(test)]
+    /// Check a requested toggle before another automatic driver can start.
     pub(super) fn toggle_pending(&self) -> bool {
         self.toggle_pending
-    }
-
-    pub(super) fn enqueue_turn_input(
-        &mut self,
-        text: impl Into<String>,
-        record_input_history: bool,
-    ) {
-        self.enqueue_prompt(text.into(), record_input_history, PromptOrigin::Human);
-    }
-
-    pub(super) fn enqueue_prompt(
-        &mut self,
-        text: String,
-        record_input_history: bool,
-        origin: PromptOrigin,
-    ) {
-        if text.trim().is_empty() {
-            return;
-        }
-        self.queued_turn_inputs.push_back(QueuedTurnInput {
-            text,
-            record_input_history,
-            origin,
-            keeps_ralph_pending: false,
-            available_at: None,
-        });
-    }
-
-    pub(super) fn queue_continuation(&mut self, text: impl Into<String>) {
-        let text = text.into();
-        if text.trim().is_empty() {
-            return;
-        }
-        self.pending_continuation = Some(QueuedTurnInput {
-            text,
-            record_input_history: false,
-            origin: PromptOrigin::Automatic,
-            keeps_ralph_pending: true,
-            available_at: Some(Instant::now() + RALPH_CONTINUATION_DELAY),
-        });
-    }
-
-    pub(super) fn has_pending_continuation(&self) -> bool {
-        self.pending_continuation.is_some()
-            || self
-                .queued_turn_inputs
-                .iter()
-                .any(|turn| turn.keeps_ralph_pending)
-    }
-
-    pub(super) fn pending_continuation_wait(&self, now: Instant) -> Option<Duration> {
-        if !self.queued_turn_inputs.is_empty() {
-            return None;
-        }
-        self.pending_continuation
-            .as_ref()
-            .and_then(|turn| turn.available_at)
-            .map(|deadline| deadline.saturating_duration_since(now))
-            .filter(|wait| !wait.is_zero())
-    }
-
-    #[cfg(test)]
-    pub(super) fn pending_continuation_deadline(&self) -> Option<Instant> {
-        self.pending_continuation
-            .as_ref()
-            .and_then(|turn| turn.available_at)
-    }
-
-    pub(super) fn promote_ready_continuation(&mut self, now: Instant) {
-        let ready = self
-            .pending_continuation
-            .as_ref()
-            .and_then(|turn| turn.available_at)
-            .is_some_and(|deadline| now >= deadline);
-        if !ready {
-            return;
-        }
-        if let Some(mut continuation) = self.pending_continuation.take() {
-            continuation.available_at = None;
-            self.queued_turn_inputs.push_back(continuation);
-        }
-    }
-
-    pub(super) fn dequeue_turn_input(&mut self, now: Instant) -> Option<QueuedTurnInput> {
-        self.promote_ready_continuation(now);
-        if let Some(turn) = self.queued_turn_inputs.pop_front() {
-            return Some(turn);
-        }
-        None
-    }
-
-    #[cfg(test)]
-    pub(super) fn queued_turn_inputs_is_empty(&self) -> bool {
-        self.queued_turn_inputs.is_empty()
-    }
-
-    pub(super) fn has_ready_queued_turn_input(&self, now: Instant) -> bool {
-        if !self.queued_turn_inputs.is_empty() {
-            return true;
-        }
-        self.pending_continuation
-            .as_ref()
-            .and_then(|turn| turn.available_at)
-            .is_some_and(|deadline| now >= deadline)
     }
 
     pub(super) fn mark_user_turn_submitted(&mut self) {

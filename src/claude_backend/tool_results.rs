@@ -90,6 +90,7 @@ fn synthetic_bash_result(
     item.insert("name".into(), Value::String(tool_call.name.clone()));
     item.insert("output".into(), Value::String(formatted_output));
     item.insert("command".into(), Value::String(command.to_string()));
+    item.insert("carlosCommandEcho".into(), Value::Bool(true));
     item.insert("isError".into(), json!(is_error || interrupted));
     if is_probably_diff_text(&raw_output) {
         item.insert("diff".into(), Value::String(raw_output));

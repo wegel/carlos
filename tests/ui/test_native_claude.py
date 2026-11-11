@@ -11,9 +11,11 @@ import unittest
 from claude_native_api import NativeClaudeAPI
 from terminal import Terminal
 from test_claude_sdk import ClaudeSdk
+from test_native_claude_rewind import NativeClaudeRewind
+from test_native_claude_labels import NativeClaudeLabels
 
 
-class NativeClaude(unittest.TestCase):
+class NativeClaude(NativeClaudeRewind,NativeClaudeLabels,unittest.TestCase):
     helper_messages = ClaudeSdk.helper_messages
     helper_requests = ClaudeSdk.helper_requests
     def setUp(self):
@@ -40,7 +42,7 @@ class NativeClaude(unittest.TestCase):
             assert any("●" in line and "Native original café 日本語" in line for line in terminal.screen.display),terminal.text
             terminal.snapshot("native-picker-selected-original")
             terminal.send(b"\r")
-        terminal.contains("Tasks F2")
+        terminal.wait(lambda:terminal.input_is(""),"native composer rendered")
         terminal.wait(lambda: any(frame.get("type") == "reply" and frame.get("ok") and isinstance(frame.get("result"),dict) and "models" in frame["result"]
                       for frame in self.helper_messages(terminal,"server")[previous:]),"new native SDK startup reply",timeout=20)
         self.wait_native_idle(terminal,previous)
@@ -89,6 +91,44 @@ class NativeClaude(unittest.TestCase):
         terminal.send(b"y")
         for _ in range(3): terminal.pump(.05)
         if "Press y again" in terminal.text: terminal.send(b"y")
+
+    def test_native_context_remains_visible_while_the_next_model_step_is_paused(self):
+        terminal = self.start("context")
+        self.submit(terminal,"Run the isolated context fixture.")
+        terminal.wait(lambda: len(self.api.requests) == 2,"second native request paused",timeout=20)
+        def contexts():
+            return [frame["result"] for frame in self.helper_messages(terminal,"server")
+                    if frame.get("type") == "reply" and frame.get("ok") and
+                    isinstance(frame.get("result"),dict) and (frame["result"].get("apiUsage") or {}).get("cache_read_input_tokens") == 32000]
+        terminal.wait(lambda: bool(contexts()),"native live context summary includes cached input",timeout=10)
+        used, maximum = contexts()[-1]["totalTokens"], contexts()[-1]["rawMaxTokens"]
+        assert used >= 40128 and used < 45000,contexts()[-1]
+        compact = lambda value: f"{value//1000000}m" if value >= 1000000 else f"{value//1000}k" if value >= 1000 else str(value)
+        label = f"{compact(used)}/{compact(maximum)}"
+        terminal.contains(label)
+        assert len(self.results(terminal)) == 0,"Context must show while native work is still running"
+        terminal.paste("unsent context draft 日本語")
+        terminal.wait(lambda: terminal.input_is("unsent context draft 日本語"),"typing remains responsive")
+        terminal.resize(36,12)
+        terminal.contains(label)
+        terminal.snapshot("native-context-paused-phone")
+        self.api.context_release.set()
+        terminal.resize(140,32)
+        terminal.contains("NATIVE_CONTEXT_ANSWER_1")
+        self.ended(terminal,1)
+        terminal.wait(lambda: any((context.get("apiUsage") or {}).get("cache_read_input_tokens") == 33000
+            for context in [frame.get("result",{}) for frame in self.helper_messages(terminal,"server")
+                if frame.get("type") == "reply" and frame.get("ok") and isinstance(frame.get("result"),dict)]),
+            "new native context replaces the previous model step",timeout=10)
+        assert terminal.input_is("unsent context draft 日本語")
+        assert len(self.api.requests) == 2
+        assert self.api.count_token_requests == 0,"Summary reads must not call the token-count API"
+        latest = [frame["result"] for frame in self.helper_messages(terminal,"server")
+                  if frame.get("type") == "reply" and frame.get("ok") and isinstance(frame.get("result"),dict)
+                  and (frame["result"].get("apiUsage") or {}).get("cache_read_input_tokens") == 33000][-1]
+        assert latest["totalTokens"] < used*1.5,"Use the latest native snapshot, not summed model steps"
+        terminal.contains(f"{compact(latest['totalTokens'])}/{compact(latest['rawMaxTokens'])}")
+        assert len(self.helper_requests(terminal,"prompt")) == 1
 
     def test_native_session_stream_rename_resume_and_first_later_edits(self):
         terminal = self.start()
@@ -179,7 +219,7 @@ class NativeClaude(unittest.TestCase):
         self.ended(terminal,1)
         first = self.results(terminal)[0]
         terminal.send(b"\x1bOR")
-        terminal.contains("Enter: Queue F3")
+        terminal.wait(lambda:"Queue" in terminal.screen.display[-2],"selected Queue badge")
         self.submit(terminal,"/clear")
         self.submit(terminal,"human queued after native clear")
         terminal.contains("NATIVE_BACKGROUND_ANSWER_2")

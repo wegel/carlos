@@ -7,9 +7,7 @@ use serde_json::Value;
 
 use super::native_activity::upsert_native_activity;
 use super::tool_diff::{command_execution_diff_output, extract_diff_blocks};
-use super::tool_format::format_tool_item;
 use super::tools::{is_tool_call_type, is_tool_output_type, item_text_from_content};
-use super::transcript_source::source_path_from_item;
 use super::{AppState, MessageKind, Role};
 use crate::app::models::TurnStatus;
 use crate::protocol_params::extract_result_object;
@@ -41,7 +39,10 @@ pub(super) fn replace_history_from_thread(app: &mut AppState, thread_obj: &Value
     if app.input_history.native_enabled() {
         replacement.input_history.enable_native();
     }
+    replacement.codex.enabled = app.codex.enabled;
+    replacement.summaries.cwd = app.summaries.cwd.clone();
     append_history_from_thread(&mut replacement, thread_obj);
+    app.codex.panel.reports = std::mem::take(&mut replacement.codex.panel.reports);
     app.replace_transcript_from(replacement);
     app.read_thread_name(thread_obj);
 }
@@ -51,7 +52,9 @@ pub(super) fn append_history_from_thread(app: &mut AppState, thread_obj: &Value)
         return;
     };
 
+    let previous = app.codex.item_turn.take();
     for turn in turns {
+        app.codex.item_turn = turn["id"].as_str().map(str::to_string);
         let status = turn
             .get("status")
             .and_then(Value::as_str)
@@ -80,11 +83,12 @@ pub(super) fn append_history_from_thread(app: &mut AppState, thread_obj: &Value)
             }
         }
     }
+    app.codex.item_turn = previous;
 }
 
 // --- History item helpers ---
 
-fn append_history_item(app: &mut AppState, item: &Value) {
+pub(super) fn append_history_item(app: &mut AppState, item: &Value) {
     if upsert_native_activity(app, item) {
         return;
     }
@@ -116,7 +120,7 @@ fn append_user_history_item(app: &mut AppState, item: &Value) {
     let inserted =
         app.upsert_mapped_message(item_id, Role::User, text.clone(), MessageKind::Plain, None);
     if inserted {
-        let idx = app.item_to_message_index[item_id];
+        let idx = app.item_message_index(item_id).expect("native item row");
         app.record_input_history(&text, Some(idx));
     }
 }
@@ -187,7 +191,7 @@ fn append_tool_history_item(app: &mut AppState, item: &Value, role: Role) {
         }
     }
 
-    if let Some(formatted) = format_tool_item(item, role) {
+    if let Some(formatted) = app.format_tool_item(item, role) {
         if !formatted.is_empty() {
             upsert_history_message(
                 app,
@@ -195,7 +199,7 @@ fn append_tool_history_item(app: &mut AppState, item: &Value, role: Role) {
                 role,
                 formatted,
                 MessageKind::Plain,
-                source_path_from_item(item),
+                app.tool_source_path(item),
                 0,
             );
             return;
@@ -235,15 +239,12 @@ fn upsert_history_message(
         }
         return;
     };
-    let key = if part_index == 0 {
-        item_id.to_string()
-    } else {
-        format!("{item_id}#part-{part_index}")
-    };
-    app.upsert_mapped_message(&key, role, text, kind, file_path);
-    if role == Role::ToolOutput || kind == MessageKind::Diff {
-        app.describe_tool_output(app.item_to_message_index[&key], item);
-    }
+    app.with_item_part(item_id, part_index, |app, key| {
+        app.upsert_mapped_message(key, role, text, kind, file_path);
+        if role == Role::ToolOutput || kind == MessageKind::Diff {
+            app.describe_tool_output(app.item_message_index(key).expect("native item row"), item);
+        }
+    });
 }
 
 fn has_terminal_item_status(item: &Value) -> bool {

@@ -38,9 +38,12 @@ impl Summarizer for External {
     ) -> Result<Label> {
         let config = &self.0;
         let mut command = Command::new(&config.executable);
-        command.args(&config.arguments).current_dir(&request.cwd);
-        let input =
-            json!({"command":request.command,"cwd":request.cwd,"instructions":PROMPT}).to_string();
+        command
+            .args(&config.arguments)
+            .current_dir(&request.location.cwd);
+        let input = json!({"command":request.command,"cwd":request.location.cwd,
+                "directory":request.location.directory,"instructions":PROMPT})
+        .to_string();
         let text = process::run(&mut command, input, config.timeout, control, epoch)?;
         Ok(Label {
             text: validate(&text)?,

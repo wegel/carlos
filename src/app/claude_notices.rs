@@ -124,8 +124,7 @@ pub(super) fn compact(app: &mut AppState, message: &Value) {
     };
     let key = compact.key.clone();
     app.claude.activity.transient = (compact.result.is_none()).then(|| "Compacting".to_string());
-    app.claude.activity.context_revision += 1;
-    app.context_usage = None;
+    super::claude_context::invalidate(app);
     app.upsert_mapped_message(&key, Role::System, text, MessageKind::Plain, None);
 }
 

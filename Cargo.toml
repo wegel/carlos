@@ -44,6 +44,11 @@ uuid = { version = "1", features = ["v4"] }
 webrtc-vad = { version = "0.4.0", optional = true }
 whisper-rs = { version = "0.16.0", optional = true }
 two-face = "0.5.2"
+jsonschema = { version = "=0.61.1", default-features = false, features = ["idna"] }
+url = "=2.5.8"
+mio = { version = "=1.2.4", features = ["os-poll", "os-ext"] }
+socket2 = "=0.6.5"
+tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
 
 [profile.dev]
 opt-level = 1

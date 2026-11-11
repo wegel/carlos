@@ -18,7 +18,13 @@ pub(super) fn read_summary_path(text: &str) -> Option<&str> {
     if rest.is_empty() {
         return Some("");
     }
-    let path = rest.split_once(" [").map(|(p, _)| p).unwrap_or(rest).trim();
+    // Directory hints can contain brackets; keep their complete identity.
+    let path = if rest.contains(" (in ") {
+        rest
+    } else {
+        rest.split_once(" [").map(|(p, _)| p).unwrap_or(rest)
+    }
+    .trim();
     Some(path)
 }
 

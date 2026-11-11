@@ -23,6 +23,8 @@ pub(super) enum ApprovalRequestKind {
     ClaudeExitPlanMode,
     ClaudeNative,
     ClaudeQuestion,
+    CodexQuestion,
+    CodexForm,
 }
 
 #[derive(Debug, Clone)]
@@ -42,7 +44,19 @@ pub(super) struct PendingApprovalRequest {
 
 impl PendingApprovalRequest {
     pub(super) fn response_for_choice(&self, choice: ApprovalChoice) -> Option<Value> {
+        if choice == ApprovalChoice::Accept && !self.can_accept_once() {
+            return None;
+        }
         match self.kind {
+            ApprovalRequestKind::CodexQuestion => match choice {
+                ApprovalChoice::Decline => Some(json!({"answers":{}})),
+                _ => None,
+            },
+            ApprovalRequestKind::CodexForm => match choice {
+                ApprovalChoice::Decline => Some(json!({"action":"decline"})),
+                ApprovalChoice::Cancel => Some(json!({"action":"cancel"})),
+                _ => None,
+            },
             ApprovalRequestKind::ClaudeNative => match choice {
                 ApprovalChoice::Accept
                     if self
@@ -88,6 +102,14 @@ impl PendingApprovalRequest {
             },
             ApprovalRequestKind::Permissions => self.permissions_response(choice),
         }
+    }
+
+    /// Present a one-time allow only when the native server actually offers it.
+    pub(super) fn can_accept_once(&self) -> bool {
+        self.requested_permissions
+            .as_ref()
+            .and_then(|payload| payload["availableDecisions"].as_array())
+            .is_none_or(|decisions| decisions.iter().any(|decision| decision == "accept"))
     }
 
     fn empty_question_answer(&self) -> Option<Value> {

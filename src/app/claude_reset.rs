@@ -26,7 +26,7 @@ pub(super) fn receive(app: &mut AppState, message: &Value) {
     app.thread_name = None;
     app.claude.history = Default::default();
     app.claude.translation = ClaudeTranslationState::default();
-    app.claude.activity.context_revision += 1;
+    super::claude_context::invalidate(app);
     app.claude.activity.compact = None;
     app.claude.activity.thinking = None;
     app.claude.activity.transient = None;

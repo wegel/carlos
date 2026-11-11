@@ -32,6 +32,7 @@ if [[ ! -x target/ui-venv/bin/python ]]; then
 fi
 target/ui-venv/bin/python -m pip install --disable-pip-version-check -q \
   -r tests/ui/requirements.txt
+target/ui-venv/bin/python tests/ui/test_socket_recorder.py
 mkdir -p target/ui-artifacts
 artifacts="$(mktemp -d "$PWD/target/ui-artifacts/run-XXXXXX")"
 printf 'Test artifacts: %s\n' "$artifacts"

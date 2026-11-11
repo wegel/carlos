@@ -35,7 +35,8 @@ pub(crate) fn params_initialize() -> Value {
             "version": "0.1.0"
         },
         "capabilities": {
-            "experimentalApi": true
+            "experimentalApi": true,
+            "requiredHumanApproval": true
         }
     })
 }
@@ -43,7 +44,6 @@ pub(crate) fn params_initialize() -> Value {
 pub(crate) fn params_thread_start(cwd: &str) -> Value {
     json!({
         "experimentalRawEvents": false,
-        "persistExtendedHistory": true,
         "cwd": cwd,
     })
 }
@@ -51,21 +51,21 @@ pub(crate) fn params_thread_start(cwd: &str) -> Value {
 pub(crate) fn params_thread_resume(thread_id: &str) -> Value {
     json!({
         "threadId": thread_id,
-        "persistExtendedHistory": true,
+        "excludeTurns": true,
     })
 }
 
 pub(crate) fn params_thread_read(thread_id: &str) -> Value {
     json!({
         "threadId": thread_id,
-        "includeTurns": true,
+        "includeTurns": false,
     })
 }
 
 pub(crate) fn params_thread_fork(thread_id: &str) -> Value {
     json!({
         "threadId": thread_id,
-        "persistExtendedHistory": true,
+        "excludeTurns": true,
     })
 }
 
@@ -156,6 +156,7 @@ pub(crate) fn params_turn_interrupt(thread_id: &str, turn_id: &str) -> Value {
 pub(crate) fn initialize_client(client: &dyn BackendClient) -> Result<()> {
     let resp = client.call("initialize", params_initialize(), Duration::from_secs(10))?;
     extract_result_object(&resp)?;
+    client.notify("initialized", json!({}))?;
     Ok(())
 }
 

@@ -10,6 +10,16 @@ pub(super) fn respond_to_pending_approval(
     app: &mut AppState,
     choice: ApprovalChoice,
 ) {
+    if app.codex.enabled
+        && app
+            .approval
+            .pending
+            .as_ref()
+            .is_some_and(|pending| app.codex.callbacks.get(&pending.request_id).is_some())
+    {
+        super::codex_reply::respond(client, app, choice);
+        return;
+    }
     let Some(pending) = app.approval.pending.clone() else {
         return;
     };

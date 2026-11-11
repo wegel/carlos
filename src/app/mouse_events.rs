@@ -32,7 +32,13 @@ pub(super) fn handle_mouse_event(
     m: crossterm::event::MouseEvent,
     size: TerminalSize,
 ) -> TerminalEventResult {
-    if app.claude.tasks.show {
+    if app.claude.tasks.show || app.codex.panel.show {
+        return TerminalEventResult::Continue { needs_draw: false };
+    }
+    if let Some(result) = super::native_questions::mouse(app, m) {
+        return result;
+    }
+    if app.codex.queue.show || app.codex.goals.show {
         return TerminalEventResult::Continue { needs_draw: false };
     }
     if let Some(perf) = app.perf.as_mut() {
@@ -41,13 +47,7 @@ pub(super) fn handle_mouse_event(
     if app.viewport.show_help || app.runtime.show_model_settings {
         return TerminalEventResult::Continue { needs_draw: false };
     }
-    if app
-        .approval
-        .pending
-        .as_ref()
-        .and_then(|pending| pending.request_id.as_str())
-        .is_some_and(|id| app.claude.answers.drafts.contains_key(id))
-    {
+    if super::native_questions::modal(app) && super::native_questions::draft(app).is_some() {
         return TerminalEventResult::Continue { needs_draw: false };
     }
     ensure_transcript_layout(app, size);
@@ -222,7 +222,7 @@ pub(super) fn handle_paste_event(
     pasted: String,
     size: TerminalSize,
 ) -> TerminalEventResult {
-    if app.claude.tasks.show {
+    if app.claude.tasks.show || app.codex.panel.show {
         return TerminalEventResult::Continue { needs_draw: false };
     }
     if let Some(perf) = app.perf.as_mut() {
@@ -244,6 +244,14 @@ pub(super) fn handle_paste_event(
         return TerminalEventResult::Continue { needs_draw: true };
     }
     if super::claude_question_input::paste(app, &normalize_pasted_text(&pasted), size) {
+        return TerminalEventResult::Continue { needs_draw: true };
+    }
+    if app.codex.goals.show {
+        super::codex_goal_view::paste(app, &normalize_pasted_text(&pasted), size);
+        return TerminalEventResult::Continue { needs_draw: true };
+    }
+    if app.codex.queue.show {
+        super::codex_queue_view::paste(app, &normalize_pasted_text(&pasted), size);
         return TerminalEventResult::Continue { needs_draw: true };
     }
     if let Some((_, y)) = parse_repeated_plain_mobile_pair(&pasted) {

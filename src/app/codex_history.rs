@@ -3,19 +3,24 @@
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs::{self, File};
-use std::io::{BufRead, BufReader};
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use anyhow::{Context, Result};
-use serde_json::{json, Value};
+use anyhow::{ensure, Context, Result};
+use serde_json::Value;
 
 use crate::protocol_params::extract_result_object;
+
+#[path = "codex_rollout.rs"]
+mod rollout;
+pub(super) use rollout::parse_rollout_history;
+use rollout::IneligibleRollout;
 
 // --- Public Selection API ---
 
 /// Choose complete local lifecycle history only when app-server omits a terminal turn.
-pub(super) fn preferred_codex_thread(response_line: &str, thread_id: &str) -> Result<Value> {
+pub(crate) fn preferred_codex_thread(response_line: &str, thread_id: &str) -> Result<Value> {
     let parsed = extract_result_object(response_line)?;
     let server_thread = parsed
         .get("result")
@@ -23,46 +28,101 @@ pub(super) fn preferred_codex_thread(response_line: &str, thread_id: &str) -> Re
         .and_then(|result| result.get("thread"))
         .cloned()
         .context("missing thread in history response")?;
-    let Ok(Some(rollout_thread)) = load_rollout_thread(thread_id) else {
+    if parsed["result"]["carlosHistorySource"] == "paged" {
+        return Ok(server_thread);
+    }
+    let Some(rollout_thread) = load_rollout_thread(thread_id)? else {
         return Ok(server_thread);
     };
-    Ok(prefer_complete_rollout_history(
-        server_thread,
-        rollout_thread,
-    ))
+    prefer_complete_rollout_history(server_thread, rollout_thread)
 }
 
 /// Prefer rollout history when it contains a terminal turn missing from app-server.
-pub(super) fn prefer_complete_rollout_history(server: Value, rollout: Value) -> Value {
-    if rollout_has_missing_terminal_turn(&server, &rollout) {
-        rollout
-    } else {
-        server
+pub(super) fn prefer_complete_rollout_history(mut server: Value, rollout: Value) -> Result<Value> {
+    let Some(turns) = server["turns"].as_array_mut() else {
+        return Ok(server);
+    };
+    let raw = rollout["turns"].as_array().cloned().unwrap_or_default();
+    let positions: HashMap<String, usize> = turns
+        .iter()
+        .enumerate()
+        .filter_map(|(index, turn)| turn["id"].as_str().map(|id| (id.into(), index)))
+        .collect();
+    let last_shared = raw.iter().rposition(|turn| {
+        turn["id"]
+            .as_str()
+            .is_some_and(|id| positions.contains_key(id))
+    });
+    for (index, turn) in raw.into_iter().enumerate() {
+        if let Some(target) = turn["id"]
+            .as_str()
+            .and_then(|id| positions.get(id))
+            .copied()
+        {
+            merge_missing_items(&mut turns[target], &turn)?;
+        } else if turn["status"] == "completed"
+            && turn_has_final_answer(&turn)
+            && last_shared.is_none_or(|last| index > last)
+        {
+            turns.push(turn);
+        }
     }
+    ensure!(
+        server.to_string().len() <= 64 * 1024 * 1024,
+        "Recovered Codex history exceeds 64 MiB; visible history was not replaced"
+    );
+    Ok(server)
 }
 
-/// Rebuild a thread from completed lifecycle records in rollout file order.
-pub(super) fn parse_rollout_history(reader: impl BufRead, thread_id: &str) -> Result<Value> {
-    let mut history = RolloutHistory::new(thread_id);
-    for line in reader.lines() {
-        let line = line.context("read Codex rollout record")?;
-        let Ok(record) = serde_json::from_str::<Value>(&line) else {
-            continue;
-        };
-        // Removal markers make a locally replayed prefix unsafe to restore.
-        anyhow::ensure!(
-            !matches!(
-                record
-                    .get("payload")
-                    .and_then(|payload| payload.get("type"))
-                    .and_then(Value::as_str),
-                Some("thread_rolled_back" | "thread_reverted")
-            ),
-            "use app-server history after a thread history removal"
-        );
-        history.apply_record(&record);
+fn merge_missing_items(server: &mut Value, raw: &Value) -> Result<()> {
+    if server["status"] != "completed"
+        || raw["status"] != "completed"
+        || turn_has_final_answer(server)
+        || !turn_has_final_answer(raw)
+    {
+        return Ok(());
     }
-    Ok(history.into_thread())
+    let Some(items) = server["items"].as_array_mut() else {
+        return Ok(());
+    };
+    let raw_items = raw["items"].as_array().expect("raw turn items");
+    let raw_positions: HashMap<&str, usize> = raw_items
+        .iter()
+        .enumerate()
+        .filter_map(|(index, item)| item["id"].as_str().map(|id| (id, index)))
+        .collect();
+    let positions = items
+        .iter()
+        .filter_map(|item| item["id"].as_str().and_then(|id| raw_positions.get(id)))
+        .copied()
+        .collect::<Vec<_>>();
+    ensure!(
+        positions.windows(2).all(|pair| pair[0] < pair[1]),
+        "Legacy and native Codex history disagree on item order; visible history was not replaced"
+    );
+    let ids: HashSet<&str> = raw_items
+        .iter()
+        .filter_map(|item| item["id"].as_str())
+        .collect();
+    let mut versions = HashMap::new();
+    let mut gaps: HashMap<Option<String>, Vec<Value>> = HashMap::new();
+    let mut previous = None;
+    for item in std::mem::take(items) {
+        if item["id"].as_str().is_some_and(|id| ids.contains(id)) {
+            let id = item["id"].as_str().expect("item ID").to_string();
+            previous = Some(id.clone());
+            versions.insert(id, item);
+        } else {
+            gaps.entry(previous.clone()).or_default().push(item);
+        }
+    }
+    items.extend(gaps.remove(&None).unwrap_or_default());
+    for item in raw_items {
+        let id = item["id"].as_str().expect("raw item ID");
+        items.push(versions.remove(id).unwrap_or_else(|| item.clone()));
+        items.extend(gaps.remove(&Some(id.into())).unwrap_or_default());
+    }
+    Ok(())
 }
 
 // --- Local File Discovery ---
@@ -74,9 +134,18 @@ fn load_rollout_thread(thread_id: &str) -> Result<Option<Value>> {
     let Some(path) = find_rollout_file(&root, thread_id)? else {
         return Ok(None);
     };
+    read_rollout_file(&path, thread_id)
+}
+
+fn read_rollout_file(path: &Path, thread_id: &str) -> Result<Option<Value>> {
     let file =
-        File::open(&path).with_context(|| format!("open Codex rollout {}", path.display()))?;
-    parse_rollout_history(BufReader::new(file), thread_id).map(Some)
+        File::open(path).with_context(|| format!("open Codex rollout {}", path.display()))?;
+    match parse_rollout_history(BufReader::new(file), thread_id) {
+        Ok(history) => Ok(Some(history)),
+        Err(error) if error.downcast_ref::<IneligibleRollout>().is_some() => Ok(None),
+        Err(error) => Err(error)
+            .with_context(|| format!("Read complete legacy Codex history {}", path.display())),
+    }
 }
 
 fn codex_sessions_root() -> Option<PathBuf> {
@@ -124,21 +193,6 @@ fn collect_rollout_matches(
 
 // --- Completeness Check ---
 
-fn rollout_has_missing_terminal_turn(server: &Value, rollout: &Value) -> bool {
-    let server_ids = turn_ids(server);
-    rollout
-        .get("turns")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter(|turn| {
-            turn.get("status").and_then(Value::as_str) == Some("completed")
-                && turn_has_final_answer(turn)
-        })
-        .filter_map(|turn| turn.get("id").and_then(Value::as_str))
-        .any(|turn_id| !server_ids.contains(turn_id))
-}
-
 fn turn_has_final_answer(turn: &Value) -> bool {
     turn.get("items")
         .and_then(Value::as_array)
@@ -150,152 +204,6 @@ fn turn_has_final_answer(turn: &Value) -> bool {
         })
 }
 
-fn turn_ids(thread: &Value) -> HashSet<&str> {
-    thread
-        .get("turns")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(|turn| turn.get("id").and_then(Value::as_str))
-        .collect()
-}
-
-// --- Rollout Reduction ---
-
-struct RolloutHistory {
-    thread_id: String,
-    turns: Vec<RolloutTurn>,
-    turn_positions: HashMap<String, usize>,
-    item_positions: HashMap<String, (usize, usize)>,
-    current_turn_id: Option<String>,
-}
-
-struct RolloutTurn {
-    id: String,
-    status: String,
-    items: Vec<Value>,
-}
-
-impl RolloutHistory {
-    fn new(thread_id: &str) -> Self {
-        Self {
-            thread_id: thread_id.to_string(),
-            turns: Vec::new(),
-            turn_positions: HashMap::new(),
-            item_positions: HashMap::new(),
-            current_turn_id: None,
-        }
-    }
-
-    fn apply_record(&mut self, record: &Value) {
-        if record.get("type").and_then(Value::as_str) != Some("event_msg") {
-            return;
-        }
-        let Some(payload) = record.get("payload") else {
-            return;
-        };
-        match payload.get("type").and_then(Value::as_str) {
-            Some("task_started") => self.start_turn(payload),
-            Some("task_complete") => self.end_turn(payload, "completed"),
-            Some("turn_aborted") => self.end_turn(payload, "interrupted"),
-            Some("task_failed") => self.end_turn(payload, "failed"),
-            Some("item_completed") => self.complete_item(payload),
-            _ => {}
-        }
-    }
-
-    fn start_turn(&mut self, payload: &Value) {
-        let Some(turn_id) = payload.get("turn_id").and_then(Value::as_str) else {
-            return;
-        };
-        self.ensure_turn(turn_id);
-        self.current_turn_id = Some(turn_id.to_string());
-    }
-
-    fn end_turn(&mut self, payload: &Value, status: &str) {
-        let turn_id = payload
-            .get("turn_id")
-            .and_then(Value::as_str)
-            .or(self.current_turn_id.as_deref());
-        let Some(turn_id) = turn_id.map(ToOwned::to_owned) else {
-            return;
-        };
-        let turn_index = self.ensure_turn(&turn_id);
-        self.turns[turn_index].status = status.to_string();
-        if self.current_turn_id.as_deref() == Some(&turn_id) {
-            self.current_turn_id = None;
-        }
-    }
-
-    fn complete_item(&mut self, payload: &Value) {
-        let turn_id = payload
-            .get("turn_id")
-            .and_then(Value::as_str)
-            .or(self.current_turn_id.as_deref());
-        let (Some(turn_id), Some(item)) = (turn_id, payload.get("item")) else {
-            return;
-        };
-        let (turn_id, mut item) = (turn_id.to_string(), item.clone());
-        normalize_item_type(&mut item);
-        let Some(item_id) = item
-            .get("id")
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned)
-        else {
-            return;
-        };
-        if let Some((turn_index, item_index)) = self.item_positions.get(&item_id).copied() {
-            self.turns[turn_index].items[item_index] = item;
-            return;
-        }
-        let turn_index = self.ensure_turn(&turn_id);
-        let item_index = self.turns[turn_index].items.len();
-        self.turns[turn_index].items.push(item);
-        self.item_positions
-            .insert(item_id, (turn_index, item_index));
-    }
-
-    fn ensure_turn(&mut self, turn_id: &str) -> usize {
-        if let Some(index) = self.turn_positions.get(turn_id).copied() {
-            return index;
-        }
-        let index = self.turns.len();
-        self.turns.push(RolloutTurn {
-            id: turn_id.to_string(),
-            status: "inProgress".to_string(),
-            items: Vec::new(),
-        });
-        self.turn_positions.insert(turn_id.to_string(), index);
-        index
-    }
-
-    fn into_thread(self) -> Value {
-        let turns: Vec<Value> = self
-            .turns
-            .into_iter()
-            .map(|turn| json!({"id": turn.id, "status": turn.status, "items": turn.items}))
-            .collect();
-        json!({"id": self.thread_id, "turns": turns})
-    }
-}
-
-fn normalize_item_type(item: &mut Value) {
-    let Some(item) = item.as_object_mut() else {
-        return;
-    };
-    let Some(kind) = item.get("type").and_then(Value::as_str) else {
-        return;
-    };
-    let normalized = match kind {
-        "UserMessage" => "userMessage",
-        "AgentMessage" => "agentMessage",
-        "Reasoning" => "reasoning",
-        "CommandExecution" => "commandExecution",
-        "FileChange" => "fileChange",
-        "McpToolCall" => "mcpToolCall",
-        "ContextCompaction" => "contextCompaction",
-        "Extension" => "extension",
-        _ => return,
-    };
-    item.insert("type".to_string(), Value::String(normalized.to_string()));
-}
+#[cfg(test)]
+#[path = "../tests/codex_history_file_tests.rs"]
+mod tests;

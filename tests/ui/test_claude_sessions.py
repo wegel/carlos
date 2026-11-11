@@ -41,6 +41,46 @@ class ClaudeSessions:
         self.assertEqual(len([message for message in terminal.messages() if message.get("event") == "launch"]), 3)
         terminal.snapshot("repeated-native-edits")
 
+    def test_claude_resumed_hook_history_edits_twice_with_exact_uuids_and_original_intact(self):
+        terminal = self.launch(backend="claude", resume=None, mode="claude-hook-history", width=110)
+        self.claude_ready(terminal)
+        texts = ["First hooked human", "SSH retained context", "SSH selected fixture human"]
+        for index,text in enumerate(texts,1):
+            terminal.paste(text)
+            terminal.send(b"\r")
+            self.fence_native(terminal,index)
+        prompts = self.helper_requests(terminal,"prompt")
+        selected = prompts[-1]["params"]["uuid"]
+        session = self.helper_requests(terminal,"start")[0]["params"]["sessionId"]
+        path = session_file(terminal.root,session)
+        before = path.read_bytes()
+        rows = [json.loads(line) for line in before.splitlines()]
+        human = next(row for row in rows if row.get("uuid") == selected)
+        self.assertTrue(any(row.get("uuid") == human["parentUuid"] and row.get("subtype") == "stop_hook_summary" for row in rows))
+        terminal.close()
+        resumed = self.launch(backend="claude",resume=session,directory=terminal.root,mode="claude-hook-history",width=110)
+        self.claude_ready(resumed)
+        resumed.contains("Answer: SSH selected fixture human")
+        self.edit_claude(resumed,texts[-1],"Edited hooked human 日本語")
+        first_fork = self.helper_requests(resumed,"sessions.forkBefore")[-1]
+        self.assertEqual(first_fork["params"]["beforeMessageId"],selected)
+        branch = self.helper_requests(resumed,"start")[-1]["params"]["resume"]
+        branch_rows = [json.loads(line) for line in session_file(resumed.root,branch).read_text().splitlines()]
+        retained = [row for row in branch_rows if row.get("subtype") == "stop_hook_summary" and row.get("forkedFrom",{}).get("sessionId") == session]
+        self.assertEqual(len(retained),2)
+        resumed.contains("Answer: SSH retained context")
+        self.assertNotIn("SSH selected fixture human",resumed.text)
+        new_id = self.helper_requests(resumed,"prompt")[-1]["params"]["uuid"]
+        self.edit_claude(resumed,"Edited hooked human 日本語","Edited again after hooks")
+        self.assertEqual(self.helper_requests(resumed,"sessions.forkBefore")[-1]["params"]["beforeMessageId"],new_id)
+        self.assertEqual(path.read_bytes(),before)
+        self.assertEqual(len(self.helper_requests(resumed,"prompt")),5)
+        self.assertEqual(resumed.text.count("Answer: Edited again after hooks"),1)
+        resumed.resize(36,12)
+        resumed.contains("Edited again after hooks")
+        self.assertNotIn("Edit failed",resumed.text)
+        resumed.snapshot("resumed-hook-fork-phone")
+
     def test_claude_edit_first_prompt_starts_a_genuinely_empty_session(self):
         terminal = self.launch(backend="claude", resume=None)
         self.claude_ready(terminal)
@@ -201,6 +241,7 @@ class ClaudeSessions:
         path.unlink()
         terminal.send(b"\r")
         terminal.wait(lambda: any(frame.get("ok") is False for frame in self.helper_messages(terminal, "server")), "failed public fork")
+        terminal.contains("Edit failed")
         self.assertTrue(terminal.input_is("retain failed edit"))
         terminal.send(b"\x1b")
         terminal.wait(lambda: terminal.input_is(""), "cancel failed edit")
@@ -298,3 +339,37 @@ class ClaudeSessions:
         terminal.send(b"\x1b[A")
         terminal.wait(lambda: terminal.input_is("saved main human"),"hidden child records excluded from human rewind")
         terminal.snapshot("resumed-private-child-workstream")
+
+    def test_claude_waiting_and_failed_edit_stay_visible_and_f5_recovers_without_replacing_newer_text(self):
+        root=self.summary_root()
+        session,path,rows=write_session(root,["older first human","middle human","last human"])
+        terminal=self.launch(backend="claude",resume=session,directory=root,width=36)
+        self.claude_ready(terminal)
+        terminal.rewind("last human")
+        terminal.send(b"\x1b[A\x1b[A")
+        terminal.wait(lambda:terminal.input_is("older first human"),"older selected human")
+        terminal.replace_input("saved edit 日本語")
+        selected=rows[0]["uuid"]
+        rows[0]["uuid"]="00000000-0000-4000-8000-000000000001"
+        path.write_text("".join(json.dumps(row,ensure_ascii=False)+"\n" for row in rows))
+        before=path.read_bytes()
+        terminal.send(b"\r")
+        terminal.contains("Preparing edited branch")
+        terminal.replace_input("newer composer")
+        terminal.send(b"\r")
+        terminal.contains("Edit failed")
+        self.assertTrue(terminal.input_is("newer composer"))
+        self.assertEqual(self.helper_requests(terminal,"sessions.forkBefore")[-1]["params"]["beforeMessageId"],selected)
+        self.assertEqual(len(self.helper_requests(terminal,"sessions.forkBefore")),1)
+        self.assertEqual(self.helper_requests(terminal,"prompt"),[])
+        self.assertEqual(path.read_bytes(),before)
+        terminal.resize(18,10)
+        terminal.contains("Edit failed")
+        terminal.resize(36,12)
+        terminal.contains("Edit failed · draft kept")
+        terminal.replace_input("")
+        terminal.wait(lambda:terminal.input_is(""),"composer cleared before explicit F5 recovery")
+        terminal.send(b"\x1b[15~")
+        terminal.wait(lambda:terminal.input_is("saved edit 日本語"),"F5 recovers while original helper remains ready")
+        self.assertEqual(self.helper_requests(terminal,"prompt"),[])
+        terminal.snapshot("failed-edit-recovered-ready-phone")

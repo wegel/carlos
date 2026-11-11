@@ -27,7 +27,7 @@ pub(super) enum TerminalEventResult {
 
 // --- Event tracing ---
 
-pub(super) fn trace_terminal_event(ev: &Event) {
+pub(super) fn trace_terminal_event(ev: &Event, secret: bool) {
     static TRACE_FILE: OnceLock<Option<Mutex<std::fs::File>>> = OnceLock::new();
     let trace = TRACE_FILE.get_or_init(|| {
         let path = std::env::var_os("CARLOS_EVENT_TRACE")?;
@@ -42,6 +42,10 @@ pub(super) fn trace_terminal_event(ev: &Event) {
     let Ok(mut file) = file_mutex.lock() else {
         return;
     };
+    if secret && matches!(ev, Event::Key(_) | Event::Paste(_)) {
+        let _ = writeln!(&mut *file, "secret input (redacted)");
+        return;
+    }
     let _ = match ev {
         Event::Key(k) => writeln!(
             &mut *file,
@@ -108,7 +112,7 @@ pub(super) fn handle_terminal_event(
     ev: Event,
     size: TerminalSize,
 ) -> TerminalEventResult {
-    trace_terminal_event(&ev);
+    trace_terminal_event(&ev, super::native_questions::secret_active(app));
     match ev {
         Event::Key(k) => handle_key_event(client, app, k, size),
         Event::Mouse(m) => handle_mouse_event(app, m, size),

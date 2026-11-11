@@ -11,8 +11,7 @@ use super::Role;
 use crate::backend::{BackendClient, BackendKind, PromptOrigin, PromptPriority, RewindForkRequest};
 use crate::grok_backend::GROK_PENDING_TURN_ID;
 use crate::protocol_params::{
-    extract_result_object, params_turn_start, params_turn_steer,
-    parse_thread_id_from_start_or_resume,
+    extract_result_object, params_turn_steer, parse_thread_id_from_start_or_resume,
 };
 
 pub(super) const CLAUDE_PENDING_TURN_ID: &str = "claude-turn-pending";
@@ -32,11 +31,19 @@ pub(super) fn submit_rewind_turn_text(
     if text.trim().is_empty() {
         return;
     }
+    if client.kind() == BackendKind::Codex && super::codex_queue::reject_switch(app) {
+        return;
+    }
 
     if client.kind() == BackendKind::Claude
         && app.claude.phase != super::claude_state::ClaudePhase::Ready
     {
-        app.set_status("Claude must be ready before editing an earlier prompt");
+        if !super::claude_edit::waiting(app) {
+            super::claude_edit::unavailable(
+                app,
+                "Claude must be ready before editing an earlier prompt",
+            );
+        }
         return;
     }
     let drop_turns = app
@@ -90,9 +97,7 @@ pub(super) fn submit_rewind_turn_text(
 }
 
 fn queue_claude_edit(app: &mut AppState, text: String) {
-    app.claude.phase = super::claude_state::ClaudePhase::Starting;
-    app.claude.history.edited_prompt = Some(text);
-    app.set_status("Claude forks before the selected prompt");
+    super::claude_edit::begin(app, text);
 }
 
 fn submit_edited_turn(client: &dyn BackendClient, app: &mut AppState, text: String) {
@@ -144,6 +149,12 @@ fn submit_turn(
     if text.trim().is_empty() {
         return;
     }
+    if client.kind() == BackendKind::Codex
+        && super::codex_lifecycle::reject_closed_prompt(app, &text, origin)
+    {
+        return;
+    }
+
     if client.kind() == BackendKind::Claude
         && app.claude.phase != crate::app::claude_state::ClaudePhase::Ready
     {
@@ -175,13 +186,9 @@ fn submit_turn(
     }
 }
 
-// --- Approval response ---
-
 pub(super) use super::turn_approval::respond_to_pending_approval;
 
 pub(super) use super::turn_interrupt::interrupt_active_turn;
-
-// --- Private helpers ---
 
 fn snapshot_grok_rewind_prefix(
     app: &AppState,
@@ -290,7 +297,8 @@ fn start_new_turn(
         return true;
     }
 
-    let params = new_turn_params(client, app, &text);
+    super::claude_edit::dispatching(app, &text, origin);
+    let params = super::turn_settings::new_turn_params(client, app, &text);
     let response = client
         .submit_prompt(
             "turn/start",
@@ -309,6 +317,7 @@ fn start_new_turn(
         .and_then(|response| extract_result_object(&response));
     match response {
         Ok(response) => {
+            super::claude_edit::bind_submission(app, &text, origin, &response);
             mark_turn_sent(client, app, text, record_input_history, origin);
             if client.kind() == BackendKind::Claude {
                 super::claude_notifications::record_submitted_prompt(app, &response);
@@ -319,7 +328,9 @@ fn start_new_turn(
             if record_input_history {
                 app.discard_pending_input_history(&text);
             }
-            app.set_input_text(&text);
+            if !super::claude_edit::send_failed(app, &text, &err.to_string()) {
+                app.set_input_text(&text);
+            }
             app.set_status(format!("send failed: {err}"));
             app.append_message(Role::System, format!("Could not send message: {err}"));
             false
@@ -369,7 +380,12 @@ fn mark_turn_sent(
             app.active_turn_id = Some(pending_turn_id(client.kind()).to_string());
         }
     }
-    app.mark_runtime_settings_applied();
+    if client.kind() != BackendKind::Codex
+        || !app.codex.enabled
+        || app.codex.settings.legacy_overrides
+    {
+        app.mark_runtime_settings_applied();
+    }
     app.set_status("sent turn");
 }
 
@@ -378,20 +394,4 @@ fn pending_turn_id(kind: BackendKind) -> &'static str {
         BackendKind::Grok => GROK_PENDING_TURN_ID,
         _ => CLAUDE_PENDING_TURN_ID,
     }
-}
-
-fn new_turn_params(client: &dyn BackendClient, app: &AppState, text: &str) -> serde_json::Value {
-    let (model, effort, summary) = app.next_turn_runtime_settings();
-    let (model, effort) = if client.kind() == BackendKind::Claude {
-        super::claude_models::prompt_choices(app, model, effort)
-    } else {
-        (model, effort)
-    };
-    params_turn_start(
-        &app.thread_id,
-        text,
-        model.as_deref(),
-        effort.as_deref(),
-        summary.as_deref(),
-    )
 }

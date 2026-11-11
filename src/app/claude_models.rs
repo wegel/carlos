@@ -47,6 +47,8 @@ pub(super) fn apply_capabilities(app: &mut AppState, capabilities: &Value) {
     }
     app.set_status("Claude ready");
     if let Some(text) = app.claude.history.edited_prompt.take() {
+        super::claude_edit::retire_queue(app);
+        super::claude_edit::queued(app, &text);
         app.clear_rewind_mode_state();
         if app.input_text() == text {
             app.clear_input();
@@ -57,6 +59,14 @@ pub(super) fn apply_capabilities(app: &mut AppState, capabilities: &Value) {
 
 /// Record a native model without overwriting an explicit Carlos choice.
 pub(super) fn observe_model(app: &mut AppState, model: &str) {
+    if app
+        .claude
+        .observed_model
+        .as_deref()
+        .is_some_and(|previous| previous != model)
+    {
+        super::claude_context::invalidate(app);
+    }
     app.claude.observed_model = Some(model.to_string());
     if app.runtime.current_model.is_none() && app.runtime.pending_model.is_none() {
         app.runtime.current_model = Some(

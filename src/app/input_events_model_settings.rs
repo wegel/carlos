@@ -52,6 +52,9 @@ pub(super) fn handle_model_settings_key(
     if !app.runtime.show_model_settings {
         app.claude.selection.editing = None;
     }
+    if app.codex.enabled {
+        crate::app::codex_settings_draft::refresh_editor(app);
+    }
     TerminalEventResult::Continue { needs_draw: true }
 }
 
@@ -76,15 +79,50 @@ fn cycle(app: &mut AppState, dir: isize) {
 }
 
 fn save_settings(client: &dyn BackendClient, app: &mut AppState) {
+    if app.codex.enabled && app.codex.closed {
+        app.codex.settings.editor_error =
+            Some("Codex is disconnected; F5 reconnects. Choices remain in this editor".into());
+        return;
+    }
+    if client.kind() == BackendKind::Codex
+        && !crate::app::codex_settings_draft::validate_editor(app)
+    {
+        return;
+    }
+    let before = app.next_turn_runtime_settings();
+    let pending = (
+        app.runtime.pending_model.clone(),
+        app.runtime.pending_effort.clone(),
+        app.runtime.pending_summary.clone(),
+    );
     let mut defaults = app.apply_model_settings();
     if client.kind() == BackendKind::Claude {
         crate::app::claude_models::prepare_saved_choices(app, &mut defaults);
+    }
+    if client.kind() == BackendKind::Codex {
+        crate::app::codex_settings_draft::normalize_saved(app, &mut defaults);
+        if before != app.next_turn_runtime_settings() {
+            app.codex.settings.persist_next = true;
+            let mut desired = serde_json::json!({});
+            for (key, value) in [
+                ("model", &defaults.model),
+                ("effort", &defaults.effort),
+                ("summary", &defaults.summary),
+            ] {
+                if let Some(value) = value {
+                    desired[key] = serde_json::json!(value);
+                }
+            }
+            crate::app::codex_settings::save_values(client, app, desired);
+        } else {
+            app.queue_runtime_settings(pending.0, pending.1, pending.2);
+        }
     }
     match client.apply_runtime_settings(defaults.model.as_deref(), defaults.effort.as_deref()) {
         Ok(true) => {
             app.mark_runtime_settings_applied();
             app.set_status("Claude settings applied");
-            let _ = client.refresh_context();
+            crate::app::claude_context::invalidate(app);
         }
         Ok(false) => {}
         Err(error) => app.set_status(format!("Could not apply live settings: {error}")),
@@ -100,7 +138,11 @@ fn save_settings(client: &dyn BackendClient, app: &mut AppState) {
             format!("Could not save appearance choices: {error}"),
         );
     }
-    if let Err(err) = persist_runtime_defaults(&defaults) {
+    if let Err(err) = if client.kind() == BackendKind::Codex {
+        Ok(())
+    } else {
+        persist_runtime_defaults(&defaults)
+    } {
         app.set_status(format!("saved for next turn; default save failed: {err}"));
     }
 }

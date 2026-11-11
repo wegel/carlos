@@ -16,11 +16,13 @@ pub(super) struct AnswerOption {
 /// One question owns its editor, cursor, selected choices, and omitted state.
 pub(super) struct AnswerField {
     pub(super) name: String,
+    pub(super) secret: bool,
     pub(super) title: String,
     pub(super) description: String,
     pub(super) options: Vec<AnswerOption>,
     pub(super) multiple: bool,
     pub(super) other: bool,
+    pub(super) notes_only: bool,
     pub(super) required: bool,
     pub(super) omitted: bool,
     pub(super) cursor: usize,
@@ -35,11 +37,13 @@ impl AnswerField {
     pub(super) fn new(name: &str, schema: Value, required: bool) -> Self {
         Self {
             name: name.to_string(),
+            secret: false,
             title: schema["title"].as_str().unwrap_or(name).to_string(),
             description: schema["description"].as_str().unwrap_or("").to_string(),
             options: Vec::new(),
             multiple: schema["type"] == "array",
             other: false,
+            notes_only: false,
             required,
             omitted: !required,
             cursor: 0,
@@ -81,7 +85,7 @@ impl AnswerField {
         self.omitted = false;
         if self.other && self.cursor == self.options.len() {
             self.use_text = true;
-            if !self.multiple {
+            if !self.multiple && !self.notes_only {
                 self.selected.clear();
             }
             return;
@@ -111,7 +115,7 @@ impl AnswerField {
         if self.options.is_empty() || (self.other && self.cursor == self.options.len()) {
             self.omitted = false;
             self.use_text = self.other;
-            if self.other && !self.multiple {
+            if self.other && !self.multiple && !self.notes_only {
                 self.selected.clear();
             }
             self.editor.insert_str(text);

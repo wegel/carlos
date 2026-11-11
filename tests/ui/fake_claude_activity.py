@@ -91,7 +91,7 @@ class Activity:
             self.clear = message
             self.h.sessions.prompt(message)
             return True
-        if self.h.active and message.get("priority") == "later" and self.h.MODE == "claude-native-queue":
+        if self.h.active and message.get("priority") == "later" and self.h.MODE in ("claude-native-queue", "claude-labels"):
             self.h.sessions.prompt(message)
             self.queued.append(message)
             self.emit("command_lifecycle", command_uuid=prompt, state="queued")

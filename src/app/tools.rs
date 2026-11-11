@@ -91,6 +91,9 @@ pub(super) fn tool_name(item: &Value) -> Option<String> {
 }
 
 pub(super) fn tool_command(item: &Value) -> Option<String> {
+    if item["carlosShellView"] == true {
+        return item["command"].as_str().map(str::to_owned);
+    }
     if item.get("type").and_then(Value::as_str) == Some("commandExecution") {
         if let Some(raw) = item.get("command").and_then(Value::as_str) {
             if !raw.is_empty() {

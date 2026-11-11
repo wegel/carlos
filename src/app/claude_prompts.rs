@@ -18,6 +18,7 @@ pub(super) struct ClaudePrompts {
 pub(super) struct Prompt {
     pub(super) text: String,
     pub(super) human: bool,
+    pub(super) steer: bool,
     pub(super) priority: String,
     pub(super) consumed: bool,
     pub(super) clear: bool,
@@ -48,6 +49,7 @@ impl ClaudePrompts {
             Prompt {
                 text: text.to_string(),
                 human: params["origin"] == "human",
+                steer: params["origin"] == "human" && params["inputKind"] == "steer",
                 priority: params["priority"].as_str().unwrap_or("later").to_string(),
                 consumed: false,
                 clear: false,
@@ -58,10 +60,19 @@ impl ClaudePrompts {
 }
 
 /// Associate a local echo with its native UUID before the next SDK frame is handled.
-pub(super) fn attach_echo(app: &mut AppState, id: &str) {
+pub(super) fn attach_echo(app: &mut AppState, id: &str, kind: Option<&str>) {
     if let Some(index) = app.messages.len().checked_sub(1) {
         app.put_item_mapping(&format!("claude-prompt:{id}"), index);
         app.input_history.record_turn_id(index, id);
+        set_kind(app, index, kind);
+    }
+}
+
+/// Apply only a captured human steer classification; it never changes prompt text or UUIDs.
+pub(super) fn set_kind(app: &mut AppState, index: usize, kind: Option<&str>) {
+    if app.messages[index].role == Role::User && kind == Some("steer") {
+        app.messages[index].kind = super::models::MessageKind::UserSteer;
+        app.mark_transcript_dirty_from(index);
     }
 }
 
@@ -72,7 +83,12 @@ pub(super) fn consume(app: &mut AppState, ids: &[String]) {
             continue;
         };
         prompt.consumed = true;
-        let (text, human, clear) = (prompt.text.clone(), prompt.human, prompt.clear);
+        let (text, human, steer, clear) = (
+            prompt.text.clone(),
+            prompt.human,
+            prompt.steer,
+            prompt.clear,
+        );
         if clear {
             continue;
         }
@@ -88,6 +104,9 @@ pub(super) fn consume(app: &mut AppState, ids: &[String]) {
                 },
             );
             app.put_item_mapping(&key, index);
+            if steer {
+                set_kind(app, index, Some("steer"));
+            }
             if human {
                 app.record_input_history(&text, Some(index));
                 app.input_history.record_turn_id(index, id);

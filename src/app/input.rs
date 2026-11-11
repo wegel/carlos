@@ -1,10 +1,15 @@
 //! Conversation event loop: poll terminal and server events, dispatch to handlers.
 
+#[path = "input_codex_order.rs"]
+pub(super) mod input_codex_order;
 #[path = "input_queue_rules.rs"]
 mod input_queue_rules;
 
 #[path = "input_dispatch.rs"]
-mod input_dispatch;
+pub(super) mod input_dispatch;
+#[path = "input_timers.rs"]
+mod input_timers;
+pub(super) use input_timers::{idle_wait, tick_rate_limits};
 
 use std::collections::VecDeque;
 use std::sync::mpsc::{Receiver, RecvTimeoutError, TryRecvError};
@@ -20,15 +25,17 @@ mod input_forwarders;
 use self::input_dispatch::process_event;
 use self::input_forwarders::wire_event_forwarders;
 #[cfg(test)]
+pub(super) use self::input_queue_rules::can_submit_queued_turn;
+#[cfg(test)]
 pub(super) use self::input_queue_rules::is_priority_server_line;
-pub(super) use self::input_queue_rules::{can_submit_queued_turn, prioritize_events};
+pub(super) use self::input_queue_rules::prioritize_events;
+use self::input_queue_rules::try_submit_queued_turn;
 use super::input_events::ensure_transcript_layout;
 #[cfg(test)]
 pub(super) use super::input_events::is_mobile_mouse_key_candidate;
 use super::notifications::{animation_poll_timeout, animation_tick};
 use super::render::render_main_view;
 use super::terminal_ui::with_terminal;
-use super::turn_submit::submit_dequeued_turn_text;
 use super::{AppState, TerminalSize};
 use crate::backend::BackendClient;
 use crate::event::UiEvent;
@@ -113,7 +120,16 @@ fn run_one_loop_iteration(
 ) -> Result<bool> {
     let size = terminal_size(terminal)?;
     let loop_now = Instant::now();
-    state.needs_draw |= app.rate_limits.tick(client, loop_now);
+    state.needs_draw |= super::input_mode::tick(app, loop_now);
+    state.needs_draw |= super::codex_reconnect_runtime::tick(client, app);
+    state.needs_draw |= super::codex_reconnect_streams::tick(client, app, loop_now);
+    state.needs_draw |= tick_rate_limits(client, app, loop_now);
+    state.needs_draw |= super::claude_context::tick(client, app, loop_now);
+    state.needs_draw |= super::codex_queue::tick(client, app);
+    state.needs_draw |= super::codex_settings::tick(client, app);
+    state.needs_draw |= super::codex_goals::tick(client, app, loop_now);
+    state.needs_draw |= super::codex_panel::tick(client, app);
+    state.needs_draw |= super::codex_task_status::tick(client, app, loop_now);
     state.needs_draw |= app.claude.quota.tick(
         client,
         loop_now,
@@ -206,7 +222,7 @@ fn collect_loop_events(
         ChannelOk::Disconnected => return EventBatchOutcome::Disconnected,
         ChannelOk::Ok(v) => v,
     };
-    let events = budgeted_events(incoming, &mut state.deferred);
+    let events = budgeted_events(incoming, &mut state.deferred, app.codex.enabled);
     if events.is_empty() {
         EventBatchOutcome::Empty
     } else {
@@ -245,39 +261,7 @@ fn drain_prefetched_idle(
     ChannelOk::Ok(())
 }
 
-/// Attempt to submit a queued turn if conditions allow. Returns true
-/// if a turn was submitted (caller should `continue` the loop).
-fn try_submit_queued_turn(
-    client: &dyn BackendClient,
-    app: &mut AppState,
-    working: bool,
-    deferred_server_lines: &VecDeque<String>,
-    prefetched_events: &VecDeque<UiEvent>,
-    now: Instant,
-) -> bool {
-    if client.kind() == crate::backend::BackendKind::Claude
-        && app.claude.phase != crate::app::claude_state::ClaudePhase::Ready
-    {
-        return false;
-    }
-    if !can_submit_queued_turn(working, deferred_server_lines, prefetched_events) {
-        return false;
-    }
-    if let Some(next_turn) = app.dequeue_turn_input(now) {
-        submit_dequeued_turn_text(
-            client,
-            app,
-            next_turn.text,
-            next_turn.record_input_history,
-            next_turn.origin,
-        );
-        return true;
-    }
-    false
-}
-
-/// Check animation state and return the current tick. Sets `needs_draw`
-/// when the animation frame has changed.
+/// Update the animation tick and ask the terminal to redraw changed frames.
 fn update_animation_state(working: bool, last_anim_tick: u128, needs_draw: &mut bool) -> u128 {
     let tick = if working { animation_tick() } else { 0 };
     if working {
@@ -340,12 +324,7 @@ fn poll_next_event(
             Err(RecvTimeoutError::Disconnected) => ChannelOk::Disconnected,
         };
     }
-    let wait = app
-        .pending_ralph_continuation_wait(loop_now)
-        .into_iter()
-        .chain(app.rate_limits.wait(loop_now))
-        .chain(app.claude.quota.wait(loop_now))
-        .min();
+    let wait = idle_wait(app, loop_now);
     if let Some(wait) = wait {
         return match ui_rx.recv_timeout(wait) {
             Ok(ev) => ChannelOk::Ok(Some(ev)),
@@ -388,6 +367,7 @@ fn gather_incoming_events(
 fn budgeted_events(
     incoming: Vec<UiEvent>,
     deferred_server_lines: &mut VecDeque<String>,
+    codex: bool,
 ) -> Vec<UiEvent> {
     let has_terminal_input = incoming.iter().any(|ev| matches!(ev, UiEvent::Terminal(_)));
     let server_budget = if has_terminal_input {
@@ -395,5 +375,9 @@ fn budgeted_events(
     } else {
         SERVER_BUDGET_IDLE
     };
-    prioritize_events(incoming, deferred_server_lines, server_budget)
+    if codex {
+        input_codex_order::order(incoming, deferred_server_lines, server_budget)
+    } else {
+        prioritize_events(incoming, deferred_server_lines, server_budget)
+    }
 }

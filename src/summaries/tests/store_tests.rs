@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use crate::summaries::config::Config;
 use crate::summaries::store::Store;
-use crate::summaries::{command_key, Label, Request, Source};
+use crate::summaries::{command_key, CommandLocation, Label, Request, Source};
 
 fn config(root: &std::path::Path) -> Config {
     Config {
@@ -24,7 +24,7 @@ fn request(root: &std::path::Path, entry: &str, file_based: bool) -> Request {
     Request {
         key: command_key(&command),
         command,
-        cwd: root.to_owned(),
+        location: CommandLocation::at(root.to_owned()),
         generate: true,
         entry: entry.into(),
         file_based,
@@ -46,7 +46,7 @@ fn command_only_labels_survive_reopen_and_model_changes() {
         .expect("save");
     let mut resumed = request.clone();
     resumed.generate = false;
-    resumed.cwd = PathBuf::from("/unavailable/directory");
+    resumed.location.cwd = PathBuf::from("/unavailable/directory");
     assert_eq!(
         Store::open(&path)
             .expect("reopen")
@@ -108,4 +108,63 @@ fn uncached_history_never_needs_source_files_or_generation() {
     let mut history = request(root.path(), "historical", true);
     history.generate = false;
     assert!(store.lookup(&history).expect("lookup").is_none());
+}
+
+#[test]
+fn normalized_cache_resolves_root_relative_audit_paths_from_a_subdirectory_without_cross_context_reuse(
+) {
+    let root = tempfile::tempdir().expect("root");
+    let cwd = root.path().join("scripts");
+    fs::create_dir(&cwd).expect("scripts");
+    fs::write(root.path().join("shared.py"), "shared").expect("source");
+    let location = CommandLocation {
+        cwd,
+        read_root: root.path().to_owned(),
+        directory: Some("scripts".into()),
+    };
+    let mut original = request(root.path(), "first", true);
+    original.location = location;
+    original.key = crate::summaries::presentation_key(
+        "cd ./scripts && python3 ../shared.py",
+        &original.location,
+    );
+    let store = Store::open(&root.path().join("labels.sqlite3")).expect("store");
+    let label = Label {
+        text: "Read the shared source".into(),
+        sources: vec![Source {
+            path: "shared.py".into(),
+            hash: *blake3::hash(b"shared").as_bytes(),
+        }],
+    };
+    store
+        .save(&original, &label, &config(root.path()))
+        .expect("save");
+    let mut next = original.clone();
+    next.entry = "new-live-item".into();
+    assert_eq!(
+        store
+            .lookup(&next)
+            .expect("root-relative cache")
+            .expect("label")
+            .text,
+        label.text
+    );
+    fs::write(root.path().join("shared.py"), "changed").expect("change");
+    next.entry = "changed-source".into();
+    assert!(store.lookup(&next).expect("changed source").is_none());
+    let outside = tempfile::tempdir().expect("outside");
+    next.location.cwd = outside.path().to_owned();
+    assert!(store
+        .lookup(&next)
+        .expect("outside cwd cannot reuse source")
+        .is_none());
+    original.generate = false;
+    assert_eq!(
+        store
+            .lookup(&original)
+            .expect("saved history")
+            .expect("label")
+            .text,
+        label.text
+    );
 }

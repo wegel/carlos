@@ -21,6 +21,7 @@ pub(super) struct ClaudeHistory {
     pub(super) unknown: Vec<UnknownPrompt>,
     pub(super) unknown_selection: Option<usize>,
     pub(super) edited_prompt: Option<String>,
+    pub(super) edit: Option<super::claude_edit::EditState>,
     unsent_drafts: VecDeque<String>,
     translation: ClaudeTranslationState,
     chunk: Vec<u8>,
@@ -35,6 +36,8 @@ pub(super) struct UnknownPrompt {
 
 /// Start the new helper generation before accepting its callbacks or metadata.
 pub(super) fn switch_session(app: &mut AppState, generation: u64, id: &str) {
+    super::claude_edit::retire_queue(app);
+    let unsent_drafts = std::mem::take(&mut app.claude.history.unsent_drafts);
     let selection = std::mem::take(&mut app.claude.selection);
     let edit = app.claude.history.edited_prompt.take();
     if selection.inherits_model && app.runtime.pending_model.is_none() {
@@ -49,7 +52,11 @@ pub(super) fn switch_session(app: &mut AppState, generation: u64, id: &str) {
     app.claude.selection = selection;
     app.claude.generation = generation;
     app.claude.phase = ClaudePhase::Starting;
+    app.claude.history.edit = edit
+        .as_ref()
+        .map(|_| super::claude_edit::EditState::Starting);
     app.claude.history.edited_prompt = edit;
+    app.claude.history.unsent_drafts = unsent_drafts;
     app.set_available_models(Vec::new());
     app.set_status("Claude starts the edited branch");
 }
@@ -130,6 +137,7 @@ fn append_record(app: &mut AppState, record: &Value) -> Result<()> {
             append_prompt(
                 app,
                 record["source"].as_str().unwrap_or("unknown"),
+                record["inputKind"].as_str(),
                 message,
                 text,
             );
@@ -144,24 +152,34 @@ fn append_record(app: &mut AppState, record: &Value) -> Result<()> {
             translation.begin_history_snapshot();
         }
         let output = translate_claude_line(translation, &message.to_string())?;
-        for line in output.lines {
-            let parsed: Value = serde_json::from_str(&line)?;
-            if parsed["method"]
-                .as_str()
-                .is_some_and(|method| method.starts_with("item/"))
-            {
-                let _ = handle_server_message_line(app, &line);
+        app.with_historical_tools(|app| -> Result<()> {
+            for line in output.lines {
+                let parsed: Value = serde_json::from_str(&line)?;
+                if parsed["method"]
+                    .as_str()
+                    .is_some_and(|method| method.starts_with("item/"))
+                {
+                    let _ = handle_server_message_line(app, &line);
+                }
             }
-        }
+            Ok(())
+        })?;
     }
     Ok(())
 }
 
-fn append_prompt(app: &mut AppState, source: &str, message: &Value, text: String) {
+fn append_prompt(
+    app: &mut AppState,
+    source: &str,
+    kind: Option<&str>,
+    message: &Value,
+    text: String,
+) {
     let uuid = message["uuid"].as_str().unwrap_or("");
     match source {
         "human" => {
             let index = app.append_message(Role::User, text.clone());
+            super::claude_prompts::set_kind(app, index, kind);
             app.record_input_history(&text, Some(index));
             app.input_history.record_turn_id(index, uuid);
         }
@@ -219,6 +237,14 @@ pub(super) fn restore_edit(app: &mut AppState) {
 
 /// Keep queued human text recoverable while leaving a newer composer draft untouched.
 pub(super) fn recover_queued(app: &mut AppState) {
+    retain_queued(app);
+    if app.input_is_empty() {
+        load_unsent(app);
+    }
+}
+
+/// Retain local human drafts for explicit recovery without filling the new branch's composer.
+pub(super) fn retain_queued(app: &mut AppState) {
     let drafts = app.ralph_runtime.take_queued_human_drafts();
     for text in drafts.iter().rev() {
         app.discard_pending_input_history(text);
@@ -230,9 +256,11 @@ pub(super) fn recover_queued(app: &mut AppState) {
         );
         app.claude.history.unsent_drafts.push_back(text);
     }
-    if app.input_is_empty() {
-        load_unsent(app);
-    }
+}
+
+/// Report whether the user can explicitly recover a retained draft in any helper phase.
+pub(super) fn has_unsent(app: &AppState) -> bool {
+    !app.claude.history.unsent_drafts.is_empty()
 }
 
 /// Load one retained draft only when doing so cannot replace the user's composer.

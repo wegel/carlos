@@ -23,6 +23,20 @@ use crate::theme::ANIMATION_STEP_MS;
 // --- Types ---
 
 pub(super) enum ServerRequestAction {
+    CodexQueuePage {
+        token: u64,
+        cursor: Value,
+    },
+    ValidateCodexForm {
+        id: Value,
+        schema: Value,
+        answer: Option<Value>,
+        revision: u64,
+    },
+    ReplyNative {
+        id: Value,
+        result: Value,
+    },
     ClaudeControl {
         method: String,
         params: Value,
@@ -176,11 +190,36 @@ pub(crate) fn handle_server_message_line(
     let Ok(parsed) = serde_json::from_str::<Value>(line) else {
         return None;
     };
+    let previous = app.codex.item_turn.take();
+    app.codex.item_turn = parsed["params"]["turnId"].as_str().map(str::to_string);
+    let action = handle_parsed(app, parsed);
+    app.codex.item_turn = previous;
+    action
+}
+
+fn handle_parsed(app: &mut AppState, parsed: Value) -> Option<ServerRequestAction> {
+    if app.codex.closed {
+        return None;
+    }
     if app.rate_limits.response(&parsed) {
         return None;
     }
     let method = parsed.get("method").and_then(Value::as_str)?;
+    if app.codex.enabled {
+        if let super::codex_callbacks::CallbackRoute::Handled(action) =
+            super::codex_callbacks::route(app, method, &parsed)
+        {
+            return action;
+        }
+    }
+    if super::codex_panel_events::event(app, method, &parsed["params"]) {
+        return None;
+    }
     let params = parsed.get("params").and_then(Value::as_object)?;
+    if method == "carlos/codex/closed" {
+        super::codex_lifecycle::close(app, params);
+        return None;
+    }
     if matches!(
         method,
         "claude/controller"

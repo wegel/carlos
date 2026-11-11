@@ -95,42 +95,34 @@ fn status_plan(app: &AppState, size: TerminalSize) -> StatusPlan {
     let line_len = size.width.saturating_sub(1);
     let mut edge = line_len;
     let mut labels = Vec::new();
-    if let Some(weekly) = if app.claude.enabled {
-        app.claude.quota.indicator()
-    } else {
-        app.rate_limits.indicator()
-    } {
-        place(
-            &mut labels,
-            &mut edge,
-            Label {
-                parts: vec![
-                    ("W".to_string(), COLOR_STEP8),
-                    (weekly.percent, weekly.color),
-                    (format!("/{}", weekly.countdown), COLOR_STEP8),
-                ],
-                bold: false,
-            },
-        );
-    }
-    if app.claude.enabled && !app.rewind_mode() {
-        let mode = if app.claude.prompts.queue {
-            "Queue"
+    if app.codex.enabled && app.codex.closed {
+        let text = if app.codex.connection.rebuilding {
+            "Codex reconnecting…"
         } else {
-            "Steer"
-        };
-        let hint = if size.width < 60 {
-            format!("{mode}:F3 Tasks:F2")
-        } else {
-            format!("Enter: {mode} F3 · Tasks F2")
+            "Codex offline · F5 reconnect"
         };
         place(
             &mut labels,
             &mut edge,
-            Label::plain(hint, COLOR_GUTTER_USER),
+            Label::plain(text.into(), COLOR_GUTTER_USER),
         );
     }
-    place_context(&mut labels, &mut edge, app);
+    if let Some(label) = super::claude_edit::label(app, size.width) {
+        place(
+            &mut labels,
+            &mut edge,
+            Label::plain(label.to_string(), COLOR_GUTTER_USER),
+        );
+    }
+    place_codex_callback(&mut labels, &mut edge, app, size);
+    place_weekly(&mut labels, &mut edge, app);
+    let mode = super::input_mode::label(app, std::time::Instant::now());
+    let notice = queue_notice(app, size);
+    let reserve = mode.map_or(0, |mode| visual_width(mode) + 1)
+        + notice.as_ref().map_or(0, |notice| visual_width(notice) + 1);
+    place_context(&mut labels, &mut edge, app, reserve);
+    place_input_mode(&mut labels, &mut edge, mode, notice);
+    place_tasks(&mut labels, &mut edge, app);
     place_model_and_activity(&mut labels, &mut edge, app);
     StatusPlan {
         line_len,
@@ -141,11 +133,120 @@ fn status_plan(app: &AppState, size: TerminalSize) -> StatusPlan {
     }
 }
 
-fn place_context(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState) {
+fn place_weekly(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState) {
+    if let Some(weekly) = if app.claude.enabled {
+        app.claude.quota.indicator()
+    } else {
+        app.rate_limits.indicator()
+    } {
+        place(
+            labels,
+            edge,
+            Label {
+                parts: vec![
+                    ("W".to_string(), COLOR_STEP8),
+                    (weekly.percent, weekly.color),
+                    (format!("/{}", weekly.countdown), COLOR_STEP8),
+                ],
+                bold: false,
+            },
+        );
+    }
+}
+
+fn place_tasks(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState) {
+    let tasks = super::task_badge::count(app);
+    let uncertain = app.codex.enabled
+        && !app.codex.closed
+        && app
+            .codex
+            .task_status
+            .errors
+            .keys()
+            .any(|owner| super::task_badge::owns(app, owner));
+    if tasks > 0 || uncertain {
+        let hint = if tasks == 0 {
+            "Tasks?".to_string()
+        } else {
+            format!(
+                "{tasks}{} {}",
+                if uncertain { "+" } else { "" },
+                if tasks == 1 { "task" } else { "tasks" }
+            )
+        };
+        place(labels, edge, Label::plain(hint, COLOR_GUTTER_USER));
+    }
+}
+
+fn place_codex_callback(
+    labels: &mut Vec<PlacedLabel>,
+    edge: &mut usize,
+    app: &AppState,
+    size: TerminalSize,
+) {
+    if app.codex.enabled && !app.codex.callbacks.focused && !app.codex.callbacks.entries.is_empty()
+    {
+        let count = app.codex.callbacks.entries.len();
+        let hint = if size.width >= 60 {
+            format!("F4: Codex request waiting ({count})")
+        } else if size.width >= 30 {
+            format!("F4: request waiting ({count})")
+        } else if size.width >= 16 {
+            format!("F4 request ({count})")
+        } else {
+            "F4".into()
+        };
+        place(labels, edge, Label::plain(hint, COLOR_GUTTER_USER));
+    }
+}
+
+fn queue_notice(app: &AppState, size: TerminalSize) -> Option<String> {
+    if !app.codex.enabled || app.rewind_mode() {
+        return None;
+    }
+    let compact = size.width < 32;
+    if app.codex.queue.operation.is_some() {
+        Some(if compact { "Q…" } else { "Queue pending" }.into())
+    } else if app.codex.queue.recovery.is_some() {
+        Some(if compact { "Draft" } else { "Unsent draft" }.into())
+    } else if app.codex.queue.error.is_some() {
+        Some(if compact { "Q!" } else { "Queue error" }.into())
+    } else if app.codex.queue.known && !app.codex.queue.entries.is_empty() {
+        Some(format!("{} queued", app.codex.queue.entries.len()))
+    } else {
+        None
+    }
+}
+
+fn place_input_mode(
+    labels: &mut Vec<PlacedLabel>,
+    edge: &mut usize,
+    mode: Option<&str>,
+    notice: Option<String>,
+) {
+    if let Some(notice) = notice {
+        place(labels, edge, Label::plain(notice, COLOR_GUTTER_USER));
+    }
+    if let Some(mode) = mode {
+        place(
+            labels,
+            edge,
+            Label::plain(mode.to_string(), COLOR_GUTTER_USER),
+        );
+    }
+}
+
+fn place_context(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState, reserve: usize) {
     let context = app
         .context_usage
         .map(context_usage_label)
         .unwrap_or_else(|| context_usage_placeholder_label().to_string());
+    let stale = app.claude.enabled && app.context_usage.is_some() && !app.claude.context.fresh;
+    let context = if stale {
+        format!("~{context}")
+    } else {
+        context
+    };
     let (tokens, percent) = context.split_once(" (").unwrap_or((&context, ""));
     let percent = percent.trim_end_matches(')');
     let color = app
@@ -158,8 +259,19 @@ fn place_context(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState
         ],
         bold: false,
     };
-    if !place(labels, edge, full) {
-        place(labels, edge, Label::plain(percent.to_owned(), color));
+    if full.width() + 2 + reserve > *edge || !place(labels, edge, full) {
+        place(
+            labels,
+            edge,
+            Label::plain(
+                if stale {
+                    format!("~{percent}")
+                } else {
+                    percent.to_owned()
+                },
+                color,
+            ),
+        );
     }
 }
 
@@ -184,7 +296,12 @@ fn place_model_and_activity(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app
     }
     let reserved: usize = badges.iter().map(|label| label.width() + 1).sum();
     let budget = edge.saturating_sub(reserved + 2);
-    let model = fit_model(&app.runtime_settings_label(), budget);
+    let label = if app.codex.enabled {
+        super::codex_settings::label(app)
+    } else {
+        app.runtime_settings_label()
+    };
+    let model = fit_model(&label, budget);
     place(labels, edge, Label::plain(model, COLOR_STEP8));
     for badge in badges {
         place(labels, edge, badge);

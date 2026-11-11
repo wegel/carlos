@@ -64,6 +64,20 @@ pub(crate) enum PromptPriority {
 pub(crate) trait BackendClient {
     fn kind(&self) -> BackendKind;
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String>;
+    /// Send a protocol notice that has no response, when the backend supports it.
+    fn notify(&self, _method: &str, _params: Value) -> Result<()> {
+        Ok(())
+    }
+    /// Validate a native form away from the UI and return its result through events.
+    fn validate_form(
+        &self,
+        _id: Value,
+        _schema: Value,
+        _answer: Option<Value>,
+        _revision: u64,
+    ) -> Result<()> {
+        bail!("Backend does not support local form checks")
+    }
     /// Submit a prompt without adding backend-specific fields to other backends' JSON.
     fn submit_prompt(
         &self,
@@ -82,6 +96,15 @@ pub(crate) trait BackendClient {
     /// Send an optional native control whose reply arrives through backend events.
     fn request_native_control(&self, _method: &str, _params: Value) -> Result<()> {
         bail!("backend does not support native controls")
+    }
+    /// Correlate local UI work without sending its context to the native server.
+    fn request_control_with_context(
+        &self,
+        method: &str,
+        params: Value,
+        _context: Value,
+    ) -> Result<()> {
+        self.request_native_control(method, params)
     }
     /// Ask the backend to publish its current context-window counts.
     fn refresh_context(&self) -> Result<()> {
@@ -103,6 +126,23 @@ pub(crate) trait BackendClient {
     }
     fn respond(&self, request_id: &Value, result: Value) -> Result<()>;
     fn respond_error(&self, request_id: &Value, code: i64, message: &str) -> Result<()>;
+    /// Stop only the subprocess Carlos owns after a local fatal error.
+    fn abort_connection(&self) {}
+    /// Start one asynchronous new connection, leaving all uncertain input unsent.
+    fn reconnect(&self, _thread: &str) -> Result<u64> {
+        bail!("Backend does not support reconnect")
+    }
+    /// Claim the single bounded off-stream snapshot at its ordered ready ticket.
+    fn take_reconnect_snapshot(
+        &self,
+        _generation: u64,
+    ) -> Option<crate::codex_snapshot::CodexSnapshot> {
+        None
+    }
+    /// Identify this native connection without changing its stable event budget.
+    fn connection_generation(&self) -> Option<u64> {
+        None
+    }
     fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>>;
     fn stop(&mut self);
 }

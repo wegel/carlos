@@ -150,6 +150,15 @@ its session. Failed startup leaves the edited prompt available as a draft. Carlo
 unsent queued human drafts after closure: F5 loads one when the composer is empty
 and leaves a newer composer draft untouched. Automatic work is discarded.
 
+The SDK can copy a trailing hook-summary record while omitting it from the
+normal message view. Fork checks therefore keep the SDK's canonical conversation
+as their baseline and prove any hidden system suffix through the published import
+store: exact source UUIDs, parent links, record order and opaque payloads must
+match. Attachments can connect those links but never become hidden user/assistant
+messages. Missing, altered or extra conversation rows still reject the branch.
+Only a completely validated fork publishes Carlos source/label facts, in one
+SQLite transaction. Normal history display continues to follow the SDK view.
+
 The public SDK message reader returns only the active context after compaction.
 The helper therefore uses the published `importSessionToStore` reader to fill a
 private temporary SQLite cache, then asks `getSessionMessages` to read that cache.
@@ -170,7 +179,10 @@ Rust backlog, not that SDK allocation. Exceeding a limit fails visibly.
 The native CLI sometimes drops the automatic origin on disk. Before sending a
 prompt, Carlos saves its UUID/source in its own SQLite file below
 `$XDG_STATE_HOME/carlos/` (or `~/.local/state/carlos/`), separated by native config
-folder. It saves no prompt text or login credentials there. Human keyboard and
+folder. A separate table stores the captured human prompt/steer display choice
+for each UUID, carrying it through validated SDK fork UUID changes. Old inputs
+without that choice stay plain; priority alone does not prove a steer. Carlos
+saves no prompt text or login credentials there. Human keyboard and
 dictation prompts remain editable after resume/fork, including consumed queued
 prompts. Automatic, child, local-command, and compact-summary records do not
 enter ordinary prompt history. Older main-thread records with unknown authors

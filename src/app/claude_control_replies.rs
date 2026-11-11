@@ -4,7 +4,6 @@ use serde_json::Value;
 
 use super::claude_models::apply_capabilities;
 use super::claude_notifications::{fail_session, show_error};
-use super::context_usage::ContextUsage;
 use super::notifications::ServerRequestAction;
 use super::state::AppState;
 
@@ -45,7 +44,7 @@ pub(super) fn receive(
                 .optional(&frame["result"], context["revision"].as_u64().unwrap_or(0));
         }
         Some("context") => {
-            read_context(app, &frame["result"], context);
+            super::claude_context::receive(app, frame, context);
         }
         _ => {}
     }
@@ -73,6 +72,10 @@ fn failed(
         }
         return None;
     }
+    if request == Some("context") {
+        super::claude_context::receive(app, frame, context);
+        return None;
+    }
     if request == Some("usage.optional") {
         return None;
     }
@@ -81,19 +84,4 @@ fn failed(
         fail_session(app);
     }
     None
-}
-
-fn read_context(app: &mut AppState, result: &Value, context: &Value) {
-    if context["revision"]
-        .as_u64()
-        .is_some_and(|revision| revision != app.claude.activity.context_revision)
-    {
-        return;
-    }
-    let max = result["rawMaxTokens"]
-        .as_u64()
-        .or_else(|| result["maxTokens"].as_u64());
-    if let (Some(used), Some(max)) = (result["totalTokens"].as_u64(), max.filter(|max| *max > 0)) {
-        app.context_usage = Some(ContextUsage { used, max });
-    }
 }

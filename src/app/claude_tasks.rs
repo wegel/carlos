@@ -90,7 +90,18 @@ impl ClaudeTasks {
     pub(super) fn active_count(&self) -> usize {
         self.live
             .values()
-            .filter(|task| task["ambient"] != true && task["skip_transcript"] != true)
+            .filter(|task| {
+                let record = task["task_id"].as_str().and_then(|id| self.records.get(id));
+                let ambient = task["ambient"] == true
+                    || task["skip_transcript"] == true
+                    || record.is_some_and(|record| {
+                        record.data["ambient"] == true || record.data["skip_transcript"] == true
+                    });
+                !ambient
+                    && !record.is_some_and(|record| {
+                        record.status.terminal() && record.data["run_id"] == task["run_id"]
+                    })
+            })
             .count()
     }
 

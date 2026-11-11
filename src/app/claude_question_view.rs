@@ -23,6 +23,22 @@ pub(super) fn caller(pending: &PendingApprovalRequest) -> String {
         .requested_permissions
         .as_ref()
         .unwrap_or(&Value::Null);
+    if payload["threadId"].is_string() && pending.method != "claude/native" {
+        let thread = payload["threadId"].as_str().unwrap_or("unknown");
+        let tail = thread
+            .chars()
+            .rev()
+            .take(8)
+            .collect::<String>()
+            .chars()
+            .rev()
+            .collect::<String>();
+        return format!(
+            "Thread: …{}  {}",
+            safe_label(&tail),
+            safe_label(payload["serverName"].as_str().unwrap_or("Codex question"))
+        );
+    }
     if let Some(server) = payload["serverName"].as_str() {
         return format!("MCP server: {}", safe_label(server));
     }
@@ -47,8 +63,16 @@ pub(super) fn editor_line(draft: &NativeDraft, width: usize) -> Option<(String, 
     }
     let (row, col) = field.editor.cursor();
     let line = field.editor.lines().get(row)?;
-    let prefix = safe_text(&line.chars().take(col).collect::<String>());
-    let suffix = safe_text(&line.chars().skip(col).collect::<String>());
+    let prefix = if field.secret {
+        "•".repeat(col)
+    } else {
+        safe_text(&line.chars().take(col).collect::<String>())
+    };
+    let suffix = if field.secret {
+        "•".repeat(line.chars().count().saturating_sub(col))
+    } else {
+        safe_text(&line.chars().skip(col).collect::<String>())
+    };
     let mut visible = prefix.as_str();
     while visual_width(visible) > width.saturating_sub(3) {
         visible = &visible[visible.chars().next()?.len_utf8()..];
@@ -85,18 +109,64 @@ pub(super) fn body_lines(pending: &PendingApprovalRequest, draft: &NativeDraft) 
     }
     lines.push(format!(
         "Request: {}",
-        pending
-            .request_id
-            .as_str()
-            .map(safe_label)
-            .unwrap_or_default()
+        super::native_questions::id_label(&pending.request_id)
     ));
     lines.extend(pending.detail_lines.iter().cloned());
     lines
 }
 
 /// Keep compact answer keys on screen even on a short phone terminal.
-pub(super) fn footer_lines(draft: &NativeDraft, width: usize, compact: bool) -> Vec<String> {
+pub(super) fn footer_lines(
+    draft: &NativeDraft,
+    pending: &PendingApprovalRequest,
+    width: usize,
+    compact: bool,
+) -> Vec<String> {
+    if draft.unsupported.is_some() {
+        let question = draft.codex_blocking.is_some();
+        return wrap_lines(
+            vec![
+                if question {
+                    "Alt+N skip  Alt+C interrupt".into()
+                } else {
+                    "Alt+N decline  Alt+C cancel".into()
+                },
+                "F4 next  F10 interrupt".into(),
+                "PgUp/PgDn scroll".into(),
+            ],
+            width,
+        );
+    }
+    if let Some(blocking) = draft.codex_blocking {
+        return vec![
+            "Tab fields ↑↓/Space pick F4 next".into(),
+            "Ctrl+S send Alt+N skip".into(),
+            if blocking {
+                "Alt+C/F10 interrupt".into()
+            } else {
+                "Alt+C/F10 interrupt; Esc back".into()
+            },
+        ];
+    }
+    if draft.fields.is_empty() && pending.method != "claude/native" {
+        let mut choices = Vec::new();
+        if pending.can_accept_once() {
+            choices.push("y accept");
+        }
+        if pending.can_accept_for_session {
+            choices.push("s accept session");
+        }
+        if pending.can_decline {
+            choices.push("n decline");
+        }
+        if pending.can_cancel {
+            choices.push("c cancel");
+        }
+        let mut lines = wrap_lines(vec![choices.join("  ")], width);
+        lines.push("F4 next  F10 interrupt".into());
+        lines.push("PgUp/PgDn scroll".into());
+        return lines;
+    }
     if compact {
         return vec![
             "Tab fields ↑↓/Space pick F4 next".to_string(),
@@ -138,6 +208,10 @@ pub(super) fn wrap_lines(lines: Vec<String>, width: usize) -> Vec<String> {
 fn review_lines(draft: &NativeDraft) -> Vec<String> {
     let mut lines = vec!["Review answers. Ctrl+S sends; Tab edits.".to_string()];
     for field in &draft.fields {
+        if field.secret {
+            lines.push(format!("{}: (hidden)", safe_label(&field.title)));
+            continue;
+        }
         let value = if field.other {
             field.ask_value().map(|v| Some(serde_json::json!(v)))
         } else {
@@ -186,13 +260,18 @@ fn field_lines(field: &AnswerField) -> Vec<String> {
     }
     if field.other {
         lines.push(format!(
-            "{} [{}] Other (type your answer)",
+            "{} [{}] {}",
             if field.cursor == field.options.len() {
                 ">"
             } else {
                 " "
             },
-            if field.use_text { "x" } else { " " }
+            if field.use_text { "x" } else { " " },
+            if field.notes_only {
+                "Notes (optional)"
+            } else {
+                "Other (type your answer)"
+            }
         ));
     }
     if field.options.is_empty() && !field.other {

@@ -14,10 +14,11 @@ pub(super) fn record_submitted_prompt(app: &mut AppState, response: &Value) {
         {
             app.record_turn_started(id);
         }
-        super::claude_prompts::attach_echo(app, id);
+        super::claude_prompts::attach_echo(app, id, response["result"]["inputKind"].as_str());
         if let Some(index) = app.messages.len().checked_sub(1) {
             app.input_history.record_turn_id(index, id);
         }
+        super::claude_edit::accepted(app, id);
     }
 }
 
@@ -49,16 +50,14 @@ pub(super) fn handle(
                 .get("message")
                 .and_then(Value::as_str)
                 .unwrap_or("Claude could not start the edited branch");
-            app.set_status(format!("Claude session failed: {message}"));
+            super::claude_edit::failed(app, message);
         }
         "claude/forkFailed" => {
-            app.claude.phase = super::claude_state::ClaudePhase::Ready;
-            app.claude.history.edited_prompt = None;
             let message = params
                 .get("message")
                 .and_then(Value::as_str)
                 .unwrap_or("Could not fork Claude session");
-            app.set_status(format!("fork failed: {message}"));
+            super::claude_edit::failed(app, message);
         }
         "claude/promptSubmitted" => {
             return accept_prompt(app, params);
@@ -165,8 +164,12 @@ pub(super) fn result_error(message: &Value) -> String {
 
 /// Close the UI query and recover unsent drafts after a terminal helper failure.
 pub(super) fn fail_session(app: &mut AppState) {
+    super::claude_edit::recover_sending(app);
     super::claude_session_history::restore_edit(app);
     app.claude.phase = crate::app::claude_state::ClaudePhase::Closed;
+    if super::claude_edit::waiting(app) {
+        app.claude.history.edit = Some(super::claude_edit::EditState::Failed);
+    }
     app.claude.questions.clear();
     app.clear_pending_approval();
     for line in app.claude.fail_pending() {
@@ -197,7 +200,7 @@ fn handle_controller(
         || frame["event"] == "callback_cancelled"
         || matches!(
             params.get("requestMethod").and_then(Value::as_str),
-            Some("start" | "capabilities" | "task.stop" | "usage.optional")
+            Some("start" | "capabilities" | "task.stop" | "usage.optional" | "context")
         )
         || crate::claude_backend::is_process_message(&frame["message"]);
     if epoch < app.claude.epoch && !process {

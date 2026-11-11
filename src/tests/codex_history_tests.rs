@@ -16,7 +16,7 @@ fn later_completed_turn_survives_unfinished_turn_and_duplicate_ordinal() {
     let rollout = parse_rollout_history(Cursor::new(STALE_REPLAY), "thread-root")
         .expect("parse rollout fixture");
     let server = truncated_server_thread(&rollout);
-    let chosen = prefer_complete_rollout_history(server, rollout);
+    let chosen = prefer_complete_rollout_history(server, rollout).expect("eligible legacy merge");
     let response = json!({"result": {"thread": chosen}}).to_string();
     let mut app = AppState::new("thread-root".to_string());
 
@@ -78,7 +78,8 @@ fn rollout_without_a_completed_final_answer_cannot_replace_server_history() {
         "items": []
     }]});
 
-    let chosen = prefer_complete_rollout_history(server.clone(), rollout);
+    let chosen =
+        prefer_complete_rollout_history(server.clone(), rollout).expect("eligible legacy merge");
 
     assert_eq!(chosen, server);
 }
@@ -220,4 +221,124 @@ fn message_count(app: &AppState, needle: &str) -> usize {
         .iter()
         .filter(|message| message.text.contains(needle))
         .count()
+}
+
+#[test]
+fn legacy_recovery_keeps_server_prefix_metadata_and_fills_empty_completed_items() {
+    let rollout =
+        parse_rollout_history(Cursor::new(STALE_REPLAY), "thread-root").expect("raw fixture");
+    let server = json!({"id":"thread-root","name":"keep this name","future":42,
+        "turns":[{"id":"inherited-prefix","status":"completed","items":[{"id":"ancestor","type":"agentMessage","text":"inherited"}]},
+        {"id":"turn-later","status":"completed","items":[],"future":"keep"}]});
+    let recovered =
+        prefer_complete_rollout_history(server, rollout).expect("eligible legacy merge");
+    assert_eq!(recovered["name"], "keep this name");
+    assert_eq!(recovered["future"], 42);
+    assert_eq!(recovered["turns"][0]["id"], "inherited-prefix");
+    assert_eq!(recovered["turns"][1]["future"], "keep");
+    assert!(recovered["turns"][1]["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .any(|item| item["id"] == "final-later"));
+    assert_eq!(recovered["turns"].as_array().expect("turns").len(), 2);
+}
+
+#[test]
+fn inherited_raw_forks_cannot_replace_server_ancestry() {
+    for record in [
+        json!({"type":"history_base","payload":{"end_ordinal_exclusive":40}}),
+        json!({"type":"session_meta","payload":{"forked_from_id":"source"}}),
+    ] {
+        let raw = format!("{record}\n{STALE_REPLAY}");
+        assert!(parse_rollout_history(Cursor::new(raw), "thread-root").is_err());
+    }
+}
+
+#[test]
+fn legacy_nonprefix_items_keep_raw_order_and_authoritative_server_versions() {
+    let server = json!({"id":"root","name":"keep","turns":[{"id":"t","status":"completed","items":[
+        {"id":"b","type":"commandExecution","command":"native"},
+        {"id":"unknown","type":"future","extra":42}]}]});
+    let raw = json!({"id":"root","turns":[{"id":"t","status":"completed","items":[
+        {"id":"a","type":"userMessage"},{"id":"b","type":"commandExecution","command":"raw"},
+        {"id":"c","type":"agentMessage","phase":"final_answer","text":"done"}]}]});
+    let recovered = prefer_complete_rollout_history(server, raw).expect("eligible legacy merge");
+    let items = recovered["turns"][0]["items"].as_array().expect("items");
+    assert_eq!(
+        items
+            .iter()
+            .map(|item| item["id"].as_str().expect("ID"))
+            .collect::<Vec<_>>(),
+        ["a", "b", "unknown", "c"]
+    );
+    assert_eq!(items[1]["command"], "native");
+    assert_eq!(items[2]["extra"], 42);
+}
+
+#[test]
+fn legacy_item_ids_are_scoped_to_their_native_turn() {
+    let next = [
+        json!({"type":"task_started","turn_id":"other"}),
+        json!({"type":"item_completed","turn_id":"other","item":{"id":"final-later","type":"AgentMessage","phase":"final_answer","content":[{"type":"Text","text":"other answer"}]}}),
+        json!({"type":"task_complete","turn_id":"other"}),
+    ];
+    let mut rows = STALE_REPLAY.to_string();
+    for payload in next {
+        rows.push_str(&format!(
+            "{}\n",
+            json!({"type":"event_msg","payload":payload})
+        ));
+    }
+    let history = parse_rollout_history(Cursor::new(rows), "thread-root").expect("scoped IDs");
+    let turns = history["turns"].as_array().expect("turns");
+    assert_eq!(turns.len(), 3);
+    assert!(turns[1]["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .any(|item| item["id"] == "final-later"
+            && item["content"][0]["text"]
+                .as_str()
+                .expect("text")
+                .starts_with("Committed EP118")));
+    assert_eq!(turns[2]["items"][0]["content"][0]["text"], "other answer");
+}
+
+#[test]
+fn legacy_recovery_rejects_conflicting_shared_item_order() {
+    let a = json!({"id":"a","type":"userMessage"});
+    let b = json!({"id":"b","type":"commandExecution"});
+    let c = json!({"id":"c","type":"agentMessage","phase":"final_answer"});
+    let server = json!({"turns":[{"id":"t","status":"completed","items":[b.clone(),a.clone()]}]});
+    let raw = json!({"turns":[{"id":"t","status":"completed","items":[a,b,c]}]});
+    assert!(prefer_complete_rollout_history(server, raw)
+        .expect_err("contradictory order")
+        .to_string()
+        .contains("disagree on item order"));
+}
+
+#[test]
+fn terminal_codex_close_fences_late_turn_items_callbacks_and_keeps_the_composer() {
+    let mut app = AppState::new("thread-root".into());
+    app.set_input_text("keep my 日本語 draft");
+    handle_notification_line(&mut app,&json!({"method":"turn/started","params":{"threadId":"thread-root","turn":{"id":"active"}}}).to_string());
+    handle_notification_line(
+        &mut app,
+        &json!({"method":"carlos/codex/closed","params":{"message":"native EOF"}}).to_string(),
+    );
+    assert!(app.codex.closed);
+    let count = app.messages.len();
+    for event in [
+        json!({"method":"turn/started","params":{"threadId":"thread-root","turn":{"id":"late"}}}),
+        json!({"method":"item/completed","params":{"threadId":"thread-root","turnId":"late","item":{"type":"agentMessage","id":"late-text","text":"must not reactivate"}}}),
+        json!({"id":"late-callback","method":"item/commandExecution/requestApproval","params":{"threadId":"thread-root","turnId":"late","itemId":"tool","command":"echo hi"}}),
+        json!({"method":"turn/completed","params":{"threadId":"thread-root","turn":{"id":"late","status":"completed"}}}),
+    ] {
+        handle_notification_line(&mut app, &event.to_string());
+    }
+    assert!(app.active_turn_id.is_none());
+    assert!(app.approval.pending.is_none());
+    assert_eq!(app.messages.len(), count);
+    assert_eq!(app.input.lines().join("\n"), "keep my 日本語 draft");
 }

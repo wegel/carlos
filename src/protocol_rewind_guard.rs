@@ -90,7 +90,7 @@ fn read_item_page(
     let response = client.call(
         "thread/items/list",
         json!({"threadId":thread_id,
-        "turnId":turn_id,"sortDirection":"asc","limit":100,"cursor":cursor}),
+        "turnId":turn_id,"sortDirection":"asc","limit":1,"cursor":cursor}),
         timeout,
     )?;
     serde_json::from_str(&response).context("Invalid selected-turn history")

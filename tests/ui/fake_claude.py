@@ -21,6 +21,7 @@ initialize = None
 prompts = 0
 model = "sdk-sonnet"
 batches = {}
+context_failures = 0
 
 
 def record(direction, message):
@@ -68,10 +69,12 @@ def finish_initialize(request):
                     "supportsEffort": True, "supportedEffortLevels": ["low", "medium", "high", "max"]}],
         "agents": [], "account": {}, "output_style": "default"})
     send({"type": "system", "subtype": "init", "session_id": SESSION, "model": model})
+    if MODE == "claude-labels-running":
+        state("running")
 
 
 def handle_control(message):
-    global initialize, active, model
+    global initialize, active, model, context_failures
     request = message["request"]
     subtype = request["subtype"]
     if activity.control(message):
@@ -95,7 +98,12 @@ def handle_control(message):
         else:
             finish_initialize(message)
     elif subtype == "get_context_usage":
-        control_reply(message, {"totalTokens": 32123, "maxTokens": 123456, "rawMaxTokens": 123456,
+        if MODE == "claude-context-retry" and active and context_failures == 0:
+            context_failures += 1
+            send({"type":"control_response","response":{"subtype":"error","request_id":message["request_id"],"error":"Optional context unavailable"}})
+            return
+        used = 42500 if MODE == "claude-context-retry" and context_failures else 32123
+        control_reply(message, {"totalTokens": used, "maxTokens": 123456, "rawMaxTokens": 123456,
                       "percentage": 26, "categories": [], "gridRows": [], "source": "native-fixture"})
     else:
         if subtype == "set_model":
@@ -148,6 +156,9 @@ def handle_prompt(message):
     state("running")
     if questions.start(text, prompt, send, result, state, SESSION):
         return
+    if MODE == "summary-cd":
+        from directory_command_fixture import claude_tools
+        claude_tools(sys.modules[__name__], prompt)
     if text == "read source":
         read_tool(prompt)
     event("message_start", prompt, message={"id": "message-" + prompt, "role": "assistant", "model": model, "content": []})
@@ -158,7 +169,7 @@ def handle_prompt(message):
     event("content_block_delta", prompt, index=0, delta={"type": "text_delta", "text": answer})
     if text == "close helper":
         sys.exit(0)
-    if text == "hold this turn":
+    if text == "hold this turn" or MODE == "claude-labels" and prompts <= 2:
         return
     event("content_block_stop", prompt, index=0)
     event("message_stop", prompt)

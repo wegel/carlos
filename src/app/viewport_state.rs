@@ -1,5 +1,7 @@
 //! Scroll position, mouse drag, and help-overlay toggle state.
 
+use std::time::Instant;
+
 use super::selection::{MouseDragMode, Selection};
 
 /// Viewport and scroll tracking for the transcript pane.
@@ -16,6 +18,8 @@ pub(super) struct ViewportState {
     pub(super) mobile_plain_last_direction: i8,
     pub(super) mobile_plain_new_gesture: bool,
     pub(super) show_help: bool,
+    pub(super) help_scroll: usize,
+    pub(super) steer_notice_until: Option<Instant>,
     pub(super) scroll_inverted: bool,
 }
 
@@ -34,6 +38,8 @@ impl ViewportState {
             mobile_plain_last_direction: 0,
             mobile_plain_new_gesture: false,
             show_help: false,
+            help_scroll: 0,
+            steer_notice_until: None,
             scroll_inverted: false,
         }
     }

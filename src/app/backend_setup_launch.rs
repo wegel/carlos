@@ -19,12 +19,11 @@ use crate::app::terminal_ui::{pick_thread, sort_threads_for_picker};
 use crate::app::RuntimeDefaults;
 use crate::backend::BackendClient;
 use crate::claude_backend::{ClaudeClient, ClaudeLaunchMode};
-use crate::protocol::AppServerClient;
-use crate::protocol_history::load_thread_history;
+use crate::codex_connection::CodexClient;
 use crate::protocol_params::{
     extract_result_object, initialize_client, params_thread_archive, params_thread_list,
-    params_thread_read, params_thread_resume, params_thread_start,
-    parse_thread_id_from_start_or_resume, parse_thread_runtime_settings, ThreadRuntimeSettings,
+    params_thread_resume, params_thread_start, parse_thread_id_from_start_or_resume,
+    parse_thread_runtime_settings, ThreadRuntimeSettings,
 };
 
 // --- Codex Backend ---
@@ -34,6 +33,7 @@ pub(super) struct CodexThreadLaunch {
     thread_id: String,
     runtime_response: String,
     history_response: String,
+    deferred_history: bool,
 }
 
 pub(in crate::app) fn run_codex_backend(
@@ -43,7 +43,7 @@ pub(in crate::app) fn run_codex_backend(
     persisted_defaults: RuntimeDefaults,
     default_summary: Option<String>,
 ) -> Result<()> {
-    let mut client = AppServerClient::start()?;
+    let mut client = CodexClient::start(opts.codex_socket.clone())?;
     initialize_client(&client)?;
     let server_events_rx = client.take_events_rx()?;
     let Some(launch) = resolve_codex_thread(opts, &client, cwd)? else {
@@ -59,12 +59,19 @@ pub(in crate::app) fn run_codex_backend(
         &persisted_defaults,
         default_summary,
     )?;
+    if launch.deferred_history {
+        app.codex.closed = true;
+        app.codex.connection.rebuilding = true;
+        app.codex.connection.initial_rebuild = true;
+        app.codex.connection.initial_choices = app.codex.settings.deferred.take();
+        client.bootstrap(app.thread_id.clone(), launch.runtime_response)?;
+    }
     finish_run(&mut app, opts.backend, &client, server_events_rx)
 }
 
 pub(super) fn resolve_codex_thread(
     opts: &CliOptions,
-    client: &AppServerClient,
+    client: &dyn BackendClient,
     cwd: &str,
 ) -> Result<Option<CodexThreadLaunch>> {
     if opts.mode_resume || opts.mode_continue {
@@ -80,13 +87,14 @@ pub(super) fn resolve_codex_thread(
             thread_id,
             runtime_response: resp.clone(),
             history_response: resp,
+            deferred_history: false,
         }))
     }
 }
 
 pub(super) fn resolve_codex_resume_or_continue(
     opts: &CliOptions,
-    client: &AppServerClient,
+    client: &dyn BackendClient,
     cwd: &str,
 ) -> Result<Option<CodexThreadLaunch>> {
     if let Some(rid) = opts.resume_id.as_deref() {
@@ -120,38 +128,27 @@ pub(super) fn resolve_codex_resume_or_continue(
 }
 
 pub(super) fn codex_resume_by_id(
-    client: &AppServerClient,
+    client: &dyn BackendClient,
     session_id: &str,
 ) -> Result<CodexThreadLaunch> {
-    let history_resp = client
-        .call(
-            "thread/read",
-            params_thread_read(session_id),
-            Duration::from_secs(20),
-        )
-        .ok()
-        .filter(|response| {
-            parse_thread_id_from_start_or_resume(response)
-                .is_ok_and(|thread_id| thread_id == session_id)
-        });
     let resp = client.call(
         "thread/resume",
         params_thread_resume(session_id),
         Duration::from_secs(20),
     )?;
     let thread_id = parse_thread_id_from_start_or_resume(&resp)?;
-    let history_resp = history_resp.unwrap_or_else(|| resp.clone());
-    let history_resp = load_thread_history(client, &history_resp, Duration::from_secs(20))?;
+    let history_resp = resp.clone();
     Ok(CodexThreadLaunch {
         thread_id,
         runtime_response: resp,
         history_response: history_resp,
+        deferred_history: true,
     })
 }
 
 pub(super) fn configure_codex_app(
     app: &mut AppState,
-    client: &AppServerClient,
+    client: &dyn BackendClient,
     cwd: &str,
     opts: &CliOptions,
     launch: &CodexThreadLaunch,
@@ -159,12 +156,24 @@ pub(super) fn configure_codex_app(
     default_summary: Option<String>,
 ) -> Result<()> {
     app.input_history.enable_native();
+    app.codex.enabled = true;
+    app.codex.connection.generation = client.connection_generation().unwrap_or(0);
+    app.codex.connection.socket = opts.codex_socket.clone();
+    app.codex.goals.direct_input =
+        serde_json::from_str::<serde_json::Value>(&launch.runtime_response)?["result"]["thread"]
+            ["canAcceptDirectInput"]
+            .as_bool();
     app.set_runtime_capabilities(true, true);
     let models = fetch_model_catalog(client).unwrap_or_default();
     app.set_available_models(models.clone());
     let fallback_defaults = codex_runtime_defaults(default_summary);
+    let mut native = parse_thread_runtime_settings(&launch.runtime_response)?;
+    if !opts.mode_resume && !opts.mode_continue {
+        native.model = persisted_defaults.model.clone().or(native.model);
+        native.effort = persisted_defaults.effort.clone().or(native.effort);
+    }
     let runtime_settings = resolve_backend_runtime_settings(
-        parse_thread_runtime_settings(&launch.runtime_response)?,
+        native,
         persisted_defaults,
         &fallback_defaults,
         &models,
@@ -178,9 +187,17 @@ pub(super) fn configure_codex_app(
         &RuntimeDefaults::default(),
         None,
     );
-    let history = preferred_codex_thread(&launch.history_response, &app.thread_id)?;
-    replace_history_from_thread(app, &history);
+    if !launch.deferred_history {
+        let history = preferred_codex_thread(&launch.history_response, &app.thread_id)?;
+        replace_history_from_thread(app, &history);
+    }
     crate::app::session_name::read_response_name(app, &launch.runtime_response);
+    crate::app::codex_settings_draft::initialize(
+        app,
+        &launch.runtime_response,
+        opts.mode_resume || opts.mode_continue,
+        crate::app::cli::env_reasoning_summary_override(),
+    )?;
     Ok(())
 }
 

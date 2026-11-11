@@ -14,6 +14,19 @@ impl AppState {
     pub(super) fn set_thread_id(&mut self, thread_id: impl Into<String>) {
         let thread_id = thread_id.into();
         if self.thread_id != thread_id {
+            if self.codex.enabled {
+                super::codex_callbacks::reset(self);
+                self.codex.panel = Default::default();
+                self.codex.task_status = Default::default();
+                self.codex.goals = Default::default();
+                self.codex.epoch = self.codex.epoch.saturating_add(1);
+                let mode = self.codex.queue.mode;
+                self.codex.queue = super::codex_queue_state::QueueState::default();
+                self.codex.queue.mode = mode;
+                let legacy_overrides = self.codex.settings.legacy_overrides;
+                self.codex.settings = Default::default();
+                self.codex.settings.legacy_overrides = legacy_overrides;
+            }
             self.thread_name = None;
         }
         self.thread_id = thread_id;
@@ -21,6 +34,10 @@ impl AppState {
 
     /// Keep a single-line, terminal-safe name for display and inline editing.
     pub(super) fn set_thread_name(&mut self, name: Option<&str>) {
+        if self.codex.enabled {
+            self.codex.connection.name_revision =
+                self.codex.connection.name_revision.saturating_add(1);
+        }
         self.thread_name = name
             .map(strip_terminal_controls)
             .map(|s| {

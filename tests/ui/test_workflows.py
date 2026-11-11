@@ -14,6 +14,7 @@ from test_rtk import RtkWorkflows
 from test_theme import Theme
 from test_phone_layout import PhoneLayout
 from test_summaries import Summaries
+from test_command_directory import CommandDirectory
 from test_weekly_usage import WeeklyUsage
 from test_claude_sdk import ClaudeSdk
 from test_claude_questions import ClaudeQuestions
@@ -21,9 +22,16 @@ from test_claude_sessions import ClaudeSessions
 from test_claude_activity import ClaudeActivity
 from test_markdown_tables import MarkdownTables
 from test_codex_rewind import CodexRewind
+from test_codex_foundation import CodexFoundation
+from test_codex_questions import CodexQuestions
+from test_codex_controls import CodexControls
+from test_codex_panel import CodexPanel
+from test_codex_goals import CodexGoals
+from test_codex_reconnect import CodexReconnect
+from test_input_status import InputStatus
 
 
-class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, WeeklyUsage, ClaudeSdk, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, CodexRewind, unittest.TestCase):
+class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, CommandDirectory, WeeklyUsage, ClaudeSdk, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, CodexRewind, CodexFoundation, CodexQuestions, CodexControls, CodexPanel, CodexGoals, CodexReconnect, InputStatus, unittest.TestCase):
     def summary_root(self):
         root = ARTIFACTS / self._testMethodName
         root.mkdir(parents=True, exist_ok=True)

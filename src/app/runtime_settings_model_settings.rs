@@ -9,7 +9,7 @@ impl RuntimeSettingsState {
     /// List the visible settings in the same order for drawing and keyboard focus.
     pub(in crate::app) fn model_settings_fields(&self) -> Vec<ModelSettingsField> {
         let mut fields = vec![ModelSettingsField::Model];
-        if self.supports_effort {
+        if self.supports_effort && !self.model_settings_effort_options.is_empty() {
             fields.push(ModelSettingsField::Effort);
         }
         if self.supports_summary {

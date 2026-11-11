@@ -25,6 +25,7 @@ export type Prompt = {
   text: string;
   origin: { kind: "human" | "auto-continuation" | "unclassified" };
   priority: "now" | "next" | "later";
+  inputKind?: "prompt" | "steer";
 };
 export type Request = { v: 1; id: string; method: string; params: ObjectValue };
 export type Output = ObjectValue & { v: 1; type: "reply" | "event" | "callback" };
@@ -110,10 +111,17 @@ export function parsePrompt(params: ObjectValue): Prompt {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid)) {
     throw new ProtocolError("invalid_request", "uuid must be a UUID");
   }
-  return { uuid: uuid as Prompt["uuid"], text: string(params.text, "text"),
+  const prompt: Prompt = { uuid: uuid as Prompt["uuid"], text: string(params.text, "text"),
     priority: choice(params.priority, ["now", "next", "later"], "priority"),
     origin: { kind: choice(object(params.origin, "origin").kind,
       ["human", "auto-continuation", "unclassified"], "origin.kind") } };
+  if (params.inputKind !== undefined) {
+    prompt.inputKind = choice<"prompt" | "steer">(params.inputKind, ["prompt", "steer"], "inputKind");
+    if (prompt.origin.kind !== "human" || (prompt.inputKind === "steer" && prompt.priority !== "now")) {
+      throw new ProtocolError("invalid_request", "Only a human now input can be classified as a steer");
+    }
+  }
+  return prompt;
 }
 
 export function parseEffort(value: unknown): NonNullable<Options["effort"]> {

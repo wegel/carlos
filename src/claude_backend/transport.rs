@@ -113,7 +113,7 @@ impl ControllerTransport {
             .lock()
             .map_err(|_| anyhow!("session guard lock poisoned"))?
             .epoch;
-        let context = json!({"revision":params["revision"],"taskId":params["taskId"],"runId":params["runId"]});
+        let context = json!({"revision":params["revision"],"contextToken":params["contextToken"],"taskId":params["taskId"],"runId":params["runId"]});
         self.send(
             method,
             params,

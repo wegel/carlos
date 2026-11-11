@@ -121,7 +121,7 @@ export class Controller {
   private prompt(params: ObjectValue): unknown {
     const prompt = parsePrompt(params);
     if (this.promptIds.has(prompt.uuid)) throw new ProtocolError("duplicate_prompt", "Prompt UUID was already submitted");
-    this.sessions.sources.remember(prompt.uuid, prompt.origin.kind);
+    this.sessions.sources.remember(prompt.uuid, prompt.origin.kind, prompt.inputKind);
     this.promptIds.add(prompt.uuid);
     this.input.push({ type: "user", uuid: prompt.uuid, parent_tool_use_id: null,
       message: { role: "user", content: prompt.text }, priority: prompt.priority, origin: prompt.origin });

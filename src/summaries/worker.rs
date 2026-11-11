@@ -209,8 +209,16 @@ fn queue(
         let _ = output.send(SummaryEvent::Ready(request.key, request.entry, None));
         return;
     }
+    if request.location.cwd != request.location.read_root && !request.location.sources_allowed() {
+        let _ = output.send(SummaryEvent::Ready(request.key, request.entry, None));
+        return;
+    }
     let identity = if request.file_based {
-        request.entry.clone()
+        format!(
+            "{}:{}",
+            request.entry,
+            blake3::Hash::from_bytes(request.key).to_hex()
+        )
     } else {
         blake3::Hash::from_bytes(request.key).to_hex().to_string()
     };

@@ -78,8 +78,24 @@ pub(super) use serde_json::json;
 
 #[path = "tests/claude_backend_tests.rs"]
 mod claude_backend_tests;
+#[path = "tests/claude_context_tests.rs"]
+mod claude_context_tests;
+#[path = "tests/claude_edit_tests.rs"]
+mod claude_edit_tests;
 #[path = "tests/codex_history_tests.rs"]
 mod codex_history_tests;
+#[path = "tests/codex_order_tests.rs"]
+mod codex_order_tests;
+#[path = "tests/codex_question_support.rs"]
+mod codex_question_support;
+#[path = "tests/codex_question_tests.rs"]
+mod codex_question_tests;
+#[path = "tests/codex_queue_tests.rs"]
+mod codex_queue_tests;
+#[path = "tests/codex_settings_tests.rs"]
+mod codex_settings_tests;
+#[path = "tests/codex_startup_settings_tests.rs"]
+mod codex_startup_settings_tests;
 #[path = "tests/grok_backend_tests.rs"]
 mod grok_backend_tests;
 #[path = "tests/input_tests.rs"]
@@ -123,3 +139,39 @@ mod ui_render_tests;
 mod codex_rewind_guard_tests;
 #[path = "tests/codex_steer_tests.rs"]
 mod codex_steer_tests;
+
+#[path = "tests/codex_panel_tests.rs"]
+mod codex_panel_tests;
+#[path = "tests/protocol_stop_tests.rs"]
+mod protocol_stop_tests;
+
+#[path = "tests/codex_panel_read_tests.rs"]
+mod codex_panel_read_tests;
+
+#[path = "tests/codex_goal_tests.rs"]
+mod codex_goal_tests;
+
+#[path = "tests/codex_goal_lifecycle_tests.rs"]
+mod codex_goal_lifecycle_tests;
+
+#[path = "tests/codex_reconnect_support.rs"]
+mod codex_reconnect_support;
+#[path = "tests/codex_reconnect_tests.rs"]
+mod codex_reconnect_tests;
+
+#[path = "tests/codex_reconnect_identity_tests.rs"]
+mod codex_reconnect_identity_tests;
+
+#[path = "tests/codex_task_status_tests.rs"]
+mod codex_task_status_tests;
+#[path = "tests/input_status_tests.rs"]
+mod input_status_tests;
+
+#[path = "tests/codex_task_ownership_tests.rs"]
+mod codex_task_ownership_tests;
+
+#[path = "tests/shell_directory_tests.rs"]
+mod shell_directory_tests;
+
+#[path = "tests/tool_command_view_tests.rs"]
+mod tool_command_view_tests;

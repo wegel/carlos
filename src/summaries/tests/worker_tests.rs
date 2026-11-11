@@ -8,13 +8,15 @@ use std::time::{Duration, Instant};
 
 use crate::summaries::config::Config;
 use crate::summaries::store::Store;
-use crate::summaries::{command_key, Label, Request, SummaryEvent, SummaryService};
+use crate::summaries::{
+    command_key, CommandLocation, Label, Request, SummaryEvent, SummaryService,
+};
 
 fn request(root: &Path, command: &str, entry: &str, generate: bool) -> Request {
     Request {
         key: command_key(command),
         command: command.into(),
-        cwd: root.into(),
+        location: CommandLocation::at(root.into()),
         generate,
         entry: entry.into(),
         file_based: false,
@@ -107,4 +109,74 @@ fn disabling_cancels_the_child_and_keeps_fallback_without_saving_a_label() {
     assert!(rx.recv_timeout(Duration::from_millis(150)).is_err());
     let store = Store::open(&root.path().join("tool-summaries.sqlite3")).expect("store");
     assert!(store.lookup(&request).expect("lookup").is_none());
+}
+
+#[test]
+fn pending_file_jobs_with_the_same_entry_but_different_context_keys_never_share_a_result() {
+    let root = tempfile::tempdir().expect("root");
+    let old = root.path().join("old");
+    let new = root.path().join("new");
+    fs::create_dir(&old).expect("old");
+    fs::create_dir(&new).expect("new");
+    let mut config = config(root.path());
+    config.arguments[1] = "printf x >> \"$1/calls\"; while [ ! -f \"$1/release\" ]; do sleep .01; done; printf 'Describe script in %s' \"${PWD##*/}\"".into();
+    let (tx, rx) = mpsc::channel();
+    let service = SummaryService::spawn_config(tx, config);
+    let make = |cwd| {
+        let mut request = request(root.path(), "python3 process.py", "same-entry", true);
+        request.location = CommandLocation {
+            cwd,
+            read_root: root.path().to_owned(),
+            directory: None,
+        };
+        request.key = crate::summaries::presentation_key("same raw command", &request.location);
+        request.file_based = true;
+        request
+    };
+    let first = make(old);
+    let second = make(new);
+    assert_ne!(first.key, second.key);
+    assert!(service.try_request(first.clone()));
+    wait_for(&root.path().join("calls"));
+    assert!(service.try_request(second.clone()));
+    fs::write(root.path().join("release"), "").expect("release");
+    let one = rx.recv_timeout(Duration::from_secs(3)).expect("old result");
+    let two = rx.recv_timeout(Duration::from_secs(3)).expect("new result");
+    assert!(
+        matches!(one, SummaryEvent::Ready(key, _, Some(ref text)) if key==first.key && text.ends_with("old"))
+    );
+    assert!(
+        matches!(two, SummaryEvent::Ready(key, _, Some(ref text)) if key==second.key && text.ends_with("new"))
+    );
+    assert_eq!(
+        fs::read_to_string(root.path().join("calls")).expect("calls"),
+        "xx"
+    );
+}
+
+#[test]
+fn source_generation_does_not_run_in_an_outside_or_symlinked_directory() {
+    let root = tempfile::tempdir().expect("root");
+    let outside = tempfile::tempdir().expect("outside");
+    let (tx, rx) = mpsc::channel();
+    let service = SummaryService::spawn_config(tx, config(root.path()));
+    let mut input = request(root.path(), "python3 private.py", "outside", true);
+    input.file_based = true;
+    input.location.cwd = outside.path().to_owned();
+    assert!(service.try_request(input.clone()));
+    assert!(matches!(
+        rx.recv_timeout(Duration::from_secs(1)).expect("declined"),
+        SummaryEvent::Ready(_, _, None)
+    ));
+    let link = root.path().join("linked");
+    std::os::unix::fs::symlink(outside.path(), &link).expect("link");
+    input.location.cwd = link;
+    input.entry = "symlink".into();
+    assert!(service.try_request(input));
+    assert!(matches!(
+        rx.recv_timeout(Duration::from_secs(1))
+            .expect("declined link"),
+        SummaryEvent::Ready(_, _, None)
+    ));
+    assert!(!root.path().join("calls").exists());
 }

@@ -39,10 +39,10 @@ pub(super) fn handle_key(
     if !editable {
         return result;
     }
-    let Some(id) = active_id(app) else {
-        return result;
-    };
-    if let Some(draft) = app.claude.answers.drafts.get_mut(&id) {
+    if app.codex.enabled {
+        super::codex_callbacks::edited(app);
+    }
+    if let Some(draft) = super::native_questions::draft_mut(app) {
         if !page(draft, key) && !draft.fields.is_empty() {
             edit_question(draft, key);
         }
@@ -51,6 +51,12 @@ pub(super) fn handle_key(
 }
 
 fn control_key(client: &dyn BackendClient, app: &mut AppState, key: KeyEvent) -> bool {
+    if app.codex.enabled
+        && key.code == KeyCode::Esc
+        && super::codex_callbacks::hide_nonblocking(app)
+    {
+        return true;
+    }
     match (key.code, key.modifiers) {
         (KeyCode::Char('m'), KeyModifiers::CONTROL) => app.toggle_model_settings(),
         (KeyCode::F(10), _) => interrupt_native(client, app),
@@ -62,6 +68,10 @@ fn control_key(client: &dyn BackendClient, app: &mut AppState, key: KeyEvent) ->
 }
 
 fn interrupt_native(client: &dyn BackendClient, app: &mut AppState) {
+    if app.codex.enabled {
+        super::codex_reply::interrupt(client, app);
+        return;
+    }
     if app.active_turn_id.is_some() {
         interrupt_active_turn(client, app);
         return;
@@ -73,13 +83,24 @@ fn interrupt_native(client: &dyn BackendClient, app: &mut AppState) {
 }
 
 fn answer_choice(app: &AppState, key: KeyEvent, editable: bool) -> Option<ApprovalChoice> {
-    let fields_empty = active_id(app)
-        .and_then(|id| app.claude.answers.drafts.get(&id))
-        .is_some_and(|draft| draft.fields.is_empty());
+    let fields_empty =
+        super::native_questions::draft(app).is_some_and(|draft| draft.fields.is_empty());
     match (key.code, key.modifiers) {
         (KeyCode::Char('n'), KeyModifiers::ALT) => Some(ApprovalChoice::Decline),
         (KeyCode::Char('c'), KeyModifiers::ALT) => Some(ApprovalChoice::Cancel),
         (KeyCode::Char('s'), KeyModifiers::CONTROL) if editable => Some(ApprovalChoice::Accept),
+        (KeyCode::Char('s'), mods)
+            if editable
+                && fields_empty
+                && mods.is_empty()
+                && app
+                    .approval
+                    .pending
+                    .as_ref()
+                    .is_some_and(|pending| pending.can_accept_for_session) =>
+        {
+            Some(ApprovalChoice::AcceptForSession)
+        }
         (KeyCode::Char('y' | 'a'), mods) if editable && fields_empty && mods.is_empty() => {
             Some(ApprovalChoice::Accept)
         }
@@ -119,10 +140,13 @@ fn page(draft: &mut NativeDraft, key: KeyEvent) -> bool {
 
 /// Keep native pasted answers out of the main composer, including during startup.
 pub(super) fn paste(app: &mut AppState, text: &str, size: super::TerminalSize) -> bool {
-    let Some(id) = active_id(app) else {
+    if !super::native_questions::modal(app) {
         return false;
-    };
-    if let Some(draft) = app.claude.answers.drafts.get_mut(&id) {
+    }
+    if app.codex.enabled {
+        super::codex_callbacks::edited(app);
+    }
+    if let Some(draft) = super::native_questions::draft_mut(app) {
         if super::claude_question_state::can_edit_question(size) && !draft.review {
             if let Some(field) = draft.fields.get_mut(draft.current) {
                 field.paste(text);
@@ -130,7 +154,7 @@ pub(super) fn paste(app: &mut AppState, text: &str, size: super::TerminalSize) -
         }
         return true;
     }
-    false
+    true
 }
 
 fn edit_question(draft: &mut NativeDraft, key: KeyEvent) {
@@ -183,16 +207,11 @@ fn edit_question(draft: &mut NativeDraft, key: KeyEvent) {
     }
 }
 
-fn active_id(app: &AppState) -> Option<String> {
-    app.approval
-        .pending
-        .as_ref()?
-        .request_id
-        .as_str()
-        .map(str::to_string)
-}
-
 fn next_request(app: &mut AppState) {
+    if app.codex.enabled {
+        super::codex_callbacks::next(app);
+        return;
+    }
     if app.claude.questions.is_empty() {
         return;
     }

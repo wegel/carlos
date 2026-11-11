@@ -6,7 +6,6 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use anyhow::Result;
 use ratatui_textarea::TextArea;
 
 use super::approval_state::ApprovalState;
@@ -62,6 +61,7 @@ pub(super) struct AppState {
     pub(super) runtime: RuntimeSettingsState,
     pub(super) approval: ApprovalState,
     pub(super) claude: super::claude_state::ClaudeUiState,
+    pub(super) codex: super::codex_state::CodexUiState,
 
     pub(super) viewport: ViewportState,
     pub(super) context_usage: Option<ContextUsage>,
@@ -99,6 +99,7 @@ impl AppState {
             runtime: RuntimeSettingsState::new(),
             approval: ApprovalState::new(),
             claude: super::claude_state::ClaudeUiState::default(),
+            codex: super::codex_state::CodexUiState::default(),
             viewport: ViewportState::new(),
             context_usage: None,
             rate_limits: super::rate_limits::RateLimits::default(),
@@ -140,21 +141,6 @@ impl AppState {
         self.set_status(status);
     }
 
-    pub(super) fn request_ralph_toggle(&mut self) -> Result<()> {
-        let status = self
-            .ralph_runtime
-            .request_toggle(self.active_turn_id.is_some())?;
-        self.set_status(status);
-        Ok(())
-    }
-
-    pub(super) fn apply_pending_ralph_toggle(&mut self) -> Result<()> {
-        if let Some(status) = self.ralph_runtime.apply_pending_toggle()? {
-            self.set_status(status);
-        }
-        Ok(())
-    }
-
     pub(super) fn perf_report(&self) -> Option<String> {
         self.perf.as_ref().map(PerfMetrics::final_report)
     }
@@ -169,6 +155,17 @@ impl AppState {
     }
 
     pub(super) fn clear_pending_approval(&mut self) {
+        if let Some(id) = self
+            .approval
+            .pending
+            .as_ref()
+            .map(|pending| pending.request_id.clone())
+        {
+            if self.codex.callbacks.get(&id).is_some() {
+                super::codex_callbacks::retire(self, &id);
+                return;
+            }
+        }
         if let Some(id) = self
             .approval
             .pending

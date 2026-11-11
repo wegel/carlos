@@ -73,6 +73,10 @@ impl AppState {
         self.layout.draft = self.layout.themes;
         self.summaries.draft = self.summaries.enabled;
         self.runtime.open_model_settings();
+        if self.codex.enabled {
+            super::codex_settings_draft::open_editor(self);
+            super::codex_settings_draft::restore_editor(self);
+        }
     }
 
     pub(super) fn close_model_settings(&mut self) {

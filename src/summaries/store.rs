@@ -84,7 +84,10 @@ impl Store {
         for row in rows {
             let (hash, text, raw) = row?;
             let sources = decode_sources(&raw)?;
-            if sources.iter().all(|s| source_matches(&request.cwd, s)) {
+            if sources
+                .iter()
+                .all(|s| source_matches(&request.location.read_root, &request.location.cwd, s))
+            {
                 self.0.execute(
                     "INSERT OR REPLACE INTO source_links VALUES (?1,?2)",
                     params![request.entry, hash],
@@ -151,14 +154,17 @@ fn decode_sources(raw: &str) -> Result<Vec<Source>> {
         .collect()
 }
 
-fn source_matches(cwd: &Path, source: &Source) -> bool {
+fn source_matches(authority: &Path, cwd: &Path, source: &Source) -> bool {
+    let Ok(authority) = authority.canonicalize() else {
+        return false;
+    };
     let Ok(root) = cwd.canonicalize() else {
         return false;
     };
-    let Ok(path) = root.join(&source.path).canonicalize() else {
+    let Ok(path) = authority.join(&source.path).canonicalize() else {
         return false;
     };
-    if !path.starts_with(root) {
+    if !root.starts_with(&authority) || !path.starts_with(&authority) {
         return false;
     }
     let Ok(file) = super::reader::open_source(&path) else {

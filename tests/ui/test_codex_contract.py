@@ -10,6 +10,8 @@ import tempfile
 import time
 import uuid
 
+from codex_history_fixture import write_history
+
 
 class Codex:
     def __init__(self, binary, root):
@@ -124,7 +126,7 @@ def check(binary, root):
         assert [turn["id"] for turn in response["thread"]["turns"]] == turn_ids
         for before, expected in zip(turn_ids, [[], turn_ids[:1]]):
             result = server.call("thread/fork", {"threadId": session_id,
-                                                "beforeTurnId": before})
+                                                "beforeTurnId": before,"excludeTurns":True})
             fork_id = result["thread"]["id"]
             assert fork_id != session_id
             history = server.call("thread/turns/list", {"threadId": fork_id,
@@ -136,6 +138,107 @@ def check(binary, root):
     finally:
         server.close()
     verify_saved_name(binary, root, fork_id)
+    check_queue_persistence(binary, root / "queue")
+    check_paged_history(binary, root / "paged")
+
+
+def check_queue_persistence(binary, root):
+    root.mkdir(parents=True)
+    thread,_,path=fixture(root)
+    original=path.read_bytes()
+    expected=[]
+    for generation in range(2):
+        server=Codex(binary,root)
+        try:
+            server.call("initialize",{"clientInfo":{"name":"carlos-queue-test","version":"1"},"capabilities":{"experimentalApi":True}})
+            server.send({"method":"initialized"})
+            server.call("thread/read",{"threadId":thread,"includeTurns":False})
+            if generation==0:
+                for index in range(3):
+                    client=str(uuid.uuid4())
+                    payload=[{"type":"text","text":"queue fixture "+str(index),"text_elements":[]}]
+                    if index==0:
+                        payload[0]["text"]+=" long native input"*6000
+                    if index==1:
+                        payload.append({"type":"image","url":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a82sAAAAASUVORK5CYII=","detail":"low"})
+                    added=server.call("thread/queue/add",{"threadId":thread,"clientUserMessageId":client,"input":payload})["queuedSubmission"]
+                    assert added["clientUserMessageId"]==client
+                    assert added["input"][0]["text"]==payload[0]["text"]
+                    if index==1:
+                        assert added["input"][1]["url"]==payload[1]["url"]
+                    expected.append(added)
+                expected.reverse()
+                server.call("thread/queue/reorder",{"threadId":thread,"queuedSubmissionIds":[entry["id"] for entry in expected]})
+                edited=server.call("thread/queue/update",{"threadId":thread,"queuedSubmissionId":expected[0]["id"],
+                    "input":[{"type":"text","text":"saved Unicode 日本語","text_elements":[]}]})["queuedSubmission"]
+                assert edited["clientUserMessageId"]==expected[0]["clientUserMessageId"]
+                expected[0]=edited
+            pages=[]
+            cursor=None
+            while True:
+                page=server.call("thread/queue/list",{"threadId":thread,"cursor":cursor,"limit":1})
+                assert len(page["data"])<=1
+                pages.extend(page["data"])
+                cursor=page.get("nextCursor")
+                if cursor is None:
+                    break
+            assert pages==expected,"native queue payload/order changed across server restart"
+            if generation==1:
+                deleted=server.call("thread/queue/delete",{"threadId":thread,"queuedSubmissionId":expected[1]["id"]})
+                assert deleted["deleted"] is True
+                assert server.call("thread/queue/delete",{"threadId":thread,"queuedSubmissionId":expected[1]["id"]})["deleted"] is False
+            assert path.read_bytes()==original,"an unconsumed queue entry changed transcript history"
+        finally:
+            server.close()
+    events=[json.loads(line)["message"] for line in (root/"rpc.jsonl").read_text().splitlines()]
+    assert not any(message.get("method")=="turn/started" for message in events),"an unloaded queue must not start inference"
+    print("PASS: native queue pages preserve IDs, attachments, order and edited text across restart without inference")
+
+
+def check_paged_history(binary, root):
+    root.mkdir(parents=True)
+    thread, turns, path = write_history(root,count=105,compact=True)
+    server = Codex(binary,root)
+    try:
+        server.call("initialize",{"clientInfo":{"name":"carlos-history-test","version":"1"},"capabilities":{"experimentalApi":True}})
+        server.send({"method":"initialized"})
+        resumed = server.call("thread/resume",{"threadId":thread,"excludeTurns":True})
+        assert resumed["thread"]["turns"] == []
+        original = path.read_bytes()
+        history = paged_history(server,thread)
+        assert [turn["id"] for turn in history] == turns
+        assert sum(item["type"] == "contextCompaction" for turn in history for item in turn["items"]) == 1
+        assert history[-1]["items"][-1]["text"] == "HISTORY_REPLY:104"
+        fork = server.call("thread/fork",{"threadId":thread,"beforeTurnId":turns[-1],"excludeTurns":True})
+        assert fork["thread"]["turns"] == []
+        fork_history = paged_history(server,fork["thread"]["id"])
+        assert [turn["id"] for turn in fork_history] == turns[:-1]
+        assert path.read_bytes() == original, "fork changed source history"
+        print("PASS: metadata-only resume/fork,106 compacted turns and item pages preserve exact ancestry")
+    finally:
+        server.close()
+
+
+def paged_history(server, thread):
+    turns, cursor = [], None
+    while True:
+        page = server.call("thread/turns/list",{"threadId":thread,"sortDirection":"asc","itemsView":"notLoaded","limit":100,"cursor":cursor})
+        turns.extend(page["data"])
+        cursor = page.get("nextCursor")
+        if cursor is None:
+            break
+    for turn in turns:
+        assert turn["items"] == []
+        cursor, items = None, []
+        while True:
+            page = server.call("thread/items/list",{"threadId":thread,"turnId":turn["id"],"sortDirection":"asc","limit":1,"cursor":cursor})
+            assert all(entry["turnId"] == turn["id"] for entry in page["data"])
+            items.extend(entry["item"] for entry in page["data"])
+            cursor = page.get("nextCursor")
+            if cursor is None:
+                break
+        turn["items"] = items
+    return turns
 
 
 def check_rename(server, thread_id):

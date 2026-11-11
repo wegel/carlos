@@ -41,12 +41,14 @@ pub(super) fn draw_model_settings_fields(buf: &mut Buffer, ob: &OverlayBox, app:
     for (index, &field) in fields.iter().enumerate() {
         layout.draw_row(buf, app, layout.row_y(ob, index), field);
     }
-    let help = match app.runtime.model_settings_field {
-        ModelSettingsField::DictationEndpoint => "Arrows/Enter toggle, Esc close",
-        ModelSettingsField::DesktopTheme => "Theme for wide screens",
-        ModelSettingsField::PhoneTheme => "Theme for small screens",
-        _ => "Tab field, arrows, Enter save",
-    };
+    let help = app.codex.settings.editor_error.as_deref().unwrap_or(
+        match app.runtime.model_settings_field {
+            ModelSettingsField::DictationEndpoint => "Arrows/Enter toggle, Esc close",
+            ModelSettingsField::DesktopTheme => "Theme for wide screens",
+            ModelSettingsField::PhoneTheme => "Theme for small screens",
+            _ => "Tab field, arrows, Enter save",
+        },
+    );
     draw_str(
         buf,
         layout.x_label,

@@ -6,6 +6,24 @@ import uuid
 
 
 class ClaudeSdk:
+    def test_claude_context_keeps_known_busy_counts_and_recovers_from_optional_failure(self):
+        terminal = self.launch(mode="claude-context-retry",backend="claude",resume=None,width=100)
+        self.claude_ready(terminal)
+        terminal.contains("32k/123k")
+        terminal.paste("hold this turn")
+        terminal.send(b"\r")
+        terminal.contains("Answer: hold this turn")
+        terminal.contains("~32k/123k")
+        terminal.paste("unsent 日本語")
+        terminal.wait(lambda: terminal.input_is("unsent 日本語"),"typing while optional context failed")
+        terminal.resize(36,12)
+        terminal.contains("~32k/123k")
+        terminal.contains("42k/123k")
+        terminal.wait(lambda: "~42k" not in terminal.text,"successful retry renders fresh counts")
+        self.assertEqual(len(self.helper_requests(terminal,"prompt")),1)
+        self.assertEqual(len([frame for frame in terminal.messages() if frame.get("event") == "launch"]),1)
+        terminal.snapshot("context-busy-retry-phone")
+
     def helper_messages(self, terminal, direction="client"):
         path = terminal.root / "claude-controller.jsonl"
         if not path.exists():

@@ -19,7 +19,7 @@ import pyte
 
 class Terminal:
     def __init__(self, binary, root, mode="modern", resume="thread-original", width=100, backend="codex",
-                 codex=None, claude=None, extra_env=None):
+                 codex=None, claude=None, extra_env=None, extra_args=None):
         self.root = root
         self.root.mkdir(parents=True, exist_ok=True)
         shim = root / "bin"
@@ -53,7 +53,7 @@ class Terminal:
         if mode == "claude-reply-error":
             env["CARLOS_CLAUDE_CONTROLLER"] = str(Path(__file__).with_name("flaky_claude_controller.py").resolve())
             env["CARLOS_REAL_CLAUDE_CONTROLLER"] = str(binary.parent.parent / "claude-controller/carlos-claude-controller")
-        args = [str(binary), "--backend", backend]
+        args = [str(binary), "--backend", backend, *(extra_args or [])]
         if resume == "__continue__":
             args += ["continue"]
         elif resume == "__picker__":

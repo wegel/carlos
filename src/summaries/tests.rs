@@ -2,6 +2,7 @@
 
 mod eligibility_tests;
 mod process_tests;
+mod provider_tests;
 mod reader_tests;
 mod store_tests;
 #[cfg(unix)]

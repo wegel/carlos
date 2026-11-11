@@ -83,6 +83,14 @@ Quoted operators and terminal line wrapping do not make a command eligible.
 Carlos also checks quoted SSH commands for substantial inline scripts or chains.
 It summarizes their visible source without reading remote script paths locally.
 
+Carlos hides a literal leading `cd /path &&` from command previews and AI-label
+input. A different directory appears as `(in subdir)` beside the label. The
+executed command, native history, approvals, and ordinary output stay unchanged.
+Carlos keeps ambiguous shell prefixes intact, including expanded paths and
+relative paths without a known command directory. A long directory alone never
+makes a short command eligible for an AI label. Named scripts resolve from the
+shown directory, while source reads stay inside the original workspace.
+
 The default worker calls `gpt-6-luna` through the installed `codex` CLI and your
 existing ChatGPT login. It uses the subscription allowance, with no separate API
 key. It starts fresh ephemeral threads in a separate Codex home, disables shell
@@ -96,8 +104,9 @@ available in Full tool-output mode.
 Carlos saves labels in `$XDG_STATE_HOME/carlos/tool-summaries.sqlite3`, normally
 `~/.local/state/carlos/tool-summaries.sqlite3`. SQLite performs indexed lookups
 with a bounded page cache; Carlos never loads the entire database. BLAKE3 hashes
-the exact command text. The model and prompt version are metadata, so changing
-them does not regenerate old labels. For file reads, Carlos also saves source
+the exact command text; filtered previews also include their directory, original
+directory where Carlos may read source, and parser version in the key. The model
+and prompt version are metadata, so changing them does not regenerate old labels. For file reads, Carlos also saves source
 fingerprints and a per-entry link: new invocations validate source contents,
 while resume restores the label originally generated for that entry. Historical
 cache misses never trigger inference. File reads describe the source seen by the
@@ -208,6 +217,83 @@ restarting Carlos and appears in the native Codex session picker too. Carlos als
 shows name changes sent by Codex while the session is open. Unnamed sessions keep
 the empty composer.
 
+## Shared Codex server and reconnect
+
+`carlos --codex-socket /path/to/server.sock resume SESSION_ID` attaches to an
+existing native Unix socket. Carlos opens only its local connection; it does not
+start a daemon or change native login/config. Its exit leaves shared native work
+running. The default `carlos` command still owns an installed Codex app-server.
+Socket mode currently requires Unix; the native socket checks run on Linux.
+
+Press F5 after a Codex connection fails. Carlos reads the current thread,
+including a forked thread, and rebuilds history, model settings, queues, goals
+and agent/process facts before allowing sends. You can keep typing while it
+reads, and replayed questions stay answerable. Carlos keeps drafts and never
+resends unconfirmed input or Ralph work. A resumed running turn keeps its exact
+native turn ID. Resume hints retain the socket option.
+
+Native Codex replays unanswered root requests on root reconnect. It does not
+replay child requests through that root; F2 can inspect or stop a waiting child,
+and another client already attached to that child can answer it. Carlos does
+not resume children to create a hidden subscription. Verification-owner
+ceremonies also do not replay. See [the client notes](docs/codex-client.md) for
+bounds and partial-output behavior.
+
+## Codex questions and approvals
+
+Codex `F3` selects Steer or Queue for Enter. `/queue` or Alt+Q opens the native
+queue: arrows select, e edits plain text, d deletes, s starts, and Alt+Up/Down
+reorders. Ctrl+S saves an edit; Esc returns without replacing the main draft.
+The activity line shows `Queue` while that mode changes Enter. Steer is the
+default and stays quiet, with a brief notice when you switch back. `?` lists
+F2/F3 and the other controls.
+Codex stores queued messages and dispatches them after normal completion. An
+interrupt leaves them queued. Carlos shows them in history only after native
+Codex consumes them, and lets queued humans go before Ralph continues.
+
+Ctrl+M applies model/effort/summary choices to future turns and, when supported,
+later steps of the current turn. Carlos reports each result and keeps rejected
+choices editable. Running requests retain their existing settings. Carlos uses
+the native thread defaults for normal prompts and keeps its saved defaults
+separate from native Codex config.
+
+Codex `F2` opens agents and background processes. Arrows select a native row;
+Enter reads that child's recent messages and tools, PageUp/PageDown scroll,
+r reloads the latest window and l reads older records. x stops only the selected
+agent's current turn or the selected process. F4 opens waiting questions; F2
+closes the panel without changing drafts. Carlos keeps child output and child
+report bodies out of the main transcript; the main agent's own report stays.
+The activity line counts running agents/processes and requests needing attention;
+old completed or idle rows do not keep a task badge visible. F2 shows errors
+from unavailable process reads. Idle means no active work, not that the agent
+completed its task. Missing resource
+metrics say unavailable, and bounded/empty native history stays explicit.
+
+Codex `/goal` or Alt+G opens native goals. e edits a separate objective/budget
+draft; Tab moves fields and Ctrl+S saves. New goals start paused. a asks to
+activate/resume, p pauses, and d asks to clear. Active changes need y confirmation
+and may start Codex work immediately. Blank budget keeps an existing budget;
+edits keep native counters. Carlos sends the observed status explicitly so a
+concurrent clear cannot accidentally create an active goal. Native status,
+tokens and time stay authoritative. Turn Ralph and any pending Ralph toggle off
+before activating a goal; Carlos checks existing goals before enabling Ralph.
+Ordinary chat and startup never create or change goals. Esc returns to the
+overview with the draft kept, then closes; F5 remains reserved for reconnect.
+
+Carlos shows questions and approvals from the main Codex thread and its children.
+Each request keeps its own answer draft. F4 opens a waiting request or moves to
+the next one. A nonblocking question leaves the main composer usable and shows
+an F4 hint; a blocking request opens its editor. Child text and tool logs stay
+outside the main conversation.
+
+Tab changes fields, arrows/Space choose answers, and Ctrl+S sends. Alt+N skips a
+question; Alt+C interrupts its requesting thread and turn. Esc returns to the
+composer for nonblocking questions. Secret answers stay masked. Standard MCP
+forms validate typed values before sending; URL requests require explicit
+consent and never open a browser automatically. Unsupported forms can still be
+declined or canceled. One-time human checkpoints never offer session approval.
+See [the Codex client notes](docs/codex-client.md) for limits and reply behavior.
+
 ## Claude sessions, questions, and background work
 
 Carlos runs the official Claude Agent SDK in a packaged helper. That helper starts
@@ -218,6 +304,10 @@ with a direct model client. Sign in through native Claude as usual.
 
 Carlos shows native model choices and context counts, and applies model/effort
 changes to the current process. It leaves omitted choices to native settings.
+Context counts remain visible while Claude works. Carlos reads native summaries,
+including cached input, without sending a model prompt or a token-count API call.
+A `~` marks the last snapshot while Carlos waits for a fresh one; a real context
+reset clears counts until native Claude reports them again.
 Native permission requests, plans, AskUserQuestion choices, typed MCP forms, and
 browser consent use their real request IDs. Each pending child keeps its own
 answer draft. Replies return through native callbacks without another human
@@ -231,7 +321,9 @@ answer. The main assistant's own tools and reports remain visible.
   and F2/Esc closes the panel. A stop acknowledgement says requested until Claude
   reports the task's outcome. Page Up/Down reveals details on small screens.
 - F3 selects Enter behavior while Claude works: steer now or queue behind current
-  work. The activity line shows the choice. Interrupting the main turn may leave
+  work. The activity line shows `Queue` when selected and briefly shows `Steer`
+  when you switch back. `?` lists the shortcuts; idle/completed tasks do not keep
+  a task count visible. Interrupting the main turn may leave
   accepted queued prompts with Claude; Carlos reports those survivors.
 - In a question, Tab changes fields, arrows/Space choose answers, and Ctrl+S sends.
   Alt+N declines, Alt+C cancels, F4 changes requests, and F10 interrupts main work.
@@ -242,10 +334,22 @@ answer. The main assistant's own tools and reports remain visible.
   bucket uses the same remaining-percentage indicator as Codex. Missing or expired
   readings stay hidden; the optional experimental quota read cannot block a turn.
 
+Human rows show `you (steer)` for prompts sent to steer running Claude work;
+ordinary and queued prompts show `you`. Carlos saves that captured choice by
+prompt UUID outside native session files, keeps it on resume, and carries it
+through SDK forks. Older history without that fact stays plain; Carlos does not
+guess from the text or the current mode. Claude steers remain editable by UUID.
+
 `/rename` saves through the SDK. The picker and Continue read native CLI and SDK
 sessions, including linked worktrees and custom `CLAUDE_CONFIG_DIR` folders.
 Rewind forks before the selected human prompt and leaves the original intact.
-Editing the first prompt starts an empty session. Automatic and child messages
+Editing the first prompt starts an empty session. The activity line shows when
+Carlos prepares the branch and sends the edit. A failed edit shows its reason
+and keeps the saved text; F5 recovers retained drafts into an empty composer,
+including when the original session is still ready. Later typing stays separate.
+Carlos keeps older local human drafts for explicit recovery and drops queued
+automatic work rather than replaying it onto the edited branch.
+Automatic and child messages
 are excluded from ordinary human rewind history. Older messages with unknown
 sources remain labeled unknown; F4 in rewind explicitly selects one to branch.
 
@@ -263,6 +367,9 @@ follow-ups. Ralph input remains automatic, including after session changes.
 
 See [the helper guide](helpers/claude-controller/README.md) and
 [local protocol](helpers/claude-controller/PROTOCOL.md) for developer details.
+
+See [the native Codex client notes](docs/codex-client.md) for the current handshake,
+paged history, compatibility limits and pipe failure behavior.
 
 ## Codex background monitors
 
@@ -490,12 +597,16 @@ target/ui-venv/bin/python tests/ui/test_workflows.py --binary ~/.local/bin/carlo
 
 - `Enter`: send message, or stop recording while dictating
 - `/rename [name]`: change the Codex or Claude session name, or load the current name to edit
+- Codex `F3`: choose Steer or Queue for Enter; Alt+Q or `/queue` opens the queue
+- Codex queue arrows/e/d/s: select/edit/delete/start; Alt+Up/Down reorders, Ctrl+S saves edits
+- Codex question `F4`: open or change pending requests; Tab/arrows/Space edit, Ctrl+S sends
+- Codex question `Alt+N`: skip; Alt+C interrupts its requesting turn; Esc hides a nonblocking question
 - Claude `F2`: native tasks/quotas; arrows select, x requests task stop
 - Claude `F3`: choose steer or queue for Enter while Claude works
 - Claude question `Tab`/arrows/Space: edit answers; Ctrl+S sends, Alt+N declines, Alt+C cancels
 - Claude question `F4`: next pending request; F10 interrupts main work
 - Claude rewind `F4`: explicitly choose older unknown-source records
-- Claude closed session `F5`: recover a saved human draft into an empty composer
+- Claude `F5`: recover a retained human draft into an empty composer
 - `/tools [auto|compact|full]`: choose how much tool output to show; omit the mode to cycle
 - `Shift+Enter` / `Alt+Enter`: newline in input
 - `Up/Down`: input history navigation

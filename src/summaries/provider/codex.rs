@@ -30,7 +30,8 @@ impl Summarizer for Codex {
         let audit = work.path().join("sources.jsonl");
         fs::write(&instructions, PROMPT)?;
         let mut command = invocation(&self.0, request, &home, &instructions, &audit)?;
-        let input = json!({"command":request.command}).to_string();
+        let input =
+            json!({"command":request.command,"directory":request.location.directory}).to_string();
         let raw = process::run(&mut command, input, self.0.timeout, control, epoch)?;
         let text = parse_label(&raw)?;
         Ok(Label {
@@ -89,7 +90,7 @@ fn invocation(
             "read-only",
             "-C",
         ])
-        .arg(&request.cwd)
+        .arg(&request.location.cwd)
         .arg("-m")
         .arg(&config.model);
     command.env("CODEX_HOME", home);
@@ -104,7 +105,8 @@ fn invocation(
             "mcp_servers.source_reader.args",
             json!([
                 "__summary-reader",
-                request.cwd.to_string_lossy(),
+                request.location.read_root.to_string_lossy(),
+                request.location.cwd.to_string_lossy(),
                 audit.to_string_lossy()
             ]),
         ),

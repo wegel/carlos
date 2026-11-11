@@ -140,7 +140,7 @@ fn handle_item_started(app: &mut AppState, params: &serde_json::Map<String, Valu
         "commandExecution" => {
             if let Some(id) = item.get("id").and_then(Value::as_str) {
                 app.ensure_item_placeholder(id, Role::ToolCall);
-                let idx = app.item_to_message_index[id];
+                let idx = app.item_message_index(id).expect("native item row");
                 app.describe_tool_output(idx, &Value::Object(item.clone()));
             }
         }
@@ -152,7 +152,7 @@ fn handle_item_started(app: &mut AppState, params: &serde_json::Map<String, Valu
         t if is_tool_output_type(t) => {
             if let Some(id) = item.get("id").and_then(Value::as_str) {
                 app.ensure_item_placeholder(id, Role::ToolOutput);
-                let idx = app.item_to_message_index[id];
+                let idx = app.item_message_index(id).expect("native item row");
                 app.describe_tool_output(idx, &Value::Object(item.clone()));
             }
         }
@@ -171,7 +171,7 @@ fn start_user_message(app: &mut AppState, item: &serde_json::Map<String, Value>)
     let inserted =
         app.upsert_mapped_message(id, Role::User, text.clone(), MessageKind::Plain, None);
     if inserted {
-        let idx = app.item_to_message_index[id];
+        let idx = app.item_message_index(id).expect("native item row");
         app.record_input_history(&text, Some(idx));
     }
 }
@@ -213,7 +213,7 @@ fn complete_user_message(
     let inserted =
         app.upsert_mapped_message(item_id, Role::User, text.clone(), MessageKind::Plain, None);
     if inserted && !text.is_empty() {
-        let idx = app.item_to_message_index[item_id];
+        let idx = app.item_message_index(item_id).expect("native item row");
         app.record_input_history(&text, Some(idx));
     }
     true

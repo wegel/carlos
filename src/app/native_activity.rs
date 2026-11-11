@@ -7,6 +7,7 @@ use super::{AppState, MessageKind, Role};
 
 /// Merge a native activity record by its item ID, including records arriving after turn completion.
 pub(super) fn upsert_native_activity(app: &mut AppState, item: &Value) -> bool {
+    super::codex_panel_events::report(app, item);
     let Some(text) = format_native_activity(item) else {
         return false;
     };
@@ -72,18 +73,9 @@ fn format_agent_state(thread_id: &str, state: &Value) -> String {
         .get("status")
         .and_then(Value::as_str)
         .unwrap_or("unknown");
-    let mut text = format!(
+    format!(
         "{}: {}",
         strip_terminal_controls(thread_id),
         strip_terminal_controls(status)
-    );
-    if let Some(message) = state
-        .get("message")
-        .and_then(Value::as_str)
-        .filter(|s| !s.is_empty())
-    {
-        text.push('\n');
-        text.push_str(&strip_terminal_controls(message));
-    }
-    text
+    )
 }

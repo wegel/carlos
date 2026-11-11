@@ -34,7 +34,7 @@ pub(super) fn receive(app: &mut AppState, message: &Value) -> Option<ServerReque
         (Some("system"), Some("session_state_changed")) => {
             app.claude.activity.state(message);
             if message["state"] == "running" {
-                app.context_usage = None;
+                super::claude_context::refresh(app);
             }
             app.claude.set_idle(message["state"] == "idle");
             finish_results(app);

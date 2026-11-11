@@ -23,7 +23,9 @@ pub(super) fn key(
     if client.kind() != BackendKind::Claude {
         return None;
     }
-    if key.code == KeyCode::F(2) && key.modifiers.is_empty() {
+    if app.claude.tasks.show && key.code == KeyCode::F(3) && key.modifiers.is_empty() {
+        super::input_mode::toggle(app, std::time::Instant::now());
+    } else if key.code == KeyCode::F(2) && key.modifiers.is_empty() {
         if app.claude.tasks.show {
             app.claude.tasks.show = false;
         } else {
@@ -264,9 +266,9 @@ fn draw_footer(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
                 .selected_id()
                 .is_some_and(|id| app.claude.tasks.can_stop(id))
             {
-                "↑↓ tasks · x stop · PgDn · F2/Esc close"
+                "↑↓ tasks · x stop · PgDn · F3 mode · F2/Esc close"
             } else {
-                "↑↓ tasks · stop unavailable · PgDn · F2/Esc close"
+                "↑↓ tasks · stop unavailable · PgDn · F3 mode · F2/Esc close"
             }
         },
         Style::default().fg(COLOR_DIM),

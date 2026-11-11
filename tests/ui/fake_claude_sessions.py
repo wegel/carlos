@@ -18,7 +18,7 @@ class Sessions:
         self.prompts = {}
         if self.path.exists():
             rows = [json.loads(line) for line in self.path.read_text().splitlines() if line.strip()]
-            self.parent = next((row["uuid"] for row in reversed(rows) if row.get("uuid")), None)
+            self.parent = next((row["uuid"] for row in reversed(rows) if row.get("uuid") and row.get("type") in ("user", "assistant", "system") and not row.get("isSidechain")), None)
 
     @staticmethod
     def argument(argv, key):
@@ -45,3 +45,7 @@ class Sessions:
         text = self.prompts.get(prompt, "")
         self.append({"type": "assistant", "uuid": str(uuid.uuid4()), "message": {"id": "message-" + prompt,
                      "role": "assistant", "content": [{"type": "text", "text": "Answer: " + text}]}})
+        if os.environ.get("CARLOS_TEST_SERVER") == "claude-hook-history":
+            self.append({"type": "system", "subtype": "stop_hook_summary", "uuid": str(uuid.uuid4()),
+                         "hookCount": 1, "hookInfos": [{"command": "fixture", "status": "completed"}],
+                         "hookErrors": [], "preventedContinuation": False})

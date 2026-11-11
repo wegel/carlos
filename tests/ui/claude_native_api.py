@@ -13,7 +13,9 @@ class NativeClaudeAPI:
         self.root = root
         self.scenario = scenario
         self.requests = []
+        self.count_token_requests = 0
         self.lock = threading.Lock()
+        self.context_release = threading.Event()
         owner = self
 
         class Handler(http.server.BaseHTTPRequestHandler):
@@ -24,6 +26,8 @@ class NativeClaudeAPI:
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 path = urlsplit(self.path).path
                 if path.endswith("/count_tokens"):
+                    with owner.lock:
+                        owner.count_token_requests += 1
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
@@ -49,7 +53,7 @@ class NativeClaudeAPI:
                         self.wfile.flush()
                     emit("message_start",{"type":"message_start","message":{"id":"msg_"+uuid.uuid4().hex,
                         "type":"message","role":"assistant","model":body["model"],"content":[],
-                        "stop_reason":None,"stop_sequence":None,"usage":{"input_tokens":10,"output_tokens":0}}})
+                        "stop_reason":None,"stop_sequence":None,"usage":owner.usage(index)}})
                     if isinstance(block,str):
                         emit("content_block_start",{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}})
                         emit("content_block_delta",{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":block}})
@@ -69,7 +73,23 @@ class NativeClaudeAPI:
     def url(self):
         return f"http://127.0.0.1:{self.server.server_port}"
 
+    def usage(self,index):
+        if self.scenario == "context":
+            return {"input_tokens":123 + index,"cache_read_input_tokens":32000 + index*1000,
+                "cache_creation_input_tokens":8000,"output_tokens":0}
+        return {"input_tokens":10,"output_tokens":0}
+
     def reply(self,index,body):
+        if self.scenario == "rewind":
+            if index == 0:
+                return "Bash", {"command":"printf NATIVE_REWIND_TOOL_DONE","description":"Kept tool-rich turn"}
+            if index == 2 and not self.context_release.wait(30):
+                raise AssertionError("Rewind fixture was not released")
+        if self.scenario == "context":
+            if index == 0:
+                return "Bash", {"command":"printf NATIVE_CONTEXT_TOOL_DONE","description":"Isolated context fixture"}
+            if index == 1 and not self.context_release.wait(30):
+                raise AssertionError("Context fixture was not released")
         if self.scenario == "question" and index == 0:
             return "AskUserQuestion", {"questions":[{"question":"Which native output?","header":"Format","multiSelect":False,
                 "options":[{"label":"Summary","description":"Short"},{"label":"Detailed","description":"Long"}]}]}
@@ -89,6 +109,7 @@ class NativeClaudeAPI:
         return f"NATIVE_{self.scenario.upper()}_ANSWER_{index}"
 
     def close(self):
+        self.context_release.set()
         for name in ("release-first","release-stop"):
             (self.root/name).touch()
         self.server.shutdown()

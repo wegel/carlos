@@ -30,16 +30,14 @@ pub(super) struct Compaction {
 }
 
 impl ClaudeActivity {
-    /// Apply native state and invalidate old context counts before fresh work changes them.
+    /// Apply native activity without treating repeated running events as a new context.
     pub(super) fn state(&mut self, message: &Value) {
         self.state = match message["state"].as_str() {
             Some("running") => NativeState::Running,
             Some("requires_action") => NativeState::RequiresAction,
             _ => NativeState::Idle,
         };
-        if self.state == NativeState::Running {
-            self.context_revision += 1;
-        } else {
+        if self.state != NativeState::Running {
             self.transient = None;
             self.thinking = None;
         }

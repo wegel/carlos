@@ -59,13 +59,19 @@ The helper accepts native modes `default`, `acceptEdits`, `plan`, `dontAsk`,
 the same explicit flag at start. The helper never adds that flag itself.
 
 ```json
-{"v":1,"id":"r3","method":"prompt","params":{"uuid":"11111111-1111-4111-8111-111111111111","text":"Explain this project","origin":{"kind":"human"},"priority":"later"}}
+{"v":1,"id":"r3","method":"prompt","params":{"uuid":"11111111-1111-4111-8111-111111111111","text":"Explain this project","origin":{"kind":"human"},"priority":"later","inputKind":"prompt"}}
 ```
 
 Each prompt requires a UUID, nonempty text, origin, and priority. The caller must
 reuse the prompt UUID when it correlates native events with its own transcript.
 The helper rejects a prompt UUID it has already accepted. A successful prompt
 reply means the helper queued the message; it does not mean Claude answered it.
+
+Human prompts may carry Carlos display metadata `inputKind: "prompt" | "steer"`.
+The caller captures that choice when it dispatches the UUID; priority alone does
+not classify an input. A steer requires `now`. Omitted kinds remain unknown. The
+helper stores the kind separately from source in Carlos SQLite, carries it through
+validated forks, and never puts it in SDK prompt frames or native session files.
 
 Only actual keyboard or dictation input gets `origin: {"kind":"human"}`.
 An automatic Ralph follow-up gets `{"kind":"auto-continuation"}`. Callers can
@@ -234,9 +240,16 @@ folder and SDK worktree rules apply.
 - `sessions.list` accepts `offset` (default 0), `limit` (1..64, default 64), and `includeWorktrees` (default true). It always includes programmatic sessions and returns `{sessions,offset,nextOffset}` with unchanged SDK summary objects.
 - `sessions.info` accepts `sessionId` and returns the SDK metadata object or null.
 - `sessions.rename` accepts `sessionId,title` and saves the title through the SDK, then returns current metadata.
-- `sessions.read` accepts `sessionId,offset,limit` and returns `{messages:[{message,source}],offset,nextOffset,snapshotId}`. `message` retains native fields; `source` is human, automatic, unknown, or system. Pass the returned `snapshotId` on later pages to keep the same read. A new read without that ID creates a snapshot.
+- `sessions.read` accepts `sessionId,offset,limit` and returns `{messages:[{message,source,inputKind?}],offset,nextOffset,snapshotId}`. `message` retains native fields; `source` is human, automatic, unknown, or system. Pass the returned `snapshotId` on later pages to keep the same read. A new read without that ID creates a snapshot.
 - `sessions.children` pages the imported child's `{subpath,records}` catalog for the same snapshot. `sessions.metadata` pages opaque main metadata, or child entries when `subpath` is supplied. These records are preserved for later task views; they do not create actionable historical approvals or main-thread human prompts.
 - `sessions.forkBefore` accepts `sessionId,beforeMessageId`. It waits for that exact prompt UUID, calls the published inclusive fork API at the preceding record, checks contents and mapped UUIDs, and returns `{sessionId,fresh:false}`. Before the first prompt it returns a fresh UUID with `fresh:true`; start it using `sessionId`, without resume. Missing/changed anchors fail instead of choosing a different cut.
+
+Fork validation can extend the canonical SDK view only with a proven trailing
+system suffix, such as copied hook summaries that the public message view hides
+at its leaf. The read-only import cache must prove the exact cut, source mappings,
+parent/order links and unchanged opaque payloads. This view is private to the
+check; ordinary session pages do not gain guessed rows. Carlos source/input-kind
+facts are saved atomically only after every prefix row and the final length pass.
 
 Pages target 512 KiB. A larger record returns an empty array and
 `chunk:{offset,totalBytes,data}` with base64 bytes, plus `chunkOffset` for the next

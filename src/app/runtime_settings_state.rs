@@ -68,7 +68,7 @@ impl RuntimeSettingsState {
             model_settings_tool_output: ToolOutputMode::Auto,
             model_settings_model_input: String::new(),
             model_settings_model_index: 0,
-            model_settings_effort_options: Vec::new(),
+            model_settings_effort_options: default_effort_vec(),
             model_settings_effort_index: 3,
             model_settings_summary_options: DEFAULT_SUMMARY_OPTIONS
                 .iter()

@@ -58,7 +58,7 @@ def run_once(options,root,auth):
     terminal = Terminal(options.binary.absolute(),root,"live-subscribed-proof",None,160,"claude",
                         claude=options.claude.resolve(),extra_env=env)
     try:
-        terminal.contains("Tasks F2")
+        terminal.wait(lambda:terminal.input_is(""),"native composer rendered")
         terminal.wait(lambda: any(frame.get("type") == "reply" and frame.get("ok") and isinstance(frame.get("result"),dict) and "models" in frame["result"] for frame in frames(root,"server")),"subscribed startup",timeout=30)
         for _ in range(4): terminal.pump(.05)
         with (root/"live-turn-started").open("x") as output: output.write("One authorized UI turn; do not replay.\n")

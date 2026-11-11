@@ -4,14 +4,14 @@ use std::collections::HashSet;
 
 use serde_json::Value;
 
-use super::shell_command::analyze_shell_command;
-use super::tool_shell::{
-    command_summary_from_shell_cmd, compact_command_path, parse_ssh_remote_command,
-};
-use super::tools::{
-    tool_command, tool_description, tool_name, tool_output_text, tool_reasoning, value_at_path,
-};
+use super::tool_shell::{command_summary_from_shell_cmd, compact_command_path};
+use super::tools::{tool_command, tool_name, tool_output_text, value_at_path};
 use super::Role;
+
+#[path = "tool_format_command.rs"]
+mod command;
+
+use command::{format_command_call, format_command_output};
 
 // --- JSON Summary Helpers ---
 
@@ -245,58 +245,11 @@ fn format_tool_call(item: &Value) -> Option<String> {
         .or_else(|| Some(titlecase_tool_name(&name)))
 }
 
-fn format_command_call(item: &Value, cmd: &str) -> String {
-    let mut lines = Vec::new();
-    if let Some(ssh) = parse_ssh_remote_command(cmd).filter(|_| !analyze_shell_command(cmd).has_rtk)
-    {
-        lines.push(format!("remote exec on {}", ssh.destination));
-        push_reasoning_and_description(&mut lines, item);
-        lines.push(format!("$ {}", ssh.remote_command));
-    } else {
-        lines.push(format!("run {cmd}"));
-        push_reasoning_and_description(&mut lines, item);
-        lines.push(format!("$ {cmd}"));
-    }
-    lines.join("\n")
-}
-
-fn push_reasoning_and_description(lines: &mut Vec<String>, item: &Value) {
-    if let Some(reason) = tool_reasoning(item) {
-        lines.push(format!("Thinking: {reason}"));
-    }
-    if let Some(desc) = tool_description(item) {
-        lines.push(format!("# {desc}"));
-    }
-}
-
 fn format_tool_output(item: &Value) -> Option<String> {
     if item.get("type").and_then(Value::as_str) == Some("commandExecution") {
         return format_command_output(item);
     }
     tool_output_text(item)
-}
-
-fn format_command_output(item: &Value) -> Option<String> {
-    let cmd = tool_command(item);
-    let output = tool_output_text(item);
-    match (cmd, output) {
-        (Some(cmd), Some(out)) => Some(format!("{}\n{out}", format_cmd_prefix(&cmd))),
-        (Some(cmd), None) => Some(format_cmd_prefix(&cmd)),
-        (None, Some(out)) => Some(out),
-        (None, None) => None,
-    }
-}
-
-fn format_cmd_prefix(cmd: &str) -> String {
-    if let Some(ssh) = parse_ssh_remote_command(cmd).filter(|_| !analyze_shell_command(cmd).has_rtk)
-    {
-        format!(
-            "remote exec on {}\n$ {}",
-            ssh.destination, ssh.remote_command
-        )
-    } else {
-        format!("$ {cmd}")
-    }
 }
 
 // --- Command Summarization from Parsed Command ---

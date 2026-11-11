@@ -68,6 +68,10 @@ class Server:
                 completed_turn("turn-second", "second"),
             ]}
         }
+        if self.mode == "codex-reused-items":
+            for turn in self.threads["thread-original"]["turns"]:
+                turn["items"][0]["id"]="same-user"
+                turn["items"][1]["id"]="same-answer"
         if self.mode == "codex-shared-turn":
             from fake_codex_rewind import shared_history
             self.threads["thread-original"] = shared_history()
@@ -125,26 +129,66 @@ class Server:
         for line in sys.stdin:
             request = json.loads(line)
             self.record("client", request)
+            if request.get("method") == "initialized":
+                self.initialized = True
             if "id" not in request:
                 continue
+            if "method" not in request and self.mode.startswith("codex-reconnect"):
+                from fake_codex_reconnect import handle
+                handle(self,request)
+                continue
+            if "method" not in request and self.mode=="codex-questions":
+                from fake_codex_questions import answered
+                answered(self,request)
+                continue
+            if self.mode in ("codex-current", "codex-current-full", "codex-history-error", "codex-pipe-eof", "codex-pipe-oversize"):
+                if request["method"] != "initialize" and not getattr(self, "initialized", False):
+                    self.reply(request, error="Client did not send initialized")
+                    continue
             self.handle(request)
             self.persist()
 
     def handle(self, request):
         method = request["method"]
         params = request.get("params", {})
+        from fake_codex_reconnect import handle as reconnect_handle
+        if reconnect_handle(self,request):
+            return
+        from fake_codex_goals import handle as goal_handle
+        if goal_handle(self,request):
+            return
+        from fake_codex_panel import handle as panel_handle
+        if panel_handle(self,request):
+            return
+        from fake_codex_controls import handle
+        if handle(self,request):
+            return
+        if self.mode=="codex-questions":
+            from fake_codex_questions import bootstrap
+            bootstrap(self)
+        if self.mode in ("codex-current", "codex-current-full", "codex-history-error", "codex-pipe-eof", "codex-pipe-oversize"):
+            from fake_codex_foundation import handle
+            if handle(self, request):
+                return
         if method == "initialize":
             self.reply(request, {"userAgent": "carlos-test-server"})
         elif method == "model/list":
             self.reply(request, {"data": [], "nextCursor": None})
+        elif method == "thread/list":
+            self.reply(request,{"data":[],"nextCursor":None})
+        elif method == "thread/backgroundTerminals/list":
+            self.reply(request,{"data":[],"nextCursor":None})
         elif method == "account/rateLimits/read":
             from quota_fixture import reply_limits
             reply_limits(self, request)
         elif method in ("thread/read", "thread/resume"):
             thread = copy.deepcopy(self.threads[params["threadId"]])
+            thread["model"] = "fixture-a" if self.mode.startswith("codex-controls") else "gpt-5.6-sol"
+            thread["reasoningEffort"] = "low" if self.mode.startswith("codex-controls") else "high"
+            thread.setdefault("status", {"type":"idle"})
             if self.mode == "paginated":
                 thread["turns"] = []
-            self.reply(request, {"thread": thread})
+            self.reply(request, {"thread": thread, "model":"gpt-5.6-sol", "reasoningEffort":"high"})
             if self.mode.startswith("theme-") and self.mode.removeprefix("theme-").isdigit():
                 self.notify("thread/tokenUsage/updated", {"threadId": params["threadId"],
                             "tokenUsage": {"modelContextWindow": 100000,
@@ -225,7 +269,7 @@ class Server:
             return
         thread = self.threads[params["threadId"]]
         thread["turns"] = thread["turns"][:-params["numTurns"]]
-        self.reply(request, {"thread": thread})
+        self.reply(request, {"thread": thread, "model":"gpt-5.6-sol", "reasoningEffort":"high"})
 
     def start_turn(self, request, params):
         if self.mode == "markdown-table":
@@ -249,6 +293,9 @@ class Server:
             turn["items"][1:1] = long_tool_items(failure=self.mode == "tool-failure")
         if self.mode == "tool-short":
             turn["items"][1:1] = short_tool_items()
+        if self.mode == "summary-cd":
+            from directory_command_fixture import directory_items
+            turn["items"][1:1] = directory_items(Path(os.environ["CARLOS_TEST_ROOT"]))
         if self.mode == "summary-live":
             from summary_fixture import summary_items
             turn["items"][1:1] = summary_items()
@@ -310,4 +357,13 @@ class Server:
 
 
 if __name__ == "__main__":
-    Server().run()
+    if sys.argv[1:]==["features","list"] and os.environ.get("CARLOS_TEST_SERVER","").startswith("codex-reconnect"):
+        path=Path(os.environ["CARLOS_TEST_ROOT"])/"feature-probes"
+        count=int(path.read_text())+1 if path.exists() else 1
+        path.write_text(str(count))
+        if count>1:
+            import time
+            (path.parent/"probe-stalled-pid").write_text(str(os.getpid()))
+            time.sleep(60)
+        print("step_model_switching experimental false\ngoals stable true",flush=True)
+    else: Server().run()

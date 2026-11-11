@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { ProtocolError, type ObjectValue } from "./protocol";
+import { captureCut, forkTail, type ForkCut } from "./session-fork-tail";
 import type { SessionApi } from "./sessions";
 
 type Row = { data: string; uuid: string | null };
@@ -78,6 +79,25 @@ export class SessionArchive {
     return (this.database.query(`SELECT e.data FROM branch b JOIN entries e ON e.uuid=b.uuid AND e.subpath=''
       ${conversationOnly ? "WHERE json_extract(e.data, '$.type') IN ('user','assistant','system')" : ""}
       ORDER BY b.position ASC LIMIT ? OFFSET ?`).all(limit, offset) as Row[]).map(row => JSON.parse(row.data));
+  }
+
+  /** Snapshot the exact cut's parent proof without retaining an evictable archive. */
+  forkCut(uuid: string): ForkCut { return captureCut(this.sessionId, uuid, id => this.entry(id)); }
+
+  /** Page the canonical branch plus its proven hidden system suffix for validation only. */
+  forkEntries(cut: ForkCut): (offset: number, limit: number) => ObjectValue[] {
+    const rows = this.database.query(`SELECT uuid FROM entries WHERE subpath='' AND
+      json_extract(data,'$.forkedFrom.sessionId')=? AND json_extract(data,'$.forkedFrom.messageUuid')=? LIMIT 2`)
+      .all(cut.sessionId, cut.uuid) as { uuid: string }[];
+    const count = (this.database.query(`SELECT count(*) AS count FROM branch b JOIN entries e ON e.uuid=b.uuid AND e.subpath=''
+      WHERE json_extract(e.data,'$.type') IN ('user','assistant','system')`).get() as { count: number }).count;
+    const tail = forkTail(rows.map(row => this.entry(row.uuid)!), String(this.entries(count - 1, 1, true)[0]?.uuid), cut.sessionId,
+      uuid => this.entry(uuid), uuid => cut.records.get(uuid),
+      uuid => Boolean(this.database.query("SELECT 1 FROM branch WHERE uuid=?").get(uuid)));
+    return (offset, limit) => {
+      const visible = offset < count ? this.entries(offset, Math.min(limit, count - offset), true) : [];
+      return [...visible, ...tail.slice(Math.max(0, offset - count), Math.max(0, offset + limit - count))];
+    };
   }
 
   metadata(offset: number, limit: number, subpath = ""): ObjectValue[] {

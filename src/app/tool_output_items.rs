@@ -6,10 +6,7 @@ use serde_json::Value;
 
 use super::models::{MessageKind, Role, ToolOutputDetails};
 use super::state::AppState;
-use super::tools::{
-    command_execution_diff_output, command_summary_from_shell_cmd, first_i64_at_paths,
-    format_tool_item, strip_terminal_controls, tool_command,
-};
+use super::tools::{command_execution_diff_output, first_i64_at_paths, strip_terminal_controls};
 
 impl AppState {
     /// Attach a short label without replacing the tool's original output.
@@ -17,15 +14,13 @@ impl AppState {
         let Some(message) = self.messages.get(idx) else {
             return;
         };
-        let generated = item["id"].as_str().and_then(|id| self.summaries.label(id));
+        let generated = item["id"]
+            .as_str()
+            .and_then(|id| self.summaries.label(&self.item_key(id)));
         let is_generated = generated.is_some() && message.kind != MessageKind::Diff;
         let summary = generated
-            .or_else(|| item["id"].as_str().and_then(|id| self.command_override(id)))
-            .or_else(|| {
-                tool_command(item)
-                    .and_then(|command| command_summary_from_shell_cmd(&command, None))
-            })
-            .or_else(|| format_tool_item(item, Role::ToolCall))
+            .or_else(|| self.tool_command_summary(item))
+            .or_else(|| self.format_tool_item(item, Role::ToolCall))
             .unwrap_or_else(|| "Tool output".to_string());
         let summary = if message.kind == MessageKind::Diff {
             super::tool_output_state::diff_summary(message)
@@ -97,8 +92,8 @@ pub(super) fn with_streamed_output<'a>(app: &AppState, item: &'a Value) -> Cow<'
         let message = item
             .get("id")
             .and_then(Value::as_str)
-            .and_then(|id| app.item_to_message_index.get(id))
-            .and_then(|idx| app.messages.get(*idx));
+            .and_then(|id| app.item_message_index(id))
+            .and_then(|idx| app.messages.get(idx));
         if let Some(message) =
             message.filter(|message| message.role == Role::ToolOutput && !message.text.is_empty())
         {

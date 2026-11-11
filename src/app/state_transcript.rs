@@ -81,7 +81,9 @@ impl AppState {
     }
 
     pub(super) fn command_override(&self, call_id: &str) -> Option<String> {
-        self.command_render_overrides.get(call_id).cloned()
+        self.command_render_overrides
+            .get(&self.item_key(call_id))
+            .cloned()
     }
 
     pub(super) fn upsert_turn_diff(&mut self, turn_id: &str, diff: &str) {
@@ -109,8 +111,8 @@ impl AppState {
 
     pub(super) fn set_command_override(&mut self, call_id: &str, summary: String) {
         self.command_render_overrides
-            .insert(call_id.to_string(), summary.clone());
-        if let Some(&idx) = self.item_to_message_index.get(call_id) {
+            .insert(self.item_key(call_id), summary.clone());
+        if let Some(idx) = self.item_message_index(call_id) {
             if let Some(tool) = self.messages[idx].tool_output.as_mut() {
                 tool.summary = summary;
                 self.mark_transcript_dirty_from(idx);

@@ -1,12 +1,13 @@
 //! Keyboard event routing: global toggles, overlay handlers, and normal input dispatch.
-
 #[path = "input_events_dictation.rs"]
 mod input_events_dictation;
-
 #[path = "input_events_model_settings.rs"]
 mod input_events_model_settings;
+#[path = "input_events_submit.rs"]
+mod input_events_submit;
 
 use self::input_events_model_settings::handle_model_settings_key;
+use self::input_events_submit::handle_enter_submit;
 
 use std::time::Instant;
 
@@ -20,12 +21,8 @@ use crate::app::notifications::{is_ctrl_char, is_key_press_like, is_perf_toggle_
 use crate::app::render::{compute_input_layout, is_newline_enter};
 use crate::app::render_input::last_assistant_message;
 use crate::app::selection::MouseDragMode;
-use crate::app::session_name::handle_rename_command;
 use crate::app::state::{AppState, ApprovalChoice};
-use crate::app::tool_output_command::handle_tools_command;
-use crate::app::turn_submit::{
-    interrupt_active_turn, respond_to_pending_approval, submit_rewind_turn_text, submit_turn_text,
-};
+use crate::app::turn_submit::{interrupt_active_turn, respond_to_pending_approval};
 use crate::app::{TerminalSize, MSG_TOP};
 use crate::backend::BackendClient;
 use crate::clipboard::{clipboard_backend_label, try_copy_clipboard};
@@ -50,11 +47,23 @@ pub(super) fn handle_key_event(
     if let Some(perf) = app.perf.as_mut() {
         perf.mark_key_event();
     }
+    if app.codex.enabled && k.code == KeyCode::F(5) && k.modifiers.is_empty() {
+        crate::app::codex_reconnect::start(client, app);
+        return TerminalEventResult::Continue { needs_draw: true };
+    }
     if let Some(result) = handle_global_toggle_keys(app, k) {
+        return result;
+    }
+    if let Some(result) = crate::app::codex_panel_view::key(client, app, k) {
         return result;
     }
     if let Some(result) = crate::app::claude_task_view::key(client, app, k) {
         return result;
+    }
+    if app.codex.enabled && k.code == KeyCode::F(4) {
+        app.codex.goals.show = false;
+        crate::app::codex_callbacks::next(app);
+        return TerminalEventResult::Continue { needs_draw: true };
     }
     let now = Instant::now();
     app.expire_esc_chord(now);
@@ -62,25 +71,25 @@ pub(super) fn handle_key_event(
         app.reset_esc_chord();
     }
     if app.viewport.show_help {
-        return handle_help_key(app, k);
+        return handle_help_key(app, k, size);
     }
-    if app.runtime.show_model_settings && !app.claude.answers.drafts.is_empty() {
+    if app.runtime.show_model_settings && crate::app::native_questions::draft(app).is_some() {
         return handle_model_settings_key(client, app, k);
     }
-    if app
-        .approval
-        .pending
-        .as_ref()
-        .and_then(|pending| pending.request_id.as_str())
-        .is_some_and(|id| app.claude.answers.drafts.contains_key(id))
-    {
-        return super::super::claude_question_input::handle_key(client, app, k, size);
-    }
-    if app.approval.pending.is_some() {
+    if crate::app::native_questions::modal(app) {
+        if crate::app::native_questions::draft(app).is_some() {
+            return super::super::claude_question_input::handle_key(client, app, k, size);
+        }
         return handle_approval_key(client, app, k);
     }
     if app.runtime.show_model_settings {
         return handle_model_settings_key(client, app, k);
+    }
+    if let Some(result) = crate::app::codex_goal_view::key(client, app, k, size) {
+        return result;
+    }
+    if let Some(result) = crate::app::codex_queue_view::key(client, app, k, size) {
+        return result;
     }
     if let Some(result) = handle_claude_session_keys(client, app, k, size) {
         return result;
@@ -103,12 +112,16 @@ fn handle_claude_session_keys(
     match key.code {
         KeyCode::F(3) => {
             app.claude.prompts.queue = !app.claude.prompts.queue;
+            super::super::input_mode::changed(app, app.claude.prompts.queue, Instant::now());
         }
         KeyCode::F(4) if app.rewind_mode() => {
             crate::app::claude_rewind::toggle_unknown(app);
             app.align_rewind_scroll_to_selected_prompt(size);
         }
-        KeyCode::F(5) if app.claude.phase == crate::app::claude_state::ClaudePhase::Closed => {
+        KeyCode::F(5)
+            if app.claude.phase == crate::app::claude_state::ClaudePhase::Closed
+                || crate::app::claude_session_history::has_unsent(app) =>
+        {
             crate::app::claude_session_history::load_unsent(app);
         }
         _ => return None,
@@ -133,12 +146,30 @@ fn handle_global_toggle_keys(
     None
 }
 
-fn handle_help_key(app: &mut AppState, k: crossterm::event::KeyEvent) -> TerminalEventResult {
+fn handle_help_key(
+    app: &mut AppState,
+    k: crossterm::event::KeyEvent,
+    size: TerminalSize,
+) -> TerminalEventResult {
+    let maximum = crate::app::overlay_render::help_scroll_limit(size);
+    app.viewport.help_scroll = app.viewport.help_scroll.min(maximum);
     match (k.code, k.modifiers) {
         (code, mods) if is_ctrl_char(code, mods, 'c') => return TerminalEventResult::Quit,
         (KeyCode::Esc, _) | (KeyCode::Char('?'), _) => {
             app.viewport.show_help = false;
         }
+        (KeyCode::Down, _) => {
+            app.viewport.help_scroll = app.viewport.help_scroll.saturating_add(1).min(maximum)
+        }
+        (KeyCode::Up, _) => app.viewport.help_scroll = app.viewport.help_scroll.saturating_sub(1),
+        (KeyCode::PageDown, _) => {
+            app.viewport.help_scroll = app.viewport.help_scroll.saturating_add(5).min(maximum)
+        }
+        (KeyCode::PageUp, _) => {
+            app.viewport.help_scroll = app.viewport.help_scroll.saturating_sub(5)
+        }
+        (KeyCode::Home, _) => app.viewport.help_scroll = 0,
+        (KeyCode::End, _) => app.viewport.help_scroll = maximum,
         _ => {}
     }
     TerminalEventResult::Continue { needs_draw: true }
@@ -246,6 +277,7 @@ fn handle_normal_key(
         (KeyCode::Enter, _) => handle_enter_submit(client, app),
         (KeyCode::Char('?'), _) if app.input_is_empty() => {
             app.viewport.show_help = true;
+            app.viewport.help_scroll = 0;
             TerminalEventResult::Continue { needs_draw: true }
         }
         _ => {
@@ -316,34 +348,6 @@ fn handle_page_scroll(app: &mut AppState, size: TerminalSize, down: bool) -> Ter
         app.viewport.scroll_top = app.viewport.scroll_top.saturating_sub(10);
     }
     app.sync_auto_follow_bottom(max_scroll);
-    TerminalEventResult::Continue { needs_draw: true }
-}
-
-fn handle_enter_submit(client: &dyn BackendClient, app: &mut AppState) -> TerminalEventResult {
-    if app.input_is_empty() {
-        return TerminalEventResult::Continue { needs_draw: true };
-    }
-
-    let text = app.input_text();
-    if handle_tools_command(app, &text) {
-        return TerminalEventResult::Continue { needs_draw: true };
-    }
-    if app.rewind_mode() {
-        if let Some(rewind_history_idx) = app.rewind_selected_history_index() {
-            submit_rewind_turn_text(client, app, rewind_history_idx, text);
-            return TerminalEventResult::Continue { needs_draw: true };
-        }
-    }
-
-    if handle_rename_command(client, app, &text) {
-        return TerminalEventResult::Continue { needs_draw: true };
-    }
-    app.clear_rewind_mode_state();
-    app.push_input_history(&text);
-    app.clear_input();
-    app.viewport.selection = None;
-    app.mark_user_turn_submitted();
-    submit_turn_text(client, app, text);
     TerminalEventResult::Continue { needs_draw: true }
 }
 

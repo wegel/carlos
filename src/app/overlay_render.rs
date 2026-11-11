@@ -130,57 +130,76 @@ pub(super) fn content_width(ob: &OverlayBox) -> usize {
 
 /// Locate the current native answer caret without moving the main composer.
 pub(super) fn claude_question_cursor(app: &AppState, size: TerminalSize) -> Option<(usize, usize)> {
-    let pending = app.approval.pending.as_ref()?;
-    let draft = app
-        .claude
-        .answers
-        .drafts
-        .get(pending.request_id.as_str()?)?;
-    overlay_render_claude::cursor(size, draft)
+    let draft = crate::app::native_questions::draft(app)?;
+    overlay_render_claude::cursor(size, draft, app.approval.pending.as_ref()?)
 }
 
 // ---------------------------------------------------------------------------
 // Help overlay
 // ---------------------------------------------------------------------------
 
-pub(super) fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize) {
-    if !(size.height > 10 && size.width > 44) {
+pub(super) fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize, app: &AppState) {
+    fill_fullscreen_overlay(buf, size);
+    if size.width == 0 || size.height < 2 {
         return;
     }
-
-    let box_w = (size.width - 8).min(74);
-    let box_h = 12usize;
-    let ob = compute_overlay_box(size, box_w, box_h);
-
-    fill_fullscreen_overlay(buf, size);
-    fill_box_background(buf, &ob, box_h);
-    draw_rounded_border(buf, &ob);
-    draw_overlay_title(buf, &ob, "Help");
-    draw_help_lines(buf, &ob);
+    let lines = help_lines(size.width);
+    draw_str(
+        buf,
+        0,
+        0,
+        "Help",
+        Style::default().fg(COLOR_PRIMARY),
+        size.width,
+    );
+    let height = size.height.saturating_sub(2);
+    let offset = app
+        .viewport
+        .help_scroll
+        .min(lines.len().saturating_sub(height));
+    for (row, line) in lines.iter().skip(offset).take(height).enumerate() {
+        draw_str(
+            buf,
+            0,
+            row + 1,
+            line,
+            Style::default().fg(COLOR_TEXT),
+            size.width,
+        );
+    }
+    draw_str(
+        buf,
+        0,
+        size.height - 1,
+        "↑↓ · Esc close",
+        Style::default().fg(COLOR_DIM),
+        size.width,
+    );
 }
 
-fn draw_help_lines(buf: &mut Buffer, ob: &OverlayBox) {
-    let w = content_width(ob);
-    let x = ob.start_x + 3;
-    let text_style = Style::default().fg(COLOR_TEXT);
-    let dim_style = Style::default().fg(COLOR_DIM);
+/// Bound stored help navigation to the lines that can actually scroll at this size.
+pub(super) fn help_scroll_limit(size: TerminalSize) -> usize {
+    help_lines(size.width)
+        .len()
+        .saturating_sub(size.height.saturating_sub(2))
+}
 
-    let lines: &[(&str, Style)] = &[
-        ("Enter send/steer or stop dictation", text_style),
-        ("Shift/Alt+Enter newline  F9 dictation endpoint", text_style),
-        ("Ctrl+Y copy selection or last answer", text_style),
-        ("Home/End jump transcript  Ctrl+M settings", text_style),
-        ("Wheel scroll, drag to select, release to copy", text_style),
-        ("/rename [name] change the Codex session name", text_style),
-        (
-            "/tools [auto|compact|full] fold long tool output",
-            text_style,
-        ),
-        ("? toggle this help", dim_style),
-    ];
-    for (i, (text, style)) in lines.iter().enumerate() {
-        draw_str(buf, x, ob.start_y + 3 + i, text, *style, w);
-    }
+fn help_lines(width: usize) -> Vec<String> {
+    [
+        "F2 tasks: agents, background work and stops (Claude/Codex)",
+        "F3 switches Enter between Steer and Queue (Claude/Codex)",
+        "Enter sends; during work it follows the selected mode",
+        "Shift/Alt+Enter newline; F9 dictation endpoint",
+        "F4 waiting questions; Ctrl+M settings",
+        "Ctrl+Y copy selection or last answer",
+        "Home/End jump transcript; wheel scroll; drag to copy",
+        "/rename [name] changes the saved session name",
+        "/tools [auto|compact|full] folds long tool output",
+        "? closes this help; arrows or PgUp/PgDn scroll",
+    ]
+    .into_iter()
+    .flat_map(|line| wrap_natural_by_cells(line, width.max(1)))
+    .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -207,12 +226,16 @@ pub(super) fn draw_approval_overlay(buf: &mut Buffer, size: TerminalSize, app: &
     let Some(approval) = app.approval.pending.as_ref() else {
         return;
     };
-    if let Some(draft) = approval
-        .request_id
-        .as_str()
-        .and_then(|id| app.claude.answers.drafts.get(id))
-    {
-        return overlay_render_claude::draw(buf, size, app, approval, draft);
+    if let Some(draft) = crate::app::native_questions::draft(app) {
+        let mut display = approval.clone();
+        if let Some(entry) = app.codex.callbacks.get(&approval.request_id) {
+            let mut payload = entry.params.clone();
+            if payload["threadId"].is_null() {
+                payload["threadId"] = payload["conversationId"].clone();
+            }
+            display.requested_permissions = Some(payload);
+        }
+        return overlay_render_claude::draw(buf, size, app, &display, draft);
     }
     if size.width < 36 || size.height < 10 {
         return;
