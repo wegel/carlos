@@ -55,12 +55,12 @@ fn browser_completion_requires_one_notice_in_either_consent_order() {
         browser(&mut app, "id");
         if early {
             completed(&mut app, "id");
-            assert_eq!(app.claude.answers.drafts["id"].notice.as_deref(), Some(
+            assert_eq!(app.view.claude_answers.drafts["id"].notice.as_deref(), Some(
                 "The server reported browser completion. Your consent is still required; decline or cancel remains available."
             ));
         }
         respond_to_pending_approval(&Peer::default(), &mut app, ApprovalChoice::Accept);
-        assert!(app.claude.answers.drafts.is_empty());
+        assert!(app.view.claude_answers.drafts.is_empty());
         for _ in 0..2 {
             completed(&mut app, "id");
         }
@@ -117,7 +117,7 @@ fn clear_keeps_consented_and_unanswered_browser_requests_until_their_native_end(
     browser(&mut app, "waiting");
     super::claude_reset::receive(&mut app, &json!({"new_conversation_id":"clear"}));
     assert_eq!(app.session.claude().browser_request_count(), 2);
-    assert!(app.claude.answers.drafts.contains_key("waiting"));
+    assert!(app.view.claude_answers.drafts.contains_key("waiting"));
     completed(&mut app, "consented");
     completed(&mut app, "waiting");
     assert_eq!(app.session.claude().browser_request_count(), 1);

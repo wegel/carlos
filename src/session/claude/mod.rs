@@ -2,6 +2,9 @@
 
 mod activity;
 mod browser;
+pub(crate) mod callback_questions;
+mod callback_reply;
+pub(crate) mod callbacks;
 mod compaction;
 mod context;
 mod edit;
@@ -36,3 +39,6 @@ mod test_support;
 
 #[cfg(test)]
 mod stop_parity_tests;
+
+#[cfg(test)]
+mod callback_tests;

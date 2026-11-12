@@ -23,7 +23,7 @@ pub(super) fn draft(app: &AppState) -> Option<&NativeDraft> {
     if app.codex.enabled {
         app.view.codex_callbacks.drafts.get(&CallbackKey::new(id)?)
     } else {
-        app.claude.answers.drafts.get(id.as_str()?)
+        app.view.claude_answers.drafts.get(id.as_str()?)
     }
 }
 
@@ -37,7 +37,7 @@ pub(super) fn draft_mut(app: &mut AppState) -> Option<&mut NativeDraft> {
             .drafts
             .get_mut(&CallbackKey::new(&id)?)
     } else {
-        app.claude.answers.drafts.get_mut(id.as_str()?)
+        app.view.claude_answers.drafts.get_mut(id.as_str()?)
     }
 }
 

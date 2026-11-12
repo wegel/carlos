@@ -6,9 +6,9 @@ mod normalized_app;
 use serde_json::{json, Value};
 
 use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
-use super::claude_state::ClaudePhase;
 use super::models::Role;
 use crate::session::approval_state::ApprovalQueue;
+use crate::session::claude::ClaudePhase;
 use crate::session::claude::NativeState;
 
 fn frame(app: &mut AppState, frame: Value, epoch: u64, method: Option<&str>, context: Value) {
@@ -302,7 +302,7 @@ fn reset_keeps_every_active_queued_callback_draft_and_confirmation_until_its_exa
             .collect::<Vec<_>>(),
         ["queued-one", "queued-two"]
     );
-    assert_eq!(app.claude.answers.drafts.len(), 3);
+    assert_eq!(app.view.claude_answers.drafts.len(), 3);
     assert_eq!(app.view.confirm_allow, Some(consent));
     frame(
         &mut app,
@@ -330,7 +330,7 @@ fn reset_keeps_every_active_queued_callback_draft_and_confirmation_until_its_exa
             .request_id,
         "queued-two"
     );
-    assert_eq!(app.claude.answers.drafts.len(), 1);
+    assert_eq!(app.view.claude_answers.drafts.len(), 1);
 }
 
 #[test]

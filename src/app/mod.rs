@@ -43,7 +43,6 @@ mod claude_session_history;
 #[cfg(test)]
 #[path = "../tests/claude_session_tests.rs"]
 mod claude_session_tests;
-mod claude_state;
 #[cfg(test)]
 #[path = "../tests/claude_task_tests.rs"]
 mod claude_task_tests;

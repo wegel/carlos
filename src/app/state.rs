@@ -17,7 +17,6 @@ pub(super) use super::runtime_settings_state::ModelSettingsField;
 #[cfg(test)]
 pub(super) use super::runtime_settings_state::{DEFAULT_EFFORT_OPTIONS, DEFAULT_SUMMARY_OPTIONS};
 use super::view_state::ViewState;
-use crate::session::approval_state::ApprovalQueue;
 use crate::session::state::SessionState;
 
 // --- Types ---
@@ -26,7 +25,6 @@ pub(super) struct AppState {
     pub(super) session: SessionState,
     pub(super) view: ViewState,
     // Split these mixed children in milestones 5 through 9.
-    pub(super) claude: super::claude_state::ClaudeUiState,
     pub(super) codex: super::codex_state::CodexUiState,
 }
 
@@ -46,7 +44,6 @@ impl AppState {
         Self {
             session: SessionState::new(thread_id, preferences, summary_enabled),
             view: ViewState::new(summary_enabled),
-            claude: super::claude_state::ClaudeUiState::default(),
             codex: super::codex_state::CodexUiState::default(),
         }
     }
@@ -104,27 +101,26 @@ impl AppState {
     }
 
     pub(super) fn clear_pending_approval(&mut self) {
-        if let Some(id) = self
-            .session
-            .approval()
-            .pending()
-            .map(|pending| pending.facts().request_id.clone())
-        {
-            if self.session.codex_callbacks().get(&id).is_some() {
-                super::codex_callbacks::retire(self, &id);
-                return;
+        let cleared = self.session.clear_pending_session_approval();
+        self.apply_cleared_approval(cleared);
+    }
+
+    /// Discard only the editor and hints named by the session's retirement result.
+    pub(super) fn apply_cleared_approval(
+        &mut self,
+        cleared: crate::session::approval_reply::ApprovalCleared,
+    ) {
+        match cleared {
+            crate::session::approval_reply::ApprovalCleared::Codex(retired) => {
+                super::codex_callbacks::apply_retired(self, retired);
+            }
+            crate::session::approval_reply::ApprovalCleared::Other { editor, cards } => {
+                if let Some(id) = editor {
+                    self.view.claude_answers.drafts.remove(&id);
+                }
+                self.drop_retired_approval_hints(cards);
             }
         }
-        if let Some(id) = self
-            .session
-            .approval()
-            .pending()
-            .and_then(|pending| pending.facts().request_id.as_str())
-        {
-            self.claude.answers.drafts.remove(id);
-        }
-        let retired = self.session.promote_approval(ApprovalQueue::Claude);
-        self.drop_retired_approval_hints(retired);
     }
 
     // --- Turn input queue ---

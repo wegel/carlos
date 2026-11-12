@@ -88,7 +88,7 @@ fn reject_rewind(client: &dyn BackendClient, app: &mut AppState) -> bool {
     }
 
     if client.kind() == BackendKind::Claude
-        && app.session.claude().phase() != super::claude_state::ClaudePhase::Ready
+        && app.session.claude().phase() != crate::session::claude::ClaudePhase::Ready
     {
         if !super::claude_edit::waiting(app) {
             super::claude_edit::unavailable(
@@ -161,9 +161,9 @@ fn submit_turn(
     }
 
     if client.kind() == BackendKind::Claude
-        && app.session.claude().phase() != crate::app::claude_state::ClaudePhase::Ready
+        && app.session.claude().phase() != crate::session::claude::ClaudePhase::Ready
     {
-        if app.session.claude().phase() == super::claude_state::ClaudePhase::Closed {
+        if app.session.claude().phase() == crate::session::claude::ClaudePhase::Closed {
             app.discard_pending_input_history(&text);
             app.set_input_text(&text);
             app.set_hint("Claude is closed; restart Carlos to send this draft");
@@ -245,7 +245,7 @@ fn start_new_turn(
     origin: PromptOrigin,
 ) -> bool {
     if client.kind() == BackendKind::Claude
-        && app.session.claude().phase() != crate::app::claude_state::ClaudePhase::Ready
+        && app.session.claude().phase() != crate::session::claude::ClaudePhase::Ready
     {
         app.set_hint("Claude is starting; answer any startup question first");
         return false;

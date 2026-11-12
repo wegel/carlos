@@ -47,7 +47,8 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 
 - [x] (2026-11-12 UTC, handover) Recovered the Claude session and restored its named stash at base `91570ea`. The restored 37 source files exactly match `/tmp/carlos-m7b/source-audit.json`. The saved part 7.2 passed its build, release build, style checks, 990 Rust tests and 174 terminal workflows before the worker stopped. The resumed Rust run passes 990 tests in 3.76 s.
 - [x] (2026-11-12 UTC) Milestone 7 part 7.2: direct handler review PASS, 990 Rust tests, 174 terminal workflows (78.211 s), release build, format and style pass. Seven alternating speed pairs against `a59221c`: synthetic replay 48.86 / 48.20 ms, layout 14.97 / 14.98, draw 3.88 / 3.65, scroll 0.70 / 0.70, typing 0.60 / 0.60. Small fixture replay 1.11 / 1.17 ms, draw 0.48 / 0.50. No repeatable slowdown. Report: `.agents/reports/exec016-m7b-report.md`.
-- [ ] Milestone 7 part 7.3: Claude callback commands and replies.
+- [x] (2026-11-12 UTC) Milestone 7 part 7.3: Claude callback commands, unsupported-kind checks, browser notices and replies now live in the session; local answers live in ViewState and ClaudeUiState is removed. 992 Rust tests, 174 terminal workflows, release build/check, format/style and direct review pass. All 3,000 streams (51,390 checkpoints) exactly equal the parent; pre-plan outputs equal part 7.2 byte for byte, with the same 103 classified H/T/F differences and no panic. Report: `.agents/reports/exec016-m7c-report.md`.
+- [ ] Milestone 8: split native queues and goals from their local editors.
 
 ## Surprises & Discoveries
 
@@ -182,6 +183,10 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
   Rationale: the owner explicitly requested this on handover. This overrides the earlier worker/reviewer transport instructions; the existing reviewer prompt still supplies the checklist. Preserve the named stash as a recovery copy. Do not install, merge or push this branch.
   Date/Author: 2026-11-12 / Codex, at the owner's request.
 
+- Decision: borrow the active approval facts when sending its plain answer and split the browser/card borrows inside the session.
+  Rationale: an existing allocation test caught a second full-payload copy in the first attempt. The corrected path preserves the original one-copy cost and all consent checks.
+  Date/Author: 2026-11-12 / Codex.
+
 ## Reviews
 
 - Milestone 1, engineering reviewer (`.agents/reviewers/engineering_reviewer.md`, Codex `gpt-6.1-sol`, fresh session, 2026-11-11): verdict PASS. No BLOCKER, MAJOR or MINOR finding. Confirmed: no terminal dependency or row count in session models; `app/models.rs` re-exports plain types only; compact and full labels, diff styles, row counts and selection rows preserved; no per-frame message clone; no test weakened. The reviewer ran `cargo fmt --check` and `git diff --check`; it relied on the integrator for tests and speed.
@@ -238,10 +243,12 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 
 - Milestone 7.2, direct primary-agent review at the owner’s request: PASS. Checked guards, typed identity bounds, retirement, candidate/revision/card checks, failed writes and exact reply conversion against `91570ea`. No BLOCKER or MAJOR. This was a self-review; no independent reviewer was invoked.
 
+- Milestone 7.3, direct primary-agent review: PASS, no BLOCKER or MAJOR. All moved guards and fallbacks are listed in the report. The unchanged consent and payload-copy tests pass. The owner’s no-subagent instruction still applies.
+
 ## Outcomes & Retrospective
 
 
-Milestones 0 through 6 and part 7.1 are committed. The daemon split remains in its separate checkout; the main checkout has unrelated owner changes. The primary agent recovered part 7.2 from the named stash and is checking it before continuing parts 7.3 and milestones 8 through 11. No binary has been installed. The original baseline notes below remain historical evidence; milestone 0 supplied the missing tools and the Rust 1.100.0 default-feature baseline.
+Milestones 0 through 7 are complete. The daemon split remains in its separate checkout; the main checkout has unrelated owner changes. The primary agent recovered part 7.2 from the named stash and completed the Claude callback split. Milestones 8 through 11 remain. No binary has been installed. The original baseline notes below remain historical evidence; milestone 0 supplied the missing tools and the Rust 1.100.0 default-feature baseline.
 
 ## Context and Orientation
 
@@ -805,3 +812,5 @@ Plan-author review note, 2026-11-11: the author checked the initial draft agains
 Plan-author source-check note, 2026-11-11: other work changed the architecture document during authoring. The author verified the complete intervening file list, kept the unchanged-source benchmark valid, and recorded the future shared-client and compiler decisions without adding either task to 016.
 
 Handover note, 2026-11-12: recorded the recovered source, remaining work, and the owner’s instruction to continue directly without agents.
+
+Milestone 7.3 note, 2026-11-12: recorded the callback/browser moves, exact comparison and the no-copy correction.

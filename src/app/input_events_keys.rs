@@ -124,7 +124,7 @@ fn handle_claude_session_keys(
             app.align_rewind_scroll_to_selected_prompt(size);
         }
         KeyCode::F(5)
-            if app.session.claude().phase() == crate::app::claude_state::ClaudePhase::Closed
+            if app.session.claude().phase() == crate::session::claude::ClaudePhase::Closed
                 || crate::app::claude_session_history::has_unsent(app) =>
         {
             crate::app::claude_session_history::load_unsent(app);

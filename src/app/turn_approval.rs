@@ -34,25 +34,17 @@ pub(super) fn respond_to_pending_approval(
         return;
     }
 
-    match client.respond(&pending.request_id, result) {
-        Ok(_) => {
-            super::claude_browser::finish_answer(app, &pending, choice);
+    match app
+        .session
+        .answer_session_approval(client, card_id, result, choice)
+    {
+        Ok(Some(answered)) => {
+            app.apply_session_update(answered.transcript);
             app.view.confirm_allow = None;
-            app.clear_pending_approval();
-            let status = match choice {
-                ApprovalChoice::Accept => "approval accepted",
-                ApprovalChoice::AcceptForSession => "approval accepted for session",
-                ApprovalChoice::Decline => "approval declined",
-                ApprovalChoice::Cancel => "approval canceled",
-            };
-            app.set_status(status);
+            app.apply_cleared_approval(answered.cleared);
         }
-        Err(err) => reply_error(
-            app,
-            &pending.request_id,
-            format!("approval reply failed: {err}"),
-            true,
-        ),
+        Ok(None) => {}
+        Err(error) => reply_error(app, &pending.request_id, error, true),
     }
 }
 
@@ -65,7 +57,7 @@ fn build_answer(
         let draft = pending
             .request_id
             .as_str()
-            .and_then(|id| app.claude.answers.drafts.get(id));
+            .and_then(|id| app.view.claude_answers.drafts.get(id));
         match draft
             .zip(pending.requested_permissions.as_ref())
             .map(|(draft, payload)| draft.answer(payload))
@@ -104,7 +96,7 @@ fn confirm_default_no(
         let has_fields = pending
             .request_id
             .as_str()
-            .and_then(|id| app.claude.answers.drafts.get(id))
+            .and_then(|id| app.view.claude_answers.drafts.get(id))
             .is_some_and(|draft| !draft.fields.is_empty());
         let hint = default_no_hint(has_fields, true);
         app.prepend_approval_hint(hint);
@@ -125,15 +117,13 @@ fn is_native(kind: ApprovalRequestKind) -> bool {
 fn reply_error(app: &mut AppState, id: &serde_json::Value, error: String, backend: bool) {
     if let Some(draft) = id
         .as_str()
-        .and_then(|id| app.claude.answers.drafts.get_mut(id))
+        .and_then(|id| app.view.claude_answers.drafts.get_mut(id))
     {
         draft.error = Some(super::claude_question_state::safe_text(&error));
         draft.viewport.scroll.set(0);
     }
     let error = super::claude_question_state::safe_text(&error);
-    if backend {
-        app.set_status(error);
-    } else {
+    if !backend {
         app.set_hint(error);
     }
 }

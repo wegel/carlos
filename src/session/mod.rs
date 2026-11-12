@@ -9,6 +9,7 @@ pub(crate) mod transcript;
 #[cfg(test)]
 mod session_headless_tests;
 
+pub(crate) mod approval_reply;
 pub(crate) mod approval_state;
 pub(crate) mod claude;
 pub(crate) mod codex;

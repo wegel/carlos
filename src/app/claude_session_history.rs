@@ -3,7 +3,6 @@
 use anyhow::Result;
 use serde_json::Value;
 
-use super::claude_state::ClaudeUiState;
 use super::models::Role;
 use super::notifications::ServerRequestAction;
 use super::state::AppState;
@@ -16,7 +15,7 @@ pub(super) fn switch_session(app: &mut AppState, generation: u64, id: &str) {
     let edit = take_edit_prompt(app);
     app.session.switch_claude_runtime_choices();
     app.reset_for_forked_thread(id);
-    app.claude = ClaudeUiState::default();
+    app.view.claude_answers = Default::default();
     app.session.reset_claude_for_switch(generation);
     app.view.claude_tasks = Default::default();
     app.view.claude_queue = false;

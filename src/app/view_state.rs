@@ -21,6 +21,7 @@ use super::viewport_state::ViewportState;
 use crate::session::entry_id::EntryId;
 
 pub(super) struct ViewState {
+    pub(super) claude_answers: super::claude_question_state::NativeAnswers,
     pub(super) codex_callbacks: CodexCallbacksView,
     pub(super) claude_tasks: super::claude_tasks::ClaudeTasksView,
     pub(super) claude_queue: bool,
@@ -51,6 +52,7 @@ pub(super) struct ViewState {
 impl ViewState {
     pub(super) fn new(summary_enabled_draft: bool) -> Self {
         Self {
+            claude_answers: Default::default(),
             codex_callbacks: CodexCallbacksView::default(),
             claude_tasks: Default::default(),
             claude_queue: false,

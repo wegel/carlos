@@ -6,7 +6,7 @@ mod normalized_app;
 use serde_json::{json, Value};
 
 use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
-use super::claude_state::ClaudePhase;
+use crate::session::claude::ClaudePhase;
 use crate::session::runtime_settings::RuntimeSetting;
 
 fn send(app: &mut AppState, method: &str, generation: u64, mut params: Value) {
@@ -62,7 +62,11 @@ fn old_generation_close_cancel_and_metadata_cannot_touch_the_new_session() {
             .request_id,
         "same-native-id"
     );
-    assert!(app.claude.answers.drafts.contains_key("same-native-id"));
+    assert!(app
+        .view
+        .claude_answers
+        .drafts
+        .contains_key("same-native-id"));
 }
 
 #[test]

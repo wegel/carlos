@@ -62,7 +62,13 @@ fn cancelling_either_claude_question_keeps_the_other_editor() {
                 &json!({"callbackId":id,"kind":"elicitation","payload":{
                 "requestedSchema":{"properties":{"x":{"type":"string"}}}}}),
             );
-            app.claude.answers.drafts.get_mut(id).expect("draft").fields[0].paste(id);
+            app.view
+                .claude_answers
+                .drafts
+                .get_mut(id)
+                .expect("draft")
+                .fields[0]
+                .paste(id);
         }
         cancel_callback(&mut app, &json!(cancelled));
         let remaining = if cancelled == "first" {
@@ -70,9 +76,9 @@ fn cancelling_either_claude_question_keeps_the_other_editor() {
         } else {
             "first"
         };
-        assert_eq!(app.claude.answers.drafts.len(), 1);
+        assert_eq!(app.view.claude_answers.drafts.len(), 1);
         assert_eq!(
-            app.claude.answers.drafts[remaining].fields[0]
+            app.view.claude_answers.drafts[remaining].fields[0]
                 .editor
                 .lines(),
             &[remaining]
@@ -154,8 +160,8 @@ fn native_reset_keeps_the_unresolved_process_question_and_its_draft() {
         &json!({"callbackId":"process","kind":"elicitation","payload":{
         "requestedSchema":{"properties":{"x":{"type":"string"}}}}}),
     );
-    app.claude
-        .answers
+    app.view
+        .claude_answers
         .drafts
         .get_mut("process")
         .expect("draft")
@@ -163,7 +169,7 @@ fn native_reset_keeps_the_unresolved_process_question_and_its_draft() {
         .paste("unsent");
     crate::app::claude_reset::receive(&mut app, &json!({"new_conversation_id":"reset"}));
     assert_eq!(
-        app.claude.answers.drafts["process"].fields[0]
+        app.view.claude_answers.drafts["process"].fields[0]
             .editor
             .lines(),
         &["unsent"]

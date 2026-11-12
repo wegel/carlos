@@ -5,9 +5,9 @@ use std::time::{Duration, Instant};
 use serde_json::{json, Value};
 
 use crate::app::claude_context::{receive, tick, wait};
-use crate::app::claude_state::ClaudePhase;
 use crate::app::state::AppState;
 use crate::backend::BackendKind;
+use crate::session::claude::ClaudePhase;
 use crate::session::context_usage::ContextUsage;
 
 fn app() -> AppState {

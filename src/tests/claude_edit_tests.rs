@@ -10,8 +10,8 @@ use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState
 use super::codex_question_support::Peer;
 use super::Role;
 use crate::app::claude_edit::{accepted, begin, failed, send_failed, waiting};
-use crate::app::claude_state::ClaudePhase;
 use crate::backend::EventReceiver;
+use crate::session::claude::ClaudePhase;
 
 fn app() -> AppState {
     let mut app = AppState::new("original".into());

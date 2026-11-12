@@ -37,39 +37,36 @@ pub(super) struct QuestionViewport {
 impl NativeDraft {
     /// Build answer fields without changing the original SDK callback input.
     pub(super) fn from_payload(kind: &str, payload: &Value) -> Self {
-        let mut draft = Self {
-            fields: Vec::new(),
+        Self::from_description(
+            crate::session::claude::callback_questions::ClaudeQuestion::from_payload(kind, payload),
+        )
+    }
+
+    /// Create local editors and apply offered defaults without retaining a second description.
+    pub(super) fn from_description(
+        description: crate::session::claude::callback_questions::ClaudeQuestion,
+    ) -> Self {
+        let fields = description
+            .fields
+            .into_iter()
+            .map(|spec| {
+                let mut field = AnswerField::from_description(spec);
+                if description.defaults {
+                    field.apply_default();
+                }
+                field
+            })
+            .collect();
+        let draft = Self {
+            fields,
             current: 0,
             review: false,
             viewport: QuestionViewport::default(),
             error: None,
-            unsupported: None,
+            unsupported: description.unsupported,
             notice: None,
         };
         draft.viewport.follow_focus.set(true);
-        if kind == "permission"
-            && payload["toolName"] == "ExitPlanMode"
-            && payload["input"]["plan"]
-                .as_str()
-                .is_none_or(|plan| plan.trim().is_empty())
-        {
-            draft.unsupported = Some("Claude supplied no plan text".to_string());
-        }
-        if kind == "permission" && payload["toolName"] == "AskUserQuestion" {
-            draft.fields = ask_fields(&payload["input"]).unwrap_or_else(|error| {
-                draft.unsupported = Some(error);
-                Vec::new()
-            });
-        } else if kind == "elicitation" && payload["mode"] != "url" {
-            if let Some(error) = payload["formIssue"].as_str() {
-                draft.unsupported = Some(error.to_string());
-            } else {
-                draft.fields = mcp_fields(&payload["requestedSchema"]).unwrap_or_else(|error| {
-                    draft.unsupported = Some(error);
-                    Vec::new()
-                });
-            }
-        }
         draft
     }
 
@@ -122,13 +119,7 @@ impl NativeDraft {
     }
 }
 
-fn ask_fields(input: &Value) -> Result<Vec<AnswerField>, String> {
-    Ok(crate::session::questions::ask_fields(input)?
-        .into_iter()
-        .map(AnswerField::from_description)
-        .collect())
-}
-
+#[cfg(test)]
 pub(super) fn mcp_fields(schema: &Value) -> Result<Vec<AnswerField>, String> {
     Ok(crate::session::questions::mcp_fields(schema)?
         .into_iter()

@@ -84,8 +84,8 @@ fn unknown_callback_withdrawal_preserves_every_other_request_and_draft() {
             "requestedSchema": { "type": "object", "properties": { "name": { "type": "string" } } }
         } }),
         );
-        app.claude
-            .answers
+        app.view
+            .claude_answers
             .drafts
             .get_mut(id)
             .expect("independent draft")
@@ -107,7 +107,9 @@ fn unknown_callback_withdrawal_preserves_every_other_request_and_draft() {
         1
     );
     assert_eq!(
-        app.claude.answers.drafts["second"].fields[0].editor.lines(),
+        app.view.claude_answers.drafts["second"].fields[0]
+            .editor
+            .lines(),
         &["second"]
     );
 }
