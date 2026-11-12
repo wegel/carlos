@@ -2,6 +2,9 @@
 
 #[test]
 fn startup_preferences_keep_effective_choices_for_each_backend_and_launch_mode() {
+    if run_isolated_startup_test() {
+        return;
+    }
     let directory = tempfile::tempdir().expect("preferences directory");
     let path = directory.path().join("runtime-defaults.json");
     for (contents, saved) in [
@@ -133,4 +136,24 @@ for line in sys.stdin:
         settings_values([Some("saved"), Some("low"), Some("native-summary")]),
     );
     assert_eq!(app.codex.settings.deferred, Some(json!({"model":"saved","effort":"low"})));
+}
+
+fn run_isolated_startup_test() -> bool {
+    const CHILD: &str = "CARLOS_M5D_STARTUP_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        let root = tempfile::tempdir().expect("isolated startup files");
+        let output = std::process::Command::new(std::env::current_exe().expect("test executable"))
+            .args(["--exact", "app::tests::runtime_tests::startup_preferences_keep_effective_choices_for_each_backend_and_launch_mode", "--nocapture"])
+            .env(CHILD, "1")
+            .env_remove("CARLOS_REASONING_SUMMARY")
+            .env("HOME", root.path())
+            .env("XDG_CONFIG_HOME", root.path().join("config"))
+            .env("XDG_STATE_HOME", root.path().join("state"))
+            .env("XDG_CACHE_HOME", root.path().join("cache"))
+            .output()
+            .expect("isolated startup test");
+        assert!(output.status.success(), "{}\n{}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+        return true;
+    }
+    false
 }
