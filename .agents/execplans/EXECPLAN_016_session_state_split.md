@@ -26,7 +26,11 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 - [x] (2026-11-12 UTC) Milestone 4: `AppState` holds `session: SessionState` (`src/session/`) and `view: ViewState` (`src/app/view_state.rs`); transcript, item, turn, Ralph-queue and approval logic moved to the session. Six review rounds (five by Codex, the last by Opus 5.5: PASS WITH ISSUES, seven MINOR). Gates: `cargo test` 855 passed in 3.7 s, 174 terminal workflows twice, no speed loss.
 - [x] (2026-11-12 UTC) Milestone 4 follow-up A: MINOR findings 1, 2, 4, 5 and 6 of the final milestone 4 review cleaned up (`a2a5d31`, net 116 lines removed). Delta review by the same Opus reviewer: PASS WITH ISSUES, four small MINOR; the integrator applied two (`#[must_use]` on the six session methods that return retired ids; an explicit before/after id comparison in `AppState::set_pending_approval`), rejected one (`begin_approval_answer` keeps its `bool`: two tests assert that it refuses a card that is not active) and left one (`retire_approval` stays `pub(crate)` because an app test calls it). Still open from that review: finding 3 (for plan 017) and finding 7 (existing defect: a queued Claude card of the old session survives `reset_for_forked_thread`).
 - [x] (2026-11-12 UTC) Milestone 4 follow-up B: the full live-event corpus (24,300 mutated streams, three backends) compared with the pre-plan commit `a59221c`: 23,099 exact, 867 differ only in a redraw log with identical effective ranges, 334 differ in session results, no panic. Six causes; two were regressions from milestone 2 and are fixed (a Claude guard that unbound Codex and Grok sources when both backend flags were set; the common history loader adopting rows of another thread without adopting the thread). Neither was reachable through ordinary backend output. Opus delta review: PASS WITH ISSUES (MINOR only). Details and the four differences that stay: `.agents/reports/exec016-preplan-comparison.md`.
-- [ ] Milestone 5: separate shared settings, prompt history, labels, and usage helpers.
+- [ ] Milestone 5, split into four parts so that each change stays under about 60 files:
+  - [x] (2026-11-12 UTC) 5a runtime settings: the session owns capabilities, current and pending model / effort / summary and the model catalog (`src/session/runtime_settings.rs`, `runtime_settings_updates.rs`); the view owns the settings editor (`RuntimeSettingsView`). 37 paths. Opus review: PASS WITH ISSUES, MINOR only. Gates: `cargo test` 874 passed, 174 terminal workflows twice, 3,000 sampled streams equal to the previous commit.
+  - [ ] 5b input history (first task of its worker: MINOR findings 1, 2 and 4 of the 5a review).
+  - [ ] 5c tool-label summaries and the plain classification helpers that live in renderer modules.
+  - [ ] 5d rate limits and quota arithmetic.
 - [ ] Milestone 6: separate Claude session facts from Claude editors and panels.
 - [ ] Milestone 7: separate native callback facts from answer editors.
 - [ ] Milestone 8: separate Codex queue and goal facts from their editors.
@@ -104,6 +108,9 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 
 - Observation: the Codex test `unanswered_large_read_ids_stay_bounded_and_do_not_disable_other_controls` fails under load because its 64 calls use a 20 ms deadline: when the stdin writer has not confirmed the write within 20 ms, the call returns "Codex stdin deadline expired; request may already have been accepted" and the test expects "Timeout waiting". It also takes about 1.3 s of the 3.7 s suite. It failed once inside `scripts/test.sh` on 2026-11-12 with a reviewer running at the same time. Unfinished work, also present on `main`: make the test independent of wall-clock time.
   Evidence: `src/tests/protocol_history_transport_tests.rs:100-111`, `src/protocol_writer.rs`.
+
+- Observation (5a, behaviour kept on purpose; candidates for the daemon plan): the apply method overwrites all current runtime fields when any pending field exists; the set and queue methods accept effort and summary even when the backend's capabilities disable them; Codex keeps raw strings from native acknowledgements and launch overrides while ordinary setters trim.
+  Evidence: `.agents/reports/exec016-m5a-report.md`.
 
 ## Decision Log
 
@@ -183,6 +190,8 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
   (6) the view mirrors card lifetimes by hand at about eight sites;
   (7) existing defect, same on the pre-plan code: `reset_for_forked_thread` calls `clear_pending_approval`, which promotes the old session's first queued Claude card before the queue is cleared, so that card survives the switch (consent is reset, so no consent hole).
   The reviewer did not build or run tests and did not audit the moved Ralph, transcript, item-source, history-identity, summary and input-history code.
+
+- Milestone 5 part 5a, fresh Opus 5.5 reviewer (medium effort, 2026-11-12): PASS WITH ISSUES, no BLOCKER, no MAJOR. Confirmed all 9 session facts and 9 view fields on the correct side (pending settings are session intents applied at the next turn; unsent editor values and overlay visibility are view state), unchanged order and guards in the split methods, unchanged defaults file, unchanged startup values for the three backends. MINOR: (1) the session constructor stores saved preferences as current model / effort / summary although no backend confirmed them (every backend overwrites them at start); (2) the session imports `ModelInfo` from `protocol_params`, which depends on the backend client and would hinder the crate split; (3) `record_runtime_choice` / `clear_pending_runtime_choice` let the app set any single field, and the app still decides the Claude inherit and session-switch rules: accepted until milestone 6 moves those rules; (4) a duplicated `normalize_non_empty`, a view method named `apply_model_settings` that only builds choices, a stale `allow(dead_code)` in `state_settings.rs`; (5) nine files outside the allowed list with field-path edits only (`claude_context`, `claude_models`, `claude_session_history`, `codex_reconnect_install`, `codex_settings`, `codex_settings_draft`, `input_events_keys`, `mouse_events`, `render_sections`).
 
 ## Outcomes & Retrospective
 
