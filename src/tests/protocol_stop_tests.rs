@@ -11,6 +11,7 @@ use crate::protocol_state::{request_key, Target};
 
 #[test]
 fn targeted_stop_timeout_keeps_native_progress_and_reads_alive_without_retry_or_late_reply() {
+    // protocol_transport_tests::a_short_queue_read_deadline_discards_late_reply_without_stopping_native_work exercises the deadline thread (timeoutMs: 40).
     let mut client = peer();
     let events = client.take_events_rx().expect("events");
     let target = json!({"threadId":"child","turnId":"exact-turn"});
