@@ -131,7 +131,7 @@ pub(super) fn content_width(ob: &OverlayBox) -> usize {
 /// Locate the current native answer caret without moving the main composer.
 pub(super) fn claude_question_cursor(app: &AppState, size: TerminalSize) -> Option<(usize, usize)> {
     let draft = crate::app::native_questions::draft(app)?;
-    overlay_render_claude::cursor(size, draft, app.session.approval().pending()?)
+    overlay_render_claude::cursor(size, draft, app.session.approval().pending()?, app)
 }
 
 // ---------------------------------------------------------------------------

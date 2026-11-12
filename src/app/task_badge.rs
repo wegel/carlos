@@ -26,8 +26,8 @@ pub(super) fn count(app: &AppState) -> usize {
             agents.insert(id);
         }
     }
-    for callback in app.codex.callbacks.entries.values() {
-        if let Some(id) = callback.params["threadId"]
+    for callback in app.session.codex_callbacks().iter().map(|(_, entry)| entry) {
+        if let Some(id) = callback.params()["threadId"]
             .as_str()
             .filter(|id| *id != *app.session.thread_id() && owns(app, id))
         {

@@ -22,7 +22,8 @@ pub(super) fn start(client: &dyn BackendClient, app: &mut AppState) {
             app.codex.connection.rebuilding = true;
             app.codex.connection.initial_rebuild = false;
             app.codex.epoch = app.codex.epoch.saturating_add(1);
-            app.codex.callbacks = Default::default();
+            app.session.clear_codex_callbacks();
+            app.view.codex_callbacks = Default::default();
             let mut retired = app.session.clear_approval_queue(ApprovalQueue::Codex);
             retired.extend(app.session.retire_active_approval());
             app.drop_retired_approval_hints(retired);

@@ -110,7 +110,7 @@ impl AppState {
             .pending()
             .map(|pending| pending.facts().request_id.clone())
         {
-            if self.codex.callbacks.get(&id).is_some() {
+            if self.session.codex_callbacks().get(&id).is_some() {
                 super::codex_callbacks::retire(self, &id);
                 return;
             }

@@ -8,6 +8,7 @@ use super::codex_question_support::question;
 use super::codex_reconnect_support::{app, complete, delta, ready, receive, snapshot, Peer};
 use crate::app::codex_goal_state::GoalKnowledge;
 use crate::app::models::{Role, TurnStatus};
+use crate::session::codex::callbacks::CallbackKey;
 
 #[test]
 fn capture_old_snapshot_then_completion_before_reply_keeps_latest_text_and_terminal_turn() {
@@ -91,13 +92,13 @@ fn old_generation_cannot_resolve_or_revalidate_a_replayed_typed_callback() {
         1,
         json!({"method":"carlos/codex/formChecked","params":{"requestId":"9","revision":0,"ok":false,"error":"OLD_ERROR"}}),
     );
-    assert_eq!(app.codex.callbacks.entries.len(), 2);
+    assert_eq!(app.session.codex_callbacks().len(), 2);
     assert!(app
-        .codex
-        .callbacks
-        .get(&json!("9"))
+        .view
+        .codex_callbacks
+        .drafts
+        .get(&CallbackKey::new(&json!("9")).expect("typed id"))
         .expect("child callback")
-        .draft
         .unsupported
         .is_none());
     assert!(
@@ -271,7 +272,7 @@ fn duplicate_close_preserves_lost_child_state_and_failed_ready_clears_dead_callb
         json!({"method":"carlos/codex/ready","params":{"generation":3,"threadId":"root"}}),
     );
     assert!(app.codex.closed);
-    assert!(app.codex.callbacks.entries.is_empty());
+    assert!(app.session.codex_callbacks().is_empty());
     assert!(app.session.approval().pending().is_none());
     assert_eq!(app.codex.connection.unreplayed_children, 1);
     assert_eq!(app.input_text(), "preserve main 日本語");

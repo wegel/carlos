@@ -1,10 +1,12 @@
 //! Return Codex callback answers through native responses, with no synthetic turns.
 
-use serde_json::{json, Value};
+use serde_json::Value;
 
-use super::codex_callbacks::{reply_error, reply_hint, retire};
+use super::codex_callbacks::{apply_retired, reply_error, reply_hint};
 use super::state::{AppState, ApprovalChoice, ApprovalRequestKind};
 use crate::backend::BackendClient;
+use crate::session::codex::callback_reply::{CallbackAnswered, CallbackInterrupt};
+use crate::session::codex::callbacks::CallbackKey;
 use crate::session::entry_id::EntryId;
 
 /// Build only the selected callback's native response and retain drafts on failure.
@@ -17,19 +19,22 @@ pub(super) fn respond(client: &dyn BackendClient, app: &mut AppState, choice: Ap
     };
     let id = &pending.request_id;
     if choice == ApprovalChoice::Cancel && pending.kind == ApprovalRequestKind::CodexQuestion {
-        interrupt(client, app);
+        submit_answer(client, app, card_id, id, Value::Null, choice);
         return;
     }
-    let Some(entry) = app.codex.callbacks.get(id) else {
+    let Some(entry) = app.session.codex_callbacks().get(id) else {
+        return;
+    };
+    let Some(draft) =
+        CallbackKey::new(id).and_then(|key| app.view.codex_callbacks.drafts.get(&key))
+    else {
         return;
     };
     let answer = if choice == ApprovalChoice::Accept {
         match pending.kind {
-            ApprovalRequestKind::CodexQuestion => {
-                super::codex_questions::question_answer(&entry.draft)
-            }
+            ApprovalRequestKind::CodexQuestion => super::codex_questions::question_answer(draft),
             ApprovalRequestKind::CodexForm => {
-                super::codex_questions::form_answer(&entry.draft, &entry.params)
+                super::codex_questions::form_answer(draft, entry.params())
             }
             _ => pending
                 .response_for_choice(choice)
@@ -47,44 +52,29 @@ pub(super) fn respond(client: &dyn BackendClient, app: &mut AppState, choice: Ap
             return;
         }
     };
-    if pending.kind == ApprovalRequestKind::CodexForm
-        && answer["action"] == "accept"
-        && entry.params["mode"] == "form"
-    {
-        app.session.begin_approval_answer(card_id);
-        validate_answer(client, app, card_id, id, &answer);
-        return;
-    }
-    send_answer(client, app, id, answer);
+    submit_answer(client, app, card_id, id, answer, choice);
 }
 
-fn validate_answer(
+fn submit_answer(
     client: &dyn BackendClient,
     app: &mut AppState,
     card_id: EntryId,
     id: &Value,
-    answer: &Value,
+    answer: Value,
+    choice: ApprovalChoice,
 ) {
-    let entry = app.codex.callbacks.get_mut(id).expect("active callback");
-    if entry.checking {
-        return;
-    }
-    entry.revision = entry.revision.saturating_add(1);
-    entry.candidate = Some(answer.clone());
-    entry.candidate_card = Some(card_id);
-    entry.checking = true;
-    let result = client.validate_form(
-        id.clone(),
-        entry.params["requestedSchema"].clone(),
-        Some(answer["content"].clone()),
-        entry.revision,
-    );
-    if let Err(error) = result {
-        reply_error(app, id, &error.to_string());
+    match app
+        .session
+        .answer_codex_callback(client, card_id, id, answer, choice)
+    {
+        Ok(Some(CallbackAnswered::Retired(retired))) => apply_retired(app, retired),
+        Ok(Some(CallbackAnswered::Interrupted(result))) => apply_interrupt(app, id, result),
+        Ok(None) => {}
+        Err(error) => reply_error(app, id, &error),
     }
 }
 
-/// Settle exactly one callback after its native pipe write succeeds.
+/// Send a worker reply only through its original submitted card token.
 pub(super) fn send(
     client: &dyn BackendClient,
     app: &mut AppState,
@@ -95,77 +85,55 @@ pub(super) fn send(
         return;
     };
     let id = pending.request_id.clone();
-    send_answer(client, app, &id, answer);
-}
-
-fn send_answer(client: &dyn BackendClient, app: &mut AppState, id: &Value, answer: Value) {
-    match client.respond(id, answer) {
-        Ok(()) => {
-            retire(app, id);
-            app.set_status("Answer sent");
-        }
-        Err(error) => reply_error(app, id, &format!("Could not send answer: {error}")),
+    match app.session.send_codex_callback(client, card_id, answer) {
+        Ok(Some(retired)) => apply_retired(app, retired),
+        Ok(None) => {}
+        Err(error) => reply_error(app, &id, &error),
     }
 }
 
-/// Interrupt the request's own turn; an acknowledgment does not resolve its callback.
+/// Show local progress after the session interrupts the request's own turn.
 pub(super) fn interrupt(client: &dyn BackendClient, app: &mut AppState) {
     let Some(id) = app
         .session
         .approval()
         .pending()
-        .map(|pending| pending.facts().request_id.clone())
+        .map(|p| p.facts().request_id.clone())
     else {
         return;
     };
-    let Some(entry) = app.codex.callbacks.get(&id) else {
-        return;
-    };
-    if entry.interrupting {
-        return;
-    }
-    let params = json!({"threadId":entry.params["threadId"],"turnId":entry.params["turnId"]});
-    if !params["threadId"].is_string() || !params["turnId"].is_string() {
-        reply_hint(
+    let result = app.session.interrupt_codex_callback(client, &id);
+    apply_interrupt(app, &id, result);
+}
+
+fn apply_interrupt(app: &mut AppState, id: &Value, result: CallbackInterrupt) {
+    match result {
+        CallbackInterrupt::Ignored => {}
+        CallbackInterrupt::NoTurn => reply_hint(
             app,
-            &id,
+            id,
             "This request has no turn to interrupt; decline or cancel it instead",
-        );
-        return;
-    }
-    match client.request_native_control("turn/interrupt", params) {
-        Ok(()) => {
-            super::codex_callbacks::edited(app);
-            if let Some(entry) = app.codex.callbacks.get_mut(&id) {
-                entry.interrupting = true;
-                entry.draft.notice =
-                    Some("Interrupt requested; waiting for native resolution".into());
+        ),
+        CallbackInterrupt::Failed(error) => reply_error(app, id, &error),
+        CallbackInterrupt::Requested => {
+            if let Some(draft) =
+                CallbackKey::new(id).and_then(|key| app.view.codex_callbacks.drafts.get_mut(&key))
+            {
+                draft.notice = Some("Interrupt requested; waiting for native resolution".into());
             }
         }
-        Err(error) => reply_error(app, &id, &error.to_string()),
     }
 }
 
-/// Report an exact-thread interrupt failure without dismissing any live request.
+/// Keep a failed interrupt beside every editor for that exact thread and turn.
 pub(super) fn control_reply(app: &mut AppState, params: &Value) {
-    if params["requestMethod"] != "turn/interrupt" || params["response"]["error"].is_null() {
+    let Some((keys, error)) = app.session.codex_callback_control_reply(params) else {
         return;
-    }
-    let target = &params["requestParams"];
-    for entry in app.codex.callbacks.entries.values_mut() {
-        if entry.params["threadId"] == target["threadId"]
-            && entry.params["turnId"] == target["turnId"]
-        {
-            entry.interrupting = false;
-            entry.draft.notice = None;
-            entry.draft.error = Some(format!(
-                "Codex could not interrupt: {}. The request is still pending",
-                super::claude_question_state::safe_text(
-                    params["response"]["error"]["message"]
-                        .as_str()
-                        .unwrap_or("unknown error")
-                )
-            ));
+    };
+    for key in keys {
+        if let Some(draft) = app.view.codex_callbacks.drafts.get_mut(&key) {
+            draft.notice = None;
+            draft.error = Some(error.clone());
         }
     }
 }

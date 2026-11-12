@@ -91,12 +91,7 @@ fn visible_question_paste_and_mouse_take_priority_over_a_hidden_goal_editor() {
             .join("\n"),
         "keep goal draft"
     );
-    let draft = &app
-        .codex
-        .callbacks
-        .get(&json!("form"))
-        .expect("question")
-        .draft;
+    let draft = crate::app::native_questions::draft(&app).expect("question");
     draft.viewport.max_scroll.set(20);
     handle_terminal_event(
         &peer,
@@ -112,17 +107,8 @@ fn visible_question_paste_and_mouse_take_priority_over_a_hidden_goal_editor() {
             height: 30,
         },
     );
-    assert_eq!(
-        app.codex
-            .callbacks
-            .get(&json!("form"))
-            .expect("question")
-            .draft
-            .viewport
-            .scroll
-            .get(),
-        3
-    );
+    let draft = crate::app::native_questions::draft(&app).expect("question");
+    assert_eq!(draft.viewport.scroll.get(), 3);
     assert_eq!(app.input_text(), "keep main draft");
 }
 
@@ -138,8 +124,9 @@ fn a_plain_approval_without_a_form_never_pastes_into_the_hidden_goal_or_main_dra
         json!({"id":9,"method":"item/commandExecution/requestApproval","params":{
         "threadId":"root","turnId":"t","itemId":"command","kind":"humanCommand"}}),
     );
-    app.codex.callbacks.entries.clear();
-    app.codex.callbacks.focused = true;
+    app.session.clear_codex_callbacks();
+    app.view.codex_callbacks.drafts.clear();
+    app.view.codex_callbacks.focused = true;
     handle_terminal_event(
         &peer,
         &mut app,

@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use super::approval_state::ApprovalState;
 use super::claude::ClaudeState;
+use super::codex::callbacks::CodexCallbacks;
 use super::context_usage::ContextUsage;
 use super::entry_key::BackendEntryKey;
 use super::input_history::PromptHistory;
@@ -19,6 +20,7 @@ use super::turns::TurnBoundary;
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct SessionState {
     pub(in crate::session) claude: ClaudeState,
+    pub(in crate::session) codex_callbacks: CodexCallbacks,
     pub(in crate::session) rate_limits: RateLimits,
     pub(in crate::session) summaries: SummaryState,
     pub(in crate::session) input_history: PromptHistory,
@@ -47,6 +49,7 @@ impl SessionState {
     ) -> Self {
         Self {
             claude: ClaudeState::default(),
+            codex_callbacks: CodexCallbacks::default(),
             rate_limits: RateLimits::default(),
             summaries: SummaryState::new(summary_enabled),
             input_history: PromptHistory::default(),
@@ -65,6 +68,11 @@ impl SessionState {
             context_usage: None,
             turn_boundary: None,
         }
+    }
+
+    /// Borrow unresolved Codex callback facts.
+    pub(crate) fn codex_callbacks(&self) -> &CodexCallbacks {
+        &self.codex_callbacks
     }
 
     /// Borrow the current thread id.

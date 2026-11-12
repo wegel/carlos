@@ -48,8 +48,8 @@ pub(super) fn handle_turn_completed(app: &mut AppState, params: &serde_json::Map
         app.codex.queue.invalidate();
     }
     let keep_codex = app.session.approval().pending().is_some_and(|pending| {
-        app.codex
-            .callbacks
+        app.session
+            .codex_callbacks()
             .get(&pending.facts().request_id)
             .is_some()
     });

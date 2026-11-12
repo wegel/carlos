@@ -87,16 +87,17 @@ fn clear_pending_controls(app: &mut AppState) {
     app.codex.queue.known = false;
     if app.codex.connection.socket.is_some() {
         let children = app
-            .codex
-            .callbacks
-            .entries
-            .values()
-            .filter(|entry| entry.params["threadId"] != *app.session.thread_id())
+            .session
+            .codex_callbacks()
+            .iter()
+            .map(|(_, entry)| entry)
+            .filter(|entry| entry.params()["threadId"] != *app.session.thread_id())
             .count();
         app.codex.connection.unreplayed_children =
             app.codex.connection.unreplayed_children.max(children);
     }
-    app.codex.callbacks = Default::default();
+    app.session.clear_codex_callbacks();
+    app.view.codex_callbacks = Default::default();
     let mut retired = app.session.clear_approval_queue(ApprovalQueue::Codex);
     retired.extend(app.session.retire_active_approval());
     app.drop_retired_approval_hints(retired);

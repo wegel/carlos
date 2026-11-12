@@ -12,8 +12,8 @@ pub(super) fn respond_to_pending_approval(
 ) {
     if app.codex.enabled
         && app.session.approval().pending().is_some_and(|pending| {
-            app.codex
-                .callbacks
+            app.session
+                .codex_callbacks()
                 .get(&pending.facts().request_id)
                 .is_some()
         })

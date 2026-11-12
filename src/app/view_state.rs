@@ -5,6 +5,7 @@ use std::time::Instant;
 use ratatui_textarea::TextArea;
 
 use super::claude_edit_view::ClaudeEditView;
+use super::codex_state::CodexCallbacksView;
 #[cfg(feature = "dictation")]
 use super::dictation_state::DictationCaptureState;
 use super::dictation_state::DictationRuntimeState;
@@ -20,6 +21,7 @@ use super::viewport_state::ViewportState;
 use crate::session::entry_id::EntryId;
 
 pub(super) struct ViewState {
+    pub(super) codex_callbacks: CodexCallbacksView,
     pub(super) claude_tasks: super::claude_tasks::ClaudeTasksView,
     pub(super) claude_queue: bool,
     pub(super) claude_unknown_selection: Option<usize>,
@@ -49,6 +51,7 @@ pub(super) struct ViewState {
 impl ViewState {
     pub(super) fn new(summary_enabled_draft: bool) -> Self {
         Self {
+            codex_callbacks: CodexCallbacksView::default(),
             claude_tasks: Default::default(),
             claude_queue: false,
             claude_unknown_selection: None,

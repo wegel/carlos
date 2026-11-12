@@ -33,7 +33,7 @@ pub(super) fn draw(
 ) {
     fill_fullscreen_overlay(buf, size);
     let display = display_facts(app, pending);
-    let Some(layout) = question_layout(size, draft, &display) else {
+    let Some(layout) = question_layout(size, draft, &display, app) else {
         draw_small(buf, size, &display);
         return;
     };
@@ -90,8 +90,9 @@ pub(super) fn cursor(
     size: TerminalSize,
     draft: &NativeDraft,
     pending: &PendingApprovalRequest,
+    app: &AppState,
 ) -> Option<(usize, usize)> {
-    let layout = question_layout(size, draft, pending.facts())?;
+    let layout = question_layout(size, draft, pending.facts(), app)?;
     layout
         .editor
         .map(|(_, column)| (layout.bounds.left + 2 + column, layout.editor_y))
@@ -101,6 +102,7 @@ fn question_layout(
     size: TerminalSize,
     draft: &NativeDraft,
     pending: &ApprovalRequestDraft,
+    app: &AppState,
 ) -> Option<QuestionLayout> {
     if !crate::app::claude_question_state::can_edit_question(size) {
         return None;
@@ -117,7 +119,22 @@ fn question_layout(
         size.height - 2
     };
     let bounds = compute_overlay_box(size, width, height);
-    let footer = footer_lines(draft, pending, width - 4, height < 18 || width < 40);
+    let blocking = (pending.kind
+        == crate::session::approval_state::ApprovalRequestKind::CodexQuestion)
+        .then(|| {
+            app.session
+                .codex_callbacks()
+                .get(&pending.request_id)
+                .map(|entry| entry.blocking())
+        })
+        .flatten();
+    let footer = footer_lines(
+        draft,
+        pending,
+        width - 4,
+        height < 18 || width < 40,
+        blocking,
+    );
     let editor = editor_line(draft, width - 4);
     let editor_y = bounds.bottom - footer.len() - 1;
     let body_height = height.saturating_sub(footer.len() + 4 + usize::from(editor.is_some()));
@@ -222,8 +239,12 @@ fn draw_small(buf: &mut Buffer, size: TerminalSize, pending: &ApprovalRequestDra
 
 fn display_facts(app: &AppState, pending: &PendingApprovalRequest) -> ApprovalRequestDraft {
     let mut display = pending.to_draft();
-    if let Some(entry) = app.codex.callbacks.get(&pending.facts().request_id) {
-        let mut payload = entry.params.clone();
+    if let Some(entry) = app
+        .session
+        .codex_callbacks()
+        .get(&pending.facts().request_id)
+    {
+        let mut payload = entry.params().clone();
         if payload["threadId"].is_null() {
             payload["threadId"] = payload["conversationId"].clone();
         }

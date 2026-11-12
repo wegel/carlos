@@ -18,7 +18,6 @@ pub(super) struct NativeAnswers {
 /// One callback owns all answer fields until the SDK accepts or cancels it.
 pub(super) struct NativeDraft {
     pub(super) fields: Vec<AnswerField>,
-    pub(super) codex_blocking: Option<bool>,
     pub(super) current: usize,
     pub(super) review: bool,
     pub(super) viewport: QuestionViewport,
@@ -40,7 +39,6 @@ impl NativeDraft {
     pub(super) fn from_payload(kind: &str, payload: &Value) -> Self {
         let mut draft = Self {
             fields: Vec::new(),
-            codex_blocking: None,
             current: 0,
             review: false,
             viewport: QuestionViewport::default(),
@@ -146,3 +144,7 @@ pub(super) fn mcp_fields(schema: &Value) -> Result<Vec<AnswerField>, String> {
 pub(super) fn can_edit_question(size: super::TerminalSize) -> bool {
     size.width >= 32 && size.height >= 12
 }
+
+#[cfg(test)]
+#[path = "../tests/claude_question_parser_tests.rs"]
+mod parser_tests;

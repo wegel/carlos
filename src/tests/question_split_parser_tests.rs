@@ -2,36 +2,7 @@
 
 use serde_json::{json, Value};
 
-use crate::app::claude_question_state::NativeDraft;
 use crate::app::codex_questions::build;
-
-#[test]
-fn claude_question_errors_keep_the_original_checks_and_order() {
-    for (input, expected) in [
-        (Value::Null, "No questions supplied"),
-        (json!({"questions":[]}), "No questions supplied"),
-        (json!({"questions":[{}]}), "Question text is missing"),
-        (
-            json!({"questions":[{"question":"Q"}]}),
-            "Question choices are missing",
-        ),
-        (
-            json!({"questions":[{"question":"Q","options":[{}]}]}),
-            "Choice label is missing",
-        ),
-        (
-            json!({"questions":[{"question":"Q","options":[]},{"question":"Q"}]}),
-            "Duplicate question text",
-        ),
-    ] {
-        let draft = NativeDraft::from_payload(
-            "permission",
-            &json!({"toolName":"AskUserQuestion","input":input}),
-        );
-        assert_eq!(draft.unsupported.as_deref(), Some(expected));
-        assert!(draft.fields.is_empty());
-    }
-}
 
 #[test]
 fn codex_question_errors_keep_the_original_checks_and_order() {
@@ -63,21 +34,5 @@ fn codex_question_errors_keep_the_original_checks_and_order() {
         .expect("unsupported editor");
         assert_eq!(draft.unsupported.as_deref(), Some(expected));
         assert!(draft.fields.is_empty());
-    }
-}
-
-#[test]
-fn incomplete_choice_metadata_remains_accepted_in_mcp_forms() {
-    for rule in [
-        json!({"type":"string","enum":[17],"enumNames":["Seventeen"],"default":17}),
-        json!({"type":"string","oneOf":[{"const":17}],"default":17}),
-        json!({"type":"string","anyOf":[{"const":17}],"default":17}),
-    ] {
-        let payload = json!({"requestedSchema":{"properties":{"value":rule}}});
-        let draft = NativeDraft::from_payload("elicitation", &payload);
-        assert_eq!(
-            draft.answer(&payload).expect("existing tolerant choice"),
-            json!({"action":"accept","content":{"value":17}})
-        );
     }
 }

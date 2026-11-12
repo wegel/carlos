@@ -192,9 +192,11 @@ fn place_codex_callback(
     app: &AppState,
     size: TerminalSize,
 ) {
-    if app.codex.enabled && !app.codex.callbacks.focused && !app.codex.callbacks.entries.is_empty()
+    if app.codex.enabled
+        && !app.view.codex_callbacks.focused
+        && !app.session.codex_callbacks().is_empty()
     {
-        let count = app.codex.callbacks.entries.len();
+        let count = app.session.codex_callbacks().len();
         let hint = if size.width >= 60 {
             format!("F4: Codex request waiting ({count})")
         } else if size.width >= 30 {

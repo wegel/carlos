@@ -1,127 +1,46 @@
 //! Build Codex question editors and native replies without changing prompt text.
 
-use anyhow::{Context, Result};
+#[cfg(test)]
+use anyhow::Result;
 use serde_json::{json, Map, Value};
 
 use super::claude_question_field::AnswerField;
-use super::claude_question_state::{mcp_fields, safe_label, safe_text, NativeDraft};
-use super::state::{ApprovalRequestDraft, ApprovalRequestKind};
+use super::claude_question_state::{safe_label, NativeDraft};
+#[cfg(test)]
+use super::state::ApprovalRequestDraft;
 
-/// Build a bounded native question/form or an explicit unsupported-mode editor.
+/// Build the local editor from the session's plain request description.
+#[cfg(test)]
 pub(super) fn build(
     method: &str,
     params: &Value,
     id: Value,
 ) -> Result<(ApprovalRequestDraft, NativeDraft)> {
-    let mut draft = NativeDraft::from_payload("", &Value::Null);
-    let mut details = vec![format!(
-        "Thread: {}",
-        safe_label(
-            params["threadId"]
-                .as_str()
-                .context("Callback has no thread ID")?
-        )
-    )];
-    if let Some(turn) = params["turnId"].as_str() {
-        details.push(format!("Turn: {}", safe_label(turn)));
-    }
-    let (kind, title) = if method == "item/tool/requestUserInput" {
-        draft.codex_blocking = Some(params["isBlocking"].as_bool().unwrap_or(true));
-        details.push(if params["isBlocking"].as_bool().unwrap_or(true) {
-            "Blocking question".into()
-        } else {
-            "Nonblocking question".into()
-        });
-        draft.fields = question_fields(params).unwrap_or_else(|error| {
-            draft.unsupported = Some(error.to_string());
-            Vec::new()
-        });
-        (ApprovalRequestKind::CodexQuestion, "Codex needs an answer")
-    } else {
-        details.insert(
-            0,
-            format!(
-                "MCP server: {}",
-                safe_label(params["serverName"].as_str().unwrap_or("unknown"))
-            ),
-        );
-        details.push(safe_text(
-            params["message"]
-                .as_str()
-                .or(params["description"].as_str())
-                .unwrap_or(""),
-        ));
-        build_form(params, &mut draft, &mut details);
-        (ApprovalRequestKind::CodexForm, "Codex server request")
-    };
-    let pending = ApprovalRequestDraft {
-        request_id: id,
-        method: method.into(),
-        kind,
-        title: title.into(),
-        detail_lines: details,
-        requested_permissions: Some(params.clone()),
-        can_accept_for_session: false,
-        can_decline: true,
-        can_cancel: true,
-    };
-    Ok((pending, draft))
+    let (pending, editor) = crate::session::codex::callback_questions::build(method, params, id)?;
+    Ok((pending, from_description(editor)))
 }
 
-fn question_fields(params: &Value) -> Result<Vec<AnswerField>> {
-    Ok(crate::session::questions::question_fields(params)?
+/// Create editors once, applying defaults only for MCP fields.
+pub(super) fn from_description(
+    editor: crate::session::codex::callback_questions::CallbackEditor,
+) -> NativeDraft {
+    let mut draft = NativeDraft::from_payload("", &Value::Null);
+    draft.fields = editor
+        .fields
         .into_iter()
         .map(|description| {
             let mut field = AnswerField::from_description(description);
-            field.omitted = false;
+            if editor.defaults {
+                field.apply_default();
+            } else {
+                field.omitted = false;
+            }
             field
         })
-        .collect())
-}
-
-fn build_form(params: &Value, draft: &mut NativeDraft, details: &mut Vec<String>) {
-    match params["mode"].as_str() {
-        Some("form") => {
-            let mut schema = params["requestedSchema"].clone();
-            if let Some(properties) = schema["properties"].as_object_mut() {
-                for value in properties.values_mut() {
-                    if let Some(rule) = value.as_object_mut() {
-                        rule.retain(|_, value| !value.is_null());
-                    }
-                }
-            }
-            if schema.to_string().len() > 65536 {
-                draft.unsupported = Some("Form schema exceeds64 KiB".into());
-                return;
-            }
-            draft.fields = mcp_fields(&schema).unwrap_or_else(|error| {
-                draft.unsupported = Some(error);
-                Vec::new()
-            });
-            draft.notice = Some("Checking the form schema…".into());
-        }
-        Some("url") => {
-            let url = params["url"].as_str().unwrap_or("");
-            match crate::native_form::url_host(url) {
-                Ok(host) => details
-                    .splice(
-                        0..0,
-                        [
-                            format!("URL host: {}", safe_label(&host)),
-                            format!("Link: {}", safe_label(url)),
-                        ],
-                    )
-                    .for_each(drop),
-                Err(error) => draft.unsupported = Some(error.to_string()),
-            }
-        }
-        _ => {
-            draft.unsupported = Some(format!(
-                "Unsupported request mode: {}",
-                safe_label(params["mode"].as_str().unwrap_or("missing"))
-            ))
-        }
-    }
+        .collect();
+    draft.unsupported = editor.unsupported;
+    draft.notice = editor.notice;
+    draft
 }
 
 /// Preserve native question IDs and return explicit selections/free text as answer arrays.

@@ -11,6 +11,7 @@ mod session_headless_tests;
 
 pub(crate) mod approval_state;
 pub(crate) mod claude;
+pub(crate) mod codex;
 pub(crate) mod context_usage;
 mod item_sources;
 mod item_updates;
@@ -69,9 +70,8 @@ pub(crate) mod rate_limits;
 pub(crate) mod usage;
 mod usage_updates;
 
-#[cfg(test)]
-mod usage_tests;
-
+pub(crate) mod questions;
 pub(crate) mod text;
 
-pub(crate) mod questions;
+#[cfg(test)]
+mod usage_tests;

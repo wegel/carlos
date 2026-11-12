@@ -127,9 +127,10 @@ pub(super) fn footer_lines(
     pending: &ApprovalRequestDraft,
     width: usize,
     compact: bool,
+    blocking: Option<bool>,
 ) -> Vec<String> {
     if draft.unsupported.is_some() {
-        let question = draft.codex_blocking.is_some();
+        let question = blocking.is_some();
         return wrap_lines(
             vec![
                 if question {
@@ -143,7 +144,7 @@ pub(super) fn footer_lines(
             width,
         );
     }
-    if let Some(blocking) = draft.codex_blocking {
+    if let Some(blocking) = blocking {
         return vec![
             "Tab fields ↑↓/Space pick F4 next".into(),
             "Ctrl+S send Alt+N skip".into(),

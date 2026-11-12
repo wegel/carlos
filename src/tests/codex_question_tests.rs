@@ -10,6 +10,7 @@ use crate::app::input_events::handle_terminal_event;
 use crate::app::notifications::ServerRequestAction;
 use crate::app::state::ApprovalChoice;
 use crate::app::TerminalSize;
+use crate::session::codex::callbacks::CallbackKey;
 
 #[test]
 fn exact_typed_ids_and_native_question_keys_survive_concurrent_child_requests() {
@@ -17,19 +18,19 @@ fn exact_typed_ids_and_native_question_keys_survive_concurrent_child_requests() 
     let peer = Peer::default();
     receive(&mut app, question(json!(9), "child-a", true));
     receive(&mut app, question(json!("9"), "child-b", true));
-    app.codex
-        .callbacks
-        .get_mut(&json!(9))
+    app.view
+        .codex_callbacks
+        .drafts
+        .get_mut(&CallbackKey::new(&json!(9)).expect("typed id"))
         .expect("numeric callback")
-        .draft
         .fields[0]
         .editor
         .insert_str("日本語🦀");
-    app.codex
-        .callbacks
-        .get_mut(&json!("9"))
+    app.view
+        .codex_callbacks
+        .drafts
+        .get_mut(&CallbackKey::new(&json!("9")).expect("typed id"))
         .expect("string callback")
-        .draft
         .fields[0]
         .editor
         .insert_str("other draft");
@@ -119,23 +120,23 @@ fn exact_resolution_dedup_and_root_completion_do_not_erase_child_callbacks() {
         &mut app,
         json!({"method":"turn/completed","params":{"threadId":"root","turn":{"id":"root-turn","status":"completed"}}}),
     );
-    assert_eq!(app.codex.callbacks.entries.len(), 2);
+    assert_eq!(app.session.codex_callbacks().len(), 2);
     receive(
         &mut app,
         json!({"method":"serverRequest/resolved","params":{"threadId":"wrong","requestId":9}}),
     );
-    assert_eq!(app.codex.callbacks.entries.len(), 2);
+    assert_eq!(app.session.codex_callbacks().len(), 2);
     receive(
         &mut app,
         json!({"method":"serverRequest/resolved","params":{"threadId":"child","requestId":9}}),
     );
     receive(&mut app, question(json!(9), "child", false));
     assert_eq!(
-        app.codex.callbacks.entries.len(),
+        app.session.codex_callbacks().len(),
         1,
         "resolved callback cannot resurrect"
     );
-    assert!(app.codex.callbacks.get(&json!("9")).is_some());
+    assert!(app.session.codex_callbacks().get(&json!("9")).is_some());
 }
 
 #[test]
@@ -153,7 +154,7 @@ fn question_skip_and_cancel_use_distinct_native_paths_and_the_exact_child_turn()
             json!({"threadId":"child","turnId":"request-turn"})
         )
     );
-    assert!(app.codex.callbacks.get(&json!("q")).is_some());
+    assert!(app.session.codex_callbacks().get(&json!("q")).is_some());
     assert_eq!(
         app.session.active_turn_id().as_deref(),
         Some("root-working")
@@ -169,11 +170,11 @@ fn failed_native_reply_preserves_independent_question_and_main_drafts() {
     peer.fail.set(true);
     app.set_input_text("main stays");
     receive(&mut app, question(json!("q"), "root", true));
-    app.codex
-        .callbacks
-        .get_mut(&json!("q"))
+    app.view
+        .codex_callbacks
+        .drafts
+        .get_mut(&CallbackKey::new(&json!("q")).expect("typed id"))
         .expect("callback")
-        .draft
         .fields[0]
         .editor
         .insert_str("answer stays");
@@ -181,11 +182,11 @@ fn failed_native_reply_preserves_independent_question_and_main_drafts() {
     assert_eq!(field_text(&app, json!("q")), "answer stays");
     assert_eq!(app.input_text(), "main stays");
     assert!(app
-        .codex
-        .callbacks
-        .get(&json!("q"))
+        .view
+        .codex_callbacks
+        .drafts
+        .get(&CallbackKey::new(&json!("q")).expect("typed id"))
         .expect("callback")
-        .draft
         .error
         .is_some());
 }
@@ -205,19 +206,21 @@ fn schema_preflight_applies_after_edits_but_an_obsolete_answer_cannot_send() {
         &mut app,
         json!({"method":"carlos/codex/formChecked","params":{"requestId":"form","revision":0,"ok":false,"error":"Unsupported schema"}}),
     );
-    let entry = app.codex.callbacks.get(&json!("form")).expect("callback");
-    assert!(entry.draft.notice.is_none());
-    assert_eq!(
-        entry.draft.unsupported.as_deref(),
-        Some("Unsupported schema")
-    );
     let entry = app
-        .codex
-        .callbacks
-        .get_mut(&json!("form"))
+        .view
+        .codex_callbacks
+        .drafts
+        .get(&CallbackKey::new(&json!("form")).expect("id"))
         .expect("callback");
-    entry.candidate = Some(json!({"action":"accept","content":{"x":"old"}}));
-    entry.revision = 2;
+    assert!(entry.notice.is_none());
+    assert_eq!(entry.unsupported.as_deref(), Some("Unsupported schema"));
+    app.session.seed_codex_candidate_for_test(
+        &json!("form"),
+        2,
+        Some(json!({"action":"accept","content":{"x":"old"}})),
+        None,
+        false,
+    );
     edited(&mut app);
     assert!(receive(&mut app,json!({"method":"carlos/codex/formChecked","params":{"requestId":"form","revision":2,"ok":true}})).is_none());
 }
@@ -243,8 +246,8 @@ fn unknown_methods_bad_params_and_id_bounds_return_the_correct_native_error() {
     ));
     let long = receive(&mut app, question(json!("x".repeat(4097)), "child", true));
     assert!(matches!(long, Some(ServerRequestAction::ReplyError { .. })));
-    assert!(app.codex.callbacks.entries.is_empty());
-    assert!(app.codex.callbacks.get(&Value::Null).is_none());
+    assert!(app.session.codex_callbacks().is_empty());
+    assert!(app.session.codex_callbacks().get(&Value::Null).is_none());
 }
 
 #[test]
@@ -276,7 +279,7 @@ fn callback_count_payload_bytes_and_recent_ids_remain_bounded_after_ui_acknowled
         receive(&mut app, question(json!(64), "child", true)),
         Some(ServerRequestAction::ReplyError { code: -32000, .. })
     ));
-    assert_eq!(app.codex.callbacks.entries.len(), 64);
+    assert_eq!(app.session.codex_callbacks().len(), 64);
     crate::app::codex_callbacks::reset(&mut app);
     let mut rejected = false;
     for id in 100..164 {
@@ -292,7 +295,7 @@ fn callback_count_payload_bytes_and_recent_ids_remain_bounded_after_ui_acknowled
     }
     assert!(rejected);
     assert!(
-        app.codex.callbacks.entries.len() < 64,
+        app.session.codex_callbacks().len() < 64,
         "byte cap precedes frame cap"
     );
 }
@@ -305,7 +308,7 @@ fn replacing_a_session_retires_all_pending_callbacks_and_late_form_results() {
         receive(&mut app, question(json!(id), "child", true));
     }
     app.set_thread_id("new-root");
-    assert!(app.codex.callbacks.entries.is_empty());
+    assert!(app.session.codex_callbacks().is_empty());
     assert!(app.session.approval().pending().is_none());
     assert_eq!(app.input_text(), "main draft");
     receive(&mut app, question(json!(1), "child", true));
@@ -321,7 +324,11 @@ fn replacing_a_session_retires_all_pending_callbacks_and_late_form_results() {
         &mut app,
         question(json!("new-child"), "new-child-thread", false),
     );
-    assert!(app.codex.callbacks.get(&json!("new-child")).is_some());
+    assert!(app
+        .session
+        .codex_callbacks()
+        .get(&json!("new-child"))
+        .is_some());
     assert!(receive(
         &mut app,
         json!({"method":"carlos/codex/formChecked","params":{"requestId":2,"revision":1,"ok":true}})
@@ -360,12 +367,13 @@ fn secret_review_is_redacted_while_the_hidden_main_composer_remains_ordinary() {
     request["params"]["questions"][0]["isSecret"] = json!(true);
     receive(&mut app, request);
     next(&mut app);
-    let entry = app
-        .codex
-        .callbacks
-        .get_mut(&json!("secret"))
+    let draft = app
+        .view
+        .codex_callbacks
+        .drafts
+        .get_mut(&CallbackKey::new(&json!("secret")).expect("id"))
         .expect("secret");
-    entry.draft.review = true;
+    draft.review = true;
     assert!(crate::app::native_questions::secret_active(&app));
     hide_nonblocking(&mut app);
     assert!(!crate::app::native_questions::secret_active(&app));
@@ -382,3 +390,6 @@ mod split_parser_tests;
 
 #[path = "question_split_peer.rs"]
 mod split_peer;
+
+#[path = "codex_callback_split_tests.rs"]
+mod callback_split_tests;

@@ -5,11 +5,12 @@ use serde_json::Value;
 use super::claude_question_state::NativeDraft;
 use super::state::AppState;
 use crate::session::approval_state::ApprovalQueue;
+use crate::session::codex::callbacks::CallbackKey;
 
 /// Decide whether a pending request currently owns keyboard, paste and overlay focus.
 pub(super) fn modal(app: &AppState) -> bool {
     if app.codex.enabled {
-        app.session.approval().pending().is_some() && app.codex.callbacks.focused
+        app.session.approval().pending().is_some() && app.view.codex_callbacks.focused
     } else {
         app.session.approval().pending().is_some()
     }
@@ -20,7 +21,7 @@ pub(super) fn draft(app: &AppState) -> Option<&NativeDraft> {
     let pending = app.session.approval().pending()?;
     let id = &pending.facts().request_id;
     if app.codex.enabled {
-        Some(&app.codex.callbacks.get(id)?.draft)
+        app.view.codex_callbacks.drafts.get(&CallbackKey::new(id)?)
     } else {
         app.claude.answers.drafts.get(id.as_str()?)
     }
@@ -31,7 +32,10 @@ pub(super) fn draft_mut(app: &mut AppState) -> Option<&mut NativeDraft> {
     let pending = app.session.approval().pending()?;
     let id = pending.facts().request_id.clone();
     if app.codex.enabled {
-        Some(&mut app.codex.callbacks.get_mut(&id)?.draft)
+        app.view
+            .codex_callbacks
+            .drafts
+            .get_mut(&CallbackKey::new(&id)?)
     } else {
         app.claude.answers.drafts.get_mut(id.as_str()?)
     }
@@ -40,7 +44,7 @@ pub(super) fn draft_mut(app: &mut AppState) -> Option<&mut NativeDraft> {
 /// Count requests without counting answered or resolved callbacks.
 pub(super) fn count(app: &AppState) -> usize {
     if app.codex.enabled {
-        app.codex.callbacks.entries.len()
+        app.session.codex_callbacks().len()
     } else {
         app.session.approval().queued(ApprovalQueue::Claude).len()
             + usize::from(app.session.approval().pending().is_some())

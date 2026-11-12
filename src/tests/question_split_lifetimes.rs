@@ -8,6 +8,7 @@ use crate::app::codex_callbacks::{checked, edited, next, retire};
 use crate::app::codex_reply::send;
 use crate::app::notifications::ServerRequestAction;
 use crate::app::state::AppState;
+use crate::session::codex::callbacks::CallbackKey;
 
 #[test]
 fn cancelling_either_typed_callback_keeps_the_other_editor_and_focus() {
@@ -15,11 +16,11 @@ fn cancelling_either_typed_callback_keeps_the_other_editor_and_focus() {
         let mut app = app();
         for (id, text) in [(json!(9), "numeric"), (json!("9"), "string")] {
             receive(&mut app, question(id.clone(), "child", true));
-            app.codex
-                .callbacks
-                .get_mut(&id)
+            app.view
+                .codex_callbacks
+                .drafts
+                .get_mut(&CallbackKey::new(&id).expect("typed id"))
                 .expect("callback")
-                .draft
                 .fields[0]
                 .paste(text);
         }
@@ -31,8 +32,14 @@ fn cancelling_either_typed_callback_keeps_the_other_editor_and_focus() {
             (json!(9), "numeric")
         };
         assert_eq!(field_text(&app, remaining.clone()), text);
-        assert!(app.codex.callbacks.get(&cancelled).is_none());
-        assert_eq!(app.codex.callbacks.entries.len(), 1);
+        assert!(app.session.codex_callbacks().get(&cancelled).is_none());
+        assert_eq!(app.session.codex_callbacks().len(), 1);
+        assert_eq!(app.view.codex_callbacks.drafts.len(), 1);
+        assert!(!app
+            .view
+            .codex_callbacks
+            .drafts
+            .contains_key(&CallbackKey::new(&cancelled).expect("typed id")));
         assert_eq!(
             app.session
                 .approval()
@@ -93,15 +100,11 @@ fn late_form_checks_cannot_send_after_candidate_revision_or_lifetime_changes() {
         );
         let card = app.session.approval().pending().expect("card").entry_id();
         app.session.begin_approval_answer(card);
-        let entry = app.codex.callbacks.get_mut(&json!("form")).expect("form");
-        entry.revision = 2;
-        entry.checking = true;
-        entry.candidate = Some(json!({"action":"accept","content":{"x":"old"}}));
-        entry.candidate_card = Some(card);
+        let candidate =
+            (change != "candidate").then(|| json!({"action":"accept","content":{"x":"old"}}));
+        app.session
+            .seed_codex_candidate_for_test(&json!("form"), 2, candidate, Some(card), true);
         match change {
-            "candidate" => {
-                entry.candidate = None;
-            }
             "revision" => edited(&mut app),
             "retired" => retire(&mut app, &json!("form")),
             _ => {}
@@ -132,11 +135,11 @@ fn callbacks_arriving_after_root_completion_still_receive_independent_editors() 
         json!({"method":"turn/completed","params":{"threadId":"root","turn":{"id":"t","status":"completed"}}}),
     );
     receive(&mut app, question(json!("late"), "child", true));
-    app.codex
-        .callbacks
-        .get_mut(&json!("late"))
+    app.view
+        .codex_callbacks
+        .drafts
+        .get_mut(&CallbackKey::new(&json!("late")).expect("typed id"))
         .expect("late callback")
-        .draft
         .fields[0]
         .paste("answer");
     assert_eq!(field_text(&app, json!("late")), "answer");

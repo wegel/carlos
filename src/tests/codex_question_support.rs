@@ -9,6 +9,7 @@ use serde_json::{json, Value};
 use crate::app::notifications::{handle_server_message_line, ServerRequestAction};
 use crate::app::state::AppState;
 use crate::backend::{BackendClient, BackendKind, EventReceiver};
+use crate::session::codex::callbacks::CallbackKey;
 
 #[derive(Default)]
 pub(super) struct Peer {
@@ -77,11 +78,11 @@ pub(super) fn receive(app: &mut AppState, frame: Value) -> Option<ServerRequestA
 }
 
 pub(super) fn field_text(app: &AppState, id: Value) -> String {
-    app.codex
-        .callbacks
-        .get(&id)
+    app.view
+        .codex_callbacks
+        .drafts
+        .get(&CallbackKey::new(&id).expect("typed id"))
         .expect("native callback")
-        .draft
         .fields[0]
         .editor
         .lines()
