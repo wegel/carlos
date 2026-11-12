@@ -2,7 +2,6 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
 use std::time::Duration;
 
 use anyhow::{bail, Result};
@@ -12,7 +11,7 @@ use super::{
     parse_cli_args, submit_dequeued_turn_text, submit_turn_text, submit_turn_text_with_history,
     AppState, Backend, Role,
 };
-use crate::backend::{BackendClient, BackendKind, RewindForkRequest};
+use crate::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
 use crate::grok_backend::{
     build_grok_command_for_test, finish_grok_prompt_turn_for_test, grok_model_catalog,
     is_hidden_rewind_point, load_grok_thread_summaries_from, parse_iso_timestamp_secs,
@@ -88,7 +87,7 @@ impl BackendClient for GrokStartMock {
         bail!("unused in test")
     }
 
-    fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>> {
+    fn take_events_rx(&mut self) -> Result<EventReceiver> {
         bail!("unused in test")
     }
 
@@ -149,7 +148,7 @@ impl BackendClient for GrokRewindMock {
         bail!("unused in test")
     }
 
-    fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>> {
+    fn take_events_rx(&mut self) -> Result<EventReceiver> {
         bail!("unused in test")
     }
 

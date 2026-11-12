@@ -2,7 +2,6 @@
 
 use crossterm::event::KeyEvent;
 use serde_json::Value;
-use std::sync::mpsc;
 #[cfg(feature = "dictation")]
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -17,7 +16,7 @@ use super::{
     DictationProfileState, DurationSamples, Event, KeyCode, KeyEventKind, KeyModifiers,
     MobileMouseConsume, MouseDragMode, PerfMetrics, Role, TerminalSize, UiEvent,
 };
-use crate::backend::{BackendClient, BackendKind, RewindForkRequest};
+use crate::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
 
 struct ApprovalRespondMock {
     responses: std::sync::Mutex<Vec<(Value, Value)>>,
@@ -52,7 +51,7 @@ impl BackendClient for ApprovalRespondMock {
         anyhow::bail!("unused in test")
     }
 
-    fn take_events_rx(&mut self) -> anyhow::Result<mpsc::Receiver<String>> {
+    fn take_events_rx(&mut self) -> anyhow::Result<EventReceiver> {
         anyhow::bail!("unused in test")
     }
 
@@ -110,7 +109,7 @@ impl BackendClient for CodexRewindMock {
         anyhow::bail!("unused in test")
     }
 
-    fn take_events_rx(&mut self) -> anyhow::Result<mpsc::Receiver<String>> {
+    fn take_events_rx(&mut self) -> anyhow::Result<EventReceiver> {
         anyhow::bail!("unused in test")
     }
 

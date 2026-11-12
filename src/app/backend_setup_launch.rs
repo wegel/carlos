@@ -1,7 +1,6 @@
 //! Codex and Claude backend launch sequences: thread resume, session start, history hydration.
 
 use std::path::Path;
-use std::sync::mpsc::Receiver;
 use std::time::Duration;
 
 use anyhow::Result;
@@ -17,7 +16,7 @@ use crate::app::notifications::{load_history_from_start_or_resume, parse_thread_
 use crate::app::state::AppState;
 use crate::app::terminal_ui::{pick_thread, sort_threads_for_picker};
 use crate::app::RuntimeDefaults;
-use crate::backend::BackendClient;
+use crate::backend::{BackendClient, EventReceiver};
 use crate::claude_backend::{ClaudeClient, ClaudeLaunchMode};
 use crate::codex_connection::CodexClient;
 use crate::protocol_params::{
@@ -254,7 +253,7 @@ pub(super) fn resolve_claude_launch_mode(
 pub(super) fn start_claude_session(
     cwd_path: &Path,
     launch_mode: ClaudeLaunchMode,
-) -> Result<(ClaudeClient, Receiver<String>, String)> {
+) -> Result<(ClaudeClient, EventReceiver, String)> {
     let mut client = ClaudeClient::start(cwd_path, launch_mode)?;
     let server_events_rx = client.take_events_rx()?;
     let start_resp = client.synthetic_start_response(client.session_id(), None);

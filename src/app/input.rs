@@ -37,7 +37,7 @@ use super::notifications::{animation_poll_timeout, animation_tick};
 use super::render::render_main_view;
 use super::terminal_ui::with_terminal;
 use super::{AppState, TerminalSize};
-use crate::backend::BackendClient;
+use crate::backend::{BackendClient, EventReceiver};
 use crate::event::UiEvent;
 
 const MAX_UI_DRAIN_PER_CYCLE: usize = 4096;
@@ -93,7 +93,7 @@ pub(super) fn make_input_area() -> ratatui_textarea::TextArea<'static> {
 pub(crate) fn run_conversation_tui(
     client: &dyn BackendClient,
     app: &mut AppState,
-    server_events_rx: std::sync::mpsc::Receiver<String>,
+    server_events_rx: EventReceiver,
 ) -> Result<()> {
     with_terminal(|terminal| {
         let ui_rx = wire_event_forwarders(app, server_events_rx);

@@ -1,5 +1,6 @@
 //! Backend trait abstracting over Codex, Claude, and Grok CLI transports.
 
+use std::ops::Deref;
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -61,6 +62,55 @@ pub(crate) enum PromptPriority {
     Queue,
 }
 
+/// Keeps the backend informed when the last event consumer disappears.
+pub(crate) struct EventReceiver<T = String> {
+    receiver: mpsc::Receiver<T>,
+    on_drop: Option<Box<dyn FnOnce() + Send>>,
+}
+
+impl<T> EventReceiver<T> {
+    /// Move backend cancellation to the final consumer before forwarding starts.
+    pub(crate) fn take_close(&mut self) -> Option<Box<dyn FnOnce() + Send>> {
+        self.on_drop.take()
+    }
+
+    /// Wrap a receiver with a backend-owned cancellation callback.
+    pub(crate) fn with_close(
+        receiver: mpsc::Receiver<T>,
+        on_drop: impl FnOnce() + Send + 'static,
+    ) -> Self {
+        Self {
+            receiver,
+            on_drop: Some(Box::new(on_drop)),
+        }
+    }
+}
+
+impl<T> From<mpsc::Receiver<T>> for EventReceiver<T> {
+    fn from(receiver: mpsc::Receiver<T>) -> Self {
+        Self {
+            receiver,
+            on_drop: None,
+        }
+    }
+}
+
+impl<T> Deref for EventReceiver<T> {
+    type Target = mpsc::Receiver<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.receiver
+    }
+}
+
+impl<T> Drop for EventReceiver<T> {
+    fn drop(&mut self) {
+        if let Some(close) = self.on_drop.take() {
+            close();
+        }
+    }
+}
+
 pub(crate) trait BackendClient {
     fn kind(&self) -> BackendKind;
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String>;
@@ -110,6 +160,10 @@ pub(crate) trait BackendClient {
     fn refresh_context(&self) -> Result<()> {
         Ok(())
     }
+    /// Apply lifecycle facts at the caller's handled cursor; None preserves the borrowed line.
+    fn handle_event(&self, _line: &str) -> Option<Vec<String>> {
+        None
+    }
     /// Release a backend's event budget after the UI has processed a frame.
     fn acknowledge_event(&self, _length: usize) {}
     /// Start a quota read whose response arrives on the event stream, if supported.
@@ -143,6 +197,6 @@ pub(crate) trait BackendClient {
     fn connection_generation(&self) -> Option<u64> {
         None
     }
-    fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>>;
+    fn take_events_rx(&mut self) -> Result<EventReceiver>;
     fn stop(&mut self);
 }

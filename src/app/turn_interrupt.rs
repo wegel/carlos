@@ -17,11 +17,6 @@ pub(super) fn interrupt_active_turn(client: &dyn BackendClient, app: &mut AppSta
         return;
     };
     let params = params_turn_interrupt(&app.thread_id, &turn_id);
-    let interrupted = if client.kind() == BackendKind::Claude {
-        app.claude.begin_interrupt()
-    } else {
-        Vec::new()
-    };
     match client.call("turn/interrupt", params, Duration::from_secs(10)) {
         Ok(response) => {
             if client.kind() == BackendKind::Claude {
@@ -38,7 +33,6 @@ pub(super) fn interrupt_active_turn(client: &dyn BackendClient, app: &mut AppSta
             app.set_status("interrupt requested");
         }
         Err(e) => {
-            app.claude.rollback_interrupt(&interrupted);
             if client.kind() == BackendKind::Claude {
                 app.ralph_runtime.stop_after_failure();
             }

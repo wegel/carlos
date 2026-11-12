@@ -1,7 +1,6 @@
 //! Test native callbacks with exact IDs while forbidding synthetic user turns.
 
 use std::cell::{Cell, RefCell};
-use std::sync::mpsc;
 use std::time::Duration;
 
 use anyhow::Result;
@@ -9,7 +8,7 @@ use serde_json::{json, Value};
 
 use crate::app::notifications::{handle_server_message_line, ServerRequestAction};
 use crate::app::state::AppState;
-use crate::backend::{BackendClient, BackendKind};
+use crate::backend::{BackendClient, BackendKind, EventReceiver};
 
 #[derive(Default)]
 pub(super) struct Peer {
@@ -55,7 +54,7 @@ impl BackendClient for Peer {
         self.contexts.borrow_mut().push(context);
         self.request_native_control(method, params)
     }
-    fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>> {
+    fn take_events_rx(&mut self) -> Result<EventReceiver> {
         unimplemented!()
     }
     fn stop(&mut self) {}

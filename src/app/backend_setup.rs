@@ -8,7 +8,6 @@ mod backend_setup_grok;
 mod backend_setup_launch;
 
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::Receiver;
 use std::time::Duration;
 
 use anyhow::Result;
@@ -23,7 +22,7 @@ use super::input::run_conversation_tui;
 use super::models::ThreadSummary;
 use super::state::AppState;
 use super::RuntimeDefaults;
-use crate::backend::BackendClient;
+use crate::backend::{BackendClient, EventReceiver};
 use crate::protocol_params::{
     params_model_list, parse_model_list_page, ModelInfo, ThreadRuntimeSettings,
 };
@@ -251,7 +250,7 @@ pub(super) fn finish_run(
     app: &mut AppState,
     backend: Backend,
     client: &dyn BackendClient,
-    server_events_rx: Receiver<String>,
+    server_events_rx: EventReceiver,
 ) -> Result<()> {
     let out = run_conversation_tui(client, app, server_events_rx);
     eprintln!(

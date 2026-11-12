@@ -1,12 +1,14 @@
 //! Native reset, process activity, late child output, and context-read ordering at the shared UI entrypoint.
 
+#[path = "claude_backend_tests/normalized_app.rs"]
+mod normalized_app;
+
 use serde_json::{json, Value};
 
+use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
 use super::claude_activity::NativeState;
 use super::claude_state::ClaudePhase;
 use super::models::Role;
-use super::notifications::handle_server_message_line;
-use super::state::AppState;
 
 fn frame(app: &mut AppState, frame: Value, epoch: u64, method: Option<&str>, context: Value) {
     let _ = handle_server_message_line(
@@ -154,7 +156,7 @@ fn unowned_native_task_wakeup_never_consumes_the_next_human_or_runs_ralph_comple
         0,
     );
     state(&mut app, "idle", 0);
-    assert!(app.claude.begin_interrupt().is_empty());
+    assert!(app.native.begin_interrupt().is_empty());
     assert!(app.turn_status_by_id.is_empty());
     assert!(!app.claude.prompts.entries["human"].consumed);
     assert!(app.active_turn_id.is_none());

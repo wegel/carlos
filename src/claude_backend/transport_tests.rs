@@ -3,8 +3,6 @@
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::process::Command;
-use std::sync::atomic::Ordering;
-use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use serde_json::json;
@@ -15,20 +13,20 @@ use super::transport::ControllerTransport;
 
 #[test]
 fn stuck_helper_stdin_cannot_block_request_or_shutdown_forever() {
-    let (sender, _receiver) = mpsc::sync_channel(16);
+    let (events, _receiver) = EventSender::channel(16);
     let mut command = Command::new("python3");
     command.args([
         "-c",
         "import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); time.sleep(60)",
     ]);
-    let transport = ControllerTransport::start_command(command, EventSender::new(sender))
-        .expect("start stuck helper");
+    let transport =
+        ControllerTransport::start_command(command, events).expect("start stuck helper");
     let started = Instant::now();
     let error = transport
         .request("hello", json!({ "text": "x".repeat(2 * 1024 * 1024) }))
         .expect_err("stuck pipe must fail");
     assert!(error.to_string().contains("stdin did not finish"));
-    assert!(transport.stopped.load(Ordering::SeqCst));
+    assert!(transport.state.is_closed());
     transport.stop();
     assert!(
         started.elapsed() < Duration::from_secs(4),
@@ -38,8 +36,7 @@ fn stuck_helper_stdin_cannot_block_request_or_shutdown_forever() {
 
 #[test]
 fn slow_ui_stops_the_helper_and_settles_unanswered_requests() {
-    let (sender, receiver) = mpsc::sync_channel(1024);
-    let events = EventSender::new(sender);
+    let (events, receiver) = EventSender::channel(1024);
     let mut command = Command::new("python3");
     command.args(["-c", concat!(
         "import json,sys,time\n", "sys.stdin.readline()\n",
@@ -48,6 +45,7 @@ fn slow_ui_stops_the_helper_and_settles_unanswered_requests() {
         "time.sleep(60)\n")]);
     let transport =
         ControllerTransport::start_command(command, events.clone()).expect("start flooding helper");
+    let done = super::event_race_support::notify(&transport.events.hooks, "reader_done");
     let started = Instant::now();
     let error = transport
         .call("start", json!({}), Duration::from_secs(5))
@@ -55,6 +53,8 @@ fn slow_ui_stops_the_helper_and_settles_unanswered_requests() {
     assert!(error.to_string().contains("closed before replying"));
     assert!(started.elapsed() < Duration::from_secs(3));
     transport.stop();
+    done.recv_timeout(Duration::from_secs(5))
+        .expect("EOF facts ordered after pending-call rejection");
     let queued: Vec<String> = receiver.try_iter().collect();
     assert!(queued
         .iter()
@@ -67,8 +67,7 @@ fn slow_ui_stops_the_helper_and_settles_unanswered_requests() {
 
 #[test]
 fn moving_events_to_an_intermediate_queue_does_not_release_their_byte_budget() {
-    let (sender, receiver) = mpsc::sync_channel(16);
-    let events = EventSender::new(sender);
+    let (events, receiver) = EventSender::channel(16);
     let frame = "x".repeat(1024 * 1024);
     let mut intermediate = Vec::new();
     for _ in 0..8 {
@@ -102,14 +101,14 @@ fn native_path_lookup_skips_a_nonexecutable_shadow() {
 
 #[test]
 fn an_unanswered_control_stops_the_session_instead_of_assuming_it_was_not_applied() {
-    let (sender, _receiver) = mpsc::sync_channel(16);
+    let (events, _receiver) = EventSender::channel(16);
     let mut command = Command::new("python3");
     command.args([
         "-c",
         "import sys,time; sys.stdin.readline(); time.sleep(60)",
     ]);
-    let transport = ControllerTransport::start_command(command, EventSender::new(sender))
-        .expect("start quiet helper");
+    let transport =
+        ControllerTransport::start_command(command, events).expect("start quiet helper");
     let error = transport
         .call(
             "model.set",
@@ -118,25 +117,24 @@ fn an_unanswered_control_stops_the_session_instead_of_assuming_it_was_not_applie
         )
         .expect_err("missing reply");
     assert!(error.to_string().contains("may already have been accepted"));
-    assert!(transport.stopped.load(Ordering::SeqCst));
+    assert!(transport.state.is_closed());
     transport.stop();
 }
 
 #[test]
 fn oversized_input_is_rejected_before_writing_and_leaves_the_session_usable() {
-    let (sender, _receiver) = mpsc::sync_channel(16);
+    let (events, _receiver) = EventSender::channel(16);
     let mut command = Command::new("python3");
     command.args(["-c", concat!("import sys,json\n", "for line in sys.stdin:\n",
         " request=json.loads(line)\n",
         " print(json.dumps({'v':1,'type':'reply','id':request['id'],'ok':True,'result':{}}),flush=True)\n",
         " if request['method']=='shutdown': break\n")]);
-    let transport = ControllerTransport::start_command(command, EventSender::new(sender))
-        .expect("start echo helper");
+    let transport = ControllerTransport::start_command(command, events).expect("start echo helper");
     let error = transport
         .request("prompt", json!({ "text": "x".repeat(4 * 1024 * 1024) }))
         .expect_err("oversized frame");
     assert!(error.to_string().contains("exceeds 4 MiB"));
-    assert!(!transport.stopped.load(Ordering::SeqCst));
+    assert!(!transport.state.is_closed());
     transport
         .call("hello", json!({}), Duration::from_secs(1))
         .expect("valid request after rejected input");

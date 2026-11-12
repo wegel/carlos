@@ -9,7 +9,7 @@ use crate::backend::BackendClient;
 use crate::event::UiEvent;
 
 /// Handle a single UI event. Returns `true` when the caller should quit.
-pub(super) fn process_event(
+pub(in crate::app) fn process_event(
     event: UiEvent,
     client: &dyn BackendClient,
     app: &mut AppState,
@@ -60,7 +60,16 @@ fn handle_server_line(client: &dyn BackendClient, app: &mut AppState, line: &str
     if crate::app::codex_reconnect::receive(client, app, line) {
         return;
     }
-    if let Some(action) = handle_server_message_line(app, line) {
+    if let Some(lines) = client.handle_event(line) {
+        // A native result applies its completions before its context-refresh action, as on main.
+        let actions: Vec<_> = lines
+            .iter()
+            .filter_map(|handled| handle_server_message_line(app, handled))
+            .collect();
+        for action in actions {
+            dispatch_action(client, app, action);
+        }
+    } else if let Some(action) = handle_server_message_line(app, line) {
         dispatch_action(client, app, action);
     }
     client.acknowledge_event(line.len());

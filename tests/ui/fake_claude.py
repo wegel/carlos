@@ -115,6 +115,14 @@ def handle_control(message):
             active = None
             state("idle")
             time.sleep(.05)
+        if subtype == "interrupt" and active and MODE == "claude-result-before-rejected-interrupt":
+            event("content_block_stop", active, index=0)
+            result(active)
+            active = None
+            send({"type": "control_response", "response": {"subtype": "error",
+                  "request_id": message["request_id"], "error": "Fixture interrupt failure"}})
+            state("idle")
+            return
         if subtype == "interrupt" and MODE == "claude-interrupt-error":
             send({"type": "control_response", "response": {"subtype": "error", "request_id": message["request_id"], "error": "Fixture interrupt failure"}})
         else:
@@ -137,6 +145,21 @@ def read_tool(prompt):
         "content": "\n".join(f"let claude_read_{i} = {i};" for i in range(8))}]}})
 
 
+def repeated_reset(prompt):
+    key = str(uuid.uuid4())
+    for index, text in enumerate(["First reset reply", "Second reset reply"]):
+        send({"type": "conversation_reset", "session_id": SESSION,
+              "uuid": str(uuid.uuid4()), "new_conversation_id": key})
+        send({"type": "system", "subtype": "init", "session_id": SESSION,
+              "model": model, "user_message_uuid": prompt})
+        event("message_start", prompt, message={"id": "reset-reply-" + str(index),
+              "role": "assistant", "content": []})
+        event("content_block_start", prompt, index=0, content_block={"type": "text", "text": text})
+        event("content_block_stop", prompt, index=0)
+    result(prompt)
+    state("idle")
+
+
 def handle_prompt(message):
     global active, prompts
     if interrupts.start(sys.modules[__name__], message):
@@ -156,6 +179,12 @@ def handle_prompt(message):
         else:
             result(active, queued=1)
     active = prompt
+    if MODE == "claude-repeat-reset" and prompts == 1:
+        repeated_reset(prompt)
+        active = None
+        return
+    if MODE == "claude-malformed-delta":
+        event("content_block_delta", prompt, delta={"type": "text_delta", "text": "ignored malformed delta"})
     state("running")
     if questions.start(text, prompt, send, result, state, SESSION):
         return

@@ -1,10 +1,12 @@
 //! Verify native session identity, history sources, and recoverable startup failures through shared routing.
 
+#[path = "claude_backend_tests/normalized_app.rs"]
+mod normalized_app;
+
 use serde_json::{json, Value};
 
+use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
 use super::claude_state::ClaudePhase;
-use super::notifications::handle_server_message_line;
-use super::state::AppState;
 
 fn send(app: &mut AppState, method: &str, generation: u64, mut params: Value) {
     params["generation"] = json!(generation);

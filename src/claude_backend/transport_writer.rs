@@ -3,15 +3,15 @@
 use std::fmt;
 use std::io::Write;
 use std::process::ChildStdin;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Arc};
-use std::thread;
+use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::{bail, Result};
 use serde_json::Value;
 
 use super::transport::{trace_frame, Trace};
+use super::transport_state::TransportState;
+use super::transport_workers::TransportWorkers;
 
 const WRITE_TIMEOUT: Duration = Duration::from_millis(500);
 const MAX_FRAME_BYTES: usize = 4 * 1024 * 1024;
@@ -31,16 +31,21 @@ impl std::error::Error for OversizedFrame {}
 
 /// Owns the only thread allowed to write controller stdin.
 pub(super) struct InputWriter {
-    sender: mpsc::SyncSender<WriteRequest>,
+    sender: Mutex<Option<mpsc::SyncSender<WriteRequest>>>,
 }
 
 impl InputWriter {
     /// Start one bounded writer that owns the helper stdin handle.
-    pub(super) fn start(mut stdin: ChildStdin, trace: Trace, stopped: Arc<AtomicBool>) -> Self {
+    pub(super) fn start(
+        mut stdin: ChildStdin,
+        trace: Trace,
+        state: Arc<TransportState>,
+        workers: Arc<TransportWorkers>,
+    ) -> Self {
         let (sender, receiver) = mpsc::sync_channel::<WriteRequest>(8);
-        thread::spawn(move || {
+        workers.spawn(move || {
             while let Ok((line, reply)) = receiver.recv() {
-                let result = if stopped.load(Ordering::SeqCst) {
+                let result = if state.is_closed() {
                     Err("Claude controller is closed".to_string())
                 } else {
                     if let Ok(frame) = serde_json::from_str::<Value>(&line) {
@@ -54,7 +59,9 @@ impl InputWriter {
                 let _ = reply.send(result);
             }
         });
-        Self { sender }
+        Self {
+            sender: Mutex::new(Some(sender)),
+        }
     }
 
     /// Wait briefly for one complete frame to reach controller stdin.
@@ -64,13 +71,24 @@ impl InputWriter {
             return Err(OversizedFrame.into());
         }
         let (reply, receiver) = mpsc::channel();
-        if self.sender.try_send((line, reply)).is_err() {
-            bail!("Claude controller stdin queue is full or closed");
+        {
+            let sender = self.sender.lock().expect("controller writer");
+            let Some(sender) = sender.as_ref() else {
+                bail!("Claude controller stdin queue is full or closed");
+            };
+            if sender.try_send((line, reply)).is_err() {
+                bail!("Claude controller stdin queue is full or closed");
+            }
         }
         match receiver.recv_timeout(WRITE_TIMEOUT) {
             Ok(Ok(())) => Ok(()),
             Ok(Err(error)) => bail!(error),
             Err(_) => bail!("Claude controller stdin did not finish within 500 ms; request may already have been accepted"),
         }
+    }
+
+    /// Disconnect the queue; a detached writer exits when its pipe write returns.
+    pub(super) fn close(&self) {
+        self.sender.lock().expect("controller writer").take();
     }
 }

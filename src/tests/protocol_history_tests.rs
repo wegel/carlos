@@ -2,13 +2,12 @@
 
 use std::cell::RefCell;
 use std::collections::VecDeque;
-use std::sync::mpsc;
 use std::time::Duration;
 
 use anyhow::Result;
 use serde_json::{json, Value};
 
-use crate::backend::{BackendClient, BackendKind};
+use crate::backend::{BackendClient, BackendKind, EventReceiver};
 use crate::protocol_history::load_thread_history;
 
 struct Peer {
@@ -51,7 +50,7 @@ impl BackendClient for Peer {
     fn respond_error(&self, _: &Value, _: i64, _: &str) -> Result<()> {
         unreachable!()
     }
-    fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>> {
+    fn take_events_rx(&mut self) -> Result<EventReceiver> {
         unreachable!()
     }
     fn stop(&mut self) {}

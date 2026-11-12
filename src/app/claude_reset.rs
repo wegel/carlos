@@ -2,8 +2,6 @@
 
 use serde_json::Value;
 
-use crate::claude_backend::ClaudeTranslationState;
-
 use super::claude_state::ClaudePhase;
 use super::state::AppState;
 
@@ -15,8 +13,7 @@ pub(super) fn receive(app: &mut AppState, message: &Value) {
     }
     app.claude.reset_key = Some(key.to_string());
     app.claude.awaiting_reset_init = true;
-    app.claude
-        .reset_prompts(message["user_message_uuid"].as_str());
+    super::claude_prompts::reset(app, message["user_message_uuid"].as_str());
     let approval = app.approval.pending.take();
     let questions = std::mem::take(&mut app.claude.questions);
     let old_id = app.thread_id.clone();
@@ -25,7 +22,6 @@ pub(super) fn receive(app: &mut AppState, message: &Value) {
     app.claude.questions = questions;
     app.thread_name = None;
     app.claude.history = Default::default();
-    app.claude.translation = ClaudeTranslationState::default();
     super::claude_context::invalidate(app);
     app.claude.activity.compact = None;
     app.claude.activity.thinking = None;

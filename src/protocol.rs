@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendClient, BackendKind, RewindForkRequest};
+use crate::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
 use crate::protocol_events::EventQueue;
 use crate::protocol_forms::FormWorker;
 use crate::protocol_rewind::fork_before_edited_turn;
@@ -304,8 +304,8 @@ impl BackendClient for AppServerClient {
     fn respond_error(&self, request_id: &Value, code: i64, message: &str) -> Result<()> {
         AppServerClient::respond_error(self, request_id, code, message)
     }
-    fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>> {
-        AppServerClient::take_events_rx(self)
+    fn take_events_rx(&mut self) -> Result<EventReceiver> {
+        AppServerClient::take_events_rx(self).map(Into::into)
     }
     fn stop(&mut self) {
         AppServerClient::stop(self);

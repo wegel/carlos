@@ -5,6 +5,7 @@ use std::thread;
 
 use crossterm::event::{self, Event as CrosstermEvent};
 
+use crate::backend::EventReceiver;
 #[cfg(feature = "dictation")]
 use crate::dictation::events::DictationEvent;
 
@@ -20,10 +21,16 @@ pub(crate) enum UiEvent {
 
 #[cfg(not(feature = "dictation"))]
 pub(crate) fn spawn_event_forwarders(
-    server_events_rx: mpsc::Receiver<String>,
+    mut server_events_rx: EventReceiver,
     summary_rx: mpsc::Receiver<crate::summaries::SummaryEvent>,
-) -> mpsc::Receiver<UiEvent> {
+) -> EventReceiver<UiEvent> {
     let (ui_tx, ui_rx) = mpsc::channel::<UiEvent>();
+    let close = server_events_rx.take_close();
+    let ui_rx = EventReceiver::with_close(ui_rx, move || {
+        if let Some(close) = close {
+            close();
+        }
+    });
     forward_summaries(summary_rx, ui_tx.clone());
 
     {
@@ -54,11 +61,17 @@ pub(crate) fn spawn_event_forwarders(
 
 #[cfg(feature = "dictation")]
 pub(crate) fn spawn_event_forwarders_with_dictation(
-    server_events_rx: mpsc::Receiver<String>,
+    mut server_events_rx: EventReceiver,
     dictation_events_rx: mpsc::Receiver<DictationEvent>,
     summary_rx: mpsc::Receiver<crate::summaries::SummaryEvent>,
-) -> mpsc::Receiver<UiEvent> {
+) -> EventReceiver<UiEvent> {
     let (ui_tx, ui_rx) = mpsc::channel::<UiEvent>();
+    let close = server_events_rx.take_close();
+    let ui_rx = EventReceiver::with_close(ui_rx, move || {
+        if let Some(close) = close {
+            close();
+        }
+    });
     forward_summaries(summary_rx, ui_tx.clone());
 
     {

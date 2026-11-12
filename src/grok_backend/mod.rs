@@ -13,7 +13,7 @@ use std::time::Duration;
 use anyhow::{anyhow, bail, Context, Result};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendClient, BackendKind};
+use crate::backend::{BackendClient, BackendKind, EventReceiver};
 use crate::protocol_params::ModelInfo;
 
 use self::history::parse_grok_session_list;
@@ -379,9 +379,10 @@ impl BackendClient for GrokClient {
         bail!("Grok backend approvals are not implemented")
     }
 
-    fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>> {
+    fn take_events_rx(&mut self) -> Result<EventReceiver> {
         self.events_rx
             .take()
+            .map(Into::into)
             .ok_or_else(|| anyhow!("Grok events receiver already taken"))
     }
 

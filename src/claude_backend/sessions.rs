@@ -1,7 +1,7 @@
 //! Reads SDK session summaries and starts replacement helpers without blocking native questions.
 
 use std::path::Path;
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -16,8 +16,8 @@ use super::types::{ClaudeLaunchMode, ClaudeRuntimeSettings};
 
 /// Ask the official SDK for every session page without launching a native query.
 pub(crate) fn list_claude_sessions(cwd: &Path) -> Result<Vec<Value>> {
-    let (sender, _receiver) = mpsc::sync_channel(1024);
-    let helper = ControllerTransport::start(EventSender::new(sender))?;
+    let (events, _receiver) = EventSender::channel(1024);
+    let helper = ControllerTransport::start(events)?;
     let mut sessions = Vec::new();
     let mut offset = 0;
     loop {

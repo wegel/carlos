@@ -220,16 +220,10 @@ fn handle_parsed(app: &mut AppState, parsed: Value) -> Option<ServerRequestActio
         super::codex_lifecycle::close(app, params);
         return None;
     }
-    if matches!(
-        method,
-        "claude/controller"
-            | "claude/promptSubmitted"
-            | "claude/promptRejected"
-            | "claude/sessionChanged"
-            | "claude/forkFailed"
-            | "claude/sessionStartFailed"
-    ) {
-        return super::claude_notifications::handle(app, method, params);
+    if let super::claude_notifications::ClaudeRoute::Handled(action) =
+        super::claude_notifications::route(app, method, params)
+    {
+        return action;
     }
     if params
         .get("threadId")

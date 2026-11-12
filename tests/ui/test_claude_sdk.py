@@ -273,3 +273,65 @@ class ClaudeSdk:
         terminal.send(b"\r")
         terminal.contains("Answer: after failed interrupt")
         self.assertEqual(self.helper_requests(terminal, "prompt")[-1]["params"]["priority"], "later")
+
+    def test_claude_result_before_rejected_interrupt_finishes_without_a_stop_marker(self):
+        terminal = self.launch(mode="claude-result-before-rejected-interrupt", backend="claude", resume=None)
+        self.claude_ready(terminal)
+        terminal.paste("hold this turn")
+        terminal.send(b"\r")
+        terminal.contains("Answer: hold this turn")
+        terminal.send(b"\x1b")
+        terminal.wait(lambda: any(frame.get("subtype") == "session_state_changed"
+                                 and frame.get("state") == "idle"
+                                 for frame in terminal.messages("server")), "idle after rejected interrupt")
+        terminal.contains("✓ Answer: hold this turn")
+        self.assertNotIn("Turn interrupted", terminal.text)
+        frames = self.helper_messages(terminal, "server")
+        request = self.helper_requests(terminal, "interrupt")[-1]
+        result = next(i for i, frame in enumerate(frames) if frame.get("message", {}).get("type") == "result")
+        reply = next(i for i, frame in enumerate(frames) if frame.get("id") == request["id"])
+        idle = next(i for i, frame in enumerate(frames)
+                    if frame.get("message", {}).get("state") == "idle")
+        self.assertLess(result, reply)
+        self.assertLess(reply, idle)
+        terminal.paste("after rejected interrupt")
+        terminal.send(b"\r")
+        terminal.contains("Answer: after rejected interrupt")
+        self.assertEqual(self.helper_requests(terminal, "prompt")[-1]["params"]["priority"], "later")
+        self.assertNotIn("Turn interrupted", terminal.text)
+        terminal.snapshot("result-before-rejected-interrupt")
+
+    def test_claude_repeated_reset_key_keeps_both_replies(self):
+        terminal = self.launch(mode="claude-repeat-reset", backend="claude", resume=None)
+        self.claude_ready(terminal)
+        terminal.paste("repeat reset key")
+        terminal.send(b"\r")
+        terminal.contains("First reset reply")
+        terminal.contains("Second reset reply")
+        frames = self.helper_messages(terminal, "server")
+        resets = [frame["message"] for frame in frames
+                  if frame.get("event") == "sdk" and frame.get("message", {}).get("type") == "conversation_reset"]
+        self.assertEqual(len(resets), 2)
+        self.assertEqual(resets[0]["new_conversation_id"], resets[1]["new_conversation_id"])
+        self.assertNotEqual(resets[0]["uuid"], resets[1]["uuid"])
+        self.assertEqual(len(self.helper_requests(terminal, "prompt")), 1)
+        terminal.paste("after repeated reset")
+        terminal.send(b"\r")
+        terminal.contains("Answer: after repeated reset")
+        self.assertEqual(len(self.helper_requests(terminal, "prompt")), 2)
+        terminal.snapshot("repeated-reset-key")
+
+    def test_claude_malformed_sdk_delta_keeps_the_session_usable(self):
+        terminal = self.launch(mode="claude-malformed-delta", backend="claude", resume=None)
+        self.claude_ready(terminal)
+        for text in ["malformed delta", "still usable"]:
+            terminal.paste(text)
+            terminal.send(b"\r")
+            terminal.contains("Answer: " + text)
+        self.assertNotIn("ignored malformed delta", terminal.text)
+        self.assertEqual(len(self.helper_requests(terminal, "prompt")), 2)
+        malformed = [frame for frame in terminal.messages("server")
+                     if frame.get("event", {}).get("type") == "content_block_delta"
+                     and "index" not in frame["event"]]
+        self.assertEqual(len(malformed), 2)
+        terminal.snapshot("ignored-malformed-sdk-delta")

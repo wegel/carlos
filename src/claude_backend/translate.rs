@@ -189,6 +189,10 @@ fn start_tool_use_block(
         ClaudeBlockState::ToolUse {
             item_id,
             name,
+            native_id: block
+                .get("id")
+                .and_then(Value::as_str)
+                .is_some_and(|id| !id.is_empty()),
             input_json: String::new(),
         },
     );
@@ -257,8 +261,9 @@ fn translate_content_block_stop(
         ClaudeBlockState::ToolUse {
             item_id,
             name,
+            native_id,
             input_json,
-        } => emit_tool_use_block_completed(state, item_id, name, input_json, out),
+        } => emit_tool_use_block_completed(state, item_id, name, native_id, input_json, out),
     }
     Ok(())
 }
@@ -283,6 +288,7 @@ fn emit_tool_use_block_completed(
     state: &mut ClaudeTranslationState,
     item_id: String,
     name: String,
+    native_id: bool,
     input_json: String,
     out: &mut TranslateOutput,
 ) {
@@ -292,6 +298,7 @@ fn emit_tool_use_block_completed(
         item_id.clone(),
         ClaudeToolCall {
             name: name.clone(),
+            native_id,
             input: Value::Object(input.clone()),
         },
     );

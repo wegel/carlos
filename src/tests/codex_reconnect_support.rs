@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 
 use super::codex_question_support::Peer as QuestionPeer;
 use crate::app::state::AppState;
-use crate::backend::{BackendClient, BackendKind};
+use crate::backend::{BackendClient, BackendKind, EventReceiver};
 use crate::codex_snapshot::CodexSnapshot;
 
 #[derive(Default)]
@@ -57,7 +57,7 @@ impl BackendClient for Peer {
     fn abort_connection(&self) {
         *self.aborted.borrow_mut() += 1;
     }
-    fn take_events_rx(&mut self) -> Result<std::sync::mpsc::Receiver<String>> {
+    fn take_events_rx(&mut self) -> Result<EventReceiver> {
         bail!("test has no pipe")
     }
     fn stop(&mut self) {}

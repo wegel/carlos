@@ -1,13 +1,15 @@
 //! Checks native item identity and ordering before the Codex backend can fork.
 
 use std::collections::VecDeque;
-use std::sync::{mpsc, Mutex};
+use std::sync::Mutex;
 use std::time::Duration;
 
 use anyhow::Result;
 use serde_json::{json, Value};
 
-use crate::backend::{BackendClient, BackendKind, RewindForkRequest, RewindUserMessage};
+use crate::backend::{
+    BackendClient, BackendKind, EventReceiver, RewindForkRequest, RewindUserMessage,
+};
 use crate::protocol_rewind::fork_before_edited_turn;
 use crate::protocol_rewind_guard::validate_rewind;
 
@@ -58,7 +60,7 @@ impl BackendClient for NativePeer {
     fn respond_error(&self, _id: &Value, _code: i64, _message: &str) -> Result<()> {
         anyhow::bail!("unused")
     }
-    fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>> {
+    fn take_events_rx(&mut self) -> Result<EventReceiver> {
         anyhow::bail!("unused")
     }
     fn stop(&mut self) {}

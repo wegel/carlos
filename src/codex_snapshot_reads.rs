@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use anyhow::{bail, ensure, Context, Result};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendClient, BackendKind};
+use crate::backend::{BackendClient, BackendKind, EventReceiver};
 use crate::protocol::AppServerClient;
 use crate::protocol_history::is_unsupported_method;
 use crate::protocol_params::extract_result_object;
@@ -140,7 +140,7 @@ impl BackendClient for SnapshotReader<'_> {
     fn respond_error(&self, _: &Value, _: i64, _: &str) -> Result<()> {
         bail!("Snapshot reader cannot answer callbacks")
     }
-    fn take_events_rx(&mut self) -> Result<std::sync::mpsc::Receiver<String>> {
+    fn take_events_rx(&mut self) -> Result<EventReceiver> {
         bail!("Snapshot reader has no event stream")
     }
     fn stop(&mut self) {}

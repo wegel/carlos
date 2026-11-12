@@ -1,11 +1,65 @@
 //! Claude Agent SDK client backed by a compiled local controller and the native CLI.
 
+mod client_controls;
+mod client_prompt;
 mod conversation;
 #[cfg(test)]
 mod conversation_tests;
+#[cfg(test)]
+mod event_audit_tests;
+mod event_batch;
+mod event_emitter;
+#[cfg(all(test, unix))]
+mod event_eof_support;
+#[cfg(all(test, unix))]
+mod event_eof_tests;
+mod event_facts;
+#[cfg(test)]
+mod event_failure_tests;
+#[cfg(test)]
+mod event_fixture;
+#[cfg(test)]
+mod event_forwarder_support;
+#[cfg(test)]
+mod event_forwarder_tests;
+mod event_handler;
+mod event_history;
+#[cfg(test)]
+mod event_history_tests;
+#[cfg(test)]
+mod event_interrupt_pipe_tests;
+mod event_lifecycle;
+#[cfg(test)]
+mod event_lifecycle_tests;
+mod event_live;
+mod event_normalizer;
+#[cfg(test)]
+mod event_normalizer_tests;
+#[cfg(test)]
+mod event_overflow_pipe_tests;
 mod event_queue;
+#[cfg(test)]
+mod event_race_support;
+#[cfg(test)]
+mod event_race_tests;
+#[cfg(test)]
+mod event_source_tests;
+mod event_sources;
+#[cfg(test)]
+mod event_test_support;
+mod fact_transfer;
 mod helper;
+#[cfg(test)]
+mod lifecycle_differential_tests;
+#[cfg(test)]
+mod lifecycle_reference;
+#[cfg(test)]
+mod lifecycle_reference_dispatch;
+#[cfg(test)]
+mod lifecycle_schedule_support;
 mod message_visibility;
+#[cfg(all(test, unix))]
+mod pipe_test_support;
 mod sessions;
 mod snapshot;
 #[cfg(test)]
@@ -14,32 +68,43 @@ mod thinking;
 mod tool_results;
 mod translate;
 mod transport;
+#[cfg(all(test, target_os = "linux"))]
+mod transport_drop_support;
+#[cfg(all(test, target_os = "linux"))]
+mod transport_drop_tests;
 mod transport_reader;
+mod transport_state;
+#[cfg(test)]
+mod transport_test_hooks;
 #[cfg(all(test, unix))]
 mod transport_tests;
+mod transport_workers;
 mod transport_writer;
 mod types;
 mod user_record;
 
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
 use serde_json::{json, Value};
-use uuid::Uuid;
 
-use crate::backend::{BackendClient, BackendKind, PromptOrigin, PromptPriority};
+use crate::backend::{BackendClient, BackendKind, EventReceiver, PromptOrigin, PromptPriority};
 
-pub(crate) use self::conversation::process_message as is_process_message;
-pub(crate) use self::message_visibility::{is_child_message, is_child_report_notice};
+pub(crate) use self::fact_transfer::FactTransfer;
+#[cfg(test)]
+pub(crate) use self::message_visibility::is_child_report_notice;
 pub(crate) use self::sessions::list_claude_sessions;
 #[cfg(test)]
 pub(crate) use self::test_support::{
-    collect_live_forwarded_lines_for_test, session_misroute_event,
+    collect_live_forwarded_lines_for_test, session_misroute_event, FixtureNormalizer,
 };
+#[cfg(test)]
 pub(crate) use self::translate::translate_claude_line;
 pub(crate) use self::types::ClaudeLaunchMode;
+#[cfg(test)]
 pub(crate) use self::types::ClaudeTranslationState;
 
 use self::event_queue::EventSender;
@@ -49,19 +114,19 @@ use self::types::{normalize_runtime_arg, ClaudeRuntimeSettings};
 
 /// Owns the helper transport; startup callbacks reach the UI before startup completes.
 pub(crate) struct ClaudeClient {
+    handler: RefCell<self::event_handler::EventHandler>,
     cwd: PathBuf,
     transport: Arc<Mutex<Arc<ControllerTransport>>>,
     session_id: String,
     runtime_settings: Mutex<ClaudeRuntimeSettings>,
     events_tx: EventSender,
-    events_rx: Option<mpsc::Receiver<String>>,
+    events_rx: Option<EventReceiver>,
 }
 
 impl ClaudeClient {
     /// Start the helper and let the UI answer questions during SDK startup.
     pub(crate) fn start(cwd: &Path, launch: ClaudeLaunchMode) -> Result<Self> {
-        let (sender, events_rx) = mpsc::sync_channel(1024);
-        let events_tx = EventSender::new(sender);
+        let (events_tx, events_rx) = EventSender::channel(1024);
         let settings = ClaudeRuntimeSettings::default();
         let session_id = match &launch {
             ClaudeLaunchMode::Resume(id) => id.clone(),
@@ -70,6 +135,7 @@ impl ClaudeClient {
         let transport = Arc::new(ControllerTransport::start(events_tx.clone())?);
         sessions::begin_session(&transport, cwd, &launch, &settings, &session_id)?;
         Ok(Self {
+            handler: RefCell::default(),
             cwd: cwd.to_path_buf(),
             transport: Arc::new(Mutex::new(transport)),
             session_id,
@@ -93,60 +159,11 @@ impl ClaudeClient {
         json!({ "result": { "thread": history.cloned().unwrap_or_else(|| json!({ "id": thread_id })) } }).to_string()
     }
 
-    fn current_events(&self) -> Result<EventSender> {
-        let generation = self
-            .transport
-            .lock()
-            .map_err(|_| anyhow!("Claude transport lock poisoned"))?
-            .generation;
-        Ok(self.events_tx.for_generation(generation))
-    }
-
     fn helper_call(&self, method: &str, params: Value, timeout: Duration) -> Result<Value> {
         self.transport
             .lock()
             .map_err(|_| anyhow!("Claude transport lock poisoned"))?
             .call(method, params, timeout)
-    }
-
-    fn submit(
-        &self,
-        params: &Value,
-        origin: PromptOrigin,
-        priority: PromptPriority,
-        timeout: Duration,
-    ) -> Result<String> {
-        if params.get("model").is_some() || params.get("effort").is_some() {
-            self.apply_runtime_settings(params["model"].as_str(), params["effort"].as_str())?;
-        }
-        let text = params["input"][0]["text"]
-            .as_str()
-            .filter(|text| !text.trim().is_empty())
-            .context("missing prompt text")?;
-        let uuid = Uuid::new_v4().to_string();
-        let input_kind = (origin == PromptOrigin::Human).then_some(match priority {
-            PromptPriority::Steer => "steer",
-            PromptPriority::Queue => "prompt",
-        });
-        let events = self.current_events()?;
-        events.send(
-            json!({ "method": "claude/promptSubmitted", "params": { "uuid": uuid,"text":text,"inputKind":input_kind,"origin": match origin { PromptOrigin::Human => "human", PromptOrigin::Automatic => "automatic" },"priority":match priority { PromptPriority::Steer => "now", PromptPriority::Queue => "later" } } }).to_string(),
-        )?;
-        let mut prompt = json!({ "uuid": uuid, "text": text,
-            "origin": { "kind": match origin { PromptOrigin::Human => "human", PromptOrigin::Automatic => "auto-continuation" } },
-            "priority": match priority { PromptPriority::Steer => "now", PromptPriority::Queue => "later" } });
-        if let Some(kind) = input_kind {
-            prompt["inputKind"] = json!(kind);
-        }
-        let result = self.helper_call("prompt", prompt, timeout);
-        if let Err(error) = result {
-            let _ = events.send(
-                json!({ "method": "claude/promptRejected", "params": { "uuid": uuid } })
-                    .to_string(),
-            );
-            return Err(error);
-        }
-        Ok(json!({ "result": { "turn": { "id": uuid }, "inputKind":input_kind } }).to_string())
     }
 }
 
@@ -169,10 +186,7 @@ impl BackendClient for ClaudeClient {
                 )?;
                 Ok(json!({"result":result}).to_string())
             }
-            "turn/interrupt" => {
-                let result = self.helper_call("interrupt", json!({}), timeout)?;
-                Ok(json!({ "result": result }).to_string())
-            }
+            "turn/interrupt" => self.interrupt(timeout),
             other => bail!("unsupported Claude method: {other}"),
         }
     }
@@ -217,6 +231,9 @@ impl BackendClient for ClaudeClient {
     }
 
     fn request_native_control(&self, method: &str, mut params: Value) -> Result<()> {
+        if method == "history.continue" {
+            return self.continue_history(&params);
+        }
         params["cwd"] = json!(self.cwd);
         if method == "start" {
             let settings = self
@@ -243,6 +260,10 @@ impl BackendClient for ClaudeClient {
             .lock()
             .map_err(|_| anyhow!("Claude transport lock poisoned"))?
             .request("context", json!({}))
+    }
+
+    fn handle_event(&self, line: &str) -> Option<Vec<String>> {
+        Some(self.handler.borrow_mut().handle(line))
     }
 
     fn acknowledge_event(&self, length: usize) {
@@ -295,7 +316,7 @@ impl BackendClient for ClaudeClient {
         bail!("Cannot answer native callback {request_id}: {message}")
     }
 
-    fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>> {
+    fn take_events_rx(&mut self) -> Result<EventReceiver> {
         self.events_rx
             .take()
             .ok_or_else(|| anyhow!("Claude events already taken"))
@@ -310,7 +331,9 @@ impl BackendClient for ClaudeClient {
 
 impl Drop for ClaudeClient {
     fn drop(&mut self) {
-        self.stop();
+        if let Ok(transport) = self.transport.lock() {
+            transport.close();
+        }
     }
 }
 
@@ -328,3 +351,10 @@ pub(crate) fn claude_interrupted_turn_notification(params: &Value) -> Result<Str
         .to_string(),
     )
 }
+
+#[cfg(test)]
+pub(crate) use event_test_support::client as receiver_client;
+#[cfg(test)]
+mod event_shutdown_tests;
+#[cfg(test)]
+mod event_tolerance_tests;

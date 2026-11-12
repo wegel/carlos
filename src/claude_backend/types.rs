@@ -17,6 +17,7 @@ pub(crate) enum ClaudeLaunchMode {
 #[derive(Debug, Clone)]
 pub(crate) struct ClaudeToolCall {
     pub(super) name: String,
+    pub(super) native_id: bool,
     pub(super) input: Value,
 }
 
@@ -33,6 +34,7 @@ pub(crate) enum ClaudeBlockState {
     ToolUse {
         item_id: String,
         name: String,
+        native_id: bool,
         input_json: String,
     },
 }

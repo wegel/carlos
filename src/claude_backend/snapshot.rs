@@ -141,6 +141,7 @@ fn emit_tool_use_snapshot(
         item_id.clone(),
         ClaudeToolCall {
             name: name.clone(),
+            native_id: part["id"].as_str().is_some_and(|id| !id.is_empty()),
             input: input.clone(),
         },
     );

@@ -2,16 +2,14 @@
 
 use std::collections::VecDeque;
 
-use anyhow::{bail, Context, Result};
-use base64::engine::general_purpose::STANDARD;
-use base64::Engine;
+use anyhow::{bail, Result};
 use serde_json::{json, Value};
 
-use crate::claude_backend::{translate_claude_line, ClaudeTranslationState};
+use crate::claude_backend::FactTransfer;
 
 use super::claude_state::{ClaudePhase, ClaudeUiState};
 use super::models::Role;
-use super::notifications::{handle_server_message_line, ServerRequestAction};
+use super::notifications::ServerRequestAction;
 use super::state::AppState;
 
 /// Retains public native records and a separate list of legacy prompts with unknown authors.
@@ -23,8 +21,7 @@ pub(super) struct ClaudeHistory {
     pub(super) edited_prompt: Option<String>,
     pub(super) edit: Option<super::claude_edit::EditState>,
     unsent_drafts: VecDeque<String>,
-    translation: ClaudeTranslationState,
-    chunk: Vec<u8>,
+    pub(super) transfer: FactTransfer,
 }
 
 /// Describes an old main-thread prompt whose author Carlos cannot establish.
@@ -75,16 +72,6 @@ pub(super) fn receive(
         app.set_status("Reading Claude history");
         return Ok(control("sessions.read", json!({"sessionId":app.thread_id})));
     }
-    if let Some(chunk) = result.get("chunk") {
-        read_chunk(app, chunk)?;
-    } else {
-        for record in result["messages"]
-            .as_array()
-            .context("SDK history page has no messages")?
-        {
-            append_record(app, record)?;
-        }
-    }
     if let Some(offset) = result["nextOffset"].as_u64() {
         return Ok(control(
             "sessions.read",
@@ -96,86 +83,12 @@ pub(super) fn receive(
     Ok(control("start", json!({"sessionId":app.thread_id})))
 }
 
-fn read_chunk(app: &mut AppState, chunk: &Value) -> Result<()> {
-    let offset = chunk["offset"]
-        .as_u64()
-        .context("History chunk has no offset")? as usize;
-    let total = chunk["totalBytes"]
-        .as_u64()
-        .context("History chunk has no size")? as usize;
-    let bytes = STANDARD.decode(
-        chunk["data"]
-            .as_str()
-            .context("History chunk has no data")?,
-    )?;
-    let buffer = &mut app.claude.history.chunk;
-    if total > 16 * 1024 * 1024 || offset != buffer.len() || buffer.len() + bytes.len() > total {
-        bail!("Claude history chunk exceeds its declared size or arrived out of order");
-    }
-    buffer.extend(bytes);
-    if buffer.len() == total {
-        let record = serde_json::from_slice(buffer)?;
-        buffer.clear();
-        append_record(app, &record)?;
-    }
-    Ok(())
-}
-
-fn append_record(app: &mut AppState, record: &Value) -> Result<()> {
-    let message = &record["message"];
-    if message["session_id"].as_str() != Some(app.thread_id.as_str()) {
-        bail!("Claude history belongs to a different session");
-    }
-    app.claude.history.records.push(message.clone());
-    if crate::claude_backend::is_child_message(message)
-        || crate::claude_backend::is_child_report_notice(message)
-    {
-        return Ok(());
-    }
-    if message["type"] == "user" {
-        if let Some(text) = prompt_text(&message["message"]["content"]) {
-            append_prompt(
-                app,
-                record["source"].as_str().unwrap_or("unknown"),
-                record["inputKind"].as_str(),
-                message,
-                text,
-            );
-        }
-    }
-    if message["type"] == "system" && message["subtype"] == "compact_boundary" {
-        app.append_message(Role::System, "Conversation compacted".to_string());
-    }
-    if matches!(message["type"].as_str(), Some("user" | "assistant")) {
-        let translation = &mut app.claude.history.translation;
-        if message["type"] == "assistant" {
-            translation.begin_history_snapshot();
-        }
-        let output = translate_claude_line(translation, &message.to_string())?;
-        app.with_historical_tools(|app| -> Result<()> {
-            for line in output.lines {
-                let parsed: Value = serde_json::from_str(&line)?;
-                if parsed["method"]
-                    .as_str()
-                    .is_some_and(|method| method.starts_with("item/"))
-                {
-                    let _ = handle_server_message_line(app, &line);
-                }
-            }
-            Ok(())
-        })?;
-    }
-    Ok(())
-}
-
-fn append_prompt(
-    app: &mut AppState,
-    source: &str,
-    kind: Option<&str>,
-    message: &Value,
-    text: String,
-) {
-    let uuid = message["uuid"].as_str().unwrap_or("");
+/// Append an already decoded history prompt with its explicit source and native UUID.
+pub(super) fn append_prompt(app: &mut AppState, facts: &Value) {
+    let source = facts["source"].as_str().unwrap_or("unknown");
+    let kind = facts["inputKind"].as_str();
+    let uuid = facts["uuid"].as_str().unwrap_or("");
+    let text = facts["text"].as_str().unwrap_or("").to_string();
     match source {
         "human" => {
             let index = app.append_message(Role::User, text.clone());
@@ -196,20 +109,6 @@ fn append_prompt(
         }
         _ => {}
     }
-}
-
-fn prompt_text(content: &Value) -> Option<String> {
-    let text = content.as_str().map(str::to_string).or_else(|| {
-        content.as_array().map(|parts| {
-            parts
-                .iter()
-                .filter(|part| part["type"] == "text")
-                .filter_map(|part| part["text"].as_str())
-                .collect::<Vec<_>>()
-                .join("\n")
-        })
-    })?;
-    (!text.trim().is_empty()).then_some(text)
 }
 
 fn control(method: &str, params: Value) -> ServerRequestAction {

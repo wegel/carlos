@@ -115,3 +115,14 @@ pub(super) fn consume(app: &mut AppState, ids: &[String]) {
         app.record_turn_started(id);
     }
 }
+
+/// Preserve accepted queued inputs when the backend clears consumed conversation work.
+pub(super) fn reset(app: &mut AppState, clear: Option<&str>) {
+    app.claude
+        .prompts
+        .entries
+        .retain(|id, prompt| !prompt.consumed || Some(id.as_str()) == clear);
+    if let Some(prompt) = clear.and_then(|id| app.claude.prompts.entries.get_mut(id)) {
+        prompt.clear = true;
+    }
+}

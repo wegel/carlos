@@ -1,7 +1,6 @@
 //! Check quota selection, sparse replies, pace, and asynchronous refresh deadlines.
 
 use std::cell::Cell;
-use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Result};
@@ -11,7 +10,7 @@ use super::{RateLimits, DISPLAY_INTERVAL, REFRESH_INTERVAL, REQUEST_TIMEOUT};
 use crate::app::notifications::handle_server_message_line;
 use crate::app::state::AppState;
 use crate::app::weekly_usage::{RateWindow, WEEK_MINUTES};
-use crate::backend::{BackendClient, BackendKind};
+use crate::backend::{BackendClient, BackendKind, EventReceiver};
 use crate::theme::{COLOR_DIFF_REMOVE, COLOR_GUTTER_USER, COLOR_TOOL_EDIT};
 
 const NOW: i64 = 1_800_000_000;
@@ -151,7 +150,7 @@ impl BackendClient for QuotaClient {
     fn respond_error(&self, _: &Value, _: i64, _: &str) -> Result<()> {
         bail!("unused")
     }
-    fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>> {
+    fn take_events_rx(&mut self) -> Result<EventReceiver> {
         bail!("unused")
     }
     fn stop(&mut self) {}

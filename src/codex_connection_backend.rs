@@ -1,14 +1,13 @@
 //! Delegate native operations through a short-lived connection handle, never a locked RPC.
 
 use std::sync::atomic::Ordering;
-use std::sync::mpsc;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
 use serde_json::Value;
 
 use super::CodexClient;
-use crate::backend::{BackendClient, BackendKind, RewindForkRequest};
+use crate::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
 use crate::codex_snapshot::CodexSnapshot;
 
 impl BackendClient for CodexClient {
@@ -64,9 +63,10 @@ impl BackendClient for CodexClient {
     fn respond_error(&self, id: &Value, code: i64, message: &str) -> Result<()> {
         self.connection()?.respond_error(id, code, message)
     }
-    fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>> {
+    fn take_events_rx(&mut self) -> Result<EventReceiver> {
         self.receiver
             .take()
+            .map(Into::into)
             .context("Codex events receiver already taken")
     }
     fn abort_connection(&self) {

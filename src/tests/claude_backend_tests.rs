@@ -2,7 +2,6 @@
 
 use std::fs;
 use std::path::PathBuf;
-use std::sync::mpsc;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -13,7 +12,7 @@ use super::{
     handle_notification_line, parse_cli_args, submit_turn_text, submit_turn_text_with_history,
     AppState, Backend, Role,
 };
-use crate::backend::{BackendClient, BackendKind};
+use crate::backend::{BackendClient, BackendKind, EventReceiver};
 use crate::claude_backend::{
     collect_live_forwarded_lines_for_test, session_misroute_event, translate_claude_line,
     ClaudeTranslationState,
@@ -84,7 +83,7 @@ impl BackendClient for ClaudeSteerMock {
         bail!("unused in test")
     }
 
-    fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>> {
+    fn take_events_rx(&mut self) -> Result<EventReceiver> {
         bail!("unused in test")
     }
 
@@ -111,7 +110,7 @@ impl BackendClient for ClaudeStartMock {
         bail!("unused in test")
     }
 
-    fn take_events_rx(&mut self) -> Result<mpsc::Receiver<String>> {
+    fn take_events_rx(&mut self) -> Result<EventReceiver> {
         bail!("unused in test")
     }
 
@@ -130,3 +129,5 @@ include!("claude_backend_tests/translation_and_submit.rs");
 include!("claude_backend_tests/local_history_recovery.rs");
 
 include!("claude_backend_tests/failure_paths.rs");
+
+include!("claude_backend_tests/review_receiver_tests.rs");

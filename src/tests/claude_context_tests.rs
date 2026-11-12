@@ -1,13 +1,17 @@
 //! Keep root context readable through native work, late reads and session boundaries.
 
+#[path = "claude_backend_tests/normalized_app.rs"]
+mod normalized_app;
+
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
+use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
 use super::codex_question_support::Peer;
-use super::{AppState, ContextUsage};
+use super::ContextUsage;
 use crate::app::claude_context::{invalidate, receive, refresh, tick, wait};
-use crate::app::notifications::handle_server_message_line;
+use crate::backend::EventReceiver;
 
 fn app() -> AppState {
     let mut app = AppState::new("root".into());
@@ -235,7 +239,7 @@ impl crate::backend::BackendClient for FailedWriter {
     fn respond(&self, _: &Value, _: Value) -> anyhow::Result<()> {
         unreachable!()
     }
-    fn take_events_rx(&mut self) -> anyhow::Result<std::sync::mpsc::Receiver<String>> {
+    fn take_events_rx(&mut self) -> anyhow::Result<EventReceiver> {
         unreachable!()
     }
     fn request_native_control(&self, _: &str, _: Value) -> anyhow::Result<()> {

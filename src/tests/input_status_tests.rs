@@ -1,5 +1,8 @@
 //! Keep prompt labels, quiet defaults and explicit mode feedback separate from native input text.
 
+#[path = "claude_backend_tests/normalized_app.rs"]
+mod normalized_app;
+
 use std::time::{Duration, Instant};
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
@@ -7,15 +10,14 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use serde_json::json;
 
+use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
 use super::codex_question_support::Peer;
 use crate::app::claude_notifications::record_submitted_prompt;
 use crate::app::context_usage::ContextUsage;
 use crate::app::input_events::handle_terminal_event;
 use crate::app::input_mode;
 use crate::app::models::{MessageKind, Role};
-use crate::app::notifications::handle_server_message_line;
 use crate::app::render_status::draw_status_bar;
-use crate::app::state::AppState;
 use crate::app::view_models::TerminalSize;
 
 fn status(app: &AppState, width: usize) -> String {

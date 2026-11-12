@@ -134,6 +134,7 @@ fn notice(app: &mut AppState, message: &Value, text: &str) {
     }
     let key = message["uuid"]
         .as_str()
+        .or_else(|| message["noticeKey"].as_str())
         .map(str::to_string)
         .unwrap_or_else(|| message.to_string());
     show(app, key, text.to_string());

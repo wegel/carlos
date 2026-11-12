@@ -1,13 +1,17 @@
 //! Keep asynchronous edit progress visible and retain drafts across failure orderings.
 
+#[path = "claude_backend_tests/normalized_app.rs"]
+mod normalized_app;
+
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::{json, Value};
 
+use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
 use super::codex_question_support::Peer;
-use super::{AppState, Role};
+use super::Role;
 use crate::app::claude_edit::{accepted, begin, failed, send_failed, waiting, EditState};
 use crate::app::claude_state::ClaudePhase;
-use crate::app::notifications::handle_server_message_line;
+use crate::backend::EventReceiver;
 
 fn app() -> AppState {
     let mut app = AppState::new("original".into());
@@ -204,7 +208,7 @@ impl crate::backend::BackendClient for EditPeer {
     fn respond_error(&self, _: &Value, _: i64, _: &str) -> anyhow::Result<()> {
         unreachable!()
     }
-    fn take_events_rx(&mut self) -> anyhow::Result<std::sync::mpsc::Receiver<String>> {
+    fn take_events_rx(&mut self) -> anyhow::Result<EventReceiver> {
         unreachable!()
     }
     fn stop(&mut self) {}

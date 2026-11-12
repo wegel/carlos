@@ -1,14 +1,16 @@
 //! Native SDK prompt, result, question, and context checks at the Rust UI boundary.
 
+#[path = "claude_backend_tests/normalized_app.rs"]
+mod normalized_app;
+
 use std::path::PathBuf;
 use std::time::Instant;
 
 use serde_json::{json, Value};
 
+use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
 use super::models::TurnStatus;
-use super::notifications::handle_server_message_line;
 use super::ralph::RalphConfig;
-use super::state::AppState;
 use crate::backend::PromptOrigin;
 
 fn frame(app: &mut AppState, frame: Value, method: Option<&str>) {
@@ -116,7 +118,7 @@ fn sdk_error_is_failed_even_when_an_interrupt_was_requested() {
         &mut app,
         json!({ "type": "assistant", "user_message_uuid": "first", "message": { "content": [] } }),
     );
-    app.claude.begin_interrupt();
+    app.native.begin_interrupt();
     let mut error = result("first");
     error["is_error"] = json!(true);
     error["errors"] = json!(["Model failed"]);
@@ -184,9 +186,9 @@ fn failed_interrupt_rolls_back_only_the_captured_prompt_ids() {
         &mut app,
         json!({"type":"assistant","user_message_uuid":"first","message":{"role":"assistant","content":[]}}),
     );
-    let captured = app.claude.begin_interrupt();
+    let captured = app.native.begin_interrupt();
     assert_eq!(captured, ["first"]);
-    app.claude.rollback_interrupt(&captured);
+    app.native.rollback_interrupt(&captured);
     sdk(&mut app, result("first"));
     idle(&mut app);
     assert_eq!(
