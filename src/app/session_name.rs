@@ -16,8 +16,9 @@ impl AppState {
         if *self.session.thread_id() != thread_id {
             if self.codex.enabled {
                 super::codex_callbacks::reset(self);
-                self.codex.panel = Default::default();
-                self.codex.task_status = Default::default();
+                self.view.codex_panel = Default::default();
+                self.session.reset_codex_panel();
+                self.session.reset_codex_task_status();
                 self.view.codex_goals = Default::default();
                 self.session.reset_codex_goals();
                 self.codex.epoch = self.codex.epoch.saturating_add(1);

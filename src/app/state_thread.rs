@@ -15,7 +15,7 @@ impl AppState {
         let update = self.session.replace_history(draft.entries, mode);
         self.session.reset_prompt_history();
         self.view.input_history = InputHistoryView::default();
-        self.codex.panel.reports.clear();
+        self.session.clear_codex_reports();
         for (turn, status) in draft.turns {
             self.record_historical_turn_status(&turn, status);
         }

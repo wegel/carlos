@@ -72,13 +72,7 @@ fn clear_pending_controls(app: &mut AppState) {
     app.session.close_codex_goals();
     app.view.codex_goals.confirm = None;
     app.view.codex_goals.error = None;
-    app.codex.panel.outgoing.clear();
-    app.codex.panel.snapshot = None;
-    app.codex.panel.stop = None;
-    app.codex.panel.error = Some("Codex closed; pending panel work was not confirmed".into());
-    if let Some(activity) = app.codex.panel.activity.as_mut() {
-        activity.request = None;
-    }
+    app.session.close_codex_panel();
     app.session.close_codex_queue();
     if app.codex.connection.socket.is_some() {
         let children = app

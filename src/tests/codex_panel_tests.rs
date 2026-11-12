@@ -27,7 +27,7 @@ fn snapshot(peer: &Peer, app: &mut crate::app::AppState, agents: Value) {
     let mut next = peer.controls.borrow().len();
     refresh(app, false);
     for _ in 0..20 {
-        if app.codex.panel.outgoing.is_empty() {
+        if !app.session.codex_panel().has_outgoing() {
             break;
         }
         tick(peer, app);
@@ -42,7 +42,7 @@ fn snapshot(peer: &Peer, app: &mut crate::app::AppState, agents: Value) {
             next += 1;
         }
     }
-    assert!(app.codex.panel.snapshot.is_none());
+    assert!(app.session.codex_panel().snapshot().is_none());
 }
 
 #[test]
@@ -55,7 +55,7 @@ fn verified_descendants_exclude_unrelated_chats_even_if_native_ignores_the_filte
         &mut app,
         json!([agent("grand", "child"), unrelated, agent("child", "root")]),
     );
-    assert_eq!(app.codex.panel.agents.len(), 2);
+    assert_eq!(app.session.codex_panel().agents().len(), 2);
     assert!(peer
         .controls
         .borrow()
@@ -69,7 +69,7 @@ fn verified_descendants_exclude_unrelated_chats_even_if_native_ignores_the_filte
             .len()
             > 1
     );
-    app.codex.panel.selected = Some(PanelId::Agent("grand".into()));
+    app.view.codex_panel.selected = Some(PanelId::Agent("grand".into()));
     stop(&mut app);
     tick(&peer, &mut app);
     let index = peer.controls.borrow().len() - 1;
@@ -98,7 +98,7 @@ fn child_text_tools_and_embedded_reports_stay_out_of_main_live_and_resumed_histo
     let mut app = app();
     let peer = Peer::default();
     snapshot(&peer, &mut app, json!([agent("child", "root")]));
-    app.codex.panel.selected = Some(PanelId::Agent("child".into()));
+    app.view.codex_panel.selected = Some(PanelId::Agent("child".into()));
     details(&mut app, false);
     for (id, kind, text) in [
         ("child-text", "agentMessage", "CHILD_BODY"),
@@ -123,16 +123,15 @@ fn child_text_tools_and_embedded_reports_stay_out_of_main_live_and_resumed_histo
         .iter()
         .all(|row| !row.text.contains("CHILD")));
     assert_eq!(
-        app.codex.panel.reports["child"]["message"],
+        app.session.codex_panel().reports()["child"]["message"],
         "ROOT_EMBEDDED_CHILD_REPORT"
     );
     assert!(
-        app.codex
-            .panel
-            .activity
-            .as_ref()
+        app.session
+            .codex_panel()
+            .activity()
             .expect("details")
-            .items
+            .items()
             .len()
             >= 2
     );
@@ -145,7 +144,7 @@ fn child_text_tools_and_embedded_reports_stay_out_of_main_live_and_resumed_histo
         .iter()
         .all(|row| !row.text.contains("ROOT_EMBEDDED_CHILD_REPORT")));
     assert_eq!(
-        app.codex.panel.reports["child"]["message"],
+        app.session.codex_panel().reports()["child"]["message"],
         "ROOT_EMBEDDED_CHILD_REPORT"
     );
 }
@@ -159,20 +158,23 @@ fn vanished_selection_does_not_retarget_stop_and_old_generation_results_cannot_r
         &mut app,
         json!([agent("a", "root"), agent("b", "root")]),
     );
-    assert_eq!(app.codex.panel.selected, Some(PanelId::Agent("a".into())));
+    assert_eq!(
+        app.view.codex_panel.selected,
+        Some(PanelId::Agent("a".into()))
+    );
     snapshot(&peer, &mut app, json!([agent("b", "root")]));
     let before = peer.controls.borrow().len();
     stop(&mut app);
     assert!(!tick(&peer, &mut app));
     assert_eq!(peer.controls.borrow().len(), before);
     assert!(app
-        .codex
-        .panel
-        .error
+        .session
+        .codex_panel()
+        .error()
         .as_deref()
         .expect("visible failure")
         .contains("left"));
-    app.codex.panel.select(true);
+    crate::app::codex_panel::select(&mut app, true);
     stop(&mut app);
     tick(&peer, &mut app);
     let index = peer.controls.borrow().len() - 1;
@@ -183,8 +185,8 @@ fn vanished_selection_does_not_retarget_stop_and_old_generation_results_cannot_r
         index,
         json!({"data":[{"id":"late","status":"inProgress"}]}),
     );
-    assert!(app.codex.panel.outgoing.is_empty());
-    assert!(app.codex.panel.agents.is_empty());
+    assert!(!app.session.codex_panel().has_outgoing());
+    assert!(app.session.codex_panel().agents().is_empty());
 }
 
 #[test]
@@ -197,7 +199,10 @@ fn idle_agents_are_not_completed_and_process_stop_uses_both_native_ids() {
         json!({"method":"thread/status/changed","params":{
         "threadId":"child","status":{"type":"idle"}}}),
     );
-    assert_eq!(app.codex.panel.agents[0]["status"]["type"], "idle");
+    assert_eq!(
+        app.session.codex_panel().agents()[0]["status"]["type"],
+        "idle"
+    );
     stop(&mut app);
     tick(&peer, &mut app);
     let index = peer.controls.borrow().len() - 1;
@@ -207,15 +212,13 @@ fn idle_agents_are_not_completed_and_process_stop_uses_both_native_ids() {
         index,
         json!({"data":[{"id":"done","status":"completed"}]}),
     );
-    assert!(app.codex.panel.stop.is_none());
-    app.codex
-        .panel
-        .processes
-        .push(crate::app::codex_panel_state::Process {
-            thread: "child".into(),
-            data: json!({"processId":"88","itemId":"exec","command":"sleep60","cwd":"/tmp"}),
-        });
-    app.codex.panel.selected = Some(PanelId::Process {
+    assert!(app.session.codex_panel().stop().is_none());
+    app.session
+        .push_codex_process_for_test(crate::session::codex::panel_state::Process::new(
+            "child".into(),
+            json!({"processId":"88","itemId":"exec","command":"sleep60","cwd":"/tmp"}),
+        ));
+    app.view.codex_panel.selected = Some(PanelId::Process {
         item: Some("exec".into()),
         thread: "child".into(),
         process: "88".into(),

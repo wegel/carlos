@@ -8,12 +8,13 @@ use super::state::AppState;
 
 /// Keep native state, control errors and ownership visible instead of relying on the status bar.
 pub(super) fn body(app: &AppState) -> Vec<String> {
-    let panel = &app.codex.panel;
+    let panel = &app.view.codex_panel;
+    let facts = app.session.codex_panel();
     let mut lines = Vec::new();
     for (owner, error) in app
-        .codex
-        .task_status
-        .errors
+        .session
+        .codex_task_status()
+        .errors()
         .iter()
         .filter(|(owner, _)| super::task_badge::owns(app, owner))
     {
@@ -23,22 +24,22 @@ pub(super) fn body(app: &AppState) -> Vec<String> {
             safe_text(error)
         ));
     }
-    if let Some(error) = &panel.control_error {
-        lines.push(error.clone());
+    if let Some(error) = facts.control_error() {
+        lines.push(error.to_string());
     }
-    if let Some(error) = &panel.error {
-        lines.push(error.clone());
+    if let Some(error) = facts.error() {
+        lines.push(error.to_string());
     }
-    if let Some(stop) = &panel.stop {
-        lines.push(stop.message.clone());
+    if let Some(stop) = &facts.stop() {
+        lines.push(stop.message().to_string());
     }
-    if !panel.notice.is_empty() {
-        lines.push(panel.notice.clone());
+    if !facts.notice().is_empty() {
+        lines.push(facts.notice().to_string());
     }
     if app.codex.closed {
         lines.push("Codex is closed; panel controls are unavailable".into());
     }
-    if !panel.selected_exists() {
+    if !facts.contains_target(panel.selected.as_ref()) {
         lines.push("No matching selected row. Arrows select; r refreshes latest.".into());
         return lines;
     }
@@ -54,9 +55,10 @@ pub(super) fn body(app: &AppState) -> Vec<String> {
 }
 
 fn agent(app: &AppState, id: &str, lines: &mut Vec<String>) {
-    let panel = &app.codex.panel;
-    let agent = panel
-        .agents
+    let panel = &app.view.codex_panel;
+    let facts = app.session.codex_panel();
+    let agent = facts
+        .agents()
         .iter()
         .find(|agent| agent["id"] == id)
         .expect("selected agent");
@@ -77,7 +79,7 @@ fn agent(app: &AppState, id: &str, lines: &mut Vec<String>) {
             text(&turn["status"])
         ));
     }
-    if let Some(report) = panel.reports.get(id) {
+    if let Some(report) = facts.reports().get(id) {
         lines.push(format!("Agent report ({}):", text(&report["status"])));
         lines.extend(
             bounded(&text(&report["message"]), 64 * 1024)
@@ -90,8 +92,8 @@ fn agent(app: &AppState, id: &str, lines: &mut Vec<String>) {
     } else {
         lines.push(format!(
             "{} agents / {} background processes; ↑↓ selects, Enter reads child activity",
-            panel.agents.len(),
-            panel.processes.len()
+            facts.agents().len(),
+            facts.processes().len()
         ));
         lines.push(
             "Idle means no active native work; it does not prove the agent completed its task."
@@ -102,35 +104,34 @@ fn agent(app: &AppState, id: &str, lines: &mut Vec<String>) {
 
 fn activity(app: &AppState, id: &str, lines: &mut Vec<String>) {
     let Some(activity) = app
-        .codex
-        .panel
-        .activity
-        .as_ref()
-        .filter(|activity| activity.thread == id)
+        .session
+        .codex_panel()
+        .activity()
+        .filter(|activity| activity.thread() == id)
     else {
         return;
     };
-    if let Some(error) = &activity.error {
-        lines.push(error.clone());
+    if let Some(error) = activity.error() {
+        lines.push(error.to_string());
     }
     lines.push(format!(
         "Read-only child activity: {} items retained (max128/8MiB)",
-        activity.items.len()
+        activity.items().len()
     ));
-    if activity.request.is_some() {
+    if activity.reading() {
         lines.push("Reading child items…".into());
     }
-    if activity.items.is_empty() && activity.request.is_none() {
+    if activity.items().is_empty() && !activity.reading() {
         lines.push("No native item records returned. This does not mean no work ran; some native tools have no saved display record.".into());
     }
-    if activity.more {
+    if activity.more() {
         lines.push("Older activity exists: l loads more, r reloads latest".into());
     }
-    if activity.items.len() >= 128 {
+    if activity.items().len() >= 128 {
         lines.push("128-item view limit reached; r reloads latest".into());
     }
     let mut remaining = 128 * 1024;
-    for entry in activity.items.iter().rev() {
+    for entry in activity.items().iter().rev() {
         if remaining == 0 {
             lines.push("Display limited to128KiB; native records remain retained".into());
             break;
@@ -147,9 +148,9 @@ fn activity(app: &AppState, id: &str, lines: &mut Vec<String>) {
         remaining = remaining.saturating_sub(content.len());
         lines.extend(content.lines().map(str::to_string));
     }
-    if !activity.tail.is_empty() {
+    if !activity.tail().is_empty() {
         lines.push("Live output since the last native item snapshot (last16KiB):".into());
-        lines.extend(activity.tail.lines().map(str::to_string));
+        lines.extend(activity.tail().lines().map(str::to_string));
     }
 }
 
@@ -161,27 +162,27 @@ fn process_row(
     lines: &mut Vec<String>,
 ) {
     let row = app
-        .codex
-        .panel
-        .processes
+        .session
+        .codex_panel()
+        .processes()
         .iter()
         .find(|row| {
-            row.thread == thread
-                && row.data["processId"] == id
-                && row.data["itemId"].as_str() == item
+            row.thread() == thread
+                && row.data()["processId"] == id
+                && row.data()["itemId"].as_str() == item
         })
         .expect("selected process");
     lines.extend([
         format!("Process: {id}"),
         format!("Thread: {thread}"),
-        format!("Item: {}", text(&row.data["itemId"])),
-        format!("Command: {}", text(&row.data["command"])),
-        format!("Directory: {}", text(&row.data["cwd"])),
+        format!("Item: {}", text(&row.data()["itemId"])),
+        format!("Command: {}", text(&row.data()["command"])),
+        format!("Directory: {}", text(&row.data()["cwd"])),
         format!(
             "OS PID: {} · CPU: {} · RSS KiB: {}",
-            text(&row.data["osPid"]),
-            text(&row.data["cpuPercent"]),
-            text(&row.data["rssKb"])
+            text(&row.data()["osPid"]),
+            text(&row.data()["cpuPercent"]),
+            text(&row.data()["rssKb"])
         ),
     ]);
     lines.push(

@@ -157,16 +157,17 @@ fn idle_wait_wakes_for_f2_refresh_but_not_for_closed_older_or_static_detail_view
     let mut app = app();
     let now = Instant::now();
     app.session.set_codex_goal_read_time_for_test(now);
-    app.codex.panel.show = true;
-    app.codex.panel.refreshed = Some(now - Duration::from_millis(2950));
+    app.view.codex_panel.show = true;
+    app.session
+        .set_codex_panel_refresh_time_for_test(now - Duration::from_millis(2950));
     assert_eq!(
         crate::app::input::idle_wait(&app, now),
         Some(Duration::from_millis(50))
     );
     for mode in 0..3 {
-        app.codex.panel.show = mode != 0;
-        app.codex.panel.older_window = mode == 1;
-        app.codex.panel.detail = mode == 2;
+        app.view.codex_panel.show = mode != 0;
+        app.session.set_codex_panel_older_window_for_test(mode == 1);
+        app.view.codex_panel.detail = mode == 2;
         assert!(crate::app::codex_panel::wait(&app, now).is_none());
     }
     app.codex.closed = true;

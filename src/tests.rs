@@ -203,3 +203,6 @@ mod head_entry_reference;
 
 #[path = "tests/entry_lookup_extra_tests.rs"]
 mod entry_lookup_extra_tests;
+
+#[path = "tests/codex_panel_support.rs"]
+mod codex_panel_support;

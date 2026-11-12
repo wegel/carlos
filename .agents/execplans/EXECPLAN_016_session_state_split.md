@@ -53,7 +53,7 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
   - [x] (2026-11-12 UTC) Part 8.2: native goal facts, reads, accepted changes and Ralph guards; editors and confirmations stay local. 994 Rust tests, 174 terminal workflows, release build/check, style and direct review pass. All 3,000 parent streams match exactly; pre-plan outputs equal part 8.1 byte for byte, with the same classified differences and no panic. Report: `.agents/reports/exec016-m8b-report.md`.
 - [ ] Milestone 9:
   - [x] (2026-11-12 UTC) Part 9.1: native settings and ordered local save/editor effects. 996 Rust tests, 174 terminal workflows, release build, format/style and direct review pass. All 3,000 parent streams match exactly and pre-plan outputs equal part 8.2 byte for byte; no panic. Report: `.agents/reports/exec016-m9a-report.md`.
-  - [ ] Part 9.2: task/panel facts and bounded readers; keep panel focus/scroll/detail local.
+  - [x] (2026-11-12 UTC) Part 9.2: task/panel facts and bounded readers live in the session; focus/scroll/detail remain local. The reconnect panel reader constructs SessionState directly and `codex_snapshot.rs` calls it without the app. 997 Rust tests, 174 terminal workflows, release build, style and direct review pass. All 3,000 parent streams match exactly, pre-plan outputs equal part 9.1 byte for byte, no panic. Report: `.agents/reports/exec016-m9b-report.md`.
   - [ ] Part 9.3: connection/generation fences, partial streams, history and off-thread snapshots; remove backend-to-app calls.
 - [ ] Milestone 10: complete headless session handlers and enforce the future-core boundary.
 - [ ] Milestone 11: final release/contract/performance checks and direct review of the complete split.
@@ -264,6 +264,8 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 - Milestone 8, direct primary-agent reviews: PASS, no BLOCKER or MAJOR remaining. The unchanged queue/goal fixtures pass and the new session-only tests exercise stale goals and one-time queue recovery. The callback/history corpus has no queue/goal controls; the reports state that limit explicitly.
 
 - Milestone 9.1, direct primary-agent review: PASS, no BLOCKER or MAJOR. Exact native settings scope checks and ordered disk-save/editor effects remain covered by existing fixtures and two new headless tests.
+
+- Milestone 9.2, direct primary-agent review: PASS, no BLOCKER or MAJOR. Existing task/panel/stop/ownership fixtures pass through private session APIs; the new headless reconnect-panel test uses two fixed native replies. The backend-to-app panel-reader dependency is removed.
 
 ## Outcomes & Retrospective
 
@@ -840,3 +842,5 @@ Milestone 8.1 note, 2026-11-12: moved queue facts and the shared native token co
 Milestone 8.2 note, 2026-11-12: recorded the goal move and review correction. The first seven speed pairs showed transient higher scroll/typing times. A further seven pairs, alternating which binary ran first, gave pre-plan/current medians: replay 47.55 / 47.49 ms, full draw 3.64 / 3.45, scroll 0.70 / 0.70, typing 0.59 / 0.60. The slowdown did not repeat. The small fixture replay was 1.11 / 1.10 ms. All raw runs remain under `/tmp/carlos-m8b/`.
 
 Milestone 9.1 note, 2026-11-12: recorded native settings ownership and ordered local effects. Seven quiet alternating speed pairs: {"synthetic": [{"replay": 48.22, "layout": 15.41, "draw": 3.58, "scroll": 0.7, "typing": 0.59}, {"replay": 47.87, "layout": 14.7, "draw": 3.6, "scroll": 0.7, "typing": 0.59}], "fixture": [{"replay": 1.13, "layout": 0.01, "draw": 0.52, "scroll": 0.44, "typing": 0.37}, {"replay": 1.02, "layout": 0.0, "draw": 0.48, "scroll": 0.43, "typing": 0.37}]}. No repeatable slowdown.
+
+Milestone 9.2 note, 2026-11-12: recorded task/panel ownership, exact request/stop rules and headless reconnect reader. Seven quiet alternating speed pairs: {"synthetic": [{"replay": 47.37, "layout": 14.89, "draw": 3.61, "scroll": 0.7, "typing": 0.59}, {"replay": 47.83, "layout": 14.68, "draw": 3.63, "scroll": 0.7, "typing": 0.59}], "fixture": [{"replay": 1.19, "layout": 0.01, "draw": 0.52, "scroll": 0.47, "typing": 0.37}, {"replay": 1.15, "layout": 0.01, "draw": 0.49, "scroll": 0.44, "typing": 0.37}]}. All raw checks remain under `/tmp/carlos-m9b/`.

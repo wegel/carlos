@@ -167,9 +167,9 @@ fn place_tasks(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState) 
     let uncertain = app.codex.enabled
         && !app.codex.closed
         && app
-            .codex
-            .task_status
-            .errors
+            .session
+            .codex_task_status()
+            .errors()
             .keys()
             .any(|owner| super::task_badge::owns(app, owner));
     if tasks > 0 || uncertain {

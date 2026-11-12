@@ -1,15 +1,14 @@
 //! Install complete native facts once, retaining local drafts without resending them.
 
 use std::collections::HashMap;
-use std::time::Instant;
 
 use anyhow::Result;
 use serde_json::{json, Value};
 
-use super::codex_panel_state::Process;
 use super::state::AppState;
 use crate::codex_snapshot::CodexSnapshot;
 use crate::protocol_params::{parse_model_list_page, parse_thread_runtime_settings};
+use crate::session::codex::panel_state::VerifiedOwners;
 
 /// Validate all fallible fields before replacing transcript or native control snapshots.
 pub(super) fn install(
@@ -76,10 +75,7 @@ fn install_goal(app: &mut AppState, goal: Option<Value>) {
     }
 }
 
-fn verified_owners(
-    app: &AppState,
-    panel: &Value,
-) -> Result<super::codex_panel_state::VerifiedOwners> {
+fn verified_owners(app: &AppState, panel: &Value) -> Result<VerifiedOwners> {
     let owners = panel
         .get("verifiedOwners")
         .map(|value| {
@@ -96,7 +92,7 @@ fn verified_owners(
                 .ok_or_else(|| anyhow::anyhow!("Invalid verified task owner"))
         })
         .collect::<Result<Vec<_>>>()?;
-    super::codex_panel_state::VerifiedOwners::new(&app.session.thread_id(), app.codex.epoch, owners)
+    VerifiedOwners::new(&app.session.thread_id(), app.codex.epoch, owners)
         .map_err(anyhow::Error::msg)
 }
 
@@ -123,7 +119,7 @@ fn install_queue(app: &mut AppState, snapshot: &CodexSnapshot) {
 }
 
 struct PanelFacts {
-    ownership: super::codex_panel_state::VerifiedOwners,
+    ownership: VerifiedOwners,
     scopes: HashMap<String, Option<String>>,
 }
 
@@ -155,30 +151,8 @@ fn process_scopes(panel: &Value) -> Result<HashMap<String, Option<String>>> {
 }
 
 fn install_panel(app: &mut AppState, panel: &Value, facts: PanelFacts) {
-    app.codex.panel.ownership = facts.ownership;
-    app.codex.panel.process_scopes = facts.scopes;
-    app.codex.task_status = Default::default();
-    app.codex.panel.agents = panel["agents"].as_array().cloned().unwrap_or_default();
-    app.codex.panel.processes = panel["processes"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|row| {
-            Some(Process {
-                thread: row["thread"].as_str()?.into(),
-                data: row["data"].clone(),
-            })
-        })
-        .collect();
-    app.codex.panel.older = panel["older"].clone();
-    app.codex.panel.older_window = false;
-    app.codex.panel.activity = None;
-    app.codex.panel.detail = false;
-    app.codex.panel.refreshed = Some(Instant::now());
-    app.codex.panel.error = panel["error"].as_str().map(str::to_string);
-    app.codex.panel.notice = panel["notice"]
-        .as_str()
-        .unwrap_or("Agent data unavailable on this server")
-        .into();
-    super::codex_task_status::panel_updated(app);
+    let scope = super::codex_panel::scope(&app.codex, &app.view.codex_panel);
+    app.session
+        .install_codex_panel(panel, facts.ownership, facts.scopes, scope);
+    app.view.codex_panel.detail = false;
 }

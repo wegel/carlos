@@ -5,20 +5,29 @@ use std::time::{Duration, Instant};
 use serde_json::Value;
 
 use super::owners;
-use crate::app::claude_question_state::safe_label;
-use crate::app::codex_panel_pages::valid_id;
-use crate::app::codex_panel_state::{Process, MAX_BYTES, MAX_PROCESSES};
-use crate::app::state::AppState;
+use crate::session::codex::panel_pages::valid_id;
+use crate::session::codex::panel_scope::PanelScope;
+use crate::session::codex::panel_state::{Process, MAX_BYTES, MAX_PROCESSES};
+use crate::session::state::SessionState;
+use crate::session::text::safe_label;
 
 /// Accept one bounded page without exposing a partial process list.
-pub(super) fn accept_page(app: &mut AppState, response: &Value) -> Result<(), String> {
+pub(crate) fn accept_page(
+    session: &mut SessionState,
+    scope: PanelScope<'_>,
+    response: &Value,
+) -> Result<(), String> {
     if let Some(error) = response.get("error") {
         return Err(format!(
             "Background process refresh failed: {}; F2 can retry",
             safe_label(error["message"].as_str().unwrap_or("native error"))
         ));
     }
-    let read = app.codex.task_status.read.as_mut().expect("targeted read");
+    let read = session
+        .codex_task_status
+        .read
+        .as_mut()
+        .expect("targeted read");
     read.bytes = read.bytes.saturating_add(response.to_string().len());
     if read.bytes > MAX_BYTES || read.started.elapsed() >= Duration::from_secs(20) {
         return Err("Background process read exceeded 8 MiB or 20 seconds; F2 can retry".into());
@@ -51,54 +60,54 @@ pub(super) fn accept_page(app: &mut AppState, response: &Value) -> Result<(), St
         read.request.params["cursor"] = cursor;
         read.sent = false;
     } else {
-        publish(app)?;
+        publish(session, scope)?;
     }
     Ok(())
 }
 
-fn publish(app: &mut AppState) -> Result<(), String> {
-    let read = app
-        .codex
-        .task_status
+fn publish(session: &mut SessionState, scope: PanelScope<'_>) -> Result<(), String> {
+    let read = session
+        .codex_task_status
         .read
         .take()
         .expect("complete targeted read");
     let owner = read.request.params["threadId"]
         .as_str()
         .expect("target owner");
-    if !cache_fits(app, owner, &read.items) {
-        app.codex.task_status.uncertain.insert(owner.into());
-        app.codex.task_status.errors.insert(
+    if !cache_fits(session, owner, &read.items) {
+        session.codex_task_status.uncertain.insert(owner.into());
+        session.codex_task_status.errors.insert(
             owner.into(),
             "Background process cache exceeded its 512-record/8 MiB bound".into(),
         );
         return Err("Background process cache exceeded its 512-record/8 MiB bound".into());
     }
     let nonempty = !read.items.is_empty();
-    app.codex.panel.revision = app.codex.panel.revision.saturating_add(1);
-    app.codex.panel.processes.retain(|row| row.thread != owner);
-    app.codex.panel.processes.extend(read.items);
-    app.codex.task_status.uncertain.remove(owner);
-    app.codex.task_status.errors.remove(owner);
+    session.codex_panel.revision = session.codex_panel.revision.saturating_add(1);
+    session
+        .codex_panel
+        .processes
+        .retain(|row| row.thread != owner);
+    session.codex_panel.processes.extend(read.items);
+    session.codex_task_status.uncertain.remove(owner);
+    session.codex_task_status.errors.remove(owner);
     if nonempty {
-        app.codex.task_status.next = Some(Instant::now() + Duration::from_secs(3));
-    } else if owners(app).is_empty() {
-        app.codex.task_status.next = None;
+        session.codex_task_status.next = Some(Instant::now() + Duration::from_secs(3));
+    } else if owners(session, scope).is_empty() {
+        session.codex_task_status.next = None;
     }
     Ok(())
 }
 
-fn cache_fits(app: &AppState, owner: &str, items: &[Process]) -> bool {
-    let other: Vec<_> = app
-        .codex
-        .panel
+fn cache_fits(session: &SessionState, owner: &str, items: &[Process]) -> bool {
+    let other: Vec<_> = session
+        .codex_panel
         .processes
         .iter()
         .filter(|row| row.thread != owner)
         .collect();
-    let agents: usize = app
-        .codex
-        .panel
+    let agents: usize = session
+        .codex_panel
         .agents
         .iter()
         .map(|agent| agent.to_string().len())

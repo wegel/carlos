@@ -160,22 +160,27 @@ fn fresh_metadata_clears_old_names_and_a_newer_rename_fences_only_the_delayed_na
 #[test]
 fn a_reused_process_id_with_a_different_native_item_never_retargets_stop() {
     let mut app = app();
-    app.codex
-        .panel
-        .processes
-        .push(crate::app::codex_panel_state::Process {
-            thread: "child".into(),
-            data: json!({"processId":"7","itemId":"old-item"}),
-        });
-    app.codex.panel.selected = app.codex.panel.ids().into_iter().next();
-    app.codex.panel.processes[0].data["itemId"] = json!("new-item");
-    assert!(!app.codex.panel.selected_exists());
+    app.session
+        .push_codex_process_for_test(crate::session::codex::panel_state::Process::new(
+            "child".into(),
+            json!({"processId":"7","itemId":"old-item"}),
+        ));
+    app.view.codex_panel.selected = app.session.codex_panel().ids().into_iter().next();
+    app.session
+        .set_codex_process_item_for_test(0, json!("new-item"));
+    assert!(!app
+        .session
+        .codex_panel()
+        .contains_target(app.view.codex_panel.selected.as_ref()));
     let peer = super::codex_question_support::Peer::default();
     crate::app::codex_panel::stop(&mut app);
     crate::app::codex_panel::tick(&peer, &mut app);
     assert!(peer.controls.borrow().is_empty());
-    app.codex.panel.select(true);
-    assert!(app.codex.panel.selected_exists());
+    crate::app::codex_panel::select(&mut app, true);
+    assert!(app
+        .session
+        .codex_panel()
+        .contains_target(app.view.codex_panel.selected.as_ref()));
 }
 
 #[test]

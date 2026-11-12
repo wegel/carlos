@@ -21,47 +21,41 @@ pub(super) fn key(
     if client.kind() != BackendKind::Codex {
         return None;
     }
-    if app.codex.panel.show && key.code == KeyCode::F(3) && key.modifiers.is_empty() {
+    if app.view.codex_panel.show && key.code == KeyCode::F(3) && key.modifiers.is_empty() {
         super::input_mode::toggle(app, std::time::Instant::now());
     } else if key.code == KeyCode::F(2) && key.modifiers.is_empty() {
-        app.codex.panel.show = !app.codex.panel.show;
-        if app.codex.panel.show {
-            if app.codex.panel.selected.is_none() {
-                app.codex.panel.selected = app.codex.panel.ids().first().cloned();
-            }
-            super::codex_panel::refresh(app, false);
-        }
-    } else if app.codex.panel.show {
+        toggle_panel(app);
+    } else if app.view.codex_panel.show {
         match (key.code, key.modifiers) {
             (KeyCode::Char('c'), KeyModifiers::CONTROL) => return Some(TerminalEventResult::Quit),
             (KeyCode::F(4), _) => {
-                app.codex.panel.show = false;
+                app.view.codex_panel.show = false;
                 super::codex_callbacks::next(app);
             }
-            (KeyCode::Esc, _) if app.codex.panel.detail => {
-                app.codex.panel.detail = false;
-                app.codex.panel.scroll = 0;
+            (KeyCode::Esc, _) if app.view.codex_panel.detail => {
+                app.view.codex_panel.detail = false;
+                app.view.codex_panel.scroll = 0;
             }
-            (KeyCode::Esc, _) => app.codex.panel.show = false,
-            (KeyCode::Up, _) => app.codex.panel.select(false),
-            (KeyCode::Down, _) => app.codex.panel.select(true),
+            (KeyCode::Esc, _) => app.view.codex_panel.show = false,
+            (KeyCode::Up, _) => super::codex_panel::select(app, false),
+            (KeyCode::Down, _) => super::codex_panel::select(app, true),
             (KeyCode::PageUp, _) => {
-                app.codex.panel.scroll = app.codex.panel.scroll.saturating_sub(5)
+                app.view.codex_panel.scroll = app.view.codex_panel.scroll.saturating_sub(5)
             }
             (KeyCode::PageDown, _) => {
-                app.codex.panel.scroll = app.codex.panel.scroll.saturating_add(5)
+                app.view.codex_panel.scroll = app.view.codex_panel.scroll.saturating_add(5)
             }
             (KeyCode::Enter, _) => super::codex_panel::details(app, false),
             (KeyCode::Char('l'), KeyModifiers::NONE) => {
-                if app.codex.panel.detail {
+                if app.view.codex_panel.detail {
                     super::codex_panel::details(app, true);
                 } else {
                     super::codex_panel::refresh(app, true);
                 }
             }
             (KeyCode::Char('r'), KeyModifiers::NONE) => {
-                app.codex.panel.error = None;
-                if app.codex.panel.detail {
+                app.session.clear_codex_panel_error();
+                if app.view.codex_panel.detail {
                     super::codex_panel::details(app, false);
                 } else {
                     super::codex_panel::refresh(app, false);
@@ -78,43 +72,16 @@ pub(super) fn key(
 
 /// Pin the selected native row above the scrollable details even on a narrow terminal.
 pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
-    fill_rect(
-        buf,
-        0,
-        0,
-        size.width,
-        size.height,
-        Style::default().bg(COLOR_STEP2),
-    );
-    if size.width == 0 || size.height == 0 {
+    if !draw_header(buf, app, size) {
         return;
     }
-    draw_str(
-        buf,
-        0,
-        0,
-        "Codex agents / processes",
-        Style::default().fg(COLOR_PRIMARY),
-        size.width,
-    );
-    if size.height < 3 {
-        return;
-    }
-    draw_str(
-        buf,
-        0,
-        1,
-        &selected(app),
-        Style::default().fg(COLOR_PRIMARY),
-        size.width,
-    );
     let lines = super::codex_panel_text::body(app);
     let wrapped = super::claude_question_view::wrap_lines(lines, size.width.max(1));
     let compact = size.width < 40 && size.height >= 4;
     let height = size.height.saturating_sub(if compact { 4 } else { 3 });
     let offset = app
-        .codex
-        .panel
+        .view
+        .codex_panel
         .scroll
         .min(wrapped.len().saturating_sub(height));
     for (row, line) in wrapped.iter().skip(offset).take(height).enumerate() {
@@ -153,8 +120,12 @@ pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
 }
 
 fn selected(app: &AppState) -> String {
-    let panel = &app.codex.panel;
-    if !panel.selected_exists() {
+    let panel = &app.view.codex_panel;
+    if !app
+        .session
+        .codex_panel()
+        .contains_target(panel.selected.as_ref())
+    {
         return if panel.selected.is_some() {
             "Selected row unavailable; use arrows"
         } else {
@@ -164,8 +135,10 @@ fn selected(app: &AppState) -> String {
     }
     let (label, status) = match panel.selected.as_ref().expect("selected row") {
         PanelId::Agent(id) => {
-            let agent = panel
-                .agents
+            let agent = app
+                .session
+                .codex_panel()
+                .agents()
                 .iter()
                 .find(|agent| agent["id"] == *id)
                 .expect("selected agent");
@@ -177,4 +150,48 @@ fn selected(app: &AppState) -> String {
         PanelId::Process { process, .. } => (process.as_str(), "background process"),
     };
     super::claude_question_state::safe_label(&format!("> {label}: {status}"))
+}
+
+fn toggle_panel(app: &mut AppState) {
+    app.view.codex_panel.show = !app.view.codex_panel.show;
+    if app.view.codex_panel.show {
+        if app.view.codex_panel.selected.is_none() {
+            app.view.codex_panel.selected = app.session.codex_panel().ids().first().cloned();
+        }
+        super::codex_panel::refresh(app, false);
+    }
+}
+
+fn draw_header(buf: &mut Buffer, app: &AppState, size: TerminalSize) -> bool {
+    fill_rect(
+        buf,
+        0,
+        0,
+        size.width,
+        size.height,
+        Style::default().bg(COLOR_STEP2),
+    );
+    if size.width == 0 || size.height == 0 {
+        return false;
+    }
+    draw_str(
+        buf,
+        0,
+        0,
+        "Codex agents / processes",
+        Style::default().fg(COLOR_PRIMARY),
+        size.width,
+    );
+    if size.height < 3 {
+        return false;
+    }
+    draw_str(
+        buf,
+        0,
+        1,
+        &selected(app),
+        Style::default().fg(COLOR_PRIMARY),
+        size.width,
+    );
+    true
 }

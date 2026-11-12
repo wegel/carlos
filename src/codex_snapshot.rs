@@ -74,7 +74,7 @@ fn read_inner(reader: SnapshotReader<'_>, thread: &str, runtime: String) -> Resu
         goal.as_ref().map_or(0, |goal| goal.to_string().len()) <= 128 * 1024,
         "Codex reconnect goal exceeds128 KiB"
     );
-    let panel = crate::app::reconnect_panel(&reader, thread)?;
+    let panel = crate::session::codex::panel_snapshot::reconnect_panel(&reader, thread)?;
     let live = reader
         .optional(
             "thread/read",

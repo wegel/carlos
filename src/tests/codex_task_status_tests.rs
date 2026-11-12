@@ -5,33 +5,26 @@ use std::time::{Duration, Instant};
 use serde_json::{json, Value};
 
 use super::codex_question_support::{app, question, receive, Peer};
-use crate::app::codex_panel_state::Process;
-use crate::app::codex_task_status::{observed, panel_updated, terminated, tick, wait};
+use crate::app::codex_task_status::{tick, wait};
 use crate::app::state::AppState;
 use crate::app::task_badge::count;
+use crate::app::tests::codex_panel_support::{observed, panel_updated, terminated};
+use crate::session::codex::panel_state::Process;
 
 /// Build one child whose source is controlled by the test.
 pub(super) fn agent(id: &str, state: &str) -> Value {
     json!({"id":id,"parentThreadId":"root","status":{"type":state,"activeFlags":[]}})
 }
 fn own(app: &mut AppState) {
-    app.codex.panel.ownership = crate::app::codex_panel_state::VerifiedOwners::new(
-        &app.session.thread_id(),
-        app.codex.epoch,
-        app.codex
-            .panel
-            .agents
-            .iter()
-            .map(|agent| agent["id"].as_str().expect("agent ID").to_string()),
-    )
-    .expect("verified test owners");
+    app.session
+        .verify_codex_agent_owners_for_test(app.codex.epoch);
 }
 /// Build one exact native terminal identity.
 pub(super) fn process(owner: &str, id: &str) -> Process {
-    Process {
-        thread: owner.into(),
-        data: json!({"processId":id,"itemId":format!("item-{id}"),"command":"sleep 30","cwd":"/tmp"}),
-    }
+    crate::session::codex::panel_state::Process::new(
+        owner.into(),
+        json!({"processId":id,"itemId":format!("item-{id}"),"command":"sleep 30","cwd":"/tmp"}),
+    )
 }
 /// Return one targeted control through the shared notification entrypoint.
 pub(super) fn answer(peer: &Peer, app: &mut AppState, index: usize, response: Value) {
@@ -53,18 +46,18 @@ fn hint(app: &mut AppState, id: &str) {
 #[test]
 fn task_counts_include_verified_active_or_waiting_children_but_not_old_idle_or_foreign_rows() {
     let mut app = app();
-    app.codex.panel.agents = vec![
+    app.session.set_codex_agents_for_test(vec![
         agent("running", "active"),
         agent("idle", "idle"),
         agent("error", "systemError"),
         agent("gone", "notLoaded"),
-    ];
+    ]);
     own(&mut app);
-    app.codex.panel.processes = vec![
+    app.session.set_codex_processes_for_test(vec![
         process("root", "one"),
         process("running", "two"),
         process("foreign", "ignore"),
-    ];
+    ]);
     assert_eq!(count(&app), 4);
     receive(&mut app, question(json!("child-question"), "idle", false));
     assert_eq!(count(&app), 5);
@@ -104,7 +97,7 @@ fn no_startup_reads_and_no_idle_timer_remain_after_a_foreground_command_has_no_b
     assert!(!tick(&peer, &mut app, now));
     assert!(wait(&app, now).is_none());
     hint(&mut app, "foreground");
-    assert!(app.codex.task_status.errors.is_empty());
+    assert!(app.session.codex_task_status().errors().is_empty());
     assert_eq!(count(&app), 0);
     assert!(tick(&peer, &mut app, now));
     assert_eq!(
@@ -128,7 +121,8 @@ fn live_processes_refresh_by_owner_then_stop_polling_when_native_membership_beco
     let mut app = app();
     let peer = Peer::default();
     let now = Instant::now();
-    app.codex.panel.processes.push(process("root", "one"));
+    app.session
+        .push_codex_process_for_test(process("root", "one"));
     panel_updated(&mut app);
     assert!(!tick(&peer, &mut app, now));
     assert!(tick(&peer, &mut app, now + Duration::from_secs(4)));
@@ -145,7 +139,7 @@ fn live_processes_refresh_by_owner_then_stop_polling_when_native_membership_beco
         json!({"result":{"data":[],"nextCursor":null}}),
     );
     assert_eq!(count(&app), 0);
-    assert!(app.codex.panel.processes.is_empty());
+    assert!(app.session.codex_panel().processes().is_empty());
     assert!(wait(&app, now + Duration::from_secs(4)).is_none());
 }
 
@@ -155,8 +149,8 @@ fn terminal_observation_and_newer_f2_snapshot_fence_older_targeted_replies() {
     let peer = Peer::default();
     let now = Instant::now();
     let old = process("root", "one");
-    let data = old.data.clone();
-    app.codex.panel.processes.push(old);
+    let data = old.data().clone();
+    app.session.push_codex_process_for_test(old);
     hint(&mut app, "one");
     tick(&peer, &mut app, now);
     terminated(&mut app, "root", "one", Some("item-one"));
@@ -167,10 +161,12 @@ fn terminal_observation_and_newer_f2_snapshot_fence_older_targeted_replies() {
         json!({"result":{"data":[data.clone()],"nextCursor":null}}),
     );
     assert_eq!(count(&app), 0);
-    assert!(app.codex.panel.processes.is_empty());
+    assert!(app.session.codex_panel().processes().is_empty());
     tick(&peer, &mut app, now + Duration::from_secs(4));
-    app.codex.panel.processes = vec![process("root", "new")];
-    app.codex.panel.process_scopes.insert("root".into(), None);
+    app.session
+        .set_codex_processes_for_test(vec![process("root", "new")]);
+    app.session
+        .set_codex_process_scope_for_test("root".into(), None);
     panel_updated(&mut app);
     answer(
         &peer,
@@ -178,8 +174,11 @@ fn terminal_observation_and_newer_f2_snapshot_fence_older_targeted_replies() {
         1,
         json!({"result":{"data":[data],"nextCursor":null}}),
     );
-    assert_eq!(app.codex.panel.processes.len(), 1);
-    assert_eq!(app.codex.panel.processes[0].data["processId"], "new");
+    assert_eq!(app.session.codex_panel().processes().len(), 1);
+    assert_eq!(
+        app.session.codex_panel().processes()[0].data()["processId"],
+        "new"
+    );
 }
 
 #[test]
@@ -187,12 +186,14 @@ fn errors_keep_the_reason_in_f2_and_stop_automatic_retry_until_new_native_work()
     let mut app = app();
     let peer = Peer::default();
     let now = Instant::now();
-    app.codex.panel.agents.push(agent("child", "active"));
+    app.session
+        .push_codex_agent_for_test(agent("child", "active"));
     own(&mut app);
-    app.codex.panel.selected = Some(crate::app::codex_panel_state::PanelId::Agent(
+    app.view.codex_panel.selected = Some(crate::app::codex_panel_state::PanelId::Agent(
         "child".into(),
     ));
-    app.codex.panel.processes.push(process("root", "one"));
+    app.session
+        .push_codex_process_for_test(process("root", "one"));
     hint(&mut app, "one");
     tick(&peer, &mut app, now);
     answer(
@@ -220,7 +221,7 @@ fn errors_keep_the_reason_in_f2_and_stop_automatic_retry_until_new_native_work()
         1,
         json!({"result":{"data":[],"nextCursor":null}}),
     );
-    assert!(app.codex.task_status.errors.is_empty());
+    assert!(app.session.codex_task_status().errors().is_empty());
 }
 
 #[test]
@@ -228,27 +229,30 @@ fn cache_limit_failure_preserves_details_but_excludes_uncertain_counts_and_expos
     let mut app = app();
     let peer = Peer::default();
     let now = Instant::now();
-    app.codex.panel.agents.push(agent("child", "idle"));
+    app.session
+        .push_codex_agent_for_test(agent("child", "idle"));
     own(&mut app);
-    app.codex.panel.processes = (0..512)
-        .map(|index| process("child", &index.to_string()))
-        .collect();
+    app.session.set_codex_processes_for_test(
+        (0..512)
+            .map(|index| process("child", &index.to_string()))
+            .collect(),
+    );
     hint(&mut app, "new");
     tick(&peer, &mut app, now);
     answer(
         &peer,
         &mut app,
         0,
-        json!({"result":{"data":[process("root","new").data],"nextCursor":null}}),
+        json!({"result":{"data":[process("root","new").data()],"nextCursor":null}}),
     );
-    assert_eq!(app.codex.panel.processes.len(), 512);
+    assert_eq!(app.session.codex_panel().processes().len(), 512);
     assert!(!app
-        .codex
-        .panel
-        .processes
+        .session
+        .codex_panel()
+        .processes()
         .iter()
-        .any(|row| row.thread == "root"));
-    assert!(app.codex.task_status.uncertain.contains("root"));
+        .any(|row| row.thread() == "root"));
+    assert!(app.session.codex_task_status().uncertain().contains("root"));
     assert!(crate::app::codex_panel_text::body(&app)
         .join("\n")
         .contains("512-record/8 MiB bound"));
@@ -270,9 +274,9 @@ fn old_root_epoch_and_generation_replies_cannot_install_process_rows() {
             &peer,
             &mut app,
             0,
-            json!({"result":{"data":[process("root","one").data],"nextCursor":null}}),
+            json!({"result":{"data":[process("root","one").data()],"nextCursor":null}}),
         );
-        assert!(app.codex.panel.processes.is_empty());
+        assert!(app.session.codex_panel().processes().is_empty());
     }
 }
 
@@ -306,13 +310,14 @@ fn actual_targeted_timeout_retains_old_rows_but_clears_counts_and_stops_idle_ret
     let mut app = app();
     let peer = Peer::default();
     let now = Instant::now();
-    app.codex.panel.processes.push(process("root", "one"));
+    app.session
+        .push_codex_process_for_test(process("root", "one"));
     hint(&mut app, "one");
     tick(&peer, &mut app, now);
     assert!(tick(&peer, &mut app, now + Duration::from_secs(21)));
-    assert_eq!(app.codex.panel.processes.len(), 1);
+    assert_eq!(app.session.codex_panel().processes().len(), 1);
     assert_eq!(count(&app), 0);
-    assert!(app.codex.task_status.uncertain.contains("root"));
+    assert!(app.session.codex_task_status().uncertain().contains("root"));
     assert!(crate::app::codex_panel_text::body(&app)
         .join("\n")
         .contains("refresh timed out"));
@@ -326,7 +331,8 @@ fn another_owners_success_does_not_erase_a_failed_owners_reason_or_uncertainty()
     let mut app = app();
     let peer = Peer::default();
     let now = Instant::now();
-    app.codex.panel.agents.push(agent("child", "active"));
+    app.session
+        .push_codex_agent_for_test(agent("child", "active"));
     own(&mut app);
     hint(&mut app, "one");
     tick(&peer, &mut app, now);
@@ -348,8 +354,12 @@ fn another_owners_success_does_not_erase_a_failed_owners_reason_or_uncertainty()
         1,
         json!({"result":{"data":[],"nextCursor":null}}),
     );
-    assert!(app.codex.task_status.errors.contains_key("root"));
-    assert!(app.codex.task_status.uncertain.contains("root"));
+    assert!(app
+        .session
+        .codex_task_status()
+        .errors()
+        .contains_key("root"));
+    assert!(app.session.codex_task_status().uncertain().contains("root"));
     assert!(crate::app::codex_panel_text::body(&app)
         .join("\n")
         .contains("Root registry unavailable"));

@@ -44,3 +44,22 @@ mod settings_test_support;
 
 #[cfg(test)]
 mod settings_tests;
+
+pub(crate) mod panel;
+mod panel_access;
+pub(crate) mod panel_activity;
+pub(crate) mod panel_events;
+pub(crate) mod panel_pages;
+pub(crate) mod panel_receive;
+pub(crate) mod panel_scope;
+pub(crate) mod panel_state;
+pub(crate) mod task_badge;
+pub(crate) mod task_status;
+
+pub(crate) mod panel_snapshot;
+
+#[cfg(test)]
+mod panel_test_support;
+
+#[cfg(test)]
+mod panel_snapshot_tests;

@@ -1,297 +1,80 @@
-//! Schedule bounded Codex panel reads and exact selected controls without blocking the UI.
+//! Apply local task-panel changes after session-owned reads and controls.
 
-use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
-use serde_json::{json, Value};
-
-use super::codex_panel_state::{Activity, PanelId, Request, Snapshot, Stop};
+use super::codex_panel_state::PanelView;
+use super::codex_state::CodexUiState;
 use super::state::AppState;
 use crate::backend::BackendClient;
+use crate::session::codex::panel;
+use crate::session::codex::panel_scope::{PanelScope, PanelUpdate};
+use crate::session::codex::scope::CodexScope;
 
-/// Poll only while the panel is open; pending controls still settle after it closes.
+/// Borrow only the explicit local target while copying the native connection identity.
+pub(super) fn scope<'a>(codex: &CodexUiState, view: &'a PanelView) -> PanelScope<'a> {
+    PanelScope {
+        native: CodexScope {
+            enabled: codex.enabled,
+            closed: codex.closed,
+            epoch: codex.epoch,
+        },
+        generation: codex.connection.generation,
+        rebuilding: codex.connection.rebuilding,
+        visible: view.show,
+        detail: view.detail,
+        selected: view.selected.as_ref(),
+    }
+}
+
+/// Poll native panel work without retaining client visibility in the session.
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
-    if !app.codex.enabled || app.codex.closed {
-        return false;
-    }
-    if app.codex.panel.show
-        && !app.codex.panel.older_window
-        && !app.codex.panel.detail
-        && app.codex.panel.snapshot.is_none()
-        && app
-            .codex
-            .panel
-            .refreshed
-            .is_none_or(|at| at.elapsed() >= Duration::from_secs(3))
-    {
-        refresh(app, false);
-    }
-    let mut changed = expire(app);
-    while let Some(request) = app.codex.panel.outgoing.pop_front() {
-        let context = json!({"operation":"panel","epoch":app.codex.epoch,
-            "root":app.session.thread_id(),"token":request.token,"timeoutMs":timeout(app, &request)});
-        if let Err(error) =
-            client.request_control_with_context(&request.method, request.params.clone(), context)
-        {
-            super::codex_panel_receive::failed(app, &request, &error.to_string());
-        }
-        changed = true;
-    }
+    let scope = scope(&app.codex, &app.view.codex_panel);
+    let mut update = PanelUpdate::default();
+    let changed = panel::tick(client, &mut app.session, scope, &mut update);
+    apply(app, update);
     changed
 }
 
-/// Start a recent or explicitly older bounded agent window without replacing a usable snapshot yet.
+/// Request a bounded native agent/process window.
 pub(super) fn refresh(app: &mut AppState, older: bool) {
-    if app.codex.closed || app.codex.panel.snapshot.is_some() {
-        return;
-    }
-    let cursor = if older {
-        app.codex.panel.older.clone()
-    } else {
-        Value::Null
-    };
-    if older && cursor.is_null() {
-        return;
-    }
-    let request = request(
-        app,
-        "thread/list",
-        json!({"ancestorThreadId":app.session.thread_id(),
-        "sourceKinds":["subAgent","subAgentReview","subAgentCompact","subAgentThreadSpawn","subAgentOther"],
-        "sortKey":"updated_at","sortDirection":"desc","limit":1,"cursor":cursor}),
-    );
-    app.codex.panel.snapshot = Some(Snapshot {
-        request,
-        started: Instant::now(),
-        agents: Vec::new(),
-        processes: Vec::new(),
-        scopes: VecDeque::new(),
-        bytes: 0,
-        cursors: HashSet::new(),
-        revision: app.codex.panel.revision,
-        older: Value::Null,
-        lineage: HashMap::new(),
-        checked: HashSet::new(),
-        errors: Vec::new(),
-        process_scopes: HashMap::new(),
-        older_window: older,
-    });
-    app.codex.panel.notice = "Reading agents and background processes…".into();
+    let scope = scope(&app.codex, &app.view.codex_panel);
+    panel::refresh(&mut app.session, scope, older);
 }
 
-/// Inspect a selected child without resuming it or changing its model or history.
+/// Ask the session to read the explicitly selected child's recent native items.
 pub(super) fn details(app: &mut AppState, older: bool) {
-    let Some(PanelId::Agent(thread)) = app.codex.panel.selected.clone() else {
-        return;
-    };
-    if !app.codex.panel.selected_exists() {
-        return;
-    }
-    if !older
-        || app
-            .codex
-            .panel
-            .activity
-            .as_ref()
-            .is_none_or(|activity| activity.thread != thread)
-    {
-        app.codex.panel.activity = Some(Activity {
-            thread: thread.clone(),
-            request: None,
-            started: Instant::now(),
-            items: Vec::new(),
-            cursor: Value::Null,
-            cursors: HashSet::new(),
-            bytes: 0,
-            tail: String::new(),
-            error: None,
-            more: true,
-            until: 20,
-        });
-    }
-    let activity = app
-        .codex
-        .panel
-        .activity
-        .as_mut()
-        .expect("selected activity");
-    if activity.request.is_some() || !activity.more || activity.items.len() >= 128 {
-        return;
-    }
-    activity.started = Instant::now();
-    activity.until = (activity.items.len() + 20).min(128);
-    let params =
-        json!({"threadId":thread,"sortDirection":"desc","limit":1,"cursor":activity.cursor});
-    let request = request(app, "thread/items/list", params);
-    app.codex
-        .panel
-        .activity
-        .as_mut()
-        .expect("selected activity")
-        .request = Some(request);
-    app.codex.panel.detail = true;
-    app.codex.panel.scroll = 0;
+    let scope = scope(&app.codex, &app.view.codex_panel);
+    let mut update = PanelUpdate::default();
+    panel::details(&mut app.session, scope, &mut update, older);
+    apply(app, update);
 }
 
-/// Stop only a currently selected verified native identity; never redirect a vanished selection.
+/// Stop only the exact native identity the user selected.
 pub(super) fn stop(app: &mut AppState) {
-    if app.codex.closed || app.codex.panel.stop.is_some() {
-        return;
-    }
-    if !app.codex.panel.selected_exists() {
-        app.codex.panel.error =
-            Some("Selected row left the list; use arrows to choose another".into());
-        return;
-    }
-    let target = app
-        .codex
-        .panel
-        .selected
-        .clone()
-        .expect("selected native row");
-    let (method, params) = match &target {
-        PanelId::Agent(thread) => (
-            "thread/turns/list",
-            json!({"threadId":thread,
-            "sortDirection":"desc","itemsView":"notLoaded","limit":1}),
-        ),
-        PanelId::Process {
-            thread, process, ..
-        } => (
-            "thread/backgroundTerminals/terminate",
-            json!({"threadId":thread,"processId":process}),
-        ),
-    };
-    let request = request(app, method, params);
-    app.codex.panel.stop = Some(Stop {
-        target,
-        request,
-        message: "Checking the selected native target…".into(),
-    });
-    app.codex.panel.control_error = None;
+    let scope = scope(&app.codex, &app.view.codex_panel);
+    panel::stop(&mut app.session, scope);
 }
 
-/// Queue one bounded operation with a caller-owned token that never reaches native parameters.
-pub(super) fn request(app: &mut AppState, method: &str, params: Value) -> Request {
-    let tokens = [
-        app.codex
-            .panel
-            .snapshot
-            .as_ref()
-            .map(|read| read.request.token),
-        app.codex
-            .panel
-            .activity
-            .as_ref()
-            .and_then(|activity| activity.request.as_ref().map(|request| request.token)),
-        app.codex.panel.stop.as_ref().map(|stop| stop.request.token),
-    ];
-    app.codex
-        .panel
-        .outgoing
-        .retain(|request| tokens.contains(&Some(request.token)));
-    app.session.advance_codex_serial();
-    let request = Request {
-        token: app.session.codex_serial(),
-        method: method.into(),
-        params,
-    };
-    app.codex.panel.outgoing.push_back(request.clone());
-    request
-}
-
-/// Continue a page with the same read token and original deadline.
-pub(super) fn continue_read(app: &mut AppState, mut request: Request, cursor: Value) -> Request {
-    request.params["cursor"] = cursor;
-    app.codex.panel.outgoing.push_back(request.clone());
-    request
-}
-
-fn timeout(app: &AppState, request: &Request) -> u64 {
-    let started = app
-        .codex
-        .panel
-        .snapshot
-        .as_ref()
-        .filter(|read| read.request.token == request.token)
-        .map(|read| read.started)
-        .or_else(|| {
-            app.codex
-                .panel
-                .activity
-                .as_ref()
-                .filter(|activity| {
-                    activity
-                        .request
-                        .as_ref()
-                        .is_some_and(|pending| pending.token == request.token)
-                })
-                .map(|activity| activity.started)
-        });
-    if let Some(started) = started {
-        return Duration::from_secs(20)
-            .saturating_sub(started.elapsed())
-            .as_millis()
-            .clamp(1, 5000) as u64;
-    }
-    if crate::protocol::is_read_only(&request.method) {
-        5000
-    } else {
-        15000
-    }
-}
-
-fn expire(app: &mut AppState) -> bool {
-    let mut expired = Vec::new();
-    if let Some(read) = app
-        .codex
-        .panel
-        .snapshot
-        .as_ref()
-        .filter(|read| read.started.elapsed() >= Duration::from_secs(20))
-    {
-        expired.push(read.request.token);
-        app.codex.panel.snapshot = None;
-        app.codex.panel.error =
-            Some("Panel refresh exceeded20 seconds; previous rows retained".into());
-        app.codex.panel.refreshed = Some(Instant::now());
-    }
-    if let Some(activity) = app.codex.panel.activity.as_mut().filter(|activity| {
-        activity.request.is_some() && activity.started.elapsed() >= Duration::from_secs(20)
-    }) {
-        expired.push(activity.request.take().expect("expired child read").token);
-        activity.error =
-            Some("Child read exceeded20 seconds; retained items remain available".into());
-    }
-    app.codex
-        .panel
-        .outgoing
-        .retain(|request| !expired.contains(&request.token));
-    !expired.is_empty()
-}
-
-/// Wake an idle UI for periodic F2 reads and original read deadlines without polling hidden views.
+/// Read the next native deadline without creating a timer for a hidden idle panel.
 pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
-    if !app.codex.enabled || app.codex.closed {
-        return None;
+    panel::wait(&app.session, scope(&app.codex, &app.view.codex_panel), now)
+}
+
+/// Preserve selection identity while explicit arrows discard the previous child read.
+pub(super) fn select(app: &mut AppState, down: bool) {
+    app.view.codex_panel.select(down, app.session.codex_panel());
+    app.session.clear_codex_panel_activity();
+}
+
+/// Apply exact session reports without replacing another local selection.
+pub(super) fn apply(app: &mut AppState, update: PanelUpdate) {
+    if let Some(selected) = update.selected {
+        app.view.codex_panel.selected = Some(selected);
     }
-    let panel = &app.codex.panel;
-    let snapshot = panel
-        .snapshot
-        .as_ref()
-        .map(|read| (read.started + Duration::from_secs(20)).saturating_duration_since(now));
-    let activity = panel
-        .activity
-        .as_ref()
-        .filter(|activity| activity.request.is_some())
-        .map(|activity| {
-            (activity.started + Duration::from_secs(20)).saturating_duration_since(now)
-        });
-    let refresh = (panel.show && !panel.older_window && !panel.detail && panel.snapshot.is_none())
-        .then(|| {
-            panel.refreshed.map_or(Duration::ZERO, |at| {
-                (at + Duration::from_secs(3)).saturating_duration_since(now)
-            })
-        });
-    snapshot.into_iter().chain(activity).chain(refresh).min()
+    if update.detail {
+        app.view.codex_panel.detail = true;
+    }
+    if update.reset_scroll {
+        app.view.codex_panel.scroll = 0;
+    }
 }
