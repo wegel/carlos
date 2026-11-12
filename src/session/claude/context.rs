@@ -4,6 +4,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
+use super::activity::NativeState;
+use super::state::ClaudePhase;
 use crate::backend::BackendClient;
 use crate::session::context_usage::ContextUsage;
 use crate::session::state::SessionState;
@@ -36,6 +38,7 @@ impl SessionState {
 
     /// Fence old reads only when the native context or its window actually changes.
     pub(crate) fn invalidate_claude_context(&mut self) {
+        self.claude.activity.context_revision += 1;
         self.set_context_usage(None);
         self.claude.context.next_read = None;
         self.refresh_claude_context();
@@ -46,11 +49,9 @@ impl SessionState {
         &mut self,
         client: &dyn BackendClient,
         now: Instant,
-        available: bool,
-        working: bool,
-        revision: &mut u64,
+        enabled: bool,
     ) -> bool {
-        if !available {
+        if !self.claude_context_available(enabled) {
             return false;
         }
         let model = self.runtime_settings().current_model().clone();
@@ -58,10 +59,12 @@ impl SessionState {
         if self.claude.context.model != model {
             redraw = self.context_usage().is_some();
             self.claude.context.model = model;
-            *revision += 1;
             self.invalidate_claude_context();
         }
-        if self.claude.context.fresh && !working && self.claude.context.pending.is_none() {
+        if self.claude.context.fresh
+            && !self.claude_context_working()
+            && self.claude.context.pending.is_none()
+        {
             return redraw;
         }
         let context = &mut self.claude.context;
@@ -80,7 +83,7 @@ impl SessionState {
             sent: now,
         });
         context.next_read = Some(now + INTERVAL);
-        let params = json!({"revision":*revision,"contextToken":context.sequence});
+        let params = json!({"revision":self.claude.activity.context_revision,"contextToken":context.sequence});
         if client.request_native_control("context", params).is_err() {
             context.pending = None;
             context.next_read = Some(now + STALE_AFTER);
@@ -91,17 +94,12 @@ impl SessionState {
     }
 
     /// Wake idle work for reads and stale-value markers, without polling a stuck request forever.
-    pub(crate) fn claude_context_wait(
-        &self,
-        now: Instant,
-        available: bool,
-        working: bool,
-    ) -> Option<Duration> {
-        if !available {
+    pub(crate) fn claude_context_wait(&self, now: Instant, enabled: bool) -> Option<Duration> {
+        if !self.claude_context_available(enabled) {
             return None;
         }
         let context = &self.claude.context;
-        if context.fresh && !working && context.pending.is_none() {
+        if context.fresh && !self.claude_context_working() && context.pending.is_none() {
             return None;
         }
         let deadline = if let Some(read) = &context.pending {
@@ -114,7 +112,7 @@ impl SessionState {
     }
 
     /// Settle even an obsolete read, then apply only counts for the current context revision.
-    pub(crate) fn receive_claude_context(&mut self, frame: &Value, request: &Value, revision: u64) {
+    pub(crate) fn receive_claude_context(&mut self, frame: &Value, request: &Value) {
         let context = &mut self.claude.context;
         if let Some(token) = request["contextToken"].as_u64() {
             if !context
@@ -128,7 +126,7 @@ impl SessionState {
         context.pending = None;
         if request["revision"]
             .as_u64()
-            .is_some_and(|requested| requested != revision)
+            .is_some_and(|requested| requested != self.claude.activity.context_revision)
         {
             context.next_read = None;
             return;
@@ -155,5 +153,15 @@ impl SessionState {
             }
         }
         context.fresh = false;
+    }
+
+    fn claude_context_available(&self, enabled: bool) -> bool {
+        enabled
+            && self.claude.phase == ClaudePhase::Ready
+            && self.claude.activity.transient.as_deref() != Some("Compacting")
+    }
+
+    fn claude_context_working(&self) -> bool {
+        self.active_turn_id().is_some() || self.claude.activity.state != NativeState::Idle
     }
 }

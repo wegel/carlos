@@ -3,7 +3,8 @@
 use std::collections::BTreeMap;
 
 /// Tracks control progress without treating an acknowledgement as a terminal task edge.
-pub(super) enum StopState {
+#[derive(Debug)]
+pub(crate) enum StopState {
     Sending,
     Requested,
     Failed(String),
@@ -11,9 +12,11 @@ pub(super) enum StopState {
 
 /// Keeps one control state per actual task/run, including level-only tasks.
 #[derive(Default)]
-pub(super) struct TaskStops {
+#[cfg_attr(test, derive(Debug))]
+pub(crate) struct TaskStops {
     entries: BTreeMap<String, StopRequest>,
 }
+#[cfg_attr(test, derive(Debug))]
 struct StopRequest {
     run: Option<String>,
     state: StopState,
@@ -21,7 +24,11 @@ struct StopRequest {
 
 impl TaskStops {
     /// Start once per run; failed requests can be retried explicitly by the user.
-    pub(super) fn begin(&mut self, id: &str, run: Option<&str>) -> Result<bool, &'static str> {
+    pub(in crate::session) fn begin(
+        &mut self,
+        id: &str,
+        run: Option<&str>,
+    ) -> Result<bool, &'static str> {
         if matches!(
             self.state(id, run),
             Some(StopState::Sending | StopState::Requested)
@@ -42,7 +49,7 @@ impl TaskStops {
     }
 
     /// Show a control state only for the exact run it belongs to.
-    pub(super) fn state(&self, id: &str, run: Option<&str>) -> Option<&StopState> {
+    pub(crate) fn state(&self, id: &str, run: Option<&str>) -> Option<&StopState> {
         self.entries
             .get(id)
             .filter(|request| request.run.as_deref() == run)
@@ -50,7 +57,7 @@ impl TaskStops {
     }
 
     /// Keep stop acknowledgements independent of the detailed task cache.
-    pub(super) fn reply(&mut self, id: &str, run: Option<&str>, error: Option<String>) {
+    pub(in crate::session) fn reply(&mut self, id: &str, run: Option<&str>, error: Option<String>) {
         if let Some(request) = self
             .entries
             .get_mut(id)
@@ -63,7 +70,7 @@ impl TaskStops {
     }
 
     /// Retire a control after native Claude reports that its exact task run ended.
-    pub(super) fn finish(&mut self, id: &str, run: Option<&str>) {
+    pub(in crate::session) fn finish(&mut self, id: &str, run: Option<&str>) {
         if self
             .entries
             .get(id)

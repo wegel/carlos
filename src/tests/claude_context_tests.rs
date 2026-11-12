@@ -45,7 +45,7 @@ fn repeated_running_and_child_usage_keep_known_root_context_and_one_pending_read
     tick(&peer, &mut app, now);
     let request = peer.controls.borrow()[0].1.clone();
     answer(&mut app, &request, 42000);
-    let revision = app.claude.activity.context_revision;
+    let revision = app.session.claude().activity().context_revision();
     for _ in 0..3 {
         sdk(
             &mut app,
@@ -53,7 +53,7 @@ fn repeated_running_and_child_usage_keep_known_root_context_and_one_pending_read
         );
         tick(&peer, &mut app, now);
     }
-    assert_eq!(app.claude.activity.context_revision, revision);
+    assert_eq!(app.session.claude().activity().context_revision(), revision);
     assert_eq!(
         app.session.context_usage(),
         Some(ContextUsage {

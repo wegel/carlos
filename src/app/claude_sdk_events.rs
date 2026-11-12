@@ -17,20 +17,14 @@ pub(super) fn receive(
         "claude/browserComplete" => super::claude_browser::complete(app, facts),
         "claude/task" => return task(app, facts),
         "claude/conversationReset" => super::claude_reset::receive(app, facts),
-        "claude/activity" => {
-            app.claude.activity.state(facts);
-            if facts["state"] == "running" {
-                super::claude_context::refresh(app);
-            }
-        }
+        "claude/activity" => app.session.record_claude_activity(facts),
         "claude/status" => return status(app, facts),
-        "claude/thinking" => app.claude.activity.thinking = facts["estimated_tokens"].as_u64(),
+        "claude/thinking" => app.session.record_claude_thinking(facts),
         "claude/result" => {
             if let Some(error) = facts["error"].as_str() {
                 app.append_message(Role::System, error.to_string());
             }
-            app.claude.activity.transient = None;
-            app.claude.activity.thinking = None;
+            app.session.finish_claude_activity();
             return Some(ServerRequestAction::RefreshContext);
         }
         "claude/usageReport" => super::claude_notices::usage(app, facts),
@@ -63,13 +57,13 @@ fn status(app: &mut AppState, facts: &Value) -> Option<ServerRequestAction> {
     if facts["compaction"] == true {
         super::claude_notices::compact(app, facts);
     } else {
-        app.claude.activity.transient = facts["label"].as_str().map(str::to_string);
+        app.session.record_claude_status(facts);
     }
     (facts["refreshContext"] == true).then_some(ServerRequestAction::RefreshContext)
 }
 
 fn task(app: &mut AppState, message: &Value) -> Option<ServerRequestAction> {
-    if let Err(error) = app.claude.tasks.update(message) {
+    if let Err(error) = app.session.update_claude_task(message) {
         return bounded_failure(app, error);
     }
     None

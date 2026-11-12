@@ -5,14 +5,12 @@ use std::collections::HashMap;
 
 use serde_json::{json, Map, Value};
 
-use super::claude_browser::BrowserRequest;
 use super::claude_question_field::{AnswerField, AnswerOption};
 
 /// Unanswered callbacks and consented browser requests retain separate lifetimes.
 #[derive(Default)]
 pub(super) struct NativeAnswers {
     pub(super) drafts: HashMap<String, NativeDraft>,
-    pub(super) browser: HashMap<(String, String), BrowserRequest>,
 }
 
 /// One callback owns all answer fields until the SDK accepts or cancels it.

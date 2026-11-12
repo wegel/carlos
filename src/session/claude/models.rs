@@ -55,6 +55,14 @@ impl SessionState {
 
     /// Record a native model without overwriting an explicit Carlos choice.
     pub(crate) fn observe_claude_model(&mut self, model: &str) {
+        if self
+            .claude
+            .observed_model
+            .as_deref()
+            .is_some_and(|previous| previous != model)
+        {
+            self.invalidate_claude_context();
+        }
         self.claude.observed_model = Some(model.to_string());
         if self.runtime_settings().current_model().is_none()
             && self.runtime_settings().pending_model().is_none()

@@ -67,7 +67,7 @@ fn every_child_envelope_hides_text_thinking_tools_results_and_session_state() {
     assert!(app.session.messages().is_empty());
     assert_eq!(app.session.thread_id(), "session");
     assert!(app.session.runtime_settings().current_model().is_none());
-    assert!(app.claude.activity.thinking.is_none());
+    assert!(app.session.claude().activity().thinking().is_none());
     assert!(app.session.active_turn_id().is_none());
     assert!(app.session.claude().phase() == ClaudePhase::Ready);
 }
@@ -109,7 +109,7 @@ fn main_tools_reports_and_child_callbacks_survive_without_task_detail_rows() {
     }
     assert!(!text.contains("PANEL_"));
     assert_eq!(
-        app.claude.tasks.data("child").expect("task")["summary"],
+        app.session.claude().tasks().data("child").expect("task")["summary"],
         "PANEL_SUMMARY"
     );
     assert_eq!(

@@ -41,7 +41,7 @@ pub(super) fn receive_callback(app: &mut AppState, frame: &Value) {
     }
     let has_fields = !draft.fields.is_empty();
     app.claude.answers.drafts.insert(id.to_string(), draft);
-    super::claude_browser::register(app, id, payload);
+    app.session.register_claude_browser(id, payload);
     if app.session.approval().pending().is_none() {
         app.set_pending_approval(prompt);
     } else {
@@ -90,7 +90,7 @@ fn callback_prompt(id: &str, kind: &str, payload: &Value) -> Option<ApprovalRequ
 pub(super) fn cancel_callback(app: &mut AppState, id: &Value) {
     if let Some(id) = id.as_str() {
         app.claude.answers.drafts.remove(id);
-        super::claude_browser::withdraw(app, id);
+        app.session.withdraw_claude_browser(id);
     }
     if app.view.confirm_allow.is_some_and(|entry| {
         app.live_approval_cards()

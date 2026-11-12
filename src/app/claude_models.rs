@@ -26,14 +26,6 @@ pub(super) fn apply_capabilities(app: &mut AppState, capabilities: &Value) {
 
 /// Fence context reads before recording a changed native model.
 pub(super) fn observe_model(app: &mut AppState, model: &str) {
-    if app
-        .session
-        .claude()
-        .observed_model()
-        .is_some_and(|previous| previous != model)
-    {
-        super::claude_context::invalidate(app);
-    }
     app.session.observe_claude_model(model);
 }
 

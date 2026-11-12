@@ -3,15 +3,14 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
-use serde_json::json;
 
 use super::claude_question_state::safe_label;
-use super::claude_task_stops::StopState;
 use super::input_events::TerminalEventResult;
 use super::render::{draw_str, fill_rect};
 use super::state::AppState;
 use super::view_models::TerminalSize;
 use crate::backend::{BackendClient, BackendKind};
+use crate::session::claude::StopState;
 use crate::theme::{COLOR_DIM, COLOR_PRIMARY, COLOR_STEP2, COLOR_TEXT};
 
 /// Route task controls ahead of question input so a waiting child can still be stopped.
@@ -29,7 +28,7 @@ pub(super) fn key(
         if app.claude.tasks.show {
             app.claude.tasks.show = false;
         } else {
-            app.claude.tasks.open();
+            app.claude.tasks.open(app.session.claude().tasks());
         }
     } else if app.claude.tasks.show {
         match (key.code, key.modifiers) {
@@ -88,29 +87,28 @@ pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
 }
 
 fn detail(app: &AppState, id: Option<&str>) -> Vec<String> {
+    let tasks = app.session.claude().tasks();
     let Some(id) = id else {
         return vec![if app.claude.tasks.selected.is_some() {
             "Selected task left the retained list; use arrows to choose another".to_string()
         } else {
-            if app.claude.tasks.ids().is_empty() {
+            if tasks.ids().is_empty() {
                 "No native tasks reported".to_string()
             } else {
                 "Use arrows to select a native task".to_string()
             }
         }];
     };
-    let Some(data) = app.claude.tasks.data(id) else {
+    let Some(data) = tasks.data(id) else {
         return Vec::new();
     };
-    let status = app
-        .claude
-        .tasks
-        .records
+    let status = tasks
+        .records()
         .get(id)
-        .map(|record| record.status.label())
+        .map(|record| super::claude_tasks::status_label(record.status()))
         .unwrap_or("running");
     let mut lines = vec![format!("Task {} · {status}", safe_label(id))];
-    if let Some(state) = app.claude.tasks.stops.state(id, data["run_id"].as_str()) {
+    if let Some(state) = tasks.stops().state(id, data["run_id"].as_str()) {
         lines.push(match state {
             StopState::Sending => "Sending stop request".to_string(),
             StopState::Requested => "Stop requested; waiting for native task event".to_string(),
@@ -143,11 +141,11 @@ fn detail(app: &AppState, id: Option<&str>) -> Vec<String> {
 }
 
 fn select(app: &mut AppState, down: bool) {
-    let ids = app.claude.tasks.ids();
+    let ids = app.session.claude().tasks().ids();
     let current = app
         .claude
         .tasks
-        .selected_id()
+        .selected_id(app.session.claude().tasks())
         .and_then(|id| ids.iter().position(|candidate| candidate == id));
     let next = current.map_or(0, |index| {
         if down {
@@ -158,34 +156,31 @@ fn select(app: &mut AppState, down: bool) {
     });
     app.claude.tasks.selected = ids.get(next).cloned();
     app.claude.tasks.scroll = 0;
-    app.claude.tasks.control_error = None;
+    app.session.dismiss_claude_task_error();
 }
 
 fn stop(client: &dyn BackendClient, app: &mut AppState) {
-    let Some(id) = app.claude.tasks.selected_id().map(str::to_string) else {
+    let Some(id) = app
+        .claude
+        .tasks
+        .selected_id(app.session.claude().tasks())
+        .map(str::to_string)
+    else {
         return;
     };
-    let Some(run) = app.claude.tasks.begin_stop(&id) else {
-        return;
-    };
-    if let Err(error) = client.request_native_control("task.stop", json!({"taskId":id,"runId":run}))
-    {
-        app.claude
-            .tasks
-            .stop_reply(&id, run.as_deref(), Some(error.to_string()));
-    }
+    app.session.stop_claude_task(client, &id);
 }
 
 fn draw_header(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
-    let ids = app.claude.tasks.ids();
-    let selected = app.claude.tasks.selected_id();
+    let ids = app.session.claude().tasks().ids();
+    let selected = app.claude.tasks.selected_id(app.session.claude().tasks());
     let index = selected
         .and_then(|id| ids.iter().position(|candidate| candidate == id))
         .map_or(0, |index| index + 1);
     let title = format!(
         "Tasks {index}/{} · {} active",
         ids.len(),
-        app.claude.tasks.active_count()
+        app.session.claude().tasks().active_count()
     );
     draw_str(
         buf,
@@ -200,12 +195,12 @@ fn draw_header(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
 }
 
 fn body(app: &AppState) -> Vec<String> {
-    let selected = app.claude.tasks.selected_id();
+    let selected = app.claude.tasks.selected_id(app.session.claude().tasks());
     let mut lines = detail(app, selected);
-    if let Some(error) = &app.claude.tasks.control_error {
+    if let Some(error) = app.session.claude().tasks().control_error() {
         lines.push(safe_label(error));
     }
-    if let Some(label) = app.claude.activity.label() {
+    if let Some(label) = super::claude_activity::label(app.session.claude().activity()) {
         lines.push(format!("Main: {label}"));
     }
     for (id, prompt) in &app.claude.prompts.entries {
@@ -253,8 +248,8 @@ fn draw_footer(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
             if app
                 .claude
                 .tasks
-                .selected_id()
-                .is_some_and(|id| app.claude.tasks.can_stop(id))
+                .selected_id(app.session.claude().tasks())
+                .is_some_and(|id| app.session.claude().tasks().can_stop(id))
             {
                 "↑↓ x stop F2 back"
             } else {
@@ -264,8 +259,8 @@ fn draw_footer(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
             if app
                 .claude
                 .tasks
-                .selected_id()
-                .is_some_and(|id| app.claude.tasks.can_stop(id))
+                .selected_id(app.session.claude().tasks())
+                .is_some_and(|id| app.session.claude().tasks().can_stop(id))
             {
                 "↑↓ tasks · x stop · PgDn · F3 mode · F2/Esc close"
             } else {

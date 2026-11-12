@@ -18,4 +18,14 @@ impl SessionState {
         self.claude.inherits_model = model;
         self.claude.inherits_effort = effort;
     }
+    /// Begin a stop without a writer so fixtures can inspect the exact run token.
+    pub(crate) fn begin_claude_task_stop_for_test(&mut self, id: &str) -> Option<Option<String>> {
+        self.claude.tasks.begin_stop(id)
+    }
+    /// Check the exact server/request identity in a browser fixture.
+    pub(crate) fn has_claude_browser_request_for_test(&self, server: &str, id: &str) -> bool {
+        self.claude
+            .browser
+            .contains_key(&(server.to_string(), id.to_string()))
+    }
 }

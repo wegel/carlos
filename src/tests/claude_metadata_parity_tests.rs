@@ -187,9 +187,12 @@ fn observing_a_changed_model_fences_context_without_overwriting_explicit_choices
                 used: 10,
                 max: 100,
             }));
-        let revision = app.claude.activity.context_revision;
+        let revision = app.session.claude().activity().context_revision();
         observe_model(&mut app, "fast-2026");
-        assert_eq!(app.claude.activity.context_revision, revision + 1);
+        assert_eq!(
+            app.session.claude().activity().context_revision(),
+            revision + 1
+        );
         assert!(app.session.context_usage().is_none());
         let model = app
             .session
@@ -200,7 +203,10 @@ fn observing_a_changed_model_fences_context_without_overwriting_explicit_choices
         // The first observation pins the inherited model until a switch, just as before.
         assert_eq!(model, expected);
         observe_model(&mut app, "fast-2026");
-        assert_eq!(app.claude.activity.context_revision, revision + 1);
+        assert_eq!(
+            app.session.claude().activity().context_revision(),
+            revision + 1
+        );
     }
 }
 

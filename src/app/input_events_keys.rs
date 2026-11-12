@@ -377,9 +377,7 @@ fn handle_escape_key(
         app.reset_esc_chord();
         return TerminalEventResult::Continue { needs_draw: true };
     }
-    if app.session.active_turn_id().is_some()
-        || app.claude.activity.state == crate::app::claude_activity::NativeState::Running
-    {
+    if app.session.active_turn_id().is_some() || app.session.claude().activity().is_running() {
         app.reset_esc_chord();
         interrupt_active_turn(client, app);
         return TerminalEventResult::Continue { needs_draw: true };

@@ -6,10 +6,10 @@ mod normalized_app;
 use serde_json::{json, Value};
 
 use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
-use super::claude_activity::NativeState;
 use super::claude_state::ClaudePhase;
 use super::models::Role;
 use crate::session::approval_state::ApprovalQueue;
+use crate::session::claude::NativeState;
 
 fn frame(app: &mut AppState, frame: Value, epoch: u64, method: Option<&str>, context: Value) {
     let _ = handle_server_message_line(
@@ -132,8 +132,8 @@ fn old_main_events_and_context_replies_cannot_cross_a_reset_epoch_but_process_ta
         json!({"revision":0}),
     );
     assert!(app.session.context_usage().is_none());
-    assert!(app.claude.activity.state == NativeState::Idle);
-    assert_eq!(app.claude.tasks.active_count(), 1);
+    assert!(app.session.claude().activity().native_state() == NativeState::Idle);
+    assert_eq!(app.session.claude().tasks().active_count(), 1);
     state(&mut app, "running", 1);
     frame(
         &mut app,
@@ -180,7 +180,7 @@ fn late_child_text_stays_hidden_and_thinking_estimates_never_become_text_or_usag
         json!({"type":"system","subtype":"thinking_tokens","estimated_tokens":43}),
         0,
     );
-    assert_eq!(app.claude.activity.thinking, Some(43));
+    assert_eq!(app.session.claude().activity().thinking(), Some(43));
     assert!(app.session.context_usage().is_none());
     assert!(app.session.messages().is_empty());
     sdk(
@@ -207,7 +207,7 @@ fn compact_status_and_boundary_share_one_notice_and_failed_attempt_allows_fresh_
     );
     assert_eq!(app.session.messages().len(), 1);
     assert!(app.session.messages()[0].text.contains("fixture error"));
-    assert!(app.claude.activity.transient.is_none());
+    assert!(app.session.claude().activity().transient().is_none());
     sdk(
         &mut app,
         json!({"type":"system","subtype":"status","status":"compacting"}),
@@ -225,7 +225,7 @@ fn compact_status_and_boundary_share_one_notice_and_failed_attempt_allows_fresh_
     );
     assert_eq!(app.session.messages().len(), 2);
     assert_eq!(app.session.messages()[1].text, "Claude compacted context");
-    let revision = app.claude.activity.context_revision;
+    let revision = app.session.claude().activity().context_revision();
     frame(
         &mut app,
         json!({"type":"reply","ok":true,"result":{"totalTokens":20,"maxTokens":100}}),
@@ -345,7 +345,7 @@ fn many_hidden_children_keep_the_session_healthy_and_task_state_available() {
     }
     assert!(app.session.claude().phase() == ClaudePhase::Ready);
     assert!(app.session.messages().is_empty());
-    assert!(app.claude.tasks.data("child-179").is_some());
+    assert!(app.session.claude().tasks().data("child-179").is_some());
 }
 
 #[test]
@@ -372,5 +372,5 @@ fn older_child_messages_without_agent_ids_stay_hidden_without_cursor_allocations
     }
     assert!(app.session.claude().phase() == ClaudePhase::Ready);
     assert!(app.session.messages().is_empty());
-    assert!(app.claude.tasks.data("child-139").is_some());
+    assert!(app.session.claude().tasks().data("child-139").is_some());
 }

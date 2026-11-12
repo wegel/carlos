@@ -127,7 +127,7 @@ fn browser_completion_matches_server_and_id_once_without_consuming_other_servers
         &mut app,
         &json!({ "mcp_server_name": "unknown", "elicitation_id": "same-id" }),
     );
-    assert_eq!(app.claude.answers.browser.len(), 2);
+    assert_eq!(app.session.claude().browser_request_count(), 2);
     for _ in 0..2 {
         complete(
             &mut app,
@@ -135,7 +135,7 @@ fn browser_completion_matches_server_and_id_once_without_consuming_other_servers
         );
     }
     assert_eq!(app.session.messages().len(), 1);
-    assert_eq!(app.claude.answers.browser.len(), 2);
+    assert_eq!(app.session.claude().browser_request_count(), 2);
     assert_eq!(
         app.session
             .approval()
@@ -159,12 +159,10 @@ fn browser_completion_matches_server_and_id_once_without_consuming_other_servers
         .expect("accurate completion notice")
         .text
         .contains("already reported completion"));
-    assert_eq!(app.claude.answers.browser.len(), 1);
+    assert_eq!(app.session.claude().browser_request_count(), 1);
     assert!(app
-        .claude
-        .answers
-        .browser
-        .contains_key(&("two".to_string(), "same-id".to_string())));
+        .session
+        .has_claude_browser_request_for_test("two", "same-id"));
     cancel_callback(&mut app, &json!("two"));
-    assert!(app.claude.answers.browser.is_empty());
+    assert!(app.session.claude().browser_request_count() == 0);
 }

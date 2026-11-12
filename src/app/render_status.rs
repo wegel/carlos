@@ -79,8 +79,8 @@ pub(super) fn draw_status_bar(
     draw_labels(buf, y, &plan.labels);
     draw_claude_rewind_hint(buf, app, y, plan.anim_end);
     if (app.session.active_turn_id().is_some()
-        || app.claude.activity.state == super::claude_activity::NativeState::Running
-        || app.claude.tasks.active_count() > 0)
+        || app.session.claude().activity().is_running()
+        || app.session.claude().tasks().active_count() > 0)
         && !app.rewind_mode()
     {
         let width = if plan.compact_activity {
@@ -290,7 +290,7 @@ fn place_context(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState
 fn place_model_and_activity(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState) {
     let mut badges = Vec::new();
     if app.claude.enabled {
-        if let Some(text) = app.claude.activity.label() {
+        if let Some(text) = super::claude_activity::label(app.session.claude().activity()) {
             badges.push(Label::plain(text, COLOR_GUTTER_AGENT_THINKING));
         }
     }

@@ -222,8 +222,7 @@ pub(super) fn fail_session(app: &mut AppState) {
     app.drop_retired_approval_hints(retired);
     app.clear_pending_approval();
     fail_accepted_prompts(app);
-    app.claude.activity = Default::default();
-    app.claude.tasks.live.clear();
+    app.session.fail_claude_process();
     app.session.ralph_stop_after_failure();
     super::claude_session_history::recover_queued(app);
 }

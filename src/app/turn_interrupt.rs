@@ -10,8 +10,7 @@ use crate::protocol_params::params_turn_interrupt;
 /// Interrupt main work while preserving native-accepted queued prompt ownership.
 pub(super) fn interrupt_active_turn(client: &dyn BackendClient, app: &mut AppState) {
     let Some(turn_id) = app.session.active_turn_id().clone().or_else(|| {
-        (client.kind() == BackendKind::Claude
-            && app.claude.activity.state == super::claude_activity::NativeState::Running)
+        (client.kind() == BackendKind::Claude && app.session.claude().activity().is_running())
             .then(|| "native-main".to_string())
     }) else {
         return;

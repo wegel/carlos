@@ -33,9 +33,8 @@ pub(super) fn receive(
         }
         Some("task.stop") => {
             if let Some(id) = context["taskId"].as_str() {
-                app.claude
-                    .tasks
-                    .stop_reply(id, context["runId"].as_str(), None);
+                app.session
+                    .receive_claude_task_stop(id, context["runId"].as_str(), None);
             }
         }
         Some("usage.optional") => {
@@ -58,7 +57,7 @@ fn failed(
 ) -> Option<ServerRequestAction> {
     if request == Some("task.stop") {
         if let Some(id) = context["taskId"].as_str() {
-            app.claude.tasks.stop_reply(
+            app.session.receive_claude_task_stop(
                 id,
                 context["runId"].as_str(),
                 Some(

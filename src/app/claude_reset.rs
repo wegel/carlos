@@ -18,10 +18,7 @@ pub(super) fn receive(app: &mut AppState, message: &Value) {
     app.reset_preserving_approvals(old_id);
     app.session.set_thread_name(None);
     app.claude.history = Default::default();
-    super::claude_context::invalidate(app);
-    app.claude.activity.compact = None;
-    app.claude.activity.thinking = None;
-    app.claude.activity.transient = None;
+    app.session.clear_claude_conversation_activity();
     app.session.set_claude_phase(ClaudePhase::Starting);
     app.session.ralph_stop_after_failure();
     app.set_status("Claude cleared the conversation; waiting for its native session identity");

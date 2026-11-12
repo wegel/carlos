@@ -113,7 +113,7 @@ fn unavailable_context_readers_never_send_or_wake() {
         let mut app = app();
         app.claude.enabled = enabled;
         app.session.set_claude_phase(phase);
-        app.claude.activity.transient = label.map(str::to_string);
+        app.session.record_claude_status(&json!({"label":label}));
         let peer = QuotaPeer::default();
         let now = Instant::now();
         assert!(!tick(&peer, &mut app, now));

@@ -1,9 +1,14 @@
-//! Keep native phase, model inheritance, and read facts in one session.
+//! Keep native helper, process, model, and read facts in one session.
+
+use std::collections::HashMap;
 
 use serde_json::Value;
 
+use super::activity::ClaudeActivity;
+use super::browser::BrowserRequest;
 use super::context::ClaudeContext;
 use super::quota::ClaudeQuota;
+use super::tasks::ClaudeTasks;
 use crate::session::state::SessionState;
 
 /// Distinguish a starting query from a ready or permanently closed helper.
@@ -17,6 +22,9 @@ pub(crate) enum ClaudePhase {
 /// Own native Claude facts independently of local settings and countdowns.
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct ClaudeState {
+    pub(in crate::session) tasks: ClaudeTasks,
+    pub(in crate::session) activity: ClaudeActivity,
+    pub(in crate::session) browser: HashMap<(String, String), BrowserRequest>,
     pub(in crate::session) phase: ClaudePhase,
     pub(in crate::session) quota: ClaudeQuota,
     pub(in crate::session) context: ClaudeContext,
@@ -29,6 +37,9 @@ pub(crate) struct ClaudeState {
 impl Default for ClaudeState {
     fn default() -> Self {
         Self {
+            tasks: ClaudeTasks::default(),
+            activity: ClaudeActivity::default(),
+            browser: HashMap::new(),
             phase: ClaudePhase::Ready,
             quota: ClaudeQuota::default(),
             context: ClaudeContext::default(),
@@ -41,6 +52,22 @@ impl Default for ClaudeState {
 }
 
 impl ClaudeState {
+    /// Borrow native task records and stop progress.
+    pub(crate) fn tasks(&self) -> &ClaudeTasks {
+        &self.tasks
+    }
+
+    /// Borrow main-process activity and context fences.
+    pub(crate) fn activity(&self) -> &ClaudeActivity {
+        &self.activity
+    }
+
+    /// Count native browser requests without exposing mutable callback facts.
+    #[cfg(test)]
+    pub(crate) fn browser_request_count(&self) -> usize {
+        self.browser.len()
+    }
+
     /// Read whether the native helper can accept prompts.
     pub(crate) fn phase(&self) -> ClaudePhase {
         self.phase
@@ -53,6 +80,7 @@ impl ClaudeState {
     }
 
     /// Borrow the model most recently reported by native Claude.
+    #[cfg(test)]
     pub(crate) fn observed_model(&self) -> Option<&str> {
         self.observed_model.as_deref()
     }
@@ -85,7 +113,7 @@ impl SessionState {
         self.claude.phase = phase;
     }
 
-    /// Retire helper metadata and optional reads while retaining explicit-choice facts.
+    /// Retire helper facts at a generation switch while retaining explicit-choice facts.
     pub(crate) fn reset_claude_metadata(&mut self) {
         self.claude = ClaudeState {
             inherits_model: self.claude.inherits_model,

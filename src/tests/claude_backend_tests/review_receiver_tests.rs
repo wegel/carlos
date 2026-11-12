@@ -188,7 +188,7 @@ fn notices_keep_native_duplicate_keys_and_stop_before_translating_embedded_event
     drain_probe_through_dispatch(&client, &receiver, &mut app);
     assert_eq!(app.session.messages().len(), 1);
     assert_eq!(app.session.messages()[0].text, "only once");
-    assert_eq!(app.claude.activity.thinking, Some(42));
+    assert_eq!(app.session.claude().activity().thinking(), Some(42));
 }
 
 #[test]

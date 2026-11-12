@@ -262,7 +262,8 @@ fn start_new_turn(
             params,
             origin,
             if client.kind() == BackendKind::Claude
-                && app.claude.activity.state == super::claude_activity::NativeState::Running
+                && app.session.claude().activity().native_state()
+                    == crate::session::claude::NativeState::Running
                 && !app.claude.prompts.queue
             {
                 PromptPriority::Steer
