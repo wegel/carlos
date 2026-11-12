@@ -25,7 +25,7 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 - [x] (2026-11-12 UTC) Milestone 3: the Claude backend translates native events; the turn-end state machine runs when the app handles a line (`BackendClient::handle_event`, called in `src/app/input_dispatch.rs`). One squashed commit on `main` (`ac02f0a`, 91 files). Seven review rounds; final verdict PASS. Gates: `cargo test` 778 passed in 3.7 s, 168 terminal workflows, no speed loss.
 - [x] (2026-11-12 UTC) Milestone 4: `AppState` holds `session: SessionState` (`src/session/`) and `view: ViewState` (`src/app/view_state.rs`); transcript, item, turn, Ralph-queue and approval logic moved to the session. Six review rounds (five by Codex, the last by Opus 5.5: PASS WITH ISSUES, seven MINOR). Gates: `cargo test` 855 passed in 3.7 s, 174 terminal workflows twice, no speed loss.
 - [x] (2026-11-12 UTC) Milestone 4 follow-up A: MINOR findings 1, 2, 4, 5 and 6 of the final milestone 4 review cleaned up (`a2a5d31`, net 116 lines removed). Delta review by the same Opus reviewer: PASS WITH ISSUES, four small MINOR; the integrator applied two (`#[must_use]` on the six session methods that return retired ids; an explicit before/after id comparison in `AppState::set_pending_approval`), rejected one (`begin_approval_answer` keeps its `bool`: two tests assert that it refuses a card that is not active) and left one (`retire_approval` stays `pub(crate)` because an app test calls it). Still open from that review: finding 3 (for plan 017) and finding 7 (existing defect: a queued Claude card of the old session survives `reset_for_forked_thread`).
-- [ ] Milestone 4 follow-up B: compare live Codex, Claude and Grok event streams on the current tree with the pre-plan commit `a59221c` over the full mutation corpus; classify every difference as an identity rule the plan requires or as a regression; fix the regressions. Known so far: 86 of 1,244 formerly panicking Codex streams differ (45 only in redraw ranges, 41 in session results); cause is in milestone 2 or 3, not milestone 4.
+- [x] (2026-11-12 UTC) Milestone 4 follow-up B: the full live-event corpus (24,300 mutated streams, three backends) compared with the pre-plan commit `a59221c`: 23,099 exact, 867 differ only in a redraw log with identical effective ranges, 334 differ in session results, no panic. Six causes; two were regressions from milestone 2 and are fixed (a Claude guard that unbound Codex and Grok sources when both backend flags were set; the common history loader adopting rows of another thread without adopting the thread). Neither was reachable through ordinary backend output. Opus delta review: PASS WITH ISSUES (MINOR only). Details and the four differences that stay: `.agents/reports/exec016-preplan-comparison.md`.
 - [ ] Milestone 5: separate shared settings, prompt history, labels, and usage helpers.
 - [ ] Milestone 6: separate Claude session facts from Claude editors and panels.
 - [ ] Milestone 7: separate native callback facts from answer editors.
@@ -101,6 +101,9 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 
 - Observation: milestone 4 final speed check, 7 alternated runs, old then new medians: replay 48.10 / 47.08 ms, full layout 14.93 / 14.83, full draw 3.58 / 3.40, scroll p50 0.70 / 0.70, typing p50 0.60 / 0.59, working p50 0.60 / 0.60, append p50 0.60 / 0.60.
   Evidence: integrator runs of 2026-11-12.
+
+- Observation: the Codex test `unanswered_large_read_ids_stay_bounded_and_do_not_disable_other_controls` fails under load because its 64 calls use a 20 ms deadline: when the stdin writer has not confirmed the write within 20 ms, the call returns "Codex stdin deadline expired; request may already have been accepted" and the test expects "Timeout waiting". It also takes about 1.3 s of the 3.7 s suite. It failed once inside `scripts/test.sh` on 2026-11-12 with a reviewer running at the same time. Unfinished work, also present on `main`: make the test independent of wall-clock time.
+  Evidence: `src/tests/protocol_history_transport_tests.rs:100-111`, `src/protocol_writer.rs`.
 
 ## Decision Log
 
@@ -219,6 +222,10 @@ The phone notes in `tmp/main-screen.md` sections 6 and 11 explain why a client n
 
 - Decision: approval consent is bound to the card id of the exact request, and the session alone decides approval identity (`ApprovalState::change` is the one write point; code outside `src/session/` passes drafts or ids, never cards). This is stricter than the pre-plan code.
   Rationale: moving the "first accept" flag to the view lost a reset and let consent carry over to another request after a Claude session switch. The daemon will receive approval answers from several clients, so the session must not trust a caller for identity. In hindsight the stricter guarantee belonged in the daemon plan; it cost three review rounds here.
+  Date/Author: 2026-11-12 / Claude, integrator.
+
+- Decision: the common complete-history loader rejects a history whose thread id differs from the active thread and leaves the session unchanged. Fork and switch keep their explicit paths, which adopt the thread and its keyed draft together. At startup the error goes through the existing startup error path (print and exit).
+  Rationale: adopting rows of another thread without adopting the thread leaves rows that live updates cannot reach. The reviewer traced every caller: no real start, resume, reconnect or rollout-file fallback can deliver a foreign history, so a start that works today cannot fail because of this. This differs on purpose from the pre-plan code, which adopted the foreign rows.
   Date/Author: 2026-11-12 / Claude, integrator.
 
 ### Entry identity and history rules
