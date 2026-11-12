@@ -42,7 +42,7 @@ pub(super) fn complete_tool_item(app: &mut AppState, kind: &str, item_value: &Va
             });
         }
     }
-    if let Some(id) = item["id"].as_str() {
+    if let Some(id) = item.get("id").and_then(Value::as_str) {
         app.messages
             .retain_parts(&app.item_key(id), diffs.len().max(1));
     }
@@ -132,3 +132,7 @@ fn complete_tool_item_with_diffs(
     }
     true
 }
+
+#[cfg(test)]
+#[path = "../tests/idless_item_tests.rs"]
+mod idless_item_tests;
