@@ -137,7 +137,7 @@ fn place_weekly(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState)
     if let Some(weekly) = if app.claude.enabled {
         app.claude.quota.indicator()
     } else {
-        app.rate_limits.indicator()
+        app.session.rate_limits().indicator().map(Into::into)
     } {
         place(
             labels,

@@ -62,7 +62,7 @@ fn narrow_queue_reserves_compact_context_and_keeps_weekly_at_the_right_edge() {
         }));
         app.claude.context.fresh = true;
         let reset = crate::app::weekly_usage::unix_now() + 3 * 86_400;
-        app.rate_limits.update(
+        app.session.update_rate_limits(
             &json!({"secondary":{"usedPercent":50,"windowDurationMins":10080,"resetsAt":reset}}),
         );
         app.claude.quota.event(&json!({"status":"allowed_warning","rateLimitType":"seven_day","utilization":0.5,"resetsAt":reset}));
@@ -181,7 +181,7 @@ fn narrow_default_mode_keeps_recovery_error_and_pending_notices_beside_quota_and
         used: 90_000,
         max: 100_000,
     }));
-    app.rate_limits.update(&json!({"secondary":{"usedPercent":50,"windowDurationMins":10080,"resetsAt":crate::app::weekly_usage::unix_now()+3*86400}}));
+    app.session.update_rate_limits(&json!({"secondary":{"usedPercent":50,"windowDurationMins":10080,"resetsAt":crate::app::weekly_usage::unix_now()+3*86400}}));
     for (kind, full, compact) in [
         ("draft", "Unsent draft", "Draft"),
         ("error", "Queue error", "Q!"),

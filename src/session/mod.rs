@@ -63,3 +63,10 @@ mod tool_label_parity_tests;
 
 #[cfg(test)]
 mod summary_binding_tests;
+
+pub(crate) mod rate_limits;
+pub(crate) mod usage;
+mod usage_updates;
+
+#[cfg(test)]
+mod usage_tests;

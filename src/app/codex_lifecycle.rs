@@ -20,7 +20,7 @@ pub(super) fn close_with_guidance(app: &mut AppState, params: &Map<String, Value
     app.codex.connection.closed_generation = Some(app.codex.connection.generation);
     app.codex.connection.rebuilding = false;
     app.codex.closed = true;
-    app.rate_limits.clear();
+    app.clear_rate_limits();
     app.codex.connection.streams = Default::default();
     app.codex.connection.runtime_read = None;
     app.codex.connection.runtime_refresh = false;

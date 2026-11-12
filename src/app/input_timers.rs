@@ -11,7 +11,7 @@ pub(in crate::app) fn tick_rate_limits(
     app: &mut AppState,
     now: Instant,
 ) -> bool {
-    connected(app) && app.rate_limits.tick(client, now)
+    connected(app) && app.tick_rate_limits(client, now)
 }
 
 fn connected(app: &AppState) -> bool {
@@ -22,7 +22,7 @@ fn connected(app: &AppState) -> bool {
 pub(in crate::app) fn idle_wait(app: &AppState, now: Instant) -> Option<std::time::Duration> {
     app.pending_ralph_continuation_wait(now)
         .into_iter()
-        .chain(connected(app).then(|| app.rate_limits.wait(now)).flatten())
+        .chain(connected(app).then(|| app.rate_limits_wait(now)).flatten())
         .chain(app.claude.quota.wait(now))
         .chain(super::super::input_mode::wait(app, now))
         .chain(super::super::claude_context::wait(app, now))

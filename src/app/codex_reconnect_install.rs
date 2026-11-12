@@ -114,7 +114,7 @@ fn install_history_runtime(
     // `install` has already rejected a snapshot of another thread, so this cannot fail here.
     super::item_history::replace_history_from_thread(app, &snapshot.thread)?;
     app.session.set_context_usage(None);
-    app.rate_limits.clear();
+    app.clear_rate_limits();
     app.set_runtime_settings(runtime.model, runtime.effort, runtime.summary);
     app.queue_runtime_settings(None, None, None);
     app.codex.settings.future = super::codex_settings_draft::choices(app);

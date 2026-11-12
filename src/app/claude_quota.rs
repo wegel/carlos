@@ -5,8 +5,9 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
-use super::weekly_usage::{unix_now, RateWindow, WeeklyIndicator, WEEK_MINUTES};
+use super::weekly_usage::WeeklyIndicator;
 use crate::backend::{BackendClient, BackendKind};
+use crate::session::usage::{unix_now, RateWindow, WEEK_MINUTES};
 
 /// Retains account windows without interpreting session token totals as quota usage.
 #[derive(Default)]
@@ -103,12 +104,13 @@ impl ClaudeQuota {
     /// Reuse Carlos's weekly pace color only for the shared seven-day bucket.
     pub(super) fn indicator(&self) -> Option<WeeklyIndicator> {
         let window = self.windows.get("seven_day")?;
-        RateWindow {
-            used: window.used.round() as u64,
-            duration: Some(WEEK_MINUTES),
-            resets_at: Some(window.reset),
-        }
+        RateWindow::new(
+            window.used.round() as u64,
+            Some(WEEK_MINUTES),
+            Some(window.reset),
+        )
         .indicator(unix_now())
+        .map(Into::into)
     }
 
     fn fraction(&mut self, key: &str, value: &Value) {

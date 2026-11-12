@@ -28,7 +28,6 @@ pub(super) struct AppState {
     // Split these mixed children in milestones 5 through 9.
     pub(super) claude: super::claude_state::ClaudeUiState,
     pub(super) codex: super::codex_state::CodexUiState,
-    pub(super) rate_limits: super::rate_limits::RateLimits,
 }
 
 // --- Construction ---
@@ -49,7 +48,6 @@ impl AppState {
             view: ViewState::new(summary_enabled),
             claude: super::claude_state::ClaudeUiState::default(),
             codex: super::codex_state::CodexUiState::default(),
-            rate_limits: super::rate_limits::RateLimits::default(),
         }
     }
 

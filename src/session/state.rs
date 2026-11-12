@@ -8,6 +8,7 @@ use super::entry_key::BackendEntryKey;
 use super::input_history::PromptHistory;
 use super::models::TurnStatus;
 use super::ralph_runtime_state::RalphRuntimeState;
+use super::rate_limits::RateLimits;
 use super::runtime_settings::{RuntimeDefaults, RuntimeSettingsState};
 use super::summary_state::SummaryState;
 use super::transcript::Transcript;
@@ -16,6 +17,7 @@ use super::turns::TurnBoundary;
 /// Own the facts that remain true without a terminal view.
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct SessionState {
+    pub(in crate::session) rate_limits: RateLimits,
     pub(in crate::session) summaries: SummaryState,
     pub(in crate::session) input_history: PromptHistory,
     pub(in crate::session) runtime: RuntimeSettingsState,
@@ -42,6 +44,7 @@ impl SessionState {
         summary_enabled: bool,
     ) -> Self {
         Self {
+            rate_limits: RateLimits::default(),
             summaries: SummaryState::new(summary_enabled),
             input_history: PromptHistory::default(),
             runtime: RuntimeSettingsState::new(preferences),

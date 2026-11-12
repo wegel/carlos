@@ -201,7 +201,7 @@ fn handle_parsed(app: &mut AppState, parsed: Value) -> Option<ServerRequestActio
     if app.codex.closed {
         return None;
     }
-    if app.rate_limits.response(&parsed) {
+    if app.session.rate_limits_response(&parsed) {
         return None;
     }
     let method = parsed.get("method").and_then(Value::as_str)?;
@@ -275,10 +275,10 @@ fn dispatch_notification(
     match method {
         "account/rateLimits/updated" => {
             if let Some(snapshot) = params.get("rateLimits") {
-                app.rate_limits.update(snapshot);
+                app.session.update_rate_limits(snapshot);
             }
         }
-        "account/updated" => app.rate_limits.clear(),
+        "account/updated" => app.clear_rate_limits(),
         "thread/initialized" => handle_thread_initialized(app, params),
         "thread/name/updated" => super::session_name::handle_name_updated(app, params),
         "thread/tokenUsage/updated" => {

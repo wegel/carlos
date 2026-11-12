@@ -190,8 +190,7 @@ fn due_quota_does_not_write_or_spin_before_ready_then_refreshes_once() {
     let peer = Peer::default();
     let mut app = app();
     let now = Instant::now();
-    app.rate_limits
-        .tick(&peer, now - std::time::Duration::from_secs(400));
+    app.tick_rate_limits(&peer, now - std::time::Duration::from_secs(400));
     peer.native.controls.borrow_mut().clear();
     assert!(!crate::app::input::tick_rate_limits(&peer, &mut app, now));
     assert!(crate::app::input::idle_wait(&app, now).is_none());
