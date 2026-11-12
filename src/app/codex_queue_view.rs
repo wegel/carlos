@@ -27,7 +27,7 @@ pub(super) fn key(
         super::input_mode::toggle(app, std::time::Instant::now());
         return Some(TerminalEventResult::Continue { needs_draw: true });
     }
-    if !app.codex.queue.show {
+    if !app.view.codex_queue.show {
         if key.code == KeyCode::Char('q') && key.modifiers.contains(KeyModifiers::ALT) {
             open(app);
             return Some(TerminalEventResult::Continue { needs_draw: true });
@@ -35,19 +35,19 @@ pub(super) fn key(
         return None;
     }
     if key.code == KeyCode::Esc {
-        if app.codex.queue.edit.is_some() {
-            app.codex.queue.edit = None;
+        if app.view.codex_queue.edit.is_some() {
+            app.view.codex_queue.edit = None;
         } else {
-            app.codex.queue.show = false;
+            app.view.codex_queue.show = false;
         }
     } else if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
         return Some(TerminalEventResult::Quit);
-    } else if app.codex.queue.edit.is_some() {
+    } else if app.view.codex_queue.edit.is_some() {
         if key.code == KeyCode::Char('s') && key.modifiers.contains(KeyModifiers::CONTROL) {
             save_edit(client, app);
         } else if editable(size) {
-            app.codex
-                .queue
+            app.view
+                .codex_queue
                 .edit
                 .as_mut()
                 .expect("queue editor")
@@ -64,18 +64,24 @@ fn list_key(client: &dyn BackendClient, app: &mut AppState, key: KeyEvent) {
     match (key.code, key.modifiers) {
         (KeyCode::Up, KeyModifiers::ALT) => operate(client, app, "up"),
         (KeyCode::Down, KeyModifiers::ALT) => operate(client, app, "down"),
-        (KeyCode::Up, _) => app.codex.queue.move_selection(-1),
-        (KeyCode::Down, _) => app.codex.queue.move_selection(1),
+        (KeyCode::Up, _) => app
+            .view
+            .codex_queue
+            .move_selection(-1, app.session.codex_queue()),
+        (KeyCode::Down, _) => app
+            .view
+            .codex_queue
+            .move_selection(1, app.session.codex_queue()),
         (KeyCode::Char('e'), _) => begin_edit(app),
         (KeyCode::Char('d'), _) => operate(client, app, "delete"),
         (KeyCode::Char('s'), _) => operate(client, app, "start"),
         (KeyCode::Char('r'), _) => open(app),
         (KeyCode::Char('v'), _) => {
             if app.input_is_empty() {
-                if let Some(text) = app.codex.queue.recovery.take() {
+                if let Some(text) = app.view.codex_queue.recovery.take() {
                     app.set_input_text(&text);
                 }
-                app.codex.queue.show = false;
+                app.view.codex_queue.show = false;
             } else {
                 super::codex_queue::fail(
                     app,
@@ -90,7 +96,7 @@ fn list_key(client: &dyn BackendClient, app: &mut AppState, key: KeyEvent) {
 /// Consume queue paste without leaking it into the main composer or a hidden editor.
 pub(super) fn paste(app: &mut AppState, text: &str, size: TerminalSize) {
     if editable(size) {
-        if let Some(edit) = app.codex.queue.edit.as_mut() {
+        if let Some(edit) = app.view.codex_queue.edit.as_mut() {
             edit.editor.insert_str(text);
         }
     }
@@ -107,7 +113,7 @@ pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
         Style::default().bg(COLOR_OVERLAY),
     );
     let width = size.width.saturating_sub(2).max(1);
-    let queue = &app.codex.queue;
+    let queue = &app.view.codex_queue;
     let lines = body_lines(app, size);
     let footer = footer_lines(app, size);
     let body_height = size
@@ -152,38 +158,39 @@ pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
 }
 
 fn body_lines(app: &AppState, size: TerminalSize) -> Vec<String> {
-    let queue = &app.codex.queue;
+    let queue = &app.view.codex_queue;
+    let facts = app.session.codex_queue();
     let mut lines = vec!["Codex queue · Esc back".to_string()];
     if !editable(size) {
         lines.push("Resize to edit".into());
     }
-    let state = if queue.read.is_some() {
+    let state = if facts.reading() {
         "Refreshing"
-    } else if queue.known {
+    } else if facts.known() {
         "Current"
     } else {
         "Unknown"
     };
-    lines.push(format!("{state}: {} queued", queue.entries.len()));
-    let position = queue
-        .entries
+    lines.push(format!("{state}: {} queued", facts.entries().len()));
+    let position = facts
+        .entries()
         .iter()
         .position(|entry| entry["id"].as_str() == queue.selected.as_deref());
     lines.push(format!(
         "Selected {}/{}: {}",
         position.map_or(0, |index| index + 1),
-        queue.entries.len(),
+        facts.entries().len(),
         queue.selected.as_deref().unwrap_or("none")
     ));
-    if let Some(error) = &queue.error {
-        lines.push(error.clone());
-    } else if !queue.notice.is_empty() {
-        lines.push(queue.notice.clone());
+    if let Some(error) = super::codex_queue::error(app) {
+        lines.push(error.to_string());
+    } else if !facts.notice().is_empty() {
+        lines.push(facts.notice().to_string());
     }
-    if queue.selected.is_some() && queue.selected_entry().is_none() {
+    if queue.selected.is_some() && queue.selected_entry(facts).is_none() {
         lines.push("Selected entry left the queue; arrows choose another".into());
     }
-    if let Some(entry) = queue.selected_entry() {
+    if let Some(entry) = queue.selected_entry(facts) {
         lines.push(format!(
             "Client: {}",
             entry["clientUserMessageId"].as_str().unwrap_or("unknown")
@@ -221,7 +228,7 @@ pub(super) fn cursor(app: &AppState, size: TerminalSize) -> (usize, usize) {
 }
 
 fn editor_line(app: &AppState, width: usize) -> Option<(String, usize)> {
-    let editor = &app.codex.queue.edit.as_ref()?.editor;
+    let editor = &app.view.codex_queue.edit.as_ref()?.editor;
     let (row, column) = editor.cursor();
     let line = &editor.lines()[row];
     let prefix = line.chars().take(column).collect::<String>();
@@ -237,7 +244,7 @@ fn editor_line(app: &AppState, width: usize) -> Option<(String, usize)> {
 fn footer_lines(app: &AppState, size: TerminalSize) -> Vec<String> {
     let text = if !editable(size) {
         "Esc back"
-    } else if app.codex.queue.edit.is_some() {
+    } else if app.view.codex_queue.edit.is_some() {
         "Ctrl+S save · Esc back"
     } else if size.width < 60 {
         "↑↓ select e edit d delete s start Alt+↑↓ move r refresh v draft F3 mode Esc"

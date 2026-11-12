@@ -170,8 +170,8 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant)
     let Some((turn, item)) = key else {
         return changed;
     };
-    app.codex.serial = app.codex.serial.saturating_add(1);
-    let token = app.codex.serial;
+    app.session.advance_codex_serial();
+    let token = app.session.codex_serial();
     let entry = app
         .codex
         .connection

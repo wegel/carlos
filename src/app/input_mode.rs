@@ -17,8 +17,8 @@ pub(super) fn toggle(app: &mut AppState, now: Instant) {
         app.view.claude_queue = !app.view.claude_queue;
         app.view.claude_queue
     } else {
-        app.codex.queue.mode = !app.codex.queue.mode;
-        app.codex.queue.mode
+        app.view.codex_queue.mode = !app.view.codex_queue.mode;
+        app.view.codex_queue.mode
     };
     changed(app, queue, now);
 }
@@ -31,7 +31,7 @@ pub(super) fn label(app: &AppState, now: Instant) -> Option<&'static str> {
     let queue = if app.session.claude().enabled() {
         app.view.claude_queue
     } else {
-        app.codex.queue.mode
+        app.view.codex_queue.mode
     };
     if queue {
         Some("Queue")

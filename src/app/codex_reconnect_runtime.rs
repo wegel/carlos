@@ -15,8 +15,8 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
     {
         return false;
     }
-    app.codex.serial = app.codex.serial.saturating_add(1);
-    let token = app.codex.serial;
+    app.session.advance_codex_serial();
+    let token = app.session.codex_serial();
     app.codex.connection.runtime_refresh = false;
     app.codex.connection.runtime_read = Some(MetadataRead {
         token,

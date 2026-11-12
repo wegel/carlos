@@ -76,3 +76,6 @@ pub(crate) mod text;
 
 #[cfg(test)]
 mod usage_tests;
+
+#[cfg(test)]
+pub(crate) mod test_backend;

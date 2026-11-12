@@ -94,7 +94,7 @@ fn draw_session_placeholder(
 // --- Overlays ---
 
 pub(super) fn draw_overlays(buf: &mut Buffer, size: TerminalSize, app: &AppState) {
-    if app.codex.queue.show {
+    if app.view.codex_queue.show {
         crate::app::codex_queue_view::draw(buf, app, size);
     }
     if app.codex.goals.show {
@@ -141,7 +141,7 @@ pub(super) fn cursor_position(
             .unwrap_or((0, size.height.saturating_sub(1)))
     } else if app.codex.goals.show {
         crate::app::codex_goal_view::cursor(app, size)
-    } else if app.codex.queue.show {
+    } else if app.view.codex_queue.show {
         crate::app::codex_queue_view::cursor(app, size)
     } else {
         (input_layout.cursor_x, input_layout.cursor_y)

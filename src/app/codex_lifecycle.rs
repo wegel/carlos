@@ -33,9 +33,8 @@ pub(super) fn close_with_guidance(app: &mut AppState, params: &Map<String, Value
     }
     app.session.ralph_stop_after_failure();
     super::codex_settings::closed(app);
-    if let Some(operation) = app.codex.queue.operation.take() {
-        super::codex_queue_receive::recover(app, operation.submitted);
-    }
+    let recovery = app.session.take_codex_queue_recovery();
+    super::codex_queue_receive::recover(app, recovery);
     clear_pending_controls(app);
     let message = params
         .get("message")
@@ -83,8 +82,7 @@ fn clear_pending_controls(app: &mut AppState) {
     if let Some(activity) = app.codex.panel.activity.as_mut() {
         activity.request = None;
     }
-    app.codex.queue.read = None;
-    app.codex.queue.known = false;
+    app.session.close_codex_queue();
     if app.codex.connection.socket.is_some() {
         let children = app
             .session

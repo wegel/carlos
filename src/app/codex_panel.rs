@@ -190,9 +190,9 @@ pub(super) fn request(app: &mut AppState, method: &str, params: Value) -> Reques
         .panel
         .outgoing
         .retain(|request| tokens.contains(&Some(request.token)));
-    app.codex.serial = app.codex.serial.saturating_add(1);
+    app.session.advance_codex_serial();
     let request = Request {
-        token: app.codex.serial,
+        token: app.session.codex_serial(),
         method: method.into(),
         params,
     };

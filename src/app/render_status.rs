@@ -215,14 +215,17 @@ fn queue_notice(app: &AppState, size: TerminalSize) -> Option<String> {
         return None;
     }
     let compact = size.width < 32;
-    if app.codex.queue.operation.is_some() {
+    if app.session.codex_queue().pending() {
         Some(if compact { "Q…" } else { "Queue pending" }.into())
-    } else if app.codex.queue.recovery.is_some() {
+    } else if app.view.codex_queue.recovery.is_some() {
         Some(if compact { "Draft" } else { "Unsent draft" }.into())
-    } else if app.codex.queue.error.is_some() {
+    } else if super::codex_queue::error(app).is_some() {
         Some(if compact { "Q!" } else { "Queue error" }.into())
-    } else if app.codex.queue.known && !app.codex.queue.entries.is_empty() {
-        Some(format!("{} queued", app.codex.queue.entries.len()))
+    } else if app.session.codex_queue().known() && !app.session.codex_queue().entries().is_empty() {
+        Some(format!(
+            "{} queued",
+            app.session.codex_queue().entries().len()
+        ))
     } else {
         None
     }

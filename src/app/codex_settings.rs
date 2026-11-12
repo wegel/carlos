@@ -63,8 +63,8 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
     let Some(desired) = app.codex.settings.deferred.take() else {
         return false;
     };
-    app.codex.serial = app.codex.serial.saturating_add(1);
-    let token = app.codex.serial;
+    app.session.advance_codex_serial();
+    let token = app.session.codex_serial();
     let turn_id = app.session.active_turn_id().clone();
     let mut change = Change {
         token,

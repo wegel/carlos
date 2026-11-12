@@ -229,14 +229,14 @@ fn mutate(client: &dyn BackendClient, app: &mut AppState, method: &str, params: 
 }
 
 fn request(app: &mut AppState, method: &str, params: Value) -> GoalRequest {
-    app.codex.serial = app.codex.serial.saturating_add(1);
+    app.session.advance_codex_serial();
     let may_activate = method == "thread/goal/set"
         && params["status"]
             .as_str()
             .or(app.codex.goals.goal["status"].as_str())
             == Some("active");
     GoalRequest {
-        token: app.codex.serial,
+        token: app.session.codex_serial(),
         method: method.into(),
         params,
         revision: app.codex.goals.revision,

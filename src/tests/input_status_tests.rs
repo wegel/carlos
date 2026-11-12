@@ -187,15 +187,10 @@ fn narrow_default_mode_keeps_recovery_error_and_pending_notices_beside_quota_and
         ("error", "Queue error", "Q!"),
         ("pending", "Queue pending", "Q…"),
     ] {
-        app.codex.queue.recovery = (kind == "draft").then(|| "retained draft".into());
-        app.codex.queue.error = (kind == "error").then(|| "native rejected it".into());
-        app.codex.queue.operation =
-            (kind == "pending").then(|| crate::app::codex_queue_state::QueueOperation {
-                token: 1,
-                method: "thread/queue/add".into(),
-                params: json!({}),
-                submitted: None,
-            });
+        app.view.codex_queue.recovery = (kind == "draft").then(|| "retained draft".into());
+        app.view.codex_queue.error = (kind == "error").then(|| "native rejected it".into());
+        app.session
+            .set_codex_queue_pending_for_test(kind == "pending");
         for width in [28, 36] {
             let line = status(&app, width);
             assert!(

@@ -59,13 +59,13 @@ fn stale_and_old_epoch_pages_cannot_authorize_automatic_work_or_replace_a_comple
     let peer = Peer::default();
     assert!(!allows_automatic(&app));
     tick(&peer, &mut app);
-    app.codex.queue.invalidate();
+    app.session.invalidate_codex_queue();
     receive(
         &mut app,
         reply(&peer, 0, json!({"result":{"data":[],"nextCursor":null}})),
     );
-    assert!(!app.codex.queue.known);
-    assert!(app.codex.queue.read.is_none());
+    assert!(!app.session.codex_queue().known());
+    assert!(!app.session.codex_queue().reading());
     tick(&peer, &mut app);
     let old = reply(
         &peer,
@@ -74,14 +74,15 @@ fn stale_and_old_epoch_pages_cannot_authorize_automatic_work_or_replace_a_comple
     );
     app.set_thread_id("forked");
     receive(&mut app, old);
-    assert!(app.codex.queue.entries.is_empty());
+    assert!(app.session.codex_queue().entries().is_empty());
     tick(&peer, &mut app);
     receive(
         &mut app,
         reply(&peer, 2, json!({"result":{"data":[],"nextCursor":null}})),
     );
     assert!(allows_automatic(&app));
-    app.codex.queue.entries.push(entry("human", "human first"));
+    app.session
+        .set_codex_queue_entries_for_test(vec![entry("human", "human first")]);
     assert!(!allows_automatic(&app));
 }
 
@@ -101,23 +102,29 @@ fn queue_failure_and_eof_preserve_main_and_submitted_drafts_without_a_retry() {
         ),
     );
     assert_eq!(app.input_text(), "new composer");
-    assert_eq!(app.codex.queue.recovery.as_deref(), Some("submitted first"));
+    assert_eq!(
+        app.view.codex_queue.recovery.as_deref(),
+        Some("submitted first")
+    );
     submit(
         &peer,
         &mut app,
         "a second failed send must not replace recovery",
     );
-    assert_eq!(app.codex.queue.recovery.as_deref(), Some("submitted first"));
+    assert_eq!(
+        app.view.codex_queue.recovery.as_deref(),
+        Some("submitted first")
+    );
     assert_eq!(peer.controls.borrow().len(), 1);
     assert_eq!(peer.controls.borrow().len(), 1);
     assert!(app
-        .codex
-        .queue
+        .view
+        .codex_queue
         .error
         .as_deref()
         .expect("visible error")
         .contains("recover"));
-    app.codex.queue.recovery = None;
+    app.view.codex_queue.recovery = None;
     app.clear_input();
     submit(&peer, &mut app, "keep after EOF");
     receive(
@@ -126,7 +133,7 @@ fn queue_failure_and_eof_preserve_main_and_submitted_drafts_without_a_retry() {
     );
     assert_eq!(app.input_text(), "keep after EOF");
     assert!(app.codex.closed);
-    assert!(app.codex.queue.operation.is_none());
+    assert!(!app.session.codex_queue().pending());
 }
 
 #[test]
@@ -143,18 +150,19 @@ fn attachments_and_text_spans_are_never_lost_by_the_plain_text_editor() {
         json!([{"byteRange":{"start":0,"end":5},"placeholder":"token"}]);
     for native in [attached, spans] {
         assert!(editable_text(&native).is_none());
-        app.codex.queue.entries = vec![native.clone()];
-        app.codex.queue.selected = Some(native["id"].as_str().expect("ID").into());
-        app.codex.queue.known = true;
+        app.session
+            .set_codex_queue_entries_for_test(vec![native.clone()]);
+        app.view.codex_queue.selected = Some(native["id"].as_str().expect("ID").into());
+        app.session.set_codex_queue_known_for_test(true);
         begin_edit(&mut app);
-        assert!(app.codex.queue.edit.is_none());
-        assert_eq!(app.codex.queue.entries[0], native);
+        assert!(app.view.codex_queue.edit.is_none());
+        assert_eq!(app.session.codex_queue().entries()[0], native);
         operate(&peer, &mut app, "start");
         assert_eq!(
             peer.controls.borrow().last().expect("start").0,
             "thread/queue/start"
         );
-        app.codex.queue.operation = None;
+        app.session.set_codex_queue_pending_for_test(false);
     }
 }
 
@@ -162,26 +170,33 @@ fn attachments_and_text_spans_are_never_lost_by_the_plain_text_editor() {
 fn an_external_edit_or_consumption_preserves_the_draft_and_does_not_retarget_selection() {
     let mut app = app();
     let peer = Peer::default();
-    app.codex.queue.entries = vec![entry("a", "first"), entry("b", "second")];
-    app.codex.queue.selected = Some("a".into());
-    app.codex.queue.known = true;
+    app.session
+        .set_codex_queue_entries_for_test(vec![entry("a", "first"), entry("b", "second")]);
+    app.view.codex_queue.selected = Some("a".into());
+    app.session.set_codex_queue_known_for_test(true);
     begin_edit(&mut app);
-    app.codex
-        .queue
+    app.view
+        .codex_queue
         .edit
         .as_mut()
         .expect("edit")
         .editor
         .insert_str("draft");
-    app.codex.queue.entries[0] = entry("a", "external new value");
+    app.session.set_codex_queue_entries_for_test(vec![
+        entry("a", "external new value"),
+        entry("b", "second"),
+    ]);
     save_edit(&peer, &mut app);
     assert!(peer.controls.borrow().is_empty());
-    assert!(app.codex.queue.edit.is_some());
-    app.codex.queue.entries.remove(0);
+    assert!(app.view.codex_queue.edit.is_some());
+    app.session
+        .set_codex_queue_entries_for_test(vec![entry("b", "second")]);
     operate(&peer, &mut app, "delete");
     assert!(peer.controls.borrow().is_empty());
-    assert_eq!(app.codex.queue.selected.as_deref(), Some("a"));
-    app.codex.queue.move_selection(1);
+    assert_eq!(app.view.codex_queue.selected.as_deref(), Some("a"));
+    app.view
+        .codex_queue
+        .move_selection(1, app.session.codex_queue());
     operate(&peer, &mut app, "delete");
     assert_eq!(peer.controls.borrow()[0].1["queuedSubmissionId"], "b");
 }
@@ -200,7 +215,7 @@ fn invalid_queue_pages_keep_automatic_work_blocked_instead_of_installing_partial
         ),
     );
     assert!(action.is_some());
-    assert!(!app.codex.queue.known);
+    assert!(!app.session.codex_queue().known());
     crate::app::codex_queue::page(&peer, &mut app, 1, json!("next"));
     receive(
         &mut app,
@@ -211,8 +226,8 @@ fn invalid_queue_pages_keep_automatic_work_blocked_instead_of_installing_partial
         ),
     );
     assert!(!allows_automatic(&app));
-    assert!(app.codex.queue.entries.is_empty());
-    assert!(app.codex.queue.error.is_some());
+    assert!(app.session.codex_queue().entries().is_empty());
+    assert!(crate::app::codex_queue::error(&app).is_some());
 }
 
 #[test]
@@ -230,12 +245,12 @@ fn a_fork_cannot_discard_an_unsettled_queue_submission_or_an_unrecovered_draft()
     assert_eq!(app.session.thread_id(), "root");
     assert_eq!(app.input_text(), "edited previous prompt");
     assert_eq!(peer.controls.borrow().len(), 1);
-    assert!(app.codex.queue.operation.is_some());
-    app.codex.queue.operation = None;
-    app.codex.queue.recovery = Some("unrecovered input".into());
+    assert!(app.session.codex_queue().pending());
+    app.session.set_codex_queue_pending_for_test(false);
+    app.view.codex_queue.recovery = Some("unrecovered input".into());
     assert!(crate::app::codex_queue::reject_switch(&mut app));
     assert_eq!(
-        app.codex.queue.recovery.as_deref(),
+        app.view.codex_queue.recovery.as_deref(),
         Some("unrecovered input")
     );
 }
@@ -245,10 +260,8 @@ fn later_queue_pages_use_the_remaining_whole_snapshot_deadline() {
     let mut app = app();
     let peer = Peer::default();
     tick(&peer, &mut app);
-    let read = app.codex.queue.read.as_mut().expect("snapshot");
-    read.started = std::time::Instant::now()
-        .checked_sub(std::time::Duration::from_secs(19))
-        .expect("prior instant");
+    app.session
+        .age_codex_queue_read_for_test(std::time::Duration::from_secs(19));
     crate::app::codex_queue::page(&peer, &mut app, 1, json!("next-page"));
     assert!(
         peer.contexts.borrow()[1]["timeoutMs"]
@@ -256,11 +269,10 @@ fn later_queue_pages_use_the_remaining_whole_snapshot_deadline() {
             .expect("remaining milliseconds")
             <= 1000
     );
-    app.codex.queue.read.as_mut().expect("snapshot").started = std::time::Instant::now()
-        .checked_sub(std::time::Duration::from_secs(21))
-        .expect("expired instant");
+    app.session
+        .age_codex_queue_read_for_test(std::time::Duration::from_secs(21));
     crate::app::codex_queue::page(&peer, &mut app, 1, json!("last-page"));
-    assert!(app.codex.queue.read.is_none());
+    assert!(!app.session.codex_queue().reading());
     assert_eq!(
         peer.controls.borrow().len(),
         2,

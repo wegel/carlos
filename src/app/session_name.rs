@@ -20,9 +20,10 @@ impl AppState {
                 self.codex.task_status = Default::default();
                 self.codex.goals = Default::default();
                 self.codex.epoch = self.codex.epoch.saturating_add(1);
-                let mode = self.codex.queue.mode;
-                self.codex.queue = super::codex_queue_state::QueueState::default();
-                self.codex.queue.mode = mode;
+                let mode = self.view.codex_queue.mode;
+                self.view.codex_queue = Default::default();
+                self.session.reset_codex_queue();
+                self.view.codex_queue.mode = mode;
                 let legacy_overrides = self.codex.settings.legacy_overrides;
                 self.codex.settings = Default::default();
                 self.codex.settings.legacy_overrides = legacy_overrides;

@@ -126,18 +126,8 @@ fn install_history_runtime(
 }
 
 fn install_queue(app: &mut AppState, snapshot: &CodexSnapshot) {
-    app.codex.queue.entries = snapshot
-        .queue
-        .as_ref()
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    app.codex.queue.known = snapshot.queue.is_some();
-    app.codex.queue.read = None;
-    app.codex.queue.error = snapshot
-        .queue
-        .is_none()
-        .then(|| "This server has no queue API".into());
+    app.session.install_codex_queue(snapshot.queue.as_ref());
+    app.view.codex_queue.error = None;
 }
 
 struct PanelFacts {

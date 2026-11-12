@@ -160,13 +160,14 @@ fn malformed_goal_fails_before_transcript_and_snapshots_are_replaced() {
     let peer = Peer::default();
     let mut app = app();
     app.append_message(Role::Assistant, "KEEP_OLD_HISTORY");
-    app.codex.queue.entries = vec![json!({"id":"keep-queue"})];
+    app.session
+        .set_codex_queue_entries_for_test(vec![json!({"id":"keep-queue"})]);
     let mut bad = snapshot("DO_NOT_INSTALL", "idle");
     bad.goal = Some(json!({}));
     ready(&peer, &mut app, bad);
     assert!(app.codex.closed);
     assert_eq!(app.session.messages()[0].text, "KEEP_OLD_HISTORY");
-    assert_eq!(app.codex.queue.entries[0]["id"], "keep-queue");
+    assert_eq!(app.session.codex_queue().entries()[0]["id"], "keep-queue");
     assert_eq!(*peer.aborted.borrow(), 1);
     assert_eq!(app.input_text(), "preserve main 日本語");
 }

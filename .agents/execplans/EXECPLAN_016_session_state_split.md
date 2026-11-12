@@ -48,7 +48,9 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 - [x] (2026-11-12 UTC, handover) Recovered the Claude session and restored its named stash at base `91570ea`. The restored 37 source files exactly match `/tmp/carlos-m7b/source-audit.json`. The saved part 7.2 passed its build, release build, style checks, 990 Rust tests and 174 terminal workflows before the worker stopped. The resumed Rust run passes 990 tests in 3.76 s.
 - [x] (2026-11-12 UTC) Milestone 7 part 7.2: direct handler review PASS, 990 Rust tests, 174 terminal workflows (78.211 s), release build, format and style pass. Seven alternating speed pairs against `a59221c`: synthetic replay 48.86 / 48.20 ms, layout 14.97 / 14.98, draw 3.88 / 3.65, scroll 0.70 / 0.70, typing 0.60 / 0.60. Small fixture replay 1.11 / 1.17 ms, draw 0.48 / 0.50. No repeatable slowdown. Report: `.agents/reports/exec016-m7b-report.md`.
 - [x] (2026-11-12 UTC) Milestone 7 part 7.3: Claude callback commands, unsupported-kind checks, browser notices and replies now live in the session; local answers live in ViewState and ClaudeUiState is removed. 992 Rust tests, 174 terminal workflows, release build/check, format/style and direct review pass. All 3,000 streams (51,390 checkpoints) exactly equal the parent; pre-plan outputs equal part 7.2 byte for byte, with the same 103 classified H/T/F differences and no panic. Report: `.agents/reports/exec016-m7c-report.md`.
-- [ ] Milestone 8: split native queues and goals from their local editors.
+- [ ] Milestone 8:
+  - [x] (2026-11-12 UTC) Part 8.1: native queue facts, reads, submitted writes and exact recovery reports. 993 Rust tests, 174 terminal workflows, release build, style and direct review pass. All 3,000 parent streams match exactly; pre-plan outputs equal part 7.3 byte for byte, including the same classified differences and no panic. Queue-specific behavior is covered by enumerated Rust/terminal tests; this inherited corpus contains no queue operation. Report: `.agents/reports/exec016-m8a-report.md`.
+  - [ ] Part 8.2: native goal facts, reads, accepted changes and Ralph guards; keep goal editors and confirmations local.
 
 ## Surprises & Discoveries
 
@@ -187,6 +189,10 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
   Rationale: an existing allocation test caught a second full-payload copy in the first attempt. The corrected path preserves the original one-copy cost and all consent checks.
   Date/Author: 2026-11-12 / Codex.
 
+- Decision: split milestone 8 into native queues and native goals. Move the shared Codex request counter with the queue controller; the remaining connection scope stays in its existing owner until milestone 9 and is passed as plain values.
+  Rationale: both controllers use the counter. Moving it once preserves correlation across controllers without copying mutable facts or widening the queue change into the whole connection state.
+  Date/Author: 2026-11-12 / Codex.
+
 ## Reviews
 
 - Milestone 1, engineering reviewer (`.agents/reviewers/engineering_reviewer.md`, Codex `gpt-6.1-sol`, fresh session, 2026-11-11): verdict PASS. No BLOCKER, MAJOR or MINOR finding. Confirmed: no terminal dependency or row count in session models; `app/models.rs` re-exports plain types only; compact and full labels, diff styles, row counts and selection rows preserved; no per-frame message clone; no test weakened. The reviewer ran `cargo fmt --check` and `git diff --check`; it relied on the integrator for tests and speed.
@@ -248,7 +254,7 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 ## Outcomes & Retrospective
 
 
-Milestones 0 through 7 are complete. The daemon split remains in its separate checkout; the main checkout has unrelated owner changes. The primary agent recovered part 7.2 from the named stash and completed the Claude callback split. Milestones 8 through 11 remain. No binary has been installed. The original baseline notes below remain historical evidence; milestone 0 supplied the missing tools and the Rust 1.100.0 default-feature baseline.
+Milestones 0 through 7 are complete. The daemon split remains in its separate checkout; the main checkout has unrelated owner changes. The primary agent recovered part 7.2 from the named stash and completed the Claude callback split. Milestones 8 through 11 remain. No binary has been installed. Milestone 7’s seven alternating speed pairs gave synthetic replay 48.79 / 47.61 ms, layout 15.04 / 14.45, scroll 0.70 / 0.71 and typing 0.60 / 0.60; the small fixture replay was 1.09 / 1.06 ms. No repeatable slowdown. The original baseline notes below remain historical evidence; milestone 0 supplied the missing tools and the Rust 1.100.0 default-feature baseline.
 
 ## Context and Orientation
 
@@ -814,3 +820,5 @@ Plan-author source-check note, 2026-11-11: other work changed the architecture d
 Handover note, 2026-11-12: recorded the recovered source, remaining work, and the owner’s instruction to continue directly without agents.
 
 Milestone 7.3 note, 2026-11-12: recorded the callback/browser moves, exact comparison and the no-copy correction.
+
+Milestone 8.1 note, 2026-11-12: moved queue facts and the shared native token counter, preserved local editor/recovery ownership, and recorded checks. Seven quiet alternating speed pairs: {"synthetic": [{"replay": 47.61, "layout": 14.67, "draw": 3.53, "scroll": 0.7, "typing": 0.6}, {"replay": 47.7, "layout": 14.63, "draw": 3.47, "scroll": 0.7, "typing": 0.59}], "fixture": [{"replay": 1.22, "layout": 0.01, "draw": 0.49, "scroll": 0.44, "typing": 0.37}, {"replay": 1.05, "layout": 0.0, "draw": 0.48, "scroll": 0.43, "typing": 0.36}]}. The earlier run overlapped event replay and is not used as the quiet speed check.

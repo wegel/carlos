@@ -45,7 +45,7 @@ pub(super) fn handle_turn_completed(app: &mut AppState, params: &serde_json::Map
         return;
     }
     if app.codex.enabled {
-        app.codex.queue.invalidate();
+        app.session.invalidate_codex_queue();
     }
     let keep_codex = app.session.approval().pending().is_some_and(|pending| {
         app.session

@@ -254,10 +254,10 @@ fn begin(app: &mut AppState, owner: &str, now: Instant) {
         .task_status
         .allowed
         .insert(owner.into(), now + Duration::from_secs(3));
-    app.codex.serial = app.codex.serial.saturating_add(1);
+    app.session.advance_codex_serial();
     app.codex.task_status.read = Some(Read {
         request: Request {
-            token: app.codex.serial,
+            token: app.session.codex_serial(),
             method: "thread/backgroundTerminals/list".into(),
             params: json!({"threadId":owner,"limit":1,"cursor":null}),
         },
