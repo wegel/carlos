@@ -6,79 +6,22 @@ use super::state::AppState;
 use super::viewport_state::ViewportState;
 
 impl AppState {
-    /// Adopt rows and rebuild their prompt, completion, label and view references.
-    pub(super) fn replace_history_draft(
-        &mut self,
-        draft: super::item_history::history_draft::HistoryDraft,
-        mode: crate::session::history_identity::HistoryMode,
-    ) {
-        let update = self.session.replace_history(draft.entries, mode);
-        self.session.reset_prompt_history();
+    /// Reset local history navigation and viewport after native history is adopted.
+    pub(super) fn reset_history_view(&mut self) {
         self.view.input_history = InputHistoryView::default();
-        self.session.clear_codex_reports();
-        for (turn, status) in draft.turns {
-            self.record_historical_turn_status(&turn, status);
-        }
-        for record in draft.records {
-            self.restore_history_record(record);
-        }
         self.view.render_cache = RenderCacheState::new();
         self.view.viewport = ViewportState::new();
-        self.session.restore_turn_boundary();
-        self.apply_session_update(update);
     }
 
-    fn restore_history_record(
+    /// Apply a checked fork draft and its session-owned metadata.
+    pub(super) fn replace_history_draft(
         &mut self,
-        record: super::item_history::history_draft::HistoryRecord,
+        draft: crate::session::item_history_draft::HistoryDraft,
+        mode: crate::session::history_identity::HistoryMode,
     ) {
-        self.session.replace_codex_item_turn(record.turn.clone());
-        super::codex_panel_events::report(self, &record.item);
-        for (index, row, describe) in record.updates {
-            self.session.transcript_update(
-                index,
-                row.role,
-                Some(row.text),
-                row.kind,
-                row.file_path,
-            );
-            if describe {
-                self.describe_tool_output(index, &record.item);
-            }
-        }
-        for (index, text) in record.prompts {
-            self.record_input_history(&text, Some(index));
-        }
-        if record.observe {
-            self.observe_summary_item(&record.item, false);
-        }
-        let Some(id) = record.item["id"].as_str() else {
-            return;
-        };
-        if record.item["type"] == "userMessage" {
-            if let Some(turn) = &record.turn {
-                let entry = record
-                    .native_index
-                    .map(|index| self.session.messages()[index].id);
-                if let Some(entry) = entry {
-                    self.session.record_prompt_turn(entry, turn);
-                }
-                let position = self.session.record_native_user(id, turn, entry);
-                if let (Some(index), Some(position)) = (record.native_index, position) {
-                    self.session.transcript_set_kind(
-                        index,
-                        if position == 0 {
-                            super::MessageKind::Plain
-                        } else {
-                            super::MessageKind::UserSteer
-                        },
-                    );
-                }
-            }
-        }
-        if record.terminal {
-            self.mark_item_completed(id);
-        }
+        let changes = self.session.replace_native_history(draft, mode);
+        self.reset_history_view();
+        self.apply_item_changes(changes);
     }
 
     pub(super) fn reset_for_forked_thread(&mut self, thread_id: impl Into<String>) {

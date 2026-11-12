@@ -188,10 +188,7 @@ impl AppState {
         self.session.record_turn_completed(turn_id, status)
     }
 
-    pub(super) fn record_historical_turn_status(&mut self, turn_id: &str, status: TurnStatus) {
-        self.session.record_historical_turn_status(turn_id, status)
-    }
-
+    #[cfg(test)]
     pub(super) fn maybe_disable_ralph_on_blocked_marker(&mut self) {
         let update = self.session.maybe_disable_ralph_on_blocked_marker();
         self.apply_session_update(update);

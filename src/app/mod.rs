@@ -4,7 +4,9 @@ use std::env;
 
 use anyhow::Result;
 
-use self::models::{DiffBlock, Message, MessageKind, ThreadSummary};
+#[cfg(test)]
+use self::models::MessageKind;
+use self::models::{Message, ThreadSummary};
 use self::state::AppState;
 use self::view_models::{RenderedLine, TerminalSize};
 pub(crate) use crate::session::models::Role;
@@ -95,10 +97,8 @@ mod markdown_tables;
 mod mobile_mouse;
 mod models;
 mod mouse_events;
-mod native_activity;
 mod native_questions;
 mod notification_items;
-mod notification_tools;
 mod notification_turns;
 mod notifications;
 mod overlay_render;

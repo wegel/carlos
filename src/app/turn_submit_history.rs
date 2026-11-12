@@ -67,7 +67,7 @@ pub(super) fn apply_forked_thread_history(
     let parsed = extract_result_object(response_line)?;
     let thread = parsed["result"]["thread"].clone();
     let previous = app.session.replace_codex_item_turn(None);
-    let mut draft = crate::app::item_history::history_draft::build(app, &thread);
+    let mut draft = crate::session::item_history_draft::build(&mut app.session, &thread);
     draft.set_conversation(&thread_id);
     app.session.replace_codex_item_turn(previous);
     app.reset_for_forked_thread(thread_id);

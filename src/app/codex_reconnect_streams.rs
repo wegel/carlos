@@ -131,7 +131,7 @@ fn complete_turn(app: &mut AppState, params: &Value) {
 }
 
 fn retain_final_read(app: &mut AppState, key: &(String, String), item: &Value) -> bool {
-    if !super::tool_output_items::command_output_missing(item) {
+    if !crate::session::item_receive::command_output_missing(item) {
         return false;
     }
     let Some(partial) = app.codex.connection.streams.items.get_mut(key) else {
@@ -252,7 +252,7 @@ fn update_partial(app: &mut AppState, key: &(String, String), entry: &Value) {
     };
     if partial.final_until.is_some()
         && (!entry["completedAtMs"].is_i64()
-            || super::tool_output_items::command_output_missing(&entry["item"]))
+            || crate::session::item_receive::command_output_missing(&entry["item"]))
     {
         app.codex
             .connection
@@ -350,7 +350,7 @@ fn text(item: &Value) -> Option<String> {
     match item["type"].as_str()? {
         "agentMessage" => item["text"].as_str().map(str::to_string),
         "commandExecution" => Some(item["aggregatedOutput"].as_str().unwrap_or("").into()),
-        "reasoning" => super::item_history::reasoning_summary_text(item),
+        "reasoning" => crate::session::item_history::reasoning_summary_text(item),
         _ => None,
     }
 }

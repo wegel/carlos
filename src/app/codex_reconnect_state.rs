@@ -12,7 +12,6 @@ pub(super) struct ConnectionState {
     pub(super) closed_generation: Option<u64>,
     pub(super) unreplayed_children: usize,
     pub(super) runtime_read: Option<MetadataRead>,
-    pub(super) name_revision: u64,
     pub(super) runtime_refresh: bool,
     pub(super) initial_rebuild: bool,
     pub(super) initial_choices: Option<Value>,

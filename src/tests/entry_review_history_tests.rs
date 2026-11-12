@@ -119,7 +119,7 @@ fn complete_read_history_uses_linear_predecessor_work() {
         let mut app = app();
         let items: Vec<_> = (0..count).map(|n| json!({"id":format!("read-{n}"),"type":"toolCall","name":"Read","input":{"file_path":"same.rs"}})).collect();
         let thread = json!({"id":"thread","turns":[{"id":"turn","items":items}]});
-        let draft = crate::app::item_history::history_draft::build(&mut app, &thread);
+        let draft = crate::session::item_history_draft::build(&mut app.session, &thread);
         counts.push(draft.read_steps);
         crate::app::item_history::replace_history_from_thread(&mut app, &thread)
             .expect("same-thread history");

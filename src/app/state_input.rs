@@ -171,34 +171,6 @@ impl AppState {
         )
     }
 
-    pub(super) fn record_input_turn_id(&mut self, item_id: &str, turn_id: &str) {
-        let previous = self
-            .session
-            .replace_codex_item_turn(Some(turn_id.to_string()));
-        let message_idx = self.item_message_index(item_id);
-        self.session.replace_codex_item_turn(previous);
-        if let Some(index) = message_idx {
-            self.session
-                .record_prompt_turn(self.session.messages()[index].id, turn_id);
-        }
-        let position = self.session.record_native_user(
-            item_id,
-            turn_id,
-            message_idx.map(|index| self.session.messages()[index].id),
-        );
-        if let (Some(index), Some(position)) = (message_idx, position) {
-            let kind = if position == 0 {
-                super::models::MessageKind::Plain
-            } else {
-                super::models::MessageKind::UserSteer
-            };
-            if self.session.messages()[index].kind != kind {
-                self.session.transcript_set_kind(index, kind);
-                self.mark_transcript_dirty_from(index);
-            }
-        }
-    }
-
     pub(super) fn rewind_selected_turn_id(&self) -> Option<&str> {
         self.view
             .claude_unknown_selection

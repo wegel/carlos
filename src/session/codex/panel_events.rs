@@ -28,7 +28,7 @@ pub(crate) fn event(
     };
     if id == *session.thread_id() {
         if method == "item/completed" || method == "item/started" {
-            report(session, scope, &params["item"]);
+            report(session, &params["item"]);
         }
         return false;
     }
@@ -41,7 +41,7 @@ pub(crate) fn event(
         .iter()
         .position(|agent| agent["id"] == id)
         .expect("known agent");
-    if !apply_child(session, scope, index, method, params) {
+    if !apply_child(session, index, method, params) {
         return true;
     }
     super::panel_activity::event(session, method, params);
@@ -49,8 +49,8 @@ pub(crate) fn event(
 }
 
 /// Retain bounded child report bodies in F2, including those embedded in root collaboration tools.
-pub(crate) fn report(session: &mut SessionState, scope: PanelScope<'_>, item: &Value) {
-    if !scope.native.enabled || item["type"] != "collabAgentToolCall" {
+pub(crate) fn report(session: &mut SessionState, item: &Value) {
+    if !session.codex_scope().enabled() || item["type"] != "collabAgentToolCall" {
         return;
     }
     let Some(states) = item["agentsStates"].as_object() else {
@@ -176,13 +176,7 @@ fn accept_thread(session: &mut SessionState, scope: PanelScope<'_>, thread: &Val
     false
 }
 
-fn apply_child(
-    session: &mut SessionState,
-    scope: PanelScope<'_>,
-    index: usize,
-    method: &str,
-    params: &Value,
-) -> bool {
+fn apply_child(session: &mut SessionState, index: usize, method: &str, params: &Value) -> bool {
     match method {
         "thread/status/changed" => {
             if params["status"].to_string().len() > 16 * 1024 {
@@ -220,7 +214,7 @@ fn apply_child(
             );
             session.codex_panel.revision = session.codex_panel.revision.saturating_add(1);
         }
-        "item/started" | "item/completed" => report(session, scope, &params["item"]),
+        "item/started" | "item/completed" => report(session, &params["item"]),
         _ => {}
     }
     true

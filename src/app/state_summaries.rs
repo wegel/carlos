@@ -2,11 +2,8 @@
 
 use std::sync::mpsc;
 
-use serde_json::Value;
-
 use super::state::AppState;
 use crate::session::entry_id::EntryId;
-use crate::session::summary_request::has_command;
 use crate::summaries::SummaryEvent;
 
 impl AppState {
@@ -15,20 +12,6 @@ impl AppState {
         let result = read(self);
         self.session.set_summary_replaying(previous);
         result
-    }
-
-    pub(super) fn observe_summary_item(&mut self, item: &Value, live: bool) {
-        let Some(id) = item["id"].as_str() else {
-            return;
-        };
-        // Most items carry no command; skip them before allocating a lookup key.
-        if !has_command(item) {
-            return;
-        }
-        let key = self.item_key(id);
-        let scope = key.turn.as_deref().map(|turn| (turn, key.part));
-        let update = self.session.observe_summary_item(item, live, &key, scope);
-        self.apply_session_update(update);
     }
 
     pub(super) fn configure_summary_worker(&mut self, tx: mpsc::Sender<SummaryEvent>) {

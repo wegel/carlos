@@ -79,3 +79,23 @@ mod usage_tests;
 
 #[cfg(test)]
 pub(crate) mod test_backend;
+
+pub(crate) mod item_changes;
+
+pub(crate) mod item_receive;
+
+pub(crate) mod item_history_draft;
+
+pub(crate) mod native_activity;
+
+pub(crate) mod notification_items;
+
+pub(crate) mod notification_tools;
+
+mod history_receive;
+pub(crate) mod item_history;
+
+mod item_deltas;
+
+#[cfg(test)]
+mod native_item_headless_tests;

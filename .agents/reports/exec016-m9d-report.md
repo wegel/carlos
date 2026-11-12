@@ -1,0 +1,17 @@
+# Milestone 9.3.2: common native item and history handlers
+
+The session now parses common item boundaries and deltas, completes tools, retains streamed command bodies, records native prompt positions, formats native activity, builds checked history drafts and restores adopted history facts. App adapters apply ordered row reports, reset history caches/viewport and reset the prompt cursor. They no longer parse tool items or restore backend facts. Pure title cleanup and its native revision counter also live in the session.
+
+The move preserves source preparation/attachment around every handled or ignored item; native turn/part scope; duplicate completion guards; optional/missing id behavior; commentary and reasoning rules; tool-role/diff/output/failure handling; read grouping; prompt insertion and native steering classification; summary-worker observations; and history identity checks before adoption. History builds still allocate no entry ids. The old independent index-map reference remains unchanged.
+
+The primary agent checked each moved guard, default, early return, retained output path and history sequence against 7544677 using the engineering reviewer prompt. Findings: none. Verdict: PASS. This was a direct self-review, without agents or an independent reviewer. Common item/history handlers moved before the remaining reconnect handlers because reconnect needs them without AppState. Milestone 10 still must move the complete backend-line dispatcher and commands.
+
+999 Rust tests pass. Two new headless tests exercise streamed tool completion for each backend and same-thread history with inserted/corrected entries plus atomic rejection of a foreign thread. The initial tool test expected the body without Carlos’s existing command prefix; the expectation was corrected to preserve existing behavior. Existing screen/request fixtures remain unchanged.
+
+All 3,000 parent streams match at all 51,390 checkpoints, with no panic. Final pre-plan outputs equal part 9.3.1 byte for byte, including the same 103 classified differences. The comparison was rebuilt and rerun after the report-storage change.
+
+The first quiet speed check showed a possible report-allocation cost. Ordinary item reports now use four inline slots; only larger histories spill into a vector. Seven further pairs alternated which executable ran first: replay 48.08 / 48.24 ms, layout 15.07 / 15.22, draw 3.68 / 3.49, scroll 0.70 / 0.70 and typing 0.59 / 0.59. The slowdown did not repeat. Small-fixture replay was 1.08 / 1.10 ms. Raw checks remain under /tmp/carlos-m9d; zero RSS fields still provide no memory evidence.
+
+The default release build, format, whitespace and size checks pass. The largest changed file is 356 lines and the largest function 55. Release compilation has only the previously recorded protocol_writer atomic-rename warning. Unused app adapters were removed or restricted to their test fixtures. No schema, dependency, persistent format or installed binary changed.
+
+All 174 final terminal workflows pass in 78.683 seconds. An earlier final run hit the already recorded phone-panel close/resize race (artifact run-U1QjfN): the event trace accepted F2 while a desktop resize immediately followed, and the screen still showed the panel. The fixture now waits for the phone composer to reappear before resizing again. It checks both screens in sequence, keeps every exact request assertion, adds no sleep or retry, and passed 30/30 isolated repeats before the complete passing run. Carlos keyboard behavior was not changed.

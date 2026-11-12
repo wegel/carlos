@@ -50,6 +50,7 @@ class CodexPanel:
         terminal.paste("must not edit main draft")
         terminal.wait(lambda:any('must not edit main draft' in line for line in (terminal.root/"keys.log").read_text().splitlines()),"panel consumed paste")
         terminal.send(b"\x1bOQ")
+        terminal.wait(lambda:terminal.input_is("keep phone draft"),"phone panel closed before desktop resize")
         terminal.resize(100,28)
         terminal.wait(lambda:terminal.input_is("keep phone draft"),"main draft after phone process panel")
         self.assertEqual(terminal.requests("thread/backgroundTerminals/clean"),[])

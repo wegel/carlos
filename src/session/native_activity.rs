@@ -3,21 +3,9 @@
 use serde_json::Value;
 
 use super::tools::strip_terminal_controls;
-use super::{AppState, MessageKind, Role};
 
-/// Merge a native activity record by its item ID, including records arriving after turn completion.
-pub(super) fn upsert_native_activity(app: &mut AppState, item: &Value) -> bool {
-    super::codex_panel_events::report(app, item);
-    let Some(text) = format_native_activity(item) else {
-        return false;
-    };
-    if let Some(id) = item.get("id").and_then(Value::as_str) {
-        app.upsert_mapped_message(id, Role::ToolCall, text, MessageKind::Plain, None);
-    }
-    true
-}
-
-pub(super) fn format_native_activity(item: &Value) -> Option<String> {
+/// Describe native waits and child-agent work as plain transcript text.
+pub(crate) fn format_native_activity(item: &Value) -> Option<String> {
     match item.get("type").and_then(Value::as_str)? {
         "sleep" => {
             let duration = item.get("durationMs").and_then(Value::as_u64)?;

@@ -14,6 +14,7 @@ impl AppState {
     }
 
     /// Keep native IDs unchanged while selecting a separate display part.
+    #[cfg(test)]
     pub(super) fn with_item_part<R>(
         &mut self,
         item: &str,
@@ -27,6 +28,7 @@ impl AppState {
     }
 
     /// Resolve an id only at the boundary of an in-process store operation.
+    #[cfg(test)]
     pub(super) fn item_message_index(&self, item_id: &str) -> Option<usize> {
         self.session.item_message_index(&self.item_key(item_id))
     }
@@ -42,6 +44,7 @@ impl AppState {
         self.session.put_item_mapping(&key, idx);
     }
 
+    #[cfg(test)]
     pub(super) fn mark_item_completed(&mut self, item_id: &str) {
         let key = self.item_key(item_id);
         self.session.mark_item_completed(&key);
@@ -51,6 +54,7 @@ impl AppState {
         self.session.is_item_completed(&self.item_key(item_id))
     }
 
+    #[cfg(test)]
     pub(super) fn ensure_item_placeholder(&mut self, item_id: &str, role: Role) -> bool {
         let key = self.item_key(item_id);
         let (result, update) = self.session.ensure_item_placeholder(&key, role);
@@ -78,12 +82,14 @@ impl AppState {
 
     // --- Streamed Items ---
 
+    #[cfg(test)]
     pub(super) fn upsert_agent_delta(&mut self, item_id: &str, delta: &str) {
         let key = self.item_key(item_id);
         let update = self.session.upsert_agent_delta(&key, delta);
         self.apply_session_update(update);
     }
 
+    #[cfg(test)]
     pub(super) fn upsert_reasoning_summary_delta(&mut self, item_id: &str, delta: &str) {
         if self.is_item_completed(item_id) {
             return;
@@ -98,12 +104,10 @@ impl AppState {
         self.apply_session_update(update);
     }
 
+    #[cfg(test)]
     pub(super) fn upsert_command_output_delta(&mut self, item_id: &str, delta: &str) {
         let key = self.item_key(item_id);
         let update = self.session.upsert_command_output_delta(&key, delta);
         self.apply_session_update(update);
     }
 }
-
-#[path = "state_item_sources.rs"]
-mod sources;

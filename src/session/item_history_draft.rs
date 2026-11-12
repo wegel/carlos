@@ -4,46 +4,48 @@ use std::collections::HashMap;
 
 use serde_json::Value;
 
-use super::{agent_role_from_phase, has_terminal_item_status, reasoning_summary_text};
-use crate::app::models::{MessageKind, Role, TurnStatus};
-use crate::app::native_activity::format_native_activity;
-use crate::app::state::AppState;
-use crate::app::tools::{
-    command_execution_diff_output, extract_diff_blocks, is_tool_call_type, is_tool_output_type,
-    item_text_from_content,
+use super::item_history::{
+    agent_role_from_phase, has_terminal_item_status, reasoning_summary_text,
 };
 use crate::session::entry_key::BackendEntryKey;
 use crate::session::history_identity::HistoryEntry;
 use crate::session::input_history_native::NativeUserHistory;
 use crate::session::models::EntryDraft;
+use crate::session::models::{MessageKind, Role, TurnStatus};
+use crate::session::native_activity::format_native_activity;
 use crate::session::read_summary::{format_read_summary_with_count, parse_read_summary};
+use crate::session::state::SessionState;
+use crate::session::tools::{
+    command_execution_diff_output, extract_diff_blocks, is_tool_call_type, is_tool_output_type,
+    item_text_from_content,
+};
 
 #[path = "item_history_predecessors.rs"]
 mod predecessors;
 use predecessors::Predecessors;
 
 /// Holds checked rows and native metadata without allocating entry ids.
-pub(in crate::app) struct HistoryDraft {
-    pub(in crate::app) entries: Vec<HistoryEntry>,
-    pub(in crate::app) records: Vec<HistoryRecord>,
-    pub(in crate::app) turns: Vec<(String, TurnStatus)>,
+pub(crate) struct HistoryDraft {
+    pub(crate) entries: Vec<HistoryEntry>,
+    pub(crate) records: Vec<HistoryRecord>,
+    pub(crate) turns: Vec<(String, TurnStatus)>,
     #[cfg(test)]
-    pub(in crate::app) read_steps: usize,
+    pub(crate) read_steps: usize,
 }
 
 /// Keep event-time row facts until the store has assigned ids to the whole history.
-pub(in crate::app) struct HistoryRecord {
-    pub(in crate::app) item: Value,
-    pub(in crate::app) turn: Option<String>,
-    pub(in crate::app) terminal: bool,
-    pub(in crate::app) updates: Vec<(usize, EntryDraft, bool)>,
-    pub(in crate::app) prompts: Vec<(usize, String)>,
-    pub(in crate::app) native_index: Option<usize>,
-    pub(in crate::app) observe: bool,
+pub(crate) struct HistoryRecord {
+    pub(crate) item: Value,
+    pub(crate) turn: Option<String>,
+    pub(crate) terminal: bool,
+    pub(crate) updates: Vec<(usize, EntryDraft, bool)>,
+    pub(crate) prompts: Vec<(usize, String)>,
+    pub(crate) native_index: Option<usize>,
+    pub(crate) observe: bool,
 }
 
 /// Collect every row before the live transcript adopts any of them.
-pub(in crate::app) fn build(app: &mut AppState, thread: &Value) -> HistoryDraft {
+pub(crate) fn build(session: &mut SessionState, thread: &Value) -> HistoryDraft {
     let mut draft = HistoryDraft {
         entries: Vec::new(),
         records: Vec::new(),
@@ -55,8 +57,7 @@ pub(in crate::app) fn build(app: &mut AppState, thread: &Value) -> HistoryDraft 
     let mut predecessors = Predecessors::new();
     let mut native = NativeUserHistory::default();
     for turn in thread["turns"].as_array().into_iter().flatten() {
-        app.session
-            .replace_codex_item_turn(turn["id"].as_str().map(str::to_string));
+        session.replace_codex_item_turn(turn["id"].as_str().map(str::to_string));
         let status = turn["status"].as_str().and_then(TurnStatus::from_wire);
         if let (Some(id), Some(status)) = (turn["id"].as_str(), status) {
             draft.turns.push((id.to_string(), status));
@@ -64,7 +65,7 @@ pub(in crate::app) fn build(app: &mut AppState, thread: &Value) -> HistoryDraft 
         for item in turn["items"].as_array().into_iter().flatten() {
             let mut record = HistoryRecord {
                 item: item.clone(),
-                turn: app.session.codex_item_turn().clone(),
+                turn: session.codex_item_turn().clone(),
                 terminal: status.is_some_and(TurnStatus::is_terminal)
                     || has_terminal_item_status(item),
                 updates: Vec::new(),
@@ -73,14 +74,14 @@ pub(in crate::app) fn build(app: &mut AppState, thread: &Value) -> HistoryDraft 
                 observe: false,
             };
             collect(
-                app,
+                session,
                 &mut record,
                 &mut draft.entries,
                 &mut positions,
                 &mut predecessors,
             );
             classify_native(
-                app,
+                session,
                 &record,
                 &mut native,
                 &mut draft.entries,
@@ -97,16 +98,16 @@ pub(in crate::app) fn build(app: &mut AppState, thread: &Value) -> HistoryDraft 
 }
 
 fn collect(
-    app: &AppState,
+    session: &SessionState,
     record: &mut HistoryRecord,
     entries: &mut Vec<HistoryEntry>,
     positions: &mut HashMap<BackendEntryKey, usize>,
     predecessors: &mut Predecessors,
 ) {
     let item = &record.item;
-    for (part, row) in rows(app, item).into_iter().enumerate() {
+    for (part, row) in rows(session, item).into_iter().enumerate() {
         let key = item["id"].as_str().map(|id| {
-            let mut key = app.item_key(id);
+            let mut key = session.backend_entry_key(id);
             key.part = part;
             key
         });
@@ -140,19 +141,19 @@ fn collect(
     }
     record.native_index = item["id"]
         .as_str()
-        .and_then(|id| positions.get(&app.item_key(id)))
+        .and_then(|id| positions.get(&session.backend_entry_key(id)))
         .copied();
     record.observe = record.native_index.is_some() && format_native_activity(item).is_none();
 }
 
 fn classify_native(
-    app: &AppState,
+    session: &SessionState,
     record: &HistoryRecord,
     native: &mut NativeUserHistory,
     entries: &mut [HistoryEntry],
     predecessors: &mut Predecessors,
 ) {
-    if record.item["type"] != "userMessage" || !app.session.input_history().native_enabled() {
+    if record.item["type"] != "userMessage" || !session.input_history().native_enabled() {
         return;
     }
     if let (Some(item), Some(turn)) = (record.item["id"].as_str(), record.turn.as_deref()) {
@@ -199,7 +200,7 @@ fn upsert_row(
 }
 
 /// Parse the same plain rows for full history and incremental reconnect records.
-pub(in crate::app) fn rows(app: &AppState, item: &Value) -> Vec<EntryDraft> {
+pub(crate) fn rows(session: &SessionState, item: &Value) -> Vec<EntryDraft> {
     if let Some(text) = format_native_activity(item) {
         return item["id"]
             .as_str()
@@ -235,13 +236,13 @@ pub(in crate::app) fn rows(app: &AppState, item: &Value) -> Vec<EntryDraft> {
             || is_tool_call_type(kind)
             || is_tool_output_type(kind) =>
         {
-            tool_rows(app, item, kind)
+            tool_rows(session, item, kind)
         }
         _ => Vec::new(),
     }
 }
 
-fn tool_rows(app: &AppState, item: &Value, kind: &str) -> Vec<EntryDraft> {
+fn tool_rows(session: &SessionState, item: &Value, kind: &str) -> Vec<EntryDraft> {
     let role = if kind == "commandExecution" || is_tool_output_type(kind) {
         Role::ToolOutput
     } else {
@@ -268,12 +269,12 @@ fn tool_rows(app: &AppState, item: &Value, kind: &str) -> Vec<EntryDraft> {
             }];
         }
     }
-    if let Some(formatted) = app
+    if let Some(formatted) = session
         .format_tool_item(item, role)
         .filter(|text| !text.is_empty())
     {
         return vec![EntryDraft {
-            file_path: app.tool_source_path(item),
+            file_path: session.tool_source_path(item),
             ..EntryDraft::plain(role, formatted)
         }];
     }
@@ -321,7 +322,7 @@ fn coalesce(
 
 impl HistoryDraft {
     /// Scope draft keys to the native thread that will adopt them.
-    pub(in crate::app) fn set_conversation(&mut self, conversation: &str) {
+    pub(crate) fn set_conversation(&mut self, conversation: &str) {
         for entry in &mut self.entries {
             if let Some(key) = &mut entry.key {
                 key.conversation = conversation.into();

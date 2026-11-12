@@ -1,7 +1,5 @@
 //! AppState impl: transcript/message manipulation, rendered lines, and selection.
 
-use crate::session::models::EntryDraft;
-
 use super::models::Role;
 use super::selection::{RenderedLineSource, Selection};
 use super::state::AppState;
@@ -20,6 +18,19 @@ impl AppState {
             .and_then(|id| self.session.messages().position(id))
         {
             self.mark_transcript_dirty_from(index);
+        }
+    }
+
+    /// Apply one synchronous item report before another terminal event runs.
+    pub(super) fn apply_item_changes(
+        &mut self,
+        changes: crate::session::item_changes::ItemChanges,
+    ) {
+        for update in changes.transcript {
+            self.apply_session_update(update);
+        }
+        if changes.reset_navigation {
+            self.reset_input_history_navigation();
         }
     }
 
@@ -83,13 +94,6 @@ impl AppState {
 
     pub(super) fn append_message(&mut self, role: Role, text: impl Into<String>) -> usize {
         let (index, update) = self.session.append_message(role, text);
-        self.apply_session_update(update);
-        index
-    }
-
-    /// Assign an id through the store before updating read groups and render caches.
-    pub(super) fn append_draft_message(&mut self, draft: EntryDraft) -> usize {
-        let (index, update) = self.session.append_draft_message(draft);
         self.apply_session_update(update);
         index
     }

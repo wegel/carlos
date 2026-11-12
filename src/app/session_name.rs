@@ -4,7 +4,6 @@ use std::time::Duration;
 
 use serde_json::{Map, Value};
 
-use super::tools::strip_terminal_controls;
 use super::{AppState, Role};
 use crate::backend::{BackendClient, BackendKind};
 use crate::protocol_params::{extract_result_object, params_thread_set_name};
@@ -36,29 +35,12 @@ impl AppState {
 
     /// Keep a single-line, terminal-safe name for display and inline editing.
     pub(super) fn set_thread_name(&mut self, name: Option<&str>) {
-        if self.session.codex_scope().enabled() {
-            self.codex.connection.name_revision =
-                self.codex.connection.name_revision.saturating_add(1);
-        }
-        self.session.set_thread_name(
-            name.map(strip_terminal_controls)
-                .map(|s| {
-                    s.chars()
-                        .map(|c| if c.is_control() { ' ' } else { c })
-                        .collect::<String>()
-                })
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty()),
-        );
+        self.session.observe_name(name);
     }
 
     /// Apply a title only when metadata belongs to the current thread and includes a name field.
     pub(super) fn read_thread_name(&mut self, thread: &Value) {
-        if thread.get("id").and_then(Value::as_str) == Some(self.session.thread_id().as_str()) {
-            if let Some(name) = thread.get("name") {
-                self.set_thread_name(name.as_str());
-            }
-        }
+        self.session.observe_thread_name(thread);
     }
 }
 

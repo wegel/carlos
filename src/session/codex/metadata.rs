@@ -3,10 +3,12 @@
 use super::scope::CodexScope;
 use crate::session::state::SessionState;
 
+/// Keep native scope and request counters private to the session.
 #[derive(Debug, Default)]
 pub(in crate::session) struct CodexMetadata {
     pub(in crate::session) scope: CodexScope,
     pub(in crate::session) serial: u64,
+    name_revision: u64,
     item_turn: Option<String>,
     item_part: usize,
 }
@@ -52,8 +54,37 @@ impl SessionState {
     pub(crate) fn set_codex_enabled_for_test(&mut self, enabled: bool) {
         self.codex_meta.scope.enabled = enabled;
     }
-    #[cfg(test)]
-    pub(crate) fn set_codex_closed_for_test(&mut self, closed: bool) {
-        self.codex_meta.scope.closed = closed;
+}
+
+impl SessionState {
+    /// Read the native title revision for a delayed metadata reply.
+    pub(crate) fn codex_name_revision(&self) -> u64 {
+        self.codex_meta.name_revision
+    }
+
+    /// Keep one safe title and invalidate older title reads.
+    pub(crate) fn observe_name(&mut self, name: Option<&str>) {
+        if self.codex_scope().enabled() {
+            self.codex_meta.name_revision = self.codex_meta.name_revision.saturating_add(1);
+        }
+        self.set_thread_name(
+            name.map(crate::session::tools::strip_terminal_controls)
+                .map(|s| {
+                    s.chars()
+                        .map(|c| if c.is_control() { ' ' } else { c })
+                        .collect::<String>()
+                })
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty()),
+        );
+    }
+
+    /// Accept a title only when the native record belongs to this thread.
+    pub(crate) fn observe_thread_name(&mut self, thread: &serde_json::Value) {
+        if thread.get("id").and_then(serde_json::Value::as_str) == Some(self.thread_id().as_str()) {
+            if let Some(name) = thread.get("name") {
+                self.observe_name(name.as_str());
+            }
+        }
     }
 }
