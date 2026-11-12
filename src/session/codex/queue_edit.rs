@@ -2,7 +2,7 @@
 
 use serde_json::{json, Value};
 
-use super::queue::{mutate, QueueScope, QueueUpdate};
+use super::queue::{mutate, CodexScope, QueueUpdate};
 use crate::backend::BackendClient;
 use crate::session::state::SessionState;
 
@@ -10,7 +10,7 @@ use crate::session::state::SessionState;
 pub(crate) fn save_edit(
     client: &dyn BackendClient,
     session: &mut SessionState,
-    scope: QueueScope,
+    scope: CodexScope,
     update: &mut QueueUpdate,
     id: &str,
     original: &Value,
@@ -43,7 +43,7 @@ pub(crate) fn save_edit(
 pub(crate) fn operate(
     client: &dyn BackendClient,
     session: &mut SessionState,
-    scope: QueueScope,
+    scope: CodexScope,
     update: &mut QueueUpdate,
     selected: Option<&str>,
     command: &str,

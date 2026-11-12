@@ -16,7 +16,6 @@ pub(super) struct CodexUiState {
     pub(super) epoch: u64,
     pub(super) settings: super::codex_settings::SettingsState,
     pub(super) panel: super::codex_panel_state::PanelState,
-    pub(super) goals: super::codex_goal_state::GoalState,
     pub(super) task_status: super::codex_task_status::TaskStatus,
 }
 

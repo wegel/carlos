@@ -23,39 +23,43 @@ pub(super) fn key(
     if !app.codex.enabled {
         return None;
     }
-    if !app.codex.goals.show {
+    if !app.view.codex_goals.show {
         if key.code == KeyCode::Char('g') && key.modifiers.contains(KeyModifiers::ALT) {
-            app.codex.goals.show = true;
-            app.codex.goals.last_read = None;
+            app.view.codex_goals.show = true;
+            app.session.refresh_codex_goal();
         } else {
             return None;
         }
     } else if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
         return Some(TerminalEventResult::Quit);
     } else if key.code == KeyCode::F(4) {
-        app.codex.goals.show = false;
+        app.view.codex_goals.show = false;
         super::codex_callbacks::next(app);
     } else if key.code == KeyCode::Char('r') && key.modifiers.contains(KeyModifiers::CONTROL) {
         if let Err(error) = app.request_ralph_toggle() {
-            app.codex.goals.error = Some(error.to_string());
+            app.view.codex_goals.error = Some(error.to_string());
         }
     } else if key.code == KeyCode::Esc {
-        if app.codex.goals.confirm.take().is_none() {
-            if app.codex.goals.editing {
-                app.codex.goals.editing = false;
+        if app.view.codex_goals.confirm.take().is_none() {
+            if app.view.codex_goals.editing {
+                app.view.codex_goals.editing = false;
             } else {
-                app.codex.goals.show = false;
+                app.view.codex_goals.show = false;
             }
         }
-    } else if app.codex.goals.confirm.is_some() {
+    } else if app.view.codex_goals.confirm.is_some() {
         match key.code {
             KeyCode::Char('y') => super::codex_goals::confirm(client, app),
-            KeyCode::Char('n') => app.codex.goals.confirm = None,
-            KeyCode::PageUp => app.codex.goals.scroll = app.codex.goals.scroll.saturating_sub(5),
-            KeyCode::PageDown => app.codex.goals.scroll = app.codex.goals.scroll.saturating_add(5),
+            KeyCode::Char('n') => app.view.codex_goals.confirm = None,
+            KeyCode::PageUp => {
+                app.view.codex_goals.scroll = app.view.codex_goals.scroll.saturating_sub(5)
+            }
+            KeyCode::PageDown => {
+                app.view.codex_goals.scroll = app.view.codex_goals.scroll.saturating_add(5)
+            }
             _ => {}
         }
-    } else if app.codex.goals.editing {
+    } else if app.view.codex_goals.editing {
         editor_key(client, app, key, size);
     } else {
         overview_key(client, app, key);
@@ -69,18 +73,22 @@ fn overview_key(client: &dyn BackendClient, app: &mut AppState, key: KeyEvent) {
         KeyCode::Char('p') => super::codex_goals::status(client, app, "paused"),
         KeyCode::Char('a') => super::codex_goals::status(client, app, "active"),
         KeyCode::Char('d') => {
-            app.codex.goals.scroll = 0;
-            app.codex.goals.confirm = Some(GoalConfirm::Clear);
+            app.view.codex_goals.scroll = 0;
+            app.view.codex_goals.confirm = Some(GoalConfirm::Clear);
         }
-        KeyCode::Char('r') => app.codex.goals.last_read = None,
-        KeyCode::PageUp => app.codex.goals.scroll = app.codex.goals.scroll.saturating_sub(5),
-        KeyCode::PageDown => app.codex.goals.scroll = app.codex.goals.scroll.saturating_add(5),
+        KeyCode::Char('r') => app.session.refresh_codex_goal(),
+        KeyCode::PageUp => {
+            app.view.codex_goals.scroll = app.view.codex_goals.scroll.saturating_sub(5)
+        }
+        KeyCode::PageDown => {
+            app.view.codex_goals.scroll = app.view.codex_goals.scroll.saturating_add(5)
+        }
         _ => {}
     }
 }
 
 fn editor_key(client: &dyn BackendClient, app: &mut AppState, key: KeyEvent, size: TerminalSize) {
-    if app.codex.goals.mutation.is_some() {
+    if app.session.codex_goals().pending() {
         return;
     }
     if key.code == KeyCode::Char('s') && key.modifiers.contains(KeyModifiers::CONTROL) {
@@ -89,7 +97,7 @@ fn editor_key(client: &dyn BackendClient, app: &mut AppState, key: KeyEvent, siz
         }
         return;
     }
-    let draft = app.codex.goals.editor.as_mut().expect("goal editor");
+    let draft = app.view.codex_goals.editor.as_mut().expect("goal editor");
     match key.code {
         KeyCode::Tab => draft.field = (draft.field + 1) % 3,
         KeyCode::BackTab => draft.field = (draft.field + 2) % 3,
@@ -116,14 +124,14 @@ fn editor_key(client: &dyn BackendClient, app: &mut AppState, key: KeyEvent, siz
 
 /// Consume goal paste even on the resize fallback or while a mutation locks its draft.
 pub(super) fn paste(app: &mut AppState, text: &str, size: TerminalSize) {
-    if !app.codex.goals.editing
+    if !app.view.codex_goals.editing
         || !editable(size)
-        || app.codex.goals.mutation.is_some()
-        || app.codex.goals.confirm.is_some()
+        || app.session.codex_goals().pending()
+        || app.view.codex_goals.confirm.is_some()
     {
         return;
     }
-    if let Some(draft) = app.codex.goals.editor.as_mut() {
+    if let Some(draft) = app.view.codex_goals.editor.as_mut() {
         if draft.field == 0 && draft.objective.lines().join("\n").len() + text.len() <= 32 * 1024 {
             draft.objective.insert_str(text);
         } else if draft.field == 1 && text.len() <= 32 {
@@ -153,21 +161,14 @@ pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
         Style::default().fg(COLOR_PRIMARY),
         size.width,
     );
-    let footer = if app.codex.goals.confirm.is_some() {
-        "y confirms · n cancels · Esc back"
-    } else if app.codex.goals.editing {
-        "Tab field · Ctrl+S save · Ctrl+R Ralph · Esc back"
-    } else {
-        "e edit · p pause · a resume · d clear · r refresh · PgDn · Esc back"
-    };
-    let footer = super::claude_question_view::wrap_lines(vec![footer.into()], size.width.max(1));
+    let footer = footer(app, size.width);
     let footer_rows = footer.len().min(size.height.saturating_sub(2));
     let body_height = size.height.saturating_sub(footer_rows + 1);
     let lines = super::codex_goal_text::body(app, size);
     let wrapped = super::claude_question_view::wrap_lines(lines, size.width.max(1));
     let offset = app
-        .codex
-        .goals
+        .view
+        .codex_goals
         .scroll
         .min(wrapped.len().saturating_sub(body_height));
     for (row, line) in wrapped.iter().skip(offset).take(body_height).enumerate() {
@@ -180,7 +181,7 @@ pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
             size.width,
         );
     }
-    if app.codex.goals.editing && app.codex.goals.confirm.is_none() && editable(size) {
+    if app.view.codex_goals.editing && app.view.codex_goals.confirm.is_none() && editable(size) {
         draw_editor(buf, app, size, body_height);
     }
     for (row, line) in footer.iter().take(footer_rows).enumerate() {
@@ -219,7 +220,7 @@ fn draw_editor(buf: &mut Buffer, app: &AppState, size: TerminalSize, height: usi
 
 /// Restore the independent goal caret after resizing; ordinary composer coordinates stay untouched.
 pub(super) fn cursor(app: &AppState, size: TerminalSize) -> (usize, usize) {
-    if !editable(size) || app.codex.goals.confirm.is_some() {
+    if !editable(size) || app.view.codex_goals.confirm.is_some() {
         return (0, 0);
     }
     let footer = super::claude_question_view::wrap_lines(
@@ -231,7 +232,7 @@ pub(super) fn cursor(app: &AppState, size: TerminalSize) -> (usize, usize) {
 }
 
 fn editor_line(app: &AppState, width: usize) -> Option<(String, usize)> {
-    let draft = app.codex.goals.editor.as_ref()?;
+    let draft = app.view.codex_goals.editor.as_ref()?;
     let editor = match draft.field {
         0 => &draft.objective,
         1 => &draft.budget,
@@ -251,4 +252,15 @@ fn editor_line(app: &AppState, width: usize) -> Option<(String, usize)> {
 
 fn editable(size: TerminalSize) -> bool {
     size.width >= 22 && size.height >= 12
+}
+
+fn footer(app: &AppState, width: usize) -> Vec<String> {
+    let footer = if app.view.codex_goals.confirm.is_some() {
+        "y confirms · n cancels · Esc back"
+    } else if app.view.codex_goals.editing {
+        "Tab field · Ctrl+S save · Ctrl+R Ralph · Esc back"
+    } else {
+        "e edit · p pause · a resume · d clear · r refresh · PgDn · Esc back"
+    };
+    super::claude_question_view::wrap_lines(vec![footer.into()], width.max(1))
 }

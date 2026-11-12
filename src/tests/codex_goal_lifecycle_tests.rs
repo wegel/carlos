@@ -40,7 +40,7 @@ fn an_external_driving_goal_stops_ralph_and_pending_toggles_but_retains_queued_h
     assert_eq!(input.origin, PromptOrigin::Human);
     assert_eq!(input.text, "keep human 日本語");
     assert!(app.dequeue_turn_input(Instant::now()).is_none());
-    app.codex.goals.goal = goal("paused");
+    app.session.set_codex_goal_for_test(goal("paused"));
     app.session.set_active_turn_id(Some("current".into()));
     app.request_ralph_toggle()
         .expect("pending toggle while paused");
@@ -58,11 +58,12 @@ fn an_external_driving_goal_stops_ralph_and_pending_toggles_but_retains_queued_h
 fn visible_question_paste_and_mouse_take_priority_over_a_hidden_goal_editor() {
     let mut app = app();
     let peer = Peer::default();
-    app.codex.goals.knowledge = GoalKnowledge::Known;
-    app.codex.goals.show = true;
+    app.session
+        .set_codex_goal_knowledge_for_test(GoalKnowledge::Known);
+    app.view.codex_goals.show = true;
     crate::app::codex_goals::edit(&mut app);
-    app.codex
-        .goals
+    app.view
+        .codex_goals
         .editor
         .as_mut()
         .expect("goal draft")
@@ -81,8 +82,8 @@ fn visible_question_paste_and_mouse_take_priority_over_a_hidden_goal_editor() {
     );
     assert_eq!(field_text(&app, json!("form")), "FORM_ONLY");
     assert_eq!(
-        app.codex
-            .goals
+        app.view
+            .codex_goals
             .editor
             .as_ref()
             .expect("goal draft")
@@ -116,8 +117,9 @@ fn visible_question_paste_and_mouse_take_priority_over_a_hidden_goal_editor() {
 fn a_plain_approval_without_a_form_never_pastes_into_the_hidden_goal_or_main_draft() {
     let mut app = app();
     let peer = Peer::default();
-    app.codex.goals.knowledge = GoalKnowledge::Known;
-    app.codex.goals.show = true;
+    app.session
+        .set_codex_goal_knowledge_for_test(GoalKnowledge::Known);
+    app.view.codex_goals.show = true;
     crate::app::codex_goals::edit(&mut app);
     receive(
         &mut app,
@@ -137,8 +139,8 @@ fn a_plain_approval_without_a_form_never_pastes_into_the_hidden_goal_or_main_dra
         },
     );
     assert_eq!(
-        app.codex
-            .goals
+        app.view
+            .codex_goals
             .editor
             .as_ref()
             .expect("goal draft")
@@ -154,7 +156,7 @@ fn a_plain_approval_without_a_form_never_pastes_into_the_hidden_goal_or_main_dra
 fn idle_wait_wakes_for_f2_refresh_but_not_for_closed_older_or_static_detail_views() {
     let mut app = app();
     let now = Instant::now();
-    app.codex.goals.last_read = Some(now);
+    app.session.set_codex_goal_read_time_for_test(now);
     app.codex.panel.show = true;
     app.codex.panel.refreshed = Some(now - Duration::from_millis(2950));
     assert_eq!(
@@ -206,10 +208,13 @@ fn clear_ack_before_notification_fences_old_reads_and_keeps_the_draft_until_new_
     );
     crate::app::codex_goals::edit(&mut app);
     crate::app::codex_goals::tick(&peer, &mut app, Instant::now());
-    app.codex.goals.confirm = Some(crate::app::codex_goal_state::GoalConfirm::Clear);
+    app.view.codex_goals.confirm = Some(crate::app::codex_goal_state::GoalConfirm::Clear);
     crate::app::codex_goals::confirm(&peer, &mut app);
     super::codex_goal_tests::answer(&peer, &mut app, 1, json!({"result":{"cleared":true}}));
-    assert_eq!(app.codex.goals.knowledge, GoalKnowledge::Unknown);
+    assert_eq!(
+        app.session.codex_goals().knowledge(),
+        GoalKnowledge::Unknown
+    );
     crate::app::codex_goals::save(&peer, &mut app);
     assert_eq!(
         peer.controls.borrow().len(),
@@ -222,8 +227,11 @@ fn clear_ack_before_notification_fences_old_reads_and_keeps_the_draft_until_new_
         0,
         json!({"result":{"goal":goal("paused")}}),
     );
-    assert_eq!(app.codex.goals.knowledge, GoalKnowledge::Unknown);
-    assert!(app.codex.goals.editor.is_some());
+    assert_eq!(
+        app.session.codex_goals().knowledge(),
+        GoalKnowledge::Unknown
+    );
+    assert!(app.view.codex_goals.editor.is_some());
     receive(
         &mut app,
         json!({"method":"thread/goal/cleared","params":{"threadId":"root"}}),

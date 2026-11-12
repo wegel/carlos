@@ -18,7 +18,8 @@ impl AppState {
                 super::codex_callbacks::reset(self);
                 self.codex.panel = Default::default();
                 self.codex.task_status = Default::default();
-                self.codex.goals = Default::default();
+                self.view.codex_goals = Default::default();
+                self.session.reset_codex_goals();
                 self.codex.epoch = self.codex.epoch.saturating_add(1);
                 let mode = self.view.codex_queue.mode;
                 self.view.codex_queue = Default::default();

@@ -20,3 +20,16 @@ pub(crate) mod queue_edit;
 
 #[cfg(test)]
 mod queue_tests;
+
+mod goal_access;
+pub(crate) mod goal_receive;
+pub(crate) mod goal_state;
+pub(crate) mod goals;
+
+pub(crate) mod scope;
+
+#[cfg(test)]
+mod goal_test_support;
+
+#[cfg(test)]
+mod goal_tests;

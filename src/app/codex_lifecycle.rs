@@ -69,12 +69,9 @@ pub(super) fn reject_closed_prompt(app: &mut AppState, text: &str, origin: Promp
 }
 
 fn clear_pending_controls(app: &mut AppState) {
-    app.codex.goals.read = None;
-    app.codex.goals.mutation = None;
-    app.codex.goals.confirm = None;
-    app.codex.goals.notice.clear();
-    app.codex.goals.error =
-        Some("Previous connection closed before the goal change was confirmed. Draft kept; no automatic retry".into());
+    app.session.close_codex_goals();
+    app.view.codex_goals.confirm = None;
+    app.view.codex_goals.error = None;
     app.codex.panel.outgoing.clear();
     app.codex.panel.snapshot = None;
     app.codex.panel.stop = None;

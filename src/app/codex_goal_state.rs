@@ -1,46 +1,19 @@
-//! Keep native root-goal facts and an independent editor without creating chat prompts.
-
-use std::time::Instant;
+//! Keep objective and budget editors, confirmations and navigation local.
 
 use ratatui_textarea::TextArea;
 use serde_json::Value;
 
-/// Only known non-driving state may permit Carlos to enable a separate automatic driver.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(super) enum GoalKnowledge {
-    #[default]
-    Unknown,
-    Known,
-    Unavailable,
-}
+pub(super) use crate::session::codex::goal_state::GoalKnowledge;
 
-/// Retain native facts, bounded pending work and explicit user drafts for one root epoch.
+/// Keep only the terminal's unsubmitted goal controls.
 #[derive(Default)]
-pub(super) struct GoalState {
+pub(super) struct GoalView {
     pub(super) show: bool,
-    pub(super) knowledge: GoalKnowledge,
-    pub(super) goal: Value,
-    pub(super) revision: u64,
-    pub(super) read: Option<GoalRequest>,
-    pub(super) mutation: Option<GoalRequest>,
     pub(super) editor: Option<GoalDraft>,
     pub(super) editing: bool,
     pub(super) confirm: Option<GoalConfirm>,
     pub(super) error: Option<String>,
-    pub(super) read_error: Option<String>,
-    pub(super) notice: String,
-    pub(super) last_read: Option<Instant>,
-    pub(super) direct_input: Option<bool>,
     pub(super) scroll: usize,
-}
-
-/// Match each acknowledgement to its exact scope and the facts known before dispatch.
-pub(super) struct GoalRequest {
-    pub(super) token: u64,
-    pub(super) method: String,
-    pub(super) params: Value,
-    pub(super) revision: u64,
-    pub(super) may_activate: bool,
 }
 
 /// Keep the objective, optional budget and chosen status separate from the main composer.

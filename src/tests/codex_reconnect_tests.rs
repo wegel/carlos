@@ -183,8 +183,11 @@ fn ambiguous_goal_events_require_a_fresh_read_before_ralph_is_allowed() {
         json!({"method":"thread/goal/cleared","params":{"threadId":"root"}}),
     );
     ready(&peer, &mut app, snapshot("same", "idle"));
-    assert_eq!(app.codex.goals.knowledge, GoalKnowledge::Unknown);
-    assert!(app.codex.goals.last_read.is_none());
+    assert_eq!(
+        app.session.codex_goals().knowledge(),
+        GoalKnowledge::Unknown
+    );
+    assert!(app.session.codex_goals().last_read().is_none());
 }
 
 #[test]

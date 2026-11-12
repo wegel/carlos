@@ -38,7 +38,7 @@ pub(super) fn handle_mouse_event(
     if let Some(result) = super::native_questions::mouse(app, m) {
         return result;
     }
-    if app.view.codex_queue.show || app.codex.goals.show {
+    if app.view.codex_queue.show || app.view.codex_goals.show {
         return TerminalEventResult::Continue { needs_draw: false };
     }
     if let Some(perf) = app.view.perf.as_mut() {
@@ -255,7 +255,7 @@ pub(super) fn handle_paste_event(
     if super::claude_question_input::paste(app, &normalize_pasted_text(&pasted), size) {
         return TerminalEventResult::Continue { needs_draw: true };
     }
-    if app.codex.goals.show {
+    if app.view.codex_goals.show {
         super::codex_goal_view::paste(app, &normalize_pasted_text(&pasted), size);
         return TerminalEventResult::Continue { needs_draw: true };
     }

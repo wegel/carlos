@@ -10,13 +10,7 @@ use crate::backend::BackendClient;
 use crate::session::state::SessionState;
 use crate::session::text::safe_text;
 
-/// Carry the native connection scope while milestone 9 moves its remaining owner.
-#[derive(Clone, Copy)]
-pub(crate) struct QueueScope {
-    pub(crate) enabled: bool,
-    pub(crate) closed: bool,
-    pub(crate) epoch: u64,
-}
+pub(crate) use super::scope::CodexScope;
 
 /// Tell a client which local queue effects to apply once.
 #[derive(Default)]
@@ -32,7 +26,7 @@ pub(crate) struct QueueUpdate {
 pub(crate) fn tick(
     client: &dyn BackendClient,
     session: &mut SessionState,
-    scope: QueueScope,
+    scope: CodexScope,
     update: &mut QueueUpdate,
     blocked: bool,
 ) -> bool {
@@ -63,7 +57,7 @@ pub(crate) fn tick(
 pub(crate) fn page(
     client: &dyn BackendClient,
     session: &mut SessionState,
-    scope: QueueScope,
+    scope: CodexScope,
     update: &mut QueueUpdate,
     token: u64,
     cursor: Value,
@@ -100,7 +94,7 @@ pub(crate) fn page(
 pub(crate) fn mutate(
     client: &dyn BackendClient,
     session: &mut SessionState,
-    scope: QueueScope,
+    scope: CodexScope,
     update: &mut QueueUpdate,
     method: &str,
     params: Value,
@@ -144,7 +138,7 @@ pub(crate) fn mutate(
 }
 
 /// Require an authoritative empty queue before Carlos starts automatic work.
-pub(crate) fn allows_automatic(session: &SessionState, scope: QueueScope) -> bool {
+pub(crate) fn allows_automatic(session: &SessionState, scope: CodexScope) -> bool {
     !scope.enabled
         || (session.codex_queue.known
             && session.codex_queue.entries.is_empty()
@@ -162,6 +156,6 @@ pub(in crate::session) fn fail(
     update.show = true;
 }
 
-fn context(scope: QueueScope, token: u64) -> Value {
+fn context(scope: CodexScope, token: u64) -> Value {
     json!({"epoch":scope.epoch,"token":token})
 }

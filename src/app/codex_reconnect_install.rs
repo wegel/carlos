@@ -6,7 +6,6 @@ use std::time::Instant;
 use anyhow::Result;
 use serde_json::{json, Value};
 
-use super::codex_goal_state::GoalKnowledge;
 use super::codex_panel_state::Process;
 use super::state::AppState;
 use crate::codex_snapshot::CodexSnapshot;
@@ -59,9 +58,7 @@ pub(super) fn install(
 }
 
 fn install_goal(app: &mut AppState, goal: Option<Value>) {
-    app.codex.goals.read = None;
-    app.codex.goals.last_read = Some(Instant::now());
-    app.codex.goals.knowledge = GoalKnowledge::Unknown;
+    app.session.begin_codex_goal_snapshot(goal.is_some());
     if let Some(goal) = goal {
         if goal["goal"].is_null() {
             super::codex_goal_receive::observed(
@@ -76,8 +73,6 @@ fn install_goal(app: &mut AppState, goal: Option<Value>) {
                 &json!({"threadId":app.session.thread_id(),"goal":goal["goal"]}),
             );
         }
-    } else {
-        app.codex.goals.knowledge = GoalKnowledge::Unavailable;
     }
 }
 

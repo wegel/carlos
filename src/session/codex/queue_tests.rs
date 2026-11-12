@@ -2,7 +2,7 @@
 
 use serde_json::json;
 
-use super::queue::{allows_automatic, mutate, tick, QueueScope, QueueUpdate};
+use super::queue::{allows_automatic, mutate, tick, CodexScope, QueueUpdate};
 use super::queue_receive::reply;
 use crate::session::state::SessionState;
 use crate::session::test_backend::TestBackend;
@@ -11,7 +11,7 @@ use crate::session::test_backend::TestBackend;
 fn native_queue_read_and_failed_write_need_no_view() {
     let mut session = SessionState::new("root".into(), Default::default(), false);
     let peer = TestBackend::default();
-    let scope = QueueScope {
+    let scope = CodexScope {
         enabled: true,
         closed: false,
         epoch: 7,

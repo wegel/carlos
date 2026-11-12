@@ -7,7 +7,7 @@ use uuid::Uuid;
 use super::codex_queue_state::{editable_text, QueueEdit};
 use super::state::AppState;
 use crate::backend::BackendClient;
-use crate::session::codex::queue::{self, QueueScope, QueueUpdate};
+use crate::session::codex::queue::{self, CodexScope, QueueUpdate};
 
 /// Keep uncertain queue writes and recoverable drafts in their original thread before a fork.
 pub(super) fn reject_switch(app: &mut AppState) -> bool {
@@ -190,8 +190,8 @@ pub(super) fn allows_automatic(app: &AppState) -> bool {
 }
 
 /// Describe the current native connection for the queue controller.
-pub(super) fn scope(app: &AppState) -> QueueScope {
-    QueueScope {
+pub(super) fn scope(app: &AppState) -> CodexScope {
+    CodexScope {
         enabled: app.codex.enabled,
         closed: app.codex.closed,
         epoch: app.codex.epoch,

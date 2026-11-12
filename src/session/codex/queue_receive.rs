@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use serde_json::Value;
 
-use super::queue::{QueueScope, QueueUpdate};
+use super::queue::{CodexScope, QueueUpdate};
 use crate::session::state::SessionState;
 
 /// Invalidate snapshots when any client changes this native queue.
@@ -19,7 +19,7 @@ pub(crate) fn changed(session: &mut SessionState, update: &mut QueueUpdate, para
 /// Ignore old-thread replies and retain all native fields in a complete queue snapshot.
 pub(crate) fn reply(
     session: &mut SessionState,
-    scope: QueueScope,
+    scope: CodexScope,
     update: &mut QueueUpdate,
     params: &Value,
 ) -> Option<(u64, Value)> {

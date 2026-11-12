@@ -162,8 +162,7 @@ fn finish_ui(app: &mut AppState, goal_changed: bool) {
         app.codex.settings.deferred = Some(choices);
     }
     if goal_changed {
-        app.codex.goals.knowledge = super::codex_goal_state::GoalKnowledge::Unknown;
-        app.codex.goals.last_read = None;
+        app.session.invalidate_codex_goal();
     }
     if !app.codex.connection.initial_rebuild {
         app.append_message(

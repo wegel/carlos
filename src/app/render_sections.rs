@@ -97,7 +97,7 @@ pub(super) fn draw_overlays(buf: &mut Buffer, size: TerminalSize, app: &AppState
     if app.view.codex_queue.show {
         crate::app::codex_queue_view::draw(buf, app, size);
     }
-    if app.codex.goals.show {
+    if app.view.codex_goals.show {
         crate::app::codex_goal_view::draw(buf, app, size);
     }
     if app.view.viewport.show_help {
@@ -139,7 +139,7 @@ pub(super) fn cursor_position(
     } else if crate::app::native_questions::modal(app) {
         crate::app::overlay_render::claude_question_cursor(app, size)
             .unwrap_or((0, size.height.saturating_sub(1)))
-    } else if app.codex.goals.show {
+    } else if app.view.codex_goals.show {
         crate::app::codex_goal_view::cursor(app, size)
     } else if app.view.codex_queue.show {
         crate::app::codex_queue_view::cursor(app, size)

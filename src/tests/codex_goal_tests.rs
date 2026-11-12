@@ -65,9 +65,9 @@ fn startup_only_reads_goal_state_and_all_six_native_statuses_remain_authoritativ
         "complete",
     ] {
         observed(&mut app, goal(status));
-        assert_eq!(app.codex.goals.goal["status"], status);
-        assert_eq!(app.codex.goals.goal["tokensUsed"], 27);
-        assert_eq!(app.codex.goals.goal["timeUsedSeconds"], 3);
+        assert_eq!(app.session.codex_goals().goal()["status"], status);
+        assert_eq!(app.session.codex_goals().goal()["tokensUsed"], 27);
+        assert_eq!(app.session.codex_goals().goal()["timeUsedSeconds"], 3);
         assert_eq!(
             ralph_error(&app).is_none(),
             matches!(status, "paused" | "complete")
@@ -80,10 +80,11 @@ fn startup_only_reads_goal_state_and_all_six_native_statuses_remain_authoritativ
 fn explicit_new_goal_is_paused_and_blank_budget_is_omitted_while_user_origin_is_preserved() {
     let mut app = app();
     let peer = Peer::default();
-    app.codex.goals.knowledge = GoalKnowledge::Known;
+    app.session
+        .set_codex_goal_knowledge_for_test(GoalKnowledge::Known);
     edit(&mut app);
-    app.codex
-        .goals
+    app.view
+        .codex_goals
         .editor
         .as_mut()
         .expect("draft")
@@ -99,7 +100,7 @@ fn explicit_new_goal_is_paused_and_blank_budget_is_omitted_while_user_origin_is_
         )
     );
     assert!(app.session.messages().is_empty());
-    assert!(app.codex.goals.editor.is_some());
+    assert!(app.view.codex_goals.editor.is_some());
 }
 
 #[test]
@@ -137,9 +138,12 @@ fn invalid_updated_goal_fences_an_earlier_get_without_erasing_the_last_good_disp
         json!({"threadId":"foreign","objective":"x","status":"paused"}),
     ] {
         observed(&mut app, value);
-        assert_eq!(app.codex.goals.knowledge, GoalKnowledge::Unknown);
         assert_eq!(
-            app.codex.goals.goal["objective"],
+            app.session.codex_goals().knowledge(),
+            GoalKnowledge::Unknown
+        );
+        assert_eq!(
+            app.session.codex_goals().goal()["objective"],
             "Explicit native objective"
         );
     }
@@ -149,7 +153,10 @@ fn invalid_updated_goal_fences_an_earlier_get_without_erasing_the_last_good_disp
         0,
         json!({"result":{"goal":goal("paused")}}),
     );
-    assert_eq!(app.codex.goals.knowledge, GoalKnowledge::Unknown);
+    assert_eq!(
+        app.session.codex_goals().knowledge(),
+        GoalKnowledge::Unknown
+    );
     tick(&peer, &mut app, Instant::now());
     answer(
         &peer,
@@ -157,7 +164,7 @@ fn invalid_updated_goal_fences_an_earlier_get_without_erasing_the_last_good_disp
         1,
         json!({"result":{"goal":goal("active")}}),
     );
-    assert_eq!(app.codex.goals.knowledge, GoalKnowledge::Known);
+    assert_eq!(app.session.codex_goals().knowledge(), GoalKnowledge::Known);
     assert!(ralph_error(&app).is_some());
 }
 
@@ -172,13 +179,16 @@ fn stale_or_malformed_activation_ack_cannot_release_ralph_or_delete_a_failed_dra
         let peer = Peer::default();
         observed(&mut app, goal("paused"));
         edit(&mut app);
-        app.codex.goals.editor.as_mut().expect("draft").status = Some("active".into());
+        app.view.codex_goals.editor.as_mut().expect("draft").status = Some("active".into());
         save(&peer, &mut app);
         confirm(&peer, &mut app);
         answer(&peer, &mut app, 0, response);
         assert!(ralph_error(&app).is_some());
-        assert_eq!(app.codex.goals.knowledge, GoalKnowledge::Unknown);
-        assert!(app.codex.goals.editor.is_some());
+        assert_eq!(
+            app.session.codex_goals().knowledge(),
+            GoalKnowledge::Unknown
+        );
+        assert!(app.view.codex_goals.editor.is_some());
     }
 }
 
@@ -197,7 +207,10 @@ fn a_paused_progress_event_before_activate_ack_requires_a_fresh_snapshot() {
         0,
         json!({"result":{"goal":goal("active")}}),
     );
-    assert_eq!(app.codex.goals.knowledge, GoalKnowledge::Unknown);
+    assert_eq!(
+        app.session.codex_goals().knowledge(),
+        GoalKnowledge::Unknown
+    );
     answer(
         &peer,
         &mut app,
@@ -205,7 +218,7 @@ fn a_paused_progress_event_before_activate_ack_requires_a_fresh_snapshot() {
         json!({"result":{"goal":goal("paused")}}),
     );
     assert_eq!(
-        app.codex.goals.knowledge,
+        app.session.codex_goals().knowledge(),
         GoalKnowledge::Unknown,
         "old GET cannot undo invalidation"
     );
@@ -226,8 +239,8 @@ fn external_clear_of_an_existing_draft_never_uses_natives_default_active_status(
     observed(&mut app, goal("paused"));
     edit(&mut app);
     assert!(app
-        .codex
-        .goals
+        .view
+        .codex_goals
         .editor
         .as_ref()
         .expect("draft")
@@ -243,7 +256,7 @@ fn external_clear_of_an_existing_draft_never_uses_natives_default_active_status(
     save(&peer, &mut app);
     assert_eq!(peer.controls.borrow()[0].1["status"], "paused");
     assert_eq!(peer.controls.borrow()[0].1["origin"], "user");
-    assert!(app.codex.goals.confirm.is_none());
+    assert!(app.view.codex_goals.confirm.is_none());
 }
 
 #[test]
@@ -251,7 +264,7 @@ fn pending_goal_mutation_freezes_edits_and_paste_until_reply_then_preserves_reje
     let mut app = app();
     let peer = Peer::default();
     observed(&mut app, goal("paused"));
-    app.codex.goals.show = true;
+    app.view.codex_goals.show = true;
     edit(&mut app);
     save(&peer, &mut app);
     key(&peer, &mut app, KeyCode::Char('X'), KeyModifiers::NONE);
@@ -264,8 +277,8 @@ fn pending_goal_mutation_freezes_edits_and_paste_until_reply_then_preserves_reje
         },
     );
     assert_eq!(
-        app.codex
-            .goals
+        app.view
+            .codex_goals
             .editor
             .as_ref()
             .expect("locked draft")
@@ -280,15 +293,11 @@ fn pending_goal_mutation_freezes_edits_and_paste_until_reply_then_preserves_reje
         0,
         json!({"error":{"code":-32600,"message":"Managed goal policy rejected this"}}),
     );
-    assert!(app.codex.goals.editor.is_some());
-    assert!(app
-        .codex
-        .goals
-        .error
-        .as_deref()
+    assert!(app.view.codex_goals.editor.is_some());
+    assert!(crate::app::codex_goals::error(&app)
         .expect("visible error")
         .contains("Managed goal policy"));
-    assert!(app.codex.goals.mutation.is_none());
+    assert!(!app.session.codex_goals().pending());
 }
 
 #[test]
@@ -296,18 +305,18 @@ fn esc_returns_to_overview_and_pause_does_not_save_or_discard_the_independent_ed
     let mut app = app();
     let peer = Peer::default();
     observed(&mut app, goal("active"));
-    app.codex.goals.show = true;
+    app.view.codex_goals.show = true;
     edit(&mut app);
-    app.codex
-        .goals
+    app.view
+        .codex_goals
         .editor
         .as_mut()
         .expect("draft")
         .objective
         .insert_str(" unsaved");
     key(&peer, &mut app, KeyCode::Esc, KeyModifiers::NONE);
-    assert!(app.codex.goals.show);
-    assert!(!app.codex.goals.editing);
+    assert!(app.view.codex_goals.show);
+    assert!(!app.view.codex_goals.editing);
     key(&peer, &mut app, KeyCode::Char('p'), KeyModifiers::NONE);
     assert!(peer.controls.borrow()[0].1.get("objective").is_none());
     answer(
@@ -317,8 +326,8 @@ fn esc_returns_to_overview_and_pause_does_not_save_or_discard_the_independent_ed
         json!({"result":{"goal":goal("paused")}}),
     );
     assert!(app
-        .codex
-        .goals
+        .view
+        .codex_goals
         .editor
         .as_ref()
         .expect("retained draft")
@@ -327,7 +336,7 @@ fn esc_returns_to_overview_and_pause_does_not_save_or_discard_the_independent_ed
         .join("\n")
         .ends_with(" unsaved"));
     key(&peer, &mut app, KeyCode::Char('e'), KeyModifiers::NONE);
-    assert!(app.codex.goals.editing);
+    assert!(app.view.codex_goals.editing);
 }
 
 #[test]
@@ -342,8 +351,11 @@ fn closed_and_forked_threads_cannot_accept_stale_goal_replies_or_mutations() {
         0,
         json!({"result":{"goal":goal("active")}}),
     );
-    assert_eq!(app.codex.goals.knowledge, GoalKnowledge::Unknown);
-    assert!(app.codex.goals.goal.is_null());
+    assert_eq!(
+        app.session.codex_goals().knowledge(),
+        GoalKnowledge::Unknown
+    );
+    assert!(app.session.codex_goals().goal().is_null());
     app.codex.closed = true;
     assert!(!tick(
         &peer,

@@ -56,7 +56,7 @@ pub(super) fn handle_key_event(
         return result;
     }
     if app.codex.enabled && k.code == KeyCode::F(4) {
-        app.codex.goals.show = false;
+        app.view.codex_goals.show = false;
         crate::app::codex_callbacks::next(app);
         return TerminalEventResult::Continue { needs_draw: true };
     }

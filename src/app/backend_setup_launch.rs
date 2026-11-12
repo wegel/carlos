@@ -164,10 +164,11 @@ pub(super) fn configure_codex_app(
     )?;
     app.codex.connection.generation = client.connection_generation().unwrap_or(0);
     app.codex.connection.socket = opts.codex_socket.clone();
-    app.codex.goals.direct_input =
+    app.session.set_codex_goal_direct_input(
         serde_json::from_str::<serde_json::Value>(&launch.runtime_response)?["result"]["thread"]
             ["canAcceptDirectInput"]
-            .as_bool();
+            .as_bool(),
+    );
     app.set_runtime_capabilities(true, true);
     let models = fetch_model_catalog(client).unwrap_or_default();
     app.set_available_models(models.clone());

@@ -19,6 +19,7 @@ use super::turns::TurnBoundary;
 /// Own the facts that remain true without a terminal view.
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct SessionState {
+    pub(in crate::session) codex_goals: super::codex::goal_state::GoalState,
     pub(in crate::session) codex_queue: super::codex::queue_state::QueueState,
     pub(in crate::session) codex_serial: u64,
     pub(in crate::session) claude: ClaudeState,
@@ -50,6 +51,7 @@ impl SessionState {
         summary_enabled: bool,
     ) -> Self {
         Self {
+            codex_goals: Default::default(),
             codex_queue: Default::default(),
             codex_serial: 0,
             claude: ClaudeState::default(),

@@ -48,9 +48,12 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 - [x] (2026-11-12 UTC, handover) Recovered the Claude session and restored its named stash at base `91570ea`. The restored 37 source files exactly match `/tmp/carlos-m7b/source-audit.json`. The saved part 7.2 passed its build, release build, style checks, 990 Rust tests and 174 terminal workflows before the worker stopped. The resumed Rust run passes 990 tests in 3.76 s.
 - [x] (2026-11-12 UTC) Milestone 7 part 7.2: direct handler review PASS, 990 Rust tests, 174 terminal workflows (78.211 s), release build, format and style pass. Seven alternating speed pairs against `a59221c`: synthetic replay 48.86 / 48.20 ms, layout 14.97 / 14.98, draw 3.88 / 3.65, scroll 0.70 / 0.70, typing 0.60 / 0.60. Small fixture replay 1.11 / 1.17 ms, draw 0.48 / 0.50. No repeatable slowdown. Report: `.agents/reports/exec016-m7b-report.md`.
 - [x] (2026-11-12 UTC) Milestone 7 part 7.3: Claude callback commands, unsupported-kind checks, browser notices and replies now live in the session; local answers live in ViewState and ClaudeUiState is removed. 992 Rust tests, 174 terminal workflows, release build/check, format/style and direct review pass. All 3,000 streams (51,390 checkpoints) exactly equal the parent; pre-plan outputs equal part 7.2 byte for byte, with the same 103 classified H/T/F differences and no panic. Report: `.agents/reports/exec016-m7c-report.md`.
-- [ ] Milestone 8:
+- [x] Milestone 8:
   - [x] (2026-11-12 UTC) Part 8.1: native queue facts, reads, submitted writes and exact recovery reports. 993 Rust tests, 174 terminal workflows, release build, style and direct review pass. All 3,000 parent streams match exactly; pre-plan outputs equal part 7.3 byte for byte, including the same classified differences and no panic. Queue-specific behavior is covered by enumerated Rust/terminal tests; this inherited corpus contains no queue operation. Report: `.agents/reports/exec016-m8a-report.md`.
-  - [ ] Part 8.2: native goal facts, reads, accepted changes and Ralph guards; keep goal editors and confirmations local.
+  - [x] (2026-11-12 UTC) Part 8.2: native goal facts, reads, accepted changes and Ralph guards; editors and confirmations stay local. 994 Rust tests, 174 terminal workflows, release build/check, style and direct review pass. All 3,000 parent streams match exactly; pre-plan outputs equal part 8.1 byte for byte, with the same classified differences and no panic. Report: `.agents/reports/exec016-m8b-report.md`.
+- [ ] Milestone 9: native settings, task/panel facts, connection/reconnect state and off-thread snapshots.
+- [ ] Milestone 10: complete headless session handlers and enforce the future-core boundary.
+- [ ] Milestone 11: final release/contract/performance checks and direct review of the complete split.
 
 ## Surprises & Discoveries
 
@@ -251,10 +254,12 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 
 - Milestone 7.3, direct primary-agent review: PASS, no BLOCKER or MAJOR. All moved guards and fallbacks are listed in the report. The unchanged consent and payload-copy tests pass. The owner’s no-subagent instruction still applies.
 
+- Milestone 8, direct primary-agent reviews: PASS, no BLOCKER or MAJOR remaining. The unchanged queue/goal fixtures pass and the new session-only tests exercise stale goals and one-time queue recovery. The callback/history corpus has no queue/goal controls; the reports state that limit explicitly.
+
 ## Outcomes & Retrospective
 
 
-Milestones 0 through 7 are complete. The daemon split remains in its separate checkout; the main checkout has unrelated owner changes. The primary agent recovered part 7.2 from the named stash and completed the Claude callback split. Milestones 8 through 11 remain. No binary has been installed. Milestone 7’s seven alternating speed pairs gave synthetic replay 48.79 / 47.61 ms, layout 15.04 / 14.45, scroll 0.70 / 0.71 and typing 0.60 / 0.60; the small fixture replay was 1.09 / 1.06 ms. No repeatable slowdown. The original baseline notes below remain historical evidence; milestone 0 supplied the missing tools and the Rust 1.100.0 default-feature baseline.
+Milestones 0 through 7 are complete. The daemon split remains in its separate checkout; the main checkout has unrelated owner changes. The primary agent recovered part 7.2 from the named stash and completed the Claude callback split. Milestones 8 and its queue/goal parts are complete; milestones 9 through 11 remain. No binary has been installed. Milestone 7’s seven alternating speed pairs gave synthetic replay 48.79 / 47.61 ms, layout 15.04 / 14.45, scroll 0.70 / 0.71 and typing 0.60 / 0.60; the small fixture replay was 1.09 / 1.06 ms. No repeatable slowdown. The original baseline notes below remain historical evidence; milestone 0 supplied the missing tools and the Rust 1.100.0 default-feature baseline.
 
 ## Context and Orientation
 
@@ -822,3 +827,5 @@ Handover note, 2026-11-12: recorded the recovered source, remaining work, and th
 Milestone 7.3 note, 2026-11-12: recorded the callback/browser moves, exact comparison and the no-copy correction.
 
 Milestone 8.1 note, 2026-11-12: moved queue facts and the shared native token counter, preserved local editor/recovery ownership, and recorded checks. Seven quiet alternating speed pairs: {"synthetic": [{"replay": 47.61, "layout": 14.67, "draw": 3.53, "scroll": 0.7, "typing": 0.6}, {"replay": 47.7, "layout": 14.63, "draw": 3.47, "scroll": 0.7, "typing": 0.59}], "fixture": [{"replay": 1.22, "layout": 0.01, "draw": 0.49, "scroll": 0.44, "typing": 0.37}, {"replay": 1.05, "layout": 0.0, "draw": 0.48, "scroll": 0.43, "typing": 0.36}]}. The earlier run overlapped event replay and is not used as the quiet speed check.
+
+Milestone 8.2 note, 2026-11-12: recorded the goal move and review correction. The first seven speed pairs showed transient higher scroll/typing times. A further seven pairs, alternating which binary ran first, gave pre-plan/current medians: replay 47.55 / 47.49 ms, full draw 3.64 / 3.45, scroll 0.70 / 0.70, typing 0.59 / 0.60. The slowdown did not repeat. The small fixture replay was 1.11 / 1.10 ms. All raw runs remain under `/tmp/carlos-m8b/`.
