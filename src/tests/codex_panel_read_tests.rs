@@ -150,7 +150,7 @@ fn repeated_cursors_or_oversized_snapshots_keep_previous_rows_and_main_draft() {
         .as_deref()
         .expect("bound error")
         .contains("8 MiB"));
-    assert!(!app.codex.closed);
+    assert!(!app.session.codex_scope().closed());
 }
 
 #[test]
@@ -244,7 +244,7 @@ fn panel_and_detail_pages_keep_their_original_deadline_and_expired_work_is_not_s
             == false
     );
     assert_eq!(peer.controls.borrow().len(), 2);
-    assert!(!app.codex.closed);
+    assert!(!app.session.codex_scope().closed());
 }
 
 #[test]

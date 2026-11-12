@@ -66,10 +66,10 @@ pub(super) fn apply_forked_thread_history(
     // Parse the full response before adopting the fork, preserving the old session on failure.
     let parsed = extract_result_object(response_line)?;
     let thread = parsed["result"]["thread"].clone();
-    let previous = app.codex.item_turn.take();
+    let previous = app.session.replace_codex_item_turn(None);
     let mut draft = crate::app::item_history::history_draft::build(app, &thread);
     draft.set_conversation(&thread_id);
-    app.codex.item_turn = previous;
+    app.session.replace_codex_item_turn(previous);
     app.reset_for_forked_thread(thread_id);
     app.replace_history_draft(
         draft,

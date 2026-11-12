@@ -1,7 +1,6 @@
 //! Transcript item identity, lifecycle, and streamed text updates.
 
-use crate::backend::BackendKind;
-use crate::session::entry_key::{BackendEntryKey, NativeEntryKey};
+use crate::session::entry_key::BackendEntryKey;
 
 use super::models::{MessageKind, Role};
 use super::state::AppState;
@@ -11,28 +10,7 @@ impl AppState {
 
     /// Scope native work by backend, conversation, turn and a distinct display part.
     pub(super) fn item_key(&self, item_id: &str) -> BackendEntryKey {
-        let backend = if self.codex.enabled {
-            BackendKind::Codex
-        } else if self.session.claude().enabled() {
-            BackendKind::Claude
-        } else {
-            BackendKind::Grok
-        };
-        let item = if backend == BackendKind::Claude {
-            item_id
-                .strip_prefix("claude-prompt:")
-                .map(|id| NativeEntryKey::ClaudePrompt(id.into()))
-                .unwrap_or_else(|| NativeEntryKey::ClaudeTransient(item_id.into()))
-        } else {
-            NativeEntryKey::Item(item_id.into())
-        };
-        BackendEntryKey {
-            backend,
-            conversation: self.session.entry_conversation().clone(),
-            turn: self.codex.item_turn.clone().filter(|_| self.codex.enabled),
-            item,
-            part: self.codex.item_part,
-        }
+        self.session.backend_entry_key(item_id)
     }
 
     /// Keep native IDs unchanged while selecting a separate display part.
@@ -42,9 +20,9 @@ impl AppState {
         part: usize,
         apply: impl FnOnce(&mut Self, &str) -> R,
     ) -> R {
-        let previous = std::mem::replace(&mut self.codex.item_part, part);
+        let previous = self.session.replace_codex_item_part(part);
         let result = apply(self, item);
-        self.codex.item_part = previous;
+        self.session.replace_codex_item_part(previous);
         result
     }
 

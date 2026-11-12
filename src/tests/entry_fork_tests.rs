@@ -14,7 +14,8 @@ fn fork_remints_prefix_and_retires_old_ids_for_all_backend_paths() {
     for backend in [BackendKind::Codex, BackendKind::Claude, BackendKind::Grok] {
         for length in 0..5 {
             let mut app = AppState::new("old".into());
-            app.codex.enabled = backend == BackendKind::Codex;
+            app.session
+                .set_codex_enabled_for_test(backend == BackendKind::Codex);
             app.session
                 .set_claude_enabled_for_test(backend == BackendKind::Claude);
             for _ in 0..length {

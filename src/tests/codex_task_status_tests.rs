@@ -17,7 +17,7 @@ pub(super) fn agent(id: &str, state: &str) -> Value {
 }
 fn own(app: &mut AppState) {
     app.session
-        .verify_codex_agent_owners_for_test(app.codex.epoch);
+        .verify_codex_agent_owners_for_test(app.session.codex_scope().epoch());
 }
 /// Build one exact native terminal identity.
 pub(super) fn process(owner: &str, id: &str) -> Process {

@@ -41,10 +41,10 @@ pub(super) fn replace_history_from_thread(app: &mut AppState, thread_obj: &Value
         thread_id == app.session.thread_id(),
         "History belongs to another thread"
     );
-    let previous = app.codex.item_turn.take();
+    let previous = app.session.replace_codex_item_turn(None);
     let draft = history_draft::build(app, thread_obj);
     app.replace_history_draft(draft, HistoryMode::SameThread);
-    app.codex.item_turn = previous;
+    app.session.replace_codex_item_turn(previous);
     app.read_thread_name(thread_obj);
     Ok(())
 }
@@ -55,9 +55,10 @@ pub(super) fn append_history_from_thread(app: &mut AppState, thread_obj: &Value)
         return;
     };
 
-    let previous = app.codex.item_turn.take();
+    let previous = app.session.replace_codex_item_turn(None);
     for turn in turns {
-        app.codex.item_turn = turn["id"].as_str().map(str::to_string);
+        app.session
+            .replace_codex_item_turn(turn["id"].as_str().map(str::to_string));
         let status = turn
             .get("status")
             .and_then(Value::as_str)
@@ -86,7 +87,7 @@ pub(super) fn append_history_from_thread(app: &mut AppState, thread_obj: &Value)
             }
         }
     }
-    app.codex.item_turn = previous;
+    app.session.replace_codex_item_turn(previous);
 }
 
 // --- History item helpers ---

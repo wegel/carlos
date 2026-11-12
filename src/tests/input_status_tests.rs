@@ -33,7 +33,7 @@ fn default_is_quiet_queue_is_visible_and_explicit_steer_notice_expires_without_n
     for claude in [false, true] {
         let mut app = AppState::new("root".into());
         app.session.set_claude_enabled_for_test(claude);
-        app.codex.enabled = !claude;
+        app.session.set_codex_enabled_for_test(!claude);
         let now = Instant::now();
         assert!(!status(&app, 100).contains("Steer"));
         assert!(!status(&app, 100).contains("F2"));
@@ -55,7 +55,7 @@ fn narrow_queue_reserves_compact_context_and_keeps_weekly_at_the_right_edge() {
     for claude in [false, true] {
         let mut app = AppState::new("root".into());
         app.session.set_claude_enabled_for_test(claude);
-        app.codex.enabled = !claude;
+        app.session.set_codex_enabled_for_test(!claude);
         app.session.set_context_usage(Some(ContextUsage {
             used: 90_000,
             max: 100_000,
@@ -176,7 +176,7 @@ fn narrow_help_end_then_up_and_pageup_moves_the_actual_visible_lines() {
 #[test]
 fn narrow_default_mode_keeps_recovery_error_and_pending_notices_beside_quota_and_percent() {
     let mut app = AppState::new("root".into());
-    app.codex.enabled = true;
+    app.session.set_codex_enabled_for_test(true);
     app.session.set_context_usage(Some(ContextUsage {
         used: 90_000,
         max: 100_000,

@@ -66,7 +66,7 @@ pub(super) fn handle_model_settings_key(
     if !app.view.runtime_settings.show_model_settings {
         app.view.claude_settings_edit = None;
     }
-    if app.codex.enabled {
+    if app.session.codex_scope().enabled() {
         crate::app::codex_settings_draft::refresh_editor(app);
     }
     TerminalEventResult::Continue { needs_draw: true }
@@ -99,7 +99,7 @@ fn cycle(app: &mut AppState, dir: isize) {
 }
 
 fn save_settings(client: &dyn BackendClient, app: &mut AppState) {
-    if app.codex.enabled && app.codex.closed {
+    if app.session.codex_scope().enabled() && app.session.codex_scope().closed() {
         app.view.codex_settings.editor_error =
             Some("Codex is disconnected; F5 reconnects. Choices remain in this editor".into());
         return;

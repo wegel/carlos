@@ -12,11 +12,7 @@ use crate::session::test_backend::TestBackend;
 fn accepted_future_settings_offer_one_save_before_the_final_notice() {
     let mut session = SessionState::new("root".into(), Default::default(), false);
     let peer = TestBackend::default();
-    let scope = CodexScope {
-        enabled: true,
-        closed: false,
-        epoch: 9,
-    };
+    let scope = CodexScope::for_test(true, false, 9);
     let desired = json!({"model":"chosen","effort":"high","summary":"concise"});
     let mut update = SettingsUpdate::default();
     save_values(
@@ -58,11 +54,7 @@ fn accepted_future_settings_offer_one_save_before_the_final_notice() {
 fn newer_native_settings_defeat_an_older_acknowledgment_without_an_editor() {
     let mut session = SessionState::new("root".into(), Default::default(), false);
     let peer = TestBackend::default();
-    let scope = CodexScope {
-        enabled: true,
-        closed: false,
-        epoch: 2,
-    };
+    let scope = CodexScope::for_test(true, false, 2);
     let mut update = SettingsUpdate::default();
     save_values(
         &peer,

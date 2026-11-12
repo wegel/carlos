@@ -330,7 +330,7 @@ fn terminal_codex_close_fences_late_turn_items_callbacks_and_keeps_the_composer(
         &mut app,
         &json!({"method":"carlos/codex/closed","params":{"message":"native EOF"}}).to_string(),
     );
-    assert!(app.codex.closed);
+    assert!(app.session.codex_scope().closed());
     let count = app.session.messages().len();
     for event in [
         json!({"method":"turn/started","params":{"threadId":"thread-root","turn":{"id":"late"}}}),

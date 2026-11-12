@@ -87,7 +87,7 @@ fn item(kind: &str, content: usize, id: Option<Value>) -> Value {
 
 fn run_case(backend: &str, kind: &str, method: &str, content: usize, id: Option<Value>) -> Value {
     let mut app = AppState::new("thread".into());
-    app.codex.enabled = backend == "codex";
+    app.session.set_codex_enabled_for_test(backend == "codex");
     app.session.set_claude_enabled_for_test(backend == "claude");
     app.session.set_summary_enabled_for_test(false);
     let item = item(kind, content, id);

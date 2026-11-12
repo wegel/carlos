@@ -74,7 +74,7 @@ impl AppState {
         self.view
             .runtime_settings
             .open_model_settings(self.session.runtime_settings());
-        if self.codex.enabled {
+        if self.session.codex_scope().enabled() {
             super::codex_settings_draft::open_editor(self);
             super::codex_settings_draft::restore_editor(self);
         }

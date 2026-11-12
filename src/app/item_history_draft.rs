@@ -55,7 +55,8 @@ pub(in crate::app) fn build(app: &mut AppState, thread: &Value) -> HistoryDraft 
     let mut predecessors = Predecessors::new();
     let mut native = NativeUserHistory::default();
     for turn in thread["turns"].as_array().into_iter().flatten() {
-        app.codex.item_turn = turn["id"].as_str().map(str::to_string);
+        app.session
+            .replace_codex_item_turn(turn["id"].as_str().map(str::to_string));
         let status = turn["status"].as_str().and_then(TurnStatus::from_wire);
         if let (Some(id), Some(status)) = (turn["id"].as_str(), status) {
             draft.turns.push((id.to_string(), status));
@@ -63,7 +64,7 @@ pub(in crate::app) fn build(app: &mut AppState, thread: &Value) -> HistoryDraft 
         for item in turn["items"].as_array().into_iter().flatten() {
             let mut record = HistoryRecord {
                 item: item.clone(),
-                turn: app.codex.item_turn.clone(),
+                turn: app.session.codex_item_turn().clone(),
                 terminal: status.is_some_and(TurnStatus::is_terminal)
                     || has_terminal_item_status(item),
                 updates: Vec::new(),

@@ -63,3 +63,7 @@ mod panel_test_support;
 
 #[cfg(test)]
 mod panel_snapshot_tests;
+
+pub(in crate::session) mod metadata;
+
+pub(crate) mod history;

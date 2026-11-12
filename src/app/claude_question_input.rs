@@ -40,7 +40,7 @@ pub(super) fn handle_key(
     if !editable {
         return result;
     }
-    if app.codex.enabled {
+    if app.session.codex_scope().enabled() {
         super::codex_callbacks::edited(app);
     }
     if let Some(draft) = super::native_questions::draft_mut(app) {
@@ -52,7 +52,7 @@ pub(super) fn handle_key(
 }
 
 fn control_key(client: &dyn BackendClient, app: &mut AppState, key: KeyEvent) -> bool {
-    if app.codex.enabled
+    if app.session.codex_scope().enabled()
         && key.code == KeyCode::Esc
         && super::codex_callbacks::hide_nonblocking(app)
     {
@@ -69,7 +69,7 @@ fn control_key(client: &dyn BackendClient, app: &mut AppState, key: KeyEvent) ->
 }
 
 fn interrupt_native(client: &dyn BackendClient, app: &mut AppState) {
-    if app.codex.enabled {
+    if app.session.codex_scope().enabled() {
         super::codex_reply::interrupt(client, app);
         return;
     }
@@ -144,7 +144,7 @@ pub(super) fn paste(app: &mut AppState, text: &str, size: super::TerminalSize) -
     if !super::native_questions::modal(app) {
         return false;
     }
-    if app.codex.enabled {
+    if app.session.codex_scope().enabled() {
         super::codex_callbacks::edited(app);
     }
     if let Some(draft) = super::native_questions::draft_mut(app) {
@@ -211,7 +211,7 @@ fn edit_question(draft: &mut NativeDraft, key: KeyEvent) {
 }
 
 fn next_request(app: &mut AppState) {
-    if app.codex.enabled {
+    if app.session.codex_scope().enabled() {
         super::codex_callbacks::next(app);
         return;
     }

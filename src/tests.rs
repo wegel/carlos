@@ -11,7 +11,6 @@ pub(super) use super::cli::{
     load_runtime_defaults_from, parse_cli_args, persist_runtime_defaults_to,
     resolve_initial_runtime_settings, resume_hint, styled_resume_hint, Backend,
 };
-pub(super) use super::codex_history::{parse_rollout_history, prefer_complete_rollout_history};
 pub(super) use super::context_usage::{context_usage_label, ContextUsage};
 pub(super) use super::dictation_state::{DictationPhase, DictationProfileState};
 pub(super) use super::input::{
@@ -67,6 +66,9 @@ pub(super) use crate::event::UiEvent;
 pub(super) use crate::protocol_params::{
     params_thread_archive, params_turn_interrupt, params_turn_start, parse_thread_runtime_settings,
     ModelInfo, ThreadRuntimeSettings,
+};
+pub(super) use crate::session::codex::history::{
+    parse_rollout_history, prefer_complete_rollout_history,
 };
 pub(super) use crate::theme::{COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_PRIMARY, COLOR_TEXT};
 pub(super) use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};

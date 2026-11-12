@@ -20,7 +20,7 @@ pub(super) fn reject_switch(app: &mut AppState) -> bool {
 
 /// Consume local queue commands before normal prompt/history submission.
 pub(super) fn command(client: &dyn BackendClient, app: &mut AppState, text: &str) -> bool {
-    if !app.codex.enabled {
+    if !app.session.codex_scope().enabled() {
         return false;
     }
     if text.trim() == "/queue" {
@@ -191,11 +191,7 @@ pub(super) fn allows_automatic(app: &AppState) -> bool {
 
 /// Describe the current native connection for the queue controller.
 pub(super) fn scope(app: &AppState) -> CodexScope {
-    CodexScope {
-        enabled: app.codex.enabled,
-        closed: app.codex.closed,
-        epoch: app.codex.epoch,
-    }
+    app.session.codex_scope()
 }
 
 /// Apply each returned recovery draft and editor change exactly once.

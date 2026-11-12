@@ -6,7 +6,11 @@ use super::state::AppState;
 pub(super) fn count(app: &AppState) -> usize {
     crate::session::codex::task_badge::count(
         &app.session,
-        super::codex_panel::scope(&app.codex, &app.view.codex_panel),
+        super::codex_panel::scope(
+            app.session.codex_scope(),
+            &app.codex.connection,
+            &app.view.codex_panel,
+        ),
     )
 }
 
@@ -14,7 +18,11 @@ pub(super) fn count(app: &AppState) -> usize {
 pub(super) fn owns(app: &AppState, owner: &str) -> bool {
     crate::session::codex::task_badge::owns(
         &app.session,
-        super::codex_panel::scope(&app.codex, &app.view.codex_panel),
+        super::codex_panel::scope(
+            app.session.codex_scope(),
+            &app.codex.connection,
+            &app.view.codex_panel,
+        ),
         owner,
     )
 }

@@ -6,7 +6,7 @@ use crate::app::{MessageKind, Role};
 use serde_json::{json, Value};
 fn app() -> AppState {
     let mut app = AppState::new("thread".into());
-    app.codex.enabled = true;
+    app.session.set_codex_enabled_for_test(true);
     app.session.enable_native_history();
     app
 }

@@ -27,7 +27,7 @@ fn capture_old_snapshot_then_completion_before_reply_keeps_latest_text_and_termi
         "held frames stay charged"
     );
     ready(&peer, &mut app, snapshot("prefix", "active"));
-    assert!(!app.codex.closed);
+    assert!(!app.session.codex_scope().closed());
     assert_eq!(
         app.session
             .messages()
@@ -102,7 +102,7 @@ fn old_generation_cannot_resolve_or_revalidate_a_replayed_typed_callback() {
         .unsupported
         .is_none());
     assert!(
-        app.codex.closed,
+        app.session.codex_scope().closed(),
         "answers can be shown before history is ready"
     );
     assert_eq!(
@@ -122,7 +122,7 @@ fn shared_disconnect_keeps_native_running_status_without_inventing_failure() {
     let mut app = app();
     app.codex.connection.socket = Some("/tmp/own-test.sock".into());
     app.codex.connection.rebuilding = false;
-    app.codex.closed = false;
+    app.session.reopen_codex();
     app.record_turn_started("native-still-running");
     receive(
         &peer,
@@ -130,7 +130,7 @@ fn shared_disconnect_keeps_native_running_status_without_inventing_failure() {
         2,
         json!({"method":"carlos/codex/closed","params":{"message":"proxy exited"}}),
     );
-    assert!(app.codex.closed);
+    assert!(app.session.codex_scope().closed());
     assert!(app.session.active_turn_id().is_none());
     assert_eq!(
         app.session.turn_status_by_id()["native-still-running"],
@@ -152,7 +152,7 @@ fn owned_idle_metadata_does_not_restore_a_stale_rollout_turn() {
     let mut app = app();
     ready(&peer, &mut app, snapshot("old interrupted output", "idle"));
     assert!(app.session.active_turn_id().is_none());
-    assert!(!app.codex.closed);
+    assert!(!app.session.codex_scope().closed());
 }
 
 #[test]
@@ -165,7 +165,7 @@ fn malformed_goal_fails_before_transcript_and_snapshots_are_replaced() {
     let mut bad = snapshot("DO_NOT_INSTALL", "idle");
     bad.goal = Some(json!({}));
     ready(&peer, &mut app, bad);
-    assert!(app.codex.closed);
+    assert!(app.session.codex_scope().closed());
     assert_eq!(app.session.messages()[0].text, "KEEP_OLD_HISTORY");
     assert_eq!(app.session.codex_queue().entries()[0]["id"], "keep-queue");
     assert_eq!(*peer.aborted.borrow(), 1);
@@ -275,7 +275,7 @@ fn duplicate_close_preserves_lost_child_state_and_failed_ready_clears_dead_callb
         3,
         json!({"method":"carlos/codex/ready","params":{"generation":3,"threadId":"root"}}),
     );
-    assert!(app.codex.closed);
+    assert!(app.session.codex_scope().closed());
     assert!(app.session.codex_callbacks().is_empty());
     assert!(app.session.approval().pending().is_none());
     assert_eq!(app.codex.connection.unreplayed_children, 1);
@@ -296,7 +296,7 @@ fn duplicate_close_preserves_lost_child_state_and_failed_ready_clears_dead_callb
         4,
         json!({"method":"carlos/codex/ready","params":{"generation":4,"threadId":"root"}}),
     );
-    assert!(!app.codex.closed);
+    assert!(!app.session.codex_scope().closed());
     assert!(app
         .session
         .messages()

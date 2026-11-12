@@ -12,7 +12,7 @@ use crate::session::approval_state::ApprovalQueue;
 
 /// Start one explicit attempt against the current thread, including a forked thread ID.
 pub(super) fn start(client: &dyn BackendClient, app: &mut AppState) {
-    if !app.codex.closed || app.codex.connection.rebuilding {
+    if !app.session.codex_scope().closed() || app.codex.connection.rebuilding {
         return;
     }
     match client.reconnect(&app.session.thread_id()) {
@@ -21,7 +21,7 @@ pub(super) fn start(client: &dyn BackendClient, app: &mut AppState) {
             app.codex.connection.generation = generation;
             app.codex.connection.rebuilding = true;
             app.codex.connection.initial_rebuild = false;
-            app.codex.epoch = app.codex.epoch.saturating_add(1);
+            app.session.advance_codex_epoch();
             app.session.clear_codex_callbacks();
             app.view.codex_callbacks = Default::default();
             let mut retired = app.session.clear_approval_queue(ApprovalQueue::Codex);
@@ -79,7 +79,7 @@ pub(super) fn receive(client: &dyn BackendClient, app: &mut AppState, line: &str
         {
             dispatch_action(client, app, action);
         }
-    } else if !app.codex.closed {
+    } else if !app.session.codex_scope().closed() {
         apply(client, app, event);
     }
     client.acknowledge_event(line.len());

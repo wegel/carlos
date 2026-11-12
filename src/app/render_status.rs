@@ -96,7 +96,7 @@ fn status_plan(app: &AppState, size: TerminalSize) -> StatusPlan {
     let line_len = size.width.saturating_sub(1);
     let mut edge = line_len;
     let mut labels = Vec::new();
-    if app.codex.enabled && app.codex.closed {
+    if app.session.codex_scope().enabled() && app.session.codex_scope().closed() {
         let text = if app.codex.connection.rebuilding {
             "Codex reconnecting…"
         } else {
@@ -164,8 +164,8 @@ fn place_weekly(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState)
 
 fn place_tasks(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState) {
     let tasks = super::task_badge::count(app);
-    let uncertain = app.codex.enabled
-        && !app.codex.closed
+    let uncertain = app.session.codex_scope().enabled()
+        && !app.session.codex_scope().closed()
         && app
             .session
             .codex_task_status()
@@ -192,7 +192,7 @@ fn place_codex_callback(
     app: &AppState,
     size: TerminalSize,
 ) {
-    if app.codex.enabled
+    if app.session.codex_scope().enabled()
         && !app.view.codex_callbacks.focused
         && !app.session.codex_callbacks().is_empty()
     {
@@ -211,7 +211,7 @@ fn place_codex_callback(
 }
 
 fn queue_notice(app: &AppState, size: TerminalSize) -> Option<String> {
-    if !app.codex.enabled || app.rewind_mode() {
+    if !app.session.codex_scope().enabled() || app.rewind_mode() {
         return None;
     }
     let compact = size.width < 32;
@@ -313,7 +313,7 @@ fn place_model_and_activity(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app
     }
     let reserved: usize = badges.iter().map(|label| label.width() + 1).sum();
     let budget = edge.saturating_sub(reserved + 2);
-    let label = if app.codex.enabled {
+    let label = if app.session.codex_scope().enabled() {
         super::codex_settings::label(app)
     } else {
         app.runtime_settings_label()

@@ -62,7 +62,7 @@ fn read_inner(reader: SnapshotReader<'_>, thread: &str, runtime: String) -> Resu
         &runtime,
         reader.deadline.saturating_duration_since(Instant::now()),
     )?;
-    let mut history = crate::app::reconnect_history(&history, thread)?;
+    let mut history = crate::session::codex::history::preferred_codex_thread(&history, thread)?;
     let catalog = reader.catalog()?;
     ensure!(
         catalog.to_string().len() + runtime.len() <= 8 * 1024 * 1024,

@@ -12,9 +12,9 @@ use serde_json::Value;
 
 use crate::protocol_params::extract_result_object;
 
-#[path = "codex_rollout.rs"]
+#[path = "rollout.rs"]
 mod rollout;
-pub(super) use rollout::parse_rollout_history;
+pub(crate) use rollout::parse_rollout_history;
 use rollout::IneligibleRollout;
 
 // --- Public Selection API ---
@@ -38,7 +38,7 @@ pub(crate) fn preferred_codex_thread(response_line: &str, thread_id: &str) -> Re
 }
 
 /// Prefer rollout history when it contains a terminal turn missing from app-server.
-pub(super) fn prefer_complete_rollout_history(mut server: Value, rollout: Value) -> Result<Value> {
+pub(crate) fn prefer_complete_rollout_history(mut server: Value, rollout: Value) -> Result<Value> {
     let Some(turns) = server["turns"].as_array_mut() else {
         return Ok(server);
     };
@@ -205,5 +205,5 @@ fn turn_has_final_answer(turn: &Value) -> bool {
 }
 
 #[cfg(test)]
-#[path = "../tests/codex_history_file_tests.rs"]
+#[path = "../../tests/codex_history_file_tests.rs"]
 mod tests;

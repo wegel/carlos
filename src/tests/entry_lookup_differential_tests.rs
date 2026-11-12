@@ -216,7 +216,7 @@ fn apply(
 ) -> Option<(&'static str, &'static str, usize)> {
     let turn = ["t0", "t1", "t2"][(bits as usize / 11) % 3];
     let item = ["a", "b", "x#part-1"][(bits as usize / 37) % 3];
-    app.codex.item_turn = Some(turn.into());
+    app.session.replace_codex_item_turn(Some(turn.into()));
     let key = old_key(turn, item, 0);
     match bits % 9 {
         0 => {

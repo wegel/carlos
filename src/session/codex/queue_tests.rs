@@ -11,11 +11,7 @@ use crate::session::test_backend::TestBackend;
 fn native_queue_read_and_failed_write_need_no_view() {
     let mut session = SessionState::new("root".into(), Default::default(), false);
     let peer = TestBackend::default();
-    let scope = CodexScope {
-        enabled: true,
-        closed: false,
-        epoch: 7,
-    };
+    let scope = CodexScope::for_test(true, false, 7);
     let mut update = QueueUpdate::default();
     assert!(!allows_automatic(&session, scope));
     assert!(tick(&peer, &mut session, scope, &mut update, false));

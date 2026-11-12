@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use serde_json::{json, Value};
 
 #[derive(Debug)]
-pub(super) struct IneligibleRollout;
+pub(crate) struct IneligibleRollout;
 
 impl fmt::Display for IneligibleRollout {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -19,10 +19,7 @@ impl fmt::Display for IneligibleRollout {
 impl std::error::Error for IneligibleRollout {}
 
 /// Rebuild a thread from completed lifecycle records in rollout file order.
-pub(in crate::app) fn parse_rollout_history(
-    reader: impl BufRead,
-    thread_id: &str,
-) -> Result<Value> {
+pub(crate) fn parse_rollout_history(reader: impl BufRead, thread_id: &str) -> Result<Value> {
     let mut history = RolloutHistory::new(thread_id);
     let mut reader = reader;
     let mut bytes = 0usize;

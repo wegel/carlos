@@ -83,9 +83,9 @@ pub(super) fn event(app: &mut AppState, event: &Value) -> bool {
     } else if method == "item/started" && app.codex.connection.streams.items.contains_key(&key) {
         return true;
     } else if method.starts_with("item/") && params["delta"].is_string() {
-        let previous = app.codex.item_turn.replace(turn.to_string());
+        let previous = app.session.replace_codex_item_turn(Some(turn.to_string()));
         let completed = app.is_item_completed(item);
-        app.codex.item_turn = previous;
+        app.session.replace_codex_item_turn(previous);
         if completed {
             return true;
         }
@@ -100,8 +100,9 @@ pub(super) fn event(app: &mut AppState, event: &Value) -> bool {
 }
 
 fn complete_turn(app: &mut AppState, params: &Value) {
-    let previous = app.codex.item_turn.take();
-    app.codex.item_turn = params["turn"]["id"].as_str().map(str::to_string);
+    let previous = app.session.replace_codex_item_turn(None);
+    app.session
+        .replace_codex_item_turn(params["turn"]["id"].as_str().map(str::to_string));
     let turn = &params["turn"];
     for item in turn["items"].as_array().into_iter().flatten() {
         if let (Some(turn), Some(id)) = (turn["id"].as_str(), item["id"].as_str()) {
@@ -126,7 +127,7 @@ fn complete_turn(app: &mut AppState, params: &Value) {
     for key in keys {
         remove(app, &key);
     }
-    app.codex.item_turn = previous;
+    app.session.replace_codex_item_turn(previous);
 }
 
 fn retain_final_read(app: &mut AppState, key: &(String, String), item: &Value) -> bool {
@@ -147,8 +148,8 @@ fn retain_final_read(app: &mut AppState, key: &(String, String), item: &Value) -
 /// Read one exact persisted item at a time; ordinary prompts remain independent.
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant) -> bool {
     let changed = expire(app, now);
-    if !app.codex.enabled
-        || app.codex.closed
+    if !app.session.codex_scope().enabled()
+        || app.session.codex_scope().closed()
         || app
             .codex
             .connection
@@ -184,7 +185,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant)
     let result = client.request_control_with_context(
         "thread/items/read",
         json!({"threadId":app.session.thread_id(),"turnId":turn,"itemIds":[item]}),
-        json!({"operation":"reconnectItem","epoch":app.codex.epoch,"token":token,"timeoutMs":5000}),
+        json!({"operation":"reconnectItem","epoch":app.session.codex_scope().epoch(),"token":token,"timeoutMs":5000}),
     );
     if let Err(error) = result {
         app.codex
@@ -206,7 +207,7 @@ pub(super) fn reply(app: &mut AppState, params: &Value) -> bool {
     if params["requestContext"]["operation"] != "reconnectItem" {
         return false;
     }
-    if params["requestContext"]["epoch"].as_u64() != Some(app.codex.epoch)
+    if params["requestContext"]["epoch"].as_u64() != Some(app.session.codex_scope().epoch())
         || params["requestParams"]["threadId"] != *app.session.thread_id()
     {
         return true;
@@ -283,7 +284,7 @@ fn update_partial(app: &mut AppState, key: &(String, String), entry: &Value) {
     partial.text = next;
     partial.due = Some(Instant::now() + Duration::from_millis(500));
     app.codex.connection.streams.bytes += growth;
-    let previous = app.codex.item_turn.replace(key.0.clone());
+    let previous = app.session.replace_codex_item_turn(Some(key.0.clone()));
     if terminal {
         let frame = json!({"threadId":app.session.thread_id(),"turnId":key.0,"item":entry["item"]});
         super::notification_items::handle_item_notification(
@@ -295,12 +296,12 @@ fn update_partial(app: &mut AppState, key: &(String, String), entry: &Value) {
     } else {
         super::item_history::append_history_item(app, &entry["item"]);
     }
-    app.codex.item_turn = previous;
+    app.session.replace_codex_item_turn(previous);
 }
 
 /// Wake only for a partial item that actually overlapped streamed output.
 pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
-    if app.codex.closed {
+    if app.session.codex_scope().closed() {
         return None;
     }
     let items = &app.codex.connection.streams.items;

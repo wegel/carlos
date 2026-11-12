@@ -8,8 +8,8 @@ use crate::backend::BackendClient;
 
 /// Read native metadata only; reconnect never publishes Carlos defaults.
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
-    if !app.codex.enabled
-        || app.codex.closed
+    if !app.session.codex_scope().enabled()
+        || app.session.codex_scope().closed()
         || !app.codex.connection.runtime_refresh
         || app.codex.connection.runtime_read.is_some()
     {
@@ -25,7 +25,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
     });
     if let Err(error) = client.request_control_with_context("thread/read",
         json!({"threadId":app.session.thread_id(),"includeTurns":false}),
-        json!({"operation":"reconnectRuntime","epoch":app.codex.epoch,"token":token,"timeoutMs":5000})) {
+        json!({"operation":"reconnectRuntime","epoch":app.session.codex_scope().epoch(),"token":token,"timeoutMs":5000})) {
         app.codex.connection.runtime_read = None;
         app.set_status(format!("Could not refresh Codex thread settings: {error}"));
     }
@@ -41,7 +41,7 @@ pub(super) fn reply(app: &mut AppState, params: &Value) -> bool {
         return true;
     };
     if params["requestContext"]["token"].as_u64() != Some(read.token)
-        || params["requestContext"]["epoch"].as_u64() != Some(app.codex.epoch)
+        || params["requestContext"]["epoch"].as_u64() != Some(app.session.codex_scope().epoch())
         || params["requestParams"]["threadId"] != *app.session.thread_id()
     {
         return true;

@@ -15,7 +15,8 @@ pub(in crate::app) fn tick_rate_limits(
 }
 
 fn connected(app: &AppState) -> bool {
-    !app.codex.enabled || !app.codex.closed && !app.codex.connection.rebuilding
+    !app.session.codex_scope().enabled()
+        || !app.session.codex_scope().closed() && !app.codex.connection.rebuilding
 }
 
 /// Choose the next usable read deadline without spinning on disconnected timers.
@@ -32,7 +33,7 @@ pub(in crate::app) fn idle_wait(app: &AppState, now: Instant) -> Option<std::tim
         .chain(super::super::codex_reconnect_streams::wait(app, now))
         .chain(
             (app.codex.connection.runtime_refresh
-                && !app.codex.closed
+                && !app.session.codex_scope().closed()
                 && app.codex.connection.runtime_read.is_none())
             .then_some(std::time::Duration::ZERO),
         )

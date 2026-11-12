@@ -38,7 +38,7 @@ pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
 
 /// Recognize only the local command; the caller routes literal rewind edits first.
 pub(super) fn command(app: &mut AppState, text: &str) -> bool {
-    if !app.codex.enabled || text.trim() != "/goal" {
+    if !app.session.codex_scope().enabled() || text.trim() != "/goal" {
         return false;
     }
     app.clear_input();

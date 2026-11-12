@@ -42,7 +42,7 @@ pub(super) fn handle_key_event(
     if !record_key_event(app, k.kind) {
         return TerminalEventResult::Continue { needs_draw: false };
     }
-    if app.codex.enabled && k.code == KeyCode::F(5) && k.modifiers.is_empty() {
+    if app.session.codex_scope().enabled() && k.code == KeyCode::F(5) && k.modifiers.is_empty() {
         crate::app::codex_reconnect::start(client, app);
         return TerminalEventResult::Continue { needs_draw: true };
     }
@@ -55,7 +55,7 @@ pub(super) fn handle_key_event(
     if let Some(result) = crate::app::claude_task_view::key(client, app, k) {
         return result;
     }
-    if app.codex.enabled && k.code == KeyCode::F(4) {
+    if app.session.codex_scope().enabled() && k.code == KeyCode::F(4) {
         app.view.codex_goals.show = false;
         crate::app::codex_callbacks::next(app);
         return TerminalEventResult::Continue { needs_draw: true };

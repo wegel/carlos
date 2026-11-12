@@ -36,7 +36,7 @@ pub(super) fn body(app: &AppState) -> Vec<String> {
     if !facts.notice().is_empty() {
         lines.push(facts.notice().to_string());
     }
-    if app.codex.closed {
+    if app.session.codex_scope().closed() {
         lines.push("Codex is closed; panel controls are unavailable".into());
     }
     if !facts.contains_target(panel.selected.as_ref()) {

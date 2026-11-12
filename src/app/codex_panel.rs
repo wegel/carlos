@@ -3,7 +3,7 @@
 use std::time::{Duration, Instant};
 
 use super::codex_panel_state::PanelView;
-use super::codex_state::CodexUiState;
+use super::codex_reconnect_state::ConnectionState;
 use super::state::AppState;
 use crate::backend::BackendClient;
 use crate::session::codex::panel;
@@ -11,15 +11,15 @@ use crate::session::codex::panel_scope::{PanelScope, PanelUpdate};
 use crate::session::codex::scope::CodexScope;
 
 /// Borrow only the explicit local target while copying the native connection identity.
-pub(super) fn scope<'a>(codex: &CodexUiState, view: &'a PanelView) -> PanelScope<'a> {
+pub(super) fn scope<'a>(
+    native: CodexScope,
+    connection: &ConnectionState,
+    view: &'a PanelView,
+) -> PanelScope<'a> {
     PanelScope {
-        native: CodexScope {
-            enabled: codex.enabled,
-            closed: codex.closed,
-            epoch: codex.epoch,
-        },
-        generation: codex.connection.generation,
-        rebuilding: codex.connection.rebuilding,
+        native,
+        generation: connection.generation,
+        rebuilding: connection.rebuilding,
         visible: view.show,
         detail: view.detail,
         selected: view.selected.as_ref(),
@@ -28,7 +28,11 @@ pub(super) fn scope<'a>(codex: &CodexUiState, view: &'a PanelView) -> PanelScope
 
 /// Poll native panel work without retaining client visibility in the session.
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
-    let scope = scope(&app.codex, &app.view.codex_panel);
+    let scope = scope(
+        app.session.codex_scope(),
+        &app.codex.connection,
+        &app.view.codex_panel,
+    );
     let mut update = PanelUpdate::default();
     let changed = panel::tick(client, &mut app.session, scope, &mut update);
     apply(app, update);
@@ -37,13 +41,21 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
 
 /// Request a bounded native agent/process window.
 pub(super) fn refresh(app: &mut AppState, older: bool) {
-    let scope = scope(&app.codex, &app.view.codex_panel);
+    let scope = scope(
+        app.session.codex_scope(),
+        &app.codex.connection,
+        &app.view.codex_panel,
+    );
     panel::refresh(&mut app.session, scope, older);
 }
 
 /// Ask the session to read the explicitly selected child's recent native items.
 pub(super) fn details(app: &mut AppState, older: bool) {
-    let scope = scope(&app.codex, &app.view.codex_panel);
+    let scope = scope(
+        app.session.codex_scope(),
+        &app.codex.connection,
+        &app.view.codex_panel,
+    );
     let mut update = PanelUpdate::default();
     panel::details(&mut app.session, scope, &mut update, older);
     apply(app, update);
@@ -51,13 +63,25 @@ pub(super) fn details(app: &mut AppState, older: bool) {
 
 /// Stop only the exact native identity the user selected.
 pub(super) fn stop(app: &mut AppState) {
-    let scope = scope(&app.codex, &app.view.codex_panel);
+    let scope = scope(
+        app.session.codex_scope(),
+        &app.codex.connection,
+        &app.view.codex_panel,
+    );
     panel::stop(&mut app.session, scope);
 }
 
 /// Read the next native deadline without creating a timer for a hidden idle panel.
 pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
-    panel::wait(&app.session, scope(&app.codex, &app.view.codex_panel), now)
+    panel::wait(
+        &app.session,
+        scope(
+            app.session.codex_scope(),
+            &app.codex.connection,
+            &app.view.codex_panel,
+        ),
+        now,
+    )
 }
 
 /// Preserve selection identity while explicit arrows discard the previous child read.

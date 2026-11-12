@@ -190,22 +190,23 @@ pub(crate) fn handle_server_message_line(
     let Ok(parsed) = serde_json::from_str::<Value>(line) else {
         return None;
     };
-    let previous = app.codex.item_turn.take();
-    app.codex.item_turn = parsed["params"]["turnId"].as_str().map(str::to_string);
+    let previous = app.session.replace_codex_item_turn(None);
+    app.session
+        .replace_codex_item_turn(parsed["params"]["turnId"].as_str().map(str::to_string));
     let action = handle_parsed(app, parsed);
-    app.codex.item_turn = previous;
+    app.session.replace_codex_item_turn(previous);
     action
 }
 
 fn handle_parsed(app: &mut AppState, parsed: Value) -> Option<ServerRequestAction> {
-    if app.codex.closed {
+    if app.session.codex_scope().closed() {
         return None;
     }
     if app.session.rate_limits_response(&parsed) {
         return None;
     }
     let method = parsed.get("method").and_then(Value::as_str)?;
-    if app.codex.enabled {
+    if app.session.codex_scope().enabled() {
         if let super::codex_callbacks::CallbackRoute::Handled(action) =
             super::codex_callbacks::route(app, method, &parsed)
         {

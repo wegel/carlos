@@ -19,7 +19,7 @@ pub(super) fn close_with_guidance(app: &mut AppState, params: &Map<String, Value
     }
     app.codex.connection.closed_generation = Some(app.codex.connection.generation);
     app.codex.connection.rebuilding = false;
-    app.codex.closed = true;
+    app.session.close_codex();
     app.clear_rate_limits();
     app.codex.connection.streams = Default::default();
     app.codex.connection.runtime_read = None;
@@ -53,7 +53,7 @@ pub(super) fn close_with_guidance(app: &mut AppState, params: &Map<String, Value
 
 /// Keep human input recoverable and discard automatic work after terminal closure.
 pub(super) fn reject_closed_prompt(app: &mut AppState, text: &str, origin: PromptOrigin) -> bool {
-    if !app.codex.closed {
+    if !app.session.codex_scope().closed() {
         return false;
     }
     app.session.ralph_stop_after_failure();

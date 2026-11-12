@@ -47,13 +47,13 @@ fn check_foreign_history(backend: BackendKind) {
             app.record_turn_started("active");
         }
         let session = format!("{:?}", app.session);
-        let turn = app.codex.item_turn.clone();
+        let turn = app.session.codex_item_turn().clone();
         let ids: Vec<_> = app.session.messages().iter().map(|row| row.id).collect();
         let error = load_history_from_start_or_resume(&mut app, &foreign_history())
             .expect_err("foreign history must be rejected");
         assert_eq!(error.to_string(), "History belongs to another thread");
         assert_eq!(format!("{:?}", app.session), session);
-        assert_eq!(app.codex.item_turn, turn);
+        assert_eq!(app.session.codex_item_turn(), &turn);
         read(&mut app, backend, "b.rs");
         assert_eq!(app.session.messages().len(), 1);
         let expected = if backend == BackendKind::Grok {

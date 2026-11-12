@@ -11,17 +11,33 @@ use crate::session::codex::task_status;
 
 /// Read only known native process owners while background work remains active.
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant) -> bool {
-    let scope = scope(&app.codex, &app.view.codex_panel);
+    let scope = scope(
+        app.session.codex_scope(),
+        &app.codex.connection,
+        &app.view.codex_panel,
+    );
     task_status::tick(client, &mut app.session, scope, now)
 }
 
 /// Match native root, generation, revision and exact reader token before publishing.
 pub(super) fn reply(app: &mut AppState, params: &Value) -> bool {
-    let scope = scope(&app.codex, &app.view.codex_panel);
+    let scope = scope(
+        app.session.codex_scope(),
+        &app.codex.connection,
+        &app.view.codex_panel,
+    );
     task_status::reply(&mut app.session, scope, params)
 }
 
 /// Wake only for actual pending native work and its original deadlines.
 pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
-    task_status::wait(&app.session, scope(&app.codex, &app.view.codex_panel), now)
+    task_status::wait(
+        &app.session,
+        scope(
+            app.session.codex_scope(),
+            &app.codex.connection,
+            &app.view.codex_panel,
+        ),
+        now,
+    )
 }

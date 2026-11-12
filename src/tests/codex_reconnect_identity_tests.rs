@@ -33,17 +33,17 @@ fn repeated_native_item_and_user_ids_stay_distinct_in_live_history_and_reconnect
     assert_eq!(app.session.messages().len(), 4);
     assert_eq!(app.session.messages()[1].text, "answer-one");
     assert_eq!(app.session.messages()[3].text, "answer-two");
-    app.codex.item_turn = Some("outside".into());
+    app.session.replace_codex_item_turn(Some("outside".into()));
     handle_server_message_line(&mut app,&json!({"method":"item/agentMessage/delta","params":{"threadId":"root","turnId":"one","itemId":"same-answer","delta":"LATE_OLD"}}).to_string());
-    assert_eq!(app.codex.item_turn.as_deref(), Some("outside"));
+    assert_eq!(app.session.codex_item_turn().as_deref(), Some("outside"));
     assert_eq!(app.session.messages()[3].text, "answer-two");
-    app.codex.item_turn = None;
+    app.session.replace_codex_item_turn(None);
     app.enter_rewind_mode();
     let selected = app.rewind_native_request().expect("native user anchor");
     assert_eq!(selected.item_id, "same-user");
     assert_eq!(app.rewind_selected_turn_id(), Some("two"));
     let peer = Peer::default();
-    app.codex.closed = true;
+    app.session.close_codex();
     app.codex.connection.generation = 2;
     app.codex.connection.rebuilding = true;
     let mut current = snapshot("unused", "idle");
@@ -76,11 +76,11 @@ fn native_suffix_and_unicode_ids_cannot_collide_with_display_parts() {
     assert!(app.session.messages()[0].text.contains("new-a"));
     assert!(app.session.messages()[1].text.contains("new-b"));
     assert_eq!(app.session.messages()[2].text, "NATIVE_SUFFIX");
-    app.codex.item_turn = Some("a:b".into());
+    app.session.replace_codex_item_turn(Some("a:b".into()));
     let first = app.item_key("日本語:c");
-    app.codex.item_turn = Some("a".into());
+    app.session.replace_codex_item_turn(Some("a".into()));
     assert_ne!(first, app.item_key("b:日本語:c"));
-    assert_eq!(app.codex.item_part, 0);
+    assert_eq!(app.session.codex_item_part(), 0);
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn fresh_catalog_preserves_editor_values_and_drops_old_direct_override_fallback(
     app.view.runtime_settings.model_settings_model_index = 1;
     assert_eq!(app.model_settings_model_value(), "b");
     app.session.set_codex_settings_legacy_for_test(true);
-    app.codex.closed = true;
+    app.session.close_codex();
     app.codex.connection.rebuilding = true;
     let mut second = snapshot("two", "idle");
     second.runtime =

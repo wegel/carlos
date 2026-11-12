@@ -14,14 +14,14 @@ impl AppState {
     pub(super) fn set_thread_id(&mut self, thread_id: impl Into<String>) {
         let thread_id = thread_id.into();
         if *self.session.thread_id() != thread_id {
-            if self.codex.enabled {
+            if self.session.codex_scope().enabled() {
                 super::codex_callbacks::reset(self);
                 self.view.codex_panel = Default::default();
                 self.session.reset_codex_panel();
                 self.session.reset_codex_task_status();
                 self.view.codex_goals = Default::default();
                 self.session.reset_codex_goals();
-                self.codex.epoch = self.codex.epoch.saturating_add(1);
+                self.session.advance_codex_epoch();
                 let mode = self.view.codex_queue.mode;
                 self.view.codex_queue = Default::default();
                 self.session.reset_codex_queue();
@@ -36,7 +36,7 @@ impl AppState {
 
     /// Keep a single-line, terminal-safe name for display and inline editing.
     pub(super) fn set_thread_name(&mut self, name: Option<&str>) {
-        if self.codex.enabled {
+        if self.session.codex_scope().enabled() {
             self.codex.connection.name_revision =
                 self.codex.connection.name_revision.saturating_add(1);
         }

@@ -8,12 +8,20 @@ use crate::session::codex::panel_events;
 
 /// Record native task facts before the app applies its root-thread filter.
 pub(super) fn event(app: &mut AppState, method: &str, params: &Value) -> bool {
-    let scope = scope(&app.codex, &app.view.codex_panel);
+    let scope = scope(
+        app.session.codex_scope(),
+        &app.codex.connection,
+        &app.view.codex_panel,
+    );
     panel_events::event(&mut app.session, scope, method, params)
 }
 
 /// Retain bounded native report facts without constructing a panel view.
 pub(super) fn report(app: &mut AppState, item: &Value) {
-    let scope = scope(&app.codex, &app.view.codex_panel);
+    let scope = scope(
+        app.session.codex_scope(),
+        &app.codex.connection,
+        &app.view.codex_panel,
+    );
     panel_events::report(&mut app.session, scope, item);
 }

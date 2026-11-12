@@ -10,7 +10,6 @@ use super::{
     finish_run, load_claude_thread_summaries, resolve_backend_runtime_settings,
 };
 use crate::app::cli::CliOptions;
-use crate::app::codex_history::preferred_codex_thread;
 use crate::app::item_history::replace_history_from_thread;
 use crate::app::notifications::{load_history_from_start_or_resume, parse_thread_list};
 use crate::app::state::AppState;
@@ -24,6 +23,7 @@ use crate::protocol_params::{
     params_thread_resume, params_thread_start, parse_thread_id_from_start_or_resume,
     parse_thread_runtime_settings, ThreadRuntimeSettings,
 };
+use crate::session::codex::history::preferred_codex_thread;
 
 // --- Codex Backend ---
 
@@ -60,7 +60,7 @@ pub(in crate::app) fn run_codex_backend(
         default_summary,
     )?;
     if launch.deferred_history {
-        app.codex.closed = true;
+        app.session.close_codex();
         app.codex.connection.rebuilding = true;
         app.codex.connection.initial_rebuild = true;
         app.codex.connection.initial_choices = app.session.take_deferred_codex_settings();
@@ -156,7 +156,7 @@ pub(super) fn configure_codex_app(
     default_summary: Option<String>,
 ) -> Result<()> {
     app.session.enable_native_history();
-    app.codex.enabled = true;
+    app.session.enable_codex();
     crate::app::context_settings::initialize(
         app,
         crate::backend::BackendKind::Codex,

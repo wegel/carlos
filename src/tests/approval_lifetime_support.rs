@@ -90,7 +90,8 @@ pub(super) fn app(backend: BackendKind) -> AppState {
     let mut app = AppState::new("thread".into());
     app.session
         .set_claude_enabled_for_test(backend == BackendKind::Claude);
-    app.codex.enabled = backend == BackendKind::Codex;
+    app.session
+        .set_codex_enabled_for_test(backend == BackendKind::Codex);
     app.session.set_claude_generation_for_test(1);
     app.session
         .set_claude_phase_for_test(crate::session::claude::ClaudePhase::Ready);

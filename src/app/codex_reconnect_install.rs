@@ -52,7 +52,7 @@ pub(super) fn install(
     if let Some(turn) = active {
         app.record_turn_started(&turn);
     }
-    app.codex.closed = false;
+    app.session.reopen_codex();
     Ok(())
 }
 
@@ -92,8 +92,12 @@ fn verified_owners(app: &AppState, panel: &Value) -> Result<VerifiedOwners> {
                 .ok_or_else(|| anyhow::anyhow!("Invalid verified task owner"))
         })
         .collect::<Result<Vec<_>>>()?;
-    VerifiedOwners::new(&app.session.thread_id(), app.codex.epoch, owners)
-        .map_err(anyhow::Error::msg)
+    VerifiedOwners::new(
+        &app.session.thread_id(),
+        app.session.codex_scope().epoch(),
+        owners,
+    )
+    .map_err(anyhow::Error::msg)
 }
 
 fn install_history_runtime(
@@ -151,7 +155,11 @@ fn process_scopes(panel: &Value) -> Result<HashMap<String, Option<String>>> {
 }
 
 fn install_panel(app: &mut AppState, panel: &Value, facts: PanelFacts) {
-    let scope = super::codex_panel::scope(&app.codex, &app.view.codex_panel);
+    let scope = super::codex_panel::scope(
+        app.session.codex_scope(),
+        &app.codex.connection,
+        &app.view.codex_panel,
+    );
     app.session
         .install_codex_panel(panel, facts.ownership, facts.scopes, scope);
     app.view.codex_panel.detail = false;

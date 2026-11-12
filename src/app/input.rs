@@ -218,7 +218,11 @@ fn collect_loop_events(
         ChannelOk::Disconnected => return EventBatchOutcome::Disconnected,
         ChannelOk::Ok(v) => v,
     };
-    let events = budgeted_events(incoming, &mut state.deferred, app.codex.enabled);
+    let events = budgeted_events(
+        incoming,
+        &mut state.deferred,
+        app.session.codex_scope().enabled(),
+    );
     if events.is_empty() {
         EventBatchOutcome::Empty
     } else {

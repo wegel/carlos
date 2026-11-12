@@ -16,7 +16,7 @@ pub(super) fn handle_turn_started(app: &mut AppState, params: &serde_json::Map<S
         if !app.record_turn_started(id) {
             return;
         }
-        if app.codex.enabled {
+        if app.session.codex_scope().enabled() {
             super::codex_settings::started(app, id);
         }
         app.session.set_context_usage(None);
@@ -44,7 +44,7 @@ pub(super) fn handle_turn_completed(app: &mut AppState, params: &serde_json::Map
     if !app.record_turn_completed(turn_id, turn_status) {
         return;
     }
-    if app.codex.enabled {
+    if app.session.codex_scope().enabled() {
         app.session.invalidate_codex_queue();
     }
     let keep_codex = app.session.approval().pending().is_some_and(|pending| {

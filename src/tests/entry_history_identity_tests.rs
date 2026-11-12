@@ -10,7 +10,7 @@ use crate::app::Role;
 fn native_reload_retains_turn_scoped_ids_and_rewind_targets_after_insertions() {
     for insertion in 0..3 {
         let mut app = AppState::new("thread".into());
-        app.codex.enabled = true;
+        app.session.set_codex_enabled_for_test(true);
         app.session.enable_native_history();
         let turn = |name: &str, answer: &str| {
             json!({"id":name,"status":"completed","items":[

@@ -10,7 +10,7 @@ pub(super) fn respond_to_pending_approval(
     app: &mut AppState,
     choice: ApprovalChoice,
 ) {
-    if app.codex.enabled
+    if app.session.codex_scope().enabled()
         && app.session.approval().pending().is_some_and(|pending| {
             app.session
                 .codex_callbacks()

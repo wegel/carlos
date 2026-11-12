@@ -60,7 +60,7 @@ fn reconnect_installs_bounded_positive_owners_for_parents_outside_the_display_wi
     snapshot.panel = json!({"agents":[grand],"processes":[{"thread":"grand","data":process("grand","one").data()}],
         "verifiedOwners":["bridge","grand"],"older":null});
     super::codex_reconnect_support::ready(&peer, &mut app, snapshot);
-    assert!(!app.codex.closed);
+    assert!(!app.session.codex_scope().closed());
     assert!(crate::app::task_badge::owns(&app, "grand"));
     assert!(crate::app::task_badge::owns(&app, "bridge"));
     assert_eq!(count(&app), 2);

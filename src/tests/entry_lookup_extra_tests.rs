@@ -201,7 +201,7 @@ fn failed_boundary(app: &mut AppState, old: &mut HeadReference, operation: u64) 
         } else {
             r#"{"error":{"message":"rejected"}}"#
         };
-        assert!(app.reject_fork_for_test(error, app.codex.enabled));
+        assert!(app.reject_fork_for_test(error, app.session.codex_scope().enabled()));
         return;
     }
     match operation {

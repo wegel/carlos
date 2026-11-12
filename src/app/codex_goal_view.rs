@@ -20,7 +20,7 @@ pub(super) fn key(
     key: KeyEvent,
     size: TerminalSize,
 ) -> Option<TerminalEventResult> {
-    if !app.codex.enabled {
+    if !app.session.codex_scope().enabled() {
         return None;
     }
     if !app.view.codex_goals.show {

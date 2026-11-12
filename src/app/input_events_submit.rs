@@ -20,7 +20,7 @@ pub(super) fn handle_enter_submit(
     }
 
     let text = app.input_text();
-    if app.codex.enabled && app.codex.closed {
+    if app.session.codex_scope().enabled() && app.session.codex_scope().closed() {
         app.set_hint(if app.codex.connection.rebuilding {
             "Codex reconnect is still reading; draft kept"
         } else {

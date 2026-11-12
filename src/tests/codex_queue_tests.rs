@@ -132,7 +132,7 @@ fn queue_failure_and_eof_preserve_main_and_submitted_drafts_without_a_retry() {
         json!({"method":"carlos/codex/closed","params":{"message":"native EOF"}}),
     );
     assert_eq!(app.input_text(), "keep after EOF");
-    assert!(app.codex.closed);
+    assert!(app.session.codex_scope().closed());
     assert!(!app.session.codex_queue().pending());
 }
 

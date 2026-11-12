@@ -34,3 +34,34 @@ impl BackendEntryKey {
         }
     }
 }
+
+impl crate::session::state::SessionState {
+    /// Scope native work by backend, conversation, turn and display part.
+    pub(crate) fn backend_entry_key(&self, item_id: &str) -> BackendEntryKey {
+        let backend = if self.codex_scope().enabled() {
+            BackendKind::Codex
+        } else if self.claude().enabled() {
+            BackendKind::Claude
+        } else {
+            BackendKind::Grok
+        };
+        let item = if backend == BackendKind::Claude {
+            item_id
+                .strip_prefix("claude-prompt:")
+                .map(|id| NativeEntryKey::ClaudePrompt(id.into()))
+                .unwrap_or_else(|| NativeEntryKey::ClaudeTransient(item_id.into()))
+        } else {
+            NativeEntryKey::Item(item_id.into())
+        };
+        BackendEntryKey {
+            backend,
+            conversation: self.entry_conversation().clone(),
+            turn: self
+                .codex_item_turn()
+                .clone()
+                .filter(|_| self.codex_scope().enabled()),
+            item,
+            part: self.codex_item_part(),
+        }
+    }
+}

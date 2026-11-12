@@ -29,7 +29,7 @@ fn codex_card_ids_survive_duplicates_and_focus_then_retire_on_resolution() {
         "item/tool/requestUserInput",
     ] {
         let mut app = AppState::new("thread".into());
-        app.codex.enabled = true;
+        app.session.set_codex_enabled_for_test(true);
         let params = json!({"threadId":"thread","turnId":"turn","itemId":"item","command":"echo ok","questions":[{"id":"q","header":"q","question":"answer?","options":[]}]});
         let first = json!({"id":1,"params":params});
         receive(&mut app, method, &first);

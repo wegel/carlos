@@ -32,7 +32,7 @@ impl AppState {
         &mut self,
         record: super::item_history::history_draft::HistoryRecord,
     ) {
-        self.codex.item_turn = record.turn.clone();
+        self.session.replace_codex_item_turn(record.turn.clone());
         super::codex_panel_events::report(self, &record.item);
         for (index, row, describe) in record.updates {
             self.session.transcript_update(
@@ -102,7 +102,7 @@ impl AppState {
         if preserve {
             return;
         }
-        if self.codex.enabled {
+        if self.session.codex_scope().enabled() {
             super::codex_callbacks::reset(self);
         } else {
             self.clear_pending_approval();

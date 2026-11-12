@@ -8,12 +8,7 @@ use crate::session::codex::callbacks::CallbackKey;
 /// One native process owns its close fence and pending callback lifetimes.
 #[derive(Default)]
 pub(super) struct CodexUiState {
-    pub(super) closed: bool,
-    pub(super) item_turn: Option<String>,
-    pub(super) item_part: usize,
     pub(super) connection: super::codex_reconnect_state::ConnectionState,
-    pub(super) enabled: bool,
-    pub(super) epoch: u64,
 }
 
 /// Keep only local editors and which callback this terminal opened.

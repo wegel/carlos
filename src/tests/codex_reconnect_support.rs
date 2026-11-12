@@ -78,7 +78,7 @@ pub(super) fn snapshot(text: &str, status: &str) -> CodexSnapshot {
 
 pub(super) fn app() -> AppState {
     let mut app = super::codex_question_support::app();
-    app.codex.closed = true;
+    app.session.close_codex();
     app.codex.connection.generation = 2;
     app.codex.connection.rebuilding = true;
     app.set_input_text("preserve main 日本語");

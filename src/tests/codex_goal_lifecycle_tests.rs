@@ -170,7 +170,7 @@ fn idle_wait_wakes_for_f2_refresh_but_not_for_closed_older_or_static_detail_view
         app.view.codex_panel.detail = mode == 2;
         assert!(crate::app::codex_panel::wait(&app, now).is_none());
     }
-    app.codex.closed = true;
+    app.session.close_codex();
     assert!(crate::app::codex_goals::wait(&app, now).is_none());
 }
 

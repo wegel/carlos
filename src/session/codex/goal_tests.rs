@@ -14,11 +14,7 @@ use crate::session::test_backend::TestBackend;
 fn stale_goal_reads_keep_newer_native_facts_and_block_ralph_without_a_view() {
     let mut session = SessionState::new("root".into(), Default::default(), false);
     let peer = TestBackend::default();
-    let scope = CodexScope {
-        enabled: true,
-        closed: false,
-        epoch: 4,
-    };
+    let scope = CodexScope::for_test(true, false, 4);
     let mut update = GoalUpdate::default();
     assert!(tick(
         &peer,

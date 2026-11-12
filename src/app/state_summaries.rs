@@ -25,15 +25,9 @@ impl AppState {
         if !has_command(item) {
             return;
         }
-        let scope = self
-            .codex
-            .item_turn
-            .as_deref()
-            .filter(|_| self.codex.enabled)
-            .map(|turn| (turn, self.codex.item_part));
-        let update = self
-            .session
-            .observe_summary_item(item, live, &self.item_key(id), scope);
+        let key = self.item_key(id);
+        let scope = key.turn.as_deref().map(|turn| (turn, key.part));
+        let update = self.session.observe_summary_item(item, live, &key, scope);
         self.apply_session_update(update);
     }
 

@@ -356,7 +356,7 @@ fn closed_and_forked_threads_cannot_accept_stale_goal_replies_or_mutations() {
         GoalKnowledge::Unknown
     );
     assert!(app.session.codex_goals().goal().is_null());
-    app.codex.closed = true;
+    app.session.close_codex();
     assert!(!tick(
         &peer,
         &mut app,

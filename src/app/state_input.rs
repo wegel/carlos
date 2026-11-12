@@ -172,9 +172,11 @@ impl AppState {
     }
 
     pub(super) fn record_input_turn_id(&mut self, item_id: &str, turn_id: &str) {
-        let previous = self.codex.item_turn.replace(turn_id.to_string());
+        let previous = self
+            .session
+            .replace_codex_item_turn(Some(turn_id.to_string()));
         let message_idx = self.item_message_index(item_id);
-        self.codex.item_turn = previous;
+        self.session.replace_codex_item_turn(previous);
         if let Some(index) = message_idx {
             self.session
                 .record_prompt_turn(self.session.messages()[index].id, turn_id);

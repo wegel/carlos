@@ -16,11 +16,11 @@ impl SessionState {
     }
     /// Read the shared native request counter.
     pub(crate) fn codex_serial(&self) -> u64 {
-        self.codex_serial
+        self.codex_meta.serial
     }
     /// Allocate the next saturated native request token.
     pub(crate) fn advance_codex_serial(&mut self) {
-        self.codex_serial = self.codex_serial.saturating_add(1);
+        self.codex_meta.serial = self.codex_meta.serial.saturating_add(1);
     }
     /// Mark the queue stale after a native event or explicit refresh.
     pub(crate) fn invalidate_codex_queue(&mut self) {

@@ -25,7 +25,8 @@ pub(super) fn toggle(app: &mut AppState, now: Instant) {
 
 /// Keep the ordinary default quiet and show queue because it changes Enter.
 pub(super) fn label(app: &AppState, now: Instant) -> Option<&'static str> {
-    if app.rewind_mode() || !(app.session.claude().enabled() || app.codex.enabled) {
+    if app.rewind_mode() || !(app.session.claude().enabled() || app.session.codex_scope().enabled())
+    {
         return None;
     }
     let queue = if app.session.claude().enabled() {

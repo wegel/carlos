@@ -164,7 +164,7 @@ fn native_sequence(fields: bool, tail: &str) -> Value {
 fn codex_sequence(method: &str, tail: &str) -> Value {
     let client = Client::new(BackendKind::Codex);
     let mut app = AppState::new("thread".into());
-    app.codex.enabled = true;
+    app.session.set_codex_enabled_for_test(true);
     let params = json!({"threadId":"thread","turnId":"turn","itemId":"item",
         "conversationId":"thread","callId":"item","permissions":{},"command":"pwd",
         "serverName":"server","mode":"form","requestedSchema":{"type":"object","properties":{}},
