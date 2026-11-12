@@ -58,17 +58,19 @@ pub(super) fn editor_line(draft: &NativeDraft, width: usize) -> Option<(String, 
         return None;
     }
     let field = draft.fields.get(draft.current)?;
-    if !field.options.is_empty() && !(field.other && field.cursor == field.options.len()) {
+    if !field.spec.options().is_empty()
+        && !(field.spec.other() && field.cursor == field.spec.options().len())
+    {
         return None;
     }
     let (row, col) = field.editor.cursor();
     let line = field.editor.lines().get(row)?;
-    let prefix = if field.secret {
+    let prefix = if field.spec.secret() {
         "•".repeat(col)
     } else {
         safe_text(&line.chars().take(col).collect::<String>())
     };
-    let suffix = if field.secret {
+    let suffix = if field.spec.secret() {
         "•".repeat(line.chars().count().saturating_sub(col))
     } else {
         safe_text(&line.chars().skip(col).collect::<String>())
@@ -196,18 +198,18 @@ pub(super) fn wrap_lines(lines: Vec<String>, width: usize) -> Vec<String> {
 fn review_lines(draft: &NativeDraft) -> Vec<String> {
     let mut lines = vec!["Review answers. Ctrl+S sends; Tab edits.".to_string()];
     for field in &draft.fields {
-        if field.secret {
-            lines.push(format!("{}: (hidden)", safe_label(&field.title)));
+        if field.spec.secret() {
+            lines.push(format!("{}: (hidden)", safe_label(field.spec.title())));
             continue;
         }
-        let value = if field.other {
+        let value = if field.spec.other() {
             field.ask_value().map(|v| Some(serde_json::json!(v)))
         } else {
             field.mcp_value()
         };
         lines.push(format!(
             "{}: {}",
-            safe_label(&field.title),
+            safe_label(field.spec.title()),
             safe_text(&match value {
                 Ok(Some(value)) => value.to_string(),
                 Ok(None) => "(omitted)".to_string(),
@@ -222,16 +224,16 @@ fn field_lines(field: &AnswerField) -> Vec<String> {
     let mut lines = vec![
         format!(
             "{}{}",
-            safe_label(&field.title),
-            if field.required {
+            safe_label(field.spec.title()),
+            if field.spec.required() {
                 " (required)"
             } else {
                 " (optional, Ctrl+O omit)"
             }
         ),
-        safe_text(&field.description),
+        safe_text(field.spec.description()),
     ];
-    for (index, option) in field.options.iter().enumerate() {
+    for (index, option) in field.spec.options().iter().enumerate() {
         lines.push(format!(
             "{} [{}] {}",
             if field.cursor == index { ">" } else { " " },
@@ -240,32 +242,32 @@ fn field_lines(field: &AnswerField) -> Vec<String> {
             } else {
                 " "
             },
-            safe_label(&option.label)
+            safe_label(option.label())
         ));
-        if field.cursor == index && !option.description.trim().is_empty() {
-            lines.push(format!("  {}", safe_text(&option.description)));
+        if field.cursor == index && !option.description().trim().is_empty() {
+            lines.push(format!("  {}", safe_text(option.description())));
         }
     }
-    if field.other {
+    if field.spec.other() {
         lines.push(format!(
             "{} [{}] {}",
-            if field.cursor == field.options.len() {
+            if field.cursor == field.spec.options().len() {
                 ">"
             } else {
                 " "
             },
             if field.use_text { "x" } else { " " },
-            if field.notes_only {
+            if field.spec.notes_only() {
                 "Notes (optional)"
             } else {
                 "Other (type your answer)"
             }
         ));
     }
-    if field.options.is_empty() && !field.other {
+    if field.spec.options().is_empty() && !field.spec.other() {
         lines.push(field_guidance(field));
     }
-    if field.schema["type"] == "array" {
+    if field.spec.schema()["type"] == "array" {
         lines.push(field_guidance(field));
     }
     if field.omitted {
@@ -277,7 +279,7 @@ fn field_lines(field: &AnswerField) -> Vec<String> {
 fn field_guidance(field: &AnswerField) -> String {
     let mut parts = vec![format!(
         "Enter {}",
-        field.schema["type"].as_str().unwrap_or("text")
+        field.spec.schema()["type"].as_str().unwrap_or("text")
     )];
     for (key, label) in [
         ("minLength", "min characters"),
@@ -289,7 +291,7 @@ fn field_guidance(field: &AnswerField) -> String {
         ("minItems", "minimum choices"),
         ("maxItems", "maximum choices"),
     ] {
-        if let Some(value) = field.schema.get(key) {
+        if let Some(value) = field.spec.schema().get(key) {
             parts.push(format!(
                 "{label}: {}",
                 safe_text(value.as_str().unwrap_or(&value.to_string()))

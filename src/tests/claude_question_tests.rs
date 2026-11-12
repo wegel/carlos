@@ -45,7 +45,7 @@ fn labels_escape_controls_while_native_answers_retain_the_original_value() {
     let mut draft = NativeDraft::from_payload("permission", &payload);
     draft.fields[0].select();
     assert_eq!(
-        safe_label(&draft.fields[0].options[0].label),
+        safe_label(draft.fields[0].spec.options()[0].label()),
         "Line\\n\\u{1b}[2J"
     );
     assert_eq!(

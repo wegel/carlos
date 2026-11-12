@@ -169,7 +169,7 @@ pub(super) fn callback(client: &Client, app: &mut AppState, id: &str, kind: &str
 pub(super) fn fill(client: &Client, app: &mut AppState) {
     if let Some(draft) = super::native_questions::draft(app) {
         if !draft.fields.is_empty() {
-            if draft.fields[0].options.is_empty() {
+            if draft.fields[0].spec.options().is_empty() {
                 event(client, app, UiEvent::Terminal(Event::Paste("2".into())));
             } else {
                 key(client, app, KeyCode::Char(' '), KeyModifiers::NONE);

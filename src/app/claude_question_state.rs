@@ -7,7 +7,7 @@ use serde_json::{json, Map, Value};
 
 pub(super) use crate::session::text::{safe_label, safe_text};
 
-use super::claude_question_field::{AnswerField, AnswerOption};
+use super::claude_question_field::AnswerField;
 
 /// Unanswered callbacks and consented browser requests retain separate lifetimes.
 #[derive(Default)]
@@ -84,7 +84,7 @@ impl NativeDraft {
             let mut input = payload["input"].clone();
             let mut answers = Map::new();
             for field in &self.fields {
-                answers.insert(field.name.clone(), json!(field.ask_value()?));
+                answers.insert(field.spec.name().to_string(), json!(field.ask_value()?));
             }
             input["answers"] = Value::Object(answers);
             return Ok(json!({ "behavior": "allow", "updatedInput": input }));
@@ -98,7 +98,7 @@ impl NativeDraft {
         let mut content = Map::new();
         for field in &self.fields {
             if let Some(value) = field.mcp_value()? {
-                content.insert(field.name.clone(), value);
+                content.insert(field.spec.name().to_string(), value);
             }
         }
         Ok(json!({ "action": "accept", "content": content }))
@@ -125,113 +125,21 @@ impl NativeDraft {
 }
 
 fn ask_fields(input: &Value) -> Result<Vec<AnswerField>, String> {
-    let questions = input["questions"]
-        .as_array()
-        .filter(|q| !q.is_empty())
-        .ok_or("No questions supplied")?;
-    let mut fields = Vec::new();
-    for question in questions {
-        let name = question["question"]
-            .as_str()
-            .ok_or("Question text is missing")?;
-        if fields.iter().any(|f: &AnswerField| f.name == name) {
-            return Err("Duplicate question text".to_string());
-        }
-        let mut field = AnswerField::new(
-            name,
-            json!({ "title": question["header"], "description": name }),
-            true,
-        );
-        field.multiple = question["multiSelect"] == true;
-        field.other = true;
-        field.options = question["options"]
-            .as_array()
-            .ok_or("Question choices are missing")?
-            .iter()
-            .map(|option| {
-                let label = option["label"].as_str().ok_or("Choice label is missing")?;
-                let description = [
-                    option["description"].as_str().unwrap_or(""),
-                    option["preview"].as_str().unwrap_or(""),
-                ]
-                .join("\n");
-                Ok(AnswerOption {
-                    value: json!(label),
-                    label: label.to_string(),
-                    description,
-                })
-            })
-            .collect::<Result<Vec<_>, String>>()?;
-        fields.push(field);
-    }
-    Ok(fields)
+    Ok(crate::session::questions::ask_fields(input)?
+        .into_iter()
+        .map(AnswerField::from_description)
+        .collect())
 }
 
 pub(super) fn mcp_fields(schema: &Value) -> Result<Vec<AnswerField>, String> {
-    let properties = schema["properties"]
-        .as_object()
-        .ok_or("Missing form properties")?;
-    let mut fields = Vec::new();
-    for (name, rule) in properties {
-        let required = schema["required"]
-            .as_array()
-            .is_some_and(|keys| keys.iter().any(|key| key == name));
-        let mut field = AnswerField::new(name, rule.clone(), required);
-        field.options = if rule["type"] == "boolean" {
-            vec![
-                AnswerOption {
-                    value: json!(true),
-                    label: "true".to_string(),
-                    description: String::new(),
-                },
-                AnswerOption {
-                    value: json!(false),
-                    label: "false".to_string(),
-                    description: String::new(),
-                },
-            ]
-        } else {
-            schema_options(if field.multiple { &rule["items"] } else { rule })?
-        };
-        field.apply_default();
-        fields.push(field);
-    }
-    Ok(fields)
-}
-
-fn schema_options(rule: &Value) -> Result<Vec<AnswerOption>, String> {
-    if let Some(options) = rule["enum"].as_array() {
-        return options
-            .iter()
-            .enumerate()
-            .map(|(index, value)| {
-                let label = rule["enumNames"][index]
-                    .as_str()
-                    .or(value.as_str())
-                    .ok_or("Non-string choice")?;
-                Ok(AnswerOption {
-                    value: value.clone(),
-                    label: label.to_string(),
-                    description: String::new(),
-                })
-            })
-            .collect();
-    }
-    let options = rule["oneOf"]
-        .as_array()
-        .or_else(|| rule["anyOf"].as_array());
-    Ok(options
-        .map(|options| {
-            options
-                .iter()
-                .map(|option| AnswerOption {
-                    value: option["const"].clone(),
-                    label: option["title"].as_str().unwrap_or("").to_string(),
-                    description: String::new(),
-                })
-                .collect()
+    Ok(crate::session::questions::mcp_fields(schema)?
+        .into_iter()
+        .map(|description| {
+            let mut field = AnswerField::from_description(description);
+            field.apply_default();
+            field
         })
-        .unwrap_or_default())
+        .collect())
 }
 
 /// Keep editing disabled when the terminal can only show the resize/cancel fallback.

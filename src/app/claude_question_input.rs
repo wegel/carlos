@@ -180,16 +180,16 @@ fn edit_question(draft: &mut NativeDraft, key: KeyEvent) {
         return;
     };
     if key.code == KeyCode::Char('o') && key.modifiers == KeyModifiers::CONTROL {
-        if !field.required {
+        if !field.spec.required() {
             field.omitted = !field.omitted;
         }
         return;
     }
-    let count = field.options.len() + usize::from(field.other);
+    let count = field.spec.options().len() + usize::from(field.spec.other());
     match key.code {
         KeyCode::Up if count > 0 => field.cursor = (field.cursor + count - 1) % count,
         KeyCode::Down if count > 0 => field.cursor = (field.cursor + 1) % count,
-        KeyCode::Enter if count > 0 && !field.multiple => {
+        KeyCode::Enter if count > 0 && !field.spec.multiple() => {
             let was_text = field.use_text;
             field.select();
             if !field.use_text || was_text {
@@ -197,9 +197,11 @@ fn edit_question(draft: &mut NativeDraft, key: KeyEvent) {
             }
         }
         KeyCode::Enter => draft.advance(false),
-        KeyCode::Char(' ') if count > 0 && field.cursor < field.options.len() => field.select(),
-        _ if count == 0 || (field.other && field.cursor == field.options.len()) => {
-            if field.other {
+        KeyCode::Char(' ') if count > 0 && field.cursor < field.spec.options().len() => {
+            field.select()
+        }
+        _ if count == 0 || (field.spec.other() && field.cursor == field.spec.options().len()) => {
+            if field.spec.other() {
                 field.select();
             }
             field.edit(key);

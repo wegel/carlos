@@ -73,3 +73,5 @@ mod usage_updates;
 mod usage_tests;
 
 pub(crate) mod text;
+
+pub(crate) mod questions;

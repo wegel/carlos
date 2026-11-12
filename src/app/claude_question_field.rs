@@ -5,62 +5,38 @@ use ratatui_textarea::TextArea;
 use serde_json::{json, Value};
 
 use super::render::textarea_input_from_key;
-
-/// One choice retains its native value while Carlos displays its label.
-pub(super) struct AnswerOption {
-    pub(super) value: Value,
-    pub(super) label: String,
-    pub(super) description: String,
-}
+use crate::session::questions::QuestionField;
 
 /// One question owns its editor, cursor, selected choices, and omitted state.
 pub(super) struct AnswerField {
-    pub(super) name: String,
-    pub(super) secret: bool,
-    pub(super) title: String,
-    pub(super) description: String,
-    pub(super) options: Vec<AnswerOption>,
-    pub(super) multiple: bool,
-    pub(super) other: bool,
-    pub(super) notes_only: bool,
-    pub(super) required: bool,
+    pub(super) spec: QuestionField,
     pub(super) omitted: bool,
     pub(super) cursor: usize,
     pub(super) selected: Vec<usize>,
     pub(super) use_text: bool,
     pub(super) editor: TextArea<'static>,
-    pub(super) schema: Value,
 }
 
 impl AnswerField {
-    /// Start an empty field without inserting anything into the main composer.
-    pub(super) fn new(name: &str, schema: Value, required: bool) -> Self {
+    /// Start an empty editor for one parsed native field.
+    pub(super) fn from_description(spec: QuestionField) -> Self {
         Self {
-            name: name.to_string(),
-            secret: false,
-            title: schema["title"].as_str().unwrap_or(name).to_string(),
-            description: schema["description"].as_str().unwrap_or("").to_string(),
-            options: Vec::new(),
-            multiple: schema["type"] == "array",
-            other: false,
-            notes_only: false,
-            required,
-            omitted: !required,
+            omitted: !spec.required(),
             cursor: 0,
             selected: Vec::new(),
             use_text: false,
             editor: TextArea::default(),
-            schema,
+            spec,
         }
     }
 
     /// Apply a supplied default to the editor or native choice values.
     pub(super) fn apply_default(&mut self) {
-        let Some(value) = self.schema.get("default") else {
+        let Some(value) = self.spec.schema().get("default") else {
             return;
         };
         self.omitted = false;
-        if self.options.is_empty() {
+        if self.spec.options().is_empty() {
             let text = value
                 .as_str()
                 .map(str::to_string)
@@ -68,12 +44,13 @@ impl AnswerField {
             self.editor.insert_str(text);
         } else {
             self.selected = self
-                .options
+                .spec
+                .options()
                 .iter()
                 .enumerate()
                 .filter_map(|(i, option)| {
-                    (value == &option.value
-                        || value.as_array().is_some_and(|a| a.contains(&option.value)))
+                    (value == option.value()
+                        || value.as_array().is_some_and(|a| a.contains(option.value())))
                     .then_some(i)
                 })
                 .collect();
@@ -83,17 +60,17 @@ impl AnswerField {
     /// Choose or toggle the highlighted native value, including free text.
     pub(super) fn select(&mut self) {
         self.omitted = false;
-        if self.other && self.cursor == self.options.len() {
+        if self.spec.other() && self.cursor == self.spec.options().len() {
             self.use_text = true;
-            if !self.multiple && !self.notes_only {
+            if !self.spec.multiple() && !self.spec.notes_only() {
                 self.selected.clear();
             }
             return;
         }
-        if self.cursor >= self.options.len() {
+        if self.cursor >= self.spec.options().len() {
             return;
         }
-        if !self.multiple {
+        if !self.spec.multiple() {
             self.selected = vec![self.cursor];
             self.use_text = false;
         } else if self.selected.contains(&self.cursor) {
@@ -112,10 +89,12 @@ impl AnswerField {
 
     /// Insert pasted text into this field only.
     pub(super) fn paste(&mut self, text: &str) {
-        if self.options.is_empty() || (self.other && self.cursor == self.options.len()) {
+        if self.spec.options().is_empty()
+            || (self.spec.other() && self.cursor == self.spec.options().len())
+        {
             self.omitted = false;
-            self.use_text = self.other;
-            if self.other && !self.multiple && !self.notes_only {
+            self.use_text = self.spec.other();
+            if self.spec.other() && !self.spec.multiple() && !self.spec.notes_only() {
                 self.selected.clear();
             }
             self.editor.insert_str(text);
@@ -124,32 +103,32 @@ impl AnswerField {
 
     /// Read a typed MCP value; the helper checks the complete native schema.
     pub(super) fn mcp_value(&self) -> Result<Option<Value>, String> {
-        if self.omitted && !self.required {
+        if self.omitted && !self.spec.required() {
             return Ok(None);
         }
-        if self.multiple {
+        if self.spec.multiple() {
             return Ok(Some(Value::Array(
                 self.selected
                     .iter()
-                    .map(|i| self.options[*i].value.clone())
+                    .map(|i| self.spec.options()[*i].value().clone())
                     .collect(),
             )));
         }
-        if !self.options.is_empty() {
+        if !self.spec.options().is_empty() {
             return self
                 .selected
                 .first()
-                .map(|i| Some(self.options[*i].value.clone()))
-                .ok_or_else(|| format!("{}: choose a value", self.title));
+                .map(|i| Some(self.spec.options()[*i].value().clone()))
+                .ok_or_else(|| format!("{}: choose a value", self.spec.title()));
         }
         let text = self.editor.lines().join("\n");
-        let value = match self.schema["type"].as_str() {
+        let value = match self.spec.schema()["type"].as_str() {
             Some("string") => json!(text),
             Some("number" | "integer") => serde_json::from_str::<Value>(&text)
                 .ok()
                 .filter(Value::is_number)
-                .ok_or_else(|| format!("{}: enter a number", self.title))?,
-            _ => return Err(format!("{}: unsupported field", self.title)),
+                .ok_or_else(|| format!("{}: enter a number", self.spec.title()))?,
+            _ => return Err(format!("{}: unsupported field", self.spec.title())),
         };
         Ok(Some(value))
     }
@@ -159,7 +138,7 @@ impl AnswerField {
         let mut labels: Vec<String> = self
             .selected
             .iter()
-            .map(|i| self.options[*i].label.clone())
+            .map(|i| self.spec.options()[*i].label().to_string())
             .collect();
         if self.use_text {
             let text = self.editor.lines().join("\n");
@@ -170,7 +149,7 @@ impl AnswerField {
         if labels.is_empty() {
             return Err(format!(
                 "{}: choose an answer or enter Other text",
-                self.title
+                self.spec.title()
             ));
         }
         Ok(labels.join(", "))

@@ -52,12 +52,12 @@ pub(super) fn secret_active(app: &AppState) -> bool {
     modal(app)
         && draft(app).is_some_and(|draft| {
             if draft.review {
-                draft.fields.iter().any(|field| field.secret)
+                draft.fields.iter().any(|field| field.spec.secret())
             } else {
                 draft
                     .fields
                     .get(draft.current)
-                    .is_some_and(|field| field.secret)
+                    .is_some_and(|field| field.spec.secret())
             }
         })
 }

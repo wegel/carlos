@@ -1,11 +1,9 @@
 //! Build Codex question editors and native replies without changing prompt text.
 
-use std::collections::HashSet;
-
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result};
 use serde_json::{json, Map, Value};
 
-use super::claude_question_field::{AnswerField, AnswerOption};
+use super::claude_question_field::AnswerField;
 use super::claude_question_state::{mcp_fields, safe_label, safe_text, NativeDraft};
 use super::state::{ApprovalRequestDraft, ApprovalRequestKind};
 
@@ -71,51 +69,14 @@ pub(super) fn build(
 }
 
 fn question_fields(params: &Value) -> Result<Vec<AnswerField>> {
-    let questions = params["questions"]
-        .as_array()
-        .filter(|questions| !questions.is_empty() && questions.len() <= 64)
-        .context("Expected 1 to64 questions")?;
-    let mut seen = HashSet::new();
-    let mut fields = Vec::new();
-    for question in questions {
-        let id = question["id"]
-            .as_str()
-            .filter(|id| !id.is_empty())
-            .context("Question has no native ID")?;
-        ensure!(seen.insert(id), "Question IDs repeat");
-        question["question"]
-            .as_str()
-            .context("Question text is missing")?;
-        question["header"]
-            .as_str()
-            .context("Question header is missing")?;
-        let mut field = AnswerField::new(
-            id,
-            json!({"title":question["header"],"description":question["question"],"type":"string"}),
-            false,
-        );
-        field.omitted = false;
-        field.secret = question["isSecret"] == true;
-        field.options = question["options"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .map(|option| {
-                let label = option["label"]
-                    .as_str()
-                    .context("Choice label is missing")?;
-                Ok(AnswerOption {
-                    value: json!(label),
-                    label: label.into(),
-                    description: option["description"].as_str().unwrap_or("").into(),
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-        field.other = !field.options.is_empty();
-        field.notes_only = field.other && question["isOther"] != true;
-        fields.push(field);
-    }
-    Ok(fields)
+    Ok(crate::session::questions::question_fields(params)?
+        .into_iter()
+        .map(|description| {
+            let mut field = AnswerField::from_description(description);
+            field.omitted = false;
+            field
+        })
+        .collect())
 }
 
 fn build_form(params: &Value, draft: &mut NativeDraft, details: &mut Vec<String>) {
@@ -172,19 +133,19 @@ pub(super) fn question_answer(draft: &NativeDraft) -> Result<Value, String> {
     for field in &draft.fields {
         let mut values = Vec::new();
         if !field.omitted {
-            if field.notes_only && field.selected.is_empty() {
+            if field.spec.notes_only() && field.selected.is_empty() {
                 return Err(format!(
                     "{}: choose a listed answer or Ctrl+O skip",
-                    safe_label(&field.title)
+                    safe_label(field.spec.title())
                 ));
             }
             values.extend(
                 field
                     .selected
                     .iter()
-                    .map(|index| field.options[*index].value.clone()),
+                    .map(|index| field.spec.options()[*index].value().clone()),
             );
-            if field.options.is_empty() || field.use_text {
+            if field.spec.options().is_empty() || field.use_text {
                 let text = field.editor.lines().join("\n");
                 if !text.trim().is_empty() {
                     values.push(json!(format!("user_note: {}", text.trim())));
@@ -193,11 +154,11 @@ pub(super) fn question_answer(draft: &NativeDraft) -> Result<Value, String> {
             if values.is_empty() {
                 return Err(format!(
                     "{}: choose an answer, enter text, or Ctrl+O skip",
-                    safe_label(&field.title)
+                    safe_label(field.spec.title())
                 ));
             }
         }
-        answers.insert(field.name.clone(), json!({"answers":values}));
+        answers.insert(field.spec.name().to_string(), json!({"answers":values}));
     }
     Ok(json!({"answers":answers}))
 }
@@ -213,7 +174,7 @@ pub(super) fn form_answer(draft: &NativeDraft, params: &Value) -> Result<Value, 
     let mut content = Map::new();
     for field in &draft.fields {
         if let Some(value) = field.mcp_value()? {
-            content.insert(field.name.clone(), value);
+            content.insert(field.spec.name().to_string(), value);
         }
     }
     Ok(json!({"action":"accept","content":content}))
