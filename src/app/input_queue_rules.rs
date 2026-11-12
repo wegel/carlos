@@ -100,7 +100,7 @@ pub(in crate::app) fn try_submit_queued_turn(
     now: Instant,
 ) -> bool {
     if client.kind() == crate::backend::BackendKind::Claude
-        && app.claude.phase != crate::app::claude_state::ClaudePhase::Ready
+        && app.session.claude().phase() != crate::app::claude_state::ClaudePhase::Ready
     {
         return false;
     }

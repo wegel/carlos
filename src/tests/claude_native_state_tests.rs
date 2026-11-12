@@ -78,7 +78,10 @@ fn reset_keeps_accepted_pipelined_human_and_real_child_callback_until_native_con
         json!({"type":"conversation_reset","session_id":"old","uuid":"reset","new_conversation_id":"opaque","user_message_uuid":"clear"}),
         1,
     );
-    assert_eq!(app.claude.phase as u8, ClaudePhase::Starting as u8);
+    assert_eq!(
+        app.session.claude().phase() as u8,
+        ClaudePhase::Starting as u8
+    );
     assert!(app.session.approval().pending().is_some());
     assert!(app.session.messages().is_empty());
     assert_eq!(app.input_text(), "new unsent draft");
@@ -262,7 +265,7 @@ fn recoverable_native_notices_do_not_close_a_healthy_query() {
         .messages()
         .iter()
         .any(|message| message.text.contains("ENOSPC")));
-    assert!(app.claude.phase == ClaudePhase::Ready);
+    assert!(app.session.claude().phase() == ClaudePhase::Ready);
 }
 
 #[test]
@@ -340,7 +343,7 @@ fn many_hidden_children_keep_the_session_healthy_and_task_state_available() {
             0,
         );
     }
-    assert!(app.claude.phase == ClaudePhase::Ready);
+    assert!(app.session.claude().phase() == ClaudePhase::Ready);
     assert!(app.session.messages().is_empty());
     assert!(app.claude.tasks.data("child-179").is_some());
 }
@@ -367,7 +370,7 @@ fn older_child_messages_without_agent_ids_stay_hidden_without_cursor_allocations
             0,
         );
     }
-    assert!(app.claude.phase == ClaudePhase::Ready);
+    assert!(app.session.claude().phase() == ClaudePhase::Ready);
     assert!(app.session.messages().is_empty());
     assert!(app.claude.tasks.data("child-139").is_some());
 }

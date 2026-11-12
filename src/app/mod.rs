@@ -276,3 +276,11 @@ mod approval_operation_sequences;
 #[cfg(test)]
 #[path = "../tests/input_history_split_tests.rs"]
 mod input_history_split_tests;
+
+#[cfg(test)]
+#[path = "../tests/claude_metadata_parity_tests.rs"]
+mod claude_metadata_parity_tests;
+
+#[cfg(test)]
+#[path = "../tests/claude_read_parity_tests.rs"]
+mod claude_read_parity_tests;

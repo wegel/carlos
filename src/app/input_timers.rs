@@ -23,7 +23,7 @@ pub(in crate::app) fn idle_wait(app: &AppState, now: Instant) -> Option<std::tim
     app.pending_ralph_continuation_wait(now)
         .into_iter()
         .chain(connected(app).then(|| app.rate_limits_wait(now)).flatten())
-        .chain(app.claude.quota.wait(now))
+        .chain(super::super::claude_quota::wait(app, now))
         .chain(super::super::input_mode::wait(app, now))
         .chain(super::super::claude_context::wait(app, now))
         .chain(super::super::codex_panel::wait(app, now))

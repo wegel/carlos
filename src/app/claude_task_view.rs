@@ -227,17 +227,18 @@ fn body(app: &AppState) -> Vec<String> {
         }
     }
     for window in app
-        .claude
-        .quota
-        .windows
+        .session
+        .claude()
+        .quota()
+        .windows()
         .values()
-        .filter(|window| window.reset > super::weekly_usage::unix_now())
+        .filter(|window| window.reset() > super::weekly_usage::unix_now())
     {
         lines.push(format!(
             "Quota {}: {:.1}% used; resets in {:.1}h",
-            safe_label(&window.label),
-            window.used,
-            (window.reset - super::weekly_usage::unix_now()) as f64 / 3600.0
+            safe_label(window.label()),
+            window.used(),
+            (window.reset() - super::weekly_usage::unix_now()) as f64 / 3600.0
         ));
     }
     lines

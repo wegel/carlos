@@ -69,7 +69,7 @@ impl BackendClient for Peer {
 
 fn seed(kind: BackendKind) -> AppState {
     let mut app = AppState::new("root".into());
-    app.claude.phase = ClaudePhase::Ready;
+    app.session.set_claude_phase(ClaudePhase::Ready);
     if kind == BackendKind::Codex {
         app.session.enable_native_history();
     }

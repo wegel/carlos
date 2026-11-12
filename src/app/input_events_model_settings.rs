@@ -64,7 +64,7 @@ pub(super) fn handle_model_settings_key(
         _ => {}
     }
     if !app.view.runtime_settings.show_model_settings {
-        app.claude.selection.editing = None;
+        app.view.claude_settings_edit = None;
     }
     if app.codex.enabled {
         crate::app::codex_settings_draft::refresh_editor(app);

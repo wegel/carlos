@@ -6,7 +6,6 @@ use anyhow::{bail, Result};
 use serde_json::{json, Value};
 
 use crate::claude_backend::FactTransfer;
-use crate::session::runtime_settings::RuntimeSetting;
 
 use super::claude_state::{ClaudePhase, ClaudeUiState};
 use super::models::Role;
@@ -37,25 +36,18 @@ pub(super) struct UnknownPrompt {
 pub(super) fn switch_session(app: &mut AppState, generation: u64, id: &str) {
     super::claude_edit::retire_queue(app);
     let unsent_drafts = std::mem::take(&mut app.claude.history.unsent_drafts);
-    let selection = std::mem::take(&mut app.claude.selection);
     let edit = app.claude.history.edited_prompt.take();
-    if selection.inherits_model && app.session.runtime_settings().pending_model().is_none() {
-        app.session
-            .record_runtime_choice(RuntimeSetting::Model, None);
-    }
-    if selection.inherits_effort && app.session.runtime_settings().pending_effort().is_none() {
-        app.session
-            .record_runtime_choice(RuntimeSetting::Effort, None);
-    }
+    app.session.switch_claude_runtime_choices();
     app.reset_for_forked_thread(id);
     app.claude = ClaudeUiState::default();
+    app.session.reset_claude_metadata();
+    app.view.claude_quota_next_draw = None;
     let retired = app.session.clear_approval_queue(ApprovalQueue::Claude);
     app.drop_retired_approval_hints(retired);
     app.view.confirm_allow = None;
     app.claude.enabled = true;
-    app.claude.selection = selection;
     app.claude.generation = generation;
-    app.claude.phase = ClaudePhase::Starting;
+    app.session.set_claude_phase(ClaudePhase::Starting);
     app.claude.history.edit = edit
         .as_ref()
         .map(|_| super::claude_edit::EditState::Starting);

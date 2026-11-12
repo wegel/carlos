@@ -39,7 +39,7 @@ fn failed_fork_keeps_newer_composer_and_recovers_saved_edit_without_erasing_old_
         1,
         json!({"message":"The exact selected UUID is unavailable"}),
     );
-    assert!(app.claude.phase == ClaudePhase::Ready);
+    assert!(app.session.claude().phase() == ClaudePhase::Ready);
     assert_eq!(app.session.thread_id(), "original");
     assert_eq!(app.input_text(), "newer unsent composer");
     assert!(app
@@ -74,7 +74,7 @@ fn closed_helper_cannot_be_revived_by_late_fork_failure_or_old_generation_errors
         1,
         json!({"message":"late timeout"}),
     );
-    assert!(app.claude.phase == ClaudePhase::Closed);
+    assert!(app.session.claude().phase() == ClaudePhase::Closed);
     assert_eq!(app.input_text(), "recover closed edit");
     event(
         &mut app,
@@ -88,7 +88,7 @@ fn closed_helper_cannot_be_revived_by_late_fork_failure_or_old_generation_errors
         1,
         json!({"message":"old branch failure"}),
     );
-    assert!(app.claude.phase == ClaudePhase::Starting);
+    assert!(app.session.claude().phase() == ClaudePhase::Starting);
     assert_eq!(app.session.thread_id(), "branch");
     assert!(!app
         .session
@@ -234,9 +234,9 @@ fn enter_during_initial_startup_does_not_reopen_the_helper_or_submit_an_edit() {
     app.push_input_history("old prompt");
     app.enter_rewind_mode();
     app.set_input_text("edit while starting");
-    app.claude.phase = ClaudePhase::Starting;
+    app.session.set_claude_phase(ClaudePhase::Starting);
     key(&mut app, KeyCode::Enter);
-    assert!(app.claude.phase == ClaudePhase::Starting);
+    assert!(app.session.claude().phase() == ClaudePhase::Starting);
     assert_eq!(app.input_text(), "edit while starting");
     assert!(app.claude.history.edited_prompt.is_none());
 }
@@ -256,7 +256,7 @@ fn close_recovers_sending_edits_once_whether_the_queue_still_owns_them_or_dispat
         }
         crate::app::claude_notifications::fail_session(&mut app);
         assert_eq!(app.input_text(), "new composer");
-        assert!(app.claude.phase == ClaudePhase::Closed);
+        assert!(app.session.claude().phase() == ClaudePhase::Closed);
         app.clear_input();
         key(&mut app, KeyCode::F(5));
         assert_eq!(app.input_text(), "saved outgoing edit");

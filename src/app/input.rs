@@ -130,11 +130,7 @@ fn run_one_loop_iteration(
     state.needs_draw |= super::codex_goals::tick(client, app, loop_now);
     state.needs_draw |= super::codex_panel::tick(client, app);
     state.needs_draw |= super::codex_task_status::tick(client, app, loop_now);
-    state.needs_draw |= app.claude.quota.tick(
-        client,
-        loop_now,
-        app.claude.phase == super::claude_state::ClaudePhase::Ready,
-    );
+    state.needs_draw |= super::claude_quota::tick(app, client, loop_now);
     let working = app.session.active_turn_id().is_some()
         || app.claude.activity.state == super::claude_activity::NativeState::Running;
     let animating = working || app.claude.tasks.active_count() > 0;

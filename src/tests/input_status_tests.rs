@@ -60,12 +60,12 @@ fn narrow_queue_reserves_compact_context_and_keeps_weekly_at_the_right_edge() {
             used: 90_000,
             max: 100_000,
         }));
-        app.claude.context.fresh = true;
+        app.session.set_claude_context_fresh_for_test(true);
         let reset = crate::app::weekly_usage::unix_now() + 3 * 86_400;
         app.session.update_rate_limits(
             &json!({"secondary":{"usedPercent":50,"windowDurationMins":10080,"resetsAt":reset}}),
         );
-        app.claude.quota.event(&json!({"status":"allowed_warning","rateLimitType":"seven_day","utilization":0.5,"resetsAt":reset}));
+        app.session.claude_quota_event(&json!({"status":"allowed_warning","rateLimitType":"seven_day","utilization":0.5,"resetsAt":reset}));
         input_mode::toggle(&mut app, Instant::now());
         for width in [28, 36, 54] {
             let line = status(&app, width);

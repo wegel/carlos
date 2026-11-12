@@ -157,7 +157,7 @@ fn eof_after_repeated_reset_keys_closes_the_app_at_the_current_epoch() {
         .request_native_control("shutdown", json!({}))
         .expect("helper exit");
     dispatch_until_eof(&client, &receiver, &mut app);
-    assert!(app.claude.phase == crate::app::claude_state::ClaudePhase::Closed);
+    assert!(app.session.claude().phase() == crate::app::claude_state::ClaudePhase::Closed);
     assert_eq!(
         app.session.messages().last().expect("EOF error").text,
         "Claude controller stdout closed unexpectedly"
@@ -243,7 +243,7 @@ fn malformed_history_keeps_earlier_rows_and_closes_only_the_app_query() {
             "Claude history belongs to a different session"
         ]
     );
-    assert!(app.claude.phase == crate::app::claude_state::ClaudePhase::Closed);
+    assert!(app.session.claude().phase() == crate::app::claude_state::ClaudePhase::Closed);
     client
         .call(
             "thread/name/set",
@@ -325,7 +325,7 @@ fn failed_history_reply_is_delivered_instead_of_discarded_by_reader_closure() {
         .expect("reader barrier");
     let mut app = AppState::new("session".into());
     dispatch_received(&client, &mut app, receiver.try_iter().collect());
-    assert!(app.claude.phase == crate::app::claude_state::ClaudePhase::Closed);
+    assert!(app.session.claude().phase() == crate::app::claude_state::ClaudePhase::Closed);
     assert_eq!(app.session.messages()[0].text, "failed interrupt");
 }
 

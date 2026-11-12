@@ -51,8 +51,8 @@ fn old_generation_close_cancel_and_metadata_cannot_touch_the_new_session() {
         frame(&mut app, 1, event, Some("start"));
     }
     assert_eq!(app.session.thread_id(), "new-session");
-    assert!(app.claude.phase == ClaudePhase::Starting);
-    assert!(app.claude.capabilities.is_none());
+    assert!(app.session.claude().phase() == ClaudePhase::Starting);
+    assert!(app.session.claude().capabilities().is_none());
     assert_eq!(
         app.session
             .approval()
@@ -68,7 +68,7 @@ fn old_generation_close_cancel_and_metadata_cannot_touch_the_new_session() {
 #[test]
 fn closed_query_ignores_late_success_and_only_new_generation_can_reopen() {
     let mut app = AppState::new("original".to_string());
-    app.claude.phase = ClaudePhase::Starting;
+    app.session.set_claude_phase(ClaudePhase::Starting);
     app.claude.history.edited_prompt = Some("saved edit".to_string());
     frame(
         &mut app,
@@ -84,11 +84,11 @@ fn closed_query_ignores_late_success_and_only_new_generation_can_reopen() {
             Some(method),
         );
     }
-    assert!(app.claude.phase == ClaudePhase::Closed);
+    assert!(app.session.claude().phase() == ClaudePhase::Closed);
     assert_eq!(app.input_text(), "saved edit");
     assert!(app.claude.history.edited_prompt.is_none());
     switch(&mut app);
-    assert!(app.claude.phase == ClaudePhase::Starting);
+    assert!(app.session.claude().phase() == ClaudePhase::Starting);
     assert_eq!(app.input_text(), "saved edit");
 }
 
@@ -97,7 +97,7 @@ fn failures_before_and_after_switch_keep_the_correct_session_and_edit() {
     let mut app = AppState::new("original".to_string());
     app.set_input_text("edited draft");
     app.claude.history.edited_prompt = Some("edited draft".to_string());
-    app.claude.phase = ClaudePhase::Starting;
+    app.session.set_claude_phase(ClaudePhase::Starting);
     send(
         &mut app,
         "claude/forkFailed",
@@ -105,7 +105,7 @@ fn failures_before_and_after_switch_keep_the_correct_session_and_edit() {
         json!({"message":"source unavailable"}),
     );
     assert_eq!(app.session.thread_id(), "original");
-    assert!(app.claude.phase == ClaudePhase::Ready);
+    assert!(app.session.claude().phase() == ClaudePhase::Ready);
     assert_eq!(app.input_text(), "edited draft");
     app.claude.history.edited_prompt = Some("edited draft".to_string());
     switch(&mut app);
@@ -116,7 +116,7 @@ fn failures_before_and_after_switch_keep_the_correct_session_and_edit() {
         2,
         json!({"message":"helper input closed"}),
     );
-    assert!(app.claude.phase == ClaudePhase::Closed);
+    assert!(app.session.claude().phase() == ClaudePhase::Closed);
     assert_eq!(app.input_text(), "edited draft");
 }
 
@@ -128,8 +128,8 @@ fn session_switch_preserves_explicit_choices_and_releases_inherited_observations
             .record_runtime_choice(RuntimeSetting::Model, Some("sdk-opus".to_string()));
         app.session
             .record_runtime_choice(RuntimeSetting::Effort, Some("high".to_string()));
-        app.claude.selection.inherits_model = !explicit;
-        app.claude.selection.inherits_effort = !explicit;
+        app.session
+            .set_claude_inheritance_for_test(!explicit, !explicit);
         switch(&mut app);
         assert_eq!(
             app.session.runtime_settings().current_model().as_deref(),
@@ -139,7 +139,7 @@ fn session_switch_preserves_explicit_choices_and_releases_inherited_observations
             app.session.runtime_settings().current_effort().as_deref(),
             explicit.then_some("high")
         );
-        assert_eq!(app.claude.selection.inherits_model, !explicit);
+        assert_eq!(app.session.claude().inherits_model(), !explicit);
     }
 }
 
@@ -172,7 +172,7 @@ fn loaded_records_keep_sources_uuid_anchors_and_unknown_metadata_separate() {
 fn history_or_start_reply_failure_restores_the_edit_without_forging_a_turn() {
     for method in ["sessions.info", "sessions.read", "start"] {
         let mut app = AppState::new("session".to_string());
-        app.claude.phase = ClaudePhase::Starting;
+        app.session.set_claude_phase(ClaudePhase::Starting);
         app.claude.history.edited_prompt = Some("recover me".to_string());
         frame(
             &mut app,
@@ -180,7 +180,7 @@ fn history_or_start_reply_failure_restores_the_edit_without_forging_a_turn() {
             json!({"type":"reply","ok":false,"error":{"message":"Fixture failure"}}),
             Some(method),
         );
-        assert!(app.claude.phase == ClaudePhase::Closed);
+        assert!(app.session.claude().phase() == ClaudePhase::Closed);
         assert_eq!(app.input_text(), "recover me");
         assert!(app.session.active_turn_id().is_none());
     }
@@ -189,7 +189,7 @@ fn history_or_start_reply_failure_restores_the_edit_without_forging_a_turn() {
 #[test]
 fn closed_startup_recovers_queued_humans_without_replacing_the_new_composer() {
     let mut app = AppState::new("session".to_string());
-    app.claude.phase = ClaudePhase::Starting;
+    app.session.set_claude_phase(ClaudePhase::Starting);
     app.queue_turn_input("first human");
     app.queue_turn_input("second human");
     app.queue_ralph_continuation("automatic should disappear");

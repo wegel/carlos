@@ -233,7 +233,8 @@ fn failed_ralph_turn_discards_automatic_work_and_preserves_queued_human_input() 
 #[test]
 fn startup_callback_remains_visible_while_the_sdk_initializes() {
     let mut app = AppState::new("session".to_string());
-    app.claude.phase = crate::app::claude_state::ClaudePhase::Starting;
+    app.session
+        .set_claude_phase(crate::app::claude_state::ClaudePhase::Starting);
     frame(
         &mut app,
         json!({ "v": 1, "type": "callback", "kind": "permission", "callbackId": "startup",
@@ -249,13 +250,13 @@ fn startup_callback_remains_visible_while_the_sdk_initializes() {
             .title,
         "Allow startup?"
     );
-    assert!(app.claude.phase != crate::app::claude_state::ClaudePhase::Ready);
+    assert!(app.session.claude().phase() != crate::app::claude_state::ClaudePhase::Ready);
     frame(
         &mut app,
         json!({ "v": 1, "type": "reply", "ok": true, "result": { "models": [] } }),
         Some("start"),
     );
-    assert!(app.claude.phase == crate::app::claude_state::ClaudePhase::Ready);
+    assert!(app.session.claude().phase() == crate::app::claude_state::ClaudePhase::Ready);
     assert!(app.session.approval().pending().is_some());
 }
 
@@ -391,7 +392,7 @@ fn undeclared_dialog_error_does_not_disable_live_controls() {
         "dialogKind": "future", "error": { "code": "unsupported_dialog", "message": "Cannot render future dialog" } }),
         None,
     );
-    assert!(app.claude.phase == crate::app::claude_state::ClaudePhase::Ready);
+    assert!(app.session.claude().phase() == crate::app::claude_state::ClaudePhase::Ready);
     assert!(app.session.approval().pending().is_none());
     let error = &app.session.messages().last().expect("visible error").text;
     assert!(error.contains("Cannot render future dialog"));

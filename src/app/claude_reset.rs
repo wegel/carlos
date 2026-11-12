@@ -22,7 +22,7 @@ pub(super) fn receive(app: &mut AppState, message: &Value) {
     app.claude.activity.compact = None;
     app.claude.activity.thinking = None;
     app.claude.activity.transient = None;
-    app.claude.phase = ClaudePhase::Starting;
+    app.session.set_claude_phase(ClaudePhase::Starting);
     app.session.ralph_stop_after_failure();
     app.set_status("Claude cleared the conversation; waiting for its native session identity");
 }
@@ -35,6 +35,6 @@ pub(super) fn initialize(app: &mut AppState, message: &Value) {
     if let Some(id) = message["session_id"].as_str() {
         app.set_thread_id(id);
         app.claude.awaiting_reset_init = false;
-        app.claude.phase = ClaudePhase::Ready;
+        app.session.set_claude_phase(ClaudePhase::Ready);
     }
 }

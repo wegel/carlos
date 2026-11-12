@@ -295,14 +295,7 @@ pub(super) fn configure_claude_app(
     load_history_from_start_or_resume(app, start_resp)?;
     app.claude.enabled = true;
     crate::app::context_settings::initialize(app, crate::backend::BackendKind::Claude, false)?;
-    app.claude.phase = super::super::claude_state::ClaudePhase::Starting;
-    app.claude.selection.inherits_model = app.session.runtime_settings().current_model().is_none();
-    app.claude.selection.inherits_effort = app
-        .session
-        .runtime_settings()
-        .current_effort()
-        .as_deref()
-        .is_none_or(|effort| effort == "auto");
+    app.session.start_claude_settings();
     app.set_status("Claude starting");
     Ok(())
 }

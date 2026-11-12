@@ -39,9 +39,8 @@ pub(super) fn receive(
             }
         }
         Some("usage.optional") => {
-            app.claude
-                .quota
-                .optional(&frame["result"], context["revision"].as_u64().unwrap_or(0));
+            app.session
+                .claude_quota_optional(&frame["result"], context["revision"].as_u64().unwrap_or(0));
         }
         Some("context") => {
             super::claude_context::receive(app, frame, context);

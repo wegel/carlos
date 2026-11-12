@@ -10,6 +10,7 @@ pub(crate) mod transcript;
 mod session_headless_tests;
 
 pub(crate) mod approval_state;
+pub(crate) mod claude;
 pub(crate) mod context_usage;
 mod item_sources;
 mod item_updates;

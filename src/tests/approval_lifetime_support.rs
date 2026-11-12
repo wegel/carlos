@@ -91,7 +91,8 @@ pub(super) fn app(backend: BackendKind) -> AppState {
     app.claude.enabled = backend == BackendKind::Claude;
     app.codex.enabled = backend == BackendKind::Codex;
     app.claude.generation = 1;
-    app.claude.phase = super::claude_state::ClaudePhase::Ready;
+    app.session
+        .set_claude_phase(super::claude_state::ClaudePhase::Ready);
     app
 }
 

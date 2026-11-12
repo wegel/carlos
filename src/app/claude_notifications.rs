@@ -33,7 +33,7 @@ pub(super) fn route(app: &mut AppState, method: &str, params: &Map<String, Value
     if obsolete_generation || (obsolete_epoch && !params.contains_key("claudeContext")) {
         return ClaudeRoute::Handled(None);
     }
-    if app.claude.phase == super::claude_state::ClaudePhase::Closed
+    if app.session.claude().phase() == super::claude_state::ClaudePhase::Closed
         && params.contains_key("generation")
     {
         return ClaudeRoute::Handled(None);
@@ -213,7 +213,8 @@ fn handle_event(app: &mut AppState, method: &str, frame: &Value) -> Option<Serve
 pub(super) fn fail_session(app: &mut AppState) {
     super::claude_edit::recover_sending(app);
     super::claude_session_history::restore_edit(app);
-    app.claude.phase = crate::app::claude_state::ClaudePhase::Closed;
+    app.session
+        .set_claude_phase(crate::app::claude_state::ClaudePhase::Closed);
     if super::claude_edit::waiting(app) {
         app.claude.history.edit = Some(super::claude_edit::EditState::Failed);
     }
@@ -285,7 +286,7 @@ fn can_apply(app: &mut AppState, method: &str, params: &Map<String, Value>) -> b
     {
         return false;
     }
-    if app.claude.phase == super::claude_state::ClaudePhase::Closed
+    if app.session.claude().phase() == super::claude_state::ClaudePhase::Closed
         && !matches!(
             method,
             "claude/error"

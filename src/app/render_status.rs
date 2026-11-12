@@ -9,6 +9,7 @@ use super::render::draw_str;
 use super::state::AppState;
 use super::text::{split_at_cells, visual_width};
 use super::view_models::TerminalSize;
+use super::weekly_usage::WeeklyIndicator;
 use crate::theme::{
     context_color, kitt_color_for_distance, COLOR_DIFF_REMOVE, COLOR_GUTTER_AGENT_COMMENTARY,
     COLOR_GUTTER_AGENT_THINKING, COLOR_GUTTER_USER, COLOR_STATUS_SEPARATOR, COLOR_STEP8,
@@ -135,9 +136,16 @@ fn status_plan(app: &AppState, size: TerminalSize) -> StatusPlan {
 
 fn place_weekly(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState) {
     if let Some(weekly) = if app.claude.enabled {
-        app.claude.quota.indicator()
+        app.session
+            .claude()
+            .quota()
+            .indicator()
+            .map(WeeklyIndicator::from)
     } else {
-        app.session.rate_limits().indicator().map(Into::into)
+        app.session
+            .rate_limits()
+            .indicator()
+            .map(WeeklyIndicator::from)
     } {
         place(
             labels,
@@ -242,8 +250,9 @@ fn place_context(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState
         .context_usage()
         .map(context_usage_label)
         .unwrap_or_else(|| context_usage_placeholder_label().to_string());
-    let stale =
-        app.claude.enabled && app.session.context_usage().is_some() && !app.claude.context.fresh;
+    let stale = app.claude.enabled
+        && app.session.context_usage().is_some()
+        && !app.session.claude().context_fresh();
     let context = if stale {
         format!("~{context}")
     } else {

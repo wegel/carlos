@@ -3,6 +3,7 @@
 use std::collections::{HashMap, HashSet};
 
 use super::approval_state::ApprovalState;
+use super::claude::ClaudeState;
 use super::context_usage::ContextUsage;
 use super::entry_key::BackendEntryKey;
 use super::input_history::PromptHistory;
@@ -17,6 +18,7 @@ use super::turns::TurnBoundary;
 /// Own the facts that remain true without a terminal view.
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct SessionState {
+    pub(in crate::session) claude: ClaudeState,
     pub(in crate::session) rate_limits: RateLimits,
     pub(in crate::session) summaries: SummaryState,
     pub(in crate::session) input_history: PromptHistory,
@@ -44,6 +46,7 @@ impl SessionState {
         summary_enabled: bool,
     ) -> Self {
         Self {
+            claude: ClaudeState::default(),
             rate_limits: RateLimits::default(),
             summaries: SummaryState::new(summary_enabled),
             input_history: PromptHistory::default(),

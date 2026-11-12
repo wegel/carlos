@@ -92,14 +92,14 @@ fn stalled_read_marks_known_counts_stale_without_more_requests_and_recovers_when
     );
     tick(&peer, &mut app, now + Duration::from_secs(2));
     let request = peer.controls.borrow()[1].1.clone();
-    app.claude.context.fresh = true;
+    app.session.set_claude_context_fresh_for_test(true);
     assert!(tick(&peer, &mut app, now + Duration::from_secs(8)));
-    assert!(!app.claude.context.fresh);
+    assert!(!app.session.claude().context_fresh());
     assert!(wait(&app, now + Duration::from_secs(8)).is_none());
     tick(&peer, &mut app, now + Duration::from_secs(60));
     assert_eq!(peer.controls.borrow().len(), 2);
     answer(&mut app, &request, 43000);
-    assert!(app.claude.context.fresh);
+    assert!(app.session.claude().context_fresh());
     assert_eq!(
         app.session
             .context_usage()
@@ -138,7 +138,7 @@ fn obsolete_compaction_and_model_reads_release_the_slot_without_restoring_old_co
             .used,
         10000
     );
-    app.claude.observed_model = Some("old".into());
+    app.session.set_claude_observed_model_for_test("old");
     refresh(&mut app);
     tick(&peer, &mut app, now + Duration::from_secs(2));
     let old_model = peer.controls.borrow().last().expect("model read").1.clone();
@@ -178,7 +178,7 @@ fn optional_read_failure_keeps_known_counts_and_retries_without_failing_chat() {
             .used,
         42000
     );
-    assert!(!app.claude.context.fresh);
+    assert!(!app.session.claude().context_fresh());
     assert!(app.session.messages().is_empty());
     tick(&peer, &mut app, now);
     assert_eq!(peer.controls.borrow().len(), 2);
@@ -202,7 +202,8 @@ fn helper_replacement_retires_pending_read_and_old_generation_cannot_install_bra
     let _ = handle_server_message_line(&mut app, &json!({"method":"claude/controller","params":{"generation":1,"requestMethod":"context","requestContext":old,
         "frame":{"type":"reply","ok":true,"result":{"totalTokens":999,"rawMaxTokens":1000}}}}).to_string());
     assert!(app.session.context_usage().is_none());
-    app.claude.phase = crate::app::claude_state::ClaudePhase::Ready;
+    app.session
+        .set_claude_phase(crate::app::claude_state::ClaudePhase::Ready);
     tick(&peer, &mut app, Instant::now());
     assert_eq!(peer.controls.borrow().len(), 2);
 }
@@ -243,7 +244,7 @@ fn phone_status_distinguishes_stale_counts_then_redraws_fresh_native_values() {
             .map(|cell| cell.symbol())
             .collect();
         assert!(!fresh.contains('~'));
-        app.claude.context.fresh = false;
+        app.session.set_claude_context_fresh_for_test(false);
     }
 }
 
@@ -277,10 +278,10 @@ fn immediate_write_failure_and_tick_only_model_change_request_a_visible_redraw()
         used: 42000,
         max: 100000,
     }));
-    app.claude.context.fresh = true;
+    app.session.set_claude_context_fresh_for_test(true);
     app.record_turn_started("busy");
     assert!(tick(&FailedWriter, &mut app, Instant::now()));
-    assert!(!app.claude.context.fresh);
+    assert!(!app.session.claude().context_fresh());
     assert!(app.session.context_usage().is_some());
     app.session
         .record_runtime_choice(RuntimeSetting::Model, Some("changed".into()));

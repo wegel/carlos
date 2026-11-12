@@ -13,7 +13,7 @@ pub(super) fn receive(
     facts: &Value,
 ) -> Option<ServerRequestAction> {
     match method {
-        "claude/quota" => app.claude.quota.event(facts),
+        "claude/quota" => app.session.claude_quota_event(facts),
         "claude/browserComplete" => super::claude_browser::complete(app, facts),
         "claude/task" => return task(app, facts),
         "claude/conversationReset" => super::claude_reset::receive(app, facts),

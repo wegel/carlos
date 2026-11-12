@@ -21,7 +21,7 @@ pub(super) enum EditState {
 
 /// Keep the selected edit until the fork and replacement startup are both ready.
 pub(super) fn begin(app: &mut AppState, text: String) {
-    app.claude.phase = ClaudePhase::Starting;
+    app.session.set_claude_phase(ClaudePhase::Starting);
     app.claude.history.edited_prompt = Some(text);
     app.claude.history.edit = Some(EditState::Forking);
     retire_queue(app);
@@ -66,8 +66,8 @@ pub(super) fn label(app: &AppState, width: usize) -> Option<&'static str> {
 /// Restore a failed edit without reopening a closed helper or replacing a newer draft.
 pub(super) fn failed(app: &mut AppState, message: &str) {
     super::claude_session_history::restore_edit(app);
-    if app.claude.phase != ClaudePhase::Closed {
-        app.claude.phase = ClaudePhase::Ready;
+    if app.session.claude().phase() != ClaudePhase::Closed {
+        app.session.set_claude_phase(ClaudePhase::Ready);
     }
     unavailable(app, message);
 }
