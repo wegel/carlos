@@ -71,3 +71,5 @@ mod usage_updates;
 
 #[cfg(test)]
 mod usage_tests;
+
+pub(crate) mod text;

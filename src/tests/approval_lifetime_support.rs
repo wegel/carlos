@@ -92,7 +92,8 @@ pub(super) fn app(backend: BackendKind) -> AppState {
         .set_claude_enabled_for_test(backend == BackendKind::Claude);
     app.codex.enabled = backend == BackendKind::Codex;
     app.session.set_claude_generation_for_test(1);
-    app.session.ready_claude_after_edit_failure();
+    app.session
+        .set_claude_phase_for_test(crate::session::claude::ClaudePhase::Ready);
     app
 }
 

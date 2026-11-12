@@ -233,7 +233,8 @@ fn failed_ralph_turn_discards_automatic_work_and_preserves_queued_human_input() 
 #[test]
 fn startup_callback_remains_visible_while_the_sdk_initializes() {
     let mut app = AppState::new("session".to_string());
-    app.session.start_claude();
+    app.session
+        .set_claude_phase_for_test(crate::session::claude::ClaudePhase::Starting);
     frame(
         &mut app,
         json!({ "v": 1, "type": "callback", "kind": "permission", "callbackId": "startup",

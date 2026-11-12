@@ -186,7 +186,8 @@ fn history_or_start_reply_failure_restores_the_edit_without_forging_a_turn() {
 #[test]
 fn closed_startup_recovers_queued_humans_without_replacing_the_new_composer() {
     let mut app = AppState::new("session".to_string());
-    app.session.start_claude();
+    app.session
+        .set_claude_phase_for_test(crate::session::claude::ClaudePhase::Starting);
     app.queue_turn_input("first human");
     app.queue_turn_input("second human");
     app.queue_ralph_continuation("automatic should disappear");

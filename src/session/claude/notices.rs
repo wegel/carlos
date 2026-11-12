@@ -4,16 +4,12 @@ use serde_json::Value;
 
 use crate::session::models::Role;
 use crate::session::state::SessionState;
+use crate::session::text::{safe_label, safe_text};
 use crate::session::transcript_updates::SessionUpdate;
 
 impl SessionState {
-    /// Append one notice through the supplied prose helper, retaining the original FIFO and dedup order.
-    pub(crate) fn record_claude_notice(
-        &mut self,
-        key: String,
-        text: &str,
-        prose: fn(&str) -> String,
-    ) -> SessionUpdate {
+    /// Append one escaped notice, retaining the original FIFO and dedup order.
+    pub(crate) fn record_claude_notice(&mut self, key: String, text: &str) -> SessionUpdate {
         if self.claude.notices.contains(&key) {
             return SessionUpdate::default();
         }
@@ -21,19 +17,15 @@ impl SessionState {
         if self.claude.notices.len() > 128 {
             self.claude.notices.pop_front();
         }
-        self.append_message(Role::System, prose(text)).1
+        self.append_message(Role::System, safe_text(text)).1
     }
 
     /// Handle known native warnings and keep unknown additive system messages harmless.
-    pub(crate) fn receive_claude_notice(
-        &mut self,
-        message: &Value,
-        label: fn(&str) -> String,
-    ) -> Vec<(String, String)> {
+    pub(crate) fn receive_claude_notice(&mut self, message: &Value) -> Vec<(String, String)> {
         let mut notices = Vec::new();
         match message["subtype"].as_str() {
             Some("init") => {
-                plugins(&mut notices, message, label);
+                plugins(&mut notices, message);
             }
             Some("informational") => {
                 if message["prevent_continuation"] == true {
@@ -46,7 +38,7 @@ impl SessionState {
                 );
             }
             Some("session_writes_lost") => {
-                notice(&mut notices,message,&format!("Claude could not save session history ({}). Received replies remain visible; save anything you need. Lost writes: {}",label(message["error_code"].as_str().unwrap_or("unknown error")),message["lost"]));
+                notice(&mut notices,message,&format!("Claude could not save session history ({}). Received replies remain visible; save anything you need. Lost writes: {}",safe_label(message["error_code"].as_str().unwrap_or("unknown error")),message["lost"]));
             }
             Some("plugin_install") => {
                 if message["status"] == "failed" {
@@ -55,8 +47,8 @@ impl SessionState {
                         message,
                         &format!(
                             "Plugin {} failed: {}",
-                            label(message["name"].as_str().unwrap_or("unknown")),
-                            label(message["error"].as_str().unwrap_or("unknown error"))
+                            safe_label(message["name"].as_str().unwrap_or("unknown")),
+                            safe_label(message["error"].as_str().unwrap_or("unknown error"))
                         ),
                     );
                 }
@@ -70,8 +62,8 @@ impl SessionState {
                         message,
                         &format!(
                             "Hook {} ({}): {} {}",
-                            label(message["hook_name"].as_str().unwrap_or("unknown")),
-                            label(message["outcome"].as_str().unwrap_or("unknown")),
+                            safe_label(message["hook_name"].as_str().unwrap_or("unknown")),
+                            safe_label(message["outcome"].as_str().unwrap_or("unknown")),
                             message["output"].as_str().unwrap_or(""),
                             message["stderr"].as_str().unwrap_or("")
                         ),
@@ -84,11 +76,7 @@ impl SessionState {
     }
 
     /// Show the server's stable usage-report rows with their supplied scope and severity.
-    pub(crate) fn claude_usage_notice(
-        &self,
-        message: &Value,
-        label: fn(&str) -> String,
-    ) -> Vec<(String, String)> {
+    pub(crate) fn claude_usage_notice(&self, message: &Value) -> Vec<(String, String)> {
         let Some(rows) = message["usage_report"]["rate_limits"]["limits"].as_array() else {
             return Vec::new();
         };
@@ -106,10 +94,10 @@ impl SessionState {
                 .unwrap_or("");
             lines.push(format!(
                 "{} {}: {percent:.1}% used; resets {} ({})",
-                label(row["kind"].as_str().unwrap_or("quota")),
-                label(scope),
-                label(row["resets_at"].as_str().unwrap_or("unknown")),
-                label(row["severity"].as_str().unwrap_or("unknown"))
+                safe_label(row["kind"].as_str().unwrap_or("quota")),
+                safe_label(scope),
+                safe_label(row["resets_at"].as_str().unwrap_or("unknown")),
+                safe_label(row["severity"].as_str().unwrap_or("unknown"))
             ));
         }
         if lines.is_empty() {
@@ -132,16 +120,16 @@ fn notice(notices: &mut Vec<(String, String)>, message: &Value, text: &str) {
     notices.push((key, text.to_string()));
 }
 
-fn plugins(notices: &mut Vec<(String, String)>, message: &Value, label: fn(&str) -> String) {
+fn plugins(notices: &mut Vec<(String, String)>, message: &Value) {
     if let Some(errors) = message["plugin_errors"].as_array() {
         for error in errors {
             notices.push((
                 format!("plugin:{error}"),
                 format!(
                     "Plugin {}: {} ({})",
-                    label(error["plugin"].as_str().unwrap_or("unknown")),
-                    label(error["message"].as_str().unwrap_or("could not load")),
-                    label(error["path"].as_str().unwrap_or("unknown path"))
+                    safe_label(error["plugin"].as_str().unwrap_or("unknown")),
+                    safe_label(error["message"].as_str().unwrap_or("could not load")),
+                    safe_label(error["path"].as_str().unwrap_or("unknown path"))
                 ),
             ));
         }

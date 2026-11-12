@@ -8,7 +8,7 @@ use crate::session::state::SessionState;
 
 impl SessionState {
     /// Mark startup before the helper can receive a prompt.
-    pub(crate) fn start_claude(&mut self) {
+    pub(in crate::session) fn start_claude(&mut self) {
         self.claude.phase = ClaudePhase::Starting;
     }
 

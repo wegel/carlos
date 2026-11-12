@@ -230,7 +230,8 @@ fn enter_during_initial_startup_does_not_reopen_the_helper_or_submit_an_edit() {
     app.push_input_history("old prompt");
     app.enter_rewind_mode();
     app.set_input_text("edit while starting");
-    app.session.start_claude();
+    app.session
+        .set_claude_phase_for_test(crate::session::claude::ClaudePhase::Starting);
     key(&mut app, KeyCode::Enter);
     assert!(app.session.claude().phase() == ClaudePhase::Starting);
     assert_eq!(app.input_text(), "edit while starting");

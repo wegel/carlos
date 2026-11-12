@@ -100,12 +100,7 @@ pub(super) fn handle(
 }
 
 fn handle_event(app: &mut AppState, method: &str, frame: &Value) -> Option<ServerRequestAction> {
-    let update = app.session.receive_claude_event(
-        method,
-        frame,
-        super::claude_question_state::safe_label,
-        super::claude_question_state::safe_text,
-    );
+    let update = app.session.receive_claude_event(method, frame);
     app.apply_session_update(update.transcript);
     if update.fail_session {
         fail_session(app);

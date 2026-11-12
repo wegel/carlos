@@ -2,20 +2,20 @@
 
 use serde_json::Value;
 
-use super::claude_question_state::{safe_label, safe_text};
+use super::claude_question_state::safe_label;
 use super::models::{MessageKind, Role};
 use super::state::AppState;
 use crate::session::claude::CompactionResult;
 
 /// Show one escaped copy of a session-owned native notice.
 pub(super) fn show(app: &mut AppState, key: String, text: String) {
-    let update = app.session.record_claude_notice(key, &text, safe_text);
+    let update = app.session.record_claude_notice(key, &text);
     app.apply_session_update(update);
 }
 
-/// Apply native warning decisions while retaining the client's text helpers.
+/// Apply native warning decisions and redraw reports.
 pub(super) fn receive(app: &mut AppState, message: &Value) {
-    let notices = app.session.receive_claude_notice(message, safe_label);
+    let notices = app.session.receive_claude_notice(message);
     for (key, text) in notices {
         show(app, key, text);
     }
@@ -23,7 +23,7 @@ pub(super) fn receive(app: &mut AppState, message: &Value) {
 
 /// Show the native usage rows selected and bounded by the session.
 pub(super) fn usage(app: &mut AppState, message: &Value) {
-    for (key, text) in app.session.claude_usage_notice(message, safe_label) {
+    for (key, text) in app.session.claude_usage_notice(message) {
         show(app, key, text);
     }
 }

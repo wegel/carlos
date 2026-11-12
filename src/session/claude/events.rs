@@ -4,6 +4,7 @@ use serde_json::Value;
 
 use crate::session::models::Role;
 use crate::session::state::SessionState;
+use crate::session::text::safe_label;
 use crate::session::transcript_updates::SessionUpdate;
 
 /// Report the existing failure action separately from the transcript redraw.
@@ -19,8 +20,6 @@ impl SessionState {
         &mut self,
         method: &str,
         frame: &Value,
-        label: fn(&str) -> String,
-        prose: fn(&str) -> String,
     ) -> ClaudeEventUpdate {
         let mut result = ClaudeEventUpdate {
             transcript: SessionUpdate::default(),
@@ -30,8 +29,7 @@ impl SessionState {
         match method {
             "claude/stderr" => {
                 if let Some(text) = frame["text"].as_str() {
-                    result.transcript =
-                        self.record_claude_notice(format!("stderr:{text}"), text, prose);
+                    result.transcript = self.record_claude_notice(format!("stderr:{text}"), text);
                 }
             }
             "claude/error" => {
@@ -44,8 +42,8 @@ impl SessionState {
                                 frame["error"]["message"]
                                     .as_str()
                                     .unwrap_or("Unsupported Claude dialog"),
-                                label(frame["callbackId"].as_str().unwrap_or("unknown")),
-                                label(frame["dialogKind"].as_str().unwrap_or("unknown")),
+                                safe_label(frame["callbackId"].as_str().unwrap_or("unknown")),
+                                safe_label(frame["dialogKind"].as_str().unwrap_or("unknown")),
                             ),
                         )
                         .1;
