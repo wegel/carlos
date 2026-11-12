@@ -108,7 +108,7 @@ fn status_plan(app: &AppState, size: TerminalSize) -> StatusPlan {
             Label::plain(text.into(), COLOR_GUTTER_USER),
         );
     }
-    if let Some(label) = super::claude_edit::label(app, size.width) {
+    if let Some(label) = super::claude_edit_view::label(app, size.width) {
         place(
             &mut labels,
             &mut edge,

@@ -75,7 +75,7 @@ fn native_completions_follow_prompt_and_item_facts_in_real_dispatch() {
         crate::app::models::TurnStatus::Completed
     );
     assert!(app.session.active_turn_id().is_none());
-    assert!(app.claude.prompts.entries.is_empty());
+    assert!(app.session.claude_prompts().next().is_none());
     assert_eq!(*app.session.status(), "turn completed");
 }
 
@@ -287,7 +287,7 @@ fn accepted_input_after_a_fatal_fact_is_settled_by_eof_and_stderr_stays_visible(
         crate::app::models::TurnStatus::Failed
     );
     assert!(app.session.messages().iter().any(|m| m.text == "native stderr"));
-    assert!(app.claude.prompts.entries.is_empty());
+    assert!(app.session.claude_prompts().next().is_none());
 }
 
 fn dispatch_until_eof(client: &dyn BackendClient, receiver: &EventReceiver, app: &mut AppState) {

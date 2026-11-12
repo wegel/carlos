@@ -20,6 +20,7 @@ mod claude_callbacks;
 mod claude_context;
 mod claude_control_replies;
 mod claude_edit;
+mod claude_edit_view;
 mod claude_models;
 mod claude_notices;
 mod claude_notifications;
@@ -294,3 +295,13 @@ mod claude_process_parity_tests;
 #[cfg(test)]
 #[path = "../tests/claude_task_bounds_tests.rs"]
 mod claude_task_bounds_tests;
+
+#[cfg(test)]
+#[path = "../tests/claude_edit_parity_support.rs"]
+mod claude_edit_parity_support;
+#[cfg(test)]
+#[path = "../tests/claude_edit_parity_tests.rs"]
+mod claude_edit_parity_tests;
+#[cfg(test)]
+#[path = "../tests/claude_prompt_parity_tests.rs"]
+mod claude_prompt_parity_tests;

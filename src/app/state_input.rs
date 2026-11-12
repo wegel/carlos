@@ -92,18 +92,15 @@ impl AppState {
         self.view.viewport.auto_follow_bottom = true;
         self.claude.history.unknown_selection = None;
         if !super::claude_edit::waiting(self) {
-            self.claude.history.edit = None;
+            self.view.claude_edit.failed = false;
         }
         self.set_input_text(&draft);
     }
 
     pub(super) fn clear_rewind_mode_state(&mut self) {
         self.view.input_history.clear_rewind_mode_state();
-        if matches!(
-            self.claude.history.edit,
-            Some(super::claude_edit::EditState::Failed)
-        ) {
-            self.claude.history.edit = None;
+        if self.view.claude_edit.failed {
+            self.view.claude_edit.failed = false;
         }
         self.claude.history.unknown_selection = None;
         self.view.viewport.auto_follow_bottom = true;
@@ -270,7 +267,9 @@ impl AppState {
     }
 
     pub(super) fn align_rewind_scroll_to_selected_prompt(&mut self, size: TerminalSize) {
-        if !self.rewind_mode() || self.claude.history.edit.is_some() {
+        if !self.rewind_mode()
+            || (self.session.claude_edit_progress().is_some() || self.view.claude_edit.failed)
+        {
             return;
         }
         let Some(msg_idx) = self.rewind_selected_message_idx() else {

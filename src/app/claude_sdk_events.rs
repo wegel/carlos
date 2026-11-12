@@ -40,7 +40,7 @@ pub(super) fn receive(
         "claude/promptsRetired" => {
             if let Some(ids) = facts["ids"].as_array() {
                 for id in ids.iter().filter_map(Value::as_str) {
-                    app.claude.prompts.entries.remove(id);
+                    app.session.remove_claude_prompt(id);
                 }
             }
         }

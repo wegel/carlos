@@ -13,7 +13,7 @@ pub(super) fn apply_capabilities(app: &mut AppState, capabilities: &Value) {
     {
         return;
     }
-    if let Some(text) = app.claude.history.edited_prompt.take() {
+    if let Some(text) = super::claude_session_history::take_edit_prompt(app) {
         super::claude_edit::retire_queue(app);
         super::claude_edit::queued(app, &text);
         app.clear_rewind_mode_state();

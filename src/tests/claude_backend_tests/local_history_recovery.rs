@@ -54,7 +54,7 @@ fn a_fatal_fact_settles_accepted_prompts_before_queued_success_can_arrive() {
         handle_notification_line(&mut app,&record.to_string());
     }
     assert!(app.session.active_turn_id().is_none());
-    assert!(app.claude.prompts.entries.is_empty());
+    assert!(app.session.claude_prompts().next().is_none());
     for id in ["active","queued"] {
         assert_eq!(app.session.turn_status_by_id().get(id),Some(&crate::app::models::TurnStatus::Failed));
     }

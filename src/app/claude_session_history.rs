@@ -1,7 +1,5 @@
 //! Hydrates paged SDK history without turning automatic or unknown records into human prompts.
 
-use std::collections::VecDeque;
-
 use anyhow::{bail, Result};
 use serde_json::{json, Value};
 
@@ -19,9 +17,6 @@ pub(super) struct ClaudeHistory {
     pub(super) records: Vec<Value>,
     pub(super) unknown: Vec<UnknownPrompt>,
     pub(super) unknown_selection: Option<usize>,
-    pub(super) edited_prompt: Option<String>,
-    pub(super) edit: Option<super::claude_edit::EditState>,
-    unsent_drafts: VecDeque<String>,
     pub(super) transfer: FactTransfer,
 }
 
@@ -35,8 +30,8 @@ pub(super) struct UnknownPrompt {
 /// Start the new helper generation before accepting its callbacks or metadata.
 pub(super) fn switch_session(app: &mut AppState, generation: u64, id: &str) {
     super::claude_edit::retire_queue(app);
-    let unsent_drafts = std::mem::take(&mut app.claude.history.unsent_drafts);
-    let edit = app.claude.history.edited_prompt.take();
+    let unsent_drafts = std::mem::take(&mut app.view.claude_edit.unsent_drafts);
+    let edit = take_edit_prompt(app);
     app.session.switch_claude_runtime_choices();
     app.reset_for_forked_thread(id);
     app.claude = ClaudeUiState::default();
@@ -48,11 +43,9 @@ pub(super) fn switch_session(app: &mut AppState, generation: u64, id: &str) {
     app.claude.enabled = true;
     app.claude.generation = generation;
     app.session.set_claude_phase(ClaudePhase::Starting);
-    app.claude.history.edit = edit
-        .as_ref()
-        .map(|_| super::claude_edit::EditState::Starting);
-    app.claude.history.edited_prompt = edit;
-    app.claude.history.unsent_drafts = unsent_drafts;
+    app.view.claude_edit = Default::default();
+    app.session.resume_claude_edit(edit);
+    app.view.claude_edit.unsent_drafts = unsent_drafts;
     app.set_available_models(Vec::new());
     app.set_status("Claude starts the edited branch");
 }
@@ -134,7 +127,7 @@ fn control(method: &str, params: Value) -> ServerRequestAction {
 
 /// Keep an edited prompt available when its replacement helper cannot start.
 pub(super) fn restore_edit(app: &mut AppState) {
-    let Some(text) = app.claude.history.edited_prompt.take() else {
+    let Some(text) = take_edit_prompt(app) else {
         return;
     };
     if app.input_is_empty() {
@@ -144,7 +137,7 @@ pub(super) fn restore_edit(app: &mut AppState) {
             Role::System,
             format!("Unsent edited draft (F5 loads it when the composer is empty):\n{text}"),
         );
-        app.claude.history.unsent_drafts.push_back(text);
+        app.view.claude_edit.unsent_drafts.push_back(text);
     }
 }
 
@@ -158,22 +151,22 @@ pub(super) fn recover_queued(app: &mut AppState) {
 
 /// Retain local human drafts for explicit recovery without filling the new branch's composer.
 pub(super) fn retain_queued(app: &mut AppState) {
-    let drafts = app.session.ralph_take_queued_human_drafts();
-    for text in drafts.iter().rev() {
-        app.discard_pending_input_history(text);
+    let (drafts, reset_navigation) = app.session.retain_claude_queued_drafts();
+    if reset_navigation {
+        app.reset_input_history_navigation();
     }
     for text in drafts {
         app.append_message(
             Role::System,
             format!("Unsent queued draft (F5 loads it when the composer is empty):\n{text}"),
         );
-        app.claude.history.unsent_drafts.push_back(text);
+        app.view.claude_edit.unsent_drafts.push_back(text);
     }
 }
 
 /// Report whether the user can explicitly recover a retained draft in any helper phase.
 pub(super) fn has_unsent(app: &AppState) -> bool {
-    !app.claude.history.unsent_drafts.is_empty()
+    !app.view.claude_edit.unsent_drafts.is_empty()
 }
 
 /// Load one retained draft only when doing so cannot replace the user's composer.
@@ -185,7 +178,14 @@ pub(super) fn load_unsent(app: &mut AppState) {
         );
         return;
     }
-    if let Some(text) = app.claude.history.unsent_drafts.pop_front() {
+    if let Some(text) = app.view.claude_edit.unsent_drafts.pop_front() {
         app.set_input_text(&text);
     }
+}
+
+/// Take submitted recovery text first, falling back to a still-unsent local edit.
+pub(super) fn take_edit_prompt(app: &mut AppState) -> Option<String> {
+    app.session
+        .take_claude_edit_prompt()
+        .or_else(|| app.view.claude_edit.edited_prompt.take())
 }

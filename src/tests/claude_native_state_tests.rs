@@ -163,12 +163,18 @@ fn unowned_native_task_wakeup_never_consumes_the_next_human_or_runs_ralph_comple
     state(&mut app, "idle", 0);
     assert!(app.native.begin_interrupt().is_empty());
     assert!(app.session.turn_status_by_id().is_empty());
-    assert!(!app.claude.prompts.entries["human"].consumed);
+    assert!(!app
+        .session
+        .claude_prompts()
+        .find(|(id, _)| *id == "human")
+        .expect("accepted human")
+        .1
+        .consumed());
     assert!(app.session.active_turn_id().is_none());
     init(&mut app, "session", json!(["human"]), 0);
     result(&mut app, "human", 0);
     state(&mut app, "idle", 0);
-    assert!(app.claude.prompts.entries.is_empty());
+    assert!(app.session.claude_prompts().next().is_none());
     assert_eq!(app.session.turn_status_by_id().len(), 1);
 }
 

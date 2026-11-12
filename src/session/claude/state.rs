@@ -7,6 +7,8 @@ use serde_json::Value;
 use super::activity::ClaudeActivity;
 use super::browser::BrowserRequest;
 use super::context::ClaudeContext;
+use super::edit::ClaudeEdit;
+use super::prompts::ClaudePrompts;
 use super::quota::ClaudeQuota;
 use super::tasks::ClaudeTasks;
 use crate::session::state::SessionState;
@@ -22,6 +24,8 @@ pub(crate) enum ClaudePhase {
 /// Own native Claude facts independently of local settings and countdowns.
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct ClaudeState {
+    pub(in crate::session) prompts: ClaudePrompts,
+    pub(in crate::session) edit: ClaudeEdit,
     pub(in crate::session) tasks: ClaudeTasks,
     pub(in crate::session) activity: ClaudeActivity,
     pub(in crate::session) browser: HashMap<(String, String), BrowserRequest>,
@@ -37,6 +41,8 @@ pub(crate) struct ClaudeState {
 impl Default for ClaudeState {
     fn default() -> Self {
         Self {
+            prompts: ClaudePrompts::default(),
+            edit: ClaudeEdit::default(),
             tasks: ClaudeTasks::default(),
             activity: ClaudeActivity::default(),
             browser: HashMap::new(),

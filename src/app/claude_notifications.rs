@@ -3,7 +3,6 @@
 use serde_json::{Map, Value};
 
 use super::claude_callbacks::{cancel_callback, receive_callback};
-use super::models::TurnStatus;
 use super::notifications::ServerRequestAction;
 use super::state::AppState;
 use crate::session::approval_state::ApprovalQueue;
@@ -48,7 +47,7 @@ pub(super) fn route(app: &mut AppState, method: &str, params: &Map<String, Value
     }
     if method == "turn/completed" && params.contains_key("generation") {
         if let Some(id) = params.get("turn").and_then(|turn| turn["id"].as_str()) {
-            app.claude.prompts.entries.remove(id);
+            app.session.remove_claude_prompt(id);
         }
     }
     if params.get("history") == Some(&Value::Bool(true)) {
@@ -97,17 +96,9 @@ fn named_fact(method: &str) -> bool {
 /// Attach an accepted native prompt UUID to its visible user message.
 pub(super) fn record_submitted_prompt(app: &mut AppState, response: &Value) {
     if let Some(id) = response["result"]["turn"]["id"].as_str() {
-        if app.session.active_turn_id().as_deref()
-            == Some(super::turn_submit::CLAUDE_PENDING_TURN_ID)
-            || app.session.active_turn_id().is_none()
-        {
-            app.record_turn_started(id);
-        }
-        super::claude_prompts::attach_echo(app, id, response["result"]["inputKind"].as_str());
-        if let Some(index) = app.session.messages().len().checked_sub(1) {
-            app.session
-                .record_prompt_turn(app.session.messages()[index].id, id);
-        }
+        let key = app.item_key(&format!("claude-prompt:{id}"));
+        let update = app.session.record_submitted_claude_prompt(response, &key);
+        app.apply_session_update(update);
         super::claude_edit::accepted(app, id);
     }
 }
@@ -140,7 +131,7 @@ pub(super) fn handle(
         }
         "claude/promptRejected" => {
             if let Some(id) = params["uuid"].as_str() {
-                app.claude.prompts.entries.remove(id);
+                app.session.remove_claude_prompt(id);
             }
         }
         "claude/controlReply" => {
@@ -216,32 +207,16 @@ pub(super) fn fail_session(app: &mut AppState) {
     app.session
         .set_claude_phase(crate::app::claude_state::ClaudePhase::Closed);
     if super::claude_edit::waiting(app) {
-        app.claude.history.edit = Some(super::claude_edit::EditState::Failed);
+        app.session.end_claude_edit();
+        app.view.claude_edit.failed = true;
     }
     let retired = app.session.clear_approval_queue(ApprovalQueue::Claude);
     app.drop_retired_approval_hints(retired);
     app.clear_pending_approval();
-    fail_accepted_prompts(app);
+    app.session.fail_claude_prompts();
     app.session.fail_claude_process();
     app.session.ralph_stop_after_failure();
     super::claude_session_history::recover_queued(app);
-}
-
-fn fail_accepted_prompts(app: &mut AppState) {
-    // A local bounds failure may close the session before queued native results reach the app.
-    let mut ids: Vec<String> = app.claude.prompts.entries.keys().cloned().collect();
-    if let Some(active) = &app.session.active_turn_id() {
-        if !ids.contains(active) {
-            ids.push(active.clone());
-        }
-    }
-    for id in ids {
-        if app.record_turn_completed(&id, TurnStatus::Failed) {
-            app.session.clear_turn_boundary();
-            app.set_status("turn failed");
-        }
-    }
-    app.claude.prompts.entries.clear();
 }
 
 pub(super) fn show_error(app: &mut AppState, error: &Value) {
@@ -252,7 +227,10 @@ pub(super) fn show_error(app: &mut AppState, error: &Value) {
 
 fn accept_prompt(app: &mut AppState, params: &Map<String, Value>) -> Option<ServerRequestAction> {
     if params["uuid"].is_string() {
-        if let Err(error) = app.claude.prompts.register(&Value::Object(params.clone())) {
+        if let Err(error) = app
+            .session
+            .register_claude_prompt(&Value::Object(params.clone()))
+        {
             app.append_message(super::Role::System, error.to_string());
             fail_session(app);
             return Some(ServerRequestAction::ClaudeControl {

@@ -4,6 +4,7 @@ use std::time::Instant;
 
 use ratatui_textarea::TextArea;
 
+use super::claude_edit_view::ClaudeEditView;
 #[cfg(feature = "dictation")]
 use super::dictation_state::DictationCaptureState;
 use super::dictation_state::DictationRuntimeState;
@@ -19,6 +20,7 @@ use super::viewport_state::ViewportState;
 use crate::session::entry_id::EntryId;
 
 pub(super) struct ViewState {
+    pub(super) claude_edit: ClaudeEditView,
     pub(super) claude_quota_next_draw: Option<Instant>,
     pub(super) claude_settings_edit: Option<(String, String)>,
     pub(super) quota_next_draw: Option<Instant>,
@@ -44,6 +46,7 @@ pub(super) struct ViewState {
 impl ViewState {
     pub(super) fn new(summary_enabled_draft: bool) -> Self {
         Self {
+            claude_edit: ClaudeEditView::default(),
             claude_quota_next_draw: None,
             claude_settings_edit: None,
             quota_next_draw: None,

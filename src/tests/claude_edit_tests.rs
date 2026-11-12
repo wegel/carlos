@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
 use super::codex_question_support::Peer;
 use super::Role;
-use crate::app::claude_edit::{accepted, begin, failed, send_failed, waiting, EditState};
+use crate::app::claude_edit::{accepted, begin, failed, send_failed, waiting};
 use crate::app::claude_state::ClaudePhase;
 use crate::backend::EventReceiver;
 
@@ -116,15 +116,13 @@ fn preparing_edit_ignores_duplicate_enter_and_only_the_matching_accepted_prompt_
     }
     assert_eq!(app.input_text(), "newer composer");
     assert_eq!(
-        app.claude.history.edited_prompt.as_deref(),
+        app.session.claude_edit_prompt_for_test(),
         Some("saved edit")
     );
     assert!(peer.calls.borrow().is_empty());
-    app.claude.history.edit = Some(EditState::Sending {
-        text: "saved edit".into(),
-        queued: false,
-        uuid: None,
-    });
+    app.session.queue_claude_edit("saved edit");
+    app.session
+        .dispatch_claude_edit("saved edit", crate::backend::PromptOrigin::Human);
     accepted(&mut app, "different-uuid");
     assert!(waiting(&app));
     crate::app::claude_edit::bind_submission(
@@ -143,11 +141,9 @@ fn preparing_edit_ignores_duplicate_enter_and_only_the_matching_accepted_prompt_
 #[test]
 fn failed_dequeued_edit_does_not_replace_newer_composer_or_submit_recovery_automatically() {
     let mut app = app();
-    app.claude.history.edit = Some(EditState::Sending {
-        text: "old edit".into(),
-        queued: false,
-        uuid: None,
-    });
+    app.session.queue_claude_edit("old edit");
+    app.session
+        .dispatch_claude_edit("old edit", crate::backend::PromptOrigin::Human);
     app.set_input_text("new typing");
     assert!(send_failed(&mut app, "old edit", "prompt rejected"));
     assert_eq!(app.input_text(), "new typing");
@@ -238,7 +234,7 @@ fn enter_during_initial_startup_does_not_reopen_the_helper_or_submit_an_edit() {
     key(&mut app, KeyCode::Enter);
     assert!(app.session.claude().phase() == ClaudePhase::Starting);
     assert_eq!(app.input_text(), "edit while starting");
-    assert!(app.claude.history.edited_prompt.is_none());
+    assert!(app.view.claude_edit.edited_prompt.is_none());
 }
 
 #[test]
@@ -246,11 +242,11 @@ fn close_recovers_sending_edits_once_whether_the_queue_still_owns_them_or_dispat
     for queued in [false, true] {
         let mut app = app();
         app.set_input_text("new composer");
-        app.claude.history.edit = Some(EditState::Sending {
-            text: "saved outgoing edit".into(),
-            queued,
-            uuid: None,
-        });
+        app.session.queue_claude_edit("saved outgoing edit");
+        if !queued {
+            app.session
+                .dispatch_claude_edit("saved outgoing edit", crate::backend::PromptOrigin::Human);
+        }
         if queued {
             app.queue_turn_input_with_history("saved outgoing edit", true);
         }
@@ -320,7 +316,8 @@ fn a_successful_later_send_dismisses_the_failure_badge_but_keeps_saved_drafts() 
     app.set_input_text("later composer");
     failed(&mut app, "fork unavailable");
     accepted(&mut app, "later-native-uuid");
-    assert!(app.claude.history.edit.is_none());
+    assert!(!app.view.claude_edit.failed);
+    assert!(!waiting(&app));
     assert!(crate::app::claude_session_history::has_unsent(&app));
     app.clear_input();
     key(&mut app, KeyCode::F(5));

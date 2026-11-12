@@ -203,17 +203,17 @@ fn body(app: &AppState) -> Vec<String> {
     if let Some(label) = super::claude_activity::label(app.session.claude().activity()) {
         lines.push(format!("Main: {label}"));
     }
-    for (id, prompt) in &app.claude.prompts.entries {
-        if !prompt.clear {
+    for (id, prompt) in app.session.claude_prompts() {
+        if !prompt.clear() {
             lines.push(format!(
                 "Prompt {} · {} · {}",
                 safe_label(id),
-                if prompt.consumed {
+                if prompt.consumed() {
                     "running"
                 } else {
                     "accepted"
                 },
-                if prompt.priority == "now" {
+                if prompt.priority() == "now" {
                     "steer"
                 } else {
                     "queued"

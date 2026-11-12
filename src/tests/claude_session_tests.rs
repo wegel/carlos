@@ -69,7 +69,7 @@ fn old_generation_close_cancel_and_metadata_cannot_touch_the_new_session() {
 fn closed_query_ignores_late_success_and_only_new_generation_can_reopen() {
     let mut app = AppState::new("original".to_string());
     app.session.set_claude_phase(ClaudePhase::Starting);
-    app.claude.history.edited_prompt = Some("saved edit".to_string());
+    app.view.claude_edit.edited_prompt = Some("saved edit".to_string());
     frame(
         &mut app,
         1,
@@ -86,7 +86,7 @@ fn closed_query_ignores_late_success_and_only_new_generation_can_reopen() {
     }
     assert!(app.session.claude().phase() == ClaudePhase::Closed);
     assert_eq!(app.input_text(), "saved edit");
-    assert!(app.claude.history.edited_prompt.is_none());
+    assert!(app.view.claude_edit.edited_prompt.is_none());
     switch(&mut app);
     assert!(app.session.claude().phase() == ClaudePhase::Starting);
     assert_eq!(app.input_text(), "saved edit");
@@ -96,7 +96,7 @@ fn closed_query_ignores_late_success_and_only_new_generation_can_reopen() {
 fn failures_before_and_after_switch_keep_the_correct_session_and_edit() {
     let mut app = AppState::new("original".to_string());
     app.set_input_text("edited draft");
-    app.claude.history.edited_prompt = Some("edited draft".to_string());
+    app.view.claude_edit.edited_prompt = Some("edited draft".to_string());
     app.session.set_claude_phase(ClaudePhase::Starting);
     send(
         &mut app,
@@ -107,7 +107,7 @@ fn failures_before_and_after_switch_keep_the_correct_session_and_edit() {
     assert_eq!(app.session.thread_id(), "original");
     assert!(app.session.claude().phase() == ClaudePhase::Ready);
     assert_eq!(app.input_text(), "edited draft");
-    app.claude.history.edited_prompt = Some("edited draft".to_string());
+    app.view.claude_edit.edited_prompt = Some("edited draft".to_string());
     switch(&mut app);
     app.clear_input();
     send(
@@ -173,7 +173,7 @@ fn history_or_start_reply_failure_restores_the_edit_without_forging_a_turn() {
     for method in ["sessions.info", "sessions.read", "start"] {
         let mut app = AppState::new("session".to_string());
         app.session.set_claude_phase(ClaudePhase::Starting);
-        app.claude.history.edited_prompt = Some("recover me".to_string());
+        app.view.claude_edit.edited_prompt = Some("recover me".to_string());
         frame(
             &mut app,
             1,
@@ -216,7 +216,7 @@ fn closed_startup_recovers_queued_humans_without_replacing_the_new_composer() {
 #[test]
 fn failed_edit_with_newer_composer_can_be_recovered_once_without_overwriting_it() {
     let mut app = AppState::new("original".to_string());
-    app.claude.history.edited_prompt = Some("edited before startup".to_string());
+    app.view.claude_edit.edited_prompt = Some("edited before startup".to_string());
     switch(&mut app);
     app.set_input_text("newer composer");
     send(
