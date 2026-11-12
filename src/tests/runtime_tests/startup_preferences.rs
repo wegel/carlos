@@ -135,7 +135,7 @@ for line in sys.stdin:
         app.next_turn_runtime_settings(),
         settings_values([Some("saved"), Some("low"), Some("native-summary")]),
     );
-    assert_eq!(app.codex.settings.deferred, Some(json!({"model":"saved","effort":"low"})));
+    assert_eq!(app.session.codex_settings().deferred().cloned(), Some(json!({"model":"saved","effort":"low"})));
 }
 
 fn run_isolated_startup_test() -> bool {

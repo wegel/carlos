@@ -100,7 +100,7 @@ fn cycle(app: &mut AppState, dir: isize) {
 
 fn save_settings(client: &dyn BackendClient, app: &mut AppState) {
     if app.codex.enabled && app.codex.closed {
-        app.codex.settings.editor_error =
+        app.view.codex_settings.editor_error =
             Some("Codex is disconnected; F5 reconnects. Choices remain in this editor".into());
         return;
     }
@@ -153,7 +153,7 @@ fn apply_model_choices(client: &dyn BackendClient, app: &mut AppState) -> Runtim
     if client.kind() == BackendKind::Codex {
         crate::app::codex_settings_draft::normalize_saved(app, &mut defaults);
         if before != app.next_turn_runtime_settings() {
-            app.codex.settings.persist_next = true;
+            app.view.codex_settings.persist_next = true;
             let mut desired = serde_json::json!({});
             for (key, value) in [
                 ("model", &defaults.model),

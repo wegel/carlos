@@ -282,7 +282,9 @@ fn settings_native_replies_keep_absent_null_empty_and_stale_choices_distinct() {
     ] {
         let mut app = seed_runtime_choices();
         app.queue_runtime_settings(Some("new".into()), Some("low".into()), Some("none".into()));
-        crate::app::codex_settings_draft::reject(&mut app, &desired, json!({"message":"rejected"}));
+        let mut update = crate::session::codex::settings::SettingsUpdate::default();
+        crate::session::codex::settings::reject(&mut app.session, &mut update, &desired, json!({"message":"rejected"}));
+        crate::app::codex_settings::apply(&mut app, update);
         assert_eq!(
             app.take_pending_runtime_settings(),
             settings_values(expected)

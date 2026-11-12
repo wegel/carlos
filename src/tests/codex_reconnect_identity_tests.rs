@@ -94,7 +94,7 @@ fn fresh_catalog_preserves_editor_values_and_drops_old_direct_override_fallback(
     app.toggle_model_settings();
     app.view.runtime_settings.model_settings_model_index = 1;
     assert_eq!(app.model_settings_model_value(), "b");
-    app.codex.settings.legacy_overrides = true;
+    app.session.set_codex_settings_legacy_for_test(true);
     app.codex.closed = true;
     app.codex.connection.rebuilding = true;
     let mut second = snapshot("two", "idle");
@@ -114,7 +114,7 @@ fn fresh_catalog_preserves_editor_values_and_drops_old_direct_override_fallback(
         app.session.runtime_settings().current_model().as_deref(),
         Some("a")
     );
-    assert!(!app.codex.settings.legacy_overrides);
+    assert!(!app.session.codex_settings().legacy_overrides());
     assert!(app.session.runtime_settings().pending_model().is_none());
 }
 

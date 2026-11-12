@@ -73,7 +73,7 @@ fn explicit_launch_summary_is_published_on_resume_and_new_thread_defaults_remain
         peer.controls.borrow()[0].1,
         json!({"threadId":"root","summary":"detailed"})
     );
-    app.codex.settings.pending = None;
+    app.session.clear_codex_settings_pending_for_test();
     app.queue_runtime_settings(None, None, None);
     app.set_runtime_settings(
         Some("native".into()),

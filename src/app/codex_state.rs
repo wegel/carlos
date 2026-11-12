@@ -14,7 +14,6 @@ pub(super) struct CodexUiState {
     pub(super) connection: super::codex_reconnect_state::ConnectionState,
     pub(super) enabled: bool,
     pub(super) epoch: u64,
-    pub(super) settings: super::codex_settings::SettingsState,
     pub(super) panel: super::codex_panel_state::PanelState,
     pub(super) task_status: super::codex_task_status::TaskStatus,
 }

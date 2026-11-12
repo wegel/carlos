@@ -159,7 +159,7 @@ fn finish_ui(app: &mut AppState, goal_changed: bool) {
     app.codex.connection.rebuilding = false;
     app.codex.connection.runtime_refresh = true;
     if let Some(choices) = app.codex.connection.initial_choices.take() {
-        app.codex.settings.deferred = Some(choices);
+        app.session.defer_codex_settings(Some(choices));
     }
     if goal_changed {
         app.session.invalidate_codex_goal();

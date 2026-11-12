@@ -9,7 +9,7 @@ use crate::protocol_params::params_turn_start;
 /// Omit cached Codex settings unless a precise missing-method reply requires compatibility fields.
 pub(super) fn new_turn_params(client: &dyn BackendClient, app: &AppState, text: &str) -> Value {
     let (model, effort, summary) = if client.kind() == BackendKind::Codex && app.codex.enabled {
-        if app.codex.settings.legacy_overrides {
+        if app.session.codex_settings().legacy_overrides() {
             let choices = super::codex_settings_draft::choices(app);
             (
                 choices["model"].as_str().map(str::to_string),

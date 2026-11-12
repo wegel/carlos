@@ -63,7 +63,7 @@ pub(in crate::app) fn run_codex_backend(
         app.codex.closed = true;
         app.codex.connection.rebuilding = true;
         app.codex.connection.initial_rebuild = true;
-        app.codex.connection.initial_choices = app.codex.settings.deferred.take();
+        app.codex.connection.initial_choices = app.session.take_deferred_codex_settings();
         client.bootstrap(app.session.thread_id().clone(), launch.runtime_response)?;
     }
     finish_run(&mut app, opts.backend, &client, server_events_rx)

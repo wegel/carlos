@@ -341,7 +341,7 @@ fn mark_turn_sent(
     }
     if client.kind() != BackendKind::Codex
         || !app.codex.enabled
-        || app.codex.settings.legacy_overrides
+        || app.session.codex_settings().legacy_overrides()
     {
         app.mark_runtime_settings_applied();
     }

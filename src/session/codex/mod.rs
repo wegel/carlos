@@ -33,3 +33,14 @@ mod goal_test_support;
 
 #[cfg(test)]
 mod goal_tests;
+
+pub(crate) mod settings;
+mod settings_access;
+pub(crate) mod settings_reply;
+pub(crate) mod settings_state;
+
+#[cfg(test)]
+mod settings_test_support;
+
+#[cfg(test)]
+mod settings_tests;

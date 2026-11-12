@@ -46,9 +46,9 @@ fn future_success_and_live_failure_are_separate_and_do_not_relabel_the_running_r
             json!({"error":{"code":-32601,"message":"method not found"}}),
         ),
     );
-    assert!(app.codex.settings.pending.is_some());
+    assert!(app.session.codex_settings().pending());
     receive(&mut app, reply(&peer, 0, json!({"result":{}})));
-    assert!(app.codex.settings.pending.is_none());
+    assert!(!app.session.codex_settings().pending());
     assert_eq!(
         app.session.runtime_settings().current_model().as_deref(),
         Some("new")
@@ -84,7 +84,7 @@ fn a_newer_external_native_setting_wins_over_an_older_empty_acknowledgement() {
         app.next_turn_runtime_settings(),
         (Some("external-newer".into()), Some("low".into()), None)
     );
-    assert_eq!(app.codex.settings.future["unknown"], "kept");
+    assert_eq!(app.session.codex_settings().future()["unknown"], "kept");
 }
 
 #[test]
@@ -111,7 +111,7 @@ fn later_local_choices_wait_without_losing_their_values_and_old_epoch_replies_ar
         app.session.runtime_settings().current_model().as_deref(),
         Some("new-thread")
     );
-    assert!(app.codex.settings.pending.is_none());
+    assert!(!app.session.codex_settings().pending());
 }
 
 #[test]
@@ -132,7 +132,7 @@ fn unsupported_future_updates_keep_explicit_next_turn_overrides_without_global_c
         app.next_turn_runtime_settings().0.as_deref(),
         Some("next-model")
     );
-    assert!(app.codex.settings.legacy_overrides);
+    assert!(app.session.codex_settings().legacy_overrides());
     assert!(app
         .session
         .messages()
@@ -218,10 +218,13 @@ fn native_validation_rejection_keeps_error_data_and_editor_draft_out_of_subseque
         Some("last-valid")
     );
     assert!(app.session.runtime_settings().pending_model().is_none());
-    assert!(!app.codex.settings.legacy_overrides);
-    assert_eq!(app.codex.settings.errors["future"]["code"], -32600);
+    assert!(!app.session.codex_settings().legacy_overrides());
     assert_eq!(
-        app.codex.settings.errors["future"]["data"]["policy"],
+        app.session.codex_settings().errors()["future"]["code"],
+        -32600
+    );
+    assert_eq!(
+        app.session.codex_settings().errors()["future"]["data"]["policy"],
         "managed"
     );
     app.open_model_settings();
@@ -264,7 +267,7 @@ fn local_editor_rejection_preserves_valid_pending_choices_before_apply_or_persis
     assert_eq!(app.model_settings_effort_value(), "rejected-effort");
     assert_eq!(app.next_turn_runtime_settings().1.as_deref(), Some("low"));
     assert!(peer.controls.borrow().is_empty());
-    assert!(app.codex.settings.editor_error.is_some());
+    assert!(app.view.codex_settings.editor_error.is_some());
     app.close_model_settings();
     submit_turn_text(&peer, &mut app, "after local rejection".into());
     assert!(peer.calls.borrow()[0].1.get("effort").is_none());

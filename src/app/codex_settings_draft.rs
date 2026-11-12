@@ -23,19 +23,21 @@ pub(super) fn initialize(
     let native = parse_thread_runtime_settings(response)?;
     app.set_runtime_settings(native.model, native.effort, native.summary);
     app.queue_runtime_settings(None, None, None);
-    app.codex.settings.future = choices(app);
+    let future = choices(app);
+    app.session.set_codex_future_settings(future);
     desired
         .as_object_mut()
         .expect("settings object")
-        .retain(|key, value| app.codex.settings.future.get(key) != Some(value));
+        .retain(|key, value| app.session.codex_settings().future().get(key) != Some(value));
     app.session
         .replace_pending_runtime_choices(RuntimeDefaults {
             model: desired["model"].as_str().map(str::to_string),
             effort: desired["effort"].as_str().map(str::to_string),
             summary: desired["summary"].as_str().map(str::to_string),
         });
-    app.codex.settings.deferred =
-        (!desired.as_object().expect("settings object").is_empty()).then_some(desired);
+    app.session.defer_codex_settings(
+        (!desired.as_object().expect("settings object").is_empty()).then_some(desired),
+    );
     Ok(())
 }
 
@@ -75,11 +77,11 @@ pub(super) fn validate_editor(app: &mut AppState) -> bool {
     }
     match super::codex_settings::validate(app, &desired) {
         Ok(()) => {
-            app.codex.settings.editor_error = None;
+            app.view.codex_settings.editor_error = None;
             true
         }
         Err(error) => {
-            app.codex.settings.editor_error = Some(error);
+            app.view.codex_settings.editor_error = Some(error);
             false
         }
     }
@@ -149,23 +151,9 @@ fn supports_effort(app: &AppState, model: &str) -> bool {
         .is_none_or(|entry| !entry.supported_efforts.is_empty())
 }
 
-/// Keep the rejected values while removing only their pending turn overrides.
-pub(super) fn reject(app: &mut AppState, desired: &Value, error: Value) {
-    let message = super::claude_question_state::safe_text(
-        error["message"]
-            .as_str()
-            .unwrap_or("Codex rejected these choices"),
-    );
-    if app.codex.settings.deferred.is_none() {
-        app.codex.settings.rejected = Some(desired.clone());
-        app.codex.settings.editor_error = Some(message);
-    }
-    app.session.reject_runtime_settings(desired);
-}
-
 /// Reopen attempted values without changing last-valid runtime settings.
 pub(super) fn restore_editor(app: &mut AppState) {
-    let Some(desired) = app.codex.settings.rejected.clone() else {
+    let Some(desired) = app.view.codex_settings.rejected.clone() else {
         return;
     };
     if let Some(model) = desired["model"].as_str() {

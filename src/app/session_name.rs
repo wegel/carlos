@@ -25,9 +25,8 @@ impl AppState {
                 self.view.codex_queue = Default::default();
                 self.session.reset_codex_queue();
                 self.view.codex_queue.mode = mode;
-                let legacy_overrides = self.codex.settings.legacy_overrides;
-                self.codex.settings = Default::default();
-                self.codex.settings.legacy_overrides = legacy_overrides;
+                self.view.codex_settings = Default::default();
+                self.session.reset_codex_settings();
             }
             self.session.set_thread_name(None);
         }

@@ -20,7 +20,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
     app.codex.connection.runtime_refresh = false;
     app.codex.connection.runtime_read = Some(MetadataRead {
         token,
-        settings_revision: app.codex.settings.revision,
+        settings_revision: app.session.codex_settings().revision(),
         name_revision: app.codex.connection.name_revision,
     });
     if let Err(error) = client.request_control_with_context("thread/read",
@@ -59,7 +59,7 @@ pub(super) fn reply(app: &mut AppState, params: &Value) -> bool {
     } else {
         app.codex.connection.runtime_refresh = true;
     }
-    if read.settings_revision == app.codex.settings.revision {
+    if read.settings_revision == app.session.codex_settings().revision() {
         let settings = json!({"model":thread["model"],"effort":thread["reasoningEffort"],"summary":thread["summary"]});
         super::codex_settings::observed(
             app,

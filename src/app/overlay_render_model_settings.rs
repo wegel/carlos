@@ -49,7 +49,7 @@ pub(super) fn draw_model_settings_fields(buf: &mut Buffer, ob: &OverlayBox, app:
     {
         layout.draw_row(buf, app, layout.row_y(ob, index), field);
     }
-    let help = app.codex.settings.editor_error.as_deref().unwrap_or(
+    let help = app.view.codex_settings.editor_error.as_deref().unwrap_or(
         match app.view.runtime_settings.model_settings_field {
             ModelSettingsField::DictationEndpoint => "Arrows/Enter toggle, Esc close",
             ModelSettingsField::DesktopTheme => "Theme for wide screens",

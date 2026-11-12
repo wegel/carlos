@@ -44,7 +44,7 @@ pub(super) fn install(
     install_history_runtime(app, &snapshot, runtime)?;
     app.codex.connection.streams = streams;
     if let Some(editor) = editor {
-        app.codex.settings.rejected = Some(editor);
+        app.view.codex_settings.rejected = Some(editor);
         super::codex_settings_draft::restore_editor(app);
     }
     install_queue(app, &snapshot);
@@ -112,11 +112,8 @@ fn install_history_runtime(
     app.clear_rate_limits();
     app.set_runtime_settings(runtime.model, runtime.effort, runtime.summary);
     app.queue_runtime_settings(None, None, None);
-    app.codex.settings.future = super::codex_settings_draft::choices(app);
-    app.codex.settings.legacy_overrides = false;
-    app.codex.settings.deferred = None;
-    app.codex.settings.pending = None;
-    app.codex.settings.active_before = None;
+    let future = super::codex_settings_draft::choices(app);
+    app.session.install_codex_settings(future);
     Ok(())
 }
 

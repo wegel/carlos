@@ -311,3 +311,5 @@ mod claude_fence_parity_tests;
 #[cfg(test)]
 #[path = "../tests/claude_history_parity_tests.rs"]
 mod claude_history_parity_tests;
+
+mod codex_settings_view;
