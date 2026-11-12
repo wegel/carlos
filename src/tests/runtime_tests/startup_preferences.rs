@@ -29,17 +29,12 @@ fn startup_preferences_keep_effective_choices_for_each_backend_and_launch_mode()
 fn check_startup_choices(backend: Backend, mode: &str, preferences: RuntimeDefaults, saved: bool) {
     let mut app = AppState::with_runtime_defaults("startup".into(), preferences);
     assert_eq!(app.next_turn_runtime_settings(), (None, None, None));
+    if backend == Backend::Codex && mode == "new" && saved {
+        check_new_codex_saved_choices(&mut app);
+        return;
+    }
     let preferences = app.session.runtime_settings().startup_preferences();
     let (native, fallback, expected) = match (backend, mode == "new", saved) {
-        (Backend::Codex, true, true) => (
-            ThreadRuntimeSettings {
-                model: Some("saved".into()),
-                effort: Some("low".into()),
-                summary: Some("native-summary".into()),
-            },
-            codex_runtime_defaults(None),
-            [Some("saved"), Some("low"), Some("native-summary")],
-        ),
         (Backend::Codex, _, _) => (
             ThreadRuntimeSettings {
                 model: Some("native".into()),
@@ -113,4 +108,29 @@ fn codex_without_native_choices_uses_saved_choices_or_the_same_fallbacks() {
         app.set_runtime_settings(resolved.model, resolved.effort, resolved.summary);
         assert_eq!(app.next_turn_runtime_settings(), settings_values(expected));
     }
+}
+
+fn check_new_codex_saved_choices(app: &mut AppState) {
+    let mut command = std::process::Command::new("python3");
+    command.args(["-u", "-c", r#"
+import json,sys
+for line in sys.stdin:
+ a=json.loads(line)
+ assert a['method']=='model/list'
+ models=[{'id':name,'model':name,'displayName':name,'isDefault':name=='native',
+          'supportedReasoningEfforts':[{'reasoningEffort':e,'description':e} for e in ['low','high']]}
+         for name in ['native','saved']]
+ print(json.dumps({'id':a['id'],'result':{'data':models,'nextCursor':None}}))
+"#]);
+    let client = crate::protocol::AppServerClient::start_command(command).expect("startup peer");
+    crate::app::backend_setup::configure_new_codex_for_test(
+        app,
+        &client,
+        r#"{"result":{"model":"native","reasoningEffort":"high","summary":"native-summary","thread":{"id":"startup","turns":[]}}}"#,
+    );
+    assert_eq!(
+        app.next_turn_runtime_settings(),
+        settings_values([Some("saved"), Some("low"), Some("native-summary")]),
+    );
+    assert_eq!(app.codex.settings.deferred, Some(json!({"model":"saved","effort":"low"})));
 }

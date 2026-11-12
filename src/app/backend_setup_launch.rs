@@ -306,3 +306,28 @@ pub(super) fn configure_claude_app(
     app.set_status("Claude starting");
     Ok(())
 }
+
+#[cfg(test)]
+pub(in crate::app) fn configure_new_codex_for_test(
+    app: &mut AppState,
+    client: &dyn BackendClient,
+    response: &str,
+) {
+    let launch = CodexThreadLaunch {
+        thread_id: "startup".into(),
+        runtime_response: response.into(),
+        history_response: response.into(),
+        deferred_history: false,
+    };
+    let preferences = app.session.runtime_settings().startup_preferences().clone();
+    configure_codex_app(
+        app,
+        client,
+        "/tmp",
+        &CliOptions::default(),
+        &launch,
+        &preferences,
+        None,
+    )
+    .expect("configure new Codex thread");
+}
