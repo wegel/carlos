@@ -22,7 +22,7 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 - [x] (2026-11-11 UTC) Milestone 0: `cmake`, `clang` and Bun 1.3.10 installed in the development container. On Rust 1.100.0 with default features: release build passes, `cargo test` passes (705 passed, 1 ignored), `bash scripts/test.sh` passes (165 tests). The binding before-change baseline is the Rust 1.100.0 one under `Artifacts and Notes`.
 - [x] (2026-11-11 UTC) Milestone 1: plain types live in `src/session/models.rs`, styled types in `src/app/view_models.rs`. 35 files, all in the allowed list. Gates: `cargo test` 705 passed, `scripts/test.sh` 165 workflows passed, review verdict PASS (see `Reviews`).
 - [ ] Milestone 2: assign entry ids and replace backend-to-index maps.
-- [ ] Milestone 3: translate Claude live events and history before the backend receiver.
+- [x] (2026-11-12 UTC) Milestone 3: the Claude backend translates native events; the turn-end state machine runs when the app handles a line (`BackendClient::handle_event`, called in `src/app/input_dispatch.rs`). One squashed commit on `main` (`ac02f0a`, 91 files). Seven review rounds; final verdict PASS. Gates: `cargo test` 778 passed in 3.7 s, 168 terminal workflows, no speed loss.
 - [ ] Milestone 4: introduce the two state owners and move transcript and turn facts.
 - [ ] Milestone 5: separate shared settings, prompt history, labels, and usage helpers.
 - [ ] Milestone 6: separate Claude session facts from Claude editors and panels.
@@ -69,6 +69,18 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 
 - Observation: a synchronous test fixture that applies each native frame at once (`normalized_app`) cannot show defects that depend on which thread has seen which event. 729 Rust tests and 165 terminal workflows passed on a branch with three reproducible MAJOR ordering defects.
   Evidence: milestone 3 reviews. When code moves a decision across a thread boundary, require a differential test against the old logic over generated event orders, and real-thread tests with barriers.
+
+- Observation: the parity audit of milestone 3 found more lost rules than four reviews did. The worker listed every guard, default, ignored error and ordering rule of `main`'s Claude handling with its new location, and compared 48,000 mutated native frame streams between `main` and the branch (identical app state, before and after EOF).
+  Evidence: `.agents/reports/exec016-m3-parity.md` (parity table, error split, mutation method). Use the same two tools for every later milestone that moves handling code: milestones 6 to 10 move the remaining Claude and Codex handlers.
+
+- Observation: `protocol::history_transport_tests::unanswered_large_read_ids_stay_bounded_and_do_not_disable_other_controls` (Codex, 20 ms deadline) fails about once in ten full runs, on the unchanged tree and after every milestone. It is not caused by this plan.
+  Evidence: integrator runs of 2026-11-11 and 2026-11-12. Unfinished work: replace its wall-clock deadline with a barrier. Until then, rerun once when only this test fails.
+
+- Observation: the full differential test (1,221,882 schedules) made `cargo test` take 60 s; the pre-commit hook runs `cargo test`. The default test now runs 46,458 schedules in about 1.1 s and the full enumeration is `#[ignore]` (`cargo test -- --ignored`).
+  Evidence: milestone 3 fix rounds. Keep `cargo test` under 8 s in every later milestone.
+
+- Observation: final milestone 3 speed check on `main` (`ac02f0a`), 7 alternated runs, old then new medians: replay 46.73 / 46.49 ms, full layout 14.61 / 14.57, full draw 3.41 / 3.41, scroll p50 0.70 / 0.70, typing p50 0.59 / 0.60.
+  Evidence: integrator runs of 2026-11-12.
 
 ## Decision Log
 
@@ -123,6 +135,11 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
   Review 3 (after fix `f9e6a40`): a reset or a second prompt erases or blocks a held completion; stderr bypasses the overflow stop while a completion is held; the interrupt captures the reader's prompt state, not the app's; failed interrupts after EOF retain tickets. The reviewer also showed that the exhaustive tests modelled one prompt and one interrupt only.
   Outcome: redesign per the Decision Log entry on the Claude turn-end state machine. Full review texts: `/tmp/carlos-survey/m3-review*.md` (not kept in the repository).
 
+  Review 4 (after the redesign `8cd709e`): event-order defects confirmed gone. New: a repeated reset key overwrote a transcript row; a pending call waited behind terminal delivery after helper death; a malformed SDK record that `main` ignored stopped the session; two MINOR.
+  Review 5 (after `7c03e0f`): one MAJOR (stdout EOF set the `stopped` flag, so a later overflow no longer stopped a live helper), one MINOR (two test functions over 60 lines).
+  Review 6 (after `35ebe60`): one MAJOR (client drop joined pipe workers and could wait without limit; caused by an integrator brief that wrongly required "no thread outlives the client"), one MINOR (test fixture and descriptor 100).
+  Review 7 (delta review of `35ebe60..451be41`, saved reviewer session `01a1cd74-5188-7fd3-98fa-142c2da35f18`): PASS, no finding. Noted limit that `main` shares: each session replacement leaves blocked reader threads and pipe descriptors while a grandchild of the helper holds a pipe; they end when the holder exits.
+
 ## Outcomes & Retrospective
 
 
@@ -146,6 +163,14 @@ The phone notes in `tmp/main-screen.md` sections 6 and 11 explain why a client n
 - Decision: the Claude reader thread only translates. The turn-end state machine lives in `src/claude_backend/` but runs on the thread that handles events, at the moment the app handles a line, through one new `BackendClient` method. The interrupt control reads and updates the same state on that thread. This replaces the earlier decision in this log to run the completion tracker in the backend's reader-side normalizer.
   Rationale: on `main`, one thread decides when a Claude turn ends, in the order in which the app handles events. Running that decision in the reader thread created two clocks (read by the reader, handled by the app). Three independent reviews of milestone 3 found 3, 2 and 3 MAJOR event-order defects, and each fix (interrupt tickets, held completions, deferred terminal facts) produced new ones; the third review showed that an interrupt used the reader's state and not the state the user sees. With one clock those defects cannot occur. The daemon keeps the property: its session thread is the handler. Translation and parsing stay off the handling thread.
   Date/Author: 2026-11-11 / Claude, integrator. The owner delegated this choice.
+
+- Decision: repeat reviews continue the saved reviewer session and cover only the change since its last verdict. The first review of a milestone starts a fresh saved session (no `--ephemeral`); the session id goes into `.agents/reviewer_sessions.json`.
+  Rationale: the owner asked for this on 2026-11-12. Six fresh full reviews of milestone 3 each rebuilt the whole context and repeated all earlier probes.
+  Date/Author: 2026-11-12 / owner.
+
+- Decision: dropping a backend client never waits for a thread that can be blocked on a pipe. Teardown stays inside the existing bounded shutdown, as on `main`.
+  Rationale: a join on a pipe worker made quit and session switch wait 4.5 s in review 6 while a grandchild held a pipe. Carlos must never feel slow.
+  Date/Author: 2026-11-12 / Claude, integrator.
 
 ### Entry identity and history rules
 

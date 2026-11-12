@@ -1,10 +1,10 @@
 {
   "engineering_reviewer": {
     "prompt_path": ".agents/reviewers/engineering_reviewer.md",
-    "session_id": "019d6344-9419-7110-a70b-278374e10914",
-    "last_commit_reviewed": "6a7f596",
-    "status": "metadata-only",
-    "last_updated": "2026-04-06T12:26:46-04:00",
-    "notes": "Primary engineering reviews now run through bounded codex exec invocations. Retain this session id only for narrow follow-up context if needed."
+    "session_id": "01a1cd74-5188-7fd3-98fa-142c2da35f18",
+    "last_commit_reviewed": "451be41 (branch exec016-m3; squashed on main as ac02f0a)",
+    "status": "resumable",
+    "last_updated": "2026-11-12",
+    "notes": "ExecPlan 016. Continue this session for delta reviews: `codex exec resume <session_id> -` from the repository root with model gpt-6.1-sol, high effort. Tell it what changed since its last verdict. Start a fresh saved session for the first review of a new milestone and replace this id."
   }
 }
