@@ -1,72 +1,18 @@
-//! Keep tool contents intact and attach labels and failures for the screen.
+//! Read tool output and invalidate the corresponding cached rows after a session edit.
 
 use std::borrow::Cow;
 
 use serde_json::Value;
 
-use super::models::{MessageKind, Role, ToolOutputDetails};
+use super::models::Role;
 use super::state::AppState;
-use super::tools::{command_execution_diff_output, first_i64_at_paths, strip_terminal_controls};
 
 impl AppState {
-    /// Attach a short label without replacing the tool's original output.
     pub(super) fn describe_tool_output(&mut self, idx: usize, item: &Value) {
-        let Some(message) = self.session.messages().get(idx) else {
-            return;
-        };
-        let generated = item["id"].as_str().and_then(|id| {
-            self.session
-                .messages()
-                .entry_id_for_item(&self.item_key(id))
-                .and_then(|id| self.summaries.label(id))
-        });
-        let is_generated = generated.is_some() && message.kind != MessageKind::Diff;
-        let summary = generated
-            .or_else(|| self.tool_command_summary(item))
-            .or_else(|| self.format_tool_item(item, Role::ToolCall))
-            .unwrap_or_else(|| "Tool output".to_string());
-        let summary = if message.kind == MessageKind::Diff {
-            super::tool_output_state::diff_summary(message)
-        } else {
-            summary
-        };
-        let summary = strip_terminal_controls(&summary)
-            .lines()
-            .next()
-            .unwrap_or("Tool output")
-            .chars()
-            .collect();
-        let details = ToolOutputDetails {
-            generated: is_generated,
-            summary,
-            failed: tool_failed(item),
-        };
-        self.session.transcript_set_tool(idx, details);
-        self.mark_transcript_dirty_from(idx);
+        let key = item["id"].as_str().map(|id| self.item_key(id));
+        let update = self.session.describe_tool_output(idx, item, key.as_ref());
+        self.apply_session_update(update);
     }
-}
-
-fn tool_failed(item: &Value) -> bool {
-    let exit = first_i64_at_paths(
-        item,
-        &[
-            &["exitCode"],
-            &["exit_code"],
-            &["metadata", "exitCode"],
-            &["metadata", "exit_code"],
-            &["state", "exitCode"],
-        ],
-    )
-    .unwrap_or(0);
-    let diff_exit = exit == 1 && command_execution_diff_output(item).is_some();
-    (exit != 0 && !diff_exit)
-        || ["isError", "is_error"]
-            .iter()
-            .any(|key| item.get(key).and_then(Value::as_bool) == Some(true))
-        || item
-            .get("status")
-            .and_then(Value::as_str)
-            .is_some_and(|status| matches!(status, "failed" | "declined"))
 }
 
 /// A final command item may carry status without repeating earlier output deltas.

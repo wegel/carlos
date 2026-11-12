@@ -4,9 +4,10 @@ use std::collections::HashSet;
 
 use serde_json::Value;
 
-use super::DiffBlock;
+use super::models::DiffBlock;
 
-pub(super) fn is_probably_diff_text(text: &str) -> bool {
+/// Recognize the existing plain diff headers.
+pub(crate) fn is_probably_diff_text(text: &str) -> bool {
     let t = text.trim();
     t.starts_with("diff --git ")
         || t.starts_with("@@ ")
@@ -14,7 +15,8 @@ pub(super) fn is_probably_diff_text(text: &str) -> bool {
         || (t.contains('\n') && t.contains("\n+++ ") && t.contains("\n--- "))
 }
 
-pub(super) fn infer_file_path_from_object(obj: &serde_json::Map<String, Value>) -> Option<String> {
+/// Read a diff path from the supported native fields.
+pub(crate) fn infer_file_path_from_object(obj: &serde_json::Map<String, Value>) -> Option<String> {
     for key in ["filePath", "path", "file", "filename"] {
         if let Some(v) = obj.get(key).and_then(Value::as_str) {
             if !v.is_empty() {
@@ -25,7 +27,8 @@ pub(super) fn infer_file_path_from_object(obj: &serde_json::Map<String, Value>) 
     None
 }
 
-pub(super) fn collect_diff_blocks_recursive(
+/// Collect native diff blocks while keeping the first occurrence of each block.
+pub(crate) fn collect_diff_blocks_recursive(
     value: &Value,
     current_file_path: Option<&str>,
     seen: &mut HashSet<String>,
@@ -61,14 +64,16 @@ pub(super) fn collect_diff_blocks_recursive(
     }
 }
 
-pub(super) fn extract_diff_blocks(item: &Value) -> Vec<DiffBlock> {
+/// Collect the diff blocks carried by one native item.
+pub(crate) fn extract_diff_blocks(item: &Value) -> Vec<DiffBlock> {
     let mut out = Vec::new();
     let mut seen = HashSet::new();
     collect_diff_blocks_recursive(item, None, &mut seen, &mut out);
     out
 }
 
-pub(super) fn command_execution_diff_output(item: &Value) -> Option<String> {
+/// Read diff output only when the command and result prove it is a diff.
+pub(crate) fn command_execution_diff_output(item: &Value) -> Option<String> {
     if item.get("type").and_then(Value::as_str) != Some("commandExecution") {
         return None;
     }

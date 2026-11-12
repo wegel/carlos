@@ -11,20 +11,20 @@ use super::tools::{command_summary_from_shell_cmd, tool_command};
 use crate::summaries::{command_key, eligibility, presentation_key, CommandLocation, Key};
 
 /// Keep model text, cache identity and read context together for one observed item.
-pub(super) struct SummaryInput {
-    pub(super) key: Key,
-    pub(super) command: String,
-    pub(super) location: CommandLocation,
-    pub(super) file_based: bool,
+pub(crate) struct SummaryInput {
+    pub(crate) key: Key,
+    pub(crate) command: String,
+    pub(crate) location: CommandLocation,
+    pub(crate) file_based: bool,
 }
 
 /// Missing final status fields do not erase a command that was supplied earlier.
-pub(super) fn has_command(item: &Value) -> bool {
+pub(crate) fn has_command(item: &Value) -> bool {
     raw_command(item).is_some_and(|command| !command.is_empty())
 }
 
 /// Normalize before classification and eligibility so a long cd cannot turn a trivial read into an AI job.
-pub(super) fn summary_input(item: &Value, workspace: &Path) -> Option<SummaryInput> {
+pub(crate) fn summary_input(item: &Value, workspace: &Path) -> Option<SummaryInput> {
     let raw = raw_command(item)?;
     let (key, command, location) = if let Some(view) = ToolCommandView::from_item(item, workspace) {
         if !view.can_classify() {

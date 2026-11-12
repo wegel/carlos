@@ -2,13 +2,13 @@
 
 use serde_json::Value;
 
-use crate::app::shell_command::analyze_shell_command;
-use crate::app::shell_words::{next_word, program_name};
-use crate::app::tool_shell::{parse_ssh_remote_command, ParsedSshCommand};
-use crate::app::tools::{tool_command, tool_description, tool_output_text, tool_reasoning};
+use crate::session::shell_command::analyze_shell_command;
+use crate::session::shell_words::{next_word, program_name};
+use crate::session::tool_shell::{parse_ssh_remote_command, ParsedSshCommand};
+use crate::session::tools::{tool_command, tool_description, tool_output_text, tool_reasoning};
 
 /// Format one call with a compact first-line label and an intact command body.
-pub(super) fn format_command_call(item: &Value, cmd: &str) -> String {
+pub(crate) fn format_command_call(item: &Value, cmd: &str) -> String {
     let mut lines = Vec::new();
     if let Some(ssh) = ssh_command(item, cmd) {
         lines.push(format!(
@@ -41,7 +41,7 @@ fn push_reasoning_and_description(lines: &mut Vec<String>, item: &Value) {
 }
 
 /// Keep command output separate from its visible directory metadata.
-pub(super) fn format_command_output(item: &Value) -> Option<String> {
+pub(crate) fn format_command_output(item: &Value) -> Option<String> {
     let cmd = tool_command(item);
     let output = tool_output_text(item);
     let text = match (cmd, output) {

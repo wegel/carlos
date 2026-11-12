@@ -19,6 +19,7 @@ use super::viewport_state::ViewportState;
 use crate::session::entry_id::EntryId;
 
 pub(super) struct ViewState {
+    pub(super) summary_enabled_draft: bool,
     pub(super) input_history: InputHistoryView,
     pub(super) runtime_settings: RuntimeSettingsView,
     pub(super) render_cache: RenderCacheState,
@@ -38,8 +39,9 @@ pub(super) struct ViewState {
 }
 
 impl ViewState {
-    pub(super) fn new() -> Self {
+    pub(super) fn new(summary_enabled_draft: bool) -> Self {
         Self {
+            summary_enabled_draft,
             input_history: InputHistoryView::default(),
             runtime_settings: RuntimeSettingsView::new(),
             render_cache: RenderCacheState::new(),

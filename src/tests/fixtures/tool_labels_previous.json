@@ -1,0 +1,1437 @@
+[
+  {
+    "analyze": [
+      "",
+      false,
+      false
+    ],
+    "display": "",
+    "input": "",
+    "normalize": "",
+    "operators": false,
+    "pipe": null,
+    "read_paths": null,
+    "source": null,
+    "ssh": null,
+    "summary": null,
+    "word": null
+  },
+  {
+    "analyze": [
+      "cat a.rs",
+      false,
+      false
+    ],
+    "display": "cat a.rs",
+    "input": "cat a.rs",
+    "normalize": "cat a.rs",
+    "operators": false,
+    "pipe": null,
+    "read_paths": [
+      "a.rs"
+    ],
+    "source": "a.rs",
+    "ssh": null,
+    "summary": "→ Read a.rs",
+    "word": [
+      "cat",
+      "a.rs"
+    ]
+  },
+  {
+    "analyze": [
+      "read a.rs",
+      true,
+      true
+    ],
+    "display": "rtk read a.rs",
+    "input": "rtk read a.rs",
+    "normalize": "read a.rs",
+    "operators": false,
+    "pipe": null,
+    "read_paths": [
+      "a.rs"
+    ],
+    "source": "a.rs",
+    "ssh": null,
+    "summary": "→ Read a.rs",
+    "word": [
+      "rtk",
+      "read a.rs"
+    ]
+  },
+  {
+    "analyze": [
+      "cat a.rs",
+      false,
+      true
+    ],
+    "display": "rtk proxy cat a.rs",
+    "input": "rtk proxy cat a.rs",
+    "normalize": "cat a.rs",
+    "operators": false,
+    "pipe": null,
+    "read_paths": [
+      "a.rs"
+    ],
+    "source": "a.rs",
+    "ssh": null,
+    "summary": "→ Read a.rs",
+    "word": [
+      "rtk",
+      "proxy cat a.rs"
+    ]
+  },
+  {
+    "analyze": [
+      "cat a.rs",
+      false,
+      false
+    ],
+    "display": "env A=1 bash -lc 'cat a.rs'",
+    "input": "env A=1 bash -lc 'cat a.rs'",
+    "normalize": "cat a.rs",
+    "operators": false,
+    "pipe": null,
+    "read_paths": [
+      "a.rs"
+    ],
+    "source": "a.rs",
+    "ssh": null,
+    "summary": "→ Read a.rs",
+    "word": [
+      "env",
+      "A=1 bash -lc 'cat a.rs'"
+    ]
+  },
+  {
+    "analyze": [
+      "cat a.rs",
+      false,
+      true
+    ],
+    "display": "rtk run -- cat a.rs",
+    "input": "rtk run -- cat a.rs",
+    "normalize": "cat a.rs",
+    "operators": false,
+    "pipe": null,
+    "read_paths": [
+      "a.rs"
+    ],
+    "source": "a.rs",
+    "ssh": null,
+    "summary": "→ Read a.rs",
+    "word": [
+      "rtk",
+      "run -- cat a.rs"
+    ]
+  },
+  {
+    "analyze": [
+      "echo x",
+      false,
+      false
+    ],
+    "display": "echo x",
+    "input": "bash -lc 'echo x'",
+    "normalize": "echo x",
+    "operators": false,
+    "pipe": null,
+    "read_paths": null,
+    "source": null,
+    "ssh": null,
+    "summary": null,
+    "word": [
+      "bash",
+      "-lc 'echo x'"
+    ]
+  },
+  {
+    "analyze": [
+      "cat a.rs | head -3",
+      false,
+      false
+    ],
+    "display": "cat a.rs | head -3",
+    "input": "cat a.rs | head -3",
+    "normalize": "cat a.rs | head -3",
+    "operators": true,
+    "pipe": [
+      "cat a.rs",
+      "head -3"
+    ],
+    "read_paths": null,
+    "source": null,
+    "ssh": null,
+    "summary": null,
+    "word": [
+      "cat",
+      "a.rs | head -3"
+    ]
+  },
+  {
+    "analyze": [
+      "cat a.rs && cat b.rs",
+      false,
+      false
+    ],
+    "display": "cat a.rs && cat b.rs",
+    "input": "cat a.rs && cat b.rs",
+    "normalize": "cat a.rs && cat b.rs",
+    "operators": true,
+    "pipe": null,
+    "read_paths": null,
+    "source": null,
+    "ssh": null,
+    "summary": null,
+    "word": [
+      "cat",
+      "a.rs && cat b.rs"
+    ]
+  },
+  {
+    "analyze": [
+      "cat 'a b.rs'",
+      false,
+      false
+    ],
+    "display": "cat 'a b.rs'",
+    "input": "cat 'a b.rs'",
+    "normalize": "cat 'a b.rs'",
+    "operators": false,
+    "pipe": null,
+    "read_paths": [
+      "a b.rs"
+    ],
+    "source": "a b.rs",
+    "ssh": null,
+    "summary": "→ Read a b.rs",
+    "word": [
+      "cat",
+      "'a b.rs'"
+    ]
+  },
+  {
+    "analyze": [
+      "sed -n '2,5p' a.rs",
+      false,
+      false
+    ],
+    "display": "sed -n '2,5p' a.rs",
+    "input": "sed -n '2,5p' a.rs",
+    "normalize": "sed -n '2,5p' a.rs",
+    "operators": false,
+    "pipe": null,
+    "read_paths": [
+      "a.rs"
+    ],
+    "source": "a.rs",
+    "ssh": null,
+    "summary": "✱ Search a.rs [lines=2..5]",
+    "word": [
+      "sed",
+      "-n '2,5p' a.rs"
+    ]
+  },
+  {
+    "analyze": [
+      "ssh -p 22 user@host 'cat a.rs'",
+      false,
+      false
+    ],
+    "display": "ssh -p 22 user@host 'cat a.rs'",
+    "input": "ssh -p 22 user@host 'cat a.rs'",
+    "normalize": "ssh -p 22 user@host 'cat a.rs'",
+    "operators": false,
+    "pipe": null,
+    "read_paths": null,
+    "source": null,
+    "ssh": [
+      "user@host",
+      "cat a.rs"
+    ],
+    "summary": null,
+    "word": [
+      "ssh",
+      "-p 22 user@host 'cat a.rs'"
+    ]
+  },
+  {
+    "analyze": [
+      "unterminated '",
+      false,
+      false
+    ],
+    "display": "unterminated '",
+    "input": "unterminated '",
+    "normalize": "unterminated '",
+    "operators": true,
+    "pipe": null,
+    "read_paths": null,
+    "source": null,
+    "ssh": null,
+    "summary": null,
+    "word": [
+      "unterminated",
+      "'"
+    ]
+  },
+  {
+    "directory": [
+      "/repo",
+      "cat a.rs"
+    ],
+    "input": "cd /repo && cat a.rs",
+    "literal": null
+  },
+  {
+    "directory": [
+      "./a b",
+      "python3 process.py"
+    ],
+    "input": "cd './a b' && python3 process.py",
+    "literal": null
+  },
+  {
+    "directory": [
+      "-dash",
+      "true"
+    ],
+    "input": "cd -- -dash && true",
+    "literal": null
+  },
+  {
+    "directory": null,
+    "input": "cd $HOME && cat a",
+    "literal": null
+  },
+  {
+    "directory": [
+      "../a",
+      "true"
+    ],
+    "input": "cd ../a && true",
+    "literal": null
+  },
+  {
+    "directory": null,
+    "input": "cd /a; true",
+    "literal": null
+  },
+  {
+    "directory": null,
+    "input": "bash -lc 'cd /a && true'",
+    "literal": "cd /a && true"
+  },
+  {
+    "directory": null,
+    "input": "bash -lc '$HOME'",
+    "literal": "$HOME"
+  },
+  {
+    "directory": null,
+    "input": "cd /a &&",
+    "literal": null
+  },
+  {
+    "directory": [
+      "/a",
+      "cat a.rs"
+    ],
+    "input": "cd /a &&\ncat a.rs",
+    "literal": null
+  },
+  {
+    "input": [
+      "rg",
+      "-n",
+      "needle",
+      "src"
+    ],
+    "search": [
+      "needle",
+      [
+        "src"
+      ]
+    ]
+  },
+  {
+    "input": [
+      "grep",
+      "-E",
+      "pat",
+      "a"
+    ],
+    "search": [
+      "pat",
+      [
+        "a"
+      ]
+    ]
+  },
+  {
+    "input": [
+      "rg",
+      "-e",
+      "pat",
+      "--",
+      "-file"
+    ],
+    "search": [
+      "pat",
+      [
+        "-file"
+      ]
+    ]
+  },
+  {
+    "input": [
+      "rg",
+      "-f",
+      "patterns",
+      "src"
+    ],
+    "search": [
+      null,
+      [
+        "src"
+      ]
+    ]
+  },
+  {
+    "input": [
+      "rg",
+      "--regexp=pat",
+      "a"
+    ],
+    "search": [
+      "pat",
+      [
+        "a"
+      ]
+    ]
+  },
+  {
+    "input": [
+      "rg",
+      "-e"
+    ],
+    "search": null
+  },
+  {
+    "input": [],
+    "search": null
+  },
+  {
+    "assignment": false,
+    "input": "",
+    "path": "",
+    "program": "",
+    "unquote": ""
+  },
+  {
+    "assignment": true,
+    "input": "A=1",
+    "path": "A=1",
+    "program": "A=1",
+    "unquote": "A=1"
+  },
+  {
+    "assignment": true,
+    "input": "_A=",
+    "path": "_A=",
+    "program": "_A=",
+    "unquote": "_A="
+  },
+  {
+    "assignment": false,
+    "input": "1A=x",
+    "path": "1A=x",
+    "program": "1A=x",
+    "unquote": "1A=x"
+  },
+  {
+    "assignment": false,
+    "input": "A-B=x",
+    "path": "A-B=x",
+    "program": "A-B=x",
+    "unquote": "A-B=x"
+  },
+  {
+    "assignment": false,
+    "input": "abc",
+    "path": "abc",
+    "program": "abc",
+    "unquote": "abc"
+  },
+  {
+    "assignment": false,
+    "input": "/bin/cat",
+    "path": "/bin/cat",
+    "program": "cat",
+    "unquote": "/bin/cat"
+  },
+  {
+    "assignment": false,
+    "input": "a/",
+    "path": "a/",
+    "program": "",
+    "unquote": "a/"
+  },
+  {
+    "assignment": false,
+    "input": "'quoted'",
+    "path": "'quoted'",
+    "program": "'quoted'",
+    "unquote": "quoted"
+  },
+  {
+    "assignment": false,
+    "input": "\"quoted\"",
+    "path": "\"quoted\"",
+    "program": "\"quoted\"",
+    "unquote": "quoted"
+  },
+  {
+    "input": "1,20p",
+    "plain": "1,20p",
+    "range": true,
+    "sgr": "1,20p"
+  },
+  {
+    "input": "p",
+    "plain": "p",
+    "range": false,
+    "sgr": "p"
+  },
+  {
+    "input": "20p",
+    "plain": "20p",
+    "range": true,
+    "sgr": "20p"
+  },
+  {
+    "input": "1,$p",
+    "plain": "1,$p",
+    "range": true,
+    "sgr": "1,$p"
+  },
+  {
+    "input": "1,20d",
+    "plain": "1,20d",
+    "range": false,
+    "sgr": "1,20d"
+  },
+  {
+    "input": "1,20p;3p",
+    "plain": "1,20p;3p",
+    "range": false,
+    "sgr": "1,20p;3p"
+  },
+  {
+    "input": "plain\r\ntext",
+    "plain": "plain\r\ntext",
+    "range": false,
+    "sgr": "plain\r\ntext"
+  },
+  {
+    "input": "\u001b[31mred\u001b[0m\u001b[2J",
+    "plain": "red",
+    "range": false,
+    "sgr": "\u001b[31mred\u001b[0m"
+  },
+  {
+    "input": "\u001b]0;title\u0007ok",
+    "plain": "ok",
+    "range": false,
+    "sgr": "ok"
+  },
+  {
+    "input": "31mred0m",
+    "plain": "red",
+    "range": false,
+    "sgr": "\u001b[31mred\u001b[0m"
+  },
+  {
+    "input": "nul\u0000tab\ttext",
+    "plain": "nultab\ttext",
+    "range": false,
+    "sgr": "nultab\ttext"
+  },
+  {
+    "action": null,
+    "call": null,
+    "command": null,
+    "command_diff": null,
+    "description": null,
+    "diffs": [],
+    "has_command": false,
+    "inline_call": "→ Read",
+    "input": null,
+    "input_object": null,
+    "input_summary": null,
+    "integer": null,
+    "name": null,
+    "output": null,
+    "parsed": null,
+    "parts": null,
+    "path": null,
+    "raw_call": null,
+    "raw_output": null,
+    "reason": null,
+    "result": null,
+    "source": null,
+    "string": null,
+    "summary": null,
+    "text": null,
+    "view": null
+  },
+  {
+    "action": null,
+    "call": null,
+    "command": null,
+    "command_diff": null,
+    "description": null,
+    "diffs": [],
+    "has_command": false,
+    "inline_call": "→ Read",
+    "input": {},
+    "input_object": null,
+    "input_summary": null,
+    "integer": null,
+    "name": null,
+    "output": null,
+    "parsed": null,
+    "parts": null,
+    "path": null,
+    "raw_call": null,
+    "raw_output": null,
+    "reason": null,
+    "result": null,
+    "source": null,
+    "string": null,
+    "summary": null,
+    "text": null,
+    "view": null
+  },
+  {
+    "action": null,
+    "call": "run cat a.rs\n$ cat a.rs",
+    "command": "cat a.rs",
+    "command_diff": null,
+    "description": null,
+    "diffs": [],
+    "has_command": true,
+    "inline_call": "→ Read",
+    "input": {
+      "command": [
+        "bash",
+        "-lc",
+        "cat a.rs"
+      ],
+      "exitCode": 0,
+      "output": "body",
+      "type": "commandExecution"
+    },
+    "input_object": null,
+    "input_summary": null,
+    "integer": 0,
+    "name": null,
+    "output": "body\nexit code: 0",
+    "parsed": null,
+    "parts": null,
+    "path": null,
+    "raw_call": null,
+    "raw_output": null,
+    "reason": null,
+    "result": "$ cat a.rs\nbody\nexit code: 0",
+    "source": "a.rs",
+    "string": null,
+    "summary": null,
+    "text": null,
+    "view": null
+  },
+  {
+    "action": null,
+    "call": "run echo 'a b'\n$ echo 'a b'",
+    "command": "echo 'a b'",
+    "command_diff": null,
+    "description": null,
+    "diffs": [],
+    "has_command": true,
+    "inline_call": "→ Read",
+    "input": {
+      "command": [
+        "echo",
+        "a b"
+      ],
+      "exit_code": 2,
+      "type": "commandExecution"
+    },
+    "input_object": null,
+    "input_summary": null,
+    "integer": 2,
+    "name": null,
+    "output": "exit code: 2",
+    "parsed": null,
+    "parts": null,
+    "path": null,
+    "raw_call": null,
+    "raw_output": null,
+    "reason": null,
+    "result": "$ echo 'a b'\nexit code: 2",
+    "source": null,
+    "string": null,
+    "summary": null,
+    "text": null,
+    "view": null
+  },
+  {
+    "action": null,
+    "call": "run cd /repo/scripts && python3 process.py\n$ cd /repo/scripts && python3 process.py",
+    "command": "cd /repo/scripts && python3 process.py",
+    "command_diff": null,
+    "description": null,
+    "diffs": [],
+    "has_command": true,
+    "inline_call": "→ Read",
+    "input": {
+      "aggregatedOutput": "x",
+      "command": "cd /repo/scripts && python3 process.py",
+      "cwd": "/repo",
+      "type": "commandExecution"
+    },
+    "input_object": null,
+    "input_summary": null,
+    "integer": null,
+    "name": null,
+    "output": "x",
+    "parsed": null,
+    "parts": null,
+    "path": null,
+    "raw_call": null,
+    "raw_output": null,
+    "reason": null,
+    "result": "$ cd /repo/scripts && python3 process.py\nx",
+    "source": null,
+    "string": null,
+    "summary": [
+      [
+        42,
+        125,
+        88,
+        125,
+        86,
+        135,
+        61,
+        253,
+        65,
+        146,
+        141,
+        231,
+        131,
+        62,
+        220,
+        6,
+        15,
+        206,
+        153,
+        177,
+        24,
+        126,
+        26,
+        231,
+        200,
+        62,
+        172,
+        153,
+        101,
+        74,
+        224,
+        132
+      ],
+      "python3 process.py",
+      "/repo/scripts",
+      "/repo",
+      "scripts",
+      true
+    ],
+    "text": null,
+    "view": [
+      true,
+      "→ Read a.rs (in scripts)",
+      "python3 process.py",
+      "/repo/scripts",
+      "/repo",
+      "scripts"
+    ]
+  },
+  {
+    "action": null,
+    "call": "→ Read a.rs [limit=4 offset=2]",
+    "command": null,
+    "command_diff": null,
+    "description": null,
+    "diffs": [],
+    "has_command": false,
+    "inline_call": "→ Read a.rs [limit=4 offset=2]",
+    "input": {
+      "input": {
+        "file_path": "a.rs",
+        "limit": 4,
+        "offset": 2
+      },
+      "tool": "Read",
+      "type": "toolCall"
+    },
+    "input_object": {
+      "file_path": "a.rs",
+      "limit": 4,
+      "offset": 2
+    },
+    "input_summary": "{\"file_path\":\"a.rs\",\"limit\":4,\"offset\":2}",
+    "integer": null,
+    "name": "Read",
+    "output": null,
+    "parsed": null,
+    "parts": null,
+    "path": null,
+    "raw_call": null,
+    "raw_output": null,
+    "reason": null,
+    "result": null,
+    "source": "a.rs",
+    "string": "a.rs",
+    "summary": null,
+    "text": null,
+    "view": null
+  },
+  {
+    "action": null,
+    "call": "→ Read",
+    "command": null,
+    "command_diff": null,
+    "description": null,
+    "diffs": [],
+    "has_command": false,
+    "inline_call": "→ Read",
+    "input": {
+      "isError": true,
+      "path": "a.rs",
+      "tool": "Read",
+      "type": "toolCall"
+    },
+    "input_object": null,
+    "input_summary": null,
+    "integer": null,
+    "name": "Read",
+    "output": null,
+    "parsed": null,
+    "parts": null,
+    "path": null,
+    "raw_call": null,
+    "raw_output": null,
+    "reason": null,
+    "result": null,
+    "source": null,
+    "string": "a.rs",
+    "summary": null,
+    "text": null,
+    "view": null
+  },
+  {
+    "action": null,
+    "call": "run cat a.rs\n$ cat a.rs",
+    "command": "cat a.rs",
+    "command_diff": null,
+    "description": null,
+    "diffs": [],
+    "has_command": true,
+    "inline_call": "→ Read",
+    "input": {
+      "command": "cat a.rs",
+      "stderr": "warning",
+      "type": "commandExecution"
+    },
+    "input_object": null,
+    "input_summary": null,
+    "integer": null,
+    "name": null,
+    "output": "warning",
+    "parsed": null,
+    "parts": null,
+    "path": null,
+    "raw_call": null,
+    "raw_output": null,
+    "reason": null,
+    "result": "$ cat a.rs\nwarning",
+    "source": null,
+    "string": null,
+    "summary": null,
+    "text": null,
+    "view": null
+  },
+  {
+    "action": null,
+    "call": "run cat a.rs\n$ cat a.rs",
+    "command": "cat a.rs",
+    "command_diff": null,
+    "description": null,
+    "diffs": [],
+    "has_command": true,
+    "inline_call": "→ Read",
+    "input": {
+      "command": "cat a.rs",
+      "commandActions": [
+        {
+          "path": "b.rs",
+          "type": "read"
+        }
+      ],
+      "type": "commandExecution"
+    },
+    "input_object": null,
+    "input_summary": null,
+    "integer": null,
+    "name": null,
+    "output": null,
+    "parsed": null,
+    "parts": null,
+    "path": null,
+    "raw_call": null,
+    "raw_output": null,
+    "reason": null,
+    "result": "$ cat a.rs",
+    "source": "b.rs",
+    "string": null,
+    "summary": null,
+    "text": null,
+    "view": null
+  },
+  {
+    "action": null,
+    "call": "run cat a.rs\n$ cat a.rs",
+    "command": "cat a.rs",
+    "command_diff": null,
+    "description": null,
+    "diffs": [],
+    "has_command": true,
+    "inline_call": "→ Read",
+    "input": {
+      "command": "cat a.rs",
+      "commandActions": [
+        {
+          "path": "b.rs",
+          "type": "read"
+        },
+        {
+          "path": "c.rs",
+          "type": "read"
+        }
+      ],
+      "type": "commandExecution"
+    },
+    "input_object": null,
+    "input_summary": null,
+    "integer": null,
+    "name": null,
+    "output": null,
+    "parsed": null,
+    "parts": null,
+    "path": null,
+    "raw_call": null,
+    "raw_output": null,
+    "reason": null,
+    "result": "$ cat a.rs",
+    "source": null,
+    "string": null,
+    "summary": null,
+    "text": null,
+    "view": null
+  },
+  {
+    "action": null,
+    "call": "✱ Search src [pattern=needle]",
+    "command": null,
+    "command_diff": null,
+    "description": "find symbols",
+    "diffs": [],
+    "has_command": false,
+    "inline_call": "→ Read src [pattern=needle]",
+    "input": {
+      "description": "find symbols",
+      "input": {
+        "path": "src",
+        "pattern": "needle"
+      },
+      "reasoning": "look here",
+      "tool": "Search",
+      "type": "toolCall"
+    },
+    "input_object": {
+      "path": "src",
+      "pattern": "needle"
+    },
+    "input_summary": "path=src pattern=needle",
+    "integer": null,
+    "name": "Search",
+    "output": null,
+    "parsed": null,
+    "parts": null,
+    "path": "src",
+    "raw_call": null,
+    "raw_output": null,
+    "reason": "look here",
+    "result": null,
+    "source": null,
+    "string": null,
+    "summary": null,
+    "text": null,
+    "view": null
+  },
+  {
+    "action": null,
+    "call": null,
+    "command": null,
+    "command_diff": null,
+    "description": null,
+    "diffs": [
+      [
+        "a.rs",
+        "--- a/a.rs\n+++ b/a.rs\n@@ -1 +1 @@\n-old\n+new\n"
+      ]
+    ],
+    "has_command": false,
+    "inline_call": "→ Read",
+    "input": {
+      "diff": "--- a/a.rs\n+++ b/a.rs\n@@ -1 +1 @@\n-old\n+new\n",
+      "filePath": "a.rs",
+      "type": "toolOutput"
+    },
+    "input_object": null,
+    "input_summary": null,
+    "integer": null,
+    "name": null,
+    "output": null,
+    "parsed": null,
+    "parts": null,
+    "path": null,
+    "raw_call": null,
+    "raw_output": null,
+    "reason": null,
+    "result": null,
+    "source": null,
+    "string": null,
+    "summary": null,
+    "text": null,
+    "view": null
+  },
+  {
+    "action": null,
+    "call": "◇ Exec Command",
+    "command": null,
+    "command_diff": null,
+    "description": null,
+    "diffs": [],
+    "has_command": false,
+    "inline_call": "→ Read",
+    "input": {
+      "arguments": "{\"cmd\":\"printf ok\"}",
+      "call_id": "x",
+      "name": "exec_command",
+      "type": "function_call"
+    },
+    "input_object": null,
+    "input_summary": null,
+    "integer": null,
+    "name": "exec_command",
+    "output": null,
+    "parsed": null,
+    "parts": null,
+    "path": null,
+    "raw_call": [
+      "x",
+      {
+        "command": "printf ok",
+        "commandActions": [
+          {
+            "command": "printf ok",
+            "type": "unknown"
+          }
+        ],
+        "input": {
+          "cmd": "printf ok"
+        },
+        "name": "exec_command",
+        "tool": "exec_command",
+        "type": "commandExecution"
+      }
+    ],
+    "raw_output": null,
+    "reason": null,
+    "result": null,
+    "source": null,
+    "string": null,
+    "summary": null,
+    "text": null,
+    "view": null
+  },
+  {
+    "action": null,
+    "call": null,
+    "command": null,
+    "command_diff": null,
+    "description": null,
+    "diffs": [],
+    "has_command": false,
+    "inline_call": "→ Read",
+    "input": {
+      "call_id": "x",
+      "output": "@@ -1 +1 @@\n-a\n+b",
+      "type": "function_call_output"
+    },
+    "input_object": null,
+    "input_summary": null,
+    "integer": null,
+    "name": null,
+    "output": "@@ -1 +1 @@\n-a\n+b",
+    "parsed": null,
+    "parts": null,
+    "path": null,
+    "raw_call": null,
+    "raw_output": [
+      "x",
+      {
+        "diff": "@@ -1 +1 @@\n-a\n+b",
+        "output": "@@ -1 +1 @@\n-a\n+b",
+        "type": "toolOutput"
+      }
+    ],
+    "reason": null,
+    "result": "@@ -1 +1 @@\n-a\n+b",
+    "source": null,
+    "string": null,
+    "summary": null,
+    "text": null,
+    "view": null
+  },
+  {
+    "action": null,
+    "call": null,
+    "command": null,
+    "command_diff": null,
+    "description": null,
+    "diffs": [],
+    "has_command": false,
+    "inline_call": "→ Read",
+    "input": {
+      "content": [
+        {
+          "text": "one",
+          "type": "text"
+        },
+        {
+          "text": "skip",
+          "type": "image"
+        },
+        {
+          "text": "two",
+          "type": "output_text"
+        }
+      ]
+    },
+    "input_object": null,
+    "input_summary": null,
+    "integer": null,
+    "name": null,
+    "output": null,
+    "parsed": null,
+    "parts": [
+      "one",
+      "two"
+    ],
+    "path": null,
+    "raw_call": null,
+    "raw_output": null,
+    "reason": null,
+    "result": null,
+    "source": null,
+    "string": null,
+    "summary": null,
+    "text": "one\ntwo",
+    "view": null
+  },
+  {
+    "arguments": null,
+    "brackets": null,
+    "compact": "null",
+    "diff_path": null,
+    "inline": null,
+    "input": null
+  },
+  {
+    "arguments": null,
+    "brackets": null,
+    "compact": "\"\"",
+    "diff_path": null,
+    "inline": null,
+    "input": ""
+  },
+  {
+    "arguments": "bad json",
+    "brackets": null,
+    "compact": "\"bad json\"",
+    "diff_path": null,
+    "inline": "bad json",
+    "input": "bad json"
+  },
+  {
+    "arguments": {
+      "x": 1
+    },
+    "brackets": null,
+    "compact": "\"{\\\"x\\\":1}\"",
+    "diff_path": null,
+    "inline": "{\"x\":1}",
+    "input": "{\"x\":1}"
+  },
+  {
+    "arguments": {
+      "bool": false,
+      "empty": "",
+      "x": 1
+    },
+    "brackets": "[bool=false x=1]",
+    "compact": "{\"bool\":fal…",
+    "diff_path": null,
+    "inline": "{\"bool\":false,\"empty\":\"\",\"x\":1}",
+    "input": {
+      "bool": false,
+      "empty": "",
+      "x": 1
+    }
+  },
+  {
+    "arguments": [
+      1,
+      2,
+      3
+    ],
+    "brackets": null,
+    "compact": "[1,2,3]",
+    "diff_path": null,
+    "inline": "[1,2,3]",
+    "input": [
+      1,
+      2,
+      3
+    ]
+  },
+  {
+    "arguments": 7,
+    "brackets": null,
+    "compact": "7",
+    "diff_path": null,
+    "inline": "7",
+    "input": 7
+  },
+  {
+    "call": false,
+    "icon": "◇",
+    "input": "commandExecution",
+    "output": false,
+    "role": "ToolCall",
+    "title": "CommandExecution"
+  },
+  {
+    "call": true,
+    "icon": "◇",
+    "input": "toolCall",
+    "output": false,
+    "role": "ToolCall",
+    "title": "ToolCall"
+  },
+  {
+    "call": true,
+    "icon": "◇",
+    "input": "tool_call",
+    "output": false,
+    "role": "ToolCall",
+    "title": "Tool Call"
+  },
+  {
+    "call": true,
+    "icon": "◇",
+    "input": "mcpToolCall",
+    "output": false,
+    "role": "ToolCall",
+    "title": "McpToolCall"
+  },
+  {
+    "call": false,
+    "icon": "◇",
+    "input": "functionCallOutput",
+    "output": true,
+    "role": "ToolOutput",
+    "title": "FunctionCallOutput"
+  },
+  {
+    "call": false,
+    "icon": "◇",
+    "input": "toolOutput",
+    "output": true,
+    "role": "ToolOutput",
+    "title": "ToolOutput"
+  },
+  {
+    "call": false,
+    "icon": "◇",
+    "input": "tool_result",
+    "output": true,
+    "role": "ToolOutput",
+    "title": "Tool Result"
+  },
+  {
+    "call": false,
+    "icon": "◇",
+    "input": "mcpToolResult",
+    "output": true,
+    "role": "ToolOutput",
+    "title": "McpToolResult"
+  },
+  {
+    "call": false,
+    "icon": "◇",
+    "input": "future",
+    "output": false,
+    "role": null,
+    "title": "Future"
+  },
+  {
+    "input": "",
+    "one": "→ Read",
+    "path": null,
+    "read": null,
+    "three": "→ Read ×3"
+  },
+  {
+    "input": "→ Read",
+    "one": "→ Read → Read",
+    "path": "",
+    "read": [
+      "",
+      1
+    ],
+    "three": "→ Read → Read ×3"
+  },
+  {
+    "input": " → Read a.rs [offset=2] ",
+    "one": "→ Read  → Read a.rs [offset=2] ",
+    "path": "a.rs",
+    "read": [
+      "a.rs",
+      1
+    ],
+    "three": "→ Read  → Read a.rs [offset=2]  ×3"
+  },
+  {
+    "input": "→ Read a.rs ×0",
+    "one": "→ Read → Read a.rs ×0",
+    "path": "a.rs ×0",
+    "read": [
+      "a.rs",
+      1
+    ],
+    "three": "→ Read → Read a.rs ×0 ×3"
+  },
+  {
+    "input": "→ Read a.rs ×3",
+    "one": "→ Read → Read a.rs ×3",
+    "path": "a.rs ×3",
+    "read": [
+      "a.rs",
+      3
+    ],
+    "three": "→ Read → Read a.rs ×3 ×3"
+  },
+  {
+    "input": "→ Read a.rs ×bad",
+    "one": "→ Read → Read a.rs ×bad",
+    "path": "a.rs ×bad",
+    "read": null,
+    "three": "→ Read → Read a.rs ×bad ×3"
+  },
+  {
+    "input": "→ Read a.rs (in dir [a]) ×2",
+    "one": "→ Read → Read a.rs (in dir [a]) ×2",
+    "path": "a.rs (in dir [a]) ×2",
+    "read": [
+      "a.rs (in dir [a])",
+      2
+    ],
+    "three": "→ Read → Read a.rs (in dir [a]) ×2 ×3"
+  },
+  {
+    "input": "read a.rs",
+    "one": "→ Read read a.rs",
+    "path": null,
+    "read": null,
+    "three": "→ Read read a.rs ×3"
+  },
+  {
+    "diff": "Δ Diff files (+0, -0)",
+    "input": [
+      null,
+      ""
+    ],
+    "probably": false,
+    "split": [
+      ""
+    ]
+  },
+  {
+    "diff": "Δ Diff a.rs (+1, -1)",
+    "input": [
+      null,
+      "--- a/a.rs\n+++ b/a.rs\n@@ -1 +1 @@\n-old\n+new\n"
+    ],
+    "probably": true,
+    "split": [
+      "--- a/a.rs\n+++ b/a.rs\n@@ -1 +1 @@\n-old\n+new\n"
+    ]
+  },
+  {
+    "diff": "Δ Diff named.rs (+1, -1)",
+    "input": [
+      "named.rs",
+      "+a\n-b\n"
+    ],
+    "probably": false,
+    "split": [
+      "+a\n-b\n"
+    ]
+  },
+  {
+    "diff": "Δ Diff gone.rs (+0, -1)",
+    "input": [
+      null,
+      "--- a/gone.rs\n+++ /dev/null\n-old\n"
+    ],
+    "probably": false,
+    "split": [
+      "--- a/gone.rs\n+++ /dev/null\n-old\n"
+    ]
+  },
+  {
+    "diff": "Δ Diff 2 files (+1, -1)",
+    "input": [
+      null,
+      "diff --git a/a b/a\n+a\ndiff --git a/b b/b\n-b\n"
+    ],
+    "probably": true,
+    "split": [
+      "diff --git a/a b/a\n+a\n",
+      "diff --git a/b b/b\n-b\n"
+    ]
+  }
+]

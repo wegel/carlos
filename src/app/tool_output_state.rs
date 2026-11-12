@@ -1,7 +1,6 @@
 //! Choose full or folded tool output from an explicit preference and terminal size.
 
 use super::models::{Message, MessageKind, Role};
-use super::transcript_diff_source::split_file_diffs;
 use super::view_models::{DisplayKind, DisplayMessage, TerminalSize};
 
 /// Let the terminal size choose, or force one view until the user changes it.
@@ -100,44 +99,4 @@ pub(super) fn compact_tool_message(message: &Message, rows: usize) -> Option<Dis
             rows: if command_body { 0 } else { rows },
         },
     })
-}
-
-/// Summarize all changed lines, naming one file or the number of files.
-pub(super) fn diff_summary(message: &Message) -> String {
-    let added = message
-        .text
-        .lines()
-        .filter(|line| line.starts_with('+') && !line.starts_with("+++ "))
-        .count();
-    let removed = message
-        .text
-        .lines()
-        .filter(|line| line.starts_with('-') && !line.starts_with("--- "))
-        .count();
-    let files = split_file_diffs(&message.text);
-    if files.len() > 1 {
-        return format!("Δ Diff {} files (+{added}, -{removed})", files.len());
-    }
-    let path = message
-        .file_path
-        .as_deref()
-        .or_else(|| {
-            message
-                .text
-                .lines()
-                .find_map(|line| {
-                    line.strip_prefix("+++ ")
-                        .filter(|path| *path != "/dev/null")
-                })
-                .map(|path| path.strip_prefix("b/").unwrap_or(path))
-        })
-        .or_else(|| {
-            message
-                .text
-                .lines()
-                .find_map(|line| line.strip_prefix("--- "))
-                .map(|path| path.strip_prefix("a/").unwrap_or(path))
-        })
-        .unwrap_or("files");
-    format!("Δ Diff {path} (+{added}, -{removed})")
 }

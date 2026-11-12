@@ -10,8 +10,8 @@ use super::{
 use crate::app::notifications::{append_history_from_thread, handle_notification_line};
 use crate::app::source_highlight::SourceHighlighter;
 use crate::app::transcript_render::count_rendered_block_for_message_cached;
-use crate::app::transcript_source::source_path_from_item;
 use crate::app::transcript_styles::RenderCountCache;
+use crate::session::tool_source::source_path_from_item;
 use crate::theme::{COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_STEP2};
 
 fn diff_message(path: Option<&str>, text: &str) -> Message {

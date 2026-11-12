@@ -85,7 +85,9 @@ fn cycle(app: &mut AppState, dir: isize) {
         ModelSettingsField::PhoneTheme => {
             app.view.layout.draft.phone = app.view.layout.draft.phone.cycle(dir)
         }
-        ModelSettingsField::ToolLabels => app.summaries.draft = !app.summaries.draft,
+        ModelSettingsField::ToolLabels => {
+            app.view.summary_enabled_draft = !app.view.summary_enabled_draft
+        }
         ModelSettingsField::ToolOutput => {
             app.view.runtime_settings.model_settings_tool_output = app
                 .view
@@ -122,7 +124,7 @@ fn save_settings(client: &dyn BackendClient, app: &mut AppState) {
         Err(error) => app.set_status(format!("Could not apply live settings: {error}")),
     }
     if let Err(error) =
-        crate::app::tool_output_preferences::save_summary_enabled(app.summaries.enabled)
+        crate::app::tool_output_preferences::save_summary_enabled(app.session.summaries_enabled())
     {
         app.set_hint(format!("Could not save AI tool labels: {error}"));
     }

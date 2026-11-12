@@ -1,54 +1,13 @@
 //! Color visible file reads while leaving command labels and line numbers intact.
 
 use ratatui::style::Style;
-use serde_json::Value;
 
 use super::models::Role;
-use super::shell_read::single_source_path;
 use super::source_highlight::SourceHighlighter;
 use super::text::wrap_natural_count_by_cells;
-use super::tools::{first_i64_at_paths, first_string_at_paths, tool_command, tool_name};
 use super::transcript_styles::append_wrapped_styled_logical_lines;
 use super::view_models::{RenderedLine, StyledSegment};
 use crate::theme::COLOR_STEP8;
-
-/// Read a source path only from a successful read tool or a single read action.
-pub(super) fn source_path_from_item(item: &Value) -> Option<String> {
-    if first_i64_at_paths(item, &[&["exitCode"], &["exit_code"]]).unwrap_or(0) != 0
-        || item.get("isError").and_then(Value::as_bool) == Some(true)
-        || item.get("is_error").and_then(Value::as_bool) == Some(true)
-        || first_string_at_paths(item, &[&["stderr"], &["metadata", "stderr"]])
-            .is_some_and(|text| !text.trim().is_empty())
-    {
-        return None;
-    }
-    if tool_name(item).is_some_and(|name| name.eq_ignore_ascii_case("read")) {
-        return first_string_at_paths(
-            item,
-            &[
-                &["input", "filePath"],
-                &["input", "file_path"],
-                &["input", "path"],
-                &["filePath"],
-                &["path"],
-            ],
-        );
-    }
-    if let Some(actions) = item.get("commandActions").and_then(Value::as_array) {
-        if actions.len() > 1 {
-            return None;
-        }
-        if let Some(action) = actions
-            .first()
-            .filter(|action| action.get("type").and_then(Value::as_str) == Some("read"))
-        {
-            if let Some(path) = action.get("path").and_then(Value::as_str) {
-                return Some(path.to_string());
-            }
-        }
-    }
-    single_source_path(&tool_command(item)?)
-}
 
 /// Color the saved read output, keeping terminal colors when a tool supplied them.
 pub(super) fn append_source_lines(

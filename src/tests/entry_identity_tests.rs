@@ -16,7 +16,7 @@ pub(super) fn app(backend: BackendKind) -> AppState {
     app.codex.enabled = backend == BackendKind::Codex;
     app.claude.enabled = backend == BackendKind::Claude;
     app.codex.item_turn = Some("turn".into());
-    app.summaries.enabled = true;
+    app.session.set_summary_enabled_for_test(true);
     app
 }
 

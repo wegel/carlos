@@ -26,7 +26,6 @@ pub(super) struct AppState {
     pub(super) session: SessionState,
     pub(super) view: ViewState,
     // Split these mixed children in milestones 5 through 9.
-    pub(super) summaries: super::state_summaries::SummaryState,
     pub(super) claude: super::claude_state::ClaudeUiState,
     pub(super) codex: super::codex_state::CodexUiState,
     pub(super) rate_limits: super::rate_limits::RateLimits,
@@ -44,10 +43,10 @@ impl AppState {
         thread_id: String,
         preferences: super::RuntimeDefaults,
     ) -> Self {
+        let summary_enabled = super::tool_output_preferences::load_summary_enabled();
         Self {
-            session: SessionState::new(thread_id, preferences),
-            view: ViewState::new(),
-            summaries: super::state_summaries::SummaryState::default(),
+            session: SessionState::new(thread_id, preferences, summary_enabled),
+            view: ViewState::new(summary_enabled),
             claude: super::claude_state::ClaudeUiState::default(),
             codex: super::codex_state::CodexUiState::default(),
             rate_limits: super::rate_limits::RateLimits::default(),

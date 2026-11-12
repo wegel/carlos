@@ -9,12 +9,14 @@ use super::input_history::PromptHistory;
 use super::models::TurnStatus;
 use super::ralph_runtime_state::RalphRuntimeState;
 use super::runtime_settings::{RuntimeDefaults, RuntimeSettingsState};
+use super::summary_state::SummaryState;
 use super::transcript::Transcript;
 use super::turns::TurnBoundary;
 
 /// Own the facts that remain true without a terminal view.
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct SessionState {
+    pub(in crate::session) summaries: SummaryState,
     pub(in crate::session) input_history: PromptHistory,
     pub(in crate::session) runtime: RuntimeSettingsState,
     pub(in crate::session) thread_id: String,
@@ -34,8 +36,13 @@ pub(crate) struct SessionState {
 
 impl SessionState {
     /// Create an empty conversation without loading client preferences.
-    pub(crate) fn new(thread_id: String, preferences: RuntimeDefaults) -> Self {
+    pub(crate) fn new(
+        thread_id: String,
+        preferences: RuntimeDefaults,
+        summary_enabled: bool,
+    ) -> Self {
         Self {
+            summaries: SummaryState::new(summary_enabled),
             input_history: PromptHistory::default(),
             runtime: RuntimeSettingsState::new(preferences),
             entry_conversation: thread_id.clone(),

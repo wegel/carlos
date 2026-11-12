@@ -4,7 +4,7 @@ use super::shell_command::{analyze_shell_command, ShellCommand};
 use super::shell_words::{has_shell_operators, next_word, program_name};
 
 /// Recognize one or more explicitly named source files, including native RTK reads.
-pub(super) fn read_paths(command: &ShellCommand) -> Option<Vec<String>> {
+pub(crate) fn read_paths(command: &ShellCommand) -> Option<Vec<String>> {
     if has_shell_operators(&command.text) {
         return None;
     }
@@ -52,7 +52,7 @@ pub(super) fn read_paths(command: &ShellCommand) -> Option<Vec<String>> {
 }
 
 /// Infer a language only when the command reads exactly one file.
-pub(super) fn single_source_path(raw: &str) -> Option<String> {
+pub(crate) fn single_source_path(raw: &str) -> Option<String> {
     let command = analyze_shell_command(raw);
     if let Some(mut paths) = read_paths(&command) {
         return (paths.len() == 1).then(|| paths.remove(0));
@@ -117,7 +117,7 @@ fn rtk_read_flag(word: &str) -> bool {
             .any(|prefix| word.starts_with(prefix))
 }
 
-pub(super) fn is_print_range(script: &str) -> bool {
+pub(crate) fn is_print_range(script: &str) -> bool {
     script.strip_suffix('p').is_some_and(|range| {
         !range.is_empty()
             && range.split(',').count() <= 2
@@ -129,7 +129,7 @@ pub(super) fn is_print_range(script: &str) -> bool {
 }
 
 /// Split one pipe outside quotes, rejecting other shell operators.
-pub(super) fn single_pipe(text: &str) -> Option<(&str, &str)> {
+pub(crate) fn single_pipe(text: &str) -> Option<(&str, &str)> {
     let mut rest = text.trim_start();
     while !rest.is_empty() {
         if let Some(right) = rest.strip_prefix('|') {

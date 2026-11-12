@@ -1,7 +1,7 @@
 //! Synthetic performance data generation: deterministic RNG, message builders, and word lists.
 
-use super::transcript_render::format_read_summary_with_count;
 use crate::session::models::{EntryDraft, MessageKind, Role};
+use crate::session::read_summary::format_read_summary_with_count;
 
 // --- Core Types ---
 

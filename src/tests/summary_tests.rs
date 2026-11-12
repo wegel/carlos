@@ -20,8 +20,8 @@ fn notify(app: &mut AppState, method: &str) {
 
 fn app() -> AppState {
     let mut app = AppState::new("thread".into());
-    app.summaries.enabled = true;
-    app.summaries.draft = true;
+    app.session.set_summary_enabled_for_test(true);
+    app.view.summary_enabled_draft = true;
     app
 }
 
@@ -91,7 +91,7 @@ fn disabling_restores_the_original_label_without_changing_its_body() {
         app.summary_token_for_test("command"),
         Some("Rewrite the report".into()),
     ));
-    app.summaries.draft = false;
+    app.view.summary_enabled_draft = false;
     app.apply_summary_setting();
     assert_eq!(
         app.session.messages()[0]
@@ -165,4 +165,146 @@ fn ep130_scripts_inside_ssh_receive_labels_without_reading_remote_files_locally(
             .expect("metadata")
             .generated
     );
+}
+
+#[cfg(unix)]
+mod worker {
+    //! Exercise the unchanged worker with a cache written by the previous commit.
+
+    use std::io::Read;
+    use std::os::unix::net::UnixListener;
+    use std::path::Path;
+    use std::process::Command;
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    use serde_json::{json, Value};
+
+    use crate::app::item_history::load_history_from_start_or_resume;
+    use crate::app::notifications::handle_server_message_line;
+    use crate::app::state::AppState;
+    use crate::summaries::SummaryEvent;
+
+    const CHILD: &str = "CARLOS_M5C_SUMMARY_TEST_ROOT";
+
+    #[test]
+    fn replacement_cancels_model_work_and_reuses_previous_cache_hits_and_misses() {
+        let root = tempfile::tempdir().expect("isolated worker files");
+        prepare(root.path());
+        let output = Command::new(std::env::current_exe().expect("test executable"))
+            .args([
+                "--exact",
+                "app::tests::summary_tests::worker::isolated_summary_worker",
+                "--nocapture",
+            ])
+            .env(CHILD, root.path())
+            .env("XDG_CONFIG_HOME", root.path().join("config"))
+            .env("XDG_STATE_HOME", root.path().join("state"))
+            .output()
+            .expect("isolated summary worker test");
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    fn prepare(root: &Path) {
+        let config = root.join("config/carlos");
+        let state = root.join("state/carlos");
+        std::fs::create_dir_all(&config).expect("config directory");
+        std::fs::create_dir_all(&state).expect("state directory");
+        std::fs::write(
+            state.join("tool-summaries.sqlite3"),
+            include_bytes!("fixtures/tool_summaries_previous.sqlite3"),
+        )
+        .expect("old cache");
+        let provider = "import sys,socket\ns=socket.socket(socket.AF_UNIX);s.connect(sys.argv[1]);s.sendall(b'S');s.recv(1);print('Should never be saved')";
+        let settings = json!({"provider":"command","executable":"python3","arguments":["-u","-c",provider,root.join("provider.sock")],"timeout_seconds":30});
+        std::fs::write(config.join("tool-summaries.json"), settings.to_string())
+            .expect("isolated provider");
+        std::fs::write(root.join("cancelled.py"), "print(1)\n").expect("script source");
+    }
+
+    #[test]
+    fn isolated_summary_worker() {
+        let Some(root) = std::env::var_os(CHILD) else {
+            return;
+        };
+        let root = std::path::PathBuf::from(root);
+        let listener = UnixListener::bind(root.join("provider.sock")).expect("provider receipt");
+        let mut app = AppState::new("thread".into());
+        app.session.set_summary_enabled_for_test(true);
+        app.session.set_summary_cwd(root.clone());
+        let (tx, rx) = mpsc::channel();
+        app.configure_summary_worker(tx);
+        let live = json!({"method":"item/completed","params":{"threadId":"thread","item":item("live","python3 cancelled.py")}});
+        handle_server_message_line(&mut app, &live.to_string());
+        let (mut provider, _) = listener.accept().expect("model child reached gate");
+        provider
+            .set_read_timeout(Some(Duration::from_secs(30)))
+            .expect("watchdog");
+        let mut receipt = [0];
+        provider.read_exact(&mut receipt).expect("provider began");
+        assert_eq!(receipt, [b'S']);
+        let response = history();
+        load_history_from_start_or_resume(&mut app, &response.to_string())
+            .expect("replace while model is blocked");
+        assert_eq!(
+            provider
+                .read(&mut receipt)
+                .expect("cancelled provider closed"),
+            0
+        );
+        accept_history_labels(&mut app, &rx);
+        let connection =
+            rusqlite::Connection::open(root.join("state/carlos/tool-summaries.sqlite3"))
+                .expect("cache");
+        let saved: i64 = connection
+            .query_row(
+                "SELECT count(*) FROM source_links WHERE entry='thread:live'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("cancelled job not cached");
+        assert_eq!(saved, 0);
+    }
+
+    fn item(id: &str, command: &str) -> Value {
+        json!({"id":id,"type":"commandExecution","command":command,"aggregatedOutput":"kept output","exitCode":0})
+    }
+
+    fn history() -> Value {
+        json!({"result":{"thread":{"id":"thread","turns":[{"id":"past","items":[
+            item("cached","python3 process.py"),
+            item("inline","python3 - <<'PY'\nprint(1)\nPY"),
+            item("missing","python3 missing.py")
+        ]}]}}})
+    }
+
+    fn accept_history_labels(app: &mut AppState, rx: &mpsc::Receiver<SummaryEvent>) {
+        for expected in [Some("Saved source label"), Some("Saved inline label"), None] {
+            let event = rx
+                .recv_timeout(Duration::from_secs(30))
+                .expect("history cache result");
+            match &event {
+                SummaryEvent::Ready(_, _, label) => assert_eq!(label.as_deref(), expected),
+                SummaryEvent::Failed(_, error) => panic!("cache worker failed: {error}"),
+            }
+            app.handle_summary_event(event);
+        }
+        for (index, expected) in [
+            (0, "run Saved source label"),
+            (1, "run Saved inline label"),
+            (2, "run python3 missing.py"),
+        ] {
+            let entry = &app.session.messages()[index];
+            assert_eq!(
+                entry.tool_output.as_ref().expect("tool details").summary,
+                expected
+            );
+            assert!(entry.text.contains("kept output"));
+        }
+    }
 }

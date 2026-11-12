@@ -39,3 +39,27 @@ pub(crate) mod model_info;
 pub(crate) mod input_history;
 mod input_history_commands;
 pub(crate) mod input_history_native;
+
+pub(crate) mod shell_command;
+pub(crate) mod shell_directory;
+pub(crate) mod shell_read;
+pub(crate) mod shell_search;
+pub(crate) mod shell_words;
+pub(crate) mod summary_request;
+pub(crate) mod tool_command_view;
+pub(crate) mod tool_diff;
+pub(crate) mod tool_diff_summary;
+pub(crate) mod tool_format;
+mod tool_output_items;
+pub(crate) mod tool_shell;
+pub(crate) mod tool_source;
+pub(crate) mod tools;
+
+mod summary_state;
+mod summary_updates;
+
+#[cfg(test)]
+mod tool_label_parity_tests;
+
+#[cfg(test)]
+mod summary_binding_tests;

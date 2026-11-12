@@ -127,7 +127,7 @@ impl AppState {
             .viewport
             .scroll_top
             .min(self.session.messages().len());
-        self.summaries.retain_items(&self.session.messages());
+        self.session.retain_summary_items();
         self.session.retain_prompt_entries();
         self.view
             .input_history

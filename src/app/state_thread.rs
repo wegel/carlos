@@ -12,7 +12,6 @@ impl AppState {
         draft: super::item_history::history_draft::HistoryDraft,
         mode: crate::session::history_identity::HistoryMode,
     ) {
-        self.summaries.clear();
         let update = self.session.replace_history(draft.entries, mode);
         self.session.reset_prompt_history();
         self.view.input_history = InputHistoryView::default();
@@ -97,7 +96,6 @@ impl AppState {
         if update.transcript_reset {
             self.view.render_cache = RenderCacheState::new();
         }
-        self.summaries.clear();
         self.session.reset_prompt_history();
         self.view.input_history = InputHistoryView::default();
         self.view.viewport = ViewportState::new();
@@ -115,7 +113,7 @@ impl AppState {
 #[cfg(test)]
 impl AppState {
     pub(super) fn replace_transcript_for_test(&mut self, replacement: AppState) {
-        self.summaries.clear();
+        self.session.clear_summaries();
         self.session.transcript_adopt_unkeyed(
             replacement
                 .session

@@ -12,11 +12,11 @@ use crate::app::tools::{
     command_execution_diff_output, extract_diff_blocks, is_tool_call_type, is_tool_output_type,
     item_text_from_content,
 };
-use crate::app::transcript_render::{format_read_summary_with_count, parse_read_summary};
 use crate::session::entry_key::BackendEntryKey;
 use crate::session::history_identity::HistoryEntry;
 use crate::session::input_history_native::NativeUserHistory;
 use crate::session::models::EntryDraft;
+use crate::session::read_summary::{format_read_summary_with_count, parse_read_summary};
 
 #[path = "item_history_predecessors.rs"]
 mod predecessors;

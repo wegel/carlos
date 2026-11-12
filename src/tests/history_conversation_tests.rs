@@ -40,7 +40,7 @@ fn read(app: &mut AppState, backend: BackendKind, path: &str) {
 fn check_foreign_history(backend: BackendKind) {
     for existing in [false, true] {
         let mut app = app(backend);
-        app.summaries.enabled = false;
+        app.session.set_summary_enabled_for_test(false);
         if existing {
             read(&mut app, backend, "old.rs");
             app.set_thread_name(Some("Current"));

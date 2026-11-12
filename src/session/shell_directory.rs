@@ -1,13 +1,13 @@
 //! Recognize one literal leading directory guard without interpreting the remaining shell program.
 
 /// A proven literal directory prefix and its untouched command body.
-pub(super) struct DirectoryPrefix<'a> {
-    pub(super) directory: String,
-    pub(super) body: &'a str,
+pub(crate) struct DirectoryPrefix<'a> {
+    pub(crate) directory: String,
+    pub(crate) body: &'a str,
 }
 
 /// Decode only a literal, argument-free shell launcher before checking its program.
-pub(super) fn literal_shell_payload(text: &str) -> Option<String> {
+pub(crate) fn literal_shell_payload(text: &str) -> Option<String> {
     let (program, tail) = literal_word(horizontal(text))?;
     if !matches!(program.rsplit('/').next()?, "sh" | "bash" | "zsh" | "dash") {
         return None;
@@ -21,7 +21,7 @@ pub(super) fn literal_shell_payload(text: &str) -> Option<String> {
 }
 
 /// Match only `cd [--] literal && body`, preserving every byte inside the body.
-pub(super) fn directory_prefix(text: &str) -> Option<DirectoryPrefix<'_>> {
+pub(crate) fn directory_prefix(text: &str) -> Option<DirectoryPrefix<'_>> {
     let (program, tail) = literal_word(horizontal(text))?;
     if program != "cd" {
         return None;

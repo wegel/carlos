@@ -11,6 +11,7 @@ impl SessionState {
         entries: Vec<HistoryEntry>,
         mode: HistoryMode,
     ) -> SessionUpdate {
+        self.summaries.clear();
         self.messages.replace_history(entries, mode);
         self.completed_item_ids.clear();
         self.turn_status_by_id.clear();
@@ -31,6 +32,7 @@ impl SessionState {
         self.command_render_overrides.clear();
         self.turn_boundary = None;
         self.context_usage = None;
+        self.summaries.clear();
         SessionUpdate {
             transcript_reset: true,
             ..SessionUpdate::default()

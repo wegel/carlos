@@ -150,7 +150,7 @@ fn field_value(app: &AppState, field: ModelSettingsField) -> &str {
         ModelSettingsField::DesktopTheme => app.view.layout.draft.desktop.label(),
         ModelSettingsField::PhoneTheme => app.view.layout.draft.phone.label(),
         ModelSettingsField::ToolLabels => {
-            if app.summaries.draft {
+            if app.view.summary_enabled_draft {
                 "On"
             } else {
                 "Off"

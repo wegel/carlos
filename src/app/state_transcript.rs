@@ -105,10 +105,6 @@ impl AppState {
         index
     }
 
-    pub(super) fn command_override(&self, call_id: &str) -> Option<String> {
-        self.session.command_override(&self.item_key(call_id))
-    }
-
     pub(super) fn upsert_turn_diff(&mut self, turn_id: &str, diff: &str) {
         let update = self.session.upsert_turn_diff(turn_id, diff);
         self.apply_session_update(update);

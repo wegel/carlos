@@ -3,19 +3,19 @@
 use super::shell_words::{is_assignment, next_word, program_name};
 
 /// The command Carlos can classify after unwrapping launchers and RTK prefixes.
-pub(super) struct ShellCommand {
-    pub(super) text: String,
-    pub(super) rtk_native: bool,
-    pub(super) has_rtk: bool,
+pub(crate) struct ShellCommand {
+    pub(crate) text: String,
+    pub(crate) rtk_native: bool,
+    pub(crate) has_rtk: bool,
 }
 
 /// Remove only an outer shell invocation for display; preserve RTK and its flags.
-pub(super) fn display_shell_command(raw: &str) -> String {
+pub(crate) fn display_shell_command(raw: &str) -> String {
     shell_payload(raw).unwrap_or_else(|| raw.trim().to_string())
 }
 
 /// Inspect wrappers without evaluating variables, substitutions, or script bodies.
-pub(super) fn analyze_shell_command(raw: &str) -> ShellCommand {
+pub(crate) fn analyze_shell_command(raw: &str) -> ShellCommand {
     let mut text = raw.trim().to_string();
     let mut has_rtk = false;
     for _ in 0..32 {

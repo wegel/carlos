@@ -62,6 +62,7 @@ impl SessionState {
         self.messages.set_tool(index, details)
     }
 
+    #[cfg(test)]
     /// Set a tool label and return the affected row index.
     pub(crate) fn transcript_set_label(
         &mut self,

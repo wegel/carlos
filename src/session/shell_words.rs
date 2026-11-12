@@ -1,7 +1,7 @@
 //! Read shell words without executing them or changing quoted command tails.
 
 /// Decode the first shell word and leave the rest of the command unchanged.
-pub(super) fn next_word(text: &str) -> Option<(String, &str)> {
+pub(crate) fn next_word(text: &str) -> Option<(String, &str)> {
     let text = text.trim_start();
     let mut quote = None;
     let mut escaped = false;
@@ -37,7 +37,7 @@ pub(super) fn next_word(text: &str) -> Option<(String, &str)> {
 }
 
 /// Detect operators outside quotes before treating a command as a single read.
-pub(super) fn has_shell_operators(text: &str) -> bool {
+pub(crate) fn has_shell_operators(text: &str) -> bool {
     let mut quote = None;
     let mut escaped = false;
     for ch in text.trim().chars() {
@@ -60,7 +60,7 @@ pub(super) fn has_shell_operators(text: &str) -> bool {
 }
 
 /// Recognize an environment assignment in a shell prefix.
-pub(super) fn is_assignment(word: &str) -> bool {
+pub(crate) fn is_assignment(word: &str) -> bool {
     let Some((name, _)) = word.split_once('=') else {
         return false;
     };
@@ -72,6 +72,6 @@ pub(super) fn is_assignment(word: &str) -> bool {
 }
 
 /// Match an executable by filename, including quoted or absolute paths.
-pub(super) fn program_name(program: &str) -> &str {
+pub(crate) fn program_name(program: &str) -> &str {
     program.rsplit('/').next().unwrap_or(program)
 }

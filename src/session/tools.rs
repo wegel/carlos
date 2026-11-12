@@ -3,33 +3,36 @@
 
 use serde_json::{json, Value};
 
+use super::models::Role;
 use super::shell_command::display_shell_command;
 use super::tool_diff::is_probably_diff_text;
-pub(super) use super::tool_diff::{command_execution_diff_output, extract_diff_blocks};
-pub(super) use super::tool_format::{command_summary_from_parsed_cmd, format_tool_item};
+pub(crate) use super::tool_diff::{command_execution_diff_output, extract_diff_blocks};
+pub(crate) use super::tool_format::{command_summary_from_parsed_cmd, format_tool_item};
 use super::tool_shell::command_execution_action_command;
-pub(super) use super::tool_shell::{
+pub(crate) use super::tool_shell::{
     command_summary_from_shell_cmd, strip_terminal_controls, strip_terminal_controls_preserving_sgr,
 };
-use super::Role;
 
 // --- JSON Utilities ---
 
-pub(super) fn is_tool_call_type(kind: &str) -> bool {
+/// Recognize the native kinds that carry a tool request.
+pub(crate) fn is_tool_call_type(kind: &str) -> bool {
     matches!(
         kind,
         "toolCall" | "tool_call" | "toolInvocation" | "functionCall" | "mcpToolCall"
     )
 }
 
-pub(super) fn is_tool_output_type(kind: &str) -> bool {
+/// Recognize the native kinds that carry tool output.
+pub(crate) fn is_tool_output_type(kind: &str) -> bool {
     matches!(
         kind,
         "toolResult" | "toolOutput" | "tool_result" | "functionCallOutput" | "mcpToolResult"
     )
 }
 
-pub(super) fn role_for_tool_type(kind: &str) -> Option<Role> {
+/// Choose the transcript role for a native tool kind.
+pub(crate) fn role_for_tool_type(kind: &str) -> Option<Role> {
     if kind == "commandExecution" {
         return Some(Role::ToolCall);
     }
@@ -42,7 +45,8 @@ pub(super) fn role_for_tool_type(kind: &str) -> Option<Role> {
     None
 }
 
-pub(super) fn value_at_path<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Value> {
+/// Read a nested JSON value without inventing missing fields.
+pub(crate) fn value_at_path<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Value> {
     let mut cur = value;
     for key in path {
         cur = cur.get(*key)?;
@@ -50,7 +54,8 @@ pub(super) fn value_at_path<'a>(value: &'a Value, path: &[&str]) -> Option<&'a V
     Some(cur)
 }
 
-pub(super) fn first_string_at_paths(value: &Value, paths: &[&[&str]]) -> Option<String> {
+/// Read the first nonempty string from the supplied JSON paths.
+pub(crate) fn first_string_at_paths(value: &Value, paths: &[&[&str]]) -> Option<String> {
     for path in paths {
         if let Some(s) = value_at_path(value, path).and_then(Value::as_str) {
             if !s.is_empty() {
@@ -61,7 +66,8 @@ pub(super) fn first_string_at_paths(value: &Value, paths: &[&[&str]]) -> Option<
     None
 }
 
-pub(super) fn first_i64_at_paths(value: &Value, paths: &[&[&str]]) -> Option<i64> {
+/// Read the first integer that fits from the supplied JSON paths.
+pub(crate) fn first_i64_at_paths(value: &Value, paths: &[&[&str]]) -> Option<i64> {
     for path in paths {
         if let Some(v) = value_at_path(value, path) {
             if let Some(n) = v.as_i64() {
@@ -77,7 +83,8 @@ pub(super) fn first_i64_at_paths(value: &Value, paths: &[&[&str]]) -> Option<i64
 
 // --- Tool Extraction ---
 
-pub(super) fn tool_name(item: &Value) -> Option<String> {
+/// Read a tool name from the supported native fields.
+pub(crate) fn tool_name(item: &Value) -> Option<String> {
     first_string_at_paths(
         item,
         &[
@@ -90,7 +97,8 @@ pub(super) fn tool_name(item: &Value) -> Option<String> {
     )
 }
 
-pub(super) fn tool_command(item: &Value) -> Option<String> {
+/// Read the original command and unwrap only known shell launchers.
+pub(crate) fn tool_command(item: &Value) -> Option<String> {
     if item["carlosShellView"] == true {
         return item["command"].as_str().map(str::to_owned);
     }
@@ -133,7 +141,8 @@ pub(super) fn tool_command(item: &Value) -> Option<String> {
     })
 }
 
-pub(super) fn tool_reasoning(item: &Value) -> Option<String> {
+/// Read the explanation attached to a tool call.
+pub(crate) fn tool_reasoning(item: &Value) -> Option<String> {
     first_string_at_paths(
         item,
         &[
@@ -145,7 +154,8 @@ pub(super) fn tool_reasoning(item: &Value) -> Option<String> {
     )
 }
 
-pub(super) fn tool_description(item: &Value) -> Option<String> {
+/// Read the description attached to a tool call.
+pub(crate) fn tool_description(item: &Value) -> Option<String> {
     first_string_at_paths(
         item,
         &[
@@ -158,7 +168,8 @@ pub(super) fn tool_description(item: &Value) -> Option<String> {
     )
 }
 
-pub(super) fn tool_output_text(item: &Value) -> Option<String> {
+/// Combine received output fields and native exit details in their existing order.
+pub(crate) fn tool_output_text(item: &Value) -> Option<String> {
     let mut parts = Vec::new();
 
     push_cleaned(
@@ -191,6 +202,17 @@ pub(super) fn tool_output_text(item: &Value) -> Option<String> {
         &[&["stderr"], &["metadata", "stderr"], &["state", "stderr"]],
     );
 
+    append_exit_details(item, &mut parts);
+
+    parts.retain(|s| !s.trim().is_empty());
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join("\n"))
+    }
+}
+
+fn append_exit_details(item: &Value, parts: &mut Vec<String>) {
     if let Some(code) = first_i64_at_paths(
         item,
         &[
@@ -213,13 +235,6 @@ pub(super) fn tool_output_text(item: &Value) -> Option<String> {
             parts.push(format!("exit code: {code}"));
         }
     }
-
-    parts.retain(|s| !s.trim().is_empty());
-    if parts.is_empty() {
-        None
-    } else {
-        Some(parts.join("\n"))
-    }
 }
 
 fn push_cleaned(item: &Value, parts: &mut Vec<String>, paths: &[&[&str]]) {
@@ -231,7 +246,8 @@ fn push_cleaned(item: &Value, parts: &mut Vec<String>, paths: &[&[&str]]) {
     }
 }
 
-pub(super) fn collect_text_parts(content: &[Value]) -> Vec<&str> {
+/// Read text content parts while ignoring other native content kinds.
+pub(crate) fn collect_text_parts(content: &[Value]) -> Vec<&str> {
     let mut text_parts = Vec::new();
     for part in content {
         if !matches!(
@@ -247,7 +263,8 @@ pub(super) fn collect_text_parts(content: &[Value]) -> Vec<&str> {
     text_parts
 }
 
-pub(super) fn item_text_from_content(item: &Value) -> Option<String> {
+/// Join native text content parts with newlines.
+pub(crate) fn item_text_from_content(item: &Value) -> Option<String> {
     let content = item.get("content").and_then(Value::as_array)?;
     let text_parts = collect_text_parts(content);
     if text_parts.is_empty() {
@@ -257,7 +274,8 @@ pub(super) fn item_text_from_content(item: &Value) -> Option<String> {
     }
 }
 
-pub(super) fn parse_arguments_value(arguments: &Value) -> Option<Value> {
+/// Decode JSON arguments while retaining a non-JSON string verbatim.
+pub(crate) fn parse_arguments_value(arguments: &Value) -> Option<Value> {
     match arguments {
         Value::Null => None,
         Value::String(s) => {
@@ -273,7 +291,8 @@ pub(super) fn parse_arguments_value(arguments: &Value) -> Option<Value> {
     }
 }
 
-pub(super) fn raw_function_call_to_tool_item(item: &Value) -> Option<(String, Value)> {
+/// Convert a persisted function call into the existing tool-item shape.
+pub(crate) fn raw_function_call_to_tool_item(item: &Value) -> Option<(String, Value)> {
     if item.get("type").and_then(Value::as_str) != Some("function_call") {
         return None;
     }
@@ -318,7 +337,8 @@ pub(super) fn raw_function_call_to_tool_item(item: &Value) -> Option<(String, Va
     Some((call_id, Value::Object(out)))
 }
 
-pub(super) fn raw_function_call_output_to_tool_item(item: &Value) -> Option<(String, Value)> {
+/// Convert persisted function output while preserving explicit diff text.
+pub(crate) fn raw_function_call_output_to_tool_item(item: &Value) -> Option<(String, Value)> {
     if item.get("type").and_then(Value::as_str) != Some("function_call_output") {
         return None;
     }

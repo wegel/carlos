@@ -12,10 +12,6 @@ pub(super) use super::transcript_styles::RenderCountCache;
 #[cfg(test)]
 use super::view_models::{DisplayMessage, RenderedLine};
 
-// --- Read Summaries ---
-
-pub(super) use crate::session::read_summary::{format_read_summary_with_count, parse_read_summary};
-
 // --- Transcript Build ---
 
 #[cfg(test)]

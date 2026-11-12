@@ -43,20 +43,3 @@ impl DiffHighlighters {
         }
     }
 }
-
-/// Split a git diff before parsing so each file keeps its own name and language.
-pub(super) fn split_file_diffs(diff: &str) -> Vec<&str> {
-    let mut starts = vec![0];
-    let mut offset = 0;
-    for line in diff.split_inclusive('\n') {
-        if offset > 0 && line.starts_with("diff --git ") {
-            starts.push(offset);
-        }
-        offset += line.len();
-    }
-    starts.push(diff.len());
-    starts
-        .windows(2)
-        .map(|pair| &diff[pair[0]..pair[1]])
-        .collect()
-}

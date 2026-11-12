@@ -5,10 +5,10 @@ use super::{
     tokens_without_program_options,
 };
 
-use crate::app::shell_command::{analyze_shell_command, ShellCommand};
-use crate::app::shell_read::{is_print_range, read_paths, single_pipe};
-use crate::app::shell_search::search_operands;
-use crate::app::shell_words::{has_shell_operators, program_name};
+use crate::session::shell_command::{analyze_shell_command, ShellCommand};
+use crate::session::shell_read::{is_print_range, read_paths, single_pipe};
+use crate::session::shell_search::search_operands;
+use crate::session::shell_words::{has_shell_operators, program_name};
 
 fn parse_shell_search_summary(cmd: &str, program: &str, cwd: Option<&str>) -> Option<String> {
     let tokens = shlex_split(cmd)?;
@@ -175,10 +175,7 @@ fn is_line_count(count: &str) -> bool {
     !count.is_empty() && count.bytes().all(|byte| byte.is_ascii_digit())
 }
 
-pub(in crate::app) fn command_summary_from_shell_cmd(
-    cmd: &str,
-    cwd: Option<&str>,
-) -> Option<String> {
+pub(crate) fn command_summary_from_shell_cmd(cmd: &str, cwd: Option<&str>) -> Option<String> {
     let command = analyze_shell_command(cmd);
     let cmd = command.text.trim();
     if cmd.is_empty() {

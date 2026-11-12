@@ -8,20 +8,21 @@ use serde_json::Value;
 use super::shell_command::analyze_shell_command;
 use shlex::split as shlex_split;
 
-pub(super) use self::tool_shell_command_summaries::command_summary_from_shell_cmd;
+pub(crate) use self::tool_shell_command_summaries::command_summary_from_shell_cmd;
 
 // --- Shell Types ---
 
 /// An SSH command decomposed into destination and remote command.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct ParsedSshCommand {
-    pub(super) destination: String,
-    pub(super) remote_command: String,
+pub(crate) struct ParsedSshCommand {
+    pub(crate) destination: String,
+    pub(crate) remote_command: String,
 }
 
 // --- Shell Normalization ---
 
-pub(super) fn command_execution_action_command(item: &Value) -> Option<String> {
+/// Read a command from the native command actions.
+pub(crate) fn command_execution_action_command(item: &Value) -> Option<String> {
     let actions = item.get("commandActions")?.as_array()?;
     let [action] = actions.as_slice() else {
         return None;
@@ -33,13 +34,14 @@ pub(super) fn command_execution_action_command(item: &Value) -> Option<String> {
         .map(str::to_string)
 }
 
-pub(super) fn normalize_shell_command(raw: &str) -> String {
+/// Unwrap supported shell launchers without executing the command.
+pub(crate) fn normalize_shell_command(raw: &str) -> String {
     analyze_shell_command(raw).text
 }
 
 // --- SSH Parsing ---
 
-pub(super) fn parse_ssh_remote_command(command: &str) -> Option<ParsedSshCommand> {
+pub(crate) fn parse_ssh_remote_command(command: &str) -> Option<ParsedSshCommand> {
     let normalized = normalize_shell_command(command);
     let tokens = shlex_split(&normalized)?;
     let first = tokens.first()?;
@@ -108,7 +110,7 @@ fn ssh_option_takes_value(token: &str) -> bool {
 
 // --- Control Stripping ---
 
-pub(super) fn strip_terminal_controls_preserving_sgr(text: &str) -> String {
+pub(crate) fn strip_terminal_controls_preserving_sgr(text: &str) -> String {
     let bytes = text.as_bytes();
     let mut out = String::with_capacity(text.len());
     let mut i = 0usize;
@@ -211,7 +213,7 @@ fn skip_string_sequence(bytes: &[u8], pos: usize) -> usize {
     i
 }
 
-pub(super) fn strip_terminal_controls(text: &str) -> String {
+pub(crate) fn strip_terminal_controls(text: &str) -> String {
     let preserved = strip_terminal_controls_preserving_sgr(text);
     let bytes = preserved.as_bytes();
     let mut out = String::with_capacity(preserved.len());
@@ -243,14 +245,16 @@ pub(super) fn strip_terminal_controls(text: &str) -> String {
 
 // --- Summary Helpers ---
 
-pub(super) fn compact_command_path(path: &str, cwd: Option<&str>) -> String {
+/// Shorten a file path against the supplied working directory.
+pub(crate) fn compact_command_path(path: &str, cwd: Option<&str>) -> String {
     cwd.and_then(|c| path.strip_prefix(c)?.strip_prefix('/'))
         .filter(|s| !s.is_empty())
         .map(str::to_string)
         .unwrap_or_else(|| path.to_string())
 }
 
-pub(super) fn strip_shell_quotes(token: &str) -> &str {
+/// Remove matching outer quotes from one shell token.
+pub(crate) fn strip_shell_quotes(token: &str) -> &str {
     let t = token.trim();
     if t.len() >= 2
         && ((t.starts_with('\'') && t.ends_with('\'')) || (t.starts_with('"') && t.ends_with('"')))

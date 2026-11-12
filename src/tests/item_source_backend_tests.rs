@@ -11,7 +11,7 @@ use crate::session::models::{MessageKind, Role};
 fn check_stream(events: &[Value], text: &str) {
     for backend in [BackendKind::Codex, BackendKind::Grok] {
         let mut app = app(backend);
-        app.summaries.enabled = false;
+        app.session.set_summary_enabled_for_test(false);
         // Codex wins when both flags are set; Grok uses its own native keys.
         app.claude.enabled = backend == BackendKind::Codex;
         let mut first = None;

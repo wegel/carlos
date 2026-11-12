@@ -191,7 +191,7 @@ pub(super) fn configure_app_common(
 ) {
     app.view.tool_output.mode = super::tool_output_preferences::load_mode();
     app.view.layout.themes = super::tool_output_preferences::load_themes();
-    app.summaries.cwd = PathBuf::from(cwd);
+    app.session.set_summary_cwd(PathBuf::from(cwd));
     app.configure_ralph_options(
         PathBuf::from(cwd),
         opts.ralph_prompt_path.clone(),

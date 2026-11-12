@@ -70,7 +70,7 @@ impl AppState {
     pub(super) fn open_model_settings(&mut self) {
         self.view.runtime_settings.model_settings_tool_output = self.view.tool_output.mode;
         self.view.layout.draft = self.view.layout.themes;
-        self.summaries.draft = self.summaries.enabled;
+        self.view.summary_enabled_draft = self.session.summaries_enabled();
         self.view
             .runtime_settings
             .open_model_settings(self.session.runtime_settings());

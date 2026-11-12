@@ -14,8 +14,9 @@ use crate::summaries::{command_key, SummaryEvent};
 
 fn app() -> AppState {
     let mut app = AppState::new("thread".into());
-    app.summaries.cwd = PathBuf::from("/workspace/project");
-    app.summaries.enabled = true;
+    app.session
+        .set_summary_cwd(PathBuf::from("/workspace/project"));
+    app.session.set_summary_enabled_for_test(true);
     app
 }
 
@@ -104,18 +105,18 @@ fn literal_shell_launchers_keep_exact_bodies_and_do_not_strip_unicode_whitespace
         )),
         json!({"command":["/bin/bash","-lc",script]}),
     ] {
-        let view =
-            ToolCommandView::from_item(&native, &app.summaries.cwd).expect("literal launcher");
+        let view = ToolCommandView::from_item(&native, app.session.summary_cwd())
+            .expect("literal launcher");
         assert_eq!(view.command, body);
     }
     assert!(ToolCommandView::from_item(
         &item("\u{a0}cd /workspace/project && python3 process.py"),
-        &app.summaries.cwd
+        app.session.summary_cwd()
     )
     .is_none());
     let view = ToolCommandView::from_item(
         &item("cd /workspace/project && \u{a0}program"),
-        &app.summaries.cwd,
+        app.session.summary_cwd(),
     )
     .expect("prefix");
     assert_eq!(view.command, "\u{a0}program");
@@ -183,7 +184,7 @@ fn long_prefix_cannot_force_a_trivial_read_into_ai_or_merge_different_directory_
         let native = item(&format!(
             "cd '/workspace/project/{directory}' && rtk read file.rs"
         ));
-        assert!(summary_input(&native, &app.summaries.cwd).is_none());
+        assert!(summary_input(&native, app.session.summary_cwd()).is_none());
         let label = app.tool_command_summary(&native).expect("read label");
         assert!(label.contains(directory));
         app.append_message(Role::ToolCall, label);
@@ -264,7 +265,7 @@ fn normalized_ai_inputs_scope_raw_command_version_directory_and_read_authority()
 fn late_cwd_metadata_retires_generated_labels_and_old_results_even_across_off_on_toggle() {
     let mut app = app();
     let mut native = item("cd /workspace/project/scripts && python3 process.py");
-    let old = summary_input(&native, &app.summaries.cwd)
+    let old = summary_input(&native, app.session.summary_cwd())
         .expect("old request")
         .key;
     complete(&mut app, &native);
@@ -281,7 +282,7 @@ fn late_cwd_metadata_retires_generated_labels_and_old_results_even_across_off_on
             .generated
     );
     native["cwd"] = json!("/workspace/project/other");
-    let new = summary_input(&native, &app.summaries.cwd)
+    let new = summary_input(&native, app.session.summary_cwd())
         .expect("new request")
         .key;
     complete(&mut app, &native);
@@ -292,7 +293,7 @@ fn late_cwd_metadata_retires_generated_labels_and_old_results_even_across_off_on
             .expect("new fallback")
             .generated
     );
-    app.summaries.draft = false;
+    app.view.summary_enabled_draft = false;
     app.apply_summary_setting();
     assert!(!app.session.messages()[0]
         .tool_output
@@ -310,7 +311,7 @@ fn late_cwd_metadata_retires_generated_labels_and_old_results_even_across_off_on
         app.summary_token_for_test("shell"),
         Some("Fresh directory label".into()),
     ));
-    app.summaries.draft = true;
+    app.view.summary_enabled_draft = true;
     app.apply_summary_setting();
     let label = &app.session.messages()[0]
         .tool_output
@@ -325,14 +326,14 @@ fn late_cwd_metadata_retires_generated_labels_and_old_results_even_across_off_on
 fn history_replacement_uses_known_workspace_before_formatting_and_only_restores_cached_labels() {
     let mut app = app();
     let native = item("cd /workspace/project && python3 process.py");
-    let key = summary_input(&native, &app.summaries.cwd)
+    let key = summary_input(&native, app.session.summary_cwd())
         .expect("label identity")
         .key;
     let frame = json!({"result":{"thread":{"id":"thread","turns":[{"id":"past","status":"completed","items":[native]}]}}});
     load_history_from_start_or_resume(&mut app, &frame.to_string()).expect("history");
     assert!(!app.session.messages()[0].text.contains("cd /workspace"));
     assert!(!app.session.messages()[0].text.contains("(in "));
-    assert_eq!(app.summaries.cwd, Path::new("/workspace/project"));
+    assert_eq!(app.session.summary_cwd(), Path::new("/workspace/project"));
     app.handle_summary_event(SummaryEvent::Ready(
         key,
         app.summary_token_for_test("shell"),

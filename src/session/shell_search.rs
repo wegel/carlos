@@ -1,7 +1,7 @@
 //! Find search patterns and paths without treating option values as filenames.
 
 /// Extract a search pattern and file operands from grep or ripgrep arguments.
-pub(super) fn search_operands(words: &[String]) -> Option<(Option<String>, Vec<String>)> {
+pub(crate) fn search_operands(words: &[String]) -> Option<(Option<String>, Vec<String>)> {
     let grep = super::shell_words::program_name(words.first()?) == "grep";
     let mut pattern = None;
     let mut pattern_file = false;

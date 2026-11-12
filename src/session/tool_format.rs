@@ -4,9 +4,9 @@ use std::collections::HashSet;
 
 use serde_json::Value;
 
+use super::models::Role;
 use super::tool_shell::{command_summary_from_shell_cmd, compact_command_path};
 use super::tools::{tool_command, tool_name, tool_output_text, value_at_path};
-use super::Role;
 
 #[path = "tool_format_command.rs"]
 mod command;
@@ -15,7 +15,8 @@ use command::{format_command_call, format_command_output};
 
 // --- JSON Summary Helpers ---
 
-pub(super) fn compact_json_summary(value: &Value, max_chars: usize) -> Option<String> {
+/// Clip a compact JSON string to the existing character limit.
+pub(crate) fn compact_json_summary(value: &Value, max_chars: usize) -> Option<String> {
     let mut s = serde_json::to_string(value).ok()?;
     if s.len() > max_chars {
         s.truncate(max_chars.saturating_sub(1));
@@ -24,11 +25,13 @@ pub(super) fn compact_json_summary(value: &Value, max_chars: usize) -> Option<St
     Some(s)
 }
 
-pub(super) fn tool_input_object(item: &Value) -> Option<&serde_json::Map<String, Value>> {
+/// Read a tool input object without copying its fields.
+pub(crate) fn tool_input_object(item: &Value) -> Option<&serde_json::Map<String, Value>> {
     value_at_path(item, &["input"]).and_then(Value::as_object)
 }
 
-pub(super) fn inline_value(value: &Value) -> Option<String> {
+/// Format one plain argument value for a tool label.
+pub(crate) fn inline_value(value: &Value) -> Option<String> {
     match value {
         Value::String(s) => {
             if s.is_empty() {
@@ -44,7 +47,8 @@ pub(super) fn inline_value(value: &Value) -> Option<String> {
     }
 }
 
-pub(super) fn format_input_brackets(
+/// Format sorted argument fields outside the supplied skip list.
+pub(crate) fn format_input_brackets(
     input: &serde_json::Map<String, Value>,
     skip_keys: &[&str],
 ) -> Option<String> {
@@ -76,7 +80,8 @@ pub(super) fn format_input_brackets(
 
 // --- Name / Icon Formatting ---
 
-pub(super) fn titlecase_tool_name(name: &str) -> String {
+/// Format the readable tool name used in a label.
+pub(crate) fn titlecase_tool_name(name: &str) -> String {
     let normalized = name.replace(['_', '-'], " ");
     let mut out = String::new();
     for (i, word) in normalized.split_whitespace().enumerate() {
@@ -96,7 +101,8 @@ pub(super) fn titlecase_tool_name(name: &str) -> String {
     }
 }
 
-pub(super) fn tool_icon(tool_name: &str) -> &'static str {
+/// Choose the existing text marker for a tool name.
+pub(crate) fn tool_icon(tool_name: &str) -> &'static str {
     match tool_name {
         "read" | "list" => "→",
         "write" | "edit" | "applypatch" | "apply_patch" => "←",
@@ -108,7 +114,8 @@ pub(super) fn tool_icon(tool_name: &str) -> &'static str {
 
 // --- Inline Tool Call Formatting ---
 
-pub(super) fn format_tool_call_inline(item: &Value, tool_name: &str) -> Option<String> {
+/// Format one tool request as a plain one-line label.
+pub(crate) fn format_tool_call_inline(item: &Value, tool_name: &str) -> Option<String> {
     let lower = tool_name.to_ascii_lowercase();
     let input = tool_input_object(item);
     let icon = tool_icon(&lower);
@@ -196,7 +203,8 @@ fn append_input_brackets(
 
 // --- Input Summary ---
 
-pub(super) fn tool_input_summary(item: &Value) -> Option<String> {
+/// Read the short input text used in a tool label.
+pub(crate) fn tool_input_summary(item: &Value) -> Option<String> {
     if let Some(obj) = value_at_path(item, &["input"]).and_then(Value::as_object) {
         let mut fields = Vec::new();
         for key in [
@@ -224,7 +232,8 @@ pub(super) fn tool_input_summary(item: &Value) -> Option<String> {
 
 // --- Top-Level Item Formatter ---
 
-pub(super) fn format_tool_item(item: &Value, role: Role) -> Option<String> {
+/// Format a plain tool call or output without wrapping or colors.
+pub(crate) fn format_tool_item(item: &Value, role: Role) -> Option<String> {
     match role {
         Role::ToolCall => format_tool_call(item),
         Role::ToolOutput => format_tool_output(item),
@@ -254,7 +263,8 @@ fn format_tool_output(item: &Value) -> Option<String> {
 
 // --- Command Summarization from Parsed Command ---
 
-pub(super) fn command_summary_from_parsed_cmd(msg: &Value) -> Option<(String, String)> {
+/// Read a native parsed command and its plain label.
+pub(crate) fn command_summary_from_parsed_cmd(msg: &Value) -> Option<(String, String)> {
     let call_id = msg.get("call_id").and_then(Value::as_str)?.to_string();
     let parsed = msg.get("parsed_cmd").and_then(Value::as_array)?;
     let cwd = msg.get("cwd").and_then(Value::as_str);

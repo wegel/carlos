@@ -126,11 +126,12 @@ mod render_transcript;
 mod runtime_settings_state;
 mod selection;
 mod session_name;
-mod shell_command;
-mod shell_directory;
-mod shell_read;
-mod shell_search;
-mod shell_words;
+#[cfg(test)]
+use crate::session::shell_command;
+#[cfg(test)]
+use crate::session::shell_directory;
+#[cfg(test)]
+use crate::session::shell_read;
 mod source_highlight;
 mod state;
 mod state_approval_view;
@@ -144,20 +145,20 @@ mod state_summaries;
 mod state_thread;
 mod state_transcript;
 mod style_convert;
-mod summary_request;
+#[cfg(test)]
+use crate::session::summary_request;
 mod task_badge;
 mod terminal_ui;
 mod text;
 mod tool_command_view;
-mod tool_diff;
-mod tool_format;
 mod tool_output_command;
 mod tool_output_items;
 mod tool_output_preferences;
 mod tool_output_state;
-mod tool_shell;
+#[cfg(test)]
+use crate::session::tool_shell;
 mod tool_summary;
-mod tools;
+use crate::session::tools;
 mod transcript_block;
 mod transcript_body;
 mod transcript_diff;

@@ -27,7 +27,7 @@ fn turns_keep_the_expected_transcript_suffix() {
 }
 
 fn turn_case(case: &str) -> SessionState {
-    let mut session = SessionState::new("thread".into(), Default::default());
+    let mut session = SessionState::new("thread".into(), Default::default(), false);
     session.enable_ralph_mode(config());
     if case != "index zero" {
         session.append_message(Role::Assistant, "@@COMPLETE@@");
