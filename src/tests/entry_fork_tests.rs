@@ -15,7 +15,8 @@ fn fork_remints_prefix_and_retires_old_ids_for_all_backend_paths() {
         for length in 0..5 {
             let mut app = AppState::new("old".into());
             app.codex.enabled = backend == BackendKind::Codex;
-            app.claude.enabled = backend == BackendKind::Claude;
+            app.session
+                .set_claude_enabled_for_test(backend == BackendKind::Claude);
             for _ in 0..length {
                 app.append_message(Role::Assistant, "copied");
             }
@@ -82,7 +83,7 @@ fn failed_drafts_and_forks_keep_the_old_entries_and_native_bindings() {
 fn claude_start_failure_after_adoption_keeps_the_new_session_and_ids() {
     for length in 0..4 {
         let mut app = AppState::new("old".into());
-        app.claude.enabled = true;
+        app.session.set_claude_enabled_for_test(true);
         let old = app.append_message(Role::Assistant, "old");
         let old = app.session.messages()[old].id;
         switch_session(&mut app, 2, "fork");

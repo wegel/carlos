@@ -13,9 +13,9 @@ pub(super) fn changed(app: &mut AppState, queue: bool, now: Instant) {
 
 /// Let an explicit panel shortcut change the same composer mode.
 pub(super) fn toggle(app: &mut AppState, now: Instant) {
-    let queue = if app.claude.enabled {
-        app.claude.prompts.queue = !app.claude.prompts.queue;
-        app.claude.prompts.queue
+    let queue = if app.session.claude().enabled() {
+        app.view.claude_queue = !app.view.claude_queue;
+        app.view.claude_queue
     } else {
         app.codex.queue.mode = !app.codex.queue.mode;
         app.codex.queue.mode
@@ -25,11 +25,11 @@ pub(super) fn toggle(app: &mut AppState, now: Instant) {
 
 /// Keep the ordinary default quiet and show queue because it changes Enter.
 pub(super) fn label(app: &AppState, now: Instant) -> Option<&'static str> {
-    if app.rewind_mode() || !(app.claude.enabled || app.codex.enabled) {
+    if app.rewind_mode() || !(app.session.claude().enabled() || app.codex.enabled) {
         return None;
     }
-    let queue = if app.claude.enabled {
-        app.claude.prompts.queue
+    let queue = if app.session.claude().enabled() {
+        app.view.claude_queue
     } else {
         app.codex.queue.mode
     };

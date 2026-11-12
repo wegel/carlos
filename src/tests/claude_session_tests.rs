@@ -157,11 +157,11 @@ fn loaded_records_keep_sources_uuid_anchors_and_unknown_metadata_separate() {
     app.enter_rewind_mode();
     assert_eq!(app.input_text(), "text 0");
     assert_eq!(app.rewind_selected_turn_id(), Some("uuid-0"));
-    assert_eq!(app.claude.history.unknown.len(), 1);
-    assert_eq!(app.claude.history.unknown[0].uuid, "uuid-2");
-    assert_eq!(app.claude.history.records.len(), 4);
+    assert_eq!(app.session.claude_history().unknown().len(), 1);
+    assert_eq!(app.session.claude_history().unknown()[0].uuid(), "uuid-2");
+    assert_eq!(app.session.claude_history().records().len(), 4);
     assert_eq!(
-        app.claude.history.records[3]["futureMetadata"]["retained"],
+        app.session.claude_history().records()[3]["futureMetadata"]["retained"],
         true
     );
 }
@@ -186,7 +186,7 @@ fn history_or_start_reply_failure_restores_the_edit_without_forging_a_turn() {
 #[test]
 fn closed_startup_recovers_queued_humans_without_replacing_the_new_composer() {
     let mut app = AppState::new("session".to_string());
-    app.session.set_claude_phase(ClaudePhase::Starting);
+    app.session.start_claude();
     app.queue_turn_input("first human");
     app.queue_turn_input("second human");
     app.queue_ralph_continuation("automatic should disappear");

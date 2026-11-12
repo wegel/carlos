@@ -6,7 +6,7 @@ use super::state::AppState;
 
 /// Read current backend facts without treating completed rows or the root turn as tasks.
 pub(super) fn count(app: &AppState) -> usize {
-    if app.claude.enabled {
+    if app.session.claude().enabled() {
         return app.session.claude().tasks().active_count();
     }
     if !app.codex.enabled || app.codex.closed {

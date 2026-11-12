@@ -19,19 +19,15 @@ pub(crate) enum CompactionResult {
 }
 
 impl SessionState {
-    /// Update one attempt using the caller's current helper generation.
-    pub(crate) fn compact_claude_context(
-        &mut self,
-        message: &Value,
-        generation: u64,
-    ) -> CompactionNotice {
+    /// Update one attempt using the session's current helper generation.
+    pub(crate) fn compact_claude_context(&mut self, message: &Value) -> CompactionNotice {
         let boundary = message["subtype"] == "compact_boundary";
         if self.claude.activity.starts_compaction(message, boundary) {
             self.claude.activity.compact_sequence += 1;
             self.claude.activity.compact = Some(Compaction {
                 key: format!(
                     "compact:{}:{}",
-                    generation, self.claude.activity.compact_sequence
+                    self.claude.generation, self.claude.activity.compact_sequence
                 ),
                 boundary: None,
                 result: None,

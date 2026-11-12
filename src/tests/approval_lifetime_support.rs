@@ -88,11 +88,11 @@ impl BackendClient for Client {
 
 pub(super) fn app(backend: BackendKind) -> AppState {
     let mut app = AppState::new("thread".into());
-    app.claude.enabled = backend == BackendKind::Claude;
-    app.codex.enabled = backend == BackendKind::Codex;
-    app.claude.generation = 1;
     app.session
-        .set_claude_phase(super::claude_state::ClaudePhase::Ready);
+        .set_claude_enabled_for_test(backend == BackendKind::Claude);
+    app.codex.enabled = backend == BackendKind::Codex;
+    app.session.set_claude_generation_for_test(1);
+    app.session.ready_claude_after_edit_failure();
     app
 }
 
@@ -161,7 +161,7 @@ pub(super) fn callback(client: &Client, app: &mut AppState, id: &str, kind: &str
         client,
         app,
         json!({"method":"claude/callback","params":{
-        "generation":app.claude.generation,"callbackId":id,"kind":kind,"payload":payload}}),
+        "generation":app.session.claude().generation(),"callbackId":id,"kind":kind,"payload":payload}}),
     );
 }
 

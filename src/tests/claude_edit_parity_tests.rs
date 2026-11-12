@@ -243,7 +243,7 @@ fn queued_recovery_preserves_human_order_and_discards_automatic_continuations() 
 fn human_steer_and_queue_choices_reach_backend_without_changing_automatic_source() {
     for queue in [false, true] {
         let mut app = app();
-        app.claude.prompts.queue = queue;
+        app.view.claude_queue = queue;
         app.session
             .record_claude_activity(&json!({"state":"running"}));
         let peer = Peer::default();

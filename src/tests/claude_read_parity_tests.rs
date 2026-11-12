@@ -12,7 +12,7 @@ use crate::session::context_usage::ContextUsage;
 
 fn app() -> AppState {
     let mut app = AppState::new("root".into());
-    app.claude.enabled = true;
+    app.session.set_claude_enabled_for_test(true);
     app
 }
 
@@ -111,8 +111,8 @@ fn unavailable_context_readers_never_send_or_wake() {
         (true, ClaudePhase::Ready, Some("Compacting")),
     ] {
         let mut app = app();
-        app.claude.enabled = enabled;
-        app.session.set_claude_phase(phase);
+        app.session.set_claude_enabled_for_test(enabled);
+        app.session.set_claude_phase_for_test(phase);
         app.session.record_claude_status(&json!({"label":label}));
         let peer = QuotaPeer::default();
         let now = Instant::now();
@@ -176,7 +176,7 @@ fn quota_timer_guards_skip_nonclaude_and_unready_helpers() {
         (BackendKind::Claude, ClaudePhase::Closed),
     ] {
         let mut app = app();
-        app.session.set_claude_phase(phase);
+        app.session.set_claude_phase_for_test(phase);
         let peer = QuotaPeer {
             kind,
             fail: false,

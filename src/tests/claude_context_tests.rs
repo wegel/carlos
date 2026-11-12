@@ -16,7 +16,7 @@ use crate::session::runtime_settings::RuntimeSetting;
 
 fn app() -> AppState {
     let mut app = AppState::new("root".into());
-    app.claude.enabled = true;
+    app.session.set_claude_enabled_for_test(true);
     app
 }
 
@@ -202,8 +202,7 @@ fn helper_replacement_retires_pending_read_and_old_generation_cannot_install_bra
     let _ = handle_server_message_line(&mut app, &json!({"method":"claude/controller","params":{"generation":1,"requestMethod":"context","requestContext":old,
         "frame":{"type":"reply","ok":true,"result":{"totalTokens":999,"rawMaxTokens":1000}}}}).to_string());
     assert!(app.session.context_usage().is_none());
-    app.session
-        .set_claude_phase(crate::app::claude_state::ClaudePhase::Ready);
+    app.session.ready_claude_after_edit_failure();
     tick(&peer, &mut app, Instant::now());
     assert_eq!(peer.controls.borrow().len(), 2);
 }

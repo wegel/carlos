@@ -14,7 +14,8 @@ use crate::summaries::{command_key, SummaryEvent};
 pub(super) fn app(backend: BackendKind) -> AppState {
     let mut app = AppState::new("thread".into());
     app.codex.enabled = backend == BackendKind::Codex;
-    app.claude.enabled = backend == BackendKind::Claude;
+    app.session
+        .set_claude_enabled_for_test(backend == BackendKind::Claude);
     app.codex.item_turn = Some("turn".into());
     app.session.set_summary_enabled_for_test(true);
     app

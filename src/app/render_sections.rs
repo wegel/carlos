@@ -120,7 +120,7 @@ pub(super) fn draw_overlays(buf: &mut Buffer, size: TerminalSize, app: &AppState
     if app.codex.panel.show {
         crate::app::codex_panel_view::draw(buf, app, size);
     }
-    if app.claude.tasks.show {
+    if app.view.claude_tasks.show {
         crate::app::claude_task_view::draw(buf, app, size);
     }
 }
@@ -132,7 +132,7 @@ pub(super) fn cursor_position(
     size: TerminalSize,
     input_layout: &InputLayout,
 ) -> (usize, usize) {
-    let (cursor_x, cursor_y) = if app.claude.tasks.show || app.codex.panel.show {
+    let (cursor_x, cursor_y) = if app.view.claude_tasks.show || app.codex.panel.show {
         (0, 0)
     } else if app.view.runtime_settings.show_model_settings {
         model_settings_cursor_position(app, size)

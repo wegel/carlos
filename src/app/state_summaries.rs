@@ -87,8 +87,8 @@ impl AppState {
             .input_history()
             .assert_invariants(&self.session.messages());
         self.session.assert_summary_invariants();
-        for prompt in &self.claude.history.unknown {
-            assert!(self.session.messages().entry(prompt.entry_id).is_some());
+        for prompt in self.session.claude_history().unknown() {
+            assert!(self.session.messages().entry(prompt.entry_id()).is_some());
         }
     }
 }

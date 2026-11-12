@@ -305,3 +305,10 @@ mod claude_edit_parity_tests;
 #[cfg(test)]
 #[path = "../tests/claude_prompt_parity_tests.rs"]
 mod claude_prompt_parity_tests;
+
+#[cfg(test)]
+#[path = "../tests/claude_fence_parity_tests.rs"]
+mod claude_fence_parity_tests;
+#[cfg(test)]
+#[path = "../tests/claude_history_parity_tests.rs"]
+mod claude_history_parity_tests;

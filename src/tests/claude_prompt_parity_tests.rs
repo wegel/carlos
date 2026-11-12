@@ -8,7 +8,7 @@ use super::state::AppState;
 
 fn app() -> AppState {
     let mut app = AppState::new("session".into());
-    app.claude.enabled = true;
+    app.session.set_claude_enabled_for_test(true);
     app
 }
 

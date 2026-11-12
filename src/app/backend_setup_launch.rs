@@ -293,7 +293,7 @@ pub(super) fn configure_claude_app(
         None,
     );
     load_history_from_start_or_resume(app, start_resp)?;
-    app.claude.enabled = true;
+    app.session.enable_claude();
     crate::app::context_settings::initialize(app, crate::backend::BackendKind::Claude, false)?;
     app.session.start_claude_settings();
     app.set_status("Claude starting");

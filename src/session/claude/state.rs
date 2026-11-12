@@ -1,6 +1,6 @@
 //! Keep native helper, process, model, and read facts in one session.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use serde_json::Value;
 
@@ -8,6 +8,7 @@ use super::activity::ClaudeActivity;
 use super::browser::BrowserRequest;
 use super::context::ClaudeContext;
 use super::edit::ClaudeEdit;
+use super::history::ClaudeHistory;
 use super::prompts::ClaudePrompts;
 use super::quota::ClaudeQuota;
 use super::tasks::ClaudeTasks;
@@ -24,6 +25,13 @@ pub(crate) enum ClaudePhase {
 /// Own native Claude facts independently of local settings and countdowns.
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct ClaudeState {
+    pub(in crate::session) enabled: bool,
+    pub(in crate::session) generation: u64,
+    pub(in crate::session) epoch: u64,
+    pub(in crate::session) notices: VecDeque<String>,
+    pub(in crate::session) reset_key: Option<String>,
+    pub(in crate::session) awaiting_reset_init: bool,
+    pub(in crate::session) history: ClaudeHistory,
     pub(in crate::session) prompts: ClaudePrompts,
     pub(in crate::session) edit: ClaudeEdit,
     pub(in crate::session) tasks: ClaudeTasks,
@@ -41,6 +49,13 @@ pub(crate) struct ClaudeState {
 impl Default for ClaudeState {
     fn default() -> Self {
         Self {
+            enabled: false,
+            generation: 1,
+            epoch: 0,
+            notices: VecDeque::new(),
+            reset_key: None,
+            awaiting_reset_init: false,
+            history: ClaudeHistory::default(),
             prompts: ClaudePrompts::default(),
             edit: ClaudeEdit::default(),
             tasks: ClaudeTasks::default(),
@@ -58,6 +73,17 @@ impl Default for ClaudeState {
 }
 
 impl ClaudeState {
+    /// Read whether this app has received or started Claude work.
+    pub(crate) fn enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Read the current replacement helper's generation.
+    #[cfg(test)]
+    pub(crate) fn generation(&self) -> u64 {
+        self.generation
+    }
+
     /// Borrow native task records and stop progress.
     pub(crate) fn tasks(&self) -> &ClaudeTasks {
         &self.tasks
@@ -114,17 +140,8 @@ impl SessionState {
         &self.claude
     }
 
-    /// Record the phase at the existing native lifecycle boundary.
-    pub(crate) fn set_claude_phase(&mut self, phase: ClaudePhase) {
-        self.claude.phase = phase;
-    }
-
-    /// Retire helper facts at a generation switch while retaining explicit-choice facts.
-    pub(crate) fn reset_claude_metadata(&mut self) {
-        self.claude = ClaudeState {
-            inherits_model: self.claude.inherits_model,
-            inherits_effort: self.claude.inherits_effort,
-            ..ClaudeState::default()
-        };
+    /// Enable Claude when startup or a named fact identifies this backend.
+    pub(crate) fn enable_claude(&mut self) {
+        self.claude.enabled = true;
     }
 }

@@ -19,13 +19,12 @@ pub(super) fn invalidate(app: &mut AppState) {
 
 /// Send at most one optional summary read.
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant) -> bool {
-    app.session
-        .tick_claude_context(client, now, app.claude.enabled)
+    app.session.tick_claude_context(client, now)
 }
 
 /// Wake for pending reads and stale-count markers.
 pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
-    app.session.claude_context_wait(now, app.claude.enabled)
+    app.session.claude_context_wait(now)
 }
 
 /// Settle the matching optional read before checking its context revision.

@@ -15,7 +15,7 @@ use support::Peer;
 
 fn app() -> AppState {
     let mut app = AppState::new("root".into());
-    app.claude.enabled = true;
+    app.session.set_claude_enabled_for_test(true);
     app
 }
 
@@ -259,7 +259,7 @@ fn activity_defaults_and_label_precedence_leave_context_revision_unchanged() {
 #[test]
 fn compaction_reuses_attempts_until_a_new_boundary_or_start_after_any_result() {
     let mut app = app();
-    app.claude.generation = 7;
+    app.session.set_claude_generation_for_test(7);
     let messages = [
         (json!({"status":"compacting"}), 1, Some("Compacting")),
         (json!({"status":"compacting"}), 1, Some("Compacting")),
@@ -323,7 +323,7 @@ fn clear_retains_process_work_but_failure_only_clears_activity_and_live_membersh
     app.session.update_claude_task(&json!({"subtype":"background_tasks_changed","tasks":[{"task_id":"task","run_id":"a"}]})).expect("level");
     app.session.begin_claude_task_stop_for_test("task");
     fact(&mut app, "claude/activity", json!({"state":"running"}));
-    app.claude.tasks.selected = Some("task".into());
+    app.view.claude_tasks.selected = Some("task".into());
     app.set_input_text("keep this draft");
     super::claude_reset::receive(&mut app, &json!({"new_conversation_id":"clear"}));
     assert_eq!(app.session.claude().tasks().active_count(), 1);
@@ -353,7 +353,7 @@ fn clear_retains_process_work_but_failure_only_clears_activity_and_live_membersh
         Some(StopState::Sending)
     ));
     assert_eq!(app.session.claude().activity().context_revision(), 0);
-    assert_eq!(app.claude.tasks.selected.as_deref(), Some("task"));
+    assert_eq!(app.view.claude_tasks.selected.as_deref(), Some("task"));
 }
 
 #[test]

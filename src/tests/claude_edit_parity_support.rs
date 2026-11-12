@@ -56,12 +56,12 @@ impl BackendClient for Peer {
 
 pub(super) fn app() -> AppState {
     let mut app = AppState::new("session".into());
-    app.claude.enabled = true;
+    app.session.set_claude_enabled_for_test(true);
     app
 }
 
 pub(super) fn event(app: &mut AppState, method: &str, mut params: Value) {
-    params["generation"] = json!(app.claude.generation);
+    params["generation"] = json!(app.session.claude().generation());
     let _ = super::notifications::handle_server_message_line(
         app,
         &json!({"method":method,"params":params}).to_string(),

@@ -211,7 +211,7 @@ fn steer_existing_turn(
         "turn/steer",
         params,
         origin,
-        if client.kind() == BackendKind::Claude && app.claude.prompts.queue {
+        if client.kind() == BackendKind::Claude && app.view.claude_queue {
             PromptPriority::Queue
         } else {
             PromptPriority::Steer
@@ -264,7 +264,7 @@ fn start_new_turn(
             if client.kind() == BackendKind::Claude
                 && app.session.claude().activity().native_state()
                     == crate::session::claude::NativeState::Running
-                && !app.claude.prompts.queue
+                && !app.view.claude_queue
             {
                 PromptPriority::Steer
             } else {

@@ -20,6 +20,9 @@ use super::viewport_state::ViewportState;
 use crate::session::entry_id::EntryId;
 
 pub(super) struct ViewState {
+    pub(super) claude_tasks: super::claude_tasks::ClaudeTasksView,
+    pub(super) claude_queue: bool,
+    pub(super) claude_unknown_selection: Option<usize>,
     pub(super) claude_edit: ClaudeEditView,
     pub(super) claude_quota_next_draw: Option<Instant>,
     pub(super) claude_settings_edit: Option<(String, String)>,
@@ -46,6 +49,9 @@ pub(super) struct ViewState {
 impl ViewState {
     pub(super) fn new(summary_enabled_draft: bool) -> Self {
         Self {
+            claude_tasks: Default::default(),
+            claude_queue: false,
+            claude_unknown_selection: None,
             claude_edit: ClaudeEditView::default(),
             claude_quota_next_draw: None,
             claude_settings_edit: None,

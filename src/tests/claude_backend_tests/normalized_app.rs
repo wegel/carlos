@@ -41,11 +41,12 @@ pub(super) fn handle_server_message_line(
     let parsed: Value = serde_json::from_str(line).expect("test JSON");
     let generation = parsed["params"]["generation"]
         .as_u64()
-        .unwrap_or(app.claude.generation);
-    if parsed["method"] == "claude/sessionChanged" && generation > app.claude.generation {
+        .unwrap_or(app.session.claude().generation());
+    if parsed["method"] == "claude/sessionChanged" && generation > app.session.claude().generation()
+    {
         app.native = FixtureNormalizer::default();
     }
-    if parsed["method"] == "claude/controller" && generation != app.claude.generation {
+    if parsed["method"] == "claude/controller" && generation != app.session.claude().generation() {
         return None;
     }
     let lines = app

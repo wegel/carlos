@@ -195,7 +195,7 @@ fn failed_boundary(app: &mut AppState, old: &mut HeadReference, operation: u64) 
     use crate::app::item_history::load_history_from_start_or_resume;
     use crate::app::notifications::handle_server_message_line;
 
-    if !app.claude.enabled {
+    if !app.session.claude().enabled() {
         let error = if operation & 1 == 0 {
             "not json"
         } else {
@@ -218,7 +218,7 @@ fn failed_boundary(app: &mut AppState, old: &mut HeadReference, operation: u64) 
             }
         }
         9 => {
-            let generation = app.claude.generation + 1;
+            let generation = app.session.claude().generation() + 1;
             switch_session(app, generation, "fork");
             handle_server_message_line(app,&json!({"method":"claude/sessionStartFailed","params":{"generation":generation,"message":"startup failed"}}).to_string());
             *old = HeadReference::default();

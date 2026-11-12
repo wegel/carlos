@@ -1,39 +1,27 @@
-//! Clears one native transcript while preserving process tasks, unanswered callbacks, and accepted inputs.
+//! Apply local editor resets around the session's native clear and init fences.
 
 use serde_json::Value;
 
-use super::claude_state::ClaudePhase;
 use super::state::AppState;
 
-/// Apply the reset once; the next observed native init supplies the actual session ID.
+/// Apply each native reset once while preserving callbacks and process tasks.
 pub(super) fn receive(app: &mut AppState, message: &Value) {
-    let key = message["new_conversation_id"].as_str().unwrap_or("");
-    if app.claude.reset_key.as_deref() == Some(key) {
+    if !app.session.begin_claude_reset(message) {
         return;
     }
-    app.claude.reset_key = Some(key.to_string());
-    app.claude.awaiting_reset_init = true;
-    super::claude_prompts::reset(app, message["user_message_uuid"].as_str());
     let old_id = app.session.thread_id().clone();
     app.reset_preserving_approvals(old_id);
     app.session.set_thread_name(None);
-    app.claude.history = Default::default();
-    app.session.clear_claude_edit();
+    app.session.clear_claude_history();
+    app.view.claude_unknown_selection = None;
     app.view.claude_edit = Default::default();
-    app.session.clear_claude_conversation_activity();
-    app.session.set_claude_phase(ClaudePhase::Starting);
-    app.session.ralph_stop_after_failure();
-    app.set_status("Claude cleared the conversation; waiting for its native session identity");
+    app.session.finish_claude_reset();
 }
 
-/// Adopt only an init that the transport's one-shot reset guard already accepted.
+/// Adopt only a string native identity while the session awaits its reset init.
 pub(super) fn initialize(app: &mut AppState, message: &Value) {
-    if !app.claude.awaiting_reset_init {
-        return;
-    }
-    if let Some(id) = message["session_id"].as_str() {
+    if let Some(id) = app.session.claude_reset_identity(message) {
         app.set_thread_id(id);
-        app.claude.awaiting_reset_init = false;
-        app.session.set_claude_phase(ClaudePhase::Ready);
+        app.session.finish_claude_reset_init();
     }
 }

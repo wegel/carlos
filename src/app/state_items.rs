@@ -13,7 +13,7 @@ impl AppState {
     pub(super) fn item_key(&self, item_id: &str) -> BackendEntryKey {
         let backend = if self.codex.enabled {
             BackendKind::Codex
-        } else if self.claude.enabled {
+        } else if self.session.claude().enabled() {
             BackendKind::Claude
         } else {
             BackendKind::Grok
@@ -53,10 +53,12 @@ impl AppState {
         self.session.item_message_index(&self.item_key(item_id))
     }
 
+    #[cfg(test)]
     pub(super) fn has_item_mapping(&self, item_id: &str) -> bool {
         self.session.has_item_mapping(&self.item_key(item_id))
     }
 
+    #[cfg(test)]
     pub(super) fn put_item_mapping(&mut self, item_id: &str, idx: usize) {
         let key = self.item_key(item_id);
         self.session.put_item_mapping(&key, idx);

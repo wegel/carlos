@@ -29,3 +29,23 @@ impl SessionState {
             .contains_key(&(server.to_string(), id.to_string()))
     }
 }
+
+#[cfg(test)]
+impl SessionState {
+    /// Seed an intentionally inconsistent backend flag in the existing tests.
+    pub(crate) fn set_claude_enabled_for_test(&mut self, enabled: bool) {
+        self.claude.enabled = enabled;
+    }
+    /// Seed a helper generation without resetting unrelated fixture facts.
+    pub(crate) fn set_claude_generation_for_test(&mut self, generation: u64) {
+        self.claude.generation = generation;
+    }
+    /// Enumerate phase gates without submitting a request in metadata fixtures.
+    pub(crate) fn set_claude_phase_for_test(&mut self, phase: super::state::ClaudePhase) {
+        self.claude.phase = phase;
+    }
+    /// Seed the existing init guard for metadata gate tests.
+    pub(crate) fn set_claude_awaiting_init_for_test(&mut self, awaiting: bool) {
+        self.claude.awaiting_reset_init = awaiting;
+    }
+}

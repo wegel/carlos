@@ -80,7 +80,7 @@ impl AppState {
         }
         self.view.viewport.auto_follow_bottom = false;
         let _ = self.navigate_input_history_up();
-        if !self.claude.history.unknown.is_empty() {
+        if !self.session.claude_history().unknown().is_empty() {
             self.set_hint("Edit human prompt; F4 selects older prompts with unknown source");
         }
     }
@@ -90,7 +90,7 @@ impl AppState {
             return;
         };
         self.view.viewport.auto_follow_bottom = true;
-        self.claude.history.unknown_selection = None;
+        self.view.claude_unknown_selection = None;
         if !super::claude_edit::waiting(self) {
             self.view.claude_edit.failed = false;
         }
@@ -102,7 +102,7 @@ impl AppState {
         if self.view.claude_edit.failed {
             self.view.claude_edit.failed = false;
         }
-        self.claude.history.unknown_selection = None;
+        self.view.claude_unknown_selection = None;
         self.view.viewport.auto_follow_bottom = true;
     }
 
@@ -198,11 +198,10 @@ impl AppState {
     }
 
     pub(super) fn rewind_selected_turn_id(&self) -> Option<&str> {
-        self.claude
-            .history
-            .unknown_selection
-            .and_then(|index| self.claude.history.unknown.get(index))
-            .map(|prompt| prompt.uuid.as_str())
+        self.view
+            .claude_unknown_selection
+            .and_then(|index| self.session.claude_history().unknown().get(index))
+            .map(|prompt| prompt.uuid())
             .or_else(|| {
                 self.session
                     .input_history()
@@ -241,11 +240,10 @@ impl AppState {
     }
 
     pub(super) fn rewind_selected_message_idx(&self) -> Option<usize> {
-        self.claude
-            .history
-            .unknown_selection
-            .and_then(|index| self.claude.history.unknown.get(index))
-            .and_then(|prompt| self.session.messages().position(prompt.entry_id))
+        self.view
+            .claude_unknown_selection
+            .and_then(|index| self.session.claude_history().unknown().get(index))
+            .and_then(|prompt| self.session.messages().position(prompt.entry_id()))
             .or_else(|| {
                 self.view
                     .input_history
@@ -255,9 +253,8 @@ impl AppState {
     }
 
     pub(super) fn rewind_selected_history_index(&self) -> Option<usize> {
-        self.claude
-            .history
-            .unknown_selection
+        self.view
+            .claude_unknown_selection
             .map(|_| usize::MAX)
             .or_else(|| self.view.input_history.rewind_selected_history_index())
     }

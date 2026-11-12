@@ -32,7 +32,7 @@ fn status(app: &AppState, width: usize) -> String {
 fn default_is_quiet_queue_is_visible_and_explicit_steer_notice_expires_without_native_work() {
     for claude in [false, true] {
         let mut app = AppState::new("root".into());
-        app.claude.enabled = claude;
+        app.session.set_claude_enabled_for_test(claude);
         app.codex.enabled = !claude;
         let now = Instant::now();
         assert!(!status(&app, 100).contains("Steer"));
@@ -54,7 +54,7 @@ fn default_is_quiet_queue_is_visible_and_explicit_steer_notice_expires_without_n
 fn narrow_queue_reserves_compact_context_and_keeps_weekly_at_the_right_edge() {
     for claude in [false, true] {
         let mut app = AppState::new("root".into());
-        app.claude.enabled = claude;
+        app.session.set_claude_enabled_for_test(claude);
         app.codex.enabled = !claude;
         app.session.set_context_usage(Some(ContextUsage {
             used: 90_000,
@@ -79,7 +79,7 @@ fn narrow_queue_reserves_compact_context_and_keeps_weekly_at_the_right_edge() {
 #[test]
 fn captured_claude_uuid_kinds_survive_later_mode_changes_and_do_not_change_text_or_editability() {
     let mut app = AppState::new("root".into());
-    app.claude.enabled = true;
+    app.session.set_claude_enabled_for_test(true);
     for (id, kind) in [
         ("normal", "prompt"),
         ("steer", "steer"),
@@ -87,7 +87,7 @@ fn captured_claude_uuid_kinds_survive_later_mode_changes_and_do_not_change_text_
     ] {
         let index = app.append_message(Role::User, "identical 日本語");
         app.record_input_history("identical 日本語", Some(index));
-        app.claude.prompts.queue = kind == "steer";
+        app.view.claude_queue = kind == "steer";
         record_submitted_prompt(
             &mut app,
             &json!({"result":{"turn":{"id":id},"inputKind":kind}}),
@@ -123,7 +123,7 @@ fn captured_claude_uuid_kinds_survive_later_mode_changes_and_do_not_change_text_
 #[test]
 fn loaded_classification_never_promotes_unknown_or_automatic_records_to_human() {
     let mut app = AppState::new("root".into());
-    app.claude.enabled = true;
+    app.session.set_claude_enabled_for_test(true);
     let records: Vec<_> = [("human",Some("prompt")),("human",Some("steer")),("human",None),("automatic",Some("steer")),("unknown",Some("steer"))].into_iter().enumerate().map(|(index,(source,kind))|
         json!({"source":source,"inputKind":kind,"message":{"type":"user","uuid":format!("id-{index}"),"session_id":"root","message":{"role":"user","content":"same"}}})).collect();
     let _ = handle_server_message_line(&mut app,&json!({"method":"claude/controller","params":{"requestMethod":"sessions.read","frame":{"type":"reply","ok":true,"result":{"messages":records,"nextOffset":null}}}}).to_string());

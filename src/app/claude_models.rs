@@ -7,10 +7,7 @@ use super::RuntimeDefaults;
 
 /// Validate native metadata before touching the saved edited-prompt queue.
 pub(super) fn apply_capabilities(app: &mut AppState, capabilities: &Value) {
-    if !app
-        .session
-        .apply_claude_capabilities(capabilities, app.claude.awaiting_reset_init)
-    {
+    if !app.session.apply_claude_capabilities(capabilities) {
         return;
     }
     if let Some(text) = super::claude_session_history::take_edit_prompt(app) {

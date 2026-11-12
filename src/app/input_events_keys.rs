@@ -116,8 +116,8 @@ fn handle_claude_session_keys(
     }
     match key.code {
         KeyCode::F(3) => {
-            app.claude.prompts.queue = !app.claude.prompts.queue;
-            super::super::input_mode::changed(app, app.claude.prompts.queue, Instant::now());
+            app.view.claude_queue = !app.view.claude_queue;
+            super::super::input_mode::changed(app, app.view.claude_queue, Instant::now());
         }
         KeyCode::F(4) if app.rewind_mode() => {
             crate::app::claude_rewind::toggle_unknown(app);

@@ -15,7 +15,7 @@ use crate::backend::EventReceiver;
 
 fn app() -> AppState {
     let mut app = AppState::new("original".into());
-    app.claude.enabled = true;
+    app.session.set_claude_enabled_for_test(true);
     for index in 0..80 {
         app.append_message(Role::Assistant, format!("Retained row {index}"));
     }
@@ -230,7 +230,7 @@ fn enter_during_initial_startup_does_not_reopen_the_helper_or_submit_an_edit() {
     app.push_input_history("old prompt");
     app.enter_rewind_mode();
     app.set_input_text("edit while starting");
-    app.session.set_claude_phase(ClaudePhase::Starting);
+    app.session.start_claude();
     key(&mut app, KeyCode::Enter);
     assert!(app.session.claude().phase() == ClaudePhase::Starting);
     assert_eq!(app.input_text(), "edit while starting");

@@ -2,7 +2,6 @@
 
 use serde_json::Value;
 
-use super::claude_state::ClaudePhase;
 use super::models::Role;
 use super::state::AppState;
 use crate::backend::PromptOrigin;
@@ -23,9 +22,7 @@ pub(super) fn waiting(app: &AppState) -> bool {
 /// Restore failed text without reopening a closed helper or replacing a newer draft.
 pub(super) fn failed(app: &mut AppState, message: &str) {
     super::claude_session_history::restore_edit(app);
-    if app.session.claude().phase() != ClaudePhase::Closed {
-        app.session.set_claude_phase(ClaudePhase::Ready);
-    }
+    app.session.ready_claude_after_edit_failure();
     unavailable(app, message);
 }
 

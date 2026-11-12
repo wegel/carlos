@@ -150,8 +150,8 @@ fn history_retains_raw_child_metadata_without_transcript_or_rewind_entries() {
         json!({"type":"reply","ok":true,"result":{"messages":rows,"nextOffset":null}}),
         Some("sessions.read"),
     );
-    assert_eq!(app.claude.history.records.len(), 10);
-    assert!(app.claude.history.unknown.is_empty());
+    assert_eq!(app.session.claude_history().records().len(), 10);
+    assert!(app.session.claude_history().unknown().is_empty());
     assert_eq!(app.session.messages().len(), 2);
     assert_eq!(app.session.messages()[0].role, Role::User);
     assert_eq!(app.session.messages()[1].text, "MAIN_HISTORY_REPORT");
@@ -198,6 +198,6 @@ fn only_positively_identified_child_report_notices_are_hidden() {
             Some("sessions.read"),
         );
         assert_eq!(app.session.messages().is_empty(), expected);
-        assert_eq!(app.claude.history.records.len(), 1);
+        assert_eq!(app.session.claude_history().records().len(), 1);
     }
 }

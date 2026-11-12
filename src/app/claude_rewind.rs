@@ -4,7 +4,7 @@ use super::state::AppState;
 
 /// Toggle the explicit unknown-source branch selector while rewind is open.
 pub(super) fn toggle_unknown(app: &mut AppState) {
-    if app.claude.history.unknown_selection.take().is_some() {
+    if app.view.claude_unknown_selection.take().is_some() {
         app.reset_input_history_navigation();
         if !app.navigate_input_history_up() {
             app.clear_input();
@@ -12,7 +12,7 @@ pub(super) fn toggle_unknown(app: &mut AppState) {
         app.set_hint("Edit human prompt; F4 selects older prompts with unknown source");
         return;
     }
-    let Some(index) = app.claude.history.unknown.len().checked_sub(1) else {
+    let Some(index) = app.session.claude_history().unknown().len().checked_sub(1) else {
         app.set_hint("No older prompts with unknown source");
         return;
     };
@@ -21,21 +21,23 @@ pub(super) fn toggle_unknown(app: &mut AppState) {
 
 /// Move only within the explicitly selected legacy records.
 pub(super) fn navigate(app: &mut AppState, up: bool) -> bool {
-    let Some(index) = app.claude.history.unknown_selection else {
+    let Some(index) = app.view.claude_unknown_selection else {
         return false;
     };
     let next = if up {
         index.saturating_sub(1)
     } else {
-        (index + 1).min(app.claude.history.unknown.len() - 1)
+        (index + 1).min(app.session.claude_history().unknown().len() - 1)
     };
     select(app, next);
     true
 }
 
 fn select(app: &mut AppState, index: usize) {
-    app.claude.history.unknown_selection = Some(index);
-    let text = app.claude.history.unknown[index].text.clone();
+    app.view.claude_unknown_selection = Some(index);
+    let text = app.session.claude_history().unknown()[index]
+        .text()
+        .to_string();
     app.set_input_text(&text);
     app.set_hint(
         "Source unknown: Enter forks before this prompt; F4 human prompts; Esc restores draft",

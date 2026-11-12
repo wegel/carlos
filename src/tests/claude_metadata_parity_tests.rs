@@ -160,8 +160,8 @@ fn capabilities_ignore_closed_helpers_and_do_not_skip_the_reset_init_guard() {
         (ClaudePhase::Ready, true, ClaudePhase::Ready),
     ] {
         let mut app = app(Some("fast"), Some("high"));
-        app.session.set_claude_phase(phase);
-        app.claude.awaiting_reset_init = awaiting;
+        app.session.set_claude_phase_for_test(phase);
+        app.session.set_claude_awaiting_init_for_test(awaiting);
         apply_capabilities(&mut app, &metadata());
         assert_eq!(app.session.claude().phase() as u8, expected as u8);
         assert_eq!(

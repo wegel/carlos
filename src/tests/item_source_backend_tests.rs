@@ -13,7 +13,8 @@ fn check_stream(events: &[Value], text: &str) {
         let mut app = app(backend);
         app.session.set_summary_enabled_for_test(false);
         // Codex wins when both flags are set; Grok uses its own native keys.
-        app.claude.enabled = backend == BackendKind::Codex;
+        app.session
+            .set_claude_enabled_for_test(backend == BackendKind::Codex);
         let mut first = None;
         for event in events {
             handle_server_message_line(&mut app, &event.to_string());
@@ -90,7 +91,7 @@ fn an_unrelated_claude_flag_cannot_unbind_codex_or_grok_native_keys() {
                     app.session.mark_item_completed(&key);
                 }
                 let id = app.session.messages()[0].id;
-                app.claude.enabled = true;
+                app.session.set_claude_enabled_for_test(true);
                 for all_parts in [false, true] {
                     app.session.prepare_item_source(&key, None, all_parts);
                     assert_eq!(app.session.item_message_index(&key), Some(0));

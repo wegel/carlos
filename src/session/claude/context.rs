@@ -45,13 +45,8 @@ impl SessionState {
     }
 
     /// Send at most one optional summary read; neither typing nor chat waits for it.
-    pub(crate) fn tick_claude_context(
-        &mut self,
-        client: &dyn BackendClient,
-        now: Instant,
-        enabled: bool,
-    ) -> bool {
-        if !self.claude_context_available(enabled) {
+    pub(crate) fn tick_claude_context(&mut self, client: &dyn BackendClient, now: Instant) -> bool {
+        if !self.claude_context_available() {
             return false;
         }
         let model = self.runtime_settings().current_model().clone();
@@ -94,8 +89,8 @@ impl SessionState {
     }
 
     /// Wake idle work for reads and stale-value markers, without polling a stuck request forever.
-    pub(crate) fn claude_context_wait(&self, now: Instant, enabled: bool) -> Option<Duration> {
-        if !self.claude_context_available(enabled) {
+    pub(crate) fn claude_context_wait(&self, now: Instant) -> Option<Duration> {
+        if !self.claude_context_available() {
             return None;
         }
         let context = &self.claude.context;
@@ -155,8 +150,8 @@ impl SessionState {
         context.fresh = false;
     }
 
-    fn claude_context_available(&self, enabled: bool) -> bool {
-        enabled
+    fn claude_context_available(&self) -> bool {
+        self.claude.enabled
             && self.claude.phase == ClaudePhase::Ready
             && self.claude.activity.transient.as_deref() != Some("Compacting")
     }

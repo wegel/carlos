@@ -83,7 +83,8 @@ fn kinds() -> [ApprovalRequestKind; 10] {
 fn approval_sequence(backend: BackendKind, kind: ApprovalRequestKind, tail: &str) -> Value {
     let client = Client::new(backend);
     let mut app = AppState::new("thread".into());
-    app.claude.enabled = backend == BackendKind::Claude;
+    app.session
+        .set_claude_enabled_for_test(backend == BackendKind::Claude);
     app.set_pending_approval(request(kind, "request"));
     let mut steps = vec![snapshot(&client, &app)];
     super::turn_approval::respond_to_pending_approval(&client, &mut app, ApprovalChoice::Accept);
@@ -133,7 +134,7 @@ fn approval_tail(client: &Client, app: &mut AppState, tail: &str) {
 fn native_sequence(fields: bool, tail: &str) -> Value {
     let client = Client::new(BackendKind::Claude);
     let mut app = AppState::new("thread".into());
-    app.claude.enabled = true;
+    app.session.set_claude_enabled_for_test(true);
     let payload = if fields {
         json!({"toolName":"AskUserQuestion","defaultToNo":true,"input":{"questions":[{
             "question":"Format?","header":"Format","options":[{"label":"Summary"}]}]}})

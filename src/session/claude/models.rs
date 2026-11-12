@@ -9,11 +9,7 @@ use crate::session::state::SessionState;
 
 impl SessionState {
     /// Validate saved choices before accepting native model metadata.
-    pub(crate) fn apply_claude_capabilities(
-        &mut self,
-        capabilities: &Value,
-        awaiting_reset_init: bool,
-    ) -> bool {
+    pub(crate) fn apply_claude_capabilities(&mut self, capabilities: &Value) -> bool {
         if self.claude.phase == ClaudePhase::Closed {
             return false;
         }
@@ -46,7 +42,7 @@ impl SessionState {
         self.validate_effort(capabilities);
         self.claude.capabilities = Some(capabilities.clone());
         self.refresh_claude_models();
-        if !awaiting_reset_init {
+        if !self.claude.awaiting_reset_init {
             self.claude.phase = ClaudePhase::Ready;
         }
         self.set_status("Claude ready");

@@ -12,7 +12,7 @@ pub(super) fn handle_enter_submit(
     client: &dyn BackendClient,
     app: &mut AppState,
 ) -> TerminalEventResult {
-    if app.claude.enabled && crate::app::claude_edit::waiting(app) {
+    if app.session.claude().enabled() && crate::app::claude_edit::waiting(app) {
         return TerminalEventResult::Continue { needs_draw: true };
     }
     if app.input_is_empty() {
@@ -36,7 +36,7 @@ pub(super) fn handle_enter_submit(
             submit_rewind_turn_text(client, app, rewind_history_idx, text);
             return TerminalEventResult::Continue { needs_draw: true };
         }
-        if app.claude.enabled {
+        if app.session.claude().enabled() {
             crate::app::claude_edit::unavailable(
                 app,
                 "Choose a saved prompt with Up/Down; F4 selects older prompts with unknown source",

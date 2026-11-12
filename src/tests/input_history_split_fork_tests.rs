@@ -6,7 +6,6 @@ use std::time::Duration;
 use anyhow::{bail, Result};
 use serde_json::{json, Value};
 
-use crate::app::claude_state::ClaudePhase;
 use crate::app::notifications::{handle_notification_line, load_history_from_start_or_resume};
 use crate::app::state::AppState;
 use crate::app::turn_submit::submit_rewind_turn_text;
@@ -69,7 +68,7 @@ impl BackendClient for Peer {
 
 fn seed(kind: BackendKind) -> AppState {
     let mut app = AppState::new("root".into());
-    app.session.set_claude_phase(ClaudePhase::Ready);
+    app.session.ready_claude_after_edit_failure();
     if kind == BackendKind::Codex {
         app.session.enable_native_history();
     }

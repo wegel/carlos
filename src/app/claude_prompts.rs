@@ -2,23 +2,11 @@
 
 use super::state::AppState;
 
-/// Keep the client's queue versus steer choice separate from accepted native inputs.
-#[derive(Default)]
-pub(super) struct ClaudePrompts {
-    pub(super) queue: bool,
-}
-
 /// Associate a local echo with its native UUID before the next SDK frame is handled.
 #[cfg(test)]
 pub(super) fn attach_echo(app: &mut AppState, id: &str, kind: Option<&str>) {
     let key = app.item_key(&format!("claude-prompt:{id}"));
     let update = app.session.attach_claude_prompt_echo(id, &key, kind);
-    app.apply_session_update(update);
-}
-
-/// Apply only a captured human steer classification.
-pub(super) fn set_kind(app: &mut AppState, index: usize, kind: Option<&str>) {
-    let update = app.session.classify_claude_prompt(index, kind);
     app.apply_session_update(update);
 }
 
@@ -36,6 +24,7 @@ pub(super) fn consume(app: &mut AppState, ids: &[String]) {
 }
 
 /// Preserve accepted queued inputs when native Claude clears consumed conversation work.
+#[cfg(test)]
 pub(super) fn reset(app: &mut AppState, clear: Option<&str>) {
     app.session.reset_claude_prompts(clear);
 }

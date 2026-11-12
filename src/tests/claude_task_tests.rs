@@ -152,15 +152,19 @@ fn running_foreground_task_can_be_stopped_without_fabricating_background_members
 fn opening_pins_default_selection_through_membership_change_completion_and_detail_eviction() {
     let mut app = AppState::new("tasks".into());
     app.session.update_claude_task(&json!({"subtype":"background_tasks_changed","tasks":[{"task_id":"alpha","run_id":"a"},{"task_id":"beta","run_id":"a"}]})).expect("two tasks");
-    app.claude.tasks.open(app.session.claude().tasks());
+    app.view.claude_tasks.open(app.session.claude().tasks());
     assert_eq!(
-        app.claude.tasks.selected_id(app.session.claude().tasks()),
+        app.view
+            .claude_tasks
+            .selected_id(app.session.claude().tasks()),
         Some("alpha")
     );
     app.session.update_claude_task(&json!({"subtype":"task_notification","task_id":"alpha","run_id":"a","status":"completed"})).expect("alpha ends");
     app.session.update_claude_task(&json!({"subtype":"background_tasks_changed","tasks":[{"task_id":"beta","run_id":"a"}]})).expect("beta remains");
     assert_eq!(
-        app.claude.tasks.selected_id(app.session.claude().tasks()),
+        app.view
+            .claude_tasks
+            .selected_id(app.session.claude().tasks()),
         Some("alpha")
     );
     assert_eq!(app.session.begin_claude_task_stop_for_test("alpha"), None);
@@ -171,14 +175,18 @@ fn opening_pins_default_selection_through_membership_change_completion_and_detai
             )
             .expect("detail churn");
     }
-    assert_eq!(app.claude.tasks.selected.as_deref(), Some("alpha"));
+    assert_eq!(app.view.claude_tasks.selected.as_deref(), Some("alpha"));
     assert_eq!(
-        app.claude.tasks.selected_id(app.session.claude().tasks()),
+        app.view
+            .claude_tasks
+            .selected_id(app.session.claude().tasks()),
         None
     );
-    app.claude.tasks.open(app.session.claude().tasks());
+    app.view.claude_tasks.open(app.session.claude().tasks());
     assert_eq!(
-        app.claude.tasks.selected_id(app.session.claude().tasks()),
+        app.view
+            .claude_tasks
+            .selected_id(app.session.claude().tasks()),
         None,
         "reopening cannot retarget x"
     );

@@ -60,7 +60,7 @@ fn review_ownership_ctrl_l_must_preserve_session_status() {
 #[test]
 fn review_ownership_first_allow_must_preserve_request_facts() {
     let mut app = AppState::new("thread".into());
-    app.claude.enabled = true;
+    app.session.set_claude_enabled_for_test(true);
     let details = vec!["native request details".to_string()];
     app.set_pending_approval(crate::session::approval_state::ApprovalRequestDraft {
         request_id: json!("request"),
@@ -121,7 +121,8 @@ fn every_local_hint_and_first_consent_leave_all_session_fields_unchanged() {
         for kind in kinds {
             let client = Client::new(backend);
             let mut app = AppState::new("thread".into());
-            app.claude.enabled = backend == BackendKind::Claude;
+            app.session
+                .set_claude_enabled_for_test(backend == BackendKind::Claude);
             app.set_status("turn completed");
             app.set_pending_approval(request(kind, "request"));
             let before = format!("{:?}", app.session);
@@ -165,7 +166,7 @@ fn native_answer_editors_keep_session_facts_until_they_send_an_answer() {
     ] {
         let client = Client::new(BackendKind::Claude);
         let mut app = AppState::new("thread".into());
-        app.claude.enabled = true;
+        app.session.set_claude_enabled_for_test(true);
         app.set_status("turn completed");
         super::claude_callbacks::receive_callback(
             &mut app,

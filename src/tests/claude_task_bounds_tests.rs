@@ -81,12 +81,12 @@ fn full_stop_registry_sets_one_control_error_until_the_user_selects_a_target() {
         Some("Too many unanswered native task stops; wait for native task events")
     );
     assert!(peer.controls.borrow().is_empty());
-    app.claude.tasks.open(app.session.claude().tasks());
+    app.view.claude_tasks.open(app.session.claude().tasks());
     super::claude_task_view::key(
         &peer,
         &mut app,
         KeyEvent::new(KeyCode::Down, KeyModifiers::NONE),
     );
     assert!(app.session.claude().tasks().control_error().is_none());
-    assert_eq!(app.claude.tasks.scroll, 0);
+    assert_eq!(app.view.claude_tasks.scroll, 0);
 }

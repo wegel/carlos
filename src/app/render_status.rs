@@ -135,7 +135,7 @@ fn status_plan(app: &AppState, size: TerminalSize) -> StatusPlan {
 }
 
 fn place_weekly(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState) {
-    if let Some(weekly) = if app.claude.enabled {
+    if let Some(weekly) = if app.session.claude().enabled() {
         app.session
             .claude()
             .quota()
@@ -250,7 +250,7 @@ fn place_context(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState
         .context_usage()
         .map(context_usage_label)
         .unwrap_or_else(|| context_usage_placeholder_label().to_string());
-    let stale = app.claude.enabled
+    let stale = app.session.claude().enabled()
         && app.session.context_usage().is_some()
         && !app.session.claude().context_fresh();
     let context = if stale {
@@ -289,7 +289,7 @@ fn place_context(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState
 
 fn place_model_and_activity(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState) {
     let mut badges = Vec::new();
-    if app.claude.enabled {
+    if app.session.claude().enabled() {
         if let Some(text) = super::claude_activity::label(app.session.claude().activity()) {
             badges.push(Label::plain(text, COLOR_GUTTER_AGENT_THINKING));
         }
@@ -369,10 +369,10 @@ fn sweep_status_line(buf: &mut Buffer, y: usize, width: usize, ralph_mode: bool,
 }
 
 fn draw_claude_rewind_hint(buf: &mut Buffer, app: &AppState, y: usize, width: usize) {
-    if !app.rewind_mode() || app.claude.history.unknown.is_empty() {
+    if !app.rewind_mode() || app.session.claude_history().unknown().is_empty() {
         return;
     }
-    let hint = if app.claude.history.unknown_selection.is_some() {
+    let hint = if app.view.claude_unknown_selection.is_some() {
         "Unknown source: Enter branches; F4 human"
     } else {
         "F4: older unknown prompts"

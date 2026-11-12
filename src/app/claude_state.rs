@@ -1,38 +1,11 @@
-//! Tracks Claude prompt UUIDs across native result cycles and session-state events.
-
-use std::collections::VecDeque;
+//! Retain callback answer editors until milestone 7 separates their facts and widgets.
 
 use super::claude_question_state::NativeAnswers;
 
 pub(super) use crate::session::claude::ClaudePhase;
 
-/// Tracks native Claude messages and unanswered questions for one UI session.
+/// Keep only the callback and question state that milestone 7 will split.
+#[derive(Default)]
 pub(super) struct ClaudeUiState {
-    pub(super) enabled: bool,
-    pub(super) epoch: u64,
-    pub(super) notices: VecDeque<String>,
-    pub(super) reset_key: Option<String>,
-    pub(super) awaiting_reset_init: bool,
-    pub(super) tasks: super::claude_tasks::ClaudeTasksView,
-    pub(super) prompts: super::claude_prompts::ClaudePrompts,
-    pub(super) generation: u64,
-    pub(super) history: super::claude_session_history::ClaudeHistory,
     pub(super) answers: NativeAnswers,
-}
-
-impl Default for ClaudeUiState {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            epoch: 0,
-            notices: Default::default(),
-            reset_key: None,
-            awaiting_reset_init: false,
-            tasks: Default::default(),
-            prompts: Default::default(),
-            generation: 1,
-            history: super::claude_session_history::ClaudeHistory::default(),
-            answers: NativeAnswers::default(),
-        }
-    }
 }

@@ -58,7 +58,7 @@ fn codex_card_ids_survive_duplicates_and_focus_then_retire_on_resolution() {
 fn claude_clear_keeps_process_card_ids_and_duplicate_clear_retires_rows_once() {
     for kind in ["permission", "elicitation"] {
         let mut app = AppState::new("thread".into());
-        app.claude.enabled = true;
+        app.session.set_claude_enabled_for_test(true);
         let callback = |id| json!({"callbackId":id,"kind":kind,"payload":{"toolName":"Bash","input":{"command":"echo ok"},"requestedSchema":{"type":"object"}}});
         receive_callback(&mut app, &callback("a"));
         let a = active(&app);

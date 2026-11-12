@@ -22,25 +22,25 @@ pub(super) fn key(
     if client.kind() != BackendKind::Claude {
         return None;
     }
-    if app.claude.tasks.show && key.code == KeyCode::F(3) && key.modifiers.is_empty() {
+    if app.view.claude_tasks.show && key.code == KeyCode::F(3) && key.modifiers.is_empty() {
         super::input_mode::toggle(app, std::time::Instant::now());
     } else if key.code == KeyCode::F(2) && key.modifiers.is_empty() {
-        if app.claude.tasks.show {
-            app.claude.tasks.show = false;
+        if app.view.claude_tasks.show {
+            app.view.claude_tasks.show = false;
         } else {
-            app.claude.tasks.open(app.session.claude().tasks());
+            app.view.claude_tasks.open(app.session.claude().tasks());
         }
-    } else if app.claude.tasks.show {
+    } else if app.view.claude_tasks.show {
         match (key.code, key.modifiers) {
             (KeyCode::Char('c'), KeyModifiers::CONTROL) => return Some(TerminalEventResult::Quit),
-            (KeyCode::Esc, _) => app.claude.tasks.show = false,
+            (KeyCode::Esc, _) => app.view.claude_tasks.show = false,
             (KeyCode::Up, _) => select(app, false),
             (KeyCode::Down, _) => select(app, true),
             (KeyCode::PageUp, _) => {
-                app.claude.tasks.scroll = app.claude.tasks.scroll.saturating_sub(5)
+                app.view.claude_tasks.scroll = app.view.claude_tasks.scroll.saturating_sub(5)
             }
             (KeyCode::PageDown, _) => {
-                app.claude.tasks.scroll = app.claude.tasks.scroll.saturating_add(5)
+                app.view.claude_tasks.scroll = app.view.claude_tasks.scroll.saturating_add(5)
             }
             (KeyCode::Char('x'), KeyModifiers::NONE) => stop(client, app),
             _ => {}
@@ -69,8 +69,8 @@ pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
     let wrapped = super::claude_question_view::wrap_lines(lines, size.width.max(1));
     let height = size.height.saturating_sub(2);
     let offset = app
-        .claude
-        .tasks
+        .view
+        .claude_tasks
         .scroll
         .min(wrapped.len().saturating_sub(height));
     for (row, line) in wrapped.iter().skip(offset).take(height).enumerate() {
@@ -89,7 +89,7 @@ pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
 fn detail(app: &AppState, id: Option<&str>) -> Vec<String> {
     let tasks = app.session.claude().tasks();
     let Some(id) = id else {
-        return vec![if app.claude.tasks.selected.is_some() {
+        return vec![if app.view.claude_tasks.selected.is_some() {
             "Selected task left the retained list; use arrows to choose another".to_string()
         } else {
             if tasks.ids().is_empty() {
@@ -143,8 +143,8 @@ fn detail(app: &AppState, id: Option<&str>) -> Vec<String> {
 fn select(app: &mut AppState, down: bool) {
     let ids = app.session.claude().tasks().ids();
     let current = app
-        .claude
-        .tasks
+        .view
+        .claude_tasks
         .selected_id(app.session.claude().tasks())
         .and_then(|id| ids.iter().position(|candidate| candidate == id));
     let next = current.map_or(0, |index| {
@@ -154,15 +154,15 @@ fn select(app: &mut AppState, down: bool) {
             index.saturating_sub(1)
         }
     });
-    app.claude.tasks.selected = ids.get(next).cloned();
-    app.claude.tasks.scroll = 0;
+    app.view.claude_tasks.selected = ids.get(next).cloned();
+    app.view.claude_tasks.scroll = 0;
     app.session.dismiss_claude_task_error();
 }
 
 fn stop(client: &dyn BackendClient, app: &mut AppState) {
     let Some(id) = app
-        .claude
-        .tasks
+        .view
+        .claude_tasks
         .selected_id(app.session.claude().tasks())
         .map(str::to_string)
     else {
@@ -173,7 +173,10 @@ fn stop(client: &dyn BackendClient, app: &mut AppState) {
 
 fn draw_header(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
     let ids = app.session.claude().tasks().ids();
-    let selected = app.claude.tasks.selected_id(app.session.claude().tasks());
+    let selected = app
+        .view
+        .claude_tasks
+        .selected_id(app.session.claude().tasks());
     let index = selected
         .and_then(|id| ids.iter().position(|candidate| candidate == id))
         .map_or(0, |index| index + 1);
@@ -195,7 +198,10 @@ fn draw_header(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
 }
 
 fn body(app: &AppState) -> Vec<String> {
-    let selected = app.claude.tasks.selected_id(app.session.claude().tasks());
+    let selected = app
+        .view
+        .claude_tasks
+        .selected_id(app.session.claude().tasks());
     let mut lines = detail(app, selected);
     if let Some(error) = app.session.claude().tasks().control_error() {
         lines.push(safe_label(error));
@@ -246,8 +252,8 @@ fn draw_footer(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
         size.height - 1,
         if size.width < 40 {
             if app
-                .claude
-                .tasks
+                .view
+                .claude_tasks
                 .selected_id(app.session.claude().tasks())
                 .is_some_and(|id| app.session.claude().tasks().can_stop(id))
             {
@@ -257,8 +263,8 @@ fn draw_footer(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
             }
         } else {
             if app
-                .claude
-                .tasks
+                .view
+                .claude_tasks
                 .selected_id(app.session.claude().tasks())
                 .is_some_and(|id| app.session.claude().tasks().can_stop(id))
             {

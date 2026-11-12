@@ -15,82 +15,26 @@ pub(super) enum ClaudeRoute {
 
 /// Fence common Claude messages and apply the explicitly named backend facts.
 pub(super) fn route(app: &mut AppState, method: &str, params: &Map<String, Value>) -> ClaudeRoute {
-    if method.starts_with("claude/") && named_fact(method) {
-        return ClaudeRoute::Handled(handle(app, method, params));
-    }
-    if !app.claude.enabled {
-        return ClaudeRoute::Continue;
-    }
-    let obsolete_generation = params
-        .get("generation")
-        .and_then(Value::as_u64)
-        .is_some_and(|generation| generation != app.claude.generation);
-    let obsolete_epoch = params
-        .get("epoch")
-        .and_then(Value::as_u64)
-        .is_some_and(|epoch| epoch < app.claude.epoch);
-    if obsolete_generation || (obsolete_epoch && !params.contains_key("claudeContext")) {
-        return ClaudeRoute::Handled(None);
-    }
-    if app.session.claude().phase() == super::claude_state::ClaudePhase::Closed
-        && params.contains_key("generation")
-    {
-        return ClaudeRoute::Handled(None);
-    }
-    if method == "thread/tokenUsage/updated" && params.contains_key("claudeContext") {
-        super::claude_context::receive(
-            app,
-            &serde_json::json!({"ok":true,"result":params["claudeContext"]}),
-            params.get("requestContext").unwrap_or(&Value::Null),
-        );
-        return ClaudeRoute::Handled(None);
-    }
-    if method == "turn/completed" && params.contains_key("generation") {
-        if let Some(id) = params.get("turn").and_then(|turn| turn["id"].as_str()) {
-            app.session.remove_claude_prompt(id);
+    use crate::session::claude::ClaudeRoute as Route;
+    match app.session.route_claude_notification(method, params) {
+        Route::Continue => ClaudeRoute::Continue,
+        Route::Ignore => ClaudeRoute::Handled(None),
+        Route::Named => ClaudeRoute::Handled(handle(app, method, params)),
+        Route::Context => {
+            super::claude_context::receive(
+                app,
+                &serde_json::json!({"ok":true,"result":params["claudeContext"]}),
+                params.get("requestContext").unwrap_or(&Value::Null),
+            );
+            ClaudeRoute::Handled(None)
+        }
+        Route::History => {
+            app.with_historical_tools(|app| {
+                super::notification_items::handle_item_notification(app, method, params);
+            });
+            ClaudeRoute::Handled(None)
         }
     }
-    if params.get("history") == Some(&Value::Bool(true)) {
-        app.with_historical_tools(|app| {
-            super::notification_items::handle_item_notification(app, method, params);
-        });
-        return ClaudeRoute::Handled(None);
-    }
-    ClaudeRoute::Continue
-}
-
-fn named_fact(method: &str) -> bool {
-    matches!(
-        method,
-        "claude/sessionChanged"
-            | "claude/sessionStartFailed"
-            | "claude/forkFailed"
-            | "claude/promptSubmitted"
-            | "claude/promptRejected"
-            | "claude/controlReply"
-            | "claude/callback"
-            | "claude/callbackCancelled"
-            | "claude/historyRecord"
-            | "claude/historyFactPart"
-            | "claude/historyPrompt"
-            | "claude/historyCompacted"
-            | "claude/stderr"
-            | "claude/error"
-            | "claude/closed"
-            | "claude/quota"
-            | "claude/browserComplete"
-            | "claude/task"
-            | "claude/conversationReset"
-            | "claude/activity"
-            | "claude/status"
-            | "claude/thinking"
-            | "claude/result"
-            | "claude/usageReport"
-            | "claude/notice"
-            | "claude/initialized"
-            | "claude/promptsConsumed"
-            | "claude/promptsRetired"
-    )
 }
 
 /// Attach an accepted native prompt UUID to its visible user message.
@@ -109,19 +53,14 @@ pub(super) fn handle(
     method: &str,
     params: &Map<String, Value>,
 ) -> Option<ServerRequestAction> {
-    app.claude.enabled = true;
-    let generation = params.get("generation").and_then(Value::as_u64);
+    app.session.enable_claude();
     if method == "claude/sessionChanged" {
-        if let (Some(generation), Some(id)) =
-            (generation, params.get("sessionId").and_then(Value::as_str))
-        {
-            if generation > app.claude.generation {
-                super::claude_session_history::switch_session(app, generation, id);
-            }
+        if let Some((generation, id)) = app.session.claude_session_change(params) {
+            super::claude_session_history::switch_session(app, generation, id);
         }
         return None;
     }
-    if !can_apply(app, method, params) {
+    if !app.session.accept_claude_fact(method, params) {
         return None;
     }
     match method {
@@ -145,7 +84,7 @@ pub(super) fn handle(
         "claude/callback" => receive_callback(app, &Value::Object(params.clone())),
         "claude/callbackCancelled" => cancel_callback(app, &params["callbackId"]),
         "claude/historyFactPart" => return receive_history_part(app, params),
-        "claude/historyRecord" => app.claude.history.records.push(params["record"].clone()),
+        "claude/historyRecord" => app.session.record_claude_history(params["record"].clone()),
         "claude/historyPrompt" => {
             super::claude_session_history::append_prompt(app, &Value::Object(params.clone()))
         }
@@ -161,41 +100,19 @@ pub(super) fn handle(
 }
 
 fn handle_event(app: &mut AppState, method: &str, frame: &Value) -> Option<ServerRequestAction> {
-    match method {
-        "claude/stderr" => {
-            if let Some(text) = frame["text"].as_str() {
-                super::claude_notices::show(app, format!("stderr:{text}"), text.to_string());
-            }
-        }
-        "claude/error" => {
-            if frame["error"]["code"] == "unsupported_dialog" {
-                app.append_message(
-                    super::Role::System,
-                    format!(
-                        "{} (request {}, kind {})",
-                        frame["error"]["message"]
-                            .as_str()
-                            .unwrap_or("Unsupported Claude dialog"),
-                        super::claude_question_state::safe_label(
-                            frame["callbackId"].as_str().unwrap_or("unknown")
-                        ),
-                        super::claude_question_state::safe_label(
-                            frame["dialogKind"].as_str().unwrap_or("unknown")
-                        )
-                    ),
-                );
-            } else {
-                show_error(app, &frame["error"]);
-                fail_session(app);
-            }
-        }
-        "claude/closed" => {
-            let reason = frame["reason"].as_str().unwrap_or("unknown");
-            fail_session(app);
-            app.set_status(format!("Claude closed: {reason}"));
-            app.append_message(super::Role::System, format!("Claude closed: {reason}"));
-        }
-        _ => {}
+    let update = app.session.receive_claude_event(
+        method,
+        frame,
+        super::claude_question_state::safe_label,
+        super::claude_question_state::safe_text,
+    );
+    app.apply_session_update(update.transcript);
+    if update.fail_session {
+        fail_session(app);
+    }
+    if update.closed {
+        let update = app.session.record_claude_closed(frame);
+        app.apply_session_update(update);
     }
     None
 }
@@ -204,25 +121,19 @@ fn handle_event(app: &mut AppState, method: &str, frame: &Value) -> Option<Serve
 pub(super) fn fail_session(app: &mut AppState) {
     super::claude_edit::recover_sending(app);
     super::claude_session_history::restore_edit(app);
-    app.session
-        .set_claude_phase(crate::app::claude_state::ClaudePhase::Closed);
-    if super::claude_edit::waiting(app) {
-        app.session.end_claude_edit();
+    if app.session.close_claude() {
         app.view.claude_edit.failed = true;
     }
     let retired = app.session.clear_approval_queue(ApprovalQueue::Claude);
     app.drop_retired_approval_hints(retired);
     app.clear_pending_approval();
-    app.session.fail_claude_prompts();
-    app.session.fail_claude_process();
-    app.session.ralph_stop_after_failure();
+    app.session.fail_claude_session_work();
     super::claude_session_history::recover_queued(app);
 }
 
 pub(super) fn show_error(app: &mut AppState, error: &Value) {
-    let message = error["message"].as_str().unwrap_or("Claude SDK error");
-    app.append_message(super::Role::System, message.to_string());
-    app.set_status(message);
+    let update = app.session.record_claude_error(error);
+    app.apply_session_update(update);
 }
 
 fn accept_prompt(app: &mut AppState, params: &Map<String, Value>) -> Option<ServerRequestAction> {
@@ -240,51 +151,6 @@ fn accept_prompt(app: &mut AppState, params: &Map<String, Value>) -> Option<Serv
         }
     }
     None
-}
-
-fn can_apply(app: &mut AppState, method: &str, params: &Map<String, Value>) -> bool {
-    let generation = params.get("generation").and_then(Value::as_u64);
-    if generation.is_some_and(|generation| generation != app.claude.generation) {
-        return false;
-    }
-    let process = matches!(
-        method,
-        "claude/callback" | "claude/callbackCancelled" | "claude/task" | "claude/browserComplete"
-    ) || (method == "claude/controlReply"
-        && matches!(
-            params.get("requestMethod").and_then(Value::as_str),
-            Some("start" | "capabilities" | "task.stop" | "usage.optional" | "context")
-        ));
-    if params
-        .get("epoch")
-        .and_then(Value::as_u64)
-        .is_some_and(|epoch| epoch < app.claude.epoch)
-        && !process
-    {
-        return false;
-    }
-    if app.session.claude().phase() == super::claude_state::ClaudePhase::Closed
-        && !matches!(
-            method,
-            "claude/error"
-                | "claude/closed"
-                | "claude/stderr"
-                | "claude/callbackCancelled"
-                | "claude/promptSubmitted"
-                | "claude/promptRejected"
-                | "claude/sessionStartFailed"
-                | "claude/forkFailed"
-        )
-    {
-        return false;
-    }
-    if method == "claude/conversationReset" {
-        app.claude.epoch = params
-            .get("epoch")
-            .and_then(Value::as_u64)
-            .unwrap_or(app.claude.epoch);
-    }
-    true
 }
 
 fn startup_failure(app: &mut AppState, method: &str, params: &Map<String, Value>) {
@@ -308,10 +174,8 @@ fn receive_history_part(
     params: &Map<String, Value>,
 ) -> Option<ServerRequestAction> {
     match app
-        .claude
-        .history
-        .transfer
-        .receive(&Value::Object(params.clone()))
+        .session
+        .receive_claude_history_part(&Value::Object(params.clone()))
     {
         Ok(Some(value)) => {
             let _ = super::notifications::handle_server_message_line(app, &value.to_string());

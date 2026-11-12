@@ -47,7 +47,7 @@ fn native_reload_retains_turn_scoped_ids_and_rewind_targets_after_insertions() {
 #[test]
 fn history_prompts_notices_and_unknown_authors_get_distinct_carlos_ids() {
     let mut app = AppState::new("thread".into());
-    app.claude.enabled = true;
+    app.session.set_claude_enabled_for_test(true);
     for source in ["human", "unknown", "automatic"] {
         for suffix in ["a", "b"] {
             let facts = json!({"source":source,"uuid":format!("{source}-{suffix}"),"text":"same"});
@@ -64,11 +64,11 @@ fn history_prompts_notices_and_unknown_authors_get_distinct_carlos_ids() {
         app.session.messages().iter().map(|row| row.id).collect();
     assert_eq!(ids.len(), 7);
     assert_eq!(
-        app.claude.history.unknown[0].entry_id,
+        app.session.claude_history().unknown()[0].entry_id(),
         app.session.messages()[2].id
     );
     assert_eq!(
-        app.claude.history.unknown[1].entry_id,
+        app.session.claude_history().unknown()[1].entry_id(),
         app.session.messages()[3].id
     );
 }

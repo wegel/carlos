@@ -32,7 +32,7 @@ pub(super) fn handle_mouse_event(
     m: crossterm::event::MouseEvent,
     size: TerminalSize,
 ) -> TerminalEventResult {
-    if app.claude.tasks.show || app.codex.panel.show {
+    if app.view.claude_tasks.show || app.codex.panel.show {
         return TerminalEventResult::Continue { needs_draw: false };
     }
     if let Some(result) = super::native_questions::mouse(app, m) {
@@ -225,7 +225,7 @@ pub(super) fn handle_paste_event(
     pasted: String,
     size: TerminalSize,
 ) -> TerminalEventResult {
-    if app.claude.tasks.show || app.codex.panel.show {
+    if app.view.claude_tasks.show || app.codex.panel.show {
         return TerminalEventResult::Continue { needs_draw: false };
     }
     if let Some(perf) = app.view.perf.as_mut() {
