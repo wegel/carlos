@@ -124,7 +124,8 @@ fn complete_read_history_uses_linear_predecessor_work() {
         let thread = json!({"id":"thread","turns":[{"id":"turn","items":items}]});
         let draft = crate::app::item_history::history_draft::build(&mut app, &thread);
         counts.push(draft.read_steps);
-        crate::app::item_history::replace_history_from_thread(&mut app, &thread);
+        crate::app::item_history::replace_history_from_thread(&mut app, &thread)
+            .expect("same-thread history");
         assert_eq!(app.session.messages().len(), count);
         assert!(app.session.messages()[0].text.contains(&count.to_string()));
         assert!(app
@@ -167,16 +168,19 @@ fn raw_duplicate_evidence_survives_repeated_loads_and_missing_turn_ids() {
     for turn in [None, Some("turn")] {
         let mut app = app();
         let thread = |texts: &[&str]| json!({"id":"thread","turns":[{"id":turn,"items":texts.iter().map(|text|json!({"type":"agentMessage","id":"same","text":text})).collect::<Vec<_>>()}]});
-        crate::app::item_history::replace_history_from_thread(&mut app, &thread(&["old"]));
+        crate::app::item_history::replace_history_from_thread(&mut app, &thread(&["old"]))
+            .expect("same-thread history");
         let unique = app.session.messages()[0].id;
         crate::app::item_history::replace_history_from_thread(
             &mut app,
             &thread(&["first", "second"]),
-        );
+        )
+        .expect("same-thread history");
         let ambiguous = app.session.messages()[0].id;
         assert_ne!(unique, ambiguous);
         assert_eq!(app.session.messages()[0].text, "second");
-        crate::app::item_history::replace_history_from_thread(&mut app, &thread(&["last"]));
+        crate::app::item_history::replace_history_from_thread(&mut app, &thread(&["last"]))
+            .expect("same-thread history");
         assert_ne!(
             app.session.messages()[0].id,
             ambiguous,

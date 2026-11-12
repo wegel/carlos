@@ -112,7 +112,8 @@ fn native_prompt_positions_match_the_unchanged_head_counter() {
         replace_history_from_thread(
             &mut app,
             &json!({"id":"thread","turns":[{"id":"turn","items":items}]}),
-        );
+        )
+        .expect("same-thread history");
         app.set_rewind_selection_for_test(Some(0));
         assert_eq!(
             app.input_history

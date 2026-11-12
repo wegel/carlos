@@ -100,7 +100,8 @@ fn complete_history_drafts_keep_the_same_read_groups_as_incremental_history() {
                 );
             }
             let mut reloaded = AppState::new("thread".into());
-            crate::app::item_history::replace_history_from_thread(&mut reloaded, &thread);
+            crate::app::item_history::replace_history_from_thread(&mut reloaded, &thread)
+                .expect("same-thread history");
             let rows = |app: &AppState| {
                 app.session
                     .messages()

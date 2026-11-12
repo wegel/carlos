@@ -29,7 +29,7 @@ fn repeated_native_item_and_user_ids_stay_distinct_in_live_history_and_reconnect
     let history = json!({"id":"root","status":{"type":"idle"},"turns":[
         {"id":"one","status":"completed","items":[{"id":"same-user","type":"userMessage","content":[{"type":"text","text":"identical"}]},{"id":"same-answer","type":"agentMessage","text":"answer-one"}]},
         {"id":"two","status":"completed","items":[{"id":"same-user","type":"userMessage","content":[{"type":"text","text":"identical"}]},{"id":"same-answer","type":"agentMessage","text":"answer-two"}]}]});
-    replace_history_from_thread(&mut app, &history);
+    replace_history_from_thread(&mut app, &history).expect("same-thread history");
     assert_eq!(app.session.messages().len(), 4);
     assert_eq!(app.session.messages()[1].text, "answer-one");
     assert_eq!(app.session.messages()[3].text, "answer-two");
@@ -73,7 +73,8 @@ fn native_suffix_and_unicode_ids_cannot_collide_with_display_parts() {
         &mut app,
         &json!({"id":"root","turns":[{"id":"日本語:","status":"completed","items":[
         item,{"id":"x#part-1","type":"agentMessage","text":"NATIVE_SUFFIX"}]}]}),
-    );
+    )
+    .expect("same-thread history");
     assert_eq!(app.session.messages().len(), 3);
     assert!(app.session.messages()[0].text.contains("new-a"));
     assert!(app.session.messages()[1].text.contains("new-b"));

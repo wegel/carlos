@@ -10,8 +10,7 @@ impl AppState {
         all_parts: bool,
     ) {
         let key = self.item_key(item);
-        self.session
-            .prepare_item_source(&key, source, all_parts, self.claude.enabled);
+        self.session.prepare_item_source(&key, source, all_parts);
     }
 
     pub(in crate::app) fn attach_item_source(

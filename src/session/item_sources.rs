@@ -2,6 +2,7 @@
 
 use super::models::Role;
 use super::state::SessionState;
+use crate::backend::BackendKind;
 use crate::session::entry_key::{BackendEntryKey, NativeEntryKey};
 
 impl SessionState {
@@ -11,10 +12,9 @@ impl SessionState {
         key: &BackendEntryKey,
         source: Option<&serde_json::Value>,
         all_parts: bool,
-        claude_enabled: bool,
     ) {
         let Some(mut source) = self.native_source_key(key, source) else {
-            self.reject_unproven_cursor(key, all_parts, claude_enabled);
+            self.reject_unproven_cursor(key, all_parts);
             return;
         };
         let mut live = key.clone();
@@ -100,13 +100,8 @@ impl SessionState {
         }
     }
 
-    fn reject_unproven_cursor(
-        &mut self,
-        key: &BackendEntryKey,
-        all_parts: bool,
-        claude_enabled: bool,
-    ) {
-        if !claude_enabled {
+    fn reject_unproven_cursor(&mut self, key: &BackendEntryKey, all_parts: bool) {
+        if key.backend != BackendKind::Claude {
             return;
         }
         let mut live = key.clone();

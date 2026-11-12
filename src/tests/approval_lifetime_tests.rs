@@ -300,7 +300,8 @@ fn codex_retirement_removes_only_discarded_card_hints() {
             "history" => super::item_history::replace_history_from_thread(
                 &mut app,
                 &json!({"id":"thread","turns":[]}),
-            ),
+            )
+            .expect("same-thread history"),
             _ => unreachable!(),
         }
         let expected = match tail {

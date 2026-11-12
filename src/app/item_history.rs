@@ -10,6 +10,7 @@ use super::{AppState, MessageKind, Role};
 #[cfg(test)]
 use crate::app::models::TurnStatus;
 use crate::protocol_params::extract_result_object;
+use crate::session::history_identity::HistoryMode;
 
 #[path = "item_history_draft.rs"]
 pub(super) mod history_draft;
@@ -26,33 +27,26 @@ pub(crate) fn load_history_from_start_or_resume(
         .and_then(Value::as_object)
         .and_then(|r| r.get("thread"))
     {
-        replace_history_from_thread(app, thread_obj);
+        replace_history_from_thread(app, thread_obj)?;
     }
     Ok(())
 }
 
-pub(super) fn replace_history_from_thread(app: &mut AppState, thread_obj: &Value) {
+pub(super) fn replace_history_from_thread(app: &mut AppState, thread_obj: &Value) -> Result<()> {
     let thread_id = thread_obj
         .get("id")
         .and_then(Value::as_str)
-        .unwrap_or(&app.session.thread_id())
-        .to_string();
-    let mode = if thread_id == *app.session.thread_id() {
-        crate::session::history_identity::HistoryMode::SameThread
-    } else {
-        crate::session::history_identity::HistoryMode::NewConversation
-    };
+        .unwrap_or(app.session.thread_id());
+    anyhow::ensure!(
+        thread_id == app.session.thread_id(),
+        "History belongs to another thread"
+    );
     let previous = app.codex.item_turn.take();
-    let mut draft = history_draft::build(app, thread_obj);
-    if matches!(
-        mode,
-        crate::session::history_identity::HistoryMode::NewConversation
-    ) {
-        draft.set_conversation(&thread_id);
-    }
-    app.replace_history_draft(draft, mode);
+    let draft = history_draft::build(app, thread_obj);
+    app.replace_history_draft(draft, HistoryMode::SameThread);
     app.codex.item_turn = previous;
     app.read_thread_name(thread_obj);
+    Ok(())
 }
 
 #[cfg(test)]

@@ -42,7 +42,7 @@ pub(super) fn install(
         scopes: process_scopes(&snapshot.panel)?,
     };
     app.set_available_models(models);
-    install_history_runtime(app, &snapshot, runtime);
+    install_history_runtime(app, &snapshot, runtime)?;
     app.codex.connection.streams = streams;
     if let Some(editor) = editor {
         app.codex.settings.rejected = Some(editor);
@@ -109,9 +109,10 @@ fn install_history_runtime(
     app: &mut AppState,
     snapshot: &CodexSnapshot,
     runtime: crate::protocol_params::ThreadRuntimeSettings,
-) {
+) -> Result<()> {
     app.session.set_active_turn_id(None);
-    super::item_history::replace_history_from_thread(app, &snapshot.thread);
+    // `install` has already rejected a snapshot of another thread, so this cannot fail here.
+    super::item_history::replace_history_from_thread(app, &snapshot.thread)?;
     app.session.set_context_usage(None);
     app.rate_limits.clear();
     app.set_runtime_settings(runtime.model, runtime.effort, runtime.summary);
@@ -121,6 +122,7 @@ fn install_history_runtime(
     app.codex.settings.deferred = None;
     app.codex.settings.pending = None;
     app.codex.settings.active_before = None;
+    Ok(())
 }
 
 fn install_queue(app: &mut AppState, snapshot: &CodexSnapshot) {

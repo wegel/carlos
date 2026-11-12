@@ -217,7 +217,8 @@ fn clear(client: &Client, app: &mut AppState) {
 }
 
 fn history(app: &mut AppState) {
-    super::item_history::replace_history_from_thread(app, &json!({"id":"thread","turns":[]}));
+    super::item_history::replace_history_from_thread(app, &json!({"id":"thread","turns":[]}))
+        .expect("same-thread history");
 }
 
 fn codex_guidance_cases() -> Vec<Value> {

@@ -190,6 +190,10 @@ mod entry_history_identity_tests;
 mod entry_identity_tests;
 #[path = "tests/entry_lookup_differential_tests.rs"]
 mod entry_lookup_differential_tests;
+#[path = "tests/history_conversation_tests.rs"]
+mod history_conversation_tests;
+#[path = "tests/item_source_backend_tests.rs"]
+mod item_source_backend_tests;
 
 #[path = "tests/entry_review_cursor_tests.rs"]
 mod entry_review_cursor_tests;
