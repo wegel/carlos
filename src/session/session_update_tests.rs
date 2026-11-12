@@ -172,7 +172,7 @@ fn empty_tail_and_repeated_markers_preserve_incremental_reports() {
 fn changing_any_request_fact_assigns_a_new_card_id() {
     for field in 0..9 {
         let mut session = SessionState::new("thread".into());
-        session.set_pending_approval(approval_draft());
+        let _ = session.set_pending_approval(approval_draft());
         let original = session.approval().pending().expect("original").entry_id();
         let mut copied = session.approval().pending().expect("original").to_draft();
         match field {
@@ -206,7 +206,7 @@ fn changing_any_request_fact_assigns_a_new_card_id() {
 fn identical_drafts_keep_only_the_active_card_and_queue_moves_keep_their_own_ids() {
     use super::approval_state::ApprovalQueue;
     let mut session = SessionState::new("thread".into());
-    session.set_pending_approval(approval_draft());
+    let _ = session.set_pending_approval(approval_draft());
     let original = session.approval().pending().expect("original").entry_id();
     assert!(session.set_pending_approval(approval_draft()).is_empty());
     assert_eq!(
@@ -230,13 +230,13 @@ fn identical_drafts_keep_only_the_active_card_and_queue_moves_keep_their_own_ids
 fn retired_ids_and_previous_namespaces_cannot_restore_consent() {
     use super::approval_state::ApprovalQueue;
     let mut session = SessionState::new("thread".into());
-    session.set_pending_approval(approval_draft());
+    let _ = session.set_pending_approval(approval_draft());
     let retired = session.approval().pending().expect("original").entry_id();
     assert_eq!(session.retire_approval(retired), vec![retired]);
     assert!(session.retire_approval(retired).is_empty());
     session.focus_approval(retired, ApprovalQueue::Claude);
     assert!(session.approval().pending().is_none());
-    session.set_pending_approval(approval_draft());
+    let _ = session.set_pending_approval(approval_draft());
     let fresh = session.approval().pending().expect("new card").entry_id();
     assert_ne!(fresh, retired);
     session.reset_for_forked_thread();
