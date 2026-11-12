@@ -23,7 +23,9 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 - [x] (2026-11-11 UTC) Milestone 1: plain types live in `src/session/models.rs`, styled types in `src/app/view_models.rs`. 35 files, all in the allowed list. Gates: `cargo test` 705 passed, `scripts/test.sh` 165 workflows passed, review verdict PASS (see `Reviews`).
 - [x] (2026-11-12 UTC) Milestone 2: the transcript store in `src/session/` owns entries and assigns `EntryId`; backend maps, prompt records, approval cards and label jobs hold ids, not positions. Two review rounds (FAIL with 5 MAJOR, then PASS on the delta). Gates: `cargo test` 822 passed, 171 terminal workflows, no speed loss.
 - [x] (2026-11-12 UTC) Milestone 3: the Claude backend translates native events; the turn-end state machine runs when the app handles a line (`BackendClient::handle_event`, called in `src/app/input_dispatch.rs`). One squashed commit on `main` (`ac02f0a`, 91 files). Seven review rounds; final verdict PASS. Gates: `cargo test` 778 passed in 3.7 s, 168 terminal workflows, no speed loss.
-- [ ] Milestone 4: introduce the two state owners and move transcript and turn facts.
+- [x] (2026-11-12 UTC) Milestone 4: `AppState` holds `session: SessionState` (`src/session/`) and `view: ViewState` (`src/app/view_state.rs`); transcript, item, turn, Ralph-queue and approval logic moved to the session. Six review rounds (five by Codex, the last by Opus 5.5: PASS WITH ISSUES, seven MINOR). Gates: `cargo test` 855 passed in 3.7 s, 174 terminal workflows twice, no speed loss.
+- [ ] Milestone 4 follow-up A: clean up the MINOR findings of the final milestone 4 review (see `Reviews`).
+- [ ] Milestone 4 follow-up B: compare live Codex, Claude and Grok event streams on the current tree with the pre-plan commit `a59221c` over the full mutation corpus; classify every difference as an identity rule the plan requires or as a regression; fix the regressions. Known so far: 86 of 1,244 formerly panicking Codex streams differ (45 only in redraw ranges, 41 in session results); cause is in milestone 2 or 3, not milestone 4.
 - [ ] Milestone 5: separate shared settings, prompt history, labels, and usage helpers.
 - [ ] Milestone 6: separate Claude session facts from Claude editors and panels.
 - [ ] Milestone 7: separate native callback facts from answer editors.
@@ -91,6 +93,15 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 - Observation: milestone 2 speed check, 7 alternated runs, old then new medians: replay 46.04 / 45.76 ms, full layout 14.36 / 14.25, full draw 3.37 / 3.40, scroll p50 0.70 / 0.70, typing p50 0.59 / 0.60, append p50 0.60 / 0.60.
   Evidence: integrator runs of 2026-11-12 on a quiet machine.
 
+- Observation: milestone 2 (`d98a64d`) introduced a panic: `item["id"]` on a JSON map in `notification_tools.rs` panicked for a completed tool item without an id. No real backend sends such an item, but one would have crashed carlos, and in the daemon every session. Milestone 4's live-event mutation comparison found it; milestone 2's comparison covered history loading only. Fixed in `2cbfedc` with the pre-plan fallback behaviour restored.
+  Evidence: `.agents/reports/exec016-idless-panic.md`. Rule from now on: every milestone's mutation comparison covers live events and history for all three backends, uses BOTH the previous commit and the pre-plan commit `a59221c` as references, and counts any panic as a failure even when the reference panics too.
+
+- Observation: rounds are slow because of Codex run time and the number of rounds, not because of the gates. Measured: the integrator's gates take about 5 minutes; a fix worker 13 to 57 minutes; a Codex review 9 to 29 minutes, and delta reviews were no shorter than full ones because each delta brief added new attack lists. Milestone 4 touched 164 files and took six rounds.
+  Evidence: log timestamps of 2026-11-11 and 2026-11-12. Changes: gates and review run at the same time; a delta brief has two tasks (check the fixes, check the changed lines); the integrator fixes MINOR findings without a separate round; a fix worker reruns only the proofs its change can affect; milestones 5 to 10 are split when they reach about 60 files; a requirement stricter than the previous code goes to the plan that needs it.
+
+- Observation: milestone 4 final speed check, 7 alternated runs, old then new medians: replay 48.10 / 47.08 ms, full layout 14.93 / 14.83, full draw 3.58 / 3.40, scroll p50 0.70 / 0.70, typing p50 0.60 / 0.59, working p50 0.60 / 0.60, append p50 0.60 / 0.60.
+  Evidence: integrator runs of 2026-11-12.
+
 ## Decision Log
 
 
@@ -153,6 +164,23 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
   Review 1: FAIL. MAJOR: history reload skipped invisible native user messages (wrong prompt position and kind); two Claude sources with the same printed id shared a row; the history parser merged repeated keys before the store applied the ambiguous-key rule; a native command override hid a tool label (visible change); complete-history read grouping quadratic (also on the previous commit). MINOR: superseded Claude cursor aliases unbounded; the differential reference was not the unchanged old algorithm.
   Review 2 (delta, same session): PASS, no finding. Read grouping measured linear (2,057 steps for 1,024 reads, 8,201 for 4,096). All 14 unmutated fixture histories match the previous commit exactly.
 
+- Milestone 4 (2026-11-12). Codex reviewer, saved session `01a1ce3e-c9f6-7971-939c-80a4214cdead`, five rounds, all FAIL:
+  1: local hints overwrote session status; the approval confirmation hint was stored in session facts.
+  2: stale approval consent survived a Claude session switch (security-relevant; never reached a commit); orphaned hint records; keyboard guidance stored in request details.
+  3: a setter accepted a stale card id with changed facts; identical re-adoption lost the guidance; a parity test compared with `zip` and no length check.
+  4: a second setter restored a retired card with its consent; a `Deref` on the card.
+  5: no consent defect left; each Codex reply copied the request facts twice (MINOR, speed rule).
+  The integrator's gate run then found one racy terminal workflow added in these rounds (7 failures in 50 runs; fixed by waiting for the completed screen).
+  Final review by a fresh reviewer on Opus 5.5, medium effort: PASS WITH ISSUES, no BLOCKER, no MAJOR. It read the approval module and its callers in full and judged the design sound; it noted that the new code is stricter than the pre-plan code (which skipped confirmation for a non-string request id). MINOR findings:
+  (1) key names in two session status strings (`src/app/codex_callbacks.rs:184`, `src/app/codex_lifecycle.rs:46`);
+  (2) leftovers of the fix rounds: `PendingApprovalRequest.entry_id` is an `Option` that is always `Some`; `set_pending_approval` repeats the `same_request` check; `begin_approval_answer` always returns true outside the Codex form path; `TurnBoundary.first` and `observe_turn_append` are read only by tests (the boundary is still the saved index); `SessionUpdate.dirty_tail` is set only by a test helper; duplicated retire code in `codex_lifecycle.rs` and `codex_reconnect.rs`; double queue scans in `codex_callbacks::retire` and `claude_callbacks::cancel_callback`; nine identical doc comments in `transcript_commands.rs`;
+  (3) for plan 017: app tests call `#[cfg(test)]` session methods, which will not compile across a crate boundary (needs a `test-support` feature); the session uses `crate::backend::{BackendKind, PromptOrigin}`; accessors return `&String` / `&Option<String>`;
+  (4) `ViewState.status_hint` is read only by a test helper and `SessionState.status_revision` exists only for it;
+  (5) weak tests in `turn_boundary_tests.rs` (an assertion that holds for any start value; a loop counter asserted; expected values that restate the implementation); 0.93 MB of JSON fixtures with no recorded way to regenerate them;
+  (6) the view mirrors card lifetimes by hand at about eight sites;
+  (7) existing defect, same on the pre-plan code: `reset_for_forked_thread` calls `clear_pending_approval`, which promotes the old session's first queued Claude card before the queue is cleared, so that card survives the switch (consent is reset, so no consent hole).
+  The reviewer did not build or run tests and did not audit the moved Ralph, transcript, item-source, history-identity, summary and input-history code.
+
 ## Outcomes & Retrospective
 
 
@@ -183,6 +211,14 @@ The phone notes in `tmp/main-screen.md` sections 6 and 11 explain why a client n
 
 - Decision: dropping a backend client never waits for a thread that can be blocked on a pipe. Teardown stays inside the existing bounded shutdown, as on `main`.
   Rationale: a join on a pipe worker made quit and session switch wait 4.5 s in review 6 while a grandchild held a pipe. Carlos must never feel slow.
+  Date/Author: 2026-11-12 / Claude, integrator.
+
+- Decision: reviews run on a Claude subagent, Opus 5.5 at medium effort, not on Codex. Codex remains the implementation worker. Repeat reviews continue the same reviewer with a delta brief.
+  Rationale: owner's instruction of 2026-11-12 ("codex is no good at reviews").
+  Date/Author: 2026-11-12 / owner.
+
+- Decision: approval consent is bound to the card id of the exact request, and the session alone decides approval identity (`ApprovalState::change` is the one write point; code outside `src/session/` passes drafts or ids, never cards). This is stricter than the pre-plan code.
+  Rationale: moving the "first accept" flag to the view lost a reset and let consent carry over to another request after a Claude session switch. The daemon will receive approval answers from several clients, so the session must not trust a caller for identity. In hindsight the stricter guarantee belonged in the daemon plan; it cost three review rounds here.
   Date/Author: 2026-11-12 / Claude, integrator.
 
 ### Entry identity and history rules

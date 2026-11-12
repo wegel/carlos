@@ -1,10 +1,10 @@
 {
   "engineering_reviewer": {
     "prompt_path": ".agents/reviewers/engineering_reviewer.md",
-    "session_id": "01a1cdba-d79e-7410-b8c0-03cef56ff2ad",
-    "last_commit_reviewed": "milestone 2 of ExecPlan 016 (committed after PASS)",
-    "status": "resumable",
+    "reviewer": "Claude subagent, Opus 5.5, medium effort (owner's instruction of 2026-11-12; Codex is not used for reviews)",
+    "last_commit_reviewed": "milestone 4 of ExecPlan 016",
+    "status": "per-conversation",
     "last_updated": "2026-11-12",
-    "notes": "ExecPlan 016. Continue this session for delta reviews: `codex exec resume <session_id> -` from the repository root with model gpt-6.1-sol, high effort. Tell it what changed since its last verdict. Start a fresh saved session for the first review of a new milestone and replace this id."
+    "notes": "The reviewer is a subagent of the integrator's conversation and is continued there for delta reviews; it has no id that survives the conversation. Its notes and reviewed diff for milestone 4: /tmp/carlos-review-opus-m4/. Start a fresh reviewer for the first review of each milestone."
   }
 }
