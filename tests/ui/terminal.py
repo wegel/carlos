@@ -16,6 +16,8 @@ import time
 
 import pyte
 
+from terminal_screen import TerminalScreen
+
 
 class Terminal:
     def __init__(self, binary, root, mode="modern", resume="thread-original", width=100, backend="codex",
@@ -29,7 +31,7 @@ class Terminal:
             (shim / "codex").symlink_to(Path(__file__).with_name(peer).resolve())
         if not (shim / "claude").exists():
             (shim / "claude").symlink_to(claude or Path(__file__).with_name("fake_claude.py").resolve())
-        self.screen = pyte.Screen(width, 32)
+        self.screen = TerminalScreen(width, 32)
         self.stream = pyte.Stream(self.screen)
         self.decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self.output = (root / "terminal.ansi").open("ab")
@@ -168,7 +170,12 @@ class Terminal:
     def close(self):
         if self.output.closed:
             return
-        self.snapshot("last-screen")
+        try:
+            self.snapshot("last-screen")
+        finally:
+            self.close_process()
+
+    def close_process(self):
         try:
             self.send(b"\x03")
         except OSError:

@@ -116,12 +116,7 @@ def handle_control(message):
             state("idle")
             time.sleep(.05)
         if subtype == "interrupt" and active and MODE == "claude-result-before-rejected-interrupt":
-            event("content_block_stop", active, index=0)
-            result(active)
-            active = None
-            send({"type": "control_response", "response": {"subtype": "error",
-                  "request_id": message["request_id"], "error": "Fixture interrupt failure"}})
-            state("idle")
+            reject_completed_interrupt(message)
             return
         if subtype == "interrupt" and MODE == "claude-interrupt-error":
             send({"type": "control_response", "response": {"subtype": "error", "request_id": message["request_id"], "error": "Fixture interrupt failure"}})
@@ -134,6 +129,22 @@ def handle_control(message):
             result(active, interrupted=MODE != "claude-interrupt-error")
             active = None
             state("idle")
+
+
+def reject_completed_interrupt(message):
+    global active
+    event("content_block_stop", active, index=0)
+    result(active)
+    active = None
+    # Each byte confirms that the test recorded the corresponding controller frame.
+    with (ROOT / "interrupt-step").open("rb", buffering=0) as step:
+        if step.read(1) != b"1":
+            raise AssertionError("Test closed before observing the result")
+        send({"type": "control_response", "response": {"subtype": "error",
+              "request_id": message["request_id"], "error": "Fixture interrupt failure"}})
+        if step.read(1) != b"2":
+            raise AssertionError("Test closed before observing the interrupt reply")
+    state("idle")
 
 
 def read_tool(prompt):

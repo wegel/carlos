@@ -1,6 +1,7 @@
 """Check the actual Rust UI, compiled SDK helper, and deterministic native CLI together."""
 
 import json
+import os
 import time
 import uuid
 
@@ -280,14 +281,30 @@ class ClaudeSdk:
         terminal.paste("hold this turn")
         terminal.send(b"\r")
         terminal.contains("Answer: hold this turn")
+        # The SDK forwards results and interrupt replies through separate async paths.
+        gate = terminal.root / "interrupt-step"
+        os.mkfifo(gate)
+        step = os.open(gate, os.O_RDWR | os.O_NONBLOCK)
+        self.addCleanup(os.close, step)
         terminal.send(b"\x1b")
+        terminal.wait(lambda: any(frame.get("message", {}).get("type") == "result"
+                                 for frame in self.helper_messages(terminal, "server")),
+                      "controller forwarded result before interrupt rejection")
+        os.write(step, b"1")
+        request = self.helper_requests(terminal, "interrupt")[-1]
+        terminal.wait(lambda: any(frame.get("id") == request["id"]
+                                 for frame in self.helper_messages(terminal, "server")),
+                      "controller forwarded rejected interrupt reply")
+        os.write(step, b"2")
         terminal.wait(lambda: any(frame.get("subtype") == "session_state_changed"
                                  and frame.get("state") == "idle"
                                  for frame in terminal.messages("server")), "idle after rejected interrupt")
         terminal.contains("✓ Answer: hold this turn")
         self.assertNotIn("Turn interrupted", terminal.text)
+        terminal.wait(lambda: any(frame.get("message", {}).get("state") == "idle"
+                                 for frame in self.helper_messages(terminal, "server")),
+                      "controller forwarded idle after rejected interrupt")
         frames = self.helper_messages(terminal, "server")
-        request = self.helper_requests(terminal, "interrupt")[-1]
         result = next(i for i, frame in enumerate(frames) if frame.get("message", {}).get("type") == "result")
         reply = next(i for i, frame in enumerate(frames) if frame.get("id") == request["id"])
         idle = next(i for i, frame in enumerate(frames)

@@ -90,7 +90,8 @@ def handle(server,request):
         if old:
             update(server,thread)
     elif server.mode.endswith("reject"):
-        server.send({"id":request["id"],"error":{"code":-32600,"message":"Managed goal policy rejected this objective"}})
+        field="objective" if "objective" in params else "status"
+        server.send({"id":request["id"],"error":{"code":-32600,"message":f"Managed goal policy rejected this {field}"}})
     else:
         goal=server.goal_state.get(thread) or new_goal(thread,params.get("objective",""),"active")
         for key in ["objective","status","tokenBudget"]:
