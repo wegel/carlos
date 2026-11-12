@@ -109,7 +109,7 @@ impl SessionState {
         item: &Value,
         live: bool,
         key: &BackendEntryKey,
-        cache_entry: String,
+        scope: Option<(&str, usize)>,
     ) -> SessionUpdate {
         let Some((id, idx)) = self.summary_entry(item, key) else {
             return SessionUpdate::default();
@@ -137,7 +137,12 @@ impl SessionState {
         } else {
             SessionUpdate::default()
         };
-        let request = self.summary_request(id, input, live, cache_entry);
+        let request = self.summary_request(
+            id,
+            input,
+            live,
+            (item["id"].as_str().expect("native item"), scope),
+        );
         self.bind_summary_request(id, idx, request);
         update
     }
@@ -154,7 +159,13 @@ impl SessionState {
     }
 
     // Keep the disk key unchanged; worker replies use a separate live binding.
-    pub(crate) fn summary_cache_entry(&self, item: &str, scope: Option<(&str, usize)>) -> String {
+    pub(in crate::session) fn summary_cache_entry(
+        &self,
+        item: &str,
+        scope: Option<(&str, usize)>,
+    ) -> String {
+        #[cfg(test)]
+        CACHE_ENTRY_BUILDS.with(|count| count.set(count.get() + 1));
         let key = match scope {
             Some((turn, part)) => format!("codex:{}", serde_json::json!([turn, item, part])),
             None => item.to_string(),
@@ -167,7 +178,7 @@ impl SessionState {
         id: EntryId,
         input: SummaryInput,
         live: bool,
-        entry: String,
+        source: (&str, Option<(&str, usize)>),
     ) -> Request {
         self.summaries.revision = self
             .summaries
@@ -179,7 +190,7 @@ impl SessionState {
             command: input.command,
             location: input.location,
             generate: live && self.summaries.enabled && !self.summaries.replaying,
-            entry,
+            entry: self.summary_cache_entry(source.0, source.1),
             binding: format!("{id:?}:{}", self.summaries.revision),
             file_based: input.file_based,
         }
@@ -202,4 +213,9 @@ impl SessionState {
         self.summaries.pending.push_back(id);
         self.summaries.flush();
     }
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(super) static CACHE_ENTRY_BUILDS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }

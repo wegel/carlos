@@ -26,10 +26,9 @@ impl AppState {
             .as_deref()
             .filter(|_| self.codex.enabled)
             .map(|turn| (turn, self.codex.item_part));
-        let entry = self.session.summary_cache_entry(id, scope);
         let update = self
             .session
-            .observe_summary_item(item, live, &self.item_key(id), entry);
+            .observe_summary_item(item, live, &self.item_key(id), scope);
         self.apply_session_update(update);
     }
 
