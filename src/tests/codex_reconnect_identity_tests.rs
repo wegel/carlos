@@ -95,7 +95,7 @@ fn fresh_catalog_preserves_editor_values_and_drops_old_direct_override_fallback(
         json!({"data":[{"model":"a","displayName":"A"},{"model":"b","displayName":"B"}]});
     ready(&peer, &mut app, first);
     app.toggle_model_settings();
-    app.runtime.model_settings_model_index = 1;
+    app.view.runtime_settings.model_settings_model_index = 1;
     assert_eq!(app.model_settings_model_value(), "b");
     app.codex.settings.legacy_overrides = true;
     app.codex.closed = true;
@@ -113,9 +113,12 @@ fn fresh_catalog_preserves_editor_values_and_drops_old_direct_override_fallback(
     );
     ready(&peer, &mut app, second);
     assert_eq!(app.model_settings_model_value(), "b");
-    assert_eq!(app.runtime.current_model.as_deref(), Some("a"));
+    assert_eq!(
+        app.session.runtime_settings().current_model().as_deref(),
+        Some("a")
+    );
     assert!(!app.codex.settings.legacy_overrides);
-    assert!(app.runtime.pending_model.is_none());
+    assert!(app.session.runtime_settings().pending_model().is_none());
 }
 
 #[test]
@@ -150,7 +153,10 @@ fn fresh_metadata_clears_old_names_and_a_newer_rename_fences_only_the_delayed_na
             "id":"root","name":"STALE_NAME","model":"fresh-model","reasoningEffort":"low"}}}}}),
     );
     assert_eq!(app.session.thread_name().as_deref(), Some("newer 日本語"));
-    assert_eq!(app.runtime.current_model.as_deref(), Some("fresh-model"));
+    assert_eq!(
+        app.session.runtime_settings().current_model().as_deref(),
+        Some("fresh-model")
+    );
     assert!(app.codex.connection.runtime_refresh);
 }
 

@@ -107,41 +107,41 @@ pub(super) fn initialize(app: &mut AppState, backend: BackendKind, attached: boo
     } else {
         context_preferences::load(backend)?
     };
-    app.runtime.context = ContextSettings {
+    app.view.runtime_settings.context = ContextSettings {
         backend: Some(backend),
         attached,
         saved,
         ..Default::default()
     };
-    app.runtime.context.open();
+    app.view.runtime_settings.context.open();
     Ok(())
 }
 
 /// Reject invalid drafts before any settings or appearance choices are applied.
 pub(super) fn save(client: &dyn BackendClient, app: &mut AppState) -> bool {
-    if app.runtime.context.backend.is_none() || app.runtime.context.attached {
+    if app.view.runtime_settings.context.backend.is_none() || app.view.runtime_settings.context.attached {
         return true;
     }
-    let tokens = match context_preferences::parse(&app.runtime.context.draft) {
+    let tokens = match context_preferences::parse(&app.view.runtime_settings.context.draft) {
         Ok(tokens) => tokens,
         Err(error) => {
-            app.runtime.context.error = Some(error.to_string());
+            app.view.runtime_settings.context.error = Some(error.to_string());
             return false;
         }
     };
-    if tokens == app.runtime.context.saved {
+    if tokens == app.view.runtime_settings.context.saved {
         return true;
     }
     if client.kind() == BackendKind::Claude && tokens.is_some() && shell_override() {
-        app.runtime.context.error =
+        app.view.runtime_settings.context.error =
             Some("Unset CLAUDE_CODE_AUTO_COMPACT_WINDOW before choosing a size".into());
         return false;
     }
     if let Err(error) = context_preferences::save(client.kind(), tokens) {
-        app.runtime.context.error = Some(error.to_string());
+        app.view.runtime_settings.context.error = Some(error.to_string());
         return false;
     }
-    app.runtime.context.saved = tokens;
+    app.view.runtime_settings.context.saved = tokens;
     app.append_message(
         Role::System,
         "Context size saved; restart Carlos to apply it. The model may use a smaller maximum.",

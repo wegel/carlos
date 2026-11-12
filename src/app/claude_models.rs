@@ -3,6 +3,7 @@
 use serde_json::Value;
 
 use crate::protocol_params::ModelInfo;
+use crate::session::runtime_settings::RuntimeSetting;
 
 use super::state::AppState;
 use super::RuntimeDefaults;
@@ -13,13 +14,14 @@ pub(super) fn apply_capabilities(app: &mut AppState, capabilities: &Value) {
         return;
     }
     let requested = app
-        .runtime
-        .pending_model
+        .session
+        .runtime_settings()
+        .pending_model()
         .clone()
-        .or_else(|| app.runtime.current_model.clone());
+        .or_else(|| app.session.runtime_settings().current_model().clone());
     let observed = app.claude.observed_model.as_deref();
     let explicit_model = !app.claude.selection.inherits_model
-        || app.runtime.pending_model.is_some()
+        || app.session.runtime_settings().pending_model().is_some()
         || (app.claude.capabilities.is_none()
             && requested.is_some()
             && requested.as_deref() != observed);
@@ -32,13 +34,14 @@ pub(super) fn apply_capabilities(app: &mut AppState, capabilities: &Value) {
         observed.map(|model| native_alias(capabilities, model))
     };
     if requested.is_some() && !supported {
-        app.runtime.pending_model = None;
-        app.runtime.pending_effort = None;
-        app.runtime.current_effort = None;
+        app.session
+            .clear_pending_runtime_choice(RuntimeSetting::Model);
+        app.session.inherit_runtime_effort();
         app.claude.selection.inherits_effort = true;
     }
     app.claude.selection.inherits_model = !supported || !explicit_model;
-    app.runtime.current_model = selected;
+    app.session
+        .record_runtime_choice(RuntimeSetting::Model, selected);
     validate_effort(app, capabilities);
     app.claude.capabilities = Some(capabilities.clone());
     refresh_models(app);
@@ -68,13 +71,18 @@ pub(super) fn observe_model(app: &mut AppState, model: &str) {
         super::claude_context::invalidate(app);
     }
     app.claude.observed_model = Some(model.to_string());
-    if app.runtime.current_model.is_none() && app.runtime.pending_model.is_none() {
-        app.runtime.current_model = Some(
-            app.claude
-                .capabilities
-                .as_ref()
-                .map(|capabilities| native_alias(capabilities, model))
-                .unwrap_or_else(|| model.to_string()),
+    if app.session.runtime_settings().current_model().is_none()
+        && app.session.runtime_settings().pending_model().is_none()
+    {
+        app.session.record_runtime_choice(
+            RuntimeSetting::Model,
+            Some(
+                app.claude
+                    .capabilities
+                    .as_ref()
+                    .map(|capabilities| native_alias(capabilities, model))
+                    .unwrap_or_else(|| model.to_string()),
+            ),
         );
         refresh_models(app);
     }
@@ -82,18 +90,20 @@ pub(super) fn observe_model(app: &mut AppState, model: &str) {
 
 fn validate_effort(app: &mut AppState, capabilities: &Value) {
     let Some(model) = app
-        .runtime
-        .current_model
+        .session
+        .runtime_settings()
+        .current_model()
         .as_deref()
         .and_then(|model| find_model(capabilities, model))
     else {
         return;
     };
     let effort = app
-        .runtime
-        .pending_effort
+        .session
+        .runtime_settings()
+        .pending_effort()
         .as_deref()
-        .or(app.runtime.current_effort.as_deref());
+        .or(app.session.runtime_settings().current_effort().as_deref());
     let Some(effort) = effort.filter(|effort| *effort != "auto") else {
         return;
     };
@@ -102,8 +112,7 @@ fn validate_effort(app: &mut AppState, capabilities: &Value) {
             .as_array()
             .is_some_and(|levels| !levels.iter().any(|level| level.as_str() == Some(effort)));
     if invalid {
-        app.runtime.current_effort = None;
-        app.runtime.pending_effort = None;
+        app.session.inherit_runtime_effort();
         app.claude.selection.inherits_effort = true;
     }
 }
@@ -124,8 +133,8 @@ pub(super) fn prompt_choices(
 pub(super) fn begin_settings_edit(app: &mut AppState) {
     if app.claude.selection.editing.is_none() {
         let choices = (
-            app.runtime.model_settings_model_value().to_string(),
-            app.runtime.model_settings_effort_value().to_string(),
+            app.model_settings_model_value().to_string(),
+            app.model_settings_effort_value().to_string(),
         );
         app.claude.selection.editing = Some(choices);
     }
@@ -146,7 +155,8 @@ pub(super) fn prepare_saved_choices(app: &mut AppState, defaults: &mut RuntimeDe
         .is_some_and(|choice| choice != effort);
     if app.claude.selection.inherits_model && !model_changed {
         defaults.model = None;
-        app.runtime.pending_model = None;
+        app.session
+            .clear_pending_runtime_choice(RuntimeSetting::Model);
     } else {
         app.claude.selection.inherits_model = false;
     }
@@ -157,8 +167,7 @@ pub(super) fn prepare_saved_choices(app: &mut AppState, defaults: &mut RuntimeDe
             .is_none_or(|effort| effort == "auto")
     {
         defaults.effort = None;
-        app.runtime.current_effort = None;
-        app.runtime.pending_effort = None;
+        app.session.inherit_runtime_effort();
         app.claude.selection.inherits_effort = true;
     } else {
         app.claude.selection.inherits_effort = false;
@@ -169,7 +178,7 @@ fn refresh_models(app: &mut AppState) {
     let Some(capabilities) = app.claude.capabilities.as_ref() else {
         return;
     };
-    let selected = app.runtime.current_model.as_deref();
+    let selected = app.session.runtime_settings().current_model().as_deref();
     let mut models: Vec<ModelInfo> = capabilities["models"]
         .as_array()
         .into_iter()

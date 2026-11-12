@@ -7,6 +7,7 @@ use serde_json::{json, Value};
 
 use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
 use super::claude_state::ClaudePhase;
+use crate::session::runtime_settings::RuntimeSetting;
 
 fn send(app: &mut AppState, method: &str, generation: u64, mut params: Value) {
     params["generation"] = json!(generation);
@@ -123,17 +124,19 @@ fn failures_before_and_after_switch_keep_the_correct_session_and_edit() {
 fn session_switch_preserves_explicit_choices_and_releases_inherited_observations() {
     for explicit in [false, true] {
         let mut app = AppState::new("original".to_string());
-        app.runtime.current_model = Some("sdk-opus".to_string());
-        app.runtime.current_effort = Some("high".to_string());
+        app.session
+            .record_runtime_choice(RuntimeSetting::Model, Some("sdk-opus".to_string()));
+        app.session
+            .record_runtime_choice(RuntimeSetting::Effort, Some("high".to_string()));
         app.claude.selection.inherits_model = !explicit;
         app.claude.selection.inherits_effort = !explicit;
         switch(&mut app);
         assert_eq!(
-            app.runtime.current_model.as_deref(),
+            app.session.runtime_settings().current_model().as_deref(),
             explicit.then_some("sdk-opus")
         );
         assert_eq!(
-            app.runtime.current_effort.as_deref(),
+            app.session.runtime_settings().current_effort().as_deref(),
             explicit.then_some("high")
         );
         assert_eq!(app.claude.selection.inherits_model, !explicit);

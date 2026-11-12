@@ -25,19 +25,19 @@ pub(super) fn handle_model_settings_key(
         (KeyCode::Left, _) => cycle(app, -1),
         (KeyCode::Right, _) => cycle(app, 1),
         (KeyCode::Backspace, _)
-            if app.runtime.model_settings_field == ModelSettingsField::Context =>
+            if app.view.runtime_settings.model_settings_field == ModelSettingsField::Context =>
         {
-            app.runtime.context.backspace();
+            app.view.runtime_settings.context.backspace();
         }
         (KeyCode::Backspace, _)
-            if matches!(app.runtime.model_settings_field, ModelSettingsField::Model)
+            if matches!(app.view.runtime_settings.model_settings_field, ModelSettingsField::Model)
                 && !app.model_settings_has_model_choices() =>
         {
             app.model_settings_backspace();
         }
         (KeyCode::Enter, _)
             if matches!(
-                app.runtime.model_settings_field,
+                app.view.runtime_settings.model_settings_field,
                 ModelSettingsField::DictationEndpoint
             ) =>
         {
@@ -46,21 +46,24 @@ pub(super) fn handle_model_settings_key(
         (KeyCode::Enter, _) => save_settings(client, app),
         (KeyCode::Char(ch), mods)
             if !mods.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
-                && app.runtime.model_settings_field == ModelSettingsField::Context =>
+                && app.view.runtime_settings.model_settings_field == ModelSettingsField::Context =>
         {
-            app.runtime.context.insert(&ch.to_string());
+            app.view.runtime_settings.context.insert(&ch.to_string());
         }
         (KeyCode::Char(ch), mods)
             if !mods.contains(KeyModifiers::CONTROL)
                 && !mods.contains(KeyModifiers::ALT)
-                && matches!(app.runtime.model_settings_field, ModelSettingsField::Model)
+                && matches!(
+                    app.view.runtime_settings.model_settings_field,
+                    ModelSettingsField::Model
+                )
                 && !app.model_settings_has_model_choices() =>
         {
             app.model_settings_insert_char(ch);
         }
         _ => {}
     }
-    if !app.runtime.show_model_settings {
+    if !app.view.runtime_settings.show_model_settings {
         app.claude.selection.editing = None;
     }
     if app.codex.enabled {
@@ -70,11 +73,11 @@ pub(super) fn handle_model_settings_key(
 }
 
 fn cycle(app: &mut AppState, dir: isize) {
-    match app.runtime.model_settings_field {
+    match app.view.runtime_settings.model_settings_field {
         ModelSettingsField::Model => app.model_settings_cycle_model(dir),
         ModelSettingsField::Effort => app.model_settings_cycle_effort(dir),
         ModelSettingsField::Summary => app.model_settings_cycle_summary(dir),
-        ModelSettingsField::Context => app.runtime.context.cycle(dir),
+        ModelSettingsField::Context => app.view.runtime_settings.context.cycle(dir),
         ModelSettingsField::DictationEndpoint => app.toggle_dictation_endpoint_mode(),
         ModelSettingsField::DesktopTheme => {
             app.view.layout.draft.desktop = app.view.layout.draft.desktop.cycle(dir)
@@ -84,8 +87,11 @@ fn cycle(app: &mut AppState, dir: isize) {
         }
         ModelSettingsField::ToolLabels => app.summaries.draft = !app.summaries.draft,
         ModelSettingsField::ToolOutput => {
-            app.runtime.model_settings_tool_output =
-                app.runtime.model_settings_tool_output.cycle(dir);
+            app.view.runtime_settings.model_settings_tool_output = app
+                .view
+                .runtime_settings
+                .model_settings_tool_output
+                .cycle(dir);
         }
     }
 }
@@ -102,7 +108,7 @@ fn save_settings(client: &dyn BackendClient, app: &mut AppState) {
         return;
     }
     if !crate::app::context_settings::save(client, app) {
-        app.runtime.model_settings_field = ModelSettingsField::Context;
+        app.view.runtime_settings.model_settings_field = ModelSettingsField::Context;
         return;
     }
     let defaults = apply_model_choices(client, app);
@@ -137,11 +143,7 @@ fn save_settings(client: &dyn BackendClient, app: &mut AppState) {
 
 fn apply_model_choices(client: &dyn BackendClient, app: &mut AppState) -> RuntimeDefaults {
     let before = app.next_turn_runtime_settings();
-    let pending = (
-        app.runtime.pending_model.clone(),
-        app.runtime.pending_effort.clone(),
-        app.runtime.pending_summary.clone(),
-    );
+    let pending = app.session.pending_runtime_settings();
     let mut defaults = app.apply_model_settings();
     if client.kind() == BackendKind::Claude {
         crate::app::claude_models::prepare_saved_choices(app, &mut defaults);

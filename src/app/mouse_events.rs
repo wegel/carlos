@@ -44,14 +44,13 @@ pub(super) fn handle_mouse_event(
     if let Some(perf) = app.view.perf.as_mut() {
         perf.mouse_events = perf.mouse_events.saturating_add(1);
     }
-    if app.view.viewport.show_help || app.runtime.show_model_settings {
+    if app.view.viewport.show_help || app.view.runtime_settings.show_model_settings {
         return TerminalEventResult::Continue { needs_draw: false };
     }
     if super::native_questions::modal(app) && super::native_questions::draft(app).is_some() {
         return TerminalEventResult::Continue { needs_draw: false };
     }
     ensure_transcript_layout(app, size);
-
     let msg_top = MSG_TOP;
     let msg_bottom = compute_input_layout(app, size).msg_bottom;
     if msg_bottom < msg_top {
@@ -68,7 +67,6 @@ pub(super) fn handle_mouse_event(
         clamped_line_idx: app.view.viewport.scroll_top + (clamped_y - msg_top),
         max_scroll: app.rendered_line_count().saturating_sub(msg_height),
     };
-
     let mouse_changed = match m.kind {
         MouseEventKind::ScrollUp => handle_mouse_wheel(app, &hit, true),
         MouseEventKind::ScrollDown => handle_mouse_wheel(app, &hit, false),
@@ -236,17 +234,20 @@ pub(super) fn handle_paste_event(
     if app.view.viewport.show_help {
         return TerminalEventResult::Continue { needs_draw: true };
     }
-    if app.runtime.show_model_settings {
-        if app.runtime.model_settings_field == ModelSettingsField::Context {
-            app.runtime.context.insert(pasted.trim());
+    if app.view.runtime_settings.show_model_settings {
+        if app.view.runtime_settings.model_settings_field == ModelSettingsField::Context {
+            app.view.runtime_settings.context.insert(pasted.trim());
         }
-        if matches!(app.runtime.model_settings_field, ModelSettingsField::Model)
+        if matches!(app.view.runtime_settings.model_settings_field, ModelSettingsField::Model)
             && !app.model_settings_has_model_choices()
         {
             let normalized = normalize_pasted_text(&pasted);
             let first_line = normalized.lines().next().unwrap_or("");
             if !first_line.is_empty() {
-                app.runtime.model_settings_model_input.push_str(first_line);
+                app.view
+                    .runtime_settings
+                    .model_settings_model_input
+                    .push_str(first_line);
             }
         }
         return TerminalEventResult::Continue { needs_draw: true };

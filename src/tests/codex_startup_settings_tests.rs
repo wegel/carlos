@@ -44,7 +44,7 @@ fn changing_model_in_the_editor_does_not_publish_an_unknown_summary() {
     app.set_runtime_capabilities(true, true);
     app.set_runtime_settings(Some("native".into()), Some("low".into()), None);
     app.open_model_settings();
-    app.runtime.model_settings_model_input = "edited".into();
+    app.view.runtime_settings.model_settings_model_input = "edited".into();
     handle_terminal_event(
         &peer,
         &mut app,
@@ -56,8 +56,8 @@ fn changing_model_in_the_editor_does_not_publish_an_unknown_summary() {
     );
     assert_eq!(peer.controls.borrow()[0].1["model"], "edited");
     assert!(peer.controls.borrow()[0].1.get("summary").is_none());
-    assert!(app.runtime.pending_summary.is_none());
-    assert!(app.runtime.current_summary.is_none());
+    assert!(app.session.runtime_settings().pending_summary().is_none());
+    assert!(app.session.runtime_settings().current_summary().is_none());
 }
 
 #[test]

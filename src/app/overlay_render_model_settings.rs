@@ -24,12 +24,15 @@ pub(in crate::app) fn model_settings_cursor_position(
 ) -> (usize, usize) {
     let ob = model_settings_overlay_box(size);
     let layout = FieldLayout::new(&ob, app);
-    let fields = app.runtime.model_settings_fields();
+    let fields = app.view.runtime_settings.model_settings_fields(app.session.runtime_settings());
     let index = fields
         .iter()
-        .position(|&field| field == app.runtime.model_settings_field)
+        .position(|&field| field == app.view.runtime_settings.model_settings_field)
         .unwrap_or(0);
-    let value_width = visual_width(field_value(app, app.runtime.model_settings_field));
+    let value_width = visual_width(field_value(
+        app,
+        app.view.runtime_settings.model_settings_field,
+    ));
     let x = (layout.x_value + value_width.min(layout.value_w)).min(ob.right.saturating_sub(1));
     let y = layout.row_y(&ob, index).min(size.height.saturating_sub(1));
     (x, y)
@@ -37,7 +40,7 @@ pub(in crate::app) fn model_settings_cursor_position(
 
 pub(super) fn draw_model_settings_fields(buf: &mut Buffer, ob: &OverlayBox, app: &AppState) {
     let layout = FieldLayout::new(ob, app);
-    let fields = app.runtime.model_settings_fields();
+    let fields = app.view.runtime_settings.model_settings_fields(app.session.runtime_settings());
     for (index, &field) in fields
         .iter()
         .enumerate()
@@ -47,11 +50,11 @@ pub(super) fn draw_model_settings_fields(buf: &mut Buffer, ob: &OverlayBox, app:
         layout.draw_row(buf, app, layout.row_y(ob, index), field);
     }
     let help = app.codex.settings.editor_error.as_deref().unwrap_or(
-        match app.runtime.model_settings_field {
+        match app.view.runtime_settings.model_settings_field {
             ModelSettingsField::DictationEndpoint => "Arrows/Enter toggle, Esc close",
             ModelSettingsField::DesktopTheme => "Theme for wide screens",
             ModelSettingsField::PhoneTheme => "Theme for small screens",
-            ModelSettingsField::Context => app.runtime.context.help(),
+            ModelSettingsField::Context => app.view.runtime_settings.context.help(),
             _ => "Tab field, arrows, Enter save",
         },
     );
@@ -77,7 +80,7 @@ struct FieldLayout {
 
 impl FieldLayout {
     fn new(ob: &OverlayBox, app: &AppState) -> Self {
-        let fields = app.runtime.model_settings_fields();
+        let fields = app.view.runtime_settings.model_settings_fields(app.session.runtime_settings());
         let height = ob.bottom.saturating_sub(ob.top) + 1;
         let padding = if height < 13 { 2 } else { 3 };
         let row_step = if height >= fields.len() * 2 + padding + 3 {
@@ -88,7 +91,7 @@ impl FieldLayout {
         let rows = (height.saturating_sub(padding + 3) / row_step).max(1);
         let selected = fields
             .iter()
-            .position(|field| *field == app.runtime.model_settings_field)
+            .position(|field| *field == app.view.runtime_settings.model_settings_field)
             .unwrap_or(0);
         Self {
             x_label: ob.start_x + 3,
@@ -130,7 +133,7 @@ impl FieldLayout {
             self.x_value,
             y,
             field_value(app, field),
-            field_style(app.runtime.model_settings_field == field),
+            field_style(app.view.runtime_settings.model_settings_field == field),
             self.value_w,
         );
     }
@@ -141,8 +144,8 @@ fn field_value(app: &AppState, field: ModelSettingsField) -> &str {
         ModelSettingsField::Model => app.model_settings_model_value(),
         ModelSettingsField::Effort => app.model_settings_effort_value(),
         ModelSettingsField::Summary => app.model_settings_summary_value(),
-        ModelSettingsField::Context if app.runtime.context.attached => "Server default",
-        ModelSettingsField::Context => &app.runtime.context.draft,
+        ModelSettingsField::Context if app.view.runtime_settings.context.attached => "Server default",
+        ModelSettingsField::Context => &app.view.runtime_settings.context.draft,
         ModelSettingsField::DictationEndpoint => app.dictation_endpoint_mode_label(),
         ModelSettingsField::DesktopTheme => app.view.layout.draft.desktop.label(),
         ModelSettingsField::PhoneTheme => app.view.layout.draft.phone.label(),
@@ -156,7 +159,7 @@ fn field_value(app: &AppState, field: ModelSettingsField) -> &str {
         ModelSettingsField::ToolOutput => app
             .view
             .tool_output
-            .settings_label(app.runtime.model_settings_tool_output),
+            .settings_label(app.view.runtime_settings.model_settings_tool_output),
     }
 }
 

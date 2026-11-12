@@ -132,7 +132,7 @@ fn model_settings_can_toggle_dictation_endpoint_mode() {
         size,
     );
 
-    assert!(app.runtime.show_model_settings);
+    assert!(app.view.runtime_settings.show_model_settings);
     assert_eq!(app.view.status_hint.as_ref().expect("local hint"), "dictation endpoint: manual (Enter to stop)");
     assert_eq!(
         app.dictation_status_label(),

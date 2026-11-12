@@ -6,6 +6,7 @@ use anyhow::{bail, Result};
 use serde_json::{json, Value};
 
 use crate::claude_backend::FactTransfer;
+use crate::session::runtime_settings::RuntimeSetting;
 
 use super::claude_state::{ClaudePhase, ClaudeUiState};
 use super::models::Role;
@@ -38,11 +39,13 @@ pub(super) fn switch_session(app: &mut AppState, generation: u64, id: &str) {
     let unsent_drafts = std::mem::take(&mut app.claude.history.unsent_drafts);
     let selection = std::mem::take(&mut app.claude.selection);
     let edit = app.claude.history.edited_prompt.take();
-    if selection.inherits_model && app.runtime.pending_model.is_none() {
-        app.runtime.current_model = None;
+    if selection.inherits_model && app.session.runtime_settings().pending_model().is_none() {
+        app.session
+            .record_runtime_choice(RuntimeSetting::Model, None);
     }
-    if selection.inherits_effort && app.runtime.pending_effort.is_none() {
-        app.runtime.current_effort = None;
+    if selection.inherits_effort && app.session.runtime_settings().pending_effort().is_none() {
+        app.session
+            .record_runtime_choice(RuntimeSetting::Effort, None);
     }
     app.reset_for_forked_thread(id);
     app.claude = ClaudeUiState::default();

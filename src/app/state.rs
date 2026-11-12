@@ -15,7 +15,6 @@ use super::perf::PerfMetrics;
 use super::ralph::RalphConfig;
 use super::ralph_runtime_state::QueuedTurnInput;
 pub(super) use super::runtime_settings_state::ModelSettingsField;
-use super::runtime_settings_state::RuntimeSettingsState;
 #[cfg(test)]
 pub(super) use super::runtime_settings_state::{DEFAULT_EFFORT_OPTIONS, DEFAULT_SUMMARY_OPTIONS};
 use super::view_state::ViewState;
@@ -30,7 +29,6 @@ pub(super) struct AppState {
     // Split these mixed children in milestones 5 through 9.
     pub(super) summaries: super::state_summaries::SummaryState,
     pub(super) input_history: InputHistoryState,
-    pub(super) runtime: RuntimeSettingsState,
     pub(super) claude: super::claude_state::ClaudeUiState,
     pub(super) codex: super::codex_state::CodexUiState,
     pub(super) rate_limits: super::rate_limits::RateLimits,
@@ -40,12 +38,19 @@ pub(super) struct AppState {
 
 impl AppState {
     pub(super) fn new(thread_id: String) -> Self {
+        Self::with_runtime_defaults(thread_id, super::RuntimeDefaults::default())
+    }
+
+    /// Pass startup choices to the session without letting it read client files.
+    pub(super) fn with_runtime_defaults(
+        thread_id: String,
+        preferences: super::RuntimeDefaults,
+    ) -> Self {
         Self {
-            session: SessionState::new(thread_id),
+            session: SessionState::new(thread_id, preferences),
             view: ViewState::new(),
             summaries: super::state_summaries::SummaryState::default(),
             input_history: InputHistoryState::new(),
-            runtime: RuntimeSettingsState::new(),
             claude: super::claude_state::ClaudeUiState::default(),
             codex: super::codex_state::CodexUiState::default(),
             rate_limits: super::rate_limits::RateLimits::default(),

@@ -37,7 +37,7 @@ pub(in crate::app) fn run_grok_backend(
     let thread_id = client.open_session(&launch_mode)?;
     let server_events_rx = client.take_events_rx()?;
     let start_resp = client.synthetic_start_response(&thread_id);
-    let mut app = AppState::new(thread_id);
+    let mut app = AppState::with_runtime_defaults(thread_id, persisted_defaults.clone());
     configure_grok_app(
         &mut app,
         &client,

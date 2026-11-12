@@ -5,6 +5,7 @@ use serde_json::{json, Value};
 use super::state::AppState;
 use super::{persist_runtime_defaults, RuntimeDefaults};
 use crate::protocol_params::parse_thread_runtime_settings;
+use crate::session::runtime_settings::RuntimeSetting;
 
 const THREAD_SUMMARY: &str = "Use thread setting";
 
@@ -27,9 +28,12 @@ pub(super) fn initialize(
         .as_object_mut()
         .expect("settings object")
         .retain(|key, value| app.codex.settings.future.get(key) != Some(value));
-    app.runtime.pending_model = desired["model"].as_str().map(str::to_string);
-    app.runtime.pending_effort = desired["effort"].as_str().map(str::to_string);
-    app.runtime.pending_summary = desired["summary"].as_str().map(str::to_string);
+    app.session
+        .replace_pending_runtime_choices(RuntimeDefaults {
+            model: desired["model"].as_str().map(str::to_string),
+            effort: desired["effort"].as_str().map(str::to_string),
+            summary: desired["summary"].as_str().map(str::to_string),
+        });
     app.codex.settings.deferred =
         (!desired.as_object().expect("settings object").is_empty()).then_some(desired);
     Ok(())
@@ -84,29 +88,37 @@ pub(super) fn validate_editor(app: &mut AppState) -> bool {
 /// Hide effort controls when the selected native model advertises no effort choices.
 pub(super) fn refresh_editor(app: &mut AppState) {
     if !supports_effort(app, app.model_settings_model_value()) {
-        app.runtime.model_settings_effort_options.clear();
+        app.view
+            .runtime_settings
+            .model_settings_effort_options
+            .clear();
     }
-    if app.runtime.current_summary.is_none()
-        && app.runtime.pending_summary.is_none()
+    if app.session.runtime_settings().current_summary().is_none()
+        && app.session.runtime_settings().pending_summary().is_none()
         && !app
-            .runtime
+            .view
+            .runtime_settings
             .model_settings_summary_options
             .iter()
             .any(|value| value == THREAD_SUMMARY)
     {
-        app.runtime
+        app.view
+            .runtime_settings
             .model_settings_summary_options
             .insert(0, THREAD_SUMMARY.into());
-        app.runtime.model_settings_summary_index = 0;
+        app.view.runtime_settings.model_settings_summary_index = 0;
     }
 }
 
 /// Show an inherited unknown summary without turning its displayed fallback into a choice.
 pub(super) fn open_editor(app: &mut AppState) {
     refresh_editor(app);
-    if app.runtime.current_summary.is_none() && app.runtime.pending_summary.is_none() {
-        app.runtime.model_settings_summary_index = app
-            .runtime
+    if app.session.runtime_settings().current_summary().is_none()
+        && app.session.runtime_settings().pending_summary().is_none()
+    {
+        app.view.runtime_settings.model_settings_summary_index = app
+            .view
+            .runtime_settings
             .model_settings_summary_options
             .iter()
             .position(|value| value == THREAD_SUMMARY)
@@ -118,17 +130,20 @@ pub(super) fn open_editor(app: &mut AppState) {
 pub(super) fn normalize_saved(app: &mut AppState, defaults: &mut RuntimeDefaults) {
     if defaults.summary.as_deref() == Some(THREAD_SUMMARY) {
         defaults.summary = None;
-        app.runtime.pending_summary = None;
+        app.session
+            .clear_pending_runtime_choice(RuntimeSetting::Summary);
     }
     if !supports_effort(app, defaults.model.as_deref().unwrap_or("")) {
         defaults.effort = None;
-        app.runtime.pending_effort = None;
+        app.session
+            .clear_pending_runtime_choice(RuntimeSetting::Effort);
     }
 }
 
 fn supports_effort(app: &AppState, model: &str) -> bool {
-    app.runtime
-        .available_models
+    app.session
+        .runtime_settings()
+        .available_models()
         .iter()
         .find(|entry| entry.model == model)
         .is_none_or(|entry| !entry.supported_efforts.is_empty())
@@ -145,15 +160,7 @@ pub(super) fn reject(app: &mut AppState, desired: &Value, error: Value) {
         app.codex.settings.rejected = Some(desired.clone());
         app.codex.settings.editor_error = Some(message);
     }
-    for (key, pending) in [
-        ("model", &mut app.runtime.pending_model),
-        ("effort", &mut app.runtime.pending_effort),
-        ("summary", &mut app.runtime.pending_summary),
-    ] {
-        if pending.as_deref() == desired[key].as_str() {
-            *pending = None;
-        }
-    }
+    app.session.reject_runtime_settings(desired);
 }
 
 /// Reopen attempted values without changing last-valid runtime settings.
@@ -162,19 +169,20 @@ pub(super) fn restore_editor(app: &mut AppState) {
         return;
     };
     if let Some(model) = desired["model"].as_str() {
-        app.runtime.model_settings_model_index = app
-            .runtime
-            .available_models
+        app.view.runtime_settings.model_settings_model_index = app
+            .session
+            .runtime_settings()
+            .available_models()
             .iter()
             .position(|entry| entry.model == model)
             .unwrap_or(usize::MAX);
-        app.runtime.model_settings_model_input = model.into();
-        if app.runtime.model_settings_model_index != usize::MAX {
-            app.runtime.model_settings_cycle_model(0);
+        app.view.runtime_settings.model_settings_model_input = model.into();
+        if app.view.runtime_settings.model_settings_model_index != usize::MAX {
+            app.model_settings_cycle_model(0);
         }
     }
     if let Some(effort) = desired["effort"].as_str() {
-        let options = &mut app.runtime.model_settings_effort_options;
+        let options = &mut app.view.runtime_settings.model_settings_effort_options;
         let index = options
             .iter()
             .position(|entry| entry == effort)
@@ -182,16 +190,17 @@ pub(super) fn restore_editor(app: &mut AppState) {
                 options.push(effort.into());
                 options.len() - 1
             });
-        app.runtime.model_settings_effort_index = index;
+        app.view.runtime_settings.model_settings_effort_index = index;
     }
     if let Some(summary) = desired["summary"].as_str() {
         if let Some(index) = app
-            .runtime
+            .view
+            .runtime_settings
             .model_settings_summary_options
             .iter()
             .position(|entry| entry == summary)
         {
-            app.runtime.model_settings_summary_index = index;
+            app.view.runtime_settings.model_settings_summary_index = index;
         }
     }
 }

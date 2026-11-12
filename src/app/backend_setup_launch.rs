@@ -48,7 +48,8 @@ pub(in crate::app) fn run_codex_backend(
     let Some(launch) = resolve_codex_thread(opts, &client, cwd)? else {
         return Ok(());
     };
-    let mut app = AppState::new(launch.thread_id.clone());
+    let mut app =
+        AppState::with_runtime_defaults(launch.thread_id.clone(), persisted_defaults.clone());
     configure_codex_app(
         &mut app,
         &client,
@@ -219,7 +220,7 @@ pub(in crate::app) fn run_claude_backend(
     };
     let (client, server_events_rx, start_resp) = start_claude_session(cwd_path, launch_mode)?;
     let chosen_thread_id = parse_thread_id_from_start_or_resume(&start_resp)?;
-    let mut app = AppState::new(chosen_thread_id);
+    let mut app = AppState::with_runtime_defaults(chosen_thread_id, persisted_defaults.clone());
     configure_claude_app(&mut app, cwd, opts, &persisted_defaults, &start_resp)?;
     finish_run(&mut app, opts.backend, &client, server_events_rx)
 }
@@ -294,10 +295,11 @@ pub(super) fn configure_claude_app(
     app.claude.enabled = true;
     crate::app::context_settings::initialize(app, crate::backend::BackendKind::Claude, false)?;
     app.claude.phase = super::super::claude_state::ClaudePhase::Starting;
-    app.claude.selection.inherits_model = app.runtime.current_model.is_none();
+    app.claude.selection.inherits_model = app.session.runtime_settings().current_model().is_none();
     app.claude.selection.inherits_effort = app
-        .runtime
-        .current_effort
+        .session
+        .runtime_settings()
+        .current_effort()
         .as_deref()
         .is_none_or(|effort| effort == "auto");
     app.set_status("Claude starting");

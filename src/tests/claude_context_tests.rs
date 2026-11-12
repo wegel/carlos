@@ -12,6 +12,7 @@ use super::codex_question_support::Peer;
 use super::ContextUsage;
 use crate::app::claude_context::{invalidate, receive, refresh, tick, wait};
 use crate::backend::EventReceiver;
+use crate::session::runtime_settings::RuntimeSetting;
 
 fn app() -> AppState {
     let mut app = AppState::new("root".into());
@@ -281,7 +282,8 @@ fn immediate_write_failure_and_tick_only_model_change_request_a_visible_redraw()
     assert!(tick(&FailedWriter, &mut app, Instant::now()));
     assert!(!app.claude.context.fresh);
     assert!(app.session.context_usage().is_some());
-    app.runtime.current_model = Some("changed".into());
+    app.session
+        .record_runtime_choice(RuntimeSetting::Model, Some("changed".into()));
     assert!(tick(&FailedWriter, &mut app, Instant::now()));
     assert!(app.session.context_usage().is_none());
 }

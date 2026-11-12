@@ -11,12 +11,14 @@ use super::input::make_input_area;
 use super::layout_state::LayoutState;
 use super::perf::PerfMetrics;
 use super::render_cache_state::RenderCacheState;
+use super::runtime_settings_state::RuntimeSettingsView;
 use super::state_approval_view::ApprovalHints;
 use super::tool_output_state::ToolOutputState;
 use super::viewport_state::ViewportState;
 use crate::session::entry_id::EntryId;
 
 pub(super) struct ViewState {
+    pub(super) runtime_settings: RuntimeSettingsView,
     pub(super) render_cache: RenderCacheState,
     pub(super) tool_output: ToolOutputState,
     pub(super) layout: LayoutState,
@@ -36,6 +38,7 @@ pub(super) struct ViewState {
 impl ViewState {
     pub(super) fn new() -> Self {
         Self {
+            runtime_settings: RuntimeSettingsView::new(),
             render_cache: RenderCacheState::new(),
             tool_output: ToolOutputState::default(),
             layout: LayoutState::default(),

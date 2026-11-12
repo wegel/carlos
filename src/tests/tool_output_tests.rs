@@ -84,16 +84,22 @@ fn settings_open_with_the_current_choice_and_apply_or_cancel_the_draft() {
     app.open_model_settings();
     app.model_settings_move_field(false);
     assert_eq!(
-        app.runtime.model_settings_field,
+        app.view.runtime_settings.model_settings_field,
         ModelSettingsField::ToolOutput
     );
-    assert_eq!(app.runtime.model_settings_tool_output, ToolOutputMode::Full);
-    app.runtime.model_settings_tool_output = ToolOutputMode::Compact;
+    assert_eq!(
+        app.view.runtime_settings.model_settings_tool_output,
+        ToolOutputMode::Full
+    );
+    app.view.runtime_settings.model_settings_tool_output = ToolOutputMode::Compact;
     app.close_model_settings();
     assert_eq!(app.view.tool_output.mode, ToolOutputMode::Full);
     app.open_model_settings();
-    assert_eq!(app.runtime.model_settings_tool_output, ToolOutputMode::Full);
-    app.runtime.model_settings_tool_output = ToolOutputMode::Compact;
+    assert_eq!(
+        app.view.runtime_settings.model_settings_tool_output,
+        ToolOutputMode::Full
+    );
+    app.view.runtime_settings.model_settings_tool_output = ToolOutputMode::Compact;
     app.apply_model_settings();
     assert_eq!(app.view.tool_output.mode, ToolOutputMode::Compact);
 }

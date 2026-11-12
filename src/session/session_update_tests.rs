@@ -48,7 +48,7 @@ fn every_row_edit_reports_heads_earliest_dirty_entry() {
 }
 
 fn check_edit(previous: &str, text: Option<&str>, role: Role, kind: MessageKind, index: usize) {
-    let mut session = SessionState::new("thread".into());
+    let mut session = SessionState::new("thread".into(), Default::default());
     session.append_message(Role::ToolCall, previous);
     session.append_message(Role::ToolCall, "");
     session.append_message(Role::Assistant, "old");
@@ -86,7 +86,7 @@ fn every_stream_completion_and_replacement_reports_only_its_existing_dirty_calls
     }
     for mode in [HistoryMode::SameThread, HistoryMode::NewConversation] {
         for count in 0..8 {
-            let mut session = SessionState::new("thread".into());
+            let mut session = SessionState::new("thread".into(), Default::default());
             for _ in 0..count {
                 session.append_message(Role::Assistant, "old");
             }
@@ -104,7 +104,7 @@ fn every_stream_completion_and_replacement_reports_only_its_existing_dirty_calls
 }
 
 fn check_stream(backend: BackendKind, role: Role, complete: bool, mapped: bool) {
-    let mut session = SessionState::new("thread".into());
+    let mut session = SessionState::new("thread".into(), Default::default());
     let key = BackendEntryKey {
         backend,
         conversation: "thread".into(),
@@ -144,7 +144,7 @@ fn check_stream(backend: BackendKind, role: Role, complete: bool, mapped: bool) 
 fn empty_tail_and_repeated_markers_preserve_incremental_reports() {
     for count in 0..8 {
         for cut in 0..=count {
-            let mut session = SessionState::new("thread".into());
+            let mut session = SessionState::new("thread".into(), Default::default());
             for _ in 0..count {
                 session.append_message(Role::Assistant, "row");
             }
@@ -171,7 +171,7 @@ fn empty_tail_and_repeated_markers_preserve_incremental_reports() {
 #[test]
 fn changing_any_request_fact_assigns_a_new_card_id() {
     for field in 0..9 {
-        let mut session = SessionState::new("thread".into());
+        let mut session = SessionState::new("thread".into(), Default::default());
         let _ = session.set_pending_approval(approval_draft());
         let original = session.approval().pending().expect("original").entry_id();
         let mut copied = session.approval().pending().expect("original").to_draft();
@@ -205,7 +205,7 @@ fn changing_any_request_fact_assigns_a_new_card_id() {
 #[test]
 fn identical_drafts_keep_only_the_active_card_and_queue_moves_keep_their_own_ids() {
     use super::approval_state::ApprovalQueue;
-    let mut session = SessionState::new("thread".into());
+    let mut session = SessionState::new("thread".into(), Default::default());
     let _ = session.set_pending_approval(approval_draft());
     let original = session.approval().pending().expect("original").entry_id();
     assert!(session.set_pending_approval(approval_draft()).is_empty());
@@ -229,7 +229,7 @@ fn identical_drafts_keep_only_the_active_card_and_queue_moves_keep_their_own_ids
 #[test]
 fn retired_ids_and_previous_namespaces_cannot_restore_consent() {
     use super::approval_state::ApprovalQueue;
-    let mut session = SessionState::new("thread".into());
+    let mut session = SessionState::new("thread".into(), Default::default());
     let _ = session.set_pending_approval(approval_draft());
     let retired = session.approval().pending().expect("original").entry_id();
     assert_eq!(session.retire_approval(retired), vec![retired]);

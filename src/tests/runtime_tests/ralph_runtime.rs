@@ -23,18 +23,18 @@ fn resolve_initial_runtime_settings_falls_back_to_persisted_defaults() {
 #[test]
 fn apply_model_settings_returns_defaults_for_persistence() {
     let mut app = AppState::new("thread-1".to_string());
-    app.runtime.model_settings_model_input = "gpt-5.4".to_string();
-    app.runtime.model_settings_effort_options = super::state::DEFAULT_EFFORT_OPTIONS
+    app.view.runtime_settings.model_settings_model_input = "gpt-5.4".to_string();
+    app.view.runtime_settings.model_settings_effort_options = super::state::DEFAULT_EFFORT_OPTIONS
         .iter()
         .map(|value| (*value).to_string())
         .collect();
-    app.runtime.model_settings_effort_index = 4;
-    app.runtime.model_settings_summary_options = super::state::DEFAULT_SUMMARY_OPTIONS
+    app.view.runtime_settings.model_settings_effort_index = 4;
+    app.view.runtime_settings.model_settings_summary_options = super::state::DEFAULT_SUMMARY_OPTIONS
         .iter()
         .map(|value| (*value).to_string())
         .collect();
-    app.runtime.model_settings_summary_index = 1;
-    app.runtime.show_model_settings = true;
+    app.view.runtime_settings.model_settings_summary_index = 1;
+    app.view.runtime_settings.show_model_settings = true;
 
     let defaults = app.apply_model_settings();
 
@@ -54,27 +54,27 @@ fn apply_model_settings_returns_defaults_for_persistence() {
             Some("concise".to_string())
         )
     );
-    assert!(!app.runtime.show_model_settings);
+    assert!(!app.view.runtime_settings.show_model_settings);
 }
 
 #[test]
 fn apply_model_settings_omits_summary_when_backend_does_not_support_it() {
     let mut app = AppState::new("thread-1".to_string());
     app.set_runtime_capabilities(true, false);
-    app.runtime.model_settings_model_input = "claude-opus-4-6".to_string();
-    app.runtime.model_settings_effort_options = vec![
+    app.view.runtime_settings.model_settings_model_input = "claude-opus-4-6".to_string();
+    app.view.runtime_settings.model_settings_effort_options = vec![
         "low".to_string(),
         "medium".to_string(),
         "high".to_string(),
         "max".to_string(),
     ];
-    app.runtime.model_settings_effort_index = 2;
-    app.runtime.model_settings_summary_options = super::state::DEFAULT_SUMMARY_OPTIONS
+    app.view.runtime_settings.model_settings_effort_index = 2;
+    app.view.runtime_settings.model_settings_summary_options = super::state::DEFAULT_SUMMARY_OPTIONS
         .iter()
         .map(|value| (*value).to_string())
         .collect();
-    app.runtime.model_settings_summary_index = 1;
-    app.runtime.show_model_settings = true;
+    app.view.runtime_settings.model_settings_summary_index = 1;
+    app.view.runtime_settings.show_model_settings = true;
 
     let defaults = app.apply_model_settings();
 

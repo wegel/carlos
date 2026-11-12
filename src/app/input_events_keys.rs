@@ -7,9 +7,7 @@ mod input_events_dictation;
 mod input_events_model_settings;
 #[path = "input_events_submit.rs"]
 mod input_events_submit;
-
 use self::input_events_clipboard::handle_ctrl_y_copy;
-
 use self::input_events_model_settings::handle_model_settings_key;
 use self::input_events_submit::handle_enter_submit;
 
@@ -21,6 +19,7 @@ use super::{ensure_transcript_layout, is_mobile_mouse_key_candidate, TerminalEve
 use crate::app::mobile_mouse::{
     consume_mobile_mouse_char, take_mobile_mouse_buffer, MobileMouseConsume,
 };
+use crate::app::native_questions;
 use crate::app::notifications::{is_ctrl_char, is_key_press_like, is_perf_toggle_key};
 use crate::app::render::{compute_input_layout, is_newline_enter};
 use crate::app::selection::MouseDragMode;
@@ -40,14 +39,8 @@ pub(super) fn handle_key_event(
     k: crossterm::event::KeyEvent,
     size: TerminalSize,
 ) -> TerminalEventResult {
-    if let Some(perf) = app.view.perf.as_mut() {
-        perf.mark_key_kind(k.kind);
-    }
-    if !is_key_press_like(k.kind) {
+    if !record_key_event(app, k.kind) {
         return TerminalEventResult::Continue { needs_draw: false };
-    }
-    if let Some(perf) = app.view.perf.as_mut() {
-        perf.mark_key_event();
     }
     if app.codex.enabled && k.code == KeyCode::F(5) && k.modifiers.is_empty() {
         crate::app::codex_reconnect::start(client, app);
@@ -75,16 +68,13 @@ pub(super) fn handle_key_event(
     if app.view.viewport.show_help {
         return handle_help_key(app, k, size);
     }
-    if app.runtime.show_model_settings && crate::app::native_questions::draft(app).is_some() {
+    if app.view.runtime_settings.show_model_settings && native_questions::draft(app).is_some() {
         return handle_model_settings_key(client, app, k);
     }
-    if crate::app::native_questions::modal(app) {
-        if crate::app::native_questions::draft(app).is_some() {
-            return super::super::claude_question_input::handle_key(client, app, k, size);
-        }
-        return handle_approval_key(client, app, k);
+    if native_questions::modal(app) {
+        return handle_native_question_key(client, app, k, size);
     }
-    if app.runtime.show_model_settings {
+    if app.view.runtime_settings.show_model_settings {
         return handle_model_settings_key(client, app, k);
     }
     if let Some(result) = crate::app::codex_goal_view::key(client, app, k, size) {
@@ -100,6 +90,19 @@ pub(super) fn handle_key_event(
         return result;
     }
     handle_normal_key(client, app, k, size, now)
+}
+
+fn record_key_event(app: &mut AppState, kind: crossterm::event::KeyEventKind) -> bool {
+    if let Some(perf) = app.view.perf.as_mut() {
+        perf.mark_key_kind(kind);
+    }
+    if !is_key_press_like(kind) {
+        return false;
+    }
+    if let Some(perf) = app.view.perf.as_mut() {
+        perf.mark_key_event();
+    }
+    true
 }
 
 fn handle_claude_session_keys(
@@ -181,11 +184,15 @@ fn handle_help_key(
     TerminalEventResult::Continue { needs_draw: true }
 }
 
-fn handle_approval_key(
+fn handle_native_question_key(
     client: &dyn BackendClient,
     app: &mut AppState,
     k: crossterm::event::KeyEvent,
+    size: TerminalSize,
 ) -> TerminalEventResult {
+    if native_questions::draft(app).is_some() {
+        return super::super::claude_question_input::handle_key(client, app, k, size);
+    }
     match (k.code, k.modifiers) {
         (code, mods) if is_ctrl_char(code, mods, 'c') => return TerminalEventResult::Quit,
         (KeyCode::Char('y'), mods) | (KeyCode::Char('a'), mods) if mods.is_empty() => {

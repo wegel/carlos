@@ -120,9 +120,7 @@ pub(super) fn observed(app: &mut AppState, params: &Value) {
     app.codex.settings.legacy_overrides = false;
     app.codex.settings.future = settings.clone();
     if app.codex.settings.deferred.is_none() {
-        app.runtime.pending_model = None;
-        app.runtime.pending_effort = None;
-        app.runtime.pending_summary = None;
+        app.queue_runtime_settings(None, None, None);
     }
     apply_future(app, settings);
 }
@@ -250,9 +248,21 @@ pub(super) fn closed(app: &mut AppState) {
 /// Capture starting choices rather than relabeling an already running model request.
 pub(super) fn started(app: &mut AppState, turn_id: &str) {
     let label = [
-        app.runtime.current_model.as_deref().unwrap_or("model?"),
-        app.runtime.current_effort.as_deref().unwrap_or(""),
-        app.runtime.current_summary.as_deref().unwrap_or(""),
+        app.session
+            .runtime_settings()
+            .current_model()
+            .as_deref()
+            .unwrap_or("model?"),
+        app.session
+            .runtime_settings()
+            .current_effort()
+            .as_deref()
+            .unwrap_or(""),
+        app.session
+            .runtime_settings()
+            .current_summary()
+            .as_deref()
+            .unwrap_or(""),
     ]
     .into_iter()
     .filter(|part| !part.is_empty())
@@ -273,30 +283,7 @@ pub(super) fn label(app: &AppState) -> String {
 }
 
 fn apply_future(app: &mut AppState, settings: &Value) {
-    for (key, current, pending) in [
-        (
-            "model",
-            &mut app.runtime.current_model,
-            &mut app.runtime.pending_model,
-        ),
-        (
-            "effort",
-            &mut app.runtime.current_effort,
-            &mut app.runtime.pending_effort,
-        ),
-        (
-            "summary",
-            &mut app.runtime.current_summary,
-            &mut app.runtime.pending_summary,
-        ),
-    ] {
-        if let Some(value) = settings.get(key) {
-            *current = value.as_str().map(str::to_string);
-            if pending.as_deref() == value.as_str() {
-                *pending = None;
-            }
-        }
-    }
+    app.session.apply_future_runtime_settings(settings);
 }
 
 fn finish(app: &mut AppState) {
@@ -322,15 +309,18 @@ pub(super) fn validate(app: &AppState, desired: &Value) -> Result<(), String> {
     {
         return Err("Choose a supported summary setting".into());
     }
-    if !app.runtime.available_models.is_empty() {
+    if !app.session.runtime_settings().available_models().is_empty() {
         let model = app
-            .runtime
-            .available_models
+            .session
+            .runtime_settings()
+            .available_models()
             .iter()
             .find(|model| {
-                desired["model"]
-                    .as_str()
-                    .or(app.runtime.current_model.as_deref())
+                desired["model"].as_str().or(app
+                    .session
+                    .runtime_settings()
+                    .current_model()
+                    .as_deref())
                     == Some(model.model.as_str())
             })
             .ok_or("Choose a model advertised by Codex")?;

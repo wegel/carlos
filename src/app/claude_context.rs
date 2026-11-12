@@ -45,7 +45,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant)
     if !available(app) {
         return false;
     }
-    let model = app.runtime.current_model.clone();
+    let model = app.session.runtime_settings().current_model().clone();
     let mut redraw = false;
     if app.claude.context.model != model {
         redraw = app.session.context_usage().is_some();

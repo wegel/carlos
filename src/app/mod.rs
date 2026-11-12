@@ -182,12 +182,7 @@ mod weekly_usage;
 const MSG_TOP: usize = 1;
 const MSG_CONTENT_X: usize = 2;
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub(super) struct RuntimeDefaults {
-    pub(super) model: Option<String>,
-    pub(super) effort: Option<String>,
-    pub(super) summary: Option<String>,
-}
+use crate::session::runtime_settings::RuntimeDefaults;
 
 // --- Runtime Wiring ---
 

@@ -49,7 +49,10 @@ fn future_success_and_live_failure_are_separate_and_do_not_relabel_the_running_r
     assert!(app.codex.settings.pending.is_some());
     receive(&mut app, reply(&peer, 0, json!({"result":{}})));
     assert!(app.codex.settings.pending.is_none());
-    assert_eq!(app.runtime.current_model.as_deref(), Some("new"));
+    assert_eq!(
+        app.session.runtime_settings().current_model().as_deref(),
+        Some("new")
+    );
     assert!(label(&app).starts_with("old/high/concise → future new/low/none"));
     assert!(app
         .session
@@ -58,7 +61,7 @@ fn future_success_and_live_failure_are_separate_and_do_not_relabel_the_running_r
         .expect("visible report")
         .text
         .contains("active turn unchanged"));
-    assert!(app.runtime.pending_model.is_none());
+    assert!(app.session.runtime_settings().pending_model().is_none());
 }
 
 #[test]
@@ -94,14 +97,20 @@ fn later_local_choices_wait_without_losing_their_values_and_old_epoch_replies_ar
     save(&peer, &mut app);
     assert_eq!(peer.controls.borrow().len(), 1);
     receive(&mut app, reply(&peer, 0, json!({"result":{}})));
-    assert_eq!(app.runtime.pending_model.as_deref(), Some("second"));
+    assert_eq!(
+        app.session.runtime_settings().pending_model().as_deref(),
+        Some("second")
+    );
     assert!(tick(&peer, &mut app));
     assert_eq!(peer.controls.borrow()[1].1["model"], "second");
     let old = reply(&peer, 1, json!({"result":{}}));
     app.set_thread_id("forked");
     app.set_runtime_settings(Some("new-thread".into()), None, None);
     receive(&mut app, old);
-    assert_eq!(app.runtime.current_model.as_deref(), Some("new-thread"));
+    assert_eq!(
+        app.session.runtime_settings().current_model().as_deref(),
+        Some("new-thread")
+    );
     assert!(app.codex.settings.pending.is_none());
 }
 
@@ -162,8 +171,14 @@ fn ordinary_prompts_inherit_native_choices_during_pending_apply_and_external_cha
     app.queue_runtime_settings(Some("requested".into()), Some("high".into()), None);
     save(&peer, &mut app);
     submit_turn_text(&peer, &mut app, "while pending".into());
-    assert_eq!(app.runtime.current_model.as_deref(), Some("original"));
-    assert_eq!(app.runtime.pending_model.as_deref(), Some("requested"));
+    assert_eq!(
+        app.session.runtime_settings().current_model().as_deref(),
+        Some("original")
+    );
+    assert_eq!(
+        app.session.runtime_settings().pending_model().as_deref(),
+        Some("requested")
+    );
     receive(
         &mut app,
         json!({"method":"thread/settings/updated","params":{"threadId":"root",
@@ -171,7 +186,10 @@ fn ordinary_prompts_inherit_native_choices_during_pending_apply_and_external_cha
     );
     submit_turn_text(&peer, &mut app, "external native defaults".into());
     receive(&mut app, reply(&peer, 0, json!({"result":{}})));
-    assert_eq!(app.runtime.current_model.as_deref(), Some("external"));
+    assert_eq!(
+        app.session.runtime_settings().current_model().as_deref(),
+        Some("external")
+    );
     for (_, params) in peer.calls.borrow().iter() {
         for key in ["model", "effort", "summary"] {
             assert!(params.get(key).is_none());
@@ -195,8 +213,11 @@ fn native_validation_rejection_keeps_error_data_and_editor_draft_out_of_subseque
             json!({"error":{"code":-32600,"message":"Managed model policy rejected this choice","data":{"policy":"managed"}}}),
         ),
     );
-    assert_eq!(app.runtime.current_model.as_deref(), Some("last-valid"));
-    assert!(app.runtime.pending_model.is_none());
+    assert_eq!(
+        app.session.runtime_settings().current_model().as_deref(),
+        Some("last-valid")
+    );
+    assert!(app.session.runtime_settings().pending_model().is_none());
     assert!(!app.codex.settings.legacy_overrides);
     assert_eq!(app.codex.settings.errors["future"]["code"], -32600);
     assert_eq!(
@@ -225,10 +246,11 @@ fn local_editor_rejection_preserves_valid_pending_choices_before_apply_or_persis
         is_default: true,
     }]);
     app.open_model_settings();
-    app.runtime
+    app.view
+        .runtime_settings
         .model_settings_effort_options
         .push("rejected-effort".into());
-    app.runtime.model_settings_effort_index = 1;
+    app.view.runtime_settings.model_settings_effort_index = 1;
     handle_terminal_event(
         &peer,
         &mut app,
@@ -238,7 +260,7 @@ fn local_editor_rejection_preserves_valid_pending_choices_before_apply_or_persis
             height: 32,
         },
     );
-    assert!(app.runtime.show_model_settings);
+    assert!(app.view.runtime_settings.show_model_settings);
     assert_eq!(app.model_settings_effort_value(), "rejected-effort");
     assert_eq!(app.next_turn_runtime_settings().1.as_deref(), Some("low"));
     assert!(peer.controls.borrow().is_empty());
@@ -287,8 +309,9 @@ fn a_native_model_without_effort_choices_never_gets_an_invented_effort_override(
     );
     app.open_model_settings();
     assert!(!app
-        .runtime
-        .model_settings_fields()
+        .view
+        .runtime_settings
+        .model_settings_fields(app.session.runtime_settings())
         .contains(&crate::app::state::ModelSettingsField::Effort));
     save(&peer, &mut app);
     assert!(peer.controls.borrow()[0].1.get("effort").is_none());

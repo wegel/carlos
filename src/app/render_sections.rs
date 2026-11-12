@@ -109,7 +109,7 @@ pub(super) fn draw_overlays(buf: &mut Buffer, size: TerminalSize, app: &AppState
     if crate::app::native_questions::modal(app) {
         draw_approval_overlay(buf, size, app);
     }
-    if app.runtime.show_model_settings {
+    if app.view.runtime_settings.show_model_settings {
         draw_model_settings_overlay(buf, size, app);
         if crate::app::native_questions::draft(app).is_none()
             && crate::app::native_questions::modal(app)
@@ -134,7 +134,7 @@ pub(super) fn cursor_position(
 ) -> (usize, usize) {
     let (cursor_x, cursor_y) = if app.claude.tasks.show || app.codex.panel.show {
         (0, 0)
-    } else if app.runtime.show_model_settings {
+    } else if app.view.runtime_settings.show_model_settings {
         model_settings_cursor_position(app, size)
     } else if crate::app::native_questions::modal(app) {
         crate::app::overlay_render::claude_question_cursor(app, size)

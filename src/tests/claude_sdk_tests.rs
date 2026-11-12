@@ -296,9 +296,10 @@ fn models_and_context_come_from_native_answers_without_guessing() {
     ] } }),
         Some("start"),
     );
-    assert_eq!(app.runtime.available_models[0].model, "future-model");
+    let runtime = app.session.runtime_settings();
+    assert_eq!(runtime.available_models()[0].model, "future-model");
     assert_eq!(
-        app.runtime.available_models[0].supported_efforts,
+        runtime.available_models()[0].supported_efforts,
         ["high", "max"]
     );
     frame(
@@ -326,11 +327,12 @@ fn initial_native_model_observation_does_not_overwrite_a_carlos_choice() {
             &mut app,
             json!({ "type": "system", "subtype": "init", "session_id": "session", "model": "native-default" }),
         );
+        let runtime = app.session.runtime_settings();
         assert_eq!(
-            app.runtime.current_model,
-            selected.or_else(|| Some("native-default".to_string()))
+            runtime.current_model(),
+            &selected.or_else(|| Some("native-default".to_string()))
         );
-        assert_eq!(app.runtime.current_effort.as_deref(), Some("high"));
+        assert_eq!(runtime.current_effort().as_deref(), Some("high"));
     }
 }
 
@@ -350,8 +352,9 @@ fn native_model_metadata_rejects_saved_other_backend_choices_in_either_startup_o
         if !init_first {
             sdk(&mut app, init);
         }
-        assert_eq!(app.runtime.current_model.as_deref(), Some("sonnet"));
-        assert!(app.runtime.current_effort.is_none());
+        let runtime = app.session.runtime_settings();
+        assert_eq!(runtime.current_model().as_deref(), Some("sonnet"));
+        assert!(runtime.current_effort().is_none());
     }
 }
 
@@ -370,12 +373,13 @@ fn native_resolved_model_metadata_keeps_a_saved_canonical_id_selectable() {
     ] } }),
         Some("start"),
     );
+    let runtime = app.session.runtime_settings();
     assert_eq!(
-        app.runtime.current_model.as_deref(),
+        runtime.current_model().as_deref(),
         Some("claude-opus-current")
     );
-    assert_eq!(app.runtime.current_effort.as_deref(), Some("max"));
-    assert_eq!(app.runtime.available_models[0].model, "claude-opus-current");
+    assert_eq!(runtime.current_effort().as_deref(), Some("max"));
+    assert_eq!(runtime.available_models()[0].model, "claude-opus-current");
 }
 
 #[test]

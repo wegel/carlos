@@ -25,7 +25,7 @@ pub(super) fn install(
         "Snapshot belongs to another thread"
     );
     let streams = super::codex_reconnect_streams::Streams::from_thread(&snapshot.thread)?;
-    let editor = app.runtime.show_model_settings.then(|| {
+    let editor = app.view.runtime_settings.show_model_settings.then(|| {
         json!({"model":app.model_settings_model_value(),
         "effort":app.model_settings_effort_value(),"summary":app.model_settings_summary_value()})
     });
