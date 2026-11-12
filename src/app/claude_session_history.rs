@@ -183,9 +183,7 @@ pub(super) fn load_unsent(app: &mut AppState) {
     }
 }
 
-/// Take submitted recovery text first, falling back to a still-unsent local edit.
+/// Take submitted recovery text once for the queue or the local composer.
 pub(super) fn take_edit_prompt(app: &mut AppState) -> Option<String> {
-    app.session
-        .take_claude_edit_prompt()
-        .or_else(|| app.view.claude_edit.edited_prompt.take())
+    app.session.take_claude_edit_prompt()
 }

@@ -234,7 +234,7 @@ fn enter_during_initial_startup_does_not_reopen_the_helper_or_submit_an_edit() {
     key(&mut app, KeyCode::Enter);
     assert!(app.session.claude().phase() == ClaudePhase::Starting);
     assert_eq!(app.input_text(), "edit while starting");
-    assert!(app.view.claude_edit.edited_prompt.is_none());
+    assert!(app.session.claude_edit_prompt_for_test().is_none());
 }
 
 #[test]

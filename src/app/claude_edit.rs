@@ -10,7 +10,6 @@ use crate::backend::PromptOrigin;
 /// Keep the submitted edit until the fork and replacement startup are both ready.
 pub(super) fn begin(app: &mut AppState, text: String) {
     app.session.begin_claude_edit(text);
-    app.view.claude_edit.edited_prompt = None;
     app.view.claude_edit.failed = false;
     retire_queue(app);
     app.view.viewport.auto_follow_bottom = true;

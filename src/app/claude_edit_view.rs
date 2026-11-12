@@ -9,7 +9,6 @@ use crate::session::claude::EditProgress;
 #[derive(Default)]
 pub(super) struct ClaudeEditView {
     pub(super) failed: bool,
-    pub(super) edited_prompt: Option<String>,
     pub(super) unsent_drafts: VecDeque<String>,
 }
 
