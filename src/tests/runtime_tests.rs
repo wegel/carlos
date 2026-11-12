@@ -21,3 +21,5 @@ include!("runtime_tests/ralph_runtime.rs");
 include!("runtime_tests/picker_and_local_history.rs");
 
 include!("runtime_tests/runtime_settings_parity.rs");
+
+include!("runtime_tests/startup_preferences.rs");

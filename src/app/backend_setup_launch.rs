@@ -48,8 +48,8 @@ pub(in crate::app) fn run_codex_backend(
     let Some(launch) = resolve_codex_thread(opts, &client, cwd)? else {
         return Ok(());
     };
-    let mut app =
-        AppState::with_runtime_defaults(launch.thread_id.clone(), persisted_defaults.clone());
+    let mut app = AppState::with_runtime_defaults(launch.thread_id.clone(), persisted_defaults);
+    let persisted_defaults = app.session.runtime_settings().startup_preferences().clone();
     configure_codex_app(
         &mut app,
         &client,
@@ -220,7 +220,8 @@ pub(in crate::app) fn run_claude_backend(
     };
     let (client, server_events_rx, start_resp) = start_claude_session(cwd_path, launch_mode)?;
     let chosen_thread_id = parse_thread_id_from_start_or_resume(&start_resp)?;
-    let mut app = AppState::with_runtime_defaults(chosen_thread_id, persisted_defaults.clone());
+    let mut app = AppState::with_runtime_defaults(chosen_thread_id, persisted_defaults);
+    let persisted_defaults = app.session.runtime_settings().startup_preferences().clone();
     configure_claude_app(&mut app, cwd, opts, &persisted_defaults, &start_resp)?;
     finish_run(&mut app, opts.backend, &client, server_events_rx)
 }

@@ -23,6 +23,7 @@ pub(crate) enum RuntimeSetting {
 /// Own backend capabilities, acknowledged choices, and pending turn overrides.
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct RuntimeSettingsState {
+    startup_preferences: RuntimeDefaults,
     pub(in crate::session) supports_effort: bool,
     pub(in crate::session) supports_summary: bool,
     pub(in crate::session) current_model: Option<String>,
@@ -37,16 +38,22 @@ pub(crate) struct RuntimeSettingsState {
 impl RuntimeSettingsState {
     pub(in crate::session) fn new(preferences: RuntimeDefaults) -> Self {
         Self {
+            startup_preferences: preferences,
             supports_effort: true,
             supports_summary: true,
-            current_model: preferences.model.and_then(normalize_non_empty),
-            current_effort: preferences.effort.and_then(normalize_non_empty),
-            current_summary: preferences.summary.and_then(normalize_non_empty),
+            current_model: None,
+            current_effort: None,
+            current_summary: None,
             pending_model: None,
             pending_effort: None,
             pending_summary: None,
             available_models: Vec::new(),
         }
+    }
+
+    /// Borrow saved startup choices before a backend resolves its effective settings.
+    pub(crate) fn startup_preferences(&self) -> &RuntimeDefaults {
+        &self.startup_preferences
     }
 
     /// Borrow the supports effort fact.

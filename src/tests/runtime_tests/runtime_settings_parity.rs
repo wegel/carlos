@@ -312,22 +312,14 @@ fn settings_launch_override_keeps_empty_and_spaced_native_strings() {
 
 #[test]
 fn settings_constructor_receives_startup_choices_without_loading_files() {
-    for (input, expected) in [
-        (None, None),
-        (Some("  "), None),
-        (Some(" chosen "), Some("chosen")),
-    ] {
-        let app = AppState::with_runtime_defaults(
-            "startup".into(),
-            RuntimeDefaults {
-                model: input.map(str::to_string),
-                effort: input.map(str::to_string),
-                summary: input.map(str::to_string),
-            },
-        );
-        assert_eq!(
-            app.next_turn_runtime_settings(),
-            settings_values([expected; 3])
-        );
+    for input in [None, Some("  "), Some(" chosen ")] {
+        let preferences = RuntimeDefaults {
+            model: input.map(str::to_string),
+            effort: input.map(str::to_string),
+            summary: input.map(str::to_string),
+        };
+        let app = AppState::with_runtime_defaults("startup".into(), preferences.clone());
+        assert_eq!(app.next_turn_runtime_settings(), settings_values([None; 3]));
+        assert_eq!(app.session.runtime_settings().startup_preferences(), &preferences);
     }
 }
