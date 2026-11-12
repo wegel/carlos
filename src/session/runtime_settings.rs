@@ -1,7 +1,6 @@
 //! Own backend model choices and pending settings independently of an editor.
 
-use crate::protocol_params::ModelInfo;
-
+use super::model_info::ModelInfo;
 use super::state::SessionState;
 
 /// Carry model choices between app startup, the session, and the defaults file.

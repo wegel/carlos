@@ -33,3 +33,5 @@ mod turn_boundary_tests;
 
 pub(crate) mod runtime_settings;
 mod runtime_settings_updates;
+
+pub(crate) mod model_info;
