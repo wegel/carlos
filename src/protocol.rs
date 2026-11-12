@@ -377,3 +377,7 @@ fn history_reply(method: &str, params: &Value) -> bool {
 #[cfg(test)]
 #[path = "tests/protocol_history_transport_tests.rs"]
 mod history_transport_tests;
+
+#[cfg(test)]
+#[path = "tests/protocol_stop_tests.rs"]
+mod stop_tests;

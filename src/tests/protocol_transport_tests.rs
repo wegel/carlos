@@ -229,19 +229,34 @@ fn oversized_and_unterminated_frames_fail_before_unbounded_growth() {
 
 #[test]
 fn a_native_event_flood_fails_pending_work_and_stops_the_process_without_a_consumer() {
-    let mut client = peer("import json,sys,time\na=json.loads(input())\nfor n in range(10000): print(json.dumps({'method':'future/progress','params':{'n':n}}))\ntime.sleep(60)");
+    let mut client = peer("import json,sys\na=json.loads(input())\nfor n in range(10000): print(json.dumps({'method':'future/progress','params':{'n':n}}))\nsys.stdin.read()");
     let events = client.take_events_rx().expect("events");
     let error = client
-        .call("turn/start", json!({}), Duration::from_secs(2))
+        .call("turn/start", json!({}), Duration::from_secs(30))
         .expect_err("bounded event backlog");
     assert!(error.to_string().contains("4096 frames"), "{error}");
-    let mut fatal = 0;
-    while let Ok(event) = events.try_recv() {
-        if event.contains("carlos/codex/closed") {
-            fatal += 1;
-        }
+    // close() settles callers before publishing its notice. Receive that notice
+    // before inspecting the remaining queue; a caller reply is not a reader barrier.
+    for n in 0..4096 {
+        let event = events
+            .recv_timeout(Duration::from_secs(30))
+            .expect("charged progress frame");
+        let event: Value = serde_json::from_str(&event).expect("progress JSON");
+        assert_eq!(event, json!({"method":"future/progress","params":{"n":n}}));
     }
-    assert_eq!(fatal, 1, "reserved terminal diagnostic");
+    let notice = events
+        .recv_timeout(Duration::from_secs(30))
+        .expect("reserved terminal diagnostic");
+    let notice: Value = serde_json::from_str(&notice).expect("closure JSON");
+    assert_eq!(notice["method"], "carlos/codex/closed");
+    assert!(notice["params"]["message"]
+        .as_str()
+        .expect("backlog reason")
+        .contains("4096 frames"));
+    assert!(
+        events.try_recv().is_err(),
+        "exactly one reserved terminal diagnostic"
+    );
     client.stop();
     assert!(client.state.reap(), "native process ended");
 }

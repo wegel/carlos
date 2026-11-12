@@ -141,8 +141,6 @@ mod codex_steer_tests;
 
 #[path = "tests/codex_panel_tests.rs"]
 mod codex_panel_tests;
-#[path = "tests/protocol_stop_tests.rs"]
-mod protocol_stop_tests;
 
 #[path = "tests/codex_panel_read_tests.rs"]
 mod codex_panel_read_tests;
