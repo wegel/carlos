@@ -2,7 +2,9 @@
 
 use super::{default_effort_vec, effort_index, ModelSettingsField, RuntimeSettingsView};
 
-use crate::session::runtime_settings::{RuntimeDefaults, RuntimeSettingsState};
+use crate::session::runtime_settings::{
+    normalize_non_empty, RuntimeDefaults, RuntimeSettingsState,
+};
 
 impl RuntimeSettingsView {
     /// List the visible settings in the same order for drawing and keyboard focus.
@@ -30,10 +32,8 @@ impl RuntimeSettingsView {
         fields
     }
 
-    pub(in crate::app) fn apply_model_settings(
-        &mut self,
-        runtime: &RuntimeSettingsState,
-    ) -> RuntimeDefaults {
+    /// Collect edited choices without changing session facts or closing the overlay.
+    pub(in crate::app) fn saved_choices(&self, runtime: &RuntimeSettingsState) -> RuntimeDefaults {
         let model = normalize_non_empty(self.model_settings_model_value(runtime).to_string());
         let effort = runtime
             .supports_effort()
@@ -122,9 +122,4 @@ impl RuntimeSettingsView {
                     .min(self.model_settings_effort_options.len().saturating_sub(1))
             });
     }
-}
-
-fn normalize_non_empty(s: String) -> Option<String> {
-    let trimmed = s.trim();
-    (!trimmed.is_empty()).then(|| trimmed.to_string())
 }

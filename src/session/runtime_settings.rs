@@ -278,7 +278,8 @@ impl SessionState {
     }
 }
 
-fn normalize_non_empty(s: String) -> Option<String> {
+/// Trim a saved or submitted choice and discard empty strings.
+pub(crate) fn normalize_non_empty(s: String) -> Option<String> {
     let trimmed = s.trim();
     (!trimmed.is_empty()).then(|| trimmed.to_string())
 }

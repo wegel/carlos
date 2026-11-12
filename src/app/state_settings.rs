@@ -37,7 +37,6 @@ impl AppState {
             .set_runtime_capabilities(supports_effort, supports_summary);
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(super) fn queue_runtime_settings(
         &mut self,
         model: Option<String>,
@@ -136,8 +135,8 @@ impl AppState {
         let defaults = self
             .view
             .runtime_settings
-            .apply_model_settings(self.session.runtime_settings());
-        self.session.queue_runtime_settings(
+            .saved_choices(self.session.runtime_settings());
+        self.queue_runtime_settings(
             defaults.model.clone(),
             defaults.effort.clone(),
             defaults.summary.clone(),
