@@ -9,11 +9,14 @@ const LABEL: &str = "Read café records and 測試 language preferences, then wr
 
 fn generated_output(app: &mut AppState, failed: bool) {
     let index = app.append_message(Role::ToolOutput, "raw\n".repeat(11) + "raw");
-    app.messages[index].tool_output = Some(ToolOutputDetails {
-        generated: true,
-        summary: format!("run {LABEL}"),
-        failed,
-    });
+    app.messages.set_tool(
+        index,
+        ToolOutputDetails {
+            generated: true,
+            summary: format!("run {LABEL}"),
+            failed,
+        },
+    );
 }
 
 #[test]
@@ -84,11 +87,9 @@ fn ordinary_command_labels_still_use_one_clipped_row() {
     let mut app = AppState::new("thread".into());
     app.tool_output.mode = ToolOutputMode::Compact;
     generated_output(&mut app, false);
-    app.messages[0]
-        .tool_output
-        .as_mut()
-        .expect("metadata")
-        .generated = false;
+    let mut details = app.messages[0].tool_output.clone().expect("metadata");
+    details.generated = false;
+    app.messages.set_tool(0, details);
     app.ensure_rendered_lines(40, None);
     let lines = app.snapshot_rendered_lines();
     assert_eq!(lines.len(), 1);

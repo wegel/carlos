@@ -3,18 +3,19 @@
 
 use std::time::{Duration, Instant};
 
-use anyhow::Context;
-
-use super::notifications::load_history_from_start_or_resume;
 use super::state::AppState;
 use super::Role;
 use crate::backend::{BackendClient, BackendKind, PromptOrigin, PromptPriority, RewindForkRequest};
 use crate::grok_backend::GROK_PENDING_TURN_ID;
-use crate::protocol_params::{
-    extract_result_object, params_turn_steer, parse_thread_id_from_start_or_resume,
-};
+use crate::protocol_params::{extract_result_object, params_turn_steer};
 
 pub(super) const CLAUDE_PENDING_TURN_ID: &str = "claude-turn-pending";
+
+#[path = "turn_submit_history.rs"]
+mod history;
+use self::history::{
+    apply_forked_thread_history, apply_grok_rewound_history, snapshot_grok_rewind_prefix,
+};
 
 // --- Turn submission ---
 
@@ -28,22 +29,7 @@ pub(super) fn submit_rewind_turn_text(
     rewind_history_idx: usize,
     text: String,
 ) {
-    if text.trim().is_empty() {
-        return;
-    }
-    if client.kind() == BackendKind::Codex && super::codex_queue::reject_switch(app) {
-        return;
-    }
-
-    if client.kind() == BackendKind::Claude
-        && app.claude.phase != super::claude_state::ClaudePhase::Ready
-    {
-        if !super::claude_edit::waiting(app) {
-            super::claude_edit::unavailable(
-                app,
-                "Claude must be ready before editing an earlier prompt",
-            );
-        }
+    if text.trim().is_empty() || reject_rewind(client, app) {
         return;
     }
     let drop_turns = app
@@ -94,6 +80,25 @@ pub(super) fn submit_rewind_turn_text(
     }
 
     submit_edited_turn(client, app, text);
+}
+
+fn reject_rewind(client: &dyn BackendClient, app: &mut AppState) -> bool {
+    if client.kind() == BackendKind::Codex && super::codex_queue::reject_switch(app) {
+        return true;
+    }
+
+    if client.kind() == BackendKind::Claude
+        && app.claude.phase != super::claude_state::ClaudePhase::Ready
+    {
+        if !super::claude_edit::waiting(app) {
+            super::claude_edit::unavailable(
+                app,
+                "Claude must be ready before editing an earlier prompt",
+            );
+        }
+        return true;
+    }
+    false
 }
 
 fn queue_claude_edit(app: &mut AppState, text: String) {
@@ -189,57 +194,6 @@ fn submit_turn(
 pub(super) use super::turn_approval::respond_to_pending_approval;
 
 pub(super) use super::turn_interrupt::interrupt_active_turn;
-
-fn snapshot_grok_rewind_prefix(
-    app: &AppState,
-    rewind_history_idx: usize,
-) -> Vec<crate::app::models::Message> {
-    let cut = app
-        .rewind_selected_message_idx()
-        .or_else(|| nth_user_message_idx(app, rewind_history_idx))
-        .unwrap_or(app.messages.len());
-    let cut = cut.min(app.messages.len());
-    app.messages[..cut].to_vec()
-}
-
-fn nth_user_message_idx(app: &AppState, rewind_history_idx: usize) -> Option<usize> {
-    app.messages
-        .iter()
-        .enumerate()
-        .filter(|(_, message)| message.role == Role::User)
-        .nth(rewind_history_idx)
-        .map(|(idx, _)| idx)
-}
-
-fn apply_grok_rewound_history(
-    app: &mut AppState,
-    response_line: &str,
-    prefix: Vec<crate::app::models::Message>,
-) -> anyhow::Result<()> {
-    let thread_id =
-        parse_thread_id_from_start_or_resume(response_line).context("missing rewound thread id")?;
-    app.reset_for_forked_thread(thread_id);
-    for message in prefix {
-        let record_user = message.role == Role::User && !message.text.is_empty();
-        let text = message.text.clone();
-        app.messages.push(message);
-        let idx = app.messages.len() - 1;
-        if record_user {
-            app.record_input_history(&text, Some(idx));
-        }
-        app.mark_transcript_dirty_from(idx);
-    }
-    Ok(())
-}
-
-fn apply_forked_thread_history(app: &mut AppState, response_line: &str) -> anyhow::Result<()> {
-    let thread_id =
-        parse_thread_id_from_start_or_resume(response_line).context("missing forked thread id")?;
-    app.reset_for_forked_thread(thread_id);
-    load_history_from_start_or_resume(app, response_line)
-        .context("failed to load forked thread history")?;
-    Ok(())
-}
 
 fn steer_existing_turn(
     client: &dyn BackendClient,

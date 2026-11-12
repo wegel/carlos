@@ -1,5 +1,7 @@
 //! AppState impl: transcript/message manipulation, rendered lines, and selection.
 
+use crate::session::models::EntryDraft;
+
 use super::models::{Message, MessageKind, Role};
 use super::selection::{RenderedLineSource, Selection};
 use super::state::AppState;
@@ -36,7 +38,8 @@ impl AppState {
         }
         let anchor = (!self.viewport.auto_follow_bottom)
             .then(|| self.render_cache.message_anchor(self.viewport.scroll_top))
-            .flatten();
+            .flatten()
+            .and_then(|(index, row)| self.messages.get(index).map(|message| (message.id, row)));
         self.render_cache.ensure_rendered_lines(
             &self.messages,
             width,
@@ -44,19 +47,22 @@ impl AppState {
             self.tool_output.compact(),
             self.layout.active,
         );
-        if let Some(line) = anchor.and_then(|anchor| self.render_cache.line_for_anchor(anchor)) {
+        if let Some(line) = anchor.and_then(|(id, row)| {
+            self.messages
+                .position(id)
+                .and_then(|index| self.render_cache.line_for_anchor((index, row)))
+        }) {
             self.viewport.scroll_top = line;
         }
     }
 
     pub(super) fn append_message(&mut self, role: Role, text: impl Into<String>) -> usize {
-        self.messages.push(Message {
-            tool_output: None,
-            role,
-            text: text.into(),
-            kind: MessageKind::Plain,
-            file_path: None,
-        });
+        self.append_draft_message(EntryDraft::plain(role, text))
+    }
+
+    /// Assign an id through the store before updating read groups and render caches.
+    pub(super) fn append_draft_message(&mut self, draft: EntryDraft) -> usize {
+        self.messages.append(draft);
         let idx = self.messages.len() - 1;
         let dirty_from = self.coalesce_successive_read_summary_at(idx).unwrap_or(idx);
         self.mark_transcript_dirty_from(dirty_from);
@@ -69,7 +75,7 @@ impl AppState {
         file_path: Option<String>,
         diff: impl Into<String>,
     ) -> usize {
-        self.messages.push(Message {
+        self.messages.append(EntryDraft {
             tool_output: None,
             role,
             text: diff.into(),
@@ -92,34 +98,43 @@ impl AppState {
             return;
         }
 
-        if let Some(idx) = self.turn_diff_to_index.get(turn_id).copied() {
-            if let Some(msg) = self.messages.get_mut(idx) {
-                if msg.text == diff && msg.kind == MessageKind::Diff {
-                    return;
-                }
-                msg.role = Role::ToolOutput;
-                msg.text = diff.to_string();
-                msg.kind = MessageKind::Diff;
-                msg.file_path = None;
-                self.mark_transcript_dirty_from(idx);
+        if let Some(idx) = self
+            .messages
+            .turn_diff(turn_id)
+            .and_then(|id| self.messages.position(id))
+        {
+            if self.messages[idx].text == diff && self.messages[idx].kind == MessageKind::Diff {
                 return;
             }
+            self.messages.update(
+                idx,
+                Role::ToolOutput,
+                Some(diff.to_string()),
+                MessageKind::Diff,
+                None,
+            );
+            self.mark_transcript_dirty_from(idx);
+            return;
         }
 
         let idx = self.append_diff_message(Role::ToolOutput, None, diff.to_string());
-        self.turn_diff_to_index.insert(turn_id.to_string(), idx);
+        self.messages
+            .bind_turn_diff(turn_id.to_string(), self.messages[idx].id);
     }
 
     pub(super) fn set_command_override(&mut self, call_id: &str, summary: String) {
         self.command_render_overrides
             .insert(self.item_key(call_id), summary.clone());
         if let Some(idx) = self.item_message_index(call_id) {
-            if let Some(tool) = self.messages[idx].tool_output.as_mut() {
-                tool.summary = summary;
+            if let Some(tool) = &self.messages[idx].tool_output {
+                let generated = tool.generated;
+                self.messages
+                    .set_label(self.messages[idx].id, summary.clone(), generated);
                 self.mark_transcript_dirty_from(idx);
                 return;
             }
         }
+
         let _ = self.update_mapped_message(
             call_id,
             Role::ToolCall,
@@ -140,15 +155,23 @@ impl AppState {
             return None;
         }
 
-        if let Some(prev_msg) = self.messages.get_mut(previous_idx) {
-            prev_msg.text =
-                format_read_summary_with_count(&current_path, previous_count + current_count);
-        }
-        if let Some(current_msg) = self.messages.get_mut(idx) {
-            current_msg.text.clear();
-            current_msg.kind = MessageKind::Plain;
-            current_msg.file_path = None;
-        }
+        self.messages.update(
+            previous_idx,
+            Role::ToolCall,
+            Some(format_read_summary_with_count(
+                &current_path,
+                previous_count + current_count,
+            )),
+            MessageKind::Plain,
+            self.messages[previous_idx].file_path.clone(),
+        );
+        self.messages.update(
+            idx,
+            Role::ToolCall,
+            Some(String::new()),
+            MessageKind::Plain,
+            None,
+        );
         Some(previous_idx)
     }
 
@@ -160,15 +183,10 @@ impl AppState {
         kind: MessageKind,
         file_path: Option<String>,
     ) {
-        let Some(msg) = self.messages.get_mut(idx) else {
+        if idx >= self.messages.len() {
             return;
-        };
-        msg.role = role;
-        msg.kind = kind;
-        msg.file_path = file_path;
-        if let Some(text) = text {
-            msg.text = text;
         }
+        self.messages.update(idx, role, text, kind, file_path);
 
         let dirty_from = if kind == MessageKind::Plain && role == Role::ToolCall {
             self.coalesce_successive_read_summary_at(idx).unwrap_or(idx)

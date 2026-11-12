@@ -18,7 +18,7 @@ use crate::app::view_models::{DisplayKind, DisplayMessage};
 use crate::theme::{context_color, COLOR_DIFF_REMOVE, COLOR_GUTTER_USER, COLOR_TOOL_EDIT};
 
 fn failed_read() -> Message {
-    Message {
+    crate::app::tests::test_message(crate::session::models::EntryDraft {
         role: Role::ToolOutput,
         kind: MessageKind::Plain,
         text: "$ cat source.rs\nlet value = 1;\nexit code: 2".into(),
@@ -28,7 +28,7 @@ fn failed_read() -> Message {
             summary: "→ Read source.rs".into(),
             failed: true,
         }),
-    }
+    })
 }
 
 #[test]
@@ -50,7 +50,10 @@ fn failed_read_headers_and_grouped_blocks_keep_both_count_passes_in_sync() {
             expected
         );
         let mut app = AppState::new("thread".into());
-        app.messages = vec![read.clone(), read.clone()];
+        app.messages.adopt_unkeyed(
+            vec![read.clone().into(), read.clone().into()],
+            crate::session::history_identity::HistoryMode::NewConversation,
+        );
         app.tool_output.mode = ToolOutputMode::Compact;
         app.ensure_rendered_lines(width, None);
         let count = app.rendered_line_count();

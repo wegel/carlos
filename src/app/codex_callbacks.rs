@@ -34,17 +34,7 @@ pub(super) fn receive(
         return Some(reject(id, -32602, "Callback params must be an object"));
     }
     let bytes = params.to_string().len() + key.len();
-    let retained = app
-        .codex
-        .callbacks
-        .entries
-        .values()
-        .map(|entry| entry.bytes)
-        .sum::<usize>();
-    if app.codex.callbacks.entries.len() >= 64
-        || bytes > 128 * 1024
-        || retained + bytes > 4 * 1024 * 1024
-    {
+    if exceeds_callback_limits(app, bytes) {
         return Some(reject(
             id,
             -32000,
@@ -80,6 +70,19 @@ pub(super) fn receive(
         });
     }
     None
+}
+
+fn exceeds_callback_limits(app: &AppState, bytes: usize) -> bool {
+    let retained = app
+        .codex
+        .callbacks
+        .entries
+        .values()
+        .map(|entry| entry.bytes)
+        .sum::<usize>();
+    app.codex.callbacks.entries.len() >= 64
+        || bytes > 128 * 1024
+        || retained + bytes > 4 * 1024 * 1024
 }
 
 fn supported_method(method: &str) -> bool {
@@ -167,7 +170,8 @@ fn validate_owner(method: &str, params: &Value) -> Result<(), String> {
     Ok(())
 }
 
-fn activate(app: &mut AppState, pending: PendingApprovalRequest, blocking: bool) {
+fn activate(app: &mut AppState, mut pending: PendingApprovalRequest, blocking: bool) {
+    pending.entry_id = Some(app.messages.allocate_card());
     if app.approval.pending.is_none() {
         app.approval.pending = Some(pending);
         app.codex.callbacks.focused = blocking;

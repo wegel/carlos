@@ -32,9 +32,10 @@ from test_codex_goals import CodexGoals
 from test_codex_reconnect import CodexReconnect
 from test_input_status import InputStatus
 from test_context_settings import ContextSettings
+from test_entry_identity import EntryIdentity
 
 
-class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, CommandDirectory, WeeklyUsage, ClaudeSdk, ClaudeInterrupt, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, CodexRewind, CodexFoundation, CodexQuestions, CodexControls, CodexPanel, CodexGoals, CodexReconnect, InputStatus, ContextSettings, unittest.TestCase):
+class Workflows(EntryIdentity, SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, CommandDirectory, WeeklyUsage, ClaudeSdk, ClaudeInterrupt, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, CodexRewind, CodexFoundation, CodexQuestions, CodexControls, CodexPanel, CodexGoals, CodexReconnect, InputStatus, ContextSettings, unittest.TestCase):
     def summary_root(self):
         root = ARTIFACTS / self._testMethodName
         root.mkdir(parents=True, exist_ok=True)

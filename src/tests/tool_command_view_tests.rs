@@ -267,7 +267,7 @@ fn late_cwd_metadata_retires_generated_labels_and_old_results_even_across_off_on
     complete(&mut app, &native);
     app.handle_summary_event(SummaryEvent::Ready(
         old,
-        "thread:shell".into(),
+        app.summary_token_for_test("shell"),
         Some("Old directory label".into()),
     ));
     assert!(
@@ -299,12 +299,12 @@ fn late_cwd_metadata_retires_generated_labels_and_old_results_even_across_off_on
         .contains("Old directory"));
     app.handle_summary_event(SummaryEvent::Ready(
         old,
-        "thread:shell".into(),
+        app.summary_token_for_test("shell"),
         Some("Stale result".into()),
     ));
     app.handle_summary_event(SummaryEvent::Ready(
         new,
-        "thread:shell".into(),
+        app.summary_token_for_test("shell"),
         Some("Fresh directory label".into()),
     ));
     app.summaries.draft = true;
@@ -328,7 +328,7 @@ fn history_replacement_uses_known_workspace_before_formatting_and_only_restores_
     assert_eq!(app.summaries.cwd, Path::new("/workspace/project"));
     app.handle_summary_event(SummaryEvent::Ready(
         key,
-        "thread:shell".into(),
+        app.summary_token_for_test("shell"),
         Some("Saved snapshot".into()),
     ));
     assert_eq!(

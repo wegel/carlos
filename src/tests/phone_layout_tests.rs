@@ -110,7 +110,7 @@ fn switching_layouts_at_the_same_width_keeps_the_scrolled_message_visible() {
 fn fork_and_history_reload_keep_the_local_layout_choice() {
     let mut app = transcript();
     set_layout(&mut app, TranscriptTheme::Flow);
-    app.replace_transcript_from(transcript());
+    app.replace_transcript_for_test(transcript());
     assert_eq!(app.layout.themes.desktop, TranscriptTheme::Flow);
     app.reset_for_forked_thread("fork");
     assert_eq!(app.layout.themes.desktop, TranscriptTheme::Flow);
@@ -150,21 +150,23 @@ fn tool_entries() -> Vec<Message> {
         ("✱ Search value", MessageKind::Plain, false),
     ]
     .into_iter()
-    .map(|(summary, kind, failed)| Message {
-        role: Role::ToolOutput,
-        kind,
-        text: if kind == MessageKind::Diff {
-            "@@ -1 +1 @@\n-old\n+new"
-        } else {
-            "output detail"
-        }
-        .into(),
-        file_path: Some("source.rs".into()),
-        tool_output: Some(ToolOutputDetails {
-            generated: false,
-            summary: summary.into(),
-            failed,
-        }),
+    .map(|(summary, kind, failed)| {
+        crate::app::tests::test_message(crate::session::models::EntryDraft {
+            role: Role::ToolOutput,
+            kind,
+            text: if kind == MessageKind::Diff {
+                "@@ -1 +1 @@\n-old\n+new"
+            } else {
+                "output detail"
+            }
+            .into(),
+            file_path: Some("source.rs".into()),
+            tool_output: Some(ToolOutputDetails {
+                generated: false,
+                summary: summary.into(),
+                failed,
+            }),
+        })
     })
     .collect()
 }
@@ -174,7 +176,10 @@ fn phone_tool_labels_preserve_full_output_and_counts_at_narrow_widths() {
     for mode in [ToolOutputMode::Compact, ToolOutputMode::Full] {
         for width in [0, 1, 7, 8, 9, 10, 12, 50] {
             let mut app = AppState::new("thread".into());
-            app.messages = tool_entries();
+            app.messages.adopt_unkeyed(
+                tool_entries().into_iter().map(Into::into).collect(),
+                crate::session::history_identity::HistoryMode::NewConversation,
+            );
             app.tool_output.mode = mode;
             app.layout.active = TranscriptTheme::Flow;
             app.ensure_rendered_lines(width, None);
@@ -202,18 +207,18 @@ fn phone_tool_labels_preserve_full_output_and_counts_at_narrow_widths() {
 #[test]
 fn phone_keeps_searches_and_short_reasoning_inside_the_tool_block() {
     let mut app = transcript();
-    app.messages.insert(
+    app.messages.insert_for_test(
         3,
-        Message {
+        crate::app::tests::test_message(crate::session::models::EntryDraft {
             role: Role::Reasoning,
             kind: MessageKind::Plain,
             text: "**Checking results**".into(),
             file_path: None,
             tool_output: None,
-        },
+        }),
     );
     app.messages
-        .insert(4, tool_entries().pop().expect("search entry"));
+        .insert_for_test(4, tool_entries().pop().expect("search entry"));
     set_layout(&mut app, TranscriptTheme::Flow);
     let lines = app.snapshot_rendered_lines();
     let read = lines
@@ -244,7 +249,7 @@ fn phone_reasoning_gains_a_heading_when_it_wraps_or_grows() {
     assert!(narrow[0].text.contains("◇ reasoning"));
     assert!(narrow.iter().all(|line| line.cells <= 18));
     app.ensure_rendered_lines(50, None);
-    app.messages[0].text.push_str("\n\nMore details");
+    app.messages.append_text(0, "\n\nMore details", None);
     app.mark_transcript_dirty_from(0);
     app.ensure_rendered_lines(50, None);
     let grown = app.snapshot_rendered_lines();

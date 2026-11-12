@@ -33,17 +33,7 @@ pub(super) fn draw_transcript(buf: &mut Buffer, app: &AppState, height: usize, w
 fn active_step_index(app: &AppState) -> Option<usize> {
     app.active_turn_id.as_ref()?;
     let start = app.turn_start_message_idx.unwrap_or(0);
-    let index = app
-        .item_to_message_index
-        .iter()
-        .filter(|(id, index)| **index >= start && !app.is_item_completed(id))
-        .filter(|(_, index)| {
-            app.messages
-                .get(**index)
-                .is_some_and(|m| !m.text.is_empty())
-        })
-        .map(|(_, index)| *index)
-        .max()?;
+    let index = app.messages.active_step(start)?;
     (app.messages[index].role == Role::Reasoning).then_some(index)
 }
 

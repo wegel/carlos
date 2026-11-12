@@ -2,6 +2,10 @@
 
 use std::collections::HashMap;
 
+use crate::session::entry_id::EntryId;
+#[cfg(test)]
+use crate::session::transcript::Transcript;
+
 /// Identifies one native user item and its position inside its enclosing turn.
 #[derive(Clone)]
 pub(super) struct NativeUserPosition {
@@ -15,12 +19,17 @@ pub(super) struct NativeUserPosition {
 pub(super) struct NativeUserHistory {
     positions: HashMap<(String, String), usize>,
     turn_counts: HashMap<String, usize>,
-    messages: HashMap<usize, NativeUserPosition>,
+    messages: HashMap<EntryId, NativeUserPosition>,
 }
 
 impl NativeUserHistory {
     /// Deduplicate started/completed events by the exact native item and turn IDs.
-    pub(super) fn record(&mut self, item_id: &str, turn_id: &str, message: Option<usize>) -> usize {
+    pub(super) fn record(
+        &mut self,
+        item_id: &str,
+        turn_id: &str,
+        message: Option<EntryId>,
+    ) -> usize {
         let key = (turn_id.to_string(), item_id.to_string());
         let position = *self.positions.entry(key).or_insert_with(|| {
             let count = self.turn_counts.entry(turn_id.to_string()).or_default();
@@ -42,7 +51,30 @@ impl NativeUserHistory {
     }
 
     /// Return the native identity attached to a visible user row.
-    pub(super) fn message(&self, index: usize) -> Option<&NativeUserPosition> {
+    pub(super) fn message(&self, index: EntryId) -> Option<&NativeUserPosition> {
         self.messages.get(&index)
+    }
+}
+
+#[cfg(test)]
+impl NativeUserHistory {
+    pub(super) fn retain_entries(&mut self, transcript: &Transcript) {
+        self.messages
+            .retain(|id, _| transcript.entry(*id).is_some());
+    }
+}
+
+#[cfg(test)]
+impl NativeUserHistory {
+    pub(super) fn assert_invariants(&self, transcript: &Transcript) {
+        for (id, native) in &self.messages {
+            assert!(transcript.entry(*id).is_some());
+            assert_eq!(
+                self.positions
+                    .get(&(native.turn_id.clone(), native.item_id.clone())),
+                Some(&native.position)
+            );
+            assert!(native.position < self.turn_counts[&native.turn_id]);
+        }
     }
 }

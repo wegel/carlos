@@ -14,9 +14,11 @@ impl AppState {
         let Some(message) = self.messages.get(idx) else {
             return;
         };
-        let generated = item["id"]
-            .as_str()
-            .and_then(|id| self.summaries.label(&self.item_key(id)));
+        let generated = item["id"].as_str().and_then(|id| {
+            self.messages
+                .entry_id_for_item(&self.item_key(id))
+                .and_then(|id| self.summaries.label(id))
+        });
         let is_generated = generated.is_some() && message.kind != MessageKind::Diff;
         let summary = generated
             .or_else(|| self.tool_command_summary(item))
@@ -38,7 +40,7 @@ impl AppState {
             summary,
             failed: tool_failed(item),
         };
-        self.messages[idx].tool_output = Some(details);
+        self.messages.set_tool(idx, details);
         self.mark_transcript_dirty_from(idx);
     }
 }

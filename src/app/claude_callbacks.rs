@@ -14,7 +14,7 @@ pub(super) fn receive_callback(app: &mut AppState, frame: &Value) {
     let payload = &frame["payload"];
     let kind = frame["kind"].as_str().unwrap_or("");
     let draft = NativeDraft::from_payload(kind, payload);
-    let Some(prompt) = callback_prompt(id, kind, payload, !draft.fields.is_empty()) else {
+    let Some(mut prompt) = callback_prompt(id, kind, payload, !draft.fields.is_empty()) else {
         app.append_message(
             super::Role::System,
             format!(
@@ -38,6 +38,7 @@ pub(super) fn receive_callback(app: &mut AppState, frame: &Value) {
     {
         return;
     }
+    prompt.entry_id = Some(app.messages.allocate_card());
     app.claude.answers.drafts.insert(id.to_string(), draft);
     super::claude_browser::register(app, id, payload);
     if app.approval.pending.is_none() {
@@ -71,6 +72,7 @@ fn callback_prompt(
         _ => return None,
     };
     Some(PendingApprovalRequest {
+        entry_id: None,
         request_id: json!(id),
         method: "claude/native".to_string(),
         kind: request_kind,

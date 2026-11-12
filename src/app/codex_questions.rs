@@ -57,6 +57,7 @@ pub(super) fn build(
         (ApprovalRequestKind::CodexForm, "Codex server request")
     };
     let pending = PendingApprovalRequest {
+        entry_id: None,
         request_id: id,
         method: method.into(),
         kind,

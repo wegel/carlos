@@ -2,7 +2,7 @@
 
 #[test]
 fn build_rendered_lines_diff_viewer_wraps_long_hunk_body_lines() {
-    let messages = vec![Message {
+    let messages = vec![crate::app::tests::test_message(crate::session::models::EntryDraft {
         tool_output: None,
         role: Role::ToolOutput,
         text: concat!(
@@ -13,7 +13,7 @@ fn build_rendered_lines_diff_viewer_wraps_long_hunk_body_lines() {
         .to_string(),
         kind: MessageKind::Diff,
         file_path: Some(".agents/execplans/EXECPLAN_012_qwen_customvoice_dataset_export.md".to_string()),
-    }];
+    })];
 
     let rendered = build_rendered_lines(&messages, 80);
     assert!(rendered.iter().any(|l| l.text.contains("Hunk 1/1")));
@@ -27,14 +27,14 @@ fn build_rendered_lines_diff_viewer_wraps_long_hunk_body_lines() {
 
 #[test]
 fn count_rendered_block_for_diff_matches_materialized_block_len() {
-    let msg = Message {
+    let msg = crate::app::tests::test_message(crate::session::models::EntryDraft {
         tool_output: None,
         role: Role::ToolOutput,
         text: "diff --git a/src/example.rs b/src/example.rs\n@@ -1,2 +1,3 @@\n old\n-old line\n+new line\n+extra line\n"
             .to_string(),
         kind: MessageKind::Diff,
         file_path: Some("src/example.rs".to_string()),
-    };
+    });
 
     let count = count_rendered_block_for_message(None, &msg, 80);
     let block = build_rendered_block_for_message(None, &msg, 80);
@@ -43,7 +43,7 @@ fn count_rendered_block_for_diff_matches_materialized_block_len() {
 
 #[test]
 fn count_rendered_block_for_plain_tool_output_matches_materialized_block_len() {
-    let msg = Message {
+    let msg = crate::app::tests::test_message(crate::session::models::EntryDraft {
         tool_output: None,
         role: Role::ToolOutput,
         text: concat!(
@@ -56,7 +56,7 @@ fn count_rendered_block_for_plain_tool_output_matches_materialized_block_len() {
         .to_string(),
         kind: MessageKind::Plain,
         file_path: None,
-    };
+    });
 
     let count = count_rendered_block_for_message(None, &msg, 48);
     let block = build_rendered_block_for_message(None, &msg, 48);
@@ -65,13 +65,13 @@ fn count_rendered_block_for_plain_tool_output_matches_materialized_block_len() {
 
 #[test]
 fn count_rendered_block_for_ansi_tool_output_matches_materialized_block_len() {
-    let msg = Message {
+    let msg = crate::app::tests::test_message(crate::session::models::EntryDraft {
         tool_output: None,
         role: Role::ToolOutput,
         text: "\u{1b}[31mcolored status\u{1b}[0m\nplain tail\n".to_string(),
         kind: MessageKind::Plain,
         file_path: None,
-    };
+    });
 
     let count = count_rendered_block_for_message(None, &msg, 48);
     let block = build_rendered_block_for_message(None, &msg, 48);
@@ -81,13 +81,13 @@ fn count_rendered_block_for_ansi_tool_output_matches_materialized_block_len() {
 #[test]
 
 fn build_rendered_lines_tool_output_uses_ansi_styles_without_escape_text() {
-    let messages = vec![Message {
+    let messages = vec![crate::app::tests::test_message(crate::session::models::EntryDraft {
         tool_output: None,
         role: Role::ToolOutput,
         text: "$ printf hello\n\u{001b}[31mhello\u{001b}[0m".to_string(),
         kind: MessageKind::Plain,
         file_path: None,
-    }];
+    })];
 
     let rendered = build_rendered_lines(&messages, 120);
     assert_eq!(rendered.len(), 2);
@@ -154,13 +154,13 @@ fn reasoning_summary_delta_normalizes_split_adjacent_bold_chunks() {
 
 #[test]
 fn selected_text_preserves_reasoning_heading_and_paragraph_breaks() {
-    let messages = vec![Message {
+    let messages = vec![crate::app::tests::test_message(crate::session::models::EntryDraft {
         tool_output: None,
         role: Role::Reasoning,
         text: "**Planning final-form migration implementation**\n\nI’m preparing to inspect the repo and data layout to understand the migration state.\n**Deciding on one-time migration approach**".to_string(),
         kind: MessageKind::Plain,
         file_path: None,
-    }];
+    })];
 
     let rendered = build_rendered_lines(&messages, 120);
     let last_idx = rendered.len() - 1;

@@ -45,6 +45,7 @@ fn approval_command_execution(
         detail_lines.insert(0, "One-time human approval".into());
     }
     Some(PendingApprovalRequest {
+        entry_id: None,
         request_id,
         method: method.to_string(),
         kind: ApprovalRequestKind::CommandExecution,
@@ -75,6 +76,7 @@ fn approval_file_change(
         detail_lines.push(format!("grant root: {root}"));
     }
     Some(PendingApprovalRequest {
+        entry_id: None,
         request_id,
         method: method.to_string(),
         kind: ApprovalRequestKind::FileChange,
@@ -102,6 +104,7 @@ fn approval_permissions(
     }
     summarize_permission_profile(&permissions, &mut detail_lines);
     Some(PendingApprovalRequest {
+        entry_id: None,
         request_id,
         method: method.to_string(),
         kind: ApprovalRequestKind::Permissions,
@@ -131,6 +134,7 @@ fn approval_legacy_exec(
     let mut detail_lines = vec![command];
     push_reason_and_cwd(params, &mut detail_lines);
     Some(PendingApprovalRequest {
+        entry_id: None,
         request_id,
         method: method.to_string(),
         kind: ApprovalRequestKind::LegacyExecCommand,
@@ -159,6 +163,7 @@ fn approval_legacy_patch(
         detail_lines.push(format!("grant root: {root}"));
     }
     Some(PendingApprovalRequest {
+        entry_id: None,
         request_id,
         method: method.to_string(),
         kind: ApprovalRequestKind::LegacyApplyPatch,
@@ -187,6 +192,7 @@ fn approval_claude_exit_plan(
     }
     append_allowed_prompt_lines(params, &mut detail_lines);
     Some(PendingApprovalRequest {
+        entry_id: None,
         request_id,
         method: method.to_string(),
         kind: ApprovalRequestKind::ClaudeExitPlanMode,

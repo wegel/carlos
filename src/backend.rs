@@ -8,7 +8,7 @@ use anyhow::{bail, Result};
 use serde_json::Value;
 
 /// Identifies which backend implementation is active.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum BackendKind {
     Codex,
     Claude,

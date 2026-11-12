@@ -70,6 +70,8 @@ pub(crate) struct Request {
     pub location: CommandLocation,
     pub generate: bool,
     pub entry: String,
+    /// Correlates a reply with one live Carlos entry and binding revision.
+    pub binding: String,
     pub file_based: bool,
 }
 

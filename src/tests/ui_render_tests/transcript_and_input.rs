@@ -3,20 +3,20 @@
 #[test]
 fn build_rendered_lines_with_hidden_omits_selected_user_message() {
     let messages = vec![
-        Message {
+        crate::app::tests::test_message(crate::session::models::EntryDraft {
             tool_output: None,
             role: Role::User,
             text: "first prompt".to_string(),
             kind: MessageKind::Plain,
             file_path: None,
-        },
-        Message {
+        }),
+        crate::app::tests::test_message(crate::session::models::EntryDraft {
             tool_output: None,
             role: Role::Assistant,
             text: "reply".to_string(),
             kind: MessageKind::Plain,
             file_path: None,
-        },
+        }),
     ];
 
     let rendered = build_rendered_lines_with_hidden(&messages, 80, Some(0));
@@ -214,13 +214,13 @@ fn wrap_input_line_keeps_trailing_space_visible() {
 
 #[test]
 fn build_rendered_lines_expands_user_tabs_for_display() {
-    let messages = vec![Message {
+    let messages = vec![crate::app::tests::test_message(crate::session::models::EntryDraft {
         tool_output: None,
         role: Role::User,
         text: "col1\tcol2".to_string(),
         kind: MessageKind::Plain,
         file_path: None,
-    }];
+    })];
 
     let rendered = build_rendered_lines(&messages, 120);
     assert_eq!(rendered.len(), 1);

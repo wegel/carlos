@@ -118,17 +118,16 @@ impl AppState {
             return;
         }
 
-        self.messages.truncate(idx);
+        if let Some(message) = self.messages.get(idx) {
+            self.messages.truncate_before(message.id);
+        }
         self.viewport.selection = None;
         self.viewport.mouse_drag_mode = super::selection::MouseDragMode::Undecided;
         self.viewport.auto_follow_bottom = true;
         self.viewport.scroll_top = self.viewport.scroll_top.min(self.messages.len());
-        self.item_to_message_index
-            .retain(|_, msg_idx| *msg_idx < idx);
-        self.turn_diff_to_index.retain(|_, msg_idx| *msg_idx < idx);
         self.command_render_overrides.clear();
-        self.summaries.retain_items(&self.item_to_message_index);
-        self.input_history.clear_message_indices_from(idx);
+        self.summaries.retain_items(&self.messages);
+        self.input_history.retain_entries(&self.messages);
         self.mark_transcript_dirty_from(idx);
     }
 
@@ -145,7 +144,10 @@ impl AppState {
     }
 
     pub(super) fn record_input_history(&mut self, text: &str, message_idx: Option<usize>) {
-        self.input_history.record_history(text, message_idx);
+        self.input_history.record_history(
+            text,
+            message_idx.and_then(|index| self.messages.get(index).map(|message| message.id)),
+        );
     }
 
     pub(super) fn record_input_turn_id(&mut self, item_id: &str, turn_id: &str) {
@@ -153,11 +155,14 @@ impl AppState {
         let message_idx = self.item_message_index(item_id);
         self.codex.item_turn = previous;
         if let Some(index) = message_idx {
-            self.input_history.record_turn_id(index, turn_id);
+            self.input_history
+                .record_turn_id(self.messages[index].id, turn_id);
         }
-        let position = self
-            .input_history
-            .record_native(item_id, turn_id, message_idx);
+        let position = self.input_history.record_native(
+            item_id,
+            turn_id,
+            message_idx.map(|index| self.messages[index].id),
+        );
         if let (Some(index), Some(position)) = (message_idx, position) {
             let kind = if position == 0 {
                 super::models::MessageKind::Plain
@@ -165,7 +170,7 @@ impl AppState {
                 super::models::MessageKind::UserSteer
             };
             if self.messages[index].kind != kind {
-                self.messages[index].kind = kind;
+                self.messages.set_kind(index, kind);
                 self.mark_transcript_dirty_from(index);
             }
         }
@@ -207,8 +212,12 @@ impl AppState {
             .history
             .unknown_selection
             .and_then(|index| self.claude.history.unknown.get(index))
-            .map(|prompt| prompt.message_idx)
-            .or_else(|| self.input_history.rewind_selected_message_idx())
+            .and_then(|prompt| self.messages.position(prompt.entry_id))
+            .or_else(|| {
+                self.input_history
+                    .rewind_selected_entry_id()
+                    .and_then(|id| self.messages.position(id))
+            })
     }
 
     pub(super) fn rewind_selected_history_index(&self) -> Option<usize> {

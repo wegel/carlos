@@ -3,19 +3,19 @@
 use ratatui::style::Modifier;
 
 use super::{
-    build_rendered_block_for_message, count_rendered_block_for_message, visual_width, Message,
-    MessageKind, RenderedLine, Role,
+    build_rendered_block_for_message, count_rendered_block_for_message, visual_width, MessageKind,
+    RenderedLine, Role,
 };
 use super::{selected_text, Selection};
 
 fn render(text: &str, role: Role, width: usize) -> Vec<RenderedLine> {
-    let message = Message {
+    let message = crate::app::tests::test_message(crate::session::models::EntryDraft {
         role,
         text: text.to_string(),
         kind: MessageKind::Plain,
         tool_output: None,
         file_path: None,
-    };
+    });
     let lines = build_rendered_block_for_message(None, &message, width);
     assert_eq!(
         count_rendered_block_for_message(None, &message, width),

@@ -29,6 +29,7 @@ pub(super) enum ApprovalRequestKind {
 
 #[derive(Debug, Clone)]
 pub(super) struct PendingApprovalRequest {
+    pub(super) entry_id: Option<crate::session::entry_id::EntryId>,
     pub(super) request_id: Value,
     pub(super) method: String,
     pub(super) kind: ApprovalRequestKind,

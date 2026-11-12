@@ -33,11 +33,11 @@ fn late_labels_preserve_command_output_failure_and_survive_duplicate_completion(
     let visible = build_rendered_lines(&app.messages, 100);
     assert!(visible.iter().any(|l| l.text.contains("process.py")));
     notify(&mut app, "item/completed");
-    let idx = app.item_to_message_index["command"];
+    let idx = app.item_message_index("command").expect("command entry");
     let original = app.messages[idx].text.clone();
     app.handle_summary_event(SummaryEvent::Ready(
         command_key("python3 process.py"),
-        "thread:command".into(),
+        app.summary_token_for_test("command"),
         Some("Rewrite the report".into()),
     ));
     notify(&mut app, "item/completed");
@@ -56,11 +56,12 @@ fn late_labels_preserve_command_output_failure_and_survive_duplicate_completion(
 fn old_results_cannot_update_a_new_thread_with_the_same_command_and_item_id() {
     let mut app = app();
     notify(&mut app, "item/completed");
+    let old_token = app.summary_token_for_test("command");
     app.reset_for_forked_thread("other-thread");
     notify(&mut app, "item/completed");
     app.handle_summary_event(SummaryEvent::Ready(
         command_key("python3 process.py"),
-        "thread:command".into(),
+        old_token,
         Some("Wrong old label".into()),
     ));
     assert!(
@@ -85,7 +86,7 @@ fn disabling_restores_the_original_label_without_changing_its_body() {
     let body = app.messages[0].text.clone();
     app.handle_summary_event(SummaryEvent::Ready(
         command_key("python3 process.py"),
-        "thread:command".into(),
+        app.summary_token_for_test("command"),
         Some("Rewrite the report".into()),
     ));
     app.summaries.draft = false;
@@ -109,7 +110,7 @@ fn restored_labels_are_accepted_for_saved_items_without_creating_a_model_job() {
     load_history_from_start_or_resume(&mut app, &response.to_string()).expect("history");
     app.handle_summary_event(SummaryEvent::Ready(
         command_key("python3 process.py"),
-        "thread:command".into(),
+        app.summary_token_for_test("command"),
         Some("Saved label".into()),
     ));
     assert_eq!(
@@ -136,7 +137,7 @@ fn ep130_scripts_inside_ssh_receive_labels_without_reading_remote_files_locally(
     handle_server_message_line(&mut app, &line.to_string());
     app.handle_summary_event(SummaryEvent::Ready(
         command_key(&remote),
-        "thread:remote".into(),
+        app.summary_token_for_test("remote"),
         Some("Read simulator preferences on the remote host".into()),
     ));
     let tool = app.messages[0].tool_output.as_ref().expect("tool metadata");
@@ -146,9 +147,10 @@ fn ep130_scripts_inside_ssh_receive_labels_without_reading_remote_files_locally(
     let line = json!({"method":"item/completed","params":{"threadId":"thread","item":{
         "type":"commandExecution","id":"remote-file","command":command,"exitCode":0}}});
     handle_server_message_line(&mut app, &line.to_string());
+    assert!(app.summary_binding_for_test("remote-file").is_none());
     app.handle_summary_event(SummaryEvent::Ready(
         command_key(command),
-        "thread:remote-file".into(),
+        "unbound remote file".into(),
         Some("Wrong local source".into()),
     ));
     assert!(

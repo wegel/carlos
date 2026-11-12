@@ -1,35 +1,40 @@
 //! Input history navigation and rewind-mode state.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::input_history_native::{NativeUserHistory, NativeUserPosition};
 use crate::backend::RewindUserMessage;
+use crate::session::entry_id::EntryId;
+#[cfg(test)]
+use crate::session::transcript::Transcript;
 
 // --- History State ---
 
 /// Tracks submitted prompts and supports up/down history navigation.
 pub(super) struct InputHistoryState {
     input_history: Vec<String>,
-    input_history_message_idx: Vec<Option<usize>>,
+    input_history_entry_ids: Vec<Option<EntryId>>,
     input_history_index: Option<usize>,
     input_history_draft: Option<String>,
     rewind_mode: bool,
     rewind_restore_draft: Option<String>,
-    turn_ids_by_message: HashMap<usize, String>,
+    turn_ids_by_message: HashMap<EntryId, String>,
     native: Option<NativeUserHistory>,
+    recorded: HashSet<EntryId>,
 }
 
 impl InputHistoryState {
     pub(super) fn new() -> Self {
         Self {
             input_history: Vec::new(),
-            input_history_message_idx: Vec::new(),
+            input_history_entry_ids: Vec::new(),
             input_history_index: None,
             input_history_draft: None,
             rewind_mode: false,
             rewind_restore_draft: None,
             turn_ids_by_message: HashMap::new(),
             native: None,
+            recorded: HashSet::new(),
         }
     }
 
@@ -48,7 +53,7 @@ impl InputHistoryState {
         &mut self,
         item_id: &str,
         turn_id: &str,
-        message: Option<usize>,
+        message: Option<EntryId>,
     ) -> Option<usize> {
         self.native
             .as_mut()
@@ -59,7 +64,7 @@ impl InputHistoryState {
     pub(super) fn selected_native(&self) -> Option<&NativeUserPosition> {
         self.native
             .as_ref()?
-            .message(self.rewind_selected_message_idx()?)
+            .message(self.rewind_selected_entry_id()?)
     }
 
     /// Retain the original selected text when the composer contains an edited draft.
@@ -117,24 +122,27 @@ impl InputHistoryState {
             .input_history
             .last()
             .is_some_and(|pending| pending == text)
-            && self.input_history_message_idx.last() == Some(&None)
+            && self.input_history_entry_ids.last() == Some(&None)
         {
             self.input_history.pop();
-            self.input_history_message_idx.pop();
+            self.input_history_entry_ids.pop();
             self.reset_navigation();
         }
     }
 
-    pub(super) fn record_history(&mut self, text: &str, message_idx: Option<usize>) {
+    pub(super) fn record_history(&mut self, text: &str, message_idx: Option<EntryId>) {
         if text.is_empty() {
             self.reset_navigation();
             return;
         }
 
         if let Some(msg_idx) = message_idx {
+            if !self.recorded.insert(msg_idx) {
+                return;
+            }
             if let (Some(last_text), Some(last_idx)) = (
                 self.input_history.last(),
-                self.input_history_message_idx.last_mut(),
+                self.input_history_entry_ids.last_mut(),
             ) {
                 if *last_text == text && last_idx.is_none() {
                     *last_idx = Some(msg_idx);
@@ -145,7 +153,7 @@ impl InputHistoryState {
         }
 
         self.input_history.push(text.to_string());
-        self.input_history_message_idx.push(message_idx);
+        self.input_history_entry_ids.push(message_idx);
         self.reset_navigation();
     }
 
@@ -183,9 +191,9 @@ impl InputHistoryState {
     }
 
     // --- Rewind Selection ---
-    pub(super) fn rewind_selected_message_idx(&self) -> Option<usize> {
+    pub(super) fn rewind_selected_entry_id(&self) -> Option<EntryId> {
         let idx = self.input_history_index?;
-        self.input_history_message_idx.get(idx).and_then(|v| *v)
+        self.input_history_entry_ids.get(idx).and_then(|v| *v)
     }
 
     pub(super) fn rewind_selected_history_index(&self) -> Option<usize> {
@@ -196,7 +204,7 @@ impl InputHistoryState {
         self.input_history.len()
     }
 
-    pub(super) fn record_turn_id(&mut self, message_idx: usize, turn_id: &str) {
+    pub(super) fn record_turn_id(&mut self, message_idx: EntryId, turn_id: &str) {
         self.turn_ids_by_message
             .insert(message_idx, turn_id.to_string());
     }
@@ -205,30 +213,55 @@ impl InputHistoryState {
         if let Some(selected) = self.selected_native() {
             return Some(&selected.turn_id);
         }
-        let message_idx = self.rewind_selected_message_idx()?;
+        let message_idx = self.rewind_selected_entry_id()?;
         self.turn_ids_by_message
             .get(&message_idx)
             .map(String::as_str)
     }
 
     #[cfg(test)]
-    pub(super) fn clear_message_indices_from(&mut self, idx: usize) {
-        for msg_idx in &mut self.input_history_message_idx {
-            if msg_idx.is_some_and(|v| v >= idx) {
-                *msg_idx = None;
+    pub(super) fn retain_entries(&mut self, transcript: &Transcript) {
+        for id in &mut self.input_history_entry_ids {
+            if id.is_some_and(|id| transcript.entry(id).is_none()) {
+                *id = None;
             }
+        }
+        self.recorded.retain(|id| transcript.entry(*id).is_some());
+        self.turn_ids_by_message
+            .retain(|id, _| transcript.entry(*id).is_some());
+        if let Some(native) = &mut self.native {
+            native.retain_entries(transcript);
         }
     }
 
     // --- Test Helpers ---
     #[cfg(test)]
-    pub(super) fn message_indices(&self) -> &[Option<usize>] {
-        &self.input_history_message_idx
+    pub(super) fn message_ids(&self) -> &[Option<EntryId>] {
+        &self.input_history_entry_ids
     }
 
     #[cfg(test)]
     pub(super) fn set_rewind_selection(&mut self, index: Option<usize>) {
         self.rewind_mode = true;
         self.input_history_index = index;
+    }
+}
+
+#[cfg(test)]
+impl InputHistoryState {
+    pub(super) fn assert_invariants(&self, transcript: &Transcript) {
+        assert_eq!(self.input_history.len(), self.input_history_entry_ids.len());
+        for id in self
+            .input_history_entry_ids
+            .iter()
+            .flatten()
+            .chain(self.turn_ids_by_message.keys())
+            .chain(self.recorded.iter())
+        {
+            assert!(transcript.entry(*id).is_some());
+        }
+        if let Some(native) = &self.native {
+            native.assert_invariants(transcript);
+        }
     }
 }

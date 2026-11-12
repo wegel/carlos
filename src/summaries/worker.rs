@@ -122,7 +122,7 @@ fn serve(
         if let Some(label) = store.lookup(&request)? {
             let _ = output.send(SummaryEvent::Ready(
                 request.key,
-                request.entry,
+                request.binding,
                 Some(label.text),
             ));
         } else {
@@ -185,9 +185,9 @@ fn finish(
             let event = match &result {
                 Ok(label) => {
                     store.save(&request, label, config)?;
-                    SummaryEvent::Ready(request.key, request.entry, Some(label.text.clone()))
+                    SummaryEvent::Ready(request.key, request.binding, Some(label.text.clone()))
                 }
-                Err(error) => SummaryEvent::Failed(request.entry, error.to_string()),
+                Err(error) => SummaryEvent::Failed(request.binding, error.to_string()),
             };
             if output.send(event).is_err() {
                 return Ok(());
@@ -206,11 +206,11 @@ fn queue(
     output: &mpsc::Sender<SummaryEvent>,
 ) {
     if !request.generate || !control.enabled.load(Ordering::Relaxed) {
-        let _ = output.send(SummaryEvent::Ready(request.key, request.entry, None));
+        let _ = output.send(SummaryEvent::Ready(request.key, request.binding, None));
         return;
     }
     if request.location.cwd != request.location.read_root && !request.location.sources_allowed() {
-        let _ = output.send(SummaryEvent::Ready(request.key, request.entry, None));
+        let _ = output.send(SummaryEvent::Ready(request.key, request.binding, None));
         return;
     }
     let identity = if request.file_based {
@@ -228,7 +228,7 @@ fn queue(
         if waiters.len() < 128 {
             waiters.push(request);
         } else {
-            let _ = output.send(SummaryEvent::Ready(request.key, request.entry, None));
+            let _ = output.send(SummaryEvent::Ready(request.key, request.binding, None));
         }
         return;
     }
@@ -238,6 +238,6 @@ fn queue(
     {
         pending.insert(group, vec![request]);
     } else {
-        let _ = output.send(SummaryEvent::Ready(request.key, request.entry, None));
+        let _ = output.send(SummaryEvent::Ready(request.key, request.binding, None));
     }
 }

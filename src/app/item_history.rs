@@ -6,11 +6,13 @@ use anyhow::Result;
 use serde_json::Value;
 
 use super::native_activity::upsert_native_activity;
-use super::tool_diff::{command_execution_diff_output, extract_diff_blocks};
-use super::tools::{is_tool_call_type, is_tool_output_type, item_text_from_content};
 use super::{AppState, MessageKind, Role};
+#[cfg(test)]
 use crate::app::models::TurnStatus;
 use crate::protocol_params::extract_result_object;
+
+#[path = "item_history_draft.rs"]
+pub(super) mod history_draft;
 
 // --- Thread history reconstruction ---
 
@@ -35,18 +37,25 @@ pub(super) fn replace_history_from_thread(app: &mut AppState, thread_obj: &Value
         .and_then(Value::as_str)
         .unwrap_or(&app.thread_id)
         .to_string();
-    let mut replacement = AppState::new(thread_id);
-    if app.input_history.native_enabled() {
-        replacement.input_history.enable_native();
+    let mode = if thread_id == app.thread_id {
+        crate::session::history_identity::HistoryMode::SameThread
+    } else {
+        crate::session::history_identity::HistoryMode::NewConversation
+    };
+    let previous = app.codex.item_turn.take();
+    let mut draft = history_draft::build(app, thread_obj);
+    if matches!(
+        mode,
+        crate::session::history_identity::HistoryMode::NewConversation
+    ) {
+        draft.set_conversation(&thread_id);
     }
-    replacement.codex.enabled = app.codex.enabled;
-    replacement.summaries.cwd = app.summaries.cwd.clone();
-    append_history_from_thread(&mut replacement, thread_obj);
-    app.codex.panel.reports = std::mem::take(&mut replacement.codex.panel.reports);
-    app.replace_transcript_from(replacement);
+    app.replace_history_draft(draft, mode);
+    app.codex.item_turn = previous;
     app.read_thread_name(thread_obj);
 }
 
+#[cfg(test)]
 pub(super) fn append_history_from_thread(app: &mut AppState, thread_obj: &Value) {
     let Some(turns) = thread_obj.get("turns").and_then(Value::as_array) else {
         return;
@@ -92,159 +101,34 @@ pub(super) fn append_history_item(app: &mut AppState, item: &Value) {
     if upsert_native_activity(app, item) {
         return;
     }
-    let Some(kind) = item.get("type").and_then(Value::as_str) else {
-        return;
-    };
-    match kind {
-        "userMessage" => append_user_history_item(app, item),
-        "agentMessage" => append_agent_history_item(app, item),
-        "reasoning" => append_reasoning_history_item(app, item),
-        "commandExecution" => append_tool_history_item(app, item, Role::ToolOutput),
-        "contextCompaction" => append_context_compaction(app, item),
-        kind if is_tool_call_type(kind) => append_tool_history_item(app, item, Role::ToolCall),
-        kind if is_tool_output_type(kind) => append_tool_history_item(app, item, Role::ToolOutput),
-        _ => {}
+    let rows = history_draft::rows(app, item);
+    for (part, row) in rows.into_iter().enumerate() {
+        let user = row.role == Role::User;
+        let describe = row.role == Role::ToolOutput || row.kind == MessageKind::Diff;
+        let text = row.text.clone();
+        if let Some(id) = item["id"].as_str() {
+            app.with_item_part(id, part, |app, key| {
+                let inserted =
+                    app.upsert_mapped_message(key, row.role, row.text, row.kind, row.file_path);
+                let index = app.item_message_index(key).expect("native history row");
+                if user && inserted {
+                    app.record_input_history(&text, Some(index));
+                }
+                if describe {
+                    app.describe_tool_output(index, item);
+                }
+            });
+        } else {
+            let index = app.append_draft_message(row);
+            if user {
+                app.record_input_history(&text, Some(index));
+            }
+            if describe {
+                app.describe_tool_output(index, item);
+            }
+        }
     }
     app.observe_summary_item(item, false);
-}
-
-fn append_user_history_item(app: &mut AppState, item: &Value) {
-    let Some(text) = item_text_from_content(item) else {
-        return;
-    };
-    let Some(item_id) = item.get("id").and_then(Value::as_str) else {
-        let idx = app.append_message(Role::User, text.clone());
-        app.record_input_history(&text, Some(idx));
-        return;
-    };
-    let inserted =
-        app.upsert_mapped_message(item_id, Role::User, text.clone(), MessageKind::Plain, None);
-    if inserted {
-        let idx = app.item_message_index(item_id).expect("native item row");
-        app.record_input_history(&text, Some(idx));
-    }
-}
-
-fn append_agent_history_item(app: &mut AppState, item: &Value) {
-    let text = item
-        .get("text")
-        .and_then(Value::as_str)
-        .map(str::to_string)
-        .or_else(|| item_text_from_content(item));
-    let Some(text) = text else {
-        return;
-    };
-    let role = item
-        .as_object()
-        .map(agent_role_from_phase)
-        .unwrap_or(Role::Assistant);
-    upsert_history_message(app, item, role, text, MessageKind::Plain, None, 0);
-}
-
-fn append_reasoning_history_item(app: &mut AppState, item: &Value) {
-    if let Some(text) = reasoning_summary_text(item) {
-        upsert_history_message(
-            app,
-            item,
-            Role::Reasoning,
-            text,
-            MessageKind::Plain,
-            None,
-            0,
-        );
-    }
-}
-
-fn append_context_compaction(app: &mut AppState, item: &Value) {
-    upsert_history_message(
-        app,
-        item,
-        Role::System,
-        "↻ Context compacted".to_string(),
-        MessageKind::Plain,
-        None,
-        0,
-    );
-}
-
-fn append_tool_history_item(app: &mut AppState, item: &Value, role: Role) {
-    let diffs = extract_diff_blocks(item);
-    if !diffs.is_empty() {
-        for (index, block) in diffs.into_iter().enumerate() {
-            upsert_history_message(
-                app,
-                item,
-                role,
-                block.diff,
-                MessageKind::Diff,
-                block.file_path,
-                index,
-            );
-        }
-        return;
-    }
-
-    if role == Role::ToolOutput {
-        if let Some(diff) = command_execution_diff_output(item) {
-            upsert_history_message(app, item, role, diff, MessageKind::Diff, None, 0);
-            return;
-        }
-    }
-
-    if let Some(formatted) = app.format_tool_item(item, role) {
-        if !formatted.is_empty() {
-            upsert_history_message(
-                app,
-                item,
-                role,
-                formatted,
-                MessageKind::Plain,
-                app.tool_source_path(item),
-                0,
-            );
-            return;
-        }
-    }
-
-    if let Some(t) = item.get("text").and_then(Value::as_str) {
-        if !t.is_empty() {
-            upsert_history_message(app, item, role, t.to_string(), MessageKind::Plain, None, 0);
-            return;
-        }
-    }
-    if let Some(text) = item_text_from_content(item) {
-        upsert_history_message(app, item, role, text, MessageKind::Plain, None, 0);
-    }
-}
-
-fn upsert_history_message(
-    app: &mut AppState,
-    item: &Value,
-    role: Role,
-    text: String,
-    kind: MessageKind,
-    file_path: Option<String>,
-    part_index: usize,
-) {
-    let Some(item_id) = item.get("id").and_then(Value::as_str) else {
-        let idx = if kind == MessageKind::Diff {
-            app.append_diff_message(role, file_path, text)
-        } else {
-            let idx = app.append_message(role, text);
-            app.messages[idx].file_path = file_path;
-            idx
-        };
-        if role == Role::ToolOutput || kind == MessageKind::Diff {
-            app.describe_tool_output(idx, item);
-        }
-        return;
-    };
-    app.with_item_part(item_id, part_index, |app, key| {
-        app.upsert_mapped_message(key, role, text, kind, file_path);
-        if role == Role::ToolOutput || kind == MessageKind::Diff {
-            app.describe_tool_output(app.item_message_index(key).expect("native item row"), item);
-        }
-    });
 }
 
 fn has_terminal_item_status(item: &Value) -> bool {

@@ -183,7 +183,10 @@ fn replay_synthetic_perf_session(
     let mut app = AppState::new(format!("synthetic-{:016x}", spec.seed));
     let mut stats = PerfReplayStats::new();
     let apply_started = Instant::now();
-    app.messages = build_synthetic_perf_messages(spec);
+    app.messages.adopt_unkeyed(
+        build_synthetic_perf_messages(spec),
+        crate::session::history_identity::HistoryMode::NewConversation,
+    );
     app.mark_transcript_dirty();
     stats.replay_apply.push(apply_started.elapsed());
     stats.relevant_items = app.messages.len();

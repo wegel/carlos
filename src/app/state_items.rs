@@ -1,28 +1,41 @@
 //! Transcript item identity, lifecycle, and streamed text updates.
 
+use crate::backend::BackendKind;
+use crate::session::entry_key::{BackendEntryKey, NativeEntryKey};
+
 use super::models::{MessageKind, Role};
 use super::state::AppState;
 
 impl AppState {
     // --- Item Identity ---
 
-    /// Keep Codex item IDs local to their turn; raw IDs remain unchanged in native replies.
-    pub(super) fn item_key(&self, item_id: &str) -> String {
-        match self
-            .codex
-            .item_turn
-            .as_deref()
-            .filter(|_| self.codex.enabled)
-        {
-            Some(turn) => format!(
-                "codex:{}",
-                serde_json::json!([turn, item_id, self.codex.item_part])
-            ),
-            None => item_id.to_string(),
+    /// Scope native work by backend, conversation, turn and a distinct display part.
+    pub(super) fn item_key(&self, item_id: &str) -> BackendEntryKey {
+        let backend = if self.codex.enabled {
+            BackendKind::Codex
+        } else if self.claude.enabled {
+            BackendKind::Claude
+        } else {
+            BackendKind::Grok
+        };
+        let item = if backend == BackendKind::Claude {
+            item_id
+                .strip_prefix("claude-prompt:")
+                .map(|id| NativeEntryKey::ClaudePrompt(id.into()))
+                .unwrap_or_else(|| NativeEntryKey::ClaudeTransient(item_id.into()))
+        } else {
+            NativeEntryKey::Item(item_id.into())
+        };
+        BackendEntryKey {
+            backend,
+            conversation: self.entry_conversation.clone(),
+            turn: self.codex.item_turn.clone().filter(|_| self.codex.enabled),
+            item,
+            part: self.codex.item_part,
         }
     }
 
-    /// Keep a display part distinct from a native ID containing the same printable suffix.
+    /// Keep native IDs unchanged while selecting a separate display part.
     pub(super) fn with_item_part<R>(
         &mut self,
         item: &str,
@@ -30,21 +43,15 @@ impl AppState {
         apply: impl FnOnce(&mut Self, &str) -> R,
     ) -> R {
         let previous = std::mem::replace(&mut self.codex.item_part, part);
-        let key = if part == 0 || self.codex.enabled && self.codex.item_turn.is_some() {
-            item.into()
-        } else {
-            format!("{item}#part-{part}")
-        };
-        let result = apply(self, &key);
+        let result = apply(self, item);
         self.codex.item_part = previous;
         result
     }
 
-    /// Resolve the currently handled native item's turn-qualified display row.
+    /// Resolve an id only at the boundary of an in-process store operation.
     pub(super) fn item_message_index(&self, item_id: &str) -> Option<usize> {
-        self.item_to_message_index
-            .get(&self.item_key(item_id))
-            .copied()
+        self.messages
+            .position(self.messages.entry_id_for_item(&self.item_key(item_id))?)
     }
 
     pub(super) fn has_item_mapping(&self, item_id: &str) -> bool {
@@ -52,11 +59,13 @@ impl AppState {
     }
 
     pub(super) fn put_item_mapping(&mut self, item_id: &str, idx: usize) {
-        self.item_to_message_index
-            .insert(self.item_key(item_id), idx);
+        self.messages.activate(self.messages[idx].id);
+        self.messages
+            .bind_item(self.item_key(item_id), self.messages[idx].id);
     }
 
     pub(super) fn mark_item_completed(&mut self, item_id: &str) {
+        self.messages.complete(&self.item_key(item_id));
         self.completed_item_ids.insert(self.item_key(item_id));
     }
 
@@ -106,7 +115,7 @@ impl AppState {
             self.append_diff_message(role, file_path, text)
         } else {
             let idx = self.append_message(role, text);
-            self.messages[idx].file_path = file_path;
+            self.messages.set_path(idx, file_path);
             idx
         };
         self.put_item_mapping(item_id, idx);
@@ -127,11 +136,17 @@ impl AppState {
         let Some(idx) = self.item_message_index(item_id) else {
             return;
         };
-        if let Some(message) = self.messages.get_mut(idx) {
-            message.text =
-                super::state_transcript::normalize_reasoning_summary_stream(&message.text);
-            self.mark_transcript_dirty_from(idx);
-        }
+        let text =
+            super::state_transcript::normalize_reasoning_summary_stream(&self.messages[idx].text);
+        let message = &self.messages[idx];
+        self.messages.update(
+            idx,
+            message.role,
+            Some(text),
+            message.kind,
+            message.file_path.clone(),
+        );
+        self.mark_transcript_dirty_from(idx);
     }
 
     pub(super) fn upsert_command_output_delta(&mut self, item_id: &str, delta: &str) {
@@ -143,18 +158,9 @@ impl AppState {
             return;
         }
         if let Some(idx) = self.item_message_index(item_id) {
-            if let Some(message) = self.messages.get_mut(idx) {
-                if replace_role {
-                    message.role = role;
-                }
-                if message.kind != MessageKind::Plain {
-                    message.kind = MessageKind::Plain;
-                    message.file_path = None;
-                    message.text.clear();
-                }
-                message.text.push_str(delta);
-                self.mark_transcript_dirty_from(idx);
-            }
+            self.messages
+                .append_text(idx, delta, replace_role.then_some(role));
+            self.mark_transcript_dirty_from(idx);
             return;
         }
 
@@ -162,3 +168,6 @@ impl AppState {
         self.put_item_mapping(item_id, idx);
     }
 }
+
+#[path = "state_item_sources.rs"]
+mod sources;

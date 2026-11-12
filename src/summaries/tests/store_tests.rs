@@ -22,6 +22,7 @@ fn config(root: &std::path::Path) -> Config {
 fn request(root: &std::path::Path, entry: &str, file_based: bool) -> Request {
     let command = "python3 process.py".to_owned();
     Request {
+        binding: entry.into(),
         key: command_key(&command),
         command,
         location: CommandLocation::at(root.to_owned()),

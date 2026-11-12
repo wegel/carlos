@@ -141,6 +141,7 @@ fn pending_claude_exit_plan_accept_uses_approval_path_not_chat_input() {
     let client = ApprovalRespondMock::new();
     let mut app = AppState::new("thread-1".to_string());
     app.set_pending_approval(super::state::PendingApprovalRequest {
+        entry_id: None,
         request_id: json!({"backend":"claude","kind":"exitPlanMode","toolUseId":"toolu_1"}),
         method: "claude/exitPlan/requestApproval".to_string(),
         kind: super::state::ApprovalRequestKind::ClaudeExitPlanMode,

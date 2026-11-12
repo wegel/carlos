@@ -21,11 +21,11 @@ fn repeated_reset_key_keeps_two_distinct_transcript_rows_through_dispatch() {
     let rows: Vec<_> = app.messages.iter().map(|m| m.text.as_str()).collect();
     assert_eq!(rows, ["first", "second"]);
     assert_eq!(
-        app.item_to_message_index["claude-msg-0-1-0"], 0,
+        app.item_message_index("claude-msg-0-1-0").expect("first row"), 0,
         "{:?}",
-        app.item_to_message_index
+        app.messages.items()
     );
-    assert_eq!(app.item_to_message_index["claude-msg-0-2-0"], 1);
+    assert_eq!(app.item_message_index("claude-msg-0-2-0").expect("second row"), 1);
     let stale = json!({"method":"claude/nativeResult","params":{"generation":1,"epoch":1,"subtype":"success"}});
     assert!(client
         .handle_event(&stale.to_string())

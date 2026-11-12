@@ -151,6 +151,7 @@ fn handle_server_request_command_execution_sets_pending_approval() {
 #[test]
 fn permissions_approval_response_allows_turn_or_session_grant() {
     let request = super::state::PendingApprovalRequest {
+        entry_id: None,
         request_id: json!("req-2"),
         method: "item/permissions/requestApproval".to_string(),
         kind: super::state::ApprovalRequestKind::Permissions,
@@ -206,6 +207,7 @@ fn handle_server_request_claude_exit_plan_sets_pending_approval() {
 #[test]
 fn claude_exit_plan_approval_response_supports_accept_and_decline() {
     let request = super::state::PendingApprovalRequest {
+        entry_id: None,
         request_id: json!({"backend":"claude","kind":"exitPlanMode","toolUseId":"toolu_1"}),
         method: "claude/exitPlan/requestApproval".to_string(),
         kind: super::state::ApprovalRequestKind::ClaudeExitPlanMode,
@@ -260,6 +262,7 @@ fn turn_completed_keeps_pending_claude_exit_plan_approval() {
     let mut app = AppState::new("thread-1".to_string());
     app.active_turn_id = Some("turn-1".to_string());
     app.set_pending_approval(super::state::PendingApprovalRequest {
+        entry_id: None,
         request_id: json!({"backend":"claude","kind":"exitPlanMode","toolUseId":"toolu_1"}),
         method: "claude/exitPlan/requestApproval".to_string(),
         kind: super::state::ApprovalRequestKind::ClaudeExitPlanMode,

@@ -310,20 +310,20 @@ fn shift_selection_focus_extends_copy_beyond_visible_screen() {
 #[test]
 fn build_rendered_lines_inserts_separator_rows_between_messages() {
     let messages = vec![
-        Message {
+        crate::app::tests::test_message(crate::session::models::EntryDraft {
             tool_output: None,
             role: Role::User,
             text: "first".to_string(),
             kind: MessageKind::Plain,
             file_path: None,
-        },
-        Message {
+        }),
+        crate::app::tests::test_message(crate::session::models::EntryDraft {
             tool_output: None,
             role: Role::Assistant,
             text: "second".to_string(),
             kind: MessageKind::Plain,
             file_path: None,
-        },
+        }),
     ];
 
     let rendered = build_rendered_lines(&messages, 40);

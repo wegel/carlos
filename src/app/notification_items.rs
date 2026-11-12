@@ -15,24 +15,29 @@ pub(super) fn handle_item_notification(
     method: &str,
     params: &serde_json::Map<String, Value>,
 ) -> bool {
+    let all_parts = matches!(method, "item/started" | "item/completed");
+    if let Some(id) = params
+        .get("item")
+        .and_then(|item| item["id"].as_str())
+        .or_else(|| params.get("itemId").and_then(Value::as_str))
+    {
+        app.prepare_item_source(id, params.get("sourceKey"), all_parts);
+    }
+    let handled = handle_item(app, method, params);
+    if let Some(item) = params.get("item") {
+        if let Some(id) = item["id"].as_str() {
+            app.attach_item_source(id, params.get("sourceKey"), all_parts);
+        }
+    } else if let Some(id) = params.get("itemId").and_then(Value::as_str) {
+        app.attach_item_source(id, params.get("sourceKey"), all_parts);
+    }
+    handled
+}
+
+fn handle_item(app: &mut AppState, method: &str, params: &serde_json::Map<String, Value>) -> bool {
     match method {
         "codex/event/raw_response_item" => true,
-        "item/started" | "item/completed" => {
-            let live = params
-                .get("item")
-                .and_then(|v| v["id"].as_str())
-                .is_some_and(|id| !app.is_item_completed(id));
-            let handled = if method == "item/started" {
-                handle_item_started(app, params)
-            } else {
-                handle_item_completed(app, params)
-            };
-            record_user_turn_id(app, params);
-            if let Some(item) = params.get("item") {
-                app.observe_summary_item(item, live);
-            }
-            handled
-        }
+        "item/started" | "item/completed" => handle_item_boundary(app, method, params),
         "item/agentMessage/delta" => {
             if let (Some(item_id), Some(delta)) = (
                 params.get("itemId").and_then(Value::as_str),
@@ -88,6 +93,27 @@ pub(super) fn handle_item_notification(
         }
         _ => false,
     }
+}
+
+fn handle_item_boundary(
+    app: &mut AppState,
+    method: &str,
+    params: &serde_json::Map<String, Value>,
+) -> bool {
+    let live = params
+        .get("item")
+        .and_then(|v| v["id"].as_str())
+        .is_some_and(|id| !app.is_item_completed(id));
+    let handled = if method == "item/started" {
+        handle_item_started(app, params)
+    } else {
+        handle_item_completed(app, params)
+    };
+    record_user_turn_id(app, params);
+    if let Some(item) = params.get("item") {
+        app.observe_summary_item(item, live);
+    }
+    handled
 }
 
 fn record_user_turn_id(app: &mut AppState, params: &serde_json::Map<String, Value>) {

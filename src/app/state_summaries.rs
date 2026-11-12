@@ -8,6 +8,9 @@ use serde_json::Value;
 
 use super::state::AppState;
 use super::summary_request::summary_input;
+use crate::session::entry_id::EntryId;
+#[cfg(test)]
+use crate::session::transcript::Transcript;
 use crate::summaries::{Key, Request, SummaryEvent, SummaryService};
 
 struct Binding {
@@ -20,10 +23,11 @@ pub(super) struct SummaryState {
     pub enabled: bool,
     pub draft: bool,
     pub cwd: PathBuf,
-    bindings: HashMap<String, Binding>,
-    pending: VecDeque<String>,
+    bindings: HashMap<EntryId, Binding>,
+    pending: VecDeque<EntryId>,
     service: Option<SummaryService>,
     replaying: bool,
+    revision: u64,
 }
 
 impl Default for SummaryState {
@@ -37,20 +41,12 @@ impl Default for SummaryState {
             pending: VecDeque::new(),
             service: None,
             replaying: false,
+            revision: 0,
         }
     }
 }
 
 impl SummaryState {
-    pub fn replace_bindings(&mut self, other: Self) {
-        if let Some(service) = &self.service {
-            service.cancel_pending();
-        }
-        self.bindings = other.bindings;
-        self.pending = other.pending;
-        self.flush();
-    }
-
     pub fn clear(&mut self) {
         if let Some(service) = &self.service {
             service.cancel_pending();
@@ -60,8 +56,8 @@ impl SummaryState {
     }
 
     #[cfg(test)]
-    pub fn retain_items(&mut self, items: &HashMap<String, usize>) {
-        self.bindings.retain(|id, _| items.contains_key(id));
+    pub fn retain_items(&mut self, items: &Transcript) {
+        self.bindings.retain(|id, _| items.entry(*id).is_some());
         self.pending.retain(|id| self.bindings.contains_key(id));
     }
 
@@ -82,9 +78,9 @@ impl SummaryState {
         }
     }
 
-    pub fn label(&self, id: &str) -> Option<String> {
+    pub fn label(&self, id: EntryId) -> Option<String> {
         self.enabled
-            .then(|| self.bindings.get(id)?.label.clone())
+            .then(|| self.bindings.get(&id)?.label.clone())
             .flatten()
     }
 }
@@ -119,7 +115,7 @@ impl AppState {
         ) {
             return;
         }
-        let id = self.item_key(id);
+        let id = self.messages[idx].id;
         let Some(input) = summary_input(item, &self.summaries.cwd) else {
             if self.summaries.bindings.remove(&id).is_some() {
                 self.summaries.pending.retain(|pending| pending != &id);
@@ -140,32 +136,55 @@ impl AppState {
         if replaced || self.messages[idx].tool_output.is_none() {
             self.describe_tool_output(idx, item);
         }
+        self.summaries.revision = self
+            .summaries
+            .revision
+            .checked_add(1)
+            .expect("summary revision exhausted");
         let request = Request {
             key: input.key,
             command: input.command,
             location: input.location,
             generate: live && self.summaries.enabled && !self.summaries.replaying,
-            entry: format!("{}:{id}", self.thread_id),
+            entry: self.summary_cache_entry(item["id"].as_str().expect("native item")),
+            binding: format!("{id:?}:{}", self.summaries.revision),
             file_based: input.file_based,
         };
-        self.bind_summary_request(&id, idx, request);
+        self.bind_summary_request(id, idx, request);
     }
 
-    fn bind_summary_request(&mut self, id: &str, idx: usize, request: Request) {
+    // Keep the on-disk key compatible with saved labels; replies use a separate live binding.
+    fn summary_cache_entry(&self, item: &str) -> String {
+        let key = match self
+            .codex
+            .item_turn
+            .as_deref()
+            .filter(|_| self.codex.enabled)
+        {
+            Some(turn) => format!(
+                "codex:{}",
+                serde_json::json!([turn, item, self.codex.item_part])
+            ),
+            None => item.to_string(),
+        };
+        format!("{}:{key}", self.thread_id)
+    }
+
+    fn bind_summary_request(&mut self, id: EntryId, idx: usize, request: Request) {
         let original = self.messages[idx]
             .tool_output
             .as_ref()
             .map(|t| t.summary.clone())
             .unwrap_or_else(|| format!("run {}", request.command));
         self.summaries.bindings.insert(
-            id.to_owned(),
+            id,
             Binding {
                 request,
                 original,
                 label: None,
             },
         );
-        self.summaries.pending.push_back(id.to_owned());
+        self.summaries.pending.push_back(id);
         self.summaries.flush();
     }
 
@@ -185,7 +204,7 @@ impl AppState {
                             .summaries
                             .bindings
                             .values()
-                            .any(|b| b.request.entry == entry)) =>
+                            .any(|b| b.request.binding == entry)) =>
             {
                 self.set_status(format!("AI tool label unavailable: {reason}"))
             }
@@ -197,7 +216,7 @@ impl AppState {
     fn apply_summary(&mut self, key: Key, entry: &str, label: String) {
         let mut changed = Vec::new();
         for (id, binding) in &mut self.summaries.bindings {
-            if binding.request.key != key || binding.request.entry != entry {
+            if binding.request.key != key || binding.request.binding != entry {
                 continue;
             }
             binding.label = Some(match &binding.request.location.directory {
@@ -207,13 +226,16 @@ impl AppState {
             if !self.summaries.enabled {
                 continue;
             }
-            if let Some(&idx) = self.item_to_message_index.get(id) {
-                if self.messages[idx].kind != super::MessageKind::Diff {
-                    if let Some(tool) = &mut self.messages[idx].tool_output {
-                        tool.summary = binding.label.clone().unwrap_or_default();
-                        tool.generated = true;
-                        changed.push(idx);
-                    }
+            if self
+                .messages
+                .entry(*id)
+                .is_some_and(|message| message.kind != super::MessageKind::Diff)
+            {
+                if let Some(idx) =
+                    self.messages
+                        .set_label(*id, binding.label.clone().unwrap_or_default(), true)
+                {
+                    changed.push(idx);
                 }
             }
         }
@@ -232,24 +254,52 @@ impl AppState {
             if !self.summaries.enabled {
                 binding.request.generate = false;
             }
-            if let Some(&idx) = self.item_to_message_index.get(id) {
-                if let Some(tool) = &mut self.messages[idx].tool_output {
-                    tool.generated = self.summaries.enabled && binding.label.is_some();
-                    tool.summary = if self.summaries.enabled {
-                        binding
-                            .label
-                            .clone()
-                            .unwrap_or_else(|| binding.original.clone())
-                    } else {
-                        binding.original.clone()
-                    };
-                    changed.push(idx);
-                }
+            let generated = self.summaries.enabled && binding.label.is_some();
+            let label = if self.summaries.enabled {
+                binding
+                    .label
+                    .clone()
+                    .unwrap_or_else(|| binding.original.clone())
+            } else {
+                binding.original.clone()
+            };
+            if let Some(idx) = self.messages.set_label(*id, label, generated) {
+                changed.push(idx);
             }
         }
         for idx in changed {
             self.mark_transcript_dirty_from(idx);
         }
         self.summaries.flush();
+    }
+}
+
+#[cfg(test)]
+impl AppState {
+    pub(super) fn summary_binding_for_test(&self, item: &str) -> Option<String> {
+        let id = self.messages.entry_id_for_item(&self.item_key(item))?;
+        Some(self.summaries.bindings.get(&id)?.request.binding.clone())
+    }
+
+    pub(super) fn summary_token_for_test(&self, item: &str) -> String {
+        self.summary_binding_for_test(item)
+            .expect("summary binding")
+    }
+}
+
+#[cfg(test)]
+impl AppState {
+    pub(super) fn assert_entry_invariants(&self) {
+        self.messages.assert_invariants();
+        self.input_history.assert_invariants(&self.messages);
+        for id in self.summaries.bindings.keys() {
+            assert!(self.messages.entry(*id).is_some());
+        }
+        for id in &self.summaries.pending {
+            assert!(self.summaries.bindings.contains_key(id));
+        }
+        for prompt in &self.claude.history.unknown {
+            assert!(self.messages.entry(prompt.entry_id).is_some());
+        }
     }
 }

@@ -1,7 +1,7 @@
 //! Synthetic performance data generation: deterministic RNG, message builders, and word lists.
 
-use super::models::{Message, MessageKind, Role};
 use super::transcript_render::format_read_summary_with_count;
+use crate::session::models::{EntryDraft, MessageKind, Role};
 
 // --- Core Types ---
 
@@ -49,33 +49,33 @@ impl SyntheticRng {
 
 // --- Message Builders ---
 
-pub(super) fn build_synthetic_perf_messages(spec: SyntheticPerfSpec) -> Vec<Message> {
+pub(super) fn build_synthetic_perf_messages(spec: SyntheticPerfSpec) -> Vec<EntryDraft> {
     let mut rng = SyntheticRng::new(spec.seed);
     let mut messages = Vec::with_capacity(spec.turns.saturating_mul(6));
 
     for turn in 0..spec.turns {
-        messages.push(Message {
+        messages.push(EntryDraft {
             tool_output: None,
             role: Role::User,
             text: synthetic_user_message(turn, &mut rng),
             kind: MessageKind::Plain,
             file_path: None,
         });
-        messages.push(Message {
+        messages.push(EntryDraft {
             tool_output: None,
             role: Role::Commentary,
             text: synthetic_commentary_message(turn, &mut rng),
             kind: MessageKind::Plain,
             file_path: None,
         });
-        messages.push(Message {
+        messages.push(EntryDraft {
             tool_output: None,
             role: Role::Reasoning,
             text: synthetic_reasoning_message(turn, &mut rng),
             kind: MessageKind::Plain,
             file_path: None,
         });
-        messages.push(Message {
+        messages.push(EntryDraft {
             tool_output: None,
             role: Role::ToolCall,
             text: synthetic_tool_call(turn, &mut rng),
@@ -83,7 +83,7 @@ pub(super) fn build_synthetic_perf_messages(spec: SyntheticPerfSpec) -> Vec<Mess
             file_path: None,
         });
         messages.push(synthetic_tool_output(turn, spec, &mut rng));
-        messages.push(Message {
+        messages.push(EntryDraft {
             tool_output: None,
             role: Role::Assistant,
             text: synthetic_assistant_message(turn, &mut rng),
@@ -150,9 +150,13 @@ fn synthetic_tool_call(turn: usize, rng: &mut SyntheticRng) -> String {
     }
 }
 
-fn synthetic_tool_output(turn: usize, spec: SyntheticPerfSpec, rng: &mut SyntheticRng) -> Message {
+fn synthetic_tool_output(
+    turn: usize,
+    spec: SyntheticPerfSpec,
+    rng: &mut SyntheticRng,
+) -> EntryDraft {
     if turn.is_multiple_of(9) {
-        return Message {
+        return EntryDraft {
             tool_output: None,
             role: Role::ToolOutput,
             kind: MessageKind::Diff,
@@ -180,7 +184,7 @@ fn synthetic_tool_output(turn: usize, spec: SyntheticPerfSpec, rng: &mut Synthet
         ));
     }
 
-    Message {
+    EntryDraft {
         tool_output: None,
         role: Role::ToolOutput,
         kind: MessageKind::Plain,

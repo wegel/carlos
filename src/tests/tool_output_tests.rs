@@ -18,11 +18,14 @@ fn long_output(app: &mut AppState) -> usize {
         .collect::<Vec<_>>()
         .join("\n");
     let idx = app.append_message(Role::ToolOutput, text);
-    app.messages[idx].tool_output = Some(ToolOutputDetails {
-        generated: false,
-        summary: "→ Read main.rs".into(),
-        failed: false,
-    });
+    app.messages.set_tool(
+        idx,
+        ToolOutputDetails {
+            generated: false,
+            summary: "→ Read main.rs".into(),
+            failed: false,
+        },
+    );
     idx
 }
 
@@ -128,11 +131,9 @@ fn compact_hides_short_results_and_failure_details_but_keeps_answers_visible() {
     app.tool_output.mode = ToolOutputMode::Compact;
     app.append_message(Role::ToolOutput, "short output");
     let idx = long_output(&mut app);
-    app.messages[idx]
-        .tool_output
-        .as_mut()
-        .expect("details")
-        .failed = true;
+    let mut details = app.messages[idx].tool_output.clone().expect("details");
+    details.failed = true;
+    app.messages.set_tool(idx, details);
     app.append_message(Role::Assistant, "answer\n".repeat(10));
     let text = screen(&mut app, 80);
     assert!(!text.contains("short output"));
@@ -205,7 +206,7 @@ fn reload_and_fork_keep_the_preference_but_replace_message_contents() {
     app.tool_output.mode = ToolOutputMode::Compact;
     let mut replacement = AppState::new("thread".into());
     long_output(&mut replacement);
-    app.replace_transcript_from(replacement);
+    app.replace_transcript_for_test(replacement);
     assert!(screen(&mut app, 80).trim_end().ends_with("12"));
     app.reset_for_forked_thread("fork");
     assert_eq!(app.tool_output.mode, ToolOutputMode::Compact);

@@ -15,13 +15,13 @@ use crate::app::transcript_styles::RenderCountCache;
 use crate::theme::{COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_STEP2};
 
 fn diff_message(path: Option<&str>, text: &str) -> Message {
-    Message {
+    crate::app::tests::test_message(crate::session::models::EntryDraft {
         tool_output: None,
         role: Role::ToolOutput,
         kind: MessageKind::Diff,
         text: text.to_string(),
         file_path: path.map(str::to_string),
-    }
+    })
 }
 
 fn token_color(
@@ -155,20 +155,20 @@ fn colored_reads_and_diffs_keep_scroll_counts_and_wrapped_text() {
             Some("main.rs"),
             "@@ -1 +1 @@\n-old\n+let greeting = \"héllo 🌍 and a long line of source code\";\n",
         ),
-        Message {
+        crate::app::tests::test_message(crate::session::models::EntryDraft {
             tool_output: None,
             role: Role::ToolOutput,
             kind: MessageKind::Plain,
             file_path: Some("main.rs".to_string()),
             text: "1:let greeting = \"héllo 🌍 and a long line of source code\";\n".to_string(),
-        },
-        Message {
+        }),
+        crate::app::tests::test_message(crate::session::models::EntryDraft {
             tool_output: None,
             role: Role::ToolOutput,
             kind: MessageKind::Plain,
             file_path: Some("notes.unknown".to_string()),
             text: "```rust\n\tcode\n```\n".to_string(),
-        },
+        }),
     ];
     for msg in &messages {
         for width in [8, 20, 80] {
@@ -242,13 +242,13 @@ fn saved_command_reads_color_source_but_leave_command_and_status_plain() {
 
 #[test]
 fn read_output_keeps_explicit_terminal_colors() {
-    let msg = Message {
+    let msg = crate::app::tests::test_message(crate::session::models::EntryDraft {
         tool_output: None,
         role: Role::ToolOutput,
         kind: MessageKind::Plain,
         file_path: Some("main.rs".to_string()),
         text: "\u{1b}[31mlet value = 1;\u{1b}[0m".to_string(),
-    };
+    });
     let lines = build_rendered_lines(&[msg], 120);
     assert_eq!(lines[0].text, "let value = 1;");
     assert_eq!(lines[0].styled_segments[0].style.fg, Some(Color::Red));

@@ -19,7 +19,7 @@ use super::dictation_state::DictationRuntimeState;
 use super::input::make_input_area;
 use super::input_history_state::InputHistoryState;
 use super::layout_state::LayoutState;
-use super::models::{Message, Role, TurnStatus};
+use super::models::{Role, TurnStatus};
 use super::perf::PerfMetrics;
 #[cfg(test)]
 use super::ralph::RalphConfig;
@@ -31,23 +31,24 @@ use super::runtime_settings_state::RuntimeSettingsState;
 pub(super) use super::runtime_settings_state::{DEFAULT_EFFORT_OPTIONS, DEFAULT_SUMMARY_OPTIONS};
 use super::tool_output_state::ToolOutputState;
 use super::viewport_state::ViewportState;
+use crate::session::entry_key::BackendEntryKey;
+use crate::session::transcript::Transcript;
 
 // --- Types ---
 
 pub(super) struct AppState {
     pub(super) thread_id: String,
+    pub(super) entry_conversation: String,
     pub(super) thread_name: Option<String>,
     pub(super) active_turn_id: Option<String>,
-    pub(super) messages: Vec<Message>,
+    pub(super) messages: Transcript,
     pub(super) render_cache: RenderCacheState,
     pub(super) tool_output: ToolOutputState,
     pub(super) summaries: super::state_summaries::SummaryState,
     pub(super) layout: LayoutState,
-    pub(super) item_to_message_index: HashMap<String, usize>,
-    pub(super) completed_item_ids: HashSet<String>,
+    pub(super) completed_item_ids: HashSet<BackendEntryKey>,
     pub(super) turn_status_by_id: HashMap<String, TurnStatus>,
-    pub(super) turn_diff_to_index: HashMap<String, usize>,
-    pub(super) command_render_overrides: HashMap<String, String>,
+    pub(super) command_render_overrides: HashMap<BackendEntryKey, String>,
 
     pub(super) input: TextArea<'static>,
     pub(super) input_history: InputHistoryState,
@@ -75,18 +76,17 @@ pub(super) struct AppState {
 impl AppState {
     pub(super) fn new(thread_id: String) -> Self {
         Self {
+            entry_conversation: thread_id.clone(),
             thread_id,
             thread_name: None,
             active_turn_id: None,
-            messages: Vec::new(),
+            messages: Transcript::new(),
             render_cache: RenderCacheState::new(),
             tool_output: ToolOutputState::default(),
             summaries: super::state_summaries::SummaryState::default(),
             layout: LayoutState::default(),
-            item_to_message_index: HashMap::new(),
             completed_item_ids: HashSet::new(),
             turn_status_by_id: HashMap::new(),
-            turn_diff_to_index: HashMap::new(),
             command_render_overrides: HashMap::new(),
             input: make_input_area(),
             input_history: InputHistoryState::new(),
@@ -151,7 +151,15 @@ impl AppState {
         self.status = s.into();
     }
 
-    pub(super) fn set_pending_approval(&mut self, approval: PendingApprovalRequest) {
+    pub(super) fn set_pending_approval(&mut self, mut approval: PendingApprovalRequest) {
+        approval.entry_id = self
+            .approval
+            .pending
+            .as_ref()
+            .filter(|old| old.request_id == approval.request_id)
+            .and_then(|old| old.entry_id)
+            .or(approval.entry_id)
+            .or_else(|| Some(self.messages.allocate_card()));
         self.status = format!("approval requested: {}", approval.title);
         self.approval.pending = Some(approval);
     }
@@ -365,8 +373,12 @@ impl AppState {
     }
 
     #[cfg(test)]
-    pub(super) fn input_history_message_indices(&self) -> &[Option<usize>] {
-        self.input_history.message_indices()
+    pub(super) fn input_history_message_indices(&self) -> Vec<Option<usize>> {
+        self.input_history
+            .message_ids()
+            .iter()
+            .map(|id| id.and_then(|id| self.messages.position(id)))
+            .collect()
     }
 
     #[cfg(test)]

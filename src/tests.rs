@@ -174,3 +174,30 @@ mod shell_directory_tests;
 
 #[path = "tests/tool_command_view_tests.rs"]
 mod tool_command_view_tests;
+
+/// Construct test rows through the same allocator used by production appends.
+fn test_message(draft: crate::session::models::EntryDraft) -> Message {
+    let mut transcript = crate::session::transcript::Transcript::new();
+    let id = transcript.append(draft);
+    transcript.entry(id).expect("adopted test row").clone()
+}
+
+#[path = "tests/approval_identity_tests.rs"]
+mod approval_identity_tests;
+#[path = "tests/entry_history_identity_tests.rs"]
+mod entry_history_identity_tests;
+#[path = "tests/entry_identity_tests.rs"]
+mod entry_identity_tests;
+#[path = "tests/entry_lookup_differential_tests.rs"]
+mod entry_lookup_differential_tests;
+
+#[path = "tests/entry_review_cursor_tests.rs"]
+mod entry_review_cursor_tests;
+#[path = "tests/entry_review_history_tests.rs"]
+mod entry_review_history_tests;
+
+#[path = "tests/head_entry_reference/mod.rs"]
+mod head_entry_reference;
+
+#[path = "tests/entry_lookup_extra_tests.rs"]
+mod entry_lookup_extra_tests;

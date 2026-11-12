@@ -20,6 +20,7 @@ fn codex_provider_sends_only_body_and_hint_but_retains_private_read_authority() 
     let (config, capture) = fixture(root.path());
     let body = "python3 - <<'PY'\nprint('cd /literal && text')\nPY\n";
     let request = Request {
+        binding: "provider test".into(),
         key: command_key("raw native identity"),
         command: body.into(),
         location: CommandLocation {

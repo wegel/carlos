@@ -14,6 +14,7 @@ use crate::summaries::{
 
 fn request(root: &Path, command: &str, entry: &str, generate: bool) -> Request {
     Request {
+        binding: entry.into(),
         key: command_key(command),
         command: command.into(),
         location: CommandLocation::at(root.into()),
@@ -178,5 +179,41 @@ fn source_generation_does_not_run_in_an_outside_or_symlinked_directory() {
             .expect("declined link"),
         SummaryEvent::Ready(_, _, None)
     ));
+    assert!(!root.path().join("calls").exists());
+}
+
+#[test]
+fn saved_file_labels_use_native_cache_keys_and_reply_with_the_new_binding() {
+    let root = tempfile::tempdir().expect("tempdir");
+    let config = config(root.path());
+    let mut saved = request(
+        root.path(),
+        "python3 process.py",
+        "thread:native-item",
+        false,
+    );
+    saved.file_based = true;
+    saved.binding = "retired Carlos id and revision".into();
+    let store = Store::open(&root.path().join("tool-summaries.sqlite3")).expect("store");
+    store
+        .save(
+            &saved,
+            &Label {
+                text: "Saved file label".into(),
+                sources: Vec::new(),
+            },
+            &config,
+        )
+        .expect("save native key");
+    let mut reloaded = saved;
+    reloaded.binding = "new Carlos id and revision".into();
+    let (tx, rx) = mpsc::channel();
+    let service = SummaryService::spawn_config(tx, config);
+    assert!(service.try_request(reloaded));
+    let event = rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("cached reply");
+    assert!(matches!(event, SummaryEvent::Ready(_, binding, Some(label))
+        if binding == "new Carlos id and revision" && label == "Saved file label"));
     assert!(!root.path().join("calls").exists());
 }

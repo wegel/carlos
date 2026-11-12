@@ -17,7 +17,7 @@ pub(super) fn upsert_native_activity(app: &mut AppState, item: &Value) -> bool {
     true
 }
 
-fn format_native_activity(item: &Value) -> Option<String> {
+pub(super) fn format_native_activity(item: &Value) -> Option<String> {
     match item.get("type").and_then(Value::as_str)? {
         "sleep" => {
             let duration = item.get("durationMs").and_then(Value::as_u64)?;
