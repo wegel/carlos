@@ -29,7 +29,7 @@ fn f7_cycles_dictation_profiles() {
         app.dictation_status_label(),
         Some("DICTATING AUTO [French]".to_string())
     );
-    assert_eq!(*app.status_text(), "dictation recording");
+    assert_eq!(app.view.status_hint.as_deref(), Some("dictation recording"));
 }
 
 #[test]
@@ -204,7 +204,7 @@ fn escape_key_disables_ralph_mode() {
     ));
     assert!(!app.ralph_enabled());
     assert!(!app.has_pending_ralph_continuation());
-    assert_eq!(*app.status_text(), "ralph off");
+    assert_eq!(*app.session.status(), "ralph off");
 }
 
 fn build_rewind_fork_response() -> String {

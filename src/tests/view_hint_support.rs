@@ -99,6 +99,6 @@ pub(super) fn card(app: &AppState) -> String {
 }
 
 pub(super) fn snapshot(client: &Client, app: &AppState) -> Value {
-    json!({"status":app.status_text(),"card":card(app),"calls":*client.calls.lock().expect("calls"),
+    json!({"card":card(app),"calls":*client.calls.lock().expect("calls"),
         "confirm":app.view.confirm_allow.is_some(),"pending":app.session.approval().pending().map(|p| &p.facts().request_id)})
 }

@@ -118,7 +118,7 @@ impl AppState {
             return;
         }
 
-        let update = self.session.truncate_at(idx);
+        let dirty_from = self.session.truncate_at(idx);
         self.view.viewport.selection = None;
         self.view.viewport.mouse_drag_mode = super::selection::MouseDragMode::Undecided;
         self.view.viewport.auto_follow_bottom = true;
@@ -129,7 +129,7 @@ impl AppState {
             .min(self.session.messages().len());
         self.summaries.retain_items(&self.session.messages());
         self.input_history.retain_entries(&self.session.messages());
-        self.apply_session_update(update);
+        self.mark_transcript_dirty_from(dirty_from);
     }
 
     pub(super) fn mark_user_turn_submitted(&mut self) {

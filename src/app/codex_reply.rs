@@ -9,7 +9,7 @@ use crate::session::entry_id::EntryId;
 
 /// Build only the selected callback's native response and retain drafts on failure.
 pub(super) fn respond(client: &dyn BackendClient, app: &mut AppState, choice: ApprovalChoice) {
-    let Some(card_id) = app.session.approval().pending().and_then(|p| p.entry_id()) else {
+    let Some(card_id) = app.session.approval().pending().map(|p| p.entry_id()) else {
         return;
     };
     let Some(pending) = app.session.approval_answer(card_id) else {
@@ -47,17 +47,15 @@ pub(super) fn respond(client: &dyn BackendClient, app: &mut AppState, choice: Ap
             return;
         }
     };
-    if !app.session.begin_approval_answer(card_id) {
-        return;
-    }
     if pending.kind == ApprovalRequestKind::CodexForm
         && answer["action"] == "accept"
         && entry.params["mode"] == "form"
     {
+        app.session.begin_approval_answer(card_id);
         validate_answer(client, app, card_id, id, &answer);
         return;
     }
-    send(client, app, card_id, answer);
+    send_answer(client, app, id, answer);
 }
 
 fn validate_answer(
@@ -97,12 +95,16 @@ pub(super) fn send(
         return;
     };
     let id = pending.request_id.clone();
-    match client.respond(&id, answer) {
+    send_answer(client, app, &id, answer);
+}
+
+fn send_answer(client: &dyn BackendClient, app: &mut AppState, id: &Value, answer: Value) {
+    match client.respond(id, answer) {
         Ok(()) => {
-            retire(app, &id);
+            retire(app, id);
             app.set_status("Answer sent");
         }
-        Err(error) => reply_error(app, &id, &format!("Could not send answer: {error}")),
+        Err(error) => reply_error(app, id, &format!("Could not send answer: {error}")),
     }
 }
 

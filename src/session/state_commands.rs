@@ -7,7 +7,6 @@ impl SessionState {
     /// Store backend or turn status text.
     pub(crate) fn set_status(&mut self, text: impl Into<String>) {
         self.status = text.into();
-        self.status_revision += 1;
     }
 
     /// Adopt a thread id after the app has reset its backend-specific children.
@@ -42,10 +41,7 @@ impl SessionState {
     #[cfg(test)]
     /// Build the same saved suffix used by the old app test fixtures.
     pub(crate) fn set_turn_start_for_test(&mut self, start: Option<usize>) {
-        self.turn_boundary = start.map(|offset| super::turns::TurnBoundary {
-            offset,
-            first: self.messages.get(offset).map(|row| row.id),
-        });
+        self.turn_boundary = start.map(|offset| super::turns::TurnBoundary { offset });
     }
 
     #[cfg(test)]

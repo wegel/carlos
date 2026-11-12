@@ -181,7 +181,8 @@ fn activate(app: &mut AppState, pending: ApprovalRequestDraft, blocking: bool) {
         app.session.focus_approval(id, ApprovalQueue::Codex);
         app.codex.callbacks.focused = true;
     }
-    app.set_status("Codex has a pending request; F4 answers it");
+    app.set_status("Codex has a pending request");
+    app.set_hint("Codex has a pending request; F4 answers it");
 }
 
 /// Match native resolutions by exact ID and owning thread, including before UI focus.
@@ -202,28 +203,14 @@ pub(super) fn retire(app: &mut AppState, id: &Value) {
         .approval()
         .pending()
         .is_some_and(|pending| pending.facts().request_id == *id);
-    if active {
-        app.forget_pending_approval_hints();
-    }
-    for pending in app.session.approval().queued(ApprovalQueue::Codex) {
-        if &pending.facts().request_id == id {
-            app.view.approval_hints.remove(pending.entry_id());
-        }
-    }
-    let retired: Vec<_> = app
+    let retired = app
         .session
-        .approval()
-        .queued(ApprovalQueue::Codex)
-        .iter()
-        .filter(|p| p.facts().request_id == *id)
-        .filter_map(|p| p.entry_id())
-        .collect();
-    for entry in retired {
-        app.session.retire_approval(entry);
-    }
+        .retire_queued_approvals(id, ApprovalQueue::Codex);
+    app.drop_retired_approval_hints(retired);
     app.codex.callbacks.retire(id);
     if active {
-        app.session.promote_approval(ApprovalQueue::Codex);
+        let retired = app.session.promote_approval(ApprovalQueue::Codex);
+        app.drop_retired_approval_hints(retired);
         app.codex.callbacks.focused = app.session.approval().pending().is_some_and(|pending| {
             app.codex
                 .callbacks
@@ -244,9 +231,7 @@ pub(super) fn next(app: &mut AppState) {
             .queued(ApprovalQueue::Codex)
             .is_empty()
     {
-        let id = app.session.approval().queued(ApprovalQueue::Codex)[0]
-            .entry_id()
-            .expect("queued card");
+        let id = app.session.approval().queued(ApprovalQueue::Codex)[0].entry_id();
         app.session.focus_approval(id, ApprovalQueue::Codex);
     }
     if let Some(key) = app
@@ -290,9 +275,7 @@ pub(super) fn hide_nonblocking(app: &mut AppState) -> bool {
                     .is_some_and(|entry| entry.blocking)
             })
         {
-            let id = app.session.approval().queued(ApprovalQueue::Codex)[index]
-                .entry_id()
-                .expect("queued card");
+            let id = app.session.approval().queued(ApprovalQueue::Codex)[index].entry_id();
             app.session.focus_approval(id, ApprovalQueue::Codex);
             app.codex.callbacks.focused = true;
         }

@@ -12,12 +12,12 @@ fn replayed_start_cannot_reopen_a_terminal_turn() {
         let mut app = AppState::new("thread-root".to_string());
         notify_turn(&mut app, "turn/started", "turn-done", "inProgress");
         notify_turn(&mut app, "turn/completed", "turn-done", terminal_status);
-        let completed_status = app.status_text().clone();
+        let completed_status = app.session.status().clone();
 
         notify_turn(&mut app, "turn/started", "turn-done", "inProgress");
 
         assert_eq!(*app.session.active_turn_id(), None);
-        assert_eq!(*app.status_text(), completed_status);
+        assert_eq!(*app.session.status(), completed_status);
         assert!(app.session.turn_status_by_id()["turn-done"].is_terminal());
     }
 }
@@ -72,7 +72,7 @@ fn claude_interrupt_ends_the_requested_turn_once() {
         handle_notification_line(&mut app, &completion);
 
         assert_eq!(*app.session.active_turn_id(), None);
-        assert_eq!(*app.status_text(), "turn interrupted");
+        assert_eq!(*app.session.status(), "turn interrupted");
         assert_eq!(app.session.messages().len(), 1);
     }
 }

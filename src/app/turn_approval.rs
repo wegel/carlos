@@ -21,7 +21,7 @@ pub(super) fn respond_to_pending_approval(
         super::codex_reply::respond(client, app, choice);
         return;
     }
-    let Some(card_id) = app.session.approval().pending().and_then(|p| p.entry_id()) else {
+    let Some(card_id) = app.session.approval().pending().map(|p| p.entry_id()) else {
         return;
     };
     let Some(pending) = app.session.approval_answer(card_id) else {
@@ -34,9 +34,6 @@ pub(super) fn respond_to_pending_approval(
         return;
     }
 
-    if !app.session.begin_approval_answer(card_id) {
-        return;
-    }
     match client.respond(&pending.request_id, result) {
         Ok(_) => {
             super::claude_browser::finish_answer(app, &pending, choice);

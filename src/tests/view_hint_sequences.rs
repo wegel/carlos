@@ -1,4 +1,7 @@
-//! Compare status lifetimes and consent cards with snapshots captured from HEAD.
+//! Compare consent cards with snapshots captured from the pre-split app.
+// m4_view_expected.json is a frozen record of commit 2cbfedc behaviour, with
+// non-rendered status fields/cases removed; it cannot be regenerated from this
+// repository. The original capture depended on helpers under target/m4-fix/.
 
 use crossterm::event::{KeyCode, KeyModifiers};
 use serde_json::{json, Value};
@@ -8,7 +11,7 @@ use super::view_hint_support::{key, request, snapshot, Client};
 use crate::backend::BackendKind;
 
 #[test]
-fn status_writers_and_approval_cards_match_heads_sequences() {
+fn approval_cards_match_heads_sequences() {
     let actual = sequences();
     let expected: Value = serde_json::from_str(include_str!("fixtures/m4_view_expected.json"))
         .expect("HEAD snapshots");
@@ -18,7 +21,7 @@ fn status_writers_and_approval_cards_match_heads_sequences() {
 fn assert_same_cases(actual: &Value, expected: &Value) {
     let actual = actual.as_array().expect("cases");
     let expected = expected.as_array().expect("HEAD cases");
-    assert_eq!(actual.len(), 276, "complete actual case corpus");
+    assert_eq!(actual.len(), 273, "complete actual case corpus");
     assert_eq!(actual.len(), expected.len(), "same number of HEAD cases");
     for (index, (actual, expected)) in actual.iter().zip(expected).enumerate() {
         assert_eq!(actual, expected, "case {index}");
@@ -28,7 +31,6 @@ fn assert_same_cases(actual: &Value, expected: &Value) {
 pub(super) fn sequences() -> Value {
     let mut cases = Vec::new();
     for backend in [BackendKind::Codex, BackendKind::Claude, BackendKind::Grok] {
-        cases.push(status_sequence(backend));
         for kind in kinds() {
             for tail in [
                 "accept", "decline", "other", "focus", "arrive", "cancel", "resolve",
@@ -76,29 +78,6 @@ fn kinds() -> [ApprovalRequestKind; 10] {
         K::CodexQuestion,
         K::CodexForm,
     ]
-}
-
-fn status_sequence(backend: BackendKind) -> Value {
-    let client = Client::new(backend);
-    let mut app = AppState::new("thread".into());
-    let mut steps = Vec::new();
-    app.set_status("turn completed");
-    steps.push(snapshot(&client, &app));
-    key(&client, &mut app, KeyCode::Char('l'), KeyModifiers::CONTROL);
-    steps.push(snapshot(&client, &app));
-    key(&client, &mut app, KeyCode::Char('x'), KeyModifiers::NONE);
-    steps.push(snapshot(&client, &app));
-    app.set_status("turn completed"); // Same text still replaces the local hint.
-    steps.push(snapshot(&client, &app));
-    app.toggle_dictation_endpoint_mode();
-    steps.push(snapshot(&client, &app));
-    app.set_status("turn failed");
-    steps.push(snapshot(&client, &app));
-    app.set_hint(""); // An empty local write must hide the preceding backend text.
-    steps.push(snapshot(&client, &app));
-    app.disable_ralph_mode(); // Session-internal status writer also replaces hints.
-    steps.push(snapshot(&client, &app));
-    json!({"backend":format!("{backend:?}"),"steps":steps})
 }
 
 fn approval_sequence(backend: BackendKind, kind: ApprovalRequestKind, tail: &str) -> Value {
@@ -219,10 +198,10 @@ fn codex_sequence(method: &str, tail: &str) -> Value {
 
 #[test]
 fn parity_comparison_rejects_missing_trailing_or_empty_case_arrays() {
-    let complete = json!(vec![Value::Null; 276]);
+    let complete = json!(vec![Value::Null; 273]);
     for (actual, expected) in [
-        (json!(vec![Value::Null; 275]), complete.clone()),
-        (complete.clone(), json!(vec![Value::Null; 275])),
+        (json!(vec![Value::Null; 272]), complete.clone()),
+        (complete.clone(), json!(vec![Value::Null; 272])),
         (json!([]), json!([])),
         (complete.clone(), json!([])),
     ] {

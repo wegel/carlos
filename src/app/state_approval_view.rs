@@ -1,6 +1,8 @@
 //! Keep consent keys and their card hints in the terminal that received them.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+#[cfg(test)]
+use std::collections::HashSet;
 
 use super::claude_question_view::default_no_hint;
 use super::state::{AppState, PendingApprovalRequest};
@@ -30,13 +32,6 @@ impl ApprovalHints {
             card.hints.clear();
         }
     }
-
-    /// Forget a retired card without touching any other request.
-    pub(super) fn remove(&mut self, entry: Option<EntryId>) {
-        if let Some(entry) = entry {
-            self.cards.remove(&entry);
-        }
-    }
 }
 
 impl AppState {
@@ -45,24 +40,16 @@ impl AppState {
         self.session.approval().live()
     }
 
-    /// Drop strings for cards that a helper or connection discarded.
-    pub(super) fn retain_live_approval_hints(&mut self) {
-        let live: HashSet<_> = self
-            .live_approval_cards()
-            .filter_map(|p| p.entry_id())
-            .collect();
-        self.view
-            .approval_hints
-            .cards
-            .retain(|id, _| live.contains(id));
+    /// Drop hints for the cards retired by a session command.
+    pub(super) fn drop_retired_approval_hints(&mut self, retired: Vec<EntryId>) {
+        for id in retired {
+            self.view.approval_hints.cards.remove(&id);
+        }
     }
 
     #[cfg(test)]
     pub(super) fn assert_approval_hint_invariants(&self) {
-        let live: HashSet<_> = self
-            .live_approval_cards()
-            .filter_map(|p| p.entry_id())
-            .collect();
+        let live: HashSet<_> = self.live_approval_cards().map(|p| p.entry_id()).collect();
         assert!(self
             .view
             .approval_hints
@@ -78,7 +65,7 @@ impl AppState {
 
     /// Prepend the same hint as HEAD, including repeated consent after focus changes.
     pub(super) fn prepend_approval_hint(&mut self, hint: &str) {
-        if let Some(entry) = self.session.approval().pending().and_then(|p| p.entry_id()) {
+        if let Some(entry) = self.session.approval().pending().map(|p| p.entry_id()) {
             self.view
                 .approval_hints
                 .cards
@@ -95,9 +82,7 @@ impl AppState {
         pending: &'a PendingApprovalRequest,
     ) -> impl Iterator<Item = &'a str> {
         let payload = pending.facts().requested_permissions.as_ref();
-        let card = pending
-            .entry_id()
-            .and_then(|id| self.view.approval_hints.cards.get(&id));
+        let card = self.view.approval_hints.cards.get(&pending.entry_id());
         let fields = card.and_then(|card| card.claude_fields);
         let native = pending.facts().method == "claude/native" && fields.is_some();
         let browser = native && payload.is_some_and(|p| p["url"].is_string());
@@ -140,12 +125,5 @@ impl AppState {
             .chain(browser.then_some(
                 "Accept consents to this browser interaction; it does not confirm completion.",
             ))
-    }
-
-    /// Discard hints when this request leaves the active card for good.
-    pub(super) fn forget_pending_approval_hints(&mut self) {
-        self.view
-            .approval_hints
-            .remove(self.session.approval().pending().and_then(|p| p.entry_id()));
     }
 }

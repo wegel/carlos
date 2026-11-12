@@ -9,30 +9,28 @@ use super::models::{EntryDraft, MessageKind, Role, ToolOutputDetails};
 use super::state::SessionState;
 
 impl SessionState {
-    /// Apply a plain store command; the app retains its existing redraw order.
+    /// Append a draft and assign its transcript id.
     pub(crate) fn transcript_append(&mut self, draft: EntryDraft) -> EntryId {
-        let id = self.messages.append(draft);
-        self.observe_turn_append(self.messages.len() - 1);
-        id
+        self.messages.append(draft)
     }
 
-    /// Apply a plain store command; the app retains its existing redraw order.
+    /// Allocate a card id without appending a transcript row.
     pub(crate) fn transcript_allocate_card(&mut self) -> EntryId {
         self.messages.allocate_card()
     }
 
-    /// Apply a plain store command; the app retains its existing redraw order.
+    /// Remove source parts beyond the supplied count.
     pub(crate) fn transcript_retain_parts(&mut self, key: &BackendEntryKey, count: usize) {
         self.messages.retain_parts(key, count)
     }
 
-    /// Apply a plain store command; the app retains its existing redraw order.
+    /// Clear the transcript and its source indexes.
     #[cfg(test)]
     pub(crate) fn transcript_reset(&mut self) {
         self.messages.reset()
     }
 
-    /// Apply a plain store command; the app retains its existing redraw order.
+    /// Replace the row’s role, text, kind and file path.
     pub(crate) fn transcript_update(
         &mut self,
         index: usize,
@@ -44,27 +42,27 @@ impl SessionState {
         self.messages.update(index, role, text, kind, path)
     }
 
-    /// Apply a plain store command; the app retains its existing redraw order.
+    /// Append text to a row and optionally change its role.
     pub(crate) fn transcript_append_text(&mut self, index: usize, delta: &str, role: Option<Role>) {
         self.messages.append_text(index, delta, role)
     }
 
-    /// Apply a plain store command; the app retains its existing redraw order.
+    /// Set or clear the file path for a row.
     pub(crate) fn transcript_set_path(&mut self, index: usize, path: Option<String>) {
         self.messages.set_path(index, path)
     }
 
-    /// Apply a plain store command; the app retains its existing redraw order.
+    /// Change how a row’s contents are classified.
     pub(crate) fn transcript_set_kind(&mut self, index: usize, kind: MessageKind) {
         self.messages.set_kind(index, kind)
     }
 
-    /// Apply a plain store command; the app retains its existing redraw order.
+    /// Attach the tool’s output details to a row.
     pub(crate) fn transcript_set_tool(&mut self, index: usize, details: ToolOutputDetails) {
         self.messages.set_tool(index, details)
     }
 
-    /// Apply a plain store command; the app retains its existing redraw order.
+    /// Set a tool label and return the affected row index.
     pub(crate) fn transcript_set_label(
         &mut self,
         id: EntryId,
@@ -74,7 +72,7 @@ impl SessionState {
         self.messages.set_label(id, label, generated)
     }
 
-    /// Apply a plain store command; the app retains its existing redraw order.
+    /// Adopt history drafts that have no backend source keys.
     pub(crate) fn transcript_adopt_unkeyed(&mut self, drafts: Vec<EntryDraft>, mode: HistoryMode) {
         self.messages.adopt_unkeyed(drafts, mode)
     }

@@ -82,11 +82,13 @@ fn review_ownership_first_allow_must_preserve_request_facts() {
     );
     assert_eq!(
         app.view.confirm_allow,
-        app.session
-            .approval()
-            .pending()
-            .expect("pending")
-            .entry_id()
+        Some(
+            app.session
+                .approval()
+                .pending()
+                .expect("pending")
+                .entry_id()
+        )
     );
     assert_eq!(
         app.session
@@ -133,8 +135,10 @@ fn every_local_hint_and_first_consent_leave_all_session_fields_unchanged() {
             }
             let before = format!("{:?}", app.session);
             app.set_hint("editor field error");
+            assert_eq!(app.view.status_hint.as_deref(), Some("editor field error"));
             app.toggle_dictation_endpoint_mode();
             app.set_hint("");
+            assert_eq!(app.view.status_hint.as_deref(), Some(""));
             key(&client, &mut app, KeyCode::Char('x'), KeyModifiers::NONE);
             assert_eq!(format!("{:?}", app.session), before);
         }
@@ -206,7 +210,7 @@ fn duplicate_adoption_keeps_initial_guidance_and_second_accept_but_clears_extra_
             } else {
                 let copy = app
                     .session
-                    .approval_answer(original_id.expect("card id"))
+                    .approval_answer(original_id)
                     .expect("active answer target");
                 app.set_pending_approval(copy);
             }
@@ -288,7 +292,7 @@ fn queued_and_retired_copies_cannot_reuse_an_armed_card_id() {
         };
         let original_id = original.entry_id();
         let original = original.to_draft();
-        app.view.confirm_allow = original_id;
+        app.view.confirm_allow = Some(original_id);
         if !queued {
             app.clear_pending_approval();
         }
@@ -332,8 +336,7 @@ fn retired_card_cannot_return_through_queue_focus_or_answer_a_reused_native_id()
             .approval()
             .pending()
             .expect("original")
-            .entry_id()
-            .expect("issued id");
+            .entry_id();
         app.clear_pending_approval();
         assert!(app.session.approval().pending().is_none());
         if replacement {
@@ -346,17 +349,16 @@ fn retired_card_cannot_return_through_queue_focus_or_answer_a_reused_native_id()
                 "toolName":"Bash","input":{"command":"echo different"},"defaultToNo":true}),
             );
         }
-        let current = app.session.approval().pending().and_then(|p| p.entry_id());
+        let current = app.session.approval().pending().map(|p| p.entry_id());
         assert_ne!(current, Some(retired));
         for queue in [ApprovalQueue::Claude, ApprovalQueue::Codex] {
             app.session.focus_approval(retired, queue);
             assert_eq!(
-                app.session.approval().pending().and_then(|p| p.entry_id()),
+                app.session.approval().pending().map(|p| p.entry_id()),
                 current
             );
         }
         assert!(app.session.approval_answer(retired).is_none());
-        app.retain_live_approval_hints();
         accept(&client, &mut app);
         assert!(
             client.answers().is_empty(),

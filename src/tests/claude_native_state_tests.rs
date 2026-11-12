@@ -278,7 +278,7 @@ fn reset_keeps_every_active_queued_callback_draft_and_confirmation_until_its_exa
         );
     }
     let consent = app.live_approval_cards().next().expect("active").entry_id();
-    app.view.confirm_allow = consent;
+    app.view.confirm_allow = Some(consent);
     sdk(
         &mut app,
         json!({"type":"conversation_reset","session_id":"old","uuid":"reset","new_conversation_id":"opaque"}),
@@ -294,7 +294,7 @@ fn reset_keeps_every_active_queued_callback_draft_and_confirmation_until_its_exa
         ["queued-one", "queued-two"]
     );
     assert_eq!(app.claude.answers.drafts.len(), 3);
-    assert_eq!(app.view.confirm_allow, consent);
+    assert_eq!(app.view.confirm_allow, Some(consent));
     frame(
         &mut app,
         json!({"type":"event","event":"callback_cancelled","callbackId":"queued-one"}),

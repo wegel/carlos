@@ -76,7 +76,7 @@ fn native_completions_follow_prompt_and_item_facts_in_real_dispatch() {
     );
     assert!(app.session.active_turn_id().is_none());
     assert!(app.claude.prompts.entries.is_empty());
-    assert_eq!(*app.status_text(), "turn completed");
+    assert_eq!(*app.session.status(), "turn completed");
 }
 
 fn native_sdk(message: Value) -> Value {

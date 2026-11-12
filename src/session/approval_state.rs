@@ -50,7 +50,7 @@ pub(crate) struct ApprovalRequestDraft {
 /// A session-issued card whose id and request facts callers can only read.
 #[derive(Debug)]
 pub(crate) struct PendingApprovalRequest {
-    entry_id: Option<crate::session::entry_id::EntryId>,
+    entry_id: crate::session::entry_id::EntryId,
     facts: ApprovalRequestDraft,
     answer_submitted: bool,
 }
@@ -62,7 +62,7 @@ impl PendingApprovalRequest {
     }
 
     /// Read the card id issued by the session.
-    pub(crate) fn entry_id(&self) -> Option<crate::session::entry_id::EntryId> {
+    pub(crate) fn entry_id(&self) -> crate::session::entry_id::EntryId {
         self.entry_id
     }
 

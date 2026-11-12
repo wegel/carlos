@@ -19,7 +19,6 @@ fn active(app: &AppState) -> EntryId {
         .pending()
         .expect("pending")
         .entry_id()
-        .expect("accepted card id")
 }
 
 #[test]
@@ -64,9 +63,7 @@ fn claude_clear_keeps_process_card_ids_and_duplicate_clear_retires_rows_once() {
         receive_callback(&mut app, &callback("a"));
         let a = active(&app);
         receive_callback(&mut app, &callback("b"));
-        let b = app.session.approval().queued(ApprovalQueue::Claude)[0]
-            .entry_id()
-            .expect("queued card id");
+        let b = app.session.approval().queued(ApprovalQueue::Claude)[0].entry_id();
         let old = app.append_message(crate::app::Role::User, "old");
         let old = app.session.messages()[old].id;
         let clear = json!({"new_conversation_id":"reset"});
@@ -75,7 +72,7 @@ fn claude_clear_keeps_process_card_ids_and_duplicate_clear_retires_rows_once() {
         assert_eq!(active(&app), a);
         assert_eq!(
             app.session.approval().queued(ApprovalQueue::Claude)[0].entry_id(),
-            Some(b)
+            b
         );
         app.append_message(crate::app::Role::System, "before native init");
         let new = app.session.messages()[0].id;

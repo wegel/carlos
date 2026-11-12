@@ -12,8 +12,6 @@ pub(crate) struct SessionUpdate {
     pub(crate) dirty_from: Option<EntryId>,
     /// Rebuild all rows after replacing the transcript.
     pub(crate) transcript_reset: bool,
-    /// Rebuild from the new end after removing a suffix.
-    pub(crate) dirty_tail: bool,
 }
 
 impl SessionState {
@@ -38,7 +36,6 @@ impl SessionState {
     pub(crate) fn append_draft_message(&mut self, draft: EntryDraft) -> (usize, SessionUpdate) {
         self.messages.append(draft);
         let idx = self.messages.len() - 1;
-        self.observe_turn_append(idx);
         let dirty_from = self.coalesce_successive_read_summary_at(idx).unwrap_or(idx);
         (idx, self.dirty_entry(dirty_from))
     }
@@ -58,7 +55,6 @@ impl SessionState {
             file_path,
         });
         let idx = self.messages.len() - 1;
-        self.observe_turn_append(idx);
         (idx, self.dirty_entry(idx))
     }
 

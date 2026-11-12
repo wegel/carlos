@@ -3,7 +3,6 @@
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use super::entry_id::EntryId;
 use super::models::{Role, TurnStatus};
 #[cfg(test)]
 use super::ralph::RalphConfig;
@@ -15,7 +14,6 @@ use super::transcript_updates::SessionUpdate;
 #[cfg_attr(test, derive(Debug))]
 pub(super) struct TurnBoundary {
     pub(super) offset: usize,
-    pub(super) first: Option<EntryId>,
 }
 
 impl SessionState {
@@ -41,15 +39,6 @@ impl SessionState {
         let start = self.turn_suffix_start().unwrap_or(0);
         let index = self.messages.active_step(start)?;
         (self.messages[index].role == Role::Reasoning).then_some(index)
-    }
-
-    /// Record the first appended entry without using the id allocator as a cursor.
-    pub(super) fn observe_turn_append(&mut self, index: usize) {
-        if let Some(boundary) = &mut self.turn_boundary {
-            if index == boundary.offset {
-                boundary.first = Some(self.messages[index].id);
-            }
-        }
     }
 
     /// Store the supplied prompt path and stop markers for later toggles.
@@ -155,7 +144,6 @@ impl SessionState {
     pub(crate) fn mark_turn_started(&mut self) {
         self.turn_boundary = Some(TurnBoundary {
             offset: self.messages.len(),
-            first: None,
         });
     }
 

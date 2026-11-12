@@ -28,7 +28,7 @@ pub(super) struct ViewState {
     pub(super) dictation_io: DictationCaptureState,
     pub(super) viewport: ViewportState,
     pub(super) perf: Option<PerfMetrics>,
-    pub(super) status_hint: Option<(u64, String)>,
+    pub(super) status_hint: Option<String>,
     pub(super) approval_hints: ApprovalHints,
     pub(super) confirm_allow: Option<EntryId>,
 }

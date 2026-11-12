@@ -217,9 +217,9 @@ pub(super) fn fail_session(app: &mut AppState) {
     if super::claude_edit::waiting(app) {
         app.claude.history.edit = Some(super::claude_edit::EditState::Failed);
     }
-    app.session.clear_approval_queue(ApprovalQueue::Claude);
+    let retired = app.session.clear_approval_queue(ApprovalQueue::Claude);
+    app.drop_retired_approval_hints(retired);
     app.clear_pending_approval();
-    app.retain_live_approval_hints();
     fail_accepted_prompts(app);
     app.claude.activity = Default::default();
     app.claude.tasks.live.clear();

@@ -221,9 +221,7 @@ fn next_request(app: &mut AppState) {
     {
         return;
     }
-    let id = app.session.approval().queued(ApprovalQueue::Claude)[0]
-        .entry_id()
-        .expect("queued card");
+    let id = app.session.approval().queued(ApprovalQueue::Claude)[0].entry_id();
     app.session.focus_approval(id, ApprovalQueue::Claude);
     app.view.confirm_allow = None;
 }

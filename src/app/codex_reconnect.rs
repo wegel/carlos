@@ -23,11 +23,9 @@ pub(super) fn start(client: &dyn BackendClient, app: &mut AppState) {
             app.codex.connection.initial_rebuild = false;
             app.codex.epoch = app.codex.epoch.saturating_add(1);
             app.codex.callbacks = Default::default();
-            app.session.clear_approval_queue(ApprovalQueue::Codex);
-            if let Some(id) = app.session.approval().pending().and_then(|p| p.entry_id()) {
-                app.session.retire_approval(id);
-            }
-            app.retain_live_approval_hints();
+            let mut retired = app.session.clear_approval_queue(ApprovalQueue::Codex);
+            retired.extend(app.session.retire_active_approval());
+            app.drop_retired_approval_hints(retired);
             app.session.ralph_stop_after_failure();
             app.set_status(
                 "Reconnecting Codex; draft kept. Messages wait for the complete native snapshot",
@@ -109,11 +107,7 @@ fn hold(app: &mut AppState, event: Value, charged: usize) -> bool {
 
 fn ready(client: &dyn BackendClient, app: &mut AppState) {
     let Some(snapshot) = client.take_reconnect_snapshot(app.codex.connection.generation) else {
-        failed(
-            client,
-            app,
-            "Codex reconnect snapshot is unavailable; F5 retries",
-        );
+        failed(client, app, "Codex reconnect snapshot is unavailable");
         return;
     };
     let active =
@@ -131,7 +125,7 @@ fn ready(client: &dyn BackendClient, app: &mut AppState) {
         failed(
             client,
             app,
-            &format!("Could not rebuild Codex: {error}; draft kept; F5 retries"),
+            &format!("Could not rebuild Codex: {error}; draft kept"),
         );
         return;
     }
@@ -149,11 +143,12 @@ fn ready(client: &dyn BackendClient, app: &mut AppState) {
 
 fn failed(client: &dyn BackendClient, app: &mut AppState, message: &str) {
     drain(client, app);
-    super::codex_lifecycle::close(
+    super::codex_lifecycle::close_with_guidance(
         app,
         json!({"message":message})
             .as_object()
             .expect("failure object"),
+        "; F5 retries",
     );
     client.abort_connection();
 }

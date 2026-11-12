@@ -50,7 +50,7 @@ pub(super) fn receive_callback(app: &mut AppState, frame: &Value) {
     let entry = app
         .live_approval_cards()
         .find(|p| p.facts().request_id == id)
-        .and_then(|p| p.entry_id())
+        .map(|p| p.entry_id())
         .expect("session-issued callback id");
     app.view.approval_hints.register_callback(entry, has_fields);
 }
@@ -94,26 +94,14 @@ pub(super) fn cancel_callback(app: &mut AppState, id: &Value) {
     }
     if app.view.confirm_allow.is_some_and(|entry| {
         app.live_approval_cards()
-            .any(|pending| pending.entry_id() == Some(entry) && &pending.facts().request_id == id)
+            .any(|pending| pending.entry_id() == entry && &pending.facts().request_id == id)
     }) {
         app.view.confirm_allow = None;
     }
-    for pending in app.session.approval().queued(ApprovalQueue::Claude) {
-        if &pending.facts().request_id == id {
-            app.view.approval_hints.remove(pending.entry_id());
-        }
-    }
-    let retired: Vec<_> = app
+    let retired = app
         .session
-        .approval()
-        .queued(ApprovalQueue::Claude)
-        .iter()
-        .filter(|pending| &pending.facts().request_id == id)
-        .filter_map(|p| p.entry_id())
-        .collect();
-    for entry in retired {
-        app.session.retire_approval(entry);
-    }
+        .retire_queued_approvals(id, ApprovalQueue::Claude);
+    app.drop_retired_approval_hints(retired);
     if app
         .session
         .approval()

@@ -20,8 +20,6 @@ impl AppState {
             .and_then(|id| self.session.messages().position(id))
         {
             self.mark_transcript_dirty_from(index);
-        } else if update.dirty_tail {
-            self.mark_transcript_dirty_from(self.session.messages().len());
         }
     }
 

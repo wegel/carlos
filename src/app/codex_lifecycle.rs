@@ -9,6 +9,11 @@ use crate::session::approval_state::ApprovalQueue;
 
 /// Close the UI once; later frames cannot reopen a turn or an approval.
 pub(super) fn close(app: &mut AppState, params: &Map<String, Value>) {
+    close_with_guidance(app, params, "");
+}
+
+/// Keep retry keys in the view while recording the backend failure as a fact.
+pub(super) fn close_with_guidance(app: &mut AppState, params: &Map<String, Value>, guidance: &str) {
     if app.codex.connection.closed_generation == Some(app.codex.connection.generation) {
         return;
     }
@@ -42,8 +47,9 @@ pub(super) fn close(app: &mut AppState, params: &Map<String, Value>) {
     } else {
         "Codex stopped"
     };
-    app.append_message(Role::System, format!("{label}: {message}. F5 reconnects; drafts are kept. Unconfirmed input will not be resent."));
-    app.set_status(format!("{label}: {message}. F5 reconnects"));
+    app.append_message(Role::System, format!("{label}: {message}{guidance}. F5 reconnects; drafts are kept. Unconfirmed input will not be resent."));
+    app.set_status(format!("{label}: {message}"));
+    app.set_hint(format!("{label}: {message}{guidance}. F5 reconnects"));
 }
 
 /// Keep human input recoverable and discard automatic work after terminal closure.
@@ -91,10 +97,8 @@ fn clear_pending_controls(app: &mut AppState) {
             app.codex.connection.unreplayed_children.max(children);
     }
     app.codex.callbacks = Default::default();
-    app.session.clear_approval_queue(ApprovalQueue::Codex);
-    if let Some(id) = app.session.approval().pending().and_then(|p| p.entry_id()) {
-        app.session.retire_approval(id);
-    }
-    app.retain_live_approval_hints();
+    let mut retired = app.session.clear_approval_queue(ApprovalQueue::Codex);
+    retired.extend(app.session.retire_active_approval());
+    app.drop_retired_approval_hints(retired);
     app.session.clear_turn_boundary();
 }

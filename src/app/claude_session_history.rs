@@ -46,9 +46,9 @@ pub(super) fn switch_session(app: &mut AppState, generation: u64, id: &str) {
     }
     app.reset_for_forked_thread(id);
     app.claude = ClaudeUiState::default();
-    app.session.clear_approval_queue(ApprovalQueue::Claude);
+    let retired = app.session.clear_approval_queue(ApprovalQueue::Claude);
+    app.drop_retired_approval_hints(retired);
     app.view.confirm_allow = None;
-    app.retain_live_approval_hints();
     app.claude.enabled = true;
     app.claude.selection = selection;
     app.claude.generation = generation;

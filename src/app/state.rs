@@ -94,18 +94,17 @@ impl AppState {
     }
 
     pub(super) fn set_pending_approval(&mut self, approval: ApprovalRequestDraft) {
-        let previous = self.session.approval().pending().and_then(|p| p.entry_id());
-        self.session.set_pending_approval(approval);
-        let current = self.session.approval().pending().and_then(|p| p.entry_id());
-        if previous == current {
+        let before = self.session.approval().pending().map(|p| p.entry_id());
+        let retired = self.session.set_pending_approval(approval);
+        let current = self.session.approval().pending().map(|p| p.entry_id());
+        // A duplicate delivery keeps the active card; only its extra hint lines reset.
+        if current == before {
             self.view.approval_hints.clear_extra_lines(current);
-        } else {
-            self.view.approval_hints.remove(previous);
         }
+        self.drop_retired_approval_hints(retired);
     }
 
     pub(super) fn clear_pending_approval(&mut self) {
-        self.forget_pending_approval_hints();
         if let Some(id) = self
             .session
             .approval()
@@ -125,7 +124,8 @@ impl AppState {
         {
             self.claude.answers.drafts.remove(id);
         }
-        self.session.promote_approval(ApprovalQueue::Claude);
+        let retired = self.session.promote_approval(ApprovalQueue::Claude);
+        self.drop_retired_approval_hints(retired);
     }
 
     // --- Turn input queue ---

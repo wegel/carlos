@@ -79,7 +79,7 @@ fn replacing_a_card_with_the_same_native_id_requires_fresh_consent() {
                 .approval()
                 .queued(ApprovalQueue::Claude)
                 .iter()
-                .find(|p| p.entry_id() == Some(queued))
+                .find(|p| p.entry_id() == queued)
                 .expect("queued")
                 .to_draft();
         }
@@ -329,7 +329,7 @@ fn the_startup_picker_cannot_carry_an_old_apps_consent_or_hints() {
             .next()
             .expect("old card")
             .entry_id();
-        old.view.confirm_allow = consent;
+        old.view.confirm_allow = Some(consent);
         drop(old);
         let fresh = app(backend);
         assert!(fresh.session.approval().pending().is_none());

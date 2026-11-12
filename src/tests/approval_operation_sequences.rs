@@ -121,7 +121,7 @@ impl Sequence {
                 .approval()
                 .queued(ApprovalQueue::Claude)
                 .front()
-                .and_then(|p| p.entry_id())
+                .map(|p| p.entry_id())
                 .unwrap_or_else(|| EntryId::for_approval_test(Uuid::nil(), random)),
             3 if !self.known.is_empty() => self.known[0].unallocated_for_approval_test(),
             _ => EntryId::for_approval_test(Uuid::from_u128(0xfeed), random),
@@ -142,9 +142,18 @@ impl Sequence {
                 self.app.session.enqueue_approval(draft(random), queue);
             }
             5 | 6 => self.app.session.focus_approval(id, queue),
-            7 => self.app.session.promote_approval(queue),
-            8 => self.app.session.retire_approval(id),
-            9 => self.app.session.clear_approval_queue(queue),
+            7 => {
+                let retired = self.app.session.promote_approval(queue);
+                self.app.drop_retired_approval_hints(retired);
+            }
+            8 => {
+                let retired = self.app.session.retire_approval(id);
+                self.app.drop_retired_approval_hints(retired);
+            }
+            9 => {
+                let retired = self.app.session.clear_approval_queue(queue);
+                self.app.drop_retired_approval_hints(retired);
+            }
             10..=12 => self.accept(),
             13 => self.answer_target(id),
             14 => self.app.clear_pending_approval(),
@@ -174,7 +183,6 @@ impl Sequence {
             27 => self.check_submitted(id),
             _ => unreachable!(),
         };
-        self.app.retain_live_approval_hints();
     }
 
     fn observe_id(&mut self, id: EntryId) {
@@ -185,7 +193,7 @@ impl Sequence {
             .session
             .approval()
             .live()
-            .any(|p| p.entry_id() == Some(id))
+            .any(|p| p.entry_id() == id)
         {
             1
         } else if self.retired.contains(&id) {
@@ -203,11 +211,7 @@ impl Sequence {
     }
 
     fn active_id(&self) -> Option<EntryId> {
-        self.app
-            .session
-            .approval()
-            .pending()
-            .and_then(|p| p.entry_id())
+        self.app.session.approval().pending().map(|p| p.entry_id())
     }
 
     fn replace_history(&mut self, new: bool) {
@@ -283,7 +287,7 @@ impl Sequence {
             .session
             .approval()
             .live()
-            .map(|p| p.entry_id().expect("every live card has an id"))
+            .map(|p| p.entry_id())
             .collect();
         let count = self
             .app
@@ -305,7 +309,7 @@ impl Sequence {
             "a retired id cannot reappear"
         );
         for card in self.app.session.approval().live() {
-            let id = card.entry_id().expect("id");
+            let id = card.entry_id();
             if let Some(facts) = self.facts.get(&id) {
                 assert_eq!(facts, card.facts(), "one id always names the same facts");
             } else {

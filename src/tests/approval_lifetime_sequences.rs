@@ -1,4 +1,7 @@
 //! Compare every reachable card lifetime and callback kind with a HEAD-captured fixture.
+// m4_approval_lifetimes.json is a frozen record of commit 2cbfedc behaviour,
+// with only non-rendered status fields removed; it cannot be regenerated from
+// this repository. target/m4-fix4/capture.rs used external pre-split adapters.
 
 use crossterm::event::{Event, KeyCode, KeyModifiers};
 use serde_json::{json, Value};

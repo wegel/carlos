@@ -125,7 +125,7 @@ fn check_stream(backend: BackendKind, role: Role, complete: bool, mapped: bool) 
         update.dirty_from,
         (!complete).then(|| session.messages[1].id)
     );
-    assert!(!update.transcript_reset && !update.dirty_tail);
+    assert!(!update.transcript_reset);
     if !complete {
         let (_, update) = session.upsert_mapped_message(
             &key,
@@ -148,13 +148,7 @@ fn empty_tail_and_repeated_markers_preserve_incremental_reports() {
             for _ in 0..count {
                 session.append_message(Role::Assistant, "row");
             }
-            assert_eq!(
-                session.truncate_at(cut),
-                SessionUpdate {
-                    dirty_tail: true,
-                    ..SessionUpdate::default()
-                }
-            );
+            assert_eq!(session.truncate_at(cut), cut);
             assert_eq!(session.messages.len(), cut);
             let first = session.append_turn_interrupted_marker();
             assert_eq!(first.dirty_from, Some(session.messages[cut].id));
@@ -200,7 +194,7 @@ fn changing_any_request_fact_assigns_a_new_card_id() {
             !copied.same_request(&approval_draft()),
             "changed field {field}"
         );
-        session.set_pending_approval(copied);
+        assert_eq!(session.set_pending_approval(copied), vec![original]);
         assert_ne!(
             session.approval().pending().expect("new").entry_id(),
             original
@@ -214,17 +208,17 @@ fn identical_drafts_keep_only_the_active_card_and_queue_moves_keep_their_own_ids
     let mut session = SessionState::new("thread".into());
     session.set_pending_approval(approval_draft());
     let original = session.approval().pending().expect("original").entry_id();
-    session.set_pending_approval(approval_draft());
+    assert!(session.set_pending_approval(approval_draft()).is_empty());
     assert_eq!(
         session.approval().pending().expect("duplicate").entry_id(),
         original
     );
     let queued = session.enqueue_approval(approval_draft(), ApprovalQueue::Claude);
-    assert_ne!(Some(queued), original);
+    assert_ne!(queued, original);
     session.focus_approval(queued, ApprovalQueue::Claude);
     assert_eq!(
         session.approval().pending().expect("focused").entry_id(),
-        Some(queued)
+        queued
     );
     assert_eq!(
         session.approval().queued(ApprovalQueue::Claude)[0].entry_id(),
@@ -237,18 +231,14 @@ fn retired_ids_and_previous_namespaces_cannot_restore_consent() {
     use super::approval_state::ApprovalQueue;
     let mut session = SessionState::new("thread".into());
     session.set_pending_approval(approval_draft());
-    let retired = session
-        .approval()
-        .pending()
-        .expect("original")
-        .entry_id()
-        .expect("id");
-    session.retire_approval(retired);
+    let retired = session.approval().pending().expect("original").entry_id();
+    assert_eq!(session.retire_approval(retired), vec![retired]);
+    assert!(session.retire_approval(retired).is_empty());
     session.focus_approval(retired, ApprovalQueue::Claude);
     assert!(session.approval().pending().is_none());
     session.set_pending_approval(approval_draft());
     let fresh = session.approval().pending().expect("new card").entry_id();
-    assert_ne!(fresh, Some(retired));
+    assert_ne!(fresh, retired);
     session.reset_for_forked_thread();
     session.focus_approval(retired, ApprovalQueue::Codex);
     assert_eq!(

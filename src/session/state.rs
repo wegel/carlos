@@ -22,7 +22,6 @@ pub(crate) struct SessionState {
     pub(in crate::session) turn_status_by_id: HashMap<String, TurnStatus>,
     pub(in crate::session) command_render_overrides: HashMap<BackendEntryKey, String>,
     pub(in crate::session) status: String,
-    pub(in crate::session) status_revision: u64,
     pub(in crate::session) ralph_runtime: RalphRuntimeState,
     pub(in crate::session) approval: ApprovalState,
     pub(in crate::session) context_usage: Option<ContextUsage>,
@@ -42,7 +41,6 @@ impl SessionState {
             turn_status_by_id: HashMap::new(),
             command_render_overrides: HashMap::new(),
             status: String::new(),
-            status_revision: 0,
             ralph_runtime: RalphRuntimeState::new(),
             approval: ApprovalState::default(),
             context_usage: None,
@@ -91,11 +89,6 @@ impl SessionState {
     #[cfg(test)]
     pub(crate) fn status(&self) -> &String {
         &self.status
-    }
-
-    /// Identify the latest backend or turn status write, including repeated text.
-    pub(crate) fn status_revision(&self) -> u64 {
-        self.status_revision
     }
 
     /// Borrow the current ralph runtime.

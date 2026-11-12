@@ -39,14 +39,11 @@ impl SessionState {
 
     /// Remove a suffix without dirtying an earlier retained entry.
     #[cfg(test)]
-    pub(crate) fn truncate_at(&mut self, index: usize) -> SessionUpdate {
+    pub(crate) fn truncate_at(&mut self, index: usize) -> usize {
         if let Some(id) = self.messages.get(index).map(|message| message.id) {
             self.messages.truncate_before(id);
         }
         self.command_render_overrides.clear();
-        SessionUpdate {
-            dirty_tail: true,
-            ..SessionUpdate::default()
-        }
+        self.messages.len()
     }
 }

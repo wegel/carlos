@@ -132,7 +132,7 @@ pub(super) fn accept(client: &Client, app: &mut AppState) {
                 .first_accepts
                 .lock()
                 .expect("consent log")
-                .insert(pending.entry_id().expect("unique card identity"))
+                .insert(pending.entry_id())
     });
     let before = client.answers();
     let fields = super::native_questions::draft(app).is_some_and(|d| !d.fields.is_empty());
@@ -178,7 +178,7 @@ pub(super) fn fill(client: &Client, app: &mut AppState) {
 
 pub(super) fn snapshot(client: &Client, app: &AppState) -> Value {
     json!({"calls":*client.calls.lock().expect("backend log"),
-        "card":super::view_hint_support::card(app),"status":app.status_text(),
+        "card":super::view_hint_support::card(app),
         "pending":app.session.approval().pending().map(|p| &p.facts().request_id),
         "details":app.session.approval().pending()
             .map(|p| app.approval_detail_lines(p).collect::<Vec<_>>()),

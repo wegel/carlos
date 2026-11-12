@@ -68,7 +68,7 @@ fn submit_turn_text_sends_claude_steer_when_turn_active() {
     assert_eq!(app.session.messages()[0].role, Role::User);
     assert_eq!(app.session.messages()[0].text, "follow up");
     assert_eq!(app.input_history_len(), 1);
-    assert_eq!(*app.status_text(), "sent steer");
+    assert_eq!(*app.session.status(), "sent steer");
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn submit_turn_text_queues_behind_existing_claude_turns() {
         .expect("second queued turn");
     assert_eq!(first.text, "first");
     assert_eq!(second.text, "second");
-    assert_eq!(*app.status_text(), "queued behind pending Claude turn");
+    assert_eq!(*app.session.status(), "queued behind pending Claude turn");
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn submit_turn_text_does_not_queue_behind_delayed_ralph_continuation() {
 
     assert_eq!(app.session.messages().len(), 1);
     assert_eq!(app.session.messages()[0].text, "user prompt");
-    assert_eq!(*app.status_text(), "sent turn");
+    assert_eq!(*app.session.status(), "sent turn");
 }
 
 #[test]

@@ -66,7 +66,7 @@ fn submit_turn_text_sends_grok_follow_up_while_turn_active() {
     assert_eq!(app.session.messages().len(), 1);
     assert_eq!(app.session.messages()[0].text, "follow up");
     assert_eq!(app.session.active_turn_id().as_deref(), Some("turn-1"));
-    assert_eq!(*app.status_text(), "sent turn");
+    assert_eq!(*app.session.status(), "sent turn");
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn submit_turn_text_queues_behind_existing_grok_turns() {
     submit_turn_text(&client, &mut app, "second".to_string());
 
     assert!(client.calls.lock().expect("calls lock").is_empty());
-    assert_eq!(*app.status_text(), "queued behind pending Grok turn");
+    assert_eq!(*app.session.status(), "queued behind pending Grok turn");
 }
 
 #[test]
