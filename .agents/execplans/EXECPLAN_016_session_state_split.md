@@ -21,7 +21,7 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 - [x] (2026-11-11 UTC) Build the unchanged source with `--release --no-default-features`; run the synthetic case three times and the repository history fixture three times. Record commands and results below.
 - [x] (2026-11-11 UTC) Milestone 0: `cmake`, `clang` and Bun 1.3.10 installed in the development container. On Rust 1.100.0 with default features: release build passes, `cargo test` passes (705 passed, 1 ignored), `bash scripts/test.sh` passes (165 tests). The binding before-change baseline is the Rust 1.100.0 one under `Artifacts and Notes`.
 - [x] (2026-11-11 UTC) Milestone 1: plain types live in `src/session/models.rs`, styled types in `src/app/view_models.rs`. 35 files, all in the allowed list. Gates: `cargo test` 705 passed, `scripts/test.sh` 165 workflows passed, review verdict PASS (see `Reviews`).
-- [ ] Milestone 2: assign entry ids and replace backend-to-index maps.
+- [x] (2026-11-12 UTC) Milestone 2: the transcript store in `src/session/` owns entries and assigns `EntryId`; backend maps, prompt records, approval cards and label jobs hold ids, not positions. Two review rounds (FAIL with 5 MAJOR, then PASS on the delta). Gates: `cargo test` 822 passed, 171 terminal workflows, no speed loss.
 - [x] (2026-11-12 UTC) Milestone 3: the Claude backend translates native events; the turn-end state machine runs when the app handles a line (`BackendClient::handle_event`, called in `src/app/input_dispatch.rs`). One squashed commit on `main` (`ac02f0a`, 91 files). Seven review rounds; final verdict PASS. Gates: `cargo test` 778 passed in 3.7 s, 168 terminal workflows, no speed loss.
 - [ ] Milestone 4: introduce the two state owners and move transcript and turn facts.
 - [ ] Milestone 5: separate shared settings, prompt history, labels, and usage helpers.
@@ -82,6 +82,15 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 - Observation: final milestone 3 speed check on `main` (`ac02f0a`), 7 alternated runs, old then new medians: replay 46.73 / 46.49 ms, full layout 14.61 / 14.57, full draw 3.41 / 3.41, scroll p50 0.70 / 0.70, typing p50 0.59 / 0.60.
   Evidence: integrator runs of 2026-11-12.
 
+- Observation: milestone 2 changes what the user sees in three Claude cases. All three follow from the binding identity rules and correct duplicates or overwrites of the previous code. (1) On resume, the SDK can send again an assistant message tied to in-flight tool calls; the previous code added a second assistant-text row, the store now reuses the original row. This is reachable with real data. (2) A tool id that prints like a Carlos cursor id no longer overwrites the reasoning or text row; no real capture shows such an id. (3) A repeated prompt UUID in history yields one prompt row and one rewind entry, not two; the helper already removes duplicate UUIDs, so this needs manufactured input.
+  Evidence: 28,218 mutated histories (10,122 Codex, 7,000 Claude, 11,096 Grok): 25,915 match the previous commit exactly, 2,303 Claude histories differ only in these declared classes; reviewer's replay probes. Details: `.agents/reports/exec016-m2-fixes.md`.
+
+- Observation: the mutated-history comparison found two defects that neither the tests nor the first review found (tool facts attached by a row's final role; prompts recorded for keys that belonged to other rows).
+  Evidence: `.agents/reports/exec016-m2-fixes.md`. Third time this method pays; it is mandatory for milestones 4 to 10.
+
+- Observation: milestone 2 speed check, 7 alternated runs, old then new medians: replay 46.04 / 45.76 ms, full layout 14.36 / 14.25, full draw 3.37 / 3.40, scroll p50 0.70 / 0.70, typing p50 0.59 / 0.60, append p50 0.60 / 0.60.
+  Evidence: integrator runs of 2026-11-12 on a quiet machine.
+
 ## Decision Log
 
 
@@ -139,6 +148,10 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
   Review 5 (after `7c03e0f`): one MAJOR (stdout EOF set the `stopped` flag, so a later overflow no longer stopped a live helper), one MINOR (two test functions over 60 lines).
   Review 6 (after `35ebe60`): one MAJOR (client drop joined pipe workers and could wait without limit; caused by an integrator brief that wrongly required "no thread outlives the client"), one MINOR (test fixture and descriptor 100).
   Review 7 (delta review of `35ebe60..451be41`, saved reviewer session `01a1cd74-5188-7fd3-98fa-142c2da35f18`): PASS, no finding. Noted limit that `main` shares: each session replacement leaves blocked reader threads and pipe descriptors while a grandchild of the helper holds a pipe; they end when the holder exits.
+
+- Milestone 2, engineering reviewer, saved session `01a1cdba-d79e-7410-b8c0-03cef56ff2ad` (2026-11-12).
+  Review 1: FAIL. MAJOR: history reload skipped invisible native user messages (wrong prompt position and kind); two Claude sources with the same printed id shared a row; the history parser merged repeated keys before the store applied the ambiguous-key rule; a native command override hid a tool label (visible change); complete-history read grouping quadratic (also on the previous commit). MINOR: superseded Claude cursor aliases unbounded; the differential reference was not the unchanged old algorithm.
+  Review 2 (delta, same session): PASS, no finding. Read grouping measured linear (2,057 steps for 1,024 reads, 8,201 for 4,096). All 14 unmutated fixture histories match the previous commit exactly.
 
 ## Outcomes & Retrospective
 
