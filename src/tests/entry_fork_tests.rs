@@ -19,7 +19,7 @@ fn fork_remints_prefix_and_retires_old_ids_for_all_backend_paths() {
             for _ in 0..length {
                 app.append_message(Role::Assistant, "copied");
             }
-            let prefix = app.messages.entries().to_vec();
+            let prefix = app.session.messages().entries().to_vec();
             let old: Vec<_> = prefix.iter().map(|row| row.id).collect();
             let items: Vec<_> = (0..length)
                 .map(|index| json!({"id":index.to_string(),"type":"agentMessage","text":"copied"}))
@@ -44,10 +44,16 @@ fn fork_remints_prefix_and_retires_old_ids_for_all_backend_paths() {
                     }
                 }
             }
-            assert_eq!(app.thread_id, "fork");
-            assert_eq!(app.messages.len(), length);
-            assert!(old.iter().all(|id| app.messages.entry(*id).is_none()));
-            assert!(app.messages.iter().all(|row| !old.contains(&row.id)));
+            assert_eq!(app.session.thread_id(), "fork");
+            assert_eq!(app.session.messages().len(), length);
+            assert!(old
+                .iter()
+                .all(|id| app.session.messages().entry(*id).is_none()));
+            assert!(app
+                .session
+                .messages()
+                .iter()
+                .all(|row| !old.contains(&row.id)));
         }
     }
 }
@@ -58,15 +64,15 @@ fn failed_drafts_and_forks_keep_the_old_entries_and_native_bindings() {
         for grok in [false, true] {
             let mut app = AppState::new("old".into());
             app.ensure_item_placeholder("a", Role::Assistant);
-            let id = app.messages[0].id;
+            let id = app.session.messages()[0].id;
             let result = if grok {
                 apply_grok_rewound_history(&mut app, response, Vec::new())
             } else {
                 apply_forked_thread_history(&mut app, response)
             };
             assert!(result.is_err());
-            assert_eq!(app.thread_id, "old");
-            assert_eq!(app.messages[0].id, id);
+            assert_eq!(app.session.thread_id(), "old");
+            assert_eq!(app.session.messages()[0].id, id);
             assert_eq!(app.item_message_index("a"), Some(0));
         }
     }
@@ -78,21 +84,23 @@ fn claude_start_failure_after_adoption_keeps_the_new_session_and_ids() {
         let mut app = AppState::new("old".into());
         app.claude.enabled = true;
         let old = app.append_message(Role::Assistant, "old");
-        let old = app.messages[old].id;
+        let old = app.session.messages()[old].id;
         switch_session(&mut app, 2, "fork");
         for _ in 0..length {
             app.append_message(Role::Assistant, "new");
         }
-        let ids: Vec<_> = app.messages.iter().map(|row| row.id).collect();
+        let ids: Vec<_> = app.session.messages().iter().map(|row| row.id).collect();
         handle_server_message_line(
             &mut app,
             &json!({"method":"claude/sessionStartFailed",
             "params":{"generation":2,"message":"startup failed"}})
             .to_string(),
         );
-        assert_eq!(app.thread_id, "fork");
-        assert!(app.messages.entry(old).is_none());
-        assert!(ids.iter().all(|id| app.messages.entry(*id).is_some()));
+        assert_eq!(app.session.thread_id(), "fork");
+        assert!(app.session.messages().entry(old).is_none());
+        assert!(ids
+            .iter()
+            .all(|id| app.session.messages().entry(*id).is_some()));
     }
 }
 

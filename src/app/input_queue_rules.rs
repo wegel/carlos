@@ -110,7 +110,8 @@ pub(in crate::app) fn try_submit_queued_turn(
     if !crate::app::codex_queue::allows_automatic(app) {
         return false;
     }
-    if app.ralph_runtime.next_input_origin(now) == Some(crate::backend::PromptOrigin::Automatic)
+    if app.session.ralph_runtime().next_input_origin(now)
+        == Some(crate::backend::PromptOrigin::Automatic)
         && crate::app::codex_goals::ralph_error(app).is_some()
     {
         return false;

@@ -6,7 +6,8 @@ use super::approval_parsing::pending_approval_from_request;
 use super::claude_question_state::{safe_label, safe_text, NativeDraft};
 use super::codex_state::{CodexCallback, CodexCallbacks};
 use super::notifications::ServerRequestAction;
-use super::state::{AppState, PendingApprovalRequest};
+use super::state::{AppState, ApprovalRequestDraft};
+use crate::session::approval_state::ApprovalQueue;
 
 #[path = "codex_callback_route.rs"]
 mod routing;
@@ -55,6 +56,7 @@ pub(super) fn receive(
             blocking,
             revision: 0,
             candidate: None,
+            candidate_card: None,
             checking: false,
             interrupting: false,
             bytes,
@@ -102,7 +104,7 @@ fn build_request(
     method: &str,
     params: &Value,
     id: Value,
-) -> Result<(PendingApprovalRequest, NativeDraft), String> {
+) -> Result<(ApprovalRequestDraft, NativeDraft), String> {
     validate_owner(method, params)?;
     let (mut pending, draft) = if matches!(
         method,
@@ -170,19 +172,14 @@ fn validate_owner(method: &str, params: &Value) -> Result<(), String> {
     Ok(())
 }
 
-fn activate(app: &mut AppState, mut pending: PendingApprovalRequest, blocking: bool) {
-    pending.entry_id = Some(app.messages.allocate_card());
-    if app.approval.pending.is_none() {
-        app.approval.pending = Some(pending);
+fn activate(app: &mut AppState, pending: ApprovalRequestDraft, blocking: bool) {
+    let id = app.session.enqueue_approval(pending, ApprovalQueue::Codex);
+    if app.session.approval().pending().is_none() {
+        app.session.focus_approval(id, ApprovalQueue::Codex);
         app.codex.callbacks.focused = blocking;
     } else if blocking && !app.codex.callbacks.focused {
-        if let Some(previous) = app.approval.pending.take() {
-            app.codex.callbacks.queue.push_back(previous);
-        }
-        app.approval.pending = Some(pending);
+        app.session.focus_approval(id, ApprovalQueue::Codex);
         app.codex.callbacks.focused = true;
-    } else {
-        app.codex.callbacks.queue.push_back(pending);
     }
     app.set_status("Codex has a pending request; F4 answers it");
 }
@@ -201,19 +198,38 @@ pub(super) fn resolved(app: &mut AppState, params: &Value) {
 /// Remove an answered/cancelled callback without discarding another request's draft.
 pub(super) fn retire(app: &mut AppState, id: &Value) {
     let active = app
-        .approval
-        .pending
-        .as_ref()
-        .is_some_and(|pending| pending.request_id == *id);
+        .session
+        .approval()
+        .pending()
+        .is_some_and(|pending| pending.facts().request_id == *id);
+    if active {
+        app.forget_pending_approval_hints();
+    }
+    for pending in app.session.approval().queued(ApprovalQueue::Codex) {
+        if &pending.facts().request_id == id {
+            app.view.approval_hints.remove(pending.entry_id());
+        }
+    }
+    let retired: Vec<_> = app
+        .session
+        .approval()
+        .queued(ApprovalQueue::Codex)
+        .iter()
+        .filter(|p| p.facts().request_id == *id)
+        .filter_map(|p| p.entry_id())
+        .collect();
+    for entry in retired {
+        app.session.retire_approval(entry);
+    }
     app.codex.callbacks.retire(id);
     if active {
-        app.approval.pending = app.codex.callbacks.queue.pop_front();
-        app.codex.callbacks.focused = app.approval.pending.as_ref().is_some_and(|pending| {
+        app.session.promote_approval(ApprovalQueue::Codex);
+        app.codex.callbacks.focused = app.session.approval().pending().is_some_and(|pending| {
             app.codex
                 .callbacks
-                .get(&pending.request_id)
+                .get(&pending.facts().request_id)
                 .is_some_and(|entry| entry.blocking)
-                || CodexCallbacks::key(&pending.request_id)
+                || CodexCallbacks::key(&pending.facts().request_id)
                     .is_some_and(|key| app.codex.callbacks.opened.contains(&key))
         });
     }
@@ -221,17 +237,23 @@ pub(super) fn retire(app: &mut AppState, id: &Value) {
 
 /// Cycle between native requests; a hidden nonblocking question opens on the first F4.
 pub(super) fn next(app: &mut AppState) {
-    if app.codex.callbacks.focused && !app.codex.callbacks.queue.is_empty() {
-        if let Some(active) = app.approval.pending.take() {
-            app.codex.callbacks.queue.push_back(active);
-        }
-        app.approval.pending = app.codex.callbacks.queue.pop_front();
+    if app.codex.callbacks.focused
+        && !app
+            .session
+            .approval()
+            .queued(ApprovalQueue::Codex)
+            .is_empty()
+    {
+        let id = app.session.approval().queued(ApprovalQueue::Codex)[0]
+            .entry_id()
+            .expect("queued card");
+        app.session.focus_approval(id, ApprovalQueue::Codex);
     }
     if let Some(key) = app
-        .approval
-        .pending
-        .as_ref()
-        .and_then(|pending| CodexCallbacks::key(&pending.request_id))
+        .session
+        .approval()
+        .pending()
+        .and_then(|pending| CodexCallbacks::key(&pending.facts().request_id))
     {
         app.codex.callbacks.opened.insert(key);
         app.codex.callbacks.focused = true;
@@ -241,32 +263,37 @@ pub(super) fn next(app: &mut AppState) {
 /// Restore the main composer only when the visible request is nonblocking.
 pub(super) fn hide_nonblocking(app: &mut AppState) -> bool {
     let nonblocking = app
-        .approval
-        .pending
-        .as_ref()
-        .and_then(|pending| app.codex.callbacks.get(&pending.request_id))
+        .session
+        .approval()
+        .pending()
+        .and_then(|pending| app.codex.callbacks.get(&pending.facts().request_id))
         .is_some_and(|entry| !entry.blocking);
     if nonblocking {
         if let Some(key) = app
-            .approval
-            .pending
-            .as_ref()
-            .and_then(|pending| CodexCallbacks::key(&pending.request_id))
+            .session
+            .approval()
+            .pending()
+            .and_then(|pending| CodexCallbacks::key(&pending.facts().request_id))
         {
             app.codex.callbacks.opened.remove(&key);
         }
         app.codex.callbacks.focused = false;
-        if let Some(index) = app.codex.callbacks.queue.iter().position(|pending| {
-            app.codex
-                .callbacks
-                .get(&pending.request_id)
-                .is_some_and(|entry| entry.blocking)
-        }) {
-            let blocking = app.codex.callbacks.queue.remove(index);
-            if let Some(active) = app.approval.pending.take() {
-                app.codex.callbacks.queue.push_back(active);
-            }
-            app.approval.pending = blocking;
+        if let Some(index) = app
+            .session
+            .approval()
+            .queued(ApprovalQueue::Codex)
+            .iter()
+            .position(|pending| {
+                app.codex
+                    .callbacks
+                    .get(&pending.facts().request_id)
+                    .is_some_and(|entry| entry.blocking)
+            })
+        {
+            let id = app.session.approval().queued(ApprovalQueue::Codex)[index]
+                .entry_id()
+                .expect("queued card");
+            app.session.focus_approval(id, ApprovalQueue::Codex);
             app.codex.callbacks.focused = true;
         }
     }
@@ -276,16 +303,17 @@ pub(super) fn hide_nonblocking(app: &mut AppState) -> bool {
 /// Fence an answer that the user edited while its worker was validating it.
 pub(super) fn edited(app: &mut AppState) {
     let Some(id) = app
-        .approval
-        .pending
-        .as_ref()
-        .map(|pending| pending.request_id.clone())
+        .session
+        .approval()
+        .pending()
+        .map(|pending| pending.facts().request_id.clone())
     else {
         return;
     };
     if let Some(entry) = app.codex.callbacks.get_mut(&id) {
         entry.revision = entry.revision.saturating_add(1);
         entry.candidate = None;
+        entry.candidate_card = None;
         entry.checking = false;
     }
 }
@@ -321,22 +349,27 @@ pub(super) fn checked(app: &mut AppState, params: &Value) -> Option<ServerReques
             entry.draft.error = Some(safe_text(error));
         }
         entry.candidate = None;
+        entry.candidate_card = None;
         return None;
     }
     let result = entry.candidate.take()?;
-    Some(ServerRequestAction::ReplyNative {
-        id: id.clone(),
-        result,
-    })
+    let card_id = entry.candidate_card.take()?;
+    Some(ServerRequestAction::ReplyNative { card_id, result })
 }
 
 /// Keep reply/worker failures beside their own answer field.
-pub(super) fn reply_error(app: &mut AppState, id: &Value, error: &str) {
+pub(super) fn reply_hint(app: &mut AppState, id: &Value, error: &str) {
     if let Some(entry) = app.codex.callbacks.get_mut(id) {
         entry.checking = false;
         entry.draft.error = Some(safe_text(error));
         entry.draft.viewport.scroll.set(0);
     }
+    app.set_hint(safe_text(error));
+}
+
+/// Keep a failed backend reply as a session fact as well as an editor error.
+pub(super) fn reply_error(app: &mut AppState, id: &Value, error: &str) {
+    reply_hint(app, id, error);
     app.set_status(safe_text(error));
 }
 

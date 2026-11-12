@@ -50,11 +50,11 @@ fn failed_read_headers_and_grouped_blocks_keep_both_count_passes_in_sync() {
             expected
         );
         let mut app = AppState::new("thread".into());
-        app.messages.adopt_unkeyed(
+        app.session.transcript_adopt_unkeyed(
             vec![read.clone().into(), read.clone().into()],
             crate::session::history_identity::HistoryMode::NewConversation,
         );
-        app.tool_output.mode = ToolOutputMode::Compact;
+        app.view.tool_output.mode = ToolOutputMode::Compact;
         app.ensure_rendered_lines(width, None);
         let count = app.rendered_line_count();
         let lines = app.snapshot_rendered_lines();
@@ -113,7 +113,7 @@ fn mouse_selection_uses_the_same_gutter_as_the_terminal_after_resize() {
         terminal
             .draw(|frame| render_main_view(frame, &mut app))
             .expect("draw after resize");
-        let row = u16::from(app.layout.active.is_flow());
+        let row = u16::from(app.view.layout.active.is_flow());
         for (kind, column) in [
             (MouseEventKind::Down(MouseButton::Left), content_x + 2),
             (MouseEventKind::Drag(MouseButton::Left), content_x + 4),
@@ -129,7 +129,7 @@ fn mouse_selection_uses_the_same_gutter_as_the_terminal_after_resize() {
                 size,
             );
         }
-        let selection = app.viewport.selection.expect("drag selects text");
+        let selection = app.view.viewport.selection.expect("drag selects text");
         assert_eq!(app.selected_text(selection), "cde");
     }
 }

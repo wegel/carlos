@@ -39,7 +39,7 @@ pub(super) fn draw_input_area(
     );
     for row in 0..input_layout.input_height {
         let y = y0 + row;
-        if !app.layout.uses_flow(size) {
+        if !app.view.layout.uses_flow(size) {
             draw_str(
                 buf,
                 0,
@@ -74,7 +74,7 @@ fn draw_session_placeholder(
     if !app.input_is_empty() || app.rewind_mode() {
         return;
     }
-    if let Some(name) = app.thread_name.as_deref() {
+    if let Some(name) = app.session.thread_name().as_deref() {
         let name = &name[..split_at_cells(name, layout.text_width)];
         let name_width = visual_width(name);
         if name_width > layout.text_width {
@@ -100,10 +100,10 @@ pub(super) fn draw_overlays(buf: &mut Buffer, size: TerminalSize, app: &AppState
     if app.codex.goals.show {
         crate::app::codex_goal_view::draw(buf, app, size);
     }
-    if app.viewport.show_help {
+    if app.view.viewport.show_help {
         draw_help_overlay(buf, size, app);
     }
-    if let Some(perf) = app.perf.as_ref().filter(|perf| perf.show_overlay) {
+    if let Some(perf) = app.view.perf.as_ref().filter(|perf| perf.show_overlay) {
         draw_perf_overlay(buf, size, perf);
     }
     if crate::app::native_questions::modal(app) {

@@ -106,16 +106,16 @@ impl AppState {
         let Some(idx) = self.item_message_index(id) else {
             return;
         };
-        if self.messages[idx].kind == super::MessageKind::Diff {
+        if self.session.messages()[idx].kind == super::MessageKind::Diff {
             return;
         }
         if !matches!(
-            self.messages[idx].role,
+            self.session.messages()[idx].role,
             super::Role::ToolCall | super::Role::ToolOutput
         ) {
             return;
         }
-        let id = self.messages[idx].id;
+        let id = self.session.messages()[idx].id;
         let Some(input) = summary_input(item, &self.summaries.cwd) else {
             if self.summaries.bindings.remove(&id).is_some() {
                 self.summaries.pending.retain(|pending| pending != &id);
@@ -133,7 +133,7 @@ impl AppState {
         }
         let replaced = self.summaries.bindings.remove(&id).is_some();
         self.summaries.pending.retain(|pending| pending != &id);
-        if replaced || self.messages[idx].tool_output.is_none() {
+        if replaced || self.session.messages()[idx].tool_output.is_none() {
             self.describe_tool_output(idx, item);
         }
         self.summaries.revision = self
@@ -167,11 +167,11 @@ impl AppState {
             ),
             None => item.to_string(),
         };
-        format!("{}:{key}", self.thread_id)
+        format!("{}:{key}", self.session.thread_id())
     }
 
     fn bind_summary_request(&mut self, id: EntryId, idx: usize, request: Request) {
-        let original = self.messages[idx]
+        let original = self.session.messages()[idx]
             .tool_output
             .as_ref()
             .map(|t| t.summary.clone())
@@ -227,14 +227,16 @@ impl AppState {
                 continue;
             }
             if self
-                .messages
+                .session
+                .messages()
                 .entry(*id)
                 .is_some_and(|message| message.kind != super::MessageKind::Diff)
             {
-                if let Some(idx) =
-                    self.messages
-                        .set_label(*id, binding.label.clone().unwrap_or_default(), true)
-                {
+                if let Some(idx) = self.session.transcript_set_label(
+                    *id,
+                    binding.label.clone().unwrap_or_default(),
+                    true,
+                ) {
                     changed.push(idx);
                 }
             }
@@ -263,7 +265,7 @@ impl AppState {
             } else {
                 binding.original.clone()
             };
-            if let Some(idx) = self.messages.set_label(*id, label, generated) {
+            if let Some(idx) = self.session.transcript_set_label(*id, label, generated) {
                 changed.push(idx);
             }
         }
@@ -277,7 +279,10 @@ impl AppState {
 #[cfg(test)]
 impl AppState {
     pub(super) fn summary_binding_for_test(&self, item: &str) -> Option<String> {
-        let id = self.messages.entry_id_for_item(&self.item_key(item))?;
+        let id = self
+            .session
+            .messages()
+            .entry_id_for_item(&self.item_key(item))?;
         Some(self.summaries.bindings.get(&id)?.request.binding.clone())
     }
 
@@ -290,16 +295,18 @@ impl AppState {
 #[cfg(test)]
 impl AppState {
     pub(super) fn assert_entry_invariants(&self) {
-        self.messages.assert_invariants();
-        self.input_history.assert_invariants(&self.messages);
+        self.assert_approval_hint_invariants();
+        self.session.messages().assert_invariants();
+        self.input_history
+            .assert_invariants(&self.session.messages());
         for id in self.summaries.bindings.keys() {
-            assert!(self.messages.entry(*id).is_some());
+            assert!(self.session.messages().entry(*id).is_some());
         }
         for id in &self.summaries.pending {
             assert!(self.summaries.bindings.contains_key(id));
         }
         for prompt in &self.claude.history.unknown {
-            assert!(self.messages.entry(prompt.entry_id).is_some());
+            assert!(self.session.messages().entry(prompt.entry_id).is_some());
         }
     }
 }

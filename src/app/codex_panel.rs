@@ -29,7 +29,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
     let mut changed = expire(app);
     while let Some(request) = app.codex.panel.outgoing.pop_front() {
         let context = json!({"operation":"panel","epoch":app.codex.epoch,
-            "root":app.thread_id,"token":request.token,"timeoutMs":timeout(app, &request)});
+            "root":app.session.thread_id(),"token":request.token,"timeoutMs":timeout(app, &request)});
         if let Err(error) =
             client.request_control_with_context(&request.method, request.params.clone(), context)
         {
@@ -56,7 +56,7 @@ pub(super) fn refresh(app: &mut AppState, older: bool) {
     let request = request(
         app,
         "thread/list",
-        json!({"ancestorThreadId":app.thread_id,
+        json!({"ancestorThreadId":app.session.thread_id(),
         "sourceKinds":["subAgent","subAgentReview","subAgentCompact","subAgentThreadSpawn","subAgentOther"],
         "sortKey":"updated_at","sortDirection":"desc","limit":1,"cursor":cursor}),
     );

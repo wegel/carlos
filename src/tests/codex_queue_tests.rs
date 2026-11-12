@@ -27,7 +27,7 @@ fn queued_human_enters_history_only_after_native_consumption_and_duplicate_sends
     app.set_input_text("queued 日本語");
     submit(&peer, &mut app, "queued 日本語");
     assert!(app.input_is_empty());
-    assert!(app.messages.is_empty());
+    assert!(app.session.messages().is_empty());
     assert_eq!(app.submitted_turn_count(), 0);
     submit(&peer, &mut app, "must not duplicate");
     assert_eq!(peer.controls.borrow().len(), 1);
@@ -37,13 +37,14 @@ fn queued_human_enters_history_only_after_native_consumption_and_duplicate_sends
         &mut app,
         reply(&peer, 0, json!({"result":{"queuedSubmission":native}})),
     );
-    assert!(app.messages.is_empty());
+    assert!(app.session.messages().is_empty());
     receive(
         &mut app,
         json!({"method":"item/completed","params":{"threadId":"root","turnId":"consumed-turn", "item":{"id":"native-user-item","clientId":params["clientUserMessageId"],"type":"userMessage","content":params["input"]}}}),
     );
     assert_eq!(
-        app.messages
+        app.session
+            .messages()
             .iter()
             .filter(|message| message.text == "queued 日本語")
             .count(),
@@ -226,7 +227,7 @@ fn a_fork_cannot_discard_an_unsettled_queue_submission_or_an_unrecovered_draft()
         0,
         "edited previous prompt".into(),
     );
-    assert_eq!(app.thread_id, "root");
+    assert_eq!(app.session.thread_id(), "root");
     assert_eq!(app.input_text(), "edited previous prompt");
     assert_eq!(peer.controls.borrow().len(), 1);
     assert!(app.codex.queue.operation.is_some());

@@ -54,7 +54,7 @@ fn repeated_running_and_child_usage_keep_known_root_context_and_one_pending_read
     }
     assert_eq!(app.claude.activity.context_revision, revision);
     assert_eq!(
-        app.context_usage,
+        app.session.context_usage(),
         Some(ContextUsage {
             used: 42000,
             max: 100000
@@ -67,7 +67,10 @@ fn repeated_running_and_child_usage_keep_known_root_context_and_one_pending_read
         &mut app,
         json!({"type":"assistant","agent_id":"child","message":{"usage":{"input_tokens":999999},"content":[]}}),
     );
-    assert_eq!(app.context_usage.expect("root context").used, 42000);
+    assert_eq!(
+        app.session.context_usage().expect("root context").used,
+        42000
+    );
 }
 
 #[test]
@@ -97,7 +100,10 @@ fn stalled_read_marks_known_counts_stale_without_more_requests_and_recovers_when
     answer(&mut app, &request, 43000);
     assert!(app.claude.context.fresh);
     assert_eq!(
-        app.context_usage.expect("new snapshot replaces old").used,
+        app.session
+            .context_usage()
+            .expect("new snapshot replaces old")
+            .used,
         43000
     );
     tick(&peer, &mut app, now + Duration::from_secs(61));
@@ -116,7 +122,7 @@ fn obsolete_compaction_and_model_reads_release_the_slot_without_restoring_old_co
         json!({"type":"system","subtype":"status","status":"compacting"}),
     );
     answer(&mut app, &before, 99000);
-    assert!(app.context_usage.is_none());
+    assert!(app.session.context_usage().is_none());
     sdk(
         &mut app,
         json!({"type":"system","subtype":"status","status":null,"compact_result":"success"}),
@@ -124,7 +130,13 @@ fn obsolete_compaction_and_model_reads_release_the_slot_without_restoring_old_co
     tick(&peer, &mut app, now);
     let fresh = peer.controls.borrow().last().expect("new read").1.clone();
     answer(&mut app, &fresh, 10000);
-    assert_eq!(app.context_usage.expect("post-compact count").used, 10000);
+    assert_eq!(
+        app.session
+            .context_usage()
+            .expect("post-compact count")
+            .used,
+        10000
+    );
     app.claude.observed_model = Some("old".into());
     refresh(&mut app);
     tick(&peer, &mut app, now + Duration::from_secs(2));
@@ -135,7 +147,7 @@ fn obsolete_compaction_and_model_reads_release_the_slot_without_restoring_old_co
     );
     answer(&mut app, &old_model, 80000);
     assert!(
-        app.context_usage.is_none(),
+        app.session.context_usage().is_none(),
         "same-batch old-model reply is fenced before tick"
     );
     tick(&peer, &mut app, now);
@@ -158,15 +170,21 @@ fn optional_read_failure_keeps_known_counts_and_retries_without_failing_chat() {
         &json!({"ok":false,"error":{"message":"optional unavailable"}}),
         &request,
     );
-    assert_eq!(app.context_usage.expect("last known retained").used, 42000);
+    assert_eq!(
+        app.session
+            .context_usage()
+            .expect("last known retained")
+            .used,
+        42000
+    );
     assert!(!app.claude.context.fresh);
-    assert!(app.messages.is_empty());
+    assert!(app.session.messages().is_empty());
     tick(&peer, &mut app, now);
     assert_eq!(peer.controls.borrow().len(), 2);
     tick(&peer, &mut app, now + Duration::from_secs(8));
     assert_eq!(peer.controls.borrow().len(), 3);
     invalidate(&mut app);
-    assert!(app.context_usage.is_none());
+    assert!(app.session.context_usage().is_none());
 }
 
 #[test]
@@ -182,7 +200,7 @@ fn helper_replacement_retires_pending_read_and_old_generation_cannot_install_bra
     );
     let _ = handle_server_message_line(&mut app, &json!({"method":"claude/controller","params":{"generation":1,"requestMethod":"context","requestContext":old,
         "frame":{"type":"reply","ok":true,"result":{"totalTokens":999,"rawMaxTokens":1000}}}}).to_string());
-    assert!(app.context_usage.is_none());
+    assert!(app.session.context_usage().is_none());
     app.claude.phase = crate::app::claude_state::ClaudePhase::Ready;
     tick(&peer, &mut app, Instant::now());
     assert_eq!(peer.controls.borrow().len(), 2);
@@ -191,10 +209,10 @@ fn helper_replacement_retires_pending_read_and_old_generation_cannot_install_bra
 #[test]
 fn phone_status_distinguishes_stale_counts_then_redraws_fresh_native_values() {
     let mut app = app();
-    app.context_usage = Some(ContextUsage {
+    app.session.set_context_usage(Some(ContextUsage {
         used: 42000,
         max: 100000,
-    });
+    }));
     for width in [36, 18] {
         let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, 12))
             .expect("terminal");
@@ -254,16 +272,16 @@ impl crate::backend::BackendClient for FailedWriter {
 #[test]
 fn immediate_write_failure_and_tick_only_model_change_request_a_visible_redraw() {
     let mut app = app();
-    app.context_usage = Some(ContextUsage {
+    app.session.set_context_usage(Some(ContextUsage {
         used: 42000,
         max: 100000,
-    });
+    }));
     app.claude.context.fresh = true;
     app.record_turn_started("busy");
     assert!(tick(&FailedWriter, &mut app, Instant::now()));
     assert!(!app.claude.context.fresh);
-    assert!(app.context_usage.is_some());
+    assert!(app.session.context_usage().is_some());
     app.runtime.current_model = Some("changed".into());
     assert!(tick(&FailedWriter, &mut app, Instant::now()));
-    assert!(app.context_usage.is_none());
+    assert!(app.session.context_usage().is_none());
 }

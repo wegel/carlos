@@ -90,7 +90,7 @@ fn f9_toggles_dictation_endpoint_mode() {
         Event::Key(KeyEvent::new(KeyCode::F(9), KeyModifiers::empty())),
         size,
     );
-    assert_eq!(app.status, "dictation endpoint: manual (Enter to stop)");
+    assert_eq!(*app.status_text(), "dictation endpoint: manual (Enter to stop)");
 
     app.start_dictation_recording();
     assert_eq!(
@@ -104,7 +104,7 @@ fn f9_toggles_dictation_endpoint_mode() {
         Event::Key(KeyEvent::new(KeyCode::F(9), KeyModifiers::empty())),
         size,
     );
-    assert_eq!(app.status, "dictation endpoint: auto");
+    assert_eq!(*app.status_text(), "dictation endpoint: auto");
     assert_eq!(
         app.dictation_status_label(),
         Some("DICTATING AUTO [English]".to_string())
@@ -133,7 +133,7 @@ fn model_settings_can_toggle_dictation_endpoint_mode() {
     );
 
     assert!(app.runtime.show_model_settings);
-    assert_eq!(app.status, "dictation endpoint: manual (Enter to stop)");
+    assert_eq!(*app.status_text(), "dictation endpoint: manual (Enter to stop)");
     assert_eq!(
         app.dictation_status_label(),
         None,
@@ -203,12 +203,12 @@ fn escape_cancels_recording_and_transcribing() {
 fn dictation_does_not_start_during_active_turn() {
     let mut app = AppState::new("thread-1".to_string());
     app.configure_dictation(usable_dictation_profile());
-    app.active_turn_id = Some("turn-1".to_string());
+    app.session.set_active_turn_id(Some("turn-1".to_string()));
 
     app.start_dictation_recording();
 
     assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
-    assert_eq!(app.status, "dictation unavailable while turn is active");
+    assert_eq!(*app.status_text(), "dictation unavailable while turn is active");
 }
 
 #[test]
@@ -231,7 +231,7 @@ fn missing_dictation_model_reports_error_without_recording() {
 
     assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
     assert_eq!(
-        app.status,
+        *app.status_text(),
         "dictation model unavailable: /tmp/missing-model.bin"
     );
 }
@@ -248,7 +248,7 @@ fn dictation_final_text_commits_and_returns_to_idle() {
 
     assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
     assert_eq!(app.input_text(), "final text");
-    assert_eq!(app.status, "dictation inserted");
+    assert_eq!(*app.status_text(), "dictation inserted");
 }
 
 #[cfg(feature = "dictation")]
@@ -267,7 +267,7 @@ fn dictation_auto_stop_event_moves_recording_to_transcribing() {
         DictationPhase::Transcribing { .. }
     ));
     assert_eq!(app.last_dictation_audio_len(), Some(3));
-    assert_eq!(app.status, "dictation transcribing (3 samples)");
+    assert_eq!(*app.status_text(), "dictation transcribing (3 samples)");
 }
 
 #[cfg(feature = "dictation")]
@@ -282,7 +282,7 @@ fn dictation_capture_error_returns_to_idle() {
     ));
 
     assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
-    assert_eq!(app.status, "dictation capture failed: device disconnected");
+    assert_eq!(*app.status_text(), "dictation capture failed: device disconnected");
 }
 
 #[cfg(feature = "dictation")]
@@ -293,7 +293,7 @@ fn dictation_worker_final_commits_matching_request() {
 
     app.start_dictation_recording();
     app.stop_dictation_recording();
-    app.dictation_io.request_id = Some(7);
+    app.view.dictation_io.request_id = Some(7);
     app.handle_dictation_event(
         crate::dictation::events::DictationEvent::TranscriptionFinal {
             request_id: 7,
@@ -303,7 +303,7 @@ fn dictation_worker_final_commits_matching_request() {
 
     assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
     assert_eq!(app.input_text(), "final dictation");
-    assert_eq!(app.status, "dictation inserted");
+    assert_eq!(*app.status_text(), "dictation inserted");
 }
 
 #[cfg(feature = "dictation")]
@@ -314,7 +314,7 @@ fn dictation_worker_late_final_is_ignored_after_cancel() {
 
     app.start_dictation_recording();
     app.stop_dictation_recording();
-    app.dictation_io.request_id = Some(7);
+    app.view.dictation_io.request_id = Some(7);
     app.cancel_dictation();
     app.handle_dictation_event(
         crate::dictation::events::DictationEvent::TranscriptionFinal {

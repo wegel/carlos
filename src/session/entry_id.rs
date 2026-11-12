@@ -9,6 +9,7 @@ pub(crate) struct EntryId {
     counter: u64,
 }
 
+#[cfg_attr(test, derive(Debug))]
 pub(super) struct EntryIds {
     namespace: Uuid,
     next: u64,
@@ -35,3 +36,19 @@ impl EntryIds {
 #[cfg(test)]
 #[path = "entry_id_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+impl EntryId {
+    /// Keep the allocator namespace but choose a counter far beyond this test's live range.
+    pub(crate) fn unallocated_for_approval_test(self) -> Self {
+        Self {
+            counter: self.counter + 1_000_000,
+            ..self
+        }
+    }
+
+    /// Build arbitrary stale, foreign, and never-issued ids for adversarial tests.
+    pub(crate) fn for_approval_test(namespace: Uuid, counter: u64) -> Self {
+        Self { namespace, counter }
+    }
+}

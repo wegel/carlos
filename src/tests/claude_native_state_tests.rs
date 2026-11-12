@@ -9,6 +9,7 @@ use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState
 use super::claude_activity::NativeState;
 use super::claude_state::ClaudePhase;
 use super::models::Role;
+use crate::session::approval_state::ApprovalQueue;
 
 fn frame(app: &mut AppState, frame: Value, epoch: u64, method: Option<&str>, context: Value) {
     let _ = handle_server_message_line(
@@ -78,26 +79,27 @@ fn reset_keeps_accepted_pipelined_human_and_real_child_callback_until_native_con
         1,
     );
     assert_eq!(app.claude.phase as u8, ClaudePhase::Starting as u8);
-    assert!(app.approval.pending.is_some());
-    assert!(app.messages.is_empty());
+    assert!(app.session.approval().pending().is_some());
+    assert!(app.session.messages().is_empty());
     assert_eq!(app.input_text(), "new unsent draft");
     init(&mut app, "actual-new", json!(["clear"]), 1);
     result(&mut app, "clear", 1);
     init(&mut app, "actual-new", json!(["next"]), 1);
     result(&mut app, "next", 1);
     state(&mut app, "idle", 1);
-    assert_eq!(app.thread_id, "actual-new");
-    assert!(app.active_turn_id.is_none());
+    assert_eq!(app.session.thread_id(), "actual-new");
+    assert!(app.session.active_turn_id().is_none());
     assert_eq!(
-        app.messages
+        app.session
+            .messages()
             .iter()
             .filter(|message| message.role == Role::User && message.text == "Après clear 日本語")
             .count(),
         1
     );
     assert_eq!(app.submitted_turn_count(), 1);
-    assert!(!app.turn_status_by_id.contains_key("clear"));
-    assert!(app.approval.pending.is_some());
+    assert!(!app.session.turn_status_by_id().contains_key("clear"));
+    assert!(app.session.approval().pending().is_some());
 }
 
 #[test]
@@ -126,7 +128,7 @@ fn old_main_events_and_context_replies_cannot_cross_a_reset_epoch_but_process_ta
         Some("context"),
         json!({"revision":0}),
     );
-    assert!(app.context_usage.is_none());
+    assert!(app.session.context_usage().is_none());
     assert!(app.claude.activity.state == NativeState::Idle);
     assert_eq!(app.claude.tasks.active_count(), 1);
     state(&mut app, "running", 1);
@@ -137,7 +139,7 @@ fn old_main_events_and_context_replies_cannot_cross_a_reset_epoch_but_process_ta
         Some("context"),
         json!({"revision":0}),
     );
-    assert!(app.context_usage.is_none());
+    assert!(app.session.context_usage().is_none());
 }
 
 #[test]
@@ -157,14 +159,14 @@ fn unowned_native_task_wakeup_never_consumes_the_next_human_or_runs_ralph_comple
     );
     state(&mut app, "idle", 0);
     assert!(app.native.begin_interrupt().is_empty());
-    assert!(app.turn_status_by_id.is_empty());
+    assert!(app.session.turn_status_by_id().is_empty());
     assert!(!app.claude.prompts.entries["human"].consumed);
-    assert!(app.active_turn_id.is_none());
+    assert!(app.session.active_turn_id().is_none());
     init(&mut app, "session", json!(["human"]), 0);
     result(&mut app, "human", 0);
     state(&mut app, "idle", 0);
     assert!(app.claude.prompts.entries.is_empty());
-    assert_eq!(app.turn_status_by_id.len(), 1);
+    assert_eq!(app.session.turn_status_by_id().len(), 1);
 }
 
 #[test]
@@ -176,15 +178,15 @@ fn late_child_text_stays_hidden_and_thinking_estimates_never_become_text_or_usag
         0,
     );
     assert_eq!(app.claude.activity.thinking, Some(43));
-    assert!(app.context_usage.is_none());
-    assert!(app.messages.is_empty());
+    assert!(app.session.context_usage().is_none());
+    assert!(app.session.messages().is_empty());
     sdk(
         &mut app,
         json!({"type":"assistant","agent_id":"child","parent_tool_use_id":"caller","uuid":"child-text","message":{"id":"child-message","role":"assistant","content":[{"type":"text","text":"Late child 日本語"}]}}),
         0,
     );
-    assert!(app.messages.is_empty());
-    assert!(app.active_turn_id.is_none());
+    assert!(app.session.messages().is_empty());
+    assert!(app.session.active_turn_id().is_none());
 }
 
 #[test]
@@ -200,8 +202,8 @@ fn compact_status_and_boundary_share_one_notice_and_failed_attempt_allows_fresh_
         json!({"type":"system","subtype":"status","status":null,"compact_result":"failed","compact_error":"fixture error"}),
         0,
     );
-    assert_eq!(app.messages.len(), 1);
-    assert!(app.messages[0].text.contains("fixture error"));
+    assert_eq!(app.session.messages().len(), 1);
+    assert!(app.session.messages()[0].text.contains("fixture error"));
     assert!(app.claude.activity.transient.is_none());
     sdk(
         &mut app,
@@ -218,8 +220,8 @@ fn compact_status_and_boundary_share_one_notice_and_failed_attempt_allows_fresh_
         json!({"type":"system","subtype":"status","status":null,"compact_result":"success"}),
         0,
     );
-    assert_eq!(app.messages.len(), 2);
-    assert_eq!(app.messages[1].text, "Claude compacted context");
+    assert_eq!(app.session.messages().len(), 2);
+    assert_eq!(app.session.messages()[1].text, "Claude compacted context");
     let revision = app.claude.activity.context_revision;
     frame(
         &mut app,
@@ -228,7 +230,13 @@ fn compact_status_and_boundary_share_one_notice_and_failed_attempt_allows_fresh_
         Some("context"),
         json!({"revision":revision}),
     );
-    assert_eq!(app.context_usage.expect("fresh native context").used, 20);
+    assert_eq!(
+        app.session
+            .context_usage()
+            .expect("fresh native context")
+            .used,
+        20
+    );
 }
 
 #[test]
@@ -245,11 +253,13 @@ fn recoverable_native_notices_do_not_close_a_healthy_query() {
         0,
     );
     assert!(app
-        .messages
+        .session
+        .messages()
         .iter()
         .any(|message| message.text.contains("invalid setting")));
     assert!(app
-        .messages
+        .session
+        .messages()
         .iter()
         .any(|message| message.text.contains("ENOSPC")));
     assert!(app.claude.phase == ClaudePhase::Ready);
@@ -267,22 +277,24 @@ fn reset_keeps_every_active_queued_callback_draft_and_confirmation_until_its_exa
             Value::Null,
         );
     }
-    app.claude.confirm_allow = Some("active".to_string());
+    let consent = app.live_approval_cards().next().expect("active").entry_id();
+    app.view.confirm_allow = consent;
     sdk(
         &mut app,
         json!({"type":"conversation_reset","session_id":"old","uuid":"reset","new_conversation_id":"opaque"}),
         1,
     );
     assert_eq!(
-        app.claude
-            .questions
+        app.session
+            .approval()
+            .queued(ApprovalQueue::Claude)
             .iter()
-            .map(|request| request.request_id.as_str().expect("id"))
+            .map(|request| request.facts().request_id.as_str().expect("id"))
             .collect::<Vec<_>>(),
         ["queued-one", "queued-two"]
     );
     assert_eq!(app.claude.answers.drafts.len(), 3);
-    assert_eq!(app.claude.confirm_allow.as_deref(), Some("active"));
+    assert_eq!(app.view.confirm_allow, consent);
     frame(
         &mut app,
         json!({"type":"event","event":"callback_cancelled","callbackId":"queued-one"}),
@@ -291,12 +303,22 @@ fn reset_keeps_every_active_queued_callback_draft_and_confirmation_until_its_exa
         Value::Null,
     );
     assert_eq!(
-        app.approval.pending.as_ref().expect("active").request_id,
+        app.session
+            .approval()
+            .pending()
+            .expect("active")
+            .facts()
+            .request_id,
         "active"
     );
     app.clear_pending_approval();
     assert_eq!(
-        app.approval.pending.as_ref().expect("remaining").request_id,
+        app.session
+            .approval()
+            .pending()
+            .expect("remaining")
+            .facts()
+            .request_id,
         "queued-two"
     );
     assert_eq!(app.claude.answers.drafts.len(), 1);
@@ -319,7 +341,7 @@ fn many_hidden_children_keep_the_session_healthy_and_task_state_available() {
         );
     }
     assert!(app.claude.phase == ClaudePhase::Ready);
-    assert!(app.messages.is_empty());
+    assert!(app.session.messages().is_empty());
     assert!(app.claude.tasks.data("child-179").is_some());
 }
 
@@ -346,6 +368,6 @@ fn older_child_messages_without_agent_ids_stay_hidden_without_cursor_allocations
         );
     }
     assert!(app.claude.phase == ClaudePhase::Ready);
-    assert!(app.messages.is_empty());
+    assert!(app.session.messages().is_empty());
     assert!(app.claude.tasks.data("child-139").is_some());
 }

@@ -134,11 +134,13 @@ mod shell_search;
 mod shell_words;
 mod source_highlight;
 mod state;
+mod state_approval_view;
 mod state_dictation;
 mod state_input;
 mod state_items;
 mod state_ralph;
 mod state_settings;
+mod state_status;
 mod state_summaries;
 mod state_thread;
 mod state_transcript;
@@ -171,6 +173,7 @@ mod turn_interrupt;
 mod turn_settings;
 mod turn_submit;
 mod view_models;
+mod view_state;
 mod viewport_state;
 mod weekly_usage;
 
@@ -249,3 +252,28 @@ mod claude_visibility_tests;
 #[cfg(test)]
 #[path = "../tests/claude_quota_tests.rs"]
 mod claude_quota_tests;
+
+#[cfg(test)]
+#[path = "../tests/view_hint_sequences.rs"]
+mod view_hint_sequences;
+#[cfg(test)]
+#[path = "../tests/view_hint_support.rs"]
+mod view_hint_support;
+
+#[cfg(test)]
+#[path = "../tests/view_ownership_tests.rs"]
+mod view_ownership_tests;
+
+#[cfg(test)]
+#[path = "../tests/approval_lifetime_sequences.rs"]
+mod approval_lifetime_sequences;
+#[cfg(test)]
+#[path = "../tests/approval_lifetime_support.rs"]
+mod approval_lifetime_support;
+#[cfg(test)]
+#[path = "../tests/approval_lifetime_tests.rs"]
+mod approval_lifetime_tests;
+
+#[cfg(test)]
+#[path = "../tests/approval_operation_sequences.rs"]
+mod approval_operation_sequences;

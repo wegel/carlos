@@ -4,11 +4,7 @@ use serde_json::Value;
 
 // --- Usage Types ---
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct ContextUsage {
-    pub(super) used: u64,
-    pub(super) max: u64,
-}
+pub(super) use crate::session::context_usage::ContextUsage;
 
 // --- Usage Parsing ---
 

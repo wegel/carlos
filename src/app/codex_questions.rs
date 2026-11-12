@@ -7,14 +7,14 @@ use serde_json::{json, Map, Value};
 
 use super::claude_question_field::{AnswerField, AnswerOption};
 use super::claude_question_state::{mcp_fields, safe_label, safe_text, NativeDraft};
-use super::state::{ApprovalRequestKind, PendingApprovalRequest};
+use super::state::{ApprovalRequestDraft, ApprovalRequestKind};
 
 /// Build a bounded native question/form or an explicit unsupported-mode editor.
 pub(super) fn build(
     method: &str,
     params: &Value,
     id: Value,
-) -> Result<(PendingApprovalRequest, NativeDraft)> {
+) -> Result<(ApprovalRequestDraft, NativeDraft)> {
     let mut draft = NativeDraft::from_payload("", &Value::Null);
     let mut details = vec![format!(
         "Thread: {}",
@@ -32,7 +32,7 @@ pub(super) fn build(
         details.push(if params["isBlocking"].as_bool().unwrap_or(true) {
             "Blocking question".into()
         } else {
-            "Nonblocking question; Esc returns to your draft".into()
+            "Nonblocking question".into()
         });
         draft.fields = question_fields(params).unwrap_or_else(|error| {
             draft.unsupported = Some(error.to_string());
@@ -56,8 +56,7 @@ pub(super) fn build(
         build_form(params, &mut draft, &mut details);
         (ApprovalRequestKind::CodexForm, "Codex server request")
     };
-    let pending = PendingApprovalRequest {
-        entry_id: None,
+    let pending = ApprovalRequestDraft {
         request_id: id,
         method: method.into(),
         kind,
@@ -143,8 +142,16 @@ fn build_form(params: &Value, draft: &mut NativeDraft, details: &mut Vec<String>
         Some("url") => {
             let url = params["url"].as_str().unwrap_or("");
             match crate::native_form::url_host(url) {
-                Ok(host)=>details.splice(0..0,[format!("URL host: {}",safe_label(&host)),format!("Link: {}",safe_label(url)),"Ctrl+Y copies the link; accept consents without confirming completion.".into()]).for_each(drop),
-                Err(error)=>draft.unsupported=Some(error.to_string()),
+                Ok(host) => details
+                    .splice(
+                        0..0,
+                        [
+                            format!("URL host: {}", safe_label(&host)),
+                            format!("Link: {}", safe_label(url)),
+                        ],
+                    )
+                    .for_each(drop),
+                Err(error) => draft.unsupported = Some(error.to_string()),
             }
         }
         _ => {

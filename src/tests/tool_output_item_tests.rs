@@ -28,18 +28,24 @@ fn live_and_reopened_read_outputs_show_the_same_contents_and_summary() {
         &mut history,
         &json!({"turns":[{"status":"completed","items":[item]}]}),
     );
-    assert_eq!(live.messages[0].text, history.messages[0].text);
+    assert_eq!(
+        live.session.messages()[0].text,
+        history.session.messages()[0].text
+    );
     for mut app in [live, history] {
-        assert_eq!(app.messages[0].role, Role::ToolOutput);
-        assert_eq!(app.messages[0].file_path.as_deref(), Some("main.rs"));
-        app.tool_output.mode = ToolOutputMode::Compact;
+        assert_eq!(app.session.messages()[0].role, Role::ToolOutput);
+        assert_eq!(
+            app.session.messages()[0].file_path.as_deref(),
+            Some("main.rs")
+        );
+        app.view.tool_output.mode = ToolOutputMode::Compact;
         app.ensure_rendered_lines(50, None);
         assert!(app.snapshot_rendered_lines().iter().any(|line| line
             .text
             .split_whitespace()
             .last()
             .is_some_and(|n| n.parse::<usize>().is_ok())));
-        app.tool_output.mode = ToolOutputMode::Full;
+        app.view.tool_output.mode = ToolOutputMode::Full;
         app.ensure_rendered_lines(50, None);
         assert!(app
             .snapshot_rendered_lines()
@@ -52,11 +58,11 @@ fn live_and_reopened_read_outputs_show_the_same_contents_and_summary() {
 fn late_command_summaries_do_not_replace_completed_tool_contents() {
     let mut app = AppState::new("thread".into());
     complete(&mut app, &command_item());
-    let original = app.messages[0].text.clone();
+    let original = app.session.messages()[0].text.clone();
     app.set_command_override("read", "→ Read main.rs [lines=1..10]".into());
-    assert_eq!(app.messages[0].text, original);
+    assert_eq!(app.session.messages()[0].text, original);
     assert_eq!(
-        app.messages[0]
+        app.session.messages()[0]
             .tool_output
             .as_ref()
             .expect("details")
@@ -79,7 +85,7 @@ fn switching_modes_during_a_stream_keeps_every_delta_and_labels_failures() {
         .to_string();
     for delta in [body.as_str(), "\nlast streamed line"] {
         handle_notification_line(&mut app, &json!({"method":"item/commandExecution/outputDelta", "params":{"itemId":"read","delta":delta}}).to_string());
-        app.tool_output.mode = ToolOutputMode::Compact;
+        app.view.tool_output.mode = ToolOutputMode::Compact;
         app.ensure_rendered_lines(50, None);
         assert!(app.snapshot_rendered_lines().iter().any(|line| line
             .text
@@ -87,7 +93,9 @@ fn switching_modes_during_a_stream_keeps_every_delta_and_labels_failures() {
             .last()
             .is_some_and(|n| n.parse::<usize>().is_ok())));
     }
-    assert!(app.messages[0].text.ends_with("last streamed line"));
+    assert!(app.session.messages()[0]
+        .text
+        .ends_with("last streamed line"));
     let mut failed = item;
     failed["exitCode"] = json!(2);
     failed["aggregatedOutput"] = json!(format!("{body}\ncommand failed"));
@@ -98,7 +106,7 @@ fn switching_modes_during_a_stream_keeps_every_delta_and_labels_failures() {
     assert!(lines
         .iter()
         .all(|line| !line.text.contains("command failed")));
-    app.tool_output.mode = ToolOutputMode::Full;
+    app.view.tool_output.mode = ToolOutputMode::Full;
     app.ensure_rendered_lines(50, None);
     assert!(app
         .snapshot_rendered_lines()
@@ -113,11 +121,11 @@ fn valid_diff_exit_one_is_not_a_failure_and_explicit_errors_are_labeled() {
     for error in [false, true] {
         item["isError"] = json!(error);
         let mut app = AppState::new("thread".into());
-        app.tool_output.mode = ToolOutputMode::Compact;
+        app.view.tool_output.mode = ToolOutputMode::Compact;
         complete(&mut app, &item);
         app.ensure_rendered_lines(80, None);
         assert_eq!(
-            app.messages[0]
+            app.session.messages()[0]
                 .tool_output
                 .as_ref()
                 .expect("tool details")
@@ -143,9 +151,9 @@ fn completion_without_a_body_keeps_streamed_output_and_ignores_duplicate_complet
     app.upsert_command_output_delta("read", "let streamed = 1;\nlast output line");
     item["aggregatedOutput"] = Value::Null;
     complete(&mut app, &item);
-    let original = app.messages[0].text.clone();
+    let original = app.session.messages()[0].text.clone();
     assert!(original.contains("last output line"));
     assert_eq!(original.matches("exit code: 0").count(), 1);
     complete(&mut app, &item);
-    assert_eq!(app.messages[0].text, original);
+    assert_eq!(app.session.messages()[0].text, original);
 }

@@ -21,7 +21,7 @@ pub(super) fn install(
     let runtime = parse_thread_runtime_settings(&snapshot.runtime)?;
     let (models, _) = parse_model_list_page(&json!({"result":snapshot.catalog}).to_string())?;
     anyhow::ensure!(
-        snapshot.thread["id"] == app.thread_id,
+        snapshot.thread["id"] == *app.session.thread_id(),
         "Snapshot belongs to another thread"
     );
     let streams = super::codex_reconnect_streams::Streams::from_thread(&snapshot.thread)?;
@@ -30,7 +30,7 @@ pub(super) fn install(
         "effort":app.model_settings_effort_value(),"summary":app.model_settings_summary_value()})
     });
     if let Some(goal) = &snapshot.goal {
-        super::codex_goal_receive::validate(&app.thread_id, &goal["goal"])
+        super::codex_goal_receive::validate(&app.session.thread_id(), &goal["goal"])
             .map_err(anyhow::Error::msg)?;
         anyhow::ensure!(
             goal.get("goal").is_some(),
@@ -67,13 +67,13 @@ fn install_goal(app: &mut AppState, goal: Option<Value>) {
             super::codex_goal_receive::observed(
                 app,
                 "thread/goal/cleared",
-                &json!({"threadId":app.thread_id}),
+                &json!({"threadId":app.session.thread_id()}),
             );
         } else {
             super::codex_goal_receive::observed(
                 app,
                 "thread/goal/updated",
-                &json!({"threadId":app.thread_id,"goal":goal["goal"]}),
+                &json!({"threadId":app.session.thread_id(),"goal":goal["goal"]}),
             );
         }
     } else {
@@ -101,7 +101,7 @@ fn verified_owners(
                 .ok_or_else(|| anyhow::anyhow!("Invalid verified task owner"))
         })
         .collect::<Result<Vec<_>>>()?;
-    super::codex_panel_state::VerifiedOwners::new(&app.thread_id, app.codex.epoch, owners)
+    super::codex_panel_state::VerifiedOwners::new(&app.session.thread_id(), app.codex.epoch, owners)
         .map_err(anyhow::Error::msg)
 }
 
@@ -110,9 +110,9 @@ fn install_history_runtime(
     snapshot: &CodexSnapshot,
     runtime: crate::protocol_params::ThreadRuntimeSettings,
 ) {
-    app.active_turn_id = None;
+    app.session.set_active_turn_id(None);
     super::item_history::replace_history_from_thread(app, &snapshot.thread);
-    app.context_usage = None;
+    app.session.set_context_usage(None);
     app.rate_limits.clear();
     app.set_runtime_settings(runtime.model, runtime.effort, runtime.summary);
     app.queue_runtime_settings(None, None, None);

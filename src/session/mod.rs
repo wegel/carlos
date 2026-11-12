@@ -8,3 +8,25 @@ pub(crate) mod transcript;
 
 #[cfg(test)]
 mod session_headless_tests;
+
+pub(crate) mod approval_state;
+pub(crate) mod context_usage;
+mod item_sources;
+mod item_updates;
+mod items;
+pub(crate) mod ralph;
+mod ralph_commands;
+pub(crate) mod ralph_runtime_state;
+pub(crate) mod read_summary;
+pub(crate) mod reasoning;
+pub(crate) mod state;
+mod state_commands;
+mod thread;
+mod transcript_commands;
+pub(crate) mod transcript_updates;
+mod turns;
+
+#[cfg(test)]
+mod session_update_tests;
+#[cfg(test)]
+mod turn_boundary_tests;

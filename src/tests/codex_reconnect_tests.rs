@@ -28,15 +28,19 @@ fn capture_old_snapshot_then_completion_before_reply_keeps_latest_text_and_termi
     ready(&peer, &mut app, snapshot("prefix", "active"));
     assert!(!app.codex.closed);
     assert_eq!(
-        app.messages
+        app.session
+            .messages()
             .iter()
             .filter(|row| row.role == Role::Assistant)
             .map(|row| row.text.as_str())
             .collect::<Vec<_>>(),
         ["prefix suffix"]
     );
-    assert_eq!(app.turn_status_by_id["turn"], TurnStatus::Completed);
-    assert!(app.active_turn_id.is_none());
+    assert_eq!(
+        app.session.turn_status_by_id()["turn"],
+        TurnStatus::Completed
+    );
+    assert!(app.session.active_turn_id().is_none());
     assert!(peer.acknowledged.borrow().contains(&held));
     assert_eq!(app.input_text(), "preserve main 日本語");
 }
@@ -47,7 +51,7 @@ fn already_included_delta_never_duplicates_and_late_refresh_cannot_replace_compl
     let mut app = app();
     receive(&peer, &mut app, 2, delta(" suffix"));
     ready(&peer, &mut app, snapshot("prefix suffix", "active"));
-    assert_eq!(app.messages[0].text, "prefix suffix");
+    assert_eq!(app.session.messages()[0].text, "prefix suffix");
     crate::app::codex_reconnect_streams::tick(&peer, &mut app, Instant::now());
     let requests = peer.native.controls.borrow();
     assert_eq!(requests[0].0, "thread/items/read");
@@ -66,7 +70,7 @@ fn already_included_delta_never_duplicates_and_late_refresh_cannot_replace_compl
         "requestMethod":"thread/items/read","requestParams":{"threadId":"root","turnId":"turn","itemIds":["answer"]},
         "requestContext":context,"response":{"result":{"data":[{"turnId":"turn","item":{"id":"answer","type":"agentMessage","text":"prefix"}}]}}}}),
     );
-    assert_eq!(app.messages[0].text, "prefix suffix FINAL");
+    assert_eq!(app.session.messages()[0].text, "prefix suffix FINAL");
 }
 
 #[test]
@@ -101,10 +105,11 @@ fn old_generation_cannot_resolve_or_revalidate_a_replayed_typed_callback() {
         "answers can be shown before history is ready"
     );
     assert_eq!(
-        app.approval
-            .pending
-            .as_ref()
+        app.session
+            .approval()
+            .pending()
             .expect("blocking child")
+            .facts()
             .request_id,
         json!("9")
     );
@@ -125,13 +130,14 @@ fn shared_disconnect_keeps_native_running_status_without_inventing_failure() {
         json!({"method":"carlos/codex/closed","params":{"message":"proxy exited"}}),
     );
     assert!(app.codex.closed);
-    assert!(app.active_turn_id.is_none());
+    assert!(app.session.active_turn_id().is_none());
     assert_eq!(
-        app.turn_status_by_id["native-still-running"],
+        app.session.turn_status_by_id()["native-still-running"],
         TurnStatus::InProgress
     );
     assert!(app
-        .messages
+        .session
+        .messages()
         .last()
         .expect("visible cause")
         .text
@@ -144,7 +150,7 @@ fn owned_idle_metadata_does_not_restore_a_stale_rollout_turn() {
     let peer = Peer::default();
     let mut app = app();
     ready(&peer, &mut app, snapshot("old interrupted output", "idle"));
-    assert!(app.active_turn_id.is_none());
+    assert!(app.session.active_turn_id().is_none());
     assert!(!app.codex.closed);
 }
 
@@ -158,7 +164,7 @@ fn malformed_goal_fails_before_transcript_and_snapshots_are_replaced() {
     bad.goal = Some(json!({}));
     ready(&peer, &mut app, bad);
     assert!(app.codex.closed);
-    assert_eq!(app.messages[0].text, "KEEP_OLD_HISTORY");
+    assert_eq!(app.session.messages()[0].text, "KEEP_OLD_HISTORY");
     assert_eq!(app.codex.queue.entries[0]["id"], "keep-queue");
     assert_eq!(*peer.aborted.borrow(), 1);
     assert_eq!(app.input_text(), "preserve main 日本語");
@@ -236,7 +242,7 @@ fn empty_command_completion_retires_partial_reads_and_fetches_complete_native_ou
     };
     receive(&peer, &mut app, 2, response(old, "prefix"));
     receive(&peer, &mut app, 2, response(final_context, "prefix tail"));
-    assert!(app.messages[0].text.contains("prefix tail"));
+    assert!(app.session.messages()[0].text.contains("prefix tail"));
     assert!(crate::app::codex_reconnect_streams::wait(&app, Instant::now()).is_none());
 }
 
@@ -249,9 +255,9 @@ fn duplicate_close_preserves_lost_child_state_and_failed_ready_clears_dead_callb
     let closed =
         json!({"method":"carlos/codex/closed","params":{"message":"first transport cause"}});
     receive(&peer, &mut app, 2, closed.clone());
-    let count = app.messages.len();
+    let count = app.session.messages().len();
     receive(&peer, &mut app, 2, closed);
-    assert_eq!(app.messages.len(), count);
+    assert_eq!(app.session.messages().len(), count);
     assert_eq!(app.codex.connection.unreplayed_children, 1);
     app.codex.connection.generation = 3;
     app.codex.connection.rebuilding = true;
@@ -267,7 +273,7 @@ fn duplicate_close_preserves_lost_child_state_and_failed_ready_clears_dead_callb
     );
     assert!(app.codex.closed);
     assert!(app.codex.callbacks.entries.is_empty());
-    assert!(app.approval.pending.is_none());
+    assert!(app.session.approval().pending().is_none());
     assert_eq!(app.codex.connection.unreplayed_children, 1);
     assert_eq!(app.input_text(), "preserve main 日本語");
     receive(
@@ -288,7 +294,8 @@ fn duplicate_close_preserves_lost_child_state_and_failed_ready_clears_dead_callb
     );
     assert!(!app.codex.closed);
     assert!(app
-        .messages
+        .session
+        .messages()
         .iter()
         .any(|message| message.text.contains("unanswered child requests")));
     assert_eq!(app.codex.connection.unreplayed_children, 0);

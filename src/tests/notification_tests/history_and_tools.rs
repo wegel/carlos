@@ -9,7 +9,7 @@ fn handle_notification_codex_event_token_count_sets_context_usage() {
         );
 
     assert_eq!(
-        app.context_usage,
+        app.session.context_usage(),
         Some(ContextUsage {
             used: 8_856,
             max: 258_400
@@ -26,7 +26,7 @@ fn handle_notification_token_count_prefers_last_when_total_exceeds_window() {
         );
 
     assert_eq!(
-        app.context_usage,
+        app.session.context_usage(),
         Some(ContextUsage {
             used: 46_337,
             max: 258_400
@@ -37,17 +37,17 @@ fn handle_notification_token_count_prefers_last_when_total_exceeds_window() {
 #[test]
 fn handle_notification_codex_event_token_count_ignores_null_info() {
     let mut app = AppState::new("thread-1".to_string());
-    app.context_usage = Some(ContextUsage {
+    app.session.set_context_usage(Some(ContextUsage {
         used: 10_000,
         max: 256_000,
-    });
+    }));
     handle_notification_line(
             &mut app,
             "{\"method\":\"codex/event/token_count\",\"params\":{\"id\":\"turn-1\",\"msg\":{\"info\":null}}}",
         );
 
     assert_eq!(
-        app.context_usage,
+        app.session.context_usage(),
         Some(ContextUsage {
             used: 10_000,
             max: 256_000
@@ -88,7 +88,7 @@ fn load_history_does_not_seed_context_usage_from_start_response() {
     .to_string();
 
     load_history_from_start_or_resume(&mut app, &response).expect("load history");
-    assert_eq!(app.context_usage, None);
+    assert_eq!(app.session.context_usage(), None);
 }
 
 #[test]
@@ -142,9 +142,9 @@ fn handle_notification_thread_compacted_appends_system_marker() {
             "{\"method\":\"thread/compacted\",\"params\":{\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
         );
 
-    assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].role, Role::System);
-    assert_eq!(app.messages[0].text, "↻ Context compacted");
+    assert_eq!(app.session.messages().len(), 1);
+    assert_eq!(app.session.messages()[0].role, Role::System);
+    assert_eq!(app.session.messages()[0].text, "↻ Context compacted");
 }
 
 #[test]
@@ -155,9 +155,9 @@ fn handle_notification_item_completed_context_compaction_appends_marker() {
             "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"contextCompaction\",\"id\":\"ctx-1\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
         );
 
-    assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].role, Role::System);
-    assert_eq!(app.messages[0].text, "↻ Context compacted");
+    assert_eq!(app.session.messages().len(), 1);
+    assert_eq!(app.session.messages()[0].role, Role::System);
+    assert_eq!(app.session.messages()[0].text, "↻ Context compacted");
 }
 
 #[test]
@@ -177,9 +177,9 @@ fn append_history_from_thread_includes_context_compaction_marker() {
     });
 
     append_history_from_thread(&mut app, &thread);
-    assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].role, Role::System);
-    assert_eq!(app.messages[0].text, "↻ Context compacted");
+    assert_eq!(app.session.messages().len(), 1);
+    assert_eq!(app.session.messages()[0].role, Role::System);
+    assert_eq!(app.session.messages()[0].text, "↻ Context compacted");
 }
 
 #[test]
@@ -207,11 +207,11 @@ fn append_history_from_thread_preserves_agent_commentary_phase() {
     });
 
     append_history_from_thread(&mut app, &thread);
-    assert_eq!(app.messages.len(), 2);
-    assert_eq!(app.messages[0].role, Role::Commentary);
-    assert_eq!(app.messages[0].text, "checking the diff");
-    assert_eq!(app.messages[1].role, Role::Assistant);
-    assert_eq!(app.messages[1].text, "done");
+    assert_eq!(app.session.messages().len(), 2);
+    assert_eq!(app.session.messages()[0].role, Role::Commentary);
+    assert_eq!(app.session.messages()[0].text, "checking the diff");
+    assert_eq!(app.session.messages()[1].role, Role::Assistant);
+    assert_eq!(app.session.messages()[1].text, "done");
 }
 
 #[test]
@@ -235,9 +235,9 @@ fn append_history_from_thread_reads_reasoning_summary_text_objects() {
     });
 
     append_history_from_thread(&mut app, &thread);
-    assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].role, Role::Reasoning);
-    assert_eq!(app.messages[0].text, "**Plan**\n\nParagraph\n**Check**");
+    assert_eq!(app.session.messages().len(), 1);
+    assert_eq!(app.session.messages()[0].role, Role::Reasoning);
+    assert_eq!(app.session.messages()[0].text, "**Plan**\n\nParagraph\n**Check**");
 }
 
 #[test]
@@ -248,18 +248,18 @@ fn handle_notification_turn_diff_updated_upserts_diff_message() {
             "{\"method\":\"turn/diff/updated\",\"params\":{\"threadId\":\"thread-1\",\"turnId\":\"turn-1\",\"diff\":\"diff --git a/test.txt b/test.txt\\n@@ -1 +1 @@\\n-old\\n+new\\n\"}}",
         );
 
-    assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].role, Role::ToolOutput);
-    assert_eq!(app.messages[0].kind, MessageKind::Diff);
-    assert!(app.messages[0].text.contains("+new"));
+    assert_eq!(app.session.messages().len(), 1);
+    assert_eq!(app.session.messages()[0].role, Role::ToolOutput);
+    assert_eq!(app.session.messages()[0].kind, MessageKind::Diff);
+    assert!(app.session.messages()[0].text.contains("+new"));
 
     handle_notification_line(
             &mut app,
             "{\"method\":\"turn/diff/updated\",\"params\":{\"threadId\":\"thread-1\",\"turnId\":\"turn-1\",\"diff\":\"diff --git a/test.txt b/test.txt\\n@@ -1 +1 @@\\n-old\\n+newer\\n\"}}",
         );
 
-    assert_eq!(app.messages.len(), 1);
-    assert!(app.messages[0].text.contains("+newer"));
+    assert_eq!(app.session.messages().len(), 1);
+    assert!(app.session.messages()[0].text.contains("+newer"));
 }
 
 #[test]
@@ -278,11 +278,11 @@ fn handle_notification_item_completed_reasoning_replaces_live_delta_with_summary
     );
 
     assert_eq!(
-        app.messages[0].text,
+        app.session.messages()[0].text,
         "**Designing fullscreen focus overrides**\n\nI’m working out a helper function.\n**Analyzing input handling conditions**"
     );
 
-    let rendered = build_rendered_lines(&app.messages, 120);
+    let rendered = build_rendered_lines(&app.session.messages(), 120);
     assert_eq!(rendered[0].text, "Designing fullscreen focus overrides");
     assert_eq!(rendered[1].text, "I’m working out a helper function.");
     assert_eq!(rendered[2].text, "Analyzing input handling conditions");
@@ -296,7 +296,7 @@ fn handle_notification_codex_event_turn_diff_adds_diff_message() {
             "{\"method\":\"codex/event/turn_diff\",\"params\":{\"id\":\"turn-2\",\"msg\":{\"type\":\"turn_diff\",\"unified_diff\":\"diff --git a/a b/a\\n@@ -1 +1 @@\\n-a\\n+b\\n\"}}}",
         );
 
-    assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].kind, MessageKind::Diff);
-    assert!(app.messages[0].text.contains("+b"));
+    assert_eq!(app.session.messages().len(), 1);
+    assert_eq!(app.session.messages()[0].kind, MessageKind::Diff);
+    assert!(app.session.messages()[0].text.contains("+b"));
 }

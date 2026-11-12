@@ -18,7 +18,7 @@ fn long_output(app: &mut AppState) -> usize {
         .collect::<Vec<_>>()
         .join("\n");
     let idx = app.append_message(Role::ToolOutput, text);
-    app.messages.set_tool(
+    app.session.transcript_set_tool(
         idx,
         ToolOutputDetails {
             generated: false,
@@ -80,7 +80,7 @@ fn manual_modes_override_resize_until_the_user_returns_to_auto() {
 #[test]
 fn settings_open_with_the_current_choice_and_apply_or_cancel_the_draft() {
     let mut app = AppState::new("thread".into());
-    app.tool_output.mode = ToolOutputMode::Full;
+    app.view.tool_output.mode = ToolOutputMode::Full;
     app.open_model_settings();
     app.model_settings_move_field(false);
     assert_eq!(
@@ -90,12 +90,12 @@ fn settings_open_with_the_current_choice_and_apply_or_cancel_the_draft() {
     assert_eq!(app.runtime.model_settings_tool_output, ToolOutputMode::Full);
     app.runtime.model_settings_tool_output = ToolOutputMode::Compact;
     app.close_model_settings();
-    assert_eq!(app.tool_output.mode, ToolOutputMode::Full);
+    assert_eq!(app.view.tool_output.mode, ToolOutputMode::Full);
     app.open_model_settings();
     assert_eq!(app.runtime.model_settings_tool_output, ToolOutputMode::Full);
     app.runtime.model_settings_tool_output = ToolOutputMode::Compact;
     app.apply_model_settings();
-    assert_eq!(app.tool_output.mode, ToolOutputMode::Compact);
+    assert_eq!(app.view.tool_output.mode, ToolOutputMode::Compact);
 }
 
 #[test]
@@ -113,27 +113,30 @@ fn settings_report_the_automatic_choice_and_arrow_keys_wrap_both_ways() {
 fn folding_and_unfolding_never_changes_the_saved_message() {
     let mut app = AppState::new("thread".into());
     let idx = long_output(&mut app);
-    let original = app.messages[idx].text.clone();
+    let original = app.session.messages()[idx].text.clone();
     assert!(screen(&mut app, 80).contains("source line 11"));
-    app.tool_output.mode = ToolOutputMode::Compact;
+    app.view.tool_output.mode = ToolOutputMode::Compact;
     let compact = screen(&mut app, 80);
     assert!(compact.contains("main.rs"));
     assert!(compact.trim_end().ends_with("12"));
     assert!(!compact.contains("source line 11"));
-    assert_eq!(app.messages[idx].text, original);
-    app.tool_output.mode = ToolOutputMode::Full;
+    assert_eq!(app.session.messages()[idx].text, original);
+    app.view.tool_output.mode = ToolOutputMode::Full;
     assert_eq!(screen(&mut app, 80), original);
 }
 
 #[test]
 fn compact_hides_short_results_and_failure_details_but_keeps_answers_visible() {
     let mut app = AppState::new("thread".into());
-    app.tool_output.mode = ToolOutputMode::Compact;
+    app.view.tool_output.mode = ToolOutputMode::Compact;
     app.append_message(Role::ToolOutput, "short output");
     let idx = long_output(&mut app);
-    let mut details = app.messages[idx].tool_output.clone().expect("details");
+    let mut details = app.session.messages()[idx]
+        .tool_output
+        .clone()
+        .expect("details");
     details.failed = true;
-    app.messages.set_tool(idx, details);
+    app.session.transcript_set_tool(idx, details);
     app.append_message(Role::Assistant, "answer\n".repeat(10));
     let text = screen(&mut app, 80);
     assert!(!text.contains("short output"));
@@ -147,7 +150,7 @@ fn compact_hides_short_results_and_failure_details_but_keeps_answers_visible() {
 fn compact_counts_wrapped_rows_and_keeps_the_cache_consistent_at_phone_widths() {
     for width in [8, 20, 40, 80] {
         let mut app = AppState::new("thread".into());
-        app.tool_output.mode = ToolOutputMode::Compact;
+        app.view.tool_output.mode = ToolOutputMode::Compact;
         app.append_message(Role::ToolOutput, "let greeting = \"héllo 🌍\"; ".repeat(30));
         app.ensure_rendered_lines(width, None);
         let count = app.rendered_line_count();
@@ -162,15 +165,15 @@ fn compact_counts_wrapped_rows_and_keeps_the_cache_consistent_at_phone_widths() 
 #[test]
 fn a_folded_diff_keeps_filename_and_change_counts() {
     let mut app = AppState::new("thread".into());
-    app.tool_output.mode = ToolOutputMode::Compact;
+    app.view.tool_output.mode = ToolOutputMode::Compact;
     app.append_diff_message(
         Role::ToolOutput,
         Some("main.rs".into()),
         "@@ -1,4 +1,4 @@\n-old1\n-old2\n-old3\n-old4\n+new1\n+new2\n+new3\n+new4\n",
     );
-    assert_eq!(app.messages[0].kind, MessageKind::Diff);
+    assert_eq!(app.session.messages()[0].kind, MessageKind::Diff);
     assert!(screen(&mut app, 80).contains("main.rs +4 −4"));
-    app.tool_output.mode = ToolOutputMode::Full;
+    app.view.tool_output.mode = ToolOutputMode::Full;
     assert!(screen(&mut app, 80).contains("+new4"));
 }
 
@@ -180,20 +183,20 @@ fn changing_modes_keeps_a_scrolled_message_in_view() {
     long_output(&mut app);
     app.append_message(Role::Assistant, "read this answer");
     app.ensure_rendered_lines(80, None);
-    app.viewport.scroll_top = app.render_cache.rendered_block_offsets[1];
-    app.viewport.auto_follow_bottom = false;
-    app.tool_output.mode = ToolOutputMode::Compact;
+    app.view.viewport.scroll_top = app.view.render_cache.rendered_block_offsets[1];
+    app.view.viewport.auto_follow_bottom = false;
+    app.view.tool_output.mode = ToolOutputMode::Compact;
     app.ensure_rendered_lines(80, None);
     assert_eq!(
-        app.viewport.scroll_top,
-        app.render_cache.rendered_block_offsets[1]
+        app.view.viewport.scroll_top,
+        app.view.render_cache.rendered_block_offsets[1]
     );
     app.ensure_rendered_range_materialized(
-        app.viewport.scroll_top + 1,
-        app.viewport.scroll_top + 1,
+        app.view.viewport.scroll_top + 1,
+        app.view.viewport.scroll_top + 1,
     );
     assert_eq!(
-        app.rendered_line_at(app.viewport.scroll_top + 1)
+        app.rendered_line_at(app.view.viewport.scroll_top + 1)
             .expect("answer")
             .text,
         "read this answer"
@@ -203,14 +206,14 @@ fn changing_modes_keeps_a_scrolled_message_in_view() {
 #[test]
 fn reload_and_fork_keep_the_preference_but_replace_message_contents() {
     let mut app = AppState::new("thread".into());
-    app.tool_output.mode = ToolOutputMode::Compact;
+    app.view.tool_output.mode = ToolOutputMode::Compact;
     let mut replacement = AppState::new("thread".into());
     long_output(&mut replacement);
     app.replace_transcript_for_test(replacement);
     assert!(screen(&mut app, 80).trim_end().ends_with("12"));
     app.reset_for_forked_thread("fork");
-    assert_eq!(app.tool_output.mode, ToolOutputMode::Compact);
-    assert!(app.messages.is_empty());
+    assert_eq!(app.view.tool_output.mode, ToolOutputMode::Compact);
+    assert!(app.session.messages().is_empty());
 }
 
 #[test]

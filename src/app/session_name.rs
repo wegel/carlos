@@ -13,7 +13,7 @@ impl AppState {
     /// Clear the previous session's name when the client switches thread IDs.
     pub(super) fn set_thread_id(&mut self, thread_id: impl Into<String>) {
         let thread_id = thread_id.into();
-        if self.thread_id != thread_id {
+        if *self.session.thread_id() != thread_id {
             if self.codex.enabled {
                 super::codex_callbacks::reset(self);
                 self.codex.panel = Default::default();
@@ -27,9 +27,9 @@ impl AppState {
                 self.codex.settings = Default::default();
                 self.codex.settings.legacy_overrides = legacy_overrides;
             }
-            self.thread_name = None;
+            self.session.set_thread_name(None);
         }
-        self.thread_id = thread_id;
+        self.session.set_thread_id(thread_id);
     }
 
     /// Keep a single-line, terminal-safe name for display and inline editing.
@@ -38,20 +38,21 @@ impl AppState {
             self.codex.connection.name_revision =
                 self.codex.connection.name_revision.saturating_add(1);
         }
-        self.thread_name = name
-            .map(strip_terminal_controls)
-            .map(|s| {
-                s.chars()
-                    .map(|c| if c.is_control() { ' ' } else { c })
-                    .collect::<String>()
-            })
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty());
+        self.session.set_thread_name(
+            name.map(strip_terminal_controls)
+                .map(|s| {
+                    s.chars()
+                        .map(|c| if c.is_control() { ' ' } else { c })
+                        .collect::<String>()
+                })
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty()),
+        );
     }
 
     /// Apply a title only when metadata belongs to the current thread and includes a name field.
     pub(super) fn read_thread_name(&mut self, thread: &Value) {
-        if thread.get("id").and_then(Value::as_str) == Some(self.thread_id.as_str()) {
+        if thread.get("id").and_then(Value::as_str) == Some(self.session.thread_id().as_str()) {
             if let Some(name) = thread.get("name") {
                 self.set_thread_name(name.as_str());
             }
@@ -68,7 +69,7 @@ pub(super) fn read_response_name(app: &mut AppState, response: &str) {
 
 /// Apply external renames without changing the draft or transcript.
 pub(super) fn handle_name_updated(app: &mut AppState, params: &Map<String, Value>) {
-    if params.get("threadId").and_then(Value::as_str) == Some(app.thread_id.as_str()) {
+    if params.get("threadId").and_then(Value::as_str) == Some(app.session.thread_id().as_str()) {
         app.set_thread_name(params.get("threadName").and_then(Value::as_str));
     }
 }
@@ -87,16 +88,21 @@ pub(super) fn handle_rename_command(
         return false;
     }
     if !matches!(client.kind(), BackendKind::Codex | BackendKind::Claude) {
-        report_rename_error(app, "this backend does not support renaming sessions");
+        report_rename_error(
+            app,
+            "this backend does not support renaming sessions",
+            false,
+        );
     } else if rest.trim().is_empty() {
         app.set_input_text(&format!(
             "/rename {}",
-            app.thread_name.as_deref().unwrap_or("")
+            app.session.thread_name().as_deref().unwrap_or("")
         ));
     } else if rest.trim().chars().any(char::is_control) {
         report_rename_error(
             app,
             "use a single-line session name without control characters",
+            false,
         );
     } else {
         save_name(client, app, rest.trim());
@@ -108,7 +114,7 @@ fn save_name(client: &dyn BackendClient, app: &mut AppState, name: &str) {
     let result = client
         .call(
             "thread/name/set",
-            params_thread_set_name(&app.thread_id, name),
+            params_thread_set_name(&app.session.thread_id(), name),
             Duration::from_secs(10),
         )
         .and_then(|response| extract_result_object(&response));
@@ -118,12 +124,16 @@ fn save_name(client: &dyn BackendClient, app: &mut AppState, name: &str) {
             app.clear_input();
             app.set_status("session renamed");
         }
-        Err(error) => report_rename_error(app, &error.to_string()),
+        Err(error) => report_rename_error(app, &error.to_string(), true),
     }
 }
 
-fn report_rename_error(app: &mut AppState, message: &str) {
+fn report_rename_error(app: &mut AppState, message: &str, backend: bool) {
     let message = format!("Could not rename session: {message}");
-    app.set_status(message.clone());
+    if backend {
+        app.set_status(message.clone());
+    } else {
+        app.set_hint(message.clone());
+    }
     app.append_message(Role::System, message);
 }

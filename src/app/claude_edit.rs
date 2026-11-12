@@ -25,7 +25,7 @@ pub(super) fn begin(app: &mut AppState, text: String) {
     app.claude.history.edited_prompt = Some(text);
     app.claude.history.edit = Some(EditState::Forking);
     retire_queue(app);
-    app.viewport.auto_follow_bottom = true;
+    app.view.viewport.auto_follow_bottom = true;
 }
 
 /// Keep a newer composer unchanged until the saved edit has actually been submitted.
@@ -80,7 +80,7 @@ pub(super) fn unavailable(app: &mut AppState, message: &str) {
         Role::System,
         format!("Could not edit Claude message: {message}. Draft kept."),
     );
-    app.viewport.auto_follow_bottom = true;
+    app.view.viewport.auto_follow_bottom = true;
 }
 
 /// Remember which queued text is owned by this edit until its actual SDK acknowledgement.
@@ -164,6 +164,6 @@ pub(super) fn accepted(app: &mut AppState, id: &str) {
 
 /// Keep old local work off the new branch while retaining every human draft for explicit recovery.
 pub(super) fn retire_queue(app: &mut AppState) {
-    app.ralph_runtime.stop_after_failure();
+    app.session.ralph_stop_after_failure();
     super::claude_session_history::retain_queued(app);
 }

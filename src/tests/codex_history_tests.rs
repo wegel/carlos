@@ -31,13 +31,15 @@ fn later_completed_turn_survives_unfinished_turn_and_duplicate_ordinal() {
         1
     );
     let latest_assistant = app
-        .messages
+        .session
+        .messages()
         .iter()
         .rfind(|message| message.role == Role::Assistant)
         .expect("latest assistant message");
     assert!(latest_assistant.text.starts_with("Committed EP118:"));
     assert!(app
-        .messages
+        .session
+        .messages()
         .iter()
         .any(|message| message.role == Role::Commentary));
 }
@@ -49,14 +51,14 @@ fn raw_records_cannot_duplicate_lifecycle_items() {
     let response = json!({"result": {"thread": rollout}}).to_string();
     let mut app = AppState::new("thread-root".to_string());
     load_history_from_start_or_resume(&mut app, &response).expect("load snapshot");
-    let initial_count = app.messages.len();
+    let initial_count = app.session.messages().len();
 
     handle_notification_line(
         &mut app,
         r#"{"method":"codex/event/raw_response_item","params":{"msg":{"item":{"type":"function_call_output","call_id":"command-old","output":"old command output"}}}}"#,
     );
 
-    assert_eq!(app.messages.len(), initial_count);
+    assert_eq!(app.session.messages().len(), initial_count);
     assert_eq!(message_count(&app, "old command output"), 1);
 }
 
@@ -115,9 +117,9 @@ fn reconnect_during_stream_replaces_snapshot_and_completed_item_once() {
         r#"{"method":"item/agentMessage/delta","params":{"threadId":"thread-root","turnId":"turn-stream","itemId":"message-stream","delta":" continued"}}"#,
     );
 
-    assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].role, Role::Assistant);
-    assert_eq!(app.messages[0].text, "partial continued");
+    assert_eq!(app.session.messages().len(), 1);
+    assert_eq!(app.session.messages()[0].role, Role::Assistant);
+    assert_eq!(app.session.messages()[0].text, "partial continued");
 }
 
 #[test]
@@ -131,13 +133,13 @@ fn late_turn_completion_cannot_finish_a_newer_active_turn() {
         &mut app,
         r#"{"method":"turn/completed","params":{"threadId":"thread-root","turn":{"id":"turn-old","status":"completed"}}}"#,
     );
-    assert_eq!(app.active_turn_id.as_deref(), Some("turn-new"));
+    assert_eq!(app.session.active_turn_id().as_deref(), Some("turn-new"));
 
     handle_notification_line(
         &mut app,
         r#"{"method":"turn/completed","params":{"threadId":"thread-root","turn":{"id":"turn-new","status":"completed"}}}"#,
     );
-    assert_eq!(app.active_turn_id, None);
+    assert_eq!(*app.session.active_turn_id(), None);
 }
 
 #[test]
@@ -160,9 +162,9 @@ fn command_output_completion_replaces_streamed_output() {
         r#"{"method":"item/commandExecution/outputDelta","params":{"threadId":"thread-root","turnId":"turn-stream","itemId":"command-stream","delta":"partial"}}"#,
     );
 
-    assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].role, Role::ToolOutput);
-    assert_eq!(app.messages[0].text, "final output\nexit code: 1");
+    assert_eq!(app.session.messages().len(), 1);
+    assert_eq!(app.session.messages()[0].role, Role::ToolOutput);
+    assert_eq!(app.session.messages()[0].text, "final output\nexit code: 1");
 }
 
 #[test]
@@ -174,7 +176,7 @@ fn notification_for_another_thread_cannot_change_transcript() {
         r#"{"method":"item/completed","params":{"threadId":"thread-other","turnId":"turn-other","item":{"type":"agentMessage","id":"message-other","phase":"final_answer","text":"wrong thread"}}}"#,
     );
 
-    assert!(app.messages.is_empty());
+    assert!(app.session.messages().is_empty());
 }
 
 #[test]
@@ -217,7 +219,8 @@ fn truncated_server_thread(rollout: &Value) -> Value {
 }
 
 fn message_count(app: &AppState, needle: &str) -> usize {
-    app.messages
+    app.session
+        .messages()
         .iter()
         .filter(|message| message.text.contains(needle))
         .count()
@@ -328,7 +331,7 @@ fn terminal_codex_close_fences_late_turn_items_callbacks_and_keeps_the_composer(
         &json!({"method":"carlos/codex/closed","params":{"message":"native EOF"}}).to_string(),
     );
     assert!(app.codex.closed);
-    let count = app.messages.len();
+    let count = app.session.messages().len();
     for event in [
         json!({"method":"turn/started","params":{"threadId":"thread-root","turn":{"id":"late"}}}),
         json!({"method":"item/completed","params":{"threadId":"thread-root","turnId":"late","item":{"type":"agentMessage","id":"late-text","text":"must not reactivate"}}}),
@@ -337,8 +340,8 @@ fn terminal_codex_close_fences_late_turn_items_callbacks_and_keeps_the_composer(
     ] {
         handle_notification_line(&mut app, &event.to_string());
     }
-    assert!(app.active_turn_id.is_none());
-    assert!(app.approval.pending.is_none());
-    assert_eq!(app.messages.len(), count);
-    assert_eq!(app.input.lines().join("\n"), "keep my 日本語 draft");
+    assert!(app.session.active_turn_id().is_none());
+    assert!(app.session.approval().pending().is_none());
+    assert_eq!(app.session.messages().len(), count);
+    assert_eq!(app.view.input.lines().join("\n"), "keep my 日本語 draft");
 }

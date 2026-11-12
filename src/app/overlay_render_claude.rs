@@ -10,7 +10,7 @@ use super::{
 use crate::app::claude_question_state::NativeDraft;
 use crate::app::claude_question_view::{body_lines, caller, editor_line, footer_lines, wrap_lines};
 use crate::app::render::draw_str;
-use crate::app::state::{AppState, PendingApprovalRequest};
+use crate::app::state::{AppState, ApprovalRequestDraft, PendingApprovalRequest};
 use crate::app::TerminalSize;
 use crate::theme::{COLOR_DIM, COLOR_PRIMARY, COLOR_TEXT};
 
@@ -32,23 +32,23 @@ pub(super) fn draw(
     draft: &NativeDraft,
 ) {
     fill_fullscreen_overlay(buf, size);
-    let Some(layout) = question_layout(size, draft, pending) else {
-        draw_small(buf, size, pending);
+    let display = display_facts(app, pending);
+    let Some(layout) = question_layout(size, draft, &display) else {
+        draw_small(buf, size, &display);
         return;
     };
     let ob = &layout.bounds;
     fill_box_background(buf, ob, ob.bottom - ob.top + 1);
     draw_rounded_border(buf, ob);
-    let title = format!(
-        "[{} waiting] {}",
-        crate::app::native_questions::count(app),
-        pending.title
-    );
     draw_str(
         buf,
         ob.left + 2,
         ob.top + 1,
-        &title,
+        &format!(
+            "[{} waiting] {}",
+            crate::app::native_questions::count(app),
+            pending.facts().title
+        ),
         Style::default()
             .fg(COLOR_PRIMARY)
             .add_modifier(Modifier::BOLD),
@@ -58,11 +58,11 @@ pub(super) fn draw(
         buf,
         ob.left + 2,
         ob.top + 2,
-        &caller(pending),
+        &caller(&display),
         Style::default().fg(COLOR_DIM),
         layout.width,
     );
-    draw_body(buf, &layout, pending, draft);
+    draw_body(buf, app, &layout, pending, draft);
     if let Some((text, _)) = &layout.editor {
         draw_str(
             buf,
@@ -91,7 +91,7 @@ pub(super) fn cursor(
     draft: &NativeDraft,
     pending: &PendingApprovalRequest,
 ) -> Option<(usize, usize)> {
-    let layout = question_layout(size, draft, pending)?;
+    let layout = question_layout(size, draft, pending.facts())?;
     layout
         .editor
         .map(|(_, column)| (layout.bounds.left + 2 + column, layout.editor_y))
@@ -100,7 +100,7 @@ pub(super) fn cursor(
 fn question_layout(
     size: TerminalSize,
     draft: &NativeDraft,
-    pending: &PendingApprovalRequest,
+    pending: &ApprovalRequestDraft,
 ) -> Option<QuestionLayout> {
     if !crate::app::claude_question_state::can_edit_question(size) {
         return None;
@@ -133,11 +133,12 @@ fn question_layout(
 
 fn draw_body(
     buf: &mut Buffer,
+    app: &AppState,
     layout: &QuestionLayout,
     pending: &PendingApprovalRequest,
     draft: &NativeDraft,
 ) {
-    let lines = wrap_lines(body_lines(pending, draft), layout.width);
+    let lines = wrap_lines(body_lines(app, pending, draft), layout.width);
     let max_scroll = lines.len().saturating_sub(layout.body_height);
     draft.viewport.max_scroll.set(max_scroll);
     let mut scroll = draft.viewport.scroll.get().min(max_scroll);
@@ -181,7 +182,7 @@ fn draw_body(
     }
 }
 
-fn draw_small(buf: &mut Buffer, size: TerminalSize, pending: &PendingApprovalRequest) {
+fn draw_small(buf: &mut Buffer, size: TerminalSize, pending: &ApprovalRequestDraft) {
     let question = pending.kind == crate::app::state::ApprovalRequestKind::CodexQuestion;
     let mut rows = vec![
         if pending.method == "claude/native" {
@@ -217,4 +218,16 @@ fn draw_small(buf: &mut Buffer, size: TerminalSize, pending: &PendingApprovalReq
             size.width,
         );
     }
+}
+
+fn display_facts(app: &AppState, pending: &PendingApprovalRequest) -> ApprovalRequestDraft {
+    let mut display = pending.to_draft();
+    if let Some(entry) = app.codex.callbacks.get(&pending.facts().request_id) {
+        let mut payload = entry.params.clone();
+        if payload["threadId"].is_null() {
+            payload["threadId"] = payload["conversationId"].clone();
+        }
+        display.requested_permissions = Some(payload);
+    }
+    display
 }

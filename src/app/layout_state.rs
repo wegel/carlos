@@ -116,7 +116,7 @@ impl LayoutState {
 impl AppState {
     /// Reserve blank padding in Flow or a glyph and space in Gutter.
     pub(super) fn content_x(&self, size: TerminalSize) -> usize {
-        if self.layout.uses_flow(size) {
+        if self.view.layout.uses_flow(size) {
             1
         } else {
             super::MSG_CONTENT_X

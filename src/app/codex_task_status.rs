@@ -132,7 +132,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant)
         return changed;
     };
     read.sent = true;
-    let context = json!({"operation":"taskStatus","root":app.thread_id,"epoch":app.codex.epoch,
+    let context = json!({"operation":"taskStatus","root":app.session.thread_id(),"epoch":app.codex.epoch,
         "generation":read.generation,"token":read.request.token,
         "timeoutMs":Duration::from_secs(20).saturating_sub(now.saturating_duration_since(read.started)).as_millis().clamp(1,5000)});
     if let Err(error) = client.request_control_with_context(
@@ -155,7 +155,7 @@ pub(super) fn reply(app: &mut AppState, params: &Value) -> bool {
         return false;
     }
     if !connected(app)
-        || context["root"] != app.thread_id
+        || context["root"] != *app.session.thread_id()
         || context["epoch"] != app.codex.epoch
         || context["generation"] != app.codex.connection.generation
     {
@@ -325,7 +325,7 @@ fn prune(app: &mut AppState) {
         .into_iter()
         .filter(|owner| super::task_badge::owns(app, owner))
         .collect();
-    valid.insert(app.thread_id.clone());
+    valid.insert(app.session.thread_id().clone());
     let status = &mut app.codex.task_status;
     status.dirty.retain(|owner| valid.contains(owner));
     status.uncertain.retain(|owner| valid.contains(owner));

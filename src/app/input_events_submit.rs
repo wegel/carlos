@@ -21,7 +21,7 @@ pub(super) fn handle_enter_submit(
 
     let text = app.input_text();
     if app.codex.enabled && app.codex.closed {
-        app.set_status(if app.codex.connection.rebuilding {
+        app.set_hint(if app.codex.connection.rebuilding {
             "Codex reconnect is still reading; draft kept"
         } else {
             "Codex connection lost; F5 reconnects. Draft kept"
@@ -56,7 +56,7 @@ pub(super) fn handle_enter_submit(
     app.clear_rewind_mode_state();
     app.push_input_history(&text);
     app.clear_input();
-    app.viewport.selection = None;
+    app.view.viewport.selection = None;
     app.mark_user_turn_submitted();
     submit_turn_text(client, app, text);
     TerminalEventResult::Continue { needs_draw: true }

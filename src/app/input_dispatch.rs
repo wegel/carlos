@@ -46,7 +46,7 @@ pub(in crate::app) fn process_event(
             }
         },
     };
-    if let Some(perf) = app.perf.as_mut() {
+    if let Some(perf) = app.view.perf.as_mut() {
         perf.event_handle.push(event_started.elapsed());
     }
     quit
@@ -54,7 +54,7 @@ pub(in crate::app) fn process_event(
 
 /// Process a single server JSON line, dispatching any resulting actions.
 fn handle_server_line(client: &dyn BackendClient, app: &mut AppState, line: &str) {
-    if let Some(perf) = app.perf.as_mut() {
+    if let Some(perf) = app.view.perf.as_mut() {
         perf.notifications = perf.notifications.saturating_add(1);
     }
     if crate::app::codex_reconnect::receive(client, app, line) {
@@ -95,14 +95,11 @@ pub(in crate::app) fn dispatch_action(
                 crate::app::codex_callbacks::reply_error(app, &id, &error.to_string());
             }
         }
-        ServerRequestAction::ReplyNative { id, result } => {
-            crate::app::codex_reply::send(client, app, &id, result);
+        ServerRequestAction::ReplyNative { card_id, result } => {
+            crate::app::codex_reply::send(client, app, card_id, result);
         }
         ServerRequestAction::ClaudeControl { method, params } => {
-            if let Err(error) = client.request_native_control(&method, params) {
-                crate::app::claude_notifications::fail_session(app);
-                app.set_status(format!("Claude session failed: {error}"));
-            }
+            send_claude_control(client, app, &method, params);
         }
         ServerRequestAction::ApplyClaudeSettings => {
             let (model, effort, _) = app.next_turn_runtime_settings();
@@ -114,7 +111,7 @@ pub(in crate::app) fn dispatch_action(
                 }
                 Ok(false) => {}
                 Err(error) => {
-                    app.ralph_runtime.stop_after_failure();
+                    app.session.ralph_stop_after_failure();
                     app.set_status(format!("Could not apply Claude settings: {error}"));
                 }
             }
@@ -146,5 +143,17 @@ fn read_context(client: &dyn BackendClient, app: &mut AppState) -> anyhow::Resul
         Ok(())
     } else {
         client.refresh_context()
+    }
+}
+
+fn send_claude_control(
+    client: &dyn BackendClient,
+    app: &mut AppState,
+    method: &str,
+    params: serde_json::Value,
+) {
+    if let Err(error) = client.request_native_control(method, params) {
+        crate::app::claude_notifications::fail_session(app);
+        app.set_status(format!("Claude session failed: {error}"));
     }
 }

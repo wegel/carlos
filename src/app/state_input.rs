@@ -13,22 +13,22 @@ impl AppState {
     // --- Input handling ---
 
     pub(super) fn input_is_empty(&self) -> bool {
-        self.input.is_empty()
+        self.view.input.is_empty()
     }
 
     pub(super) fn input_text(&self) -> String {
-        self.input.lines().join("\n")
+        self.view.input.lines().join("\n")
     }
 
     pub(super) fn clear_input(&mut self) {
-        self.input = super::input::make_input_area();
+        self.view.input = super::input::make_input_area();
         self.reset_input_history_navigation();
     }
 
     pub(super) fn set_input_text(&mut self, text: &str) {
-        self.input = super::input::make_input_area();
+        self.view.input = super::input::make_input_area();
         if !text.is_empty() {
-            let _ = self.input.insert_str(text);
+            let _ = self.view.input.insert_str(text);
         }
     }
 
@@ -37,38 +37,38 @@ impl AppState {
     }
 
     pub(super) fn reset_esc_chord(&mut self) {
-        self.esc_armed_at = None;
-        self.esc_interrupted_at = None;
+        self.view.esc_armed_at = None;
+        self.view.esc_interrupted_at = None;
     }
 
     /// Require a quiet Escape interval after stopping work before accepting an idle chord.
     pub(super) fn suppress_esc_chord_after_interrupt(&mut self, now: Instant) {
-        self.esc_armed_at = None;
-        self.esc_interrupted_at = Some(now);
+        self.view.esc_armed_at = None;
+        self.view.esc_interrupted_at = Some(now);
     }
 
     pub(super) fn expire_esc_chord(&mut self, now: Instant) {
-        if let Some(armed_at) = self.esc_armed_at {
+        if let Some(armed_at) = self.view.esc_armed_at {
             if now.duration_since(armed_at) > ESC_CHORD_WINDOW {
-                self.esc_armed_at = None;
+                self.view.esc_armed_at = None;
             }
         }
     }
 
     pub(super) fn register_escape_press(&mut self, now: Instant) -> bool {
-        if let Some(interrupted_at) = self.esc_interrupted_at.take() {
+        if let Some(interrupted_at) = self.view.esc_interrupted_at.take() {
             if now.duration_since(interrupted_at) <= ESC_CHORD_WINDOW {
                 self.suppress_esc_chord_after_interrupt(now);
                 return false;
             }
         }
-        if let Some(armed_at) = self.esc_armed_at {
+        if let Some(armed_at) = self.view.esc_armed_at {
             if now.duration_since(armed_at) <= ESC_CHORD_WINDOW {
-                self.esc_armed_at = None;
+                self.view.esc_armed_at = None;
                 return true;
             }
         }
-        self.esc_armed_at = Some(now);
+        self.view.esc_armed_at = Some(now);
         false
     }
 
@@ -78,10 +78,10 @@ impl AppState {
         if !self.input_history.enter_rewind_mode(self.input_text()) {
             return;
         }
-        self.viewport.auto_follow_bottom = false;
+        self.view.viewport.auto_follow_bottom = false;
         let _ = self.navigate_input_history_up();
         if !self.claude.history.unknown.is_empty() {
-            self.set_status("Edit human prompt; F4 selects older prompts with unknown source");
+            self.set_hint("Edit human prompt; F4 selects older prompts with unknown source");
         }
     }
 
@@ -89,7 +89,7 @@ impl AppState {
         let Some(draft) = self.input_history.exit_rewind_mode_restore() else {
             return;
         };
-        self.viewport.auto_follow_bottom = true;
+        self.view.viewport.auto_follow_bottom = true;
         self.claude.history.unknown_selection = None;
         if !super::claude_edit::waiting(self) {
             self.claude.history.edit = None;
@@ -106,7 +106,7 @@ impl AppState {
             self.claude.history.edit = None;
         }
         self.claude.history.unknown_selection = None;
-        self.viewport.auto_follow_bottom = true;
+        self.view.viewport.auto_follow_bottom = true;
     }
 
     #[cfg(test)]
@@ -114,25 +114,26 @@ impl AppState {
         let Some(idx) = message_idx else {
             return;
         };
-        if idx > self.messages.len() {
+        if idx > self.session.messages().len() {
             return;
         }
 
-        if let Some(message) = self.messages.get(idx) {
-            self.messages.truncate_before(message.id);
-        }
-        self.viewport.selection = None;
-        self.viewport.mouse_drag_mode = super::selection::MouseDragMode::Undecided;
-        self.viewport.auto_follow_bottom = true;
-        self.viewport.scroll_top = self.viewport.scroll_top.min(self.messages.len());
-        self.command_render_overrides.clear();
-        self.summaries.retain_items(&self.messages);
-        self.input_history.retain_entries(&self.messages);
-        self.mark_transcript_dirty_from(idx);
+        let update = self.session.truncate_at(idx);
+        self.view.viewport.selection = None;
+        self.view.viewport.mouse_drag_mode = super::selection::MouseDragMode::Undecided;
+        self.view.viewport.auto_follow_bottom = true;
+        self.view.viewport.scroll_top = self
+            .view
+            .viewport
+            .scroll_top
+            .min(self.session.messages().len());
+        self.summaries.retain_items(&self.session.messages());
+        self.input_history.retain_entries(&self.session.messages());
+        self.apply_session_update(update);
     }
 
     pub(super) fn mark_user_turn_submitted(&mut self) {
-        self.ralph_runtime.mark_user_turn_submitted();
+        self.session.ralph_mark_user_turn_submitted();
     }
 
     pub(super) fn push_input_history(&mut self, text: &str) {
@@ -146,7 +147,8 @@ impl AppState {
     pub(super) fn record_input_history(&mut self, text: &str, message_idx: Option<usize>) {
         self.input_history.record_history(
             text,
-            message_idx.and_then(|index| self.messages.get(index).map(|message| message.id)),
+            message_idx
+                .and_then(|index| self.session.messages().get(index).map(|message| message.id)),
         );
     }
 
@@ -156,12 +158,12 @@ impl AppState {
         self.codex.item_turn = previous;
         if let Some(index) = message_idx {
             self.input_history
-                .record_turn_id(self.messages[index].id, turn_id);
+                .record_turn_id(self.session.messages()[index].id, turn_id);
         }
         let position = self.input_history.record_native(
             item_id,
             turn_id,
-            message_idx.map(|index| self.messages[index].id),
+            message_idx.map(|index| self.session.messages()[index].id),
         );
         if let (Some(index), Some(position)) = (message_idx, position) {
             let kind = if position == 0 {
@@ -169,8 +171,8 @@ impl AppState {
             } else {
                 super::models::MessageKind::UserSteer
             };
-            if self.messages[index].kind != kind {
-                self.messages.set_kind(index, kind);
+            if self.session.messages()[index].kind != kind {
+                self.session.transcript_set_kind(index, kind);
                 self.mark_transcript_dirty_from(index);
             }
         }
@@ -212,11 +214,11 @@ impl AppState {
             .history
             .unknown_selection
             .and_then(|index| self.claude.history.unknown.get(index))
-            .and_then(|prompt| self.messages.position(prompt.entry_id))
+            .and_then(|prompt| self.session.messages().position(prompt.entry_id))
             .or_else(|| {
                 self.input_history
                     .rewind_selected_entry_id()
-                    .and_then(|id| self.messages.position(id))
+                    .and_then(|id| self.session.messages().position(id))
             })
     }
 
@@ -239,17 +241,17 @@ impl AppState {
         let Some(msg_idx) = self.rewind_selected_message_idx() else {
             return;
         };
-        if self.messages.is_empty() {
+        if self.session.messages().is_empty() {
             return;
         }
         let width = self.transcript_width(size);
         if width == 0 {
             return;
         }
-        let upto = msg_idx.min(self.messages.len().saturating_sub(1));
-        self.layout.update_size(size);
+        let upto = msg_idx.min(self.session.messages().len().saturating_sub(1));
+        self.view.layout.update_size(size);
         self.ensure_rendered_lines(width, Some(msg_idx));
-        let rendered_upto = self.render_cache.rendered_block_offsets[upto];
+        let rendered_upto = self.view.render_cache.rendered_block_offsets[upto];
         if rendered_upto == 0 {
             return;
         }
@@ -263,7 +265,7 @@ impl AppState {
             return;
         }
         let target_line = rendered_upto.saturating_sub(1);
-        self.viewport.scroll_top = target_line.saturating_sub(msg_height.saturating_sub(1));
+        self.view.viewport.scroll_top = target_line.saturating_sub(msg_height.saturating_sub(1));
     }
 
     pub(super) fn input_apply_key(&mut self, key: crossterm::event::KeyEvent) {
@@ -271,7 +273,7 @@ impl AppState {
         if !self.rewind_mode() {
             self.reset_input_history_navigation();
         }
-        let _ = self.input.input(textarea_input_from_key(key));
+        let _ = self.view.input.input(textarea_input_from_key(key));
     }
 
     pub(super) fn input_insert_text(&mut self, text: String) {
@@ -279,6 +281,6 @@ impl AppState {
         if !self.rewind_mode() {
             self.reset_input_history_navigation();
         }
-        let _ = self.input.insert_str(text);
+        let _ = self.view.input.insert_str(text);
     }
 }

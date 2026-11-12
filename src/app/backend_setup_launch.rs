@@ -63,7 +63,7 @@ pub(in crate::app) fn run_codex_backend(
         app.codex.connection.rebuilding = true;
         app.codex.connection.initial_rebuild = true;
         app.codex.connection.initial_choices = app.codex.settings.deferred.take();
-        client.bootstrap(app.thread_id.clone(), launch.runtime_response)?;
+        client.bootstrap(app.session.thread_id().clone(), launch.runtime_response)?;
     }
     finish_run(&mut app, opts.backend, &client, server_events_rx)
 }
@@ -192,7 +192,7 @@ pub(super) fn configure_codex_app(
         None,
     );
     if !launch.deferred_history {
-        let history = preferred_codex_thread(&launch.history_response, &app.thread_id)?;
+        let history = preferred_codex_thread(&launch.history_response, &app.session.thread_id())?;
         replace_history_from_thread(app, &history);
     }
     crate::app::session_name::read_response_name(app, &launch.runtime_response);

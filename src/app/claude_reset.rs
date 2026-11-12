@@ -14,20 +14,16 @@ pub(super) fn receive(app: &mut AppState, message: &Value) {
     app.claude.reset_key = Some(key.to_string());
     app.claude.awaiting_reset_init = true;
     super::claude_prompts::reset(app, message["user_message_uuid"].as_str());
-    let approval = app.approval.pending.take();
-    let questions = std::mem::take(&mut app.claude.questions);
-    let old_id = app.thread_id.clone();
-    app.reset_for_forked_thread(old_id);
-    app.approval.pending = approval;
-    app.claude.questions = questions;
-    app.thread_name = None;
+    let old_id = app.session.thread_id().clone();
+    app.reset_preserving_approvals(old_id);
+    app.session.set_thread_name(None);
     app.claude.history = Default::default();
     super::claude_context::invalidate(app);
     app.claude.activity.compact = None;
     app.claude.activity.thinking = None;
     app.claude.activity.transient = None;
     app.claude.phase = ClaudePhase::Starting;
-    app.ralph_runtime.stop_after_failure();
+    app.session.ralph_stop_after_failure();
     app.set_status("Claude cleared the conversation; waiting for its native session identity");
 }
 

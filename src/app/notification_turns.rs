@@ -3,7 +3,7 @@
 use serde_json::Value;
 
 use super::models::TurnStatus;
-use super::state::{AppState, PendingApprovalRequest};
+use super::state::AppState;
 
 /// Track the active turn reported by the backend.
 pub(super) fn handle_turn_started(app: &mut AppState, params: &serde_json::Map<String, Value>) {
@@ -19,7 +19,7 @@ pub(super) fn handle_turn_started(app: &mut AppState, params: &serde_json::Map<S
         if app.codex.enabled {
             super::codex_settings::started(app, id);
         }
-        app.context_usage = None;
+        app.session.set_context_usage(None);
         app.set_status("turn started");
     } else {
         app.mark_turn_started();
@@ -47,17 +47,18 @@ pub(super) fn handle_turn_completed(app: &mut AppState, params: &serde_json::Map
     if app.codex.enabled {
         app.codex.queue.invalidate();
     }
-    let keep_codex = app
-        .approval
-        .pending
-        .as_ref()
-        .is_some_and(|pending| app.codex.callbacks.get(&pending.request_id).is_some());
+    let keep_codex = app.session.approval().pending().is_some_and(|pending| {
+        app.codex
+            .callbacks
+            .get(&pending.facts().request_id)
+            .is_some()
+    });
     let keep_pending = keep_codex
         || app
-            .approval
-            .pending
-            .as_ref()
-            .map(PendingApprovalRequest::persists_after_turn_completed)
+            .session
+            .approval()
+            .pending()
+            .map(|pending| pending.facts().persists_after_turn_completed())
             .unwrap_or(false);
     if !keep_pending {
         app.clear_pending_approval();
@@ -67,8 +68,8 @@ pub(super) fn handle_turn_completed(app: &mut AppState, params: &serde_json::Map
         app.append_turn_interrupted_marker();
         app.set_status("turn interrupted");
     } else if turn_status == TurnStatus::Failed {
-        app.ralph_runtime.stop_after_failure();
-        app.turn_start_message_idx = None;
+        app.session.ralph_stop_after_failure();
+        app.session.clear_turn_boundary();
         app.set_status("turn failed");
     } else {
         app.set_status("turn completed");

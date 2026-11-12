@@ -66,7 +66,7 @@ impl Streams {
 /// Keep complete native events authoritative; never append an ambiguous delta to a snapshot.
 pub(super) fn event(app: &mut AppState, event: &Value) -> bool {
     let params = &event["params"];
-    if params["threadId"] != app.thread_id {
+    if params["threadId"] != *app.session.thread_id() {
         return false;
     }
     let method = event["method"].as_str().unwrap_or("");
@@ -107,7 +107,7 @@ fn complete_turn(app: &mut AppState, params: &Value) {
         if let (Some(turn), Some(id)) = (turn["id"].as_str(), item["id"].as_str()) {
             retain_final_read(app, &(turn.into(), id.into()), item);
         }
-        let frame = json!({"threadId":app.thread_id,"turnId":turn["id"],"item":item});
+        let frame = json!({"threadId":app.session.thread_id(),"turnId":turn["id"],"item":item});
         super::notification_items::handle_item_notification(
             app,
             "item/completed",
@@ -183,7 +183,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant)
     entry.due = None;
     let result = client.request_control_with_context(
         "thread/items/read",
-        json!({"threadId":app.thread_id,"turnId":turn,"itemIds":[item]}),
+        json!({"threadId":app.session.thread_id(),"turnId":turn,"itemIds":[item]}),
         json!({"operation":"reconnectItem","epoch":app.codex.epoch,"token":token,"timeoutMs":5000}),
     );
     if let Err(error) = result {
@@ -207,7 +207,7 @@ pub(super) fn reply(app: &mut AppState, params: &Value) -> bool {
         return false;
     }
     if params["requestContext"]["epoch"].as_u64() != Some(app.codex.epoch)
-        || params["requestParams"]["threadId"] != app.thread_id
+        || params["requestParams"]["threadId"] != *app.session.thread_id()
     {
         return true;
     }
@@ -285,7 +285,7 @@ fn update_partial(app: &mut AppState, key: &(String, String), entry: &Value) {
     app.codex.connection.streams.bytes += growth;
     let previous = app.codex.item_turn.replace(key.0.clone());
     if terminal {
-        let frame = json!({"threadId":app.thread_id,"turnId":key.0,"item":entry["item"]});
+        let frame = json!({"threadId":app.session.thread_id(),"turnId":key.0,"item":entry["item"]});
         super::notification_items::handle_item_notification(
             app,
             "item/completed",

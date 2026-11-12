@@ -189,8 +189,8 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
     if size.width == 0 || size.height == 0 {
         return;
     }
-    app.layout.update_size(size);
-    app.tool_output.update_size(size);
+    app.view.layout.update_size(size);
+    app.view.tool_output.update_size(size);
     let hidden = app
         .rewind_mode()
         .then(|| app.rewind_selected_message_idx())
@@ -200,7 +200,7 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
     // --- Layout ---
     let input_layout_started = Instant::now();
     let input_layout = compute_input_layout(app, size);
-    if let Some(perf) = app.perf.as_mut() {
+    if let Some(perf) = app.view.perf.as_mut() {
         perf.input_layout.push(input_layout_started.elapsed());
     }
     let msg_height = input_layout
@@ -245,17 +245,17 @@ pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppStat
 fn sync_transcript_viewport(app: &mut AppState, msg_height: usize) {
     let total_lines = app.rendered_line_count();
     let max_scroll = total_lines.saturating_sub(msg_height);
-    if app.viewport.scroll_top > max_scroll {
-        app.viewport.scroll_top = max_scroll;
+    if app.view.viewport.scroll_top > max_scroll {
+        app.view.viewport.scroll_top = max_scroll;
     }
-    if app.viewport.auto_follow_bottom && max_scroll > 0 {
-        app.viewport.scroll_top = max_scroll;
+    if app.view.viewport.auto_follow_bottom && max_scroll > 0 {
+        app.view.viewport.scroll_top = max_scroll;
     }
     if msg_height == 0 || total_lines == 0 {
         return;
     }
-    let end_idx = (app.viewport.scroll_top + msg_height)
+    let end_idx = (app.view.viewport.scroll_top + msg_height)
         .saturating_sub(1)
         .min(total_lines - 1);
-    app.ensure_rendered_range_materialized(app.viewport.scroll_top, end_idx);
+    app.ensure_rendered_range_materialized(app.view.viewport.scroll_top, end_idx);
 }

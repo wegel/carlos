@@ -43,10 +43,11 @@ fn exact_typed_ids_and_native_question_keys_survive_concurrent_child_requests() 
     );
     assert_eq!(field_text(&app, json!("9")), "other draft");
     assert_eq!(
-        app.approval
-            .pending
-            .as_ref()
+        app.session
+            .approval()
+            .pending()
             .expect("remaining callback")
+            .facts()
             .request_id,
         json!("9")
     );
@@ -71,7 +72,12 @@ fn nonblocking_focus_and_drafts_survive_a_later_blocking_request() {
     receive(&mut app, question(json!("blocking"), "child-b", true));
     assert!(crate::app::native_questions::modal(&app));
     assert_eq!(
-        app.approval.pending.as_ref().expect("blocking").request_id,
+        app.session
+            .approval()
+            .pending()
+            .expect("blocking")
+            .facts()
+            .request_id,
         "blocking"
     );
     respond(&peer, &mut app, ApprovalChoice::Decline);
@@ -90,7 +96,12 @@ fn escape_promotes_a_queued_blocking_request_instead_of_hiding_it() {
     assert!(hide_nonblocking(&mut app));
     assert!(crate::app::native_questions::modal(&app));
     assert_eq!(
-        app.approval.pending.as_ref().expect("blocking").request_id,
+        app.session
+            .approval()
+            .pending()
+            .expect("blocking")
+            .facts()
+            .request_id,
         "b"
     );
 }
@@ -131,7 +142,7 @@ fn exact_resolution_dedup_and_root_completion_do_not_erase_child_callbacks() {
 fn question_skip_and_cancel_use_distinct_native_paths_and_the_exact_child_turn() {
     let mut app = app();
     let peer = Peer::default();
-    app.active_turn_id = Some("root-working".into());
+    app.session.set_active_turn_id(Some("root-working".into()));
     receive(&mut app, question(json!("q"), "child", true));
     respond(&peer, &mut app, ApprovalChoice::Cancel);
     assert!(peer.replies.borrow().is_empty());
@@ -143,7 +154,10 @@ fn question_skip_and_cancel_use_distinct_native_paths_and_the_exact_child_turn()
         )
     );
     assert!(app.codex.callbacks.get(&json!("q")).is_some());
-    assert_eq!(app.active_turn_id.as_deref(), Some("root-working"));
+    assert_eq!(
+        app.session.active_turn_id().as_deref(),
+        Some("root-working")
+    );
     respond(&peer, &mut app, ApprovalChoice::Decline);
     assert_eq!(peer.replies.borrow()[0].1, json!({"answers":{}}));
 }
@@ -292,10 +306,13 @@ fn replacing_a_session_retires_all_pending_callbacks_and_late_form_results() {
     }
     app.set_thread_id("new-root");
     assert!(app.codex.callbacks.entries.is_empty());
-    assert!(app.approval.pending.is_none());
+    assert!(app.session.approval().pending().is_none());
     assert_eq!(app.input_text(), "main draft");
     receive(&mut app, question(json!(1), "child", true));
-    assert!(app.approval.pending.is_none(), "old replay is retired");
+    assert!(
+        app.session.approval().pending().is_none(),
+        "old replay is retired"
+    );
     receive(
         &mut app,
         json!({"method":"serverRequest/resolved","params":{"threadId":"child","requestId":1}}),
@@ -323,10 +340,11 @@ fn managed_human_approvals_never_offer_or_send_session_decisions() {
         "availableDecisions":["accept","acceptForSession","decline","cancel"]}}),
     );
     assert!(
-        !app.approval
-            .pending
-            .as_ref()
+        !app.session
+            .approval()
+            .pending()
             .expect("approval")
+            .facts()
             .can_accept_for_session
     );
     respond(&peer, &mut app, ApprovalChoice::AcceptForSession);

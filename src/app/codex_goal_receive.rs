@@ -7,7 +7,7 @@ use super::state::AppState;
 
 /// Keep native root goal notifications independent of child turns and UI editor focus.
 pub(super) fn observed(app: &mut AppState, method: &str, params: &Value) {
-    if params["threadId"] != app.thread_id {
+    if params["threadId"] != *app.session.thread_id() {
         return;
     }
     if method != "thread/goal/cleared" && !params["goal"].is_object() {
@@ -33,7 +33,7 @@ pub(super) fn reply(app: &mut AppState, params: &Value) -> bool {
         return false;
     }
     if params["requestContext"]["epoch"].as_u64() != Some(app.codex.epoch)
-        || params["requestParams"]["threadId"] != app.thread_id
+        || params["requestParams"]["threadId"] != *app.session.thread_id()
     {
         return true;
     }
@@ -141,7 +141,7 @@ fn mutation_reply(app: &mut AppState, request: &GoalRequest, response: &Value) {
 }
 
 fn apply(app: &mut AppState, goal: &Value) -> Result<(), String> {
-    validate(&app.thread_id, goal)?;
+    validate(&app.session.thread_id(), goal)?;
     app.codex.goals.read_error = None;
     app.codex.goals.goal = goal.clone();
     app.codex.goals.knowledge = GoalKnowledge::Known;

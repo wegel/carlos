@@ -16,8 +16,8 @@ fn exec_command_end_shell_git_diff_is_summarized_as_diff() {
             "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_git_diff\",\"aggregatedOutput\":\"diff --git a/src/main.rs b/src/main.rs\\n@@ -1 +1 @@\\n-old\\n+new\\n\",\"exitCode\":1},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
         );
 
-    assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].kind, MessageKind::Diff);
+    assert_eq!(app.session.messages().len(), 1);
+    assert_eq!(app.session.messages()[0].kind, MessageKind::Diff);
 }
 
 #[test]
@@ -36,9 +36,9 @@ fn exec_command_end_parsed_edit_type_is_summarized_as_edit() {
             "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_edit_1\",\"aggregatedOutput\":\"patched\\n\",\"exitCode\":0},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
         );
 
-    assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].tool_output.as_ref().expect("tool details").summary, "← Edit src/main.rs");
-    assert_eq!(app.messages[0].role, Role::ToolOutput);
+    assert_eq!(app.session.messages().len(), 1);
+    assert_eq!(app.session.messages()[0].tool_output.as_ref().expect("tool details").summary, "← Edit src/main.rs");
+    assert_eq!(app.session.messages()[0].role, Role::ToolOutput);
 }
 
 #[test]
@@ -53,9 +53,9 @@ fn item_completed_command_execution_diff_output_renders_diff_message_kind() {
             "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_diff_1\",\"aggregatedOutput\":\"diff --git a/test.txt b/test.txt\\n@@ -1 +1 @@\\n-old\\n+new\\n\",\"exitCode\":1},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
         );
 
-    assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].kind, MessageKind::Diff);
-    assert!(app.messages[0].text.contains("+new"));
+    assert_eq!(app.session.messages().len(), 1);
+    assert_eq!(app.session.messages()[0].kind, MessageKind::Diff);
+    assert!(app.session.messages()[0].text.contains("+new"));
 }
 
 #[test]

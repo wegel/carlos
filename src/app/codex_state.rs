@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use serde_json::Value;
 
 use super::claude_question_state::NativeDraft;
-use super::state::PendingApprovalRequest;
+use crate::session::entry_id::EntryId;
 
 /// One native process owns its close fence and pending callback lifetimes.
 #[derive(Default)]
@@ -28,7 +28,6 @@ pub(super) struct CodexUiState {
 /// Retain callback drafts independently of root-turn activity and overlay focus.
 #[derive(Default)]
 pub(super) struct CodexCallbacks {
-    pub(super) queue: VecDeque<PendingApprovalRequest>,
     pub(super) entries: HashMap<String, CodexCallback>,
     pub(super) focused: bool,
     pub(super) opened: HashSet<String>,
@@ -43,6 +42,7 @@ pub(super) struct CodexCallback {
     pub(super) blocking: bool,
     pub(super) revision: u64,
     pub(super) candidate: Option<Value>,
+    pub(super) candidate_card: Option<EntryId>,
     pub(super) checking: bool,
     pub(super) interrupting: bool,
     pub(super) bytes: usize,
@@ -72,7 +72,6 @@ impl CodexCallbacks {
         };
         self.entries.remove(&key);
         self.opened.remove(&key);
-        self.queue.retain(|pending| pending.request_id != *id);
         if self.retired.insert(key.clone()) {
             self.recent.push_back(key);
         }

@@ -144,8 +144,8 @@ fn field_value(app: &AppState, field: ModelSettingsField) -> &str {
         ModelSettingsField::Context if app.runtime.context.attached => "Server default",
         ModelSettingsField::Context => &app.runtime.context.draft,
         ModelSettingsField::DictationEndpoint => app.dictation_endpoint_mode_label(),
-        ModelSettingsField::DesktopTheme => app.layout.draft.desktop.label(),
-        ModelSettingsField::PhoneTheme => app.layout.draft.phone.label(),
+        ModelSettingsField::DesktopTheme => app.view.layout.draft.desktop.label(),
+        ModelSettingsField::PhoneTheme => app.view.layout.draft.phone.label(),
         ModelSettingsField::ToolLabels => {
             if app.summaries.draft {
                 "On"
@@ -154,6 +154,7 @@ fn field_value(app: &AppState, field: ModelSettingsField) -> &str {
             }
         }
         ModelSettingsField::ToolOutput => app
+            .view
             .tool_output
             .settings_label(app.runtime.model_settings_tool_output),
     }

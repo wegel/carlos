@@ -12,13 +12,13 @@ fn replayed_start_cannot_reopen_a_terminal_turn() {
         let mut app = AppState::new("thread-root".to_string());
         notify_turn(&mut app, "turn/started", "turn-done", "inProgress");
         notify_turn(&mut app, "turn/completed", "turn-done", terminal_status);
-        let completed_status = app.status.clone();
+        let completed_status = app.status_text().clone();
 
         notify_turn(&mut app, "turn/started", "turn-done", "inProgress");
 
-        assert_eq!(app.active_turn_id, None);
-        assert_eq!(app.status, completed_status);
-        assert!(app.turn_status_by_id["turn-done"].is_terminal());
+        assert_eq!(*app.session.active_turn_id(), None);
+        assert_eq!(*app.status_text(), completed_status);
+        assert!(app.session.turn_status_by_id()["turn-done"].is_terminal());
     }
 }
 
@@ -30,8 +30,11 @@ fn replayed_old_start_cannot_replace_a_newer_active_turn() {
 
     notify_turn(&mut app, "turn/started", "turn-old", "inProgress");
 
-    assert_eq!(app.active_turn_id.as_deref(), Some("turn-new"));
-    assert_eq!(app.turn_status_by_id["turn-old"], TurnStatus::Completed);
+    assert_eq!(app.session.active_turn_id().as_deref(), Some("turn-new"));
+    assert_eq!(
+        app.session.turn_status_by_id()["turn-old"],
+        TurnStatus::Completed
+    );
 }
 
 #[test]
@@ -42,7 +45,7 @@ fn repeated_start_preserves_the_current_turn_message_boundary() {
 
     notify_turn(&mut app, "turn/started", "turn-live", "inProgress");
 
-    assert_eq!(app.turn_start_message_idx, Some(0));
+    assert_eq!(app.session.turn_start(), Some(0));
 }
 
 #[test]
@@ -52,7 +55,7 @@ fn completion_with_in_progress_status_cannot_end_a_turn() {
 
     notify_turn(&mut app, "turn/completed", "turn-live", "inProgress");
 
-    assert_eq!(app.active_turn_id.as_deref(), Some("turn-live"));
+    assert_eq!(app.session.active_turn_id().as_deref(), Some("turn-live"));
 }
 
 #[test]
@@ -68,9 +71,9 @@ fn claude_interrupt_ends_the_requested_turn_once() {
         handle_notification_line(&mut app, &completion);
         handle_notification_line(&mut app, &completion);
 
-        assert_eq!(app.active_turn_id, None);
-        assert_eq!(app.status, "turn interrupted");
-        assert_eq!(app.messages.len(), 1);
+        assert_eq!(*app.session.active_turn_id(), None);
+        assert_eq!(*app.status_text(), "turn interrupted");
+        assert_eq!(app.session.messages().len(), 1);
     }
 }
 
@@ -85,7 +88,10 @@ fn late_claude_interrupt_cannot_end_a_newer_turn() {
 
     handle_notification_line(&mut app, &completion);
 
-    assert_eq!(app.active_turn_id.as_deref(), Some("claude-turn-new"));
+    assert_eq!(
+        app.session.active_turn_id().as_deref(),
+        Some("claude-turn-new")
+    );
 }
 
 #[test]

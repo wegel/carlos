@@ -49,14 +49,15 @@ fn old_generation_close_cancel_and_metadata_cannot_touch_the_new_session() {
     ] {
         frame(&mut app, 1, event, Some("start"));
     }
-    assert_eq!(app.thread_id, "new-session");
+    assert_eq!(app.session.thread_id(), "new-session");
     assert!(app.claude.phase == ClaudePhase::Starting);
     assert!(app.claude.capabilities.is_none());
     assert_eq!(
-        app.approval
-            .pending
-            .as_ref()
+        app.session
+            .approval()
+            .pending()
             .expect("new callback remains")
+            .facts()
             .request_id,
         "same-native-id"
     );
@@ -102,7 +103,7 @@ fn failures_before_and_after_switch_keep_the_correct_session_and_edit() {
         1,
         json!({"message":"source unavailable"}),
     );
-    assert_eq!(app.thread_id, "original");
+    assert_eq!(app.session.thread_id(), "original");
     assert!(app.claude.phase == ClaudePhase::Ready);
     assert_eq!(app.input_text(), "edited draft");
     app.claude.history.edited_prompt = Some("edited draft".to_string());
@@ -178,7 +179,7 @@ fn history_or_start_reply_failure_restores_the_edit_without_forging_a_turn() {
         );
         assert!(app.claude.phase == ClaudePhase::Closed);
         assert_eq!(app.input_text(), "recover me");
-        assert!(app.active_turn_id.is_none());
+        assert!(app.session.active_turn_id().is_none());
     }
 }
 

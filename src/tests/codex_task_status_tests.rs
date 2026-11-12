@@ -16,7 +16,7 @@ pub(super) fn agent(id: &str, state: &str) -> Value {
 }
 fn own(app: &mut AppState) {
     app.codex.panel.ownership = crate::app::codex_panel_state::VerifiedOwners::new(
-        &app.thread_id,
+        &app.session.thread_id(),
         app.codex.epoch,
         app.codex
             .panel

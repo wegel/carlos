@@ -13,8 +13,8 @@ use crate::session::models::ToolOutputDetails;
 
 fn check(app: &AppState, old: &HeadReference) {
     app.assert_entry_invariants();
-    assert_eq!(app.messages.len(), old.messages.len());
-    for (new, old) in app.messages.iter().zip(&old.messages) {
+    assert_eq!(app.session.messages().len(), old.messages.len());
+    for (new, old) in app.session.messages().iter().zip(&old.messages) {
         assert_eq!(
             (new.role, new.kind, &new.text, &new.file_path),
             (old.role, old.kind, &old.text, &old.file_path)
@@ -122,7 +122,7 @@ fn native_prompt_positions_match_the_unchanged_head_counter() {
             position
         );
         assert_eq!(
-            app.messages[0].kind,
+            app.session.messages()[0].kind,
             if position == 0 {
                 MessageKind::Plain
             } else {
@@ -147,8 +147,9 @@ fn named_exception_absent_diff_parts_retire_and_regrow_with_a_fresh_row() {
             a.upsert_mapped_message(k, Role::ToolOutput, "+old".into(), MessageKind::Diff, None);
         });
     }
-    let retired = app.messages[2].id;
-    app.messages.retain_parts(&app.item_key("diff"), 1);
+    let retired = app.session.messages()[2].id;
+    app.session
+        .transcript_retain_parts(&app.item_key("diff"), 1);
     app.with_item_part("diff", 2, |a, k| {
         assert_eq!(a.item_message_index(k), None);
         a.upsert_mapped_message(k, Role::ToolOutput, "+new".into(), MessageKind::Diff, None);
@@ -158,10 +159,10 @@ fn named_exception_absent_diff_parts_retire_and_regrow_with_a_fresh_row() {
         a.upsert_mapped_message(k, Role::ToolOutput, "+new".into(), MessageKind::Diff, None);
     });
     assert_eq!(head.messages.len(), 3);
-    assert_eq!(app.messages.len(), 4);
-    assert_eq!(app.messages[2].text, "+old");
+    assert_eq!(app.session.messages().len(), 4);
+    assert_eq!(app.session.messages()[2].text, "+old");
     assert_eq!(head.messages[2].text, "+new");
-    assert_ne!(app.messages[3].id, retired);
+    assert_ne!(app.session.messages()[3].id, retired);
     app.assert_entry_invariants();
 }
 
@@ -185,8 +186,8 @@ fn attach_tool(app: &mut AppState, old: &mut HeadReference, key: &str, bits: u64
         generated: true,
         failed: bits & 16 != 0,
     };
-    app.messages
-        .set_tool(app.item_message_index(key).expect("row"), details.clone());
+    app.session
+        .transcript_set_tool(app.item_message_index(key).expect("row"), details.clone());
     let index = old.item_message_index(key).expect("row");
     old.messages[index].tool_output = Some(details);
 }
@@ -212,9 +213,9 @@ fn failed_boundary(app: &mut AppState, old: &mut HeadReference, operation: u64) 
         8 => {
             crate::app::claude_reset::receive(
                 app,
-                &json!({"new_conversation_id":format!("reset-{}",app.messages.len())}),
+                &json!({"new_conversation_id":format!("reset-{}",app.session.messages().len())}),
             );
-            if app.messages.is_empty() {
+            if app.session.messages().is_empty() {
                 *old = HeadReference::default();
             }
         }

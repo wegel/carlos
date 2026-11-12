@@ -9,7 +9,7 @@ use super::{
 use crate::app::layout_state::TranscriptTheme;
 
 fn user(app: &mut AppState, method: &str, turn: &str, id: &str, text: &str) {
-    handle_notification_line(app,&json!({"method":method,"params":{"threadId":app.thread_id,
+    handle_notification_line(app,&json!({"method":method,"params":{"threadId":app.session.thread_id(),
         "turnId":turn,"item":{"type":"userMessage","id":id,"content":[{"type":"text","text":text}]}}}).to_string());
 }
 fn enabled() -> AppState {
@@ -33,11 +33,12 @@ fn live_started_and_completed_events_count_each_exact_user_item_once() {
     for method in ["item/started", "item/completed", "item/completed"] {
         user(&mut app, method, "shared", "steer", "same 日本語");
     }
-    assert_eq!(app.messages.len(), 2);
-    assert_eq!(app.messages[0].kind, MessageKind::Plain);
-    assert_eq!(app.messages[1].kind, MessageKind::UserSteer);
+    assert_eq!(app.session.messages().len(), 2);
+    assert_eq!(app.session.messages()[0].kind, MessageKind::Plain);
+    assert_eq!(app.session.messages()[1].kind, MessageKind::UserSteer);
     assert!(app
-        .messages
+        .session
+        .messages()
         .iter()
         .all(|message| message.role == Role::User));
     app.enter_rewind_mode();
@@ -62,7 +63,7 @@ fn busy_first_message_is_normal_and_hidden_earlier_inputs_still_count() {
     let mut app = enabled();
     app.record_turn_started("new-turn");
     user(&mut app, "item/completed", "new-turn", "normal", "normal");
-    assert_eq!(app.messages[0].kind, MessageKind::Plain);
+    assert_eq!(app.session.messages()[0].kind, MessageKind::Plain);
     user(&mut app, "item/completed", "other-turn", "empty", "");
     user(
         &mut app,
@@ -72,7 +73,7 @@ fn busy_first_message_is_normal_and_hidden_earlier_inputs_still_count() {
         "visible",
     );
     assert_eq!(
-        app.messages.last().expect("visible").kind,
+        app.session.messages().last().expect("visible").kind,
         MessageKind::UserSteer
     );
 }
@@ -84,7 +85,7 @@ fn replacement_and_repeated_fork_resets_keep_the_ledger_enabled_and_anchors_exac
         app.reset_for_forked_thread("thread");
         load_history_from_start_or_resume(&mut app, &snapshot()).expect("loaded native users");
         assert!(app.input_history.native_enabled());
-        assert_eq!(app.messages[1].kind, MessageKind::UserSteer);
+        assert_eq!(app.session.messages()[1].kind, MessageKind::UserSteer);
         app.enter_rewind_mode();
         assert_eq!(
             app.input_history
@@ -103,7 +104,8 @@ fn other_backends_keep_plain_user_messages_and_existing_grouping() {
         user(&mut app, "item/completed", "shared", id, "same");
     }
     assert!(app
-        .messages
+        .session
+        .messages()
         .iter()
         .all(|message| message.kind == MessageKind::Plain));
     assert!(!app.input_history.native_enabled());
@@ -114,7 +116,7 @@ fn steer_labels_do_not_change_copy_text_and_count_equals_draw_at_phone_widths() 
     let mut app = enabled();
     load_history_from_start_or_resume(&mut app, &snapshot()).expect("history");
     for theme in [TranscriptTheme::Gutter, TranscriptTheme::Flow] {
-        app.layout.active = theme;
+        app.view.layout.active = theme;
         for width in [8, 12, 18, 36, 80, 140] {
             app.ensure_rendered_lines(width, None);
             let count = app.rendered_line_count();
@@ -135,7 +137,7 @@ fn steer_labels_do_not_change_copy_text_and_count_equals_draw_at_phone_widths() 
                 dragging: false,
             });
             assert!(!copied.contains("steer"));
-            assert_eq!(app.messages[1].text, "same 日本語");
+            assert_eq!(app.session.messages()[1].text, "same 日本語");
             assert!(copied.contains("same"));
         }
     }

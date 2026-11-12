@@ -3,8 +3,8 @@
 use serde_json::{json, Value};
 
 use super::claude_question_state::{safe_label, safe_text, NativeDraft};
-use super::claude_question_view::default_no_hint;
-use super::state::{AppState, ApprovalRequestKind, PendingApprovalRequest};
+use super::state::{AppState, ApprovalRequestDraft, ApprovalRequestKind};
+use crate::session::approval_state::ApprovalQueue;
 
 /// Show or queue one native SDK permission or question by its request ID.
 pub(super) fn receive_callback(app: &mut AppState, frame: &Value) {
@@ -14,7 +14,7 @@ pub(super) fn receive_callback(app: &mut AppState, frame: &Value) {
     let payload = &frame["payload"];
     let kind = frame["kind"].as_str().unwrap_or("");
     let draft = NativeDraft::from_payload(kind, payload);
-    let Some(mut prompt) = callback_prompt(id, kind, payload, !draft.fields.is_empty()) else {
+    let Some(prompt) = callback_prompt(id, kind, payload) else {
         app.append_message(
             super::Role::System,
             format!(
@@ -26,34 +26,36 @@ pub(super) fn receive_callback(app: &mut AppState, frame: &Value) {
         return;
     };
     if app
-        .approval
-        .pending
-        .as_ref()
-        .is_some_and(|pending| pending.request_id == prompt.request_id)
+        .session
+        .approval()
+        .pending()
+        .is_some_and(|pending| pending.facts().request_id == prompt.request_id)
         || app
-            .claude
-            .questions
+            .session
+            .approval()
+            .queued(ApprovalQueue::Claude)
             .iter()
-            .any(|pending| pending.request_id == prompt.request_id)
+            .any(|pending| pending.facts().request_id == prompt.request_id)
     {
         return;
     }
-    prompt.entry_id = Some(app.messages.allocate_card());
+    let has_fields = !draft.fields.is_empty();
     app.claude.answers.drafts.insert(id.to_string(), draft);
     super::claude_browser::register(app, id, payload);
-    if app.approval.pending.is_none() {
+    if app.session.approval().pending().is_none() {
         app.set_pending_approval(prompt);
     } else {
-        app.claude.questions.push_back(prompt);
+        app.session.enqueue_approval(prompt, ApprovalQueue::Claude);
     }
+    let entry = app
+        .live_approval_cards()
+        .find(|p| p.facts().request_id == id)
+        .and_then(|p| p.entry_id())
+        .expect("session-issued callback id");
+    app.view.approval_hints.register_callback(entry, has_fields);
 }
 
-fn callback_prompt(
-    id: &str,
-    kind: &str,
-    payload: &Value,
-    has_fields: bool,
-) -> Option<PendingApprovalRequest> {
+fn callback_prompt(id: &str, kind: &str, payload: &Value) -> Option<ApprovalRequestDraft> {
     let (title, request_kind) = match kind {
         "permission" => (
             payload["title"]
@@ -71,13 +73,12 @@ fn callback_prompt(
         ),
         _ => return None,
     };
-    Some(PendingApprovalRequest {
-        entry_id: None,
+    Some(ApprovalRequestDraft {
         request_id: json!(id),
         method: "claude/native".to_string(),
         kind: request_kind,
         title: safe_label(title),
-        detail_lines: callback_details(payload, kind, has_fields),
+        detail_lines: callback_details(payload, kind),
         requested_permissions: Some(payload.clone()),
         can_accept_for_session: false,
         can_decline: true,
@@ -91,23 +92,39 @@ pub(super) fn cancel_callback(app: &mut AppState, id: &Value) {
         app.claude.answers.drafts.remove(id);
         super::claude_browser::withdraw(app, id);
     }
-    if app.claude.confirm_allow.as_deref() == id.as_str() {
-        app.claude.confirm_allow = None;
+    if app.view.confirm_allow.is_some_and(|entry| {
+        app.live_approval_cards()
+            .any(|pending| pending.entry_id() == Some(entry) && &pending.facts().request_id == id)
+    }) {
+        app.view.confirm_allow = None;
     }
-    app.claude
-        .questions
-        .retain(|pending| &pending.request_id != id);
+    for pending in app.session.approval().queued(ApprovalQueue::Claude) {
+        if &pending.facts().request_id == id {
+            app.view.approval_hints.remove(pending.entry_id());
+        }
+    }
+    let retired: Vec<_> = app
+        .session
+        .approval()
+        .queued(ApprovalQueue::Claude)
+        .iter()
+        .filter(|pending| &pending.facts().request_id == id)
+        .filter_map(|p| p.entry_id())
+        .collect();
+    for entry in retired {
+        app.session.retire_approval(entry);
+    }
     if app
-        .approval
-        .pending
-        .as_ref()
-        .is_some_and(|pending| &pending.request_id == id)
+        .session
+        .approval()
+        .pending()
+        .is_some_and(|pending| &pending.facts().request_id == id)
     {
         app.clear_pending_approval();
     }
 }
 
-fn callback_details(payload: &Value, kind: &str, has_fields: bool) -> Vec<String> {
+fn callback_details(payload: &Value, kind: &str) -> Vec<String> {
     let mut lines = Vec::new();
     for (key, label) in [
         ("toolName", "Tool"),
@@ -134,9 +151,6 @@ fn callback_details(payload: &Value, kind: &str, has_fields: bool) -> Vec<String
     if kind == "elicitation" {
         lines.push("Server config source: unknown".to_string());
     }
-    if payload["defaultToNo"] == true {
-        lines.insert(0, default_no_hint(has_fields, false).to_string());
-    }
     if let Some(url) = payload["url"].as_str() {
         lines.insert(
             0,
@@ -146,14 +160,6 @@ fn callback_details(payload: &Value, kind: &str, has_fields: bool) -> Vec<String
             ),
         );
         lines.insert(1, format!("Link: {}", safe_label(url)));
-        lines.insert(
-            2,
-            "Ctrl+Y copies the link; y consents to this server's request.".to_string(),
-        );
-        lines.push(
-            "Accept consents to this browser interaction; it does not confirm completion."
-                .to_string(),
-        );
     }
     lines
 }

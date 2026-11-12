@@ -12,9 +12,9 @@ fn rewind_fork_drops_selected_message_and_newer_history() {
 
     app.rewind_fork_from_message_idx(Some(u2));
 
-    assert_eq!(app.messages.len(), u2);
-    assert!(app.messages.iter().all(|m| m.text != "second"));
-    assert!(app.messages.iter().all(|m| m.text != "reply two"));
+    assert_eq!(app.session.messages().len(), u2);
+    assert!(app.session.messages().iter().all(|m| m.text != "second"));
+    assert!(app.session.messages().iter().all(|m| m.text != "reply two"));
     assert_eq!(app.input_history_message_indices(), &[Some(u1), None]);
 }
 
@@ -36,9 +36,9 @@ fn rewind_edit_keeps_selected_anchor_for_fork() {
     assert_eq!(app.rewind_selected_message_idx(), Some(u1));
 
     app.rewind_fork_from_message_idx(app.rewind_selected_message_idx());
-    assert_eq!(app.messages.len(), u1);
-    assert!(app.messages.iter().all(|m| m.text != "first"));
-    assert!(app.messages.iter().all(|m| m.text != "reply one"));
+    assert_eq!(app.session.messages().len(), u1);
+    assert!(app.session.messages().iter().all(|m| m.text != "first"));
+    assert!(app.session.messages().iter().all(|m| m.text != "reply one"));
 }
 
 #[test]
@@ -70,14 +70,14 @@ fn rewind_scroll_aligns_to_selected_prompt_history_position() {
         width: 100,
         height: 6,
     });
-    let newer_scroll = app.viewport.scroll_top;
+    let newer_scroll = app.view.viewport.scroll_top;
 
     app.set_rewind_selection_for_test(Some(0));
     app.align_rewind_scroll_to_selected_prompt(TerminalSize {
         width: 100,
         height: 6,
     });
-    let older_scroll = app.viewport.scroll_top;
+    let older_scroll = app.view.viewport.scroll_top;
 
     assert!(older_scroll <= newer_scroll);
 }

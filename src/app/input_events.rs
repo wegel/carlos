@@ -70,10 +70,12 @@ pub(super) fn is_mobile_mouse_key_candidate(
     code: KeyCode,
     modifiers: KeyModifiers,
 ) -> bool {
-    if app.viewport.mobile_plain_pending_coords || app.viewport.mobile_plain_suppress_coords {
+    if app.view.viewport.mobile_plain_pending_coords
+        || app.view.viewport.mobile_plain_suppress_coords
+    {
         return matches!(code, KeyCode::Char(ch) if ch.is_ascii_digit() || ch == ';');
     }
-    if !app.viewport.mobile_mouse_buffer.is_empty() {
+    if !app.view.viewport.mobile_mouse_buffer.is_empty() {
         return matches!(code, KeyCode::Char(_));
     }
     let KeyCode::Char(ch) = code else {
@@ -96,10 +98,10 @@ fn hidden_user_message_idx(app: &AppState) -> Option<usize> {
 
 pub(super) fn ensure_transcript_layout(app: &mut AppState, size: TerminalSize) {
     let render_started = Instant::now();
-    app.tool_output.update_size(size);
-    app.layout.update_size(size);
+    app.view.tool_output.update_size(size);
+    app.view.layout.update_size(size);
     app.ensure_rendered_lines(app.transcript_width(size), hidden_user_message_idx(app));
-    if let Some(perf) = app.perf.as_mut() {
+    if let Some(perf) = app.view.perf.as_mut() {
         perf.transcript_render.push(render_started.elapsed());
     }
 }
@@ -121,7 +123,7 @@ pub(super) fn handle_terminal_event(
         Event::Mouse(m) => handle_mouse_event(app, m, size),
         Event::Paste(pasted) => handle_paste_event(app, pasted, size),
         Event::Resize(_, _) => {
-            if let Some(perf) = app.perf.as_mut() {
+            if let Some(perf) = app.view.perf.as_mut() {
                 perf.resize_events = perf.resize_events.saturating_add(1);
             }
             TerminalEventResult::Continue { needs_draw: true }

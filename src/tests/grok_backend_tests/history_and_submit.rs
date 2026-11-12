@@ -55,7 +55,7 @@ fn load_grok_local_history_filters_by_cwd() {
 fn submit_turn_text_sends_grok_follow_up_while_turn_active() {
     let client = GrokStartMock::new();
     let mut app = AppState::new("thread-1".to_string());
-    app.active_turn_id = Some("turn-1".to_string());
+    app.session.set_active_turn_id(Some("turn-1".to_string()));
 
     submit_turn_text(&client, &mut app, "follow up".to_string());
 
@@ -63,10 +63,10 @@ fn submit_turn_text_sends_grok_follow_up_while_turn_active() {
         client.calls.lock().expect("calls lock").as_slice(),
         ["turn/start"]
     );
-    assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].text, "follow up");
-    assert_eq!(app.active_turn_id.as_deref(), Some("turn-1"));
-    assert_eq!(app.status, "sent turn");
+    assert_eq!(app.session.messages().len(), 1);
+    assert_eq!(app.session.messages()[0].text, "follow up");
+    assert_eq!(app.session.active_turn_id().as_deref(), Some("turn-1"));
+    assert_eq!(*app.status_text(), "sent turn");
 }
 
 #[test]
@@ -80,10 +80,10 @@ fn submit_turn_text_echoes_grok_prompt_and_marks_pending_turn() {
         client.calls.lock().expect("calls lock").as_slice(),
         ["turn/start"]
     );
-    assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].role, Role::User);
-    assert_eq!(app.messages[0].text, "hello grok");
-    assert_eq!(app.active_turn_id.as_deref(), Some("grok-turn-pending"));
+    assert_eq!(app.session.messages().len(), 1);
+    assert_eq!(app.session.messages()[0].role, Role::User);
+    assert_eq!(app.session.messages()[0].text, "hello grok");
+    assert_eq!(app.session.active_turn_id().as_deref(), Some("grok-turn-pending"));
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn submit_turn_text_queues_behind_existing_grok_turns() {
     submit_turn_text(&client, &mut app, "second".to_string());
 
     assert!(client.calls.lock().expect("calls lock").is_empty());
-    assert_eq!(app.status, "queued behind pending Grok turn");
+    assert_eq!(*app.status_text(), "queued behind pending Grok turn");
 }
 
 #[test]
@@ -170,11 +170,11 @@ fn submit_rewind_turn_text_keeps_prefix_and_resubmits() {
         "edited second".to_string(),
     );
 
-    assert_eq!(app.thread_id, "grok-fork");
-    assert_eq!(app.messages.len(), 3);
-    assert_eq!(app.messages[0].text, "first");
-    assert_eq!(app.messages[1].text, "reply one");
-    assert_eq!(app.messages[2].text, "edited second");
+    assert_eq!(app.session.thread_id(), "grok-fork");
+    assert_eq!(app.session.messages().len(), 3);
+    assert_eq!(app.session.messages()[0].text, "first");
+    assert_eq!(app.session.messages()[1].text, "reply one");
+    assert_eq!(app.session.messages()[2].text, "edited second");
     assert_eq!(
         client.fork_calls.lock().expect("fork lock").as_slice(),
         &[RewindForkRequest {
@@ -206,8 +206,8 @@ fn submit_dequeued_grok_turn_starts_even_when_more_are_queued() {
         client.calls.lock().expect("calls lock").as_slice(),
         ["turn/start"]
     );
-    assert_eq!(app.messages[0].text, "first");
-    assert_eq!(app.active_turn_id.as_deref(), Some("grok-turn-pending"));
+    assert_eq!(app.session.messages()[0].text, "first");
+    assert_eq!(app.session.active_turn_id().as_deref(), Some("grok-turn-pending"));
     assert_eq!(
         app.dequeue_turn_input(std::time::Instant::now())
             .expect("remaining")
@@ -223,6 +223,6 @@ fn submit_turn_text_with_history_false_skips_grok_history() {
 
     submit_turn_text_with_history(&client, &mut app, "internal".to_string(), false);
 
-    assert_eq!(app.messages.len(), 1);
+    assert_eq!(app.session.messages().len(), 1);
     assert_eq!(app.input_history_len(), 0);
 }

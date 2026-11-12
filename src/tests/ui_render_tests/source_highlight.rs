@@ -210,8 +210,11 @@ fn read_metadata_reaches_live_and_resumed_transcripts() {
     let mut resumed = AppState::new("thread-1".to_string());
     append_history_from_thread(&mut resumed, &json!({"turns":[{"items":[item]}]}));
     for app in [live, resumed] {
-        assert_eq!(app.messages[0].file_path.as_deref(), Some("main.rs"));
-        let lines = build_rendered_lines(&app.messages, 120);
+        assert_eq!(
+            app.session.messages()[0].file_path.as_deref(),
+            Some("main.rs")
+        );
+        let lines = build_rendered_lines(&app.session.messages(), 120);
         assert_eq!(lines[0].text, "1:let value = \"hello\";");
         assert_ne!(
             token_color(&lines, "let value", "let"),
@@ -230,7 +233,7 @@ fn saved_command_reads_color_source_but_leave_command_and_status_plain() {
             "aggregatedOutput":"let value = \"hello\";", "exitCode":0
         }]}]}),
     );
-    let lines = build_rendered_lines(&app.messages, 120);
+    let lines = build_rendered_lines(&app.session.messages(), 120);
     assert_eq!(lines[0].text, "$ cat main.rs");
     assert_eq!(lines[0].styled_segments[0].style, Style::default());
     assert_ne!(

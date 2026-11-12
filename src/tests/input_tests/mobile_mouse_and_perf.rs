@@ -24,8 +24,8 @@ fn consume_mobile_mouse_char_requires_prefix_to_activate() {
 #[test]
 fn consume_mobile_mouse_char_accepts_csi_bracket_prefix() {
     let mut app = AppState::new("thread-1".to_string());
-    app.viewport.scroll_top = 12;
-    app.viewport.mobile_mouse_last_y = Some(40);
+    app.view.viewport.scroll_top = 12;
+    app.view.viewport.mobile_mouse_last_y = Some(40);
 
     for ch in ['[', '<', '6', '4', ';', '7', '6', ';', '4', '6', 'M'] {
         assert!(matches!(
@@ -33,8 +33,8 @@ fn consume_mobile_mouse_char_accepts_csi_bracket_prefix() {
             MobileMouseConsume::Consumed
         ));
     }
-    assert_eq!(app.viewport.scroll_top, 18);
-    assert!(app.viewport.mobile_mouse_buffer.is_empty());
+    assert_eq!(app.view.viewport.scroll_top, 18);
+    assert!(app.view.viewport.mobile_mouse_buffer.is_empty());
 }
 
 #[test]
@@ -60,7 +60,7 @@ fn mobile_mouse_key_candidate_accepts_alt_prefixed_csi_chars() {
 #[test]
 fn mobile_mouse_key_candidate_accepts_plain_coords_when_pending() {
     let mut app = AppState::new("thread-1".to_string());
-    app.viewport.mobile_plain_pending_coords = true;
+    app.view.viewport.mobile_plain_pending_coords = true;
     assert!(is_mobile_mouse_key_candidate(
         &app,
         KeyCode::Char('7'),
@@ -81,9 +81,9 @@ fn mobile_mouse_key_candidate_accepts_plain_coords_when_pending() {
 #[test]
 fn consume_mobile_mouse_char_plain_pending_pair_applies_scroll() {
     let mut app = AppState::new("thread-1".to_string());
-    app.viewport.mobile_plain_pending_coords = true;
-    app.viewport.scroll_top = 20;
-    app.viewport.mobile_mouse_last_y = Some(50);
+    app.view.viewport.mobile_plain_pending_coords = true;
+    app.view.viewport.scroll_top = 20;
+    app.view.viewport.mobile_mouse_last_y = Some(50);
 
     for ch in ['6', '6', ';', '5', '2'] {
         assert!(matches!(
@@ -92,45 +92,45 @@ fn consume_mobile_mouse_char_plain_pending_pair_applies_scroll() {
         ));
     }
 
-    assert_eq!(app.viewport.scroll_top, 23);
-    assert!(!app.viewport.mobile_plain_pending_coords);
-    assert!(app.viewport.mobile_mouse_buffer.is_empty());
+    assert_eq!(app.view.viewport.scroll_top, 23);
+    assert!(!app.view.viewport.mobile_plain_pending_coords);
+    assert!(app.view.viewport.mobile_mouse_buffer.is_empty());
 }
 
 #[test]
 fn consume_mobile_mouse_char_plain_pending_repeated_pair_reuses_direction() {
     let mut app = AppState::new("thread-1".to_string());
-    app.viewport.scroll_top = 20;
-    app.viewport.mobile_mouse_last_y = Some(50);
+    app.view.viewport.scroll_top = 20;
+    app.view.viewport.mobile_mouse_last_y = Some(50);
 
-    app.viewport.mobile_plain_pending_coords = true;
+    app.view.viewport.mobile_plain_pending_coords = true;
     for ch in ['6', '6', ';', '5', '2'] {
         let _ = consume_mobile_mouse_char(&mut app, ch);
     }
-    assert_eq!(app.viewport.scroll_top, 23);
+    assert_eq!(app.view.viewport.scroll_top, 23);
 
-    app.viewport.mobile_plain_pending_coords = true;
+    app.view.viewport.mobile_plain_pending_coords = true;
     for ch in ['6', '6', ';', '5', '2'] {
         let _ = consume_mobile_mouse_char(&mut app, ch);
     }
-    assert_eq!(app.viewport.scroll_top, 26);
+    assert_eq!(app.view.viewport.scroll_top, 26);
 }
 
 #[test]
 fn consume_mobile_mouse_char_plain_pending_new_gesture_keeps_prior_direction() {
     let mut app = AppState::new("thread-1".to_string());
-    app.viewport.scroll_top = 20;
-    app.viewport.mobile_mouse_last_y = Some(50);
-    app.viewport.mobile_plain_last_direction = 1;
-    app.viewport.mobile_plain_new_gesture = true;
-    app.viewport.mobile_plain_pending_coords = true;
+    app.view.viewport.scroll_top = 20;
+    app.view.viewport.mobile_mouse_last_y = Some(50);
+    app.view.viewport.mobile_plain_last_direction = 1;
+    app.view.viewport.mobile_plain_new_gesture = true;
+    app.view.viewport.mobile_plain_pending_coords = true;
 
     for ch in ['6', '4', ';', '4', '7'] {
         let _ = consume_mobile_mouse_char(&mut app, ch);
     }
 
-    assert_eq!(app.viewport.scroll_top, 23);
-    assert_eq!(app.viewport.mobile_plain_last_direction, 1);
+    assert_eq!(app.view.viewport.scroll_top, 23);
+    assert_eq!(app.view.viewport.mobile_plain_last_direction, 1);
 }
 
 #[test]
@@ -149,8 +149,8 @@ fn parse_repeated_plain_mobile_pair_accepts_concatenated_repetition() {
 #[test]
 fn consume_mobile_mouse_char_applies_scroll_on_terminator() {
     let mut app = AppState::new("thread-1".to_string());
-    app.viewport.scroll_top = 10;
-    app.viewport.mobile_mouse_last_y = Some(40);
+    app.view.viewport.scroll_top = 10;
+    app.view.viewport.mobile_mouse_last_y = Some(40);
 
     for ch in ['<', '6', '4', ';', '7', '6', ';', '4', '6'] {
         assert!(matches!(
@@ -162,35 +162,35 @@ fn consume_mobile_mouse_char_applies_scroll_on_terminator() {
         consume_mobile_mouse_char(&mut app, 'M'),
         MobileMouseConsume::Consumed
     ));
-    assert_eq!(app.viewport.scroll_top, 16);
-    assert!(app.viewport.mobile_mouse_buffer.is_empty());
+    assert_eq!(app.view.viewport.scroll_top, 16);
+    assert!(app.view.viewport.mobile_mouse_buffer.is_empty());
 }
 
 #[test]
 fn apply_mobile_mouse_scroll_uses_natural_touch_direction() {
     let mut app = AppState::new("thread-1".to_string());
-    app.viewport.scroll_top = 20;
-    app.viewport.mobile_mouse_last_y = Some(40);
+    app.view.viewport.scroll_top = 20;
+    app.view.viewport.mobile_mouse_last_y = Some(40);
 
     apply_mobile_mouse_scroll(&mut app, 44);
-    assert_eq!(app.viewport.scroll_top, 24);
+    assert_eq!(app.view.viewport.scroll_top, 24);
 
     apply_mobile_mouse_scroll(&mut app, 42);
-    assert_eq!(app.viewport.scroll_top, 22);
+    assert_eq!(app.view.viewport.scroll_top, 22);
 }
 
 #[test]
 fn apply_mobile_mouse_scroll_honors_invert_toggle() {
     let mut app = AppState::new("thread-1".to_string());
-    app.viewport.scroll_inverted = true;
-    app.viewport.scroll_top = 20;
-    app.viewport.mobile_mouse_last_y = Some(40);
+    app.view.viewport.scroll_inverted = true;
+    app.view.viewport.scroll_top = 20;
+    app.view.viewport.mobile_mouse_last_y = Some(40);
 
     apply_mobile_mouse_scroll(&mut app, 44);
-    assert_eq!(app.viewport.scroll_top, 16);
+    assert_eq!(app.view.viewport.scroll_top, 16);
 
     apply_mobile_mouse_scroll(&mut app, 42);
-    assert_eq!(app.viewport.scroll_top, 18);
+    assert_eq!(app.view.viewport.scroll_top, 18);
 }
 
 #[test]

@@ -8,7 +8,7 @@ use crate::app::tool_output_state::ToolOutputMode;
 
 fn transcript() -> AppState {
     let mut app = AppState::new("thread".into());
-    app.tool_output.mode = ToolOutputMode::Compact;
+    app.view.tool_output.mode = ToolOutputMode::Compact;
     app.append_message(Role::User, "Inspect these files");
     app.append_message(Role::ToolCall, "→ Read a.rs");
     app.append_message(Role::ToolCall, "→ Read b.rs");
@@ -17,9 +17,9 @@ fn transcript() -> AppState {
 }
 
 fn set_layout(app: &mut AppState, mode: TranscriptTheme) {
-    app.layout.themes.desktop = mode;
-    app.layout.themes.phone = mode;
-    app.layout.update_size(TerminalSize {
+    app.view.layout.themes.desktop = mode;
+    app.view.layout.themes.phone = mode;
+    app.view.layout.update_size(TerminalSize {
         width: 100,
         height: 32,
     });
@@ -30,7 +30,12 @@ fn set_layout(app: &mut AppState, mode: TranscriptTheme) {
 #[test]
 fn phone_groups_adjacent_reads_and_copy_keeps_only_the_body_text() {
     let mut app = transcript();
-    let original: Vec<_> = app.messages.iter().map(|m| m.text.clone()).collect();
+    let original: Vec<_> = app
+        .session
+        .messages()
+        .iter()
+        .map(|m| m.text.clone())
+        .collect();
     set_layout(&mut app, TranscriptTheme::Flow);
     let lines = app.snapshot_rendered_lines();
     assert_eq!(
@@ -44,7 +49,7 @@ fn phone_groups_adjacent_reads_and_copy_keeps_only_the_body_text() {
     assert!(lines
         .windows(2)
         .any(|rows| rows[0].text.starts_with("→ a.rs") && rows[1].text.starts_with("→ b.rs")));
-    assert_eq!(app.render_cache.first_content_row(3), 2);
+    assert_eq!(app.view.render_cache.first_content_row(3), 2);
     let last = lines.len() - 1;
     let selected = app.selected_text(Selection {
         anchor_x: 1,
@@ -65,7 +70,8 @@ fn phone_groups_adjacent_reads_and_copy_keeps_only_the_body_text() {
     assert!(!selected.contains("→ read"));
     assert!(!selected.contains("❯ you"));
     assert_eq!(
-        app.messages
+        app.session
+            .messages()
             .iter()
             .map(|m| m.text.clone())
             .collect::<Vec<_>>(),
@@ -84,8 +90,8 @@ fn phone_groups_adjacent_reads_and_copy_keeps_only_the_body_text() {
 fn switching_layouts_at_the_same_width_keeps_the_scrolled_message_visible() {
     let mut app = transcript();
     set_layout(&mut app, TranscriptTheme::Gutter);
-    app.viewport.auto_follow_bottom = false;
-    app.viewport.scroll_top = app.render_cache.rendered_block_offsets[2];
+    app.view.viewport.auto_follow_bottom = false;
+    app.view.viewport.scroll_top = app.view.render_cache.rendered_block_offsets[2];
     for mode in [
         TranscriptTheme::Flow,
         TranscriptTheme::Gutter,
@@ -94,10 +100,10 @@ fn switching_layouts_at_the_same_width_keeps_the_scrolled_message_visible() {
         set_layout(&mut app, mode);
         app.snapshot_rendered_lines();
         assert_eq!(
-            app.viewport.scroll_top,
-            app.render_cache.rendered_block_offsets[2]
+            app.view.viewport.scroll_top,
+            app.view.render_cache.rendered_block_offsets[2]
         );
-        let body = app.viewport.scroll_top + app.render_cache.first_content_row(2);
+        let body = app.view.viewport.scroll_top + app.view.render_cache.first_content_row(2);
         assert!(app
             .rendered_line_at(body)
             .expect("anchored read")
@@ -111,9 +117,9 @@ fn fork_and_history_reload_keep_the_local_layout_choice() {
     let mut app = transcript();
     set_layout(&mut app, TranscriptTheme::Flow);
     app.replace_transcript_for_test(transcript());
-    assert_eq!(app.layout.themes.desktop, TranscriptTheme::Flow);
+    assert_eq!(app.view.layout.themes.desktop, TranscriptTheme::Flow);
     app.reset_for_forked_thread("fork");
-    assert_eq!(app.layout.themes.desktop, TranscriptTheme::Flow);
+    assert_eq!(app.view.layout.themes.desktop, TranscriptTheme::Flow);
 }
 
 #[test]
@@ -176,19 +182,19 @@ fn phone_tool_labels_preserve_full_output_and_counts_at_narrow_widths() {
     for mode in [ToolOutputMode::Compact, ToolOutputMode::Full] {
         for width in [0, 1, 7, 8, 9, 10, 12, 50] {
             let mut app = AppState::new("thread".into());
-            app.messages.adopt_unkeyed(
+            app.session.transcript_adopt_unkeyed(
                 tool_entries().into_iter().map(Into::into).collect(),
                 crate::session::history_identity::HistoryMode::NewConversation,
             );
-            app.tool_output.mode = mode;
-            app.layout.active = TranscriptTheme::Flow;
+            app.view.tool_output.mode = mode;
+            app.view.layout.active = TranscriptTheme::Flow;
             app.ensure_rendered_lines(width, None);
             let count = app.rendered_line_count();
             let lines = app.snapshot_rendered_lines();
             assert_eq!(count, lines.len(), "{mode:?}, {width}");
             if width >= 8 {
                 for index in 1..5 {
-                    assert_eq!(app.render_cache.first_content_row(index), 0);
+                    assert_eq!(app.view.render_cache.first_content_row(index), 0);
                 }
                 for prefix in ["→ ", "$ ", "Δ ", "✱ "] {
                     assert!(lines.iter().any(|line| line.text.starts_with(prefix)));
@@ -207,7 +213,7 @@ fn phone_tool_labels_preserve_full_output_and_counts_at_narrow_widths() {
 #[test]
 fn phone_keeps_searches_and_short_reasoning_inside_the_tool_block() {
     let mut app = transcript();
-    app.messages.insert_for_test(
+    app.session.insert_entry_for_test(
         3,
         crate::app::tests::test_message(crate::session::models::EntryDraft {
             role: Role::Reasoning,
@@ -217,8 +223,8 @@ fn phone_keeps_searches_and_short_reasoning_inside_the_tool_block() {
             tool_output: None,
         }),
     );
-    app.messages
-        .insert_for_test(4, tool_entries().pop().expect("search entry"));
+    app.session
+        .insert_entry_for_test(4, tool_entries().pop().expect("search entry"));
     set_layout(&mut app, TranscriptTheme::Flow);
     let lines = app.snapshot_rendered_lines();
     let read = lines
@@ -249,7 +255,8 @@ fn phone_reasoning_gains_a_heading_when_it_wraps_or_grows() {
     assert!(narrow[0].text.contains("◇ reasoning"));
     assert!(narrow.iter().all(|line| line.cells <= 18));
     app.ensure_rendered_lines(50, None);
-    app.messages.append_text(0, "\n\nMore details", None);
+    app.session
+        .transcript_append_text(0, "\n\nMore details", None);
     app.mark_transcript_dirty_from(0);
     app.ensure_rendered_lines(50, None);
     let grown = app.snapshot_rendered_lines();

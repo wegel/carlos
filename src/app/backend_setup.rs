@@ -189,8 +189,8 @@ pub(super) fn configure_app_common(
     persisted_defaults: &RuntimeDefaults,
     default_summary: Option<String>,
 ) {
-    app.tool_output.mode = super::tool_output_preferences::load_mode();
-    app.layout.themes = super::tool_output_preferences::load_themes();
+    app.view.tool_output.mode = super::tool_output_preferences::load_mode();
+    app.view.layout.themes = super::tool_output_preferences::load_themes();
     app.summaries.cwd = PathBuf::from(cwd);
     app.configure_ralph_options(
         PathBuf::from(cwd),
@@ -257,7 +257,7 @@ pub(super) fn finish_run(
         "{}",
         styled_resume_hint_with_socket(
             backend,
-            &app.thread_id,
+            &app.session.thread_id(),
             app.codex.connection.socket.as_deref()
         )
     );

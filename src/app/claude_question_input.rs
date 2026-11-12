@@ -10,6 +10,7 @@ use super::state::{AppState, ApprovalChoice};
 use super::turn_submit::{interrupt_active_turn, respond_to_pending_approval};
 use crate::backend::BackendClient;
 use crate::clipboard::try_copy_clipboard;
+use crate::session::approval_state::ApprovalQueue;
 
 /// Handle a native callback without borrowing the main message composer.
 pub(super) fn handle_key(
@@ -72,7 +73,7 @@ fn interrupt_native(client: &dyn BackendClient, app: &mut AppState) {
         super::codex_reply::interrupt(client, app);
         return;
     }
-    if app.active_turn_id.is_some() {
+    if app.session.active_turn_id().is_some() {
         interrupt_active_turn(client, app);
         return;
     }
@@ -94,10 +95,10 @@ fn answer_choice(app: &AppState, key: KeyEvent, editable: bool) -> Option<Approv
                 && fields_empty
                 && mods.is_empty()
                 && app
-                    .approval
-                    .pending
-                    .as_ref()
-                    .is_some_and(|pending| pending.can_accept_for_session) =>
+                    .session
+                    .approval()
+                    .pending()
+                    .is_some_and(|pending| pending.facts().can_accept_for_session) =>
         {
             Some(ApprovalChoice::AcceptForSession)
         }
@@ -212,25 +213,30 @@ fn next_request(app: &mut AppState) {
         super::codex_callbacks::next(app);
         return;
     }
-    if app.claude.questions.is_empty() {
+    if app
+        .session
+        .approval()
+        .queued(ApprovalQueue::Claude)
+        .is_empty()
+    {
         return;
     }
-    if let Some(active) = app.approval.pending.take() {
-        app.claude.questions.push_back(active);
-    }
-    app.approval.pending = app.claude.questions.pop_front();
-    app.claude.confirm_allow = None;
+    let id = app.session.approval().queued(ApprovalQueue::Claude)[0]
+        .entry_id()
+        .expect("queued card");
+    app.session.focus_approval(id, ApprovalQueue::Claude);
+    app.view.confirm_allow = None;
 }
 
 fn copy_browser_link(app: &mut AppState) {
     if let Some(url) = app
-        .approval
-        .pending
-        .as_ref()
-        .and_then(|pending| pending.requested_permissions.as_ref())
+        .session
+        .approval()
+        .pending()
+        .and_then(|pending| pending.facts().requested_permissions.as_ref())
         .and_then(|p| p["url"].as_str())
     {
         let _ = try_copy_clipboard(url);
-        app.set_status("browser link copied; approve only if you consent to this server's request");
+        app.set_hint("browser link copied; approve only if you consent to this server's request");
     }
 }

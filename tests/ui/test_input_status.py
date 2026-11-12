@@ -185,3 +185,65 @@ class InputStatus:
         terminal.wait(lambda:"task" not in terminal.screen.display[-2].lower(),"answered child no longer needs attention")
         self.assertEqual(terminal.requests("turn/start"),[])
         terminal.snapshot("quiet-finished-tasks-and-child-attention")
+
+    def test_selection_hint_after_completed_turn_preserves_screen_and_backend_requests(self):
+        for backend in ("codex", "claude"):
+            terminal = self.launch(backend=backend,
+                resume="thread-original" if backend == "codex" else None,
+                directory=self.summary_root()/backend)
+            if backend == "claude":
+                self.claude_ready(terminal)
+            else:
+                terminal.contains("Answer: second")
+            terminal.paste("selection hint after completion")
+            terminal.send(b"\r")
+            terminal.contains("Answer: selection hint after completion")
+            label = (" sdk-sonnet ~32k/123k 26% " if backend == "claude" else
+                     " gpt-5.6-sol/high ___k/___k __% ")
+            completed_band = "━" * (terminal.screen.columns - len(label)) + label
+            terminal.wait(lambda: terminal.screen.display[-2] == completed_band,
+                          "completed turn status band")
+            self.assertTrue(terminal.input_is(""))
+            before = terminal.text
+            starts = len(terminal.requests("turn/start"))
+            prompts = len(self.helper_requests(terminal, "prompt"))
+            terminal.send(b"\x0c")
+            for _ in range(3):
+                terminal.pump(.03)
+            self.assertEqual(terminal.text, before)
+            terminal.send(b"x")
+            terminal.wait(lambda: terminal.input_is("x"), "key after local hint")
+            self.assertEqual(len(terminal.requests("turn/start")), starts)
+            self.assertEqual(len(self.helper_requests(terminal, "prompt")), prompts)
+            terminal.snapshot("selection-hint-keeps-completed-screen")
+            terminal.close()
+
+    def test_replacement_helper_requires_two_accepts_for_its_own_request(self):
+        terminal = self.launch(backend="claude", resume=None, mode="claude-approval-switch")
+        self.claude_ready(terminal)
+        terminal.paste("original prompt")
+        terminal.send(b"\r")
+        terminal.contains("Answer: original prompt")
+        label = " sdk-sonnet ~32k/123k 26% "
+        completed_band = "━" * (terminal.screen.columns - len(label)) + label
+        terminal.wait(lambda: terminal.screen.display[-2] == completed_band,
+                      "completed original turn before rewind")
+        terminal.rewind("original prompt")
+        terminal.replace_input("edited prompt")
+        terminal.send(b"\r")
+        terminal.contains("Allow original request?")
+        terminal.send(b"y")
+        terminal.contains("Press y again")
+        self.assertEqual(self.helper_requests(terminal, "callback.respond"), [])
+        (terminal.root / "allow-helper-switch").touch()
+        terminal.contains("Allow different request?")
+        terminal.contains("echo different request")
+        terminal.send(b"y")
+        terminal.contains("Press y again")
+        self.assertEqual(self.helper_requests(terminal, "callback.respond"), [])
+        terminal.snapshot("new-helper-first-consent")
+        terminal.send(b"y")
+        terminal.wait(lambda: len(self.helper_requests(terminal, "callback.respond")) == 1,
+                      "second accept answers only the replacement helper")
+        reply = self.helper_requests(terminal, "callback.respond")[0]["params"]
+        self.assertEqual(reply, {"callbackId": "reused-id", "answer": {"behavior": "allow"}})

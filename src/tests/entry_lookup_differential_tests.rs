@@ -27,11 +27,11 @@ fn check(
 ) {
     app.assert_entry_invariants();
     assert_eq!(
-        app.messages.len(),
+        app.session.messages().len(),
         old.messages.len(),
         "seed {seed} step {step}"
     );
-    for (message, row) in app.messages.iter().zip(&old.messages) {
+    for (message, row) in app.session.messages().iter().zip(&old.messages) {
         assert_eq!(
             (
                 message.role,
@@ -55,7 +55,11 @@ fn check(
             "seed {seed} step {step}"
         );
         assert_eq!(
-            app.messages.entry(message.id).expect("live id").id,
+            app.session
+                .messages()
+                .entry(message.id)
+                .expect("live id")
+                .id,
             message.id
         );
     }
@@ -80,9 +84,10 @@ fn check_keys(
                     part,
                 };
                 let actual = app
-                    .messages
+                    .session
+                    .messages()
                     .entry_id_for_item(&key)
-                    .and_then(|id| app.messages.position(id));
+                    .and_then(|id| app.session.messages().position(id));
                 assert_eq!(
                     actual,
                     if absent.is_some_and(|(t, i, count)| t == turn && i == item && part >= count) {
@@ -99,9 +104,10 @@ fn check_keys(
             }
         }
         assert_eq!(
-            app.messages
+            app.session
+                .messages()
                 .turn_diff(turn)
-                .and_then(|id| app.messages.position(id)),
+                .and_then(|id| app.session.messages().position(id)),
             old.turn_diff_to_index.get(turn).copied()
         );
     }
@@ -114,7 +120,8 @@ fn change_parts(
     item: &str,
     count: usize,
 ) {
-    app.messages.retain_parts(&app.item_key(item), count);
+    app.session
+        .transcript_retain_parts(&app.item_key(item), count);
     for part in 0..count {
         let row = EntryDraft {
             kind: MessageKind::Diff,

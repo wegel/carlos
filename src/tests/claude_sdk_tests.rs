@@ -54,11 +54,11 @@ fn result_waits_for_idle_before_releasing_the_active_prompt() {
     let mut app = AppState::new("session".to_string());
     submitted(&mut app, "first");
     sdk(&mut app, result("first"));
-    assert_eq!(app.active_turn_id.as_deref(), Some("first"));
+    assert_eq!(app.session.active_turn_id().as_deref(), Some("first"));
     idle(&mut app);
-    assert!(app.active_turn_id.is_none());
+    assert!(app.session.active_turn_id().is_none());
     assert_eq!(
-        app.turn_status_by_id.get("first"),
+        app.session.turn_status_by_id().get("first"),
         Some(&TurnStatus::Completed)
     );
 }
@@ -68,9 +68,9 @@ fn idle_before_result_completes_only_after_the_result_arrives() {
     let mut app = AppState::new("session".to_string());
     submitted(&mut app, "first");
     idle(&mut app);
-    assert_eq!(app.active_turn_id.as_deref(), Some("first"));
+    assert_eq!(app.session.active_turn_id().as_deref(), Some("first"));
     sdk(&mut app, result("first"));
-    assert!(app.active_turn_id.is_none());
+    assert!(app.session.active_turn_id().is_none());
 }
 
 #[test]
@@ -84,15 +84,15 @@ fn previous_steer_cycle_cannot_complete_a_newer_prompt() {
     submitted(&mut app, "steer");
     sdk(&mut app, result("first"));
     idle(&mut app);
-    assert_eq!(app.active_turn_id.as_deref(), Some("steer"));
+    assert_eq!(app.session.active_turn_id().as_deref(), Some("steer"));
     sdk(
         &mut app,
         json!({ "type": "assistant", "user_message_uuid": "steer", "message": { "content": [] } }),
     );
     sdk(&mut app, result("steer"));
-    assert_eq!(app.active_turn_id.as_deref(), Some("steer"));
+    assert_eq!(app.session.active_turn_id().as_deref(), Some("steer"));
     idle(&mut app);
-    assert!(app.active_turn_id.is_none());
+    assert!(app.session.active_turn_id().is_none());
 }
 
 #[test]
@@ -104,9 +104,12 @@ fn a_coalesced_native_result_completes_every_consumed_prompt_uuid() {
     message["user_message_uuids"] = json!(["first", "second"]);
     sdk(&mut app, message);
     idle(&mut app);
-    assert!(app.active_turn_id.is_none());
+    assert!(app.session.active_turn_id().is_none());
     for id in ["first", "second"] {
-        assert_eq!(app.turn_status_by_id.get(id), Some(&TurnStatus::Completed));
+        assert_eq!(
+            app.session.turn_status_by_id().get(id),
+            Some(&TurnStatus::Completed)
+        );
     }
 }
 
@@ -125,7 +128,7 @@ fn sdk_error_is_failed_even_when_an_interrupt_was_requested() {
     sdk(&mut app, error);
     idle(&mut app);
     assert_eq!(
-        app.turn_status_by_id.get("first"),
+        app.session.turn_status_by_id().get("first"),
         Some(&TurnStatus::Failed)
     );
 }
@@ -152,9 +155,12 @@ fn empty_sdk_errors_fall_back_to_native_result_text_then_a_useful_generic_error(
         error["result"] = json!(text);
         sdk(&mut app, error);
         idle(&mut app);
-        assert_eq!(app.messages.last().expect("failure message").text, expected);
         assert_eq!(
-            app.turn_status_by_id.get("first"),
+            app.session.messages().last().expect("failure message").text,
+            expected
+        );
+        assert_eq!(
+            app.session.turn_status_by_id().get("first"),
             Some(&TurnStatus::Failed)
         );
         assert!(!app.ralph_enabled());
@@ -172,7 +178,7 @@ fn native_abort_reasons_remain_interrupts_even_if_the_result_has_an_error_flag()
         sdk(&mut app, message);
         idle(&mut app);
         assert_eq!(
-            app.turn_status_by_id.get("first"),
+            app.session.turn_status_by_id().get("first"),
             Some(&TurnStatus::Interrupted)
         );
     }
@@ -192,7 +198,7 @@ fn failed_interrupt_rolls_back_only_the_captured_prompt_ids() {
     sdk(&mut app, result("first"));
     idle(&mut app);
     assert_eq!(
-        app.turn_status_by_id.get("first"),
+        app.session.turn_status_by_id().get("first"),
         Some(&TurnStatus::Completed)
     );
 }
@@ -235,10 +241,11 @@ fn startup_callback_remains_visible_while_the_sdk_initializes() {
         None,
     );
     assert_eq!(
-        app.approval
-            .pending
-            .as_ref()
+        app.session
+            .approval()
+            .pending()
             .expect("startup question")
+            .facts()
             .title,
         "Allow startup?"
     );
@@ -249,7 +256,7 @@ fn startup_callback_remains_visible_while_the_sdk_initializes() {
         Some("start"),
     );
     assert!(app.claude.phase == crate::app::claude_state::ClaudePhase::Ready);
-    assert!(app.approval.pending.is_some());
+    assert!(app.session.approval().pending().is_some());
 }
 
 #[test]
@@ -269,10 +276,11 @@ fn callback_cancellation_promotes_the_next_native_request_without_losing_it() {
         None,
     );
     assert_eq!(
-        app.approval
-            .pending
-            .as_ref()
+        app.session
+            .approval()
+            .pending()
             .expect("second request")
+            .facts()
             .request_id,
         json!("second")
     );
@@ -299,8 +307,14 @@ fn models_and_context_come_from_native_answers_without_guessing() {
         "result": { "totalTokens": 123, "rawMaxTokens": 456 } }),
         Some("context"),
     );
-    assert_eq!(app.context_usage.expect("native context").used, 123);
-    assert_eq!(app.context_usage.expect("native context").max, 456);
+    assert_eq!(
+        app.session.context_usage().expect("native context").used,
+        123
+    );
+    assert_eq!(
+        app.session.context_usage().expect("native context").max,
+        456
+    );
 }
 
 #[test]
@@ -374,8 +388,8 @@ fn undeclared_dialog_error_does_not_disable_live_controls() {
         None,
     );
     assert!(app.claude.phase == crate::app::claude_state::ClaudePhase::Ready);
-    assert!(app.approval.pending.is_none());
-    let error = &app.messages.last().expect("visible error").text;
+    assert!(app.session.approval().pending().is_none());
+    let error = &app.session.messages().last().expect("visible error").text;
     assert!(error.contains("Cannot render future dialog"));
     assert!(error.contains("request unsupported, kind future"));
 }

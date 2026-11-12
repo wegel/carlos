@@ -149,7 +149,7 @@ fn apply_replayed_events(
         launch_mode,
         GrokLaunchMode::Resume(_) | GrokLaunchMode::Continue
     );
-    if is_resume && app.messages.is_empty() {
+    if is_resume && app.session.messages().is_empty() {
         app.append_message(
             Role::System,
             "Grok session history could not be reconstructed from the agent replay".to_string(),

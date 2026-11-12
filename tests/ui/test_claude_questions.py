@@ -360,3 +360,23 @@ class ClaudeQuestions:
             terminal.contains("Native callbacks settled")
             self.assertEqual(self.native_answers(terminal)["browser-question"], {"action": action})
             terminal.close()
+
+    def test_default_no_hint_keeps_request_until_decline_or_second_accept(self):
+        for last_key, behavior in ((b"n", "deny"), (b"y", "allow")):
+            terminal = self.open_question("permission flags")
+            terminal.send(b"y")
+            terminal.contains("Press y again to allow")
+            self.assertEqual(self.helper_requests(terminal, "callback.respond"), [])
+            terminal.send(b"x")
+            for _ in range(3):
+                terminal.pump(.03)
+            terminal.contains("Press y again to allow")
+            self.assertEqual(self.helper_requests(terminal, "callback.respond"), [])
+            terminal.snapshot("first-consent-keeps-card")
+            terminal.send(last_key)
+            terminal.contains("Native callbacks settled")
+            answer = self.native_answers(terminal)["flag-question"]
+            self.assertEqual(answer["behavior"], behavior)
+            self.assertEqual(len(self.helper_requests(terminal, "callback.respond")), 1)
+            self.assertEqual(len(self.helper_requests(terminal, "prompt")), 1)
+            terminal.close()

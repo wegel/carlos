@@ -54,14 +54,17 @@ fn live_and_reopened_rtk_reads_have_the_same_path_colors_and_gutter() {
     );
     let mut history = AppState::new("thread".into());
     append_history_from_thread(&mut history, &json!({"turns":[{"items":[item]}]}));
-    assert_eq!(live.messages[0].text, history.messages[0].text);
+    assert_eq!(
+        live.session.messages()[0].text,
+        history.session.messages()[0].text
+    );
     for mut app in [live, history] {
         assert_eq!(
-            app.messages[0].file_path.as_deref(),
+            app.session.messages()[0].file_path.as_deref(),
             Some("src/main file.rs")
         );
         assert_eq!(
-            app.messages[0]
+            app.session.messages()[0]
                 .tool_output
                 .as_ref()
                 .expect("details")
@@ -93,7 +96,7 @@ fn live_and_reopened_rtk_reads_have_the_same_path_colors_and_gutter() {
             .style
             .fg;
         assert_ne!(keyword, string);
-        app.tool_output.mode = ToolOutputMode::Compact;
+        app.view.tool_output.mode = ToolOutputMode::Compact;
         app.ensure_rendered_lines(50, None);
         assert!(app
             .snapshot_rendered_lines()
@@ -111,10 +114,10 @@ fn rtk_failures_keep_received_details_and_saved_log_references_in_full() {
         &mut app,
         &json!({"method":"item/completed", "params":{"item":item}}).to_string(),
     );
-    assert!(app.messages[0]
+    assert!(app.session.messages()[0]
         .text
         .contains("[full output: /tmp/rtk-fixture-test.log]"));
-    app.tool_output.mode = ToolOutputMode::Compact;
+    app.view.tool_output.mode = ToolOutputMode::Compact;
     app.ensure_rendered_lines(80, None);
     assert!(app
         .snapshot_rendered_lines()
@@ -122,7 +125,7 @@ fn rtk_failures_keep_received_details_and_saved_log_references_in_full() {
         .any(
             |line| line.text.contains("Test cargo test -p example") && line.text.contains("failed")
         ));
-    app.tool_output.mode = ToolOutputMode::Full;
+    app.view.tool_output.mode = ToolOutputMode::Full;
     app.ensure_rendered_lines(80, None);
     assert!(app.snapshot_rendered_lines().iter().any(|line| line
         .text

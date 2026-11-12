@@ -170,7 +170,7 @@ fn child_items_have_explicit_older_pages_and_live_output_is_bounded_without_main
     assert!(activity.request.is_none());
     assert!(activity.more);
     assert_eq!(activity.items.len(), 20);
-    assert!(app.messages.is_empty());
+    assert!(app.session.messages().is_empty());
     receive(
         &mut app,
         json!({"method":"item/commandExecution/outputDelta","params":{
@@ -186,7 +186,7 @@ fn child_items_have_explicit_older_pages_and_live_output_is_bounded_without_main
             .len()
             <= 16 * 1024
     );
-    assert!(app.messages.is_empty());
+    assert!(app.session.messages().is_empty());
     details(&mut app, true);
     tick(&peer, &mut app);
     assert_eq!(peer.controls.borrow()[20].1["cursor"], "older-19");

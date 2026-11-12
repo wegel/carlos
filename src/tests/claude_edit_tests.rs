@@ -40,17 +40,19 @@ fn failed_fork_keeps_newer_composer_and_recovers_saved_edit_without_erasing_old_
         json!({"message":"The exact selected UUID is unavailable"}),
     );
     assert!(app.claude.phase == ClaudePhase::Ready);
-    assert_eq!(app.thread_id, "original");
+    assert_eq!(app.session.thread_id(), "original");
     assert_eq!(app.input_text(), "newer unsent composer");
     assert!(app
-        .messages
+        .session
+        .messages()
         .iter()
         .any(|message| message.text == "Retained row 79"));
     assert!(app
-        .messages
+        .session
+        .messages()
         .iter()
         .any(|message| message.text.contains("exact selected UUID")));
-    assert!(app.viewport.auto_follow_bottom);
+    assert!(app.view.viewport.auto_follow_bottom);
     app.clear_input();
     key(&mut app, KeyCode::F(5));
     assert_eq!(app.input_text(), "saved edit 日本語");
@@ -87,9 +89,10 @@ fn closed_helper_cannot_be_revived_by_late_fork_failure_or_old_generation_errors
         json!({"message":"old branch failure"}),
     );
     assert!(app.claude.phase == ClaudePhase::Starting);
-    assert_eq!(app.thread_id, "branch");
+    assert_eq!(app.session.thread_id(), "branch");
     assert!(!app
-        .messages
+        .session
+        .messages()
         .iter()
         .any(|message| message.text.contains("old branch failure")));
 }
@@ -271,7 +274,7 @@ fn branch_start_recovers_old_and_late_humans_and_never_replays_automatic_work_be
     let mut app = app();
     app.set_input_text("saved edit");
     app.queue_turn_input_with_history("saved edit", true);
-    app.ralph_runtime.enqueue_prompt(
+    app.session.ralph_enqueue_prompt(
         "old automatic".into(),
         false,
         crate::backend::PromptOrigin::Automatic,
@@ -333,14 +336,16 @@ fn a_later_failed_attempt_adds_its_specific_reason_at_the_current_transcript_tai
     begin(&mut app, "second edit".into());
     failed(&mut app, "NEW_REASON");
     assert!(app
-        .messages
+        .session
+        .messages()
         .last()
         .expect("current failure")
         .text
         .contains("NEW_REASON"));
-    assert!(app.viewport.auto_follow_bottom);
+    assert!(app.view.viewport.auto_follow_bottom);
     assert_eq!(
-        app.messages
+        app.session
+            .messages()
             .iter()
             .filter(|row| row.text.contains("OLD_REASON"))
             .count(),

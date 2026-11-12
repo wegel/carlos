@@ -29,7 +29,7 @@ pub(super) fn count(app: &AppState) -> usize {
     for callback in app.codex.callbacks.entries.values() {
         if let Some(id) = callback.params["threadId"]
             .as_str()
-            .filter(|id| *id != app.thread_id && owns(app, id))
+            .filter(|id| *id != *app.session.thread_id() && owns(app, id))
         {
             agents.insert(id);
         }
@@ -48,10 +48,10 @@ pub(super) fn count(app: &AppState) -> usize {
 
 /// Verify a cached owner still belongs to the current root after a fork or reconnect.
 pub(super) fn owns(app: &AppState, owner: &str) -> bool {
-    owner == app.thread_id
+    owner == *app.session.thread_id()
         || app
             .codex
             .panel
             .ownership
-            .contains(&app.thread_id, app.codex.epoch, owner)
+            .contains(&app.session.thread_id(), app.codex.epoch, owner)
 }

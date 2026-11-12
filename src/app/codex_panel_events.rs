@@ -15,7 +15,7 @@ pub(super) fn event(app: &mut AppState, method: &str, params: &Value) -> bool {
     let thread = &params["thread"];
     if matches!(method, "thread/started" | "thread/initialized") {
         if let Some(owner) = parent(thread) {
-            if thread["id"] != app.thread_id
+            if thread["id"] != *app.session.thread_id()
                 && valid_id(&thread["id"]).is_ok()
                 && super::task_badge::owns(app, &owner)
             {
@@ -23,14 +23,17 @@ pub(super) fn event(app: &mut AppState, method: &str, params: &Value) -> bool {
                 return true;
             }
         }
-        if thread["id"].as_str().is_some_and(|id| id != app.thread_id) {
+        if thread["id"]
+            .as_str()
+            .is_some_and(|id| id != *app.session.thread_id())
+        {
             return true;
         }
     }
     let Some(id) = params["threadId"].as_str() else {
         return false;
     };
-    if id == app.thread_id {
+    if id == *app.session.thread_id() {
         if method == "item/completed" || method == "item/started" {
             report(app, &params["item"]);
         }
@@ -125,7 +128,7 @@ fn known(app: &AppState, id: &str) -> bool {
 
 fn metadata(app: &mut AppState, thread: &Value) {
     if !app.codex.panel.ownership.insert(
-        &app.thread_id,
+        &app.session.thread_id(),
         app.codex.epoch,
         thread["id"].as_str().expect("validated child ID"),
     ) {

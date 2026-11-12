@@ -69,8 +69,8 @@ impl AppState {
     }
 
     pub(super) fn open_model_settings(&mut self) {
-        self.runtime.model_settings_tool_output = self.tool_output.mode;
-        self.layout.draft = self.layout.themes;
+        self.runtime.model_settings_tool_output = self.view.tool_output.mode;
+        self.view.layout.draft = self.view.layout.themes;
         self.summaries.draft = self.summaries.enabled;
         self.runtime.open_model_settings();
         if self.codex.enabled {
@@ -121,18 +121,18 @@ impl AppState {
 
     pub(super) fn apply_model_settings(&mut self) -> RuntimeDefaults {
         self.apply_summary_setting();
-        self.tool_output.mode = self.runtime.model_settings_tool_output;
-        self.layout.themes = self.layout.draft;
+        self.view.tool_output.mode = self.runtime.model_settings_tool_output;
+        self.view.layout.themes = self.view.layout.draft;
         let defaults = self.runtime.apply_model_settings();
         let label = if self.runtime.supports_summary {
             "model/effort/summary"
         } else {
             "model/effort"
         };
-        if self.active_turn_id.is_some() {
-            self.set_status(format!("{label} pending next turn; saved as default"));
+        if self.session.active_turn_id().is_some() {
+            self.set_hint(format!("{label} pending next turn; saved as default"));
         } else {
-            self.set_status(format!("{label} set for next turn; saved as default"));
+            self.set_hint(format!("{label} set for next turn; saved as default"));
         }
         defaults
     }

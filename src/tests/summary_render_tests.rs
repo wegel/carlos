@@ -9,7 +9,7 @@ const LABEL: &str = "Read café records and 測試 language preferences, then wr
 
 fn generated_output(app: &mut AppState, failed: bool) {
     let index = app.append_message(Role::ToolOutput, "raw\n".repeat(11) + "raw");
-    app.messages.set_tool(
+    app.session.transcript_set_tool(
         index,
         ToolOutputDetails {
             generated: true,
@@ -24,27 +24,27 @@ fn ai_descriptions_wrap_completely_with_matching_cache_counts_and_one_footer() {
     for phone in [false, true] {
         for failed in [false, true] {
             let mut app = AppState::new("thread".into());
-            app.layout.active = if phone {
+            app.view.layout.active = if phone {
                 TranscriptTheme::Flow
             } else {
                 TranscriptTheme::Gutter
             };
-            app.layout.themes.desktop = if phone {
+            app.view.layout.themes.desktop = if phone {
                 TranscriptTheme::Flow
             } else {
                 TranscriptTheme::Gutter
             };
             generated_output(&mut app, failed);
-            let original = app.messages[0].text.clone();
+            let original = app.session.messages()[0].text.clone();
             for mode in [
                 ToolOutputMode::Compact,
                 ToolOutputMode::Full,
                 ToolOutputMode::Compact,
             ] {
-                app.tool_output.mode = mode;
+                app.view.tool_output.mode = mode;
                 for width in [8, 9, 12, 20, 40, 80, 160] {
                     assert_label_rows(&mut app, width, failed);
-                    assert_eq!(app.messages[0].text, original);
+                    assert_eq!(app.session.messages()[0].text, original);
                 }
             }
         }
@@ -68,7 +68,7 @@ fn assert_label_rows(app: &mut AppState, width: usize, failed: bool) {
     if width >= 20 {
         assert!(!text.contains('…'));
     }
-    if app.tool_output.mode == ToolOutputMode::Compact {
+    if app.view.tool_output.mode == ToolOutputMode::Compact {
         assert!(!text.contains("raw"));
         if width >= 20 {
             assert_eq!(text.matches("12").count(), 1);
@@ -77,7 +77,7 @@ fn assert_label_rows(app: &mut AppState, width: usize, failed: bool) {
         assert_eq!(text.matches("raw").count(), 12);
     }
     assert_eq!(text.matches("failed").count(), usize::from(failed));
-    if app.layout.active.is_flow() {
+    if app.view.layout.active.is_flow() {
         assert_eq!(text.matches('$').count(), 1);
     }
 }
@@ -85,11 +85,14 @@ fn assert_label_rows(app: &mut AppState, width: usize, failed: bool) {
 #[test]
 fn ordinary_command_labels_still_use_one_clipped_row() {
     let mut app = AppState::new("thread".into());
-    app.tool_output.mode = ToolOutputMode::Compact;
+    app.view.tool_output.mode = ToolOutputMode::Compact;
     generated_output(&mut app, false);
-    let mut details = app.messages[0].tool_output.clone().expect("metadata");
+    let mut details = app.session.messages()[0]
+        .tool_output
+        .clone()
+        .expect("metadata");
     details.generated = false;
-    app.messages.set_tool(0, details);
+    app.session.transcript_set_tool(0, details);
     app.ensure_rendered_lines(40, None);
     let lines = app.snapshot_rendered_lines();
     assert_eq!(lines.len(), 1);

@@ -11,6 +11,7 @@ use super::claude_state::{ClaudePhase, ClaudeUiState};
 use super::models::Role;
 use super::notifications::ServerRequestAction;
 use super::state::AppState;
+use crate::session::approval_state::ApprovalQueue;
 
 /// Retains public native records and a separate list of legacy prompts with unknown authors.
 #[derive(Default)]
@@ -45,6 +46,9 @@ pub(super) fn switch_session(app: &mut AppState, generation: u64, id: &str) {
     }
     app.reset_for_forked_thread(id);
     app.claude = ClaudeUiState::default();
+    app.session.clear_approval_queue(ApprovalQueue::Claude);
+    app.view.confirm_allow = None;
+    app.retain_live_approval_hints();
     app.claude.enabled = true;
     app.claude.selection = selection;
     app.claude.generation = generation;
@@ -65,22 +69,28 @@ pub(super) fn receive(
     result: &Value,
 ) -> Result<ServerRequestAction> {
     if method == "sessions.info" {
-        if result["sessionId"].as_str() != Some(app.thread_id.as_str()) {
+        if result["sessionId"].as_str() != Some(app.session.thread_id().as_str()) {
             bail!("The requested Claude session was not found");
         }
         app.set_thread_name(result["customTitle"].as_str());
         app.set_status("Reading Claude history");
-        return Ok(control("sessions.read", json!({"sessionId":app.thread_id})));
+        return Ok(control(
+            "sessions.read",
+            json!({"sessionId":app.session.thread_id()}),
+        ));
     }
     if let Some(offset) = result["nextOffset"].as_u64() {
         return Ok(control(
             "sessions.read",
-            json!({"sessionId":app.thread_id,"offset":offset,
+            json!({"sessionId":app.session.thread_id(),"offset":offset,
             "snapshotId":result["snapshotId"], "chunkOffset":result["chunkOffset"].as_u64().unwrap_or(0)}),
         ));
     }
-    app.context_usage = None;
-    Ok(control("start", json!({"sessionId":app.thread_id})))
+    app.session.set_context_usage(None);
+    Ok(control(
+        "start",
+        json!({"sessionId":app.session.thread_id()}),
+    ))
 }
 
 /// Append an already decoded history prompt with its explicit source and native UUID.
@@ -93,21 +103,21 @@ pub(super) fn append_prompt(app: &mut AppState, facts: &Value) {
     if !uuid.is_empty() && app.has_item_mapping(&key) {
         return;
     }
-    let start = app.messages.len();
+    let start = app.session.messages().len();
     match source {
         "human" => {
             let index = app.append_message(Role::User, text.clone());
             super::claude_prompts::set_kind(app, index, kind);
             app.record_input_history(&text, Some(index));
             app.input_history
-                .record_turn_id(app.messages[index].id, uuid);
+                .record_turn_id(app.session.messages()[index].id, uuid);
         }
         "unknown" => {
             let index = app.append_message(Role::System, format!("[Source unknown] {text}"));
             app.claude.history.unknown.push(UnknownPrompt {
                 uuid: uuid.to_string(),
                 text,
-                entry_id: app.messages[index].id,
+                entry_id: app.session.messages()[index].id,
             });
         }
         "automatic" => {
@@ -115,7 +125,7 @@ pub(super) fn append_prompt(app: &mut AppState, facts: &Value) {
         }
         _ => {}
     }
-    if app.messages.len() > start && !uuid.is_empty() {
+    if app.session.messages().len() > start && !uuid.is_empty() {
         app.put_item_mapping(&key, start);
     }
 }
@@ -153,7 +163,7 @@ pub(super) fn recover_queued(app: &mut AppState) {
 
 /// Retain local human drafts for explicit recovery without filling the new branch's composer.
 pub(super) fn retain_queued(app: &mut AppState) {
-    let drafts = app.ralph_runtime.take_queued_human_drafts();
+    let drafts = app.session.ralph_take_queued_human_drafts();
     for text in drafts.iter().rev() {
         app.discard_pending_input_history(text);
     }

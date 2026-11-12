@@ -1,0 +1,115 @@
+//! Own transcript and turn facts independently of a terminal client.
+
+use std::collections::{HashMap, HashSet};
+
+use super::approval_state::ApprovalState;
+use super::context_usage::ContextUsage;
+use super::entry_key::BackendEntryKey;
+use super::models::TurnStatus;
+use super::ralph_runtime_state::RalphRuntimeState;
+use super::transcript::Transcript;
+use super::turns::TurnBoundary;
+
+/// Own the facts that remain true without a terminal view.
+#[cfg_attr(test, derive(Debug))]
+pub(crate) struct SessionState {
+    pub(in crate::session) thread_id: String,
+    pub(in crate::session) entry_conversation: String,
+    pub(in crate::session) thread_name: Option<String>,
+    pub(in crate::session) active_turn_id: Option<String>,
+    pub(in crate::session) messages: Transcript,
+    pub(in crate::session) completed_item_ids: HashSet<BackendEntryKey>,
+    pub(in crate::session) turn_status_by_id: HashMap<String, TurnStatus>,
+    pub(in crate::session) command_render_overrides: HashMap<BackendEntryKey, String>,
+    pub(in crate::session) status: String,
+    pub(in crate::session) status_revision: u64,
+    pub(in crate::session) ralph_runtime: RalphRuntimeState,
+    pub(in crate::session) approval: ApprovalState,
+    pub(in crate::session) context_usage: Option<ContextUsage>,
+    pub(in crate::session) turn_boundary: Option<TurnBoundary>,
+}
+
+impl SessionState {
+    /// Create an empty conversation without loading client preferences.
+    pub(crate) fn new(thread_id: String) -> Self {
+        Self {
+            entry_conversation: thread_id.clone(),
+            thread_id,
+            thread_name: None,
+            active_turn_id: None,
+            messages: Transcript::new(),
+            completed_item_ids: HashSet::new(),
+            turn_status_by_id: HashMap::new(),
+            command_render_overrides: HashMap::new(),
+            status: String::new(),
+            status_revision: 0,
+            ralph_runtime: RalphRuntimeState::new(),
+            approval: ApprovalState::default(),
+            context_usage: None,
+            turn_boundary: None,
+        }
+    }
+
+    /// Borrow the current thread id.
+    pub(crate) fn thread_id(&self) -> &String {
+        &self.thread_id
+    }
+
+    /// Borrow the current entry conversation.
+    pub(crate) fn entry_conversation(&self) -> &String {
+        &self.entry_conversation
+    }
+
+    /// Borrow the current thread name.
+    pub(crate) fn thread_name(&self) -> &Option<String> {
+        &self.thread_name
+    }
+
+    /// Borrow the current active turn id.
+    pub(crate) fn active_turn_id(&self) -> &Option<String> {
+        &self.active_turn_id
+    }
+
+    /// Borrow the current messages.
+    pub(crate) fn messages(&self) -> &Transcript {
+        &self.messages
+    }
+
+    /// Borrow the current completed item ids.
+    #[cfg(test)]
+    pub(crate) fn completed_item_ids(&self) -> &HashSet<BackendEntryKey> {
+        &self.completed_item_ids
+    }
+
+    /// Borrow the current turn status by id.
+    #[cfg(test)]
+    pub(crate) fn turn_status_by_id(&self) -> &HashMap<String, TurnStatus> {
+        &self.turn_status_by_id
+    }
+
+    /// Borrow the current status.
+    #[cfg(test)]
+    pub(crate) fn status(&self) -> &String {
+        &self.status
+    }
+
+    /// Identify the latest backend or turn status write, including repeated text.
+    pub(crate) fn status_revision(&self) -> u64 {
+        self.status_revision
+    }
+
+    /// Borrow the current ralph runtime.
+    pub(crate) fn ralph_runtime(&self) -> &RalphRuntimeState {
+        &self.ralph_runtime
+    }
+
+    /// Borrow the current approval.
+    pub(crate) fn approval(&self) -> &ApprovalState {
+        &self.approval
+    }
+
+    /// Borrow the current context usage.
+    pub(crate) fn context_usage(&self) -> Option<ContextUsage> {
+        self.context_usage
+    }
+}

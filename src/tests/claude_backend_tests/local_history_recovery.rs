@@ -33,10 +33,10 @@ fn normalized_common_events_from_a_retired_helper_cannot_touch_the_new_branch() 
     ] {
         handle_notification_line(&mut app,&record.to_string());
     }
-    assert_eq!(app.thread_id,"new");
-    assert!(app.messages.is_empty());
-    assert!(app.turn_status_by_id.is_empty());
-    assert!(app.context_usage.is_none());
+    assert_eq!(app.session.thread_id(),"new");
+    assert!(app.session.messages().is_empty());
+    assert!(app.session.turn_status_by_id().is_empty());
+    assert!(app.session.context_usage().is_none());
 }
 
 #[test]
@@ -53,10 +53,10 @@ fn a_fatal_fact_settles_accepted_prompts_before_queued_success_can_arrive() {
     ] {
         handle_notification_line(&mut app,&record.to_string());
     }
-    assert!(app.active_turn_id.is_none());
+    assert!(app.session.active_turn_id().is_none());
     assert!(app.claude.prompts.entries.is_empty());
     for id in ["active","queued"] {
-        assert_eq!(app.turn_status_by_id.get(id),Some(&crate::app::models::TurnStatus::Failed));
+        assert_eq!(app.session.turn_status_by_id().get(id),Some(&crate::app::models::TurnStatus::Failed));
     }
-    assert!(!app.messages.iter().any(|message| message.text == "late success"));
+    assert!(!app.session.messages().iter().any(|message| message.text == "late success"));
 }

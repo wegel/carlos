@@ -3,7 +3,7 @@
 use serde_json::Value;
 
 use super::claude_question_state::safe_label;
-use super::state::{AppState, ApprovalChoice, PendingApprovalRequest};
+use super::state::{AppState, ApprovalChoice, ApprovalRequestDraft};
 
 /// One server request keeps its callback identity apart from consent and completion.
 pub(super) struct BrowserRequest {
@@ -38,7 +38,7 @@ pub(super) fn withdraw(app: &mut AppState, id: &str) {
 /// Record the user's answer without treating consent as browser completion.
 pub(super) fn finish_answer(
     app: &mut AppState,
-    pending: &PendingApprovalRequest,
+    pending: &ApprovalRequestDraft,
     choice: ApprovalChoice,
 ) {
     let Some(payload) = &pending.requested_permissions else {

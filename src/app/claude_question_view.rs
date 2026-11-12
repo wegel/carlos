@@ -4,7 +4,7 @@ use serde_json::Value;
 
 use super::claude_question_field::AnswerField;
 use super::claude_question_state::{safe_label, safe_text, NativeDraft};
-use super::state::PendingApprovalRequest;
+use super::state::{AppState, ApprovalRequestDraft, PendingApprovalRequest};
 use super::text::{visual_width, wrap_natural_by_cells};
 
 /// Name the actual approval key without treating answer text as consent.
@@ -18,7 +18,7 @@ pub(super) fn default_no_hint(has_fields: bool, again: bool) -> &'static str {
 }
 
 /// Keep the requesting server or child tool visible above the answer field.
-pub(super) fn caller(pending: &PendingApprovalRequest) -> String {
+pub(super) fn caller(pending: &ApprovalRequestDraft) -> String {
     let payload = pending
         .requested_permissions
         .as_ref()
@@ -81,7 +81,11 @@ pub(super) fn editor_line(draft: &NativeDraft, width: usize) -> Option<(String, 
 }
 
 /// Describe answers and metadata without displaying raw terminal control bytes.
-pub(super) fn body_lines(pending: &PendingApprovalRequest, draft: &NativeDraft) -> Vec<String> {
+pub(super) fn body_lines(
+    app: &AppState,
+    pending: &PendingApprovalRequest,
+    draft: &NativeDraft,
+) -> Vec<String> {
     let mut lines = Vec::new();
     if let Some(notice) = &draft.notice {
         lines.push(notice.clone());
@@ -109,16 +113,16 @@ pub(super) fn body_lines(pending: &PendingApprovalRequest, draft: &NativeDraft) 
     }
     lines.push(format!(
         "Request: {}",
-        super::native_questions::id_label(&pending.request_id)
+        super::native_questions::id_label(&pending.facts().request_id)
     ));
-    lines.extend(pending.detail_lines.iter().cloned());
+    lines.extend(app.approval_detail_lines(pending).map(str::to_string));
     lines
 }
 
 /// Keep compact answer keys on screen even on a short phone terminal.
 pub(super) fn footer_lines(
     draft: &NativeDraft,
-    pending: &PendingApprovalRequest,
+    pending: &ApprovalRequestDraft,
     width: usize,
     compact: bool,
 ) -> Vec<String> {
@@ -149,23 +153,7 @@ pub(super) fn footer_lines(
         ];
     }
     if draft.fields.is_empty() && pending.method != "claude/native" {
-        let mut choices = Vec::new();
-        if pending.can_accept_once() {
-            choices.push("y accept");
-        }
-        if pending.can_accept_for_session {
-            choices.push("s accept session");
-        }
-        if pending.can_decline {
-            choices.push("n decline");
-        }
-        if pending.can_cancel {
-            choices.push("c cancel");
-        }
-        let mut lines = wrap_lines(vec![choices.join("  ")], width);
-        lines.push("F4 next  F10 interrupt".into());
-        lines.push("PgUp/PgDn scroll".into());
-        return lines;
+        return approval_footer(pending, width);
     }
     if compact {
         return vec![
@@ -309,4 +297,24 @@ fn field_guidance(field: &AnswerField) -> String {
         }
     }
     parts.join("; ")
+}
+
+fn approval_footer(pending: &ApprovalRequestDraft, width: usize) -> Vec<String> {
+    let mut choices = Vec::new();
+    if pending.can_accept_once() {
+        choices.push("y accept");
+    }
+    if pending.can_accept_for_session {
+        choices.push("s accept session");
+    }
+    if pending.can_decline {
+        choices.push("n decline");
+    }
+    if pending.can_cancel {
+        choices.push("c cancel");
+    }
+    let mut lines = wrap_lines(vec![choices.join("  ")], width);
+    lines.push("F4 next  F10 interrupt".into());
+    lines.push("PgUp/PgDn scroll".into());
+    lines
 }

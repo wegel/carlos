@@ -99,7 +99,7 @@ pub(crate) fn run_conversation_tui(
         let ui_rx = wire_event_forwarders(app, server_events_rx);
         let mut state = LoopState::default();
         loop {
-            if let Some(p) = app.perf.as_mut() {
+            if let Some(p) = app.view.perf.as_mut() {
                 p.loop_count = p.loop_count.saturating_add(1);
             }
             let exit = run_one_loop_iteration(terminal, client, app, &ui_rx, &mut state)?;
@@ -135,7 +135,7 @@ fn run_one_loop_iteration(
         loop_now,
         app.claude.phase == super::claude_state::ClaudePhase::Ready,
     );
-    let working = app.active_turn_id.is_some()
+    let working = app.session.active_turn_id().is_some()
         || app.claude.activity.state == super::claude_activity::NativeState::Running;
     let animating = working || app.claude.tasks.active_count() > 0;
 
@@ -169,7 +169,7 @@ fn run_one_loop_iteration(
         }
     }
     // Events can change native main activity and process-level task membership.
-    let working_after_events = app.active_turn_id.is_some()
+    let working_after_events = app.session.active_turn_id().is_some()
         || app.claude.activity.state == super::claude_activity::NativeState::Running
         || app.claude.tasks.active_count() > 0;
     maybe_draw(terminal, app, size, working_after_events, state)?;
@@ -215,7 +215,7 @@ fn collect_loop_events(
         ChannelOk::Disconnected => return EventBatchOutcome::Disconnected,
         ChannelOk::Ok(ev) => ev,
     };
-    if let Some(p) = app.perf.as_mut() {
+    if let Some(p) = app.view.perf.as_mut() {
         p.poll_wait.push(loop_now.elapsed());
     }
     let incoming = match gather_incoming_events(next_event, &mut state.prefetched, ui_rx) {
@@ -289,7 +289,7 @@ fn draw_frame(
     terminal.draw(|frame| {
         render_main_view(frame, app);
     })?;
-    if let Some(perf) = app.perf.as_mut() {
+    if let Some(perf) = app.view.perf.as_mut() {
         perf.record_draw(draw_started.elapsed());
     }
     *needs_draw = false;

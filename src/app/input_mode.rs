@@ -8,7 +8,7 @@ const NOTICE: Duration = Duration::from_secs(2);
 
 /// A mode change is UI feedback only; prompt classification is captured separately at dispatch.
 pub(super) fn changed(app: &mut AppState, queue: bool, now: Instant) {
-    app.viewport.steer_notice_until = (!queue).then_some(now + NOTICE);
+    app.view.viewport.steer_notice_until = (!queue).then_some(now + NOTICE);
 }
 
 /// Let an explicit panel shortcut change the same composer mode.
@@ -36,6 +36,7 @@ pub(super) fn label(app: &AppState, now: Instant) -> Option<&'static str> {
     if queue {
         Some("Queue")
     } else if app
+        .view
         .viewport
         .steer_notice_until
         .is_some_and(|until| until > now)
@@ -49,11 +50,12 @@ pub(super) fn label(app: &AppState, now: Instant) -> Option<&'static str> {
 /// Erase the notice even if no native work or keyboard event causes another draw.
 pub(super) fn tick(app: &mut AppState, now: Instant) -> bool {
     if app
+        .view
         .viewport
         .steer_notice_until
         .is_some_and(|until| until <= now)
     {
-        app.viewport.steer_notice_until = None;
+        app.view.viewport.steer_notice_until = None;
         return true;
     }
     false
@@ -61,7 +63,8 @@ pub(super) fn tick(app: &mut AppState, now: Instant) -> bool {
 
 /// Wake a quiet UI only while an explicit mode notice still has to disappear.
 pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
-    app.viewport
+    app.view
+        .viewport
         .steer_notice_until
         .map(|until| until.saturating_duration_since(now))
 }

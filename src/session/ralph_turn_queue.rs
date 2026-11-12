@@ -7,7 +7,7 @@ use crate::backend::PromptOrigin;
 
 impl RalphRuntimeState {
     /// Queue actual human text without changing its source.
-    pub(in crate::app) fn enqueue_turn_input(
+    pub(crate) fn enqueue_turn_input(
         &mut self,
         text: impl Into<String>,
         record_input_history: bool,
@@ -16,7 +16,7 @@ impl RalphRuntimeState {
     }
 
     /// Keep prompt text and its actual human/automatic source together.
-    pub(in crate::app) fn enqueue_prompt(
+    pub(crate) fn enqueue_prompt(
         &mut self,
         text: String,
         record_input_history: bool,
@@ -35,7 +35,7 @@ impl RalphRuntimeState {
     }
 
     /// Delay one Carlos automatic continuation so human input can arrive first.
-    pub(in crate::app) fn queue_continuation(&mut self, text: impl Into<String>) {
+    pub(crate) fn queue_continuation(&mut self, text: impl Into<String>) {
         let text = text.into();
         if text.trim().is_empty() {
             return;
@@ -50,7 +50,7 @@ impl RalphRuntimeState {
     }
 
     /// Report whether a delayed or queued Carlos continuation still exists.
-    pub(in crate::app) fn has_pending_continuation(&self) -> bool {
+    pub(crate) fn has_pending_continuation(&self) -> bool {
         self.pending_continuation.is_some()
             || self
                 .queued_turn_inputs
@@ -59,7 +59,7 @@ impl RalphRuntimeState {
     }
 
     /// Wake only when a delayed continuation can become ready.
-    pub(in crate::app) fn pending_continuation_wait(&self, now: Instant) -> Option<Duration> {
+    pub(crate) fn pending_continuation_wait(&self, now: Instant) -> Option<Duration> {
         if !self.queued_turn_inputs.is_empty() {
             return None;
         }
@@ -72,14 +72,14 @@ impl RalphRuntimeState {
 
     #[cfg(test)]
     /// Expose the fixed continuation deadline to deterministic tests.
-    pub(in crate::app) fn pending_continuation_deadline(&self) -> Option<Instant> {
+    pub(crate) fn pending_continuation_deadline(&self) -> Option<Instant> {
         self.pending_continuation
             .as_ref()
             .and_then(|turn| turn.available_at)
     }
 
     /// Move one due continuation behind already queued inputs.
-    pub(in crate::app) fn promote_ready_continuation(&mut self, now: Instant) {
+    pub(crate) fn promote_ready_continuation(&mut self, now: Instant) {
         let ready = self
             .pending_continuation
             .as_ref()
@@ -95,7 +95,7 @@ impl RalphRuntimeState {
     }
 
     /// Consume the next ready input once without resubmitting it.
-    pub(in crate::app) fn dequeue_turn_input(&mut self, now: Instant) -> Option<QueuedTurnInput> {
+    pub(crate) fn dequeue_turn_input(&mut self, now: Instant) -> Option<QueuedTurnInput> {
         self.promote_ready_continuation(now);
         if let Some(turn) = self.queued_turn_inputs.pop_front() {
             return Some(turn);
@@ -105,12 +105,12 @@ impl RalphRuntimeState {
 
     #[cfg(test)]
     /// Check queued work in deterministic runtime tests.
-    pub(in crate::app) fn queued_turn_inputs_is_empty(&self) -> bool {
+    pub(crate) fn queued_turn_inputs_is_empty(&self) -> bool {
         self.queued_turn_inputs.is_empty()
     }
 
     /// Report work that can run now without shortening its human gate.
-    pub(in crate::app) fn has_ready_queued_turn_input(&self, now: Instant) -> bool {
+    pub(crate) fn has_ready_queued_turn_input(&self, now: Instant) -> bool {
         if !self.queued_turn_inputs.is_empty() {
             return true;
         }
@@ -121,7 +121,7 @@ impl RalphRuntimeState {
     }
 
     /// Peek without consuming work so native goals can hold automatic prompts while humans remain usable.
-    pub(in crate::app) fn next_input_origin(&self, now: Instant) -> Option<PromptOrigin> {
+    pub(crate) fn next_input_origin(&self, now: Instant) -> Option<PromptOrigin> {
         self.queued_turn_inputs
             .front()
             .map(|turn| turn.origin)

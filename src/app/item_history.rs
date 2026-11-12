@@ -35,9 +35,9 @@ pub(super) fn replace_history_from_thread(app: &mut AppState, thread_obj: &Value
     let thread_id = thread_obj
         .get("id")
         .and_then(Value::as_str)
-        .unwrap_or(&app.thread_id)
+        .unwrap_or(&app.session.thread_id())
         .to_string();
-    let mode = if thread_id == app.thread_id {
+    let mode = if thread_id == *app.session.thread_id() {
         crate::session::history_identity::HistoryMode::SameThread
     } else {
         crate::session::history_identity::HistoryMode::NewConversation

@@ -5,6 +5,7 @@ use serde_json::{Map, Value};
 use super::models::{Role, TurnStatus};
 use super::state::AppState;
 use crate::backend::PromptOrigin;
+use crate::session::approval_state::ApprovalQueue;
 
 /// Close the UI once; later frames cannot reopen a turn or an approval.
 pub(super) fn close(app: &mut AppState, params: &Map<String, Value>) {
@@ -18,14 +19,14 @@ pub(super) fn close(app: &mut AppState, params: &Map<String, Value>) {
     app.codex.connection.streams = Default::default();
     app.codex.connection.runtime_read = None;
     app.codex.connection.runtime_refresh = false;
-    if let Some(turn_id) = app.active_turn_id.clone() {
+    if let Some(turn_id) = app.session.active_turn_id().clone() {
         if app.codex.connection.socket.is_none() {
             app.record_turn_completed(&turn_id, TurnStatus::Failed);
         } else {
-            app.active_turn_id = None;
+            app.session.set_active_turn_id(None);
         }
     }
-    app.ralph_runtime.stop_after_failure();
+    app.session.ralph_stop_after_failure();
     super::codex_settings::closed(app);
     if let Some(operation) = app.codex.queue.operation.take() {
         super::codex_queue_receive::recover(app, operation.submitted);
@@ -50,7 +51,7 @@ pub(super) fn reject_closed_prompt(app: &mut AppState, text: &str, origin: Promp
     if !app.codex.closed {
         return false;
     }
-    app.ralph_runtime.stop_after_failure();
+    app.session.ralph_stop_after_failure();
     if origin == PromptOrigin::Human {
         app.set_input_text(text);
         app.append_message(
@@ -58,7 +59,7 @@ pub(super) fn reject_closed_prompt(app: &mut AppState, text: &str, origin: Promp
             "Could not send message: Codex is closed; F5 reconnects; draft kept",
         );
     }
-    app.set_status("Codex is closed; F5 reconnects; draft kept");
+    app.set_hint("Codex is closed; F5 reconnects; draft kept");
     true
 }
 
@@ -84,12 +85,16 @@ fn clear_pending_controls(app: &mut AppState) {
             .callbacks
             .entries
             .values()
-            .filter(|entry| entry.params["threadId"] != app.thread_id)
+            .filter(|entry| entry.params["threadId"] != *app.session.thread_id())
             .count();
         app.codex.connection.unreplayed_children =
             app.codex.connection.unreplayed_children.max(children);
     }
     app.codex.callbacks = Default::default();
-    app.approval.pending = None;
-    app.turn_start_message_idx = None;
+    app.session.clear_approval_queue(ApprovalQueue::Codex);
+    if let Some(id) = app.session.approval().pending().and_then(|p| p.entry_id()) {
+        app.session.retire_approval(id);
+    }
+    app.retain_live_approval_hints();
+    app.session.clear_turn_boundary();
 }

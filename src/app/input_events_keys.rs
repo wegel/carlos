@@ -1,10 +1,14 @@
 //! Keyboard event routing: global toggles, overlay handlers, and normal input dispatch.
+#[path = "input_events_clipboard.rs"]
+mod input_events_clipboard;
 #[path = "input_events_dictation.rs"]
 mod input_events_dictation;
 #[path = "input_events_model_settings.rs"]
 mod input_events_model_settings;
 #[path = "input_events_submit.rs"]
 mod input_events_submit;
+
+use self::input_events_clipboard::handle_ctrl_y_copy;
 
 use self::input_events_model_settings::handle_model_settings_key;
 use self::input_events_submit::handle_enter_submit;
@@ -19,13 +23,11 @@ use crate::app::mobile_mouse::{
 };
 use crate::app::notifications::{is_ctrl_char, is_key_press_like, is_perf_toggle_key};
 use crate::app::render::{compute_input_layout, is_newline_enter};
-use crate::app::render_input::last_assistant_message;
 use crate::app::selection::MouseDragMode;
 use crate::app::state::{AppState, ApprovalChoice};
 use crate::app::turn_submit::{interrupt_active_turn, respond_to_pending_approval};
 use crate::app::{TerminalSize, MSG_TOP};
 use crate::backend::BackendClient;
-use crate::clipboard::{clipboard_backend_label, try_copy_clipboard};
 
 use self::input_events_dictation::{
     handle_ctrl_d_dictation, handle_enter_stop_dictation, handle_f7_dictation_profile,
@@ -38,13 +40,13 @@ pub(super) fn handle_key_event(
     k: crossterm::event::KeyEvent,
     size: TerminalSize,
 ) -> TerminalEventResult {
-    if let Some(perf) = app.perf.as_mut() {
+    if let Some(perf) = app.view.perf.as_mut() {
         perf.mark_key_kind(k.kind);
     }
     if !is_key_press_like(k.kind) {
         return TerminalEventResult::Continue { needs_draw: false };
     }
-    if let Some(perf) = app.perf.as_mut() {
+    if let Some(perf) = app.view.perf.as_mut() {
         perf.mark_key_event();
     }
     if app.codex.enabled && k.code == KeyCode::F(5) && k.modifiers.is_empty() {
@@ -70,7 +72,7 @@ pub(super) fn handle_key_event(
     if k.code != KeyCode::Esc {
         app.reset_esc_chord();
     }
-    if app.viewport.show_help {
+    if app.view.viewport.show_help {
         return handle_help_key(app, k, size);
     }
     if app.runtime.show_model_settings && crate::app::native_questions::draft(app).is_some() {
@@ -134,13 +136,13 @@ fn handle_global_toggle_keys(
     k: crossterm::event::KeyEvent,
 ) -> Option<TerminalEventResult> {
     if is_perf_toggle_key(k.code, k.modifiers) {
-        if let Some(perf) = app.perf.as_mut() {
+        if let Some(perf) = app.view.perf.as_mut() {
             perf.toggle_overlay();
         }
         return Some(TerminalEventResult::Continue { needs_draw: true });
     }
     if matches!(k.code, KeyCode::F(6)) && k.modifiers.is_empty() {
-        app.viewport.scroll_inverted = !app.viewport.scroll_inverted;
+        app.view.viewport.scroll_inverted = !app.view.viewport.scroll_inverted;
         return Some(TerminalEventResult::Continue { needs_draw: true });
     }
     None
@@ -152,24 +154,28 @@ fn handle_help_key(
     size: TerminalSize,
 ) -> TerminalEventResult {
     let maximum = crate::app::overlay_render::help_scroll_limit(size);
-    app.viewport.help_scroll = app.viewport.help_scroll.min(maximum);
+    app.view.viewport.help_scroll = app.view.viewport.help_scroll.min(maximum);
     match (k.code, k.modifiers) {
         (code, mods) if is_ctrl_char(code, mods, 'c') => return TerminalEventResult::Quit,
         (KeyCode::Esc, _) | (KeyCode::Char('?'), _) => {
-            app.viewport.show_help = false;
+            app.view.viewport.show_help = false;
         }
         (KeyCode::Down, _) => {
-            app.viewport.help_scroll = app.viewport.help_scroll.saturating_add(1).min(maximum)
+            app.view.viewport.help_scroll =
+                app.view.viewport.help_scroll.saturating_add(1).min(maximum)
         }
-        (KeyCode::Up, _) => app.viewport.help_scroll = app.viewport.help_scroll.saturating_sub(1),
+        (KeyCode::Up, _) => {
+            app.view.viewport.help_scroll = app.view.viewport.help_scroll.saturating_sub(1)
+        }
         (KeyCode::PageDown, _) => {
-            app.viewport.help_scroll = app.viewport.help_scroll.saturating_add(5).min(maximum)
+            app.view.viewport.help_scroll =
+                app.view.viewport.help_scroll.saturating_add(5).min(maximum)
         }
         (KeyCode::PageUp, _) => {
-            app.viewport.help_scroll = app.viewport.help_scroll.saturating_sub(5)
+            app.view.viewport.help_scroll = app.view.viewport.help_scroll.saturating_sub(5)
         }
-        (KeyCode::Home, _) => app.viewport.help_scroll = 0,
-        (KeyCode::End, _) => app.viewport.help_scroll = maximum,
+        (KeyCode::Home, _) => app.view.viewport.help_scroll = 0,
+        (KeyCode::End, _) => app.view.viewport.help_scroll = maximum,
         _ => {}
     }
     TerminalEventResult::Continue { needs_draw: true }
@@ -205,7 +211,7 @@ fn handle_mobile_mouse_keys(
 ) -> Option<TerminalEventResult> {
     if is_mobile_mouse_key_candidate(app, k.code, k.modifiers) {
         if let KeyCode::Char(ch) = k.code {
-            let was_plain_capture = app.viewport.mobile_plain_pending_coords;
+            let was_plain_capture = app.view.viewport.mobile_plain_pending_coords;
             match consume_mobile_mouse_char(app, ch) {
                 MobileMouseConsume::PassThrough => {}
                 MobileMouseConsume::Consumed => {
@@ -221,13 +227,13 @@ fn handle_mobile_mouse_keys(
         }
     } else if let Some(text) = take_mobile_mouse_buffer(app) {
         if !text.is_empty()
-            && !app.viewport.mobile_plain_pending_coords
-            && !app.viewport.mobile_plain_suppress_coords
+            && !app.view.viewport.mobile_plain_pending_coords
+            && !app.view.viewport.mobile_plain_suppress_coords
         {
             app.input_insert_text(text);
         }
-        app.viewport.mobile_plain_pending_coords = false;
-        app.viewport.mobile_plain_suppress_coords = false;
+        app.view.viewport.mobile_plain_pending_coords = false;
+        app.view.viewport.mobile_plain_suppress_coords = false;
     }
     None
 }
@@ -254,13 +260,13 @@ fn handle_normal_key(
         (KeyCode::Esc, mods) if mods.is_empty() => handle_escape_key(client, app, size, now),
         (KeyCode::Home, _) if app.input_is_empty() => {
             ensure_transcript_layout(app, size);
-            app.viewport.auto_follow_bottom = false;
-            app.viewport.scroll_top = 0;
+            app.view.viewport.auto_follow_bottom = false;
+            app.view.viewport.scroll_top = 0;
             TerminalEventResult::Continue { needs_draw: true }
         }
         (KeyCode::End, _) if app.input_is_empty() => {
             ensure_transcript_layout(app, size);
-            app.viewport.auto_follow_bottom = true;
+            app.view.viewport.auto_follow_bottom = true;
             TerminalEventResult::Continue { needs_draw: true }
         }
         (KeyCode::Up, _) => handle_history_navigate(app, size, true),
@@ -276,8 +282,8 @@ fn handle_normal_key(
         }
         (KeyCode::Enter, _) => handle_enter_submit(client, app),
         (KeyCode::Char('?'), _) if app.input_is_empty() => {
-            app.viewport.show_help = true;
-            app.viewport.help_scroll = 0;
+            app.view.viewport.show_help = true;
+            app.view.viewport.help_scroll = 0;
             TerminalEventResult::Continue { needs_draw: true }
         }
         _ => {
@@ -289,15 +295,15 @@ fn handle_normal_key(
 
 fn handle_ctrl_r_ralph(app: &mut AppState) -> TerminalEventResult {
     if let Err(e) = app.request_ralph_toggle() {
-        app.set_status(format!("ralph: {e}"));
+        app.set_hint(format!("ralph: {e}"));
     }
     TerminalEventResult::Continue { needs_draw: true }
 }
 
 fn handle_ctrl_l_clear_selection(app: &mut AppState) -> TerminalEventResult {
-    app.viewport.selection = None;
-    app.viewport.mouse_drag_mode = MouseDragMode::Undecided;
-    app.set_status("selection cleared");
+    app.view.viewport.selection = None;
+    app.view.viewport.mouse_drag_mode = MouseDragMode::Undecided;
+    app.set_hint("selection cleared");
     TerminalEventResult::Continue { needs_draw: true }
 }
 
@@ -317,22 +323,6 @@ fn handle_history_navigate(
     TerminalEventResult::Continue { needs_draw: true }
 }
 
-fn handle_ctrl_y_copy(app: &mut AppState) -> TerminalEventResult {
-    if let Some(sel) = app.viewport.selection {
-        let copied = app.selected_text(sel);
-        if !copied.is_empty() {
-            let _ = try_copy_clipboard(&copied);
-        }
-    } else if let Some(text) = last_assistant_message(&app.messages) {
-        let backend = try_copy_clipboard(text);
-        app.set_status(format!(
-            "copied last assistant message ({})",
-            clipboard_backend_label(backend)
-        ));
-    }
-    TerminalEventResult::Continue { needs_draw: true }
-}
-
 fn handle_page_scroll(app: &mut AppState, size: TerminalSize, down: bool) -> TerminalEventResult {
     ensure_transcript_layout(app, size);
     let msg_bottom = compute_input_layout(app, size).msg_bottom;
@@ -343,9 +333,14 @@ fn handle_page_scroll(app: &mut AppState, size: TerminalSize, down: bool) -> Ter
     };
     let max_scroll = app.rendered_line_count().saturating_sub(msg_height);
     if down {
-        app.viewport.scroll_top = app.viewport.scroll_top.saturating_add(10).min(max_scroll);
+        app.view.viewport.scroll_top = app
+            .view
+            .viewport
+            .scroll_top
+            .saturating_add(10)
+            .min(max_scroll);
     } else {
-        app.viewport.scroll_top = app.viewport.scroll_top.saturating_sub(10);
+        app.view.viewport.scroll_top = app.view.viewport.scroll_top.saturating_sub(10);
     }
     app.sync_auto_follow_bottom(max_scroll);
     TerminalEventResult::Continue { needs_draw: true }
@@ -365,7 +360,7 @@ fn handle_escape_key(
     if app.ralph_enabled() {
         app.reset_esc_chord();
         app.disable_ralph_mode();
-        if app.active_turn_id.is_some() {
+        if app.session.active_turn_id().is_some() {
             interrupt_active_turn(client, app);
         }
         return TerminalEventResult::Continue { needs_draw: true };
@@ -375,7 +370,7 @@ fn handle_escape_key(
         app.reset_esc_chord();
         return TerminalEventResult::Continue { needs_draw: true };
     }
-    if app.active_turn_id.is_some()
+    if app.session.active_turn_id().is_some()
         || app.claude.activity.state == crate::app::claude_activity::NativeState::Running
     {
         app.reset_esc_chord();
@@ -383,8 +378,8 @@ fn handle_escape_key(
         return TerminalEventResult::Continue { needs_draw: true };
     }
     if app.register_escape_press(now) {
-        app.viewport.selection = None;
-        app.viewport.mouse_drag_mode = MouseDragMode::Undecided;
+        app.view.viewport.selection = None;
+        app.view.viewport.mouse_drag_mode = MouseDragMode::Undecided;
         if app.input_is_empty() && app.has_pending_ralph_continuation() {
             app.disable_ralph_mode();
         } else if app.input_is_empty() {

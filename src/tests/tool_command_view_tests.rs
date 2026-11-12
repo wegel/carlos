@@ -24,7 +24,7 @@ fn item(command: &str) -> Value {
 }
 
 fn complete(app: &mut AppState, item: &Value) {
-    let frame = json!({"method":"item/completed","params":{"threadId":app.thread_id,"turnId":"turn","item":item}});
+    let frame = json!({"method":"item/completed","params":{"threadId":app.session.thread_id(),"turnId":"turn","item":item}});
     handle_server_message_line(app, &frame.to_string());
 }
 
@@ -188,11 +188,14 @@ fn long_prefix_cannot_force_a_trivial_read_into_ai_or_merge_different_directory_
         assert!(label.contains(directory));
         app.append_message(Role::ToolCall, label);
     }
-    assert!(!app.messages[0].text.is_empty());
-    assert!(!app.messages[1].text.is_empty());
-    assert_ne!(app.messages[0].text, app.messages[1].text);
-    assert!(app.messages[2].text.contains("one [a]"));
-    assert!(app.messages[3].text.contains("one [b]"));
+    assert!(!app.session.messages()[0].text.is_empty());
+    assert!(!app.session.messages()[1].text.is_empty());
+    assert_ne!(
+        app.session.messages()[0].text,
+        app.session.messages()[1].text
+    );
+    assert!(app.session.messages()[2].text.contains("one [a]"));
+    assert!(app.session.messages()[3].text.contains("one [b]"));
 }
 
 #[test]
@@ -207,7 +210,7 @@ fn multiline_builtin_search_keeps_directory_in_its_compact_first_line() {
         .contains("(in scripts)"));
     app.append_message(Role::ToolCall, "fallback");
     app.describe_tool_output(0, &native);
-    assert!(app.messages[0]
+    assert!(app.session.messages()[0]
         .tool_output
         .as_ref()
         .expect("compact label")
@@ -271,7 +274,7 @@ fn late_cwd_metadata_retires_generated_labels_and_old_results_even_across_off_on
         Some("Old directory label".into()),
     ));
     assert!(
-        app.messages[0]
+        app.session.messages()[0]
             .tool_output
             .as_ref()
             .expect("label")
@@ -283,7 +286,7 @@ fn late_cwd_metadata_retires_generated_labels_and_old_results_even_across_off_on
         .key;
     complete(&mut app, &native);
     assert!(
-        !app.messages[0]
+        !app.session.messages()[0]
             .tool_output
             .as_ref()
             .expect("new fallback")
@@ -291,7 +294,7 @@ fn late_cwd_metadata_retires_generated_labels_and_old_results_even_across_off_on
     );
     app.summaries.draft = false;
     app.apply_summary_setting();
-    assert!(!app.messages[0]
+    assert!(!app.session.messages()[0]
         .tool_output
         .as_ref()
         .expect("AI off")
@@ -309,7 +312,11 @@ fn late_cwd_metadata_retires_generated_labels_and_old_results_even_across_off_on
     ));
     app.summaries.draft = true;
     app.apply_summary_setting();
-    let label = &app.messages[0].tool_output.as_ref().expect("AI on").summary;
+    let label = &app.session.messages()[0]
+        .tool_output
+        .as_ref()
+        .expect("AI on")
+        .summary;
     assert!(label.contains("Fresh directory label") && label.contains("(in scripts)"));
     assert!(!label.contains("Old directory") && !label.contains("Stale result"));
 }
@@ -323,8 +330,8 @@ fn history_replacement_uses_known_workspace_before_formatting_and_only_restores_
         .key;
     let frame = json!({"result":{"thread":{"id":"thread","turns":[{"id":"past","status":"completed","items":[native]}]}}});
     load_history_from_start_or_resume(&mut app, &frame.to_string()).expect("history");
-    assert!(!app.messages[0].text.contains("cd /workspace"));
-    assert!(!app.messages[0].text.contains("(in "));
+    assert!(!app.session.messages()[0].text.contains("cd /workspace"));
+    assert!(!app.session.messages()[0].text.contains("(in "));
     assert_eq!(app.summaries.cwd, Path::new("/workspace/project"));
     app.handle_summary_event(SummaryEvent::Ready(
         key,
@@ -332,7 +339,7 @@ fn history_replacement_uses_known_workspace_before_formatting_and_only_restores_
         Some("Saved snapshot".into()),
     ));
     assert_eq!(
-        app.messages[0]
+        app.session.messages()[0]
             .tool_output
             .as_ref()
             .expect("cached")

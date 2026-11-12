@@ -21,7 +21,7 @@ pub(super) fn app(backend: BackendKind) -> AppState {
 }
 
 fn notify(app: &mut AppState, method: &str, item: Value, source: Value) {
-    let line = json!({"method":method,"params":{"threadId":app.thread_id,"turnId":"turn",
+    let line = json!({"method":method,"params":{"threadId":app.session.thread_id(),"turnId":"turn",
         "item":item,"sourceKey":source}});
     handle_server_message_line(app, &line.to_string());
 }
@@ -31,11 +31,11 @@ fn placeholder_deltas_completion_role_path_and_labels_keep_the_first_id() {
     for backend in [BackendKind::Codex, BackendKind::Claude, BackendKind::Grok] {
         let mut app = app(backend);
         assert!(app.ensure_item_placeholder("command", Role::ToolCall));
-        let id = app.messages[0].id;
+        let id = app.session.messages()[0].id;
         for _ in 0..3 {
             assert!(!app.ensure_item_placeholder("command", Role::ToolCall));
             app.upsert_command_output_delta("command", "delta");
-            assert_eq!(app.messages[0].id, id);
+            assert_eq!(app.session.messages()[0].id, id);
         }
         for _ in 0..3 {
             app.upsert_mapped_message(
@@ -52,10 +52,10 @@ fn placeholder_deltas_completion_role_path_and_labels_keep_the_first_id() {
             app.set_command_override("command", "label".into());
             app.mark_item_completed("command");
             app.upsert_command_output_delta("command", "late");
-            assert_eq!(app.messages.len(), 1);
-            assert_eq!(app.messages[0].id, id);
-            assert_eq!(app.messages[0].text, "final");
-            assert_eq!(app.messages[0].file_path.as_deref(), Some("a.rs"));
+            assert_eq!(app.session.messages().len(), 1);
+            assert_eq!(app.session.messages()[0].id, id);
+            assert_eq!(app.session.messages()[0].text, "final");
+            assert_eq!(app.session.messages()[0].file_path.as_deref(), Some("a.rs"));
         }
     }
 }
@@ -73,11 +73,14 @@ fn read_coalescing_keeps_the_hidden_shell_id() {
                 MessageKind::Plain,
                 None,
             );
-            ids.push(app.messages[index].id);
+            ids.push(app.session.messages()[index].id);
         }
-        assert_eq!(app.messages[0].text, format!("→ Read a.rs ×{count}"));
+        assert_eq!(
+            app.session.messages()[0].text,
+            format!("→ Read a.rs ×{count}")
+        );
         for index in 1..count {
-            assert!(app.messages[index].text.is_empty());
+            assert!(app.session.messages()[index].text.is_empty());
             assert_eq!(app.item_message_index(&index.to_string()), Some(index));
             app.upsert_mapped_message(
                 &index.to_string(),
@@ -86,13 +89,15 @@ fn read_coalescing_keeps_the_hidden_shell_id() {
                 MessageKind::Plain,
                 None,
             );
-            assert_eq!(app.messages[index].id, ids[index]);
-            let display =
-                crate::app::tool_output_state::compact_tool_message(&app.messages[index], 0)
-                    .expect("compact tool");
+            assert_eq!(app.session.messages()[index].id, ids[index]);
+            let display = crate::app::tool_output_state::compact_tool_message(
+                &app.session.messages()[index],
+                0,
+            )
+            .expect("compact tool");
             assert_eq!(display.source.id, ids[index]);
         }
-        assert_eq!(app.messages[0].id, ids[0]);
+        assert_eq!(app.session.messages()[0].id, ids[0]);
     }
 }
 
@@ -108,7 +113,7 @@ fn diff_parts_do_not_alias_literal_suffix_ids() {
                 MessageKind::Plain,
                 None,
             );
-            let literal = app.messages[0].id;
+            let literal = app.session.messages()[0].id;
             let mut ids = Vec::new();
             for part in 0..count {
                 app.with_item_part("x", part, |app, key| {
@@ -119,11 +124,12 @@ fn diff_parts_do_not_alias_literal_suffix_ids() {
                         MessageKind::Diff,
                         Some(part.to_string()),
                     );
-                    ids.push(app.messages[app.item_message_index(key).expect("part")].id);
+                    ids.push(app.session.messages()[app.item_message_index(key).expect("part")].id);
                 });
             }
             for retained in 0..=count {
-                app.messages.retain_parts(&app.item_key("x"), retained);
+                app.session
+                    .transcript_retain_parts(&app.item_key("x"), retained);
                 for part in 0..count {
                     app.with_item_part("x", part, |app, key| {
                         assert_eq!(app.has_item_mapping(key), part < retained);
@@ -141,11 +147,11 @@ fn diff_parts_do_not_alias_literal_suffix_ids() {
                     MessageKind::Diff,
                     None,
                 );
-                let new = app.messages[app.item_message_index(key).expect("new part")].id;
+                let new = app.session.messages()[app.item_message_index(key).expect("new part")].id;
                 assert!(!ids.contains(&new));
             });
             assert_eq!(
-                app.messages[app.item_message_index("x#part-1").expect("literal")].id,
+                app.session.messages()[app.item_message_index("x#part-1").expect("literal")].id,
                 literal
             );
             assert!(ids.iter().all(|id| *id != literal));
@@ -178,16 +184,17 @@ fn claude_native_evidence_matches_live_and_history_but_generated_counters_do_not
             json!({"id":"claude-msg-0-1-0","type":"agentMessage"}),
             source.clone(),
         );
-        let old = app.messages[0].id;
+        let old = app.session.messages()[0].id;
         notify(
             &mut app,
             "item/completed",
             json!({"id":"claude-msg-0-1-0","type":"agentMessage","text":"final"}),
             source,
         );
-        assert_eq!(app.messages[0].id, old);
+        assert_eq!(app.session.messages()[0].id, old);
         let native = app
-            .messages
+            .session
+            .messages()
             .items()
             .keys()
             .find(|key| key.durable())
@@ -197,10 +204,10 @@ fn claude_native_evidence_matches_live_and_history_but_generated_counters_do_not
             draft: EntryDraft::plain(Role::Assistant, "corrected"),
             key: native,
         };
-        app.messages
-            .replace_history(vec![row], HistoryMode::SameThread);
+        app.session
+            .transcript_replace_history(vec![row], HistoryMode::SameThread);
         assert_eq!(
-            app.messages[0].id == old,
+            app.session.messages()[0].id == old,
             matches!(kind, "assistant" | "tool" | "user")
         );
     }
@@ -212,7 +219,7 @@ fn stale_summary_cannot_write_to_a_replacement_entry() {
         let mut app = app(BackendKind::Grok);
         let command = json!({"id":"command","type":"commandExecution","command":"python3 process.py","aggregatedOutput":"out"});
         notify(&mut app, "item/completed", command.clone(), Value::Null);
-        let id = app.messages[0].id;
+        let id = app.session.messages()[0].id;
         let token = app.summary_token_for_test("command");
         if change == "fork" {
             app.reset_for_forked_thread("fork");
@@ -231,8 +238,7 @@ fn stale_summary_cannot_write_to_a_replacement_entry() {
             command["aggregatedOutput"] = json!("corrected");
         }
         items.push(command);
-        let response =
-            json!({"result":{"thread":{"id":app.thread_id,"turns":[{"id":"turn","items":items}]}}});
+        let response = json!({"result":{"thread":{"id":app.session.thread_id(),"turns":[{"id":"turn","items":items}]}}});
         load_history_from_start_or_resume(&mut app, &response.to_string()).expect("history");
         app.handle_summary_event(SummaryEvent::Ready(
             command_key("python3 process.py"),
@@ -241,7 +247,7 @@ fn stale_summary_cannot_write_to_a_replacement_entry() {
         ));
         let index = app.item_message_index("command").expect("reloaded command");
         assert!(
-            !app.messages[index]
+            !app.session.messages()[index]
                 .tool_output
                 .as_ref()
                 .expect("tool")
@@ -249,7 +255,7 @@ fn stale_summary_cannot_write_to_a_replacement_entry() {
             "{change}"
         );
         assert_eq!(
-            app.messages[index].id == id,
+            app.session.messages()[index].id == id,
             !matches!(change, "fork" | "truncate")
         );
         let token = app.summary_token_for_test("command");
@@ -259,7 +265,7 @@ fn stale_summary_cannot_write_to_a_replacement_entry() {
             Some("fresh".into()),
         ));
         assert!(
-            app.messages[index]
+            app.session.messages()[index]
                 .tool_output
                 .as_ref()
                 .expect("tool")
@@ -274,14 +280,17 @@ fn equal_local_echoes_bind_only_their_returned_uuids_and_keep_distinct_ids() {
     let mut ids = Vec::new();
     for uuid in ["first", "second", "third"] {
         let index = app.append_message(Role::User, "same");
-        ids.push(app.messages[index].id);
+        ids.push(app.session.messages()[index].id);
         app.record_input_history("same", Some(index));
         crate::app::claude_prompts::attach_echo(&mut app, uuid, None);
     }
     assert_eq!(app.input_history_len(), 3);
     for (index, uuid) in ["first", "second", "third"].into_iter().enumerate() {
         let key = app.item_key(&format!("claude-prompt:{uuid}"));
-        assert_eq!(app.messages.entry_id_for_item(&key), Some(ids[index]));
+        assert_eq!(
+            app.session.messages().entry_id_for_item(&key),
+            Some(ids[index])
+        );
         app.set_rewind_selection_for_test(Some(index));
         assert_eq!(app.rewind_selected_turn_id(), Some(uuid));
     }
@@ -307,7 +316,7 @@ fn complete_diff_changes_keep_existing_parts_and_remint_reintroduced_parts() {
                     item(count, "first"),
                     source.clone(),
                 );
-                let old: Vec<_> = app.messages.iter().map(|row| row.id).collect();
+                let old: Vec<_> = app.session.messages().iter().map(|row| row.id).collect();
                 notify(
                     &mut app,
                     "item/completed",
@@ -319,7 +328,9 @@ fn complete_diff_changes_keep_existing_parts_and_remint_reintroduced_parts() {
                         assert_eq!(app.has_item_mapping(key), part < retained);
                         if part < retained {
                             assert_eq!(
-                                app.messages[app.item_message_index(key).expect("retained")].id,
+                                app.session.messages()
+                                    [app.item_message_index(key).expect("retained")]
+                                .id,
                                 old[part]
                             );
                         }
@@ -328,8 +339,9 @@ fn complete_diff_changes_keep_existing_parts_and_remint_reintroduced_parts() {
                 notify(&mut app, "item/completed", item(count + 1, "added"), source);
                 for part in 0..=count {
                     app.with_item_part("diff", part, |app, key| {
-                        let id =
-                            app.messages[app.item_message_index(key).expect("current part")].id;
+                        let id = app.session.messages()
+                            [app.item_message_index(key).expect("current part")]
+                        .id;
                         assert_eq!(old.contains(&id), part < retained);
                     });
                 }
@@ -351,12 +363,12 @@ fn a_new_claude_cursor_cannot_append_to_completed_native_work() {
             json!({"id":"cursor-a","type":"agentMessage","text":"final"}),
             source.clone(),
         );
-        let id = app.messages[0].id;
+        let id = app.session.messages()[0].id;
         let delta = json!({"method":"item/agentMessage/delta","params":{
             "threadId":"thread","itemId":"cursor-b","delta":" late duplicate","sourceKey":source}});
         handle_server_message_line(&mut app, &delta.to_string());
-        assert_eq!(app.messages.len(), 1);
-        assert_eq!(app.messages[0].id, id);
-        assert_eq!(app.messages[0].text, "final");
+        assert_eq!(app.session.messages().len(), 1);
+        assert_eq!(app.session.messages()[0].id, id);
+        assert_eq!(app.session.messages()[0].text, "final");
     }
 }

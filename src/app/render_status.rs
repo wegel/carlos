@@ -77,7 +77,7 @@ pub(super) fn draw_status_bar(
     );
     draw_labels(buf, y, &plan.labels);
     draw_claude_rewind_hint(buf, app, y, plan.anim_end);
-    if (app.active_turn_id.is_some()
+    if (app.session.active_turn_id().is_some()
         || app.claude.activity.state == super::claude_activity::NativeState::Running
         || app.claude.tasks.active_count() > 0)
         && !app.rewind_mode()
@@ -129,7 +129,7 @@ fn status_plan(app: &AppState, size: TerminalSize) -> StatusPlan {
         anim_end: edge,
         labels,
         ralph_mode: app.ralph_enabled(),
-        compact_activity: app.layout.uses_flow(size) || size.is_small() || edge < 8,
+        compact_activity: app.view.layout.uses_flow(size) || size.is_small() || edge < 8,
     }
 }
 
@@ -238,10 +238,12 @@ fn place_input_mode(
 
 fn place_context(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState, reserve: usize) {
     let context = app
-        .context_usage
+        .session
+        .context_usage()
         .map(context_usage_label)
         .unwrap_or_else(|| context_usage_placeholder_label().to_string());
-    let stale = app.claude.enabled && app.context_usage.is_some() && !app.claude.context.fresh;
+    let stale =
+        app.claude.enabled && app.session.context_usage().is_some() && !app.claude.context.fresh;
     let context = if stale {
         format!("~{context}")
     } else {
@@ -250,7 +252,8 @@ fn place_context(labels: &mut Vec<PlacedLabel>, edge: &mut usize, app: &AppState
     let (tokens, percent) = context.split_once(" (").unwrap_or((&context, ""));
     let percent = percent.trim_end_matches(')');
     let color = app
-        .context_usage
+        .session
+        .context_usage()
         .map_or(COLOR_GUTTER_USER, |u| context_color(u.used, u.max));
     let full = Label {
         parts: vec![

@@ -35,7 +35,7 @@ pub(super) fn refresh(app: &mut AppState) {
 /// Fence old reads only when the native context or its window actually changes.
 pub(super) fn invalidate(app: &mut AppState) {
     app.claude.activity.context_revision += 1;
-    app.context_usage = None;
+    app.session.set_context_usage(None);
     app.claude.context.next_read = None;
     refresh(app);
 }
@@ -48,7 +48,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant)
     let model = app.runtime.current_model.clone();
     let mut redraw = false;
     if app.claude.context.model != model {
-        redraw = app.context_usage.is_some();
+        redraw = app.session.context_usage().is_some();
         app.claude.context.model = model;
         invalidate(app);
     }
@@ -136,7 +136,8 @@ pub(super) fn receive(app: &mut AppState, frame: &Value, request: &Value) {
         if let (Some(used), Some(max)) =
             (result["totalTokens"].as_u64(), max.filter(|max| *max > 0))
         {
-            app.context_usage = Some(ContextUsage { used, max });
+            app.session
+                .set_context_usage(Some(ContextUsage { used, max }));
             context.fresh = true;
             return;
         }
@@ -151,6 +152,6 @@ fn available(app: &AppState) -> bool {
 }
 
 fn working(app: &AppState) -> bool {
-    app.active_turn_id.is_some()
+    app.session.active_turn_id().is_some()
         || app.claude.activity.state != super::claude_activity::NativeState::Idle
 }

@@ -107,7 +107,7 @@ fn ralph_turn_completion_queues_continuation_when_not_blocked_or_complete() {
         waiting_marker: "@@AWAITING_HUMAN@@".to_string(),
         continuation_prompt: "continue".to_string(),
     });
-    app.turn_start_message_idx = Some(0);
+    app.session.set_turn_start_for_test(Some(0));
     app.append_message(Role::Assistant, "still working");
 
     app.handle_ralph_turn_completed(false);
@@ -127,14 +127,14 @@ fn ralph_turn_completion_disables_ralph_on_human_gate() {
         waiting_marker: "@@AWAITING_HUMAN@@".to_string(),
         continuation_prompt: "continue".to_string(),
     });
-    app.turn_start_message_idx = Some(0);
+    app.session.set_turn_start_for_test(Some(0));
     app.append_message(Role::Assistant, "@@AWAITING_HUMAN@@");
 
     app.handle_ralph_turn_completed(false);
 
     assert!(!app.ralph_enabled());
     assert!(app.queued_turn_inputs_is_empty());
-    assert!(app.messages.last().is_some_and(
+    assert!(app.session.messages().last().is_some_and(
         |msg| msg.role == Role::System && msg.text == "Ralph waiting for human input"
     ));
 }
@@ -150,7 +150,7 @@ fn ralph_turn_completion_disables_ralph_mode_on_blocked_marker() {
         waiting_marker: "@@AWAITING_HUMAN@@".to_string(),
         continuation_prompt: "continue".to_string(),
     });
-    app.turn_start_message_idx = Some(0);
+    app.session.set_turn_start_for_test(Some(0));
     app.append_message(Role::Assistant, "@@BLOCKED@@");
 
     app.handle_ralph_turn_completed(false);
@@ -170,13 +170,13 @@ fn commentary_blocked_marker_disables_ralph_mode_immediately() {
         waiting_marker: "@@AWAITING_HUMAN@@".to_string(),
         continuation_prompt: "continue".to_string(),
     });
-    app.turn_start_message_idx = Some(0);
+    app.session.set_turn_start_for_test(Some(0));
     app.append_message(Role::Commentary, "@@BLOCKED@@");
 
     app.maybe_disable_ralph_on_blocked_marker();
 
     assert!(!app.ralph_enabled());
-    assert!(app.messages.last().is_some_and(
+    assert!(app.session.messages().last().is_some_and(
         |msg| msg.role == Role::System && msg.text == "Ralph blocked: waiting for input"
     ));
 }
@@ -192,7 +192,7 @@ fn ralph_turn_completion_disables_ralph_mode() {
         waiting_marker: "@@AWAITING_HUMAN@@".to_string(),
         continuation_prompt: "continue".to_string(),
     });
-    app.turn_start_message_idx = Some(0);
+    app.session.set_turn_start_for_test(Some(0));
     app.append_message(
         Role::Assistant,
         "@@COMPLETE@@ @@COMPLETE_SUMMARY_START@@".to_string(),
@@ -215,7 +215,7 @@ fn ralph_interrupted_turn_does_not_queue_continuation() {
         waiting_marker: "@@AWAITING_HUMAN@@".to_string(),
         continuation_prompt: "continue".to_string(),
     });
-    app.turn_start_message_idx = Some(0);
+    app.session.set_turn_start_for_test(Some(0));
     app.append_message(Role::Assistant, "still working");
 
     app.handle_ralph_turn_completed(true);
@@ -258,7 +258,7 @@ fn request_ralph_toggle_enables_and_disables_when_idle() {
 #[test]
 fn request_ralph_toggle_defers_while_turn_active() {
     let mut app = AppState::new("thread-1".to_string());
-    app.active_turn_id = Some("turn-1".to_string());
+    app.session.set_active_turn_id(Some("turn-1".to_string()));
 
     app.request_ralph_toggle().expect("defer");
     assert!(app.ralph_toggle_pending());

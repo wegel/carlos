@@ -11,29 +11,36 @@ pub(super) fn respond_to_pending_approval(
     choice: ApprovalChoice,
 ) {
     if app.codex.enabled
-        && app
-            .approval
-            .pending
-            .as_ref()
-            .is_some_and(|pending| app.codex.callbacks.get(&pending.request_id).is_some())
+        && app.session.approval().pending().is_some_and(|pending| {
+            app.codex
+                .callbacks
+                .get(&pending.facts().request_id)
+                .is_some()
+        })
     {
         super::codex_reply::respond(client, app, choice);
         return;
     }
-    let Some(pending) = app.approval.pending.clone() else {
+    let Some(card_id) = app.session.approval().pending().and_then(|p| p.entry_id()) else {
+        return;
+    };
+    let Some(pending) = app.session.approval_answer(card_id) else {
         return;
     };
     let Some(result) = build_answer(app, &pending, choice) else {
         return;
     };
-    if confirm_default_no(app, &pending, choice) {
+    if confirm_default_no(app, card_id, &pending, choice) {
         return;
     }
 
+    if !app.session.begin_approval_answer(card_id) {
+        return;
+    }
     match client.respond(&pending.request_id, result) {
         Ok(_) => {
             super::claude_browser::finish_answer(app, &pending, choice);
-            app.claude.confirm_allow = None;
+            app.view.confirm_allow = None;
             app.clear_pending_approval();
             let status = match choice {
                 ApprovalChoice::Accept => "approval accepted",
@@ -47,13 +54,14 @@ pub(super) fn respond_to_pending_approval(
             app,
             &pending.request_id,
             format!("approval reply failed: {err}"),
+            true,
         ),
     }
 }
 
 fn build_answer(
     app: &mut AppState,
-    pending: &super::state::PendingApprovalRequest,
+    pending: &super::state::ApprovalRequestDraft,
     choice: ApprovalChoice,
 ) -> Option<serde_json::Value> {
     let result = if choice == ApprovalChoice::Accept && is_native(pending.kind) {
@@ -67,7 +75,7 @@ fn build_answer(
         {
             Some(Ok(answer)) => Some(answer),
             Some(Err(error)) => {
-                reply_error(app, &pending.request_id, error);
+                reply_error(app, &pending.request_id, error, false);
                 return None;
             }
             None => pending.response_for_choice(choice),
@@ -76,7 +84,7 @@ fn build_answer(
         pending.response_for_choice(choice)
     };
     let Some(result) = result else {
-        app.set_status("approval choice not available");
+        app.set_hint("approval choice not available");
         return None;
     };
     Some(result)
@@ -84,7 +92,8 @@ fn build_answer(
 
 fn confirm_default_no(
     app: &mut AppState,
-    pending: &super::state::PendingApprovalRequest,
+    card_id: crate::session::entry_id::EntryId,
+    pending: &super::state::ApprovalRequestDraft,
     choice: ApprovalChoice,
 ) -> bool {
     if choice == ApprovalChoice::Accept
@@ -92,19 +101,17 @@ fn confirm_default_no(
             .requested_permissions
             .as_ref()
             .is_some_and(|payload| payload["defaultToNo"] == true)
-        && app.claude.confirm_allow.as_deref() != pending.request_id.as_str()
+        && app.view.confirm_allow != Some(card_id)
     {
-        app.claude.confirm_allow = pending.request_id.as_str().map(str::to_string);
+        app.view.confirm_allow = Some(card_id);
         let has_fields = pending
             .request_id
             .as_str()
             .and_then(|id| app.claude.answers.drafts.get(id))
             .is_some_and(|draft| !draft.fields.is_empty());
         let hint = default_no_hint(has_fields, true);
-        if let Some(prompt) = app.approval.pending.as_mut() {
-            prompt.detail_lines.insert(0, hint.to_string());
-        }
-        app.set_status(hint);
+        app.prepend_approval_hint(hint);
+        app.set_hint(hint);
         return true;
     }
 
@@ -118,7 +125,7 @@ fn is_native(kind: ApprovalRequestKind) -> bool {
     )
 }
 
-fn reply_error(app: &mut AppState, id: &serde_json::Value, error: String) {
+fn reply_error(app: &mut AppState, id: &serde_json::Value, error: String, backend: bool) {
     if let Some(draft) = id
         .as_str()
         .and_then(|id| app.claude.answers.drafts.get_mut(id))
@@ -126,5 +133,10 @@ fn reply_error(app: &mut AppState, id: &serde_json::Value, error: String) {
         draft.error = Some(super::claude_question_state::safe_text(&error));
         draft.viewport.scroll.set(0);
     }
-    app.set_status(super::claude_question_state::safe_text(&error));
+    let error = super::claude_question_state::safe_text(&error);
+    if backend {
+        app.set_status(error);
+    } else {
+        app.set_hint(error);
+    }
 }

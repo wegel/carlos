@@ -48,7 +48,7 @@ fn review_hidden_native_user_must_count_toward_rewind_position() {
                 assert_eq!(request.item_id, "visible");
                 let visible = app.rewind_selected_message_idx().expect("visible row");
                 assert_eq!(
-                    app.messages[visible].kind,
+                    app.session.messages()[visible].kind,
                     if last {
                         MessageKind::Plain
                     } else {
@@ -66,10 +66,10 @@ fn review_duplicate_complete_history_keys_cannot_retain_a_unique_id() {
     let mut app = app();
     let row = |text| json!({"type":"agentMessage","id":"same","text":text});
     load(&mut app, vec![row("old")]);
-    let old = app.messages[0].id;
+    let old = app.session.messages()[0].id;
     load(&mut app, vec![row("first"), row("second")]);
     assert!(
-        app.messages.entry(old).is_none(),
+        app.session.messages().entry(old).is_none(),
         "duplicate source evidence is ambiguous even when the parser collapses display rows"
     );
 }
@@ -87,20 +87,21 @@ fn review_native_override_keeps_heads_generated_label_marker() {
         0,
         &json!({"type":"commandExecution","id":"cmd","command":"python3 process.py"}),
     );
-    let id = a.messages[0].id;
-    a.messages.set_label(id, "run generated".into(), true);
+    let id = a.session.messages()[0].id;
+    a.session
+        .transcript_set_label(id, "run generated".into(), true);
     a.set_command_override("cmd", "run native".into());
-    a.tool_output.mode = crate::app::tool_output_state::ToolOutputMode::Full;
-    a.layout.active = crate::app::layout_state::TranscriptTheme::Gutter;
+    a.view.tool_output.mode = crate::app::tool_output_state::ToolOutputMode::Full;
+    a.view.layout.active = crate::app::layout_state::TranscriptTheme::Gutter;
     a.ensure_rendered_lines(80, None);
     let current: Vec<_> = a
         .snapshot_rendered_lines()
         .into_iter()
         .map(|line| line.text)
         .collect();
-    let mut head = a.messages[0].tool_output.clone().expect("tool");
+    let mut head = a.session.messages()[0].tool_output.clone().expect("tool");
     head.generated = true;
-    a.messages.set_tool(0, head);
+    a.session.transcript_set_tool(0, head);
     a.mark_transcript_dirty();
     a.ensure_rendered_lines(80, None);
     let previous: Vec<_> = a
@@ -124,9 +125,14 @@ fn complete_read_history_uses_linear_predecessor_work() {
         let draft = crate::app::item_history::history_draft::build(&mut app, &thread);
         counts.push(draft.read_steps);
         crate::app::item_history::replace_history_from_thread(&mut app, &thread);
-        assert_eq!(app.messages.len(), count);
-        assert!(app.messages[0].text.contains(&count.to_string()));
-        assert!(app.messages.iter().skip(1).all(|row| row.text.is_empty()));
+        assert_eq!(app.session.messages().len(), count);
+        assert!(app.session.messages()[0].text.contains(&count.to_string()));
+        assert!(app
+            .session
+            .messages()
+            .iter()
+            .skip(1)
+            .all(|row| row.text.is_empty()));
     }
     println!("read predecessor steps: {counts:?}");
     assert!(counts[1] <= counts[0] * 4 + 32);
@@ -140,7 +146,7 @@ fn history_keeps_tool_facts_and_records_only_new_user_rows_at_the_event() {
         let diff = json!({"type":"toolOutput","id":"same","files":[{"filePath":"a.rs","diff":"@@ -1 +1 @@\n-old\n+new"}],"exitCode":2});
         let later = json!({"type":replacement,"id":"same","text":"later","content":[{"type":"text","text":"later"}],"name":"Read","input":{"file_path":"a.rs"}});
         load(&mut app, vec![diff, later]);
-        let tool = app.messages[0]
+        let tool = app.session.messages()[0]
             .tool_output
             .as_ref()
             .expect("HEAD retains old tool facts");
@@ -162,17 +168,18 @@ fn raw_duplicate_evidence_survives_repeated_loads_and_missing_turn_ids() {
         let mut app = app();
         let thread = |texts: &[&str]| json!({"id":"thread","turns":[{"id":turn,"items":texts.iter().map(|text|json!({"type":"agentMessage","id":"same","text":text})).collect::<Vec<_>>()}]});
         crate::app::item_history::replace_history_from_thread(&mut app, &thread(&["old"]));
-        let unique = app.messages[0].id;
+        let unique = app.session.messages()[0].id;
         crate::app::item_history::replace_history_from_thread(
             &mut app,
             &thread(&["first", "second"]),
         );
-        let ambiguous = app.messages[0].id;
+        let ambiguous = app.session.messages()[0].id;
         assert_ne!(unique, ambiguous);
-        assert_eq!(app.messages[0].text, "second");
+        assert_eq!(app.session.messages()[0].text, "second");
         crate::app::item_history::replace_history_from_thread(&mut app, &thread(&["last"]));
         assert_ne!(
-            app.messages[0].id, ambiguous,
+            app.session.messages()[0].id,
+            ambiguous,
             "old duplicate evidence is still ambiguous"
         );
         app.assert_entry_invariants();
@@ -191,9 +198,9 @@ fn an_invisible_steer_on_a_read_shell_blocks_later_read_grouping() {
         read("c"),
     ];
     load(&mut app, items);
-    assert_eq!(app.messages[1].text, "→ Read a.rs ×2");
-    assert_eq!(app.messages[2].kind, MessageKind::UserSteer);
-    assert_eq!(app.messages[3].text, "→ Read a.rs");
+    assert_eq!(app.session.messages()[1].text, "→ Read a.rs ×2");
+    assert_eq!(app.session.messages()[2].kind, MessageKind::UserSteer);
+    assert_eq!(app.session.messages()[3].text, "→ Read a.rs");
     app.assert_entry_invariants();
 }
 
@@ -205,7 +212,7 @@ fn shared_checker_rejects_a_retired_prompt_record() {
         &mut app,
         vec![json!({"type":"userMessage","id":"user","content":[{"type":"text","text":"prompt"}]})],
     );
-    app.messages.reset();
+    app.session.transcript_reset();
     app.assert_entry_invariants();
 }
 
@@ -219,6 +226,6 @@ fn shared_checker_rejects_a_retired_summary_binding() {
             json!({"type":"commandExecution","id":"cmd","command":"python3 process.py","aggregatedOutput":"body"}),
         ],
     );
-    app.messages.reset();
+    app.session.transcript_reset();
     app.assert_entry_invariants();
 }

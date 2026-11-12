@@ -28,7 +28,7 @@ pub(super) fn new_turn_params(client: &dyn BackendClient, app: &AppState, text: 
         (model, effort)
     };
     params_turn_start(
-        &app.thread_id,
+        &app.session.thread_id(),
         text,
         model.as_deref(),
         effort.as_deref(),

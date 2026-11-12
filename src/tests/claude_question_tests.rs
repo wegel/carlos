@@ -6,6 +6,7 @@ use super::claude_browser::{complete, finish_answer};
 use super::claude_callbacks::{cancel_callback, receive_callback};
 use super::claude_question_state::{safe_label, NativeDraft};
 use super::state::{AppState, ApprovalChoice};
+use crate::session::approval_state::ApprovalQueue;
 
 #[test]
 fn native_plan_without_text_cannot_be_approved_but_can_be_declined() {
@@ -22,12 +23,13 @@ fn native_plan_without_text_cannot_be_approved_but_can_be_declined() {
         &json!({ "callbackId": "plan", "kind": "permission", "payload": payload }),
     );
     let pending = app
-        .approval
-        .pending
-        .as_ref()
+        .session
+        .approval()
+        .pending()
         .expect("visible native request");
     assert_eq!(
         pending
+            .facts()
             .response_for_choice(ApprovalChoice::Decline)
             .expect("decline remains available")["behavior"],
         "deny"
@@ -62,10 +64,11 @@ fn incomplete_native_server_metadata_uses_unknown_labels_without_panicking() {
     } }),
     );
     assert!(app
-        .approval
-        .pending
-        .as_ref()
+        .session
+        .approval()
+        .pending()
         .expect("visible native request")
+        .facts()
         .detail_lines
         .iter()
         .any(|line| line == "MCP server: unknown (source: unknown)"));
@@ -91,14 +94,18 @@ fn unknown_callback_withdrawal_preserves_every_other_request_and_draft() {
     }
     cancel_callback(&mut app, &json!("unknown"));
     assert_eq!(
-        app.approval
-            .pending
-            .as_ref()
+        app.session
+            .approval()
+            .pending()
             .expect("active request")
+            .facts()
             .request_id,
         "first"
     );
-    assert_eq!(app.claude.questions.len(), 1);
+    assert_eq!(
+        app.session.approval().queued(ApprovalQueue::Claude).len(),
+        1
+    );
     assert_eq!(
         app.claude.answers.drafts["second"].fields[0].editor.lines(),
         &["second"]
@@ -127,24 +134,27 @@ fn browser_completion_matches_server_and_id_once_without_consuming_other_servers
             &json!({ "mcp_server_name": "one", "elicitation_id": "same-id" }),
         );
     }
-    assert_eq!(app.messages.len(), 1);
+    assert_eq!(app.session.messages().len(), 1);
     assert_eq!(app.claude.answers.browser.len(), 2);
     assert_eq!(
-        app.approval
-            .pending
-            .as_ref()
+        app.session
+            .approval()
+            .pending()
             .expect("consent still pending")
+            .facts()
             .request_id,
         "one"
     );
     let pending = app
-        .approval
-        .pending
-        .clone()
-        .expect("explicit consent request");
+        .session
+        .approval()
+        .pending()
+        .expect("explicit consent request")
+        .to_draft();
     finish_answer(&mut app, &pending, ApprovalChoice::Accept);
     assert!(app
-        .messages
+        .session
+        .messages()
         .last()
         .expect("accurate completion notice")
         .text

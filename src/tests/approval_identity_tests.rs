@@ -1,18 +1,24 @@
 //! Keep pending-card ids stable through duplicate delivery, focus, resolution and Claude clear.
 
+use std::alloc::{GlobalAlloc, Layout, System};
+use std::cell::Cell;
+
 use serde_json::{json, Value};
 
+use crate::app::approval_lifetime_support::{app, callback, server, Client};
 use crate::app::claude_callbacks::{cancel_callback, receive_callback};
 use crate::app::codex_callbacks::{next, receive, retire};
-use crate::app::state::AppState;
+use crate::app::state::{AppState, ApprovalChoice};
+use crate::backend::BackendKind;
+use crate::session::approval_state::ApprovalQueue;
 use crate::session::entry_id::EntryId;
 
 fn active(app: &AppState) -> EntryId {
-    app.approval
-        .pending
-        .as_ref()
+    app.session
+        .approval()
+        .pending()
         .expect("pending")
-        .entry_id
+        .entry_id()
         .expect("accepted card id")
 }
 
@@ -42,10 +48,10 @@ fn codex_card_ids_survive_duplicates_and_focus_then_retire_on_resolution() {
         retire(&mut app, &json!(1));
         assert_eq!(active(&app), second);
         retire(&mut app, &json!(2));
-        assert!(app.approval.pending.is_none());
+        assert!(app.session.approval().pending().is_none());
         receive(&mut app, method, &json!({"id":3,"params":params}));
         assert!(![id, second].contains(&active(&app)));
-        assert!(app.messages.is_empty());
+        assert!(app.session.messages().is_empty());
     }
 }
 
@@ -58,26 +64,228 @@ fn claude_clear_keeps_process_card_ids_and_duplicate_clear_retires_rows_once() {
         receive_callback(&mut app, &callback("a"));
         let a = active(&app);
         receive_callback(&mut app, &callback("b"));
-        let b = app.claude.questions[0].entry_id.expect("queued card id");
+        let b = app.session.approval().queued(ApprovalQueue::Claude)[0]
+            .entry_id()
+            .expect("queued card id");
         let old = app.append_message(crate::app::Role::User, "old");
-        let old = app.messages[old].id;
+        let old = app.session.messages()[old].id;
         let clear = json!({"new_conversation_id":"reset"});
         crate::app::claude_reset::receive(&mut app, &clear);
-        assert!(app.messages.entry(old).is_none());
+        assert!(app.session.messages().entry(old).is_none());
         assert_eq!(active(&app), a);
-        assert_eq!(app.claude.questions[0].entry_id, Some(b));
+        assert_eq!(
+            app.session.approval().queued(ApprovalQueue::Claude)[0].entry_id(),
+            Some(b)
+        );
         app.append_message(crate::app::Role::System, "before native init");
-        let new = app.messages[0].id;
+        let new = app.session.messages()[0].id;
         crate::app::claude_reset::receive(&mut app, &clear);
-        assert_eq!(app.messages[0].id, new);
+        assert_eq!(app.session.messages()[0].id, new);
         assert_ne!(old, new);
         receive_callback(&mut app, &callback("a"));
         assert_eq!(active(&app), a);
         cancel_callback(&mut app, &Value::String("a".into()));
         assert_eq!(active(&app), b);
         cancel_callback(&mut app, &Value::String("b".into()));
-        assert!(app.approval.pending.is_none());
+        assert!(app.session.approval().pending().is_none());
         receive_callback(&mut app, &callback("a"));
         assert!(![a, b, old, new].contains(&active(&app)));
     }
+}
+
+#[test]
+fn an_answer_submitted_while_active_can_finish_validation_after_focus_moves() {
+    use crate::app::approval_lifetime_support::{app, request, Client, METHODS};
+    use crate::app::codex_callbacks::checked;
+    use crate::app::input::input_dispatch::dispatch_action;
+    use crate::app::state::ApprovalChoice;
+    use crate::backend::BackendKind;
+    let client = Client::new(BackendKind::Codex);
+    let mut app = app(BackendKind::Codex);
+    receive(
+        &mut app,
+        "mcpServer/elicitation/request",
+        &json!({"id":"form","params":{
+        "threadId":"thread","serverName":"server","mode":"form","message":"Answer",
+        "requestedSchema":{"type":"object","properties":{}}}}),
+    );
+    checked(
+        &mut app,
+        &json!({"requestId":"form","revision":0,"ok":true}),
+    );
+    let submitted = active(&app);
+    crate::app::codex_reply::respond(&client, &mut app, ApprovalChoice::Accept);
+    assert!(client.answers().is_empty());
+    assert!(app.session.submitted_approval_answer(submitted).is_some());
+    request(&client, &mut app, METHODS[0], "second");
+    next(&mut app);
+    assert_ne!(active(&app), submitted);
+    assert!(
+        !app.session.begin_approval_answer(submitted),
+        "queued cards cannot start answers"
+    );
+    let action = checked(
+        &mut app,
+        &json!({"requestId":"form","revision":1,"ok":true}),
+    )
+    .expect("submitted form may finish while queued");
+    dispatch_action(&client, &mut app, action);
+    assert_eq!(
+        client.answers(),
+        [json!(["answer","form",{"action":"accept","content":{}}])]
+    );
+    assert!(app.session.submitted_approval_answer(submitted).is_none());
+    assert!(!app.session.begin_approval_answer(submitted));
+    crate::app::codex_reply::send(&client, &mut app, submitted, json!({"behavior":"allow"}));
+    assert_eq!(
+        client.answers().len(),
+        1,
+        "retired submissions cannot send again"
+    );
+}
+
+// Count only this thread's measured reply, excluding setup and concurrent tests.
+thread_local! {
+    static ALLOCATIONS: Cell<Option<(usize, usize)>> = const { Cell::new(None) };
+}
+
+struct CountingAllocator;
+
+#[global_allocator]
+static ALLOCATOR: CountingAllocator = CountingAllocator;
+
+fn count_allocation(bytes: usize) {
+    let _ = ALLOCATIONS.try_with(|count| {
+        if let Some((calls, total)) = count.get() {
+            count.set(Some((calls + 1, total + bytes)));
+        }
+    });
+}
+
+unsafe impl GlobalAlloc for CountingAllocator {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        count_allocation(layout.size());
+        System.alloc(layout)
+    }
+
+    unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
+        count_allocation(layout.size());
+        System.alloc_zeroed(layout)
+    }
+
+    unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, size: usize) -> *mut u8 {
+        count_allocation(size);
+        System.realloc(ptr, layout, size)
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        System.dealloc(ptr, layout);
+    }
+}
+
+struct AllocationScope;
+
+impl Drop for AllocationScope {
+    fn drop(&mut self) {
+        ALLOCATIONS.with(|count| count.set(None));
+    }
+}
+
+fn allocations(reply: impl FnOnce()) -> (usize, usize) {
+    let _scope = AllocationScope;
+    ALLOCATIONS.with(|count| count.set(Some((0, 0))));
+    reply();
+    ALLOCATIONS.with(|count| count.get().expect("counting reply"))
+}
+
+fn command_reply_allocations(
+    backend: BackendKind,
+    choice: ApprovalChoice,
+    bytes: usize,
+) -> (usize, usize) {
+    let client = Client::new(backend);
+    let mut app = app(backend);
+    if backend == BackendKind::Codex {
+        server(
+            &client,
+            &mut app,
+            json!({"id":"large",
+            "method":"item/commandExecution/requestApproval","params":{
+            "threadId":"thread","turnId":"turn","itemId":"item",
+            "command":"echo ok","padding":"p".repeat(bytes)}}),
+        );
+    } else {
+        callback(
+            &client,
+            &mut app,
+            "large",
+            "permission",
+            json!({"toolName":"Bash","input":{"command":"echo ok"},
+                "padding":"p".repeat(bytes)}),
+        );
+    }
+    let count = allocations(|| {
+        crate::app::turn_approval::respond_to_pending_approval(&client, &mut app, choice);
+    });
+    assert_eq!(client.answers().len(), 1);
+    count
+}
+
+#[test]
+fn command_replies_copy_large_request_facts_only_once_for_each_backend() {
+    for backend in [BackendKind::Codex, BackendKind::Claude, BackendKind::Grok] {
+        for choice in [
+            ApprovalChoice::Accept,
+            ApprovalChoice::Decline,
+            ApprovalChoice::Cancel,
+        ] {
+            let small = command_reply_allocations(backend, choice, 0);
+            let large = command_reply_allocations(backend, choice, 100_000);
+            assert_eq!(
+                large,
+                (small.0 + 1, small.1 + 100_000),
+                "{backend:?} {choice:?}"
+            );
+        }
+    }
+}
+
+fn form_completion_allocations(bytes: usize) -> (usize, usize) {
+    let client = Client::new(BackendKind::Codex);
+    let mut app = app(BackendKind::Codex);
+    receive(
+        &mut app,
+        "mcpServer/elicitation/request",
+        &json!({"id":"large",
+        "params":{"threadId":"thread","serverName":"server","mode":"form",
+        "message":"Answer","requestedSchema":{"type":"object","properties":{}},
+        "padding":"p".repeat(bytes)}}),
+    );
+    crate::app::codex_callbacks::checked(
+        &mut app,
+        &json!({"requestId":"large","revision":0,"ok":true}),
+    );
+    crate::app::codex_reply::respond(&client, &mut app, ApprovalChoice::Accept);
+    assert!(client.answers().is_empty());
+    let action = crate::app::codex_callbacks::checked(
+        &mut app,
+        &json!({"requestId":"large","revision":1,"ok":true}),
+    )
+    .expect("validated answer");
+    let count = allocations(|| {
+        crate::app::input::input_dispatch::dispatch_action(&client, &mut app, action);
+    });
+    assert_eq!(
+        client.answers(),
+        [json!(["answer","large",{"action":"accept","content":{}}])]
+    );
+    count
+}
+
+#[test]
+fn validated_form_completion_does_not_copy_request_facts() {
+    assert_eq!(
+        form_completion_allocations(0),
+        form_completion_allocations(100_000)
+    );
 }

@@ -87,7 +87,7 @@ pub(super) fn page(client: &dyn BackendClient, app: &mut AppState, token: u64, c
         app.codex.queue.error = Some("Queue read exceeded its 20 second deadline".into());
         return;
     }
-    let params = json!({"threadId":app.thread_id,"cursor":cursor,"limit":1});
+    let params = json!({"threadId":app.session.thread_id(),"cursor":cursor,"limit":1});
     let mut local = context(app, token);
     local["timeoutMs"] = json!(remaining.as_millis().min(15000) as u64);
     if let Err(error) = client.request_control_with_context("thread/queue/list", params, local) {
@@ -105,7 +105,7 @@ pub(super) fn submit(client: &dyn BackendClient, app: &mut AppState, text: &str)
         );
         return;
     }
-    let params = json!({"threadId":app.thread_id,"clientUserMessageId":Uuid::new_v4().to_string(),
+    let params = json!({"threadId":app.session.thread_id(),"clientUserMessageId":Uuid::new_v4().to_string(),
         "input":[{"type":"text","text":text,"text_elements":[]}]});
     if mutate(
         client,
@@ -192,7 +192,7 @@ pub(super) fn save_edit(client: &dyn BackendClient, app: &mut AppState) {
         return;
     }
     let text = edit.editor.lines().join("\n");
-    let params = json!({"threadId":app.thread_id,"queuedSubmissionId":edit.id,
+    let params = json!({"threadId":app.session.thread_id(),"queuedSubmissionId":edit.id,
         "input":[{"type":"text","text":text,"text_elements":[]}]});
     mutate(client, app, "thread/queue/update", params, None);
 }
@@ -227,7 +227,7 @@ pub(super) fn operate(client: &dyn BackendClient, app: &mut AppState, command: &
         ids.swap(index, next);
         (
             "thread/queue/reorder",
-            json!({"threadId":app.thread_id,"queuedSubmissionIds":ids}),
+            json!({"threadId":app.session.thread_id(),"queuedSubmissionIds":ids}),
         )
     } else {
         let method = if command == "start" {
@@ -237,7 +237,7 @@ pub(super) fn operate(client: &dyn BackendClient, app: &mut AppState, command: &
         };
         (
             method,
-            json!({"threadId":app.thread_id,"queuedSubmissionId":id}),
+            json!({"threadId":app.session.thread_id(),"queuedSubmissionId":id}),
         )
     };
     mutate(client, app, method, params, None);

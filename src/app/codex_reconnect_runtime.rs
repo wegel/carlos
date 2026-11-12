@@ -24,7 +24,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
         name_revision: app.codex.connection.name_revision,
     });
     if let Err(error) = client.request_control_with_context("thread/read",
-        json!({"threadId":app.thread_id,"includeTurns":false}),
+        json!({"threadId":app.session.thread_id(),"includeTurns":false}),
         json!({"operation":"reconnectRuntime","epoch":app.codex.epoch,"token":token,"timeoutMs":5000})) {
         app.codex.connection.runtime_read = None;
         app.set_status(format!("Could not refresh Codex thread settings: {error}"));
@@ -42,13 +42,13 @@ pub(super) fn reply(app: &mut AppState, params: &Value) -> bool {
     };
     if params["requestContext"]["token"].as_u64() != Some(read.token)
         || params["requestContext"]["epoch"].as_u64() != Some(app.codex.epoch)
-        || params["requestParams"]["threadId"] != app.thread_id
+        || params["requestParams"]["threadId"] != *app.session.thread_id()
     {
         return true;
     }
     app.codex.connection.runtime_read = None;
     let thread = &params["response"]["result"]["thread"];
-    if thread["id"] != app.thread_id {
+    if thread["id"] != *app.session.thread_id() {
         app.set_status(
             "Could not refresh Codex thread settings; native defaults still govern prompts",
         );
@@ -63,7 +63,7 @@ pub(super) fn reply(app: &mut AppState, params: &Value) -> bool {
         let settings = json!({"model":thread["model"],"effort":thread["reasoningEffort"],"summary":thread["summary"]});
         super::codex_settings::observed(
             app,
-            &json!({"threadId":app.thread_id,"threadSettings":settings}),
+            &json!({"threadId":app.session.thread_id(),"threadSettings":settings}),
         );
     } else {
         app.codex.connection.runtime_refresh = true;

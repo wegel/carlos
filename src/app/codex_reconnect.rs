@@ -8,13 +8,14 @@ use super::input::input_dispatch::dispatch_action;
 use super::notifications::handle_server_message_line;
 use super::state::AppState;
 use crate::backend::BackendClient;
+use crate::session::approval_state::ApprovalQueue;
 
 /// Start one explicit attempt against the current thread, including a forked thread ID.
 pub(super) fn start(client: &dyn BackendClient, app: &mut AppState) {
     if !app.codex.closed || app.codex.connection.rebuilding {
         return;
     }
-    match client.reconnect(&app.thread_id) {
+    match client.reconnect(&app.session.thread_id()) {
         Ok(generation) => {
             drain(client, app);
             app.codex.connection.generation = generation;
@@ -22,8 +23,12 @@ pub(super) fn start(client: &dyn BackendClient, app: &mut AppState) {
             app.codex.connection.initial_rebuild = false;
             app.codex.epoch = app.codex.epoch.saturating_add(1);
             app.codex.callbacks = Default::default();
-            app.approval.pending = None;
-            app.ralph_runtime.stop_after_failure();
+            app.session.clear_approval_queue(ApprovalQueue::Codex);
+            if let Some(id) = app.session.approval().pending().and_then(|p| p.entry_id()) {
+                app.session.retire_approval(id);
+            }
+            app.retain_live_approval_hints();
+            app.session.ralph_stop_after_failure();
             app.set_status(
                 "Reconnecting Codex; draft kept. Messages wait for the complete native snapshot",
             );
@@ -114,7 +119,7 @@ fn ready(client: &dyn BackendClient, app: &mut AppState) {
     let active =
         super::codex_reconnect_replay::active_turn(&snapshot.thread, &app.codex.connection.journal);
     let goal_changed = app.codex.connection.journal.iter().any(|frame| {
-        frame.event["params"]["threadId"] == app.thread_id
+        frame.event["params"]["threadId"] == *app.session.thread_id()
             && matches!(
                 frame.event["method"].as_str(),
                 Some("thread/goal/updated" | "thread/goal/cleared")

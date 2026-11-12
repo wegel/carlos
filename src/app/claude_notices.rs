@@ -28,7 +28,7 @@ pub(super) fn receive(app: &mut AppState, message: &Value) -> bool {
         }
         Some("informational") => {
             if message["prevent_continuation"] == true {
-                app.ralph_runtime.stop_after_failure();
+                app.session.ralph_stop_after_failure();
             }
             notice(app, message, message["content"].as_str().unwrap_or(""));
             true

@@ -25,10 +25,10 @@ fn an_external_driving_goal_stops_ralph_and_pending_toggles_but_retains_queued_h
         waiting_marker: "@@AWAITING_HUMAN@@".into(),
         continuation_prompt: "continue".into(),
     });
-    app.ralph_runtime
-        .enqueue_prompt("AUTOMATIC".into(), false, PromptOrigin::Automatic);
-    app.ralph_runtime
-        .enqueue_prompt("keep human 日本語".into(), true, PromptOrigin::Human);
+    app.session
+        .ralph_enqueue_prompt("AUTOMATIC".into(), false, PromptOrigin::Automatic);
+    app.session
+        .ralph_enqueue_prompt("keep human 日本語".into(), true, PromptOrigin::Human);
     receive(
         &mut app,
         json!({"method":"thread/goal/updated","params":{"threadId":"root","goal":goal("active")}}),
@@ -41,7 +41,7 @@ fn an_external_driving_goal_stops_ralph_and_pending_toggles_but_retains_queued_h
     assert_eq!(input.text, "keep human 日本語");
     assert!(app.dequeue_turn_input(Instant::now()).is_none());
     app.codex.goals.goal = goal("paused");
-    app.active_turn_id = Some("current".into());
+    app.session.set_active_turn_id(Some("current".into()));
     app.request_ralph_toggle()
         .expect("pending toggle while paused");
     receive(
@@ -138,9 +138,7 @@ fn a_plain_approval_without_a_form_never_pastes_into_the_hidden_goal_or_main_dra
         json!({"id":9,"method":"item/commandExecution/requestApproval","params":{
         "threadId":"root","turnId":"t","itemId":"command","kind":"humanCommand"}}),
     );
-    let pending = app.approval.pending.clone().expect("approval");
     app.codex.callbacks.entries.clear();
-    app.approval.pending = Some(pending);
     app.codex.callbacks.focused = true;
     handle_terminal_event(
         &peer,

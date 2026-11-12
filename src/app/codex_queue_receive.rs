@@ -9,7 +9,7 @@ use super::state::AppState;
 
 /// Invalidate snapshots when any client changes this native queue.
 pub(super) fn changed(app: &mut AppState, params: &Value) {
-    if params["threadId"] == app.thread_id {
+    if params["threadId"] == *app.session.thread_id() {
         app.codex.queue.invalidate();
         app.codex.queue.error = None;
     }
@@ -17,7 +17,7 @@ pub(super) fn changed(app: &mut AppState, params: &Value) {
 
 /// Ignore old-thread replies and retain all native fields in a complete queue snapshot.
 pub(super) fn reply(app: &mut AppState, params: &Value) -> Option<ServerRequestAction> {
-    if params["requestParams"]["threadId"] != app.thread_id
+    if params["requestParams"]["threadId"] != *app.session.thread_id()
         || params["requestContext"]["epoch"].as_u64() != Some(app.codex.epoch)
     {
         return None;

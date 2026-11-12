@@ -59,7 +59,8 @@ fn streamed_thinking_and_native_per_block_snapshots_do_not_repeat_or_hide_text()
     assert_eq!(count_role(&app, Role::Reasoning), 1);
     assert_eq!(count_role(&app, Role::Assistant), 1);
     assert_eq!(
-        app.messages
+        app.session
+            .messages()
             .iter()
             .find(|message| message.role == Role::Assistant)
             .expect("answer")
@@ -67,7 +68,8 @@ fn streamed_thinking_and_native_per_block_snapshots_do_not_repeat_or_hide_text()
         "Initial answer"
     );
     assert!(app
-        .messages
+        .session
+        .messages()
         .iter()
         .all(|message| !message.text.contains("DO_NOT_RENDER")));
 }
@@ -95,18 +97,20 @@ fn snapshot_only_blocks_with_one_api_id_keep_thinking_and_answer_and_ignore_repl
             "role":"assistant","content":[part]}}),
         );
     }
-    assert_eq!(app.messages.len(), 2);
-    assert_eq!(app.messages[0].role, Role::Reasoning);
-    assert_eq!(app.messages[0].text, "Snapshot thought");
-    assert_eq!(app.messages[1].text, "Snapshot answer");
+    assert_eq!(app.session.messages().len(), 2);
+    assert_eq!(app.session.messages()[0].role, Role::Reasoning);
+    assert_eq!(app.session.messages()[0].text, "Snapshot thought");
+    assert_eq!(app.session.messages()[1].text, "Snapshot answer");
     assert!(app
-        .messages
+        .session
+        .messages()
         .iter()
         .all(|message| !message.text.contains("HIDDEN_PAYLOAD")));
 }
 
 fn count_role(app: &AppState, role: Role) -> usize {
-    app.messages
+    app.session
+        .messages()
         .iter()
         .filter(|message| message.role == role)
         .count()

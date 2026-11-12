@@ -104,7 +104,7 @@ fn print_perf_report(
     println!("viewport: {}x{}", size.width, size.height);
     println!(
         "transcript: messages={} rendered_lines={} relevant_items={} replay_elapsed_ms={:.2}",
-        app.messages.len(),
+        app.session.messages().len(),
         app.rendered_line_count(),
         stats.relevant_items,
         replay_elapsed.as_secs_f64() * 1000.0
@@ -162,8 +162,8 @@ fn replay_perf_session(path: &str, size: TerminalSize) -> Result<(AppState, Perf
     }
 
     let mut terminal = Terminal::new(TestBackend::new(size.width as u16, size.height as u16))?;
-    app.tool_output.update_size(size);
-    app.layout.update_size(size);
+    app.view.tool_output.update_size(size);
+    app.view.layout.update_size(size);
     stats.layout_breakdown = profile_layout_count_pass(&app, app.transcript_width(size));
     let render_started = Instant::now();
     app.ensure_rendered_lines(app.transcript_width(size), None);
@@ -183,17 +183,17 @@ fn replay_synthetic_perf_session(
     let mut app = AppState::new(format!("synthetic-{:016x}", spec.seed));
     let mut stats = PerfReplayStats::new();
     let apply_started = Instant::now();
-    app.messages.adopt_unkeyed(
+    app.session.transcript_adopt_unkeyed(
         build_synthetic_perf_messages(spec),
         crate::session::history_identity::HistoryMode::NewConversation,
     );
     app.mark_transcript_dirty();
     stats.replay_apply.push(apply_started.elapsed());
-    stats.relevant_items = app.messages.len();
+    stats.relevant_items = app.session.messages().len();
 
     let mut terminal = Terminal::new(TestBackend::new(size.width as u16, size.height as u16))?;
-    app.tool_output.update_size(size);
-    app.layout.update_size(size);
+    app.view.tool_output.update_size(size);
+    app.view.layout.update_size(size);
     stats.layout_breakdown = profile_layout_count_pass(&app, app.transcript_width(size));
     let render_started = Instant::now();
     app.ensure_rendered_lines(app.transcript_width(size), None);

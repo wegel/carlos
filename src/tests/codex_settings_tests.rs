@@ -25,7 +25,7 @@ fn future_success_and_live_failure_are_separate_and_do_not_relabel_the_running_r
         Some("high".into()),
         Some("concise".into()),
     );
-    app.active_turn_id = Some("active".into());
+    app.session.set_active_turn_id(Some("active".into()));
     started(&mut app, "active");
     app.queue_runtime_settings(Some("new".into()), Some("low".into()), Some("none".into()));
     save(&peer, &mut app);
@@ -52,7 +52,8 @@ fn future_success_and_live_failure_are_separate_and_do_not_relabel_the_running_r
     assert_eq!(app.runtime.current_model.as_deref(), Some("new"));
     assert!(label(&app).starts_with("old/high/concise → future new/low/none"));
     assert!(app
-        .messages
+        .session
+        .messages()
         .last()
         .expect("visible report")
         .text
@@ -124,7 +125,8 @@ fn unsupported_future_updates_keep_explicit_next_turn_overrides_without_global_c
     );
     assert!(app.codex.settings.legacy_overrides);
     assert!(app
-        .messages
+        .session
+        .messages()
         .last()
         .expect("fallback visible")
         .text

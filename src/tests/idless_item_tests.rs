@@ -95,7 +95,7 @@ fn run_case(backend: &str, kind: &str, method: &str, content: usize, id: Option<
         &mut app,
         &json!({"method":method,"params":{"item":item}}).to_string(),
     );
-    let messages = &app.messages;
+    let messages = app.session.messages();
     assert!(
         messages.items().is_empty(),
         "id-less rows must stay unkeyed"

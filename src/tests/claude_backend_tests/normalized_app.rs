@@ -48,7 +48,9 @@ pub(super) fn handle_server_message_line(
     if parsed["method"] == "claude/controller" && generation != app.claude.generation {
         return None;
     }
-    let lines = app.native.lines(&parsed, &app.app.thread_id, generation);
+    let lines = app
+        .native
+        .lines(&parsed, &app.app.session.thread_id(), generation);
     let mut action = None;
     for line in lines {
         if let Some(next) = apply_line(&mut app.app, &line) {

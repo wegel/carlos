@@ -31,9 +31,9 @@ fn name_placeholder_does_not_change_input_layout_cursor_or_history() {
     assert_eq!(buffer[(64, 15)].fg, COLOR_STEP8);
     assert!(!buffer[(64, 15)].modifier.contains(Modifier::DIM));
     assert_eq!(app.input_text(), "");
-    assert_eq!(app.input.cursor(), (0, 0));
+    assert_eq!(app.view.input.cursor(), (0, 0));
     assert_eq!(app.submitted_turn_count(), 0);
-    assert!(app.messages.is_empty());
+    assert!(app.session.messages().is_empty());
     app.set_input_text("x");
     let buffer = render(&mut app, 80);
     assert_eq!(buffer[(1, 15)].symbol(), "x");
@@ -69,17 +69,17 @@ fn titles_load_from_history_and_clear_only_when_metadata_says_so() {
     let mut app = AppState::new("root".into());
     let mut response = json!({"result":{"thread":{"id":"root", "name":"Saved title", "turns":[]}}});
     load_history_from_start_or_resume(&mut app, &response.to_string()).expect("load named thread");
-    assert_eq!(app.thread_name.as_deref(), Some("Saved title"));
+    assert_eq!(app.session.thread_name().as_deref(), Some("Saved title"));
     response["result"]["thread"]
         .as_object_mut()
         .expect("thread")
         .remove("name");
     load_history_from_start_or_resume(&mut app, &response.to_string())
         .expect("load transcript page");
-    assert_eq!(app.thread_name.as_deref(), Some("Saved title"));
+    assert_eq!(app.session.thread_name().as_deref(), Some("Saved title"));
     response["result"]["thread"]["name"] = json!(null);
     load_history_from_start_or_resume(&mut app, &response.to_string()).expect("load cleared title");
-    assert_eq!(app.thread_name, None);
+    assert_eq!(*app.session.thread_name(), None);
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn foreign_name_events_cannot_change_the_title_or_draft() {
             .to_string(),
         );
         assert_eq!(
-            app.thread_name.as_deref(),
+            app.session.thread_name().as_deref(),
             Some(if thread_id == "other" {
                 "Original"
             } else {
@@ -110,7 +110,7 @@ fn foreign_name_events_cannot_change_the_title_or_draft() {
         "threadId":"root", "threadName":null}})
         .to_string(),
     );
-    assert_eq!(app.thread_name, None);
+    assert_eq!(*app.session.thread_name(), None);
 }
 
 #[test]
@@ -118,12 +118,12 @@ fn switching_or_forking_threads_clears_the_old_title() {
     let mut app = AppState::new("root".into());
     app.set_thread_name(Some("Original"));
     app.set_thread_id("root");
-    assert_eq!(app.thread_name.as_deref(), Some("Original"));
+    assert_eq!(app.session.thread_name().as_deref(), Some("Original"));
     app.set_thread_id("other");
-    assert_eq!(app.thread_name, None);
+    assert_eq!(*app.session.thread_name(), None);
     app.set_thread_name(Some("Other title"));
     app.reset_for_forked_thread("fork");
-    assert_eq!(app.thread_name, None);
+    assert_eq!(*app.session.thread_name(), None);
 }
 
 #[test]
@@ -131,7 +131,8 @@ fn unicode_and_external_control_characters_cannot_expand_the_composer() {
     let mut app = AppState::new("root".into());
     app.set_thread_name(Some("Résumé 漢字 🦀\n\u{1b}[31msecond line\t"));
     assert!(!app
-        .thread_name
+        .session
+        .thread_name()
         .as_deref()
         .expect("display name")
         .chars()

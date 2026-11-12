@@ -32,13 +32,13 @@ fn append_message_coalesces_successive_read_summaries() {
     app.append_message(Role::ToolCall, "→ Read src/main.rs [offset=30]");
     app.append_message(Role::ToolCall, "→ Read src/lib.rs");
 
-    assert_eq!(app.messages.len(), 4);
-    assert_eq!(app.messages[0].text, "→ Read src/main.rs ×3");
-    assert_eq!(app.messages[1].text, "");
-    assert_eq!(app.messages[2].text, "");
-    assert_eq!(app.messages[3].text, "→ Read src/lib.rs");
+    assert_eq!(app.session.messages().len(), 4);
+    assert_eq!(app.session.messages()[0].text, "→ Read src/main.rs ×3");
+    assert_eq!(app.session.messages()[1].text, "");
+    assert_eq!(app.session.messages()[2].text, "");
+    assert_eq!(app.session.messages()[3].text, "→ Read src/lib.rs");
 
-    let rendered = build_rendered_lines_with_hidden(&app.messages, 80, None);
+    let rendered = build_rendered_lines_with_hidden(&app.session.messages(), 80, None);
     let visible: Vec<_> = rendered
         .iter()
         .filter(|line| !line.separator)
@@ -55,10 +55,10 @@ fn append_message_does_not_coalesce_read_summaries_across_other_messages() {
     app.append_message(Role::Assistant, "working");
     app.append_message(Role::ToolCall, "→ Read src/main.rs");
 
-    assert_eq!(app.messages.len(), 3);
-    assert_eq!(app.messages[0].text, "→ Read src/main.rs");
-    assert_eq!(app.messages[1].text, "working");
-    assert_eq!(app.messages[2].text, "→ Read src/main.rs");
+    assert_eq!(app.session.messages().len(), 3);
+    assert_eq!(app.session.messages()[0].text, "→ Read src/main.rs");
+    assert_eq!(app.session.messages()[1].text, "working");
+    assert_eq!(app.session.messages()[2].text, "→ Read src/main.rs");
 }
 
 #[test]
@@ -70,8 +70,8 @@ fn set_command_override_coalesces_with_previous_read_summary() {
 
     app.set_command_override("call-2", "→ Read src/main.rs [offset=40]".to_string());
 
-    assert_eq!(app.messages[0].text, "→ Read src/main.rs ×2");
-    assert_eq!(app.messages[1].text, "");
+    assert_eq!(app.session.messages()[0].text, "→ Read src/main.rs ×2");
+    assert_eq!(app.session.messages()[1].text, "");
 }
 
 #[test]
@@ -88,28 +88,28 @@ fn ensure_rendered_lines_incremental_append_matches_full_rebuild() {
         Role::Assistant,
         "tail reply with enough text to wrap across multiple transcript rows for cache testing",
     );
-    assert_eq!(app.render_cache.transcript_dirty_from, Some(idx));
+    assert_eq!(app.view.render_cache.transcript_dirty_from, Some(idx));
 
     app.ensure_rendered_lines(48, None);
 
-    let expected = build_rendered_lines_with_hidden(&app.messages, 48, None);
+    let expected = build_rendered_lines_with_hidden(&app.session.messages(), 48, None);
     assert_eq!(
         rendered_signature(&app.snapshot_rendered_lines()),
         rendered_signature(&expected)
     );
     assert_eq!(
-        app.render_cache.rendered_message_blocks.len(),
-        app.messages.len()
+        app.view.render_cache.rendered_message_blocks.len(),
+        app.session.messages().len()
     );
     assert_eq!(
-        app.render_cache.rendered_block_line_counts.len(),
-        app.messages.len()
+        app.view.render_cache.rendered_block_line_counts.len(),
+        app.session.messages().len()
     );
     assert_eq!(
-        app.render_cache.rendered_block_offsets.len(),
-        app.messages.len()
+        app.view.render_cache.rendered_block_offsets.len(),
+        app.session.messages().len()
     );
-    assert_eq!(app.render_cache.transcript_dirty_from, None);
+    assert_eq!(app.view.render_cache.transcript_dirty_from, None);
     assert!(app.rendered_line_count() > before_lines);
 }
 
@@ -125,28 +125,28 @@ fn ensure_rendered_lines_incremental_agent_delta_matches_full_rebuild() {
         "item-1",
         "\ncontinued answer with more text so the last message grows substantially",
     );
-    assert_eq!(app.render_cache.transcript_dirty_from, Some(idx));
+    assert_eq!(app.view.render_cache.transcript_dirty_from, Some(idx));
 
     app.ensure_rendered_lines(52, None);
 
-    let expected = build_rendered_lines_with_hidden(&app.messages, 52, None);
+    let expected = build_rendered_lines_with_hidden(&app.session.messages(), 52, None);
     assert_eq!(
         rendered_signature(&app.snapshot_rendered_lines()),
         rendered_signature(&expected)
     );
     assert_eq!(
-        app.render_cache.rendered_message_blocks.len(),
-        app.messages.len()
+        app.view.render_cache.rendered_message_blocks.len(),
+        app.session.messages().len()
     );
     assert_eq!(
-        app.render_cache.rendered_block_line_counts.len(),
-        app.messages.len()
+        app.view.render_cache.rendered_block_line_counts.len(),
+        app.session.messages().len()
     );
     assert_eq!(
-        app.render_cache.rendered_block_offsets.len(),
-        app.messages.len()
+        app.view.render_cache.rendered_block_offsets.len(),
+        app.session.messages().len()
     );
-    assert_eq!(app.render_cache.transcript_dirty_from, None);
+    assert_eq!(app.view.render_cache.transcript_dirty_from, None);
 }
 
 #[test]
@@ -159,7 +159,7 @@ fn ensure_rendered_lines_non_user_fence_counts_match_rendered_block() {
 
     app.ensure_rendered_lines(48, None);
 
-    let expected = build_rendered_lines_with_hidden(&app.messages, 48, None);
+    let expected = build_rendered_lines_with_hidden(&app.session.messages(), 48, None);
     assert_eq!(app.rendered_line_count(), expected.len());
     assert_eq!(
         rendered_signature(&app.snapshot_rendered_lines()),
@@ -253,7 +253,7 @@ fn input_cursor_visual_position_tracks_wrapped_rows() {
 #[test]
 fn compute_input_layout_wraps_input_at_word_boundaries() {
     let mut app = AppState::new("thread-1".to_string());
-    let _ = app.input.insert_str("alpha beta gamma");
+    let _ = app.view.input.insert_str("alpha beta gamma");
 
     let layout = compute_input_layout(
         &app,

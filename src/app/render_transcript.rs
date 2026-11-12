@@ -25,16 +25,13 @@ pub(super) fn draw_transcript(buf: &mut Buffer, app: &AppState, height: usize, w
         height: buf.area.height as usize,
     });
     for row in 0..height {
-        let index = app.viewport.scroll_top + row;
+        let index = app.view.viewport.scroll_top + row;
         draw_transcript_row(buf, app, index, MSG_TOP + row - 1, width, active, content_x);
     }
 }
 
 fn active_step_index(app: &AppState) -> Option<usize> {
-    app.active_turn_id.as_ref()?;
-    let start = app.turn_start_message_idx.unwrap_or(0);
-    let index = app.messages.active_step(start)?;
-    (app.messages[index].role == Role::Reasoning).then_some(index)
+    app.session.active_reasoning_step()
 }
 
 fn draw_transcript_row(
@@ -49,10 +46,10 @@ fn draw_transcript_row(
     let Some(line) = app.rendered_line_at(index) else {
         return;
     };
-    let Some((message_index, row)) = app.render_cache.message_anchor(index) else {
+    let Some((message_index, row)) = app.view.render_cache.message_anchor(index) else {
         return;
     };
-    let Some(message) = app.messages.get(message_index) else {
+    let Some(message) = app.session.messages().get(message_index) else {
         return;
     };
     if line.separator {
@@ -62,10 +59,10 @@ fn draw_transcript_row(
         }
         return;
     }
-    let first = row == app.render_cache.first_content_row(message_index);
+    let first = row == app.view.render_cache.first_content_row(message_index);
     let active = active == Some(message_index);
     fill_message_row(buf, y, line.role);
-    if !app.layout.active.is_flow() {
+    if !app.view.layout.active.is_flow() {
         draw_gutter(buf, message, y, first, active);
     }
     let selection = selected_cells(app, index, line.cells);
@@ -79,10 +76,10 @@ fn draw_transcript_row(
         selection,
     );
     if active {
-        let last = app.render_cache.rendered_message_blocks[message_index]
+        let last = app.view.render_cache.rendered_message_blocks[message_index]
             .as_ref()
             .is_some_and(|block| row + 1 == block.len());
-        let inline = app.layout.active.is_flow() && inline_reasoning(message, width);
+        let inline = app.view.layout.active.is_flow() && inline_reasoning(message, width);
         paint_active_step(
             buf,
             y,
@@ -96,7 +93,8 @@ fn draw_transcript_row(
 }
 
 fn selected_cells(app: &AppState, index: usize, cells: usize) -> Option<(usize, usize)> {
-    app.viewport
+    app.view
+        .viewport
         .selection
         .and_then(|sel| compute_selection_range(sel, index, cells))
         .map(|(start, end)| (start.min(cells), end.min(cells)))
@@ -105,7 +103,7 @@ fn selected_cells(app: &AppState, index: usize, cells: usize) -> Option<(usize, 
 fn heading_is_active(app: &AppState, index: usize, active: Option<usize>, width: usize) -> bool {
     active.is_some_and(|active| {
         index <= active
-            && app.messages[index..=active]
+            && app.session.messages()[index..=active]
                 .iter()
                 .all(|message| message.role == Role::Reasoning && !inline_reasoning(message, width))
     })

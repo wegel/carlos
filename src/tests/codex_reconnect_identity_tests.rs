@@ -25,18 +25,18 @@ fn repeated_native_item_and_user_ids_stay_distinct_in_live_history_and_reconnect
         message(&mut app, turn, "userMessage", turn);
         message(&mut app, turn, "agentMessage", &format!("answer-{turn}"));
     }
-    assert_eq!(app.messages.len(), 4);
+    assert_eq!(app.session.messages().len(), 4);
     let history = json!({"id":"root","status":{"type":"idle"},"turns":[
         {"id":"one","status":"completed","items":[{"id":"same-user","type":"userMessage","content":[{"type":"text","text":"identical"}]},{"id":"same-answer","type":"agentMessage","text":"answer-one"}]},
         {"id":"two","status":"completed","items":[{"id":"same-user","type":"userMessage","content":[{"type":"text","text":"identical"}]},{"id":"same-answer","type":"agentMessage","text":"answer-two"}]}]});
     replace_history_from_thread(&mut app, &history);
-    assert_eq!(app.messages.len(), 4);
-    assert_eq!(app.messages[1].text, "answer-one");
-    assert_eq!(app.messages[3].text, "answer-two");
+    assert_eq!(app.session.messages().len(), 4);
+    assert_eq!(app.session.messages()[1].text, "answer-one");
+    assert_eq!(app.session.messages()[3].text, "answer-two");
     app.codex.item_turn = Some("outside".into());
     handle_server_message_line(&mut app,&json!({"method":"item/agentMessage/delta","params":{"threadId":"root","turnId":"one","itemId":"same-answer","delta":"LATE_OLD"}}).to_string());
     assert_eq!(app.codex.item_turn.as_deref(), Some("outside"));
-    assert_eq!(app.messages[3].text, "answer-two");
+    assert_eq!(app.session.messages()[3].text, "answer-two");
     app.codex.item_turn = None;
     app.enter_rewind_mode();
     let selected = app
@@ -53,7 +53,8 @@ fn repeated_native_item_and_user_ids_stay_distinct_in_live_history_and_reconnect
     current.thread = history;
     ready(&peer, &mut app, current);
     assert_eq!(
-        app.messages
+        app.session
+            .messages()
             .iter()
             .filter(|row| row.role == Role::Assistant)
             .map(|row| row.text.as_str())
@@ -73,10 +74,10 @@ fn native_suffix_and_unicode_ids_cannot_collide_with_display_parts() {
         &json!({"id":"root","turns":[{"id":"日本語:","status":"completed","items":[
         item,{"id":"x#part-1","type":"agentMessage","text":"NATIVE_SUFFIX"}]}]}),
     );
-    assert_eq!(app.messages.len(), 3);
-    assert!(app.messages[0].text.contains("new-a"));
-    assert!(app.messages[1].text.contains("new-b"));
-    assert_eq!(app.messages[2].text, "NATIVE_SUFFIX");
+    assert_eq!(app.session.messages().len(), 3);
+    assert!(app.session.messages()[0].text.contains("new-a"));
+    assert!(app.session.messages()[1].text.contains("new-b"));
+    assert_eq!(app.session.messages()[2].text, "NATIVE_SUFFIX");
     app.codex.item_turn = Some("a:b".into());
     let first = app.item_key("日本語:c");
     app.codex.item_turn = Some("a".into());
@@ -130,7 +131,7 @@ fn fresh_metadata_clears_old_names_and_a_newer_rename_fences_only_the_delayed_na
         json!({"method":"thread/name/updated","params":{"threadId":"root","threadName":"BUFFERED_OLD"}}),
     );
     ready(&peer, &mut app, fresh);
-    assert!(app.thread_name.is_none());
+    assert!(app.session.thread_name().is_none());
     crate::app::codex_reconnect_runtime::tick(&peer, &mut app);
     let context = peer.native.contexts.borrow()[0].clone();
     receive(
@@ -147,7 +148,7 @@ fn fresh_metadata_clears_old_names_and_a_newer_rename_fences_only_the_delayed_na
         "requestContext":context,"requestParams":{"threadId":"root"},"response":{"result":{"thread":{
             "id":"root","name":"STALE_NAME","model":"fresh-model","reasoningEffort":"low"}}}}}),
     );
-    assert_eq!(app.thread_name.as_deref(), Some("newer 日本語"));
+    assert_eq!(app.session.thread_name().as_deref(), Some("newer 日本語"));
     assert_eq!(app.runtime.current_model.as_deref(), Some("fresh-model"));
     assert!(app.codex.connection.runtime_refresh);
 }

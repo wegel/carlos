@@ -98,7 +98,7 @@ fn explicit_new_goal_is_paused_and_blank_budget_is_omitted_while_user_origin_is_
         "objective":"Build the explicit feature 日本語","status":"paused","origin":"user"})
         )
     );
-    assert!(app.messages.is_empty());
+    assert!(app.session.messages().is_empty());
     assert!(app.codex.goals.editor.is_some());
 }
 
@@ -237,8 +237,8 @@ fn external_clear_of_an_existing_draft_never_uses_natives_default_active_status(
         &mut app,
         json!({"method":"thread/goal/cleared","params":{"threadId":"root"}}),
     );
-    app.ralph_runtime
-        .request_toggle(true)
+    app.session
+        .ralph_request_toggle(true)
         .expect("pending Ralph toggle");
     save(&peer, &mut app);
     assert_eq!(peer.controls.borrow()[0].1["status"], "paused");

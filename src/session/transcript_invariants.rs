@@ -5,6 +5,7 @@ use super::Transcript;
 
 #[cfg(test)]
 impl Transcript {
+    /// Assert invariants.
     pub(crate) fn assert_invariants(&self) {
         assert_eq!(self.entries.len(), self.positions.len());
         assert_eq!(self.entries.len(), self.active.len());
@@ -46,6 +47,7 @@ impl Transcript {
         }
     }
 
+    /// Insert for test.
     pub(crate) fn insert_for_test(&mut self, index: usize, message: Message) {
         let id = self.append(message.into());
         let row = self.entries.pop().expect("new row");
@@ -61,6 +63,7 @@ impl Transcript {
 
 #[cfg(test)]
 impl Transcript {
+    /// Alias sizes.
     pub(crate) fn alias_sizes(&self) -> (usize, usize, usize) {
         (
             self.item_to_entry_id.len(),

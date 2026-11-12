@@ -74,12 +74,12 @@ pub(super) fn body(app: &AppState, size: TerminalSize) -> Vec<String> {
                 ""
             }
         ));
-        lines.push(format!("Thread: {}", app.thread_id));
+        lines.push(format!("Thread: {}", app.session.thread_id()));
         lines.push(format!(
             "Ralph: {}",
             if app.ralph_enabled() {
                 "on"
-            } else if app.ralph_runtime.toggle_pending() {
+            } else if app.session.ralph_runtime().toggle_pending() {
                 "toggle pending"
             } else {
                 "off"

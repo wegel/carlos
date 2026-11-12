@@ -12,7 +12,7 @@ fn raw_function_call_is_ignored_before_command_execution_item_started() {
             "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_4\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
         );
 
-    assert_eq!(app.messages.len(), 1);
+    assert_eq!(app.session.messages().len(), 1);
 }
 
 #[test]
@@ -27,7 +27,7 @@ fn item_started_agent_message_uses_commentary_role_when_phase_present() {
         "{\"method\":\"item/agentMessage/delta\",\"params\":{\"itemId\":\"msg-1\",\"delta\":\"checking\",\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
     );
 
-    assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].role, Role::Commentary);
-    assert_eq!(app.messages[0].text, "checking");
+    assert_eq!(app.session.messages().len(), 1);
+    assert_eq!(app.session.messages()[0].role, Role::Commentary);
+    assert_eq!(app.session.messages()[0].text, "checking");
 }

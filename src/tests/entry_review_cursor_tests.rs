@@ -14,14 +14,14 @@ fn review_cursor_aliases_stay_bounded_for_one_native_entry() {
         let line = json!({"method":"item/completed","params":{"threadId":"thread","item":{"id":format!("claude-msg-{cursor}-0-0"),"type":"agentMessage","text":"same"},"sourceKey":{"kind":"assistant","id":"native","block":0,"sessionId":"thread"}}});
         handle_server_message_line(&mut app, &line.to_string());
     }
-    assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages.alias_sizes(), (2, 2, 2));
-    assert_eq!(app.completed_item_ids.len(), 1);
+    assert_eq!(app.session.messages().len(), 1);
+    assert_eq!(app.session.messages().alias_sizes(), (2, 2, 2));
+    assert_eq!(app.session.completed_item_ids().len(), 1);
     app.assert_entry_invariants();
     assert!(
-        app.messages.items().len() < 10,
+        app.session.messages().items().len() < 10,
         "one native row accumulated {} live aliases",
-        app.messages.items().len()
+        app.session.messages().items().len()
     );
 }
 
@@ -37,14 +37,14 @@ fn review_real_history_cursor_aliases_are_bounded() {
             handle_server_message_line(&mut a, &line);
         }
     }
-    assert_eq!(a.messages.len(), 1);
+    assert_eq!(a.session.messages().len(), 1);
     a.assert_entry_invariants();
-    assert_eq!(a.messages.alias_sizes(), (2, 2, 2));
-    assert_eq!(a.completed_item_ids.len(), 1);
+    assert_eq!(a.session.messages().alias_sizes(), (2, 2, 2));
+    assert_eq!(a.session.completed_item_ids().len(), 1);
     assert!(
-        a.messages.items().len() < 10,
+        a.session.messages().items().len() < 10,
         "actual backend repeated native history left {} aliases for one row",
-        a.messages.items().len()
+        a.session.messages().items().len()
     );
 }
 
@@ -59,13 +59,13 @@ fn review_generated_cursor_name_cannot_merge_a_native_tool_with_reasoning() {
         handle_server_message_line(&mut a, &line);
     }
     assert_eq!(
-        a.messages.len(),
+        a.session.messages().len(),
         2,
         "native tool identity and generated reasoning cursor are distinct"
     );
-    assert_eq!(a.messages[0].role, Role::Reasoning);
-    assert_eq!(a.messages[0].text, "why");
-    assert_ne!(a.messages[0].id, a.messages[1].id);
+    assert_eq!(a.session.messages()[0].role, Role::Reasoning);
+    assert_eq!(a.session.messages()[0].text, "why");
+    assert_ne!(a.session.messages()[0].id, a.session.messages()[1].id);
 }
 
 fn native_lines(
@@ -116,12 +116,16 @@ fn native_tool_ids_cannot_adopt_an_unproven_assistant_cursor_in_live_or_history(
                 .expect("reasoning cursor");
             let tool = json!({"type":"assistant","session_id":"thread","message":{"id":"tool-native","role":"assistant","content":[{"type":"tool_use","id":raw,"name":"Bash","input":{"command":"pwd"}}]}});
             native_lines(&mut app, &mut backend, tool, live);
-            assert_eq!(app.messages.len(), 2);
-            assert_eq!(app.messages[0].role, Role::Reasoning);
-            let tool = app.messages[1].id;
+            assert_eq!(app.session.messages().len(), 2);
+            assert_eq!(app.session.messages()[0].role, Role::Reasoning);
+            let tool = app.session.messages()[1].id;
             native_lines(&mut app, &mut backend, record, live);
             assert_eq!(
-                app.messages.entry(tool).expect("native tool survives").role,
+                app.session
+                    .messages()
+                    .entry(tool)
+                    .expect("native tool survives")
+                    .role,
                 Role::ToolCall
             );
             app.assert_entry_invariants();
@@ -140,9 +144,9 @@ fn a_tool_result_and_a_call_with_the_same_printable_id_have_distinct_native_rows
         native_lines(&mut app, &mut backend, call, live);
         let result = json!({"type":"user","session_id":"thread","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"call","content":"done"}]}});
         native_lines(&mut app, &mut backend, result, live);
-        assert_eq!(app.messages.len(), 2);
-        assert_eq!(app.messages[0].role, Role::ToolCall);
-        assert_eq!(app.messages[1].role, Role::ToolOutput);
+        assert_eq!(app.session.messages().len(), 2);
+        assert_eq!(app.session.messages()[0].role, Role::ToolCall);
+        assert_eq!(app.session.messages()[1].role, Role::ToolOutput);
         app.assert_entry_invariants();
     }
 }

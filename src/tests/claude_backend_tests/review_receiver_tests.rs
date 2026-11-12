@@ -18,12 +18,12 @@ fn repeated_reset_key_keeps_two_distinct_transcript_rows_through_dispatch() {
     let (client, receiver) = crate::claude_backend::receiver_client(frames, json!({}), 1024);
     let mut app = AppState::new(session.to_string());
     drain_probe_through_dispatch(&client, &receiver, &mut app);
-    let rows: Vec<_> = app.messages.iter().map(|m| m.text.as_str()).collect();
+    let rows: Vec<_> = app.session.messages().iter().map(|m| m.text.as_str()).collect();
     assert_eq!(rows, ["first", "second"]);
     assert_eq!(
         app.item_message_index("claude-msg-0-1-0").expect("first row"), 0,
         "{:?}",
-        app.messages.items()
+        app.session.messages().items()
     );
     assert_eq!(app.item_message_index("claude-msg-0-2-0").expect("second row"), 1);
     let stale = json!({"method":"claude/nativeResult","params":{"generation":1,"epoch":1,"subtype":"success"}});
@@ -64,19 +64,19 @@ fn native_completions_follow_prompt_and_item_facts_in_real_dispatch() {
     let mut app = AppState::new("session".into());
     dispatch_received(&client, &mut app, receiver.try_iter().collect());
     assert_eq!(
-        app.messages
+        app.session.messages()
             .iter()
             .map(|m| m.text.as_str())
             .collect::<Vec<_>>(),
         ["hello", "answer"]
     );
     assert_eq!(
-        app.turn_status_by_id[id],
+        app.session.turn_status_by_id()[id],
         crate::app::models::TurnStatus::Completed
     );
-    assert!(app.active_turn_id.is_none());
+    assert!(app.session.active_turn_id().is_none());
     assert!(app.claude.prompts.entries.is_empty());
-    assert_eq!(app.status, "turn completed");
+    assert_eq!(*app.status_text(), "turn completed");
 }
 
 fn native_sdk(message: Value) -> Value {
@@ -159,7 +159,7 @@ fn eof_after_repeated_reset_keys_closes_the_app_at_the_current_epoch() {
     dispatch_until_eof(&client, &receiver, &mut app);
     assert!(app.claude.phase == crate::app::claude_state::ClaudePhase::Closed);
     assert_eq!(
-        app.messages.last().expect("EOF error").text,
+        app.session.messages().last().expect("EOF error").text,
         "Claude controller stdout closed unexpectedly"
     );
 }
@@ -186,8 +186,8 @@ fn notices_keep_native_duplicate_keys_and_stop_before_translating_embedded_event
     let (client, receiver) = crate::claude_backend::receiver_client(frames, json!({}), 1024);
     let mut app = AppState::new(session.into());
     drain_probe_through_dispatch(&client, &receiver, &mut app);
-    assert_eq!(app.messages.len(), 1);
-    assert_eq!(app.messages[0].text, "only once");
+    assert_eq!(app.session.messages().len(), 1);
+    assert_eq!(app.session.messages()[0].text, "only once");
     assert_eq!(app.claude.activity.thinking, Some(42));
 }
 
@@ -203,7 +203,7 @@ fn non_system_init_and_browser_subtypes_still_translate_their_sdk_items() {
     let mut app = AppState::new("session".into());
     drain_probe_through_dispatch(&client, &receiver, &mut app);
     assert_eq!(
-        app.messages
+        app.session.messages()
             .iter()
             .map(|m| m.text.as_str())
             .collect::<Vec<_>>(),
@@ -234,7 +234,7 @@ fn malformed_history_keeps_earlier_rows_and_closes_only_the_app_query() {
     let mut app = AppState::new(session.into());
     dispatch_received(&client, &mut app, receiver.try_iter().collect());
     assert_eq!(
-        app.messages
+        app.session.messages()
             .iter()
             .map(|m| m.text.as_str())
             .collect::<Vec<_>>(),
@@ -283,10 +283,10 @@ fn accepted_input_after_a_fatal_fact_is_settled_by_eof_and_stderr_stays_visible(
         .expect("helper exit");
     dispatch_until_eof(&client, &receiver, &mut app);
     assert_eq!(
-        app.turn_status_by_id[id],
+        app.session.turn_status_by_id()[id],
         crate::app::models::TurnStatus::Failed
     );
-    assert!(app.messages.iter().any(|m| m.text == "native stderr"));
+    assert!(app.session.messages().iter().any(|m| m.text == "native stderr"));
     assert!(app.claude.prompts.entries.is_empty());
 }
 
@@ -326,7 +326,7 @@ fn failed_history_reply_is_delivered_instead_of_discarded_by_reader_closure() {
     let mut app = AppState::new("session".into());
     dispatch_received(&client, &mut app, receiver.try_iter().collect());
     assert!(app.claude.phase == crate::app::claude_state::ClaudePhase::Closed);
-    assert_eq!(app.messages[0].text, "failed interrupt");
+    assert_eq!(app.session.messages()[0].text, "failed interrupt");
 }
 
 #[test]
@@ -365,11 +365,11 @@ fn missing_session_metadata_closes_handler_before_later_control_replies() {
     reader_barrier(&client);
     dispatch_received(&client, &mut app, receiver.try_iter().collect());
     assert!(
-        !app.turn_status_by_id.contains_key(id),
+        !app.session.turn_status_by_id().contains_key(id),
         "main ignores controller replies after closing the query"
     );
     assert_eq!(
-        app.messages[0].text,
+        app.session.messages()[0].text,
         "The requested Claude session was not found"
     );
     client
@@ -377,7 +377,7 @@ fn missing_session_metadata_closes_handler_before_later_control_replies() {
         .expect("helper exit");
     dispatch_until_eof(&client, &receiver, &mut app);
     assert_eq!(
-        app.turn_status_by_id[id],
+        app.session.turn_status_by_id()[id],
         crate::app::models::TurnStatus::Failed
     );
 }

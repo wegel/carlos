@@ -28,7 +28,7 @@ fn agents(app: &mut AppState, result: &Value) -> Result<(), String> {
     let data = result["data"]
         .as_array()
         .ok_or("Malformed descendant page")?;
-    let root = app.thread_id.clone();
+    let root = app.session.thread_id().clone();
     let read = app.codex.panel.snapshot.as_mut().expect("panel read");
     for agent in data {
         let id = valid_id(&agent["id"])?;
@@ -71,7 +71,7 @@ fn verify(app: &mut AppState) -> Result<(), String> {
         .lineage
         .values()
         .flatten()
-        .find(|id| **id != app.thread_id && !read.lineage.contains_key(*id))
+        .find(|id| **id != *app.session.thread_id() && !read.lineage.contains_key(*id))
         .cloned();
     if let Some(id) = missing {
         if read.checked.len() >= MAX_AGENTS {
@@ -92,7 +92,7 @@ fn verify(app: &mut AppState) -> Result<(), String> {
         return Ok(());
     }
     let read = app.codex.panel.snapshot.as_mut().expect("panel read");
-    let root = app.thread_id.clone();
+    let root = app.session.thread_id().clone();
     read.agents
         .retain(|agent| belongs(agent["id"].as_str().unwrap_or(""), &root, &read.lineage));
     read.scopes.push_back(root);
@@ -200,10 +200,13 @@ fn publish(app: &mut AppState, read: Snapshot) -> Result<(), String> {
     let verified = read
         .lineage
         .keys()
-        .filter(|id| belongs(id, &app.thread_id, &read.lineage))
+        .filter(|id| belongs(id, &app.session.thread_id(), &read.lineage))
         .cloned();
-    app.codex.panel.ownership =
-        super::codex_panel_state::VerifiedOwners::new(&app.thread_id, app.codex.epoch, verified)?;
+    app.codex.panel.ownership = super::codex_panel_state::VerifiedOwners::new(
+        &app.session.thread_id(),
+        app.codex.epoch,
+        verified,
+    )?;
     app.codex.panel.error = if read.errors.is_empty() {
         None
     } else {

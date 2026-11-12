@@ -2,13 +2,17 @@
 
 use serde_json::{json, Value};
 
-use super::codex_callbacks::{reply_error, retire};
+use super::codex_callbacks::{reply_error, reply_hint, retire};
 use super::state::{AppState, ApprovalChoice, ApprovalRequestKind};
 use crate::backend::BackendClient;
+use crate::session::entry_id::EntryId;
 
 /// Build only the selected callback's native response and retain drafts on failure.
 pub(super) fn respond(client: &dyn BackendClient, app: &mut AppState, choice: ApprovalChoice) {
-    let Some(pending) = app.approval.pending.clone() else {
+    let Some(card_id) = app.session.approval().pending().and_then(|p| p.entry_id()) else {
+        return;
+    };
+    let Some(pending) = app.session.approval_answer(card_id) else {
         return;
     };
     let id = &pending.request_id;
@@ -39,27 +43,37 @@ pub(super) fn respond(client: &dyn BackendClient, app: &mut AppState, choice: Ap
     let answer = match answer {
         Ok(answer) => answer,
         Err(error) => {
-            reply_error(app, id, &error);
+            reply_hint(app, id, &error);
             return;
         }
     };
+    if !app.session.begin_approval_answer(card_id) {
+        return;
+    }
     if pending.kind == ApprovalRequestKind::CodexForm
         && answer["action"] == "accept"
         && entry.params["mode"] == "form"
     {
-        validate_answer(client, app, id, &answer);
+        validate_answer(client, app, card_id, id, &answer);
         return;
     }
-    send(client, app, id, answer);
+    send(client, app, card_id, answer);
 }
 
-fn validate_answer(client: &dyn BackendClient, app: &mut AppState, id: &Value, answer: &Value) {
+fn validate_answer(
+    client: &dyn BackendClient,
+    app: &mut AppState,
+    card_id: EntryId,
+    id: &Value,
+    answer: &Value,
+) {
     let entry = app.codex.callbacks.get_mut(id).expect("active callback");
     if entry.checking {
         return;
     }
     entry.revision = entry.revision.saturating_add(1);
     entry.candidate = Some(answer.clone());
+    entry.candidate_card = Some(card_id);
     entry.checking = true;
     let result = client.validate_form(
         id.clone(),
@@ -73,23 +87,32 @@ fn validate_answer(client: &dyn BackendClient, app: &mut AppState, id: &Value, a
 }
 
 /// Settle exactly one callback after its native pipe write succeeds.
-pub(super) fn send(client: &dyn BackendClient, app: &mut AppState, id: &Value, answer: Value) {
-    match client.respond(id, answer) {
+pub(super) fn send(
+    client: &dyn BackendClient,
+    app: &mut AppState,
+    card_id: EntryId,
+    answer: Value,
+) {
+    let Some(pending) = app.session.submitted_approval_answer(card_id) else {
+        return;
+    };
+    let id = pending.request_id.clone();
+    match client.respond(&id, answer) {
         Ok(()) => {
-            retire(app, id);
+            retire(app, &id);
             app.set_status("Answer sent");
         }
-        Err(error) => reply_error(app, id, &format!("Could not send answer: {error}")),
+        Err(error) => reply_error(app, &id, &format!("Could not send answer: {error}")),
     }
 }
 
 /// Interrupt the request's own turn; an acknowledgment does not resolve its callback.
 pub(super) fn interrupt(client: &dyn BackendClient, app: &mut AppState) {
     let Some(id) = app
-        .approval
-        .pending
-        .as_ref()
-        .map(|pending| pending.request_id.clone())
+        .session
+        .approval()
+        .pending()
+        .map(|pending| pending.facts().request_id.clone())
     else {
         return;
     };
@@ -101,7 +124,7 @@ pub(super) fn interrupt(client: &dyn BackendClient, app: &mut AppState) {
     }
     let params = json!({"threadId":entry.params["threadId"],"turnId":entry.params["turnId"]});
     if !params["threadId"].is_string() || !params["turnId"].is_string() {
-        reply_error(
+        reply_hint(
             app,
             &id,
             "This request has no turn to interrupt; decline or cancel it instead",

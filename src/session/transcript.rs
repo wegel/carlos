@@ -9,6 +9,7 @@ use super::history_identity::HistoryMode;
 use super::models::{EntryDraft, Message, MessageKind, Role, ToolOutputDetails};
 
 /// Stores source entries contiguously; clients may borrow the slice but cannot mutate it.
+#[cfg_attr(test, derive(Debug))]
 pub(crate) struct Transcript {
     pub(super) entries: Vec<Message>,
     active: Vec<bool>,

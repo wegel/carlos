@@ -14,7 +14,7 @@ pub(super) fn handle_tools_command(app: &mut AppState, text: &str) -> bool {
         return false;
     }
     let mode = if rest.trim().is_empty() {
-        Some(match app.tool_output.mode {
+        Some(match app.view.tool_output.mode {
             ToolOutputMode::Auto => ToolOutputMode::Compact,
             ToolOutputMode::Compact => ToolOutputMode::Full,
             ToolOutputMode::Full => ToolOutputMode::Auto,
@@ -24,7 +24,7 @@ pub(super) fn handle_tools_command(app: &mut AppState, text: &str) -> bool {
     };
     match mode {
         Some(mode) => {
-            app.tool_output.mode = mode;
+            app.view.tool_output.mode = mode;
             app.clear_input();
             if let Err(error) = save_mode(mode) {
                 app.append_message(

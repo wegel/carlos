@@ -2,73 +2,38 @@
 
 // --- Imports ---
 
-use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use ratatui_textarea::TextArea;
-
-use super::approval_state::ApprovalState;
 pub(super) use super::approval_state::{
-    ApprovalChoice, ApprovalRequestKind, PendingApprovalRequest,
+    ApprovalChoice, ApprovalRequestDraft, ApprovalRequestKind, PendingApprovalRequest,
 };
-use super::context_usage::ContextUsage;
-#[cfg(feature = "dictation")]
-use super::dictation_state::DictationCaptureState;
-use super::dictation_state::DictationRuntimeState;
-use super::input::make_input_area;
 use super::input_history_state::InputHistoryState;
-use super::layout_state::LayoutState;
-use super::models::{Role, TurnStatus};
+use super::models::TurnStatus;
 use super::perf::PerfMetrics;
 #[cfg(test)]
 use super::ralph::RalphConfig;
-use super::ralph_runtime_state::{QueuedTurnInput, RalphRuntimeState};
-use super::render_cache_state::RenderCacheState;
+use super::ralph_runtime_state::QueuedTurnInput;
 pub(super) use super::runtime_settings_state::ModelSettingsField;
 use super::runtime_settings_state::RuntimeSettingsState;
 #[cfg(test)]
 pub(super) use super::runtime_settings_state::{DEFAULT_EFFORT_OPTIONS, DEFAULT_SUMMARY_OPTIONS};
-use super::tool_output_state::ToolOutputState;
-use super::viewport_state::ViewportState;
-use crate::session::entry_key::BackendEntryKey;
-use crate::session::transcript::Transcript;
+use super::view_state::ViewState;
+use crate::session::approval_state::ApprovalQueue;
+use crate::session::state::SessionState;
 
 // --- Types ---
 
 pub(super) struct AppState {
-    pub(super) thread_id: String,
-    pub(super) entry_conversation: String,
-    pub(super) thread_name: Option<String>,
-    pub(super) active_turn_id: Option<String>,
-    pub(super) messages: Transcript,
-    pub(super) render_cache: RenderCacheState,
-    pub(super) tool_output: ToolOutputState,
+    pub(super) session: SessionState,
+    pub(super) view: ViewState,
+    // Split these mixed children in milestones 5 through 9.
     pub(super) summaries: super::state_summaries::SummaryState,
-    pub(super) layout: LayoutState,
-    pub(super) completed_item_ids: HashSet<BackendEntryKey>,
-    pub(super) turn_status_by_id: HashMap<String, TurnStatus>,
-    pub(super) command_render_overrides: HashMap<BackendEntryKey, String>,
-
-    pub(super) input: TextArea<'static>,
     pub(super) input_history: InputHistoryState,
-    pub(super) esc_armed_at: Option<Instant>,
-    pub(super) esc_interrupted_at: Option<Instant>,
-    pub(super) status: String,
-    pub(super) turn_start_message_idx: Option<usize>,
-    pub(super) ralph_runtime: RalphRuntimeState,
-    pub(super) dictation: DictationRuntimeState,
-    #[cfg(feature = "dictation")]
-    pub(super) dictation_io: DictationCaptureState,
     pub(super) runtime: RuntimeSettingsState,
-    pub(super) approval: ApprovalState,
     pub(super) claude: super::claude_state::ClaudeUiState,
     pub(super) codex: super::codex_state::CodexUiState,
-
-    pub(super) viewport: ViewportState,
-    pub(super) context_usage: Option<ContextUsage>,
     pub(super) rate_limits: super::rate_limits::RateLimits,
-    pub(super) perf: Option<PerfMetrics>,
 }
 
 // --- Construction ---
@@ -76,43 +41,21 @@ pub(super) struct AppState {
 impl AppState {
     pub(super) fn new(thread_id: String) -> Self {
         Self {
-            entry_conversation: thread_id.clone(),
-            thread_id,
-            thread_name: None,
-            active_turn_id: None,
-            messages: Transcript::new(),
-            render_cache: RenderCacheState::new(),
-            tool_output: ToolOutputState::default(),
+            session: SessionState::new(thread_id),
+            view: ViewState::new(),
             summaries: super::state_summaries::SummaryState::default(),
-            layout: LayoutState::default(),
-            completed_item_ids: HashSet::new(),
-            turn_status_by_id: HashMap::new(),
-            command_render_overrides: HashMap::new(),
-            input: make_input_area(),
             input_history: InputHistoryState::new(),
-            esc_armed_at: None,
-            esc_interrupted_at: None,
-            status: String::new(),
-            turn_start_message_idx: None,
-            ralph_runtime: RalphRuntimeState::new(),
-            dictation: DictationRuntimeState::disabled("dictation feature is not configured"),
-            #[cfg(feature = "dictation")]
-            dictation_io: DictationCaptureState::default(),
             runtime: RuntimeSettingsState::new(),
-            approval: ApprovalState::new(),
             claude: super::claude_state::ClaudeUiState::default(),
             codex: super::codex_state::CodexUiState::default(),
-            viewport: ViewportState::new(),
-            context_usage: None,
             rate_limits: super::rate_limits::RateLimits::default(),
-            perf: None,
         }
     }
 
     // --- Configuration & status ---
 
     pub(super) fn enable_perf_metrics(&mut self) {
-        self.perf = Some(PerfMetrics::new());
+        self.view.perf = Some(PerfMetrics::new());
     }
 
     pub(super) fn configure_ralph_options(
@@ -123,53 +66,51 @@ impl AppState {
         blocked_marker_override: Option<String>,
         waiting_marker_override: Option<String>,
     ) {
-        self.ralph_runtime.configure_options(
+        self.session.configure_ralph_options(
             cwd,
             prompt_path_override,
             done_marker_override,
             blocked_marker_override,
             waiting_marker_override,
-        );
+        )
     }
 
     #[cfg(test)]
     pub(super) fn enable_ralph_mode(&mut self, config: RalphConfig) {
-        let status = self.ralph_runtime.enable(config);
-        self.set_status(status);
+        self.session.enable_ralph_mode(config)
     }
 
     pub(super) fn disable_ralph_mode(&mut self) {
-        let status = self.ralph_runtime.disable();
-        self.set_status(status);
+        self.session.disable_ralph_mode()
     }
 
     pub(super) fn perf_report(&self) -> Option<String> {
-        self.perf.as_ref().map(PerfMetrics::final_report)
+        self.view.perf.as_ref().map(PerfMetrics::final_report)
     }
 
+    /// Store a backend, turn, or Ralph fact; local notices use `set_hint`.
     pub(super) fn set_status(&mut self, s: impl Into<String>) {
-        self.status = s.into();
+        self.session.set_status(s)
     }
 
-    pub(super) fn set_pending_approval(&mut self, mut approval: PendingApprovalRequest) {
-        approval.entry_id = self
-            .approval
-            .pending
-            .as_ref()
-            .filter(|old| old.request_id == approval.request_id)
-            .and_then(|old| old.entry_id)
-            .or(approval.entry_id)
-            .or_else(|| Some(self.messages.allocate_card()));
-        self.status = format!("approval requested: {}", approval.title);
-        self.approval.pending = Some(approval);
+    pub(super) fn set_pending_approval(&mut self, approval: ApprovalRequestDraft) {
+        let previous = self.session.approval().pending().and_then(|p| p.entry_id());
+        self.session.set_pending_approval(approval);
+        let current = self.session.approval().pending().and_then(|p| p.entry_id());
+        if previous == current {
+            self.view.approval_hints.clear_extra_lines(current);
+        } else {
+            self.view.approval_hints.remove(previous);
+        }
     }
 
     pub(super) fn clear_pending_approval(&mut self) {
+        self.forget_pending_approval_hints();
         if let Some(id) = self
-            .approval
-            .pending
-            .as_ref()
-            .map(|pending| pending.request_id.clone())
+            .session
+            .approval()
+            .pending()
+            .map(|pending| pending.facts().request_id.clone())
         {
             if self.codex.callbacks.get(&id).is_some() {
                 super::codex_callbacks::retire(self, &id);
@@ -177,25 +118,26 @@ impl AppState {
             }
         }
         if let Some(id) = self
-            .approval
-            .pending
-            .as_ref()
-            .and_then(|pending| pending.request_id.as_str())
+            .session
+            .approval()
+            .pending()
+            .and_then(|pending| pending.facts().request_id.as_str())
         {
             self.claude.answers.drafts.remove(id);
         }
-        self.approval.pending = self.claude.questions.pop_front();
+        self.session.promote_approval(ApprovalQueue::Claude);
     }
 
     // --- Turn input queue ---
 
+    #[cfg(test)]
     pub(super) fn queue_ralph_continuation(&mut self, text: impl Into<String>) {
-        self.ralph_runtime.queue_continuation(text);
+        self.session.queue_ralph_continuation(text)
     }
 
     #[cfg(test)]
     pub(super) fn queue_turn_input(&mut self, text: impl Into<String>) {
-        self.queue_turn_input_with_history(text, true);
+        self.session.queue_turn_input(text)
     }
 
     pub(super) fn queue_turn_input_with_history(
@@ -203,147 +145,72 @@ impl AppState {
         text: impl Into<String>,
         record_input_history: bool,
     ) {
-        self.ralph_runtime
-            .enqueue_turn_input(text, record_input_history);
+        self.session
+            .queue_turn_input_with_history(text, record_input_history)
     }
 
     pub(super) fn has_ready_queued_turn_input(&self, now: Instant) -> bool {
-        self.ralph_runtime.has_ready_queued_turn_input(now)
+        self.session.has_ready_queued_turn_input(now)
     }
 
     pub(super) fn promote_ready_continuation(&mut self, now: Instant) {
-        self.ralph_runtime.promote_ready_continuation(now);
+        self.session.promote_ready_continuation(now)
     }
 
     pub(super) fn has_pending_ralph_continuation(&self) -> bool {
-        self.ralph_runtime.has_pending_continuation()
+        self.session.has_pending_ralph_continuation()
     }
 
     pub(super) fn pending_ralph_continuation_wait(&self, now: Instant) -> Option<Duration> {
-        self.ralph_runtime.pending_continuation_wait(now)
+        self.session.pending_ralph_continuation_wait(now)
     }
 
     pub(super) fn dequeue_turn_input(&mut self, now: Instant) -> Option<QueuedTurnInput> {
-        self.ralph_runtime.dequeue_turn_input(now)
+        self.session.dequeue_turn_input(now)
     }
 
     // --- Turn lifecycle ---
 
     pub(super) fn append_context_compacted_marker(&mut self) {
-        const MARKER: &str = "↻ Context compacted";
-        if let Some(last) = self.messages.last() {
-            if last.role == Role::System && last.text == MARKER {
-                return;
-            }
-        }
-        self.append_message(Role::System, MARKER);
+        let update = self.session.append_context_compacted_marker();
+        self.apply_session_update(update);
     }
 
     pub(super) fn append_turn_interrupted_marker(&mut self) {
-        const MARKER: &str = "Turn interrupted";
-        if let Some(last) = self.messages.last() {
-            if last.role == Role::System && last.text == MARKER {
-                return;
-            }
-        }
-        self.append_message(Role::System, MARKER);
+        let update = self.session.append_turn_interrupted_marker();
+        self.apply_session_update(update);
     }
 
     pub(super) fn mark_turn_started(&mut self) {
-        self.turn_start_message_idx = Some(self.messages.len());
+        self.session.mark_turn_started()
     }
 
     pub(super) fn record_turn_started(&mut self, turn_id: &str) -> bool {
-        if self.active_turn_id.as_deref() == Some(turn_id)
-            || self
-                .turn_status_by_id
-                .get(turn_id)
-                .is_some_and(|status| status.is_terminal())
-        {
-            return false;
-        }
-        self.active_turn_id = Some(turn_id.to_string());
-        self.turn_status_by_id
-            .insert(turn_id.to_string(), TurnStatus::InProgress);
-        self.mark_turn_started();
-        true
+        self.session.record_turn_started(turn_id)
     }
 
     pub(super) fn record_turn_completed(&mut self, turn_id: &str, status: TurnStatus) -> bool {
-        if !status.is_terminal() {
-            return false;
-        }
-        self.turn_status_by_id.insert(turn_id.to_string(), status);
-        if self.active_turn_id.as_deref() != Some(turn_id) {
-            return false;
-        }
-        self.active_turn_id = None;
-        true
+        self.session.record_turn_completed(turn_id, status)
     }
 
     pub(super) fn record_historical_turn_status(&mut self, turn_id: &str, status: TurnStatus) {
-        self.turn_status_by_id.insert(turn_id.to_string(), status);
+        self.session.record_historical_turn_status(turn_id, status)
     }
 
     pub(super) fn maybe_disable_ralph_on_blocked_marker(&mut self) {
-        let start_idx = self.turn_start_message_idx.unwrap_or(self.messages.len());
-        let Some(outcome) = self
-            .ralph_runtime
-            .blocked_marker_outcome(&self.messages, start_idx)
-        else {
-            return;
-        };
-
-        if let Some(msg) = outcome.system_message {
-            if !self
-                .messages
-                .last()
-                .is_some_and(|last| last.role == Role::System && last.text == msg)
-            {
-                self.append_message(Role::System, msg);
-            }
-        }
-        if outcome.disable {
-            self.disable_ralph_mode();
-        }
-        if let Some(status) = outcome.status {
-            self.set_status(status);
-        }
+        let update = self.session.maybe_disable_ralph_on_blocked_marker();
+        self.apply_session_update(update);
     }
 
     pub(super) fn handle_ralph_turn_completed(&mut self, interrupted: bool) {
-        let start_idx = self
-            .turn_start_message_idx
-            .take()
-            .unwrap_or(self.messages.len());
-        let outcome =
-            self.ralph_runtime
-                .handle_turn_completed(&self.messages, start_idx, interrupted);
-
-        if let Some(msg) = outcome.system_message {
-            if !self
-                .messages
-                .last()
-                .is_some_and(|last| last.role == Role::System && last.text == msg)
-            {
-                self.append_message(Role::System, msg);
-            }
-        }
-        if let Some(text) = outcome.continuation {
-            self.queue_ralph_continuation(text);
-        }
-        if outcome.disable {
-            self.disable_ralph_mode();
-        }
-        if let Some(status) = outcome.status {
-            self.set_status(status);
-        }
+        let update = self.session.handle_ralph_turn_completed(interrupted);
+        self.apply_session_update(update);
     }
 
     // --- Query helpers & test utilities ---
 
     pub(super) fn ralph_enabled(&self) -> bool {
-        self.ralph_runtime.is_enabled()
+        self.session.ralph_enabled()
     }
 
     pub(super) fn rewind_mode(&self) -> bool {
@@ -352,24 +219,22 @@ impl AppState {
 
     #[cfg(test)]
     pub(super) fn queued_turn_inputs_is_empty(&self) -> bool {
-        self.ralph_runtime.queued_turn_inputs_is_empty()
+        self.session.queued_turn_inputs_is_empty()
     }
 
     #[cfg(test)]
     pub(super) fn ralph_toggle_pending(&self) -> bool {
-        self.ralph_runtime.toggle_pending()
+        self.session.ralph_toggle_pending()
     }
 
     #[cfg(test)]
     pub(super) fn ralph_pending_continuation_deadline(&self) -> Option<Instant> {
-        self.ralph_runtime.pending_continuation_deadline()
+        self.session.ralph_pending_continuation_deadline()
     }
 
     #[cfg(test)]
     pub(super) fn ralph_waiting_for_user(&self) -> bool {
-        self.ralph_runtime
-            .state()
-            .is_some_and(|ralph| ralph.waiting_for_user)
+        self.session.ralph_waiting_for_user()
     }
 
     #[cfg(test)]
@@ -377,7 +242,7 @@ impl AppState {
         self.input_history
             .message_ids()
             .iter()
-            .map(|id| id.and_then(|id| self.messages.position(id)))
+            .map(|id| id.and_then(|id| self.session.messages().position(id)))
             .collect()
     }
 

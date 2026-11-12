@@ -11,11 +11,12 @@ use super::tools::{command_execution_diff_output, first_i64_at_paths, strip_term
 impl AppState {
     /// Attach a short label without replacing the tool's original output.
     pub(super) fn describe_tool_output(&mut self, idx: usize, item: &Value) {
-        let Some(message) = self.messages.get(idx) else {
+        let Some(message) = self.session.messages().get(idx) else {
             return;
         };
         let generated = item["id"].as_str().and_then(|id| {
-            self.messages
+            self.session
+                .messages()
                 .entry_id_for_item(&self.item_key(id))
                 .and_then(|id| self.summaries.label(id))
         });
@@ -40,7 +41,7 @@ impl AppState {
             summary,
             failed: tool_failed(item),
         };
-        self.messages.set_tool(idx, details);
+        self.session.transcript_set_tool(idx, details);
         self.mark_transcript_dirty_from(idx);
     }
 }
@@ -95,7 +96,7 @@ pub(super) fn with_streamed_output<'a>(app: &AppState, item: &'a Value) -> Cow<'
             .get("id")
             .and_then(Value::as_str)
             .and_then(|id| app.item_message_index(id))
-            .and_then(|idx| app.messages.get(idx));
+            .and_then(|idx| app.session.messages().get(idx));
         if let Some(message) =
             message.filter(|message| message.role == Role::ToolOutput && !message.text.is_empty())
         {

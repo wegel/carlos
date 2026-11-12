@@ -13,7 +13,7 @@ pub(super) fn reply(app: &mut AppState, params: &Value) -> bool {
         return false;
     }
     if params["requestContext"]["epoch"].as_u64() != Some(app.codex.epoch)
-        || params["requestContext"]["root"] != app.thread_id
+        || params["requestContext"]["root"] != *app.session.thread_id()
     {
         return true;
     }

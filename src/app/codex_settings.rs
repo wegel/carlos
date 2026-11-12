@@ -65,7 +65,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
     };
     app.codex.serial = app.codex.serial.saturating_add(1);
     let token = app.codex.serial;
-    let turn_id = app.active_turn_id.clone();
+    let turn_id = app.session.active_turn_id().clone();
     let mut change = Change {
         token,
         desired: desired.clone(),
@@ -77,7 +77,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
         announce: std::mem::take(&mut app.codex.settings.announce_next),
     };
     let mut params = desired.clone();
-    params["threadId"] = json!(app.thread_id);
+    params["threadId"] = json!(app.session.thread_id());
     let context = json!({"epoch":app.codex.epoch,"token":token,"operation":"settings"});
     if let Err(error) = client.request_control_with_context(
         "thread/settings/update",
@@ -112,7 +112,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
 
 /// Apply authoritative external changes before considering an older empty acknowledgement.
 pub(super) fn observed(app: &mut AppState, params: &Value) {
-    if params["threadId"] != app.thread_id || !params["threadSettings"].is_object() {
+    if params["threadId"] != *app.session.thread_id() || !params["threadSettings"].is_object() {
         return;
     }
     let settings = &params["threadSettings"];
@@ -129,7 +129,7 @@ pub(super) fn observed(app: &mut AppState, params: &Value) {
 
 /// Settle each scope only for the exact epoch, token, thread and live turn.
 pub(super) fn reply(app: &mut AppState, params: &Value) {
-    if params["requestParams"]["threadId"] != app.thread_id
+    if params["requestParams"]["threadId"] != *app.session.thread_id()
         || params["requestContext"]["epoch"].as_u64() != Some(app.codex.epoch)
         || params["requestContext"]["operation"] != "settings"
     {
@@ -142,7 +142,7 @@ pub(super) fn reply(app: &mut AppState, params: &Value) {
         return;
     }
     let mut expected = change.desired.clone();
-    expected["threadId"] = json!(app.thread_id);
+    expected["threadId"] = json!(app.session.thread_id());
     if params["requestMethod"] == "turn/settings/update" {
         expected["turnId"] = json!(change.turn_id);
     }
@@ -265,7 +265,7 @@ pub(super) fn started(app: &mut AppState, turn_id: &str) {
 pub(super) fn label(app: &AppState) -> String {
     let future = app.runtime_settings_label();
     if let Some((turn_id, previous)) = &app.codex.settings.active_before {
-        if app.active_turn_id.as_ref() == Some(turn_id) && *previous != future {
+        if app.session.active_turn_id().as_ref() == Some(turn_id) && *previous != future {
             return format!("{previous} → future {future}");
         }
     }

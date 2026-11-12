@@ -1,9 +1,9 @@
-//! Parsing of server approval requests into [`PendingApprovalRequest`] values.
+//! Parsing of server approval requests into [`ApprovalRequestDraft`] values.
 
 use serde_json::json;
 use serde_json::Value;
 
-use super::state::{ApprovalRequestKind, PendingApprovalRequest};
+use super::state::{ApprovalRequestDraft, ApprovalRequestKind};
 
 // --- Entry Point ---
 
@@ -11,7 +11,7 @@ pub(super) fn pending_approval_from_request(
     method: &str,
     params: &serde_json::Map<String, Value>,
     request_id: Value,
-) -> Option<PendingApprovalRequest> {
+) -> Option<ApprovalRequestDraft> {
     match method {
         "item/commandExecution/requestApproval" => {
             approval_command_execution(method, params, request_id)
@@ -31,7 +31,7 @@ fn approval_command_execution(
     method: &str,
     params: &serde_json::Map<String, Value>,
     request_id: Value,
-) -> Option<PendingApprovalRequest> {
+) -> Option<ApprovalRequestDraft> {
     let command = trimmed_str_param(params, "command").unwrap_or("command");
     let mut detail_lines = vec![command.to_string()];
     push_reason_and_cwd(params, &mut detail_lines);
@@ -44,8 +44,7 @@ fn approval_command_execution(
         can_accept_for_session = false;
         detail_lines.insert(0, "One-time human approval".into());
     }
-    Some(PendingApprovalRequest {
-        entry_id: None,
+    Some(ApprovalRequestDraft {
         request_id,
         method: method.to_string(),
         kind: ApprovalRequestKind::CommandExecution,
@@ -67,7 +66,7 @@ fn approval_file_change(
     method: &str,
     params: &serde_json::Map<String, Value>,
     request_id: Value,
-) -> Option<PendingApprovalRequest> {
+) -> Option<ApprovalRequestDraft> {
     let mut detail_lines = Vec::new();
     if let Some(reason) = trimmed_str_param(params, "reason") {
         detail_lines.push(reason.to_string());
@@ -75,8 +74,7 @@ fn approval_file_change(
     if let Some(root) = trimmed_str_param(params, "grantRoot") {
         detail_lines.push(format!("grant root: {root}"));
     }
-    Some(PendingApprovalRequest {
-        entry_id: None,
+    Some(ApprovalRequestDraft {
         request_id,
         method: method.to_string(),
         kind: ApprovalRequestKind::FileChange,
@@ -93,7 +91,7 @@ fn approval_permissions(
     method: &str,
     params: &serde_json::Map<String, Value>,
     request_id: Value,
-) -> Option<PendingApprovalRequest> {
+) -> Option<ApprovalRequestDraft> {
     let permissions = params
         .get("permissions")
         .cloned()
@@ -103,8 +101,7 @@ fn approval_permissions(
         detail_lines.push(reason.to_string());
     }
     summarize_permission_profile(&permissions, &mut detail_lines);
-    Some(PendingApprovalRequest {
-        entry_id: None,
+    Some(ApprovalRequestDraft {
         request_id,
         method: method.to_string(),
         kind: ApprovalRequestKind::Permissions,
@@ -121,7 +118,7 @@ fn approval_legacy_exec(
     method: &str,
     params: &serde_json::Map<String, Value>,
     request_id: Value,
-) -> Option<PendingApprovalRequest> {
+) -> Option<ApprovalRequestDraft> {
     let command = trimmed_str_param(params, "command")
         .map(str::to_string)
         .or_else(|| {
@@ -133,8 +130,7 @@ fn approval_legacy_exec(
         .unwrap_or_else(|| "command".into());
     let mut detail_lines = vec![command];
     push_reason_and_cwd(params, &mut detail_lines);
-    Some(PendingApprovalRequest {
-        entry_id: None,
+    Some(ApprovalRequestDraft {
         request_id,
         method: method.to_string(),
         kind: ApprovalRequestKind::LegacyExecCommand,
@@ -151,7 +147,7 @@ fn approval_legacy_patch(
     method: &str,
     params: &serde_json::Map<String, Value>,
     request_id: Value,
-) -> Option<PendingApprovalRequest> {
+) -> Option<ApprovalRequestDraft> {
     let mut detail_lines = Vec::new();
     if let Some(changes) = params.get("fileChanges") {
         detail_lines.push(serde_json::to_string_pretty(changes).unwrap_or_default());
@@ -162,8 +158,7 @@ fn approval_legacy_patch(
     if let Some(root) = trimmed_str_param(params, "grantRoot") {
         detail_lines.push(format!("grant root: {root}"));
     }
-    Some(PendingApprovalRequest {
-        entry_id: None,
+    Some(ApprovalRequestDraft {
         request_id,
         method: method.to_string(),
         kind: ApprovalRequestKind::LegacyApplyPatch,
@@ -180,7 +175,7 @@ fn approval_claude_exit_plan(
     method: &str,
     params: &serde_json::Map<String, Value>,
     request_id: Value,
-) -> Option<PendingApprovalRequest> {
+) -> Option<ApprovalRequestDraft> {
     let mut detail_lines =
         vec!["Claude wants to exit plan mode and continue with this plan.".to_string()];
     if let Some(path) = trimmed_str_param(params, "planFilePath") {
@@ -191,8 +186,7 @@ fn approval_claude_exit_plan(
         detail_lines.extend(plan.lines().map(ToOwned::to_owned));
     }
     append_allowed_prompt_lines(params, &mut detail_lines);
-    Some(PendingApprovalRequest {
-        entry_id: None,
+    Some(ApprovalRequestDraft {
         request_id,
         method: method.to_string(),
         kind: ApprovalRequestKind::ClaudeExitPlanMode,

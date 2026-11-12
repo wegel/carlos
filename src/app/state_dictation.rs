@@ -22,7 +22,7 @@ impl AppState {
 
     #[cfg(test)]
     pub(super) fn configure_dictation(&mut self, profile: DictationProfileState) {
-        self.dictation = DictationRuntimeState::with_profile(profile);
+        self.view.dictation = DictationRuntimeState::with_profile(profile);
     }
 
     #[cfg(feature = "dictation")]
@@ -31,47 +31,47 @@ impl AppState {
         profiles: Vec<DictationProfileState>,
         active_id: &str,
     ) {
-        self.dictation = DictationRuntimeState::with_profiles(profiles, active_id);
+        self.view.dictation = DictationRuntimeState::with_profiles(profiles, active_id);
     }
 
     pub(super) fn disable_dictation(&mut self, reason: impl Into<String>) {
-        self.dictation = DictationRuntimeState::disabled(reason);
+        self.view.dictation = DictationRuntimeState::disabled(reason);
     }
 
     #[cfg(test)]
     pub(super) fn dictation_phase(&self) -> &DictationPhase {
-        self.dictation.phase()
+        self.view.dictation.phase()
     }
 
     pub(super) fn dictation_status_label(&self) -> Option<String> {
-        self.dictation.status_label()
+        self.view.dictation.status_label()
     }
 
     pub(super) fn dictation_active(&self) -> bool {
-        self.dictation.is_active()
+        self.view.dictation.is_active()
     }
 
     pub(super) fn dictation_recording(&self) -> bool {
-        self.dictation.is_recording()
+        self.view.dictation.is_recording()
     }
 
     pub(super) fn dictation_endpoint_mode_label(&self) -> &str {
-        self.dictation.endpoint_mode_label()
+        self.view.dictation.endpoint_mode_label()
     }
 
     pub(super) fn toggle_dictation_endpoint_mode(&mut self) {
-        let mode = match self.dictation.toggle_endpoint_mode() {
+        let mode = match self.view.dictation.toggle_endpoint_mode() {
             Ok(mode) => mode,
             Err(err) => {
-                self.set_status(err);
+                self.set_hint(err);
                 return;
             }
         };
         #[cfg(feature = "dictation")]
-        if let Some(session) = &self.dictation_io.capture {
+        if let Some(session) = &self.view.dictation_io.capture {
             session.set_auto_stop_enabled(mode == DictationEndpointMode::Auto);
         }
-        self.set_status(match mode {
+        self.set_hint(match mode {
             DictationEndpointMode::Auto => "dictation endpoint: auto",
             DictationEndpointMode::Manual => "dictation endpoint: manual (Enter to stop)",
         });
@@ -82,8 +82,8 @@ impl AppState {
         &mut self,
         tx: std::sync::mpsc::Sender<DictationEvent>,
     ) {
-        self.dictation_io.worker = Some(DictationWorker::spawn(tx.clone()));
-        self.dictation_io.events_tx = Some(tx);
+        self.view.dictation_io.worker = Some(DictationWorker::spawn(tx.clone()));
+        self.view.dictation_io.events_tx = Some(tx);
     }
 
     #[cfg(feature = "dictation")]
@@ -106,42 +106,42 @@ impl AppState {
 
     #[cfg(all(test, feature = "dictation"))]
     pub(super) fn last_dictation_audio_len(&self) -> Option<usize> {
-        self.dictation_io.last_audio.as_ref().map(Vec::len)
+        self.view.dictation_io.last_audio.as_ref().map(Vec::len)
     }
 
     // --- Recording lifecycle ---
 
     pub(super) fn start_dictation_recording(&mut self) {
-        if self.active_turn_id.is_some() {
-            self.set_status("dictation unavailable while turn is active");
+        if self.session.active_turn_id().is_some() {
+            self.set_hint("dictation unavailable while turn is active");
             return;
         }
-        match self.dictation.start_recording() {
+        match self.view.dictation.start_recording() {
             Ok(()) => self.start_dictation_capture(),
-            Err(err) => self.set_status(err),
+            Err(err) => self.set_hint(err),
         }
     }
 
     pub(super) fn stop_dictation_recording(&mut self) {
-        if !self.dictation.stop_recording() {
+        if !self.view.dictation.stop_recording() {
             return;
         }
         self.finish_dictation_capture();
     }
 
     pub(super) fn cancel_dictation(&mut self) {
-        if self.dictation.cancel() {
+        if self.view.dictation.cancel() {
             #[cfg(feature = "dictation")]
             {
-                if let Some(cancel) = self.dictation_io.cancel.take() {
+                if let Some(cancel) = self.view.dictation_io.cancel.take() {
                     cancel.cancel();
                 }
-                self.dictation_io.request_id = None;
-                if let Some(session) = self.dictation_io.capture.take() {
+                self.view.dictation_io.request_id = None;
+                if let Some(session) = self.view.dictation_io.capture.take() {
                     session.cancel();
                 }
             }
-            self.set_status("dictation cancelled");
+            self.set_hint("dictation cancelled");
         }
     }
 
@@ -155,30 +155,30 @@ impl AppState {
         if self.dictation_active() {
             self.cancel_dictation();
         }
-        match self.dictation.cycle_profile() {
+        match self.view.dictation.cycle_profile() {
             Ok(profile) => {
                 let name = profile.name.clone();
-                self.set_status(format!("dictation profile: {name}"));
+                self.set_hint(format!("dictation profile: {name}"));
             }
-            Err(err) => self.set_status(format!("dictation profile unavailable: {err}")),
+            Err(err) => self.set_hint(format!("dictation profile unavailable: {err}")),
         }
     }
 
     #[cfg(not(feature = "dictation"))]
     pub(super) fn switch_dictation_profile_next(&mut self) {
-        self.set_status("dictation unavailable: rebuild with --features dictation");
+        self.set_hint("dictation unavailable: rebuild with --features dictation");
     }
 
     #[cfg(test)]
     pub(super) fn apply_dictation_partial(&mut self, text: impl Into<String>) {
-        self.dictation.apply_partial(text);
+        self.view.dictation.apply_partial(text);
     }
 
     #[cfg(test)]
     pub(super) fn commit_dictation_final(&mut self, text: impl Into<String>) {
-        if self.dictation.finish_transcription().is_some() {
+        if self.view.dictation.finish_transcription().is_some() {
             self.input_insert_text(text.into());
-            self.set_status("dictation inserted");
+            self.set_hint("dictation inserted");
         }
     }
 
@@ -186,83 +186,83 @@ impl AppState {
 
     #[cfg(test)]
     pub(super) fn open_dictation_profile_picker(&mut self) {
-        self.dictation.open_picker();
+        self.view.dictation.open_picker();
     }
 
     #[cfg(test)]
     pub(super) fn close_dictation_profile_picker(&mut self) {
-        self.dictation.close_picker();
+        self.view.dictation.close_picker();
     }
 
     #[cfg(test)]
     pub(super) fn dictation_profile_picker_open(&self) -> bool {
-        self.dictation.picker_open()
+        self.view.dictation.picker_open()
     }
 }
 
 impl AppState {
     #[cfg(feature = "dictation")]
     fn start_dictation_capture(&mut self) {
-        self.dictation_io.last_audio = None;
-        let Some(tx) = self.dictation_io.events_tx.clone() else {
+        self.view.dictation_io.last_audio = None;
+        let Some(tx) = self.view.dictation_io.events_tx.clone() else {
             #[cfg(test)]
             {
-                self.set_status("dictation recording");
+                self.set_hint("dictation recording");
                 return;
             }
             #[cfg(not(test))]
             {
-                self.dictation.cancel();
-                self.set_status("dictation unavailable: event channel is not ready");
+                self.view.dictation.cancel();
+                self.set_hint("dictation unavailable: event channel is not ready");
                 return;
             }
         };
         match DictationCaptureSession::start_default_input(
             tx,
-            self.dictation.auto_endpoint_enabled(),
+            self.view.dictation.auto_endpoint_enabled(),
         ) {
             Ok(session) => {
-                self.dictation_io.capture = Some(session);
-                self.set_status("dictation recording");
+                self.view.dictation_io.capture = Some(session);
+                self.set_hint("dictation recording");
             }
             Err(err) => {
-                self.dictation.cancel();
-                self.set_status(format!("dictation capture unavailable: {err}"));
+                self.view.dictation.cancel();
+                self.set_hint(format!("dictation capture unavailable: {err}"));
             }
         }
     }
 
     #[cfg(not(feature = "dictation"))]
     fn start_dictation_capture(&mut self) {
-        self.set_status("dictation recording");
+        self.set_hint("dictation recording");
     }
 
     #[cfg(feature = "dictation")]
     fn finish_dictation_capture(&mut self) {
-        let Some(session) = self.dictation_io.capture.take() else {
-            self.set_status("dictation transcribing");
+        let Some(session) = self.view.dictation_io.capture.take() else {
+            self.set_hint("dictation transcribing");
             return;
         };
         match session.finish() {
             Ok(samples) => self.request_dictation_transcription(samples),
             Err(err) => {
-                self.dictation.cancel();
-                self.set_status(format!("dictation capture failed: {err}"));
+                self.view.dictation.cancel();
+                self.set_hint(format!("dictation capture failed: {err}"));
             }
         }
     }
 
     #[cfg(not(feature = "dictation"))]
     fn finish_dictation_capture(&mut self) {
-        self.set_status("dictation transcribing");
+        self.set_hint("dictation transcribing");
     }
 
     #[cfg(feature = "dictation")]
     fn handle_dictation_auto_stop(&mut self, samples: Arc<Vec<f32>>) {
-        if !self.dictation.stop_recording() {
+        if !self.view.dictation.stop_recording() {
             return;
         }
-        if let Some(session) = self.dictation_io.capture.take() {
+        if let Some(session) = self.view.dictation_io.capture.take() {
             session.cancel();
         }
         let samples = Arc::try_unwrap(samples).unwrap_or_else(|samples| (*samples).clone());
@@ -271,83 +271,84 @@ impl AppState {
 
     #[cfg(feature = "dictation")]
     fn handle_dictation_capture_error(&mut self, err: String) {
-        if let Some(session) = self.dictation_io.capture.take() {
+        if let Some(session) = self.view.dictation_io.capture.take() {
             session.cancel();
         }
-        self.dictation.cancel();
-        self.set_status(format!("dictation capture failed: {err}"));
+        self.view.dictation.cancel();
+        self.set_hint(format!("dictation capture failed: {err}"));
     }
 
     #[cfg(feature = "dictation")]
     fn request_dictation_transcription(&mut self, samples: Vec<f32>) {
         let sample_count = samples.len();
         let Some(profile) = self.worker_profile() else {
-            self.dictation_io.last_audio = Some(samples);
-            self.set_status(format!("dictation transcribing ({sample_count} samples)"));
+            self.view.dictation_io.last_audio = Some(samples);
+            self.set_hint(format!("dictation transcribing ({sample_count} samples)"));
             return;
         };
-        let Some(worker) = &self.dictation_io.worker else {
-            self.dictation_io.last_audio = Some(samples);
-            self.set_status(format!("dictation transcribing ({sample_count} samples)"));
+        let Some(worker) = &self.view.dictation_io.worker else {
+            self.view.dictation_io.last_audio = Some(samples);
+            self.set_hint(format!("dictation transcribing ({sample_count} samples)"));
             return;
         };
 
-        let request_id = self.dictation_io.next_request_id;
-        self.dictation_io.next_request_id = self.dictation_io.next_request_id.saturating_add(1);
+        let request_id = self.view.dictation_io.next_request_id;
+        self.view.dictation_io.next_request_id =
+            self.view.dictation_io.next_request_id.saturating_add(1);
         let cancel = DictationCancelToken::new();
         match worker.transcribe(request_id, profile, samples, cancel.clone()) {
             Ok(()) => {
-                self.dictation_io.cancel = Some(cancel);
-                self.dictation_io.request_id = Some(request_id);
-                self.set_status("dictation transcribing");
+                self.view.dictation_io.cancel = Some(cancel);
+                self.view.dictation_io.request_id = Some(request_id);
+                self.set_hint("dictation transcribing");
             }
             Err(err) => {
-                self.dictation.cancel();
-                self.set_status(format!("dictation worker unavailable: {err}"));
+                self.view.dictation.cancel();
+                self.set_hint(format!("dictation worker unavailable: {err}"));
             }
         }
     }
 
     #[cfg(feature = "dictation")]
     fn handle_dictation_transcription_final(&mut self, request_id: u64, text: String) {
-        if self.dictation_io.request_id != Some(request_id) {
+        if self.view.dictation_io.request_id != Some(request_id) {
             return;
         }
-        self.dictation_io.cancel = None;
-        self.dictation_io.request_id = None;
-        if self.dictation.finish_transcription().is_some() {
+        self.view.dictation_io.cancel = None;
+        self.view.dictation_io.request_id = None;
+        if self.view.dictation.finish_transcription().is_some() {
             if !text.is_empty() {
                 self.input_insert_text(text);
             }
-            self.set_status("dictation inserted");
+            self.set_hint("dictation inserted");
         }
     }
 
     #[cfg(feature = "dictation")]
     fn handle_dictation_transcription_error(&mut self, request_id: u64, message: String) {
-        if self.dictation_io.request_id != Some(request_id) {
+        if self.view.dictation_io.request_id != Some(request_id) {
             return;
         }
-        self.dictation_io.cancel = None;
-        self.dictation_io.request_id = None;
-        self.dictation.cancel();
-        self.set_status(format!("dictation transcription failed: {message}"));
+        self.view.dictation_io.cancel = None;
+        self.view.dictation_io.request_id = None;
+        self.view.dictation.cancel();
+        self.set_hint(format!("dictation transcription failed: {message}"));
     }
 
     #[cfg(feature = "dictation")]
     fn handle_dictation_transcription_cancelled(&mut self, request_id: u64) {
-        if self.dictation_io.request_id != Some(request_id) {
+        if self.view.dictation_io.request_id != Some(request_id) {
             return;
         }
-        self.dictation_io.cancel = None;
-        self.dictation_io.request_id = None;
-        self.dictation.cancel();
-        self.set_status("dictation cancelled");
+        self.view.dictation_io.cancel = None;
+        self.view.dictation_io.request_id = None;
+        self.view.dictation.cancel();
+        self.set_hint("dictation cancelled");
     }
 
     #[cfg(feature = "dictation")]
     fn worker_profile(&self) -> Option<DictationWorkerProfile> {
-        let profile = self.dictation.profile()?;
+        let profile = self.view.dictation.profile()?;
         Some(DictationWorkerProfile {
             id: profile.id.clone(),
             model: profile.model_path.clone()?,

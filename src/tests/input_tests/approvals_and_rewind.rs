@@ -29,7 +29,7 @@ fn f7_cycles_dictation_profiles() {
         app.dictation_status_label(),
         Some("DICTATING AUTO [French]".to_string())
     );
-    assert_eq!(app.status, "dictation recording");
+    assert_eq!(*app.status_text(), "dictation recording");
 }
 
 #[test]
@@ -140,8 +140,7 @@ fn is_key_press_like_accepts_repeat() {
 fn pending_claude_exit_plan_accept_uses_approval_path_not_chat_input() {
     let client = ApprovalRespondMock::new();
     let mut app = AppState::new("thread-1".to_string());
-    app.set_pending_approval(super::state::PendingApprovalRequest {
-        entry_id: None,
+    app.set_pending_approval(crate::session::approval_state::ApprovalRequestDraft {
         request_id: json!({"backend":"claude","kind":"exitPlanMode","toolUseId":"toolu_1"}),
         method: "claude/exitPlan/requestApproval".to_string(),
         kind: super::state::ApprovalRequestKind::ClaudeExitPlanMode,
@@ -167,9 +166,9 @@ fn pending_claude_exit_plan_accept_uses_approval_path_not_chat_input() {
         result,
         super::input_events::TerminalEventResult::Continue { needs_draw: true }
     ));
-    assert!(app.approval.pending.is_none());
-    assert!(app.messages.is_empty());
-    assert_eq!(app.input.lines(), [""]);
+    assert!(app.session.approval().pending().is_none());
+    assert!(app.session.messages().is_empty());
+    assert_eq!(app.view.input.lines(), [""]);
     let responses = client.responses.lock().expect("responses lock");
     assert_eq!(responses.len(), 1);
     assert_eq!(responses[0].1, json!({"decision":"accept"}));
@@ -205,7 +204,7 @@ fn escape_key_disables_ralph_mode() {
     ));
     assert!(!app.ralph_enabled());
     assert!(!app.has_pending_ralph_continuation());
-    assert_eq!(app.status, "ralph off");
+    assert_eq!(*app.status_text(), "ralph off");
 }
 
 fn build_rewind_fork_response() -> String {
@@ -260,10 +259,10 @@ fn submit_rewind_turn_text_forks_codex_thread_before_resubmitting() {
         "edited second".to_string(),
     );
 
-    assert_eq!(app.thread_id, "thread-fork");
-    assert_eq!(app.messages.len(), 2);
-    assert_eq!(app.messages[0].text, "first");
-    assert_eq!(app.messages[1].text, "reply one");
+    assert_eq!(app.session.thread_id(), "thread-fork");
+    assert_eq!(app.session.messages().len(), 2);
+    assert_eq!(app.session.messages()[0].text, "first");
+    assert_eq!(app.session.messages()[1].text, "reply one");
     assert_eq!(app.input_history_message_indices(), &[Some(0), None]);
 
     let fork_calls = client.fork_calls.lock().expect("fork calls lock");
@@ -326,5 +325,5 @@ fn consume_mobile_mouse_char_does_not_swallow_plain_digits() {
         consume_mobile_mouse_char(&mut app, '2'),
         MobileMouseConsume::PassThrough
     ));
-    assert!(app.viewport.mobile_mouse_buffer.is_empty());
+    assert!(app.view.viewport.mobile_mouse_buffer.is_empty());
 }

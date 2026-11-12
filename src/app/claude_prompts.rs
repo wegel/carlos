@@ -61,18 +61,19 @@ impl ClaudePrompts {
 
 /// Associate a local echo with its native UUID before the next SDK frame is handled.
 pub(super) fn attach_echo(app: &mut AppState, id: &str, kind: Option<&str>) {
-    if let Some(index) = app.messages.len().checked_sub(1) {
+    if let Some(index) = app.session.messages().len().checked_sub(1) {
         app.put_item_mapping(&format!("claude-prompt:{id}"), index);
-        app.input_history.record_turn_id(app.messages[index].id, id);
+        app.input_history
+            .record_turn_id(app.session.messages()[index].id, id);
         set_kind(app, index, kind);
     }
 }
 
 /// Apply only a captured human steer classification; it never changes prompt text or UUIDs.
 pub(super) fn set_kind(app: &mut AppState, index: usize, kind: Option<&str>) {
-    if app.messages[index].role == Role::User && kind == Some("steer") {
-        app.messages
-            .set_kind(index, super::models::MessageKind::UserSteer);
+    if app.session.messages()[index].role == Role::User && kind == Some("steer") {
+        app.session
+            .transcript_set_kind(index, super::models::MessageKind::UserSteer);
         app.mark_transcript_dirty_from(index);
     }
 }
@@ -110,7 +111,8 @@ pub(super) fn consume(app: &mut AppState, ids: &[String]) {
             }
             if human {
                 app.record_input_history(&text, Some(index));
-                app.input_history.record_turn_id(app.messages[index].id, id);
+                app.input_history
+                    .record_turn_id(app.session.messages()[index].id, id);
             }
         }
         app.record_turn_started(id);

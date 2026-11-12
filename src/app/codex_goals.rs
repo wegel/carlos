@@ -24,12 +24,16 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant)
         return false;
     }
     app.codex.goals.last_read = Some(now);
-    let request = request(app, "thread/goal/get", json!({"threadId":app.thread_id}));
+    let request = request(
+        app,
+        "thread/goal/get",
+        json!({"threadId":app.session.thread_id()}),
+    );
     let context = context(app, &request);
     app.codex.goals.read = Some(request);
     if let Err(error) = client.request_control_with_context(
         "thread/goal/get",
-        json!({"threadId":app.thread_id}),
+        json!({"threadId":app.session.thread_id()}),
         context,
     ) {
         app.codex.goals.read = None;
@@ -89,7 +93,7 @@ pub(super) fn save(client: &dyn BackendClient, app: &mut AppState) {
     let Some(draft) = &app.codex.goals.editor else {
         return;
     };
-    match draft.params(&app.thread_id) {
+    match draft.params(&app.session.thread_id()) {
         Ok(mut params) => {
             if params.get("status").is_none() {
                 let status = app.codex.goals.goal["status"].as_str().unwrap_or("paused");
@@ -126,7 +130,7 @@ pub(super) fn status(client: &dyn BackendClient, app: &mut AppState, status: &st
     prepare(
         client,
         app,
-        json!({"threadId":app.thread_id,"origin":"user","status":status}),
+        json!({"threadId":app.session.thread_id(),"origin":"user","status":status}),
     );
 }
 
@@ -169,7 +173,7 @@ pub(super) fn confirm(client: &dyn BackendClient, app: &mut AppState) {
                 client,
                 app,
                 "thread/goal/clear",
-                json!({"threadId":app.thread_id,"origin":"user"}),
+                json!({"threadId":app.session.thread_id(),"origin":"user"}),
             );
         }
     }
@@ -188,7 +192,7 @@ fn can_mutate(app: &AppState, active: bool) -> Result<(), String> {
     if app.codex.goals.mutation.is_some() {
         return Err("A goal change is still pending; no automatic retry".into());
     }
-    if active && (app.ralph_enabled() || app.ralph_runtime.toggle_pending()) {
+    if active && (app.ralph_enabled() || app.session.ralph_runtime().toggle_pending()) {
         return Err(
             "Turn Ralph off with Ctrl+R and cancel any pending toggle before starting a Codex goal"
                 .into(),
@@ -285,8 +289,8 @@ pub(super) fn reconcile_ralph(app: &mut AppState) {
                 app.codex.goals.goal["status"].as_str(),
                 Some("paused" | "complete")
             );
-    if may_drive && (app.ralph_enabled() || app.ralph_runtime.toggle_pending()) {
-        app.ralph_runtime.stop_after_failure();
+    if may_drive && (app.ralph_enabled() || app.session.ralph_runtime().toggle_pending()) {
+        app.session.ralph_stop_after_failure();
         app.append_message(super::Role::System,"Carlos stopped Ralph because a Codex goal may drive this thread. /goal shows its state; queued human inputs remain.");
     }
 }

@@ -5,7 +5,6 @@ use std::collections::VecDeque;
 use serde_json::Value;
 
 use super::claude_question_state::NativeAnswers;
-use super::state::PendingApprovalRequest;
 
 /// Distinguishes a query still starting from a helper that has closed permanently.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -32,8 +31,6 @@ pub(super) struct ClaudeUiState {
     pub(super) history: super::claude_session_history::ClaudeHistory,
     pub(super) capabilities: Option<Value>,
     pub(super) observed_model: Option<String>,
-    pub(super) questions: VecDeque<PendingApprovalRequest>,
-    pub(super) confirm_allow: Option<String>,
     pub(super) answers: NativeAnswers,
     pub(super) selection: ClaudeSelection,
 }
@@ -73,8 +70,6 @@ impl Default for ClaudeUiState {
             history: super::claude_session_history::ClaudeHistory::default(),
             capabilities: None,
             observed_model: None,
-            questions: VecDeque::new(),
-            confirm_allow: None,
             answers: NativeAnswers::default(),
             selection: ClaudeSelection::default(),
         }

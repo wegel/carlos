@@ -9,11 +9,11 @@ pub(super) fn toggle_unknown(app: &mut AppState) {
         if !app.navigate_input_history_up() {
             app.clear_input();
         }
-        app.set_status("Edit human prompt; F4 selects older prompts with unknown source");
+        app.set_hint("Edit human prompt; F4 selects older prompts with unknown source");
         return;
     }
     let Some(index) = app.claude.history.unknown.len().checked_sub(1) else {
-        app.set_status("No older prompts with unknown source");
+        app.set_hint("No older prompts with unknown source");
         return;
     };
     select(app, index);
@@ -37,7 +37,7 @@ fn select(app: &mut AppState, index: usize) {
     app.claude.history.unknown_selection = Some(index);
     let text = app.claude.history.unknown[index].text.clone();
     app.set_input_text(&text);
-    app.set_status(
+    app.set_hint(
         "Source unknown: Enter forks before this prompt; F4 human prompts; Esc restores draft",
     );
 }

@@ -110,7 +110,7 @@ fn reasoning_summary_delta_inserts_newline_between_bold_chunks() {
     app.upsert_reasoning_summary_delta("reason-1", "**Second thought**");
 
     assert_eq!(
-        app.messages[idx].text,
+        app.session.messages()[idx].text,
         "**First thought**\n**Second thought**"
     );
 }
@@ -125,7 +125,7 @@ fn reasoning_summary_delta_trims_space_before_split_closing_marker() {
     app.upsert_reasoning_summary_delta("reason-1", "**");
 
     assert_eq!(
-        app.messages[idx].text,
+        app.session.messages()[idx].text,
         "**Preparing concise, evidence-based answer**"
     );
 }
@@ -142,11 +142,11 @@ fn reasoning_summary_delta_normalizes_split_adjacent_bold_chunks() {
     app.upsert_reasoning_summary_delta("reason-1", "**");
 
     assert_eq!(
-        app.messages[idx].text,
+        app.session.messages()[idx].text,
         "**Investigating display bug causes**\n**Analyzing markdown rendering issues**"
     );
 
-    let rendered = build_rendered_lines(&app.messages, 120);
+    let rendered = build_rendered_lines(&app.session.messages(), 120);
     assert_eq!(rendered.len(), 2);
     assert_eq!(rendered[0].text, "Investigating display bug causes");
     assert_eq!(rendered[1].text, "Analyzing markdown rendering issues");

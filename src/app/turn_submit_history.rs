@@ -15,9 +15,9 @@ pub(super) fn snapshot_grok_rewind_prefix(
     let cut = app
         .rewind_selected_message_idx()
         .or_else(|| nth_user_message_idx(app, rewind_history_idx))
-        .unwrap_or(app.messages.len());
-    let cut = cut.min(app.messages.len());
-    app.messages[..cut]
+        .unwrap_or(app.session.messages().len());
+    let cut = cut.min(app.session.messages().len());
+    app.session.messages()[..cut]
         .iter()
         .cloned()
         .map(Into::into)
@@ -25,7 +25,8 @@ pub(super) fn snapshot_grok_rewind_prefix(
 }
 
 fn nth_user_message_idx(app: &AppState, rewind_history_idx: usize) -> Option<usize> {
-    app.messages
+    app.session
+        .messages()
         .iter()
         .enumerate()
         .filter(|(_, message)| message.role == Role::User)
@@ -45,8 +46,8 @@ pub(super) fn apply_grok_rewound_history(
     for message in prefix {
         let record_user = message.role == Role::User && !message.text.is_empty();
         let text = message.text.clone();
-        app.messages.append(message);
-        let idx = app.messages.len() - 1;
+        app.session.transcript_append(message);
+        let idx = app.session.messages().len() - 1;
         if record_user {
             app.record_input_history(&text, Some(idx));
         }

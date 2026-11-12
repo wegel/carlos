@@ -43,7 +43,7 @@ pub(super) fn submit_rewind_turn_text(
     let grok_prefix = (client.kind() == BackendKind::Grok)
         .then(|| snapshot_grok_rewind_prefix(app, rewind_history_idx));
     let response = match client.fork_from_rewind(
-        &app.thread_id,
+        &app.session.thread_id(),
         RewindForkRequest {
             keep_turns: rewind_history_idx,
             drop_turns,
@@ -59,7 +59,7 @@ pub(super) fn submit_rewind_turn_text(
             app.set_status(format!("fork failed: {err}"));
             app.append_message(Role::System, format!("Could not edit message: {err}"));
             if client.kind() == BackendKind::Codex {
-                app.viewport.auto_follow_bottom = true;
+                app.view.viewport.auto_follow_bottom = true;
             }
             return;
         }
@@ -107,7 +107,7 @@ fn queue_claude_edit(app: &mut AppState, text: String) {
 
 fn submit_edited_turn(client: &dyn BackendClient, app: &mut AppState, text: String) {
     app.clear_rewind_mode_state();
-    app.viewport.selection = None;
+    app.view.viewport.selection = None;
     app.mark_user_turn_submitted();
     if start_new_turn(client, app, text.clone(), true, true, PromptOrigin::Human) {
         if client.kind() == BackendKind::Codex {
@@ -166,25 +166,28 @@ fn submit_turn(
         if app.claude.phase == super::claude_state::ClaudePhase::Closed {
             app.discard_pending_input_history(&text);
             app.set_input_text(&text);
-            app.set_status("Claude is closed; restart Carlos to send this draft");
+            app.set_hint("Claude is closed; restart Carlos to send this draft");
             app.append_message(
                 Role::System,
                 "Claude is closed; restart Carlos to send this draft".to_string(),
             );
             return;
         }
-        app.ralph_runtime
-            .enqueue_prompt(text, record_input_history, origin);
+        app.session
+            .ralph_enqueue_prompt(text, record_input_history, origin);
         app.set_status("queued while Claude starts");
         return;
     }
 
-    if !force_start && app.active_turn_id.is_some() && client.kind().queues_instead_of_steer() {
+    if !force_start
+        && app.session.active_turn_id().is_some()
+        && client.kind().queues_instead_of_steer()
+    {
         start_new_turn(client, app, text, record_input_history, true, origin);
         return;
     }
 
-    if let Some(turn_id) = app.active_turn_id.clone() {
+    if let Some(turn_id) = app.session.active_turn_id().clone() {
         steer_existing_turn(client, app, &turn_id, &text, record_input_history, origin);
     } else {
         start_new_turn(client, app, text, record_input_history, force_start, origin);
@@ -203,7 +206,7 @@ fn steer_existing_turn(
     record_input_history: bool,
     origin: PromptOrigin,
 ) {
-    let params = params_turn_steer(&app.thread_id, turn_id, text);
+    let params = params_turn_steer(&app.session.thread_id(), turn_id, text);
     match client.submit_prompt(
         "turn/steer",
         params,
@@ -244,7 +247,7 @@ fn start_new_turn(
     if client.kind() == BackendKind::Claude
         && app.claude.phase != crate::app::claude_state::ClaudePhase::Ready
     {
-        app.set_status("Claude is starting; answer any startup question first");
+        app.set_hint("Claude is starting; answer any startup question first");
         return false;
     }
     if queue_behind_pending(client, app, &text, record_input_history, force_start) {
@@ -329,9 +332,10 @@ fn mark_turn_sent(
         if record_input_history {
             app.record_input_history(&text, Some(idx));
         }
-        if app.active_turn_id.is_none() {
+        if app.session.active_turn_id().is_none() {
             app.mark_turn_started();
-            app.active_turn_id = Some(pending_turn_id(client.kind()).to_string());
+            app.session
+                .set_active_turn_id(Some(pending_turn_id(client.kind()).to_string()));
         }
     }
     if client.kind() != BackendKind::Codex

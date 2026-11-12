@@ -6,6 +6,7 @@ use super::claude_callbacks::{cancel_callback, receive_callback};
 use super::models::TurnStatus;
 use super::notifications::ServerRequestAction;
 use super::state::AppState;
+use crate::session::approval_state::ApprovalQueue;
 
 /// Distinguishes a normalized Claude fact from another backend's shared notification.
 pub(super) enum ClaudeRoute {
@@ -96,14 +97,16 @@ fn named_fact(method: &str) -> bool {
 /// Attach an accepted native prompt UUID to its visible user message.
 pub(super) fn record_submitted_prompt(app: &mut AppState, response: &Value) {
     if let Some(id) = response["result"]["turn"]["id"].as_str() {
-        if app.active_turn_id.as_deref() == Some(super::turn_submit::CLAUDE_PENDING_TURN_ID)
-            || app.active_turn_id.is_none()
+        if app.session.active_turn_id().as_deref()
+            == Some(super::turn_submit::CLAUDE_PENDING_TURN_ID)
+            || app.session.active_turn_id().is_none()
         {
             app.record_turn_started(id);
         }
         super::claude_prompts::attach_echo(app, id, response["result"]["inputKind"].as_str());
-        if let Some(index) = app.messages.len().checked_sub(1) {
-            app.input_history.record_turn_id(app.messages[index].id, id);
+        if let Some(index) = app.session.messages().len().checked_sub(1) {
+            app.input_history
+                .record_turn_id(app.session.messages()[index].id, id);
         }
         super::claude_edit::accepted(app, id);
     }
@@ -214,26 +217,27 @@ pub(super) fn fail_session(app: &mut AppState) {
     if super::claude_edit::waiting(app) {
         app.claude.history.edit = Some(super::claude_edit::EditState::Failed);
     }
-    app.claude.questions.clear();
+    app.session.clear_approval_queue(ApprovalQueue::Claude);
     app.clear_pending_approval();
+    app.retain_live_approval_hints();
     fail_accepted_prompts(app);
     app.claude.activity = Default::default();
     app.claude.tasks.live.clear();
-    app.ralph_runtime.stop_after_failure();
+    app.session.ralph_stop_after_failure();
     super::claude_session_history::recover_queued(app);
 }
 
 fn fail_accepted_prompts(app: &mut AppState) {
     // A local bounds failure may close the session before queued native results reach the app.
     let mut ids: Vec<String> = app.claude.prompts.entries.keys().cloned().collect();
-    if let Some(active) = &app.active_turn_id {
+    if let Some(active) = &app.session.active_turn_id() {
         if !ids.contains(active) {
             ids.push(active.clone());
         }
     }
     for id in ids {
         if app.record_turn_completed(&id, TurnStatus::Failed) {
-            app.turn_start_message_idx = None;
+            app.session.clear_turn_boundary();
             app.set_status("turn failed");
         }
     }

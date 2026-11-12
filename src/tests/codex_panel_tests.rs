@@ -89,8 +89,8 @@ fn verified_descendants_exclude_unrelated_chats_even_if_native_ignores_the_filte
             json!({"threadId":"grand","turnId":"grand-current"})
         )
     );
-    assert!(app.active_turn_id.is_none());
-    assert_eq!(app.thread_id, "root");
+    assert!(app.session.active_turn_id().is_none());
+    assert_eq!(app.session.thread_id(), "root");
 }
 
 #[test]
@@ -117,7 +117,11 @@ fn child_text_tools_and_embedded_reports_stay_out_of_main_live_and_resumed_histo
         &mut app,
         json!({"method":"item/completed","params":{"threadId":"root","turnId":"rt","item":call}}),
     );
-    assert!(app.messages.iter().all(|row| !row.text.contains("CHILD")));
+    assert!(app
+        .session
+        .messages()
+        .iter()
+        .all(|row| !row.text.contains("CHILD")));
     assert_eq!(
         app.codex.panel.reports["child"]["message"],
         "ROOT_EMBEDDED_CHILD_REPORT"
@@ -136,7 +140,8 @@ fn child_text_tools_and_embedded_reports_stay_out_of_main_live_and_resumed_histo
         "status":"completed","items":[call]}]}}});
     load_history_from_start_or_resume(&mut app, &response.to_string()).expect("resume");
     assert!(app
-        .messages
+        .session
+        .messages()
         .iter()
         .all(|row| !row.text.contains("ROOT_EMBEDDED_CHILD_REPORT")));
     assert_eq!(

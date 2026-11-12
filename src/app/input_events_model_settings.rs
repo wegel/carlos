@@ -77,10 +77,10 @@ fn cycle(app: &mut AppState, dir: isize) {
         ModelSettingsField::Context => app.runtime.context.cycle(dir),
         ModelSettingsField::DictationEndpoint => app.toggle_dictation_endpoint_mode(),
         ModelSettingsField::DesktopTheme => {
-            app.layout.draft.desktop = app.layout.draft.desktop.cycle(dir)
+            app.view.layout.draft.desktop = app.view.layout.draft.desktop.cycle(dir)
         }
         ModelSettingsField::PhoneTheme => {
-            app.layout.draft.phone = app.layout.draft.phone.cycle(dir)
+            app.view.layout.draft.phone = app.view.layout.draft.phone.cycle(dir)
         }
         ModelSettingsField::ToolLabels => app.summaries.draft = !app.summaries.draft,
         ModelSettingsField::ToolOutput => {
@@ -118,9 +118,9 @@ fn save_settings(client: &dyn BackendClient, app: &mut AppState) {
     if let Err(error) =
         crate::app::tool_output_preferences::save_summary_enabled(app.summaries.enabled)
     {
-        app.set_status(format!("Could not save AI tool labels: {error}"));
+        app.set_hint(format!("Could not save AI tool labels: {error}"));
     }
-    if let Err(error) = save_appearance(app.tool_output.mode, app.layout.themes) {
+    if let Err(error) = save_appearance(app.view.tool_output.mode, app.view.layout.themes) {
         app.append_message(
             crate::app::Role::System,
             format!("Could not save appearance choices: {error}"),
@@ -131,7 +131,7 @@ fn save_settings(client: &dyn BackendClient, app: &mut AppState) {
     } else {
         persist_runtime_defaults(&defaults)
     } {
-        app.set_status(format!("saved for next turn; default save failed: {err}"));
+        app.set_hint(format!("saved for next turn; default save failed: {err}"));
     }
 }
 

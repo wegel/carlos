@@ -64,11 +64,11 @@ fn every_child_envelope_hides_text_thinking_tools_results_and_session_state() {
             sdk(&mut app, message);
         }
     }
-    assert!(app.messages.is_empty());
-    assert_eq!(app.thread_id, "session");
+    assert!(app.session.messages().is_empty());
+    assert_eq!(app.session.thread_id(), "session");
     assert!(app.runtime.current_model.is_none());
     assert!(app.claude.activity.thinking.is_none());
-    assert!(app.active_turn_id.is_none());
+    assert!(app.session.active_turn_id().is_none());
     assert!(app.claude.phase == ClaudePhase::Ready);
 }
 
@@ -98,7 +98,8 @@ fn main_tools_reports_and_child_callbacks_survive_without_task_detail_rows() {
         None,
     );
     let text = app
-        .messages
+        .session
+        .messages()
         .iter()
         .map(|message| message.text.as_str())
         .collect::<Vec<_>>()
@@ -112,10 +113,11 @@ fn main_tools_reports_and_child_callbacks_survive_without_task_detail_rows() {
         "PANEL_SUMMARY"
     );
     assert_eq!(
-        app.approval
-            .pending
-            .as_ref()
+        app.session
+            .approval()
+            .pending()
             .expect("child callback")
+            .facts()
             .request_id,
         "child-permission"
     );
@@ -150,9 +152,9 @@ fn history_retains_raw_child_metadata_without_transcript_or_rewind_entries() {
     );
     assert_eq!(app.claude.history.records.len(), 10);
     assert!(app.claude.history.unknown.is_empty());
-    assert_eq!(app.messages.len(), 2);
-    assert_eq!(app.messages[0].role, Role::User);
-    assert_eq!(app.messages[1].text, "MAIN_HISTORY_REPORT");
+    assert_eq!(app.session.messages().len(), 2);
+    assert_eq!(app.session.messages()[0].role, Role::User);
+    assert_eq!(app.session.messages()[1].text, "MAIN_HISTORY_REPORT");
     app.enter_rewind_mode();
     assert_eq!(app.input_text(), "Human <task-notification> literal");
 }
@@ -195,7 +197,7 @@ fn only_positively_identified_child_report_notices_are_hidden() {
             json!({"type":"reply","ok":true,"result":{"messages":[{"source":"automatic","message":record}],"nextOffset":null}}),
             Some("sessions.read"),
         );
-        assert_eq!(app.messages.is_empty(), expected);
+        assert_eq!(app.session.messages().is_empty(), expected);
         assert_eq!(app.claude.history.records.len(), 1);
     }
 }

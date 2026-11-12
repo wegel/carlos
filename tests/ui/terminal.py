@@ -50,8 +50,9 @@ class Terminal:
         env["COLORTERM"] = "truecolor"
         if codex:
             env["CARLOS_TEST_CODEX"] = str(codex)
-        if mode == "claude-reply-error":
-            env["CARLOS_CLAUDE_CONTROLLER"] = str(Path(__file__).with_name("flaky_claude_controller.py").resolve())
+        if mode in {"claude-reply-error", "claude-approval-switch"}:
+            fixture = "flaky_claude_controller.py" if mode == "claude-reply-error" else "approval_switch_controller.py"
+            env["CARLOS_CLAUDE_CONTROLLER"] = str(Path(__file__).with_name(fixture).resolve())
             env["CARLOS_REAL_CLAUDE_CONTROLLER"] = str(binary.parent.parent / "claude-controller/carlos-claude-controller")
         args = [str(binary), "--backend", backend, *(extra_args or [])]
         if resume == "__continue__":

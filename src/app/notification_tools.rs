@@ -43,8 +43,8 @@ pub(super) fn complete_tool_item(app: &mut AppState, kind: &str, item_value: &Va
         }
     }
     if let Some(id) = item.get("id").and_then(Value::as_str) {
-        app.messages
-            .retain_parts(&app.item_key(id), diffs.len().max(1));
+        app.session
+            .transcript_retain_parts(&app.item_key(id), diffs.len().max(1));
     }
     if diffs.is_empty() {
         return complete_tool_item_no_diff(app, item, role, &item_value);
@@ -89,7 +89,8 @@ fn complete_tool_item_no_diff(
             return true;
         }
         let idx = app.append_message(role, text);
-        app.messages.set_path(idx, app.tool_source_path(item_value));
+        app.session
+            .transcript_set_path(idx, app.tool_source_path(item_value));
         if role == Role::ToolOutput {
             app.describe_tool_output(idx, item_value);
         }

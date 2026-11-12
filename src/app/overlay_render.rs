@@ -131,7 +131,7 @@ pub(super) fn content_width(ob: &OverlayBox) -> usize {
 /// Locate the current native answer caret without moving the main composer.
 pub(super) fn claude_question_cursor(app: &AppState, size: TerminalSize) -> Option<(usize, usize)> {
     let draft = crate::app::native_questions::draft(app)?;
-    overlay_render_claude::cursor(size, draft, app.approval.pending.as_ref()?)
+    overlay_render_claude::cursor(size, draft, app.session.approval().pending()?)
 }
 
 // ---------------------------------------------------------------------------
@@ -154,6 +154,7 @@ pub(super) fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize, app: &AppS
     );
     let height = size.height.saturating_sub(2);
     let offset = app
+        .view
         .viewport
         .help_scroll
         .min(lines.len().saturating_sub(height));
@@ -223,26 +224,18 @@ pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, 
 // ---------------------------------------------------------------------------
 
 pub(super) fn draw_approval_overlay(buf: &mut Buffer, size: TerminalSize, app: &AppState) {
-    let Some(approval) = app.approval.pending.as_ref() else {
+    let Some(approval) = app.session.approval().pending() else {
         return;
     };
     if let Some(draft) = crate::app::native_questions::draft(app) {
-        let mut display = approval.clone();
-        if let Some(entry) = app.codex.callbacks.get(&approval.request_id) {
-            let mut payload = entry.params.clone();
-            if payload["threadId"].is_null() {
-                payload["threadId"] = payload["conversationId"].clone();
-            }
-            display.requested_permissions = Some(payload);
-        }
-        return overlay_render_claude::draw(buf, size, app, &display, draft);
+        return overlay_render_claude::draw(buf, size, app, approval, draft);
     }
     if size.width < 36 || size.height < 10 {
         return;
     }
 
     let inner_w = size.width.saturating_sub(12).min(92);
-    let detail_lines = build_approval_detail_lines(approval, inner_w, size.height);
+    let detail_lines = build_approval_detail_lines(app, approval, inner_w, size.height);
     let footer_text = build_approval_footer(approval);
 
     let box_w = inner_w;
@@ -256,13 +249,14 @@ pub(super) fn draw_approval_overlay(buf: &mut Buffer, size: TerminalSize, app: &
 }
 
 fn build_approval_detail_lines(
+    app: &AppState,
     approval: &super::approval_state::PendingApprovalRequest,
     inner_w: usize,
     height: usize,
 ) -> Vec<String> {
     let wrap_w = inner_w.saturating_sub(6).max(8);
     let mut detail_lines = Vec::new();
-    for line in &approval.detail_lines {
+    for line in app.approval_detail_lines(approval) {
         let wrapped = wrap_natural_by_cells(line, wrap_w);
         if wrapped.is_empty() {
             detail_lines.push(String::new());
@@ -285,10 +279,10 @@ fn build_approval_detail_lines(
 
 fn build_approval_footer(approval: &super::approval_state::PendingApprovalRequest) -> String {
     let mut parts = vec!["y accept", "n decline"];
-    if approval.can_accept_for_session {
+    if approval.facts().can_accept_for_session {
         parts.push("s accept session");
     }
-    if approval.can_cancel {
+    if approval.facts().can_cancel {
         parts.push("c cancel turn");
     }
     parts.join("  ")
@@ -308,7 +302,7 @@ fn draw_approval_content(
         buf,
         x,
         ob.start_y + 1,
-        &approval.title,
+        &approval.facts().title,
         Style::default()
             .fg(COLOR_PRIMARY)
             .add_modifier(Modifier::BOLD),
@@ -318,7 +312,7 @@ fn draw_approval_content(
         buf,
         x,
         ob.start_y + 2,
-        &approval.method,
+        &approval.facts().method,
         Style::default().fg(COLOR_DIM),
         w,
     );

@@ -56,10 +56,10 @@ fn narrow_queue_reserves_compact_context_and_keeps_weekly_at_the_right_edge() {
         let mut app = AppState::new("root".into());
         app.claude.enabled = claude;
         app.codex.enabled = !claude;
-        app.context_usage = Some(ContextUsage {
+        app.session.set_context_usage(Some(ContextUsage {
             used: 90_000,
             max: 100_000,
-        });
+        }));
         app.claude.context.fresh = true;
         let reset = crate::app::weekly_usage::unix_now() + 3 * 86_400;
         app.rate_limits.update(
@@ -94,7 +94,8 @@ fn captured_claude_uuid_kinds_survive_later_mode_changes_and_do_not_change_text_
         );
     }
     assert_eq!(
-        app.messages
+        app.session
+            .messages()
             .iter()
             .map(|message| message.kind)
             .collect::<Vec<_>>(),
@@ -105,7 +106,8 @@ fn captured_claude_uuid_kinds_survive_later_mode_changes_and_do_not_change_text_
         ]
     );
     assert!(app
-        .messages
+        .session
+        .messages()
         .iter()
         .all(|message| message.text == "identical 日本語"));
     app.enter_rewind_mode();
@@ -126,10 +128,10 @@ fn loaded_classification_never_promotes_unknown_or_automatic_records_to_human() 
         json!({"source":source,"inputKind":kind,"message":{"type":"user","uuid":format!("id-{index}"),"session_id":"root","message":{"role":"user","content":"same"}}})).collect();
     let _ = handle_server_message_line(&mut app,&json!({"method":"claude/controller","params":{"requestMethod":"sessions.read","frame":{"type":"reply","ok":true,"result":{"messages":records,"nextOffset":null}}}}).to_string());
     assert_eq!(app.input_history_len(), 3);
-    assert_eq!(app.messages[0].kind, MessageKind::Plain);
-    assert_eq!(app.messages[1].kind, MessageKind::UserSteer);
-    assert_eq!(app.messages[2].kind, MessageKind::Plain);
-    assert!(app.messages[3..]
+    assert_eq!(app.session.messages()[0].kind, MessageKind::Plain);
+    assert_eq!(app.session.messages()[1].kind, MessageKind::UserSteer);
+    assert_eq!(app.session.messages()[2].kind, MessageKind::Plain);
+    assert!(app.session.messages()[3..]
         .iter()
         .all(|message| message.role == Role::System && message.kind != MessageKind::UserSteer));
 }
@@ -138,7 +140,7 @@ fn loaded_classification_never_promotes_unknown_or_automatic_records_to_human() 
 fn narrow_help_end_then_up_and_pageup_moves_the_actual_visible_lines() {
     let peer = Peer::default();
     let mut app = AppState::new("root".into());
-    app.viewport.show_help = true;
+    app.view.viewport.show_help = true;
     let size = TerminalSize {
         width: 28,
         height: 12,
@@ -153,13 +155,13 @@ fn narrow_help_end_then_up_and_pageup_moves_the_actual_visible_lines() {
     };
     key(&mut app, KeyCode::End);
     let maximum = crate::app::overlay_render::help_scroll_limit(size);
-    assert_eq!(app.viewport.help_scroll, maximum);
+    assert_eq!(app.view.viewport.help_scroll, maximum);
     key(&mut app, KeyCode::Up);
-    assert_eq!(app.viewport.help_scroll, maximum - 1);
+    assert_eq!(app.view.viewport.help_scroll, maximum - 1);
     key(&mut app, KeyCode::PageUp);
-    assert_eq!(app.viewport.help_scroll, maximum.saturating_sub(6));
+    assert_eq!(app.view.viewport.help_scroll, maximum.saturating_sub(6));
     key(&mut app, KeyCode::Home);
-    assert_eq!(app.viewport.help_scroll, 0);
+    assert_eq!(app.view.viewport.help_scroll, 0);
     let mut buffer = Buffer::empty(Rect::new(0, 0, 28, 12));
     crate::app::overlay_render::draw_help_overlay(&mut buffer, size, &app);
     let screen = buffer
@@ -175,10 +177,10 @@ fn narrow_help_end_then_up_and_pageup_moves_the_actual_visible_lines() {
 fn narrow_default_mode_keeps_recovery_error_and_pending_notices_beside_quota_and_percent() {
     let mut app = AppState::new("root".into());
     app.codex.enabled = true;
-    app.context_usage = Some(ContextUsage {
+    app.session.set_context_usage(Some(ContextUsage {
         used: 90_000,
         max: 100_000,
-    });
+    }));
     app.rate_limits.update(&json!({"secondary":{"usedPercent":50,"windowDurationMins":10080,"resetsAt":crate::app::weekly_usage::unix_now()+3*86400}}));
     for (kind, full, compact) in [
         ("draft", "Unsent draft", "Draft"),

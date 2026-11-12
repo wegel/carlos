@@ -34,7 +34,7 @@ pub(super) enum ServerRequestAction {
         revision: u64,
     },
     ReplyNative {
-        id: Value,
+        card_id: crate::session::entry_id::EntryId,
         result: Value,
     },
     ClaudeControl {
@@ -228,7 +228,7 @@ fn handle_parsed(app: &mut AppState, parsed: Value) -> Option<ServerRequestActio
     if params
         .get("threadId")
         .and_then(Value::as_str)
-        .is_some_and(|thread_id| thread_id != app.thread_id)
+        .is_some_and(|thread_id| thread_id != *app.session.thread_id())
     {
         return None;
     }
@@ -283,11 +283,11 @@ fn dispatch_notification(
         "thread/name/updated" => super::session_name::handle_name_updated(app, params),
         "thread/tokenUsage/updated" => {
             if let Some(usage) = context_usage_from_thread_token_usage_params(params) {
-                app.context_usage = Some(usage);
+                app.session.set_context_usage(Some(usage));
             }
         }
         "thread/compacted" => {
-            app.context_usage = None;
+            app.session.set_context_usage(None);
             app.append_context_compacted_marker();
         }
         "turn/started" => handle_turn_started(app, params),
@@ -310,7 +310,7 @@ fn dispatch_notification(
         }
         "codex/event/token_count" => {
             if let Some(usage) = context_usage_from_token_count_params(params) {
-                app.context_usage = Some(usage);
+                app.session.set_context_usage(Some(usage));
             }
         }
         "error" => {
@@ -333,8 +333,8 @@ fn handle_thread_initialized(app: &mut AppState, params: &serde_json::Map<String
         .map(str::trim)
         .filter(|id| !id.is_empty())
     {
-        if app.thread_id != id {
-            app.context_usage = None;
+        if app.session.thread_id() != id {
+            app.session.set_context_usage(None);
         }
         app.set_thread_id(id.to_string());
     }

@@ -73,13 +73,13 @@ pub(super) fn benchmark_scroll_draws(
     };
     let max_scroll = app.rendered_line_count().saturating_sub(msg_height);
     let step = ((max_scroll / MAX_SCROLL_SAMPLES.max(1)).max(msg_height / 2)).max(1);
-    let old_scroll = app.viewport.scroll_top;
-    let old_follow = app.viewport.auto_follow_bottom;
+    let old_scroll = app.view.viewport.scroll_top;
+    let old_follow = app.view.viewport.auto_follow_bottom;
 
     let mut pos = 0usize;
     while pos <= max_scroll {
-        app.viewport.scroll_top = pos;
-        app.viewport.auto_follow_bottom = pos >= max_scroll;
+        app.view.viewport.scroll_top = pos;
+        app.view.viewport.auto_follow_bottom = pos >= max_scroll;
         let draw_started = Instant::now();
         terminal.draw(|frame| render_main_view(frame, app))?;
         stats.scroll_draw.push(draw_started.elapsed());
@@ -89,8 +89,8 @@ pub(super) fn benchmark_scroll_draws(
         pos = (pos + step).min(max_scroll);
     }
 
-    app.viewport.scroll_top = old_scroll.min(max_scroll);
-    app.viewport.auto_follow_bottom = old_follow;
+    app.view.viewport.scroll_top = old_scroll.min(max_scroll);
+    app.view.viewport.auto_follow_bottom = old_follow;
     Ok(())
 }
 
@@ -121,8 +121,9 @@ pub(super) fn benchmark_working_draws(
     const WORKING_DRAW_SAMPLES: usize = 64;
 
     let mut terminal = Terminal::new(TestBackend::new(size.width as u16, size.height as u16))?;
-    let original_turn_id = app.active_turn_id.clone();
-    app.active_turn_id = Some("perf-turn".to_string());
+    let original_turn_id = app.session.active_turn_id().clone();
+    app.session
+        .set_active_turn_id(Some("perf-turn".to_string()));
 
     for _ in 0..WORKING_DRAW_SAMPLES {
         let draw_started = Instant::now();
@@ -130,7 +131,7 @@ pub(super) fn benchmark_working_draws(
         stats.working_draw.push(draw_started.elapsed());
     }
 
-    app.active_turn_id = original_turn_id;
+    app.session.set_active_turn_id(original_turn_id);
     Ok(())
 }
 
@@ -144,7 +145,8 @@ pub(super) fn benchmark_append_draws(
 
     for _ in 0..APPEND_BENCH_STEPS {
         let started = Instant::now();
-        app.messages.append_text(idx, "\nappend bench line", None);
+        app.session
+            .transcript_append_text(idx, "\nappend bench line", None);
         app.mark_transcript_dirty_from(idx);
         app.ensure_rendered_lines(app.transcript_width(size), None);
         terminal.draw(|frame| render_main_view(frame, app))?;
@@ -167,19 +169,20 @@ pub(super) fn profile_layout_count_pass(app: &AppState, width: usize) -> Vec<Lay
     let mut buckets: BTreeMap<&'static str, (usize, usize, f64)> = BTreeMap::new();
     let mut count_cache = RenderCountCache::new();
 
-    for (idx, msg) in app.messages.iter().enumerate() {
+    for (idx, msg) in app.session.messages().iter().enumerate() {
         if msg.text.trim().is_empty() {
             continue;
         }
-        let previous_visible = previous_visible_idx.and_then(|prev_idx| app.messages.get(prev_idx));
+        let previous_visible =
+            previous_visible_idx.and_then(|prev_idx| app.session.messages().get(prev_idx));
         let started = Instant::now();
         let lines = count_display_block(
             &mut count_cache,
             previous_visible,
             msg,
             width,
-            app.tool_output.compact(),
-            app.layout.active,
+            app.view.tool_output.compact(),
+            app.view.layout.active,
         );
         let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
         let entry = buckets
