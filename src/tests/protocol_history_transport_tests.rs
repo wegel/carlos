@@ -1,12 +1,14 @@
 //! Keep batched history off the UI stream without widening normal native budgets.
 
 use std::process::Command;
+use std::sync::{mpsc, Arc};
 use std::time::Duration;
 
 use serde_json::{json, Value};
 
 use crate::backend::BackendClient;
 use crate::protocol::AppServerClient;
+use crate::protocol_state::{request_key, Target};
 
 fn peer(script: &str) -> AppServerClient {
     let mut command = Command::new("python3");
@@ -99,16 +101,11 @@ fn history_reply_still_has_a_hard_sixty_four_mib_ceiling() {
 
 #[test]
 fn unanswered_large_read_ids_stay_bounded_and_do_not_disable_other_controls() {
-    let client = peer("import json,sys\npending=[]; drained=False\nfor line in sys.stdin:\n a=json.loads(line)\n if a['method']=='thread/turns/list' and not drained: pending.append(a); continue\n for old in pending: print(json.dumps({'id':old['id'],'result':{}}))\n pending=[]; drained=True\n print(json.dumps({'id':a['id'],'result':{}}))");
+    let mut client = peer("import json,sys\npending=[]; drained=False\nfor line in sys.stdin:\n a=json.loads(line)\n if a['method']=='thread/turns/list' and not drained: pending.append(a); print(json.dumps({'method':'future/accepted','params':{'id':a['id']}})); continue\n for old in pending: print(json.dumps({'id':old['id'],'result':{}}))\n pending=[]; drained=True\n print(json.dumps({'id':a['id'],'result':{}}))");
+    let events = client.take_events_rx().expect("receipt channel");
+    let client = Arc::new(client);
     for _ in 0..64 {
-        let error = client
-            .call(
-                "thread/turns/list",
-                json!({"itemsView":"full"}),
-                Duration::from_millis(20),
-            )
-            .expect_err("read times out");
-        assert!(error.to_string().contains("Timeout waiting"), "{error}");
+        retire_received_history_read(&client, &events);
     }
     let error = client
         .call(
@@ -221,4 +218,44 @@ fn a_locally_rejected_write_releases_its_unused_history_reply_allowance() {
             Duration::from_secs(2),
         )
         .expect("next history request works");
+}
+
+// End the call's reply wait by disconnecting its sender after the peer has read it.
+// This takes the same retirement branch as a deadline, without racing the stdin worker.
+fn retire_received_history_read(client: &Arc<AppServerClient>, events: &mpsc::Receiver<String>) {
+    let caller = client.clone();
+    let waiting = std::thread::spawn(move || {
+        caller.call(
+            "thread/turns/list",
+            json!({"itemsView":"full"}),
+            Duration::from_secs(30),
+        )
+    });
+    let receipt = events
+        .recv_timeout(Duration::from_secs(30))
+        .expect("peer read request");
+    let receipt: Value = serde_json::from_str(&receipt).expect("receipt JSON");
+    assert_eq!(receipt["method"], "future/accepted");
+    let key = request_key(&receipt["params"]["id"]).expect("request ID");
+    let target = client
+        .state
+        .take(&key)
+        .expect("unanswered request still waits");
+    assert!(
+        matches!(target, Target::History(_)),
+        "large history allowance"
+    );
+    drop(target);
+    let error = waiting
+        .join()
+        .expect("caller joined")
+        .expect_err("reply wait ended");
+    assert_eq!(
+        error.to_string(),
+        "Timeout waiting for Codex thread/turns/list"
+    );
+    assert!(
+        !client.state.is_closed(),
+        "read retirement keeps other controls alive"
+    );
 }
