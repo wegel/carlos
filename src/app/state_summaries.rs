@@ -297,7 +297,8 @@ impl AppState {
     pub(super) fn assert_entry_invariants(&self) {
         self.assert_approval_hint_invariants();
         self.session.messages().assert_invariants();
-        self.input_history
+        self.session
+            .input_history()
             .assert_invariants(&self.session.messages());
         for id in self.summaries.bindings.keys() {
             assert!(self.session.messages().entry(*id).is_some());

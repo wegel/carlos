@@ -8,7 +8,6 @@ use std::time::{Duration, Instant};
 pub(super) use super::approval_state::{
     ApprovalChoice, ApprovalRequestDraft, ApprovalRequestKind, PendingApprovalRequest,
 };
-use super::input_history_state::InputHistoryState;
 use super::models::TurnStatus;
 use super::perf::PerfMetrics;
 #[cfg(test)]
@@ -28,7 +27,6 @@ pub(super) struct AppState {
     pub(super) view: ViewState,
     // Split these mixed children in milestones 5 through 9.
     pub(super) summaries: super::state_summaries::SummaryState,
-    pub(super) input_history: InputHistoryState,
     pub(super) claude: super::claude_state::ClaudeUiState,
     pub(super) codex: super::codex_state::CodexUiState,
     pub(super) rate_limits: super::rate_limits::RateLimits,
@@ -50,7 +48,6 @@ impl AppState {
             session: SessionState::new(thread_id, preferences),
             view: ViewState::new(),
             summaries: super::state_summaries::SummaryState::default(),
-            input_history: InputHistoryState::new(),
             claude: super::claude_state::ClaudeUiState::default(),
             codex: super::codex_state::CodexUiState::default(),
             rate_limits: super::rate_limits::RateLimits::default(),
@@ -219,7 +216,7 @@ impl AppState {
     }
 
     pub(super) fn rewind_mode(&self) -> bool {
-        self.input_history.rewind_mode()
+        self.view.input_history.rewind_mode()
     }
 
     #[cfg(test)]
@@ -244,7 +241,8 @@ impl AppState {
 
     #[cfg(test)]
     pub(super) fn input_history_message_indices(&self) -> Vec<Option<usize>> {
-        self.input_history
+        self.session
+            .input_history()
             .message_ids()
             .iter()
             .map(|id| id.and_then(|id| self.session.messages().position(id)))
@@ -253,11 +251,13 @@ impl AppState {
 
     #[cfg(test)]
     pub(super) fn input_history_len(&self) -> usize {
-        self.input_history.history_len()
+        self.session.input_history().history_len()
     }
 
     #[cfg(test)]
     pub(super) fn set_rewind_selection_for_test(&mut self, index: Option<usize>) {
-        self.input_history.set_rewind_selection(index);
+        self.view
+            .input_history
+            .set_rewind_selection(index, self.session.input_history());
     }
 }

@@ -8,6 +8,7 @@ use ratatui_textarea::TextArea;
 use super::dictation_state::DictationCaptureState;
 use super::dictation_state::DictationRuntimeState;
 use super::input::make_input_area;
+use super::input_history_state::InputHistoryView;
 use super::layout_state::LayoutState;
 use super::perf::PerfMetrics;
 use super::render_cache_state::RenderCacheState;
@@ -18,6 +19,7 @@ use super::viewport_state::ViewportState;
 use crate::session::entry_id::EntryId;
 
 pub(super) struct ViewState {
+    pub(super) input_history: InputHistoryView,
     pub(super) runtime_settings: RuntimeSettingsView,
     pub(super) render_cache: RenderCacheState,
     pub(super) tool_output: ToolOutputState,
@@ -38,6 +40,7 @@ pub(super) struct ViewState {
 impl ViewState {
     pub(super) fn new() -> Self {
         Self {
+            input_history: InputHistoryView::default(),
             runtime_settings: RuntimeSettingsView::new(),
             render_cache: RenderCacheState::new(),
             tool_output: ToolOutputState::default(),

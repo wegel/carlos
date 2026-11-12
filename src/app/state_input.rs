@@ -33,7 +33,7 @@ impl AppState {
     }
 
     pub(super) fn reset_input_history_navigation(&mut self) {
-        self.input_history.reset_navigation();
+        self.view.input_history.reset_navigation();
     }
 
     pub(super) fn reset_esc_chord(&mut self) {
@@ -75,7 +75,7 @@ impl AppState {
     // --- Rewind ---
 
     pub(super) fn enter_rewind_mode(&mut self) {
-        if !self.input_history.enter_rewind_mode(self.input_text()) {
+        if !self.view.input_history.enter_rewind_mode(self.input_text()) {
             return;
         }
         self.view.viewport.auto_follow_bottom = false;
@@ -86,7 +86,7 @@ impl AppState {
     }
 
     pub(super) fn exit_rewind_mode_restore(&mut self) {
-        let Some(draft) = self.input_history.exit_rewind_mode_restore() else {
+        let Some(draft) = self.view.input_history.exit_rewind_mode_restore() else {
             return;
         };
         self.view.viewport.auto_follow_bottom = true;
@@ -98,7 +98,7 @@ impl AppState {
     }
 
     pub(super) fn clear_rewind_mode_state(&mut self) {
-        self.input_history.clear_rewind_mode_state();
+        self.view.input_history.clear_rewind_mode_state();
         if matches!(
             self.claude.history.edit,
             Some(super::claude_edit::EditState::Failed)
@@ -128,7 +128,10 @@ impl AppState {
             .scroll_top
             .min(self.session.messages().len());
         self.summaries.retain_items(&self.session.messages());
-        self.input_history.retain_entries(&self.session.messages());
+        self.session.retain_prompt_entries();
+        self.view
+            .input_history
+            .refresh_selected_entry(self.session.input_history());
         self.mark_transcript_dirty_from(dirty_from);
     }
 
@@ -137,19 +140,38 @@ impl AppState {
     }
 
     pub(super) fn push_input_history(&mut self, text: &str) {
-        self.input_history.push_history(text);
+        self.record_prompt_history(text, None);
     }
 
     pub(super) fn discard_pending_input_history(&mut self, text: &str) {
-        self.input_history.discard_pending_history(text);
+        if self.session.discard_pending_prompt(text) {
+            self.reset_input_history_navigation();
+        }
     }
 
     pub(super) fn record_input_history(&mut self, text: &str, message_idx: Option<usize>) {
-        self.input_history.record_history(
+        self.record_prompt_history(
             text,
             message_idx
                 .and_then(|index| self.session.messages().get(index).map(|message| message.id)),
         );
+    }
+
+    fn record_prompt_history(
+        &mut self,
+        text: &str,
+        entry: Option<crate::session::entry_id::EntryId>,
+    ) {
+        if self.session.record_prompt_history(text, entry) {
+            self.reset_input_history_navigation();
+        }
+    }
+
+    pub(super) fn rewind_native_request(&self) -> Option<crate::backend::RewindUserMessage> {
+        self.session.input_history().native_request(
+            self.view.input_history.rewind_selected_history_index()?,
+            self.view.input_history.rewind_selected_entry_id()?,
+        )
     }
 
     pub(super) fn record_input_turn_id(&mut self, item_id: &str, turn_id: &str) {
@@ -157,10 +179,10 @@ impl AppState {
         let message_idx = self.item_message_index(item_id);
         self.codex.item_turn = previous;
         if let Some(index) = message_idx {
-            self.input_history
-                .record_turn_id(self.session.messages()[index].id, turn_id);
+            self.session
+                .record_prompt_turn(self.session.messages()[index].id, turn_id);
         }
-        let position = self.input_history.record_native(
+        let position = self.session.record_native_user(
             item_id,
             turn_id,
             message_idx.map(|index| self.session.messages()[index].id),
@@ -184,14 +206,22 @@ impl AppState {
             .unknown_selection
             .and_then(|index| self.claude.history.unknown.get(index))
             .map(|prompt| prompt.uuid.as_str())
-            .or_else(|| self.input_history.selected_turn_id())
+            .or_else(|| {
+                self.session
+                    .input_history()
+                    .turn_id(self.view.input_history.rewind_selected_entry_id()?)
+            })
     }
 
     pub(super) fn navigate_input_history_up(&mut self) -> bool {
         if super::claude_rewind::navigate(self, true) {
             return true;
         }
-        let Some(text) = self.input_history.navigate_up(self.input_text()) else {
+        let Some(text) = self
+            .view
+            .input_history
+            .navigate_up(self.session.input_history(), self.input_text())
+        else {
             return false;
         };
         self.set_input_text(&text);
@@ -202,7 +232,11 @@ impl AppState {
         if super::claude_rewind::navigate(self, false) {
             return true;
         }
-        let Some(text) = self.input_history.navigate_down() else {
+        let Some(text) = self
+            .view
+            .input_history
+            .navigate_down(self.session.input_history())
+        else {
             return false;
         };
         self.set_input_text(&text);
@@ -216,7 +250,8 @@ impl AppState {
             .and_then(|index| self.claude.history.unknown.get(index))
             .and_then(|prompt| self.session.messages().position(prompt.entry_id))
             .or_else(|| {
-                self.input_history
+                self.view
+                    .input_history
                     .rewind_selected_entry_id()
                     .and_then(|id| self.session.messages().position(id))
             })
@@ -227,11 +262,11 @@ impl AppState {
             .history
             .unknown_selection
             .map(|_| usize::MAX)
-            .or_else(|| self.input_history.rewind_selected_history_index())
+            .or_else(|| self.view.input_history.rewind_selected_history_index())
     }
 
     pub(super) fn submitted_turn_count(&self) -> usize {
-        self.input_history.history_len()
+        self.session.input_history().history_len()
     }
 
     pub(super) fn align_rewind_scroll_to_selected_prompt(&mut self, size: TerminalSize) {

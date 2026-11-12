@@ -63,8 +63,8 @@ impl ClaudePrompts {
 pub(super) fn attach_echo(app: &mut AppState, id: &str, kind: Option<&str>) {
     if let Some(index) = app.session.messages().len().checked_sub(1) {
         app.put_item_mapping(&format!("claude-prompt:{id}"), index);
-        app.input_history
-            .record_turn_id(app.session.messages()[index].id, id);
+        app.session
+            .record_prompt_turn(app.session.messages()[index].id, id);
         set_kind(app, index, kind);
     }
 }
@@ -111,8 +111,8 @@ pub(super) fn consume(app: &mut AppState, ids: &[String]) {
             }
             if human {
                 app.record_input_history(&text, Some(index));
-                app.input_history
-                    .record_turn_id(app.session.messages()[index].id, id);
+                app.session
+                    .record_prompt_turn(app.session.messages()[index].id, id);
             }
         }
         app.record_turn_started(id);

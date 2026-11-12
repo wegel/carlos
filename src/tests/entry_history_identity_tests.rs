@@ -11,7 +11,7 @@ fn native_reload_retains_turn_scoped_ids_and_rewind_targets_after_insertions() {
     for insertion in 0..3 {
         let mut app = AppState::new("thread".into());
         app.codex.enabled = true;
-        app.input_history.enable_native();
+        app.session.enable_native_history();
         let turn = |name: &str, answer: &str| {
             json!({"id":name,"status":"completed","items":[
             {"type":"userMessage","id":"same-user","content":[{"type":"text","text":"same"}]},
@@ -37,10 +37,7 @@ fn native_reload_retains_turn_scoped_ids_and_rewind_targets_after_insertions() {
             app.set_rewind_selection_for_test(Some(position / 2));
             assert_eq!(app.rewind_selected_message_idx(), Some(position));
             assert_eq!(app.rewind_selected_turn_id(), Some(name));
-            let request = app
-                .input_history
-                .selected_native_request()
-                .expect("native rewind");
+            let request = app.rewind_native_request().expect("native rewind");
             assert_eq!(request.item_id, "same-user");
             assert_eq!(request.position, 0);
         }

@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 fn app() -> AppState {
     let mut app = AppState::new("thread".into());
     app.codex.enabled = true;
-    app.input_history.enable_native();
+    app.session.enable_native_history();
     app
 }
 fn load(app: &mut AppState, items: Vec<Value>) {
@@ -38,12 +38,9 @@ fn review_hidden_native_user_must_count_toward_rewind_position() {
                 app.set_rewind_selection_for_test(Some(if last {
                     0
                 } else {
-                    app.input_history.history_len() - 1
+                    app.session.input_history().history_len() - 1
                 }));
-                let request = app
-                    .input_history
-                    .selected_native_request()
-                    .expect("native rewind");
+                let request = app.rewind_native_request().expect("native rewind");
                 assert_eq!(request.position, if last { 0 } else { hidden_count });
                 assert_eq!(request.item_id, "visible");
                 let visible = app.rewind_selected_message_idx().expect("visible row");
@@ -155,7 +152,7 @@ fn history_keeps_tool_facts_and_records_only_new_user_rows_at_the_event() {
         assert!(tool.failed);
         assert!(!tool.generated);
         assert_eq!(
-            app.input_history.history_len(),
+            app.session.input_history().history_len(),
             0,
             "an existing row is not a new prompt"
         );

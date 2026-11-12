@@ -35,3 +35,7 @@ pub(crate) mod runtime_settings;
 mod runtime_settings_updates;
 
 pub(crate) mod model_info;
+
+pub(crate) mod input_history;
+mod input_history_commands;
+pub(crate) mod input_history_native;

@@ -94,7 +94,6 @@ mod dictation_state;
 mod flow_transcript;
 mod input;
 mod input_events;
-mod input_history_native;
 mod input_history_state;
 mod input_mode;
 mod item_history;
@@ -272,3 +271,7 @@ mod approval_lifetime_tests;
 #[cfg(test)]
 #[path = "../tests/approval_operation_sequences.rs"]
 mod approval_operation_sequences;
+
+#[cfg(test)]
+#[path = "../tests/input_history_split_tests.rs"]
+mod input_history_split_tests;

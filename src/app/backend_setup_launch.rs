@@ -155,7 +155,7 @@ pub(super) fn configure_codex_app(
     persisted_defaults: &RuntimeDefaults,
     default_summary: Option<String>,
 ) -> Result<()> {
-    app.input_history.enable_native();
+    app.session.enable_native_history();
     app.codex.enabled = true;
     crate::app::context_settings::initialize(
         app,

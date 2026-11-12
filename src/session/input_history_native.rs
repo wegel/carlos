@@ -2,21 +2,23 @@
 
 use std::collections::HashMap;
 
-use crate::session::entry_id::EntryId;
+use super::entry_id::EntryId;
 #[cfg(test)]
-use crate::session::transcript::Transcript;
+use super::transcript::Transcript;
 
 /// Identifies one native user item and its position inside its enclosing turn.
 #[derive(Clone)]
-pub(super) struct NativeUserPosition {
-    pub(super) item_id: String,
-    pub(super) turn_id: String,
-    pub(super) position: usize,
+#[cfg_attr(test, derive(Debug))]
+pub(crate) struct NativeUserPosition {
+    pub(in crate::session) item_id: String,
+    pub(in crate::session) turn_id: String,
+    pub(in crate::session) position: usize,
 }
 
 /// Records all user items, including those that have no visible text row.
 #[derive(Default)]
-pub(super) struct NativeUserHistory {
+#[cfg_attr(test, derive(Debug))]
+pub(crate) struct NativeUserHistory {
     positions: HashMap<(String, String), usize>,
     turn_counts: HashMap<String, usize>,
     messages: HashMap<EntryId, NativeUserPosition>,
@@ -24,7 +26,7 @@ pub(super) struct NativeUserHistory {
 
 impl NativeUserHistory {
     /// Deduplicate started/completed events by the exact native item and turn IDs.
-    pub(super) fn record(
+    pub(crate) fn record(
         &mut self,
         item_id: &str,
         turn_id: &str,
@@ -51,14 +53,14 @@ impl NativeUserHistory {
     }
 
     /// Return the native identity attached to a visible user row.
-    pub(super) fn message(&self, index: EntryId) -> Option<&NativeUserPosition> {
+    pub(crate) fn message(&self, index: EntryId) -> Option<&NativeUserPosition> {
         self.messages.get(&index)
     }
 }
 
 #[cfg(test)]
 impl NativeUserHistory {
-    pub(super) fn retain_entries(&mut self, transcript: &Transcript) {
+    pub(crate) fn retain_entries(&mut self, transcript: &Transcript) {
         self.messages
             .retain(|id, _| transcript.entry(*id).is_some());
     }
@@ -66,7 +68,7 @@ impl NativeUserHistory {
 
 #[cfg(test)]
 impl NativeUserHistory {
-    pub(super) fn assert_invariants(&self, transcript: &Transcript) {
+    pub(crate) fn assert_invariants(&self, transcript: &Transcript) {
         for (id, native) in &self.messages {
             assert!(transcript.entry(*id).is_some());
             assert_eq!(

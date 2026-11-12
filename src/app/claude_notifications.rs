@@ -105,8 +105,8 @@ pub(super) fn record_submitted_prompt(app: &mut AppState, response: &Value) {
         }
         super::claude_prompts::attach_echo(app, id, response["result"]["inputKind"].as_str());
         if let Some(index) = app.session.messages().len().checked_sub(1) {
-            app.input_history
-                .record_turn_id(app.session.messages()[index].id, id);
+            app.session
+                .record_prompt_turn(app.session.messages()[index].id, id);
         }
         super::claude_edit::accepted(app, id);
     }

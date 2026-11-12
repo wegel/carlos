@@ -14,7 +14,7 @@ fn user(app: &mut AppState, method: &str, turn: &str, id: &str, text: &str) {
 }
 fn enabled() -> AppState {
     let mut app = AppState::new("thread".into());
-    app.input_history.enable_native();
+    app.session.enable_native_history();
     app
 }
 fn snapshot() -> String {
@@ -42,18 +42,12 @@ fn live_started_and_completed_events_count_each_exact_user_item_once() {
         .iter()
         .all(|message| message.role == Role::User));
     app.enter_rewind_mode();
-    let selected = app
-        .input_history
-        .selected_native_request()
-        .expect("exact anchor");
+    let selected = app.rewind_native_request().expect("exact anchor");
     assert_eq!(selected.item_id, "steer");
     assert_eq!(selected.position, 1);
     app.navigate_input_history_up();
     assert_eq!(
-        app.input_history
-            .selected_native_request()
-            .expect("first anchor")
-            .item_id,
+        app.rewind_native_request().expect("first anchor").item_id,
         "first"
     );
 }
@@ -84,14 +78,11 @@ fn replacement_and_repeated_fork_resets_keep_the_ledger_enabled_and_anchors_exac
     for _ in 0..3 {
         app.reset_for_forked_thread("thread");
         load_history_from_start_or_resume(&mut app, &snapshot()).expect("loaded native users");
-        assert!(app.input_history.native_enabled());
+        assert!(app.session.input_history().native_enabled());
         assert_eq!(app.session.messages()[1].kind, MessageKind::UserSteer);
         app.enter_rewind_mode();
         assert_eq!(
-            app.input_history
-                .selected_native_request()
-                .expect("selected")
-                .item_id,
+            app.rewind_native_request().expect("selected").item_id,
             "steer"
         );
     }
@@ -108,7 +99,7 @@ fn other_backends_keep_plain_user_messages_and_existing_grouping() {
         .messages()
         .iter()
         .all(|message| message.kind == MessageKind::Plain));
-    assert!(!app.input_history.native_enabled());
+    assert!(!app.session.input_history().native_enabled());
 }
 
 #[test]
@@ -149,10 +140,7 @@ fn edited_draft_does_not_replace_the_original_canonical_text_in_the_request() {
     load_history_from_start_or_resume(&mut app, &snapshot()).expect("history");
     app.enter_rewind_mode();
     app.set_input_text("changed draft");
-    let selected = app
-        .input_history
-        .selected_native_request()
-        .expect("selected");
+    let selected = app.rewind_native_request().expect("selected");
     assert_eq!(selected.text, "same 日本語");
     assert_eq!(selected.item_id, "steer");
     let expected: Value = json!({"type":"text","text":selected.text});

@@ -112,8 +112,8 @@ pub(super) fn append_prompt(app: &mut AppState, facts: &Value) {
             let index = app.append_message(Role::User, text.clone());
             super::claude_prompts::set_kind(app, index, kind);
             app.record_input_history(&text, Some(index));
-            app.input_history
-                .record_turn_id(app.session.messages()[index].id, uuid);
+            app.session
+                .record_prompt_turn(app.session.messages()[index].id, uuid);
         }
         "unknown" => {
             let index = app.append_message(Role::System, format!("[Source unknown] {text}"));

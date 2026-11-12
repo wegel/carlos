@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet};
 use super::approval_state::ApprovalState;
 use super::context_usage::ContextUsage;
 use super::entry_key::BackendEntryKey;
+use super::input_history::PromptHistory;
 use super::models::TurnStatus;
 use super::ralph_runtime_state::RalphRuntimeState;
 use super::runtime_settings::{RuntimeDefaults, RuntimeSettingsState};
@@ -14,6 +15,7 @@ use super::turns::TurnBoundary;
 /// Own the facts that remain true without a terminal view.
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct SessionState {
+    pub(in crate::session) input_history: PromptHistory,
     pub(in crate::session) runtime: RuntimeSettingsState,
     pub(in crate::session) thread_id: String,
     pub(in crate::session) entry_conversation: String,
@@ -34,6 +36,7 @@ impl SessionState {
     /// Create an empty conversation without loading client preferences.
     pub(crate) fn new(thread_id: String, preferences: RuntimeDefaults) -> Self {
         Self {
+            input_history: PromptHistory::default(),
             runtime: RuntimeSettingsState::new(preferences),
             entry_conversation: thread_id.clone(),
             thread_id,

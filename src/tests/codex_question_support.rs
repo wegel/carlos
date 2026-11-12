@@ -63,7 +63,7 @@ impl BackendClient for Peer {
 pub(super) fn app() -> AppState {
     let mut app = AppState::new("root".into());
     app.codex.enabled = true;
-    app.input_history.enable_native();
+    app.session.enable_native_history();
     app
 }
 

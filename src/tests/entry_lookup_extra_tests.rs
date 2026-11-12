@@ -100,7 +100,7 @@ fn unscoped_keys_preserve_heads_tool_facts_for_all_backends() {
 fn native_prompt_positions_match_the_unchanged_head_counter() {
     for count in 0..16 {
         let mut app = app(BackendKind::Codex);
-        app.input_history.enable_native();
+        app.session.enable_native_history();
         let mut native = NativeUserHistory::default();
         let mut items = Vec::new();
         for n in 0..count {
@@ -116,10 +116,7 @@ fn native_prompt_positions_match_the_unchanged_head_counter() {
         .expect("same-thread history");
         app.set_rewind_selection_for_test(Some(0));
         assert_eq!(
-            app.input_history
-                .selected_native_request()
-                .expect("native")
-                .position,
+            app.rewind_native_request().expect("native").position,
             position
         );
         assert_eq!(

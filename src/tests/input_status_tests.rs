@@ -115,7 +115,7 @@ fn captured_claude_uuid_kinds_survive_later_mode_changes_and_do_not_change_text_
     assert!(app.navigate_input_history_up());
     assert_eq!(app.rewind_selected_turn_id(), Some("steer"));
     assert!(
-        app.input_history.selected_native_request().is_none(),
+        app.rewind_native_request().is_none(),
         "Claude never uses the Codex steer-refusal ledger"
     );
 }

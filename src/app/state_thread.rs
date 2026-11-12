@@ -1,6 +1,6 @@
 //! Replace or fork transcript state while preserving the background summary service.
 
-use super::input_history_state::InputHistoryState;
+use super::input_history_state::InputHistoryView;
 use super::render_cache_state::RenderCacheState;
 use super::state::AppState;
 use super::viewport_state::ViewportState;
@@ -14,11 +14,8 @@ impl AppState {
     ) {
         self.summaries.clear();
         let update = self.session.replace_history(draft.entries, mode);
-        let native = self.input_history.native_enabled();
-        self.input_history = InputHistoryState::new();
-        if native {
-            self.input_history.enable_native();
-        }
+        self.session.reset_prompt_history();
+        self.view.input_history = InputHistoryView::default();
         self.codex.panel.reports.clear();
         for (turn, status) in draft.turns {
             self.record_historical_turn_status(&turn, status);
@@ -65,9 +62,9 @@ impl AppState {
                     .native_index
                     .map(|index| self.session.messages()[index].id);
                 if let Some(entry) = entry {
-                    self.input_history.record_turn_id(entry, turn);
+                    self.session.record_prompt_turn(entry, turn);
                 }
-                let position = self.input_history.record_native(id, turn, entry);
+                let position = self.session.record_native_user(id, turn, entry);
                 if let (Some(index), Some(position)) = (record.native_index, position) {
                     self.session.transcript_set_kind(
                         index,
@@ -101,11 +98,8 @@ impl AppState {
             self.view.render_cache = RenderCacheState::new();
         }
         self.summaries.clear();
-        let native = self.input_history.native_enabled();
-        self.input_history = InputHistoryState::new();
-        if native {
-            self.input_history.enable_native();
-        }
+        self.session.reset_prompt_history();
+        self.view.input_history = InputHistoryView::default();
         self.view.viewport = ViewportState::new();
         if preserve {
             return;

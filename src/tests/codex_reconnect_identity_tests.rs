@@ -20,7 +20,7 @@ fn message(app: &mut crate::app::state::AppState, turn: &str, kind: &str, text: 
 #[test]
 fn repeated_native_item_and_user_ids_stay_distinct_in_live_history_and_reconnect() {
     let mut app = app();
-    app.input_history.enable_native();
+    app.session.enable_native_history();
     for turn in ["one", "two"] {
         message(&mut app, turn, "userMessage", turn);
         message(&mut app, turn, "agentMessage", &format!("answer-{turn}"));
@@ -39,10 +39,7 @@ fn repeated_native_item_and_user_ids_stay_distinct_in_live_history_and_reconnect
     assert_eq!(app.session.messages()[3].text, "answer-two");
     app.codex.item_turn = None;
     app.enter_rewind_mode();
-    let selected = app
-        .input_history
-        .selected_native_request()
-        .expect("native user anchor");
+    let selected = app.rewind_native_request().expect("native user anchor");
     assert_eq!(selected.item_id, "same-user");
     assert_eq!(app.rewind_selected_turn_id(), Some("two"));
     let peer = Peer::default();

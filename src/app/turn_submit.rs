@@ -49,7 +49,7 @@ pub(super) fn submit_rewind_turn_text(
             drop_turns,
             before_turn_id: app.rewind_selected_turn_id().map(str::to_string),
             before_user_item: (client.kind() == BackendKind::Codex)
-                .then(|| app.input_history.selected_native_request())
+                .then(|| app.rewind_native_request())
                 .flatten(),
         },
         Duration::from_secs(20),

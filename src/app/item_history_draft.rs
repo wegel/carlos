@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use serde_json::Value;
 
 use super::{agent_role_from_phase, has_terminal_item_status, reasoning_summary_text};
-use crate::app::input_history_native::NativeUserHistory;
 use crate::app::models::{MessageKind, Role, TurnStatus};
 use crate::app::native_activity::format_native_activity;
 use crate::app::state::AppState;
@@ -16,6 +15,7 @@ use crate::app::tools::{
 use crate::app::transcript_render::{format_read_summary_with_count, parse_read_summary};
 use crate::session::entry_key::BackendEntryKey;
 use crate::session::history_identity::HistoryEntry;
+use crate::session::input_history_native::NativeUserHistory;
 use crate::session::models::EntryDraft;
 
 #[path = "item_history_predecessors.rs"]
@@ -151,7 +151,7 @@ fn classify_native(
     entries: &mut [HistoryEntry],
     predecessors: &mut Predecessors,
 ) {
-    if record.item["type"] != "userMessage" || !app.input_history.native_enabled() {
+    if record.item["type"] != "userMessage" || !app.session.input_history().native_enabled() {
         return;
     }
     if let (Some(item), Some(turn)) = (record.item["id"].as_str(), record.turn.as_deref()) {
