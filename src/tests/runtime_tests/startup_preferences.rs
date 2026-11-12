@@ -152,7 +152,11 @@ fn run_isolated_startup_test() -> bool {
             .env("XDG_CACHE_HOME", root.path().join("cache"))
             .output()
             .expect("isolated startup test");
-        assert!(output.status.success(), "{}\n{}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(output.status.success(), "{stdout}\n{stderr}");
+        // A renamed test would make the child run nothing and still exit with success.
+        assert!(stdout.contains("1 passed"), "{stdout}\n{stderr}");
         return true;
     }
     false

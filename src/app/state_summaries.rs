@@ -6,6 +6,7 @@ use serde_json::Value;
 
 use super::state::AppState;
 use crate::session::entry_id::EntryId;
+use crate::session::summary_request::has_command;
 use crate::summaries::SummaryEvent;
 
 impl AppState {
@@ -20,6 +21,10 @@ impl AppState {
         let Some(id) = item["id"].as_str() else {
             return;
         };
+        // Most items carry no command; skip them before allocating a lookup key.
+        if !has_command(item) {
+            return;
+        }
         let scope = self
             .codex
             .item_turn
