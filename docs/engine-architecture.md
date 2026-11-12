@@ -217,7 +217,15 @@ To do when 1.100.0 is available:
 
 ## How the work is driven
 
-- Claude plans, splits tasks, runs the gates, reads diffs, commits to `main`.
+Location (owner's decision, 2026-11-12): all work for the daemon split happens
+on branch `daemon-split`, in the separate checkout
+`/var/home/wegel/work/perso/carlos-daemon`. The main checkout and `main` stay
+on the released carlos so the owner can make quick fixes there. Nothing from
+`daemon-split` goes to `main` or to the remote without the owner's request.
+Rebase `daemon-split` onto `main` when `main` moves. Git ignores `etc/` only on
+this branch; `etc/mac-build.env` lives in the `carlos-daemon` checkout.
+
+- Claude plans, splits tasks, runs the gates, reads diffs, commits to `daemon-split`.
 - Codex (`gpt-6.1-sol`, high effort) implements and reviews, through direct
   `codex exec` calls. The Codex plugin sandbox cannot start in the development
   container, so workers run with the access mode from `~/.codex/config.toml`.
