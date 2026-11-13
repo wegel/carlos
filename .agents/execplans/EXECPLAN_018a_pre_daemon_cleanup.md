@@ -53,6 +53,8 @@ Discovery: a native consumed/completed frame can now arrive before its send repl
 
 Decision: remove `scripts/check-session-boundary.py` and its source-string fixtures. Cargo/rustc enforce package dependencies, module compilation, foreign inherent impls and private fields. The remaining package guard traverses all declared feature/platform/dev/build edges by resolved package name; a new test verifies its Cargo arguments and another checks this real workspace. Review retains semantic no-editor/no-I/O rules that neither an identifier lexer nor the compiler can prove. Date/Author: 2026-11-13, Codex.
 
+Discovery (2026-11-13): main advanced to `06f1e96137442aba5e7aea017fe40e5e8482f88c` with Escape-burst suppression and four native-Claude interrupt workflows. Rebased the 97-commit spike onto it, resolving terminal test-list/import overlaps and moving the new interrupted-at timestamp into ViewState. The interrupt wrapper keeps the suppression local after a real stop request. The main checkout remains untouched. Pre-rebase gates are retained as intermediate evidence; all final gates and executable measurements must run again on the rebased source.
+
 ## Outcomes & Retrospective
 
 

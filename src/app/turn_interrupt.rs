@@ -4,8 +4,6 @@ use std::time::Instant;
 
 use carlos_core::backend::{BackendClient, BackendKind};
 
-
-
 use super::state::AppState;
 
 pub(super) fn interrupt_active_turn(client: &dyn BackendClient, app: &mut AppState) {

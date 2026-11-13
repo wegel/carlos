@@ -1,6 +1,6 @@
 # Engine architecture: daemon and clients
 
-Status: agreed 2026-11-11. ExecPlans 016 through 018 completed 2026-11-13; the owner reviews EP018 before EP019 starts.
+Status: agreed 2026-11-11, revised 2026-11-13. EP016 through EP018 are complete. The owner approved EP018a before EP019; owner review follows each completed step.
 
 This note records the design for splitting `carlos` into a daemon and several
 clients, and the reasons. Update it when a decision changes. Keep raw logs out.
@@ -10,7 +10,7 @@ clients, and the reasons. Update it when a decision changes. Keep raw logs out.
 One daemon per host (`carlosd`) runs codex, claude and grok sessions. The
 terminal UI, an iPhone app, an Android app, a web app and later a desktop app
 connect to it. The phone screen is specified in `tmp/main-screen.md`; section 11
-of that file lists what a client needs from the daemon.
+of that file lists the original phone requirements. EP018a supersedes its running-tool restriction: clients can expand a tool while it runs.
 
 Phones and browsers reach the daemon through WireGuard, so the design treats
 every client as if it were on the local network.
@@ -39,13 +39,11 @@ baseline; a regression blocks a commit.
 
 ## Crates
 
-| Crate | Content | Rule |
-|---|---|---|
-| `carlos-proto` | Wire types (serde). Emits a JSON Schema for Swift, Kotlin and TypeScript clients. | No I/O. |
-| `carlos-core` | Backends, session logic, tool labels, Ralph mode. | No terminal crate. The compiler enforces the boundary. |
-| `carlosd` | Session manager, Unix socket listener, WebSocket listener. | No terminal crate. |
-| `carlos-client` | Client core shared by every client: wire codec, connection steps, local copy of each session, derived display facts. | No socket, no thread, no async runtime, no terminal crate. |
-| `carlos` | Terminal UI. A client of the daemon; the first user of `carlos-client`. | Holds view state only. |
+- `carlos-proto`: serde wire types with no I/O. Generate schemas when an actual consumer needs them.
+- `carlos-core`: backends, session facts, tool labels and Ralph. Cargo forbids terminal dependencies; the compiler protects private facts.
+- `carlosd` (EP019): session manager and Unix listener; WebSocket access follows in EP020. No terminal dependency.
+- `carlos-client` (EP019): pure wire codec, connection steps and local session facts shared by clients. No sockets, threads, async runtime or terminal dependency.
+- `carlos`: terminal client with local view state after EP019 parity checks. It currently uses the core in process.
 
 ## Session core
 
@@ -102,13 +100,11 @@ copy, tested once against the daemon, where four copies would drift apart.
 Decision: WebSocket carrying JSON-RPC 2.0 for network clients; the same
 messages over a Unix socket for the TUI.
 
-| Option | Why not, or why |
-|---|---|
-| WebSocket + JSON-RPC 2.0 | Chosen. One ordered two-way stream. Browsers, iOS and Android support it without extra libraries. Carlos already depends on `tungstenite` and already speaks JSON-RPC to Codex. |
-| HTTP POST + server-sent events | Works, but commands and events travel on separate connections, so a client must reconcile their order. |
-| Plain TCP, custom framing | A browser cannot open a TCP socket; the web app would need a WebSocket bridge anyway. |
-| gRPC | Browsers need a proxy and cannot stream in both directions. |
-| QUIC / WebTransport | Keeps a connection across network changes; WireGuard already does that. |
+- WebSocket plus JSON-RPC 2.0 is chosen: one ordered two-way stream supported by browsers and phones. Carlos already uses tungstenite and JSON-RPC for native Codex.
+- HTTP POST plus server-sent events separates commands and facts across connections, requiring more ordering checks.
+- A custom TCP stream cannot serve a browser without a bridge.
+- gRPC needs a browser proxy and cannot stream both directions there.
+- QUIC/WebTransport preserves connections across network changes; WireGuard already handles that need here.
 
 Listener: one thread per connection with `tungstenite`. No `tokio`, no `axum`.
 Reason: the daemon serves fewer than ten clients, and a second concurrency
@@ -145,19 +141,17 @@ card ordering rather than ambiguous nullable patches.
 
 Requests, client to daemon:
 
-| Method | Params | Result |
-|---|---|---|
-| `hello` | `protocol`, `client`, `token` | `protocol`, `host`, `daemon_version` |
-| `sessions/watch` | none | `sessions: [SessionInfo]`; then `sessions/changed` notifications |
-| `session/create` | `backend`, `cwd`, `name?` | `SessionInfo` |
-| `session/subscribe` | `session`, `since?` | replayed events, or `Snapshot` |
-| `session/unsubscribe` | `session` | none |
-| `session/history` | `session`, `before` (entry id), `limit` | `entries`, `has_older` |
-| `session/send` | `session`, `text`, `client_message_id` | `entry` id |
-| `session/interrupt` | `session` | none |
-| `session/approve` | `session`, `approval`, `decision` (`once`, `session`, `deny`) | none |
-| `session/setRalph` | `session`, `on` | none |
-| `entry/output` | `session`, `entry` | `lines: [{kind, text}]` |
+- `hello`: `protocol`, `client`, `token` → `protocol`, `host`, `daemon_version`
+- `sessions/watch`: none → `sessions: [SessionInfo]`; then `sessions/changed` notifications
+- `session/create`: `backend`, `cwd`, `name?` → `SessionInfo`
+- `session/subscribe`: `session`, `since?` → replayed events, or `Snapshot`
+- `session/unsubscribe`: `session` → none
+- `session/history`: `session`, `before` (entry id), `limit` → `entries`, `has_older`
+- `session/send`: `session`, `text`, `client_message_id` → `entry` id
+- `session/interrupt`: `session` → none
+- `session/approve`: `session`, `approval`, `decision` (`once`, `session`, `deny`) → none
+- `session/setRalph`: `session`, `on` → none
+- `entry/output`: `session`, `entry` → `lines: [{kind, text}]`
 
 Notifications, daemon to client:
 
@@ -182,15 +176,14 @@ Types:
 
 ## Order of work
 
-| Step | ExecPlan | Content |
-|---|---|---|
-| 1 | 016 | Stable entry ids. Split `AppState` into session facts and view state. Move Claude translation into the Claude backend. No behaviour change. |
-| 2 | 017 | Cargo workspace; `carlos-core` compiles without terminal crates. |
-| 3 | 018 | The core emits sequenced events; the TUI consumes them in-process. Introduce provisional protocol version 1. Delete the old path in a separate commit. |
-| 4 | 019 | Session manager, `carlosd`, Unix socket; `carlos-client`; the TUI becomes a client through it; turns survive a TUI quit. |
-| 5 | 020 | WebSocket listener, tokens, JSON Schema output, `perf-session` replay through the socket. |
-| 6 | 021 | Paged history, Grok approvals, tool summaries as data. |
-| 7 | 022 | UniFFI bindings and iOS packaging of `carlos-client`; iPhone app. It compiles on the remote Mac; see `docs/ios-build.md`. |
+1. EP016: stable entry ids, separate SessionState/ViewState, and Claude translation in its backend. Complete.
+2. EP017: Cargo workspace and a terminal-free carlos-core. Complete.
+3. EP018: numbered core events consumed in process, provisional protocol types and separate removal of the old redraw-report path. Complete.
+4. EP018a: bounded running output, client-owned drafts, prepared backend waits, terminal workflow inventory and reduced guards. The owner approved this cleanup before sockets.
+5. EP019: prove a headless daemon and concurrent reads with real backend handles; add typed native-control families and carlos-client; switch the terminal after parity, then delete its embedded path separately. Sessions survive a terminal quit.
+6. EP020: WebSocket listener, device tokens and perf-session replay through the socket. Add schema output only when a real client needs it.
+7. EP021: paged native history, Grok approvals and richer tool summaries as data.
+8. EP022: UniFFI bindings, iOS packaging and the iPhone app. Compile on the remote Mac; see `docs/ios-build.md`.
 
 Only the next ExecPlan is written in full. Each later plan is written when the
 plan before it ends, because its details depend on what that plan finds.

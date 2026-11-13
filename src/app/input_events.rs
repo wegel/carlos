@@ -12,7 +12,6 @@ use std::time::Instant;
 use carlos_core::backend::BackendClient;
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 
-
 use self::input_events_keys::handle_key_event;
 use super::mouse_events::{handle_mouse_event, handle_paste_event};
 use super::state::AppState;
