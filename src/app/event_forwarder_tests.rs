@@ -3,11 +3,6 @@
 use std::sync::mpsc::Receiver;
 use std::thread;
 
-use serde_json::json;
-
-use super::event_forwarder_support::{apply, completions, forward, mark, peer, ready, through};
-
-use crate::event::UiEvent;
 use carlos_core::backend::{BackendClient, EventReceiver};
 use carlos_core::claude_backend::forwarder_test_support::MAX_EVENT_BYTES;
 use carlos_core::claude_backend::forwarder_test_support::{
@@ -15,6 +10,10 @@ use carlos_core::claude_backend::forwarder_test_support::{
 };
 use carlos_core::claude_backend::forwarder_test_support::{ForwarderHarness, DEADLINE};
 use carlos_core::claude_backend::ClaudeClient;
+use serde_json::json;
+
+use super::event_forwarder_support::{apply, completions, forward, mark, peer, ready, through};
+use crate::event::UiEvent;
 
 #[test]
 fn forwarded_result_idle_reset_reply_preserves_completion() {

@@ -4,16 +4,16 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use anyhow::{bail, Result};
+use carlos_core::backend::{
+    BackendClient, BackendKind, EventReceiver, RewindForkRequest, RewindUserMessage,
+};
+use carlos_core::session::models::MessageKind;
 use serde_json::{json, Value};
 
 use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::notifications::handle_notification_line;
 use crate::app::state::AppState;
 use crate::app::turn_submit::submit_rewind_turn_text;
-use carlos_core::backend::{
-    BackendClient, BackendKind, EventReceiver, RewindForkRequest, RewindUserMessage,
-};
-use carlos_core::session::models::MessageKind;
 
 struct Peer {
     kind: BackendKind,

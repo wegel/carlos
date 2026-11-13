@@ -1,14 +1,14 @@
 //! Send native queue controls without locally dispatching or echoing queued prompts.
 
+use carlos_core::backend::BackendClient;
+use carlos_core::session::codex::queue::{self, CodexScope, QueueUpdate};
+use carlos_core::session::codex::queue_state::editable_text;
 use ratatui_textarea::TextArea;
 use serde_json::{json, Value};
 use uuid::Uuid;
 
 use super::codex_queue_state::QueueEdit;
 use super::state::AppState;
-use carlos_core::backend::BackendClient;
-use carlos_core::session::codex::queue::{self, CodexScope, QueueUpdate};
-use carlos_core::session::codex::queue_state::editable_text;
 
 /// Keep uncertain queue writes and recoverable drafts in their original thread before a fork.
 #[cfg(test)]

@@ -1,11 +1,11 @@
 //! Bridge submitted Claude branch requests to local recovery and composer effects.
 
 #[cfg(test)]
+use carlos_core::backend::PromptOrigin;
+#[cfg(test)]
 use serde_json::Value;
 
 use super::state::AppState;
-#[cfg(test)]
-use carlos_core::backend::PromptOrigin;
 
 /// Keep the submitted edit until the fork and replacement startup are both ready.
 #[cfg(test)]

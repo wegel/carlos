@@ -1,18 +1,16 @@
 //! Native Codex callback IDs, drafts, focus and completion remain independent.
 
+use carlos_core::session::actions::ServerRequestAction;
+use carlos_core::session::approval_state::ApprovalChoice;
+use carlos_core::session::codex::callbacks::CallbackKey;
 use crossterm::event::Event;
 use serde_json::{json, Value};
 
 use super::codex_question_support::{app, field_text, question, receive, Peer};
-
 use crate::app::codex_callbacks::{edited, hide_nonblocking, next};
-
 use crate::app::codex_reply::respond;
 use crate::app::input_events::handle_terminal_event;
 use crate::app::TerminalSize;
-use carlos_core::session::actions::ServerRequestAction;
-use carlos_core::session::approval_state::ApprovalChoice;
-use carlos_core::session::codex::callbacks::CallbackKey;
 
 #[test]
 fn exact_typed_ids_and_native_question_keys_survive_concurrent_child_requests() {

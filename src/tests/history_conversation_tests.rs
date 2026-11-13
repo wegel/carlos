@@ -1,13 +1,13 @@
 //! Reject foreign history before it can replace the current conversation's rows or keys.
 
+use carlos_core::backend::BackendKind;
+use carlos_core::grok_backend::{translate_grok_notification_for_test, GrokTranslationState};
 use serde_json::{json, Value};
 
 use super::entry_identity_tests::app;
 use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::notifications::handle_server_message_line;
 use crate::app::state::AppState;
-use carlos_core::backend::BackendKind;
-use carlos_core::grok_backend::{translate_grok_notification_for_test, GrokTranslationState};
 
 fn foreign_history() -> String {
     json!({"result":{"thread":{"id":"other","name":"Foreign","turns":[

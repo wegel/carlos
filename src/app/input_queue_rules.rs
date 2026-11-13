@@ -3,13 +3,13 @@
 use std::collections::VecDeque;
 use std::time::Instant;
 
+use carlos_core::backend::BackendClient;
 use crossterm::event::{Event as CrosstermEvent, MouseEventKind};
 use serde_json::Value;
 
 use crate::app::turn_submit::submit_dequeued_turn_text;
 use crate::app::AppState;
 use crate::event::UiEvent;
-use carlos_core::backend::BackendClient;
 
 pub(in crate::app) fn can_submit_queued_turn(
     working: bool,

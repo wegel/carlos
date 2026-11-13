@@ -3,20 +3,18 @@
 #[path = "picker_render_time.rs"]
 mod picker_render_time;
 
+use carlos_core::session::models::ThreadSummary;
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
 use self::picker_render_time::format_picker_timestamp;
 use super::picker_delete_dialog::draw_picker_delete_dialog;
 use super::render::{draw_str, fill_rect};
-
 use super::text::{split_at_cells, visual_width};
-
 use super::TerminalSize;
 use crate::theme::{
     COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_STEP1, COLOR_STEP2, COLOR_STEP7, COLOR_TEXT,
 };
-use carlos_core::session::models::ThreadSummary;
 
 // --- Picker Types ---
 

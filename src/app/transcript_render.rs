@@ -1,19 +1,20 @@
 //! Shared transcript entry points and read-label coalescing helpers.
 
 #[cfg(test)]
-use super::layout_state::TranscriptTheme;
-#[cfg(test)]
-use super::transcript_block::{has_visible_content, BlockPlan};
-#[cfg(test)]
 use carlos_core::session::models::Message;
 #[cfg(test)]
 use carlos_core::session::models::Role;
 
 #[cfg(test)]
-pub(super) use super::transcript_styles::normalize_styled_segments_for_part;
-pub(super) use super::transcript_styles::RenderCountCache;
+use super::layout_state::TranscriptTheme;
+#[cfg(test)]
+use super::transcript_block::{has_visible_content, BlockPlan};
 #[cfg(test)]
 use super::view_models::{DisplayMessage, RenderedLine};
+
+#[cfg(test)]
+pub(super) use super::transcript_styles::normalize_styled_segments_for_part;
+pub(super) use super::transcript_styles::RenderCountCache;
 
 // --- Transcript Build ---
 

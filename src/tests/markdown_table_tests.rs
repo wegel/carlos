@@ -1,13 +1,13 @@
 //! Exercises table structure, cell wrapping, styles, and exact transcript height.
 
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
 use ratatui::style::Modifier;
 
 use super::{
     build_rendered_block_for_message, count_rendered_block_for_message, visual_width, RenderedLine,
 };
 use super::{selected_text, Selection};
-use carlos_core::session::models::MessageKind;
-use carlos_core::session::models::Role;
 
 fn render(text: &str, role: Role, width: usize) -> Vec<RenderedLine> {
     let message = crate::app::tests::test_message(carlos_core::session::models::EntryDraft {

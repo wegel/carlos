@@ -1,17 +1,16 @@
 //! Draw and navigate Codex agents/processes without editing composer or callback drafts.
 
+use carlos_core::backend::{BackendClient, BackendKind};
+use carlos_core::session::codex::panel_state::PanelId;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::buffer::Buffer;
 use ratatui::style::Style;
 
 use super::input_events::TerminalEventResult;
 use super::render::{draw_str, fill_rect};
-use carlos_core::session::codex::panel_state::PanelId;
-
 use super::state::AppState;
 use super::view_models::TerminalSize;
 use crate::theme::{COLOR_DIM, COLOR_PRIMARY, COLOR_STEP2, COLOR_TEXT};
-use carlos_core::backend::{BackendClient, BackendKind};
 
 /// Keep F2 independent of model/queue/question overlays; closing reveals their untouched drafts.
 pub(super) fn key(

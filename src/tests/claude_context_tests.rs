@@ -1,18 +1,16 @@
 //! Keep root context readable through native work, late reads and session boundaries.
 
-use crate::app::normalized_test_app as normalized_app;
-
 use std::time::{Duration, Instant};
 
+use carlos_core::backend::EventReceiver;
+use carlos_core::session::context_usage::ContextUsage;
+use carlos_core::session::runtime_settings::RuntimeSetting;
 use serde_json::{json, Value};
 
 use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
 use super::codex_question_support::Peer;
 use crate::app::claude_context::{invalidate, receive, refresh, tick, wait};
-use carlos_core::session::context_usage::ContextUsage;
-
-use carlos_core::backend::EventReceiver;
-use carlos_core::session::runtime_settings::RuntimeSetting;
+use crate::app::normalized_test_app as normalized_app;
 
 fn app() -> AppState {
     let mut app = AppState::new("root".into());

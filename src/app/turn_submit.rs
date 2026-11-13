@@ -1,9 +1,10 @@
 //! Pass accepted text and plain local choices to the session prompt commands.
 
-use super::state::AppState;
 use carlos_core::backend::{BackendClient, PromptOrigin};
 use carlos_core::session::entry_id::EntryId;
 use carlos_core::session::prompt_commands::{PromptContext, PromptOptions, TurnUpdate};
+
+use super::state::AppState;
 
 pub(super) use super::turn_approval::respond_to_pending_approval;
 pub(super) use super::turn_interrupt::interrupt_active_turn;

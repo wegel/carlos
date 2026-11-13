@@ -1,10 +1,10 @@
 //! Check that live and reopened tool results retain their contents and failure flags.
 
+use carlos_core::session::models::Role;
 use serde_json::{json, Value};
 
 use super::{append_history_from_thread, handle_notification_line, AppState};
 use crate::app::tool_output_state::ToolOutputMode;
-use carlos_core::session::models::Role;
 
 fn command_item() -> Value {
     json!({"id":"read", "type":"commandExecution", "command":"cat main.rs",

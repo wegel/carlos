@@ -1,9 +1,9 @@
 //! Native Codex waits and child-agent records remain visible during live use and replay.
 
+use carlos_core::session::models::Role;
 use serde_json::{json, Value};
 
 use super::{handle_notification_line, load_history_from_start_or_resume, AppState};
-use carlos_core::session::models::Role;
 
 fn item(app: &mut AppState, method: &str, value: &Value) {
     handle_notification_line(

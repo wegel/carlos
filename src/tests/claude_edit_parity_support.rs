@@ -3,12 +3,12 @@
 use std::cell::{Cell, RefCell};
 use std::time::Duration;
 
-use serde_json::{json, Value};
-
-use super::state::AppState;
 use carlos_core::backend::{
     BackendClient, BackendKind, EventReceiver, PromptOrigin, PromptPriority,
 };
+use serde_json::{json, Value};
+
+use super::state::AppState;
 
 #[derive(Default)]
 pub(super) struct Peer {

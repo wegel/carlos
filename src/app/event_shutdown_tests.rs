@@ -4,13 +4,13 @@ use std::process::Command;
 use std::sync::mpsc;
 use std::thread;
 
+use carlos_core::claude_backend::forwarder_test_support::command_client;
+use carlos_core::claude_backend::forwarder_test_support::MAX_EVENT_BYTES;
+use carlos_core::claude_backend::forwarder_test_support::{ForwarderHarness, DEADLINE};
 use serde_json::{json, Value};
 
 use super::event_forwarder_support::forward;
 use crate::event::UiEvent;
-use carlos_core::claude_backend::forwarder_test_support::command_client;
-use carlos_core::claude_backend::forwarder_test_support::MAX_EVENT_BYTES;
-use carlos_core::claude_backend::forwarder_test_support::{ForwarderHarness, DEADLINE};
 
 #[test]
 fn pending_call_is_rejected_before_terminal_notices_or_bytes_are_acknowledged() {

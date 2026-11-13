@@ -4,14 +4,13 @@
 use std::time::Duration;
 use std::time::Instant;
 
+use carlos_core::backend::BackendClient;
+use carlos_core::session::codex::goal_state::GoalKnowledge;
 use carlos_core::session::codex::goals::{self, GoalUpdate};
-
 use serde_json::{json, Value};
 
 use super::codex_goal_state::{GoalConfirm, GoalDraft};
 use super::state::AppState;
-use carlos_core::backend::BackendClient;
-use carlos_core::session::codex::goal_state::GoalKnowledge;
 
 /// Poll facts only; startup and ordinary chat never create, resume, pause or clear goals.
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant) -> bool {

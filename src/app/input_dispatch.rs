@@ -2,14 +2,13 @@
 
 use std::time::Instant;
 
-use crate::app::input_events::{handle_terminal_event, TerminalEventResult};
-
-use crate::app::notifications::handle_server_message_line;
-use crate::app::{AppState, TerminalSize};
-
-use crate::event::UiEvent;
 use carlos_core::backend::BackendClient;
 use carlos_core::session::actions::ServerRequestAction;
+
+use crate::app::input_events::{handle_terminal_event, TerminalEventResult};
+use crate::app::notifications::handle_server_message_line;
+use crate::app::{AppState, TerminalSize};
+use crate::event::UiEvent;
 
 /// Handle a single UI event. Returns `true` when the caller should quit.
 pub(in crate::app) fn process_event(

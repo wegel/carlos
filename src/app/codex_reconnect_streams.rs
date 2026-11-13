@@ -4,9 +4,10 @@
 use std::time::Duration;
 use std::time::Instant;
 
-use super::state::AppState;
 use carlos_core::backend::BackendClient;
 use carlos_core::session::codex::reconnect_streams;
+
+use super::state::AppState;
 
 /// Read at most one partial native item at the existing timer point.
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant) -> bool {

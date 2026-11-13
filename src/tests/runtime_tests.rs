@@ -1,5 +1,10 @@
 //! Runtime subsystem test tree: CLI settings, ralph mode, picker, local history.
 
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
+use carlos_core::session::models::ThreadSummary;
+use carlos_core::session::runtime_settings::RuntimeDefaults;
+
 use super::{
     claude_runtime_defaults, codex_runtime_defaults, complete_codex_model_catalog,
     detect_osc52_wrap, is_ssh_session, json, load_runtime_defaults_from, osc52_sequences_for_env,
@@ -9,10 +14,6 @@ use super::{
     sort_threads_for_picker, styled_resume_hint, AppState, Backend, ModelInfo, Osc52Wrap,
     ThreadRuntimeSettings,
 };
-use carlos_core::session::models::MessageKind;
-use carlos_core::session::models::Role;
-use carlos_core::session::models::ThreadSummary;
-use carlos_core::session::runtime_settings::RuntimeDefaults;
 
 include!("runtime_tests/backend_runtime_settings.rs");
 

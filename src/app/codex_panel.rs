@@ -3,13 +3,14 @@
 #[cfg(test)]
 use std::time::{Duration, Instant};
 
-use super::codex_panel_state::PanelView;
-use super::state::AppState;
 use carlos_core::backend::BackendClient;
 use carlos_core::session::codex::connection_state::ConnectionState;
 use carlos_core::session::codex::panel;
 use carlos_core::session::codex::panel_scope::{PanelScope, PanelUpdate};
 use carlos_core::session::codex::scope::CodexScope;
+
+use super::codex_panel_state::PanelView;
+use super::state::AppState;
 
 /// Borrow only the explicit local target while copying the native connection identity.
 pub(super) fn scope<'a>(

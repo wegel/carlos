@@ -1,13 +1,12 @@
 //! Validate settings before changing runtime state and preserve rejected editor choices.
 
+use carlos_core::protocol_params::parse_thread_runtime_settings;
+use carlos_core::session::runtime_settings::RuntimeDefaults;
+use carlos_core::session::runtime_settings::RuntimeSetting;
 use serde_json::{json, Value};
 
 use super::persist_runtime_defaults;
 use super::state::AppState;
-use carlos_core::session::runtime_settings::RuntimeDefaults;
-
-use carlos_core::protocol_params::parse_thread_runtime_settings;
-use carlos_core::session::runtime_settings::RuntimeSetting;
 
 const THREAD_SUMMARY: &str = "Use thread setting";
 

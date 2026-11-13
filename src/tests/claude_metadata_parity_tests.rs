@@ -1,14 +1,13 @@
 //! Enumerate native model choices and local editor saves against the previous app rules.
 
+use carlos_core::session::claude::ClaudePhase;
+use carlos_core::session::runtime_settings::RuntimeDefaults;
 use serde_json::{json, Value};
 
 use crate::app::claude_models::{
     apply_capabilities, observe_model, prepare_saved_choices, prompt_choices,
 };
-
 use crate::app::state::AppState;
-use carlos_core::session::claude::ClaudePhase;
-use carlos_core::session::runtime_settings::RuntimeDefaults;
 
 fn app(model: Option<&str>, effort: Option<&str>) -> AppState {
     let mut app = AppState::new("root".into());

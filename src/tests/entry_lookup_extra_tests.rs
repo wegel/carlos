@@ -1,5 +1,9 @@
 //! Exercise unscoped keys and named differences against the literal HEAD row algorithms.
 
+use carlos_core::backend::BackendKind;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
+use carlos_core::session::models::ToolOutputDetails;
 use serde_json::json;
 
 use super::entry_identity_tests::app;
@@ -7,10 +11,6 @@ use super::head_entry_reference::native::NativeUserHistory;
 use super::head_entry_reference::HeadReference;
 use crate::app::item_history::replace_history_from_thread;
 use crate::app::state::AppState;
-use carlos_core::backend::BackendKind;
-use carlos_core::session::models::MessageKind;
-use carlos_core::session::models::Role;
-use carlos_core::session::models::ToolOutputDetails;
 
 fn check(app: &AppState, old: &HeadReference) {
     app.assert_entry_invariants();

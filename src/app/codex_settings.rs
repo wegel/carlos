@@ -1,10 +1,10 @@
 //! Apply local settings editor and persistence effects returned by the session.
 
+use carlos_core::backend::BackendClient;
+use carlos_core::session::codex::settings::{self, SettingsEffect, SettingsUpdate};
 use serde_json::Value;
 
 use super::state::AppState;
-use carlos_core::backend::BackendClient;
-use carlos_core::session::codex::settings::{self, SettingsEffect, SettingsUpdate};
 
 /// Submit the explicit runtime choices used by the settings fixtures.
 #[cfg(test)]

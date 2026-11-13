@@ -1,7 +1,8 @@
 //! AppState impl: runtime/model settings delegation.
 
-use super::state::AppState;
 use carlos_core::session::runtime_settings::RuntimeDefaults;
+
+use super::state::AppState;
 
 impl AppState {
     // --- Runtime settings ---

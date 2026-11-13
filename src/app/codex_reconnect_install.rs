@@ -1,7 +1,8 @@
 //! Restore only local editors and transcript caches after native snapshot adoption.
 
-use super::state::AppState;
 use carlos_core::session::codex::frame_install::NativeInstalled;
+
+use super::state::AppState;
 
 impl AppState {
     /// Restore the exact unsent choices captured before the session adopted its new catalog.

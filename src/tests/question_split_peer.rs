@@ -4,10 +4,10 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use anyhow::Result;
+use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
 use serde_json::{json, Value};
 
 use super::super::codex_question_support::Peer;
-use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
 
 /// Record answers while tests decide when a form-check reply arrives.
 #[derive(Default)]

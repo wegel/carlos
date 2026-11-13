@@ -1,9 +1,10 @@
 //! Keep prompt labels, quiet defaults and explicit mode feedback separate from native input text.
 
-use crate::app::normalized_test_app as normalized_app;
-
 use std::time::{Duration, Instant};
 
+use carlos_core::session::context_usage::ContextUsage;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -14,11 +15,9 @@ use super::codex_question_support::Peer;
 use crate::app::claude_notifications::record_submitted_prompt;
 use crate::app::input_events::handle_terminal_event;
 use crate::app::input_mode;
+use crate::app::normalized_test_app as normalized_app;
 use crate::app::render_status::draw_status_bar;
 use crate::app::view_models::TerminalSize;
-use carlos_core::session::context_usage::ContextUsage;
-use carlos_core::session::models::MessageKind;
-use carlos_core::session::models::Role;
 
 fn status(app: &AppState, width: usize) -> String {
     let mut buffer = Buffer::empty(Rect::new(0, 0, width as u16, 3));

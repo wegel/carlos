@@ -1,9 +1,10 @@
 //! Apply session reports to local controls without interpreting backend JSON.
 
-use super::state::AppState;
 use carlos_core::session::actions::ServerRequestAction;
 use carlos_core::session::backend_update::{BackendChange, BackendContext, BackendUpdate};
 use carlos_core::session::claude::receive_update::ClaudeDraftContext;
+
+use super::state::AppState;
 
 /// Borrow local targets independently from the mutable session owner.
 pub(super) fn context<'a>(

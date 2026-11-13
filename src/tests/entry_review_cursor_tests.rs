@@ -1,10 +1,10 @@
 //! Regression cases from the Milestone 2 review, exercised through backend decoders.
 
+use carlos_core::session::models::Role;
 use serde_json::json;
 
 use crate::app::notifications::handle_server_message_line;
 use crate::app::state::AppState;
-use carlos_core::session::models::Role;
 
 #[test]
 fn review_cursor_aliases_stay_bounded_for_one_native_entry() {

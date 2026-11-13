@@ -3,16 +3,15 @@
 use std::io;
 
 use anyhow::Result;
+use carlos_core::session::models::ThreadSummary;
 use crossterm::event::{KeyCode, MouseButton, MouseEventKind};
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 
 use super::{PickerAction, PickerState};
-
 use crate::app::notifications::is_ctrl_char;
 use crate::app::picker_render::compute_picker_layout;
 use crate::app::TerminalSize;
-use carlos_core::session::models::ThreadSummary;
 
 pub(super) fn handle_picker_key<F>(
     st: &mut PickerState,

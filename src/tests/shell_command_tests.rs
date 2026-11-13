@@ -1,7 +1,6 @@
 //! Check RTK and shell wrappers without executing commands from the transcript.
 
 use carlos_core::session::shell_command::{analyze_shell_command, display_shell_command};
-
 use carlos_core::session::shell_read::single_source_path;
 use carlos_core::session::tool_shell::command_summary_from_shell_cmd;
 

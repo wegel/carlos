@@ -1,8 +1,8 @@
 //! AppState impl: transcript/message manipulation, rendered lines, and selection.
 
-use super::selection::{RenderedLineSource, Selection};
 use carlos_core::session::models::Role;
 
+use super::selection::{RenderedLineSource, Selection};
 use super::state::AppState;
 use super::view_models::RenderedLine;
 

@@ -2,12 +2,12 @@
 
 use std::ops::{Deref, DerefMut};
 
+use carlos_core::claude_backend::FixtureNormalizer;
+use carlos_core::session::actions::ServerRequestAction;
 use serde_json::Value;
 
 use crate::app::notifications::handle_server_message_line as apply_line;
 use crate::app::state::AppState;
-use carlos_core::claude_backend::FixtureNormalizer;
-use carlos_core::session::actions::ServerRequestAction;
 
 pub(super) struct NormalizedApp {
     app: AppState,

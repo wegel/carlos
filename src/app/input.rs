@@ -16,31 +16,30 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, TryRecvError};
 use std::time::Instant;
 
 use anyhow::Result;
+use carlos_core::backend::{BackendClient, EventReceiver};
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
+
+use self::input_dispatch::process_event;
+use self::input_forwarders::wire_event_forwarders;
+use self::input_queue_rules::try_submit_queued_turn;
+use super::input_events::ensure_transcript_layout;
+use super::notifications::{animation_poll_timeout, animation_tick};
+use super::render::render_main_view;
+use super::terminal_ui::with_terminal;
+use super::{AppState, TerminalSize};
+use crate::event::UiEvent;
 
 #[path = "input_forwarders.rs"]
 mod input_forwarders;
 
-use self::input_dispatch::process_event;
-use self::input_forwarders::wire_event_forwarders;
 #[cfg(test)]
 pub(super) use self::input_queue_rules::can_submit_queued_turn;
 #[cfg(test)]
 pub(super) use self::input_queue_rules::is_priority_server_line;
 pub(super) use self::input_queue_rules::prioritize_events;
-use self::input_queue_rules::try_submit_queued_turn;
-use super::input_events::ensure_transcript_layout;
 #[cfg(test)]
 pub(super) use super::input_events::is_mobile_mouse_key_candidate;
-use super::notifications::{animation_poll_timeout, animation_tick};
-
-use super::render::render_main_view;
-use super::terminal_ui::with_terminal;
-use super::{AppState, TerminalSize};
-
-use crate::event::UiEvent;
-use carlos_core::backend::{BackendClient, EventReceiver};
 
 const MAX_UI_DRAIN_PER_CYCLE: usize = 4096;
 const SERVER_BUDGET_WITH_INPUT: usize = 8;

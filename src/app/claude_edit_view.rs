@@ -2,8 +2,9 @@
 
 use std::collections::VecDeque;
 
-use super::state::AppState;
 use carlos_core::session::claude::EditProgress;
+
+use super::state::AppState;
 
 /// Own only unsent recovery text and the client's failure badge.
 #[derive(Default)]

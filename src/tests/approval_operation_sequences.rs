@@ -5,11 +5,6 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use std::time::Duration;
 
-use serde_json::{json, Value};
-use uuid::Uuid;
-
-use super::state::AppState;
-use super::turn_approval::respond_to_pending_approval;
 use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
 use carlos_core::session::approval_state::ApprovalChoice;
 use carlos_core::session::approval_state::ApprovalQueue;
@@ -17,6 +12,11 @@ use carlos_core::session::approval_state::ApprovalRequestDraft;
 use carlos_core::session::approval_state::ApprovalRequestKind;
 use carlos_core::session::entry_id::EntryId;
 use carlos_core::session::history_identity::HistoryMode;
+use serde_json::{json, Value};
+use uuid::Uuid;
+
+use super::state::AppState;
+use super::turn_approval::respond_to_pending_approval;
 
 const SEEDS: [u64; 4] = [1, 0xcafe, 0xdeadbeef, 0x9e3779b97f4a7c15];
 const OPERATIONS: u64 = 28;

@@ -1,10 +1,10 @@
 //! Bridge Claude metadata to local settings and edited-prompt widgets.
 
+use carlos_core::session::runtime_settings::RuntimeDefaults;
 #[cfg(test)]
 use serde_json::Value;
 
 use super::state::AppState;
-use carlos_core::session::runtime_settings::RuntimeDefaults;
 
 /// Validate native metadata before touching the saved edited-prompt queue.
 #[cfg(test)]

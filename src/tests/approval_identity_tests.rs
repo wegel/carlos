@@ -3,19 +3,16 @@
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 
-use serde_json::{json, Value};
-
-use crate::app::approval_lifetime_support::{app, callback, server, Client};
-
-use crate::app::claude_callbacks::{cancel_callback, receive_callback};
-
-use crate::app::codex_callbacks::{next, receive, retire};
-
-use crate::app::state::AppState;
 use carlos_core::backend::BackendKind;
 use carlos_core::session::approval_state::ApprovalChoice;
 use carlos_core::session::approval_state::ApprovalQueue;
 use carlos_core::session::entry_id::EntryId;
+use serde_json::{json, Value};
+
+use crate::app::approval_lifetime_support::{app, callback, server, Client};
+use crate::app::claude_callbacks::{cancel_callback, receive_callback};
+use crate::app::codex_callbacks::{next, receive, retire};
+use crate::app::state::AppState;
 
 fn active(app: &AppState) -> EntryId {
     app.session

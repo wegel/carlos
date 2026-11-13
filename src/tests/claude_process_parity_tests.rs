@@ -2,15 +2,15 @@
 
 use std::time::Instant;
 
+use carlos_core::session::claude::{NativeState, StopState};
 use serde_json::{json, Value};
+use support::Peer;
 
 use super::claude_context;
 use super::claude_notifications::fail_session;
 use super::notifications::handle_server_message_line;
 use super::state::AppState;
 use crate::app::claude_process_test_support as support;
-use carlos_core::session::claude::{NativeState, StopState};
-use support::Peer;
 
 fn app() -> AppState {
     let mut app = AppState::new("root".into());

@@ -1,10 +1,11 @@
 //! Keep complete AI descriptions and accurate row counts in both transcript layouts.
 
+use carlos_core::session::models::Role;
+use carlos_core::session::models::ToolOutputDetails;
+
 use crate::app::layout_state::TranscriptTheme;
 use crate::app::tool_output_state::ToolOutputMode;
 use crate::app::AppState;
-use carlos_core::session::models::Role;
-use carlos_core::session::models::ToolOutputDetails;
 
 const LABEL: &str = "Read café records and 測試 language preferences, then write the combined results into the session archive";
 

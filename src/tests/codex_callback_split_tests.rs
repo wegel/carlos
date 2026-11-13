@@ -1,16 +1,14 @@
 //! Enumerate native identity bounds, replay windows and form-worker ordering.
 
+use carlos_core::session::actions::ServerRequestAction;
+use carlos_core::session::approval_state::ApprovalChoice;
 use serde_json::{json, Value};
 
 use super::super::codex_question_support::{app, question, receive};
-
 use super::split_peer::ValidationPeer;
 use crate::app::codex_callbacks::{checked, reply_hint, retire};
-
 use crate::app::codex_reply::respond;
 use crate::app::native_questions::draft;
-use carlos_core::session::actions::ServerRequestAction;
-use carlos_core::session::approval_state::ApprovalChoice;
 
 #[test]
 fn callback_ids_keep_json_types_and_both_original_byte_bounds() {

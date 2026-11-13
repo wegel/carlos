@@ -2,13 +2,13 @@
 
 use std::fs;
 
-use super::{AppState, TerminalSize};
-use crate::app::state::ModelSettingsField;
-use crate::app::tool_output_preferences::{load_mode_from, save_mode_to};
 use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
 use carlos_core::session::models::ToolOutputDetails;
 
+use super::{AppState, TerminalSize};
+use crate::app::state::ModelSettingsField;
+use crate::app::tool_output_preferences::{load_mode_from, save_mode_to};
 use crate::app::tool_output_state::{ToolOutputMode, ToolOutputState};
 
 fn size(width: usize, height: usize) -> TerminalSize {

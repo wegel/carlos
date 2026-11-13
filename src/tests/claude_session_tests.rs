@@ -1,12 +1,11 @@
 //! Verify native session identity, history sources, and recoverable startup failures through shared routing.
 
-use crate::app::normalized_test_app as normalized_app;
-
+use carlos_core::session::claude::ClaudePhase;
+use carlos_core::session::runtime_settings::RuntimeSetting;
 use serde_json::{json, Value};
 
 use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
-use carlos_core::session::claude::ClaudePhase;
-use carlos_core::session::runtime_settings::RuntimeSetting;
+use crate::app::normalized_test_app as normalized_app;
 
 fn send(app: &mut AppState, method: &str, generation: u64, mut params: Value) {
     params["generation"] = json!(generation);

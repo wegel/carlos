@@ -1,5 +1,9 @@
 //! Keep 3c row counts, clipping, and context warnings correct at terminal edges.
 
+use carlos_core::session::models::Message;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
+use carlos_core::session::models::ToolOutputDetails;
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
@@ -12,14 +16,8 @@ use crate::app::transcript_render::{
     build_rendered_block_for_message, count_rendered_block_for_message,
     count_rendered_block_for_message_cached,
 };
-use carlos_core::session::models::Message;
-use carlos_core::session::models::MessageKind;
-use carlos_core::session::models::Role;
-use carlos_core::session::models::ToolOutputDetails;
-
 use crate::app::transcript_styles::RenderCountCache;
 use crate::app::view_models::{DisplayKind, DisplayMessage};
-
 use crate::theme::{context_color, COLOR_DIFF_REMOVE, COLOR_GUTTER_USER, COLOR_TOOL_EDIT};
 
 fn failed_read() -> Message {

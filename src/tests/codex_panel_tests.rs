@@ -1,13 +1,11 @@
 //! Keep descendant/process controls exact and child details separate from the root transcript.
 
+use carlos_core::session::codex::panel_state::PanelId;
 use serde_json::{json, Value};
 
 use super::codex_question_support::{app, receive, Peer};
-
 use crate::app::codex_panel::{details, refresh, stop, tick};
-
 use crate::app::item_history::load_history_from_start_or_resume;
-use carlos_core::session::codex::panel_state::PanelId;
 
 fn agent(id: &str, parent: &str) -> Value {
     json!({"id":id,"parentThreadId":parent,"agentNickname":id,"agentRole":"worker",

@@ -1,10 +1,11 @@
 //! Answers native and app-server approvals without creating synthetic user prompts.
 
-use super::claude_question_view::default_no_hint;
-use super::state::AppState;
 use carlos_core::backend::BackendClient;
 use carlos_core::session::approval_state::ApprovalChoice;
 use carlos_core::session::approval_state::ApprovalRequestKind;
+
+use super::claude_question_view::default_no_hint;
+use super::state::AppState;
 
 /// Return the selected answer through the backend native callback.
 pub(super) fn respond_to_pending_approval(

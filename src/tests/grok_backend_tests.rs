@@ -5,12 +5,6 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::{bail, Result};
-use serde_json::{json, Value};
-
-use super::{
-    parse_cli_args, submit_dequeued_turn_text, submit_turn_text, submit_turn_text_with_history,
-    AppState, Backend,
-};
 use carlos_core::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
 use carlos_core::grok_backend::{
     build_grok_command_for_test, finish_grok_prompt_turn_for_test, grok_model_catalog,
@@ -19,6 +13,12 @@ use carlos_core::grok_backend::{
     GrokRewindPoint, GrokRuntimeSettings, GrokTranslationState,
 };
 use carlos_core::session::models::Role;
+use serde_json::{json, Value};
+
+use super::{
+    parse_cli_args, submit_dequeued_turn_text, submit_turn_text, submit_turn_text_with_history,
+    AppState, Backend,
+};
 
 fn collect_lines(state: &mut GrokTranslationState, events: &[(&str, Value)]) -> Vec<String> {
     let mut out = Vec::new();

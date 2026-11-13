@@ -1,13 +1,14 @@
 //! Keep phone headings out of copied text and preserve anchors when layouts change.
 
-use super::{AppState, TerminalSize};
-use crate::app::layout_state::TranscriptTheme;
-use crate::app::selection::Selection;
-use crate::app::tool_output_state::ToolOutputMode;
 use carlos_core::session::models::Message;
 use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
 use carlos_core::session::models::ToolOutputDetails;
+
+use super::{AppState, TerminalSize};
+use crate::app::layout_state::TranscriptTheme;
+use crate::app::selection::Selection;
+use crate::app::tool_output_state::ToolOutputMode;
 
 fn transcript() -> AppState {
     let mut app = AppState::new("thread".into());

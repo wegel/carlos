@@ -1,11 +1,11 @@
 //! Regression tests for terminal turns, repeated starts, and Claude interrupts.
 
-use serde_json::json;
-
-use super::{handle_notification_line, AppState};
 use carlos_core::claude_backend::claude_interrupted_turn_notification;
 use carlos_core::session::models::Role;
 use carlos_core::session::models::TurnStatus;
+use serde_json::json;
+
+use super::{handle_notification_line, AppState};
 
 #[test]
 fn replayed_start_cannot_reopen_a_terminal_turn() {

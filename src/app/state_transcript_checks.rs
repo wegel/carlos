@@ -1,11 +1,12 @@
 //! Compare incremental session reports with a fresh layout across themes and hidden rows.
 
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
+
 use crate::app::layout_state::TranscriptTheme;
 use crate::app::render_cache_state::RenderCacheState;
 use crate::app::state::AppState;
 use crate::app::view_models::RenderedLine;
-use carlos_core::session::models::MessageKind;
-use carlos_core::session::models::Role;
 
 #[test]
 fn grouped_shell_updates_dirty_the_preceding_label_and_keep_following_spacing() {

@@ -1,10 +1,10 @@
 //! Model-settings overlay state: field cycling, value edits, and apply/persist logic.
 
-use super::{default_effort_vec, effort_index, ModelSettingsField, RuntimeSettingsView};
-
 use carlos_core::session::runtime_settings::{
     normalize_non_empty, RuntimeDefaults, RuntimeSettingsState,
 };
+
+use super::{default_effort_vec, effort_index, ModelSettingsField, RuntimeSettingsView};
 
 impl RuntimeSettingsView {
     /// List the visible settings in the same order for drawing and keyboard focus.

@@ -2,13 +2,13 @@
 
 #[cfg(test)]
 use anyhow::Result;
+#[cfg(test)]
+use carlos_core::session::approval_state::ApprovalRequestDraft;
+use carlos_core::session::text::safe_label;
 use serde_json::{json, Map, Value};
 
 use super::claude_question_field::AnswerField;
 use super::claude_question_state::NativeDraft;
-#[cfg(test)]
-use carlos_core::session::approval_state::ApprovalRequestDraft;
-use carlos_core::session::text::safe_label;
 
 /// Build the local editor from the session's plain request description.
 #[cfg(test)]

@@ -1,14 +1,14 @@
 //! Apply local editor and focus changes reported by the Codex callback owner.
 
-use serde_json::Value;
-
-use super::state::AppState;
 #[cfg(test)]
 use carlos_core::session::actions::ServerRequestAction;
 use carlos_core::session::approval_state::ApprovalQueue;
 use carlos_core::session::codex::callback_commands::CallbackRetired;
 use carlos_core::session::codex::callbacks::CallbackKey;
 use carlos_core::session::text::safe_text;
+use serde_json::Value;
+
+use super::state::AppState;
 
 #[path = "codex_callback_updates.rs"]
 mod updates;

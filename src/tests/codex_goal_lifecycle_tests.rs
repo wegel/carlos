@@ -3,17 +3,16 @@
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
+use carlos_core::backend::PromptOrigin;
+use carlos_core::session::codex::goal_state::GoalKnowledge;
+use carlos_core::session::ralph::RalphConfig;
 use crossterm::event::{Event, KeyModifiers, MouseEvent, MouseEventKind};
 use serde_json::json;
 
 use super::codex_goal_tests::goal;
 use super::codex_question_support::{app, field_text, question, receive, Peer};
-
 use crate::app::input_events::handle_terminal_event;
 use crate::app::TerminalSize;
-use carlos_core::backend::PromptOrigin;
-use carlos_core::session::codex::goal_state::GoalKnowledge;
-use carlos_core::session::ralph::RalphConfig;
 
 #[test]
 fn an_external_driving_goal_stops_ralph_and_pending_toggles_but_retains_queued_humans() {

@@ -11,22 +11,21 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::Result;
-
-use super::cli::{
-    env_flag_enabled, resolve_initial_runtime_settings, styled_resume_hint_with_socket, Backend,
-    CliOptions,
-};
-
-#[cfg(feature = "dictation")]
-use super::dictation_state::DictationProfileState;
-use super::input::run_conversation_tui;
-use super::state::AppState;
 use carlos_core::backend::{BackendClient, EventReceiver};
 use carlos_core::protocol_params::{
     params_model_list, parse_model_list_page, ModelInfo, ThreadRuntimeSettings,
 };
 use carlos_core::session::models::ThreadSummary;
 use carlos_core::session::runtime_settings::RuntimeDefaults;
+
+use super::cli::{
+    env_flag_enabled, resolve_initial_runtime_settings, styled_resume_hint_with_socket, Backend,
+    CliOptions,
+};
+#[cfg(feature = "dictation")]
+use super::dictation_state::DictationProfileState;
+use super::input::run_conversation_tui;
+use super::state::AppState;
 
 pub(super) use self::backend_setup_codex_models::complete_codex_model_catalog;
 pub(super) use self::backend_setup_grok::run_grok_backend;

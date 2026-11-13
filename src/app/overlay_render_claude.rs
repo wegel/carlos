@@ -1,5 +1,7 @@
 //! Draws native callback fields with bounded geometry and a separate answer caret.
 
+use carlos_core::session::approval_state::ApprovalRequestDraft;
+use carlos_core::session::approval_state::PendingApprovalRequest;
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
@@ -7,16 +9,12 @@ use super::{
     compute_overlay_box, draw_rounded_border, fill_box_background, fill_fullscreen_overlay,
     OverlayBox,
 };
-
 use crate::app::claude_question_state::NativeDraft;
 use crate::app::claude_question_view::{body_lines, caller, editor_line, footer_lines, wrap_lines};
-
 use crate::app::render::draw_str;
 use crate::app::state::AppState;
 use crate::app::TerminalSize;
 use crate::theme::{COLOR_DIM, COLOR_PRIMARY, COLOR_TEXT};
-use carlos_core::session::approval_state::ApprovalRequestDraft;
-use carlos_core::session::approval_state::PendingApprovalRequest;
 
 struct QuestionLayout {
     bounds: OverlayBox,

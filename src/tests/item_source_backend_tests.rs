@@ -1,12 +1,12 @@
 //! Keep native Codex and Grok rows bound when Claude has no evidence about them.
 
+use carlos_core::backend::BackendKind;
+use carlos_core::session::entry_key::NativeEntryKey;
+use carlos_core::session::models::{MessageKind, Role};
 use serde_json::{json, Value};
 
 use super::entry_identity_tests::app;
 use crate::app::notifications::handle_server_message_line;
-use carlos_core::backend::BackendKind;
-use carlos_core::session::entry_key::NativeEntryKey;
-use carlos_core::session::models::{MessageKind, Role};
 
 fn check_stream(events: &[Value], text: &str) {
     for backend in [BackendKind::Codex, BackendKind::Grok] {

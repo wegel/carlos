@@ -3,15 +3,14 @@
 use std::time::Instant;
 
 use anyhow::Result;
+use carlos_core::session::models::Message;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
 
 use super::perf::DurationSamples;
 use super::render::{compute_input_layout, render_main_view};
-use carlos_core::session::models::Message;
-use carlos_core::session::models::MessageKind;
-use carlos_core::session::models::Role;
-
 use super::render_cache_state::count_display_block;
 use super::transcript_render::RenderCountCache;
 use super::{AppState, TerminalSize, MSG_TOP};

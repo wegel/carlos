@@ -3,6 +3,9 @@
 use std::sync::Mutex;
 use std::time::Duration;
 
+use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
+use carlos_core::session::approval_state::ApprovalRequestDraft;
+use carlos_core::session::approval_state::ApprovalRequestKind;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -11,9 +14,6 @@ use serde_json::{json, Value};
 use super::input_events::handle_terminal_event;
 use super::state::AppState;
 use super::view_models::TerminalSize;
-use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
-use carlos_core::session::approval_state::ApprovalRequestDraft;
-use carlos_core::session::approval_state::ApprovalRequestKind;
 
 pub(super) struct Client {
     pub(super) kind: BackendKind,

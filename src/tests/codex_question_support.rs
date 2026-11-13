@@ -4,13 +4,13 @@ use std::cell::{Cell, RefCell};
 use std::time::Duration;
 
 use anyhow::Result;
+use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
+use carlos_core::session::actions::ServerRequestAction;
+use carlos_core::session::codex::callbacks::CallbackKey;
 use serde_json::{json, Value};
 
 use crate::app::notifications::handle_server_message_line;
 use crate::app::state::AppState;
-use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
-use carlos_core::session::actions::ServerRequestAction;
-use carlos_core::session::codex::callbacks::CallbackKey;
 
 #[derive(Default)]
 pub(super) struct Peer {

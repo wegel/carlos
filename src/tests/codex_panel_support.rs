@@ -1,14 +1,13 @@
 //! Drive session-owned task commands from existing terminal integration fixtures.
 
-use serde_json::Value;
-
-use crate::app::codex_panel::{apply, scope};
-
-use crate::app::state::AppState;
 use carlos_core::session::codex::panel_receive;
 use carlos_core::session::codex::panel_scope::PanelUpdate;
 use carlos_core::session::codex::panel_state::Request;
 use carlos_core::session::codex::task_status;
+use serde_json::Value;
+
+use crate::app::codex_panel::{apply, scope};
+use crate::app::state::AppState;
 
 pub(super) fn observed(app: &mut AppState, method: &str, params: &Value) {
     let scope = scope(

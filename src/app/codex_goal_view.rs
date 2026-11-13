@@ -1,5 +1,6 @@
 //! Keep explicit goal controls and independent objective/budget edits visible on narrow terminals.
 
+use carlos_core::backend::BackendClient;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::buffer::Buffer;
 use ratatui::style::Style;
@@ -7,13 +8,10 @@ use ratatui::style::Style;
 use super::codex_goal_state::GoalConfirm;
 use super::input_events::TerminalEventResult;
 use super::render::{draw_str, fill_rect, textarea_input_from_key};
-
 use super::state::AppState;
 use super::text::{split_at_cells, visual_width};
-
 use super::TerminalSize;
 use crate::theme::{COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_TEXT};
-use carlos_core::backend::BackendClient;
 
 /// Keep goal keys separate from ordinary chat, question answers and queue drafts.
 pub(super) fn key(

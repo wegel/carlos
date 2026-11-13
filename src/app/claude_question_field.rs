@@ -1,11 +1,11 @@
 //! Keeps one native answer field separate from Carlos's message composer.
 
+use carlos_core::session::questions::QuestionField;
 use crossterm::event::KeyEvent;
 use ratatui_textarea::TextArea;
 use serde_json::{json, Value};
 
 use super::render::textarea_input_from_key;
-use carlos_core::session::questions::QuestionField;
 
 /// One question owns its editor, cursor, selected choices, and omitted state.
 pub(super) struct AnswerField {

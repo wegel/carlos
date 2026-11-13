@@ -1,10 +1,11 @@
 //! Regression cases from the Milestone 2 review, exercised through backend decoders.
 
-use crate::app::item_history::load_history_from_start_or_resume;
-use crate::app::state::AppState;
 use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
 use serde_json::{json, Value};
+
+use crate::app::item_history::load_history_from_start_or_resume;
+use crate::app::state::AppState;
 fn app() -> AppState {
     let mut app = AppState::new("thread".into());
     app.session.set_codex_enabled_for_test(true);

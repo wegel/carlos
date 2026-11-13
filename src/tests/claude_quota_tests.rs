@@ -1,11 +1,11 @@
 //! Native stream fractions and optional report percentages retain separate quota buckets.
 
-use serde_json::json;
-
-use super::weekly_usage::WeeklyIndicator;
 use carlos_core::session::runtime_settings::RuntimeDefaults;
 use carlos_core::session::state::SessionState;
 use carlos_core::session::usage::unix_now;
+use serde_json::json;
+
+use super::weekly_usage::WeeklyIndicator;
 
 #[test]
 fn stream_fraction_is_percent_used_and_only_global_weekly_drives_the_weekly_badge() {

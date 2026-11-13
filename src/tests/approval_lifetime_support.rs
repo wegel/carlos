@@ -4,15 +4,15 @@ use std::collections::HashSet;
 use std::sync::Mutex;
 use std::time::Duration;
 
+use carlos_core::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
+use carlos_core::session::approval_state::ApprovalQueue;
+use carlos_core::session::entry_id::EntryId;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use serde_json::{json, Value};
 
 use super::state::AppState;
 use super::view_models::TerminalSize;
 use crate::event::UiEvent;
-use carlos_core::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
-use carlos_core::session::approval_state::ApprovalQueue;
-use carlos_core::session::entry_id::EntryId;
 
 pub(super) struct Client {
     pub(super) kind: BackendKind,

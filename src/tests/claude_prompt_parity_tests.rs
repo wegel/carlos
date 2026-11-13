@@ -1,12 +1,11 @@
 //! Enumerate accepted, rejected, consumed, and reset prompt orders through the app bridge.
 
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
 use serde_json::{json, Value};
 
 use super::claude_prompts::{consume, reset};
-
 use super::state::AppState;
-use carlos_core::session::models::MessageKind;
-use carlos_core::session::models::Role;
 
 fn app() -> AppState {
     let mut app = AppState::new("session".into());

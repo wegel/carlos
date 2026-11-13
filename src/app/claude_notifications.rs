@@ -1,12 +1,12 @@
 //! Pass normalized Claude frames to the session and apply its local reports.
 
 #[cfg(test)]
+use carlos_core::session::actions::ServerRequestAction;
+use carlos_core::session::claude::receive_update::ClaudeDraftContext;
+#[cfg(test)]
 use serde_json::{Map, Value};
 
 use super::state::AppState;
-#[cfg(test)]
-use carlos_core::session::actions::ServerRequestAction;
-use carlos_core::session::claude::receive_update::ClaudeDraftContext;
 
 /// Distinguish a normalized Claude fact from another backend's shared message.
 #[cfg(test)]

@@ -3,12 +3,12 @@
 #[cfg(test)]
 use anyhow::Result;
 #[cfg(test)]
+use carlos_core::session::actions::ServerRequestAction;
+use carlos_core::session::models::Role;
+#[cfg(test)]
 use serde_json::Value;
 
 use super::state::AppState;
-#[cfg(test)]
-use carlos_core::session::actions::ServerRequestAction;
-use carlos_core::session::models::Role;
 
 /// Start the new helper generation before accepting its callbacks or metadata.
 #[cfg(test)]

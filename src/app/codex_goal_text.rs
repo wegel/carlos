@@ -1,9 +1,10 @@
 //! Explain native goal state, budget semantics and pending work without inventing execution progress.
 
+use carlos_core::session::codex::goal_state::GoalKnowledge;
+
 use super::codex_goal_state::GoalConfirm;
 use super::state::AppState;
 use super::TerminalSize;
-use carlos_core::session::codex::goal_state::GoalKnowledge;
 
 /// Put errors and the active editable field before long objectives on a narrow screen.
 pub(super) fn body(app: &AppState, size: TerminalSize) -> Vec<String> {

@@ -1,13 +1,12 @@
 //! Keep native item IDs exact across turns, display parts and fresh settings catalogs.
 
+use carlos_core::session::models::Role;
 use serde_json::json;
 
 use super::codex_question_support::app;
 use super::codex_reconnect_support::{ready, receive, snapshot, Peer};
-
 use crate::app::item_history::replace_history_from_thread;
 use crate::app::notifications::handle_server_message_line;
-use carlos_core::session::models::Role;
 
 fn message(app: &mut crate::app::state::AppState, turn: &str, kind: &str, text: &str) {
     handle_server_message_line(

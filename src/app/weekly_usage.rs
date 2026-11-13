@@ -1,9 +1,9 @@
 //! Format weekly allowance facts and map their pace to terminal colors.
 
+use carlos_core::session::usage::{Pace, WeeklyUsage};
 use ratatui::style::Color;
 
 use crate::theme::{COLOR_DIFF_REMOVE, COLOR_GUTTER_USER, COLOR_TOOL_EDIT};
-use carlos_core::session::usage::{Pace, WeeklyUsage};
 
 /// Keep the percentage's pace color separate from the dim reset countdown.
 pub(super) struct WeeklyIndicator {

@@ -3,11 +3,11 @@
 use std::sync::mpsc;
 use std::thread;
 
+use carlos_core::backend::EventReceiver;
 use crossterm::event::{self, Event as CrosstermEvent};
 
 #[cfg(feature = "dictation")]
 use crate::dictation::events::DictationEvent;
-use carlos_core::backend::EventReceiver;
 
 /// A single event delivered to the main UI loop.
 #[derive(Debug)]

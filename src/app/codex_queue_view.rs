@@ -1,20 +1,17 @@
 //! Edit native queued messages in a separate panel with a pinned selected identity.
 
+use carlos_core::backend::BackendClient;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::buffer::Buffer;
 use ratatui::style::Style;
 
 use super::codex_queue::{begin_edit, open, operate, save_edit};
-
 use super::input_events::TerminalEventResult;
 use super::render::{draw_str, fill_rect, textarea_input_from_key};
-
 use super::state::AppState;
 use super::text::{split_at_cells, visual_width, wrap_natural_by_cells};
-
 use super::TerminalSize;
 use crate::theme::{COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_TEXT};
-use carlos_core::backend::BackendClient;
 
 /// Keep queue keys separate from textarea newline keys and independent callbacks.
 pub(super) fn key(

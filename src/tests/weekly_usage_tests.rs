@@ -4,6 +4,9 @@ use std::cell::Cell;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Result};
+use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
+use carlos_core::session::rate_limits::RateLimits;
+use carlos_core::session::usage::{RateWindow, WEEK_MINUTES};
 use serde_json::{json, Value};
 
 use super::DISPLAY_INTERVAL;
@@ -11,9 +14,6 @@ use crate::app::notifications::handle_server_message_line;
 use crate::app::state::AppState;
 use crate::app::weekly_usage::WeeklyIndicator;
 use crate::theme::{COLOR_DIFF_REMOVE, COLOR_GUTTER_USER, COLOR_TOOL_EDIT};
-use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
-use carlos_core::session::rate_limits::RateLimits;
-use carlos_core::session::usage::{RateWindow, WEEK_MINUTES};
 
 const REFRESH_INTERVAL: Duration = Duration::from_secs(300);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);

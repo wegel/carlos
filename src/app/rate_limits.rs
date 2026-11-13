@@ -2,8 +2,9 @@
 
 use std::time::{Duration, Instant};
 
-use super::state::AppState;
 use carlos_core::backend::{BackendClient, BackendKind};
+
+use super::state::AppState;
 
 const DISPLAY_INTERVAL: Duration = Duration::from_secs(60);
 

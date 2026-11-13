@@ -1,11 +1,11 @@
 //! Apply local editors after the session routes native callbacks and controls.
 
-use serde_json::Value;
-
-use crate::app::state::AppState;
 use carlos_core::session::actions::ServerRequestAction;
 use carlos_core::session::codex::callback_update::{CallbackEffect, CallbackUpdate};
 use carlos_core::session::codex::callbacks::CallbackKey;
+use serde_json::Value;
+
+use crate::app::state::AppState;
 
 /// Consume one report in the same order as the original immediate handler.
 pub(in crate::app) fn apply(

@@ -1,10 +1,10 @@
 //! Native reloads update ids, prompt references and view caches together.
 
+use carlos_core::session::models::Role;
 use serde_json::json;
 
 use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::state::AppState;
-use carlos_core::session::models::Role;
 
 #[test]
 fn native_reload_retains_turn_scoped_ids_and_rewind_targets_after_insertions() {

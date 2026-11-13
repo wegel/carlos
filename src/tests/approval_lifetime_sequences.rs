@@ -3,16 +3,15 @@
 // with only non-rendered status fields removed; it cannot be regenerated from
 // this repository. target/m4-fix4/capture.rs used external pre-split adapters.
 
+use carlos_core::backend::BackendKind;
 use crossterm::event::{Event, KeyCode, KeyModifiers};
 use serde_json::{json, Value};
 
 use super::approval_lifetime_support::{
     accept, app, callback, event, fill, key, payloads, request, server, snapshot, Client, METHODS,
 };
-
 use super::state::AppState;
 use crate::event::UiEvent;
-use carlos_core::backend::BackendKind;
 
 #[test]
 fn approval_lifetimes_and_callback_guidance_match_head() {

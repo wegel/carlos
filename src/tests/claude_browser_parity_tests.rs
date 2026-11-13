@@ -1,15 +1,14 @@
 //! Enumerate browser identity, consent order, callback cancellation, and clear lifetimes.
 
+use carlos_core::session::approval_state::ApprovalChoice;
 use serde_json::{json, Value};
+use support::Peer;
 
 use super::claude_browser::complete;
 use super::claude_callbacks::{cancel_callback, receive_callback};
-
 use super::state::AppState;
 use super::turn_approval::respond_to_pending_approval;
 use crate::app::claude_process_test_support as support;
-use carlos_core::session::approval_state::ApprovalChoice;
-use support::Peer;
 
 fn browser(app: &mut AppState, id: &str) {
     receive_callback(

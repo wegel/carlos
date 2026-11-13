@@ -2,14 +2,12 @@
 
 use std::time::{Duration, Instant};
 
+use carlos_core::session::codex::goal_state::GoalKnowledge;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use serde_json::{json, Value};
 
 use super::codex_question_support::{app, receive, Peer};
-
 use crate::app::codex_goals::{confirm, edit, ralph_error, save, status, tick};
-use carlos_core::session::codex::goal_state::GoalKnowledge;
-
 use crate::app::input_events::handle_terminal_event;
 use crate::app::TerminalSize;
 

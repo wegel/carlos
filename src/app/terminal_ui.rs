@@ -9,6 +9,7 @@ use std::io;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
+use carlos_core::session::models::ThreadSummary;
 use crossterm::event::{
     self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
     Event, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
@@ -21,13 +22,10 @@ use crossterm::terminal::{
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 
+use self::terminal_ui_picker_events::{handle_picker_key, handle_picker_mouse};
 use super::notifications::is_key_press_like;
 use super::picker_render::{compute_picker_layout, draw_picker};
-
 use super::TerminalSize;
-use carlos_core::session::models::ThreadSummary;
-
-use self::terminal_ui_picker_events::{handle_picker_key, handle_picker_mouse};
 
 // --- Terminal Policy ---
 

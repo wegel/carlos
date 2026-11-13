@@ -1,18 +1,18 @@
 //! Routes native question keys to each callback's editor and native reply.
 
+use std::time::Duration;
+
+use carlos_core::backend::BackendClient;
+use carlos_core::session::approval_state::ApprovalChoice;
+use carlos_core::session::approval_state::ApprovalQueue;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::json;
-use std::time::Duration;
 
 use super::claude_question_state::NativeDraft;
 use super::input_events::TerminalEventResult;
 use super::state::AppState;
 use super::turn_submit::{interrupt_active_turn, respond_to_pending_approval};
-use carlos_core::session::approval_state::ApprovalChoice;
-
 use crate::clipboard::try_copy_clipboard;
-use carlos_core::backend::BackendClient;
-use carlos_core::session::approval_state::ApprovalQueue;
 
 /// Handle a native callback without borrowing the main message composer.
 pub(super) fn handle_key(

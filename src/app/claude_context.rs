@@ -4,11 +4,11 @@
 use std::time::Duration;
 use std::time::Instant;
 
+use carlos_core::backend::BackendClient;
 #[cfg(test)]
 use serde_json::Value;
 
 use super::state::AppState;
-use carlos_core::backend::BackendClient;
 
 /// Request another snapshot without invalidating the last known count.
 #[cfg(test)]

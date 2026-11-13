@@ -1,12 +1,12 @@
 //! Route local commands after literal rewind edits and preserve native prompt ownership.
 
+use carlos_core::backend::BackendClient;
+
 use crate::app::input_events::TerminalEventResult;
 use crate::app::session_name::handle_rename_command;
 use crate::app::state::AppState;
 use crate::app::tool_output_command::handle_tools_command;
 use crate::app::turn_submit::{submit_rewind_turn_text, submit_turn_text};
-
-use carlos_core::backend::BackendClient;
 
 /// Submit the user's exact text without intercepting /goal inside a selected rewind edit.
 pub(super) fn handle_enter_submit(

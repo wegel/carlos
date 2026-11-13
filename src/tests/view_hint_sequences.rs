@@ -3,15 +3,14 @@
 // non-rendered status fields/cases removed; it cannot be regenerated from this
 // repository. The original capture depended on helpers under target/m4-fix/.
 
+use carlos_core::backend::BackendKind;
+use carlos_core::session::approval_state::ApprovalChoice;
+use carlos_core::session::approval_state::ApprovalRequestKind;
 use crossterm::event::{KeyCode, KeyModifiers};
 use serde_json::{json, Value};
 
 use super::state::AppState;
 use super::view_hint_support::{key, request, snapshot, Client};
-use carlos_core::session::approval_state::ApprovalChoice;
-use carlos_core::session::approval_state::ApprovalRequestKind;
-
-use carlos_core::backend::BackendKind;
 
 #[test]
 fn approval_cards_match_heads_sequences() {

@@ -1,20 +1,17 @@
 //! Count and draw transcript bodies using one choice of format and width.
 
-use ratatui::style::{Color, Style};
-
-use super::transcript_diff::{append_wrapped_diff_lines, count_wrapped_diff_lines};
 use carlos_core::session::models::Message;
 use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
+use ratatui::style::{Color, Style};
 
+use super::transcript_diff::{append_wrapped_diff_lines, count_wrapped_diff_lines};
 use super::transcript_source::{append_source_lines, count_source_lines};
-
 use super::transcript_styles::{
     append_wrapped_ansi_lines, append_wrapped_markdown_lines, append_wrapped_message_lines,
     count_wrapped_ansi_lines_cached, count_wrapped_markdown_lines,
     count_wrapped_message_lines_cached, RenderCountCache,
 };
-
 use super::view_models::{DisplayKind, DisplayMessage, RenderedLine, StyledSegment};
 
 enum BodyKind {

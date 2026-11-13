@@ -1,10 +1,10 @@
 //! Transcript item identity, lifecycle, and streamed text updates.
 
 use carlos_core::session::entry_key::BackendEntryKey;
-
-use super::state::AppState;
 use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
+
+use super::state::AppState;
 
 impl AppState {
     // --- Item Identity ---

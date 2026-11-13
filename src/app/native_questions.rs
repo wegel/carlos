@@ -1,11 +1,11 @@
 //! Share question editing/rendering primitives while keeping backend reply formats separate.
 
+use carlos_core::session::approval_state::ApprovalQueue;
+use carlos_core::session::codex::callbacks::CallbackKey;
 use serde_json::Value;
 
 use super::claude_question_state::NativeDraft;
 use super::state::AppState;
-use carlos_core::session::approval_state::ApprovalQueue;
-use carlos_core::session::codex::callbacks::CallbackKey;
 
 /// Decide whether a pending request currently owns keyboard, paste and overlay focus.
 pub(super) fn modal(app: &AppState) -> bool {

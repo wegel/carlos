@@ -2,15 +2,14 @@
 
 use std::time::Instant;
 
-use serde_json::json;
-
-use super::codex_question_support::question;
-use super::codex_reconnect_support::{app, complete, delta, ready, receive, snapshot, Peer};
-
 use carlos_core::session::codex::callbacks::CallbackKey;
 use carlos_core::session::codex::goal_state::GoalKnowledge;
 use carlos_core::session::models::Role;
 use carlos_core::session::models::TurnStatus;
+use serde_json::json;
+
+use super::codex_question_support::question;
+use super::codex_reconnect_support::{app, complete, delta, ready, receive, snapshot, Peer};
 
 #[test]
 fn capture_old_snapshot_then_completion_before_reply_keeps_latest_text_and_terminal_turn() {

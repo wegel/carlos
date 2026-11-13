@@ -2,11 +2,12 @@
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use super::state::AppState;
-use crate::theme::ANIMATION_STEP_MS;
 use carlos_core::session::actions::ServerRequestAction;
 use carlos_core::session::common_update::CommonUpdate;
 use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
+
+use super::state::AppState;
+use crate::theme::ANIMATION_STEP_MS;
 
 // --- Key helpers ---
 

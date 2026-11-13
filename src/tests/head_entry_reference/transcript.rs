@@ -1,8 +1,9 @@
 //! Unchanged HEAD row updates; only imports and method visibility are adapted.
 
+use carlos_core::session::read_summary::{format_read_summary_with_count, parse_read_summary};
+
 use super::models::{Message, MessageKind, Role};
 use super::state::AppState;
-use carlos_core::session::read_summary::{format_read_summary_with_count, parse_read_summary};
 pub(super) use carlos_core::session::reasoning::normalize_reasoning_summary_stream;
 
 impl AppState {

@@ -1,13 +1,12 @@
 //! Input layout computation and textarea input helpers.
 
+use carlos_core::session::models::Message;
+use carlos_core::session::models::Role;
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui_textarea::{Input as TextInput, Key as TextKey};
 
 use super::text::{char_to_byte_idx, visual_width, wrap_input_line};
-
 use super::{AppState, TerminalSize};
-use carlos_core::session::models::Message;
-use carlos_core::session::models::Role;
 
 // --- Types ---
 

@@ -1,18 +1,17 @@
 //! Shows native tasks and quota windows while leaving composer and callback drafts untouched.
 
+use carlos_core::backend::{BackendClient, BackendKind};
+use carlos_core::session::claude::StopState;
+use carlos_core::session::text::safe_label;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
 use super::input_events::TerminalEventResult;
 use super::render::{draw_str, fill_rect};
-use carlos_core::session::text::safe_label;
-
 use super::state::AppState;
 use super::view_models::TerminalSize;
 use crate::theme::{COLOR_DIM, COLOR_PRIMARY, COLOR_STEP2, COLOR_TEXT};
-use carlos_core::backend::{BackendClient, BackendKind};
-use carlos_core::session::claude::StopState;
 
 /// Route task controls ahead of question input so a waiting child can still be stopped.
 pub(super) fn key(

@@ -4,10 +4,11 @@
 use std::time::Duration;
 use std::time::Instant;
 
-use super::codex_panel::scope;
-use super::state::AppState;
 use carlos_core::backend::BackendClient;
 use carlos_core::session::codex::task_status;
+
+use super::codex_panel::scope;
+use super::state::AppState;
 
 /// Read only known native process owners while background work remains active.
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant) -> bool {

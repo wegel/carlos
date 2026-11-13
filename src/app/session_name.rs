@@ -1,9 +1,9 @@
 //! Read session names and save explicit rename commands without sending chat messages.
 
+use carlos_core::backend::{BackendClient, BackendKind};
 use serde_json::Value;
 
 use super::AppState;
-use carlos_core::backend::{BackendClient, BackendKind};
 
 impl AppState {
     /// Clear the previous session's name when the client switches thread IDs.

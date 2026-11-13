@@ -1,5 +1,9 @@
 //! Check source colors, diff parser state, read metadata, and unchanged text.
 
+use carlos_core::session::models::Message;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
+use carlos_core::session::tool_source::source_path_from_item;
 use ratatui::style::{Color, Style};
 use serde_json::json;
 
@@ -13,10 +17,6 @@ use crate::app::source_highlight::SourceHighlighter;
 use crate::app::transcript_render::count_rendered_block_for_message_cached;
 use crate::app::transcript_styles::RenderCountCache;
 use crate::theme::{COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_STEP2};
-use carlos_core::session::models::Message;
-use carlos_core::session::models::MessageKind;
-use carlos_core::session::models::Role;
-use carlos_core::session::tool_source::source_path_from_item;
 
 fn diff_message(path: Option<&str>, text: &str) -> Message {
     crate::app::tests::test_message(carlos_core::session::models::EntryDraft {

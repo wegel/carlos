@@ -1,11 +1,15 @@
 //! Input subsystem test tree: dictation, approvals/rewind, and mobile mouse/perf.
 
-use crossterm::event::KeyEvent;
-use serde_json::Value;
 #[cfg(feature = "dictation")]
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
+
+use carlos_core::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
+use carlos_core::session::context_usage::ContextUsage;
+use carlos_core::session::models::Role;
+use crossterm::event::KeyEvent;
+use serde_json::Value;
 
 use super::{
     apply_mobile_mouse_scroll, can_submit_queued_turn, consume_mobile_mouse_char,
@@ -16,9 +20,6 @@ use super::{
     DictationProfileState, DurationSamples, Event, KeyCode, KeyEventKind, KeyModifiers,
     MobileMouseConsume, MouseDragMode, PerfMetrics, TerminalSize, UiEvent,
 };
-use carlos_core::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
-use carlos_core::session::context_usage::ContextUsage;
-use carlos_core::session::models::Role;
 
 struct ApprovalRespondMock {
     responses: std::sync::Mutex<Vec<(Value, Value)>>,

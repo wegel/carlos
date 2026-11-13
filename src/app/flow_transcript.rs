@@ -1,17 +1,14 @@
 //! Choose Flow section headings while sharing body and tool layout with Gutter.
 
-use ratatui::style::{Color, Modifier, Style};
-
-use super::text::{split_at_cells, visual_width};
 use carlos_core::session::models::Message;
 use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
+use ratatui::style::{Color, Modifier, Style};
 
+use super::text::{split_at_cells, visual_width};
 use super::tool_summary::tool_gutter;
 use super::transcript_spacing::{inline_entry, single_line_reasoning};
-
 use super::view_models::{RenderedLine, StyledSegment};
-
 use crate::theme::{role_gutter_fg, role_gutter_symbol};
 
 #[derive(PartialEq, Eq)]

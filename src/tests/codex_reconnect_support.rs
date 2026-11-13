@@ -4,12 +4,12 @@ use std::cell::RefCell;
 use std::time::Duration;
 
 use anyhow::{bail, Result};
+use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
+use carlos_core::codex_snapshot::CodexSnapshot;
 use serde_json::{json, Value};
 
 use super::codex_question_support::Peer as QuestionPeer;
 use crate::app::state::AppState;
-use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
-use carlos_core::codex_snapshot::CodexSnapshot;
 
 #[derive(Default)]
 pub(super) struct Peer {

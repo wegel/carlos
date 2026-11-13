@@ -4,8 +4,9 @@ use std::time::Instant;
 
 use carlos_core::backend::{BackendClient, BackendKind};
 
-use super::state::AppState;
 
+
+use super::state::AppState;
 
 pub(super) fn interrupt_active_turn(client: &dyn BackendClient, app: &mut AppState) {
     let requested = app.session.active_turn_id().is_some()

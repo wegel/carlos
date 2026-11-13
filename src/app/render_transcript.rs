@@ -1,14 +1,13 @@
 //! Paint transcript blocks with the 3c glyphs, continuation bars, and active step.
 
+use carlos_core::session::models::Message;
+use carlos_core::session::models::Role;
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
 use super::flow_transcript::inline_reasoning;
 use super::notifications::spinner_frame;
 use super::render::{draw_rendered_line, draw_str, fill_rect};
-use carlos_core::session::models::Message;
-use carlos_core::session::models::Role;
-
 use super::selection::compute_selection_range;
 use super::state::AppState;
 use super::text::visual_width;

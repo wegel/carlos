@@ -2,17 +2,14 @@
 
 use std::time::{Duration, Instant};
 
+use carlos_core::session::codex::panel_state::Process;
 use serde_json::{json, Value};
 
 use super::codex_question_support::{app, question, receive, Peer};
-
 use crate::app::codex_task_status::{tick, wait};
-
 use crate::app::state::AppState;
 use crate::app::task_badge::count;
 use crate::app::tests::codex_panel_support::{observed, panel_updated, terminated};
-
-use carlos_core::session::codex::panel_state::Process;
 
 /// Build one child whose source is controlled by the test.
 pub(super) fn agent(id: &str, state: &str) -> Value {

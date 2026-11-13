@@ -4,18 +4,6 @@ use std::path::Path;
 use std::time::Duration;
 
 use anyhow::Result;
-
-use super::{
-    claude_runtime_defaults, codex_runtime_defaults, configure_app_common, fetch_model_catalog,
-    finish_run, load_claude_thread_summaries, resolve_backend_runtime_settings,
-};
-
-use crate::app::cli::CliOptions;
-use crate::app::item_history::load_history_from_start_or_resume;
-use crate::app::item_history::replace_history_from_thread;
-use crate::app::state::AppState;
-use crate::app::terminal_ui::{pick_thread, sort_threads_for_picker};
-
 use carlos_core::backend::{BackendClient, EventReceiver};
 use carlos_core::claude_backend::{ClaudeClient, ClaudeLaunchMode};
 use carlos_core::codex_connection::CodexClient;
@@ -27,6 +15,16 @@ use carlos_core::protocol_params::{
 use carlos_core::session::codex::history::preferred_codex_thread;
 use carlos_core::session::runtime_settings::RuntimeDefaults;
 use carlos_core::session::thread_list::parse_thread_list;
+
+use super::{
+    claude_runtime_defaults, codex_runtime_defaults, configure_app_common, fetch_model_catalog,
+    finish_run, load_claude_thread_summaries, resolve_backend_runtime_settings,
+};
+use crate::app::cli::CliOptions;
+use crate::app::item_history::load_history_from_start_or_resume;
+use crate::app::item_history::replace_history_from_thread;
+use crate::app::state::AppState;
+use crate::app::terminal_ui::{pick_thread, sort_threads_for_picker};
 
 // --- Codex Backend ---
 

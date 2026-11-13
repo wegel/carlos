@@ -1,16 +1,14 @@
 //! Enumerate native answer bytes independently of the plain field parser.
 
+use carlos_core::session::approval_state::ApprovalChoice;
 use serde_json::{json, Value};
 
 use super::super::codex_question_support::{app, question, receive, Peer};
-
 use super::split_peer::ValidationPeer;
 use crate::app::claude_callbacks::receive_callback;
 use crate::app::claude_question_state::NativeDraft;
 use crate::app::codex_questions::{build, form_answer, question_answer};
-
 use crate::app::turn_approval::respond_to_pending_approval;
-use carlos_core::session::approval_state::ApprovalChoice;
 
 #[test]
 fn claude_tool_and_browser_answers_keep_the_exact_native_envelopes() {

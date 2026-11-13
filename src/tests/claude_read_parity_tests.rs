@@ -2,14 +2,13 @@
 
 use std::time::{Duration, Instant};
 
-use serde_json::{json, Value};
-
-use crate::app::claude_context::{receive, tick, wait};
-
-use crate::app::state::AppState;
 use carlos_core::backend::BackendKind;
 use carlos_core::session::claude::ClaudePhase;
 use carlos_core::session::context_usage::ContextUsage;
+use serde_json::{json, Value};
+
+use crate::app::claude_context::{receive, tick, wait};
+use crate::app::state::AppState;
 
 fn app() -> AppState {
     let mut app = AppState::new("root".into());

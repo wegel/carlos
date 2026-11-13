@@ -6,6 +6,11 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
+use carlos_core::session::models::Role;
+use carlos_core::session::tools::{
+    extract_diff_blocks, format_tool_item, raw_function_call_output_to_tool_item,
+    raw_function_call_to_tool_item,
+};
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
 use serde_json::Value;
@@ -14,18 +19,11 @@ use super::perf_bench::{
     benchmark_append_draws, benchmark_scroll_draws, benchmark_typing_draws,
     benchmark_working_draws, profile_layout_count_pass, PerfReplayStats,
 };
-use carlos_core::session::models::Role;
+use super::render::render_main_view;
+use super::{AppState, CliOptions, TerminalSize};
 
 // Re-export synthetic types so tests can access them via the `perf_session` module path.
 pub(super) use super::perf_synthetic::{populate_synthetic_perf_session, SyntheticPerfSpec};
-
-use super::render::render_main_view;
-use carlos_core::session::tools::{
-    extract_diff_blocks, format_tool_item, raw_function_call_output_to_tool_item,
-    raw_function_call_to_tool_item,
-};
-
-use super::{AppState, CliOptions, TerminalSize};
 
 // --- Session Replay ---
 

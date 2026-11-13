@@ -1,15 +1,15 @@
 //! Compare id-based lookups to the former index-map algorithm over generated edit sequences.
 
+use carlos_core::backend::BackendKind;
+use carlos_core::session::models::EntryDraft;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
 use serde_json::json;
 
 use super::entry_identity_tests::app;
 use super::head_entry_reference::HeadReference as IndexReference;
 use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::state::AppState;
-use carlos_core::backend::BackendKind;
-use carlos_core::session::models::EntryDraft;
-use carlos_core::session::models::MessageKind;
-use carlos_core::session::models::Role;
 
 fn old_key(turn: &str, item: &str, part: usize) -> String {
     format!("codex:{}", json!([turn, item, part]))

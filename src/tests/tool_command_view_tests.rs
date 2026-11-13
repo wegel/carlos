@@ -2,15 +2,15 @@
 
 use std::path::{Path, PathBuf};
 
+use carlos_core::session::models::Role;
+use carlos_core::session::summary_request::summary_input;
+use carlos_core::session::tool_command_view::ToolCommandView;
+use carlos_core::summaries::{command_key, SummaryEvent};
 use serde_json::{json, Value};
 
 use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::notifications::handle_server_message_line;
 use crate::app::AppState;
-use carlos_core::session::models::Role;
-use carlos_core::session::summary_request::summary_input;
-use carlos_core::session::tool_command_view::ToolCommandView;
-use carlos_core::summaries::{command_key, SummaryEvent};
 
 fn app() -> AppState {
     let mut app = AppState::new("thread".into());

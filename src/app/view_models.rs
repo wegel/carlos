@@ -1,8 +1,7 @@
 //! Borrowed message views and the styled rows drawn in a terminal.
 
-use ratatui::style::Style;
-
 use carlos_core::session::models::{Message, Role};
+use ratatui::style::Style;
 
 // --- Message Views ---
 

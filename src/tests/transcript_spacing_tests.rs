@@ -1,9 +1,10 @@
 //! Check shared spacing while text wraps, tools unfold, and the viewport changes.
 
+use carlos_core::session::models::Role;
+
 use super::AppState;
 use crate::app::layout_state::TranscriptTheme;
 use crate::app::tool_output_state::ToolOutputMode;
-use carlos_core::session::models::Role;
 
 fn desktop() -> AppState {
     let mut app = AppState::new("thread".into());

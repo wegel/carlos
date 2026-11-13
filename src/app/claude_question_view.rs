@@ -1,15 +1,15 @@
 //! Formats native question fields and caller metadata as safe terminal text.
 
+use carlos_core::session::approval_state::ApprovalRequestDraft;
+use carlos_core::session::approval_state::PendingApprovalRequest;
+use carlos_core::session::text::safe_label;
+use carlos_core::session::text::safe_text;
 use serde_json::Value;
 
 use super::claude_question_field::AnswerField;
 use super::claude_question_state::NativeDraft;
 use super::state::AppState;
 use super::text::{visual_width, wrap_natural_by_cells};
-use carlos_core::session::approval_state::ApprovalRequestDraft;
-use carlos_core::session::approval_state::PendingApprovalRequest;
-use carlos_core::session::text::safe_label;
-use carlos_core::session::text::safe_text;
 
 /// Name the actual approval key without treating answer text as consent.
 pub(super) fn default_no_hint(has_fields: bool, again: bool) -> &'static str {

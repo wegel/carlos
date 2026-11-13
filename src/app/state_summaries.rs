@@ -2,9 +2,10 @@
 
 use std::sync::mpsc;
 
-use super::state::AppState;
 use carlos_core::session::entry_id::EntryId;
 use carlos_core::summaries::SummaryEvent;
+
+use super::state::AppState;
 
 impl AppState {
     pub(super) fn configure_summary_worker(&mut self, tx: mpsc::Sender<SummaryEvent>) {

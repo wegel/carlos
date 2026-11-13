@@ -1,10 +1,10 @@
 //! Lazy render cache that counts lines eagerly and materializes blocks on demand.
 
-use super::layout_state::TranscriptTheme;
-use super::transcript_block::{plan_display_block, BlockPlan};
 use carlos_core::session::models::Message;
 use carlos_core::session::models::Role;
 
+use super::layout_state::TranscriptTheme;
+use super::transcript_block::{plan_display_block, BlockPlan};
 use super::transcript_styles::RenderCountCache;
 use super::view_models::RenderedLine;
 

@@ -1,12 +1,10 @@
 //! Bound panel windows and verify ancestry without hydrating or resuming a child.
 
+use carlos_core::session::codex::panel_state::PanelId;
 use serde_json::{json, Value};
 
 use super::codex_question_support::{app, receive, Peer};
-
 use crate::app::codex_panel::{details, refresh, tick};
-
-use carlos_core::session::codex::panel_state::PanelId;
 
 fn agent(id: &str, parent: &str) -> Value {
     json!({"id":id,"parentThreadId":parent,"source":{"subAgent":{"thread_spawn":{

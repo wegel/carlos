@@ -1,8 +1,7 @@
 //! The 3c transcript theme, built from Catppuccin Mocha colors.
 
-use ratatui::style::{Color, Modifier, Style};
-
 use carlos_core::session::models::Role;
+use ratatui::style::{Color, Modifier, Style};
 
 // Catppuccin Mocha defaults
 pub(crate) const COLOR_STEP1: Color = Color::Rgb(17, 17, 27); // crust

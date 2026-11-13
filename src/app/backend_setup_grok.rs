@@ -5,16 +5,6 @@ use std::sync::mpsc::Receiver;
 use std::time::Duration;
 
 use anyhow::Result;
-
-use super::{
-    configure_app_common, finish_run, grok_runtime_defaults, resolve_backend_runtime_settings,
-};
-
-use crate::app::cli::CliOptions;
-use crate::app::item_history::load_history_from_start_or_resume;
-use crate::app::notifications::handle_server_message_line;
-use crate::app::state::AppState;
-use crate::app::terminal_ui::pick_thread;
 use carlos_core::backend::BackendClient;
 use carlos_core::grok_backend::{
     load_grok_thread_summaries, GrokClient, GrokLaunchMode, GrokSessionSummary,
@@ -23,6 +13,15 @@ use carlos_core::protocol_params::ThreadRuntimeSettings;
 use carlos_core::session::models::Role;
 use carlos_core::session::models::ThreadSummary;
 use carlos_core::session::runtime_settings::RuntimeDefaults;
+
+use super::{
+    configure_app_common, finish_run, grok_runtime_defaults, resolve_backend_runtime_settings,
+};
+use crate::app::cli::CliOptions;
+use crate::app::item_history::load_history_from_start_or_resume;
+use crate::app::notifications::handle_server_message_line;
+use crate::app::state::AppState;
+use crate::app::terminal_ui::pick_thread;
 
 // --- Launch ---
 

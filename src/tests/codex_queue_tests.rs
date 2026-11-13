@@ -1,12 +1,10 @@
 //! Verify native queue identity, freshness, draft recovery and human priority without model calls.
 
+use carlos_core::session::codex::queue_state::editable_text;
 use serde_json::{json, Value};
 
 use super::codex_question_support::{app, receive, Peer};
-
 use crate::app::codex_queue::{allows_automatic, begin_edit, operate, save_edit, submit, tick};
-
-use carlos_core::session::codex::queue_state::editable_text;
 
 fn entry(id: &str, text: &str) -> Value {
     json!({"id":id,"clientUserMessageId":format!("client-{id}"),"input":[{"type":"text","text":text,"text_elements":[]}]})

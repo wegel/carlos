@@ -1,10 +1,11 @@
 //! Consume local editor changes returned by the Claude session owner.
 
-use super::claude_question_state::NativeDraft;
-use super::state::AppState;
 use carlos_core::session::actions::ServerRequestAction;
 use carlos_core::session::claude::callbacks::ClaudeCallback;
 use carlos_core::session::claude::receive_update::{ClaudeEffect, ClaudeUpdate};
+
+use super::claude_question_state::NativeDraft;
+use super::state::AppState;
 
 impl AppState {
     /// Apply the returned controls once, then route a completed history fragment immediately.

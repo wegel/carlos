@@ -7,14 +7,19 @@ mod input_events_dictation;
 mod input_events_model_settings;
 #[path = "input_events_submit.rs"]
 mod input_events_submit;
-use self::input_events_clipboard::handle_ctrl_y_copy;
-use self::input_events_model_settings::handle_model_settings_key;
-use self::input_events_submit::handle_enter_submit;
-
 use std::time::Instant;
 
+use carlos_core::backend::BackendClient;
+use carlos_core::session::approval_state::ApprovalChoice;
 use crossterm::event::{KeyCode, KeyModifiers};
 
+use self::input_events_clipboard::handle_ctrl_y_copy;
+use self::input_events_dictation::{
+    handle_ctrl_d_dictation, handle_enter_stop_dictation, handle_f7_dictation_profile,
+    handle_f9_dictation_endpoint,
+};
+use self::input_events_model_settings::handle_model_settings_key;
+use self::input_events_submit::handle_enter_submit;
 use super::{ensure_transcript_layout, is_mobile_mouse_key_candidate, TerminalEventResult};
 use crate::app::mobile_mouse::{
     consume_mobile_mouse_char, take_mobile_mouse_buffer, MobileMouseConsume,
@@ -26,13 +31,6 @@ use crate::app::selection::MouseDragMode;
 use crate::app::state::AppState;
 use crate::app::turn_submit::{interrupt_active_turn, respond_to_pending_approval};
 use crate::app::{TerminalSize, MSG_TOP};
-use carlos_core::backend::BackendClient;
-use carlos_core::session::approval_state::ApprovalChoice;
-
-use self::input_events_dictation::{
-    handle_ctrl_d_dictation, handle_enter_stop_dictation, handle_f7_dictation_profile,
-    handle_f9_dictation_endpoint,
-};
 
 pub(super) fn handle_key_event(
     client: &dyn BackendClient,

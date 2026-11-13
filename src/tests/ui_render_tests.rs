@@ -1,5 +1,9 @@
 //! UI rendering test tree: drawing, wrapping, markdown/diff, selection, transcript.
 
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
+use carlos_core::session::models::ThreadSummary;
+
 use super::{
     build_rendered_block_for_message, build_rendered_lines, build_rendered_lines_with_hidden,
     command_execution_diff_output, compute_input_layout, compute_selection_range,
@@ -11,9 +15,6 @@ use super::{
     Selection, Style, StyledSegment, TerminalSize, COLOR_DIFF_ADD, COLOR_DIFF_REMOVE,
     COLOR_PRIMARY, COLOR_TEXT,
 };
-use carlos_core::session::models::MessageKind;
-use carlos_core::session::models::Role;
-use carlos_core::session::models::ThreadSummary;
 
 fn usable_dictation_profile() -> DictationProfileState {
     DictationProfileState {

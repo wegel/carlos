@@ -1,14 +1,13 @@
 //! Preserve native history paging, hidden metadata, source rows, and partial failure behavior.
 
-use crate::app::normalized_test_app as normalized_app;
-
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
+use carlos_core::session::actions::ServerRequestAction;
+use carlos_core::session::claude::ClaudePhase;
 use serde_json::{json, Value};
 
 use self::normalized_app::{handle_server_message_line, NormalizedApp};
-use carlos_core::session::actions::ServerRequestAction;
-use carlos_core::session::claude::ClaudePhase;
+use crate::app::normalized_test_app as normalized_app;
 
 fn native(app: &mut NormalizedApp, request: &str, result: Value) -> Option<ServerRequestAction> {
     handle_server_message_line(

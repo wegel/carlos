@@ -1,12 +1,13 @@
 //! Read tool labels and source paths from the session before the view lays out rows.
 
 #[cfg(test)]
+use carlos_core::session::models::Role;
+#[cfg(test)]
 use serde_json::Value;
 
 #[cfg(test)]
 use super::state::AppState;
-#[cfg(test)]
-use carlos_core::session::models::Role;
+
 #[cfg(test)]
 impl AppState {
     pub(super) fn format_tool_item(&self, item: &Value, role: Role) -> Option<String> {

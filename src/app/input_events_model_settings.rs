@@ -1,16 +1,14 @@
 //! Keyboard edits and saves for the Ctrl+M settings panel.
 
+use carlos_core::backend::{BackendClient, BackendKind};
+use carlos_core::session::runtime_settings::RuntimeDefaults;
 use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::app::input_events::TerminalEventResult;
 use crate::app::notifications::is_ctrl_char;
-use crate::app::state::{AppState, ModelSettingsField};
-
 use crate::app::persist_runtime_defaults;
+use crate::app::state::{AppState, ModelSettingsField};
 use crate::app::tool_output_preferences::save_appearance;
-use carlos_core::session::runtime_settings::RuntimeDefaults;
-
-use carlos_core::backend::{BackendClient, BackendKind};
 
 pub(super) fn handle_model_settings_key(
     client: &dyn BackendClient,

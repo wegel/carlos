@@ -1,14 +1,13 @@
 //! Native reset, process activity, late child output, and context-read ordering at the shared UI entrypoint.
 
-use crate::app::normalized_test_app as normalized_app;
-
-use serde_json::{json, Value};
-
-use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
 use carlos_core::session::approval_state::ApprovalQueue;
 use carlos_core::session::claude::ClaudePhase;
 use carlos_core::session::claude::NativeState;
 use carlos_core::session::models::Role;
+use serde_json::{json, Value};
+
+use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
+use crate::app::normalized_test_app as normalized_app;
 
 fn frame(app: &mut AppState, frame: Value, epoch: u64, method: Option<&str>, context: Value) {
     let _ = handle_server_message_line(

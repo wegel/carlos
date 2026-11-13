@@ -1,11 +1,10 @@
 //! Enumerate generation, epoch, closed, reset, and session-adoption gates.
 
+use carlos_core::session::claude::ClaudePhase;
 use serde_json::{json, Value};
 
 use super::claude_notifications::{handle, route, ClaudeRoute};
-
 use super::state::AppState;
-use carlos_core::session::claude::ClaudePhase;
 
 // Every named fact except sessionChanged, which has its own adoption gate.
 const FACTS: &[(&str, bool, bool)] = &[

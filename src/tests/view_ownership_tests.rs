@@ -1,16 +1,16 @@
 //! Prove local notices and consent keys leave every session field unchanged.
 
-use carlos_core::session::approval_state::ApprovalQueue;
 use std::time::Duration;
 
+use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
+use carlos_core::session::approval_state::ApprovalChoice;
+use carlos_core::session::approval_state::ApprovalQueue;
+use carlos_core::session::approval_state::ApprovalRequestKind;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use serde_json::{json, Value};
 
 use super::state::AppState;
 use super::view_models::TerminalSize;
-use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
-use carlos_core::session::approval_state::ApprovalChoice;
-use carlos_core::session::approval_state::ApprovalRequestKind;
 
 struct NoBackend;
 

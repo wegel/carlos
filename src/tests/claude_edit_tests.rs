@@ -1,17 +1,15 @@
 //! Keep asynchronous edit progress visible and retain drafts across failure orderings.
 
-use crate::app::normalized_test_app as normalized_app;
-
+use carlos_core::backend::EventReceiver;
+use carlos_core::session::claude::ClaudePhase;
+use carlos_core::session::models::Role;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::{json, Value};
 
 use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
 use super::codex_question_support::Peer;
 use crate::app::claude_edit::{accepted, begin, failed, send_failed, waiting};
-use carlos_core::session::models::Role;
-
-use carlos_core::backend::EventReceiver;
-use carlos_core::session::claude::ClaudePhase;
+use crate::app::normalized_test_app as normalized_app;
 
 fn app() -> AppState {
     let mut app = AppState::new("original".into());

@@ -2,13 +2,13 @@
 
 use std::io::Cursor;
 
+use carlos_core::session::models::Role;
 use serde_json::{json, Value};
 
 use super::{
     handle_notification_line, load_history_from_start_or_resume, parse_rollout_history,
     prefer_complete_rollout_history, AppState,
 };
-use carlos_core::session::models::Role;
 
 const STALE_REPLAY: &str = include_str!("fixtures/stale_transcript_replay.jsonl");
 

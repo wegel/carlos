@@ -1,12 +1,12 @@
 //! Keep late labels scoped to their items and leave tool bodies and failures intact.
 
+use carlos_core::summaries::{command_key, SummaryEvent};
 use serde_json::{json, Value};
 
 use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::notifications::handle_server_message_line;
 use crate::app::transcript_render::build_rendered_lines;
 use crate::app::AppState;
-use carlos_core::summaries::{command_key, SummaryEvent};
 
 fn item() -> Value {
     json!({"type":"commandExecution","id":"command","command":"python3 process.py",

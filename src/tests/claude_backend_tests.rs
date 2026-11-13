@@ -6,18 +6,18 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Result};
-use serde_json::Value;
-
-use super::{
-    handle_notification_line, parse_cli_args, submit_turn_text, submit_turn_text_with_history,
-    AppState, Backend,
-};
 use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
 use carlos_core::claude_backend::{
     collect_live_forwarded_lines_for_test, session_misroute_event, translate_claude_line,
     ClaudeTranslationState,
 };
 use carlos_core::session::models::Role;
+use serde_json::Value;
+
+use super::{
+    handle_notification_line, parse_cli_args, submit_turn_text, submit_turn_text_with_history,
+    AppState, Backend,
+};
 
 fn collect_synthetic_lines(lines: &[&str]) -> Vec<String> {
     let mut state = ClaudeTranslationState::default();

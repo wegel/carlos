@@ -2,20 +2,18 @@
 
 use std::borrow::Cow;
 
-use ratatui::style::{Color, Modifier, Style};
-
-use super::text::{split_at_cells, visual_width, wrap_natural_by_cells};
 use carlos_core::session::models::Message;
 use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
+use carlos_core::session::tool_diff_summary::diff_summary;
+use ratatui::style::{Color, Modifier, Style};
 
+use super::text::{split_at_cells, visual_width, wrap_natural_by_cells};
 use super::view_models::{DisplayKind, DisplayMessage, RenderedLine, StyledSegment};
-
 use crate::theme::{
     COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_GUTTER_TOOL_CALL, COLOR_STEP8, COLOR_TOOL_EDIT,
     COLOR_TOOL_READ, COLOR_TOOL_SEARCH, COLOR_TOOL_TEXT,
 };
-use carlos_core::session::tool_diff_summary::diff_summary;
 
 /// Read the saved tool label rather than trying to infer it from output text.
 pub(super) fn tool_label(message: &Message) -> &str {

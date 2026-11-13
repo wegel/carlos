@@ -5,13 +5,12 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use anyhow::Result;
-use serde_json::{json, Value};
-
 use carlos_core::backend::{
     BackendClient, BackendKind, EventReceiver, RewindForkRequest, RewindUserMessage,
 };
 use carlos_core::protocol_rewind::fork_before_edited_turn;
 use carlos_core::protocol_rewind_guard::validate_rewind;
+use serde_json::{json, Value};
 
 struct NativePeer {
     replies: Mutex<VecDeque<(&'static str, Value)>>,
