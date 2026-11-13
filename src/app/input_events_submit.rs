@@ -21,7 +21,7 @@ pub(super) fn handle_enter_submit(
 
     let text = app.input_text();
     if app.session.codex_scope().enabled() && app.session.codex_scope().closed() {
-        app.set_hint(if app.codex.connection.rebuilding {
+        app.set_hint(if app.session.codex_connection().rebuilding() {
             "Codex reconnect is still reading; draft kept"
         } else {
             "Codex connection lost; F5 reconnects. Draft kept"

@@ -120,8 +120,9 @@ fn old_generation_cannot_resolve_or_revalidate_a_replayed_typed_callback() {
 fn shared_disconnect_keeps_native_running_status_without_inventing_failure() {
     let peer = Peer::default();
     let mut app = app();
-    app.codex.connection.socket = Some("/tmp/own-test.sock".into());
-    app.codex.connection.rebuilding = false;
+    app.session
+        .set_codex_socket_for_test(Some("/tmp/own-test.sock".into()));
+    app.session.set_codex_rebuilding_for_test(false);
     app.session.reopen_codex();
     app.record_turn_started("native-still-running");
     receive(
@@ -201,7 +202,7 @@ fn due_quota_does_not_write_or_spin_before_ready_then_refreshes_once() {
     assert!(crate::app::input::idle_wait(&app, now).is_none());
     assert!(peer.native.controls.borrow().is_empty());
     ready(&peer, &mut app, snapshot("fresh", "idle"));
-    app.codex.connection.runtime_refresh = false;
+    app.session.set_codex_runtime_refresh_for_test(false);
     assert!(crate::app::input::tick_rate_limits(&peer, &mut app, now));
     crate::app::input::tick_rate_limits(&peer, &mut app, now);
     assert_eq!(peer.native.controls.borrow().len(), 1);
@@ -254,7 +255,8 @@ fn empty_command_completion_retires_partial_reads_and_fetches_complete_native_ou
 fn duplicate_close_preserves_lost_child_state_and_failed_ready_clears_dead_callbacks() {
     let peer = Peer::default();
     let mut app = app();
-    app.codex.connection.socket = Some("/tmp/fixture.sock".into());
+    app.session
+        .set_codex_socket_for_test(Some("/tmp/fixture.sock".into()));
     receive(&peer, &mut app, 2, question(json!(0), "child", true));
     let closed =
         json!({"method":"carlos/codex/closed","params":{"message":"first transport cause"}});
@@ -262,9 +264,9 @@ fn duplicate_close_preserves_lost_child_state_and_failed_ready_clears_dead_callb
     let count = app.session.messages().len();
     receive(&peer, &mut app, 2, closed);
     assert_eq!(app.session.messages().len(), count);
-    assert_eq!(app.codex.connection.unreplayed_children, 1);
-    app.codex.connection.generation = 3;
-    app.codex.connection.rebuilding = true;
+    assert_eq!(app.session.codex_connection().unreplayed_children(), 1);
+    app.session.set_codex_generation_for_test(3);
+    app.session.set_codex_rebuilding_for_test(true);
     receive(&peer, &mut app, 3, question(json!(0), "root", true));
     let mut malformed = snapshot("must not replace old history", "idle");
     malformed.goal = Some(json!({}));
@@ -278,7 +280,7 @@ fn duplicate_close_preserves_lost_child_state_and_failed_ready_clears_dead_callb
     assert!(app.session.codex_scope().closed());
     assert!(app.session.codex_callbacks().is_empty());
     assert!(app.session.approval().pending().is_none());
-    assert_eq!(app.codex.connection.unreplayed_children, 1);
+    assert_eq!(app.session.codex_connection().unreplayed_children(), 1);
     assert_eq!(app.input_text(), "preserve main 日本語");
     receive(
         &peer,
@@ -286,9 +288,9 @@ fn duplicate_close_preserves_lost_child_state_and_failed_ready_clears_dead_callb
         3,
         json!({"method":"carlos/codex/closed","params":{}}),
     );
-    assert_eq!(app.codex.connection.unreplayed_children, 1);
-    app.codex.connection.generation = 4;
-    app.codex.connection.rebuilding = true;
+    assert_eq!(app.session.codex_connection().unreplayed_children(), 1);
+    app.session.set_codex_generation_for_test(4);
+    app.session.set_codex_rebuilding_for_test(true);
     *peer.snapshot.borrow_mut() = Some(snapshot("restored native history", "idle"));
     receive(
         &peer,
@@ -302,6 +304,6 @@ fn duplicate_close_preserves_lost_child_state_and_failed_ready_clears_dead_callb
         .messages()
         .iter()
         .any(|message| message.text.contains("unanswered child requests")));
-    assert_eq!(app.codex.connection.unreplayed_children, 0);
+    assert_eq!(app.session.codex_connection().unreplayed_children(), 0);
     assert_eq!(app.input_text(), "preserve main 日本語");
 }

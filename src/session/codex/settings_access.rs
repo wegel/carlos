@@ -37,3 +37,29 @@ impl SessionState {
         self.codex_settings.active_before = None;
     }
 }
+
+impl SessionState {
+    /// Read future choices using the native catalog's existing effort-capability rule.
+    pub(crate) fn codex_runtime_choices(&self) -> serde_json::Value {
+        let (model, effort, summary) = self.next_turn_runtime_settings();
+        let mut desired = serde_json::json!({});
+        for (key, value) in [("model", model), ("effort", effort), ("summary", summary)] {
+            if let Some(value) = value {
+                desired[key] = serde_json::json!(value);
+            }
+        }
+        if self
+            .runtime_settings()
+            .available_models()
+            .iter()
+            .find(|entry| entry.model == desired["model"].as_str().unwrap_or(""))
+            .is_some_and(|entry| entry.supported_efforts.is_empty())
+        {
+            desired
+                .as_object_mut()
+                .expect("settings object")
+                .remove("effort");
+        }
+        desired
+    }
+}

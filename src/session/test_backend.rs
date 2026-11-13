@@ -12,6 +12,7 @@ use crate::backend::{BackendClient, BackendKind, EventReceiver};
 /// Record exact native calls and optionally serve fixed read-only replies.
 #[derive(Default)]
 pub(crate) struct TestBackend {
+    pub(crate) acknowledgements: Mutex<Vec<usize>>,
     pub(crate) reads: Mutex<VecDeque<(String, Value)>>,
     pub(crate) calls: Mutex<Vec<(String, Value, Value)>>,
     pub(crate) replies: Mutex<Vec<(Value, Value)>>,
@@ -66,6 +67,9 @@ impl BackendClient for TestBackend {
     }
     fn take_events_rx(&mut self) -> Result<EventReceiver> {
         Ok(mpsc::channel().1.into())
+    }
+    fn acknowledge_event(&self, bytes: usize) {
+        self.acknowledgements.lock().expect("acks").push(bytes);
     }
     fn stop(&mut self) {}
 }

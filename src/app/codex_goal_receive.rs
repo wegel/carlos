@@ -7,8 +7,6 @@ use super::state::AppState;
 use crate::session::codex::goal_receive;
 use crate::session::codex::goals::GoalUpdate;
 
-pub(super) use crate::session::codex::goal_receive::validate;
-
 /// Route a native goal notification through the session before updating the view.
 pub(super) fn observed(app: &mut AppState, method: &str, params: &Value) {
     let mut update = GoalUpdate::default();

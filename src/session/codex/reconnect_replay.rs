@@ -5,10 +5,10 @@ use std::collections::{HashMap, VecDeque};
 use anyhow::{ensure, Result};
 use serde_json::Value;
 
-use super::codex_reconnect_state::ReplayFrame;
+use super::connection_state::ReplayFrame;
 
 /// Combine native live status with exact turn records and actual new-connection turn events.
-pub(super) fn active_turn(
+pub(in crate::session) fn active_turn(
     thread: &Value,
     journal: &VecDeque<ReplayFrame>,
 ) -> Result<Option<String>> {

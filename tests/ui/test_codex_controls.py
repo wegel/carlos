@@ -101,7 +101,8 @@ class CodexControls:
         terminal.replace_input("edited Alpha")
         terminal.send(b"\x13")
         terminal.contains("acknowledged the queue change")
-        terminal.wait(lambda:"Refreshing" not in terminal.text,"edited snapshot ready")
+        terminal.wait(lambda:"Current: 3 queued" in terminal.text and "edited Alpha" in terminal.text
+                      and "Ctrl+S save" not in terminal.text,"edited snapshot ready after editor closes")
         self.assertEqual(terminal.requests("thread/queue/update")[0]["params"]["queuedSubmissionId"],"queue-a")
         terminal.send(b"\x1b[1;3B")  # Alt+Down reorders selected Alpha after Beta.
         terminal.wait(lambda:bool(terminal.requests("thread/queue/reorder")),"reordered queue")

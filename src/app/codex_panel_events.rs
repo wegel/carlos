@@ -10,7 +10,7 @@ use crate::session::codex::panel_events;
 pub(super) fn event(app: &mut AppState, method: &str, params: &Value) -> bool {
     let scope = scope(
         app.session.codex_scope(),
-        &app.codex.connection,
+        &app.session.codex_connection(),
         &app.view.codex_panel,
     );
     panel_events::event(&mut app.session, scope, method, params)

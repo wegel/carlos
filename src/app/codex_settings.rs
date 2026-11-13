@@ -54,13 +54,6 @@ pub(super) fn reply(app: &mut AppState, params: &Value) {
     apply(app, update);
 }
 
-/// Preserve attempted editor values after the session retires uncertain settings work.
-pub(super) fn closed(app: &mut AppState) {
-    let mut update = SettingsUpdate::default();
-    settings::closed(&mut app.session, &mut update);
-    apply(app, update);
-}
-
 /// Capture settings when the native turn starts, without relabeling in-flight work.
 pub(super) fn started(app: &mut AppState, turn: &str) {
     settings::started(&mut app.session, turn);

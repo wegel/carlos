@@ -97,7 +97,7 @@ fn status_plan(app: &AppState, size: TerminalSize) -> StatusPlan {
     let mut edge = line_len;
     let mut labels = Vec::new();
     if app.session.codex_scope().enabled() && app.session.codex_scope().closed() {
-        let text = if app.codex.connection.rebuilding {
+        let text = if app.session.codex_connection().rebuilding() {
             "Codex reconnecting…"
         } else {
             "Codex offline · F5 reconnect"

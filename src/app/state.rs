@@ -24,8 +24,6 @@ use crate::session::state::SessionState;
 pub(super) struct AppState {
     pub(super) session: SessionState,
     pub(super) view: ViewState,
-    // Split these mixed children in milestones 5 through 9.
-    pub(super) codex: super::codex_state::CodexUiState,
 }
 
 // --- Construction ---
@@ -44,7 +42,6 @@ impl AppState {
         Self {
             session: SessionState::new(thread_id, preferences, summary_enabled),
             view: ViewState::new(summary_enabled),
-            codex: super::codex_state::CodexUiState::default(),
         }
     }
 

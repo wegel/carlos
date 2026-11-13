@@ -67,3 +67,23 @@ mod panel_snapshot_tests;
 pub(in crate::session) mod metadata;
 
 pub(crate) mod history;
+
+pub(crate) mod connection_state;
+
+pub(crate) mod connection_commands;
+
+pub(crate) mod lifecycle;
+
+pub(crate) mod reconnect_runtime;
+
+pub(crate) mod reconnect_streams;
+
+pub(crate) mod reconnect_replay;
+
+pub(crate) mod reconnect_install;
+
+#[cfg(test)]
+mod connection_test_support;
+
+#[cfg(test)]
+mod reconnect_headless_tests;

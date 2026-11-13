@@ -60,10 +60,7 @@ pub(in crate::app) fn run_codex_backend(
         default_summary,
     )?;
     if launch.deferred_history {
-        app.session.close_codex();
-        app.codex.connection.rebuilding = true;
-        app.codex.connection.initial_rebuild = true;
-        app.codex.connection.initial_choices = app.session.take_deferred_codex_settings();
+        app.session.begin_initial_codex_rebuild();
         client.bootstrap(app.session.thread_id().clone(), launch.runtime_response)?;
     }
     finish_run(&mut app, opts.backend, &client, server_events_rx)
@@ -162,8 +159,10 @@ pub(super) fn configure_codex_app(
         crate::backend::BackendKind::Codex,
         opts.codex_socket.is_some(),
     )?;
-    app.codex.connection.generation = client.connection_generation().unwrap_or(0);
-    app.codex.connection.socket = opts.codex_socket.clone();
+    app.session.configure_codex_connection(
+        client.connection_generation().unwrap_or(0),
+        opts.codex_socket.clone(),
+    );
     app.session.set_codex_goal_direct_input(
         serde_json::from_str::<serde_json::Value>(&launch.runtime_response)?["result"]["thread"]
             ["canAcceptDirectInput"]

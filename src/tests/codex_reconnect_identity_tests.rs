@@ -44,8 +44,8 @@ fn repeated_native_item_and_user_ids_stay_distinct_in_live_history_and_reconnect
     assert_eq!(app.rewind_selected_turn_id(), Some("two"));
     let peer = Peer::default();
     app.session.close_codex();
-    app.codex.connection.generation = 2;
-    app.codex.connection.rebuilding = true;
+    app.session.set_codex_generation_for_test(2);
+    app.session.set_codex_rebuilding_for_test(true);
     let mut current = snapshot("unused", "idle");
     current.thread = history;
     ready(&peer, &mut app, current);
@@ -96,7 +96,7 @@ fn fresh_catalog_preserves_editor_values_and_drops_old_direct_override_fallback(
     assert_eq!(app.model_settings_model_value(), "b");
     app.session.set_codex_settings_legacy_for_test(true);
     app.session.close_codex();
-    app.codex.connection.rebuilding = true;
+    app.session.set_codex_rebuilding_for_test(true);
     let mut second = snapshot("two", "idle");
     second.runtime =
         json!({"result":{"thread":{"id":"root"},"model":"a","reasoningEffort":"low"}}).to_string();
@@ -154,7 +154,7 @@ fn fresh_metadata_clears_old_names_and_a_newer_rename_fences_only_the_delayed_na
         app.session.runtime_settings().current_model().as_deref(),
         Some("fresh-model")
     );
-    assert!(app.codex.connection.runtime_refresh);
+    assert!(app.session.codex_connection().runtime_refresh());
 }
 
 #[test]

@@ -43,20 +43,7 @@ pub(super) fn initialize(
 
 /// Keep ordinary prompts free of cached overrides unless native definitively lacks settings updates.
 pub(super) fn choices(app: &AppState) -> Value {
-    let (model, effort, summary) = app.next_turn_runtime_settings();
-    let mut desired = json!({});
-    for (key, value) in [("model", model), ("effort", effort), ("summary", summary)] {
-        if let Some(value) = value {
-            desired[key] = json!(value);
-        }
-    }
-    if !supports_effort(app, desired["model"].as_str().unwrap_or("")) {
-        desired
-            .as_object_mut()
-            .expect("settings object")
-            .remove("effort");
-    }
-    desired
+    app.session.codex_runtime_choices()
 }
 
 /// Reject an editor choice before it can become a turn override or a saved default.

@@ -11,7 +11,7 @@ use crate::session::codex::panel_scope::PanelUpdate;
 pub(super) fn reply(app: &mut AppState, params: &Value) -> bool {
     let scope = scope(
         app.session.codex_scope(),
-        &app.codex.connection,
+        &app.session.codex_connection(),
         &app.view.codex_panel,
     );
     let mut update = PanelUpdate::default();

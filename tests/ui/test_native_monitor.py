@@ -295,14 +295,14 @@ class NativeMonitor(NativeCodexControls,NativeCodexPanel,NativeCodexGoals,Native
         self.assertEqual(len(model.requests),2)
         terminal.snapshot("actual-native-mcp-form-answered")
 
-    def launch(self, reply, feature_config=""):
+    def launch(self, reply, feature_config="", sandbox_mode="read-only"):
         root = ARTIFACTS / self._testMethodName
         root.mkdir(parents=True)
         model = Model(root, reply)
         self.addCleanup(model.close)
-        if feature_config:
-            config=root/"codex-home/config.toml"
-            config.write_text(config.read_text()+feature_config)
+        config=root/"codex-home/config.toml"
+        config.write_text(config.read_text().replace('sandbox_mode = "read-only"',
+                          f'sandbox_mode = "{sandbox_mode}"')+feature_config)
         terminal = Terminal(BINARY, root, resume=None, codex=CODEX)
         self.addCleanup(terminal.close)
         terminal.wait(lambda: terminal.input_is(""), "composer ready")

@@ -50,6 +50,7 @@ impl AppState {
         self.session.mark_item_completed(&key);
     }
 
+    #[cfg(test)]
     pub(super) fn is_item_completed(&self, item_id: &str) -> bool {
         self.session.is_item_completed(&self.item_key(item_id))
     }

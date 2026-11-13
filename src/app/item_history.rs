@@ -33,10 +33,3 @@ pub(super) fn append_history_from_thread(app: &mut AppState, thread: &Value) {
         crate::session::item_history::append_history_from_thread(&mut app.session, thread);
     app.apply_item_changes(changes);
 }
-
-/// Apply a persisted partial item without replacing the rest of the transcript.
-pub(super) fn append_history_item(app: &mut AppState, item: &Value) {
-    let mut changes = Default::default();
-    crate::session::item_history::append_history_item(&mut app.session, &mut changes, item);
-    app.apply_item_changes(changes);
-}

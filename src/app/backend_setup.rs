@@ -258,7 +258,7 @@ pub(super) fn finish_run(
         styled_resume_hint_with_socket(
             backend,
             &app.session.thread_id(),
-            app.codex.connection.socket.as_deref()
+            app.session.codex_connection().socket().as_deref()
         )
     );
     if let Some(report) = app.perf_report() {

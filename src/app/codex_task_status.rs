@@ -13,7 +13,7 @@ use crate::session::codex::task_status;
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant) -> bool {
     let scope = scope(
         app.session.codex_scope(),
-        &app.codex.connection,
+        &app.session.codex_connection(),
         &app.view.codex_panel,
     );
     task_status::tick(client, &mut app.session, scope, now)
@@ -23,7 +23,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant)
 pub(super) fn reply(app: &mut AppState, params: &Value) -> bool {
     let scope = scope(
         app.session.codex_scope(),
-        &app.codex.connection,
+        &app.session.codex_connection(),
         &app.view.codex_panel,
     );
     task_status::reply(&mut app.session, scope, params)
@@ -35,7 +35,7 @@ pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
         &app.session,
         scope(
             app.session.codex_scope(),
-            &app.codex.connection,
+            &app.session.codex_connection(),
             &app.view.codex_panel,
         ),
         now,

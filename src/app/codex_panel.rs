@@ -3,9 +3,9 @@
 use std::time::{Duration, Instant};
 
 use super::codex_panel_state::PanelView;
-use super::codex_reconnect_state::ConnectionState;
 use super::state::AppState;
 use crate::backend::BackendClient;
+use crate::session::codex::connection_state::ConnectionState;
 use crate::session::codex::panel;
 use crate::session::codex::panel_scope::{PanelScope, PanelUpdate};
 use crate::session::codex::scope::CodexScope;
@@ -18,8 +18,8 @@ pub(super) fn scope<'a>(
 ) -> PanelScope<'a> {
     PanelScope {
         native,
-        generation: connection.generation,
-        rebuilding: connection.rebuilding,
+        generation: connection.generation(),
+        rebuilding: connection.rebuilding(),
         visible: view.show,
         detail: view.detail,
         selected: view.selected.as_ref(),
@@ -30,7 +30,7 @@ pub(super) fn scope<'a>(
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
     let scope = scope(
         app.session.codex_scope(),
-        &app.codex.connection,
+        &app.session.codex_connection(),
         &app.view.codex_panel,
     );
     let mut update = PanelUpdate::default();
@@ -43,7 +43,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
 pub(super) fn refresh(app: &mut AppState, older: bool) {
     let scope = scope(
         app.session.codex_scope(),
-        &app.codex.connection,
+        &app.session.codex_connection(),
         &app.view.codex_panel,
     );
     panel::refresh(&mut app.session, scope, older);
@@ -53,7 +53,7 @@ pub(super) fn refresh(app: &mut AppState, older: bool) {
 pub(super) fn details(app: &mut AppState, older: bool) {
     let scope = scope(
         app.session.codex_scope(),
-        &app.codex.connection,
+        &app.session.codex_connection(),
         &app.view.codex_panel,
     );
     let mut update = PanelUpdate::default();
@@ -65,7 +65,7 @@ pub(super) fn details(app: &mut AppState, older: bool) {
 pub(super) fn stop(app: &mut AppState) {
     let scope = scope(
         app.session.codex_scope(),
-        &app.codex.connection,
+        &app.session.codex_connection(),
         &app.view.codex_panel,
     );
     panel::stop(&mut app.session, scope);
@@ -77,7 +77,7 @@ pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
         &app.session,
         scope(
             app.session.codex_scope(),
-            &app.codex.connection,
+            &app.session.codex_connection(),
             &app.view.codex_panel,
         ),
         now,

@@ -71,16 +71,22 @@ class NativeCodexPanel:
             return [tool("panel-background-exec","functions","exec_command",{
                 "cmd":"sleep 120","yield_time_ms":1000,"max_output_tokens":100})]
 
-        terminal,model=self.launch(reply)
+        # This fixed sleep needs a live OS process; nested bwrap cannot mount the container paths.
+        terminal,model=self.launch(reply,sandbox_mode="danger-full-access")
         terminal.paste("Start one isolated background terminal")
         terminal.send(b"\r")
         terminal.contains("ROOT_BACKGROUND_STARTED")
+        self.assertTrue(any("Process running with session ID" in outputs(body).get("panel-background-exec", "")
+                            for body in model.requests), "the native command must actually start a background process")
         terminal.paste("keep process-stop draft")
         terminal.send(b"\x1bOQ")
         terminal.contains("Codex agents / processes")
-        terminal.wait(lambda:bool(terminal.requests("thread/backgroundTerminals/list")),"native terminal list")
-        listing=terminal.requests("thread/backgroundTerminals/list")[0]
-        terminal.wait(lambda:self.native_reply(terminal,listing) is not None,"native terminals returned")
+        terminal.wait(lambda:any(self.native_reply(terminal,request) is not None
+            and self.native_reply(terminal,request).get("result",{}).get("data")
+            for request in terminal.requests("thread/backgroundTerminals/list")),"native background process returned")
+        listing=next(request for request in reversed(terminal.requests("thread/backgroundTerminals/list"))
+            if self.native_reply(terminal,request) is not None
+            and self.native_reply(terminal,request).get("result",{}).get("data"))
         result=self.native_reply(terminal,listing)
         self.assertNotIn("error",result)
         process=result["result"]["data"][0]
