@@ -122,6 +122,14 @@ impl Transcript {
         }
     }
 
+    /// Finish remaining rows when their owning turn ends without item completion frames.
+    pub(super) fn finish_from(&mut self, start: usize) {
+        while let Some(index) = self.active.range(start..).next().copied() {
+            self.active.remove(&index);
+            self.record_facts(index);
+        }
+    }
+
     /// Report whether a mapped source already reached completion.
     pub(crate) fn is_complete(&self, id: EntryId) -> bool {
         self.position(id)

@@ -115,3 +115,22 @@ fn approval_focus_moves_keep_the_client_card_order() {
     assert_eq!(client.approvals, batch.snapshot(100).approvals);
     assert_eq!(client.approvals[0].id, third.to_wire());
 }
+
+#[test]
+fn an_interrupted_turn_finishes_unclosed_streams_and_keeps_its_text() {
+    let mut core = SessionState::new("native".into(), Default::default(), false);
+    core.record_turn_started("turn");
+    let key = core.backend_entry_key("answer");
+    core.upsert_agent_delta(&key, "partial 🌍");
+    assert!(!core.publish().snapshot(100).entries[0].done);
+    assert!(core.record_turn_completed("turn", super::models::TurnStatus::Interrupted));
+    let batch = core.publish();
+    let snapshot = batch.snapshot(100);
+    assert!(snapshot.entries[0].done);
+    assert_eq!(snapshot.entries[0].text, "partial 🌍");
+    assert!(batch
+        .records()
+        .iter()
+        .any(|record| matches!(record.change, super::events::Change::Facts(_))));
+    assert_eq!(snapshot.info.phase, carlos_proto::session::Phase::Idle);
+}

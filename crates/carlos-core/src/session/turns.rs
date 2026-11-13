@@ -173,7 +173,7 @@ impl SessionState {
         if self.active_turn_id.as_deref() != Some(turn_id) {
             return false;
         }
-        self.active_turn_id = None;
+        self.set_active_turn_id(None);
         true
     }
 

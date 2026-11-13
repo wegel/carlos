@@ -21,6 +21,11 @@ impl SessionState {
 
     /// Store an accepted native or provisional turn id.
     pub fn set_active_turn_id(&mut self, id: Option<String>) {
+        if id.is_none() && self.active_turn_id.is_some() {
+            self.messages
+                .finish_from(self.turn_suffix_start().unwrap_or(0));
+            self.events.turn_started_at = None;
+        }
         self.active_turn_id = id;
     }
 
