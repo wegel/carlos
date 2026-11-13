@@ -8,7 +8,7 @@ use base64::Engine;
 use serde_json::{json, Value};
 
 use self::normalized_app::{handle_server_message_line, NormalizedApp};
-use super::notifications::ServerRequestAction;
+use crate::session::actions::ServerRequestAction;
 use crate::session::claude::ClaudePhase;
 
 fn native(app: &mut NormalizedApp, request: &str, result: Value) -> Option<ServerRequestAction> {

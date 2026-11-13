@@ -3,8 +3,8 @@
 use serde_json::{Map, Value};
 
 use super::claude_callbacks::{cancel_callback, receive_callback};
-use super::notifications::ServerRequestAction;
 use super::state::AppState;
+use crate::session::actions::ServerRequestAction;
 use crate::session::approval_state::ApprovalQueue;
 
 /// Distinguishes a normalized Claude fact from another backend's shared notification.

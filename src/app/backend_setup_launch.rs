@@ -10,8 +10,8 @@ use super::{
     finish_run, load_claude_thread_summaries, resolve_backend_runtime_settings,
 };
 use crate::app::cli::CliOptions;
+use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::item_history::replace_history_from_thread;
-use crate::app::notifications::{load_history_from_start_or_resume, parse_thread_list};
 use crate::app::state::AppState;
 use crate::app::terminal_ui::{pick_thread, sort_threads_for_picker};
 use crate::app::RuntimeDefaults;
@@ -24,6 +24,7 @@ use crate::protocol_params::{
     parse_thread_runtime_settings, ThreadRuntimeSettings,
 };
 use crate::session::codex::history::preferred_codex_thread;
+use crate::session::thread_list::parse_thread_list;
 
 // --- Codex Backend ---
 

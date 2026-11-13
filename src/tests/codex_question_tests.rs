@@ -7,9 +7,9 @@ use super::codex_question_support::{app, field_text, question, receive, Peer};
 use crate::app::codex_callbacks::{edited, hide_nonblocking, next};
 use crate::app::codex_reply::respond;
 use crate::app::input_events::handle_terminal_event;
-use crate::app::notifications::ServerRequestAction;
 use crate::app::state::ApprovalChoice;
 use crate::app::TerminalSize;
+use crate::session::actions::ServerRequestAction;
 use crate::session::codex::callbacks::CallbackKey;
 
 #[test]

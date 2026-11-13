@@ -6,8 +6,8 @@ use super::super::codex_question_support::{app, field_text, question, receive, P
 use crate::app::claude_callbacks::{cancel_callback, receive_callback};
 use crate::app::codex_callbacks::{checked, edited, next, retire};
 use crate::app::codex_reply::send;
-use crate::app::notifications::ServerRequestAction;
 use crate::app::state::AppState;
+use crate::session::actions::ServerRequestAction;
 use crate::session::codex::callbacks::CallbackKey;
 
 #[test]

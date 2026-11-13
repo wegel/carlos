@@ -1,114 +1,14 @@
-//! Server notification routing and animation ticks.
+//! Keep keyboard and animation helpers beside immediate client effects of backend messages.
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
 use serde_json::Value;
 
-use super::approval_parsing::pending_approval_from_request;
-use super::context_usage::{
-    context_usage_from_thread_token_usage_params, context_usage_from_token_count_params,
-};
-#[cfg(test)]
-pub(super) use super::item_history::append_history_from_thread;
-pub(crate) use super::item_history::load_history_from_start_or_resume;
-use super::notification_items::handle_item_notification;
-use super::notification_turns::{handle_turn_completed, handle_turn_started};
-use super::tools::command_summary_from_parsed_cmd;
-use super::{AppState, ThreadSummary};
-use crate::protocol_params::extract_result_object;
+use super::state::AppState;
+use crate::session::actions::ServerRequestAction;
+use crate::session::common_update::CommonUpdate;
 use crate::theme::ANIMATION_STEP_MS;
-
-// --- Types ---
-
-pub(super) enum ServerRequestAction {
-    CodexQueuePage {
-        token: u64,
-        cursor: Value,
-    },
-    ValidateCodexForm {
-        id: Value,
-        schema: Value,
-        answer: Option<Value>,
-        revision: u64,
-    },
-    ReplyNative {
-        card_id: crate::session::entry_id::EntryId,
-        result: Value,
-    },
-    ClaudeControl {
-        method: String,
-        params: Value,
-    },
-    ApplyClaudeSettings,
-    RefreshContext,
-    ReplyError {
-        request_id: Value,
-        code: i64,
-        message: String,
-    },
-}
-
-/// Outcome of inspecting a server message that has an `id`.
-enum ServerRequestOutcome {
-    /// The message was not a server request (no `id`, or non-request method).
-    NotRequest,
-    /// The message was a server request and has been handled in-place.
-    Handled,
-    /// The message was a server request that the caller should reply to.
-    Reply(ServerRequestAction),
-}
-
-// --- Thread list parsing ---
-
-pub(crate) fn parse_thread_list(response_line: &str) -> Result<Vec<ThreadSummary>> {
-    let parsed = extract_result_object(response_line)?;
-    let Some(data) = parsed
-        .get("result")
-        .and_then(Value::as_object)
-        .and_then(|r| r.get("data"))
-        .and_then(Value::as_array)
-    else {
-        return Ok(Vec::new());
-    };
-
-    let mut out = Vec::new();
-    for entry in data {
-        let Some(obj) = entry.as_object() else {
-            continue;
-        };
-        let Some(id) = obj.get("id").and_then(Value::as_str) else {
-            continue;
-        };
-        let name = obj
-            .get("name")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(ToOwned::to_owned);
-        let preview = obj.get("preview").and_then(Value::as_str).unwrap_or("");
-        let cwd = obj.get("cwd").and_then(Value::as_str).unwrap_or("");
-        let created_at = obj
-            .get("createdAt")
-            .and_then(|v| v.as_i64().or_else(|| v.as_u64().map(|n| n as i64)))
-            .unwrap_or(0);
-        let updated_at = obj
-            .get("updatedAt")
-            .and_then(|v| v.as_i64().or_else(|| v.as_u64().map(|n| n as i64)))
-            .unwrap_or(0);
-
-        out.push(ThreadSummary {
-            id: id.to_string(),
-            name,
-            preview: preview.to_string(),
-            cwd: cwd.to_string(),
-            created_at,
-            updated_at,
-        });
-    }
-    Ok(out)
-}
 
 // --- Key helpers ---
 
@@ -181,8 +81,6 @@ pub(super) fn is_key_press_like(kind: KeyEventKind) -> bool {
     matches!(kind, KeyEventKind::Press | KeyEventKind::Repeat)
 }
 
-// --- Server Message Routing ---
-
 pub(crate) fn handle_server_message_line(
     app: &mut AppState,
     line: &str,
@@ -226,162 +124,37 @@ fn handle_parsed(app: &mut AppState, parsed: Value) -> Option<ServerRequestActio
     {
         return action;
     }
-    if params
-        .get("threadId")
-        .and_then(Value::as_str)
-        .is_some_and(|thread_id| thread_id != *app.session.thread_id())
-    {
-        return None;
-    }
-    match try_handle_server_request(app, method, &parsed) {
-        ServerRequestOutcome::Handled => return None,
-        ServerRequestOutcome::Reply(action) => return Some(action),
-        ServerRequestOutcome::NotRequest => {}
-    }
-    if handle_item_notification(app, method, params) {
-        return None;
-    }
-    dispatch_notification(app, method, params);
-    None
-}
-
-fn try_handle_server_request(
-    app: &mut AppState,
-    method: &str,
-    parsed: &Value,
-) -> ServerRequestOutcome {
-    let Some(request_id) = parsed.get("id").cloned() else {
-        return ServerRequestOutcome::NotRequest;
-    };
-    if let Some(prompt) = parsed
-        .get("params")
-        .and_then(Value::as_object)
-        .and_then(|params| pending_approval_from_request(method, params, request_id.clone()))
-    {
-        app.set_pending_approval(prompt);
-        return ServerRequestOutcome::Handled;
-    }
-    ServerRequestOutcome::Reply(ServerRequestAction::ReplyError {
-        request_id,
-        code: -32601,
-        message: format!("unsupported server request: {method}"),
-    })
-}
-
-fn dispatch_notification(
-    app: &mut AppState,
-    method: &str,
-    params: &serde_json::Map<String, Value>,
-) {
-    match method {
-        "account/rateLimits/updated" => {
-            if let Some(snapshot) = params.get("rateLimits") {
-                app.session.update_rate_limits(snapshot);
-            }
-        }
-        "account/updated" => app.clear_rate_limits(),
-        "thread/initialized" => handle_thread_initialized(app, params),
-        "thread/name/updated" => super::session_name::handle_name_updated(app, params),
-        "thread/tokenUsage/updated" => {
-            if let Some(usage) = context_usage_from_thread_token_usage_params(params) {
-                app.session.set_context_usage(Some(usage));
-            }
-        }
-        "thread/compacted" => {
-            app.session.set_context_usage(None);
-            app.append_context_compacted_marker();
-        }
-        "turn/started" => handle_turn_started(app, params),
-        "turn/completed" => handle_turn_completed(app, params),
-        "turn/diff/updated" => {
-            if let (Some(turn_id), Some(diff)) = (
-                params.get("turnId").and_then(Value::as_str),
-                params.get("diff").and_then(Value::as_str),
-            ) {
-                app.upsert_turn_diff(turn_id, diff);
-            }
-        }
-        "codex/event/turn_diff" => handle_codex_turn_diff(app, params),
-        "codex/event/exec_command_end" => {
-            if let Some(msg) = params.get("msg") {
-                if let Some((call_id, summary)) = command_summary_from_parsed_cmd(msg) {
-                    app.set_command_override(&call_id, summary);
-                }
-            }
-        }
-        "codex/event/token_count" => {
-            if let Some(usage) = context_usage_from_token_count_params(params) {
-                app.session.set_context_usage(Some(usage));
-            }
-        }
-        "error" => {
-            let msg = params
-                .get("message")
-                .and_then(Value::as_str)
-                .unwrap_or("server error");
-            app.set_status(msg);
-        }
-        _ => {}
-    }
-}
-
-fn handle_thread_initialized(app: &mut AppState, params: &serde_json::Map<String, Value>) {
-    if let Some(id) = params
-        .get("thread")
-        .and_then(Value::as_object)
-        .and_then(|thread| thread.get("id"))
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|id| !id.is_empty())
-    {
-        if app.session.thread_id() != id {
-            app.session.set_context_usage(None);
-        }
-        app.set_thread_id(id.to_string());
-    }
-    if let Some(thread) = params.get("thread") {
-        app.read_thread_name(thread);
-    }
-    let model = params
-        .get("model")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|m| !m.is_empty())
-        .map(ToOwned::to_owned);
-    let effort = params
-        .get("reasoningEffort")
-        .or_else(|| params.get("effort"))
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|e| !e.is_empty())
-        .map(ToOwned::to_owned);
-    let summary = params
-        .get("summary")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(ToOwned::to_owned);
-    if model.is_some() || effort.is_some() || summary.is_some() {
-        app.merge_runtime_settings(model, effort, summary);
-    }
-}
-
-fn handle_codex_turn_diff(app: &mut AppState, params: &serde_json::Map<String, Value>) {
-    let turn_id = params
-        .get("id")
-        .and_then(Value::as_str)
-        .or_else(|| params.get("turnId").and_then(Value::as_str));
-    let diff = params
-        .get("msg")
-        .and_then(|m| m.get("unified_diff"))
-        .and_then(Value::as_str)
-        .or_else(|| params.get("diff").and_then(Value::as_str));
-    if let (Some(turn_id), Some(diff)) = (turn_id, diff) {
-        app.upsert_turn_diff(turn_id, diff);
-    }
+    let update = app.session.handle_common_backend_message(&parsed);
+    app.apply_common_update(update)
 }
 
 #[cfg(test)]
 pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
     let _ = handle_server_message_line(app, line);
+}
+
+impl AppState {
+    /// Consume one common-message report before handling another terminal event.
+    pub(super) fn apply_common_update(
+        &mut self,
+        update: CommonUpdate,
+    ) -> Option<ServerRequestAction> {
+        if let Some(changed) = update.thread {
+            self.apply_thread_change(changed);
+        }
+        if let Some(approval) = update.approval {
+            if approval.clear_extra_lines {
+                self.view.approval_hints.clear_extra_lines(approval.current);
+            }
+            self.drop_retired_approval_hints(approval.retired);
+        }
+        if let Some(cleared) = update.cleared {
+            self.apply_cleared_approval(cleared);
+        }
+        if update.clear_quota_countdown {
+            self.view.quota_next_draw = None;
+        }
+        self.apply_item_changes(update.items);
+        update.action
+    }
 }

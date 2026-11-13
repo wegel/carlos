@@ -94,7 +94,11 @@ class InputStatus:
         for backend in ("codex","claude"):
             root = self.summary_root()/backend
             terminal = self.launch(backend=backend,resume=None,width=36,directory=root)
-            if backend == "claude": self.claude_ready(terminal)
+            if backend == "claude":
+                self.claude_ready(terminal)
+                # The first count can arrive before native init adopts the session and resets mode.
+                terminal.wait(lambda:any(request["params"].get("revision",0) >= 2
+                    for request in self.helper_requests(terminal,"context")),"Claude native init applied before mode keys")
             else: terminal.wait(lambda:terminal.input_is(""),"Codex ready")
             terminal.resize(36,12)
             self.assert_quiet_status(terminal)

@@ -3,8 +3,8 @@
 use serde_json::Value;
 
 use super::codex_queue::{apply, scope};
-use super::notifications::ServerRequestAction;
 use super::state::AppState;
+use crate::session::actions::ServerRequestAction;
 use crate::session::codex::queue::QueueUpdate;
 use crate::session::codex::queue_receive;
 

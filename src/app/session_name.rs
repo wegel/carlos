@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 use super::{AppState, Role};
 use crate::backend::{BackendClient, BackendKind};
@@ -11,26 +11,27 @@ use crate::protocol_params::{extract_result_object, params_thread_set_name};
 impl AppState {
     /// Clear the previous session's name when the client switches thread IDs.
     pub(super) fn set_thread_id(&mut self, thread_id: impl Into<String>) {
-        let thread_id = thread_id.into();
-        if *self.session.thread_id() != thread_id {
-            if self.session.codex_scope().enabled() {
-                super::codex_callbacks::reset(self);
-                self.view.codex_panel = Default::default();
-                self.session.reset_codex_panel();
-                self.session.reset_codex_task_status();
-                self.view.codex_goals = Default::default();
-                self.session.reset_codex_goals();
-                self.session.advance_codex_epoch();
-                let mode = self.view.codex_queue.mode;
-                self.view.codex_queue = Default::default();
-                self.session.reset_codex_queue();
-                self.view.codex_queue.mode = mode;
-                self.view.codex_settings = Default::default();
-                self.session.reset_codex_settings();
-            }
-            self.session.set_thread_name(None);
+        let changed = self.session.adopt_native_thread(thread_id.into());
+        self.apply_thread_change(changed);
+    }
+
+    /// Reset only local controls named by an accepted native thread change.
+    pub(super) fn apply_thread_change(
+        &mut self,
+        changed: crate::session::thread_commands::ThreadChanged,
+    ) {
+        for retired in changed.callbacks {
+            super::codex_callbacks::apply_retired(self, retired);
         }
-        self.session.set_thread_id(thread_id);
+        if changed.codex_reset {
+            self.view.codex_callbacks.focused = false;
+            self.view.codex_panel = Default::default();
+            self.view.codex_goals = Default::default();
+            let mode = self.view.codex_queue.mode;
+            self.view.codex_queue = Default::default();
+            self.view.codex_queue.mode = mode;
+            self.view.codex_settings = Default::default();
+        }
     }
 
     /// Keep a single-line, terminal-safe name for display and inline editing.
@@ -48,13 +49,6 @@ impl AppState {
 pub(super) fn read_response_name(app: &mut AppState, response: &str) {
     if let Ok(parsed) = serde_json::from_str::<Value>(response) {
         app.read_thread_name(&parsed["result"]["thread"]);
-    }
-}
-
-/// Apply external renames without changing the draft or transcript.
-pub(super) fn handle_name_updated(app: &mut AppState, params: &Map<String, Value>) {
-    if params.get("threadId").and_then(Value::as_str) == Some(app.session.thread_id().as_str()) {
-        app.set_thread_name(params.get("threadName").and_then(Value::as_str));
     }
 }
 

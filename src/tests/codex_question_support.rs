@@ -6,9 +6,10 @@ use std::time::Duration;
 use anyhow::Result;
 use serde_json::{json, Value};
 
-use crate::app::notifications::{handle_server_message_line, ServerRequestAction};
+use crate::app::notifications::handle_server_message_line;
 use crate::app::state::AppState;
 use crate::backend::{BackendClient, BackendKind, EventReceiver};
+use crate::session::actions::ServerRequestAction;
 use crate::session::codex::callbacks::CallbackKey;
 
 #[derive(Default)]

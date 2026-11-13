@@ -7,7 +7,8 @@ use super::{
     build_rendered_block_for_message, build_rendered_lines, count_rendered_block_for_message,
     AppState, Message, MessageKind, Role,
 };
-use crate::app::notifications::{append_history_from_thread, handle_notification_line};
+use crate::app::item_history::append_history_from_thread;
+use crate::app::notifications::handle_notification_line;
 use crate::app::source_highlight::SourceHighlighter;
 use crate::app::transcript_render::count_rendered_block_for_message_cached;
 use crate::app::transcript_styles::RenderCountCache;

@@ -8,7 +8,6 @@ use std::time::{Duration, Instant};
 pub(super) use super::approval_state::{
     ApprovalChoice, ApprovalRequestDraft, ApprovalRequestKind, PendingApprovalRequest,
 };
-use super::models::TurnStatus;
 use super::perf::PerfMetrics;
 #[cfg(test)]
 use super::ralph::RalphConfig;
@@ -86,6 +85,7 @@ impl AppState {
         self.session.set_status(s)
     }
 
+    #[cfg(test)]
     pub(super) fn set_pending_approval(&mut self, approval: ApprovalRequestDraft) {
         let before = self.session.approval().pending().map(|p| p.entry_id());
         let retired = self.session.set_pending_approval(approval);
@@ -163,11 +163,6 @@ impl AppState {
 
     // --- Turn lifecycle ---
 
-    pub(super) fn append_context_compacted_marker(&mut self) {
-        let update = self.session.append_context_compacted_marker();
-        self.apply_session_update(update);
-    }
-
     pub(super) fn append_turn_interrupted_marker(&mut self) {
         let update = self.session.append_turn_interrupted_marker();
         self.apply_session_update(update);
@@ -177,12 +172,9 @@ impl AppState {
         self.session.mark_turn_started()
     }
 
+    #[cfg(test)]
     pub(super) fn record_turn_started(&mut self, turn_id: &str) -> bool {
         self.session.record_turn_started(turn_id)
-    }
-
-    pub(super) fn record_turn_completed(&mut self, turn_id: &str, status: TurnStatus) -> bool {
-        self.session.record_turn_completed(turn_id, status)
     }
 
     #[cfg(test)]
@@ -191,6 +183,7 @@ impl AppState {
         self.apply_session_update(update);
     }
 
+    #[cfg(test)]
     pub(super) fn handle_ralph_turn_completed(&mut self, interrupted: bool) {
         let update = self.session.handle_ralph_turn_completed(interrupted);
         self.apply_session_update(update);

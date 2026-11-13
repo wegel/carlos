@@ -2,7 +2,7 @@
 
 use serde_json::json;
 
-use crate::app::notifications::load_history_from_start_or_resume;
+use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::state::AppState;
 use crate::session::models::Role;
 

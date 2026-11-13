@@ -3,8 +3,8 @@
 use serde_json::Value;
 
 use super::claude_question_state::safe_text;
-use super::notifications::ServerRequestAction;
 use super::state::AppState;
+use crate::session::actions::ServerRequestAction;
 use crate::session::approval_state::ApprovalQueue;
 use crate::session::codex::callback_commands::CallbackRetired;
 use crate::session::codex::callback_receive::CallbackReceived;

@@ -3,8 +3,8 @@
 use serde_json::Value;
 
 use super::models::Role;
-use super::notifications::ServerRequestAction;
 use super::state::AppState;
+use crate::session::actions::ServerRequestAction;
 
 /// Apply plain backend facts to the existing Claude controls and notices.
 pub(super) fn receive(

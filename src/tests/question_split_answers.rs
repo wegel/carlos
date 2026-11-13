@@ -244,7 +244,7 @@ fn assert_form_replies(payload: Value, params: Value, expected: Value) {
         &mut codex,
         &json!({"requestId":"form","revision":1,"ok":true}),
     );
-    let Some(crate::app::notifications::ServerRequestAction::ReplyNative { card_id, result }) =
+    let Some(crate::session::actions::ServerRequestAction::ReplyNative { card_id, result }) =
         action
     else {
         panic!("validated answer must send")

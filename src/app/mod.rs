@@ -13,7 +13,6 @@ pub(crate) use crate::session::models::Role;
 
 // --- Module Tree ---
 
-mod approval_parsing;
 mod approval_state;
 mod backend_setup;
 mod claude_activity;
@@ -97,7 +96,6 @@ mod models;
 mod mouse_events;
 mod native_questions;
 mod notification_items;
-mod notification_turns;
 mod notifications;
 mod overlay_render;
 mod perf;

@@ -15,6 +15,7 @@ impl AppState {
         self.session.set_runtime_settings(model, effort, summary);
     }
 
+    #[cfg(test)]
     pub(super) fn merge_runtime_settings(
         &mut self,
         model: Option<String>,

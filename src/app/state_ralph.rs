@@ -1,37 +1,23 @@
-//! Guard Carlos automatic-driver toggles with known native goal ownership.
+//! Apply only redraw reports from the session's automatic-work guards.
 
 use anyhow::Result;
 
 use super::state::AppState;
 
 impl AppState {
-    /// Keep native goals and a newly requested Carlos loop from driving the same thread.
+    /// Request a user toggle through the native-goal and automatic-work owner.
     pub(super) fn request_ralph_toggle(&mut self) -> Result<()> {
-        if !self.ralph_enabled() && !self.session.ralph_runtime().toggle_pending() {
-            if let Some(error) = super::codex_goals::ralph_error(self) {
-                self.append_message(super::Role::System, error);
-                anyhow::bail!(error);
-            }
-        }
-        let status = self
-            .session
-            .ralph_request_toggle(self.session.active_turn_id().is_some())?;
-        self.set_status(status);
-        Ok(())
+        let mut changes = Default::default();
+        let result = self.session.request_ralph_toggle(&mut changes);
+        self.apply_item_changes(changes);
+        result
     }
-
-    /// Recheck native goal state before applying a deferred toggle after a turn.
+    /// Apply a deferred toggle only after the session checks native goal ownership.
+    #[cfg(test)]
     pub(super) fn apply_pending_ralph_toggle(&mut self) -> Result<()> {
-        if self.session.ralph_runtime().toggle_pending() && !self.ralph_enabled() {
-            if let Some(error) = super::codex_goals::ralph_error(self) {
-                self.session.ralph_stop_after_failure();
-                self.append_message(super::Role::System, error);
-                anyhow::bail!(error);
-            }
-        }
-        if let Some(status) = self.session.ralph_apply_pending_toggle()? {
-            self.set_status(status);
-        }
-        Ok(())
+        let mut changes = Default::default();
+        let result = self.session.apply_pending_ralph_toggle(&mut changes);
+        self.apply_item_changes(changes);
+        result
     }
 }

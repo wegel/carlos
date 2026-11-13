@@ -10,8 +10,9 @@ use super::{
     configure_app_common, finish_run, grok_runtime_defaults, resolve_backend_runtime_settings,
 };
 use crate::app::cli::CliOptions;
+use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::models::{Role, ThreadSummary};
-use crate::app::notifications::{handle_server_message_line, load_history_from_start_or_resume};
+use crate::app::notifications::handle_server_message_line;
 use crate::app::state::AppState;
 use crate::app::terminal_ui::pick_thread;
 use crate::app::RuntimeDefaults;

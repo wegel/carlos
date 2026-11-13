@@ -4,8 +4,8 @@ use anyhow::Result;
 use serde_json::Value;
 
 use super::models::Role;
-use super::notifications::ServerRequestAction;
 use super::state::AppState;
+use crate::session::actions::ServerRequestAction;
 use crate::session::approval_state::ApprovalQueue;
 
 /// Start the new helper generation before accepting its callbacks or metadata.

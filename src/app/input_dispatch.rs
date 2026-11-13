@@ -3,10 +3,11 @@
 use std::time::Instant;
 
 use crate::app::input_events::{handle_terminal_event, TerminalEventResult};
-use crate::app::notifications::{handle_server_message_line, ServerRequestAction};
+use crate::app::notifications::handle_server_message_line;
 use crate::app::{AppState, TerminalSize};
 use crate::backend::BackendClient;
 use crate::event::UiEvent;
+use crate::session::actions::ServerRequestAction;
 
 /// Handle a single UI event. Returns `true` when the caller should quit.
 pub(in crate::app) fn process_event(

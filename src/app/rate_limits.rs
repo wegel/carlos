@@ -32,6 +32,7 @@ impl AppState {
             .min()
     }
 
+    #[cfg(test)]
     pub(super) fn clear_rate_limits(&mut self) {
         self.session.clear_rate_limits();
         self.view.quota_next_draw = None;

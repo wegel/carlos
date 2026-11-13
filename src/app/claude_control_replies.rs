@@ -4,8 +4,8 @@ use serde_json::Value;
 
 use super::claude_models::apply_capabilities;
 use super::claude_notifications::{fail_session, show_error};
-use super::notifications::ServerRequestAction;
 use super::state::AppState;
+use crate::session::actions::ServerRequestAction;
 
 /// Apply a correlated control answer, with bounded task-run and context freshness checks.
 pub(super) fn receive(

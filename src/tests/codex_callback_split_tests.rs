@@ -7,8 +7,8 @@ use super::split_peer::ValidationPeer;
 use crate::app::codex_callbacks::{checked, reply_hint, retire};
 use crate::app::codex_reply::respond;
 use crate::app::native_questions::draft;
-use crate::app::notifications::ServerRequestAction;
 use crate::app::state::ApprovalChoice;
+use crate::session::actions::ServerRequestAction;
 
 #[test]
 fn callback_ids_keep_json_types_and_both_original_byte_bounds() {

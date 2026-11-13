@@ -6,7 +6,8 @@ use std::time::Duration;
 use anyhow::{bail, Result};
 use serde_json::{json, Value};
 
-use crate::app::notifications::{handle_notification_line, load_history_from_start_or_resume};
+use crate::app::item_history::load_history_from_start_or_resume;
+use crate::app::notifications::handle_notification_line;
 use crate::app::state::AppState;
 use crate::app::turn_submit::submit_rewind_turn_text;
 use crate::backend::{

@@ -24,9 +24,7 @@ pub(super) use super::mobile_mouse::{
 };
 pub(super) use super::models::{Message, MessageKind, Role, ThreadSummary};
 pub(super) use super::notifications::{
-    append_history_from_thread, handle_notification_line, handle_server_message_line,
-    is_key_press_like, kitt_head_index, load_history_from_start_or_resume, parse_thread_list,
-    ServerRequestAction,
+    handle_notification_line, handle_server_message_line, is_key_press_like, kitt_head_index,
 };
 pub(super) use super::perf::{DurationSamples, PerfMetrics};
 pub(super) use super::picker_delete_dialog::draw_picker_delete_dialog;
@@ -67,6 +65,7 @@ pub(super) use crate::protocol_params::{
     params_thread_archive, params_turn_interrupt, params_turn_start, parse_thread_runtime_settings,
     ModelInfo, ThreadRuntimeSettings,
 };
+pub(super) use crate::session::actions::ServerRequestAction;
 pub(super) use crate::session::codex::history::{
     parse_rollout_history, prefer_complete_rollout_history,
 };
@@ -208,3 +207,8 @@ mod entry_lookup_extra_tests;
 
 #[path = "tests/codex_panel_support.rs"]
 mod codex_panel_support;
+
+pub(super) use super::item_history::{
+    append_history_from_thread, load_history_from_start_or_resume,
+};
+pub(super) use crate::session::thread_list::parse_thread_list;

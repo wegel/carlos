@@ -55,6 +55,7 @@ pub(super) fn reply(app: &mut AppState, params: &Value) {
 }
 
 /// Capture settings when the native turn starts, without relabeling in-flight work.
+#[cfg(test)]
 pub(super) fn started(app: &mut AppState, turn: &str) {
     settings::started(&mut app.session, turn);
 }

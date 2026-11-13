@@ -109,11 +109,13 @@ impl AppState {
         index
     }
 
+    #[cfg(test)]
     pub(super) fn upsert_turn_diff(&mut self, turn_id: &str, diff: &str) {
         let update = self.session.upsert_turn_diff(turn_id, diff);
         self.apply_session_update(update);
     }
 
+    #[cfg(test)]
     pub(super) fn set_command_override(&mut self, call_id: &str, summary: String) {
         let key = self.item_key(call_id);
         let update = self.session.set_command_override(&key, summary);

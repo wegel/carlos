@@ -3,8 +3,8 @@
 use serde_json::Value;
 
 use super::{checked, receive, resolved};
-use crate::app::notifications::ServerRequestAction;
 use crate::app::state::AppState;
+use crate::session::actions::ServerRequestAction;
 
 /// Tell the shared parser whether a native callback event was consumed.
 pub(in crate::app) enum CallbackRoute {
