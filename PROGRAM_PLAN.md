@@ -40,19 +40,27 @@ after ExecPlan 016. Do not merge it into `main` or push it without the owner's r
 
 ## Active ExecPlans
 
-EP018a is complete. The owner reviews `.agents/reports/exec018a-final-report.md` before EP019 starts.
-Do not begin EP019 or install a spike binary until that review; its typed terminal migration gates
-are recorded in `docs/terminal-client-migration.md`.
+EP018a is complete and archived. The owner accepted it on 2026-11-13 after reviewing
+`.agents/reports/exec018a-final-report.md` and the independent whole-roadmap follow-up in
+`.agents/reports/exec018a-fable-followup-review.md`. Its archived plan remains unchanged.
+That acceptance does not authorize installing, merging or pushing a spike binary.
 
-EP019 must first prove headless daemon commands and concurrent reads, then extend typed terminal controls
-and pass the workflow checklist in `docs/terminal-client-migration.md` before deleting the embedded path.
-Protocol version 1 remains provisional until real remote clients exercise it.
+The next ExecPlan is `.agents/execplans/EXECPLAN_019a_headless_daemon.md`. It first proves
+that real backend command handles can wait without blocking their session owner, then adds
+`carlosd` with basic commands and two headless clients. It must prove ordered sends, responsive
+interrupts/answers, bounded queues and recovery after disconnect before owner review.
 
-ExecPlans 017 to 022 are listed in `docs/engine-architecture.md`. Each one is written when the
-plan before it ends.
+EP019b follows that review. It adds the remaining typed terminal commands and the shared Rust
+client, proves terminal workflow parity, then deletes the embedded session/backend path in a
+separate commit. Its scope and deletion gate are in `docs/terminal-client-migration.md`;
+write its full ExecPlan only after EP019a supplies working interfaces. Protocol version 1
+remains provisional until real remote clients exercise it.
+
+ExecPlans 019a through 022 are listed in `docs/engine-architecture.md`. Only the next plan
+is written in full. Each completed step ends at owner review.
 
 ExecPlans 009 to 015 remain under `.agents/execplans/`. Their status was not reviewed when the
-daemon split started. They remain outside the iPhone spike; its next step is EP019 after owner review of EP018a.
+daemon split started. They remain outside the iPhone spike; its next step is EP019a.
 
 
 ## Done ExecPlans
@@ -69,4 +77,4 @@ daemon split started. They remain outside the iPhone spike; its next step is EP0
 - [x] `.agents/done/EXECPLAN_017_core_workspace.md` (step 2 of 7: terminal-free session library; completed 2026-11-13)
 - [x] `.agents/done/EXECPLAN_018_sequenced_events.md` (step 3 of 7: numbered core events and client protocol version 1; completed 2026-11-13)
 
-- [x] `.agents/done/EXECPLAN_018a_pre_daemon_cleanup.md`
+- [x] `.agents/done/EXECPLAN_018a_pre_daemon_cleanup.md` (owner accepted 2026-11-13; archived plan unchanged)

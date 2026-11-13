@@ -1,6 +1,6 @@
 # Engine architecture: daemon and clients
 
-Status: agreed 2026-11-11, revised 2026-11-13. EP016 through EP018a are complete. The owner reviews EP018a before EP019 starts.
+Status: agreed 2026-11-11, revised 2026-11-13. EP016 through EP018a are complete. The owner accepted EP018a. EP019 is now split into EP019a (headless daemon) and EP019b (terminal cutover), with owner review between them.
 
 This note records the design for splitting `carlos` into a daemon and several
 clients, and the reasons. Update it when a decision changes. Keep raw logs out.
@@ -41,16 +41,17 @@ baseline; a regression blocks a commit.
 
 - `carlos-proto`: serde wire types with no I/O. Generate schemas when an actual consumer needs them.
 - `carlos-core`: backends, session facts, tool labels and Ralph. Cargo forbids terminal dependencies; the compiler protects private facts.
-- `carlosd` (EP019): session manager and Unix listener; WebSocket access follows in EP020. No terminal dependency.
-- `carlos-client` (EP019): pure wire codec, connection steps and local session facts shared by clients. No sockets, threads, async runtime or terminal dependency.
-- `carlos`: terminal client with local view state after EP019 parity checks. It currently uses the core in process.
+- `carlosd` (EP019a): session manager and Unix listener; WebSocket access follows in EP020. No terminal dependency.
+- `carlos-client` (EP019b): pure wire codec, connection steps and local session facts shared by clients. No sockets, threads, async runtime or terminal dependency.
+- `carlos`: terminal client with local view state after EP019b parity checks. It currently uses the core in process.
 
 ## Session core
 
-- One thread per session. The thread owns the session state and its
-  `BackendClient`. It receives client commands, backend events and timers on
-  one channel. This keeps the current thread-and-channel model; the core has no
-  async runtime.
+- One thread per session owns SessionState and the backend event receiver/normalizer.
+  Workers use command-only handles bound to the captured native connection; no worker
+  holds the entire client locked while waiting. The owner receives commands, native
+  facts, timers and checked completions. EP019a proves this with real adapters before
+  adding a listener. The core keeps threads and channels, without an async runtime.
 - The session thread numbers every event it emits (`seq`, per session, starts
   at 1). It keeps recent events in a bounded ring in memory.
 - A client subscribes with the last `seq` it received. The daemon replays the
@@ -58,14 +59,21 @@ baseline; a regression blocks a commit.
   sends a snapshot.
 - Every entry has a stable id that the daemon assigns. Clients never see
   vector indices or raw backend ids.
-- The daemon sends meaning, not layout: Markdown source, tool output lines with
-  a line kind, diff counts, phase. Each client wraps and renders for its own
-  width. A client decides whether reasoning fits on one row.
+- The daemon sends Markdown source, tool output pieces with a line kind, diff counts
+  and phase. Each client wraps and renders for its own width. EP019a uses normalized
+  output for headless clients. Before terminal cutover, EP019b must also preserve
+  original terminal color and copy behavior through bounded source reads from the
+  same stored body; it cannot reconstruct lost source from normalized pieces.
+  A client decides whether reasoning fits on one row.
 - Several clients can watch one session. The first approval decision wins; the
   daemon then sends the resolved approval to every client. Drafts and display
   settings stay on each device.
 - The backends keep the conversation files. The daemon adds one SQLite table of
-  sessions: id, name, backend, cwd, backend thread id, Ralph state.
+  sessions: id, name, backend, cwd, backend thread id, Ralph state. Logical session
+  ids survive a restart, but a new daemon-instance id invalidates event/retry cursors.
+  Restore native history before a fresh snapshot. Never automatically resend uncertain
+  commands or restart Ralph after a daemon crash. Detaching from a live daemon does
+  not stop Ralph.
 - One daemon per host. A client connects to several daemons and groups sessions
   by host. There is no central hub.
 - Dictation stays in each client. The TUI keeps in-process Whisper. A phone
@@ -119,7 +127,8 @@ The daemon runs shell commands as the user. It binds to a configured address
 1. Typing and scrolling stay local. Expansion uses bounded reads and optional live output watches.
 2. A streaming event carries only the new text.
 3. A client shows a sent message at once (local echo, matched later by
-   `client_message_id`).
+   its originating ClientOperation). EP019a replaces the provisional duplicate
+   `client_message_id` with that one operation identity before remote sends exist.
 4. Add a timed delta merger only if real socket measurements justify it.
 5. Per-client queues are bounded. A slow client never blocks a session thread;
    the daemon drops that client's queue and sends a snapshot.
@@ -179,11 +188,12 @@ Types:
 1. EP016: stable entry ids, separate SessionState/ViewState, and Claude translation in its backend. Complete.
 2. EP017: Cargo workspace and a terminal-free carlos-core. Complete.
 3. EP018: numbered core events consumed in process, provisional protocol types and separate removal of the old redraw-report path. Complete.
-4. EP018a: bounded running output, client-owned drafts, prepared backend waits, terminal workflow inventory and reduced guards. Complete; the owner reviews it before sockets.
-5. EP019: prove a headless daemon and concurrent reads with real backend handles; add typed native-control families and carlos-client; switch the terminal after parity, then delete its embedded path separately. Sessions survive a terminal quit.
-6. EP020: WebSocket listener, device tokens and perf-session replay through the socket. Add schema output only when a real client needs it.
-7. EP021: paged native history, Grok approvals and richer tool summaries as data.
-8. EP022: UniFFI bindings, iOS packaging and the iPhone app. Compile on the remote Mac; see `docs/ios-build.md`.
+4. EP018a: bounded running output, client-owned drafts, prepared backend waits, terminal workflow inventory and reduced guards. Complete and accepted by the owner.
+5. EP019a: prove real backend handles first, then a headless daemon with basic commands and two concurrent clients. Sessions survive client disconnect. Test bounded queues, ordered commands, priority controls and private recovery; stop for owner review. Full plan: `.agents/execplans/EXECPLAN_019a_headless_daemon.md`.
+6. EP019b: add typed terminal-control families and carlos-client, preserve source/color/copy behavior, drive every terminal workflow through the daemon, then delete the embedded path in a separate commit. Stop for owner review. Scope: `docs/terminal-client-migration.md`; write the full plan after EP019a.
+7. EP020: WebSocket listener, device tokens and perf-session replay through the socket. Add schema output only when a real client needs it.
+8. EP021: paged native history, Grok approvals and richer tool summaries as data.
+9. EP022: UniFFI bindings, iOS packaging and the iPhone app. Compile on the remote Mac; see `docs/ios-build.md`.
 
 Only the next ExecPlan is written in full. Each later plan is written when the
 plan before it ends, because its details depend on what that plan finds.
@@ -254,10 +264,10 @@ was installed, merged or pushed. The owner approved EP018a before EP019; see the
 
 The owner approved a broad cleanup after Fable 5.2 reviewed the entire roadmap. A phone must eventually expand running tools, so the protocol supports that workflow before the daemon is built. `docs/client-protocol-v1.md` defines bounded source cursors and separate optional output watches. Compact session facts reach every subscriber without filtered sequence gaps. The original tool body remains the one stored source, preserving terminal colors and copy behavior.
 
-`docs/terminal-client-migration.md` lists the terminal workflows that EP019 must preserve. It supersedes the assumption that the original eleven phone-oriented commands cover the whole terminal. EP019 first proves the daemon with headless clients, then adds typed native-control families and the shared Rust client, then switches the terminal after parity checks. It deletes the embedded path separately. It cannot keep a permanent direct-core bypass or generic backend JSON command.
+`docs/terminal-client-migration.md` lists the terminal workflows that EP019 must preserve. It supersedes the assumption that the original eleven phone-oriented commands cover the whole terminal. EP019a proves the daemon with headless clients and ends at owner review. EP019b adds typed native-control families and the shared Rust client, then switches the terminal after parity checks. It deletes the embedded path separately before its own owner review. It cannot keep a permanent direct-core bypass or generic backend JSON command.
 
 Backend frames must not inspect a client's composer, confirmation or focused panel. Commands carry their originating operation and explicit read targets; each client decides what to do with its own drafts. Backend calls execute outside the session owner's borrow, then settle only if their connection and operation still match. The daemon can process facts and reads while a worker waits.
 
 Version 1 remains provisional until real remote consumers exercise it. UniFFI stays in EP022 when the iOS consumer exists; JSON Schema and a timed delta merger wait for actual need. The shared-client objective, one-owner-per-session model, bounded queues and per-EP owner review remain in force. EP018a runs directly in Codex without implementation subagents, as requested by the owner.
 
-EP018a closeout, 2026-11-13: bounded running output, correlated recovery, prepared send/fork/name waits and the terminal inventory are complete. The source lexer was removed. The branch now includes main's Escape-burst fix. Final feature/release/terminal/native checks and original-reference/common-base measurements pass; `.agents/reports/exec018a-final-report.md` records exact evidence and remaining EP019 work. The owner reviews this step before a daemon or terminal cutover starts. No spike executable was installed, merged or pushed.
+EP018a closeout, 2026-11-13: bounded running output, correlated recovery, prepared send/fork/name waits and the terminal inventory are complete. The source lexer was removed. The branch now includes main's Escape-burst fix. Final feature/release/terminal/native checks and original-reference/common-base measurements pass; `.agents/reports/exec018a-final-report.md` records exact evidence and remaining EP019 work. The owner accepted this step on 2026-11-13. The independent follow-up review is `.agents/reports/exec018a-fable-followup-review.md`; the owner agreed to separate daemon proof from terminal cutover. EP019a is the next execution, with owner review before EP019b. No spike executable was installed, merged or pushed.
