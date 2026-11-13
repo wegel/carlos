@@ -32,7 +32,7 @@ when a library is built as another package's dependency. The new library needs
 explicit test support for those callers; copying production code into the app
 would hide mistakes and is not acceptable.
 
-The current source guard checks future-core roots under `src/` and follows eight
+The original source guard checked future-core roots under `src/` and follows eight
 exact external test files. After the move it must check the real library, not an
 empty old source tree. Cargo must also check the complete library dependency graph
 so a terminal package cannot arrive through an indirect dependency.
@@ -242,3 +242,5 @@ with explicit checks for the tests and feature gates that EP016's report flagged
 Milestone 1 update, 2026-11-13: preserved the baseline and verified plain Cargo commands discover both packages before moving source.
 
 Milestones 2 and 3 update, 2026-11-13: preserved every existing test, kept root executable paths, and replaced the old future-core check with checks of the actual library and Cargo graph. The isolated caller checks prove useful terminal-free behavior and private fields across the real package boundary.
+
+Release packaging discovery, 2026-11-13: the first release runner reached package staging and rejected carlos-core because its license lives at the repository root. The core manifest now declares `license-file = "../../LICENSE"`; the collector copies Cargo-declared files as well as files found in each package directory. A temporary-workspace regression test reproduces that case. The final release run remains open.

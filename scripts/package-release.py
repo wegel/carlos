@@ -36,6 +36,10 @@ def rust_notices(destination,target):
         folder = Path(package["manifest_path"]).parent
         output = destination/name
         files = copy_licenses(folder,output)
+        if package.get("license_file"):
+            declared = folder/package["license_file"]
+            shutil.copy2(declared,output/declared.name)
+            files.append(declared)
         extra = ROOT/"third_party/rust-extra"/name
         if extra.exists():
             shutil.copytree(extra,output,dirs_exist_ok=True)
