@@ -59,24 +59,26 @@ impl SessionState {
         } else {
             if *steer {
                 if kind.echoes_local_user_prompt() {
-                    self.echo_prompt(text, Role::User, options.record_history, update);
+                    self.echo_prompt(
+                        text,
+                        Role::User,
+                        options.record_history,
+                        update,
+                        context.operation.as_ref(),
+                    );
                 }
                 if !completed {
                     self.set_status("sent steer");
                 }
             } else {
                 self.bind_claude_edit(text, options.origin, context.operation.as_ref(), response);
-                self.mark_prompt_sent(*kind, text, *options, update, !completed);
+                self.mark_prompt_sent(submission, update, !completed);
             }
             if *kind == BackendKind::Claude {
                 update.merge(self.receive_claude_submission(response));
             }
         }
-        if options.origin == PromptOrigin::Human {
-            update.changes.effects.push(ClaudeEffect::Submission(
-                SubmissionOutcome::PromptAccepted(context.operation.clone()),
-            ));
-        }
+        record_prompt_acceptance(update, submission);
         if *edited {
             if *kind == BackendKind::Codex {
                 update.changes.items.reset_navigation |= self.record_prompt_history(text, None);
@@ -114,21 +116,23 @@ impl SessionState {
         self.append_message(Role::System, format!("Could not send message: {error}"));
     }
 
-    pub(super) fn mark_prompt_sent(
+    fn mark_prompt_sent(
         &mut self,
-        kind: BackendKind,
-        text: &str,
-        options: PromptOptions,
+        submission: &PromptSubmission,
         update: &mut TurnUpdate,
         can_start: bool,
     ) {
+        let kind = submission.kind;
+        let text = &submission.text;
+        let options = submission.options;
+        let operation = submission.context.operation.as_ref();
         if kind.echoes_local_user_prompt() {
             let role = if kind == BackendKind::Claude && options.origin == PromptOrigin::Automatic {
                 Role::System
             } else {
                 Role::User
             };
-            self.echo_prompt(text, role, options.record_history, update);
+            self.echo_prompt(text, role, options.record_history, update, operation);
             if can_start && self.active_turn_id().is_none() {
                 self.mark_turn_started();
                 self.set_active_turn_id(Some(
@@ -158,11 +162,24 @@ impl SessionState {
         role: Role,
         record: bool,
         update: &mut TurnUpdate,
+        operation: Option<&carlos_proto::submissions::ClientOperation>,
     ) {
         let index = self.append_message(role, text);
+        self.bind_entry_operation(index, operation);
         if record {
             update.changes.items.reset_navigation |=
                 self.record_prompt_history(text, Some(self.messages()[index].id));
         }
+    }
+}
+
+fn record_prompt_acceptance(update: &mut TurnUpdate, submission: &PromptSubmission) {
+    if submission.options.origin == PromptOrigin::Human {
+        update
+            .changes
+            .effects
+            .push(ClaudeEffect::Submission(SubmissionOutcome::PromptAccepted(
+                submission.context.operation.clone(),
+            )));
     }
 }

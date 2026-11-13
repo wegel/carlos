@@ -59,8 +59,12 @@
       "method": "session/send",
       "params": {
         "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "text": "héllo 🌍",
-        "client_message_id": "echo-1"
+        "text": "h\u00e9llo \ud83c\udf0d",
+        "operation": {
+          "client": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "1"
+        },
+        "policy": "steer"
       }
     },
     {
@@ -68,7 +72,12 @@
       "id": 7,
       "method": "session/interrupt",
       "params": {
-        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "operation": {
+          "client": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "1"
+        },
+        "turn": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       }
     },
     {
@@ -81,6 +90,10 @@
         "answer": {
           "kind": "decision",
           "decision": "once"
+        },
+        "operation": {
+          "client": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "1"
         }
       }
     },
@@ -96,6 +109,10 @@
           "value": {
             "choice": "yes"
           }
+        },
+        "operation": {
+          "client": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "1"
         }
       }
     },
@@ -105,7 +122,11 @@
       "method": "session/setRalph",
       "params": {
         "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "on": true
+        "on": true,
+        "operation": {
+          "client": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "1"
+        }
       }
     },
     {
@@ -151,10 +172,10 @@
           "entry": {
             "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
             "kind": "answer",
-            "text": "héllo",
+            "text": "h\u00e9llo",
             "done": false,
             "tool": null,
-            "client_message_id": null
+            "operation": null
           }
         }
       }
@@ -168,7 +189,7 @@
         "event": {
           "kind": "text_appended",
           "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
-          "text": " 🌍"
+          "text": " \ud83c\udf0d"
         }
       }
     },
@@ -183,10 +204,10 @@
           "entry": {
             "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
             "kind": "answer",
-            "text": "héllo",
+            "text": "h\u00e9llo",
             "done": false,
             "tool": null,
-            "client_message_id": null
+            "operation": null
           }
         }
       }
@@ -271,7 +292,9 @@
             "ralph": false,
             "turn_started_at": null,
             "context": null,
-            "quota": null
+            "quota": null,
+            "availability": "ready",
+            "current_turn": null
           }
         }
       }
@@ -296,16 +319,18 @@
               "ralph": false,
               "turn_started_at": null,
               "context": null,
-              "quota": null
+              "quota": null,
+              "availability": "ready",
+              "current_turn": null
             },
             "entries": [
               {
                 "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
                 "kind": "answer",
-                "text": "héllo",
+                "text": "h\u00e9llo",
                 "done": false,
                 "tool": null,
-                "client_message_id": null
+                "operation": null
               }
             ],
             "approvals": [
@@ -348,7 +373,7 @@
           "segments": [
             {
               "kind": "plain",
-              "text": "héllo\\n"
+              "text": "h\u00e9llo\\n"
             }
           ],
           "has_more": false,

@@ -94,6 +94,7 @@ fn record_user_turn_id(session: &mut SessionState, params: &serde_json::Map<Stri
     if item.get("type").and_then(Value::as_str) != Some("userMessage") {
         return;
     }
+    session.bind_native_operation(item);
     if let (Some(item_id), Some(turn_id)) = (
         item.get("id").and_then(Value::as_str),
         params.get("turnId").and_then(Value::as_str),

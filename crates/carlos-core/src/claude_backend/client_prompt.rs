@@ -28,7 +28,10 @@ impl Commands {
             .as_str()
             .filter(|text| !text.trim().is_empty())
             .context("missing prompt text")?;
-        let uuid = Uuid::new_v4().to_string();
+        let uuid = params["clientUserMessageId"]
+            .as_str()
+            .map(str::to_owned)
+            .unwrap_or_else(|| Uuid::new_v4().to_string());
         let input_kind = (origin == PromptOrigin::Human).then_some(match priority {
             PromptPriority::Steer => "steer",
             PromptPriority::Queue => "prompt",

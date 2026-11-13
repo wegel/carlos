@@ -68,12 +68,14 @@ pub(super) struct PromptSubmission {
 #[derive(Debug)]
 pub enum CommandError {
     Busy { submitted: Option<SubmittedText> },
+    Capacity { submitted: Option<SubmittedText> },
     Stale { submitted: Option<SubmittedText> },
 }
 
 impl fmt::Display for CommandError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
+            Self::Capacity { .. } => "native echo admission is full; nothing sent; draft kept",
             Self::Busy { .. } => "another backend command is pending; draft kept",
             Self::Stale { .. } => "backend command finished after its session changed; outcome uncertain; do not retry automatically",
         })
@@ -150,7 +152,9 @@ impl CommandError {
     /// Return caller-owned submitted text even when a wait could not be prepared or became stale.
     pub fn into_submitted(self) -> Option<SubmittedText> {
         match self {
-            Self::Busy { submitted } | Self::Stale { submitted } => submitted,
+            Self::Busy { submitted } | Self::Stale { submitted } | Self::Capacity { submitted } => {
+                submitted
+            }
         }
     }
 }

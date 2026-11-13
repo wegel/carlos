@@ -4,9 +4,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::events::SessionEvent;
-use crate::ids::{EntryId, Sequence, SessionId};
+use crate::ids::{
+    ClientId, DaemonId, EntryId, OperationId, ResumeToken, Sequence, SessionId, TurnId,
+};
 use crate::output::OutputCursor;
 use crate::session::{Backend, Decision, SessionInfo, Snapshot};
+use crate::submissions::ClientOperation;
 use crate::PROTOCOL_VERSION;
 
 /// Only JSON-RPC version 2.0 is accepted.
@@ -41,7 +44,14 @@ pub enum Command {
     Hello {
         protocol: u32,
         client: String,
+        #[serde(default)]
         token: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        resume: Option<ClientId>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        resume_token: Option<ResumeToken>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        instance: Option<DaemonId>,
     },
     #[serde(rename = "sessions/watch")]
     Watch {},
@@ -68,18 +78,31 @@ pub enum Command {
     Send {
         session: SessionId,
         text: String,
-        client_message_id: String,
+        operation: ClientOperation,
+        #[serde(default)]
+        policy: SendPolicy,
     },
     #[serde(rename = "session/interrupt")]
-    Interrupt { session: SessionId },
+    Interrupt {
+        session: SessionId,
+        operation: ClientOperation,
+        turn: TurnId,
+    },
     #[serde(rename = "session/approve")]
     Approve {
         session: SessionId,
         approval: EntryId,
+        operation: ClientOperation,
         answer: ApprovalAnswer,
     },
     #[serde(rename = "session/setRalph")]
-    SetRalph { session: SessionId, on: bool },
+    SetRalph {
+        session: SessionId,
+        operation: ClientOperation,
+        on: bool,
+    },
+    #[serde(rename = "operation/read")]
+    Operation { operation: ClientOperation },
     #[serde(rename = "entry/output")]
     Output {
         session: SessionId,
@@ -97,6 +120,15 @@ pub enum Command {
     OutputUnsubscribe { session: SessionId, entry: EntryId },
 }
 
+/// Explicitly steer running work or queue text for a later turn.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SendPolicy {
+    #[default]
+    Steer,
+    Queue,
+}
+
 /// Input answers are validated against the live card before any backend reply.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -111,6 +143,11 @@ pub struct HelloResult {
     pub protocol: u32,
     pub host: String,
     pub daemon_version: String,
+    pub instance: DaemonId,
+    pub client: ClientId,
+    pub resumed: bool,
+    pub next_operation: Option<OperationId>,
+    pub resume_token: ResumeToken,
 }
 
 /// An explicit response result, without ambiguous result/error objects.
@@ -164,10 +201,4 @@ pub enum SubscribeResult {
     Snapshot {
         snapshot: Box<Snapshot>,
     },
-}
-
-/// A sent message's stable address matches the echoed client_message_id.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SendResult {
-    pub entry: EntryId,
 }

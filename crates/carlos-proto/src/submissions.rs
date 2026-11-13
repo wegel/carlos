@@ -41,3 +41,30 @@ pub enum SubmissionOutcome {
         kind: RecoveryKind,
     },
 }
+
+/// One command's private, reconnectable result; accepted means native admission, not turn completion.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperationResult {
+    pub operation: ClientOperation,
+    pub session: crate::ids::SessionId,
+    pub state: OperationState,
+}
+
+/// A command keeps submitted text recoverable when its outcome cannot be confirmed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum OperationState {
+    Pending,
+    Queued,
+    Accepted {
+        entry: Option<crate::ids::EntryId>,
+    },
+    Rejected {
+        message: String,
+        recovery: Option<SubmittedText>,
+    },
+    Uncertain {
+        message: String,
+        recovery: Option<SubmittedText>,
+    },
+}

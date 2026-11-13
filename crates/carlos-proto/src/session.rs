@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::ids::{EntryId, Sequence, SessionId};
+use crate::ids::{EntryId, Sequence, SessionId, TurnId};
 use crate::output::OutputRevision;
 
 /// A backend chosen for a session, independent of enabled compatibility controls.
@@ -22,6 +22,18 @@ pub enum Phase {
     Idle,
     Running,
     Approval,
+}
+
+/// Whether a saved session can currently accept backend work.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Availability {
+    Dormant,
+    Restoring,
+    Starting,
+    Ready,
+    Closed,
+    Unavailable,
 }
 
 /// Token counts last reported by the backend.
@@ -48,6 +60,8 @@ pub struct SessionInfo {
     pub host: String,
     pub cwd: Option<String>,
     pub phase: Phase,
+    pub availability: Availability,
+    pub current_turn: Option<TurnId>,
     pub ralph: bool,
     pub turn_started_at: Option<i64>,
     pub context: Option<Context>,
@@ -118,7 +132,7 @@ pub struct Entry {
     pub text: String,
     pub done: bool,
     pub tool: Option<Tool>,
-    pub client_message_id: Option<String>,
+    pub operation: Option<crate::submissions::ClientOperation>,
 }
 
 /// Decisions are offered only when the backend supports the corresponding reply.

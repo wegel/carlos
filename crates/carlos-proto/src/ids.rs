@@ -88,13 +88,76 @@ opaque_id!(
     "A client identity bound to an authenticated daemon connection."
 );
 opaque_id!(
-    OperationId,
+    DaemonId,
     32,
-    "An idempotency and outcome key for one submitted client command."
+    "One daemon lifetime; a restart invalidates old retry and event cursors."
+);
+opaque_id!(
+    ResumeToken,
+    64,
+    "A private reconnect credential; never publish it with shared client ids."
+);
+opaque_id!(
+    TurnId,
+    32,
+    "An opaque active-turn address used to reject stale controls."
 );
 
+/// A nonzero per-client command counter encoded as lossless decimal text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(try_from = "Sequence", into = "Sequence")]
+pub struct OperationId(Sequence);
+
+impl OperationId {
+    /// Construct a command id without accepting zero.
+    pub const fn new(value: u64) -> Option<Self> {
+        if value == 0 {
+            None
+        } else {
+            Some(Self(Sequence::new(value)))
+        }
+    }
+    /// Read the full counter without narrowing it.
+    pub const fn get(self) -> u64 {
+        self.0.get()
+    }
+}
+
+impl TryFrom<Sequence> for OperationId {
+    type Error = InvalidId;
+    fn try_from(value: Sequence) -> Result<Self, Self::Error> {
+        Self::new(value.get()).ok_or(InvalidId)
+    }
+}
+impl From<OperationId> for Sequence {
+    fn from(value: OperationId) -> Self {
+        value.0
+    }
+}
+impl FromStr for OperationId {
+    type Err = InvalidId;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let number = value.parse::<u64>().map_err(|_| InvalidId)?;
+        if number.to_string() != value {
+            return Err(InvalidId);
+        }
+        Self::new(number).ok_or(InvalidId)
+    }
+}
+impl TryFrom<String> for OperationId {
+    type Error = InvalidId;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+impl fmt::Display for OperationId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.get())
+    }
+}
+
 /// A per-session cursor encoded as decimal text to avoid JavaScript integer rounding.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Sequence(u64);
 
 impl Sequence {

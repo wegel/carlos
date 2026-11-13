@@ -28,6 +28,7 @@ class Codex:
         self.selector.register(self.process.stdout, selectors.EVENT_READ)
         self.next_id = 0
         self.buffer = b""
+        self.notifications = []
 
     def send(self, message):
         self.log.write(json.dumps({"direction": "client", "message": message}) + "\n")
@@ -35,11 +36,7 @@ class Codex:
         self.process.stdin.write((json.dumps(message) + "\n").encode())
         self.process.stdin.flush()
 
-    def call(self, method, params):
-        self.next_id += 1
-        request_id = self.next_id
-        self.send({"id": request_id, "method": method, "params": params})
-        deadline = time.monotonic() + 20
+    def receive(self, deadline):
         while time.monotonic() < deadline:
             if b"\n" not in self.buffer:
                 if not self.selector.select(0.1):
@@ -53,11 +50,31 @@ class Codex:
             response = json.loads(line)
             self.log.write(json.dumps({"direction": "server", "message": response}) + "\n")
             self.log.flush()
+            return response
+        raise AssertionError("Timed out waiting for native frame; see " + str(self.root))
+
+    def call(self, method, params):
+        self.next_id += 1
+        request_id = self.next_id
+        self.send({"id": request_id, "method": method, "params": params})
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            response = self.receive(deadline)
             if response.get("id") == request_id:
                 if "error" in response:
                     raise AssertionError(f"{method}: {response['error']}; see {self.root}")
                 return response["result"]
+            self.notifications.append(response)
         raise AssertionError("Timed out waiting for " + method)
+
+    def user_message(self):
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            frame = self.notifications.pop(0) if self.notifications else self.receive(deadline)
+            item = frame.get("params", {}).get("item", {})
+            if item.get("type") == "userMessage":
+                return item
+        raise AssertionError("Missing native user echo; see " + str(self.root))
 
     def close(self):
         self.process.terminate()
@@ -142,6 +159,7 @@ def check(binary, root):
     check_queue_persistence(binary, root / "queue")
     check_paged_history(binary, root / "paged")
     check_context_size(binary, root / "context-size")
+    check_client_echo(binary, root / "client-echo")
 
 
 def check_context_size(binary, root):
@@ -158,6 +176,27 @@ def check_context_size(binary, root):
         print("PASS: context sizes reach installed Codex through process flags without writing native defaults")
     finally:
         server.close()
+
+def check_client_echo(binary, root):
+    from mock_responses import Model, answer
+    root.mkdir(parents=True)
+    model = Model(root, lambda _body: [answer("fixed echo fixture")])
+    server = Codex(binary, root)
+    try:
+        server.call("initialize", {"clientInfo": {"name": "carlos-contract-test", "version": "1"},
+                                   "capabilities": {"experimentalApi": True}})
+        server.send({"method": "initialized"})
+        thread = server.call("thread/start", {"cwd": str(root)})["thread"]["id"]
+        token = str(uuid.uuid4())
+        server.call("turn/start", {"threadId": thread, "clientUserMessageId": token,
+                                   "input": [{"type": "text", "text": "fixed echo fixture"}]})
+        item = server.user_message()
+        assert item["clientId"] == token, item
+        assert item["id"] != token, "native item identity and client echo identity are distinct"
+        print("PASS: installed Codex preserves clientUserMessageId as userMessage.clientId")
+    finally:
+        server.close()
+        model.close()
 
 
 def check_queue_persistence(binary, root):

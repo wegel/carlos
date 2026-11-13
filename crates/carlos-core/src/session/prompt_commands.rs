@@ -69,6 +69,14 @@ impl SessionState {
                 }),
             });
         }
+        if !self.operation_capacity(context.operation.as_ref()) {
+            return Err(CommandError::Capacity {
+                submitted: Some(SubmittedText {
+                    text,
+                    operation: context.operation.clone(),
+                }),
+            });
+        }
         let mut prepared = PreparedCommand::default();
         if text.trim().is_empty()
             || self.reject_prompt(kind, &text, options, context, &mut prepared.update)
@@ -126,7 +134,7 @@ impl SessionState {
             PromptPriority::Queue
         };
         let method = if steer { "turn/steer" } else { "turn/start" };
-        let params = if steer {
+        let mut params = if steer {
             params_turn_steer(
                 self.thread_id(),
                 self.active_turn_id().as_ref().expect("steer turn"),
@@ -135,6 +143,9 @@ impl SessionState {
         } else {
             self.new_turn_params(kind, text)
         };
+        if kind != BackendKind::Grok {
+            self.prepare_operation_token(&mut params, context.operation.as_ref());
+        }
         self.backend_work(
             kind,
             BackendCall::Prompt {

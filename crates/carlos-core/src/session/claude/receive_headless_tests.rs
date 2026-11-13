@@ -89,7 +89,7 @@ fn failed_edit_and_queued_text_keep_different_client_operation_owners() {
     use carlos_proto::submissions::{ClientOperation, SubmittedText};
     let operation = |digit: char| ClientOperation {
         client: digit.to_string().repeat(32).parse().expect("client"),
-        id: digit.to_string().repeat(32).parse().expect("operation"),
+        id: "1".parse().expect("operation"),
     };
     let mut session = SessionState::new("root".into(), Default::default(), false);
     let first = operation('a');
@@ -126,7 +126,7 @@ fn another_clients_identical_human_text_cannot_claim_or_fail_a_queued_edit() {
     use carlos_proto::submissions::ClientOperation;
     let operation = |digit: char| ClientOperation {
         client: digit.to_string().repeat(32).parse().expect("client"),
-        id: digit.to_string().repeat(32).parse().expect("operation"),
+        id: "1".parse().expect("operation"),
     };
     let first = operation('a');
     let other = operation('b');

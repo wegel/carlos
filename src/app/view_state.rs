@@ -1,5 +1,6 @@
 //! Own terminal widgets, cached rows, and local display choices.
 
+use std::cell::Cell;
 use std::time::Instant;
 
 use carlos_core::session::entry_id::EntryId;
@@ -25,6 +26,7 @@ use super::viewport_state::ViewportState;
 
 pub(super) struct ViewState {
     pub(super) client_id: ClientId,
+    next_operation: Cell<u64>,
     pub(super) core_cursor: carlos_proto::ids::Sequence,
     pub(super) codex_panel: super::codex_panel_state::PanelView,
     pub(super) codex_settings: super::codex_settings_view::SettingsView,
@@ -66,6 +68,7 @@ impl ViewState {
                 .to_string()
                 .parse()
                 .expect("client id"),
+            next_operation: Cell::new(0),
             core_cursor: Default::default(),
             codex_panel: Default::default(),
             codex_settings: Default::default(),
@@ -103,13 +106,15 @@ impl ViewState {
 
 impl ViewState {
     pub(super) fn new_operation(&self) -> ClientOperation {
+        let next = self
+            .next_operation
+            .get()
+            .checked_add(1)
+            .expect("operation counter exhausted");
+        self.next_operation.set(next);
         ClientOperation {
             client: self.client_id.clone(),
-            id: Uuid::new_v4()
-                .simple()
-                .to_string()
-                .parse()
-                .expect("operation id"),
+            id: carlos_proto::ids::OperationId::new(next).expect("nonzero operation"),
         }
     }
     pub(super) fn owns_operation(&self, operation: Option<&ClientOperation>) -> bool {

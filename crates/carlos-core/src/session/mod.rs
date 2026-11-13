@@ -24,6 +24,7 @@ pub mod read_summary;
 pub mod reasoning;
 pub mod state;
 mod state_commands;
+mod submission_identity;
 mod thread;
 mod transcript_commands;
 pub mod transcript_updates;
@@ -171,3 +172,6 @@ mod command_work_tests;
 
 #[cfg(test)]
 mod output_control_tests;
+
+#[cfg(test)]
+mod submission_identity_tests;

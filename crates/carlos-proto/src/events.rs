@@ -66,6 +66,8 @@ pub struct SessionEvent {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "method", content = "params")]
 pub enum Notification {
+    #[serde(rename = "operation/updated")]
+    Operation(crate::submissions::OperationResult),
     #[serde(rename = "session/event")]
     SessionEvent(SessionEvent),
     #[serde(rename = "sessions/changed")]

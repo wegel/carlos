@@ -135,7 +135,7 @@ fn each_backend_receives_the_original_anchor_before_the_edited_prompt() {
             assert_eq!(app.input_text(), "draft");
         } else {
             assert_eq!(
-                *peer.calls.lock().expect("calls"),
+                submitted_calls(&peer),
                 vec![json!(["turn/start", {
                     "threadId":"fork","input":[{"type":"text","text":"edited","text_elements":[]}]
                 }])]
@@ -207,4 +207,17 @@ fn invisible_native_users_keep_exact_positions_in_live_and_replaced_history() {
             );
         }
     }
+}
+
+fn submitted_calls(peer: &Peer) -> Vec<Value> {
+    let mut calls = peer.calls.lock().expect("calls").clone();
+    if peer.kind == BackendKind::Codex {
+        let token = calls[0][1]
+            .as_object_mut()
+            .expect("params")
+            .remove("clientUserMessageId")
+            .expect("exact native echo token");
+        uuid::Uuid::parse_str(token.as_str().expect("UUID string")).expect("valid echo token");
+    }
+    calls
 }

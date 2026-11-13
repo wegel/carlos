@@ -24,7 +24,7 @@ impl SessionState {
             },
             done: facts.done,
             tool: facts.tool,
-            client_message_id: None,
+            operation: self.entry_operation(message.id),
         }
     }
 

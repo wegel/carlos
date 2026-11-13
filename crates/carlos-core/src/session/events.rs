@@ -40,6 +40,9 @@ pub struct NumberedChange {
 
 #[derive(Debug)]
 pub(super) struct EventState {
+    pub(super) operations: super::submission_identity::OperationEchoes,
+    pub(super) current_turn: Option<(String, carlos_proto::ids::TurnId)>,
+    pub(super) backend_closed: bool,
     pub(super) id: SessionId,
     pub(super) backend: Backend,
     pub(super) host: String,
@@ -55,6 +58,9 @@ pub(super) struct EventState {
 impl EventState {
     pub(super) fn new() -> Self {
         Self {
+            operations: Default::default(),
+            current_turn: None,
+            backend_closed: false,
             id: Uuid::new_v4().simple().to_string().parse().expect("uuid"),
             backend: Backend::Codex,
             host: "local".to_owned(),
@@ -89,6 +95,7 @@ impl SessionState {
 
     /// Seal pending writes once; holding the result prevents mutation during encoding.
     pub fn publish(&mut self) -> Published<'_> {
+        self.refresh_wire_turn();
         let count = self.messages.len();
         let journal = std::mem::replace(
             &mut self.messages.journal,
@@ -98,6 +105,9 @@ impl SessionState {
                 ..Journal::default()
             },
         );
+        if journal.reset {
+            self.retain_entry_operations();
+        }
         let mut changes = self.row_changes(journal);
         self.publish_approvals(&mut changes);
         if std::mem::take(&mut self.events.decision_overflow) {

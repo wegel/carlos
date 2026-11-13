@@ -108,3 +108,47 @@ fn output_tokens_are_bounded_and_revisions_preserve_all_bits() {
         revision
     );
 }
+
+#[test]
+fn operation_counters_are_lossless_nonzero_and_canonical() {
+    use carlos_proto::ids::OperationId;
+    let last = OperationId::new(u64::MAX).expect("nonzero");
+    assert_eq!(
+        to_value(last).expect("encode"),
+        json!("18446744073709551615")
+    );
+    assert_eq!(
+        from_value::<OperationId>(json!("18446744073709551615")).expect("decode"),
+        last
+    );
+    for invalid in [
+        json!(0),
+        json!(1),
+        json!("0"),
+        json!("01"),
+        json!("+1"),
+        json!("-1"),
+        json!("18446744073709551616"),
+    ] {
+        assert!(from_value::<OperationId>(invalid).is_err());
+    }
+}
+
+#[test]
+fn sends_require_an_operation_and_private_results_keep_its_owner() {
+    let operation = json!({"client":"a".repeat(32),"id":"1"});
+    let mut request = json!({"jsonrpc":"2.0","id":"send","method":"session/send",
+        "params":{"session":"b".repeat(32),"text":"same text","operation":operation,"policy":"queue"}});
+    assert!(from_value::<Request>(request.clone()).is_ok());
+    request["params"]
+        .as_object_mut()
+        .expect("params")
+        .remove("operation");
+    request["params"]["client_message_id"] = json!("legacy token");
+    assert!(from_value::<Request>(request).is_err());
+    let result = json!({"jsonrpc":"2.0","method":"operation/updated","params":{
+        "operation":operation,"session":"b".repeat(32),"state":{"kind":"uncertain","message":"reply lost",
+        "recovery":{"operation":operation,"text":"same text"}}}});
+    let parsed: NotificationMessage = from_value(result.clone()).expect("private result");
+    assert_eq!(to_value(parsed).expect("encode"), result);
+}
