@@ -15,7 +15,7 @@ use super::command_work::{
 use super::state::SessionState;
 use crate::session::models::Role;
 
-/// Borrow only the local choices needed by one accepted prompt command.
+/// Keep an explicit send policy and originating operation without a live client draft.
 #[derive(Clone)]
 pub struct PromptContext {
     pub operation: Option<ClientOperation>,
@@ -114,7 +114,7 @@ impl SessionState {
             steer,
             ..
         } = submission;
-        self.dispatch_claude_edit(text, options.origin);
+        self.dispatch_claude_edit(text, options.origin, context.operation.as_ref());
         let priority = if kind == BackendKind::Claude && context.claude_queue {
             PromptPriority::Queue
         } else if steer

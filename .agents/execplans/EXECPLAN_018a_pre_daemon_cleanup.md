@@ -30,7 +30,7 @@ EP018 emits tool text changes as facts and its output read returns the full body
 
 The terminal still calls many core APIs directly. The public protocol covers basic phone commands, while native goals, queues, settings, tasks and rewind also need a deliberate migration route. Core BackendContext and ClaudeDraftContext borrow a client's selection, focus, composer and confirmation; ClaudeEffect includes editor instructions. A terminal-free crate alone does not remove this semantic dependency. Prompt methods also wait synchronously for backend acceptance, which cannot run inline on the future daemon's owner thread.
 
-The output prototype keeps sparse replacement revisions and encodes a raw byte offset plus seven-state terminal parser, diff prefix and closed-body flag in each opaque token. Closed cursors explicitly restart on unexpected late appends. Retained history rows preserve revisions only when their actual body and kind match. A reset does not suppress revision changes on retained rows. The two-watcher test transfers 400 KiB once while each collapsed event stays below 400 bytes.
+The output prototype keeps sparse replacement revisions and encodes a raw byte offset plus eight-state terminal parser, diff prefix and closed-body flag in each opaque token. Closed cursors explicitly restart on unexpected late appends. Retained history rows preserve revisions only when their actual body and kind match. A reset does not suppress revision changes on retained rows. The two-watcher test transfers 400 KiB once while each collapsed event stays below 400 bytes.
 
 ## Decision Log
 
@@ -139,6 +139,8 @@ Keep `carlos-proto` pure serde data, `carlos-core` terminal-free, and the termin
 ## Engineering Review
 
 
-Pending direct review against `.agents/reviewers/engineering_reviewer.md`. No independent reviewer is claimed by this plan. The supplied Fable review is independent evidence about the starting architecture, not a verdict on this implementation.
+Direct review against `.agents/reviewers/engineering_reviewer.md`, initial scope `f42d870..a66f61f`: submitted-output/command boundary, tests, source constraints and roadmap. No independent reviewer is claimed. The supplied Fable review is independent evidence about the starting architecture only.
+
+Initial findings: MAJOR: edit dispatch/bind/failure still matched human text without its ClientOperation, allowing another client's identical text to claim an edit. MAJOR: failed automatic work could return an unowned editor recovery, and an unrelated acknowledgement could clear a failed-edit badge. MINOR: output controls handled C1 CSI but not C1 OSC/DCS/ST or intermediate ESC sequences. Corrective guidance: match origins as well as text, recover only human submissions, emit edit acceptance only for its exact UUID, and extend the bounded parser with explicit cases and tests. Initial verdict: FAIL pending these fixes and full final gates.
 
 Update note (2026-11-13): created EP018a before source changes after the owner approved the broader pre-daemon cleanup. Recorded live output, client independence, terminal coverage, backend waits and guard removal as concrete acceptance criteria.

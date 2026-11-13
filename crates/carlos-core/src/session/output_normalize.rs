@@ -4,18 +4,44 @@ use carlos_proto::output::OutputSegment;
 use carlos_proto::session::OutputKind;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Control {
+    #[default]
+    Ground,
+    Escape,
+    Csi,
+    Osc,
+    OscEscape,
+    String,
+    StringEscape,
+    Intermediate,
+}
+
+impl Control {
+    pub(super) fn from_tag(tag: u8) -> Option<Self> {
+        match tag {
+            0 => Some(Self::Ground),
+            1 => Some(Self::Escape),
+            2 => Some(Self::Csi),
+            3 => Some(Self::Osc),
+            4 => Some(Self::OscEscape),
+            5 => Some(Self::String),
+            6 => Some(Self::StringEscape),
+            7 => Some(Self::Intermediate),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub(super) struct ParseState {
-    pub(super) control: u8,
+    pub(super) control: Control,
     pub(super) line: u8,
     pub(super) prefix: u8,
 }
 
 impl ParseState {
     pub(super) fn valid(self) -> bool {
-        self.control <= 6
-            && self.line <= 5
-            && self.prefix <= 5
-            && (self.line == 0 || self.prefix == 0)
+        self.line <= 5 && self.prefix <= 5 && (self.line == 0 || self.prefix == 0)
     }
 
     pub(super) fn feed(&mut self, ch: char, diff: bool, out: &mut Vec<OutputSegment>) {
@@ -35,56 +61,66 @@ impl ParseState {
 
     fn plain_char(&mut self, ch: char) -> Option<char> {
         match self.control {
-            0 => match ch {
-                '\u{1b}' => self.control = 1,
-                '\u{9b}' => self.control = 2,
+            Control::Ground => match ch {
+                '\u{1b}' => self.control = Control::Escape,
+                '\u{9b}' => self.control = Control::Csi,
+                '\u{9d}' => self.control = Control::Osc,
+                '\u{90}' | '\u{98}' | '\u{9e}' | '\u{9f}' => self.control = Control::String,
                 '\n' | '\r' | '\t' => return Some(ch),
                 ch if !ch.is_control() => return Some(ch),
                 _ => {}
             },
-            1 => {
-                self.control = match ch {
-                    '[' => 2,
-                    ']' => 3,
-                    'P' | 'X' | '^' | '_' => 5,
-                    _ => 0,
-                };
-                if !ch.is_ascii() {
-                    return self.plain_char(ch);
-                }
-            }
-            2 => {
-                if ('@'..='~').contains(&ch) {
-                    self.control = 0;
-                }
-            }
-            3 => match ch {
-                '\u{7}' => self.control = 0,
-                '\u{1b}' => self.control = 4,
-                _ => {}
-            },
-            4 => {
-                self.control = match ch {
-                    '\\' | '\u{7}' => 0,
-                    '\u{1b}' => 4,
-                    _ => 3,
-                }
-            }
-            5 => {
+            Control::Escape => return self.escape_char(ch),
+            Control::Csi => {
                 if ch == '\u{1b}' {
-                    self.control = 6;
+                    self.control = Control::Escape;
+                } else if ('@'..='~').contains(&ch) || matches!(ch, '\u{18}' | '\u{1a}') {
+                    self.control = Control::Ground;
                 }
             }
-            6 => {
-                self.control = match ch {
-                    '\\' => 0,
-                    '\u{1b}' => 6,
-                    _ => 5,
+            Control::Intermediate => {
+                if ch == '\u{1b}' {
+                    self.control = Control::Escape;
+                } else if ('0'..='~').contains(&ch) {
+                    self.control = Control::Ground;
                 }
             }
-            _ => unreachable!("cursor state validated"),
+            _ => self.string_char(ch),
         }
         None
+    }
+
+    fn escape_char(&mut self, ch: char) -> Option<char> {
+        self.control = match ch {
+            '[' => Control::Csi,
+            ']' => Control::Osc,
+            'P' | 'X' | '^' | '_' => Control::String,
+            ' '..='/' => Control::Intermediate,
+            _ => Control::Ground,
+        };
+        if !ch.is_ascii() {
+            self.plain_char(ch)
+        } else {
+            None
+        }
+    }
+
+    fn string_char(&mut self, ch: char) {
+        let osc = matches!(self.control, Control::Osc | Control::OscEscape);
+        let escaped = matches!(self.control, Control::OscEscape | Control::StringEscape);
+        self.control = if ch == '\u{9c}' || osc && ch == '\u{7}' || escaped && ch == '\\' {
+            Control::Ground
+        } else if ch == '\u{1b}' {
+            if osc {
+                Control::OscEscape
+            } else {
+                Control::StringEscape
+            }
+        } else if osc {
+            Control::Osc
+        } else {
+            Control::String
+        };
     }
 
     fn line_char(&mut self, ch: char, diff: bool, out: &mut Vec<OutputSegment>) {

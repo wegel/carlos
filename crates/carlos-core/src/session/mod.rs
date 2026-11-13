@@ -168,3 +168,6 @@ mod rewind_settle;
 
 #[cfg(test)]
 mod command_work_tests;
+
+#[cfg(test)]
+mod output_control_tests;

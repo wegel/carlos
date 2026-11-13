@@ -1,11 +1,10 @@
 //! Check prompt identity, exact fork anchors and draft recovery without a view.
 
-use carlos_proto::submissions::SubmissionOutcome;
-
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Result};
+use carlos_proto::submissions::SubmissionOutcome;
 use serde_json::{json, Value};
 
 use super::claude::receive_update::ClaudeEffect;
@@ -296,4 +295,29 @@ fn send(
 ) -> super::prompt_commands::TurnUpdate {
     let prepared = state.prepare_turn_text(peer.kind(), text, options, context);
     drive(state, peer, prepared)
+}
+
+#[test]
+fn rejected_automatic_work_never_returns_a_human_editor_draft() {
+    let mut state = session();
+    let peer = Peer::new(BackendKind::Claude);
+    let update = send(
+        &mut state,
+        &peer,
+        "automatic".into(),
+        PromptOptions {
+            record_history: false,
+            force_start: false,
+            origin: PromptOrigin::Automatic,
+        },
+        &context(),
+    );
+    assert!(update.changes.effects.iter().all(|effect| !matches!(
+        effect,
+        ClaudeEffect::Submission(SubmissionOutcome::Recovered { .. })
+    )));
+    assert!(state
+        .messages()
+        .iter()
+        .any(|message| message.text.contains("fixed send failure")));
 }

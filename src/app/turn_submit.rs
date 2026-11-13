@@ -65,7 +65,17 @@ pub(super) fn submit_dequeued_turn_text(
     record_input_history: bool,
     origin: PromptOrigin,
 ) {
-    submit(client, app, text, record_input_history, true, origin);
+    let mut context = context(&app.view);
+    context.operation = None; // Legacy fixtures enqueue unowned drafts; production keeps the queue origin.
+    let options = PromptOptions {
+        record_history: record_input_history,
+        force_start: true,
+        origin,
+    };
+    let prepared = app
+        .session
+        .prepare_turn_text(client.kind(), text, options, &context);
+    run_prepared(client, app, prepared);
 }
 
 fn submit(

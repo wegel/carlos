@@ -119,3 +119,35 @@ fn failed_edit_and_queued_text_keep_different_client_operation_owners() {
     assert_eq!(drafts[0].text, "edited");
     assert_eq!(drafts[1].text, "queued");
 }
+
+#[test]
+fn another_clients_identical_human_text_cannot_claim_or_fail_a_queued_edit() {
+    use crate::backend::PromptOrigin;
+    use carlos_proto::submissions::ClientOperation;
+    let operation = |digit: char| ClientOperation {
+        client: digit.to_string().repeat(32).parse().expect("client"),
+        id: digit.to_string().repeat(32).parse().expect("operation"),
+    };
+    let first = operation('a');
+    let other = operation('b');
+    let mut state = SessionState::new("root".into(), Default::default(), false);
+    state.begin_claude_edit_for("same text".into(), Some(first.clone()));
+    state.queue_claude_edit("same text");
+    state.dispatch_claude_edit("same text", PromptOrigin::Human, Some(&other));
+    state.bind_claude_edit(
+        "same text",
+        PromptOrigin::Human,
+        Some(&other),
+        &json!({"result":{"turn":{"id":"other"}}}),
+    );
+    assert!(!state.reject_claude_edit_send("same text", Some(&other)));
+    assert!(!state.accept_claude_edit("other"));
+    state.dispatch_claude_edit("same text", PromptOrigin::Human, Some(&first));
+    state.bind_claude_edit(
+        "same text",
+        PromptOrigin::Human,
+        Some(&first),
+        &json!({"result":{"turn":{"id":"first"}}}),
+    );
+    assert!(state.accept_claude_edit("first"));
+}

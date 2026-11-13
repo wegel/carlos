@@ -31,6 +31,7 @@ pub enum RecoveryKind {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "data", rename_all = "snake_case")]
 pub enum SubmissionOutcome {
+    PromptAccepted(Option<ClientOperation>),
     EditStarted(Option<ClientOperation>),
     EditRejected(Option<ClientOperation>),
     EditAccepted(Option<ClientOperation>),

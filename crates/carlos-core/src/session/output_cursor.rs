@@ -4,7 +4,7 @@ use carlos_proto::ids::EntryId as WireEntryId;
 use carlos_proto::output::{OutputCursor, OutputSegment};
 
 use super::output::{OutputReadError, MAX_OUTPUT_BYTES, MAX_OUTPUT_SEGMENTS};
-use super::output_normalize::ParseState;
+use super::output_normalize::{Control, ParseState};
 
 #[derive(Debug, Default)]
 pub(super) struct Cursor {
@@ -29,7 +29,7 @@ impl Cursor {
         }
         let offset = usize::try_from(hex(parts[3])?).map_err(|_| OutputReadError::InvalidCursor)?;
         let parse = ParseState {
-            control: tag(parts[4])?,
+            control: Control::from_tag(tag(parts[4])?).ok_or(OutputReadError::InvalidCursor)?,
             line: tag(parts[5])?,
             prefix: tag(parts[6])?,
         };
@@ -80,7 +80,7 @@ impl Cursor {
         format!(
             "o1:{entry}:{revision:016x}:{:016x}:{}:{}:{}:{}",
             self.offset,
-            self.parse.control,
+            self.parse.control as u8,
             self.parse.line,
             self.parse.prefix,
             u8::from(self.closed)

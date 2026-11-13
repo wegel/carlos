@@ -1,10 +1,9 @@
 //! Consume local editor changes returned by the Claude session owner.
 
-use carlos_proto::submissions::{RecoveryKind, SubmissionOutcome, SubmittedText};
-
 use carlos_core::session::actions::ServerRequestAction;
 use carlos_core::session::claude::callbacks::ClaudeCallback;
 use carlos_core::session::claude::receive_update::{ClaudeEffect, ClaudeUpdate};
+use carlos_proto::submissions::{RecoveryKind, SubmissionOutcome, SubmittedText};
 
 use super::claude_question_state::NativeDraft;
 use super::state::AppState;
@@ -102,7 +101,8 @@ impl AppState {
                     self.view.viewport.auto_follow_bottom = true;
                 }
             }
-            SubmissionOutcome::EditAccepted(operation) => {
+            SubmissionOutcome::PromptAccepted(operation)
+            | SubmissionOutcome::EditAccepted(operation) => {
                 if self.view.owns_operation(operation.as_ref()) {
                     self.view.claude_edit.failed = false;
                 }

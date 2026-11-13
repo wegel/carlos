@@ -85,12 +85,12 @@ impl SessionState {
         let operation = self.claude_edit_operation().cloned();
         if self.accept_claude_edit(id) {
             self.append_message(Role::System, "Claude started the edited branch".to_string());
+            update
+                .effects
+                .push(ClaudeEffect::Submission(SubmissionOutcome::EditAccepted(
+                    operation,
+                )));
         }
-        update
-            .effects
-            .push(ClaudeEffect::Submission(SubmissionOutcome::EditAccepted(
-                operation,
-            )));
     }
 
     fn reset_claude_thread(&mut self, id: String, preserve: bool, update: &mut ClaudeUpdate) {

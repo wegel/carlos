@@ -119,8 +119,11 @@ fn preparing_edit_ignores_duplicate_enter_and_only_the_matching_accepted_prompt_
     );
     assert!(peer.calls.borrow().is_empty());
     app.session.queue_claude_edit("saved edit");
-    app.session
-        .dispatch_claude_edit("saved edit", carlos_core::backend::PromptOrigin::Human);
+    app.session.dispatch_claude_edit(
+        "saved edit",
+        carlos_core::backend::PromptOrigin::Human,
+        None,
+    );
     accepted(&mut app, "different-uuid");
     assert!(waiting(&app));
     crate::app::claude_edit::bind_submission(
@@ -141,7 +144,7 @@ fn failed_dequeued_edit_does_not_replace_newer_composer_or_submit_recovery_autom
     let mut app = app();
     app.session.queue_claude_edit("old edit");
     app.session
-        .dispatch_claude_edit("old edit", carlos_core::backend::PromptOrigin::Human);
+        .dispatch_claude_edit("old edit", carlos_core::backend::PromptOrigin::Human, None);
     app.set_input_text("new typing");
     assert!(send_failed(&mut app, "old edit", "prompt rejected"));
     assert_eq!(app.input_text(), "new typing");
@@ -246,6 +249,7 @@ fn close_recovers_sending_edits_once_whether_the_queue_still_owns_them_or_dispat
             app.session.dispatch_claude_edit(
                 "saved outgoing edit",
                 carlos_core::backend::PromptOrigin::Human,
+                None,
             );
         }
         if queued {
@@ -316,7 +320,8 @@ fn a_successful_later_send_dismisses_the_failure_badge_but_keeps_saved_drafts() 
     begin(&mut app, "saved failed edit".into());
     app.set_input_text("later composer");
     failed(&mut app, "fork unavailable");
-    accepted(&mut app, "later-native-uuid");
+    let peer = crate::app::claude_edit_parity_support::Peer::default();
+    crate::app::turn_submit::submit_turn_text(&peer, &mut app, "later composer".into());
     assert!(!app.view.claude_edit.failed);
     assert!(!waiting(&app));
     assert!(crate::app::claude_session_history::has_unsent(&app));

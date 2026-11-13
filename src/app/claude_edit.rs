@@ -24,7 +24,7 @@ pub(super) fn waiting(app: &AppState) -> bool {
 /// Move recovery responsibility from the local queue to the dispatched edit.
 #[cfg(test)]
 pub(super) fn dispatching(app: &mut AppState, text: &str, origin: PromptOrigin) {
-    app.session.dispatch_claude_edit(text, origin);
+    app.session.dispatch_claude_edit(text, origin, None);
 }
 
 /// Bind the exact human submission to the native response UUID.
@@ -35,13 +35,13 @@ pub(super) fn bind_submission(
     origin: PromptOrigin,
     response: &Value,
 ) {
-    app.session.bind_claude_edit(text, origin, response);
+    app.session.bind_claude_edit(text, origin, None, response);
 }
 
 /// Recover a matching dequeued edit after a send failure.
 #[cfg(test)]
 pub(super) fn send_failed(app: &mut AppState, text: &str, message: &str) -> bool {
-    if !app.session.reject_claude_edit_send(text) {
+    if !app.session.reject_claude_edit_send(text, None) {
         return false;
     }
     failed(app, message);

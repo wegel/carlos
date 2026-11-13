@@ -41,7 +41,7 @@ impl SessionState {
             kind,
             text,
             options,
-            context: _,
+            context,
             steer,
             edited,
         } = submission;
@@ -54,7 +54,7 @@ impl SessionState {
                 self.has_item_mapping(&self.backend_entry_key(&format!("claude-prompt:{id}")))
             });
         if mapped {
-            self.bind_claude_edit(text, options.origin, response);
+            self.bind_claude_edit(text, options.origin, context.operation.as_ref(), response);
             self.receive_claude_edit_acceptance(uuid.expect("mapped UUID"), &mut update.changes);
         } else {
             if *steer {
@@ -65,12 +65,17 @@ impl SessionState {
                     self.set_status("sent steer");
                 }
             } else {
-                self.bind_claude_edit(text, options.origin, response);
+                self.bind_claude_edit(text, options.origin, context.operation.as_ref(), response);
                 self.mark_prompt_sent(*kind, text, *options, update, !completed);
             }
             if *kind == BackendKind::Claude {
                 update.merge(self.receive_claude_submission(response));
             }
+        }
+        if options.origin == PromptOrigin::Human {
+            update.changes.effects.push(ClaudeEffect::Submission(
+                SubmissionOutcome::PromptAccepted(context.operation.clone()),
+            ));
         }
         if *edited {
             if *kind == BackendKind::Codex {
@@ -91,9 +96,9 @@ impl SessionState {
         if options.record_history {
             update.changes.items.reset_navigation |= self.discard_pending_prompt(text);
         }
-        if self.reject_claude_edit_send(text) {
+        if self.reject_claude_edit_send(text, context.operation.as_ref()) {
             self.fail_claude_edit(&mut update.changes, error);
-        } else {
+        } else if options.origin == PromptOrigin::Human {
             update
                 .changes
                 .effects

@@ -195,7 +195,7 @@ fn async_fork_and_start_failures_keep_exact_recovery_and_failure_wording() {
 }
 
 #[test]
-fn recovery_notice_is_shared_while_identical_composer_needs_no_retained_copy() {
+fn recovery_keeps_identical_composer_and_unrelated_ack_cannot_clear_its_failure() {
     let mut app = app();
     advance(&mut app, 0);
     app.set_input_text("edited text");
@@ -209,7 +209,7 @@ fn recovery_notice_is_shared_while_identical_composer_needs_no_retained_copy() {
     );
     assert!(!super::claude_session_history::has_unsent(&app));
     accepted(&mut app, "later");
-    assert!(!app.view.claude_edit.failed);
+    assert!(app.view.claude_edit.failed);
     assert_eq!(app.input_text(), "edited text");
 }
 

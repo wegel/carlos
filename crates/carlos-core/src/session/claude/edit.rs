@@ -82,7 +82,15 @@ impl SessionState {
     }
 
     /// Move recovery responsibility from the queue only for matching human text.
-    pub fn dispatch_claude_edit(&mut self, text: &str, origin: PromptOrigin) {
+    pub fn dispatch_claude_edit(
+        &mut self,
+        text: &str,
+        origin: PromptOrigin,
+        operation: Option<&ClientOperation>,
+    ) {
+        if self.claude.edit.operation.as_ref() != operation {
+            return;
+        }
         if let Some(EditRequest::Sending {
             text: expected,
             queued,
@@ -96,7 +104,16 @@ impl SessionState {
     }
 
     /// Bind only dispatched matching human text to the returned native UUID.
-    pub fn bind_claude_edit(&mut self, text: &str, origin: PromptOrigin, response: &Value) {
+    pub fn bind_claude_edit(
+        &mut self,
+        text: &str,
+        origin: PromptOrigin,
+        operation: Option<&ClientOperation>,
+        response: &Value,
+    ) {
+        if self.claude.edit.operation.as_ref() != operation {
+            return;
+        }
         if let Some(EditRequest::Sending {
             text: expected,
             uuid,
@@ -128,7 +145,14 @@ impl SessionState {
     }
 
     /// Save failed text only when it matches the current outgoing edit.
-    pub fn reject_claude_edit_send(&mut self, text: &str) -> bool {
+    pub fn reject_claude_edit_send(
+        &mut self,
+        text: &str,
+        operation: Option<&ClientOperation>,
+    ) -> bool {
+        if self.claude.edit.operation.as_ref() != operation {
+            return false;
+        }
         if !matches!(&self.claude.edit.request,
             Some(EditRequest::Sending { text: expected, .. }) if expected == text)
         {
