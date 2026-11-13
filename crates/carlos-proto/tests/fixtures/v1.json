@@ -211,7 +211,8 @@
               }
             },
             "submitted": false,
-            "active": true
+            "active": true,
+            "default_to_no": false
           },
           "before": null
         }
@@ -303,7 +304,8 @@
                   }
                 },
                 "submitted": false,
-                "active": true
+                "active": true,
+                "default_to_no": false
               }
             ],
             "seq": "8",

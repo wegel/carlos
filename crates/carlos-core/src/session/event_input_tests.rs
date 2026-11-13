@@ -165,3 +165,61 @@ fn real_backend_handlers_feed_the_same_json_client_for_all_backends() {
         assert_eq!(client.info.backend, backend);
     }
 }
+
+#[test]
+fn browser_consent_offers_once_and_retains_the_backend_default_no_fact() {
+    for kind in [
+        ApprovalRequestKind::CodexForm,
+        ApprovalRequestKind::ClaudeQuestion,
+    ] {
+        let mut core = SessionState::new("native".into(), Default::default(), false);
+        let _ = core.set_pending_approval(ApprovalRequestDraft {
+            request_id: json!("private-route"),
+            method: "native".into(),
+            kind,
+            title: "Open browser".into(),
+            detail_lines: Vec::new(),
+            requested_permissions: Some(
+                json!({"mode":"url","url":"https://example.com/consent","defaultToNo":true}),
+            ),
+            can_accept_for_session: false,
+            can_decline: true,
+            can_cancel: true,
+        });
+        let snapshot = core.publish().snapshot(100);
+        let card = &snapshot.approvals[0];
+        assert!(card.default_to_no);
+        assert!(card
+            .choices
+            .contains(&carlos_proto::session::Decision::Once));
+        assert!(matches!(card.input, Some(ApprovalInput::Browser { .. })));
+        assert!(!serde_json::to_string(card)
+            .expect("card")
+            .contains("private-route"));
+    }
+}
+
+#[test]
+fn permission_cards_never_offer_an_unsupported_cancel_reply() {
+    let mut core = SessionState::new("native".into(), Default::default(), false);
+    let _ = core.set_pending_approval(ApprovalRequestDraft {
+        request_id: json!(1),
+        method: "native".into(),
+        kind: ApprovalRequestKind::Permissions,
+        title: "Permissions".into(),
+        detail_lines: Vec::new(),
+        requested_permissions: Some(json!({"network":true})),
+        can_accept_for_session: true,
+        can_decline: true,
+        can_cancel: true,
+    });
+    let snapshot = core.publish().snapshot(100);
+    assert_eq!(
+        snapshot.approvals[0].choices,
+        vec![
+            carlos_proto::session::Decision::Once,
+            carlos_proto::session::Decision::Session,
+            carlos_proto::session::Decision::Deny
+        ]
+    );
+}

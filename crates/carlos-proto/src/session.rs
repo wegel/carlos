@@ -140,6 +140,8 @@ pub struct Approval {
     pub input: Option<ApprovalInput>,
     pub submitted: bool,
     pub active: bool,
+    #[serde(default)]
+    pub default_to_no: bool,
 }
 
 /// Structured input selected explicitly from a backend request; no routing ids.

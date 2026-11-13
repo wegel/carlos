@@ -3,7 +3,9 @@
 use carlos_proto::events::Event;
 use carlos_proto::session::{Approval, ApprovalInput, Decision, InputField, InputOption};
 
-use super::approval_state::{ApprovalChoice, ApprovalRequestKind, PendingApprovalRequest};
+use super::approval_state::{
+    ApprovalChoice, ApprovalRequestDraft, ApprovalRequestKind, PendingApprovalRequest,
+};
 use super::entry_id::EntryId;
 use super::events::Published;
 use super::questions::{ask_fields, question_fields, QuestionField};
@@ -39,26 +41,8 @@ impl SessionState {
 
 fn export_card(card: &PendingApprovalRequest, active: bool) -> Approval {
     let facts = card.facts();
-    let choices = [
-        (ApprovalChoice::Accept, Decision::Once),
-        (ApprovalChoice::AcceptForSession, Decision::Session),
-        (ApprovalChoice::Decline, Decision::Deny),
-        (ApprovalChoice::Cancel, Decision::Cancel),
-    ]
-    .into_iter()
-    .filter_map(|(choice, decision)| {
-        let offered = match decision {
-            Decision::Once => facts.can_accept_once(),
-            Decision::Session => facts.can_accept_for_session,
-            Decision::Deny => facts.can_decline,
-            Decision::Cancel => facts.can_cancel,
-        };
-        offered
-            .then(|| facts.response_for_choice(choice))
-            .flatten()
-            .map(|_| decision)
-    })
-    .collect();
+    let input = export_input(card);
+    let choices = export_choices(facts, input.as_ref());
     let kind = match facts.kind {
         ApprovalRequestKind::CommandExecution | ApprovalRequestKind::LegacyExecCommand => "command",
         ApprovalRequestKind::FileChange | ApprovalRequestKind::LegacyApplyPatch => "file_change",
@@ -74,9 +58,13 @@ fn export_card(card: &PendingApprovalRequest, active: bool) -> Approval {
         title: facts.title.clone(),
         details: facts.detail_lines.clone(),
         choices,
-        input: export_input(card),
+        input,
         submitted: card.submitted(),
         active,
+        default_to_no: facts
+            .requested_permissions
+            .as_ref()
+            .is_some_and(|payload| payload["defaultToNo"] == true),
     }
 }
 
@@ -150,4 +138,39 @@ impl Published<'_> {
             before: cards.get(index + 1).map(|card| card.id.clone()),
         })
     }
+}
+
+fn export_choices(facts: &ApprovalRequestDraft, input: Option<&ApprovalInput>) -> Vec<Decision> {
+    [
+        (ApprovalChoice::Accept, Decision::Once),
+        (ApprovalChoice::AcceptForSession, Decision::Session),
+        (ApprovalChoice::Decline, Decision::Deny),
+        (ApprovalChoice::Cancel, Decision::Cancel),
+    ]
+    .into_iter()
+    .filter_map(|(choice, decision)| {
+        let offered = match decision {
+            Decision::Once => facts.can_accept_once(),
+            Decision::Session => facts.can_accept_for_session,
+            Decision::Deny => facts.can_decline,
+            Decision::Cancel => facts.can_cancel,
+        };
+        if !offered {
+            return None;
+        }
+        // Browser consent needs no form body. Permission replies may clone a large
+        // payload, so inspect their capability instead of constructing a throwaway reply.
+        let supported = choice == ApprovalChoice::Accept
+            && matches!(input, Some(ApprovalInput::Browser { .. }))
+            || facts.kind == ApprovalRequestKind::Permissions
+                && matches!(
+                    choice,
+                    ApprovalChoice::Accept
+                        | ApprovalChoice::AcceptForSession
+                        | ApprovalChoice::Decline
+                )
+            || facts.response_for_choice(choice).is_some();
+        supported.then_some(decision)
+    })
+    .collect()
 }
