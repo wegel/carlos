@@ -18,6 +18,28 @@ FORBIDDEN = {
 }
 
 
+PROTO_PACKAGES = {
+    "carlos-proto", "serde", "serde_core", "serde_derive", "serde_json", "itoa",
+    "memchr", "zmij", "proc-macro2", "quote", "syn", "unicode-ident",
+}
+
+
+def check_protocol(packages, nodes):
+    """Keep the wire types free of transport and application packages."""
+    pending = [key for key, package in packages.items() if package["name"] == "carlos-proto"]
+    visited, issues = set(), []
+    while pending:
+        key = pending.pop()
+        if key in visited:
+            continue
+        visited.add(key)
+        name = packages[key]["name"]
+        if name not in PROTO_PACKAGES:
+            issues.append(f"carlos-proto: unreviewed resolved package {name}")
+        pending.extend(nodes[key]["dependencies"])
+    return issues
+
+
 def check_graph(metadata):
     """Return errors for new direct packages or forbidden indirect packages."""
     packages = {package["id"]: package for package in metadata["packages"]}
@@ -27,7 +49,7 @@ def check_graph(metadata):
         return ["Expected exactly one carlos-core workspace member"]
     nodes = {node["id"]: node for node in metadata["resolve"]["nodes"]}
     owner = owners[0]
-    issues = []
+    issues = check_protocol(packages, nodes)
     if packages[owner].get("features", {}).get("default", []):
         issues.append("carlos-core: default features must stay empty; fixture helpers are opt-in")
     for key in nodes[owner]["dependencies"]:

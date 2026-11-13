@@ -21,7 +21,7 @@ impl AppState {
                 Change::Reset { dirty_from } => {
                     Some(dirty_from.and_then(|id| batch.position(id)).unwrap_or(0))
                 }
-                Change::Approval(_) | Change::ApprovalResolved(_) | Change::Info => None,
+                Change::Approval(_) | Change::ApprovalResolved { .. } | Change::Info => None,
             };
             if let Some(index) = index {
                 dirty = Some(dirty.map_or(index, |old: usize| old.min(index)));

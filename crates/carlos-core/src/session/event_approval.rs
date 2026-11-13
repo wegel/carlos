@@ -1,11 +1,30 @@
 //! Export only client-visible approval facts, excluding native routing payloads.
 
-use carlos_proto::session::{Approval, ApprovalInput, Decision};
+use carlos_proto::events::Event;
+use carlos_proto::session::{Approval, ApprovalInput, Decision, InputField, InputOption};
 
 use super::approval_state::{ApprovalChoice, ApprovalRequestKind, PendingApprovalRequest};
+use super::entry_id::EntryId;
+use super::events::Published;
+use super::questions::{ask_fields, question_fields, QuestionField};
 use super::state::SessionState;
+use super::transcript_journal::MAX_PENDING;
 
 impl SessionState {
+    pub(super) fn record_approval_decision(&mut self, card: EntryId, choice: ApprovalChoice) {
+        let decision = match choice {
+            ApprovalChoice::Accept => Decision::Once,
+            ApprovalChoice::AcceptForSession => Decision::Session,
+            ApprovalChoice::Decline => Decision::Deny,
+            ApprovalChoice::Cancel => Decision::Cancel,
+        };
+        if self.events.decisions.len() < MAX_PENDING {
+            self.events.decisions.push((card, decision));
+        } else {
+            self.events.decision_overflow = true;
+        }
+    }
+
     pub(super) fn export_approvals(&self) -> Vec<Approval> {
         let active = self
             .approval
@@ -65,13 +84,17 @@ fn export_input(card: &PendingApprovalRequest) -> Option<ApprovalInput> {
     let facts = card.facts();
     let payload = facts.requested_permissions.as_ref()?;
     match facts.kind {
-        ApprovalRequestKind::CodexQuestion => Some(ApprovalInput::Questions {
-            questions: payload.get("questions")?.clone(),
-        }),
+        ApprovalRequestKind::CodexQuestion => Some(export_fields(
+            question_fields(payload).map_err(|error| error.to_string()),
+        )),
         ApprovalRequestKind::CodexForm | ApprovalRequestKind::ClaudeQuestion => {
             if payload["mode"] == "url" {
                 Some(ApprovalInput::Browser {
                     url: payload.get("url")?.as_str()?.to_owned(),
+                })
+            } else if let Some(reason) = payload["formIssue"].as_str() {
+                Some(ApprovalInput::Unsupported {
+                    reason: reason.to_owned(),
                 })
             } else {
                 Some(ApprovalInput::Form {
@@ -80,10 +103,51 @@ fn export_input(card: &PendingApprovalRequest) -> Option<ApprovalInput> {
             }
         }
         ApprovalRequestKind::ClaudeNative if payload["toolName"] == "AskUserQuestion" => {
-            Some(ApprovalInput::Questions {
-                questions: payload.get("input")?.get("questions")?.clone(),
-            })
+            Some(export_fields(ask_fields(&payload["input"])))
         }
         _ => None,
+    }
+}
+
+fn export_fields(fields: Result<Vec<QuestionField>, String>) -> ApprovalInput {
+    match fields {
+        Ok(fields) => ApprovalInput::Fields {
+            fields: fields
+                .into_iter()
+                .map(|field| InputField {
+                    key: field.name().to_owned(),
+                    title: field.title().to_owned(),
+                    description: field.description().to_owned(),
+                    secret: field.secret(),
+                    multiple: field.multiple(),
+                    other: field.other(),
+                    notes_only: field.notes_only(),
+                    required: field.required(),
+                    schema: field.schema().clone(),
+                    options: field
+                        .options()
+                        .iter()
+                        .map(|option| InputOption {
+                            value: option.value().clone(),
+                            label: option.label().to_owned(),
+                            description: option.description().to_owned(),
+                        })
+                        .collect(),
+                })
+                .collect(),
+        },
+        Err(reason) => ApprovalInput::Unsupported { reason },
+    }
+}
+
+impl Published<'_> {
+    pub(super) fn approval_event(&self, id: EntryId) -> Option<Event> {
+        let cards = &self.session.events.approvals;
+        let wire_id = id.to_wire();
+        let index = cards.iter().position(|card| card.id == wire_id)?;
+        Some(Event::ApprovalRequested {
+            approval: cards[index].clone(),
+            before: cards.get(index + 1).map(|card| card.id.clone()),
+        })
     }
 }

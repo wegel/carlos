@@ -28,13 +28,17 @@ impl SessionState {
     }
 
     pub(super) fn export_entry_facts(&self, message: &Message) -> EntryFacts {
-        let kind = match message.role {
-            Role::User => EntryKind::User,
-            Role::Assistant => EntryKind::Answer,
-            Role::Commentary => EntryKind::Commentary,
-            Role::Reasoning => EntryKind::Reasoning,
-            Role::ToolCall | Role::ToolOutput => EntryKind::Tool,
-            Role::System => EntryKind::Notice,
+        let kind = if is_tool(message) {
+            EntryKind::Tool
+        } else {
+            match message.role {
+                Role::User => EntryKind::User,
+                Role::Assistant => EntryKind::Answer,
+                Role::Commentary => EntryKind::Commentary,
+                Role::Reasoning => EntryKind::Reasoning,
+                Role::ToolCall | Role::ToolOutput => EntryKind::Tool,
+                Role::System => EntryKind::Notice,
+            }
         };
         let done = self.messages.is_complete(message.id);
         let tool = is_tool(message).then(|| export_tool(message, done));
@@ -73,6 +77,7 @@ fn export_tool(message: &Message, done: bool) -> Tool {
         summary: None,
         added: None,
         removed: None,
-        has_output: message.role == Role::ToolOutput && !message.text.is_empty(),
+        has_output: (message.role == Role::ToolOutput || message.kind == MessageKind::Diff)
+            && !message.text.is_empty(),
     }
 }

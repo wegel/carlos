@@ -2,7 +2,7 @@
 
 use carlos_proto::events::{Event, SessionEvent};
 use carlos_proto::ids::Sequence;
-use carlos_proto::session::Snapshot;
+use carlos_proto::session::{Decision, LabelSource, Phase, Snapshot};
 use serde_json::{from_str, json, to_string};
 
 use super::approval_state::{ApprovalRequestDraft, ApprovalRequestKind};
@@ -48,18 +48,16 @@ fn apply(client: &mut Snapshot, event: SessionEvent) {
             row.done = facts.done;
             row.tool = facts.tool;
         }
-        Event::ApprovalRequested { approval } => {
-            if let Some(old) = client
-                .approvals
-                .iter_mut()
-                .find(|old| old.id == approval.id)
-            {
-                *old = approval;
-            } else {
-                client.approvals.push(approval);
-            }
+        Event::ApprovalRequested { approval, before } => {
+            client.approvals.retain(|old| old.id != approval.id);
+            let index = before
+                .and_then(|id| client.approvals.iter().position(|old| old.id == id))
+                .unwrap_or(client.approvals.len());
+            client.approvals.insert(index, approval);
         }
-        Event::ApprovalResolved { approval } => client.approvals.retain(|old| old.id != approval),
+        Event::ApprovalResolved { approval, .. } => {
+            client.approvals.retain(|old| old.id != approval)
+        }
         Event::InfoChanged { info } => client.info = info,
         Event::Reset { snapshot } => {
             assert_eq!(snapshot.seq, event.seq);
@@ -233,4 +231,78 @@ fn tool_events_do_not_send_output_until_requested() {
     let batch = core.publish();
     let output = batch.output(&client.entries[0].id).expect("output");
     assert_eq!(output[1].text, "private output");
+}
+
+#[test]
+fn normalized_reasoning_sends_only_the_new_unicode_suffix() {
+    let mut core = session();
+    let mut client = core.publish().snapshot(100);
+    let key = core.backend_entry_key("reason");
+    core.upsert_reasoning_delta(&key, "héllo");
+    core.normalize_reasoning_at(0);
+    synchronize(&mut core, &mut client);
+    core.upsert_reasoning_delta(&key, " 🌍");
+    core.normalize_reasoning_at(0);
+    let events = synchronize(&mut core, &mut client);
+    assert!(events
+        .iter()
+        .any(|e| matches!(&e.event, Event::TextAppended { text, .. } if text == " 🌍")));
+    assert!(!events
+        .iter()
+        .any(|e| matches!(e.event, Event::EntryUpdated { .. })));
+}
+
+#[test]
+fn header_changes_and_tool_labels_reach_the_client_without_new_rows() {
+    let mut core = session();
+    let mut client = core.publish().snapshot(100);
+    core.set_client_identity(carlos_proto::session::Backend::Claude, "workstation".into());
+    core.set_thread_name(Some("Work".into()));
+    core.set_runtime_settings(Some("model".into()), None, None);
+    core.set_context_usage(Some(super::context_usage::ContextUsage {
+        used: 12,
+        max: 100,
+    }));
+    core.record_turn_started("native-turn");
+    synchronize(&mut core, &mut client);
+    assert_eq!(client.info.phase, Phase::Running);
+    assert!(client.info.turn_started_at.is_some());
+    core.append_message(Role::ToolOutput, "output");
+    synchronize(&mut core, &mut client);
+    core.messages.set_tool(
+        0,
+        super::models::ToolOutputDetails {
+            generated: true,
+            summary: "Run tests".into(),
+            failed: false,
+        },
+    );
+    let events = synchronize(&mut core, &mut client);
+    assert_eq!(client.entries.len(), 1);
+    assert_eq!(
+        client.entries[0].tool.as_ref().expect("tool").label_source,
+        LabelSource::Ai
+    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e.event, Event::EntryFactsChanged { .. })));
+}
+
+#[test]
+fn accepted_decision_is_distinct_from_backend_retirement() {
+    let mut core = session();
+    let mut client = core.publish().snapshot(100);
+    let _ = core.set_pending_approval(approval());
+    synchronize(&mut core, &mut client);
+    let id = core.approval.pending().expect("card").entry_id();
+    core.record_approval_decision(id, super::approval_state::ApprovalChoice::AcceptForSession);
+    let _ = core.retire_approval(id);
+    let events = synchronize(&mut core, &mut client);
+    assert!(events.iter().any(|e| matches!(
+        e.event,
+        Event::ApprovalResolved {
+            decision: Some(Decision::Session),
+            ..
+        }
+    )));
 }

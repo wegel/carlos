@@ -58,8 +58,9 @@ impl SessionState {
             self.validate_codex_answer(client, card_id, id, &answer)?;
             return Ok(None);
         }
-        self.send_codex_answer(client, id, answer)
-            .map(|retired| Some(CallbackAnswered::Retired(retired)))
+        let retired = self.send_codex_answer(client, id, answer)?;
+        self.record_approval_decision(card_id, choice);
+        Ok(Some(CallbackAnswered::Retired(retired)))
     }
 
     fn validate_codex_answer(
@@ -98,7 +99,9 @@ impl SessionState {
             return Ok(None);
         };
         let id = pending.request_id.clone();
-        self.send_codex_answer(client, &id, answer).map(Some)
+        let retired = self.send_codex_answer(client, &id, answer)?;
+        self.record_approval_decision(card_id, ApprovalChoice::Accept);
+        Ok(Some(retired))
     }
 
     fn send_codex_answer(

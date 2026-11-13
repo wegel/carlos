@@ -2,7 +2,7 @@
 
 use carlos_proto::events::{Event, SessionEvent};
 use carlos_proto::ids::{Sequence, SessionId};
-use carlos_proto::session::{Approval, Backend, SessionInfo};
+use carlos_proto::session::{Approval, Backend, Decision, SessionInfo};
 use uuid::Uuid;
 
 use super::entry_id::EntryId;
@@ -15,12 +15,20 @@ use super::transcript_journal::{Journal, MAX_PENDING};
 pub enum Change {
     Added(EntryId),
     Replaced(EntryId),
-    Text { entry: EntryId, from: usize },
+    Text {
+        entry: EntryId,
+        from: usize,
+    },
     Facts(EntryId),
-    Approval(usize),
-    ApprovalResolved(EntryId),
+    Approval(EntryId),
+    ApprovalResolved {
+        approval: EntryId,
+        decision: Option<Decision>,
+    },
     Info,
-    Reset { dirty_from: Option<EntryId> },
+    Reset {
+        dirty_from: Option<EntryId>,
+    },
 }
 
 /// A record and its session-local cursor.
@@ -39,6 +47,8 @@ pub(super) struct EventState {
     pub(super) info: Option<SessionInfo>,
     pub(super) approvals: Vec<Approval>,
     pub(super) approval_revision: u64,
+    pub(super) decisions: Vec<(EntryId, Decision)>,
+    pub(super) decision_overflow: bool,
     pub(super) turn_started_at: Option<i64>,
 }
 
@@ -52,6 +62,8 @@ impl EventState {
             info: None,
             approvals: Vec::new(),
             approval_revision: 0,
+            decisions: Vec::new(),
+            decision_overflow: false,
             turn_started_at: None,
         }
     }
@@ -88,6 +100,11 @@ impl SessionState {
         );
         let mut changes = self.row_changes(journal);
         self.publish_approvals(&mut changes);
+        if std::mem::take(&mut self.events.decision_overflow) {
+            changes.clear();
+            changes.push(Change::Reset { dirty_from: None });
+        }
+        self.events.decisions.clear();
         if self.info_changed() {
             self.events.info = Some(self.export_info());
             changes.push(Change::Info);
@@ -171,12 +188,19 @@ impl SessionState {
         let current = self.export_approvals();
         for old in &self.events.approvals {
             if !current.iter().any(|card| card.id == old.id) {
-                changes.push(Change::ApprovalResolved(EntryId::from_wire(&old.id)));
+                let approval = EntryId::from_wire(&old.id);
+                let decision = self
+                    .events
+                    .decisions
+                    .iter()
+                    .find(|(id, _)| *id == approval)
+                    .map(|(_, choice)| *choice);
+                changes.push(Change::ApprovalResolved { approval, decision });
             }
         }
-        for (index, card) in current.iter().enumerate() {
+        for card in &current {
             if !self.events.approvals.contains(card) {
-                changes.push(Change::Approval(index));
+                changes.push(Change::Approval(EntryId::from_wire(&card.id)));
             }
         }
         self.events.approvals = current;
@@ -212,7 +236,12 @@ impl Published<'_> {
 
     /// Materialize exactly one sealed event for a transport or headless client.
     pub fn to_wire(&self, record: &NumberedChange) -> Option<SessionEvent> {
-        if !self.records.contains(record) {
+        let offset = record
+            .seq
+            .get()
+            .checked_sub(self.records.first()?.seq.get())?;
+        let index = usize::try_from(offset).ok()?;
+        if self.records.get(index) != Some(record) {
             return None;
         }
         let session = self.session;
@@ -241,11 +270,10 @@ impl Published<'_> {
                 entry: id.to_wire(),
                 facts: session.export_entry_facts(session.messages.entry(id)?),
             },
-            Change::Approval(index) => Event::ApprovalRequested {
-                approval: session.events.approvals.get(index)?.clone(),
-            },
-            Change::ApprovalResolved(id) => Event::ApprovalResolved {
-                approval: id.to_wire(),
+            Change::Approval(id) => self.approval_event(id)?,
+            Change::ApprovalResolved { approval, decision } => Event::ApprovalResolved {
+                approval: approval.to_wire(),
+                decision,
             },
             Change::Info => Event::InfoChanged {
                 info: session.events.info.clone()?,

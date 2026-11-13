@@ -146,3 +146,6 @@ mod transcript_journal;
 
 #[cfg(test)]
 mod event_tests;
+
+#[cfg(test)]
+mod event_input_tests;

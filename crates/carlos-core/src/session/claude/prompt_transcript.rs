@@ -32,7 +32,6 @@ impl SessionState {
     pub(crate) fn classify_claude_prompt(&mut self, index: usize, kind: Option<&str>) {
         if self.messages[index].role == Role::User && kind == Some("steer") {
             self.transcript_set_kind(index, MessageKind::UserSteer);
-            return;
         }
     }
 
@@ -90,11 +89,9 @@ impl SessionState {
         {
             self.record_turn_started(id);
         }
-        let update =
-            self.attach_claude_prompt_echo(id, key, response["result"]["inputKind"].as_str());
+        self.attach_claude_prompt_echo(id, key, response["result"]["inputKind"].as_str());
         if let Some(index) = self.messages.len().checked_sub(1) {
             self.record_prompt_turn(self.messages[index].id, id);
         }
-        update
     }
 }

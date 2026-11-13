@@ -32,8 +32,7 @@ impl SessionState {
             kind: MessageKind::Diff,
             file_path,
         });
-        let idx = self.messages.len() - 1;
-        idx
+        self.messages.len() - 1
     }
 
     /// Ignore empty or unchanged aggregate diffs; otherwise update or append one row.

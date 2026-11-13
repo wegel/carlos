@@ -65,7 +65,6 @@ pub(super) fn record_native_turn(session: &mut SessionState, item: &str, turn: &
         };
         if session.messages()[index].kind != kind {
             session.transcript_set_kind(index, kind);
-            ();
         }
     }
 }

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::commands::RpcVersion;
 use crate::ids::{EntryId, Sequence, SessionId};
-use crate::session::{Approval, Entry, EntryKind, SessionInfo, Snapshot, Tool};
+use crate::session::{Approval, Decision, Entry, EntryKind, SessionInfo, Snapshot, Tool};
 
 /// Facts that change without replacing or resending an entry's source text.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -18,14 +18,34 @@ pub struct EntryFacts {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Event {
-    EntryAdded { entry: Entry },
-    TextAppended { entry: EntryId, text: String },
-    EntryUpdated { entry: Entry },
-    EntryFactsChanged { entry: EntryId, facts: EntryFacts },
-    ApprovalRequested { approval: Approval },
-    ApprovalResolved { approval: EntryId },
-    InfoChanged { info: SessionInfo },
-    Reset { snapshot: Snapshot },
+    EntryAdded {
+        entry: Entry,
+    },
+    TextAppended {
+        entry: EntryId,
+        text: String,
+    },
+    EntryUpdated {
+        entry: Entry,
+    },
+    EntryFactsChanged {
+        entry: EntryId,
+        facts: EntryFacts,
+    },
+    ApprovalRequested {
+        approval: Approval,
+        before: Option<EntryId>,
+    },
+    ApprovalResolved {
+        approval: EntryId,
+        decision: Option<Decision>,
+    },
+    InfoChanged {
+        info: SessionInfo,
+    },
+    Reset {
+        snapshot: Snapshot,
+    },
 }
 
 /// An event's cursor advances only within its own logical session.

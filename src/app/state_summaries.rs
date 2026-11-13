@@ -2,7 +2,6 @@
 
 use std::sync::mpsc;
 
-use carlos_core::session::entry_id::EntryId;
 use carlos_core::summaries::SummaryEvent;
 
 use super::state::AppState;
@@ -13,23 +12,14 @@ impl AppState {
     }
 
     pub(super) fn handle_summary_event(&mut self, event: SummaryEvent) {
-        let changed = self.session.handle_summary_event(event);
-        self.redraw_summary_entries(changed);
+        self.session.handle_summary_event(event);
+        self.consume_core_events();
     }
 
     pub(super) fn apply_summary_setting(&mut self) {
-        let changed = self
-            .session
+        self.session
             .apply_summary_setting(self.view.summary_enabled_draft);
-        self.redraw_summary_entries(changed);
-    }
-
-    fn redraw_summary_entries(&mut self, changed: Vec<EntryId>) {
-        for id in changed {
-            if let Some(index) = self.session.messages().position(id) {
-                self.mark_transcript_dirty_from(index);
-            }
-        }
+        self.consume_core_events();
     }
 }
 

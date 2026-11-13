@@ -32,7 +32,9 @@ impl SessionState {
     /// Start the current turn's suffix at the end of an adopted history.
     pub(crate) fn restore_turn_boundary(&mut self) {
         if self.active_turn_id.is_some() {
-            self.mark_turn_started();
+            self.turn_boundary = Some(super::turns::TurnBoundary {
+                offset: self.messages.len(),
+            });
         } else {
             self.clear_turn_boundary();
         }

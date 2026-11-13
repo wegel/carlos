@@ -45,8 +45,7 @@ impl Published<'_> {
             return None;
         }
         Some(
-            message
-                .text
+            super::tools::strip_terminal_controls(&message.text)
                 .lines()
                 .map(|line| OutputLine {
                     kind: if message.kind != MessageKind::Diff {

@@ -15,7 +15,23 @@ impl Transcript {
         kind: MessageKind,
         path: Option<String>,
     ) {
-        self.record_change(index, text.is_some(), None, true);
+        if let Some(message) = self
+            .entries
+            .get(index)
+            .filter(|_| index < self.journal.published && !self.journal.reset)
+        {
+            let same_shape = message.role == role && message.kind == kind;
+            let appended = text
+                .as_ref()
+                .filter(|text| same_shape && text.starts_with(&message.text));
+            let delta = appended
+                .filter(|text| text.len() > message.text.len())
+                .map(|_| message.text.len());
+            let replace = text.as_ref().is_some_and(|text| text != &message.text)
+                && appended.is_none()
+                || !same_shape;
+            self.record_change(index, replace, delta, true);
+        }
         if let Some(message) = self.entries.get_mut(index) {
             message.role = role;
             if let Some(text) = text {

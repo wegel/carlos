@@ -31,6 +31,7 @@ impl SessionState {
             self.set_status(error.clone());
             return Err(error);
         }
+        self.record_approval_decision(card, choice);
         self.finish_pending_claude_browser_answer(choice);
         let cleared = self.clear_pending_session_approval();
         self.set_status(match choice {

@@ -1,6 +1,7 @@
 //! Client envelope and identifier compatibility checks.
 
 use carlos_proto::commands::{check_protocol, Command, Request};
+use carlos_proto::events::NotificationMessage;
 use carlos_proto::ids::{EntryId, Sequence, SessionId};
 use serde_json::{from_value, json, to_value};
 
@@ -63,4 +64,25 @@ fn unknown_commands_and_invalid_request_ids_fail() {
         from_value::<Request>(json!({"jsonrpc":"2.0","id":1,"method":"unknown","params":{}}))
             .is_err()
     );
+}
+
+#[test]
+fn every_frozen_command_and_event_roundtrips_the_v1_fixture() {
+    let fixture: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/v1.json")).expect("fixture");
+    for request in fixture["requests"].as_array().expect("requests") {
+        let parsed: Request = from_value(request.clone()).expect("v1 request");
+        assert_eq!(to_value(parsed).expect("encode request"), *request);
+    }
+    for notification in fixture["notifications"].as_array().expect("notifications") {
+        let parsed: NotificationMessage =
+            from_value(notification.clone()).expect("v1 notification");
+        assert_eq!(
+            to_value(parsed).expect("encode notification"),
+            *notification
+        );
+    }
+    let mut unknown = fixture["notifications"][0].clone();
+    unknown["params"]["event"]["kind"] = json!("future_event");
+    assert!(from_value::<NotificationMessage>(unknown).is_err());
 }

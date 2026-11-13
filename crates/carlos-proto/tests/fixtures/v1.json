@@ -1,0 +1,316 @@
+{
+  "requests": [
+    {
+      "jsonrpc": "2.0",
+      "id": 0,
+      "method": "hello",
+      "params": {
+        "protocol": 1,
+        "client": "test",
+        "token": "token"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "sessions/watch",
+      "params": {}
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "session/create",
+      "params": {
+        "backend": "claude",
+        "cwd": "/work",
+        "name": null
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "session/subscribe",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "since": "9007199254740993"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "session/unsubscribe",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "method": "session/history",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "before": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+        "limit": 100
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 6,
+      "method": "session/send",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "text": "héllo 🌍",
+        "client_message_id": "echo-1"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 7,
+      "method": "session/interrupt",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 8,
+      "method": "session/approve",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "approval": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+        "answer": {
+          "kind": "decision",
+          "decision": "once"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 9,
+      "method": "session/approve",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "approval": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+        "answer": {
+          "kind": "input",
+          "value": {
+            "choice": "yes"
+          }
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 10,
+      "method": "session/setRalph",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "on": true
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 11,
+      "method": "entry/output",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001"
+      }
+    }
+  ],
+  "notifications": [
+    {
+      "jsonrpc": "2.0",
+      "method": "session/event",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "seq": "1",
+        "event": {
+          "kind": "entry_added",
+          "entry": {
+            "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+            "kind": "answer",
+            "text": "héllo",
+            "done": false,
+            "tool": null,
+            "client_message_id": null
+          }
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/event",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "seq": "2",
+        "event": {
+          "kind": "text_appended",
+          "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+          "text": " 🌍"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/event",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "seq": "3",
+        "event": {
+          "kind": "entry_updated",
+          "entry": {
+            "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+            "kind": "answer",
+            "text": "héllo",
+            "done": false,
+            "tool": null,
+            "client_message_id": null
+          }
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/event",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "seq": "4",
+        "event": {
+          "kind": "entry_facts_changed",
+          "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+          "facts": {
+            "kind": "answer",
+            "done": true,
+            "tool": null
+          }
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/event",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "seq": "5",
+        "event": {
+          "kind": "approval_requested",
+          "approval": {
+            "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+            "kind": "form",
+            "title": "Choose",
+            "details": [],
+            "choices": [
+              "deny",
+              "cancel"
+            ],
+            "input": {
+              "kind": "form",
+              "schema": {
+                "type": "object"
+              }
+            },
+            "submitted": false,
+            "active": true
+          },
+          "before": null
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/event",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "seq": "6",
+        "event": {
+          "kind": "approval_resolved",
+          "approval": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+          "decision": "once"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/event",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "seq": "7",
+        "event": {
+          "kind": "info_changed",
+          "info": {
+            "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": null,
+            "backend": "codex",
+            "model": null,
+            "host": "local",
+            "cwd": "/work",
+            "phase": "idle",
+            "ralph": false,
+            "turn_started_at": null,
+            "context": null,
+            "quota": null
+          }
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/event",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "seq": "8",
+        "event": {
+          "kind": "reset",
+          "snapshot": {
+            "info": {
+              "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "name": null,
+              "backend": "codex",
+              "model": null,
+              "host": "local",
+              "cwd": "/work",
+              "phase": "idle",
+              "ralph": false,
+              "turn_started_at": null,
+              "context": null,
+              "quota": null
+            },
+            "entries": [
+              {
+                "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+                "kind": "answer",
+                "text": "héllo",
+                "done": false,
+                "tool": null,
+                "client_message_id": null
+              }
+            ],
+            "approvals": [
+              {
+                "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+                "kind": "form",
+                "title": "Choose",
+                "details": [],
+                "choices": [
+                  "deny",
+                  "cancel"
+                ],
+                "input": {
+                  "kind": "form",
+                  "schema": {
+                    "type": "object"
+                  }
+                },
+                "submitted": false,
+                "active": true
+              }
+            ],
+            "seq": "8",
+            "has_older": false
+          }
+        }
+      }
+    }
+  ]
+}

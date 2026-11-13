@@ -148,7 +148,7 @@ pub enum SubscribeResult {
         seq: Sequence,
     },
     Snapshot {
-        snapshot: Snapshot,
+        snapshot: Box<Snapshot>,
     },
 }
 

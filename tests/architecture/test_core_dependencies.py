@@ -48,6 +48,13 @@ class CoreDependencyTests(unittest.TestCase):
         sample["workspace_members"].append("ui")
         self.assertEqual(GUARD.check_graph(sample), [])
 
+    def test_protocol_cannot_gain_io_even_through_an_alias(self):
+        for name in ["tokio", "socket2", "carlos-core", "crossterm"]:
+            sample = graph({"core": ("carlos-core", ["proto"]),
+                            "proto": ("carlos-proto", ["json"]),
+                            "json": ("serde_json", ["hidden"]), "hidden": (name, [])})
+            self.assertIn(f"carlos-proto: unreviewed resolved package {name}", GUARD.check_graph(sample))
+
     def test_missing_core_member_cannot_pass_vacuously(self):
         sample = graph({"core": ("carlos", [])})
         self.assertTrue(GUARD.check_graph(sample))

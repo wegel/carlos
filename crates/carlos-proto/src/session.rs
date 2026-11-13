@@ -146,9 +146,10 @@ pub struct Approval {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ApprovalInput {
-    Questions { questions: Value },
+    Fields { fields: Vec<InputField> },
     Form { schema: Value },
     Browser { url: String },
+    Unsupported { reason: String },
 }
 
 /// A newest page and live cards at exactly the enclosed cursor.
@@ -188,4 +189,27 @@ pub enum OutputKind {
     Command,
     Success,
     Error,
+}
+
+/// A neutral question field; its key is local to this card, never a backend route.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct InputField {
+    pub key: String,
+    pub title: String,
+    pub description: String,
+    pub secret: bool,
+    pub multiple: bool,
+    pub other: bool,
+    pub notes_only: bool,
+    pub required: bool,
+    pub schema: Value,
+    pub options: Vec<InputOption>,
+}
+
+/// A listed answer retains its typed value separately from the displayed label.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct InputOption {
+    pub value: Value,
+    pub label: String,
+    pub description: String,
 }

@@ -39,7 +39,7 @@ Decision: Keep opaque binary EntryIds inside the core and create wire strings on
 ## Outcomes & Retrospective
 
 
-The protocol crate passes its four contract tests. The core journal passes six headless tests and the full Rust suite. The terminal migration is in progress; the old return types still exist until the dedicated removal commit. EP019 will add a daemon process, sockets and reconnect replay. EP021 will add backend history paging and richer tool summaries; this contract must represent unknown facts honestly until then.
+The protocol crate passes its contract tests, including frozen command and notification examples. The core journal passes six headless tests and the full Rust suite. The terminal migration is in progress; the old return types were removed in commit `d9db5ab`. EP019 will add a daemon process, sockets and reconnect replay. EP021 will add backend history paging and richer tool summaries; this contract must represent unknown facts honestly until then.
 
 ## Context and Orientation
 
@@ -98,3 +98,5 @@ Update note (2026-11-13): created EP018 after the owner's approval of EP017; rec
 Update note (2026-11-13): recorded the first protocol and core journal checks; the terminal now has an event consumer under test before removal of legacy reports.
 
 Update note (2026-11-13): removed legacy redraw returns and migrated their exhaustive tests to numbered records. The full Rust suite and 26 architecture tests pass; strict lint and full terminal checks are next.
+
+Update note (2026-11-13): the first release gate passed all 174 terminal workflows, 23 native-monitor checks, installed Codex contracts and helper/package checks. The wire review then added neutral question fields, explicit unsupported input, optional accepted approval decisions and stable next-card ids for focus moves. New JSON fixtures cover every version-one command and event. These refinements require final tests and a fresh measured executable. Both core and protocol package guards now reject transport/UI packages in the protocol graph.
