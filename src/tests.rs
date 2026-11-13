@@ -135,8 +135,6 @@ mod turn_lifecycle_tests;
 #[path = "tests/ui_render_tests.rs"]
 mod ui_render_tests;
 
-#[path = "tests/codex_rewind_guard_tests.rs"]
-mod codex_rewind_guard_tests;
 #[path = "tests/codex_steer_tests.rs"]
 mod codex_steer_tests;
 

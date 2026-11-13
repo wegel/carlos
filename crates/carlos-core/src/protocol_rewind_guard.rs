@@ -11,7 +11,7 @@ use crate::protocol_history::{is_unsupported_method, load_thread_history};
 use crate::protocol_params::{extract_result_object, params_thread_read};
 
 /// Validate exact native identity and reject steers before creating a new thread.
-pub fn validate_rewind(
+pub(crate) fn validate_rewind(
     client: &dyn BackendClient,
     thread_id: &str,
     request: &RewindForkRequest,
@@ -173,3 +173,7 @@ fn inspect_user(
     );
     Ok(true)
 }
+
+#[cfg(test)]
+#[path = "tests/codex_rewind_guard_tests.rs"]
+mod tests;

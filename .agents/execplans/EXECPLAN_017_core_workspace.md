@@ -244,3 +244,5 @@ Milestone 1 update, 2026-11-13: preserved the baseline and verified plain Cargo 
 Milestones 2 and 3 update, 2026-11-13: preserved every existing test, kept root executable paths, and replaced the old future-core check with checks of the actual library and Cargo graph. The isolated caller checks prove useful terminal-free behavior and private fields across the real package boundary.
 
 Release packaging discovery, 2026-11-13: the first release runner reached package staging and rejected carlos-core because its license lives at the repository root. The core manifest now declares `license-file = "../../LICENSE"`; the collector copies Cargo-declared files as well as files found in each package directory. A temporary-workspace regression test reproduces that case. The final release run remains open.
+
+Direct-review follow-up, 2026-11-13: moved the pure native rewind guard tests into the library too, instead of exposing internal guard modules through test support. The compiler now keeps both native rewind modules private. This ninth formerly external core test file preserves the combined test count.

@@ -13,7 +13,7 @@ use crate::protocol_params::{
 };
 
 /// Create and validate the retained prefix before submitting an edited prompt.
-pub fn fork_before_edited_turn(
+pub(crate) fn fork_before_edited_turn(
     client: &dyn BackendClient,
     thread_id: &str,
     request: RewindForkRequest,

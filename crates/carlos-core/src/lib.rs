@@ -15,11 +15,8 @@ mod protocol_forms;
 pub mod protocol_history;
 pub mod protocol_params;
 mod protocol_reader;
-pub mod protocol_rewind;
-#[cfg(not(feature = "test-support"))]
+mod protocol_rewind;
 mod protocol_rewind_guard;
-#[cfg(feature = "test-support")]
-pub mod protocol_rewind_guard;
 mod protocol_socket;
 mod protocol_state;
 mod protocol_writer;

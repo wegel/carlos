@@ -4,12 +4,12 @@ use std::collections::VecDeque;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use anyhow::Result;
-use carlos_core::backend::{
+use crate::backend::{
     BackendClient, BackendKind, EventReceiver, RewindForkRequest, RewindUserMessage,
 };
-use carlos_core::protocol_rewind::fork_before_edited_turn;
-use carlos_core::protocol_rewind_guard::validate_rewind;
+use crate::protocol_rewind::fork_before_edited_turn;
+use crate::protocol_rewind_guard::validate_rewind;
+use anyhow::Result;
 use serde_json::{json, Value};
 
 struct NativePeer {
