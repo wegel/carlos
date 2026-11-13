@@ -149,6 +149,74 @@ fn replaced_claude_handle_never_follows_the_new_helper() {
     );
 }
 
+#[test]
+fn a_real_claude_reply_after_reset_cannot_restore_the_old_transcript() {
+    let (client, events) = peer();
+    let mut state = SessionState::new(SESSION.into(), Default::default(), false);
+    let pending = work(&mut state);
+    let commands = client.capture_commands().expect("captured helper");
+    let worker = thread::spawn(move || pending.execute(&commands));
+    through(&client, &events, &mut state, "item/completed");
+    state.adopt_native_thread("new-thread".into());
+    state.reset_for_forked_thread();
+    state.append_message(crate::session::models::Role::User, "new history");
+    client
+        .helper_call("release", json!({}), TIMEOUT)
+        .expect("release old reply");
+    assert!(state
+        .finish_backend_work(worker.join().expect("worker"))
+        .is_err());
+    assert_eq!(state.messages().len(), 1);
+    assert_eq!(state.messages()[0].text, "new history");
+}
+
+#[test]
+fn a_captured_claude_call_rejects_eof_without_waiting_for_a_prompt_timeout() {
+    let script = PEER.replace("held=r", "sys.exit(0)");
+    let mut command = Command::new("python3");
+    command.args(["-u", "-c", &script]);
+    let (client, _events) = command_client(command, 1024);
+    let commands = client.capture_commands().expect("capture");
+    let error = commands
+        .submit_prompt(
+            "turn/start",
+            json!({"input":[{"text":"hello"}]}),
+            crate::backend::PromptOrigin::Human,
+            crate::backend::PromptPriority::Queue,
+            TIMEOUT,
+        )
+        .expect_err("EOF retires waiting call");
+    assert!(error.to_string().contains("closed"), "{error}");
+}
+
+#[test]
+fn a_captured_claude_pipe_write_does_not_borrow_the_owner() {
+    let mut command = Command::new("python3");
+    command.args(["-u", "-c", "import time; time.sleep(30)"]);
+    let (client, events) = command_client(command, 1024);
+    let mut state = SessionState::new(SESSION.into(), Default::default(), false);
+    let commands = client.capture_commands().expect("capture");
+    let worker = thread::spawn(move || {
+        commands.submit_prompt(
+            "turn/start",
+            json!({"input":[{"text":"x".repeat(2 * 1024 * 1024)}]}),
+            crate::backend::PromptOrigin::Human,
+            crate::backend::PromptPriority::Queue,
+            TIMEOUT,
+        )
+    });
+    through(&client, &events, &mut state, "claude/promptSubmitted");
+    assert!(
+        !worker.is_finished(),
+        "the owner handled a fact while stdin waited"
+    );
+    let error = worker
+        .join()
+        .expect("bounded writer")
+        .expect_err("blocked stdin");
+    assert!(error.to_string().contains("500 ms"), "{error}");
+}
+
 const PEER: &str = r#"
 import json,sys
 SESSION='00000000-0000-4000-8000-000000000001'

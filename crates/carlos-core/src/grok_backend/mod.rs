@@ -1,6 +1,7 @@
 //! Grok ACP backend: process lifecycle and BackendClient implementation.
 
 mod client;
+mod commands;
 mod history;
 mod process;
 #[cfg(test)]
@@ -10,6 +11,7 @@ mod translate;
 mod types;
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 
@@ -19,7 +21,7 @@ use serde_json::{json, Value};
 use crate::protocol_params::ModelInfo;
 
 use self::history::parse_grok_session_list;
-use self::process::{start_grok_process, GrokProcess};
+use self::process::{start_grok_process, GrokIo, GrokProcess};
 use self::translate::{interrupt_prompt_turn, mark_prompt_started};
 use self::types::{
     normalize_runtime_arg, parse_grok_model_catalog, response_error_message, response_is_error,
@@ -53,14 +55,29 @@ const SESSION_LIST_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// Own a Grok process and expose its commands through the shared backend trait.
 pub struct GrokClient {
+    commands: Arc<GrokCommands>,
+    process_owner: Mutex<GrokProcess>,
+    events_rx: Option<mpsc::Receiver<String>>,
+}
+
+/// Share Grok session commands while the client owns the process and event consumer.
+pub struct GrokCommands {
+    revision: AtomicU64,
+    stopped: AtomicBool,
     pub(super) cwd: PathBuf,
     session_id: Mutex<Option<String>>,
     runtime_settings: Mutex<GrokRuntimeSettings>,
     models: Mutex<Vec<ModelInfo>>,
     translation: Arc<Mutex<GrokTranslationState>>,
-    process: Mutex<GrokProcess>,
+    process: Arc<GrokIo>,
     events_tx: mpsc::Sender<String>,
-    events_rx: Option<mpsc::Receiver<String>>,
+}
+
+impl std::ops::Deref for GrokClient {
+    type Target = GrokCommands;
+    fn deref(&self) -> &Self::Target {
+        &self.commands
+    }
 }
 
 impl GrokClient {
@@ -75,24 +92,29 @@ impl GrokClient {
             events_tx.clone(),
             Arc::clone(&translation),
         )?;
-        Ok(Self {
+        let commands = Arc::new(GrokCommands {
+            revision: AtomicU64::new(0),
+            stopped: AtomicBool::new(false),
             cwd: cwd.to_path_buf(),
             session_id: Mutex::new(None),
             runtime_settings: Mutex::new(runtime_settings),
             models: Mutex::new(grok_model_catalog()),
             translation,
-            process: Mutex::new(process),
+            process: process.commands(),
             events_tx,
+        });
+        Ok(Self {
+            commands,
+            process_owner: Mutex::new(process),
             events_rx: Some(events_rx),
         })
     }
+}
 
+impl GrokCommands {
     /// Ask Grok for its saved sessions in this working directory.
     pub fn list_sessions(&self) -> Result<Vec<GrokSessionSummary>> {
-        let process = self
-            .process
-            .lock()
-            .map_err(|_| anyhow!("Grok process lock poisoned"))?;
+        let process = &self.process;
         let response = process.request(
             "session/list",
             json!({ "cwd": self.cwd }),
@@ -211,10 +233,7 @@ impl GrokClient {
         params: Value,
         timeout: Duration,
     ) -> Result<String> {
-        let process = self
-            .process
-            .lock()
-            .map_err(|_| anyhow!("Grok process lock poisoned"))?;
+        let process = &self.process;
         process.request(method, params, timeout)
     }
 
@@ -256,6 +275,7 @@ impl GrokClient {
     }
 
     pub(super) fn store_session_id(&self, session_id: String) {
+        self.revision.fetch_add(1, Ordering::SeqCst);
         if let Ok(mut current) = self.session_id.lock() {
             *current = Some(session_id.clone());
         }
@@ -272,35 +292,42 @@ impl GrokClient {
             .context("Grok session is not open")
     }
 
-    fn apply_runtime_settings(&self, model: Option<&str>, effort: Option<&str>) -> Result<()> {
+    fn apply_runtime_settings(
+        &self,
+        session_id: &str,
+        model: Option<&str>,
+        effort: Option<&str>,
+    ) -> Result<()> {
         let desired = GrokRuntimeSettings {
             model: normalize_runtime_arg(model),
             effort: normalize_runtime_arg(effort),
         };
-        let mut current = self
+        let current = self
             .runtime_settings
             .lock()
-            .map_err(|_| anyhow!("Grok runtime settings lock poisoned"))?;
-        if *current == desired {
+            .map_err(|_| anyhow!("Grok runtime settings lock poisoned"))?
+            .clone();
+        if current == desired {
             return Ok(());
         }
         let model_changed = current.model != desired.model;
-        *current = desired.clone();
-        drop(current);
         if model_changed {
             if let Some(model) = desired.model.as_deref() {
-                let session_id = self.current_session_id()?;
-                let process = self
-                    .process
-                    .lock()
-                    .map_err(|_| anyhow!("Grok process lock poisoned"))?;
-                let _ = process.request(
+                let process = &self.process;
+                let response = process.request(
                     "session/set_model",
                     json!({ "sessionId": session_id, "modelId": model }),
                     Duration::from_secs(10),
                 )?;
+                if let Some(message) = response_error_message(&response) {
+                    bail!("Grok model change failed: {message}");
+                }
             }
         }
+        *self
+            .runtime_settings
+            .lock()
+            .map_err(|_| anyhow!("Grok runtime settings lock poisoned"))? = desired;
         Ok(())
     }
 
@@ -313,7 +340,7 @@ impl GrokClient {
         Ok(())
     }
 
-    fn interrupt_session(&self) -> Result<String> {
+    fn interrupt_session(&self, session_id: &str) -> Result<String> {
         let lines = {
             let mut state = self
                 .translation
@@ -324,11 +351,7 @@ impl GrokClient {
         for line in lines {
             let _ = self.events_tx.send(line);
         }
-        let session_id = self.current_session_id()?;
-        let process = self
-            .process
-            .lock()
-            .map_err(|_| anyhow!("Grok process lock poisoned"))?;
+        let process = &self.process;
         process.clear_in_flight_prompts();
         process.notify(
             "session/cancel",
@@ -338,3 +361,7 @@ impl GrokClient {
         Ok(json!({ "jsonrpc": "2.0", "result": {} }).to_string())
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/backend_owner_grok_tests.rs"]
+mod backend_owner_grok_tests;

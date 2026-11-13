@@ -2,21 +2,26 @@
 
 #[path = "process_client.rs"]
 mod process_client;
+#[path = "process_io.rs"]
+mod process_io;
+#[path = "process_writer.rs"]
+mod process_writer;
 
 use std::collections::{HashMap, HashSet};
 use std::env;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader};
 use std::path::Path;
-use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::process::{Child, Command, Stdio};
+use std::sync::atomic::AtomicU64;
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 
 use self::process_client::respond_to_agent_request;
+use self::process_writer::InputWriter;
 use super::translate::{finish_prompt_turn, translate_grok_notification};
 use super::types::{GrokRuntimeSettings, GrokTranslationState};
 
@@ -25,13 +30,31 @@ const INITIALIZE_TIMEOUT: Duration = Duration::from_secs(20);
 // --- Process ---
 
 pub(super) struct GrokProcess {
-    child: Child,
-    stdin: Arc<Mutex<ChildStdin>>,
+    child: Arc<Mutex<Child>>,
+    io: Arc<GrokIo>,
+    reader_thread: Option<thread::JoinHandle<()>>,
+    stderr_thread: Option<thread::JoinHandle<()>>,
+}
+
+/// Share requests independently from the child and its event consumer.
+pub(super) struct GrokIo {
+    stdin: Arc<InputWriter>,
     pending: Arc<Mutex<HashMap<u64, mpsc::Sender<String>>>>,
     prompt_in_flight: Arc<Mutex<HashSet<u64>>>,
     next_id: AtomicU64,
-    reader_thread: Option<thread::JoinHandle<()>>,
-    stderr_thread: Option<thread::JoinHandle<()>>,
+}
+
+impl std::ops::Deref for GrokProcess {
+    type Target = GrokIo;
+    fn deref(&self) -> &Self::Target {
+        &self.io
+    }
+}
+
+impl GrokProcess {
+    pub(super) fn commands(&self) -> Arc<GrokIo> {
+        self.io.clone()
+    }
 }
 
 // --- Launch ---
@@ -59,7 +82,8 @@ pub(super) fn start_command(
     let stderr = child.stderr.take().context("missing Grok stderr")?;
     let pending = Arc::new(Mutex::new(HashMap::new()));
     let prompt_in_flight = Arc::new(Mutex::new(HashSet::new()));
-    let stdin = Arc::new(Mutex::new(stdin));
+    let child = Arc::new(Mutex::new(child));
+    let stdin = Arc::new(InputWriter::start(stdin, child.clone()));
     let captured_stderr = Arc::new(Mutex::new(String::new()));
     let reader_thread = spawn_reader_thread(
         stdout,
@@ -72,10 +96,12 @@ pub(super) fn start_command(
     let stderr_thread = spawn_stderr_thread(stderr, Arc::clone(&captured_stderr));
     let process = GrokProcess {
         child,
-        stdin,
-        pending,
-        prompt_in_flight,
-        next_id: AtomicU64::new(1),
+        io: Arc::new(GrokIo {
+            stdin,
+            pending,
+            prompt_in_flight,
+            next_id: AtomicU64::new(1),
+        }),
         reader_thread: Some(reader_thread),
         stderr_thread: Some(stderr_thread),
     };
@@ -151,62 +177,12 @@ fn initialize_agent(process: &GrokProcess) -> Result<()> {
 // --- RPC ---
 
 impl GrokProcess {
-    pub(super) fn request(&self, method: &str, params: Value, timeout: Duration) -> Result<String> {
-        let id = self.next_id.fetch_add(1, Ordering::SeqCst);
-        let (tx, rx) = mpsc::channel();
-        self.pending
-            .lock()
-            .map_err(|_| anyhow!("Grok pending lock poisoned"))?
-            .insert(id, tx);
-        self.send_json(json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "method": method,
-            "params": params,
-        }))?;
-        match rx.recv_timeout(timeout) {
-            Ok(response) => Ok(response),
-            Err(_) => {
-                let _ = self.pending.lock().map(|mut pending| pending.remove(&id));
-                bail!("timeout waiting for Grok {method}");
-            }
-        }
-    }
-
-    pub(super) fn notify(&self, method: &str, params: Value) -> Result<()> {
-        self.send_json(json!({
-            "jsonrpc": "2.0",
-            "method": method,
-            "params": params,
-        }))
-    }
-
-    pub(super) fn start_prompt(&self, params: Value) -> Result<()> {
-        let id = self.next_id.fetch_add(1, Ordering::SeqCst);
-        self.prompt_in_flight
-            .lock()
-            .map_err(|_| anyhow!("Grok prompt lock poisoned"))?
-            .insert(id);
-        self.send_json(json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "method": "session/prompt",
-            "params": params,
-        }))
-    }
-
-    pub(super) fn clear_in_flight_prompts(&self) {
-        let _ = self
-            .prompt_in_flight
-            .lock()
-            .map(|mut prompts| prompts.clear());
-    }
-
     pub(super) fn stop(&mut self) {
-        let _ = self.child.kill();
+        self.stdin.close();
         let deadline = Instant::now() + Duration::from_millis(250);
         loop {
-            match self.child.try_wait() {
+            let state = self.child.lock().expect("Grok child").try_wait();
+            match state {
                 Ok(Some(_)) => break,
                 Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(10)),
                 _ => break,
@@ -214,18 +190,6 @@ impl GrokProcess {
         }
         let _ = self.reader_thread.take();
         let _ = self.stderr_thread.take();
-    }
-
-    fn send_json(&self, value: Value) -> Result<()> {
-        let line = value.to_string();
-        let mut stdin = self
-            .stdin
-            .lock()
-            .map_err(|_| anyhow!("Grok stdin lock poisoned"))?;
-        stdin.write_all(line.as_bytes())?;
-        stdin.write_all(b"\n")?;
-        stdin.flush()?;
-        Ok(())
     }
 }
 
@@ -236,7 +200,7 @@ fn spawn_reader_thread(
     events_tx: mpsc::Sender<String>,
     pending: Arc<Mutex<HashMap<u64, mpsc::Sender<String>>>>,
     prompt_in_flight: Arc<Mutex<HashSet<u64>>>,
-    stdin: Arc<Mutex<ChildStdin>>,
+    stdin: Arc<InputWriter>,
     translation: Arc<Mutex<GrokTranslationState>>,
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
@@ -263,6 +227,15 @@ fn spawn_reader_thread(
                 &stdin,
                 &translation,
             );
+        }
+        stdin.close();
+        if let Ok(mut requests) = pending.lock() {
+            for (id, reply) in requests.drain() {
+                let _ = reply.send(
+                    json!({"id":id,"error":{"message":"Grok stdout closed before replying"}})
+                        .to_string(),
+                );
+            }
         }
     })
 }
@@ -293,7 +266,7 @@ fn route_line(
     events_tx: &mpsc::Sender<String>,
     pending: &Arc<Mutex<HashMap<u64, mpsc::Sender<String>>>>,
     prompt_in_flight: &Arc<Mutex<HashSet<u64>>>,
-    stdin: &Arc<Mutex<ChildStdin>>,
+    stdin: &Arc<InputWriter>,
     translation: &Arc<Mutex<GrokTranslationState>>,
 ) {
     let Ok(parsed) = serde_json::from_str::<Value>(line) else {
@@ -370,5 +343,11 @@ fn emit_prompt_finished(
     };
     for synthetic in finish_prompt_turn(&mut state, interrupted).lines {
         let _ = events_tx.send(synthetic);
+    }
+}
+
+impl Drop for GrokProcess {
+    fn drop(&mut self) {
+        self.stop();
     }
 }

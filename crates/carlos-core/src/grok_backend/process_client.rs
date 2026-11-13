@@ -1,12 +1,12 @@
 //! Replies to agent-originated ACP client requests.
 
-use std::io::Write;
-use std::process::ChildStdin;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+
+use super::process_writer::InputWriter;
 
 use serde_json::{json, Value};
 
-pub(super) fn respond_to_agent_request(parsed: &Value, stdin: &Arc<Mutex<ChildStdin>>) {
+pub(super) fn respond_to_agent_request(parsed: &Value, stdin: &Arc<InputWriter>) {
     let Some(id) = parsed.get("id").cloned() else {
         return;
     };
@@ -19,10 +19,7 @@ pub(super) fn respond_to_agent_request(parsed: &Value, stdin: &Arc<Mutex<ChildSt
             "error": { "code": -32601, "message": format!("unsupported client method: {method}") },
         }),
     };
-    if let Ok(mut stdin) = stdin.lock() {
-        let _ = writeln!(stdin, "{reply}");
-        let _ = stdin.flush();
-    }
+    let _ = stdin.write(&reply);
 }
 
 fn permission_allow_reply(id: Value, params: Option<&Value>) -> Value {

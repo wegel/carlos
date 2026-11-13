@@ -3,9 +3,8 @@
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Result};
-use serde_json::{json, Value};
+use serde_json::Value;
 
-use super::types::turn_input_text;
 use super::GrokClient;
 use crate::backend::{BackendClient, BackendKind, EventReceiver};
 
@@ -14,30 +13,13 @@ impl BackendClient for GrokClient {
         BackendKind::Grok
     }
 
-    fn call(&self, method: &str, params: Value, _timeout: Duration) -> Result<String> {
-        match method {
-            "turn/start" => {
-                self.apply_runtime_settings(
-                    params.get("model").and_then(Value::as_str),
-                    params.get("effort").and_then(Value::as_str),
-                )?;
-                let text = turn_input_text(&params)?;
-                let session_id = self.current_session_id()?;
-                self.begin_prompt_translation()?;
-                let process = self
-                    .process
-                    .lock()
-                    .map_err(|_| anyhow!("Grok process lock poisoned"))?;
-                process.start_prompt(json!({
-                    "sessionId": session_id,
-                    "prompt": [{ "type": "text", "text": text }],
-                }))?;
-                Ok(json!({ "jsonrpc": "2.0", "result": {} }).to_string())
-            }
-            "turn/steer" => bail!("Grok does not support mid-turn steer"),
-            "turn/interrupt" => self.interrupt_session(),
-            other => bail!("unsupported Grok backend method: {other}"),
-        }
+    fn capture_commands(&self) -> Result<crate::backend_commands::CommandHandle> {
+        self.capture()
+    }
+
+    fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String> {
+        self.commands
+            .call_for(&self.current_session_id()?, method, params, timeout)
     }
 
     fn fork_from_rewind(
@@ -65,7 +47,10 @@ impl BackendClient for GrokClient {
     }
 
     fn stop(&mut self) {
-        if let Ok(mut process) = self.process.lock() {
+        self.commands
+            .stopped
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        if let Ok(mut process) = self.process_owner.lock() {
             process.stop();
         }
     }

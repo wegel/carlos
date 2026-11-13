@@ -7,23 +7,35 @@ use std::sync::{mpsc, Arc, Mutex};
 use serde_json::Value;
 
 use super::process::start_command;
-use super::{grok_model_catalog, GrokClient, GrokRuntimeSettings, GrokTranslationState};
+use super::{
+    grok_model_catalog, GrokClient, GrokCommands, GrokRuntimeSettings, GrokTranslationState,
+};
 use crate::backend::EventReceiver;
 
 /// Return a client whose normal OS-pipe reader receives only the supplied fixture frames.
 pub fn client(frames: Vec<Value>) -> (GrokClient, EventReceiver) {
+    command_client(peer(frames))
+}
+
+pub(super) fn command_client(command: Command) -> (GrokClient, EventReceiver) {
     let (events_tx, events_rx) = mpsc::channel();
     let translation = Arc::new(Mutex::new(GrokTranslationState::default()));
-    let process = start_command(peer(frames), events_tx.clone(), Arc::clone(&translation))
+    let process = start_command(command, events_tx.clone(), Arc::clone(&translation))
         .expect("fixed Grok peer");
-    let client = GrokClient {
+    let commands = Arc::new(GrokCommands {
+        revision: std::sync::atomic::AtomicU64::new(0),
+        stopped: std::sync::atomic::AtomicBool::new(false),
         cwd: PathBuf::from("."),
         session_id: Mutex::new(Some("root".into())),
         runtime_settings: Mutex::new(GrokRuntimeSettings::default()),
         models: Mutex::new(grok_model_catalog()),
         translation,
-        process: Mutex::new(process),
+        process: process.commands(),
         events_tx,
+    });
+    let client = GrokClient {
+        commands,
+        process_owner: Mutex::new(process),
         events_rx: None,
     };
     (client, events_rx.into())

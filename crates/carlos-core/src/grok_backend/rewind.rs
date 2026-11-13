@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 use crate::backend::RewindForkRequest;
 
 use super::types::synthetic_start_response;
-use super::GrokClient;
+use super::GrokCommands;
 
 const REWIND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(20);
 
@@ -21,7 +21,7 @@ pub struct GrokRewindPoint {
 
 // --- Client API ---
 
-impl GrokClient {
+impl GrokCommands {
     pub(super) fn rewind_fork(&self, request: RewindForkRequest) -> Result<String> {
         let source_id = self.current_session_id()?;
         let points = self.list_rewind_points(&source_id)?;
