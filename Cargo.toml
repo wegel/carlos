@@ -1,3 +1,8 @@
+[workspace]
+members = ["crates/carlos-core"]
+default-members = [".", "crates/carlos-core"]
+resolver = "2"
+
 [package]
 name = "carlos"
 version = "0.1.0"

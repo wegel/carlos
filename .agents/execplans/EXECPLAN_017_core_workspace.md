@@ -18,7 +18,7 @@ requests. This step adds no background server, socket protocol or phone screen.
 
 
 - [x] (2026-11-13 UTC) Read the repo rules, architecture, EP016 report, manifests and current guard. Confirmed a clean `iphone-spike` checkout at `304f494`.
-- [ ] Milestone 1: record the baseline and create a buildable Cargo workspace.
+- [x] (2026-11-13 UTC) Milestone 1: saved the EP016 release executable and compiler metadata under `/tmp/carlos-ep017`; added a workspace with both default members. All 1,026 existing tests pass; the empty library is only the independently buildable starting step.
 - [ ] Milestone 2: move the core and its tests; expose the app's required calls without exposing mutable session storage.
 - [ ] Milestone 3: teach scripts, dependency checks and CI about both packages; prove the core builds alone.
 - [ ] Milestone 4: run complete release workflows, compare speed and memory, review directly, and close the plan.
@@ -236,3 +236,5 @@ terminal rendering, clipboard, input, local drafts and optional dictation.
 
 Plan written 2026-11-13: scoped EP017 to a compiler-enforced library boundary,
 with explicit checks for the tests and feature gates that EP016's report flagged.
+
+Milestone 1 update, 2026-11-13: preserved the baseline and verified plain Cargo commands discover both packages before moving source.
