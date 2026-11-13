@@ -1,6 +1,6 @@
 # Engine architecture: daemon and clients
 
-Status: agreed 2026-11-11. Work has not started. ExecPlan 016 is the first step.
+Status: agreed 2026-11-11. ExecPlan 016 completed 2026-11-13; ExecPlan 017 has not started.
 
 This note records the design for splitting `carlos` into a daemon and several
 clients, and the reasons. Update it when a decision changes. Keep raw logs out.
@@ -217,15 +217,15 @@ To do when 1.100.0 is available:
 
 ## How the work is driven
 
-Location (owner's decision, 2026-11-12): all work for the daemon split happens
-on branch `daemon-split`, in the separate checkout
+Location (owner's decision, updated 2026-11-13): all work for ExecPlans 016 through 022 happens
+on branch `iphone-spike` (formerly `daemon-split`), in the separate checkout
 `/var/home/wegel/work/perso/carlos-daemon`. The main checkout and `main` stay
 on the released carlos so the owner can make quick fixes there. Nothing from
-`daemon-split` goes to `main` or to the remote without the owner's request.
-Rebase `daemon-split` onto `main` when `main` moves. Git ignores `etc/` only on
+`iphone-spike` goes to `main` or to the remote without the owner's request.
+Rebase `iphone-spike` onto `main` when `main` moves. Git ignores `etc/` only on
 this branch; `etc/mac-build.env` lives in the `carlos-daemon` checkout.
 
-- Claude plans, splits tasks, runs the gates, reads diffs, commits to `daemon-split`.
+- Claude plans, splits tasks, runs the gates, reads diffs, commits to `iphone-spike`.
 - Codex (`gpt-6.1-sol`, high effort) implements and reviews, through direct
   `codex exec` calls. The Codex plugin sandbox cannot start in the development
   container, so workers run with the access mode from `~/.codex/config.toml`.

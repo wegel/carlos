@@ -1,4 +1,4 @@
-You implement one PART of a milestone in this repository (current directory `/var/home/wegel/work/perso/carlos-daemon`, branch `daemon-split`, clean tree). NEVER touch `/var/home/wegel/work/perso/carlos` (the owner's main checkout).
+You implement one PART of a milestone in this repository (current directory `/var/home/wegel/work/perso/carlos-daemon`, branch `iphone-spike`, clean tree). NEVER touch `/var/home/wegel/work/perso/carlos` (the owner's main checkout).
 
 Read first: `AGENTS.md`, `.agents/CODE_STYLE.md`, `docs/engine-architecture.md`, then `.agents/execplans/EXECPLAN_016_session_state_split.md`: the Decision Log, "Target ownership", the `AppState` field inventory under `Artifacts and Notes`, the text of Milestone 7, and every Observation under "Surprises & Discoveries" (they record what went wrong in milestones 1 to 4 and the rules that follow). Milestones 0 to 6 are done: `AppState` holds `session: SessionState` (`src/session/`) and `view: ViewState` (`src/app/view_state.rs`).
 

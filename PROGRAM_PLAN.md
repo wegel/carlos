@@ -19,6 +19,10 @@ sessions and several clients: the terminal UI, phone apps, a web app and later a
 `docs/engine-architecture.md` holds the design, the wire protocol draft, the order of work and
 the reasons. Read it before any work on ExecPlan 016 or later.
 
+Keep ExecPlans 016 through 022 on branch `iphone-spike`, in the existing checkout
+`/var/home/wegel/work/perso/carlos-daemon`. This branch was renamed from `daemon-split`
+after ExecPlan 016. Do not merge it into `main` or push it without the owner's request.
+
 ## Global Invariants
 
 - Keep the repository buildable and `cargo test` green after meaningful changes.
@@ -36,7 +40,7 @@ the reasons. Read it before any work on ExecPlan 016 or later.
 
 ## Active ExecPlans
 
-No daemon-split ExecPlan is active. ExecPlan 016 is complete; ExecPlan 017 has not started.
+No ExecPlan is active on `iphone-spike`. ExecPlan 016 is complete; ExecPlan 017 has not started.
 
 ExecPlans 017 to 022 are listed in `docs/engine-architecture.md`. Each one is written when the
 plan before it ends.
