@@ -15,6 +15,8 @@ use super::transcript::Transcript;
 pub(crate) struct PromptHistory {
     input_history: Vec<String>,
     prompt_ids: Vec<EntryId>,
+    // Pending records must not leave gaps in the transcript's row counter.
+    ids: EntryIds,
     input_history_entry_ids: Vec<Option<EntryId>>,
     turn_ids_by_message: HashMap<EntryId, String>,
     native: Option<NativeUserHistory>,
@@ -120,7 +122,6 @@ impl PromptHistory {
         &mut self,
         text: &str,
         entry: Option<EntryId>,
-        ids: &mut EntryIds,
     ) -> bool {
         if text.is_empty() {
             return true;
@@ -142,7 +143,7 @@ impl PromptHistory {
         }
 
         self.prompt_ids
-            .push(entry.unwrap_or_else(|| ids.allocate()));
+            .push(entry.unwrap_or_else(|| self.ids.allocate()));
         self.input_history.push(text.to_string());
         self.input_history_entry_ids.push(entry);
         true

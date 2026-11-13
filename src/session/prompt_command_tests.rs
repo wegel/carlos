@@ -111,6 +111,33 @@ fn pending_prompt_keeps_its_id_when_native_echo_binds_a_row() {
 }
 
 #[test]
+fn pending_prompts_do_not_force_later_rows_into_the_exception_index() {
+    let mut state = session();
+    let first = state.transcript_append(crate::session::models::EntryDraft::plain(
+        Role::User,
+        "first",
+    ));
+    for _ in 0..100 {
+        state.record_prompt_history("pending", None);
+    }
+    let next = state.transcript_append(crate::session::models::EntryDraft::plain(
+        Role::User,
+        "next",
+    ));
+    // Row counters resolve directly; accepted pending records must not add gaps.
+    assert_eq!(next.offset_from(first), Some(1));
+    for index in 0..100 {
+        let prompt = state
+            .input_history()
+            .prompt_id(index)
+            .expect("pending record");
+        assert_eq!(prompt.offset_from(first), None);
+        assert_eq!(state.messages().position(prompt), None);
+    }
+    assert_eq!(state.messages().position(next), Some(1));
+}
+
+#[test]
 fn discarded_prompt_id_cannot_select_a_later_identical_draft() {
     let mut state = session();
     state.record_prompt_history("same", None);
