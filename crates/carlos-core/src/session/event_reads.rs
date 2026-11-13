@@ -9,18 +9,7 @@ use super::events::Published;
 impl Published<'_> {
     /// Export the newest requested rows in chronological order; clamp to 1..=1000.
     pub fn snapshot(&self, limit: usize) -> Snapshot {
-        let count = self.session.messages.len();
-        let start = count.saturating_sub(limit.clamp(1, 1000));
-        Snapshot {
-            info: self.session.events.info.clone().expect("published info"),
-            entries: self.session.messages[start..]
-                .iter()
-                .map(|m| self.session.export_entry(m))
-                .collect(),
-            approvals: self.session.events.approvals.clone(),
-            seq: self.sequence(),
-            has_older: start > 0,
-        }
+        self.session.export_snapshot(limit)
     }
 
     /// Fetch older stored rows; retired or foreign cursors fail instead of changing position.
@@ -35,5 +24,22 @@ impl Published<'_> {
             has_older: start > 0,
             seq: self.sequence(),
         })
+    }
+}
+
+impl crate::session::state::SessionState {
+    pub(super) fn export_snapshot(&self, limit: usize) -> Snapshot {
+        let count = self.messages.len();
+        let start = count.saturating_sub(limit.clamp(1, 1000));
+        Snapshot {
+            info: self.events.info.clone().expect("published info"),
+            entries: self.messages[start..]
+                .iter()
+                .map(|m| self.export_entry(m))
+                .collect(),
+            approvals: self.events.approvals.clone(),
+            seq: self.events.seq,
+            has_older: start > 0,
+        }
     }
 }

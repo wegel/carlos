@@ -93,6 +93,17 @@ impl SessionState {
         &self.events.id
     }
 
+    pub(in crate::session) fn sealed(&self) -> Published<'_> {
+        debug_assert!(
+            self.events.info.is_some(),
+            "seal owner writes before serving reads"
+        );
+        Published {
+            session: self,
+            records: Vec::new(),
+        }
+    }
+
     /// Seal pending writes once; holding the result prevents mutation during encoding.
     pub fn publish(&mut self) -> Published<'_> {
         self.refresh_wire_turn();

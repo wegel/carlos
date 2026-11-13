@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::ids::{ClientId, OperationId};
 
 /// A command's origin; the daemon binds the client id to its authenticated connection.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ClientOperation {
     pub client: ClientId,
     pub id: OperationId,

@@ -85,7 +85,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, bail, Result};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendClient, BackendKind, EventReceiver, PromptOrigin, PromptPriority};
@@ -106,7 +106,6 @@ pub use self::types::ClaudeLaunchMode;
 pub use self::types::ClaudeTranslationState;
 
 use self::event_queue::EventSender;
-use self::helper::start_params;
 use self::transport::ControllerTransport;
 use self::types::ClaudeRuntimeSettings;
 
@@ -211,36 +210,16 @@ impl BackendClient for ClaudeClient {
         self.commands()?.apply_runtime_settings(model, effort)
     }
 
-    fn request_native_control(&self, method: &str, mut params: Value) -> Result<()> {
-        if method == "history.continue" {
-            return self.continue_history(&params);
-        }
-        params["cwd"] = json!(self.cwd);
-        if method == "start" {
-            let settings = self
-                .runtime_settings
-                .lock()
-                .map_err(|_| anyhow!("Claude settings lock poisoned"))?;
-            let id = params["sessionId"]
-                .as_str()
-                .context("Resume has no session ID")?;
-            params = start_params(
-                &self.cwd,
-                &ClaudeLaunchMode::Resume(id.to_string()),
-                &settings,
-            )?;
-        }
-        self.transport
-            .lock()
-            .map_err(|_| anyhow!("Claude transport lock poisoned"))?
-            .request(method, params)
+    fn request_native_control(&self, method: &str, params: Value) -> Result<()> {
+        crate::backend_commands::BackendCommands::request_native_control(
+            &self.commands()?,
+            method,
+            params,
+        )
     }
 
     fn refresh_context(&self) -> Result<()> {
-        self.transport
-            .lock()
-            .map_err(|_| anyhow!("Claude transport lock poisoned"))?
-            .request("context", json!({}))
+        crate::backend_commands::BackendCommands::refresh_context(&self.commands()?)
     }
 
     fn handle_event(&self, line: &str) -> Option<Vec<String>> {
@@ -293,6 +272,8 @@ impl Drop for ClaudeClient {
 #[cfg(any(test, feature = "test-support"))]
 /// Build the interrupted-turn backend message used by lifecycle fixtures.
 pub fn claude_interrupted_turn_notification(params: &Value) -> Result<String> {
+    use anyhow::Context;
+
     let thread_id = params["threadId"]
         .as_str()
         .context("missing interrupt threadId")?;

@@ -181,3 +181,6 @@ mod submission_identity_tests;
 
 #[cfg(test)]
 mod control_work_tests;
+
+#[path = "../engine/mod.rs"]
+pub mod engine;

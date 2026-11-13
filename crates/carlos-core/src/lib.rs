@@ -22,6 +22,7 @@ mod protocol_socket;
 mod protocol_state;
 mod protocol_writer;
 pub mod session;
+pub use session::engine;
 pub mod summaries;
 
 #[cfg(test)]

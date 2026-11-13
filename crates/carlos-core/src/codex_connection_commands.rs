@@ -71,6 +71,14 @@ impl BackendCommands for Commands {
         self.check()?;
         self.connection.fork_from_rewind(thread, request, timeout)
     }
+    fn request_native_control(&self, method: &str, params: Value) -> Result<()> {
+        self.check()?;
+        self.connection.request_native_control(method, params)
+    }
+    fn refresh_context(&self) -> Result<()> {
+        self.check()?;
+        self.connection.refresh_context()
+    }
     fn respond(&self, id: &Value, result: Value) -> Result<()> {
         self.check()?;
         self.connection.respond(id, result)

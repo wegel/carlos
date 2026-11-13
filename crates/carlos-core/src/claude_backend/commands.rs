@@ -182,6 +182,44 @@ impl BackendCommands for Commands {
         );
         Ok(json!({"result":{"claudeForkPending":true}}).to_string())
     }
+    fn request_native_control(&self, method: &str, mut params: Value) -> Result<()> {
+        self.check()?;
+        if method == "history.continue" {
+            if params["generation"]
+                .as_u64()
+                .is_some_and(|generation| generation != self.transport.generation)
+            {
+                return Ok(());
+            }
+            return self
+                .transport
+                .emitter
+                .continue_history(params["epoch"].as_u64());
+        }
+        params["cwd"] = json!(self.cwd);
+        if method == "start" {
+            let settings = self
+                .runtime_settings
+                .lock()
+                .map_err(|_| anyhow!("Claude settings lock poisoned"))?
+                .clone();
+            let id = params["sessionId"]
+                .as_str()
+                .context("Resume has no session ID")?;
+            params = super::helper::start_params(
+                &self.cwd,
+                &super::types::ClaudeLaunchMode::Resume(id.to_string()),
+                &settings,
+            )?;
+        }
+        self.transport.request(method, params)
+    }
+    fn apply_runtime_settings(&self, model: Option<&str>, effort: Option<&str>) -> Result<bool> {
+        Commands::apply_runtime_settings(self, model, effort)
+    }
+    fn refresh_context(&self) -> Result<()> {
+        self.request_native_control("context", json!({}))
+    }
     fn respond(&self, id: &Value, result: Value) -> Result<()> {
         let id = id.as_str().context("native callback ID must be a string")?;
         self.check_helper()?;

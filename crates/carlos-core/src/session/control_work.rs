@@ -25,6 +25,10 @@ pub struct ControlWork {
 }
 
 enum ControlCall {
+    NativeAnswer {
+        claim: Box<ApprovalClaim>,
+        body: Value,
+    },
     Interrupt {
         turn: TurnId,
         params: Value,
@@ -141,6 +145,28 @@ impl SessionState {
         })
     }
 
+    pub(in crate::session) fn prepare_checked_native_answer(
+        &self,
+        kind: BackendKind,
+        id: EntryId,
+        body: Value,
+    ) -> Option<ControlWork> {
+        let claim = self
+            .approval()
+            .live()
+            .find(|card| card.entry_id() == id)?
+            .submitted_claim()?;
+        Some(ControlWork {
+            session: self.session_id().clone(),
+            kind,
+            generation: self.control_generation(kind),
+            call: ControlCall::NativeAnswer {
+                claim: Box::new(claim),
+                body,
+            },
+        })
+    }
+
     /// Settle the original control without retiring a newer turn or another client's card.
     pub fn finish_engine_control(
         &mut self,
@@ -164,13 +190,15 @@ impl SessionState {
                     }
                 }
             }
-            ControlCall::Answer { claim, .. } => match &completion.result {
-                Ok((Some(choice), _)) if claim.live.load(Ordering::SeqCst) => {
-                    self.finish_claimed_answer(claim, *choice)
+            ControlCall::Answer { claim, .. } | ControlCall::NativeAnswer { claim, .. } => {
+                match &completion.result {
+                    Ok((Some(choice), _)) if claim.live.load(Ordering::SeqCst) => {
+                        self.finish_claimed_answer(claim, *choice)
+                    }
+                    Err(ControlFailure::Invalid(_)) => self.reopen_claimed_approval(claim),
+                    _ => {}
                 }
-                Err(ControlFailure::Invalid(_)) => self.reopen_claimed_approval(claim),
-                _ => {}
-            },
+            }
         }
         if let ControlCall::Interrupt { intent, .. } = completion.call {
             client.finish_interrupt(intent, completion.result.is_ok());
@@ -192,7 +220,7 @@ impl SessionState {
     fn control_generation(&self, kind: BackendKind) -> Option<u64> {
         match kind {
             BackendKind::Codex => Some(self.codex_connection().generation()),
-            BackendKind::Claude => Some(self.claude().generation()),
+            BackendKind::Claude => Some(self.claude().generation),
             BackendKind::Grok => None,
         }
     }
@@ -224,6 +252,15 @@ fn execute(
     client: &CommandHandle,
 ) -> Result<(Option<ApprovalChoice>, Value), ControlFailure> {
     match call {
+        ControlCall::NativeAnswer { claim, body } => {
+            if !claim.live.load(Ordering::SeqCst) {
+                return Err(ControlFailure::Retired);
+            }
+            client
+                .respond(&claim.facts.request_id, body.clone())
+                .map_err(|error| ControlFailure::Native(error.to_string()))?;
+            Ok((Some(ApprovalChoice::Accept), json!(null)))
+        }
         ControlCall::Interrupt { params, live, .. } => {
             if !live.load(Ordering::SeqCst) {
                 return Err(ControlFailure::Retired);

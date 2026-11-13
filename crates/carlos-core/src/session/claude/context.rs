@@ -46,8 +46,24 @@ impl SessionState {
 
     /// Send at most one optional summary read; neither typing nor chat waits for it.
     pub fn tick_claude_context(&mut self, client: &dyn BackendClient, now: Instant) -> bool {
+        let (mut redraw, request) = self.prepare_claude_context(now);
+        if let Some(params) = request {
+            let token = params["contextToken"]
+                .as_u64()
+                .expect("prepared context token");
+            if client.request_native_control("context", params).is_err() {
+                redraw |= self.fail_claude_context_request(token, now);
+            }
+        }
+        redraw
+    }
+
+    pub(in crate::session) fn prepare_claude_context(
+        &mut self,
+        now: Instant,
+    ) -> (bool, Option<Value>) {
         if !self.claude_context_available() {
-            return false;
+            return (false, None);
         }
         let model = self.runtime_settings().current_model().clone();
         let mut redraw = false;
@@ -60,17 +76,17 @@ impl SessionState {
             && !self.claude_context_working()
             && self.claude.context.pending.is_none()
         {
-            return redraw;
+            return (redraw, None);
         }
         let context = &mut self.claude.context;
         if let Some(read) = &context.pending {
             let stale = now.saturating_duration_since(read.sent) >= STALE_AFTER;
             let changed = stale && context.fresh;
             context.fresh &= !stale;
-            return redraw || changed;
+            return (redraw || changed, None);
         }
         if context.next_read.is_some_and(|deadline| deadline > now) {
-            return redraw;
+            return (redraw, None);
         }
         context.sequence += 1;
         context.pending = Some(Read {
@@ -79,13 +95,25 @@ impl SessionState {
         });
         context.next_read = Some(now + INTERVAL);
         let params = json!({"revision":self.claude.activity.context_revision,"contextToken":context.sequence});
-        if client.request_native_control("context", params).is_err() {
+        (redraw, Some(params))
+    }
+
+    pub(in crate::session) fn fail_claude_context_request(
+        &mut self,
+        token: u64,
+        now: Instant,
+    ) -> bool {
+        let context = &mut self.claude.context;
+        if context
+            .pending
+            .as_ref()
+            .is_some_and(|read| read.token == token)
+        {
             context.pending = None;
             context.next_read = Some(now + STALE_AFTER);
-            redraw |= context.fresh;
-            context.fresh = false;
+            return std::mem::replace(&mut context.fresh, false);
         }
-        redraw
+        false
     }
 
     /// Wake idle work for reads and stale-value markers, without polling a stuck request forever.

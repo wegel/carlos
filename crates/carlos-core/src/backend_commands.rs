@@ -50,6 +50,18 @@ pub trait BackendCommands: Send + Sync {
     ) -> Result<String> {
         bail!("backend does not support rewind fork")
     }
+    /// Start a tokenized native read on the captured transport.
+    fn request_native_control(&self, _method: &str, _params: Value) -> Result<()> {
+        bail!("backend does not support native controls")
+    }
+    /// Apply accepted model choices without borrowing the owner.
+    fn apply_runtime_settings(&self, _model: Option<&str>, _effort: Option<&str>) -> Result<bool> {
+        Ok(false)
+    }
+    /// Ask a captured backend for context counts.
+    fn refresh_context(&self) -> Result<()> {
+        Ok(())
+    }
     /// Answer one native callback on this connection.
     fn respond(&self, id: &Value, result: Value) -> Result<()>;
     /// Reject one native callback on this connection.
@@ -103,6 +115,15 @@ impl BackendClient for CommandHandle {
         timeout: Duration,
     ) -> Result<String> {
         self.0.fork_from_rewind(thread, request, timeout)
+    }
+    fn request_native_control(&self, method: &str, params: Value) -> Result<()> {
+        self.0.request_native_control(method, params)
+    }
+    fn apply_runtime_settings(&self, model: Option<&str>, effort: Option<&str>) -> Result<bool> {
+        self.0.apply_runtime_settings(model, effort)
+    }
+    fn refresh_context(&self) -> Result<()> {
+        self.0.refresh_context()
     }
     fn respond(&self, id: &Value, result: Value) -> Result<()> {
         self.0.respond(id, result)

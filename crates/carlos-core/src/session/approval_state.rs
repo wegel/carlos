@@ -74,6 +74,14 @@ impl Drop for PendingApprovalRequest {
 }
 
 impl PendingApprovalRequest {
+    pub(in crate::session) fn submitted_claim(&self) -> Option<ApprovalClaim> {
+        self.answer_submitted.then(|| ApprovalClaim {
+            card: self.entry_id,
+            facts: self.facts.clone(),
+            live: self.live.clone(),
+        })
+    }
+
     /// Borrow the immutable backend facts of this card.
     pub fn facts(&self) -> &ApprovalRequestDraft {
         &self.facts

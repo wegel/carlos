@@ -1,0 +1,265 @@
+//! Admit ordinary commands in order and let exact-target controls bypass their native waits.
+
+use std::time::Instant;
+
+use carlos_proto::commands::SendPolicy;
+use carlos_proto::submissions::{ClientOperation, OperationState, SubmittedText};
+
+use super::mailbox::Envelope;
+use super::owner::{failure, Owner};
+use super::workers::Completion;
+use super::{EngineCommand, EngineReply};
+use crate::backend::PromptOrigin;
+use crate::session::entry_id::EntryId;
+use crate::session::prompt_commands::{PromptContext, PromptOptions};
+
+impl Owner {
+    pub(super) fn admit_ordinary(&mut self) {
+        for _ in 0..64 {
+            let Ok(envelope) = self.channels.ordinary.try_recv() else {
+                break;
+            };
+            if let Some(command) = self.admit(envelope) {
+                self.ordinary.push_back(command);
+            }
+        }
+    }
+
+    fn admit(&mut self, envelope: Envelope) -> Option<EngineCommand> {
+        let operation = match &envelope.command {
+            EngineCommand::Send { operation, .. }
+            | EngineCommand::SetRalph { operation, .. }
+            | EngineCommand::Approve { operation, .. }
+            | EngineCommand::Interrupt { operation, .. } => operation,
+            _ => {
+                let _ = envelope.reply.try_send(EngineReply::Failure(failure(
+                    "read entered a mutation lane",
+                )));
+                return None;
+            }
+        };
+        if self.results.contains(operation) {
+            let _ = envelope.reply.try_send(EngineReply::Failure(failure(
+                "operation already admitted; query its retained result",
+            )));
+            return None;
+        }
+        let result = self.results.admit(
+            self.session.session_id(),
+            operation.clone(),
+            envelope.permit,
+        );
+        let _ = envelope.reply.try_send(EngineReply::Operation(result));
+        Some(envelope.command)
+    }
+
+    pub(super) fn dispatch_controls(&mut self) {
+        while self.workers.controls_busy < 4 {
+            let Ok(envelope) = self.channels.control.try_recv() else {
+                break;
+            };
+            let Some(command) = self.admit(envelope) else {
+                continue;
+            };
+            let commands = match self.client.capture_commands() {
+                Ok(commands) => commands,
+                Err(error) => {
+                    let operation = match &command {
+                        EngineCommand::Interrupt { operation, .. }
+                        | EngineCommand::Approve { operation, .. } => operation,
+                        _ => unreachable!("control lane"),
+                    };
+                    self.results.update(operation, rejected(error.to_string()));
+                    self.notice();
+                    continue;
+                }
+            };
+            let (operation, work) = match command {
+                EngineCommand::Interrupt { operation, turn } => (
+                    operation,
+                    self.session
+                        .prepare_engine_interrupt(self.client.as_ref(), &turn),
+                ),
+                EngineCommand::Approve {
+                    operation,
+                    card,
+                    answer,
+                } => (
+                    operation,
+                    self.session.prepare_engine_answer(
+                        self.client.kind(),
+                        EntryId::from_wire(&card),
+                        answer,
+                    ),
+                ),
+                _ => unreachable!("typed control lane"),
+            };
+            let prepared = work;
+            match prepared {
+                Ok(work) => {
+                    self.workers.controls_busy += 1;
+                    self.workers.controls.submit(move || Completion::Control {
+                        operation,
+                        completion: work.execute(&commands),
+                    });
+                }
+                Err(error) => self.results.update(&operation, rejected(error.to_string())),
+            }
+            self.notice();
+        }
+    }
+
+    pub(super) fn dispatch_ordinary(&mut self) {
+        if self.workers.ordinary_busy || self.session.command_idle().is_err() {
+            return;
+        }
+        if self.dispatch_queued() {
+            return;
+        }
+        if matches!(
+            self.ordinary.front(),
+            Some(EngineCommand::Send {
+                policy: SendPolicy::Queue,
+                ..
+            })
+        ) && self.session.active_turn_id().is_some()
+            && !self.native.closed
+        {
+            return;
+        }
+        let Some(command) = self.ordinary.pop_front() else {
+            return;
+        };
+        match command {
+            EngineCommand::Send {
+                operation,
+                text,
+                policy,
+            } => self.send(Some(operation), text, policy, PromptOrigin::Human, false),
+            EngineCommand::SetRalph { operation, on } => self.set_ralph(operation, on),
+            _ => unreachable!("typed ordinary lane"),
+        }
+        if !self.ordinary.is_empty() && !self.workers.ordinary_busy {
+            let _ = self.channels.wake.try_send(());
+        }
+    }
+
+    fn dispatch_queued(&mut self) -> bool {
+        if self.session.active_turn_id().is_some() || self.native.closed {
+            return false;
+        }
+        let Some(turn) =
+            self.session
+                .take_dispatchable_prompt(self.client.kind(), true, Instant::now())
+        else {
+            return false;
+        };
+        self.send(
+            turn.operation,
+            turn.text,
+            SendPolicy::Queue,
+            turn.origin,
+            true,
+        );
+        true
+    }
+
+    fn send(
+        &mut self,
+        operation: Option<ClientOperation>,
+        text: String,
+        policy: SendPolicy,
+        origin: PromptOrigin,
+        force_start: bool,
+    ) {
+        if self.native.closed || text.trim().is_empty() {
+            if let Some(operation) = operation {
+                self.results.recover(
+                    SubmittedText {
+                        operation: Some(operation),
+                        text,
+                    },
+                    "backend closed or text was empty; nothing sent",
+                    false,
+                );
+            }
+            self.notice();
+            return;
+        }
+        // Capture before claiming the core's mutation slot; a changing helper must not strand it.
+        let commands = match self.client.capture_commands() {
+            Ok(commands) => commands,
+            Err(error) => {
+                if let Some(operation) = operation {
+                    self.results.recover(
+                        SubmittedText {
+                            operation: Some(operation),
+                            text,
+                        },
+                        error.to_string(),
+                        false,
+                    );
+                }
+                self.notice();
+                return;
+            }
+        };
+        self.prepare_send(
+            operation,
+            text,
+            policy,
+            PromptOptions {
+                record_history: origin == PromptOrigin::Human,
+                force_start,
+                origin,
+            },
+            commands,
+        );
+    }
+
+    fn prepare_send(
+        &mut self,
+        operation: Option<ClientOperation>,
+        text: String,
+        policy: SendPolicy,
+        options: PromptOptions,
+        commands: crate::backend_commands::CommandHandle,
+    ) {
+        let context = PromptContext {
+            operation: operation.clone(),
+            claude_queue: policy == SendPolicy::Queue,
+        };
+        match self
+            .session
+            .prepare_turn_text(self.client.kind(), text, options, &context)
+        {
+            Ok(prepared) => {
+                if let Some(operation) = &operation {
+                    self.results.update(operation, OperationState::Queued);
+                }
+                self.turn_report(prepared.update);
+                if let Some(work) = prepared.work {
+                    self.workers.ordinary_busy = true;
+                    self.workers.ordinary.submit(move || Completion::Ordinary {
+                        operation,
+                        completion: work.execute(&commands),
+                    });
+                }
+            }
+            Err(error) => {
+                let message = error.to_string();
+                if let Some(draft) = error.into_submitted() {
+                    self.results.recover(draft, message, false);
+                }
+            }
+        }
+        self.notice();
+    }
+}
+
+pub(super) fn rejected(message: impl Into<String>) -> OperationState {
+    OperationState::Rejected {
+        message: message.into(),
+        recovery: None,
+    }
+}

@@ -208,6 +208,25 @@ impl RalphRuntimeState {
         self.enqueue_prompt(prompt, false, PromptOrigin::Automatic);
     }
 
+    pub(in crate::session) fn prepare_config(
+        &self,
+    ) -> impl FnOnce() -> Result<RalphConfig> + Send + 'static {
+        let cwd = self.cwd.clone();
+        let path = self.prompt_path_override.clone();
+        let done = self.done_marker_override.clone();
+        let blocked = self.blocked_marker_override.clone();
+        let waiting = self.waiting_marker_override.clone();
+        move || {
+            load_ralph_config(
+                &cwd,
+                path.as_deref(),
+                done.as_deref(),
+                blocked.as_deref(),
+                waiting.as_deref(),
+            )
+        }
+    }
+
     /// Toggle now.
     pub(crate) fn toggle_now(&mut self) -> Result<&'static str> {
         if self.is_enabled() {
