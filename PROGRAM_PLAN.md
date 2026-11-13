@@ -40,14 +40,13 @@ after ExecPlan 016. Do not merge it into `main` or push it without the owner's r
 
 ## Active ExecPlans
 
-No ExecPlan is active on `iphone-spike`. ExecPlan 018 is complete; the owner reviews it
-before ExecPlan 019 starts.
+- [ ] `.agents/execplans/EXECPLAN_018a_pre_daemon_cleanup.md`: incremental running-tool output and broader pre-daemon cleanup. The owner approved this follow-up before EP019.
 
 ExecPlans 017 to 022 are listed in `docs/engine-architecture.md`. Each one is written when the
 plan before it ends.
 
 ExecPlans 009 to 015 remain under `.agents/execplans/`. Their status was not reviewed when the
-daemon split started. They remain outside the iPhone spike; its next step is ExecPlan 019.
+daemon split started. They remain outside the iPhone spike; its next step is ExecPlan 018a, then EP019.
 
 
 ## Done ExecPlans

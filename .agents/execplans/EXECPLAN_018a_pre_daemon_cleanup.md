@@ -1,0 +1,132 @@
+# EP018a: prepare the core and output streams for the daemon
+
+
+This living ExecPlan follows `.agents/PLANS.md`. Keep Progress, Surprises & Discoveries, Decision Log and Outcomes & Retrospective current.
+
+## Purpose / Big Picture
+
+
+A client must be able to open a running tool and receive new output without repeatedly fetching its growing body. The daemon must also serve several clients without choosing which client's composer to inspect or overwrite. This plan addresses those requirements before EP019 puts the core behind sockets. It inventories the terminal's existing controls, removes client draft decisions from the session owner, and reduces obsolete boundary machinery. The terminal keeps its current screens and backend behavior throughout.
+
+The owner explicitly approved this broader scope after Fable 5.2 medium reviewed the whole iPhone/daemon roadmap. The owner also superseded the old phone prototype's restriction on expanding running tools: the engine protocol must support that workflow now, even though EP022 will build the phone interface. Do not start a daemon, implement a phone app or add a second permanent terminal path in this plan.
+
+## Progress
+
+
+- [x] (2026-11-13) Read repository rules, program, architecture, protocol, core writers and Fable's review; confirm a clean `iphone-spike` at `f42d870`.
+- [x] (2026-11-13) Preserve the accepted EP018 executable at `/tmp/carlos-ep018a/ep018-carlos` and save the independent review under `.agents/reports/exec018a-fable-review.md`.
+- [ ] Prototype bounded incremental output reads, then finalize the provisional protocol types and prove linear streamed bytes, source replacement and reconnect recovery.
+- [ ] Inventory terminal commands, queries and local view operations; write the explicit EP019 migration contract.
+- [ ] Remove composer/focus decisions from core event handling; return correlated session outcomes and let clients recover drafts independently.
+- [ ] Split blocking backend work from core state changes so a future owner can execute requests without blocking its session loop; prove delayed replies and stale completions safely.
+- [ ] Remove obsolete source-lexer machinery while retaining dependency checks and meaningful compiler/module guarantees.
+- [ ] Pass Rust, feature, terminal, contract and performance checks; review directly against the engineering prompt and resolve findings.
+- [ ] Record evidence, move this completed plan unchanged to `.agents/done/`, and stop for owner review before EP019.
+
+## Surprises & Discoveries
+
+
+EP018 emits tool text changes as facts and its output read returns the full body. This works for a collapsed row, but a remote terminal or phone showing a running tool would repeatedly transfer old text. Tool output can contain split ANSI escape sequences, partial lines and UTF-8 characters. A correct cursor must handle these without scanning the old body or copying a second full transcript. The terminal currently preserves ANSI colors, so changing its source text to a second canonical representation would risk fidelity.
+
+The terminal still calls many core APIs directly. The public protocol covers basic phone commands, while native goals, queues, settings, tasks and rewind also need a deliberate migration route. Core BackendContext and ClaudeDraftContext borrow a client's selection, focus, composer and confirmation; ClaudeEffect includes editor instructions. A terminal-free crate alone does not remove this semantic dependency. Prompt methods also wait synchronously for backend acceptance, which cannot run inline on the future daemon's owner thread.
+
+## Decision Log
+
+
+Decision: keep all work in `/var/home/wegel/work/perso/carlos-daemon` on `iphone-spike`, without installing, merging or pushing. Execute directly, with no implementation subagent. Rationale: the owner chose this isolation and requested direct work; the per-EP review gate still applies. Date/Author: 2026-11-13, owner/Codex.
+
+Decision: treat client protocol version 1 as provisional until the daemon and a real remote client exercise it. Rationale: there are no deployed clients to migrate, and freezing incomplete coverage now would add unnecessary compatibility code. Retain stable semantic contracts that are already useful. Date/Author: 2026-11-13, Codex.
+
+Decision: use bounded output chunks with opaque, entry-bound cursors and per-entry body revisions. Separate authoritative row facts from optional output subscriptions, so collapsed clients receive no bulk output and session sequence numbers have no filtered gaps. Rationale: several watchers may consume different ranges; reconnects and body replacement must be explicit without storing another copy of every tool body. Prototype and record the exact cursor encoding before promoting it. Date/Author: 2026-11-13, Codex.
+
+Decision: preserve existing terminal features and describe every capability before changing the TUI transport. Keep the shared Rust client objective; defer bindings, schema generation and timed coalescers until actual consumers or measurements need them. Rationale: the inventory should determine EP019's scope rather than force backend passthrough messages or silent feature loss. Date/Author: 2026-11-13, Codex.
+
+## Outcomes & Retrospective
+
+
+Work has started. EP018's source and binary remain the immediate comparison, while the pre-EP016 binary remains the architecture latency reference. The next concrete milestone is output-cursor proof and the terminal capability inventory. The final report will distinguish completed cleanup from the daemon work intentionally left to EP019.
+
+## Context and Orientation
+
+
+The workspace has the terminal binary, `crates/carlos-core` and `crates/carlos-proto`. AppState owns SessionState and ViewState. The core stores original source messages contiguously in `session/transcript.rs`; rows have opaque EntryIds. `session/transcript_edits.rs` records changes in a bounded journal. SessionState::publish returns Published, which borrows the session so callers finish encoding before another write. The terminal consumes the same records without serialization. `session/event_reads.rs` currently formats whole tool bodies for a remote caller.
+
+A cursor is a small token describing how far a client has consumed one output body. A revision identifies that body's current contents after a non-append edit. The client can resume a cursor while the revision matches; a replacement requires a fresh read. These tokens are separate from the numbered session events that order conversation facts. An output subscription means the server sends chunks only for an expanded tool; per-client subscription state belongs to EP019's connection owner.
+
+`session/backend_receive.rs` routes backend frames using BackendContext. Claude's receive modules return ClaudeUpdate with editor effects and use ClaudeDraftContext to decide draft recovery. Native panel controls also pass selected targets and visibility into handlers. The new boundary must accept explicit commands and correlation data, never ask which client's current editor is empty. A client message id identifies one submitted operation so only that client handles rejection or recovery. Existing native backend ids remain internal.
+
+## Plan of Work
+
+
+### Milestone 1: incremental output that a client can resume
+
+
+Add protocol types and core reads for bounded chunks, with revisions and opaque cursors bound to an entry. Keep raw source text as the one stored body so terminal colors and copy behavior stay intact. A chunk encoder must consume each new source byte once, retain only bounded parser state in its cursor, strip terminal controls across chunk boundaries, and retain semantic line kinds and newlines. It must not reparse a growing prefix to resume. Track body revisions only where necessary, preserving them correctly through history adoption and retiring them with rows.
+
+Add output-change records that do not ship bulk text to collapsed clients. Specify subscribe/unsubscribe and resume behavior in the provisional protocol; provide pure core reads and a headless two-client demonstration rather than implementing sockets. One watcher opens a running tool, pauses, resumes and survives a body reset while the other stays collapsed. Assert exact Unicode text, diff classifications, no leaked ANSI controls, bounded frames, malformed/stale cursor errors and transferred bytes proportional to the output. Measure the prototype before committing to its representation; reject a second full-body cache or growing-prefix scan.
+
+### Milestone 2: price the terminal migration
+
+
+Inspect direct session calls and group every public workflow into local view work, shared facts/queries, session commands and backend I/O. Write `docs/terminal-client-migration.md` using lists with source locations and the intended typed command/result route. Include native panels, callbacks, questions, goals, queues, settings, tasks, naming, prompt edit/fork, quota, Ralph and dictation. State which wire messages already cover each workflow, which additions EP019 must implement, and which operations stay local. Do not make opaque backend JSON passthrough the permanent answer.
+
+Update `docs/engine-architecture.md`, `PROGRAM_PLAN.md` and `docs/client-protocol-v1.md` to reflect this pre-daemon step and the revised EP019 milestones. The first daemon test must demonstrate commands and live facts through a headless client. The TUI cutover must prove parity against the inventory before deleting the embedded path. Client library bindings and schema output must have a concrete consumer before adding dependencies or build machinery.
+
+### Milestone 3: let each client own its drafts
+
+
+Replace core composer comparisons and editor instructions with facts about submitted commands, recovered submitted text, retired cards and accepted conversation changes. Carry an opaque client operation id where an asynchronous result needs its originating client. Move decisions about newer typing, restoring/replacing a draft, confirmation, focus, scroll and retained-draft lists into terminal view code. Preserve the exact current behavior with the existing recovery/parity tests, and add a two-client test proving a rejection cannot overwrite another client's draft.
+
+Remove ClaudeDraftContext and the composer/confirmation members of backend input. Replace ClaudeEffect's editor verbs with semantic outcomes, rather than renaming the same editor protocol. Explicit target/read-interest data for native controls must be independent of a single global panel or focused callback; the inventory should distinguish real backend request scope from view state. Keep authoritative state updates in the core and targeted view reactions in each client. This milestone ends only when backend frame handling needs no live editor to proceed.
+
+### Milestone 4: separate backend waits from state changes
+
+
+Expose prepared backend work and completion handling through a narrow command boundary. Preparing and settling an operation may mutate the owned session; executing a backend call must not borrow it. The existing terminal can orchestrate these steps in process while EP019 later schedules the same work outside its owner loop. Preserve command correlation, native connection/turn guards, request ordering, timeouts and failed/uncertain send behavior. Do not add a second parallel command implementation or an async runtime.
+
+Prove the boundary with a delayed deterministic backend: while one request waits, the owner can process a backend fact or another client's read, and the eventual completion affects only the matching live operation. Enumerate remaining transport-only waits in the migration document so EP019 cannot accidentally call an old blocking convenience method in its owner loop.
+
+### Milestone 5: remove redundant guards and close the step
+
+
+Audit `scripts/check-session-boundary.py` against the compiler and `scripts/check-core-dependencies.py`. Remove the hand-written Rust tokenizer/module walker and pre-workspace branches once their required checks have a concrete remaining home. Retain the all-features/all-platform dependency checks, private session fields and useful negative compiler tests. Update scripts, CI and architecture tests together; do not weaken the terminal-free core invariant merely to reduce lines.
+
+Run the engineering reviewer prompt directly, label the self-review honestly, fix blocking findings and keep the plan current. Run the full checks and measure the actual executable. Record exact source/compiler/binary identity and raw evidence. Close only after the terminal still passes its deterministic workflows and speed meets the accepted baseline.
+
+## Concrete Steps
+
+
+Run every shell command through `rtk`, from `/var/home/wegel/work/perso/carlos-daemon`. Begin with focused protocol/core tests while prototyping output reads, then run `rtk proxy cargo test` after each meaningful change. Before closeout run `rtk proxy cargo test --no-default-features`, strict Clippy with and without default features, and both release builds. Restore the default executable before `rtk proxy bash scripts/test.sh --release --codex-contract`. Do not replace a release binary while terminal checks use it.
+
+Use `carlos perf-session --synthetic --turns 1000 --seed 1 --tool-lines 24 --width 160 --height 48` and `carlos perf-session src/tests/fixtures/stale_transcript_replay.jsonl --width 160 --height 48` with preserved EP018 and original pre-plan binaries. Save new raw results under `/tmp/carlos-ep018a/`. Run paired, CPU-pinned samples without competing builds or UI tests. Measure peak RSS through Linux wait4; the older built-in zero fields remain unusable. Never share Cargo target directories across different source checkouts.
+
+## Validation and Acceptance
+
+
+A headless client must read a running tool in small chunks, continue at its cursor, and receive exactly the same final text and line kinds as one full read. Streams split inside UTF-8-safe source fragments, ANSI sequences, diff prefixes and unterminated final lines must remain correct. Large output and long single lines must not turn many reads into growing-prefix work. Replacement must invalidate the old revision; a label or status change must not invalidate unchanged output. Collapsed clients receive only compact facts. Reconnects, overflow resets, history adoption and retired ids must produce deterministic recovery.
+
+A backend event must be handled without any client's current composer or focus. Existing terminal tests must retain typed-ahead drafts, confirmation, failed-edit recovery, queued-human priority and exact backend requests. Two clients with different drafts must handle the same session facts independently; only the initiating client receives its submitted-operation recovery. A prepared backend wait must leave the session available for other events until the matching completion arrives.
+
+The migration document must account for the terminal's existing capabilities and define a typed route for each shared operation. The reduced guards must still reject terminal/audio dependencies in the core and I/O dependencies in the protocol crate. All meaningful Rust, terminal, contract, feature and lint checks pass. Changed Rust files and functions stay within 400/60 lines. Measurements must show no repeatable latency regression; document fixed memory costs honestly.
+
+## Idempotence and Recovery
+
+
+The worktree started clean at `f42d870`. Keep small buildable commits at output, inventory, draft-boundary, backend-work, guard and closeout milestones. Focused prototype changes may remain additive until proved; remove the obsolete path in a separate commit before closing. Never reset the owner's main checkout or rewrite completed EPs. No live user session, installed binary or remote branch is part of this work. Stop at the per-EP review gate after EP018a; do not begin EP019 automatically.
+
+## Artifacts and Notes
+
+
+EP018's preserved release SHA256 is `ae5b517c49bba678c6d6b9f6513ce2e3bd4e3200daaec22cff203747e3c94ca8`. Its final report is `.agents/reports/exec018-final-report.md`. The original latency reference is `/tmp/carlos-base/target/release/carlos`, hash `c880c65cc8732b296744bca7f42be5f729ab8b78580c84f2c95113736a1c0b53`. Preserve the insertion inline hints measured in EP017. Fable's read-only review at `f42d870` is copied into `.agents/reports/exec018a-fable-review.md`; the model metadata recorded claude-fable-5-2, medium.
+
+## Interfaces and Dependencies
+
+
+Keep `carlos-proto` pure serde data, `carlos-core` terminal-free, and the terminal responsible for view state. Use existing standard threads/channels and dependencies. Do not introduce Tokio, a generic event framework, speculative bindings or a second transcript copy. Final core interfaces must include a bounded output-chunk read on Published, opaque output cursor/revision types, explicit body-change facts and prepared/settled session commands whose backend execution owns no session borrow. The exact prototype representation and promoted function signatures must be recorded here as they are proved.
+
+## Engineering Review
+
+
+Pending direct review against `.agents/reviewers/engineering_reviewer.md`. No independent reviewer is claimed by this plan. The supplied Fable review is independent evidence about the starting architecture, not a verdict on this implementation.
+
+Update note (2026-11-13): created EP018a before source changes after the owner approved the broader pre-daemon cleanup. Recorded live output, client independence, terminal coverage, backend waits and guard removal as concrete acceptance criteria.
