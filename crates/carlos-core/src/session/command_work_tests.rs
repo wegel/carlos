@@ -94,6 +94,10 @@ fn delayed_backend_leaves_owner_available_for_native_facts_and_another_client_re
     entered
         .recv_timeout(Duration::from_secs(2))
         .expect("backend is waiting");
+    state.queue_turn_input_with_history("queued human", true);
+    assert!(state
+        .take_dispatchable_prompt(BackendKind::Codex, true, std::time::Instant::now())
+        .is_none());
     let update = state.handle_backend_line(
         &json!({"method":"item/agentMessage/delta",
         "params":{"threadId":"root","itemId":"live","delta":"fact during wait"}})
@@ -111,6 +115,13 @@ fn delayed_backend_leaves_owner_available_for_native_facts_and_another_client_re
     state
         .finish_backend_work(worker.join().expect("worker"))
         .expect("settle");
+    assert_eq!(
+        state
+            .take_dispatchable_prompt(BackendKind::Codex, true, std::time::Instant::now())
+            .expect("retained human")
+            .text,
+        "queued human"
+    );
     assert!(state
         .prepare_rename(BackendKind::Codex, "after completion")
         .is_ok());

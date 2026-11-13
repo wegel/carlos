@@ -20,7 +20,10 @@ impl SessionState {
         if kind == BackendKind::Claude && self.claude().phase() != ClaudePhase::Ready {
             return None;
         }
-        if !client_idle || !queue::allows_automatic(self, self.codex_scope()) {
+        if self.command_idle().is_err()
+            || !client_idle
+            || !queue::allows_automatic(self, self.codex_scope())
+        {
             return None;
         }
         if self.ralph_runtime().next_input_origin(now) == Some(PromptOrigin::Automatic)
