@@ -297,6 +297,7 @@ impl GrokCommands {
         session_id: &str,
         model: Option<&str>,
         effort: Option<&str>,
+        permission: crate::dispatch_guard::DispatchGuard,
     ) -> Result<()> {
         let desired = GrokRuntimeSettings {
             model: normalize_runtime_arg(model),
@@ -314,10 +315,11 @@ impl GrokCommands {
         if model_changed {
             if let Some(model) = desired.model.as_deref() {
                 let process = &self.process;
-                let response = process.request(
+                let response = process.request_guarded(
                     "session/set_model",
                     json!({ "sessionId": session_id, "modelId": model }),
                     Duration::from_secs(10),
+                    permission.clone(),
                 )?;
                 if let Some(message) = response_error_message(&response) {
                     bail!("Grok model change failed: {message}");
@@ -340,7 +342,11 @@ impl GrokCommands {
         Ok(())
     }
 
-    fn interrupt_session(&self, session_id: &str) -> Result<String> {
+    fn interrupt_session(
+        &self,
+        session_id: &str,
+        permission: crate::dispatch_guard::DispatchGuard,
+    ) -> Result<String> {
         let lines = {
             let mut state = self
                 .translation
@@ -353,11 +359,16 @@ impl GrokCommands {
         }
         let process = &self.process;
         process.clear_in_flight_prompts();
-        process.notify(
+        process.notify_guarded(
             "session/cancel",
             json!({ "sessionId": session_id, "cancelTrigger": "esc" }),
+            permission.clone(),
         )?;
-        let _ = process.notify("x.ai/queue/clear", json!({ "sessionId": session_id }));
+        let _ = process.notify_guarded(
+            "x.ai/queue/clear",
+            json!({ "sessionId": session_id }),
+            permission,
+        );
         Ok(json!({ "jsonrpc": "2.0", "result": {} }).to_string())
     }
 }

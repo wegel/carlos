@@ -9,12 +9,13 @@ use std::time::Instant;
 use anyhow::{bail, ensure, Result};
 use serde_json::Value;
 
-use crate::protocol_state::{ClientState, Reply};
+use crate::dispatch_guard::{DispatchGuard, DispatchRetired};
+use crate::protocol_state::ClientState;
 
 /// Limit each stdin/stdout frame before it can fill an unbounded buffer.
 pub(crate) const MAX_FRAME_BYTES: usize = 8 * 1024 * 1024;
 const MAX_WRITE_BYTES: usize = 16 * 1024 * 1024;
-type Job = (String, Instant, mpsc::Sender<Reply>);
+type Job = (String, Instant, DispatchGuard, mpsc::Sender<Result<()>>);
 
 /// Give stdin a single worker so the UI never waits on a blocking OS pipe.
 pub(crate) struct InputWriter {
@@ -29,19 +30,24 @@ impl InputWriter {
         let bytes = Arc::new(AtomicUsize::new(0));
         let queued = bytes.clone();
         thread::spawn(move || {
-            while let Ok((line, deadline, reply)) = receiver.recv() {
-                let result = if state.is_closed() || Instant::now() >= deadline {
-                    Err("Codex closed or stdin deadline expired before dispatch".into())
+            while let Ok((line, deadline, permission, reply)) = receiver.recv() {
+                let result = if let Err(error) = permission.check() {
+                    Err(error.into())
+                } else if state.is_closed() || Instant::now() >= deadline {
+                    Err(anyhow::anyhow!(
+                        "Codex closed or stdin deadline expired before dispatch"
+                    ))
                 } else {
                     stdin
                         .write_all(line.as_bytes())
                         .and_then(|_| stdin.flush())
-                        .map(|()| String::new())
-                        .map_err(|error| format!("Write Codex stdin: {error}"))
+                        .map_err(|error| anyhow::anyhow!("Write Codex stdin: {error}"))
                 };
                 queued.fetch_sub(line.len(), Ordering::SeqCst);
                 if let Err(error) = &result {
-                    state.close(error, true);
+                    if !error.is::<DispatchRetired>() {
+                        state.close(&error.to_string(), true);
+                    }
                 }
                 let _ = reply.send(result);
             }
@@ -55,13 +61,38 @@ impl InputWriter {
         wait(receiver, deadline, state)
     }
 
+    pub(crate) fn write_guarded(
+        &self,
+        frame: Value,
+        deadline: Instant,
+        state: &ClientState,
+        permission: DispatchGuard,
+    ) -> Result<()> {
+        wait(
+            self.enqueue_guarded(frame, deadline, state, permission)?,
+            deadline,
+            state,
+        )
+    }
+
     /// Accept bounded async work without making the UI wait for the OS pipe.
     pub(crate) fn enqueue(
         &self,
         frame: Value,
         deadline: Instant,
         state: &ClientState,
-    ) -> Result<mpsc::Receiver<Reply>> {
+    ) -> Result<mpsc::Receiver<Result<()>>> {
+        self.enqueue_guarded(frame, deadline, state, DispatchGuard::default())
+    }
+
+    pub(crate) fn enqueue_guarded(
+        &self,
+        frame: Value,
+        deadline: Instant,
+        state: &ClientState,
+        permission: DispatchGuard,
+    ) -> Result<mpsc::Receiver<Result<()>>> {
+        permission.check()?;
         let line = format!("{frame}\n");
         ensure!(line.len() <= MAX_FRAME_BYTES, "Codex request exceeds 8 MiB");
         ensure!(!state.is_closed(), "Codex app-server is closed");
@@ -79,7 +110,11 @@ impl InputWriter {
             state.close("Codex stdin backlog exceeds 16 MiB", true);
             bail!("Codex stdin backlog exceeds 16 MiB");
         }
-        if self.sender.try_send((line, deadline, reply)).is_err() {
+        if self
+            .sender
+            .try_send((line, deadline, permission, reply))
+            .is_err()
+        {
             self.bytes.fetch_sub(length, Ordering::SeqCst);
             state.close("Codex stdin queue is full or closed", true);
             bail!("Codex stdin queue is full or closed");
@@ -90,14 +125,14 @@ impl InputWriter {
 
 /// Stop a blocked pipe at its deadline even when a read-only RPC has already retired.
 pub(crate) fn wait(
-    receiver: mpsc::Receiver<Reply>,
+    receiver: mpsc::Receiver<Result<()>>,
     deadline: Instant,
     state: &ClientState,
 ) -> Result<()> {
     let remaining = deadline.saturating_duration_since(Instant::now());
     match receiver.recv_timeout(remaining) {
         Ok(Ok(_)) => Ok(()),
-        Ok(Err(error)) => bail!(error),
+        Ok(Err(error)) => Err(error),
         Err(_) => {
             state.close(
                 "Codex stdin deadline expired; request may already have been accepted",
@@ -107,3 +142,7 @@ pub(crate) fn wait(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "tests/protocol_writer_guard_tests.rs"]
+mod guard_tests;

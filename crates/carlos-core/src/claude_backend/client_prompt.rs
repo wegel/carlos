@@ -45,7 +45,8 @@ impl Commands {
         if let Some(kind) = input_kind {
             prompt["inputKind"] = json!(kind);
         }
-        let result = transport.call("prompt", prompt, timeout);
+        let result =
+            transport.call_guarded("prompt", prompt, timeout, self.write_permission(false));
         if let Err(error) = result {
             let _ = events.send(
                 json!({ "method": "claude/promptRejected", "params": { "uuid": uuid } })

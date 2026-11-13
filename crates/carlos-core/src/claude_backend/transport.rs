@@ -11,6 +11,8 @@ use std::time::{Duration, Instant};
 use anyhow::{anyhow, bail, Context, Result};
 use serde_json::{json, Value};
 
+use crate::dispatch_guard::{DispatchGuard, DispatchRetired};
+
 use super::conversation::ConversationGuard;
 use super::event_emitter::EventEmitter;
 use super::event_normalizer::EventNormalizer;
@@ -115,8 +117,18 @@ impl ControllerTransport {
 
     /// Wait for one correlated controller reply within the caller deadline.
     pub(super) fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<Value> {
+        self.call_guarded(method, params, timeout, DispatchGuard::default())
+    }
+
+    pub(super) fn call_guarded(
+        &self,
+        method: &str,
+        params: Value,
+        timeout: Duration,
+        permission: DispatchGuard,
+    ) -> Result<Value> {
         let (sender, receiver) = mpsc::channel();
-        let id = self.send(method, params, RequestTarget::Reply { sender })?;
+        let id = self.send(method, params, RequestTarget::Reply { sender }, permission)?;
         match receiver.recv_timeout(timeout) {
             Ok(Ok(value)) => Ok(value),
             Ok(Err(message)) => bail!(message),
@@ -135,6 +147,15 @@ impl ControllerTransport {
 
     /// Send a command whose reply will arrive through the UI event queue.
     pub(super) fn request(&self, method: &str, params: Value) -> Result<()> {
+        self.request_guarded(method, params, DispatchGuard::default())
+    }
+
+    pub(super) fn request_guarded(
+        &self,
+        method: &str,
+        params: Value,
+        permission: DispatchGuard,
+    ) -> Result<()> {
         let epoch = self
             .conversation
             .lock()
@@ -149,11 +170,18 @@ impl ControllerTransport {
                 context,
                 epoch,
             },
+            permission,
         )
         .map(|_| ())
     }
 
-    fn send(&self, method: &str, params: Value, target: RequestTarget) -> Result<String> {
+    fn send(
+        &self,
+        method: &str,
+        params: Value,
+        target: RequestTarget,
+        permission: DispatchGuard,
+    ) -> Result<String> {
         if self.state.is_closed() {
             bail!("Claude controller is closed");
         }
@@ -188,11 +216,11 @@ impl ControllerTransport {
             pending.insert(id.clone(), target);
         }
         let frame = json!({ "v": 1, "id": id, "method": method, "params": params });
-        if let Err(error) = self.writer.write(&frame) {
+        if let Err(error) = self.writer.write_guarded(&frame, permission) {
             if let Ok(mut pending) = self.pending.lock() {
                 pending.remove(&id);
             }
-            if !error.is::<OversizedFrame>() {
+            if !error.is::<OversizedFrame>() && !error.is::<DispatchRetired>() {
                 self.emitter.stop();
             }
             return Err(error);

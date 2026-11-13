@@ -2,12 +2,13 @@
 
 use std::fmt;
 use std::io::Write;
-use std::process::ChildStdin;
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::{bail, Result};
 use serde_json::Value;
+
+use crate::dispatch_guard::DispatchGuard;
 
 use super::transport::{trace_frame, Trace};
 use super::transport_state::TransportState;
@@ -15,7 +16,7 @@ use super::transport_workers::TransportWorkers;
 
 const WRITE_TIMEOUT: Duration = Duration::from_millis(500);
 const MAX_FRAME_BYTES: usize = 4 * 1024 * 1024;
-type WriteRequest = (String, mpsc::Sender<std::result::Result<(), String>>);
+type WriteRequest = (String, DispatchGuard, mpsc::Sender<Result<()>>);
 
 #[derive(Debug)]
 /// Rejects an input frame before any bytes reach the helper.
@@ -37,16 +38,18 @@ pub(super) struct InputWriter {
 impl InputWriter {
     /// Start one bounded writer that owns the helper stdin handle.
     pub(super) fn start(
-        mut stdin: ChildStdin,
+        mut stdin: impl Write + Send + 'static,
         trace: Trace,
         state: Arc<TransportState>,
         workers: Arc<TransportWorkers>,
     ) -> Self {
         let (sender, receiver) = mpsc::sync_channel::<WriteRequest>(8);
         workers.spawn(move || {
-            while let Ok((line, reply)) = receiver.recv() {
-                let result = if state.is_closed() {
-                    Err("Claude controller is closed".to_string())
+            while let Ok((line, permission, reply)) = receiver.recv() {
+                let result = if let Err(error) = permission.check() {
+                    Err(anyhow::Error::new(error))
+                } else if state.is_closed() {
+                    Err(anyhow::anyhow!("Claude controller is closed"))
                 } else {
                     if let Ok(frame) = serde_json::from_str::<Value>(&line) {
                         trace_frame(&trace, "client", &frame);
@@ -54,7 +57,7 @@ impl InputWriter {
                     stdin
                         .write_all(line.as_bytes())
                         .and_then(|_| stdin.flush())
-                        .map_err(|error| format!("write Claude controller stdin: {error}"))
+                        .map_err(|error| anyhow::anyhow!("write Claude controller stdin: {error}"))
                 };
                 let _ = reply.send(result);
             }
@@ -65,7 +68,19 @@ impl InputWriter {
     }
 
     /// Wait briefly for one complete frame to reach controller stdin.
-    pub(super) fn write(&self, frame: &Value) -> Result<()> {
+    pub(super) fn write_guarded(&self, frame: &Value, permission: DispatchGuard) -> Result<()> {
+        match self.enqueue(frame, permission)?.recv_timeout(WRITE_TIMEOUT) {
+            Ok(result) => result,
+            Err(_) => bail!("Claude controller stdin did not finish within 500 ms; request may already have been accepted"),
+        }
+    }
+
+    pub(super) fn enqueue(
+        &self,
+        frame: &Value,
+        permission: DispatchGuard,
+    ) -> Result<mpsc::Receiver<Result<()>>> {
+        permission.check()?;
         let line = format!("{frame}\n");
         if line.len() > MAX_FRAME_BYTES {
             return Err(OversizedFrame.into());
@@ -76,15 +91,11 @@ impl InputWriter {
             let Some(sender) = sender.as_ref() else {
                 bail!("Claude controller stdin queue is full or closed");
             };
-            if sender.try_send((line, reply)).is_err() {
+            if sender.try_send((line, permission, reply)).is_err() {
                 bail!("Claude controller stdin queue is full or closed");
             }
         }
-        match receiver.recv_timeout(WRITE_TIMEOUT) {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(error)) => bail!(error),
-            Err(_) => bail!("Claude controller stdin did not finish within 500 ms; request may already have been accepted"),
-        }
+        Ok(receiver)
     }
 
     /// Disconnect the queue; a detached writer exits when its pipe write returns.
@@ -92,3 +103,7 @@ impl InputWriter {
         self.sender.lock().expect("controller writer").take();
     }
 }
+
+#[cfg(test)]
+#[path = "writer_guard_tests.rs"]
+mod guard_tests;

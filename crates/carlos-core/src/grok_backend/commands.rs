@@ -11,8 +11,11 @@ use super::types::turn_input_text;
 use super::{GrokClient, GrokCommands};
 use crate::backend::BackendKind;
 use crate::backend_commands::{BackendCommands, CommandHandle};
+use crate::dispatch_guard::DispatchGuard;
 
+#[derive(Clone)]
 struct Captured {
+    permission: DispatchGuard,
     commands: Weak<GrokCommands>,
     session: String,
     revision: u64,
@@ -21,6 +24,7 @@ struct Captured {
 impl GrokClient {
     pub(super) fn capture(&self) -> Result<CommandHandle> {
         Ok(CommandHandle::new(Captured {
+            permission: DispatchGuard::default(),
             commands: Arc::downgrade(&self.commands),
             session: self.current_session_id()?,
             revision: self.commands.revision.load(Ordering::SeqCst),
@@ -35,6 +39,7 @@ impl GrokCommands {
         method: &str,
         params: Value,
         _timeout: Duration,
+        permission: DispatchGuard,
     ) -> Result<String> {
         match method {
             "turn/start" => {
@@ -42,24 +47,35 @@ impl GrokCommands {
                     session_id,
                     params.get("model").and_then(Value::as_str),
                     params.get("effort").and_then(Value::as_str),
+                    permission.clone(),
                 )?;
                 let text = turn_input_text(&params)?;
                 self.begin_prompt_translation()?;
                 let process = &self.process;
-                process.start_prompt(json!({
-                    "sessionId": session_id,
-                    "prompt": [{ "type": "text", "text": text }],
-                }))?;
+                process.start_prompt(
+                    json!({
+                        "sessionId": session_id,
+                        "prompt": [{ "type": "text", "text": text }],
+                    }),
+                    permission,
+                )?;
                 Ok(json!({ "jsonrpc": "2.0", "result": {} }).to_string())
             }
             "turn/steer" => bail!("Grok does not support mid-turn steer"),
-            "turn/interrupt" => self.interrupt_session(session_id),
+            "turn/interrupt" => self.interrupt_session(session_id, permission),
             other => bail!("unsupported Grok backend method: {other}"),
         }
     }
 }
 
 impl Captured {
+    fn write_permission(&self) -> DispatchGuard {
+        let captured = self.clone();
+        self.permission
+            .clone()
+            .and(DispatchGuard::new(move || captured.current().is_ok()))
+    }
+
     fn current(&self) -> Result<Arc<GrokCommands>> {
         let commands = self.commands.upgrade().context("Grok owner has stopped")?;
         ensure!(
@@ -76,9 +92,19 @@ impl BackendCommands for Captured {
     fn kind(&self) -> BackendKind {
         BackendKind::Grok
     }
+    fn guarded(&self, permission: DispatchGuard) -> Result<CommandHandle> {
+        let mut commands = self.clone();
+        commands.permission = commands.permission.and(permission);
+        Ok(CommandHandle::new(commands))
+    }
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String> {
-        self.current()?
-            .call_for(&self.session, method, params, timeout)
+        self.current()?.call_for(
+            &self.session,
+            method,
+            params,
+            timeout,
+            self.write_permission(),
+        )
     }
     fn respond(&self, id: &Value, _result: Value) -> Result<()> {
         bail!("unsupported Grok approval request: {id}")

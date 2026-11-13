@@ -16,16 +16,25 @@ use crate::backend::BackendKind;
 use crate::backend_commands::{BackendCommands, CommandHandle};
 
 type Calls = Arc<Mutex<Vec<(Value, Value)>>>;
+#[derive(Clone)]
 struct Endpoint {
+    permission: crate::dispatch_guard::DispatchGuard,
     calls: Calls,
     fail: bool,
 }
 
 impl BackendCommands for Endpoint {
+    fn guarded(&self, permission: crate::dispatch_guard::DispatchGuard) -> Result<CommandHandle> {
+        let mut endpoint = self.clone();
+        endpoint.permission = permission;
+        Ok(CommandHandle::new(endpoint))
+    }
+
     fn kind(&self) -> BackendKind {
         BackendKind::Claude
     }
     fn call(&self, method: &str, params: Value, _: Duration) -> Result<String> {
+        self.permission.check()?;
         self.calls
             .lock()
             .expect("calls")
@@ -33,6 +42,7 @@ impl BackendCommands for Endpoint {
         Ok(json!({"result":{}}).to_string())
     }
     fn respond(&self, id: &Value, result: Value) -> Result<()> {
+        self.permission.check()?;
         self.calls.lock().expect("calls").push((id.clone(), result));
         if self.fail {
             bail!("reply lost after write");
@@ -48,6 +58,7 @@ fn endpoint(fail: bool) -> (CommandHandle, Calls) {
     let calls = Calls::default();
     (
         CommandHandle::new(Endpoint {
+            permission: Default::default(),
             calls: calls.clone(),
             fail,
         }),

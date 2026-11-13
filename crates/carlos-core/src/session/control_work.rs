@@ -68,7 +68,16 @@ impl ControlWork {
         {
             Err(ControlFailure::Retired)
         } else {
-            execute(&self.call, client)
+            let live = match &self.call {
+                ControlCall::Interrupt { live, .. } => live.clone(),
+                ControlCall::Answer { claim, .. } | ControlCall::NativeAnswer { claim, .. } => {
+                    claim.live.clone()
+                }
+            };
+            match client.guarded(crate::dispatch_guard::DispatchGuard::from_flag(live)) {
+                Ok(commands) => execute(&self.call, &commands),
+                Err(error) => Err(ControlFailure::Native(error.to_string())),
+            }
         };
         ControlCompletion {
             session: self.session,

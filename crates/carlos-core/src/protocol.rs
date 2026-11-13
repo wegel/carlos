@@ -5,7 +5,7 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
@@ -87,40 +87,6 @@ impl AppServerClient {
     pub(crate) fn start_reader(&self) {
         if let Some(reader) = self.reader.lock().expect("Codex reader poisoned").take() {
             reader.start(self.state.clone());
-        }
-    }
-
-    /// Include enqueueing, pipe writes and the response in one request deadline.
-    pub fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String> {
-        let deadline = Instant::now() + timeout;
-        let id = self.state.next_id();
-        let key = request_key(&id).expect("native client ID");
-        let (reply, receiver) = mpsc::channel();
-        let target = if history_reply(method, &params) {
-            Target::History(reply)
-        } else {
-            Target::Caller(reply)
-        };
-        self.state.insert(key.clone(), target)?;
-        if let Err(error) = self.write(json!({"id":id,"method":method,"params":params}), deadline) {
-            self.state.take(&key);
-            self.state.finish_large_reply(&key);
-            return Err(error);
-        }
-        match receiver.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
-            Ok(Ok(response)) => Ok(response),
-            Ok(Err(error)) => bail!(error),
-            Err(_) => {
-                self.state.take(&key);
-                let error = timeout_message(method);
-                if timeout_closes_connection(method) {
-                    self.state.close(
-                        &format!("{error}; request may already have been accepted"),
-                        true,
-                    );
-                }
-                bail!(error);
-            }
         }
     }
 
@@ -381,3 +347,6 @@ mod history_transport_tests;
 #[cfg(test)]
 #[path = "tests/protocol_stop_tests.rs"]
 mod stop_tests;
+
+#[path = "protocol_calls.rs"]
+mod calls;

@@ -86,11 +86,27 @@ impl std::error::Error for CommandError {}
 impl BackendWork {
     /// Wait for a backend without borrowing the session; the daemon runs this outside its owner loop.
     pub fn execute(self, client: &crate::backend_commands::CommandHandle) -> BackendCompletion {
-        self.execute_embedded(client)
+        let permission =
+            crate::dispatch_guard::DispatchGuard::from_flag(self.guard.dispatch_live.clone());
+        match client.guarded(permission) {
+            Ok(commands) => self.execute_via(&commands),
+            Err(error) => BackendCompletion {
+                guard: self.guard,
+                finish: self.finish,
+                result: Err(error.to_string()),
+            },
+        }
     }
 
     /// Bridge the embedded terminal until EP019b removes direct backend ownership.
     pub fn execute_embedded(self, client: &dyn BackendClient) -> BackendCompletion {
+        match client.capture_commands() {
+            Ok(commands) => self.execute(&commands),
+            Err(_) => self.execute_via(client),
+        }
+    }
+
+    fn execute_via(self, client: &dyn BackendClient) -> BackendCompletion {
         let result = if !self
             .guard
             .dispatch_live

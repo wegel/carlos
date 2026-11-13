@@ -7,6 +7,7 @@ pub mod codex_connection;
 mod codex_diagnostics;
 pub mod codex_snapshot;
 mod codex_snapshot_reads;
+pub mod dispatch_guard;
 pub mod grok_backend;
 pub mod native_form;
 pub mod protocol;
@@ -28,3 +29,7 @@ pub mod summaries;
 #[cfg(test)]
 #[path = "tests/backend_owner_codex_tests.rs"]
 mod backend_owner_codex_tests;
+
+#[cfg(test)]
+#[path = "tests/writer_guard_test_support.rs"]
+mod writer_guard_test_support;

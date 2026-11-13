@@ -13,8 +13,11 @@ use super::types::{normalize_runtime_arg, ClaudeRuntimeSettings};
 use super::{sessions, ClaudeClient};
 use crate::backend::{BackendKind, PromptOrigin, PromptPriority, RewindForkRequest};
 use crate::backend_commands::{BackendCommands, CommandHandle};
+use crate::dispatch_guard::DispatchGuard;
 
+#[derive(Clone)]
 pub(super) struct Commands {
+    permission: DispatchGuard,
     pub(super) transport: Arc<ControllerTransport>,
     pub(super) owner: Weak<Mutex<Arc<ControllerTransport>>>,
     pub(super) events_tx: EventSender,
@@ -36,6 +39,7 @@ impl ClaudeClient {
             .map_err(|_| anyhow!("Claude conversation lock poisoned"))?
             .epoch;
         Ok(Commands {
+            permission: DispatchGuard::default(),
             transport,
             epoch,
             owner: Arc::downgrade(&self.transport),
@@ -47,6 +51,17 @@ impl ClaudeClient {
 }
 
 impl Commands {
+    pub(super) fn write_permission(&self, callback: bool) -> DispatchGuard {
+        let captured = self.clone();
+        self.permission.clone().and(DispatchGuard::new(move || {
+            if callback {
+                captured.check_helper().is_ok()
+            } else {
+                captured.check().is_ok()
+            }
+        }))
+    }
+
     fn check_helper(&self) -> Result<()> {
         let owner = self.owner.upgrade().context("Claude owner has stopped")?;
         let current = owner
@@ -61,6 +76,7 @@ impl Commands {
     }
 
     pub(super) fn check(&self) -> Result<()> {
+        self.permission.check()?;
         self.check_helper()?;
         ensure!(
             self.transport
@@ -81,7 +97,8 @@ impl Commands {
         timeout: Duration,
     ) -> Result<Value> {
         self.check()?;
-        self.transport.call(method, params, timeout)
+        self.transport
+            .call_guarded(method, params, timeout, self.write_permission(false))
     }
 
     pub(super) fn apply_runtime_settings(
@@ -130,6 +147,11 @@ impl BackendCommands for Commands {
     }
     fn connection_generation(&self) -> Option<u64> {
         Some(self.transport.generation)
+    }
+    fn guarded(&self, permission: DispatchGuard) -> Result<CommandHandle> {
+        let mut commands = self.clone();
+        commands.permission = commands.permission.and(permission);
+        Ok(CommandHandle::new(commands))
     }
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String> {
         let result = match method {
@@ -212,7 +234,8 @@ impl BackendCommands for Commands {
                 &settings,
             )?;
         }
-        self.transport.request(method, params)
+        self.transport
+            .request_guarded(method, params, self.write_permission(false))
     }
     fn apply_runtime_settings(&self, model: Option<&str>, effort: Option<&str>) -> Result<bool> {
         Commands::apply_runtime_settings(self, model, effort)
@@ -223,10 +246,11 @@ impl BackendCommands for Commands {
     fn respond(&self, id: &Value, result: Value) -> Result<()> {
         let id = id.as_str().context("native callback ID must be a string")?;
         self.check_helper()?;
-        self.transport.call(
+        self.transport.call_guarded(
             "callback.respond",
             json!({"callbackId":id,"answer":result}),
             Duration::from_secs(10),
+            self.write_permission(true),
         )?;
         Ok(())
     }

@@ -18,8 +18,13 @@ impl BackendClient for GrokClient {
     }
 
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String> {
-        self.commands
-            .call_for(&self.current_session_id()?, method, params, timeout)
+        self.commands.call_for(
+            &self.current_session_id()?,
+            method,
+            params,
+            timeout,
+            crate::dispatch_guard::DispatchGuard::default(),
+        )
     }
 
     fn fork_from_rewind(

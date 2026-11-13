@@ -27,6 +27,10 @@ pub trait BackendCommands: Send + Sync {
     fn connection_generation(&self) -> Option<u64> {
         None
     }
+    /// Copy this captured endpoint with permission carried through its native write queue.
+    fn guarded(&self, _permission: crate::dispatch_guard::DispatchGuard) -> Result<CommandHandle> {
+        bail!("backend does not support guarded native writes")
+    }
     /// Run a native request without holding an owner or connection-manager lock.
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String>;
     /// Submit text with its native author and queue policy.
