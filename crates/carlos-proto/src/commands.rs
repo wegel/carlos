@@ -3,8 +3,9 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::events::SessionEvent;
 use crate::ids::{EntryId, Sequence, SessionId};
-use crate::session::{Backend, Decision, SessionInfo};
+use crate::session::{Backend, Decision, OutputLine, SessionInfo, Snapshot};
 use crate::PROTOCOL_VERSION;
 
 /// Only JSON-RPC version 2.0 is accepted.
@@ -136,4 +137,30 @@ pub fn check_protocol(version: u32) -> Result<(), RpcError> {
         code: -32001,
         message: format!("unsupported protocol {version}; expected {PROTOCOL_VERSION}"),
     })
+}
+
+/// Subscription replies establish one cursor after either replay or replacement.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum SubscribeResult {
+    Replay {
+        events: Vec<SessionEvent>,
+        seq: Sequence,
+    },
+    Snapshot {
+        snapshot: Snapshot,
+    },
+}
+
+/// A sent message's stable address matches the echoed client_message_id.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SendResult {
+    pub entry: EntryId,
+}
+
+/// Expanded output is tied to a published cursor so stale fetches can be discarded.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OutputResult {
+    pub lines: Vec<OutputLine>,
+    pub seq: Sequence,
 }

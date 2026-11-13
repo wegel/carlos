@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::commands::RpcVersion;
 use crate::ids::{EntryId, Sequence, SessionId};
 use crate::session::{Approval, Entry, EntryKind, SessionInfo, Snapshot, Tool};
 
@@ -51,4 +52,12 @@ pub enum Notification {
 pub enum SessionChange {
     Updated { info: SessionInfo },
     Removed { session: SessionId },
+}
+
+/// A complete JSON-RPC notification envelope, with no correlation id.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NotificationMessage {
+    pub jsonrpc: RpcVersion,
+    #[serde(flatten)]
+    pub notification: Notification,
 }

@@ -22,6 +22,7 @@ dictation-cuda = ["dictation", "whisper-rs/cuda"]
 dictation-vulkan = ["dictation", "whisper-rs/vulkan"]
 
 [dependencies]
+carlos-proto = { path = "crates/carlos-proto" }
 carlos-core = { path = "crates/carlos-core" }
 anyhow = "1"
 ansi-to-tui = "8.0.1"

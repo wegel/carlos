@@ -252,6 +252,12 @@ pub(super) fn finish_run(
     client: &dyn BackendClient,
     server_events_rx: EventReceiver,
 ) -> Result<()> {
+    let actual = match client.kind() {
+        carlos_core::backend::BackendKind::Codex => carlos_proto::session::Backend::Codex,
+        carlos_core::backend::BackendKind::Claude => carlos_proto::session::Backend::Claude,
+        carlos_core::backend::BackendKind::Grok => carlos_proto::session::Backend::Grok,
+    };
+    app.session.set_client_identity(actual, "local".into());
     let out = run_conversation_tui(client, app, server_events_rx);
     eprintln!(
         "{}",

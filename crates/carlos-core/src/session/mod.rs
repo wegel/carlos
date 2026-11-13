@@ -136,3 +136,13 @@ mod turn_interrupt;
 mod backend_deadlines;
 #[cfg(test)]
 mod prompt_command_tests;
+
+mod event_approval;
+mod event_metadata;
+mod event_reads;
+mod event_rows;
+pub mod events;
+mod transcript_journal;
+
+#[cfg(test)]
+mod event_tests;

@@ -142,6 +142,7 @@ impl SessionState {
 
     /// Save an empty suffix boundary at the current transcript end.
     pub(crate) fn mark_turn_started(&mut self) {
+        self.events.turn_started_at = Some(super::usage::unix_now());
         self.turn_boundary = Some(TurnBoundary {
             offset: self.messages.len(),
         });

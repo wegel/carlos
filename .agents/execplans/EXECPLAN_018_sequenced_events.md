@@ -13,8 +13,8 @@ Carlos will expose the conversation without terminal widgets or raw backend mess
 
 - [x] (2026-11-13) Read the repository rules, architecture, phone screen requirements and current session writers. The owner approved EP017 and authorized EP018.
 - [x] (2026-11-13) Preserve the accepted EP017 executable under `/tmp/carlos-ep018/ep017-carlos` before building.
-- [ ] Define and test `carlos-proto` version 1, including ids, numbered events, snapshots and typed client commands.
-- [ ] Record core entry changes at their writers; expose numbered batches and borrowed reads without copying the full transcript per fragment.
+- [x] (2026-11-13) Add and test `carlos-proto` types for ids, numbered events, snapshots and typed commands; final contract review remains.
+- [x] (2026-11-13) Record row changes at writers; publish sealed numbered batches, snapshots, older stored rows and output. Six headless tests reconstruct client state through JSON. Approval and metadata changes share the clock.
 - [ ] Move terminal cache invalidation to the numbered events and verify existing workflows.
 - [ ] Delete the old transcript dirty-report path in a separate buildable commit.
 - [ ] Run full tests, strict compiler checks, terminal checks, direct engineering review and measured performance comparisons; resolve failures.
@@ -39,7 +39,7 @@ Decision: Keep opaque binary EntryIds inside the core and create wire strings on
 ## Outcomes & Retrospective
 
 
-Work has started. No source changes yet. The next step is the protocol crate and event journal. EP019 will add a daemon process, sockets and reconnect replay. EP021 will add backend history paging and richer tool summaries; this contract must represent unknown facts honestly until then.
+The protocol crate passes its four contract tests. The core journal passes six headless tests and the full Rust suite. The terminal migration is in progress; the old return types still exist until the dedicated removal commit. EP019 will add a daemon process, sockets and reconnect replay. EP021 will add backend history paging and richer tool summaries; this contract must represent unknown facts honestly until then.
 
 ## Context and Orientation
 
@@ -94,3 +94,5 @@ The accepted EP017 executable has SHA256 `a8cd1d59293c0108c7942bde66156ed21155a3
 Pending direct review against `.agents/reviewers/engineering_reviewer.md` after the source and evidence are ready. No independent reviewer will be claimed.
 
 Update note (2026-11-13): created EP018 after the owner's approval of EP017; recorded scope, proposed interfaces, measurements and review boundaries before source changes.
+
+Update note (2026-11-13): recorded the first protocol and core journal checks; the terminal now has an event consumer under test before removal of legacy reports.

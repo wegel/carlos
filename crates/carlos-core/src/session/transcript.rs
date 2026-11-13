@@ -8,11 +8,12 @@ use super::entry_id::{EntryId, EntryIds};
 use super::entry_key::BackendEntryKey;
 #[cfg(any(test, feature = "test-support"))]
 use super::history_identity::HistoryMode;
-use super::models::{EntryDraft, Message, MessageKind, Role, ToolOutputDetails};
+use super::models::{EntryDraft, Message};
 
 /// Stores source entries contiguously; clients may borrow the slice but cannot mutate it.
 #[cfg_attr(any(test, feature = "test-support"), derive(Debug))]
 pub struct Transcript {
+    pub(super) journal: super::transcript_journal::Journal,
     pub(super) entries: Vec<Message>,
     // These offsets stay inside the store; backend keys and callers retain entry ids.
     active: BTreeSet<usize>,
@@ -30,6 +31,7 @@ impl Transcript {
     /// Create an empty transcript in a fresh Carlos namespace.
     pub fn new() -> Self {
         Self {
+            journal: Default::default(),
             entries: Vec::new(),
             active: BTreeSet::new(),
             positions: EntryPositions::default(),
@@ -105,14 +107,18 @@ impl Transcript {
     /// Mark a mapped entry active once, outside the render path.
     pub fn activate(&mut self, id: EntryId) {
         if let Some(index) = self.position(id) {
-            self.active.insert(index);
+            if self.active.insert(index) {
+                self.record_facts(index);
+            }
         }
     }
 
     /// Finish the currently handled mapped row, preserving existing display-step rules.
     pub fn complete(&mut self, key: &BackendEntryKey) {
         if let Some(index) = self.entry_id_for_item(key).and_then(|id| self.position(id)) {
-            self.active.remove(&index);
+            if self.active.remove(&index) {
+                self.record_facts(index);
+            }
         }
     }
 
@@ -159,7 +165,9 @@ impl Transcript {
             self.ambiguous_sources.remove(&key);
         }
         if let Some(index) = self.position(id) {
-            self.active.remove(&index);
+            if self.active.remove(&index) {
+                self.record_facts(index);
+            }
         }
     }
 
@@ -176,6 +184,7 @@ impl Transcript {
 
     /// Start a new conversation while leaving external process-scoped cards alone.
     pub fn reset(&mut self) {
+        self.journal.reset = true;
         if let Some(message) = self.entries.first() {
             self.truncate_before(message.id);
         }
@@ -192,6 +201,7 @@ impl Transcript {
     }
 
     fn truncate(&mut self, position: usize) {
+        self.journal.reset = true;
         self.active.split_off(&position);
         let removed = self.entries.split_off(position);
         for message in removed {
@@ -203,69 +213,6 @@ impl Transcript {
         let entries = &self.entries;
         self.turn_diff_to_entry_id
             .retain(|_, id| positions.find(entries, *id).is_some());
-    }
-
-    /// Change entry facts while retaining the allocated id.
-    pub fn update(
-        &mut self,
-        index: usize,
-        role: Role,
-        text: Option<String>,
-        kind: MessageKind,
-        path: Option<String>,
-    ) {
-        if let Some(message) = self.entries.get_mut(index) {
-            message.role = role;
-            if let Some(text) = text {
-                message.text = text;
-            }
-            message.kind = kind;
-            message.file_path = path;
-        }
-    }
-
-    /// Append a delta in constant time apart from growing the entry text.
-    pub(crate) fn append_text(&mut self, index: usize, delta: &str, role: Option<Role>) {
-        if let Some(message) = self.entries.get_mut(index) {
-            if let Some(role) = role {
-                message.role = role;
-            }
-            if message.kind != MessageKind::Plain {
-                message.kind = MessageKind::Plain;
-                message.file_path = None;
-                message.text.clear();
-            }
-            message.text.push_str(delta);
-        }
-    }
-
-    /// Attach source-path facts without changing identity.
-    pub(crate) fn set_path(&mut self, index: usize, path: Option<String>) {
-        self.entries[index].file_path = path;
-    }
-
-    /// Update a prompt's native steer classification.
-    pub(crate) fn set_kind(&mut self, index: usize, kind: MessageKind) {
-        self.entries[index].kind = kind;
-    }
-
-    /// Attach a tool label and failure state to its original entry.
-    pub(crate) fn set_tool(&mut self, index: usize, details: ToolOutputDetails) {
-        self.entries[index].tool_output = Some(details);
-    }
-
-    /// Change only the label of an existing tool output.
-    pub(crate) fn set_label(
-        &mut self,
-        id: EntryId,
-        label: String,
-        generated: bool,
-    ) -> Option<usize> {
-        let index = self.position(id)?;
-        let tool = self.entries[index].tool_output.as_mut()?;
-        tool.summary = label;
-        tool.generated = generated;
-        Some(index)
     }
 
     /// Adopt unkeyed drafts through the same allocator as live messages.
@@ -316,3 +263,6 @@ mod position_tests;
 #[cfg(test)]
 #[path = "transcript_active_tests.rs"]
 mod active_tests;
+
+#[path = "transcript_edits.rs"]
+mod edits;

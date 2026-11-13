@@ -9,6 +9,7 @@ default = []
 test-support = []
 
 [dependencies]
+carlos-proto = { path = "../carlos-proto" }
 anyhow = "1"
 base64 = "0.22"
 blake3 = "1"

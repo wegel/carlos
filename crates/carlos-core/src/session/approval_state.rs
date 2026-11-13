@@ -66,6 +66,11 @@ impl PendingApprovalRequest {
         self.entry_id
     }
 
+    /// Check whether the user already submitted this card.
+    pub fn submitted(&self) -> bool {
+        self.answer_submitted
+    }
+
     /// Copy facts into a new draft without copying the card's identity.
     pub fn to_draft(&self) -> ApprovalRequestDraft {
         self.facts.clone()

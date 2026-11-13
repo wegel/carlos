@@ -18,6 +18,7 @@ pub enum ApprovalQueue {
 /// Own every live card; removing a card retires its id forever.
 #[derive(Debug, Default)]
 pub struct ApprovalState {
+    pub(in crate::session) revision: u64,
     pending: Option<PendingApprovalRequest>,
     claude: VecDeque<PendingApprovalRequest>,
     codex: VecDeque<PendingApprovalRequest>,
@@ -63,6 +64,10 @@ impl ApprovalState {
     // moves search the live containers. No retired-id ledger is needed: absent
     // ids cannot be inserted, and only the session allocator can mint a card.
     fn change(&mut self, change: ApprovalChange<'_>) -> Vec<EntryId> {
+        self.revision = self
+            .revision
+            .checked_add(1)
+            .expect("approval revision exhausted");
         let mut retired = Vec::new();
         match change {
             ApprovalChange::Adopt(facts, entry_id) => {

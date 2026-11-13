@@ -139,6 +139,7 @@ pub struct Approval {
     pub choices: Vec<Decision>,
     pub input: Option<ApprovalInput>,
     pub submitted: bool,
+    pub active: bool,
 }
 
 /// Structured input selected explicitly from a backend request; no routing ids.

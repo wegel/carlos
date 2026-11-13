@@ -8,7 +8,7 @@ import sys
 
 
 REVIEWED = {
-    "anyhow", "base64", "blake3", "jsonschema", "libc", "mio", "rusqlite",
+    "carlos-proto", "anyhow", "base64", "blake3", "jsonschema", "libc", "mio", "rusqlite",
     "serde_json", "shlex", "socket2", "tempfile", "tungstenite", "url", "uuid",
 }
 FORBIDDEN = {

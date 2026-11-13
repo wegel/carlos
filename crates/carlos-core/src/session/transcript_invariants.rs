@@ -51,6 +51,7 @@ impl Transcript {
 
     /// Insert for test.
     pub(crate) fn insert_for_test(&mut self, index: usize, message: Message) {
+        self.journal.reset = true;
         let id = self.append(message.into());
         let row = self.entries.pop().expect("new row");
         self.active = self
