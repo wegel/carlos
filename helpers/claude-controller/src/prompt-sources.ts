@@ -63,8 +63,15 @@ export class PromptSources {
     const folder = join(process.env.XDG_STATE_HOME ?? join(homedir(), ".local", "state"), "carlos");
     mkdirSync(folder, { recursive: true, mode: 0o700 });
     const database = new Database(join(folder, `claude-sources-${namespace}.sqlite`), { create: true });
-    database.exec("PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS prompts(uuid TEXT PRIMARY KEY, source TEXT NOT NULL); CREATE TABLE IF NOT EXISTS prompt_inputs(uuid TEXT PRIMARY KEY, kind TEXT NOT NULL)");
-    this.database = database;
-    return database;
+    try {
+      // A replacement helper can open the store while its predecessor finishes a batch.
+      database.exec("PRAGMA busy_timeout=5000");
+      database.exec("PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS prompts(uuid TEXT PRIMARY KEY, source TEXT NOT NULL); CREATE TABLE IF NOT EXISTS prompt_inputs(uuid TEXT PRIMARY KEY, kind TEXT NOT NULL)");
+      this.database = database;
+      return database;
+    } catch (error) {
+      database.close();
+      throw error;
+    }
   }
 }

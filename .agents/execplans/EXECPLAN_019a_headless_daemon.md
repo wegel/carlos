@@ -43,6 +43,8 @@ Installed Codex 0.167.1 accepts clientUserMessageId on turn/start and exports th
 
 The core now binds private UUID echo tokens to the registered ClientOperation. Native Codex userMessage.clientId and Claude prompt UUIDs select a known token; foreign tokens with equal text stay unowned. Grok binds the precise row it creates after acceptance. Sparse per-user ownership maps avoid adding a field to every stored transcript row. Delayed token binding emits a full replacement of that same row. A bounded pending-token set rejects further admission explicitly rather than growing forever.
 
+The terminal suite after identity changes passed 176 workflows but exposed an overlapping-helper SQLite race during a second Claude fork: prompt-sources.ts opened the shared label database without any busy timeout. The screen correctly retained the failed edit, but the workflow should succeed once the earlier writer completes. Added a five-second SQLite busy timeout before WAL/schema setup and close a newly opened connection if setup fails. A separate-process lock test fails without this timeout and passes with it; TypeScript checks pass. Full terminal/native checks are rerunning at `/tmp/carlos-ep019a/m2-lock-terminal.log`. This is a real shared-database race, not an echo-text mismatch.
+
 ## Decision Log
 
 
@@ -197,3 +199,5 @@ Update note (2026-11-13, milestone 1 passed): all adapter, Rust, strict lint and
 Update note (2026-11-13, milestone 2): implemented provisional operation/greeting/private-result types and monotonic terminal ids, with serde/counter tests. Core echo binding and daemon handlers remain pending.
 
 Update note (2026-11-13, operation proof): equal-text/foreign-token and delayed-binding tests pass. The installed Codex contract runner now proves the native echo field with a fixed local model fixture. A 31-round paired perf-session run against EP018a and the original reference showed no positive 95% lower bound for any measured regression; synthetic apply/replay/draw medians were 14.06/46.76/3.38 ms versus EP018a 14.16/47.01/3.48 ms, with matching transcript counts. Evidence: `/tmp/carlos-ep019a/m2-identity-latency/summary.json`. This is an intermediate source, not final EP019a acceptance.
+
+Update note (2026-11-13, terminal regression): the identity commit is 54d0013. Fixed a shared Claude source-store lock found by its terminal gate and added a negative/positive lock proof before proceeding with actor commands.
