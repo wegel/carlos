@@ -4,10 +4,10 @@ use serde_json::Value;
 
 use super::claude_question_state::safe_text;
 use super::state::AppState;
+#[cfg(test)]
 use crate::session::actions::ServerRequestAction;
 use crate::session::approval_state::ApprovalQueue;
 use crate::session::codex::callback_commands::CallbackRetired;
-use crate::session::codex::callback_receive::CallbackReceived;
 use crate::session::codex::callbacks::CallbackKey;
 
 #[path = "codex_callback_route.rs"]
@@ -16,49 +16,20 @@ mod routing;
 pub(super) use self::routing::{route, CallbackRoute};
 
 /// Create exactly one editor after the session accepts the native callback.
+#[cfg(test)]
 pub(super) fn receive(
     app: &mut AppState,
     method: &str,
     frame: &Value,
 ) -> Option<ServerRequestAction> {
-    match app.session.receive_codex_callback(method, frame) {
-        CallbackReceived::Ignored => None,
-        CallbackReceived::Rejected { id, code, message } => Some(ServerRequestAction::ReplyError {
-            request_id: id,
-            code,
-            message,
-        }),
-        CallbackReceived::Accepted {
-            key,
-            card_id,
-            editor,
-            blocking,
-            preflight,
-        } => {
-            let id = key.id();
-            app.view
-                .codex_callbacks
-                .drafts
-                .insert(key, super::codex_questions::from_description(editor));
-            if app.session.approval().pending().is_none() {
-                app.session.focus_approval(card_id, ApprovalQueue::Codex);
-                app.view.codex_callbacks.focused = blocking;
-            } else if blocking && !app.view.codex_callbacks.focused {
-                app.session.focus_approval(card_id, ApprovalQueue::Codex);
-                app.view.codex_callbacks.focused = true;
-            }
-            app.set_hint("Codex has a pending request; F4 answers it");
-            preflight.map(|schema| ServerRequestAction::ValidateCodexForm {
-                id,
-                schema,
-                answer: None,
-                revision: 0,
-            })
-        }
-    }
+    let update = app
+        .session
+        .accept_codex_callback(method, frame, app.view.codex_callbacks.focused);
+    routing::apply(app, update)
 }
 
 /// Match resolutions in the session before removing the exact local editor.
+#[cfg(test)]
 pub(super) fn resolved(app: &mut AppState, params: &Value) {
     if let Some(retired) = app.session.resolve_codex_callback(params) {
         apply_retired(app, retired);
@@ -169,24 +140,10 @@ pub(super) fn edited(app: &mut AppState) {
 }
 
 /// Apply the matching worker's editor changes and return its guarded native reply.
+#[cfg(test)]
 pub(super) fn checked(app: &mut AppState, params: &Value) -> Option<ServerRequestAction> {
-    let update = app.session.check_codex_callback(params)?;
-    if let Some(draft) = CallbackKey::new(&params["requestId"])
-        .and_then(|key| app.view.codex_callbacks.drafts.get_mut(&key))
-    {
-        if update.clear_notice {
-            draft.notice = None;
-        }
-        if let Some(error) = update.unsupported {
-            draft.unsupported = Some(error);
-        }
-        if let Some(error) = update.error {
-            draft.error = Some(error);
-        }
-    }
-    update
-        .reply
-        .map(|(card_id, result)| ServerRequestAction::ReplyNative { card_id, result })
+    let update = app.session.checked_codex_callback(params);
+    routing::apply(app, update)
 }
 
 /// Keep reply and worker failures beside their own answer field.

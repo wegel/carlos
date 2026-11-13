@@ -1,10 +1,11 @@
-//! Route native callbacks and owned controls before filtering child-thread output.
+//! Apply local editors after the session routes native callbacks and controls.
 
 use serde_json::Value;
 
-use super::{checked, receive, resolved};
 use crate::app::state::AppState;
 use crate::session::actions::ServerRequestAction;
+use crate::session::codex::callback_update::{CallbackEffect, CallbackUpdate};
+use crate::session::codex::callbacks::CallbackKey;
 
 /// Tell the shared parser whether a native callback event was consumed.
 pub(in crate::app) enum CallbackRoute {
@@ -12,53 +13,75 @@ pub(in crate::app) enum CallbackRoute {
     Handled(Option<ServerRequestAction>),
 }
 
-/// Route requests and resolutions before the main-thread transcript filter.
+/// Supply the explicit client target and consume one native result immediately.
 pub(in crate::app) fn route(app: &mut AppState, method: &str, frame: &Value) -> CallbackRoute {
-    if frame.get("id").is_some() {
-        return CallbackRoute::Handled(receive(app, method, frame));
-    }
-    let action = match method {
-        "serverRequest/resolved" => {
-            resolved(app, &frame["params"]);
-            None
-        }
-        "carlos/codex/formChecked" => checked(app, &frame["params"]),
-        "carlos/codex/controlReply" => {
-            if crate::app::codex_task_status::reply(app, &frame["params"]) {
-                return CallbackRoute::Handled(None);
-            }
-            if crate::app::codex_reconnect_runtime::reply(app, &frame["params"]) {
-                return CallbackRoute::Handled(None);
-            }
-            if crate::app::codex_reconnect_streams::reply(app, &frame["params"]) {
-                return CallbackRoute::Handled(None);
-            }
-            if crate::app::codex_goal_receive::reply(app, &frame["params"]) {
-                return CallbackRoute::Handled(None);
-            }
-            if crate::app::codex_panel_receive::reply(app, &frame["params"]) {
-                return CallbackRoute::Handled(None);
-            }
-            crate::app::codex_reply::control_reply(app, &frame["params"]);
-            crate::app::codex_settings::reply(app, &frame["params"]);
-            return CallbackRoute::Handled(crate::app::codex_queue_receive::reply(
-                app,
-                &frame["params"],
-            ));
-        }
-        "thread/goal/updated" | "thread/goal/cleared" => {
-            crate::app::codex_goal_receive::observed(app, method, &frame["params"]);
-            None
-        }
-        "thread/queue/changed" => {
-            crate::app::codex_queue_receive::changed(app, &frame["params"]);
-            None
-        }
-        "thread/settings/updated" => {
-            crate::app::codex_settings::observed(app, &frame["params"]);
-            None
-        }
-        _ => return CallbackRoute::Continue,
+    let panel = crate::app::codex_panel::scope(
+        app.session.codex_scope(),
+        app.session.codex_connection(),
+        &app.view.codex_panel,
+    );
+    let Some(update) =
+        app.session
+            .route_codex_callback(method, frame, panel, app.view.codex_callbacks.focused)
+    else {
+        return CallbackRoute::Continue;
     };
-    CallbackRoute::Handled(action)
+    CallbackRoute::Handled(apply(app, update))
+}
+
+/// Consume one report in the same order as the original immediate handler.
+pub(in crate::app) fn apply(
+    app: &mut AppState,
+    update: CallbackUpdate,
+) -> Option<ServerRequestAction> {
+    match update.effect {
+        CallbackEffect::None => {}
+        CallbackEffect::Accepted { key, editor, focus } => {
+            app.view
+                .codex_callbacks
+                .drafts
+                .insert(key, crate::app::codex_questions::from_description(editor));
+            if let Some(focused) = focus {
+                app.view.codex_callbacks.focused = focused;
+            }
+            app.set_hint("Codex has a pending request; F4 answers it");
+        }
+        CallbackEffect::Retired(retired) => super::apply_retired(app, retired),
+        CallbackEffect::Checked { id, update } => {
+            if let Some(draft) =
+                CallbackKey::new(&id).and_then(|key| app.view.codex_callbacks.drafts.get_mut(&key))
+            {
+                if update.clear_notice {
+                    draft.notice = None;
+                }
+                if let Some(error) = update.unsupported {
+                    draft.unsupported = Some(error);
+                }
+                if let Some(error) = update.error {
+                    draft.error = Some(error);
+                }
+            }
+        }
+        CallbackEffect::Items(items) => app.apply_item_changes(items),
+        CallbackEffect::Goal(goal) => crate::app::codex_goals::apply(app, goal),
+        CallbackEffect::Panel(panel) => crate::app::codex_panel::apply(app, panel),
+        CallbackEffect::Queue(queue) => crate::app::codex_queue::apply(app, queue),
+        CallbackEffect::Controls {
+            interrupt,
+            settings,
+            queue,
+        } => {
+            if let Some((keys, error)) = interrupt {
+                for key in keys {
+                    if let Some(draft) = app.view.codex_callbacks.drafts.get_mut(&key) {
+                        draft.notice = None;
+                        draft.error = Some(error.clone());
+                    }
+                }
+            }
+            crate::app::codex_settings::apply(app, settings);
+            crate::app::codex_queue::apply(app, queue);
+        }
+    }
+    update.action
 }

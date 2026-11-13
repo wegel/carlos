@@ -87,3 +87,9 @@ mod connection_test_support;
 
 #[cfg(test)]
 mod reconnect_headless_tests;
+
+pub(crate) mod callback_route;
+pub(crate) mod callback_update;
+
+#[cfg(test)]
+mod callback_route_tests;

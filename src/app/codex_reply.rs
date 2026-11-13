@@ -124,16 +124,3 @@ fn apply_interrupt(app: &mut AppState, id: &Value, result: CallbackInterrupt) {
         }
     }
 }
-
-/// Keep a failed interrupt beside every editor for that exact thread and turn.
-pub(super) fn control_reply(app: &mut AppState, params: &Value) {
-    let Some((keys, error)) = app.session.codex_callback_control_reply(params) else {
-        return;
-    };
-    for key in keys {
-        if let Some(draft) = app.view.codex_callbacks.drafts.get_mut(&key) {
-            draft.notice = None;
-            draft.error = Some(error.clone());
-        }
-    }
-}

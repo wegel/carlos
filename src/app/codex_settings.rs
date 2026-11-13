@@ -5,7 +5,6 @@ use serde_json::Value;
 use super::state::AppState;
 use crate::backend::BackendClient;
 use crate::session::codex::settings::{self, SettingsEffect, SettingsUpdate};
-use crate::session::codex::settings_reply;
 
 /// Submit the explicit runtime choices used by the settings fixtures.
 #[cfg(test)]
@@ -42,16 +41,9 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
 }
 
 /// Adopt native future choices without touching an unsubmitted editor.
+#[cfg(test)]
 pub(super) fn observed(app: &mut AppState, params: &Value) {
     settings::observed(&mut app.session, params);
-}
-
-/// Apply native settings replies and ordered local effects once.
-pub(super) fn reply(app: &mut AppState, params: &Value) {
-    let scope = super::codex_queue::scope(app);
-    let mut update = SettingsUpdate::default();
-    settings_reply::reply(&mut app.session, scope, &mut update, params);
-    apply(app, update);
 }
 
 /// Capture settings when the native turn starts, without relabeling in-flight work.
