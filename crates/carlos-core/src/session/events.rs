@@ -255,9 +255,12 @@ impl Published<'_> {
             Change::Text { entry, from } => {
                 let message = session.messages.entry(entry)?;
                 if is_tool(message) {
-                    Event::EntryFactsChanged {
+                    Event::OutputChanged {
                         entry: entry.to_wire(),
-                        facts: session.export_entry_facts(message),
+                        revision: carlos_proto::output::OutputRevision::new(
+                            session.messages.output_revision(entry),
+                        ),
+                        has_output: !message.text.is_empty(),
                     }
                 } else {
                     Event::TextAppended {

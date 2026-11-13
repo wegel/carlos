@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::commands::RpcVersion;
 use crate::ids::{EntryId, Sequence, SessionId};
+use crate::output::{OutputRevision, OutputUpdate};
 use crate::session::{Approval, Decision, Entry, EntryKind, SessionInfo, Snapshot, Tool};
 
 /// Facts that change without replacing or resending an entry's source text.
@@ -31,6 +32,11 @@ pub enum Event {
     EntryFactsChanged {
         entry: EntryId,
         facts: EntryFacts,
+    },
+    OutputChanged {
+        entry: EntryId,
+        revision: OutputRevision,
+        has_output: bool,
     },
     ApprovalRequested {
         approval: Approval,
@@ -64,6 +70,8 @@ pub enum Notification {
     SessionEvent(SessionEvent),
     #[serde(rename = "sessions/changed")]
     SessionsChanged(SessionChange),
+    #[serde(rename = "entry/output")]
+    Output(OutputUpdate),
 }
 
 /// Session list changes either supply the complete current facts or remove an id.

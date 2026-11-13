@@ -1,6 +1,6 @@
-# Carlos client protocol version 1
+# Carlos client protocol version 1 (provisional)
 
-The `carlos-proto` crate defines the JSON that terminal, phone and browser clients share. It contains data types and checks, with no sockets, threads, clock reads or terminal dependencies. EP018 publishes these facts from the core and lets the terminal consume numbered records directly in memory. EP019 adds a server, command handlers, reconnect replay and the shared client state machine. EP020 adds WebSocket access, device tokens and generated JSON Schema. The types below do not imply that a socket server already exists.
+The `carlos-proto` crate defines shared JSON data without sockets, clocks or terminal dependencies. EP018 introduced numbered core facts. EP018a adds bounded live tool output and documents the missing terminal commands in `docs/terminal-client-migration.md`. EP019 must exercise these types with a headless remote client before switching the terminal. Version 1 remains provisional until those consumers prove its coverage; there are no deployed clients requiring compatibility shims. EP020 adds network access and device tokens. Schema output and language bindings wait for a concrete consumer.
 
 ## Envelopes and addresses
 
@@ -30,7 +30,9 @@ All names and parameter keys are case-sensitive. Optional fields may be absent o
 - `session/interrupt`: `session`. Returns null. Backend notices describe what actually stopped; a successful request alone does not assert that the backend finished.
 - `session/approve`: `session`, `approval` (live card id), `answer`. An answer is either `{"kind":"decision","decision":"once"}` or `{"kind":"input","value":...}`. Other decisions are `session`, `deny`, `cancel`. The handler must check the live card, its offered choices and submitted state before replying to the backend. Structured values must pass the card's question or form checks. EP019 adds the single winning answer rule for several clients.
 - `session/setRalph`: `session`, `on` (boolean). Returns null. The core may defer a toggle until the current turn ends; the event reports the accepted state.
-- `entry/output`: `session`, `entry`. Returns `OutputResult` with `lines` and `seq`. Each line has `kind` and `text`. The client discards a stale fetch if a later event changed that row's output.
+- `entry/output`: `session`, `entry`, nullable `cursor`, nullable `limit` (source bytes, default 65536). Returns `OutputChunk`, described below.
+- `entry/output/subscribe`: `session`, `entry`, nullable `cursor`. Returns the first `OutputChunk`, then receives `entry/output` notifications. Repeating the command replaces that connection's watch for this entry. It does not create another session-event sequence.
+- `entry/output/unsubscribe`: `session`, `entry`. Returns null and stops future chunks for that connection and entry. Other clients keep their watches.
 
 The serializable command types describe the client boundary. They do not expose Codex JSON-RPC methods, Claude callback ids or terminal key names. The core continues to use its existing backend handlers in EP018.
 
@@ -48,9 +50,21 @@ The core takes the actual backend from the launch caller. It does not guess from
 
 An `Entry` contains `id`, `kind`, Markdown/source `text`, `done`, nullable `tool` and nullable `client_message_id`. Kinds are `user`, `reasoning`, `commentary`, `answer`, `tool`, `notice`. Clients wrap and style source text for their own width. No row carries a terminal dimension, vector offset, color or key binding.
 
-A tool row carries its compact facts in `tool`; its `text` is empty. The client reads the large body with `entry/output` when needed. Tool facts contain `kind` (`command`, `read`, `search`, `edit`, `other`), `label`, `label_source` (`literal`, `ai`), `status` (`running`, `ok`, `failed`, `interrupted`, `unknown`), nullable `summary`, nullable `added` and `removed` counts, and `has_output`. Unknown facts remain unknown. EP018 exposes current labels, paths, diffs, completion and failure facts. EP021 supplies richer tool classifications, success/interruption facts, summaries and diff counts from native data. Clients must not infer success from `done: true` or from a null count.
+A tool row carries its compact facts in `tool`; its `text` is empty. The client reads the large body with `entry/output` when needed. Tool facts contain `kind` (`command`, `read`, `search`, `edit`, `other`), `label`, `label_source` (`literal`, `ai`), `status` (`running`, `ok`, `failed`, `interrupted`, `unknown`), nullable `summary`, nullable `added` and `removed` counts, `has_output` and decimal-string `output_revision`. Unknown facts remain unknown. EP018 exposes current labels, paths, diffs, completion and failure facts. EP021 supplies richer tool classifications, success/interruption facts, summaries and diff counts from native data. Clients must not infer success from `done: true` or from a null count.
 
-Output line kinds are `plain`, `addition`, `deletion`, `hunk`, `context`, `command`, `success`, `error`. EP018 classifies diffs and otherwise supplies plain lines. A client can style those kinds without parsing terminal escape codes. Opening output is local in the terminal; a remote client fetches it once and caches it until a later event changes the row. A facts event for a tool also invalidates its cached output, even if the compact fields compare equal.
+Output segment kinds are `plain`, `addition`, `deletion`, `hunk`, `context`, `command`, `success`, `error`. The core currently classifies diffs and otherwise emits plain pieces. A piece can end inside a line; concatenate its text exactly, including newlines. Clients choose colors and wrapping. A tool's fallback label is fixed text, never its growing first output line.
+
+### Bounded running output
+
+`OutputChunk` contains `entry`, `revision`, nullable `from`, `next`, `segments`, `has_more`, `done` and `seq`. Each segment contains `kind` and `text`. The opaque `next` token resumes the body after the supplied `from`. Tokens are entry-bound, ASCII, at most 256 bytes; clients must never construct or edit them. Revisions are decimal strings preserving 64 bits. The core consumes at most 65536 source bytes and emits at most 256 pieces per read. It clamps smaller byte limits to at least four, allowing a complete UTF-8 character. JSON escaping and envelope bytes add bounded overhead.
+
+The token carries a source position and bounded terminal-control and diff-prefix parser state. The core reads only the new suffix of its original body. It stores no second normalized body and never scans an old prefix to resume. A chunk may contain no visible text while advancing through a split or unterminated escape sequence. `has_more` means buffered source remains; `done` means both source and execution have ended. An incomplete final diff prefix waits for another character or completion. A completed cursor that later encounters unexpected appended data requires a fresh read because its final prefix may already have been emitted.
+
+The session stream carries `output_changed` with `entry`, `revision`, `has_output`, never the body. Every session subscriber receives it, including collapsed clients; no sequence number is skipped. A label, path or completion change sends ordinary entry facts and preserves an unchanged body's revision. A replacement changes the revision and sends current entry facts. An expanded client clears its displayed body and restarts without a cursor after a replacement; retired ids fail explicitly. A snapshot supplies current revisions and lets a client retain valid watches across a reset.
+
+An optional `entry/output` notification contains `OutputUpdate`: `session` and `chunk`. Its `seq` stamps the session facts used to read it, but does not advance the session-event cursor. The output cursor advances independently. The client accepts only the expected `from` token for that entry/revision, so delayed or duplicate chunks cannot append twice. A reconnect resumes the session first, checks the current row/revision, then subscribes at its saved output cursor. A replaced, foreign, malformed or retired cursor fails explicitly; it never guesses a new offset. The daemon must bound watches and outgoing bytes per connection, cancel watches on disconnect, and require a fresh watch after queue overflow rather than silently dropping part of a body. A client can always recover with a fresh bounded read.
+
+EP018a supplies pure core reads and two headless client tests; EP019 owns watch scheduling, explicit error codes and connection limits. A collapsed client needs no output subscription. Opening a running tool is a supported design requirement, including on the future phone app.
 
 Live approval cards are separate from stored transcript rows because the core already owns them separately. A snapshot includes the active card and queued cards in `approvals`. Each card contains `id`, `kind`, `title`, `details`, `choices`, optional `input`, `submitted`, `active` and `default_to_no`. A card id comes from the same opaque allocator as rows. The core exports only display facts and selected input descriptions, never the native routing payload. A client shows choices the card offers; it must not assume every backend offers session-wide approval.
 
@@ -63,7 +77,8 @@ The `session/event` notification contains `session`, `seq` and `event`. The `eve
 - `entry_added` carries a complete `entry` in chronological append order.
 - `text_appended` carries `entry` (id) and only the new `text`. Text is appended exactly, including Unicode and newlines.
 - `entry_updated` carries a complete replacement `entry` with the same id. This event handles edits that cannot be represented by a suffix. All fields replace old values, including nulls and empty text.
-- `entry_facts_changed` carries `entry` (id) and `facts` with `kind`, `done`, `tool`. It changes those facts without resending text. It also invalidates cached tool output.
+- `entry_facts_changed` carries `entry` (id) and `facts` with `kind`, `done`, `tool`. It changes those facts without resending text. It preserves output cursors when `output_revision` stays the same.
+- `output_changed` carries `entry`, `revision`, `has_output`; it announces new source without sending bulk text.
 - `approval_requested` carries a complete `approval` and nullable `before` card id. Remove that id from the local live-card list, then insert the card before `before` if that neighbor is present, or at the end otherwise. This preserves card order, focus moves and submitted state without exposing a storage offset.
 - `approval_resolved` carries `approval` (id) and nullable `decision`. It removes that id from the live cards.
 - `info_changed` carries complete `info`. It replaces all session header facts. Full objects avoid an ambiguous missing-versus-null patch convention.
@@ -83,6 +98,6 @@ EP019 will retain owned events in a bounded replay ring and bound each client's 
 
 ## Compatibility and proof
 
-Readers may ignore unknown object fields. Unknown method names, event kinds, enum variants, invalid ids and unsupported versions fail explicitly. A new optional object field can extend version 1 if its absence has the documented old meaning. Changing a required field, event meaning or enum requires a new protocol version or explicit capability negotiation; a client must never silently skip an unknown state change.
+Readers may ignore unknown object fields; unknown methods, event kinds, enum variants, invalid ids and unsupported versions fail explicitly. While version 1 is provisional, update types, fixtures, handlers and documentation together. Once the first real remote consumer establishes the contract, required-field or meaning changes need a new version or explicit capability checks. Never make a client silently skip an unknown state change.
 
 Run `cargo test -p carlos-proto` for envelope, version, id and cursor checks. Core event tests serialize real published events to JSON, apply them to a headless client's copy, and compare it with a snapshot after Unicode streaming, normalized reasoning, completion, labels, approvals and history replacement. Terminal checks drive the actual executable against deterministic peers. `.agents/reports/exec018-final-report.md` records the accepted source and measured results once this step is complete.

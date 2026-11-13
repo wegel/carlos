@@ -67,7 +67,7 @@ fn unknown_commands_and_invalid_request_ids_fail() {
 }
 
 #[test]
-fn every_frozen_command_and_event_roundtrips_the_v1_fixture() {
+fn every_provisional_command_and_event_roundtrips_the_v1_fixture() {
     let fixture: serde_json::Value =
         serde_json::from_str(include_str!("fixtures/v1.json")).expect("fixture");
     for request in fixture["requests"].as_array().expect("requests") {
@@ -85,4 +85,26 @@ fn every_frozen_command_and_event_roundtrips_the_v1_fixture() {
     let mut unknown = fixture["notifications"][0].clone();
     unknown["params"]["event"]["kind"] = json!("future_event");
     assert!(from_value::<NotificationMessage>(unknown).is_err());
+}
+
+#[test]
+fn output_tokens_are_bounded_and_revisions_preserve_all_bits() {
+    use carlos_proto::output::{OutputCursor, OutputRevision};
+    for invalid in [
+        "".to_owned(),
+        "x".repeat(257),
+        "has space".into(),
+        "é".into(),
+    ] {
+        assert!(from_value::<OutputCursor>(json!(invalid)).is_err());
+    }
+    let revision = OutputRevision::new(u64::MAX);
+    assert_eq!(
+        to_value(revision).expect("encode"),
+        json!("18446744073709551615")
+    );
+    assert_eq!(
+        from_value::<OutputRevision>(json!("18446744073709551615")).expect("decode"),
+        revision
+    );
 }

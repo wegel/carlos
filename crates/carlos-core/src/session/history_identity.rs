@@ -44,7 +44,6 @@ impl Transcript {
                 *rows_per_key.entry(key.clone()).or_insert(0) += 1;
             }
         }
-        // Allocate only after the caller has parsed and checked the entire draft.
         let mut adopted = Transcript::new();
         adopted.reserve_entries(drafts.len());
         if matches!(mode, HistoryMode::SameThread) {
@@ -60,6 +59,7 @@ impl Transcript {
                 .copied()
                 .flatten();
             let id = retained.unwrap_or_else(|| adopted.ids.allocate());
+            self.retain_output_revision(&mut adopted, id, &entry.draft);
             adopted.insert(id, entry.draft);
             if let Some(key) = entry.key {
                 // Retain native evidence, including ambiguity, for the next reload.
@@ -78,6 +78,7 @@ impl Transcript {
             }
             ids.push(id);
         }
+        adopted.journal.published = adopted.len();
         *self = adopted;
         ids
     }

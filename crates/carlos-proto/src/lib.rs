@@ -3,6 +3,7 @@
 pub mod commands;
 pub mod events;
 pub mod ids;
+pub mod output;
 pub mod session;
 
 /// The only client protocol version supported by this release.

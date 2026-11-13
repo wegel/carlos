@@ -13,6 +13,7 @@ use super::models::{EntryDraft, Message};
 /// Stores source entries contiguously; clients may borrow the slice but cannot mutate it.
 #[cfg_attr(any(test, feature = "test-support"), derive(Debug))]
 pub struct Transcript {
+    pub(super) output_revisions: HashMap<EntryId, u64>,
     pub(super) journal: super::transcript_journal::Journal,
     pub(super) entries: Vec<Message>,
     // These offsets stay inside the store; backend keys and callers retain entry ids.
@@ -31,6 +32,7 @@ impl Transcript {
     /// Create an empty transcript in a fresh Carlos namespace.
     pub fn new() -> Self {
         Self {
+            output_revisions: HashMap::new(),
             journal: Default::default(),
             entries: Vec::new(),
             active: BTreeSet::new(),
@@ -215,6 +217,7 @@ impl Transcript {
         for message in removed {
             self.unbind_entry(message.id);
             self.positions.remove(&message.id);
+            self.output_revisions.remove(&message.id);
         }
         self.positions.finish_truncate(self.entries.len());
         let positions = &self.positions;

@@ -1,11 +1,10 @@
 //! Read bounded client pages and tool output at a sealed session cursor.
 
 use carlos_proto::ids::EntryId as WireEntryId;
-use carlos_proto::session::{History, OutputKind, OutputLine, Snapshot};
+use carlos_proto::session::{History, Snapshot};
 
 use super::entry_id::EntryId;
 use super::events::Published;
-use super::models::MessageKind;
 
 impl Published<'_> {
     /// Export the newest requested rows in chronological order; clamp to 1..=1000.
@@ -36,32 +35,5 @@ impl Published<'_> {
             has_older: start > 0,
             seq: self.sequence(),
         })
-    }
-
-    /// Fetch source output only when expanded, without ANSI styles or terminal widths.
-    pub fn output(&self, id: &WireEntryId) -> Option<Vec<OutputLine>> {
-        let message = self.session.messages.entry(EntryId::from_wire(id))?;
-        if !super::event_rows::is_tool(message) {
-            return None;
-        }
-        Some(
-            super::tools::strip_terminal_controls(&message.text)
-                .lines()
-                .map(|line| OutputLine {
-                    kind: if message.kind != MessageKind::Diff {
-                        OutputKind::Plain
-                    } else if line.starts_with("@@") {
-                        OutputKind::Hunk
-                    } else if line.starts_with('+') && !line.starts_with("+++") {
-                        OutputKind::Addition
-                    } else if line.starts_with('-') && !line.starts_with("---") {
-                        OutputKind::Deletion
-                    } else {
-                        OutputKind::Context
-                    },
-                    text: line.to_owned(),
-                })
-                .collect(),
-        )
     }
 }

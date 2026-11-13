@@ -15,8 +15,8 @@ The owner explicitly approved this broader scope after Fable 5.2 medium reviewed
 
 - [x] (2026-11-13) Read repository rules, program, architecture, protocol, core writers and Fable's review; confirm a clean `iphone-spike` at `f42d870`.
 - [x] (2026-11-13) Preserve the accepted EP018 executable at `/tmp/carlos-ep018a/ep018-carlos` and save the independent review under `.agents/reports/exec018a-fable-review.md`.
-- [ ] Prototype bounded incremental output reads, then finalize the provisional protocol types and prove linear streamed bytes, source replacement and reconnect recovery.
-- [ ] Inventory terminal commands, queries and local view operations; write the explicit EP019 migration contract.
+- [x] (2026-11-13) Prove bounded output reads, compact change facts and optional watch DTOs. Nine core tests cover split controls/Unicode/diff prefixes, linear bytes, pause/resume, replacement, history adoption, reset/edit and retired ids; protocol fixtures include the new messages.
+- [x] (2026-11-13) Inventory terminal workflows in `docs/terminal-client-migration.md`; revise architecture/program/protocol for headless-first EP019, typed native controls, terminal parity and separate deletion. Bindings/schema/coalescers wait for actual consumers/evidence.
 - [ ] Remove composer/focus decisions from core event handling; return correlated session outcomes and let clients recover drafts independently.
 - [ ] Split blocking backend work from core state changes so a future owner can execute requests without blocking its session loop; prove delayed replies and stale completions safely.
 - [ ] Remove obsolete source-lexer machinery while retaining dependency checks and meaningful compiler/module guarantees.
@@ -29,6 +29,8 @@ The owner explicitly approved this broader scope after Fable 5.2 medium reviewed
 EP018 emits tool text changes as facts and its output read returns the full body. This works for a collapsed row, but a remote terminal or phone showing a running tool would repeatedly transfer old text. Tool output can contain split ANSI escape sequences, partial lines and UTF-8 characters. A correct cursor must handle these without scanning the old body or copying a second full transcript. The terminal currently preserves ANSI colors, so changing its source text to a second canonical representation would risk fidelity.
 
 The terminal still calls many core APIs directly. The public protocol covers basic phone commands, while native goals, queues, settings, tasks and rewind also need a deliberate migration route. Core BackendContext and ClaudeDraftContext borrow a client's selection, focus, composer and confirmation; ClaudeEffect includes editor instructions. A terminal-free crate alone does not remove this semantic dependency. Prompt methods also wait synchronously for backend acceptance, which cannot run inline on the future daemon's owner thread.
+
+The output prototype keeps sparse replacement revisions and encodes a raw byte offset plus seven-state terminal parser, diff prefix and closed-body flag in each opaque token. Closed cursors explicitly restart on unexpected late appends. Retained history rows preserve revisions only when their actual body and kind match. A reset does not suppress revision changes on retained rows. The two-watcher test transfers 400 KiB once while each collapsed event stays below 400 bytes.
 
 ## Decision Log
 
@@ -122,7 +124,7 @@ EP018's preserved release SHA256 is `ae5b517c49bba678c6d6b9f6513ce2e3bd4e3200daa
 ## Interfaces and Dependencies
 
 
-Keep `carlos-proto` pure serde data, `carlos-core` terminal-free, and the terminal responsible for view state. Use existing standard threads/channels and dependencies. Do not introduce Tokio, a generic event framework, speculative bindings or a second transcript copy. Final core interfaces must include a bounded output-chunk read on Published, opaque output cursor/revision types, explicit body-change facts and prepared/settled session commands whose backend execution owns no session borrow. The exact prototype representation and promoted function signatures must be recorded here as they are proved.
+Keep `carlos-proto` pure serde data, `carlos-core` terminal-free, and the terminal responsible for view state. Use existing standard threads/channels and dependencies. Do not introduce Tokio, a generic event framework, speculative bindings or a second transcript copy. Final core interfaces must include a bounded output-chunk read on Published, opaque output cursor/revision types, explicit body-change facts and prepared/settled session commands whose backend execution owns no session borrow. The promoted read is `Published::output_chunk(entry, cursor, limit) -> Result<OutputChunk, OutputReadError>`. It consumes at most 64 KiB source and emits at most 256 segments. The token currently encodes `o1:entry:revision:offset:control:line:prefix:closed`; its syntax remains opaque to clients. `OutputChanged` stays in the ordinary numbered session stream, while optional `OutputUpdate` carries its own resume cursor and stamps (never advances) the session sequence. No watcher scheduler or socket is implemented here.
 
 ## Engineering Review
 

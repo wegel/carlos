@@ -1,6 +1,7 @@
 //! Read source entries as neutral client facts without terminal formatting.
 
 use carlos_proto::events::EntryFacts;
+use carlos_proto::output::OutputRevision;
 use carlos_proto::session::{Entry, EntryKind, LabelSource, Tool, ToolKind, ToolStatus};
 
 use super::models::{Message, MessageKind, Role};
@@ -41,16 +42,23 @@ impl SessionState {
             }
         };
         let done = self.messages.is_complete(message.id);
-        let tool = is_tool(message).then(|| export_tool(message, done));
+        let tool = is_tool(message)
+            .then(|| export_tool(message, done, self.messages.output_revision(message.id)));
         EntryFacts { kind, done, tool }
     }
 }
 
-fn export_tool(message: &Message, done: bool) -> Tool {
+fn export_tool(message: &Message, done: bool, revision: u64) -> Tool {
     let details = message.tool_output.as_ref();
     let label = details
         .map(|tool| tool.summary.as_str())
-        .unwrap_or_else(|| message.text.lines().next().unwrap_or(""));
+        .unwrap_or_else(|| {
+            if message.role == Role::ToolOutput || message.kind == MessageKind::Diff {
+                "Tool output"
+            } else {
+                message.text.lines().next().unwrap_or("")
+            }
+        });
     let kind = if message.kind == MessageKind::Diff {
         ToolKind::Edit
     } else if message.file_path.is_some() {
@@ -77,6 +85,7 @@ fn export_tool(message: &Message, done: bool) -> Tool {
         summary: None,
         added: None,
         removed: None,
+        output_revision: OutputRevision::new(revision),
         has_output: (message.role == Role::ToolOutput || message.kind == MessageKind::Diff)
             && !message.text.is_empty(),
     }

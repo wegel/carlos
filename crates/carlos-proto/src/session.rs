@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::ids::{EntryId, Sequence, SessionId};
+use crate::output::OutputRevision;
 
 /// A backend chosen for a session, independent of enabled compatibility controls.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -106,6 +107,7 @@ pub struct Tool {
     pub added: Option<u64>,
     pub removed: Option<u64>,
     pub has_output: bool,
+    pub output_revision: OutputRevision,
 }
 
 /// An immutable row at a published cursor.
@@ -170,13 +172,6 @@ pub struct History {
     pub entries: Vec<Entry>,
     pub has_older: bool,
     pub seq: Sequence,
-}
-
-/// A semantic output line; clients choose colors, fonts and horizontal scrolling.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OutputLine {
-    pub kind: OutputKind,
-    pub text: String,
 }
 
 /// Line classifications require no terminal escape codes.

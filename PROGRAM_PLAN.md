@@ -42,6 +42,10 @@ after ExecPlan 016. Do not merge it into `main` or push it without the owner's r
 
 - [ ] `.agents/execplans/EXECPLAN_018a_pre_daemon_cleanup.md`: incremental running-tool output and broader pre-daemon cleanup. The owner approved this follow-up before EP019.
 
+EP019 must first prove headless daemon commands and concurrent reads, then extend typed terminal controls
+and pass the workflow checklist in `docs/terminal-client-migration.md` before deleting the embedded path.
+Protocol version 1 remains provisional until real remote clients exercise it.
+
 ExecPlans 017 to 022 are listed in `docs/engine-architecture.md`. Each one is written when the
 plan before it ends.
 

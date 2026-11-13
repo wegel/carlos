@@ -149,3 +149,14 @@ mod event_tests;
 
 #[cfg(test)]
 mod event_input_tests;
+
+pub mod output;
+mod output_cursor;
+mod output_normalize;
+mod transcript_output;
+
+#[cfg(test)]
+mod output_tests;
+
+#[cfg(test)]
+mod output_client_tests;

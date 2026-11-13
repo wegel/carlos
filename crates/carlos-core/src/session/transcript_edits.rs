@@ -18,7 +18,7 @@ impl Transcript {
         if let Some(message) = self
             .entries
             .get(index)
-            .filter(|_| index < self.journal.published && !self.journal.reset)
+            .filter(|_| index < self.journal.published)
         {
             let same_shape = message.role == role && message.kind == kind;
             let appended = text
@@ -30,6 +30,10 @@ impl Transcript {
             let replace = text.as_ref().is_some_and(|text| text != &message.text)
                 && appended.is_none()
                 || !same_shape;
+            let ended = !self.active.contains(&index) && delta.is_some();
+            if replace || ended {
+                self.replace_output(index);
+            }
             self.record_change(index, replace, delta, true);
         }
         if let Some(message) = self.entries.get_mut(index) {
@@ -48,7 +52,11 @@ impl Transcript {
             let replace =
                 message.kind != MessageKind::Plain || role.is_some_and(|role| role != message.role);
             let facts = replace || role.is_some_and(|role| role != message.role);
-            self.record_change(index, replace, Some(message.text.len()), facts);
+            let from = message.text.len();
+            if replace || !self.active.contains(&index) && !delta.is_empty() {
+                self.replace_output(index);
+            }
+            self.record_change(index, replace, Some(from), facts);
         }
         if let Some(message) = self.entries.get_mut(index) {
             if let Some(role) = role {
@@ -71,6 +79,9 @@ impl Transcript {
 
     /// Update a prompt's native steer classification.
     pub(crate) fn set_kind(&mut self, index: usize, kind: MessageKind) {
+        if (self.entries[index].kind == MessageKind::Diff) != (kind == MessageKind::Diff) {
+            self.replace_output(index);
+        }
         self.record_facts(index);
         self.entries[index].kind = kind;
     }

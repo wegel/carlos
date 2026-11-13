@@ -120,12 +120,11 @@ The daemon runs shell commands as the user. It binds to a configured address
 
 ## Speed rules for the protocol
 
-1. Typing, scrolling and row expansion never cross the socket.
+1. Typing and scrolling stay local. Expansion uses bounded reads and optional live output watches.
 2. A streaming event carries only the new text.
 3. A client shows a sent message at once (local echo, matched later by
    `client_message_id`).
-4. For network clients the daemon merges text deltas into one message per
-   16 ms per client.
+4. Add a timed delta merger only if real socket measurements justify it.
 5. Per-client queues are bounded. A slow client never blocks a session thread;
    the daemon drops that client's queue and sends a snapshot.
 6. An entry carries the tool label and summary. A client fetches output lines
@@ -139,7 +138,7 @@ JSON without a protocol change if a profile shows the need.
 
 ## Wire protocol, draft 0 (historical)
 
-ExecPlan 018 froze version 1 in `docs/client-protocol-v1.md` and `crates/carlos-proto`.
+ExecPlan 018 introduced provisional version 1 in `docs/client-protocol-v1.md` and `crates/carlos-proto`.
 Those sources define the current contract. The sketch below records the earlier proposal;
 version 1 uses full fact objects, separate live cards, decimal-string cursors and explicit
 card ordering rather than ambiguous nullable patches.
@@ -187,7 +186,7 @@ Types:
 |---|---|---|
 | 1 | 016 | Stable entry ids. Split `AppState` into session facts and view state. Move Claude translation into the Claude backend. No behaviour change. |
 | 2 | 017 | Cargo workspace; `carlos-core` compiles without terminal crates. |
-| 3 | 018 | The core emits sequenced events; the TUI consumes them in-process. Freeze protocol version 1. Delete the old path in a separate commit. |
+| 3 | 018 | The core emits sequenced events; the TUI consumes them in-process. Introduce provisional protocol version 1. Delete the old path in a separate commit. |
 | 4 | 019 | Session manager, `carlosd`, Unix socket; `carlos-client`; the TUI becomes a client through it; turns survive a TUI quit. |
 | 5 | 020 | WebSocket listener, tokens, JSON Schema output, `perf-session` replay through the socket. |
 | 6 | 021 | Paged history, Grok approvals, tool summaries as data. |
@@ -256,4 +255,14 @@ them in memory. The old redraw-report path was deleted separately. The owner req
 Codex work without subagents, so the report labels its engineering check as direct self-review;
 it does not claim an independent reviewer. `.agents/reports/exec018-final-report.md` records
 the accepted source, final gates, latency measurements and fixed memory costs. No executable
-was installed, merged or pushed. The next step is EP019 after owner review.
+was installed, merged or pushed. The owner approved EP018a before EP019; see the addendum below.
+
+## Pre-daemon changes agreed in EP018a
+
+The owner approved a broad cleanup after Fable 5.2 reviewed the entire roadmap. A phone must eventually expand running tools, so the protocol supports that workflow before the daemon is built. `docs/client-protocol-v1.md` defines bounded source cursors and separate optional output watches. Compact session facts reach every subscriber without filtered sequence gaps. The original tool body remains the one stored source, preserving terminal colors and copy behavior.
+
+`docs/terminal-client-migration.md` lists the terminal workflows that EP019 must preserve. It supersedes the assumption that the original eleven phone-oriented commands cover the whole terminal. EP019 first proves the daemon with headless clients, then adds typed native-control families and the shared Rust client, then switches the terminal after parity checks. It deletes the embedded path separately. It cannot keep a permanent direct-core bypass or generic backend JSON command.
+
+Backend frames must not inspect a client's composer, confirmation or focused panel. Commands carry their originating operation and explicit read targets; each client decides what to do with its own drafts. Backend calls execute outside the session owner's borrow, then settle only if their connection and operation still match. The daemon can process facts and reads while a worker waits.
+
+Version 1 remains provisional until real remote consumers exercise it. UniFFI stays in EP022 when the iOS consumer exists; JSON Schema and a timed delta merger wait for actual need. The shared-client objective, one-owner-per-session model, bounded queues and per-EP owner review remain in force. EP018a runs directly in Codex without implementation subagents, as requested by the owner.

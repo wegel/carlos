@@ -114,6 +114,27 @@
       "method": "entry/output",
       "params": {
         "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+        "cursor": null,
+        "limit": 4096
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 12,
+      "method": "entry/output/subscribe",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+        "cursor": null
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 13,
+      "method": "entry/output/unsubscribe",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001"
       }
     }
@@ -311,6 +332,42 @@
             "seq": "8",
             "has_older": false
           }
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "entry/output",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "chunk": {
+          "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+          "revision": "0",
+          "from": null,
+          "next": "opaque-output-cursor",
+          "segments": [
+            {
+              "kind": "plain",
+              "text": "héllo\\n"
+            }
+          ],
+          "has_more": false,
+          "done": false,
+          "seq": "10"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/event",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "seq": "11",
+        "event": {
+          "kind": "output_changed",
+          "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+          "revision": "0",
+          "has_output": true
         }
       }
     }

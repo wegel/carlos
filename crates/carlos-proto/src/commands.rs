@@ -5,7 +5,8 @@ use serde_json::Value;
 
 use crate::events::SessionEvent;
 use crate::ids::{EntryId, Sequence, SessionId};
-use crate::session::{Backend, Decision, OutputLine, SessionInfo, Snapshot};
+use crate::output::OutputCursor;
+use crate::session::{Backend, Decision, SessionInfo, Snapshot};
 use crate::PROTOCOL_VERSION;
 
 /// Only JSON-RPC version 2.0 is accepted.
@@ -80,7 +81,20 @@ pub enum Command {
     #[serde(rename = "session/setRalph")]
     SetRalph { session: SessionId, on: bool },
     #[serde(rename = "entry/output")]
-    Output { session: SessionId, entry: EntryId },
+    Output {
+        session: SessionId,
+        entry: EntryId,
+        cursor: Option<OutputCursor>,
+        limit: Option<u32>,
+    },
+    #[serde(rename = "entry/output/subscribe")]
+    OutputSubscribe {
+        session: SessionId,
+        entry: EntryId,
+        cursor: Option<OutputCursor>,
+    },
+    #[serde(rename = "entry/output/unsubscribe")]
+    OutputUnsubscribe { session: SessionId, entry: EntryId },
 }
 
 /// Input answers are validated against the live card before any backend reply.
@@ -156,11 +170,4 @@ pub enum SubscribeResult {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SendResult {
     pub entry: EntryId,
-}
-
-/// Expanded output is tied to a published cursor so stale fetches can be discarded.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OutputResult {
-    pub lines: Vec<OutputLine>,
-    pub seq: Sequence,
 }

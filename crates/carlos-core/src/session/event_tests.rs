@@ -48,6 +48,13 @@ fn apply(client: &mut Snapshot, event: SessionEvent) {
             row.done = facts.done;
             row.tool = facts.tool;
         }
+        Event::OutputChanged {
+            entry,
+            revision,
+            has_output,
+        } => {
+            apply_output_facts(client, entry, revision, has_output);
+        }
         Event::ApprovalRequested { approval, before } => {
             client.approvals.retain(|old| old.id != approval.id);
             let index = before
@@ -65,6 +72,24 @@ fn apply(client: &mut Snapshot, event: SessionEvent) {
         }
     }
     client.seq = event.seq;
+}
+
+fn apply_output_facts(
+    client: &mut Snapshot,
+    entry: carlos_proto::ids::EntryId,
+    revision: carlos_proto::output::OutputRevision,
+    has_output: bool,
+) {
+    let tool = client
+        .entries
+        .iter_mut()
+        .find(|row| row.id == entry)
+        .expect("live row")
+        .tool
+        .as_mut()
+        .expect("tool");
+    tool.output_revision = revision;
+    tool.has_output = has_output;
 }
 
 pub(super) fn synchronize(session: &mut SessionState, client: &mut Snapshot) -> Vec<SessionEvent> {
@@ -229,8 +254,10 @@ fn tool_events_do_not_send_output_until_requested() {
     synchronize(&mut core, &mut client);
     assert_eq!(client.entries[0].text, "");
     let batch = core.publish();
-    let output = batch.output(&client.entries[0].id).expect("output");
-    assert_eq!(output[1].text, "private output");
+    let output = batch
+        .output_chunk(&client.entries[0].id, None, 1024)
+        .expect("output");
+    assert_eq!(output.segments[0].text, "command\nprivate output");
 }
 
 #[test]
