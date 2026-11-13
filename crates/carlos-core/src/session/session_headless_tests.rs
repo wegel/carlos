@@ -56,7 +56,7 @@ fn common_messages_need_no_view() {
     }
 }
 
-fn common_lines() -> [serde_json::Value; 6] {
+pub(super) fn common_lines() -> [serde_json::Value; 6] {
     use serde_json::json;
     [
         json!({"method":"turn/started","params":{"threadId":"root","turn":{"id":"turn","status":"inProgress"}}}),

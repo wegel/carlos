@@ -134,3 +134,34 @@ fn an_interrupted_turn_finishes_unclosed_streams_and_keeps_its_text() {
         .any(|record| matches!(record.change, super::events::Change::Facts(_))));
     assert_eq!(snapshot.info.phase, carlos_proto::session::Phase::Idle);
 }
+
+#[test]
+fn real_backend_handlers_feed_the_same_json_client_for_all_backends() {
+    for backend in [
+        carlos_proto::session::Backend::Codex,
+        carlos_proto::session::Backend::Claude,
+        carlos_proto::session::Backend::Grok,
+    ] {
+        let mut core = SessionState::new("root".into(), Default::default(), false);
+        core.set_client_identity(backend, "local".into());
+        if backend == carlos_proto::session::Backend::Codex {
+            core.enable_codex();
+        }
+        if backend == carlos_proto::session::Backend::Claude {
+            core.enable_claude();
+        }
+        let mut client = core.publish().snapshot(100);
+        for line in super::session_headless_tests::common_lines() {
+            core.handle_backend_line(
+                &line.to_string(),
+                &super::backend_test_support::context(&core),
+            );
+            super::event_tests::synchronize(&mut core, &mut client);
+        }
+        assert_eq!(client.entries[0].text, "hello world");
+        assert!(client.entries[0].done);
+        assert_eq!(client.info.context.expect("context").used, 2500);
+        assert_eq!(client.info.phase, carlos_proto::session::Phase::Idle);
+        assert_eq!(client.info.backend, backend);
+    }
+}

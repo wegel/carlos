@@ -67,7 +67,7 @@ fn apply(client: &mut Snapshot, event: SessionEvent) {
     client.seq = event.seq;
 }
 
-fn synchronize(session: &mut SessionState, client: &mut Snapshot) -> Vec<SessionEvent> {
+pub(super) fn synchronize(session: &mut SessionState, client: &mut Snapshot) -> Vec<SessionEvent> {
     let published = session.publish();
     let events: Vec<_> = published
         .records()
