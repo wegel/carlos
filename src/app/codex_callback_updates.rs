@@ -7,28 +7,6 @@ use crate::session::actions::ServerRequestAction;
 use crate::session::codex::callback_update::{CallbackEffect, CallbackUpdate};
 use crate::session::codex::callbacks::CallbackKey;
 
-/// Tell the shared parser whether a native callback event was consumed.
-pub(in crate::app) enum CallbackRoute {
-    Continue,
-    Handled(Option<ServerRequestAction>),
-}
-
-/// Supply the explicit client target and consume one native result immediately.
-pub(in crate::app) fn route(app: &mut AppState, method: &str, frame: &Value) -> CallbackRoute {
-    let panel = crate::app::codex_panel::scope(
-        app.session.codex_scope(),
-        app.session.codex_connection(),
-        &app.view.codex_panel,
-    );
-    let Some(update) =
-        app.session
-            .route_codex_callback(method, frame, panel, app.view.codex_callbacks.focused)
-    else {
-        return CallbackRoute::Continue;
-    };
-    CallbackRoute::Handled(apply(app, update))
-}
-
 /// Consume one report in the same order as the original immediate handler.
 pub(in crate::app) fn apply(
     app: &mut AppState,
@@ -36,6 +14,7 @@ pub(in crate::app) fn apply(
 ) -> Option<ServerRequestAction> {
     match update.effect {
         CallbackEffect::None => {}
+        CallbackEffect::ReplyFailed { id, error } => reply_failed(app, &id, error),
         CallbackEffect::Accepted { key, editor, focus } => {
             app.view
                 .codex_callbacks
@@ -84,4 +63,14 @@ pub(in crate::app) fn apply(
         }
     }
     update.action
+}
+
+fn reply_failed(app: &mut AppState, id: &Value, error: String) {
+    if let Some(draft) =
+        CallbackKey::new(id).and_then(|key| app.view.codex_callbacks.drafts.get_mut(&key))
+    {
+        draft.error = Some(error.clone());
+        draft.viewport.scroll.set(0);
+    }
+    app.set_hint(error);
 }

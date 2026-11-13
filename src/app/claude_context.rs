@@ -9,6 +9,7 @@ use super::state::AppState;
 use crate::backend::BackendClient;
 
 /// Request another snapshot without invalidating the last known count.
+#[cfg(test)]
 pub(super) fn refresh(app: &mut AppState) {
     app.session.refresh_claude_context();
 }

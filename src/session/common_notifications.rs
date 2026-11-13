@@ -14,22 +14,6 @@ use super::state::SessionState;
 use super::tools::command_summary_from_parsed_cmd;
 
 impl SessionState {
-    /// Process shared JSON without constructing a client or invoking backend extension handlers.
-    #[cfg(test)]
-    pub(crate) fn handle_common_backend_line(&mut self, line: &str) -> CommonUpdate {
-        let Ok(parsed) = serde_json::from_str::<Value>(line) else {
-            return CommonUpdate::default();
-        };
-        if self.codex_scope().closed() || self.rate_limits_response(&parsed) {
-            return CommonUpdate::default();
-        }
-        let previous =
-            self.replace_codex_item_turn(parsed["params"]["turnId"].as_str().map(str::to_string));
-        let update = self.handle_common_backend_message(&parsed);
-        self.replace_codex_item_turn(previous);
-        update
-    }
-
     /// Apply a parsed common message after the backend-specific routers have accepted it.
     pub(crate) fn handle_common_backend_message(&mut self, parsed: &Value) -> CommonUpdate {
         let mut update = CommonUpdate::default();

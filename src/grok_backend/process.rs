@@ -42,7 +42,16 @@ pub(super) fn start_grok_process(
     events_tx: mpsc::Sender<String>,
     translation: Arc<Mutex<GrokTranslationState>>,
 ) -> Result<GrokProcess> {
-    let mut child = build_grok_command(cwd, runtime)
+    start_command(build_grok_command(cwd, runtime), events_tx, translation)
+}
+
+/// Start the chosen process through the same initialized native ACP reader.
+pub(super) fn start_command(
+    mut command: Command,
+    events_tx: mpsc::Sender<String>,
+    translation: Arc<Mutex<GrokTranslationState>>,
+) -> Result<GrokProcess> {
+    let mut child = command
         .spawn()
         .context("failed to spawn `grok agent stdio`")?;
     let stdin = child.stdin.take().context("missing Grok stdin")?;

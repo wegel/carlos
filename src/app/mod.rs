@@ -63,7 +63,6 @@ mod codex_goal_view;
 mod codex_goals;
 mod codex_lifecycle;
 mod codex_panel;
-mod codex_panel_events;
 mod codex_panel_state;
 mod codex_panel_text;
 mod codex_panel_view;
@@ -310,3 +309,5 @@ mod claude_updates;
 #[cfg(test)]
 #[path = "../tests/idless_item_tests.rs"]
 mod idless_item_tests;
+
+mod backend_updates;

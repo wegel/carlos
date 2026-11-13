@@ -22,7 +22,7 @@ pub(crate) struct ClaudeUpdate {
     pub(crate) items: ItemChanges,
     pub(crate) effects: Vec<ClaudeEffect>,
     pub(crate) action: Option<ServerRequestAction>,
-    pub(crate) history_frame: Option<Value>,
+    pub(in crate::session) history_frame: Option<Value>,
 }
 
 /// Tell the synchronous client which editors or controls to change once.

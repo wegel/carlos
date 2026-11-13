@@ -2,19 +2,9 @@
 
 use std::time::{Duration, Instant};
 
-use serde_json::Value;
-
 use super::state::AppState;
 use crate::backend::BackendClient;
 use crate::session::codex::reconnect_streams;
-
-/// Accept an exact native partial-item event before common dispatch.
-pub(super) fn event(app: &mut AppState, event: &Value) -> bool {
-    let mut changes = Default::default();
-    let handled = reconnect_streams::event(&mut app.session, &mut changes, event);
-    app.apply_item_changes(changes);
-    handled
-}
 
 /// Read at most one partial native item at the existing timer point.
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant) -> bool {

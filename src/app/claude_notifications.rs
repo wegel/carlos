@@ -5,16 +5,19 @@ use serde_json::Map;
 use serde_json::Value;
 
 use super::state::AppState;
+#[cfg(test)]
 use crate::session::actions::ServerRequestAction;
 use crate::session::claude::receive_update::ClaudeDraftContext;
 
 /// Distinguish a normalized Claude fact from another backend's shared message.
+#[cfg(test)]
 pub(super) enum ClaudeRoute {
     Continue,
     Handled(Option<ServerRequestAction>),
 }
 
 /// Supply borrowed unsent facts without letting the session inspect a widget.
+#[cfg(test)]
 pub(super) fn route(app: &mut AppState, method: &str, facts: &Value) -> ClaudeRoute {
     let draft = context(app);
     let draft = ClaudeDraftContext {
@@ -24,7 +27,9 @@ pub(super) fn route(app: &mut AppState, method: &str, facts: &Value) -> ClaudeRo
     let Some(update) = app.session.receive_claude_message(method, facts, &draft) else {
         return ClaudeRoute::Continue;
     };
-    ClaudeRoute::Handled(app.apply_claude_update(update))
+    let context = super::backend_updates::context(&app.session, &app.view);
+    let update = app.session.finish_claude_update(update, &context);
+    ClaudeRoute::Handled(app.apply_backend_update(update))
 }
 
 /// Attach a submitted UUID before its existing local acceptance rule.
@@ -49,10 +54,13 @@ pub(super) fn handle(
     let mut update = Default::default();
     app.session
         .receive_named_claude(method, &Value::Object(params.clone()), &draft, &mut update);
-    app.apply_claude_update(update)
+    let context = super::backend_updates::context(&app.session, &app.view);
+    let update = app.session.finish_claude_update(update, &context);
+    app.apply_backend_update(update)
 }
 
 /// Recover submitted text and apply only returned local editor changes.
+#[cfg(test)]
 pub(super) fn fail_session(app: &mut AppState) {
     let draft = ClaudeDraftContext {
         composer: app.view.input.lines(),

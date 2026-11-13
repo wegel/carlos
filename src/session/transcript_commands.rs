@@ -9,6 +9,7 @@ use super::state::SessionState;
 
 impl SessionState {
     /// Append a draft and assign its transcript id.
+    #[inline]
     pub(crate) fn transcript_append(&mut self, draft: EntryDraft) -> EntryId {
         self.messages.append(draft)
     }

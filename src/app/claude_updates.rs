@@ -16,9 +16,6 @@ impl AppState {
             self.apply_claude_effect(effect);
         }
         self.apply_item_changes(update.items);
-        if let Some(frame) = update.history_frame {
-            let _ = super::notifications::handle_server_message_line(self, &frame.to_string());
-        }
         update.action
     }
 

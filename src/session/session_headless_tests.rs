@@ -37,7 +37,10 @@ fn common_messages_need_no_view() {
         }
         session.replace_codex_item_turn(Some("outside".into()));
         for line in common_lines() {
-            session.handle_common_backend_line(&line.to_string());
+            session.handle_backend_line(
+                &line.to_string(),
+                &super::backend_test_support::context(&session),
+            );
         }
         assert_eq!(session.messages().len(), 1);
         assert_eq!(session.messages()[0].role, Role::Assistant);

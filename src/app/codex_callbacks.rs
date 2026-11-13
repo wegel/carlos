@@ -10,10 +10,10 @@ use crate::session::approval_state::ApprovalQueue;
 use crate::session::codex::callback_commands::CallbackRetired;
 use crate::session::codex::callbacks::CallbackKey;
 
-#[path = "codex_callback_route.rs"]
-mod routing;
+#[path = "codex_callback_updates.rs"]
+mod updates;
 
-pub(super) use self::routing::{route, CallbackRoute};
+pub(super) use self::updates::apply;
 
 /// Create exactly one editor after the session accepts the native callback.
 #[cfg(test)]
@@ -25,7 +25,7 @@ pub(super) fn receive(
     let update = app
         .session
         .accept_codex_callback(method, frame, app.view.codex_callbacks.focused);
-    routing::apply(app, update)
+    updates::apply(app, update)
 }
 
 /// Match resolutions in the session before removing the exact local editor.
@@ -143,7 +143,7 @@ pub(super) fn edited(app: &mut AppState) {
 #[cfg(test)]
 pub(super) fn checked(app: &mut AppState, params: &Value) -> Option<ServerRequestAction> {
     let update = app.session.checked_codex_callback(params);
-    routing::apply(app, update)
+    updates::apply(app, update)
 }
 
 /// Keep reply and worker failures beside their own answer field.

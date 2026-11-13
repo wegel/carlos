@@ -1,9 +1,9 @@
 //! Reconnect facts, checked snapshots and retained charges need no terminal object.
 
-use serde_json::{json, Value};
+use serde_json::json;
 
+use super::connection_test_support::snapshot;
 use super::reconnect_install::install;
-use crate::codex_snapshot::CodexSnapshot;
 use crate::session::models::Role;
 use crate::session::state::SessionState;
 use crate::session::test_backend::TestBackend;
@@ -68,15 +68,4 @@ fn complete_same_thread_snapshot_retains_ids_and_reopens_native_work() {
         .transcript
         .into_iter()
         .any(|change| change.transcript_reset));
-}
-
-fn snapshot() -> CodexSnapshot {
-    CodexSnapshot {
-        thread: json!({"id":"root","status":{"type":"idle"},"turns":[{"id":"turn","status":"completed","items":[{"id":"item","type":"agentMessage","text":"original"}]}]}),
-        runtime: json!({"result":{"thread":{"id":"root"},"model":"native-model"}}).to_string(),
-        catalog: json!({"data":[{"model":"native-model","displayName":"Native"}]}),
-        queue: None,
-        goal: None,
-        panel: Value::Null,
-    }
 }

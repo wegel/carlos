@@ -1,7 +1,10 @@
 //! Grok ACP backend: process lifecycle and BackendClient implementation.
 
+mod client;
 mod history;
 mod process;
+#[cfg(test)]
+pub(crate) mod receiver_test_support;
 mod rewind;
 mod translate;
 mod types;
@@ -13,7 +16,6 @@ use std::time::Duration;
 use anyhow::{anyhow, bail, Context, Result};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendClient, BackendKind, EventReceiver};
 use crate::protocol_params::ModelInfo;
 
 use self::history::parse_grok_session_list;
@@ -21,15 +23,10 @@ use self::process::{start_grok_process, GrokProcess};
 use self::translate::{interrupt_prompt_turn, mark_prompt_started};
 use self::types::{
     normalize_runtime_arg, parse_grok_model_catalog, response_error_message, response_is_error,
-    synthetic_start_response, token_usage_line, turn_input_text,
+    synthetic_start_response, token_usage_line,
 };
 
 pub(crate) use self::history::{load_grok_thread_summaries, GrokSessionSummary};
-pub(crate) use self::types::{
-    grok_model_catalog, GrokLaunchMode, GrokRuntimeSettings, GrokTranslationState,
-    GROK_PENDING_TURN_ID,
-};
-
 #[cfg(test)]
 pub(crate) use self::history::{load_grok_thread_summaries_from, parse_iso_timestamp_secs};
 #[cfg(test)]
@@ -41,6 +38,10 @@ pub(crate) use self::rewind::{
 #[cfg(test)]
 pub(crate) use self::translate::{
     finish_prompt_turn as finish_grok_prompt_turn_for_test, translate_grok_notification_for_test,
+};
+pub(crate) use self::types::{
+    grok_model_catalog, GrokLaunchMode, GrokRuntimeSettings, GrokTranslationState,
+    GROK_PENDING_TURN_ID,
 };
 
 const SESSION_NEW_TIMEOUT: Duration = Duration::from_secs(60);
@@ -326,75 +327,5 @@ impl GrokClient {
         )?;
         let _ = process.notify("x.ai/queue/clear", json!({ "sessionId": session_id }));
         Ok(json!({ "jsonrpc": "2.0", "result": {} }).to_string())
-    }
-}
-
-// --- BackendClient ---
-
-impl BackendClient for GrokClient {
-    fn kind(&self) -> BackendKind {
-        BackendKind::Grok
-    }
-
-    fn call(&self, method: &str, params: Value, _timeout: Duration) -> Result<String> {
-        match method {
-            "turn/start" => {
-                self.apply_runtime_settings(
-                    params.get("model").and_then(Value::as_str),
-                    params.get("effort").and_then(Value::as_str),
-                )?;
-                let text = turn_input_text(&params)?;
-                let session_id = self.current_session_id()?;
-                self.begin_prompt_translation()?;
-                let process = self
-                    .process
-                    .lock()
-                    .map_err(|_| anyhow!("Grok process lock poisoned"))?;
-                process.start_prompt(json!({
-                    "sessionId": session_id,
-                    "prompt": [{ "type": "text", "text": text }],
-                }))?;
-                Ok(json!({ "jsonrpc": "2.0", "result": {} }).to_string())
-            }
-            "turn/steer" => bail!("Grok does not support mid-turn steer"),
-            "turn/interrupt" => self.interrupt_session(),
-            other => bail!("unsupported Grok backend method: {other}"),
-        }
-    }
-
-    fn fork_from_rewind(
-        &self,
-        _thread_id: &str,
-        request: crate::backend::RewindForkRequest,
-        _timeout: Duration,
-    ) -> Result<String> {
-        self.rewind_fork(request)
-    }
-
-    fn respond(&self, request_id: &Value, _result: Value) -> Result<()> {
-        bail!("unsupported Grok approval request: {request_id}")
-    }
-
-    fn respond_error(&self, _request_id: &Value, _code: i64, _message: &str) -> Result<()> {
-        bail!("Grok backend approvals are not implemented")
-    }
-
-    fn take_events_rx(&mut self) -> Result<EventReceiver> {
-        self.events_rx
-            .take()
-            .map(Into::into)
-            .ok_or_else(|| anyhow!("Grok events receiver already taken"))
-    }
-
-    fn stop(&mut self) {
-        if let Ok(mut process) = self.process.lock() {
-            process.stop();
-        }
-    }
-}
-
-impl Drop for GrokClient {
-    fn drop(&mut self) {
-        BackendClient::stop(self);
     }
 }

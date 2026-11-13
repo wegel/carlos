@@ -69,6 +69,7 @@ impl Transcript {
     }
 
     /// Adopt one draft and return its newly allocated id.
+    #[inline(always)]
     pub(crate) fn append(&mut self, draft: EntryDraft) -> EntryId {
         let id = self.ids.allocate();
         self.insert(id, draft);
@@ -83,6 +84,7 @@ impl Transcript {
     }
 
     /// Insert an id selected by this store during append or history adoption.
+    #[inline(always)]
     pub(super) fn insert(&mut self, id: EntryId, draft: EntryDraft) {
         self.active.push(false);
         self.positions.insert(id, self.entries.len());

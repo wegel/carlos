@@ -93,3 +93,10 @@ pub(crate) mod callback_update;
 
 #[cfg(test)]
 mod callback_route_tests;
+
+pub(crate) mod frame_batch;
+pub(crate) mod frame_install;
+mod frame_receive;
+
+#[cfg(test)]
+mod frame_tests;

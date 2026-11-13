@@ -2,13 +2,11 @@
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
-use serde_json::Value;
-
 use super::state::AppState;
 use crate::session::actions::ServerRequestAction;
 use crate::session::common_update::CommonUpdate;
 use crate::theme::ANIMATION_STEP_MS;
+use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
 
 // --- Key helpers ---
 
@@ -85,47 +83,9 @@ pub(crate) fn handle_server_message_line(
     app: &mut AppState,
     line: &str,
 ) -> Option<ServerRequestAction> {
-    let Ok(parsed) = serde_json::from_str::<Value>(line) else {
-        return None;
-    };
-    let previous = app.session.replace_codex_item_turn(None);
-    app.session
-        .replace_codex_item_turn(parsed["params"]["turnId"].as_str().map(str::to_string));
-    let action = handle_parsed(app, parsed);
-    app.session.replace_codex_item_turn(previous);
-    action
-}
-
-fn handle_parsed(app: &mut AppState, parsed: Value) -> Option<ServerRequestAction> {
-    if app.session.codex_scope().closed() {
-        return None;
-    }
-    if app.session.rate_limits_response(&parsed) {
-        return None;
-    }
-    let method = parsed.get("method").and_then(Value::as_str)?;
-    if app.session.codex_scope().enabled() {
-        if let super::codex_callbacks::CallbackRoute::Handled(action) =
-            super::codex_callbacks::route(app, method, &parsed)
-        {
-            return action;
-        }
-    }
-    if super::codex_panel_events::event(app, method, &parsed["params"]) {
-        return None;
-    }
-    let params = parsed.get("params").and_then(Value::as_object)?;
-    if method == "carlos/codex/closed" {
-        super::codex_lifecycle::close(app, params);
-        return None;
-    }
-    if let super::claude_notifications::ClaudeRoute::Handled(action) =
-        super::claude_notifications::route(app, method, &parsed["params"])
-    {
-        return action;
-    }
-    let update = app.session.handle_common_backend_message(&parsed);
-    app.apply_common_update(update)
+    let context = super::backend_updates::context(&app.session, &app.view);
+    let update = app.session.handle_backend_line(line, &context);
+    app.apply_backend_update(update)
 }
 
 #[cfg(test)]

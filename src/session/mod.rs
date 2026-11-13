@@ -115,3 +115,12 @@ pub(crate) mod thread_commands;
 pub(crate) mod thread_list;
 
 pub(crate) mod notification_turns;
+
+mod backend_actions;
+mod backend_receive;
+pub(crate) mod backend_update;
+
+#[cfg(test)]
+mod backend_receiver_tests;
+#[cfg(test)]
+mod backend_test_support;

@@ -21,6 +21,10 @@ pub(crate) struct CallbackUpdate {
 /// Name the exact local changes needed after the session handles a native frame.
 pub(crate) enum CallbackEffect {
     None,
+    ReplyFailed {
+        id: Value,
+        error: String,
+    },
     Accepted {
         key: CallbackKey,
         editor: CallbackEditor,

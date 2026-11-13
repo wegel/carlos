@@ -75,6 +75,7 @@ fn submit_answer(
 }
 
 /// Send a worker reply only through its original submitted card token.
+#[cfg(test)]
 pub(super) fn send(
     client: &dyn BackendClient,
     app: &mut AppState,

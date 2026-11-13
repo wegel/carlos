@@ -1,6 +1,7 @@
 //! Record backend calls for terminal-free session command tests.
 
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{mpsc, Mutex};
 use std::time::Duration;
 
@@ -8,10 +9,13 @@ use anyhow::{bail, ensure, Context, Result};
 use serde_json::Value;
 
 use crate::backend::{BackendClient, BackendKind, EventReceiver};
+use crate::codex_snapshot::CodexSnapshot;
 
 /// Record exact native calls and optionally serve fixed read-only replies.
 #[derive(Default)]
 pub(crate) struct TestBackend {
+    pub(crate) snapshot: Mutex<Option<CodexSnapshot>>,
+    pub(crate) aborted: AtomicUsize,
     pub(crate) acknowledgements: Mutex<Vec<usize>>,
     pub(crate) reads: Mutex<VecDeque<(String, Value)>>,
     pub(crate) calls: Mutex<Vec<(String, Value, Value)>>,
@@ -70,6 +74,12 @@ impl BackendClient for TestBackend {
     }
     fn acknowledge_event(&self, bytes: usize) {
         self.acknowledgements.lock().expect("acks").push(bytes);
+    }
+    fn take_reconnect_snapshot(&self, _generation: u64) -> Option<CodexSnapshot> {
+        self.snapshot.lock().expect("snapshot").take()
+    }
+    fn abort_connection(&self) {
+        self.aborted.fetch_add(1, Ordering::SeqCst);
     }
     fn stop(&mut self) {}
 }

@@ -63,6 +63,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
 }
 
 /// Read one record per frame so large persisted inputs do not overflow a native reply.
+#[cfg(test)]
 pub(super) fn page(client: &dyn BackendClient, app: &mut AppState, token: u64, cursor: Value) {
     let scope = scope(app);
     let mut update = QueueUpdate::default();
