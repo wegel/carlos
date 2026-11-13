@@ -2,6 +2,7 @@
 
 mod client_controls;
 mod client_prompt;
+mod commands;
 mod conversation;
 #[cfg(test)]
 mod conversation_tests;
@@ -88,6 +89,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendClient, BackendKind, EventReceiver, PromptOrigin, PromptPriority};
+use crate::backend_commands::{BackendCommands, CommandHandle};
 
 pub(crate) use self::fact_transfer::FactTransfer;
 #[cfg(any(test, feature = "test-support"))]
@@ -106,7 +108,7 @@ pub use self::types::ClaudeTranslationState;
 use self::event_queue::EventSender;
 use self::helper::start_params;
 use self::transport::ControllerTransport;
-use self::types::{normalize_runtime_arg, ClaudeRuntimeSettings};
+use self::types::ClaudeRuntimeSettings;
 
 /// Owns the helper transport; startup callbacks reach the UI before startup completes.
 pub struct ClaudeClient {
@@ -114,7 +116,7 @@ pub struct ClaudeClient {
     cwd: PathBuf,
     transport: Arc<Mutex<Arc<ControllerTransport>>>,
     session_id: String,
-    runtime_settings: Mutex<ClaudeRuntimeSettings>,
+    runtime_settings: Arc<Mutex<ClaudeRuntimeSettings>>,
     events_tx: EventSender,
     events_rx: Option<EventReceiver>,
 }
@@ -135,7 +137,7 @@ impl ClaudeClient {
             cwd: cwd.to_path_buf(),
             transport: Arc::new(Mutex::new(transport)),
             session_id,
-            runtime_settings: Mutex::new(settings),
+            runtime_settings: Arc::new(Mutex::new(settings)),
             events_tx,
             events_rx: Some(events_rx),
         })
@@ -151,11 +153,14 @@ impl ClaudeClient {
         json!({ "result": { "thread": history.cloned().unwrap_or_else(|| json!({ "id": thread_id })) } }).to_string()
     }
 
+    #[cfg(any(test, feature = "test-support"))]
     fn helper_call(&self, method: &str, params: Value, timeout: Duration) -> Result<Value> {
-        self.transport
+        let transport = self
+            .transport
             .lock()
             .map_err(|_| anyhow!("Claude transport lock poisoned"))?
-            .call(method, params, timeout)
+            .clone();
+        transport.call(method, params, timeout)
     }
 }
 
@@ -164,23 +169,31 @@ impl BackendClient for ClaudeClient {
         BackendKind::Claude
     }
 
-    fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String> {
-        match method {
-            "turn/start" | "turn/steer" => {
-                bail!("Claude prompts require explicit author and priority")
-            }
-            "thread/name/set" => {
-                let result = self.helper_call(
-                    "sessions.rename",
-                    json!({"cwd":self.cwd,
-                    "sessionId":params["threadId"],"title":params["name"]}),
-                    timeout,
-                )?;
-                Ok(json!({"result":result}).to_string())
-            }
-            "turn/interrupt" => self.interrupt(timeout),
-            other => bail!("unsupported Claude method: {other}"),
+    fn prepare_interrupt(&self) -> crate::backend_commands::InterruptIntent {
+        let mut handler = self.handler.borrow_mut();
+        crate::backend_commands::InterruptIntent {
+            generation: handler.generation,
+            epoch: handler.epoch,
+            prompts: handler.lifecycle.begin_interrupt(),
         }
+    }
+
+    fn finish_interrupt(&self, intent: crate::backend_commands::InterruptIntent, accepted: bool) {
+        let mut handler = self.handler.borrow_mut();
+        if !accepted && handler.generation == intent.generation && handler.epoch == intent.epoch {
+            handler.lifecycle.rollback_interrupt(&intent.prompts);
+        }
+    }
+
+    fn capture_commands(&self) -> Result<CommandHandle> {
+        commands::capture(self)
+    }
+
+    fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String> {
+        if method == "turn/interrupt" {
+            return self.interrupt(timeout);
+        }
+        self.commands()?.call(method, params, timeout)
     }
 
     fn submit_prompt(
@@ -191,35 +204,11 @@ impl BackendClient for ClaudeClient {
         priority: PromptPriority,
         timeout: Duration,
     ) -> Result<String> {
-        self.submit(&params, origin, priority, timeout)
+        self.commands()?.submit(&params, origin, priority, timeout)
     }
 
     fn apply_runtime_settings(&self, model: Option<&str>, effort: Option<&str>) -> Result<bool> {
-        let desired = ClaudeRuntimeSettings {
-            model: normalize_runtime_arg(model),
-            effort: normalize_runtime_arg(effort).filter(|effort| effort != "auto"),
-        };
-        let mut current = self
-            .runtime_settings
-            .lock()
-            .map_err(|_| anyhow!("Claude settings lock poisoned"))?;
-        if current.model != desired.model {
-            self.helper_call(
-                "model.set",
-                json!({ "model": desired.model }),
-                Duration::from_secs(10),
-            )?;
-            current.model = desired.model;
-        }
-        if current.effort != desired.effort {
-            self.helper_call(
-                "effort.set",
-                json!({ "effort": desired.effort }),
-                Duration::from_secs(10),
-            )?;
-            current.effort = desired.effort;
-        }
-        Ok(true)
+        self.commands()?.apply_runtime_settings(model, effort)
     }
 
     fn request_native_control(&self, method: &str, mut params: Value) -> Result<()> {
@@ -268,40 +257,12 @@ impl BackendClient for ClaudeClient {
         request: crate::backend::RewindForkRequest,
         _timeout: Duration,
     ) -> Result<String> {
-        let before = request
-            .before_turn_id
-            .context("Select a prompt with a native UUID before editing")?;
-        let settings = self
-            .runtime_settings
-            .lock()
-            .map_err(|_| anyhow!("Claude settings lock poisoned"))?
-            .clone();
-        let generation = self
-            .transport
-            .lock()
-            .map_err(|_| anyhow!("Claude transport lock poisoned"))?
-            .generation;
-        sessions::fork_session(
-            self.transport.clone(),
-            self.events_tx.for_generation(generation),
-            self.cwd.clone(),
-            settings,
-            thread_id.to_string(),
-            before,
-        );
-        Ok(json!({"result":{"claudeForkPending":true}}).to_string())
+        self.commands()?
+            .fork_from_rewind(thread_id, request, _timeout)
     }
 
     fn respond(&self, request_id: &Value, result: Value) -> Result<()> {
-        let callback_id = request_id
-            .as_str()
-            .context("native callback ID must be a string")?;
-        self.helper_call(
-            "callback.respond",
-            json!({ "callbackId": callback_id, "answer": result }),
-            Duration::from_secs(10),
-        )?;
-        Ok(())
+        self.commands()?.respond(request_id, result)
     }
 
     fn respond_error(&self, request_id: &Value, _code: i64, message: &str) -> Result<()> {
@@ -352,3 +313,7 @@ mod event_tolerance_tests;
 
 #[cfg(any(test, feature = "test-support"))]
 pub mod forwarder_test_support;
+
+#[cfg(test)]
+#[path = "../tests/backend_owner_tests.rs"]
+mod backend_owner_tests;

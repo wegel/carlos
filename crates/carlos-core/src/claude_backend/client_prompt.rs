@@ -3,16 +3,16 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use serde_json::{json, Value};
 use uuid::Uuid;
 
+use super::commands::Commands;
 use super::event_queue::EventSender;
 use super::transport::ControllerTransport;
-use super::ClaudeClient;
-use crate::backend::{BackendClient, PromptOrigin, PromptPriority};
+use crate::backend::{PromptOrigin, PromptPriority};
 
-impl ClaudeClient {
+impl Commands {
     /// Announce prompt ownership before any native result can name its UUID.
     pub(super) fn submit(
         &self,
@@ -54,11 +54,8 @@ impl ClaudeClient {
     }
 
     fn prompt_transport(&self) -> Result<(Arc<ControllerTransport>, EventSender)> {
-        let transport = self
-            .transport
-            .lock()
-            .map_err(|_| anyhow!("Claude transport lock poisoned"))?
-            .clone();
+        self.check()?;
+        let transport = self.transport.clone();
         let events = self.events_tx.for_generation(transport.generation);
         Ok((transport, events))
     }

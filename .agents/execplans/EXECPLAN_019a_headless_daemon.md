@@ -15,7 +15,8 @@ The existing terminal remains embedded during this step: it still owns its sessi
 
 - [x] (2026-11-13) Confirm EP018a is archived unchanged, record owner acceptance and preserve the independent follow-up review.
 - [x] (2026-11-13) Write EP019a and scope EP019b in the architecture and terminal migration documents.
-- [ ] Capture starting executable/source evidence and prove real backend command handles can run without blocking their owner; pass the mandatory gate before listener work.
+- [x] (2026-11-13) Preserve accepted EP018a release and source metadata in `/tmp/carlos-ep019a/`; initial cargo test passes.
+- [ ] Prove real backend command handles can run without blocking their owner (in progress: captured Codex/Claude handles, owner-held interrupt intent and pre-dispatch retirement; remaining: full real-adapter failure tests, Grok, terminal/native checks). Pass this gate before listener work.
 - [ ] Classify core reports, unify operation ids and implement a bounded owner loop with ordinary-command order and responsive guarded controls.
 - [ ] Add carlosd, a minimal saved-session registry and a private Unix listener for the existing basic command families.
 - [ ] Prove two headless clients, disconnect/reconnect, bounded events/output, approval races, retry handling and shutdown through real deterministic adapters.
@@ -30,6 +31,10 @@ EP018a already supplies BackendWork values with no SessionState borrow, but its 
 The core still returns BackendUpdate, ClaudeUpdate, TurnUpdate, CommonUpdate and CodexClosed reports. Some fields describe shared facts, some describe one submitted command, and some tell the terminal to change its controls. SubmissionOutcome has no socket notification yet. The protocol also has both client_message_id and ClientOperation, while Entry.client_message_id remains null. These are known producer/consumer gaps, not an established deployed contract.
 
 The core's one pending ordinary mutation is a useful order guard. The daemon must queue commands above it rather than returning Busy for every second client. Interrupts and approval answers need prompt service and separate validity checks; priority does not authorize an obsolete turn or a second answer to the same card.
+
+The real Claude callback path held the transport selector lock across a controller call. The shared command adapter now clones one transport under a short lock and waits outside it. Claude interrupt bookkeeping still belongs to its caller's EventHandler; the caller prepares an opaque InterruptIntent and settles it after worker completion. Captured commands never borrow that RefCell.
+
+Prepared work previously checked its session only after the call. A shared atomic retirement flag now lets a reset or dropped owner prevent work that has not started from writing at all. Work already dispatched still requires the existing checked completion and uncertain-outcome recovery.
 
 ## Decision Log
 
@@ -46,10 +51,12 @@ Decision: expose a fresh daemon-instance id in the greeting and retain logical s
 
 Decision: list saved sessions without starting their backends, then restore a dormant session once when a client subscribes. Rationale: the daemon must recover a saved logical id without launching every historical helper or creating duplicate helpers for concurrent subscribers. Save Ralph state for display/review, but require an explicit decision to resume it after a crash. Date/Author: 2026-11-13, Codex.
 
+Decision: retain an explicitly named execute_embedded bridge for the terminal and old deterministic fakes while BackendWork::execute accepts only a shareable CommandHandle. Rationale: the worker route cannot accidentally capture the whole non-Sync client, and both routes reuse the same call/completion algorithm. EP019b deletes the embedded route. Date/Author: 2026-11-13, Codex.
+
 ## Outcomes & Retrospective
 
 
-The author wrote the plan; no daemon implementation has started. The next action is to preserve the EP018a executable and build the real-adapter proof. EP019b remains a scoped follow-up, not an executable stub. The terminal cutover and removal of its legacy reports are not completion criteria for EP019a.
+The author preserved the EP018a executable and began the real-adapter proof. Codex and Claude now expose captured command handles; Claude lifecycle intent stays with its owner. Five real-adapter tests pass, including held send/read/interrupt/answer checks for both Codex and Claude, reset before Claude dispatch, helper replacement and stopped Codex dispatch. Full cargo test passes (816 app, 255 core plus one ignored, six proto, three compiler doctests); strict workspace Clippy passed before the final fork-fence refinement. The terminal/native contract runner is still in progress at `/tmp/carlos-ep019a/m1-terminal-contract.log`. The daemon listener and owner loop do not exist yet. The next action is to finish real-adapter failure/concurrency tests and Grok's command handle, then pass the milestone-1 gates. EP019b remains a scoped follow-up, not an executable stub. The terminal cutover and removal of its legacy reports are not completion criteria for EP019a.
 
 ## Context and Orientation
 
@@ -171,3 +178,5 @@ In `crates/carlos-core/src/engine/`, expose a narrow EngineCommand/EngineReply f
 Planning review: the author checked the plan against the repository's code, Fable's whole-roadmap concerns and the owner's qualifications about Busy and private results. The author checked roadmap references and whitespace and verified that the archived EP018a plan stayed byte-for-byte unchanged. This pass changes only documents, so it does not rerun Rust/runtime tests or claim a concurrency proof. During execution use `.agents/reviewers/engineering_reviewer.md`; copy its findings, corrective guidance and final verdict here. No independent reviewer is claimed for this planning pass.
 
 Update note (2026-11-13): created the next executable plan after owner acceptance of EP018a. Split headless daemon proof from terminal cutover; require real handles first, explicit report routing, bounded ordered admission, private recovery and an owner review gate before EP019b.
+
+Update note (2026-11-13, milestone 1 in progress): preserved the baseline, added fixed native handles and owner-only interrupt bookkeeping, and added real controller/socket tests. Listener work remains gated on the complete adapter proof.

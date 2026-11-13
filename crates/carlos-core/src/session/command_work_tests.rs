@@ -77,7 +77,7 @@ fn worker(
     let (entered, observed) = mpsc::channel();
     let (release, released) = mpsc::channel();
     let worker = thread::spawn(move || {
-        work.execute(&Peer {
+        work.execute_embedded(&Peer {
             kind,
             entered,
             release: released,

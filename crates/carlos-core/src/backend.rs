@@ -116,6 +116,17 @@ impl<T> Drop for EventReceiver<T> {
 pub trait BackendClient {
     /// Identify the native backend that receives these commands.
     fn kind(&self) -> BackendKind;
+    /// Mark interrupt intent on the event owner before a worker sends the control.
+    fn prepare_interrupt(&self) -> crate::backend_commands::InterruptIntent {
+        Default::default()
+    }
+    /// Undo only matching owner intent when a native interrupt fails.
+    fn finish_interrupt(&self, _intent: crate::backend_commands::InterruptIntent, _accepted: bool) {
+    }
+    /// Capture commands for the current helper without transferring its event consumer.
+    fn capture_commands(&self) -> Result<crate::backend_commands::CommandHandle> {
+        bail!("backend does not expose captured command handles")
+    }
     /// Send one backend command and wait up to the supplied deadline for its reply.
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String>;
     /// Send a protocol notice that has no response, when the backend supports it.

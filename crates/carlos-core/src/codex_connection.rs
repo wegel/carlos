@@ -15,6 +15,8 @@ use crate::protocol_events::EventQueue;
 
 #[path = "codex_connection_backend.rs"]
 mod backend;
+#[path = "codex_connection_commands.rs"]
+mod commands;
 
 #[derive(Clone, Debug)]
 /// An owned subprocess stops with Carlos; an attached native server belongs to someone else.

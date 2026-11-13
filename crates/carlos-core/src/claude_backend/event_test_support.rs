@@ -63,7 +63,7 @@ pub(super) fn command_client(command: Command, capacity: usize) -> (ClaudeClient
         cwd: PathBuf::from("."),
         transport: Arc::new(Mutex::new(Arc::new(transport))),
         session_id: SESSION.to_string(),
-        runtime_settings: Mutex::new(Default::default()),
+        runtime_settings: Arc::new(Mutex::new(Default::default())),
         events_tx: events,
         events_rx: Some(receiver),
     };

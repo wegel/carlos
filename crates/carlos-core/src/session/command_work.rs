@@ -83,8 +83,19 @@ impl std::error::Error for CommandError {}
 
 impl BackendWork {
     /// Wait for a backend without borrowing the session; the daemon runs this outside its owner loop.
-    pub fn execute(self, client: &dyn BackendClient) -> BackendCompletion {
-        let result = if client.kind() != self.guard.kind {
+    pub fn execute(self, client: &crate::backend_commands::CommandHandle) -> BackendCompletion {
+        self.execute_embedded(client)
+    }
+
+    /// Bridge the embedded terminal until EP019b removes direct backend ownership.
+    pub fn execute_embedded(self, client: &dyn BackendClient) -> BackendCompletion {
+        let result = if !self
+            .guard
+            .dispatch_live
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
+            Err("backend command retired before dispatch; nothing sent".into())
+        } else if client.kind() != self.guard.kind {
             Err("backend kind changed before command execution".into())
         } else {
             execute_call(self.call, &self.finish, client)

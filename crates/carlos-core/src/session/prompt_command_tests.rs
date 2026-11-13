@@ -268,7 +268,7 @@ fn drive(
     let mut prepared = prepared.expect("prepare");
     while let Some(work) = prepared.work {
         prepared = state
-            .finish_backend_work(work.execute(peer))
+            .finish_backend_work(work.execute_embedded(peer))
             .expect("completion");
     }
     prepared.update

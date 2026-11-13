@@ -1,6 +1,7 @@
 //! Session facts and backend commands that run without a terminal client.
 
 pub mod backend;
+pub mod backend_commands;
 pub mod claude_backend;
 pub mod codex_connection;
 mod codex_diagnostics;
@@ -22,3 +23,7 @@ mod protocol_state;
 mod protocol_writer;
 pub mod session;
 pub mod summaries;
+
+#[cfg(test)]
+#[path = "tests/backend_owner_codex_tests.rs"]
+mod backend_owner_codex_tests;

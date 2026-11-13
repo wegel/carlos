@@ -14,6 +14,9 @@ impl BackendClient for CodexClient {
     fn kind(&self) -> BackendKind {
         BackendKind::Codex
     }
+    fn capture_commands(&self) -> Result<crate::backend_commands::CommandHandle> {
+        self.capture()
+    }
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String> {
         self.connection()?.call(method, params, timeout)
     }

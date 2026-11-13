@@ -8,8 +8,8 @@ use super::event_normalizer::fact;
 /// Belongs to ClaudeClient's calling thread, never to either pipe reader.
 pub(super) struct EventHandler {
     pub(super) lifecycle: Lifecycle,
-    generation: u64,
-    epoch: u64,
+    pub(super) generation: u64,
+    pub(super) epoch: u64,
     closed: bool,
     reset_key: Option<String>,
 }

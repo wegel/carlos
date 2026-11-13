@@ -58,9 +58,35 @@ pub(super) fn begin_session(
     }
 }
 
+/// Keep a fork worker tied to the helper and conversation captured before dispatch.
+pub(super) struct ForkSource {
+    pub(super) helper: Arc<ControllerTransport>,
+    pub(super) epoch: u64,
+}
+
+impl ForkSource {
+    fn check(&self, current: &Arc<ControllerTransport>) -> Result<()> {
+        anyhow::ensure!(
+            Arc::ptr_eq(current, &self.helper),
+            "Claude fork helper was replaced"
+        );
+        anyhow::ensure!(
+            self.helper
+                .conversation
+                .lock()
+                .map_err(|_| anyhow!("Claude conversation lock poisoned"))?
+                .epoch
+                == self.epoch,
+            "Claude fork conversation has reset"
+        );
+        Ok(())
+    }
+}
+
 /// Fork with the SDK, then replace helper identity before delivering any new frames.
 pub(super) fn fork_session(
     transport: Arc<Mutex<Arc<ControllerTransport>>>,
+    source: ForkSource,
     events: EventSender,
     cwd: std::path::PathBuf,
     settings: ClaudeRuntimeSettings,
@@ -68,7 +94,9 @@ pub(super) fn fork_session(
     before: String,
 ) {
     thread::spawn(move || {
-        let result = replace_after_fork(&transport, &events, &cwd, &settings, &thread_id, &before);
+        let result = replace_after_fork(
+            &transport, source, &events, &cwd, &settings, &thread_id, &before,
+        );
         if let Err(error) = result {
             let generation = transport
                 .lock()
@@ -84,16 +112,19 @@ pub(super) fn fork_session(
 
 fn replace_after_fork(
     transport: &Arc<Mutex<Arc<ControllerTransport>>>,
+    source: ForkSource,
     events: &EventSender,
     cwd: &Path,
     settings: &ClaudeRuntimeSettings,
     thread_id: &str,
     before: &str,
 ) -> Result<()> {
-    let original = transport
+    let current = transport
         .lock()
         .map_err(|_| anyhow!("Claude transport lock poisoned"))?
         .clone();
+    source.check(&current)?;
+    let original = source.helper.clone();
     let result = original.call(
         "sessions.forkBefore",
         json!({"cwd":cwd,"sessionId":thread_id,"beforeMessageId":before}),
@@ -113,6 +144,7 @@ fn replace_after_fork(
     let mut slot = transport
         .lock()
         .map_err(|_| anyhow!("Claude transport lock poisoned"))?;
+    source.check(&slot)?;
     next_events
         .send(json!({"method":"claude/sessionChanged","params":{"sessionId":id}}).to_string())?;
     *slot = replacement.clone();

@@ -1,5 +1,10 @@
 //! Fence one outstanding mutating backend wait while reads and native facts keep flowing.
 
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+
 use carlos_proto::ids::SessionId;
 
 use super::command_work::{BackendCall, BackendWork, CommandError, Finish};
@@ -9,10 +14,11 @@ use crate::backend::BackendKind;
 #[derive(Debug, Default)]
 pub(super) struct CommandState {
     issued: u64,
-    pending: Option<u64>,
+    pending: Option<(u64, Arc<AtomicBool>)>,
 }
 
 pub(super) struct WorkGuard {
+    pub(super) dispatch_live: Arc<AtomicBool>,
     session: SessionId,
     thread: String,
     token: u64,
@@ -24,7 +30,9 @@ pub(super) struct WorkGuard {
 
 impl SessionState {
     pub(super) fn retire_backend_command(&mut self) {
-        self.commands.pending = None;
+        if let Some((_, live)) = self.commands.pending.take() {
+            live.store(false, Ordering::SeqCst);
+        }
     }
 
     pub(super) fn command_idle(&self) -> Result<(), CommandError> {
@@ -48,12 +56,14 @@ impl SessionState {
             .checked_add(1)
             .expect("command token exhausted");
         let token = self.commands.issued;
-        self.commands.pending = Some(token);
+        let dispatch_live = Arc::new(AtomicBool::new(true));
+        self.commands.pending = Some((token, dispatch_live.clone()));
         let (epoch, generation) = self.command_connection(kind);
         BackendWork {
             call,
             finish,
             guard: WorkGuard {
+                dispatch_live,
                 session: self.events.id.clone(),
                 thread: self.thread_id.clone(),
                 token,
@@ -66,10 +76,12 @@ impl SessionState {
     }
 
     pub(super) fn accept_command_completion(&mut self, guard: &WorkGuard) -> bool {
-        if guard.session != self.events.id || self.commands.pending != Some(guard.token) {
+        if guard.session != self.events.id
+            || self.commands.pending.as_ref().map(|(token, _)| *token) != Some(guard.token)
+        {
             return false;
         }
-        self.commands.pending = None;
+        self.retire_backend_command();
         let (epoch, generation) = self.command_connection(guard.kind);
         self.thread_id == guard.thread
             && epoch == guard.epoch
@@ -90,6 +102,14 @@ impl SessionState {
             BackendKind::Codex => (self.codex_scope().epoch, self.codex_connection.generation()),
             BackendKind::Claude => (self.claude.epoch, self.claude.generation),
             BackendKind::Grok => (0, 0),
+        }
+    }
+}
+
+impl Drop for CommandState {
+    fn drop(&mut self) {
+        if let Some((_, live)) = self.pending.take() {
+            live.store(false, Ordering::SeqCst);
         }
     }
 }

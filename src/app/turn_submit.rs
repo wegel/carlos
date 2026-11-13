@@ -177,7 +177,7 @@ pub(super) fn run_prepared(
         let Some(work) = command.work else {
             return;
         };
-        let completion = work.execute(client);
+        let completion = work.execute_embedded(client);
         prepared = app.session.finish_backend_work(completion);
     }
 }

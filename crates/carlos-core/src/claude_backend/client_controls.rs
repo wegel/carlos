@@ -6,6 +6,7 @@ use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 
 use super::ClaudeClient;
+use crate::backend::BackendClient;
 
 impl ClaudeClient {
     /// Advance decoded history through the same batch gate as both native readers.
@@ -26,19 +27,10 @@ impl ClaudeClient {
 
     /// Let the transport correlate captured interrupt intent with its native reply.
     pub(super) fn interrupt(&self, timeout: Duration) -> Result<String> {
-        let transport = self
-            .transport
-            .lock()
-            .map_err(|_| anyhow!("Claude transport lock poisoned"))?
-            .clone();
-        let ids = self.handler.borrow_mut().lifecycle.begin_interrupt();
-        let result = match transport.call("interrupt", json!({}), timeout) {
-            Ok(result) => result,
-            Err(error) => {
-                self.handler.borrow_mut().lifecycle.rollback_interrupt(&ids);
-                return Err(error);
-            }
-        };
-        Ok(json!({"result":result}).to_string())
+        let commands = self.commands()?;
+        let intent = self.prepare_interrupt();
+        let result = commands.helper_call("interrupt", json!({}), timeout);
+        self.finish_interrupt(intent, result.is_ok());
+        result.map(|result| json!({"result":result}).to_string())
     }
 }
