@@ -143,7 +143,7 @@ fn pending_claude_exit_plan_accept_uses_approval_path_not_chat_input() {
     app.set_pending_approval(crate::session::approval_state::ApprovalRequestDraft {
         request_id: json!({"backend":"claude","kind":"exitPlanMode","toolUseId":"toolu_1"}),
         method: "claude/exitPlan/requestApproval".to_string(),
-        kind: super::state::ApprovalRequestKind::ClaudeExitPlanMode,
+        kind: crate::session::approval_state::ApprovalRequestKind::ClaudeExitPlanMode,
         title: "Approve Claude plan".to_string(),
         detail_lines: vec!["Do the work".to_string()],
         requested_permissions: None,
@@ -178,7 +178,7 @@ fn pending_claude_exit_plan_accept_uses_approval_path_not_chat_input() {
 fn escape_key_disables_ralph_mode() {
     let client = ApprovalRespondMock::new();
     let mut app = AppState::new("thread-1".to_string());
-    app.enable_ralph_mode(super::ralph::RalphConfig {
+    app.enable_ralph_mode(crate::session::ralph::RalphConfig {
         prompt_path: std::path::PathBuf::from(".agents/ralph-prompt.md"),
         base_prompt: "base".to_string(),
         done_marker: "@@COMPLETE@@".to_string(),
@@ -248,14 +248,14 @@ fn build_two_turn_rewind_app() -> AppState {
 fn submit_rewind_turn_text_forks_codex_thread_before_resubmitting() {
     let client = CodexRewindMock::new(build_rewind_fork_response());
     let mut app = build_two_turn_rewind_app();
-    let rewind_history_idx = app
-        .rewind_selected_history_index()
+    let selected = app
+        .rewind_prompt_id()
         .expect("rewind history index");
 
     super::turn_submit::submit_rewind_turn_text(
         &client,
         &mut app,
-        rewind_history_idx,
+        selected,
         "edited second".to_string(),
     );
 

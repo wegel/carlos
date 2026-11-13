@@ -1,6 +1,8 @@
 //! Apply partial native item redraw reports to the terminal.
 
-use std::time::{Duration, Instant};
+#[cfg(test)]
+use std::time::Duration;
+use std::time::Instant;
 
 use super::state::AppState;
 use crate::backend::BackendClient;
@@ -14,6 +16,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant)
     changed
 }
 /// Wake only for the session's existing bounded partial-item deadlines.
+#[cfg(test)]
 pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
     reconnect_streams::wait(&app.session, now)
 }

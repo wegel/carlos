@@ -5,8 +5,6 @@ use std::collections::HashMap;
 
 use serde_json::{json, Map, Value};
 
-pub(super) use crate::session::text::{safe_label, safe_text};
-
 use super::claude_question_field::AnswerField;
 
 /// Unanswered callbacks and consented browser requests retain separate lifetimes.
@@ -117,18 +115,6 @@ impl NativeDraft {
         self.viewport.scroll.set(0);
         self.viewport.follow_focus.set(true);
     }
-}
-
-#[cfg(test)]
-pub(super) fn mcp_fields(schema: &Value) -> Result<Vec<AnswerField>, String> {
-    Ok(crate::session::questions::mcp_fields(schema)?
-        .into_iter()
-        .map(|description| {
-            let mut field = AnswerField::from_description(description);
-            field.apply_default();
-            field
-        })
-        .collect())
 }
 
 /// Keep editing disabled when the terminal can only show the resize/cancel fallback.

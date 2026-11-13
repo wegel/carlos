@@ -1,7 +1,8 @@
 //! AppState impl: transcript/message manipulation, rendered lines, and selection.
 
-use super::models::Role;
 use super::selection::{RenderedLineSource, Selection};
+use crate::session::models::Role;
+
 use super::state::AppState;
 use super::view_models::RenderedLine;
 
@@ -76,7 +77,7 @@ impl AppState {
                     .map(|message| (message.id, row))
             });
         self.view.render_cache.ensure_rendered_lines(
-            &self.session.messages(),
+            self.session.messages(),
             width,
             hidden_user_message_idx,
             self.view.tool_output.compact(),
@@ -134,7 +135,7 @@ impl AppState {
 
     pub(super) fn ensure_rendered_range_materialized(&mut self, start_idx: usize, end_idx: usize) {
         self.view.render_cache.ensure_rendered_range_materialized(
-            &self.session.messages(),
+            self.session.messages(),
             start_idx,
             end_idx,
         );
@@ -144,7 +145,7 @@ impl AppState {
     pub(super) fn snapshot_rendered_lines(&mut self) -> Vec<RenderedLine> {
         self.view
             .render_cache
-            .snapshot_rendered_lines(&self.session.messages())
+            .snapshot_rendered_lines(self.session.messages())
     }
 
     pub(super) fn selected_text(&mut self, selection: Selection) -> String {
@@ -179,11 +180,6 @@ impl RenderedLineSource for AppState {
         self.rendered_line_at(idx)
     }
 }
-
-// --- Free functions ---
-
-#[cfg(test)]
-pub(super) use crate::session::reasoning::normalize_reasoning_summary_stream;
 
 #[cfg(test)]
 #[path = "state_transcript_checks.rs"]

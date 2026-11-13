@@ -4,9 +4,10 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
-use super::claude_question_state::safe_label;
 use super::input_events::TerminalEventResult;
 use super::render::{draw_str, fill_rect};
+use crate::session::text::safe_label;
+
 use super::state::AppState;
 use super::view_models::TerminalSize;
 use crate::backend::{BackendClient, BackendKind};
@@ -233,13 +234,13 @@ fn body(app: &AppState) -> Vec<String> {
         .quota()
         .windows()
         .values()
-        .filter(|window| window.reset() > super::weekly_usage::unix_now())
+        .filter(|window| window.reset() > crate::session::usage::unix_now())
     {
         lines.push(format!(
             "Quota {}: {:.1}% used; resets in {:.1}h",
             safe_label(window.label()),
             window.used(),
-            (window.reset() - super::weekly_usage::unix_now()) as f64 / 3600.0
+            (window.reset() - crate::session::usage::unix_now()) as f64 / 3600.0
         ));
     }
     lines

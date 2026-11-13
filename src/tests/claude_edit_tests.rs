@@ -1,15 +1,15 @@
 //! Keep asynchronous edit progress visible and retain drafts across failure orderings.
 
-#[path = "claude_backend_tests/normalized_app.rs"]
-mod normalized_app;
+use crate::app::normalized_test_app as normalized_app;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::{json, Value};
 
 use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
 use super::codex_question_support::Peer;
-use super::Role;
 use crate::app::claude_edit::{accepted, begin, failed, send_failed, waiting};
+use crate::session::models::Role;
+
 use crate::backend::EventReceiver;
 use crate::session::claude::ClaudePhase;
 

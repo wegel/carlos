@@ -5,9 +5,6 @@ use ratatui::style::Color;
 use crate::session::usage::{Pace, WeeklyUsage};
 use crate::theme::{COLOR_DIFF_REMOVE, COLOR_GUTTER_USER, COLOR_TOOL_EDIT};
 
-// Existing Claude callers use the same clock until their facts move in milestone 6.
-pub(super) use crate::session::usage::unix_now;
-
 /// Keep the percentage's pace color separate from the dim reset countdown.
 pub(super) struct WeeklyIndicator {
     pub(super) percent: String,

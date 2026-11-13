@@ -13,17 +13,7 @@ impl AppState {
         self.view.viewport = ViewportState::new();
     }
 
-    /// Apply a checked fork draft and its session-owned metadata.
-    pub(super) fn replace_history_draft(
-        &mut self,
-        draft: crate::session::item_history_draft::HistoryDraft,
-        mode: crate::session::history_identity::HistoryMode,
-    ) {
-        let changes = self.session.replace_native_history(draft, mode);
-        self.reset_history_view();
-        self.apply_item_changes(changes);
-    }
-
+    #[cfg(test)]
     pub(super) fn reset_for_forked_thread(&mut self, thread_id: impl Into<String>) {
         self.reset_thread(thread_id, false);
     }
@@ -34,6 +24,7 @@ impl AppState {
         self.reset_thread(thread_id, true);
     }
 
+    #[cfg(test)]
     fn reset_thread(&mut self, thread_id: impl Into<String>, preserve: bool) {
         self.set_thread_id(thread_id);
         let update = self.session.reset_for_forked_thread();

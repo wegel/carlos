@@ -1,7 +1,6 @@
 //! Preserve native history paging, hidden metadata, source rows, and partial failure behavior.
 
-#[path = "claude_backend_tests/normalized_app.rs"]
-mod normalized_app;
+use crate::app::normalized_test_app as normalized_app;
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
@@ -162,7 +161,7 @@ fn normalized_parts_reject_bounds_without_erasing_earlier_rows() {
         json!({"offset":0,"totalBytes":1,"text":"!"}),
     ] {
         let mut app = super::state::AppState::new("session".into());
-        app.append_message(super::Role::Assistant, "earlier");
+        app.append_message(crate::session::models::Role::Assistant, "earlier");
         let mut params = params;
         params["generation"] = json!(1);
         params["epoch"] = json!(0);
@@ -243,7 +242,7 @@ fn source_defaults_duplicates_and_empty_uuids_keep_their_old_rows() {
     );
     assert_eq!(
         app.session.messages()[0].kind,
-        super::MessageKind::UserSteer
+        crate::session::models::MessageKind::UserSteer
     );
     assert_eq!(app.input_history_len(), 1);
     assert_eq!(app.session.claude_history().unknown().len(), 2);
@@ -260,7 +259,7 @@ fn failed_start_after_switch_keeps_the_adopted_session_and_its_rows() {
             .as_object()
             .expect("params"),
     );
-    app.append_message(super::Role::Assistant, "branch row");
+    app.append_message(crate::session::models::Role::Assistant, "branch row");
     let id = app.session.messages()[0].id;
     super::claude_notifications::handle(
         &mut app,

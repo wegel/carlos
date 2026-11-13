@@ -3,8 +3,6 @@
 use ratatui_textarea::TextArea;
 use serde_json::Value;
 
-pub(super) use crate::session::codex::goal_state::GoalKnowledge;
-
 /// Keep only the terminal's unsubmitted goal controls.
 #[derive(Default)]
 pub(super) struct GoalView {

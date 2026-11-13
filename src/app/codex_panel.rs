@@ -1,5 +1,6 @@
 //! Apply local task-panel changes after session-owned reads and controls.
 
+#[cfg(test)]
 use std::time::{Duration, Instant};
 
 use super::codex_panel_state::PanelView;
@@ -30,7 +31,7 @@ pub(super) fn scope<'a>(
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
     let scope = scope(
         app.session.codex_scope(),
-        &app.session.codex_connection(),
+        app.session.codex_connection(),
         &app.view.codex_panel,
     );
     let mut update = PanelUpdate::default();
@@ -43,7 +44,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
 pub(super) fn refresh(app: &mut AppState, older: bool) {
     let scope = scope(
         app.session.codex_scope(),
-        &app.session.codex_connection(),
+        app.session.codex_connection(),
         &app.view.codex_panel,
     );
     panel::refresh(&mut app.session, scope, older);
@@ -53,7 +54,7 @@ pub(super) fn refresh(app: &mut AppState, older: bool) {
 pub(super) fn details(app: &mut AppState, older: bool) {
     let scope = scope(
         app.session.codex_scope(),
-        &app.session.codex_connection(),
+        app.session.codex_connection(),
         &app.view.codex_panel,
     );
     let mut update = PanelUpdate::default();
@@ -65,19 +66,20 @@ pub(super) fn details(app: &mut AppState, older: bool) {
 pub(super) fn stop(app: &mut AppState) {
     let scope = scope(
         app.session.codex_scope(),
-        &app.session.codex_connection(),
+        app.session.codex_connection(),
         &app.view.codex_panel,
     );
     panel::stop(&mut app.session, scope);
 }
 
 /// Read the next native deadline without creating a timer for a hidden idle panel.
+#[cfg(test)]
 pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
     panel::wait(
         &app.session,
         scope(
             app.session.codex_scope(),
-            &app.session.codex_connection(),
+            app.session.codex_connection(),
             &app.view.codex_panel,
         ),
         now,

@@ -1,9 +1,9 @@
 //! Resolve typed Claude sources before accepting or replacing printable cursor aliases.
 
-use super::models::Role;
 use super::state::SessionState;
 use crate::backend::BackendKind;
 use crate::session::entry_key::{BackendEntryKey, NativeEntryKey};
+use crate::session::models::Role;
 
 impl SessionState {
     /// Bind a new translator cursor to native work that Carlos already knows.
@@ -85,18 +85,18 @@ impl SessionState {
     }
 
     fn prepare_cursor(&mut self, live: &BackendEntryKey, source: &BackendEntryKey) {
-        if let Some(id) = self.messages.entry_id_for_item(&source) {
-            for retired in self.messages.retire_cursors(id, &live) {
+        if let Some(id) = self.messages.entry_id_for_item(source) {
+            for retired in self.messages.retire_cursors(id, live) {
                 self.completed_item_ids.remove(&retired);
             }
-            self.completed_item_ids.remove(&live);
+            self.completed_item_ids.remove(live);
             if self.messages.is_complete(id) {
                 self.completed_item_ids.insert(live.clone());
             }
             self.messages.bind_item(live.clone(), id);
         } else if self.cursor_conflicts(live, source) {
-            self.messages.unbind_item(&live);
-            self.completed_item_ids.remove(&live);
+            self.messages.unbind_item(live);
+            self.completed_item_ids.remove(live);
         }
     }
 

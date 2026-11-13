@@ -16,16 +16,17 @@ use super::cli::{
     env_flag_enabled, resolve_initial_runtime_settings, styled_resume_hint_with_socket, Backend,
     CliOptions,
 };
+
 #[cfg(feature = "dictation")]
 use super::dictation_state::DictationProfileState;
 use super::input::run_conversation_tui;
-use super::models::ThreadSummary;
 use super::state::AppState;
-use super::RuntimeDefaults;
 use crate::backend::{BackendClient, EventReceiver};
 use crate::protocol_params::{
     params_model_list, parse_model_list_page, ModelInfo, ThreadRuntimeSettings,
 };
+use crate::session::models::ThreadSummary;
+use crate::session::runtime_settings::RuntimeDefaults;
 
 pub(super) use self::backend_setup_codex_models::complete_codex_model_catalog;
 pub(super) use self::backend_setup_grok::run_grok_backend;
@@ -257,7 +258,7 @@ pub(super) fn finish_run(
         "{}",
         styled_resume_hint_with_socket(
             backend,
-            &app.session.thread_id(),
+            app.session.thread_id(),
             app.session.codex_connection().socket().as_deref()
         )
     );

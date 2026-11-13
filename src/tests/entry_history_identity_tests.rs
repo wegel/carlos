@@ -4,7 +4,7 @@ use serde_json::json;
 
 use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::state::AppState;
-use crate::app::Role;
+use crate::session::models::Role;
 
 #[test]
 fn native_reload_retains_turn_scoped_ids_and_rewind_targets_after_insertions() {
@@ -92,7 +92,7 @@ fn complete_history_drafts_keep_the_same_read_groups_as_incremental_history() {
                     item["id"].as_str().expect("id"),
                     Role::ToolCall,
                     "→ Read a.rs".into(),
-                    crate::app::MessageKind::Plain,
+                    crate::session::models::MessageKind::Plain,
                     Some("a.rs".into()),
                 );
             }

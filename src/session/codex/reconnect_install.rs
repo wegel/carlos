@@ -33,7 +33,7 @@ pub(crate) fn install(
     );
     let streams = super::reconnect_streams::Streams::from_thread(&snapshot.thread)?;
     if let Some(goal) = &snapshot.goal {
-        super::goal_receive::validate(&session.thread_id(), &goal["goal"])
+        super::goal_receive::validate(session.thread_id(), &goal["goal"])
             .map_err(anyhow::Error::msg)?;
         anyhow::ensure!(
             goal.get("goal").is_some(),
@@ -97,7 +97,7 @@ fn verified_owners(session: &SessionState, panel: &Value) -> Result<VerifiedOwne
                 .ok_or_else(|| anyhow::anyhow!("Invalid verified task owner"))
         })
         .collect::<Result<Vec<_>>>()?;
-    VerifiedOwners::new(&session.thread_id(), session.codex_scope().epoch(), owners)
+    VerifiedOwners::new(session.thread_id(), session.codex_scope().epoch(), owners)
         .map_err(anyhow::Error::msg)
 }
 

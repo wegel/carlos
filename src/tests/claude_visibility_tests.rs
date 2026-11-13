@@ -1,13 +1,12 @@
 //! Keeps private Claude workstreams out of live and loaded main transcripts.
 
-#[path = "claude_backend_tests/normalized_app.rs"]
-mod normalized_app;
+use crate::app::normalized_test_app as normalized_app;
 
 use serde_json::{json, Value};
 
 use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
-use super::models::Role;
 use crate::session::claude::ClaudePhase;
+use crate::session::models::Role;
 
 fn frame(app: &mut AppState, frame: Value, method: Option<&str>) {
     let _ = handle_server_message_line(

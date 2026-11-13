@@ -38,7 +38,7 @@ fn append_message_coalesces_successive_read_summaries() {
     assert_eq!(app.session.messages()[2].text, "");
     assert_eq!(app.session.messages()[3].text, "→ Read src/lib.rs");
 
-    let rendered = build_rendered_lines_with_hidden(&app.session.messages(), 80, None);
+    let rendered = build_rendered_lines_with_hidden(app.session.messages(), 80, None);
     let visible: Vec<_> = rendered
         .iter()
         .filter(|line| !line.separator)
@@ -92,7 +92,7 @@ fn ensure_rendered_lines_incremental_append_matches_full_rebuild() {
 
     app.ensure_rendered_lines(48, None);
 
-    let expected = build_rendered_lines_with_hidden(&app.session.messages(), 48, None);
+    let expected = build_rendered_lines_with_hidden(app.session.messages(), 48, None);
     assert_eq!(
         rendered_signature(&app.snapshot_rendered_lines()),
         rendered_signature(&expected)
@@ -129,7 +129,7 @@ fn ensure_rendered_lines_incremental_agent_delta_matches_full_rebuild() {
 
     app.ensure_rendered_lines(52, None);
 
-    let expected = build_rendered_lines_with_hidden(&app.session.messages(), 52, None);
+    let expected = build_rendered_lines_with_hidden(app.session.messages(), 52, None);
     assert_eq!(
         rendered_signature(&app.snapshot_rendered_lines()),
         rendered_signature(&expected)
@@ -159,7 +159,7 @@ fn ensure_rendered_lines_non_user_fence_counts_match_rendered_block() {
 
     app.ensure_rendered_lines(48, None);
 
-    let expected = build_rendered_lines_with_hidden(&app.session.messages(), 48, None);
+    let expected = build_rendered_lines_with_hidden(app.session.messages(), 48, None);
     assert_eq!(app.rendered_line_count(), expected.len());
     assert_eq!(
         rendered_signature(&app.snapshot_rendered_lines()),

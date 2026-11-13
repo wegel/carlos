@@ -5,6 +5,7 @@ use crate::app::session_name::handle_rename_command;
 use crate::app::state::AppState;
 use crate::app::tool_output_command::handle_tools_command;
 use crate::app::turn_submit::{submit_rewind_turn_text, submit_turn_text};
+
 use crate::backend::BackendClient;
 
 /// Submit the user's exact text without intercepting /goal inside a selected rewind edit.
@@ -32,8 +33,8 @@ pub(super) fn handle_enter_submit(
         return TerminalEventResult::Continue { needs_draw: true };
     }
     if app.rewind_mode() {
-        if let Some(rewind_history_idx) = app.rewind_selected_history_index() {
-            submit_rewind_turn_text(client, app, rewind_history_idx, text);
+        if let Some(selected) = app.rewind_prompt_id() {
+            submit_rewind_turn_text(client, app, selected, text);
             return TerminalEventResult::Continue { needs_draw: true };
         }
         if app.session.claude().enabled() {

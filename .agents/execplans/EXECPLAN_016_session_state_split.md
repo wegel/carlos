@@ -42,6 +42,8 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
   - [x] 7.3 Claude callback commands and plain replies. Also: state whether the "unsupported request kind" rules in `NativeDraft::from_payload` move or are computed from session facts (MINOR 2).
 - [x] Milestone 8: separate Codex queue and goal facts from their editors.
 - [x] Milestone 9: separate Codex settings, task readers, and reconnect handlers from the view.
+- [ ] (2026-11-13 UTC, in progress) Part 10.3: prompt start/steer/fork/interrupt, rename and automatic queue guards now run inside the session. A prompt without a transcript row receives a stable owner token; the view sends that id and edited text. Six new headless command tests and two unfinished-row tests pass. All 3,000 legacy-command streams match parent 6382774 exactly after removing a redundant fork redraw; pre-plan differences remain the same 103, with no panic. The temporary audit adapter translates the corpus's old low-level index command into a resolved anchor inside the archived test tree; the new id lookup has separate headless and terminal tests. Evidence: /tmp/carlos-m10e/proof-redraw-fix.log.
+- [ ] (2026-11-13 UTC, in progress) Part 10.4: the future-core guard and its 16 tests pass, including all cfg/module/path children and exact external test paths. Terminal-forwarder tests moved to the app, retaining real pipes and the production forwarder through a terminal-free test harness. App migration re-exports are removed and callers name the session owner directly. Rust 1.100 strict Clippy, 1,025 default tests and 989 no-default tests pass; final default/no-default, release terminal/contract checks and speed remain open.
 - [ ] Milestone 10: move the remaining session handlers and enforce the terminal boundary.
 - [ ] Milestone 11: run the complete checks, compare speed, and record the engineering review.
 
@@ -68,6 +70,8 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 - [x] (2026-11-13 UTC) Entry-id speed follow-up a2c4090: ordered ids resolve through a checked counter offset; reordered rows keep full-id map entries. The synthetic fixture constructs rows through the real session store without a second draft vector. 1,005 integrated Rust tests, complete terminal/native checks, all 3,000 stream comparisons and the isolated staged-tree checks pass. Fifteen same-core samples show no repeatable slowdown. Report: `.agents/reports/exec016-position-cost.md`.
 
 ## Surprises & Discoveries
+
+- (2026-11-13 UTC) Removing the app's plain-type re-exports changes many imports but no algorithms. The saved HEAD-reference row algorithms retain their EntryDraft alias; only their import paths change. Shared normalized-app and process-peer test helpers now have one module registration each. Strict Rust 1.100 cleanup uses the compiler's atomic try_update spelling and removes unnecessary borrows; it suppresses no lint. The user had explicitly selected Rust 1.100.0 in the recovered session, so the checked toolchain file and CI now name that version.
 
 - (2026-11-13 UTC) The strict Rust 1.100 Clippy preflight finds earlier getter-call borrows, two duplicate test-module registrations, the atomic rename and several simple lint fixes. The current handler's unnecessary string copy was removed. The final release gate still requires the full cleanup; no lint was suppressed. Log: /tmp/carlos-m10c-clippy.log.
 
@@ -158,6 +162,9 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
   Evidence: integrator's gate run of 2026-11-12.
 
 ## Decision Log
+
+- Decision (2026-11-13): store only unfinished row offsets inside Transcript and write read labels into one buffer. Keep all public and delayed references as EntryId. The earlier flag-per-row and inlined-index trials remain in temporary measurement artifacts and are not the final code. The ordered unfinished set avoids scanning completed rows on each draw and removes their flag writes from append.
+- Decision (2026-11-13): retain Rust 1.100.0 in the checked toolchain and CI, following the owner's recovered compiler instruction. The unchanged baseline already used that compiler. This supersedes the initial authoring note about postponing a compiler pin, which was written for the earlier Rust 1.93 environment; no Cargo dependency or workspace changed.
 
 
 - Decision: put session types and handlers under `src/session/`, outside `src/app/`, while keeping the single binary crate.
@@ -872,3 +879,5 @@ Milestone 10.2.1 note, 2026-11-13: moved native callback/control routing, remove
 Milestone 10.2.2 note, 2026-11-13: moved named Claude reducers, clear/switch/failure rules and explicit submitted-text recovery into the session. Removed duplicate app routers, preserved every test and recorded exact saved-stream/terminal checks. The outer history-fragment recursion remains for the dispatcher move.
 
 Milestone 10.2.3 in-progress note, 2026-11-13: NativeBatch returns one synchronous report at a time so the client applies editors and sends replies before advancing or acknowledging the next held frame. The session owns all envelope/ready/replay decisions and interprets nested history facts. No daemon wire protocol or backend event model changed. Current checks and the open speed investigation are recorded in Progress.
+
+Milestone 10 completion checks, 2026-11-13: source handlers, client bridge removal, strict compiler cleanup and the future-core guard are implemented. exec016-m10e-report.md records the current evidence. The final source replay, release UI check and independent quiet speed check remain open; no terminal state is claimed yet.

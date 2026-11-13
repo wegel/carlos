@@ -172,7 +172,7 @@ fn finish_mutation(
 }
 
 fn apply(session: &mut SessionState, update: &mut GoalUpdate, goal: &Value) -> Result<(), String> {
-    validate(&session.thread_id(), goal)?;
+    validate(session.thread_id(), goal)?;
     session.codex_goals.read_error = None;
     session.codex_goals.goal = goal.clone();
     session.codex_goals.knowledge = GoalKnowledge::Known;

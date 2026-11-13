@@ -29,7 +29,7 @@ fn app() -> AppState {
 fn late_labels_preserve_command_output_failure_and_survive_duplicate_completion() {
     let mut app = app();
     notify(&mut app, "item/started");
-    let visible = build_rendered_lines(&app.session.messages(), 100);
+    let visible = build_rendered_lines(app.session.messages(), 100);
     assert!(visible.iter().any(|l| l.text.contains("process.py")));
     notify(&mut app, "item/completed");
     let idx = app.item_message_index("command").expect("command entry");
@@ -47,7 +47,7 @@ fn late_labels_preserve_command_output_failure_and_survive_duplicate_completion(
         .expect("metadata");
     assert_eq!(tool.summary, "run Rewrite the report");
     assert!(tool.failed && tool.generated);
-    let visible = build_rendered_lines(&app.session.messages(), 100);
+    let visible = build_rendered_lines(app.session.messages(), 100);
     assert!(visible
         .iter()
         .any(|l| l.text.contains("Rewrite the report")));

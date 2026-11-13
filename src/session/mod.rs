@@ -124,3 +124,15 @@ pub(crate) mod backend_update;
 mod backend_receiver_tests;
 #[cfg(test)]
 mod backend_test_support;
+
+mod name_commands;
+pub(crate) mod prompt_commands;
+mod prompt_settings;
+mod queue_dispatch;
+mod rewind_commands;
+mod rewind_history;
+mod turn_interrupt;
+
+mod backend_deadlines;
+#[cfg(test)]
+mod prompt_command_tests;

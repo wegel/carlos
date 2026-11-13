@@ -99,24 +99,11 @@ pub(in crate::app) fn try_submit_queued_turn(
     prefetched_events: &VecDeque<UiEvent>,
     now: Instant,
 ) -> bool {
-    if client.kind() == crate::backend::BackendKind::Claude
-        && app.session.claude().phase() != crate::session::claude::ClaudePhase::Ready
+    let idle = can_submit_queued_turn(working, deferred_server_lines, prefetched_events);
+    if let Some(next_turn) = app
+        .session
+        .take_dispatchable_prompt(client.kind(), idle, now)
     {
-        return false;
-    }
-    if !can_submit_queued_turn(working, deferred_server_lines, prefetched_events) {
-        return false;
-    }
-    if !crate::app::codex_queue::allows_automatic(app) {
-        return false;
-    }
-    if app.session.ralph_runtime().next_input_origin(now)
-        == Some(crate::backend::PromptOrigin::Automatic)
-        && crate::app::codex_goals::ralph_error(app).is_some()
-    {
-        return false;
-    }
-    if let Some(next_turn) = app.dequeue_turn_input(now) {
         submit_dequeued_turn_text(
             client,
             app,

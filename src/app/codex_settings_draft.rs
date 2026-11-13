@@ -2,8 +2,10 @@
 
 use serde_json::{json, Value};
 
+use super::persist_runtime_defaults;
 use super::state::AppState;
-use super::{persist_runtime_defaults, RuntimeDefaults};
+use crate::session::runtime_settings::RuntimeDefaults;
+
 use crate::protocol_params::parse_thread_runtime_settings;
 use crate::session::runtime_settings::RuntimeSetting;
 
@@ -189,7 +191,7 @@ pub(super) fn persist(app: &mut AppState, desired: &Value) {
     };
     if let Err(error) = persist_runtime_defaults(&defaults) {
         app.append_message(
-            super::Role::System,
+            crate::session::models::Role::System,
             format!("Codex accepted the choices, but Carlos could not save its defaults: {error}"),
         );
     }

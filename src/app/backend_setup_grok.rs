@@ -15,7 +15,6 @@ use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::notifications::handle_server_message_line;
 use crate::app::state::AppState;
 use crate::app::terminal_ui::pick_thread;
-use crate::app::RuntimeDefaults;
 use crate::backend::BackendClient;
 use crate::grok_backend::{
     load_grok_thread_summaries, GrokClient, GrokLaunchMode, GrokSessionSummary,
@@ -23,6 +22,7 @@ use crate::grok_backend::{
 use crate::protocol_params::ThreadRuntimeSettings;
 use crate::session::models::Role;
 use crate::session::models::ThreadSummary;
+use crate::session::runtime_settings::RuntimeDefaults;
 
 // --- Launch ---
 

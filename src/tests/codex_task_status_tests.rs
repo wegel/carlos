@@ -5,10 +5,13 @@ use std::time::{Duration, Instant};
 use serde_json::{json, Value};
 
 use super::codex_question_support::{app, question, receive, Peer};
+
 use crate::app::codex_task_status::{tick, wait};
+
 use crate::app::state::AppState;
 use crate::app::task_badge::count;
 use crate::app::tests::codex_panel_support::{observed, panel_updated, terminated};
+
 use crate::session::codex::panel_state::Process;
 
 /// Build one child whose source is controlled by the test.
@@ -189,7 +192,7 @@ fn errors_keep_the_reason_in_f2_and_stop_automatic_retry_until_new_native_work()
     app.session
         .push_codex_agent_for_test(agent("child", "active"));
     own(&mut app);
-    app.view.codex_panel.selected = Some(crate::app::codex_panel_state::PanelId::Agent(
+    app.view.codex_panel.selected = Some(crate::session::codex::panel_state::PanelId::Agent(
         "child".into(),
     ));
     app.session

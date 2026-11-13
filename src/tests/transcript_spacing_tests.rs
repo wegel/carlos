@@ -1,8 +1,9 @@
 //! Check shared spacing while text wraps, tools unfold, and the viewport changes.
 
-use super::{AppState, Role};
+use super::AppState;
 use crate::app::layout_state::TranscriptTheme;
 use crate::app::tool_output_state::ToolOutputMode;
+use crate::session::models::Role;
 
 fn desktop() -> AppState {
     let mut app = AppState::new("thread".into());
@@ -39,8 +40,15 @@ fn desktop_groups_tools_with_short_reasoning_and_separates_other_messages() {
             let start = app.view.render_cache.rendered_block_offsets[index];
             assert!(lines[start].separator && lines[start].text.is_empty());
         }
-        for index in 4..8 {
-            let start = app.view.render_cache.rendered_block_offsets[index];
+        for start in app
+            .view
+            .render_cache
+            .rendered_block_offsets
+            .iter()
+            .take(8)
+            .skip(4)
+            .copied()
+        {
             assert!(!lines[start].separator);
         }
     }

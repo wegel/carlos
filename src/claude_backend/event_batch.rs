@@ -7,11 +7,13 @@ use anyhow::{anyhow, Result};
 
 use super::transport_workers::TransportWorkers;
 
+type DeferredBatch = (usize, Box<dyn FnOnce(BatchPermit) + Send>);
+
 #[derive(Default)]
 struct BatchState {
     busy: bool,
     terminal: bool,
-    deferred: VecDeque<(usize, Box<dyn FnOnce(BatchPermit) + Send>)>,
+    deferred: VecDeque<DeferredBatch>,
     deferred_bytes: usize,
 }
 

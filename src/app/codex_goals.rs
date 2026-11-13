@@ -1,14 +1,17 @@
 //! Read native goals and send only explicit user-authorized root mutations.
 
-use std::time::{Duration, Instant};
+#[cfg(test)]
+use std::time::Duration;
+use std::time::Instant;
 
 use crate::session::codex::goals::{self, GoalUpdate};
 
 use serde_json::{json, Value};
 
-use super::codex_goal_state::{GoalConfirm, GoalDraft, GoalKnowledge};
+use super::codex_goal_state::{GoalConfirm, GoalDraft};
 use super::state::AppState;
 use crate::backend::BackendClient;
+use crate::session::codex::goal_state::GoalKnowledge;
 
 /// Poll facts only; startup and ordinary chat never create, resume, pause or clear goals.
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant) -> bool {
@@ -27,6 +30,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant)
 }
 
 /// Add only an appropriate future timer to the idle wait; unavailable/closed goals do not spin.
+#[cfg(test)]
 pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
     goals::wait(
         &app.session,
@@ -61,7 +65,7 @@ pub(super) fn edit(app: &mut AppState) {
         return;
     }
     if app.view.codex_goals.editor.is_none() {
-        app.view.codex_goals.editor = Some(GoalDraft::new(&app.session.codex_goals().goal()));
+        app.view.codex_goals.editor = Some(GoalDraft::new(app.session.codex_goals().goal()));
     }
     app.view.codex_goals.editing = true;
 }
@@ -71,7 +75,7 @@ pub(super) fn save(client: &dyn BackendClient, app: &mut AppState) {
     let Some(draft) = &app.view.codex_goals.editor else {
         return;
     };
-    match draft.params(&app.session.thread_id()) {
+    match draft.params(app.session.thread_id()) {
         Ok(mut params) => {
             if params.get("status").is_none() {
                 let status = app.session.codex_goals().goal()["status"]
@@ -171,6 +175,7 @@ fn mutate(client: &dyn BackendClient, app: &mut AppState, method: &str, params: 
 }
 
 /// Refuse a competing automatic driver until native facts establish a safe state.
+#[cfg(test)]
 pub(super) fn ralph_error(app: &AppState) -> Option<&'static str> {
     goals::ralph_error(&app.session, super::codex_queue::scope(app))
 }

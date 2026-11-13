@@ -6,9 +6,9 @@ use serde_json::{json, Value};
 
 use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::notifications::handle_server_message_line;
-use crate::app::summary_request::summary_input;
 use crate::app::AppState;
 use crate::session::models::Role;
+use crate::session::summary_request::summary_input;
 use crate::session::tool_command_view::ToolCommandView;
 use crate::summaries::{command_key, SummaryEvent};
 

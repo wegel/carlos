@@ -7,11 +7,15 @@ use super::{
     compute_overlay_box, draw_rounded_border, fill_box_background, fill_fullscreen_overlay,
     OverlayBox,
 };
+
 use crate::app::claude_question_state::NativeDraft;
 use crate::app::claude_question_view::{body_lines, caller, editor_line, footer_lines, wrap_lines};
+
 use crate::app::render::draw_str;
-use crate::app::state::{AppState, ApprovalRequestDraft, PendingApprovalRequest};
+use crate::app::state::AppState;
 use crate::app::TerminalSize;
+use crate::session::approval_state::ApprovalRequestDraft;
+use crate::session::approval_state::PendingApprovalRequest;
 use crate::theme::{COLOR_DIM, COLOR_PRIMARY, COLOR_TEXT};
 
 struct QuestionLayout {
@@ -200,7 +204,8 @@ fn draw_body(
 }
 
 fn draw_small(buf: &mut Buffer, size: TerminalSize, pending: &ApprovalRequestDraft) {
-    let question = pending.kind == crate::app::state::ApprovalRequestKind::CodexQuestion;
+    let question =
+        pending.kind == crate::session::approval_state::ApprovalRequestKind::CodexQuestion;
     let mut rows = vec![
         if pending.method == "claude/native" {
             "Claude question"

@@ -9,12 +9,13 @@ use super::{
     claude_runtime_defaults, codex_runtime_defaults, configure_app_common, fetch_model_catalog,
     finish_run, load_claude_thread_summaries, resolve_backend_runtime_settings,
 };
+
 use crate::app::cli::CliOptions;
 use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::item_history::replace_history_from_thread;
 use crate::app::state::AppState;
 use crate::app::terminal_ui::{pick_thread, sort_threads_for_picker};
-use crate::app::RuntimeDefaults;
+
 use crate::backend::{BackendClient, EventReceiver};
 use crate::claude_backend::{ClaudeClient, ClaudeLaunchMode};
 use crate::codex_connection::CodexClient;
@@ -24,6 +25,7 @@ use crate::protocol_params::{
     parse_thread_runtime_settings, ThreadRuntimeSettings,
 };
 use crate::session::codex::history::preferred_codex_thread;
+use crate::session::runtime_settings::RuntimeDefaults;
 use crate::session::thread_list::parse_thread_list;
 
 // --- Codex Backend ---
@@ -194,7 +196,7 @@ pub(super) fn configure_codex_app(
         None,
     );
     if !launch.deferred_history {
-        let history = preferred_codex_thread(&launch.history_response, &app.session.thread_id())?;
+        let history = preferred_codex_thread(&launch.history_response, app.session.thread_id())?;
         replace_history_from_thread(app, &history)?;
     }
     crate::app::session_name::read_response_name(app, &launch.runtime_response);

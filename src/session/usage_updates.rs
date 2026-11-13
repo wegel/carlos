@@ -16,7 +16,9 @@ impl SessionState {
 
     /// Expire outstanding quota reads and request the next snapshot when due.
     pub(crate) fn tick_rate_limits(&mut self, client: &dyn BackendClient, now: Instant) {
-        self.rate_limits.tick(client, now);
+        if self.backend_reads_ready() {
+            self.rate_limits.tick(client, now);
+        }
     }
 
     /// Consume the reply for the current quota read, if it matches.

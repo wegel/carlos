@@ -46,7 +46,11 @@ impl SessionState {
 
     #[cfg(test)]
     /// Insert a supplied fixture row through the owner.
-    pub(crate) fn insert_entry_for_test(&mut self, index: usize, message: super::models::Message) {
+    pub(crate) fn insert_entry_for_test(
+        &mut self,
+        index: usize,
+        message: crate::session::models::Message,
+    ) {
         self.messages.insert_for_test(index, message);
     }
 }

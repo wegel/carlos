@@ -56,7 +56,7 @@ fn a_fatal_fact_settles_accepted_prompts_before_queued_success_can_arrive() {
     assert!(app.session.active_turn_id().is_none());
     assert!(app.session.claude_prompts().next().is_none());
     for id in ["active","queued"] {
-        assert_eq!(app.session.turn_status_by_id().get(id),Some(&crate::app::models::TurnStatus::Failed));
+        assert_eq!(app.session.turn_status_by_id().get(id),Some(&crate::session::models::TurnStatus::Failed));
     }
     assert!(!app.session.messages().iter().any(|message| message.text == "late success"));
 }

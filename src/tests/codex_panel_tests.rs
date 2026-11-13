@@ -3,9 +3,11 @@
 use serde_json::{json, Value};
 
 use super::codex_question_support::{app, receive, Peer};
+
 use crate::app::codex_panel::{details, refresh, stop, tick};
-use crate::app::codex_panel_state::PanelId;
+
 use crate::app::item_history::load_history_from_start_or_resume;
+use crate::session::codex::panel_state::PanelId;
 
 fn agent(id: &str, parent: &str) -> Value {
     json!({"id":id,"parentThreadId":parent,"agentNickname":id,"agentRole":"worker",
@@ -171,7 +173,6 @@ fn vanished_selection_does_not_retarget_stop_and_old_generation_results_cannot_r
         .session
         .codex_panel()
         .error()
-        .as_deref()
         .expect("visible failure")
         .contains("left"));
     crate::app::codex_panel::select(&mut app, true);

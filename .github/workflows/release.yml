@@ -15,6 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.100.0
           components: rustfmt, clippy
       - uses: actions/setup-python@v5
         with:
@@ -73,6 +74,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.100.0
           targets: ${{ matrix.target }}
       - uses: actions/setup-python@v5
         with:

@@ -23,6 +23,7 @@ pub(super) fn tick(app: &mut AppState, client: &dyn BackendClient, now: Instant)
 }
 
 /// Wake for the earlier countdown draw or optional backend read.
+#[cfg(test)]
 pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
     app.view
         .claude_quota_next_draw

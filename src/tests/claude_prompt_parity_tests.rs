@@ -3,8 +3,10 @@
 use serde_json::{json, Value};
 
 use super::claude_prompts::{consume, reset};
-use super::models::{MessageKind, Role};
+
 use super::state::AppState;
+use crate::session::models::MessageKind;
+use crate::session::models::Role;
 
 fn app() -> AppState {
     let mut app = AppState::new("session".into());
@@ -236,7 +238,7 @@ fn helper_failure_fails_registered_and_unregistered_active_turns_without_new_row
         for id in ["z", "a", active] {
             assert_eq!(
                 app.session.turn_status_by_id().get(id),
-                Some(&super::models::TurnStatus::Failed)
+                Some(&crate::session::models::TurnStatus::Failed)
             );
         }
         assert!(app.session.messages().is_empty());

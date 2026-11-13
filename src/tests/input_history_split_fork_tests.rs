@@ -104,7 +104,12 @@ fn each_backend_receives_the_original_anchor_before_the_edited_prompt() {
             forks: Mutex::new(Vec::new()),
         };
         let mut app = seed(kind);
-        submit_rewind_turn_text(&peer, &mut app, 1, "edited".into());
+        let selected = app
+            .session
+            .input_history()
+            .prompt_id(1)
+            .expect("second prompt");
+        submit_rewind_turn_text(&peer, &mut app, selected, "edited".into());
         let native = (kind == BackendKind::Codex).then(|| RewindUserMessage {
             item_id: "u2".into(),
             text: "second".into(),

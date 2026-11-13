@@ -1,6 +1,6 @@
 //! Owns ordered transcript entries, their ids, and live backend lookups.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::ops::Deref;
 
 use self::positions::EntryPositions;
@@ -14,7 +14,8 @@ use super::models::{EntryDraft, Message, MessageKind, Role, ToolOutputDetails};
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct Transcript {
     pub(super) entries: Vec<Message>,
-    active: Vec<bool>,
+    // These offsets stay inside the store; backend keys and callers retain entry ids.
+    active: BTreeSet<usize>,
     positions: EntryPositions,
     pub(super) aliases: HashMap<EntryId, Vec<BackendEntryKey>>,
     pub(super) part_counts: HashMap<BackendEntryKey, usize>,
@@ -30,7 +31,7 @@ impl Transcript {
     pub(crate) fn new() -> Self {
         Self {
             entries: Vec::new(),
-            active: Vec::new(),
+            active: BTreeSet::new(),
             positions: EntryPositions::default(),
             aliases: HashMap::new(),
             part_counts: HashMap::new(),
@@ -80,13 +81,11 @@ impl Transcript {
     pub(super) fn reserve_entries(&mut self, count: usize) {
         self.entries.reserve(count);
         self.positions.reserve(count);
-        self.active.reserve(count);
     }
 
     /// Insert an id selected by this store during append or history adoption.
     #[inline(always)]
     pub(super) fn insert(&mut self, id: EntryId, draft: EntryDraft) {
-        self.active.push(false);
         self.positions.insert(id, self.entries.len());
         self.entries.push(Message {
             id,
@@ -106,27 +105,30 @@ impl Transcript {
     /// Mark a mapped entry active once, outside the render path.
     pub(crate) fn activate(&mut self, id: EntryId) {
         if let Some(index) = self.position(id) {
-            self.active[index] = true;
+            self.active.insert(index);
         }
     }
 
     /// Finish the currently handled mapped row, preserving existing display-step rules.
     pub(crate) fn complete(&mut self, key: &BackendEntryKey) {
         if let Some(index) = self.entry_id_for_item(key).and_then(|id| self.position(id)) {
-            self.active[index] = false;
+            self.active.remove(&index);
         }
     }
 
     /// Report whether a mapped source already reached completion.
     pub(crate) fn is_complete(&self, id: EntryId) -> bool {
-        self.position(id).is_some_and(|index| !self.active[index])
+        self.position(id)
+            .is_some_and(|index| !self.active.contains(&index))
     }
 
-    /// Find the latest unfinished visible item using only contiguous vectors.
+    /// Visit only unfinished rows, from the latest stored position backwards.
     pub(crate) fn active_step(&self, start: usize) -> Option<usize> {
-        (start..self.entries.len())
+        self.active
+            .range(start..)
             .rev()
-            .find(|index| self.active[*index] && !self.entries[*index].text.is_empty())
+            .copied()
+            .find(|index| !self.entries[*index].text.is_empty())
     }
 
     /// Retire absent diff-part lookups while leaving their existing display rows intact.
@@ -156,11 +158,8 @@ impl Transcript {
         if let Some(key) = self.sources.remove(&id) {
             self.ambiguous_sources.remove(&key);
         }
-        if let Some(active) = self
-            .position(id)
-            .and_then(|index| self.active.get_mut(index))
-        {
-            *active = false;
+        if let Some(index) = self.position(id) {
+            self.active.remove(&index);
         }
     }
 
@@ -193,7 +192,7 @@ impl Transcript {
     }
 
     fn truncate(&mut self, position: usize) {
-        self.active.truncate(position);
+        self.active.split_off(&position);
         let removed = self.entries.split_off(position);
         for message in removed {
             self.unbind_entry(message.id);
@@ -307,3 +306,7 @@ mod positions;
 #[cfg(test)]
 #[path = "transcript_position_tests.rs"]
 mod position_tests;
+
+#[cfg(test)]
+#[path = "transcript_active_tests.rs"]
+mod active_tests;

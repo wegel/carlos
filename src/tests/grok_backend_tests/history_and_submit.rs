@@ -159,14 +159,14 @@ fn submit_rewind_turn_text_keeps_prefix_and_resubmits() {
     let _ = app.append_message(Role::Assistant, "reply two");
     app.set_input_text("edited second");
     app.enter_rewind_mode();
-    let rewind_history_idx = app
-        .rewind_selected_history_index()
+    let selected = app
+        .rewind_prompt_id()
         .expect("rewind history index");
 
     super::turn_submit::submit_rewind_turn_text(
         &client,
         &mut app,
-        rewind_history_idx,
+        selected,
         "edited second".to_string(),
     );
 

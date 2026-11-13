@@ -53,22 +53,21 @@ impl SessionState {
                     );
                 }
             }
-            Some("hook_response") => {
-                if message["outcome"] != "success"
-                    || message["exit_code"].as_i64().is_some_and(|code| code != 0)
-                {
-                    notice(
-                        &mut notices,
-                        message,
-                        &format!(
-                            "Hook {} ({}): {} {}",
-                            safe_label(message["hook_name"].as_str().unwrap_or("unknown")),
-                            safe_label(message["outcome"].as_str().unwrap_or("unknown")),
-                            message["output"].as_str().unwrap_or(""),
-                            message["stderr"].as_str().unwrap_or("")
-                        ),
-                    );
-                }
+            Some("hook_response")
+                if (message["outcome"] != "success"
+                    || message["exit_code"].as_i64().is_some_and(|code| code != 0)) =>
+            {
+                notice(
+                    &mut notices,
+                    message,
+                    &format!(
+                        "Hook {} ({}): {} {}",
+                        safe_label(message["hook_name"].as_str().unwrap_or("unknown")),
+                        safe_label(message["outcome"].as_str().unwrap_or("unknown")),
+                        message["output"].as_str().unwrap_or(""),
+                        message["stderr"].as_str().unwrap_or("")
+                    ),
+                );
             }
             _ => {}
         }

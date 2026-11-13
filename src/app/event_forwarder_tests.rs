@@ -1,18 +1,19 @@
 //! Reproduces review schedules through real pipes, reader threads, and the production forwarder.
 
 use std::sync::mpsc::Receiver;
-use std::sync::Arc;
 use std::thread;
 
 use serde_json::json;
 
 use super::event_forwarder_support::{apply, completions, forward, mark, peer, ready, through};
-use super::event_queue::MAX_EVENT_BYTES;
-use super::event_race_support::{notify, transport, DEADLINE};
-use super::event_test_support::submit;
-use super::transport::ControllerTransport;
-use super::ClaudeClient;
+
 use crate::backend::{BackendClient, EventReceiver};
+use crate::claude_backend::forwarder_test_support::MAX_EVENT_BYTES;
+use crate::claude_backend::forwarder_test_support::{
+    completions_empty, helper_call, records, submit,
+};
+use crate::claude_backend::forwarder_test_support::{ForwarderHarness, DEADLINE};
+use crate::claude_backend::ClaudeClient;
 use crate::event::UiEvent;
 
 #[test]
@@ -77,9 +78,7 @@ fn forwarded_reader_ahead_interrupt_captures_handled_prompt() {
     let (client, receiver) = peer("reply", true);
     let ui = forward(receiver);
     let id = ready(&client, &ui);
-    client
-        .helper_call("queued", json!({}), DEADLINE)
-        .expect("reader has read result and idle");
+    helper_call(&client, "queued", json!({})).expect("reader has read result and idle");
     // Both lines may already be in ui; neither has reached the handler-owned lifecycle.
     client
         .call("turn/interrupt", json!({}), DEADLINE)
@@ -119,8 +118,8 @@ fn forwarded_stderr_frame_limit_with_unanswered_interrupt_stops_helper() {
 fn check_overflow(bytes: bool) {
     let (client, receiver) = peer("barrier", false);
     let id = submit(&client);
-    super::event_test_support::records(&client, &receiver);
-    let transport = transport(&client);
+    records(&client, &receiver);
+    let transport = ForwarderHarness::new(&client);
     let (receiver, filler, count) = thread::scope(|scope| {
         let observed = transport.clone();
         let witness = scope.spawn(move || saturate_unanswered(observed, receiver, bytes));
@@ -129,7 +128,7 @@ fn check_overflow(bytes: bool) {
             .expect_err("EOF rejects unanswered call");
         witness.join().expect("shutdown witness")
     });
-    assert!(transport.pending.lock().expect("requests").is_empty());
+    assert!(transport.pending_empty());
     assert_eq!(
         client
             .call("turn/interrupt", json!({}), DEADLINE)
@@ -156,20 +155,11 @@ fn check_overflow(bytes: bool) {
         completions(&output),
         [json!({"id":id,"status":"completed"})]
     );
-    assert!(
-        transport
-            .child
-            .lock()
-            .expect("child")
-            .wait()
-            .expect("helper exited")
-            .code()
-            != Some(0)
-    );
+    assert!(transport.exit_code() != Some(0));
 }
 
 fn saturate_unanswered(
-    transport: Arc<ControllerTransport>,
+    transport: ForwarderHarness,
     receiver: EventReceiver,
     bytes: bool,
 ) -> (EventReceiver, String, usize) {
@@ -179,20 +169,20 @@ fn saturate_unanswered(
         .expect("interrupt pending marker");
     let marker: serde_json::Value = serde_json::from_str(&line).expect("marker");
     assert_eq!(marker["params"]["callbackId"], "interrupt-pending");
-    transport.events.handled(line.len());
+    transport.handled(line.len());
     transport
         .call("queued", json!({}), DEADLINE)
         .expect("reader queued result and idle");
-    let deferred = notify(&transport.events.hooks, "terminal_deferred");
-    let eof = notify(&transport.events.hooks, "reader_eof");
+    let deferred = transport.notify("terminal_deferred");
+    let eof = transport.notify("reader_eof");
     let filler = if bytes {
-        "x".repeat(MAX_EVENT_BYTES - transport.events.charged_bytes())
+        "x".repeat(MAX_EVENT_BYTES - transport.charged_bytes())
     } else {
         "filler".to_string()
     };
     let count = if bytes { 1 } else { 1022 }; // Result and idle occupy the other two slots.
     for _ in 0..count {
-        transport.events.send(filler.clone()).expect("fill queue");
+        transport.send(filler.clone()).expect("fill queue");
     }
     let _ = transport.call("stderr", json!({}), DEADLINE);
     deferred
@@ -200,7 +190,7 @@ fn saturate_unanswered(
         .expect("overflow starts bounded shutdown");
     eof.recv_timeout(DEADLINE)
         .expect("unanswered interrupt helper stops");
-    assert!(transport.state.is_closed());
+    assert!(transport.closed());
     (receiver, filler, count)
 }
 
@@ -219,8 +209,8 @@ fn forwarded_4096_interrupts_after_eof_retain_no_requests() {
     let (client, receiver) = peer("", false);
     let ui = forward(receiver);
     ready(&client, &ui);
-    let transport = transport(&client);
-    let eof = notify(&transport.events.hooks, "reader_eof");
+    let transport = ForwarderHarness::new(&client);
+    let eof = transport.notify("reader_eof");
     client
         .request_native_control("exit", json!({}))
         .expect("exit");
@@ -232,11 +222,6 @@ fn forwarded_4096_interrupts_after_eof_retain_no_requests() {
     for _ in 0..4096 {
         assert!(client.call("turn/interrupt", json!({}), DEADLINE).is_err());
     }
-    assert!(transport.pending.lock().expect("requests").is_empty());
-    assert!(client
-        .handler
-        .borrow_mut()
-        .lifecycle
-        .completions()
-        .is_empty());
+    assert!(transport.pending_empty());
+    assert!(completions_empty(&client));
 }

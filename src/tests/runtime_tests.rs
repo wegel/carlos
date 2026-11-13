@@ -7,11 +7,12 @@ use super::{
     parse_thread_runtime_settings, perf_session, persist_runtime_defaults_to,
     resolve_backend_runtime_settings, resolve_initial_runtime_settings, resume_hint,
     sort_threads_for_picker, styled_resume_hint, AppState, Backend, ModelInfo, Osc52Wrap,
-    RuntimeDefaults, ThreadRuntimeSettings,
+    ThreadRuntimeSettings,
 };
 use crate::session::models::MessageKind;
 use crate::session::models::Role;
 use crate::session::models::ThreadSummary;
+use crate::session::runtime_settings::RuntimeDefaults;
 
 include!("runtime_tests/backend_runtime_settings.rs");
 

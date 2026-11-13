@@ -1,7 +1,6 @@
 //! Keep prompt labels, quiet defaults and explicit mode feedback separate from native input text.
 
-#[path = "claude_backend_tests/normalized_app.rs"]
-mod normalized_app;
+use crate::app::normalized_test_app as normalized_app;
 
 use std::time::{Duration, Instant};
 
@@ -13,12 +12,13 @@ use serde_json::json;
 use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
 use super::codex_question_support::Peer;
 use crate::app::claude_notifications::record_submitted_prompt;
-use crate::app::context_usage::ContextUsage;
 use crate::app::input_events::handle_terminal_event;
 use crate::app::input_mode;
-use crate::app::models::{MessageKind, Role};
 use crate::app::render_status::draw_status_bar;
 use crate::app::view_models::TerminalSize;
+use crate::session::context_usage::ContextUsage;
+use crate::session::models::MessageKind;
+use crate::session::models::Role;
 
 fn status(app: &AppState, width: usize) -> String {
     let mut buffer = Buffer::empty(Rect::new(0, 0, width as u16, 3));
@@ -61,7 +61,7 @@ fn narrow_queue_reserves_compact_context_and_keeps_weekly_at_the_right_edge() {
             max: 100_000,
         }));
         app.session.set_claude_context_fresh_for_test(true);
-        let reset = crate::app::weekly_usage::unix_now() + 3 * 86_400;
+        let reset = crate::session::usage::unix_now() + 3 * 86_400;
         app.session.update_rate_limits(
             &json!({"secondary":{"usedPercent":50,"windowDurationMins":10080,"resetsAt":reset}}),
         );
@@ -181,7 +181,7 @@ fn narrow_default_mode_keeps_recovery_error_and_pending_notices_beside_quota_and
         used: 90_000,
         max: 100_000,
     }));
-    app.session.update_rate_limits(&json!({"secondary":{"usedPercent":50,"windowDurationMins":10080,"resetsAt":crate::app::weekly_usage::unix_now()+3*86400}}));
+    app.session.update_rate_limits(&json!({"secondary":{"usedPercent":50,"windowDurationMins":10080,"resetsAt":crate::session::usage::unix_now()+3*86400}}));
     for (kind, full, compact) in [
         ("draft", "Unsent draft", "Draft"),
         ("error", "Queue error", "Q!"),

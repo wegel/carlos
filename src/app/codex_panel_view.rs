@@ -4,9 +4,10 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::buffer::Buffer;
 use ratatui::style::Style;
 
-use super::codex_panel_state::PanelId;
 use super::input_events::TerminalEventResult;
 use super::render::{draw_str, fill_rect};
+use crate::session::codex::panel_state::PanelId;
+
 use super::state::AppState;
 use super::view_models::TerminalSize;
 use crate::backend::{BackendClient, BackendKind};
@@ -149,7 +150,7 @@ fn selected(app: &AppState) -> String {
         }
         PanelId::Process { process, .. } => (process.as_str(), "background process"),
     };
-    super::claude_question_state::safe_label(&format!("> {label}: {status}"))
+    crate::session::text::safe_label(&format!("> {label}: {status}"))
 }
 
 fn toggle_panel(app: &mut AppState) {

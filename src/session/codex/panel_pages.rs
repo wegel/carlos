@@ -237,13 +237,10 @@ fn publish(
     let verified = read
         .lineage
         .keys()
-        .filter(|id| belongs(id, &session.thread_id(), &read.lineage))
+        .filter(|id| belongs(id, session.thread_id(), &read.lineage))
         .cloned();
-    session.codex_panel.ownership = super::panel_state::VerifiedOwners::new(
-        &session.thread_id(),
-        scope.native.epoch,
-        verified,
-    )?;
+    session.codex_panel.ownership =
+        super::panel_state::VerifiedOwners::new(session.thread_id(), scope.native.epoch, verified)?;
     session.codex_panel.error = if read.errors.is_empty() {
         None
     } else {

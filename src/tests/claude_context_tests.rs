@@ -1,7 +1,6 @@
 //! Keep root context readable through native work, late reads and session boundaries.
 
-#[path = "claude_backend_tests/normalized_app.rs"]
-mod normalized_app;
+use crate::app::normalized_test_app as normalized_app;
 
 use std::time::{Duration, Instant};
 
@@ -9,8 +8,9 @@ use serde_json::{json, Value};
 
 use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
 use super::codex_question_support::Peer;
-use super::ContextUsage;
 use crate::app::claude_context::{invalidate, receive, refresh, tick, wait};
+use crate::session::context_usage::ContextUsage;
+
 use crate::backend::EventReceiver;
 use crate::session::runtime_settings::RuntimeSetting;
 

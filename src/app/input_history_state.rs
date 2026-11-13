@@ -8,6 +8,7 @@ use crate::session::input_history::PromptHistory;
 pub(super) struct InputHistoryView {
     input_history_index: Option<usize>,
     selected_entry_id: Option<EntryId>,
+    selected_prompt_id: Option<EntryId>,
     input_history_draft: Option<String>,
     rewind_mode: bool,
     rewind_restore_draft: Option<String>,
@@ -24,6 +25,7 @@ impl InputHistoryView {
     pub(super) fn reset_navigation(&mut self) {
         self.input_history_index = None;
         self.selected_entry_id = None;
+        self.selected_prompt_id = None;
         self.input_history_draft = None;
     }
 
@@ -77,6 +79,7 @@ impl InputHistoryView {
 
         self.input_history_index = Some(next_idx);
         self.selected_entry_id = history.entry_id(next_idx);
+        self.selected_prompt_id = history.prompt_id(next_idx);
         Some(history.text(next_idx).to_string())
     }
 
@@ -88,28 +91,39 @@ impl InputHistoryView {
             let next_idx = idx + 1;
             self.input_history_index = Some(next_idx);
             self.selected_entry_id = history.entry_id(next_idx);
+            self.selected_prompt_id = history.prompt_id(next_idx);
             return Some(history.text(next_idx).to_string());
         }
 
         let draft = self.input_history_draft.take().unwrap_or_default();
         self.input_history_index = None;
         self.selected_entry_id = None;
+        self.selected_prompt_id = None;
         Some(draft)
     }
 
     // --- Rewind Selection ---
+    /// Read the stable prompt selected by this client, including an unbound draft.
+    pub(super) fn rewind_prompt_id(&self) -> Option<EntryId> {
+        self.selected_prompt_id
+    }
+
     /// Read the entry selected by this client.
     pub(super) fn rewind_selected_entry_id(&self) -> Option<EntryId> {
         self.selected_entry_id
     }
 
     /// Read the prompt-record cursor used for backend rewind.
+    #[cfg(test)]
     pub(super) fn rewind_selected_history_index(&self) -> Option<usize> {
         self.input_history_index
     }
 
     #[cfg(test)]
     pub(super) fn refresh_selected_entry(&mut self, history: &PromptHistory) {
+        self.selected_prompt_id = self
+            .input_history_index
+            .and_then(|index| history.prompt_id(index));
         self.selected_entry_id = self
             .input_history_index
             .and_then(|index| history.entry_id(index));

@@ -4,10 +4,11 @@ use serde_json::{json, Value};
 
 use super::claude_browser::complete;
 use super::claude_callbacks::{cancel_callback, receive_callback};
-#[path = "claude_process_support.rs"]
-mod support;
-use super::state::{AppState, ApprovalChoice};
+
+use super::state::AppState;
 use super::turn_approval::respond_to_pending_approval;
+use crate::app::claude_process_test_support as support;
+use crate::session::approval_state::ApprovalChoice;
 use support::Peer;
 
 fn browser(app: &mut AppState, id: &str) {

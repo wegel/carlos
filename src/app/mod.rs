@@ -4,16 +4,11 @@ use std::env;
 
 use anyhow::Result;
 
-#[cfg(test)]
-use self::models::MessageKind;
-use self::models::{Message, ThreadSummary};
 use self::state::AppState;
 use self::view_models::{RenderedLine, TerminalSize};
-pub(crate) use crate::session::models::Role;
 
 // --- Module Tree ---
 
-mod approval_state;
 mod backend_setup;
 mod claude_activity;
 #[cfg(test)]
@@ -26,6 +21,7 @@ mod claude_edit_view;
 mod claude_models;
 #[cfg(test)]
 mod claude_notices;
+#[cfg(test)]
 mod claude_notifications;
 #[cfg(test)]
 mod claude_prompts;
@@ -92,7 +88,6 @@ mod item_history;
 mod layout_state;
 mod markdown_tables;
 mod mobile_mouse;
-mod models;
 mod mouse_events;
 mod native_questions;
 mod notifications;
@@ -103,8 +98,6 @@ mod perf_session;
 mod perf_synthetic;
 mod picker_delete_dialog;
 mod picker_render;
-mod ralph;
-mod ralph_runtime_state;
 mod rate_limits;
 mod render;
 mod render_cache_state;
@@ -114,12 +107,6 @@ mod render_transcript;
 mod runtime_settings_state;
 mod selection;
 mod session_name;
-#[cfg(test)]
-use crate::session::shell_command;
-#[cfg(test)]
-use crate::session::shell_directory;
-#[cfg(test)]
-use crate::session::shell_read;
 mod source_highlight;
 mod state;
 mod state_approval_view;
@@ -134,8 +121,6 @@ mod state_summaries;
 mod state_thread;
 mod state_transcript;
 mod style_convert;
-#[cfg(test)]
-use crate::session::summary_request;
 mod task_badge;
 mod terminal_ui;
 mod text;
@@ -144,10 +129,7 @@ mod tool_output_command;
 mod tool_output_items;
 mod tool_output_preferences;
 mod tool_output_state;
-#[cfg(test)]
-use crate::session::tool_shell;
 mod tool_summary;
-use crate::session::tools;
 mod transcript_block;
 mod transcript_body;
 mod transcript_diff;
@@ -159,7 +141,6 @@ mod transcript_styles;
 mod transcript_wrap;
 mod turn_approval;
 mod turn_interrupt;
-mod turn_settings;
 mod turn_submit;
 mod view_models;
 mod view_state;
@@ -170,8 +151,6 @@ mod weekly_usage;
 
 const MSG_TOP: usize = 1;
 const MSG_CONTENT_X: usize = 2;
-
-use crate::session::runtime_settings::RuntimeDefaults;
 
 // --- Runtime Wiring ---
 
@@ -311,3 +290,19 @@ mod claude_updates;
 mod idless_item_tests;
 
 mod backend_updates;
+
+#[cfg(test)]
+mod event_forwarder_support;
+
+#[cfg(test)]
+mod event_forwarder_tests;
+
+#[cfg(test)]
+mod event_shutdown_tests;
+
+#[cfg(test)]
+#[path = "../tests/claude_process_support.rs"]
+mod claude_process_test_support;
+#[cfg(test)]
+#[path = "../tests/claude_backend_tests/normalized_app.rs"]
+mod normalized_test_app;

@@ -3,19 +3,21 @@
 // --- Imports ---
 
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
-
-pub(super) use super::approval_state::{
-    ApprovalChoice, ApprovalRequestDraft, ApprovalRequestKind, PendingApprovalRequest,
-};
-use super::perf::PerfMetrics;
 #[cfg(test)]
-use super::ralph::RalphConfig;
-use super::ralph_runtime_state::QueuedTurnInput;
+use std::time::Instant;
+
+use super::perf::PerfMetrics;
 pub(super) use super::runtime_settings_state::ModelSettingsField;
 #[cfg(test)]
 pub(super) use super::runtime_settings_state::{DEFAULT_EFFORT_OPTIONS, DEFAULT_SUMMARY_OPTIONS};
+#[cfg(test)]
+use crate::session::ralph::RalphConfig;
+
 use super::view_state::ViewState;
+#[cfg(test)]
+use crate::session::approval_state::ApprovalRequestDraft;
+#[cfg(test)]
+use crate::session::ralph_runtime_state::QueuedTurnInput;
 use crate::session::state::SessionState;
 
 // --- Types ---
@@ -29,13 +31,16 @@ pub(super) struct AppState {
 
 impl AppState {
     pub(super) fn new(thread_id: String) -> Self {
-        Self::with_runtime_defaults(thread_id, super::RuntimeDefaults::default())
+        Self::with_runtime_defaults(
+            thread_id,
+            crate::session::runtime_settings::RuntimeDefaults::default(),
+        )
     }
 
     /// Pass startup choices to the session without letting it read client files.
     pub(super) fn with_runtime_defaults(
         thread_id: String,
-        preferences: super::RuntimeDefaults,
+        preferences: crate::session::runtime_settings::RuntimeDefaults,
     ) -> Self {
         let summary_enabled = super::tool_output_preferences::load_summary_enabled();
         Self {
@@ -97,6 +102,7 @@ impl AppState {
         self.drop_retired_approval_hints(retired);
     }
 
+    #[cfg(test)]
     pub(super) fn clear_pending_approval(&mut self) {
         let cleared = self.session.clear_pending_session_approval();
         self.apply_cleared_approval(cleared);
@@ -132,6 +138,7 @@ impl AppState {
         self.session.queue_turn_input(text)
     }
 
+    #[cfg(test)]
     pub(super) fn queue_turn_input_with_history(
         &mut self,
         text: impl Into<String>,
@@ -141,10 +148,7 @@ impl AppState {
             .queue_turn_input_with_history(text, record_input_history)
     }
 
-    pub(super) fn has_ready_queued_turn_input(&self, now: Instant) -> bool {
-        self.session.has_ready_queued_turn_input(now)
-    }
-
+    #[cfg(test)]
     pub(super) fn promote_ready_continuation(&mut self, now: Instant) {
         self.session.promote_ready_continuation(now)
     }
@@ -153,23 +157,17 @@ impl AppState {
         self.session.has_pending_ralph_continuation()
     }
 
-    pub(super) fn pending_ralph_continuation_wait(&self, now: Instant) -> Option<Duration> {
-        self.session.pending_ralph_continuation_wait(now)
-    }
-
+    #[cfg(test)]
     pub(super) fn dequeue_turn_input(&mut self, now: Instant) -> Option<QueuedTurnInput> {
         self.session.dequeue_turn_input(now)
     }
 
     // --- Turn lifecycle ---
 
+    #[cfg(test)]
     pub(super) fn append_turn_interrupted_marker(&mut self) {
         let update = self.session.append_turn_interrupted_marker();
         self.apply_session_update(update);
-    }
-
-    pub(super) fn mark_turn_started(&mut self) {
-        self.session.mark_turn_started()
     }
 
     #[cfg(test)]

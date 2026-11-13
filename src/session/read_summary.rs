@@ -1,5 +1,7 @@
 //! Parse and combine source read labels without rendering.
 
+use std::fmt::Write;
+
 /// Read summary path.
 pub(crate) fn read_summary_path(text: &str) -> Option<&str> {
     let trimmed = text.trim();
@@ -29,14 +31,19 @@ pub(crate) fn parse_read_summary(text: &str) -> Option<(&str, usize)> {
 
 /// Format read summary with count.
 pub(crate) fn format_read_summary_with_count(path: &str, count: usize) -> String {
-    let base = if path.is_empty() {
-        "→ Read".to_string()
-    } else {
-        format!("→ Read {path}")
-    };
-    if count > 1 {
-        format!("{base} ×{count}")
-    } else {
-        base
+    let mut summary = String::with_capacity(
+        "→ Read".len()
+            + path.len()
+            + usize::from(!path.is_empty())
+            + if count > 1 { 24 } else { 0 },
+    );
+    summary.push_str("→ Read");
+    if !path.is_empty() {
+        summary.push(' ');
+        summary.push_str(path);
     }
+    if count > 1 {
+        write!(summary, " ×{count}").expect("writing to a String cannot fail");
+    }
+    summary
 }

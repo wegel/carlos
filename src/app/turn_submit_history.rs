@@ -1,84 +1,26 @@
-//! Adopt backend forks only after the response and copied prefix are ready.
+//! Drive fork fixtures through the same session adoption commands as accepted edits.
 
-use anyhow::Context;
-
-use crate::app::state::AppState;
-use crate::app::Role;
-use crate::protocol_params::{extract_result_object, parse_thread_id_from_start_or_resume};
+use super::super::state::AppState;
 use crate::session::models::EntryDraft;
 
-/// Copy a retained prefix without adopting its ids into the future fork.
-pub(super) fn snapshot_grok_rewind_prefix(
-    app: &AppState,
-    rewind_history_idx: usize,
-) -> Vec<EntryDraft> {
-    let cut = app
-        .rewind_selected_message_idx()
-        .or_else(|| nth_user_message_idx(app, rewind_history_idx))
-        .unwrap_or(app.session.messages().len());
-    let cut = cut.min(app.session.messages().len());
-    app.session.messages()[..cut]
-        .iter()
-        .cloned()
-        .map(Into::into)
-        .collect()
-}
-
-fn nth_user_message_idx(app: &AppState, rewind_history_idx: usize) -> Option<usize> {
-    app.session
-        .messages()
-        .iter()
-        .enumerate()
-        .filter(|(_, message)| message.role == Role::User)
-        .nth(rewind_history_idx)
-        .map(|(idx, _)| idx)
-}
-
-/// Adopt the copied Grok prefix with fresh ids after the fork succeeds.
 pub(super) fn apply_grok_rewound_history(
     app: &mut AppState,
-    response_line: &str,
+    response: &str,
     prefix: Vec<EntryDraft>,
 ) -> anyhow::Result<()> {
-    let thread_id =
-        parse_thread_id_from_start_or_resume(response_line).context("missing rewound thread id")?;
-    app.reset_for_forked_thread(thread_id);
-    for message in prefix {
-        let record_user = message.role == Role::User && !message.text.is_empty();
-        let text = message.text.clone();
-        app.session.transcript_append(message);
-        let idx = app.session.messages().len() - 1;
-        if record_user {
-            app.record_input_history(&text, Some(idx));
-        }
-        app.mark_transcript_dirty_from(idx);
-    }
+    let update = app.session.adopt_grok_fork(response, prefix)?;
+    let _ = app.apply_claude_update(update);
     Ok(())
 }
 
-/// Parse the complete Codex fork response before replacing the old transcript.
 pub(super) fn apply_forked_thread_history(
     app: &mut AppState,
-    response_line: &str,
+    response: &str,
 ) -> anyhow::Result<()> {
-    let thread_id =
-        parse_thread_id_from_start_or_resume(response_line).context("missing forked thread id")?;
-    // Parse the full response before adopting the fork, preserving the old session on failure.
-    let parsed = extract_result_object(response_line)?;
-    let thread = parsed["result"]["thread"].clone();
-    let previous = app.session.replace_codex_item_turn(None);
-    let mut draft = crate::session::item_history_draft::build(&mut app.session, &thread);
-    draft.set_conversation(&thread_id);
-    app.session.replace_codex_item_turn(previous);
-    app.reset_for_forked_thread(thread_id);
-    app.replace_history_draft(
-        draft,
-        crate::session::history_identity::HistoryMode::NewConversation,
-    );
-    app.read_thread_name(&thread);
+    let update = app.session.adopt_codex_fork(response)?;
+    let _ = app.apply_claude_update(update);
     Ok(())
 }
 
-#[cfg(test)]
 #[path = "../tests/entry_fork_tests.rs"]
 mod identity_tests;

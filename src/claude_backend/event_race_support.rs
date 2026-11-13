@@ -16,19 +16,19 @@ use crate::backend::{BackendClient, EventReceiver};
 pub(super) const DEADLINE: Duration = Duration::from_secs(5);
 pub(super) const BLOCKS: usize = 900;
 
-pub(super) struct Pause {
+pub(crate) struct Pause {
     reached: mpsc::Receiver<()>,
     release: mpsc::Sender<()>,
 }
 
 impl Pause {
-    pub(super) fn wait(&self) {
+    pub(crate) fn wait(&self) {
         self.reached
             .recv_timeout(DEADLINE)
             .expect("reader reached barrier");
     }
 
-    pub(super) fn resume(self) {
+    pub(crate) fn resume(self) {
         self.release.send(()).expect("release reader");
     }
 }

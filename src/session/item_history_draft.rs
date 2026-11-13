@@ -303,13 +303,9 @@ fn coalesce(
     if index == 0 {
         return None;
     }
-    let Some((path, count)) = read(&entries[index].draft) else {
-        return None;
-    };
+    let (path, count) = read(&entries[index].draft)?;
     let previous = predecessors.before(index).unwrap_or(0);
-    let Some((old_path, old_count)) = read(&entries[previous].draft) else {
-        return None;
-    };
+    let (old_path, old_count) = read(&entries[previous].draft)?;
     if path == old_path {
         entries[previous].draft.text = format_read_summary_with_count(&path, count + old_count);
         entries[index].draft.text.clear();

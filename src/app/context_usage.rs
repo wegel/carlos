@@ -1,10 +1,6 @@
 //! Context-window token usage parsing and compact label formatting.
 
-// --- Usage Types ---
-
-pub(super) use crate::session::context_usage::ContextUsage;
-
-// --- Usage Parsing ---
+use crate::session::context_usage::ContextUsage;
 
 // --- Label Formatting ---
 

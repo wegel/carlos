@@ -5,8 +5,7 @@ use serde_json::json;
 
 use super::state::AppState;
 
-#[path = "claude_process_support.rs"]
-mod support;
+use crate::app::claude_process_test_support as support;
 use support::Peer;
 
 #[test]

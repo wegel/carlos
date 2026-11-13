@@ -3,8 +3,10 @@
 use serde_json::{json, Value};
 
 use super::codex_question_support::{app, receive, Peer};
+
 use crate::app::codex_panel::{details, refresh, tick};
-use crate::app::codex_panel_state::PanelId;
+
+use crate::session::codex::panel_state::PanelId;
 
 fn agent(id: &str, parent: &str) -> Value {
     json!({"id":id,"parentThreadId":parent,"source":{"subAgent":{"thread_spawn":{
@@ -133,7 +135,6 @@ fn repeated_cursors_or_oversized_snapshots_keep_previous_rows_and_main_draft() {
         .session
         .codex_panel()
         .error()
-        .as_deref()
         .expect("paging error")
         .contains("Repeated"));
     assert_eq!(app.session.codex_panel().agents()[0]["id"], "existing");
@@ -147,7 +148,6 @@ fn repeated_cursors_or_oversized_snapshots_keep_previous_rows_and_main_draft() {
         .session
         .codex_panel()
         .error()
-        .as_deref()
         .expect("bound error")
         .contains("8 MiB"));
     assert!(!app.session.codex_scope().closed());
@@ -235,14 +235,12 @@ fn panel_and_detail_pages_keep_their_original_deadline_and_expired_work_is_not_s
         std::time::Instant::now() - std::time::Duration::from_secs(21),
     );
     tick(&peer, &mut app);
-    assert!(
-        app.session
-            .codex_panel()
-            .activity()
-            .expect("activity")
-            .reading()
-            == false
-    );
+    assert!(!app
+        .session
+        .codex_panel()
+        .activity()
+        .expect("activity")
+        .reading());
     assert_eq!(peer.controls.borrow().len(), 2);
     assert!(!app.session.codex_scope().closed());
 }
@@ -291,7 +289,6 @@ fn an_uncertain_selected_stop_retains_its_error_and_reconciles_with_reads_only()
         .session
         .codex_panel()
         .control_error()
-        .as_deref()
         .expect("retained stop uncertainty")
         .contains("not confirmed"));
     assert!(app.session.codex_panel().stop().is_none());

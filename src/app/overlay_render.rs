@@ -13,8 +13,10 @@ use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
 use super::render::{draw_str, fill_rect};
+
 use super::text::wrap_natural_by_cells;
 use super::{AppState, TerminalSize};
+
 use crate::theme::{COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_STEP2, COLOR_STEP7, COLOR_TEXT};
 
 pub(super) use self::overlay_render_model_settings::model_settings_cursor_position;
@@ -250,7 +252,7 @@ pub(super) fn draw_approval_overlay(buf: &mut Buffer, size: TerminalSize, app: &
 
 fn build_approval_detail_lines(
     app: &AppState,
-    approval: &super::approval_state::PendingApprovalRequest,
+    approval: &crate::session::approval_state::PendingApprovalRequest,
     inner_w: usize,
     height: usize,
 ) -> Vec<String> {
@@ -277,7 +279,9 @@ fn build_approval_detail_lines(
     detail_lines
 }
 
-fn build_approval_footer(approval: &super::approval_state::PendingApprovalRequest) -> String {
+fn build_approval_footer(
+    approval: &crate::session::approval_state::PendingApprovalRequest,
+) -> String {
     let mut parts = vec!["y accept", "n decline"];
     if approval.facts().can_accept_for_session {
         parts.push("s accept session");
@@ -291,7 +295,7 @@ fn build_approval_footer(approval: &super::approval_state::PendingApprovalReques
 fn draw_approval_content(
     buf: &mut Buffer,
     ob: &OverlayBox,
-    approval: &super::approval_state::PendingApprovalRequest,
+    approval: &crate::session::approval_state::PendingApprovalRequest,
     detail_lines: &[String],
     footer_text: &str,
 ) {

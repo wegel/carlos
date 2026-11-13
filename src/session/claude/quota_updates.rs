@@ -4,13 +4,16 @@ use std::time::Instant;
 
 use serde_json::Value;
 
-use crate::backend::BackendClient;
+use super::ClaudePhase;
+use crate::backend::{BackendClient, BackendKind};
 use crate::session::state::SessionState;
 
 impl SessionState {
-    /// Request optional quota when the app has checked the native helper is ready.
+    /// Request optional quota only while the native helper is ready.
     pub(crate) fn tick_claude_quota(&mut self, client: &dyn BackendClient, now: Instant) {
-        self.claude.quota.tick(client, now);
+        if client.kind() == BackendKind::Claude && self.claude().phase() == ClaudePhase::Ready {
+            self.claude.quota.tick(client, now);
+        }
     }
 
     /// Merge a native stream report into its named windows.

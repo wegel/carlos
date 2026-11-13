@@ -52,7 +52,7 @@ pub(super) fn handle_server_message_line(
     }
     let lines = app
         .native
-        .lines(&parsed, &app.app.session.thread_id(), generation);
+        .lines(&parsed, app.app.session.thread_id(), generation);
     let mut action = None;
     for line in lines {
         if let Some(next) = apply_line(&mut app.app, &line) {

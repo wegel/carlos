@@ -1,14 +1,16 @@
 //! Test every transcript map and the sizes of cursor bookkeeping.
 
-use super::super::models::Message;
 use super::Transcript;
+use crate::session::models::Message;
 
 #[cfg(test)]
 impl Transcript {
     /// Assert invariants.
     pub(crate) fn assert_invariants(&self) {
         self.positions.assert_invariants(&self.entries);
-        assert_eq!(self.entries.len(), self.active.len());
+        for index in &self.active {
+            assert!(*index < self.entries.len());
+        }
         for (index, row) in self.entries.iter().enumerate() {
             assert_eq!(self.position(row.id), Some(index));
         }
@@ -51,8 +53,17 @@ impl Transcript {
     pub(crate) fn insert_for_test(&mut self, index: usize, message: Message) {
         let id = self.append(message.into());
         let row = self.entries.pop().expect("new row");
-        self.active.pop();
-        self.active.insert(index, false);
+        self.active = self
+            .active
+            .iter()
+            .map(|position| {
+                if *position >= index {
+                    position + 1
+                } else {
+                    *position
+                }
+            })
+            .collect();
         self.entries.insert(index, row);
         self.positions.rebuild(&self.entries);
         assert_eq!(self.entries[index].id, id);

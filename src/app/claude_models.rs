@@ -4,7 +4,7 @@
 use serde_json::Value;
 
 use super::state::AppState;
-use super::RuntimeDefaults;
+use crate::session::runtime_settings::RuntimeDefaults;
 
 /// Validate native metadata before touching the saved edited-prompt queue.
 #[cfg(test)]
@@ -27,6 +27,7 @@ pub(super) fn observe_model(app: &mut AppState, model: &str) {
 }
 
 /// Omit inherited choices so native settings remain in charge.
+#[cfg(test)]
 pub(super) fn prompt_choices(
     app: &AppState,
     model: Option<String>,

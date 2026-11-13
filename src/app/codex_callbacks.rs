@@ -2,13 +2,13 @@
 
 use serde_json::Value;
 
-use super::claude_question_state::safe_text;
 use super::state::AppState;
 #[cfg(test)]
 use crate::session::actions::ServerRequestAction;
 use crate::session::approval_state::ApprovalQueue;
 use crate::session::codex::callback_commands::CallbackRetired;
 use crate::session::codex::callbacks::CallbackKey;
+use crate::session::text::safe_text;
 
 #[path = "codex_callback_updates.rs"]
 mod updates;
@@ -37,6 +37,7 @@ pub(super) fn resolved(app: &mut AppState, params: &Value) {
 }
 
 /// Remove only the answered or cancelled request's local editor.
+#[cfg(test)]
 pub(super) fn retire(app: &mut AppState, id: &Value) {
     let retired = app.session.retire_codex_callback(id);
     apply_retired(app, retired);
@@ -165,6 +166,7 @@ pub(super) fn reply_error(app: &mut AppState, id: &Value, error: &str) {
 }
 
 /// Retire every old-session callback before the replacement transcript is activated.
+#[cfg(test)]
 pub(super) fn reset(app: &mut AppState) {
     for id in app.session.codex_callback_ids() {
         retire(app, &id);

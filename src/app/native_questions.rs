@@ -68,7 +68,7 @@ pub(super) fn secret_active(app: &AppState) -> bool {
 
 /// Display an exact native ID, including whether it was a string or a number.
 pub(super) fn id_label(id: &Value) -> String {
-    super::claude_question_state::safe_label(&id.to_string())
+    crate::session::text::safe_label(&id.to_string())
 }
 
 /// Keep visible questions ahead of hidden editor overlays when the user scrolls or clicks.

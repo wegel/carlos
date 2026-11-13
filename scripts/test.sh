@@ -14,6 +14,8 @@ for argument in "$@"; do
   esac
 done
 
+python3 -m unittest discover -s tests/architecture -p 'test_*.py'
+python3 scripts/check-session-boundary.py
 cargo fmt --check
 if [[ "$profile" == release ]]; then
   cargo clippy --all-targets -- -D warnings

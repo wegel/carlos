@@ -5,8 +5,11 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use crate::app::input_events::TerminalEventResult;
 use crate::app::notifications::is_ctrl_char;
 use crate::app::state::{AppState, ModelSettingsField};
+
+use crate::app::persist_runtime_defaults;
 use crate::app::tool_output_preferences::save_appearance;
-use crate::app::{persist_runtime_defaults, RuntimeDefaults};
+use crate::session::runtime_settings::RuntimeDefaults;
+
 use crate::backend::{BackendClient, BackendKind};
 
 pub(super) fn handle_model_settings_key(
@@ -130,7 +133,7 @@ fn save_settings(client: &dyn BackendClient, app: &mut AppState) {
     }
     if let Err(error) = save_appearance(app.view.tool_output.mode, app.view.layout.themes) {
         app.append_message(
-            crate::app::Role::System,
+            crate::session::models::Role::System,
             format!("Could not save appearance choices: {error}"),
         );
     }

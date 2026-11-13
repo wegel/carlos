@@ -7,15 +7,15 @@ use std::thread;
 use serde_json::{json, Value};
 
 use super::event_forwarder_support::forward;
-use super::event_queue::MAX_EVENT_BYTES;
-use super::event_race_support::{notify, pause_once, transport, DEADLINE};
-use super::event_test_support::command_client;
+use crate::claude_backend::forwarder_test_support::command_client;
+use crate::claude_backend::forwarder_test_support::MAX_EVENT_BYTES;
+use crate::claude_backend::forwarder_test_support::{ForwarderHarness, DEADLINE};
 use crate::event::UiEvent;
 
 #[test]
 fn pending_call_is_rejected_before_terminal_notices_or_bytes_are_acknowledged() {
     let (client, receiver) = peer();
-    let transport = transport(&client);
+    let transport = ForwarderHarness::new(&client);
     let calling = transport.clone();
     let (done_tx, done) = mpsc::channel();
     let caller = thread::spawn(move || {
@@ -26,12 +26,11 @@ fn pending_call_is_rejected_before_terminal_notices_or_bytes_are_acknowledged() 
     let marker = receiver
         .recv_timeout(DEADLINE)
         .expect("pending call marker");
-    transport.events.handled(marker.len());
-    let paused = pause_once(&transport.events.hooks, "route_ready");
-    let deferred = notify(&transport.events.hooks, "terminal_deferred");
-    let eof = notify(&transport.events.hooks, "reader_eof");
+    transport.handled(marker.len());
+    let paused = transport.pause("route_ready");
+    let deferred = transport.notify("terminal_deferred");
+    let eof = transport.notify("reader_eof");
     transport
-        .events
         .send("x".repeat(MAX_EVENT_BYTES))
         .expect("fill byte budget");
     transport
@@ -48,19 +47,19 @@ fn pending_call_is_rejected_before_terminal_notices_or_bytes_are_acknowledged() 
         rejected.expect_err("helper stopped").to_string(),
         "Claude controller closed before replying"
     );
-    assert!(transport.pending.lock().expect("pending").is_empty());
+    assert!(transport.pending_empty());
     paused.resume();
     eof.recv_timeout(DEADLINE)
         .expect("reader reaches EOF without acknowledgements");
     caller.join().expect("caller joined");
     let filler = receiver.recv_timeout(DEADLINE).expect("filler");
-    transport.events.handled(filler.len());
+    transport.handled(filler.len());
     let methods: Vec<_> = (0..3)
         .map(|_| {
             let line = receiver
                 .recv_timeout(DEADLINE)
                 .expect("ordered terminal fact");
-            transport.events.handled(line.len());
+            transport.handled(line.len());
             serde_json::from_str::<Value>(&line).expect("JSON")["method"].clone()
         })
         .collect();
@@ -73,9 +72,8 @@ fn pending_call_is_rejected_before_terminal_notices_or_bytes_are_acknowledged() 
 #[test]
 fn dropping_ui_receiver_cancels_budget_through_production_forwarder() {
     let (client, receiver) = peer();
-    let transport = transport(&client);
+    let transport = ForwarderHarness::new(&client);
     transport
-        .events
         .send("x".repeat(MAX_EVENT_BYTES))
         .expect("fill budget");
     let ui = forward(receiver);
@@ -84,8 +82,8 @@ fn dropping_ui_receiver_cancels_budget_through_production_forwarder() {
         panic!("server line");
     };
     assert_eq!(line.len(), MAX_EVENT_BYTES);
-    let deferred = notify(&transport.events.hooks, "terminal_deferred");
-    let finished = notify(&transport.events.hooks, "finished");
+    let deferred = transport.notify("terminal_deferred");
+    let finished = transport.notify("finished");
     transport.request("exit", json!({})).expect("EOF");
     deferred
         .recv_timeout(DEADLINE)
@@ -94,10 +92,13 @@ fn dropping_ui_receiver_cancels_budget_through_production_forwarder() {
     finished
         .recv_timeout(DEADLINE)
         .expect("UI teardown releases final sender without an ack");
-    assert_eq!(transport.events.charged_bytes(), MAX_EVENT_BYTES);
+    assert_eq!(transport.charged_bytes(), MAX_EVENT_BYTES);
 }
 
-fn peer() -> (super::ClaudeClient, crate::backend::EventReceiver) {
+fn peer() -> (
+    crate::claude_backend::ClaudeClient,
+    crate::backend::EventReceiver,
+) {
     let mut command = Command::new("python3");
     command.args(["-c", PEER]);
     command_client(command, 1024)
@@ -123,13 +124,13 @@ for line in sys.stdin:
 #[test]
 fn later_stderr_chunks_remain_visible_after_the_first_closes_the_query() {
     let (client, receiver) = peer();
-    let transport = transport(&client);
+    let transport = ForwarderHarness::new(&client);
     for expected in ["first stderr chunk", "second stderr chunk"] {
         transport
             .call("stderr", json!({"text":expected}), DEADLINE)
             .expect("reader serves replies after stderr");
         let line = receiver.recv_timeout(DEADLINE).expect("stderr fact");
-        transport.events.handled(line.len());
+        transport.handled(line.len());
         let value: Value = serde_json::from_str(&line).expect("JSON");
         assert_eq!(
             value["params"]["error"]["message"],

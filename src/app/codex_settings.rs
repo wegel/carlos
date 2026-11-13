@@ -76,7 +76,7 @@ pub(super) fn apply(app: &mut AppState, update: SettingsUpdate) {
             }
             SettingsEffect::Persist(desired) => super::codex_settings_draft::persist(app, &desired),
             SettingsEffect::Notice(message) => {
-                app.append_message(super::Role::System, message);
+                app.append_message(crate::session::models::Role::System, message);
             }
         }
     }

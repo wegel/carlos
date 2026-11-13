@@ -146,7 +146,7 @@ fn reasoning_summary_delta_normalizes_split_adjacent_bold_chunks() {
         "**Investigating display bug causes**\n**Analyzing markdown rendering issues**"
     );
 
-    let rendered = build_rendered_lines(&app.session.messages(), 120);
+    let rendered = build_rendered_lines(app.session.messages(), 120);
     assert_eq!(rendered.len(), 2);
     assert_eq!(rendered[0].text, "Investigating display bug causes");
     assert_eq!(rendered[1].text, "Analyzing markdown rendering issues");

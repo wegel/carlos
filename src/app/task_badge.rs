@@ -8,7 +8,7 @@ pub(super) fn count(app: &AppState) -> usize {
         &app.session,
         super::codex_panel::scope(
             app.session.codex_scope(),
-            &app.session.codex_connection(),
+            app.session.codex_connection(),
             &app.view.codex_panel,
         ),
     )
@@ -20,7 +20,7 @@ pub(super) fn owns(app: &AppState, owner: &str) -> bool {
         &app.session,
         super::codex_panel::scope(
             app.session.codex_scope(),
-            &app.session.codex_connection(),
+            app.session.codex_connection(),
             &app.view.codex_panel,
         ),
         owner,

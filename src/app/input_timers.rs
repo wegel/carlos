@@ -11,31 +11,34 @@ pub(in crate::app) fn tick_rate_limits(
     app: &mut AppState,
     now: Instant,
 ) -> bool {
-    connected(app) && app.tick_rate_limits(client, now)
-}
-
-fn connected(app: &AppState) -> bool {
-    !app.session.codex_scope().enabled()
-        || !app.session.codex_scope().closed() && !app.session.codex_connection().rebuilding()
+    app.session.backend_reads_ready() && app.tick_rate_limits(client, now)
 }
 
 /// Choose the next usable read deadline without spinning on disconnected timers.
 pub(in crate::app) fn idle_wait(app: &AppState, now: Instant) -> Option<std::time::Duration> {
-    app.pending_ralph_continuation_wait(now)
+    let scope = super::super::codex_panel::scope(
+        app.session.codex_scope(),
+        app.session.codex_connection(),
+        &app.view.codex_panel,
+    );
+    app.session
+        .backend_wait(now, scope, app.view.codex_goals.show)
         .into_iter()
-        .chain(connected(app).then(|| app.rate_limits_wait(now)).flatten())
-        .chain(super::super::claude_quota::wait(app, now))
-        .chain(super::super::input_mode::wait(app, now))
-        .chain(super::super::claude_context::wait(app, now))
-        .chain(super::super::codex_panel::wait(app, now))
-        .chain(super::super::codex_task_status::wait(app, now))
-        .chain(super::super::codex_goals::wait(app, now))
-        .chain(super::super::codex_reconnect_streams::wait(app, now))
         .chain(
-            (app.session.codex_connection().runtime_refresh()
-                && !app.session.codex_scope().closed()
-                && !app.session.codex_connection().runtime_read_pending())
-            .then_some(std::time::Duration::ZERO),
+            app.session
+                .backend_reads_ready()
+                .then(|| {
+                    app.view
+                        .quota_next_draw
+                        .map(|deadline| deadline.saturating_duration_since(now))
+                })
+                .flatten(),
         )
+        .chain(
+            app.view
+                .claude_quota_next_draw
+                .map(|deadline| deadline.saturating_duration_since(now)),
+        )
+        .chain(super::super::input_mode::wait(app, now))
         .min()
 }

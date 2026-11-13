@@ -8,8 +8,8 @@ use super::state::AppState;
 #[cfg(test)]
 pub(super) fn finish_answer(
     app: &mut AppState,
-    pending: &super::state::ApprovalRequestDraft,
-    choice: super::state::ApprovalChoice,
+    pending: &crate::session::approval_state::ApprovalRequestDraft,
+    choice: crate::session::approval_state::ApprovalChoice,
 ) {
     let update = app.session.finish_claude_browser_answer(pending, choice);
     app.apply_session_update(update);

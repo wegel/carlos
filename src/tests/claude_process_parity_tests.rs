@@ -6,10 +6,9 @@ use serde_json::{json, Value};
 
 use super::claude_context;
 use super::claude_notifications::fail_session;
-#[path = "claude_process_support.rs"]
-mod support;
 use super::notifications::handle_server_message_line;
 use super::state::AppState;
+use crate::app::claude_process_test_support as support;
 use crate::session::claude::{NativeState, StopState};
 use support::Peer;
 

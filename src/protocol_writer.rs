@@ -69,7 +69,7 @@ impl InputWriter {
         let (reply, receiver) = mpsc::channel();
         if self
             .bytes
-            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |bytes| {
+            .try_update(Ordering::SeqCst, Ordering::SeqCst, |bytes| {
                 bytes
                     .checked_add(length)
                     .filter(|sum| *sum <= MAX_WRITE_BYTES)

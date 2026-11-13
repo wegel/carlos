@@ -167,13 +167,9 @@ fn accept_thread(session: &mut SessionState, scope: PanelScope<'_>, thread: &Val
             return true;
         }
     }
-    if thread["id"]
+    thread["id"]
         .as_str()
         .is_some_and(|id| id != *session.thread_id())
-    {
-        return true;
-    }
-    false
 }
 
 fn apply_child(session: &mut SessionState, index: usize, method: &str, params: &Value) -> bool {

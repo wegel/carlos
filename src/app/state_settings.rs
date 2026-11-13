@@ -1,7 +1,7 @@
 //! AppState impl: runtime/model settings delegation.
 
 use super::state::AppState;
-use super::RuntimeDefaults;
+use crate::session::runtime_settings::RuntimeDefaults;
 
 impl AppState {
     // --- Runtime settings ---

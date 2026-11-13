@@ -1,6 +1,6 @@
 //! Keep only local task-panel focus, navigation and detail visibility.
 
-pub(super) use crate::session::codex::panel_state::PanelId;
+use crate::session::codex::panel_state::PanelId;
 
 /// Retain the terminal's selected native row independently of backend reads.
 #[derive(Default)]

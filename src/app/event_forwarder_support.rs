@@ -5,10 +5,10 @@ use std::sync::mpsc;
 
 use serde_json::{json, Value};
 
-use super::event_race_support::DEADLINE;
-use super::event_test_support::{command_client, submit};
-use super::ClaudeClient;
 use crate::backend::{BackendClient, EventReceiver};
+use crate::claude_backend::forwarder_test_support::DEADLINE;
+use crate::claude_backend::forwarder_test_support::{command_client, helper_call, submit};
+use crate::claude_backend::ClaudeClient;
 use crate::event::UiEvent;
 
 pub(super) fn peer(order: &str, accepted: bool) -> (ClaudeClient, EventReceiver) {
@@ -36,9 +36,7 @@ pub(super) fn ready(client: &ClaudeClient, ui: &mpsc::Receiver<UiEvent>) -> Stri
 }
 
 pub(super) fn mark(client: &ClaudeClient, marker: &str) {
-    client
-        .helper_call("mark", json!({"marker":marker}), DEADLINE)
-        .expect("reader barrier");
+    helper_call(client, "mark", json!({"marker":marker})).expect("reader barrier");
 }
 
 pub(super) fn through(

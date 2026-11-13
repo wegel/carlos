@@ -1,8 +1,7 @@
 //! Pass normalized Claude frames to the session and apply its local reports.
 
 #[cfg(test)]
-use serde_json::Map;
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 use super::state::AppState;
 #[cfg(test)]
@@ -33,6 +32,7 @@ pub(super) fn route(app: &mut AppState, method: &str, facts: &Value) -> ClaudeRo
 }
 
 /// Attach a submitted UUID before its existing local acceptance rule.
+#[cfg(test)]
 pub(super) fn record_submitted_prompt(app: &mut AppState, response: &Value) {
     let update = app
         .session
@@ -72,6 +72,7 @@ pub(super) fn fail_session(app: &mut AppState) {
 }
 
 /// Copy the local consent identity; callers borrow composer lines separately.
+#[cfg(test)]
 pub(super) fn context(app: &AppState) -> ClaudeDraftContext<'static> {
     ClaudeDraftContext {
         composer: &[],

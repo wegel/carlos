@@ -1,6 +1,6 @@
 //! Prove literal directory guards without changing scripts or accepting ambiguous shell syntax.
 
-use crate::app::shell_directory::directory_prefix;
+use crate::session::shell_directory::directory_prefix;
 
 #[test]
 fn literal_quoted_escaped_unicode_and_adjacent_operator_prefixes_keep_the_exact_body() {

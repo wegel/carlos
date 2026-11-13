@@ -5,10 +5,11 @@ use serde_json::{json, Value};
 use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::notifications::handle_server_message_line;
 use crate::app::state::AppState;
-use crate::app::{MessageKind, Role};
 use crate::backend::BackendKind;
 use crate::session::history_identity::{HistoryEntry, HistoryMode};
 use crate::session::models::EntryDraft;
+use crate::session::models::MessageKind;
+use crate::session::models::Role;
 use crate::summaries::{command_key, SummaryEvent};
 
 pub(super) fn app(backend: BackendKind) -> AppState {
@@ -81,7 +82,7 @@ fn read_coalescing_keeps_the_hidden_shell_id() {
             app.session.messages()[0].text,
             format!("→ Read a.rs ×{count}")
         );
-        for index in 1..count {
+        for (index, id) in ids.iter().enumerate().take(count).skip(1) {
             assert!(app.session.messages()[index].text.is_empty());
             assert_eq!(app.item_message_index(&index.to_string()), Some(index));
             app.upsert_mapped_message(
@@ -97,7 +98,7 @@ fn read_coalescing_keeps_the_hidden_shell_id() {
                 0,
             )
             .expect("compact tool");
-            assert_eq!(display.source.id, ids[index]);
+            assert_eq!(display.source.id, *id);
         }
         assert_eq!(app.session.messages()[0].id, ids[0]);
     }
@@ -325,7 +326,7 @@ fn complete_diff_changes_keep_existing_parts_and_remint_reintroduced_parts() {
                     item(retained, "changed"),
                     source.clone(),
                 );
-                for part in 0..count {
+                for (part, id) in old.iter().enumerate().take(count) {
                     app.with_item_part("diff", part, |app, key| {
                         assert_eq!(app.has_item_mapping(key), part < retained);
                         if part < retained {
@@ -333,7 +334,7 @@ fn complete_diff_changes_keep_existing_parts_and_remint_reintroduced_parts() {
                                 app.session.messages()
                                     [app.item_message_index(key).expect("retained")]
                                 .id,
-                                old[part]
+                                *id
                             );
                         }
                     });

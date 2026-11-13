@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::backend::RewindUserMessage;
 
-use super::entry_id::EntryId;
+use super::entry_id::{EntryId, EntryIds};
 use super::input_history_native::{NativeUserHistory, NativeUserPosition};
 #[cfg(test)]
 use super::transcript::Transcript;
@@ -14,6 +14,7 @@ use super::transcript::Transcript;
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct PromptHistory {
     input_history: Vec<String>,
+    prompt_ids: Vec<EntryId>,
     input_history_entry_ids: Vec<Option<EntryId>>,
     turn_ids_by_message: HashMap<EntryId, String>,
     native: Option<NativeUserHistory>,
@@ -61,6 +62,23 @@ impl PromptHistory {
         &self.input_history[index]
     }
 
+    /// Identify a prompt even before the backend supplies its transcript row.
+    pub(crate) fn prompt_id(&self, index: usize) -> Option<EntryId> {
+        self.prompt_ids.get(index).copied()
+    }
+
+    /// Resolve a selected prompt inside the owner rather than trusting a client count.
+    pub(in crate::session) fn prompt_index(&self, id: EntryId) -> Option<usize> {
+        self.prompt_ids
+            .iter()
+            .position(|candidate| *candidate == id)
+            .or_else(|| {
+                self.input_history_entry_ids
+                    .iter()
+                    .position(|entry| *entry == Some(id))
+            })
+    }
+
     /// Resolve a prompt record to its optional transcript entry.
     pub(crate) fn entry_id(&self, index: usize) -> Option<EntryId> {
         self.input_history_entry_ids.get(index).copied().flatten()
@@ -91,6 +109,7 @@ impl PromptHistory {
             && self.input_history_entry_ids.last() == Some(&None)
         {
             self.input_history.pop();
+            self.prompt_ids.pop();
             self.input_history_entry_ids.pop();
             return true;
         }
@@ -101,6 +120,7 @@ impl PromptHistory {
         &mut self,
         text: &str,
         entry: Option<EntryId>,
+        ids: &mut EntryIds,
     ) -> bool {
         if text.is_empty() {
             return true;
@@ -121,6 +141,8 @@ impl PromptHistory {
             }
         }
 
+        self.prompt_ids
+            .push(entry.unwrap_or_else(|| ids.allocate()));
         self.input_history.push(text.to_string());
         self.input_history_entry_ids.push(entry);
         true
@@ -152,6 +174,7 @@ impl PromptHistory {
 impl PromptHistory {
     pub(crate) fn assert_invariants(&self, transcript: &Transcript) {
         assert_eq!(self.input_history.len(), self.input_history_entry_ids.len());
+        assert_eq!(self.input_history.len(), self.prompt_ids.len());
         for id in self
             .input_history_entry_ids
             .iter()

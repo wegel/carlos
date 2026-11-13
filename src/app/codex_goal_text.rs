@@ -1,8 +1,9 @@
 //! Explain native goal state, budget semantics and pending work without inventing execution progress.
 
-use super::codex_goal_state::{GoalConfirm, GoalKnowledge};
+use super::codex_goal_state::GoalConfirm;
 use super::state::AppState;
 use super::TerminalSize;
+use crate::session::codex::goal_state::GoalKnowledge;
 
 /// Put errors and the active editable field before long objectives on a narrow screen.
 pub(super) fn body(app: &AppState, size: TerminalSize) -> Vec<String> {
@@ -43,7 +44,7 @@ pub(super) fn body(app: &AppState, size: TerminalSize) -> Vec<String> {
 fn safe(lines: Vec<String>) -> Vec<String> {
     lines
         .into_iter()
-        .map(|line| super::claude_question_state::safe_text(&line))
+        .map(|line| crate::session::text::safe_text(&line))
         .collect()
 }
 

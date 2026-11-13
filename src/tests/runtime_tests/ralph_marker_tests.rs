@@ -33,7 +33,7 @@ fn detect_turn_markers_matches_trimmed_commentary_marker_lines() {
         }),
     ];
 
-    let markers = super::ralph::detect_turn_markers(
+    let markers = crate::session::ralph::detect_turn_markers(
         &messages,
         0,
         "@@COMPLETE@@",
@@ -55,7 +55,7 @@ fn detect_turn_markers_matches_leading_marker_with_summary_tokens() {
         file_path: None,
     })];
 
-    let markers = super::ralph::detect_turn_markers(
+    let markers = crate::session::ralph::detect_turn_markers(
         &messages,
         0,
         "@@COMPLETE@@",
@@ -82,7 +82,7 @@ fn detect_turn_markers_ignore_explanatory_marker_mentions() {
         file_path: None,
     })];
 
-    let markers = super::ralph::detect_turn_markers(
+    let markers = crate::session::ralph::detect_turn_markers(
         &messages,
         0,
         "@@COMPLETE@@",
@@ -96,7 +96,7 @@ fn detect_turn_markers_ignore_explanatory_marker_mentions() {
 
 #[test]
 fn default_continuation_prompt_repeats_stop_rules() {
-    let prompt = super::ralph::DEFAULT_CONTINUATION_PROMPT;
+    let prompt = crate::session::ralph::DEFAULT_CONTINUATION_PROMPT;
 
     assert!(prompt.contains("previous turn ended without a stop marker"));
     assert!(prompt.contains("@@AWAITING_HUMAN@@"));

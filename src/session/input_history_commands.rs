@@ -26,7 +26,8 @@ impl SessionState {
 
     /// Record prompt text and report whether the client must reset its cursor.
     pub(crate) fn record_prompt_history(&mut self, text: &str, entry: Option<EntryId>) -> bool {
-        self.input_history.record_history(text, entry)
+        self.input_history
+            .record_history(text, entry, &mut self.messages.ids)
     }
 
     /// Remove only the matching unbound tail prompt and report whether it was removed.

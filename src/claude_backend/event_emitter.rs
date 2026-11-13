@@ -188,8 +188,8 @@ impl EventEmitter {
     }
 
     fn deliver(&self, lines: Vec<String>, batch: BatchPermit) -> Result<()> {
-        let mut lines = lines.into_iter();
-        while let Some(line) = lines.next() {
+        let lines = lines.into_iter();
+        for line in lines {
             if self.events.send(line.clone()).is_err() {
                 self.stop();
                 let failure = self

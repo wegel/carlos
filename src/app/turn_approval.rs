@@ -1,8 +1,10 @@
 //! Answers native and app-server approvals without creating synthetic user prompts.
 
 use super::claude_question_view::default_no_hint;
-use super::state::{AppState, ApprovalChoice, ApprovalRequestKind};
+use super::state::AppState;
 use crate::backend::BackendClient;
+use crate::session::approval_state::ApprovalChoice;
+use crate::session::approval_state::ApprovalRequestKind;
 
 /// Return the selected answer through the backend native callback.
 pub(super) fn respond_to_pending_approval(
@@ -50,7 +52,7 @@ pub(super) fn respond_to_pending_approval(
 
 fn build_answer(
     app: &mut AppState,
-    pending: &super::state::ApprovalRequestDraft,
+    pending: &crate::session::approval_state::ApprovalRequestDraft,
     choice: ApprovalChoice,
 ) -> Option<serde_json::Value> {
     let result = if choice == ApprovalChoice::Accept && is_native(pending.kind) {
@@ -82,7 +84,7 @@ fn build_answer(
 fn confirm_default_no(
     app: &mut AppState,
     card_id: crate::session::entry_id::EntryId,
-    pending: &super::state::ApprovalRequestDraft,
+    pending: &crate::session::approval_state::ApprovalRequestDraft,
     choice: ApprovalChoice,
 ) -> bool {
     if choice == ApprovalChoice::Accept
@@ -119,10 +121,10 @@ fn reply_error(app: &mut AppState, id: &serde_json::Value, error: String, backen
         .as_str()
         .and_then(|id| app.view.claude_answers.drafts.get_mut(id))
     {
-        draft.error = Some(super::claude_question_state::safe_text(&error));
+        draft.error = Some(crate::session::text::safe_text(&error));
         draft.viewport.scroll.set(0);
     }
-    let error = super::claude_question_state::safe_text(&error);
+    let error = crate::session::text::safe_text(&error);
     if !backend {
         app.set_hint(error);
     }

@@ -7,8 +7,10 @@ use ratatui::style::Style;
 use super::codex_goal_state::GoalConfirm;
 use super::input_events::TerminalEventResult;
 use super::render::{draw_str, fill_rect, textarea_input_from_key};
+
 use super::state::AppState;
 use super::text::{split_at_cells, visual_width};
+
 use super::TerminalSize;
 use crate::backend::BackendClient;
 use crate::theme::{COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_TEXT};
@@ -245,7 +247,7 @@ fn editor_line(app: &AppState, width: usize) -> Option<(String, usize)> {
     let skip = cells.saturating_sub(width.saturating_sub(1));
     let start = split_at_cells(line, skip);
     Some((
-        super::claude_question_state::safe_text(&line[start..]),
+        crate::session::text::safe_text(&line[start..]),
         cells.saturating_sub(skip),
     ))
 }

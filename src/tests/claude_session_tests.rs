@@ -1,7 +1,6 @@
 //! Verify native session identity, history sources, and recoverable startup failures through shared routing.
 
-#[path = "claude_backend_tests/normalized_app.rs"]
-mod normalized_app;
+use crate::app::normalized_test_app as normalized_app;
 
 use serde_json::{json, Value};
 

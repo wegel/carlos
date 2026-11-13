@@ -1,6 +1,8 @@
 //! Supply native activity facts to the session-owned optional context reader.
 
-use std::time::{Duration, Instant};
+#[cfg(test)]
+use std::time::Duration;
+use std::time::Instant;
 
 #[cfg(test)]
 use serde_json::Value;
@@ -25,6 +27,7 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant)
 }
 
 /// Wake for pending reads and stale-count markers.
+#[cfg(test)]
 pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
     app.session.claude_context_wait(now)
 }

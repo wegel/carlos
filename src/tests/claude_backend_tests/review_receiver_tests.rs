@@ -72,7 +72,7 @@ fn native_completions_follow_prompt_and_item_facts_in_real_dispatch() {
     );
     assert_eq!(
         app.session.turn_status_by_id()[id],
-        crate::app::models::TurnStatus::Completed
+        crate::session::models::TurnStatus::Completed
     );
     assert!(app.session.active_turn_id().is_none());
     assert!(app.session.claude_prompts().next().is_none());
@@ -284,7 +284,7 @@ fn accepted_input_after_a_fatal_fact_is_settled_by_eof_and_stderr_stays_visible(
     dispatch_until_eof(&client, &receiver, &mut app);
     assert_eq!(
         app.session.turn_status_by_id()[id],
-        crate::app::models::TurnStatus::Failed
+        crate::session::models::TurnStatus::Failed
     );
     assert!(app.session.messages().iter().any(|m| m.text == "native stderr"));
     assert!(app.session.claude_prompts().next().is_none());
@@ -378,7 +378,7 @@ fn missing_session_metadata_closes_handler_before_later_control_replies() {
     dispatch_until_eof(&client, &receiver, &mut app);
     assert_eq!(
         app.session.turn_status_by_id()[id],
-        crate::app::models::TurnStatus::Failed
+        crate::session::models::TurnStatus::Failed
     );
 }
 

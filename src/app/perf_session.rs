@@ -20,7 +20,7 @@ use crate::session::models::Role;
 pub(super) use super::perf_synthetic::{populate_synthetic_perf_session, SyntheticPerfSpec};
 
 use super::render::render_main_view;
-use super::tools::{
+use crate::session::tools::{
     extract_diff_blocks, format_tool_item, raw_function_call_output_to_tool_item,
     raw_function_call_to_tool_item,
 };

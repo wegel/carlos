@@ -3,6 +3,7 @@
 use std::time::{Duration, Instant};
 
 use super::render::{compute_input_layout, textarea_input_from_key};
+
 use super::state::AppState;
 use super::view_models::TerminalSize;
 use super::MSG_TOP;
@@ -140,12 +141,14 @@ impl AppState {
         self.record_prompt_history(text, None);
     }
 
+    #[cfg(test)]
     pub(super) fn discard_pending_input_history(&mut self, text: &str) {
         if self.session.discard_pending_prompt(text) {
             self.reset_input_history_navigation();
         }
     }
 
+    #[cfg(test)]
     pub(super) fn record_input_history(&mut self, text: &str, message_idx: Option<usize>) {
         self.record_prompt_history(
             text,
@@ -164,6 +167,7 @@ impl AppState {
         }
     }
 
+    #[cfg(test)]
     pub(super) fn rewind_native_request(&self) -> Option<crate::backend::RewindUserMessage> {
         self.session.input_history().native_request(
             self.view.input_history.rewind_selected_history_index()?,
@@ -171,6 +175,7 @@ impl AppState {
         )
     }
 
+    #[cfg(test)]
     pub(super) fn rewind_selected_turn_id(&self) -> Option<&str> {
         self.view
             .claude_unknown_selection
@@ -226,6 +231,15 @@ impl AppState {
             })
     }
 
+    pub(super) fn rewind_prompt_id(&self) -> Option<crate::session::entry_id::EntryId> {
+        self.view
+            .claude_unknown_selection
+            .and_then(|index| self.session.claude_history().unknown().get(index))
+            .map(|prompt| prompt.entry_id())
+            .or_else(|| self.view.input_history.rewind_prompt_id())
+    }
+
+    #[cfg(test)]
     pub(super) fn rewind_selected_history_index(&self) -> Option<usize> {
         self.view
             .claude_unknown_selection
@@ -233,6 +247,7 @@ impl AppState {
             .or_else(|| self.view.input_history.rewind_selected_history_index())
     }
 
+    #[cfg(test)]
     pub(super) fn submitted_turn_count(&self) -> usize {
         self.session.input_history().history_len()
     }

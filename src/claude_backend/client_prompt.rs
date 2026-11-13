@@ -35,9 +35,7 @@ impl ClaudeClient {
         });
         let (transport, events) = self.prompt_transport()?;
         let submitted = json!({ "method": "claude/promptSubmitted", "params": { "uuid": uuid,"text":text,"inputKind":input_kind,"origin": match origin { PromptOrigin::Human => "human", PromptOrigin::Automatic => "automatic" },"priority":match priority { PromptPriority::Steer => "now", PromptPriority::Queue => "later" } } });
-        if let Err(error) = events.send(submitted.to_string()) {
-            return Err(error);
-        }
+        events.send(submitted.to_string())?;
         let mut prompt = json!({ "uuid": uuid, "text": text,
             "origin": { "kind": match origin { PromptOrigin::Human => "human", PromptOrigin::Automatic => "auto-continuation" } },
             "priority": match priority { PromptPriority::Steer => "now", PromptPriority::Queue => "later" } });

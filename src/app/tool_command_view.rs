@@ -4,12 +4,9 @@
 use serde_json::Value;
 
 #[cfg(test)]
-use super::models::Role;
-#[cfg(test)]
 use super::state::AppState;
 #[cfg(test)]
-pub(super) use crate::session::tool_command_view::ToolCommandView;
-
+use crate::session::models::Role;
 #[cfg(test)]
 impl AppState {
     pub(super) fn format_tool_item(&self, item: &Value, role: Role) -> Option<String> {

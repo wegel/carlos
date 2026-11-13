@@ -3,8 +3,6 @@
 use ratatui_textarea::TextArea;
 use serde_json::Value;
 
-pub(super) use crate::session::codex::queue_state::editable_text;
-
 #[derive(Default)]
 pub(super) struct QueueView {
     pub(super) mode: bool,

@@ -23,6 +23,7 @@ impl AppState {
         redraw
     }
 
+    #[cfg(test)]
     pub(super) fn rate_limits_wait(&self, now: Instant) -> Option<Duration> {
         self.view
             .quota_next_draw

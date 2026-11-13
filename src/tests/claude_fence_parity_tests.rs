@@ -3,6 +3,7 @@
 use serde_json::{json, Value};
 
 use super::claude_notifications::{handle, route, ClaudeRoute};
+
 use super::state::AppState;
 use crate::session::claude::ClaudePhase;
 
@@ -189,7 +190,7 @@ fn session_changed_requires_newer_generation_and_a_string_identity() {
             Some(json!("")),
         ] {
             let mut app = AppState::new("original".into());
-            app.append_message(super::Role::Assistant, "retained");
+            app.append_message(crate::session::models::Role::Assistant, "retained");
             let mut params = json!({"generation":generation});
             if let Some(id) = &id {
                 params["sessionId"] = id.clone();
@@ -228,7 +229,7 @@ fn repeated_reset_advances_epoch_without_retiring_the_transcript_again() {
             params.as_object().expect("params"),
         );
         if epoch == 5 {
-            app.append_message(super::Role::Assistant, "after reset");
+            app.append_message(crate::session::models::Role::Assistant, "after reset");
         }
     }
     assert_eq!(app.session.messages().len(), 1);

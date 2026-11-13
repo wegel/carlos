@@ -11,7 +11,7 @@ pub(super) fn handle_ctrl_y_copy(app: &mut AppState) -> TerminalEventResult {
         if !copied.is_empty() {
             let _ = try_copy_clipboard(&copied);
         }
-    } else if let Some(text) = last_assistant_message(&app.session.messages()) {
+    } else if let Some(text) = last_assistant_message(app.session.messages()) {
         let backend = try_copy_clipboard(text);
         app.set_hint(format!(
             "copied last assistant message ({})",

@@ -18,10 +18,6 @@ mod event_facts;
 mod event_failure_tests;
 #[cfg(test)]
 mod event_fixture;
-#[cfg(test)]
-mod event_forwarder_support;
-#[cfg(test)]
-mod event_forwarder_tests;
 mod event_handler;
 mod event_history;
 #[cfg(test)]
@@ -355,6 +351,7 @@ pub(crate) fn claude_interrupted_turn_notification(params: &Value) -> Result<Str
 #[cfg(test)]
 pub(crate) use event_test_support::client as receiver_client;
 #[cfg(test)]
-mod event_shutdown_tests;
-#[cfg(test)]
 mod event_tolerance_tests;
+
+#[cfg(test)]
+pub(crate) mod forwarder_test_support;

@@ -282,7 +282,7 @@ fn handle_notification_item_completed_reasoning_replaces_live_delta_with_summary
         "**Designing fullscreen focus overrides**\n\nI’m working out a helper function.\n**Analyzing input handling conditions**"
     );
 
-    let rendered = build_rendered_lines(&app.session.messages(), 120);
+    let rendered = build_rendered_lines(app.session.messages(), 120);
     assert_eq!(rendered[0].text, "Designing fullscreen focus overrides");
     assert_eq!(rendered[1].text, "I’m working out a helper function.");
     assert_eq!(rendered[2].text, "Analyzing input handling conditions");

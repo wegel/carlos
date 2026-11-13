@@ -53,5 +53,5 @@ pub(crate) fn owns(session: &SessionState, scope: PanelScope<'_>, owner: &str) -
         || session
             .codex_panel
             .ownership
-            .contains(&session.thread_id(), scope.native.epoch, owner)
+            .contains(session.thread_id(), scope.native.epoch, owner)
 }
