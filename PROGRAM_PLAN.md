@@ -40,8 +40,7 @@ after ExecPlan 016. Do not merge it into `main` or push it without the owner's r
 
 ## Active ExecPlans
 
-No ExecPlan is active on `iphone-spike`. ExecPlan 017 is complete; the owner reviews it
-before ExecPlan 018 starts.
+- [ ] `.agents/execplans/EXECPLAN_018_sequenced_events.md`: numbered core events and client protocol version 1. The owner approved EP017; EP018 is active.
 
 ExecPlans 017 to 022 are listed in `docs/engine-architecture.md`. Each one is written when the
 plan before it ends.
