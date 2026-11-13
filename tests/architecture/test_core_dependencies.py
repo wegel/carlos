@@ -52,6 +52,14 @@ class CoreDependencyTests(unittest.TestCase):
         sample = graph({"core": ("carlos", [])})
         self.assertTrue(GUARD.check_graph(sample))
 
+    def test_fixture_helpers_cannot_become_a_default_feature_directly_or_indirectly(self):
+        for defaults in [["test-support"], ["fixtures"]]:
+            sample = graph({"core": ("carlos-core", [])})
+            sample["packages"][0]["features"] = {
+                "default": defaults, "fixtures": ["test-support"], "test-support": [],
+            }
+            self.assertTrue(any("fixture helpers are opt-in" in issue for issue in GUARD.check_graph(sample)))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -28,6 +28,8 @@ def check_graph(metadata):
     nodes = {node["id"]: node for node in metadata["resolve"]["nodes"]}
     owner = owners[0]
     issues = []
+    if packages[owner].get("features", {}).get("default", []):
+        issues.append("carlos-core: default features must stay empty; fixture helpers are opt-in")
     for key in nodes[owner]["dependencies"]:
         name = packages[key]["name"]
         if name not in REVIEWED:
