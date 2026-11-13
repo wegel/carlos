@@ -16,7 +16,7 @@ The existing terminal remains embedded during this step: it still owns its sessi
 - [x] (2026-11-13) Confirm EP018a is archived unchanged, record owner acceptance and preserve the independent follow-up review.
 - [x] (2026-11-13) Write EP019a and scope EP019b in the architecture and terminal migration documents.
 - [x] (2026-11-13) Preserve accepted EP018a release and source metadata in `/tmp/carlos-ep019a/`; initial cargo test passes.
-- [ ] Prove real backend command handles can run without blocking their owner (in progress: captured Codex/Claude handles, owner-held interrupt intent and pre-dispatch retirement; completed: 12 real-adapter concurrency/failure tests including Grok; remaining: terminal/native checks for the final adapter source). Pass this gate before listener work.
+- [x] (2026-11-13) Prove captured real Codex/Claude/Grok handles, owner-held interrupt intent and pre-dispatch retirement. Twelve concurrency/failure tests pass. Final adapter source passes cargo test, strict Clippy and 177 terminal/23 native-monitor workflows with installed Codex contracts; artifacts `target/ui-artifacts/run-o13SsJ`. No listener exists yet.
 - [ ] Classify core reports, unify operation ids and implement a bounded owner loop with ordinary-command order and responsive guarded controls.
 - [ ] Add carlosd, a minimal saved-session registry and a private Unix listener for the existing basic command families.
 - [ ] Prove two headless clients, disconnect/reconnect, bounded events/output, approval races, retry handling and shutdown through real deterministic adapters.
@@ -58,7 +58,7 @@ Decision: retain an explicitly named execute_embedded bridge for the terminal an
 ## Outcomes & Retrospective
 
 
-The author preserved the EP018a executable and began the real-adapter proof. Codex and Claude now expose captured command handles; Claude lifecycle intent stays with its owner. Twelve real-adapter tests now pass: Codex/Claude held send/read/interrupt/answer, Claude reset/replacement/late completion/EOF/blocked stdin, Codex stopped dispatch, and Grok model-wait/control/read, same-id retirement, EOF/cache and blocked stdin. Full cargo test and strict Clippy pass; the terminal/native contract runner passed 177 terminal and 23 native-monitor workflows before Grok changed, and is running again for all adapters at `/tmp/carlos-ep019a/m1-all-adapters-terminal.log`. The daemon listener and owner loop do not exist yet. The next action is to finish real-adapter failure/concurrency tests and Grok's command handle, then pass the milestone-1 gates. EP019b remains a scoped follow-up, not an executable stub. The terminal cutover and removal of its legacy reports are not completion criteria for EP019a.
+The author preserved the EP018a executable and began the real-adapter proof. Codex and Claude now expose captured command handles; Claude lifecycle intent stays with its owner. Twelve real-adapter tests now pass: Codex/Claude held send/read/interrupt/answer, Claude reset/replacement/late completion/EOF/blocked stdin, Codex stopped dispatch, and Grok model-wait/control/read, same-id retirement, EOF/cache and blocked stdin. Full cargo test and strict Clippy pass; the terminal/native contract runner passed 177 terminal and 23 native-monitor workflows before Grok changed, and the final all-adapter source passed them again at `/tmp/carlos-ep019a/m1-all-adapters-terminal.log`. The daemon listener and owner loop do not exist yet. Milestone 1 has passed. The next action is to classify/consume reports, unify operation ownership and build the session owner loop. EP019b remains a scoped follow-up, not an executable stub. The terminal cutover and removal of its legacy reports are not completion criteria for EP019a.
 
 ## Context and Orientation
 
@@ -184,3 +184,5 @@ Update note (2026-11-13): created the next executable plan after owner acceptanc
 Update note (2026-11-13, milestone 1 in progress): preserved the baseline, added fixed native handles and owner-only interrupt bookkeeping, and added real controller/socket tests. Listener work remains gated on the complete adapter proof.
 
 Update note (2026-11-13, adapter proof): added Grok command/process separation, bounded stdin and EOF handling, plus captured Claude EOF, late-reply and blocked-pipe checks. The first terminal/native contract pass is recorded; the final-source pass is still running.
+
+Update note (2026-11-13, milestone 1 passed): all adapter, Rust, strict lint and terminal/native contract checks pass. Added the report-field map before building the daemon dispatcher.
