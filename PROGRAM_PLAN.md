@@ -40,7 +40,7 @@ after ExecPlan 016. Do not merge it into `main` or push it without the owner's r
 
 ## Active ExecPlans
 
-No ExecPlan is active on `iphone-spike`. ExecPlan 016 is complete; ExecPlan 017 has not started.
+- [ ] `.agents/execplans/EXECPLAN_017_core_workspace.md` (step 2 of 7: build the session core without terminal libraries)
 
 ExecPlans 017 to 022 are listed in `docs/engine-architecture.md`. Each one is written when the
 plan before it ends.
