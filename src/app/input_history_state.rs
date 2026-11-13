@@ -1,7 +1,7 @@
 //! Keep prompt navigation, rewind focus, and unsent drafts in the terminal view.
 
-use crate::session::entry_id::EntryId;
-use crate::session::input_history::PromptHistory;
+use carlos_core::session::entry_id::EntryId;
+use carlos_core::session::input_history::PromptHistory;
 
 /// Track one client's cursor without changing submitted prompt facts.
 #[derive(Default)]

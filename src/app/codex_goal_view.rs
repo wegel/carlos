@@ -12,8 +12,8 @@ use super::state::AppState;
 use super::text::{split_at_cells, visual_width};
 
 use super::TerminalSize;
-use crate::backend::BackendClient;
 use crate::theme::{COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_TEXT};
+use carlos_core::backend::BackendClient;
 
 /// Keep goal keys separate from ordinary chat, question answers and queue drafts.
 pub(super) fn key(
@@ -247,7 +247,7 @@ fn editor_line(app: &AppState, width: usize) -> Option<(String, usize)> {
     let skip = cells.saturating_sub(width.saturating_sub(1));
     let start = split_at_cells(line, skip);
     Some((
-        crate::session::text::safe_text(&line[start..]),
+        carlos_core::session::text::safe_text(&line[start..]),
         cells.saturating_sub(skip),
     ))
 }

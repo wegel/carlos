@@ -3,9 +3,9 @@
 use serde_json::Value;
 
 use crate::app::state::AppState;
-use crate::session::actions::ServerRequestAction;
-use crate::session::codex::callback_update::{CallbackEffect, CallbackUpdate};
-use crate::session::codex::callbacks::CallbackKey;
+use carlos_core::session::actions::ServerRequestAction;
+use carlos_core::session::codex::callback_update::{CallbackEffect, CallbackUpdate};
+use carlos_core::session::codex::callbacks::CallbackKey;
 
 /// Consume one report in the same order as the original immediate handler.
 pub(in crate::app) fn apply(

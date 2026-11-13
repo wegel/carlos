@@ -11,9 +11,9 @@ use serde_json::{json, Value};
 use super::input_events::handle_terminal_event;
 use super::state::AppState;
 use super::view_models::TerminalSize;
-use crate::backend::{BackendClient, BackendKind, EventReceiver};
-use crate::session::approval_state::ApprovalRequestDraft;
-use crate::session::approval_state::ApprovalRequestKind;
+use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
+use carlos_core::session::approval_state::ApprovalRequestDraft;
+use carlos_core::session::approval_state::ApprovalRequestKind;
 
 pub(super) struct Client {
     pub(super) kind: BackendKind,
@@ -66,7 +66,7 @@ pub(super) fn key(client: &Client, app: &mut AppState, code: KeyCode, modifiers:
 }
 
 pub(super) fn request(kind: ApprovalRequestKind, id: &str) -> ApprovalRequestDraft {
-    crate::session::approval_state::ApprovalRequestDraft {
+    carlos_core::session::approval_state::ApprovalRequestDraft {
         request_id: json!(id),
         method: "claude/native".into(),
         kind,

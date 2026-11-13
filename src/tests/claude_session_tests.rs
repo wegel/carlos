@@ -5,8 +5,8 @@ use crate::app::normalized_test_app as normalized_app;
 use serde_json::{json, Value};
 
 use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
-use crate::session::claude::ClaudePhase;
-use crate::session::runtime_settings::RuntimeSetting;
+use carlos_core::session::claude::ClaudePhase;
+use carlos_core::session::runtime_settings::RuntimeSetting;
 
 fn send(app: &mut AppState, method: &str, generation: u64, mut params: Value) {
     params["generation"] = json!(generation);
@@ -190,7 +190,7 @@ fn history_or_start_reply_failure_restores_the_edit_without_forging_a_turn() {
 fn closed_startup_recovers_queued_humans_without_replacing_the_new_composer() {
     let mut app = AppState::new("session".to_string());
     app.session
-        .set_claude_phase_for_test(crate::session::claude::ClaudePhase::Starting);
+        .set_claude_phase_for_test(carlos_core::session::claude::ClaudePhase::Starting);
     app.queue_turn_input("first human");
     app.queue_turn_input("second human");
     app.queue_ralph_continuation("automatic should disappear");

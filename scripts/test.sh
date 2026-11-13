@@ -16,13 +16,14 @@ done
 
 python3 -m unittest discover -s tests/architecture -p 'test_*.py'
 python3 scripts/check-session-boundary.py
-cargo fmt --check
+python3 scripts/check-core-dependencies.py
+cargo fmt --all --check
 if [[ "$profile" == release ]]; then
-  cargo clippy --all-targets -- -D warnings
-  cargo test --release --all-targets --quiet
+  cargo clippy --workspace --all-targets -- -D warnings
+  cargo test --workspace --release --all-targets --quiet
   cargo build --release
 else
-  cargo test --all-targets --quiet
+  cargo test --workspace --all-targets --quiet
   cargo build
 fi
 

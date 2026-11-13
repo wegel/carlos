@@ -8,7 +8,7 @@ use super::claude_edit::{accepted, bind_submission, dispatching, send_failed, wa
 
 use super::claude_edit_parity_support::{advance, app, event, load, notices, Peer};
 
-use crate::backend::{PromptOrigin, PromptPriority};
+use carlos_core::backend::{PromptOrigin, PromptPriority};
 
 #[test]
 fn edit_failure_at_every_stage_recovers_once_and_never_replaces_newer_typing() {

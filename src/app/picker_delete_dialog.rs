@@ -6,8 +6,8 @@ use ratatui::style::{Modifier, Style};
 use super::render::{draw_str, fill_rect};
 
 use super::TerminalSize;
-use crate::session::models::ThreadSummary;
 use crate::theme::{COLOR_DIFF_REMOVE, COLOR_DIM, COLOR_STEP2, COLOR_TEXT};
+use carlos_core::session::models::ThreadSummary;
 
 pub(super) fn draw_picker_delete_dialog(
     buf: &mut Buffer,

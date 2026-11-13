@@ -10,7 +10,7 @@ use crate::app::claude_question_state::NativeDraft;
 use crate::app::codex_questions::{build, form_answer, question_answer};
 
 use crate::app::turn_approval::respond_to_pending_approval;
-use crate::session::approval_state::ApprovalChoice;
+use carlos_core::session::approval_state::ApprovalChoice;
 
 #[test]
 fn claude_tool_and_browser_answers_keep_the_exact_native_envelopes() {
@@ -246,7 +246,7 @@ fn assert_form_replies(payload: Value, params: Value, expected: Value) {
         &mut codex,
         &json!({"requestId":"form","revision":1,"ok":true}),
     );
-    let Some(crate::session::actions::ServerRequestAction::ReplyNative { card_id, result }) =
+    let Some(carlos_core::session::actions::ServerRequestAction::ReplyNative { card_id, result }) =
         action
     else {
         panic!("validated answer must send")

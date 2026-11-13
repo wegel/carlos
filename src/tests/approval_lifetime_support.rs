@@ -9,10 +9,10 @@ use serde_json::{json, Value};
 
 use super::state::AppState;
 use super::view_models::TerminalSize;
-use crate::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
 use crate::event::UiEvent;
-use crate::session::approval_state::ApprovalQueue;
-use crate::session::entry_id::EntryId;
+use carlos_core::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
+use carlos_core::session::approval_state::ApprovalQueue;
+use carlos_core::session::entry_id::EntryId;
 
 pub(super) struct Client {
     pub(super) kind: BackendKind,
@@ -94,7 +94,7 @@ pub(super) fn app(backend: BackendKind) -> AppState {
         .set_codex_enabled_for_test(backend == BackendKind::Codex);
     app.session.set_claude_generation_for_test(1);
     app.session
-        .set_claude_phase_for_test(crate::session::claude::ClaudePhase::Ready);
+        .set_claude_phase_for_test(carlos_core::session::claude::ClaudePhase::Ready);
     app
 }
 

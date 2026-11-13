@@ -6,13 +6,13 @@ use ratatui::style::{Modifier, Style};
 
 use super::input_events::TerminalEventResult;
 use super::render::{draw_str, fill_rect};
-use crate::session::text::safe_label;
+use carlos_core::session::text::safe_label;
 
 use super::state::AppState;
 use super::view_models::TerminalSize;
-use crate::backend::{BackendClient, BackendKind};
-use crate::session::claude::StopState;
 use crate::theme::{COLOR_DIM, COLOR_PRIMARY, COLOR_STEP2, COLOR_TEXT};
+use carlos_core::backend::{BackendClient, BackendKind};
+use carlos_core::session::claude::StopState;
 
 /// Route task controls ahead of question input so a waiting child can still be stopped.
 pub(super) fn key(
@@ -234,13 +234,13 @@ fn body(app: &AppState) -> Vec<String> {
         .quota()
         .windows()
         .values()
-        .filter(|window| window.reset() > crate::session::usage::unix_now())
+        .filter(|window| window.reset() > carlos_core::session::usage::unix_now())
     {
         lines.push(format!(
             "Quota {}: {:.1}% used; resets in {:.1}h",
             safe_label(window.label()),
             window.used(),
-            (window.reset() - crate::session::usage::unix_now()) as f64 / 3600.0
+            (window.reset() - carlos_core::session::usage::unix_now()) as f64 / 3600.0
         ));
     }
     lines

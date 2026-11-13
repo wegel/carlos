@@ -19,8 +19,8 @@ requests. This step adds no background server, socket protocol or phone screen.
 
 - [x] (2026-11-13 UTC) Read the repo rules, architecture, EP016 report, manifests and current guard. Confirmed a clean `iphone-spike` checkout at `304f494`.
 - [x] (2026-11-13 UTC) Milestone 1: saved the EP016 release executable and compiler metadata under `/tmp/carlos-ep017`; added a workspace with both default members. All 1,026 existing tests pass; the empty library is only the independently buildable starting step.
-- [ ] Milestone 2: move the core and its tests; expose the app's required calls without exposing mutable session storage.
-- [ ] Milestone 3: teach scripts, dependency checks and CI about both packages; prove the core builds alone.
+- [x] (2026-11-13 UTC) Milestone 2: moved 313 Rust files and the summary prompt into `crates/carlos-core`; all 1,026 existing default tests and 990 no-dictation tests pass. Added two compile-fail documentation tests for private session facts and entry ids. Strict Clippy passes in both modes and for the standalone core.
+- [x] (2026-11-13 UTC) Milestone 3: updated scripts and CI; all 24 architecture tests pass. A fresh isolated core build produced 160 compiler artifacts with no terminal, audio or speech package. A separate Rust caller creates a session and a row; the compiler rejects private-field writes, private id counters and fixture calls with test support off. Evidence is under `/tmp/carlos-ep017`.
 - [ ] Milestone 4: run complete release workflows, compare speed and memory, review directly, and close the plan.
 
 ## Surprises & Discoveries
@@ -66,7 +66,9 @@ compile test peers. All runtime handlers remain one copy in the library.
 ## Outcomes & Retrospective
 
 
-The plan is written; no source has moved yet. EP016 ended with 1,026 default Rust
+Milestones 1 through 3 are implemented and checked. The terminal app now calls the library; both feature sets keep the existing unit tests. The compiler rejects client writes to private facts and excludes fixture helpers from the ordinary library. Final release workflows, speed/memory checks and direct review remain open.
+
+Historical starting point: EP016 ended with 1,026 default Rust
 tests and 990 tests without dictation, 174 terminal workflows and 23 native monitor
 workflows. Its release executable is available locally and will be copied before
 any build replaces it. The next action is to inventory imports and save that
@@ -238,3 +240,5 @@ Plan written 2026-11-13: scoped EP017 to a compiler-enforced library boundary,
 with explicit checks for the tests and feature gates that EP016's report flagged.
 
 Milestone 1 update, 2026-11-13: preserved the baseline and verified plain Cargo commands discover both packages before moving source.
+
+Milestones 2 and 3 update, 2026-11-13: preserved every existing test, kept root executable paths, and replaced the old future-core check with checks of the actual library and Cargo graph. The isolated caller checks prove useful terminal-free behavior and private fields across the real package boundary.

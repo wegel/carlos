@@ -252,7 +252,7 @@ pub(super) fn draw_approval_overlay(buf: &mut Buffer, size: TerminalSize, app: &
 
 fn build_approval_detail_lines(
     app: &AppState,
-    approval: &crate::session::approval_state::PendingApprovalRequest,
+    approval: &carlos_core::session::approval_state::PendingApprovalRequest,
     inner_w: usize,
     height: usize,
 ) -> Vec<String> {
@@ -280,7 +280,7 @@ fn build_approval_detail_lines(
 }
 
 fn build_approval_footer(
-    approval: &crate::session::approval_state::PendingApprovalRequest,
+    approval: &carlos_core::session::approval_state::PendingApprovalRequest,
 ) -> String {
     let mut parts = vec!["y accept", "n decline"];
     if approval.facts().can_accept_for_session {
@@ -295,7 +295,7 @@ fn build_approval_footer(
 fn draw_approval_content(
     buf: &mut Buffer,
     ob: &OverlayBox,
-    approval: &crate::session::approval_state::PendingApprovalRequest,
+    approval: &carlos_core::session::approval_state::PendingApprovalRequest,
     detail_lines: &[String],
     footer_text: &str,
 ) {

@@ -9,10 +9,10 @@ use serde_json::{json, Value};
 use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
 use super::codex_question_support::Peer;
 use crate::app::claude_context::{invalidate, receive, refresh, tick, wait};
-use crate::session::context_usage::ContextUsage;
+use carlos_core::session::context_usage::ContextUsage;
 
-use crate::backend::EventReceiver;
-use crate::session::runtime_settings::RuntimeSetting;
+use carlos_core::backend::EventReceiver;
+use carlos_core::session::runtime_settings::RuntimeSetting;
 
 fn app() -> AppState {
     let mut app = AppState::new("root".into());
@@ -203,7 +203,7 @@ fn helper_replacement_retires_pending_read_and_old_generation_cannot_install_bra
         "frame":{"type":"reply","ok":true,"result":{"totalTokens":999,"rawMaxTokens":1000}}}}).to_string());
     assert!(app.session.context_usage().is_none());
     app.session
-        .set_claude_phase_for_test(crate::session::claude::ClaudePhase::Ready);
+        .set_claude_phase_for_test(carlos_core::session::claude::ClaudePhase::Ready);
     tick(&peer, &mut app, Instant::now());
     assert_eq!(peer.controls.borrow().len(), 2);
 }
@@ -249,9 +249,9 @@ fn phone_status_distinguishes_stale_counts_then_redraws_fresh_native_values() {
 }
 
 struct FailedWriter;
-impl crate::backend::BackendClient for FailedWriter {
-    fn kind(&self) -> crate::backend::BackendKind {
-        crate::backend::BackendKind::Claude
+impl carlos_core::backend::BackendClient for FailedWriter {
+    fn kind(&self) -> carlos_core::backend::BackendKind {
+        carlos_core::backend::BackendKind::Claude
     }
     fn call(&self, _: &str, _: Value, _: Duration) -> anyhow::Result<String> {
         unreachable!()

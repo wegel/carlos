@@ -3,7 +3,7 @@
 use super::state::AppState;
 use super::tool_output_preferences::save_mode;
 use super::tool_output_state::ToolOutputMode;
-use crate::session::models::Role;
+use carlos_core::session::models::Role;
 
 /// Consume `/tools [auto|compact|full]`; a bare command cycles the three modes.
 pub(super) fn handle_tools_command(app: &mut AppState, text: &str) -> bool {

@@ -5,8 +5,8 @@ use crate::app::normalized_test_app as normalized_app;
 use serde_json::{json, Value};
 
 use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
-use crate::session::claude::ClaudePhase;
-use crate::session::models::Role;
+use carlos_core::session::claude::ClaudePhase;
+use carlos_core::session::models::Role;
 
 fn frame(app: &mut AppState, frame: Value, method: Option<&str>) {
     let _ = handle_server_message_line(
@@ -181,12 +181,14 @@ fn only_positively_identified_child_report_notices_are_hidden() {
     {
         let notice = json!({"type":"user","origin":origin,"message":{"content":"<task-notification>text</task-notification>"}});
         assert_eq!(
-            crate::claude_backend::is_child_report_notice(&notice),
+            carlos_core::claude_backend::is_child_report_notice(&notice),
             expected
         );
         let mut report = assistant("Main agent report");
         report["origin"] = notice["origin"].clone();
-        assert!(!crate::claude_backend::is_child_report_notice(&report));
+        assert!(!carlos_core::claude_backend::is_child_report_notice(
+            &report
+        ));
         let mut app = AppState::new("session".to_string());
         let mut record = notice;
         record["session_id"] = json!("session");

@@ -11,14 +11,14 @@ pub(super) use super::runtime_settings_state::ModelSettingsField;
 #[cfg(test)]
 pub(super) use super::runtime_settings_state::{DEFAULT_EFFORT_OPTIONS, DEFAULT_SUMMARY_OPTIONS};
 #[cfg(test)]
-use crate::session::ralph::RalphConfig;
+use carlos_core::session::ralph::RalphConfig;
 
 use super::view_state::ViewState;
 #[cfg(test)]
-use crate::session::approval_state::ApprovalRequestDraft;
+use carlos_core::session::approval_state::ApprovalRequestDraft;
 #[cfg(test)]
-use crate::session::ralph_runtime_state::QueuedTurnInput;
-use crate::session::state::SessionState;
+use carlos_core::session::ralph_runtime_state::QueuedTurnInput;
+use carlos_core::session::state::SessionState;
 
 // --- Types ---
 
@@ -33,14 +33,14 @@ impl AppState {
     pub(super) fn new(thread_id: String) -> Self {
         Self::with_runtime_defaults(
             thread_id,
-            crate::session::runtime_settings::RuntimeDefaults::default(),
+            carlos_core::session::runtime_settings::RuntimeDefaults::default(),
         )
     }
 
     /// Pass startup choices to the session without letting it read client files.
     pub(super) fn with_runtime_defaults(
         thread_id: String,
-        preferences: crate::session::runtime_settings::RuntimeDefaults,
+        preferences: carlos_core::session::runtime_settings::RuntimeDefaults,
     ) -> Self {
         let summary_enabled = super::tool_output_preferences::load_summary_enabled();
         Self {
@@ -111,13 +111,13 @@ impl AppState {
     /// Discard only the editor and hints named by the session's retirement result.
     pub(super) fn apply_cleared_approval(
         &mut self,
-        cleared: crate::session::approval_reply::ApprovalCleared,
+        cleared: carlos_core::session::approval_reply::ApprovalCleared,
     ) {
         match cleared {
-            crate::session::approval_reply::ApprovalCleared::Codex(retired) => {
+            carlos_core::session::approval_reply::ApprovalCleared::Codex(retired) => {
                 super::codex_callbacks::apply_retired(self, retired);
             }
-            crate::session::approval_reply::ApprovalCleared::Other { editor, cards } => {
+            carlos_core::session::approval_reply::ApprovalCleared::Other { editor, cards } => {
                 if let Some(id) = editor {
                     self.view.claude_answers.drafts.remove(&id);
                 }

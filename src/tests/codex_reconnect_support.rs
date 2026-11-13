@@ -8,8 +8,8 @@ use serde_json::{json, Value};
 
 use super::codex_question_support::Peer as QuestionPeer;
 use crate::app::state::AppState;
-use crate::backend::{BackendClient, BackendKind, EventReceiver};
-use crate::codex_snapshot::CodexSnapshot;
+use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
+use carlos_core::codex_snapshot::CodexSnapshot;
 
 #[derive(Default)]
 pub(super) struct Peer {

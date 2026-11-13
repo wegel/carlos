@@ -182,8 +182,8 @@ fn synthetic_perf_messages_change_with_seed() {
         .any(|(lhs, rhs)| lhs.text != rhs.text));
 }
 
-fn synthetic_session(spec: perf_session::SyntheticPerfSpec) -> crate::session::state::SessionState {
-    let mut session = crate::session::state::SessionState::new("perf".into(), Default::default(), false);
+fn synthetic_session(spec: perf_session::SyntheticPerfSpec) -> carlos_core::session::state::SessionState {
+    let mut session = carlos_core::session::state::SessionState::new("perf".into(), Default::default(), false);
     perf_session::populate_synthetic_perf_session(spec, &mut session);
     session
 }

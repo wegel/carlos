@@ -6,7 +6,7 @@ use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::notifications::handle_server_message_line;
 use crate::app::transcript_render::build_rendered_lines;
 use crate::app::AppState;
-use crate::summaries::{command_key, SummaryEvent};
+use carlos_core::summaries::{command_key, SummaryEvent};
 
 fn item() -> Value {
     json!({"type":"commandExecution","id":"command","command":"python3 process.py",
@@ -183,7 +183,7 @@ mod worker {
     use crate::app::item_history::load_history_from_start_or_resume;
     use crate::app::notifications::handle_server_message_line;
     use crate::app::state::AppState;
-    use crate::summaries::SummaryEvent;
+    use carlos_core::summaries::SummaryEvent;
 
     const CHILD: &str = "CARLOS_M5C_SUMMARY_TEST_ROOT";
 

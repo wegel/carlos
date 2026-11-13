@@ -15,7 +15,7 @@ use super::mouse_events::{handle_mouse_event, handle_paste_event};
 
 use super::state::AppState;
 use super::TerminalSize;
-use crate::backend::BackendClient;
+use carlos_core::backend::BackendClient;
 
 use self::input_events_keys::handle_key_event;
 

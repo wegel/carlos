@@ -9,8 +9,8 @@ use crate::app::codex_callbacks::{checked, reply_hint, retire};
 
 use crate::app::codex_reply::respond;
 use crate::app::native_questions::draft;
-use crate::session::actions::ServerRequestAction;
-use crate::session::approval_state::ApprovalChoice;
+use carlos_core::session::actions::ServerRequestAction;
+use carlos_core::session::approval_state::ApprovalChoice;
 
 #[test]
 fn callback_ids_keep_json_types_and_both_original_byte_bounds() {
@@ -133,7 +133,7 @@ fn clear_and_native_reset_keep_the_unresolved_process_callback_and_editor() {
     use crate::app::approval_lifetime_support::{app, callback, Client};
 
     use crate::app::native_questions::draft_mut;
-    use crate::backend::BackendKind;
+    use carlos_core::backend::BackendKind;
 
     for native_reset in [false, true] {
         let client = Client::new(BackendKind::Claude);

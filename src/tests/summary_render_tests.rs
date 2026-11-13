@@ -3,8 +3,8 @@
 use crate::app::layout_state::TranscriptTheme;
 use crate::app::tool_output_state::ToolOutputMode;
 use crate::app::AppState;
-use crate::session::models::Role;
-use crate::session::models::ToolOutputDetails;
+use carlos_core::session::models::Role;
+use carlos_core::session::models::ToolOutputDetails;
 
 const LABEL: &str = "Read café records and 測試 language preferences, then write the combined results into the session archive";
 

@@ -3,9 +3,9 @@
 use ratatui::style::{Color, Modifier, Style};
 
 use super::text::{split_at_cells, visual_width};
-use crate::session::models::Message;
-use crate::session::models::MessageKind;
-use crate::session::models::Role;
+use carlos_core::session::models::Message;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
 
 use super::tool_summary::tool_gutter;
 use super::transcript_spacing::{inline_entry, single_line_reasoning};

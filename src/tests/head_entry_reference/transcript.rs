@@ -2,8 +2,8 @@
 
 use super::models::{Message, MessageKind, Role};
 use super::state::AppState;
-use crate::session::read_summary::{format_read_summary_with_count, parse_read_summary};
-pub(super) use crate::session::reasoning::normalize_reasoning_summary_stream;
+use carlos_core::session::read_summary::{format_read_summary_with_count, parse_read_summary};
+pub(super) use carlos_core::session::reasoning::normalize_reasoning_summary_stream;
 
 impl AppState {
     pub(crate) fn append_message(&mut self, role: Role, text: impl Into<String>) -> usize {

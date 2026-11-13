@@ -6,8 +6,8 @@ use std::collections::HashSet;
 
 use super::claude_question_view::default_no_hint;
 use super::state::AppState;
-use crate::session::approval_state::PendingApprovalRequest;
-use crate::session::entry_id::EntryId;
+use carlos_core::session::approval_state::PendingApprovalRequest;
+use carlos_core::session::entry_id::EntryId;
 
 /// Keep each card's local hint text while backend requests retain their details.
 #[derive(Default)]

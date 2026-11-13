@@ -1,6 +1,6 @@
 //! Format native process activity for terminal status and task panels.
 
-use crate::session::claude::{ClaudeActivity, NativeState};
+use carlos_core::session::claude::{ClaudeActivity, NativeState};
 
 /// Render a short native activity label independently of the main prompt's completion.
 pub(super) fn label(activity: &ClaudeActivity) -> Option<String> {

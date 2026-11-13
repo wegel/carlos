@@ -9,7 +9,7 @@ use std::collections::{HashMap, VecDeque};
 use ratatui::style::{Modifier, Style};
 
 use super::text::{visual_width, wrap_natural_by_cells, wrap_natural_count_by_cells};
-use crate::session::models::Role;
+use carlos_core::session::models::Role;
 
 use super::transcript_styles::{
     ansi_line_segments, is_fence_delimiter, markdown_line_segments,

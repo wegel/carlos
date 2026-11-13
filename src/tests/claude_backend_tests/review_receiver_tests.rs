@@ -15,7 +15,7 @@ fn repeated_reset_key_keeps_two_distinct_transcript_rows_through_dispatch() {
             native_sdk(json!({"type":"assistant","message":{"id":text,"role":"assistant","content":[{"type":"text","text":text}]}})),
         ]);
     }
-    let (client, receiver) = crate::claude_backend::receiver_client(frames, json!({}), 1024);
+    let (client, receiver) = carlos_core::claude_backend::receiver_client(frames, json!({}), 1024);
     let mut app = AppState::new(session.to_string());
     drain_probe_through_dispatch(&client, &receiver, &mut app);
     let rows: Vec<_> = app.session.messages().iter().map(|m| m.text.as_str()).collect();
@@ -49,13 +49,13 @@ fn native_completions_follow_prompt_and_item_facts_in_real_dispatch() {
         ),
         native_sdk(json!({"type":"system","subtype":"session_state_changed","state":"idle"})),
     ];
-    let (client, receiver) = crate::claude_backend::receiver_client(frames, json!({}), 1024);
+    let (client, receiver) = carlos_core::claude_backend::receiver_client(frames, json!({}), 1024);
     let response = client
         .submit_prompt(
             "turn/start",
             json!({"input":[{"text":"hello"}]}),
-            crate::backend::PromptOrigin::Human,
-            crate::backend::PromptPriority::Queue,
+            carlos_core::backend::PromptOrigin::Human,
+            carlos_core::backend::PromptPriority::Queue,
             Duration::from_secs(5),
         )
         .expect("prompt accepted");
@@ -72,7 +72,7 @@ fn native_completions_follow_prompt_and_item_facts_in_real_dispatch() {
     );
     assert_eq!(
         app.session.turn_status_by_id()[id],
-        crate::session::models::TurnStatus::Completed
+        carlos_core::session::models::TurnStatus::Completed
     );
     assert!(app.session.active_turn_id().is_none());
     assert!(app.session.claude_prompts().next().is_none());
@@ -150,14 +150,14 @@ fn eof_after_repeated_reset_keys_closes_the_app_at_the_current_epoch() {
         ),
         native_sdk(json!({"type":"system","subtype":"init","session_id":session})),
     ];
-    let (client, receiver) = crate::claude_backend::receiver_client(frames, json!({}), 1024);
+    let (client, receiver) = carlos_core::claude_backend::receiver_client(frames, json!({}), 1024);
     let mut app = AppState::new(session.into());
     drain_probe_through_dispatch(&client, &receiver, &mut app);
     client
         .request_native_control("shutdown", json!({}))
         .expect("helper exit");
     dispatch_until_eof(&client, &receiver, &mut app);
-    assert!(app.session.claude().phase() == crate::session::claude::ClaudePhase::Closed);
+    assert!(app.session.claude().phase() == carlos_core::session::claude::ClaudePhase::Closed);
     assert_eq!(
         app.session.messages().last().expect("EOF error").text,
         "Claude controller stdout closed unexpectedly"
@@ -183,7 +183,7 @@ fn notices_keep_native_duplicate_keys_and_stop_before_translating_embedded_event
             notice.clone(),
         ]);
     }
-    let (client, receiver) = crate::claude_backend::receiver_client(frames, json!({}), 1024);
+    let (client, receiver) = carlos_core::claude_backend::receiver_client(frames, json!({}), 1024);
     let mut app = AppState::new(session.into());
     drain_probe_through_dispatch(&client, &receiver, &mut app);
     assert_eq!(app.session.messages().len(), 1);
@@ -199,7 +199,7 @@ fn non_system_init_and_browser_subtypes_still_translate_their_sdk_items() {
     for subtype in ["init", "elicitation_complete"] {
         frames.push(native_sdk(json!({"type":"assistant","subtype":subtype,"message":{"id":subtype,"role":"assistant","content":[{"type":"text","text":subtype}]}})));
     }
-    let (client, receiver) = crate::claude_backend::receiver_client(frames, json!({}), 1024);
+    let (client, receiver) = carlos_core::claude_backend::receiver_client(frames, json!({}), 1024);
     let mut app = AppState::new("session".into());
     drain_probe_through_dispatch(&client, &receiver, &mut app);
     assert_eq!(
@@ -220,7 +220,7 @@ fn malformed_history_keeps_earlier_rows_and_closes_only_the_app_query() {
         {"source":"human","message":{"type":"user","session_id":session,"uuid":"human","message":{"content":"retained history"}}},
         {"message":{"type":"assistant","session_id":"wrong"}}
     ]});
-    let (client, receiver) = crate::claude_backend::receiver_client(Vec::new(), history, 1024);
+    let (client, receiver) = carlos_core::claude_backend::receiver_client(Vec::new(), history, 1024);
     client
         .request_native_control("sessions.read", json!({"sessionId":session}))
         .expect("history read");
@@ -243,7 +243,7 @@ fn malformed_history_keeps_earlier_rows_and_closes_only_the_app_query() {
             "Claude history belongs to a different session"
         ]
     );
-    assert!(app.session.claude().phase() == crate::session::claude::ClaudePhase::Closed);
+    assert!(app.session.claude().phase() == carlos_core::session::claude::ClaudePhase::Closed);
     client
         .call(
             "thread/name/set",
@@ -261,15 +261,15 @@ fn accepted_input_after_a_fatal_fact_is_settled_by_eof_and_stderr_stays_visible(
         json!({"v":1,"type":"event","event":"error","error":{"message":"native failure"}}),
         json!({"v":1,"type":"event","event":"stderr","text":"native stderr"}),
     ];
-    let (client, receiver) = crate::claude_backend::receiver_client(frames, json!({}), 1024);
+    let (client, receiver) = carlos_core::claude_backend::receiver_client(frames, json!({}), 1024);
     let mut app = AppState::new("session".into());
     drain_probe_through_dispatch(&client, &receiver, &mut app);
     let response = client
         .submit_prompt(
             "turn/start",
             json!({"input":[{"text":"accepted before UI closed"}]}),
-            crate::backend::PromptOrigin::Human,
-            crate::backend::PromptPriority::Queue,
+            carlos_core::backend::PromptOrigin::Human,
+            carlos_core::backend::PromptPriority::Queue,
             Duration::from_secs(5),
         )
         .expect("helper accepted prompt");
@@ -284,7 +284,7 @@ fn accepted_input_after_a_fatal_fact_is_settled_by_eof_and_stderr_stays_visible(
     dispatch_until_eof(&client, &receiver, &mut app);
     assert_eq!(
         app.session.turn_status_by_id()[id],
-        crate::session::models::TurnStatus::Failed
+        carlos_core::session::models::TurnStatus::Failed
     );
     assert!(app.session.messages().iter().any(|m| m.text == "native stderr"));
     assert!(app.session.claude_prompts().next().is_none());
@@ -308,7 +308,7 @@ fn dispatch_until_eof(client: &dyn BackendClient, receiver: &EventReceiver, app:
 fn failed_history_reply_is_delivered_instead_of_discarded_by_reader_closure() {
     use serde_json::json;
 
-    let (client, receiver) = crate::claude_backend::receiver_client(
+    let (client, receiver) = carlos_core::claude_backend::receiver_client(
         Vec::new(),
         json!({"_failedMethods":["sessions.read"]}),
         1024,
@@ -325,7 +325,7 @@ fn failed_history_reply_is_delivered_instead_of_discarded_by_reader_closure() {
         .expect("reader barrier");
     let mut app = AppState::new("session".into());
     dispatch_received(&client, &mut app, receiver.try_iter().collect());
-    assert!(app.session.claude().phase() == crate::session::claude::ClaudePhase::Closed);
+    assert!(app.session.claude().phase() == carlos_core::session::claude::ClaudePhase::Closed);
     assert_eq!(app.session.messages()[0].text, "failed interrupt");
 }
 
@@ -334,7 +334,7 @@ fn missing_session_metadata_closes_handler_before_later_control_replies() {
     use serde_json::json;
 
     let session = "00000000-0000-4000-8000-000000000001";
-    let (client, receiver) = crate::claude_backend::receiver_client(
+    let (client, receiver) = carlos_core::claude_backend::receiver_client(
         Vec::new(),
         json!({"_failedMethods":["sessions.read"]}),
         1024,
@@ -349,8 +349,8 @@ fn missing_session_metadata_closes_handler_before_later_control_replies() {
         .submit_prompt(
             "turn/start",
             json!({"input":[{"text":"late accepted prompt"}]}),
-            crate::backend::PromptOrigin::Human,
-            crate::backend::PromptPriority::Queue,
+            carlos_core::backend::PromptOrigin::Human,
+            carlos_core::backend::PromptPriority::Queue,
             Duration::from_secs(5),
         )
         .expect("accepted prompt");
@@ -378,7 +378,7 @@ fn missing_session_metadata_closes_handler_before_later_control_replies() {
     dispatch_until_eof(&client, &receiver, &mut app);
     assert_eq!(
         app.session.turn_status_by_id()[id],
-        crate::session::models::TurnStatus::Failed
+        carlos_core::session::models::TurnStatus::Failed
     );
 }
 

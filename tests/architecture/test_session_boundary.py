@@ -142,6 +142,24 @@ class SessionBoundaryTests(unittest.TestCase):
     def test_real_repository(self):
         self.assertEqual(GUARD.check_tree(ROOT), [])
 
+    def test_library_root_and_unlisted_modules_are_checked(self):
+        files = {"src/lib.rs": "pub mod new_backend;",
+                 "src/new_backend.rs": "use crossterm::event;"}
+        self.assertTrue(any("terminal dependency" in error for error in GUARD.check_sources(files)))
+        files["src/new_backend.rs"] = "use anyhow::Result;"
+        self.assertEqual(GUARD.check_sources(files, {"anyhow": "anyhow"}), [])
+
+    def test_workspace_checks_the_actual_library_not_the_old_roots(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            library = root / "crates/carlos-core"
+            (library / "src").mkdir(parents=True)
+            (library / "Cargo.toml").write_text('[package]\nname = "carlos-core"\n')
+            (library / "src/lib.rs").write_text("use ratatui::Terminal;")
+            (root / "src").mkdir()
+            (root / "src/main.rs").write_text("fn main() {}")
+            self.assertTrue(any("terminal dependency" in error for error in GUARD.check_tree(root)))
+
 
 if __name__ == "__main__":
     unittest.main()

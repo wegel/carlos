@@ -8,7 +8,7 @@ use super::{
     handle_notification_line, load_history_from_start_or_resume, parse_rollout_history,
     prefer_complete_rollout_history, AppState,
 };
-use crate::session::models::Role;
+use carlos_core::session::models::Role;
 
 const STALE_REPLAY: &str = include_str!("fixtures/stale_transcript_replay.jsonl");
 

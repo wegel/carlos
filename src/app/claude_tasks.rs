@@ -1,6 +1,6 @@
 //! Keep task-panel focus separate from native task facts.
 
-use crate::session::claude::{ClaudeTasks, TaskStatus};
+use carlos_core::session::claude::{ClaudeTasks, TaskStatus};
 
 /// Remember only the local panel and its explicit stop target.
 #[derive(Default)]

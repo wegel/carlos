@@ -8,10 +8,10 @@ use serde_json::{json, Value};
 
 use super::state::AppState;
 use super::view_hint_support::{key, request, snapshot, Client};
-use crate::session::approval_state::ApprovalChoice;
-use crate::session::approval_state::ApprovalRequestKind;
+use carlos_core::session::approval_state::ApprovalChoice;
+use carlos_core::session::approval_state::ApprovalRequestKind;
 
-use crate::backend::BackendKind;
+use carlos_core::backend::BackendKind;
 
 #[test]
 fn approval_cards_match_heads_sequences() {
@@ -68,7 +68,7 @@ pub(super) fn sequences() -> Value {
 }
 
 fn kinds() -> [ApprovalRequestKind; 10] {
-    use crate::session::approval_state::ApprovalRequestKind as K;
+    use carlos_core::session::approval_state::ApprovalRequestKind as K;
     [
         K::CommandExecution,
         K::FileChange,

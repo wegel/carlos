@@ -5,12 +5,12 @@ use serde_json::{json, Value};
 use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::notifications::handle_server_message_line;
 use crate::app::state::AppState;
-use crate::backend::BackendKind;
-use crate::session::history_identity::{HistoryEntry, HistoryMode};
-use crate::session::models::EntryDraft;
-use crate::session::models::MessageKind;
-use crate::session::models::Role;
-use crate::summaries::{command_key, SummaryEvent};
+use carlos_core::backend::BackendKind;
+use carlos_core::session::history_identity::{HistoryEntry, HistoryMode};
+use carlos_core::session::models::EntryDraft;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
+use carlos_core::summaries::{command_key, SummaryEvent};
 
 pub(super) fn app(backend: BackendKind) -> AppState {
     let mut app = AppState::new("thread".into());

@@ -1,12 +1,12 @@
 //! Connect background event producers before entering the terminal loop.
 
 use crate::app::AppState;
-use crate::backend::EventReceiver;
 #[cfg(not(feature = "dictation"))]
 use crate::event::spawn_event_forwarders;
 #[cfg(feature = "dictation")]
 use crate::event::spawn_event_forwarders_with_dictation;
 use crate::event::UiEvent;
+use carlos_core::backend::EventReceiver;
 
 #[cfg(feature = "dictation")]
 pub(super) fn wire_event_forwarders(

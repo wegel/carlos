@@ -7,9 +7,9 @@ use serde_json::{json, Value};
 use crate::app::claude_context::{receive, tick, wait};
 
 use crate::app::state::AppState;
-use crate::backend::BackendKind;
-use crate::session::claude::ClaudePhase;
-use crate::session::context_usage::ContextUsage;
+use carlos_core::backend::BackendKind;
+use carlos_core::session::claude::ClaudePhase;
+use carlos_core::session::context_usage::ContextUsage;
 
 fn app() -> AppState {
     let mut app = AppState::new("root".into());
@@ -206,7 +206,7 @@ impl Default for QuotaPeer {
     }
 }
 
-impl crate::backend::BackendClient for QuotaPeer {
+impl carlos_core::backend::BackendClient for QuotaPeer {
     fn kind(&self) -> BackendKind {
         self.kind
     }
@@ -224,7 +224,7 @@ impl crate::backend::BackendClient for QuotaPeer {
     fn respond_error(&self, _: &Value, _: i64, _: &str) -> anyhow::Result<()> {
         unreachable!()
     }
-    fn take_events_rx(&mut self) -> anyhow::Result<crate::backend::EventReceiver> {
+    fn take_events_rx(&mut self) -> anyhow::Result<carlos_core::backend::EventReceiver> {
         unreachable!()
     }
     fn stop(&mut self) {}

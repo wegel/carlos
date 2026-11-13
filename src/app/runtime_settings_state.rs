@@ -4,7 +4,7 @@
 mod runtime_settings_model_settings;
 
 use crate::app::tool_output_state::ToolOutputMode;
-use crate::session::runtime_settings::RuntimeSettingsState;
+use carlos_core::session::runtime_settings::RuntimeSettingsState;
 
 // --- Default Options ---
 

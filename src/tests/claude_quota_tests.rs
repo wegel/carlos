@@ -3,9 +3,9 @@
 use serde_json::json;
 
 use super::weekly_usage::WeeklyIndicator;
-use crate::session::runtime_settings::RuntimeDefaults;
-use crate::session::state::SessionState;
-use crate::session::usage::unix_now;
+use carlos_core::session::runtime_settings::RuntimeDefaults;
+use carlos_core::session::state::SessionState;
+use carlos_core::session::usage::unix_now;
 
 #[test]
 fn stream_fraction_is_percent_used_and_only_global_weekly_drives_the_weekly_badge() {

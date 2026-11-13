@@ -5,16 +5,16 @@ use std::thread;
 
 use crossterm::event::{self, Event as CrosstermEvent};
 
-use crate::backend::EventReceiver;
 #[cfg(feature = "dictation")]
 use crate::dictation::events::DictationEvent;
+use carlos_core::backend::EventReceiver;
 
 /// A single event delivered to the main UI loop.
 #[derive(Debug)]
 pub(crate) enum UiEvent {
     Terminal(CrosstermEvent),
     ServerLine(String),
-    Summary(crate::summaries::SummaryEvent),
+    Summary(carlos_core::summaries::SummaryEvent),
     #[cfg(feature = "dictation")]
     Dictation(DictationEvent),
 }
@@ -22,7 +22,7 @@ pub(crate) enum UiEvent {
 #[cfg(not(feature = "dictation"))]
 pub(crate) fn spawn_event_forwarders(
     mut server_events_rx: EventReceiver,
-    summary_rx: mpsc::Receiver<crate::summaries::SummaryEvent>,
+    summary_rx: mpsc::Receiver<carlos_core::summaries::SummaryEvent>,
 ) -> EventReceiver<UiEvent> {
     let (ui_tx, ui_rx) = mpsc::channel::<UiEvent>();
     let close = server_events_rx.take_close();
@@ -63,7 +63,7 @@ pub(crate) fn spawn_event_forwarders(
 pub(crate) fn spawn_event_forwarders_with_dictation(
     mut server_events_rx: EventReceiver,
     dictation_events_rx: mpsc::Receiver<DictationEvent>,
-    summary_rx: mpsc::Receiver<crate::summaries::SummaryEvent>,
+    summary_rx: mpsc::Receiver<carlos_core::summaries::SummaryEvent>,
 ) -> EventReceiver<UiEvent> {
     let (ui_tx, ui_rx) = mpsc::channel::<UiEvent>();
     let close = server_events_rx.take_close();
@@ -112,7 +112,7 @@ pub(crate) fn spawn_event_forwarders_with_dictation(
 }
 
 fn forward_summaries(
-    rx: mpsc::Receiver<crate::summaries::SummaryEvent>,
+    rx: mpsc::Receiver<carlos_core::summaries::SummaryEvent>,
     tx: mpsc::Sender<UiEvent>,
 ) {
     thread::spawn(move || {

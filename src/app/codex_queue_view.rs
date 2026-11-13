@@ -13,8 +13,8 @@ use super::state::AppState;
 use super::text::{split_at_cells, visual_width, wrap_natural_by_cells};
 
 use super::TerminalSize;
-use crate::backend::BackendClient;
 use crate::theme::{COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_TEXT};
+use carlos_core::backend::BackendClient;
 
 /// Keep queue keys separate from textarea newline keys and independent callbacks.
 pub(super) fn key(
@@ -124,7 +124,9 @@ pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
         .saturating_sub(footer.len() + 2 + usize::from(queue.edit.is_some()));
     let body = lines
         .into_iter()
-        .flat_map(|line| wrap_natural_by_cells(&crate::session::text::safe_text(&line), width))
+        .flat_map(|line| {
+            wrap_natural_by_cells(&carlos_core::session::text::safe_text(&line), width)
+        })
         .collect::<Vec<_>>();
     for (row, line) in body.iter().take(body_height).enumerate() {
         draw_str(
@@ -237,7 +239,7 @@ fn editor_line(app: &AppState, width: usize) -> Option<(String, usize)> {
     let skip = cells.saturating_sub(width.saturating_sub(1));
     let start = split_at_cells(line, skip);
     Some((
-        crate::session::text::safe_text(&line[start..]),
+        carlos_core::session::text::safe_text(&line[start..]),
         cells.saturating_sub(skip),
     ))
 }

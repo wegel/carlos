@@ -2,7 +2,7 @@
 
 use ratatui::style::Style;
 
-use crate::session::models::{Message, Role};
+use carlos_core::session::models::{Message, Role};
 
 // --- Message Views ---
 

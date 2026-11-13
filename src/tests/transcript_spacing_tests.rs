@@ -3,7 +3,7 @@
 use super::AppState;
 use crate::app::layout_state::TranscriptTheme;
 use crate::app::tool_output_state::ToolOutputMode;
-use crate::session::models::Role;
+use carlos_core::session::models::Role;
 
 fn desktop() -> AppState {
     let mut app = AppState::new("thread".into());

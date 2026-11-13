@@ -7,10 +7,10 @@ use std::thread;
 use serde_json::{json, Value};
 
 use super::event_forwarder_support::forward;
-use crate::claude_backend::forwarder_test_support::command_client;
-use crate::claude_backend::forwarder_test_support::MAX_EVENT_BYTES;
-use crate::claude_backend::forwarder_test_support::{ForwarderHarness, DEADLINE};
 use crate::event::UiEvent;
+use carlos_core::claude_backend::forwarder_test_support::command_client;
+use carlos_core::claude_backend::forwarder_test_support::MAX_EVENT_BYTES;
+use carlos_core::claude_backend::forwarder_test_support::{ForwarderHarness, DEADLINE};
 
 #[test]
 fn pending_call_is_rejected_before_terminal_notices_or_bytes_are_acknowledged() {
@@ -96,8 +96,8 @@ fn dropping_ui_receiver_cancels_budget_through_production_forwarder() {
 }
 
 fn peer() -> (
-    crate::claude_backend::ClaudeClient,
-    crate::backend::EventReceiver,
+    carlos_core::claude_backend::ClaudeClient,
+    carlos_core::backend::EventReceiver,
 ) {
     let mut command = Command::new("python3");
     command.args(["-c", PEER]);

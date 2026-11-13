@@ -5,10 +5,10 @@ use serde_json::Value;
 use crate::app::codex_panel::{apply, scope};
 
 use crate::app::state::AppState;
-use crate::session::codex::panel_receive;
-use crate::session::codex::panel_scope::PanelUpdate;
-use crate::session::codex::panel_state::Request;
-use crate::session::codex::task_status;
+use carlos_core::session::codex::panel_receive;
+use carlos_core::session::codex::panel_scope::PanelUpdate;
+use carlos_core::session::codex::panel_state::Request;
+use carlos_core::session::codex::task_status;
 
 pub(super) fn observed(app: &mut AppState, method: &str, params: &Value) {
     let scope = scope(

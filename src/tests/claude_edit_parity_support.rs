@@ -6,7 +6,9 @@ use std::time::Duration;
 use serde_json::{json, Value};
 
 use super::state::AppState;
-use crate::backend::{BackendClient, BackendKind, EventReceiver, PromptOrigin, PromptPriority};
+use carlos_core::backend::{
+    BackendClient, BackendKind, EventReceiver, PromptOrigin, PromptPriority,
+};
 
 #[derive(Default)]
 pub(super) struct Peer {

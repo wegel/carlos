@@ -9,7 +9,7 @@ use super::claude_notifications::fail_session;
 use super::notifications::handle_server_message_line;
 use super::state::AppState;
 use crate::app::claude_process_test_support as support;
-use crate::session::claude::{NativeState, StopState};
+use carlos_core::session::claude::{NativeState, StopState};
 use support::Peer;
 
 fn app() -> AppState {

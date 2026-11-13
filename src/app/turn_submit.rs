@@ -1,9 +1,9 @@
 //! Pass accepted text and plain local choices to the session prompt commands.
 
 use super::state::AppState;
-use crate::backend::{BackendClient, PromptOrigin};
-use crate::session::entry_id::EntryId;
-use crate::session::prompt_commands::{PromptContext, PromptOptions, TurnUpdate};
+use carlos_core::backend::{BackendClient, PromptOrigin};
+use carlos_core::session::entry_id::EntryId;
+use carlos_core::session::prompt_commands::{PromptContext, PromptOptions, TurnUpdate};
 
 pub(super) use super::turn_approval::respond_to_pending_approval;
 pub(super) use super::turn_interrupt::interrupt_active_turn;
@@ -85,7 +85,7 @@ fn submit(
 
 fn context(view: &super::view_state::ViewState) -> PromptContext<'_> {
     PromptContext {
-        draft: crate::session::claude::receive_update::ClaudeDraftContext {
+        draft: carlos_core::session::claude::receive_update::ClaudeDraftContext {
             composer: view.input.lines(),
             confirmation: view.confirm_allow,
         },

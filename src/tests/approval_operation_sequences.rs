@@ -10,13 +10,13 @@ use uuid::Uuid;
 
 use super::state::AppState;
 use super::turn_approval::respond_to_pending_approval;
-use crate::backend::{BackendClient, BackendKind, EventReceiver};
-use crate::session::approval_state::ApprovalChoice;
-use crate::session::approval_state::ApprovalQueue;
-use crate::session::approval_state::ApprovalRequestDraft;
-use crate::session::approval_state::ApprovalRequestKind;
-use crate::session::entry_id::EntryId;
-use crate::session::history_identity::HistoryMode;
+use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
+use carlos_core::session::approval_state::ApprovalChoice;
+use carlos_core::session::approval_state::ApprovalQueue;
+use carlos_core::session::approval_state::ApprovalRequestDraft;
+use carlos_core::session::approval_state::ApprovalRequestKind;
+use carlos_core::session::entry_id::EntryId;
+use carlos_core::session::history_identity::HistoryMode;
 
 const SEEDS: [u64; 4] = [1, 0xcafe, 0xdeadbeef, 0x9e3779b97f4a7c15];
 const OPERATIONS: u64 = 28;

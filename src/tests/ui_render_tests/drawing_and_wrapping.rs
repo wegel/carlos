@@ -2,7 +2,7 @@
 
 #[test]
 fn build_rendered_lines_diff_viewer_wraps_long_hunk_body_lines() {
-    let messages = vec![crate::app::tests::test_message(crate::session::models::EntryDraft {
+    let messages = vec![crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
         tool_output: None,
         role: Role::ToolOutput,
         text: concat!(
@@ -27,7 +27,7 @@ fn build_rendered_lines_diff_viewer_wraps_long_hunk_body_lines() {
 
 #[test]
 fn count_rendered_block_for_diff_matches_materialized_block_len() {
-    let msg = crate::app::tests::test_message(crate::session::models::EntryDraft {
+    let msg = crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
         tool_output: None,
         role: Role::ToolOutput,
         text: "diff --git a/src/example.rs b/src/example.rs\n@@ -1,2 +1,3 @@\n old\n-old line\n+new line\n+extra line\n"
@@ -43,7 +43,7 @@ fn count_rendered_block_for_diff_matches_materialized_block_len() {
 
 #[test]
 fn count_rendered_block_for_plain_tool_output_matches_materialized_block_len() {
-    let msg = crate::app::tests::test_message(crate::session::models::EntryDraft {
+    let msg = crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
         tool_output: None,
         role: Role::ToolOutput,
         text: concat!(
@@ -65,7 +65,7 @@ fn count_rendered_block_for_plain_tool_output_matches_materialized_block_len() {
 
 #[test]
 fn count_rendered_block_for_ansi_tool_output_matches_materialized_block_len() {
-    let msg = crate::app::tests::test_message(crate::session::models::EntryDraft {
+    let msg = crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
         tool_output: None,
         role: Role::ToolOutput,
         text: "\u{1b}[31mcolored status\u{1b}[0m\nplain tail\n".to_string(),
@@ -81,7 +81,7 @@ fn count_rendered_block_for_ansi_tool_output_matches_materialized_block_len() {
 #[test]
 
 fn build_rendered_lines_tool_output_uses_ansi_styles_without_escape_text() {
-    let messages = vec![crate::app::tests::test_message(crate::session::models::EntryDraft {
+    let messages = vec![crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
         tool_output: None,
         role: Role::ToolOutput,
         text: "$ printf hello\n\u{001b}[31mhello\u{001b}[0m".to_string(),
@@ -154,7 +154,7 @@ fn reasoning_summary_delta_normalizes_split_adjacent_bold_chunks() {
 
 #[test]
 fn selected_text_preserves_reasoning_heading_and_paragraph_breaks() {
-    let messages = vec![crate::app::tests::test_message(crate::session::models::EntryDraft {
+    let messages = vec![crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
         tool_output: None,
         role: Role::Reasoning,
         text: "**Planning final-form migration implementation**\n\nI’m preparing to inspect the repo and data layout to understand the migration state.\n**Deciding on one-time migration approach**".to_string(),

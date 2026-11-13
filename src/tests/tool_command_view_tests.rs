@@ -7,10 +7,10 @@ use serde_json::{json, Value};
 use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::notifications::handle_server_message_line;
 use crate::app::AppState;
-use crate::session::models::Role;
-use crate::session::summary_request::summary_input;
-use crate::session::tool_command_view::ToolCommandView;
-use crate::summaries::{command_key, SummaryEvent};
+use carlos_core::session::models::Role;
+use carlos_core::session::summary_request::summary_input;
+use carlos_core::session::tool_command_view::ToolCommandView;
+use carlos_core::summaries::{command_key, SummaryEvent};
 
 fn app() -> AppState {
     let mut app = AppState::new("thread".into());
@@ -225,12 +225,12 @@ fn long_cd_cannot_spend_an_ai_request_on_a_short_cat_head_pipeline() {
     let body = "cat file | head -150";
     let command = format!("cd '{}' && {body}", root.trim_end_matches('/'));
     assert!(command.len() >= 200);
-    assert!(crate::summaries::eligibility::eligible(&command));
+    assert!(carlos_core::summaries::eligibility::eligible(&command));
     let native = item(&command);
     let view = ToolCommandView::from_item(&native, Path::new(&root)).expect("prefix");
     assert_eq!(view.command, body);
     assert!(body.len() < 200);
-    assert!(!crate::summaries::eligibility::eligible(body));
+    assert!(!carlos_core::summaries::eligibility::eligible(body));
     assert!(summary_input(&native, Path::new(&root)).is_none());
 }
 

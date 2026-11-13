@@ -21,12 +21,12 @@ use super::cli::{
 use super::dictation_state::DictationProfileState;
 use super::input::run_conversation_tui;
 use super::state::AppState;
-use crate::backend::{BackendClient, EventReceiver};
-use crate::protocol_params::{
+use carlos_core::backend::{BackendClient, EventReceiver};
+use carlos_core::protocol_params::{
     params_model_list, parse_model_list_page, ModelInfo, ThreadRuntimeSettings,
 };
-use crate::session::models::ThreadSummary;
-use crate::session::runtime_settings::RuntimeDefaults;
+use carlos_core::session::models::ThreadSummary;
+use carlos_core::session::runtime_settings::RuntimeDefaults;
 
 pub(super) use self::backend_setup_codex_models::complete_codex_model_catalog;
 pub(super) use self::backend_setup_grok::run_grok_backend;
@@ -275,7 +275,7 @@ pub(super) fn load_claude_thread_summaries(
     cwd_path: &Path,
     cwd: &str,
 ) -> Result<Vec<ThreadSummary>> {
-    Ok(crate::claude_backend::list_claude_sessions(cwd_path)?
+    Ok(carlos_core::claude_backend::list_claude_sessions(cwd_path)?
         .iter()
         .filter_map(|session| {
             Some(ThreadSummary {

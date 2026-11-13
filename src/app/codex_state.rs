@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 
 use super::claude_question_state::NativeDraft;
-use crate::session::codex::callbacks::CallbackKey;
+use carlos_core::session::codex::callbacks::CallbackKey;
 
 /// Keep only local editors and which callback this terminal opened.
 #[derive(Default)]

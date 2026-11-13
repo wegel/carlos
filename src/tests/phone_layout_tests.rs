@@ -4,10 +4,10 @@ use super::{AppState, TerminalSize};
 use crate::app::layout_state::TranscriptTheme;
 use crate::app::selection::Selection;
 use crate::app::tool_output_state::ToolOutputMode;
-use crate::session::models::Message;
-use crate::session::models::MessageKind;
-use crate::session::models::Role;
-use crate::session::models::ToolOutputDetails;
+use carlos_core::session::models::Message;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
+use carlos_core::session::models::ToolOutputDetails;
 
 fn transcript() -> AppState {
     let mut app = AppState::new("thread".into());
@@ -160,7 +160,7 @@ fn tool_entries() -> Vec<Message> {
     ]
     .into_iter()
     .map(|(summary, kind, failed)| {
-        crate::app::tests::test_message(crate::session::models::EntryDraft {
+        crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
             role: Role::ToolOutput,
             kind,
             text: if kind == MessageKind::Diff {
@@ -187,7 +187,7 @@ fn phone_tool_labels_preserve_full_output_and_counts_at_narrow_widths() {
             let mut app = AppState::new("thread".into());
             app.session.transcript_adopt_unkeyed(
                 tool_entries().into_iter().map(Into::into).collect(),
-                crate::session::history_identity::HistoryMode::NewConversation,
+                carlos_core::session::history_identity::HistoryMode::NewConversation,
             );
             app.view.tool_output.mode = mode;
             app.view.layout.active = TranscriptTheme::Flow;
@@ -218,7 +218,7 @@ fn phone_keeps_searches_and_short_reasoning_inside_the_tool_block() {
     let mut app = transcript();
     app.session.insert_entry_for_test(
         3,
-        crate::app::tests::test_message(crate::session::models::EntryDraft {
+        crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
             role: Role::Reasoning,
             kind: MessageKind::Plain,
             text: "**Checking results**".into(),

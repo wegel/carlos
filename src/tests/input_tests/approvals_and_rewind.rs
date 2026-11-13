@@ -140,10 +140,10 @@ fn is_key_press_like_accepts_repeat() {
 fn pending_claude_exit_plan_accept_uses_approval_path_not_chat_input() {
     let client = ApprovalRespondMock::new();
     let mut app = AppState::new("thread-1".to_string());
-    app.set_pending_approval(crate::session::approval_state::ApprovalRequestDraft {
+    app.set_pending_approval(carlos_core::session::approval_state::ApprovalRequestDraft {
         request_id: json!({"backend":"claude","kind":"exitPlanMode","toolUseId":"toolu_1"}),
         method: "claude/exitPlan/requestApproval".to_string(),
-        kind: crate::session::approval_state::ApprovalRequestKind::ClaudeExitPlanMode,
+        kind: carlos_core::session::approval_state::ApprovalRequestKind::ClaudeExitPlanMode,
         title: "Approve Claude plan".to_string(),
         detail_lines: vec!["Do the work".to_string()],
         requested_permissions: None,
@@ -178,7 +178,7 @@ fn pending_claude_exit_plan_accept_uses_approval_path_not_chat_input() {
 fn escape_key_disables_ralph_mode() {
     let client = ApprovalRespondMock::new();
     let mut app = AppState::new("thread-1".to_string());
-    app.enable_ralph_mode(crate::session::ralph::RalphConfig {
+    app.enable_ralph_mode(carlos_core::session::ralph::RalphConfig {
         prompt_path: std::path::PathBuf::from(".agents/ralph-prompt.md"),
         base_prompt: "base".to_string(),
         done_marker: "@@COMPLETE@@".to_string(),

@@ -1,6 +1,6 @@
 //! Codex model catalog additions not yet guaranteed by the app-server catalog.
 
-use crate::protocol_params::ModelInfo;
+use carlos_core::protocol_params::ModelInfo;
 
 use super::{find_effort, CODEX_DEFAULT_EFFORT};
 

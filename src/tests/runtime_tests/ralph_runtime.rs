@@ -2,7 +2,7 @@
 
 #[test]
 fn resolve_initial_runtime_settings_falls_back_to_persisted_defaults() {
-    let runtime = crate::protocol_params::ThreadRuntimeSettings {
+    let runtime = carlos_core::protocol_params::ThreadRuntimeSettings {
         model: None,
         effort: None,
         summary: None,
@@ -99,7 +99,7 @@ fn apply_model_settings_omits_summary_when_backend_does_not_support_it() {
 #[test]
 fn ralph_turn_completion_queues_continuation_when_not_blocked_or_complete() {
     let mut app = AppState::new("thread-1".to_string());
-    app.enable_ralph_mode(crate::session::ralph::RalphConfig {
+    app.enable_ralph_mode(carlos_core::session::ralph::RalphConfig {
         prompt_path: std::path::PathBuf::from(".agents/ralph-prompt.md"),
         base_prompt: "base".to_string(),
         done_marker: "@@COMPLETE@@".to_string(),
@@ -119,7 +119,7 @@ fn ralph_turn_completion_queues_continuation_when_not_blocked_or_complete() {
 #[test]
 fn ralph_turn_completion_disables_ralph_on_human_gate() {
     let mut app = AppState::new("thread-1".to_string());
-    app.enable_ralph_mode(crate::session::ralph::RalphConfig {
+    app.enable_ralph_mode(carlos_core::session::ralph::RalphConfig {
         prompt_path: std::path::PathBuf::from(".agents/ralph-prompt.md"),
         base_prompt: "base".to_string(),
         done_marker: "@@COMPLETE@@".to_string(),
@@ -142,7 +142,7 @@ fn ralph_turn_completion_disables_ralph_on_human_gate() {
 #[test]
 fn ralph_turn_completion_disables_ralph_mode_on_blocked_marker() {
     let mut app = AppState::new("thread-1".to_string());
-    app.enable_ralph_mode(crate::session::ralph::RalphConfig {
+    app.enable_ralph_mode(carlos_core::session::ralph::RalphConfig {
         prompt_path: std::path::PathBuf::from(".agents/ralph-prompt.md"),
         base_prompt: "base".to_string(),
         done_marker: "@@COMPLETE@@".to_string(),
@@ -162,7 +162,7 @@ fn ralph_turn_completion_disables_ralph_mode_on_blocked_marker() {
 #[test]
 fn commentary_blocked_marker_disables_ralph_mode_immediately() {
     let mut app = AppState::new("thread-1".to_string());
-    app.enable_ralph_mode(crate::session::ralph::RalphConfig {
+    app.enable_ralph_mode(carlos_core::session::ralph::RalphConfig {
         prompt_path: std::path::PathBuf::from(".agents/ralph-prompt.md"),
         base_prompt: "base".to_string(),
         done_marker: "@@COMPLETE@@".to_string(),
@@ -184,7 +184,7 @@ fn commentary_blocked_marker_disables_ralph_mode_immediately() {
 #[test]
 fn ralph_turn_completion_disables_ralph_mode() {
     let mut app = AppState::new("thread-1".to_string());
-    app.enable_ralph_mode(crate::session::ralph::RalphConfig {
+    app.enable_ralph_mode(carlos_core::session::ralph::RalphConfig {
         prompt_path: std::path::PathBuf::from(".agents/ralph-prompt.md"),
         base_prompt: "base".to_string(),
         done_marker: "@@COMPLETE@@".to_string(),
@@ -207,7 +207,7 @@ fn ralph_turn_completion_disables_ralph_mode() {
 #[test]
 fn ralph_interrupted_turn_does_not_queue_continuation() {
     let mut app = AppState::new("thread-1".to_string());
-    app.enable_ralph_mode(crate::session::ralph::RalphConfig {
+    app.enable_ralph_mode(carlos_core::session::ralph::RalphConfig {
         prompt_path: std::path::PathBuf::from(".agents/ralph-prompt.md"),
         base_prompt: "base".to_string(),
         done_marker: "@@COMPLETE@@".to_string(),

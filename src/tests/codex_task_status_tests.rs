@@ -12,7 +12,7 @@ use crate::app::state::AppState;
 use crate::app::task_badge::count;
 use crate::app::tests::codex_panel_support::{observed, panel_updated, terminated};
 
-use crate::session::codex::panel_state::Process;
+use carlos_core::session::codex::panel_state::Process;
 
 /// Build one child whose source is controlled by the test.
 pub(super) fn agent(id: &str, state: &str) -> Value {
@@ -24,7 +24,7 @@ fn own(app: &mut AppState) {
 }
 /// Build one exact native terminal identity.
 pub(super) fn process(owner: &str, id: &str) -> Process {
-    crate::session::codex::panel_state::Process::new(
+    carlos_core::session::codex::panel_state::Process::new(
         owner.into(),
         json!({"processId":id,"itemId":format!("item-{id}"),"command":"sleep 30","cwd":"/tmp"}),
     )
@@ -192,7 +192,7 @@ fn errors_keep_the_reason_in_f2_and_stop_automatic_retry_until_new_native_work()
     app.session
         .push_codex_agent_for_test(agent("child", "active"));
     own(&mut app);
-    app.view.codex_panel.selected = Some(crate::session::codex::panel_state::PanelId::Agent(
+    app.view.codex_panel.selected = Some(carlos_core::session::codex::panel_state::PanelId::Agent(
         "child".into(),
     ));
     app.session

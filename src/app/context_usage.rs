@@ -1,6 +1,6 @@
 //! Context-window token usage parsing and compact label formatting.
 
-use crate::session::context_usage::ContextUsage;
+use carlos_core::session::context_usage::ContextUsage;
 
 // --- Label Formatting ---
 

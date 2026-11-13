@@ -5,9 +5,9 @@ use super::flow_transcript::{inline_reasoning, section_header};
 use super::layout_state::TranscriptTheme;
 use super::tool_output_state::compact_tool_message;
 use super::tool_summary::{summary_lines, tool_failed, tool_gutter};
-use crate::session::models::Message;
-use crate::session::models::MessageKind;
-use crate::session::models::Role;
+use carlos_core::session::models::Message;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
 
 use super::transcript_body::{prepend_symbol, BlockBody};
 

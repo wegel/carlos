@@ -5,12 +5,12 @@ use serde_json::Value;
 use super::codex_callbacks::{apply_retired, reply_error, reply_hint};
 
 use super::state::AppState;
-use crate::backend::BackendClient;
-use crate::session::approval_state::ApprovalChoice;
-use crate::session::approval_state::ApprovalRequestKind;
-use crate::session::codex::callback_reply::{CallbackAnswered, CallbackInterrupt};
-use crate::session::codex::callbacks::CallbackKey;
-use crate::session::entry_id::EntryId;
+use carlos_core::backend::BackendClient;
+use carlos_core::session::approval_state::ApprovalChoice;
+use carlos_core::session::approval_state::ApprovalRequestKind;
+use carlos_core::session::codex::callback_reply::{CallbackAnswered, CallbackInterrupt};
+use carlos_core::session::codex::callbacks::CallbackKey;
+use carlos_core::session::entry_id::EntryId;
 
 /// Build only the selected callback's native response and retain drafts on failure.
 pub(super) fn respond(client: &dyn BackendClient, app: &mut AppState, choice: ApprovalChoice) {

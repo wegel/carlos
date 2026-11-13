@@ -4,7 +4,7 @@ use serde_json::Value;
 
 use super::claude_notifications::context;
 use super::state::AppState;
-use crate::session::claude::receive_update::ClaudeDraftContext;
+use carlos_core::session::claude::receive_update::ClaudeDraftContext;
 
 /// Create the local editor described by the accepted session callback.
 pub(super) fn receive_callback(app: &mut AppState, frame: &Value) {

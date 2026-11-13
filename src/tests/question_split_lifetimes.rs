@@ -10,8 +10,8 @@ use crate::app::codex_callbacks::{checked, edited, next, retire};
 
 use crate::app::codex_reply::send;
 use crate::app::state::AppState;
-use crate::session::actions::ServerRequestAction;
-use crate::session::codex::callbacks::CallbackKey;
+use carlos_core::session::actions::ServerRequestAction;
+use carlos_core::session::codex::callbacks::CallbackKey;
 
 #[test]
 fn cancelling_either_typed_callback_keeps_the_other_editor_and_focus() {

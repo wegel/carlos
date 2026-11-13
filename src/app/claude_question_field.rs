@@ -5,7 +5,7 @@ use ratatui_textarea::TextArea;
 use serde_json::{json, Value};
 
 use super::render::textarea_input_from_key;
-use crate::session::questions::QuestionField;
+use carlos_core::session::questions::QuestionField;
 
 /// One question owns its editor, cursor, selected choices, and omitted state.
 pub(super) struct AnswerField {

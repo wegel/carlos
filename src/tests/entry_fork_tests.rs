@@ -7,8 +7,8 @@ use super::{apply_forked_thread_history, apply_grok_rewound_history};
 use crate::app::claude_session_history::switch_session;
 use crate::app::notifications::handle_server_message_line;
 use crate::app::state::AppState;
-use crate::backend::BackendKind;
-use crate::session::models::Role;
+use carlos_core::backend::BackendKind;
+use carlos_core::session::models::Role;
 
 #[test]
 fn fork_remints_prefix_and_retires_old_ids_for_all_backend_paths() {

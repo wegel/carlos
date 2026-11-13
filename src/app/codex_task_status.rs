@@ -6,8 +6,8 @@ use std::time::Instant;
 
 use super::codex_panel::scope;
 use super::state::AppState;
-use crate::backend::BackendClient;
-use crate::session::codex::task_status;
+use carlos_core::backend::BackendClient;
+use carlos_core::session::codex::task_status;
 
 /// Read only known native process owners while background work remains active.
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant) -> bool {

@@ -11,9 +11,9 @@ use super::{
     Selection, Style, StyledSegment, TerminalSize, COLOR_DIFF_ADD, COLOR_DIFF_REMOVE,
     COLOR_PRIMARY, COLOR_TEXT,
 };
-use crate::session::models::MessageKind;
-use crate::session::models::Role;
-use crate::session::models::ThreadSummary;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
+use carlos_core::session::models::ThreadSummary;
 
 fn usable_dictation_profile() -> DictationProfileState {
     DictationProfileState {

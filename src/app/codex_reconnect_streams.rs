@@ -5,8 +5,8 @@ use std::time::Duration;
 use std::time::Instant;
 
 use super::state::AppState;
-use crate::backend::BackendClient;
-use crate::session::codex::reconnect_streams;
+use carlos_core::backend::BackendClient;
+use carlos_core::session::codex::reconnect_streams;
 
 /// Read at most one partial native item at the existing timer point.
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant) -> bool {

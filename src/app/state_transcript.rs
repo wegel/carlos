@@ -1,7 +1,7 @@
 //! AppState impl: transcript/message manipulation, rendered lines, and selection.
 
 use super::selection::{RenderedLineSource, Selection};
-use crate::session::models::Role;
+use carlos_core::session::models::Role;
 
 use super::state::AppState;
 use super::view_models::RenderedLine;
@@ -10,7 +10,7 @@ impl AppState {
     /// Resolve one session report and retain the existing incremental cache path.
     pub(super) fn apply_session_update(
         &mut self,
-        update: crate::session::transcript_updates::SessionUpdate,
+        update: carlos_core::session::transcript_updates::SessionUpdate,
     ) {
         if update.transcript_reset {
             self.mark_transcript_dirty();
@@ -25,7 +25,7 @@ impl AppState {
     /// Apply one synchronous item report before another terminal event runs.
     pub(super) fn apply_item_changes(
         &mut self,
-        changes: crate::session::item_changes::ItemChanges,
+        changes: carlos_core::session::item_changes::ItemChanges,
     ) {
         for update in changes.transcript {
             self.apply_session_update(update);

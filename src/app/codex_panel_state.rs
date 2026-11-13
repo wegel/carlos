@@ -1,6 +1,6 @@
 //! Keep only local task-panel focus, navigation and detail visibility.
 
-use crate::session::codex::panel_state::PanelId;
+use carlos_core::session::codex::panel_state::PanelId;
 
 /// Retain the terminal's selected native row independently of backend reads.
 #[derive(Default)]
@@ -16,7 +16,7 @@ impl PanelView {
     pub(super) fn select(
         &mut self,
         down: bool,
-        facts: &crate::session::codex::panel_state::PanelState,
+        facts: &carlos_core::session::codex::panel_state::PanelState,
     ) {
         let ids = facts.ids();
         let current = self

@@ -1,7 +1,7 @@
 //! Drive fork fixtures through the same session adoption commands as accepted edits.
 
 use super::super::state::AppState;
-use crate::session::models::EntryDraft;
+use carlos_core::session::models::EntryDraft;
 
 pub(super) fn apply_grok_rewound_history(
     app: &mut AppState,

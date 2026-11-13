@@ -4,13 +4,13 @@
 use serde_json::Value;
 
 use super::state::AppState;
-use crate::session::runtime_settings::RuntimeDefaults;
+use carlos_core::session::runtime_settings::RuntimeDefaults;
 
 /// Validate native metadata before touching the saved edited-prompt queue.
 #[cfg(test)]
 pub(super) fn apply_capabilities(app: &mut AppState, capabilities: &Value) {
     let draft = super::claude_notifications::context(app);
-    let draft = crate::session::claude::receive_update::ClaudeDraftContext {
+    let draft = carlos_core::session::claude::receive_update::ClaudeDraftContext {
         composer: app.view.input.lines(),
         ..draft
     };

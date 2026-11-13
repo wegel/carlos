@@ -4,8 +4,8 @@ use serde_json::{json, Value};
 
 use super::{handle_notification_line, load_history_from_start_or_resume, AppState, Selection};
 use crate::app::layout_state::TranscriptTheme;
-use crate::session::models::MessageKind;
-use crate::session::models::Role;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
 
 fn user(app: &mut AppState, method: &str, turn: &str, id: &str, text: &str) {
     handle_notification_line(app,&json!({"method":method,"params":{"threadId":app.session.thread_id(),

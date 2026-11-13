@@ -2,7 +2,7 @@
 
 use ratatui::style::{Color, Modifier, Style};
 
-use crate::session::models::Role;
+use carlos_core::session::models::Role;
 
 // Catppuccin Mocha defaults
 pub(crate) const COLOR_STEP1: Color = Color::Rgb(17, 17, 27); // crust

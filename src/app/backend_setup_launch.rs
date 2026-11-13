@@ -16,17 +16,17 @@ use crate::app::item_history::replace_history_from_thread;
 use crate::app::state::AppState;
 use crate::app::terminal_ui::{pick_thread, sort_threads_for_picker};
 
-use crate::backend::{BackendClient, EventReceiver};
-use crate::claude_backend::{ClaudeClient, ClaudeLaunchMode};
-use crate::codex_connection::CodexClient;
-use crate::protocol_params::{
+use carlos_core::backend::{BackendClient, EventReceiver};
+use carlos_core::claude_backend::{ClaudeClient, ClaudeLaunchMode};
+use carlos_core::codex_connection::CodexClient;
+use carlos_core::protocol_params::{
     extract_result_object, initialize_client, params_thread_archive, params_thread_list,
     params_thread_resume, params_thread_start, parse_thread_id_from_start_or_resume,
     parse_thread_runtime_settings, ThreadRuntimeSettings,
 };
-use crate::session::codex::history::preferred_codex_thread;
-use crate::session::runtime_settings::RuntimeDefaults;
-use crate::session::thread_list::parse_thread_list;
+use carlos_core::session::codex::history::preferred_codex_thread;
+use carlos_core::session::runtime_settings::RuntimeDefaults;
+use carlos_core::session::thread_list::parse_thread_list;
 
 // --- Codex Backend ---
 

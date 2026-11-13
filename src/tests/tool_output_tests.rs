@@ -5,9 +5,9 @@ use std::fs;
 use super::{AppState, TerminalSize};
 use crate::app::state::ModelSettingsField;
 use crate::app::tool_output_preferences::{load_mode_from, save_mode_to};
-use crate::session::models::MessageKind;
-use crate::session::models::Role;
-use crate::session::models::ToolOutputDetails;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
+use carlos_core::session::models::ToolOutputDetails;
 
 use crate::app::tool_output_state::{ToolOutputMode, ToolOutputState};
 

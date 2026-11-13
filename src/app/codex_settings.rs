@@ -3,8 +3,8 @@
 use serde_json::Value;
 
 use super::state::AppState;
-use crate::backend::BackendClient;
-use crate::session::codex::settings::{self, SettingsEffect, SettingsUpdate};
+use carlos_core::backend::BackendClient;
+use carlos_core::session::codex::settings::{self, SettingsEffect, SettingsUpdate};
 
 /// Submit the explicit runtime choices used by the settings fixtures.
 #[cfg(test)]
@@ -76,7 +76,7 @@ pub(super) fn apply(app: &mut AppState, update: SettingsUpdate) {
             }
             SettingsEffect::Persist(desired) => super::codex_settings_draft::persist(app, &desired),
             SettingsEffect::Notice(message) => {
-                app.append_message(crate::session::models::Role::System, message);
+                app.append_message(carlos_core::session::models::Role::System, message);
             }
         }
     }

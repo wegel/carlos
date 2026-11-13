@@ -2,8 +2,8 @@
 
 use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::state::AppState;
-use crate::session::models::MessageKind;
-use crate::session::models::Role;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
 use serde_json::{json, Value};
 fn app() -> AppState {
     let mut app = AppState::new("thread".into());
@@ -120,7 +120,7 @@ fn complete_read_history_uses_linear_predecessor_work() {
         let mut app = app();
         let items: Vec<_> = (0..count).map(|n| json!({"id":format!("read-{n}"),"type":"toolCall","name":"Read","input":{"file_path":"same.rs"}})).collect();
         let thread = json!({"id":"thread","turns":[{"id":"turn","items":items}]});
-        let draft = crate::session::item_history_draft::build(&mut app.session, &thread);
+        let draft = carlos_core::session::item_history_draft::build(&mut app.session, &thread);
         counts.push(draft.read_steps);
         crate::app::item_history::replace_history_from_thread(&mut app, &thread)
             .expect("same-thread history");

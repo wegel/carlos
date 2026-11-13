@@ -16,9 +16,9 @@ use super::{
     DictationProfileState, DurationSamples, Event, KeyCode, KeyEventKind, KeyModifiers,
     MobileMouseConsume, MouseDragMode, PerfMetrics, TerminalSize, UiEvent,
 };
-use crate::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
-use crate::session::context_usage::ContextUsage;
-use crate::session::models::Role;
+use carlos_core::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
+use carlos_core::session::context_usage::ContextUsage;
+use carlos_core::session::models::Role;
 
 struct ApprovalRespondMock {
     responses: std::sync::Mutex<Vec<(Value, Value)>>,

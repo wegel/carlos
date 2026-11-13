@@ -12,12 +12,12 @@ use super::{
     handle_notification_line, parse_cli_args, submit_turn_text, submit_turn_text_with_history,
     AppState, Backend,
 };
-use crate::backend::{BackendClient, BackendKind, EventReceiver};
-use crate::claude_backend::{
+use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
+use carlos_core::claude_backend::{
     collect_live_forwarded_lines_for_test, session_misroute_event, translate_claude_line,
     ClaudeTranslationState,
 };
-use crate::session::models::Role;
+use carlos_core::session::models::Role;
 
 fn collect_synthetic_lines(lines: &[&str]) -> Vec<String> {
     let mut state = ClaudeTranslationState::default();

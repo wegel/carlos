@@ -6,7 +6,7 @@ impl AppState {
     /// Apply only the local controls and recovery text named by native closure.
     pub(super) fn apply_codex_closed(
         &mut self,
-        closed: crate::session::codex::lifecycle::CodexClosed,
+        closed: carlos_core::session::codex::lifecycle::CodexClosed,
     ) {
         self.view.quota_next_draw = None;
         super::codex_settings::apply(self, closed.settings);

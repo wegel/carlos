@@ -6,9 +6,9 @@ use uuid::Uuid;
 
 use super::codex_queue_state::QueueEdit;
 use super::state::AppState;
-use crate::backend::BackendClient;
-use crate::session::codex::queue::{self, CodexScope, QueueUpdate};
-use crate::session::codex::queue_state::editable_text;
+use carlos_core::backend::BackendClient;
+use carlos_core::session::codex::queue::{self, CodexScope, QueueUpdate};
+use carlos_core::session::codex::queue_state::editable_text;
 
 /// Keep uncertain queue writes and recoverable drafts in their original thread before a fork.
 #[cfg(test)]
@@ -16,7 +16,7 @@ pub(super) fn reject_switch(app: &mut AppState) -> bool {
     if !app.session.codex_queue().pending() && app.view.codex_queue.recovery.is_none() {
         return false;
     }
-    app.append_message(crate::session::models::Role::System, "Finish or recover the Codex queue request before editing earlier history. This edited prompt is preserved.");
+    app.append_message(carlos_core::session::models::Role::System, "Finish or recover the Codex queue request before editing earlier history. This edited prompt is preserved.");
     true
 }
 
@@ -148,7 +148,7 @@ pub(super) fn save_edit(client: &dyn BackendClient, app: &mut AppState) {
     };
     let scope = scope(app);
     let mut update = QueueUpdate::default();
-    let result = crate::session::codex::queue_edit::save_edit(
+    let result = carlos_core::session::codex::queue_edit::save_edit(
         client,
         &mut app.session,
         scope,
@@ -167,7 +167,7 @@ pub(super) fn save_edit(client: &dyn BackendClient, app: &mut AppState) {
 pub(super) fn operate(client: &dyn BackendClient, app: &mut AppState, command: &str) {
     let scope = scope(app);
     let mut update = QueueUpdate::default();
-    let result = crate::session::codex::queue_edit::operate(
+    let result = carlos_core::session::codex::queue_edit::operate(
         client,
         &mut app.session,
         scope,
@@ -183,7 +183,7 @@ pub(super) fn operate(client: &dyn BackendClient, app: &mut AppState, command: &
 
 /// Keep failures visible in the queue panel while preserving both editors.
 pub(super) fn fail(app: &mut AppState, message: &str) {
-    app.view.codex_queue.error = Some(crate::session::text::safe_text(message));
+    app.view.codex_queue.error = Some(carlos_core::session::text::safe_text(message));
     app.view.codex_queue.show = true;
 }
 

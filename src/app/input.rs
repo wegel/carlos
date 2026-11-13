@@ -39,8 +39,8 @@ use super::render::render_main_view;
 use super::terminal_ui::with_terminal;
 use super::{AppState, TerminalSize};
 
-use crate::backend::{BackendClient, EventReceiver};
 use crate::event::UiEvent;
+use carlos_core::backend::{BackendClient, EventReceiver};
 
 const MAX_UI_DRAIN_PER_CYCLE: usize = 4096;
 const SERVER_BUDGET_WITH_INPUT: usize = 8;

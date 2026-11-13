@@ -35,7 +35,8 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Strict Clippy and build without dictation
         run: |
-          cargo clippy --all-targets -- -D warnings
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace --no-default-features --locked
           cargo build --release --no-default-features
           bash scripts/check-rust-style.sh --all
       - name: Release tests and native contracts

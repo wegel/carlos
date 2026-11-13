@@ -8,9 +8,9 @@ use ratatui::Terminal;
 
 use super::perf::DurationSamples;
 use super::render::{compute_input_layout, render_main_view};
-use crate::session::models::Message;
-use crate::session::models::MessageKind;
-use crate::session::models::Role;
+use carlos_core::session::models::Message;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
 
 use super::render_cache_state::count_display_block;
 use super::transcript_render::RenderCountCache;

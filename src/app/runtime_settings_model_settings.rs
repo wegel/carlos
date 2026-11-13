@@ -2,7 +2,7 @@
 
 use super::{default_effort_vec, effort_index, ModelSettingsField, RuntimeSettingsView};
 
-use crate::session::runtime_settings::{
+use carlos_core::session::runtime_settings::{
     normalize_non_empty, RuntimeDefaults, RuntimeSettingsState,
 };
 

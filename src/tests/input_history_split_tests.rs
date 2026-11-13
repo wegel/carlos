@@ -4,7 +4,7 @@ use serde_json::json;
 
 use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::state::AppState;
-use crate::session::models::Role;
+use carlos_core::session::models::Role;
 
 #[path = "input_history_split_fork_tests.rs"]
 mod fork_tests;

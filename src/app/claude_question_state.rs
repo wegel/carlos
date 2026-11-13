@@ -36,13 +36,15 @@ impl NativeDraft {
     /// Build answer fields without changing the original SDK callback input.
     pub(super) fn from_payload(kind: &str, payload: &Value) -> Self {
         Self::from_description(
-            crate::session::claude::callback_questions::ClaudeQuestion::from_payload(kind, payload),
+            carlos_core::session::claude::callback_questions::ClaudeQuestion::from_payload(
+                kind, payload,
+            ),
         )
     }
 
     /// Create local editors and apply offered defaults without retaining a second description.
     pub(super) fn from_description(
-        description: crate::session::claude::callback_questions::ClaudeQuestion,
+        description: carlos_core::session::claude::callback_questions::ClaudeQuestion,
     ) -> Self {
         let fields = description
             .fields

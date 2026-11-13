@@ -1,9 +1,9 @@
 //! Choose full or folded tool output from an explicit preference and terminal size.
 
 use super::view_models::{DisplayKind, DisplayMessage, TerminalSize};
-use crate::session::models::Message;
-use crate::session::models::MessageKind;
-use crate::session::models::Role;
+use carlos_core::session::models::Message;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
 
 /// Let the terminal size choose, or force one view until the user changes it.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]

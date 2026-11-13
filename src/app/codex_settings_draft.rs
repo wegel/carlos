@@ -4,10 +4,10 @@ use serde_json::{json, Value};
 
 use super::persist_runtime_defaults;
 use super::state::AppState;
-use crate::session::runtime_settings::RuntimeDefaults;
+use carlos_core::session::runtime_settings::RuntimeDefaults;
 
-use crate::protocol_params::parse_thread_runtime_settings;
-use crate::session::runtime_settings::RuntimeSetting;
+use carlos_core::protocol_params::parse_thread_runtime_settings;
+use carlos_core::session::runtime_settings::RuntimeSetting;
 
 const THREAD_SUMMARY: &str = "Use thread setting";
 
@@ -191,7 +191,7 @@ pub(super) fn persist(app: &mut AppState, desired: &Value) {
     };
     if let Err(error) = persist_runtime_defaults(&defaults) {
         app.append_message(
-            crate::session::models::Role::System,
+            carlos_core::session::models::Role::System,
             format!("Codex accepted the choices, but Carlos could not save its defaults: {error}"),
         );
     }

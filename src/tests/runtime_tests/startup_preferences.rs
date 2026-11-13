@@ -125,7 +125,7 @@ for line in sys.stdin:
          for name in ['native','saved']]
  print(json.dumps({'id':a['id'],'result':{'data':models,'nextCursor':None}}))
 "#]);
-    let client = crate::protocol::AppServerClient::start_command(command).expect("startup peer");
+    let client = carlos_core::protocol::AppServerClient::start_command(command).expect("startup peer");
     crate::app::backend_setup::configure_new_codex_for_test(
         app,
         &client,

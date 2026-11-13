@@ -5,7 +5,7 @@ use serde_json::Value;
 
 use super::state::AppState;
 #[cfg(test)]
-use crate::backend::PromptOrigin;
+use carlos_core::backend::PromptOrigin;
 
 /// Keep the submitted edit until the fork and replacement startup are both ready.
 #[cfg(test)]
@@ -51,7 +51,7 @@ pub(super) fn send_failed(app: &mut AppState, text: &str, message: &str) -> bool
 /// Restore failed submitted text through the session's recovery rules.
 #[cfg(test)]
 pub(super) fn failed(app: &mut AppState, message: &str) {
-    let draft = crate::session::claude::receive_update::ClaudeDraftContext {
+    let draft = carlos_core::session::claude::receive_update::ClaudeDraftContext {
         composer: app.view.input.lines(),
         ..super::claude_notifications::context(app)
     };

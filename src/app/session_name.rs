@@ -3,7 +3,7 @@
 use serde_json::Value;
 
 use super::AppState;
-use crate::backend::{BackendClient, BackendKind};
+use carlos_core::backend::{BackendClient, BackendKind};
 
 impl AppState {
     /// Clear the previous session's name when the client switches thread IDs.
@@ -16,7 +16,7 @@ impl AppState {
     /// Reset only local controls named by an accepted native thread change.
     pub(super) fn apply_thread_change(
         &mut self,
-        changed: crate::session::thread_commands::ThreadChanged,
+        changed: carlos_core::session::thread_commands::ThreadChanged,
     ) {
         for retired in changed.callbacks {
             super::codex_callbacks::apply_retired(self, retired);

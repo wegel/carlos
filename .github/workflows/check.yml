@@ -36,6 +36,12 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Test Rust and terminal workflows
         run: bash scripts/test.sh --codex-contract --claude-contract
+      - name: Build and test the core without terminal or dictation libraries
+        run: |
+          cargo build -p carlos-core --locked --target-dir target/core-only
+          cargo test -p carlos-core --locked
+          cargo test --workspace --no-default-features --locked
+          cargo clippy --workspace --all-targets --no-default-features -- -D warnings
       - name: Save terminal screens, keystrokes, and JSON-RPC traces
         if: always()
         uses: actions/upload-artifact@v4

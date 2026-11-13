@@ -7,7 +7,7 @@ use super::state::AppState;
 
 /// Load checked native history and reset local viewport/cursor state.
 pub(crate) fn load_history_from_start_or_resume(app: &mut AppState, response: &str) -> Result<()> {
-    let changes = crate::session::item_history::load_history_from_start_or_resume(
+    let changes = carlos_core::session::item_history::load_history_from_start_or_resume(
         &mut app.session,
         response,
     )?;
@@ -21,7 +21,7 @@ pub(crate) fn load_history_from_start_or_resume(app: &mut AppState, response: &s
 /// Replace same-thread rows after all native metadata has been checked.
 pub(super) fn replace_history_from_thread(app: &mut AppState, thread: &Value) -> Result<()> {
     let changes =
-        crate::session::item_history::replace_history_from_thread(&mut app.session, thread)?;
+        carlos_core::session::item_history::replace_history_from_thread(&mut app.session, thread)?;
     app.reset_history_view();
     app.apply_item_changes(changes);
     Ok(())
@@ -30,6 +30,6 @@ pub(super) fn replace_history_from_thread(app: &mut AppState, thread: &Value) ->
 #[cfg(test)]
 pub(super) fn append_history_from_thread(app: &mut AppState, thread: &Value) {
     let changes =
-        crate::session::item_history::append_history_from_thread(&mut app.session, thread);
+        carlos_core::session::item_history::append_history_from_thread(&mut app.session, thread);
     app.apply_item_changes(changes);
 }

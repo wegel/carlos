@@ -3,9 +3,9 @@
 use ratatui::style::{Color, Style};
 
 use super::transcript_diff::{append_wrapped_diff_lines, count_wrapped_diff_lines};
-use crate::session::models::Message;
-use crate::session::models::MessageKind;
-use crate::session::models::Role;
+use carlos_core::session::models::Message;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
 
 use super::transcript_source::{append_source_lines, count_source_lines};
 

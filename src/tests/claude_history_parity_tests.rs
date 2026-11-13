@@ -7,8 +7,8 @@ use base64::Engine;
 use serde_json::{json, Value};
 
 use self::normalized_app::{handle_server_message_line, NormalizedApp};
-use crate::session::actions::ServerRequestAction;
-use crate::session::claude::ClaudePhase;
+use carlos_core::session::actions::ServerRequestAction;
+use carlos_core::session::claude::ClaudePhase;
 
 fn native(app: &mut NormalizedApp, request: &str, result: Value) -> Option<ServerRequestAction> {
     handle_server_message_line(
@@ -161,7 +161,7 @@ fn normalized_parts_reject_bounds_without_erasing_earlier_rows() {
         json!({"offset":0,"totalBytes":1,"text":"!"}),
     ] {
         let mut app = super::state::AppState::new("session".into());
-        app.append_message(crate::session::models::Role::Assistant, "earlier");
+        app.append_message(carlos_core::session::models::Role::Assistant, "earlier");
         let mut params = params;
         params["generation"] = json!(1);
         params["epoch"] = json!(0);
@@ -242,7 +242,7 @@ fn source_defaults_duplicates_and_empty_uuids_keep_their_old_rows() {
     );
     assert_eq!(
         app.session.messages()[0].kind,
-        crate::session::models::MessageKind::UserSteer
+        carlos_core::session::models::MessageKind::UserSteer
     );
     assert_eq!(app.input_history_len(), 1);
     assert_eq!(app.session.claude_history().unknown().len(), 2);
@@ -259,7 +259,7 @@ fn failed_start_after_switch_keeps_the_adopted_session_and_its_rows() {
             .as_object()
             .expect("params"),
     );
-    app.append_message(crate::session::models::Role::Assistant, "branch row");
+    app.append_message(carlos_core::session::models::Role::Assistant, "branch row");
     let id = app.session.messages()[0].id;
     super::claude_notifications::handle(
         &mut app,

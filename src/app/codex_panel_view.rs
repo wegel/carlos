@@ -6,12 +6,12 @@ use ratatui::style::Style;
 
 use super::input_events::TerminalEventResult;
 use super::render::{draw_str, fill_rect};
-use crate::session::codex::panel_state::PanelId;
+use carlos_core::session::codex::panel_state::PanelId;
 
 use super::state::AppState;
 use super::view_models::TerminalSize;
-use crate::backend::{BackendClient, BackendKind};
 use crate::theme::{COLOR_DIM, COLOR_PRIMARY, COLOR_STEP2, COLOR_TEXT};
+use carlos_core::backend::{BackendClient, BackendKind};
 
 /// Keep F2 independent of model/queue/question overlays; closing reveals their untouched drafts.
 pub(super) fn key(
@@ -150,7 +150,7 @@ fn selected(app: &AppState) -> String {
         }
         PanelId::Process { process, .. } => (process.as_str(), "background process"),
     };
-    crate::session::text::safe_label(&format!("> {label}: {status}"))
+    carlos_core::session::text::safe_label(&format!("> {label}: {status}"))
 }
 
 fn toggle_panel(app: &mut AppState) {

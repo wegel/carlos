@@ -9,8 +9,8 @@ use crate::app::text::wrap_natural_count_by_cells;
 use crate::app::transcript_styles::{
     ansi_line_segments, is_fence_delimiter, markdown_line_segments, styled_plain_text,
 };
-use crate::session::models::Role;
-use crate::session::tools::strip_terminal_controls;
+use carlos_core::session::models::Role;
+use carlos_core::session::tools::strip_terminal_controls;
 
 use crate::app::view_models::StyledSegment;
 

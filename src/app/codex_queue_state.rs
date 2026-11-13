@@ -24,7 +24,7 @@ impl QueueView {
     /// Keep selection fixed when external clients consume or reorder queued entries.
     pub(super) fn selected_entry<'a>(
         &self,
-        facts: &'a crate::session::codex::queue_state::QueueState,
+        facts: &'a carlos_core::session::codex::queue_state::QueueState,
     ) -> Option<&'a Value> {
         let id = self.selected.as_deref()?;
         facts.entries().iter().find(|entry| entry["id"] == id)
@@ -34,7 +34,7 @@ impl QueueView {
     pub(super) fn move_selection(
         &mut self,
         direction: isize,
-        facts: &crate::session::codex::queue_state::QueueState,
+        facts: &carlos_core::session::codex::queue_state::QueueState,
     ) {
         if facts.entries().is_empty() {
             self.selected = None;

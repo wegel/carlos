@@ -6,11 +6,11 @@ use super::{
     build_rendered_block_for_message, count_rendered_block_for_message, visual_width, RenderedLine,
 };
 use super::{selected_text, Selection};
-use crate::session::models::MessageKind;
-use crate::session::models::Role;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
 
 fn render(text: &str, role: Role, width: usize) -> Vec<RenderedLine> {
-    let message = crate::app::tests::test_message(crate::session::models::EntryDraft {
+    let message = crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
         role,
         text: text.to_string(),
         kind: MessageKind::Plain,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reject terminal dependencies in the files that will move into carlos-core."""
+"""Reject terminal dependencies and client code in the session library."""
 
 from pathlib import Path
 import posixpath
@@ -104,6 +104,8 @@ def tokens(source):
 
 def core_files(files):
     """Enumerate exact files, including undeclared files under each future-core root."""
+    if "src/lib.rs" in files:
+        return {name for name in files if name.startswith("src/") and name.endswith(".rs")}
     roots = {"session", "backend", "claude_backend", "grok_backend", "summaries", "native_form"}
     roots.update(Path(name).stem for name in files if re.fullmatch(r"src/(?:protocol|codex|native_form)[^/]*\.rs", name))
     return {name for name in files if name.endswith(".rs") and any(
@@ -114,7 +116,7 @@ def core_files(files):
 def module_children(stream, source_name):
     """Follow all cfg branches, inline modules and explicit path attributes."""
     owner = Path(source_name)
-    normal = owner.parent if owner.name == "mod.rs" else owner.with_suffix("")
+    normal = owner.parent if owner.name in {"mod.rs", "lib.rs", "main.rs"} else owner.with_suffix("")
     values = [token[1] if token[0] != "string" else None for token in stream]
 
     def scope(start, end, directory, attribute_directory):
@@ -356,7 +358,14 @@ def check_sources(files, dependencies=None, external_tests=EXTERNAL_TESTS):
 
 
 def check_tree(root):
+    library = root / "crates/carlos-core"
+    client_files = {}
+    if library.is_dir():
+        client_files = {"client/" + str(path.relative_to(root)): path.read_text()
+                        for path in (root / "src").rglob("*.rs")}
+        root = library
     files = {str(path.relative_to(root)): path.read_text() for path in (root / "src").rglob("*.rs")}
+    files.update(client_files)
     manifest = tomllib.loads((root / "Cargo.toml").read_text())
     dependencies = {}
     scopes = [manifest, *manifest.get("target", {}).values()]
@@ -373,4 +382,4 @@ if __name__ == "__main__":
     if errors:
         print("\n".join(errors), file=sys.stderr)
         sys.exit(1)
-    print("Session boundary: all future-core Rust files and declared tests passed")
+    print("Session boundary: all core Rust files and declared tests passed")

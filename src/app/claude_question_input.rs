@@ -8,11 +8,11 @@ use super::claude_question_state::NativeDraft;
 use super::input_events::TerminalEventResult;
 use super::state::AppState;
 use super::turn_submit::{interrupt_active_turn, respond_to_pending_approval};
-use crate::session::approval_state::ApprovalChoice;
+use carlos_core::session::approval_state::ApprovalChoice;
 
-use crate::backend::BackendClient;
 use crate::clipboard::try_copy_clipboard;
-use crate::session::approval_state::ApprovalQueue;
+use carlos_core::backend::BackendClient;
+use carlos_core::session::approval_state::ApprovalQueue;
 
 /// Handle a native callback without borrowing the main message composer.
 pub(super) fn handle_key(

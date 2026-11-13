@@ -3,7 +3,7 @@
 use serde_json::{json, Value};
 
 use super::{handle_notification_line, load_history_from_start_or_resume, AppState};
-use crate::session::models::Role;
+use carlos_core::session::models::Role;
 
 fn item(app: &mut AppState, method: &str, value: &Value) {
     handle_notification_line(

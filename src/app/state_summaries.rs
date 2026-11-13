@@ -3,8 +3,8 @@
 use std::sync::mpsc;
 
 use super::state::AppState;
-use crate::session::entry_id::EntryId;
-use crate::summaries::SummaryEvent;
+use carlos_core::session::entry_id::EntryId;
+use carlos_core::summaries::SummaryEvent;
 
 impl AppState {
     pub(super) fn configure_summary_worker(&mut self, tx: mpsc::Sender<SummaryEvent>) {

@@ -4,11 +4,11 @@ use serde_json::Value;
 
 use super::state::AppState;
 #[cfg(test)]
-use crate::session::actions::ServerRequestAction;
-use crate::session::approval_state::ApprovalQueue;
-use crate::session::codex::callback_commands::CallbackRetired;
-use crate::session::codex::callbacks::CallbackKey;
-use crate::session::text::safe_text;
+use carlos_core::session::actions::ServerRequestAction;
+use carlos_core::session::approval_state::ApprovalQueue;
+use carlos_core::session::codex::callback_commands::CallbackRetired;
+use carlos_core::session::codex::callbacks::CallbackKey;
+use carlos_core::session::text::safe_text;
 
 #[path = "codex_callback_updates.rs"]
 mod updates;

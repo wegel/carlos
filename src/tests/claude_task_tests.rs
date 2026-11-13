@@ -3,7 +3,7 @@
 use serde_json::json;
 
 use super::state::AppState;
-use crate::session::claude::{StopState, TaskStatus};
+use carlos_core::session::claude::{StopState, TaskStatus};
 
 #[test]
 fn late_same_run_edges_cannot_replace_terminal_details_or_resurrect_activity() {

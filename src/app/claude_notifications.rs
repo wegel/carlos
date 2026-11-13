@@ -5,8 +5,8 @@ use serde_json::{Map, Value};
 
 use super::state::AppState;
 #[cfg(test)]
-use crate::session::actions::ServerRequestAction;
-use crate::session::claude::receive_update::ClaudeDraftContext;
+use carlos_core::session::actions::ServerRequestAction;
+use carlos_core::session::claude::receive_update::ClaudeDraftContext;
 
 /// Distinguish a normalized Claude fact from another backend's shared message.
 #[cfg(test)]

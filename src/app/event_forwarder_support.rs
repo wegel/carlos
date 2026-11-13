@@ -5,11 +5,11 @@ use std::sync::mpsc;
 
 use serde_json::{json, Value};
 
-use crate::backend::{BackendClient, EventReceiver};
-use crate::claude_backend::forwarder_test_support::DEADLINE;
-use crate::claude_backend::forwarder_test_support::{command_client, helper_call, submit};
-use crate::claude_backend::ClaudeClient;
 use crate::event::UiEvent;
+use carlos_core::backend::{BackendClient, EventReceiver};
+use carlos_core::claude_backend::forwarder_test_support::DEADLINE;
+use carlos_core::claude_backend::forwarder_test_support::{command_client, helper_call, submit};
+use carlos_core::claude_backend::ClaudeClient;
 
 pub(super) fn peer(order: &str, accepted: bool) -> (ClaudeClient, EventReceiver) {
     let mut command = Command::new("python3");

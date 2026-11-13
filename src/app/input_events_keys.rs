@@ -26,8 +26,8 @@ use crate::app::selection::MouseDragMode;
 use crate::app::state::AppState;
 use crate::app::turn_submit::{interrupt_active_turn, respond_to_pending_approval};
 use crate::app::{TerminalSize, MSG_TOP};
-use crate::backend::BackendClient;
-use crate::session::approval_state::ApprovalChoice;
+use carlos_core::backend::BackendClient;
+use carlos_core::session::approval_state::ApprovalChoice;
 
 use self::input_events_dictation::{
     handle_ctrl_d_dictation, handle_enter_stop_dictation, handle_f7_dictation_profile,
@@ -112,7 +112,7 @@ fn handle_claude_session_keys(
     key: crossterm::event::KeyEvent,
     size: TerminalSize,
 ) -> Option<TerminalEventResult> {
-    if client.kind() != crate::backend::BackendKind::Claude || !key.modifiers.is_empty() {
+    if client.kind() != carlos_core::backend::BackendKind::Claude || !key.modifiers.is_empty() {
         return None;
     }
     match key.code {
@@ -125,7 +125,8 @@ fn handle_claude_session_keys(
             app.align_rewind_scroll_to_selected_prompt(size);
         }
         KeyCode::F(5)
-            if app.session.claude().phase() == crate::session::claude::ClaudePhase::Closed
+            if app.session.claude().phase()
+                == carlos_core::session::claude::ClaudePhase::Closed
                 || crate::app::claude_session_history::has_unsent(app) =>
         {
             crate::app::claude_session_history::load_unsent(app);

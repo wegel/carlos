@@ -55,21 +55,21 @@ pub(super) use crate::clipboard::{
     detect_osc52_wrap, is_ssh_session, osc52_sequences_for_env, Osc52Wrap,
 };
 pub(super) use crate::event::UiEvent;
-pub(super) use crate::protocol_params::{
+pub(super) use crate::theme::{COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_PRIMARY, COLOR_TEXT};
+pub(super) use carlos_core::protocol_params::{
     params_thread_archive, params_turn_interrupt, params_turn_start, parse_thread_runtime_settings,
     ModelInfo, ThreadRuntimeSettings,
 };
-pub(super) use crate::session::actions::ServerRequestAction;
-pub(super) use crate::session::codex::history::{
+pub(super) use carlos_core::session::actions::ServerRequestAction;
+pub(super) use carlos_core::session::codex::history::{
     parse_rollout_history, prefer_complete_rollout_history,
 };
-pub(super) use crate::session::models::Message;
-pub(super) use crate::session::tool_shell::parse_ssh_remote_command;
-pub(super) use crate::session::tools::{
+pub(super) use carlos_core::session::models::Message;
+pub(super) use carlos_core::session::tool_shell::parse_ssh_remote_command;
+pub(super) use carlos_core::session::tools::{
     command_execution_diff_output, extract_diff_blocks, format_tool_item, strip_terminal_controls,
     strip_terminal_controls_preserving_sgr,
 };
-pub(super) use crate::theme::{COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_PRIMARY, COLOR_TEXT};
 pub(super) use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 pub(super) use ratatui::buffer::Buffer;
 pub(super) use ratatui::layout::Rect;
@@ -175,8 +175,8 @@ mod shell_directory_tests;
 mod tool_command_view_tests;
 
 /// Construct test rows through the same allocator used by production appends.
-fn test_message(draft: crate::session::models::EntryDraft) -> Message {
-    let mut transcript = crate::session::transcript::Transcript::new();
+fn test_message(draft: carlos_core::session::models::EntryDraft) -> Message {
+    let mut transcript = carlos_core::session::transcript::Transcript::new();
     let id = transcript.append(draft);
     transcript.entry(id).expect("adopted test row").clone()
 }
@@ -211,6 +211,6 @@ mod codex_panel_support;
 pub(super) use super::item_history::{
     append_history_from_thread, load_history_from_start_or_resume,
 };
-pub(super) use crate::session::thread_list::parse_thread_list;
+pub(super) use carlos_core::session::thread_list::parse_thread_list;
 
-pub(super) use crate::session::ralph;
+pub(super) use carlos_core::session::ralph;

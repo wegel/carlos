@@ -7,7 +7,7 @@ use super::codex_question_support::{app, receive, Peer};
 use crate::app::codex_panel::{details, refresh, stop, tick};
 
 use crate::app::item_history::load_history_from_start_or_resume;
-use crate::session::codex::panel_state::PanelId;
+use carlos_core::session::codex::panel_state::PanelId;
 
 fn agent(id: &str, parent: &str) -> Value {
     json!({"id":id,"parentThreadId":parent,"agentNickname":id,"agentRole":"worker",
@@ -214,11 +214,12 @@ fn idle_agents_are_not_completed_and_process_stop_uses_both_native_ids() {
         json!({"data":[{"id":"done","status":"completed"}]}),
     );
     assert!(app.session.codex_panel().stop().is_none());
-    app.session
-        .push_codex_process_for_test(crate::session::codex::panel_state::Process::new(
+    app.session.push_codex_process_for_test(
+        carlos_core::session::codex::panel_state::Process::new(
             "child".into(),
             json!({"processId":"88","itemId":"exec","command":"sleep60","cwd":"/tmp"}),
-        ));
+        ),
+    );
     app.view.codex_panel.selected = Some(PanelId::Process {
         item: Some("exec".into()),
         thread: "child".into(),

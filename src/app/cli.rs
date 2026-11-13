@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 
-use crate::protocol_params::ThreadRuntimeSettings;
-use crate::session::runtime_settings::RuntimeDefaults;
+use carlos_core::protocol_params::ThreadRuntimeSettings;
+use carlos_core::session::runtime_settings::RuntimeDefaults;
 
 // --- CLI Types ---
 

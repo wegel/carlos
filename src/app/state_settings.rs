@@ -1,7 +1,7 @@
 //! AppState impl: runtime/model settings delegation.
 
 use super::state::AppState;
-use crate::session::runtime_settings::RuntimeDefaults;
+use carlos_core::session::runtime_settings::RuntimeDefaults;
 
 impl AppState {
     // --- Runtime settings ---
@@ -25,7 +25,10 @@ impl AppState {
         self.session.merge_runtime_settings(model, effort, summary);
     }
 
-    pub(super) fn set_available_models(&mut self, models: Vec<crate::protocol_params::ModelInfo>) {
+    pub(super) fn set_available_models(
+        &mut self,
+        models: Vec<carlos_core::protocol_params::ModelInfo>,
+    ) {
         self.session.set_available_models(models);
     }
 

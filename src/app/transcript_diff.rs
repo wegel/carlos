@@ -4,18 +4,18 @@ use ratatui::style::{Modifier, Style};
 use ratatui_interact::components::{DiffData, DiffHunk, DiffLine, DiffLineType, DiffViewerStyle};
 
 use super::text::{visual_width, wrap_natural_by_cells, wrap_natural_count_by_cells};
-use crate::session::models::Role;
+use carlos_core::session::models::Role;
 
 use super::transcript_diff_source::DiffHighlighters;
 use super::transcript_styles::{append_wrapped_styled_logical_lines, count_styled_logical_lines};
 
 use super::view_models::{RenderedLine, StyledSegment};
 
-use crate::session::tool_diff_summary::split_file_diffs;
 use crate::theme::{
     COLOR_DIFF_ADD, COLOR_DIFF_HEADER, COLOR_DIFF_HUNK, COLOR_DIFF_REMOVE, COLOR_DIM, COLOR_STEP1,
     COLOR_STEP2, COLOR_STEP6, COLOR_STEP8, COLOR_TEXT,
 };
+use carlos_core::session::tool_diff_summary::split_file_diffs;
 
 // --- Diff Styles ---
 

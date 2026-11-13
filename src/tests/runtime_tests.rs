@@ -9,10 +9,10 @@ use super::{
     sort_threads_for_picker, styled_resume_hint, AppState, Backend, ModelInfo, Osc52Wrap,
     ThreadRuntimeSettings,
 };
-use crate::session::models::MessageKind;
-use crate::session::models::Role;
-use crate::session::models::ThreadSummary;
-use crate::session::runtime_settings::RuntimeDefaults;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
+use carlos_core::session::models::ThreadSummary;
+use carlos_core::session::runtime_settings::RuntimeDefaults;
 
 include!("runtime_tests/backend_runtime_settings.rs");
 

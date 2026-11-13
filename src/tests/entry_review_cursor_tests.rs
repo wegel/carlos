@@ -4,7 +4,7 @@ use serde_json::json;
 
 use crate::app::notifications::handle_server_message_line;
 use crate::app::state::AppState;
-use crate::session::models::Role;
+use carlos_core::session::models::Role;
 
 #[test]
 fn review_cursor_aliases_stay_bounded_for_one_native_entry() {
@@ -30,7 +30,7 @@ fn review_real_history_cursor_aliases_are_bounded() {
     let mut a = AppState::new("thread".into());
     a.session.set_claude_enabled_for_test(true);
     a.session.set_claude_generation_for_test(1);
-    let mut backend = crate::claude_backend::FixtureNormalizer::default();
+    let mut backend = carlos_core::claude_backend::FixtureNormalizer::default();
     let input = json!({"method":"claude/controller","params":{"generation":1,"epoch":0,"requestMethod":"sessions.read","requestContext":{},"frame":{"type":"reply","ok":true,"result":{"messages":[{"source":"system","message":{"type":"assistant","uuid":"native-snapshot","session_id":"thread","message":{"id":"native","role":"assistant","content":[{"type":"text","text":"same"}]}}}],"nextOffset":null}}}});
     for _ in 0..1000 {
         for line in backend.lines(&input, "thread", 1) {
@@ -53,7 +53,7 @@ fn review_generated_cursor_name_cannot_merge_a_native_tool_with_reasoning() {
     let mut a = AppState::new("thread".into());
     a.session.set_claude_enabled_for_test(true);
     a.session.set_claude_generation_for_test(1);
-    let mut backend = crate::claude_backend::FixtureNormalizer::default();
+    let mut backend = carlos_core::claude_backend::FixtureNormalizer::default();
     let input = json!({"method":"claude/controller","params":{"generation":1,"epoch":0,"requestMethod":"sessions.read","requestContext":{},"frame":{"type":"reply","ok":true,"result":{"messages":[{"source":"system","message":{"type":"assistant","session_id":"thread","uuid":"snapshot","message":{"id":"native","role":"assistant","content":[{"type":"thinking","thinking":"why"},{"type":"tool_use","id":"claude-msg-0-2-0","name":"Bash","input":{"command":"pwd"}}]}}}],"nextOffset":null}}}});
     for line in backend.lines(&input, "thread", 1) {
         handle_server_message_line(&mut a, &line);
@@ -70,7 +70,7 @@ fn review_generated_cursor_name_cannot_merge_a_native_tool_with_reasoning() {
 
 fn native_lines(
     app: &mut AppState,
-    backend: &mut crate::claude_backend::FixtureNormalizer,
+    backend: &mut carlos_core::claude_backend::FixtureNormalizer,
     record: serde_json::Value,
     live: bool,
 ) -> Vec<serde_json::Value> {
@@ -97,7 +97,7 @@ fn native_tool_ids_cannot_adopt_an_unproven_assistant_cursor_in_live_or_history(
             let mut app = AppState::new("thread".into());
             app.session.set_claude_enabled_for_test(true);
             app.session.set_claude_generation_for_test(1);
-            let mut backend = crate::claude_backend::FixtureNormalizer::default();
+            let mut backend = carlos_core::claude_backend::FixtureNormalizer::default();
             let mut record = json!({"type":"assistant","session_id":"thread","message":{"role":"assistant","content":[{"type":"thinking","thinking":"why"}]}});
             if proven {
                 record["message"]["id"] = json!("native");
@@ -139,7 +139,7 @@ fn a_tool_result_and_a_call_with_the_same_printable_id_have_distinct_native_rows
         let mut app = AppState::new("thread".into());
         app.session.set_claude_enabled_for_test(true);
         app.session.set_claude_generation_for_test(1);
-        let mut backend = crate::claude_backend::FixtureNormalizer::default();
+        let mut backend = carlos_core::claude_backend::FixtureNormalizer::default();
         let call = json!({"type":"assistant","session_id":"thread","message":{"id":"native","role":"assistant","content":[{"type":"tool_use","id":"call:result","name":"Bash","input":{"command":"pwd"}}]}});
         native_lines(&mut app, &mut backend, call, live);
         let result = json!({"type":"user","session_id":"thread","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"call","content":"done"}]}});

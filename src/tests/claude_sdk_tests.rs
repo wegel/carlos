@@ -8,9 +8,9 @@ use std::time::Instant;
 use serde_json::{json, Value};
 
 use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
-use crate::backend::PromptOrigin;
-use crate::session::models::TurnStatus;
-use crate::session::ralph::RalphConfig;
+use carlos_core::backend::PromptOrigin;
+use carlos_core::session::models::TurnStatus;
+use carlos_core::session::ralph::RalphConfig;
 
 fn frame(app: &mut AppState, frame: Value, method: Option<&str>) {
     let _ = handle_server_message_line(
@@ -233,7 +233,7 @@ fn failed_ralph_turn_discards_automatic_work_and_preserves_queued_human_input() 
 fn startup_callback_remains_visible_while_the_sdk_initializes() {
     let mut app = AppState::new("session".to_string());
     app.session
-        .set_claude_phase_for_test(crate::session::claude::ClaudePhase::Starting);
+        .set_claude_phase_for_test(carlos_core::session::claude::ClaudePhase::Starting);
     frame(
         &mut app,
         json!({ "v": 1, "type": "callback", "kind": "permission", "callbackId": "startup",
@@ -249,13 +249,13 @@ fn startup_callback_remains_visible_while_the_sdk_initializes() {
             .title,
         "Allow startup?"
     );
-    assert!(app.session.claude().phase() != crate::session::claude::ClaudePhase::Ready);
+    assert!(app.session.claude().phase() != carlos_core::session::claude::ClaudePhase::Ready);
     frame(
         &mut app,
         json!({ "v": 1, "type": "reply", "ok": true, "result": { "models": [] } }),
         Some("start"),
     );
-    assert!(app.session.claude().phase() == crate::session::claude::ClaudePhase::Ready);
+    assert!(app.session.claude().phase() == carlos_core::session::claude::ClaudePhase::Ready);
     assert!(app.session.approval().pending().is_some());
 }
 
@@ -391,7 +391,7 @@ fn undeclared_dialog_error_does_not_disable_live_controls() {
         "dialogKind": "future", "error": { "code": "unsupported_dialog", "message": "Cannot render future dialog" } }),
         None,
     );
-    assert!(app.session.claude().phase() == crate::session::claude::ClaudePhase::Ready);
+    assert!(app.session.claude().phase() == carlos_core::session::claude::ClaudePhase::Ready);
     assert!(app.session.approval().pending().is_none());
     let error = &app.session.messages().last().expect("visible error").text;
     assert!(error.contains("Cannot render future dialog"));

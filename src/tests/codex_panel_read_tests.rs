@@ -6,7 +6,7 @@ use super::codex_question_support::{app, receive, Peer};
 
 use crate::app::codex_panel::{details, refresh, tick};
 
-use crate::session::codex::panel_state::PanelId;
+use carlos_core::session::codex::panel_state::PanelId;
 
 fn agent(id: &str, parent: &str) -> Value {
     json!({"id":id,"parentThreadId":parent,"source":{"subAgent":{"thread_spawn":{
@@ -251,11 +251,12 @@ fn an_uncertain_selected_stop_retains_its_error_and_reconciles_with_reads_only()
     let peer = Peer::default();
     app.view.codex_panel.show = true;
     app.view.codex_panel.detail = true;
-    app.session
-        .push_codex_process_for_test(crate::session::codex::panel_state::Process::new(
+    app.session.push_codex_process_for_test(
+        carlos_core::session::codex::panel_state::Process::new(
             "root".into(),
             json!({"processId":"55","command":"fixture"}),
-        ));
+        ),
+    );
     app.view.codex_panel.selected = Some(PanelId::Process {
         item: None,
         thread: "root".into(),

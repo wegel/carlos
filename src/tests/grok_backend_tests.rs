@@ -11,14 +11,14 @@ use super::{
     parse_cli_args, submit_dequeued_turn_text, submit_turn_text, submit_turn_text_with_history,
     AppState, Backend,
 };
-use crate::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
-use crate::grok_backend::{
+use carlos_core::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
+use carlos_core::grok_backend::{
     build_grok_command_for_test, finish_grok_prompt_turn_for_test, grok_model_catalog,
     is_hidden_rewind_point, load_grok_thread_summaries_from, parse_iso_timestamp_secs,
     parse_rewind_points, resolve_rewind_target, translate_grok_notification_for_test,
     GrokRewindPoint, GrokRuntimeSettings, GrokTranslationState,
 };
-use crate::session::models::Role;
+use carlos_core::session::models::Role;
 
 fn collect_lines(state: &mut GrokTranslationState, events: &[(&str, Value)]) -> Vec<String> {
     let mut out = Vec::new();

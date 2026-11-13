@@ -6,8 +6,8 @@ use super::{
     format_tool_item, handle_notification_line, parse_ssh_remote_command, strip_terminal_controls,
     strip_terminal_controls_preserving_sgr, AppState,
 };
-use crate::session::models::MessageKind;
-use crate::session::models::Role;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
 
 include!("tool_tests/command_summaries.rs");
 

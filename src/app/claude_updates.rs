@@ -2,9 +2,9 @@
 
 use super::claude_question_state::NativeDraft;
 use super::state::AppState;
-use crate::session::actions::ServerRequestAction;
-use crate::session::claude::callbacks::ClaudeCallback;
-use crate::session::claude::receive_update::{ClaudeEffect, ClaudeUpdate};
+use carlos_core::session::actions::ServerRequestAction;
+use carlos_core::session::claude::callbacks::ClaudeCallback;
+use carlos_core::session::claude::receive_update::{ClaudeEffect, ClaudeUpdate};
 
 impl AppState {
     /// Apply the returned controls once, then route a completed history fragment immediately.

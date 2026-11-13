@@ -10,10 +10,10 @@ use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::notifications::handle_notification_line;
 use crate::app::state::AppState;
 use crate::app::turn_submit::submit_rewind_turn_text;
-use crate::backend::{
+use carlos_core::backend::{
     BackendClient, BackendKind, EventReceiver, RewindForkRequest, RewindUserMessage,
 };
-use crate::session::models::MessageKind;
+use carlos_core::session::models::MessageKind;
 
 struct Peer {
     kind: BackendKind,
@@ -70,7 +70,7 @@ impl BackendClient for Peer {
 fn seed(kind: BackendKind) -> AppState {
     let mut app = AppState::new("root".into());
     app.session
-        .set_claude_phase_for_test(crate::session::claude::ClaudePhase::Ready);
+        .set_claude_phase_for_test(carlos_core::session::claude::ClaudePhase::Ready);
     if kind == BackendKind::Codex {
         app.session.enable_native_history();
     }

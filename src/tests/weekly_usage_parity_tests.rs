@@ -8,8 +8,8 @@ use serde_json::json;
 use super::tests::QuotaClient;
 use crate::app::state::AppState;
 use crate::app::weekly_usage::WeeklyIndicator;
-use crate::session::usage::RateWindow;
 use crate::theme::{COLOR_DIFF_REMOVE, COLOR_GUTTER_USER, COLOR_TOOL_EDIT};
+use carlos_core::session::usage::RateWindow;
 
 const NOW: i64 = 1_800_000_000;
 

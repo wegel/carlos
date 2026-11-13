@@ -160,7 +160,7 @@ impl AppState {
     fn record_prompt_history(
         &mut self,
         text: &str,
-        entry: Option<crate::session::entry_id::EntryId>,
+        entry: Option<carlos_core::session::entry_id::EntryId>,
     ) {
         if self.session.record_prompt_history(text, entry) {
             self.reset_input_history_navigation();
@@ -168,7 +168,7 @@ impl AppState {
     }
 
     #[cfg(test)]
-    pub(super) fn rewind_native_request(&self) -> Option<crate::backend::RewindUserMessage> {
+    pub(super) fn rewind_native_request(&self) -> Option<carlos_core::backend::RewindUserMessage> {
         self.session.input_history().native_request(
             self.view.input_history.rewind_selected_history_index()?,
             self.view.input_history.rewind_selected_entry_id()?,
@@ -231,7 +231,7 @@ impl AppState {
             })
     }
 
-    pub(super) fn rewind_prompt_id(&self) -> Option<crate::session::entry_id::EntryId> {
+    pub(super) fn rewind_prompt_id(&self) -> Option<carlos_core::session::entry_id::EntryId> {
         self.view
             .claude_unknown_selection
             .and_then(|index| self.session.claude_history().unknown().get(index))

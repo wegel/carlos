@@ -1,10 +1,10 @@
 //! Transcript item identity, lifecycle, and streamed text updates.
 
-use crate::session::entry_key::BackendEntryKey;
+use carlos_core::session::entry_key::BackendEntryKey;
 
 use super::state::AppState;
-use crate::session::models::MessageKind;
-use crate::session::models::Role;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
 
 impl AppState {
     // --- Item Identity ---

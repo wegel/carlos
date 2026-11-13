@@ -8,9 +8,9 @@ use super::claude_callbacks::{cancel_callback, receive_callback};
 
 use super::claude_question_state::NativeDraft;
 use super::state::AppState;
-use crate::session::approval_state::ApprovalChoice;
-use crate::session::approval_state::ApprovalQueue;
-use crate::session::text::safe_label;
+use carlos_core::session::approval_state::ApprovalChoice;
+use carlos_core::session::approval_state::ApprovalQueue;
+use carlos_core::session::text::safe_label;
 
 #[test]
 fn native_plan_without_text_cannot_be_approved_but_can_be_declined() {

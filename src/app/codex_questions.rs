@@ -7,8 +7,8 @@ use serde_json::{json, Map, Value};
 use super::claude_question_field::AnswerField;
 use super::claude_question_state::NativeDraft;
 #[cfg(test)]
-use crate::session::approval_state::ApprovalRequestDraft;
-use crate::session::text::safe_label;
+use carlos_core::session::approval_state::ApprovalRequestDraft;
+use carlos_core::session::text::safe_label;
 
 /// Build the local editor from the session's plain request description.
 #[cfg(test)]
@@ -17,13 +17,14 @@ pub(super) fn build(
     params: &Value,
     id: Value,
 ) -> Result<(ApprovalRequestDraft, NativeDraft)> {
-    let (pending, editor) = crate::session::codex::callback_questions::build(method, params, id)?;
+    let (pending, editor) =
+        carlos_core::session::codex::callback_questions::build(method, params, id)?;
     Ok((pending, from_description(editor)))
 }
 
 /// Create editors once, applying defaults only for MCP fields.
 pub(super) fn from_description(
-    editor: crate::session::codex::callback_questions::CallbackEditor,
+    editor: carlos_core::session::codex::callback_questions::CallbackEditor,
 ) -> NativeDraft {
     let mut draft = NativeDraft::from_payload("", &Value::Null);
     draft.fields = editor

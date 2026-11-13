@@ -3,10 +3,10 @@
 use serde_json::Value;
 
 use super::state::AppState;
-use crate::session::claude::CompactionResult;
-use crate::session::models::MessageKind;
-use crate::session::models::Role;
-use crate::session::text::safe_label;
+use carlos_core::session::claude::CompactionResult;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
+use carlos_core::session::text::safe_label;
 
 /// Show one escaped copy of a session-owned native notice.
 pub(super) fn show(app: &mut AppState, key: String, text: String) {

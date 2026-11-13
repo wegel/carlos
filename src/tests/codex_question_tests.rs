@@ -10,9 +10,9 @@ use crate::app::codex_callbacks::{edited, hide_nonblocking, next};
 use crate::app::codex_reply::respond;
 use crate::app::input_events::handle_terminal_event;
 use crate::app::TerminalSize;
-use crate::session::actions::ServerRequestAction;
-use crate::session::approval_state::ApprovalChoice;
-use crate::session::codex::callbacks::CallbackKey;
+use carlos_core::session::actions::ServerRequestAction;
+use carlos_core::session::approval_state::ApprovalChoice;
+use carlos_core::session::codex::callbacks::CallbackKey;
 
 #[test]
 fn exact_typed_ids_and_native_question_keys_survive_concurrent_child_requests() {

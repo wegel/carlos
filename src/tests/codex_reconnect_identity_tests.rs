@@ -7,7 +7,7 @@ use super::codex_reconnect_support::{ready, receive, snapshot, Peer};
 
 use crate::app::item_history::replace_history_from_thread;
 use crate::app::notifications::handle_server_message_line;
-use crate::session::models::Role;
+use carlos_core::session::models::Role;
 
 fn message(app: &mut crate::app::state::AppState, turn: &str, kind: &str, text: &str) {
     handle_server_message_line(
@@ -161,11 +161,12 @@ fn fresh_metadata_clears_old_names_and_a_newer_rename_fences_only_the_delayed_na
 #[test]
 fn a_reused_process_id_with_a_different_native_item_never_retargets_stop() {
     let mut app = app();
-    app.session
-        .push_codex_process_for_test(crate::session::codex::panel_state::Process::new(
+    app.session.push_codex_process_for_test(
+        carlos_core::session::codex::panel_state::Process::new(
             "child".into(),
             json!({"processId":"7","itemId":"old-item"}),
-        ));
+        ),
+    );
     app.view.codex_panel.selected = app.session.codex_panel().ids().into_iter().next();
     app.session
         .set_codex_process_item_for_test(0, json!("new-item"));

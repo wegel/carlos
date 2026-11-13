@@ -2,11 +2,11 @@
 
 use serde_json::{json, Value};
 
-use crate::claude_backend::{translate_claude_line, ClaudeTranslationState};
+use carlos_core::claude_backend::{translate_claude_line, ClaudeTranslationState};
 
 use super::notifications::handle_server_message_line;
 use super::state::AppState;
-use crate::session::models::Role;
+use carlos_core::session::models::Role;
 
 fn translate(app: &mut AppState, state: &mut ClaudeTranslationState, message: Value) {
     for line in translate_claude_line(state, &message.to_string())

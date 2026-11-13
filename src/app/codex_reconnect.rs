@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 
 use super::input::input_dispatch::dispatch_action;
 use super::state::AppState;
-use crate::backend::BackendClient;
+use carlos_core::backend::BackendClient;
 
 /// Start one explicit attempt against the session's current native root.
 pub(super) fn start(client: &dyn BackendClient, app: &mut AppState) {

@@ -6,7 +6,7 @@ use serde_json::Value;
 #[cfg(test)]
 use super::state::AppState;
 #[cfg(test)]
-use crate::session::models::Role;
+use carlos_core::session::models::Role;
 #[cfg(test)]
 impl AppState {
     pub(super) fn format_tool_item(&self, item: &Value, role: Role) -> Option<String> {

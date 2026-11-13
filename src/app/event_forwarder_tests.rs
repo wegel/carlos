@@ -7,14 +7,14 @@ use serde_json::json;
 
 use super::event_forwarder_support::{apply, completions, forward, mark, peer, ready, through};
 
-use crate::backend::{BackendClient, EventReceiver};
-use crate::claude_backend::forwarder_test_support::MAX_EVENT_BYTES;
-use crate::claude_backend::forwarder_test_support::{
+use crate::event::UiEvent;
+use carlos_core::backend::{BackendClient, EventReceiver};
+use carlos_core::claude_backend::forwarder_test_support::MAX_EVENT_BYTES;
+use carlos_core::claude_backend::forwarder_test_support::{
     completions_empty, helper_call, records, submit,
 };
-use crate::claude_backend::forwarder_test_support::{ForwarderHarness, DEADLINE};
-use crate::claude_backend::ClaudeClient;
-use crate::event::UiEvent;
+use carlos_core::claude_backend::forwarder_test_support::{ForwarderHarness, DEADLINE};
+use carlos_core::claude_backend::ClaudeClient;
 
 #[test]
 fn forwarded_result_idle_reset_reply_preserves_completion() {

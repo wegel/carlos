@@ -1,6 +1,6 @@
 //! Prove local notices and consent keys leave every session field unchanged.
 
-use crate::session::approval_state::ApprovalQueue;
+use carlos_core::session::approval_state::ApprovalQueue;
 use std::time::Duration;
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
@@ -8,9 +8,9 @@ use serde_json::{json, Value};
 
 use super::state::AppState;
 use super::view_models::TerminalSize;
-use crate::backend::{BackendClient, BackendKind, EventReceiver};
-use crate::session::approval_state::ApprovalChoice;
-use crate::session::approval_state::ApprovalRequestKind;
+use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
+use carlos_core::session::approval_state::ApprovalChoice;
+use carlos_core::session::approval_state::ApprovalRequestKind;
 
 struct NoBackend;
 
@@ -64,7 +64,7 @@ fn review_ownership_first_allow_must_preserve_request_facts() {
     let mut app = AppState::new("thread".into());
     app.session.set_claude_enabled_for_test(true);
     let details = vec!["native request details".to_string()];
-    app.set_pending_approval(crate::session::approval_state::ApprovalRequestDraft {
+    app.set_pending_approval(carlos_core::session::approval_state::ApprovalRequestDraft {
         request_id: json!("request"),
         method: "claude/native".into(),
         kind: ApprovalRequestKind::ClaudeNative,
@@ -192,8 +192,8 @@ fn duplicate_adoption_keeps_initial_guidance_and_second_accept_but_clears_extra_
 
     for through_answer_target in [false, true] {
         for fields in [false, true] {
-            let client = Client::new(crate::backend::BackendKind::Claude);
-            let mut app = app(crate::backend::BackendKind::Claude);
+            let client = Client::new(carlos_core::backend::BackendKind::Claude);
+            let mut app = app(carlos_core::backend::BackendKind::Claude);
             let payload = if fields {
                 json!({"toolName":"AskUserQuestion","defaultToNo":true,"input":{"questions":[{
                     "question":"Color?","header":"Color","options":[{"label":"Blue"}]}]}})
@@ -324,7 +324,7 @@ fn queued_and_retired_copies_cannot_reuse_an_armed_card_id() {
 fn retired_card_cannot_return_through_queue_focus_or_answer_a_reused_native_id() {
     use super::approval_lifetime_support::{accept, app, callback, Client};
 
-    use crate::session::approval_state::ApprovalQueue;
+    use carlos_core::session::approval_state::ApprovalQueue;
     for replacement in [false, true] {
         let client = Client::new(BackendKind::Claude);
         let mut app = app(BackendKind::Claude);

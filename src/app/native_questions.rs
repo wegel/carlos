@@ -4,8 +4,8 @@ use serde_json::Value;
 
 use super::claude_question_state::NativeDraft;
 use super::state::AppState;
-use crate::session::approval_state::ApprovalQueue;
-use crate::session::codex::callbacks::CallbackKey;
+use carlos_core::session::approval_state::ApprovalQueue;
+use carlos_core::session::codex::callbacks::CallbackKey;
 
 /// Decide whether a pending request currently owns keyboard, paste and overlay focus.
 pub(super) fn modal(app: &AppState) -> bool {
@@ -68,7 +68,7 @@ pub(super) fn secret_active(app: &AppState) -> bool {
 
 /// Display an exact native ID, including whether it was a string or a number.
 pub(super) fn id_label(id: &Value) -> String {
-    crate::session::text::safe_label(&id.to_string())
+    carlos_core::session::text::safe_label(&id.to_string())
 }
 
 /// Keep visible questions ahead of hidden editor overlays when the user scrolls or clicks.

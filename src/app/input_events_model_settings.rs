@@ -8,9 +8,9 @@ use crate::app::state::{AppState, ModelSettingsField};
 
 use crate::app::persist_runtime_defaults;
 use crate::app::tool_output_preferences::save_appearance;
-use crate::session::runtime_settings::RuntimeDefaults;
+use carlos_core::session::runtime_settings::RuntimeDefaults;
 
-use crate::backend::{BackendClient, BackendKind};
+use carlos_core::backend::{BackendClient, BackendKind};
 
 pub(super) fn handle_model_settings_key(
     client: &dyn BackendClient,
@@ -133,7 +133,7 @@ fn save_settings(client: &dyn BackendClient, app: &mut AppState) {
     }
     if let Err(error) = save_appearance(app.view.tool_output.mode, app.view.layout.themes) {
         app.append_message(
-            crate::session::models::Role::System,
+            carlos_core::session::models::Role::System,
             format!("Could not save appearance choices: {error}"),
         );
     }

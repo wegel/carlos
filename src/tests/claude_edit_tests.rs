@@ -8,10 +8,10 @@ use serde_json::{json, Value};
 use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
 use super::codex_question_support::Peer;
 use crate::app::claude_edit::{accepted, begin, failed, send_failed, waiting};
-use crate::session::models::Role;
+use carlos_core::session::models::Role;
 
-use crate::backend::EventReceiver;
-use crate::session::claude::ClaudePhase;
+use carlos_core::backend::EventReceiver;
+use carlos_core::session::claude::ClaudePhase;
 
 fn app() -> AppState {
     let mut app = AppState::new("original".into());
@@ -122,13 +122,13 @@ fn preparing_edit_ignores_duplicate_enter_and_only_the_matching_accepted_prompt_
     assert!(peer.calls.borrow().is_empty());
     app.session.queue_claude_edit("saved edit");
     app.session
-        .dispatch_claude_edit("saved edit", crate::backend::PromptOrigin::Human);
+        .dispatch_claude_edit("saved edit", carlos_core::backend::PromptOrigin::Human);
     accepted(&mut app, "different-uuid");
     assert!(waiting(&app));
     crate::app::claude_edit::bind_submission(
         &mut app,
         "saved edit",
-        crate::backend::PromptOrigin::Human,
+        carlos_core::backend::PromptOrigin::Human,
         &json!({"turn":{"id":"exact-sdk-uuid"}}),
     );
     accepted(&mut app, "different-uuid");
@@ -143,7 +143,7 @@ fn failed_dequeued_edit_does_not_replace_newer_composer_or_submit_recovery_autom
     let mut app = app();
     app.session.queue_claude_edit("old edit");
     app.session
-        .dispatch_claude_edit("old edit", crate::backend::PromptOrigin::Human);
+        .dispatch_claude_edit("old edit", carlos_core::backend::PromptOrigin::Human);
     app.set_input_text("new typing");
     assert!(send_failed(&mut app, "old edit", "prompt rejected"));
     assert_eq!(app.input_text(), "new typing");
@@ -194,9 +194,9 @@ fn phone_draws_progress_and_failure_even_when_an_older_rewind_row_is_selected() 
 }
 
 struct EditPeer;
-impl crate::backend::BackendClient for EditPeer {
-    fn kind(&self) -> crate::backend::BackendKind {
-        crate::backend::BackendKind::Claude
+impl carlos_core::backend::BackendClient for EditPeer {
+    fn kind(&self) -> carlos_core::backend::BackendKind {
+        carlos_core::backend::BackendKind::Claude
     }
     fn call(&self, _: &str, _: Value, _: std::time::Duration) -> anyhow::Result<String> {
         panic!("no native mutation expected")
@@ -231,7 +231,7 @@ fn enter_during_initial_startup_does_not_reopen_the_helper_or_submit_an_edit() {
     app.enter_rewind_mode();
     app.set_input_text("edit while starting");
     app.session
-        .set_claude_phase_for_test(crate::session::claude::ClaudePhase::Starting);
+        .set_claude_phase_for_test(carlos_core::session::claude::ClaudePhase::Starting);
     key(&mut app, KeyCode::Enter);
     assert!(app.session.claude().phase() == ClaudePhase::Starting);
     assert_eq!(app.input_text(), "edit while starting");
@@ -245,8 +245,10 @@ fn close_recovers_sending_edits_once_whether_the_queue_still_owns_them_or_dispat
         app.set_input_text("new composer");
         app.session.queue_claude_edit("saved outgoing edit");
         if !queued {
-            app.session
-                .dispatch_claude_edit("saved outgoing edit", crate::backend::PromptOrigin::Human);
+            app.session.dispatch_claude_edit(
+                "saved outgoing edit",
+                carlos_core::backend::PromptOrigin::Human,
+            );
         }
         if queued {
             app.queue_turn_input_with_history("saved outgoing edit", true);
@@ -274,7 +276,7 @@ fn branch_start_recovers_old_and_late_humans_and_never_replays_automatic_work_be
     app.session.ralph_enqueue_prompt(
         "old automatic".into(),
         false,
-        crate::backend::PromptOrigin::Automatic,
+        carlos_core::backend::PromptOrigin::Automatic,
     );
     begin(&mut app, "saved edit".into());
     app.set_input_text("newer composer");
@@ -295,7 +297,7 @@ fn branch_start_recovers_old_and_late_humans_and_never_replays_automatic_work_be
         .dequeue_turn_input(std::time::Instant::now())
         .expect("saved edit only");
     assert_eq!(saved.text, "saved edit");
-    assert!(saved.origin == crate::backend::PromptOrigin::Human);
+    assert!(saved.origin == carlos_core::backend::PromptOrigin::Human);
     assert!(app.dequeue_turn_input(std::time::Instant::now()).is_none());
     assert_eq!(app.input_text(), "newer composer");
     app.clear_input();

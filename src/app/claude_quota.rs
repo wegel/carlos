@@ -3,8 +3,8 @@
 use std::time::{Duration, Instant};
 
 use super::state::AppState;
-use crate::backend::{BackendClient, BackendKind};
-use crate::session::claude::ClaudePhase;
+use carlos_core::backend::{BackendClient, BackendKind};
+use carlos_core::session::claude::ClaudePhase;
 
 /// Redraw each minute and request optional quota only for a ready Claude helper.
 pub(super) fn tick(app: &mut AppState, client: &dyn BackendClient, now: Instant) -> bool {

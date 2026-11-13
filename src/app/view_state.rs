@@ -18,7 +18,7 @@ use super::runtime_settings_state::RuntimeSettingsView;
 use super::state_approval_view::ApprovalHints;
 use super::tool_output_state::ToolOutputState;
 use super::viewport_state::ViewportState;
-use crate::session::entry_id::EntryId;
+use carlos_core::session::entry_id::EntryId;
 
 pub(super) struct ViewState {
     pub(super) codex_panel: super::codex_panel_state::PanelView,

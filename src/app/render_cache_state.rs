@@ -2,8 +2,8 @@
 
 use super::layout_state::TranscriptTheme;
 use super::transcript_block::{plan_display_block, BlockPlan};
-use crate::session::models::Message;
-use crate::session::models::Role;
+use carlos_core::session::models::Message;
+use carlos_core::session::models::Role;
 
 use super::transcript_styles::RenderCountCache;
 use super::view_models::RenderedLine;

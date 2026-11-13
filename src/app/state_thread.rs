@@ -58,7 +58,7 @@ impl AppState {
                 .cloned()
                 .map(Into::into)
                 .collect(),
-            crate::session::history_identity::HistoryMode::SameThread,
+            carlos_core::session::history_identity::HistoryMode::SameThread,
         );
         self.view.render_cache = RenderCacheState::new();
         self.view.viewport = ViewportState::new();

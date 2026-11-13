@@ -9,7 +9,7 @@ use crate::app::codex_settings::{label, save, started, tick};
 use crate::app::input_events::handle_terminal_event;
 use crate::app::turn_submit::submit_turn_text;
 use crate::app::TerminalSize;
-use crate::protocol_params::ModelInfo;
+use carlos_core::protocol_params::ModelInfo;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 
 fn reply(peer: &Peer, index: usize, response: Value) -> Value {

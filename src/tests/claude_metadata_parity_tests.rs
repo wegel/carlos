@@ -7,8 +7,8 @@ use crate::app::claude_models::{
 };
 
 use crate::app::state::AppState;
-use crate::session::claude::ClaudePhase;
-use crate::session::runtime_settings::RuntimeDefaults;
+use carlos_core::session::claude::ClaudePhase;
+use carlos_core::session::runtime_settings::RuntimeDefaults;
 
 fn app(model: Option<&str>, effort: Option<&str>) -> AppState {
     let mut app = AppState::new("root".into());
@@ -184,7 +184,7 @@ fn observing_a_changed_model_fences_context_without_overwriting_explicit_choices
         app.queue_runtime_settings(pending.map(str::to_string), None, None);
         observe_model(&mut app, "old");
         app.session
-            .set_context_usage(Some(crate::session::context_usage::ContextUsage {
+            .set_context_usage(Some(carlos_core::session::context_usage::ContextUsage {
                 used: 10,
                 max: 100,
             }));

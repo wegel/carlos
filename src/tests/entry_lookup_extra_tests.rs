@@ -7,10 +7,10 @@ use super::head_entry_reference::native::NativeUserHistory;
 use super::head_entry_reference::HeadReference;
 use crate::app::item_history::replace_history_from_thread;
 use crate::app::state::AppState;
-use crate::backend::BackendKind;
-use crate::session::models::MessageKind;
-use crate::session::models::Role;
-use crate::session::models::ToolOutputDetails;
+use carlos_core::backend::BackendKind;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
+use carlos_core::session::models::ToolOutputDetails;
 
 fn check(app: &AppState, old: &HeadReference) {
     app.assert_entry_invariants();

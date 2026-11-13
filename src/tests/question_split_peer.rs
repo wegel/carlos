@@ -7,7 +7,7 @@ use anyhow::Result;
 use serde_json::{json, Value};
 
 use super::super::codex_question_support::Peer;
-use crate::backend::{BackendClient, BackendKind, EventReceiver};
+use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
 
 /// Record answers while tests decide when a form-check reply arrives.
 #[derive(Default)]

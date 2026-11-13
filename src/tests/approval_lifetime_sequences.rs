@@ -11,8 +11,8 @@ use super::approval_lifetime_support::{
 };
 
 use super::state::AppState;
-use crate::backend::BackendKind;
 use crate::event::UiEvent;
+use carlos_core::backend::BackendKind;
 
 #[test]
 fn approval_lifetimes_and_callback_guidance_match_head() {

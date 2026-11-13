@@ -12,10 +12,10 @@ use crate::app::transcript_render::{
     build_rendered_block_for_message, count_rendered_block_for_message,
     count_rendered_block_for_message_cached,
 };
-use crate::session::models::Message;
-use crate::session::models::MessageKind;
-use crate::session::models::Role;
-use crate::session::models::ToolOutputDetails;
+use carlos_core::session::models::Message;
+use carlos_core::session::models::MessageKind;
+use carlos_core::session::models::Role;
+use carlos_core::session::models::ToolOutputDetails;
 
 use crate::app::transcript_styles::RenderCountCache;
 use crate::app::view_models::{DisplayKind, DisplayMessage};
@@ -23,7 +23,7 @@ use crate::app::view_models::{DisplayKind, DisplayMessage};
 use crate::theme::{context_color, COLOR_DIFF_REMOVE, COLOR_GUTTER_USER, COLOR_TOOL_EDIT};
 
 fn failed_read() -> Message {
-    crate::app::tests::test_message(crate::session::models::EntryDraft {
+    crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
         role: Role::ToolOutput,
         kind: MessageKind::Plain,
         text: "$ cat source.rs\nlet value = 1;\nexit code: 2".into(),
@@ -57,7 +57,7 @@ fn failed_read_headers_and_grouped_blocks_keep_both_count_passes_in_sync() {
         let mut app = AppState::new("thread".into());
         app.session.transcript_adopt_unkeyed(
             vec![read.clone().into(), read.clone().into()],
-            crate::session::history_identity::HistoryMode::NewConversation,
+            carlos_core::session::history_identity::HistoryMode::NewConversation,
         );
         app.view.tool_output.mode = ToolOutputMode::Compact;
         app.ensure_rendered_lines(width, None);

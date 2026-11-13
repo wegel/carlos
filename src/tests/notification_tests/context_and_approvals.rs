@@ -150,10 +150,10 @@ fn handle_server_request_command_execution_sets_pending_approval() {
 
 #[test]
 fn permissions_approval_response_allows_turn_or_session_grant() {
-    let request = crate::session::approval_state::ApprovalRequestDraft {
+    let request = carlos_core::session::approval_state::ApprovalRequestDraft {
         request_id: json!("req-2"),
         method: "item/permissions/requestApproval".to_string(),
-        kind: crate::session::approval_state::ApprovalRequestKind::Permissions,
+        kind: carlos_core::session::approval_state::ApprovalRequestKind::Permissions,
         title: "Grant additional permissions".to_string(),
         detail_lines: vec!["network access".to_string()],
         requested_permissions: Some(json!({"network":{"enabled":true}})),
@@ -163,15 +163,15 @@ fn permissions_approval_response_allows_turn_or_session_grant() {
     };
 
     assert_eq!(
-        request.response_for_choice(crate::session::approval_state::ApprovalChoice::Accept),
+        request.response_for_choice(carlos_core::session::approval_state::ApprovalChoice::Accept),
         Some(json!({"permissions":{"network":{"enabled":true}}}))
     );
     assert_eq!(
-        request.response_for_choice(crate::session::approval_state::ApprovalChoice::AcceptForSession),
+        request.response_for_choice(carlos_core::session::approval_state::ApprovalChoice::AcceptForSession),
         Some(json!({"permissions":{"network":{"enabled":true}},"scope":"session"}))
     );
     assert_eq!(
-        request.response_for_choice(crate::session::approval_state::ApprovalChoice::Decline),
+        request.response_for_choice(carlos_core::session::approval_state::ApprovalChoice::Decline),
         Some(json!({"permissions":{}}))
     );
 }
@@ -205,10 +205,10 @@ fn handle_server_request_claude_exit_plan_sets_pending_approval() {
 
 #[test]
 fn claude_exit_plan_approval_response_supports_accept_and_decline() {
-    let request = crate::session::approval_state::ApprovalRequestDraft {
+    let request = carlos_core::session::approval_state::ApprovalRequestDraft {
         request_id: json!({"backend":"claude","kind":"exitPlanMode","toolUseId":"toolu_1"}),
         method: "claude/exitPlan/requestApproval".to_string(),
-        kind: crate::session::approval_state::ApprovalRequestKind::ClaudeExitPlanMode,
+        kind: carlos_core::session::approval_state::ApprovalRequestKind::ClaudeExitPlanMode,
         title: "Approve Claude plan".to_string(),
         detail_lines: vec!["Do the work".to_string()],
         requested_permissions: None,
@@ -218,15 +218,15 @@ fn claude_exit_plan_approval_response_supports_accept_and_decline() {
     };
 
     assert_eq!(
-        request.response_for_choice(crate::session::approval_state::ApprovalChoice::Accept),
+        request.response_for_choice(carlos_core::session::approval_state::ApprovalChoice::Accept),
         Some(json!({"decision":"accept"}))
     );
     assert_eq!(
-        request.response_for_choice(crate::session::approval_state::ApprovalChoice::Decline),
+        request.response_for_choice(carlos_core::session::approval_state::ApprovalChoice::Decline),
         Some(json!({"decision":"decline"}))
     );
     assert_eq!(
-        request.response_for_choice(crate::session::approval_state::ApprovalChoice::AcceptForSession),
+        request.response_for_choice(carlos_core::session::approval_state::ApprovalChoice::AcceptForSession),
         None
     );
 }
@@ -259,10 +259,10 @@ fn unsupported_server_request_returns_jsonrpc_error_action() {
 fn turn_completed_keeps_pending_claude_exit_plan_approval() {
     let mut app = AppState::new("thread-1".to_string());
     app.session.set_active_turn_id(Some("turn-1".to_string()));
-    app.set_pending_approval(crate::session::approval_state::ApprovalRequestDraft {
+    app.set_pending_approval(carlos_core::session::approval_state::ApprovalRequestDraft {
         request_id: json!({"backend":"claude","kind":"exitPlanMode","toolUseId":"toolu_1"}),
         method: "claude/exitPlan/requestApproval".to_string(),
-        kind: crate::session::approval_state::ApprovalRequestKind::ClaudeExitPlanMode,
+        kind: carlos_core::session::approval_state::ApprovalRequestKind::ClaudeExitPlanMode,
         title: "Approve Claude plan".to_string(),
         detail_lines: vec!["Do the work".to_string()],
         requested_permissions: None,

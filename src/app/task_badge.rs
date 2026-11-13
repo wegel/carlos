@@ -4,7 +4,7 @@ use super::state::AppState;
 
 /// Read session-owned task facts independently of panel visibility.
 pub(super) fn count(app: &AppState) -> usize {
-    crate::session::codex::task_badge::count(
+    carlos_core::session::codex::task_badge::count(
         &app.session,
         super::codex_panel::scope(
             app.session.codex_scope(),
@@ -16,7 +16,7 @@ pub(super) fn count(app: &AppState) -> usize {
 
 /// Check exact native ownership without consulting a display label.
 pub(super) fn owns(app: &AppState, owner: &str) -> bool {
-    crate::session::codex::task_badge::owns(
+    carlos_core::session::codex::task_badge::owns(
         &app.session,
         super::codex_panel::scope(
             app.session.codex_scope(),

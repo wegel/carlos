@@ -6,8 +6,8 @@ use ratatui::style::{Modifier, Style};
 use super::flow_transcript::inline_reasoning;
 use super::notifications::spinner_frame;
 use super::render::{draw_rendered_line, draw_str, fill_rect};
-use crate::session::models::Message;
-use crate::session::models::Role;
+use carlos_core::session::models::Message;
+use carlos_core::session::models::Role;
 
 use super::selection::compute_selection_range;
 use super::state::AppState;

@@ -12,10 +12,10 @@ use crate::app::claude_callbacks::{cancel_callback, receive_callback};
 use crate::app::codex_callbacks::{next, receive, retire};
 
 use crate::app::state::AppState;
-use crate::backend::BackendKind;
-use crate::session::approval_state::ApprovalChoice;
-use crate::session::approval_state::ApprovalQueue;
-use crate::session::entry_id::EntryId;
+use carlos_core::backend::BackendKind;
+use carlos_core::session::approval_state::ApprovalChoice;
+use carlos_core::session::approval_state::ApprovalQueue;
+use carlos_core::session::entry_id::EntryId;
 
 fn active(app: &AppState) -> EntryId {
     app.session
@@ -68,7 +68,7 @@ fn claude_clear_keeps_process_card_ids_and_duplicate_clear_retires_rows_once() {
         let a = active(&app);
         receive_callback(&mut app, &callback("b"));
         let b = app.session.approval().queued(ApprovalQueue::Claude)[0].entry_id();
-        let old = app.append_message(crate::session::models::Role::User, "old");
+        let old = app.append_message(carlos_core::session::models::Role::User, "old");
         let old = app.session.messages()[old].id;
         let clear = json!({"new_conversation_id":"reset"});
         crate::app::claude_reset::receive(&mut app, &clear);
@@ -78,7 +78,10 @@ fn claude_clear_keeps_process_card_ids_and_duplicate_clear_retires_rows_once() {
             app.session.approval().queued(ApprovalQueue::Claude)[0].entry_id(),
             b
         );
-        app.append_message(crate::session::models::Role::System, "before native init");
+        app.append_message(
+            carlos_core::session::models::Role::System,
+            "before native init",
+        );
         let new = app.session.messages()[0].id;
         crate::app::claude_reset::receive(&mut app, &clear);
         assert_eq!(app.session.messages()[0].id, new);
@@ -100,8 +103,8 @@ fn an_answer_submitted_while_active_can_finish_validation_after_focus_moves() {
 
     use crate::app::codex_callbacks::checked;
     use crate::app::input::input_dispatch::dispatch_action;
-    use crate::backend::BackendKind;
-    use crate::session::approval_state::ApprovalChoice;
+    use carlos_core::backend::BackendKind;
+    use carlos_core::session::approval_state::ApprovalChoice;
     let client = Client::new(BackendKind::Codex);
     let mut app = app(BackendKind::Codex);
     receive(

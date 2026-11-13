@@ -25,7 +25,7 @@ use super::notifications::is_key_press_like;
 use super::picker_render::{compute_picker_layout, draw_picker};
 
 use super::TerminalSize;
-use crate::session::models::ThreadSummary;
+use carlos_core::session::models::ThreadSummary;
 
 use self::terminal_ui_picker_events::{handle_picker_key, handle_picker_mouse};
 
