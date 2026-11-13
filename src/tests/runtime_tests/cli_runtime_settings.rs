@@ -147,12 +147,14 @@ fn synthetic_perf_messages_are_reproducible() {
         turns: 12,
         tool_output_lines: 8,
     };
-    let left = perf_session::build_synthetic_perf_messages(spec);
-    let right = perf_session::build_synthetic_perf_messages(spec);
+    let left = synthetic_session(spec);
+    let right = synthetic_session(spec);
 
-    assert_eq!(left.len(), spec.turns * 6);
-    assert_eq!(left.len(), right.len());
-    for (lhs, rhs) in left.iter().zip(right.iter()) {
+    assert_eq!(left.messages().len(), spec.turns * 6);
+    assert_eq!(left.messages().len(), right.messages().len());
+    for (index, (lhs, rhs)) in left.messages().iter().zip(right.messages().iter()).enumerate() {
+        assert_ne!(lhs.id, rhs.id);
+        assert_eq!(left.messages().position(lhs.id), Some(index));
         assert_eq!(lhs.role, rhs.role);
         assert_eq!(lhs.kind, rhs.kind);
         assert_eq!(lhs.text, rhs.text);
@@ -162,22 +164,28 @@ fn synthetic_perf_messages_are_reproducible() {
 
 #[test]
 fn synthetic_perf_messages_change_with_seed() {
-    let base = perf_session::build_synthetic_perf_messages(perf_session::SyntheticPerfSpec {
+    let base = synthetic_session(perf_session::SyntheticPerfSpec {
         seed: 7,
         turns: 4,
         tool_output_lines: 4,
     });
-    let changed = perf_session::build_synthetic_perf_messages(perf_session::SyntheticPerfSpec {
+    let changed = synthetic_session(perf_session::SyntheticPerfSpec {
         seed: 8,
         turns: 4,
         tool_output_lines: 4,
     });
 
-    assert_eq!(base.len(), changed.len());
+    assert_eq!(base.messages().len(), changed.messages().len());
     assert!(base
-        .iter()
-        .zip(changed.iter())
+        .messages().iter()
+        .zip(changed.messages().iter())
         .any(|(lhs, rhs)| lhs.text != rhs.text));
+}
+
+fn synthetic_session(spec: perf_session::SyntheticPerfSpec) -> crate::session::state::SessionState {
+    let mut session = crate::session::state::SessionState::new("perf".into(), Default::default(), false);
+    perf_session::populate_synthetic_perf_session(spec, &mut session);
+    session
 }
 
 #[test]

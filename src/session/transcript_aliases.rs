@@ -7,10 +7,7 @@ use super::Transcript;
 impl Transcript {
     /// Bind a key only to an entry that is still alive.
     pub(crate) fn bind_item(&mut self, key: BackendEntryKey, id: EntryId) {
-        assert!(
-            self.positions.contains_key(&id),
-            "binding to a retired entry"
-        );
+        assert!(self.position(id).is_some(), "binding to a retired entry");
         if self.entry_id_for_item(&key) == Some(id) {
             return;
         }

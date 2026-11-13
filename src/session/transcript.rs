@@ -3,8 +3,10 @@
 use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 
+use self::positions::EntryPositions;
 use super::entry_id::{EntryId, EntryIds};
 use super::entry_key::BackendEntryKey;
+#[cfg(test)]
 use super::history_identity::HistoryMode;
 use super::models::{EntryDraft, Message, MessageKind, Role, ToolOutputDetails};
 
@@ -13,7 +15,7 @@ use super::models::{EntryDraft, Message, MessageKind, Role, ToolOutputDetails};
 pub(crate) struct Transcript {
     pub(super) entries: Vec<Message>,
     active: Vec<bool>,
-    pub(super) positions: HashMap<EntryId, usize>,
+    positions: EntryPositions,
     pub(super) aliases: HashMap<EntryId, Vec<BackendEntryKey>>,
     pub(super) part_counts: HashMap<BackendEntryKey, usize>,
     pub(super) item_to_entry_id: HashMap<BackendEntryKey, EntryId>,
@@ -29,7 +31,7 @@ impl Transcript {
         Self {
             entries: Vec::new(),
             active: Vec::new(),
-            positions: HashMap::new(),
+            positions: EntryPositions::default(),
             aliases: HashMap::new(),
             part_counts: HashMap::new(),
             item_to_entry_id: HashMap::new(),
@@ -47,7 +49,7 @@ impl Transcript {
 
     /// Resolve a live id once before using contiguous render caches.
     pub(crate) fn position(&self, id: EntryId) -> Option<usize> {
-        self.positions.get(&id).copied()
+        self.positions.find(&self.entries, id)
     }
 
     /// Borrow a live entry; retired ids never resolve to a replacement row.
@@ -167,7 +169,7 @@ impl Transcript {
 
     /// Bind a per-turn aggregate diff to a live entry.
     pub(crate) fn bind_turn_diff(&mut self, turn: String, id: EntryId) {
-        assert!(self.positions.contains_key(&id));
+        assert!(self.position(id).is_some());
         self.turn_diff_to_entry_id.insert(turn, id);
     }
 
@@ -195,8 +197,11 @@ impl Transcript {
             self.unbind_entry(message.id);
             self.positions.remove(&message.id);
         }
+        self.positions.finish_truncate(self.entries.len());
+        let positions = &self.positions;
+        let entries = &self.entries;
         self.turn_diff_to_entry_id
-            .retain(|_, id| self.positions.contains_key(id));
+            .retain(|_, id| positions.find(entries, *id).is_some());
     }
 
     /// Change entry facts while retaining the allocated id.
@@ -263,6 +268,7 @@ impl Transcript {
     }
 
     /// Adopt unkeyed drafts through the same allocator as live messages.
+    #[cfg(test)]
     pub(crate) fn adopt_unkeyed(&mut self, drafts: Vec<EntryDraft>, mode: HistoryMode) {
         let mut adopted = Transcript::new();
         if matches!(mode, HistoryMode::SameThread) {
@@ -292,3 +298,10 @@ mod aliases;
 #[cfg(test)]
 #[path = "transcript_invariants.rs"]
 mod invariants;
+
+#[path = "transcript_positions.rs"]
+mod positions;
+
+#[cfg(test)]
+#[path = "transcript_position_tests.rs"]
+mod position_tests;

@@ -7,7 +7,7 @@ use super::Transcript;
 impl Transcript {
     /// Assert invariants.
     pub(crate) fn assert_invariants(&self) {
-        assert_eq!(self.entries.len(), self.positions.len());
+        self.positions.assert_invariants(&self.entries);
         assert_eq!(self.entries.len(), self.active.len());
         for (index, row) in self.entries.iter().enumerate() {
             assert_eq!(self.position(row.id), Some(index));
@@ -54,9 +54,7 @@ impl Transcript {
         self.active.pop();
         self.active.insert(index, false);
         self.entries.insert(index, row);
-        for (position, row) in self.entries.iter().enumerate().skip(index) {
-            self.positions.insert(row.id, position);
-        }
+        self.positions.rebuild(&self.entries);
         assert_eq!(self.entries[index].id, id);
     }
 }

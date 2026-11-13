@@ -15,6 +15,16 @@ pub(super) struct EntryIds {
     next: u64,
 }
 
+impl EntryId {
+    /// Compare counters only after checking that both ids belong to the same namespace.
+    pub(super) fn offset_from(self, first: Self) -> Option<usize> {
+        if self.namespace != first.namespace {
+            return None;
+        }
+        usize::try_from(self.counter.checked_sub(first.counter)?).ok()
+    }
+}
+
 impl EntryIds {
     pub(super) fn new() -> Self {
         Self {

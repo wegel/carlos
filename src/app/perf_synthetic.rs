@@ -2,6 +2,7 @@
 
 use crate::session::models::{EntryDraft, MessageKind, Role};
 use crate::session::read_summary::format_read_summary_with_count;
+use crate::session::state::SessionState;
 
 // --- Core Types ---
 
@@ -49,41 +50,42 @@ impl SyntheticRng {
 
 // --- Message Builders ---
 
-pub(super) fn build_synthetic_perf_messages(spec: SyntheticPerfSpec) -> Vec<EntryDraft> {
+/// Create source rows through the normal session entry constructor, including their ids.
+pub(super) fn populate_synthetic_perf_session(spec: SyntheticPerfSpec, session: &mut SessionState) {
     let mut rng = SyntheticRng::new(spec.seed);
-    let mut messages = Vec::with_capacity(spec.turns.saturating_mul(6));
+    session.reserve_transcript_entries(spec.turns.saturating_mul(6));
 
     for turn in 0..spec.turns {
-        messages.push(EntryDraft {
+        session.transcript_append(EntryDraft {
             tool_output: None,
             role: Role::User,
             text: synthetic_user_message(turn, &mut rng),
             kind: MessageKind::Plain,
             file_path: None,
         });
-        messages.push(EntryDraft {
+        session.transcript_append(EntryDraft {
             tool_output: None,
             role: Role::Commentary,
             text: synthetic_commentary_message(turn, &mut rng),
             kind: MessageKind::Plain,
             file_path: None,
         });
-        messages.push(EntryDraft {
+        session.transcript_append(EntryDraft {
             tool_output: None,
             role: Role::Reasoning,
             text: synthetic_reasoning_message(turn, &mut rng),
             kind: MessageKind::Plain,
             file_path: None,
         });
-        messages.push(EntryDraft {
+        session.transcript_append(EntryDraft {
             tool_output: None,
             role: Role::ToolCall,
             text: synthetic_tool_call(turn, &mut rng),
             kind: MessageKind::Plain,
             file_path: None,
         });
-        messages.push(synthetic_tool_output(turn, spec, &mut rng));
-        messages.push(EntryDraft {
+        session.transcript_append(synthetic_tool_output(turn, spec, &mut rng));
+        session.transcript_append(EntryDraft {
             tool_output: None,
             role: Role::Assistant,
             text: synthetic_assistant_message(turn, &mut rng),
@@ -91,8 +93,6 @@ pub(super) fn build_synthetic_perf_messages(spec: SyntheticPerfSpec) -> Vec<Entr
             file_path: None,
         });
     }
-
-    messages
 }
 
 // --- Turn Content ---

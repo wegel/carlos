@@ -3,8 +3,7 @@
 use super::entry_id::EntryId;
 use super::entry_key::BackendEntryKey;
 #[cfg(test)]
-use super::history_identity::HistoryEntry;
-use super::history_identity::HistoryMode;
+use super::history_identity::{HistoryEntry, HistoryMode};
 use super::models::{EntryDraft, MessageKind, Role, ToolOutputDetails};
 use super::state::SessionState;
 
@@ -73,7 +72,13 @@ impl SessionState {
         self.messages.set_label(id, label, generated)
     }
 
+    /// Reserve row storage before an infallible batch creates entries through normal commands.
+    pub(crate) fn reserve_transcript_entries(&mut self, count: usize) {
+        self.messages.reserve_entries(count);
+    }
+
     /// Adopt history drafts that have no backend source keys.
+    #[cfg(test)]
     pub(crate) fn transcript_adopt_unkeyed(&mut self, drafts: Vec<EntryDraft>, mode: HistoryMode) {
         self.messages.adopt_unkeyed(drafts, mode)
     }

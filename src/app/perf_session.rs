@@ -16,7 +16,7 @@ use super::perf_bench::{
     benchmark_working_draws, profile_layout_count_pass, PerfReplayStats,
 };
 // Re-export synthetic types so tests can access them via the `perf_session` module path.
-pub(super) use super::perf_synthetic::{build_synthetic_perf_messages, SyntheticPerfSpec};
+pub(super) use super::perf_synthetic::{populate_synthetic_perf_session, SyntheticPerfSpec};
 use super::render::render_main_view;
 use super::tools::{
     extract_diff_blocks, format_tool_item, raw_function_call_output_to_tool_item,
@@ -183,10 +183,7 @@ fn replay_synthetic_perf_session(
     let mut app = AppState::new(format!("synthetic-{:016x}", spec.seed));
     let mut stats = PerfReplayStats::new();
     let apply_started = Instant::now();
-    app.session.transcript_adopt_unkeyed(
-        build_synthetic_perf_messages(spec),
-        crate::session::history_identity::HistoryMode::NewConversation,
-    );
+    populate_synthetic_perf_session(spec, &mut app.session);
     app.mark_transcript_dirty();
     stats.replay_apply.push(apply_started.elapsed());
     stats.relevant_items = app.session.messages().len();
