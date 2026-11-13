@@ -21,7 +21,7 @@ fn receive_chunks(
 ) {
     loop {
         let chunk = published
-            .output_chunk(&entry, cursor.as_ref(), 8192)
+            .output_chunk(entry, cursor.as_ref(), 8192)
             .expect("chunk");
         let more = chunk.has_more;
         let message = NotificationMessage {

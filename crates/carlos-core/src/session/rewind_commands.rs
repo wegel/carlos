@@ -1,13 +1,9 @@
 //! Resolve stable prompt choices and fork before sending edited text.
 
-use carlos_proto::submissions::SubmissionOutcome;
+use crate::backend::{BackendKind, PromptOrigin, RewindForkRequest};
 
-use std::time::Duration;
-
-use crate::backend::{BackendClient, BackendKind, PromptOrigin, RewindForkRequest};
-
-use super::claude::receive_update::ClaudeEffect;
 use super::claude::ClaudePhase;
+use super::command_work::{BackendCall, CommandError, Finish, PreparedCommand, PromptSubmission};
 use super::entry_id::EntryId;
 use super::models::{EntryDraft, Role};
 use super::prompt_commands::{PromptContext, PromptOptions, TurnUpdate};
@@ -15,79 +11,63 @@ use super::state::SessionState;
 
 impl SessionState {
     /// Resolve backend positions from the selected id, never from a view's cached count.
-    pub fn submit_rewind_text(
+    pub fn prepare_rewind_text(
         &mut self,
-        client: &dyn BackendClient,
+        kind: BackendKind,
         selected: EntryId,
         text: String,
         context: &PromptContext,
         queue_recovery: bool,
-    ) -> TurnUpdate {
+    ) -> Result<PreparedCommand, CommandError> {
+        self.command_idle()?;
         let mut update = TurnUpdate::default();
-        if text.trim().is_empty() || self.reject_rewind(client, queue_recovery, &mut update) {
-            return update;
+        if text.trim().is_empty() || self.reject_rewind(kind, queue_recovery, &mut update) {
+            return Ok(PreparedCommand { update, work: None });
         }
         let Some((index, entry, turn)) = self.rewind_anchor(selected) else {
             update.hint =
                 Some("The selected prompt is no longer available; choose it again".into());
-            return update;
+            return Ok(PreparedCommand { update, work: None });
         };
-        self.rewind_from_anchor(client, (index, entry, turn), text, context, update)
+        self.rewind_from_anchor(kind, (index, entry, turn), text, context, update)
     }
 
     fn rewind_from_anchor(
         &mut self,
-        client: &dyn BackendClient,
+        kind: BackendKind,
         (index, entry, turn): (usize, Option<EntryId>, Option<String>),
         text: String,
         context: &PromptContext,
-        mut update: TurnUpdate,
-    ) -> TurnUpdate {
+        update: TurnUpdate,
+    ) -> Result<PreparedCommand, CommandError> {
         let drop_turns = self.input_history().history_len().saturating_sub(index);
         let options = PromptOptions {
             record_history: true,
             force_start: false,
             origin: PromptOrigin::Human,
         };
-        if drop_turns == 0 && client.kind() != BackendKind::Claude {
-            return self.submit_turn_text(client, text, options, context);
+        if drop_turns == 0 && kind != BackendKind::Claude {
+            return self.prepare_turn_text(kind, text, options, context);
         }
-        let prefix =
-            (client.kind() == BackendKind::Grok).then(|| self.grok_rewind_prefix(index, entry));
-        let request = self.rewind_request(client.kind(), index, entry, turn);
-        let response =
-            match client.fork_from_rewind(self.thread_id(), request, Duration::from_secs(20)) {
-                Ok(response) => response,
-                Err(error) => {
-                    self.rewind_failed(client, &error.to_string(), &mut update);
-                    return update;
-                }
-            };
-        if client.kind() == BackendKind::Claude {
-            self.begin_claude_edit_for(text, context.operation.clone());
-            update
-                .changes
-                .effects
-                .push(ClaudeEffect::Submission(SubmissionOutcome::EditStarted(
-                    context.operation.clone(),
-                )));
-            self.retire_claude_queue(&mut update.changes);
-            return update;
-        }
-        let adopted = if let Some(prefix) = prefix {
-            self.adopt_grok_fork(&response, prefix)
-        } else {
-            self.adopt_codex_fork(&response)
+        let prefix = (kind == BackendKind::Grok).then(|| self.grok_rewind_prefix(index, entry));
+        let request = self.rewind_request(kind, index, entry, turn);
+        let submission = PromptSubmission {
+            kind,
+            text,
+            context: context.clone(),
+            options,
+            steer: false,
+            edited: true,
         };
-        match adopted {
-            Err(error) => {
-                self.set_status(format!("fork failed: {error}"));
-                return update;
-            }
-            Ok(changes) => update.merge(changes),
-        }
-        self.submit_edited_prompt(client, text, options, context, &mut update);
-        update
+        let call = BackendCall::Fork {
+            thread: self.thread_id().clone(),
+            request,
+        };
+        let work = self.backend_work(kind, call, Finish::Rewind { submission, prefix }, false);
+        Ok(PreparedCommand {
+            update,
+            work: Some(work),
+        })
     }
 
     fn rewind_request(
@@ -127,16 +107,16 @@ impl SessionState {
 
     fn reject_rewind(
         &mut self,
-        client: &dyn BackendClient,
+        kind: BackendKind,
         recovery: bool,
         update: &mut TurnUpdate,
     ) -> bool {
-        if client.kind() == BackendKind::Codex && (self.codex_queue().pending() || recovery) {
+        if kind == BackendKind::Codex && (self.codex_queue().pending() || recovery) {
             self.append_message(Role::System,
                 "Finish or recover the Codex queue request before editing earlier history. This edited prompt is preserved.");
             return true;
         }
-        if client.kind() == BackendKind::Claude && self.claude().phase() != ClaudePhase::Ready {
+        if kind == BackendKind::Claude && self.claude().phase() != ClaudePhase::Ready {
             if self.claude_edit_progress().is_none() {
                 self.unavailable_claude_edit(
                     &mut update.changes,
@@ -166,43 +146,5 @@ impl SessionState {
             .cloned()
             .map(Into::into)
             .collect()
-    }
-
-    fn rewind_failed(
-        &mut self,
-        _client: &dyn BackendClient,
-        error: &str,
-        _update: &mut TurnUpdate,
-    ) {
-        self.set_status(format!("fork failed: {error}"));
-        self.append_message(Role::System, format!("Could not edit message: {error}"));
-    }
-
-    fn submit_edited_prompt(
-        &mut self,
-        client: &dyn BackendClient,
-        text: String,
-        options: PromptOptions,
-        context: &PromptContext,
-        update: &mut TurnUpdate,
-    ) {
-        update.rewound = true;
-        update.clear_selection = true;
-        self.ralph_mark_user_turn_submitted();
-        if self.start_prompt(
-            client,
-            text.clone(),
-            PromptOptions {
-                force_start: true,
-                ..options
-            },
-            context,
-            update,
-        ) {
-            if client.kind() == BackendKind::Codex {
-                update.changes.items.reset_navigation |= self.record_prompt_history(&text, None);
-            }
-            update.submitted = Some(text);
-        }
     }
 }

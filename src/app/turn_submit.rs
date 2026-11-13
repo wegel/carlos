@@ -1,8 +1,11 @@
 //! Pass accepted text and plain local choices to the session prompt commands.
 
 use carlos_core::backend::{BackendClient, PromptOrigin};
+use carlos_core::session::claude::receive_update::{ClaudeEffect, ClaudeUpdate};
+use carlos_core::session::command_work::{CommandError, PreparedCommand};
 use carlos_core::session::entry_id::EntryId;
 use carlos_core::session::prompt_commands::{PromptContext, PromptOptions, TurnUpdate};
+use carlos_proto::submissions::{RecoveryKind, SubmissionOutcome};
 
 use super::state::AppState;
 
@@ -26,14 +29,14 @@ pub(super) fn submit_rewind_turn_text(
     text: String,
 ) {
     let context = context(&app.view);
-    let update = app.session.submit_rewind_text(
-        client,
+    let update = app.session.prepare_rewind_text(
+        client.kind(),
         selected,
         text,
         &context,
         app.view.codex_queue.recovery.is_some(),
     );
-    apply(app, update);
+    run_prepared(client, app, update);
 }
 
 /// Preserve the caller's explicit history-recording choice.
@@ -81,8 +84,8 @@ fn submit(
     let context = context(&app.view);
     let update = app
         .session
-        .submit_turn_text(client, text, options, &context);
-    apply(app, update);
+        .prepare_turn_text(client.kind(), text, options, &context);
+    run_prepared(client, app, update);
 }
 
 fn context(view: &super::view_state::ViewState) -> PromptContext {
@@ -131,6 +134,40 @@ pub(super) fn submit_queued(
     };
     let update = app
         .session
-        .submit_turn_text(client, queued.text, options, &context);
-    apply(app, update);
+        .prepare_turn_text(client.kind(), queued.text, options, &context);
+    run_prepared(client, app, update);
+}
+
+/// Execute between session calls; EP019 schedules the identical work on its backend worker.
+pub(super) fn run_prepared(
+    client: &dyn BackendClient,
+    app: &mut AppState,
+    mut prepared: Result<PreparedCommand, CommandError>,
+) {
+    loop {
+        let command = match prepared {
+            Ok(command) => command,
+            Err(error) => {
+                let hint = error.to_string();
+                if let Some(draft) = error.into_submitted() {
+                    let mut update = ClaudeUpdate::default();
+                    update
+                        .effects
+                        .push(ClaudeEffect::Submission(SubmissionOutcome::Recovered {
+                            draft,
+                            kind: RecoveryKind::Prompt,
+                        }));
+                    app.apply_claude_update(update);
+                }
+                app.set_hint(hint);
+                return;
+            }
+        };
+        apply(app, command.update);
+        let Some(work) = command.work else {
+            return;
+        };
+        let completion = work.execute(client);
+        prepared = app.session.finish_backend_work(completion);
+    }
 }

@@ -1,20 +1,22 @@
 //! Submit and steer accepted prompts without borrowing a client widget.
 
-use carlos_proto::submissions::SubmissionOutcome;
+use std::time::Instant;
 
-use std::time::{Duration, Instant};
+use carlos_proto::submissions::{ClientOperation, RecoveryKind, SubmissionOutcome, SubmittedText};
 
-use carlos_proto::submissions::{ClientOperation, RecoveryKind, SubmittedText};
-
-use crate::backend::{BackendClient, BackendKind, PromptOrigin, PromptPriority};
-use crate::protocol_params::{extract_result_object, params_turn_steer};
+use crate::backend::{BackendKind, PromptOrigin, PromptPriority};
+use crate::protocol_params::params_turn_steer;
 
 use super::claude::receive_update::{ClaudeEffect, ClaudeUpdate};
 use super::claude::{ClaudePhase, NativeState};
+use super::command_work::{
+    BackendCall, BackendWork, CommandError, Finish, PreparedCommand, PromptSubmission,
+};
 use super::state::SessionState;
 use crate::session::models::Role;
 
 /// Borrow only the local choices needed by one accepted prompt command.
+#[derive(Clone)]
 pub struct PromptContext {
     pub operation: Option<ClientOperation>,
     pub claude_queue: bool,
@@ -40,21 +42,40 @@ pub struct TurnUpdate {
 }
 
 impl SessionState {
-    /// Accept a prompt, preserving startup queues, closed drafts and steer priority.
-    pub fn submit_turn_text(
+    /// Prepare a submitted prompt without writing to or waiting on its backend.
+    pub fn prepare_turn_text(
         &mut self,
-        client: &dyn BackendClient,
+        kind: BackendKind,
         text: String,
         options: PromptOptions,
         context: &PromptContext,
-    ) -> TurnUpdate {
-        let mut update = TurnUpdate::default();
-        if text.trim().is_empty()
-            || self.reject_prompt(client, &text, options, context, &mut update)
-        {
-            return update;
+    ) -> Result<PreparedCommand, CommandError> {
+        self.prepare_prompt(kind, text, options, context, false)
+    }
+
+    pub(super) fn prepare_prompt(
+        &mut self,
+        kind: BackendKind,
+        text: String,
+        options: PromptOptions,
+        context: &PromptContext,
+        edited: bool,
+    ) -> Result<PreparedCommand, CommandError> {
+        if self.command_idle().is_err() {
+            return Err(CommandError::Busy {
+                submitted: (options.origin == PromptOrigin::Human).then_some(SubmittedText {
+                    text,
+                    operation: context.operation.clone(),
+                }),
+            });
         }
-        if client.kind() == BackendKind::Claude && self.claude().phase() != ClaudePhase::Ready {
+        let mut prepared = PreparedCommand::default();
+        if text.trim().is_empty()
+            || self.reject_prompt(kind, &text, options, context, &mut prepared.update)
+        {
+            return Ok(prepared);
+        }
+        if kind == BackendKind::Claude && self.claude().phase() != ClaudePhase::Ready {
             self.enqueue_submitted_prompt(
                 SubmittedText {
                     text,
@@ -64,39 +85,77 @@ impl SessionState {
                 options.origin,
             );
             self.set_status("queued while Claude starts");
-            return update;
+            return Ok(prepared);
         }
-        if !options.force_start
+        let steer = !edited
             && self.active_turn_id().is_some()
-            && client.kind().queues_instead_of_steer()
-        {
-            self.start_prompt(
-                client,
-                text,
-                PromptOptions {
-                    force_start: true,
-                    ..options
-                },
-                context,
-                &mut update,
-            );
-        } else if let Some(turn) = self.active_turn_id().clone() {
-            self.steer_prompt(client, &turn, &text, options, context, &mut update);
-        } else {
-            self.start_prompt(client, text, options, context, &mut update);
+            && !(kind.queues_instead_of_steer() && !options.force_start);
+        if !steer && self.queue_behind_pending(kind, &text, options, context) {
+            return Ok(prepared);
         }
-        update
+        let submission = PromptSubmission {
+            kind,
+            text,
+            options,
+            context: context.clone(),
+            steer,
+            edited,
+        };
+        prepared.work = Some(self.prompt_work(submission));
+        Ok(prepared)
+    }
+
+    fn prompt_work(&mut self, submission: PromptSubmission) -> BackendWork {
+        let PromptSubmission {
+            kind,
+            ref text,
+            options,
+            ref context,
+            steer,
+            ..
+        } = submission;
+        self.dispatch_claude_edit(text, options.origin);
+        let priority = if kind == BackendKind::Claude && context.claude_queue {
+            PromptPriority::Queue
+        } else if steer
+            || kind == BackendKind::Claude
+                && self.claude().activity().native_state() == NativeState::Running
+        {
+            PromptPriority::Steer
+        } else {
+            PromptPriority::Queue
+        };
+        let method = if steer { "turn/steer" } else { "turn/start" };
+        let params = if steer {
+            params_turn_steer(
+                self.thread_id(),
+                self.active_turn_id().as_ref().expect("steer turn"),
+                text,
+            )
+        } else {
+            self.new_turn_params(kind, text)
+        };
+        self.backend_work(
+            kind,
+            BackendCall::Prompt {
+                method,
+                params,
+                priority,
+            },
+            Finish::Prompt(submission),
+            steer,
+        )
     }
 
     fn reject_prompt(
         &mut self,
-        client: &dyn BackendClient,
+        kind: BackendKind,
         text: &str,
         options: PromptOptions,
         context: &PromptContext,
         update: &mut TurnUpdate,
     ) -> bool {
-        if client.kind() == BackendKind::Codex && self.codex_scope().closed() {
+        if kind == BackendKind::Codex && self.codex_scope().closed() {
             self.ralph_stop_after_failure();
             if options.origin == PromptOrigin::Human {
                 update.changes.effects.push(ClaudeEffect::Submission(
@@ -116,7 +175,7 @@ impl SessionState {
             update.hint = Some("Codex is closed; F5 reconnects; draft kept".into());
             return true;
         }
-        if client.kind() == BackendKind::Claude && self.claude().phase() == ClaudePhase::Closed {
+        if kind == BackendKind::Claude && self.claude().phase() == ClaudePhase::Closed {
             update.changes.items.reset_navigation |= self.discard_pending_prompt(text);
             update
                 .changes
@@ -138,194 +197,35 @@ impl SessionState {
         false
     }
 
-    fn steer_prompt(
-        &mut self,
-        client: &dyn BackendClient,
-        turn: &str,
-        text: &str,
-        options: PromptOptions,
-        context: &PromptContext,
-        update: &mut TurnUpdate,
-    ) {
-        let params = params_turn_steer(self.thread_id(), turn, text);
-        let priority = if client.kind() == BackendKind::Claude && context.claude_queue {
-            PromptPriority::Queue
-        } else {
-            PromptPriority::Steer
-        };
-        match client.submit_prompt(
-            "turn/steer",
-            params,
-            options.origin,
-            priority,
-            Duration::from_secs(10),
-        ) {
-            Ok(response) => {
-                if client.kind().echoes_local_user_prompt() {
-                    self.echo_prompt(text, Role::User, options.record_history, update);
-                }
-                if client.kind() == BackendKind::Claude {
-                    if let Ok(value) = serde_json::from_str(&response) {
-                        update.merge(self.receive_claude_submission(&value));
-                    }
-                }
-                self.set_status("sent steer");
-            }
-            Err(error) => self.set_status(error.to_string()),
-        }
-    }
-
-    pub(super) fn start_prompt(
-        &mut self,
-        client: &dyn BackendClient,
-        text: String,
-        options: PromptOptions,
-        context: &PromptContext,
-        update: &mut TurnUpdate,
-    ) -> bool {
-        if client.kind() == BackendKind::Claude && self.claude().phase() != ClaudePhase::Ready {
-            update.hint = Some("Claude is starting; answer any startup question first".into());
-            return false;
-        }
-        if self.queue_behind_pending(client, &text, options, context) {
-            return true;
-        }
-        self.dispatch_claude_edit(&text, options.origin);
-        let priority = if client.kind() == BackendKind::Claude
-            && self.claude().activity().native_state() == NativeState::Running
-            && !context.claude_queue
-        {
-            PromptPriority::Steer
-        } else {
-            PromptPriority::Queue
-        };
-        let response = client
-            .submit_prompt(
-                "turn/start",
-                self.new_turn_params(client, &text),
-                options.origin,
-                priority,
-                Duration::from_secs(10),
-            )
-            .and_then(|response| extract_result_object(&response));
-        match response {
-            Ok(response) => {
-                self.bind_claude_edit(&text, options.origin, &response);
-                self.mark_prompt_sent(client, &text, options, update);
-                if client.kind() == BackendKind::Claude {
-                    update.merge(self.receive_claude_submission(&response));
-                }
-                true
-            }
-            Err(error) => {
-                self.prompt_failed(&text, options, context, update, &error.to_string());
-                false
-            }
-        }
-    }
-
-    fn prompt_failed(
-        &mut self,
-        text: &str,
-        options: PromptOptions,
-        context: &PromptContext,
-        update: &mut TurnUpdate,
-        error: &str,
-    ) {
-        if options.record_history {
-            update.changes.items.reset_navigation |= self.discard_pending_prompt(text);
-        }
-        if self.reject_claude_edit_send(text) {
-            self.fail_claude_edit(&mut update.changes, error);
-        } else {
-            update
-                .changes
-                .effects
-                .push(ClaudeEffect::Submission(SubmissionOutcome::Recovered {
-                    draft: SubmittedText {
-                        text: text.into(),
-                        operation: context.operation.clone(),
-                    },
-                    kind: RecoveryKind::Prompt,
-                }));
-        }
-        self.set_status(format!("send failed: {error}"));
-        self.append_message(Role::System, format!("Could not send message: {error}"));
-    }
-
     fn queue_behind_pending(
         &mut self,
-        client: &dyn BackendClient,
+        kind: BackendKind,
         text: &str,
         options: PromptOptions,
         context: &PromptContext,
     ) -> bool {
         let now = Instant::now();
         if options.force_start
-            || !client.kind().queues_follow_up_turns()
+            || !kind.queues_follow_up_turns()
             || !self.has_ready_queued_turn_input(now)
         {
             return false;
         }
         self.promote_ready_continuation(now);
-        self.queue_submitted_input(
+        self.enqueue_submitted_prompt(
             SubmittedText {
                 text: text.into(),
                 operation: context.operation.clone(),
             },
             options.record_history,
+            options.origin,
         );
-        self.set_status(if client.kind() == BackendKind::Grok {
+        self.set_status(if kind == BackendKind::Grok {
             "queued behind pending Grok turn"
         } else {
             "queued behind pending Claude turn"
         });
         true
-    }
-
-    fn mark_prompt_sent(
-        &mut self,
-        client: &dyn BackendClient,
-        text: &str,
-        options: PromptOptions,
-        update: &mut TurnUpdate,
-    ) {
-        if client.kind().echoes_local_user_prompt() {
-            let role = if client.kind() == BackendKind::Claude
-                && options.origin == PromptOrigin::Automatic
-            {
-                Role::System
-            } else {
-                Role::User
-            };
-            self.echo_prompt(text, role, options.record_history, update);
-            if self.active_turn_id().is_none() {
-                self.mark_turn_started();
-                self.set_active_turn_id(Some(
-                    if client.kind() == BackendKind::Grok {
-                        crate::grok_backend::GROK_PENDING_TURN_ID
-                    } else {
-                        "claude-turn-pending"
-                    }
-                    .into(),
-                ));
-            }
-        }
-        if client.kind() != BackendKind::Codex
-            || !self.codex_scope().enabled()
-            || self.codex_settings().legacy_overrides()
-        {
-            self.mark_runtime_settings_applied();
-        }
-        self.set_status("sent turn");
-    }
-
-    fn echo_prompt(&mut self, text: &str, role: Role, record: bool, update: &mut TurnUpdate) {
-        let index = self.append_message(role, text);
-        if record {
-            update.changes.items.reset_navigation |=
-                self.record_prompt_history(text, Some(self.messages()[index].id));
-        }
     }
 }
 

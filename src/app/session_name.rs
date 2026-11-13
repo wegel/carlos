@@ -70,8 +70,8 @@ pub(super) fn handle_rename_command(
             app.session.thread_name().as_deref().unwrap_or("")
         ));
     } else {
-        let update = app.session.rename_session(client, rest.trim());
-        super::turn_submit::apply(app, update);
+        let update = app.session.prepare_rename(client.kind(), rest.trim());
+        super::turn_submit::run_prepared(client, app, update);
     }
     true
 }

@@ -28,6 +28,7 @@ use crate::session::models::TurnStatus;
 /// ```
 #[cfg_attr(any(test, feature = "test-support"), derive(Debug))]
 pub struct SessionState {
+    pub(in crate::session) commands: super::command_guard::CommandState,
     pub(in crate::session) events: super::events::EventState,
     pub(in crate::session) codex_connection: super::codex::connection_state::ConnectionState,
     pub(in crate::session) codex_panel: super::codex::panel_state::PanelState,
@@ -61,6 +62,7 @@ impl SessionState {
     /// Create an empty conversation without loading client preferences.
     pub fn new(thread_id: String, preferences: RuntimeDefaults, summary_enabled: bool) -> Self {
         Self {
+            commands: Default::default(),
             events: super::events::EventState::new(),
             codex_connection: Default::default(),
             codex_panel: Default::default(),

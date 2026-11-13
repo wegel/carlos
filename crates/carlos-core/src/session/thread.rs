@@ -15,6 +15,7 @@ impl SessionState {
 
     /// Retire the old conversation after the app accepts a fork or clear.
     pub fn reset_for_forked_thread(&mut self) {
+        self.retire_backend_command();
         self.entry_conversation = self.thread_id.clone();
         self.active_turn_id = None;
         self.messages.reset();

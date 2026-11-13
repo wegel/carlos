@@ -99,7 +99,14 @@ fn pending_prompt_keeps_its_id_when_native_echo_binds_a_row() {
     assert_ne!(pending, row);
     state.record_prompt_turn(row, "native-turn");
     let peer = Peer::new(BackendKind::Codex);
-    state.submit_rewind_text(&peer, pending, "edited".into(), &context(), false);
+    rewind(
+        &mut state,
+        &peer,
+        pending,
+        "edited".into(),
+        &context(),
+        false,
+    );
     assert_eq!(
         peer.forks.lock().expect("forks")[0]
             .before_turn_id
@@ -144,7 +151,7 @@ fn discarded_prompt_id_cannot_select_a_later_identical_draft() {
     state.record_prompt_history("same", None);
     assert_ne!(state.input_history().prompt_id(0), Some(retired));
     let peer = Peer::new(BackendKind::Grok);
-    let update = state.submit_rewind_text(&peer, retired, "edit".into(), &context(), false);
+    let update = rewind(&mut state, &peer, retired, "edit".into(), &context(), false);
     assert!(update
         .hint
         .expect("stale choice")
@@ -160,7 +167,14 @@ fn unbound_prompt_uses_its_owner_record_without_inventing_a_row_or_turn() {
     state.record_prompt_history("pending", None);
     let selected = state.input_history().prompt_id(1).expect("pending id");
     let peer = Peer::new(BackendKind::Grok);
-    state.submit_rewind_text(&peer, selected, "edit".into(), &context(), false);
+    rewind(
+        &mut state,
+        &peer,
+        selected,
+        "edit".into(),
+        &context(),
+        false,
+    );
     assert_eq!(
         *peer.forks.lock().expect("forks"),
         [RewindForkRequest {
@@ -179,7 +193,8 @@ fn failed_send_returns_the_exact_draft_and_removes_only_its_pending_record() {
     state.record_prompt_history("prior", None);
     state.record_prompt_history("new\ntext", None);
     let peer = Peer::new(BackendKind::Codex);
-    let update = state.submit_turn_text(
+    let update = send(
+        &mut state,
         &peer,
         "new\ntext".into(),
         PromptOptions {
@@ -244,4 +259,41 @@ fn headless_quota_timers_check_the_backend_and_closed_connection_themselves() {
         state.tick_claude_quota(&peer, later);
         assert_eq!(*peer.optional.lock().expect("closed reads"), expected);
     }
+}
+
+fn drive(
+    state: &mut SessionState,
+    peer: &Peer,
+    prepared: Result<super::command_work::PreparedCommand, super::command_work::CommandError>,
+) -> super::prompt_commands::TurnUpdate {
+    let mut prepared = prepared.expect("prepare");
+    while let Some(work) = prepared.work {
+        prepared = state
+            .finish_backend_work(work.execute(peer))
+            .expect("completion");
+    }
+    prepared.update
+}
+
+fn rewind(
+    state: &mut SessionState,
+    peer: &Peer,
+    selected: super::entry_id::EntryId,
+    text: String,
+    context: &PromptContext,
+    recovery: bool,
+) -> super::prompt_commands::TurnUpdate {
+    let prepared = state.prepare_rewind_text(peer.kind(), selected, text, context, recovery);
+    drive(state, peer, prepared)
+}
+
+fn send(
+    state: &mut SessionState,
+    peer: &Peer,
+    text: String,
+    options: PromptOptions,
+    context: &PromptContext,
+) -> super::prompt_commands::TurnUpdate {
+    let prepared = state.prepare_turn_text(peer.kind(), text, options, context);
+    drive(state, peer, prepared)
 }

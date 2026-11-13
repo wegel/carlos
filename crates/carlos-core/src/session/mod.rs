@@ -160,3 +160,11 @@ mod output_tests;
 
 #[cfg(test)]
 mod output_client_tests;
+
+mod command_guard;
+pub mod command_work;
+mod prompt_settle;
+mod rewind_settle;
+
+#[cfg(test)]
+mod command_work_tests;
