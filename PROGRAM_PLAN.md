@@ -40,7 +40,9 @@ after ExecPlan 016. Do not merge it into `main` or push it without the owner's r
 
 ## Active ExecPlans
 
-- [ ] `.agents/execplans/EXECPLAN_018a_pre_daemon_cleanup.md`: incremental running-tool output and broader pre-daemon cleanup. The owner approved this follow-up before EP019.
+EP018a is complete. The owner reviews `.agents/reports/exec018a-final-report.md` before EP019 starts.
+Do not begin EP019 or install a spike binary until that review; its typed terminal migration gates
+are recorded in `docs/terminal-client-migration.md`.
 
 EP019 must first prove headless daemon commands and concurrent reads, then extend typed terminal controls
 and pass the workflow checklist in `docs/terminal-client-migration.md` before deleting the embedded path.
@@ -50,7 +52,7 @@ ExecPlans 017 to 022 are listed in `docs/engine-architecture.md`. Each one is wr
 plan before it ends.
 
 ExecPlans 009 to 015 remain under `.agents/execplans/`. Their status was not reviewed when the
-daemon split started. They remain outside the iPhone spike; its next step is ExecPlan 018a, then EP019.
+daemon split started. They remain outside the iPhone spike; its next step is EP019 after owner review of EP018a.
 
 
 ## Done ExecPlans
@@ -66,3 +68,5 @@ daemon split started. They remain outside the iPhone spike; its next step is Exe
 - [x] `.agents/done/EXECPLAN_016_session_state_split.md` (step 1 of 7 of the daemon split; completed 2026-11-13)
 - [x] `.agents/done/EXECPLAN_017_core_workspace.md` (step 2 of 7: terminal-free session library; completed 2026-11-13)
 - [x] `.agents/done/EXECPLAN_018_sequenced_events.md` (step 3 of 7: numbered core events and client protocol version 1; completed 2026-11-13)
+
+- [x] `.agents/done/EXECPLAN_018a_pre_daemon_cleanup.md`

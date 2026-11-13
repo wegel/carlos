@@ -1,6 +1,6 @@
 # Engine architecture: daemon and clients
 
-Status: agreed 2026-11-11, revised 2026-11-13. EP016 through EP018 are complete. The owner approved EP018a before EP019; owner review follows each completed step.
+Status: agreed 2026-11-11, revised 2026-11-13. EP016 through EP018a are complete. The owner reviews EP018a before EP019 starts.
 
 This note records the design for splitting `carlos` into a daemon and several
 clients, and the reasons. Update it when a decision changes. Keep raw logs out.
@@ -179,7 +179,7 @@ Types:
 1. EP016: stable entry ids, separate SessionState/ViewState, and Claude translation in its backend. Complete.
 2. EP017: Cargo workspace and a terminal-free carlos-core. Complete.
 3. EP018: numbered core events consumed in process, provisional protocol types and separate removal of the old redraw-report path. Complete.
-4. EP018a: bounded running output, client-owned drafts, prepared backend waits, terminal workflow inventory and reduced guards. The owner approved this cleanup before sockets.
+4. EP018a: bounded running output, client-owned drafts, prepared backend waits, terminal workflow inventory and reduced guards. Complete; the owner reviews it before sockets.
 5. EP019: prove a headless daemon and concurrent reads with real backend handles; add typed native-control families and carlos-client; switch the terminal after parity, then delete its embedded path separately. Sessions survive a terminal quit.
 6. EP020: WebSocket listener, device tokens and perf-session replay through the socket. Add schema output only when a real client needs it.
 7. EP021: paged native history, Grok approvals and richer tool summaries as data.
@@ -259,3 +259,5 @@ The owner approved a broad cleanup after Fable 5.2 reviewed the entire roadmap. 
 Backend frames must not inspect a client's composer, confirmation or focused panel. Commands carry their originating operation and explicit read targets; each client decides what to do with its own drafts. Backend calls execute outside the session owner's borrow, then settle only if their connection and operation still match. The daemon can process facts and reads while a worker waits.
 
 Version 1 remains provisional until real remote consumers exercise it. UniFFI stays in EP022 when the iOS consumer exists; JSON Schema and a timed delta merger wait for actual need. The shared-client objective, one-owner-per-session model, bounded queues and per-EP owner review remain in force. EP018a runs directly in Codex without implementation subagents, as requested by the owner.
+
+EP018a closeout, 2026-11-13: bounded running output, correlated recovery, prepared send/fork/name waits and the terminal inventory are complete. The source lexer was removed. The branch now includes main's Escape-burst fix. Final feature/release/terminal/native checks and original-reference/common-base measurements pass; `.agents/reports/exec018a-final-report.md` records exact evidence and remaining EP019 work. The owner reviews this step before a daemon or terminal cutover starts. No spike executable was installed, merged or pushed.
