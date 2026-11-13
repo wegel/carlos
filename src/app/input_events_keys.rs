@@ -23,10 +23,11 @@ use crate::app::native_questions;
 use crate::app::notifications::{is_ctrl_char, is_key_press_like, is_perf_toggle_key};
 use crate::app::render::{compute_input_layout, is_newline_enter};
 use crate::app::selection::MouseDragMode;
-use crate::app::state::{AppState, ApprovalChoice};
+use crate::app::state::AppState;
 use crate::app::turn_submit::{interrupt_active_turn, respond_to_pending_approval};
 use crate::app::{TerminalSize, MSG_TOP};
 use crate::backend::BackendClient;
+use crate::session::approval_state::ApprovalChoice;
 
 use self::input_events_dictation::{
     handle_ctrl_d_dictation, handle_enter_stop_dictation, handle_f7_dictation_profile,

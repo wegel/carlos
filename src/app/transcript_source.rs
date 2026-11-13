@@ -2,11 +2,12 @@
 
 use ratatui::style::Style;
 
-use super::models::Role;
 use super::source_highlight::SourceHighlighter;
 use super::text::wrap_natural_count_by_cells;
 use super::transcript_styles::append_wrapped_styled_logical_lines;
 use super::view_models::{RenderedLine, StyledSegment};
+use crate::session::models::Role;
+
 use crate::theme::COLOR_STEP8;
 
 /// Color the saved read output, keeping terminal colors when a tool supplied them.

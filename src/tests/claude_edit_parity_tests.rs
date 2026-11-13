@@ -5,7 +5,9 @@ use std::time::Instant;
 use serde_json::json;
 
 use super::claude_edit::{accepted, bind_submission, dispatching, send_failed, waiting};
+
 use super::claude_edit_parity_support::{advance, app, event, load, notices, Peer};
+
 use crate::backend::{PromptOrigin, PromptPriority};
 
 #[test]

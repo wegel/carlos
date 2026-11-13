@@ -6,9 +6,10 @@ use super::entry_identity_tests::app;
 use super::head_entry_reference::HeadReference as IndexReference;
 use crate::app::item_history::load_history_from_start_or_resume;
 use crate::app::state::AppState;
-use crate::app::{MessageKind, Role};
 use crate::backend::BackendKind;
 use crate::session::models::EntryDraft;
+use crate::session::models::MessageKind;
+use crate::session::models::Role;
 
 fn old_key(turn: &str, item: &str, part: usize) -> String {
     format!("codex:{}", json!([turn, item, part]))

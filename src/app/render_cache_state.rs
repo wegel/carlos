@@ -1,8 +1,10 @@
 //! Lazy render cache that counts lines eagerly and materializes blocks on demand.
 
 use super::layout_state::TranscriptTheme;
-use super::models::{Message, Role};
 use super::transcript_block::{plan_display_block, BlockPlan};
+use crate::session::models::Message;
+use crate::session::models::Role;
+
 use super::transcript_styles::RenderCountCache;
 use super::view_models::RenderedLine;
 

@@ -6,10 +6,10 @@ use std::path::{Component, Path, PathBuf};
 use serde_json::Value;
 
 use super::entry_key::BackendEntryKey;
-use super::models::Role;
 use super::shell_directory::{directory_prefix, literal_shell_payload};
 use super::state::SessionState;
 use super::tools::{format_tool_item, tool_command};
+use crate::session::models::Role;
 
 /// Keep the displayed program separate from its effective directory and original read authority.
 pub(crate) struct ToolCommandView {

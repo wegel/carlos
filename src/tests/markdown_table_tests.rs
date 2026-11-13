@@ -3,10 +3,11 @@
 use ratatui::style::Modifier;
 
 use super::{
-    build_rendered_block_for_message, count_rendered_block_for_message, visual_width, MessageKind,
-    RenderedLine, Role,
+    build_rendered_block_for_message, count_rendered_block_for_message, visual_width, RenderedLine,
 };
 use super::{selected_text, Selection};
+use crate::session::models::MessageKind;
+use crate::session::models::Role;
 
 fn render(text: &str, role: Role, width: usize) -> Vec<RenderedLine> {
     let message = crate::app::tests::test_message(crate::session::models::EntryDraft {

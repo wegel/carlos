@@ -11,8 +11,8 @@ use anyhow::Result;
 
 use crate::backend::PromptOrigin;
 
-use super::models::Message;
 use super::ralph::{detect_turn_markers, load_ralph_config, RalphConfig, RalphState};
+use crate::session::models::Message;
 
 // --- Continuation Delay ---
 

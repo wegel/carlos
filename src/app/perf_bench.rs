@@ -6,9 +6,12 @@ use anyhow::Result;
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
 
-use super::models::{Message, MessageKind, Role};
 use super::perf::DurationSamples;
 use super::render::{compute_input_layout, render_main_view};
+use crate::session::models::Message;
+use crate::session::models::MessageKind;
+use crate::session::models::Role;
+
 use super::render_cache_state::count_display_block;
 use super::transcript_render::RenderCountCache;
 use super::{AppState, TerminalSize, MSG_TOP};

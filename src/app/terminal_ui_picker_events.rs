@@ -8,10 +8,11 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 
 use super::{PickerAction, PickerState};
-use crate::app::models::ThreadSummary;
+
 use crate::app::notifications::is_ctrl_char;
 use crate::app::picker_render::compute_picker_layout;
 use crate::app::TerminalSize;
+use crate::session::models::ThreadSummary;
 
 pub(super) fn handle_picker_key<F>(
     st: &mut PickerState,

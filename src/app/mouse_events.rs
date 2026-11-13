@@ -3,14 +3,19 @@
 use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
 
 use super::input_events::{ensure_transcript_layout, TerminalEventResult};
+
 use super::mobile_mouse::{
     apply_mobile_mouse_scroll, parse_mobile_mouse_coords, parse_repeated_plain_mobile_pair,
 };
+
 use super::render::{compute_input_layout, normalize_pasted_text};
+
 use super::selection::{
     decide_mouse_drag_mode, normalize_selection_x, shift_selection_focus, MouseDragMode, Selection,
 };
+
 use super::state::{AppState, ModelSettingsField};
+
 use super::TerminalSize;
 use super::MSG_TOP;
 use crate::clipboard::try_copy_clipboard;

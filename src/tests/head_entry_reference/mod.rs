@@ -12,8 +12,8 @@ pub(crate) mod native;
 #[path = "transcript.rs"]
 mod state_transcript;
 mod models {
-    pub(super) use crate::app::{MessageKind, Role};
     pub(super) use crate::session::models::EntryDraft as Message;
+    pub(super) use crate::session::models::{MessageKind, Role};
 }
 mod state {
     pub(super) use super::HeadReference as AppState;

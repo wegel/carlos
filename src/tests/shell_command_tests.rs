@@ -1,6 +1,7 @@
 //! Check RTK and shell wrappers without executing commands from the transcript.
 
 use crate::app::shell_command::{analyze_shell_command, display_shell_command};
+
 use crate::app::shell_read::single_source_path;
 use crate::app::tool_shell::command_summary_from_shell_cmd;
 

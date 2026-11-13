@@ -4,9 +4,9 @@ use std::collections::HashSet;
 
 use serde_json::Value;
 
-use super::models::Role;
 use super::tool_shell::{command_summary_from_shell_cmd, compact_command_path};
 use super::tools::{tool_command, tool_name, tool_output_text, value_at_path};
+use crate::session::models::Role;
 
 #[path = "tool_format_command.rs"]
 mod command;

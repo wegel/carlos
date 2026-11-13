@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 
 use super::{
     parse_cli_args, submit_dequeued_turn_text, submit_turn_text, submit_turn_text_with_history,
-    AppState, Backend, Role,
+    AppState, Backend,
 };
 use crate::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
 use crate::grok_backend::{
@@ -18,6 +18,7 @@ use crate::grok_backend::{
     parse_rewind_points, resolve_rewind_target, translate_grok_notification_for_test,
     GrokRewindPoint, GrokRuntimeSettings, GrokTranslationState,
 };
+use crate::session::models::Role;
 
 fn collect_lines(state: &mut GrokTranslationState, events: &[(&str, Value)]) -> Vec<String> {
     let mut out = Vec::new();

@@ -5,13 +5,16 @@ use serde_json::json;
 
 use super::{
     build_rendered_block_for_message, build_rendered_lines, count_rendered_block_for_message,
-    AppState, Message, MessageKind, Role,
+    AppState,
 };
 use crate::app::item_history::append_history_from_thread;
 use crate::app::notifications::handle_notification_line;
 use crate::app::source_highlight::SourceHighlighter;
 use crate::app::transcript_render::count_rendered_block_for_message_cached;
 use crate::app::transcript_styles::RenderCountCache;
+use crate::session::models::Message;
+use crate::session::models::MessageKind;
+use crate::session::models::Role;
 use crate::session::tool_source::source_path_from_item;
 use crate::theme::{COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_STEP2};
 
@@ -215,7 +218,7 @@ fn read_metadata_reaches_live_and_resumed_transcripts() {
             app.session.messages()[0].file_path.as_deref(),
             Some("main.rs")
         );
-        let lines = build_rendered_lines(&app.session.messages(), 120);
+        let lines = build_rendered_lines(app.session.messages(), 120);
         assert_eq!(lines[0].text, "1:let value = \"hello\";");
         assert_ne!(
             token_color(&lines, "let value", "let"),
@@ -234,7 +237,7 @@ fn saved_command_reads_color_source_but_leave_command_and_status_plain() {
             "aggregatedOutput":"let value = \"hello\";", "exitCode":0
         }]}]}),
     );
-    let lines = build_rendered_lines(&app.session.messages(), 120);
+    let lines = build_rendered_lines(app.session.messages(), 120);
     assert_eq!(lines[0].text, "$ cat main.rs");
     assert_eq!(lines[0].styled_segments[0].style, Style::default());
     assert_ne!(

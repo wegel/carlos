@@ -2,11 +2,16 @@
 
 use ratatui::style::{Color, Modifier, Style};
 
-use super::models::{Message, MessageKind, Role};
 use super::text::{split_at_cells, visual_width};
+use crate::session::models::Message;
+use crate::session::models::MessageKind;
+use crate::session::models::Role;
+
 use super::tool_summary::tool_gutter;
 use super::transcript_spacing::{inline_entry, single_line_reasoning};
+
 use super::view_models::{RenderedLine, StyledSegment};
+
 use crate::theme::{role_gutter_fg, role_gutter_symbol};
 
 #[derive(PartialEq, Eq)]

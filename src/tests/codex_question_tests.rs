@@ -4,12 +4,14 @@ use crossterm::event::Event;
 use serde_json::{json, Value};
 
 use super::codex_question_support::{app, field_text, question, receive, Peer};
+
 use crate::app::codex_callbacks::{edited, hide_nonblocking, next};
+
 use crate::app::codex_reply::respond;
 use crate::app::input_events::handle_terminal_event;
-use crate::app::state::ApprovalChoice;
 use crate::app::TerminalSize;
 use crate::session::actions::ServerRequestAction;
+use crate::session::approval_state::ApprovalChoice;
 use crate::session::codex::callbacks::CallbackKey;
 
 #[test]

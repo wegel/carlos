@@ -2,8 +2,8 @@
 
 use super::history_identity::{HistoryEntry, HistoryMode};
 use super::models::{EntryDraft, Role, TurnStatus};
-use super::ralph::RalphConfig;
 use super::state::SessionState;
+use crate::session::ralph::RalphConfig;
 
 #[test]
 fn turns_keep_the_expected_transcript_suffix() {

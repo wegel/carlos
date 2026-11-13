@@ -4,9 +4,10 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use serde_json::json;
 
 use super::approval_lifetime_support::{accept, app, callback, key, payloads, server, Client};
-use super::state::ApprovalRequestKind;
+
 use crate::backend::BackendKind;
 use crate::session::approval_state::ApprovalQueue;
+use crate::session::approval_state::ApprovalRequestKind;
 
 #[test]
 fn a_new_helper_cannot_inherit_consent_for_a_reused_native_id() {
@@ -268,6 +269,7 @@ fn the_shared_invariant_checker_rejects_an_orphaned_card_hint() {
 #[test]
 fn codex_retirement_removes_only_discarded_card_hints() {
     use super::approval_lifetime_support::{request, METHODS};
+
     for tail in ["active", "queued", "fork", "closed", "reconnect", "history"] {
         let client = Client::new(BackendKind::Codex);
         let mut app = app(BackendKind::Codex);

@@ -3,8 +3,8 @@
 use anyhow::Result;
 use serde_json::Value;
 
-use super::models::ThreadSummary;
 use crate::protocol_params::extract_result_object;
+use crate::session::models::ThreadSummary;
 
 /// Parse supported thread summaries, skipping malformed rows as before.
 pub(crate) fn parse_thread_list(response_line: &str) -> Result<Vec<ThreadSummary>> {

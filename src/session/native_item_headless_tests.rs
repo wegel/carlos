@@ -4,9 +4,9 @@ use serde_json::{json, Value};
 
 use super::item_changes::ItemChanges;
 use super::item_history::replace_history_from_thread;
-use super::models::Role;
 use super::notification_items::handle_item_notification;
 use super::state::SessionState;
+use crate::session::models::Role;
 
 #[test]
 fn native_tool_completion_keeps_streamed_output_without_any_view() {

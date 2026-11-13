@@ -2,9 +2,9 @@
 
 use serde_json::Value;
 
-use super::claude_question_state::safe_text;
-use super::codex_panel_state::PanelId;
 use super::state::AppState;
+use crate::session::codex::panel_state::PanelId;
+use crate::session::text::safe_text;
 
 /// Keep native state, control errors and ownership visible instead of relying on the status bar.
 pub(super) fn body(app: &AppState) -> Vec<String> {

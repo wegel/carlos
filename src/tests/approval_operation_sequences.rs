@@ -8,10 +8,13 @@ use std::time::Duration;
 use serde_json::{json, Value};
 use uuid::Uuid;
 
-use super::state::{AppState, ApprovalChoice, ApprovalRequestDraft, ApprovalRequestKind};
+use super::state::AppState;
 use super::turn_approval::respond_to_pending_approval;
 use crate::backend::{BackendClient, BackendKind, EventReceiver};
+use crate::session::approval_state::ApprovalChoice;
 use crate::session::approval_state::ApprovalQueue;
+use crate::session::approval_state::ApprovalRequestDraft;
+use crate::session::approval_state::ApprovalRequestKind;
 use crate::session::entry_id::EntryId;
 use crate::session::history_identity::HistoryMode;
 

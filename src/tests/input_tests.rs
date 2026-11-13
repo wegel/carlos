@@ -12,11 +12,13 @@ use super::{
     context_usage_label, decide_mouse_drag_mode, handle_terminal_event, is_key_press_like,
     is_mobile_mouse_key_candidate, is_newline_enter, is_priority_server_line, json,
     kitt_head_index, normalize_pasted_text, parse_mobile_mouse_coords,
-    parse_repeated_plain_mobile_pair, prioritize_events, AppState, ContextUsage, DictationPhase,
+    parse_repeated_plain_mobile_pair, prioritize_events, AppState, DictationPhase,
     DictationProfileState, DurationSamples, Event, KeyCode, KeyEventKind, KeyModifiers,
-    MobileMouseConsume, MouseDragMode, PerfMetrics, Role, TerminalSize, UiEvent,
+    MobileMouseConsume, MouseDragMode, PerfMetrics, TerminalSize, UiEvent,
 };
 use crate::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
+use crate::session::context_usage::ContextUsage;
+use crate::session::models::Role;
 
 struct ApprovalRespondMock {
     responses: std::sync::Mutex<Vec<(Value, Value)>>,

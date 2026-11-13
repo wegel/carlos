@@ -3,12 +3,14 @@
 use serde_json::{json, Value};
 
 use super::super::codex_question_support::{app, question, receive};
+
 use super::split_peer::ValidationPeer;
 use crate::app::codex_callbacks::{checked, reply_hint, retire};
+
 use crate::app::codex_reply::respond;
 use crate::app::native_questions::draft;
-use crate::app::state::ApprovalChoice;
 use crate::session::actions::ServerRequestAction;
+use crate::session::approval_state::ApprovalChoice;
 
 #[test]
 fn callback_ids_keep_json_types_and_both_original_byte_bounds() {
@@ -129,6 +131,7 @@ fn schema_preflight_keeps_busy_notice_and_worker_failure_keeps_the_candidate() {
 #[test]
 fn clear_and_native_reset_keep_the_unresolved_process_callback_and_editor() {
     use crate::app::approval_lifetime_support::{app, callback, Client};
+
     use crate::app::native_questions::draft_mut;
     use crate::backend::BackendKind;
 

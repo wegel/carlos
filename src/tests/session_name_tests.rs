@@ -9,6 +9,7 @@ use serde_json::json;
 use super::{
     handle_notification_line, load_history_from_start_or_resume, render_main_view, AppState,
 };
+
 use crate::theme::COLOR_STEP8;
 
 fn render(app: &mut AppState, width: u16) -> Buffer {

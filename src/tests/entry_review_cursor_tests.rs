@@ -4,7 +4,7 @@ use serde_json::json;
 
 use crate::app::notifications::handle_server_message_line;
 use crate::app::state::AppState;
-use crate::app::Role;
+use crate::session::models::Role;
 
 #[test]
 fn review_cursor_aliases_stay_bounded_for_one_native_entry() {

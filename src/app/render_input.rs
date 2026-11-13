@@ -4,7 +4,10 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui_textarea::{Input as TextInput, Key as TextKey};
 
 use super::text::{char_to_byte_idx, visual_width, wrap_input_line};
-use super::{AppState, Message, Role, TerminalSize};
+
+use super::{AppState, TerminalSize};
+use crate::session::models::Message;
+use crate::session::models::Role;
 
 // --- Types ---
 

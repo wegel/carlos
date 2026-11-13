@@ -7,12 +7,12 @@ use serde_json::Value;
 
 use super::item_changes::ItemChanges;
 use super::item_receive::{receive_summary, record_prompt, upsert_native_activity};
-#[cfg(test)]
-use super::models::TurnStatus;
 use super::models::{MessageKind, Role};
 use super::state::SessionState;
 use crate::protocol_params::extract_result_object;
 use crate::session::history_identity::HistoryMode;
+#[cfg(test)]
+use crate::session::models::TurnStatus;
 
 use super::item_history_draft as history_draft;
 

@@ -4,6 +4,7 @@ use ratatui::buffer::Buffer;
 use ratatui::style::Style;
 
 use super::{draw_box_border, draw_str, fill_rect};
+
 use crate::app::perf::PerfMetrics;
 use crate::app::text::visual_width;
 use crate::app::TerminalSize;

@@ -4,8 +4,10 @@ use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
 use super::{compute_overlay_box, content_width, OverlayBox};
+
 use crate::app::render::draw_str;
 use crate::app::state::{AppState, ModelSettingsField};
+
 use crate::app::text::visual_width;
 use crate::app::view_models::TerminalSize;
 use crate::theme::{COLOR_DIM, COLOR_STEP6, COLOR_TEXT};

@@ -8,6 +8,7 @@ use anyhow::{Context, Result};
 use serde_json::{json, Value};
 
 use super::layout_state::{ThemePreferences, TranscriptTheme};
+
 use super::tool_output_state::ToolOutputMode;
 
 fn preferences_path() -> Option<PathBuf> {

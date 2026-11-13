@@ -2,9 +2,10 @@
 
 use serde_json::json;
 
-use super::{handle_notification_line, AppState, Role};
-use crate::app::models::TurnStatus;
+use super::{handle_notification_line, AppState};
 use crate::claude_backend::claude_interrupted_turn_notification;
+use crate::session::models::Role;
+use crate::session::models::TurnStatus;
 
 #[test]
 fn replayed_start_cannot_reopen_a_terminal_turn() {

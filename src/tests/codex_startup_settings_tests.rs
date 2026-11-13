@@ -3,6 +3,7 @@
 use serde_json::json;
 
 use super::codex_question_support::{app, Peer};
+
 use crate::app::codex_settings::tick;
 use crate::app::input_events::handle_terminal_event;
 use crate::app::TerminalSize;

@@ -4,8 +4,10 @@ use serde_json::json;
 
 use super::{
     format_tool_item, handle_notification_line, parse_ssh_remote_command, strip_terminal_controls,
-    strip_terminal_controls_preserving_sgr, AppState, MessageKind, Role,
+    strip_terminal_controls_preserving_sgr, AppState,
 };
+use crate::session::models::MessageKind;
+use crate::session::models::Role;
 
 include!("tool_tests/command_summaries.rs");
 

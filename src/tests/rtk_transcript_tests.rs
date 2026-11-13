@@ -2,10 +2,9 @@
 
 use serde_json::{json, Value};
 
-use super::{
-    append_history_from_thread, format_tool_item, handle_notification_line, AppState, Role,
-};
+use super::{append_history_from_thread, format_tool_item, handle_notification_line, AppState};
 use crate::app::tool_output_state::ToolOutputMode;
+use crate::session::models::Role;
 
 fn read_item() -> Value {
     json!({"type":"commandExecution", "id":"rtk-read",

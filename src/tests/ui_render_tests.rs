@@ -7,10 +7,13 @@ use super::{
     extract_diff_blocks, input_cursor_visual_position, json, normalize_styled_segments_for_part,
     params_turn_interrupt, ralph, render_main_view, selected_text, shift_selection_focus,
     slice_by_cells, visual_width, wrap_input_line, wrap_input_line_count, wrap_natural_by_cells,
-    wrap_natural_count_by_cells, AppState, Buffer, DictationProfileState, Message, MessageKind,
-    Rect, RenderedLine, Role, Selection, Style, StyledSegment, TerminalSize, ThreadSummary,
-    COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_PRIMARY, COLOR_TEXT,
+    wrap_natural_count_by_cells, AppState, Buffer, DictationProfileState, Rect, RenderedLine,
+    Selection, Style, StyledSegment, TerminalSize, COLOR_DIFF_ADD, COLOR_DIFF_REMOVE,
+    COLOR_PRIMARY, COLOR_TEXT,
 };
+use crate::session::models::MessageKind;
+use crate::session::models::Role;
+use crate::session::models::ThreadSummary;
 
 fn usable_dictation_profile() -> DictationProfileState {
     DictationProfileState {

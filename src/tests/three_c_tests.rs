@@ -4,8 +4,7 @@ use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
 
-use super::{render_main_view, AppState, Message, MessageKind, Role, TerminalSize};
-use crate::app::models::ToolOutputDetails;
+use super::{render_main_view, AppState, TerminalSize};
 use crate::app::mouse_events::handle_mouse_event;
 use crate::app::tool_output_state::ToolOutputMode;
 use crate::app::tool_summary::summary_line;
@@ -13,8 +12,14 @@ use crate::app::transcript_render::{
     build_rendered_block_for_message, count_rendered_block_for_message,
     count_rendered_block_for_message_cached,
 };
+use crate::session::models::Message;
+use crate::session::models::MessageKind;
+use crate::session::models::Role;
+use crate::session::models::ToolOutputDetails;
+
 use crate::app::transcript_styles::RenderCountCache;
 use crate::app::view_models::{DisplayKind, DisplayMessage};
+
 use crate::theme::{context_color, COLOR_DIFF_REMOVE, COLOR_GUTTER_USER, COLOR_TOOL_EDIT};
 
 fn failed_read() -> Message {

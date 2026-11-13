@@ -6,8 +6,10 @@ use std::time::Duration;
 
 use super::claude_question_state::NativeDraft;
 use super::input_events::TerminalEventResult;
-use super::state::{AppState, ApprovalChoice};
+use super::state::AppState;
 use super::turn_submit::{interrupt_active_turn, respond_to_pending_approval};
+use crate::session::approval_state::ApprovalChoice;
+
 use crate::backend::BackendClient;
 use crate::clipboard::try_copy_clipboard;
 use crate::session::approval_state::ApprovalQueue;

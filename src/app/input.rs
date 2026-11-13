@@ -34,9 +34,11 @@ use super::input_events::ensure_transcript_layout;
 #[cfg(test)]
 pub(super) use super::input_events::is_mobile_mouse_key_candidate;
 use super::notifications::{animation_poll_timeout, animation_tick};
+
 use super::render::render_main_view;
 use super::terminal_ui::with_terminal;
 use super::{AppState, TerminalSize};
+
 use crate::backend::{BackendClient, EventReceiver};
 use crate::event::UiEvent;
 

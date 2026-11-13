@@ -3,7 +3,6 @@
 
 use serde_json::{json, Value};
 
-use super::models::Role;
 use super::shell_command::display_shell_command;
 use super::tool_diff::is_probably_diff_text;
 pub(crate) use super::tool_diff::{command_execution_diff_output, extract_diff_blocks};
@@ -12,6 +11,7 @@ use super::tool_shell::command_execution_action_command;
 pub(crate) use super::tool_shell::{
     command_summary_from_shell_cmd, strip_terminal_controls, strip_terminal_controls_preserving_sgr,
 };
+use crate::session::models::Role;
 
 // --- JSON Utilities ---
 

@@ -5,10 +5,10 @@ use anyhow::Result;
 #[cfg(test)]
 use serde_json::Value;
 
-use super::models::Role;
 use super::state::AppState;
 #[cfg(test)]
 use crate::session::actions::ServerRequestAction;
+use crate::session::models::Role;
 
 /// Start the new helper generation before accepting its callbacks or metadata.
 #[cfg(test)]

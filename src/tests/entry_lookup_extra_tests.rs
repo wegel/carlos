@@ -7,8 +7,9 @@ use super::head_entry_reference::native::NativeUserHistory;
 use super::head_entry_reference::HeadReference;
 use crate::app::item_history::replace_history_from_thread;
 use crate::app::state::AppState;
-use crate::app::{MessageKind, Role};
 use crate::backend::BackendKind;
+use crate::session::models::MessageKind;
+use crate::session::models::Role;
 use crate::session::models::ToolOutputDetails;
 
 fn check(app: &AppState, old: &HeadReference) {
@@ -192,6 +193,7 @@ fn attach_tool(app: &mut AppState, old: &mut HeadReference, key: &str, bits: u64
 
 fn failed_boundary(app: &mut AppState, old: &mut HeadReference, operation: u64) {
     use crate::app::claude_session_history::{receive, switch_session};
+
     use crate::app::item_history::load_history_from_start_or_resume;
     use crate::app::notifications::handle_server_message_line;
 

@@ -2,8 +2,9 @@
 
 use crate::session::entry_key::BackendEntryKey;
 
-use super::models::{MessageKind, Role};
 use super::state::AppState;
+use crate::session::models::MessageKind;
+use crate::session::models::Role;
 
 impl AppState {
     // --- Item Identity ---

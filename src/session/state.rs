@@ -8,13 +8,13 @@ use super::codex::callbacks::CodexCallbacks;
 use super::context_usage::ContextUsage;
 use super::entry_key::BackendEntryKey;
 use super::input_history::PromptHistory;
-use super::models::TurnStatus;
 use super::ralph_runtime_state::RalphRuntimeState;
 use super::rate_limits::RateLimits;
 use super::runtime_settings::{RuntimeDefaults, RuntimeSettingsState};
 use super::summary_state::SummaryState;
 use super::transcript::Transcript;
 use super::turns::TurnBoundary;
+use crate::session::models::TurnStatus;
 
 /// Own the facts that remain true without a terminal view.
 #[cfg_attr(test, derive(Debug))]

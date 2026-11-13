@@ -9,9 +9,11 @@ use ratatui::layout::Rect;
 use serde_json::{json, Value};
 
 use super::input_events::handle_terminal_event;
-use super::state::{AppState, ApprovalRequestDraft, ApprovalRequestKind};
+use super::state::AppState;
 use super::view_models::TerminalSize;
 use crate::backend::{BackendClient, BackendKind, EventReceiver};
+use crate::session::approval_state::ApprovalRequestDraft;
+use crate::session::approval_state::ApprovalRequestKind;
 
 pub(super) struct Client {
     pub(super) kind: BackendKind,

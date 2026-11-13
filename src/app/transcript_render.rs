@@ -3,9 +3,12 @@
 #[cfg(test)]
 use super::layout_state::TranscriptTheme;
 #[cfg(test)]
-use super::models::{Message, Role};
-#[cfg(test)]
 use super::transcript_block::{has_visible_content, BlockPlan};
+#[cfg(test)]
+use crate::session::models::Message;
+#[cfg(test)]
+use crate::session::models::Role;
+
 #[cfg(test)]
 pub(super) use super::transcript_styles::normalize_styled_segments_for_part;
 pub(super) use super::transcript_styles::RenderCountCache;

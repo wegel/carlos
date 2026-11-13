@@ -6,7 +6,9 @@ use std::collections::VecDeque;
 use ansi_to_tui::IntoText as _;
 
 use super::style_convert::{core_style_to_style, CarlosMarkdownStyleSheet};
+
 use super::text::{split_at_cells, visual_width};
+
 use super::view_models::StyledSegment;
 use tui_markdown::{
     from_str_with_options as markdown_from_str_with_options, Options as MarkdownOptions,

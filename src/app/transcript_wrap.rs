@@ -8,13 +8,16 @@ use std::collections::{HashMap, VecDeque};
 
 use ratatui::style::{Modifier, Style};
 
-use super::models::Role;
 use super::text::{visual_width, wrap_natural_by_cells, wrap_natural_count_by_cells};
+use crate::session::models::Role;
+
 use super::transcript_styles::{
     ansi_line_segments, is_fence_delimiter, markdown_line_segments,
     normalize_styled_segments_for_part, styled_plain_text, take_styled_segments_by_cells,
 };
+
 use super::view_models::{RenderedLine, StyledSegment};
+
 use crate::theme::{COLOR_REASONING, COLOR_ROW_USER};
 
 pub(super) use self::transcript_wrap_counting::{

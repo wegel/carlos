@@ -4,11 +4,11 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use super::models::{Role, TurnStatus};
-#[cfg(test)]
-use super::ralph::RalphConfig;
 use super::ralph_runtime_state::QueuedTurnInput;
 use super::state::SessionState;
 use super::transcript_updates::SessionUpdate;
+#[cfg(test)]
+use crate::session::ralph::RalphConfig;
 
 /// Keep the suffix boundary even when no entry existed at turn start.
 #[cfg_attr(test, derive(Debug))]

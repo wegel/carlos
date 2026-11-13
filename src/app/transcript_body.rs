@@ -2,14 +2,19 @@
 
 use ratatui::style::{Color, Style};
 
-use super::models::{Message, MessageKind, Role};
 use super::transcript_diff::{append_wrapped_diff_lines, count_wrapped_diff_lines};
+use crate::session::models::Message;
+use crate::session::models::MessageKind;
+use crate::session::models::Role;
+
 use super::transcript_source::{append_source_lines, count_source_lines};
+
 use super::transcript_styles::{
     append_wrapped_ansi_lines, append_wrapped_markdown_lines, append_wrapped_message_lines,
     count_wrapped_ansi_lines_cached, count_wrapped_markdown_lines,
     count_wrapped_message_lines_cached, RenderCountCache,
 };
+
 use super::view_models::{DisplayKind, DisplayMessage, RenderedLine, StyledSegment};
 
 enum BodyKind {

@@ -6,8 +6,11 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 use serde_json::{json, Value};
 
-use super::state::{AppState, ApprovalChoice, ApprovalRequestKind};
+use super::state::AppState;
 use super::view_hint_support::{key, request, snapshot, Client};
+use crate::session::approval_state::ApprovalChoice;
+use crate::session::approval_state::ApprovalRequestKind;
+
 use crate::backend::BackendKind;
 
 #[test]
@@ -65,7 +68,7 @@ pub(super) fn sequences() -> Value {
 }
 
 fn kinds() -> [ApprovalRequestKind; 10] {
-    use super::state::ApprovalRequestKind as K;
+    use crate::session::approval_state::ApprovalRequestKind as K;
     [
         K::CommandExecution,
         K::FileChange,

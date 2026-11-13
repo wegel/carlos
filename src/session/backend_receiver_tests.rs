@@ -6,10 +6,10 @@ use std::time::Duration;
 use serde_json::{json, Value};
 
 use super::backend_test_support::receive;
-use super::models::Role;
 use super::state::SessionState;
 use crate::backend::{BackendClient, PromptOrigin, PromptPriority};
 use crate::protocol::AppServerClient;
+use crate::session::models::Role;
 
 #[test]
 fn codex_receiver_drives_shared_facts_and_exact_error_reply_without_a_view() {

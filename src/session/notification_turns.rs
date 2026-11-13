@@ -3,8 +3,8 @@
 use serde_json::Value;
 
 use super::common_update::CommonUpdate;
-use super::models::TurnStatus;
 use super::state::SessionState;
+use crate::session::models::TurnStatus;
 
 /// Track the active turn reported by the backend.
 pub(in crate::session) fn handle_turn_started(

@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use super::super::entry_id::EntryId;
-use super::super::models::Message;
+use crate::session::models::Message;
 
 #[derive(Default)]
 #[cfg_attr(test, derive(Debug))]

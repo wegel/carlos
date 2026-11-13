@@ -3,8 +3,8 @@
 use super::history_identity::HistoryMode;
 use super::item_changes::ItemChanges;
 use super::item_history_draft::{HistoryDraft, HistoryRecord};
-use super::models::MessageKind;
 use super::state::SessionState;
+use crate::session::models::MessageKind;
 
 impl SessionState {
     /// Adopt all rows before restoring prompt, tool and turn facts in native order.

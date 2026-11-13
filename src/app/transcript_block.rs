@@ -1,14 +1,20 @@
 //! Plan headings, labels, body width, and spacing once for both count and draw passes.
 
 use super::flow_transcript::{inline_reasoning, section_header};
+
 use super::layout_state::TranscriptTheme;
-use super::models::{Message, MessageKind, Role};
 use super::tool_output_state::compact_tool_message;
 use super::tool_summary::{summary_lines, tool_failed, tool_gutter};
+use crate::session::models::Message;
+use crate::session::models::MessageKind;
+use crate::session::models::Role;
+
 use super::transcript_body::{prepend_symbol, BlockBody};
+
 use super::transcript_spacing::should_insert_separator_between;
 use super::transcript_styles::RenderCountCache;
 use super::view_models::{DisplayKind, DisplayMessage, RenderedLine};
+
 use crate::theme::role_gutter_fg;
 
 /// Keep only small heading/label rows eager; large bodies remain lazy.

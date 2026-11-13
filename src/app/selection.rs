@@ -1,6 +1,7 @@
 //! Mouse-drag text selection, copy extraction, and drag-mode detection.
 
 use super::{text::slice_by_cells, RenderedLine};
+
 use crate::theme::TOUCH_SCROLL_DRAG_MIN_ROWS;
 
 // --- Selection Types ---

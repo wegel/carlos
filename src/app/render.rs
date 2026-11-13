@@ -10,7 +10,9 @@ use ratatui::style::Style;
 
 use super::render_transcript::draw_transcript;
 use super::text::{slice_by_cells, visual_width};
+
 use super::{AppState, RenderedLine, TerminalSize, MSG_TOP};
+
 use crate::theme::{COLOR_STEP2, COLOR_STEP8, COLOR_TEXT};
 
 use self::render_sections::{cursor_position, draw_input_area, draw_overlays};

@@ -3,8 +3,8 @@
 use anyhow::Result;
 
 use super::item_changes::ItemChanges;
-use super::models::Role;
 use super::state::SessionState;
+use crate::session::models::Role;
 
 impl SessionState {
     /// Keep native goals and a newly requested Carlos loop from driving the same thread.

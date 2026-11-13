@@ -4,13 +4,16 @@ use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
 use super::{draw_str, fill_rect};
+
 use crate::app::overlay_render::{
     draw_approval_overlay, draw_help_overlay, draw_model_settings_overlay, draw_perf_overlay,
     model_settings_cursor_position,
 };
+
 use crate::app::render_input::InputLayout;
 use crate::app::state::AppState;
 use crate::app::text::{split_at_cells, visual_width};
+
 use crate::app::view_models::TerminalSize;
 use crate::theme::{COLOR_DIFF_REMOVE, COLOR_GUTTER_USER, COLOR_STEP2, COLOR_STEP8, COLOR_TEXT};
 

@@ -1,7 +1,8 @@
 //! Share blank-line rules between the desktop gutter and phone section layout.
 
-use super::models::{Message, Role};
 use super::transcript_styles::count_wrapped_markdown_lines;
+use crate::session::models::Message;
+use crate::session::models::Role;
 
 /// Group reasoning with tools only when its text fits one row at this width.
 pub(super) fn single_line_reasoning(message: &Message, width: usize) -> bool {

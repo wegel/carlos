@@ -4,9 +4,10 @@ use serde_json::json;
 
 use super::codex_question_support::app;
 use super::codex_reconnect_support::{ready, receive, snapshot, Peer};
+
 use crate::app::item_history::replace_history_from_thread;
-use crate::app::models::Role;
 use crate::app::notifications::handle_server_message_line;
+use crate::session::models::Role;
 
 fn message(app: &mut crate::app::state::AppState, turn: &str, kind: &str, text: &str) {
     handle_server_message_line(
@@ -186,6 +187,7 @@ fn a_reused_process_id_with_a_different_native_item_never_retargets_stop() {
 #[test]
 fn socket_option_requires_codex_conversations_and_resume_hints_quote_exact_paths() {
     use crate::app::cli::{parse_cli_args, resume_hint_with_socket, Backend};
+
     use std::path::Path;
     let args = |values: &[&str]| {
         values

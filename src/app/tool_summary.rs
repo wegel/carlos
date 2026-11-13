@@ -4,9 +4,13 @@ use std::borrow::Cow;
 
 use ratatui::style::{Color, Modifier, Style};
 
-use super::models::{Message, MessageKind, Role};
 use super::text::{split_at_cells, visual_width, wrap_natural_by_cells};
+use crate::session::models::Message;
+use crate::session::models::MessageKind;
+use crate::session::models::Role;
+
 use super::view_models::{DisplayKind, DisplayMessage, RenderedLine, StyledSegment};
+
 use crate::session::tool_diff_summary::diff_summary;
 use crate::theme::{
     COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_GUTTER_TOOL_CALL, COLOR_STEP8, COLOR_TOOL_EDIT,

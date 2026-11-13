@@ -9,6 +9,7 @@ use serde_json::{json, Value};
 use super::approval_lifetime_support::{
     accept, app, callback, event, fill, key, payloads, request, server, snapshot, Client, METHODS,
 };
+
 use super::state::AppState;
 use crate::backend::BackendKind;
 use crate::event::UiEvent;

@@ -5,9 +5,10 @@ use anyhow::Result;
 use serde_json::{json, Map, Value};
 
 use super::claude_question_field::AnswerField;
-use super::claude_question_state::{safe_label, NativeDraft};
+use super::claude_question_state::NativeDraft;
 #[cfg(test)]
-use super::state::ApprovalRequestDraft;
+use crate::session::approval_state::ApprovalRequestDraft;
+use crate::session::text::safe_label;
 
 /// Build the local editor from the session's plain request description.
 #[cfg(test)]

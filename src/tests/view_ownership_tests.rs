@@ -6,9 +6,11 @@ use std::time::Duration;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use serde_json::{json, Value};
 
-use super::state::{AppState, ApprovalChoice, ApprovalRequestKind};
+use super::state::AppState;
 use super::view_models::TerminalSize;
 use crate::backend::{BackendClient, BackendKind, EventReceiver};
+use crate::session::approval_state::ApprovalChoice;
+use crate::session::approval_state::ApprovalRequestKind;
 
 struct NoBackend;
 
@@ -105,6 +107,7 @@ fn review_ownership_first_allow_must_preserve_request_facts() {
 #[test]
 fn every_local_hint_and_first_consent_leave_all_session_fields_unchanged() {
     use super::view_hint_support::{key, request, Client};
+
     let kinds = [
         ApprovalRequestKind::CommandExecution,
         ApprovalRequestKind::FileChange,
@@ -186,6 +189,7 @@ fn native_answer_editors_keep_session_facts_until_they_send_an_answer() {
 #[test]
 fn duplicate_adoption_keeps_initial_guidance_and_second_accept_but_clears_extra_lines() {
     use super::approval_lifetime_support::{accept, app, callback, fill, Client};
+
     for through_answer_target in [false, true] {
         for fields in [false, true] {
             let client = Client::new(crate::backend::BackendKind::Claude);
@@ -269,6 +273,7 @@ fn card_capture(app: &AppState) -> Value {
 #[test]
 fn queued_and_retired_copies_cannot_reuse_an_armed_card_id() {
     use super::approval_lifetime_support::{accept, app, callback, Client};
+
     for queued in [false, true] {
         let client = Client::new(BackendKind::Claude);
         let mut app = app(BackendKind::Claude);
@@ -318,6 +323,7 @@ fn queued_and_retired_copies_cannot_reuse_an_armed_card_id() {
 #[test]
 fn retired_card_cannot_return_through_queue_focus_or_answer_a_reused_native_id() {
     use super::approval_lifetime_support::{accept, app, callback, Client};
+
     use crate::session::approval_state::ApprovalQueue;
     for replacement in [false, true] {
         let client = Client::new(BackendKind::Claude);

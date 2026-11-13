@@ -1,6 +1,6 @@
 //! Count diff changes and split files without terminal styles or layout.
 
-use super::models::Message;
+use crate::session::models::Message;
 
 /// Summarize all changed lines, naming one file or the number of files.
 pub(crate) fn diff_summary(message: &Message) -> String {

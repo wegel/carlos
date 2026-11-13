@@ -4,12 +4,14 @@ use super::{
     contains_terminal_escapes, count_ascii_multiline_by_cells,
     count_ascii_multiline_by_cells_cached, fast_reasoning_summary_plain_text, RenderCountCache,
 };
-use crate::app::models::Role;
+
 use crate::app::text::wrap_natural_count_by_cells;
 use crate::app::tools::strip_terminal_controls;
 use crate::app::transcript_styles::{
     ansi_line_segments, is_fence_delimiter, markdown_line_segments, styled_plain_text,
 };
+use crate::session::models::Role;
+
 use crate::app::view_models::StyledSegment;
 
 pub(in crate::app) fn count_wrapped_message_lines(role: Role, text: &str, width: usize) -> usize {

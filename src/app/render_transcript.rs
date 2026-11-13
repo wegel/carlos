@@ -4,9 +4,11 @@ use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
 use super::flow_transcript::inline_reasoning;
-use super::models::{Message, Role};
 use super::notifications::spinner_frame;
 use super::render::{draw_rendered_line, draw_str, fill_rect};
+use crate::session::models::Message;
+use crate::session::models::Role;
+
 use super::selection::compute_selection_range;
 use super::state::AppState;
 use super::text::visual_width;

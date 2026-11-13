@@ -5,6 +5,7 @@ use serde_json::{json, Value};
 use crate::app::claude_models::{
     apply_capabilities, observe_model, prepare_saved_choices, prompt_choices,
 };
+
 use crate::app::state::AppState;
 use crate::session::claude::ClaudePhase;
 use crate::session::runtime_settings::RuntimeDefaults;

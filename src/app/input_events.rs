@@ -12,6 +12,7 @@ use std::time::Instant;
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 
 use super::mouse_events::{handle_mouse_event, handle_paste_event};
+
 use super::state::AppState;
 use super::TerminalSize;
 use crate::backend::BackendClient;

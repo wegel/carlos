@@ -3,8 +3,11 @@
 use serde_json::Value;
 
 use super::codex_callbacks::{apply_retired, reply_error, reply_hint};
-use super::state::{AppState, ApprovalChoice, ApprovalRequestKind};
+
+use super::state::AppState;
 use crate::backend::BackendClient;
+use crate::session::approval_state::ApprovalChoice;
+use crate::session::approval_state::ApprovalRequestKind;
 use crate::session::codex::callback_reply::{CallbackAnswered, CallbackInterrupt};
 use crate::session::codex::callbacks::CallbackKey;
 use crate::session::entry_id::EntryId;
