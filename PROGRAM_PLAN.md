@@ -36,7 +36,7 @@ the reasons. Read it before any work on ExecPlan 016 or later.
 
 ## Active ExecPlans
 
-- [ ] `.agents/execplans/EXECPLAN_016_session_state_split.md` (step 1 of 7 of the daemon split)
+No daemon-split ExecPlan is active. ExecPlan 016 is complete; ExecPlan 017 has not started.
 
 ExecPlans 017 to 022 are listed in `docs/engine-architecture.md`. Each one is written when the
 plan before it ends.
@@ -55,3 +55,4 @@ daemon split started.
 - [x] `.agents/done/EXECPLAN_006_claude_exit_plan_mode.md`
 - [x] `.agents/done/EXECPLAN_007_code_quality_bar.md`
 - [x] `.agents/done/EXECPLAN_008_dictation.md`
+- [x] `.agents/done/EXECPLAN_016_session_state_split.md` (step 1 of 7 of the daemon split; completed 2026-11-13)
