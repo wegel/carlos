@@ -10,6 +10,7 @@ use crate::backend::BackendClient;
 // --- Data Types ---
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+/// Keep the model and reasoning choices reported by a native thread.
 pub struct ThreadRuntimeSettings {
     pub model: Option<String>,
     pub effort: Option<String>,
@@ -34,6 +35,7 @@ pub(crate) fn params_initialize() -> Value {
     })
 }
 
+/// Build the JSON parameters for starting a native thread.
 pub fn params_thread_start(cwd: &str) -> Value {
     json!({
         "experimentalRawEvents": false,
@@ -41,6 +43,7 @@ pub fn params_thread_start(cwd: &str) -> Value {
     })
 }
 
+/// Build the JSON parameters for resuming a saved native thread.
 pub fn params_thread_resume(thread_id: &str) -> Value {
     json!({
         "threadId": thread_id,
@@ -69,6 +72,7 @@ pub(crate) fn params_thread_rollback(thread_id: &str, num_turns: usize) -> Value
     })
 }
 
+/// Build one native thread-list page request.
 pub fn params_thread_list(cwd: &str) -> Value {
     json!({
         "limit": 100,
@@ -76,6 +80,7 @@ pub fn params_thread_list(cwd: &str) -> Value {
     })
 }
 
+/// Build a native thread-archive request for the selected id.
 pub fn params_thread_archive(thread_id: &str) -> Value {
     json!({
         "threadId": thread_id,
@@ -87,6 +92,7 @@ pub(crate) fn params_thread_set_name(thread_id: &str, name: &str) -> Value {
     json!({ "threadId": thread_id, "name": name })
 }
 
+/// Build one native model-list page request.
 pub fn params_model_list(cursor: Option<&str>) -> Value {
     let mut params = json!({
         "includeHidden": false,
@@ -98,6 +104,7 @@ pub fn params_model_list(cursor: Option<&str>) -> Value {
     params
 }
 
+/// Build a turn-start request from accepted prompt text and runtime choices.
 pub fn params_turn_start(
     thread_id: &str,
     text: &str,
@@ -137,6 +144,7 @@ pub(crate) fn params_turn_steer(thread_id: &str, turn_id: &str, text: &str) -> V
     })
 }
 
+/// Build an interrupt request for the active thread and turn.
 pub fn params_turn_interrupt(thread_id: &str, turn_id: &str) -> Value {
     json!({
         "threadId": thread_id,
@@ -146,6 +154,7 @@ pub fn params_turn_interrupt(thread_id: &str, turn_id: &str) -> Value {
 
 // --- Client Initialisation ---
 
+/// Greet the native app server and send the initialized notice.
 pub fn initialize_client(client: &dyn BackendClient) -> Result<()> {
     let resp = client.call("initialize", params_initialize(), Duration::from_secs(10))?;
     extract_result_object(&resp)?;
@@ -155,6 +164,7 @@ pub fn initialize_client(client: &dyn BackendClient) -> Result<()> {
 
 // --- Response Parsers ---
 
+/// Read a JSON reply and return its result object or the backend error.
 pub fn extract_result_object(line: &str) -> Result<Value> {
     let parsed: Value = serde_json::from_str(line).context("invalid JSON response")?;
     if parsed.get("error").is_some() {
@@ -169,6 +179,7 @@ pub fn extract_result_object(line: &str) -> Result<Value> {
     Ok(parsed)
 }
 
+/// Read the native thread id from a successful start or resume reply.
 pub fn parse_thread_id_from_start_or_resume(response_line: &str) -> Result<String> {
     let parsed = extract_result_object(response_line)?;
     let result = parsed
@@ -186,6 +197,7 @@ pub fn parse_thread_id_from_start_or_resume(response_line: &str) -> Result<Strin
     Ok(id.to_string())
 }
 
+/// Read model and reasoning choices from a native thread reply.
 pub fn parse_thread_runtime_settings(response_line: &str) -> Result<ThreadRuntimeSettings> {
     let parsed = extract_result_object(response_line)?;
     let result = parsed
@@ -222,6 +234,7 @@ pub fn parse_thread_runtime_settings(response_line: &str) -> Result<ThreadRuntim
     })
 }
 
+/// Read one model page and its optional next cursor.
 pub fn parse_model_list_page(response_line: &str) -> Result<(Vec<ModelInfo>, Option<String>)> {
     let parsed = extract_result_object(response_line)?;
     let result = parsed

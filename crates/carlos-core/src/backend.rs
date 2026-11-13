@@ -33,6 +33,7 @@ impl BackendKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Select the native prompt and retained turns before an edited prompt starts a branch.
 pub struct RewindForkRequest {
     pub keep_turns: usize,
     pub drop_turns: usize,
@@ -111,8 +112,11 @@ impl<T> Drop for EventReceiver<T> {
     }
 }
 
+/// Run session commands and receive backend messages without requiring a terminal client.
 pub trait BackendClient {
+    /// Identify the native backend that receives these commands.
     fn kind(&self) -> BackendKind;
+    /// Send one backend command and wait up to the supplied deadline for its reply.
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String>;
     /// Send a protocol notice that has no response, when the backend supports it.
     fn notify(&self, _method: &str, _params: Value) -> Result<()> {
@@ -170,6 +174,7 @@ pub trait BackendClient {
     fn request_rate_limits(&self) -> Result<Option<String>> {
         Ok(None)
     }
+    /// Fork at the exact selected native prompt before submitting edited text.
     fn fork_from_rewind(
         &self,
         _thread_id: &str,
@@ -178,7 +183,9 @@ pub trait BackendClient {
     ) -> Result<String> {
         bail!("backend does not support rewind fork")
     }
+    /// Answer a pending native callback with its accepted result.
     fn respond(&self, request_id: &Value, result: Value) -> Result<()>;
+    /// Reject a pending native callback with the supplied error.
     fn respond_error(&self, request_id: &Value, code: i64, message: &str) -> Result<()>;
     /// Stop only the subprocess Carlos owns after a local fatal error.
     fn abort_connection(&self) {}
@@ -197,6 +204,8 @@ pub trait BackendClient {
     fn connection_generation(&self) -> Option<u64> {
         None
     }
+    /// Transfer the backend's event receiver to its single consumer.
     fn take_events_rx(&mut self) -> Result<EventReceiver>;
+    /// Stop the process owned by this backend client.
     fn stop(&mut self);
 }

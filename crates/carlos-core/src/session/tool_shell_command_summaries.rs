@@ -175,6 +175,7 @@ fn is_line_count(count: &str) -> bool {
     !count.is_empty() && count.bytes().all(|byte| byte.is_ascii_digit())
 }
 
+/// Describe a shell command with the existing compact tool label rules.
 pub fn command_summary_from_shell_cmd(cmd: &str, cwd: Option<&str>) -> Option<String> {
     let command = analyze_shell_command(cmd);
     let cmd = command.text.trim();

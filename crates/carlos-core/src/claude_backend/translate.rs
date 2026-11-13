@@ -14,6 +14,7 @@ use super::user_record::translate_user_record;
 
 // --- Event translation ---
 
+/// Translate one native Claude line for fixtures that exercise the shared item handlers.
 pub fn translate_claude_line(
     state: &mut ClaudeTranslationState,
     line: &str,

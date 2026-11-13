@@ -51,6 +51,7 @@ impl SessionState {
         std::mem::replace(&mut self.codex_meta.item_part, part)
     }
     #[cfg(any(test, feature = "test-support"))]
+    /// Enable or disable the native Codex routes in this fixture.
     pub fn set_codex_enabled_for_test(&mut self, enabled: bool) {
         self.codex_meta.scope.enabled = enabled;
     }

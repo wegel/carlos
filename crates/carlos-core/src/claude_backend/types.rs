@@ -9,6 +9,7 @@ use serde_json::{json, Map, Value};
 // --- Types ---
 
 #[derive(Debug, Clone)]
+/// Choose a new Claude session or resume a saved native id.
 pub enum ClaudeLaunchMode {
     New,
     Resume(String),
@@ -40,6 +41,7 @@ pub(crate) enum ClaudeBlockState {
 }
 
 #[derive(Debug, Default)]
+/// Track native Claude items while producing the shared backend messages.
 pub struct ClaudeTranslationState {
     pub(super) session_id: Option<String>,
     pub(crate) stream_instance_seq: u64,
@@ -57,6 +59,7 @@ pub struct ClaudeTranslationState {
 }
 
 #[derive(Debug, Default)]
+/// Return shared backend messages translated from native events.
 pub struct TranslateOutput {
     pub lines: Vec<String>,
 }

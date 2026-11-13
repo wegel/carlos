@@ -20,6 +20,7 @@ const GROK_SUPPORTED_EFFORTS: [&str; 4] = ["xhigh", "high", "medium", "low"];
 // --- Launch / runtime ---
 
 #[derive(Debug, Clone)]
+/// Choose a new Grok session, a saved id, or the latest saved session.
 pub enum GrokLaunchMode {
     New,
     Resume(String),
@@ -27,6 +28,7 @@ pub enum GrokLaunchMode {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+/// Keep the model and reasoning choices supplied to the Grok process.
 pub struct GrokRuntimeSettings {
     pub(super) model: Option<String>,
     pub(super) effort: Option<String>,
@@ -34,6 +36,7 @@ pub struct GrokRuntimeSettings {
 
 impl GrokRuntimeSettings {
     #[cfg(any(test, feature = "test-support"))]
+    /// Create fixture Grok runtime choices without starting a process.
     pub fn new(model: Option<String>, effort: Option<String>) -> Self {
         Self { model, effort }
     }
@@ -57,6 +60,7 @@ pub(super) struct GrokToolCall {
 }
 
 #[derive(Debug, Default)]
+/// Track native Grok items while producing the shared backend messages.
 pub struct GrokTranslationState {
     pub(super) replaying: bool,
     pub(super) session_id: Option<String>,
@@ -79,6 +83,7 @@ pub struct GrokTranslationState {
 
 impl GrokTranslationState {
     #[cfg(any(test, feature = "test-support"))]
+    /// Create a fixture translator that treats incoming records as saved history.
     pub fn replaying() -> Self {
         Self {
             replaying: true,
@@ -87,6 +92,7 @@ impl GrokTranslationState {
     }
 
     #[cfg(any(test, feature = "test-support"))]
+    /// Create a fixture translator that suppresses locally echoed prompts.
     pub fn suppressing_user_echo() -> Self {
         Self {
             suppress_user_echo: true,
@@ -96,12 +102,14 @@ impl GrokTranslationState {
 }
 
 #[derive(Debug, Default)]
+/// Return shared backend messages translated from native events.
 pub struct TranslateOutput {
     pub lines: Vec<String>,
 }
 
 // --- Model catalog ---
 
+/// Return the built-in Grok model choices used when native lists are unavailable.
 pub fn grok_model_catalog() -> Vec<ModelInfo> {
     fallback_model_catalog()
 }

@@ -18,6 +18,7 @@ pub(super) struct Reader {
 }
 
 impl Reader {
+    /// Create the bounded source reader for the chosen workspace and read authority.
     pub fn new(root: &Path, cwd: &Path, audit: &Path) -> Result<Self> {
         let root = root.canonicalize()?;
         let cwd = cwd.canonicalize()?;
@@ -34,6 +35,7 @@ impl Reader {
         })
     }
 
+    /// Answer one bounded source-reader request without running a shell command.
     pub fn call(&mut self, name: &str, path: &str) -> Result<String> {
         self.calls += 1;
         if self.calls > 4 {

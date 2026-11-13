@@ -129,21 +129,25 @@ impl SessionState {
     }
 
     #[cfg(any(test, feature = "test-support"))]
+    /// Keep fixture summary bindings only for the supplied surviving native items.
     pub fn retain_summary_items(&mut self) {
         self.summaries.retain_items(&self.messages);
     }
 
     #[cfg(any(test, feature = "test-support"))]
+    /// Set whether the fixture accepts generated tool labels.
     pub fn set_summary_enabled_for_test(&mut self, enabled: bool) {
         self.summaries.enabled = enabled;
     }
 
     #[cfg(any(test, feature = "test-support"))]
+    /// Borrow the fixture tool label key and its binding to a transcript row.
     pub fn summary_binding_for_test(&self, id: EntryId) -> Option<String> {
         Some(self.summaries.bindings.get(&id)?.request.binding.clone())
     }
 
     #[cfg(any(test, feature = "test-support"))]
+    /// Assert that each tool label binding still names a live transcript row.
     pub fn assert_summary_invariants(&self) {
         for id in self.summaries.bindings.keys() {
             assert!(self.messages.entry(*id).is_some());

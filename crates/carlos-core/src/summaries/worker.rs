@@ -25,6 +25,7 @@ struct Queued(Request, u64);
 struct Finished(String, u64, Result<Label>);
 
 impl SummaryService {
+    /// Start the tool-label worker and return its command sender.
     pub fn spawn(output: mpsc::Sender<SummaryEvent>, enabled: bool) -> Self {
         Self::start(output, enabled, Config::load)
     }
@@ -57,12 +58,14 @@ impl SummaryService {
         Self { tx, control }
     }
 
+    /// Queue a tool-label request without blocking the caller.
     pub fn try_request(&self, request: Request) -> bool {
         self.tx
             .try_send(Queued(request, self.control.epoch.load(Ordering::Relaxed)))
             .is_ok()
     }
 
+    /// Enable or disable generated labels for subsequent worker requests.
     pub fn set_enabled(&self, enabled: bool) {
         self.control.enabled.store(enabled, Ordering::Relaxed);
         if !enabled {
@@ -70,6 +73,7 @@ impl SummaryService {
         }
     }
 
+    /// Cancel pending label work without stopping the worker.
     pub fn cancel_pending(&self) {
         self.control.epoch.fetch_add(1, Ordering::Relaxed);
         terminate(&self.control);

@@ -51,6 +51,7 @@ const SESSION_LIST_TIMEOUT: Duration = Duration::from_secs(15);
 
 // --- Client ---
 
+/// Own a Grok process and expose its commands through the shared backend trait.
 pub struct GrokClient {
     pub(super) cwd: PathBuf,
     session_id: Mutex<Option<String>>,
@@ -63,6 +64,7 @@ pub struct GrokClient {
 }
 
 impl GrokClient {
+    /// Start a Grok process in the chosen working directory.
     pub fn start(cwd: &Path) -> Result<Self> {
         let (events_tx, events_rx) = mpsc::channel();
         let translation = Arc::new(Mutex::new(GrokTranslationState::default()));
@@ -85,6 +87,7 @@ impl GrokClient {
         })
     }
 
+    /// Ask Grok for its saved sessions in this working directory.
     pub fn list_sessions(&self) -> Result<Vec<GrokSessionSummary>> {
         let process = self
             .process
@@ -111,6 +114,7 @@ impl GrokClient {
         ))
     }
 
+    /// Open the chosen new, saved or latest Grok session.
     pub fn open_session(&self, mode: &GrokLaunchMode) -> Result<String> {
         match mode {
             GrokLaunchMode::New => self.create_session(),
@@ -128,6 +132,7 @@ impl GrokClient {
         }
     }
 
+    /// Copy the current Grok model choices, using the built-in list when needed.
     pub fn available_models(&self) -> Vec<ModelInfo> {
         self.models
             .lock()
@@ -135,15 +140,18 @@ impl GrokClient {
             .unwrap_or_else(|_| grok_model_catalog())
     }
 
+    /// Wrap the Grok session id in the reply shape used by shared startup code.
     pub fn synthetic_start_response(&self, thread_id: &str) -> String {
         synthetic_start_response(thread_id)
     }
 
+    /// Read the last replayed Grok token counts as a shared usage message.
     pub fn drain_replay_usage_line(&self) -> Option<String> {
         let state = self.translation.lock().ok()?;
         state.last_usage.map(token_usage_line)
     }
 
+    /// Finish remaining replayed Grok items and return their shared backend messages.
     pub fn take_replay_tail(&self) -> Vec<String> {
         let Ok(mut state) = self.translation.lock() else {
             return Vec::new();

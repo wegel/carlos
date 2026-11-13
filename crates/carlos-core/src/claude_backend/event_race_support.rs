@@ -22,18 +22,21 @@ pub(super) const DEADLINE: Duration = Duration::from_secs(5);
 #[cfg(test)]
 pub(super) const BLOCKS: usize = 900;
 
+/// Hold a production reader at one named checkpoint until the test releases it.
 pub struct Pause {
     reached: mpsc::Receiver<()>,
     release: mpsc::Sender<()>,
 }
 
 impl Pause {
+    /// Wait until the reader reaches this fixture checkpoint.
     pub fn wait(&self) {
         self.reached
             .recv_timeout(DEADLINE)
             .expect("reader reached barrier");
     }
 
+    /// Release the reader waiting at this fixture checkpoint.
     pub fn resume(self) {
         self.release.send(()).expect("release reader");
     }

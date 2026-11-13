@@ -50,6 +50,7 @@ impl SessionState {
     }
 
     #[cfg(any(test, feature = "test-support"))]
+    /// Keep fixture prompt records only when their transcript rows survive.
     pub fn retain_prompt_entries(&mut self) {
         self.input_history.retain_entries(&self.messages);
     }

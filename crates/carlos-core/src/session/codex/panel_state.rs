@@ -279,12 +279,14 @@ impl Stop {
 
 #[cfg(any(test, feature = "test-support"))]
 impl PanelState {
+    /// Report whether the fixture has pending native panel requests.
     pub fn has_outgoing(&self) -> bool {
         !self.outgoing.is_empty()
     }
 }
 #[cfg(any(test, feature = "test-support"))]
 impl Stop {
+    /// Borrow the fixture stop request associated with this task.
     pub fn request(&self) -> &Request {
         &self.request
     }

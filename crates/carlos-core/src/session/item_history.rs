@@ -56,6 +56,7 @@ pub fn replace_history_from_thread(
 }
 
 #[cfg(any(test, feature = "test-support"))]
+/// Append native history through the ordinary row handlers for legacy fixtures.
 pub fn append_history_from_thread(session: &mut SessionState, thread_obj: &Value) -> ItemChanges {
     let mut changes = ItemChanges::default();
     let Some(turns) = thread_obj.get("turns").and_then(Value::as_array) else {

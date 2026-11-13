@@ -11,6 +11,7 @@ use super::types::grok_sessions_root;
 // --- Types ---
 
 #[derive(Debug, Clone)]
+/// Describe one saved Grok session for the session picker.
 pub struct GrokSessionSummary {
     pub session_id: String,
     pub title: Option<String>,
@@ -21,6 +22,7 @@ pub struct GrokSessionSummary {
 
 // --- Public API ---
 
+/// Read saved Grok sessions from the standard local history directory.
 pub fn load_grok_thread_summaries(cwd: &Path) -> Result<Vec<GrokSessionSummary>> {
     let Some(root) = grok_sessions_root() else {
         return Ok(Vec::new());
@@ -28,6 +30,7 @@ pub fn load_grok_thread_summaries(cwd: &Path) -> Result<Vec<GrokSessionSummary>>
     load_grok_thread_summaries_from(root, cwd)
 }
 
+/// Read saved Grok sessions from a fixture history directory.
 pub fn load_grok_thread_summaries_from(
     sessions_root: PathBuf,
     cwd: &Path,
@@ -181,6 +184,7 @@ fn first_nonempty_str(value: &Value, keys: &[&str]) -> Option<String> {
     })
 }
 
+/// Convert a supported ISO timestamp into seconds since the Unix epoch.
 pub fn parse_iso_timestamp_secs(raw: &str) -> i64 {
     let date_time = raw.get(..19).unwrap_or("");
     let Some((date, time)) = date_time.split_once('T') else {

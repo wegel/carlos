@@ -15,6 +15,7 @@ use super::{Label, Request, Source};
 pub(super) struct Store(Connection);
 
 impl Store {
+    /// Open the local tool-label cache and create its schema when needed.
     pub fn open(path: &Path) -> Result<Self> {
         let connection = Connection::open(path)?;
         connection.busy_timeout(Duration::from_millis(250))?;
@@ -38,6 +39,7 @@ impl Store {
         Ok(Self(connection))
     }
 
+    /// Look up a cached label and check the source fingerprints it depends on.
     pub fn lookup(&self, request: &Request) -> Result<Option<Label>> {
         let saved = self.0.query_row(
             "SELECT s.label,s.sources FROM source_links l JOIN source_labels s USING(label_hash)
@@ -98,6 +100,7 @@ impl Store {
         Ok(None)
     }
 
+    /// Save a tool label together with the source fingerprints used to produce it.
     pub fn save(&self, request: &Request, label: &Label, config: &Config) -> Result<()> {
         let provider = if config.codex { "codex" } else { "command" };
         if request.file_based || !label.sources.is_empty() {

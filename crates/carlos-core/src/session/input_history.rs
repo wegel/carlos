@@ -166,6 +166,7 @@ impl PromptHistory {
 
     // --- Test Helpers ---
     #[cfg(any(test, feature = "test-support"))]
+    /// Borrow the fixture prompt records that already have transcript rows.
     pub fn message_ids(&self) -> &[Option<EntryId>] {
         &self.input_history_entry_ids
     }
@@ -173,6 +174,7 @@ impl PromptHistory {
 
 #[cfg(any(test, feature = "test-support"))]
 impl PromptHistory {
+    /// Assert that the stored ids and their lookup maps still agree.
     pub fn assert_invariants(&self, transcript: &Transcript) {
         assert_eq!(self.input_history.len(), self.input_history_entry_ids.len());
         assert_eq!(self.input_history.len(), self.prompt_ids.len());

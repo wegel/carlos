@@ -13,6 +13,7 @@ const REWIND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(20);
 // --- Types ---
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Keep the native prompt anchor used to fork a Grok session.
 pub struct GrokRewindPoint {
     pub prompt_index: u64,
     pub prompt_preview: String,
@@ -91,6 +92,7 @@ impl GrokClient {
 
 // --- Mapping ---
 
+/// Find the exact Grok rewind anchor for the requested retained turns.
 pub fn resolve_rewind_target(points: &[GrokRewindPoint], keep_turns: usize) -> Result<u64> {
     let facing = user_facing_rewind_points(points);
     let target = facing.get(keep_turns).with_context(|| {
@@ -102,6 +104,7 @@ pub fn resolve_rewind_target(points: &[GrokRewindPoint], keep_turns: usize) -> R
     Ok(target.prompt_index)
 }
 
+/// Read native Grok prompt anchors from a rewind reply.
 pub fn parse_rewind_points(payload: &Value) -> Vec<GrokRewindPoint> {
     let list = unwrap_rewind_list(payload);
     list.iter().filter_map(parse_rewind_point).collect()
@@ -151,6 +154,7 @@ pub(crate) fn user_facing_rewind_points(points: &[GrokRewindPoint]) -> Vec<&Grok
         .collect()
 }
 
+/// Report whether a Grok prompt anchor belongs to hidden automatic work.
 pub fn is_hidden_rewind_point(preview: &str) -> bool {
     let trimmed = preview.trim();
     if trimmed.is_empty() {

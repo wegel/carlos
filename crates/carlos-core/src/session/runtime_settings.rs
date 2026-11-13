@@ -263,6 +263,7 @@ impl SessionState {
     }
 
     #[cfg(any(test, feature = "test-support"))]
+    /// Apply the fixture preference when the thread has no explicit reasoning choice.
     pub fn apply_default_reasoning_summary(&mut self, summary: Option<String>) {
         if self.runtime.current_summary.is_none() && self.runtime.pending_summary.is_none() {
             self.runtime.pending_summary = summary.and_then(normalize_non_empty);

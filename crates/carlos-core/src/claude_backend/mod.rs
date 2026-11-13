@@ -330,6 +330,7 @@ impl Drop for ClaudeClient {
 }
 
 #[cfg(any(test, feature = "test-support"))]
+/// Build the interrupted-turn backend message used by lifecycle fixtures.
 pub fn claude_interrupted_turn_notification(params: &Value) -> Result<String> {
     let thread_id = params["threadId"]
         .as_str()

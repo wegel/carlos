@@ -115,6 +115,7 @@ fn build_grok_command(cwd: &Path, runtime: &GrokRuntimeSettings) -> Command {
 }
 
 #[cfg(any(test, feature = "test-support"))]
+/// Build the exact Grok launch command without starting a process.
 pub fn build_grok_command_for_test(cwd: &Path, runtime: &GrokRuntimeSettings) -> Command {
     build_grok_command(cwd, runtime)
 }

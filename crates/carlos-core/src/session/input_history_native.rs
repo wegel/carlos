@@ -63,6 +63,7 @@ impl NativeUserHistory {
 
 #[cfg(any(test, feature = "test-support"))]
 impl NativeUserHistory {
+    /// Assert that the stored ids and their lookup maps still agree.
     pub fn assert_invariants(&self, transcript: &Transcript) {
         for (id, native) in &self.messages {
             assert!(transcript.entry(*id).is_some());

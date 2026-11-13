@@ -432,12 +432,27 @@ carlos --ralph-prompt .agents/ralph-prompt.md
 
 ## build
 
+Cargo builds two packages together. The root `carlos` package holds the terminal
+app and optional dictation. `crates/carlos-core` holds session facts, backend
+clients and handlers, with no terminal, audio or speech dependencies.
+
 ```bash
 cargo build --release
 python3 scripts/build-claude-controller.py
 # Optional Rust build without local dictation:
 cargo build --release --no-default-features
 ```
+
+To build and test only the session library:
+
+```bash
+cargo build -p carlos-core
+cargo test -p carlos-core
+```
+
+Plain `cargo test` runs both packages. App tests enable the core's `test-support`
+feature through a development dependency; ordinary builds leave its fixture
+helpers out.
 
 The helper build requires pinned Bun 1.3.10 and Python 3. It fetches the locked
 SDK 0.3.322 packages at build time, checks them, and embeds the runtime. End users

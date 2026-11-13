@@ -41,6 +41,7 @@ pub(crate) fn normalize_shell_command(raw: &str) -> String {
 
 // --- SSH Parsing ---
 
+/// Extract the remote shell command from a supported SSH command line.
 pub fn parse_ssh_remote_command(command: &str) -> Option<ParsedSshCommand> {
     let normalized = normalize_shell_command(command);
     let tokens = shlex_split(&normalized)?;
@@ -110,6 +111,7 @@ fn ssh_option_takes_value(token: &str) -> bool {
 
 // --- Control Stripping ---
 
+/// Remove terminal controls while retaining SGR codes that set text colors and styles.
 pub fn strip_terminal_controls_preserving_sgr(text: &str) -> String {
     let bytes = text.as_bytes();
     let mut out = String::with_capacity(text.len());
@@ -213,6 +215,7 @@ fn skip_string_sequence(bytes: &[u8], pos: usize) -> usize {
     i
 }
 
+/// Remove terminal control sequences from received text.
 pub fn strip_terminal_controls(text: &str) -> String {
     let preserved = strip_terminal_controls_preserving_sgr(text);
     let bytes = preserved.as_bytes();

@@ -6,6 +6,7 @@ use std::time::Instant;
 use serde_json::Value;
 
 #[derive(Debug, Default)]
+/// Own accepted native queued prompts and their pending reads and changes.
 pub struct QueueState {
     pub(in crate::session) known: bool,
     pub(in crate::session) revision: u64,

@@ -59,6 +59,7 @@ impl ConnectionState {
         self.runtime_read.is_some()
     }
     #[cfg(any(test, feature = "test-support"))]
+    /// Borrow the fixture child-agent ids still waiting for native replay.
     pub fn unreplayed_children(&self) -> usize {
         self.unreplayed_children
     }

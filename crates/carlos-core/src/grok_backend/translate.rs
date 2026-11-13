@@ -42,6 +42,7 @@ pub(super) fn interrupt_prompt_turn(state: &mut GrokTranslationState) -> Transla
     finish_prompt_turn(state, true)
 }
 
+/// Finish the current Grok prompt and emit its remaining item and turn messages.
 pub fn finish_prompt_turn(state: &mut GrokTranslationState, interrupted: bool) -> TranslateOutput {
     let mut out = TranslateOutput::default();
     flush_open_items(state, &mut out);
@@ -358,6 +359,7 @@ fn remember_session_id(state: &mut GrokTranslationState, params: &Value) {
 }
 
 #[cfg(any(test, feature = "test-support"))]
+/// Translate one native Grok notice through the ordinary fixture translator.
 pub fn translate_grok_notification_for_test(
     state: &mut GrokTranslationState,
     method: &str,

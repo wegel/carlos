@@ -14,6 +14,7 @@ pub enum GoalKnowledge {
 }
 
 #[derive(Debug, Default)]
+/// Own the accepted native goal and its pending reads and changes.
 pub struct GoalState {
     pub(in crate::session) knowledge: GoalKnowledge,
     pub(in crate::session) goal: Value,

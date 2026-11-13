@@ -14,6 +14,7 @@ use crate::backend::{BackendClient, EventReceiver, PromptOrigin, PromptPriority}
 
 pub(super) const SESSION: &str = "00000000-0000-4000-8000-000000000001";
 
+/// Start a real receiver around a deterministic local peer and its scripted frames.
 pub fn client(frames: Vec<Value>, result: Value, capacity: usize) -> (ClaudeClient, EventReceiver) {
     scripted(json!(frames), result, capacity)
 }
