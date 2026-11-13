@@ -613,6 +613,7 @@ target/ui-venv/bin/python tests/ui/test_workflows.py --binary ~/.local/bin/carlo
 - `Esc` (while turn active): interrupt running turn
 - `Esc,Esc` (idle + input non-empty): clear input
 - `Esc,Esc` (idle + input empty): enter rewind mode
+- After an interrupt, wait 700 ms without pressing `Esc` before starting either shortcut.
 - rewind mode `Up/Down`: select prior user prompts (also repositions transcript)
 - rewind mode `Enter`: send selected/edited prompt
 - rewind mode `Esc`: leave rewind mode and restore current draft

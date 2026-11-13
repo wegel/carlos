@@ -9,6 +9,7 @@ import time
 import uuid
 
 import fake_claude_questions as questions
+import fake_claude_interrupt as interrupts
 from fake_claude_activity import Activity
 from fake_claude_sessions import Sessions
 
@@ -138,6 +139,8 @@ def read_tool(prompt):
 
 def handle_prompt(message):
     global active, prompts
+    if interrupts.start(sys.modules[__name__], message):
+        return
     if activity.prompt(message):
         return
     text = message["message"]["content"]

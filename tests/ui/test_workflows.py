@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 import tempfile
+import time
 import unittest
 
 from terminal import Terminal
@@ -17,6 +18,7 @@ from test_summaries import Summaries
 from test_command_directory import CommandDirectory
 from test_weekly_usage import WeeklyUsage
 from test_claude_sdk import ClaudeSdk
+from test_claude_interrupt import ClaudeInterrupt
 from test_claude_questions import ClaudeQuestions
 from test_claude_sessions import ClaudeSessions
 from test_claude_activity import ClaudeActivity
@@ -31,7 +33,7 @@ from test_codex_reconnect import CodexReconnect
 from test_input_status import InputStatus
 
 
-class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, CommandDirectory, WeeklyUsage, ClaudeSdk, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, CodexRewind, CodexFoundation, CodexQuestions, CodexControls, CodexPanel, CodexGoals, CodexReconnect, InputStatus, unittest.TestCase):
+class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, CommandDirectory, WeeklyUsage, ClaudeSdk, ClaudeInterrupt, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, CodexRewind, CodexFoundation, CodexQuestions, CodexControls, CodexPanel, CodexGoals, CodexReconnect, InputStatus, unittest.TestCase):
     def summary_root(self):
         root = ARTIFACTS / self._testMethodName
         root.mkdir(parents=True, exist_ok=True)
@@ -197,6 +199,9 @@ class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, Pho
         terminal.send(b"\x1b")
         terminal.wait(lambda: bool(self.native_controls(terminal, "interrupt")), "native SDK interrupt")
         terminal.contains("Turn interrupted")
+        deadline = time.monotonic() + .8
+        while time.monotonic() < deadline:
+            terminal.pump(.02)
         terminal.rewind("hold this turn")
         terminal.send(b"\x1b")
         terminal.wait(lambda: terminal.input_is(""), "cancel rewind")

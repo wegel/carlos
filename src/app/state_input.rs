@@ -7,6 +7,8 @@ use super::render::{compute_input_layout, textarea_input_from_key};
 use super::state::AppState;
 use super::MSG_TOP;
 
+const ESC_CHORD_WINDOW: Duration = Duration::from_millis(700);
+
 impl AppState {
     // --- Input handling ---
 
@@ -36,10 +38,16 @@ impl AppState {
 
     pub(super) fn reset_esc_chord(&mut self) {
         self.esc_armed_at = None;
+        self.esc_interrupted_at = None;
+    }
+
+    /// Require a quiet Escape interval after stopping work before accepting an idle chord.
+    pub(super) fn suppress_esc_chord_after_interrupt(&mut self, now: Instant) {
+        self.esc_armed_at = None;
+        self.esc_interrupted_at = Some(now);
     }
 
     pub(super) fn expire_esc_chord(&mut self, now: Instant) {
-        const ESC_CHORD_WINDOW: Duration = Duration::from_millis(700);
         if let Some(armed_at) = self.esc_armed_at {
             if now.duration_since(armed_at) > ESC_CHORD_WINDOW {
                 self.esc_armed_at = None;
@@ -48,7 +56,12 @@ impl AppState {
     }
 
     pub(super) fn register_escape_press(&mut self, now: Instant) -> bool {
-        const ESC_CHORD_WINDOW: Duration = Duration::from_millis(700);
+        if let Some(interrupted_at) = self.esc_interrupted_at.take() {
+            if now.duration_since(interrupted_at) <= ESC_CHORD_WINDOW {
+                self.suppress_esc_chord_after_interrupt(now);
+                return false;
+            }
+        }
         if let Some(armed_at) = self.esc_armed_at {
             if now.duration_since(armed_at) <= ESC_CHORD_WINDOW {
                 self.esc_armed_at = None;

@@ -1,6 +1,6 @@
 //! Sends native main-turn interrupts without claiming queued prompts were canceled.
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use super::state::AppState;
 use super::Role;
@@ -45,4 +45,5 @@ pub(super) fn interrupt_active_turn(client: &dyn BackendClient, app: &mut AppSta
             app.set_status(format!("{e}"));
         }
     }
+    app.suppress_esc_chord_after_interrupt(Instant::now());
 }

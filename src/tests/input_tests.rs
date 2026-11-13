@@ -149,4 +149,7 @@ include!("input_tests/dictation.rs");
 
 include!("input_tests/approvals_and_rewind.rs");
 
+#[path = "input_tests/escape.rs"]
+mod escape;
+
 include!("input_tests/mobile_mouse_and_perf.rs");

@@ -9,7 +9,7 @@ use std::io::Write;
 use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 
-use crossterm::event::{Event, KeyCode, KeyModifiers};
+use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 
 use super::mouse_events::{handle_mouse_event, handle_paste_event};
 use super::state::AppState;
@@ -114,6 +114,9 @@ pub(super) fn handle_terminal_event(
 ) -> TerminalEventResult {
     trace_terminal_event(&ev, super::native_questions::secret_active(app));
     match ev {
+        Event::Key(k) if k.code == KeyCode::Esc && k.kind == KeyEventKind::Repeat => {
+            TerminalEventResult::Continue { needs_draw: false }
+        }
         Event::Key(k) => handle_key_event(client, app, k, size),
         Event::Mouse(m) => handle_mouse_event(app, m, size),
         Event::Paste(pasted) => handle_paste_event(app, pasted, size),
