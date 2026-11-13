@@ -12,14 +12,8 @@ impl AppState {
         &mut self,
         update: carlos_core::session::transcript_updates::SessionUpdate,
     ) {
-        if update.transcript_reset {
-            self.mark_transcript_dirty();
-        } else if let Some(index) = update
-            .dirty_from
-            .and_then(|id| self.session.messages().position(id))
-        {
-            self.mark_transcript_dirty_from(index);
-        }
+        let _ = update;
+        self.consume_core_events();
     }
 
     /// Apply one synchronous item report before another terminal event runs.
@@ -56,6 +50,7 @@ impl AppState {
         width: usize,
         hidden_user_message_idx: Option<usize>,
     ) {
+        self.consume_core_events();
         if self.view.render_cache.rendered_width != width
             || self.view.render_cache.rendered_compact != self.view.tool_output.compact()
             || self.view.render_cache.rendered_theme != self.view.layout.active
@@ -134,6 +129,7 @@ impl AppState {
     }
 
     pub(super) fn ensure_rendered_range_materialized(&mut self, start_idx: usize, end_idx: usize) {
+        self.consume_core_events();
         self.view.render_cache.ensure_rendered_range_materialized(
             self.session.messages(),
             start_idx,
@@ -143,6 +139,7 @@ impl AppState {
 
     #[cfg(test)]
     pub(super) fn snapshot_rendered_lines(&mut self) -> Vec<RenderedLine> {
+        self.consume_core_events();
         self.view
             .render_cache
             .snapshot_rendered_lines(self.session.messages())

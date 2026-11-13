@@ -306,3 +306,5 @@ mod claude_process_test_support;
 #[cfg(test)]
 #[path = "../tests/claude_backend_tests/normalized_app.rs"]
 mod normalized_test_app;
+
+mod core_events;

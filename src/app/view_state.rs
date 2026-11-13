@@ -21,6 +21,7 @@ use super::tool_output_state::ToolOutputState;
 use super::viewport_state::ViewportState;
 
 pub(super) struct ViewState {
+    pub(super) core_cursor: carlos_proto::ids::Sequence,
     pub(super) codex_panel: super::codex_panel_state::PanelView,
     pub(super) codex_settings: super::codex_settings_view::SettingsView,
     pub(super) codex_goals: super::codex_goal_state::GoalView,
@@ -56,6 +57,7 @@ pub(super) struct ViewState {
 impl ViewState {
     pub(super) fn new(summary_enabled_draft: bool) -> Self {
         Self {
+            core_cursor: Default::default(),
             codex_panel: Default::default(),
             codex_settings: Default::default(),
             codex_goals: Default::default(),
