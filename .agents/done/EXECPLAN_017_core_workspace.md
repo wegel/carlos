@@ -9,8 +9,8 @@ This ExecPlan is a living document. Keep `Progress`, `Surprises & Discoveries`,
 A future iPhone app needs Carlos to run sessions without terminal widgets. EP016
 separated those widgets from session facts inside one executable. This plan moves
 the session and backend code into a Rust library called `carlos-core`. Cargo,
-Rust's build tool, will then compile and test that library without downloading or
-building the terminal app's widget, audio or speech libraries. The existing
+Rust's build tool, will then compile and test that library without building the terminal app's widget, audio or speech libraries.
+The existing
 `carlos` executable will call the library and keep the same screens and backend
 requests. This step adds no background server, socket protocol or phone screen.
 
@@ -19,65 +19,70 @@ requests. This step adds no background server, socket protocol or phone screen.
 
 - [x] (2026-11-13 UTC) Read the repo rules, architecture, EP016 report, manifests and current guard. Confirmed a clean `iphone-spike` checkout at `304f494`.
 - [x] (2026-11-13 UTC) Milestone 1: saved the EP016 release executable and compiler metadata under `/tmp/carlos-ep017`; added a workspace with both default members. All 1,026 existing tests pass; the empty library is only the independently buildable starting step.
-- [x] (2026-11-13 UTC) Milestone 2: moved 313 Rust files and the summary prompt into `crates/carlos-core`; all 1,026 existing default tests and 990 no-dictation tests pass. Added two compile-fail documentation tests for private session facts and entry ids. Strict Clippy passes in both modes and for the standalone core.
-- [x] (2026-11-13 UTC) Milestone 3: updated scripts and CI; all 24 architecture tests pass. A fresh isolated core build produced 160 compiler artifacts with no terminal, audio or speech package. A separate Rust caller creates a session and a row; the compiler rejects private-field writes, private id counters and fixture calls with test support off. Evidence is under `/tmp/carlos-ep017`.
-- [ ] Milestone 4: run complete release workflows, compare speed and memory, review directly, and close the plan.
+- [x] (2026-11-13 UTC) Milestone 2: moved 314 Rust files and the summary prompt into `crates/carlos-core`; all 1,026 existing default tests and 990 no-dictation tests pass. Added two compile-fail documentation tests for private session facts and entry ids. Strict Clippy passes in both modes and for the standalone core.
+- [x] (2026-11-13 UTC) Milestone 3: updated scripts and CI; all 26 architecture tests pass. A fresh isolated core build produced 160 compiler artifacts with no terminal, audio or speech package. A separate Rust caller creates a session and a row; the compiler rejects private-field writes, private id counters and fixture calls with test support off. Evidence is under `/tmp/carlos-ep017`.
+- [x] (2026-11-13 UTC) Milestone 4: source c497daf passes all default/no-default, standalone-core, strict Clippy, release package, 174 terminal and 23 native-monitor checks. Independent speed checks clear the agreed pre-plan baseline; the card-gap append check and kernel peak-memory checks pass. Direct engineering self-review: PASS. See `.agents/reports/exec017-final-report.md`.
 
 ## Surprises & Discoveries
 
 
-The current binary compiles core tests and app tests together. Several app tests
+Before this split, the binary compiled core tests and app tests together. Several app tests
 call helpers behind Rust's `cfg(test)` condition, which excludes those helpers
 when a library is built as another package's dependency. The new library needs
 explicit test support for those callers; copying production code into the app
 would hide mistakes and is not acceptable.
 
-The original source guard checked future-core roots under `src/` and follows eight
+The original source guard checked future-core roots under `src/` and followed eight
 exact external test files. After the move it must check the real library, not an
-empty old source tree. Cargo must also check the complete library dependency graph
-so a terminal package cannot arrive through an indirect dependency.
+empty old source tree. Cargo now checks the complete library dependency graph, including inactive platform and development edges, so a terminal package cannot arrive through an indirect dependency.
+
+The package collector originally searched only inside each package for license files. The new core shares the repository license, so the manifest now declares its path and the collector follows Cargo's `license_file` field. The regression test fails against the old collector and passes after the fix.
+
+Rust initially generated a slower synthetic append path across the new library boundary. The measured index hint removes its per-row call while retaining every check. The report includes the first slower results, rejected trials, final independent comparison and the card-gap check.
+
+Cargo reused an older library when two source trees shared a target directory during the supplemental probe. The identical binary hashes exposed the mistake before timings were collected. Separate target directories produced distinct executables with the expected index symbols. Future source comparisons must verify the artifacts and keep their target directories separate.
 
 ## Decision Log
 
 
-The owner chose branch `iphone-spike` for EP016 through EP022. Work stays in
-`/var/home/wegel/work/perso/carlos-daemon`; do not touch the main checkout, push,
-merge, or install this experimental binary. This plan preserves runtime behavior,
-so the prompt's rule about installing changed runtime behavior does not apply.
-The architecture also reserves installation for the owner's review.
+- Decision: keep EP017 on `iphone-spike` in `/var/home/wegel/work/perso/carlos-daemon`, without merging, pushing or installing.
+  Rationale: the owner reserved `main` and the installed executable for reviewed Carlos releases; this step preserves runtime behavior.
+  Date/Author: 2026-11-13, owner and primary agent.
 
-The owner asked the primary agent to work directly without agents. That preference
-continues here. Use `.agents/reviewers/engineering_reviewer.md` as a direct review
-checklist and record a self-review honestly instead of starting a reviewer agent.
+- Decision: implement and review directly without worker or reviewer agents.
+  Rationale: the owner explicitly requested no agents. The engineering prompt remains the direct review checklist; the report identifies the result as a self-review.
+  Date/Author: 2026-11-13, owner and primary agent.
 
-Keep the `carlos` package in the repository root and add `crates/carlos-core` as a
-workspace member. A workspace lets Cargo build packages together while keeping
-their dependencies separate. Use dependency resolver 2 and include both packages
-in default workspace commands so plain `cargo test` cannot skip core tests.
-Keep the existing release profile and executable paths. Create `carlos-proto`
-with the actual numbered event types in EP018, rather than an empty package here.
+- Decision: keep the root `carlos` package and add `crates/carlos-core`, using resolver 2 and both default members. Create the real `carlos-proto` types in EP018.
+  Rationale: Cargo can compile the core independently while existing executable paths and plain `cargo test` keep working. An empty protocol package would add no checked behavior in this step.
+  Date/Author: 2026-11-13, primary agent.
 
-Expose only library modules and items used by the app or required public types.
-Keep `SessionState` fields restricted to its session module and keep entry-id
-allocators private. Use a non-default `test-support` feature only as the app's
-development dependency. Ordinary builds must not expose fixture mutators or
-compile test peers. All runtime handlers remain one copy in the library.
+- Decision: keep session fields and id allocators private; expose borrowed facts and named commands, with fixture calls behind non-default `test-support`.
+  Rationale: the app needs real core calls and test helpers across the package boundary, but ordinary clients must not gain field writes or fixture mutators. The source and Cargo graph checks enforce that rule.
+  Date/Author: 2026-11-13, primary agent.
+
+- Decision: keep one `#[inline(always)]` on the unchanged entry-index insertion body.
+  Rationale: the compiled builder loses its per-row library call; independent timings clear the agreed pre-plan baseline, and the batched card-gap check improves both index paths. The outer-wrapper and split-helper trials were rejected.
+  Date/Author: 2026-11-13, primary agent.
 
 ## Outcomes & Retrospective
 
 
-Milestones 1 through 3 are implemented and checked. The terminal app now calls the library; both feature sets keep the existing unit tests. The compiler rejects client writes to private facts and excludes fixture helpers from the ordinary library. Final release workflows, speed/memory checks and direct review remain open.
+Carlos now builds a terminal-free session library and a terminal app in one Cargo workspace. Milestones 1 through 4 are complete on source `c497dafb671a4f38661c8f75e655aecb82bd6006`. Cargo keeps the existing 1,026 default tests and 990 no-dictation tests, and the compiler checks two new privacy examples. The standalone library builds without terminal, audio, speech or fixture dependencies. The full release runner passes 174 terminal workflows, installed Codex contracts and 23 native monitor workflows.
 
-Historical starting point: EP016 ended with 1,026 default Rust
-tests and 990 tests without dictation, 174 terminal workflows and 23 native monitor
-workflows. Its release executable is available locally and will be copied before
-any build replaces it. The next action is to inventory imports and save that
-baseline, then move the terminal-free modules and their owned test fixtures.
+Rust needed one measured inline hint to avoid the slower row-construction path after the crate move. The source keeps every id check and exception-map rule. The final independent comparison found no repeatable latency loss against the original pre-plan baseline; it records a +0.04 ms paired construction difference from EP016 rather than claiming zero overhead. Kernel memory counts remain roughly linear with rows. The final report records every number and the rejected trials.
+
+The primary agent implemented and reviewed directly without agents. The code stays on `iphone-spike`; the main checkout and installed binary were not changed, and nothing was merged or pushed. EP018 has not started and awaits the owner's review of this completed step.
+
+## Reviews
+
+
+Direct engineering self-review, 2026-11-13, source c497daf against 304f494, using `.agents/reviewers/engineering_reviewer.md`: PASS. The owner requested no agents, so no independent reviewer session was started. I reviewed field privacy, public calls and docs, feature isolation, all moved tests and include paths, license packaging, exact backend behavior, index code, timing and memory. The resolved findings were the missing shared license, exposed rewind internals, missing API docs and the measured row-construction cost. I found no remaining BLOCKER, MAJOR or MINOR finding in this change. The report records test commands, counts, intervals, raw evidence and the unchanged limits.
 
 ## Context and Orientation
 
 
-The root `Cargo.toml` currently defines one binary package. `src/main.rs` declares
+At the start of this plan, the root `Cargo.toml` defined one binary package. `src/main.rs` declared
 the terminal modules (`app`, `event`, `theme`, `clipboard`, optional `dictation`)
 and the future core modules. The future core consists of `session`, `backend`,
 `claude_backend`, `grok_backend`, `summaries`, `native_form` and its error helper,
@@ -184,8 +189,12 @@ and exhaustive literal searches only for import/path inventories. Key commands:
     rtk proxy cargo fmt --all --check
     rtk proxy git diff --check
 
-Record exact perf commands after checking `carlos perf-session --help`; retain
-the old release executable before compiling. Tests must show the library and app
+The final comparison ran each baseline and current executable with these arguments:
+
+    rtk proxy target/release/carlos perf-session --synthetic --turns 1000 --seed 1 --tool-lines 24 --width 160 --height 48
+    rtk proxy target/release/carlos perf-session src/tests/fixtures/stale_transcript_replay.jsonl --width 160 --height 48
+
+The paired runner pinned each process to CPU 6 and rotated executable order for 31 samples per case. The supplemental append check used ten batches of 50,000 rows per sample. Retain the raw evidence under `/tmp/carlos-ep017`. Tests must show the library and app
 test processes separately, with at least 1,026 combined passing tests by default.
 
 ## Validation and Acceptance
@@ -258,3 +267,11 @@ Inline trial correction, 2026-11-13: forcing the outer append wrapper produced a
 Index-helper trial, 2026-11-13: the separated fast path removed the index call but did not remove the measured apply cost (31 pairs: 14.10/14.28 ms). Reverted that extraction. Next test: make the complete existing index insertion body inline at its constructor caller so the compiler can remove redundant checks itself, without removing checks from the source.
 
 Index inline result, 2026-11-13: one `#[inline(always)]` on the unchanged index insertion body removes the per-row external call. All 1,026 default tests and two privacy documentation tests pass. In 31 quiet pairs, EP016/current apply is 14.06/14.12 ms; paired change +0.06 ms, bootstrap 95% interval -0.01 to +0.15. No measured latency interval has a positive lower bound. Total replay is 46.93/46.47 ms. Keep this measured hint; final independent timings and complete checks remain open.
+
+Supplemental card-gap check, 2026-11-13: Cargo reused an old library when two checkouts shared a target directory, producing identical probe executables. Discarded that comparison before collecting timings. The old and current libraries now build in separate target directories with Rust 1.100.0 pinned; verify their symbols and hashes before measuring dense appends and appends after a real card id creates a counter gap.
+
+Final closeout, 2026-11-13: completed all four milestones and recorded the direct review and final evidence in `.agents/reports/exec017-final-report.md`. The complete plan is moved unchanged to `.agents/done/`; the owner reviews EP017 before EP018 starts.
+
+Supplemental result, 2026-11-13: 31 alternating pairs of ten 50,000-row batches show before/current medians 7.31/7.17 ms for ordered rows and 19.91/18.98 ms after a card gap, with both paired intervals favoring the hint. All row/id assertions pass. The final source, report, review and independent timing/memory checks are complete.
+
+Archive note, 2026-11-13: the final report and completed status supersede the dated in-progress gate notes while retaining their history. The file is frozen before moving to `.agents/done/`.

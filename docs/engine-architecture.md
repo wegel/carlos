@@ -1,6 +1,6 @@
 # Engine architecture: daemon and clients
 
-Status: agreed 2026-11-11. ExecPlan 016 completed 2026-11-13; ExecPlan 017 has not started.
+Status: agreed 2026-11-11. ExecPlans 016 and 017 completed 2026-11-13; ExecPlan 018 has not started.
 
 This note records the design for splitting `carlos` into a daemon and several
 clients, and the reasons. Update it when a decision changes. Keep raw logs out.
@@ -214,6 +214,11 @@ To do when 1.100.0 is available:
    change the Mac's default toolchain; other projects use it.
 4. Run `cargo test`, `bash scripts/test.sh` and the `perf-session` baseline
    again, and record new baseline figures, because a compiler change moves them.
+
+Linux/CI update, 2026-11-13: `rust-toolchain.toml` and both workflows now select
+Rust 1.100.0. EP017 passed its checks with that compiler. EP017 did not inspect
+the Mac; check its additional toolchain and iOS targets before the iPhone build,
+while leaving its default toolchain unchanged.
 
 ## How the work is driven
 
