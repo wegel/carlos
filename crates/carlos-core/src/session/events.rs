@@ -41,7 +41,7 @@ pub struct NumberedChange {
 #[derive(Debug)]
 pub(super) struct EventState {
     pub(super) operations: super::submission_identity::OperationEchoes,
-    pub(super) current_turn: Option<(String, carlos_proto::ids::TurnId)>,
+    pub(super) current_turn: Option<super::control_liveness::LiveTurn>,
     pub(super) backend_closed: bool,
     pub(super) id: SessionId,
     pub(super) backend: Backend,

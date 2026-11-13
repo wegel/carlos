@@ -55,6 +55,9 @@ impl BackendCommands for Commands {
     fn kind(&self) -> BackendKind {
         BackendKind::Codex
     }
+    fn connection_generation(&self) -> Option<u64> {
+        Some(self.generation)
+    }
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String> {
         self.check()?;
         self.connection.call(method, params, timeout)

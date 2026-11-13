@@ -97,8 +97,8 @@ impl BackendWork {
             .load(std::sync::atomic::Ordering::SeqCst)
         {
             Err("backend command retired before dispatch; nothing sent".into())
-        } else if client.kind() != self.guard.kind {
-            Err("backend kind changed before command execution".into())
+        } else if !self.guard.matches_connection(client) {
+            Err("backend kind or connection changed before command execution".into())
         } else {
             execute_call(self.call, &self.finish, client)
         };

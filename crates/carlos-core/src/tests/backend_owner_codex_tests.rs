@@ -26,6 +26,7 @@ fn real_codex_owner_reads_interrupts_and_answers_before_prompt_reply() {
     let events = client.take_events_rx().expect("owner events");
     let commands = client.capture_commands().expect("capture");
     let mut state = SessionState::new("root".into(), Default::default(), false);
+    state.configure_codex_connection(1, None);
     let work = prepare(&mut state);
     let worker = thread::spawn(move || work.execute(&commands));
     let line = events

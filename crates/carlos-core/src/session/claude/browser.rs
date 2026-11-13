@@ -109,7 +109,14 @@ impl SessionState {
         self.append_browser_notice(notice)
     }
 
-    #[cfg(any(test, feature = "test-support"))]
+    pub(in crate::session) fn finish_claimed_claude_browser(
+        &mut self,
+        pending: &crate::session::approval_state::ApprovalRequestDraft,
+        choice: ApprovalChoice,
+    ) {
+        self.append_browser_consent(pending.requested_permissions.as_ref(), choice)
+    }
+
     fn append_browser_consent(&mut self, payload: Option<&Value>, choice: ApprovalChoice) {
         let notice = browser_consent_notice(&mut self.claude.browser, payload, choice);
         self.append_browser_notice(notice)

@@ -27,8 +27,8 @@ impl ClaudeClient {
     pub(super) fn commands(&self) -> Result<Commands> {
         let transport = self
             .transport
-            .lock()
-            .map_err(|_| anyhow!("Claude transport lock poisoned"))?
+            .try_lock()
+            .map_err(|_| anyhow!("Claude helper is changing; command not dispatched"))?
             .clone();
         let epoch = transport
             .conversation
@@ -47,7 +47,7 @@ impl ClaudeClient {
 }
 
 impl Commands {
-    pub(super) fn check(&self) -> Result<()> {
+    fn check_helper(&self) -> Result<()> {
         let owner = self.owner.upgrade().context("Claude owner has stopped")?;
         let current = owner
             .lock()
@@ -57,6 +57,11 @@ impl Commands {
             "captured Claude helper was replaced"
         );
         drop(current);
+        Ok(())
+    }
+
+    pub(super) fn check(&self) -> Result<()> {
+        self.check_helper()?;
         ensure!(
             self.transport
                 .conversation
@@ -123,6 +128,9 @@ impl BackendCommands for Commands {
     fn kind(&self) -> BackendKind {
         BackendKind::Claude
     }
+    fn connection_generation(&self) -> Option<u64> {
+        Some(self.transport.generation)
+    }
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String> {
         let result = match method {
             "thread/name/set" => self.helper_call(
@@ -176,7 +184,8 @@ impl BackendCommands for Commands {
     }
     fn respond(&self, id: &Value, result: Value) -> Result<()> {
         let id = id.as_str().context("native callback ID must be a string")?;
-        self.helper_call(
+        self.check_helper()?;
+        self.transport.call(
             "callback.respond",
             json!({"callbackId":id,"answer":result}),
             Duration::from_secs(10),

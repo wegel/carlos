@@ -137,6 +137,22 @@ pub enum ApprovalAnswer {
     Input { value: Value },
 }
 
+/// Structured question answers retain card-local keys and exact option values.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FieldAnswers {
+    pub fields: Vec<FieldAnswer>,
+}
+
+/// One field contains offered values and optional free text, never a backend request id.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FieldAnswer {
+    pub key: String,
+    pub values: Vec<Value>,
+    pub text: Option<String>,
+}
+
 /// The server's greeting after version and token checks succeed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HelloResult {

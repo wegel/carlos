@@ -39,7 +39,7 @@ impl SessionState {
     }
 }
 
-fn export_card(card: &PendingApprovalRequest, active: bool) -> Approval {
+pub(super) fn export_card(card: &PendingApprovalRequest, active: bool) -> Approval {
     let facts = card.facts();
     let input = export_input(card);
     let choices = export_choices(facts, input.as_ref());
@@ -108,7 +108,7 @@ fn export_fields(fields: Result<Vec<QuestionField>, String>) -> ApprovalInput {
                     description: field.description().to_owned(),
                     secret: field.secret(),
                     multiple: field.multiple(),
-                    other: field.other(),
+                    other: field.other() || field.options().is_empty(),
                     notes_only: field.notes_only(),
                     required: field.required(),
                     schema: field.schema().clone(),

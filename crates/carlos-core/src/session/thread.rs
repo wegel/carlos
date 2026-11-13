@@ -17,7 +17,7 @@ impl SessionState {
     pub fn reset_for_forked_thread(&mut self) {
         self.retire_backend_command();
         self.entry_conversation = self.thread_id.clone();
-        self.active_turn_id = None;
+        self.set_active_turn_id(None);
         self.messages.reset();
         self.completed_item_ids.clear();
         self.turn_status_by_id.clear();

@@ -1,6 +1,10 @@
 //! Keep every issued approval card inside one private owner and one write point.
 
 use std::collections::VecDeque;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 use serde_json::Value;
 
@@ -57,6 +61,8 @@ enum ApprovalChange<'a> {
     RetireQueued(&'a Value, ApprovalQueue),
     ClearQueue(ApprovalQueue),
     BeginAnswer(EntryId),
+    ClaimLive(EntryId),
+    Reopen(EntryId, &'a Arc<AtomicBool>),
 }
 
 impl ApprovalState {
@@ -76,6 +82,7 @@ impl ApprovalState {
                     entry_id,
                     facts,
                     answer_submitted: false,
+                    live: Arc::new(AtomicBool::new(true)),
                 });
             }
             ApprovalChange::Enqueue(facts, entry_id, queue) => {
@@ -83,6 +90,7 @@ impl ApprovalState {
                     entry_id,
                     facts,
                     answer_submitted: false,
+                    live: Arc::new(AtomicBool::new(true)),
                 });
             }
             ApprovalChange::Focus(id, queue) => {
@@ -105,6 +113,8 @@ impl ApprovalState {
             ApprovalChange::ClearQueue(queue) => {
                 retired.extend(self.queue_mut(queue).drain(..).map(|p| p.entry_id()));
             }
+            ApprovalChange::ClaimLive(id) => self.claim(id),
+            ApprovalChange::Reopen(id, live) => self.reopen(id, live),
             ApprovalChange::BeginAnswer(id) => {
                 if let Some(card) = self.pending.as_mut().filter(|p| p.entry_id() == id) {
                     card.answer_submitted = true;
@@ -112,6 +122,33 @@ impl ApprovalState {
             }
         }
         retired
+    }
+
+    fn live_mut(&mut self) -> impl Iterator<Item = &mut PendingApprovalRequest> {
+        self.pending
+            .iter_mut()
+            .chain(self.claude.iter_mut())
+            .chain(self.codex.iter_mut())
+    }
+
+    fn claim(&mut self, id: EntryId) {
+        if let Some(card) = self
+            .live_mut()
+            .find(|card| card.entry_id == id && !card.answer_submitted)
+        {
+            card.answer_submitted = true;
+        }
+    }
+
+    fn reopen(&mut self, id: EntryId, live: &Arc<AtomicBool>) {
+        if let Some(card) = self
+            .live_mut()
+            .find(|card| card.entry_id == id && Arc::ptr_eq(&card.live, live))
+        {
+            card.live.store(false, Ordering::SeqCst);
+            card.live = Arc::new(AtomicBool::new(true));
+            card.answer_submitted = false;
+        }
     }
 
     fn retire(&mut self, id: EntryId) -> Option<EntryId> {
@@ -233,6 +270,27 @@ impl SessionState {
         self.approval
             .pending()
             .is_some_and(|p| p.entry_id() == id && p.answer_submitted)
+    }
+
+    /// Claim any exact live card once without changing another client's focus.
+    pub(crate) fn claim_live_approval(&mut self, id: EntryId) -> Option<super::ApprovalClaim> {
+        let card = self
+            .approval
+            .live()
+            .find(|card| card.entry_id == id && !card.answer_submitted)?;
+        let claim = super::ApprovalClaim {
+            card: id,
+            facts: card.facts.clone(),
+            live: card.live.clone(),
+        };
+        self.approval.change(ApprovalChange::ClaimLive(id));
+        Some(claim)
+    }
+
+    /// Reopen only a claimed card whose worker failed before writing a native answer.
+    pub(crate) fn reopen_claimed_approval(&mut self, claim: &super::ApprovalClaim) {
+        self.approval
+            .change(ApprovalChange::Reopen(claim.card, &claim.live));
     }
 
     /// Finish an answer accepted while active, even if focus moved during validation.

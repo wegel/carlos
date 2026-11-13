@@ -157,7 +157,7 @@ impl SessionState {
         {
             return false;
         }
-        self.active_turn_id = Some(turn_id.to_string());
+        self.set_active_turn_id(Some(turn_id.to_string()));
         self.turn_status_by_id
             .insert(turn_id.to_string(), TurnStatus::InProgress);
         self.mark_turn_started();

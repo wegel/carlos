@@ -113,3 +113,12 @@ impl Drop for CommandState {
         }
     }
 }
+
+impl WorkGuard {
+    pub(super) fn matches_connection(&self, client: &dyn crate::backend::BackendClient) -> bool {
+        client.kind() == self.kind
+            && client
+                .connection_generation()
+                .is_none_or(|generation| generation == self.generation)
+    }
+}

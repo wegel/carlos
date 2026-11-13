@@ -12,18 +12,12 @@ impl SessionState {
                 .events
                 .current_turn
                 .as_ref()
-                .map(|(native, _)| native.as_str())
+                .map(|turn| turn.native.as_str())
         {
-            self.events.current_turn = self.active_turn_id.as_ref().map(|native| {
-                (
-                    native.clone(),
-                    uuid::Uuid::new_v4()
-                        .simple()
-                        .to_string()
-                        .parse()
-                        .expect("turn id"),
-                )
-            });
+            self.events.current_turn = self
+                .active_turn_id
+                .as_ref()
+                .map(|native| super::control_liveness::LiveTurn::new(native));
         }
     }
 
@@ -74,7 +68,7 @@ impl SessionState {
             || info.cwd.as_deref() != self.summaries.cwd.to_str().filter(|cwd| !cwd.is_empty())
             || info.phase != self.event_phase()
             || info.availability != self.event_availability()
-            || info.current_turn.as_ref() != self.events.current_turn.as_ref().map(|(_, id)| id)
+            || info.current_turn.as_ref() != self.events.current_turn.as_ref().map(|turn| &turn.id)
             || info.ralph != self.ralph_enabled()
             || info.turn_started_at != self.event_turn_start()
             || info.context
@@ -106,7 +100,11 @@ impl SessionState {
                 .map(str::to_owned),
             phase: self.event_phase(),
             availability: self.event_availability(),
-            current_turn: self.events.current_turn.as_ref().map(|(_, id)| id.clone()),
+            current_turn: self
+                .events
+                .current_turn
+                .as_ref()
+                .map(|turn| turn.id.clone()),
             ralph: self.ralph_enabled(),
             turn_started_at: self.event_turn_start(),
             context: self.context_usage.map(|c| Context {

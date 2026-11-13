@@ -23,6 +23,10 @@ pub struct InterruptIntent {
 pub trait BackendCommands: Send + Sync {
     /// Identify the native adapter behind this captured connection.
     fn kind(&self) -> BackendKind;
+    /// Identify the captured native process generation, when the adapter supplies it.
+    fn connection_generation(&self) -> Option<u64> {
+        None
+    }
     /// Run a native request without holding an owner or connection-manager lock.
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String>;
     /// Submit text with its native author and queue policy.
@@ -74,6 +78,9 @@ impl Deref for CommandHandle {
 impl BackendClient for CommandHandle {
     fn kind(&self) -> BackendKind {
         self.0.kind()
+    }
+    fn connection_generation(&self) -> Option<u64> {
+        self.0.connection_generation()
     }
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String> {
         self.0.call(method, params, timeout)

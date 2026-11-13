@@ -13,6 +13,7 @@ impl SessionState {
     pub fn set_thread_id(&mut self, id: String) {
         if self.thread_id != id {
             self.retire_backend_command();
+            self.events.current_turn = None;
         }
         self.thread_id = id;
     }
@@ -28,6 +29,9 @@ impl SessionState {
             self.messages
                 .finish_from(self.turn_suffix_start().unwrap_or(0));
             self.events.turn_started_at = None;
+        }
+        if self.active_turn_id != id {
+            self.events.current_turn = None;
         }
         self.active_turn_id = id;
     }

@@ -113,7 +113,7 @@ impl<T> Drop for EventReceiver<T> {
 }
 
 /// Run session commands and receive backend messages without requiring a terminal client.
-pub trait BackendClient {
+pub trait BackendClient: Send {
     /// Identify the native backend that receives these commands.
     fn kind(&self) -> BackendKind;
     /// Mark interrupt intent on the event owner before a worker sends the control.

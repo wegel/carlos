@@ -1,6 +1,10 @@
 //! Approval request types and response generation for tool-use confirmations.
 
 use serde_json::{json, Value};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 #[path = "approval_commands.rs"]
 mod commands;
@@ -53,6 +57,20 @@ pub struct PendingApprovalRequest {
     entry_id: crate::session::entry_id::EntryId,
     facts: ApprovalRequestDraft,
     answer_submitted: bool,
+    live: Arc<AtomicBool>,
+}
+
+/// One claimed live card; dropping the session card invalidates undispatched worker work.
+pub(crate) struct ApprovalClaim {
+    pub(crate) card: crate::session::entry_id::EntryId,
+    pub(crate) facts: ApprovalRequestDraft,
+    pub(crate) live: Arc<AtomicBool>,
+}
+
+impl Drop for PendingApprovalRequest {
+    fn drop(&mut self) {
+        self.live.store(false, Ordering::SeqCst);
+    }
 }
 
 impl PendingApprovalRequest {
