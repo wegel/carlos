@@ -3,7 +3,10 @@
 use std::time::Instant;
 
 use carlos_core::session::entry_id::EntryId;
+use carlos_proto::ids::ClientId;
+use carlos_proto::submissions::ClientOperation;
 use ratatui_textarea::TextArea;
+use uuid::Uuid;
 
 use super::claude_edit_view::ClaudeEditView;
 use super::codex_state::CodexCallbacksView;
@@ -21,6 +24,7 @@ use super::tool_output_state::ToolOutputState;
 use super::viewport_state::ViewportState;
 
 pub(super) struct ViewState {
+    pub(super) client_id: ClientId,
     pub(super) core_cursor: carlos_proto::ids::Sequence,
     pub(super) codex_panel: super::codex_panel_state::PanelView,
     pub(super) codex_settings: super::codex_settings_view::SettingsView,
@@ -57,6 +61,11 @@ pub(super) struct ViewState {
 impl ViewState {
     pub(super) fn new(summary_enabled_draft: bool) -> Self {
         Self {
+            client_id: Uuid::new_v4()
+                .simple()
+                .to_string()
+                .parse()
+                .expect("client id"),
             core_cursor: Default::default(),
             codex_panel: Default::default(),
             codex_settings: Default::default(),
@@ -89,5 +98,21 @@ impl ViewState {
             approval_hints: ApprovalHints::default(),
             confirm_allow: None,
         }
+    }
+}
+
+impl ViewState {
+    pub(super) fn new_operation(&self) -> ClientOperation {
+        ClientOperation {
+            client: self.client_id.clone(),
+            id: Uuid::new_v4()
+                .simple()
+                .to_string()
+                .parse()
+                .expect("operation id"),
+        }
+    }
+    pub(super) fn owns_operation(&self, operation: Option<&ClientOperation>) -> bool {
+        operation.is_none_or(|operation| operation.client == self.client_id)
     }
 }

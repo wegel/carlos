@@ -47,7 +47,7 @@ impl SessionState {
             batch.abort = true;
         } else if self.codex_connection().rebuilding() {
             batch.initial = self
-                .route_codex_callback(method, event, context.panel, context.callback_focused)
+                .route_codex_callback(method, event, context.panel)
                 .map(|update| BackendUpdate::new(BackendChange::Codex(update)));
         } else if !self.codex_scope().closed() {
             batch.initial = Some(self.apply_native_frame(event, context));

@@ -1,5 +1,6 @@
 //! Keep submitted branch text and its exact acknowledgement UUID with the session.
 
+use carlos_proto::submissions::{ClientOperation, SubmittedText};
 use serde_json::Value;
 
 use super::state::ClaudePhase;
@@ -16,7 +17,8 @@ pub enum EditProgress {
 
 #[derive(Default, Debug)]
 pub(in crate::session) struct ClaudeEdit {
-    prompt: Option<String>,
+    prompt: Option<SubmittedText>,
+    operation: Option<ClientOperation>,
     request: Option<EditRequest>,
 }
 
@@ -47,19 +49,26 @@ impl SessionState {
 
     /// Retain the selected edit after the backend accepts the fork request.
     pub fn begin_claude_edit(&mut self, text: String) {
+        self.begin_claude_edit_for(text, None);
+    }
+
+    /// Retain an accepted fork with the client operation that owns its recovery.
+    pub fn begin_claude_edit_for(&mut self, text: String, operation: Option<ClientOperation>) {
         self.claude.phase = ClaudePhase::Starting;
-        self.claude.edit.prompt = Some(text);
+        self.claude.edit.operation = operation.clone();
+        self.claude.edit.prompt = Some(SubmittedText { text, operation });
         self.claude.edit.request = Some(EditRequest::Forking);
     }
 
     /// Move branch text across the existing helper reset without retaining send progress.
-    pub(crate) fn resume_claude_edit(&mut self, text: Option<String>) {
+    pub(crate) fn resume_claude_edit(&mut self, text: Option<SubmittedText>) {
+        self.claude.edit.operation = text.as_ref().and_then(|draft| draft.operation.clone());
         self.claude.edit.request = text.as_ref().map(|_| EditRequest::Starting);
         self.claude.edit.prompt = text;
     }
 
     /// Return saved branch text once to its queue or to the client's recovery drafts.
-    pub(crate) fn take_claude_edit_prompt(&mut self) -> Option<String> {
+    pub(crate) fn take_claude_edit_prompt(&mut self) -> Option<SubmittedText> {
         self.claude.edit.prompt.take()
     }
 
@@ -111,7 +120,10 @@ impl SessionState {
             ..
         }) = &self.claude.edit.request
         {
-            self.claude.edit.prompt = Some(text.clone());
+            self.claude.edit.prompt = Some(SubmittedText {
+                text: text.clone(),
+                operation: self.claude.edit.operation.clone(),
+            });
         }
     }
 
@@ -122,7 +134,10 @@ impl SessionState {
         {
             return false;
         }
-        self.claude.edit.prompt = Some(text.to_string());
+        self.claude.edit.prompt = Some(SubmittedText {
+            text: text.to_string(),
+            operation: self.claude.edit.operation.clone(),
+        });
         true
     }
 
@@ -137,17 +152,22 @@ impl SessionState {
         true
     }
 
+    /// Borrow the originating client command independently of any current editor.
+    pub fn claude_edit_operation(&self) -> Option<&ClientOperation> {
+        self.claude.edit.operation.as_ref()
+    }
+
     /// End progress while retaining any saved text until the client takes it.
     pub(crate) fn end_claude_edit(&mut self) {
         self.claude.edit.request = None;
     }
 
     /// Return queued human drafts in order after removing matching unbound history tails.
-    pub(crate) fn retain_claude_queued_drafts(&mut self) -> (Vec<String>, bool) {
+    pub(crate) fn retain_claude_queued_drafts(&mut self) -> (Vec<SubmittedText>, bool) {
         let drafts = self.ralph_take_queued_human_drafts();
         let mut reset_navigation = false;
         for text in drafts.iter().rev() {
-            reset_navigation |= self.discard_pending_prompt(text);
+            reset_navigation |= self.discard_pending_prompt(&text.text);
         }
         (drafts, reset_navigation)
     }
@@ -162,6 +182,10 @@ impl SessionState {
 impl SessionState {
     /// Inspect submitted fork text without taking recovery ownership.
     pub fn claude_edit_prompt_for_test(&self) -> Option<&str> {
-        self.claude.edit.prompt.as_deref()
+        self.claude
+            .edit
+            .prompt
+            .as_ref()
+            .map(|draft| draft.text.as_str())
     }
 }

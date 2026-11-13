@@ -2,6 +2,8 @@
 
 use std::time::{Duration, Instant};
 
+use carlos_proto::submissions::SubmittedText;
+
 use super::{QueuedTurnInput, RalphRuntimeState, RALPH_CONTINUATION_DELAY};
 use crate::backend::PromptOrigin;
 
@@ -29,6 +31,27 @@ impl RalphRuntimeState {
             text,
             record_input_history,
             origin,
+            operation: None,
+            keeps_ralph_pending: false,
+            available_at: None,
+        });
+    }
+
+    /// Queue submitted text with its original client operation.
+    pub(crate) fn enqueue_submitted(
+        &mut self,
+        draft: SubmittedText,
+        record: bool,
+        origin: PromptOrigin,
+    ) {
+        if draft.text.trim().is_empty() {
+            return;
+        }
+        self.queued_turn_inputs.push_back(QueuedTurnInput {
+            text: draft.text,
+            operation: draft.operation,
+            record_input_history: record,
+            origin,
             keeps_ralph_pending: false,
             available_at: None,
         });
@@ -44,6 +67,7 @@ impl RalphRuntimeState {
             text,
             record_input_history: false,
             origin: PromptOrigin::Automatic,
+            operation: None,
             keeps_ralph_pending: true,
             available_at: Some(Instant::now() + RALPH_CONTINUATION_DELAY),
         });

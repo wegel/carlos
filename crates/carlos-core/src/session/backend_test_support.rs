@@ -2,28 +2,12 @@
 
 use super::actions::ServerRequestAction;
 use super::backend_update::{BackendChange, BackendContext, BackendUpdate};
-use super::claude::receive_update::ClaudeDraftContext;
-use super::codex::panel_scope::PanelScope;
 use super::state::SessionState;
 use crate::backend::BackendClient;
 
 /// Supply no client selection, draft, editor or consent token to the session.
 pub(super) fn context(session: &SessionState) -> BackendContext<'static> {
-    BackendContext {
-        panel: PanelScope {
-            native: session.codex_scope(),
-            generation: session.codex_connection().generation(),
-            rebuilding: session.codex_connection().rebuilding(),
-            visible: false,
-            detail: false,
-            selected: None,
-        },
-        callback_focused: false,
-        claude: ClaudeDraftContext {
-            composer: &[],
-            confirmation: None,
-        },
-    }
+    session.backend_context()
 }
 
 /// Apply normalized fan-out in full before executing its ordered backend actions.

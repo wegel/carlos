@@ -1,5 +1,7 @@
 //! Consume local editor changes returned by the Claude session owner.
 
+use carlos_proto::submissions::{RecoveryKind, SubmissionOutcome, SubmittedText};
+
 use carlos_core::session::actions::ServerRequestAction;
 use carlos_core::session::claude::callbacks::ClaudeCallback;
 use carlos_core::session::claude::receive_update::{ClaudeEffect, ClaudeUpdate};
@@ -13,8 +15,17 @@ impl AppState {
         &mut self,
         update: ClaudeUpdate,
     ) -> Option<ServerRequestAction> {
+        let closed = update
+            .effects
+            .iter()
+            .any(|effect| matches!(effect, ClaudeEffect::SessionClosed));
         for effect in update.effects {
             self.apply_claude_effect(effect);
+        }
+        if closed && self.input_is_empty() {
+            if let Some(text) = self.view.claude_edit.unsent_drafts.pop_front() {
+                self.set_input_text(&text);
+            }
         }
         self.apply_item_changes(update.items);
         update.action
@@ -43,15 +54,12 @@ impl AppState {
     fn apply_claude_effect(&mut self, effect: ClaudeEffect) {
         match effect {
             ClaudeEffect::Callback(callback) => self.apply_claude_callback(callback),
-            ClaudeEffect::Cancelled {
-                id,
-                clear_confirmation,
-            } => {
+            ClaudeEffect::Cancelled { id, card } => {
+                if card.is_some() && self.view.confirm_allow == card {
+                    self.view.confirm_allow = None;
+                }
                 if let Some(id) = id {
                     self.view.claude_answers.drafts.remove(&id);
-                }
-                if clear_confirmation {
-                    self.view.confirm_allow = None;
                 }
             }
             ClaudeEffect::Browser(id) => {
@@ -75,17 +83,57 @@ impl AppState {
                 self.view.claude_unknown_selection = None;
                 self.view.claude_edit = Default::default();
             }
-            ClaudeEffect::EditFailed(failed) => self.view.claude_edit.failed = failed,
-            ClaudeEffect::FollowBottom => self.view.viewport.auto_follow_bottom = true,
-            ClaudeEffect::SetInput(text) => self.set_input_text(&text),
-            ClaudeEffect::ClearInput => self.clear_input(),
-            ClaudeEffect::ClearRewind => self.clear_rewind_mode_state(),
-            ClaudeEffect::RetainDraft(text) => self.view.claude_edit.unsent_drafts.push_back(text),
-            ClaudeEffect::LoadRetained => {
-                if let Some(text) = self.view.claude_edit.unsent_drafts.pop_front() {
-                    self.set_input_text(&text);
+            ClaudeEffect::Submission(outcome) => self.apply_submission_outcome(outcome),
+            ClaudeEffect::SessionClosed => self.view.claude_edit.failed = true,
+        }
+    }
+
+    fn apply_submission_outcome(&mut self, outcome: SubmissionOutcome) {
+        match outcome {
+            SubmissionOutcome::EditStarted(operation) => {
+                if self.view.owns_operation(operation.as_ref()) {
+                    self.view.claude_edit.failed = false;
+                    self.view.viewport.auto_follow_bottom = true;
                 }
             }
+            SubmissionOutcome::EditRejected(operation) => {
+                if self.view.owns_operation(operation.as_ref()) {
+                    self.view.claude_edit.failed = true;
+                    self.view.viewport.auto_follow_bottom = true;
+                }
+            }
+            SubmissionOutcome::EditAccepted(operation) => {
+                if self.view.owns_operation(operation.as_ref()) {
+                    self.view.claude_edit.failed = false;
+                }
+            }
+            SubmissionOutcome::EditQueued(draft) => self.apply_queued_edit(draft),
+            SubmissionOutcome::Recovered { draft, kind } => {
+                self.recover_submitted_text(draft, kind)
+            }
+        }
+    }
+
+    fn apply_queued_edit(&mut self, draft: SubmittedText) {
+        if !self.view.owns_operation(draft.operation.as_ref()) {
+            return;
+        }
+        self.view.claude_edit.failed = false;
+        self.clear_rewind_mode_state();
+        if self.input_text() == draft.text {
+            self.clear_input();
+        }
+    }
+
+    fn recover_submitted_text(&mut self, draft: SubmittedText, kind: RecoveryKind) {
+        if !self.view.owns_operation(draft.operation.as_ref()) {
+            return;
+        }
+        if kind != RecoveryKind::Queued && self.input_is_empty() {
+            self.set_input_text(&draft.text);
+        } else if kind == RecoveryKind::Queued || self.input_text() != draft.text {
+            self.view.claude_edit.unsent_drafts.push_back(draft.text);
+            self.set_hint("Unsent draft retained; F5 loads it when the composer is empty");
         }
     }
 

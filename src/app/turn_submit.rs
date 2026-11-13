@@ -54,6 +54,7 @@ pub(super) fn submit_turn_text_with_history(
 }
 
 /// Dispatch one accepted queue record with its original origin.
+#[cfg(test)]
 pub(super) fn submit_dequeued_turn_text(
     client: &dyn BackendClient,
     app: &mut AppState,
@@ -84,14 +85,10 @@ fn submit(
     apply(app, update);
 }
 
-fn context(view: &super::view_state::ViewState) -> PromptContext<'_> {
+fn context(view: &super::view_state::ViewState) -> PromptContext {
     PromptContext {
-        draft: carlos_core::session::claude::receive_update::ClaudeDraftContext {
-            composer: view.input.lines(),
-            confirmation: view.confirm_allow,
-        },
+        operation: Some(view.new_operation()),
         claude_queue: view.claude_queue,
-        edit_failed: view.claude_edit.failed,
     }
 }
 
@@ -101,7 +98,39 @@ pub(super) fn apply(app: &mut AppState, update: TurnUpdate) {
     if let Some(hint) = update.hint {
         app.set_hint(hint);
     }
+    if let Some(name) = update.name_saved {
+        if app.input_text().trim() == format!("/rename {name}") {
+            app.clear_input();
+        }
+    }
+    if update.rewound {
+        app.clear_rewind_mode_state();
+    }
+    if let Some(text) = update.submitted {
+        if app.input_text() == text {
+            app.clear_input();
+        }
+    }
     if update.clear_selection {
         app.view.viewport.selection = None;
     }
+}
+
+/// Dispatch a queued command with the same owner that submitted it.
+pub(super) fn submit_queued(
+    client: &dyn BackendClient,
+    app: &mut AppState,
+    queued: carlos_core::session::ralph_runtime_state::QueuedTurnInput,
+) {
+    let mut context = context(&app.view);
+    context.operation = queued.operation;
+    let options = PromptOptions {
+        record_history: queued.record_input_history,
+        force_start: true,
+        origin: queued.origin,
+    };
+    let update = app
+        .session
+        .submit_turn_text(client, queued.text, options, &context);
+    apply(app, update);
 }

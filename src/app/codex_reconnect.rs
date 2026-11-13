@@ -17,7 +17,7 @@ pub(super) fn start(client: &dyn BackendClient, app: &mut AppState) {
 /// Apply each report and reply before the session acknowledges or advances its native drain.
 pub(super) fn receive(client: &dyn BackendClient, app: &mut AppState, line: &str) -> bool {
     let editor = capture_editor(app);
-    let context = super::backend_updates::context(&app.session, &app.view);
+    let context = app.session.backend_context();
     let Some(mut batch) = app
         .session
         .receive_native_line(client, line, &context, editor)
@@ -25,7 +25,7 @@ pub(super) fn receive(client: &dyn BackendClient, app: &mut AppState, line: &str
         return false;
     };
     loop {
-        let context = super::backend_updates::context(&app.session, &app.view);
+        let context = app.session.backend_context();
         let Some(update) = batch.next(&mut app.session, client, &context) else {
             break;
         };

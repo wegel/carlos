@@ -1,6 +1,6 @@
 //! Return synchronous backend changes without introducing a second backend event protocol.
 
-use super::claude::receive_update::{ClaudeDraftContext, ClaudeUpdate};
+use super::claude::receive_update::ClaudeUpdate;
 use super::codex::callback_update::CallbackUpdate;
 use super::codex::frame_install::NativeInstalled;
 use super::codex::lifecycle::CodexClosed;
@@ -8,11 +8,9 @@ use super::codex::panel_scope::PanelScope;
 use super::common_update::CommonUpdate;
 use super::item_changes::ItemChanges;
 
-/// Borrow explicit client targets and unsent text for one immediate session call.
+/// Carry native connection facts while finishing work already requested by a command.
 pub struct BackendContext<'a> {
     pub panel: PanelScope<'a>,
-    pub callback_focused: bool,
-    pub claude: ClaudeDraftContext<'a>,
 }
 
 /// Carry one existing handler report and a completed history fragment's nested report.
@@ -38,6 +36,22 @@ impl BackendUpdate {
         Self {
             change,
             nested: None,
+        }
+    }
+}
+
+impl super::state::SessionState {
+    /// Finish requested reads using session identity, independent of any client's selected panel.
+    pub fn backend_context(&self) -> BackendContext<'static> {
+        BackendContext {
+            panel: PanelScope {
+                native: self.codex_scope(),
+                generation: self.codex_connection().generation(),
+                rebuilding: self.codex_connection().rebuilding(),
+                visible: true,
+                detail: false,
+                selected: None,
+            },
         }
     }
 }

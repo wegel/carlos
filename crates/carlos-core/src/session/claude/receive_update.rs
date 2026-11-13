@@ -1,5 +1,6 @@
-//! Return immediate Claude editor effects without storing any client draft.
+//! Report Claude session facts and correlated submitted text without reading a client editor.
 
+use carlos_proto::submissions::SubmissionOutcome;
 use serde_json::Value;
 
 use super::callbacks::ClaudeCallback;
@@ -10,12 +11,6 @@ use crate::session::entry_id::EntryId;
 use crate::session::item_changes::ItemChanges;
 use crate::session::thread_commands::ThreadChanged;
 
-/// Borrow unsent client facts only for one synchronous command.
-pub struct ClaudeDraftContext<'a> {
-    pub composer: &'a [String],
-    pub confirmation: Option<EntryId>,
-}
-
 /// Report only local changes and the existing next backend action.
 #[derive(Default)]
 pub struct ClaudeUpdate {
@@ -25,12 +20,12 @@ pub struct ClaudeUpdate {
     pub(in crate::session) history_frame: Option<Value>,
 }
 
-/// Tell the synchronous client which editors or controls to change once.
+/// Session changes; clients choose their own focus, draft recovery and scroll behavior.
 pub enum ClaudeEffect {
     Callback(ClaudeCallback),
     Cancelled {
         id: Option<String>,
-        clear_confirmation: bool,
+        card: Option<EntryId>,
     },
     Browser(Option<String>),
     Thread(ThreadChanged),
@@ -41,48 +36,6 @@ pub enum ClaudeEffect {
     CodexUnfocus,
     SwitchControls,
     ResetControls,
-    EditFailed(bool),
-    FollowBottom,
-    SetInput(String),
-    ClearInput,
-    ClearRewind,
-    RetainDraft(String),
-    LoadRetained,
-}
-
-impl ClaudeUpdate {
-    /// Read the composer after any earlier recovery in this synchronous command.
-    pub(in crate::session) fn composer_is_empty(&self, draft: &ClaudeDraftContext<'_>) -> bool {
-        match self.input_change() {
-            Some(Some(text)) => text.is_empty(),
-            Some(None) => true,
-            None => {
-                draft.composer.is_empty()
-                    || draft.composer.len() == 1 && draft.composer[0].is_empty()
-            }
-        }
-    }
-
-    /// Compare borrowed composer lines without copying them into a new string.
-    pub(in crate::session) fn composer_matches(
-        &self,
-        draft: &ClaudeDraftContext<'_>,
-        text: &str,
-    ) -> bool {
-        match self.input_change() {
-            Some(Some(current)) => current == text,
-            Some(None) => text.is_empty(),
-            None => text
-                .split('\n')
-                .eq(draft.composer.iter().map(String::as_str)),
-        }
-    }
-
-    fn input_change(&self) -> Option<Option<&str>> {
-        self.effects.iter().rev().find_map(|effect| match effect {
-            ClaudeEffect::SetInput(text) => Some(Some(text.as_str())),
-            ClaudeEffect::ClearInput => Some(None),
-            _ => None,
-        })
-    }
+    Submission(SubmissionOutcome),
+    SessionClosed,
 }

@@ -5,7 +5,6 @@ use std::time::Duration;
 use crate::backend::{BackendClient, BackendKind};
 use crate::protocol_params::{extract_result_object, params_thread_set_name};
 
-use super::claude::receive_update::ClaudeEffect;
 use super::prompt_commands::TurnUpdate;
 use super::state::SessionState;
 use crate::session::models::Role;
@@ -35,7 +34,7 @@ impl SessionState {
         match result {
             Ok(_) => {
                 self.observe_name(Some(name));
-                update.changes.effects.push(ClaudeEffect::ClearInput);
+                update.name_saved = Some(name.to_owned());
                 self.set_status("session renamed");
             }
             Err(error) => self.name_failed(&error.to_string(), true, &mut update),

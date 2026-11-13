@@ -84,7 +84,7 @@ pub(crate) fn handle_server_message_line(
     app: &mut AppState,
     line: &str,
 ) -> Option<ServerRequestAction> {
-    let context = super::backend_updates::context(&app.session, &app.view);
+    let context = app.session.backend_context();
     let update = app.session.handle_backend_line(line, &context);
     app.apply_backend_update(update)
 }

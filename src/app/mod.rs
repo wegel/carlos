@@ -308,3 +308,7 @@ mod claude_process_test_support;
 mod normalized_test_app;
 
 mod core_events;
+
+#[cfg(test)]
+#[path = "../tests/client_recovery_tests.rs"]
+mod client_recovery_tests;

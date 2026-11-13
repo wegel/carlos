@@ -1,8 +1,10 @@
 //! Adopt native Claude switches and clears before returning local control resets.
 
+use carlos_proto::submissions::SubmissionOutcome;
+
 use serde_json::Value;
 
-use super::receive_update::{ClaudeDraftContext, ClaudeEffect, ClaudeUpdate};
+use super::receive_update::{ClaudeEffect, ClaudeUpdate};
 use crate::session::approval_state::ApprovalQueue;
 use crate::session::models::Role;
 use crate::session::state::SessionState;
@@ -49,52 +51,46 @@ impl SessionState {
     }
 
     /// Queue the saved edit only after accepted capabilities make the helper ready.
-    pub fn receive_claude_capabilities(
-        &mut self,
-        capabilities: &Value,
-        draft: &ClaudeDraftContext<'_>,
-        update: &mut ClaudeUpdate,
-    ) {
+    pub fn receive_claude_capabilities(&mut self, capabilities: &Value, update: &mut ClaudeUpdate) {
         if !self.apply_claude_capabilities(capabilities) {
             return;
         }
         if let Some(text) = self.take_claude_edit_prompt() {
             self.retire_claude_queue(update);
-            self.queue_claude_edit(&text);
-            update.effects.push(ClaudeEffect::EditFailed(false));
-            update.effects.push(ClaudeEffect::ClearRewind);
-            if update.composer_matches(draft, &text) {
-                update.effects.push(ClaudeEffect::ClearInput);
-            }
-            self.queue_turn_input_with_history(text, true);
+            self.queue_claude_edit(&text.text);
+            update
+                .effects
+                .push(ClaudeEffect::Submission(SubmissionOutcome::EditQueued(
+                    text.clone(),
+                )));
+            self.queue_submitted_input(text, true);
         }
     }
 
     /// Bind a submitted UUID and preserve the local failed-badge precedence.
-    pub fn receive_claude_submission(&mut self, response: &Value, failed: bool) -> ClaudeUpdate {
+    pub fn receive_claude_submission(&mut self, response: &Value) -> ClaudeUpdate {
         let mut update = ClaudeUpdate::default();
         let Some(id) = response["result"]["turn"]["id"].as_str() else {
             return update;
         };
         let key = self.backend_entry_key(&format!("claude-prompt:{id}"));
         self.record_submitted_claude_prompt(response, &key);
-        self.receive_claude_edit_acceptance(id, failed, &mut update);
+        self.receive_claude_edit_acceptance(id, &mut update);
 
         update
     }
 
     /// Dismiss a prior local failure before accepting the matching submitted UUID.
-    pub fn receive_claude_edit_acceptance(
-        &mut self,
-        id: &str,
-        failed: bool,
-        update: &mut ClaudeUpdate,
-    ) {
-        if failed {
-            update.effects.push(ClaudeEffect::EditFailed(false));
-        } else if self.accept_claude_edit(id) {
+    pub fn receive_claude_edit_acceptance(&mut self, id: &str, update: &mut ClaudeUpdate) {
+        let operation = self.claude_edit_operation().cloned();
+        if self.accept_claude_edit(id) {
             self.append_message(Role::System, "Claude started the edited branch".to_string());
         }
+        update
+            .effects
+            .push(ClaudeEffect::Submission(SubmissionOutcome::EditAccepted(
+                operation,
+            )));
     }
 
     fn reset_claude_thread(&mut self, id: String, preserve: bool, update: &mut ClaudeUpdate) {

@@ -2,7 +2,7 @@
 
 use serde_json::{json, Value};
 
-use super::receive_update::{ClaudeDraftContext, ClaudeUpdate};
+use super::receive_update::ClaudeUpdate;
 use crate::session::actions::ServerRequestAction;
 use crate::session::state::SessionState;
 
@@ -13,11 +13,10 @@ impl SessionState {
         frame: &Value,
         request: Option<&str>,
         context: &Value,
-        draft: &ClaudeDraftContext<'_>,
         update: &mut ClaudeUpdate,
     ) {
         if frame["ok"] != true {
-            self.failed_claude_control(frame, request, context, draft, update);
+            self.failed_claude_control(frame, request, context, update);
             return;
         }
         match request {
@@ -35,12 +34,12 @@ impl SessionState {
                     }
                     Err(error) => {
                         self.record_claude_error(&json!({"message":error.to_string()}));
-                        self.fail_claude(draft, update);
+                        self.fail_claude(update);
                     }
                 }
             }
             Some("start" | "capabilities") => {
-                self.receive_claude_capabilities(&frame["result"], draft, update);
+                self.receive_claude_capabilities(&frame["result"], update);
                 update.action = Some(ServerRequestAction::ApplyClaudeSettings);
             }
             Some("task.stop") => {
@@ -60,7 +59,6 @@ impl SessionState {
         frame: &Value,
         request: Option<&str>,
         context: &Value,
-        draft: &ClaudeDraftContext<'_>,
         update: &mut ClaudeUpdate,
     ) {
         if request == Some("task.stop") {
@@ -87,7 +85,7 @@ impl SessionState {
         }
         self.record_claude_error(&frame["error"]);
         if matches!(request, Some("start" | "sessions.info" | "sessions.read")) {
-            self.fail_claude(draft, update);
+            self.fail_claude(update);
         }
     }
 }

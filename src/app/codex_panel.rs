@@ -95,8 +95,8 @@ pub(super) fn select(app: &mut AppState, down: bool) {
 
 /// Apply exact session reports without replacing another local selection.
 pub(super) fn apply(app: &mut AppState, update: PanelUpdate) {
-    if let Some(selected) = update.selected {
-        app.view.codex_panel.selected = Some(selected);
+    if app.view.codex_panel.selected.is_none() {
+        app.view.codex_panel.selected = update.selected;
     }
     if update.detail {
         app.view.codex_panel.detail = true;

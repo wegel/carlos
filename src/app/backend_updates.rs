@@ -1,29 +1,9 @@
 //! Apply session reports to local controls without interpreting backend JSON.
 
 use carlos_core::session::actions::ServerRequestAction;
-use carlos_core::session::backend_update::{BackendChange, BackendContext, BackendUpdate};
-use carlos_core::session::claude::receive_update::ClaudeDraftContext;
+use carlos_core::session::backend_update::{BackendChange, BackendUpdate};
 
 use super::state::AppState;
-
-/// Borrow local targets independently from the mutable session owner.
-pub(super) fn context<'a>(
-    session: &carlos_core::session::state::SessionState,
-    view: &'a super::view_state::ViewState,
-) -> BackendContext<'a> {
-    BackendContext {
-        panel: super::codex_panel::scope(
-            session.codex_scope(),
-            session.codex_connection(),
-            &view.codex_panel,
-        ),
-        callback_focused: view.codex_callbacks.focused,
-        claude: ClaudeDraftContext {
-            composer: view.input.lines(),
-            confirmation: view.confirm_allow,
-        },
-    }
-}
 
 impl AppState {
     /// Apply the parent before its assembled history fact, discarding the nested action as before.

@@ -51,12 +51,8 @@ pub(super) fn send_failed(app: &mut AppState, text: &str, message: &str) -> bool
 /// Restore failed submitted text through the session's recovery rules.
 #[cfg(test)]
 pub(super) fn failed(app: &mut AppState, message: &str) {
-    let draft = carlos_core::session::claude::receive_update::ClaudeDraftContext {
-        composer: app.view.input.lines(),
-        ..super::claude_notifications::context(app)
-    };
     let mut update = Default::default();
-    app.session.fail_claude_edit(&draft, &mut update, message);
+    app.session.fail_claude_edit(&mut update, message);
     let _ = app.apply_claude_update(update);
 }
 
@@ -79,7 +75,6 @@ pub(super) fn retire_queue(app: &mut AppState) {
 #[cfg(test)]
 pub(super) fn accepted(app: &mut AppState, id: &str) {
     let mut update = Default::default();
-    app.session
-        .receive_claude_edit_acceptance(id, app.view.claude_edit.failed, &mut update);
+    app.session.receive_claude_edit_acceptance(id, &mut update);
     let _ = app.apply_claude_update(update);
 }

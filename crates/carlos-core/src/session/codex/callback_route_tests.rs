@@ -17,13 +17,13 @@ fn child_callback_is_accepted_during_closed_rebuild_and_resolved_by_owner() {
             "item/commandExecution/requestApproval",
             &request(),
             scope(&session),
-            false,
         )
         .expect("callback consumed before root filtering");
     assert!(matches!(
         update.effect,
         CallbackEffect::Accepted {
-            focus: Some(true),
+            active: true,
+            blocking: true,
             ..
         }
     ));
@@ -35,7 +35,7 @@ fn child_callback_is_accepted_during_closed_rebuild_and_resolved_by_owner() {
     for (owner, retired) in [("root", false), ("child", true)] {
         let frame = json!({"params":{"threadId":owner,"requestId":"request"}});
         let update = session
-            .route_codex_callback("serverRequest/resolved", &frame, scope(&session), true)
+            .route_codex_callback("serverRequest/resolved", &frame, scope(&session))
             .expect("resolution consumed");
         assert_eq!(matches!(update.effect, CallbackEffect::Retired(_)), retired);
         assert_eq!(session.approval().pending().is_none(), retired);
@@ -53,12 +53,7 @@ fn form_preflight_and_stale_worker_reply_need_no_editor() {
     let frame = json!({"id":"form","params":{"threadId":"child","serverName":"server",
         "mode":"form","requestedSchema":schema}});
     let update = session
-        .route_codex_callback(
-            "mcpServer/elicitation/request",
-            &frame,
-            scope(&session),
-            false,
-        )
+        .route_codex_callback("mcpServer/elicitation/request", &frame, scope(&session))
         .expect("form consumed");
     match update.action.expect("preflight action") {
         ServerRequestAction::ValidateCodexForm {
@@ -79,7 +74,6 @@ fn form_preflight_and_stale_worker_reply_need_no_editor() {
             "carlos/codex/formChecked",
             &json!({"params":{"requestId":"form","revision":99,"ok":true}}),
             scope(&session),
-            true,
         )
         .expect("stale worker consumed");
     assert!(update.action.is_none());

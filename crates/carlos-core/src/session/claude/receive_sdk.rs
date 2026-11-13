@@ -2,7 +2,7 @@
 
 use serde_json::Value;
 
-use super::receive_update::{ClaudeDraftContext, ClaudeEffect, ClaudeUpdate};
+use super::receive_update::{ClaudeEffect, ClaudeUpdate};
 use super::CompactionResult;
 use crate::session::actions::ServerRequestAction;
 use crate::session::models::{MessageKind, Role};
@@ -15,7 +15,6 @@ impl SessionState {
         &mut self,
         method: &str,
         facts: &Value,
-        draft: &ClaudeDraftContext<'_>,
         update: &mut ClaudeUpdate,
     ) {
         match method {
@@ -27,7 +26,7 @@ impl SessionState {
             }
             "claude/task" => {
                 if let Err(error) = self.update_claude_task(facts) {
-                    self.bounded_claude_failure(error, draft, update);
+                    self.bounded_claude_failure(error, update);
                 }
             }
             "claude/conversationReset" => self.receive_claude_reset(facts, update),
@@ -80,11 +79,10 @@ impl SessionState {
     pub(in crate::session) fn bounded_claude_failure(
         &mut self,
         error: &str,
-        draft: &ClaudeDraftContext<'_>,
         update: &mut ClaudeUpdate,
     ) {
         self.append_message(Role::System, error.to_string());
-        self.fail_claude(draft, update);
+        self.fail_claude(update);
         update.action = Some(ServerRequestAction::ClaudeControl {
             method: "shutdown".into(),
             params: serde_json::json!({}),

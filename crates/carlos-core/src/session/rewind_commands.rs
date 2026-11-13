@@ -1,5 +1,7 @@
 //! Resolve stable prompt choices and fork before sending edited text.
 
+use carlos_proto::submissions::SubmissionOutcome;
+
 use std::time::Duration;
 
 use crate::backend::{BackendClient, BackendKind, PromptOrigin, RewindForkRequest};
@@ -18,7 +20,7 @@ impl SessionState {
         client: &dyn BackendClient,
         selected: EntryId,
         text: String,
-        context: &PromptContext<'_>,
+        context: &PromptContext,
         queue_recovery: bool,
     ) -> TurnUpdate {
         let mut update = TurnUpdate::default();
@@ -38,7 +40,7 @@ impl SessionState {
         client: &dyn BackendClient,
         (index, entry, turn): (usize, Option<EntryId>, Option<String>),
         text: String,
-        context: &PromptContext<'_>,
+        context: &PromptContext,
         mut update: TurnUpdate,
     ) -> TurnUpdate {
         let drop_turns = self.input_history().history_len().saturating_sub(index);
@@ -62,10 +64,14 @@ impl SessionState {
                 }
             };
         if client.kind() == BackendKind::Claude {
-            self.begin_claude_edit(text);
-            update.changes.effects.push(ClaudeEffect::EditFailed(false));
+            self.begin_claude_edit_for(text, context.operation.clone());
+            update
+                .changes
+                .effects
+                .push(ClaudeEffect::Submission(SubmissionOutcome::EditStarted(
+                    context.operation.clone(),
+                )));
             self.retire_claude_queue(&mut update.changes);
-            update.changes.effects.push(ClaudeEffect::FollowBottom);
             return update;
         }
         let adopted = if let Some(prefix) = prefix {
@@ -162,12 +168,14 @@ impl SessionState {
             .collect()
     }
 
-    fn rewind_failed(&mut self, client: &dyn BackendClient, error: &str, update: &mut TurnUpdate) {
+    fn rewind_failed(
+        &mut self,
+        _client: &dyn BackendClient,
+        error: &str,
+        _update: &mut TurnUpdate,
+    ) {
         self.set_status(format!("fork failed: {error}"));
         self.append_message(Role::System, format!("Could not edit message: {error}"));
-        if client.kind() == BackendKind::Codex {
-            update.changes.effects.push(ClaudeEffect::FollowBottom);
-        }
     }
 
     fn submit_edited_prompt(
@@ -175,10 +183,10 @@ impl SessionState {
         client: &dyn BackendClient,
         text: String,
         options: PromptOptions,
-        context: &PromptContext<'_>,
+        context: &PromptContext,
         update: &mut TurnUpdate,
     ) {
-        update.changes.effects.push(ClaudeEffect::ClearRewind);
+        update.rewound = true;
         update.clear_selection = true;
         self.ralph_mark_user_turn_submitted();
         if self.start_prompt(
@@ -194,7 +202,7 @@ impl SessionState {
             if client.kind() == BackendKind::Codex {
                 update.changes.items.reset_navigation |= self.record_prompt_history(&text, None);
             }
-            update.changes.effects.push(ClaudeEffect::ClearInput);
+            update.submitted = Some(text);
         }
     }
 }

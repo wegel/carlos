@@ -23,7 +23,10 @@ fn edit_failure_at_every_stage_recovers_once_and_never_replaces_newer_typing() {
             if newer {
                 assert_eq!(app.input_text(), "new composer");
                 let prefix = if stage == 2 { "queued" } else { "edited" };
-                assert_eq!(notices(&app), [format!("Unsent {prefix} draft (F5 loads it when the composer is empty):\nedited text")]);
+                assert_eq!(
+                    notices(&app),
+                    [format!("Recovered unsent {prefix} prompt:\nedited text")]
+                );
                 load(&mut app);
                 assert_eq!(app.input_text(), "new composer");
                 assert_eq!(
@@ -148,7 +151,7 @@ fn synchronous_send_success_and_failure_keep_the_composer_and_exact_notices() {
             assert_eq!(
                 notices(&app),
                 [
-                    "Unsent edited draft (F5 loads it when the composer is empty):\nedited text",
+                    "Recovered unsent edited prompt:\nedited text",
                     "Could not edit Claude message: fixed send failure. Draft kept.",
                     "Could not send message: fixed send failure"
                 ]
@@ -183,8 +186,7 @@ fn async_fork_and_start_failures_keep_exact_recovery_and_failure_wording() {
         assert_eq!(
             notices(&app),
             [
-                "Unsent edited draft (F5 loads it when the composer is empty):\nedited text"
-                    .to_string(),
+                "Recovered unsent edited prompt:\nedited text".to_string(),
                 format!("Could not edit Claude message: {reason}. Draft kept.")
             ]
         );
@@ -193,14 +195,17 @@ fn async_fork_and_start_failures_keep_exact_recovery_and_failure_wording() {
 }
 
 #[test]
-fn identical_composer_needs_no_recovery_notice_and_later_accept_dismisses_failure_only() {
+fn recovery_notice_is_shared_while_identical_composer_needs_no_retained_copy() {
     let mut app = app();
     advance(&mut app, 0);
     app.set_input_text("edited text");
     super::claude_edit::failed(&mut app, "unavailable");
     assert_eq!(
         notices(&app),
-        ["Could not edit Claude message: unavailable. Draft kept."]
+        [
+            "Recovered unsent edited prompt:\nedited text",
+            "Could not edit Claude message: unavailable. Draft kept."
+        ]
     );
     assert!(!super::claude_session_history::has_unsent(&app));
     accepted(&mut app, "later");
@@ -225,8 +230,8 @@ fn queued_recovery_preserves_human_order_and_discards_automatic_continuations() 
     assert_eq!(
         notices(&app),
         [
-            "Unsent queued draft (F5 loads it when the composer is empty):\nfirst",
-            "Unsent queued draft (F5 loads it when the composer is empty):\nsecond"
+            "Recovered unsent queued prompt:\nfirst",
+            "Recovered unsent queued prompt:\nsecond"
         ]
     );
     assert!(app.session.queued_turn_inputs_is_empty());
@@ -299,7 +304,7 @@ fn missing_uuid_unbinds_a_dispatched_edit_and_same_text_is_still_the_send_failur
     assert_eq!(
         notices(&app),
         [
-            "Unsent edited draft (F5 loads it when the composer is empty):\nedited text",
+            "Recovered unsent edited prompt:\nedited text",
             "Could not edit Claude message: fixed failure. Draft kept."
         ]
     );

@@ -21,10 +21,9 @@ impl SessionState {
         method: &str,
         frame: &Value,
         panel: PanelScope<'_>,
-        focused: bool,
     ) -> Option<CallbackUpdate> {
         if frame.get("id").is_some() {
-            return Some(self.accept_codex_callback(method, frame, focused));
+            return Some(self.accept_codex_callback(method, frame));
         }
         let params = &frame["params"];
         let effect = match method {
@@ -54,12 +53,7 @@ impl SessionState {
     }
 
     /// Accept a card and choose its session focus before the client creates its editor.
-    pub fn accept_codex_callback(
-        &mut self,
-        method: &str,
-        frame: &Value,
-        focused: bool,
-    ) -> CallbackUpdate {
+    pub fn accept_codex_callback(&mut self, method: &str, frame: &Value) -> CallbackUpdate {
         match self.receive_codex_callback(method, frame) {
             CallbackReceived::Ignored => CallbackUpdate::new(CallbackEffect::None),
             CallbackReceived::Rejected { id, code, message } => CallbackUpdate {
@@ -78,14 +72,18 @@ impl SessionState {
                 preflight,
             } => {
                 let id = key.id();
-                let focus = if self.approval().pending().is_none() || blocking && !focused {
+                let active = self.approval().pending().is_none();
+                if active {
                     self.focus_approval(card_id, ApprovalQueue::Codex);
-                    Some(blocking)
-                } else {
-                    None
-                };
+                }
                 CallbackUpdate {
-                    effect: CallbackEffect::Accepted { key, editor, focus },
+                    effect: CallbackEffect::Accepted {
+                        key,
+                        editor,
+                        card: card_id,
+                        blocking,
+                        active,
+                    },
                     action: preflight.map(|schema| ServerRequestAction::ValidateCodexForm {
                         id,
                         schema,

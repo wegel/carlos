@@ -1,12 +1,14 @@
 //! Check prompt identity, exact fork anchors and draft recovery without a view.
 
+use carlos_proto::submissions::SubmissionOutcome;
+
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Result};
 use serde_json::{json, Value};
 
-use super::claude::receive_update::{ClaudeDraftContext, ClaudeEffect};
+use super::claude::receive_update::ClaudeEffect;
 use super::prompt_commands::{PromptContext, PromptOptions};
 use super::state::SessionState;
 use crate::backend::{BackendClient, BackendKind, EventReceiver, PromptOrigin, RewindForkRequest};
@@ -71,14 +73,10 @@ impl BackendClient for Peer {
     fn stop(&mut self) {}
 }
 
-fn context() -> PromptContext<'static> {
+fn context() -> PromptContext {
     PromptContext {
-        draft: ClaudeDraftContext {
-            composer: &[],
-            confirmation: None,
-        },
+        operation: None,
         claude_queue: false,
-        edit_failed: false,
     }
 }
 
@@ -197,7 +195,7 @@ fn failed_send_returns_the_exact_draft_and_removes_only_its_pending_record() {
         .changes
         .effects
         .iter()
-        .any(|effect| matches!(effect, ClaudeEffect::SetInput(text) if text == "new\ntext")));
+        .any(|effect| matches!(effect, ClaudeEffect::Submission(SubmissionOutcome::Recovered { draft, .. }) if draft.text == "new\ntext")));
     let calls = peer.calls.lock().expect("calls");
     assert_eq!(calls[0].0, "turn/start");
     assert_eq!(

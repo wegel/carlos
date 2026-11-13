@@ -15,15 +15,14 @@ pub(in crate::app) fn apply(
     match update.effect {
         CallbackEffect::None => {}
         CallbackEffect::ReplyFailed { id, error } => reply_failed(app, &id, error),
-        CallbackEffect::Accepted { key, editor, focus } => {
-            app.view
-                .codex_callbacks
-                .drafts
-                .insert(key, crate::app::codex_questions::from_description(editor));
-            if let Some(focused) = focus {
-                app.view.codex_callbacks.focused = focused;
-            }
-            app.set_hint("Codex has a pending request; F4 answers it");
+        CallbackEffect::Accepted {
+            key,
+            editor,
+            card,
+            blocking,
+            active,
+        } => {
+            apply_accepted(app, key, editor, card, blocking, active);
         }
         CallbackEffect::Retired(retired) => super::apply_retired(app, retired),
         CallbackEffect::Checked { id, update } => {
@@ -73,4 +72,26 @@ fn reply_failed(app: &mut AppState, id: &Value, error: String) {
         draft.viewport.scroll.set(0);
     }
     app.set_hint(error);
+}
+
+fn apply_accepted(
+    app: &mut AppState,
+    key: CallbackKey,
+    editor: carlos_core::session::codex::callback_questions::CallbackEditor,
+    card: carlos_core::session::entry_id::EntryId,
+    blocking: bool,
+    active: bool,
+) {
+    app.view
+        .codex_callbacks
+        .drafts
+        .insert(key, crate::app::codex_questions::from_description(editor));
+    if active || blocking && !app.view.codex_callbacks.focused {
+        app.session.focus_approval(
+            card,
+            carlos_core::session::approval_state::ApprovalQueue::Codex,
+        );
+        app.view.codex_callbacks.focused = blocking;
+    }
+    app.set_hint("Codex has a pending request; F4 answers it");
 }

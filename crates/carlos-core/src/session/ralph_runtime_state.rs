@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
+use carlos_proto::submissions::{ClientOperation, SubmittedText};
 
 use crate::backend::PromptOrigin;
 
@@ -26,6 +27,7 @@ pub struct QueuedTurnInput {
     pub text: String,
     pub record_input_history: bool,
     pub origin: PromptOrigin,
+    pub operation: Option<ClientOperation>,
     keeps_ralph_pending: bool,
     available_at: Option<Instant>,
 }
@@ -182,11 +184,14 @@ impl RalphRuntimeState {
     }
 
     /// Return unsent human drafts after a terminal backend failure.
-    pub(crate) fn take_queued_human_drafts(&mut self) -> Vec<String> {
+    pub(crate) fn take_queued_human_drafts(&mut self) -> Vec<SubmittedText> {
         self.queued_turn_inputs
             .drain(..)
             .filter(|turn| turn.origin == PromptOrigin::Human)
-            .map(|turn| turn.text)
+            .map(|turn| SubmittedText {
+                text: turn.text,
+                operation: turn.operation,
+            })
             .collect()
     }
 

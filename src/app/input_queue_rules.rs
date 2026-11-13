@@ -7,7 +7,7 @@ use carlos_core::backend::BackendClient;
 use crossterm::event::{Event as CrosstermEvent, MouseEventKind};
 use serde_json::Value;
 
-use crate::app::turn_submit::submit_dequeued_turn_text;
+use crate::app::turn_submit::submit_queued;
 use crate::app::AppState;
 use crate::event::UiEvent;
 
@@ -104,13 +104,7 @@ pub(in crate::app) fn try_submit_queued_turn(
         .session
         .take_dispatchable_prompt(client.kind(), idle, now)
     {
-        submit_dequeued_turn_text(
-            client,
-            app,
-            next_turn.text,
-            next_turn.record_input_history,
-            next_turn.origin,
-        );
+        submit_queued(client, app, next_turn);
         return true;
     }
     false

@@ -28,7 +28,9 @@ pub enum CallbackEffect {
     Accepted {
         key: CallbackKey,
         editor: CallbackEditor,
-        focus: Option<bool>,
+        card: crate::session::entry_id::EntryId,
+        blocking: bool,
+        active: bool,
     },
     Retired(CallbackRetired),
     Checked {

@@ -83,7 +83,7 @@ pub(in crate::app) fn dispatch_action(
     app: &mut AppState,
     action: ServerRequestAction,
 ) {
-    let context = super::super::backend_updates::context(&app.session, &app.view);
+    let context = app.session.backend_context();
     let update = app.session.run_backend_action(client, action, &context);
     let _ = app.apply_backend_update(update);
 }

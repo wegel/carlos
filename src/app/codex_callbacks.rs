@@ -22,9 +22,7 @@ pub(super) fn receive(
     method: &str,
     frame: &Value,
 ) -> Option<ServerRequestAction> {
-    let update = app
-        .session
-        .accept_codex_callback(method, frame, app.view.codex_callbacks.focused);
+    let update = app.session.accept_codex_callback(method, frame);
     updates::apply(app, update)
 }
 

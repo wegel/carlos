@@ -82,6 +82,17 @@ opaque_id!(
     "An opaque row or approval address, never a vector offset."
 );
 
+opaque_id!(
+    ClientId,
+    32,
+    "A client identity bound to an authenticated daemon connection."
+);
+opaque_id!(
+    OperationId,
+    32,
+    "An idempotency and outcome key for one submitted client command."
+);
+
 /// A per-session cursor encoded as decimal text to avoid JavaScript integer rounding.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Sequence(u64);

@@ -17,7 +17,7 @@ impl SessionState {
         &mut self,
         client: &dyn BackendClient,
         action: ServerRequestAction,
-        context: &BackendContext<'_>,
+        _context: &BackendContext<'_>,
     ) -> BackendUpdate {
         let change = match action {
             ServerRequestAction::CodexQueuePage { token, cursor } => {
@@ -47,7 +47,7 @@ impl SessionState {
                 self.send_backend_native_reply(client, card_id, result)
             }
             ServerRequestAction::ClaudeControl { method, params } => {
-                self.send_backend_claude_control(client, &method, params, &context.claude)
+                self.send_backend_claude_control(client, &method, params)
             }
             ServerRequestAction::ApplyClaudeSettings => {
                 self.apply_backend_claude_settings(client);
@@ -135,11 +135,10 @@ impl SessionState {
         client: &dyn BackendClient,
         method: &str,
         params: Value,
-        draft: &super::claude::receive_update::ClaudeDraftContext<'_>,
     ) -> BackendChange {
         if let Err(error) = client.request_native_control(method, params) {
             let mut update = Default::default();
-            self.fail_claude(draft, &mut update);
+            self.fail_claude(&mut update);
             self.set_status(format!("Claude session failed: {error}"));
             BackendChange::Claude(update)
         } else {

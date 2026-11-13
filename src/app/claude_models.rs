@@ -9,14 +9,9 @@ use super::state::AppState;
 /// Validate native metadata before touching the saved edited-prompt queue.
 #[cfg(test)]
 pub(super) fn apply_capabilities(app: &mut AppState, capabilities: &Value) {
-    let draft = super::claude_notifications::context(app);
-    let draft = carlos_core::session::claude::receive_update::ClaudeDraftContext {
-        composer: app.view.input.lines(),
-        ..draft
-    };
     let mut update = Default::default();
     app.session
-        .receive_claude_capabilities(capabilities, &draft, &mut update);
+        .receive_claude_capabilities(capabilities, &mut update);
     let _ = app.apply_claude_update(update);
 }
 

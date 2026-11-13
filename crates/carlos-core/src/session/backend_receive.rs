@@ -60,9 +60,7 @@ impl SessionState {
             return BackendUpdate::new(BackendChange::None);
         };
         if self.codex_scope().enabled() {
-            if let Some(update) =
-                self.route_codex_callback(method, parsed, context.panel, context.callback_focused)
-            {
+            if let Some(update) = self.route_codex_callback(method, parsed, context.panel) {
                 return BackendUpdate::new(BackendChange::Codex(update));
             }
         }
@@ -79,9 +77,7 @@ impl SessionState {
                     .unwrap_or(BackendChange::None),
             );
         }
-        if let Some(update) =
-            self.receive_claude_message(method, &parsed["params"], &context.claude)
-        {
+        if let Some(update) = self.receive_claude_message(method, &parsed["params"]) {
             return self.finish_claude_update(update, context);
         }
         BackendUpdate::new(BackendChange::Common(

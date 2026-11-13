@@ -38,6 +38,12 @@ The serializable command types describe the client boundary. They do not expose 
 
 For a `fields` input, the submitted `value` is an object with a `fields` array. Each answer has `key`, `values` (an array of the listed typed option values) and nullable `text` (free text or notes). Unknown or duplicate keys fail. A field with `multiple: false` accepts at most one listed value. Nonempty text requires `other: true`; `notes_only: true` requires a listed value alongside those notes. A required field cannot be empty. The core checks these rules before converting to a native backend answer. For a `form` input, `value` is the JSON value described by its schema, checked before a native reply. A browser input uses the explicit `once` decision. An unsupported input can be declined or cancelled, but cannot accept an invented empty answer. EP019 must implement these checks at the command handler; EP018 exposes the descriptions and keeps existing local editors.
 
+## Submitted text and client editors
+
+EP018a defines `ClientOperation {client,id}`, `SubmittedText {operation,text}` and typed `SubmissionOutcome` facts in carlos-proto. Both ids are opaque 32-character lowercase hex strings. The core carries these ids with accepted queue/fork text and returns them when a command fails or advances. It never receives the current composer or confirmation token. An optional origin remains only for automatic work and legacy in-process test helpers; EP019 must require and authenticate the origin of human commands, deduplicate retries and route private outcomes to their originating connection. These DTOs do not claim a daemon notification handler already exists.
+
+A client applies recovery only for an operation it owns. It restores text into an empty composer, keeps identical text once, or retains the failed submission beside newer typing. Another client's recovery cannot clear or populate its editor. Shared notices report recovered submitted text without F5 or other device instructions; each client supplies its own recovery controls. Labeling a recovered prompt does not imply the backend definitely rejected a timed-out request; EP019 must preserve each adapter's uncertain-send rule.
+
 ## Session facts
 
 `SessionInfo` contains `id`, nullable `name`, `backend`, nullable `model`, `host`, nullable `cwd`, `phase`, `ralph`, nullable `turn_started_at`, nullable `context` and nullable `quota`.

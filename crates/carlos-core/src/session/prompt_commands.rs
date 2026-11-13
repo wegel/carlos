@@ -1,20 +1,23 @@
 //! Submit and steer accepted prompts without borrowing a client widget.
 
+use carlos_proto::submissions::SubmissionOutcome;
+
 use std::time::{Duration, Instant};
+
+use carlos_proto::submissions::{ClientOperation, RecoveryKind, SubmittedText};
 
 use crate::backend::{BackendClient, BackendKind, PromptOrigin, PromptPriority};
 use crate::protocol_params::{extract_result_object, params_turn_steer};
 
-use super::claude::receive_update::{ClaudeDraftContext, ClaudeEffect, ClaudeUpdate};
+use super::claude::receive_update::{ClaudeEffect, ClaudeUpdate};
 use super::claude::{ClaudePhase, NativeState};
 use super::state::SessionState;
 use crate::session::models::Role;
 
 /// Borrow only the local choices needed by one accepted prompt command.
-pub struct PromptContext<'a> {
-    pub draft: ClaudeDraftContext<'a>,
+pub struct PromptContext {
+    pub operation: Option<ClientOperation>,
     pub claude_queue: bool,
-    pub edit_failed: bool,
 }
 
 /// Keep the caller's explicit origin and history choice together.
@@ -31,6 +34,9 @@ pub struct TurnUpdate {
     pub changes: ClaudeUpdate,
     pub hint: Option<String>,
     pub clear_selection: bool,
+    pub rewound: bool,
+    pub submitted: Option<String>,
+    pub name_saved: Option<String>,
 }
 
 impl SessionState {
@@ -40,14 +46,23 @@ impl SessionState {
         client: &dyn BackendClient,
         text: String,
         options: PromptOptions,
-        context: &PromptContext<'_>,
+        context: &PromptContext,
     ) -> TurnUpdate {
         let mut update = TurnUpdate::default();
-        if text.trim().is_empty() || self.reject_prompt(client, &text, options, &mut update) {
+        if text.trim().is_empty()
+            || self.reject_prompt(client, &text, options, context, &mut update)
+        {
             return update;
         }
         if client.kind() == BackendKind::Claude && self.claude().phase() != ClaudePhase::Ready {
-            self.ralph_enqueue_prompt(text, options.record_history, options.origin);
+            self.enqueue_submitted_prompt(
+                SubmittedText {
+                    text,
+                    operation: context.operation.clone(),
+                },
+                options.record_history,
+                options.origin,
+            );
             self.set_status("queued while Claude starts");
             return update;
         }
@@ -78,15 +93,21 @@ impl SessionState {
         client: &dyn BackendClient,
         text: &str,
         options: PromptOptions,
+        context: &PromptContext,
         update: &mut TurnUpdate,
     ) -> bool {
         if client.kind() == BackendKind::Codex && self.codex_scope().closed() {
             self.ralph_stop_after_failure();
             if options.origin == PromptOrigin::Human {
-                update
-                    .changes
-                    .effects
-                    .push(ClaudeEffect::SetInput(text.into()));
+                update.changes.effects.push(ClaudeEffect::Submission(
+                    SubmissionOutcome::Recovered {
+                        draft: SubmittedText {
+                            text: text.into(),
+                            operation: context.operation.clone(),
+                        },
+                        kind: RecoveryKind::Prompt,
+                    },
+                ));
                 self.append_message(
                     Role::System,
                     "Could not send message: Codex is closed; F5 reconnects; draft kept",
@@ -100,7 +121,13 @@ impl SessionState {
             update
                 .changes
                 .effects
-                .push(ClaudeEffect::SetInput(text.into()));
+                .push(ClaudeEffect::Submission(SubmissionOutcome::Recovered {
+                    draft: SubmittedText {
+                        text: text.into(),
+                        operation: context.operation.clone(),
+                    },
+                    kind: RecoveryKind::Prompt,
+                }));
             update.hint = Some("Claude is closed; restart Carlos to send this draft".into());
             self.append_message(
                 Role::System,
@@ -117,7 +144,7 @@ impl SessionState {
         turn: &str,
         text: &str,
         options: PromptOptions,
-        context: &PromptContext<'_>,
+        context: &PromptContext,
         update: &mut TurnUpdate,
     ) {
         let params = params_turn_steer(self.thread_id(), turn, text);
@@ -139,7 +166,7 @@ impl SessionState {
                 }
                 if client.kind() == BackendKind::Claude {
                     if let Ok(value) = serde_json::from_str(&response) {
-                        update.merge(self.receive_claude_submission(&value, context.edit_failed));
+                        update.merge(self.receive_claude_submission(&value));
                     }
                 }
                 self.set_status("sent steer");
@@ -153,14 +180,14 @@ impl SessionState {
         client: &dyn BackendClient,
         text: String,
         options: PromptOptions,
-        context: &PromptContext<'_>,
+        context: &PromptContext,
         update: &mut TurnUpdate,
     ) -> bool {
         if client.kind() == BackendKind::Claude && self.claude().phase() != ClaudePhase::Ready {
             update.hint = Some("Claude is starting; answer any startup question first".into());
             return false;
         }
-        if self.queue_behind_pending(client, &text, options) {
+        if self.queue_behind_pending(client, &text, options, context) {
             return true;
         }
         self.dispatch_claude_edit(&text, options.origin);
@@ -186,7 +213,7 @@ impl SessionState {
                 self.bind_claude_edit(&text, options.origin, &response);
                 self.mark_prompt_sent(client, &text, options, update);
                 if client.kind() == BackendKind::Claude {
-                    update.merge(self.receive_claude_submission(&response, context.edit_failed));
+                    update.merge(self.receive_claude_submission(&response));
                 }
                 true
             }
@@ -201,7 +228,7 @@ impl SessionState {
         &mut self,
         text: &str,
         options: PromptOptions,
-        context: &PromptContext<'_>,
+        context: &PromptContext,
         update: &mut TurnUpdate,
         error: &str,
     ) {
@@ -209,12 +236,18 @@ impl SessionState {
             update.changes.items.reset_navigation |= self.discard_pending_prompt(text);
         }
         if self.reject_claude_edit_send(text) {
-            self.fail_claude_edit(&context.draft, &mut update.changes, error);
+            self.fail_claude_edit(&mut update.changes, error);
         } else {
             update
                 .changes
                 .effects
-                .push(ClaudeEffect::SetInput(text.into()));
+                .push(ClaudeEffect::Submission(SubmissionOutcome::Recovered {
+                    draft: SubmittedText {
+                        text: text.into(),
+                        operation: context.operation.clone(),
+                    },
+                    kind: RecoveryKind::Prompt,
+                }));
         }
         self.set_status(format!("send failed: {error}"));
         self.append_message(Role::System, format!("Could not send message: {error}"));
@@ -225,6 +258,7 @@ impl SessionState {
         client: &dyn BackendClient,
         text: &str,
         options: PromptOptions,
+        context: &PromptContext,
     ) -> bool {
         let now = Instant::now();
         if options.force_start
@@ -234,7 +268,13 @@ impl SessionState {
             return false;
         }
         self.promote_ready_continuation(now);
-        self.queue_turn_input_with_history(text, options.record_history);
+        self.queue_submitted_input(
+            SubmittedText {
+                text: text.into(),
+                operation: context.operation.clone(),
+            },
+            options.record_history,
+        );
         self.set_status(if client.kind() == BackendKind::Grok {
             "queued behind pending Grok turn"
         } else {

@@ -17,7 +17,7 @@ The owner explicitly approved this broader scope after Fable 5.2 medium reviewed
 - [x] (2026-11-13) Preserve the accepted EP018 executable at `/tmp/carlos-ep018a/ep018-carlos` and save the independent review under `.agents/reports/exec018a-fable-review.md`.
 - [x] (2026-11-13) Prove bounded output reads, compact change facts and optional watch DTOs. Nine core tests cover split controls/Unicode/diff prefixes, linear bytes, pause/resume, replacement, history adoption, reset/edit and retired ids; protocol fixtures include the new messages.
 - [x] (2026-11-13) Inventory terminal workflows in `docs/terminal-client-migration.md`; revise architecture/program/protocol for headless-first EP019, typed native controls, terminal parity and separate deletion. Bindings/schema/coalescers wait for actual consumers/evidence.
-- [ ] Remove composer/focus decisions from core event handling; return correlated session outcomes and let clients recover drafts independently.
+- [x] (2026-11-13) Remove ClaudeDraftContext and callback-focus input. Return typed submitted-text outcomes with ClientOperation; carry origins across queued sends and helper switches. Backend read context now comes from session identity, never the selected panel. Add core and terminal two-client recovery tests.
 - [ ] Split blocking backend work from core state changes so a future owner can execute requests without blocking its session loop; prove delayed replies and stale completions safely.
 - [ ] Remove obsolete source-lexer machinery while retaining dependency checks and meaningful compiler/module guarantees.
 - [ ] Pass Rust, feature, terminal, contract and performance checks; review directly against the engineering prompt and resolve findings.
@@ -42,6 +42,10 @@ Decision: treat client protocol version 1 as provisional until the daemon and a 
 Decision: use bounded output chunks with opaque, entry-bound cursors and per-entry body revisions. Separate authoritative row facts from optional output subscriptions, so collapsed clients receive no bulk output and session sequence numbers have no filtered gaps. Rationale: several watchers may consume different ranges; reconnects and body replacement must be explicit without storing another copy of every tool body. Prototype and record the exact cursor encoding before promoting it. Date/Author: 2026-11-13, Codex.
 
 Decision: preserve existing terminal features and describe every capability before changing the TUI transport. Keep the shared Rust client objective; defer bindings, schema generation and timed coalescers until actual consumers or measurements need them. Rationale: the inventory should determine EP019's scope rather than force backend passthrough messages or silent feature loss. Date/Author: 2026-11-13, Codex.
+
+Decision: record a recovered edited/queued prompt once as an unconditional session notice, without terminal key names. Keep F5 guidance and restore-versus-retain decisions in the terminal. Rationale: the prior core emitted a notice only when one terminal had newer typing, so two clients could not agree on shared facts. Recovery text and draft preservation remain intact; the notice is intentionally also visible when an editor was empty or identical. Updated wording-specific tests, without weakening text/ordering/backend-request assertions. Date/Author: 2026-11-13, Codex.
+
+Decision: native callback acceptance reports the card, blocking fact and whether it became active. The terminal decides its focus and makes an explicit card-focus command; the receiver never inspects a focused-widget boolean. Native read completion uses the session's connection/epoch and original pending request target. The current bounded selected-task cache still serves the embedded terminal; EP019 must key requested task windows by target and aggregate connection read interests before cutover. Date/Author: 2026-11-13, Codex.
 
 ## Outcomes & Retrospective
 
