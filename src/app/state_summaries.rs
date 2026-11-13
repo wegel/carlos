@@ -7,13 +7,6 @@ use crate::session::entry_id::EntryId;
 use crate::summaries::SummaryEvent;
 
 impl AppState {
-    pub(super) fn with_historical_tools<T>(&mut self, read: impl FnOnce(&mut Self) -> T) -> T {
-        let previous = self.session.set_summary_replaying(true);
-        let result = read(self);
-        self.session.set_summary_replaying(previous);
-        result
-    }
-
     pub(super) fn configure_summary_worker(&mut self, tx: mpsc::Sender<SummaryEvent>) {
         self.session.configure_summary_worker(tx);
     }

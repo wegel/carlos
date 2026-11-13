@@ -1,45 +1,25 @@
-//! Keep local Claude answer editors beside session-owned callback cards.
+//! Exercise Claude callback client reports without duplicating session commands.
 
 use serde_json::Value;
 
-use super::claude_question_state::NativeDraft;
+use super::claude_notifications::context;
 use super::state::AppState;
-use crate::session::claude::callbacks::ClaudeCallback;
+use crate::session::claude::receive_update::ClaudeDraftContext;
 
-/// Create an editor only for a newly accepted native callback.
+/// Create the local editor described by the accepted session callback.
 pub(super) fn receive_callback(app: &mut AppState, frame: &Value) {
-    match app.session.receive_claude_callback(frame) {
-        ClaudeCallback::Ignored => {}
-        ClaudeCallback::Unsupported(update) => app.apply_session_update(update),
-        ClaudeCallback::Accepted {
-            id,
-            card,
-            description,
-            retired,
-        } => {
-            let draft = NativeDraft::from_description(description);
-            let has_fields = !draft.fields.is_empty();
-            app.view.claude_answers.drafts.insert(id, draft);
-            app.drop_retired_approval_hints(retired);
-            app.view.approval_hints.register_callback(card, has_fields);
-        }
-    }
+    let received = app.session.receive_claude_callback(frame);
+    app.apply_claude_callback(received);
 }
 
-/// Drop exactly the cancelled editor, consent key and retired card hints.
+/// Remove only the cancelled editor and its matching local consent token.
 pub(super) fn cancel_callback(app: &mut AppState, id: &Value) {
-    if let Some(id) = id.as_str() {
-        app.view.claude_answers.drafts.remove(id);
-    }
-    if app.view.confirm_allow.is_some_and(|entry| {
-        app.live_approval_cards()
-            .any(|p| p.entry_id() == entry && &p.facts().request_id == id)
-    }) {
-        app.view.confirm_allow = None;
-    }
-    let (retired, cleared) = app.session.cancel_claude_callback(id);
-    app.drop_retired_approval_hints(retired);
-    if let Some(cleared) = cleared {
-        app.apply_cleared_approval(cleared);
-    }
+    let draft = ClaudeDraftContext {
+        composer: app.view.input.lines(),
+        ..context(app)
+    };
+    let mut update = Default::default();
+    app.session
+        .receive_claude_cancelled(id, &draft, &mut update);
+    let _ = app.apply_claude_update(update);
 }

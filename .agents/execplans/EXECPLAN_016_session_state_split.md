@@ -60,12 +60,15 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
   - [ ] Part 9.3 final: move the outer native envelope dispatcher and action runner with the common backend dispatcher in milestone 10. All connection facts, partial readers, history, snapshot adoption and backend-to-app snapshot calls are already handled above.
 - [x] (2026-11-13 UTC) Part 10.1: the session owns shared message routing, generic approvals, thread adoption, context/list parsing and automatic-toggle guards. 1,006 Rust tests, 174 terminal workflows, release build, style, all 3,000 stream comparisons and direct review pass. The quiet-mode fixture awaits its existing post-init context request; 10/10 isolated repeats pass. No repeatable slowdown. Report: `.agents/reports/exec016-m10a-report.md`.
 - [x] (2026-11-13 UTC) Part 10.2.1: native callback/control routing and card focus run in the session. 1,008 Rust tests, 174 terminal workflows, release/style and all 3,000 stream comparisons pass. The primary agent reviewed the delta directly. Outlining the native router removes its measured apply cost; the smaller cumulative pre-plan apply gap remains open for the final gate. Report: `.agents/reports/exec016-m10b-report.md`.
+- [x] (2026-11-13 UTC) Part 10.2.2: the session handles named Claude messages, failures, native clear/switches, capabilities and submitted-draft recovery through borrowed plain context and immediate reports. 1,010 Rust tests, 174 terminal workflows, release/style and all 3,000 stream comparisons pass. The displaced id-less-item test remains registered. Strict compiler cleanup and the cumulative apply gap remain open final gates. Report: `.agents/reports/exec016-m10c-report.md`.
 - [ ] Milestone 10: complete headless session handlers and enforce the future-core boundary.
 - [ ] Milestone 11: final release/contract/performance checks and direct review of the complete split.
 
 - [x] (2026-11-13 UTC) Entry-id speed follow-up a2c4090: ordered ids resolve through a checked counter offset; reordered rows keep full-id map entries. The synthetic fixture constructs rows through the real session store without a second draft vector. 1,005 integrated Rust tests, complete terminal/native checks, all 3,000 stream comparisons and the isolated staged-tree checks pass. Fifteen same-core samples show no repeatable slowdown. Report: `.agents/reports/exec016-position-cost.md`.
 
 ## Surprises & Discoveries
+
+- (2026-11-13 UTC) The strict Rust 1.100 Clippy preflight finds earlier getter-call borrows, two duplicate test-module registrations, the atomic rename and several simple lint fixes. The current handler's unnecessary string copy was removed. The final release gate still requires the full cleanup; no lint was suppressed. Log: /tmp/carlos-m10c-clippy.log.
 
 - (2026-11-13 UTC) A larger native callback result changed compiler inlining costs even though the synthetic timed builder does not invoke callbacks. A measured no-inline boundary restores the previous step's apply time. The final 31-sample run still shows a cumulative pre-plan/parent/current apply gap of 14.07/14.25/14.24 ms; final acceptance must resolve or disprove it. See exec016-m10b-report.md.
 
@@ -279,7 +282,8 @@ This plan delivers three things: Carlos-owned entry ids, separate `SessionState`
 ## Outcomes & Retrospective
 
 
-Milestones 0 through 7 are complete. The daemon split remains in its separate checkout; the main checkout has unrelated owner changes. The primary agent recovered part 7.2 from the named stash and completed the Claude callback split. Milestones 8 and its queue/goal parts are complete; milestones 9 through 11 remain. No binary has been installed. Milestone 7’s seven alternating speed pairs gave synthetic replay 48.79 / 47.61 ms, layout 15.04 / 14.45, scroll 0.70 / 0.71 and typing 0.60 / 0.60; the small fixture replay was 1.09 / 1.06 ms. No repeatable slowdown. The original baseline notes below remain historical evidence; milestone 0 supplied the missing tools and the Rust 1.100.0 default-feature baseline.
+Milestones 0 through 8 are complete. The session owns the Codex facts/readers and the common, Codex callback and named Claude handlers. Milestone 9 still awaits the outer native envelope/action move in milestone 10. The remaining commands, rewind rules, timers, static boundary guard and final checks are open. Strict Clippy cleanup and the small cumulative synthetic apply gap also remain final acceptance items. The work stays in the separate daemon-split checkout; the main checkout has unrelated owner edits. No binary has been installed, merged or pushed. Historical baseline notes below remain evidence from their original checks.
+
 
 ## Context and Orientation
 
@@ -863,3 +867,5 @@ Milestone 9.3.3 note, 2026-11-13: the session now owns private native connection
 Milestone 10.1 note, 2026-11-13: moved the shared JSON reducer and thread/automatic-work commands first. The app applies plain reports; native extension routing and action execution still remain for part 10.2. Fifteen same-core pre-plan/parent/current speed samples are recorded in exec016-m10a-report.md and /tmp/carlos-m10a. All saved pre-plan outputs remain byte-identical to the prior step.
 
 Milestone 10.2.1 note, 2026-11-13: moved native callback/control routing, removed obsolete app routes, and added headless callback/revision tests. The native envelope/action runner remains open with Claude routing. Recorded both the corrected inlining cost and the unresolved cumulative speed comparison.
+
+Milestone 10.2.2 note, 2026-11-13: moved named Claude reducers, clear/switch/failure rules and explicit submitted-text recovery into the session. Removed duplicate app routers, preserved every test and recorded exact saved-stream/terminal checks. The outer history-fragment recursion remains for the dispatcher move.

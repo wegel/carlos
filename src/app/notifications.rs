@@ -120,7 +120,7 @@ fn handle_parsed(app: &mut AppState, parsed: Value) -> Option<ServerRequestActio
         return None;
     }
     if let super::claude_notifications::ClaudeRoute::Handled(action) =
-        super::claude_notifications::route(app, method, params)
+        super::claude_notifications::route(app, method, &parsed["params"])
     {
         return action;
     }

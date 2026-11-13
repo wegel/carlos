@@ -29,6 +29,7 @@ impl AppState {
     }
 
     /// Clear native transcript rows while process callbacks remain live.
+    #[cfg(test)]
     pub(super) fn reset_preserving_approvals(&mut self, thread_id: impl Into<String>) {
         self.reset_thread(thread_id, true);
     }

@@ -42,3 +42,13 @@ mod stop_parity_tests;
 
 #[cfg(test)]
 mod callback_tests;
+
+mod receive_controls;
+mod receive_named;
+mod receive_recovery;
+mod receive_reset;
+mod receive_sdk;
+
+#[cfg(test)]
+mod receive_headless_tests;
+pub(crate) mod receive_update;

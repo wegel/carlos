@@ -36,6 +36,7 @@ impl ApprovalHints {
 
 impl AppState {
     /// Visit focused and queued cards without scanning transcript rows.
+    #[cfg(test)]
     pub(super) fn live_approval_cards(&self) -> impl Iterator<Item = &PendingApprovalRequest> {
         self.session.approval().live()
     }

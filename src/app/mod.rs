@@ -16,15 +16,18 @@ pub(crate) use crate::session::models::Role;
 mod approval_state;
 mod backend_setup;
 mod claude_activity;
+#[cfg(test)]
 mod claude_browser;
+#[cfg(test)]
 mod claude_callbacks;
 mod claude_context;
-mod claude_control_replies;
 mod claude_edit;
 mod claude_edit_view;
 mod claude_models;
+#[cfg(test)]
 mod claude_notices;
 mod claude_notifications;
+#[cfg(test)]
 mod claude_prompts;
 mod claude_question_field;
 mod claude_question_input;
@@ -34,9 +37,9 @@ mod claude_question_state;
 mod claude_question_tests;
 mod claude_question_view;
 mod claude_quota;
+#[cfg(test)]
 mod claude_reset;
 mod claude_rewind;
-mod claude_sdk_events;
 #[cfg(test)]
 #[path = "../tests/claude_sdk_tests.rs"]
 mod claude_sdk_tests;
@@ -93,7 +96,6 @@ mod mobile_mouse;
 mod models;
 mod mouse_events;
 mod native_questions;
-mod notification_items;
 mod notifications;
 mod overlay_render;
 mod perf;
@@ -124,6 +126,7 @@ mod state;
 mod state_approval_view;
 mod state_dictation;
 mod state_input;
+#[cfg(test)]
 mod state_items;
 mod state_ralph;
 mod state_settings;
@@ -301,3 +304,9 @@ mod claude_fence_parity_tests;
 mod claude_history_parity_tests;
 
 mod codex_settings_view;
+
+mod claude_updates;
+
+#[cfg(test)]
+#[path = "../tests/idless_item_tests.rs"]
+mod idless_item_tests;

@@ -2,6 +2,7 @@
 
 use std::time::{Duration, Instant};
 
+#[cfg(test)]
 use serde_json::Value;
 
 use super::state::AppState;
@@ -28,6 +29,7 @@ pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
 }
 
 /// Settle the matching optional read before checking its context revision.
+#[cfg(test)]
 pub(super) fn receive(app: &mut AppState, frame: &Value, request: &Value) {
     app.session.receive_claude_context(frame, request);
 }

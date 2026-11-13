@@ -138,7 +138,7 @@ fn common_events_drop_old_epochs_except_context_and_fence_present_generation_whe
                     if context {
                         params["claudeContext"] = json!({});
                     }
-                    let result = route(&mut app, method, params.as_object().expect("params"));
+                    let result = route(&mut app, method, &params);
                     assert_eq!(
                         matches!(result, ClaudeRoute::Handled(None)),
                         generation != 1
@@ -158,20 +158,12 @@ fn common_events_drop_old_epochs_except_context_and_fence_present_generation_whe
         json!({"generation":1}),
     ] {
         assert!(matches!(
-            route(
-                &mut app,
-                "turn/started",
-                params.as_object().expect("params")
-            ),
+            route(&mut app, "turn/started", &params),
             ClaudeRoute::Handled(None)
         ));
     }
     assert!(matches!(
-        route(
-            &mut app,
-            "turn/started",
-            json!({}).as_object().expect("params")
-        ),
+        route(&mut app, "turn/started", &json!({})),
         ClaudeRoute::Continue
     ));
 }
@@ -181,11 +173,7 @@ fn disabled_common_route_does_not_apply_claude_fences() {
     let mut app = AppState::new("original".into());
     let params = json!({"generation":0,"epoch":0,"history":true});
     assert!(matches!(
-        route(
-            &mut app,
-            "item/completed",
-            params.as_object().expect("params")
-        ),
+        route(&mut app, "item/completed", &params),
         ClaudeRoute::Continue
     ));
 }

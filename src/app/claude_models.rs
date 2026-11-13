@@ -1,27 +1,27 @@
 //! Bridge Claude metadata to local settings and edited-prompt widgets.
 
+#[cfg(test)]
 use serde_json::Value;
 
 use super::state::AppState;
 use super::RuntimeDefaults;
 
 /// Validate native metadata before touching the saved edited-prompt queue.
+#[cfg(test)]
 pub(super) fn apply_capabilities(app: &mut AppState, capabilities: &Value) {
-    if !app.session.apply_claude_capabilities(capabilities) {
-        return;
-    }
-    if let Some(text) = super::claude_session_history::take_edit_prompt(app) {
-        super::claude_edit::retire_queue(app);
-        super::claude_edit::queued(app, &text);
-        app.clear_rewind_mode_state();
-        if app.input_text() == text {
-            app.clear_input();
-        }
-        app.queue_turn_input_with_history(text, true);
-    }
+    let draft = super::claude_notifications::context(app);
+    let draft = crate::session::claude::receive_update::ClaudeDraftContext {
+        composer: app.view.input.lines(),
+        ..draft
+    };
+    let mut update = Default::default();
+    app.session
+        .receive_claude_capabilities(capabilities, &draft, &mut update);
+    let _ = app.apply_claude_update(update);
 }
 
 /// Fence context reads before recording a changed native model.
+#[cfg(test)]
 pub(super) fn observe_model(app: &mut AppState, model: &str) {
     app.session.observe_claude_model(model);
 }

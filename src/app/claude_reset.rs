@@ -1,27 +1,19 @@
-//! Apply local editor resets around the session's native clear and init fences.
+//! Exercise native clear and init reports through the client fixture.
 
 use serde_json::Value;
 
 use super::state::AppState;
 
-/// Apply each native reset once while preserving callbacks and process tasks.
+/// Apply a native clear through the production session owner.
 pub(super) fn receive(app: &mut AppState, message: &Value) {
-    if !app.session.begin_claude_reset(message) {
-        return;
-    }
-    let old_id = app.session.thread_id().clone();
-    app.reset_preserving_approvals(old_id);
-    app.session.set_thread_name(None);
-    app.session.clear_claude_history();
-    app.view.claude_unknown_selection = None;
-    app.view.claude_edit = Default::default();
-    app.session.finish_claude_reset();
+    let mut update = Default::default();
+    app.session.receive_claude_reset(message, &mut update);
+    let _ = app.apply_claude_update(update);
 }
 
-/// Adopt only a string native identity while the session awaits its reset init.
+/// Apply an init through the production session owner.
 pub(super) fn initialize(app: &mut AppState, message: &Value) {
-    if let Some(id) = app.session.claude_reset_identity(message) {
-        app.set_thread_id(id);
-        app.session.finish_claude_reset_init();
-    }
+    let mut update = Default::default();
+    app.session.receive_claude_initialized(message, &mut update);
+    let _ = app.apply_claude_update(update);
 }
