@@ -26,6 +26,13 @@ use crate::session::models::TurnStatus;
 ///     session.thread_id = String::from("another-thread");
 /// }
 /// ```
+///
+/// The compiler also prevents a client from adding methods through an alias:
+///
+/// ```compile_fail,E0116
+/// use carlos_core::session::state::SessionState as Session;
+/// impl Session { fn change_owner(&mut self) {} }
+/// ```
 #[cfg_attr(any(test, feature = "test-support"), derive(Debug))]
 pub struct SessionState {
     pub(in crate::session) commands: super::command_guard::CommandState,

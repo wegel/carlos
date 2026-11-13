@@ -15,7 +15,6 @@ for argument in "$@"; do
 done
 
 python3 -m unittest discover -s tests/architecture -p 'test_*.py'
-python3 scripts/check-session-boundary.py
 python3 scripts/check-core-dependencies.py
 cargo fmt --all --check
 if [[ "$profile" == release ]]; then

@@ -3,6 +3,8 @@
 import importlib.util
 from pathlib import Path
 import unittest
+import subprocess
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -66,6 +68,22 @@ class CoreDependencyTests(unittest.TestCase):
                 "default": defaults, "fixtures": ["test-support"], "test-support": [],
             }
             self.assertTrue(any("fixture helpers are opt-in" in issue for issue in GUARD.check_graph(sample)))
+
+
+
+
+class CargoMetadataTests(unittest.TestCase):
+    def test_all_feature_and_platform_edges_are_requested_without_target_filter(self):
+        fixture = '{"packages":[{"id":"core","name":"carlos-core"}],"workspace_members":["core"],"resolve":{"nodes":[{"id":"core","dependencies":[]}]}}'
+        with patch.object(GUARD.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, fixture)) as run:
+            self.assertEqual(GUARD.check_tree(ROOT), [])
+        arguments = run.call_args.args[0]
+        self.assertIn("--all-features", arguments)
+        self.assertIn("--locked", arguments)
+        self.assertNotIn("--filter-platform", arguments)
+
+    def test_actual_workspace_keeps_the_core_and_protocol_dependency_rules(self):
+        self.assertEqual(GUARD.check_tree(ROOT), [])
 
 
 if __name__ == "__main__":

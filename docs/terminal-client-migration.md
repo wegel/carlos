@@ -53,3 +53,9 @@ A read interest is a client's explicit request for a task list, a task's details
 5. Delete the terminal's embedded SessionState/backend launch path in a separate commit after parity passes. The terminal must not retain a privileged direct-core route for features missing from the wire. Re-run release terminal/contract checks and socket perf comparisons against the accepted pre-split executable before owner review.
 
 EP018a implements the output read and cleans the pre-socket core boundary. EP019 owns the actual daemon, scheduler, command dispatcher and terminal cutover. No entry in this inventory claims those components exist today.
+
+## Checks after the workspace split
+
+Cargo and rustc now enforce the package/module boundary. Core has no terminal dependency; a client cannot add inherent SessionState methods through aliases or write its private fields. Real compile-fail doctests exercise those rules. `scripts/check-core-dependencies.py` checks resolved package names, including aliases, dev/build edges, every feature and inactive platform branches. It rejects terminal/audio packages below core and permits only reviewed serde packages below proto.
+
+EP018a removes the earlier source tokenizer/module walker and its synthetic Rust fixtures. Its pre-workspace file lists, identifier guesses and alias parser no longer provide the package guarantee. Ordinary builds compile declared modules; dependency checks cover declared packages even on inactive targets. Review still checks semantic rules that the compiler cannot express, including keeping client editor policy outside core and I/O out of protocol types. The repository does not claim that a lexical scan proves those rules.
