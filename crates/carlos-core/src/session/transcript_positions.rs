@@ -31,6 +31,7 @@ impl EntryPositions {
     }
 
     /// Index one newly adopted id; the transcript never inserts the same id twice.
+    #[inline(always)]
     pub(super) fn insert(&mut self, id: EntryId, index: usize) {
         let first = *self.first.get_or_insert(id);
         if id.offset_from(first) == Some(index) {
