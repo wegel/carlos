@@ -1,6 +1,6 @@
 # Engine architecture: daemon and clients
 
-Status: agreed 2026-11-11. ExecPlans 016 and 017 completed 2026-11-13; ExecPlan 018 has not started.
+Status: agreed 2026-11-11. ExecPlans 016 through 018 completed 2026-11-13; the owner reviews EP018 before EP019 starts.
 
 This note records the design for splitting `carlos` into a daemon and several
 clients, and the reasons. Update it when a decision changes. Keep raw logs out.
@@ -137,9 +137,12 @@ The daemon runs shell commands as the user. It binds to a configured address
 Escape hatch: wire types are serde structs, so a binary encoding can replace
 JSON without a protocol change if a profile shows the need.
 
-## Wire protocol, draft 0
+## Wire protocol, draft 0 (historical)
 
-Draft. ExecPlan 016 refines the entry model; ExecPlan 018 freezes version 1.
+ExecPlan 018 froze version 1 in `docs/client-protocol-v1.md` and `crates/carlos-proto`.
+Those sources define the current contract. The sketch below records the earlier proposal;
+version 1 uses full fact objects, separate live cards, decimal-string cursors and explicit
+card ordering rather than ambiguous nullable patches.
 
 Requests, client to daemon:
 
@@ -247,3 +250,10 @@ this branch; `etc/mac-build.env` lives in the `carlos-daemon` checkout.
 - Notifications to a suspended phone (approval needed). They need a push
   service on the public internet.
 - Dictation on the phone: on-device recognition, or audio sent to the daemon.
+
+EP018 closeout, 2026-11-13: the core now publishes numbered changes and the terminal consumes
+them in memory. The old redraw-report path was deleted separately. The owner requested direct
+Codex work without subagents, so the report labels its engineering check as direct self-review;
+it does not claim an independent reviewer. `.agents/reports/exec018-final-report.md` records
+the accepted source, final gates, latency measurements and fixed memory costs. No executable
+was installed, merged or pushed. The next step is EP019 after owner review.

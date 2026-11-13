@@ -17,8 +17,8 @@ Carlos will expose the conversation without terminal widgets or raw backend mess
 - [x] (2026-11-13) Record row changes at writers; publish sealed numbered batches, snapshots, older stored rows and output. Six headless tests reconstruct client state through JSON. Approval and metadata changes share the clock.
 - [x] (2026-11-13) Move terminal cache invalidation to numbered events; Rust parity tests pass. Full terminal workflow checks remain.
 - [x] (2026-11-13) Delete SessionUpdate, TranscriptChanges and dirty-entry return plumbing in a separate buildable commit. Preserve local navigation effects and all writer side effects.
-- [ ] Run full tests, strict compiler checks, terminal checks, direct engineering review and measured performance comparisons; resolve failures.
-- [ ] Document the frozen contract, record evidence, move this completed plan unchanged to `.agents/done/`, and stop for owner review before EP019.
+- [x] (2026-11-13 15:07Z) Pass default/no-default Rust and strict Clippy checks, both release builds, 174 terminal workflows, Codex contracts, 23 native-monitor workflows, 27 architecture tests, package checks, direct review and measured speed checks.
+- [x] (2026-11-13 15:07Z) Document the frozen contract and accepted evidence; move this completed plan unchanged to `.agents/done/`. EP019 and installation wait for owner review.
 
 ## Surprises & Discoveries
 
@@ -39,14 +39,22 @@ Decision: Keep opaque binary EntryIds inside the core and create wire strings on
 ## Outcomes & Retrospective
 
 
-The protocol crate passes its contract tests, including frozen command and notification examples. The core journal passes six headless tests and the full Rust suite. The terminal migration is in progress; the old return types were removed in commit `d9db5ab`. EP019 will add a daemon process, sockets and reconnect replay. EP021 will add backend history paging and richer tool summaries; this contract must represent unknown facts honestly until then.
+EP018 is complete on `iphone-spike`. `carlos-proto` defines client protocol version 1. The core publishes numbered, sealed batches and typed reads, and the terminal consumes their stable ids directly to invalidate its cache. Commit `d9db5ab` deleted the old SessionUpdate/TranscriptChanges path separately. The terminal keeps its current backend replies, drafts and render cache. The core emits new text only when a row still extends its published prefix, including after reasoning normalization.
+
+The accepted runtime source is `fc7afb846a5829bfc74a5c67267d9452a4430d3c`. The default release SHA256 is `ae5b517c49bba678c6d6b9f6513ce2e3bd4e3200daaec22cff203747e3c94ca8`. The final release runner used that exact executable. Default tests passed 811 app, 231 core and five protocol cases, plus two doctests; no-default tests passed 775, 231 and five, plus two doctests. Both feature builds and strict Clippy passed. The release runner passed 174 terminal workflows, installed Codex contracts, 23 native-monitor workflows, 59 helper cases and standalone package smoke checks. All 27 architecture tests passed; a standalone core build had 161 artifacts and no terminal/audio/speech package or test-support feature. Changed Rust files and functions remain within 358/60 lines.
+
+Thirty-one accepted CPU-pinned rounds showed synthetic apply medians of 14.17/14.18/14.19 ms for pre-plan/EP017/EP018. The paired pre-plan difference was +0.02 ms with a 95% interval [-0.09,+0.13], so these measurements do not establish a slowdown or exact zero cost. No metric had a positive lower confidence bound against either baseline. A repeated memory sweep showed a fixed roughly 1 MiB resident difference with no added row slope. A separate breakdown found anonymous memory at 32,832/32,844 KiB for EP017/EP018 at 4,000 turns; most of the resident difference was file-backed pages. The binary adds 10,336 bytes, about 0.05%. The report keeps these fixed costs explicit.
+
+The direct review caught reasoning replacements, incomplete streams after a turn stopped, approval-order moves and browser consent choices. Each issue has a regression test. The main lesson is to record changes at the writers and publish borrowed facts, while distinguishing editor effects from conversation data. `.agents/reports/exec018-final-report.md` contains source, checks, review and raw evidence locations. `docs/client-protocol-v1.md` holds the frozen contract and the neutral answer grammar.
+
+EP019 must add the daemon, command handlers, bounded replay and carlos-client. EP020 adds WebSocket/tokens/schema output; EP021 adds lazy native history, Grok approvals and richer tools; EP022 builds the iPhone app. EP018 pages rows already held in memory and does not persist resolved approvals as history. The older queued-Claude-card-after-fork issue and broken built-in RSS helper remain recorded limits. No Mac, installed binary, main checkout or remote branch changed. Stop for the owner's per-EP review before EP019.
 
 ## Context and Orientation
 
 
 The Cargo workspace contains the terminal binary and `crates/carlos-core`. `src/app/state.rs` owns a core SessionState and a terminal ViewState. The core stores rows in `crates/carlos-core/src/session/transcript.rs`; each Message has an opaque EntryId and text. The core also stores approval cards and session details. Backend handlers currently return SessionUpdate values identifying the earliest dirty row, and the terminal clears render caches from there. These old reports cannot serve a phone.
 
-`docs/engine-architecture.md` schedules EP018 as the third of seven steps. The phone requirements in `tmp/main-screen.md` section 11 require entries, streamed text, tool state and labels, approvals, phase, model, context, quota and turn start time. A snapshot is an immutable view of these facts at one event number. A numbered event describes a change after that snapshot. A reset tells a client to replace its copy from a new snapshot. A publication groups pending changes while borrowing the session so a caller cannot change text before encoding the batch.
+`docs/engine-architecture.md` schedules EP018 as the third of seven steps. The phone requirements in `tmp/main-screen.md` section 11 require entries, streamed text, tool state and labels, approvals, phase, model, context, quota and turn start time. A snapshot is an immutable view of these facts at one event number. A numbered event describes a change after that snapshot. A reset tells a client to replace its copy from a new snapshot. When a caller invokes `publish`, the core groups pending changes and lends the session facts so the caller cannot change text before encoding the batch.
 
 ## Plan of Work
 
@@ -91,7 +99,14 @@ The accepted EP017 executable has SHA256 `a8cd1d59293c0108c7942bde66156ed21155a3
 ## Engineering Review
 
 
-Pending direct review against `.agents/reviewers/engineering_reviewer.md` after the source and evidence are ready. No independent reviewer will be claimed.
+Codex applied `.agents/reviewers/engineering_reviewer.md` directly to `919a0a7..fc7afb8`, the contract, terminal bridges, test evidence and measurements. The owner requested no subagent, so this is a direct self-review and does not claim an independent session.
+
+MAJOR, resolved: reasoning normalization could resend a growing body. The journal now recognizes a suffix and the Unicode test checks its wire text. MAJOR, resolved: a stopped turn could leave a row unfinished without item-completed frames. The owner finishes the active suffix and emits facts while retaining text. MAJOR, resolved: focus moves could reorder approvals without enough client data. Events now name the next card by opaque id and the client/core order test passes. MAJOR, resolved: native empty-form reply helpers hid browser consent. Browser cards now offer once and retain default-to-no facts; tests cover both backends and an unsupported permissions cancel.
+
+MINOR, resolved: an early in-process approval record carried a list offset. It now carries the stable card id. Full replacement objects also clear nullable facts explicitly, and optional accepted decisions distinguish a user's choice from backend withdrawal.
+
+Corrective guidance: every finding above was implemented and tested. Final verdict: PASS. No open finding blocks EP018. The final default/no-default Rust, Clippy, release, dependency, terminal and contract checks pass. Measured latency meets the agreed baseline; the report records fixed anonymous and file-backed memory costs separately. Owner review remains required before the next EP or installation.
+
 
 Update note (2026-11-13): created EP018 after the owner's approval of EP017; recorded scope, proposed interfaces, measurements and review boundaries before source changes.
 
@@ -106,3 +121,5 @@ Update note (2026-11-13): direct review found that a turn can stop without indiv
 Update note (2026-11-13): 31 quiet CPU-6 rounds compared pre-plan, EP017 and EP018 binaries in rotating order, using the synthetic session and captured stale-transcript fixture. Counts stayed 6001/39347/6000 and 5/9/4. EP018 synthetic apply median was 14.04 ms against 14.08 ms before the split and 14.12 ms at EP017. No metric had a positive lower bound in its paired 95% interval against either baseline. Peak RSS medians at 1000/2000/4000 turns were 24600/31224/45036 KiB against EP017's 25516/32180/45960 KiB. The built-in RSS field remains a known older harness issue; these values came from Linux wait4. Raw samples, binary hashes and compiler identity live under `/tmp/carlos-ep018/`.
 
 Update note (2026-11-13): direct review distinguished browser consent from form submission. Native response helpers intentionally cannot produce an empty form answer, so using them alone to list choices hid Allow once for browser cards. Export that consent choice explicitly, carry the backend default-to-no fact, and check both Codex and Claude browser cards. Document the neutral structured-answer grammar before the daemon implements it. Permission choice checks also avoid cloning large native payloads merely to ask whether a choice exists.
+
+Update note (2026-11-13 15:07Z): closed EP018 after the exact measured release passed all final gates. Recorded final source/hash, direct review verdict, fixed memory costs and future boundaries before moving the plan unchanged to done. No source changes remain pending.

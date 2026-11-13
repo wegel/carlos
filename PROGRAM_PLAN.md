@@ -40,13 +40,14 @@ after ExecPlan 016. Do not merge it into `main` or push it without the owner's r
 
 ## Active ExecPlans
 
-- [ ] `.agents/execplans/EXECPLAN_018_sequenced_events.md`: numbered core events and client protocol version 1. The owner approved EP017; EP018 is active.
+No ExecPlan is active on `iphone-spike`. ExecPlan 018 is complete; the owner reviews it
+before ExecPlan 019 starts.
 
 ExecPlans 017 to 022 are listed in `docs/engine-architecture.md`. Each one is written when the
 plan before it ends.
 
 ExecPlans 009 to 015 remain under `.agents/execplans/`. Their status was not reviewed when the
-daemon split started. They remain outside the iPhone spike; its next step is ExecPlan 018.
+daemon split started. They remain outside the iPhone spike; its next step is ExecPlan 019.
 
 
 ## Done ExecPlans
@@ -61,3 +62,4 @@ daemon split started. They remain outside the iPhone spike; its next step is Exe
 - [x] `.agents/done/EXECPLAN_008_dictation.md`
 - [x] `.agents/done/EXECPLAN_016_session_state_split.md` (step 1 of 7 of the daemon split; completed 2026-11-13)
 - [x] `.agents/done/EXECPLAN_017_core_workspace.md` (step 2 of 7: terminal-free session library; completed 2026-11-13)
+- [x] `.agents/done/EXECPLAN_018_sequenced_events.md` (step 3 of 7: numbered core events and client protocol version 1; completed 2026-11-13)
