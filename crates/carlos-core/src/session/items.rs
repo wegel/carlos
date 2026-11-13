@@ -3,7 +3,6 @@
 use super::entry_key::BackendEntryKey;
 use super::models::{MessageKind, Role};
 use super::state::SessionState;
-use super::transcript_updates::SessionUpdate;
 
 impl SessionState {
     /// Resolve a native key to its current row without storing a row number.
@@ -35,17 +34,13 @@ impl SessionState {
     }
 
     /// Append one empty row only when its native key has no live entry.
-    pub fn ensure_item_placeholder(
-        &mut self,
-        key: &BackendEntryKey,
-        role: Role,
-    ) -> (bool, SessionUpdate) {
+    pub fn ensure_item_placeholder(&mut self, key: &BackendEntryKey, role: Role) -> bool {
         if self.has_item_mapping(key) {
-            return (false, SessionUpdate::default());
+            return false;
         }
-        let (idx, update) = self.append_message(role, String::new());
+        let idx = self.append_message(role, String::new());
         self.put_item_mapping(key, idx);
-        (true, update)
+        true
     }
 
     /// Replace a known row and report the preceding read label when it changes.
@@ -56,14 +51,12 @@ impl SessionState {
         text: Option<String>,
         kind: MessageKind,
         file_path: Option<String>,
-    ) -> (bool, SessionUpdate) {
+    ) -> bool {
         let Some(idx) = self.item_message_index(key) else {
-            return (false, SessionUpdate::default());
+            return false;
         };
-        (
-            true,
-            self.update_message_at_index(idx, role, text, kind, file_path),
-        )
+        self.update_message_at_index(idx, role, text, kind, file_path);
+        true
     }
 
     /// Update a known row or append and bind a new row.
@@ -74,35 +67,31 @@ impl SessionState {
         text: String,
         kind: MessageKind,
         file_path: Option<String>,
-    ) -> (bool, SessionUpdate) {
-        let (found, update) =
+    ) -> bool {
+        let found =
             self.update_mapped_message(key, role, Some(text.clone()), kind, file_path.clone());
         if found {
-            return (false, update);
+            return false;
         }
 
-        let (idx, update) = if kind == MessageKind::Diff {
+        let idx = if kind == MessageKind::Diff {
             self.append_diff_message(role, file_path, text)
         } else {
-            let (idx, update) = self.append_message(role, text);
+            let idx = self.append_message(role, text);
             self.messages.set_path(idx, file_path);
-            (idx, update)
+            idx
         };
         self.put_item_mapping(key, idx);
-        (true, update)
+        true
     }
 
     /// Append streamed assistant text unless that native item already finished.
-    pub fn upsert_agent_delta(&mut self, key: &BackendEntryKey, delta: &str) -> SessionUpdate {
+    pub fn upsert_agent_delta(&mut self, key: &BackendEntryKey, delta: &str) {
         self.upsert_text_delta(key, Role::Assistant, delta, false)
     }
 
     /// Append command output and change the row to the tool-output role.
-    pub fn upsert_command_output_delta(
-        &mut self,
-        key: &BackendEntryKey,
-        delta: &str,
-    ) -> SessionUpdate {
+    pub fn upsert_command_output_delta(&mut self, key: &BackendEntryKey, delta: &str) {
         self.upsert_text_delta(key, Role::ToolOutput, delta, true)
     }
 
@@ -113,18 +102,17 @@ impl SessionState {
         role: Role,
         delta: &str,
         replace_role: bool,
-    ) -> SessionUpdate {
+    ) {
         if self.is_item_completed(key) {
-            return SessionUpdate::default();
+            return;
         }
         if let Some(idx) = self.item_message_index(key) {
             self.messages
                 .append_text(idx, delta, replace_role.then_some(role));
-            return self.dirty_entry(idx);
+            return;
         }
 
-        let (idx, update) = self.append_message(role, delta);
+        let idx = self.append_message(role, delta);
         self.put_item_mapping(key, idx);
-        update
     }
 }

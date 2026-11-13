@@ -10,7 +10,6 @@ use super::models::{MessageKind, Role};
 use super::state::SessionState;
 use super::summary_request::{has_command, summary_input, SummaryInput};
 use super::summary_state::Binding;
-use super::transcript_updates::SessionUpdate;
 use crate::summaries::{Key, Request, SummaryEvent, SummaryService};
 
 impl SessionState {
@@ -110,16 +109,14 @@ impl SessionState {
         live: bool,
         key: &BackendEntryKey,
         scope: Option<(&str, usize)>,
-    ) -> SessionUpdate {
+    ) {
         let Some((id, idx)) = self.summary_entry(item, key) else {
-            return SessionUpdate::default();
+            return;
         };
         let Some(input) = summary_input(item, &self.summaries.cwd) else {
             return if self.summaries.bindings.remove(&id).is_some() {
                 self.summaries.pending.retain(|pending| pending != &id);
                 self.describe_tool_output(idx, item, Some(key))
-            } else {
-                SessionUpdate::default()
             };
         };
         if self
@@ -128,14 +125,12 @@ impl SessionState {
             .get(&id)
             .is_some_and(|b| b.request.key == input.key)
         {
-            return SessionUpdate::default();
+            return;
         }
         let replaced = self.summaries.bindings.remove(&id).is_some();
         self.summaries.pending.retain(|pending| pending != &id);
-        let update = if replaced || self.messages[idx].tool_output.is_none() {
+        if replaced || self.messages[idx].tool_output.is_none() {
             self.describe_tool_output(idx, item, Some(key))
-        } else {
-            SessionUpdate::default()
         };
         let request = self.summary_request(
             id,
@@ -144,7 +139,6 @@ impl SessionState {
             (item["id"].as_str().expect("native item"), scope),
         );
         self.bind_summary_request(id, idx, request);
-        update
     }
 
     fn summary_entry(&self, item: &Value, key: &BackendEntryKey) -> Option<(EntryId, usize)> {

@@ -59,8 +59,8 @@ impl SessionState {
         } else {
             "Codex stopped"
         };
-        let mut transcript = ItemChanges::default();
-        transcript.track(self.append_message(Role::System, format!("{label}: {message}{guidance}. F5 reconnects; drafts are kept. Unconfirmed input will not be resent.")));
+        let transcript = ItemChanges::default();
+        self.append_message(Role::System, format!("{label}: {message}{guidance}. F5 reconnects; drafts are kept. Unconfirmed input will not be resent."));
         self.set_status(format!("{label}: {message}"));
         Some(CodexClosed {
             settings,

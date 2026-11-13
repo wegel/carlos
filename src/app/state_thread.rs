@@ -27,10 +27,9 @@ impl AppState {
     #[cfg(test)]
     fn reset_thread(&mut self, thread_id: impl Into<String>, preserve: bool) {
         self.set_thread_id(thread_id);
-        let update = self.session.reset_for_forked_thread();
-        if update.transcript_reset {
-            self.view.render_cache = RenderCacheState::new();
-        }
+        self.session.reset_for_forked_thread();
+        self.consume_core_events();
+        self.view.render_cache = RenderCacheState::new();
         self.session.reset_prompt_history();
         self.view.input_history = InputHistoryView::default();
         self.view.viewport = ViewportState::new();

@@ -6,7 +6,6 @@ use std::time::{Duration, Instant};
 use super::models::{Role, TurnStatus};
 use super::ralph_runtime_state::QueuedTurnInput;
 use super::state::SessionState;
-use super::transcript_updates::SessionUpdate;
 #[cfg(any(test, feature = "test-support"))]
 use crate::session::ralph::RalphConfig;
 
@@ -119,25 +118,25 @@ impl SessionState {
     }
 
     /// Append the context notice unless the last row already contains it.
-    pub(crate) fn append_context_compacted_marker(&mut self) -> SessionUpdate {
+    pub(crate) fn append_context_compacted_marker(&mut self) {
         const MARKER: &str = "↻ Context compacted";
         if let Some(last) = self.messages.last() {
             if last.role == Role::System && last.text == MARKER {
-                return SessionUpdate::default();
+                return;
             }
         }
-        self.append_message(Role::System, MARKER).1
+        self.append_message(Role::System, MARKER);
     }
 
     /// Append the interruption notice unless the last row already contains it.
-    pub fn append_turn_interrupted_marker(&mut self) -> SessionUpdate {
+    pub fn append_turn_interrupted_marker(&mut self) {
         const MARKER: &str = "Turn interrupted";
         if let Some(last) = self.messages.last() {
             if last.role == Role::System && last.text == MARKER {
-                return SessionUpdate::default();
+                return;
             }
         }
-        self.append_message(Role::System, MARKER).1
+        self.append_message(Role::System, MARKER);
     }
 
     /// Save an empty suffix boundary at the current transcript end.
@@ -184,14 +183,13 @@ impl SessionState {
     }
 
     /// Scan the saved suffix and append a notice before disabling blocked Ralph work.
-    pub fn maybe_disable_ralph_on_blocked_marker(&mut self) -> SessionUpdate {
-        let mut update = SessionUpdate::default();
+    pub fn maybe_disable_ralph_on_blocked_marker(&mut self) {
         let start_idx = self.turn_suffix_start().unwrap_or(self.messages.len());
         let Some(outcome) = self
             .ralph_runtime
             .blocked_marker_outcome(&self.messages, start_idx)
         else {
-            return update;
+            return;
         };
 
         if let Some(msg) = outcome.system_message {
@@ -200,7 +198,7 @@ impl SessionState {
                 .last()
                 .is_some_and(|last| last.role == Role::System && last.text == msg)
             {
-                update = self.append_message(Role::System, msg).1;
+                self.append_message(Role::System, msg);
             }
         }
         if outcome.disable {
@@ -209,12 +207,10 @@ impl SessionState {
         if let Some(status) = outcome.status {
             self.set_status(status);
         }
-        update
     }
 
     /// Consume the saved suffix before applying Ralph notices, continuations, and status.
-    pub fn handle_ralph_turn_completed(&mut self, interrupted: bool) -> SessionUpdate {
-        let mut update = SessionUpdate::default();
+    pub fn handle_ralph_turn_completed(&mut self, interrupted: bool) {
         let start_idx = self
             .turn_boundary
             .take()
@@ -230,7 +226,7 @@ impl SessionState {
                 .last()
                 .is_some_and(|last| last.role == Role::System && last.text == msg)
             {
-                update = self.append_message(Role::System, msg).1;
+                self.append_message(Role::System, msg);
             }
         }
         if let Some(text) = outcome.continuation {
@@ -242,7 +238,6 @@ impl SessionState {
         if let Some(status) = outcome.status {
             self.set_status(status);
         }
-        update
     }
 
     /// Check whether Ralph currently owns an automatic loop.

@@ -39,10 +39,10 @@ impl SessionState {
         if update.composer_is_empty(draft) {
             update.effects.push(ClaudeEffect::SetInput(text));
         } else if !update.composer_matches(draft, &text) {
-            update.items.track(self.append_message(
+            self.append_message(
                 Role::System,
                 format!("Unsent edited draft (F5 loads it when the composer is empty):\n{text}"),
-            ));
+            );
             update.effects.push(ClaudeEffect::RetainDraft(text));
         }
     }
@@ -58,10 +58,10 @@ impl SessionState {
         let (drafts, reset_navigation) = self.retain_claude_queued_drafts();
         update.items.reset_navigation |= reset_navigation;
         for text in drafts {
-            update.items.track(self.append_message(
+            self.append_message(
                 Role::System,
                 format!("Unsent queued draft (F5 loads it when the composer is empty):\n{text}"),
-            ));
+            );
             update.effects.push(ClaudeEffect::RetainDraft(text));
         }
     }
@@ -83,10 +83,10 @@ impl SessionState {
         self.end_claude_edit();
         update.effects.push(ClaudeEffect::EditFailed(true));
         let message = safe_text(message);
-        update.items.track(self.append_message(
+        self.append_message(
             Role::System,
             format!("Could not edit Claude message: {message}. Draft kept."),
-        ));
+        );
         update.effects.push(ClaudeEffect::FollowBottom);
     }
 }

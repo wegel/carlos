@@ -8,12 +8,10 @@ use crate::session::approval_state::ApprovalChoice;
 use crate::session::entry_id::EntryId;
 use crate::session::state::SessionState;
 use crate::session::text::safe_text;
-use crate::session::transcript_updates::SessionUpdate;
 
 /// Return only the transcript and editor changes after a successful native answer.
 pub struct ApprovalAnswered {
     pub cleared: ApprovalCleared,
-    pub transcript: SessionUpdate,
 }
 
 impl SessionState {
@@ -33,7 +31,7 @@ impl SessionState {
             self.set_status(error.clone());
             return Err(error);
         }
-        let transcript = self.finish_pending_claude_browser_answer(choice);
+        self.finish_pending_claude_browser_answer(choice);
         let cleared = self.clear_pending_session_approval();
         self.set_status(match choice {
             ApprovalChoice::Accept => "approval accepted",
@@ -41,9 +39,6 @@ impl SessionState {
             ApprovalChoice::Decline => "approval declined",
             ApprovalChoice::Cancel => "approval canceled",
         });
-        Ok(Some(ApprovalAnswered {
-            cleared,
-            transcript,
-        }))
+        Ok(Some(ApprovalAnswered { cleared }))
     }
 }

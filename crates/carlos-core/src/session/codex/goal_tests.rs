@@ -16,14 +16,7 @@ fn stale_goal_reads_keep_newer_native_facts_and_block_ralph_without_a_view() {
     let peer = TestBackend::default();
     let scope = CodexScope::for_test(true, false, 4);
     let mut update = GoalUpdate::default();
-    assert!(tick(
-        &peer,
-        &mut session,
-        scope,
-        &mut update,
-        Instant::now(),
-        false
-    ));
+    assert!(tick(&peer, &mut session, scope, Instant::now(), false));
     let call = peer.calls.lock().expect("calls")[0].clone();
     assert_eq!(call.0, "thread/goal/get");
     assert_eq!(call.1, json!({"threadId":"root"}));
@@ -31,7 +24,6 @@ fn stale_goal_reads_keep_newer_native_facts_and_block_ralph_without_a_view() {
         "tokensUsed":0,"timeUsedSeconds":0,"createdAt":1,"updatedAt":2});
     observed(
         &mut session,
-        &mut update,
         "thread/goal/updated",
         &json!({"threadId":"root","goal":active}),
     );

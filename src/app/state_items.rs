@@ -59,8 +59,8 @@ impl AppState {
     #[cfg(test)]
     pub(super) fn ensure_item_placeholder(&mut self, item_id: &str, role: Role) -> bool {
         let key = self.item_key(item_id);
-        let (result, update) = self.session.ensure_item_placeholder(&key, role);
-        self.apply_session_update(update);
+        let result = self.session.ensure_item_placeholder(&key, role);
+        self.consume_core_events();
         result
     }
 
@@ -75,10 +75,10 @@ impl AppState {
         file_path: Option<String>,
     ) -> bool {
         let key = self.item_key(item_id);
-        let (result, update) = self
+        let result = self
             .session
             .upsert_mapped_message(&key, role, text, kind, file_path);
-        self.apply_session_update(update);
+        self.consume_core_events();
         result
     }
 
@@ -87,8 +87,8 @@ impl AppState {
     #[cfg(test)]
     pub(super) fn upsert_agent_delta(&mut self, item_id: &str, delta: &str) {
         let key = self.item_key(item_id);
-        let update = self.session.upsert_agent_delta(&key, delta);
-        self.apply_session_update(update);
+        self.session.upsert_agent_delta(&key, delta);
+        self.consume_core_events();
     }
 
     #[cfg(test)]
@@ -97,19 +97,19 @@ impl AppState {
             return;
         }
         let key = self.item_key(item_id);
-        let update = self.session.upsert_reasoning_delta(&key, delta);
-        self.apply_session_update(update);
+        self.session.upsert_reasoning_delta(&key, delta);
+        self.consume_core_events();
         let Some(idx) = self.item_message_index(item_id) else {
             return;
         };
-        let update = self.session.normalize_reasoning_at(idx);
-        self.apply_session_update(update);
+        self.session.normalize_reasoning_at(idx);
+        self.consume_core_events();
     }
 
     #[cfg(test)]
     pub(super) fn upsert_command_output_delta(&mut self, item_id: &str, delta: &str) {
         let key = self.item_key(item_id);
-        let update = self.session.upsert_command_output_delta(&key, delta);
-        self.apply_session_update(update);
+        self.session.upsert_command_output_delta(&key, delta);
+        self.consume_core_events();
     }
 }

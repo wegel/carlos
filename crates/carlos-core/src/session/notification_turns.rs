@@ -72,7 +72,7 @@ pub(in crate::session) fn handle_turn_completed(
     }
     let interrupted = turn_status == TurnStatus::Interrupted;
     if interrupted {
-        update.items.push(session.append_turn_interrupted_marker());
+        session.append_turn_interrupted_marker();
         session.set_status("turn interrupted");
     } else if turn_status == TurnStatus::Failed {
         session.ralph_stop_after_failure();
@@ -82,11 +82,9 @@ pub(in crate::session) fn handle_turn_completed(
         session.set_status("turn completed");
     }
     if turn_status != TurnStatus::Failed {
-        update
-            .items
-            .push(session.handle_ralph_turn_completed(interrupted));
+        session.handle_ralph_turn_completed(interrupted);
     }
-    if let Err(e) = session.apply_pending_ralph_toggle(&mut update.items) {
+    if let Err(e) = session.apply_pending_ralph_toggle() {
         session.set_status(format!("ralph: {e}"));
     }
 }

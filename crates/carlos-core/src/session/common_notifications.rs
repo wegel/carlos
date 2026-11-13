@@ -63,7 +63,7 @@ fn dispatch_notification(
     method: &str,
     params: &serde_json::Map<String, Value>,
 ) {
-    if handle_context_notification(session, update, method, params) {
+    if handle_context_notification(session, method, params) {
         return;
     }
     match method {
@@ -90,16 +90,14 @@ fn dispatch_notification(
                 params.get("turnId").and_then(Value::as_str),
                 params.get("diff").and_then(Value::as_str),
             ) {
-                update.items.push(session.upsert_turn_diff(turn_id, diff));
+                session.upsert_turn_diff(turn_id, diff);
             }
         }
-        "codex/event/turn_diff" => handle_codex_turn_diff(session, update, params),
+        "codex/event/turn_diff" => handle_codex_turn_diff(session, params),
         "codex/event/exec_command_end" => {
             if let Some(msg) = params.get("msg") {
                 if let Some((call_id, summary)) = command_summary_from_parsed_cmd(msg) {
-                    update.items.push(
-                        session.set_command_override(&session.backend_entry_key(&call_id), summary),
-                    );
+                    session.set_command_override(&session.backend_entry_key(&call_id), summary);
                 }
             }
         }
@@ -159,11 +157,7 @@ fn handle_thread_initialized(
     }
 }
 
-fn handle_codex_turn_diff(
-    session: &mut SessionState,
-    update: &mut CommonUpdate,
-    params: &serde_json::Map<String, Value>,
-) {
+fn handle_codex_turn_diff(session: &mut SessionState, params: &serde_json::Map<String, Value>) {
     let turn_id = params
         .get("id")
         .and_then(Value::as_str)
@@ -174,13 +168,12 @@ fn handle_codex_turn_diff(
         .and_then(Value::as_str)
         .or_else(|| params.get("diff").and_then(Value::as_str));
     if let (Some(turn_id), Some(diff)) = (turn_id, diff) {
-        update.items.push(session.upsert_turn_diff(turn_id, diff));
+        session.upsert_turn_diff(turn_id, diff);
     }
 }
 
 fn handle_context_notification(
     session: &mut SessionState,
-    update: &mut CommonUpdate,
     method: &str,
     params: &serde_json::Map<String, Value>,
 ) -> bool {
@@ -192,7 +185,7 @@ fn handle_context_notification(
         }
         "thread/compacted" => {
             session.set_context_usage(None);
-            update.items.push(session.append_context_compacted_marker());
+            session.append_context_compacted_marker();
         }
         "codex/event/token_count" => {
             if let Some(usage) = context_usage_from_token_count_params(params) {

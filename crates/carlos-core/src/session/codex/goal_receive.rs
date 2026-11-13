@@ -8,14 +8,13 @@ use super::scope::CodexScope;
 use crate::session::state::SessionState;
 
 /// Keep native root goal notifications independent of child turns and UI editor focus.
-pub fn observed(session: &mut SessionState, update: &mut GoalUpdate, method: &str, params: &Value) {
+pub fn observed(session: &mut SessionState, method: &str, params: &Value) {
     if params["threadId"] != *session.thread_id() {
         return;
     }
     if method != "thread/goal/cleared" && !params["goal"].is_object() {
         invalid(
             session,
-            update,
             "Codex goal update has no valid goal object; r refreshes native state",
         );
         return;
@@ -25,8 +24,8 @@ pub fn observed(session: &mut SessionState, update: &mut GoalUpdate, method: &st
     } else {
         params["goal"].clone()
     };
-    if let Err(error) = apply(session, update, &goal) {
-        invalid(session, update, &error);
+    if let Err(error) = apply(session, &goal) {
+        invalid(session, &error);
     }
 }
 
@@ -53,7 +52,7 @@ pub fn reply(
     if session.codex_goals.read.as_ref().is_some_and(matches) {
         let request = session.codex_goals.read.take().expect("goal read");
         if request.revision == session.codex_goals.revision {
-            read_reply(session, update, &params["response"]);
+            read_reply(session, &params["response"]);
         }
     } else if session.codex_goals.mutation.as_ref().is_some_and(matches) {
         let request = session.codex_goals.mutation.take().expect("goal mutation");
@@ -62,7 +61,7 @@ pub fn reply(
     true
 }
 
-fn read_reply(session: &mut SessionState, update: &mut GoalUpdate, response: &Value) {
+fn read_reply(session: &mut SessionState, response: &Value) {
     if let Some(error) = response.get("error") {
         let message = error["message"]
             .as_str()
@@ -75,18 +74,18 @@ fn read_reply(session: &mut SessionState, update: &mut GoalUpdate, response: &Va
             GoalKnowledge::Unknown
         };
         session.codex_goals.read_error = Some(crate::session::text::safe_text(message));
-        super::goals::reconcile_ralph(session, update);
+        super::goals::reconcile_ralph(session);
         return;
     }
     let result = &response["result"];
     let outcome = result
         .get("goal")
         .ok_or_else(|| "Codex did not return goal state; r refreshes".to_string())
-        .and_then(|goal| apply(session, update, goal));
+        .and_then(|goal| apply(session, goal));
     if let Err(error) = outcome {
         session.codex_goals.knowledge = GoalKnowledge::Unknown;
         session.codex_goals.read_error = Some(error);
-        super::goals::reconcile_ralph(session, update);
+        super::goals::reconcile_ralph(session);
     }
 }
 
@@ -101,7 +100,6 @@ fn mutation_reply(
         if request.may_activate && !matches!(error["code"].as_i64(), Some(-32602..=-32600)) {
             invalid(
                 session,
-                update,
                 "Goal activation is unconfirmed; Ralph waits for a fresh snapshot",
             );
         }
@@ -129,7 +127,6 @@ fn finish_mutation(
         if result["cleared"].is_boolean() {
             invalid(
                 session,
-                update,
                 "Goal clear acknowledged; waiting for a fresh native snapshot",
             );
             Ok(())
@@ -141,19 +138,18 @@ fn finish_mutation(
             .get("goal")
             .filter(|goal| goal.is_object())
             .ok_or_else(|| "Codex did not return the changed goal".to_string())
-            .and_then(|goal| apply(session, update, goal))
+            .and_then(|goal| apply(session, goal))
     } else {
         if request.may_activate {
             invalid(
                 session,
-                update,
                 "Goal activation awaits a fresh native snapshot; Ralph stays off",
             );
         }
         Ok(())
     };
     if let Err(error) = outcome {
-        invalid(session, update, &error);
+        invalid(session, &error);
         update.clear_error = true;
         session.codex_goals.error = Some(error);
     } else {
@@ -166,22 +162,22 @@ fn finish_mutation(
     session.codex_goals.last_read = None;
 }
 
-fn apply(session: &mut SessionState, update: &mut GoalUpdate, goal: &Value) -> Result<(), String> {
+fn apply(session: &mut SessionState, goal: &Value) -> Result<(), String> {
     validate(session.thread_id(), goal)?;
     session.codex_goals.read_error = None;
     session.codex_goals.goal = goal.clone();
     session.codex_goals.knowledge = GoalKnowledge::Known;
     session.codex_goals.revision = session.codex_goals.revision.saturating_add(1);
-    super::goals::reconcile_ralph(session, update);
+    super::goals::reconcile_ralph(session);
     Ok(())
 }
 
-fn invalid(session: &mut SessionState, update: &mut GoalUpdate, error: &str) {
+fn invalid(session: &mut SessionState, error: &str) {
     session.codex_goals.knowledge = GoalKnowledge::Unknown;
     session.codex_goals.revision = session.codex_goals.revision.saturating_add(1);
     session.codex_goals.last_read = None;
     session.codex_goals.read_error = Some(error.into());
-    super::goals::reconcile_ralph(session, update);
+    super::goals::reconcile_ralph(session);
 }
 
 /// Reject malformed root snapshots before the UI replaces any history.

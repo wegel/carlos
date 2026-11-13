@@ -10,7 +10,6 @@ use crate::session::approval_state::ApprovalRequestDraft;
 use crate::session::models::Role;
 use crate::session::state::SessionState;
 use crate::session::text::safe_label;
-use crate::session::transcript_updates::SessionUpdate;
 
 /// Keep callback identity until consent and native completion have both arrived.
 #[derive(Debug)]
@@ -93,7 +92,7 @@ impl SessionState {
         &mut self,
         pending: &ApprovalRequestDraft,
         choice: ApprovalChoice,
-    ) -> SessionUpdate {
+    ) {
         self.append_browser_consent(pending.requested_permissions.as_ref(), choice)
     }
 
@@ -101,7 +100,7 @@ impl SessionState {
     pub(in crate::session) fn finish_pending_claude_browser_answer(
         &mut self,
         choice: ApprovalChoice,
-    ) -> SessionUpdate {
+    ) {
         let payload = self
             .approval
             .pending()
@@ -111,35 +110,28 @@ impl SessionState {
     }
 
     #[cfg(any(test, feature = "test-support"))]
-    fn append_browser_consent(
-        &mut self,
-        payload: Option<&Value>,
-        choice: ApprovalChoice,
-    ) -> SessionUpdate {
+    fn append_browser_consent(&mut self, payload: Option<&Value>, choice: ApprovalChoice) {
         let notice = browser_consent_notice(&mut self.claude.browser, payload, choice);
         self.append_browser_notice(notice)
     }
 
-    fn append_browser_notice(&mut self, notice: Option<String>) -> SessionUpdate {
-        notice
-            .map(|notice| self.append_message(Role::System, notice).1)
-            .unwrap_or_default()
+    fn append_browser_notice(&mut self, notice: Option<String>) {
+        if let Some(notice) = notice {
+            self.append_message(Role::System, notice);
+        }
     }
 
     /// Append a once-only completion and identify any editor still waiting for consent.
-    pub fn receive_claude_browser_completion(
-        &mut self,
-        message: &Value,
-    ) -> Option<(Option<String>, SessionUpdate)> {
+    pub fn receive_claude_browser_completion(&mut self, message: &Value) -> Option<Option<String>> {
         let completion = self.complete_claude_browser(message)?;
-        let (_, update) = self.append_message(
+        let _ = self.append_message(
             Role::System,
             format!(
                 "Browser interaction completed for {}",
                 safe_label(&completion.server)
             ),
         );
-        Some((completion.callback_id, update))
+        Some(completion.callback_id)
     }
 }
 

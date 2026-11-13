@@ -5,19 +5,18 @@ use serde_json::Value;
 use crate::session::models::Role;
 use crate::session::state::SessionState;
 use crate::session::text::{safe_label, safe_text};
-use crate::session::transcript_updates::SessionUpdate;
 
 impl SessionState {
     /// Append one escaped notice, retaining the original FIFO and dedup order.
-    pub fn record_claude_notice(&mut self, key: String, text: &str) -> SessionUpdate {
+    pub fn record_claude_notice(&mut self, key: String, text: &str) {
         if self.claude.notices.contains(&key) {
-            return SessionUpdate::default();
+            return;
         }
         self.claude.notices.push_back(key);
         if self.claude.notices.len() > 128 {
             self.claude.notices.pop_front();
         }
-        self.append_message(Role::System, safe_text(text)).1
+        self.append_message(Role::System, safe_text(text));
     }
 
     /// Handle known native warnings and keep unknown additive system messages harmless.

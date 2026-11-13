@@ -13,8 +13,11 @@ impl SessionState {
         draft: HistoryDraft,
         mode: HistoryMode,
     ) -> ItemChanges {
-        let update = self.replace_history(draft.entries, mode);
-        let mut changes = ItemChanges::default();
+        self.replace_history(draft.entries, mode);
+        let mut changes = ItemChanges {
+            history_replaced: true,
+            ..Default::default()
+        };
         self.reset_prompt_history();
         self.clear_codex_reports();
         for (turn, status) in draft.turns {
@@ -24,7 +27,6 @@ impl SessionState {
             self.restore_history_record(&mut changes, record);
         }
         self.restore_turn_boundary();
-        changes.push(update);
         changes
     }
 
@@ -34,15 +36,13 @@ impl SessionState {
         for (index, row, describe) in record.updates {
             self.transcript_update(index, row.role, Some(row.text), row.kind, row.file_path);
             if describe {
-                changes.push(
-                    self.describe_tool_output(
-                        index,
-                        &record.item,
-                        record.item["id"]
-                            .as_str()
-                            .map(|id| self.backend_entry_key(id))
-                            .as_ref(),
-                    ),
+                self.describe_tool_output(
+                    index,
+                    &record.item,
+                    record.item["id"]
+                        .as_str()
+                        .map(|id| self.backend_entry_key(id))
+                        .as_ref(),
                 );
             }
         }
@@ -50,7 +50,7 @@ impl SessionState {
             super::item_receive::record_prompt(self, changes, &text, Some(index));
         }
         if record.observe {
-            super::item_receive::receive_summary(self, changes, &record.item, false);
+            super::item_receive::receive_summary(self, &record.item, false);
         }
         let Some(id) = record.item["id"].as_str() else {
             return;

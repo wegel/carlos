@@ -5,13 +5,10 @@ use serde_json::Value;
 use crate::session::entry_key::BackendEntryKey;
 use crate::session::models::{MessageKind, Role};
 use crate::session::state::SessionState;
-use crate::session::transcript_updates::SessionUpdate;
 
-/// Preserve each existing redraw call and the prompt cursor reset after a consumed input.
+/// Return caller-local history navigation changes after a consumed input.
 #[derive(Default)]
 pub struct PromptUpdate {
-    pub appended: SessionUpdate,
-    pub classified: SessionUpdate,
     pub reset_navigation: bool,
 }
 
@@ -22,9 +19,9 @@ impl SessionState {
         id: &str,
         key: &BackendEntryKey,
         kind: Option<&str>,
-    ) -> SessionUpdate {
+    ) {
         let Some(index) = self.messages.len().checked_sub(1) else {
-            return SessionUpdate::default();
+            return;
         };
         self.put_item_mapping(key, index);
         self.record_prompt_turn(self.messages[index].id, id);
@@ -32,16 +29,11 @@ impl SessionState {
     }
 
     /// Classify only exact human steering inputs without changing their text or identity.
-    pub(crate) fn classify_claude_prompt(
-        &mut self,
-        index: usize,
-        kind: Option<&str>,
-    ) -> SessionUpdate {
+    pub(crate) fn classify_claude_prompt(&mut self, index: usize, kind: Option<&str>) {
         if self.messages[index].role == Role::User && kind == Some("steer") {
             self.transcript_set_kind(index, MessageKind::UserSteer);
-            return self.dirty_entry(index);
+            return;
         }
-        SessionUpdate::default()
     }
 
     /// Recreate one surviving accepted prompt only when native Claude consumes it.
@@ -61,7 +53,7 @@ impl SessionState {
             return update;
         }
         if !self.has_item_mapping(key) {
-            let (index, appended) = self.append_message(
+            let index = self.append_message(
                 if human { Role::User } else { Role::System },
                 if human {
                     text.clone()
@@ -69,10 +61,10 @@ impl SessionState {
                     format!("Automatic prompt: {text}")
                 },
             );
-            update.appended = appended;
+
             self.put_item_mapping(key, index);
             if steer {
-                update.classified = self.classify_claude_prompt(index, Some("steer"));
+                self.classify_claude_prompt(index, Some("steer"));
             }
             if human {
                 update.reset_navigation =
@@ -89,9 +81,9 @@ impl SessionState {
         &mut self,
         response: &Value,
         key: &BackendEntryKey,
-    ) -> SessionUpdate {
+    ) {
         let Some(id) = response["result"]["turn"]["id"].as_str() else {
-            return SessionUpdate::default();
+            return;
         };
         if self.active_turn_id().as_deref() == Some("claude-turn-pending")
             || self.active_turn_id().is_none()

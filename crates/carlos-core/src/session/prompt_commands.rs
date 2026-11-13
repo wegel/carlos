@@ -87,10 +87,10 @@ impl SessionState {
                     .changes
                     .effects
                     .push(ClaudeEffect::SetInput(text.into()));
-                update.changes.items.track(self.append_message(
+                self.append_message(
                     Role::System,
                     "Could not send message: Codex is closed; F5 reconnects; draft kept",
-                ));
+                );
             }
             update.hint = Some("Codex is closed; F5 reconnects; draft kept".into());
             return true;
@@ -102,10 +102,10 @@ impl SessionState {
                 .effects
                 .push(ClaudeEffect::SetInput(text.into()));
             update.hint = Some("Claude is closed; restart Carlos to send this draft".into());
-            update.changes.items.track(self.append_message(
+            self.append_message(
                 Role::System,
                 "Claude is closed; restart Carlos to send this draft",
-            ));
+            );
             return true;
         }
         false
@@ -217,10 +217,7 @@ impl SessionState {
                 .push(ClaudeEffect::SetInput(text.into()));
         }
         self.set_status(format!("send failed: {error}"));
-        update
-            .changes
-            .items
-            .track(self.append_message(Role::System, format!("Could not send message: {error}")));
+        self.append_message(Role::System, format!("Could not send message: {error}"));
     }
 
     fn queue_behind_pending(
@@ -284,7 +281,7 @@ impl SessionState {
     }
 
     fn echo_prompt(&mut self, text: &str, role: Role, record: bool, update: &mut TurnUpdate) {
-        let index = update.changes.items.track(self.append_message(role, text));
+        let index = self.append_message(role, text);
         if record {
             update.changes.items.reset_navigation |=
                 self.record_prompt_history(text, Some(self.messages()[index].id));
@@ -294,9 +291,7 @@ impl SessionState {
 
 impl TurnUpdate {
     pub(super) fn merge(&mut self, other: ClaudeUpdate) {
-        for change in other.items.transcript {
-            self.changes.items.push(change);
-        }
+        self.changes.items.history_replaced |= other.items.history_replaced;
         self.changes.items.reset_navigation |= other.items.reset_navigation;
         self.changes.effects.extend(other.effects);
         debug_assert!(other.action.is_none());

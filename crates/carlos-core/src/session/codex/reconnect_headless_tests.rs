@@ -27,7 +27,7 @@ fn draining_held_native_frames_acknowledges_each_original_charge_once() {
 fn invalid_snapshot_leaves_live_entries_and_runtime_facts_intact() {
     let mut session = SessionState::new("root".into(), Default::default(), false);
     session.enable_codex();
-    let (index, _) = session.append_message(Role::Assistant, "old entry");
+    let index = session.append_message(Role::Assistant, "old entry");
     let id = session.messages()[index].id;
     session.set_runtime_settings(Some("old-model".into()), None, None);
     session.close_codex();
@@ -63,9 +63,9 @@ fn complete_same_thread_snapshot_retains_ids_and_reopens_native_work() {
         session.runtime_settings().current_model().as_deref(),
         Some("native-model")
     );
-    assert!(update
-        .history
-        .transcript
-        .into_iter()
-        .any(|change| change.transcript_reset));
+    assert!(update.history.history_replaced);
+    assert!(matches!(
+        session.publish().records()[0].change,
+        crate::session::events::Change::Reset { .. }
+    ));
 }

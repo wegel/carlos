@@ -167,8 +167,8 @@ impl AppState {
 
     #[cfg(test)]
     pub(super) fn append_turn_interrupted_marker(&mut self) {
-        let update = self.session.append_turn_interrupted_marker();
-        self.apply_session_update(update);
+        self.session.append_turn_interrupted_marker();
+        self.consume_core_events();
     }
 
     #[cfg(test)]
@@ -178,14 +178,14 @@ impl AppState {
 
     #[cfg(test)]
     pub(super) fn maybe_disable_ralph_on_blocked_marker(&mut self) {
-        let update = self.session.maybe_disable_ralph_on_blocked_marker();
-        self.apply_session_update(update);
+        self.session.maybe_disable_ralph_on_blocked_marker();
+        self.consume_core_events();
     }
 
     #[cfg(test)]
     pub(super) fn handle_ralph_turn_completed(&mut self, interrupted: bool) {
-        let update = self.session.handle_ralph_turn_completed(interrupted);
-        self.apply_session_update(update);
+        self.session.handle_ralph_turn_completed(interrupted);
+        self.consume_core_events();
     }
 
     // --- Query helpers & test utilities ---

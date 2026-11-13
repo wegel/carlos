@@ -42,7 +42,7 @@ pub(super) fn respond_to_pending_approval(
         .answer_session_approval(client, card_id, result, choice)
     {
         Ok(Some(answered)) => {
-            app.apply_session_update(answered.transcript);
+            app.consume_core_events();
             app.view.confirm_allow = None;
             app.apply_cleared_approval(answered.cleared);
         }

@@ -15,8 +15,8 @@ Carlos will expose the conversation without terminal widgets or raw backend mess
 - [x] (2026-11-13) Preserve the accepted EP017 executable under `/tmp/carlos-ep018/ep017-carlos` before building.
 - [x] (2026-11-13) Add and test `carlos-proto` types for ids, numbered events, snapshots and typed commands; final contract review remains.
 - [x] (2026-11-13) Record row changes at writers; publish sealed numbered batches, snapshots, older stored rows and output. Six headless tests reconstruct client state through JSON. Approval and metadata changes share the clock.
-- [ ] Move terminal cache invalidation to the numbered events and verify existing workflows.
-- [ ] Delete the old transcript dirty-report path in a separate buildable commit.
+- [x] (2026-11-13) Move terminal cache invalidation to numbered events; Rust parity tests pass. Full terminal workflow checks remain.
+- [x] (2026-11-13) Delete SessionUpdate, TranscriptChanges and dirty-entry return plumbing in a separate buildable commit. Preserve local navigation effects and all writer side effects.
 - [ ] Run full tests, strict compiler checks, terminal checks, direct engineering review and measured performance comparisons; resolve failures.
 - [ ] Document the frozen contract, record evidence, move this completed plan unchanged to `.agents/done/`, and stop for owner review before EP019.
 
@@ -96,3 +96,5 @@ Pending direct review against `.agents/reviewers/engineering_reviewer.md` after 
 Update note (2026-11-13): created EP018 after the owner's approval of EP017; recorded scope, proposed interfaces, measurements and review boundaries before source changes.
 
 Update note (2026-11-13): recorded the first protocol and core journal checks; the terminal now has an event consumer under test before removal of legacy reports.
+
+Update note (2026-11-13): removed legacy redraw returns and migrated their exhaustive tests to numbered records. The full Rust suite and 26 architecture tests pass; strict lint and full terminal checks are next.

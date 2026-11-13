@@ -113,15 +113,15 @@ impl SessionState {
         if goal_changed {
             self.invalidate_codex_goal();
         }
-        let mut changes = ItemChanges::default();
+        let changes = ItemChanges::default();
         if !self.codex_connection.initial_rebuild {
-            changes.track(self.append_message(
+            self.append_message(
                 Role::System,
                 "Codex reconnected; native work restored. Unconfirmed input was not resent.",
-            ));
+            );
         }
         if self.codex_connection.unreplayed_children > 0 {
-            changes.track(self.append_message(Role::System, "Codex reattached this thread. The server replays this thread’s requests; unanswered child requests may need the client that owns that child. F2 shows its state."));
+            self.append_message(Role::System, "Codex reattached this thread. The server replays this thread’s requests; unanswered child requests may need the client that owns that child. F2 shows its state.");
             self.codex_connection.unreplayed_children = 0;
         }
         self.set_status(

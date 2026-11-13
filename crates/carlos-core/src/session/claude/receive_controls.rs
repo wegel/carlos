@@ -34,9 +34,7 @@ impl SessionState {
                         });
                     }
                     Err(error) => {
-                        update
-                            .items
-                            .push(self.record_claude_error(&json!({"message":error.to_string()})));
+                        self.record_claude_error(&json!({"message":error.to_string()}));
                         self.fail_claude(draft, update);
                     }
                 }
@@ -87,7 +85,7 @@ impl SessionState {
         if request == Some("usage.optional") {
             return;
         }
-        update.items.push(self.record_claude_error(&frame["error"]));
+        self.record_claude_error(&frame["error"]);
         if matches!(request, Some("start" | "sessions.info" | "sessions.read")) {
             self.fail_claude(draft, update);
         }

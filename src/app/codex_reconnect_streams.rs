@@ -11,8 +11,8 @@ use super::state::AppState;
 
 /// Read at most one partial native item at the existing timer point.
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant) -> bool {
-    let mut changes = Default::default();
-    let changed = reconnect_streams::tick(client, &mut app.session, &mut changes, now);
+    let changes = Default::default();
+    let changed = reconnect_streams::tick(client, &mut app.session, now);
     app.apply_item_changes(changes);
     changed
 }

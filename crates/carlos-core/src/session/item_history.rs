@@ -84,12 +84,7 @@ pub fn append_history_from_thread(session: &mut SessionState, thread_obj: &Value
                     item.get("id").and_then(Value::as_str),
                     turn.get("id").and_then(Value::as_str),
                 ) {
-                    super::item_receive::record_native_turn(
-                        session,
-                        &mut changes,
-                        item_id,
-                        turn_id,
-                    );
+                    super::item_receive::record_native_turn(session, item_id, turn_id);
                 }
             }
             if turn_is_terminal || has_terminal_item_status(item) {
@@ -110,7 +105,7 @@ pub(crate) fn append_history_item(
     changes: &mut ItemChanges,
     item: &Value,
 ) {
-    if upsert_native_activity(session, changes, item) {
+    if upsert_native_activity(session, item) {
         return;
     }
     let rows = history_draft::rows(session, item);
@@ -120,13 +115,13 @@ pub(crate) fn append_history_item(
         let text = row.text.clone();
         if let Some(id) = item["id"].as_str() {
             session.with_native_item_part(id, part, |session, key| {
-                let inserted = changes.track(session.upsert_mapped_message(
+                let inserted = session.upsert_mapped_message(
                     &session.backend_entry_key(key),
                     row.role,
                     row.text,
                     row.kind,
                     row.file_path,
-                ));
+                );
                 let index = session
                     .item_message_index(&session.backend_entry_key(key))
                     .expect("native history row");
@@ -134,20 +129,20 @@ pub(crate) fn append_history_item(
                     record_prompt(session, changes, &text, Some(index));
                 }
                 if describe {
-                    super::item_receive::describe_output(session, changes, index, item);
+                    super::item_receive::describe_output(session, index, item);
                 }
             });
         } else {
-            let index = changes.track(session.append_draft_message(row));
+            let index = session.append_draft_message(row);
             if user {
                 record_prompt(session, changes, &text, Some(index));
             }
             if describe {
-                super::item_receive::describe_output(session, changes, index, item);
+                super::item_receive::describe_output(session, index, item);
             }
         }
     }
-    receive_summary(session, changes, item, false);
+    receive_summary(session, item, false);
 }
 
 pub(super) fn has_terminal_item_status(item: &Value) -> bool {

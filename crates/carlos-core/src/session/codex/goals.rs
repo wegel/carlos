@@ -9,14 +9,12 @@ use super::scope::CodexScope;
 use crate::backend::BackendClient;
 use crate::session::models::Role;
 use crate::session::state::SessionState;
-use crate::session::transcript_updates::SessionUpdate;
 
 /// Describe only the local effects of a native goal change.
 #[derive(Default)]
 pub struct GoalUpdate {
     pub clear_error: bool,
     pub clear_editor: bool,
-    pub transcript: SessionUpdate,
 }
 
 /// Read native facts when due; opening an editor never submits a goal.
@@ -24,7 +22,6 @@ pub fn tick(
     client: &dyn BackendClient,
     session: &mut SessionState,
     scope: CodexScope,
-    update: &mut GoalUpdate,
     now: Instant,
     visible: bool,
 ) -> bool {
@@ -55,7 +52,7 @@ pub fn tick(
     ) {
         session.codex_goals.read = None;
         session.codex_goals.knowledge = GoalKnowledge::Unknown;
-        reconcile_ralph(session, update);
+        reconcile_ralph(session);
         session.codex_goals.read_error = Some(format!("Could not read Codex goal: {error}"));
     }
     true
@@ -127,7 +124,7 @@ pub fn mutate(
             session.codex_goals.knowledge = GoalKnowledge::Unknown;
             session.codex_goals.revision = session.codex_goals.revision.saturating_add(1);
             session.codex_goals.last_read = None;
-            reconcile_ralph(session, update);
+            reconcile_ralph(session);
         }
         session.codex_goals.mutation = None;
         session.codex_goals.notice.clear();
@@ -190,7 +187,7 @@ pub fn ralph_error(session: &SessionState, scope: CodexScope) -> Option<&'static
 }
 
 /// Stop Carlos automatic work while retaining queued human messages.
-pub(crate) fn reconcile_ralph(session: &mut SessionState, update: &mut GoalUpdate) {
+pub(crate) fn reconcile_ralph(session: &mut SessionState) {
     let may_drive = session.codex_goals.knowledge == GoalKnowledge::Unknown
         || session.codex_goals.knowledge == GoalKnowledge::Known
             && !session.codex_goals.goal.is_null()
@@ -200,7 +197,6 @@ pub(crate) fn reconcile_ralph(session: &mut SessionState, update: &mut GoalUpdat
             );
     if may_drive && (session.ralph_enabled() || session.ralph_runtime().toggle_pending()) {
         session.ralph_stop_after_failure();
-        let (_, transcript) = session.append_message(Role::System,"Carlos stopped Ralph because a Codex goal may drive this thread. /goal shows its state; queued human inputs remain.");
-        update.transcript = transcript;
+        session.append_message(Role::System,"Carlos stopped Ralph because a Codex goal may drive this thread. /goal shows its state; queued human inputs remain.");
     }
 }

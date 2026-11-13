@@ -1,4 +1,4 @@
-//! Enumerate changed-entry reports, no-ops, grouped reads, and full replacements.
+//! Enumerate numbered entry events, no-ops, grouped reads, and full replacements.
 
 use serde_json::json;
 
@@ -6,11 +6,12 @@ use crate::backend::BackendKind;
 
 use super::approval_state::{ApprovalRequestDraft, ApprovalRequestKind};
 
+use super::entry_id::EntryId;
 use super::entry_key::{BackendEntryKey, NativeEntryKey};
+use super::events::Change;
 use super::history_identity::HistoryMode;
 use super::models::{EntryDraft, MessageKind, Role};
 use super::state::SessionState;
-use super::transcript_updates::SessionUpdate;
 
 const ROLES: [Role; 7] = [
     Role::User,
@@ -23,7 +24,7 @@ const ROLES: [Role; 7] = [
 ];
 
 #[test]
-fn every_row_edit_reports_heads_earliest_dirty_entry() {
+fn every_row_edit_emits_the_earliest_changed_entry() {
     for previous in [
         "→ Read src/a.rs",
         "→ Read src/b.rs",
@@ -52,7 +53,8 @@ fn check_edit(previous: &str, text: Option<&str>, role: Role, kind: MessageKind,
     session.append_message(Role::ToolCall, previous);
     session.append_message(Role::ToolCall, "");
     session.append_message(Role::Assistant, "old");
-    let update = session.update_message_at_index(index, role, text.map(str::to_string), kind, None);
+    session.publish();
+    session.update_message_at_index(index, role, text.map(str::to_string), kind, None);
     let grouped = index > 0
         && index < 3
         && previous == "→ Read src/a.rs"
@@ -64,17 +66,11 @@ fn check_edit(previous: &str, text: Option<&str>, role: Role, kind: MessageKind,
     } else {
         Some(session.messages[if grouped { 0 } else { index }].id)
     };
-    assert_eq!(
-        update,
-        SessionUpdate {
-            dirty_from: expected,
-            ..SessionUpdate::default()
-        }
-    );
+    assert_eq!(earliest(&mut session), expected);
 }
 
 #[test]
-fn every_stream_completion_and_replacement_reports_only_its_existing_dirty_calls() {
+fn every_stream_completion_and_replacement_emits_its_changed_entries() {
     for backend in [BackendKind::Codex, BackendKind::Claude, BackendKind::Grok] {
         for role in ROLES {
             for complete in [false, true] {
@@ -90,14 +86,12 @@ fn every_stream_completion_and_replacement_reports_only_its_existing_dirty_calls
             for _ in 0..count {
                 session.append_message(Role::Assistant, "old");
             }
-            let update = session.replace_history(Vec::new(), mode);
-            assert_eq!(
-                update,
-                SessionUpdate {
-                    transcript_reset: true,
-                    ..SessionUpdate::default()
-                }
-            );
+            session.publish();
+            session.replace_history(Vec::new(), mode);
+            assert!(matches!(
+                session.publish().records()[0].change,
+                Change::Reset { .. }
+            ));
             assert!(session.messages.is_empty());
         }
     }
@@ -114,34 +108,27 @@ fn check_stream(backend: BackendKind, role: Role, complete: bool, mapped: bool) 
     };
     session.append_message(Role::User, "prefix");
     if mapped {
-        let (index, _) = session.append_draft_message(EntryDraft::plain(role, "old"));
+        let index = session.append_draft_message(EntryDraft::plain(role, "old"));
         session.put_item_mapping(&key, index);
     }
     if complete {
         session.mark_item_completed(&key);
     }
-    let update = session.upsert_agent_delta(&key, "new");
-    assert_eq!(
-        update.dirty_from,
-        (!complete).then(|| session.messages[1].id)
-    );
-    assert!(!update.transcript_reset);
+    session.publish();
+    session.upsert_agent_delta(&key, "new");
+    let expected = (!complete).then(|| session.messages[1].id);
+    assert_eq!(earliest(&mut session), expected);
     if !complete {
-        let (_, update) = session.upsert_mapped_message(
-            &key,
-            role,
-            "replacement".into(),
-            MessageKind::Plain,
-            None,
-        );
-        assert_eq!(update.dirty_from, Some(session.messages[1].id));
+        session.upsert_mapped_message(&key, role, "replacement".into(), MessageKind::Plain, None);
+        let expected = session.messages[1].id;
+        assert_eq!(earliest(&mut session), Some(expected));
     }
-    let update = session.update_message_at_index(100, role, None, MessageKind::Plain, None);
-    assert_eq!(update, SessionUpdate::default());
+    session.update_message_at_index(100, role, None, MessageKind::Plain, None);
+    assert!(session.publish().records().is_empty());
 }
 
 #[test]
-fn empty_tail_and_repeated_markers_preserve_incremental_reports() {
+fn empty_tail_and_repeated_markers_emit_events_only_once() {
     for count in 0..8 {
         for cut in 0..=count {
             let mut session = SessionState::new("thread".into(), Default::default(), false);
@@ -150,20 +137,17 @@ fn empty_tail_and_repeated_markers_preserve_incremental_reports() {
             }
             assert_eq!(session.truncate_at(cut), cut);
             assert_eq!(session.messages.len(), cut);
-            let first = session.append_turn_interrupted_marker();
-            assert_eq!(first.dirty_from, Some(session.messages[cut].id));
-            assert_eq!(
-                session.append_turn_interrupted_marker(),
-                SessionUpdate::default()
-            );
-            assert_eq!(
-                session.append_context_compacted_marker().dirty_from,
-                Some(session.messages[cut + 1].id)
-            );
-            assert_eq!(
-                session.append_context_compacted_marker(),
-                SessionUpdate::default()
-            );
+            session.publish();
+            session.append_turn_interrupted_marker();
+            let expected = session.messages[cut].id;
+            assert_eq!(earliest(&mut session), Some(expected));
+            session.append_turn_interrupted_marker();
+            assert!(session.publish().records().is_empty());
+            session.append_context_compacted_marker();
+            let expected = session.messages[cut + 1].id;
+            assert_eq!(earliest(&mut session), Some(expected));
+            session.append_context_compacted_marker();
+            assert!(session.publish().records().is_empty());
         }
     }
 }
@@ -261,4 +245,19 @@ fn approval_draft() -> ApprovalRequestDraft {
         can_decline: true,
         can_cancel: true,
     }
+}
+
+fn earliest(session: &mut SessionState) -> Option<EntryId> {
+    let batch = session.publish();
+    batch
+        .records()
+        .iter()
+        .filter_map(|record| match record.change {
+            Change::Added(id)
+            | Change::Replaced(id)
+            | Change::Facts(id)
+            | Change::Text { entry: id, .. } => Some(id),
+            _ => None,
+        })
+        .min_by_key(|id| batch.position(*id))
 }

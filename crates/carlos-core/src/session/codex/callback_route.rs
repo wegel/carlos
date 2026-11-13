@@ -35,8 +35,8 @@ impl SessionState {
             "carlos/codex/formChecked" => return Some(self.checked_codex_callback(params)),
             "carlos/codex/controlReply" => return Some(self.route_codex_control(params, panel)),
             "thread/goal/updated" | "thread/goal/cleared" => {
-                let mut update = GoalUpdate::default();
-                super::goal_receive::observed(self, &mut update, method, params);
+                let update = GoalUpdate::default();
+                super::goal_receive::observed(self, method, params);
                 CallbackEffect::Goal(update)
             }
             "thread/queue/changed" => {

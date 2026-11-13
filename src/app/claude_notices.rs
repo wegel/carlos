@@ -10,8 +10,8 @@ use super::state::AppState;
 
 /// Show one escaped copy of a session-owned native notice.
 pub(super) fn show(app: &mut AppState, key: String, text: String) {
-    let update = app.session.record_claude_notice(key, &text);
-    app.apply_session_update(update);
+    app.session.record_claude_notice(key, &text);
+    app.consume_core_events();
 }
 
 /// Apply native warning decisions and redraw reports.

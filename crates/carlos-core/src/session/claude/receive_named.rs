@@ -88,9 +88,7 @@ impl SessionState {
             "claude/historyRecord" => self.record_claude_history(params["record"].clone()),
             "claude/historyPrompt" => self.receive_claude_history_prompt(facts, update),
             "claude/historyCompacted" => {
-                update
-                    .items
-                    .track(self.append_message(Role::System, "Conversation compacted"));
+                self.append_message(Role::System, "Conversation compacted");
             }
             "claude/stderr" | "claude/error" | "claude/closed" => {
                 self.receive_terminal_claude(method, facts, draft, update)
@@ -122,8 +120,7 @@ impl SessionState {
         let uuid = facts["uuid"].as_str().unwrap_or("");
         let key = self.backend_entry_key(&format!("claude-prompt:{uuid}"));
         let changed = self.append_claude_history_prompt(facts, &key);
-        update.items.push(changed.appended);
-        update.items.push(changed.classified);
+
         update.items.reset_navigation |= changed.reset_navigation;
     }
 
@@ -135,12 +132,12 @@ impl SessionState {
         update: &mut ClaudeUpdate,
     ) {
         let changed = self.receive_claude_event(method, facts);
-        update.items.push(changed.transcript);
+
         if changed.fail_session {
             self.fail_claude(draft, update);
         }
         if changed.closed {
-            update.items.push(self.record_claude_closed(facts));
+            self.record_claude_closed(facts);
         }
     }
 
@@ -172,9 +169,7 @@ impl SessionState {
         match self.receive_claude_history_part(facts) {
             Ok(value) => update.history_frame = value,
             Err(error) => {
-                update
-                    .items
-                    .push(self.record_claude_error(&json!({"message":error.to_string()})));
+                self.record_claude_error(&json!({"message":error.to_string()}));
                 self.fail_claude(draft, update);
                 return;
             }

@@ -24,7 +24,7 @@ impl AppState {
     pub(super) fn apply_claude_callback(&mut self, received: ClaudeCallback) {
         match received {
             ClaudeCallback::Ignored => {}
-            ClaudeCallback::Unsupported(update) => self.apply_session_update(update),
+            ClaudeCallback::Unsupported => self.consume_core_events(),
             ClaudeCallback::Accepted {
                 id,
                 card,

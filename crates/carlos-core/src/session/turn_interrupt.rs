@@ -12,7 +12,7 @@ use crate::session::models::Role;
 impl SessionState {
     /// Interrupt accepted main work without discarding native queued prompts.
     pub fn interrupt_active_turn(&mut self, client: &dyn BackendClient) -> ItemChanges {
-        let mut changes = ItemChanges::default();
+        let changes = ItemChanges::default();
         let Some(turn_id) = self.active_turn_id().clone().or_else(|| {
             (client.kind() == BackendKind::Claude && self.claude().activity().is_running())
                 .then(|| "native-main".to_string())
@@ -28,11 +28,11 @@ impl SessionState {
                             .as_array()
                             .filter(|ids| !ids.is_empty())
                         {
-                            changes.track(self.append_message(Role::System,format!("Main-turn interrupt requested; {} accepted queued prompt(s) remain with Claude and will still run",ids.len())));
+                            self.append_message(Role::System,format!("Main-turn interrupt requested; {} accepted queued prompt(s) remain with Claude and will still run",ids.len()));
                         }
                     }
                 }
-                changes.push(self.append_turn_interrupted_marker());
+                self.append_turn_interrupted_marker();
                 self.set_status("interrupt requested");
             }
             Err(e) => {

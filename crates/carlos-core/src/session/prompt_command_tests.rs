@@ -93,7 +93,7 @@ fn pending_prompt_keeps_its_id_when_native_echo_binds_a_row() {
     let pending = state.input_history().prompt_id(0).expect("pending id");
     assert_eq!(state.input_history().entry_id(0), None);
     assert!(state.messages().is_empty());
-    let (index, _) = state.append_message(Role::User, "original");
+    let index = state.append_message(Role::User, "original");
     let row = state.messages()[index].id;
     state.record_prompt_history("original", Some(row));
     assert_eq!(state.input_history().prompt_id(0), Some(pending));

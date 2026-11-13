@@ -21,9 +21,8 @@ impl SessionState {
         match method {
             "claude/quota" => self.claude_quota_event(facts),
             "claude/browserComplete" => {
-                if let Some((callback, changed)) = self.receive_claude_browser_completion(facts) {
+                if let Some(callback) = self.receive_claude_browser_completion(facts) {
                     update.effects.push(ClaudeEffect::Browser(callback));
-                    update.items.push(changed);
                 }
             }
             "claude/task" => {
@@ -37,21 +36,19 @@ impl SessionState {
             "claude/thinking" => self.record_claude_thinking(facts),
             "claude/result" => {
                 if let Some(error) = facts["error"].as_str() {
-                    update
-                        .items
-                        .track(self.append_message(Role::System, error.to_string()));
+                    self.append_message(Role::System, error.to_string());
                 }
                 self.finish_claude_activity();
                 update.action = Some(ServerRequestAction::RefreshContext);
             }
             "claude/usageReport" => {
                 for (key, text) in self.claude_usage_notice(facts) {
-                    update.items.push(self.record_claude_notice(key, &text));
+                    self.record_claude_notice(key, &text);
                 }
             }
             "claude/notice" => {
                 for (key, text) in self.receive_claude_notice(facts) {
-                    update.items.push(self.record_claude_notice(key, &text));
+                    self.record_claude_notice(key, &text);
                 }
             }
             "claude/initialized" => self.receive_claude_initialized(facts, update),
@@ -73,8 +70,7 @@ impl SessionState {
             for id in ids.iter().filter_map(Value::as_str) {
                 let key = self.backend_entry_key(&format!("claude-prompt:{id}"));
                 let changed = self.consume_claude_prompt(id, &key);
-                update.items.push(changed.appended);
-                update.items.push(changed.classified);
+
                 update.items.reset_navigation |= changed.reset_navigation;
             }
         }
@@ -87,9 +83,7 @@ impl SessionState {
         draft: &ClaudeDraftContext<'_>,
         update: &mut ClaudeUpdate,
     ) {
-        update
-            .items
-            .track(self.append_message(Role::System, error.to_string()));
+        self.append_message(Role::System, error.to_string());
         self.fail_claude(draft, update);
         update.action = Some(ServerRequestAction::ClaudeControl {
             method: "shutdown".into(),
@@ -99,7 +93,7 @@ impl SessionState {
 
     fn receive_claude_status(&mut self, facts: &Value, update: &mut ClaudeUpdate) {
         if facts["compaction"] == true {
-            self.receive_claude_compaction(facts, update);
+            self.receive_claude_compaction(facts);
         } else {
             self.record_claude_status(facts);
         }
@@ -109,7 +103,7 @@ impl SessionState {
     }
 
     /// Format the existing per-attempt compaction notice beside its session facts.
-    pub(crate) fn receive_claude_compaction(&mut self, facts: &Value, update: &mut ClaudeUpdate) {
+    pub(crate) fn receive_claude_compaction(&mut self, facts: &Value) {
         let notice = self.compact_claude_context(facts);
         let text = match notice.result {
             CompactionResult::Failed => format!(
@@ -120,12 +114,6 @@ impl SessionState {
             CompactionResult::Pending => "Claude is compacting context".to_string(),
         };
         let key = self.backend_entry_key(&notice.key);
-        update.items.track(self.upsert_mapped_message(
-            &key,
-            Role::System,
-            text,
-            MessageKind::Plain,
-            None,
-        ));
+        self.upsert_mapped_message(&key, Role::System, text, MessageKind::Plain, None);
     }
 }

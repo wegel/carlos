@@ -2,16 +2,15 @@
 
 use anyhow::Result;
 
-use super::item_changes::ItemChanges;
 use super::state::SessionState;
 use crate::session::models::Role;
 
 impl SessionState {
     /// Keep native goals and a newly requested Carlos loop from driving the same thread.
-    pub fn request_ralph_toggle(&mut self, changes: &mut ItemChanges) -> Result<()> {
+    pub fn request_ralph_toggle(&mut self) -> Result<()> {
         if !self.ralph_enabled() && !self.ralph_runtime().toggle_pending() {
             if let Some(error) = super::codex::goals::ralph_error(self, self.codex_scope()) {
-                changes.track(self.append_message(Role::System, error));
+                self.append_message(Role::System, error);
                 anyhow::bail!(error);
             }
         }
@@ -21,11 +20,11 @@ impl SessionState {
     }
 
     /// Recheck native goal state before applying a deferred toggle after a turn.
-    pub fn apply_pending_ralph_toggle(&mut self, changes: &mut ItemChanges) -> Result<()> {
+    pub fn apply_pending_ralph_toggle(&mut self) -> Result<()> {
         if self.ralph_runtime().toggle_pending() && !self.ralph_enabled() {
             if let Some(error) = super::codex::goals::ralph_error(self, self.codex_scope()) {
                 self.ralph_stop_after_failure();
-                changes.track(self.append_message(Role::System, error));
+                self.append_message(Role::System, error);
                 anyhow::bail!(error);
             }
         }

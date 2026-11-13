@@ -50,7 +50,7 @@ fn native_tool_completion_keeps_streamed_output_without_any_view() {
         assert_eq!(session.messages()[index].role, Role::ToolOutput);
         assert!(session.is_item_completed(&key));
         assert!(session.messages()[index].tool_output.is_some());
-        assert!(!changes.transcript.is_empty());
+        assert!(!session.publish().records().is_empty());
     }
 }
 

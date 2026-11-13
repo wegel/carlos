@@ -40,8 +40,7 @@ pub(super) fn append_prompt(app: &mut AppState, facts: &Value) {
     let uuid = facts["uuid"].as_str().unwrap_or("");
     let key = app.item_key(&format!("claude-prompt:{uuid}"));
     let update = app.session.append_claude_history_prompt(facts, &key);
-    app.apply_session_update(update.appended);
-    app.apply_session_update(update.classified);
+    app.consume_core_events();
     if update.reset_navigation {
         app.reset_input_history_navigation();
     }

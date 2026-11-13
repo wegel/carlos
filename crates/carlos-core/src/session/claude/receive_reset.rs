@@ -77,10 +77,9 @@ impl SessionState {
             return update;
         };
         let key = self.backend_entry_key(&format!("claude-prompt:{id}"));
-        update
-            .items
-            .push(self.record_submitted_claude_prompt(response, &key));
+        self.record_submitted_claude_prompt(response, &key);
         self.receive_claude_edit_acceptance(id, failed, &mut update);
+
         update
     }
 
@@ -94,9 +93,7 @@ impl SessionState {
         if failed {
             update.effects.push(ClaudeEffect::EditFailed(false));
         } else if self.accept_claude_edit(id) {
-            update.items.track(
-                self.append_message(Role::System, "Claude started the edited branch".to_string()),
-            );
+            self.append_message(Role::System, "Claude started the edited branch".to_string());
         }
     }
 

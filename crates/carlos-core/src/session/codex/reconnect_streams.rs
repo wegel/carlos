@@ -148,13 +148,8 @@ fn retain_final_read(session: &mut SessionState, key: &(String, String), item: &
 }
 
 /// Read one exact persisted item at a time; ordinary prompts remain independent.
-pub fn tick(
-    client: &dyn BackendClient,
-    session: &mut SessionState,
-    changes: &mut ItemChanges,
-    now: Instant,
-) -> bool {
-    let changed = expire(session, changes, now);
+pub fn tick(client: &dyn BackendClient, session: &mut SessionState, now: Instant) -> bool {
+    let changed = expire(session, now);
     if !session.codex_scope().enabled()
         || session.codex_scope().closed()
         || session
@@ -326,7 +321,7 @@ pub fn wait(session: &SessionState, now: Instant) -> Option<Duration> {
         .min()
 }
 
-fn expire(session: &mut SessionState, changes: &mut ItemChanges, now: Instant) -> bool {
+fn expire(session: &mut SessionState, now: Instant) -> bool {
     let expired = session
         .codex_connection
         .streams
@@ -337,8 +332,8 @@ fn expire(session: &mut SessionState, changes: &mut ItemChanges, now: Instant) -
         .collect::<Vec<_>>();
     for key in &expired {
         remove(session, key);
-        changes.track(session.append_message(crate::session::models::Role::System, format!("Codex did not return complete output for item {} after reconnect. The last native snapshot is kept.",
-            crate::session::text::safe_label(&key.1))));
+        session.append_message(crate::session::models::Role::System, format!("Codex did not return complete output for item {} after reconnect. The last native snapshot is kept.",
+            crate::session::text::safe_label(&key.1)));
     }
     !expired.is_empty()
 }

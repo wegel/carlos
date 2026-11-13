@@ -11,35 +11,20 @@ use super::state::SessionState;
 use super::summary_request::has_command;
 
 /// Record a bounded native collaboration report and its visible tool row.
-pub(super) fn upsert_native_activity(
-    session: &mut SessionState,
-    changes: &mut ItemChanges,
-    item: &Value,
-) -> bool {
+pub(super) fn upsert_native_activity(session: &mut SessionState, item: &Value) -> bool {
     super::codex::panel_events::report(session, item);
     let Some(text) = format_native_activity(item) else {
         return false;
     };
     if let Some(id) = item.get("id").and_then(Value::as_str) {
         let key = session.backend_entry_key(id);
-        changes.track(session.upsert_mapped_message(
-            &key,
-            Role::ToolCall,
-            text,
-            MessageKind::Plain,
-            None,
-        ));
+        session.upsert_mapped_message(&key, Role::ToolCall, text, MessageKind::Plain, None);
     }
     true
 }
 
 /// Observe a command only after confirming that the native item carries one.
-pub(super) fn receive_summary(
-    session: &mut SessionState,
-    changes: &mut ItemChanges,
-    item: &Value,
-    live: bool,
-) {
+pub(super) fn receive_summary(session: &mut SessionState, item: &Value, live: bool) {
     let Some(id) = item["id"].as_str() else {
         return;
     };
@@ -48,7 +33,7 @@ pub(super) fn receive_summary(
     }
     let key = session.backend_entry_key(id);
     let scope = key.turn.as_deref().map(|turn| (turn, key.part));
-    changes.push(session.observe_summary_item(item, live, &key, scope));
+    session.observe_summary_item(item, live, &key, scope);
 }
 
 /// Deduplicate a submitted prompt and report whether the client cursor must reset.
@@ -63,12 +48,7 @@ pub(super) fn record_prompt(
 }
 
 /// Attach native turn positions to the exact visible prompt, including steering items.
-pub(super) fn record_native_turn(
-    session: &mut SessionState,
-    changes: &mut ItemChanges,
-    item: &str,
-    turn: &str,
-) {
+pub(super) fn record_native_turn(session: &mut SessionState, item: &str, turn: &str) {
     let previous = session.replace_codex_item_turn(Some(turn.into()));
     let index = session.item_message_index(&session.backend_entry_key(item));
     session.replace_codex_item_turn(previous);
@@ -85,25 +65,20 @@ pub(super) fn record_native_turn(
         };
         if session.messages()[index].kind != kind {
             session.transcript_set_kind(index, kind);
-            changes.push(session.dirty_entry(index));
+            ();
         }
     }
 }
 
 /// Normalize a live reasoning row after applying its native delta.
-pub(super) fn receive_reasoning(
-    session: &mut SessionState,
-    changes: &mut ItemChanges,
-    item: &str,
-    delta: &str,
-) {
+pub(super) fn receive_reasoning(session: &mut SessionState, item: &str, delta: &str) {
     let key = session.backend_entry_key(item);
     if session.is_item_completed(&key) {
         return;
     }
-    changes.push(session.upsert_reasoning_delta(&key, delta));
+    session.upsert_reasoning_delta(&key, delta);
     if let Some(index) = session.item_message_index(&key) {
-        changes.push(session.normalize_reasoning_at(index));
+        session.normalize_reasoning_at(index);
     }
 }
 
@@ -162,12 +137,7 @@ pub(super) fn with_streamed_output<'a>(session: &SessionState, item: &'a Value) 
 }
 
 /// Attach native tool facts and retain the original incremental redraw report.
-pub(super) fn describe_output(
-    session: &mut SessionState,
-    changes: &mut ItemChanges,
-    index: usize,
-    item: &Value,
-) {
+pub(super) fn describe_output(session: &mut SessionState, index: usize, item: &Value) {
     let key = item["id"].as_str().map(|id| session.backend_entry_key(id));
-    changes.push(session.describe_tool_output(index, item, key.as_ref()));
+    session.describe_tool_output(index, item, key.as_ref());
 }

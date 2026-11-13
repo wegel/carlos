@@ -126,8 +126,8 @@ impl SessionState {
         update: &mut TurnUpdate,
     ) -> bool {
         if client.kind() == BackendKind::Codex && (self.codex_queue().pending() || recovery) {
-            update.changes.items.track(self.append_message(Role::System,
-                "Finish or recover the Codex queue request before editing earlier history. This edited prompt is preserved."));
+            self.append_message(Role::System,
+                "Finish or recover the Codex queue request before editing earlier history. This edited prompt is preserved.");
             return true;
         }
         if client.kind() == BackendKind::Claude && self.claude().phase() != ClaudePhase::Ready {
@@ -164,10 +164,7 @@ impl SessionState {
 
     fn rewind_failed(&mut self, client: &dyn BackendClient, error: &str, update: &mut TurnUpdate) {
         self.set_status(format!("fork failed: {error}"));
-        update
-            .changes
-            .items
-            .track(self.append_message(Role::System, format!("Could not edit message: {error}")));
+        self.append_message(Role::System, format!("Could not edit message: {error}"));
         if client.kind() == BackendKind::Codex {
             update.changes.effects.push(ClaudeEffect::FollowBottom);
         }

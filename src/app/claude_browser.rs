@@ -11,13 +11,13 @@ pub(super) fn finish_answer(
     pending: &carlos_core::session::approval_state::ApprovalRequestDraft,
     choice: carlos_core::session::approval_state::ApprovalChoice,
 ) {
-    let update = app.session.finish_claude_browser_answer(pending, choice);
-    app.apply_session_update(update);
+    app.session.finish_claude_browser_answer(pending, choice);
+    app.consume_core_events();
 }
 
 /// Keep early completion visible while requiring the user's explicit consent.
 pub(super) fn complete(app: &mut AppState, message: &Value) {
-    let Some((callback_id, update)) = app.session.receive_claude_browser_completion(message) else {
+    let Some(callback_id) = app.session.receive_claude_browser_completion(message) else {
         return;
     };
     if let Some(draft) = callback_id
@@ -26,5 +26,5 @@ pub(super) fn complete(app: &mut AppState, message: &Value) {
     {
         draft.notice = Some("The server reported browser completion. Your consent is still required; decline or cancel remains available.".to_string());
     }
-    app.apply_session_update(update);
+    app.consume_core_events();
 }

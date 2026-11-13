@@ -19,7 +19,7 @@ EXTERNAL_TESTS = {
     "src/tests/codex_history_file_tests.rs",
 }
 CRATES = {
-    "anyhow", "base64", "blake3", "libc", "rusqlite", "serde_json", "shlex",
+    "carlos_proto", "anyhow", "base64", "blake3", "libc", "rusqlite", "serde_json", "shlex",
     "tempfile", "unicode_segmentation", "unicode_width", "uuid", "jsonschema",
     "url", "mio", "socket2", "tungstenite",
 }

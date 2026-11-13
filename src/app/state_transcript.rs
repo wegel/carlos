@@ -7,23 +7,12 @@ use super::state::AppState;
 use super::view_models::RenderedLine;
 
 impl AppState {
-    /// Resolve one session report and retain the existing incremental cache path.
-    pub(super) fn apply_session_update(
-        &mut self,
-        update: carlos_core::session::transcript_updates::SessionUpdate,
-    ) {
-        let _ = update;
-        self.consume_core_events();
-    }
-
-    /// Apply one synchronous item report before another terminal event runs.
+    /// Consume core events and apply caller-local history navigation effects.
     pub(super) fn apply_item_changes(
         &mut self,
         changes: carlos_core::session::item_changes::ItemChanges,
     ) {
-        for update in changes.transcript {
-            self.apply_session_update(update);
-        }
+        self.consume_core_events();
         if changes.reset_navigation {
             self.reset_input_history_navigation();
         }
@@ -89,8 +78,8 @@ impl AppState {
     }
 
     pub(super) fn append_message(&mut self, role: Role, text: impl Into<String>) -> usize {
-        let (index, update) = self.session.append_message(role, text);
-        self.apply_session_update(update);
+        let index = self.session.append_message(role, text);
+        self.consume_core_events();
         index
     }
 
@@ -100,22 +89,22 @@ impl AppState {
         file_path: Option<String>,
         diff: impl Into<String>,
     ) -> usize {
-        let (index, update) = self.session.append_diff_message(role, file_path, diff);
-        self.apply_session_update(update);
+        let index = self.session.append_diff_message(role, file_path, diff);
+        self.consume_core_events();
         index
     }
 
     #[cfg(test)]
     pub(super) fn upsert_turn_diff(&mut self, turn_id: &str, diff: &str) {
-        let update = self.session.upsert_turn_diff(turn_id, diff);
-        self.apply_session_update(update);
+        self.session.upsert_turn_diff(turn_id, diff);
+        self.consume_core_events();
     }
 
     #[cfg(test)]
     pub(super) fn set_command_override(&mut self, call_id: &str, summary: String) {
         let key = self.item_key(call_id);
-        let update = self.session.set_command_override(&key, summary);
-        self.apply_session_update(update);
+        self.session.set_command_override(&key, summary);
+        self.consume_core_events();
     }
 
     // --- Rendered lines & selection ---

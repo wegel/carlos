@@ -26,10 +26,6 @@ impl SessionState {
             if record {
                 update.items.reset_navigation |= self.record_prompt_history(&text, Some(id));
             }
-            update.items.push(super::transcript_updates::SessionUpdate {
-                dirty_from: Some(id),
-                transcript_reset: false,
-            });
         }
         Ok(update)
     }
@@ -46,9 +42,7 @@ impl SessionState {
         self.replace_codex_item_turn(previous);
         let mut update = self.reset_fork(id);
         let changes = self.replace_native_history(draft, HistoryMode::NewConversation);
-        for change in changes.transcript {
-            update.items.push(change);
-        }
+
         update.items.reset_navigation |= changes.reset_navigation;
         self.observe_thread_name(thread);
         Ok(update)

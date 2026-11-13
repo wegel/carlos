@@ -50,9 +50,6 @@ impl SessionState {
         } else {
             update.hint = Some(message.clone());
         }
-        update
-            .changes
-            .items
-            .track(self.append_message(Role::System, message));
+        self.append_message(Role::System, message);
     }
 }

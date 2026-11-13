@@ -6,7 +6,6 @@ use super::entry_key::BackendEntryKey;
 use super::models::{MessageKind, Role, ToolOutputDetails};
 use super::state::SessionState;
 use super::tools::{command_execution_diff_output, first_i64_at_paths, strip_terminal_controls};
-use super::transcript_updates::SessionUpdate;
 
 impl SessionState {
     /// Attach a short label without replacing the tool's original output.
@@ -15,9 +14,9 @@ impl SessionState {
         idx: usize,
         item: &Value,
         key: Option<&BackendEntryKey>,
-    ) -> SessionUpdate {
+    ) {
         let Some(message) = self.messages().get(idx) else {
-            return SessionUpdate::default();
+            return;
         };
         let generated = item["id"].as_str().and_then(|_| {
             self.messages()
@@ -46,7 +45,6 @@ impl SessionState {
             failed: tool_failed(item),
         };
         self.transcript_set_tool(idx, details);
-        self.dirty_entry(idx)
     }
 }
 

@@ -112,17 +112,16 @@ impl SessionState {
         let start = self.messages.len();
         match source {
             "human" => {
-                let (index, appended) = self.append_message(Role::User, text.clone());
-                update.appended = appended;
-                update.classified = self.classify_claude_prompt(index, kind);
+                let index = self.append_message(Role::User, text.clone());
+
+                self.classify_claude_prompt(index, kind);
                 update.reset_navigation =
                     self.record_prompt_history(&text, Some(self.messages[index].id));
                 self.record_prompt_turn(self.messages[index].id, uuid);
             }
             "unknown" => {
-                let (index, appended) =
-                    self.append_message(Role::System, format!("[Source unknown] {text}"));
-                update.appended = appended;
+                let index = self.append_message(Role::System, format!("[Source unknown] {text}"));
+
                 self.claude.history.unknown.push(UnknownPrompt {
                     uuid: uuid.to_string(),
                     text,
@@ -130,9 +129,7 @@ impl SessionState {
                 });
             }
             "automatic" => {
-                update.appended = self
-                    .append_message(Role::System, format!("Automatic prompt: {text}"))
-                    .1;
+                self.append_message(Role::System, format!("Automatic prompt: {text}"));
             }
             _ => {}
         }

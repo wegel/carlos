@@ -8,12 +8,11 @@ use crate::session::entry_id::EntryId;
 use crate::session::models::Role;
 use crate::session::state::SessionState;
 use crate::session::text::{safe_label, safe_text};
-use crate::session::transcript_updates::SessionUpdate;
 
 /// Report a newly accepted request or the original unsupported-request transcript change.
 pub enum ClaudeCallback {
     Ignored,
-    Unsupported(SessionUpdate),
+    Unsupported,
     Accepted {
         id: String,
         card: EntryId,
@@ -32,7 +31,7 @@ impl SessionState {
         let kind = frame["kind"].as_str().unwrap_or("");
         let description = ClaudeQuestion::from_payload(kind, payload);
         let Some(prompt) = callback_prompt(id, kind, payload) else {
-            let (_, update) = self.append_message(
+            let _ = self.append_message(
                 Role::System,
                 format!(
                     "Unsupported Claude callback {}: {}",
@@ -40,7 +39,7 @@ impl SessionState {
                     safe_text(id)
                 ),
             );
-            return ClaudeCallback::Unsupported(update);
+            return ClaudeCallback::Unsupported;
         };
         if self
             .approval()

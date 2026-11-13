@@ -61,7 +61,7 @@ fn handle_item(
     match method {
         "codex/event/raw_response_item" => true,
         "item/started" | "item/completed" => handle_item_boundary(session, changes, method, params),
-        _ => super::item_deltas::receive(session, changes, method, params),
+        _ => super::item_deltas::receive(session, method, params),
     }
 }
 
@@ -80,18 +80,14 @@ fn handle_item_boundary(
     } else {
         handle_item_completed(session, changes, params)
     };
-    record_user_turn_id(session, changes, params);
+    record_user_turn_id(session, params);
     if let Some(item) = params.get("item") {
-        receive_summary(session, changes, item, live);
+        receive_summary(session, item, live);
     }
     handled
 }
 
-fn record_user_turn_id(
-    session: &mut SessionState,
-    changes: &mut ItemChanges,
-    params: &serde_json::Map<String, Value>,
-) {
+fn record_user_turn_id(session: &mut SessionState, params: &serde_json::Map<String, Value>) {
     let Some(item) = params.get("item") else {
         return;
     };
@@ -102,7 +98,7 @@ fn record_user_turn_id(
         item.get("id").and_then(Value::as_str),
         params.get("turnId").and_then(Value::as_str),
     ) {
-        record_native_turn(session, changes, item_id, turn_id);
+        record_native_turn(session, item_id, turn_id);
     }
 }
 
@@ -125,23 +121,17 @@ fn handle_item_started(
         return true;
     }
     if matches!(t, "sleep" | "subAgentActivity" | "collabAgentToolCall")
-        && upsert_native_activity(session, changes, &Value::Object(item.clone()))
+        && upsert_native_activity(session, &Value::Object(item.clone()))
     {
         return true;
     }
     match t {
         "userMessage" => start_user_message(session, changes, item),
-        "agentMessage" => {
-            start_placeholder(session, changes, item, agent_role_from_phase(item), false)
-        }
-        "reasoning" => start_placeholder(session, changes, item, Role::Reasoning, false),
-        "commandExecution" => start_placeholder(session, changes, item, Role::ToolCall, true),
-        t if is_tool_call_type(t) => {
-            start_placeholder(session, changes, item, Role::ToolCall, false)
-        }
-        t if is_tool_output_type(t) => {
-            start_placeholder(session, changes, item, Role::ToolOutput, true)
-        }
+        "agentMessage" => start_placeholder(session, item, agent_role_from_phase(item), false),
+        "reasoning" => start_placeholder(session, item, Role::Reasoning, false),
+        "commandExecution" => start_placeholder(session, item, Role::ToolCall, true),
+        t if is_tool_call_type(t) => start_placeholder(session, item, Role::ToolCall, false),
+        t if is_tool_output_type(t) => start_placeholder(session, item, Role::ToolOutput, true),
         _ => {}
     }
     true
@@ -149,7 +139,6 @@ fn handle_item_started(
 
 fn start_placeholder(
     session: &mut SessionState,
-    changes: &mut ItemChanges,
     item: &serde_json::Map<String, Value>,
     role: Role,
     describe: bool,
@@ -158,10 +147,10 @@ fn start_placeholder(
         return;
     };
     let key = session.backend_entry_key(id);
-    changes.track(session.ensure_item_placeholder(&key, role));
+    session.ensure_item_placeholder(&key, role);
     if describe {
         let index = session.item_message_index(&key).expect("native item row");
-        super::item_receive::describe_output(session, changes, index, &Value::Object(item.clone()));
+        super::item_receive::describe_output(session, index, &Value::Object(item.clone()));
     }
 }
 
@@ -176,13 +165,13 @@ fn start_user_message(
     let Some(text) = item_text_from_content(&Value::Object(item.clone())) else {
         return;
     };
-    let inserted = changes.track(session.upsert_mapped_message(
+    let inserted = session.upsert_mapped_message(
         &session.backend_entry_key(id),
         Role::User,
         text.clone(),
         MessageKind::Plain,
         None,
-    ));
+    );
     if inserted {
         let idx = session
             .item_message_index(&session.backend_entry_key(id))
@@ -203,15 +192,15 @@ fn handle_item_completed(
         return true;
     };
     let item_value = Value::Object(item.clone());
-    let handled = if upsert_native_activity(session, changes, &item_value) {
+    let handled = if upsert_native_activity(session, &item_value) {
         true
     } else {
         match kind {
             "userMessage" => complete_user_message(session, changes, item, &item_value),
-            "agentMessage" => complete_agent_message(session, changes, item, &item_value),
-            "reasoning" => complete_reasoning(session, changes, item, &item_value),
-            "contextCompaction" => complete_context_compaction(session, changes, item),
-            _ => complete_tool_item(session, changes, kind, &item_value),
+            "agentMessage" => complete_agent_message(session, item, &item_value),
+            "reasoning" => complete_reasoning(session, item, &item_value),
+            "contextCompaction" => complete_context_compaction(session, item),
+            _ => complete_tool_item(session, kind, &item_value),
         }
     };
     if let Some(item_id) = item.get("id").and_then(Value::as_str) {
@@ -230,13 +219,13 @@ fn complete_user_message(
         return true;
     };
     let text = item_text_from_content(item_value).unwrap_or_default();
-    let inserted = changes.track(session.upsert_mapped_message(
+    let inserted = session.upsert_mapped_message(
         &session.backend_entry_key(item_id),
         Role::User,
         text.clone(),
         MessageKind::Plain,
         None,
-    ));
+    );
     if inserted && !text.is_empty() {
         let idx = session
             .item_message_index(&session.backend_entry_key(item_id))
@@ -248,24 +237,22 @@ fn complete_user_message(
 
 fn complete_context_compaction(
     session: &mut SessionState,
-    changes: &mut ItemChanges,
     item: &serde_json::Map<String, Value>,
 ) -> bool {
     if let Some(item_id) = item.get("id").and_then(Value::as_str) {
-        changes.track(session.upsert_mapped_message(
+        session.upsert_mapped_message(
             &session.backend_entry_key(item_id),
             Role::System,
             "↻ Context compacted".to_string(),
             MessageKind::Plain,
             None,
-        ));
+        );
     }
     true
 }
 
 fn complete_agent_message(
     session: &mut SessionState,
-    changes: &mut ItemChanges,
     item: &serde_json::Map<String, Value>,
     item_value: &Value,
 ) -> bool {
@@ -277,43 +264,42 @@ fn complete_agent_message(
         .map(ToOwned::to_owned)
         .or_else(|| item_text_from_content(item_value));
     if let Some(id) = item_id {
-        changes.track(session.upsert_mapped_message(
+        session.upsert_mapped_message(
             &session.backend_entry_key(id),
             role,
             text.unwrap_or_default(),
             MessageKind::Plain,
             None,
-        ));
-        changes.push(session.maybe_disable_ralph_on_blocked_marker());
+        );
+        session.maybe_disable_ralph_on_blocked_marker();
         return true;
     }
     if let Some(text) = text {
-        changes.track(session.append_message(role, text));
-        changes.push(session.maybe_disable_ralph_on_blocked_marker());
+        session.append_message(role, text);
+        session.maybe_disable_ralph_on_blocked_marker();
     }
     true
 }
 
 fn complete_reasoning(
     session: &mut SessionState,
-    changes: &mut ItemChanges,
     item: &serde_json::Map<String, Value>,
     item_value: &Value,
 ) -> bool {
     let item_id = item.get("id").and_then(Value::as_str);
     let text = reasoning_summary_text(item_value);
     if let Some(id) = item_id {
-        changes.track(session.upsert_mapped_message(
+        session.upsert_mapped_message(
             &session.backend_entry_key(id),
             Role::Reasoning,
             text.unwrap_or_default(),
             MessageKind::Plain,
             None,
-        ));
+        );
         return true;
     }
     if let Some(text) = text {
-        changes.track(session.append_message(Role::Reasoning, text));
+        session.append_message(Role::Reasoning, text);
     }
     true
 }

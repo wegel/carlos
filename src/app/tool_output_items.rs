@@ -10,7 +10,7 @@ use super::state::AppState;
 impl AppState {
     pub(super) fn describe_tool_output(&mut self, idx: usize, item: &Value) {
         let key = item["id"].as_str().map(|id| self.item_key(id));
-        let update = self.session.describe_tool_output(idx, item, key.as_ref());
-        self.apply_session_update(update);
+        self.session.describe_tool_output(idx, item, key.as_ref());
+        self.consume_core_events();
     }
 }

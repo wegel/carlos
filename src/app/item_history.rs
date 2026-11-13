@@ -1,4 +1,4 @@
-//! Apply history reports to this terminal after the session adopts native records.
+//! Apply local history effects after the core adopts native records.
 
 use anyhow::Result;
 use serde_json::Value;
@@ -11,7 +11,7 @@ pub(crate) fn load_history_from_start_or_resume(app: &mut AppState, response: &s
         &mut app.session,
         response,
     )?;
-    if !changes.transcript.is_empty() {
+    if changes.history_replaced {
         app.reset_history_view();
     }
     app.apply_item_changes(changes);

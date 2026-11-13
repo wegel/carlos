@@ -6,8 +6,8 @@ use super::state::AppState;
 #[cfg(test)]
 pub(super) fn attach_echo(app: &mut AppState, id: &str, kind: Option<&str>) {
     let key = app.item_key(&format!("claude-prompt:{id}"));
-    let update = app.session.attach_claude_prompt_echo(id, &key, kind);
-    app.apply_session_update(update);
+    app.session.attach_claude_prompt_echo(id, &key, kind);
+    app.consume_core_events();
 }
 
 /// Preserve the redraw calls and navigation reset for each consumed native input.
@@ -15,8 +15,7 @@ pub(super) fn consume(app: &mut AppState, ids: &[String]) {
     for id in ids {
         let key = app.item_key(&format!("claude-prompt:{id}"));
         let update = app.session.consume_claude_prompt(id, &key);
-        app.apply_session_update(update.appended);
-        app.apply_session_update(update.classified);
+        app.consume_core_events();
         if update.reset_navigation {
             app.reset_input_history_navigation();
         }

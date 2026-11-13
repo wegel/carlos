@@ -1,43 +1,21 @@
-//! Change transcript facts and report the earliest row the view must rebuild.
+//! Change transcript facts through the event-recording store.
 
-use super::entry_id::EntryId;
 use super::models::{EntryDraft, Message, MessageKind, Role};
 use super::read_summary::{format_read_summary_with_count, parse_read_summary};
 use super::state::SessionState;
 
-/// A synchronous report consumed once by the caller after a session edit.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct SessionUpdate {
-    /// Earliest changed entry, including a preceding coalesced read label.
-    pub dirty_from: Option<EntryId>,
-    /// Rebuild all rows after replacing the transcript.
-    pub transcript_reset: bool,
-}
-
 impl SessionState {
-    /// Report an existing row without doing layout or scanning the transcript.
-    pub(super) fn dirty_entry(&self, index: usize) -> SessionUpdate {
-        SessionUpdate {
-            dirty_from: Some(self.messages[index].id),
-            ..SessionUpdate::default()
-        }
-    }
-
     /// Append a plain row through the same read-group rules as completed items.
-    pub fn append_message(
-        &mut self,
-        role: Role,
-        text: impl Into<String>,
-    ) -> (usize, SessionUpdate) {
+    pub fn append_message(&mut self, role: Role, text: impl Into<String>) -> usize {
         self.append_draft_message(EntryDraft::plain(role, text))
     }
 
-    /// Assign an entry id before grouping read labels and reporting the earliest change.
-    pub(crate) fn append_draft_message(&mut self, draft: EntryDraft) -> (usize, SessionUpdate) {
+    /// Assign an entry id before grouping matching read labels.
+    pub(crate) fn append_draft_message(&mut self, draft: EntryDraft) -> usize {
         self.messages.append(draft);
         let idx = self.messages.len() - 1;
-        let dirty_from = self.coalesce_successive_read_summary_at(idx).unwrap_or(idx);
-        (idx, self.dirty_entry(dirty_from))
+        self.coalesce_successive_read_summary_at(idx);
+        idx
     }
 
     /// Append a diff row without applying plain read-label grouping.
@@ -46,7 +24,7 @@ impl SessionState {
         role: Role,
         file_path: Option<String>,
         diff: impl Into<String>,
-    ) -> (usize, SessionUpdate) {
+    ) -> usize {
         self.messages.append(EntryDraft {
             tool_output: None,
             role,
@@ -55,13 +33,13 @@ impl SessionState {
             file_path,
         });
         let idx = self.messages.len() - 1;
-        (idx, self.dirty_entry(idx))
+        idx
     }
 
     /// Ignore empty or unchanged aggregate diffs; otherwise update or append one row.
-    pub fn upsert_turn_diff(&mut self, turn_id: &str, diff: &str) -> SessionUpdate {
+    pub fn upsert_turn_diff(&mut self, turn_id: &str, diff: &str) {
         if diff.trim().is_empty() {
-            return SessionUpdate::default();
+            return;
         }
 
         if let Some(idx) = self
@@ -70,7 +48,7 @@ impl SessionState {
             .and_then(|id| self.messages.position(id))
         {
             if self.messages[idx].text == diff && self.messages[idx].kind == MessageKind::Diff {
-                return SessionUpdate::default();
+                return;
             }
             self.messages.update(
                 idx,
@@ -79,13 +57,12 @@ impl SessionState {
                 MessageKind::Diff,
                 None,
             );
-            return self.dirty_entry(idx);
+            return;
         }
 
-        let (idx, update) = self.append_diff_message(Role::ToolOutput, None, diff.to_string());
+        let idx = self.append_diff_message(Role::ToolOutput, None, diff.to_string());
         self.messages
             .bind_turn_diff(turn_id.to_string(), self.messages[idx].id);
-        update
     }
 
     /// Combine matching read labels while keeping the later entry as a hidden shell.
@@ -128,18 +105,15 @@ impl SessionState {
         text: Option<String>,
         kind: MessageKind,
         file_path: Option<String>,
-    ) -> SessionUpdate {
+    ) {
         if idx >= self.messages.len() {
-            return SessionUpdate::default();
+            return;
         }
         self.messages.update(idx, role, text, kind, file_path);
 
-        let dirty_from = if kind == MessageKind::Plain && role == Role::ToolCall {
-            self.coalesce_successive_read_summary_at(idx).unwrap_or(idx)
-        } else {
-            idx
-        };
-        self.dirty_entry(dirty_from)
+        if kind == MessageKind::Plain && role == Role::ToolCall {
+            self.coalesce_successive_read_summary_at(idx);
+        }
     }
 }
 

@@ -58,20 +58,18 @@ pub(crate) fn install(
 }
 
 fn install_goal(session: &mut SessionState, goal: Option<Value>) -> GoalUpdate {
-    let mut update = GoalUpdate::default();
+    let update = GoalUpdate::default();
     session.begin_codex_goal_snapshot(goal.is_some());
     if let Some(goal) = goal {
         if goal["goal"].is_null() {
             super::goal_receive::observed(
                 session,
-                &mut update,
                 "thread/goal/cleared",
                 &json!({"threadId":session.thread_id()}),
             );
         } else {
             super::goal_receive::observed(
                 session,
-                &mut update,
                 "thread/goal/updated",
                 &json!({"threadId":session.thread_id(),"goal":goal["goal"]}),
             );

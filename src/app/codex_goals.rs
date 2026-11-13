@@ -15,16 +15,14 @@ use super::state::AppState;
 /// Poll facts only; startup and ordinary chat never create, resume, pause or clear goals.
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant) -> bool {
     let scope = super::codex_queue::scope(app);
-    let mut update = GoalUpdate::default();
     let changed = goals::tick(
         client,
         &mut app.session,
         scope,
-        &mut update,
         now,
         app.view.codex_goals.show,
     );
-    apply(app, update);
+    app.consume_core_events();
     changed
 }
 
@@ -188,7 +186,7 @@ pub(super) fn apply(app: &mut AppState, update: GoalUpdate) {
         app.view.codex_goals.editor = None;
         app.view.codex_goals.editing = false;
     }
-    app.apply_session_update(update.transcript);
+    app.consume_core_events();
 }
 
 /// Keep the latest local draft error ahead of the last backend failure.
