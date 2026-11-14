@@ -18,4 +18,5 @@ signal-hook = "0.3"
 uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
+carlos-client = { path = "../carlos-client" }
 tempfile = "3"

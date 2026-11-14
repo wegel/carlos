@@ -12,7 +12,7 @@ REVIEWED = {
     "serde_json", "shlex", "socket2", "tempfile", "tungstenite", "url", "uuid",
 }
 DAEMON_REVIEWED = {
-    "carlos-core", "carlos-proto", "anyhow", "getrandom", "libc", "rusqlite",
+    "carlos-core", "carlos-proto", "carlos-client", "anyhow", "getrandom", "libc", "rusqlite",
     "serde", "serde_json", "signal-hook", "socket2", "uuid", "tempfile",
 }
 FORBIDDEN = {

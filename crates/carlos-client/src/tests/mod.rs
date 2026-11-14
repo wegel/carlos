@@ -2,6 +2,8 @@
 
 mod cards;
 mod codec;
+mod connection;
+mod operations;
 mod replica;
 mod windows;
 

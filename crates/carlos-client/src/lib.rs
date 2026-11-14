@@ -2,12 +2,16 @@
 
 mod cards;
 pub mod codec;
+mod connection;
 mod error;
 mod history;
+mod operations;
 mod replica;
 mod rows;
 
+pub use connection::{Connection, ConnectionId, Welcome};
 pub use error::ClientError;
+pub use operations::{LocalOperation, LocalText, Operations};
 pub use replica::{ChangeSet, Replica};
 
 #[cfg(test)]

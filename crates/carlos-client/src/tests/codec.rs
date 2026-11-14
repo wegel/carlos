@@ -57,3 +57,34 @@ fn requests_keep_their_rpc_version_and_private_failure_shape_is_explicit() {
         Incoming::Failure { id: None, .. }
     ));
 }
+
+#[test]
+fn escaped_request_growth_and_stream_overflow_fail_before_retaining_oversized_bytes() {
+    let huge = codec::request(
+        RequestId::Integer(1),
+        Command::Hello {
+            protocol: 1,
+            client: "\0".repeat(1024 * 1024),
+            token: String::new(),
+            resume: None,
+            resume_token: None,
+            instance: None,
+        },
+    );
+    assert!(matches!(
+        codec::encode(&huge),
+        Err(crate::ClientError::Capacity(_))
+    ));
+    let invalid_id = codec::request(RequestId::String("i".repeat(257)), Command::Watch {});
+    assert!(codec::encode(&invalid_id).is_err());
+    let mut framer = Framer::default();
+    framer.push(b"{\"jsonrpc\":").expect("partial");
+    assert!(framer.push(&vec![b'x'; codec::MAX_FRAME_BYTES]).is_err());
+    framer
+        .push(b"\"2.0\",\"id\":1,\"result\":null}\n")
+        .expect("recover after overflow");
+    assert!(matches!(
+        framer.next_message().expect("original frame preserved"),
+        Some(Incoming::Success { .. })
+    ));
+}

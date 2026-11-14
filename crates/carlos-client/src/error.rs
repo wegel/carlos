@@ -9,6 +9,7 @@ use carlos_proto::ids::{EntryId, Sequence, SessionId};
 pub enum ClientError {
     FrameTooLarge,
     InvalidEnvelope,
+    InvalidConnection,
     InvalidPayload(String),
     ForeignSession,
     DuplicateEntry(EntryId),
@@ -26,6 +27,9 @@ impl fmt::Display for ClientError {
         match self {
             Self::FrameTooLarge => f.write_str("server frame exceeds eight MiB"),
             Self::InvalidEnvelope => f.write_str("invalid JSON-RPC server envelope"),
+            Self::InvalidConnection => {
+                f.write_str("frame or command does not belong to the current greeted connection")
+            }
             Self::InvalidPayload(message) => write!(f, "invalid server payload: {message}"),
             Self::ForeignSession => f.write_str("facts belong to another session"),
             Self::DuplicateEntry(entry) => write!(f, "duplicate entry address: {entry}"),
