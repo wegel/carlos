@@ -16,6 +16,7 @@ mod goal;
 mod goal_watches;
 mod operations;
 mod queue;
+mod queue_ranges;
 mod replica;
 mod tasks;
 mod windows;

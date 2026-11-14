@@ -12,6 +12,7 @@ use serde_json::Value;
 
 use crate::client_replies::parse;
 use crate::pending::Kind;
+use crate::text_ranges::valid_named_range;
 use crate::ClientError;
 
 /// Match one bounded metadata page without treating its rows as shared mutable selection.
@@ -159,22 +160,17 @@ pub(crate) fn detail(target: TaskTarget, value: Value) -> Result<TaskDetail, Cli
 pub(crate) fn text(target: TaskTextTarget, value: Value) -> Result<TaskText, ClientError> {
     let text: TaskText = parse(value)?;
     require_session(&target.target.session, &text.session)?;
-    let start = text.offset.get();
-    let requested = target.offset.get();
-    let first_width = text
-        .text
-        .chars()
-        .next()
-        .map_or(0, |character| character.len_utf8() as u64);
     if text.task != target.target.task
         || text.revision != target.target.expected
         || text.field != target.field
-        || start > requested
-        || requested - start > 3
-        || start < requested && requested - start >= first_width
-        || text.text.len() > target.limit.min(65536)
-        || text.next_offset.get().checked_sub(start) != Some(text.text.len() as u64)
-        || !text.complete && text.text.is_empty()
+        || !valid_named_range(
+            &text.text,
+            text.offset,
+            text.next_offset,
+            target.offset,
+            target.limit.min(65536),
+            text.complete,
+        )
     {
         return Err(invalid(
             "task text does not match its named field or byte range",

@@ -28,6 +28,7 @@ mod queue;
 mod replica;
 mod rows;
 mod tasks;
+mod text_ranges;
 
 pub use bodies::{Bodies, BodyToken, OutputWindow, SourceWindow};
 pub use client::{Client, Effects, ReadReply, ReadResult, RequestFailure, SessionChanges};

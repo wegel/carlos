@@ -7,6 +7,7 @@ use serde_json::Value;
 use crate::client::Client;
 use crate::client_replies::parse;
 use crate::pending::QueueTextTarget;
+use crate::text_ranges::valid_named_range;
 use crate::ClientError;
 
 impl Client {
@@ -48,10 +49,14 @@ impl Client {
         }
         if text.entry != target.entry
             || text.revision != target.expected
-            || text.text.len() > 65536
-            || text.offset.get() > target.offset.get()
-            || target.offset.get() - text.offset.get() > 3
-            || text.offset.get().checked_add(text.text.len() as u64) != Some(text.next_offset.get())
+            || !valid_named_range(
+                &text.text,
+                text.offset,
+                text.next_offset,
+                target.offset,
+                target.limit,
+                text.complete,
+            )
         {
             return Err(ClientError::InvalidBody);
         }

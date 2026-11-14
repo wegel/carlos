@@ -54,6 +54,7 @@ pub(crate) struct BodyTarget {
 
 #[derive(Clone)]
 pub(crate) struct QueueTextTarget {
+    pub limit: usize,
     pub session: SessionId,
     pub expected: carlos_proto::ids::QueueRevision,
     pub entry: carlos_proto::ids::QueueEntryId,
@@ -212,12 +213,13 @@ fn queue_kind(command: &Command) -> Kind {
             expected,
             entry,
             offset,
-            ..
+            limit,
         } => Kind::QueueText(QueueTextTarget {
             session: session.clone(),
             expected: expected.clone(),
             entry: entry.clone(),
             offset: *offset,
+            limit: limit.unwrap_or(65536).clamp(4, 65536) as usize,
         }),
         _ => unreachable!("typed queue read"),
     }
