@@ -102,6 +102,7 @@ fn publish(
     update: &mut PanelUpdate,
     read: Snapshot,
 ) -> Result<(), String> {
+    session.task_metadata_changed();
     if read.root != *session.thread_id() {
         return Err("Task read belongs to a retired root; previous rows retained".into());
     }

@@ -49,6 +49,15 @@ impl Manager {
         }
     }
 
+    pub(super) fn unsubscribe_goal(&mut self, peer: u64, id: RequestId, session: SessionId) {
+        self.peers
+            .get_mut(&peer)
+            .expect("peer")
+            .goals
+            .remove(&session);
+        self.reply(peer, id, ());
+    }
+
     /// Aggregate only live socket interests; a detach or disconnect cannot strand the timer.
     pub(super) fn refresh_goal_interests(&mut self) {
         for peer in self.peers.values_mut() {

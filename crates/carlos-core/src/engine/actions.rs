@@ -17,6 +17,7 @@ pub(super) enum ActionFailure {
 }
 use crate::backend::BackendKind;
 use crate::session::actions::ServerRequestAction;
+use crate::session::claude::QuotaReadKey;
 
 pub(super) enum ActionKind {
     NativeControl,
@@ -24,6 +25,7 @@ pub(super) enum ActionKind {
     ReplyError,
     Context,
     ContextRead(u64),
+    QuotaRead(QuotaReadKey),
 }
 
 #[derive(Default)]
@@ -53,6 +55,21 @@ impl Owner {
         let _ = self.channels.wake.try_send(());
     }
 
+    pub(super) fn quota_action(&mut self, params: Value) {
+        let key = QuotaReadKey::from_context(&params).expect("prepared quota request");
+        let action = ServerRequestAction::ClaudeControl {
+            method: "usage.optional".into(),
+            params,
+        };
+        if self.actions.pending.len() >= 64
+            || size(&action) > (8 * 1024 * 1024usize).saturating_sub(self.actions.bytes)
+        {
+            self.session.fail_claude_quota_request(key);
+            return;
+        }
+        self.action(action);
+    }
+
     pub(super) fn dispatch_actions(&mut self) {
         while self.workers.actions_busy < 2 {
             let Some(action) = self.actions.pending.pop_front() else {
@@ -80,9 +97,17 @@ impl Owner {
     }
 
     fn start_action(&mut self, action: ServerRequestAction) {
+        let quota = quota_key(&action);
+        if quota.is_some_and(|key| !self.session.claude_quota_request_current(key)) {
+            return;
+        }
         let commands = match self.client.capture_commands() {
             Ok(commands) => commands,
             Err(error) => {
+                if let Some(key) = quota {
+                    self.session.fail_claude_quota_request(key);
+                    return;
+                }
                 self.session
                     .set_status(format!("native control was not sent: {error}"));
                 return;
@@ -128,6 +153,10 @@ impl Owner {
             ServerRequestAction::ClaudeControl { method, params } => {
                 let kind = if method == "context" {
                     ActionKind::ContextRead(params["contextToken"].as_u64().unwrap_or(0))
+                } else if method == "usage.optional" {
+                    ActionKind::QuotaRead(
+                        QuotaReadKey::from_context(&params).expect("prepared quota request"),
+                    )
                 } else {
                     ActionKind::NativeControl
                 };
@@ -193,6 +222,9 @@ impl Owner {
                     .finish_claude_update(report, &self.session.backend_context());
                 self.report(report);
             }
+            (ActionKind::QuotaRead(key), Err(_)) => {
+                self.session.fail_claude_quota_request(key);
+            }
             (ActionKind::ContextRead(token), Err(_)) => {
                 self.session
                     .fail_claude_context_request(token, std::time::Instant::now());
@@ -220,4 +252,13 @@ fn size(action: &ServerRequestAction) -> usize {
         }
     };
     512usize.saturating_add(serde_json::to_vec(value).map_or(usize::MAX - 512, |bytes| bytes.len()))
+}
+
+fn quota_key(action: &ServerRequestAction) -> Option<QuotaReadKey> {
+    match action {
+        ServerRequestAction::ClaudeControl { method, params } if method == "usage.optional" => {
+            QuotaReadKey::from_context(params)
+        }
+        _ => None,
+    }
 }

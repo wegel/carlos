@@ -155,6 +155,8 @@ pub mod events;
 mod queue_preview;
 mod task_digest;
 mod task_fields;
+mod task_overview;
+mod task_publication;
 mod task_rows;
 mod task_runs;
 mod task_stop_claims;

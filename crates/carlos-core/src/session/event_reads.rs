@@ -35,6 +35,7 @@ impl crate::session::state::SessionState {
             info: self.events.info.clone().expect("published info"),
             goal: self.export_goal(),
             queue: self.export_queue(),
+            tasks: self.export_tasks(),
             entries: self.messages[start..]
                 .iter()
                 .map(|m| self.export_entry(m))

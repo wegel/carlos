@@ -15,6 +15,10 @@ impl SessionState {
         context: &Value,
         update: &mut ClaudeUpdate,
     ) {
+        if request == Some("usage.optional") {
+            self.receive_claude_quota_report(frame, context);
+            return;
+        }
         if request == Some("task.stop") {
             if let Some(reply) = crate::session::task_stop_reply::claude(frame, context) {
                 update
@@ -54,8 +58,6 @@ impl SessionState {
                     self.receive_claude_task_stop(id, context["runId"].as_str(), None);
                 }
             }
-            Some("usage.optional") => self
-                .claude_quota_optional(&frame["result"], context["revision"].as_u64().unwrap_or(0)),
             Some("context") => self.receive_claude_context(frame, context),
             _ => {}
         }

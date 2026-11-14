@@ -13,10 +13,12 @@ use crate::session::state::SessionState;
 impl SessionState {
     /// Clear reports when the transcript replaces its source history.
     pub(crate) fn clear_codex_reports(&mut self) {
+        self.task_metadata_changed();
         self.codex_panel.reports.clear();
     }
     /// Clear the previous native panel failure after an explicit refresh.
     pub fn clear_codex_panel_error(&mut self) {
+        self.task_metadata_changed();
         self.codex_panel.error = None;
     }
     /// Borrow the native panel cache without exposing mutable readers.
@@ -51,6 +53,7 @@ impl SessionState {
     }
     /// Fence pending native panel controls after connection closure.
     pub(crate) fn close_codex_panel(&mut self) {
+        self.task_metadata_changed();
         self.codex_panel.outgoing.clear();
         self.codex_panel.snapshot = None;
         self.codex_panel.stop = None;

@@ -3,6 +3,7 @@
 use carlos_proto::events::{Event, SessionEvent};
 use carlos_proto::ids::{EntryId, Sequence};
 use carlos_proto::session::{Approval, Entry, SessionInfo, Snapshot};
+use carlos_proto::task_facts::TaskFacts;
 
 use crate::cards::Cards;
 use crate::history::HistoryFence;
@@ -12,6 +13,7 @@ use crate::ClientError;
 /// Platforms redraw changed rows and invalidate body caches without rescanning the transcript.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct ChangeSet {
+    pub tasks: bool,
     pub queue: bool,
     pub goal: bool,
     pub entries: Vec<EntryId>,
@@ -25,6 +27,8 @@ pub struct ChangeSet {
 
 /// One bounded chronological window; the daemon keeps older/newer rows outside this copy.
 pub struct Replica {
+    pub(crate) tasks: Option<TaskFacts>,
+    pub(crate) tasks_seq: Sequence,
     pub(crate) queue: Option<carlos_proto::queue::QueueFacts>,
     pub(crate) queue_seq: Sequence,
     pub(crate) goal: Option<carlos_proto::goals::GoalFacts>,
@@ -57,7 +61,16 @@ impl Replica {
         let queue = self.queue.as_ref().map_or(0, |facts| {
             facts.read_error.as_ref().map_or(0, String::len) + facts.notice.len()
         });
-        self.rows.retained_bytes() + self.approvals.retained_bytes() + strings + goal + queue + 4096
+        let tasks = self.tasks.as_ref().map_or(0, |facts| {
+            facts.notice.len() + facts.read_error.as_ref().map_or(0, String::len) + 1024
+        });
+        self.rows.retained_bytes()
+            + self.approvals.retained_bytes()
+            + strings
+            + goal
+            + queue
+            + tasks
+            + 4096
     }
     /// Adopt a full snapshot atomically; duplicate ids fail before replacing an existing copy.
     pub fn new(snapshot: Snapshot) -> Result<Self, ClientError> {
@@ -70,6 +83,8 @@ impl Replica {
             }
         }
         Ok(Self {
+            tasks: snapshot.tasks,
+            tasks_seq: snapshot.seq,
             queue: snapshot.queue,
             queue_seq: snapshot.seq,
             goal: snapshot.goal,
@@ -89,6 +104,11 @@ impl Replica {
     pub fn info(&self) -> &SessionInfo {
         &self.info
     }
+    /// Borrow compact native task facts without sharing list focus, history or private stop results.
+    pub fn tasks(&self) -> Option<&TaskFacts> {
+        self.tasks.as_ref()
+    }
+
     /// Borrow shared native goal facts; drafts and mutation errors remain private.
     pub fn goal(&self) -> Option<&carlos_proto::goals::GoalFacts> {
         self.goal.as_ref()
@@ -148,6 +168,7 @@ impl Replica {
         }
         *self = Self::new(snapshot)?;
         Ok(ChangeSet {
+            tasks: true,
             queue: true,
             goal: true,
             info: true,
@@ -192,6 +213,7 @@ impl Replica {
     fn apply_fact(&mut self, event: Event, seq: Sequence) -> Result<ChangeSet, ClientError> {
         let mut changed = ChangeSet::default();
         match event {
+            Event::TasksChanged { tasks } => self.replace_tasks(tasks, seq, &mut changed),
             Event::QueueChanged { queue } => self.replace_queue(queue, seq, &mut changed),
             Event::GoalChanged { goal } => self.replace_goal(goal, seq, &mut changed),
             Event::EntryAdded { entry } => self.add_entry(entry, &mut changed)?,
@@ -228,13 +250,7 @@ impl Replica {
                     }
                 });
             }
-            Event::InfoChanged { info } => {
-                if info.id != self.info.id {
-                    return Err(ClientError::ForeignSession);
-                }
-                self.info = info;
-                changed.info = true;
-            }
+            Event::InfoChanged { info } => self.replace_info(info, &mut changed)?,
             Event::ApprovalRequested { approval, before } => {
                 self.approval(approval, before, &mut changed)?
             }
@@ -247,6 +263,30 @@ impl Replica {
         changed.removed_front = self.rows.bound(true)?;
         self.older |= changed.removed_front > 0;
         Ok(changed)
+    }
+
+    fn replace_info(
+        &mut self,
+        info: SessionInfo,
+        changed: &mut ChangeSet,
+    ) -> Result<(), ClientError> {
+        if info.id != self.info.id {
+            return Err(ClientError::ForeignSession);
+        }
+        self.info = info;
+        changed.info = true;
+        Ok(())
+    }
+
+    pub(crate) fn replace_tasks(
+        &mut self,
+        tasks: Option<TaskFacts>,
+        seq: Sequence,
+        changed: &mut ChangeSet,
+    ) {
+        changed.tasks = self.tasks != tasks;
+        self.tasks = tasks;
+        self.tasks_seq = seq;
     }
 
     pub(crate) fn replace_queue(

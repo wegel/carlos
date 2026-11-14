@@ -10,6 +10,8 @@ pub mod queue;
 pub mod session;
 pub mod source;
 pub mod submissions;
+pub mod task_facts;
+pub mod task_overview;
 pub mod tasks;
 
 /// The only client protocol version supported by this release.

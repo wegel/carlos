@@ -1,7 +1,10 @@
 //! Read bounded native task views without retaining any client's selected row or page cursor.
 
+use std::sync::atomic::Ordering;
+
 use carlos_proto::commands::RpcError;
-use carlos_proto::ids::{TaskId, TaskRevision};
+use carlos_proto::ids::{TaskId, TaskReadId, TaskRevision};
+use carlos_proto::task_facts::TaskSnapshot;
 
 use super::owner::{failure, Owner};
 use super::{EngineCommand, EngineReply};
@@ -16,7 +19,10 @@ impl Owner {
             command @ (EngineCommand::QueueRead { .. } | EngineCommand::QueueText { .. }) => {
                 self.read_queue(command)
             }
-            command @ (EngineCommand::TaskRun { .. }
+            command @ (EngineCommand::TaskSnapshot
+            | EngineCommand::TaskOverview { .. }
+            | EngineCommand::TaskOverviewText { .. }
+            | EngineCommand::TaskRun { .. }
             | EngineCommand::TaskList { .. }
             | EngineCommand::TaskDetail { .. }
             | EngineCommand::TaskText { .. }) => self.read_tasks(command),
@@ -32,25 +38,14 @@ impl Owner {
             return Err(failure("native Codex task controls are unavailable"));
         }
         match command {
+            EngineCommand::TaskSnapshot => self.read_task_snapshot(),
+            command @ (EngineCommand::TaskOverview { .. }
+            | EngineCommand::TaskOverviewText { .. }) => self.read_task_overview(command),
             EngineCommand::TaskRun {
                 task,
                 read,
                 refresh,
-            } => {
-                self.session
-                    .prepare_task_run(&task, read.as_ref(), refresh)?;
-                let scope = self.task_read_scope();
-                panel::tick(
-                    self.client.as_ref(),
-                    &mut self.session,
-                    scope,
-                    &mut Default::default(),
-                );
-                self.publish();
-                self.session
-                    .task_run_snapshot(&task)
-                    .map(EngineReply::TaskRun)
-            }
+            } => self.read_task_run(task, read, refresh),
             EngineCommand::TaskList {
                 expected,
                 after,
@@ -72,6 +67,73 @@ impl Owner {
                 .task_text(&expected, &task, field, offset, limit)
                 .map(EngineReply::TaskText),
             _ => unreachable!("typed task read"),
+        }
+    }
+
+    fn read_task_snapshot(&mut self) -> Result<EngineReply, RpcError> {
+        if self.client.kind() == BackendKind::Codex {
+            let scope = self.task_read_scope();
+            panel::tick(
+                self.client.as_ref(),
+                &mut self.session,
+                scope,
+                &mut Default::default(),
+            );
+        }
+        self.publish();
+        let tasks = self
+            .session
+            .export_tasks()
+            .ok_or_else(|| failure("native task facts are unavailable"))?;
+        Ok(EngineReply::TaskSnapshot(TaskSnapshot {
+            session: self.session.session_id().clone(),
+            seq: self.session.events.seq,
+            tasks,
+        }))
+    }
+
+    fn read_task_run(
+        &mut self,
+        task: TaskId,
+        read: Option<TaskReadId>,
+        refresh: bool,
+    ) -> Result<EngineReply, RpcError> {
+        self.session
+            .prepare_task_run(&task, read.as_ref(), refresh)?;
+        let scope = self.task_read_scope();
+        panel::tick(
+            self.client.as_ref(),
+            &mut self.session,
+            scope,
+            &mut Default::default(),
+        );
+        self.publish();
+        self.session
+            .task_run_snapshot(&task)
+            .map(EngineReply::TaskRun)
+    }
+
+    fn read_task_overview(&mut self, command: EngineCommand) -> Result<EngineReply, RpcError> {
+        match command {
+            EngineCommand::TaskOverview {
+                expected,
+                after,
+                limit,
+            } => self
+                .session
+                .task_overview_page(expected.as_ref(), after.as_ref(), limit)
+                .map(EngineReply::TaskOverview),
+            EngineCommand::TaskOverviewText {
+                expected,
+                entry,
+                field,
+                offset,
+                limit,
+            } => self
+                .session
+                .task_overview_text(&expected, &entry, field, offset, limit)
+                .map(EngineReply::TaskOverviewText),
+            _ => unreachable!("typed task overview"),
         }
     }
 
@@ -104,7 +166,7 @@ impl Owner {
     /// Background reads keep their own original targets; no daemon-owned panel focus exists.
     pub(super) fn task_read_scope(&self) -> PanelScope<'static> {
         let mut scope = self.session.backend_context().panel;
-        scope.visible = false;
+        scope.visible = self.channels.task_interest.load(Ordering::SeqCst);
         scope
     }
 }

@@ -75,6 +75,17 @@ impl Client {
                 ReadReply::Queue(self.queue_page_reply(session, expected, value)?)
             }
             Kind::QueueText(target) => ReadReply::QueueText(self.queue_text_reply(target, value)?),
+            Kind::TaskWatch(session) => {
+                let snapshot: carlos_proto::task_facts::TaskSnapshot = parse(value)?;
+                same_session(&session, &snapshot.session)?;
+                ReadReply::TaskSnapshot(snapshot)
+            }
+            Kind::TaskOverview(target) => {
+                ReadReply::TaskOverview(crate::task_overview::page(target, value)?)
+            }
+            Kind::TaskOverviewText(target) => {
+                ReadReply::TaskOverviewText(crate::task_overview::text(target, value)?)
+            }
             Kind::TaskPage(target) => ReadReply::TaskPage(crate::tasks::page(target, value)?),
             Kind::TaskDetail(target) => ReadReply::TaskDetail(crate::tasks::detail(target, value)?),
             Kind::TaskText(target) => ReadReply::TaskText(crate::tasks::text(target, value)?),
@@ -83,6 +94,7 @@ impl Client {
             Kind::Output(target) => return self.output_reply(serial, target, value, effects),
             Kind::Unit
             | Kind::GoalUnwatch(_)
+            | Kind::TaskUnwatch(_)
             | Kind::Unsubscribe(_)
             | Kind::BodyUnsubscribe { .. } => {
                 let _: () = parse(value)?;
@@ -196,6 +208,7 @@ impl Client {
         };
         match kind {
             Kind::GoalWatch(session) => self.goals.failed(&session, serial),
+            Kind::TaskWatch(session) => self.task_watches.failed(&session, serial),
             Kind::Hello => {
                 if let Some(connection) = self.current {
                     self.disconnect(connection);

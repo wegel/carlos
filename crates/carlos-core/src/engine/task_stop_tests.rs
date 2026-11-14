@@ -46,6 +46,7 @@ fn fixture() -> (Fixture, ClientOperation) {
         stop: Arc::default(),
         changed: Arc::default(),
         goal_interest: Arc::default(),
+        task_interest: Arc::default(),
     };
     let mut owner = Owner::new(
         session,

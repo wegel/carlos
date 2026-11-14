@@ -45,20 +45,10 @@ impl Manager {
             ..
         } = read;
         match kind {
-            ReadKind::Rpc(id) => match reply {
-                EngineReply::TaskRun(run) => self.reply(peer, id, run),
-                EngineReply::TaskList(page) => self.reply(peer, id, page),
-                EngineReply::TaskDetail(detail) => self.reply(peer, id, detail),
-                EngineReply::TaskText(text) => self.reply(peer, id, text),
-                EngineReply::Queue(queue) => self.reply(peer, id, queue),
-                EngineReply::QueueText(text) => self.reply(peer, id, text),
-                EngineReply::Goal(goal) => self.reply(peer, id, goal),
-                EngineReply::History(history) => self.reply(peer, id, history),
-                EngineReply::Output(chunk) => self.reply(peer, id, chunk),
-                EngineReply::Source(chunk) => self.reply(peer, id, chunk),
-                EngineReply::Failure(reason) => self.fail(peer, id, reason),
-                _ => self.fail(peer, id, error(-32603, "unexpected owner reply")),
-            },
+            ReadKind::Rpc(id) => self.finish_rpc_read(peer, id, reply),
+            ReadKind::TaskSubscribe { id, generation } => {
+                self.finish_task_subscription(peer, id, session, generation, reply)
+            }
             ReadKind::Subscribe { id, generation } => {
                 self.subscription_reply(peer, id, session, generation, reply)
             }
@@ -86,6 +76,25 @@ impl Manager {
                 entry,
                 generation,
             } => self.finish_output(peer, (session, entry, format), generation, Some(id), reply),
+        }
+    }
+
+    fn finish_rpc_read(&mut self, peer: u64, id: RequestId, reply: EngineReply) {
+        match reply {
+            EngineReply::TaskOverview(page) => self.reply(peer, id, page),
+            EngineReply::TaskOverviewText(text) => self.reply(peer, id, text),
+            EngineReply::TaskRun(run) => self.reply(peer, id, run),
+            EngineReply::TaskList(page) => self.reply(peer, id, page),
+            EngineReply::TaskDetail(detail) => self.reply(peer, id, detail),
+            EngineReply::TaskText(text) => self.reply(peer, id, text),
+            EngineReply::Queue(queue) => self.reply(peer, id, queue),
+            EngineReply::QueueText(text) => self.reply(peer, id, text),
+            EngineReply::Goal(goal) => self.reply(peer, id, goal),
+            EngineReply::History(history) => self.reply(peer, id, history),
+            EngineReply::Output(chunk) => self.reply(peer, id, chunk),
+            EngineReply::Source(chunk) => self.reply(peer, id, chunk),
+            EngineReply::Failure(reason) => self.fail(peer, id, reason),
+            _ => self.fail(peer, id, error(-32603, "unexpected owner reply")),
         }
     }
 

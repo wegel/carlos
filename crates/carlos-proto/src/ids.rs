@@ -138,6 +138,12 @@ opaque_id!(
     "One native task run read; a replacement never retargets its poller."
 );
 
+opaque_id!(
+    TaskOverviewId,
+    64,
+    "An opaque named task-panel activity, quota or accepted-prompt row."
+);
+
 /// A nonzero per-client command counter encoded as lossless decimal text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "Sequence", into = "Sequence")]

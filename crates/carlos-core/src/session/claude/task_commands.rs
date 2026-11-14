@@ -8,6 +8,7 @@ use crate::session::state::SessionState;
 impl SessionState {
     /// Replace native membership or apply an edge for its newest run.
     pub fn update_claude_task(&mut self, message: &Value) -> Result<Option<String>, &'static str> {
+        self.task_metadata_changed();
         self.claude.tasks.update(message)
     }
 

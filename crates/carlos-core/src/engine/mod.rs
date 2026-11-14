@@ -39,6 +39,19 @@ pub use self::ring::EngineFrame;
 
 /// Only explicit session reads and commands enter the owner, never native method strings.
 pub enum EngineCommand {
+    TaskSnapshot,
+    TaskOverview {
+        expected: Option<carlos_proto::ids::TaskRevision>,
+        after: Option<carlos_proto::ids::TaskOverviewId>,
+        limit: usize,
+    },
+    TaskOverviewText {
+        expected: carlos_proto::ids::TaskRevision,
+        entry: carlos_proto::ids::TaskOverviewId,
+        field: carlos_proto::task_overview::TaskOverviewField,
+        offset: carlos_proto::bytes::ByteOffset,
+        limit: usize,
+    },
     TaskStop {
         operation: ClientOperation,
         task: carlos_proto::ids::TaskId,
@@ -157,6 +170,9 @@ pub enum EngineCommand {
 
 /// Replies carry facts or typed failures without retaining any client's editor.
 pub enum EngineReply {
+    TaskSnapshot(carlos_proto::task_facts::TaskSnapshot),
+    TaskOverview(carlos_proto::task_overview::TaskOverviewPage),
+    TaskOverviewText(carlos_proto::task_overview::TaskOverviewText),
     TaskRun(carlos_proto::tasks::TaskRunSnapshot),
     TaskList(carlos_proto::tasks::TaskPage),
     TaskDetail(carlos_proto::tasks::TaskDetail),
@@ -204,6 +220,7 @@ struct Shared {
     stop: Arc<AtomicBool>,
     changed: Arc<AtomicBool>,
     goal_interest: Arc<AtomicBool>,
+    task_interest: Arc<AtomicBool>,
     thread: Mutex<Option<thread::JoinHandle<()>>>,
 }
 
@@ -226,6 +243,7 @@ impl EngineHandle {
         let stop = Arc::new(AtomicBool::new(false));
         let changed = Arc::new(AtomicBool::new(true));
         let goal_interest = Arc::new(AtomicBool::new(false));
+        let task_interest = Arc::new(AtomicBool::new(false));
         let channels = owner::Channels {
             ordinary: ordinary_rx,
             control: control_rx,
@@ -236,6 +254,7 @@ impl EngineHandle {
             stop: stop.clone(),
             changed: changed.clone(),
             goal_interest: goal_interest.clone(),
+            task_interest: task_interest.clone(),
         };
         let owner = owner::Owner::new(session, client, events, channels);
         let thread = thread::spawn(move || owner.run());
@@ -248,6 +267,7 @@ impl EngineHandle {
                 stop,
                 changed,
                 goal_interest,
+                task_interest,
                 thread: Mutex::new(Some(thread)),
             })),
             notice_rx,
@@ -276,6 +296,13 @@ impl EngineHandle {
     /// Enable the existing native goal timer while at least one connected client reads goals.
     pub fn set_goal_interest(&self, active: bool) {
         if self.0.goal_interest.swap(active, Ordering::SeqCst) != active {
+            let _ = self.0.wake.try_send(());
+        }
+    }
+
+    /// Keep the existing three-second native task refresh alive for connected visible list readers.
+    pub fn set_task_interest(&self, active: bool) {
+        if self.0.task_interest.swap(active, Ordering::SeqCst) != active {
             let _ = self.0.wake.try_send(());
         }
     }
@@ -331,3 +358,6 @@ mod automatic_tests;
 
 #[cfg(test)]
 mod update_tests;
+
+#[cfg(test)]
+mod quota_tests;

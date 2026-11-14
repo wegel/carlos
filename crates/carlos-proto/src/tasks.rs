@@ -47,6 +47,13 @@ pub struct TaskPage {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskField {
+    NativeId,
+    Owner,
+    LastTurn,
+    ProcessItem,
+    RunLabel,
+    CanStop,
+    NativeState,
     Label,
     Role,
     Parent,

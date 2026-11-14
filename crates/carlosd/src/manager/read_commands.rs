@@ -14,17 +14,14 @@ impl Manager {
     pub(super) fn read_command(&mut self, peer: u64, id: RequestId, command: Command) {
         match command {
             Command::GoalSubscribe { session } => self.subscribe_goal(peer, id, session),
-            Command::GoalUnsubscribe { session } => {
-                self.peers
-                    .get_mut(&peer)
-                    .expect("peer")
-                    .goals
-                    .remove(&session);
-                self.reply(peer, id, ());
-            }
+            Command::GoalUnsubscribe { session } => self.unsubscribe_goal(peer, id, session),
+            Command::TaskSubscribe { session } => self.subscribe_tasks(peer, id, session),
+            Command::TaskUnsubscribe { session } => self.unsubscribe_tasks(peer, id, session),
             command @ (Command::TaskRun { .. }
             | Command::TaskList { .. }
             | Command::TaskDetail { .. }
+            | Command::TaskOverview { .. }
+            | Command::TaskOverviewText { .. }
             | Command::TaskText { .. }
             | Command::QueueRead { .. }
             | Command::QueueText { .. }
@@ -75,6 +72,7 @@ impl Manager {
         let connection = self.peers.get_mut(&peer).expect("peer");
         connection.sessions.remove(&session);
         connection.goals.remove(&session);
+        connection.tasks.remove(&session);
         connection
             .outputs
             .retain(|(target, _, _), _| target != &session);
@@ -88,6 +86,8 @@ impl Manager {
             command @ (Command::TaskRun { .. }
             | Command::TaskList { .. }
             | Command::TaskDetail { .. }
+            | Command::TaskOverview { .. }
+            | Command::TaskOverviewText { .. }
             | Command::TaskText { .. }) => self.task_read_command(peer, id, command),
             Command::QueueRead {
                 session,
@@ -128,63 +128,6 @@ impl Manager {
             }
             _ => unreachable!("typed native read"),
         }
-    }
-
-    fn task_read_command(&mut self, peer: u64, id: RequestId, command: Command) {
-        let (session, command) = match command {
-            Command::TaskRun {
-                session,
-                task,
-                read,
-                refresh,
-            } => (
-                session,
-                EngineCommand::TaskRun {
-                    task,
-                    read,
-                    refresh,
-                },
-            ),
-            Command::TaskList {
-                session,
-                expected,
-                after,
-                limit,
-                refresh,
-            } => (
-                session,
-                EngineCommand::TaskList {
-                    expected,
-                    after,
-                    limit: usize::from(limit.unwrap_or(32)),
-                    refresh,
-                },
-            ),
-            Command::TaskDetail {
-                session,
-                expected,
-                task,
-            } => (session, EngineCommand::TaskDetail { expected, task }),
-            Command::TaskText {
-                session,
-                expected,
-                task,
-                field,
-                offset,
-                limit,
-            } => (
-                session,
-                EngineCommand::TaskText {
-                    expected,
-                    task,
-                    field,
-                    offset,
-                    limit: limit.unwrap_or(65536).min(65536) as usize,
-                },
-            ),
-            _ => unreachable!("typed task read"),
-        };
-        self.rpc_read(peer, id, session, command);
     }
 
     fn subscribe(&mut self, peer: u64, id: RequestId, session: SessionId, since: Option<Sequence>) {
@@ -323,7 +266,10 @@ impl Manager {
             return Err(error(-32010, "pending reads are full"));
         }
         let reserved = match command {
-            EngineCommand::QueueRead { .. }
+            EngineCommand::TaskSnapshot
+            | EngineCommand::TaskOverview { .. }
+            | EngineCommand::TaskOverviewText { .. }
+            | EngineCommand::QueueRead { .. }
             | EngineCommand::QueueText { .. }
             | EngineCommand::TaskRun { .. }
             | EngineCommand::TaskList { .. }

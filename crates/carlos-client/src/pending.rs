@@ -30,6 +30,10 @@ pub(crate) enum Kind {
         expected: Option<carlos_proto::ids::QueueRevision>,
     },
     QueueText(QueueTextTarget),
+    TaskWatch(SessionId),
+    TaskUnwatch(SessionId),
+    TaskOverview(crate::task_overview::OverviewTarget),
+    TaskOverviewText(crate::task_overview::OverviewTextTarget),
     TaskPage(crate::tasks::TaskPageTarget),
     TaskDetail(crate::tasks::TaskTarget),
     TaskText(crate::tasks::TaskTextTarget),
@@ -177,6 +181,11 @@ pub(crate) fn read_kind(command: &Command) -> Result<Kind, ClientError> {
             limit: usize::from(*limit).clamp(1, 1000),
         },
         Command::Operation { operation } => Kind::Operation(operation.clone()),
+        Command::TaskSubscribe { session } => Kind::TaskWatch(session.clone()),
+        Command::TaskUnsubscribe { session } => Kind::TaskUnwatch(session.clone()),
+        overview @ (Command::TaskOverview { .. } | Command::TaskOverviewText { .. }) => {
+            overview_kind(overview)
+        }
         Command::GoalRead { session, .. } => Kind::Goal(session.clone()),
         Command::GoalSubscribe { session } => Kind::GoalWatch(session.clone()),
         Command::GoalUnsubscribe { session } => Kind::GoalUnwatch(session.clone()),
@@ -198,6 +207,38 @@ pub(crate) fn read_kind(command: &Command) -> Result<Kind, ClientError> {
             ))
         }
     })
+}
+
+fn overview_kind(command: &Command) -> Kind {
+    match command {
+        Command::TaskOverview {
+            session,
+            expected,
+            after,
+            limit,
+        } => Kind::TaskOverview(crate::task_overview::OverviewTarget {
+            session: session.clone(),
+            expected: expected.clone(),
+            after: after.clone(),
+            limit: usize::from(limit.unwrap_or(32)).clamp(1, 32),
+        }),
+        Command::TaskOverviewText {
+            session,
+            expected,
+            entry,
+            field,
+            offset,
+            limit,
+        } => Kind::TaskOverviewText(crate::task_overview::OverviewTextTarget {
+            session: session.clone(),
+            expected: expected.clone(),
+            entry: entry.clone(),
+            field: *field,
+            offset: *offset,
+            limit: limit.unwrap_or(65536).clamp(4, 65536) as usize,
+        }),
+        _ => unreachable!("typed task overview"),
+    }
 }
 
 fn queue_kind(command: &Command) -> Kind {

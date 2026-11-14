@@ -3,9 +3,8 @@
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
-use serde_json::{json, Value};
+use serde_json::Value;
 
-use crate::backend::BackendClient;
 use crate::session::usage::WeeklyUsage;
 use crate::session::usage::{unix_now, RateWindow, WEEK_MINUTES};
 
@@ -14,8 +13,10 @@ use crate::session::usage::{unix_now, RateWindow, WEEK_MINUTES};
 #[cfg_attr(any(test, feature = "test-support"), derive(Debug))]
 pub struct ClaudeQuota {
     windows: BTreeMap<String, QuotaWindow>,
-    revision: u64,
-    next_read: Option<Instant>,
+    pub(super) revision: u64,
+    pub(super) next_read: Option<Instant>,
+    pub(super) issued: u64,
+    pub(super) pending: Option<super::quota_reads::QuotaReadKey>,
 }
 
 /// Keeps a model-specific bucket distinct from the shared weekly bucket.
@@ -28,15 +29,6 @@ pub struct QuotaWindow {
 }
 
 impl ClaudeQuota {
-    /// Request optional account quota without waiting for it.
-    pub(in crate::session) fn tick(&mut self, client: &dyn BackendClient, now: Instant) {
-        if self.next_read.is_none_or(|deadline| deadline <= now) {
-            self.next_read = Some(now + Duration::from_secs(300));
-            let _ =
-                client.request_native_control("usage.optional", json!({"revision":self.revision}));
-        }
-    }
-
     /// Read the next optional backend deadline.
     pub fn wait(&self, now: Instant) -> Option<Duration> {
         self.next_read

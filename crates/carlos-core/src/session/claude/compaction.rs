@@ -21,6 +21,7 @@ pub enum CompactionResult {
 impl SessionState {
     /// Update one attempt using the session's current helper generation.
     pub fn compact_claude_context(&mut self, message: &Value) -> CompactionNotice {
+        self.task_overview_changed();
         let boundary = message["subtype"] == "compact_boundary";
         if self.claude.activity.starts_compaction(message, boundary) {
             self.claude.activity.compact_sequence += 1;

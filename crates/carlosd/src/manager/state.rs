@@ -21,6 +21,7 @@ pub(super) struct Peer {
     pub list: bool,
     pub sessions: HashMap<SessionId, Interest>,
     pub goals: HashSet<SessionId>,
+    pub tasks: HashMap<SessionId, u64>,
     pub outputs: HashMap<(SessionId, EntryId, super::body::Format), OutputWatch>,
     pub generation: u64,
 }
@@ -67,6 +68,10 @@ pub(super) struct Read {
 }
 
 pub(super) enum ReadKind {
+    TaskSubscribe {
+        id: RequestId,
+        generation: u64,
+    },
     Rpc(RequestId),
     Subscribe {
         id: RequestId,

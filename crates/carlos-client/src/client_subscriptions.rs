@@ -82,6 +82,7 @@ impl Client {
                 approvals: true,
                 goal: true,
                 queue: true,
+                tasks: true,
                 ..Default::default()
             }
         };

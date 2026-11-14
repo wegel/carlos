@@ -21,6 +21,7 @@ fn apply(client: &mut Snapshot, event: SessionEvent) {
     assert_eq!(client.seq.checked_next(), Some(event.seq));
     match event.event {
         Event::QueueChanged { queue } => client.queue = queue,
+        Event::TasksChanged { tasks } => client.tasks = tasks,
         Event::EntryAdded { entry } => client.entries.push(entry),
         Event::EntryUpdated { entry } => {
             let old = client

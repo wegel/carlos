@@ -89,7 +89,9 @@ impl Owner {
         result: Result<bool, super::actions::ActionFailure>,
     ) {
         self.workers.actions_busy -= 1;
-        if let (
+        if matches!(&kind, super::actions::ActionKind::QuotaRead(_)) {
+            self.finish_action(kind, result);
+        } else if let (
             super::actions::ActionKind::ContextRead(token),
             Err(super::actions::ActionFailure::Retired),
         ) = (&kind, &result)

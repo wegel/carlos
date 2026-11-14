@@ -10,6 +10,7 @@ mod read_commands;
 mod reads;
 mod state;
 mod store;
+mod tasks;
 mod updates;
 
 use std::collections::HashMap;
@@ -110,6 +111,7 @@ impl Manager {
             }
             self.drain_launches();
             self.refresh_goal_interests();
+            self.refresh_task_interests();
             self.drain_updates();
             self.drain_reads();
             self.drain_saves();
@@ -140,6 +142,7 @@ impl Manager {
                     list: false,
                     sessions: HashMap::new(),
                     goals: Default::default(),
+                    tasks: Default::default(),
                     outputs: HashMap::new(),
                     generation: 0,
                 },

@@ -31,6 +31,7 @@ impl Client {
         self.requests.clear();
         self.watches.disconnected();
         self.goals.disconnected();
+        self.task_watches.disconnected();
         self.recover.clear();
         self.history = Default::default();
         for slot in self.sessions.values_mut() {
@@ -150,5 +151,6 @@ impl Client {
         }
         self.restore_watches(effects);
         self.restore_goal_watches(effects);
+        self.restore_task_watches(effects);
     }
 }

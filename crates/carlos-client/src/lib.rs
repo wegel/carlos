@@ -27,6 +27,9 @@ mod pending;
 mod queue;
 mod replica;
 mod rows;
+mod task_overview;
+mod task_state;
+mod task_watches;
 mod tasks;
 mod text_ranges;
 

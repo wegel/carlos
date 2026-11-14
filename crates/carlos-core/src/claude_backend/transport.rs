@@ -177,6 +177,11 @@ impl ControllerTransport {
             .map_err(|_| anyhow!("session guard lock poisoned"))?
             .epoch;
         let mut context = json!({"revision":params["revision"],"contextToken":params["contextToken"],"taskId":params["taskId"],"runId":params["runId"]});
+        for field in ["quotaRead", "quotaScope"] {
+            if let Some(value) = params.get(field) {
+                context[field] = value.clone();
+            }
+        }
         if let Some(owned) = params.get("taskStopContext") {
             context["taskStopContext"] = owned.clone();
         }

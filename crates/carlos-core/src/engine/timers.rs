@@ -15,13 +15,7 @@ impl Owner {
         }
         let now = Instant::now();
         if self.client.kind() == BackendKind::Claude {
-            let (_, request) = self.session.prepare_claude_context(now);
-            if let Some(params) = request {
-                self.action(ServerRequestAction::ClaudeControl {
-                    method: "context".into(),
-                    params,
-                });
-            }
+            self.tick_claude_reads(now);
         } else if self.client.kind() == BackendKind::Codex {
             let scope = self.session.codex_scope();
             reconnect_streams::tick(self.client.as_ref(), &mut self.session, now);
@@ -57,10 +51,25 @@ impl Owner {
         }
     }
 
+    fn tick_claude_reads(&mut self, now: Instant) {
+        let (_, request) = self.session.prepare_claude_context(now);
+        if let Some(params) = request {
+            self.action(ServerRequestAction::ClaudeControl {
+                method: "context".into(),
+                params,
+            });
+        }
+        if let Some(params) = self.session.prepare_claude_quota(now) {
+            self.quota_action(params);
+        }
+    }
+
     pub(super) fn wait(&self) -> Duration {
         let now = Instant::now();
         [
             self.session.claude_context_wait(now),
+            crate::session::codex::panel::wait(&self.session, self.task_read_scope(), now),
+            crate::session::codex::task_status::wait(&self.session, self.task_read_scope(), now),
             self.session.pending_ralph_continuation_wait(now),
             (!self.native.closed)
                 .then(|| {

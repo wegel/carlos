@@ -18,6 +18,7 @@ mod process;
 mod prompt_transcript;
 mod prompts;
 pub mod quota;
+mod quota_reads;
 mod quota_updates;
 mod reset;
 mod state;
@@ -30,6 +31,7 @@ pub use activity::{ClaudeActivity, NativeState};
 pub use compaction::CompactionResult;
 pub use edit::EditProgress;
 pub use notifications::ClaudeRoute;
+pub(crate) use quota_reads::QuotaReadKey;
 pub use state::{ClaudePhase, ClaudeState};
 pub use task_stops::StopState;
 pub use tasks::{ClaudeTasks, TaskStatus};
@@ -52,3 +54,6 @@ mod receive_sdk;
 #[cfg(test)]
 mod receive_headless_tests;
 pub mod receive_update;
+
+#[cfg(test)]
+mod quota_read_tests;

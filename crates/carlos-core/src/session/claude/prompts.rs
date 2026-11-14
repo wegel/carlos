@@ -61,16 +61,19 @@ impl ClaudePrompts {
 impl SessionState {
     /// Retain accepted text before native facts can consume its UUID.
     pub fn register_claude_prompt(&mut self, params: &Value) -> Result<(), &'static str> {
+        self.task_overview_changed();
         self.claude.prompts.register(params)
     }
 
     /// Forget only the named rejected, retired, or completed prompt.
     pub(crate) fn remove_claude_prompt(&mut self, id: &str) {
+        self.task_overview_changed();
         self.claude.prompts.entries.remove(id);
     }
 
     /// Preserve unconsumed accepted inputs and the native clear command.
     pub fn reset_claude_prompts(&mut self, clear: Option<&str>) {
+        self.task_overview_changed();
         self.claude
             .prompts
             .entries
@@ -82,6 +85,7 @@ impl SessionState {
 
     /// Fail accepted UUIDs in sorted order, then any unregistered active turn.
     pub(crate) fn fail_claude_prompts(&mut self) {
+        self.task_overview_changed();
         let mut ids: Vec<String> = self.claude.prompts.entries.keys().cloned().collect();
         if let Some(active) = &self.active_turn_id() {
             if !ids.contains(active) {

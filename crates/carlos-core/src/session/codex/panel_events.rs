@@ -72,6 +72,7 @@ pub fn report(session: &mut SessionState, item: &Value) {
             .map(|value| value.to_string().len())
             .sum();
         if bytes + state.to_string().len() <= 1024 * 1024 {
+            session.task_metadata_changed();
             session
                 .codex_panel
                 .reports
@@ -89,6 +90,7 @@ fn known(session: &SessionState, id: &str) -> bool {
 }
 
 fn metadata(session: &mut SessionState, scope: PanelScope<'_>, thread: &Value) {
+    session.task_metadata_changed();
     if !session.codex_panel.ownership.insert(
         &session.thread_id,
         scope.native.epoch,
@@ -132,6 +134,7 @@ fn metadata(session: &mut SessionState, scope: PanelScope<'_>, thread: &Value) {
 }
 
 fn set_field(session: &mut SessionState, index: usize, key: &str, value: Value) {
+    session.task_metadata_changed();
     let mut updated = session.codex_panel.agents[index].clone();
     updated[key] = value;
     let bytes: usize = session

@@ -64,6 +64,7 @@ pub(super) fn begin(session: &mut SessionState, scope: PanelScope<'_>, owner: &s
 
 /// Mark only this native owner uncertain after an observed change.
 pub(super) fn invalidate(session: &mut SessionState, owner: &str, dirty: bool) {
+    session.task_metadata_changed();
     *session
         .codex_task_status
         .revisions
@@ -78,6 +79,7 @@ pub(super) fn invalidate(session: &mut SessionState, owner: &str, dirty: bool) {
 
 /// Retain the failed owner without inventing a healthy process cache.
 pub(super) fn failed(session: &mut SessionState, scope: PanelScope<'_>, error: &str) {
+    session.task_metadata_changed();
     if let Some(read) = session.codex_task_status.read.take() {
         if let Some(owner) = read.request.params["threadId"].as_str() {
             session.task_stops.retire_process_owner(owner);

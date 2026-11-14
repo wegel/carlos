@@ -24,7 +24,14 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Request, Failure> {
         ));
     }
     let method = value.get("method").and_then(Value::as_str).unwrap_or("");
-    let known = matches!(
+    if !known_method(method) {
+        return Err(failure(id, -32601, "unknown Carlos method"));
+    }
+    serde_json::from_value(value).map_err(|_| failure(id, -32602, "invalid command fields"))
+}
+
+fn known_method(method: &str) -> bool {
+    matches!(
         method,
         "hello"
             | "sessions/watch"
@@ -45,6 +52,10 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Request, Failure> {
             | "goal/clear"
             | "task/run"
             | "task/stop"
+            | "task/subscribe"
+            | "task/unsubscribe"
+            | "task/overview"
+            | "task/overview/text"
             | "task/list"
             | "task/detail"
             | "task/text"
@@ -59,11 +70,7 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Request, Failure> {
             | "entry/source/seek"
             | "entry/source/subscribe"
             | "entry/source/unsubscribe"
-    );
-    if !known {
-        return Err(failure(id, -32601, "unknown Carlos method"));
-    }
-    serde_json::from_value(value).map_err(|_| failure(id, -32602, "invalid command fields"))
+    )
 }
 
 pub(crate) fn encode(value: &impl Serialize) -> io::Result<Arc<[u8]>> {

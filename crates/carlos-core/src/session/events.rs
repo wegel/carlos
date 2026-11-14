@@ -30,6 +30,7 @@ pub enum Change {
     Info,
     Goal,
     Queue,
+    Tasks,
     Reset {
         dirty_from: Option<EntryId>,
     },
@@ -181,6 +182,9 @@ impl SessionState {
         self.publish_approvals(changes);
         self.publish_goal(changes);
         self.publish_queue(changes);
+        if self.refresh_task_facts() {
+            changes.push(Change::Tasks);
+        }
     }
 
     fn row_changes(&self, journal: Journal) -> Vec<Change> {
@@ -322,6 +326,9 @@ impl Published<'_> {
             },
             Change::Queue => Event::QueueChanged {
                 queue: self.session.export_queue(),
+            },
+            Change::Tasks => Event::TasksChanged {
+                tasks: self.session.export_tasks(),
             },
             Change::ApprovalResolved { approval, decision } => Event::ApprovalResolved {
                 approval: approval.to_wire(),

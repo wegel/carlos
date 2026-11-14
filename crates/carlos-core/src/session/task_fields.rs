@@ -8,8 +8,15 @@ use serde_json::Value;
 use super::state::SessionState;
 use super::task_rows::TaskRef;
 
-pub(super) const FIELDS: [TaskField; 24] = [
+pub(super) const FIELDS: [TaskField; 31] = [
     TaskField::Label,
+    TaskField::NativeId,
+    TaskField::Owner,
+    TaskField::LastTurn,
+    TaskField::ProcessItem,
+    TaskField::RunLabel,
+    TaskField::CanStop,
+    TaskField::NativeState,
     TaskField::Role,
     TaskField::Parent,
     TaskField::DirectInput,
@@ -41,8 +48,23 @@ impl TaskRef<'_> {
         session: &'a SessionState,
         field: TaskField,
     ) -> Option<Cow<'a, str>> {
-        if field == TaskField::Label {
-            return Some(Cow::Borrowed(self.label()));
+        match field {
+            TaskField::Label => return Some(Cow::Borrowed(self.label())),
+            TaskField::NativeId => return Some(Cow::Borrowed(self.native_id())),
+            TaskField::CanStop => return Some(Cow::Owned(self.can_stop(session).to_string())),
+            TaskField::NativeState => return Some(self.state_text(session)),
+            TaskField::LastTurn => return self.agent_run().map(|(id, _)| Cow::Borrowed(id)),
+            TaskField::LastTurnState => {
+                return self.agent_run().map(|(_, state)| Cow::Borrowed(state))
+            }
+            TaskField::Owner => {
+                return if let Self::Process(row) = self {
+                    Some(Cow::Borrowed(&row.thread))
+                } else {
+                    None
+                }
+            }
+            _ => {}
         }
         if field == TaskField::Error {
             if let Self::Process(row) = self {
@@ -53,6 +75,7 @@ impl TaskRef<'_> {
             Self::Agent { data, .. } => agent_field(data, session, field)?,
             Self::Process(row) => {
                 &row.data[match field {
+                    TaskField::ProcessItem => "itemId",
                     TaskField::Command => "command",
                     TaskField::Directory => "cwd",
                     TaskField::OsPid => "osPid",
@@ -65,6 +88,37 @@ impl TaskRef<'_> {
         };
         scalar(value)
     }
+
+    fn can_stop(&self, session: &SessionState) -> bool {
+        if session.events.backend_closed {
+            return false;
+        }
+        match self {
+            Self::Agent { .. } => true,
+            Self::Process(_) => self.run(session).is_some(),
+            Self::Claude { id, .. } => {
+                session.claude.tasks.can_stop(id) && self.run(session).is_some()
+            }
+        }
+    }
+
+    fn state_text<'a>(&'a self, session: &'a SessionState) -> Cow<'a, str> {
+        let state = self.native_state(session);
+        let Self::Agent { data, .. } = self else {
+            return Cow::Borrowed(state);
+        };
+        let flags: Vec<_> = data["status"]["activeFlags"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .collect();
+        if flags.is_empty() {
+            Cow::Borrowed(state)
+        } else {
+            Cow::Owned(format!("{state} ({})", flags.join(", ")))
+        }
+    }
 }
 
 fn agent_field<'a>(
@@ -76,7 +130,6 @@ fn agent_field<'a>(
         TaskField::Role => &data["agentRole"],
         TaskField::Parent => &data["parentThreadId"],
         TaskField::DirectInput => &data["canAcceptDirectInput"],
-        TaskField::LastTurnState => &data["lastObservedTurn"]["status"],
         TaskField::Report | TaskField::ReportState => {
             let report = session.codex_panel.reports.get(data["id"].as_str()?)?;
             &report[if field == TaskField::Report {
@@ -91,6 +144,7 @@ fn agent_field<'a>(
 
 fn claude_field(data: &Value, field: TaskField) -> Option<&Value> {
     let (key, nested) = match field {
+        TaskField::RunLabel => ("run_id", None),
         TaskField::Description => ("description", None),
         TaskField::Summary => ("summary", None),
         TaskField::NativeType => ("task_type", None),

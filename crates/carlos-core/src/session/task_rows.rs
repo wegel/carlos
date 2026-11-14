@@ -82,6 +82,9 @@ impl SessionState {
                     self.process_read_error(&process.thread).unwrap_or_default(),
                 );
             }
+            if let Some((_, state)) = row.agent_run() {
+                hash_text(&mut hash, state);
+            }
             if let Some(run) = row.run(self) {
                 hash_text(&mut hash, run.as_str());
             } else {
@@ -192,38 +195,12 @@ impl TaskRef<'_> {
     }
 
     pub(super) fn export(&self, session: &SessionState) -> Task {
-        let (kind, state) = match self {
-            Self::Agent { data, .. } => (
-                TaskKind::Agent,
-                data["status"]["type"].as_str().unwrap_or("unknown"),
-            ),
-            Self::Process(row) => (
-                TaskKind::Process,
-                if session.process_known(&row.thread) {
-                    "present"
-                } else {
-                    "unknown"
-                },
-            ),
-            Self::Claude { id, .. } => (
-                TaskKind::Task,
-                session
-                    .claude
-                    .tasks
-                    .records()
-                    .get(*id)
-                    .map(|record| match record.status() {
-                        super::claude::TaskStatus::Pending => "pending",
-                        super::claude::TaskStatus::Running => "running",
-                        super::claude::TaskStatus::Paused => "paused",
-                        super::claude::TaskStatus::Completed => "completed",
-                        super::claude::TaskStatus::Failed => "failed",
-                        super::claude::TaskStatus::Stopped => "stopped",
-                        super::claude::TaskStatus::Unknown => "unknown",
-                    })
-                    .unwrap_or("unknown"),
-            ),
+        let kind = match self {
+            Self::Agent { .. } => TaskKind::Agent,
+            Self::Process(_) => TaskKind::Process,
+            Self::Claude { .. } => TaskKind::Task,
         };
+        let state = self.native_state(session);
         let label = self.label();
         Task {
             id: self.id(session),
@@ -235,13 +212,43 @@ impl TaskRef<'_> {
         }
     }
 
+    pub(super) fn native_state<'a>(&'a self, session: &'a SessionState) -> &'a str {
+        match self {
+            Self::Agent { data, .. } => data["status"]["type"]
+                .as_str()
+                .or(data["status"].as_str())
+                .unwrap_or("unknown"),
+            Self::Process(row) => {
+                if session.process_known(&row.thread) {
+                    "present"
+                } else {
+                    "unknown"
+                }
+            }
+            Self::Claude { id, .. } => session
+                .claude
+                .tasks
+                .records()
+                .get(*id)
+                .map(|record| match record.status() {
+                    super::claude::TaskStatus::Pending => "pending",
+                    super::claude::TaskStatus::Running => "running",
+                    super::claude::TaskStatus::Paused => "paused",
+                    super::claude::TaskStatus::Completed => "completed",
+                    super::claude::TaskStatus::Failed => "failed",
+                    super::claude::TaskStatus::Stopped => "stopped",
+                    super::claude::TaskStatus::Unknown => "unknown",
+                })
+                .unwrap_or("unknown"),
+        }
+    }
+
     pub(super) fn label(&self) -> &str {
         match self {
-            Self::Agent { data, .. } => data["name"]
+            Self::Agent { data, .. } => data["agentNickname"]
                 .as_str()
-                .or(data["preview"].as_str())
-                .or(data["agentRole"].as_str())
-                .unwrap_or("Agent"),
+                .or(data["name"].as_str())
+                .unwrap_or_else(|| self.native_id()),
             Self::Process(row) => row.data["command"].as_str().unwrap_or("Background process"),
             Self::Claude { data, .. } => data["description"]
                 .as_str()

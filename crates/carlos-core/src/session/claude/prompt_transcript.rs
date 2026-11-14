@@ -37,6 +37,7 @@ impl SessionState {
 
     /// Recreate one surviving accepted prompt only when native Claude consumes it.
     pub fn consume_claude_prompt(&mut self, id: &str, key: &BackendEntryKey) -> PromptUpdate {
+        self.task_overview_changed();
         let mut update = PromptUpdate::default();
         let Some(prompt) = self.claude.prompts.entries.get_mut(id) else {
             return update;

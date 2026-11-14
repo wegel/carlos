@@ -153,13 +153,24 @@ fn check_quota_deadlines(app: &mut AppState) {
             Some(Duration::from_secs(wait_seconds))
         );
     }
+    let calls = peer.calls.borrow();
+    let scope = calls[0].1["quotaScope"]
+        .as_str()
+        .expect("original native scope");
+    assert_eq!(scope.len(), 64);
     assert_eq!(
-        peer.calls.borrow()[0],
-        ("usage.optional".into(), json!({"revision":0}))
+        calls[0],
+        (
+            "usage.optional".into(),
+            json!({"revision":0,"quotaRead":1,"quotaScope":scope})
+        )
     );
     assert_eq!(
-        peer.calls.borrow()[1],
-        ("usage.optional".into(), json!({"revision":0}))
+        calls[1],
+        (
+            "usage.optional".into(),
+            json!({"revision":0,"quotaRead":2,"quotaScope":scope})
+        )
     );
     assert!(
         app.session.messages().is_empty(),

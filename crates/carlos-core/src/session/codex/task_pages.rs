@@ -66,6 +66,7 @@ pub(crate) fn accept_page(
 }
 
 fn publish(session: &mut SessionState, scope: PanelScope<'_>) -> Result<(), String> {
+    session.task_metadata_changed();
     let read = session
         .codex_task_status
         .read

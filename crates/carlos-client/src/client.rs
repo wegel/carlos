@@ -25,6 +25,9 @@ pub enum ReadReply {
     Goal(carlos_proto::goals::GoalSnapshot),
     Queue(carlos_proto::queue::QueuePage),
     QueueText(carlos_proto::queue::QueueText),
+    TaskSnapshot(carlos_proto::task_facts::TaskSnapshot),
+    TaskOverview(carlos_proto::task_overview::TaskOverviewPage),
+    TaskOverviewText(carlos_proto::task_overview::TaskOverviewText),
     TaskPage(carlos_proto::tasks::TaskPage),
     TaskDetail(carlos_proto::tasks::TaskDetail),
     TaskText(carlos_proto::tasks::TaskText),
@@ -90,6 +93,7 @@ pub struct Client {
     pub(crate) history: crate::client_history::WaitingHistory,
     pub(crate) watches: crate::client_watches::Watches,
     pub(crate) goals: crate::goal_watches::GoalWatches,
+    pub(crate) task_watches: crate::task_watches::TaskWatches,
 }
 
 impl Client {
