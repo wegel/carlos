@@ -143,7 +143,7 @@ fn compare(
     );
 }
 
-fn fingerprint(lines: &[RenderedLine]) -> String {
+pub(super) fn fingerprint(lines: &[RenderedLine]) -> String {
     let mut hash = blake3::Hasher::new();
     for line in lines {
         hash.update(
