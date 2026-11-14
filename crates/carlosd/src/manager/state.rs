@@ -1,0 +1,94 @@
+//! Retain only launch metadata, bounded socket interests and outstanding owner reads.
+
+use std::collections::HashMap;
+use std::sync::mpsc;
+use std::thread::JoinHandle;
+
+use carlos_core::engine::{EngineHandle, EngineReply};
+use carlos_core::launch_cancel::LaunchCancellation;
+use carlos_proto::commands::RequestId;
+use carlos_proto::ids::{ClientId, EntryId, Sequence, SessionId};
+use carlos_proto::output::OutputCursor;
+use carlos_proto::session::SessionInfo;
+use carlos_proto::submissions::OperationResult;
+
+use crate::registry::SavedSession;
+use crate::transport::PeerSocket;
+
+pub(super) struct Peer {
+    pub socket: PeerSocket,
+    pub client: Option<ClientId>,
+    pub replay_allowed: bool,
+    pub list: bool,
+    pub sessions: HashMap<SessionId, Interest>,
+    pub outputs: HashMap<(SessionId, EntryId), OutputWatch>,
+    pub generation: u64,
+}
+
+pub(super) struct Interest {
+    pub seq: Sequence,
+    pub syncing: bool,
+    pub generation: u64,
+}
+
+pub(super) struct OutputWatch {
+    pub cursor: Option<OutputCursor>,
+    pub generation: u64,
+    pub reading: bool,
+    pub dirty: bool,
+    pub done: bool,
+}
+
+pub(super) struct Session {
+    pub info: SessionInfo,
+    pub saved: SavedSession,
+    pub durable: Option<SavedSession>,
+    pub saving: Option<SavedSession>,
+    pub live: Option<Live>,
+    pub launch: Option<LaunchCancellation>,
+    pub create: Option<OperationResult>,
+    pub save_failed: bool,
+}
+
+pub(super) struct Live {
+    pub handle: EngineHandle,
+    pub notice: JoinHandle<()>,
+    pub updates: Option<mpsc::Receiver<EngineReply>>,
+    pub seq: Sequence,
+    pub dirty: bool,
+}
+
+pub(super) struct Read {
+    pub peer: u64,
+    pub session: SessionId,
+    pub kind: ReadKind,
+    pub reply: mpsc::Receiver<EngineReply>,
+}
+
+pub(super) enum ReadKind {
+    Rpc(RequestId),
+    Subscribe {
+        id: RequestId,
+        generation: u64,
+    },
+    Snapshot {
+        generation: u64,
+    },
+    Output {
+        entry: EntryId,
+        generation: u64,
+    },
+    OutputFirst {
+        id: RequestId,
+        entry: EntryId,
+        generation: u64,
+    },
+}
+
+pub(super) struct Waiting {
+    pub peer: u64,
+    pub id: RequestId,
+    pub session: SessionId,
+    pub since: Option<Sequence>,
+    pub generation: u64,
+}

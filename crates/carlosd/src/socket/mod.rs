@@ -60,6 +60,10 @@ impl BoundSocket {
     pub fn path(&self) -> &Path {
         &self.path
     }
+
+    pub(crate) fn state_guard(&self) -> io::Result<File> {
+        self._state_lock.try_clone()
+    }
 }
 
 impl Drop for BoundSocket {

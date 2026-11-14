@@ -69,7 +69,8 @@ pub fn launch(
         .session
         .configure_ralph_options(request.cwd, None, None, None, None);
     if let Some(name) = request.name {
-        launched.session.set_thread_name(Some(name));
+        launched.session.set_thread_name(Some(name.clone()));
+        launched.session.events.launch_name = Some(name);
     }
     launched.session.events.ralph_restore_notice = request
         .restore

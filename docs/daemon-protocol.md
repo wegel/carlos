@@ -1,8 +1,8 @@
 # Local daemon contract
 
-EP019a is building this contract on `iphone-spike`. The core owner and native
-factories exist. The Unix listener and manager described below are still being
-written. This document does not claim that a daemon executable is ready.
+EP019a implements this local contract on `iphone-spike`. The executable and
+all three native factories pass the first deterministic process tests. The
+complete failure, pressure and release checks remain required before owner review.
 
 ## Clients and commands
 
@@ -83,7 +83,7 @@ must exercise them before the listener is accepted.
   session descriptions. Saved sessions do not start native processes until a
   client subscribes.
 - Each peer: at most 16 session interests and 32 output watches. The daemon also
-  bounds pending reads and requests, rather than retaining arbitrary reply
+  bounds pending reads (256 across peers) and requests, rather than retaining arbitrary reply
   receivers for a disconnected peer.
 - Each socket writer: 128 frames/sixteen MiB including the frame being written.
   Ordinary shared frames use at most eight MiB, leaving room for a replacement
@@ -110,12 +110,18 @@ It must not describe wire-byte limits as an exact heap limit.
 
 The SQLite catalogue stores only the logical id, name, backend, working directory,
 native thread id and saved Ralph state. It stores no transcript or job database.
-One worker owns disk writes. It saves changed durable fields, not every token or
+The name is the Carlos catalogue label and survives native history adoption.
+Create stays pending until native startup finishes and the native address has
+been saved. One worker owns disk writes. It saves changed durable fields, not every token or
 context-window update. Two subscribers share one restore attempt. A failed
 restore stays visible and never becomes a guessed new native session.
 
-A fresh snapshot follows native history adoption. Startup cards must remain
-answerable while that history is being read. Native waits and file reads run
+A subscription can first return explicit starting/restoring facts so startup
+cards remain answerable while native history is being read. The owner then
+publishes a numbered replacement after it adopts history. A client must keep
+reading those shared facts before claiming the session is ready. A fresh or
+restarted client always gets a snapshot; only a current-instance authenticated
+reconnect may request replay from a saved cursor. Native waits and file reads run
 outside both session writes and the manager. Captured handles refer to one
 helper and conversation; queued frames check that permission again at the native
 writer. Worker replies also check their original conversation before changing

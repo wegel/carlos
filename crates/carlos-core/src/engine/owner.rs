@@ -94,6 +94,11 @@ impl Owner {
     }
 
     pub(super) fn publish(&mut self) {
+        if self.session.event_availability() == carlos_proto::session::Availability::Ready {
+            if let Some(name) = self.session.events.launch_name.take() {
+                self.session.set_thread_name(Some(name));
+            }
+        }
         if self.session.events.ralph_restore_notice
             && self.session.event_availability() == carlos_proto::session::Availability::Ready
         {

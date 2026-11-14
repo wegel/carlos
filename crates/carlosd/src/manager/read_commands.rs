@@ -1,0 +1,223 @@
+//! Keep device cursors separate from session ownership and schedule bounded owner reads.
+
+use carlos_core::engine::EngineCommand;
+use carlos_proto::commands::{Command, RequestId, RpcError};
+use carlos_proto::ids::{Sequence, SessionId};
+use carlos_proto::session::Availability;
+
+use super::state::{Interest, Read, ReadKind, Waiting};
+use super::Manager;
+use crate::transport::outbox::Kind;
+use crate::transport::wire::error;
+
+impl Manager {
+    pub(super) fn read_command(&mut self, peer: u64, id: RequestId, command: Command) {
+        match command {
+            Command::Subscribe { session, since } => self.subscribe(peer, id, session, since),
+            Command::Unsubscribe { session } => {
+                let connection = self.peers.get_mut(&peer).expect("peer");
+                connection.sessions.remove(&session);
+                connection
+                    .outputs
+                    .retain(|(target, _), _| target != &session);
+                connection.socket.outbox.discard(|kind| matches!(kind,
+                    Kind::Shared(target) | Kind::Snapshot(target) | Kind::Output(target, _) if target == &session));
+                self.reply(peer, id, ());
+            }
+            Command::History {
+                session,
+                before,
+                limit,
+            } => self.rpc_read(
+                peer,
+                id,
+                session,
+                EngineCommand::History {
+                    before,
+                    limit: usize::from(limit),
+                },
+            ),
+            Command::Output {
+                session,
+                entry,
+                cursor,
+                limit,
+            } => self.rpc_read(
+                peer,
+                id,
+                session,
+                EngineCommand::Output {
+                    entry,
+                    cursor,
+                    limit: limit.unwrap_or(65536).min(65536) as usize,
+                },
+            ),
+            Command::OutputSubscribe {
+                session,
+                entry,
+                cursor,
+            } => self.watch_output(peer, id, session, entry, cursor),
+            Command::OutputUnsubscribe { session, entry } => {
+                let connection = self.peers.get_mut(&peer).expect("peer");
+                connection.outputs.remove(&(session.clone(), entry.clone()));
+                connection
+                    .socket
+                    .outbox
+                    .discard(|kind| *kind == Kind::Output(session.clone(), entry.clone()));
+                self.reply(peer, id, ());
+            }
+            _ => unreachable!("authenticated read route"),
+        }
+    }
+
+    fn subscribe(&mut self, peer: u64, id: RequestId, session: SessionId, since: Option<Sequence>) {
+        if let Err(reason) = self.check_subscription(&session) {
+            self.fail(peer, id, reason);
+            return;
+        }
+        let connection = self.peers.get_mut(&peer).expect("peer");
+        if !connection.sessions.contains_key(&session)
+            && connection.sessions.len() == crate::limits::INTERESTS
+        {
+            self.fail(peer, id, error(-32010, "session interests are full"));
+            return;
+        }
+        let Some(generation) = connection.generation.checked_add(1) else {
+            connection.socket.close();
+            return;
+        };
+        connection.generation = generation;
+        let since = since.filter(|_| connection.replay_allowed);
+        connection.sessions.insert(
+            session.clone(),
+            Interest {
+                seq: Sequence::default(),
+                syncing: true,
+                generation,
+            },
+        );
+        connection.socket.outbox.discard(|kind| matches!(kind, Kind::Shared(target) | Kind::Snapshot(target) if target == &session));
+        self.waiting.push(Waiting {
+            peer,
+            id,
+            session: session.clone(),
+            since,
+            generation,
+        });
+        if self.sessions[&session].live.is_none() && self.sessions[&session].launch.is_none() {
+            self.sessions
+                .get_mut(&session)
+                .expect("known session")
+                .info
+                .availability = Availability::Restoring;
+            self.start_launch(&session, true);
+            self.list_changed(&session);
+        }
+        self.resume_subscriptions(&session);
+    }
+
+    fn check_subscription(&self, id: &SessionId) -> Result<(), RpcError> {
+        let state = self
+            .sessions
+            .get(id)
+            .ok_or_else(|| error(-32004, "unknown session"))?;
+        if self.reads.len() + self.waiting.len() >= 256 {
+            return Err(error(-32010, "pending reads are full"));
+        }
+        if state.live.is_none() && state.launch.is_none() {
+            if state.info.availability != Availability::Dormant
+                || state.saved.native_thread.is_none()
+            {
+                return Err(error(
+                    -32012,
+                    "saved native session is unavailable; no replacement was created",
+                ));
+            }
+            if self.owner_count() == crate::limits::OWNERS {
+                return Err(error(-32010, "live session capacity is full"));
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn resume_subscriptions(&mut self, session: &SessionId) {
+        let mut remaining = Vec::new();
+        for waiting in std::mem::take(&mut self.waiting) {
+            if &waiting.session != session {
+                remaining.push(waiting);
+                continue;
+            }
+            if !self.valid_interest(waiting.peer, session, waiting.generation) {
+                self.fail(
+                    waiting.peer,
+                    waiting.id,
+                    error(-32012, "subscription was superseded"),
+                );
+                continue;
+            }
+            let state = &self.sessions[session];
+            if state.live.is_none() && state.launch.is_some() {
+                remaining.push(waiting);
+                continue;
+            }
+            let kind = ReadKind::Subscribe {
+                id: waiting.id.clone(),
+                generation: waiting.generation,
+            };
+            if let Err(reason) = self.queue_read(
+                waiting.peer,
+                session.clone(),
+                kind,
+                EngineCommand::Changes {
+                    since: waiting.since,
+                },
+            ) {
+                self.fail(waiting.peer, waiting.id, reason);
+                self.peers
+                    .get_mut(&waiting.peer)
+                    .expect("interested peer")
+                    .sessions
+                    .remove(session);
+            }
+        }
+        self.waiting = remaining;
+    }
+
+    fn rpc_read(&mut self, peer: u64, id: RequestId, session: SessionId, command: EngineCommand) {
+        if let Err(reason) = self.queue_read(peer, session, ReadKind::Rpc(id.clone()), command) {
+            self.fail(peer, id, reason);
+        }
+    }
+
+    pub(super) fn queue_read(
+        &mut self,
+        peer: u64,
+        session: SessionId,
+        kind: ReadKind,
+        command: EngineCommand,
+    ) -> Result<(), RpcError> {
+        if self.reads.len() + self.waiting.len() >= 256 {
+            return Err(error(-32010, "pending reads are full"));
+        }
+        let live = self
+            .sessions
+            .get(&session)
+            .and_then(|state| state.live.as_ref())
+            .ok_or_else(|| error(-32012, "session has no live owner"))?;
+        let reply = live.handle.request(command)?;
+        self.reads.push(Read {
+            peer,
+            session,
+            kind,
+            reply,
+        });
+        Ok(())
+    }
+
+    pub(super) fn valid_interest(&self, peer: u64, session: &SessionId, generation: u64) -> bool {
+        self.peers
+            .get(&peer)
+            .and_then(|connection| connection.sessions.get(session))
+            .is_some_and(|interest| interest.generation == generation)
+    }
+}

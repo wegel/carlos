@@ -312,12 +312,15 @@ dependencies = [
 name = "carlosd"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "carlos-core",
  "carlos-proto",
  "getrandom 0.4.3",
  "libc",
  "rusqlite",
  "serde",
  "serde_json",
+ "signal-hook",
  "socket2",
  "tempfile",
  "uuid",
