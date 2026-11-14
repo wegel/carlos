@@ -19,12 +19,14 @@ pub(super) fn run(peer: u64, mut stream: &UnixStream, ingress: Ingress, outbox: 
         match stream.read(&mut buffer) {
             Ok(0) => return,
             Ok(count) => {
-                if !consume(peer, &buffer[..count], &mut partial, &ingress, outbox) {
+                let Ok(completed_frame) =
+                    consume(peer, &buffer[..count], &mut partial, &ingress, outbox)
+                else {
                     return;
-                }
+                };
                 if partial.is_empty() {
                     began = None;
-                } else if began.is_none() {
+                } else if completed_frame || began.is_none() {
                     began = Some(Instant::now());
                 }
             }
@@ -45,10 +47,11 @@ fn consume(
     partial: &mut Vec<u8>,
     ingress: &Ingress,
     outbox: &Outbox,
-) -> bool {
+) -> Result<bool, ()> {
+    let mut completed_frame = false;
     for segment in bytes.split_inclusive(|byte| *byte == b'\n') {
         if segment.len() > crate::limits::REQUEST_BYTES.saturating_sub(partial.len()) {
-            return false;
+            return Err(());
         }
         partial.extend_from_slice(segment);
         if segment.last() != Some(&b'\n') {
@@ -65,8 +68,9 @@ fn consume(
         };
         partial.clear();
         if !accepted {
-            return false;
+            return Err(());
         }
+        completed_frame = true;
     }
-    true
+    Ok(completed_frame)
 }

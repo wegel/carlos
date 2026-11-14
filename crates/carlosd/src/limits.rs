@@ -22,3 +22,5 @@ pub const OUT_FRAMES: usize = 128;
 pub const OUT_BYTES: usize = 16 * 1024 * 1024;
 /// Leave room beyond ordinary shared facts for an explicit replacement snapshot.
 pub const SHARED_BYTES: usize = 8 * 1024 * 1024;
+/// Bound outstanding owner replies as well as the small commands that requested them.
+pub const READ_BYTES: usize = 32 * 1024 * 1024;

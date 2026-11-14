@@ -19,6 +19,7 @@ class NativeCodex:
         self.answers = 0
         self.interrupts = 0
         self.prompts = 0
+        self.history_padding = ""
         self.ready = threading.Event()
         self.loop = asyncio.new_event_loop()
         self.thread = threading.Thread(target=self.run, daemon=True)
@@ -57,7 +58,7 @@ class NativeCodex:
 
     def history(self):
         turns = [{"id": "history-turn", "status": "completed", "items": [
-            {"id": f"history-{index}", "type": "agentMessage", "phase": "final_answer", "text": f"history {index}"}
+            {"id": f"history-{index}", "type": "agentMessage", "phase": "final_answer", "text": f"history {index}" + self.history_padding}
             for index in range(130)]}]
         turns[0]["items"].append({"id": "history-tool", "type": "commandExecution", "command": "cat history.txt",
                                   "aggregatedOutput": "".join(f"history-output {n}\n" for n in range(10000)), "exitCode": 0})

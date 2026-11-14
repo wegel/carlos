@@ -63,6 +63,7 @@ pub(super) struct Read {
     pub session: SessionId,
     pub kind: ReadKind,
     pub reply: mpsc::Receiver<EngineReply>,
+    pub reserved: usize,
 }
 
 pub(super) enum ReadKind {

@@ -20,12 +20,18 @@ impl Manager {
                 continue;
             }
             match read.reply.try_recv() {
-                Ok(reply) => self.finish_read(read, reply),
+                Ok(reply) => {
+                    self.read_bytes -= read.reserved;
+                    self.finish_read(read, reply);
+                }
                 Err(mpsc::TryRecvError::Empty) => pending.push(read),
-                Err(mpsc::TryRecvError::Disconnected) => self.finish_read(
-                    read,
-                    EngineReply::Failure(error(-32603, "session owner stopped during read")),
-                ),
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    self.read_bytes -= read.reserved;
+                    self.finish_read(
+                        read,
+                        EngineReply::Failure(error(-32603, "session owner stopped during read")),
+                    );
+                }
             }
         }
         self.reads.extend(pending);

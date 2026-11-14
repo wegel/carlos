@@ -199,17 +199,30 @@ impl Manager {
         if self.reads.len() + self.waiting.len() >= 256 {
             return Err(error(-32010, "pending reads are full"));
         }
+        let reserved = match command {
+            EngineCommand::Changes { .. } => 16 * 1024 * 1024,
+            EngineCommand::Output { .. } => 512 * 1024,
+            _ => crate::limits::FRAME_BYTES,
+        };
+        if reserved > crate::limits::READ_BYTES.saturating_sub(self.read_bytes) {
+            return Err(error(
+                -32010,
+                "pending reply bytes are full; retry this read later",
+            ));
+        }
         let live = self
             .sessions
             .get(&session)
             .and_then(|state| state.live.as_ref())
             .ok_or_else(|| error(-32012, "session has no live owner"))?;
         let reply = live.handle.request(command)?;
+        self.read_bytes += reserved;
         self.reads.push(Read {
             peer,
             session,
             kind,
             reply,
+            reserved,
         });
         Ok(())
     }

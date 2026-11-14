@@ -38,6 +38,7 @@ pub(crate) struct Manager {
     peers: HashMap<u64, Peer>,
     sessions: HashMap<SessionId, Session>,
     reads: Vec<Read>,
+    read_bytes: usize,
     waiting: Vec<Waiting>,
     retry: RetryStore,
     store: Store,
@@ -68,6 +69,7 @@ impl Manager {
             peers: HashMap::new(),
             sessions,
             reads: Vec::new(),
+            read_bytes: 0,
             waiting: Vec::new(),
             retry: RetryStore::new(
                 uuid::Uuid::new_v4()
@@ -151,7 +153,13 @@ impl Manager {
             if let Some(client) = self.peers.remove(&id).and_then(|peer| peer.client.clone()) {
                 self.retry.disconnect(&client, Instant::now());
             }
-            self.reads.retain(|read| read.peer != id);
+            self.reads.retain(|read| {
+                if read.peer != id {
+                    return true;
+                }
+                self.read_bytes -= read.reserved;
+                false
+            });
             self.waiting.retain(|read| read.peer != id);
         }
     }

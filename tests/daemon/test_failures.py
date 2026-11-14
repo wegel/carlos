@@ -2,11 +2,32 @@
 
 import select
 import socket
+import json
 
 from support import Client, Fixture, alive, wait_for
 
 
 class FailureTests:
+    def test_many_large_history_reads_cannot_reserve_unbounded_reply_memory(self):
+        fixture = Fixture("reply-budget", codex=True)
+        self.addCleanup(fixture.close)
+        fixture.native.history_padding = "p"*16384
+        client = Client(fixture, "history-reader")
+        self.addCleanup(client.close)
+        operation = client.operation(1)
+        session = client.call("session/create", operation=operation, backend="codex", cwd=str(fixture.root), name=None)["session"]
+        client.outcome(operation)
+        snapshot = client.call("session/subscribe", session=session, since=None)["snapshot"]
+        before = snapshot["entries"][0]["id"]
+        requests = [{"jsonrpc": "2.0", "id": 1000+index, "method": "session/history", "params": {
+            "session": session, "before": before, "limit": 100}} for index in range(32)]
+        client.socket.sendall(b"".join((json.dumps(request)+"\n").encode() for request in requests))
+        responses = [client.response(request["id"]) for request in requests]
+        self.assertTrue(any(response.get("error", {}).get("code") == -32010 for response in responses))
+        self.assertTrue(any("result" in response for response in responses))
+        self.assertEqual(client.call("sessions/watch")["sessions"][0]["availability"], "ready")
+        fixture.memory("after-large-history-read-burst")
+
     def test_explicit_shutdown_stops_owned_native_children_after_clients_detach(self):
         fixture = Fixture("owned-stop", mode="codex-current")
         self.addCleanup(fixture.close)
@@ -114,6 +135,7 @@ class FailureTests:
         state = second.call("session/subscribe", session=session, since=None)["snapshot"]
         self.assertEqual(state["info"]["availability"], "ready")
         self.assertFalse(any(m.get("method") == "entry/output" for m in second.messages))
+        fixture.memory("after-16MiB-tool-output")
         deadline = select.poll()
         deadline.register(first.socket, select.POLLHUP | select.POLLRDHUP)
         deadline.poll(1500)
