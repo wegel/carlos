@@ -59,7 +59,7 @@ the full plan now uses EP019a's working interfaces. Protocol version 1
 remains provisional until real remote clients exercise it.
 
 ExecPlans 019a through 022 are listed in `docs/engine-architecture.md`. Only the next plan
-is written in full. On 2026-11-14, the owner delegated approval of completed EPs to Codex and asked it to continue through the next EPs while the owner sleeps. After all checks and the direct engineering review pass, record the auto-approval and continue. Do not stop at the former per-EP human gate. This grant does not authorize merging, pushing or replacing the installed spike binary; keep those actions separate.
+is written in full. On 2026-11-14, the owner delegated approval of completed EPs to Codex and asked it to continue through the next EPs while the owner sleeps. Before each auto-approval, also obtain a Fable 5.2 medium review of the code and whole roadmap, as the owner requested in the same conversation. Use judgment to address or explain each finding, then record the auto-approval and continue after all checks and the direct engineering review pass. Do not stop at the former per-EP human gate. This grant does not authorize merging, pushing or replacing the installed spike binary; keep those actions separate.
 
 ExecPlans 009 to 015 remain under `.agents/execplans/`. Their status was not reviewed when the
 daemon split started. They remain outside the iPhone spike; its current step is EP019b.

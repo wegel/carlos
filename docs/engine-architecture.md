@@ -242,7 +242,7 @@ this branch; `etc/mac-build.env` lives in the `carlos-daemon` checkout.
 - Gates per task: `cargo test`, `bash scripts/test.sh`, `carlos perf-session`
   against the baseline. A fresh Codex run reviews with
   `.agents/reviewers/engineering_reviewer.md`.
-- On 2026-11-14, the owner delegated approval of completed ExecPlans to Codex and asked it to continue to the next EP while the owner sleeps. Codex must pass the checks, perform the direct engineering review and record each auto-approval before continuing. This supersedes the earlier per-EP human pause. Keep the installed binary unchanged and do not merge or push without the owner’s request.
+- On 2026-11-14, the owner delegated approval of completed ExecPlans to Codex and asked it to continue to the next EP while the owner sleeps. Codex must pass the checks, perform the direct engineering review, obtain the owner-requested Fable 5.2 medium review of code quality and the whole roadmap, assess its findings and record each auto-approval before continuing. This supersedes the earlier per-EP human pause. Keep the installed binary unchanged and do not merge or push without the owner’s request.
 
 ## Open items
 
