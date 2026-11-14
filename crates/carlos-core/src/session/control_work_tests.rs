@@ -181,6 +181,50 @@ fn withdrawing_a_card_cancels_its_undispatched_answer() {
 }
 
 #[test]
+fn an_in_flight_interrupt_claim_reopens_only_when_its_own_completion_settles() {
+    let mut state = state();
+    let (client, calls) = endpoint(false);
+    state.set_active_turn_id(Some("live".into()));
+    let turn = state
+        .publish()
+        .snapshot(100)
+        .info
+        .current_turn
+        .expect("turn token");
+    let first = state
+        .prepare_engine_interrupt(&client, &turn)
+        .expect("first stop intent");
+    assert!(state.prepare_engine_interrupt(&client, &turn).is_err());
+    state
+        .finish_engine_control(&client, first.execute(&client))
+        .expect("native acknowledgement");
+    let next = state
+        .prepare_engine_interrupt(&client, &turn)
+        .expect("acknowledged stop may be requested again");
+    state.set_active_turn_id(Some("replacement".into()));
+    let replacement = state
+        .publish()
+        .snapshot(100)
+        .info
+        .current_turn
+        .expect("replacement token");
+    let pending = state
+        .prepare_engine_interrupt(&client, &replacement)
+        .expect("new stop intent");
+    let _ = state.finish_engine_control(&client, next.execute(&client));
+    assert!(
+        state
+            .prepare_engine_interrupt(&client, &replacement)
+            .is_err(),
+        "old completion cannot release the new turn's claim"
+    );
+    state
+        .finish_engine_control(&client, pending.execute(&client))
+        .expect("new stop settles");
+    assert_eq!(calls.lock().expect("native calls").len(), 2);
+}
+
+#[test]
 fn a_changed_turn_or_dropped_owner_cancels_a_prepared_interrupt() {
     for drop_owner in [false, true] {
         let mut state = state();

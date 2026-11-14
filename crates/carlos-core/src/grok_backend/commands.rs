@@ -62,7 +62,11 @@ impl GrokCommands {
                 Ok(json!({ "jsonrpc": "2.0", "result": {} }).to_string())
             }
             "turn/steer" => bail!("Grok does not support mid-turn steer"),
-            "turn/interrupt" => self.interrupt_session(session_id, permission),
+            "turn/interrupt" => self.interrupt_session(
+                session_id,
+                params.get("turnId").and_then(Value::as_str),
+                permission,
+            ),
             other => bail!("unsupported Grok backend method: {other}"),
         }
     }

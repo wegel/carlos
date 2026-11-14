@@ -68,6 +68,7 @@ pub struct GrokTranslationState {
     pub(super) model: Option<String>,
     pub(super) effort: Option<String>,
     pub(super) next_turn_seq: u64,
+    pub(super) prompt_epoch: u64,
     pub(super) current_turn_id: Option<String>,
     pub(super) current_message_id: Option<String>,
     pub(super) current_message_text: String,

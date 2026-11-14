@@ -101,6 +101,11 @@ impl SessionState {
             .as_mut()
             .filter(|turn| &turn.id == expected)
             .context("interrupt turn is stale")?;
+        ensure!(
+            !turn.interrupting,
+            "interrupt for this turn is already in flight"
+        );
+        turn.interrupting = true;
         let turn_id = turn.id.clone();
         let native = turn.native.clone();
         let live = turn
@@ -187,13 +192,13 @@ impl SessionState {
         }
         match &completion.call {
             ControlCall::Interrupt { turn, .. } => {
-                if completion.result.is_ok()
-                    && self
-                        .events
-                        .current_turn
-                        .as_ref()
-                        .is_some_and(|current| &current.id == turn)
+                if let Some(current) = self
+                    .events
+                    .current_turn
+                    .as_mut()
+                    .filter(|current| &current.id == turn)
                 {
+                    current.interrupting = false;
                     if let Ok((_, response)) = &completion.result {
                         self.record_interrupt_ack(response);
                     }

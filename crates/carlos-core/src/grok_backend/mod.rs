@@ -3,6 +3,7 @@
 mod client;
 mod commands;
 mod history;
+mod interrupt;
 mod process;
 #[cfg(test)]
 pub(crate) mod receiver_test_support;
@@ -23,7 +24,7 @@ use crate::protocol_params::ModelInfo;
 
 use self::history::parse_grok_session_list;
 use self::process::{GrokIo, GrokProcess};
-use self::translate::{interrupt_prompt_turn, mark_prompt_started};
+use self::translate::mark_prompt_started;
 use self::types::{
     normalize_runtime_arg, parse_grok_model_catalog, response_error_message, response_is_error,
     synthetic_start_response, token_usage_line,
@@ -317,36 +318,6 @@ impl GrokCommands {
         self.events_tx.send(line).inspect_err(|_| {
             self.process.cancel();
         })
-    }
-
-    fn interrupt_session(
-        &self,
-        session_id: &str,
-        permission: crate::dispatch_guard::DispatchGuard,
-    ) -> Result<String> {
-        let lines = {
-            let mut state = self
-                .translation
-                .lock()
-                .map_err(|_| anyhow!("Grok translation lock poisoned"))?;
-            interrupt_prompt_turn(&mut state).lines
-        };
-        for line in lines {
-            let _ = self.emit(line);
-        }
-        let process = &self.process;
-        process.clear_in_flight_prompts();
-        process.notify_guarded(
-            "session/cancel",
-            json!({ "sessionId": session_id, "cancelTrigger": "esc" }),
-            permission.clone(),
-        )?;
-        let _ = process.notify_guarded(
-            "x.ai/queue/clear",
-            json!({ "sessionId": session_id }),
-            permission,
-        );
-        Ok(json!({ "jsonrpc": "2.0", "result": {} }).to_string())
     }
 }
 

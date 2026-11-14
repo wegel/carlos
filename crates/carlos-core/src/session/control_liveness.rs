@@ -10,6 +10,7 @@ pub(super) struct LiveTurn {
     pub(super) native: String,
     pub(super) id: TurnId,
     pub(super) live: Option<Arc<AtomicBool>>,
+    pub(super) interrupting: bool,
 }
 
 impl LiveTurn {
@@ -22,6 +23,7 @@ impl LiveTurn {
                 .parse()
                 .expect("turn id"),
             live: None,
+            interrupting: false,
         }
     }
 }

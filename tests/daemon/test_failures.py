@@ -8,6 +8,63 @@ from support import Client, Fixture, alive, wait_for
 
 
 class FailureTests:
+    def test_grok_writes_cancel_before_a_queued_human_prompt_and_rejects_foreign_cards(self):
+        fixture = Fixture("grok-cancel-order", mode="grok-held-prompt")
+        self.addCleanup(fixture.close)
+        first = Client(fixture, "stopper")
+        second = Client(fixture, "queued-sender")
+        self.addCleanup(first.close)
+        self.addCleanup(second.close)
+        create = first.operation(1)
+        session = first.call("session/create", operation=create, backend="grok", cwd=str(fixture.root), name=None)["session"]
+        first.outcome(create)
+        first.call("session/subscribe", session=session, since=None)
+        first.call("session/send", session=session, operation=first.operation(2), text="first", policy="queue")
+        first.message(lambda message: message.get("method") == "session/event" and "running first" in json.dumps(message))
+        snapshot = second.call("session/subscribe", session=session, since=None)["snapshot"]
+        queued = second.operation(1)
+        second.call("session/send", session=session, operation=queued, text="second", policy="queue")
+        self.assertEqual(len(fixture.native_requests("session/prompt")), 1)
+        stop = first.operation(3)
+        first.call("session/interrupt", session=session, operation=stop, turn=snapshot["info"]["current_turn"])
+        self.assertEqual(first.outcome(stop)["state"]["kind"], "accepted")
+        self.assertEqual(second.outcome(queued)["state"]["kind"], "accepted")
+        wait_for(lambda: len(fixture.native_requests("session/prompt")) == 2, "queued prompt reaches native peer after cancel")
+        self.assertEqual(len(fixture.native_requests("session/cancel")), 1)
+        unsupported = first.operation(4)
+        first.call("session/approve", session=session, operation=unsupported, approval="f"*32+"-"+"0"*16, answer={"kind": "decision", "decision": "once"})
+        self.assertEqual(first.outcome(unsupported)["state"]["kind"], "rejected")
+        self.assertEqual(first.call("sessions/watch")["sessions"][0]["availability"], "ready")
+
+    def test_repeated_stops_leave_workers_free_for_the_approval_that_releases_them(self):
+        fixture = Fixture("stop-reserve", codex=True)
+        self.addCleanup(fixture.close)
+        fixture.native.hold_interrupts = True
+        first = Client(fixture, "stopper")
+        second = Client(fixture, "answerer")
+        self.addCleanup(first.close)
+        self.addCleanup(second.close)
+        create = first.operation(1)
+        session = first.call("session/create", operation=create, backend="codex", cwd=str(fixture.root), name=None)["session"]
+        first.outcome(create)
+        first.call("session/subscribe", session=session, since=None)
+        first.call("session/send", session=session, operation=first.operation(2), text="held")
+        card = first.message(lambda m: m.get("method") == "session/event" and m["params"]["event"]["kind"] == "approval_requested")["params"]["event"]["approval"]
+        snapshot = second.call("session/subscribe", session=session, since=None)["snapshot"]
+        stops = [first.operation(counter) for counter in range(3, 7)]
+        for operation in stops:
+            first.call("session/interrupt", session=session, turn=snapshot["info"]["current_turn"], operation=operation)
+        def all_admitted_or_rejected():
+            rejected = sum(first.call("operation/read", operation=operation)["state"]["kind"] == "rejected" for operation in stops)
+            return fixture.native.interrupts == 4 or rejected == 3
+        wait_for(all_admitted_or_rejected, "all stop intents reached owner/native admission")
+        answer = second.operation(1)
+        second.call("session/approve", session=session, approval=card["id"], operation=answer, answer={"kind": "decision", "decision": "once"})
+        self.assertEqual(second.outcome(answer)["state"]["kind"], "accepted")
+        self.assertEqual(fixture.native.interrupts, 1)
+        self.assertEqual(first.outcome(stops[0])["state"]["kind"], "accepted")
+        self.assertEqual([first.outcome(operation)["state"]["kind"] for operation in stops[1:]], ["rejected"]*3)
+
     def test_many_large_history_reads_cannot_reserve_unbounded_reply_memory(self):
         fixture = Fixture("reply-budget", codex=True)
         self.addCleanup(fixture.close)

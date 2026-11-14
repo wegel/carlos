@@ -20,6 +20,7 @@ class NativeCodex:
         self.interrupts = 0
         self.prompts = 0
         self.history_padding = ""
+        self.hold_interrupts = False
         self.ready = threading.Event()
         self.loop = asyncio.new_event_loop()
         self.thread = threading.Thread(target=self.run, daemon=True)
@@ -68,6 +69,7 @@ class NativeCodex:
     async def accept(self, link):
         self.connections.add(link)
         held = None
+        held_interrupts = []
         controlled = set()
         try:
             async for raw in link:
@@ -86,7 +88,14 @@ class NativeCodex:
                     if request["method"] == "turn/interrupt":
                         self.interrupts += 1
                         controlled.add("interrupt")
-                    await self.handle(link, request)
+                    if request["method"] == "turn/interrupt" and self.hold_interrupts and "answer" not in controlled:
+                        held_interrupts.append(request["id"])
+                    else:
+                        await self.handle(link, request)
+                if "answer" in controlled:
+                    for identity in held_interrupts:
+                        await self.send(link, {"id": identity, "result": {}})
+                    held_interrupts.clear()
                 if held is not None and controlled == {"answer", "interrupt"}:
                     await self.send(link, {"id": held, "result": {"turn": {"id": "live"}}})
                     held = None

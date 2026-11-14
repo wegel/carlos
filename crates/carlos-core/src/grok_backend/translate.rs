@@ -39,6 +39,10 @@ pub(super) fn translate_grok_notification(
 }
 
 pub(super) fn mark_prompt_started(state: &mut GrokTranslationState) {
+    state.prompt_epoch = state
+        .prompt_epoch
+        .checked_add(1)
+        .expect("Grok prompt counter exhausted");
     state.suppress_user_echo = true;
     state.ignore_stale_updates = false;
     state.turn_completed_emitted = false;

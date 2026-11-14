@@ -205,7 +205,10 @@ if {command!r} == "grok" and os.environ.get("CARLOS_TEST_SERVER") == "grok-held-
     (root / "initialize-held").write_text("waiting")
     while True:
         time.sleep(1)
-os.execv(sys.executable, [sys.executable, {script!r}, *sys.argv[1:]])
+script = {script!r}
+if {command!r} == "grok" and os.environ.get("CARLOS_TEST_SERVER") == "grok-held-prompt":
+    script = {str(REPO / "tests/daemon/native_grok.py")!r}
+os.execv(sys.executable, [sys.executable, script, *sys.argv[1:]])
 '''
 
 
