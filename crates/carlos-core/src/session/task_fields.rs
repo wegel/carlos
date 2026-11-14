@@ -44,6 +44,11 @@ impl TaskRef<'_> {
         if field == TaskField::Label {
             return Some(Cow::Borrowed(self.label()));
         }
+        if field == TaskField::Error {
+            if let Self::Process(row) = self {
+                return session.process_read_error(&row.thread).map(Cow::Borrowed);
+            }
+        }
         let value = match self {
             Self::Agent { data, .. } => agent_field(data, session, field)?,
             Self::Process(row) => {

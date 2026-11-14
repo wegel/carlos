@@ -15,6 +15,13 @@ impl SessionState {
         context: &Value,
         update: &mut ClaudeUpdate,
     ) {
+        if request == Some("task.stop") {
+            if let Some(reply) = crate::session::task_stop_reply::claude(frame, context) {
+                update
+                    .effects
+                    .push(super::receive_update::ClaudeEffect::TaskStop(reply));
+            }
+        }
         if frame["ok"] != true {
             self.failed_claude_control(frame, request, context, update);
             return;

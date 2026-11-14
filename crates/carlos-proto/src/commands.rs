@@ -40,6 +40,13 @@ pub struct Request {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "method", content = "params")]
 pub enum Command {
+    #[serde(rename = "task/stop")]
+    TaskStop {
+        session: SessionId,
+        operation: ClientOperation,
+        task: crate::ids::TaskId,
+        expected_run: crate::ids::TaskRun,
+    },
     #[serde(rename = "task/run")]
     TaskRun {
         session: SessionId,

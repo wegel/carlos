@@ -157,6 +157,14 @@ mod task_digest;
 mod task_fields;
 mod task_rows;
 mod task_runs;
+mod task_stop_claims;
+pub mod task_stop_reply;
+#[cfg(test)]
+mod task_stop_reply_tests;
+mod task_stop_target;
+#[cfg(test)]
+mod task_stop_tests;
+mod task_stop_work;
 #[cfg(test)]
 mod task_view_tests;
 mod task_views;

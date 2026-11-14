@@ -22,6 +22,7 @@ pub struct ClaudeUpdate {
 
 /// Session changes; clients choose their own focus, draft recovery and scroll behavior.
 pub enum ClaudeEffect {
+    TaskStop(crate::session::task_stop_reply::TaskStopReply),
     Callback(ClaudeCallback),
     Cancelled {
         id: Option<String>,

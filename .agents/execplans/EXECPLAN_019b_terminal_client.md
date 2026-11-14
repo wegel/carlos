@@ -28,7 +28,9 @@ The daemon already proves basic chat, approvals, running output, independent cli
 - [x] (2026-11-14) Add typed native queue reads/text/changes with private results, bounded previews, opaque selected entries, preserved rich native inputs and guarded request lifetimes. Seven new daemon workflows pass; the full gate passes 34 daemon, 183 terminal and 23 native-monitor checks at `run-tz3na7`. Restored workspace tests and strict Clippy pass. Omitting the revision comparison fails the strengthened real-socket stale-page test. Terminal consumers remain unfinished.
 - [x] (2026-11-14) Capture each descendant reader's native root and extract its bounded page parser. Reconnect now drives the same reader without a temporary SessionState. Full terminal/native gates pass at run-bP9fHI and run-2bv1Iv; captured-root negative proof fails with the old root lookup.
 - [x] (2026-11-14) Add the native Claude helper run fence and task/run reads. The helper observes run identities before the SDK queue; seven core read tests and four new socket workflows preserve exact current turns, empty/unknown states and reader lifetimes. Full gate passes 43 daemon, 183 terminal, 23 native-monitor and 67 helper checks at run-ymnnH0. Removing read-id checks fails the replacement-poll proof; removing the helper guard sends an extra native stop and fails its SDK proof. Public stop remains unfinished.
-- [ ] Finish the typed task family. Current list/detail/named-text routes, opaque task/run addresses and independent current-page reads pass four core and five real-socket workflows. Workspace tests/strict lint and the full 39-daemon/183-terminal/23-native gate pass at run-izK1lr. Independent older native pages, activity/history, stop guards, aggregate interests and numbered task facts remain open.
+- [x] (2026-11-14) Add private exact-run task stops, retaining root/connection write permissions and process PID/item checks. Nine focused core tests and six new real-socket workflows include a full compiled-Claude-helper pipe. Both engineering findings are fixed and the separate follow-up verdict is PASS. Negative proofs fail when worker dispatch or uncertain outcomes are removed. Restored workspace tests, strict lint and the full 49-daemon/183-terminal/23-native gate pass; artifacts are target/ui-artifacts/run-PW0kwe and source logs are task-stop-final-{tests,clippy,terminal}.log.
+- [ ] Finish the typed task family. Current list/detail/named-text/current-run/stop routes are checked. Independent older native pages, activity/history and numbered task facts remain open. Add read interests only where an actual consumer needs them.
+- [ ] Finish the current stop slice, then prove a terminal transcript consumer before adding more task APIs. Fable 5.2 medium reviewed the whole roadmap at this unfinished checkpoint; its report and the assessed actions are `.agents/reports/exec019b-fable-interim-review.md`. No EP approval has occurred. Measure contiguous source reads and real Markdown/ANSI/copy behavior under explicit aggregate memory bounds; choose the render contract from that proof. Then port each remaining panel together with its typed requests.
 - [ ] Add typed native facts/commands for names, prompt edits, task reads/stops, queues, goals, settings/context/quota, summaries, host defaults and lifecycle. Preserve existing tokens and target/generation guards; prove two clients can choose different read targets.
 - [x] (2026-11-14) Add the pure shared client codec and bounded fact/history/card windows. Twelve client tests, workspace tests, strict Clippy and 15 architecture checks pass. The checker allows only reviewed data packages below the client.
 - [x] (2026-11-14) Add private connection credentials/counters and operation-owned drafts/echoes. Twenty client tests, the actual daemon wire test, workspace tests and strict lint pass; 15 architecture checks pass. No client method automatically resends a mutation.
@@ -40,6 +42,10 @@ The daemon already proves basic chat, approvals, running output, independent cli
 - [ ] Pass final default/no-default tests, strict lint, release/native/terminal/process/dependency checks and matched socket speed/memory comparisons. Review directly, report exact identities/limits, archive the completed plan unchanged, record delegated auto-approval and continue to EP020.
 
 ## Surprises & Discoveries
+
+Task-stop work after commit `95d2d01` captures an opaque task/run pair and a private operation. Root/connection changes retire queued native writes; refreshed process PID/item evidence also retires process stops. A Codex child interrupt already names its exact native turn, and Claude checks the run inside the helper, so Rust no longer duplicates those two run fences. Acknowledgements settle only the originating operation and never invent task completion. Nine focused core tests and six new socket workflows include a deliberately full compiled-helper pipe. The restored full gate passes and the engineering follow-up verdict is PASS.
+
+The engineering reviewer found that Claude's request_native_control waits up to 500 ms for its pipe writer despite returning replies asynchronously. Calling it in the owner loop blocked client reads, and treating every dispatch error as Rejected misstated a possible write. Task stops now use the existing bounded control workers, register the pending outcome before dispatch and report unconfirmed writes as Uncertain. An early native acknowledgement wins over a later local writer error.
 
 The Claude helper currently ignores runId when it invokes query.stopTask(taskId). The public stop route must validate the expected observed run at native dispatch as well as in the owner. Codex agent interrupts can name an exact turn; process termination names only processId and needs checked item/PID evidence. Keep acknowledgements separate from task completion. These routes remain unfinished.
 
@@ -65,6 +71,10 @@ Main has not advanced beyond `a29b1a1` at plan start. EP019a's final source is `
 The shared client exposed a card-order defect: the publisher sent new cards before the new cards used as their anchors, and omitted order-only moves. The publisher now emits from tail to head and compares both card facts and the next-card address. The new deterministic test fails with the old publisher (`approval-order-negative.log`); the full terminal/native gate passes with the fix.
 
 ## Decision Log
+
+Decision: prove the terminal transcript/source consumer before adding older task windows, history or another interest mechanism. Rationale: Fable's interim whole-roadmap review correctly identified that source windows alone do not establish whole-document Markdown/ANSI/copy fidelity. Measure a bounded contiguous-body prototype first, then port panels together with their wire requests. Keep the final embedded-path deletion gate and every workflow requirement. Date/Author: 2026-11-14, Codex after Fable 5.2 medium review.
+
+Decision: retain prepare-time task/run validation and native exact-run checks, with additional core PID/item reconciliation only for process stops. Rationale: native Codex turns and Claude helper runs already prevent redirection, while process termination names only processId. Keep root/connection write permissions, private outcome records and the old embedded Claude stop record until its consumer moves, but add no public duplicate stop-state cache. Date/Author: 2026-11-14, Codex after Fable review.
 
 Decision: check Claude's supplied native run id against a bounded table observed before the SDK's unread queue. Preserve terminal tombstones and disable guarded task stops explicitly if that table exceeds its bounds. Rationale: checking only Rust's later copy can miss a replacement already waiting inside the helper; evicting a newer tombstone could authorize a late older run. The table retains identities only, with no task body or new worker. Legacy requests without a run id keep their existing behavior until the public stop adapter can advertise its exact supported guard. Date/Author: 2026-11-14, Codex.
 
@@ -110,7 +120,7 @@ Decision: cap retained session facts across one Client at 64 MiB and defer futur
 
 ## Outcomes & Retrospective
 
-Current task groundwork captures each native root, reuses one bounded parser during reconnect, and serves typed current-page metadata through the actual dispatcher. Four core tests and five socket workflows cover independent client targets, stale preconditions, run replacement, exact large Unicode fields, unavailable scopes and held reads while priority controls advance. These checks do not prove the remaining stop/history/older-window/watch routes or the terminal cutover. No Fable review or EP auto-approval has run.
+Current task groundwork captures each native root, reuses one bounded parser during reconnect, and serves typed current-page metadata through the actual dispatcher. Four core tests and five socket workflows cover independent client targets, stale preconditions, run replacement, exact large Unicode fields, unavailable scopes and held reads while priority controls advance. These checks do not prove the remaining history/older-window/watch routes or the terminal cutover. Fable's interim whole-roadmap review is recorded below and in its focused report. No EP auto-approval has run.
 
 
 
@@ -142,7 +152,7 @@ Make snapshots/history/events carry bounded entry text with an explicit source d
 ### Milestone 2: expose the remaining typed terminal workflows
 
 
-Extend typed protocol modules by concern rather than enlarging a single command file. Add `session/rename`, `session/rewind` with a stable prompt entry target, task list/detail/history/stop requests with opaque run-bound addresses, native queue read/mutations with expected revisions, goal reads/mutations, runtime settings/capabilities, detailed context/quota/compaction, summary settings and host defaults. Add native saved-session discovery/resume and explicit lifecycle controls needed by current CLI startup. Never accept arbitrary backend method names or raw native parameters from clients.
+Extend typed protocol modules by concern rather than enlarging a single command file. Add `session/rename`, `session/rewind` with a stable prompt entry target, task list/detail/history/stop requests with opaque run-bound addresses, native queue read/mutations with expected revisions, goal reads/mutations, runtime settings/capabilities, detailed context/quota/compaction, summary settings and host defaults. Add native saved-session discovery/resume and explicit lifecycle controls needed by current CLI startup. Never accept arbitrary backend method names or raw native parameters from clients. After the current stop slice, alternate this work with the terminal consumer in Milestone 4: prove transcript/send/approval/source rendering first, then add or adjust each remaining panel family only while porting its actual workflow. Do not finish every speculative server interface before starting the terminal.
 
 For every family, move its public facts into protocol data, retain validation and native translation in core, and route mutation results through the existing private operation store. Prepare I/O outside session borrows and check conversation/generation when completing. Keep pending/unknown/error states explicit. Aggregate clients' read interests by stable target; native callbacks may update shared facts but cannot select a client's editor. Keep only accepted host defaults on disk. Preserve Ctrl+M's context-size editor, attached Codex read-only choice and Claude shell override. Complete the report-field map as each family moves and remove editor/focus instructions from shared notices. Test each promoted family through the actual dispatcher, including stale targets and two independent client choices.
 
@@ -295,3 +305,53 @@ Update note (2026-11-14, run-read races found before commitment): review of the 
 Update note (2026-11-14, current-run negative proof): removing only the read-id comparison makes the older client's continuation follow the replacement and fails the new test in task-read-id-negative.log. The production comparison is restored. All seven core tests pass, including exhausted-token refusal, and the four socket workflows pass before the final borrowed-view-only adjustment. Current workspace tests/strict lint and the full daemon/terminal/native gate are being repeated in task-current-run-restored-{tests,clippy}.log and task-current-run-terminal.log. No binary is installed. The public stop and remaining task/settings/lifecycle/terminal work are still incomplete; no EP approval gate has been reached.
 
 Update note (2026-11-14, current-run read verified): workspace tests and strict Clippy pass on restored source in task-current-run-restored-{tests,clippy}.log. Full runner passes 43 daemon, 183 terminal and 23 native-monitor workflows, installed Codex contracts, 67 helper tests and 15 architecture checks at run-ymnnH0; log task-current-run-terminal.log. Size and whitespace checks pass. Direct self-review checked captured root/connection/task metadata, original native tokens/deadlines, independent replies, known-empty precedence, read-id replacement/eviction, exact method/parameter matching and token exhaustion. Accepted proofs are borrowed once per immutable task view. Native turn items are never retained. The old-poll negative proof fails with only its id comparison omitted; restored source is checked. Main/installed binaries remain untouched. Next: private operation-owned task stops with actual writer permissions, while preserving native acknowledgements separately from task completion. The public stop, older windows/history, aggregate interests, remaining native families and actual terminal cutover/deletion remain unfinished. No Fable review or EP auto-approval has run.
+
+
+## Review: task-stop slice
+
+Reviewer prompt: `.agents/reviewers/engineering_reviewer.md`. Two bounded separate Codex
+sessions reviewed the code without changing it. The initial executable sandbox attempt
+could not inspect files; a rerun with command access established the findings below.
+
+### Initial verdict
+
+Reviewed all tracked and untracked changes against `95d2d01`, including native guards, daemon/Core/Claude replies, and task invalidation hooks. The seven focused core tests passed.
+
+1. **MAJOR: Claude stops block the session owner.**
+   [task_stops.rs:57](/var/home/wegel/work/perso/carlos-daemon/crates/carlos-core/src/engine/task_stops.rs:57) calls `work.dispatch()` directly. For Claude, that reaches `ControllerTransport::send()` and `InputWriter::write_guarded()`, which waits up to 500 ms for stdin. During that wait, the owner cannot serve reads, process approvals, or apply native events. This violates the explicit requirement that the owner never wait on native I/O.
+
+   **Corrective guidance:** enqueue the guarded write without waiting, then report its result asynchronously. Preserve the eight-stop limit and writer-time identity check. Add a daemon test that stalls helper stdin and verifies that reads and controls remain responsive.
+
+2. **MAJOR: An unconfirmed write becomes a definite rejection.**
+   [task_stops.rs:68](/var/home/wegel/work/perso/carlos-daemon/crates/carlos-core/src/engine/task_stops.rs:68) converts every dispatch error into `Rejected`. Claude’s writer timeout explicitly allows that the request may already have been accepted. A delayed write can therefore stop the native task while Carlos reports rejection; any later acknowledgement is ignored because Carlos never retained the pending stop.
+
+   **Corrective guidance:** distinguish failures proven to occur before any bytes were written from failures after a write may have started. Report the latter as `Uncertain`. Add a test covering a delayed write whose native result cannot be confirmed.
+
+**Verdict: FAIL**
+
+### Corrected follow-up verdict
+
+Reviewed the two fixes, worker-slot lifetimes, pending records, native ACK ordering, and the guards that prevent stale writes.
+
+Both prior MAJOR findings are resolved safely:
+
+- The owner sends native writes through the existing four control workers. It installs each pending record before dispatch and releases each worker slot on `TaskStopDispatch`, even if an ACK already removed the record.
+- An unconfirmed write returns `Uncertain`. A late writer error cannot overwrite an earlier native ACK.
+- Root and connection guards remain intact. Prepared commands retain the exact native turn or Claude helper run; process claims still check PID/item identity.
+
+I reran the nine focused core tests; all passed. The supplied compiled-helper pipe-full test and negative proofs directly support both fixes.
+
+No BLOCKER, MAJOR, or MINOR findings within this scope. No corrective changes requested. This verdict does not cover the roadmap or the still-running full gate.
+
+**Verdict: PASS**
+
+The focused report is `.agents/reports/exec019b-task-stop-engineering-review.md`.
+Fable’s whole-roadmap interim report and the assessed actions are
+`.agents/reports/exec019b-fable-interim-review.md`; it did not approve the unfinished EP.
+
+Update note (2026-11-14, interim review and stop corrections): record the two engineering
+findings and passing follow-up, remove redundant native-run reconciliation, and place the
+terminal source/render prototype before further task API work. Keep the full parity and
+embedded-path deletion gates. Final restored workspace/lint/full checks pass. The stop slice
+is ready to commit; EP019b is still incomplete and has not been auto-approved. Main and the
+installed executable remain unchanged.

@@ -42,7 +42,7 @@ impl Ingress {
             | Command::GoalClear { .. }
             | Command::QueueChange { .. }
             | Command::Rewind { .. } => 0,
-            Command::Interrupt { .. } | Command::Approve { .. } => 1,
+            Command::TaskStop { .. } | Command::Interrupt { .. } | Command::Approve { .. } => 1,
             _ => 2,
         };
         let limits = [

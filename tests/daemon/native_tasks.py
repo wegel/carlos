@@ -13,11 +13,28 @@ class NativeTasks:
         self.task_turns = {}
         self.task_run_hold = set()
         self.task_run_pending = {}
+        self.task_stop_hold = set()
+        self.task_stop_pending = {}
+        self.task_stop_errors = set()
 
     async def task_request(self, link, request):
         if self.task_agents is None:
             return False
         method, params = request["method"], request["params"]
+        if method in ("turn/interrupt", "thread/backgroundTerminals/terminate"):
+            owner = params["threadId"]
+            identity = params.get("processId", owner)
+            if owner != self.thread_id or method.endswith("/terminate"):
+                result = {"terminated": True} if "processId" in params else {}
+                reply = {"id": request["id"], "result": result}
+                if identity in self.task_stop_errors:
+                    reply = {"id": request["id"], "error": {"code": -32602, "message": "PRIVATE_TASK_REJECTION"}}
+                if identity in self.task_stop_hold:
+                    assert identity not in self.task_stop_pending
+                    self.task_stop_pending[identity] = (link, reply)
+                else:
+                    await self.send(link, reply)
+                return True
         if method == "thread/turns/list" and params["threadId"] != self.thread_id:
             thread = params["threadId"]
             assert params == {"threadId": thread, "sortDirection": "desc", "itemsView": "notLoaded", "limit": 1}
@@ -78,3 +95,10 @@ class NativeTasks:
             for link in list(self.connections):
                 await self.notify(link, "turn/started", threadId=thread, turn=turn)
         asyncio.run_coroutine_threadsafe(observe(), self.loop).result(timeout=3)
+
+    def release_task_stop(self, identity):
+        async def release():
+            link, reply = self.task_stop_pending.pop(identity)
+            self.task_stop_hold.discard(identity)
+            await self.send(link, reply)
+        asyncio.run_coroutine_threadsafe(release(), self.loop).result(timeout=3)

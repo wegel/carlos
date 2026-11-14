@@ -75,6 +75,13 @@ impl SessionState {
         for row in rows {
             row.hash_identity(&mut hash);
             hash_value(&mut hash, row.data());
+            if let TaskRef::Process(process) = row {
+                hash.update(&[u8::from(self.process_known(&process.thread))]);
+                hash_text(
+                    &mut hash,
+                    self.process_read_error(&process.thread).unwrap_or_default(),
+                );
+            }
             if let Some(run) = row.run(self) {
                 hash_text(&mut hash, run.as_str());
             } else {
@@ -113,6 +120,36 @@ impl SessionState {
             Backend::Claude => self.claude.enabled,
             Backend::Grok => false,
         }
+    }
+
+    pub(super) fn process_known(&self, owner: &str) -> bool {
+        !self.codex_scope().closed()
+            && !self.codex_task_status.uncertain.contains(owner)
+            && !self.codex_task_status.errors.contains_key(owner)
+            && !self
+                .codex_panel
+                .process_scopes
+                .get(owner)
+                .is_some_and(Option::is_some)
+    }
+
+    pub(super) fn process_read_error(&self, owner: &str) -> Option<&str> {
+        if self.process_known(owner) {
+            return None;
+        }
+        self.codex_task_status
+            .errors
+            .get(owner)
+            .map(String::as_str)
+            .or_else(|| {
+                self.codex_panel
+                    .process_scopes
+                    .get(owner)
+                    .and_then(|error| error.as_deref())
+            })
+            .or(Some(
+                "Carlos needs a fresh process list before stopping this process",
+            ))
     }
 
     fn task_owns(&self, id: &str) -> bool {
@@ -160,7 +197,14 @@ impl TaskRef<'_> {
                 TaskKind::Agent,
                 data["status"]["type"].as_str().unwrap_or("unknown"),
             ),
-            Self::Process(_) => (TaskKind::Process, "present"),
+            Self::Process(row) => (
+                TaskKind::Process,
+                if session.process_known(&row.thread) {
+                    "present"
+                } else {
+                    "unknown"
+                },
+            ),
             Self::Claude { id, .. } => (
                 TaskKind::Task,
                 session
@@ -258,6 +302,10 @@ impl TaskRef<'_> {
                 data["run_id"].as_str().filter(|id| !id.is_empty())?,
             ),
             Self::Process(row) => {
+                if !session.process_known(&row.thread) {
+                    return None;
+                }
+                super::task_stop_target::process_identity(&row.data)?;
                 let item = &row.data["itemId"];
                 let pid = &row.data["osPid"];
                 if item.as_str().is_none_or(str::is_empty) && !pid.is_number() {

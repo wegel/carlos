@@ -24,6 +24,7 @@ impl SessionState {
     }
     /// Fence native work after transport closure.
     pub fn close_codex(&mut self) {
+        self.task_stops.clear();
         self.codex_meta.scope.closed = true;
     }
     /// Reopen native work only after its complete snapshot was installed.
@@ -32,6 +33,7 @@ impl SessionState {
     }
     /// Invalidate old root operations with the original saturated epoch counter.
     pub(crate) fn advance_codex_epoch(&mut self) {
+        self.task_stops.clear();
         self.codex_meta.scope.epoch = self.codex_meta.scope.epoch.saturating_add(1);
     }
     /// Borrow the temporary native turn used to construct an entry source key.

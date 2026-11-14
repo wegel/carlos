@@ -11,6 +11,10 @@ use crate::session::control_work::ControlCompletion;
 use crate::session::ralph::RalphConfig;
 
 pub(super) enum Completion {
+    TaskStopDispatch {
+        operation: ClientOperation,
+        result: Result<(), String>,
+    },
     Ordinary {
         operation: Option<ClientOperation>,
         completion: BackendCompletion,

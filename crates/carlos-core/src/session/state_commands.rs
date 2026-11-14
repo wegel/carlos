@@ -12,6 +12,7 @@ impl SessionState {
     /// Adopt a thread id after the app has reset its backend-specific children.
     pub fn set_thread_id(&mut self, id: String) {
         if self.thread_id != id {
+            self.task_stops.clear();
             self.retire_backend_command();
             self.events.current_turn = None;
         }

@@ -105,6 +105,9 @@ fn publish(
     if read.root != *session.thread_id() {
         return Err("Task read belongs to a retired root; previous rows retained".into());
     }
+    session
+        .task_stops
+        .reconcile_processes(None, &read.processes);
     session.codex_panel.ownership = super::panel_state::VerifiedOwners::new(
         &read.root,
         scope.native.epoch,

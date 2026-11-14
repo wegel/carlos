@@ -428,6 +428,20 @@
         "refresh": false,
         "read": null
       }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "task-stop",
+      "method": "task/stop",
+      "params": {
+        "session": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "operation": {
+          "client": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "17"
+        },
+        "task": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "expected_run": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
     }
   ],
   "notifications": [

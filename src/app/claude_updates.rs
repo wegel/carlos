@@ -52,6 +52,7 @@ impl AppState {
 
     fn apply_claude_effect(&mut self, effect: ClaudeEffect) {
         match effect {
+            ClaudeEffect::TaskStop(_) => {}
             ClaudeEffect::Callback(callback) => self.apply_claude_callback(callback),
             ClaudeEffect::Cancelled { id, card } => {
                 if card.is_some() && self.view.confirm_allow == card {

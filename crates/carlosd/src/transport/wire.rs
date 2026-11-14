@@ -42,6 +42,7 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Request, Failure> {
             | "goal/set"
             | "goal/clear"
             | "task/run"
+            | "task/stop"
             | "task/list"
             | "task/detail"
             | "task/text"

@@ -11,6 +11,9 @@ impl Owner {
     pub(super) fn drain_completions(&mut self) {
         while let Ok(completion) = self.workers.completed.try_recv() {
             match completion {
+                Completion::TaskStopDispatch { operation, result } => {
+                    self.finish_task_stop_dispatch(operation, result);
+                }
                 Completion::Ordinary {
                     operation,
                     completion,

@@ -34,6 +34,7 @@ impl Owner {
             | EngineCommand::GoalSet { operation, .. }
             | EngineCommand::GoalClear { operation, .. }
             | EngineCommand::QueueChange { operation, .. }
+            | EngineCommand::TaskStop { operation, .. }
             | EngineCommand::Approve { operation, .. }
             | EngineCommand::Interrupt { operation, .. } => operation,
             _ => {
@@ -59,59 +60,75 @@ impl Owner {
     }
 
     pub(super) fn dispatch_controls(&mut self) {
-        while self.workers.controls_busy < 4 {
+        for _ in 0..64 {
+            if self.workers.controls_busy >= 4 {
+                break;
+            }
             let Ok(envelope) = self.channels.control.try_recv() else {
                 break;
             };
             let Some(command) = self.admit(envelope) else {
                 continue;
             };
-            let commands = match self.client.capture_commands() {
-                Ok(commands) => commands,
-                Err(error) => {
-                    let operation = match &command {
-                        EngineCommand::Interrupt { operation, .. }
-                        | EngineCommand::Approve { operation, .. } => operation,
-                        _ => unreachable!("control lane"),
-                    };
-                    self.results.update(operation, rejected(error.to_string()));
-                    self.notice();
-                    continue;
-                }
-            };
-            let (operation, work) = match command {
-                EngineCommand::Interrupt { operation, turn } => (
-                    operation,
-                    self.session
-                        .prepare_engine_interrupt(self.client.as_ref(), &turn),
-                ),
-                EngineCommand::Approve {
-                    operation,
-                    card,
-                    answer,
-                } => (
-                    operation,
-                    self.session.prepare_engine_answer(
-                        self.client.kind(),
-                        EntryId::from_wire(&card),
-                        answer,
-                    ),
-                ),
-                _ => unreachable!("typed control lane"),
-            };
-            let prepared = work;
-            match prepared {
-                Ok(work) => {
-                    self.workers.controls_busy += 1;
-                    self.workers.controls.submit(move || Completion::Control {
-                        operation,
-                        completion: work.execute(&commands),
-                    });
-                }
-                Err(error) => self.results.update(&operation, rejected(error.to_string())),
+            if let EngineCommand::TaskStop {
+                operation,
+                task,
+                expected_run,
+            } = command
+            {
+                self.stop_task(operation, task, expected_run);
+                continue;
             }
-            self.notice();
+            self.dispatch_control(command);
         }
+    }
+
+    fn dispatch_control(&mut self, command: EngineCommand) {
+        let commands = match self.client.capture_commands() {
+            Ok(commands) => commands,
+            Err(error) => {
+                let operation = match &command {
+                    EngineCommand::Interrupt { operation, .. }
+                    | EngineCommand::Approve { operation, .. } => operation,
+                    _ => unreachable!("control lane"),
+                };
+                self.results.update(operation, rejected(error.to_string()));
+                self.notice();
+                return;
+            }
+        };
+        let (operation, work) = match command {
+            EngineCommand::Interrupt { operation, turn } => (
+                operation,
+                self.session
+                    .prepare_engine_interrupt(self.client.as_ref(), &turn),
+            ),
+            EngineCommand::Approve {
+                operation,
+                card,
+                answer,
+            } => (
+                operation,
+                self.session.prepare_engine_answer(
+                    self.client.kind(),
+                    EntryId::from_wire(&card),
+                    answer,
+                ),
+            ),
+            _ => unreachable!("typed control lane"),
+        };
+        let prepared = work;
+        match prepared {
+            Ok(work) => {
+                self.workers.controls_busy += 1;
+                self.workers.controls.submit(move || Completion::Control {
+                    operation,
+                    completion: work.execute(&commands),
+                });
+            }
+            Err(error) => self.results.update(&operation, rejected(error.to_string())),
+        }
+        self.notice();
     }
 
     pub(super) fn dispatch_ordinary(&mut self) {

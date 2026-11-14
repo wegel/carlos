@@ -110,8 +110,10 @@ impl Owner {
 
     pub(super) fn close_native(&mut self) {
         self.native.closed = true;
+        self.session.task_stops.clear();
         self.retire_goal_scope();
         self.retire_queue_scope();
+        self.retire_task_stops();
         self.session.events.backend_closed = true;
         self.session.retire_backend_command();
         self.session.set_active_turn_id(None);

@@ -17,6 +17,7 @@ mod results;
 mod ring;
 mod settle;
 mod target;
+mod task_stops;
 mod timers;
 mod workers;
 
@@ -38,6 +39,11 @@ pub use self::ring::EngineFrame;
 
 /// Only explicit session reads and commands enter the owner, never native method strings.
 pub enum EngineCommand {
+    TaskStop {
+        operation: ClientOperation,
+        task: carlos_proto::ids::TaskId,
+        expected_run: carlos_proto::ids::TaskRun,
+    },
     TaskRun {
         task: carlos_proto::ids::TaskId,
         read: Option<carlos_proto::ids::TaskReadId>,
@@ -253,7 +259,9 @@ impl EngineHandle {
             | EngineCommand::Rewind { .. } => &self.0.ordinary,
             EngineCommand::GoalSet { .. } | EngineCommand::GoalClear { .. } => &self.0.ordinary,
             EngineCommand::QueueChange { .. } => &self.0.ordinary,
-            EngineCommand::Interrupt { .. } | EngineCommand::Approve { .. } => &self.0.control,
+            EngineCommand::TaskStop { .. }
+            | EngineCommand::Interrupt { .. }
+            | EngineCommand::Approve { .. } => &self.0.control,
             _ => &self.0.reads,
         };
         let reply = mailbox.request(command)?;

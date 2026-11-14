@@ -13,7 +13,8 @@ pub(in crate::app) fn apply(
     update: CallbackUpdate,
 ) -> Option<ServerRequestAction> {
     match update.effect {
-        CallbackEffect::None => {}
+        // Task-stop replies belong to the daemon operation store.
+        CallbackEffect::None | CallbackEffect::TaskStop(_) => {}
         CallbackEffect::ReplyFailed { id, error } => reply_failed(app, &id, error),
         CallbackEffect::Accepted {
             key,

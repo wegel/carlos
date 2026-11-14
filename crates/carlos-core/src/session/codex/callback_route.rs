@@ -114,6 +114,9 @@ impl SessionState {
     }
 
     fn route_codex_control(&mut self, params: &Value, panel: PanelScope<'_>) -> CallbackUpdate {
+        if let Some(reply) = crate::session::task_stop_reply::codex(params) {
+            return CallbackUpdate::new(CallbackEffect::TaskStop(reply));
+        }
         if super::task_status::reply(self, panel, params)
             || super::reconnect_runtime::reply(self, params)
         {

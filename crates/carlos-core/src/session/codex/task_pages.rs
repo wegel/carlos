@@ -83,6 +83,9 @@ fn publish(session: &mut SessionState, scope: PanelScope<'_>) -> Result<(), Stri
         return Err("Background process cache exceeded its 512-record/8 MiB bound".into());
     }
     let nonempty = !read.items.is_empty();
+    session
+        .task_stops
+        .reconcile_processes(Some(owner), &read.items);
     session.codex_panel.revision = session.codex_panel.revision.saturating_add(1);
     session
         .codex_panel

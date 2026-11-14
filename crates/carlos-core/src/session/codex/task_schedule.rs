@@ -80,6 +80,7 @@ pub(super) fn invalidate(session: &mut SessionState, owner: &str, dirty: bool) {
 pub(super) fn failed(session: &mut SessionState, scope: PanelScope<'_>, error: &str) {
     if let Some(read) = session.codex_task_status.read.take() {
         if let Some(owner) = read.request.params["threadId"].as_str() {
+            session.task_stops.retire_process_owner(owner);
             session.codex_task_status.uncertain.insert(owner.into());
             session
                 .codex_task_status

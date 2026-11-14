@@ -1,6 +1,6 @@
 //! Keep a session and its receiver on one thread while bounded reads remain independent.
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 
@@ -25,6 +25,8 @@ pub(super) struct Channels {
 }
 
 pub(super) struct Owner {
+    pub(super) task_stops:
+        HashMap<carlos_proto::submissions::ClientOperation, super::task_stops::PendingTaskStop>,
     pub(super) queue: Option<super::queue_changes::PendingQueue>,
     pub(super) goal: Option<super::goals::PendingGoal>,
     pub session: SessionState,
@@ -48,6 +50,7 @@ impl Owner {
         let native = super::native::Native::start(events, &channels);
         let workers = super::workers::Workers::new(&channels.wake);
         Self {
+            task_stops: HashMap::new(),
             queue: None,
             goal: None,
             session,
@@ -69,6 +72,7 @@ impl Owner {
             self.drain_completions();
             self.retire_goal_scope();
             self.retire_queue_scope();
+            self.retire_task_stops();
             self.dispatch_controls();
             self.admit_ordinary();
             self.dispatch_actions();

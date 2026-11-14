@@ -15,9 +15,10 @@ from test_edits import EditTests
 from test_goals import GoalTests
 from test_queue import QueueTests
 from test_tasks import TaskTests
+from test_task_stops import TaskStopTests
 
 
-class DaemonTests(FailureTests, RecoveryTests, SourceTests, EditTests, GoalTests, QueueTests, TaskTests, unittest.TestCase):
+class DaemonTests(FailureTests, RecoveryTests, SourceTests, EditTests, GoalTests, QueueTests, TaskTests, TaskStopTests, unittest.TestCase):
     def test_codex_reads_controls_fifo_and_independent_output_cursors_while_send_waits(self):
         fixture = Fixture("codex-held", codex=True)
         self.addCleanup(fixture.close)

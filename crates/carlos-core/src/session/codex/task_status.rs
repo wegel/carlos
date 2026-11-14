@@ -69,6 +69,7 @@ pub fn observed(session: &mut SessionState, scope: PanelScope<'_>, method: &str,
                 .iter()
                 .any(|row| row.thread == owner)
     {
+        session.task_stops.retire_process_owner(owner);
         invalidate(session, owner, true);
     }
 }

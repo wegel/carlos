@@ -17,6 +17,7 @@ pub(super) type Prepared = (
 
 pub(super) fn prepare(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
     let parts = match command {
+        command @ Command::TaskStop { .. } => return prepare_task_stop(command),
         command @ Command::QueueChange { .. } => return prepare_queue(command),
         command @ (Command::GoalSet { .. } | Command::GoalClear { .. }) => {
             return prepare_goal(command)
@@ -222,4 +223,26 @@ fn prepare_queue(command: Command) -> Result<Prepared, carlos_proto::commands::R
         }
         _ => unreachable!("typed queue mutation"),
     }
+}
+
+fn prepare_task_stop(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
+    Ok(match command {
+        Command::TaskStop {
+            session,
+            operation,
+            task,
+            expected_run,
+        } => (
+            session,
+            operation.clone(),
+            EngineCommand::TaskStop {
+                operation,
+                task,
+                expected_run,
+            },
+            None,
+            Class::Control,
+        ),
+        _ => unreachable!("typed task stop route"),
+    })
 }

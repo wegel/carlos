@@ -72,6 +72,7 @@ impl SessionState {
         scopes: HashMap<String, Option<String>>,
         scope: PanelScope<'_>,
     ) {
+        self.task_stops.clear();
         self.codex_panel.ownership = ownership;
         self.codex_panel.process_scopes = scopes;
         self.codex_task_status = Default::default();

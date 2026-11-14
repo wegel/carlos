@@ -78,7 +78,9 @@ impl SessionState {
             native_state: state,
             reading: read.is_some_and(|read| read.request.is_some()),
             closed: self.events.backend_closed,
-            error: if accepted {
+            error: if let TaskRef::Process(row) = row {
+                self.process_read_error(&row.thread).map(str::to_string)
+            } else if accepted {
                 None
             } else {
                 read.and_then(|read| read.read_error(self, row.native_id()))

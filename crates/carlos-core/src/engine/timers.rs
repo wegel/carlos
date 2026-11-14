@@ -26,6 +26,12 @@ impl Owner {
             reconnect_streams::tick(self.client.as_ref(), &mut self.session, now);
             reconnect_runtime::tick(self.client.as_ref(), &mut self.session);
             let panel_scope = self.task_read_scope();
+            crate::session::codex::task_status::tick(
+                self.client.as_ref(),
+                &mut self.session,
+                panel_scope,
+                now,
+            );
             crate::session::codex::panel::tick(
                 self.client.as_ref(),
                 &mut self.session,

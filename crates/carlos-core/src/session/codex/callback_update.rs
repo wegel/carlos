@@ -20,6 +20,7 @@ pub struct CallbackUpdate {
 
 /// Name the exact local changes needed after the session handles a native frame.
 pub enum CallbackEffect {
+    TaskStop(crate::session::task_stop_reply::TaskStopReply),
     None,
     ReplyFailed {
         id: Value,

@@ -43,6 +43,7 @@ impl Owner {
         );
         for effect in report.effects {
             match effect {
+                ClaudeEffect::TaskStop(reply) => self.finish_task_stop(reply),
                 ClaudeEffect::Submission(outcome) => self.submission(outcome),
                 ClaudeEffect::SessionClosed => {
                     self.close_native();
@@ -67,6 +68,7 @@ impl Owner {
 
     fn codex_report(&mut self, report: CallbackUpdate) {
         match report.effect {
+            CallbackEffect::TaskStop(reply) => self.finish_task_stop(reply),
             CallbackEffect::None
             | CallbackEffect::Accepted { .. }
             | CallbackEffect::Retired(_)
