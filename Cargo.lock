@@ -309,6 +309,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "carlosd"
+version = "0.1.0"
+dependencies = [
+ "carlos-proto",
+ "getrandom 0.4.3",
+ "libc",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "socket2",
+ "tempfile",
+ "uuid",
+]
+
+[[package]]
 name = "cassowary"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

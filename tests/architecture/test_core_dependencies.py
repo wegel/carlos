@@ -69,6 +69,18 @@ class CoreDependencyTests(unittest.TestCase):
             }
             self.assertTrue(any("fixture helpers are opt-in" in issue for issue in GUARD.check_graph(sample)))
 
+    def test_daemon_cannot_hide_terminal_or_audio_dependencies_behind_an_alias(self):
+        sample = graph({"core": ("carlos-core", []), "daemon": ("carlosd", ["hidden"]), "hidden": ("ratatui", [])})
+        sample["workspace_members"].append("daemon")
+        issues = GUARD.check_graph(sample)
+        self.assertIn("carlosd: forbidden resolved package ratatui", issues)
+        self.assertIn("carlosd: unreviewed direct package ratatui", issues)
+
+    def test_daemon_direct_packages_need_review_even_when_unused(self):
+        sample = graph({"core": ("carlos-core", []), "daemon": ("carlosd", ["runtime"]), "runtime": ("tokio", [])})
+        sample["workspace_members"].append("daemon")
+        self.assertIn("carlosd: unreviewed direct package tokio", GUARD.check_graph(sample))
+
 
 
 

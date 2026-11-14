@@ -11,6 +11,10 @@ REVIEWED = {
     "carlos-proto", "anyhow", "base64", "blake3", "jsonschema", "libc", "mio", "rusqlite",
     "serde_json", "shlex", "socket2", "tempfile", "tungstenite", "url", "uuid",
 }
+DAEMON_REVIEWED = {
+    "carlos-core", "carlos-proto", "anyhow", "getrandom", "libc", "rusqlite",
+    "serde", "serde_json", "signal-hook", "socket2", "uuid", "tempfile",
+}
 FORBIDDEN = {
     "carlos", "crossterm", "ratatui", "termion", "tui", "ansi-to-tui",
     "cpal", "rubato", "webrtc-vad", "whisper-rs", "whisper-rs-sys", "alsa",
@@ -48,14 +52,25 @@ def check_graph(metadata):
     if len(owners) != 1:
         return ["Expected exactly one carlos-core workspace member"]
     nodes = {node["id"]: node for node in metadata["resolve"]["nodes"]}
-    owner = owners[0]
     issues = check_protocol(packages, nodes)
+    selected = [owners[0]] + [key for key in metadata["workspace_members"] if packages[key]["name"] == "carlosd"]
+    for owner in selected:
+        name = packages[owner]["name"]
+        reviewed = REVIEWED if name == "carlos-core" else DAEMON_REVIEWED
+        issues.extend(check_owner(packages, nodes, owner, reviewed))
+    return sorted(set(issues))
+
+
+def check_owner(packages, nodes, owner, reviewed):
+    """Check both native-service crates without letting the UI graph enter either."""
+    label = packages[owner]["name"]
+    issues = []
     if packages[owner].get("features", {}).get("default", []):
-        issues.append("carlos-core: default features must stay empty; fixture helpers are opt-in")
+        issues.append(f"{label}: default features must stay empty; fixture helpers are opt-in")
     for key in nodes[owner]["dependencies"]:
         name = packages[key]["name"]
-        if name not in REVIEWED:
-            issues.append(f"carlos-core: unreviewed direct package {name}")
+        if name not in reviewed:
+            issues.append(f"{label}: unreviewed direct package {name}")
     pending, visited = [owner], set()
     while pending:
         key = pending.pop()
@@ -64,9 +79,9 @@ def check_graph(metadata):
         visited.add(key)
         name = packages[key]["name"]
         if name in FORBIDDEN or name.startswith(("ratatui-", "tui-")):
-            issues.append(f"carlos-core: forbidden resolved package {name}")
+            issues.append(f"{label}: forbidden resolved package {name}")
         pending.extend(nodes[key]["dependencies"])
-    return sorted(set(issues))
+    return issues
 
 
 def check_tree(root):
@@ -83,4 +98,4 @@ if __name__ == "__main__":
     if errors:
         print("\n".join(errors), file=sys.stderr)
         sys.exit(1)
-    print("Core packages: no terminal, audio or speech dependency in any target branch")
+    print("Core and daemon packages: no terminal, audio or speech dependency in any target branch")
