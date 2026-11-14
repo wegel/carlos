@@ -76,8 +76,25 @@ pub enum EntryKind {
     Reasoning,
     Commentary,
     Answer,
+    ToolCall,
     Tool,
     Notice,
+}
+
+/// Preserve source meaning without choosing a client's colors, wrapping or collapse policy.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EntryFormat {
+    #[default]
+    Plain,
+    UserSteer,
+    Diff,
+}
+
+impl EntryFormat {
+    pub(crate) fn is_plain(&self) -> bool {
+        *self == Self::Plain
+    }
 }
 
 /// Tool execution facts; unknown is deliberately distinct from success.
@@ -129,6 +146,10 @@ pub struct Tool {
 pub struct Entry {
     pub id: EntryId,
     pub kind: EntryKind,
+    #[serde(default, skip_serializing_if = "EntryFormat::is_plain")]
+    pub format: EntryFormat,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_path: Option<String>,
     pub text: String,
     /// When present, text is not the body; fetch original source through entry/source.
     #[serde(default, skip_serializing_if = "Option::is_none")]

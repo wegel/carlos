@@ -590,6 +590,56 @@
           }
         }
       }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/event",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "seq": "1",
+        "event": {
+          "kind": "entry_added",
+          "entry": {
+            "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+            "kind": "tool_call",
+            "text": "",
+            "done": false,
+            "tool": {
+              "kind": "edit",
+              "label": "Apply patch",
+              "label_source": "literal",
+              "status": "running",
+              "summary": null,
+              "added": null,
+              "removed": null,
+              "has_output": true,
+              "output_revision": "0"
+            },
+            "operation": null,
+            "format": "diff",
+            "file_path": "src/é.rs"
+          }
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/event",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "seq": "4",
+        "event": {
+          "kind": "entry_facts_changed",
+          "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+          "facts": {
+            "kind": "user",
+            "done": true,
+            "tool": null,
+            "format": "user_steer",
+            "file_path": "src/é.rs"
+          }
+        }
+      }
     }
   ]
 }

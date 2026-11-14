@@ -152,6 +152,8 @@ mod transcript_journal;
 mod event_tests;
 
 #[cfg(test)]
+mod event_format_tests;
+#[cfg(test)]
 mod event_input_tests;
 
 pub mod output;

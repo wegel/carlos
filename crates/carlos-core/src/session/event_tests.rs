@@ -1,6 +1,6 @@
 //! Reconstruct a headless client's state from sealed JSON events.
 
-use carlos_proto::events::{Event, SessionEvent};
+use carlos_proto::events::{EntryFacts, Event, SessionEvent};
 use carlos_proto::ids::Sequence;
 use carlos_proto::session::{Decision, LabelSource, Phase, Snapshot};
 use serde_json::{from_str, json, to_string};
@@ -38,16 +38,7 @@ fn apply(client: &mut Snapshot, event: SessionEvent) {
                 .text
                 .push_str(&text);
         }
-        Event::EntryFactsChanged { entry, facts } => {
-            let row = client
-                .entries
-                .iter_mut()
-                .find(|old| old.id == entry)
-                .expect("live row");
-            row.kind = facts.kind;
-            row.done = facts.done;
-            row.tool = facts.tool;
-        }
+        Event::EntryFactsChanged { entry, facts } => apply_facts(client, entry, facts),
         Event::OutputChanged {
             entry,
             revision,
@@ -75,6 +66,19 @@ fn apply(client: &mut Snapshot, event: SessionEvent) {
         }
     }
     client.seq = event.seq;
+}
+
+fn apply_facts(client: &mut Snapshot, entry: carlos_proto::ids::EntryId, facts: EntryFacts) {
+    let row = client
+        .entries
+        .iter_mut()
+        .find(|old| old.id == entry)
+        .expect("live row");
+    row.kind = facts.kind;
+    row.format = facts.format;
+    row.file_path = facts.file_path;
+    row.done = facts.done;
+    row.tool = facts.tool;
 }
 
 fn apply_source(

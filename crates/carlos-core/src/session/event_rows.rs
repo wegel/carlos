@@ -2,7 +2,9 @@
 
 use carlos_proto::events::EntryFacts;
 use carlos_proto::output::OutputRevision;
-use carlos_proto::session::{Entry, EntryKind, LabelSource, Tool, ToolKind, ToolStatus};
+use carlos_proto::session::{
+    Entry, EntryFormat, EntryKind, LabelSource, Tool, ToolKind, ToolStatus,
+};
 
 use super::models::{Message, MessageKind, Role};
 use super::state::SessionState;
@@ -45,6 +47,7 @@ pub(super) fn wire_row_bytes(row: &Message) -> usize {
         });
     source
         .saturating_add(label)
+        .saturating_add(row.file_path.as_ref().map_or(0, String::len))
         .saturating_mul(6)
         .saturating_add(1024)
 }
@@ -55,6 +58,8 @@ impl SessionState {
         Entry {
             id: message.id.to_wire(),
             kind: facts.kind,
+            format: facts.format,
+            file_path: facts.file_path,
             text: if is_tool(message)
                 || message.text.len() > carlos_proto::source::INLINE_SOURCE_BYTES
             {
@@ -72,22 +77,30 @@ impl SessionState {
     }
 
     pub(super) fn export_entry_facts(&self, message: &Message) -> EntryFacts {
-        let kind = if is_tool(message) {
-            EntryKind::Tool
-        } else {
-            match message.role {
-                Role::User => EntryKind::User,
-                Role::Assistant => EntryKind::Answer,
-                Role::Commentary => EntryKind::Commentary,
-                Role::Reasoning => EntryKind::Reasoning,
-                Role::ToolCall | Role::ToolOutput => EntryKind::Tool,
-                Role::System => EntryKind::Notice,
-            }
+        let kind = match message.role {
+            Role::User => EntryKind::User,
+            Role::Assistant => EntryKind::Answer,
+            Role::Commentary => EntryKind::Commentary,
+            Role::Reasoning => EntryKind::Reasoning,
+            Role::ToolCall => EntryKind::ToolCall,
+            Role::ToolOutput => EntryKind::Tool,
+            Role::System => EntryKind::Notice,
+        };
+        let format = match message.kind {
+            MessageKind::Plain => EntryFormat::Plain,
+            MessageKind::UserSteer => EntryFormat::UserSteer,
+            MessageKind::Diff => EntryFormat::Diff,
         };
         let done = self.messages.is_complete(message.id);
         let tool = is_tool(message)
             .then(|| export_tool(message, done, self.messages.output_revision(message.id)));
-        EntryFacts { kind, done, tool }
+        EntryFacts {
+            kind,
+            format,
+            file_path: message.file_path.clone(),
+            done,
+            tool,
+        }
     }
 }
 
@@ -109,10 +122,10 @@ fn export_tool(message: &Message, done: bool, revision: u64) -> Tool {
     } else {
         ToolKind::Other
     };
-    let status = if !done {
-        ToolStatus::Running
-    } else if details.is_some_and(|tool| tool.failed) {
+    let status = if details.is_some_and(|tool| tool.failed) {
         ToolStatus::Failed
+    } else if !done {
+        ToolStatus::Running
     } else {
         ToolStatus::Unknown
     };

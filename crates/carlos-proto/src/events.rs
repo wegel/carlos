@@ -5,12 +5,18 @@ use serde::{Deserialize, Serialize};
 use crate::commands::RpcVersion;
 use crate::ids::{EntryId, Sequence, SessionId};
 use crate::output::{OutputRevision, OutputUpdate};
-use crate::session::{Approval, Decision, Entry, EntryKind, SessionInfo, Snapshot, Tool};
+use crate::session::{
+    Approval, Decision, Entry, EntryFormat, EntryKind, SessionInfo, Snapshot, Tool,
+};
 
 /// Facts that change without replacing or resending an entry's source text.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EntryFacts {
     pub kind: EntryKind,
+    #[serde(default, skip_serializing_if = "EntryFormat::is_plain")]
+    pub format: EntryFormat,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_path: Option<String>,
     pub done: bool,
     pub tool: Option<Tool>,
 }

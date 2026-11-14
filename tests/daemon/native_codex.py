@@ -163,6 +163,16 @@ class NativeCodex:
         self.prompts += 1
         turn = f"turn-{self.prompts}"
         await self.notify(link, "turn/started", turn={"id": turn})
+        if text == "format-facts":
+            items = [
+                {"type": "userMessage", "id": "wire-first", "content": [{"type": "text", "text": "wire first"}]},
+                {"type": "userMessage", "id": "wire-steer", "content": [{"type": "text", "text": "wire second"}]},
+                {"type": "toolCall", "id": "wire-call", "tool": "Bash", "name": "Bash", "input": {"command": "pwd"}},
+                {"type": "toolOutput", "id": "wire-diff", "files": [
+                    {"filePath": "src/é.rs", "diff": "@@ -1 +1 @@\n-old\n+new 🌍\n"}]},
+            ]
+            for item in items:
+                await self.notify(link, "item/completed", turnId=turn, item=item)
         if text == "many-rows":
             for index in range(1500):
                 await self.notify(link, "item/completed", turnId=turn, item={

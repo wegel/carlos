@@ -4,6 +4,25 @@ from support import Client, Fixture, wait_for
 
 
 class SourceTests:
+    def test_source_roles_steers_and_diff_paths_survive_the_actual_socket(self):
+        fixture, first, second, session = self.clients("source-formats")
+        operation = first.operation(2)
+        first.call("session/send", session=session, operation=operation, text="format-facts")
+        first.outcome(operation)
+        def formatted():
+            snapshot = second.call("session/subscribe", session=session, since=None)["snapshot"]
+            return snapshot if any(row.get("format") == "diff" for row in snapshot["entries"]) else None
+        snapshot = wait_for(formatted, "native source formats published")
+        steer = next(row for row in snapshot["entries"] if row["text"] == "wire second")
+        self.assertEqual((steer["kind"], steer["format"]), ("user", "user_steer"))
+        call = next(row for row in snapshot["entries"] if row["kind"] == "tool_call")
+        self.assertTrue(first.call("entry/source", session=session, entry=call["id"], cursor=None, limit=65536)["text"])
+        diff = next(row for row in snapshot["entries"] if row.get("format") == "diff")
+        self.assertEqual(diff["kind"], "tool")
+        self.assertEqual(diff["file_path"], "src/é.rs")
+        self.assertEqual(diff["text"], "")
+        self.assertEqual(first.call("entry/source", session=session, entry=diff["id"], cursor=None, limit=65536)["text"], "@@ -1 +1 @@\n-old\n+new 🌍\n")
+
     def clients(self, name):
         fixture = Fixture(name, codex=True)
         self.addCleanup(fixture.close)
@@ -26,7 +45,7 @@ class SourceTests:
         first.call("session/send", session=session, operation=send, text="held")
         card = first.message(lambda m: m.get("method") == "session/event" and m["params"]["event"]["kind"] == "approval_requested")["params"]["event"]["approval"]
         snapshot = second.call("session/subscribe", session=session, since=None)["snapshot"]
-        entry = first.message(lambda m: m.get("method") == "session/event" and m["params"]["event"]["kind"] == "entry_added" and m["params"]["event"]["entry"]["kind"] == "tool")["params"]["event"]["entry"]["id"]
+        entry = first.message(lambda m: m.get("method") == "session/event" and m["params"]["event"]["kind"] in ("entry_added", "entry_updated") and (m["params"]["event"]["entry"].get("tool") or {}).get("has_output"))["params"]["event"]["entry"]["id"]
         source = first.call("entry/source/subscribe", session=session, entry=entry, cursor=None)
         normalized = first.call("entry/output/subscribe", session=session, entry=entry, cursor=None)
         self.assertEqual(source["text"], fixture.native.tool_first)

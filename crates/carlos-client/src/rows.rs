@@ -114,5 +114,10 @@ pub(crate) fn weight(entry: &Entry) -> usize {
         tool.label.len() + tool.summary.as_ref().map_or(0, String::len)
     });
     // This is an admitted source-data budget, not an exact allocator/heap bound.
-    entry.text.len().saturating_add(tool).saturating_add(256)
+    entry
+        .text
+        .len()
+        .saturating_add(tool)
+        .saturating_add(entry.file_path.as_ref().map_or(0, String::len))
+        .saturating_add(256)
 }

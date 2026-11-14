@@ -149,6 +149,8 @@ impl Replica {
             Event::EntryFactsChanged { entry, facts } => {
                 self.update_row(entry, seq, &mut changed, |row| {
                     row.kind = facts.kind;
+                    row.format = facts.format;
+                    row.file_path = facts.file_path;
                     row.done = facts.done;
                     row.tool = facts.tool;
                 })

@@ -81,8 +81,12 @@ impl Transcript {
     pub(crate) fn set_kind(&mut self, index: usize, kind: MessageKind) {
         if (self.entries[index].kind == MessageKind::Diff) != (kind == MessageKind::Diff) {
             self.replace_output(index);
+            // A plain row's inline text becomes separate output (or the reverse).
+            // Replace the row so clients cannot retain the previous body's representation.
+            self.record_change(index, true, None, true);
+        } else {
+            self.record_facts(index);
         }
-        self.record_facts(index);
         self.entries[index].kind = kind;
     }
 

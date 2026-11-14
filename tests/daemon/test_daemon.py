@@ -38,7 +38,7 @@ class DaemonTests(FailureTests, RecoveryTests, SourceTests, EditTests, unittest.
         second.call("session/send", session=session, operation=queued, text="second")
         card = first.message(lambda m: m.get("method") == "session/event" and m["params"]["event"]["kind"] == "approval_requested")["params"]["event"]["approval"]
         turn = first.message(lambda m: m.get("method") == "session/event" and m["params"]["event"]["kind"] == "info_changed" and m["params"]["event"]["info"]["current_turn"])["params"]["event"]["info"]["current_turn"]
-        tool = first.message(lambda m: m.get("method") == "session/event" and m["params"]["event"]["kind"] == "entry_added" and m["params"]["event"]["entry"]["kind"] == "tool")["params"]["event"]["entry"]["id"]
+        tool = first.message(lambda m: m.get("method") == "session/event" and m["params"]["event"]["kind"] in ("entry_added", "entry_updated") and (m["params"]["event"]["entry"].get("tool") or {}).get("has_output"))["params"]["event"]["entry"]["id"]
         chunk = first.call("entry/output/subscribe", session=session, entry=tool, cursor=None)
         self.assertIn("chunk-a", "".join(part["text"] for part in chunk["segments"]))
         first.call("entry/output/unsubscribe", session=session, entry=tool)

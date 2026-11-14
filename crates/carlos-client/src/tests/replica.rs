@@ -140,3 +140,27 @@ fn a_complete_reset_can_bridge_a_gap_but_a_late_snapshot_cannot_roll_back() {
         "replacement"
     );
 }
+
+#[test]
+fn source_format_and_path_changes_redraw_a_row_without_resending_its_text() {
+    use carlos_proto::session::{EntryFormat, EntryKind};
+    let mut replica = Replica::new(snapshot()).expect("snapshot");
+    let facts = serde_json::from_value(serde_json::json!({"kind":"user", "format":"user_steer",
+        "file_path":"src/é.rs", "done":true, "tool":null}))
+    .expect("facts");
+    let changes = replica
+        .apply(event(
+            11,
+            Event::EntryFactsChanged {
+                entry: entry_id(10),
+                facts,
+            },
+        ))
+        .expect("source facts");
+    assert_eq!(changes.entries, [entry_id(10)]);
+    let row = replica.entry(&entry_id(10)).expect("row");
+    assert_eq!(row.kind, EntryKind::User);
+    assert_eq!(row.format, EntryFormat::UserSteer);
+    assert_eq!(row.file_path.as_deref(), Some("src/é.rs"));
+    assert_eq!(row.text, "hello");
+}
