@@ -97,45 +97,80 @@ pub(super) fn compute_selection_range(
 
 // --- Text Extraction ---
 
+/// Copy an ordered stream of selected global rows without retaining the rendered rows.
+/// The caller clips the row interval against its captured total and omits unavailable rows.
+pub(super) struct SelectionText {
+    bounds: (usize, usize, usize, usize),
+    text: String,
+    previous: Option<(usize, bool)>,
+    has_whitespace: bool,
+}
+
+impl SelectionText {
+    /// Normalize selection columns while the caller retains responsibility for clipping row indices.
+    pub(super) fn new(selection: Selection) -> Self {
+        Self {
+            bounds: normalize_selection_bounds(selection),
+            text: String::new(),
+            previous: None,
+            has_whitespace: false,
+        }
+    }
+
+    /// Append an available row from the clipped interval, preserving its absolute global index.
+    pub(super) fn push(&mut self, index: usize, line: &RenderedLine) {
+        if line.separator && !line.text.is_empty() {
+            return;
+        }
+        let (ax, ay, fx, fy) = self.bounds;
+        let (start, end) = column_range_for_line(index, line.cells, ax, ay, fx, fy);
+        let fragment = extract_line_fragment(&line.text, line.cells, start, end);
+        let fragment_whitespace = fragment.chars().any(char::is_whitespace);
+        let contiguous = self
+            .previous
+            .is_some_and(|(previous, _)| previous.checked_add(1) == Some(index));
+        let soft = self.previous.is_some_and(|(_, soft)| soft);
+        if self.previous.is_some() && !(contiguous && soft) {
+            self.text.push('\n');
+            self.has_whitespace = true;
+        } else if contiguous
+            && soft
+            && should_insert_soft_wrap_space(
+                &self.text,
+                &fragment,
+                self.has_whitespace || fragment_whitespace,
+            )
+        {
+            self.text.push(' ');
+            self.has_whitespace = true;
+        }
+        self.text.push_str(&fragment);
+        self.has_whitespace |= fragment_whitespace;
+        self.previous = Some((index, line.soft_wrap_to_next));
+    }
+
+    /// Return the complete copied text and release the small join state.
+    pub(super) fn finish(self) -> String {
+        self.text
+    }
+}
+
 pub(super) fn selected_text<S: RenderedLineSource + ?Sized>(
     selection: Selection,
     rendered_lines: &S,
 ) -> String {
-    let (ax, ay, fx, fy) = normalize_selection_bounds(selection);
-    if rendered_lines.len() == 0 {
-        return String::new();
-    }
-
-    let start_idx = ay.min(rendered_lines.len().saturating_sub(1));
-    let end_idx = fy.min(rendered_lines.len().saturating_sub(1));
-
-    let mut out = String::new();
-    let mut prev_idx: Option<usize> = None;
-    let mut prev_soft_wrap = false;
-
-    for idx in start_idx..=end_idx {
-        let Some(line) = rendered_lines.get(idx) else {
-            continue;
-        };
-        if line.separator && !line.text.is_empty() {
-            continue;
+    let (_, ay, _, fy) = normalize_selection_bounds(selection);
+    let mut text = SelectionText::new(selection);
+    if rendered_lines.len() > 0 {
+        let start = ay.min(rendered_lines.len().saturating_sub(1));
+        let end = fy.min(rendered_lines.len().saturating_sub(1));
+        for index in start..=end {
+            if let Some(line) = rendered_lines.get(index) {
+                text.push(index, line);
+            }
         }
-        let (s_col, e_col) = column_range_for_line(idx, line.cells, ax, ay, fx, fy);
-        let fragment = extract_line_fragment(&line.text, line.cells, s_col, e_col);
-
-        let contiguous = prev_idx.is_some_and(|i| i + 1 == idx);
-        if prev_idx.is_some() && !(contiguous && prev_soft_wrap) {
-            out.push('\n');
-        } else if contiguous && prev_soft_wrap && should_insert_soft_wrap_space(&out, &fragment) {
-            out.push(' ');
-        }
-        out.push_str(&fragment);
-
-        prev_idx = Some(idx);
-        prev_soft_wrap = line.soft_wrap_to_next;
     }
-
-    out
+    text.finish()
 }
 
 fn normalize_selection_bounds(selection: Selection) -> (usize, usize, usize, usize) {
@@ -170,7 +205,7 @@ fn extract_line_fragment(text: &str, line_cells: usize, s_col: usize, e_col: usi
     slice_by_cells(text, s_col - 1, e_col)
 }
 
-fn should_insert_soft_wrap_space(existing: &str, fragment: &str) -> bool {
+fn should_insert_soft_wrap_space(existing: &str, fragment: &str, has_whitespace: bool) -> bool {
     let Some(prev_ch) = existing.chars().last() else {
         return false;
     };
@@ -188,7 +223,7 @@ fn should_insert_soft_wrap_space(existing: &str, fragment: &str) -> bool {
         return false;
     }
 
-    existing.chars().any(char::is_whitespace) || fragment.chars().any(char::is_whitespace)
+    has_whitespace
 }
 
 // --- Selection Helpers ---
@@ -231,3 +266,7 @@ pub(super) fn decide_mouse_drag_mode(
         MouseDragMode::Undecided
     }
 }
+
+#[cfg(test)]
+#[path = "selection_stream_tests.rs"]
+mod stream_tests;
