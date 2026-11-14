@@ -52,6 +52,7 @@ pub fn launch(
 ) -> Result<Launched, LaunchError> {
     cancel.check().map_err(|_| LaunchError::Cancelled)?;
     validate(&mut request)?;
+    cancel.check().map_err(|_| LaunchError::Cancelled)?;
     let mut launched = backends::start(&request, cancel).map_err(|error| {
         if cancel.check().is_err() {
             LaunchError::Cancelled

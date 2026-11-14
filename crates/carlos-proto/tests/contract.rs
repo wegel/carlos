@@ -152,3 +152,18 @@ fn sends_require_an_operation_and_private_results_keep_its_owner() {
     let parsed: NotificationMessage = from_value(result.clone()).expect("private result");
     assert_eq!(to_value(parsed).expect("encode"), result);
 }
+
+#[test]
+fn session_creation_requires_the_same_retry_identity_as_other_mutations() {
+    let mut create = json!({"jsonrpc":"2.0","id":"create","method":"session/create",
+        "params":{"backend":"grok","cwd":"/work","name":null,"operation":{"client":"a".repeat(32),"id":"1"}}});
+    assert!(from_value::<Request>(create.clone()).is_ok());
+    create["params"]
+        .as_object_mut()
+        .expect("params")
+        .remove("operation");
+    assert!(
+        from_value::<Request>(create).is_err(),
+        "a lost create reply must not permit untracked duplicate sessions"
+    );
+}

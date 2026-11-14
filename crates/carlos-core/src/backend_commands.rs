@@ -27,6 +27,10 @@ pub trait BackendCommands: Send + Sync {
     fn connection_generation(&self) -> Option<u64> {
         None
     }
+    /// Check the captured helper and conversation without waiting for native I/O.
+    fn is_current(&self) -> bool {
+        true
+    }
     /// Copy this captured endpoint with permission carried through its native write queue.
     fn guarded(&self, _permission: crate::dispatch_guard::DispatchGuard) -> Result<CommandHandle> {
         bail!("backend does not support guarded native writes")

@@ -44,24 +44,62 @@ impl Owner {
                         self.session.set_status(error.to_string());
                     }
                 }
-                Completion::Ralph { operation, result } => {
-                    self.workers.ordinary_busy = false;
-                    self.finish_ralph(operation, result);
+                Completion::Ralph {
+                    operation,
+                    result,
+                    target,
+                } => {
+                    self.finish_ralph_completion(target, operation, result);
                 }
                 Completion::Action {
-                    generation,
+                    target,
                     result,
                     kind,
                 } => {
-                    self.workers.actions_busy -= 1;
-                    if generation == self.client.connection_generation() {
-                        self.finish_action(kind, result);
-                    }
+                    self.finish_action_completion(target, kind, result);
                 }
             }
             self.notice();
         }
     }
+    fn finish_ralph_completion(
+        &mut self,
+        target: super::target::Target,
+        operation: carlos_proto::submissions::ClientOperation,
+        result: Result<crate::session::ralph::RalphConfig, String>,
+    ) {
+        self.workers.ordinary_busy = false;
+        if target.matches(&self.session, self.client.kind()) {
+            self.finish_ralph(operation, result);
+        } else {
+            self.results.update(
+                &operation,
+                rejected("session changed while reading Ralph prompt; nothing enabled"),
+            );
+        }
+    }
+
+    fn finish_action_completion(
+        &mut self,
+        target: super::target::Target,
+        kind: super::actions::ActionKind,
+        result: Result<bool, super::actions::ActionFailure>,
+    ) {
+        self.workers.actions_busy -= 1;
+        if let (
+            super::actions::ActionKind::ContextRead(token),
+            Err(super::actions::ActionFailure::Retired),
+        ) = (&kind, &result)
+        {
+            if target.same_helper(&self.session, self.client.kind()) {
+                self.session
+                    .fail_claude_context_request(*token, std::time::Instant::now());
+            }
+        } else if target.matches(&self.session, self.client.kind()) {
+            self.finish_action(kind, result);
+        }
+    }
+
     fn finish_ordinary(
         &mut self,
         operation: Option<carlos_proto::submissions::ClientOperation>,

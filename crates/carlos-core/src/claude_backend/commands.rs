@@ -148,6 +148,9 @@ impl BackendCommands for Commands {
     fn connection_generation(&self) -> Option<u64> {
         Some(self.transport.generation)
     }
+    fn is_current(&self) -> bool {
+        self.check().is_ok()
+    }
     fn abort(&self) {
         self.transport.emitter.stop();
     }

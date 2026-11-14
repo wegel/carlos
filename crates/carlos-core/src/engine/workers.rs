@@ -2,6 +2,7 @@
 
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
+use std::time::{Duration, Instant};
 
 use carlos_proto::submissions::ClientOperation;
 
@@ -22,10 +23,11 @@ pub(super) enum Completion {
     Ralph {
         operation: ClientOperation,
         result: Result<RalphConfig, String>,
+        target: super::target::Target,
     },
     Action {
-        generation: Option<u64>,
-        result: Result<bool, String>,
+        target: super::target::Target,
+        result: Result<bool, super::actions::ActionFailure>,
         kind: super::actions::ActionKind,
     },
 }
@@ -80,9 +82,16 @@ impl Pool {
     pub fn close(&mut self) {
         self.sender.take();
     }
-    pub fn join(&mut self) {
+    fn join_until(&mut self, deadline: Instant) {
         for thread in self.threads.drain(..) {
-            let _ = thread.join();
+            while !thread.is_finished() && Instant::now() < deadline {
+                thread::sleep(Duration::from_millis(5));
+            }
+            if thread.is_finished() {
+                let _ = thread.join();
+            }
+            // The owner has already retired work and stopped native transports. A stuck file read
+            // owns no session borrow; its eventual completion cannot revive or write to the session.
         }
     }
 }
@@ -115,8 +124,9 @@ impl Workers {
         self.ordinary.close();
         self.controls.close();
         self.actions.close();
-        self.ordinary.join();
-        self.controls.join();
-        self.actions.join();
+        let deadline = Instant::now() + Duration::from_secs(1);
+        self.ordinary.join_until(deadline);
+        self.controls.join_until(deadline);
+        self.actions.join_until(deadline);
     }
 }

@@ -23,7 +23,11 @@
       "params": {
         "backend": "claude",
         "cwd": "/work",
-        "name": null
+        "name": null,
+        "operation": {
+          "client": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "1"
+        }
       }
     },
     {
@@ -59,7 +63,7 @@
       "method": "session/send",
       "params": {
         "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "text": "h\u00e9llo \ud83c\udf0d",
+        "text": "héllo 🌍",
         "operation": {
           "client": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "id": "1"
@@ -172,7 +176,7 @@
           "entry": {
             "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
             "kind": "answer",
-            "text": "h\u00e9llo",
+            "text": "héllo",
             "done": false,
             "tool": null,
             "operation": null
@@ -189,7 +193,7 @@
         "event": {
           "kind": "text_appended",
           "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
-          "text": " \ud83c\udf0d"
+          "text": " 🌍"
         }
       }
     },
@@ -204,7 +208,7 @@
           "entry": {
             "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
             "kind": "answer",
-            "text": "h\u00e9llo",
+            "text": "héllo",
             "done": false,
             "tool": null,
             "operation": null
@@ -327,7 +331,7 @@
               {
                 "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
                 "kind": "answer",
-                "text": "h\u00e9llo",
+                "text": "héllo",
                 "done": false,
                 "tool": null,
                 "operation": null
@@ -373,7 +377,7 @@
           "segments": [
             {
               "kind": "plain",
-              "text": "h\u00e9llo\\n"
+              "text": "héllo\\n"
             }
           ],
           "has_more": false,
@@ -394,6 +398,71 @@
           "revision": "0",
           "has_output": true
         }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/snapshot",
+      "params": {
+        "snapshot": {
+          "info": {
+            "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": null,
+            "backend": "codex",
+            "model": null,
+            "host": "local",
+            "cwd": "/work",
+            "phase": "idle",
+            "ralph": false,
+            "turn_started_at": null,
+            "context": null,
+            "quota": null,
+            "availability": "ready",
+            "current_turn": null
+          },
+          "entries": [
+            {
+              "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+              "kind": "answer",
+              "text": "héllo",
+              "done": false,
+              "tool": null,
+              "operation": null
+            }
+          ],
+          "approvals": [
+            {
+              "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+              "kind": "form",
+              "title": "Choose",
+              "details": [],
+              "choices": [
+                "deny",
+                "cancel"
+              ],
+              "input": {
+                "kind": "form",
+                "schema": {
+                  "type": "object"
+                }
+              },
+              "submitted": false,
+              "active": true,
+              "default_to_no": false
+            }
+          ],
+          "seq": "8",
+          "has_older": false
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "entry/output/reset",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+        "message": "output watch queue filled; start a fresh watch"
       }
     }
   ]

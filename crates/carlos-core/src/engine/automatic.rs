@@ -24,10 +24,12 @@ impl Owner {
             self.results.update(&operation, rejected(error));
         } else {
             let load = self.session.ralph_runtime().prepare_config();
+            let target = super::target::Target::capture(&self.session, self.client.kind());
             self.workers.ordinary_busy = true;
             self.workers.ordinary.submit(move || Completion::Ralph {
                 operation,
                 result: load().map_err(|error| error.to_string()),
+                target,
             });
         }
         self.notice();

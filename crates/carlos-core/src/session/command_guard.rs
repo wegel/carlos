@@ -97,7 +97,7 @@ impl SessionState {
             }
     }
 
-    fn command_connection(&self, kind: BackendKind) -> (u64, u64) {
+    pub(super) fn command_connection(&self, kind: BackendKind) -> (u64, u64) {
         match kind {
             BackendKind::Codex => (self.codex_scope().epoch, self.codex_connection.generation()),
             BackendKind::Claude => (self.claude.epoch, self.claude.generation),

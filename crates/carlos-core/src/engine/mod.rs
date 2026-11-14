@@ -11,6 +11,7 @@ mod reports;
 mod results;
 mod ring;
 mod settle;
+mod target;
 mod timers;
 mod workers;
 
@@ -192,3 +193,6 @@ impl EngineCommand {
 
 #[cfg(test)]
 mod owner_tests;
+
+#[cfg(test)]
+mod automatic_tests;

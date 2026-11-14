@@ -55,6 +55,9 @@ fn codex(request: &LaunchRequest, cancel: &LaunchCancellation) -> Result<Launche
     );
     session.set_runtime_capabilities(true, true);
     session.begin_initial_codex_rebuild();
+    if request.restore.is_none() {
+        session.events.launch = Some(carlos_proto::session::Availability::Starting);
+    }
     // The owner starts before snapshot reads so replayed native approvals remain answerable.
     client.bootstrap(thread, response)?;
     let events = client.take_events_rx()?;

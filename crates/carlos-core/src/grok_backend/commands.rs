@@ -92,6 +92,9 @@ impl BackendCommands for Captured {
     fn kind(&self) -> BackendKind {
         BackendKind::Grok
     }
+    fn is_current(&self) -> bool {
+        self.current().is_ok()
+    }
     fn abort(&self) {
         if let Some(commands) = self.commands.upgrade() {
             commands.process.cancel();

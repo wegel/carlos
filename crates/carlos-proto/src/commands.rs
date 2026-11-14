@@ -57,6 +57,7 @@ pub enum Command {
     Watch {},
     #[serde(rename = "session/create")]
     Create {
+        operation: ClientOperation,
         backend: Backend,
         cwd: String,
         name: Option<String>,

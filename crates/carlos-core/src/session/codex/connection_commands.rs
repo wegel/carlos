@@ -106,6 +106,7 @@ impl SessionState {
     pub(crate) fn finish_codex_reconnect(&mut self, goal_changed: bool) -> ItemChanges {
         self.codex_connection.bytes = 0;
         self.codex_connection.rebuilding = false;
+        self.events.launch = None;
         self.codex_connection.runtime_refresh = true;
         if let Some(choices) = self.codex_connection.initial_choices.take() {
             self.defer_codex_settings(Some(choices));

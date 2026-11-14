@@ -7,8 +7,14 @@ use serde_json::Value;
 use super::owner::Owner;
 use crate::backend_commands::CommandHandle;
 
-type ActionCall = Box<dyn FnOnce() -> anyhow::Result<bool> + Send>;
+use super::target::Target;
 use super::workers::Completion;
+
+type ActionCall = Box<dyn FnOnce() -> anyhow::Result<bool> + Send>;
+pub(super) enum ActionFailure {
+    Retired,
+    Native(String),
+}
 use crate::backend::BackendKind;
 use crate::session::actions::ServerRequestAction;
 
@@ -82,7 +88,8 @@ impl Owner {
                 return;
             }
         };
-        let generation = commands.connection_generation();
+        let target = Target::capture(&self.session, self.client.kind());
+        let captured = commands.clone();
         if let ServerRequestAction::ReplyNative { card_id, result } = action {
             if let Some(work) =
                 self.session
@@ -97,10 +104,18 @@ impl Owner {
         }
         let (kind, call) = self.action_call(action, commands);
         self.workers.actions_busy += 1;
-        self.workers.actions.submit(move || Completion::Action {
-            generation,
-            result: call().map_err(|error| error.to_string()),
-            kind,
+        self.workers.actions.submit(move || {
+            let result = call();
+            let result = if captured.is_current() {
+                result.map_err(|error| ActionFailure::Native(error.to_string()))
+            } else {
+                Err(ActionFailure::Retired)
+            };
+            Completion::Action {
+                target,
+                result,
+                kind,
+            }
         });
     }
 
@@ -159,7 +174,7 @@ impl Owner {
         }
     }
 
-    pub(super) fn finish_action(&mut self, kind: ActionKind, result: Result<bool, String>) {
+    pub(super) fn finish_action(&mut self, kind: ActionKind, result: Result<bool, ActionFailure>) {
         match (kind, result) {
             (ActionKind::Settings, Ok(applied)) => {
                 if applied {
@@ -168,7 +183,7 @@ impl Owner {
                 }
                 self.session.refresh_claude_context();
             }
-            (ActionKind::NativeControl, Err(error)) => {
+            (ActionKind::NativeControl, Err(ActionFailure::Native(error))) => {
                 let mut report = Default::default();
                 self.session.fail_claude(&mut report);
                 self.session
@@ -182,7 +197,8 @@ impl Owner {
                 self.session
                     .fail_claude_context_request(token, std::time::Instant::now());
             }
-            (_, Err(error)) => {
+            (_, Err(ActionFailure::Retired)) => {}
+            (_, Err(ActionFailure::Native(error))) => {
                 self.session.ralph_stop_after_failure();
                 self.session
                     .set_status(format!("native control failed: {error}"));
