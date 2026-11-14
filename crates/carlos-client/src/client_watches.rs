@@ -269,13 +269,7 @@ impl Client {
             .filter(|(key, token)| {
                 !self.watches.active.contains_key(*key)
                     && !self.requests.has_watch(token)
-                    && self.sessions.get(token.session()).is_some_and(|slot| {
-                        slot.syncing.is_none()
-                            && slot
-                                .replica
-                                .as_ref()
-                                .is_some_and(|replica| !replica.is_stale())
-                    })
+                    && self.session_is_ready(connection, token.session())
             })
             .map(|(_, token)| token.clone())
             .collect();

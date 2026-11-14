@@ -91,12 +91,7 @@ impl Device {
 
     /// Write reads after drawing, without performing socket I/O inside the paint callback.
     pub(super) fn request_visible(&mut self, link: &mut Transport) -> Result<()> {
-        if !self.client.is_ready(link.connection)
-            || self
-                .client
-                .session(&self.session)
-                .is_none_or(|replica| replica.is_stale())
-        {
+        if !self.client.session_is_ready(link.connection, &self.session) {
             return Ok(());
         }
         self.documents

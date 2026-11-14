@@ -65,6 +65,45 @@ class DaemonSourceRecovery:
         self.assertEqual(terminal.requests("session/send"),[])
         terminal.snapshot("same-id-snapshot-refresh")
 
+    def test_daemon_terminal_keeps_sources_paused_after_a_rejected_session_restore(self):
+        import socket
+        text = "```text\n" + "source before reconnect\n"*4000 + "accepted source tail 🌍\n```\n"
+        items = [{"type":"agentMessage", "id":"restore-answer", "phase":"final_answer", "text":text}]
+        fixture, client, session = self.running_sources("terminal-source-restore", items)
+        terminal = self.attach_daemon(fixture, session, "source-restore")
+        terminal.contains("accepted source tail 🌍")
+        terminal.paste("draft survives source restore failure")
+        terminal.wait(lambda:terminal.input_is("draft survives source restore failure"), "private draft before reconnect")
+        recorder = terminal.daemon_recorder
+        recorder.pause_subscriptions(fail=True)
+        reads = len(terminal.requests("entry/source/subscribe"))
+        for peer in list(recorder.peers):
+            try:
+                peer.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+        terminal.contains("F5 reconnects")
+        terminal.send(b"\x1b[15~")
+        terminal.wait(recorder.subscription_held.is_set, "resumed session reply held")
+        terminal.send(b"\x1b[H")
+        terminal.pump(.1)
+        self.assertEqual(len(terminal.requests("entry/source/subscribe")), reads)
+        recorder.resume_subscriptions()
+        terminal.contains("Injected resumed subscription failure")
+        terminal.send(b"\x1b[F")
+        terminal.contains("accepted source tail 🌍")
+        terminal.pump(.1)
+        self.assertEqual(len(terminal.requests("entry/source/subscribe")), reads)
+        self.assertTrue(terminal.input_is("draft survives source restore failure"))
+        self.assertEqual(terminal.requests("session/send"), [])
+        terminal.send(b"\x1b[15~")
+        terminal.wait(lambda:len(terminal.requests("entry/source/subscribe")) == reads + 1,
+                      "one source watch resumes after accepted explicit retry")
+        terminal.contains("accepted source tail 🌍")
+        self.assertTrue(terminal.input_is("draft survives source restore failure"))
+        self.assertEqual(terminal.requests("session/send"), [])
+        terminal.snapshot("source-rejected-restore-private-draft")
+
     def test_daemon_terminal_reloads_an_evicted_empty_source_when_it_gets_visible_text(self):
         from test_daemon_history import DaemonHistory
         blank = " \n"*32768

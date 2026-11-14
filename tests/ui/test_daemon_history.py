@@ -52,6 +52,10 @@ class DaemonHistory:
             if "source row-199 unique" in terminal.text:
                 break
         self.assertEqual(seen, set(range(200)), "every original source must appear while paging")
+        # Seeing the final body's text can precede reaching its trailing rows.
+        # Enter follow-bottom explicitly before checking the phone resize.
+        terminal.send(b"\x1b[F")
+        terminal.contains("source row-199 unique")
         terminal.resize(28,32)
         terminal.contains("source row-199 unique")
         terminal.send(b"\x1b[H")
