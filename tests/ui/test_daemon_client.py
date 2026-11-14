@@ -28,10 +28,10 @@ class DaemonClient:
                                 ['snapshot']['info']['availability'] == "ready", "native session ready")
         return fixture, client, session
 
-    def attach_daemon(self, fixture, session, name, width=100, source_error_once=False, extra_env=None, goal_error_once=False):
+    def attach_daemon(self, fixture, session, name, width=100, source_error_once=False, extra_env=None, goal_error_once=False, source_read_error_after=0):
         directory = self.summary_root() / name
         directory.mkdir(parents=True, exist_ok=True)
-        recorder = DaemonRecorder(fixture.root / (name+".sock"), fixture.socket, directory, source_error_once=source_error_once, goal_error_once=goal_error_once)
+        recorder = DaemonRecorder(fixture.root / (name+".sock"), fixture.socket, directory, source_error_once=source_error_once, goal_error_once=goal_error_once, source_read_error_after=source_read_error_after)
         self.addCleanup(recorder.close)
         terminal = self.launch(directory=directory, width=width, resume=session,
                                extra_args=["--daemon-socket", str(recorder.path)], extra_env=extra_env)

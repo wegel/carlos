@@ -6,8 +6,9 @@ import threading
 
 
 class DaemonRecorder:
-    def __init__(self, path, upstream, root, source_error_once=False, goal_error_once=False):
+    def __init__(self, path, upstream, root, source_error_once=False, goal_error_once=False, source_read_error_after=0):
         self.source_error_once = source_error_once
+        self.source_read_error_after = source_read_error_after
         self.goal_error_once = goal_error_once
         self.goal_error_id = None
         self.task_page_error_once = False
@@ -116,10 +117,8 @@ class DaemonRecorder:
                         self.wait_gate(self.subscription_release)
                     if self.stop.is_set():
                         break
-                    if direction == "client" and self.source_error_once and message.get("method") == "entry/source/subscribe":
-                        self.source_error_once = False
-                        error = {"jsonrpc":"2.0","id":message["id"],"error":{
-                            "code":-32012,"message":"Injected daemon source read failure"}}
+                    error = self.source_failure(message) if direction == "client" else None
+                    if error is not None:
                         self.record("server", error)
                         with self.device_write:
                             source.sendall(json.dumps(error).encode()+b"\n")
@@ -144,6 +143,20 @@ class DaemonRecorder:
                 target.shutdown(socket.SHUT_WR)
             except OSError:
                 pass
+
+    def source_failure(self, message):
+        method = message.get("method")
+        if method == "entry/source/subscribe" and self.source_error_once:
+            self.source_error_once = False
+            reason = "Injected daemon source read failure"
+        elif method == "entry/source" and self.source_read_error_after > 0:
+            self.source_read_error_after -= 1
+            if self.source_read_error_after:
+                return None
+            reason = "Injected direct source read failure"
+        else:
+            return None
+        return {"jsonrpc":"2.0", "id":message["id"], "error":{"code":-32012,"message":reason}}
 
     def record(self, direction, message):
         with self.lock, (self.root / "rpc.jsonl").open("a") as output:
