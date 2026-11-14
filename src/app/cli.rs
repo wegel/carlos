@@ -32,6 +32,7 @@ impl Backend {
 pub(super) struct CliOptions {
     pub(super) backend: Backend,
     pub(super) codex_socket: Option<PathBuf>,
+    pub(super) daemon_socket: Option<PathBuf>,
     pub(super) mode_resume: bool,
     pub(super) mode_continue: bool,
     pub(super) mode_perf_session: bool,
@@ -67,7 +68,7 @@ pub(super) fn resolve_initial_runtime_settings(
 
 pub(super) fn usage() {
     eprintln!(
-        "Usage:\n  carlos [resume [SESSION_ID] | continue] [options]\n  carlos perf-session <SESSION_JSONL> [--width N] [--height N]\n  carlos perf-session --synthetic [--turns N] [--seed N] [--tool-lines N] [--width N] [--height N]\n\nOptions:\n  --backend <codex|claude|grok>  backend to use (default: codex)\n  --codex-socket <path>          attach to an existing local Codex server\n  --dictation-profile <name>     dictation profile to activate for this session\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  --ralph-waiting-marker <text>  human gate marker (default: @@AWAITING_HUMAN@@)\n  --width <n>                    perf-session viewport width (default: 160)\n  --height <n>                   perf-session viewport height (default: 48)\n  --seed <n>                     perf-session synthetic seed (default: 1)\n  --turns <n>                    perf-session synthetic turns (default: 1000)\n  --tool-lines <n>               perf-session synthetic tool-output lines (default: 24)\n  --synthetic                    use generated perf-session content instead of a jsonl file\n  -h, --help                     show this help\n\nKeys:\n  F5                             reconnect a disconnected Codex session\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_BACKEND=claude|grok     use Claude Code or Grok instead of codex app-server\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)\n  CARLOS_REASONING_SUMMARY=...   auto | concise | detailed | none (default: concise)"
+        "Usage:\n  carlos [resume [SESSION_ID] | continue] [options]\n  carlos perf-session <SESSION_JSONL> [--width N] [--height N]\n  carlos perf-session --synthetic [--turns N] [--seed N] [--tool-lines N] [--width N] [--height N]\n\nOptions:\n  --backend <codex|claude|grok>  backend to use (default: codex)\n  --codex-socket <path>          attach to an existing local Codex server\n  --daemon-socket <path>         connect the terminal to a local Carlos daemon\n  --dictation-profile <name>     dictation profile to activate for this session\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  --ralph-waiting-marker <text>  human gate marker (default: @@AWAITING_HUMAN@@)\n  --width <n>                    perf-session viewport width (default: 160)\n  --height <n>                   perf-session viewport height (default: 48)\n  --seed <n>                     perf-session synthetic seed (default: 1)\n  --turns <n>                    perf-session synthetic turns (default: 1000)\n  --tool-lines <n>               perf-session synthetic tool-output lines (default: 24)\n  --synthetic                    use generated perf-session content instead of a jsonl file\n  -h, --help                     show this help\n\nKeys:\n  F5                             reconnect a disconnected Codex session\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_BACKEND=claude|grok     use Claude Code or Grok instead of codex app-server\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)\n  CARLOS_REASONING_SUMMARY=...   auto | concise | detailed | none (default: concise)"
     );
 }
 
@@ -142,6 +143,9 @@ pub(super) fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<C
                 } else {
                     env::current_dir()?.join(path)
                 });
+            }
+            "--daemon-socket" => {
+                opts.daemon_socket = Some(PathBuf::from(take_value(&mut args, &arg)?))
             }
             "--backend" => opts.backend = parse_backend_name(&take_value(&mut args, &arg)?)?,
             "--dictation-profile" => opts.dictation_profile = Some(take_value(&mut args, &arg)?),

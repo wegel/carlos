@@ -99,6 +99,18 @@ impl Replica {
     pub fn entries(&self) -> impl DoubleEndedIterator<Item = &Entry> {
         self.rows.iter()
     }
+    /// Count chronological rows without walking their source strings.
+    pub fn entry_count(&self) -> usize {
+        self.rows.len()
+    }
+    /// Borrow one chronological row for lazy terminal layout.
+    pub fn entry_at(&self, index: usize) -> Option<&Entry> {
+        self.rows.at(index)
+    }
+    /// Locate a changed stable row without rescanning the transcript during redraw.
+    pub fn entry_position(&self, id: &EntryId) -> Option<usize> {
+        self.rows.position(id)
+    }
     /// Resolve one stable id in constant time.
     pub fn entry(&self, id: &EntryId) -> Option<&Entry> {
         self.rows.get(id)

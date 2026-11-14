@@ -232,33 +232,46 @@ pub(super) fn draw_approval_overlay(buf: &mut Buffer, size: TerminalSize, app: &
     if let Some(draft) = crate::app::native_questions::draft(app) {
         return overlay_render_claude::draw(buf, size, app, approval, draft);
     }
+    draw_approval_card(
+        buf,
+        size,
+        &approval.facts().title,
+        &approval.facts().method,
+        app.approval_detail_lines(approval),
+        &build_approval_footer(approval),
+    );
+}
+
+/// Paint the same approval box for borrowed wire facts or native session facts.
+pub(super) fn draw_approval_card<'a>(
+    buf: &mut Buffer,
+    size: TerminalSize,
+    title: &str,
+    kind: &str,
+    details: impl Iterator<Item = &'a str>,
+    footer: &str,
+) {
     if size.width < 36 || size.height < 10 {
         return;
     }
-
     let inner_w = size.width.saturating_sub(12).min(92);
-    let detail_lines = build_approval_detail_lines(app, approval, inner_w, size.height);
-    let footer_text = build_approval_footer(approval);
-
-    let box_w = inner_w;
+    let detail_lines = build_approval_detail_lines(details, inner_w, size.height);
     let box_h = (detail_lines.len() + 5).min(size.height.saturating_sub(2));
-    let ob = compute_overlay_box(size, box_w, box_h);
-
+    let ob = compute_overlay_box(size, inner_w, box_h);
     fill_fullscreen_overlay(buf, size);
     fill_box_background(buf, &ob, box_h);
     draw_rounded_border(buf, &ob);
-    draw_approval_content(buf, &ob, approval, &detail_lines, &footer_text);
+    draw_approval_content(buf, &ob, title, kind, &detail_lines, footer);
 }
 
-fn build_approval_detail_lines(
-    app: &AppState,
-    approval: &carlos_core::session::approval_state::PendingApprovalRequest,
+fn build_approval_detail_lines<'a>(
+    details: impl Iterator<Item = &'a str>,
     inner_w: usize,
     height: usize,
 ) -> Vec<String> {
     let wrap_w = inner_w.saturating_sub(6).max(8);
     let mut detail_lines = Vec::new();
-    for line in app.approval_detail_lines(approval) {
+    for line in details {
         let wrapped = wrap_natural_by_cells(line, wrap_w);
         if wrapped.is_empty() {
             detail_lines.push(String::new());
@@ -295,7 +308,8 @@ fn build_approval_footer(
 fn draw_approval_content(
     buf: &mut Buffer,
     ob: &OverlayBox,
-    approval: &carlos_core::session::approval_state::PendingApprovalRequest,
+    title: &str,
+    kind: &str,
     detail_lines: &[String],
     footer_text: &str,
 ) {
@@ -306,7 +320,7 @@ fn draw_approval_content(
         buf,
         x,
         ob.start_y + 1,
-        &approval.facts().title,
+        title,
         Style::default()
             .fg(COLOR_PRIMARY)
             .add_modifier(Modifier::BOLD),
@@ -316,7 +330,7 @@ fn draw_approval_content(
         buf,
         x,
         ob.start_y + 2,
-        &approval.facts().method,
+        kind,
         Style::default().fg(COLOR_DIM),
         w,
     );

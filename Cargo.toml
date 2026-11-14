@@ -22,6 +22,7 @@ dictation-cuda = ["dictation", "whisper-rs/cuda"]
 dictation-vulkan = ["dictation", "whisper-rs/vulkan"]
 
 [dependencies]
+carlos-client = { path = "crates/carlos-client" }
 carlos-proto = { path = "crates/carlos-proto" }
 carlos-core = { path = "crates/carlos-core" }
 anyhow = "1"
@@ -49,7 +50,6 @@ whisper-rs = { version = "0.16.0", optional = true }
 two-face = "0.5.2"
 
 [dev-dependencies]
-carlos-client = { path = "crates/carlos-client" }
 blake3 = "1"
 tempfile = "3"
 rusqlite = { version = "0.41", features = ["bundled"] }

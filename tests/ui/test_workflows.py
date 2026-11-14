@@ -34,9 +34,10 @@ from test_codex_reconnect import CodexReconnect
 from test_input_status import InputStatus
 from test_context_settings import ContextSettings
 from test_entry_identity import EntryIdentity
+from test_daemon_client import DaemonClient
 
 
-class Workflows(GrokStartup, EntryIdentity, SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, CommandDirectory, WeeklyUsage, ClaudeSdk, ClaudeInterrupt, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, CodexRewind, CodexFoundation, CodexQuestions, CodexControls, CodexPanel, CodexGoals, CodexReconnect, InputStatus, ContextSettings, unittest.TestCase):
+class Workflows(DaemonClient, GrokStartup, EntryIdentity, SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, CommandDirectory, WeeklyUsage, ClaudeSdk, ClaudeInterrupt, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, CodexRewind, CodexFoundation, CodexQuestions, CodexControls, CodexPanel, CodexGoals, CodexReconnect, InputStatus, ContextSettings, unittest.TestCase):
     def summary_root(self):
         root = ARTIFACTS / self._testMethodName
         root.mkdir(parents=True, exist_ok=True)
@@ -56,13 +57,13 @@ class Workflows(GrokStartup, EntryIdentity, SessionNames, SourceColors, ToolOutp
         self.assertEqual(terminal.requests("turn/start")[0]["params"]["threadId"], "thread-new")
         terminal.snapshot("native-monitor-completed")
 
-    def launch(self, mode="modern", resume="thread-original", width=100, directory=None, backend="codex", layout=None, extra_env=None):
+    def launch(self, mode="modern", resume="thread-original", width=100, directory=None, backend="codex", layout=None, extra_env=None, extra_args=None):
         directory = directory or ARTIFACTS / self._testMethodName
         if layout:
             settings = directory / "config/carlos/ui-settings.json"
             settings.parent.mkdir(parents=True, exist_ok=True)
             settings.write_text(json.dumps({"layout": layout}))
-        terminal = Terminal(BINARY, directory, mode, resume, width, backend, extra_env=extra_env)
+        terminal = Terminal(BINARY, directory, mode, resume, width, backend, extra_env=extra_env, extra_args=extra_args)
         self.addCleanup(terminal.close)
         return terminal
 

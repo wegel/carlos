@@ -15,6 +15,7 @@ use super::{AppState, RenderedLine, TerminalSize, MSG_TOP};
 
 use crate::theme::{COLOR_STEP2, COLOR_STEP8, COLOR_TEXT};
 
+pub(super) use self::render_sections::draw_composer;
 use self::render_sections::{cursor_position, draw_input_area, draw_overlays};
 use super::render_status::draw_status_bar;
 

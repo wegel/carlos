@@ -35,7 +35,8 @@ The daemon already proves basic chat, approvals, running output, independent cli
 - [x] (2026-11-14) Prototype the terminal's complete-source render contract. Added a borrowed BodyInput used by the existing body renderer; three tests match old text/styles/wraps and reject suffixes/retired bodies. `scripts/probe-client-render.py` captures large Markdown/ANSI bodies from actual Unix-socket reads; `socket_render_probe` replays those chunks through the current bounded client window and the contiguous-body candidate. The socket replay, default/no-default tests, strict lint and 49-daemon/183-terminal gate pass at run-0UU3za. The separate engineering follow-up is PASS; the focused report is `.agents/reports/exec019b-render-contract-prototype.md`. This is no production terminal socket consumer yet, and no larger cache or product body cap is accepted.
 - [x] (2026-11-14) Extend the borrowed input through complete block headings, compact labels and spacing. RenderInput carries borrowed source and label facts; the transcript cache retains stable entry identity separately. DisplayMessage and BlockPlan use it without a core Message copy. An actual exported-row test covers full/compact Gutter/Flow blocks at 12/28/72/120 columns. The test exposed a missing wire fact: a generic fallback label and an explicitly saved label can both read “Tool output” but render differently for diffs. LabelSource::Fallback now preserves that distinction without duplicating the label string. Restored tests, strict lint, no-default tests, the full protocol/terminal/native gate and release measurements pass; the engineering verdict is PASS. Evidence is `.agents/reports/exec019b-render-blocks.md`. The Client-backed terminal connection remains unfinished.
 - [x] (2026-11-14) Add caller-chosen contiguous source inside the existing client cache. Source and normalized windows share one eight-MiB retained-data allowance; default 256-KiB suffix behavior and exact revisions/cursors remain. Watch replacement preserves document mode; direct and live capacity failures stay local and preserve other windows/private text. The 58-test pure client suite, workspace/strict lint, real-socket source replay and full 49-daemon/183-terminal gate pass. Separate engineering verdict PASS WITH ISSUES; accepted the missing live-pressure coverage and added it for both formats. Report: `.agents/reports/exec019b-contiguous-source.md`. This cache bound is not an approved product body limit.
-- [ ] Wire the shared client and complete borrowed blocks into the actual socket-backed terminal transcript/send/approve/interrupt consumer. Share the existing lazy render cache and terminal widgets; do not create a permanent second UI. Above-cache fidelity remains required before final deletion.
+- [x] (2026-11-14) Prove the first actual socket terminal consumer through the shared Client, borrowed lazy render cache, composer and ordinary approval painter. The opt-in attach path creates no SessionState or native backend in the terminal. Six screen/RPC tests cover two independent drafts and held-send controls, daemon restart/F5 without resend,130 handled clientId echoes, local cache pressure, a daemon read-RPC fault and a456-KiB ANSI source with exact bytes/red tail. The engineering reviewer found missing failed-RPC token retirement; it is fixed, the negative proof reproduces the extra subscription and the narrow follow-up is PASS. The restored full49-daemon/189-terminal gate, strict lint, no-default tests and release smoke pass. Evidence: `.agents/reports/exec019b-first-socket-terminal.md`. Main and installed binary remain unchanged.
+- [ ] Complete the terminal consumer beyond this first attach slice. The explicit path currently attaches an existing logical session, loads at most32 source windows, and still needs complete history/cache eviction/above-cache fidelity, copy/selection/navigation, structured cards, native panels/settings, local commands and startup/create/discovery. Preserve unconfirmed operation identities rather than discard echoes or compare by text. Share existing widgets and remove the old wrappers only after actual socket parity. The default remains embedded until the separate deletion commit.
 - [ ] Add typed native facts/commands for names, prompt edits, task reads/stops, queues, goals, settings/context/quota, summaries, host defaults and lifecycle. Preserve existing tokens and target/generation guards; prove two clients can choose different read targets.
 - [x] (2026-11-14) Add the pure shared client codec and bounded fact/history/card windows. Twelve client tests, workspace tests, strict Clippy and 15 architecture checks pass. The checker allows only reviewed data packages below the client.
 - [x] (2026-11-14) Add private connection credentials/counters and operation-owned drafts/echoes. Twenty client tests, the actual daemon wire test, workspace tests and strict lint pass; 15 architecture checks pass. No client method automatically resends a mutation.
@@ -133,7 +134,7 @@ The current checkpoint has checked task stops in99d39aa and the borrowed-source 
 prototype plus complete-block adapters and contiguous cache checked. Fable's whole-roadmap review changed the next work: build the terminal
 transcript consumer before widening native task APIs. The prototype transfers complete
 Markdown and ANSI bodies through actual socket reads and preserves their body rendering,
-and now uses the existing client cache under one aggregate allowance. The main terminal socket path, larger-than-cache fidelity and final deletion remain open.
+and now uses the existing client cache under one aggregate allowance. The first opt-in socket terminal checkpoint passes its checks; the complete terminal cutover, larger-than-cache fidelity and final deletion remain open.
 The owner has not auto-approved EP019b. The existing core and installed binary remain separate.
 
 
@@ -412,3 +413,29 @@ I found no blocking correctness defect. I did not run the captured source replay
 **Verdict: PASS WITH ISSUES**
 
 Accepted the MINOR finding and added both source and normalized live-notification pressure proofs. The failed watch alone stops once; late chunks cannot restart it, and another document plus the exact private prompt survive. The 58-test pure client suite, workspace tests, captured-source replay and strict lint pass. The full 49-daemon/183-terminal gate, helper/architecture checks, release build and a 1000-turn perf-session smoke pass. No binary was installed. Focused report: `.agents/reports/exec019b-contiguous-source.md`.
+
+
+## Review: first socket terminal consumer
+
+1. Reviewed the new remote modules, direct client/render seams, terminal tests, and saved test logs. The logs confirm the reported checks passed; I did not rerun the full suite.
+
+2. **MAJOR: daemon-reported source errors bypass failed-read bookkeeping.** In [client_replies.rs](/var/home/wegel/work/perso/carlos-daemon/crates/carlos-client/src/client_replies.rs:211), the client closes a failed watch without adding its token to `effects.bodies`. The terminal therefore leaves `Read.failed` false. On the next append to that entry, [bodies.rs](/var/home/wegel/work/perso/carlos-daemon/src/app/remote/bodies.rs:41) sees the missing body and opens another watch for the same failed revision. Repeated appends repeat the failed reads. The passing capacity test exercises a different branch, which does emit the retired token.
+
+3. Emit the retired token when a watched source request returns an RPC error. Add a test that returns that error, appends three times within the same revision, and asserts that the terminal sends no further source subscriptions while its composer remains usable.
+
+4. **FAIL**. Resolve the incomplete source-failure handling before proceeding.
+
+Accepted the MAJOR finding and added the retired token to the failed watched-RPC branch. The actual terminal test injects that first RPC error, observes three real native appends to the same running source, checks no further source subscriptions and keeps a draft usable. Negative proof and restored final checks/follow-up are pending. The earlier broad gate passes185 terminal workflows; this remains an unfinished consumer checkpoint. Full context and exact limitations are `.agents/reports/exec019b-first-socket-terminal.md`.
+
+
+### Corrected first-consumer follow-up
+
+1. Reviewed the failed watched-RPC branch, relay, focused UI test, and saved positive and negative evidence.
+
+2. No remaining BLOCKER, MAJOR, or MINOR findings within this follow-up. The added token marks the terminal’s read as failed after the client closes its watch. Saved traffic confirms three appends to the same entry at revision `0`, two total source subscriptions, and a usable composer. Removing the fix produces the reported third subscription.
+
+3. No further correction required for the prior MAJOR finding. I did not rerun tests or assess full EP parity.
+
+4. **PASS**.
+
+The real-terminal negative proof fails with a third source subscription when the retired-token line is removed. The restored final full gate passes 49 daemon, 189 terminal, 67 helper and 15 architecture checks at run-CGmxBX, including all six socket terminal workflows. Restored strict lint and release perf-session smoke also pass. No EP approval has occurred.

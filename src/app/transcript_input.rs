@@ -1,9 +1,7 @@
 //! Borrow complete source text for the existing renderer without constructing a core message.
 
 use carlos_core::session::models::{Message, MessageKind, Role};
-#[cfg(test)]
 use carlos_proto::session::{Entry, EntryFormat, EntryKind, LabelSource, ToolStatus};
-#[cfg(test)]
 use carlos_proto::source::Source;
 
 /// A body renderer needs source facts and a borrowed string, not a mutable session.
@@ -40,7 +38,6 @@ impl<'a> From<&'a Message> for RenderInput<'a> {
 
 impl<'a> RenderInput<'a> {
     /// Refuse a suffix or retired body instead of parsing it as a complete Markdown/ANSI document.
-    #[cfg(test)]
     pub fn from_client(entry: &'a Entry, source: Option<(&Source, &'a str)>) -> Option<Self> {
         let text = match &entry.source {
             Some(expected) => {

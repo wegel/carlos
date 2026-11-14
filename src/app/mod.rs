@@ -98,6 +98,7 @@ mod perf_session;
 mod picker_delete_dialog;
 mod picker_render;
 mod rate_limits;
+mod remote;
 mod render;
 mod render_cache_state;
 mod render_input;
@@ -179,6 +180,9 @@ pub(crate) fn run() -> Result<()> {
         return perf_session::run_perf_session(&opts);
     }
 
+    if let Some(socket) = &opts.daemon_socket {
+        return remote::run(socket, &opts);
+    }
     let cwd_path = env::current_dir()?;
     let cwd = cwd_path.to_string_lossy().to_string();
     let persisted_defaults = load_runtime_defaults();

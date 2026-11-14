@@ -86,14 +86,17 @@ pub(super) fn is_newline_enter(mods: KeyModifiers) -> bool {
 // --- Input layout computation ---
 
 /// Wrap all input lines and track the cursor position within the wrapped output.
-fn wrap_input_with_cursor(app: &AppState, text_width: usize) -> (Vec<String>, usize, usize, bool) {
+fn wrap_input_with_cursor(
+    input: &ratatui_textarea::TextArea<'_>,
+    text_width: usize,
+) -> (Vec<String>, usize, usize, bool) {
     let mut wrapped = Vec::new();
-    let (cursor_row, cursor_col_chars) = app.view.input.cursor();
+    let (cursor_row, cursor_col_chars) = input.cursor();
     let mut cursor_wrapped_row = 0usize;
     let mut cursor_wrapped_col = 0usize;
     let mut cursor_set = false;
 
-    for (row, line) in app.view.input.lines().iter().enumerate() {
+    for (row, line) in input.lines().iter().enumerate() {
         let wrapped_line = wrap_input_line(line, text_width);
         if row < cursor_row {
             cursor_wrapped_row += wrapped_line.len();
@@ -112,9 +115,18 @@ fn wrap_input_with_cursor(app: &AppState, text_width: usize) -> (Vec<String>, us
 }
 
 pub(super) fn compute_input_layout(app: &AppState, size: TerminalSize) -> InputLayout {
-    let text_width = app.transcript_width(size);
+    compute_composer_layout(&app.view.input, size, app.content_x(size))
+}
+
+/// Lay out the same terminal composer for a client-owned editor.
+pub(super) fn compute_composer_layout(
+    input: &ratatui_textarea::TextArea<'_>,
+    size: TerminalSize,
+    content_x: usize,
+) -> InputLayout {
+    let text_width = size.width.saturating_sub(content_x + 1);
     let (wrapped, mut cursor_wrapped_row, mut cursor_wrapped_col, cursor_set) =
-        wrap_input_with_cursor(app, text_width);
+        wrap_input_with_cursor(input, text_width);
 
     let mut max_input_rows = 8usize.min(size.height.max(1));
     if size.height > 1 {
@@ -144,7 +156,7 @@ pub(super) fn compute_input_layout(app: &AppState, size: TerminalSize) -> InputL
     let input_top = size.height + 1 - input_height;
     let msg_bottom = input_top.saturating_sub(2);
     let cursor_visual_row = cursor_wrapped_row.saturating_sub(visible_start);
-    let cursor_x = app.content_x(size) + cursor_wrapped_col;
+    let cursor_x = content_x + cursor_wrapped_col;
     let cursor_y = input_top.saturating_sub(1) + cursor_visual_row.min(input_height - 1);
 
     InputLayout {

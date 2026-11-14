@@ -25,8 +25,30 @@ pub(super) fn draw_input_area(
     size: TerminalSize,
     input_layout: &InputLayout,
 ) {
+    let name = (app.input_is_empty() && !app.rewind_mode())
+        .then(|| app.session.thread_name().as_deref())
+        .flatten();
+    draw_composer(
+        buf,
+        size,
+        input_layout,
+        app.content_x(size),
+        app.rewind_mode(),
+        name,
+    );
+}
+
+/// Paint one local composer without reading or mutating a core session.
+pub(in crate::app) fn draw_composer(
+    buf: &mut Buffer,
+    size: TerminalSize,
+    input_layout: &InputLayout,
+    content_x: usize,
+    rewind: bool,
+    name: Option<&str>,
+) {
     let y0 = input_layout.input_top.saturating_sub(1);
-    let gutter_color = if app.rewind_mode() {
+    let gutter_color = if rewind {
         COLOR_DIFF_REMOVE
     } else {
         COLOR_GUTTER_USER
@@ -42,7 +64,7 @@ pub(super) fn draw_input_area(
     );
     for row in 0..input_layout.input_height {
         let y = y0 + row;
-        if !app.view.layout.uses_flow(size) {
+        if content_x != 1 {
             draw_str(
                 buf,
                 0,
@@ -57,7 +79,7 @@ pub(super) fn draw_input_area(
         if let Some(line) = input_layout.visible_lines.get(row) {
             draw_str(
                 buf,
-                app.content_x(size),
+                content_x,
                 y,
                 line,
                 Style::default().fg(COLOR_TEXT),
@@ -65,27 +87,22 @@ pub(super) fn draw_input_area(
             );
         }
     }
-    draw_session_placeholder(buf, app, input_layout, size);
+    draw_session_placeholder(buf, input_layout, content_x, name);
 }
 
 fn draw_session_placeholder(
     buf: &mut Buffer,
-    app: &AppState,
     layout: &InputLayout,
-    size: TerminalSize,
+    content_x: usize,
+    name: Option<&str>,
 ) {
-    if !app.input_is_empty() || app.rewind_mode() {
-        return;
-    }
-    if let Some(name) = app.session.thread_name().as_deref() {
-        let name = &name[..split_at_cells(name, layout.text_width)];
-        let name_width = visual_width(name);
-        if name_width > layout.text_width {
-            return;
-        }
+    let Some(name) = name else { return };
+    let name = &name[..split_at_cells(name, layout.text_width)];
+    let name_width = visual_width(name);
+    if name_width <= layout.text_width {
         draw_str(
             buf,
-            app.content_x(size) + layout.text_width - name_width,
+            content_x + layout.text_width - name_width,
             layout.input_top.saturating_sub(1),
             name,
             Style::default().fg(COLOR_STEP8),

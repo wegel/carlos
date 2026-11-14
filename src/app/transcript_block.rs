@@ -94,6 +94,7 @@ impl BlockPlan {
     }
 
     /// Materialize only this block using the choices saved by the count pass.
+    #[cfg(test)]
     pub(super) fn render(&self, message: &Message) -> Vec<RenderedLine> {
         self.render_input(message.into())
     }

@@ -34,6 +34,18 @@ impl Rows {
         Ok(rows)
     }
 
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    pub fn at(&self, index: usize) -> Option<&Entry> {
+        self.entries.get(index)
+    }
+
+    pub fn position(&self, id: &EntryId) -> Option<usize> {
+        usize::try_from(*self.positions.get(id)? - self.first).ok()
+    }
+
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Entry> {
         self.entries.iter()
     }

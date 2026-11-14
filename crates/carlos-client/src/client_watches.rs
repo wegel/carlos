@@ -201,6 +201,7 @@ impl Client {
             Ok(true) => effects.bodies.push(token),
             Ok(false) => {}
             Err(error) => {
+                effects.bodies.push(token.clone());
                 self.failed_watch(&token);
                 self.watches.active.remove(&key);
                 self.cancel_watch(key);

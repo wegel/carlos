@@ -162,6 +162,7 @@ impl Client {
             Err(ClientError::RetiredBody) => {}
             Err(error @ ClientError::Capacity(_)) => {
                 if watch {
+                    effects.bodies.push(token.clone());
                     self.failed_watch(&token);
                 }
                 effects.failures.push(crate::RequestFailure {
@@ -209,6 +210,7 @@ impl Client {
             }
             Kind::Source(target) | Kind::Output(target) if target.watch => {
                 if let Some(token) = target.token {
+                    effects.bodies.push(token.clone());
                     self.failed_watch(&token);
                 }
             }

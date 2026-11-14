@@ -4,9 +4,25 @@ use carlos_core::session::models::Message;
 use carlos_core::session::models::Role;
 
 use super::layout_state::TranscriptTheme;
-use super::transcript_block::{plan_display_block, BlockPlan};
+use super::transcript_block::{plan_display_block, plan_input_block, BlockPlan};
+use super::transcript_input::RenderInput;
 use super::transcript_styles::RenderCountCache;
 use super::view_models::RenderedLine;
+
+/// Lend source facts by chronological position without copying a second transcript.
+pub(super) trait TranscriptSource {
+    fn len(&self) -> usize;
+    fn input(&self, index: usize) -> Option<RenderInput<'_>>;
+}
+
+impl TranscriptSource for [Message] {
+    fn len(&self) -> usize {
+        self.len()
+    }
+    fn input(&self, index: usize) -> Option<RenderInput<'_>> {
+        self.get(index).map(Into::into)
+    }
+}
 
 // --- Cache State ---
 
@@ -52,6 +68,18 @@ impl RenderCacheState {
     pub(super) fn ensure_rendered_lines(
         &mut self,
         messages: &[Message],
+        width: usize,
+        hidden_user_message_idx: Option<usize>,
+        compact: bool,
+        theme: TranscriptTheme,
+    ) {
+        self.ensure_inputs(messages, width, hidden_user_message_idx, compact, theme);
+    }
+
+    /// Count client facts with the same lazy plans used by the embedded transcript.
+    pub(super) fn ensure_inputs<S: TranscriptSource + ?Sized>(
+        &mut self,
+        messages: &S,
         width: usize,
         hidden_user_message_idx: Option<usize>,
         compact: bool,
@@ -108,9 +136,9 @@ impl RenderCacheState {
         self.rendered_total_lines = start_offset;
     }
 
-    fn rebuild_rendered_blocks_from(
+    fn rebuild_rendered_blocks_from<S: TranscriptSource + ?Sized>(
         &mut self,
-        messages: &[Message],
+        messages: &S,
         width: usize,
         hidden_user_message_idx: Option<usize>,
         dirty_from: usize,
@@ -126,7 +154,11 @@ impl RenderCacheState {
             self.rendered_block_offsets.push(self.rendered_total_lines);
             self.block_plans.push(None);
 
-            let msg = &messages[idx];
+            let Some(msg) = messages.input(idx) else {
+                self.rendered_message_blocks.push(None);
+                self.rendered_block_line_counts.push(0);
+                continue;
+            };
             let hidden = hidden_user_message_idx == Some(idx) && msg.role == Role::User;
             // Backends may retain empty tool placeholders beside a separate result.
             if hidden || msg.text.trim().is_empty() {
@@ -135,8 +167,9 @@ impl RenderCacheState {
                 continue;
             }
 
-            let previous_visible = previous_visible_idx.and_then(|prev_idx| messages.get(prev_idx));
-            let plan = plan_display_block(
+            let previous_visible =
+                previous_visible_idx.and_then(|prev_idx| messages.input(prev_idx));
+            let plan = plan_input_block(
                 &mut count_cache,
                 previous_visible,
                 msg,
@@ -144,7 +177,7 @@ impl RenderCacheState {
                 compact,
                 self.rendered_theme,
             );
-            let line_count = plan.count(&mut count_cache, msg);
+            let line_count = plan.count_input(&mut count_cache, msg);
             self.block_plans[idx] = Some(Box::new(plan));
             self.rendered_block_line_counts.push(line_count);
             if line_count == 0 {
@@ -211,6 +244,16 @@ impl RenderCacheState {
         start_idx: usize,
         end_idx: usize,
     ) {
+        self.materialize_inputs(messages, start_idx, end_idx);
+    }
+
+    /// Materialize visible client blocks without constructing core messages.
+    pub(super) fn materialize_inputs<S: TranscriptSource + ?Sized>(
+        &mut self,
+        messages: &S,
+        start_idx: usize,
+        end_idx: usize,
+    ) {
         if start_idx > end_idx || self.rendered_total_lines == 0 {
             return;
         }
@@ -241,7 +284,7 @@ impl RenderCacheState {
         out
     }
 
-    fn materialize_block(&mut self, messages: &[Message], block_idx: usize) {
+    fn materialize_block<S: TranscriptSource + ?Sized>(&mut self, messages: &S, block_idx: usize) {
         if self
             .rendered_message_blocks
             .get(block_idx)
@@ -260,13 +303,13 @@ impl RenderCacheState {
             return;
         }
 
-        let Some(msg) = messages.get(block_idx) else {
+        let Some(msg) = messages.input(block_idx) else {
             return;
         };
         let Some(plan) = self.block_plans.get(block_idx).and_then(Option::as_deref) else {
             return;
         };
-        let block = plan.render(msg);
+        let block = plan.render_input(msg);
         debug_assert_eq!(
             block.len(),
             self.rendered_block_line_counts
