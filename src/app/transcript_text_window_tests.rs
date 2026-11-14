@@ -1,6 +1,6 @@
 //! Exercise the borrowed-row visitor against the original complete-line wrapper.
 
-use super::visit_rows;
+use super::{visit_legacy_rows, visit_rows};
 use crate::app::text::wrap_natural_by_cells;
 
 #[test]
@@ -45,6 +45,26 @@ fn row_visitor_matches_complete_wrapping_for_whitespace_unicode_and_optimal_word
             let mut actual = Vec::new();
             visit_rows(&source, width, |_, part| actual.push(part.to_string()));
             assert_eq!(actual, wrap_natural_by_cells(&source, width));
+        }
+    }
+}
+
+#[test]
+fn compact_optimal_fragments_preserve_the_previous_public_wrap_path() {
+    let cases = [
+        "To be, or not to be: that is the question".to_string(),
+        "   foobar baz     another-long-word\ninner line  ".repeat(40),
+        "界🙂é\t👩‍💻 #️⃣ ◻︎\u{200b}  ".repeat(800),
+        "la-a-bc  ".repeat(4000),
+        "\x1b[31mcolored words\x1b[0m  ".repeat(1000),
+    ];
+    for text in cases {
+        for width in [8, 10, 12, 28, 80, 120] {
+            let mut expected = Vec::new();
+            let mut actual = Vec::new();
+            visit_legacy_rows(&text, width, |_, part| expected.push(part.to_string()));
+            visit_rows(&text, width, |_, part| actual.push(part.to_string()));
+            assert_eq!(actual, expected, "width{width},text{text:?}");
         }
     }
 }

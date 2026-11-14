@@ -1,7 +1,14 @@
 //! Seed a bounded upstream ANSI parse with the exact style saved at a source checkpoint.
 
-use ratatui::style::{Color, Modifier, Style};
+use std::borrow::Cow;
+use std::ops::Range;
 
+use ansi_to_tui::IntoText as _;
+use ratatui::style::{Color, Modifier, Style};
+use ratatui_core::style::Style as CoreStyle;
+use ratatui_core::text::Line;
+
+use crate::app::style_convert::core_style_to_style;
 use crate::app::transcript_styles::ansi_line_segments;
 use crate::app::view_models::StyledSegment;
 
@@ -11,6 +18,7 @@ const SENTINEL: &str = "\u{e000}";
 pub(super) struct Batch {
     pub lines: Vec<Vec<StyledSegment>>,
     pub after: Style,
+    pub ranges: Vec<Vec<Range<usize>>>,
 }
 
 /// A sentinel on its own next line exposes styles from control-only trailing text too.
@@ -29,7 +37,73 @@ pub(super) fn parse(raw: &str, before: Style) -> Option<Batch> {
     Some(Batch {
         lines,
         after: sentinel[0].style,
+        ranges: Vec::new(),
     })
+}
+
+/// Borrow exact upstream span positions only when an oversized batch needs a saved index.
+pub(super) fn parse_mapped(raw: &str, before: Style) -> Option<Batch> {
+    let mut input = seed(before);
+    let prefix = input.len();
+    input.push_str(raw);
+    if !raw.ends_with(['\r', '\n']) {
+        input.push('\n');
+    }
+    input.push_str(SENTINEL);
+    let mut parsed = input.to_text().ok()?;
+    let sentinel = parsed.lines.pop()?;
+    if sentinel.spans.len() != 1 || sentinel.spans[0].content != SENTINEL {
+        return None;
+    }
+    let after = core_style_to_style(
+        parsed
+            .style
+            .patch(sentinel.style)
+            .patch(sentinel.spans[0].style),
+    );
+    let mut lines = Vec::new();
+    let mut ranges = Vec::new();
+    for line in parsed.lines {
+        let original = input.as_ptr() as usize + prefix;
+        let (segments, positions) = map_line(line, parsed.style, raw, original)?;
+        lines.push(segments);
+        ranges.push(positions);
+    }
+    Some(Batch {
+        lines,
+        after,
+        ranges,
+    })
+}
+
+fn map_line(
+    line: Line<'_>,
+    parent: CoreStyle,
+    raw: &str,
+    original: usize,
+) -> Option<(Vec<StyledSegment>, Vec<Range<usize>>)> {
+    let style = parent.patch(line.style);
+    let mut segments = Vec::new();
+    let mut positions = Vec::new();
+    for span in line.spans {
+        if span.content.is_empty() {
+            continue;
+        }
+        let Cow::Borrowed(text) = span.content else {
+            return None;
+        };
+        let byte = (text.as_ptr() as usize).checked_sub(original)?;
+        let end = byte.checked_add(text.len())?;
+        if end > raw.len() || raw.get(byte..end) != Some(text) {
+            return None;
+        }
+        positions.push(byte..end);
+        segments.push(StyledSegment {
+            text: text.to_string(),
+            style: core_style_to_style(style.patch(span.style)),
+        });
+    }
+    Some((segments, positions))
 }
 
 fn seed(style: Style) -> String {

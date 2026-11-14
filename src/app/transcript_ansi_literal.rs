@@ -26,7 +26,13 @@ impl LiteralLine {
         if span.text.is_empty() || !Self::can_append(&span.text) {
             return None;
         }
-        let start = raw.find(&span.text)? + offset;
+        let [bytes] = batch.ranges.first()?.as_slice() else {
+            return None;
+        };
+        if raw.get(bytes.clone()) != Some(span.text.as_str()) {
+            return None;
+        }
+        let start = bytes.start + offset;
         Some(Self {
             bytes: start..start + span.text.len(),
             style: span.style,

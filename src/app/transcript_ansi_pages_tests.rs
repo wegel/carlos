@@ -32,6 +32,7 @@ fn ansi_windows_keep_text_style_and_wrap_flags_at_every_boundary() {
             append_wrapped_ansi_lines(&mut expected, Role::ToolOutput, &source, width);
             let pages = AnsiPages::new(Arc::new(source.clone()), Role::ToolOutput, width)
                 .expect("bounded index");
+            assert_eq!(pages.original_text(), source);
             assert_eq!(pages.rows(), expected.len(), "width{width}");
             for start in (0..expected.len()).step_by(17) {
                 let actual = pages.window(start, 37).expect("visible rows");
@@ -43,6 +44,42 @@ fn ansi_windows_keep_text_style_and_wrap_flags_at_every_boundary() {
                 );
             }
             assert!(pages.index_capacity_bytes() < source.len() * 4 + 1024);
+        }
+    }
+}
+
+#[test]
+fn saved_general_lines_keep_raw_ranges_and_cross_span_graphemes_exact() {
+    let cases = [
+        "\x1b[31m31m ".to_string()
+            + &"punctuation, words: [a-b] 👩\x1b[32m‍💻\x1b[31m\t界 é  ".repeat(600),
+        "\x1b]title 31m\x0731m\x1b[31m".to_string() + &"لا א‍ל ⵏ⵿ⴾ ᨕᨗ‍ᨐ ꓹꓼ 🇫🇷🙂\t ".repeat(700),
+        "\x1b[31m".to_string() + &"👩‍💻".repeat(2000) + &" ".repeat(103),
+        "\x1b[31m".to_string() + &"long ascii words ".repeat(1800) + "#️⃣\tend",
+    ];
+    for mut source in cases {
+        let mut pages =
+            AnsiPages::new(Arc::new(source.clone()), Role::User, 28).expect("general long line");
+        assert!(pages.checkpoints[0].long.is_some());
+        for addition in ["", "\x1b[0m next words", "\r\nlast\trow  "] {
+            source.push_str(addition);
+            pages
+                .append(addition)
+                .expect("reindex complete changed logical line");
+            for width in [8, 28, 120] {
+                pages = pages.resize(width).expect("reindex width");
+                let mut expected = Vec::new();
+                append_wrapped_ansi_lines(&mut expected, Role::User, &source, width);
+                assert_eq!(pages.rows(), expected.len());
+                for start in [0, expected.len() / 2, expected.len().saturating_sub(37)] {
+                    let end = (start + 37).min(expected.len());
+                    assert_eq!(
+                        rows(&pages.window(start, 37).expect("saved viewport")),
+                        rows(&expected[start..end]),
+                        "width{width},start{start}"
+                    );
+                }
+            }
         }
     }
 }
@@ -141,4 +178,15 @@ fn rows(lines: &[RenderedLine]) -> Vec<String> {
             )
         })
         .collect()
+}
+
+#[test]
+fn consuming_an_ansi_index_returns_the_existing_original_owner() {
+    let source = Arc::new("\x1b[31mred original".to_string());
+    let pointer = Arc::as_ptr(&source);
+    let pages = AnsiPages::new(source, Role::ToolOutput, 28).expect("ANSI index");
+    let source = pages.into_original();
+    assert_eq!(Arc::as_ptr(&source), pointer);
+    assert_eq!(Arc::strong_count(&source), 1);
+    assert_eq!(source.as_str(), "\x1b[31mred original");
 }
