@@ -7,6 +7,8 @@ use carlos_proto::ids::{EntryId, Sequence, SessionId};
 /// A client must refresh stale facts instead of guessing how an invalid delta should apply.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ClientError {
+    InvalidBody,
+    RetiredBody,
     FrameTooLarge,
     InvalidEnvelope,
     InvalidConnection,
@@ -26,6 +28,10 @@ pub enum ClientError {
 impl fmt::Display for ClientError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::InvalidBody => {
+                f.write_str("body reply has a different entry, revision, cursor or byte interval")
+            }
+            Self::RetiredBody => f.write_str("body read belongs to a closed or replaced window"),
             Self::FrameTooLarge => f.write_str("server frame exceeds eight MiB"),
             Self::InvalidEnvelope => f.write_str("invalid JSON-RPC server envelope"),
             Self::InvalidConnection => {

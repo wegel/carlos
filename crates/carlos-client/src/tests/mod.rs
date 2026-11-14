@@ -1,5 +1,6 @@
 //! Exercise client data with fixed wire envelopes and no native process, socket or clock.
 
+mod bodies;
 mod cards;
 mod codec;
 mod connection;
