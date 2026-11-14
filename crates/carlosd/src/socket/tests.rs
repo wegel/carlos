@@ -2,6 +2,9 @@
 
 use std::os::unix::fs::{symlink, PermissionsExt};
 use std::os::unix::net::{UnixListener, UnixStream};
+use std::time::{Duration, Instant};
+
+use socket2::{Domain, SockAddr, Socket, Type};
 
 use super::{verify_peer, BoundSocket};
 
@@ -37,6 +40,7 @@ fn a_proven_stale_owned_socket_can_be_replaced_without_touching_a_regular_file()
     let old = UnixListener::bind(&path).expect("stale fixture");
     mode(&path, 0o600);
     drop(old);
+    wait_for_stale(&path);
     let current =
         BoundSocket::bind(&path, &root.path().join("state")).expect("replace only stale socket");
     UnixStream::connect(current.path()).expect("new socket is live");
@@ -47,6 +51,24 @@ fn a_proven_stale_owned_socket_can_be_replaced_without_touching_a_regular_file()
         std::fs::read(&path).expect("file preserved"),
         b"keep this file"
     );
+}
+
+fn wait_for_stale(path: &std::path::Path) {
+    // Parallel process tests can briefly inherit this descriptor between fork and exec.
+    // Wait for the kernel's stale-socket result before testing the replacement policy.
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let probe = Socket::new(Domain::UNIX, Type::STREAM, None).expect("fixture probe");
+        probe.set_nonblocking(true).expect("bounded fixture probe");
+        if probe
+            .connect(&SockAddr::unix(path).expect("fixture address"))
+            .is_err_and(|error| error.kind() == std::io::ErrorKind::ConnectionRefused)
+        {
+            return;
+        }
+        assert!(Instant::now() < deadline, "fixture listener is still live");
+        std::thread::sleep(Duration::from_millis(1));
+    }
 }
 
 #[test]
