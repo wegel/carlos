@@ -142,6 +142,34 @@ impl AppServerClient {
         context: Value,
         raw: bool,
     ) -> Result<String> {
+        self.request_async_with(
+            method,
+            params,
+            context,
+            raw,
+            crate::dispatch_guard::DispatchGuard::default(),
+        )
+    }
+
+    pub(crate) fn request_control_guarded(
+        &self,
+        method: &str,
+        params: Value,
+        context: Value,
+        permission: crate::dispatch_guard::DispatchGuard,
+    ) -> Result<()> {
+        self.request_async_with(method, params, context, false, permission)
+            .map(|_| ())
+    }
+
+    fn request_async_with(
+        &self,
+        method: &str,
+        params: Value,
+        context: Value,
+        raw: bool,
+        permission: crate::dispatch_guard::DispatchGuard,
+    ) -> Result<String> {
         let id = self.state.next_id();
         let key = request_key(&id).expect("native client ID");
         let timeout = context["timeoutMs"]
@@ -161,10 +189,11 @@ impl AppServerClient {
                 raw,
             },
         )?;
-        let write = self.writer.enqueue(
+        let write = self.writer.enqueue_guarded(
             json!({"id":id,"method":method,"params":params}),
             deadline,
             &self.state,
+            permission,
         );
         let receiver = match write {
             Ok(receiver) => receiver,
@@ -175,7 +204,11 @@ impl AppServerClient {
         };
         let state = self.state.clone();
         thread::spawn(move || {
-            let _ = crate::protocol_writer::wait(receiver, deadline, &state);
+            if let Err(error) = crate::protocol_writer::wait(receiver, deadline, &state) {
+                if let Some(target) = state.take(&key) {
+                    state.reply(&key, target, Err(error.to_string()));
+                }
+            }
         });
         Ok(id.as_str().expect("client ID string").into())
     }
@@ -185,6 +218,8 @@ fn control_identity(method: &str, params: &Value, context: &Value) -> Result<(Va
     let bytes = params.to_string().len();
     let maximum = if matches!(method, "thread/queue/add" | "thread/queue/update") {
         crate::protocol_writer::MAX_FRAME_BYTES.saturating_sub(1024)
+    } else if method == "thread/goal/set" {
+        carlos_proto::goals::MAX_GOAL_BYTES
     } else {
         65536
     };

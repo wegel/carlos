@@ -71,10 +71,10 @@ impl Owner {
             | CallbackEffect::Accepted { .. }
             | CallbackEffect::Retired(_)
             | CallbackEffect::Items(_)
-            | CallbackEffect::Goal(_)
             | CallbackEffect::Queue(_)
             | CallbackEffect::Panel(_)
             | CallbackEffect::Controls { .. } => { /* shared facts or EP019b device hints */ }
+            CallbackEffect::Goal(update) => self.finish_goal(update),
             CallbackEffect::ReplyFailed { error, .. } => self.session.set_status(error),
             CallbackEffect::Checked { update, .. } => {
                 if let Some((card_id, result)) = update.reply {

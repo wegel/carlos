@@ -102,6 +102,11 @@ opaque_id!(
     32,
     "An opaque active-turn address used to reject stale controls."
 );
+opaque_id!(
+    GoalRevision,
+    64,
+    "An opaque precondition for one native root goal and connection, never a backend id."
+);
 
 /// A nonzero per-client command counter encoded as lossless decimal text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]

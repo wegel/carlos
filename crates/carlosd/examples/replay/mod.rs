@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 enum Packet {
-    Snapshot(Snapshot),
+    Snapshot(Box<Snapshot>),
     History(History),
     Output(OutputChunk),
 }

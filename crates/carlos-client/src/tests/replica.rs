@@ -126,7 +126,12 @@ fn a_complete_reset_can_bridge_a_gap_but_a_late_snapshot_cannot_roll_back() {
     newer.entries[0].text = "replacement".into();
     assert!(
         replica
-            .apply(event(15, Event::Reset { snapshot: newer }))
+            .apply(event(
+                15,
+                Event::Reset {
+                    snapshot: Box::new(newer)
+                }
+            ))
             .expect("complete reset")
             .reset
     );

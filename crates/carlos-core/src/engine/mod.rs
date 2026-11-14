@@ -3,6 +3,7 @@
 mod actions;
 mod automatic;
 mod dispatch;
+mod goals;
 pub mod launch;
 mod mailbox;
 mod native;
@@ -34,6 +35,18 @@ pub use self::ring::EngineFrame;
 
 /// Only explicit session reads and commands enter the owner, never native method strings.
 pub enum EngineCommand {
+    GoalRead {
+        refresh: bool,
+    },
+    GoalSet {
+        operation: ClientOperation,
+        expected: carlos_proto::ids::GoalRevision,
+        change: carlos_proto::goals::GoalChange,
+    },
+    GoalClear {
+        operation: ClientOperation,
+        expected: carlos_proto::ids::GoalRevision,
+    },
     Info,
     Snapshot {
         limit: usize,
@@ -96,6 +109,7 @@ pub enum EngineCommand {
 
 /// Replies carry facts or typed failures without retaining any client's editor.
 pub enum EngineReply {
+    Goal(carlos_proto::goals::GoalSnapshot),
     Info {
         info: SessionInfo,
         native_thread: String,
@@ -189,6 +203,7 @@ impl EngineHandle {
             | EngineCommand::SetRalph { .. }
             | EngineCommand::Rename { .. }
             | EngineCommand::Rewind { .. } => &self.0.ordinary,
+            EngineCommand::GoalSet { .. } | EngineCommand::GoalClear { .. } => &self.0.ordinary,
             EngineCommand::Interrupt { .. } | EngineCommand::Approve { .. } => &self.0.control,
             _ => &self.0.reads,
         };
@@ -230,6 +245,7 @@ impl EngineCommand {
         256 + match self {
             Self::Send { text, .. } | Self::Rewind { text, .. } => text.len(),
             Self::Rename { name, .. } => name.len(),
+            Self::GoalSet { change, .. } => change.objective.as_ref().map_or(0, String::len),
             Self::Approve { answer, .. } => {
                 serde_json::to_vec(answer).map_or(usize::MAX - 256, |bytes| bytes.len())
             }

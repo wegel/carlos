@@ -191,3 +191,21 @@ fn session_creation_requires_the_same_retry_identity_as_other_mutations() {
         "a lost create reply must not permit untracked duplicate sessions"
     );
 }
+
+#[test]
+fn goal_edits_require_explicit_status_and_reject_native_parameter_fields() {
+    let change =
+        json!({"objective":"readable goal", "token_budget":"9007199254740995", "status":"paused"});
+    assert!(from_value::<carlos_proto::goals::GoalChange>(change.clone()).is_ok());
+    for invalid in ["threadId", "origin", "requestMethod"] {
+        let mut changed = change.clone();
+        changed[invalid] = json!("native-routing");
+        assert!(from_value::<carlos_proto::goals::GoalChange>(changed).is_err());
+    }
+    let mut missing = change;
+    missing.as_object_mut().expect("fields").remove("status");
+    assert!(from_value::<carlos_proto::goals::GoalChange>(missing).is_err());
+    for invalid in ["x".repeat(64), "a".repeat(63), "A".repeat(64)] {
+        assert!(from_value::<carlos_proto::ids::GoalRevision>(json!(invalid)).is_err());
+    }
+}

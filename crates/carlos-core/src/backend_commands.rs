@@ -82,6 +82,15 @@ pub trait BackendCommands: Send + Sync {
     fn request_native_control(&self, _method: &str, _params: Value) -> Result<()> {
         bail!("backend does not support native controls")
     }
+    /// Preserve the original native reply token while retaining permission at writer dispatch.
+    fn request_control_with_context(
+        &self,
+        method: &str,
+        params: Value,
+        _context: Value,
+    ) -> Result<()> {
+        self.request_native_control(method, params)
+    }
     /// Apply accepted model choices without borrowing the owner.
     fn apply_runtime_settings(&self, _model: Option<&str>, _effort: Option<&str>) -> Result<bool> {
         Ok(false)
@@ -155,6 +164,14 @@ impl BackendClient for CommandHandle {
     }
     fn request_native_control(&self, method: &str, params: Value) -> Result<()> {
         self.0.request_native_control(method, params)
+    }
+    fn request_control_with_context(
+        &self,
+        method: &str,
+        params: Value,
+        context: Value,
+    ) -> Result<()> {
+        self.0.request_control_with_context(method, params, context)
     }
     fn apply_runtime_settings(&self, model: Option<&str>, effort: Option<&str>) -> Result<bool> {
         self.0.apply_runtime_settings(model, effort)

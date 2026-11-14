@@ -22,7 +22,7 @@ pub(super) fn pages(mut session: SessionState, sender: mpsc::SyncSender<Vec<u8>>
     let published = session.publish();
     let snapshot = published.snapshot(100);
     let mut before = snapshot.entries.first().map(|row| row.id.clone());
-    let mut elapsed = emit(Packet::Snapshot(snapshot), &sender, start)?;
+    let mut elapsed = emit(Packet::Snapshot(Box::new(snapshot)), &sender, start)?;
     while let Some(id) = before {
         let start = Instant::now();
         let history = published.history(&id, 100).expect("stable source cursor");

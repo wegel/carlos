@@ -198,6 +198,8 @@ pub enum ApprovalInput {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Snapshot {
     pub info: SessionInfo,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goal: Option<crate::goals::GoalFacts>,
     pub entries: Vec<Entry>,
     pub approvals: Vec<Approval>,
     pub seq: Sequence,

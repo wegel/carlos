@@ -28,6 +28,7 @@ pub enum Change {
         decision: Option<Decision>,
     },
     Info,
+    Goal,
     Reset {
         dirty_from: Option<EntryId>,
     },
@@ -42,6 +43,7 @@ pub struct NumberedChange {
 
 #[derive(Debug)]
 pub(super) struct EventState {
+    pub(super) goal_fingerprint: Option<blake3::Hash>,
     pub(super) operations: super::submission_identity::OperationEchoes,
     pub(super) current_turn: Option<super::control_liveness::LiveTurn>,
     pub(super) backend_closed: bool,
@@ -63,6 +65,7 @@ pub(super) struct EventState {
 impl EventState {
     pub(super) fn new() -> Self {
         Self {
+            goal_fingerprint: None,
             operations: Default::default(),
             current_turn: None,
             backend_closed: false,
@@ -129,6 +132,7 @@ impl SessionState {
         }
         let mut changes = self.row_changes(journal);
         self.publish_approvals(&mut changes);
+        self.publish_goal(&mut changes);
         if std::mem::take(&mut self.events.decision_overflow) {
             changes.clear();
             changes.push(Change::Reset { dirty_from: None });
@@ -305,6 +309,9 @@ impl Published<'_> {
                 facts: session.export_entry_facts(session.messages.entry(id)?),
             },
             Change::Approval(id) => self.approval_event(id)?,
+            Change::Goal => Event::GoalChanged {
+                goal: self.session.export_goal(),
+            },
             Change::ApprovalResolved { approval, decision } => Event::ApprovalResolved {
                 approval: approval.to_wire(),
                 decision,
@@ -313,7 +320,7 @@ impl Published<'_> {
                 info: session.events.info.clone()?,
             },
             Change::Reset { .. } => Event::Reset {
-                snapshot: self.snapshot(100),
+                snapshot: Box::new(self.snapshot(100)),
             },
         };
         Some(SessionEvent {

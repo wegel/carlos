@@ -60,9 +60,10 @@ fn apply(client: &mut Snapshot, event: SessionEvent) {
             client.approvals.retain(|old| old.id != approval)
         }
         Event::InfoChanged { info } => client.info = info,
+        Event::GoalChanged { goal } => client.goal = goal,
         Event::Reset { snapshot } => {
             assert_eq!(snapshot.seq, event.seq);
-            *client = snapshot;
+            *client = *snapshot;
         }
     }
     client.seq = event.seq;

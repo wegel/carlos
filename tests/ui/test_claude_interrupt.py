@@ -55,8 +55,11 @@ class ClaudeInterrupt:
             terminal.pump(.02)
         terminal.rewind(PROMPT)
         terminal.send(b"\x1b")
+        terminal.wait(lambda: terminal.input_is(""), "Escape cancels rewind and restores the empty composer")
         terminal.contains(LATEST)
         self.assertTrue(terminal.input_is(""))
+        self.assertEqual(len(self.native_controls(terminal, "interrupt")), 1)
+        self.assertEqual(len(self.helper_requests(terminal, "prompt")), 2)
 
     def test_claude_interrupted_reply_matches_resumed_history(self):
         terminal = self.interrupt_history("claude-interrupt-after-ack")

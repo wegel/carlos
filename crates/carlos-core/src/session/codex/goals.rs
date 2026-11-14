@@ -1,5 +1,6 @@
 //! Read native goals and send explicitly accepted plain goal changes.
 
+use std::sync::{atomic::AtomicBool, Arc};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
@@ -13,6 +14,10 @@ use crate::session::state::SessionState;
 /// Describe only the local effects of a native goal change.
 #[derive(Default)]
 pub struct GoalUpdate {
+    pub outcome: Option<(
+        carlos_proto::submissions::ClientOperation,
+        carlos_proto::submissions::OperationState,
+    )>,
     pub clear_error: bool,
     pub clear_editor: bool,
 }
@@ -81,7 +86,7 @@ pub fn can_mutate(session: &SessionState, scope: CodexScope, active: bool) -> Re
         return Err("Codex is closed; the goal draft is kept".into());
     }
     if session.codex_goals.knowledge != GoalKnowledge::Known {
-        return Err("Goal controls unavailable; r refreshes native state".into());
+        return Err("Goal controls unavailable; refresh native state".into());
     }
     if session.codex_goals.direct_input == Some(false) {
         return Err("Codex does not allow direct goal changes for this thread".into());
@@ -91,8 +96,7 @@ pub fn can_mutate(session: &SessionState, scope: CodexScope, active: bool) -> Re
     }
     if active && (session.ralph_enabled() || session.ralph_runtime().toggle_pending()) {
         return Err(
-            "Turn Ralph off with Ctrl+R and cancel any pending toggle before starting a Codex goal"
-                .into(),
+            "Turn Ralph off and cancel any pending toggle before starting a Codex goal".into(),
         );
     }
     Ok(())
@@ -107,31 +111,74 @@ pub fn mutate(
     method: &str,
     params: Value,
 ) {
-    let request = request(session, method, params.clone());
+    let (context, _) = start_mutation(session, scope, update, method, &params, None);
+    if let Err(error) = client.request_control_with_context(method, params, context) {
+        fail_mutation(session, &error.to_string());
+    }
+}
+
+/// Keep a remote mutation's operation and permission through the actual native write queue.
+pub(crate) fn mutate_owned(
+    commands: &crate::backend_commands::CommandHandle,
+    session: &mut SessionState,
+    scope: CodexScope,
+    method: &str,
+    params: Value,
+    operation: carlos_proto::submissions::ClientOperation,
+) {
+    let (context, permission) = start_mutation(
+        session,
+        scope,
+        &mut GoalUpdate::default(),
+        method,
+        &params,
+        Some(operation),
+    );
+    if let Err(error) = commands
+        .guarded(permission)
+        .and_then(|commands| commands.request_control_with_context(method, params, context))
+    {
+        fail_mutation(session, &error.to_string());
+    }
+}
+
+fn start_mutation(
+    session: &mut SessionState,
+    scope: CodexScope,
+    update: &mut GoalUpdate,
+    method: &str,
+    params: &Value,
+    operation: Option<carlos_proto::submissions::ClientOperation>,
+) -> (Value, crate::dispatch_guard::DispatchGuard) {
+    let mut request = request(session, method, params.clone());
+    request.operation = operation;
     let context = context(scope, &request);
+    let permission = crate::dispatch_guard::DispatchGuard::from_flag(request.live.clone());
     session.codex_goals.mutation = Some(request);
     session.codex_goals.error = None;
     update.clear_error = true;
     session.codex_goals.notice =
         "Goal change pending; Codex owns execution and budget checks".into();
-    if let Err(error) = client.request_control_with_context(method, params, context) {
-        if session
-            .codex_goals
-            .mutation
-            .as_ref()
-            .is_some_and(|request| request.may_activate)
-        {
-            session.codex_goals.knowledge = GoalKnowledge::Unknown;
-            session.codex_goals.revision = session.codex_goals.revision.saturating_add(1);
-            session.codex_goals.last_read = None;
-            reconcile_ralph(session);
-        }
-        session.codex_goals.mutation = None;
-        session.codex_goals.notice.clear();
-        session.codex_goals.error = Some(format!(
-            "Goal change was not confirmed: {error}. Draft kept; no automatic retry"
-        ));
+    (context, permission)
+}
+
+fn fail_mutation(session: &mut SessionState, error: &str) {
+    if session
+        .codex_goals
+        .mutation
+        .as_ref()
+        .is_some_and(|request| request.may_activate)
+    {
+        session.codex_goals.knowledge = GoalKnowledge::Unknown;
+        session.codex_goals.revision = session.codex_goals.revision.saturating_add(1);
+        session.codex_goals.last_read = None;
+        reconcile_ralph(session);
     }
+    session.codex_goals.mutation = None;
+    session.codex_goals.notice.clear();
+    session.codex_goals.error = Some(format!(
+        "Goal change was not confirmed: {error}. Draft kept; no automatic retry"
+    ));
 }
 
 fn request(session: &mut SessionState, method: &str, params: Value) -> GoalRequest {
@@ -142,6 +189,8 @@ fn request(session: &mut SessionState, method: &str, params: Value) -> GoalReque
             .or(session.codex_goals.goal["status"].as_str())
             == Some("active");
     GoalRequest {
+        live: Arc::new(AtomicBool::new(true)),
+        operation: None,
         token: session.codex_serial(),
         method: method.into(),
         params,
@@ -168,7 +217,7 @@ pub fn ralph_error(session: &SessionState, scope: CodexScope) -> Option<&'static
     }
     match session.codex_goals.knowledge {
         GoalKnowledge::Unknown => {
-            Some("Codex goal state is unknown. Open /goal and refresh before enabling Ralph")
+            Some("Codex goal state is unknown; refresh it before enabling Ralph")
         }
         GoalKnowledge::Unavailable => None,
         GoalKnowledge::Known
@@ -180,9 +229,7 @@ pub fn ralph_error(session: &SessionState, scope: CodexScope) -> Option<&'static
         {
             None
         }
-        GoalKnowledge::Known => {
-            Some("Pause or clear the Codex goal in /goal before enabling Ralph")
-        }
+        GoalKnowledge::Known => Some("Pause or clear the Codex goal before enabling Ralph"),
     }
 }
 
@@ -197,6 +244,6 @@ pub(crate) fn reconcile_ralph(session: &mut SessionState) {
             );
     if may_drive && (session.ralph_enabled() || session.ralph_runtime().toggle_pending()) {
         session.ralph_stop_after_failure();
-        session.append_message(Role::System,"Carlos stopped Ralph because a Codex goal may drive this thread. /goal shows its state; queued human inputs remain.");
+        session.append_message(Role::System,"Carlos stopped Ralph because a Codex goal may drive this thread. Read the goal state; queued human inputs remain.");
     }
 }

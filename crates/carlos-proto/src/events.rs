@@ -25,6 +25,9 @@ pub struct EntryFacts {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Event {
+    GoalChanged {
+        goal: Option<crate::goals::GoalFacts>,
+    },
     EntryAdded {
         entry: Entry,
     },
@@ -60,7 +63,7 @@ pub enum Event {
         info: SessionInfo,
     },
     Reset {
-        snapshot: Snapshot,
+        snapshot: Box<Snapshot>,
     },
 }
 

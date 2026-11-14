@@ -3,6 +3,7 @@
 pub mod bytes;
 pub mod commands;
 pub mod events;
+pub mod goals;
 pub mod ids;
 pub mod output;
 pub mod session;

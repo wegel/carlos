@@ -1,5 +1,9 @@
 //! Own native goals and pending backend requests without answer editors.
 
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use std::time::Instant;
 
 use serde_json::Value;
@@ -30,11 +34,19 @@ pub struct GoalState {
 /// Match each acknowledgement to its exact scope and the facts known before dispatch.
 #[derive(Debug)]
 pub(crate) struct GoalRequest {
+    pub(in crate::session) live: Arc<AtomicBool>,
+    pub(in crate::session) operation: Option<carlos_proto::submissions::ClientOperation>,
     pub(in crate::session) token: u64,
     pub(in crate::session) method: String,
     pub(in crate::session) params: Value,
     pub(in crate::session) revision: u64,
     pub(in crate::session) may_activate: bool,
+}
+
+impl Drop for GoalRequest {
+    fn drop(&mut self) {
+        self.live.store(false, Ordering::SeqCst);
+    }
 }
 
 impl GoalState {

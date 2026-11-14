@@ -32,6 +32,9 @@ pub mod summaries;
 #[cfg(test)]
 #[path = "tests/backend_owner_codex_tests.rs"]
 mod backend_owner_codex_tests;
+#[cfg(test)]
+#[path = "tests/codex_control_guard_tests.rs"]
+mod codex_control_guard_tests;
 
 #[cfg(test)]
 #[path = "tests/writer_guard_test_support.rs"]

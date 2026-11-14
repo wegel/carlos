@@ -19,6 +19,7 @@ pub enum ClientError {
         received: Sequence,
     },
     StaleHistory,
+    StaleGoal,
     Capacity(&'static str),
 }
 
@@ -44,6 +45,7 @@ impl fmt::Display for ClientError {
             Self::StaleHistory => {
                 f.write_str("history was superseded; read again from the current first entry")
             }
+            Self::StaleGoal => f.write_str("goal read was superseded by newer session facts"),
             Self::Capacity(message) => f.write_str(message),
         }
     }

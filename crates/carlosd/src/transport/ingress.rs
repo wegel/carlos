@@ -38,6 +38,8 @@ impl Ingress {
             | Command::Send { .. }
             | Command::SetRalph { .. }
             | Command::Rename { .. }
+            | Command::GoalSet { .. }
+            | Command::GoalClear { .. }
             | Command::Rewind { .. } => 0,
             Command::Interrupt { .. } | Command::Approve { .. } => 1,
             _ => 2,

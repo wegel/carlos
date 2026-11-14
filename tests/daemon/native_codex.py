@@ -26,6 +26,10 @@ class NativeCodex:
         self.tool_first = "chunk-a\n"
         self.tool_second = "chunk-b\n"
         self.hold_interrupts = False
+        self.goals_enabled = False
+        self.goal = None
+        self.goal_hold = False
+        self.goal_pending = None
         self.ready = threading.Event()
         self.loop = asyncio.new_event_loop()
         self.thread = threading.Thread(target=self.run, daemon=True)
@@ -131,11 +135,15 @@ class NativeCodex:
             assert request["params"]["beforeTurnId"] == "history-turn"
             self.thread_id = "native-fork"
             self.forked = True
+            self.goal = None
             result = {"thread": self.history()}
         elif method == "thread/name/set":
             if request["params"]["name"] == "reject rename":
                 await self.send(link, {"id": request["id"], "error": {"code": -32602, "message": "fixture rejected rename"}})
                 return
+        elif method in ("thread/goal/get", "thread/goal/set", "thread/goal/clear"):
+            await self.goal_request(link, request)
+            return
         elif method in ("model/list", "thread/list", "thread/backgroundTerminals/list"):
             result = {"data": [], "nextCursor": None}
         elif method in ("turn/start", "turn/steer"):
@@ -145,6 +153,42 @@ class NativeCodex:
             await self.send(link, {"id": request["id"], "error": {"code": -32601, "message": "unsupported fixture method"}})
             return
         await self.send(link, {"id": request["id"], "result": result})
+
+    async def goal_request(self, link, request):
+        if not self.goals_enabled:
+            await self.send(link, {"id": request["id"], "error": {"code": -32601, "message": "goals feature is disabled"}})
+            return
+        method, params = request["method"], request["params"]
+        assert params["threadId"] == self.thread_id
+        if method == "thread/goal/set":
+            if params.get("objective") == "reject objective":
+                await self.send(link, {"id": request["id"], "error": {"code": -32602, "message": "PRIVATE_GOAL_REJECTION"}})
+                return
+            previous = self.goal or {"threadId": self.thread_id, "objective": "", "status": "paused",
+                "tokenBudget": None, "tokensUsed": 9007199254740993, "timeUsedSeconds": 7,
+                "createdAt": 1700000000, "updatedAt": 1700000000}
+            self.goal = {**previous, **{key: params[key] for key in ("objective", "tokenBudget", "status") if key in params}}
+            self.goal["updatedAt"] += 1
+            result = {"goal": dict(self.goal)}
+            await self.notify(link, "thread/goal/updated", goal=self.goal)
+            if self.goal_hold:
+                assert self.goal_pending is None
+                self.goal_pending = (link, request["id"], result)
+                return
+        elif method == "thread/goal/clear":
+            self.goal = None
+            result = {"cleared": True}
+        else:
+            result = {"goal": self.goal}
+        await self.send(link, {"id": request["id"], "result": result})
+
+    def release_goal(self):
+        async def release():
+            link, identity, result = self.goal_pending
+            self.goal_pending = None
+            self.goal_hold = False
+            await self.send(link, {"id": identity, "result": result})
+        asyncio.run_coroutine_threadsafe(release(), self.loop).result(timeout=3)
 
     async def held_facts(self, link):
         await self.notify(link, "turn/started", turn={"id": "live"})

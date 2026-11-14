@@ -1,5 +1,6 @@
 //! Apply only current-root native goal facts, preserving newer events and independent drafts.
 
+use carlos_proto::submissions::OperationState;
 use serde_json::Value;
 
 use super::goal_state::{GoalKnowledge, GoalRequest};
@@ -15,7 +16,7 @@ pub fn observed(session: &mut SessionState, method: &str, params: &Value) {
     if method != "thread/goal/cleared" && !params["goal"].is_object() {
         invalid(
             session,
-            "Codex goal update has no valid goal object; r refreshes native state",
+            "Codex goal update has no valid goal object; refresh native state",
         );
         return;
     }
@@ -73,15 +74,15 @@ fn read_reply(session: &mut SessionState, response: &Value) {
         } else {
             GoalKnowledge::Unknown
         };
-        session.codex_goals.read_error = Some(crate::session::text::safe_text(message));
+        session.codex_goals.read_error = Some(crate::protocol_events::bounded_diagnostic(message));
         super::goals::reconcile_ralph(session);
         return;
     }
     let result = &response["result"];
     let outcome = result
         .get("goal")
-        .ok_or_else(|| "Codex did not return goal state; r refreshes".to_string())
-        .and_then(|goal| apply(session, goal));
+        .ok_or_else(|| "Codex did not return goal state; refresh it".to_string())
+        .and_then(|goal| apply_read(session, goal));
     if let Err(error) = outcome {
         session.codex_goals.knowledge = GoalKnowledge::Unknown;
         session.codex_goals.read_error = Some(error);
@@ -106,11 +107,26 @@ fn mutation_reply(
         update.clear_error = true;
         session.codex_goals.error = Some(format!(
             "Goal change not confirmed: {}. Draft kept; no automatic retry",
-            crate::session::text::safe_text(
+            crate::protocol_events::bounded_diagnostic(
                 error["message"].as_str().unwrap_or("native request failed")
             )
         ));
         session.codex_goals.last_read = None;
+        if let Some(operation) = &request.operation {
+            let message = session.codex_goals.error.clone().expect("mutation failure");
+            let state = if matches!(error["code"].as_i64(), Some(-32602..=-32600)) {
+                OperationState::Rejected {
+                    message,
+                    recovery: None,
+                }
+            } else {
+                OperationState::Uncertain {
+                    message,
+                    recovery: None,
+                }
+            };
+            update.outcome = Some((operation.clone(), state));
+        }
         return;
     }
     finish_mutation(session, update, request, response);
@@ -152,37 +168,70 @@ fn finish_mutation(
         invalid(session, &error);
         update.clear_error = true;
         session.codex_goals.error = Some(error);
+        set_outcome(
+            update,
+            request,
+            OperationState::Uncertain {
+                message: session
+                    .codex_goals
+                    .error
+                    .clone()
+                    .expect("invalid native acknowledgement"),
+                recovery: None,
+            },
+        );
     } else {
         session.codex_goals.notice =
             "Codex acknowledged the goal change; execution/status remain native-owned".into();
         if request.params.get("objective").is_some() {
             update.clear_editor = true;
         }
+        set_outcome(update, request, OperationState::Accepted { entry: None });
     }
     session.codex_goals.last_read = None;
 }
 
+fn set_outcome(update: &mut GoalUpdate, request: &GoalRequest, state: OperationState) {
+    if let Some(operation) = &request.operation {
+        update.outcome = Some((operation.clone(), state));
+    }
+}
+
 fn apply(session: &mut SessionState, goal: &Value) -> Result<(), String> {
     validate(session.thread_id(), goal)?;
-    session.codex_goals.read_error = None;
+    let revision = session.codex_goals.revision.checked_add(1).ok_or_else(|| {
+        "native goal revision counter exhausted; reconnect before changing goals".to_owned()
+    })?;
     session.codex_goals.goal = goal.clone();
+    session.codex_goals.revision = revision;
+    session.codex_goals.read_error = None;
     session.codex_goals.knowledge = GoalKnowledge::Known;
-    session.codex_goals.revision = session.codex_goals.revision.saturating_add(1);
     super::goals::reconcile_ralph(session);
     Ok(())
+}
+
+fn apply_read(session: &mut SessionState, goal: &Value) -> Result<(), String> {
+    if session.codex_goals.knowledge == GoalKnowledge::Known && &session.codex_goals.goal == goal {
+        // Equal reads do not expire an editor. Notifications still advance the
+        // revision even when equal: their arrival fences a racing activation ACK.
+        session.codex_goals.read_error = None;
+        Ok(())
+    } else {
+        apply(session, goal)
+    }
 }
 
 fn invalid(session: &mut SessionState, error: &str) {
     session.codex_goals.knowledge = GoalKnowledge::Unknown;
     session.codex_goals.revision = session.codex_goals.revision.saturating_add(1);
     session.codex_goals.last_read = None;
-    session.codex_goals.read_error = Some(error.into());
+    session.codex_goals.read_error = Some(crate::protocol_events::bounded_diagnostic(error));
     super::goals::reconcile_ralph(session);
 }
 
 /// Reject malformed root snapshots before the UI replaces any history.
 pub fn validate(thread: &str, goal: &Value) -> Result<(), String> {
-    if goal.to_string().len() > 128 * 1024 {
+    if goal.to_string().len() > carlos_proto::goals::MAX_GOAL_BYTES {
         return Err(
             "Codex goal exceeds128 KiB; controls unavailable until a readable snapshot arrives"
                 .into(),

@@ -12,6 +12,7 @@ use crate::ClientError;
 /// Platforms redraw changed rows and invalidate body caches without rescanning the transcript.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct ChangeSet {
+    pub goal: bool,
     pub entries: Vec<EntryId>,
     pub bodies: Vec<EntryId>,
     pub info: bool,
@@ -23,6 +24,8 @@ pub struct ChangeSet {
 
 /// One bounded chronological window; the daemon keeps older/newer rows outside this copy.
 pub struct Replica {
+    pub(crate) goal: Option<carlos_proto::goals::GoalFacts>,
+    pub(crate) goal_seq: Sequence,
     pub(crate) info: SessionInfo,
     pub(crate) approvals: Cards,
     pub(crate) rows: Rows,
@@ -45,6 +48,8 @@ impl Replica {
             }
         }
         Ok(Self {
+            goal: snapshot.goal,
+            goal_seq: snapshot.seq,
             info: snapshot.info,
             approvals: Cards::new(snapshot.approvals)?,
             rows,
@@ -59,6 +64,10 @@ impl Replica {
     /// Borrow current session facts without exposing a mutable core session.
     pub fn info(&self) -> &SessionInfo {
         &self.info
+    }
+    /// Borrow shared native goal facts; drafts and mutation errors remain private.
+    pub fn goal(&self) -> Option<&carlos_proto::goals::GoalFacts> {
+        self.goal.as_ref()
     }
     /// Borrow rows in chronological window order without cloning their source.
     pub fn entries(&self) -> impl DoubleEndedIterator<Item = &Entry> {
@@ -99,6 +108,7 @@ impl Replica {
         }
         *self = Self::new(snapshot)?;
         Ok(ChangeSet {
+            goal: true,
             info: true,
             approvals: true,
             reset: true,
@@ -119,7 +129,7 @@ impl Replica {
                 self.stale = true;
                 return Err(ClientError::InvalidEnvelope);
             }
-            return self.replace(snapshot);
+            return self.replace(*snapshot);
         }
         if self.stale || self.seq.checked_next() != Some(event.seq) {
             self.stale = true;
@@ -141,6 +151,7 @@ impl Replica {
     fn apply_fact(&mut self, event: Event, seq: Sequence) -> Result<ChangeSet, ClientError> {
         let mut changed = ChangeSet::default();
         match event {
+            Event::GoalChanged { goal } => self.replace_goal(goal, seq, &mut changed),
             Event::EntryAdded { entry } => self.add_entry(entry, &mut changed)?,
             Event::EntryUpdated { entry } => self.replace_entry(entry, seq, &mut changed),
             Event::TextAppended { entry, text } => {

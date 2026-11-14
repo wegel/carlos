@@ -46,6 +46,7 @@ impl Manager {
         } = read;
         match kind {
             ReadKind::Rpc(id) => match reply {
+                EngineReply::Goal(goal) => self.reply(peer, id, goal),
                 EngineReply::History(history) => self.reply(peer, id, history),
                 EngineReply::Output(chunk) => self.reply(peer, id, chunk),
                 EngineReply::Source(chunk) => self.reply(peer, id, chunk),

@@ -142,6 +142,9 @@ mod backend_deadlines;
 mod prompt_command_tests;
 
 mod event_approval;
+mod event_goal;
+#[cfg(test)]
+mod event_goal_tests;
 mod event_metadata;
 mod event_reads;
 mod event_rows;

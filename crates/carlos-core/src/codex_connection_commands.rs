@@ -100,8 +100,17 @@ impl BackendCommands for Commands {
         )
     }
     fn request_native_control(&self, method: &str, params: Value) -> Result<()> {
+        self.request_control_with_context(method, params, Value::Null)
+    }
+    fn request_control_with_context(
+        &self,
+        method: &str,
+        params: Value,
+        context: Value,
+    ) -> Result<()> {
         self.check()?;
-        self.connection.request_native_control(method, params)
+        self.connection
+            .request_control_guarded(method, params, context, self.write_permission())
     }
     fn refresh_context(&self) -> Result<()> {
         self.check()?;
@@ -114,6 +123,7 @@ impl BackendCommands for Commands {
     }
     fn respond_error(&self, id: &Value, code: i64, message: &str) -> Result<()> {
         self.check()?;
-        self.connection.respond_error(id, code, message)
+        self.connection
+            .respond_error_guarded(id, code, message, self.write_permission())
     }
 }

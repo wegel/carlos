@@ -4,6 +4,7 @@ mod cards;
 pub mod codec;
 mod connection;
 mod error;
+mod goal;
 mod history;
 mod operations;
 mod replica;

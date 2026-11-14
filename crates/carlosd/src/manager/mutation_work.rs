@@ -17,6 +17,9 @@ pub(super) type Prepared = (
 
 pub(super) fn prepare(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
     let parts = match command {
+        command @ (Command::GoalSet { .. } | Command::GoalClear { .. }) => {
+            return prepare_goal(command)
+        }
         Command::Send {
             session,
             operation,
@@ -139,4 +142,49 @@ fn prepare_edit(command: Command) -> Result<Prepared, carlos_proto::commands::Rp
         _ => unreachable!("typed edit route"),
     };
     Ok((session, operation, work, recovery, Class::Ordinary))
+}
+
+fn prepare_goal(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
+    Ok(match command {
+        Command::GoalSet {
+            session,
+            operation,
+            expected,
+            change,
+        } => {
+            if change
+                .objective
+                .as_ref()
+                .is_some_and(|text| text.len() > carlos_proto::goals::MAX_OBJECTIVE_BYTES)
+            {
+                return Err(error(-32602, "goal objective exceeds 32 KiB; nothing sent"));
+            }
+            (
+                session,
+                operation.clone(),
+                EngineCommand::GoalSet {
+                    operation,
+                    expected,
+                    change,
+                },
+                None,
+                Class::Ordinary,
+            )
+        }
+        Command::GoalClear {
+            session,
+            operation,
+            expected,
+        } => (
+            session,
+            operation.clone(),
+            EngineCommand::GoalClear {
+                operation,
+                expected,
+            },
+            None,
+            Class::Ordinary,
+        ),
+        _ => unreachable!("typed goal mutation"),
+    })
 }

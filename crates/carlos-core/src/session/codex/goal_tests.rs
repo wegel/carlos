@@ -38,7 +38,7 @@ fn stale_goal_reads_keep_newer_native_facts_and_block_ralph_without_a_view() {
     assert_eq!(session.codex_goals().goal(), &active);
     assert_eq!(
         ralph_error(&session, scope),
-        Some("Pause or clear the Codex goal in /goal before enabling Ralph")
+        Some("Pause or clear the Codex goal before enabling Ralph")
     );
     assert!(can_mutate(&session, scope, false).is_ok());
     session.set_codex_goal_direct_input(Some(false));

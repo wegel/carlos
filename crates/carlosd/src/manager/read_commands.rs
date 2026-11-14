@@ -13,6 +13,9 @@ use crate::transport::wire::error;
 impl Manager {
     pub(super) fn read_command(&mut self, peer: u64, id: RequestId, command: Command) {
         match command {
+            Command::GoalRead { session, refresh } => {
+                self.rpc_read(peer, id, session, EngineCommand::GoalRead { refresh })
+            }
             Command::Subscribe { session, since } => self.subscribe(peer, id, session, since),
             Command::Unsubscribe { session } => {
                 let connection = self.peers.get_mut(&peer).expect("peer");
@@ -200,6 +203,7 @@ impl Manager {
             return Err(error(-32010, "pending reads are full"));
         }
         let reserved = match command {
+            EngineCommand::GoalRead { .. } => 1024 * 1024,
             EngineCommand::Changes { .. } => 16 * 1024 * 1024,
             EngineCommand::Output { .. }
             | EngineCommand::Source { .. }

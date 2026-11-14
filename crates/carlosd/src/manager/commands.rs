@@ -33,6 +33,8 @@ impl Manager {
             | Command::Rename { .. }
             | Command::Rewind { .. }
             | Command::SetRalph { .. }
+            | Command::GoalSet { .. }
+            | Command::GoalClear { .. }
             | Command::Approve { .. }
             | Command::Interrupt { .. } => self.mutate(peer, id, command, client),
             Command::Watch {} => {

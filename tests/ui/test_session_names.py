@@ -118,7 +118,8 @@ class SessionNames:
         terminal.send(b"\r")
         terminal.wait(lambda: "Résumé" in terminal.screen.display[-1], "unicode title")
         terminal.resize(28, 24)
-        terminal.wait(lambda: "Résumé" in terminal.screen.display[-1], "clipped unicode title")
+        terminal.wait(lambda: "Résumé" in terminal.screen.display[-1] and terminal.placeholder_is(),
+                      "clipped unicode title in the resized layout")
         self.assertTrue(terminal.placeholder_is())
         terminal.paste("x")
         terminal.wait(lambda: terminal.input_is("x"), "typing hides title")

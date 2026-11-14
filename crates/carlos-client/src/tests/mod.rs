@@ -3,6 +3,7 @@
 mod cards;
 mod codec;
 mod connection;
+mod goal;
 mod operations;
 mod replica;
 mod windows;

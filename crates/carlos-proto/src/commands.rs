@@ -40,6 +40,25 @@ pub struct Request {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "method", content = "params")]
 pub enum Command {
+    #[serde(rename = "goal/read")]
+    GoalRead {
+        session: SessionId,
+        #[serde(default)]
+        refresh: bool,
+    },
+    #[serde(rename = "goal/set")]
+    GoalSet {
+        session: SessionId,
+        operation: ClientOperation,
+        expected: crate::ids::GoalRevision,
+        change: crate::goals::GoalChange,
+    },
+    #[serde(rename = "goal/clear")]
+    GoalClear {
+        session: SessionId,
+        operation: ClientOperation,
+        expected: crate::ids::GoalRevision,
+    },
     #[serde(rename = "hello")]
     Hello {
         protocol: u32,

@@ -231,6 +231,46 @@
         "offset": "9007199254740993",
         "limit": 65536
       }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "goal/read",
+      "method": "goal/read",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "refresh": true
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "goal/set",
+      "method": "goal/set",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "operation": {
+          "client": "dddddddddddddddddddddddddddddddd",
+          "id": "9"
+        },
+        "expected": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "change": {
+          "objective": "Keep native goal 🌍",
+          "token_budget": "9007199254740995",
+          "status": "paused"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "goal/clear",
+      "method": "goal/clear",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "operation": {
+          "client": "dddddddddddddddddddddddddddddddd",
+          "id": "9"
+        },
+        "expected": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
     }
   ],
   "notifications": [
@@ -637,6 +677,35 @@
             "tool": null,
             "format": "user_steer",
             "file_path": "src/é.rs"
+          }
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/event",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "seq": "42",
+        "event": {
+          "kind": "goal_changed",
+          "goal": {
+            "revision": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "knowledge": "known",
+            "goal": {
+              "objective": "Keep native goal 🌍",
+              "status": "future-native-status",
+              "token_budget": "9007199254740995",
+              "tokens_used": "9007199254740993",
+              "time_used_seconds": "7",
+              "created_at": 1700000000,
+              "updated_at": 1700000001
+            },
+            "reading": false,
+            "pending": false,
+            "direct_input": null,
+            "read_error": null,
+            "notice": ""
           }
         }
       }

@@ -77,4 +77,19 @@ impl AppServerClient {
             permission,
         )
     }
+
+    pub(crate) fn respond_error_guarded(
+        &self,
+        request_id: &Value,
+        code: i64,
+        message: &str,
+        permission: DispatchGuard,
+    ) -> Result<()> {
+        self.writer.write_guarded(
+            json!({"id":request_id,"error":{"code":code,"message":message}}),
+            Instant::now() + Duration::from_secs(2),
+            &self.state,
+            permission,
+        )
+    }
 }
