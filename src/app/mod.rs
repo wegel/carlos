@@ -124,6 +124,8 @@ mod state_thread;
 mod state_transcript;
 mod style_convert;
 mod task_badge;
+mod task_panel_rows;
+mod task_panel_view;
 mod terminal_ui;
 mod text;
 mod tool_command_view;

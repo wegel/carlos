@@ -8,10 +8,11 @@ use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
 use super::input_events::TerminalEventResult;
-use super::render::{draw_str, fill_rect};
 use super::state::AppState;
+use super::task_panel_rows::PanelRows;
+use super::task_panel_view::{draw as draw_panel, TaskPanel};
 use super::view_models::TerminalSize;
-use crate::theme::{COLOR_DIM, COLOR_PRIMARY, COLOR_STEP2, COLOR_TEXT};
+use crate::theme::COLOR_PRIMARY;
 
 /// Route task controls ahead of question input so a waiting child can still be stopped.
 pub(super) fn key(
@@ -53,37 +54,29 @@ pub(super) fn key(
 
 /// Draw a selected task with wrapping and scrolling even on a phone-sized terminal.
 pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
-    fill_rect(
+    let mut rows = PanelRows::default();
+    let lines = if size.width == 0 || size.height < 3 {
+        Vec::new()
+    } else {
+        body(app)
+    };
+    rows.rebuild(lines, size.width);
+    let title = title(app);
+    draw_panel(
         buf,
-        0,
-        0,
-        size.width,
-        size.height,
-        Style::default().bg(COLOR_STEP2),
+        TaskPanel {
+            title: &title,
+            title_style: Style::default()
+                .fg(COLOR_PRIMARY)
+                .add_modifier(Modifier::BOLD),
+            selected: None,
+            body: &rows,
+            scroll: app.view.claude_tasks.scroll,
+            footer: footer(app, size),
+            compact_help: None,
+        },
+        size,
     );
-    if size.height == 0 || size.width == 0 {
-        return;
-    }
-    draw_header(buf, app, size);
-    let lines = body(app);
-    let wrapped = super::claude_question_view::wrap_lines(lines, size.width.max(1));
-    let height = size.height.saturating_sub(2);
-    let offset = app
-        .view
-        .claude_tasks
-        .scroll
-        .min(wrapped.len().saturating_sub(height));
-    for (row, line) in wrapped.iter().skip(offset).take(height).enumerate() {
-        draw_str(
-            buf,
-            0,
-            row + 1,
-            line,
-            Style::default().fg(COLOR_TEXT),
-            size.width,
-        );
-    }
-    draw_footer(buf, app, size);
 }
 
 fn detail(app: &AppState, id: Option<&str>) -> Vec<String> {
@@ -171,30 +164,20 @@ fn stop(client: &dyn BackendClient, app: &mut AppState) {
     app.session.stop_claude_task(client, &id);
 }
 
-fn draw_header(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
-    let ids = app.session.claude().tasks().ids();
-    let selected = app
+fn title(app: &AppState) -> String {
+    let tasks = app.session.claude().tasks();
+    let ids = tasks.ids();
+    let index = app
         .view
         .claude_tasks
-        .selected_id(app.session.claude().tasks());
-    let index = selected
+        .selected_id(tasks)
         .and_then(|id| ids.iter().position(|candidate| candidate == id))
         .map_or(0, |index| index + 1);
-    let title = format!(
+    format!(
         "Tasks {index}/{} · {} active",
         ids.len(),
-        app.session.claude().tasks().active_count()
-    );
-    draw_str(
-        buf,
-        0,
-        0,
-        &title,
-        Style::default()
-            .fg(COLOR_PRIMARY)
-            .add_modifier(Modifier::BOLD),
-        size.width,
-    );
+        tasks.active_count()
+    )
 }
 
 fn body(app: &AppState) -> Vec<String> {
@@ -245,35 +228,16 @@ fn body(app: &AppState) -> Vec<String> {
     lines
 }
 
-fn draw_footer(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
-    draw_str(
-        buf,
-        0,
-        size.height - 1,
-        if size.width < 40 {
-            if app
-                .view
-                .claude_tasks
-                .selected_id(app.session.claude().tasks())
-                .is_some_and(|id| app.session.claude().tasks().can_stop(id))
-            {
-                "↑↓ x stop F2 back"
-            } else {
-                "↑↓ no stop F2 back"
-            }
-        } else {
-            if app
-                .view
-                .claude_tasks
-                .selected_id(app.session.claude().tasks())
-                .is_some_and(|id| app.session.claude().tasks().can_stop(id))
-            {
-                "↑↓ tasks · x stop · PgDn · F3 mode · F2/Esc close"
-            } else {
-                "↑↓ tasks · stop unavailable · PgDn · F3 mode · F2/Esc close"
-            }
-        },
-        Style::default().fg(COLOR_DIM),
-        size.width,
-    );
+fn footer(app: &AppState, size: TerminalSize) -> &'static str {
+    let can_stop = app
+        .view
+        .claude_tasks
+        .selected_id(app.session.claude().tasks())
+        .is_some_and(|id| app.session.claude().tasks().can_stop(id));
+    match (size.width < 40, can_stop) {
+        (true, true) => "↑↓ x stop F2 back",
+        (true, false) => "↑↓ no stop F2 back",
+        (false, true) => "↑↓ tasks · x stop · PgDn · F3 mode · F2/Esc close",
+        (false, false) => "↑↓ tasks · stop unavailable · PgDn · F3 mode · F2/Esc close",
+    }
 }

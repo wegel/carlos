@@ -7,10 +7,11 @@ use ratatui::buffer::Buffer;
 use ratatui::style::Style;
 
 use super::input_events::TerminalEventResult;
-use super::render::{draw_str, fill_rect};
 use super::state::AppState;
+use super::task_panel_rows::PanelRows;
+use super::task_panel_view::{draw as draw_panel, TaskPanel};
 use super::view_models::TerminalSize;
-use crate::theme::{COLOR_DIM, COLOR_PRIMARY, COLOR_STEP2, COLOR_TEXT};
+use crate::theme::COLOR_PRIMARY;
 
 /// Keep F2 independent of model/queue/question overlays; closing reveals their untouched drafts.
 pub(super) fn key(
@@ -72,50 +73,30 @@ pub(super) fn key(
 
 /// Pin the selected native row above the scrollable details even on a narrow terminal.
 pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
-    if !draw_header(buf, app, size) {
-        return;
-    }
-    let lines = super::codex_panel_text::body(app);
-    let wrapped = super::claude_question_view::wrap_lines(lines, size.width.max(1));
-    let compact = size.width < 40 && size.height >= 4;
-    let height = size.height.saturating_sub(if compact { 4 } else { 3 });
-    let offset = app
-        .view
-        .codex_panel
-        .scroll
-        .min(wrapped.len().saturating_sub(height));
-    for (row, line) in wrapped.iter().skip(offset).take(height).enumerate() {
-        draw_str(
-            buf,
-            0,
-            row + 2,
-            line,
-            Style::default().fg(COLOR_TEXT),
-            size.width,
-        );
-    }
-    if compact {
-        draw_str(
-            buf,
-            0,
-            size.height - 2,
-            "↑↓ Enter PgDn",
-            Style::default().fg(COLOR_DIM),
-            size.width,
-        );
-    }
-    let footer = if size.width < 40 {
-        "x stop F2 back"
+    let mut rows = PanelRows::default();
+    let lines = if size.width == 0 || size.height < 3 {
+        Vec::new()
     } else {
-        "↑↓ select · Enter details · x stop · r latest · l older · PgDn · F3 mode · F4 questions · F2 back"
+        super::codex_panel_text::body(app)
     };
-    draw_str(
+    rows.rebuild(lines, size.width);
+    let selected = selected(app);
+    draw_panel(
         buf,
-        0,
-        size.height - 1,
-        footer,
-        Style::default().fg(COLOR_DIM),
-        size.width,
+        TaskPanel {
+            title: "Codex agents / processes",
+            title_style: Style::default().fg(COLOR_PRIMARY),
+            selected: Some(&selected),
+            body: &rows,
+            scroll: app.view.codex_panel.scroll,
+            footer: if size.width < 40 {
+                "x stop F2 back"
+            } else {
+                "↑↓ select · Enter details · x stop · r latest · l older · PgDn · F3 mode · F4 questions · F2 back"
+            },
+            compact_help: Some("↑↓ Enter PgDn"),
+        },
+        size,
     );
 }
 
@@ -160,38 +141,4 @@ fn toggle_panel(app: &mut AppState) {
         }
         super::codex_panel::refresh(app, false);
     }
-}
-
-fn draw_header(buf: &mut Buffer, app: &AppState, size: TerminalSize) -> bool {
-    fill_rect(
-        buf,
-        0,
-        0,
-        size.width,
-        size.height,
-        Style::default().bg(COLOR_STEP2),
-    );
-    if size.width == 0 || size.height == 0 {
-        return false;
-    }
-    draw_str(
-        buf,
-        0,
-        0,
-        "Codex agents / processes",
-        Style::default().fg(COLOR_PRIMARY),
-        size.width,
-    );
-    if size.height < 3 {
-        return false;
-    }
-    draw_str(
-        buf,
-        0,
-        1,
-        &selected(app),
-        Style::default().fg(COLOR_PRIMARY),
-        size.width,
-    );
-    true
 }

@@ -142,9 +142,14 @@ pub(super) fn wrap_natural_by_cells(text: &str, width: usize) -> Vec<String> {
 
         // Extremely long tokens can still overflow when word breaking is disabled.
         // Fall back to hard cell wrapping only in that case.
+        let ascii = s.is_ascii();
         let mut rest = s.as_str();
         loop {
-            let take = split_at_cells(rest, width);
+            let take = if ascii {
+                rest.len().min(width)
+            } else {
+                split_at_cells(rest, width)
+            };
             if take == 0 {
                 out.push(rest.to_string());
                 break;
