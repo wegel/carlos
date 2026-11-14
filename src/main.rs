@@ -8,6 +8,7 @@ mod codex_connection;
 mod codex_diagnostics;
 mod codex_snapshot;
 mod codex_snapshot_reads;
+mod context_preferences;
 #[cfg(feature = "dictation")]
 mod dictation;
 mod event;

@@ -13,7 +13,7 @@ use crate::theme::{COLOR_DIM, COLOR_STEP6, COLOR_TEXT};
 /// Fit the settings panel to the terminal, using closer rows on short screens.
 pub(super) fn model_settings_overlay_box(size: TerminalSize) -> OverlayBox {
     let box_w = size.width.saturating_sub(4).clamp(1, 84).min(size.width);
-    let box_h = if size.height < 24 { 13 } else { 22 };
+    let box_h = 26;
     compute_overlay_box(size, box_w, box_h.min(size.height))
 }
 
@@ -23,7 +23,7 @@ pub(in crate::app) fn model_settings_cursor_position(
     size: TerminalSize,
 ) -> (usize, usize) {
     let ob = model_settings_overlay_box(size);
-    let layout = FieldLayout::new(&ob);
+    let layout = FieldLayout::new(&ob, app);
     let fields = app.runtime.model_settings_fields();
     let index = fields
         .iter()
@@ -36,9 +36,14 @@ pub(in crate::app) fn model_settings_cursor_position(
 }
 
 pub(super) fn draw_model_settings_fields(buf: &mut Buffer, ob: &OverlayBox, app: &AppState) {
-    let layout = FieldLayout::new(ob);
+    let layout = FieldLayout::new(ob, app);
     let fields = app.runtime.model_settings_fields();
-    for (index, &field) in fields.iter().enumerate() {
+    for (index, &field) in fields
+        .iter()
+        .enumerate()
+        .skip(layout.first)
+        .take(layout.rows)
+    {
         layout.draw_row(buf, app, layout.row_y(ob, index), field);
     }
     let help = app.codex.settings.editor_error.as_deref().unwrap_or(
@@ -46,13 +51,14 @@ pub(super) fn draw_model_settings_fields(buf: &mut Buffer, ob: &OverlayBox, app:
             ModelSettingsField::DictationEndpoint => "Arrows/Enter toggle, Esc close",
             ModelSettingsField::DesktopTheme => "Theme for wide screens",
             ModelSettingsField::PhoneTheme => "Theme for small screens",
+            ModelSettingsField::Context => app.runtime.context.help(),
             _ => "Tab field, arrows, Enter save",
         },
     );
     draw_str(
         buf,
         layout.x_label,
-        layout.row_y(ob, fields.len()),
+        ob.bottom.saturating_sub(1),
         help,
         Style::default().fg(COLOR_DIM),
         content_width(ob),
@@ -64,29 +70,39 @@ struct FieldLayout {
     x_value: usize,
     value_w: usize,
     row_step: usize,
+    padding: usize,
+    first: usize,
+    rows: usize,
 }
 
 impl FieldLayout {
-    fn new(ob: &OverlayBox) -> Self {
+    fn new(ob: &OverlayBox, app: &AppState) -> Self {
+        let fields = app.runtime.model_settings_fields();
+        let height = ob.bottom.saturating_sub(ob.top) + 1;
+        let padding = if height < 13 { 2 } else { 3 };
+        let row_step = if height >= fields.len() * 2 + padding + 3 {
+            2
+        } else {
+            1
+        };
+        let rows = (height.saturating_sub(padding + 3) / row_step).max(1);
+        let selected = fields
+            .iter()
+            .position(|field| *field == app.runtime.model_settings_field)
+            .unwrap_or(0);
         Self {
             x_label: ob.start_x + 3,
             x_value: ob.start_x + 15,
             value_w: ob.box_w.saturating_sub(18),
-            row_step: if ob.bottom.saturating_sub(ob.top) + 1 < 18 {
-                1
-            } else {
-                2
-            },
+            row_step,
+            padding,
+            first: selected.saturating_sub(rows.saturating_sub(1)),
+            rows,
         }
     }
 
     fn row_y(&self, ob: &OverlayBox, index: usize) -> usize {
-        let padding = if ob.bottom.saturating_sub(ob.top) + 1 < 13 {
-            2
-        } else {
-            3
-        };
-        ob.start_y + padding + index * self.row_step
+        ob.start_y + self.padding + index.saturating_sub(self.first) * self.row_step
     }
 
     fn draw_row(&self, buf: &mut Buffer, app: &AppState, y: usize, field: ModelSettingsField) {
@@ -94,6 +110,7 @@ impl FieldLayout {
             ModelSettingsField::Model => "Model",
             ModelSettingsField::Effort => "Thinking",
             ModelSettingsField::Summary => "Summary",
+            ModelSettingsField::Context => "Context",
             ModelSettingsField::DictationEndpoint => "Dictation",
             ModelSettingsField::DesktopTheme => "Desktop",
             ModelSettingsField::PhoneTheme => "Phone",
@@ -124,6 +141,8 @@ fn field_value(app: &AppState, field: ModelSettingsField) -> &str {
         ModelSettingsField::Model => app.model_settings_model_value(),
         ModelSettingsField::Effort => app.model_settings_effort_value(),
         ModelSettingsField::Summary => app.model_settings_summary_value(),
+        ModelSettingsField::Context if app.runtime.context.attached => "Server default",
+        ModelSettingsField::Context => &app.runtime.context.draft,
         ModelSettingsField::DictationEndpoint => app.dictation_endpoint_mode_label(),
         ModelSettingsField::DesktopTheme => app.layout.draft.desktop.label(),
         ModelSettingsField::PhoneTheme => app.layout.draft.phone.label(),

@@ -70,6 +70,9 @@ pub(super) fn start_params(
 ) -> Result<Value> {
     let mut params = json!({ "executable": native_executable()?, "cwd": cwd.canonicalize()?,
         "settingSources": ["user", "project", "local"], "supportedDialogKinds": [], "perTaskStopAffordance": true });
+    if let Some(tokens) = crate::context_preferences::load(crate::backend::BackendKind::Claude)? {
+        params["contextLimit"] = json!(tokens);
+    }
     if let ClaudeLaunchMode::Resume(id) = launch {
         params["resume"] = json!(id);
     }

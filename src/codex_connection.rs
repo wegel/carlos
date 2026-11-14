@@ -212,7 +212,7 @@ impl ConnectionMode {
     fn prepare(&self, events: EventQueue) -> Result<AppServerClient> {
         match self {
             Self::Owned(features) => {
-                AppServerClient::prepare_with_events(owned_command(features), events)
+                AppServerClient::prepare_with_events(owned_command(features)?, events)
             }
             Self::Socket(path) => AppServerClient::prepare_socket(path, events),
         }
@@ -220,8 +220,16 @@ impl ConnectionMode {
 }
 
 /// Reuse the flags probed before the UI starts; reconnect never leaves a probe child behind.
-fn owned_command(features: &crate::protocol_capabilities::OwnedFeatures) -> Command {
+fn owned_command(features: &crate::protocol_capabilities::OwnedFeatures) -> Result<Command> {
     let mut command = Command::new("codex");
+    if let Some(tokens) = crate::context_preferences::load(crate::backend::BackendKind::Codex)? {
+        command.args([
+            "-c",
+            &format!("model_context_window={tokens}"),
+            "-c",
+            &format!("model_auto_compact_token_limit={}", tokens * 9 / 10),
+        ]);
+    }
     if features.live_settings {
         command.args(["--enable", "step_model_switching"]);
     }
@@ -229,7 +237,7 @@ fn owned_command(features: &crate::protocol_capabilities::OwnedFeatures) -> Comm
         command.args(["--enable", "goals"]);
     }
     command.arg("app-server");
-    command
+    Ok(command)
 }
 
 #[cfg(test)]

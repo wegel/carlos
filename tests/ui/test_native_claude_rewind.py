@@ -3,6 +3,7 @@
 import json
 import shlex
 import sys
+import time
 
 from claude_native_api import NativeClaudeAPI
 
@@ -38,6 +39,9 @@ class NativeClaudeRewind:
         session=interrupted["session_id"]
         selected=self.helper_requests(terminal,"prompt")[-1]["params"]["uuid"]
         path,before=self.source_bytes(terminal,session)
+        deadline=time.monotonic()+.8  # The stop gesture must end before starting Esc,Esc.
+        while time.monotonic()<deadline:
+            terminal.pump(.02)
         terminal.rewind("Interrupt and replace this second prompt")
         edited="Edited interrupted second 日本語"
         terminal.replace_input(edited)

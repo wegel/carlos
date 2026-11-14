@@ -13,6 +13,7 @@ export type Start = {
   supportedDialogKinds: string[];
   perTaskStopAffordance?: boolean;
   model?: string;
+  contextLimit?: number;
   effort?: Options["effort"];
   permissionMode?: Options["permissionMode"];
   allowDangerouslySkipPermissions?: boolean;
@@ -81,6 +82,13 @@ export function parseStart(params: ObjectValue, isAbsolutePath: (path: string) =
     result.perTaskStopAffordance = params.perTaskStopAffordance;
   }
   if (params.model !== undefined) result.model = string(params.model, "model");
+  if (params.contextLimit !== undefined) {
+    if (typeof params.contextLimit !== "number" || !Number.isSafeInteger(params.contextLimit)
+      || params.contextLimit < 100000 || params.contextLimit > 1000000) {
+      throw new ProtocolError("invalid_request", "Choose a context size from 100k to 1M tokens");
+    }
+    result.contextLimit = params.contextLimit;
+  }
   if (params.sessionId !== undefined) {
     result.sessionId = string(params.sessionId, "sessionId");
     if (!/^[0-9a-f-]{36}$/i.test(result.sessionId)) throw new ProtocolError("invalid_request", "sessionId must be a UUID");

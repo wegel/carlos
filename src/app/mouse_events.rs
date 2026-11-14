@@ -232,6 +232,9 @@ pub(super) fn handle_paste_event(
         return TerminalEventResult::Continue { needs_draw: true };
     }
     if app.runtime.show_model_settings {
+        if app.runtime.model_settings_field == ModelSettingsField::Context {
+            app.runtime.context.insert(pasted.trim());
+        }
         if matches!(app.runtime.model_settings_field, ModelSettingsField::Model)
             && !app.model_settings_has_model_choices()
         {

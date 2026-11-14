@@ -87,6 +87,7 @@ mod codex_settings;
 mod codex_settings_draft;
 mod codex_state;
 mod codex_task_status;
+mod context_settings;
 mod context_usage;
 mod dictation_state;
 mod flow_transcript;

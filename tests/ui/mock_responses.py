@@ -85,5 +85,6 @@ multi_agent_v2 = true
 
 
 def outputs(body):
+    # Native goal notes share this type but do not answer a tool call.
     return {item["call_id"]: item["output"] for item in body.get("input", [])
-            if item.get("type") == "function_call_output"}
+            if item.get("type") == "function_call_output" and "call_id" in item}

@@ -157,6 +157,11 @@ pub(super) fn configure_codex_app(
 ) -> Result<()> {
     app.input_history.enable_native();
     app.codex.enabled = true;
+    crate::app::context_settings::initialize(
+        app,
+        crate::backend::BackendKind::Codex,
+        opts.codex_socket.is_some(),
+    )?;
     app.codex.connection.generation = client.connection_generation().unwrap_or(0);
     app.codex.connection.socket = opts.codex_socket.clone();
     app.codex.goals.direct_input =
@@ -288,6 +293,7 @@ pub(super) fn configure_claude_app(
     );
     load_history_from_start_or_resume(app, start_resp)?;
     app.claude.enabled = true;
+    crate::app::context_settings::initialize(app, crate::backend::BackendKind::Claude, false)?;
     app.claude.phase = super::super::claude_state::ClaudePhase::Starting;
     app.claude.selection.inherits_model = app.runtime.current_model.is_none();
     app.claude.selection.inherits_effort = app

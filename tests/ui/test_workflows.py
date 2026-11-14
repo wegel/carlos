@@ -31,9 +31,10 @@ from test_codex_panel import CodexPanel
 from test_codex_goals import CodexGoals
 from test_codex_reconnect import CodexReconnect
 from test_input_status import InputStatus
+from test_context_settings import ContextSettings
 
 
-class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, CommandDirectory, WeeklyUsage, ClaudeSdk, ClaudeInterrupt, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, CodexRewind, CodexFoundation, CodexQuestions, CodexControls, CodexPanel, CodexGoals, CodexReconnect, InputStatus, unittest.TestCase):
+class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, CommandDirectory, WeeklyUsage, ClaudeSdk, ClaudeInterrupt, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, CodexRewind, CodexFoundation, CodexQuestions, CodexControls, CodexPanel, CodexGoals, CodexReconnect, InputStatus, ContextSettings, unittest.TestCase):
     def summary_root(self):
         root = ARTIFACTS / self._testMethodName
         root.mkdir(parents=True, exist_ok=True)
@@ -53,13 +54,13 @@ class Workflows(SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, Pho
         self.assertEqual(terminal.requests("turn/start")[0]["params"]["threadId"], "thread-new")
         terminal.snapshot("native-monitor-completed")
 
-    def launch(self, mode="modern", resume="thread-original", width=100, directory=None, backend="codex", layout=None):
+    def launch(self, mode="modern", resume="thread-original", width=100, directory=None, backend="codex", layout=None, extra_env=None):
         directory = directory or ARTIFACTS / self._testMethodName
         if layout:
             settings = directory / "config/carlos/ui-settings.json"
             settings.parent.mkdir(parents=True, exist_ok=True)
             settings.write_text(json.dumps({"layout": layout}))
-        terminal = Terminal(BINARY, directory, mode, resume, width, backend)
+        terminal = Terminal(BINARY, directory, mode, resume, width, backend, extra_env=extra_env)
         self.addCleanup(terminal.close)
         return terminal
 

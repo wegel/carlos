@@ -15,6 +15,9 @@ impl RuntimeSettingsState {
         if self.supports_summary {
             fields.push(ModelSettingsField::Summary);
         }
+        if self.context.backend.is_some() {
+            fields.push(ModelSettingsField::Context);
+        }
         fields.extend([
             ModelSettingsField::DictationEndpoint,
             ModelSettingsField::ToolLabels,

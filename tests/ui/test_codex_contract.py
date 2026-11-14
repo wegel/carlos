@@ -14,13 +14,14 @@ from codex_history_fixture import write_history
 
 
 class Codex:
-    def __init__(self, binary, root):
+    def __init__(self, binary, root, extra_args=()):
         self.root = root
         self.root.mkdir(parents=True, exist_ok=True)
+        (root / "codex-home").mkdir(exist_ok=True)
         self.log = (root / "rpc.jsonl").open("a")
         self.stderr = (root / "stderr.log").open("w")
         self.process = subprocess.Popen(
-            [binary, "app-server"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            [binary, *extra_args, "app-server"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=self.stderr,
             env={**os.environ, "CODEX_HOME": str(root / "codex-home")})
         self.selector = selectors.DefaultSelector()
@@ -140,6 +141,23 @@ def check(binary, root):
     verify_saved_name(binary, root, fork_id)
     check_queue_persistence(binary, root / "queue")
     check_paged_history(binary, root / "paged")
+    check_context_size(binary, root / "context-size")
+
+
+def check_context_size(binary, root):
+    server = Codex(binary, root, ["-c", "model_context_window=500000",
+                                  "-c", "model_auto_compact_token_limit=450000"])
+    try:
+        server.call("initialize", {"clientInfo": {"name": "carlos-context-test", "version": "1"},
+                                   "capabilities": {"experimentalApi": True}})
+        server.send({"method": "initialized"})
+        config = server.call("config/read", {})["config"]
+        assert config["model_context_window"] == 500000
+        assert config["model_auto_compact_token_limit"] == 450000
+        assert not (root / "codex-home/config.toml").exists(), "process flags wrote native defaults"
+        print("PASS: context sizes reach installed Codex through process flags without writing native defaults")
+    finally:
+        server.close()
 
 
 def check_queue_persistence(binary, root):

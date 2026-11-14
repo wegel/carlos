@@ -63,6 +63,30 @@ class NativeClaude(NativeClaudeRewind,NativeClaudeLabels,unittest.TestCase):
         if self.api:
             self.api.close()
 
+    def test_native_context_size_changes_threshold_after_restart_without_a_model_request(self):
+        terminal = self.start()
+        terminal.send(b"\x1b[109;5u")
+        terminal.contains("Settings")
+        terminal.send(b"\t\t")
+        terminal.contains("Restart Carlos")
+        terminal.paste("500k")
+        terminal.send(b"\r")
+        saved = terminal.root / "config/carlos/claude-context.json"
+        terminal.wait(lambda: saved.exists() and json.loads(saved.read_text())["tokens"] == 500000,
+                      "context choice saved for restart", timeout=20)
+        terminal.close()
+        offset = len(self.helper_messages(terminal, "server"))
+        restarted = self.start()
+        def threshold_changed():
+            return any(frame.get("type") == "reply" and frame.get("ok")
+                       and isinstance(frame.get("result"), dict)
+                       and 100000 <= frame["result"].get("autoCompactThreshold", 2000000) <= 500000
+                       for frame in self.helper_messages(restarted, "server")[offset:])
+        restarted.wait(threshold_changed, "installed CLI reports the smaller context threshold", timeout=15)
+        self.assertEqual(self.helper_requests(restarted, "prompt"), [])
+        self.assertEqual(self.api.requests, [])
+        restarted.snapshot("native-context-size-applied")
+
     def submit(self,terminal,text):
         terminal.paste(text)
         terminal.send(b"\r")

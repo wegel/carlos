@@ -20,6 +20,7 @@ pub(super) enum ModelSettingsField {
     Model,
     Effort,
     Summary,
+    Context,
     DictationEndpoint,
     DesktopTheme,
     PhoneTheme,
@@ -30,6 +31,7 @@ pub(super) enum ModelSettingsField {
 // --- Settings State ---
 
 pub(super) struct RuntimeSettingsState {
+    pub(super) context: super::context_settings::ContextSettings,
     pub(super) supports_effort: bool,
     pub(super) supports_summary: bool,
     pub(super) current_model: Option<String>,
@@ -55,6 +57,7 @@ pub(super) struct RuntimeSettingsState {
 impl RuntimeSettingsState {
     pub(super) fn new() -> Self {
         Self {
+            context: Default::default(),
             supports_effort: true,
             supports_summary: true,
             current_model: None,
@@ -223,6 +226,7 @@ impl RuntimeSettingsState {
     }
 
     pub(super) fn open_model_settings(&mut self) {
+        self.context.open();
         self.show_model_settings = true;
         self.model_settings_field = ModelSettingsField::Model;
         let preferred_model = self

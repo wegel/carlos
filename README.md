@@ -619,6 +619,9 @@ target/ui-venv/bin/python tests/ui/test_workflows.py --binary ~/.local/bin/carlo
 - rewind mode `Esc`: leave rewind mode and restore current draft
 - `Ctrl+R`: toggle Ralph mode on/off (queued if a turn is currently active)
 - `Ctrl+M`: open settings for model, thinking, summary, AI labels, dictation, desktop/phone themes, and tool output
+- Ctrl+M's `Context` row accepts `Auto`, a token count such as `500000`, or a size such as `500k` or `1M` (100k–1M). Left/Right cycles presets; Enter saves; Esc cancels. Carlos saves a separate choice for Claude and Codex.
+- Restart Carlos to apply a changed context size. Claude uses it to choose when to summarize older messages, reserving room for the summary. Codex uses it as the window size and summarizes at 90% of that size. Each backend still enforces its model's maximum. `Auto` inherits the native CLI's settings.
+- An attached Codex server keeps its owner's context settings. A `CLAUDE_CODE_AUTO_COMPACT_WINDOW` shell override takes precedence over Claude's setting; Carlos reports it instead of saving an ignored choice.
 - `Ctrl+D`: start/stop dictation when the `dictation` feature is enabled
 - `F7`: cycle dictation profile when the `dictation` feature is enabled
 - `F9`: toggle dictation endpoint mode between auto-stop and manual Enter stop

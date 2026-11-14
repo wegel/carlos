@@ -4,9 +4,9 @@ use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::app::input_events::TerminalEventResult;
 use crate::app::notifications::is_ctrl_char;
-use crate::app::persist_runtime_defaults;
 use crate::app::state::{AppState, ModelSettingsField};
 use crate::app::tool_output_preferences::save_appearance;
+use crate::app::{persist_runtime_defaults, RuntimeDefaults};
 use crate::backend::{BackendClient, BackendKind};
 
 pub(super) fn handle_model_settings_key(
@@ -25,6 +25,11 @@ pub(super) fn handle_model_settings_key(
         (KeyCode::Left, _) => cycle(app, -1),
         (KeyCode::Right, _) => cycle(app, 1),
         (KeyCode::Backspace, _)
+            if app.runtime.model_settings_field == ModelSettingsField::Context =>
+        {
+            app.runtime.context.backspace();
+        }
+        (KeyCode::Backspace, _)
             if matches!(app.runtime.model_settings_field, ModelSettingsField::Model)
                 && !app.model_settings_has_model_choices() =>
         {
@@ -39,6 +44,12 @@ pub(super) fn handle_model_settings_key(
             app.toggle_dictation_endpoint_mode();
         }
         (KeyCode::Enter, _) => save_settings(client, app),
+        (KeyCode::Char(ch), mods)
+            if !mods.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
+                && app.runtime.model_settings_field == ModelSettingsField::Context =>
+        {
+            app.runtime.context.insert(&ch.to_string());
+        }
         (KeyCode::Char(ch), mods)
             if !mods.contains(KeyModifiers::CONTROL)
                 && !mods.contains(KeyModifiers::ALT)
@@ -63,6 +74,7 @@ fn cycle(app: &mut AppState, dir: isize) {
         ModelSettingsField::Model => app.model_settings_cycle_model(dir),
         ModelSettingsField::Effort => app.model_settings_cycle_effort(dir),
         ModelSettingsField::Summary => app.model_settings_cycle_summary(dir),
+        ModelSettingsField::Context => app.runtime.context.cycle(dir),
         ModelSettingsField::DictationEndpoint => app.toggle_dictation_endpoint_mode(),
         ModelSettingsField::DesktopTheme => {
             app.layout.draft.desktop = app.layout.draft.desktop.cycle(dir)
@@ -89,6 +101,41 @@ fn save_settings(client: &dyn BackendClient, app: &mut AppState) {
     {
         return;
     }
+    if !crate::app::context_settings::save(client, app) {
+        app.runtime.model_settings_field = ModelSettingsField::Context;
+        return;
+    }
+    let defaults = apply_model_choices(client, app);
+    match client.apply_runtime_settings(defaults.model.as_deref(), defaults.effort.as_deref()) {
+        Ok(true) => {
+            app.mark_runtime_settings_applied();
+            app.set_status("Claude settings applied");
+            crate::app::claude_context::invalidate(app);
+        }
+        Ok(false) => {}
+        Err(error) => app.set_status(format!("Could not apply live settings: {error}")),
+    }
+    if let Err(error) =
+        crate::app::tool_output_preferences::save_summary_enabled(app.summaries.enabled)
+    {
+        app.set_status(format!("Could not save AI tool labels: {error}"));
+    }
+    if let Err(error) = save_appearance(app.tool_output.mode, app.layout.themes) {
+        app.append_message(
+            crate::app::Role::System,
+            format!("Could not save appearance choices: {error}"),
+        );
+    }
+    if let Err(err) = if client.kind() == BackendKind::Codex {
+        Ok(())
+    } else {
+        persist_runtime_defaults(&defaults)
+    } {
+        app.set_status(format!("saved for next turn; default save failed: {err}"));
+    }
+}
+
+fn apply_model_choices(client: &dyn BackendClient, app: &mut AppState) -> RuntimeDefaults {
     let before = app.next_turn_runtime_settings();
     let pending = (
         app.runtime.pending_model.clone(),
@@ -118,31 +165,5 @@ fn save_settings(client: &dyn BackendClient, app: &mut AppState) {
             app.queue_runtime_settings(pending.0, pending.1, pending.2);
         }
     }
-    match client.apply_runtime_settings(defaults.model.as_deref(), defaults.effort.as_deref()) {
-        Ok(true) => {
-            app.mark_runtime_settings_applied();
-            app.set_status("Claude settings applied");
-            crate::app::claude_context::invalidate(app);
-        }
-        Ok(false) => {}
-        Err(error) => app.set_status(format!("Could not apply live settings: {error}")),
-    }
-    if let Err(error) =
-        crate::app::tool_output_preferences::save_summary_enabled(app.summaries.enabled)
-    {
-        app.set_status(format!("Could not save AI tool labels: {error}"));
-    }
-    if let Err(error) = save_appearance(app.tool_output.mode, app.layout.themes) {
-        app.append_message(
-            crate::app::Role::System,
-            format!("Could not save appearance choices: {error}"),
-        );
-    }
-    if let Err(err) = if client.kind() == BackendKind::Codex {
-        Ok(())
-    } else {
-        persist_runtime_defaults(&defaults)
-    } {
-        app.set_status(format!("saved for next turn; default save failed: {err}"));
-    }
+    defaults
 }

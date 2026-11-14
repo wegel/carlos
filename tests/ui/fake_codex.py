@@ -357,6 +357,9 @@ class Server:
 
 
 if __name__ == "__main__":
+    if "app-server" in sys.argv[1:]:
+        with (Path(os.environ["CARLOS_TEST_ROOT"]) / "codex-launches.jsonl").open("a") as output:
+            output.write(json.dumps(sys.argv[1:]) + "\n")
     if sys.argv[1:]==["features","list"] and os.environ.get("CARLOS_TEST_SERVER","").startswith("codex-reconnect"):
         path=Path(os.environ["CARLOS_TEST_ROOT"])/"feature-probes"
         count=int(path.read_text())+1 if path.exists() else 1
