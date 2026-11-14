@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::backend::BackendKind;
 
 /// Accept the token range shared by the settings editor and Claude's native control.
-pub(crate) fn validate(tokens: u64) -> Result<u64> {
+pub fn validate(tokens: u64) -> Result<u64> {
     if !(100_000..=1_000_000).contains(&tokens) {
         bail!("Choose Auto or 100k to 1M tokens");
     }
@@ -20,7 +20,7 @@ pub(crate) fn validate(tokens: u64) -> Result<u64> {
 }
 
 /// Parse a token count or a whole number with a k or M suffix.
-pub(crate) fn parse(text: &str) -> Result<Option<u64>> {
+pub fn parse(text: &str) -> Result<Option<u64>> {
     let text = text.trim();
     if text.eq_ignore_ascii_case("auto") {
         return Ok(None);
@@ -39,7 +39,7 @@ pub(crate) fn parse(text: &str) -> Result<Option<u64>> {
 }
 
 /// Format a stored choice for the settings editor.
-pub(crate) fn label(tokens: Option<u64>) -> String {
+pub fn label(tokens: Option<u64>) -> String {
     match tokens {
         None => "Auto".into(),
         Some(1_000_000) => "1M".into(),
@@ -49,12 +49,12 @@ pub(crate) fn label(tokens: Option<u64>) -> String {
 }
 
 /// Read Carlos's saved override; a missing file means the backend chooses its default.
-pub(crate) fn load(backend: BackendKind) -> Result<Option<u64>> {
+pub fn load(backend: BackendKind) -> Result<Option<u64>> {
     load_from(&path(backend)?)
 }
 
 /// Save one backend's choice atomically without touching the other backends.
-pub(crate) fn save(backend: BackendKind, tokens: Option<u64>) -> Result<()> {
+pub fn save(backend: BackendKind, tokens: Option<u64>) -> Result<()> {
     save_to(&path(backend)?, tokens)
 }
 

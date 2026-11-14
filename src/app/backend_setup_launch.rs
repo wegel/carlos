@@ -4,7 +4,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use anyhow::Result;
-use carlos_core::backend::{BackendClient, EventReceiver};
+use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
 use carlos_core::claude_backend::{ClaudeClient, ClaudeLaunchMode};
 use carlos_core::codex_connection::CodexClient;
 use carlos_core::protocol_params::{
@@ -155,11 +155,8 @@ pub(super) fn configure_codex_app(
 ) -> Result<()> {
     app.session.enable_native_history();
     app.session.enable_codex();
-    crate::app::context_settings::initialize(
-        app,
-        crate::backend::BackendKind::Codex,
-        opts.codex_socket.is_some(),
-    )?;
+    let attached = opts.codex_socket.is_some();
+    crate::app::context_settings::initialize(app, BackendKind::Codex, attached)?;
     app.session.configure_codex_connection(
         client.connection_generation().unwrap_or(0),
         opts.codex_socket.clone(),
@@ -295,7 +292,7 @@ pub(super) fn configure_claude_app(
     );
     load_history_from_start_or_resume(app, start_resp)?;
     app.session.enable_claude();
-    crate::app::context_settings::initialize(app, crate::backend::BackendKind::Claude, false)?;
+    crate::app::context_settings::initialize(app, BackendKind::Claude, false)?;
     app.session.start_claude_settings();
     app.set_status("Claude starting");
     Ok(())

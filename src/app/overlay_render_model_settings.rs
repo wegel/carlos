@@ -26,7 +26,10 @@ pub(in crate::app) fn model_settings_cursor_position(
 ) -> (usize, usize) {
     let ob = model_settings_overlay_box(size);
     let layout = FieldLayout::new(&ob, app);
-    let fields = app.view.runtime_settings.model_settings_fields(app.session.runtime_settings());
+    let fields = app
+        .view
+        .runtime_settings
+        .model_settings_fields(app.session.runtime_settings());
     let index = fields
         .iter()
         .position(|&field| field == app.view.runtime_settings.model_settings_field)
@@ -42,7 +45,10 @@ pub(in crate::app) fn model_settings_cursor_position(
 
 pub(super) fn draw_model_settings_fields(buf: &mut Buffer, ob: &OverlayBox, app: &AppState) {
     let layout = FieldLayout::new(ob, app);
-    let fields = app.view.runtime_settings.model_settings_fields(app.session.runtime_settings());
+    let fields = app
+        .view
+        .runtime_settings
+        .model_settings_fields(app.session.runtime_settings());
     for (index, &field) in fields
         .iter()
         .enumerate()
@@ -82,7 +88,10 @@ struct FieldLayout {
 
 impl FieldLayout {
     fn new(ob: &OverlayBox, app: &AppState) -> Self {
-        let fields = app.view.runtime_settings.model_settings_fields(app.session.runtime_settings());
+        let fields = app
+            .view
+            .runtime_settings
+            .model_settings_fields(app.session.runtime_settings());
         let height = ob.bottom.saturating_sub(ob.top) + 1;
         let padding = if height < 13 { 2 } else { 3 };
         let row_step = if height >= fields.len() * 2 + padding + 3 {
@@ -146,7 +155,9 @@ fn field_value(app: &AppState, field: ModelSettingsField) -> &str {
         ModelSettingsField::Model => app.model_settings_model_value(),
         ModelSettingsField::Effort => app.model_settings_effort_value(),
         ModelSettingsField::Summary => app.model_settings_summary_value(),
-        ModelSettingsField::Context if app.view.runtime_settings.context.attached => "Server default",
+        ModelSettingsField::Context if app.view.runtime_settings.context.attached => {
+            "Server default"
+        }
         ModelSettingsField::Context => &app.view.runtime_settings.context.draft,
         ModelSettingsField::DictationEndpoint => app.dictation_endpoint_mode_label(),
         ModelSettingsField::DesktopTheme => app.view.layout.draft.desktop.label(),

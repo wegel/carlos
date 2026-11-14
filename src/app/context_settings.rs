@@ -3,9 +3,9 @@
 use anyhow::Result;
 
 use super::state::AppState;
-use super::Role;
-use crate::backend::{BackendClient, BackendKind};
-use crate::context_preferences;
+use carlos_core::backend::{BackendClient, BackendKind};
+use carlos_core::context_preferences;
+use carlos_core::session::models::Role;
 
 const PRESETS: [Option<u64>; 7] = [
     None,
@@ -119,7 +119,9 @@ pub(super) fn initialize(app: &mut AppState, backend: BackendKind, attached: boo
 
 /// Reject invalid drafts before any settings or appearance choices are applied.
 pub(super) fn save(client: &dyn BackendClient, app: &mut AppState) -> bool {
-    if app.view.runtime_settings.context.backend.is_none() || app.view.runtime_settings.context.attached {
+    if app.view.runtime_settings.context.backend.is_none()
+        || app.view.runtime_settings.context.attached
+    {
         return true;
     }
     let tokens = match context_preferences::parse(&app.view.runtime_settings.context.draft) {

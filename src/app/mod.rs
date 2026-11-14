@@ -95,7 +95,6 @@ mod overlay_render;
 mod perf;
 mod perf_bench;
 mod perf_session;
-mod perf_synthetic;
 mod picker_delete_dialog;
 mod picker_render;
 mod rate_limits;

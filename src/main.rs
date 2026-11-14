@@ -2,7 +2,6 @@
 
 mod app;
 mod clipboard;
-mod context_preferences;
 #[cfg(feature = "dictation")]
 mod dictation;
 mod event;

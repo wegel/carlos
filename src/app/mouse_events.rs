@@ -240,21 +240,7 @@ pub(super) fn handle_paste_event(
         return TerminalEventResult::Continue { needs_draw: true };
     }
     if app.view.runtime_settings.show_model_settings {
-        if app.view.runtime_settings.model_settings_field == ModelSettingsField::Context {
-            app.view.runtime_settings.context.insert(pasted.trim());
-        }
-        if matches!(app.view.runtime_settings.model_settings_field, ModelSettingsField::Model)
-            && !app.model_settings_has_model_choices()
-        {
-            let normalized = normalize_pasted_text(&pasted);
-            let first_line = normalized.lines().next().unwrap_or("");
-            if !first_line.is_empty() {
-                app.view
-                    .runtime_settings
-                    .model_settings_model_input
-                    .push_str(first_line);
-            }
-        }
+        paste_model_settings(app, &pasted);
         return TerminalEventResult::Continue { needs_draw: true };
     }
     if super::claude_question_input::paste(app, &normalize_pasted_text(&pasted), size) {
@@ -284,4 +270,24 @@ pub(super) fn handle_paste_event(
         return TerminalEventResult::Continue { needs_draw: true };
     }
     TerminalEventResult::Continue { needs_draw: false }
+}
+
+fn paste_model_settings(app: &mut AppState, pasted: &str) {
+    if app.view.runtime_settings.model_settings_field == ModelSettingsField::Context {
+        app.view.runtime_settings.context.insert(pasted.trim());
+    }
+    if matches!(
+        app.view.runtime_settings.model_settings_field,
+        ModelSettingsField::Model
+    ) && !app.model_settings_has_model_choices()
+    {
+        let normalized = normalize_pasted_text(pasted);
+        let first_line = normalized.lines().next().unwrap_or("");
+        if !first_line.is_empty() {
+            app.view
+                .runtime_settings
+                .model_settings_model_input
+                .push_str(first_line);
+        }
+    }
 }

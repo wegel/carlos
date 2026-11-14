@@ -1,32 +1,33 @@
 //! Synthetic performance data generation: deterministic RNG, message builders, and word lists.
 
-use carlos_core::session::models::{EntryDraft, MessageKind, Role};
-use carlos_core::session::read_summary::format_read_summary_with_count;
-use carlos_core::session::state::SessionState;
+use crate::session::models::{EntryDraft, MessageKind, Role};
+use crate::session::read_summary::format_read_summary_with_count;
+use crate::session::state::SessionState;
 
 // --- Core Types ---
 
 const SYNTHETIC_USER: &str = "perf-user";
 const SYNTHETIC_HOST: &str = "perfbox.local";
 
+/// Fixed source choices shared by terminal and headless replay benchmarks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct SyntheticPerfSpec {
-    pub(super) seed: u64,
-    pub(super) turns: usize,
-    pub(super) tool_output_lines: usize,
+pub struct SyntheticPerfSpec {
+    pub seed: u64,
+    pub turns: usize,
+    pub tool_output_lines: usize,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(super) struct SyntheticRng(u64);
+struct SyntheticRng(u64);
 
 // --- RNG Helpers ---
 
 impl SyntheticRng {
-    pub(super) fn new(seed: u64) -> Self {
+    fn new(seed: u64) -> Self {
         Self(if seed == 0 { 1 } else { seed })
     }
 
-    pub(super) fn next_u64(&mut self) -> u64 {
+    fn next_u64(&mut self) -> u64 {
         let mut x = self.0;
         x ^= x >> 12;
         x ^= x << 25;
@@ -35,7 +36,7 @@ impl SyntheticRng {
         x.wrapping_mul(0x2545_F491_4F6C_DD1D)
     }
 
-    pub(super) fn range(&mut self, upper: usize) -> usize {
+    fn range(&mut self, upper: usize) -> usize {
         if upper <= 1 {
             0
         } else {
@@ -43,7 +44,7 @@ impl SyntheticRng {
         }
     }
 
-    pub(super) fn choose<'a>(&mut self, items: &'a [&'static str]) -> &'a str {
+    fn choose<'a>(&mut self, items: &'a [&'static str]) -> &'a str {
         items[self.range(items.len())]
     }
 }
@@ -51,7 +52,7 @@ impl SyntheticRng {
 // --- Message Builders ---
 
 /// Create source rows through the normal session entry constructor, including their ids.
-pub(super) fn populate_synthetic_perf_session(spec: SyntheticPerfSpec, session: &mut SessionState) {
+pub fn populate_synthetic_perf_session(spec: SyntheticPerfSpec, session: &mut SessionState) {
     let mut rng = SyntheticRng::new(spec.seed);
     session.reserve_transcript_entries(spec.turns.saturating_mul(6));
 

@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import select
+import shutil
 import socket
 import sqlite3
 import subprocess
@@ -37,6 +38,8 @@ class Client:
         if resume:
             params.update(resume=resume["client"], resume_token=resume["resume_token"], instance=resume["instance"])
         self.hello = self.call("hello", **params) if greet else None
+        if greet:
+            fixture.memory("hello:" + name)
 
     def record(self, direction, message):
         with self.path.open("a") as log:
@@ -100,7 +103,8 @@ class Client:
 class Fixture:
     def __init__(self, name, codex=None, mode="modern"):
         ARTIFACTS.mkdir(parents=True, exist_ok=True)
-        self.root = Path(tempfile.mkdtemp(prefix=name + "-", dir=ARTIFACTS))
+        self.root = Path(tempfile.mkdtemp(prefix="carlos-daemon-" + name + "-", dir="/tmp"))
+        self.artifacts = ARTIFACTS / self.root.name
         self.socket = self.root / "daemon.sock"
         self.env = dict(os.environ)
         private = {key: self.root / key.lower() for key in (
@@ -162,10 +166,26 @@ class Fixture:
         finally:
             if self.native:
                 self.native.close()
+            shutil.copytree(self.root, self.artifacts, dirs_exist_ok=True,
+                            ignore=lambda directory, names: [name for name in names if (Path(directory)/name).is_socket()])
+            (self.artifacts / "source-root.txt").write_text(str(self.root))
+            shutil.rmtree(self.root)
 
     def saved(self):
         with sqlite3.connect(self.root / "state/sessions.sqlite3") as database:
             return database.execute("SELECT id,name,native_thread,ralph FROM sessions ORDER BY id").fetchall()
+
+    def memory(self, label):
+        status = Path(f"/proc/{self.process.pid}/status")
+        if not status.exists():
+            return
+        metrics = {}
+        for line in status.read_text().splitlines():
+            key, _, value = line.partition(":")
+            if key in ("VmRSS", "VmHWM", "RssAnon", "RssFile", "Threads"):
+                metrics[key] = int(value.split()[0])
+        with (self.root / "daemon-memory.jsonl").open("a") as log:
+            log.write(json.dumps({"label": label, "daemon_pid": self.process.pid, "metrics": metrics}) + "\n")
 
     def pids(self):
         path = self.root / "native-pids.jsonl"

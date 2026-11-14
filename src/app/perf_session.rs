@@ -23,7 +23,7 @@ use super::render::render_main_view;
 use super::{AppState, CliOptions, TerminalSize};
 
 // Re-export synthetic types so tests can access them via the `perf_session` module path.
-pub(super) use super::perf_synthetic::{populate_synthetic_perf_session, SyntheticPerfSpec};
+pub(super) use carlos_core::perf_fixture::{populate_synthetic_perf_session, SyntheticPerfSpec};
 
 // --- Session Replay ---
 

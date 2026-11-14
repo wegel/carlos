@@ -25,14 +25,12 @@ pub(super) fn handle_model_settings_key(
         (KeyCode::BackTab, _) | (KeyCode::Up, _) => app.model_settings_move_field(false),
         (KeyCode::Left, _) => cycle(app, -1),
         (KeyCode::Right, _) => cycle(app, 1),
+        (code, mods) if edit_context(app, code, mods) => {}
         (KeyCode::Backspace, _)
-            if app.view.runtime_settings.model_settings_field == ModelSettingsField::Context =>
-        {
-            app.view.runtime_settings.context.backspace();
-        }
-        (KeyCode::Backspace, _)
-            if matches!(app.view.runtime_settings.model_settings_field, ModelSettingsField::Model)
-                && !app.model_settings_has_model_choices() =>
+            if matches!(
+                app.view.runtime_settings.model_settings_field,
+                ModelSettingsField::Model
+            ) && !app.model_settings_has_model_choices() =>
         {
             app.model_settings_backspace();
         }
@@ -45,12 +43,6 @@ pub(super) fn handle_model_settings_key(
             app.toggle_dictation_endpoint_mode();
         }
         (KeyCode::Enter, _) => save_settings(client, app),
-        (KeyCode::Char(ch), mods)
-            if !mods.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
-                && app.view.runtime_settings.model_settings_field == ModelSettingsField::Context =>
-        {
-            app.view.runtime_settings.context.insert(&ch.to_string());
-        }
         (KeyCode::Char(ch), mods)
             if !mods.contains(KeyModifiers::CONTROL)
                 && !mods.contains(KeyModifiers::ALT)
@@ -71,6 +63,20 @@ pub(super) fn handle_model_settings_key(
         crate::app::codex_settings_draft::refresh_editor(app);
     }
     TerminalEventResult::Continue { needs_draw: true }
+}
+
+fn edit_context(app: &mut AppState, code: KeyCode, mods: KeyModifiers) -> bool {
+    if app.view.runtime_settings.model_settings_field != ModelSettingsField::Context {
+        return false;
+    }
+    match code {
+        KeyCode::Backspace => app.view.runtime_settings.context.backspace(),
+        KeyCode::Char(ch) if !mods.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) => {
+            app.view.runtime_settings.context.insert(&ch.to_string());
+        }
+        _ => return false,
+    }
+    true
 }
 
 fn cycle(app: &mut AppState, dir: isize) {
