@@ -2,11 +2,11 @@
 
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{Arc, Mutex};
 
 use serde_json::Value;
 
-use super::process::start_command;
+use super::process::start_with_events;
 use super::{
     grok_model_catalog, GrokClient, GrokCommands, GrokRuntimeSettings, GrokTranslationState,
 };
@@ -18,13 +18,19 @@ pub fn client(frames: Vec<Value>) -> (GrokClient, EventReceiver) {
 }
 
 pub(super) fn command_client(command: Command) -> (GrokClient, EventReceiver) {
-    let (events_tx, events_rx) = mpsc::channel();
+    let (events_tx, events_rx) = crate::protocol_events::EventQueue::new_waiting("Grok");
     let translation = Arc::new(Mutex::new(GrokTranslationState::default()));
-    let process = start_command(command, events_tx.clone(), Arc::clone(&translation))
-        .expect("fixed Grok peer");
+    let process = start_with_events(
+        command,
+        events_tx.clone(),
+        Arc::clone(&translation),
+        &crate::launch_cancel::LaunchCancellation::default(),
+    )
+    .expect("fixed Grok peer");
     let commands = Arc::new(GrokCommands {
         revision: std::sync::atomic::AtomicU64::new(0),
         stopped: std::sync::atomic::AtomicBool::new(false),
+        opening: std::sync::atomic::AtomicBool::new(false),
         cwd: PathBuf::from("."),
         session_id: Mutex::new(Some("root".into())),
         runtime_settings: Mutex::new(GrokRuntimeSettings::default()),

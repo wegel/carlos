@@ -83,16 +83,7 @@ impl SessionState {
         {
             return Ok(prepared);
         }
-        if kind == BackendKind::Claude && self.claude().phase() != ClaudePhase::Ready {
-            self.enqueue_submitted_prompt(
-                SubmittedText {
-                    text,
-                    operation: context.operation.clone(),
-                },
-                options.record_history,
-                options.origin,
-            );
-            self.set_status("queued while Claude starts");
+        if self.queue_during_startup(kind, &text, options, context) {
             return Ok(prepared);
         }
         let steer = !edited
@@ -111,6 +102,34 @@ impl SessionState {
         };
         prepared.work = Some(self.prompt_work(submission));
         Ok(prepared)
+    }
+
+    fn queue_during_startup(
+        &mut self,
+        kind: BackendKind,
+        text: &str,
+        options: PromptOptions,
+        context: &PromptContext,
+    ) -> bool {
+        if kind == BackendKind::Claude && self.claude().phase() != ClaudePhase::Ready
+            || kind == BackendKind::Grok && self.events.launch.is_some()
+        {
+            self.enqueue_submitted_prompt(
+                SubmittedText {
+                    text: text.into(),
+                    operation: context.operation.clone(),
+                },
+                options.record_history,
+                options.origin,
+            );
+            self.set_status(if kind == BackendKind::Grok {
+                "queued while Grok starts"
+            } else {
+                "queued while Claude starts"
+            });
+            return true;
+        }
+        false
     }
 
     fn prompt_work(&mut self, submission: PromptSubmission) -> BackendWork {

@@ -20,6 +20,15 @@ pub(super) fn translate_grok_notification(
     params: &Value,
 ) -> TranslateOutput {
     let mut out = TranslateOutput::default();
+    if state.publish_identity {
+        if let Some(id) = params["sessionId"].as_str().filter(|id| !id.is_empty()) {
+            out.lines.push(jsonrpc_notification(
+                "thread/initialized",
+                json!({"thread":{"id":id}}),
+            ));
+            state.publish_identity = false;
+        }
+    }
     match method {
         "session/update" => translate_session_update(state, params, &mut out),
         "_x.ai/session/update" => translate_xai_session_update(state, params, &mut out),

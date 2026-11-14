@@ -33,7 +33,7 @@ fn config(root: &Path) -> Config {
 
 fn wait_for(path: &Path) {
     let started = Instant::now();
-    while !path.exists() {
+    while !fs::metadata(path).is_ok_and(|metadata| metadata.len() > 0) {
         assert!(
             started.elapsed() < Duration::from_secs(3),
             "worker did not reach test gate"

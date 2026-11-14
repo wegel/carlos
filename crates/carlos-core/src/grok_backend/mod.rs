@@ -7,10 +7,11 @@ mod process;
 #[cfg(test)]
 pub(crate) mod receiver_test_support;
 mod rewind;
+mod startup;
 mod translate;
 mod types;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
@@ -21,7 +22,7 @@ use serde_json::{json, Value};
 use crate::protocol_params::ModelInfo;
 
 use self::history::parse_grok_session_list;
-use self::process::{start_grok_process, GrokIo, GrokProcess};
+use self::process::{GrokIo, GrokProcess};
 use self::translate::{interrupt_prompt_turn, mark_prompt_started};
 use self::types::{
     normalize_runtime_arg, parse_grok_model_catalog, response_error_message, response_is_error,
@@ -64,50 +65,20 @@ pub struct GrokClient {
 pub struct GrokCommands {
     revision: AtomicU64,
     stopped: AtomicBool,
+    opening: AtomicBool,
     pub(super) cwd: PathBuf,
     session_id: Mutex<Option<String>>,
     runtime_settings: Mutex<GrokRuntimeSettings>,
     models: Mutex<Vec<ModelInfo>>,
     translation: Arc<Mutex<GrokTranslationState>>,
     process: Arc<GrokIo>,
-    events_tx: mpsc::Sender<String>,
+    events_tx: crate::protocol_events::EventQueue,
 }
 
 impl std::ops::Deref for GrokClient {
     type Target = GrokCommands;
     fn deref(&self) -> &Self::Target {
         &self.commands
-    }
-}
-
-impl GrokClient {
-    /// Start a Grok process in the chosen working directory.
-    pub fn start(cwd: &Path) -> Result<Self> {
-        let (events_tx, events_rx) = mpsc::channel();
-        let translation = Arc::new(Mutex::new(GrokTranslationState::default()));
-        let runtime_settings = GrokRuntimeSettings::default();
-        let process = start_grok_process(
-            cwd,
-            &runtime_settings,
-            events_tx.clone(),
-            Arc::clone(&translation),
-        )?;
-        let commands = Arc::new(GrokCommands {
-            revision: AtomicU64::new(0),
-            stopped: AtomicBool::new(false),
-            cwd: cwd.to_path_buf(),
-            session_id: Mutex::new(None),
-            runtime_settings: Mutex::new(runtime_settings),
-            models: Mutex::new(grok_model_catalog()),
-            translation,
-            process: process.commands(),
-            events_tx,
-        });
-        Ok(Self {
-            commands,
-            process_owner: Mutex::new(process),
-            events_rx: Some(events_rx),
-        })
     }
 }
 
@@ -260,7 +231,7 @@ impl GrokCommands {
             .pointer("/models/currentModelId")
             .and_then(Value::as_str)
         {
-            let _ = self.events_tx.send(
+            let _ = self.emit(
                 json!({
                     "method": "thread/initialized",
                     "params": {
@@ -342,6 +313,12 @@ impl GrokCommands {
         Ok(())
     }
 
+    pub(super) fn emit(&self, line: String) -> Result<()> {
+        self.events_tx.send(line).inspect_err(|_| {
+            self.process.cancel();
+        })
+    }
+
     fn interrupt_session(
         &self,
         session_id: &str,
@@ -355,7 +332,7 @@ impl GrokCommands {
             interrupt_prompt_turn(&mut state).lines
         };
         for line in lines {
-            let _ = self.events_tx.send(line);
+            let _ = self.emit(line);
         }
         let process = &self.process;
         process.clear_in_flight_prompts();
@@ -376,3 +353,9 @@ impl GrokCommands {
 #[cfg(test)]
 #[path = "../tests/backend_owner_grok_tests.rs"]
 mod backend_owner_grok_tests;
+
+#[cfg(test)]
+mod process_bounds_tests;
+
+#[cfg(test)]
+mod startup_tests;

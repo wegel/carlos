@@ -3,6 +3,7 @@
 mod actions;
 mod automatic;
 mod dispatch;
+pub mod launch;
 mod mailbox;
 mod native;
 mod owner;
@@ -70,7 +71,10 @@ pub enum EngineCommand {
 
 /// Replies carry facts or typed failures without retaining any client's editor.
 pub enum EngineReply {
-    Info(SessionInfo),
+    Info {
+        info: SessionInfo,
+        native_thread: String,
+    },
     Snapshot(Box<Snapshot>),
     Changes(EngineChanges),
     History(History),

@@ -4,12 +4,16 @@
 mod process_client;
 #[path = "process_io.rs"]
 mod process_io;
+#[path = "process_reader.rs"]
+mod process_reader;
 #[path = "process_writer.rs"]
 mod process_writer;
+use self::process_reader::{spawn_reader_thread, spawn_stderr_thread};
+use crate::launch_cancel::LaunchCancellation;
+use crate::protocol_events::EventQueue;
 
 use std::collections::{HashMap, HashSet};
 use std::env;
-use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::AtomicU64;
@@ -20,9 +24,7 @@ use std::time::{Duration, Instant};
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 
-use self::process_client::respond_to_agent_request;
 use self::process_writer::InputWriter;
-use super::translate::{finish_prompt_turn, translate_grok_notification};
 use super::types::{GrokRuntimeSettings, GrokTranslationState};
 
 const INITIALIZE_TIMEOUT: Duration = Duration::from_secs(20);
@@ -42,6 +44,7 @@ pub(super) struct GrokIo {
     pending: Arc<Mutex<HashMap<u64, mpsc::Sender<String>>>>,
     prompt_in_flight: Arc<Mutex<HashSet<u64>>>,
     next_id: AtomicU64,
+    events: EventQueue,
 }
 
 impl std::ops::Deref for GrokProcess {
@@ -62,18 +65,25 @@ impl GrokProcess {
 pub(super) fn start_grok_process(
     cwd: &Path,
     runtime: &GrokRuntimeSettings,
-    events_tx: mpsc::Sender<String>,
+    events_tx: EventQueue,
     translation: Arc<Mutex<GrokTranslationState>>,
+    cancel: &LaunchCancellation,
 ) -> Result<GrokProcess> {
-    start_command(build_grok_command(cwd, runtime), events_tx, translation)
+    start_with_events(
+        build_grok_command(cwd, runtime),
+        events_tx,
+        translation,
+        cancel,
+    )
 }
 
-/// Start the chosen process through the same initialized native ACP reader.
-pub(super) fn start_command(
+pub(super) fn start_with_events(
     mut command: Command,
-    events_tx: mpsc::Sender<String>,
+    events_tx: EventQueue,
     translation: Arc<Mutex<GrokTranslationState>>,
+    cancel: &LaunchCancellation,
 ) -> Result<GrokProcess> {
+    cancel.check()?;
     let mut child = command
         .spawn()
         .context("failed to spawn `grok agent stdio`")?;
@@ -87,7 +97,7 @@ pub(super) fn start_command(
     let captured_stderr = Arc::new(Mutex::new(String::new()));
     let reader_thread = spawn_reader_thread(
         stdout,
-        events_tx,
+        events_tx.clone(),
         Arc::clone(&pending),
         Arc::clone(&prompt_in_flight),
         Arc::clone(&stdin),
@@ -101,10 +111,13 @@ pub(super) fn start_command(
             pending,
             prompt_in_flight,
             next_id: AtomicU64::new(1),
+            events: events_tx,
         }),
         reader_thread: Some(reader_thread),
         stderr_thread: Some(stderr_thread),
     };
+    let io = process.commands();
+    cancel.register(move || io.cancel())?;
     if let Err(err) = initialize_agent(&process) {
         let stderr = captured_stderr
             .lock()
@@ -116,6 +129,7 @@ pub(super) fn start_command(
         }
         return Err(err);
     }
+    cancel.check()?;
     Ok(process)
 }
 
@@ -178,7 +192,7 @@ fn initialize_agent(process: &GrokProcess) -> Result<()> {
 
 impl GrokProcess {
     pub(super) fn stop(&mut self) {
-        self.stdin.close();
+        self.io.cancel();
         let deadline = Instant::now() + Duration::from_millis(250);
         loop {
             let state = self.child.lock().expect("Grok child").try_wait();
@@ -190,159 +204,6 @@ impl GrokProcess {
         }
         let _ = self.reader_thread.take();
         let _ = self.stderr_thread.take();
-    }
-}
-
-// --- Reader ---
-
-fn spawn_reader_thread(
-    stdout: std::process::ChildStdout,
-    events_tx: mpsc::Sender<String>,
-    pending: Arc<Mutex<HashMap<u64, mpsc::Sender<String>>>>,
-    prompt_in_flight: Arc<Mutex<HashSet<u64>>>,
-    stdin: Arc<InputWriter>,
-    translation: Arc<Mutex<GrokTranslationState>>,
-) -> thread::JoinHandle<()> {
-    thread::spawn(move || {
-        let mut reader = BufReader::new(stdout);
-        let mut line = String::new();
-        loop {
-            line.clear();
-            let n = match reader.read_line(&mut line) {
-                Ok(n) => n,
-                Err(_) => break,
-            };
-            if n == 0 {
-                break;
-            }
-            let trimmed = line.trim_end_matches(['\n', '\r']);
-            if trimmed.is_empty() {
-                continue;
-            }
-            route_line(
-                trimmed,
-                &events_tx,
-                &pending,
-                &prompt_in_flight,
-                &stdin,
-                &translation,
-            );
-        }
-        stdin.close();
-        if let Ok(mut requests) = pending.lock() {
-            for (id, reply) in requests.drain() {
-                let _ = reply.send(
-                    json!({"id":id,"error":{"message":"Grok stdout closed before replying"}})
-                        .to_string(),
-                );
-            }
-        }
-    })
-}
-
-fn spawn_stderr_thread(
-    stderr: std::process::ChildStderr,
-    captured: Arc<Mutex<String>>,
-) -> thread::JoinHandle<()> {
-    thread::spawn(move || {
-        let mut reader = BufReader::new(stderr);
-        let mut line = String::new();
-        loop {
-            line.clear();
-            match reader.read_line(&mut line) {
-                Ok(0) | Err(_) => break,
-                Ok(_) => {
-                    if let Ok(mut captured) = captured.lock() {
-                        captured.push_str(&line);
-                    }
-                }
-            }
-        }
-    })
-}
-
-fn route_line(
-    line: &str,
-    events_tx: &mpsc::Sender<String>,
-    pending: &Arc<Mutex<HashMap<u64, mpsc::Sender<String>>>>,
-    prompt_in_flight: &Arc<Mutex<HashSet<u64>>>,
-    stdin: &Arc<InputWriter>,
-    translation: &Arc<Mutex<GrokTranslationState>>,
-) {
-    let Ok(parsed) = serde_json::from_str::<Value>(line) else {
-        return;
-    };
-    if let Some(id) = parsed.get("id").and_then(Value::as_u64) {
-        if parsed.get("method").and_then(Value::as_str).is_some() {
-            respond_to_agent_request(&parsed, stdin);
-            return;
-        }
-        if let Some(last) = take_prompt_id(prompt_in_flight, id) {
-            emit_prompt_finished(&parsed, events_tx, translation, last);
-            return;
-        }
-        if let Ok(mut pending) = pending.lock() {
-            if let Some(tx) = pending.remove(&id) {
-                let _ = tx.send(line.to_string());
-            }
-        }
-        return;
-    }
-    let Some(method) = parsed.get("method").and_then(Value::as_str) else {
-        return;
-    };
-    let params = parsed.get("params").cloned().unwrap_or(Value::Null);
-    let Ok(mut state) = translation.lock() else {
-        return;
-    };
-    for synthetic in translate_grok_notification(&mut state, method, &params).lines {
-        let _ = events_tx.send(synthetic);
-    }
-}
-
-fn take_prompt_id(prompt_in_flight: &Arc<Mutex<HashSet<u64>>>, id: u64) -> Option<bool> {
-    let Ok(mut prompts) = prompt_in_flight.lock() else {
-        return None;
-    };
-    if !prompts.remove(&id) {
-        return None;
-    }
-    Some(prompts.is_empty())
-}
-
-fn emit_prompt_finished(
-    parsed: &Value,
-    events_tx: &mpsc::Sender<String>,
-    translation: &Arc<Mutex<GrokTranslationState>>,
-    last: bool,
-) {
-    let interrupted = parsed
-        .get("result")
-        .and_then(|result| result.get("stopReason"))
-        .and_then(Value::as_str)
-        == Some("cancelled")
-        || parsed.get("error").is_some();
-    if let Some(message) = parsed
-        .get("error")
-        .and_then(|error| error.get("message"))
-        .and_then(Value::as_str)
-    {
-        let _ = events_tx.send(
-            json!({
-                "method": "error",
-                "params": { "message": format!("Grok prompt failed: {message}") },
-            })
-            .to_string(),
-        );
-    }
-    if !last {
-        return;
-    }
-    let Ok(mut state) = translation.lock() else {
-        return;
-    };
-    for synthetic in finish_prompt_turn(&mut state, interrupted).lines {
-        let _ = events_tx.send(synthetic);
     }
 }
 

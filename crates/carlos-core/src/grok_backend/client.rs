@@ -44,10 +44,17 @@ impl BackendClient for GrokClient {
         bail!("Grok backend approvals are not implemented")
     }
 
+    fn acknowledge_event(&self, length: usize) {
+        self.events_tx.handled(length);
+    }
+
     fn take_events_rx(&mut self) -> Result<EventReceiver> {
         self.events_rx
             .take()
-            .map(Into::into)
+            .map(|receiver| {
+                let io = self.process.clone();
+                EventReceiver::with_close(receiver, move || io.cancel())
+            })
             .ok_or_else(|| anyhow!("Grok events receiver already taken"))
     }
 

@@ -11,6 +11,10 @@ use crate::dispatch_guard::DispatchGuard;
 use crate::protocol_state::{request_key, Target};
 
 impl AppServerClient {
+    pub(crate) fn cancel(&self) {
+        self.state.close("Codex launch cancelled", false);
+    }
+
     /// Include enqueueing, pipe writes and the response in one request deadline.
     pub fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String> {
         self.call_guarded(method, params, timeout, DispatchGuard::default())

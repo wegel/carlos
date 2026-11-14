@@ -92,6 +92,11 @@ impl BackendCommands for Captured {
     fn kind(&self) -> BackendKind {
         BackendKind::Grok
     }
+    fn abort(&self) {
+        if let Some(commands) = self.commands.upgrade() {
+            commands.process.cancel();
+        }
+    }
     fn guarded(&self, permission: DispatchGuard) -> Result<CommandHandle> {
         let mut commands = self.clone();
         commands.permission = commands.permission.and(permission);

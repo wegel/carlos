@@ -91,6 +91,12 @@ impl Owner {
     }
 
     pub(super) fn publish(&mut self) {
+        if self.session.events.ralph_restore_notice
+            && self.session.event_availability() == carlos_proto::session::Availability::Ready
+        {
+            self.session.events.ralph_restore_notice = false;
+            self.session.append_message(crate::session::models::Role::System, "Ralph was on before the daemon stopped. It remains off; explicitly enable it to resume automatic work.");
+        }
         if self.ring.publish(&mut self.session) {
             let _ = self.channels.notice.try_send(());
         }
@@ -98,7 +104,10 @@ impl Owner {
 
     fn read(&mut self, command: EngineCommand) -> EngineReply {
         let result = match command {
-            EngineCommand::Info => Ok(EngineReply::Info(self.session.export_info())),
+            EngineCommand::Info => Ok(EngineReply::Info {
+                info: self.session.export_info(),
+                native_thread: self.session.thread_id().clone(),
+            }),
             EngineCommand::Snapshot { limit } => ring::snapshot(&self.session, limit)
                 .map(|value| EngineReply::Snapshot(Box::new(value))),
             EngineCommand::Changes { since } => match since.and_then(|seq| self.ring.replay(seq)) {

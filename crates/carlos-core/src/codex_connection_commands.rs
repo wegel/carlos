@@ -69,6 +69,9 @@ impl BackendCommands for Commands {
     fn connection_generation(&self) -> Option<u64> {
         Some(self.generation)
     }
+    fn abort(&self) {
+        self.connection.cancel();
+    }
     fn guarded(&self, permission: DispatchGuard) -> Result<CommandHandle> {
         let mut commands = self.clone();
         commands.permission = commands.permission.and(permission);

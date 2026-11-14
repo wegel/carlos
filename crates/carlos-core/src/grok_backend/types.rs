@@ -62,6 +62,7 @@ pub(super) struct GrokToolCall {
 #[derive(Debug, Default)]
 /// Track native Grok items while producing the shared backend messages.
 pub struct GrokTranslationState {
+    pub(super) publish_identity: bool,
     pub(super) replaying: bool,
     pub(super) session_id: Option<String>,
     pub(super) model: Option<String>,

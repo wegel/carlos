@@ -1,6 +1,8 @@
-//! Keep one charged Codex event stream across connection generations.
+//! Keep a native event stream within its count and byte budget until the owner acknowledges it.
 
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc, Condvar, Mutex};
+use std::time::{Duration, Instant};
 
 use anyhow::{ensure, Result};
 use serde_json::{json, Value};
@@ -13,22 +15,52 @@ const EMERGENCY_BYTES: usize = 64 * 1024;
 /// Bounds frames across readers, reconnects and the UI forwarding queue.
 pub(crate) struct EventQueue {
     sender: mpsc::Sender<String>,
-    usage: Arc<Mutex<(usize, usize)>>,
+    budget: Arc<Budget>,
+    wait: Duration,
     generation: u64,
+    backend: &'static str,
+}
+
+struct Budget {
+    usage: Mutex<(usize, usize)>,
+    changed: Condvar,
+    closed: AtomicBool,
 }
 
 impl EventQueue {
     /// Create the stable stream; standalone pipe tests keep unwrapped native frames.
     pub(crate) fn new() -> (Self, mpsc::Receiver<String>) {
+        Self::new_for("Codex")
+    }
+
+    pub(crate) fn new_for(backend: &'static str) -> (Self, mpsc::Receiver<String>) {
         let (sender, receiver) = mpsc::channel();
-        (
-            Self {
-                sender,
-                usage: Arc::new(Mutex::new((0, 0))),
-                generation: 0,
-            },
-            receiver,
-        )
+        (Self::from_sender(sender, backend), receiver)
+    }
+
+    pub(crate) fn from_sender(sender: mpsc::Sender<String>, backend: &'static str) -> Self {
+        Self {
+            sender,
+            budget: Arc::new(Budget {
+                usage: Mutex::new((0, 0)),
+                changed: Condvar::new(),
+                closed: AtomicBool::new(false),
+            }),
+            wait: Duration::ZERO,
+            generation: 0,
+            backend,
+        }
+    }
+
+    pub(crate) fn new_waiting(backend: &'static str) -> (Self, mpsc::Receiver<String>) {
+        let (mut queue, receiver) = Self::new_for(backend);
+        queue.wait = Duration::from_millis(500);
+        (queue, receiver)
+    }
+
+    pub(crate) fn close(&self) {
+        self.budget.closed.store(true, Ordering::SeqCst);
+        self.budget.changed.notify_all();
     }
 
     /// Stamp this connection without replacing its shared queue or acknowledgments.
@@ -63,15 +95,37 @@ impl EventQueue {
     }
 
     fn enqueue(&self, line: String, terminal: bool) -> Result<()> {
-        let mut usage = self.usage.lock().expect("Codex event budget poisoned");
+        let mut usage = self
+            .budget
+            .usage
+            .lock()
+            .expect("Codex event budget poisoned");
         let (bytes, frames) = if terminal {
             (MAX_BYTES + EMERGENCY_BYTES, MAX_FRAMES + 1)
         } else {
             (MAX_BYTES, MAX_FRAMES)
         };
+        let deadline = Instant::now() + self.wait;
+        while usage.0 + line.len() > bytes || usage.1 >= frames {
+            ensure!(
+                line.len() <= bytes
+                    && !terminal
+                    && Instant::now() < deadline
+                    && !self.budget.closed.load(Ordering::SeqCst),
+                "{} event backlog exceeded 16 MiB or 4096 frames",
+                self.backend
+            );
+            usage = self
+                .budget
+                .changed
+                .wait_timeout(usage, deadline.saturating_duration_since(Instant::now()))
+                .expect("native event budget")
+                .0;
+        }
         ensure!(
-            usage.0 + line.len() <= bytes && usage.1 < frames,
-            "Codex UI event backlog exceeded 16 MiB or 4096 frames"
+            terminal || !self.budget.closed.load(Ordering::SeqCst),
+            "{} event producer closed",
+            self.backend
         );
         let length = line.len();
         usage.0 += length;
@@ -79,16 +133,17 @@ impl EventQueue {
         if self.sender.send(line).is_err() {
             usage.0 -= length;
             usage.1 -= 1;
-            anyhow::bail!("Codex UI event receiver closed");
+            anyhow::bail!("{} event receiver closed", self.backend);
         }
         Ok(())
     }
 
     /// Release only the actual forwarded bytes, including reserved terminal notices.
     pub(crate) fn handled(&self, length: usize) {
-        if let Ok(mut usage) = self.usage.lock() {
+        if let Ok(mut usage) = self.budget.usage.lock() {
             usage.0 = usage.0.saturating_sub(length);
             usage.1 = usage.1.saturating_sub(1);
+            self.budget.changed.notify_one();
         }
     }
 }

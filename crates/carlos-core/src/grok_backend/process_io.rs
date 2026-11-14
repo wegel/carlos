@@ -11,6 +11,11 @@ use super::GrokIo;
 use crate::dispatch_guard::DispatchGuard;
 
 impl GrokIo {
+    pub(in crate::grok_backend) fn cancel(&self) {
+        self.events.close();
+        self.stdin.close();
+    }
+
     pub(in crate::grok_backend) fn request(
         &self,
         method: &str,

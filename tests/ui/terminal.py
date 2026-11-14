@@ -31,6 +31,8 @@ class Terminal:
             (shim / "codex").symlink_to(Path(__file__).with_name(peer).resolve())
         if not (shim / "claude").exists():
             (shim / "claude").symlink_to(claude or Path(__file__).with_name("fake_claude.py").resolve())
+        if backend == "grok" and not (shim / "grok").exists():
+            (shim / "grok").symlink_to(Path(__file__).with_name("fake_grok.py").resolve())
         self.screen = TerminalScreen(width, 32)
         self.stream = pyte.Stream(self.screen)
         self.decoder = codecs.getincrementaldecoder("utf-8")("replace")

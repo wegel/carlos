@@ -31,6 +31,8 @@ pub trait BackendCommands: Send + Sync {
     fn guarded(&self, _permission: crate::dispatch_guard::DispatchGuard) -> Result<CommandHandle> {
         bail!("backend does not support guarded native writes")
     }
+    /// Cancel this captured transport without waiting for a native reply or following a replacement.
+    fn abort(&self) {}
     /// Run a native request without holding an owner or connection-manager lock.
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String>;
     /// Submit text with its native author and queue policy.

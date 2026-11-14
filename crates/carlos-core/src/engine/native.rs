@@ -103,6 +103,9 @@ impl Owner {
             }
         }
         self.client.acknowledge_event(line.len());
+        if self.session.events.backend_closed && !self.native.closed {
+            self.close_native();
+        }
     }
 
     pub(super) fn close_native(&mut self) {

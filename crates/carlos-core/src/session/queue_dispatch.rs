@@ -17,6 +17,9 @@ impl SessionState {
         client_idle: bool,
         now: Instant,
     ) -> Option<QueuedTurnInput> {
+        if kind == BackendKind::Grok && self.events.launch.is_some() {
+            return None;
+        }
         if kind == BackendKind::Claude && self.claude().phase() != ClaudePhase::Ready {
             return None;
         }

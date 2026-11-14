@@ -110,7 +110,14 @@ impl Owner {
     }
 
     pub(super) fn dispatch_ordinary(&mut self) {
-        if self.workers.ordinary_busy || self.session.command_idle().is_err() {
+        if self.workers.ordinary_busy
+            || self.session.command_idle().is_err()
+            || matches!(
+                self.session.event_availability(),
+                carlos_proto::session::Availability::Starting
+                    | carlos_proto::session::Availability::Restoring
+            )
+        {
             return;
         }
         if self.dispatch_queued() {

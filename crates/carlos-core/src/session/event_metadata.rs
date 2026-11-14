@@ -21,9 +21,15 @@ impl SessionState {
         }
     }
 
-    fn event_availability(&self) -> Availability {
+    pub(super) fn event_availability(&self) -> Availability {
         if self.events.backend_closed {
             return Availability::Closed;
+        }
+        if let Some(launch) = self.events.launch {
+            return launch;
+        }
+        if self.codex_connection().rebuilding() {
+            return Availability::Restoring;
         }
         match self.events.backend {
             Backend::Codex if self.codex_scope().closed() => Availability::Closed,

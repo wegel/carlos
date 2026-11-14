@@ -1,8 +1,6 @@
 //! Grok backend launch: session pick, ACP session open, and history replay.
 
 use std::path::Path;
-use std::sync::mpsc::Receiver;
-use std::time::Duration;
 
 use anyhow::Result;
 use carlos_core::backend::BackendClient;
@@ -10,7 +8,6 @@ use carlos_core::grok_backend::{
     load_grok_thread_summaries, GrokClient, GrokLaunchMode, GrokSessionSummary,
 };
 use carlos_core::protocol_params::ThreadRuntimeSettings;
-use carlos_core::session::models::Role;
 use carlos_core::session::models::ThreadSummary;
 use carlos_core::session::runtime_settings::RuntimeDefaults;
 
@@ -19,7 +16,6 @@ use super::{
 };
 use crate::app::cli::CliOptions;
 use crate::app::item_history::load_history_from_start_or_resume;
-use crate::app::notifications::handle_server_message_line;
 use crate::app::state::AppState;
 use crate::app::terminal_ui::pick_thread;
 
@@ -36,7 +32,11 @@ pub(in crate::app) fn run_grok_backend(
     let Some(launch_mode) = resolve_grok_launch_mode(opts, &client, cwd_path, cwd)? else {
         return Ok(());
     };
-    let thread_id = client.open_session(&launch_mode)?;
+    let thread_id = if let GrokLaunchMode::Resume(id) = &launch_mode {
+        id.clone()
+    } else {
+        "grok-starting".into()
+    };
     let server_events_rx = client.take_events_rx()?;
     let start_resp = client.synthetic_start_response(&thread_id);
     let mut app = AppState::with_runtime_defaults(thread_id, persisted_defaults);
@@ -49,7 +49,11 @@ pub(in crate::app) fn run_grok_backend(
         &persisted_defaults,
         &start_resp,
     )?;
-    apply_replayed_events(&mut app, &client, &server_events_rx, &launch_mode);
+    app.session.begin_grok_start(matches!(
+        launch_mode,
+        GrokLaunchMode::Resume(_) | GrokLaunchMode::Continue
+    ));
+    client.open_session_async(launch_mode)?;
     finish_run(&mut app, opts.backend, &client, server_events_rx)
 }
 
@@ -122,42 +126,6 @@ fn configure_grok_app(
     );
     load_history_from_start_or_resume(app, start_resp)?;
     Ok(())
-}
-
-fn apply_replayed_events(
-    app: &mut AppState,
-    client: &GrokClient,
-    server_events_rx: &Receiver<String>,
-    launch_mode: &GrokLaunchMode,
-) {
-    let deadline = std::time::Instant::now() + Duration::from_millis(250);
-    while std::time::Instant::now() < deadline {
-        match server_events_rx.try_recv() {
-            Ok(line) => {
-                let _ = handle_server_message_line(app, &line);
-            }
-            Err(std::sync::mpsc::TryRecvError::Empty) => {
-                std::thread::sleep(Duration::from_millis(10));
-            }
-            Err(std::sync::mpsc::TryRecvError::Disconnected) => break,
-        }
-    }
-    for line in client.take_replay_tail() {
-        let _ = handle_server_message_line(app, &line);
-    }
-    if let Some(usage_line) = client.drain_replay_usage_line() {
-        let _ = handle_server_message_line(app, &usage_line);
-    }
-    let is_resume = matches!(
-        launch_mode,
-        GrokLaunchMode::Resume(_) | GrokLaunchMode::Continue
-    );
-    if is_resume && app.session.messages().is_empty() {
-        app.append_message(
-            Role::System,
-            "Grok session history could not be reconstructed from the agent replay".to_string(),
-        );
-    }
 }
 
 pub(super) fn to_thread_summary(session: GrokSessionSummary) -> ThreadSummary {
