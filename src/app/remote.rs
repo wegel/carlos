@@ -4,6 +4,8 @@ mod approvals;
 mod bodies;
 mod drafts;
 mod events;
+mod local_commands;
+mod navigation;
 mod render;
 mod transcript;
 mod transport;
@@ -42,6 +44,8 @@ pub(super) fn run(socket: &Path, options: &CliOptions) -> Result<()> {
         view: ViewState::new(super::tool_output_preferences::load_summary_enabled()),
         documents: DocumentReads::default(),
     };
+    device.view.layout.themes = super::tool_output_preferences::load_themes();
+    device.view.tool_output.mode = super::tool_output_preferences::load_mode();
     device.run(socket)
 }
 
@@ -56,7 +60,7 @@ impl Device {
                         Ok(changed) => redraw |= changed,
                         Err(error) => {
                             self.client.disconnect(link.connection);
-                            self.view.status_hint = Some(format!("{error}; F5 reconnects"));
+                            self.view.status_hint = Some(format!("F5 reconnects: {error}"));
                             transport = None;
                             redraw = true;
                         }

@@ -89,6 +89,7 @@ mod layout_state;
 mod markdown_tables;
 mod mobile_mouse;
 mod mouse_events;
+mod mouse_gestures;
 mod native_questions;
 mod notifications;
 mod overlay_render;

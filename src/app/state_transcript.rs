@@ -30,10 +30,6 @@ impl AppState {
             .mark_transcript_dirty_from(self.session.messages().len(), idx);
     }
 
-    pub(super) fn sync_auto_follow_bottom(&mut self, max_scroll: usize) {
-        self.view.viewport.sync_auto_follow_bottom(max_scroll);
-    }
-
     pub(super) fn ensure_rendered_lines(
         &mut self,
         width: usize,

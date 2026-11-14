@@ -7,7 +7,7 @@ use super::context_usage::{context_usage_label, context_usage_placeholder_label}
 
 use super::notifications::{animation_tick, kitt_head_index};
 
-use super::render::draw_str;
+use super::render::{draw_status_separator, draw_str};
 use super::state::AppState;
 use super::text::{split_at_cells, visual_width};
 
@@ -15,8 +15,7 @@ use super::view_models::TerminalSize;
 use super::weekly_usage::WeeklyIndicator;
 use crate::theme::{
     context_color, kitt_color_for_distance, COLOR_DIFF_REMOVE, COLOR_GUTTER_AGENT_COMMENTARY,
-    COLOR_GUTTER_AGENT_THINKING, COLOR_GUTTER_USER, COLOR_STATUS_SEPARATOR, COLOR_STEP8,
-    COLOR_TOOL_TEXT,
+    COLOR_GUTTER_AGENT_THINKING, COLOR_GUTTER_USER, COLOR_STEP8, COLOR_TOOL_TEXT,
 };
 
 #[cfg(test)]
@@ -66,19 +65,7 @@ pub(super) fn draw_status_bar(
     }
     let y = input_top - 2;
     let plan = status_plan(app, size);
-    let color = if app.rewind_mode() {
-        COLOR_DIFF_REMOVE
-    } else {
-        COLOR_STATUS_SEPARATOR
-    };
-    draw_str(
-        buf,
-        0,
-        y,
-        &"━".repeat(plan.anim_end),
-        Style::default().fg(color),
-        plan.anim_end,
-    );
+    draw_status_separator(buf, y, plan.anim_end, app.rewind_mode());
     draw_labels(buf, y, &plan.labels);
     draw_claude_rewind_hint(buf, app, y, plan.anim_end);
     if (app.session.active_turn_id().is_some()

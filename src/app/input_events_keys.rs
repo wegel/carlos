@@ -339,17 +339,7 @@ fn handle_page_scroll(app: &mut AppState, size: TerminalSize, down: bool) -> Ter
         0
     };
     let max_scroll = app.rendered_line_count().saturating_sub(msg_height);
-    if down {
-        app.view.viewport.scroll_top = app
-            .view
-            .viewport
-            .scroll_top
-            .saturating_add(10)
-            .min(max_scroll);
-    } else {
-        app.view.viewport.scroll_top = app.view.viewport.scroll_top.saturating_sub(10);
-    }
-    app.sync_auto_follow_bottom(max_scroll);
+    app.view.viewport.page(down, max_scroll);
     TerminalEventResult::Continue { needs_draw: true }
 }
 

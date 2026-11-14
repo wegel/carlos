@@ -52,4 +52,23 @@ impl ViewportState {
             self.auto_follow_bottom = false;
         }
     }
+
+    /// Scroll ten transcript rows while preserving the terminal's follow-bottom rule.
+    pub(super) fn page(&mut self, down: bool, max_scroll: usize) {
+        self.scroll_top = if down {
+            self.scroll_top.saturating_add(10).min(max_scroll)
+        } else {
+            self.scroll_top.saturating_sub(10)
+        };
+        self.sync_auto_follow_bottom(max_scroll);
+    }
+
+    /// Clamp selected transcript cells to the current rendered row.
+    pub(super) fn selected_cells(&self, index: usize, cells: usize) -> Option<(usize, usize)> {
+        self.selection
+            .and_then(|selection| {
+                super::selection::compute_selection_range(selection, index, cells)
+            })
+            .map(|(start, end)| (start.min(cells), end.min(cells)))
+    }
 }

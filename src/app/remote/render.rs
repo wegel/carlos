@@ -28,9 +28,30 @@ impl Device {
             2
         };
         let width = size.width.saturating_sub(content_x + 1);
+        if self.view.render_cache.rendered_width != width
+            || self.view.render_cache.rendered_compact != self.view.tool_output.compact()
+            || self.view.render_cache.rendered_theme != self.view.layout.active
+        {
+            self.view.viewport.selection = None;
+            self.view.viewport.mouse_drag_mode = crate::app::selection::MouseDragMode::Undecided;
+        }
         let layout = compute_composer_layout(&self.view.input, size, content_x);
         self.draw_transcript(frame.buffer_mut(), size, &layout, content_x);
-        let buffer = frame.buffer_mut();
+        self.draw_footer(frame.buffer_mut(), size, &layout, content_x);
+        frame.set_cursor_position((
+            layout.cursor_x.min(size.width.saturating_sub(1)) as u16,
+            layout.cursor_y.min(size.height.saturating_sub(1)) as u16,
+        ));
+    }
+
+    fn draw_footer(
+        &self,
+        buffer: &mut Buffer,
+        size: TerminalSize,
+        layout: &crate::app::render_input::InputLayout,
+        content_x: usize,
+    ) {
+        let width = size.width.saturating_sub(content_x + 1);
         let info = self
             .client
             .session(&self.session)
@@ -38,6 +59,12 @@ impl Device {
         let status = self.view.status_hint.clone().unwrap_or_else(|| {
             info.map_or_else(|| "Connecting…".into(), |info| format!("{:?}", info.phase))
         });
+        crate::app::render::draw_status_separator(
+            buffer,
+            layout.input_top.saturating_sub(2),
+            size.width.saturating_sub(1),
+            false,
+        );
         draw_str(
             buffer,
             content_x,
@@ -52,12 +79,8 @@ impl Device {
             .is_empty()
             .then(|| info.and_then(|info| info.name.as_deref()))
             .flatten();
-        draw_composer(buffer, size, &layout, content_x, false, name);
+        draw_composer(buffer, size, layout, content_x, false, name);
         self.draw_approval(buffer, size);
-        frame.set_cursor_position((
-            layout.cursor_x.min(size.width.saturating_sub(1)) as u16,
-            layout.cursor_y.min(size.height.saturating_sub(1)) as u16,
-        ));
     }
 
     fn draw_transcript(
@@ -69,6 +92,10 @@ impl Device {
     ) {
         let height = layout.msg_bottom;
         let width = size.width.saturating_sub(content_x + 1);
+        let anchor = self
+            .client
+            .session(&self.session)
+            .and_then(|replica| scroll_anchor(replica, &self.view));
         if let Some(transcript) = Transcript::new(&self.client, &self.session, &self.documents) {
             let cache = &mut self.view.render_cache;
             cache.ensure_inputs(
@@ -78,6 +105,12 @@ impl Device {
                 self.view.tool_output.compact(),
                 self.view.layout.active,
             );
+            if let Some(line) = anchor.and_then(|(id, row)| {
+                let position = self.client.session(&self.session)?.entry_position(id)?;
+                cache.line_for_anchor((position, row))
+            }) {
+                self.view.viewport.scroll_top = line;
+            }
             let max_scroll = cache.rendered_line_count().saturating_sub(height);
             if self.view.viewport.auto_follow_bottom {
                 self.view.viewport.scroll_top = max_scroll;
@@ -87,7 +120,8 @@ impl Device {
             cache.materialize_inputs(&transcript, first, first + height.saturating_sub(1));
             for row in 0..height {
                 if let Some(line) = cache.rendered_line_at(first + row) {
-                    draw_body_row(buffer, row, content_x, width, line);
+                    let selected = self.view.viewport.selected_cells(first + row, line.cells);
+                    draw_body_row(buffer, row, content_x, width, line, selected);
                     if !self.view.layout.active.is_flow() {
                         if let Some((index, body_row)) = cache.message_anchor(first + row) {
                             if let Some(input) = transcript.input(index) {
@@ -138,6 +172,7 @@ fn draw_body_row(
     content_x: usize,
     width: usize,
     line: &crate::app::view_models::RenderedLine,
+    selected: Option<(usize, usize)>,
 ) {
     fill_rect(
         buffer,
@@ -154,6 +189,17 @@ fn draw_body_row(
         width,
         line,
         role_text_style(line.role),
-        None,
+        selected,
     );
+}
+
+fn scroll_anchor<'a>(
+    replica: &'a carlos_client::Replica,
+    view: &crate::app::view_state::ViewState,
+) -> Option<(&'a carlos_proto::ids::EntryId, usize)> {
+    if view.viewport.auto_follow_bottom {
+        return None;
+    }
+    let (index, row) = view.render_cache.message_anchor(view.viewport.scroll_top)?;
+    Some((&replica.entry_at(index)?.id, row))
 }

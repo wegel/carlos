@@ -13,7 +13,9 @@ use super::text::{slice_by_cells, visual_width};
 
 use super::{AppState, RenderedLine, TerminalSize, MSG_TOP};
 
-use crate::theme::{COLOR_STEP2, COLOR_STEP8, COLOR_TEXT};
+use crate::theme::{
+    COLOR_DIFF_REMOVE, COLOR_STATUS_SEPARATOR, COLOR_STEP2, COLOR_STEP8, COLOR_TEXT,
+};
 
 pub(super) use self::render_sections::draw_composer;
 use self::render_sections::{cursor_position, draw_input_area, draw_overlays};
@@ -41,6 +43,23 @@ pub(super) fn draw_str(
     if let (Ok(x), Ok(y)) = (u16::try_from(x), u16::try_from(y)) {
         buf.set_stringn(x, y, text, max_width, style);
     }
+}
+
+/// Draw the same separator beneath a native-backed or client-backed transcript.
+pub(super) fn draw_status_separator(buf: &mut Buffer, y: usize, width: usize, rewind: bool) {
+    let color = if rewind {
+        COLOR_DIFF_REMOVE
+    } else {
+        COLOR_STATUS_SEPARATOR
+    };
+    draw_str(
+        buf,
+        0,
+        y,
+        &"━".repeat(width),
+        Style::default().fg(color),
+        width,
+    );
 }
 
 fn draw_piece(

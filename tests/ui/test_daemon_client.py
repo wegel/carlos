@@ -26,13 +26,13 @@ class DaemonClient:
                                 ['snapshot']['info']['availability'] == "ready", "native session ready")
         return fixture, client, session
 
-    def attach_daemon(self, fixture, session, name, width=100, source_error_once=False):
+    def attach_daemon(self, fixture, session, name, width=100, source_error_once=False, extra_env=None):
         directory = self.summary_root() / name
         directory.mkdir(parents=True, exist_ok=True)
         recorder = DaemonRecorder(fixture.root / (name+".sock"), fixture.socket, directory, source_error_once=source_error_once)
         self.addCleanup(recorder.close)
         return self.launch(directory=directory, width=width, resume=session,
-                           extra_args=["--daemon-socket", str(recorder.path)])
+                           extra_args=["--daemon-socket", str(recorder.path)], extra_env=extra_env)
 
     def test_daemon_terminals_keep_drafts_private_while_native_control_releases_a_held_send(self):
         fixture, client, session = self.daemon_session("terminal-control")
@@ -153,10 +153,8 @@ class DaemonClient:
         terminal.wait(lambda: terminal.input_is("newer private draft"), "cache failure leaves composer usable")
         terminal.snapshot("local-source-pressure")
 
-    def test_daemon_terminal_borrows_a_large_ansi_body_without_losing_its_color_prefix(self):
-        import json
-        import time
-        fixture, client, session = self.daemon_session("terminal-ansi-source")
+    def ansi_session(self, name):
+        fixture, client, session = self.daemon_session(name)
         body = "\x1b[31m" + "red 🌍 still red\n"*24000 + "tail stays red"
         async def ansi_source(link, request):
             await fixture.native.notify(link, "turn/started", turn={"id":"ansi-turn"})
@@ -171,6 +169,20 @@ class DaemonClient:
         daemon_support.wait_for(lambda: any("printf probe" in (entry.get("tool") or {}).get("label", "")
                                 for entry in client.call("session/subscribe", session=session, since=None)
                                 ["snapshot"]["entries"]), "large native ANSI source published")
+        return fixture, client, session, body
+
+    def clipboard_root(self, name):
+        root = self.summary_root()/name
+        (root/"bin").mkdir(parents=True, exist_ok=True)
+        program = root/"bin/wl-copy"
+        program.write_text("#!/usr/bin/env python3\nimport os,sys\nfrom pathlib import Path\nPath(os.environ['CARLOS_TEST_ROOT']).joinpath('copied.txt').write_bytes(sys.stdin.buffer.read())\n")
+        program.chmod(0o755)
+        return root
+
+    def test_daemon_terminal_borrows_a_large_ansi_body_without_losing_its_color_prefix(self):
+        import json
+        import time
+        fixture, client, session, body = self.ansi_session("terminal-ansi-source")
         started = time.monotonic()
         terminal = self.attach_daemon(fixture, session, "ansi")
         terminal.contains("tail stays red")
@@ -229,3 +241,73 @@ class DaemonClient:
         terminal.wait(lambda: terminal.input_is("draft after failed read"), "failed RPC leaves composer usable")
         self.assertEqual(terminal.requests("session/send"), [])
         terminal.snapshot("failed-rpc-stays-closed")
+
+    def test_daemon_terminal_folds_resizes_scrolls_and_copies_unicode_without_a_send(self):
+        import json
+        from wcwidth import wcswidth
+        fixture, client, session, body = self.ansi_session("terminal-local-display")
+        root = self.clipboard_root("display")
+        terminal = self.attach_daemon(fixture, session, "display", extra_env={
+            "SSH_TTY":"","SSH_CONNECTION":"","SSH_CLIENT":""})
+        terminal.contains("tail stays red")
+        terminal.paste("/tools compact")
+        terminal.send(b"\r")
+        terminal.wait(lambda: "tail stays red" not in terminal.text and terminal.input_is(""), "local fold")
+        self.assertEqual(json.loads((root/"config/carlos/ui-settings.json").read_text())["tool_output"], "compact")
+        terminal.paste("/tools full")
+        terminal.send(b"\r")
+        terminal.contains("tail stays red")
+        terminal.resize(28,32)
+        terminal.contains("tail stays red")
+        self.assertEqual(self.source_cell(terminal,"tail stays red","tail").fg,"cd0000")
+        selected = "red 🌍 still red"
+        row = next(index for index,line in enumerate(terminal.screen.display) if selected in line)
+        column = terminal.screen.display[row].index(selected)
+        terminal.send(f"\x1b[<0;{column+1};{row+1}M".encode())
+        terminal.send(f"\x1b[<32;{column+wcswidth(selected)};{row+1}M".encode())
+        terminal.send(f"\x1b[<0;{column+wcswidth(selected)};{row+1}m".encode())
+        terminal.wait(lambda: (root/"copied.txt").exists(), "selection copied from borrowed source")
+        self.assertEqual((root/"copied.txt").read_text(),selected)
+        terminal.send(b"\x0c")
+        terminal.send(b"\x1b[5~")
+        terminal.wait(lambda: "tail stays red" not in terminal.text,"PageUp scrolls transcript")
+        terminal.send(b"\x1b[6~")
+        terminal.contains("tail stays red")
+        terminal.send(b"\x1b[<64;2;2M")
+        terminal.wait(lambda: "tail stays red" not in terminal.text,"wheel scrolls transcript")
+        terminal.send(b"\x1b[<65;2;2M")
+        terminal.contains("tail stays red")
+        fixture.stop()
+        terminal.contains("F5 reconnects")
+        terminal.paste("/tools compact")
+        terminal.send(b"\r")
+        terminal.wait(lambda: terminal.input_is("") and "tail stays red" not in terminal.text,"offline fold")
+        self.assertEqual(terminal.requests("session/send"),[])
+        self.assertEqual(len([request for request in fixture.native.requests if request.get("method")=="turn/start"]),1)
+        terminal.snapshot("local-phone-controls")
+
+    def test_daemon_terminal_copies_complete_markdown_source_after_phone_resize(self):
+        fixture, client, session = self.daemon_session("terminal-markdown-copy")
+        body = "[ref]: https://example.test\n\n```text\n" + "**literal 🌍** [ref]\n"*24000 + "```\n\nTail [link][ref]\n"
+        async def markdown_source(link, request):
+            await fixture.native.notify(link,"turn/started",turn={"id":"markdown-copy"})
+            await fixture.native.notify(link,"item/completed",turnId="markdown-copy",item={
+                "type":"agentMessage","id":"markdown-source","phase":"final_answer","text":body})
+            await fixture.native.notify(link,"turn/completed",turn={"id":"markdown-copy","status":"completed"})
+        fixture.native.prompt=markdown_source
+        send=client.operation(2)
+        client.call("session/send",session=session,operation=send,text="copy original Markdown")
+        client.outcome(send)
+        daemon_support.wait_for(lambda:any(int(entry.get("source",{}).get("bytes",0))==len(body.encode())
+            for entry in client.call("session/subscribe",session=session,since=None)["snapshot"]["entries"]),"Markdown published")
+        root=self.clipboard_root("markdown")
+        terminal=self.attach_daemon(fixture,session,"markdown",extra_env={"SSH_TTY":"","SSH_CONNECTION":"","SSH_CLIENT":""})
+        terminal.contains("Tail link")
+        terminal.resize(28,32)
+        terminal.contains("Tail link")
+        terminal.send(b"\x19")
+        terminal.wait(lambda:(root/"copied.txt").exists(),"complete original Markdown copied")
+        self.assertEqual((root/"copied.txt").read_bytes(),body.encode())
+        self.assertGreater(len(body.encode()),256*1024)
+        self.assertEqual(terminal.requests("session/send"),[])
+        terminal.snapshot("markdown-phone-copy")

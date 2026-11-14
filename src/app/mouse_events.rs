@@ -10,25 +10,14 @@ use super::mobile_mouse::{
 
 use super::render::{compute_input_layout, normalize_pasted_text};
 
-use super::selection::{
-    decide_mouse_drag_mode, normalize_selection_x, shift_selection_focus, MouseDragMode, Selection,
-};
+use super::mouse_gestures::{self, MouseHitContext};
+use super::selection::normalize_selection_x;
 
 use super::state::{AppState, ModelSettingsField};
 
 use super::TerminalSize;
 use super::MSG_TOP;
 use crate::clipboard::try_copy_clipboard;
-
-// --- Types ---
-
-pub(super) struct MouseHitContext {
-    pub(super) in_messages: bool,
-    pub(super) norm_x: usize,
-    pub(super) clamped_y: usize,
-    pub(super) clamped_line_idx: usize,
-    pub(super) max_scroll: usize,
-}
 
 // --- Mouse event dispatch ---
 
@@ -71,10 +60,23 @@ pub(super) fn handle_mouse_event(
         clamped_y,
         clamped_line_idx: app.view.viewport.scroll_top + (clamped_y - msg_top),
         max_scroll: app.rendered_line_count().saturating_sub(msg_height),
+        last_line: app.rendered_line_count().saturating_sub(1),
     };
-    let mouse_changed = match m.kind {
-        MouseEventKind::ScrollUp => handle_mouse_wheel(app, &hit, true),
-        MouseEventKind::ScrollDown => handle_mouse_wheel(app, &hit, false),
+    let mouse_changed = apply_pointer(app, m, &hit);
+
+    TerminalEventResult::Continue {
+        needs_draw: mouse_changed,
+    }
+}
+
+fn apply_pointer(
+    app: &mut AppState,
+    m: crossterm::event::MouseEvent,
+    hit: &MouseHitContext,
+) -> bool {
+    match m.kind {
+        MouseEventKind::ScrollUp => mouse_gestures::wheel(&mut app.view.viewport, hit, true),
+        MouseEventKind::ScrollDown => mouse_gestures::wheel(&mut app.view.viewport, hit, false),
         MouseEventKind::Down(MouseButton::Middle)
             if m.modifiers.contains(KeyModifiers::CONTROL)
                 && m.modifiers.contains(KeyModifiers::ALT) =>
@@ -82,42 +84,18 @@ pub(super) fn handle_mouse_event(
             handle_mobile_middle_click(app);
             false
         }
-        MouseEventKind::Down(MouseButton::Left) => handle_mouse_down_left(app, &hit),
-        MouseEventKind::Drag(MouseButton::Left) => handle_mouse_drag_left(app, &hit),
-        MouseEventKind::Up(MouseButton::Left) => handle_mouse_up_left(app, &hit),
+        MouseEventKind::Down(MouseButton::Left) => {
+            mouse_gestures::start(&mut app.view.viewport, hit)
+        }
+        MouseEventKind::Drag(MouseButton::Left) => {
+            mouse_gestures::drag(&mut app.view.viewport, hit)
+        }
+        MouseEventKind::Up(MouseButton::Left) => handle_mouse_up_left(app, hit),
         _ => false,
-    };
-
-    TerminalEventResult::Continue {
-        needs_draw: mouse_changed,
     }
 }
 
 // --- Mouse helpers ---
-
-fn handle_mouse_wheel(app: &mut AppState, hit: &MouseHitContext, is_up: bool) -> bool {
-    let prev_scroll = app.view.viewport.scroll_top;
-    let prev_follow = app.view.viewport.auto_follow_bottom;
-    let natural_up = is_up != app.view.viewport.scroll_inverted;
-    if natural_up {
-        app.view.viewport.scroll_top = app.view.viewport.scroll_top.saturating_sub(3);
-    } else {
-        app.view.viewport.scroll_top =
-            (app.view.viewport.scroll_top.saturating_add(3)).min(hit.max_scroll);
-    }
-    app.sync_auto_follow_bottom(hit.max_scroll);
-    let scroll_delta = app.view.viewport.scroll_top as isize - prev_scroll as isize;
-    if scroll_delta != 0 && app.view.viewport.mouse_drag_mode != MouseDragMode::Scroll {
-        let max_line_idx = app.rendered_line_count().saturating_sub(1);
-        if let Some(sel) = app.view.viewport.selection.as_mut() {
-            if sel.dragging {
-                shift_selection_focus(sel, scroll_delta, max_line_idx);
-            }
-        }
-    }
-    app.view.viewport.scroll_top != prev_scroll
-        || app.view.viewport.auto_follow_bottom != prev_follow
-}
 
 fn handle_mobile_middle_click(app: &mut AppState) {
     app.view.viewport.mobile_plain_pending_coords = true;
@@ -126,101 +104,15 @@ fn handle_mobile_middle_click(app: &mut AppState) {
     app.view.viewport.mobile_mouse_buffer.clear();
 }
 
-fn handle_mouse_down_left(app: &mut AppState, hit: &MouseHitContext) -> bool {
-    app.view.viewport.mouse_drag_mode = MouseDragMode::Undecided;
-    app.view.viewport.mouse_drag_last_row = hit.clamped_y;
-    if hit.in_messages {
-        app.view.viewport.selection = Some(Selection {
-            anchor_x: hit.norm_x,
-            anchor_line_idx: hit.clamped_line_idx,
-            focus_x: hit.norm_x,
-            focus_line_idx: hit.clamped_line_idx,
-            dragging: true,
-        });
-        true
-    } else {
-        false
-    }
-}
-
-fn handle_mouse_drag_left(app: &mut AppState, hit: &MouseHitContext) -> bool {
-    let Some(sel) = app.view.viewport.selection.as_mut() else {
-        return false;
-    };
-    if !sel.dragging {
-        return false;
-    }
-    if app.view.viewport.mouse_drag_mode == MouseDragMode::Undecided {
-        app.view.viewport.mouse_drag_mode = decide_mouse_drag_mode(
-            sel.anchor_x,
-            app.view.viewport.mouse_drag_last_row,
-            hit.norm_x,
-            hit.clamped_y,
-        );
-    }
-
-    match app.view.viewport.mouse_drag_mode {
-        MouseDragMode::Scroll => {
-            let prev_scroll = app.view.viewport.scroll_top;
-            let prev_follow = app.view.viewport.auto_follow_bottom;
-            if hit.clamped_y > app.view.viewport.mouse_drag_last_row {
-                app.view.viewport.scroll_top = app
-                    .view
-                    .viewport
-                    .scroll_top
-                    .saturating_sub(hit.clamped_y - app.view.viewport.mouse_drag_last_row);
-            } else if hit.clamped_y < app.view.viewport.mouse_drag_last_row {
-                app.view.viewport.scroll_top = app
-                    .view
-                    .viewport
-                    .scroll_top
-                    .saturating_add(app.view.viewport.mouse_drag_last_row - hit.clamped_y);
-            }
-            app.view.viewport.scroll_top = app.view.viewport.scroll_top.min(hit.max_scroll);
-            app.sync_auto_follow_bottom(hit.max_scroll);
-            app.view.viewport.mouse_drag_last_row = hit.clamped_y;
-            app.view.viewport.scroll_top != prev_scroll
-                || app.view.viewport.auto_follow_bottom != prev_follow
-        }
-        MouseDragMode::Select | MouseDragMode::Undecided => {
-            let prev_focus_x = sel.focus_x;
-            let prev_focus_idx = sel.focus_line_idx;
-            sel.focus_x = hit.norm_x;
-            sel.focus_line_idx = hit.clamped_line_idx;
-            sel.focus_x != prev_focus_x || sel.focus_line_idx != prev_focus_idx
-        }
-    }
-}
-
 fn handle_mouse_up_left(app: &mut AppState, hit: &MouseHitContext) -> bool {
-    let mut mouse_changed = false;
-    let mut selection_to_copy = None;
-    if let Some(sel) = app.view.viewport.selection.as_mut() {
-        if sel.dragging {
-            let prev_focus_x = sel.focus_x;
-            let prev_focus_idx = sel.focus_line_idx;
-            sel.focus_x = hit.norm_x;
-            sel.focus_line_idx = hit.clamped_line_idx;
-            sel.dragging = false;
-            mouse_changed = sel.focus_x != prev_focus_x
-                || sel.focus_line_idx != prev_focus_idx
-                || !sel.dragging;
-
-            if app.view.viewport.mouse_drag_mode == MouseDragMode::Scroll {
-                app.view.viewport.selection = None;
-            } else {
-                selection_to_copy = Some(*sel);
-            }
-        }
-    }
-    if let Some(selection_to_copy) = selection_to_copy {
-        let copied = app.selected_text(selection_to_copy);
+    let (changed, copied) = super::mouse_gestures::finish(&mut app.view.viewport, hit);
+    if let Some(selection) = copied {
+        let copied = app.selected_text(selection);
         if !copied.is_empty() {
             let _ = try_copy_clipboard(&copied);
         }
     }
-    app.view.viewport.mouse_drag_mode = MouseDragMode::Undecided;
-    mouse_changed
+    changed
 }
 
 // --- Paste event handling ---

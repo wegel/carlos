@@ -85,6 +85,7 @@ impl Device {
 
     pub(super) fn event(&mut self, mut link: Option<&mut Transport>, event: Event) -> Result<bool> {
         match event {
+            Event::Mouse(mouse) => self.mouse(mouse)?,
             Event::Paste(text) => {
                 self.view.input.insert_str(normalize_pasted_text(&text));
             }
@@ -100,11 +101,11 @@ impl Device {
                     }
                     Ok(false) => {}
                 }
+                if self.navigation_key(key)? {
+                    return Ok(false);
+                }
                 if key.code == KeyCode::Enter && !is_newline_enter(key.modifiers) {
-                    let result = link.map_or_else(
-                        || Err(anyhow::anyhow!("Disconnected; F5 reconnects")),
-                        |link| self.submit(link),
-                    );
+                    let result = self.submit(link);
                     if let Err(error) = result {
                         self.view.status_hint = Some(error.to_string());
                     }
@@ -123,7 +124,12 @@ impl Device {
         Ok(false)
     }
 
-    fn submit(&mut self, link: &mut Transport) -> Result<()> {
+    fn submit(&mut self, link: Option<&mut Transport>) -> Result<()> {
+        let text = self.view.input.lines().join("\n");
+        if self.local_command(&text) {
+            return Ok(());
+        }
+        let link = link.ok_or_else(|| anyhow::anyhow!("Disconnected; F5 reconnects"))?;
         let session = self.session.clone();
         if self
             .client
@@ -132,7 +138,6 @@ impl Device {
         {
             return Ok(());
         }
-        let text = self.view.input.lines().join("\n");
         if text.is_empty() {
             return Ok(());
         }

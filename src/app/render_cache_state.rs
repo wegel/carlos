@@ -336,3 +336,12 @@ pub(super) fn count_display_block<'a>(
 ) -> usize {
     plan_display_block(cache, previous, message, width, compact, theme).count(cache, message)
 }
+
+impl super::selection::RenderedLineSource for RenderCacheState {
+    fn len(&self) -> usize {
+        self.rendered_line_count()
+    }
+    fn get(&self, index: usize) -> Option<&RenderedLine> {
+        self.rendered_line_at(index)
+    }
+}

@@ -8,7 +8,6 @@ use ratatui::style::{Modifier, Style};
 use super::flow_transcript::inline_reasoning;
 use super::notifications::spinner_frame;
 use super::render::{draw_rendered_line, draw_str, fill_rect};
-use super::selection::compute_selection_range;
 use super::state::AppState;
 use super::text::visual_width;
 use super::tool_summary::tool_gutter;
@@ -66,7 +65,7 @@ fn draw_transcript_row(
     if !app.view.layout.active.is_flow() {
         draw_gutter(buf, message, y, first, active);
     }
-    let selection = selected_cells(app, index, line.cells);
+    let selection = app.view.viewport.selected_cells(index, line.cells);
     draw_rendered_line(
         buf,
         content_x,
@@ -91,14 +90,6 @@ fn draw_transcript_row(
             content_x,
         );
     }
-}
-
-fn selected_cells(app: &AppState, index: usize, cells: usize) -> Option<(usize, usize)> {
-    app.view
-        .viewport
-        .selection
-        .and_then(|sel| compute_selection_range(sel, index, cells))
-        .map(|(start, end)| (start.min(cells), end.min(cells)))
 }
 
 fn heading_is_active(app: &AppState, index: usize, active: Option<usize>, width: usize) -> bool {
