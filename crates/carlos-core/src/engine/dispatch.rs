@@ -9,7 +9,7 @@ use super::mailbox::Envelope;
 use super::owner::{failure, Owner};
 use super::workers::Completion;
 use super::{EngineCommand, EngineReply};
-use crate::backend::PromptOrigin;
+use crate::backend::{BackendKind, PromptOrigin};
 use crate::session::entry_id::EntryId;
 use crate::session::prompt_commands::{PromptContext, PromptOptions};
 
@@ -154,7 +154,8 @@ impl Owner {
                 policy: SendPolicy::Queue,
                 ..
             })
-        ) && self.session.active_turn_id().is_some()
+        ) && self.client.kind() != BackendKind::Claude
+            && self.session.active_turn_id().is_some()
             && !self.native.closed
         {
             return;

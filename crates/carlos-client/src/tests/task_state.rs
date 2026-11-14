@@ -6,8 +6,8 @@ use carlos_proto::task_facts::{TaskCounts, TaskFacts, TaskSnapshot};
 use carlos_proto::tasks::TaskPage;
 
 use super::client::{attached, notify};
-use super::{event, session, snapshot};
-use crate::ClientError;
+use super::{entry_id, event, session, snapshot};
+use crate::{Client, ClientError};
 
 pub(super) fn facts(version: &str) -> TaskFacts {
     TaskFacts {
@@ -46,6 +46,13 @@ fn page(seq: u64, version: &str) -> TaskPage {
     }
 }
 
+fn task_sequence(client: &Client) -> Sequence {
+    client
+        .session(&session())
+        .expect("task facts")
+        .task_sequence()
+}
+
 #[test]
 fn current_task_headers_merge_once_and_private_pages_never_replace_shared_facts() {
     let (mut client, connection) = attached();
@@ -60,6 +67,19 @@ fn current_task_headers_merge_once_and_private_pages_never_replace_shared_facts(
         connection,
         Notification::SessionEvent(event(11, Event::InfoChanged { info })),
     );
+    assert_eq!(task_sequence(&client), Sequence::new(10));
+    notify(
+        &mut client,
+        connection,
+        Notification::SessionEvent(event(
+            12,
+            Event::TextAppended {
+                entry: entry_id(10),
+                text: "root-only delta".into(),
+            },
+        )),
+    );
+    assert_eq!(task_sequence(&client), Sequence::new(10));
     client
         .check_task_page(&page(10, "a"))
         .expect("unrelated newer session facts");
@@ -100,6 +120,7 @@ fn late_future_and_reset_task_headers_cannot_overwrite_the_accepted_copy() {
             },
         )),
     );
+    assert_eq!(task_sequence(&client), Sequence::new(11));
     assert!(matches!(
         client.merge_tasks(&header(10, "a")),
         Err(ClientError::StaleTasks)
@@ -122,6 +143,7 @@ fn late_future_and_reset_task_headers_cannot_overwrite_the_accepted_copy() {
         client.merge_tasks(&header(11, "b")),
         Err(ClientError::StaleTasks)
     ));
+    assert_eq!(task_sequence(&client), Sequence::new(12));
     assert_eq!(
         client.session(&session()).expect("reset facts").tasks(),
         Some(&facts("c"))

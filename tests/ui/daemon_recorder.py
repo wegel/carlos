@@ -10,6 +10,8 @@ class DaemonRecorder:
         self.source_error_once = source_error_once
         self.goal_error_once = goal_error_once
         self.goal_error_id = None
+        self.task_page_error_once = False
+        self.task_page_error_id = None
         self.device_write = threading.Lock()
         self.drop_text_once = False
         self.hold_sources = False
@@ -18,6 +20,10 @@ class DaemonRecorder:
         self.upstream = upstream
         self.root = root
         self.stop = threading.Event()
+        self.hold_task_pages = False
+        self.task_page_held = threading.Event()
+        self.task_page_release = threading.Event()
+        self.task_page_release.set()
         self.hold_queue_pages = False
         self.queue_page_held = threading.Event()
         self.queue_page_release = threading.Event()
@@ -83,6 +89,14 @@ class DaemonRecorder:
                         message = {"jsonrpc":"2.0", "id":message["id"], "error":{
                             "code":-32012, "message":"Injected admitted goal read failure"}}
                         line = json.dumps(message).encode()
+                    if direction == "client" and self.task_page_error_once and message.get("method") == "task/list":
+                        self.task_page_error_once = False
+                        self.task_page_error_id = message["id"]
+                    elif direction == "server" and self.task_page_error_id is not None and message.get("id") == self.task_page_error_id:
+                        self.task_page_error_id = None
+                        message = {"jsonrpc":"2.0", "id":message["id"], "error":{
+                            "code":-32012, "message":"Injected private task page failure"}}
+                        line = json.dumps(message).encode()
                     result = message.get("result")
                     subscription_reply = direction == "server" and isinstance(result, dict) and result.get("kind") in ("snapshot", "replay")
                     if subscription_reply and self.subscription_error_once:
@@ -94,6 +108,9 @@ class DaemonRecorder:
                     if direction == "client" and self.hold_queue_pages and message.get("method") == "queue/read" and message.get("params", {}).get("after") is not None:
                         self.queue_page_held.set()
                         self.wait_gate(self.queue_page_release)
+                    elif direction == "client" and self.hold_task_pages and message.get("method") == "task/list":
+                        self.task_page_held.set()
+                        self.wait_gate(self.task_page_release)
                     elif subscription_reply and self.hold_subscriptions:
                         self.subscription_held.set()
                         self.wait_gate(self.subscription_release)
@@ -135,6 +152,15 @@ class DaemonRecorder:
     def wait_gate(self, release):
         while not self.stop.is_set() and not release.wait(.05):
             pass
+
+    def pause_task_pages(self):
+        self.task_page_held.clear()
+        self.task_page_release.clear()
+        self.hold_task_pages = True
+
+    def resume_task_pages(self):
+        self.hold_task_pages = False
+        self.task_page_release.set()
 
     def pause_queue_pages(self):
         self.queue_page_held.clear()

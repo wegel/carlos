@@ -1,0 +1,109 @@
+//! Match task replies and read failures to this device's original private request identities.
+
+use anyhow::Result;
+use carlos_client::{ClientError, Effects, ReadReply};
+use carlos_proto::commands::RequestId;
+use carlos_proto::task_facts::TaskSnapshot;
+
+use super::Device;
+
+impl Device {
+    pub(super) fn apply_task_reads(&mut self, effects: &mut Effects) -> Result<bool> {
+        let mut changed = false;
+        for result in std::mem::take(&mut effects.replies) {
+            if result
+                .id
+                .as_ref()
+                .is_some_and(|id| self.tasks.reads.take_retired(id))
+            {
+                continue;
+            }
+            match result.reply {
+                ReadReply::TaskSnapshot(snapshot) => {
+                    changed |= self.accept_task_header(result.id, snapshot, effects)?;
+                }
+                ReadReply::TaskPage(page) => {
+                    if self
+                        .tasks
+                        .reads
+                        .request
+                        .as_ref()
+                        .is_some_and(|read| Some(&read.id) == result.id.as_ref())
+                    {
+                        let read = self.tasks.reads.request.take().expect("matching task page");
+                        self.tasks.reads.future = Some((read, page));
+                        changed = true;
+                    }
+                }
+                ReadReply::TaskDetail(detail) => {
+                    changed |= self.accept_task_detail(result.id, detail)
+                }
+                ReadReply::TaskText(text) => changed |= self.accept_task_text(result.id, text),
+                ReadReply::TaskOverview(page) => {
+                    changed |= self.accept_task_overview(result.id, page)
+                }
+                ReadReply::TaskOverviewText(text) => {
+                    changed |= self.accept_task_overview_text(result.id, text)
+                }
+                ReadReply::TaskRun(run) => changed |= self.accept_task_run(result.id, run),
+                _ => effects.replies.push(result),
+            }
+        }
+        changed |= self.apply_task_read_failures(effects);
+        Ok(changed)
+    }
+    fn accept_task_header(
+        &mut self,
+        id: Option<RequestId>,
+        snapshot: TaskSnapshot,
+        effects: &mut Effects,
+    ) -> Result<bool> {
+        let owned = id == self.tasks.reads.header;
+        if owned {
+            self.tasks.reads.header = None;
+            self.tasks.reads.header_error = None;
+        }
+        match self.client.merge_tasks(&snapshot) {
+            Ok(merged) => {
+                effects.sessions.extend(merged.sessions);
+                effects.outgoing.extend(merged.outgoing);
+                effects.failures.extend(merged.failures);
+                Ok(true)
+            }
+            Err(ClientError::StaleTasks) => {
+                if owned
+                    && self
+                        .client
+                        .session(&self.session)
+                        .is_some_and(|replica| replica.sequence() < snapshot.seq)
+                {
+                    self.tasks.reads.waiting = Some(snapshot.seq);
+                }
+                Ok(false)
+            }
+            Err(error) => Err(error.into()),
+        }
+    }
+
+    fn apply_task_read_failures(&mut self, effects: &mut Effects) -> bool {
+        let mut changed = false;
+        let sequence = self.task_sequence();
+        for failure in std::mem::take(&mut effects.failures) {
+            let handled = failure.id.as_ref().is_some_and(|id| {
+                self.tasks.reads.take_retired(id)
+                    || self.tasks.reads.fail(id, &failure.error.message, sequence)
+                    || self
+                        .tasks
+                        .details
+                        .failed(id, &failure.error.message, sequence)
+                    || self.tasks.overview.failed(id, &failure.error.message)
+                    || self.fail_task_stop_read(id, &failure.error.message)
+            });
+            changed |= handled;
+            if !handled {
+                effects.failures.push(failure);
+            }
+        }
+        changed
+    }
+}

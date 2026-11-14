@@ -109,6 +109,11 @@ impl Replica {
         self.tasks.as_ref()
     }
 
+    /// Read the accepted task or full-snapshot fence without advancing on unrelated transcript deltas.
+    pub fn task_sequence(&self) -> Sequence {
+        self.tasks_seq
+    }
+
     /// Borrow shared native goal facts; drafts and mutation errors remain private.
     pub fn goal(&self) -> Option<&carlos_proto::goals::GoalFacts> {
         self.goal.as_ref()

@@ -142,27 +142,31 @@ pub(super) fn wrap_natural_by_cells(text: &str, width: usize) -> Vec<String> {
 
         // Extremely long tokens can still overflow when word breaking is disabled.
         // Fall back to hard cell wrapping only in that case.
-        let ascii = s.is_ascii();
-        let mut rest = s.as_str();
-        loop {
-            let take = if ascii {
-                rest.len().min(width)
-            } else {
-                split_at_cells(rest, width)
-            };
-            if take == 0 {
-                out.push(rest.to_string());
-                break;
-            }
-            out.push(rest[..take].to_string());
-            if take >= rest.len() {
-                break;
-            }
-            rest = &rest[take..];
-        }
+        append_hard_wrapped(&mut out, &s, width);
     }
     preserve_trailing_spaces(&mut out, text, width);
     out
+}
+
+fn append_hard_wrapped(out: &mut Vec<String>, text: &str, width: usize) {
+    let ascii = text.is_ascii();
+    let mut rest = text;
+    loop {
+        let take = if ascii {
+            rest.len().min(width)
+        } else {
+            split_at_cells(rest, width)
+        };
+        if take == 0 {
+            out.push(rest.to_string());
+            break;
+        }
+        out.push(rest[..take].to_string());
+        if take >= rest.len() {
+            break;
+        }
+        rest = &rest[take..];
+    }
 }
 
 pub(super) fn wrap_natural_count_by_cells(text: &str, width: usize) -> usize {

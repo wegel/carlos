@@ -200,3 +200,27 @@ class TaskInterestTests:
             self.assertEqual(fields["last_turn_state"], state)
             self.assertEqual(run["native_state"], state)
             page = updated
+
+    def test_same_value_run_read_completion_publishes_availability_and_preserves_original_read_and_stop_tokens(self):
+        fixture, first, other, session = self.task_clients("task-run-read-availability", count=1)
+        page = self.known_tasks(first, session)
+        task = page["tasks"][0]["id"]
+        fixture.native.task_turns["native-child-0"] = [{"id":"native-run", "status":"completed"}]
+        fixture.native.task_run_hold.add("native-child-0")
+        pending = first.call("task/run", session=session, task=task, refresh=True)
+        self.assertTrue(pending["reading"])
+        wait_for(lambda: "native-child-0" in fixture.native.task_run_pending, "original current-run native request waits")
+        reading = self.known_tasks(first, session)
+        self.assertNotEqual(reading["revision"], page["revision"])
+        fixture.native.release_task_run("native-child-0")
+        changed = other.message(lambda message: message.get("method") == "session/event"
+            and message["params"]["event"]["kind"] == "tasks_changed"
+            and int(message["params"]["seq"]) > int(reading["seq"]))
+        completed = self.known_task_run(first, session, task, pending["read"])
+        self.assertTrue(completed["known"])
+        self.assertEqual(completed["read"], pending["read"])
+        self.assertEqual(completed["run"], page["tasks"][0]["run"])
+        self.assertEqual(completed["native_state"], "completed")
+        self.assertNotEqual(changed["params"]["event"]["tasks"]["revision"], reading["revision"])
+        self.assertEqual(len([request for request in fixture.native.requests if request.get("method") == "thread/turns/list" and request["params"]["threadId"] == "native-child-0"]), 1)
+        self.assertFalse(any(request.get("method") in ("turn/start", "turn/steer", "turn/interrupt") for request in fixture.native.requests))

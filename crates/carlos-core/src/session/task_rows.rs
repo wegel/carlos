@@ -72,6 +72,7 @@ impl SessionState {
     pub(super) fn task_revision(&self, rows: &[TaskRef<'_>]) -> TaskRevision {
         let mut hash = self.task_scope();
         hash.update(b"view");
+        hash.update(self.task_run_stamp().as_bytes());
         for row in rows {
             row.hash_identity(&mut hash);
             hash_value(&mut hash, row.data());

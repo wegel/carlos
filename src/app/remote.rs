@@ -17,6 +17,17 @@ mod queue_reads;
 mod queue_render;
 mod reading;
 mod render;
+mod tasks;
+mod tasks_details;
+mod tasks_incoming;
+mod tasks_move;
+mod tasks_overview;
+mod tasks_pages;
+mod tasks_reads;
+mod tasks_render;
+mod tasks_stop_results;
+mod tasks_stops;
+mod tasks_text;
 mod transcript;
 mod transport;
 
@@ -42,6 +53,7 @@ struct Device {
     reading: reading::ReadingState,
     goals: goals::Goals,
     queue: queue::Queue,
+    tasks: tasks::Tasks,
     waiting_ready: bool,
 }
 
@@ -60,6 +72,7 @@ pub(super) fn run(socket: &Path, options: &CliOptions) -> Result<()> {
         reading: reading::ReadingState::default(),
         goals: goals::Goals::default(),
         queue: queue::Queue::default(),
+        tasks: tasks::Tasks::default(),
         waiting_ready: false,
     };
     device.view.layout.themes = super::tool_output_preferences::load_themes();
@@ -74,6 +87,7 @@ impl Device {
             let mut redraw = true;
             loop {
                 redraw |= self.expire_queue_mode_notice();
+                redraw |= self.tick_task_countdowns();
                 if let Some(link) = transport.as_mut() {
                     match self.service(link) {
                         Ok(changed) => redraw |= changed,
@@ -82,6 +96,7 @@ impl Device {
                             self.reading.disconnected();
                             self.goals.read = None;
                             self.queue_disconnected();
+                            self.tasks_disconnected();
                             self.view.status_hint = Some(format!("F5 reconnects: {error}"));
                             transport = None;
                             redraw = true;
@@ -99,6 +114,10 @@ impl Device {
                     continue;
                 }
                 let input = event::read()?;
+                let secret = self.client.session(&self.session).is_some_and(|replica| {
+                    replica.approvals().iter().any(|card| card.input.is_some())
+                });
+                super::input_events::trace_terminal_event(&input, secret);
                 if matches!(&input, Event::Key(key) if key.code == KeyCode::F(5))
                     && transport.is_none()
                 {
@@ -124,6 +143,7 @@ impl Device {
             changed |= self.receive(link, incoming)?;
         }
         changed |= self.drive_queue(link)?;
+        changed |= self.drive_tasks(link)?;
         link.flush()?;
         Ok(changed)
     }

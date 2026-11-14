@@ -7,7 +7,10 @@ use super::Device;
 impl Device {
     pub(super) fn apply_operations(&mut self, operations: &[ClientOperation]) {
         for id in operations {
-            if self.apply_queue_operation(id) || self.apply_goal_operation(id) {
+            if self.apply_task_operation(id)
+                || self.apply_queue_operation(id)
+                || self.apply_goal_operation(id)
+            {
                 continue;
             }
             let Some(record) = self.client.operations().get(id) else {

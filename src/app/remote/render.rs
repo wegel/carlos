@@ -24,6 +24,10 @@ impl Device {
         self.goals.size = size;
         self.queue.size = Some(size);
         self.view.layout.update_size(size);
+        if self.tasks.view.show {
+            self.draw_tasks(frame.buffer_mut(), size);
+            return;
+        }
         if self.view.codex_goals.show {
             let (x, y) = self.draw_goal(frame.buffer_mut(), size);
             frame.set_cursor_position((x as u16, y as u16));
@@ -93,7 +97,7 @@ impl Device {
                 },
             )
         });
-        let status = self.queue_status(status);
+        let status = self.task_status(self.queue_status(status));
         crate::app::render::draw_status_separator(
             buffer,
             layout.input_top.saturating_sub(2),

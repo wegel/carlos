@@ -73,6 +73,9 @@ impl Owner {
     fn read_task_snapshot(&mut self) -> Result<EngineReply, RpcError> {
         if self.client.kind() == BackendKind::Codex {
             let scope = self.task_read_scope();
+            if self.session.codex_panel.snapshot.is_none() {
+                panel::refresh(&mut self.session, scope, false);
+            }
             panel::tick(
                 self.client.as_ref(),
                 &mut self.session,

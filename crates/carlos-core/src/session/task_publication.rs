@@ -171,7 +171,8 @@ impl SessionState {
         }
     }
 
-    fn task_run_stamp(&self) -> blake3::Hash {
+    /// Hash bounded native run-read availability without inspecting retained task bodies.
+    pub(in crate::session) fn task_run_stamp(&self) -> blake3::Hash {
         let mut hash = blake3::Hasher::new();
         let mut reads: Vec<_> = self.codex_panel.runs.iter().collect();
         reads.sort_by(|left, right| left.0.cmp(right.0));

@@ -18,12 +18,22 @@ impl Device {
         self.reading.received(&incoming);
         let was_ready = self.client.session_is_ready(link.connection, &self.session);
         let goal_read = self.client.pending_goal_read(&self.session);
+        let task_read = self.client.pending_task_read(&self.session);
         let effects = self.client.receive(link.connection, incoming)?;
         if self.goals.read.is_none() {
             self.goals.read = goal_read.or_else(|| self.client.pending_goal_read(&self.session));
         }
+        if self.tasks.reads.header.is_none() {
+            self.tasks.reads.header =
+                task_read.or_else(|| self.client.pending_task_read(&self.session));
+        }
         let changed = self.apply_effects(link, effects)?;
-        Ok(changed || was_ready != self.client.session_is_ready(link.connection, &self.session))
+        let readiness_changed =
+            was_ready != self.client.session_is_ready(link.connection, &self.session);
+        if readiness_changed {
+            self.tasks.paint_dirty.set(true);
+        }
+        Ok(changed || readiness_changed)
     }
 
     pub(super) fn apply_effects(
@@ -31,6 +41,8 @@ impl Device {
         link: &mut Transport,
         mut effects: Effects,
     ) -> Result<bool> {
+        let mut task_changed = self.apply_task_reads(&mut effects)?;
+        task_changed |= self.task_operations_changed(&effects.operations);
         let goal_changed = self.apply_goal_reads(&mut effects)?;
         let queue_changed = self.apply_queue_reads(&mut effects)?;
         let private_changed = !effects.operations.is_empty();
@@ -39,6 +51,7 @@ impl Device {
             || private_changed
             || goal_changed
             || queue_changed
+            || task_changed
             || !effects.failures.is_empty();
         for outgoing in effects.outgoing {
             link.send(outgoing)?;
@@ -61,6 +74,7 @@ impl Device {
             if update.session != self.session {
                 continue;
             }
+            task_changed |= update.changes.tasks || update.changes.reset;
             let ids = self.changed_entries(update.changes);
             for id in ids {
                 self.dirty_entry(&id);
@@ -75,7 +89,18 @@ impl Device {
             self.waiting_ready = false;
         }
         self.settle_history();
-        Ok(changed)
+        Ok(self.redraw_after_updates(changed, task_changed))
+    }
+
+    fn redraw_after_updates(&self, changed: bool, task_changed: bool) -> bool {
+        if task_changed {
+            self.tasks.paint_dirty.set(true);
+        }
+        if self.tasks.view.show {
+            task_changed
+        } else {
+            changed
+        }
     }
 
     fn changed_entries(
@@ -93,11 +118,17 @@ impl Device {
 
     pub(super) fn event(&mut self, link: Option<&mut Transport>, event: Event) -> Result<bool> {
         match event {
-            Event::Mouse(mouse) if !self.view.codex_goals.show && !self.view.codex_queue.show => {
+            Event::Mouse(mouse)
+                if !self.view.codex_goals.show
+                    && !self.view.codex_queue.show
+                    && !self.tasks.view.show =>
+            {
                 self.mouse(mouse)?
             }
             Event::Paste(text) => {
-                if self.view.codex_goals.show {
+                if self.tasks.view.show {
+                    // Task views consume paste without changing any hidden draft.
+                } else if self.view.codex_goals.show {
                     self.goal_paste(&normalize_pasted_text(&text));
                 } else if self.view.codex_queue.show {
                     self.queue_paste(&normalize_pasted_text(&text));
@@ -162,6 +193,15 @@ impl Device {
     }
 
     fn overlay_key(&mut self, mut link: Option<&mut Transport>, key: KeyEvent) -> bool {
+        match self.task_key(link.as_deref_mut(), key) {
+            Ok(true) => return true,
+            Err(error) => {
+                self.tasks.view.error = Some(error.to_string());
+                self.tasks.paint_dirty.set(true);
+                return true;
+            }
+            Ok(false) => {}
+        }
         match self.goal_key(link.as_deref_mut(), key) {
             Ok(true) => return true,
             Err(error) => {
@@ -218,13 +258,14 @@ impl Device {
         if text.is_empty() {
             return Ok(());
         }
+        let policy = self.task_send_policy();
         let outgoing = self
             .client
             .submit(link.connection, |operation| Command::Send {
                 session,
                 operation,
                 text,
-                policy: Default::default(),
+                policy,
             })?;
         link.send(outgoing)?;
         self.view.input = make_input_area();
