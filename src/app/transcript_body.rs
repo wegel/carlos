@@ -6,6 +6,7 @@ use carlos_core::session::models::Role;
 use ratatui::style::{Color, Style};
 
 use super::transcript_diff::{append_wrapped_diff_lines, count_wrapped_diff_lines};
+use super::transcript_input::BodyInput;
 use super::transcript_source::{append_source_lines, count_source_lines};
 use super::transcript_styles::{
     append_wrapped_ansi_lines, append_wrapped_markdown_lines, append_wrapped_message_lines,
@@ -33,8 +34,12 @@ pub(super) struct BlockBody {
 impl BlockBody {
     /// Choose a body format independently of the transcript theme.
     pub(super) fn new(display: DisplayMessage<'_>, width: usize) -> Self {
-        let message = display.source;
-        let kind = match (display.kind, message.kind) {
+        Self::for_input(display.source.into(), display.kind, width)
+    }
+
+    /// Select the same format for borrowed core or client-owned source facts.
+    pub(super) fn for_input(message: BodyInput<'_>, display: DisplayKind, width: usize) -> Self {
+        let kind = match (display, message.kind) {
             (DisplayKind::ToolSummary { .. }, _) => BodyKind::Empty,
             (_, MessageKind::Diff) => BodyKind::Diff,
             (_, MessageKind::Plain | MessageKind::UserSteer) => match message.role {
@@ -63,16 +68,25 @@ impl BlockBody {
         cache: &mut RenderCountCache<'a>,
         message: &'a Message,
     ) -> usize {
+        self.count_input(cache, message.into())
+    }
+
+    /// Count a borrowed body without copying its source into a Message.
+    pub(super) fn count_input<'a>(
+        &self,
+        cache: &mut RenderCountCache<'a>,
+        message: BodyInput<'a>,
+    ) -> usize {
         if self.width < 8 {
             return 0;
         }
-        let (role, text, width) = (message.role, message.text.as_str(), self.width);
+        let (role, text, width) = (message.role, message.text, self.width);
         match self.kind {
             BodyKind::Empty => 0,
             BodyKind::ToolCall => text.split_once('\n').map_or(0, |(_, body)| {
                 count_wrapped_message_lines_cached(cache, role, body, width)
             }),
-            BodyKind::Diff => count_wrapped_diff_lines(message.file_path.as_deref(), text, width),
+            BodyKind::Diff => count_wrapped_diff_lines(message.file_path, text, width),
             BodyKind::Markdown => count_wrapped_markdown_lines(role, text, width),
             BodyKind::Output => {
                 if message.file_path.is_some() {
@@ -88,11 +102,16 @@ impl BlockBody {
 
     /// Draw the same body and width used by the count pass.
     pub(super) fn append(&self, out: &mut Vec<RenderedLine>, message: &Message) {
+        self.append_input(out, message.into());
+    }
+
+    /// Draw the same borrowed body that supplied the count pass.
+    pub(super) fn append_input(&self, out: &mut Vec<RenderedLine>, message: BodyInput<'_>) {
         if self.width < 8 {
             return;
         }
         let start = out.len();
-        let (role, text, width) = (message.role, message.text.as_str(), self.width);
+        let (role, text, width) = (message.role, message.text, self.width);
         match self.kind {
             BodyKind::Empty => {}
             BodyKind::ToolCall => {
@@ -100,14 +119,11 @@ impl BlockBody {
                     append_wrapped_message_lines(out, role, body, width);
                 }
             }
-            BodyKind::Diff => {
-                append_wrapped_diff_lines(out, role, message.file_path.as_deref(), text, width)
-            }
+            BodyKind::Diff => append_wrapped_diff_lines(out, role, message.file_path, text, width),
             BodyKind::Markdown => append_wrapped_markdown_lines(out, role, text, width),
             BodyKind::Output => {
                 if !message
                     .file_path
-                    .as_deref()
                     .is_some_and(|path| append_source_lines(out, path, text, width))
                 {
                     append_wrapped_ansi_lines(out, role, text, width);
@@ -136,3 +152,11 @@ pub(super) fn prepend_symbol(line: &mut RenderedLine, glyph: &str, color: Color)
         },
     );
 }
+
+#[cfg(test)]
+#[path = "transcript_input_tests.rs"]
+mod input_tests;
+
+#[cfg(test)]
+#[path = "transcript_socket_probe.rs"]
+mod socket_probe;

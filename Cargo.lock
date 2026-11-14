@@ -252,6 +252,7 @@ dependencies = [
  "anyhow",
  "base64 0.22.1",
  "blake3",
+ "carlos-client",
  "carlos-core",
  "carlos-proto",
  "cpal",

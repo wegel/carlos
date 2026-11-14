@@ -133,6 +133,7 @@ mod transcript_block;
 mod transcript_body;
 mod transcript_diff;
 mod transcript_diff_source;
+mod transcript_input;
 mod transcript_render;
 mod transcript_source;
 mod transcript_spacing;
