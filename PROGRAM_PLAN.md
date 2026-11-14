@@ -49,19 +49,20 @@ EP019a is complete and archived at `.agents/done/EXECPLAN_019a_headless_daemon.m
 Its local `carlosd` proves real backend handles, concurrent headless clients, ordered sends,
 responsive interrupts/answers, bounded queues and disconnect/restart recovery. Final evidence
 and the direct engineering self-review are in `.agents/reports/exec019a-final-report.md` and
-`.agents/reports/exec019a-engineering-review.md`. The owner has not reviewed this step yet.
+`.agents/reports/exec019a-engineering-review.md`. The owner explicitly accepted this step
+on 2026-11-14 in the current conversation. Its archived plan remains unchanged.
 
-Stop at that owner-review gate. EP019b is the next spike step after review. It adds the remaining typed terminal commands and the shared Rust
+The active plan is `.agents/execplans/EXECPLAN_019b_terminal_client.md`. It adds the remaining typed terminal commands and the shared Rust
 client, proves terminal workflow parity, then deletes the embedded session/backend path in a
 separate commit. Its scope and deletion gate are in `docs/terminal-client-migration.md`;
-write its full ExecPlan only after EP019a supplies working interfaces. Protocol version 1
+the full plan now uses EP019a's working interfaces. Protocol version 1
 remains provisional until real remote clients exercise it.
 
 ExecPlans 019a through 022 are listed in `docs/engine-architecture.md`. Only the next plan
 is written in full. Each completed step ends at owner review.
 
 ExecPlans 009 to 015 remain under `.agents/execplans/`. Their status was not reviewed when the
-daemon split started. They remain outside the iPhone spike; its next step is EP019b after owner review.
+daemon split started. They remain outside the iPhone spike; its current step is EP019b.
 
 
 ## Done ExecPlans
@@ -79,4 +80,4 @@ daemon split started. They remain outside the iPhone spike; its next step is EP0
 - [x] `.agents/done/EXECPLAN_018_sequenced_events.md` (step 3 of 7: numbered core events and client protocol version 1; completed 2026-11-13)
 
 - [x] `.agents/done/EXECPLAN_018a_pre_daemon_cleanup.md` (owner accepted 2026-11-13; archived plan unchanged)
-- [x] `.agents/done/EXECPLAN_019a_headless_daemon.md` (completed 2026-11-14; awaiting owner review before EP019b)
+- [x] `.agents/done/EXECPLAN_019a_headless_daemon.md` (completed and owner accepted 2026-11-14; archived plan unchanged)
