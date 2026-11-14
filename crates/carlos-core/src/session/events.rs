@@ -1,5 +1,7 @@
 //! Publish bounded, numbered changes while borrowing the facts they describe.
 
+use std::collections::{HashMap, HashSet};
+
 use carlos_proto::events::{Event, SessionEvent};
 use carlos_proto::ids::{Sequence, SessionId};
 use carlos_proto::session::{Approval, Backend, Decision, SessionInfo};
@@ -213,8 +215,9 @@ impl SessionState {
             return;
         }
         let current = self.export_approvals();
+        let live: HashSet<_> = current.iter().map(|card| &card.id).collect();
         for old in &self.events.approvals {
-            if !current.iter().any(|card| card.id == old.id) {
+            if !live.contains(&old.id) {
                 let approval = EntryId::from_wire(&old.id);
                 let decision = self
                     .events
@@ -225,8 +228,25 @@ impl SessionState {
                 changes.push(Change::ApprovalResolved { approval, decision });
             }
         }
-        for card in &current {
-            if !self.events.approvals.contains(card) {
+        let old: HashMap<_, _> = self
+            .events
+            .approvals
+            .iter()
+            .enumerate()
+            .map(|(index, card)| {
+                (
+                    &card.id,
+                    (
+                        card,
+                        self.events.approvals.get(index + 1).map(|next| &next.id),
+                    ),
+                )
+            })
+            .collect();
+        // Publish anchors first, including moves whose card facts did not change.
+        for (index, card) in current.iter().enumerate().rev() {
+            let next = current.get(index + 1).map(|next| &next.id);
+            if old.get(&card.id) != Some(&(card, next)) {
                 changes.push(Change::Approval(EntryId::from_wire(&card.id)));
             }
         }

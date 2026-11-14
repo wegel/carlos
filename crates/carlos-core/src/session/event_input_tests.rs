@@ -117,6 +117,52 @@ fn approval_focus_moves_keep_the_client_card_order() {
 }
 
 #[test]
+fn several_inserted_approval_cards_publish_their_anchors_before_dependents() {
+    use super::approval_state::ApprovalQueue;
+    let mut core = SessionState::new("native".into(), Default::default(), false);
+    let make_card = |id| ApprovalRequestDraft {
+        request_id: json!(id),
+        method: "native".into(),
+        kind: ApprovalRequestKind::CommandExecution,
+        title: "Question".into(),
+        detail_lines: Vec::new(),
+        requested_permissions: None,
+        can_accept_for_session: false,
+        can_decline: true,
+        can_cancel: false,
+    };
+    let _ = core.set_pending_approval(make_card(1));
+    core.enqueue_approval(make_card(2), ApprovalQueue::Claude);
+    core.enqueue_approval(make_card(3), ApprovalQueue::Claude);
+    let mut client = core.publish().snapshot(100);
+    // A prior seal can contain only the surviving last card; the next seal
+    // adds two cards ahead of it. Force that boundary without native timing.
+    let surviving = client.approvals.pop().expect("third card");
+    client.approvals = vec![surviving.clone()];
+    core.events.approvals = vec![surviving];
+    core.events.approval_revision = core.approval.revision.wrapping_sub(1);
+    let batch = core.publish();
+    for record in batch.records() {
+        if let carlos_proto::events::Event::ApprovalRequested { approval, before } =
+            batch.to_wire(record).expect("event").event
+        {
+            client.approvals.retain(|old| old.id != approval.id);
+            let index = before
+                .map(|id| {
+                    client
+                        .approvals
+                        .iter()
+                        .position(|old| old.id == id)
+                        .expect("anchor already published")
+                })
+                .unwrap_or(client.approvals.len());
+            client.approvals.insert(index, approval);
+        }
+    }
+    assert_eq!(client.approvals, batch.snapshot(100).approvals);
+}
+
+#[test]
 fn an_interrupted_turn_finishes_unclosed_streams_and_keeps_its_text() {
     let mut core = SessionState::new("native".into(), Default::default(), false);
     core.record_turn_started("turn");

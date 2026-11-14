@@ -21,7 +21,8 @@ The daemon already proves basic chat, approvals, running output, independent cli
 - [x] (2026-11-14) Commit the checked edit path as `7ac8446`; restored workspace tests and strict Clippy pass, including the final Codex guard test.
 - [x] (2026-11-14) Replace the one selected-child detail cache with eight independently addressed native reads sharing one eight-MiB retained-data budget. Four new core tests prove out-of-order replies, isolated release/expiry and shared byte limits. Full workspace tests and strict Clippy pass; all 21 daemon, 183 terminal and 23 native-monitor workflows plus installed Codex contracts pass at `target/ui-artifacts/run-gK5mGB`.
 - [x] (2026-11-14) Add direct revision-checked source seeking for a bounded client cache. Distinct lossless byte types, UTF-8-safe windows, two new core tests and updated wire fixtures pass workspace tests/strict lint. All 21 actual-daemon workflows pass at `target/daemon-artifacts/ep019b-seek`.
-- [ ] Add bounded original-source reads and watches, explicit format-bound cursors, and bounded handling of large plain entries/pages. Prove split controls, Unicode, body replacement, exact source and independent clients through the daemon.
+- [x] (2026-11-14) Complete the bounded source/page prerequisite above; seek commit is `36bfab5`. Terminal color/copy proof remains part of the socket cutover.
+- [x] (2026-11-14) Fix approval event ordering before the shared client consumes it: publish anchors first and include order-only moves. The new test fails with the old publisher. Full gate passes 21 daemon, 183 terminal, 23 native-monitor workflows and installed Codex contracts at `target/ui-artifacts/run-VdDHRd`.
 - [ ] Add typed native facts/commands for names, prompt edits, task reads/stops, queues, goals, settings/context/quota, summaries, host defaults and lifecycle. Preserve existing tokens and target/generation guards; prove two clients can choose different read targets.
 - [ ] Add pure `carlos-client` for greeting, private retry rights, numbered facts, history, source/output cursors and operation-owned local echo. Test gaps, replacement, reconnect, malformed input and private recovery without sockets or clocks inside the crate.
 - [ ] Route terminal startup and every existing workflow through the actual daemon and shared client. Preserve drafts, dictation, color/copy behavior, panels and startup choices. Add screen/request tests for any broken workflow.
@@ -45,6 +46,8 @@ EP019a's normalized tool chunks deliberately strip terminal controls. `crates/ca
 
 Main has not advanced beyond `a29b1a1` at plan start. EP019a's final source is `58e9901`, closeout `614f296`. Its terminal binary is 20,346,176 bytes, SHA-256 `f03799c8ef130bc5967b6eb9cb24abf3aca2e312d747a4426281ec674711f979`. EP019a's raw artifacts remain under `/tmp/carlos-ep019a/`; its tracked report contains the exact methods if temporary evidence disappears.
 
+The shared client exposed a card-order defect: the publisher sent new cards before the new cards used as their anchors, and omitted order-only moves. The publisher now emits from tail to head and compares both card facts and the next-card address. The new deterministic test fails with the old publisher (`approval-order-negative.log`); the full terminal/native gate passes with the fix.
+
 ## Decision Log
 
 
@@ -61,6 +64,8 @@ Decision: keep a Claude fork's initial write permission separate from its asynch
 Decision: retain independent native child read tokens/deadlines under one combined cache budget. Rationale: two clients may choose different tasks, but each new view must not multiply the old per-session byte allowance. The current facade must still account for independent task-list pages and client interest lifetimes before public task commands are complete. Date/Author: 2026-11-14, Codex.
 
 Decision: add a revision-checked byte seek to original source before building client cache behavior. Rationale: a bounded cache must revisit old windows without scanning or transferring their prefixes; opaque forward cursors alone cannot provide that. Keep byte offsets/lengths separate from sequence types. Date/Author: 2026-11-14, Codex.
+
+Decision: send approval anchors before dependent cards and include order-only changes. Rationale: clients can apply each fact immediately without retaining a second pending-card graph or guessing where a missing anchor belongs. Date/Author: 2026-11-14, Codex.
 
 ## Outcomes & Retrospective
 
@@ -178,3 +183,5 @@ Update note (2026-11-14, task-cache prerequisite): the edit path is committed as
 Update note (2026-11-14, direct source windows): committed the independent child cache as `741e9b7`. Added `entry/source/seek`, exact starting offsets and separate ByteOffset/ByteLength types so a future bounded client cache can revisit old source without replaying the prefix. Two new core seek tests and a lossless-byte protocol check pass with workspace tests and strict Clippy; the actual daemon large-body workflow now checks direct tail seek and invalid offsets. All daemon workflows are being run before the next commit. EP019b remains incomplete.
 
 Update note (2026-11-14, source seek passed): all 21 daemon workflows pass at `target/daemon-artifacts/ep019b-seek`; workspace tests and strict lint pass in `/tmp/carlos-ep019b/source-seek-{tests,clippy}.log`. The process fixture now explicitly closes catalogue-read connections instead of waiting for Python's garbage collector. The next work remains the complete typed native facade and pure shared client, followed by actual terminal cutover/deletion and final checks. No owner-review or completion gate has been reached.
+
+Update note (2026-11-14, client groundwork): the approval-order regression now has a negative proof and passes the complete daemon/terminal/native gate at `run-VdDHRd`. A new uncommitted pure `carlos-client` scaffold has a bounded codec, transcript/history window and ordered approval cards; workspace tests and strict lint passed before its latest small extraction, and 15 architecture checks pass. Greeting/reconnect, private operations, body windows, the complete native facade and terminal cutover/deletion remain unfinished. No terminal or owner-review gate is reached.
