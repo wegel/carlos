@@ -18,6 +18,15 @@ class DaemonRecorder:
         self.upstream = upstream
         self.root = root
         self.stop = threading.Event()
+        self.hold_queue_pages = False
+        self.queue_page_held = threading.Event()
+        self.queue_page_release = threading.Event()
+        self.queue_page_release.set()
+        self.hold_subscriptions = False
+        self.subscription_error_once = False
+        self.subscription_held = threading.Event()
+        self.subscription_release = threading.Event()
+        self.subscription_release.set()
         self.lock = threading.Lock()
         self.errors = []
         self.peers = set()
@@ -74,7 +83,22 @@ class DaemonRecorder:
                         message = {"jsonrpc":"2.0", "id":message["id"], "error":{
                             "code":-32012, "message":"Injected admitted goal read failure"}}
                         line = json.dumps(message).encode()
+                    result = message.get("result")
+                    subscription_reply = direction == "server" and isinstance(result, dict) and result.get("kind") in ("snapshot", "replay")
+                    if subscription_reply and self.subscription_error_once:
+                        self.subscription_error_once = False
+                        message = {"jsonrpc":"2.0", "id":message["id"], "error":{
+                            "code":-32012, "message":"Injected resumed subscription failure"}}
+                        line = json.dumps(message).encode()
                     self.record(direction, message)
+                    if direction == "client" and self.hold_queue_pages and message.get("method") == "queue/read" and message.get("params", {}).get("after") is not None:
+                        self.queue_page_held.set()
+                        self.wait_gate(self.queue_page_release)
+                    elif subscription_reply and self.hold_subscriptions:
+                        self.subscription_held.set()
+                        self.wait_gate(self.subscription_release)
+                    if self.stop.is_set():
+                        break
                     if direction == "client" and self.source_error_once and message.get("method") == "entry/source/subscribe":
                         self.source_error_once = False
                         error = {"jsonrpc":"2.0","id":message["id"],"error":{
@@ -107,6 +131,29 @@ class DaemonRecorder:
     def record(self, direction, message):
         with self.lock, (self.root / "rpc.jsonl").open("a") as output:
             output.write(json.dumps({"direction":direction,"message":message}, ensure_ascii=False)+"\n")
+
+    def wait_gate(self, release):
+        while not self.stop.is_set() and not release.wait(.05):
+            pass
+
+    def pause_queue_pages(self):
+        self.queue_page_held.clear()
+        self.queue_page_release.clear()
+        self.hold_queue_pages = True
+
+    def resume_queue_pages(self):
+        self.hold_queue_pages = False
+        self.queue_page_release.set()
+
+    def pause_subscriptions(self, fail=False):
+        self.subscription_error_once = fail
+        self.subscription_held.clear()
+        self.subscription_release.clear()
+        self.hold_subscriptions = True
+
+    def resume_subscriptions(self):
+        self.hold_subscriptions = False
+        self.subscription_release.set()
 
     def pause_sources(self):
         with self.device_write:

@@ -49,6 +49,17 @@ impl Client {
                 }
             }
         }
+        if let Some(slot) = self.sessions.get_mut(&session) {
+            if slot.wanted
+                && !slot.refresh
+                && slot
+                    .replica
+                    .as_ref()
+                    .is_some_and(|replica| !replica.is_stale())
+            {
+                slot.subscribed = self.current;
+            }
+        }
         Ok(())
     }
 

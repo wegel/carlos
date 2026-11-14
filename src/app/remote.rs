@@ -8,6 +8,13 @@ mod goals;
 mod goals_commands;
 mod local_commands;
 mod navigation;
+mod queue;
+mod queue_commands;
+mod queue_editor;
+mod queue_outcomes;
+mod queue_pages;
+mod queue_reads;
+mod queue_render;
 mod reading;
 mod render;
 mod transcript;
@@ -34,6 +41,7 @@ struct Device {
     documents: DocumentReads,
     reading: reading::ReadingState,
     goals: goals::Goals,
+    queue: queue::Queue,
     waiting_ready: bool,
 }
 
@@ -51,6 +59,7 @@ pub(super) fn run(socket: &Path, options: &CliOptions) -> Result<()> {
         documents: DocumentReads::default(),
         reading: reading::ReadingState::default(),
         goals: goals::Goals::default(),
+        queue: queue::Queue::default(),
         waiting_ready: false,
     };
     device.view.layout.themes = super::tool_output_preferences::load_themes();
@@ -64,6 +73,7 @@ impl Device {
         with_terminal(|terminal| {
             let mut redraw = true;
             loop {
+                redraw |= self.expire_queue_mode_notice();
                 if let Some(link) = transport.as_mut() {
                     match self.service(link) {
                         Ok(changed) => redraw |= changed,
@@ -71,6 +81,7 @@ impl Device {
                             self.client.disconnect(link.connection);
                             self.reading.disconnected();
                             self.goals.read = None;
+                            self.queue_disconnected();
                             self.view.status_hint = Some(format!("F5 reconnects: {error}"));
                             transport = None;
                             redraw = true;
@@ -112,6 +123,7 @@ impl Device {
         for incoming in link.receive()? {
             changed |= self.receive(link, incoming)?;
         }
+        changed |= self.drive_queue(link)?;
         link.flush()?;
         Ok(changed)
     }

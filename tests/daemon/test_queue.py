@@ -201,3 +201,100 @@ class QueueTests:
         self.assertEqual(result["state"]["kind"], "rejected")
         self.assertEqual(result["state"]["recovery"]["text"], "preserve me")
         self.assertFalse(fixture.native_requests("thread/queue/add"))
+
+    def test_native_queue_add_bypasses_a_held_chat_start_and_keeps_stale_writes_private(self):
+        fixture, first, other, session, page = self.queue_clients("queue-after-held-start")
+        sending = first.operation(2)
+        first.call("session/send", session=session, operation=sending, text="held")
+        wait_for(lambda: any(r.get("method") == "turn/start" for r in fixture.native.requests), "native chat start held")
+        self.queue_change(other, session, 1, page, {"kind":"add", "text":"queued while native chat waits"})
+        self.assertEqual(first.call("operation/read", operation=sending)["state"]["kind"], "queued")
+        self.assertEqual((fixture.native.answers, fixture.native.interrupts), (0, 0))
+        current = self.known_queue(other, session)
+        self.assertEqual(current["entries"][0]["preview"], "queued while native chat waits")
+        _, _, stale = self.queue_change(other, session, 2, page,
+            {"kind":"edit", "entry":current["entries"][0]["id"], "text":"stale queue draft"}, "rejected")
+        self.assertEqual(stale["state"]["recovery"]["text"], "stale queue draft")
+        self.assertFalse(any(r.get("method") == "thread/queue/update" for r in fixture.native.requests))
+        snapshot = other.call("session/subscribe", session=session, since=None)["snapshot"]
+        card = next(card for card in snapshot["approvals"] if card["active"])
+        approve, interrupt = other.operation(3), other.operation(4)
+        other.call("session/approve", session=session, operation=approve, approval=card["id"],
+                   answer={"kind":"decision", "decision":"once"})
+        other.call("session/interrupt", session=session, operation=interrupt, turn=snapshot["info"]["current_turn"])
+        self.assertEqual(other.outcome(approve)["state"]["kind"], "accepted")
+        self.assertEqual(other.outcome(interrupt)["state"]["kind"], "accepted")
+        self.assertEqual(first.outcome(sending)["state"]["kind"], "accepted")
+        self.assertEqual(len([r for r in fixture.native.requests if r.get("method") == "thread/queue/add"]), 1)
+
+    def test_native_queue_mutations_remain_serialized_while_an_acknowledgement_is_held(self):
+        fixture, first, other, session, page = self.queue_clients("queue-serialized")
+        fixture.native.queue_hold = True
+        first_write = first.operation(2)
+        first.call("queue/change", session=session, operation=first_write, expected=page["queue"]["revision"],
+                   change={"kind":"add", "text":"first pending native input"})
+        wait_for(lambda: fixture.native.queue_pending, "first native queue write held")
+        current = self.known_queue(other, session)
+        self.assertTrue(current["queue"]["pending"])
+        _, _, rejected = self.queue_change(other, session, 1, current,
+            {"kind":"add", "text":"second private draft"}, "rejected")
+        self.assertEqual(rejected["state"]["recovery"]["text"], "second private draft")
+        self.assertEqual(len([r for r in fixture.native.requests if r.get("method") == "thread/queue/add"]), 1)
+        fixture.native.release_queue()
+        self.assertEqual(first.outcome(first_write)["state"]["kind"], "accepted")
+
+    def held_native_barrier(self, fixture, method):
+        held = {}
+        original = fixture.native.handle
+        async def intercept(link, request):
+            if request.get("method") == method:
+                held.update(link=link, request=request)
+            else:
+                await original(link, request)
+        fixture.native.handle = intercept
+        return held, original
+
+    def prove_queue_stays_behind_barrier(self, fixture, client, session):
+        before = len([r for r in fixture.native.requests if r.get("method") == "thread/goal/get"])
+        client.call("goal/read", session=session, refresh=True)
+        wait_for(lambda: len([r for r in fixture.native.requests if r.get("method") == "thread/goal/get"]) > before,
+                 "owner and native control writer advance while barrier waits")
+        self.assertFalse(any(r.get("method") == "thread/queue/add" for r in fixture.native.requests))
+
+    def test_native_queue_add_cannot_pass_a_held_rename(self):
+        import asyncio
+        fixture, first, other, session, page = self.queue_clients("queue-name-barrier")
+        held, original = self.held_native_barrier(fixture, "thread/name/set")
+        rename = first.operation(2)
+        first.call("session/rename", session=session, operation=rename, name="held queue name")
+        wait_for(lambda: held, "native rename held")
+        queued = other.operation(1)
+        other.call("queue/change", session=session, operation=queued, expected=page["queue"]["revision"],
+                   change={"kind":"add", "text":"after native rename"})
+        self.prove_queue_stays_behind_barrier(fixture, other, session)
+        asyncio.run_coroutine_threadsafe(original(held["link"], held["request"]), fixture.native.loop).result(timeout=3)
+        self.assertEqual(first.outcome(rename)["state"]["kind"], "accepted")
+        self.assertEqual(other.outcome(queued)["state"]["kind"], "accepted")
+        self.assertEqual(fixture.native.queue_entries[0]["input"][0]["text"], "after native rename")
+
+    def test_native_queue_add_cannot_pass_a_held_fork_or_retarget_its_new_root(self):
+        import asyncio
+        fixture, first, other, session, page = self.queue_clients("queue-fork-barrier", history=True)
+        snapshot = first.call("session/subscribe", session=session, since=None)["snapshot"]
+        history = first.call("session/history", session=session, before=snapshot["entries"][0]["id"], limit=1000)
+        user = next(entry for entry in history["entries"] if entry["kind"] == "user")
+        held, original = self.held_native_barrier(fixture, "thread/fork")
+        rewind = first.operation(2)
+        first.call("session/rewind", session=session, operation=rewind, entry=user["id"], text="new native root")
+        wait_for(lambda: held, "native fork held")
+        queued = other.operation(1)
+        other.call("queue/change", session=session, operation=queued, expected=page["queue"]["revision"],
+                   change={"kind":"add", "text":"old-root private queue draft"})
+        self.prove_queue_stays_behind_barrier(fixture, other, session)
+        asyncio.run_coroutine_threadsafe(original(held["link"], held["request"]), fixture.native.loop).result(timeout=3)
+        self.assertEqual(first.outcome(rewind)["state"]["kind"], "accepted")
+        rejected = other.outcome(queued)
+        self.assertEqual(rejected["state"]["kind"], "rejected")
+        self.assertEqual(rejected["state"]["recovery"]["text"], "old-root private queue draft")
+        self.assertEqual(fixture.native.thread_id, "native-fork")
+        self.assertFalse(any(r.get("method") == "thread/queue/add" for r in fixture.native.requests))

@@ -22,9 +22,15 @@ impl Device {
             height: frame.area().height as usize,
         };
         self.goals.size = size;
+        self.queue.size = Some(size);
         self.view.layout.update_size(size);
         if self.view.codex_goals.show {
             let (x, y) = self.draw_goal(frame.buffer_mut(), size);
+            frame.set_cursor_position((x as u16, y as u16));
+            return;
+        }
+        if self.view.codex_queue.show {
+            let (x, y) = self.draw_queue(frame.buffer_mut(), size);
             frame.set_cursor_position((x as u16, y as u16));
             return;
         }
@@ -75,7 +81,11 @@ impl Device {
             info.map_or_else(
                 || "Connecting…".into(),
                 |info| {
-                    if info.availability == Availability::Ready {
+                    if info.availability == Availability::Ready
+                        && !self.client.current_session_is_ready(&self.session)
+                    {
+                        "Restoring session…".into()
+                    } else if info.availability == Availability::Ready {
                         format!("{:?}", info.phase)
                     } else {
                         format!("{:?}", info.availability)
@@ -83,6 +93,7 @@ impl Device {
                 },
             )
         });
+        let status = self.queue_status(status);
         crate::app::render::draw_status_separator(
             buffer,
             layout.input_top.saturating_sub(2),

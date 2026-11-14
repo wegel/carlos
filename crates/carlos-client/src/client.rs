@@ -4,6 +4,7 @@ use std::collections::{HashMap, VecDeque};
 
 use carlos_proto::commands::{Command, RequestId, RpcError};
 use carlos_proto::ids::SessionId;
+use carlos_proto::session::Availability;
 use carlos_proto::submissions::ClientOperation;
 
 use crate::codec::Incoming;
@@ -64,6 +65,7 @@ pub(crate) struct Slot {
     pub replica: Option<Replica>,
     pub wanted: bool,
     pub syncing: Option<i64>,
+    pub subscribed: Option<ConnectionId>,
     pub refresh: bool,
 }
 
@@ -94,6 +96,24 @@ impl Client {
     /// Report whether this device still wants a session's shared facts, including during refresh.
     pub fn wants_session(&self, session: &SessionId) -> bool {
         self.sessions.get(session).is_some_and(|slot| slot.wanted)
+    }
+    /// Require an accepted subscription on this greeted connection before using Ready session facts.
+    pub fn session_is_ready(&self, connection: ConnectionId, session: &SessionId) -> bool {
+        self.is_ready(connection)
+            && self.sessions.get(session).is_some_and(|slot| {
+                slot.wanted
+                    && !slot.refresh
+                    && slot.syncing.is_none()
+                    && slot.subscribed == Some(connection)
+                    && slot.replica.as_ref().is_some_and(|replica| {
+                        !replica.is_stale() && replica.info().availability == Availability::Ready
+                    })
+            })
+    }
+    /// Let renderers distinguish current Ready facts from a retained copy during reconnect.
+    pub fn current_session_is_ready(&self, session: &SessionId) -> bool {
+        self.current
+            .is_some_and(|connection| self.session_is_ready(connection, session))
     }
     /// Borrow the current shared catalogue without duplicating large transcript rows.
     pub fn catalog(&self) -> impl Iterator<Item = &carlos_proto::session::SessionInfo> {

@@ -127,11 +127,13 @@ impl Client {
                     replica: None,
                     wanted: true,
                     syncing: None,
+                    subscribed: None,
                     refresh: false,
                     since: None,
                 });
                 slot.wanted = true;
                 slot.syncing = Some(outgoing.id);
+                slot.subscribed = None;
                 slot.refresh = false;
             }
             Kind::Unsubscribe(session) => {

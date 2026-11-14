@@ -35,6 +35,7 @@ impl Client {
         self.history = Default::default();
         for slot in self.sessions.values_mut() {
             slot.syncing = None;
+            slot.subscribed = None;
         }
     }
 
@@ -87,6 +88,13 @@ impl Client {
                 .map(|record| record.operation.clone())
                 .collect();
         }
+        self.restore_sessions(welcome);
+        self.needs_watch = self.watching;
+        effects.welcome = Some(welcome);
+        Ok(())
+    }
+
+    fn restore_sessions(&mut self, welcome: Welcome) {
         for slot in self.sessions.values_mut() {
             slot.since = (welcome == Welcome::Resumed)
                 .then(|| {
@@ -98,10 +106,8 @@ impl Client {
                 .flatten();
             slot.refresh = slot.wanted;
             slot.syncing = None;
+            slot.subscribed = None;
         }
-        self.needs_watch = self.watching;
-        effects.welcome = Some(welcome);
-        Ok(())
     }
 
     pub(crate) fn drive(&mut self, effects: &mut Effects) {

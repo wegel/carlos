@@ -14,7 +14,13 @@ use crate::backend::BackendKind;
 #[derive(Debug, Default)]
 pub(super) struct CommandState {
     issued: u64,
-    pending: Option<(u64, Arc<AtomicBool>)>,
+    pending: Option<(u64, Arc<AtomicBool>, PendingKind)>,
+}
+
+#[derive(Debug)]
+enum PendingKind {
+    Prompt,
+    Other,
 }
 
 pub(super) struct WorkGuard {
@@ -30,7 +36,7 @@ pub(super) struct WorkGuard {
 
 impl SessionState {
     pub(super) fn retire_backend_command(&mut self) {
-        if let Some((_, live)) = self.commands.pending.take() {
+        if let Some((_, live, _)) = self.commands.pending.take() {
             live.store(false, Ordering::SeqCst);
         }
     }
@@ -41,6 +47,14 @@ impl SessionState {
         } else {
             Ok(())
         }
+    }
+
+    /// Allow native queue writes beside prompt waits while a fork or rename remains an ordering barrier.
+    pub(super) fn command_allows_native_queue(&self) -> bool {
+        self.commands
+            .pending
+            .as_ref()
+            .is_none_or(|(_, _, kind)| matches!(kind, PendingKind::Prompt))
     }
 
     pub(super) fn backend_work(
@@ -57,7 +71,12 @@ impl SessionState {
             .expect("command token exhausted");
         let token = self.commands.issued;
         let dispatch_live = Arc::new(AtomicBool::new(true));
-        self.commands.pending = Some((token, dispatch_live.clone()));
+        let pending_kind = if matches!(&call, BackendCall::Prompt { .. }) {
+            PendingKind::Prompt
+        } else {
+            PendingKind::Other
+        };
+        self.commands.pending = Some((token, dispatch_live.clone(), pending_kind));
         let (epoch, generation) = self.command_connection(kind);
         BackendWork {
             call,
@@ -77,7 +96,7 @@ impl SessionState {
 
     pub(super) fn accept_command_completion(&mut self, guard: &WorkGuard) -> bool {
         if guard.session != self.events.id
-            || self.commands.pending.as_ref().map(|(token, _)| *token) != Some(guard.token)
+            || self.commands.pending.as_ref().map(|(token, _, _)| *token) != Some(guard.token)
         {
             return false;
         }
@@ -108,7 +127,7 @@ impl SessionState {
 
 impl Drop for CommandState {
     fn drop(&mut self) {
-        if let Some((_, live)) = self.pending.take() {
+        if let Some((_, live, _)) = self.pending.take() {
             live.store(false, Ordering::SeqCst);
         }
     }

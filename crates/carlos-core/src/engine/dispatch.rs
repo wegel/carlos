@@ -132,14 +132,17 @@ impl Owner {
     }
 
     pub(super) fn dispatch_ordinary(&mut self) {
-        if self.workers.ordinary_busy
-            || self.session.command_idle().is_err()
-            || matches!(
-                self.session.event_availability(),
-                carlos_proto::session::Availability::Starting
-                    | carlos_proto::session::Availability::Restoring
-            )
-        {
+        if matches!(
+            self.session.event_availability(),
+            carlos_proto::session::Availability::Starting
+                | carlos_proto::session::Availability::Restoring
+        ) {
+            return;
+        }
+        if self.dispatch_front_queue() {
+            return;
+        }
+        if self.workers.ordinary_busy || self.session.command_idle().is_err() {
             return;
         }
         if self.dispatch_queued() {
@@ -182,6 +185,30 @@ impl Owner {
         if !self.ordinary.is_empty() && !self.workers.ordinary_busy {
             let _ = self.channels.wake.try_send(());
         }
+    }
+
+    fn dispatch_front_queue(&mut self) -> bool {
+        if !self.session.command_allows_native_queue()
+            || !matches!(
+                self.ordinary.front(),
+                Some(EngineCommand::QueueChange { .. })
+            )
+        {
+            return false;
+        }
+        let Some(EngineCommand::QueueChange {
+            operation,
+            expected,
+            change,
+        }) = self.ordinary.pop_front()
+        else {
+            unreachable!("front queue change");
+        };
+        self.change_queue(operation, expected, change);
+        if !self.ordinary.is_empty() {
+            let _ = self.channels.wake.try_send(());
+        }
+        true
     }
 
     fn dispatch_queued(&mut self) -> bool {

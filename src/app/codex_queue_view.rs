@@ -4,6 +4,7 @@ use carlos_core::backend::BackendClient;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::buffer::Buffer;
 use ratatui::style::Style;
+use ratatui_textarea::TextArea;
 
 use super::codex_queue::{begin_edit, open, operate, save_edit};
 use super::input_events::TerminalEventResult;
@@ -104,6 +105,21 @@ pub(super) fn paste(app: &mut AppState, text: &str, size: TerminalSize) {
 
 /// Show selected identity before entries, so external changes cannot hide a stop/start target.
 pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
+    draw_panel(
+        buf,
+        app.view.codex_queue.edit.as_ref().map(|edit| &edit.editor),
+        body_lines(app, size),
+        size,
+    );
+}
+
+/// Draw the same queue controls from either embedded or daemon facts.
+pub(super) fn draw_panel(
+    buf: &mut Buffer,
+    editor: Option<&TextArea<'_>>,
+    lines: Vec<String>,
+    size: TerminalSize,
+) {
     fill_rect(
         buf,
         0,
@@ -113,12 +129,10 @@ pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
         Style::default().bg(COLOR_OVERLAY),
     );
     let width = size.width.saturating_sub(2).max(1);
-    let queue = &app.view.codex_queue;
-    let lines = body_lines(app, size);
-    let footer = footer_lines(app, size);
+    let footer = footer_lines(editor.is_some(), size);
     let body_height = size
         .height
-        .saturating_sub(footer.len() + 2 + usize::from(queue.edit.is_some()));
+        .saturating_sub(footer.len() + 2 + usize::from(editor.is_some() && editable(size)));
     let body = lines
         .into_iter()
         .flat_map(|line| {
@@ -135,7 +149,10 @@ pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
             width,
         );
     }
-    if let Some((text, _)) = editor_line(app, width) {
+    if let Some((text, _)) = editor
+        .filter(|_| editable(size))
+        .and_then(|editor| editor_line(Some(editor), width))
+    {
         draw_str(
             buf,
             1,
@@ -217,18 +234,26 @@ fn body_lines(app: &AppState, size: TerminalSize) -> Vec<String> {
 
 /// Keep the independent edit caret visible after horizontal scrolling and resizing.
 pub(super) fn cursor(app: &AppState, size: TerminalSize) -> (usize, usize) {
+    cursor_for(
+        app.view.codex_queue.edit.as_ref().map(|edit| &edit.editor),
+        size,
+    )
+}
+
+/// Keep a local queue editor's caret independent of the ordinary composer.
+pub(super) fn cursor_for(editor: Option<&TextArea<'_>>, size: TerminalSize) -> (usize, usize) {
     if !editable(size) {
         return (0, 0);
     }
     let width = size.width.saturating_sub(2).max(1);
-    let footer_rows = footer_lines(app, size).len();
-    editor_line(app, width).map_or((0, 0), |(_, column)| {
+    let footer_rows = footer_lines(editor.is_some(), size).len();
+    editor_line(editor, width).map_or((0, 0), |(_, column)| {
         (column + 1, size.height.saturating_sub(footer_rows + 3))
     })
 }
 
-fn editor_line(app: &AppState, width: usize) -> Option<(String, usize)> {
-    let editor = &app.view.codex_queue.edit.as_ref()?.editor;
+fn editor_line(editor: Option<&TextArea<'_>>, width: usize) -> Option<(String, usize)> {
+    let editor = editor?;
     let (row, column) = editor.cursor();
     let line = &editor.lines()[row];
     let prefix = line.chars().take(column).collect::<String>();
@@ -241,10 +266,10 @@ fn editor_line(app: &AppState, width: usize) -> Option<(String, usize)> {
     ))
 }
 
-fn footer_lines(app: &AppState, size: TerminalSize) -> Vec<String> {
+fn footer_lines(editing: bool, size: TerminalSize) -> Vec<String> {
     let text = if !editable(size) {
         "Esc back"
-    } else if app.view.codex_queue.edit.is_some() {
+    } else if editing {
         "Ctrl+S save · Esc back"
     } else if size.width < 60 {
         "↑↓ select e edit d delete s start Alt+↑↓ move r refresh v draft F3 mode Esc"
@@ -262,6 +287,7 @@ fn preview(text: &str) -> String {
     shortened
 }
 
-fn editable(size: TerminalSize) -> bool {
+/// Report whether the terminal has room for queue edits.
+pub(super) fn editable(size: TerminalSize) -> bool {
     size.width >= 22 && size.height >= 12
 }

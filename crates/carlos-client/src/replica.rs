@@ -26,6 +26,7 @@ pub struct ChangeSet {
 /// One bounded chronological window; the daemon keeps older/newer rows outside this copy.
 pub struct Replica {
     pub(crate) queue: Option<carlos_proto::queue::QueueFacts>,
+    pub(crate) queue_seq: Sequence,
     pub(crate) goal: Option<carlos_proto::goals::GoalFacts>,
     pub(crate) goal_seq: Sequence,
     pub(crate) info: SessionInfo,
@@ -70,6 +71,7 @@ impl Replica {
         }
         Ok(Self {
             queue: snapshot.queue,
+            queue_seq: snapshot.seq,
             goal: snapshot.goal,
             goal_seq: snapshot.seq,
             info: snapshot.info,
@@ -190,7 +192,7 @@ impl Replica {
     fn apply_fact(&mut self, event: Event, seq: Sequence) -> Result<ChangeSet, ClientError> {
         let mut changed = ChangeSet::default();
         match event {
-            Event::QueueChanged { queue } => self.replace_queue(queue, &mut changed),
+            Event::QueueChanged { queue } => self.replace_queue(queue, seq, &mut changed),
             Event::GoalChanged { goal } => self.replace_goal(goal, seq, &mut changed),
             Event::EntryAdded { entry } => self.add_entry(entry, &mut changed)?,
             Event::EntryUpdated { entry } => self.replace_entry(entry, seq, &mut changed),
@@ -247,13 +249,15 @@ impl Replica {
         Ok(changed)
     }
 
-    fn replace_queue(
+    pub(crate) fn replace_queue(
         &mut self,
         queue: Option<carlos_proto::queue::QueueFacts>,
+        seq: Sequence,
         changed: &mut ChangeSet,
     ) {
         changed.queue = self.queue != queue;
         self.queue = queue;
+        self.queue_seq = seq;
     }
 
     fn add_entry(&mut self, entry: Entry, changed: &mut ChangeSet) -> Result<(), ClientError> {

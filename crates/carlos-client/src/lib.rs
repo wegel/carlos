@@ -24,6 +24,7 @@ mod goal_watches;
 mod history;
 mod operations;
 mod pending;
+mod queue;
 mod replica;
 mod rows;
 

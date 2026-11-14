@@ -7,6 +7,7 @@ mod client;
 mod client_body_pressure;
 mod client_budget;
 mod client_reads;
+mod client_ready;
 mod client_reconnect;
 mod client_watches;
 mod codec;

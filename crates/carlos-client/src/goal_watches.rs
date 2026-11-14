@@ -96,6 +96,7 @@ impl Client {
             .filter(|id| {
                 self.sessions.get(*id).is_some_and(|slot| {
                     slot.wanted
+                        && slot.subscribed == self.current
                         && !slot.refresh
                         && slot.syncing.is_none()
                         && slot
