@@ -103,3 +103,17 @@ pub struct TaskText {
     pub complete: bool,
     pub text: String,
 }
+
+/// A read identifies a current native run without claiming that a stop has been sent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskRunSnapshot {
+    pub session: SessionId,
+    pub task: TaskId,
+    pub read: Option<crate::ids::TaskReadId>,
+    pub run: Option<TaskRun>,
+    pub known: bool,
+    pub native_state: Option<String>,
+    pub reading: bool,
+    pub closed: bool,
+    pub error: Option<String>,
+}

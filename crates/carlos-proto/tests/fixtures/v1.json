@@ -417,6 +417,17 @@
         "offset": "9007199254740993",
         "limit": 65536
       }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 33,
+      "method": "task/run",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "task": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "refresh": false,
+        "read": null
+      }
     }
   ],
   "notifications": [

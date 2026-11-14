@@ -132,6 +132,11 @@ opaque_id!(
     64,
     "A precondition for one bounded native task view."
 );
+opaque_id!(
+    TaskReadId,
+    64,
+    "One native task run read; a replacement never retargets its poller."
+);
 
 /// A nonzero per-client command counter encoded as lossless decimal text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]

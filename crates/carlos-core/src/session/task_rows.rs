@@ -1,21 +1,27 @@
 //! Resolve opaque task and run addresses from the session's bounded native records.
 
-use std::io::{self, Write};
-
 use carlos_proto::ids::{TaskId, TaskRevision, TaskRun};
 use carlos_proto::session::Backend;
 use carlos_proto::tasks::{Task, TaskKind};
 use serde_json::Value;
 
+use super::codex::panel_runs::{self, RunRead};
 use super::codex::panel_state::Process;
 use super::state::SessionState;
+use super::task_digest::{hash_text, hash_value};
 use crate::backend::BackendKind;
 
 /// Borrow native metadata only for the duration of one owner read.
 pub(super) enum TaskRef<'a> {
-    Agent(&'a Value),
+    Agent {
+        data: &'a Value,
+        accepted_run: Option<&'a RunRead>,
+    },
     Process(&'a Process),
-    Claude { id: &'a str, data: &'a Value },
+    Claude {
+        id: &'a str,
+        data: &'a Value,
+    },
 }
 
 impl SessionState {
@@ -26,7 +32,13 @@ impl SessionState {
                 .agents
                 .iter()
                 .filter(|agent| agent["id"].as_str().is_some_and(|id| self.task_owns(id)))
-                .map(TaskRef::Agent)
+                .map(|data| TaskRef::Agent {
+                    data,
+                    accepted_run: panel_runs::ready(
+                        self,
+                        data["id"].as_str().expect("verified agent id"),
+                    ),
+                })
                 .chain(
                     self.codex_panel
                         .processes
@@ -63,7 +75,13 @@ impl SessionState {
         for row in rows {
             row.hash_identity(&mut hash);
             hash_value(&mut hash, row.data());
-            if let TaskRef::Agent(agent) = row {
+            if let Some(run) = row.run(self) {
+                hash_text(&mut hash, run.as_str());
+            } else {
+                hash_text(&mut hash, "");
+            }
+
+            if let TaskRef::Agent { data: agent, .. } = row {
                 if let Some(report) = agent["id"]
                     .as_str()
                     .and_then(|id| self.codex_panel.reports.get(id))
@@ -138,7 +156,7 @@ impl TaskRef<'_> {
 
     pub(super) fn export(&self, session: &SessionState) -> Task {
         let (kind, state) = match self {
-            Self::Agent(data) => (
+            Self::Agent { data, .. } => (
                 TaskKind::Agent,
                 data["status"]["type"].as_str().unwrap_or("unknown"),
             ),
@@ -175,7 +193,7 @@ impl TaskRef<'_> {
 
     pub(super) fn label(&self) -> &str {
         match self {
-            Self::Agent(data) => data["name"]
+            Self::Agent { data, .. } => data["name"]
                 .as_str()
                 .or(data["preview"].as_str())
                 .or(data["agentRole"].as_str())
@@ -190,14 +208,14 @@ impl TaskRef<'_> {
 
     pub(super) fn data(&self) -> &Value {
         match self {
-            Self::Agent(data) | Self::Claude { data, .. } => data,
+            Self::Agent { data, .. } | Self::Claude { data, .. } => data,
             Self::Process(row) => &row.data,
         }
     }
 
-    fn native_id(&self) -> &str {
+    pub(super) fn native_id(&self) -> &str {
         match self {
-            Self::Agent(data) => data["id"].as_str().unwrap_or_default(),
+            Self::Agent { data, .. } => data["id"].as_str().unwrap_or_default(),
             Self::Process(row) => row.data["processId"].as_str().unwrap_or_default(),
             Self::Claude { id, .. } => id,
         }
@@ -205,7 +223,7 @@ impl TaskRef<'_> {
 
     fn hash_identity(&self, hash: &mut blake3::Hasher) {
         let tag = match self {
-            Self::Agent(_) => "agent",
+            Self::Agent { .. } => "agent",
             Self::Process(_) => "process",
             Self::Claude { .. } => "task",
         };
@@ -216,17 +234,25 @@ impl TaskRef<'_> {
         hash_text(hash, self.native_id());
     }
 
-    fn run(&self, session: &SessionState) -> Option<TaskRun> {
+    pub(super) fn agent_run(&self) -> Option<(&str, &str)> {
+        let Self::Agent { data, accepted_run } = self else {
+            return None;
+        };
+        if let Some(read) = accepted_run {
+            return read
+                .turn
+                .as_ref()
+                .map(|turn| (turn.id.as_str(), turn.status.as_str()));
+        }
+        panel_runs::native_turn(data)
+    }
+
+    pub(super) fn run(&self, session: &SessionState) -> Option<TaskRun> {
         let mut hash = session.task_scope();
         hash.update(b"run");
         self.hash_identity(&mut hash);
         match self {
-            Self::Agent(data) => hash_text(
-                &mut hash,
-                data["lastObservedTurn"]["id"]
-                    .as_str()
-                    .filter(|id| !id.is_empty())?,
-            ),
+            Self::Agent { .. } => hash_text(&mut hash, self.agent_run()?.0),
             Self::Claude { data, .. } => hash_text(
                 &mut hash,
                 data["run_id"].as_str().filter(|id| !id.is_empty())?,
@@ -257,24 +283,4 @@ pub(super) fn clipped(text: &str, limit: usize) -> &str {
         end -= 1;
     }
     &text[..end]
-}
-
-fn hash_text(hash: &mut blake3::Hasher, text: &str) {
-    hash.update(&(text.len() as u64).to_le_bytes());
-    hash.update(text.as_bytes());
-}
-
-fn hash_value(hash: &mut blake3::Hasher, value: &Value) {
-    struct Digest<'a>(&'a mut blake3::Hasher);
-    impl Write for Digest<'_> {
-        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-            self.0.update(bytes);
-            Ok(bytes.len())
-        }
-        fn flush(&mut self) -> io::Result<()> {
-            Ok(())
-        }
-    }
-    serde_json::to_writer(Digest(hash), value).expect("native JSON value");
-    hash.update(b"\0");
 }

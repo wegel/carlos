@@ -153,8 +153,10 @@ mod event_reads;
 mod event_rows;
 pub mod events;
 mod queue_preview;
+mod task_digest;
 mod task_fields;
 mod task_rows;
+mod task_runs;
 #[cfg(test)]
 mod task_view_tests;
 mod task_views;

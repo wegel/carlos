@@ -90,6 +90,18 @@ pub(super) fn timeout(session: &SessionState, request: &Request) -> u64 {
                         .is_some_and(|pending| pending.token == request.token)
                 })
                 .map(|activity| activity.started)
+        })
+        .or_else(|| {
+            session
+                .codex_panel
+                .runs
+                .values()
+                .find(|read| {
+                    read.request
+                        .as_ref()
+                        .is_some_and(|pending| pending.token == request.token)
+                })
+                .map(|read| read.started)
         });
     if let Some(started) = started {
         return Duration::from_secs(20)
@@ -129,6 +141,15 @@ pub(super) fn expire(session: &mut SessionState) -> bool {
         expired.push(activity.request.take().expect("expired child read").token);
         activity.error =
             Some("Child read exceeded20 seconds; retained items remain available".into());
+    }
+    for read in
+        session.codex_panel.runs.values_mut().filter(|read| {
+            read.request.is_some() && read.started.elapsed() >= Duration::from_secs(20)
+        })
+    {
+        expired.push(read.request.take().expect("expired native run read").token);
+        read.turn = None;
+        read.error = Some("Task run read exceeded 20 seconds".into());
     }
     session
         .codex_panel

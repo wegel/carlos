@@ -118,12 +118,6 @@ impl Owner {
 
     fn read(&mut self, command: EngineCommand) -> EngineReply {
         let result = match command {
-            command @ (EngineCommand::TaskList { .. }
-            | EngineCommand::TaskDetail { .. }
-            | EngineCommand::TaskText { .. }
-            | EngineCommand::GoalRead { .. }
-            | EngineCommand::QueueRead { .. }
-            | EngineCommand::QueueText { .. }) => self.read_native(command),
             EngineCommand::Info => Ok(EngineReply::Info {
                 info: self.session.export_info(),
                 native_thread: self.session.thread_id().clone(),
@@ -172,7 +166,7 @@ impl Owner {
                 .map(EngineReply::Source)
                 .map_err(|error| failure(error.to_string())),
             EngineCommand::Outcomes => Ok(EngineReply::Outcomes(self.results.collect())),
-            _ => Err(failure("mutation entered the read lane")),
+            command => self.read_native(command),
         };
         result.unwrap_or_else(EngineReply::Failure)
     }

@@ -29,6 +29,104 @@ class TaskTests:
             return page if page["known"] and not page["reading"] else None
         return wait_for(current, "native task reader completes")
 
+    def attached_tasks(self, name, count=2):
+        fixture, first, other, session = self.task_clients(name, count)
+        for agent in fixture.native.task_agents:
+            agent.pop("lastObservedTurn")
+            agent["status"] = {"type": "active"}
+        first.call("task/list", session=session, refresh=True)
+        return fixture, first, other, session, self.known_tasks(first, session)
+
+    def known_task_run(self, client, session, task, read):
+        def current():
+            run = client.call("task/run", session=session, task=task, read=read)
+            return run if not run["reading"] else None
+        return wait_for(current, "native current-run read settles")
+
+    def test_attached_tasks_read_exact_runs_independently_without_resuming_or_stopping_children(self):
+        fixture, first, other, session, page = self.attached_tasks("task-current-runs")
+        a, b = [task["id"] for task in page["tasks"]]
+        self.assertTrue(all(task["run"] is None for task in page["tasks"]))
+        fixture.native.task_turns["native-child-0"] = [{"id": "native-live-run", "status": "inProgress"}]
+        fixture.native.task_run_hold.update(["native-child-0", "native-child-1"])
+        first_read = first.call("task/run", session=session, task=a)
+        other_read = other.call("task/run", session=session, task=b)
+        self.assertTrue(first_read["reading"])
+        self.assertTrue(other_read["reading"])
+        wait_for(lambda: len(fixture.native.task_run_pending) == 2, "both native run requests held")
+        fixture.native.release_task_run("native-child-1")
+        empty = self.known_task_run(other, session, b, other_read["read"])
+        self.assertTrue(empty["known"])
+        self.assertIsNone(empty["run"])
+        self.assertIsNone(empty["native_state"])
+        self.assertTrue(first.call("task/run", session=session, task=a)["reading"])
+        fixture.native.release_task_run("native-child-0")
+        live = self.known_task_run(first, session, a, first_read["read"])
+        self.assertTrue(live["known"])
+        self.assertIsNone(live["error"])
+        self.assertEqual(live["native_state"], "inProgress")
+        self.assertIsNotNone(live["run"])
+        self.assertNotIn("native-", json.dumps(live))
+        updated = first.call("task/list", session=session)
+        self.assertEqual(updated["tasks"][0]["run"], live["run"])
+        self.assertNotEqual(updated["revision"], page["revision"])
+        stale = first.response(first.send("task/detail", session=session, expected=page["revision"], task=a))
+        self.assertIn("error", stale)
+        forged = first.response(first.send("task/run", session=session, task="0" * 64))
+        self.assertIn("error", forged)
+        methods = [request.get("method") for request in fixture.native.requests]
+        self.assertFalse(any(method in methods for method in ("thread/resume", "turn/interrupt", "thread/backgroundTerminals/terminate")))
+
+    def test_a_late_native_run_read_reports_its_old_intent_and_keeps_newer_turn_facts(self):
+        fixture, first, other, session, page = self.attached_tasks("task-late-run", count=1)
+        task = page["tasks"][0]["id"]
+        fixture.native.task_turns["native-child-0"] = [{"id": "retired-run", "status": "inProgress"}]
+        fixture.native.task_run_hold.add("native-child-0")
+        original = first.call("task/run", session=session, task=task)
+        wait_for(lambda: fixture.native.task_run_pending, "old run response held")
+        fixture.native.observe_task_turn("native-child-0", "replacement-run")
+        replacement = wait_for(lambda: (lambda page: page["tasks"][0]["run"])(
+            other.call("task/list", session=session)), "newer native turn observed")
+        fixture.native.release_task_run("native-child-0")
+        refused = self.known_task_run(first, session, task, original["read"])
+        self.assertIn("not retargeted", refused["error"])
+        self.assertEqual(refused["run"], replacement)
+        self.assertEqual(refused["native_state"], "inProgress")
+        self.assertFalse(any(request.get("method") == "turn/interrupt" for request in fixture.native.requests))
+
+    def test_a_task_run_refresh_never_retargets_an_older_clients_poll(self):
+        fixture, first, other, session, page = self.attached_tasks("task-run-replaced", count=1)
+        task = page["tasks"][0]["id"]
+        fixture.native.task_turns["native-child-0"] = [{"id": "first-run", "status": "inProgress"}]
+        first_read = first.call("task/run", session=session, task=task)
+        original = self.known_task_run(first, session, task, first_read["read"])
+        fixture.native.task_turns["native-child-0"] = [{"id": "second-run", "status": "inProgress"}]
+        second_read = other.call("task/run", session=session, task=task, refresh=True)
+        replacement = self.known_task_run(other, session, task, second_read["read"])
+        self.assertNotEqual(replacement["run"], original["run"])
+        self.assertNotEqual(replacement["read"], original["read"])
+        stale = first.response(first.send("task/run", session=session, task=task, read=original["read"]))
+        self.assertIn("superseded", stale["error"]["message"])
+        malformed = first.response(first.send("task/run", session=session, task=task, read=replacement["read"], refresh=True))
+        self.assertIn("refresh cannot continue", malformed["error"]["message"])
+
+    def test_fresh_task_run_reads_and_empty_results_override_old_observed_turn_metadata(self):
+        fixture, first, _, session = self.task_clients("task-run-authority", count=1)
+        page = self.known_tasks(first, session)
+        task = page["tasks"][0]["id"]
+        self.assertIsNotNone(page["tasks"][0]["run"])
+        fixture.native.task_turns["native-child-0"] = [{"id": "fresh-run", "status": "inProgress"}]
+        started = first.call("task/run", session=session, task=task, refresh=True)
+        current = self.known_task_run(first, session, task, started["read"])
+        self.assertEqual(current["native_state"], "inProgress")
+        self.assertNotEqual(current["run"], page["tasks"][0]["run"])
+        fixture.native.task_turns["native-child-0"] = []
+        started = first.call("task/run", session=session, task=task, refresh=True)
+        empty = self.known_task_run(first, session, task, started["read"])
+        self.assertTrue(empty["known"])
+        self.assertIsNone(empty["run"])
+        self.assertIsNone(empty["native_state"])
+
     def test_task_pages_and_explicit_details_are_independent_and_reject_changed_views(self):
         fixture, first, other, session = self.task_clients("task-pages")
         page = self.known_tasks(first, session)

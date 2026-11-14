@@ -35,38 +35,60 @@ pub fn reply(
         .is_some_and(|stop| matches(&stop.request))
     {
         stop_reply(session, scope, update, &params["response"]);
-    } else if let Some(request) = session
+        return true;
+    }
+    let token = params["requestContext"]["token"].as_u64();
+    let request = session
         .codex_panel
-        .child_request(params["requestContext"]["token"].as_u64())
+        .run_request(token)
+        .or_else(|| session.codex_panel.child_request(token))
+        .or_else(|| {
+            session
+                .codex_panel
+                .snapshot
+                .as_ref()
+                .map(|read| &read.request)
+        })
         .filter(|request| matches(request))
-        .cloned()
-    {
+        .cloned();
+    if let Some(request) = request {
         if let Some(error) = params["response"].get("error") {
             failed(session, scope, update, &request, &error_text(error));
-        } else if let Err(error) = super::panel_activity::page(
+        } else if let Err(error) = apply_page(
             session,
-            request.params["threadId"].as_str().expect("child target"),
+            scope,
+            update,
+            &request,
             &params["response"]["result"],
         ) {
             failed(session, scope, update, &request, &error);
         }
-    } else if let Some(request) = session
-        .codex_panel
-        .snapshot
-        .as_ref()
-        .map(|read| &read.request)
-        .filter(|request| matches(request))
-        .cloned()
-    {
-        if let Some(error) = params["response"].get("error") {
-            failed(session, scope, update, &request, &error_text(error));
-        } else if let Err(error) =
-            super::panel_pages::page(session, scope, update, &params["response"]["result"])
-        {
-            failed(session, scope, update, &request, &error);
-        }
     }
     true
+}
+
+fn apply_page(
+    session: &mut SessionState,
+    scope: PanelScope<'_>,
+    update: &mut PanelUpdate,
+    request: &Request,
+    result: &Value,
+) -> Result<(), String> {
+    match request.method.as_str() {
+        "thread/turns/list" => super::panel_runs::reply(
+            session,
+            request.params["threadId"]
+                .as_str()
+                .expect("native run target"),
+            result,
+        ),
+        "thread/items/list" => super::panel_activity::page(
+            session,
+            request.params["threadId"].as_str().expect("child target"),
+            result,
+        ),
+        _ => super::panel_pages::page(session, scope, update, result),
+    }
 }
 
 /// Keep failures visible while leaving healthy main work and all editable drafts intact.
@@ -91,6 +113,18 @@ pub fn failed(
         if scope.visible {
             super::panel::refresh(session, scope, false);
         }
+    } else if let Some(pending) = session
+        .codex_panel
+        .run_request(Some(request.token))
+        .cloned()
+    {
+        super::panel_runs::failed(
+            session,
+            pending.params["threadId"]
+                .as_str()
+                .expect("native run target"),
+            &message,
+        );
     } else if let Some(activity) = session.codex_panel.child_read_mut(request.token) {
         activity.request = None;
         activity.error = Some(message);

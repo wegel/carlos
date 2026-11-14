@@ -121,6 +121,13 @@ pub fn request(session: &mut SessionState, method: &str, params: Value) -> Reque
     tokens.extend(
         session
             .codex_panel
+            .runs
+            .values()
+            .filter_map(|read| read.request.as_ref().map(|request| request.token)),
+    );
+    tokens.extend(
+        session
+            .codex_panel
             .stop
             .as_ref()
             .map(|stop| stop.request.token),
@@ -167,6 +174,11 @@ pub fn wait(session: &SessionState, scope: PanelScope<'_>, now: Instant) -> Opti
         .map(|activity| {
             (activity.started + Duration::from_secs(20)).saturating_duration_since(now)
         });
+    let runs = panel
+        .runs
+        .values()
+        .filter(|read| read.request.is_some())
+        .map(|read| (read.started + Duration::from_secs(20)).saturating_duration_since(now));
     let refresh =
         (scope.visible && !panel.older_window && !scope.detail && panel.snapshot.is_none()).then(
             || {
@@ -175,5 +187,10 @@ pub fn wait(session: &SessionState, scope: PanelScope<'_>, now: Instant) -> Opti
                 })
             },
         );
-    snapshot.into_iter().chain(activity).chain(refresh).min()
+    snapshot
+        .into_iter()
+        .chain(activity)
+        .chain(runs)
+        .chain(refresh)
+        .min()
 }

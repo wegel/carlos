@@ -23,6 +23,7 @@ pub enum PanelId {
 /// Keep all panel reads and actions independent of composer and callback drafts.
 #[derive(Debug, Default)]
 pub struct PanelState {
+    pub(in crate::session) runs: HashMap<String, super::panel_runs::RunRead>,
     pub(in crate::session) agents: Vec<Value>,
     pub(in crate::session) processes: Vec<Process>,
     pub(in crate::session) snapshot: Option<Snapshot>,
@@ -157,6 +158,13 @@ pub struct Stop {
 }
 
 impl PanelState {
+    pub(in crate::session) fn run_request(&self, token: Option<u64>) -> Option<&Request> {
+        self.runs
+            .values()
+            .filter_map(|read| read.request.as_ref())
+            .find(|request| Some(request.token) == token)
+    }
+
     pub(in crate::session) fn child_request(&self, token: Option<u64>) -> Option<&Request> {
         self.activities
             .values()

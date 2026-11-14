@@ -38,6 +38,11 @@ pub use self::ring::EngineFrame;
 
 /// Only explicit session reads and commands enter the owner, never native method strings.
 pub enum EngineCommand {
+    TaskRun {
+        task: carlos_proto::ids::TaskId,
+        read: Option<carlos_proto::ids::TaskReadId>,
+        refresh: bool,
+    },
     TaskList {
         expected: Option<carlos_proto::ids::TaskRevision>,
         after: Option<carlos_proto::ids::TaskId>,
@@ -146,6 +151,7 @@ pub enum EngineCommand {
 
 /// Replies carry facts or typed failures without retaining any client's editor.
 pub enum EngineReply {
+    TaskRun(carlos_proto::tasks::TaskRunSnapshot),
     TaskList(carlos_proto::tasks::TaskPage),
     TaskDetail(carlos_proto::tasks::TaskDetail),
     TaskText(carlos_proto::tasks::TaskText),

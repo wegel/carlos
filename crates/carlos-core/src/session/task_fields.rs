@@ -45,7 +45,7 @@ impl TaskRef<'_> {
             return Some(Cow::Borrowed(self.label()));
         }
         let value = match self {
-            Self::Agent(data) => agent_field(data, session, field)?,
+            Self::Agent { data, .. } => agent_field(data, session, field)?,
             Self::Process(row) => {
                 &row.data[match field {
                     TaskField::Command => "command",

@@ -1,6 +1,7 @@
 //! Read bounded native task views without retaining any client's selected row or page cursor.
 
 use carlos_proto::commands::RpcError;
+use carlos_proto::ids::{TaskId, TaskRevision};
 
 use super::owner::{failure, Owner};
 use super::{EngineCommand, EngineReply};
@@ -15,7 +16,11 @@ impl Owner {
             command @ (EngineCommand::QueueRead { .. } | EngineCommand::QueueText { .. }) => {
                 self.read_queue(command)
             }
-            command => self.read_tasks(command),
+            command @ (EngineCommand::TaskRun { .. }
+            | EngineCommand::TaskList { .. }
+            | EngineCommand::TaskDetail { .. }
+            | EngineCommand::TaskText { .. }) => self.read_tasks(command),
+            _ => Err(failure("mutation entered the read lane")),
         }
     }
 
@@ -27,32 +32,31 @@ impl Owner {
             return Err(failure("native Codex task controls are unavailable"));
         }
         match command {
+            EngineCommand::TaskRun {
+                task,
+                read,
+                refresh,
+            } => {
+                self.session
+                    .prepare_task_run(&task, read.as_ref(), refresh)?;
+                let scope = self.task_read_scope();
+                panel::tick(
+                    self.client.as_ref(),
+                    &mut self.session,
+                    scope,
+                    &mut Default::default(),
+                );
+                self.publish();
+                self.session
+                    .task_run_snapshot(&task)
+                    .map(EngineReply::TaskRun)
+            }
             EngineCommand::TaskList {
                 expected,
                 after,
                 limit,
                 refresh,
-            } => {
-                if refresh && (expected.is_some() || after.is_some()) {
-                    return Err(failure("refresh cannot continue an old task page"));
-                }
-                if self.client.kind() == BackendKind::Codex
-                    && (refresh || !self.session.task_known())
-                {
-                    let scope = self.task_read_scope();
-                    panel::refresh(&mut self.session, scope, false);
-                    panel::tick(
-                        self.client.as_ref(),
-                        &mut self.session,
-                        scope,
-                        &mut Default::default(),
-                    );
-                    self.publish();
-                }
-                self.session
-                    .task_page(expected.as_ref(), after.as_ref(), limit)
-                    .map(EngineReply::TaskList)
-            }
+            } => self.list_tasks(expected, after, limit, refresh),
             EngineCommand::TaskDetail { expected, task } => self
                 .session
                 .task_detail(&expected, &task)
@@ -69,6 +73,32 @@ impl Owner {
                 .map(EngineReply::TaskText),
             _ => unreachable!("typed task read"),
         }
+    }
+
+    fn list_tasks(
+        &mut self,
+        expected: Option<TaskRevision>,
+        after: Option<TaskId>,
+        limit: usize,
+        refresh: bool,
+    ) -> Result<EngineReply, RpcError> {
+        if refresh && (expected.is_some() || after.is_some()) {
+            return Err(failure("refresh cannot continue an old task page"));
+        }
+        if self.client.kind() == BackendKind::Codex && (refresh || !self.session.task_known()) {
+            let scope = self.task_read_scope();
+            panel::refresh(&mut self.session, scope, false);
+            panel::tick(
+                self.client.as_ref(),
+                &mut self.session,
+                scope,
+                &mut Default::default(),
+            );
+            self.publish();
+        }
+        self.session
+            .task_page(expected.as_ref(), after.as_ref(), limit)
+            .map(EngineReply::TaskList)
     }
 
     /// Background reads keep their own original targets; no daemon-owned panel focus exists.

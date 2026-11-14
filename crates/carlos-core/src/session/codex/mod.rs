@@ -58,6 +58,9 @@ mod panel_reader;
 mod panel_reader_tests;
 mod panel_reads;
 pub mod panel_receive;
+#[cfg(test)]
+mod panel_run_tests;
+pub(in crate::session) mod panel_runs;
 pub mod panel_scope;
 pub mod panel_state;
 pub mod task_badge;

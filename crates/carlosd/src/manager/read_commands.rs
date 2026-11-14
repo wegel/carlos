@@ -13,7 +13,8 @@ use crate::transport::wire::error;
 impl Manager {
     pub(super) fn read_command(&mut self, peer: u64, id: RequestId, command: Command) {
         match command {
-            command @ (Command::TaskList { .. }
+            command @ (Command::TaskRun { .. }
+            | Command::TaskList { .. }
             | Command::TaskDetail { .. }
             | Command::TaskText { .. }
             | Command::QueueRead { .. }
@@ -72,7 +73,8 @@ impl Manager {
 
     fn native_read_command(&mut self, peer: u64, id: RequestId, command: Command) {
         match command {
-            command @ (Command::TaskList { .. }
+            command @ (Command::TaskRun { .. }
+            | Command::TaskList { .. }
             | Command::TaskDetail { .. }
             | Command::TaskText { .. }) => self.task_read_command(peer, id, command),
             Command::QueueRead {
@@ -117,16 +119,27 @@ impl Manager {
     }
 
     fn task_read_command(&mut self, peer: u64, id: RequestId, command: Command) {
-        match command {
+        let (session, command) = match command {
+            Command::TaskRun {
+                session,
+                task,
+                read,
+                refresh,
+            } => (
+                session,
+                EngineCommand::TaskRun {
+                    task,
+                    read,
+                    refresh,
+                },
+            ),
             Command::TaskList {
                 session,
                 expected,
                 after,
                 limit,
                 refresh,
-            } => self.rpc_read(
-                peer,
-                id,
+            } => (
                 session,
                 EngineCommand::TaskList {
                     expected,
@@ -139,12 +152,7 @@ impl Manager {
                 session,
                 expected,
                 task,
-            } => self.rpc_read(
-                peer,
-                id,
-                session,
-                EngineCommand::TaskDetail { expected, task },
-            ),
+            } => (session, EngineCommand::TaskDetail { expected, task }),
             Command::TaskText {
                 session,
                 expected,
@@ -152,9 +160,7 @@ impl Manager {
                 field,
                 offset,
                 limit,
-            } => self.rpc_read(
-                peer,
-                id,
+            } => (
                 session,
                 EngineCommand::TaskText {
                     expected,
@@ -165,7 +171,8 @@ impl Manager {
                 },
             ),
             _ => unreachable!("typed task read"),
-        }
+        };
+        self.rpc_read(peer, id, session, command);
     }
 
     fn subscribe(&mut self, peer: u64, id: RequestId, session: SessionId, since: Option<Sequence>) {
@@ -306,6 +313,7 @@ impl Manager {
         let reserved = match command {
             EngineCommand::QueueRead { .. }
             | EngineCommand::QueueText { .. }
+            | EngineCommand::TaskRun { .. }
             | EngineCommand::TaskList { .. }
             | EngineCommand::TaskDetail { .. }
             | EngineCommand::TaskText { .. } => 512 * 1024,

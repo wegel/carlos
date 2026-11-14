@@ -58,6 +58,11 @@ impl SessionState {
         for activity in self.codex_panel.activities.values_mut() {
             activity.request = None;
         }
+        for read in self.codex_panel.runs.values_mut() {
+            read.request = None;
+            read.turn = None;
+            read.error = Some("Codex closed before the task run read was confirmed".into());
+        }
     }
     /// Install already validated reconnect task facts, retaining each native owner's identity.
     pub(crate) fn install_codex_panel(
