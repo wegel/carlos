@@ -5,6 +5,7 @@ use carlos_proto::session::OutputKind;
 use carlos_proto::source::SourceChunk;
 
 use crate::bodies::{OutputWindow, SourceWindow, BODY_BYTES};
+use crate::text_ranges::valid_utf8_start;
 use crate::ClientError;
 
 impl SourceWindow {
@@ -26,9 +27,7 @@ impl SourceWindow {
             return Ok(false);
         }
         let valid_start = if self.seek {
-            chunk.from.is_some()
-                && chunk.offset.get() <= self.end.get()
-                && self.end.get() - chunk.offset.get() <= 3
+            chunk.from.is_some() && valid_utf8_start(self.end, chunk.offset, &chunk.text)
         } else {
             chunk.from == self.next && chunk.offset == self.end
         };

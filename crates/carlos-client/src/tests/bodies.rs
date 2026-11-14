@@ -151,6 +151,57 @@ fn direct_seeks_accept_only_utf8_rounding_and_opening_another_window_retires_old
 }
 
 #[test]
+fn source_seeks_reject_backward_ranges_that_do_not_contain_the_requested_byte() {
+    for (offset, text, total) in [(2, "a", 100), (4, "a", 100), (3, "é", 100), (4, "", 4)] {
+        let mut cache = Bodies::default();
+        let token = cache
+            .seek_source(session(), entry_id(10), descriptor(100), ByteOffset::new(5))
+            .expect("source seek");
+        let chunk = source(offset, text, total, Some("seek-start"), "seek-next", 11);
+        assert_eq!(
+            cache.apply_source(&token, chunk),
+            Err(ClientError::InvalidBody),
+            "requested5, returned{offset},{text:?}"
+        );
+        let unchanged = cache
+            .source(&token)
+            .expect("rejected reply preserves the read");
+        assert_eq!(unchanged.start(), ByteOffset::new(5));
+        assert_eq!(unchanged.end(), ByteOffset::new(5));
+        assert!(
+            matches!(cache.request(&token).expect("retry the original seek"),
+            Command::SourceSeek { offset, .. } if offset.get() == 5)
+        );
+    }
+}
+
+#[test]
+fn source_seeks_keep_valid_emoji_rounding_and_exact_empty_eof() {
+    for (requested, offset, text, total) in [(5, 4, "🌍", 100), (100, 100, "", 100)] {
+        let mut cache = Bodies::default();
+        let token = cache
+            .seek_source(
+                session(),
+                entry_id(10),
+                descriptor(total),
+                ByteOffset::new(requested),
+            )
+            .expect("source seek");
+        cache
+            .apply_source(
+                &token,
+                source(offset, text, total, Some("seek-start"), "seek-next", 11),
+            )
+            .expect("actual UTF-8 floor or exact EOF");
+        let accepted = cache.source(&token).expect("accepted range");
+        assert_eq!(accepted.start(), ByteOffset::new(offset));
+        assert_eq!(accepted.end(), ByteOffset::new(offset + text.len() as u64));
+        assert_eq!(accepted.pieces().collect::<String>(), text);
+        assert_eq!(accepted.has_more(), offset + (text.len() as u64) < total);
+    }
+}
+
+#[test]
 fn a_large_source_keeps_a_bounded_exact_suffix_and_reports_the_discarded_byte_interval() {
     let mut cache = Bodies::default();
     let token = cache
