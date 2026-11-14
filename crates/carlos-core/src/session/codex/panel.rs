@@ -68,6 +68,7 @@ pub fn refresh(session: &mut SessionState, scope: PanelScope<'_>, older: bool) {
         "sortKey":"updated_at","sortDirection":"desc","limit":1,"cursor":cursor}),
     );
     session.codex_panel.snapshot = Some(Snapshot {
+        root: session.thread_id().clone(),
         request,
         started: Instant::now(),
         agents: Vec::new(),

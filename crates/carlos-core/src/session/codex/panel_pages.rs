@@ -4,6 +4,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
+use super::panel_lineage::belongs;
+pub use super::panel_lineage::parent;
 use super::panel_scope::{PanelScope, PanelUpdate};
 use super::panel_state::{Process, Snapshot, MAX_AGENTS, MAX_BYTES, MAX_PROCESSES};
 use crate::session::state::SessionState;
@@ -43,8 +45,8 @@ fn agents(
     let data = result["data"]
         .as_array()
         .ok_or("Malformed descendant page")?;
-    let root = session.thread_id.clone();
     let read = session.codex_panel.snapshot.as_mut().expect("panel read");
+    let root = read.root.clone();
     for agent in data {
         let id = valid_id(&agent["id"])?;
         if read.agents.len() >= MAX_AGENTS {
@@ -95,7 +97,7 @@ fn verify(
         .lineage
         .values()
         .flatten()
-        .find(|id| **id != session.thread_id && !read.lineage.contains_key(*id))
+        .find(|id| **id != read.root && !read.lineage.contains_key(*id))
         .cloned();
     if let Some(id) = missing {
         if read.checked.len() >= MAX_AGENTS {
@@ -116,7 +118,7 @@ fn verify(
         return Ok(());
     }
     let read = session.codex_panel.snapshot.as_mut().expect("panel read");
-    let root = session.thread_id.clone();
+    let root = read.root.clone();
     read.agents
         .retain(|agent| belongs(agent["id"].as_str().unwrap_or(""), &root, &read.lineage));
     read.scopes.push_back(root);
@@ -234,10 +236,13 @@ fn publish(
     update: &mut PanelUpdate,
     read: Snapshot,
 ) -> Result<(), String> {
+    if read.root != *session.thread_id() {
+        return Err("Task read belongs to a retired root; previous rows retained".into());
+    }
     let verified = read
         .lineage
         .keys()
-        .filter(|id| belongs(id, session.thread_id(), &read.lineage))
+        .filter(|id| belongs(id, &read.root, &read.lineage))
         .cloned();
     session.codex_panel.ownership =
         super::panel_state::VerifiedOwners::new(session.thread_id(), scope.native.epoch, verified)?;
@@ -262,44 +267,6 @@ fn publish(
     }
     super::task_status::panel_updated(session, scope);
     Ok(())
-}
-
-/// Trust positive subagent source/parent metadata, including all ancestors to the selected root.
-pub fn parent(thread: &Value) -> Option<String> {
-    thread["source"].get("subAgent")?;
-    let source = thread["source"]["subAgent"]["thread_spawn"]["parent_thread_id"].as_str();
-    let direct = thread["parentThreadId"].as_str();
-    if source
-        .zip(direct)
-        .is_some_and(|(left, right)| left != right)
-    {
-        return None;
-    }
-    direct
-        .or(source)
-        .filter(|id| !id.is_empty() && id.len() <= 4096)
-        .map(str::to_string)
-}
-
-fn belongs(
-    id: &str,
-    root: &str,
-    parents: &std::collections::HashMap<String, Option<String>>,
-) -> bool {
-    let mut current = id;
-    for _ in 0..MAX_AGENTS {
-        let Some(Some(parent)) = parents.get(current) else {
-            return false;
-        };
-        if parent == root {
-            return true;
-        }
-        if parent == id {
-            return false;
-        }
-        current = parent;
-    }
-    false
 }
 
 /// Accept bounded nonempty native IDs without deriving identity from labels.

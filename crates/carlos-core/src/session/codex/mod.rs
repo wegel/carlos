@@ -51,7 +51,10 @@ pub(crate) mod panel_activity;
 pub(crate) mod panel_events;
 #[cfg(test)]
 mod panel_interest_tests;
+mod panel_lineage;
 pub(crate) mod panel_pages;
+#[cfg(test)]
+mod panel_reader_tests;
 mod panel_reads;
 pub mod panel_receive;
 pub mod panel_scope;

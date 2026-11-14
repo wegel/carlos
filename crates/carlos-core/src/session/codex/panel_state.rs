@@ -115,6 +115,7 @@ pub struct Request {
 /// Publish descendant/process pages only after a complete bounded read succeeds.
 #[derive(Debug)]
 pub struct Snapshot {
+    pub(in crate::session) root: String,
     pub(in crate::session) request: Request,
     pub(in crate::session) started: Instant,
     pub(in crate::session) agents: Vec<Value>,
