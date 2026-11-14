@@ -167,3 +167,7 @@ mod socket_probe;
 #[cfg(test)]
 #[path = "transcript_large_probe.rs"]
 mod large_probe;
+
+#[cfg(test)]
+#[path = "transcript_ansi_pages.rs"]
+mod ansi_pages;

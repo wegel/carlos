@@ -8,9 +8,8 @@ use textwrap::{wrap as wrap_text, Options as WrapOptions, WordSplitter};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-use self::text_trailing::{
-    additional_lines_for_trailing_spaces, expand_tabs, preserve_trailing_spaces,
-};
+pub(super) use self::text_trailing::expand_tabs;
+use self::text_trailing::{additional_lines_for_trailing_spaces, preserve_trailing_spaces};
 
 const TAB_STOP: usize = 8;
 

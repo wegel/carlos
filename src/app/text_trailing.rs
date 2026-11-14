@@ -59,7 +59,7 @@ pub(super) fn additional_lines_for_trailing_spaces(
 
 // --- Tab Expansion ---
 
-pub(super) fn expand_tabs(text: &str) -> String {
+pub(in crate::app) fn expand_tabs(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut col = 0usize;
     for grapheme in text.graphemes(true) {

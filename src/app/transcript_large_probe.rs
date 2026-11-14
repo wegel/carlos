@@ -1,5 +1,8 @@
 //! Measure one prototype pinned original and the existing full-block formatter on real captures.
 
+#[path = "transcript_ansi_probe.rs"]
+mod ansi_probe;
+
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::mem::size_of;
@@ -18,7 +21,7 @@ use super::BlockBody;
 use crate::app::transcript_input::RenderInput;
 use crate::app::transcript_styles::RenderCountCache;
 use crate::app::view_models::{DisplayKind, RenderedLine, StyledSegment};
-use crate::clipboard::{clipboard_backend_label, try_copy_clipboard};
+use crate::clipboard::{clipboard_backend_label, try_copy_clipboard, ClipboardBackend};
 
 struct Capture {
     entry: Entry,
@@ -78,7 +81,7 @@ fn large_source_layout_probe() {
     let initial_capacity = capture.text.capacity();
     let append = append_samples(&mut capture, width, samples, &mut raster);
     let resize = resize_samples(&capture, samples, &mut raster);
-    let metrics = json!({"case":name,"width":width,"source_bytes":case["bytes"],
+    let metrics = json!({"run_id":std::env::var("CARLOS_LARGE_RUN_ID").ok(),"case":name,"width":width,"source_bytes":case["bytes"],
         "source_initial_capacity_bytes":initial_capacity,"source_final_capacity_bytes":capture.text.capacity(),
         "before":capture.before,"pinned":capture.pinned,"baseline":baseline.json(),
         "render_digest":digest,"clipboard":copy,"append":summarize(&append),"resize":summarize(&resize),
@@ -189,9 +192,14 @@ fn copy_original(capture: &Capture) -> Value {
     if std::env::var("CARLOS_LARGE_COPY").as_deref() != Ok("1") {
         return json!({"skipped":"set CARLOS_LARGE_COPY=1 only with a private clipboard shim"});
     }
+    let path = std::env::var("CARLOS_LARGE_COPY_PATH").expect("private clipboard output path");
     let started = Instant::now();
     let backend = try_copy_clipboard(&capture.text);
-    json!({"bytes":capture.text.len(),"ms":milliseconds(started),"backend":clipboard_backend_label(backend)})
+    assert!(
+        matches!(backend, ClipboardBackend::Program(_)),
+        "private clipboard program must succeed"
+    );
+    json!({"path":path,"bytes":capture.text.len(),"ms":milliseconds(started),"backend":clipboard_backend_label(backend)})
 }
 
 fn raster_capacity(lines: &[RenderedLine], capacity: usize) -> usize {

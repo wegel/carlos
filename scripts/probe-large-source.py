@@ -109,16 +109,23 @@ def main():
     parser.add_argument("--artifacts", type=Path, default=REPO / "target/large-source-probe")
     parser.add_argument("--case", choices=("ansi","markdown","both"), default="both")
     parser.add_argument("--mib", type=int, help="smaller smoke body; defaults to64MiB ANSI/16MiB Markdown")
+    parser.add_argument("--single-line", action="store_true", help="capture one unbroken ASCII ANSI token")
     args = parser.parse_args()
+    if args.single_line and args.case != "ansi":
+        parser.error("--single-line requires --case ansi")
     support.BINARY = args.binary.resolve()
     root = args.artifacts.resolve()
     root.mkdir(parents=True, exist_ok=True)
     support.ARTIFACTS = root / "daemon"
     cases = []
     if args.case in ("ansi","both"):
-        body = fill_body((args.mib or 64)*1024*1024, "\x1b[31m",
-                         "red " + "sample "*10 + "stays red\n", "large ansi tail stays red")
-        cases.append(capture(root,"ansi",body,True))
+        line, tail = ("x", "LONGTAIL") if args.single_line else (
+            "red " + "sample "*10 + "stays red\n", "large ansi tail stays red")
+        body = fill_body((args.mib or 64)*1024*1024, "\x1b[31m", line, tail)
+        case = capture(root,"ansi",body,True)
+        if args.single_line:
+            case["single_ascii_token"] = True
+        cases.append(case)
     if args.case in ("markdown","both"):
         body = fill_body((args.mib or 16)*1024*1024, "[ref]: https://example.test\n\n```text\n",
                          "**literal 🌍** [ref] " + "sample "*8 + "\n", "\n```\n\nLarge Markdown tail [link][ref]\n")
