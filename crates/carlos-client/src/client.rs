@@ -25,6 +25,10 @@ pub enum ReadReply {
     Goal(carlos_proto::goals::GoalSnapshot),
     Queue(carlos_proto::queue::QueuePage),
     QueueText(carlos_proto::queue::QueueText),
+    TaskPage(carlos_proto::tasks::TaskPage),
+    TaskDetail(carlos_proto::tasks::TaskDetail),
+    TaskText(carlos_proto::tasks::TaskText),
+    TaskRun(carlos_proto::tasks::TaskRunSnapshot),
     Source {
         session: SessionId,
         chunk: carlos_proto::source::SourceChunk,

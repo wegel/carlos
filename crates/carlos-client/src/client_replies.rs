@@ -75,6 +75,10 @@ impl Client {
                 ReadReply::Queue(self.queue_page_reply(session, expected, value)?)
             }
             Kind::QueueText(target) => ReadReply::QueueText(self.queue_text_reply(target, value)?),
+            Kind::TaskPage(target) => ReadReply::TaskPage(crate::tasks::page(target, value)?),
+            Kind::TaskDetail(target) => ReadReply::TaskDetail(crate::tasks::detail(target, value)?),
+            Kind::TaskText(target) => ReadReply::TaskText(crate::tasks::text(target, value)?),
+            Kind::TaskRun(target) => ReadReply::TaskRun(crate::tasks::run(target, value)?),
             Kind::Source(target) => return self.source_reply(serial, target, value, effects),
             Kind::Output(target) => return self.output_reply(serial, target, value, effects),
             Kind::Unit

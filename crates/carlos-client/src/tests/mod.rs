@@ -17,6 +17,7 @@ mod goal_watches;
 mod operations;
 mod queue;
 mod replica;
+mod tasks;
 mod windows;
 
 use carlos_proto::ids::{EntryId, Sequence, SessionId};

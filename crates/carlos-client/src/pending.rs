@@ -30,6 +30,10 @@ pub(crate) enum Kind {
         expected: Option<carlos_proto::ids::QueueRevision>,
     },
     QueueText(QueueTextTarget),
+    TaskPage(crate::tasks::TaskPageTarget),
+    TaskDetail(crate::tasks::TaskTarget),
+    TaskText(crate::tasks::TaskTextTarget),
+    TaskRun(crate::tasks::TaskRunTarget),
     Source(BodyTarget),
     Output(BodyTarget),
     BodyUnsubscribe {
@@ -175,6 +179,28 @@ pub(crate) fn read_kind(command: &Command) -> Result<Kind, ClientError> {
         Command::GoalRead { session, .. } => Kind::Goal(session.clone()),
         Command::GoalSubscribe { session } => Kind::GoalWatch(session.clone()),
         Command::GoalUnsubscribe { session } => Kind::GoalUnwatch(session.clone()),
+        queue @ (Command::QueueRead { .. } | Command::QueueText { .. }) => queue_kind(queue),
+        task @ (Command::TaskList { .. }
+        | Command::TaskDetail { .. }
+        | Command::TaskText { .. }
+        | Command::TaskRun { .. }) => crate::tasks::read_kind(task),
+        body @ (Command::Source { .. }
+        | Command::SourceSeek { .. }
+        | Command::SourceSubscribe { .. }
+        | Command::Output { .. }
+        | Command::OutputSubscribe { .. }
+        | Command::SourceUnsubscribe { .. }
+        | Command::OutputUnsubscribe { .. }) => body_kind(body),
+        _ => {
+            return Err(ClientError::InvalidPayload(
+                "use submit for mutations and begin for hello".into(),
+            ))
+        }
+    })
+}
+
+fn queue_kind(command: &Command) -> Kind {
+    match command {
         Command::QueueRead {
             session, expected, ..
         } => Kind::Queue {
@@ -193,19 +219,8 @@ pub(crate) fn read_kind(command: &Command) -> Result<Kind, ClientError> {
             entry: entry.clone(),
             offset: *offset,
         }),
-        body @ (Command::Source { .. }
-        | Command::SourceSeek { .. }
-        | Command::SourceSubscribe { .. }
-        | Command::Output { .. }
-        | Command::OutputSubscribe { .. }
-        | Command::SourceUnsubscribe { .. }
-        | Command::OutputUnsubscribe { .. }) => body_kind(body),
-        _ => {
-            return Err(ClientError::InvalidPayload(
-                "use submit for mutations and begin for hello".into(),
-            ))
-        }
-    })
+        _ => unreachable!("typed queue read"),
+    }
 }
 
 fn body_kind(command: &Command) -> Kind {

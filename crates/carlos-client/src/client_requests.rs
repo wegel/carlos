@@ -180,6 +180,9 @@ fn mutation(command: &Command) -> Option<(&ClientOperation, Option<&SessionId>)>
         }
         | Command::QueueChange {
             operation, session, ..
+        }
+        | Command::TaskStop {
+            operation, session, ..
         } => (operation, Some(session)),
         _ => return None,
     })

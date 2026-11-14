@@ -27,6 +27,7 @@ mod pending;
 mod queue;
 mod replica;
 mod rows;
+mod tasks;
 
 pub use bodies::{Bodies, BodyToken, OutputWindow, SourceWindow};
 pub use client::{Client, Effects, ReadReply, ReadResult, RequestFailure, SessionChanges};
