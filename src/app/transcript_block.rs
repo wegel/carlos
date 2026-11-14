@@ -4,7 +4,7 @@ use carlos_core::session::models::Message;
 use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
 
-use super::flow_transcript::{inline_reasoning, section_header_from_context, EntryContext};
+use super::flow_transcript::{section_header_from_context, EntryContext};
 use super::layout_state::TranscriptTheme;
 use super::tool_output_state::compact_tool_message;
 use super::tool_summary::{summary_lines, tool_failed, tool_gutter};
@@ -78,11 +78,17 @@ impl BlockPlan {
             plan.prefix.extend(tool_labels(display, width, flow));
         }
         let mut body = BlockBody::new(display, width);
-        if flow && inline_reasoning(original, width) {
+        if flow && original.role == Role::Reasoning && context.is_inline() {
             body.set_marker("◇", role_gutter_fg(Role::Reasoning));
         }
         plan.body = Some(body);
         plan
+    }
+
+    /// Move the small headings and body choices to a viewport formatter.
+    #[cfg(test)]
+    pub(super) fn into_parts(self) -> (Vec<RenderedLine>, Option<BlockBody>) {
+        (self.prefix, self.body)
     }
 
     /// Count the exact stored headings and body choices.

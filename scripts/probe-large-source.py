@@ -109,10 +109,10 @@ def main():
     parser.add_argument("--artifacts", type=Path, default=REPO / "target/large-source-probe")
     parser.add_argument("--case", choices=("ansi","markdown","markdown-rich","both"), default="both")
     parser.add_argument("--mib", type=int, help="smaller smoke body; defaults to64MiB ANSI/16MiB Markdown")
-    parser.add_argument("--single-line", action="store_true", help="capture one unbroken ASCII ANSI token")
+    parser.add_argument("--single-line", action="store_true", help="capture one long ANSI token or Markdown code line")
     args = parser.parse_args()
-    if args.single_line and args.case != "ansi":
-        parser.error("--single-line requires --case ansi")
+    if args.single_line and args.case not in ("ansi", "markdown"):
+        parser.error("--single-line requires --case ansi or markdown")
     support.BINARY = args.binary.resolve()
     root = args.artifacts.resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -127,9 +127,15 @@ def main():
             case["single_ascii_token"] = True
         cases.append(case)
     if args.case in ("markdown","both"):
-        body = fill_body((args.mib or 16)*1024*1024, "[ref]: https://example.test\n\n```text\n",
-                         "**literal 🌍** [ref] " + "sample "*8 + "\n", "\n```\n\nLarge Markdown tail [link][ref]\n")
-        cases.append(capture(root,"markdown",body,False))
+        if args.single_line:
+            body = fill_body((args.mib or 16)*1024*1024, "```text\n", "raw\t🌍 code trailing  ",
+                             "\n```\n\nLarge Markdown tail [link][ref]\n\n[ref]: https://example.test\n")
+        else:
+            body = fill_body((args.mib or 16)*1024*1024, "[ref]: https://example.test\n\n```text\n",
+                             "**literal 🌍** [ref] " + "sample "*8 + "\n", "\n```\n\nLarge Markdown tail [link][ref]\n")
+        case = capture(root,"markdown",body,False)
+        case["single_code_line"] = args.single_line
+        cases.append(case)
     if args.case == "markdown-rich":
         unit = ("# Heading 🌍\n\nParagraph **bold** *italic* [link][ref] `code` end.\n\n"
                 "- first\n  - nested 🙂\n\n> quoted **text** [link][ref]\n\n"

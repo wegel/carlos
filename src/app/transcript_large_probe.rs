@@ -1,7 +1,5 @@
 //! Measure one prototype pinned original and the existing full-block formatter on real captures.
 
-#[path = "accepted_source.rs"]
-mod accepted_source;
 #[path = "transcript_ansi_probe.rs"]
 mod ansi_probe;
 #[path = "transcript_markdown_probe.rs"]
@@ -20,7 +18,7 @@ use carlos_proto::session::Entry;
 use carlos_proto::source::{Source, SourceChunk};
 use serde_json::{json, Value};
 
-use self::accepted_source::SourcePiece;
+use super::accepted_source::SourcePiece;
 use super::socket_probe::fingerprint;
 use super::BlockBody;
 use crate::app::transcript_input::RenderInput;

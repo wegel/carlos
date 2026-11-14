@@ -16,8 +16,17 @@ pub(super) fn append_source_lines(
     text: &str,
     width: usize,
 ) -> bool {
-    if text.contains('\u{1b}') || text.contains('\u{009b}') {
+    let Some(lines) = source_logical_lines(path, text) else {
         return false;
+    };
+    append_wrapped_styled_logical_lines(out, Role::ToolOutput, lines, width);
+    true
+}
+
+/// Keep one highlighter's complete logical lines for bounded viewport painting.
+pub(super) fn source_logical_lines(path: &str, text: &str) -> Option<Vec<Vec<StyledSegment>>> {
+    if text.contains('\u{1b}') || text.contains('\u{009b}') {
+        return None;
     }
     let mut highlighter = SourceHighlighter::for_path(path);
     let lines = text
@@ -48,8 +57,7 @@ pub(super) fn append_source_lines(
             segments
         })
         .collect();
-    append_wrapped_styled_logical_lines(out, Role::ToolOutput, lines, width);
-    true
+    Some(lines)
 }
 
 /// Count source rows without parsing tokens or interpreting Markdown fences.

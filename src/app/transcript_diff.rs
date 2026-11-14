@@ -145,7 +145,8 @@ fn build_diff_transcript_line_segments(
 
 // --- Logical Lines ---
 
-fn diff_transcript_logical_lines(
+/// Reuse the complete hunk parser and source colors for whole or viewport painting.
+pub(super) fn diff_transcript_logical_lines(
     file_path: Option<&str>,
     diff: &str,
     highlight: bool,
@@ -274,7 +275,8 @@ pub(super) fn append_wrapped_diff_lines(
     }
 }
 
-fn diff_path_rendered_line(path: &str, role: Role) -> RenderedLine {
+/// Keep an unparsed diff's unwrapped path row separate from its tinted body.
+pub(super) fn diff_path_rendered_line(path: &str, role: Role) -> RenderedLine {
     RenderedLine {
         cells: visual_width(path),
         text: path.to_string(),

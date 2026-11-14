@@ -32,3 +32,32 @@ fn a_whole_markdown_document_keeps_late_references_tables_and_nested_constructs(
 fn rows(lines: &[RenderedLine]) -> Vec<String> {
     lines.iter().map(|line| format!("{line:?}")).collect()
 }
+
+#[test]
+fn long_paragraphs_and_code_lines_keep_exact_text_styles_and_wraps_for_both_markdown_roles() {
+    let paragraph = "**styled** [link][ref] 界e\u{301}🙂 words\t ".repeat(750);
+    let code = "```text\n".to_owned() + &"raw\t🌍 text trailing  ".repeat(1100) + "\n```\n";
+    let cases = [paragraph + "\n\n[ref]: https://example.test\n", code];
+    for role in [Role::Assistant, Role::Reasoning] {
+        for source in &cases {
+            for width in [8, 28, 120] {
+                let mut expected = Vec::new();
+                append_wrapped_markdown_lines(&mut expected, role, source, width);
+                let mut document = DocumentFrame::parse_role(role, source, width);
+                document.index();
+                assert!(
+                    !document.long.is_empty(),
+                    "exercise saved within-line ranges"
+                );
+                assert_eq!(document.rows(), expected.len(), "{role:?}/{width}");
+                for start in (0..expected.len()).step_by(43) {
+                    assert_eq!(
+                        rows(&document.window(start, 57)),
+                        rows(&expected[start..(start + 57).min(expected.len())]),
+                        "{role:?}/{width}/{start}"
+                    );
+                }
+            }
+        }
+    }
+}

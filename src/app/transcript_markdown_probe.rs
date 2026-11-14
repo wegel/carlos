@@ -1,19 +1,16 @@
 //! Compare whole Markdown parse/index storage with the complete-raster baseline on real captures.
 
-#[path = "transcript_markdown_document.rs"]
-mod document;
-
 use std::path::Path;
 use std::time::Instant;
 
 use carlos_core::session::models::Role;
 use serde_json::{json, Value};
 
-use self::document::DocumentFrame;
 use super::{
     copy_original, hydrate, load_json, memory, milliseconds, raster_capacity, setting,
     summarize_values,
 };
+use crate::app::transcript_body::document::DocumentFrame;
 use crate::app::transcript_input::RenderInput;
 
 #[test]

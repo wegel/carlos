@@ -6,7 +6,9 @@ use carlos_core::session::models::{Message, Role};
 
 use super::flow_transcript::EntryContext;
 use super::layout_state::TranscriptTheme;
-use super::render_entry_cache::{EntryMemos, PreparedRow, RenderKey, RowFormat, RowSource};
+use super::render_entry_cache::{
+    EntryMemos, PaintedRows, PreparedRow, RenderKey, RowFormat, RowSource,
+};
 use super::transcript_block::plan_display_block;
 use super::transcript_input::RenderInput;
 use super::transcript_styles::RenderCountCache;
@@ -18,6 +20,15 @@ pub(super) trait TranscriptSource {
     fn row(&self, index: usize) -> Option<RowSource<'_>>;
     fn input(&self, index: usize) -> Option<RenderInput<'_>> {
         self.row(index)?.input
+    }
+    /// Lend a checked formatter result when the original lives outside the input thread.
+    fn prepared(
+        &self,
+        _index: usize,
+        _format: RowFormat,
+        _previous: Option<EntryContext>,
+    ) -> Option<PreparedRow> {
+        None
     }
 }
 
@@ -40,7 +51,7 @@ impl TranscriptSource for [Message] {
 struct IndexedRow {
     start: usize,
     count: usize,
-    lines: Option<Arc<Vec<RenderedLine>>>,
+    lines: Option<PaintedRows>,
     context: EntryContext,
     loading: bool,
 }
@@ -54,6 +65,17 @@ impl IndexedRow {
             context: row.context,
             loading: row.loading,
         }
+    }
+
+    fn needs_rows(&self, first: usize, last: usize) -> bool {
+        self.count > 0
+            && (self.loading
+                || self.lines.as_ref().is_none_or(|lines| {
+                    !lines.covers(
+                        first.saturating_sub(self.start),
+                        last.saturating_sub(self.start).min(self.count - 1),
+                    )
+                }))
     }
 }
 
@@ -191,9 +213,14 @@ impl RenderCacheState {
                 theme: self.format.theme,
                 hidden: self.format.hidden == Some(index) && row.facts.role == Role::User,
             };
-            let row = self
-                .entries
-                .prepare(row, format, previous, &mut cache, &mut retired);
+            let row = self.entries.prepare(
+                row,
+                format,
+                previous,
+                source.prepared(index, format, previous),
+                &mut cache,
+                &mut retired,
+            );
             if row.count > 0 {
                 previous = Some(row.context);
             }
@@ -214,13 +241,14 @@ impl RenderCacheState {
     }
     /// Count materialized rows for active-step painting.
     pub(super) fn block_len(&self, index: usize) -> Option<usize> {
-        Some(self.rows.get(index)?.lines.as_ref()?.len())
+        let row = self.rows.get(index)?;
+        row.lines.as_ref().map(|_| row.count)
     }
     /// Determine whether visible rows still need original source for this layout.
-    pub(super) fn needs_source(&self, index: usize) -> bool {
+    pub(super) fn needs_source(&self, index: usize, first: usize, last: usize) -> bool {
         self.rows
             .get(index)
-            .is_some_and(|row| row.count > 0 && (row.loading || row.lines.is_none()))
+            .is_some_and(|row| row.needs_rows(first, last))
     }
     /// Report a visible loading state while keeping the entry's estimated or last-known height.
     pub(super) fn has_loading_rows(&self, start: usize, end: usize) -> bool {
@@ -233,7 +261,7 @@ impl RenderCacheState {
             .map_or(first, |(index, _)| index);
         self.rows
             .get(first..=last)
-            .is_some_and(|rows| rows.iter().any(|row| row.loading && row.count > 0))
+            .is_some_and(|rows| rows.iter().any(|row| row.needs_rows(start, end)))
     }
 
     pub(super) fn rendered_line_count(&self) -> usize {
@@ -251,9 +279,7 @@ impl RenderCacheState {
         self.rows
             .get(index)
             .and_then(|row| row.lines.as_ref())
-            .map_or(0, |lines| {
-                lines.iter().take_while(|line| line.separator).count()
-            })
+            .map_or(0, PaintedRows::first_content_row)
     }
     /// Locate a chronological entry and row against the current prefix sums.
     pub(super) fn message_anchor(&self, line: usize) -> Option<(usize, usize)> {
@@ -309,7 +335,7 @@ impl RenderCacheState {
         };
         let lines = Arc::new(plan.render_input(input));
         debug_assert_eq!(lines.len(), row.count);
-        row.lines = Some(lines.clone());
+        row.lines = Some(PaintedRows::whole(lines.clone()));
         self.entries.painted(index, lines);
     }
 
@@ -321,7 +347,7 @@ impl RenderCacheState {
         self.rows
             .iter()
             .filter_map(|row| row.lines.as_ref())
-            .flat_map(|lines| lines.iter().cloned())
+            .flat_map(|lines| lines.retained().cloned())
             .collect()
     }
 }
@@ -346,3 +372,7 @@ impl super::selection::RenderedLineSource for RenderCacheState {
         self.rendered_line_at(index)
     }
 }
+
+#[cfg(test)]
+#[path = "render_row_window_tests.rs"]
+mod window_tests;

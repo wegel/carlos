@@ -42,7 +42,8 @@ fn contains_terminal_escapes(text: &str) -> bool {
     text.contains('\u{1b}') || text.contains('\u{009b}')
 }
 
-fn fast_reasoning_summary_plain_text(line: &str) -> Option<&str> {
+/// Keep the legacy reasoning counter's exact strong-summary shortcut available to row predicates.
+pub(super) fn fast_reasoning_summary_plain_text(line: &str) -> Option<&str> {
     let inner = line.strip_prefix("**")?.strip_suffix("**")?;
     if inner.is_empty() || inner.contains("**") {
         return None;
@@ -238,6 +239,16 @@ pub(super) fn append_wrapped_markdown_lines(
         return;
     }
 
+    let logical_lines = markdown_logical_lines(role, text, width);
+    append_styled_logical_lines_inner(out, role, logical_lines, width);
+}
+
+/// Share complete parsed spans with a formatter that retains only requested painted rows.
+pub(super) fn markdown_logical_lines(
+    role: Role,
+    text: &str,
+    width: usize,
+) -> Vec<Vec<StyledSegment>> {
     let mut logical_lines = if matches!(role, Role::Reasoning) {
         reasoning_markdown_lines(text, width)
     } else {
@@ -252,7 +263,7 @@ pub(super) fn append_wrapped_markdown_lines(
                 .add_modifier(Modifier::ITALIC);
         }
     }
-    append_styled_logical_lines_inner(out, role, logical_lines, width);
+    logical_lines
 }
 
 fn reasoning_markdown_lines(text: &str, width: usize) -> Vec<Vec<StyledSegment>> {

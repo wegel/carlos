@@ -83,7 +83,7 @@ impl Device {
             );
             self.reading.wanted.extend(
                 (start..=end)
-                    .filter(|index| cache.needs_source(*index))
+                    .filter(|index| cache.needs_source(*index, first, last))
                     .filter_map(|index| replica.entry_at(index).map(|entry| entry.id.clone())),
             );
         }

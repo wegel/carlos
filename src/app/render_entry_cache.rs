@@ -1,5 +1,10 @@
 //! Retain entry layouts independently of source-window residency and chronological position.
 
+#[path = "render_row_window.rs"]
+mod window;
+
+pub(super) use self::window::PaintedRows;
+
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
@@ -45,7 +50,7 @@ pub(super) struct RowFormat {
 #[derive(Clone)]
 pub(super) struct PreparedRow {
     pub count: usize,
-    pub lines: Option<Arc<Vec<RenderedLine>>>,
+    pub lines: Option<PaintedRows>,
     pub context: EntryContext,
     pub loading: bool,
 }
@@ -137,11 +142,22 @@ impl EntryMemos {
         source: RowSource<'a>,
         format: RowFormat,
         previous: Option<EntryContext>,
+        prepared: Option<PreparedRow>,
         cache: &mut RenderCountCache<'a>,
         reused: &mut ReusedEntries,
     ) -> PreparedRow {
         let mut memo = reused.take(&source.key);
-        let row = if let Some(input) = source.input {
+        let row = if let Some(row) = prepared {
+            memo = Some(EntryMemo {
+                plan: None,
+                generation: source.generation,
+                format,
+                previous,
+                row: row.clone(),
+                stale: false,
+            });
+            row
+        } else if let Some(input) = source.input {
             if memo.as_ref().is_none_or(|memo| {
                 memo.stale
                     || memo.format != format
@@ -188,7 +204,7 @@ impl EntryMemos {
 
     pub fn painted(&mut self, index: usize, lines: Arc<Vec<RenderedLine>>) {
         if let Some(entry) = self.entries.get_mut(index) {
-            entry.memo.row.lines = Some(lines);
+            entry.memo.row.lines = Some(PaintedRows::whole(lines));
         }
     }
 }
@@ -283,13 +299,13 @@ fn missing_row(
     }
 }
 
-fn loading_lines(facts: RenderInput<'_>, width: usize) -> Arc<Vec<RenderedLine>> {
+fn loading_lines(facts: RenderInput<'_>, width: usize) -> PaintedRows {
     let text = match facts.label {
         Some(label) => format!("{label} · loading source…"),
         None => "Loading original text…".into(),
     };
     let text = slice_by_cells(&text, 0, width);
-    Arc::new(vec![RenderedLine {
+    PaintedRows::whole(Arc::new(vec![RenderedLine {
         cells: visual_width(&text),
         text: text.clone(),
         role: facts.role,
@@ -299,5 +315,5 @@ fn loading_lines(facts: RenderInput<'_>, width: usize) -> Arc<Vec<RenderedLine>>
         }],
         separator: false,
         soft_wrap_to_next: false,
-    }])
+    }]))
 }

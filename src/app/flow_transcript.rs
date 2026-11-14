@@ -93,6 +93,11 @@ impl EntryContext {
     pub(super) fn separates(self, next: Self) -> bool {
         !(self.inline && next.inline)
     }
+
+    /// Reuse the source-dependent choice already counted for this width and theme.
+    pub(super) fn is_inline(self) -> bool {
+        self.inline
+    }
 }
 
 fn section(message: RenderInput<'_>) -> Section {
