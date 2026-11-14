@@ -3,6 +3,9 @@
 #[path = "text_trailing.rs"]
 mod text_trailing;
 
+#[path = "text_pages.rs"]
+pub(super) mod pages;
+
 use textwrap::word_splitters::split_words;
 use textwrap::{wrap as wrap_text, Options as WrapOptions, WordSplitter};
 use unicode_segmentation::UnicodeSegmentation;

@@ -29,25 +29,33 @@ pub(in crate::app) fn visit_ranges(
 }
 
 /// Use the same complete-line word wrapping as the terminal's existing formatter.
-pub(super) fn visit_rows(text: &str, width: usize, visit: impl FnMut(usize, &str)) -> usize {
+pub(in crate::app) fn visit_rows(
+    text: &str,
+    width: usize,
+    visit: impl FnMut(usize, &str),
+) -> usize {
     visit_rows_inner(text, width, visit, true)
 }
 
 /// Keep the previous public wrap path available for isolated allocation diagnostics.
 #[cfg(test)]
-pub(super) fn visit_legacy_rows(text: &str, width: usize, visit: impl FnMut(usize, &str)) -> usize {
+pub(in crate::app) fn visit_legacy_rows(
+    text: &str,
+    width: usize,
+    visit: impl FnMut(usize, &str),
+) -> usize {
     visit_rows_inner(text, width, visit, false)
 }
 
 /// Measure the private compact record without exposing its fields to formatter callers.
 #[cfg(test)]
-pub(super) fn compact_word_bytes() -> usize {
+pub(in crate::app) fn compact_word_bytes() -> usize {
     std::mem::size_of::<optimal::CompactWord>()
 }
 
 /// Measure the exceptional compact record without exposing its fields.
 #[cfg(test)]
-pub(super) fn wide_word_bytes() -> usize {
+pub(in crate::app) fn wide_word_bytes() -> usize {
     std::mem::size_of::<optimal::WideWord>()
 }
 
@@ -95,7 +103,7 @@ fn visit_rows_inner(
 }
 
 /// Apply the old grapheme rule after the caller has ruled out an ASCII suffix.
-pub(super) fn unicode_cut(text: &str, width: usize) -> usize {
+pub(in crate::app) fn unicode_cut(text: &str, width: usize) -> usize {
     if width > 0
         && text.len() > width
         && text.as_bytes()[..=width]

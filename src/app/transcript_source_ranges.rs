@@ -1,5 +1,6 @@
 //! Rebuild requested text from original spans and sparse tab positions.
 
+#[cfg(test)]
 use std::mem::size_of;
 use std::ops::Range;
 
@@ -96,6 +97,7 @@ impl SourceRanges {
     }
 
     /// Include every retained span and tab slot in the caller's metadata measurement.
+    #[cfg(test)]
     pub fn capacity_bytes(&self) -> usize {
         self.runs.capacity() * size_of::<Run>() + self.tabs.capacity() * size_of::<Tab>()
     }

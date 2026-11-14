@@ -10,10 +10,6 @@ mod long_line;
 mod seed;
 #[path = "transcript_segment_cursor.rs"]
 mod segment_cursor;
-#[path = "transcript_source_ranges.rs"]
-mod source_ranges;
-#[path = "transcript_text_window.rs"]
-mod text_window;
 
 #[path = "transcript_plain_pages.rs"]
 pub(super) mod plain;
@@ -30,6 +26,7 @@ use self::long_line::LongLine;
 pub(in crate::app) use self::segment_cursor::SegmentCursor;
 pub(in crate::app) use self::source_ranges::SourceRanges;
 pub(in crate::app) use self::text_window::visit_ranges;
+use crate::app::text::pages::{source_ranges, text_window};
 use crate::app::view_models::RenderedLine;
 
 const BATCH_BYTES: usize = 16 * 1024;
