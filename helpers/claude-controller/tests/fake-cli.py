@@ -88,6 +88,9 @@ def handle_prompt(message):
     if text == "park-usage":
         HANG_USAGE = True
         return
+    if text.startswith("task-run:"):
+        emit({"type": "system", "session_id": SESSION, **json.loads(text[9:])})
+        return
     if text.startswith("form:"):
         callback("form", {"subtype": "elicitation", "mcp_server_name": "test-server", "message": "Answer the form",
             "mode": "form", "requested_schema": json.loads(text[5:])})

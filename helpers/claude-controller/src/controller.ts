@@ -11,6 +11,7 @@ import { object, parseEffort, parseMode, parsePrompt, parseRequest, parseStart,
 import { officialQuery, startQuery, type QueryFactory } from "./sdk";
 import { Sessions } from "./sessions";
 import { RecentIds } from "./recent-ids";
+import { TaskRuns } from "./task-runs";
 
 export class Controller {
   private input = new InputQueue<SDKUserMessage>();
@@ -24,11 +25,13 @@ export class Controller {
   private closed = new AbortController();
   private native: NativeOutput;
   private sessions = new Sessions(this.closed.signal);
+  private taskRuns = new TaskRuns();
 
   constructor(private output: OutputSink, private factory: QueryFactory = officialQuery,
     private onClosed: (reason: string) => void = () => {}) {
     this.callbacks = new Callbacks((frame) => output.enqueue(frame));
     this.native = new NativeOutput((error) => this.fail(error));
+    this.native.observeFrames((message) => this.taskRuns.observe(message));
   }
 
   async receive(line: string): Promise<void> {
@@ -86,6 +89,7 @@ export class Controller {
       case "prompt": return this.prompt(params);
       case "task.stop": {
         const taskId = string(params.taskId, "taskId");
+        this.taskRuns.require(taskId, params.runId);
         await query.stopTask(taskId);
         return { taskId, stopRequested: true };
       }

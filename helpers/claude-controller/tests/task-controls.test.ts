@@ -19,6 +19,33 @@ test("per-task stop is declared explicitly and acknowledgements do not fabricate
   expect(peer.frames.some(frame => frame.message?.subtype === "task_notification")).toBe(false);
 });
 
+test("guarded task stops reject replaced and ended runs before the real SDK writes native controls", async () => {
+  const peer = await Peer.create(process.env.CARLOS_CONTROLLER_TEST_EXECUTABLE); peers.push(peer);
+  await peer.start({ perTaskStopAffordance: true });
+  async function edge(run: string, ended = false) {
+    await peer.prompt("task-run:" + JSON.stringify({ subtype: ended ? "task_notification" : "task_started",
+      task_id: "guarded-child", run_id: run, description: "Guarded child", status: ended ? "stopped" : "running",
+      summary: "Stopped", output_file: "/tmp/guarded-child" }));
+    await peer.wait(frame => frame.message?.run_id === run && frame.message?.subtype === (ended ? "task_notification" : "task_started"));
+  }
+  await edge("a");
+  expect((await peer.send("task.stop", { taskId: "guarded-child", runId: "a" })).ok).toBe(true);
+  await edge("b");
+  const stale = await peer.send("task.stop", { taskId: "guarded-child", runId: "a" });
+  expect((await peer.cliFrames()).filter(frame => frame.request?.subtype === "stop_task")).toHaveLength(1);
+  expect(stale.ok).toBe(false);
+  expect(stale.error.code).toBe("stale_task_run");
+  expect((await peer.send("task.stop", { taskId: "guarded-child", runId: "b" })).ok).toBe(true);
+  await edge("b", true);
+  expect((await peer.send("task.stop", { taskId: "guarded-child", runId: "b" })).error.code).toBe("stale_task_run");
+  expect((await peer.send("task.stop", { taskId: "unknown-task", runId: "unknown" })).error.code).toBe("stale_task_run");
+  expect((await peer.send("context")).ok).toBe(true);
+  const stops = (await peer.cliFrames()).filter(frame => frame.request?.subtype === "stop_task");
+  expect(stops.map(frame => frame.request.task_id)).toEqual(["guarded-child", "guarded-child"]);
+  await edge("c");
+  expect((await peer.send("task.stop", { taskId: "guarded-child", runId: "c" })).ok).toBe(true);
+});
+
 test("optional usage skips transcript behavior scans and keeps percent units and model buckets", async () => {
   const peer = await Peer.create(process.env.CARLOS_CONTROLLER_TEST_EXECUTABLE); peers.push(peer);
   await peer.start();

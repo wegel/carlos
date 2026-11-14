@@ -16,6 +16,7 @@ export class NativeOutput extends Transform {
   private unread: number[] = [];
   private unreadBytes = 0;
   private child?: ChildProcessWithoutNullStreams;
+  private observer?: (message: unknown) => void;
 
   constructor(private onFailure: (error: OutputError) => void,
     private frameLimit = NATIVE_FRAME_LIMIT, private backlogLimit = NATIVE_BACKLOG_LIMIT,
@@ -46,6 +47,9 @@ export class NativeOutput extends Transform {
 
   get pendingBytes(): number { return this.unreadBytes; }
   get pendingEvents(): number { return this.unread.length; }
+
+  /** Observe an already parsed native frame before it can wait in the SDK's event queue. */
+  observeFrames(observer: (message: unknown) => void): void { this.observer = observer; }
 
   override _transform(chunk: Buffer, _encoding: BufferEncoding, done: TransformCallback): void {
     try {
@@ -79,23 +83,31 @@ export class NativeOutput extends Transform {
 
   private forward(): void {
     const line = Buffer.concat(this.parts, this.partialBytes);
-    if (isQueuedEvent(line)) {
+    const message = parseMessage(line);
+    if (isQueuedEvent(message)) {
       if (this.unreadBytes + line.length > this.backlogLimit || this.unread.length >= this.eventLimit) {
         throw new OutputError("native_backlog_overflow", "Native CLI exceeded the unread SDK event budget");
       }
       this.unread.push(line.length);
       this.unreadBytes += line.length;
     }
+    this.observer?.(message);
     this.parts = [];
     this.partialBytes = 0;
     this.push(line);
   }
 }
 
-function isQueuedEvent(line: Buffer): boolean {
+function parseMessage(line: Buffer): unknown {
   try {
-    const message = JSON.parse(line.toString("utf8"));
-    if (["control_request", "control_response", "control_cancel_request", "keep_alive", "transcript_mirror"].includes(message.type)) return false;
-    return !(message.type === "system" && message.subtype === "session_state_changed" && message.sdk_host_only === true);
-  } catch { return false; } // Let the SDK report malformed native JSON.
+    return JSON.parse(line.toString("utf8"));
+  } catch { return undefined; } // Let the SDK report malformed native JSON.
+}
+
+function isQueuedEvent(message: unknown): boolean {
+  if (message === undefined || message === null) return false;
+  if (typeof message !== "object") return true;
+  const frame = message as Record<string, unknown>;
+  if (typeof frame.type === "string" && ["control_request", "control_response", "control_cancel_request", "keep_alive", "transcript_mirror"].includes(frame.type)) return false;
+  return !(frame.type === "system" && frame.subtype === "session_state_changed" && frame.sdk_host_only === true);
 }
