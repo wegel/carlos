@@ -5,8 +5,10 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
+pub use super::panel_reads::details;
+use super::panel_reads::{expire, timeout};
 use super::panel_scope::{PanelScope, PanelUpdate};
-use super::panel_state::{Activity, PanelId, Request, Snapshot, Stop};
+use super::panel_state::{PanelId, Request, Snapshot, Stop};
 use crate::backend::BackendClient;
 use crate::session::state::SessionState;
 
@@ -84,63 +86,6 @@ pub fn refresh(session: &mut SessionState, scope: PanelScope<'_>, older: bool) {
     session.codex_panel.notice = "Reading agents and background processes…".into();
 }
 
-/// Inspect a selected child without resuming it or changing its model or history.
-pub fn details(
-    session: &mut SessionState,
-    scope: PanelScope<'_>,
-    update: &mut PanelUpdate,
-    older: bool,
-) {
-    let Some(PanelId::Agent(thread)) = scope.selected.cloned() else {
-        return;
-    };
-    if !session.codex_panel.contains_target(scope.selected) {
-        return;
-    }
-    if !older
-        || session
-            .codex_panel
-            .activity
-            .as_ref()
-            .is_none_or(|activity| activity.thread != thread)
-    {
-        session.codex_panel.activity = Some(Activity {
-            thread: thread.clone(),
-            request: None,
-            started: Instant::now(),
-            items: Vec::new(),
-            cursor: Value::Null,
-            cursors: HashSet::new(),
-            bytes: 0,
-            tail: String::new(),
-            error: None,
-            more: true,
-            until: 20,
-        });
-    }
-    let activity = session
-        .codex_panel
-        .activity
-        .as_mut()
-        .expect("selected activity");
-    if activity.request.is_some() || !activity.more || activity.items.len() >= 128 {
-        return;
-    }
-    activity.started = Instant::now();
-    activity.until = (activity.items.len() + 20).min(128);
-    let params =
-        json!({"threadId":thread,"sortDirection":"desc","limit":1,"cursor":activity.cursor});
-    let request = request(session, "thread/items/list", params);
-    session
-        .codex_panel
-        .activity
-        .as_mut()
-        .expect("selected activity")
-        .request = Some(request);
-    update.detail = true;
-    update.reset_scroll = true;
-}
-
 /// Stop only a currently selected verified native identity; never redirect a vanished selection.
 pub fn stop(session: &mut SessionState, scope: PanelScope<'_>) {
     if scope.native.closed || session.codex_panel.stop.is_some() {
@@ -176,27 +121,30 @@ pub fn stop(session: &mut SessionState, scope: PanelScope<'_>) {
 
 /// Queue one bounded operation with a caller-owned token that never reaches native parameters.
 pub fn request(session: &mut SessionState, method: &str, params: Value) -> Request {
-    let tokens = [
+    let mut tokens: Vec<_> = session
+        .codex_panel
+        .activities
+        .values()
+        .filter_map(|activity| activity.request.as_ref().map(|request| request.token))
+        .collect();
+    tokens.extend(
         session
             .codex_panel
             .snapshot
             .as_ref()
             .map(|read| read.request.token),
-        session
-            .codex_panel
-            .activity
-            .as_ref()
-            .and_then(|activity| activity.request.as_ref().map(|request| request.token)),
+    );
+    tokens.extend(
         session
             .codex_panel
             .stop
             .as_ref()
             .map(|stop| stop.request.token),
-    ];
+    );
     session
         .codex_panel
         .outgoing
-        .retain(|request| tokens.contains(&Some(request.token)));
+        .retain(|request| tokens.contains(&request.token));
     session.advance_codex_serial();
     let request = Request {
         token: session.codex_serial(),
@@ -218,67 +166,6 @@ pub(crate) fn continue_read(
     request
 }
 
-fn timeout(session: &SessionState, request: &Request) -> u64 {
-    let started = session
-        .codex_panel
-        .snapshot
-        .as_ref()
-        .filter(|read| read.request.token == request.token)
-        .map(|read| read.started)
-        .or_else(|| {
-            session
-                .codex_panel
-                .activity
-                .as_ref()
-                .filter(|activity| {
-                    activity
-                        .request
-                        .as_ref()
-                        .is_some_and(|pending| pending.token == request.token)
-                })
-                .map(|activity| activity.started)
-        });
-    if let Some(started) = started {
-        return Duration::from_secs(20)
-            .saturating_sub(started.elapsed())
-            .as_millis()
-            .clamp(1, 5000) as u64;
-    }
-    if crate::protocol::is_read_only(&request.method) {
-        5000
-    } else {
-        15000
-    }
-}
-
-fn expire(session: &mut SessionState) -> bool {
-    let mut expired = Vec::new();
-    if let Some(read) = session
-        .codex_panel
-        .snapshot
-        .as_ref()
-        .filter(|read| read.started.elapsed() >= Duration::from_secs(20))
-    {
-        expired.push(read.request.token);
-        session.codex_panel.snapshot = None;
-        session.codex_panel.error =
-            Some("Panel refresh exceeded20 seconds; previous rows retained".into());
-        session.codex_panel.refreshed = Some(Instant::now());
-    }
-    if let Some(activity) = session.codex_panel.activity.as_mut().filter(|activity| {
-        activity.request.is_some() && activity.started.elapsed() >= Duration::from_secs(20)
-    }) {
-        expired.push(activity.request.take().expect("expired child read").token);
-        activity.error =
-            Some("Child read exceeded20 seconds; retained items remain available".into());
-    }
-    session
-        .codex_panel
-        .outgoing
-        .retain(|request| !expired.contains(&request.token));
-    !expired.is_empty()
-}
-
 /// Wake an idle UI for periodic F2 reads and original read deadlines without polling hidden views.
 pub fn wait(session: &SessionState, scope: PanelScope<'_>, now: Instant) -> Option<Duration> {
     if !scope.native.enabled || scope.native.closed {
@@ -290,8 +177,8 @@ pub fn wait(session: &SessionState, scope: PanelScope<'_>, now: Instant) -> Opti
         .as_ref()
         .map(|read| (read.started + Duration::from_secs(20)).saturating_duration_since(now));
     let activity = panel
-        .activity
-        .as_ref()
+        .activities
+        .values()
         .filter(|activity| activity.request.is_some())
         .map(|activity| {
             (activity.started + Duration::from_secs(20)).saturating_duration_since(now)

@@ -103,12 +103,7 @@ fn agent(app: &AppState, id: &str, lines: &mut Vec<String>) {
 }
 
 fn activity(app: &AppState, id: &str, lines: &mut Vec<String>) {
-    let Some(activity) = app
-        .session
-        .codex_panel()
-        .activity()
-        .filter(|activity| activity.thread() == id)
-    else {
+    let Some(activity) = app.session.codex_panel().activity_for(id) else {
         return;
     };
     if let Some(error) = activity.error() {

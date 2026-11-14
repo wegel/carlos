@@ -37,17 +37,17 @@ pub fn reply(
         stop_reply(session, scope, update, &params["response"]);
     } else if let Some(request) = session
         .codex_panel
-        .activity
-        .as_ref()
-        .and_then(|activity| activity.request.as_ref())
+        .child_request(params["requestContext"]["token"].as_u64())
         .filter(|request| matches(request))
         .cloned()
     {
         if let Some(error) = params["response"].get("error") {
             failed(session, scope, update, &request, &error_text(error));
-        } else if let Err(error) =
-            super::panel_activity::page(session, &params["response"]["result"])
-        {
+        } else if let Err(error) = super::panel_activity::page(
+            session,
+            request.params["threadId"].as_str().expect("child target"),
+            &params["response"]["result"],
+        ) {
             failed(session, scope, update, &request, &error);
         }
     } else if let Some(request) = session
@@ -91,12 +91,7 @@ pub fn failed(
         if scope.visible {
             super::panel::refresh(session, scope, false);
         }
-    } else if let Some(activity) = session.codex_panel.activity.as_mut().filter(|activity| {
-        activity
-            .request
-            .as_ref()
-            .is_some_and(|pending| pending.token == request.token)
-    }) {
+    } else if let Some(activity) = session.codex_panel.child_read_mut(request.token) {
         activity.request = None;
         activity.error = Some(message);
     } else if session

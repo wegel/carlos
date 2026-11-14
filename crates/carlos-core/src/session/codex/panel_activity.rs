@@ -8,12 +8,13 @@ use super::panel_state::MAX_BYTES;
 use crate::session::state::SessionState;
 
 /// Append older native items without pretending a bounded window contains every message.
-pub fn page(session: &mut SessionState, result: &Value) -> Result<(), String> {
+pub fn page(session: &mut SessionState, thread: &str, result: &Value) -> Result<(), String> {
+    let other_bytes = retained_bytes(session, Some(thread));
     let activity = session
         .codex_panel
-        .activity
-        .as_mut()
-        .ok_or("No selected child read")?;
+        .activities
+        .get_mut(thread)
+        .ok_or("No addressed child read")?;
     if activity.started.elapsed() > Duration::from_secs(20) {
         return Err("Child read exceeded 20 seconds".into());
     }
@@ -21,7 +22,13 @@ pub fn page(session: &mut SessionState, result: &Value) -> Result<(), String> {
         .as_array()
         .ok_or("Malformed child item page")?;
     let bytes = result.to_string().len();
-    if activity.bytes.saturating_add(bytes) > MAX_BYTES || activity.items.len() + data.len() > 128 {
+    if other_bytes
+        .saturating_add(activity.bytes)
+        .saturating_add(activity.tail.len())
+        .saturating_add(bytes)
+        > MAX_BYTES
+        || activity.items.len() + data.len() > 128
+    {
         return Err("Child view reached its 8 MiB/128-item bound; r reloads latest".into());
     }
     for entry in data {
@@ -47,8 +54,8 @@ pub fn page(session: &mut SessionState, result: &Value) -> Result<(), String> {
         let request = super::panel::continue_read(session, request, cursor);
         session
             .codex_panel
-            .activity
-            .as_mut()
+            .activities
+            .get_mut(thread)
             .expect("child view")
             .request = Some(request);
     } else {
@@ -59,12 +66,11 @@ pub fn page(session: &mut SessionState, result: &Value) -> Result<(), String> {
 
 /// Capture only the selected verified child; no unbounded per-agent renderer or cursor exists.
 pub fn event(session: &mut SessionState, method: &str, params: &Value) {
-    let Some(activity) = session
-        .codex_panel
-        .activity
-        .as_mut()
-        .filter(|activity| params["threadId"] == activity.thread)
-    else {
+    let Some(thread) = params["threadId"].as_str() else {
+        return;
+    };
+    let other_bytes = retained_bytes(session, Some(thread));
+    let Some(activity) = session.codex_panel.activities.get_mut(thread) else {
         return;
     };
     if matches!(method, "item/started" | "item/completed") {
@@ -72,7 +78,7 @@ pub fn event(session: &mut SessionState, method: &str, params: &Value) {
         if super::panel_pages::valid_id(&entry["item"]["id"]).is_err() {
             return;
         }
-        store_item(activity, entry);
+        store_item(activity, entry, MAX_BYTES.saturating_sub(other_bytes));
     } else if matches!(
         method,
         "item/agentMessage/delta"
@@ -83,8 +89,13 @@ pub fn event(session: &mut SessionState, method: &str, params: &Value) {
         if let Some(delta) = params["delta"].as_str() {
             let safe = crate::session::text::safe_text(delta);
             activity.tail.push_str(&safe);
-            if activity.tail.len() > 16 * 1024 {
-                let mut start = activity.tail.len() - 16 * 1024;
+            let cap = (16 * 1024).min(
+                MAX_BYTES
+                    .saturating_sub(other_bytes)
+                    .saturating_sub(activity.bytes),
+            );
+            if activity.tail.len() > cap {
+                let mut start = activity.tail.len() - cap;
                 while !activity.tail.is_char_boundary(start) {
                     start += 1;
                 }
@@ -98,7 +109,7 @@ fn same_item(left: &Value, right: &Value) -> bool {
     left["turnId"] == right["turnId"] && left["item"]["id"] == right["item"]["id"]
 }
 
-fn store_item(activity: &mut super::panel_state::Activity, entry: Value) {
+fn store_item(activity: &mut super::panel_state::Activity, entry: Value, budget: usize) {
     let bytes = entry.to_string().len();
     if bytes > 64 * 1024 {
         activity.error =
@@ -116,7 +127,7 @@ fn store_item(activity: &mut super::panel_state::Activity, entry: Value) {
         .iter()
         .map(|entry| entry.to_string().len())
         .sum();
-    while activity.bytes > MAX_BYTES {
+    while activity.bytes > budget {
         activity.items.pop();
         activity.bytes = activity
             .items
@@ -126,4 +137,16 @@ fn store_item(activity: &mut super::panel_state::Activity, entry: Value) {
         activity.more = true;
     }
     activity.tail.clear();
+}
+
+fn retained_bytes(session: &SessionState, except: Option<&str>) -> usize {
+    session
+        .codex_panel
+        .activities
+        .iter()
+        .filter(|(thread, _)| Some(thread.as_str()) != except)
+        .fold(0usize, |sum, (_, activity)| {
+            sum.saturating_add(activity.bytes)
+                .saturating_add(activity.tail.len())
+        })
 }

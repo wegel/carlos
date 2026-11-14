@@ -26,7 +26,7 @@ pub struct PanelState {
     pub(in crate::session) agents: Vec<Value>,
     pub(in crate::session) processes: Vec<Process>,
     pub(in crate::session) snapshot: Option<Snapshot>,
-    pub(in crate::session) activity: Option<Activity>,
+    pub(in crate::session) activities: HashMap<String, Activity>,
     pub(in crate::session) stop: Option<Stop>,
     pub(in crate::session) outgoing: VecDeque<Request>,
     pub(in crate::session) error: Option<String>,
@@ -156,6 +156,22 @@ pub struct Stop {
 }
 
 impl PanelState {
+    pub(in crate::session) fn child_request(&self, token: Option<u64>) -> Option<&Request> {
+        self.activities
+            .values()
+            .filter_map(|activity| activity.request.as_ref())
+            .find(|request| Some(request.token) == token)
+    }
+
+    pub(in crate::session) fn child_read_mut(&mut self, token: u64) -> Option<&mut Activity> {
+        self.activities.values_mut().find(|activity| {
+            activity
+                .request
+                .as_ref()
+                .is_some_and(|pending| pending.token == token)
+        })
+    }
+
     /// List each native row once, with agents before their background terminals.
     pub fn ids(&self) -> Vec<PanelId> {
         self.agents
@@ -192,9 +208,14 @@ impl PanelState {
     pub fn snapshot(&self) -> Option<&Snapshot> {
         self.snapshot.as_ref()
     }
-    /// Borrow or read the native panel activity.
+    /// Borrow only the explicitly addressed child's cached activity.
+    pub fn activity_for(&self, thread: &str) -> Option<&Activity> {
+        self.activities.get(thread)
+    }
+    /// Borrow the single child cache used by older unit fixtures.
+    #[cfg(any(test, feature = "test-support"))]
     pub fn activity(&self) -> Option<&Activity> {
-        self.activity.as_ref()
+        self.activities.values().next()
     }
     /// Borrow or read the native panel stop.
     pub fn stop(&self) -> Option<&Stop> {

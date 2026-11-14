@@ -37,7 +37,17 @@ impl SessionState {
     }
     /// Drop the previous selected-child read after explicit client navigation.
     pub fn clear_codex_panel_activity(&mut self) {
-        self.codex_panel.activity = None;
+        self.codex_panel.activities.clear();
+    }
+    /// Release only one child's read after its last explicit client interest ends.
+    pub fn forget_codex_child(&mut self, thread: &str) {
+        if let Some(activity) = self.codex_panel.activities.remove(thread) {
+            if let Some(request) = activity.request {
+                self.codex_panel
+                    .outgoing
+                    .retain(|pending| pending.token != request.token);
+            }
+        }
     }
     /// Fence pending native panel controls after connection closure.
     pub(crate) fn close_codex_panel(&mut self) {
@@ -45,7 +55,7 @@ impl SessionState {
         self.codex_panel.snapshot = None;
         self.codex_panel.stop = None;
         self.codex_panel.error = Some("Codex closed; pending panel work was not confirmed".into());
-        if let Some(activity) = self.codex_panel.activity.as_mut() {
+        for activity in self.codex_panel.activities.values_mut() {
             activity.request = None;
         }
     }
@@ -74,7 +84,7 @@ impl SessionState {
             .collect();
         self.codex_panel.older = panel["older"].clone();
         self.codex_panel.older_window = false;
-        self.codex_panel.activity = None;
+        self.codex_panel.activities.clear();
         self.codex_panel.refreshed = Some(Instant::now());
         self.codex_panel.error = panel["error"].as_str().map(str::to_string);
         self.codex_panel.notice = panel["notice"]

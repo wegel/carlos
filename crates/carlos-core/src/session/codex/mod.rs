@@ -49,7 +49,10 @@ pub mod panel;
 mod panel_access;
 pub(crate) mod panel_activity;
 pub(crate) mod panel_events;
+#[cfg(test)]
+mod panel_interest_tests;
 pub(crate) mod panel_pages;
+mod panel_reads;
 pub mod panel_receive;
 pub mod panel_scope;
 pub mod panel_state;

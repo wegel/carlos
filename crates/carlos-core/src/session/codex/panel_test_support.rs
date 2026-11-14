@@ -63,8 +63,9 @@ impl SessionState {
     /// Set when the fixture observed the named native task.
     pub fn set_codex_panel_activity_time_for_test(&mut self, at: Instant) {
         self.codex_panel
-            .activity
-            .as_mut()
+            .activities
+            .values_mut()
+            .next()
             .expect("activity")
             .started = at;
     }
