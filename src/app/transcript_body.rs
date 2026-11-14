@@ -1,12 +1,13 @@
 //! Count and draw transcript bodies using one choice of format and width.
 
+#[cfg(test)]
 use carlos_core::session::models::Message;
 use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
 use ratatui::style::{Color, Style};
 
 use super::transcript_diff::{append_wrapped_diff_lines, count_wrapped_diff_lines};
-use super::transcript_input::BodyInput;
+use super::transcript_input::RenderInput;
 use super::transcript_source::{append_source_lines, count_source_lines};
 use super::transcript_styles::{
     append_wrapped_ansi_lines, append_wrapped_markdown_lines, append_wrapped_message_lines,
@@ -34,11 +35,11 @@ pub(super) struct BlockBody {
 impl BlockBody {
     /// Choose a body format independently of the transcript theme.
     pub(super) fn new(display: DisplayMessage<'_>, width: usize) -> Self {
-        Self::for_input(display.source.into(), display.kind, width)
+        Self::for_input(display.source, display.kind, width)
     }
 
     /// Select the same format for borrowed core or client-owned source facts.
-    pub(super) fn for_input(message: BodyInput<'_>, display: DisplayKind, width: usize) -> Self {
+    pub(super) fn for_input(message: RenderInput<'_>, display: DisplayKind, width: usize) -> Self {
         let kind = match (display, message.kind) {
             (DisplayKind::ToolSummary { .. }, _) => BodyKind::Empty,
             (_, MessageKind::Diff) => BodyKind::Diff,
@@ -63,6 +64,7 @@ impl BlockBody {
     }
 
     /// Count the selected format without highlighting large tool outputs.
+    #[cfg(test)]
     pub(super) fn count<'a>(
         &self,
         cache: &mut RenderCountCache<'a>,
@@ -75,7 +77,7 @@ impl BlockBody {
     pub(super) fn count_input<'a>(
         &self,
         cache: &mut RenderCountCache<'a>,
-        message: BodyInput<'a>,
+        message: RenderInput<'a>,
     ) -> usize {
         if self.width < 8 {
             return 0;
@@ -101,12 +103,13 @@ impl BlockBody {
     }
 
     /// Draw the same body and width used by the count pass.
+    #[cfg(test)]
     pub(super) fn append(&self, out: &mut Vec<RenderedLine>, message: &Message) {
         self.append_input(out, message.into());
     }
 
     /// Draw the same borrowed body that supplied the count pass.
-    pub(super) fn append_input(&self, out: &mut Vec<RenderedLine>, message: BodyInput<'_>) {
+    pub(super) fn append_input(&self, out: &mut Vec<RenderedLine>, message: RenderInput<'_>) {
         if self.width < 8 {
             return;
         }

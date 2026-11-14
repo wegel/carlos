@@ -9,6 +9,7 @@ use super::layout_state::TranscriptTheme;
 use super::tool_output_state::compact_tool_message;
 use super::tool_summary::{summary_lines, tool_failed, tool_gutter};
 use super::transcript_body::{prepend_symbol, BlockBody};
+use super::transcript_input::RenderInput;
 use super::transcript_spacing::should_insert_separator_between;
 use super::transcript_styles::RenderCountCache;
 use super::view_models::{DisplayKind, DisplayMessage, RenderedLine};
@@ -22,8 +23,19 @@ pub(super) struct BlockPlan {
 
 impl BlockPlan {
     /// Resolve all theme-specific row choices before counting or highlighting text.
+    #[cfg(test)]
     pub(super) fn new(
         previous: Option<&Message>,
+        display: DisplayMessage<'_>,
+        width: usize,
+        theme: TranscriptTheme,
+    ) -> Self {
+        Self::from_input(previous.map(Into::into), display, width, theme)
+    }
+
+    /// Plan headings and labels directly from one borrowed client or core entry.
+    pub(super) fn from_input(
+        previous: Option<RenderInput<'_>>,
         display: DisplayMessage<'_>,
         width: usize,
         theme: TranscriptTheme,
@@ -33,7 +45,7 @@ impl BlockPlan {
             prefix: Vec::new(),
             body: None,
         };
-        if width < 8 || !has_visible_content(original) {
+        if width < 8 || !visible_input(original) {
             return plan;
         }
         let flow = theme.is_flow();
@@ -65,27 +77,45 @@ impl BlockPlan {
         cache: &mut RenderCountCache<'a>,
         message: &'a Message,
     ) -> usize {
+        self.count_input(cache, message.into())
+    }
+
+    /// Count a complete block without making a source Message.
+    pub(super) fn count_input<'a>(
+        &self,
+        cache: &mut RenderCountCache<'a>,
+        message: RenderInput<'a>,
+    ) -> usize {
         self.prefix.len()
             + self
                 .body
                 .as_ref()
-                .map_or(0, |body| body.count(cache, message))
+                .map_or(0, |body| body.count_input(cache, message))
     }
 
     /// Materialize only this block using the choices saved by the count pass.
     pub(super) fn render(&self, message: &Message) -> Vec<RenderedLine> {
+        self.render_input(message.into())
+    }
+
+    /// Materialize a borrowed client block with the same headings and source rules.
+    pub(super) fn render_input(&self, message: RenderInput<'_>) -> Vec<RenderedLine> {
         let mut out = self.prefix.clone();
         if let Some(body) = &self.body {
-            body.append(&mut out, message);
+            body.append_input(&mut out, message);
         }
         out
     }
 }
 
 /// Recognize text or an explicit label when formatting an individual block.
+#[cfg(test)]
 pub(super) fn has_visible_content(message: &Message) -> bool {
-    (message.role == Role::ToolCall && message.tool_output.is_some())
-        || !message.text.trim().is_empty()
+    visible_input(message.into())
+}
+
+fn visible_input(message: RenderInput<'_>) -> bool {
+    (message.role == Role::ToolCall && message.label.is_some()) || !message.text.trim().is_empty()
 }
 
 /// Plan a full or folded view while borrowing the stored source message.
@@ -97,17 +127,39 @@ pub(super) fn plan_display_block<'a>(
     compact: bool,
     theme: TranscriptTheme,
 ) -> BlockPlan {
-    let full = DisplayMessage::full(message);
+    plan_input_block(
+        cache,
+        previous.map(Into::into),
+        message.into(),
+        width,
+        compact,
+        theme,
+    )
+}
+
+/// Share the complete block planner with the client-backed transcript.
+pub(super) fn plan_input_block<'a>(
+    cache: &mut RenderCountCache<'a>,
+    previous: Option<RenderInput<'_>>,
+    message: RenderInput<'a>,
+    width: usize,
+    compact: bool,
+    theme: TranscriptTheme,
+) -> BlockPlan {
+    let full = DisplayMessage {
+        source: message,
+        kind: DisplayKind::Full,
+    };
     let display = if compact
         && (matches!(message.role, Role::ToolCall | Role::ToolOutput)
             || message.kind == MessageKind::Diff)
     {
-        let rows = BlockBody::new(full, width).count(cache, message);
+        let rows = BlockBody::new(full, width).count_input(cache, message);
         compact_tool_message(message, rows).unwrap_or(full)
     } else {
         full
     };
-    BlockPlan::new(previous, display, width, theme)
+    BlockPlan::from_input(previous, display, width, theme)
 }
 
 fn needs_tool_label(display: DisplayMessage<'_>, flow: bool) -> bool {
@@ -115,12 +167,7 @@ fn needs_tool_label(display: DisplayMessage<'_>, flow: bool) -> bool {
     matches!(display.kind, DisplayKind::ToolSummary { .. })
         || message.role == Role::ToolCall
         || (message.role == Role::ToolOutput
-            && (flow
-                || tool_failed(message)
-                || message
-                    .tool_output
-                    .as_ref()
-                    .is_some_and(|tool| tool.generated)))
+            && (flow || tool_failed(message) || message.label_generated))
 }
 
 fn tool_labels(display: DisplayMessage<'_>, width: usize, flow: bool) -> Vec<RenderedLine> {
@@ -151,3 +198,7 @@ fn blank_line() -> RenderedLine {
         soft_wrap_to_next: false,
     }
 }
+
+#[cfg(test)]
+#[path = "transcript_block_tests.rs"]
+mod tests;

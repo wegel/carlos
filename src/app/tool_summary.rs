@@ -2,13 +2,13 @@
 
 use std::borrow::Cow;
 
-use carlos_core::session::models::Message;
 use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
-use carlos_core::session::tool_diff_summary::diff_summary;
+use carlos_core::session::tool_diff_summary::diff_summary_parts;
 use ratatui::style::{Color, Modifier, Style};
 
 use super::text::{split_at_cells, visual_width, wrap_natural_by_cells};
+use super::transcript_input::RenderInput;
 use super::view_models::{DisplayKind, DisplayMessage, RenderedLine, StyledSegment};
 use crate::theme::{
     COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_GUTTER_TOOL_CALL, COLOR_STEP8, COLOR_TOOL_EDIT,
@@ -16,21 +16,21 @@ use crate::theme::{
 };
 
 /// Read the saved tool label rather than trying to infer it from output text.
-pub(super) fn tool_label(message: &Message) -> &str {
+pub(super) fn tool_label<'a>(message: impl Into<RenderInput<'a>>) -> &'a str {
+    let message = message.into();
     message
-        .tool_output
-        .as_ref()
-        .map(|tool| tool.summary.as_str())
+        .label
         .unwrap_or_else(|| message.text.lines().next().unwrap_or("Tool output"))
 }
 
 /// Use the backend failure flag for both full and folded rows.
-pub(super) fn tool_failed(message: &Message) -> bool {
-    message.tool_output.as_ref().is_some_and(|tool| tool.failed)
+pub(super) fn tool_failed<'a>(message: impl Into<RenderInput<'a>>) -> bool {
+    message.into().failed
 }
 
 /// Choose the tool glyph and let failures override its color.
-pub(super) fn tool_gutter(message: &Message) -> (&'static str, Color) {
+pub(super) fn tool_gutter<'a>(message: impl Into<RenderInput<'a>>) -> (&'static str, Color) {
+    let message = message.into();
     gutter_for_label(
         tool_label(message),
         message.kind == MessageKind::Diff,
@@ -57,11 +57,11 @@ fn summary_label(display: DisplayMessage<'_>) -> Cow<'_, str> {
     if display.kind == DisplayKind::Full {
         return Cow::Borrowed(tool_label(message));
     }
-    if let Some(tool) = &message.tool_output {
-        return Cow::Borrowed(&tool.summary);
+    if let Some(label) = message.label {
+        return Cow::Borrowed(label);
     }
     if message.kind == MessageKind::Diff {
-        return Cow::Owned(diff_summary(message));
+        return Cow::Owned(diff_summary_parts(message.text, message.file_path));
     }
     Cow::Borrowed(if message.role == Role::ToolCall {
         message.text.lines().next().unwrap_or("Tool call")
@@ -219,11 +219,7 @@ pub(super) fn summary_lines(display: DisplayMessage<'_>, width: usize) -> Vec<Re
     if width == 0 {
         return Vec::new();
     }
-    if !message
-        .tool_output
-        .as_ref()
-        .is_some_and(|tool| tool.generated)
-    {
+    if !message.label_generated {
         return vec![summary_line(display, width)];
     }
     let footer = summary_footer(width, display.hidden_rows(), tool_failed(message));

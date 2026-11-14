@@ -1,7 +1,11 @@
 //! Borrowed message views and the styled rows drawn in a terminal.
 
-use carlos_core::session::models::{Message, Role};
+#[cfg(test)]
+use carlos_core::session::models::Message;
+use carlos_core::session::models::Role;
 use ratatui::style::Style;
+
+use super::transcript_input::RenderInput;
 
 // --- Message Views ---
 
@@ -12,18 +16,19 @@ pub(super) enum DisplayKind {
     ToolSummary { rows: usize },
 }
 
-/// Borrow the stored message so a folded view keeps its source and future entry id.
+/// Borrow display facts while the transcript cache keeps the stable entry identity.
 #[derive(Debug, Clone, Copy)]
 pub(super) struct DisplayMessage<'a> {
-    pub(super) source: &'a Message,
+    pub(super) source: RenderInput<'a>,
     pub(super) kind: DisplayKind,
 }
 
 impl<'a> DisplayMessage<'a> {
     /// Show the stored message without folding its body.
+    #[cfg(test)]
     pub(super) fn full(source: &'a Message) -> Self {
         Self {
-            source,
+            source: source.into(),
             kind: DisplayKind::Full,
         }
     }

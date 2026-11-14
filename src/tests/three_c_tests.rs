@@ -77,7 +77,7 @@ fn compact_unicode_labels_leave_room_for_failure_and_large_counts() {
         for width in [8, 12, 20, 40, 120] {
             let line = summary_line(
                 DisplayMessage {
-                    source: &message,
+                    source: (&message).into(),
                     kind: DisplayKind::ToolSummary { rows: usize::MAX },
                 },
                 width,

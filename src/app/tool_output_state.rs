@@ -1,9 +1,9 @@
 //! Choose full or folded tool output from an explicit preference and terminal size.
 
-use carlos_core::session::models::Message;
 use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
 
+use super::transcript_input::RenderInput;
 use super::view_models::{DisplayKind, DisplayMessage, TerminalSize};
 
 /// Let the terminal size choose, or force one view until the user changes it.
@@ -89,7 +89,11 @@ impl ToolOutputState {
 }
 
 /// Replace tool contents with a label, including short results and failures.
-pub(super) fn compact_tool_message(message: &Message, rows: usize) -> Option<DisplayMessage<'_>> {
+pub(super) fn compact_tool_message<'a>(
+    message: impl Into<RenderInput<'a>>,
+    rows: usize,
+) -> Option<DisplayMessage<'a>> {
+    let message = message.into();
     if !matches!(message.role, Role::ToolCall | Role::ToolOutput)
         && message.kind != MessageKind::Diff
     {

@@ -1,12 +1,12 @@
 //! Choose Flow section headings while sharing body and tool layout with Gutter.
 
-use carlos_core::session::models::Message;
 use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
 use ratatui::style::{Color, Modifier, Style};
 
 use super::text::{split_at_cells, visual_width};
 use super::tool_summary::tool_gutter;
+use super::transcript_input::RenderInput;
 use super::transcript_spacing::{inline_entry, single_line_reasoning};
 use super::view_models::{RenderedLine, StyledSegment};
 use crate::theme::{role_gutter_fg, role_gutter_symbol};
@@ -18,7 +18,7 @@ struct Section {
     color: Color,
 }
 
-fn section(message: &Message) -> Section {
+fn section(message: RenderInput<'_>) -> Section {
     let (glyph, color) = if matches!(message.role, Role::ToolCall | Role::ToolOutput) {
         tool_gutter(message)
     } else {
@@ -49,14 +49,14 @@ fn section(message: &Message) -> Section {
 }
 
 /// Put short reasoning beside its symbol only when the text fits.
-pub(super) fn inline_reasoning(message: &Message, width: usize) -> bool {
-    single_line_reasoning(message, width.saturating_sub(2))
+pub(super) fn inline_reasoning<'a>(message: impl Into<RenderInput<'a>>, width: usize) -> bool {
+    single_line_reasoning(message.into(), width.saturating_sub(2))
 }
 
 /// Choose a heading once, before either counting or rendering the block.
 pub(super) fn section_header(
-    previous: Option<&Message>,
-    message: &Message,
+    previous: Option<RenderInput<'_>>,
+    message: RenderInput<'_>,
     width: usize,
 ) -> Option<RenderedLine> {
     if width < 8 || inline_entry(message, width.saturating_sub(2)) {
@@ -70,7 +70,7 @@ pub(super) fn section_header(
     (!shared).then(|| header(message, width))
 }
 
-fn header(message: &Message, width: usize) -> RenderedLine {
+fn header(message: RenderInput<'_>, width: usize) -> RenderedLine {
     let Section {
         glyph,
         label,

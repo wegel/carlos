@@ -98,7 +98,14 @@ fn read_coalescing_keeps_the_hidden_shell_id() {
                 0,
             )
             .expect("compact tool");
-            assert_eq!(display.source.id, *id);
+            assert_eq!(app.session.messages()[index].id, *id);
+            assert!(
+                std::ptr::eq(
+                    display.source.text.as_ptr(),
+                    app.session.messages()[index].text.as_ptr()
+                ),
+                "folded view borrows its original entry without copying or rekeying it"
+            );
         }
         assert_eq!(app.session.messages()[0].id, ids[0]);
     }

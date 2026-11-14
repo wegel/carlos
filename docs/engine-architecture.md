@@ -178,7 +178,7 @@ Types:
 - `Entry`: `id`, `kind` (`user`, `reasoning`, `commentary`, `answer`, `tool`,
   `approval`, `notice`), `text`, `done`, plus per kind:
   - tool: `tool_kind` (`command`, `read`, `search`, `edit`), `label`,
-    `label_source` (`literal`, `ai`), `status` (`running`, `ok`, `failed`,
+    `label_source` (`fallback`, `literal`, `ai`), `status` (`running`, `ok`, `failed`,
     `interrupted`), `summary`, `added`, `removed`, `has_output`.
   - approval: `command`, `reason`, `choices`, `resolution?`.
 - `Snapshot`: `info`, `entries` (newest page), `seq`, `has_older`.

@@ -10,7 +10,7 @@ use carlos_proto::source::Source;
 use serde_json::json;
 
 use super::BlockBody;
-use crate::app::transcript_input::BodyInput;
+use crate::app::transcript_input::RenderInput;
 use crate::app::transcript_styles::RenderCountCache;
 use crate::app::view_models::{DisplayKind, DisplayMessage, RenderedLine};
 
@@ -87,7 +87,7 @@ fn borrowed_client_bodies_preserve_complete_markdown_ansi_diff_source_and_wrappi
     for (kind, format, role, message_kind, path, text) in cases {
         let entry = entry(kind, format, text, path);
         let message = message(&entry, text.into(), role, message_kind);
-        let input = BodyInput::from_client(
+        let input = RenderInput::from_client(
             &entry,
             Some((entry.source.as_ref().expect("source"), &message.text)),
         )
@@ -118,23 +118,26 @@ fn a_client_suffix_or_replaced_revision_cannot_pose_as_a_complete_document() {
     let entry = entry(EntryKind::Answer, EntryFormat::Plain, &text, None);
     let source = entry.source.as_ref().expect("source");
     assert!(text.len() > 256 * 1024);
-    assert!(BodyInput::from_client(&entry, Some((source, "```"))).is_none());
+    assert!(RenderInput::from_client(&entry, Some((source, "```"))).is_none());
     let mut retired = source.clone();
     retired.revision = OutputRevision::new(0);
-    assert!(BodyInput::from_client(&entry, Some((&retired, &text))).is_none());
-    assert!(BodyInput::from_client(&entry, None).is_none());
+    assert!(RenderInput::from_client(&entry, Some((&retired, &text))).is_none());
+    assert!(RenderInput::from_client(&entry, None).is_none());
 }
 
 #[test]
 fn a_missing_prefix_changes_ansi_colors_even_when_the_visible_tail_text_is_identical() {
     let text = format!("\x1b[31m{}tail is red", "coloured line\n".repeat(24000));
-    let full = BodyInput {
+    let full = RenderInput {
         role: Role::ToolOutput,
         kind: MessageKind::Plain,
         text: &text,
         file_path: None,
+        label: None,
+        label_generated: false,
+        failed: false,
     };
-    let suffix = BodyInput {
+    let suffix = RenderInput {
         text: "tail is red",
         ..full
     };
@@ -161,15 +164,15 @@ fn tool_output_requires_the_matching_native_source_revision_even_without_a_row_d
         .expect("wire tool"),
     );
     assert!(
-        BodyInput::from_client(&entry, None).is_none(),
+        RenderInput::from_client(&entry, None).is_none(),
         "empty row text is not an empty tool body"
     );
     let body =
-        BodyInput::from_client(&entry, Some((&source, text))).expect("current complete output");
+        RenderInput::from_client(&entry, Some((&source, text))).expect("current complete output");
     assert_eq!(body.text, text);
     assert_eq!(body.role, Role::ToolOutput);
     source.revision = OutputRevision::new(0);
-    assert!(BodyInput::from_client(&entry, Some((&source, text))).is_none());
+    assert!(RenderInput::from_client(&entry, Some((&source, text))).is_none());
 }
 
 #[test]
@@ -187,8 +190,8 @@ fn an_actual_exported_tool_call_fetches_source_even_when_it_has_no_output() {
     assert!(entry.text.is_empty());
     assert!(entry.source.is_none());
     assert!(!entry.tool.as_ref().expect("tool call facts").has_output);
-    assert!(BodyInput::from_client(&entry, None).is_none());
-    let input = BodyInput::from_client(&entry, Some((&chunk.source, &chunk.text)))
+    assert!(RenderInput::from_client(&entry, None).is_none());
+    let input = RenderInput::from_client(&entry, Some((&chunk.source, &chunk.text)))
         .expect("actual tool-call source");
     let original = &core.messages()[0];
     assert_eq!(input.text, original.text);

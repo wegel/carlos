@@ -33,6 +33,7 @@ The daemon already proves basic chat, approvals, running output, independent cli
 - [ ] Prove a terminal transcript consumer before adding more task APIs; the stop slice is committed. Fable 5.2 medium reviewed the whole roadmap at this unfinished checkpoint; its report and the assessed actions are `.agents/reports/exec019b-fable-interim-review.md`. No EP approval has occurred. Measure contiguous source reads and real Markdown/ANSI/copy behavior under explicit aggregate memory bounds; choose the render contract from that proof. Then port each remaining panel together with its typed requests.
 - [x] (2026-11-14) Commit the checked stop slice as `99d39aa`; main and installed binary remain unchanged.
 - [x] (2026-11-14) Prototype the terminal's complete-source render contract. Added a borrowed BodyInput used by the existing body renderer; three tests match old text/styles/wraps and reject suffixes/retired bodies. `scripts/probe-client-render.py` captures large Markdown/ANSI bodies from actual Unix-socket reads; `socket_render_probe` replays those chunks through the current bounded client window and the contiguous-body candidate. The socket replay, default/no-default tests, strict lint and 49-daemon/183-terminal gate pass at run-0UU3za. The separate engineering follow-up is PASS; the focused report is `.agents/reports/exec019b-render-contract-prototype.md`. This is no production terminal socket consumer yet, and no larger cache or product body cap is accepted.
+- [x] (2026-11-14) Extend the borrowed input through complete block headings, compact labels and spacing. RenderInput carries borrowed source and label facts; the transcript cache retains stable entry identity separately. DisplayMessage and BlockPlan use it without a core Message copy. An actual exported-row test covers full/compact Gutter/Flow blocks at 12/28/72/120 columns. The test exposed a missing wire fact: a generic fallback label and an explicitly saved label can both read “Tool output” but render differently for diffs. LabelSource::Fallback now preserves that distinction without duplicating the label string. Restored tests, strict lint, no-default tests, the full protocol/terminal/native gate and release measurements pass; the engineering verdict is PASS. Evidence is `.agents/reports/exec019b-render-blocks.md`. The Client-backed terminal connection remains unfinished.
 - [ ] Add typed native facts/commands for names, prompt edits, task reads/stops, queues, goals, settings/context/quota, summaries, host defaults and lifecycle. Preserve existing tokens and target/generation guards; prove two clients can choose different read targets.
 - [x] (2026-11-14) Add the pure shared client codec and bounded fact/history/card windows. Twelve client tests, workspace tests, strict Clippy and 15 architecture checks pass. The checker allows only reviewed data packages below the client.
 - [x] (2026-11-14) Add private connection credentials/counters and operation-owned drafts/echoes. Twenty client tests, the actual daemon wire test, workspace tests and strict lint pass; 15 architecture checks pass. No client method automatically resends a mutation.
@@ -358,3 +359,39 @@ nor terminal socket cutover has been accepted. Next build the actual Client-back
 consumer with one aggregate source budget, then prove live replacement/copy/selection and
 port each panel with its typed requests. Keep larger-than-cache bodies explicit and resolve
 their fidelity before the final deletion. Main and the installed executable stay unchanged.
+
+
+## Review: complete borrowed transcript blocks
+
+The reviewer used `.agents/reviewers/engineering_reviewer.md` in a separate bounded
+read-only session against61b8748. The reviewer compared the changed branches with that
+commit rather than treating agreement between two adapters as a historic-renderer proof.
+
+Reviewed the diff against `61b8748`, including the old render branches, borrowed inputs, label origins, failure/generated flags, spacing, row counts, and related tests/docs.
+
+No `BLOCKER`, `MAJOR`, or `MINOR` findings. The core adapter preserves the previous branch behavior. The client adapter correctly distinguishes fallback labels from saved literal labels. Both adapters borrow body, path, and saved-label strings without copying them into another `Message`.
+
+Validation: `cargo test --workspace` passed with 1,260 tests passed and 4 ignored. The new whole-block tests passed across the specified widths, themes, and compact/full modes. Those tests compare adapters through shared code; they do not independently prove equivalence with the historic renderer. I checked the changed branches against the base commit directly.
+
+No corrective changes required.
+
+**Verdict: PASS**
+
+Update note (2026-11-14, full block checks): the actual exported-row comparisons pass for
+Gutter/Flow, full/compact and12/28/72/120columns. Removing only fallback-label handling makes
+the client show “Tool …” where the core shows the diff path, proving the missing origin
+fact matters. Restored workspace tests and strict Clippy pass. Full protocol/terminal/native
+checks pass49daemon/183terminal/23native workflows,67helper tests,15architecture checks and
+installed Codex contracts at run-U0djcN. No-default tests and the repeated socket source replay
+pass. Release build/paired measurements are being captured before the slice commit. Stable
+entry IDs remain in the transcript/cache, and formatting views only borrow display facts.
+There is still no production socket terminal or product cache limit; EP019b is incomplete.
+
+
+Update note (2026-11-14, complete borrowed blocks verified): the full gate passes at
+run-U0djcN and the separate engineering review is PASS. The source-prefix replay still
+passes. The31-round release comparison against original, EP019a and the prior body-adapter
+binary preserves all counts; current synthetic scroll/typing/append p95 is0.81/0.61/0.66ms
+with24364KiB sampled VmHWM. Detailed identities, raw-evidence paths, limitations and verdict
+are in `.agents/reports/exec019b-render-blocks.md`. Next implement the actual client-backed
+transcript and socket driver, including aggregate source bounds; no EP approval is claimed.

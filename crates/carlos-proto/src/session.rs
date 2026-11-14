@@ -123,6 +123,8 @@ pub enum ToolKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LabelSource {
+    /// The message has no saved label; the wire label is a generic description.
+    Fallback,
     Literal,
     Ai,
 }

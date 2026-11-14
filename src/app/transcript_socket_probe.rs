@@ -14,7 +14,7 @@ use carlos_proto::source::{Source, SourceChunk};
 use serde_json::{json, Value};
 
 use super::BlockBody;
-use crate::app::transcript_input::BodyInput;
+use crate::app::transcript_input::RenderInput;
 use crate::app::transcript_styles::RenderCountCache;
 use crate::app::view_models::{DisplayKind, DisplayMessage, RenderedLine};
 
@@ -70,10 +70,10 @@ fn run_case(root: &Path, case: &Value) {
         "fixtures exceed the current client window"
     );
     let suffix: String = window.pieces().collect();
-    assert!(BodyInput::from_client(&entry, Some((source, &suffix))).is_none());
+    assert!(RenderInput::from_client(&entry, Some((source, &suffix))).is_none());
     drop(suffix);
     drop(bodies);
-    let input = BodyInput::from_client(&entry, Some((source, &text)))
+    let input = RenderInput::from_client(&entry, Some((source, &text)))
         .expect("contiguous complete candidate");
     assert_eq!(input.text.as_ptr(), text.as_ptr());
     let message = Message {
@@ -101,7 +101,7 @@ fn compare(
 ) {
     let descriptor: Source =
         serde_json::from_value(case["source"].clone()).expect("source metadata");
-    let input = BodyInput::from_client(entry, Some((&descriptor, &message.text)))
+    let input = RenderInput::from_client(entry, Some((&descriptor, &message.text)))
         .expect("borrowed client source");
     let started = Instant::now();
     let baseline = BlockBody::new(DisplayMessage::full(message), width);

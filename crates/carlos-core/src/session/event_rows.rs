@@ -134,6 +134,8 @@ fn export_tool(message: &Message, done: bool, revision: u64) -> Tool {
         label: label.to_owned(),
         label_source: if details.is_some_and(|tool| tool.generated) {
             LabelSource::Ai
+        } else if details.is_none() {
+            LabelSource::Fallback
         } else {
             LabelSource::Literal
         },

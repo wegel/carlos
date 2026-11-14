@@ -4,27 +4,26 @@ use crate::session::models::Message;
 
 /// Summarize all changed lines, naming one file or the number of files.
 pub fn diff_summary(message: &Message) -> String {
-    let added = message
-        .text
+    diff_summary_parts(&message.text, message.file_path.as_deref())
+}
+
+/// Summarize borrowed diff text and its path without creating another source message.
+pub fn diff_summary_parts(text: &str, file_path: Option<&str>) -> String {
+    let added = text
         .lines()
         .filter(|line| line.starts_with('+') && !line.starts_with("+++ "))
         .count();
-    let removed = message
-        .text
+    let removed = text
         .lines()
         .filter(|line| line.starts_with('-') && !line.starts_with("--- "))
         .count();
-    let files = split_file_diffs(&message.text);
+    let files = split_file_diffs(text);
     if files.len() > 1 {
         return format!("Δ Diff {} files (+{added}, -{removed})", files.len());
     }
-    let path = message
-        .file_path
-        .as_deref()
+    let path = file_path
         .or_else(|| {
-            message
-                .text
-                .lines()
+            text.lines()
                 .find_map(|line| {
                     line.strip_prefix("+++ ")
                         .filter(|path| *path != "/dev/null")
@@ -32,9 +31,7 @@ pub fn diff_summary(message: &Message) -> String {
                 .map(|path| path.strip_prefix("b/").unwrap_or(path))
         })
         .or_else(|| {
-            message
-                .text
-                .lines()
+            text.lines()
                 .find_map(|line| line.strip_prefix("--- "))
                 .map(|path| path.strip_prefix("a/").unwrap_or(path))
         })
