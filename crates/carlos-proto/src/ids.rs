@@ -107,6 +107,16 @@ opaque_id!(
     64,
     "An opaque precondition for one native root goal and connection, never a backend id."
 );
+opaque_id!(
+    QueueRevision,
+    64,
+    "One accepted native queue and root/connection precondition."
+);
+opaque_id!(
+    QueueEntryId,
+    64,
+    "A native queue entry on one root connection, never a backend id."
+);
 
 /// A nonzero per-client command counter encoded as lossless decimal text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]

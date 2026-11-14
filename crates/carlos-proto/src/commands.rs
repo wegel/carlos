@@ -40,6 +40,30 @@ pub struct Request {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "method", content = "params")]
 pub enum Command {
+    #[serde(rename = "queue/read")]
+    QueueRead {
+        session: SessionId,
+        expected: Option<crate::ids::QueueRevision>,
+        after: Option<crate::ids::QueueEntryId>,
+        limit: Option<u16>,
+        #[serde(default)]
+        refresh: bool,
+    },
+    #[serde(rename = "queue/text")]
+    QueueText {
+        session: SessionId,
+        expected: crate::ids::QueueRevision,
+        entry: crate::ids::QueueEntryId,
+        offset: crate::bytes::ByteOffset,
+        limit: Option<u32>,
+    },
+    #[serde(rename = "queue/change")]
+    QueueChange {
+        session: SessionId,
+        operation: ClientOperation,
+        expected: crate::ids::QueueRevision,
+        change: crate::queue::QueueChange,
+    },
     #[serde(rename = "goal/read")]
     GoalRead {
         session: SessionId,

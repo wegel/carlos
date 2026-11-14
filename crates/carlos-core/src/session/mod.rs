@@ -146,9 +146,13 @@ mod event_goal;
 #[cfg(test)]
 mod event_goal_tests;
 mod event_metadata;
+mod event_queue;
+#[cfg(test)]
+mod event_queue_tests;
 mod event_reads;
 mod event_rows;
 pub mod events;
+mod queue_preview;
 mod transcript_journal;
 
 #[cfg(test)]

@@ -40,6 +40,7 @@ impl Ingress {
             | Command::Rename { .. }
             | Command::GoalSet { .. }
             | Command::GoalClear { .. }
+            | Command::QueueChange { .. }
             | Command::Rewind { .. } => 0,
             Command::Interrupt { .. } | Command::Approve { .. } => 1,
             _ => 2,

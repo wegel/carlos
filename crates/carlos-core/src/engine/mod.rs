@@ -9,6 +9,8 @@ mod mailbox;
 mod native;
 mod ordinary;
 mod owner;
+mod queue_changes;
+mod queue_reads;
 mod reports;
 mod results;
 mod ring;
@@ -35,6 +37,23 @@ pub use self::ring::EngineFrame;
 
 /// Only explicit session reads and commands enter the owner, never native method strings.
 pub enum EngineCommand {
+    QueueChange {
+        operation: ClientOperation,
+        expected: carlos_proto::ids::QueueRevision,
+        change: carlos_proto::queue::QueueChange,
+    },
+    QueueRead {
+        expected: Option<carlos_proto::ids::QueueRevision>,
+        after: Option<carlos_proto::ids::QueueEntryId>,
+        limit: usize,
+        refresh: bool,
+    },
+    QueueText {
+        expected: carlos_proto::ids::QueueRevision,
+        entry: carlos_proto::ids::QueueEntryId,
+        offset: carlos_proto::bytes::ByteOffset,
+        limit: usize,
+    },
     GoalRead {
         refresh: bool,
     },
@@ -109,6 +128,8 @@ pub enum EngineCommand {
 
 /// Replies carry facts or typed failures without retaining any client's editor.
 pub enum EngineReply {
+    Queue(carlos_proto::queue::QueuePage),
+    QueueText(carlos_proto::queue::QueueText),
     Goal(carlos_proto::goals::GoalSnapshot),
     Info {
         info: SessionInfo,
@@ -204,6 +225,7 @@ impl EngineHandle {
             | EngineCommand::Rename { .. }
             | EngineCommand::Rewind { .. } => &self.0.ordinary,
             EngineCommand::GoalSet { .. } | EngineCommand::GoalClear { .. } => &self.0.ordinary,
+            EngineCommand::QueueChange { .. } => &self.0.ordinary,
             EngineCommand::Interrupt { .. } | EngineCommand::Approve { .. } => &self.0.control,
             _ => &self.0.reads,
         };
@@ -246,6 +268,7 @@ impl EngineCommand {
             Self::Send { text, .. } | Self::Rewind { text, .. } => text.len(),
             Self::Rename { name, .. } => name.len(),
             Self::GoalSet { change, .. } => change.objective.as_ref().map_or(0, String::len),
+            Self::QueueChange { change, .. } => change.text().map_or(0, str::len),
             Self::Approve { answer, .. } => {
                 serde_json::to_vec(answer).map_or(usize::MAX - 256, |bytes| bytes.len())
             }

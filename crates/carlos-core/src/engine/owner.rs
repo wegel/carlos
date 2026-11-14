@@ -25,6 +25,7 @@ pub(super) struct Channels {
 }
 
 pub(super) struct Owner {
+    pub(super) queue: Option<super::queue_changes::PendingQueue>,
     pub(super) goal: Option<super::goals::PendingGoal>,
     pub session: SessionState,
     pub client: Box<dyn BackendClient>,
@@ -47,6 +48,7 @@ impl Owner {
         let native = super::native::Native::start(events, &channels);
         let workers = super::workers::Workers::new(&channels.wake);
         Self {
+            queue: None,
             goal: None,
             session,
             client,
@@ -66,6 +68,7 @@ impl Owner {
             self.drain_native();
             self.drain_completions();
             self.retire_goal_scope();
+            self.retire_queue_scope();
             self.dispatch_controls();
             self.admit_ordinary();
             self.dispatch_actions();
@@ -116,6 +119,9 @@ impl Owner {
     fn read(&mut self, command: EngineCommand) -> EngineReply {
         let result = match command {
             EngineCommand::GoalRead { refresh } => self.read_goal(refresh),
+            command @ (EngineCommand::QueueRead { .. } | EngineCommand::QueueText { .. }) => {
+                self.read_queue(command)
+            }
             EngineCommand::Info => Ok(EngineReply::Info {
                 info: self.session.export_info(),
                 native_thread: self.session.thread_id().clone(),

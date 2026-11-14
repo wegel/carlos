@@ -209,3 +209,19 @@ fn goal_edits_require_explicit_status_and_reject_native_parameter_fields() {
         assert!(from_value::<carlos_proto::ids::GoalRevision>(json!(invalid)).is_err());
     }
 }
+
+#[test]
+fn queue_changes_reject_native_routes_inputs_and_unoffered_moves() {
+    use carlos_proto::queue::QueueChange;
+    let edit = json!({"kind":"edit", "entry":"c".repeat(64), "text":"exact draft 🌍"});
+    assert!(from_value::<QueueChange>(edit.clone()).is_ok());
+    for field in ["input", "threadId", "queuedSubmissionId", "requestMethod"] {
+        let mut invalid = edit.clone();
+        invalid[field] = json!("native-parameter");
+        assert!(from_value::<QueueChange>(invalid).is_err());
+    }
+    assert!(from_value::<QueueChange>(
+        json!({"kind":"move", "entry":"c".repeat(64), "direction":"first"})
+    )
+    .is_err());
+}

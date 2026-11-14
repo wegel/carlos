@@ -13,9 +13,9 @@ use crate::transport::wire::error;
 impl Manager {
     pub(super) fn read_command(&mut self, peer: u64, id: RequestId, command: Command) {
         match command {
-            Command::GoalRead { session, refresh } => {
-                self.rpc_read(peer, id, session, EngineCommand::GoalRead { refresh })
-            }
+            command @ (Command::QueueRead { .. }
+            | Command::QueueText { .. }
+            | Command::GoalRead { .. }) => self.native_read_command(peer, id, command),
             Command::Subscribe { session, since } => self.subscribe(peer, id, session, since),
             Command::Unsubscribe { session } => {
                 let connection = self.peers.get_mut(&peer).expect("peer");
@@ -64,6 +64,49 @@ impl Manager {
             | Command::SourceSubscribe { .. }
             | Command::SourceUnsubscribe { .. }) => self.body_command(peer, id, body),
             _ => unreachable!("authenticated read route"),
+        }
+    }
+
+    fn native_read_command(&mut self, peer: u64, id: RequestId, command: Command) {
+        match command {
+            Command::QueueRead {
+                session,
+                expected,
+                after,
+                limit,
+                refresh,
+            } => self.rpc_read(
+                peer,
+                id,
+                session,
+                EngineCommand::QueueRead {
+                    expected,
+                    after,
+                    limit: usize::from(limit.unwrap_or(32)),
+                    refresh,
+                },
+            ),
+            Command::QueueText {
+                session,
+                expected,
+                entry,
+                offset,
+                limit,
+            } => self.rpc_read(
+                peer,
+                id,
+                session,
+                EngineCommand::QueueText {
+                    expected,
+                    entry,
+                    offset,
+                    limit: limit.unwrap_or(65536).min(65536) as usize,
+                },
+            ),
+            Command::GoalRead { session, refresh } => {
+                self.rpc_read(peer, id, session, EngineCommand::GoalRead { refresh })
+            }
+            _ => unreachable!("typed native read"),
         }
     }
 
@@ -203,6 +246,7 @@ impl Manager {
             return Err(error(-32010, "pending reads are full"));
         }
         let reserved = match command {
+            EngineCommand::QueueRead { .. } | EngineCommand::QueueText { .. } => 512 * 1024,
             EngineCommand::GoalRead { .. } => 1024 * 1024,
             EngineCommand::Changes { .. } => 16 * 1024 * 1024,
             EngineCommand::Output { .. }

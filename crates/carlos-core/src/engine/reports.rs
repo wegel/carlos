@@ -71,9 +71,10 @@ impl Owner {
             | CallbackEffect::Accepted { .. }
             | CallbackEffect::Retired(_)
             | CallbackEffect::Items(_)
-            | CallbackEffect::Queue(_)
-            | CallbackEffect::Panel(_)
-            | CallbackEffect::Controls { .. } => { /* shared facts or EP019b device hints */ }
+            | CallbackEffect::Panel(_) => { /* shared facts or EP019b device hints */ }
+            CallbackEffect::Queue(queue) | CallbackEffect::Controls { queue, .. } => {
+                self.finish_queue(queue)
+            }
             CallbackEffect::Goal(update) => self.finish_goal(update),
             CallbackEffect::ReplyFailed { error, .. } => self.session.set_status(error),
             CallbackEffect::Checked { update, .. } => {

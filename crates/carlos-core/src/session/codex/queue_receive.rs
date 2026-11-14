@@ -12,6 +12,7 @@ pub fn changed(session: &mut SessionState, update: &mut QueueUpdate, params: &Va
     if params["threadId"] == *session.thread_id() {
         session.codex_queue.invalidate();
         session.codex_queue.error = None;
+        session.codex_queue.read_error = None;
         update.clear_error = true;
     }
 }
@@ -67,6 +68,7 @@ fn page(
     session.codex_queue.entries = read.entries;
     session.codex_queue.known = true;
     session.codex_queue.error = None;
+    session.codex_queue.read_error = None;
     update.clear_error = true;
     update.select_first = true;
     None
@@ -117,24 +119,19 @@ fn mutation(session: &mut SessionState, update: &mut QueueUpdate, token: u64, pa
     {
         return;
     }
-    let operation = session
+    let mut operation = session
         .codex_queue
         .operation
         .take()
         .expect("queue mutation");
-    let result = &params["response"]["result"];
     let error = mutation_error(&operation, &params["response"]);
+    private_outcome(update, &operation, &params["response"], error.as_deref());
     if let Some(error) = error {
-        update.recovery = operation.submitted;
+        update.recovery = operation.submitted.take();
         super::queue::fail(session, update, &error);
     } else {
         session.codex_queue.notice = if operation.method == "thread/queue/add" {
-            format!(
-                "Codex accepted queued message {}",
-                result["queuedSubmission"]["id"]
-                    .as_str()
-                    .unwrap_or("unknown")
-            )
+            "Codex accepted the queued message".into()
         } else if operation.method == "thread/queue/start" {
             "Start accepted; waiting for native turn events".into()
         } else {
@@ -153,6 +150,7 @@ fn read_failed(session: &mut SessionState, update: &mut QueueUpdate, error: &str
     session.codex_queue.read = None;
     session.codex_queue.known = false;
     session.codex_queue.error = Some(crate::session::text::safe_text(error));
+    session.codex_queue.read_error = Some(crate::protocol_events::bounded_diagnostic(error));
     update.clear_error = true;
 }
 
@@ -170,6 +168,9 @@ fn mutation_error(
 ) -> Option<String> {
     let result = &response["result"];
     response.get("error").map(error_message).or_else(|| {
+        if !result.is_object() {
+            return Some("Malformed queue acknowledgement".into());
+        }
         let entry = &result["queuedSubmission"];
         match operation.method.as_str() {
             "thread/queue/add"
@@ -184,7 +185,45 @@ fn mutation_error(
             "thread/queue/delete" if result["deleted"] != true => {
                 Some("The queued message no longer exists".into())
             }
+            "thread/queue/start"
+                if !result["turn"]["id"]
+                    .as_str()
+                    .is_some_and(|id| !id.is_empty()) =>
+            {
+                Some("Queue start acknowledgement has no native turn".into())
+            }
             _ => None,
         }
     })
+}
+
+fn private_outcome(
+    update: &mut QueueUpdate,
+    operation: &super::queue_state::QueueOperation,
+    response: &Value,
+    error: Option<&str>,
+) {
+    if let Some(owner) = &operation.operation {
+        use carlos_proto::submissions::{OperationState, SubmittedText};
+        let state = if let Some(error) = error {
+            let recovery = operation.submitted.as_ref().map(|text| SubmittedText {
+                operation: Some(owner.clone()),
+                text: text.clone(),
+            });
+            if matches!(response["error"]["code"].as_i64(), Some(-32602..=-32600)) {
+                OperationState::Rejected {
+                    message: error.into(),
+                    recovery,
+                }
+            } else {
+                OperationState::Uncertain {
+                    message: error.into(),
+                    recovery,
+                }
+            }
+        } else {
+            OperationState::Accepted { entry: None }
+        };
+        update.outcome = Some((owner.clone(), state));
+    }
 }

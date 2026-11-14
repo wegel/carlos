@@ -5,6 +5,7 @@ mod codec;
 mod connection;
 mod goal;
 mod operations;
+mod queue;
 mod replica;
 mod windows;
 

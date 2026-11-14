@@ -33,6 +33,7 @@ impl Owner {
             | EngineCommand::SetRalph { operation, .. }
             | EngineCommand::GoalSet { operation, .. }
             | EngineCommand::GoalClear { operation, .. }
+            | EngineCommand::QueueChange { operation, .. }
             | EngineCommand::Approve { operation, .. }
             | EngineCommand::Interrupt { operation, .. } => operation,
             _ => {
@@ -148,6 +149,11 @@ impl Owner {
                 policy,
             } => self.send(Some(operation), text, policy, PromptOrigin::Human, false),
             EngineCommand::SetRalph { operation, on } => self.set_ralph(operation, on),
+            EngineCommand::QueueChange {
+                operation,
+                expected,
+                change,
+            } => self.change_queue(operation, expected, change),
             command @ (EngineCommand::GoalSet { .. } | EngineCommand::GoalClear { .. }) => {
                 self.change_goal(command)
             }

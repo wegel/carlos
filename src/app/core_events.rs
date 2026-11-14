@@ -24,7 +24,8 @@ impl AppState {
                 Change::Approval(_)
                 | Change::ApprovalResolved { .. }
                 | Change::Info
-                | Change::Goal => None,
+                | Change::Goal
+                | Change::Queue => None,
             };
             if let Some(index) = index {
                 dirty = Some(dirty.map_or(index, |old: usize| old.min(index)));

@@ -29,6 +29,7 @@ impl SessionState {
     /// Clear a queue error when the user refreshes or opens an editor.
     pub fn clear_codex_queue_error(&mut self) {
         self.codex_queue.error = None;
+        self.codex_queue.read_error = None;
     }
     /// Install a validated complete reconnect queue without altering a client's selection.
     pub(crate) fn install_codex_queue(&mut self, queue: Option<&Value>) {
@@ -38,6 +39,7 @@ impl SessionState {
         self.codex_queue.error = queue
             .is_none()
             .then(|| "This server has no queue API".into());
+        self.codex_queue.read_error = self.codex_queue.error.clone();
     }
     /// Stop a stale reader after closure without resending its uncertain write.
     pub(crate) fn close_codex_queue(&mut self) {
@@ -49,6 +51,6 @@ impl SessionState {
         self.codex_queue
             .operation
             .take()
-            .and_then(|operation| operation.submitted)
+            .and_then(|mut operation| operation.submitted.take())
     }
 }

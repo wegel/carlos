@@ -200,6 +200,8 @@ pub struct Snapshot {
     pub info: SessionInfo,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub goal: Option<crate::goals::GoalFacts>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queue: Option<crate::queue::QueueFacts>,
     pub entries: Vec<Entry>,
     pub approvals: Vec<Approval>,
     pub seq: Sequence,

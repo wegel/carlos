@@ -12,6 +12,7 @@ use crate::ClientError;
 /// Platforms redraw changed rows and invalidate body caches without rescanning the transcript.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct ChangeSet {
+    pub queue: bool,
     pub goal: bool,
     pub entries: Vec<EntryId>,
     pub bodies: Vec<EntryId>,
@@ -24,6 +25,7 @@ pub struct ChangeSet {
 
 /// One bounded chronological window; the daemon keeps older/newer rows outside this copy.
 pub struct Replica {
+    pub(crate) queue: Option<carlos_proto::queue::QueueFacts>,
     pub(crate) goal: Option<carlos_proto::goals::GoalFacts>,
     pub(crate) goal_seq: Sequence,
     pub(crate) info: SessionInfo,
@@ -48,6 +50,7 @@ impl Replica {
             }
         }
         Ok(Self {
+            queue: snapshot.queue,
             goal: snapshot.goal,
             goal_seq: snapshot.seq,
             info: snapshot.info,
@@ -68,6 +71,10 @@ impl Replica {
     /// Borrow shared native goal facts; drafts and mutation errors remain private.
     pub fn goal(&self) -> Option<&carlos_proto::goals::GoalFacts> {
         self.goal.as_ref()
+    }
+    /// Borrow queue state without sharing any selected entry or editor draft.
+    pub fn queue(&self) -> Option<&carlos_proto::queue::QueueFacts> {
+        self.queue.as_ref()
     }
     /// Borrow rows in chronological window order without cloning their source.
     pub fn entries(&self) -> impl DoubleEndedIterator<Item = &Entry> {
@@ -108,6 +115,7 @@ impl Replica {
         }
         *self = Self::new(snapshot)?;
         Ok(ChangeSet {
+            queue: true,
             goal: true,
             info: true,
             approvals: true,
@@ -151,6 +159,7 @@ impl Replica {
     fn apply_fact(&mut self, event: Event, seq: Sequence) -> Result<ChangeSet, ClientError> {
         let mut changed = ChangeSet::default();
         match event {
+            Event::QueueChanged { queue } => self.replace_queue(queue, &mut changed),
             Event::GoalChanged { goal } => self.replace_goal(goal, seq, &mut changed),
             Event::EntryAdded { entry } => self.add_entry(entry, &mut changed)?,
             Event::EntryUpdated { entry } => self.replace_entry(entry, seq, &mut changed),
@@ -205,6 +214,15 @@ impl Replica {
         changed.removed_front = self.rows.bound(true)?;
         self.older |= changed.removed_front > 0;
         Ok(changed)
+    }
+
+    fn replace_queue(
+        &mut self,
+        queue: Option<carlos_proto::queue::QueueFacts>,
+        changed: &mut ChangeSet,
+    ) {
+        changed.queue = self.queue != queue;
+        self.queue = queue;
     }
 
     fn add_entry(&mut self, entry: Entry, changed: &mut ChangeSet) -> Result<(), ClientError> {

@@ -6,6 +6,7 @@ pub mod events;
 pub mod goals;
 pub mod ids;
 pub mod output;
+pub mod queue;
 pub mod session;
 pub mod source;
 pub mod submissions;

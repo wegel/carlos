@@ -19,6 +19,8 @@ impl SessionState {
     /// Mark whether the fixture has a native queue change in progress.
     pub fn set_codex_queue_pending_for_test(&mut self, pending: bool) {
         self.codex_queue.operation = pending.then(|| QueueOperation {
+            live: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true)),
+            operation: None,
             token: 1,
             method: "thread/queue/add".into(),
             params: json!({}),

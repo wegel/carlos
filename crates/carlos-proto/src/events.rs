@@ -25,6 +25,9 @@ pub struct EntryFacts {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Event {
+    QueueChanged {
+        queue: Option<crate::queue::QueueFacts>,
+    },
     GoalChanged {
         goal: Option<crate::goals::GoalFacts>,
     },

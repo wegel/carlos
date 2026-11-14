@@ -29,6 +29,7 @@ pub enum Change {
     },
     Info,
     Goal,
+    Queue,
     Reset {
         dirty_from: Option<EntryId>,
     },
@@ -43,6 +44,7 @@ pub struct NumberedChange {
 
 #[derive(Debug)]
 pub(super) struct EventState {
+    pub(super) queue_fingerprint: Option<blake3::Hash>,
     pub(super) goal_fingerprint: Option<blake3::Hash>,
     pub(super) operations: super::submission_identity::OperationEchoes,
     pub(super) current_turn: Option<super::control_liveness::LiveTurn>,
@@ -65,6 +67,7 @@ pub(super) struct EventState {
 impl EventState {
     pub(super) fn new() -> Self {
         Self {
+            queue_fingerprint: None,
             goal_fingerprint: None,
             operations: Default::default(),
             current_turn: None,
@@ -131,8 +134,7 @@ impl SessionState {
             self.retain_entry_operations();
         }
         let mut changes = self.row_changes(journal);
-        self.publish_approvals(&mut changes);
-        self.publish_goal(&mut changes);
+        self.publish_controls(&mut changes);
         if std::mem::take(&mut self.events.decision_overflow) {
             changes.clear();
             changes.push(Change::Reset { dirty_from: None });
@@ -173,6 +175,12 @@ impl SessionState {
             session: self,
             records,
         }
+    }
+
+    fn publish_controls(&mut self, changes: &mut Vec<Change>) {
+        self.publish_approvals(changes);
+        self.publish_goal(changes);
+        self.publish_queue(changes);
     }
 
     fn row_changes(&self, journal: Journal) -> Vec<Change> {
@@ -311,6 +319,9 @@ impl Published<'_> {
             Change::Approval(id) => self.approval_event(id)?,
             Change::Goal => Event::GoalChanged {
                 goal: self.session.export_goal(),
+            },
+            Change::Queue => Event::QueueChanged {
+                queue: self.session.export_queue(),
             },
             Change::ApprovalResolved { approval, decision } => Event::ApprovalResolved {
                 approval: approval.to_wire(),

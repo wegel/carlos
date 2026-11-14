@@ -1,6 +1,10 @@
 //! Own native queue snapshots and submitted writes without client editors.
 
 use std::collections::HashSet;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use std::time::Instant;
 
 use serde_json::Value;
@@ -8,6 +12,8 @@ use serde_json::Value;
 #[derive(Debug, Default)]
 /// Own accepted native queued prompts and their pending reads and changes.
 pub struct QueueState {
+    pub(in crate::session) exhausted: bool,
+    pub(in crate::session) read_error: Option<String>,
     pub(in crate::session) known: bool,
     pub(in crate::session) revision: u64,
     pub(in crate::session) entries: Vec<Value>,
@@ -30,10 +36,18 @@ pub(crate) struct QueueRead {
 /// Keep one exact mutation identity and any locally submitted text until acknowledgement.
 #[derive(Debug)]
 pub(crate) struct QueueOperation {
+    pub(in crate::session) live: Arc<AtomicBool>,
+    pub(in crate::session) operation: Option<carlos_proto::submissions::ClientOperation>,
     pub(in crate::session) token: u64,
     pub(in crate::session) method: String,
     pub(in crate::session) params: Value,
     pub(in crate::session) submitted: Option<String>,
+}
+
+impl Drop for QueueOperation {
+    fn drop(&mut self) {
+        self.live.store(false, Ordering::SeqCst);
+    }
 }
 
 impl QueueState {
@@ -62,7 +76,14 @@ impl QueueState {
         &self.notice
     }
     pub(in crate::session) fn invalidate(&mut self) {
-        self.revision = self.revision.saturating_add(1);
+        match self.revision.checked_add(1) {
+            Some(revision) => self.revision = revision,
+            None => {
+                self.exhausted = true;
+                self.read_error =
+                    Some("Queue revision exhausted; reconnect before changing it".into());
+            }
+        }
         self.known = false;
     }
 }

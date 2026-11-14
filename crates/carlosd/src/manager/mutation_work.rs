@@ -17,6 +17,7 @@ pub(super) type Prepared = (
 
 pub(super) fn prepare(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
     let parts = match command {
+        command @ Command::QueueChange { .. } => return prepare_queue(command),
         command @ (Command::GoalSet { .. } | Command::GoalClear { .. }) => {
             return prepare_goal(command)
         }
@@ -187,4 +188,38 @@ fn prepare_goal(command: Command) -> Result<Prepared, carlos_proto::commands::Rp
         ),
         _ => unreachable!("typed goal mutation"),
     })
+}
+
+fn prepare_queue(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
+    match command {
+        Command::QueueChange {
+            session,
+            operation,
+            expected,
+            change,
+        } => {
+            if change
+                .text()
+                .is_some_and(|text| text.len() > carlos_proto::queue::MAX_TEXT_BYTES)
+            {
+                return Err(error(-32602, "queued text exceeds 512 KiB; nothing sent"));
+            }
+            let recovery = change.text().map(|text| SubmittedText {
+                operation: Some(operation.clone()),
+                text: text.into(),
+            });
+            Ok((
+                session,
+                operation.clone(),
+                EngineCommand::QueueChange {
+                    operation,
+                    expected,
+                    change,
+                },
+                recovery,
+                Class::Ordinary,
+            ))
+        }
+        _ => unreachable!("typed queue mutation"),
+    }
 }

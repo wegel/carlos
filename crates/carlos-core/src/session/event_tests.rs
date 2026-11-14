@@ -20,6 +20,7 @@ fn apply(client: &mut Snapshot, event: SessionEvent) {
     assert_eq!(client.info.id, event.session);
     assert_eq!(client.seq.checked_next(), Some(event.seq));
     match event.event {
+        Event::QueueChanged { queue } => client.queue = queue,
         Event::EntryAdded { entry } => client.entries.push(entry),
         Event::EntryUpdated { entry } => {
             let old = client

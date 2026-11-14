@@ -5,10 +5,12 @@ import json
 import threading
 
 from websockets.asyncio.server import unix_serve
+from native_queue import NativeQueue
 
 
-class NativeCodex:
+class NativeCodex(NativeQueue):
     def __init__(self, root):
+        self.init_queue()
         self.root = root
         self.path = root / "native.sock"
         self.requests = []
@@ -136,6 +138,7 @@ class NativeCodex:
             self.thread_id = "native-fork"
             self.forked = True
             self.goal = None
+            self.queue_entries = []
             result = {"thread": self.history()}
         elif method == "thread/name/set":
             if request["params"]["name"] == "reject rename":
@@ -143,6 +146,9 @@ class NativeCodex:
                 return
         elif method in ("thread/goal/get", "thread/goal/set", "thread/goal/clear"):
             await self.goal_request(link, request)
+            return
+        elif method.startswith("thread/queue/"):
+            await self.queue_request(link, request)
             return
         elif method in ("model/list", "thread/list", "thread/backgroundTerminals/list"):
             result = {"data": [], "nextCursor": None}

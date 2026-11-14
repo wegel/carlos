@@ -271,6 +271,117 @@
         },
         "expected": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "queue-0",
+      "method": "queue/read",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expected": null,
+        "after": null,
+        "limit": 32,
+        "refresh": false
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "queue-1",
+      "method": "queue/text",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expected": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "entry": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "offset": "9007199254740993",
+        "limit": 65536
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "queue-2",
+      "method": "queue/change",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "operation": {
+          "client": "dddddddddddddddddddddddddddddddd",
+          "id": "12"
+        },
+        "expected": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "change": {
+          "kind": "add",
+          "text": "queued 🌍"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "queue-3",
+      "method": "queue/change",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "operation": {
+          "client": "dddddddddddddddddddddddddddddddd",
+          "id": "12"
+        },
+        "expected": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "change": {
+          "kind": "edit",
+          "entry": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "text": "edited 🌍"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "queue-4",
+      "method": "queue/change",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "operation": {
+          "client": "dddddddddddddddddddddddddddddddd",
+          "id": "12"
+        },
+        "expected": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "change": {
+          "kind": "delete",
+          "entry": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "queue-5",
+      "method": "queue/change",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "operation": {
+          "client": "dddddddddddddddddddddddddddddddd",
+          "id": "12"
+        },
+        "expected": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "change": {
+          "kind": "start",
+          "entry": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "queue-6",
+      "method": "queue/change",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "operation": {
+          "client": "dddddddddddddddddddddddddddddddd",
+          "id": "12"
+        },
+        "expected": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "change": {
+          "kind": "move",
+          "entry": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "direction": "up"
+        }
+      }
     }
   ],
   "notifications": [
