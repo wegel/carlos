@@ -1,0 +1,9 @@
+[package]
+name = "carlos-client"
+version = "0.1.0"
+edition = "2021"
+license-file = "../../LICENSE"
+
+[dependencies]
+carlos-proto = { path = "../carlos-proto" }
+serde_json = "1"

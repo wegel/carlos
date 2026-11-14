@@ -280,6 +280,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "carlos-client"
+version = "0.1.0"
+dependencies = [
+ "carlos-proto",
+ "serde_json",
+]
+
+[[package]]
 name = "carlos-core"
 version = "0.1.0"
 dependencies = [

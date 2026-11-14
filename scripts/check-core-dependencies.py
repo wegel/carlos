@@ -28,9 +28,10 @@ PROTO_PACKAGES = {
 }
 
 
-def check_protocol(packages, nodes):
-    """Keep the wire types free of transport and application packages."""
-    pending = [key for key, package in packages.items() if package["name"] == "carlos-proto"]
+def check_pure_package(packages, nodes, owner):
+    """Keep wire types and shared client free of transport and application packages."""
+    pending = [key for key, package in packages.items() if package["name"] == owner]
+    allowed = PROTO_PACKAGES | {owner}
     visited, issues = set(), []
     while pending:
         key = pending.pop()
@@ -38,8 +39,8 @@ def check_protocol(packages, nodes):
             continue
         visited.add(key)
         name = packages[key]["name"]
-        if name not in PROTO_PACKAGES:
-            issues.append(f"carlos-proto: unreviewed resolved package {name}")
+        if name not in allowed:
+            issues.append(f"{owner}: unreviewed resolved package {name}")
         pending.extend(nodes[key]["dependencies"])
     return issues
 
@@ -52,7 +53,8 @@ def check_graph(metadata):
     if len(owners) != 1:
         return ["Expected exactly one carlos-core workspace member"]
     nodes = {node["id"]: node for node in metadata["resolve"]["nodes"]}
-    issues = check_protocol(packages, nodes)
+    issues = check_pure_package(packages, nodes, "carlos-proto")
+    issues.extend(check_pure_package(packages, nodes, "carlos-client"))
     selected = [owners[0]] + [key for key in metadata["workspace_members"] if packages[key]["name"] == "carlosd"]
     for owner in selected:
         name = packages[owner]["name"]
@@ -98,4 +100,4 @@ if __name__ == "__main__":
     if errors:
         print("\n".join(errors), file=sys.stderr)
         sys.exit(1)
-    print("Core and daemon packages: no terminal, audio or speech dependency in any target branch")
+    print("Core/daemon: no terminal/audio/speech; protocol/client: only reviewed data packages in every target branch")

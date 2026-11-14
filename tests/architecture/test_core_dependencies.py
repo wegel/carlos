@@ -61,6 +61,22 @@ class CoreDependencyTests(unittest.TestCase):
         sample = graph({"core": ("carlos", [])})
         self.assertTrue(GUARD.check_graph(sample))
 
+    def test_shared_client_cannot_gain_platform_or_core_code_through_any_edge(self):
+        for name in ["tokio", "socket2", "carlos-core", "crossterm", "cpal", "libc"]:
+            sample = graph({"core": ("carlos-core", []),
+                            "client": ("carlos-client", ["proto"]),
+                            "proto": ("carlos-proto", ["json"]),
+                            "json": ("serde_json", ["hidden"]), "hidden": (name, [])})
+            sample["workspace_members"].append("client")
+            self.assertIn(f"carlos-client: unreviewed resolved package {name}", GUARD.check_graph(sample))
+
+    def test_shared_client_accepts_only_the_data_graph_even_when_ui_is_present(self):
+        sample = graph({"core": ("carlos-core", []), "client": ("carlos-client", ["proto", "json"]),
+                        "proto": ("carlos-proto", ["json"]), "json": ("serde_json", []),
+                        "ui": ("carlos", ["client", "draw"]), "draw": ("ratatui", [])})
+        sample["workspace_members"].extend(["client", "ui"])
+        self.assertEqual(GUARD.check_graph(sample), [])
+
     def test_fixture_helpers_cannot_become_a_default_feature_directly_or_indirectly(self):
         for defaults in [["test-support"], ["fixtures"]]:
             sample = graph({"core": ("carlos-core", [])})
