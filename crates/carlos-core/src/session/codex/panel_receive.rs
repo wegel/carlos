@@ -101,18 +101,7 @@ pub fn failed(
         .is_some_and(|read| read.request.token == request.token)
     {
         if request.method == "thread/backgroundTerminals/list" {
-            if let Some(read) = session.codex_panel.snapshot.as_mut() {
-                let short: String = message.chars().take(256).collect();
-                if let Some(owner) = request.params["threadId"].as_str() {
-                    read.process_scopes
-                        .insert(owner.to_string(), Some(short.clone()));
-                }
-                read.errors.push(format!(
-                    "Processes unavailable for {}: {short}",
-                    request.params["threadId"]
-                ));
-            }
-            super::panel_pages::next_scope(session, scope, update);
+            super::panel_pages::process_failed(session, scope, update, &message);
             return;
         }
         session.codex_panel.snapshot = None;

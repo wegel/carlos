@@ -1,6 +1,5 @@
 //! Schedule bounded Codex panel reads and exact selected controls without blocking the UI.
 
-use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
@@ -60,30 +59,14 @@ pub fn refresh(session: &mut SessionState, scope: PanelScope<'_>, older: bool) {
     if older && cursor.is_null() {
         return;
     }
-    let request = request(
-        session,
-        "thread/list",
-        json!({"ancestorThreadId":session.thread_id(),
-        "sourceKinds":["subAgent","subAgentReview","subAgentCompact","subAgentThreadSpawn","subAgentOther"],
-        "sortKey":"updated_at","sortDirection":"desc","limit":1,"cursor":cursor}),
+    let mut read = Snapshot::new(
+        session.thread_id(),
+        session.codex_panel.revision,
+        cursor,
+        older,
     );
-    session.codex_panel.snapshot = Some(Snapshot {
-        root: session.thread_id().clone(),
-        request,
-        started: Instant::now(),
-        agents: Vec::new(),
-        processes: Vec::new(),
-        scopes: VecDeque::new(),
-        bytes: 0,
-        cursors: HashSet::new(),
-        revision: session.codex_panel.revision,
-        older: Value::Null,
-        lineage: HashMap::new(),
-        checked: HashSet::new(),
-        errors: Vec::new(),
-        process_scopes: HashMap::new(),
-        older_window: older,
-    });
+    read.request = request(session, &read.request.method, read.request.params.clone());
+    session.codex_panel.snapshot = Some(read);
     session.codex_panel.notice = "Reading agents and background processes…".into();
 }
 
