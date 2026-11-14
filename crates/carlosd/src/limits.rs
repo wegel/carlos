@@ -20,6 +20,8 @@ pub const INTERESTS: usize = 16;
 pub const WATCHES: usize = 32;
 /// Maximum queued and executing socket-write frames per peer.
 pub const OUT_FRAMES: usize = 128;
+/// Reserve 32 frame slots for replies and recovery even when shared events are small.
+pub const SHARED_FRAMES: usize = 96;
 /// Maximum queued and executing socket-write bytes per peer.
 pub const OUT_BYTES: usize = 16 * 1024 * 1024;
 /// Leave room beyond ordinary shared facts for an explicit replacement snapshot.

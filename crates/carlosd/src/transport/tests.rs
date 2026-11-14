@@ -17,7 +17,7 @@ fn shared_queue_discard_does_not_release_the_active_write_charge() {
     let outbox = Outbox::default();
     let session = session();
     let bytes: Arc<[u8]> = vec![b'x'; 65536].into();
-    for _ in 0..128 {
+    for _ in 0..crate::limits::SHARED_FRAMES {
         assert!(outbox.push(Frame {
             bytes: bytes.clone(),
             kind: Kind::Shared(session.clone())
@@ -26,7 +26,7 @@ fn shared_queue_discard_does_not_release_the_active_write_charge() {
     let active = outbox.take().expect("writer takes one charged frame");
     assert!(!outbox.push(Frame {
         bytes: bytes.clone(),
-        kind: Kind::Reply
+        kind: Kind::Shared(session.clone())
     }));
     outbox.discard(|kind| matches!(kind, Kind::Shared(_)));
     let large: Arc<[u8]> = vec![b'x'; crate::limits::SHARED_BYTES].into();
@@ -38,6 +38,43 @@ fn shared_queue_discard_does_not_release_the_active_write_charge() {
     assert!(outbox.push(Frame {
         bytes: large,
         kind: Kind::Shared(session)
+    }));
+}
+
+#[test]
+fn small_shared_frames_leave_count_room_for_replies_and_replacement_snapshots() {
+    let outbox = Outbox::default();
+    let session = session();
+    let bytes: Arc<[u8]> = b"frame\n".as_slice().into();
+    for _ in 0..crate::limits::SHARED_FRAMES {
+        assert!(outbox.push(Frame {
+            bytes: bytes.clone(),
+            kind: Kind::Shared(session.clone())
+        }));
+    }
+    let active = outbox.take().expect("active shared write still counts");
+    assert!(!outbox.push(Frame {
+        bytes: bytes.clone(),
+        kind: Kind::Shared(session.clone())
+    }));
+    assert!(outbox.push(Frame {
+        bytes: bytes.clone(),
+        kind: Kind::Snapshot(session.clone())
+    }));
+    for _ in 1..crate::limits::OUT_FRAMES - crate::limits::SHARED_FRAMES {
+        assert!(outbox.push(Frame {
+            bytes: bytes.clone(),
+            kind: Kind::Reply
+        }));
+    }
+    assert!(!outbox.push(Frame {
+        bytes: bytes.clone(),
+        kind: Kind::Reply
+    }));
+    outbox.finish(&active);
+    assert!(outbox.push(Frame {
+        bytes,
+        kind: Kind::Reply
     }));
 }
 
@@ -112,6 +149,18 @@ fn malformed_envelopes_get_bounded_standard_errors_and_encodes_stop_at_the_cap()
         .id
         .is_none());
     assert!(wire::encode(&"x".repeat(crate::limits::FRAME_BYTES)).is_err());
+}
+
+#[test]
+fn every_typed_fixture_request_passes_the_real_daemon_method_and_field_checks() {
+    let fixture: serde_json::Value =
+        serde_json::from_str(include_str!("../../../carlos-proto/tests/fixtures/v1.json"))
+            .expect("fixture");
+    for value in fixture["requests"].as_array().expect("requests") {
+        let bytes = serde_json::to_vec(value).expect("encode");
+        let request = wire::decode(&bytes).expect("typed command must reach manager");
+        assert_eq!(serde_json::to_value(request).expect("reencode"), *value);
+    }
 }
 
 #[test]

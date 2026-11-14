@@ -104,7 +104,7 @@ must exercise them before the listener is accepted.
   replies) and requests, rather than retaining arbitrary reply
   receivers for a disconnected peer.
 - Each socket writer: 128 frames/sixteen MiB including the frame being written.
-  Ordinary shared frames use at most eight MiB, leaving room for a replacement
+  Ordinary shared facts/output/source use at most 96 frames and eight MiB, leaving 32 frame slots and eight MiB for replies and a replacement
   page or an explicit watch reset. Socket workers request 64 KiB kernel send/receive
   buffers; the OS may round those limits. A blocked write expires after 500 ms. If the
   writer cannot queue a required private reply or replacement, it closes that

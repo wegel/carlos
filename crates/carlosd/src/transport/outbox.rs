@@ -33,17 +33,18 @@ pub(crate) struct Outbox(Arc<(Mutex<State>, Condvar)>);
 impl Outbox {
     pub(crate) fn push(&self, frame: Frame) -> bool {
         let mut state = self.0 .0.lock().expect("peer output queue");
-        let cap = if matches!(
+        let shared = matches!(
             frame.kind,
             Kind::Shared(_) | Kind::Output(..) | Kind::Source(..)
-        ) {
-            crate::limits::SHARED_BYTES
+        );
+        let (frames, bytes) = if shared {
+            (crate::limits::SHARED_FRAMES, crate::limits::SHARED_BYTES)
         } else {
-            crate::limits::OUT_BYTES
+            (crate::limits::OUT_FRAMES, crate::limits::OUT_BYTES)
         };
         if state.closed
-            || state.count == crate::limits::OUT_FRAMES
-            || frame.bytes.len() > cap.saturating_sub(state.bytes)
+            || state.count >= frames
+            || frame.bytes.len() > bytes.saturating_sub(state.bytes)
         {
             return false;
         }
