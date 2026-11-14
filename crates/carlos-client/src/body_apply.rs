@@ -9,17 +9,8 @@ use crate::ClientError;
 
 impl SourceWindow {
     pub(crate) fn apply(&mut self, chunk: SourceChunk) -> Result<bool, ClientError> {
-        let end = chunk
-            .offset
-            .get()
-            .checked_add(chunk.text.len() as u64)
-            .ok_or(ClientError::InvalidBody)?;
-        if chunk.source.revision != self.source.revision
-            || chunk.text.len() > 65536
-            || end > chunk.source.bytes.get()
-            || chunk.has_more != (end < chunk.source.bytes.get())
-            || chunk.done && chunk.has_more
-        {
+        let end = source_bounds(&chunk)?;
+        if chunk.source.revision != self.source.revision {
             return Err(ClientError::InvalidBody);
         }
         if chunk.seq < self.seq
@@ -72,12 +63,8 @@ impl SourceWindow {
 
 impl OutputWindow {
     pub(crate) fn apply(&mut self, chunk: OutputChunk) -> Result<bool, ClientError> {
-        if chunk.segments.len() > 256 {
-            return Err(ClientError::InvalidBody);
-        }
-        let bytes: usize = chunk.segments.iter().map(|piece| piece.text.len()).sum();
-        // Native reads can finish a small pending diff prefix from their preceding source chunk.
-        if chunk.revision != self.revision || bytes > 65536 + 256 || chunk.done && chunk.has_more {
+        let bytes = output_bounds(&chunk)?;
+        if chunk.revision != self.revision {
             return Err(ClientError::InvalidBody);
         }
         if chunk.seq < self.seq || self.next.as_ref() == Some(&chunk.next) && chunk.seq == self.seq
@@ -100,4 +87,33 @@ impl OutputWindow {
         self.done = chunk.done;
         Ok(changed)
     }
+}
+
+pub(crate) fn source_bounds(chunk: &SourceChunk) -> Result<u64, ClientError> {
+    let end = chunk
+        .offset
+        .get()
+        .checked_add(chunk.text.len() as u64)
+        .ok_or(ClientError::InvalidBody)?;
+    if chunk.text.len() > 65536
+        || end > chunk.source.bytes.get()
+        || chunk.has_more != (end < chunk.source.bytes.get())
+        || chunk.done && chunk.has_more
+        || chunk.has_more && chunk.text.is_empty()
+    {
+        return Err(ClientError::InvalidBody);
+    }
+    Ok(end)
+}
+
+pub(crate) fn output_bounds(chunk: &OutputChunk) -> Result<usize, ClientError> {
+    if chunk.segments.len() > 256 {
+        return Err(ClientError::InvalidBody);
+    }
+    let bytes: usize = chunk.segments.iter().map(|piece| piece.text.len()).sum();
+    // A read can finish the small diff prefix carried from its preceding source chunk.
+    if bytes > 65536 + 256 || chunk.done && chunk.has_more {
+        return Err(ClientError::InvalidBody);
+    }
+    Ok(bytes)
 }

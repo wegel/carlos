@@ -33,6 +33,21 @@ pub struct BodyToken {
     generation: u64,
 }
 
+impl BodyToken {
+    /// Borrow the logical session whose original source or normalized output this token reads.
+    pub fn session(&self) -> &SessionId {
+        &self.key.session
+    }
+    /// Borrow the stable row address without exposing its native backend identity.
+    pub fn entry(&self) -> &EntryId {
+        &self.key.entry
+    }
+    /// Distinguish original bytes from normalized display pieces.
+    pub fn is_source(&self) -> bool {
+        self.key.format == Format::Source
+    }
+}
+
 /// Original bytes remain separate from normalized display text and its parsing cursor.
 pub struct SourceWindow {
     pub(crate) metadata_known: bool,
@@ -75,6 +90,19 @@ pub struct Bodies {
 }
 
 impl Bodies {
+    pub(crate) fn contains(&self, token: &BodyToken) -> bool {
+        self.window(token).is_some()
+    }
+    pub(crate) fn tokens(&self, session: &SessionId) -> Vec<BodyToken> {
+        self.windows
+            .iter()
+            .filter(|(key, _)| &key.session == session)
+            .map(|(key, window)| BodyToken {
+                key: key.clone(),
+                generation: window.generation,
+            })
+            .collect()
+    }
     /// Begin at the original body's first byte; terminal controls may span returned pieces.
     pub fn open_source(
         &mut self,
@@ -256,6 +284,11 @@ impl Bodies {
             .retain(|key, _| &key.session != session || &key.entry != entry);
     }
 
+    /// Release all body formats when a session is detached or replaced.
+    pub fn forget_session(&mut self, session: &SessionId) {
+        self.windows.retain(|key, _| &key.session != session);
+    }
+
     /// Apply a shared body descriptor without discarding a valid append-only cached prefix.
     pub fn observe_source(&mut self, session: &SessionId, entry: &EntryId, source: &Source) {
         self.observe_revision(session, entry, source.revision);
@@ -296,6 +329,11 @@ impl Bodies {
             };
             current == revision
         });
+    }
+
+    pub(crate) fn retain_entries(&mut self, session: &SessionId, keep: impl Fn(&EntryId) -> bool) {
+        self.windows
+            .retain(|key, _| &key.session != session || keep(&key.entry));
     }
 
     /// Release only the supplied window; an old callback cannot close its replacement.

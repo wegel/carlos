@@ -2,6 +2,11 @@
 
 mod bodies;
 mod cards;
+mod client;
+mod client_budget;
+mod client_reads;
+mod client_reconnect;
+mod client_watches;
 mod codec;
 mod connection;
 mod goal;

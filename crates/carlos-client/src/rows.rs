@@ -18,6 +18,9 @@ pub(crate) struct Rows {
 }
 
 impl Rows {
+    pub(crate) fn retained_bytes(&self) -> usize {
+        self.bytes
+    }
     pub fn new(entries: Vec<Entry>) -> Result<Self, ClientError> {
         let mut rows = Self {
             entries: VecDeque::new(),

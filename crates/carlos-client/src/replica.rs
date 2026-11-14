@@ -39,6 +39,25 @@ pub struct Replica {
 }
 
 impl Replica {
+    pub(crate) fn retained_bytes(&self) -> usize {
+        let info = &self.info;
+        let strings = info.name.as_ref().map_or(0, String::len)
+            + info.model.as_ref().map_or(0, String::len)
+            + info.host.len()
+            + info.cwd.as_ref().map_or(0, String::len);
+        let goal = self.goal.as_ref().map_or(0, |facts| {
+            facts.read_error.as_ref().map_or(0, String::len)
+                + facts.notice.len()
+                + facts
+                    .goal
+                    .as_ref()
+                    .map_or(0, |goal| goal.objective.len() + goal.status.len())
+        });
+        let queue = self.queue.as_ref().map_or(0, |facts| {
+            facts.read_error.as_ref().map_or(0, String::len) + facts.notice.len()
+        });
+        self.rows.retained_bytes() + self.approvals.retained_bytes() + strings + goal + queue + 4096
+    }
     /// Adopt a full snapshot atomically; duplicate ids fail before replacing an existing copy.
     pub fn new(snapshot: Snapshot) -> Result<Self, ClientError> {
         let mut rows = Rows::new(snapshot.entries)?;

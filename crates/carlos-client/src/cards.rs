@@ -18,6 +18,9 @@ pub(crate) struct Cards {
 }
 
 impl Cards {
+    pub(crate) fn retained_bytes(&self) -> usize {
+        self.bytes
+    }
     pub fn new(entries: Vec<Approval>) -> Result<Self, ClientError> {
         let mut cards = Self {
             entries: Vec::new(),

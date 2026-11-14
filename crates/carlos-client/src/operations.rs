@@ -53,6 +53,34 @@ pub struct Operations {
 }
 
 impl Operations {
+    pub(crate) fn fail_local(
+        &mut self,
+        operation: &ClientOperation,
+        message: &str,
+        uncertain: bool,
+    ) -> bool {
+        let Some(record) = self
+            .records
+            .iter_mut()
+            .find(|record| &record.operation == operation)
+        else {
+            return false;
+        };
+        if terminal(&record.state) {
+            return false;
+        }
+        let message = message.chars().take(256).collect();
+        let recovery = record.text.as_ref().map(|draft| SubmittedText {
+            operation: Some(operation.clone()),
+            text: draft.text.clone(),
+        });
+        record.state = if uncertain {
+            OperationState::Uncertain { message, recovery }
+        } else {
+            OperationState::Rejected { message, recovery }
+        };
+        true
+    }
     /// Retain text before any write; a full store rejects new work without evicting another draft.
     pub fn begin(
         &mut self,
@@ -145,6 +173,15 @@ impl Operations {
         let Some(operation) = &entry.operation else {
             return Ok(false);
         };
+        self.observe_identity(session, &entry.id, operation)
+    }
+
+    pub(crate) fn observe_identity(
+        &mut self,
+        session: &SessionId,
+        entry: &EntryId,
+        operation: &ClientOperation,
+    ) -> Result<bool, ClientError> {
         let Some(record) = self
             .records
             .iter_mut()
@@ -159,14 +196,14 @@ impl Operations {
         {
             return Err(ClientError::ForeignSession);
         }
-        if record.entry.as_ref().is_some_and(|old| old != &entry.id) {
+        if record.entry.as_ref().is_some_and(|old| old != entry) {
             return Err(ClientError::InvalidPayload(
                 "one operation names several prompt entries".into(),
             ));
         }
         let changed = record.entry.is_none();
         record.session = Some(session.clone());
-        record.entry = Some(entry.id.clone());
+        record.entry = Some(entry.clone());
         Ok(changed)
     }
 

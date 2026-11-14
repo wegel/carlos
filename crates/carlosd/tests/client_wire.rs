@@ -12,7 +12,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use carlos_client::codec::{self, Framer, Incoming};
-use carlos_client::{Connection, Welcome};
+use carlos_client::{Client, Connection, Effects, Outbound, Welcome};
 use carlos_proto::commands::{Command, HelloResult, RequestId, Sessions};
 use carlosd::server::{self, Config};
 use tempfile::TempDir;
@@ -112,6 +112,41 @@ impl Wire {
         }
     }
 
+    fn drive(&mut self, client: &mut Client, outgoing: &Outbound) -> Effects {
+        self.socket
+            .write_all(outgoing.bytes())
+            .expect("write pure client request");
+        loop {
+            let message = self.next_message();
+            let complete = match &message {
+                Incoming::Success { id, .. } | Incoming::Failure { id: Some(id), .. } => {
+                    *id == outgoing.id()
+                }
+                _ => false,
+            };
+            let effects = client
+                .receive(outgoing.connection(), message)
+                .expect("checked client reply");
+            if complete {
+                return effects;
+            }
+        }
+    }
+
+    fn next_message(&mut self) -> Incoming {
+        loop {
+            if let Some(message) = self.frames.next_message().expect("decode") {
+                return message;
+            }
+            let mut bytes = [0; 4096];
+            let count = self.socket.read(&mut bytes).expect("read peer");
+            assert!(count > 0, "peer remains connected");
+            self.frames
+                .push(&bytes[..count])
+                .expect("bounded stream frame");
+        }
+    }
+
     fn hello(&mut self, command: Command) -> HelloResult {
         let Incoming::Success { result, .. } = self.call(command) else {
             panic!("greeting accepted");
@@ -155,4 +190,70 @@ fn actual_daemon_agrees_with_codec_credentials_and_never_reissues_an_unknown_ope
         .expect("typed list")
         .sessions
         .is_empty());
+}
+
+#[test]
+fn coherent_client_queries_its_unwritten_operation_after_private_resume_without_starting_a_backend()
+{
+    let daemon = Daemon::new();
+    let mut client = Client::default();
+    let mut wire = daemon.connect();
+    let greeting = client.begin("coherent-client".into()).expect("begin");
+    assert_eq!(
+        wire.drive(&mut client, &greeting).welcome,
+        Some(Welcome::Fresh)
+    );
+    let sent = client
+        .submit(greeting.connection(), |operation| Command::Send {
+            session: "a".repeat(32).parse().expect("unopened session"),
+            operation,
+            text: "unwritten local text".into(),
+            policy: Default::default(),
+        })
+        .expect("retain before platform write");
+    let request: carlos_proto::commands::Request =
+        serde_json::from_slice(sent.bytes()).expect("typed request");
+    let Command::Send { operation, .. } = request.command else {
+        panic!("send");
+    };
+    drop(wire);
+    client.disconnect(greeting.connection());
+    let mut wire = daemon.connect();
+    let greeting = client.begin("coherent-client".into()).expect("reconnect");
+    let mut effects = wire.drive(&mut client, &greeting);
+    assert_eq!(effects.welcome, Some(Welcome::Resumed));
+    assert_eq!(
+        effects.outgoing.len(),
+        1,
+        "only the outcome read is automatic"
+    );
+    let recover = effects.outgoing.pop().expect("private outcome query");
+    let request: carlos_proto::commands::Request =
+        serde_json::from_slice(recover.bytes()).expect("query");
+    assert!(matches!(request.command, Command::Operation { operation: read } if read == operation));
+    let effects = wire.drive(&mut client, &recover);
+    assert_eq!(effects.failures[0].error.code, -32006);
+    assert!(effects.outgoing.is_empty());
+    assert_private_recovery(&client, &operation);
+    let watch = client
+        .read(greeting.connection(), Command::Watch {})
+        .expect("catalogue read");
+    assert!(wire.drive(&mut client, &watch).catalog);
+    assert_eq!(
+        client.catalog().count(),
+        0,
+        "no backend session was created or resumed"
+    );
+}
+
+fn assert_private_recovery(
+    client: &Client,
+    operation: &carlos_proto::submissions::ClientOperation,
+) {
+    let record = client.operations().get(operation).expect("private result");
+    assert!(matches!(
+        record.state,
+        carlos_proto::submissions::OperationState::Uncertain { .. }
+    ));
+    assert_eq!(record.text(), Some("unwritten local text"));
 }
