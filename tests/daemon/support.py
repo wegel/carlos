@@ -26,7 +26,7 @@ def wait_for(predicate, description, timeout=8):
 
 
 class Client:
-    def __init__(self, fixture, name, resume=None):
+    def __init__(self, fixture, name, resume=None, greet=True):
         self.path = fixture.root / (name + ".jsonl")
         self.socket = socket.socket(socket.AF_UNIX)
         self.socket.connect(str(fixture.socket))
@@ -36,7 +36,7 @@ class Client:
         params = {"protocol": 1, "client": name}
         if resume:
             params.update(resume=resume["client"], resume_token=resume["resume_token"], instance=resume["instance"])
-        self.hello = self.call("hello", **params)
+        self.hello = self.call("hello", **params) if greet else None
 
     def record(self, direction, message):
         with self.path.open("a") as log:
@@ -110,15 +110,14 @@ class Fixture:
             self.env[key] = str(directory)
         shim = self.root / "bin"
         shim.mkdir()
-        (shim / "grok").symlink_to(REPO / "tests/ui/fake_grok.py")
-        for command in ("codex", "claude"):
+        for command in ("codex", "grok", "claude"):
             path = shim / command
-            path.write_text("#!/bin/sh\nexit 79\n")
+            path.write_text(native_wrapper(command))
             path.chmod(0o755)
         self.env.update(PATH=str(shim) + os.pathsep + os.environ["PATH"], CARLOS_TEST_ROOT=str(self.root),
                         CARLOS_TEST_SERVER=mode,
                         CARLOS_CLAUDE_CONTROLLER=str(REPO / "target/claude-controller/carlos-claude-controller"),
-                        CARLOS_CLAUDE_EXECUTABLE=str(REPO / "tests/ui/fake_claude.py"))
+                        CARLOS_CLAUDE_EXECUTABLE=str(shim / "claude"))
         self.native = None
         if codex is True:
             from native_codex import NativeCodex
@@ -167,3 +166,32 @@ class Fixture:
     def saved(self):
         with sqlite3.connect(self.root / "state/sessions.sqlite3") as database:
             return database.execute("SELECT id,name,native_thread,ralph FROM sessions ORDER BY id").fetchall()
+
+    def pids(self):
+        path = self.root / "native-pids.jsonl"
+        return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+
+
+def native_wrapper(command):
+    script = str(REPO / ("tests/ui/fake_" + command + ".py"))
+    return f'''#!/usr/bin/env python3
+import json, os, sys, time
+from pathlib import Path
+root = Path(os.environ["CARLOS_TEST_ROOT"])
+with (root / "native-pids.jsonl").open("a") as log:
+    log.write(json.dumps({{"backend": {command!r}, "pid": os.getpid(), "argv": sys.argv[1:]}}) + "\\n")
+if {command!r} == "grok" and os.environ.get("CARLOS_TEST_SERVER") == "grok-held-initialize":
+    sys.stdin.readline()
+    (root / "initialize-held").write_text("waiting")
+    while True:
+        time.sleep(1)
+os.execv(sys.executable, [sys.executable, {script!r}, *sys.argv[1:]])
+'''
+
+
+def alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False

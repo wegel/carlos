@@ -15,8 +15,9 @@ pub(super) struct Saved {
 
 pub(super) struct Store {
     sender: mpsc::SyncSender<SavedSession>,
-    pub completed: mpsc::Receiver<Saved>,
+    completed: mpsc::Receiver<Saved>,
     stop: Arc<AtomicBool>,
+    pub failed: bool,
 }
 
 impl Store {
@@ -71,13 +72,28 @@ impl Store {
                 sender,
                 completed,
                 stop,
+                failed: false,
             },
             rows,
         ))
     }
 
     pub(super) fn save(&self, description: SavedSession) -> bool {
-        self.sender.try_send(description).is_ok()
+        !self.failed && self.sender.try_send(description).is_ok()
+    }
+
+    pub(super) fn take(&mut self) -> Result<Option<Saved>, ()> {
+        if self.failed {
+            return Ok(None);
+        }
+        match self.completed.try_recv() {
+            Ok(saved) => Ok(Some(saved)),
+            Err(mpsc::TryRecvError::Empty) => Ok(None),
+            Err(mpsc::TryRecvError::Disconnected) => {
+                self.failed = true;
+                Err(())
+            }
+        }
     }
 }
 

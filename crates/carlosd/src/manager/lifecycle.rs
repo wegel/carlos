@@ -80,6 +80,9 @@ impl Manager {
     }
 
     fn create_failure(&self, cwd: &str, name: &Option<String>) -> Option<&'static str> {
+        if self.store.failed {
+            return Some("catalogue worker is unavailable; nothing launched");
+        }
         if self.sessions.len() == crate::limits::SESSIONS
             || self.owner_count() == crate::limits::OWNERS
         {
@@ -194,7 +197,15 @@ impl Manager {
     }
 
     pub(super) fn drain_saves(&mut self) {
-        while let Ok(saved) = self.store.completed.try_recv() {
+        loop {
+            let saved = match self.store.take() {
+                Ok(Some(saved)) => saved,
+                Ok(None) => break,
+                Err(()) => {
+                    self.catalogue_failed();
+                    break;
+                }
+            };
             let id = saved.description.id.clone();
             let Some(session) = self.sessions.get_mut(&id) else {
                 continue;
@@ -217,6 +228,25 @@ impl Manager {
                 }
             }
             self.finish_create(&id);
+        }
+    }
+
+    fn catalogue_failed(&mut self) {
+        eprintln!("carlosd: catalogue worker stopped; no further create will launch a backend");
+        let mut results = Vec::new();
+        for session in self.sessions.values_mut() {
+            session.saving = None;
+            session.save_failed = true;
+            if let Some(mut result) = session.create.take() {
+                result.state = OperationState::Uncertain {
+                    message: "backend may be open but catalogue worker stopped".into(),
+                    recovery: None,
+                };
+                results.push(result);
+            }
+        }
+        for result in results {
+            self.result(result);
         }
     }
 

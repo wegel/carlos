@@ -7,6 +7,29 @@ from support import Client, Fixture, wait_for
 
 
 class RecoveryTests:
+    def test_an_expired_shared_prefix_gets_a_fresh_snapshot_without_a_sequence_gap(self):
+        fixture = Fixture("expired-prefix", codex=True)
+        self.addCleanup(fixture.close)
+        first = Client(fixture, "disconnecting")
+        second = Client(fixture, "writer")
+        self.addCleanup(first.close)
+        self.addCleanup(second.close)
+        create = first.operation(1)
+        session = first.call("session/create", operation=create, backend="codex", cwd=str(fixture.root), name=None)["session"]
+        first.outcome(create)
+        snapshot = first.call("session/subscribe", session=session, since=None)["snapshot"]
+        first.close()
+        operation = second.operation(1)
+        second.call("session/send", session=session, operation=operation, text="many-rows")
+        self.assertEqual(second.outcome(operation)["state"]["kind"], "accepted")
+        fresh = second.call("session/subscribe", session=session, since=None)["snapshot"]
+        self.assertGreater(int(fresh["seq"]) - int(snapshot["seq"]), 1024)
+        resumed = Client(fixture, "expired-resume", resume=first.hello)
+        self.addCleanup(resumed.close)
+        replacement = resumed.call("session/subscribe", session=session, since=snapshot["seq"])
+        self.assertEqual(replacement["kind"], "snapshot")
+        self.assertEqual(replacement["snapshot"], fresh)
+
     def test_sqlite_wait_does_not_block_a_second_clients_reads_or_native_send(self):
         fixture = Fixture("sqlite-wait")
         self.addCleanup(fixture.close)

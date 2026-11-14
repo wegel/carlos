@@ -2,15 +2,17 @@
 """Exercise the real headless executable and native adapters without an account or inference."""
 
 import argparse
+import json
 from pathlib import Path
 import unittest
 
 import support
 from support import Client, Fixture
 from test_recovery import RecoveryTests
+from test_failures import FailureTests
 
 
-class DaemonTests(RecoveryTests, unittest.TestCase):
+class DaemonTests(FailureTests, RecoveryTests, unittest.TestCase):
     def test_codex_reads_controls_fifo_and_independent_output_cursors_while_send_waits(self):
         fixture = Fixture("codex-held", codex=True)
         self.addCleanup(fixture.close)
@@ -56,6 +58,10 @@ class DaemonTests(RecoveryTests, unittest.TestCase):
         update = first.message(lambda m: m.get("method") == "entry/output" and any("chunk-b" in p["text"] for p in m["params"]["chunk"]["segments"]))
         self.assertEqual(update["params"]["chunk"]["from"], chunk["next"])
         second.call("sessions/watch")
+        first.call("sessions/watch")
+        first_events = [m["params"] for m in first.messages if m.get("method") == "session/event" and int(m["params"]["seq"]) > int(a["seq"])]
+        second_events = [m["params"] for m in second.messages if m.get("method") == "session/event" and int(m["params"]["seq"]) > int(a["seq"])]
+        self.assertEqual(first_events, second_events)
         self.assertFalse(any(m.get("method") == "entry/output" for m in second.messages))
         self.assertFalse(any(m.get("method") == "operation/updated" and m["params"]["operation"]["client"] != first.hello["client"] for m in first.messages))
         self.assertEqual(fixture.native.answers, 1)
@@ -96,12 +102,22 @@ class DaemonTests(RecoveryTests, unittest.TestCase):
         saved = restarted.call("sessions/watch")["sessions"]
         self.assertEqual([(row["id"], row["availability"], row["ralph"]) for row in saved], [(session, "dormant", False)])
         self.assertEqual(fixture.native_requests("session/load"), [])
-        (fixture.root / "release-history").write_text("go")
-        restored = restarted.call("session/subscribe", session=session, since=snapshot["seq"])
+        other = Client(fixture, "second-restorer")
+        self.addCleanup(other.close)
+        restoring = restarted.send("session/subscribe", session=session, since=snapshot["seq"])
+        also_restoring = other.send("session/subscribe", session=session, since=None)
+        restored = restarted.response(restoring)["result"]
+        other.response(also_restoring)
         self.assertEqual(restored["kind"], "snapshot")
         self.assertEqual(restored["snapshot"]["info"]["id"], session)
         # A subscribe may return explicit restoring facts; ordered shared resets adopt history.
         support.wait_for(lambda: fixture.native_requests("session/load"), "one lazy native restore")
+        self.assertEqual(len(fixture.native_requests("session/load")), 1)
+        (fixture.root / "release-history").write_text("go")
+        restarted.message(lambda message: "History complete" in json.dumps(message))
+        support.wait_for(lambda: next((row for row in restarted.call("sessions/watch")["sessions"] if row["id"] == session and row["availability"] == "ready"), None), "native history adopted")
+        ready = restarted.call("session/subscribe", session=session, since=None)["snapshot"]
+        self.assertEqual(ready["info"]["availability"], "ready")
         print("Headless example:", {"hello": first.hello["client"], "session/create": params, "session/subscribe": session})
 
     def test_claude_startup_approval_is_answerable_before_create_finishes(self):

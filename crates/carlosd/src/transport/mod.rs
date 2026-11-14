@@ -32,6 +32,8 @@ impl PeerSocket {
         wake: mpsc::SyncSender<()>,
     ) -> io::Result<Self> {
         stream.set_nonblocking(true)?;
+        socket2::SockRef::from(&stream).set_send_buffer_size(64 * 1024)?;
+        socket2::SockRef::from(&stream).set_recv_buffer_size(64 * 1024)?;
         let read = stream.try_clone()?;
         let write = stream.try_clone()?;
         let outbox = Outbox::default();

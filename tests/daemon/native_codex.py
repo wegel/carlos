@@ -18,6 +18,7 @@ class NativeCodex:
         self.resumed = 0
         self.answers = 0
         self.interrupts = 0
+        self.prompts = 0
         self.ready = threading.Event()
         self.loop = asyncio.new_event_loop()
         self.thread = threading.Thread(target=self.run, daemon=True)
@@ -131,9 +132,20 @@ class NativeCodex:
             assert self.answers == 1 and self.interrupts == 1, "ordinary send passed held reply"
             await self.notify(link, "item/commandExecution/outputDelta", turnId="live", itemId="live-tool", delta="chunk-b\n")
             return
-        await self.notify(link, "turn/started", turn={"id": "live"})
-        await self.notify(link, "item/agentMessage/delta", itemId="answer", turnId="live", delta="Answer: " + text)
-        await self.notify(link, "turn/completed", turn={"id": "live", "status": "completed"})
+        self.prompts += 1
+        turn = f"turn-{self.prompts}"
+        await self.notify(link, "turn/started", turn={"id": turn})
+        if text == "many-rows":
+            for index in range(1500):
+                await self.notify(link, "item/completed", turnId=turn, item={
+                    "type": "agentMessage", "id": f"row-{self.prompts}-{index}", "phase": "final_answer", "text": f"row {index}"})
+        if text == "flood-tool":
+            await self.notify(link, "item/started", turnId=turn, item={"type": "commandExecution", "id": "flood-tool", "command": "cat big.log", "status": "inProgress"})
+            for index in range(256):
+                await self.notify(link, "item/commandExecution/outputDelta", turnId=turn, itemId="flood-tool", delta=f"block {index}\n" + "x"*65520 + "\n")
+            await self.notify(link, "item/completed", turnId=turn, item={"type": "commandExecution", "id": "flood-tool", "command": "cat big.log", "status": "completed", "exitCode": 0})
+        await self.notify(link, "item/agentMessage/delta", itemId=f"answer-{self.prompts}", turnId=turn, delta="Answer: " + text)
+        await self.notify(link, "turn/completed", turn={"id": turn, "status": "completed"})
 
     def close(self):
         if self.loop.is_running():
@@ -141,3 +153,8 @@ class NativeCodex:
         self.thread.join(timeout=5)
         assert not self.thread.is_alive(), "native fixture stopped"
         assert not self.errors, self.errors
+
+    def disconnect(self):
+        async def close_links():
+            await asyncio.gather(*(link.close(code=1012, reason="fixture disconnect") for link in list(self.connections)))
+        asyncio.run_coroutine_threadsafe(close_links(), self.loop).result(timeout=3)
