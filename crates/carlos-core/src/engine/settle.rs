@@ -100,37 +100,20 @@ impl Owner {
         }
     }
 
-    fn finish_ordinary(
+    pub(super) fn finish_ordinary(
         &mut self,
         operation: Option<carlos_proto::submissions::ClientOperation>,
         completion: crate::session::command_work::BackendCompletion,
     ) {
         self.workers.ordinary_busy = false;
         let error = completion.result.as_ref().err().cloned();
+        let recovery = completion.finish.submitted();
         match self.session.finish_backend_work(completion) {
             Ok(prepared) => {
-                if let Some(operation) = &operation {
-                    self.results.update(
-                        operation,
-                        error.map_or(OperationState::Accepted { entry: None }, |message| {
-                            OperationState::Uncertain {
-                                message,
-                                recovery: None,
-                            }
-                        }),
-                    );
-                }
-                self.turn_report(prepared.update);
-                assert!(
-                    prepared.work.is_none(),
-                    "basic send cannot start a second ordinary job"
-                );
+                self.settle_prepared(operation, prepared, recovery, error, true);
             }
             Err(error) => {
-                let message = error.to_string();
-                if let Some(draft) = error.into_submitted() {
-                    self.results.recover(draft, message, true);
-                }
+                self.edit_failed(operation.as_ref(), recovery, error.to_string(), true);
             }
         }
     }

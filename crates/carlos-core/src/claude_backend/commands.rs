@@ -1,5 +1,9 @@
 //! Capture one Claude helper and conversation while its caller keeps lifecycle normalization.
 
+#[cfg(test)]
+#[path = "fork_guard_tests.rs"]
+mod fork_guard_tests;
+
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
@@ -187,7 +191,18 @@ impl BackendCommands for Commands {
         request: RewindForkRequest,
         _timeout: Duration,
     ) -> Result<String> {
+        self.fork_with_context(thread, request, _timeout, Default::default())
+    }
+
+    fn fork_with_context(
+        &self,
+        thread: &str,
+        request: RewindForkRequest,
+        _timeout: Duration,
+        context: crate::backend_commands::ForkContext,
+    ) -> Result<String> {
         self.check()?;
+        context.liveness.check()?;
         let before = request
             .before_turn_id
             .context("Select a prompt with a native UUID before editing")?;
@@ -201,13 +216,16 @@ impl BackendCommands for Commands {
             sessions::ForkSource {
                 helper: self.transport.clone(),
                 epoch: self.epoch,
+                permission: self.write_permission(false),
+                started: None,
+                context,
             },
             self.events_tx.for_generation(self.transport.generation),
             self.cwd.clone(),
             settings,
             thread.to_owned(),
             before,
-        );
+        )?;
         Ok(json!({"result":{"claudeForkPending":true}}).to_string())
     }
     fn request_native_control(&self, method: &str, mut params: Value) -> Result<()> {

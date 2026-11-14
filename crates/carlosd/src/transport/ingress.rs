@@ -34,7 +34,11 @@ impl Ingress {
 
     pub(crate) fn push(&self, peer: u64, request: Request, bytes: usize) -> bool {
         let class = match request.command {
-            Command::Create { .. } | Command::Send { .. } | Command::SetRalph { .. } => 0,
+            Command::Create { .. }
+            | Command::Send { .. }
+            | Command::SetRalph { .. }
+            | Command::Rename { .. }
+            | Command::Rewind { .. } => 0,
             Command::Interrupt { .. } | Command::Approve { .. } => 1,
             _ => 2,
         };

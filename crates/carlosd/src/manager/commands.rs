@@ -2,12 +2,11 @@
 
 use std::time::Instant;
 
-use carlos_core::engine::EngineCommand;
 use carlos_proto::commands::{check_protocol, Command, Request, RequestId, Sessions};
-use carlos_proto::submissions::{OperationResult, OperationState, SubmittedText};
+use carlos_proto::submissions::{OperationResult, OperationState};
 
 use super::Manager;
-use crate::retry::{Admission, Class, Resume};
+use crate::retry::{Admission, Resume};
 use crate::transport::wire::error;
 
 impl Manager {
@@ -31,6 +30,8 @@ impl Manager {
         match command {
             Command::Create { .. } => self.create(peer, id, command, client),
             Command::Send { .. }
+            | Command::Rename { .. }
+            | Command::Rewind { .. }
             | Command::SetRalph { .. }
             | Command::Approve { .. }
             | Command::Interrupt { .. } => self.mutate(peer, id, command, client),
@@ -122,13 +123,14 @@ impl Manager {
         client: carlos_proto::ids::ClientId,
     ) {
         let canonical = serde_json::to_vec(&command).expect("typed command");
-        let (session, operation, work, recovery, class) = match prepare(command) {
-            Ok(parts) => parts,
-            Err(reason) => {
-                self.fail(peer, id, reason);
-                return;
-            }
-        };
+        let (session, operation, work, recovery, class) =
+            match super::mutation_work::prepare(command) {
+                Ok(parts) => parts,
+                Err(reason) => {
+                    self.fail(peer, id, reason);
+                    return;
+                }
+            };
         let result = match self.retry.admit(
             &client,
             operation,
@@ -168,89 +170,4 @@ impl Manager {
             }
         }
     }
-}
-
-type Prepared = (
-    carlos_proto::ids::SessionId,
-    carlos_proto::submissions::ClientOperation,
-    EngineCommand,
-    Option<SubmittedText>,
-    Class,
-);
-
-fn prepare(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
-    let parts = match command {
-        Command::Send {
-            session,
-            operation,
-            text,
-            policy,
-        } => return prepare_send(session, operation, text, policy),
-        Command::SetRalph {
-            session,
-            operation,
-            on,
-        } => (
-            session,
-            operation.clone(),
-            EngineCommand::SetRalph { operation, on },
-            None,
-            Class::Ordinary,
-        ),
-        Command::Approve {
-            session,
-            operation,
-            approval,
-            answer,
-        } => (
-            session,
-            operation.clone(),
-            EngineCommand::Approve {
-                operation,
-                card: approval,
-                answer,
-            },
-            None,
-            Class::Control,
-        ),
-        Command::Interrupt {
-            session,
-            operation,
-            turn,
-        } => (
-            session,
-            operation.clone(),
-            EngineCommand::Interrupt { operation, turn },
-            None,
-            Class::Control,
-        ),
-        _ => unreachable!("mutation route"),
-    };
-    Ok(parts)
-}
-
-fn prepare_send(
-    session: carlos_proto::ids::SessionId,
-    operation: carlos_proto::submissions::ClientOperation,
-    text: String,
-    policy: carlos_proto::commands::SendPolicy,
-) -> Result<Prepared, carlos_proto::commands::RpcError> {
-    if text.len() > crate::limits::SEND_BYTES {
-        return Err(error(-32602, "send exceeds 512 KiB; nothing dispatched"));
-    }
-    let recovery = Some(SubmittedText {
-        operation: Some(operation.clone()),
-        text: text.clone(),
-    });
-    Ok((
-        session,
-        operation.clone(),
-        EngineCommand::Send {
-            operation,
-            text,
-            policy,
-        },
-        recovery,
-        Class::Ordinary,
-    ))
 }

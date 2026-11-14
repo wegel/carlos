@@ -192,6 +192,33 @@
         "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001"
       }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "rename",
+      "method": "session/rename",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "operation": {
+          "client": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "2"
+        },
+        "name": "Native name"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "rewind",
+      "method": "session/rewind",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "operation": {
+          "client": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "2"
+        },
+        "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+        "text": "edited prompt"
+      }
     }
   ],
   "notifications": [

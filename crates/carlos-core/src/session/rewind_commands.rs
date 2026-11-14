@@ -3,7 +3,9 @@
 use crate::backend::{BackendKind, PromptOrigin, RewindForkRequest};
 
 use super::claude::ClaudePhase;
-use super::command_work::{BackendCall, CommandError, Finish, PreparedCommand, PromptSubmission};
+use super::command_work::{
+    BackendCall, CommandError, Finish, PreparedCommand, PreparedStatus, PromptSubmission,
+};
 use super::entry_id::EntryId;
 use super::models::{EntryDraft, Role};
 use super::prompt_commands::{PromptContext, PromptOptions, TurnUpdate};
@@ -22,12 +24,22 @@ impl SessionState {
         self.command_idle()?;
         let mut update = TurnUpdate::default();
         if text.trim().is_empty() || self.reject_rewind(kind, queue_recovery, &mut update) {
-            return Ok(PreparedCommand { update, work: None });
+            return Ok(PreparedCommand {
+                update,
+                status: PreparedStatus::Failed(
+                    "prompt is empty or session cannot edit history now".into(),
+                ),
+                ..Default::default()
+            });
         }
         let Some((index, entry, turn)) = self.rewind_anchor(selected) else {
             update.hint =
                 Some("The selected prompt is no longer available; choose it again".into());
-            return Ok(PreparedCommand { update, work: None });
+            return Ok(PreparedCommand {
+                update,
+                status: PreparedStatus::Failed("selected prompt is retired or not editable".into()),
+                ..Default::default()
+            });
         };
         self.rewind_from_anchor(kind, (index, entry, turn), text, context, update)
     }
@@ -59,14 +71,25 @@ impl SessionState {
             steer: false,
             edited: true,
         };
+        let context = if kind == BackendKind::Claude {
+            self.begin_claude_edit_for(
+                submission.text.clone(),
+                submission.context.operation.clone(),
+            );
+            self.claude_fork_context()
+        } else {
+            Default::default()
+        };
         let call = BackendCall::Fork {
             thread: self.thread_id().clone(),
             request,
+            context,
         };
         let work = self.backend_work(kind, call, Finish::Rewind { submission, prefix }, false);
         Ok(PreparedCommand {
             update,
             work: Some(work),
+            ..Default::default()
         })
     }
 

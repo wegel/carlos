@@ -1,10 +1,9 @@
 # Local daemon contract
 
 EP019a implements this local contract on `iphone-spike`. The executable and
-all three native factories pass sixteen deterministic process workflows, including
-failure, pressure and shutdown checks. Final feature/release checks and measurements
-pass; `.agents/reports/exec019a-final-report.md` records the evidence. The completed
-headless step awaits owner review before EP019b.
+all three native factories passed sixteen deterministic process workflows, including
+failure, pressure and shutdown checks. EP019a's final feature/release checks and
+measurements passed; `.agents/reports/exec019a-final-report.md` records that evidence.
 
 The owner accepted EP019a on 2026-11-14. EP019b is active and adds exact original
 source through `entry/source` reads/watches. Each chunk consumes at most 64 KiB,
@@ -13,6 +12,14 @@ formats share the existing watch count, reply-byte and socket limits. A large
 plain row has an explicit source descriptor rather than inline body text; newest
 and older pages shrink before cloning to stay within the encoded frame budget.
 The terminal remains embedded while the rest of EP019b is being implemented.
+
+EP019b also promotes typed rename and earlier-prompt edit commands. Both use the
+existing ordered lane and private retry identity. The owner keeps a fork/send
+chain pending until its actual native acceptance. An asynchronous Claude fork
+keeps a separate edit lifetime after its initial native write; reset/drop retires
+it, and late helper switches/failures carry their originating operation. The
+native writers check permission before bytes, including Codex's fork validation
+and mutation calls. No arbitrary native method enters the public protocol.
 
 ## Clients and commands
 

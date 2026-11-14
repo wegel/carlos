@@ -92,7 +92,12 @@ impl BackendCommands for Commands {
         timeout: Duration,
     ) -> Result<String> {
         self.check()?;
-        self.connection.fork_from_rewind(thread, request, timeout)
+        crate::protocol_rewind::fork_before_edited_turn(
+            &CommandHandle::new(self.clone()),
+            thread,
+            request,
+            timeout,
+        )
     }
     fn request_native_control(&self, method: &str, params: Value) -> Result<()> {
         self.check()?;

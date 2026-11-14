@@ -3,7 +3,7 @@
 use crate::backend::BackendKind;
 use crate::protocol_params::params_thread_set_name;
 
-use super::command_work::{BackendCall, CommandError, Finish, PreparedCommand};
+use super::command_work::{BackendCall, CommandError, Finish, PreparedCommand, PreparedStatus};
 use super::prompt_commands::TurnUpdate;
 use super::state::SessionState;
 use crate::session::models::Role;
@@ -27,13 +27,18 @@ impl SessionState {
         };
         if let Some(error) = validation {
             self.name_failed(error, false, &mut update);
-            return Ok(PreparedCommand { update, work: None });
+            return Ok(PreparedCommand {
+                update,
+                status: PreparedStatus::Failed(error.into()),
+                ..Default::default()
+            });
         }
         let call = BackendCall::Rename(params_thread_set_name(self.thread_id(), name));
         let work = self.backend_work(kind, call, Finish::Rename(name.to_owned()), false);
         Ok(PreparedCommand {
             update,
             work: Some(work),
+            ..Default::default()
         })
     }
 
@@ -51,7 +56,10 @@ impl SessionState {
             }
             Err(error) => self.name_failed(&error.to_string(), true, &mut update),
         }
-        PreparedCommand { update, work: None }
+        PreparedCommand {
+            update,
+            ..Default::default()
+        }
     }
 
     fn name_failed(&mut self, error: &str, backend: bool, update: &mut TurnUpdate) {

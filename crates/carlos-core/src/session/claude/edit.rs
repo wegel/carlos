@@ -2,6 +2,10 @@
 
 use carlos_proto::submissions::{ClientOperation, SubmittedText};
 use serde_json::Value;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 use super::state::ClaudePhase;
 use crate::backend::PromptOrigin;
@@ -17,6 +21,7 @@ pub enum EditProgress {
 
 #[derive(Default, Debug)]
 pub(in crate::session) struct ClaudeEdit {
+    fork_live: Option<Arc<AtomicBool>>,
     prompt: Option<SubmittedText>,
     operation: Option<ClientOperation>,
     request: Option<EditRequest>,
@@ -54,6 +59,7 @@ impl SessionState {
 
     /// Retain an accepted fork with the client operation that owns its recovery.
     pub fn begin_claude_edit_for(&mut self, text: String, operation: Option<ClientOperation>) {
+        self.retire_claude_fork();
         self.claude.phase = ClaudePhase::Starting;
         self.claude.edit.operation = operation.clone();
         self.claude.edit.prompt = Some(SubmittedText { text, operation });
@@ -183,7 +189,26 @@ impl SessionState {
 
     /// End progress while retaining any saved text until the client takes it.
     pub(crate) fn end_claude_edit(&mut self) {
+        self.retire_claude_fork();
         self.claude.edit.request = None;
+    }
+
+    pub(in crate::session) fn claude_fork_context(
+        &mut self,
+    ) -> crate::backend_commands::ForkContext {
+        self.retire_claude_fork();
+        let flag = Arc::new(AtomicBool::new(true));
+        self.claude.edit.fork_live = Some(flag.clone());
+        crate::backend_commands::ForkContext {
+            operation: self.claude.edit.operation.clone(),
+            liveness: crate::dispatch_guard::DispatchGuard::from_flag(flag),
+        }
+    }
+
+    fn retire_claude_fork(&mut self) {
+        if let Some(flag) = self.claude.edit.fork_live.take() {
+            flag.store(false, Ordering::SeqCst);
+        }
     }
 
     /// Return queued human drafts in order after removing matching unbound history tails.
@@ -199,6 +224,14 @@ impl SessionState {
     /// Drop branch text and progress when a native reset drops history.
     pub(crate) fn clear_claude_edit(&mut self) {
         self.claude.edit = ClaudeEdit::default();
+    }
+}
+
+impl Drop for ClaudeEdit {
+    fn drop(&mut self) {
+        if let Some(flag) = self.fork_live.take() {
+            flag.store(false, Ordering::SeqCst);
+        }
     }
 }
 

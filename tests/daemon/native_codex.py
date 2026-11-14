@@ -20,6 +20,9 @@ class NativeCodex:
         self.interrupts = 0
         self.prompts = 0
         self.history_padding = ""
+        self.history_user = False
+        self.thread_id = "native-root"
+        self.forked = False
         self.tool_first = "chunk-a\n"
         self.tool_second = "chunk-b\n"
         self.hold_interrupts = False
@@ -57,7 +60,7 @@ class NativeCodex:
         await link.send(json.dumps(value))
 
     async def notify(self, link, method, **params):
-        await self.send(link, {"method": method, "params": {"threadId": "native-root", **params}})
+        await self.send(link, {"method": method, "params": {"threadId": self.thread_id, **params}})
 
     def history(self):
         turns = [{"id": "history-turn", "status": "completed", "items": [
@@ -65,7 +68,11 @@ class NativeCodex:
             for index in range(130)]}]
         turns[0]["items"].append({"id": "history-tool", "type": "commandExecution", "command": "cat history.txt",
                                   "aggregatedOutput": "".join(f"history-output {n}\n" for n in range(10000)), "exitCode": 0})
-        return {"id": "native-root", "status": {"type": "idle"}, "turns": turns,
+        if self.history_user:
+            turns[0]["items"].insert(0, {"id": "native-user", "type": "userMessage", "content": [{"type": "text", "text": "original prompt"}]})
+        if self.forked:
+            turns = []
+        return {"id": self.thread_id, "status": {"type": "idle"}, "turns": turns,
                 "model": "fixture-model", "reasoningEffort": "low"}
 
     async def accept(self, link):
@@ -120,6 +127,15 @@ class NativeCodex:
             result = {"thread": self.history(), "model": "fixture-model", "reasoningEffort": "low"}
         elif method == "thread/turns/list":
             result = {"data": self.history()["turns"], "nextCursor": None}
+        elif method == "thread/fork":
+            assert request["params"]["beforeTurnId"] == "history-turn"
+            self.thread_id = "native-fork"
+            self.forked = True
+            result = {"thread": self.history()}
+        elif method == "thread/name/set":
+            if request["params"]["name"] == "reject rename":
+                await self.send(link, {"id": request["id"], "error": {"code": -32602, "message": "fixture rejected rename"}})
+                return
         elif method in ("model/list", "thread/list", "thread/backgroundTerminals/list"):
             result = {"data": [], "nextCursor": None}
         elif method in ("turn/start", "turn/steer"):

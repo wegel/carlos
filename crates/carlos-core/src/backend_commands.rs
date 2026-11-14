@@ -19,6 +19,13 @@ pub struct InterruptIntent {
     pub(crate) prompts: Vec<String>,
 }
 
+/// An asynchronous fork retains its own lifetime after its initiating write is acknowledged.
+#[derive(Clone, Default)]
+pub struct ForkContext {
+    pub operation: Option<carlos_proto::submissions::ClientOperation>,
+    pub liveness: crate::dispatch_guard::DispatchGuard,
+}
+
 /// A captured native connection that workers can use while its owner handles events.
 pub trait BackendCommands: Send + Sync {
     /// Identify the native adapter behind this captured connection.
@@ -60,6 +67,17 @@ pub trait BackendCommands: Send + Sync {
     ) -> Result<String> {
         bail!("backend does not support rewind fork")
     }
+    /// Preserve the owning edit's identity and lifetime across asynchronous helper replacement.
+    fn fork_with_context(
+        &self,
+        thread: &str,
+        request: RewindForkRequest,
+        timeout: Duration,
+        context: ForkContext,
+    ) -> Result<String> {
+        context.liveness.check()?;
+        self.fork_from_rewind(thread, request, timeout)
+    }
     /// Start a tokenized native read on the captured transport.
     fn request_native_control(&self, _method: &str, _params: Value) -> Result<()> {
         bail!("backend does not support native controls")
@@ -98,6 +116,15 @@ impl Deref for CommandHandle {
 
 // Temporary embedded-terminal bridge; EP019b removes BackendClient command consumers.
 impl BackendClient for CommandHandle {
+    fn fork_with_context(
+        &self,
+        thread: &str,
+        request: RewindForkRequest,
+        timeout: Duration,
+        context: ForkContext,
+    ) -> Result<String> {
+        self.0.fork_with_context(thread, request, timeout, context)
+    }
     fn kind(&self) -> BackendKind {
         self.0.kind()
     }

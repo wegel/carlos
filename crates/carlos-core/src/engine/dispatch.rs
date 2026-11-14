@@ -28,6 +28,8 @@ impl Owner {
     fn admit(&mut self, envelope: Envelope) -> Option<EngineCommand> {
         let operation = match &envelope.command {
             EngineCommand::Send { operation, .. }
+            | EngineCommand::Rename { operation, .. }
+            | EngineCommand::Rewind { operation, .. }
             | EngineCommand::SetRalph { operation, .. }
             | EngineCommand::Approve { operation, .. }
             | EngineCommand::Interrupt { operation, .. } => operation,
@@ -144,6 +146,9 @@ impl Owner {
                 policy,
             } => self.send(Some(operation), text, policy, PromptOrigin::Human, false),
             EngineCommand::SetRalph { operation, on } => self.set_ralph(operation, on),
+            command @ (EngineCommand::Rename { .. } | EngineCommand::Rewind { .. }) => {
+                self.edit(command)
+            }
             _ => unreachable!("typed ordinary lane"),
         }
         if !self.ordinary.is_empty() && !self.workers.ordinary_busy {

@@ -115,6 +115,10 @@ impl Drop for CommandState {
 }
 
 impl WorkGuard {
+    pub(super) fn belongs_to(&self, session: &SessionState) -> bool {
+        self.session == session.events.id
+    }
+
     pub(super) fn matches_connection(&self, client: &dyn crate::backend::BackendClient) -> bool {
         client.kind() == self.kind
             && client

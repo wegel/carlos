@@ -4,7 +4,7 @@ use carlos_proto::submissions::SubmissionOutcome;
 use serde_json::Value;
 
 use super::claude::receive_update::ClaudeEffect;
-use super::command_work::{PreparedCommand, PromptSubmission};
+use super::command_work::{PreparedCommand, PreparedStatus, PromptSubmission};
 use super::models::{EntryDraft, Role};
 use super::prompt_commands::PromptOptions;
 use super::state::SessionState;
@@ -21,13 +21,17 @@ impl SessionState {
         let response = match result {
             Ok(response) => response,
             Err(error) => {
+                if submission.kind == BackendKind::Claude {
+                    self.fail_claude_edit(&mut prepared.update.changes, &error);
+                }
                 self.set_status(format!("fork failed: {error}"));
                 self.append_message(Role::System, format!("Could not edit message: {error}"));
+                prepared.status = PreparedStatus::Failed(error);
                 return prepared;
             }
         };
         if submission.kind == BackendKind::Claude {
-            self.begin_claude_edit_for(submission.text, submission.context.operation.clone());
+            prepared.status = PreparedStatus::Awaiting;
             prepared
                 .update
                 .changes
@@ -48,6 +52,7 @@ impl SessionState {
             Ok(changes) => prepared.update.merge(changes),
             Err(error) => {
                 self.set_status(format!("fork failed: {error}"));
+                prepared.status = PreparedStatus::Failed(error.to_string());
                 return prepared;
             }
         }

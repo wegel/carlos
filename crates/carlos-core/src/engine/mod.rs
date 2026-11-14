@@ -6,6 +6,7 @@ mod dispatch;
 pub mod launch;
 mod mailbox;
 mod native;
+mod ordinary;
 mod owner;
 mod reports;
 mod results;
@@ -62,6 +63,15 @@ pub enum EngineCommand {
         operation: ClientOperation,
         text: String,
         policy: SendPolicy,
+    },
+    Rename {
+        operation: ClientOperation,
+        name: String,
+    },
+    Rewind {
+        operation: ClientOperation,
+        entry: EntryId,
+        text: String,
     },
     Interrupt {
         operation: ClientOperation,
@@ -169,7 +179,10 @@ impl EngineHandle {
     /// Admit a bounded request without waiting for native work or a socket write.
     pub fn request(&self, command: EngineCommand) -> Result<mpsc::Receiver<EngineReply>, RpcError> {
         let mailbox = match &command {
-            EngineCommand::Send { .. } | EngineCommand::SetRalph { .. } => &self.0.ordinary,
+            EngineCommand::Send { .. }
+            | EngineCommand::SetRalph { .. }
+            | EngineCommand::Rename { .. }
+            | EngineCommand::Rewind { .. } => &self.0.ordinary,
             EngineCommand::Interrupt { .. } | EngineCommand::Approve { .. } => &self.0.control,
             _ => &self.0.reads,
         };
@@ -209,7 +222,8 @@ impl Drop for Shared {
 impl EngineCommand {
     fn bytes(&self) -> usize {
         256 + match self {
-            Self::Send { text, .. } => text.len(),
+            Self::Send { text, .. } | Self::Rewind { text, .. } => text.len(),
+            Self::Rename { name, .. } => name.len(),
             Self::Approve { answer, .. } => {
                 serde_json::to_vec(answer).map_or(usize::MAX - 256, |bytes| bytes.len())
             }

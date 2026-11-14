@@ -121,6 +121,7 @@ class Fixture:
         self.env.update(PATH=str(shim) + os.pathsep + os.environ["PATH"], CARLOS_TEST_ROOT=str(self.root),
                         CARLOS_TEST_SERVER=mode,
                         CARLOS_CLAUDE_CONTROLLER=str(REPO / "target/claude-controller/carlos-claude-controller"),
+                        CARLOS_CLAUDE_WIRE_TRACE=str(self.root / "claude-controller.jsonl"),
                         CARLOS_CLAUDE_EXECUTABLE=str(shim / "claude"))
         self.native = None
         if codex is True:

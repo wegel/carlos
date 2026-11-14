@@ -6,6 +6,8 @@ pub const REQUEST_BYTES: usize = 4 * 1024 * 1024;
 pub const FRAME_BYTES: usize = 8 * 1024 * 1024;
 /// Maximum source text in one human send.
 pub const SEND_BYTES: usize = 512 * 1024;
+/// Maximum UTF-8 bytes in a catalogue name or explicit rename request.
+pub const NAME_BYTES: usize = 4096;
 /// Maximum simultaneously connected device sockets.
 pub const PEERS: usize = 16;
 /// Maximum live native session owners.

@@ -83,6 +83,19 @@ pub enum Command {
         #[serde(default)]
         policy: SendPolicy,
     },
+    #[serde(rename = "session/rename")]
+    Rename {
+        session: SessionId,
+        operation: ClientOperation,
+        name: String,
+    },
+    #[serde(rename = "session/rewind")]
+    Rewind {
+        session: SessionId,
+        operation: ClientOperation,
+        entry: EntryId,
+        text: String,
+    },
     #[serde(rename = "session/interrupt")]
     Interrupt {
         session: SessionId,

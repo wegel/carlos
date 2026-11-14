@@ -33,6 +33,8 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Request, Failure> {
             | "session/unsubscribe"
             | "session/history"
             | "session/send"
+            | "session/rename"
+            | "session/rewind"
             | "session/interrupt"
             | "session/approve"
             | "session/setRalph"

@@ -1,7 +1,7 @@
 //! Reads SDK session summaries and starts replacement helpers without blocking native questions.
 
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -60,16 +60,28 @@ pub(super) fn begin_session(
 
 /// Keep a fork worker tied to the helper and conversation captured before dispatch.
 pub(super) struct ForkSource {
+    pub(super) context: crate::backend_commands::ForkContext,
     pub(super) helper: Arc<ControllerTransport>,
     pub(super) epoch: u64,
+    pub(super) permission: crate::dispatch_guard::DispatchGuard,
+    pub(super) started: Option<mpsc::SyncSender<()>>,
 }
 
 impl ForkSource {
+    fn check_current(&self, transport: &Arc<Mutex<Arc<ControllerTransport>>>) -> Result<()> {
+        let current = transport
+            .lock()
+            .map_err(|_| anyhow!("Claude transport lock poisoned"))?;
+        self.check(&current)
+    }
+
     fn check(&self, current: &Arc<ControllerTransport>) -> Result<()> {
+        self.context.liveness.check()?;
         anyhow::ensure!(
             Arc::ptr_eq(current, &self.helper),
             "Claude fork helper was replaced"
         );
+        anyhow::ensure!(!self.helper.state.is_closed(), "Claude fork helper stopped");
         anyhow::ensure!(
             self.helper
                 .conversation
@@ -86,53 +98,57 @@ impl ForkSource {
 /// Fork with the SDK, then replace helper identity before delivering any new frames.
 pub(super) fn fork_session(
     transport: Arc<Mutex<Arc<ControllerTransport>>>,
-    source: ForkSource,
+    mut source: ForkSource,
     events: EventSender,
     cwd: std::path::PathBuf,
     settings: ClaudeRuntimeSettings,
     thread_id: String,
     before: String,
-) {
+) -> Result<()> {
+    let (started, receiver) = mpsc::sync_channel(1);
+    source.started = Some(started);
+    let operation = source.context.operation.clone();
     thread::spawn(move || {
         let result = replace_after_fork(
             &transport, source, &events, &cwd, &settings, &thread_id, &before,
         );
         if let Err(error) = result {
-            let generation = transport
-                .lock()
-                .map(|helper| helper.generation)
-                .unwrap_or(events.generation);
-            let _ = events.for_generation(generation).send(
-                json!({"method":if generation == events.generation {"claude/forkFailed"} else {"claude/sessionStartFailed"}, "params":{"message":error.to_string()}})
+            let _ = events.send(
+                json!({"method":"claude/forkFailed", "params":{"message":error.to_string(),"operation":operation}})
                     .to_string(),
             );
         }
     });
+    receiver
+        .recv_timeout(Duration::from_millis(500))
+        .context("Claude fork did not start its guarded native write")
 }
 
 fn replace_after_fork(
     transport: &Arc<Mutex<Arc<ControllerTransport>>>,
-    source: ForkSource,
+    mut source: ForkSource,
     events: &EventSender,
     cwd: &Path,
     settings: &ClaudeRuntimeSettings,
     thread_id: &str,
     before: &str,
 ) -> Result<()> {
-    let current = transport
-        .lock()
-        .map_err(|_| anyhow!("Claude transport lock poisoned"))?
-        .clone();
-    source.check(&current)?;
+    source.check_current(transport)?;
     let original = source.helper.clone();
-    let result = original.call(
+    let result = original.call_guarded_started(
         "sessions.forkBefore",
         json!({"cwd":cwd,"sessionId":thread_id,"beforeMessageId":before}),
         Duration::from_secs(20),
+        source
+            .permission
+            .clone()
+            .and(source.context.liveness.clone()),
+        source.started.take(),
     )?;
     let id = result["sessionId"]
         .as_str()
         .context("SDK fork has no session ID")?;
+    source.check_current(transport)?;
     let generation = events.generation + 1;
     let next_events = events.for_generation(generation);
     let replacement = Arc::new(ControllerTransport::start(next_events.clone())?);
@@ -146,12 +162,17 @@ fn replace_after_fork(
         .map_err(|_| anyhow!("Claude transport lock poisoned"))?;
     source.check(&slot)?;
     next_events
-        .send(json!({"method":"claude/sessionChanged","params":{"sessionId":id}}).to_string())?;
+        .send(json!({"method":"claude/sessionChanged","params":{"sessionId":id,"operation":source.context.operation}}).to_string())?;
     *slot = replacement.clone();
     drop(slot);
-    let started = begin_session(&replacement, cwd, &launch, settings, id);
+    if let Err(error) = begin_session(&replacement, cwd, &launch, settings, id) {
+        let _ = next_events.send(
+            json!({"method":"claude/sessionStartFailed", "params":{"message":error.to_string(),"operation":source.context.operation}})
+                .to_string(),
+        );
+    }
     thread::spawn(move || original.stop());
-    started
+    Ok(())
 }
 
 /// Choose an ID before native startup so fresh session history and UI identity agree.

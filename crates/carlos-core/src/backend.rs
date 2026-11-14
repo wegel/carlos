@@ -114,6 +114,17 @@ impl<T> Drop for EventReceiver<T> {
 
 /// Run session commands and receive backend messages without requiring a terminal client.
 pub trait BackendClient: Send {
+    /// Keep an asynchronous fork tied to the edit that prepared it.
+    fn fork_with_context(
+        &self,
+        thread: &str,
+        request: RewindForkRequest,
+        timeout: Duration,
+        context: crate::backend_commands::ForkContext,
+    ) -> Result<String> {
+        context.liveness.check()?;
+        self.fork_from_rewind(thread, request, timeout)
+    }
     /// Identify the native backend that receives these commands.
     fn kind(&self) -> BackendKind;
     /// Mark interrupt intent on the event owner before a worker sends the control.

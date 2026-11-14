@@ -3,6 +3,7 @@
 mod body;
 mod commands;
 mod lifecycle;
+mod mutation_work;
 mod output;
 mod read_commands;
 mod reads;

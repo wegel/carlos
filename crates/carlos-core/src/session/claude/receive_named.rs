@@ -40,6 +40,9 @@ impl SessionState {
         let Some(params) = facts.as_object() else {
             return;
         };
+        if !self.current_fork_fact(method, params) {
+            return;
+        }
         self.enable_claude();
         if method == "claude/sessionChanged" {
             if let Some((generation, id)) = self.claude_session_change(params) {
@@ -162,5 +165,22 @@ impl SessionState {
         if let Some(cleared) = cleared {
             update.effects.push(ClaudeEffect::Cleared(cleared));
         }
+    }
+    fn current_fork_fact(&self, method: &str, params: &serde_json::Map<String, Value>) -> bool {
+        if !matches!(
+            method,
+            "claude/sessionChanged" | "claude/forkFailed" | "claude/sessionStartFailed"
+        ) {
+            return true;
+        }
+        let Some(operation) = params.get("operation") else {
+            return true;
+        };
+        if operation.is_null() {
+            return self.claude_edit_operation().is_none();
+        }
+        serde_json::from_value::<carlos_proto::submissions::ClientOperation>(operation.clone())
+            .ok()
+            .is_some_and(|operation| Some(&operation) == self.claude_edit_operation())
     }
 }

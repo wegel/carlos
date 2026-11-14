@@ -157,6 +157,8 @@ mod event_input_tests;
 pub mod output;
 mod output_cursor;
 mod output_normalize;
+#[cfg(test)]
+mod rewind_owner_tests;
 pub mod source;
 #[cfg(test)]
 mod source_tests;

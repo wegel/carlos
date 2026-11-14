@@ -17,6 +17,16 @@ use crate::protocol_params::extract_result_object;
 pub struct PreparedCommand {
     pub update: TurnUpdate,
     pub work: Option<BackendWork>,
+    pub status: PreparedStatus,
+}
+
+/// Distinguish native follow-up acknowledgement from definite validation/adoption failure.
+#[derive(Default)]
+pub enum PreparedStatus {
+    #[default]
+    Ready,
+    Awaiting,
+    Failed(String),
 }
 
 /// Immutable command data; execute consumes it so a caller cannot accidentally retry it.
@@ -42,6 +52,7 @@ pub(super) enum BackendCall {
     Fork {
         thread: String,
         request: RewindForkRequest,
+        context: crate::backend_commands::ForkContext,
     },
     Rename(Value),
 }
@@ -84,6 +95,15 @@ impl fmt::Display for CommandError {
 impl std::error::Error for CommandError {}
 
 impl BackendWork {
+    /// Release a prepared slot through its normal completion path when no handle can be captured.
+    pub(super) fn fail(self, message: String) -> BackendCompletion {
+        BackendCompletion {
+            guard: self.guard,
+            finish: self.finish,
+            result: Err(message),
+        }
+    }
+
     /// Wait for a backend without borrowing the session; the daemon runs this outside its owner loop.
     pub fn execute(self, client: &crate::backend_commands::CommandHandle) -> BackendCompletion {
         let permission =
@@ -133,6 +153,24 @@ impl SessionState {
         completion: BackendCompletion,
     ) -> Result<PreparedCommand, CommandError> {
         if !self.accept_command_completion(&completion.guard) {
+            // A written asynchronous fork may already have installed its own helper.
+            // Its pre-registered operation continues through exact native edit facts;
+            // this acknowledgement cannot restart it or overwrite a newer command.
+            if completion.guard.belongs_to(self)
+                && self.claude_edit_operation().is_some()
+                && matches!(&completion.finish, Finish::Rewind { submission, .. }
+                    if submission.kind == BackendKind::Claude
+                    && self.claude_edit_operation() == submission.context.operation.as_ref())
+                && completion
+                    .result
+                    .as_ref()
+                    .is_ok_and(|value| value["result"]["claudeForkPending"] == true)
+            {
+                return Ok(PreparedCommand {
+                    status: PreparedStatus::Awaiting,
+                    ..Default::default()
+                });
+            }
             return Err(CommandError::Stale {
                 submitted: completion.finish.submitted(),
             });
@@ -148,15 +186,15 @@ impl SessionState {
 }
 
 impl Finish {
-    fn submitted(self) -> Option<SubmittedText> {
+    pub(super) fn submitted(&self) -> Option<SubmittedText> {
         match self {
             Self::Prompt(prompt)
             | Self::Rewind {
                 submission: prompt, ..
             } => (prompt.options.origin == crate::backend::PromptOrigin::Human).then_some(
                 SubmittedText {
-                    text: prompt.text,
-                    operation: prompt.context.operation,
+                    text: prompt.text.clone(),
+                    operation: prompt.context.operation.clone(),
                 },
             ),
             Self::Rename(_) => None,
@@ -197,9 +235,11 @@ fn execute_call(
                 Duration::from_secs(10),
             )
         }
-        BackendCall::Fork { thread, request } => {
-            client.fork_from_rewind(&thread, request, Duration::from_secs(20))
-        }
+        BackendCall::Fork {
+            thread,
+            request,
+            context,
+        } => client.fork_with_context(&thread, request, Duration::from_secs(20), context),
         BackendCall::Rename(params) => {
             client.call("thread/name/set", params, Duration::from_secs(10))
         }

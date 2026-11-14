@@ -127,8 +127,23 @@ impl ControllerTransport {
         timeout: Duration,
         permission: DispatchGuard,
     ) -> Result<Value> {
+        self.call_guarded_started(method, params, timeout, permission, None)
+    }
+
+    /// A fork worker confirms its first write before its caller releases ordinary permission.
+    pub(super) fn call_guarded_started(
+        &self,
+        method: &str,
+        params: Value,
+        timeout: Duration,
+        permission: DispatchGuard,
+        started: Option<mpsc::SyncSender<()>>,
+    ) -> Result<Value> {
         let (sender, receiver) = mpsc::channel();
         let id = self.send(method, params, RequestTarget::Reply { sender }, permission)?;
+        if let Some(started) = started {
+            let _ = started.try_send(());
+        }
         match receiver.recv_timeout(timeout) {
             Ok(Ok(value)) => Ok(value),
             Ok(Err(message)) => bail!(message),
