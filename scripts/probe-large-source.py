@@ -107,7 +107,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", type=Path, default=REPO / "target/release/carlosd")
     parser.add_argument("--artifacts", type=Path, default=REPO / "target/large-source-probe")
-    parser.add_argument("--case", choices=("ansi","markdown","both"), default="both")
+    parser.add_argument("--case", choices=("ansi","markdown","markdown-rich","both"), default="both")
     parser.add_argument("--mib", type=int, help="smaller smoke body; defaults to64MiB ANSI/16MiB Markdown")
     parser.add_argument("--single-line", action="store_true", help="capture one unbroken ASCII ANSI token")
     args = parser.parse_args()
@@ -130,6 +130,13 @@ def main():
         body = fill_body((args.mib or 16)*1024*1024, "[ref]: https://example.test\n\n```text\n",
                          "**literal 🌍** [ref] " + "sample "*8 + "\n", "\n```\n\nLarge Markdown tail [link][ref]\n")
         cases.append(capture(root,"markdown",body,False))
+    if args.case == "markdown-rich":
+        unit = ("# Heading 🌍\n\nParagraph **bold** *italic* [link][ref] `code` end.\n\n"
+                "- first\n  - nested 🙂\n\n> quoted **text** [link][ref]\n\n"
+                "| Name | Value |\n| --- | --- |\n| one | long value 界 |\n\n")
+        body = fill_body((args.mib or 16)*1024*1024, "", unit,
+                         "\n\nLarge Markdown tail [link][ref]\n\n[ref]: https://example.test\n")
+        cases.append(capture(root,"markdown-rich",body,False))
     identity = {"path":str(support.BINARY), "sha256":hashlib.sha256(support.BINARY.read_bytes()).hexdigest()}
     (root / "manifest.json").write_text(json.dumps({"daemon":identity,"cases":cases},indent=2)+"\n")
 

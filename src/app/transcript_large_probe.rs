@@ -1,7 +1,11 @@
 //! Measure one prototype pinned original and the existing full-block formatter on real captures.
 
+#[path = "accepted_source.rs"]
+mod accepted_source;
 #[path = "transcript_ansi_probe.rs"]
 mod ansi_probe;
+#[path = "transcript_markdown_probe.rs"]
+mod markdown_probe;
 
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -10,12 +14,13 @@ use std::path::Path;
 use std::time::Instant;
 
 use carlos_client::Bodies;
-use carlos_proto::bytes::ByteLength;
+use carlos_proto::bytes::{ByteLength, ByteOffset};
 use carlos_proto::ids::SessionId;
 use carlos_proto::session::Entry;
 use carlos_proto::source::{Source, SourceChunk};
 use serde_json::{json, Value};
 
+use self::accepted_source::SourcePiece;
 use super::socket_probe::fingerprint;
 use super::BlockBody;
 use crate::app::transcript_input::RenderInput;
@@ -113,9 +118,21 @@ fn hydrate(root: &Path, case: &Value) -> Capture {
         assert_eq!(chunk.source, source);
         // Keep validation in the existing pure cache; this prototype owns the full string separately.
         assert!(windows
-            .apply_source(&token, chunk.clone())
+            .apply_source(&token, chunk)
             .expect("checked exact cursor/revision/offset"));
-        text.push_str(&chunk.text);
+        let piece = SourcePiece::from_cache(
+            &windows,
+            &token,
+            source.revision,
+            ByteOffset::new(text.len() as u64),
+        )
+        .expect("accepted bounded window, with no missing prefix");
+        assert_eq!(piece.source, source);
+        text.push_str(&piece.text);
+        assert_eq!(
+            text.len() as u64,
+            windows.source(&token).expect("accepted source").end().get()
+        );
     }
     assert_eq!(text.len() as u64, source.bytes.get());
     let window = windows.source(&token).expect("validated source end");
@@ -227,10 +244,17 @@ impl Sample {
 }
 
 fn summarize(samples: &[Sample]) -> Value {
-    let mut times: Vec<_> = samples.iter().map(|sample| sample.total_ms).collect();
+    summarize_values(samples.iter().map(Sample::json).collect())
+}
+
+fn summarize_values(samples: Vec<Value>) -> Value {
+    let mut times: Vec<_> = samples
+        .iter()
+        .map(|sample| sample["total_ms"].as_f64().expect("ms"))
+        .collect();
     times.sort_by(f64::total_cmp);
     let p95 = ((times.len() as f64 * 0.95).ceil() as usize).saturating_sub(1);
-    json!({"p95_ms":times[p95],"samples":samples.iter().map(Sample::json).collect::<Vec<_>>()})
+    json!({"p95_ms":times[p95],"samples":samples})
 }
 
 fn memory() -> Value {

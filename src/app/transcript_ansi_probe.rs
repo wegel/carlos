@@ -7,7 +7,10 @@ use std::time::Instant;
 use ratatui::style::Color;
 use serde_json::{json, Value};
 
-use super::{copy_original, hydrate, load_json, memory, milliseconds, raster_capacity, setting};
+use super::{
+    copy_original, hydrate, load_json, memory, milliseconds, raster_capacity, setting,
+    summarize_values,
+};
 use crate::app::transcript_body::ansi_pages::AnsiPages;
 use crate::app::transcript_input::RenderInput;
 
@@ -66,7 +69,7 @@ fn large_ansi_checkpoint_probe() {
     let metrics = json!({"run_id":std::env::var("CARLOS_LARGE_RUN_ID").ok(),"width":width,"source_bytes":case["bytes"],"rows":initial_rows,
         "index_ms":index_ms,"index_capacity_bytes":initial_index_bytes,"source_memory":capture.pinned,
         "indexed_memory":indexed_memory,"viewport":viewport,"clipboard":copy,
-        "append":summary(append),"resize":summary(resize),"final_memory":memory(),
+        "append":summarize_values(append),"resize":summarize_values(resize),"final_memory":memory(),
         "scope":"private ANSI checkpoint prototype; not production or socket latency"});
     save_metrics(root, width, &metrics);
 }
@@ -115,14 +118,4 @@ fn paint(pages: &AnsiPages) -> Value {
     json!({"total_ms":milliseconds(started),"visible_rows":lines.len(),
         "rows":pages.rows(),"raster_capacity_bytes":raster_capacity(&lines,lines.capacity()),
         "index_capacity_bytes":pages.index_capacity_bytes(),"memory":memory()})
-}
-
-fn summary(samples: Vec<Value>) -> Value {
-    let mut times: Vec<_> = samples
-        .iter()
-        .map(|sample| sample["total_ms"].as_f64().expect("ms"))
-        .collect();
-    times.sort_by(f64::total_cmp);
-    let index = ((times.len() as f64 * 0.95).ceil() as usize).saturating_sub(1);
-    json!({"p95_ms":times[index],"samples":samples})
 }

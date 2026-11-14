@@ -48,9 +48,15 @@ pub(super) fn markdown_document_segments(text: &str, width: usize) -> Vec<Vec<St
         .table_width(width.min(u16::MAX as usize) as u16);
     let markdown = markdown_from_str_with_options(text, &opts);
 
-    let mut out = Vec::new();
+    let mut out = Vec::with_capacity(markdown.lines.len());
     for line in markdown.lines {
-        let mut segments = Vec::new();
+        // Reserve only visible spans, including zero slots for a blank line.
+        let count = line
+            .spans
+            .iter()
+            .filter(|span| !span.content.is_empty())
+            .count();
+        let mut segments = Vec::with_capacity(count);
         for span in line.spans {
             if span.content.is_empty() {
                 continue;

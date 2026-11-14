@@ -42,15 +42,15 @@ def verify_copy(path, expected):
     assert digest.hexdigest() == expected, "clipboard must preserve every original byte"
 
 
-def run_case(executable, root, environment, case, width, samples, checkpoints):
+def run_case(executable, root, environment, case, width, samples, checkpoints, document=False):
     environment = dict(environment)
-    prefix = "checkpoint" if checkpoints else "width"
+    prefix = "document" if document else "checkpoint" if checkpoints else "width"
     run_id = uuid.uuid4().hex
     copied = root / case["name"] / f"clipboard-{prefix}-{width}-{run_id}.txt"
     environment.update(CARLOS_LARGE_CASE=case["name"], CARLOS_LARGE_WIDTH=str(width),
                        CARLOS_LARGE_SAMPLES=str(samples), CARLOS_LARGE_COPY_PATH=str(copied),
                        CARLOS_LARGE_RUN_ID=run_id)
-    probe = "large_ansi_checkpoint_probe" if checkpoints else "large_source_layout_probe"
+    probe = "large_markdown_document_probe" if document else "large_ansi_checkpoint_probe" if checkpoints else "large_source_layout_probe"
     with (root / case["name"] / f"{prefix}-{width}.log").open("w") as log:
         result = subprocess.run(["rtk", "proxy", "taskset", "-c", "6", executable,
             probe, "--ignored", "--nocapture", "--test-threads=1"],
@@ -62,6 +62,15 @@ def run_case(executable, root, environment, case, width, samples, checkpoints):
     assert metrics["clipboard"]["backend"] in ("wl-copy", "xclip", "xsel", "pbcopy"), "private clipboard program must succeed"
     assert metrics["clipboard"]["path"] == str(copied), "this run must write its own clipboard file"
     verify_copy(copied, case["sha256"])
+    if document:
+        baseline = metrics["baseline"]
+        return {"case":case["name"], "width":width, "bytes":case["bytes"], "copy_digest_verified":True,
+            "rows":baseline["rows"], "parse_ms":baseline["parse_ms"], "index_ms":baseline["index_ms"],
+            "paint_ms":baseline["paint_ms"], "document_capacity_bytes":baseline["document_capacity_bytes"],
+            "index_capacity_bytes":baseline["index_capacity_bytes"], "viewport_capacity_bytes":baseline["viewport_capacity_bytes"],
+            "source_memory":metrics["source_memory"], "parsed_memory":baseline["parsed_memory"],
+            "indexed_memory":baseline["indexed_memory"], "append_p95":metrics["append"]["p95_ms"],
+            "resize_p95":metrics["resize"]["p95_ms"]}
     if checkpoints:
         return {"case":case["name"], "width":width, "bytes":case["bytes"], "copy_digest_verified":True,
             "rows":metrics["rows"], "index_ms":metrics["index_ms"],
@@ -83,8 +92,11 @@ def main():
                         help="cargo test --no-run --message-format=json output")
     parser.add_argument("--samples", type=int, default=16)
     parser.add_argument("--widths", type=int, nargs="+", default=[28,120])
-    parser.add_argument("--ansi-checkpoints", action="store_true",
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--ansi-checkpoints", action="store_true",
                         help="measure the private ANSI checkpoint candidate against saved full-raster rows")
+    mode.add_argument("--markdown-document", action="store_true",
+                        help="measure the existing whole Markdown parser while retaining only viewport rows")
     args = parser.parse_args()
     if not 1 <= args.samples <= 32 or any(width < 8 for width in args.widths):
         parser.error("use 1..32 samples and widths of at least 8 columns")
@@ -97,15 +109,17 @@ def main():
     identity = {"path":executable, "sha256":hashlib.sha256(Path(executable).read_bytes()).hexdigest(),
                 "profile":artifact["profile"], "features":artifact["features"],
                 "source":artifact["target"]["src_path"]}
-    name = "checkpoint-identity.json" if args.ansi_checkpoints else "formatter-identity.json"
+    name = "document-identity.json" if args.markdown_document else "checkpoint-identity.json" if args.ansi_checkpoints else "formatter-identity.json"
     (root / name).write_text(json.dumps(identity,indent=2)+"\n")
     environment = private_environment(root)
     for case in manifest["cases"]:
         if args.ansi_checkpoints and case["name"] != "ansi":
             continue
+        if args.markdown_document and not case["name"].startswith("markdown"):
+            continue
         for width in args.widths:
             print(json.dumps(run_case(executable, root, environment, case, width, args.samples,
-                                      args.ansi_checkpoints)), flush=True)
+                                      args.ansi_checkpoints, args.markdown_document)), flush=True)
 
 
 if __name__ == "__main__":
