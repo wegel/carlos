@@ -10,6 +10,7 @@ pub mod queue;
 pub mod session;
 pub mod source;
 pub mod submissions;
+pub mod tasks;
 
 /// The only client protocol version supported by this release.
 pub const PROTOCOL_VERSION: u32 = 1;

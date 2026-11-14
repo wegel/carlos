@@ -6,11 +6,13 @@ import threading
 
 from websockets.asyncio.server import unix_serve
 from native_queue import NativeQueue
+from native_tasks import NativeTasks
 
 
-class NativeCodex(NativeQueue):
+class NativeCodex(NativeQueue, NativeTasks):
     def __init__(self, root):
         self.init_queue()
+        self.init_tasks()
         self.root = root
         self.path = root / "native.sock"
         self.requests = []
@@ -123,6 +125,8 @@ class NativeCodex(NativeQueue):
     async def handle(self, link, request):
         method = request["method"]
         if "id" not in request:
+            return
+        if await self.task_request(link, request):
             return
         result = {}
         if method == "thread/start":

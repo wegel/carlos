@@ -382,6 +382,41 @@
           "direction": "up"
         }
       }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 30,
+      "method": "task/list",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expected": null,
+        "after": null,
+        "limit": 32,
+        "refresh": false
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 31,
+      "method": "task/detail",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expected": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "task": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 32,
+      "method": "task/text",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expected": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "task": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "field": "command",
+        "offset": "9007199254740993",
+        "limit": 65536
+      }
     }
   ],
   "notifications": [

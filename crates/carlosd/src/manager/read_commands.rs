@@ -13,7 +13,10 @@ use crate::transport::wire::error;
 impl Manager {
     pub(super) fn read_command(&mut self, peer: u64, id: RequestId, command: Command) {
         match command {
-            command @ (Command::QueueRead { .. }
+            command @ (Command::TaskList { .. }
+            | Command::TaskDetail { .. }
+            | Command::TaskText { .. }
+            | Command::QueueRead { .. }
             | Command::QueueText { .. }
             | Command::GoalRead { .. }) => self.native_read_command(peer, id, command),
             Command::Subscribe { session, since } => self.subscribe(peer, id, session, since),
@@ -69,6 +72,9 @@ impl Manager {
 
     fn native_read_command(&mut self, peer: u64, id: RequestId, command: Command) {
         match command {
+            command @ (Command::TaskList { .. }
+            | Command::TaskDetail { .. }
+            | Command::TaskText { .. }) => self.task_read_command(peer, id, command),
             Command::QueueRead {
                 session,
                 expected,
@@ -107,6 +113,58 @@ impl Manager {
                 self.rpc_read(peer, id, session, EngineCommand::GoalRead { refresh })
             }
             _ => unreachable!("typed native read"),
+        }
+    }
+
+    fn task_read_command(&mut self, peer: u64, id: RequestId, command: Command) {
+        match command {
+            Command::TaskList {
+                session,
+                expected,
+                after,
+                limit,
+                refresh,
+            } => self.rpc_read(
+                peer,
+                id,
+                session,
+                EngineCommand::TaskList {
+                    expected,
+                    after,
+                    limit: usize::from(limit.unwrap_or(32)),
+                    refresh,
+                },
+            ),
+            Command::TaskDetail {
+                session,
+                expected,
+                task,
+            } => self.rpc_read(
+                peer,
+                id,
+                session,
+                EngineCommand::TaskDetail { expected, task },
+            ),
+            Command::TaskText {
+                session,
+                expected,
+                task,
+                field,
+                offset,
+                limit,
+            } => self.rpc_read(
+                peer,
+                id,
+                session,
+                EngineCommand::TaskText {
+                    expected,
+                    task,
+                    field,
+                    offset,
+                    limit: limit.unwrap_or(65536).min(65536) as usize,
+                },
+            ),
+            _ => unreachable!("typed task read"),
         }
     }
 
@@ -246,7 +304,11 @@ impl Manager {
             return Err(error(-32010, "pending reads are full"));
         }
         let reserved = match command {
-            EngineCommand::QueueRead { .. } | EngineCommand::QueueText { .. } => 512 * 1024,
+            EngineCommand::QueueRead { .. }
+            | EngineCommand::QueueText { .. }
+            | EngineCommand::TaskList { .. }
+            | EngineCommand::TaskDetail { .. }
+            | EngineCommand::TaskText { .. } => 512 * 1024,
             EngineCommand::GoalRead { .. } => 1024 * 1024,
             EngineCommand::Changes { .. } => 16 * 1024 * 1024,
             EngineCommand::Output { .. }

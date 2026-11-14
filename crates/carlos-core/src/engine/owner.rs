@@ -118,10 +118,12 @@ impl Owner {
 
     fn read(&mut self, command: EngineCommand) -> EngineReply {
         let result = match command {
-            EngineCommand::GoalRead { refresh } => self.read_goal(refresh),
-            command @ (EngineCommand::QueueRead { .. } | EngineCommand::QueueText { .. }) => {
-                self.read_queue(command)
-            }
+            command @ (EngineCommand::TaskList { .. }
+            | EngineCommand::TaskDetail { .. }
+            | EngineCommand::TaskText { .. }
+            | EngineCommand::GoalRead { .. }
+            | EngineCommand::QueueRead { .. }
+            | EngineCommand::QueueText { .. }) => self.read_native(command),
             EngineCommand::Info => Ok(EngineReply::Info {
                 info: self.session.export_info(),
                 native_thread: self.session.thread_id().clone(),

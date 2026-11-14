@@ -117,6 +117,21 @@ opaque_id!(
     64,
     "A native queue entry on one root connection, never a backend id."
 );
+opaque_id!(
+    TaskId,
+    64,
+    "A native task address on one session root and connection."
+);
+opaque_id!(
+    TaskRun,
+    64,
+    "One observed native task run, never a display label or backend id."
+);
+opaque_id!(
+    TaskRevision,
+    64,
+    "A precondition for one bounded native task view."
+);
 
 /// A nonzero per-client command counter encoded as lossless decimal text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]

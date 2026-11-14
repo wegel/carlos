@@ -7,6 +7,7 @@ mod goals;
 pub mod launch;
 mod mailbox;
 mod native;
+mod native_reads;
 mod ordinary;
 mod owner;
 mod queue_changes;
@@ -37,6 +38,23 @@ pub use self::ring::EngineFrame;
 
 /// Only explicit session reads and commands enter the owner, never native method strings.
 pub enum EngineCommand {
+    TaskList {
+        expected: Option<carlos_proto::ids::TaskRevision>,
+        after: Option<carlos_proto::ids::TaskId>,
+        limit: usize,
+        refresh: bool,
+    },
+    TaskDetail {
+        expected: carlos_proto::ids::TaskRevision,
+        task: carlos_proto::ids::TaskId,
+    },
+    TaskText {
+        expected: carlos_proto::ids::TaskRevision,
+        task: carlos_proto::ids::TaskId,
+        field: carlos_proto::tasks::TaskField,
+        offset: carlos_proto::bytes::ByteOffset,
+        limit: usize,
+    },
     QueueChange {
         operation: ClientOperation,
         expected: carlos_proto::ids::QueueRevision,
@@ -128,6 +146,9 @@ pub enum EngineCommand {
 
 /// Replies carry facts or typed failures without retaining any client's editor.
 pub enum EngineReply {
+    TaskList(carlos_proto::tasks::TaskPage),
+    TaskDetail(carlos_proto::tasks::TaskDetail),
+    TaskText(carlos_proto::tasks::TaskText),
     Queue(carlos_proto::queue::QueuePage),
     QueueText(carlos_proto::queue::QueueText),
     Goal(carlos_proto::goals::GoalSnapshot),

@@ -25,6 +25,13 @@ impl Owner {
             let scope = self.session.codex_scope();
             reconnect_streams::tick(self.client.as_ref(), &mut self.session, now);
             reconnect_runtime::tick(self.client.as_ref(), &mut self.session);
+            let panel_scope = self.task_read_scope();
+            crate::session::codex::panel::tick(
+                self.client.as_ref(),
+                &mut self.session,
+                panel_scope,
+                &mut Default::default(),
+            );
             goals::tick(self.client.as_ref(), &mut self.session, scope, now, true);
             queue::tick(
                 self.client.as_ref(),
