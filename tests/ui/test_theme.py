@@ -107,6 +107,8 @@ class Theme:
         self.assertEqual(terminal.requests("turn/steer"), [])
         terminal.snapshot("k2000-ralph")
         terminal.resize(54, 32)
+        terminal.wait(lambda: terminal.screen.display[-2].endswith("91% "),
+                      "context redrawn at the resized right edge")
         self.assert_status_sweep_moves(terminal, "f5c2e7")
         terminal.snapshot("status-sweep-ralph-phone")
 
