@@ -11,6 +11,13 @@ use super::transport::Transport;
 use super::Device;
 use crate::app::input::make_input_area;
 
+/// Map only explicit selected-row controls to their native queue command.
+pub(super) enum QueueControl {
+    Move(QueueDirection),
+    Start,
+    Delete,
+}
+
 impl Device {
     /// Require a complete current preview before changing a selected entry.
     pub(super) fn require_current_queue(&self) -> Result<()> {
@@ -85,7 +92,7 @@ impl Device {
     pub(super) fn operate_queue(
         &mut self,
         link: Option<&mut Transport>,
-        action: &str,
+        action: QueueControl,
     ) -> Result<()> {
         self.require_current_queue()?;
         let entry = self
@@ -100,16 +107,9 @@ impl Device {
             .id
             .clone();
         let change = match action {
-            "up" => QueueChange::Move {
-                entry,
-                direction: QueueDirection::Up,
-            },
-            "down" => QueueChange::Move {
-                entry,
-                direction: QueueDirection::Down,
-            },
-            "start" => QueueChange::Start { entry },
-            _ => QueueChange::Delete { entry },
+            QueueControl::Move(direction) => QueueChange::Move { entry, direction },
+            QueueControl::Start => QueueChange::Start { entry },
+            QueueControl::Delete => QueueChange::Delete { entry },
         };
         let expected = self.queue_revision()?;
         let link = link.ok_or_else(|| anyhow::anyhow!("Disconnected; F5 reconnects"))?;

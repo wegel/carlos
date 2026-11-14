@@ -5,12 +5,13 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use carlos_proto::ids::{QueueEntryId, QueueRevision};
-use carlos_proto::queue::QueueFacts;
+use carlos_proto::queue::{QueueDirection, QueueFacts};
 use carlos_proto::session::Backend;
 use carlos_proto::submissions::{ClientOperation, OperationState};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui_textarea::TextArea;
 
+use super::queue_commands::QueueControl;
 use super::queue_editor::Editors;
 use super::queue_outcomes::OwnedQueue;
 use super::queue_pages::Pages;
@@ -143,13 +144,17 @@ impl Device {
 
     fn queue_list_key(&mut self, link: Option<&mut Transport>, key: KeyEvent) -> Result<()> {
         match (key.code, key.modifiers) {
-            (KeyCode::Up, KeyModifiers::ALT) => self.operate_queue(link, "up")?,
-            (KeyCode::Down, KeyModifiers::ALT) => self.operate_queue(link, "down")?,
+            (KeyCode::Up, KeyModifiers::ALT) => {
+                self.operate_queue(link, QueueControl::Move(QueueDirection::Up))?
+            }
+            (KeyCode::Down, KeyModifiers::ALT) => {
+                self.operate_queue(link, QueueControl::Move(QueueDirection::Down))?
+            }
             (KeyCode::Up, _) => self.navigate_queue(-1),
             (KeyCode::Down, _) => self.navigate_queue(1),
             (KeyCode::Char('e'), _) => self.begin_queue_edit()?,
-            (KeyCode::Char('d'), _) => self.operate_queue(link, "delete")?,
-            (KeyCode::Char('s'), _) => self.operate_queue(link, "start")?,
+            (KeyCode::Char('d'), _) => self.operate_queue(link, QueueControl::Delete)?,
+            (KeyCode::Char('s'), _) => self.operate_queue(link, QueueControl::Start)?,
             (KeyCode::Char('r'), _) => self.refresh_queue(),
             (KeyCode::Char('v'), _) => self.recover_queue_draft()?,
             _ => {}
