@@ -41,6 +41,26 @@ Alpha.
 - native Codex waits and child-agent start/completion notices, including notices after the main answer
 - dim, right-aligned session-name placeholder in the empty composer; `/rename [name]` edits the saved Codex or Claude name
 
+## Local daemon spike
+
+The `iphone-spike` branch also builds `carlosd`, a separate process that keeps
+Codex, Claude and Grok sessions alive when a client disconnects. Run it with
+explicit private paths:
+
+```sh
+cargo build -p carlosd
+runtime_dir=$(mktemp -d)
+target/debug/carlosd --socket "$runtime_dir/daemon.sock" --state-dir "$runtime_dir/state"
+```
+
+It serves typed JSON-RPC over a same-user Unix socket. It has no network listener.
+The terminal still owns its sessions in process until EP019b completes the switch.
+[The local contract](docs/daemon-protocol.md) explains retry identities, saved
+sessions and bounded tool watches. `scripts/test.sh` exercises the real daemon
+with two clients and deterministic native peers, without an account or inference.
+For a headless replay measurement with the same synthetic source as
+`carlos perf-session`, run `cargo run -p carlosd --release --example perf_replay -- 1000`.
+
 ## Tool output on small terminals
 
 Carlos keeps the tool output it receives in memory and lets you choose how much

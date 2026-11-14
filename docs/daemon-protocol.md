@@ -1,8 +1,10 @@
 # Local daemon contract
 
 EP019a implements this local contract on `iphone-spike`. The executable and
-all three native factories pass the first deterministic process tests. The
-complete failure, pressure and release checks remain required before owner review.
+all three native factories pass sixteen deterministic process workflows, including
+failure, pressure and shutdown checks. Final feature/release checks and measurements
+pass; `.agents/reports/exec019a-final-report.md` records the evidence. The completed
+headless step awaits owner review before EP019b.
 
 ## Clients and commands
 
@@ -11,8 +13,7 @@ that each peer belongs to the same OS user. It opens no TCP listener. A client
 must finish `hello` before sending another command.
 
 The greeting returns a fresh daemon instance id, a public client id, a private
-256-bit resume token, and the next operation counter. A reconnect must supply
-all three ids and the secret. Shared user rows may contain the public client id;
+256-bit resume token, and the next operation counter. A reconnect supplies the client id, daemon instance id and private token. Shared user rows may contain the public client id;
 they never contain the secret. A retained id with a wrong secret fails. An
 expired or unknown id gets a new client id with `resumed: false`. A restarted
 daemon always has a new instance id and does not recreate old retry rights.
@@ -38,7 +39,8 @@ socket cannot consume the only recovery copy.
 
 The owner keeps ordinary commands in arrival order. Interrupts and answers have
 separate admission and workers. They still need the exact current turn or live
-card. The owner claims a card once. A worker validates offered choices and
+card. The owner claims a card once. It also admits only one in-flight interrupt for
+a turn; duplicate stop intents cannot occupy every control worker. A worker validates offered choices and
 structured answers before writing. A native write failure may be uncertain;
 it does not allow another client to answer the card again.
 
@@ -104,9 +106,9 @@ must exercise them before the listener is accepted.
   identity without recreating its old rights; pinned pending work still has a
   bounded record. Reads must not need an ordinary operation slot.
 
-These byte budgets count encoded or admitted data. The final report must also
-measure resident memory and account for decoded structures and native history.
-It must not describe wire-byte limits as an exact heap limit.
+These byte budgets count encoded or admitted data. The final report measures
+resident memory separately and accounts for decoded structures and native history.
+Wire-byte limits do not describe an exact heap limit.
 
 ## Saved sessions and shutdown
 

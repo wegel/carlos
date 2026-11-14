@@ -45,12 +45,13 @@ EP018a is complete and archived. The owner accepted it on 2026-11-13 after revie
 `.agents/reports/exec018a-fable-followup-review.md`. Its archived plan remains unchanged.
 That acceptance does not authorize installing, merging or pushing a spike binary.
 
-The next ExecPlan is `.agents/execplans/EXECPLAN_019a_headless_daemon.md`. It first proves
-that real backend command handles can wait without blocking their session owner, then adds
-`carlosd` with basic commands and two headless clients. It must prove ordered sends, responsive
-interrupts/answers, bounded queues and recovery after disconnect before owner review.
+EP019a is complete and archived at `.agents/done/EXECPLAN_019a_headless_daemon.md`.
+Its local `carlosd` proves real backend handles, concurrent headless clients, ordered sends,
+responsive interrupts/answers, bounded queues and disconnect/restart recovery. Final evidence
+and the direct engineering self-review are in `.agents/reports/exec019a-final-report.md` and
+`.agents/reports/exec019a-engineering-review.md`. The owner has not reviewed this step yet.
 
-EP019b follows that review. It adds the remaining typed terminal commands and the shared Rust
+Stop at that owner-review gate. EP019b is the next spike step after review. It adds the remaining typed terminal commands and the shared Rust
 client, proves terminal workflow parity, then deletes the embedded session/backend path in a
 separate commit. Its scope and deletion gate are in `docs/terminal-client-migration.md`;
 write its full ExecPlan only after EP019a supplies working interfaces. Protocol version 1
@@ -60,7 +61,7 @@ ExecPlans 019a through 022 are listed in `docs/engine-architecture.md`. Only the
 is written in full. Each completed step ends at owner review.
 
 ExecPlans 009 to 015 remain under `.agents/execplans/`. Their status was not reviewed when the
-daemon split started. They remain outside the iPhone spike; its next step is EP019a.
+daemon split started. They remain outside the iPhone spike; its next step is EP019b after owner review.
 
 
 ## Done ExecPlans
@@ -78,3 +79,4 @@ daemon split started. They remain outside the iPhone spike; its next step is EP0
 - [x] `.agents/done/EXECPLAN_018_sequenced_events.md` (step 3 of 7: numbered core events and client protocol version 1; completed 2026-11-13)
 
 - [x] `.agents/done/EXECPLAN_018a_pre_daemon_cleanup.md` (owner accepted 2026-11-13; archived plan unchanged)
+- [x] `.agents/done/EXECPLAN_019a_headless_daemon.md` (completed 2026-11-14; awaiting owner review before EP019b)

@@ -71,7 +71,7 @@ baseline; a regression blocks a commit.
 - The backends keep the conversation files. The daemon adds one SQLite table of
   sessions: id, name, backend, cwd, backend thread id, Ralph state. Logical session
   ids survive a restart, but a new daemon-instance id invalidates event/retry cursors.
-  Restore native history before a fresh snapshot. Never automatically resend uncertain
+  Adopt native history before a Ready snapshot; expose starting facts/cards while it loads. Never automatically resend uncertain
   commands or restart Ralph after a daemon crash. Detaching from a live daemon does
   not stop Ralph.
 - One daemon per host. A client connects to several daemons and groups sessions
@@ -143,7 +143,7 @@ JSON without a protocol change if a profile shows the need.
 
 ## Wire protocol, draft 0 (historical)
 
-ExecPlan 018 introduced provisional version 1 in `docs/client-protocol-v1.md` and `crates/carlos-proto`.
+ExecPlan 018 introduced provisional version 1 in `docs/client-protocol-v1.md` and `crates/carlos-proto`. EP019a implements the local listener and records the actual retry/watch/budget rules in `docs/daemon-protocol.md`.
 Those sources define the current contract. The sketch below records the earlier proposal;
 version 1 uses full fact objects, separate live cards, decimal-string cursors and explicit
 card ordering rather than ambiguous nullable patches.
@@ -189,7 +189,7 @@ Types:
 2. EP017: Cargo workspace and a terminal-free carlos-core. Complete.
 3. EP018: numbered core events consumed in process, provisional protocol types and separate removal of the old redraw-report path. Complete.
 4. EP018a: bounded running output, client-owned drafts, prepared backend waits, terminal workflow inventory and reduced guards. Complete and accepted by the owner.
-5. EP019a: prove real backend handles first, then a headless daemon with basic commands and two concurrent clients. Sessions survive client disconnect. Test bounded queues, ordered commands, priority controls and private recovery; stop for owner review. Full plan: `.agents/execplans/EXECPLAN_019a_headless_daemon.md`.
+5. EP019a, complete and awaiting owner review: real backend handles and a headless daemon with basic commands and two concurrent clients. Sessions survive client disconnect. Tests prove bounded queues, ordered commands, priority controls and private recovery. Archived plan: `.agents/done/EXECPLAN_019a_headless_daemon.md`; evidence: `.agents/reports/exec019a-final-report.md`.
 6. EP019b: add typed terminal-control families and carlos-client, preserve source/color/copy behavior, drive every terminal workflow through the daemon, then delete the embedded path in a separate commit. Stop for owner review. Scope: `docs/terminal-client-migration.md`; write the full plan after EP019a.
 7. EP020: WebSocket listener, device tokens and perf-session replay through the socket. Add schema output only when a real client needs it.
 8. EP021: paged native history, Grok approvals and richer tool summaries as data.
@@ -271,3 +271,5 @@ Backend frames must not inspect a client's composer, confirmation or focused pan
 Version 1 remains provisional until real remote consumers exercise it. UniFFI stays in EP022 when the iOS consumer exists; JSON Schema and a timed delta merger wait for actual need. The shared-client objective, one-owner-per-session model, bounded queues and per-EP owner review remain in force. EP018a runs directly in Codex without implementation subagents, as requested by the owner.
 
 EP018a closeout, 2026-11-13: bounded running output, correlated recovery, prepared send/fork/name waits and the terminal inventory are complete. The source lexer was removed. The branch now includes main's Escape-burst fix. Final feature/release/terminal/native checks and original-reference/common-base measurements pass; `.agents/reports/exec018a-final-report.md` records exact evidence and remaining EP019 work. The owner accepted this step on 2026-11-13. The independent follow-up review is `.agents/reports/exec018a-fable-followup-review.md`; the owner agreed to separate daemon proof from terminal cutover. EP019a is the next execution, with owner review before EP019b. No spike executable was installed, merged or pushed.
+
+EP019a now has the local carlosd executable, fixed native command handles, one owner per session, bounded ordered command admission, independent control workers, authenticated private retry results, encoded shared replay, per-device output watches and a minimal SQLite session catalogue. Codex, the compiled Claude controller and Grok pass deterministic process tests. One shared synthetic generator drives terminal and headless measurements. The terminal remains embedded until EP019b, which must migrate all inventoried workflows and then delete that path. Version 1 remains provisional, the network listener stays in EP020, richer native data stays in EP021, and iPhone code stays in EP022.
