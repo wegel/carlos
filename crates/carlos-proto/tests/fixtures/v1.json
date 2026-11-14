@@ -464,6 +464,17 @@
         "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
         "message": "output watch queue filled; start a fresh watch"
       }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/syncFailed",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "error": {
+          "code": -32011,
+          "message": "requested row exceeds the page budget; native work remains alive"
+        }
+      }
     }
   ]
 }

@@ -45,7 +45,14 @@ impl Results {
         self.records.contains_key(operation)
     }
 
-    pub fn update(&mut self, operation: &ClientOperation, state: OperationState) {
+    pub fn update(&mut self, operation: &ClientOperation, mut state: OperationState) {
+        match &mut state {
+            OperationState::Rejected { message, .. }
+            | OperationState::Uncertain { message, .. } => {
+                *message = crate::protocol_events::bounded_diagnostic(message)
+            }
+            OperationState::Pending | OperationState::Queued | OperationState::Accepted { .. } => {}
+        }
         if let Some(record) = self.records.get_mut(operation) {
             record.result.state = state;
             record.dirty = true;

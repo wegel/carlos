@@ -1,6 +1,7 @@
 //! Ralph-mode configuration, prompt loading, and turn-marker detection.
 
-use std::fs;
+use std::fs::File;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
@@ -76,8 +77,16 @@ pub(crate) fn load_ralph_config(
     waiting_marker_override: Option<&str>,
 ) -> Result<RalphConfig> {
     let prompt_path = resolve_prompt_path(cwd, prompt_path_override);
-    let base_prompt = fs::read_to_string(&prompt_path)
+    let mut base_prompt = String::new();
+    File::open(&prompt_path)
+        .and_then(|file| {
+            file.take(8 * 1024 * 1024 + 1)
+                .read_to_string(&mut base_prompt)
+        })
         .with_context(|| format!("failed to read Ralph prompt at {}", prompt_path.display()))?;
+    if base_prompt.len() > 8 * 1024 * 1024 {
+        bail!("Ralph prompt exceeds eight MiB: {}", prompt_path.display());
+    }
     let base_prompt = base_prompt.trim().to_string();
     if base_prompt.is_empty() {
         bail!("Ralph prompt file is empty: {}", prompt_path.display());

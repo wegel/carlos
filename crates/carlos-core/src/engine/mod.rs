@@ -50,6 +50,9 @@ pub enum EngineCommand {
         limit: usize,
     },
     Outcomes,
+    Updates {
+        since: Sequence,
+    },
     Send {
         operation: ClientOperation,
         text: String,
@@ -82,6 +85,7 @@ pub enum EngineReply {
     Output(OutputChunk),
     Operation(OperationResult),
     Outcomes(Vec<OperationResult>),
+    Updates(Box<EngineUpdate>),
     Failure(RpcError),
 }
 
@@ -94,12 +98,21 @@ pub enum EngineChanges {
     Snapshot(Box<Snapshot>),
 }
 
+/// The manager collects one ordered batch without exposing private outcomes to a device socket.
+pub struct EngineUpdate {
+    pub info: SessionInfo,
+    pub native_thread: String,
+    pub changes: Result<EngineChanges, RpcError>,
+    pub outcomes: Vec<OperationResult>,
+}
+
 struct Shared {
     ordinary: Mailbox,
     control: Mailbox,
     reads: Mailbox,
     wake: mpsc::SyncSender<()>,
     stop: Arc<AtomicBool>,
+    changed: Arc<AtomicBool>,
     thread: Mutex<Option<thread::JoinHandle<()>>>,
 }
 
@@ -120,6 +133,7 @@ impl EngineHandle {
         let (wake, wake_rx) = mpsc::sync_channel(1);
         let (notice, notice_rx) = mpsc::sync_channel(1);
         let stop = Arc::new(AtomicBool::new(false));
+        let changed = Arc::new(AtomicBool::new(true));
         let channels = owner::Channels {
             ordinary: ordinary_rx,
             control: control_rx,
@@ -128,6 +142,7 @@ impl EngineHandle {
             wake_rx,
             notice,
             stop: stop.clone(),
+            changed: changed.clone(),
         };
         let owner = owner::Owner::new(session, client, events, channels);
         let thread = thread::spawn(move || owner.run());
@@ -138,6 +153,7 @@ impl EngineHandle {
                 reads,
                 wake,
                 stop,
+                changed,
                 thread: Mutex::new(Some(thread)),
             })),
             notice_rx,
@@ -154,6 +170,11 @@ impl EngineHandle {
         let reply = mailbox.request(command)?;
         let _ = self.0.wake.try_send(());
         Ok(reply)
+    }
+
+    /// Distinguish fact/result changes from a wake caused only by a completed read.
+    pub fn take_updates(&self) -> bool {
+        self.0.changed.swap(false, Ordering::SeqCst)
     }
 
     /// Stop the session explicitly; dropping a device socket never calls this.
@@ -196,3 +217,6 @@ mod owner_tests;
 
 #[cfg(test)]
 mod automatic_tests;
+
+#[cfg(test)]
+mod update_tests;

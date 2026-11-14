@@ -21,6 +21,7 @@ pub(super) struct Channels {
     pub wake_rx: mpsc::Receiver<()>,
     pub notice: mpsc::SyncSender<()>,
     pub stop: Arc<AtomicBool>,
+    pub changed: Arc<AtomicBool>,
 }
 
 pub(super) struct Owner {
@@ -74,6 +75,7 @@ impl Owner {
                 };
                 let reply = self.read(envelope.command);
                 let _ = envelope.reply.try_send(reply);
+                let _ = self.channels.notice.try_send(());
             }
             let _ = self.channels.wake_rx.recv_timeout(self.wait());
         }
@@ -87,6 +89,7 @@ impl Owner {
     }
 
     pub(super) fn notice(&self) {
+        self.channels.changed.store(true, Ordering::SeqCst);
         let _ = self.channels.notice.try_send(());
     }
 
@@ -98,7 +101,7 @@ impl Owner {
             self.session.append_message(crate::session::models::Role::System, "Ralph was on before the daemon stopped. It remains off; explicitly enable it to resume automatic work.");
         }
         if self.ring.publish(&mut self.session) {
-            let _ = self.channels.notice.try_send(());
+            self.notice();
         }
     }
 
@@ -129,10 +132,28 @@ impl Owner {
                 .output_chunk(&entry, cursor.as_ref(), limit)
                 .map(EngineReply::Output)
                 .map_err(|error| failure(error.to_string())),
+            EngineCommand::Updates { since } => self.updates(since),
             EngineCommand::Outcomes => Ok(EngineReply::Outcomes(self.results.collect())),
             _ => Err(failure("mutation entered the read lane")),
         };
         result.unwrap_or_else(EngineReply::Failure)
+    }
+
+    fn updates(&mut self, since: carlos_proto::ids::Sequence) -> Result<EngineReply, RpcError> {
+        let changes = match self.ring.replay(since) {
+            Some(frames) => Ok(EngineChanges::Replay {
+                frames,
+                seq: self.ring.sequence(),
+            }),
+            None => ring::snapshot(&self.session, 100)
+                .map(|snapshot| EngineChanges::Snapshot(Box::new(snapshot))),
+        };
+        Ok(EngineReply::Updates(Box::new(super::EngineUpdate {
+            info: self.session.export_info(),
+            native_thread: self.session.thread_id().clone(),
+            changes,
+            outcomes: self.results.collect(),
+        })))
     }
 
     fn history(
