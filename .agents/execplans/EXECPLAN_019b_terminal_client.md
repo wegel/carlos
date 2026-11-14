@@ -34,6 +34,8 @@ The daemon already proves basic chat, approvals, running output, independent cli
 - [x] (2026-11-14) Commit the checked stop slice as `99d39aa`; main and installed binary remain unchanged.
 - [x] (2026-11-14) Prototype the terminal's complete-source render contract. Added a borrowed BodyInput used by the existing body renderer; three tests match old text/styles/wraps and reject suffixes/retired bodies. `scripts/probe-client-render.py` captures large Markdown/ANSI bodies from actual Unix-socket reads; `socket_render_probe` replays those chunks through the current bounded client window and the contiguous-body candidate. The socket replay, default/no-default tests, strict lint and 49-daemon/183-terminal gate pass at run-0UU3za. The separate engineering follow-up is PASS; the focused report is `.agents/reports/exec019b-render-contract-prototype.md`. This is no production terminal socket consumer yet, and no larger cache or product body cap is accepted.
 - [x] (2026-11-14) Extend the borrowed input through complete block headings, compact labels and spacing. RenderInput carries borrowed source and label facts; the transcript cache retains stable entry identity separately. DisplayMessage and BlockPlan use it without a core Message copy. An actual exported-row test covers full/compact Gutter/Flow blocks at 12/28/72/120 columns. The test exposed a missing wire fact: a generic fallback label and an explicitly saved label can both read “Tool output” but render differently for diffs. LabelSource::Fallback now preserves that distinction without duplicating the label string. Restored tests, strict lint, no-default tests, the full protocol/terminal/native gate and release measurements pass; the engineering verdict is PASS. Evidence is `.agents/reports/exec019b-render-blocks.md`. The Client-backed terminal connection remains unfinished.
+- [x] (2026-11-14) Add caller-chosen contiguous source inside the existing client cache. Source and normalized windows share one eight-MiB retained-data allowance; default 256-KiB suffix behavior and exact revisions/cursors remain. Watch replacement preserves document mode; direct and live capacity failures stay local and preserve other windows/private text. The 58-test pure client suite, workspace/strict lint, real-socket source replay and full 49-daemon/183-terminal gate pass. Separate engineering verdict PASS WITH ISSUES; accepted the missing live-pressure coverage and added it for both formats. Report: `.agents/reports/exec019b-contiguous-source.md`. This cache bound is not an approved product body limit.
+- [ ] Wire the shared client and complete borrowed blocks into the actual socket-backed terminal transcript/send/approve/interrupt consumer. Share the existing lazy render cache and terminal widgets; do not create a permanent second UI. Above-cache fidelity remains required before final deletion.
 - [ ] Add typed native facts/commands for names, prompt edits, task reads/stops, queues, goals, settings/context/quota, summaries, host defaults and lifecycle. Preserve existing tokens and target/generation guards; prove two clients can choose different read targets.
 - [x] (2026-11-14) Add the pure shared client codec and bounded fact/history/card windows. Twelve client tests, workspace tests, strict Clippy and 15 architecture checks pass. The checker allows only reviewed data packages below the client.
 - [x] (2026-11-14) Add private connection credentials/counters and operation-owned drafts/echoes. Twenty client tests, the actual daemon wire test, workspace tests and strict lint pass; 15 architecture checks pass. No client method automatically resends a mutation.
@@ -76,6 +78,8 @@ Main has not advanced beyond `a29b1a1` at plan start. EP019a's final source is `
 The shared client exposed a card-order defect: the publisher sent new cards before the new cards used as their anchors, and omitted order-only moves. The publisher now emits from tail to head and compares both card facts and the next-card address. The new deterministic test fails with the old publisher (`approval-order-negative.log`); the full terminal/native gate passes with the fix.
 
 ## Decision Log
+
+Decision: add an explicit complete-source lifetime inside the existing Bodies cache and charge source/output under one eight-MiB retained-data allowance. Rationale: the existing renderer must borrow the full Markdown/ANSI source; a second joined body or an unbounded per-entry cache would add copies. Keep ordinary 256-KiB suffix reads and direct seeks. This is a cache bound, not an accepted product body cap. Date/Author: 2026-11-14, Codex.
 
 Decision: prove the terminal transcript/source consumer before adding older task windows, history or another interest mechanism. Rationale: Fable's interim whole-roadmap review correctly identified that source windows alone do not establish whole-document Markdown/ANSI/copy fidelity. Measure a bounded contiguous-body prototype first, then port panels together with their wire requests. Keep the final embedded-path deletion gate and every workflow requirement. Date/Author: 2026-11-14, Codex after Fable 5.2 medium review.
 
@@ -126,10 +130,10 @@ Decision: cap retained session facts across one Client at 64 MiB and defer futur
 ## Outcomes & Retrospective
 
 The current checkpoint has checked task stops in99d39aa and the borrowed-source renderer
-prototype in progress. Fable's whole-roadmap review changed the next work: build the terminal
+prototype plus complete-block adapters and contiguous cache checked. Fable's whole-roadmap review changed the next work: build the terminal
 transcript consumer before widening native task APIs. The prototype transfers complete
 Markdown and ANSI bodies through actual socket reads and preserves their body rendering,
-but it does not supply a production client cache, main terminal socket path or final deletion.
+and now uses the existing client cache under one aggregate allowance. The main terminal socket path, larger-than-cache fidelity and final deletion remain open.
 The owner has not auto-approved EP019b. The existing core and installed binary remain separate.
 
 
@@ -395,3 +399,16 @@ binary preserves all counts; current synthetic scroll/typing/append p95 is0.81/0
 with24364KiB sampled VmHWM. Detailed identities, raw-evidence paths, limitations and verdict
 are in `.agents/reports/exec019b-render-blocks.md`. Next implement the actual client-backed
 transcript and socket driver, including aggregate source bounds; no EP approval is claimed.
+
+
+## Review: contiguous client source cache
+
+Reviewed the diff against `a11d3ed`, including all untracked Rust files. Checked shared cache bounds, suffix trims, source completeness, cursor guards, watch replacement/failure paths, and probe borrowing. `cargo test -p carlos-client` passed all 57 tests.
+
+- **MINOR:** [client_body_pressure.rs:23](/var/home/wegel/work/perso/carlos-daemon/crates/carlos-client/src/tests/client_body_pressure.rs:23) tests capacity failure on the first subscription reply, but never after a watch becomes active. That leaves the separate notification failure path untested. Add a test that accepts the first chunk, exhausts the shared allowance, then sends a live update. Assert that the client closes the failed window, sends one matching unsubscribe, ignores late chunks, preserves unrelated windows and submitted text, and never resubscribes automatically. Cover normalized output as well.
+
+I found no blocking correctness defect. I did not run the captured source replay or workspace-wide checks.
+
+**Verdict: PASS WITH ISSUES**
+
+Accepted the MINOR finding and added both source and normalized live-notification pressure proofs. The failed watch alone stops once; late chunks cannot restart it, and another document plus the exact private prompt survive. The 58-test pure client suite, workspace tests, captured-source replay and strict lint pass. The full 49-daemon/183-terminal gate, helper/architecture checks, release build and a 1000-turn perf-session smoke pass. No binary was installed. Focused report: `.agents/reports/exec019b-contiguous-source.md`.

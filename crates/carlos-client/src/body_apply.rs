@@ -4,11 +4,16 @@ use carlos_proto::output::{OutputChunk, OutputSegment};
 use carlos_proto::session::OutputKind;
 use carlos_proto::source::SourceChunk;
 
-use crate::bodies::{OutputWindow, SourceWindow};
+use crate::bodies::{OutputWindow, SourceWindow, BODY_BYTES};
 use crate::ClientError;
 
 impl SourceWindow {
-    pub(crate) fn apply(&mut self, chunk: SourceChunk) -> Result<bool, ClientError> {
+    pub(crate) fn apply(
+        &mut self,
+        chunk: SourceChunk,
+        available: usize,
+        document: bool,
+    ) -> Result<bool, ClientError> {
         let end = source_bounds(&chunk)?;
         if chunk.source.revision != self.source.revision {
             return Err(ClientError::InvalidBody);
@@ -30,6 +35,7 @@ impl SourceWindow {
         if !valid_start || chunk.has_more && chunk.from.as_ref() == Some(&chunk.next) {
             return Err(ClientError::InvalidBody);
         }
+        self.check_capacity(&chunk, available, document)?;
         let changed = self.changed(&chunk, end);
         if self.seek {
             self.start = chunk.offset;
@@ -38,16 +44,40 @@ impl SourceWindow {
         self.metadata_known = true;
         let bytes = self.source.bytes.get().max(chunk.source.bytes.get());
         self.source.bytes = carlos_proto::bytes::ByteLength::new(bytes);
-        self.pieces.push(OutputSegment {
-            kind: OutputKind::Plain,
-            text: chunk.text,
-        });
+        if document {
+            self.pieces.push_document(chunk.text);
+        } else {
+            self.pieces.push(OutputSegment {
+                kind: OutputKind::Plain,
+                text: chunk.text,
+            });
+        }
         self.end = carlos_proto::bytes::ByteOffset::new(end);
         self.next = Some(chunk.next);
         self.seq = chunk.seq;
         self.has_more = end < bytes;
         self.done = chunk.done && !self.has_more;
         Ok(changed)
+    }
+
+    fn check_capacity(
+        &self,
+        chunk: &SourceChunk,
+        available: usize,
+        document: bool,
+    ) -> Result<(), ClientError> {
+        let retained = if document {
+            if chunk.source.bytes.get() > BODY_BYTES as u64 {
+                return Err(ClientError::Capacity(
+                    "source document exceeds the body cache",
+                ));
+            }
+            self.pieces.bytes + chunk.text.len()
+        } else {
+            self.pieces
+                .projected_bytes(std::iter::once((OutputKind::Plain, chunk.text.len())))
+        };
+        check_capacity(retained, available)
     }
 
     fn changed(&self, chunk: &SourceChunk, end: u64) -> bool {
@@ -62,7 +92,11 @@ impl SourceWindow {
 }
 
 impl OutputWindow {
-    pub(crate) fn apply(&mut self, chunk: OutputChunk) -> Result<bool, ClientError> {
+    pub(crate) fn apply(
+        &mut self,
+        chunk: OutputChunk,
+        available: usize,
+    ) -> Result<bool, ClientError> {
         let bytes = output_bounds(&chunk)?;
         if chunk.revision != self.revision {
             return Err(ClientError::InvalidBody);
@@ -74,6 +108,13 @@ impl OutputWindow {
         if chunk.from != self.next || chunk.has_more && chunk.from.as_ref() == Some(&chunk.next) {
             return Err(ClientError::InvalidBody);
         }
+        let retained = self.pieces.projected_bytes(
+            chunk
+                .segments
+                .iter()
+                .map(|piece| (piece.kind, piece.text.len())),
+        );
+        check_capacity(retained, available)?;
         let changed = bytes > 0
             || self.next.as_ref() != Some(&chunk.next)
             || self.has_more != chunk.has_more
@@ -116,4 +157,14 @@ pub(crate) fn output_bounds(chunk: &OutputChunk) -> Result<usize, ClientError> {
         return Err(ClientError::InvalidBody);
     }
     Ok(bytes)
+}
+
+fn check_capacity(retained: usize, available: usize) -> Result<(), ClientError> {
+    if retained > available {
+        Err(ClientError::Capacity(
+            "body data is full; close an unused window first",
+        ))
+    } else {
+        Ok(())
+    }
 }

@@ -150,7 +150,10 @@ fn output_resets_retire_only_normalized_pieces_and_leave_the_source_watch_alive(
 fn a_body_replacement_cancels_the_old_cursor_before_watching_the_new_generation() {
     let (mut client, connection) = attached();
     tool(&mut client, connection, 11, 3);
-    let token = window(&mut client);
+    let token = client
+        .bodies_mut()
+        .open_source_document(session(), entry_id(10), OutputRevision::new(3))
+        .expect("document window");
     let read = client.watch_body(connection, &token).expect("old watch");
     reply(&mut client, &read, source("original", None, "old-end"));
     let replacement = serde_json::from_value(
@@ -177,6 +180,45 @@ fn a_body_replacement_cancels_the_old_cursor_before_watching_the_new_generation(
     let current = changed.bodies.first().expect("replacement token");
     assert_ne!(&token, current);
     assert!(client.bodies().source(current).is_some());
+    fill_replacement_document(&mut client, connection, &changed.outgoing[1], current);
+}
+
+fn fill_replacement_document(
+    client: &mut Client,
+    connection: ConnectionId,
+    read: &crate::Outbound,
+    current: &BodyToken,
+) {
+    let text = "x".repeat(65536);
+    for index in 0..5 {
+        let chunk = json!({"entry":entry_id(10), "offset":(index*65536).to_string(),
+            "source":{"revision":"4","bytes":(5*65536).to_string()},
+            "from":if index == 0 { None } else { Some(format!("at-{index}")) },
+            "next":format!("at-{}",index+1),"text":text,
+            "has_more":index<4,"done":false,"seq":"12"});
+        if index == 0 {
+            reply(client, read, chunk);
+        } else {
+            notify(
+                client,
+                connection,
+                Notification::Source(
+                    serde_json::from_value(json!({"session":session(),"chunk":chunk}))
+                        .expect("live source"),
+                ),
+            );
+        }
+    }
+    assert_eq!(
+        client
+            .bodies()
+            .source(current)
+            .expect("replacement")
+            .document()
+            .expect("preserved document mode")
+            .len(),
+        5 * 65536
+    );
 }
 
 #[test]

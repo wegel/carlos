@@ -5,13 +5,17 @@ use std::collections::HashMap;
 use carlos_proto::bytes::ByteOffset;
 use carlos_proto::commands::Command;
 use carlos_proto::ids::{EntryId, Sequence, SessionId};
-use carlos_proto::output::{OutputChunk, OutputCursor, OutputRevision};
-use carlos_proto::source::{Source, SourceChunk, SourceCursor};
+use carlos_proto::output::{OutputCursor, OutputRevision};
+use carlos_proto::source::{Source, SourceCursor};
 
 use crate::body_pieces::Pieces;
 use crate::ClientError;
 
 const MAX_WINDOWS: usize = 32;
+pub(crate) const BODY_BYTES: usize = 8 * 1024 * 1024;
+
+#[path = "body_storage.rs"]
+mod storage;
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 enum Format {
@@ -31,6 +35,7 @@ struct Key {
 pub struct BodyToken {
     key: Key,
     generation: u64,
+    document: bool,
 }
 
 impl BodyToken {
@@ -45,6 +50,9 @@ impl BodyToken {
     /// Distinguish original bytes from normalized display pieces.
     pub fn is_source(&self) -> bool {
         self.key.format == Format::Source
+    }
+    pub(crate) fn document_source(&self) -> bool {
+        self.document
     }
 }
 
@@ -79,10 +87,11 @@ enum Body {
 }
 struct Window {
     generation: u64,
+    document: bool,
     body: Body,
 }
 
-/// At most 32 windows retain at most 256 KiB each, with no sockets, clocks or automatic retries.
+/// At most 32 windows share eight MiB of body data, without sockets, clocks or automatic retries.
 #[derive(Default)]
 pub struct Bodies {
     windows: HashMap<Key, Window>,
@@ -100,6 +109,7 @@ impl Bodies {
             .map(|(key, window)| BodyToken {
                 key: key.clone(),
                 generation: window.generation,
+                document: window.document,
             })
             .collect()
     }
@@ -246,38 +256,6 @@ impl Bodies {
         }
     }
 
-    /// Admit one exact source reply only into its still-current read lifetime and cursor.
-    pub fn apply_source(
-        &mut self,
-        token: &BodyToken,
-        chunk: SourceChunk,
-    ) -> Result<bool, ClientError> {
-        if token.key.entry != chunk.entry {
-            return Err(ClientError::InvalidBody);
-        }
-        let window = self.window_mut(token).ok_or(ClientError::RetiredBody)?;
-        let Body::Source(window) = &mut window.body else {
-            return Err(ClientError::InvalidBody);
-        };
-        window.apply(chunk)
-    }
-
-    /// Admit normalized pieces without sharing source cursors or replaying a duplicated chunk.
-    pub fn apply_output(
-        &mut self,
-        token: &BodyToken,
-        chunk: OutputChunk,
-    ) -> Result<bool, ClientError> {
-        if token.key.entry != chunk.entry {
-            return Err(ClientError::InvalidBody);
-        }
-        let window = self.window_mut(token).ok_or(ClientError::RetiredBody)?;
-        let Body::Output(window) = &mut window.body else {
-            return Err(ClientError::InvalidBody);
-        };
-        window.apply(chunk)
-    }
-
     /// Retire both formats after a row replacement, watch reset or explicit collapse.
     pub fn forget(&mut self, session: &SessionId, entry: &EntryId) {
         self.windows
@@ -358,11 +336,13 @@ impl Bodies {
             Window {
                 generation: self.generation,
                 body,
+                document: false,
             },
         );
         Ok(BodyToken {
             key,
             generation: self.generation,
+            document: false,
         })
     }
 

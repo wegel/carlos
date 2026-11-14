@@ -10,14 +10,14 @@ use carlos_proto::source::{Source, SourceChunk};
 use super::{entry_id, session};
 use crate::{Bodies, ClientError};
 
-fn descriptor(bytes: u64) -> Source {
+pub(super) fn descriptor(bytes: u64) -> Source {
     Source {
         revision: OutputRevision::new(3),
         bytes: ByteLength::new(bytes),
     }
 }
 
-fn source(
+pub(super) fn source(
     offset: u64,
     text: &str,
     total: u64,
@@ -39,7 +39,7 @@ fn source(
     }
 }
 
-fn output(
+pub(super) fn output(
     from: Option<&str>,
     next: &str,
     segments: Vec<OutputSegment>,

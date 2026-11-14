@@ -7,6 +7,17 @@ use carlos_proto::source::Source;
 use crate::bodies::{OutputWindow, SourceWindow};
 
 impl SourceWindow {
+    /// Borrow the entire observed source only when no prefix or unread bytes are missing.
+    pub fn document(&self) -> Option<&str> {
+        if !self.metadata_known
+            || self.start().get() != 0
+            || self.has_more
+            || self.end.get() != self.source.bytes.get()
+        {
+            return None;
+        }
+        self.pieces.document_bytes()
+    }
     /// Borrow original bytes in order; the caller interprets controls only after joining needed pieces.
     pub fn pieces(&self) -> impl Iterator<Item = &str> {
         self.pieces.segments.iter().map(|piece| piece.text.as_str())

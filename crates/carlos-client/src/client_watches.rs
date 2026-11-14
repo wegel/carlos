@@ -142,6 +142,7 @@ impl Client {
             self.watches.desired.remove(&key);
             self.watches.active.remove(&key);
             self.bodies.close(token);
+            self.cancel_watch(key);
         }
     }
 
@@ -307,7 +308,10 @@ impl Client {
         let Some(revision) = revision else {
             return;
         };
-        let replacement = if key.source {
+        let replacement = if key.source && token.document_source() {
+            self.bodies
+                .open_source_document(key.session.clone(), key.entry.clone(), revision)
+        } else if key.source {
             self.bodies
                 .open_source(key.session.clone(), key.entry.clone(), revision)
         } else {

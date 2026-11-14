@@ -5,7 +5,7 @@ use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::time::Instant;
 
-use carlos_client::Bodies;
+use carlos_client::{Bodies, BodyToken};
 use carlos_core::session::entry_id::EntryId;
 use carlos_core::session::models::Message;
 use carlos_proto::ids::SessionId;
@@ -42,38 +42,41 @@ fn run_case(root: &Path, case: &Value) {
     let source = &descriptor;
     let mut bodies = Bodies::default();
     let token = bodies
-        .open_source(session, entry.id.clone(), source.revision)
+        .open_source(session.clone(), entry.id.clone(), source.revision)
         .expect("bounded source window");
+    let mut documents = Bodies::default();
+    let document = documents
+        .open_source_document(session, entry.id.clone(), source.revision)
+        .expect("contiguous source lifetime");
     let before = rss();
     let started = Instant::now();
     assert!(
         source.bytes.get() <= 8 * 1024 * 1024,
         "prototype cap, not a product limit"
     );
-    let mut text = String::with_capacity(source.bytes.get() as usize);
     for line in BufReader::new(File::open(path.join("chunks.jsonl")).expect("wire chunks")).lines()
     {
         let chunk: SourceChunk =
             serde_json::from_str(&line.expect("chunk line")).expect("typed original source");
-        assert_eq!(chunk.offset.get(), text.len() as u64);
         assert_eq!(&chunk.source, source);
-        text.push_str(&chunk.text);
+        documents
+            .apply_source(&document, chunk.clone())
+            .expect("contiguous source chunk");
         bodies
             .apply_source(&token, chunk)
             .expect("checked client cursor");
     }
     let hydrate_ms = started.elapsed().as_secs_f64() * 1000.;
-    assert_eq!(text.len() as u64, source.bytes.get());
-    let window = bodies.source(&token).expect("source window");
-    assert!(
-        window.start().get() > 0,
-        "fixtures exceed the current client window"
-    );
-    let suffix: String = window.pieces().collect();
-    assert!(RenderInput::from_client(&entry, Some((source, &suffix))).is_none());
-    drop(suffix);
+    reject_suffix(&bodies, &token, &entry, source);
     drop(bodies);
-    let input = RenderInput::from_client(&entry, Some((source, &text)))
+    let text = documents
+        .source(&document)
+        .expect("complete source")
+        .document()
+        .expect("one borrowed complete document");
+    assert_eq!(text.len() as u64, source.bytes.get());
+    let after = rss();
+    let input = RenderInput::from_client(&entry, Some((source, text)))
         .expect("contiguous complete candidate");
     assert_eq!(input.text.as_ptr(), text.as_ptr());
     let message = Message {
@@ -82,16 +85,26 @@ fn run_case(root: &Path, case: &Value) {
         kind: input.kind,
         file_path: input.file_path.map(str::to_owned),
         tool_output: None,
-        text,
+        text: text.to_owned(),
     };
-    let after = rss();
     for width in [28, 120] {
-        compare(&entry, &message, width, case, hydrate_ms, before, after);
+        compare(input, &message, width, case, hydrate_ms, before, after);
     }
 }
 
+fn reject_suffix(bodies: &Bodies, token: &BodyToken, entry: &Entry, source: &Source) {
+    let window = bodies.source(token).expect("source window");
+    assert!(
+        window.start().get() > 0,
+        "fixtures exceed the current client window"
+    );
+    let suffix: String = window.pieces().collect();
+    assert!(RenderInput::from_client(entry, Some((source, &suffix))).is_none());
+    drop(suffix);
+}
+
 fn compare(
-    entry: &Entry,
+    input: RenderInput<'_>,
     message: &Message,
     width: usize,
     case: &Value,
@@ -99,10 +112,6 @@ fn compare(
     before: Option<u64>,
     after: Option<u64>,
 ) {
-    let descriptor: Source =
-        serde_json::from_value(case["source"].clone()).expect("source metadata");
-    let input = RenderInput::from_client(entry, Some((&descriptor, &message.text)))
-        .expect("borrowed client source");
     let started = Instant::now();
     let baseline = BlockBody::new(DisplayMessage::full(message), width);
     let count = baseline.count(&mut RenderCountCache::new(), message);

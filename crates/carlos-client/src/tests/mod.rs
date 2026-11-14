@@ -1,8 +1,10 @@
 //! Exercise client data with fixed wire envelopes and no native process, socket or clock.
 
 mod bodies;
+mod body_documents;
 mod cards;
 mod client;
+mod client_body_pressure;
 mod client_budget;
 mod client_reads;
 mod client_reconnect;

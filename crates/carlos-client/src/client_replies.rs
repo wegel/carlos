@@ -103,19 +103,8 @@ impl Client {
             return Err(ClientError::InvalidBody);
         }
         if let Some(token) = target.token {
-            match self.bodies.apply_source(&token, chunk) {
-                Ok(changed) => {
-                    if target.watch {
-                        self.activate_watch(&token);
-                    }
-                    if changed {
-                        effects.bodies.push(token);
-                    }
-                }
-                Err(ClientError::RetiredBody) => {}
-                Err(error) => return Err(error),
-            }
-            return Ok(());
+            let result = self.bodies.apply_source(&token, chunk);
+            return self.body_reply(serial, token, target.watch, result, effects);
         }
         effects.replies.push(ReadResult {
             id: Some(carlos_proto::commands::RequestId::Integer(serial)),
@@ -140,19 +129,8 @@ impl Client {
             return Err(ClientError::InvalidBody);
         }
         if let Some(token) = target.token {
-            match self.bodies.apply_output(&token, chunk) {
-                Ok(changed) => {
-                    if target.watch {
-                        self.activate_watch(&token);
-                    }
-                    if changed {
-                        effects.bodies.push(token);
-                    }
-                }
-                Err(ClientError::RetiredBody) => {}
-                Err(error) => return Err(error),
-            }
-            return Ok(());
+            let result = self.bodies.apply_output(&token, chunk);
+            return self.body_reply(serial, token, target.watch, result, effects);
         }
         effects.replies.push(ReadResult {
             id: Some(carlos_proto::commands::RequestId::Integer(serial)),
@@ -161,6 +139,41 @@ impl Client {
                 chunk,
             },
         });
+        Ok(())
+    }
+
+    fn body_reply(
+        &mut self,
+        serial: i64,
+        token: crate::BodyToken,
+        watch: bool,
+        result: Result<bool, ClientError>,
+        effects: &mut Effects,
+    ) -> Result<(), ClientError> {
+        match result {
+            Ok(changed) => {
+                if watch {
+                    self.activate_watch(&token);
+                }
+                if changed {
+                    effects.bodies.push(token);
+                }
+            }
+            Err(ClientError::RetiredBody) => {}
+            Err(error @ ClientError::Capacity(_)) => {
+                if watch {
+                    self.failed_watch(&token);
+                }
+                effects.failures.push(crate::RequestFailure {
+                    id: Some(carlos_proto::commands::RequestId::Integer(serial)),
+                    error: RpcError {
+                        code: -32012,
+                        message: error.to_string(),
+                    },
+                });
+            }
+            Err(error) => return Err(error),
+        }
         Ok(())
     }
 
