@@ -8,7 +8,7 @@ This living ExecPlan follows `.agents/PLANS.md`. Keep Progress, Surprises & Disc
 
 After this step, closing a terminal leaves its conversation running in `carlosd`, the separate process that owns native Codex, Claude and Grok sessions. Another terminal can attach to the same conversation. Each terminal keeps its own editor, scroll position, selected task and expanded tool output. Existing terminal commands, colors and exact copy behavior must work through typed socket requests. The terminal must no longer own a backend or mutable core session.
 
-The daemon already proves basic chat, approvals, running output, independent clients, private command recovery and saved-session restore. This step completes the terminal-facing commands, adds a pure shared Rust client, and removes the temporary embedded route. It does not add TCP, device pairing or phone code. Stop at owner review before EP020. The existing spike rule still forbids installing a spike executable before owner review, merging into main or pushing without the owner's request.
+The daemon already proves basic chat, approvals, running output, independent clients, private command recovery and saved-session restore. This step completes the terminal-facing commands, adds a pure shared Rust client, and removes the temporary embedded route. It does not add TCP, device pairing or phone code. The owner delegated approval of completed EPs on 2026-11-14 and requested continued work through the next EPs. Pass every check and the direct engineering review, record the auto-approval, then begin EP020. Keep the installed executable unchanged; do not merge into main or push without the owner's request.
 
 ## Progress
 
@@ -29,7 +29,7 @@ The daemon already proves basic chat, approvals, running output, independent cli
 - [ ] Complete `carlos-client` for greeting, private retry rights, numbered facts, history, source/output cursors and operation-owned local echo. Test gaps, replacement, reconnect, malformed input and private recovery without sockets or clocks inside the crate.
 - [ ] Route terminal startup and every existing workflow through the actual daemon and shared client. Preserve drafts, dictation, color/copy behavior, panels and startup choices. Add screen/request tests for any broken workflow.
 - [ ] After socket parity passes, make the separate buildable commit `tui: remove embedded session and backend path`; remove direct session/backend ownership, temporary adapters and obsolete report consumers. Review that deletion explicitly.
-- [ ] Pass final default/no-default tests, strict lint, release/native/terminal/process/dependency checks and matched socket speed/memory comparisons. Review directly, report exact identities/limits, archive the completed plan unchanged and stop for owner review.
+- [ ] Pass final default/no-default tests, strict lint, release/native/terminal/process/dependency checks and matched socket speed/memory comparisons. Review directly, report exact identities/limits, archive the completed plan unchanged, record delegated auto-approval and continue to EP020.
 
 ## Surprises & Discoveries
 
@@ -51,6 +51,9 @@ Main has not advanced beyond `a29b1a1` at plan start. EP019a's final source is `
 The shared client exposed a card-order defect: the publisher sent new cards before the new cards used as their anchors, and omitted order-only moves. The publisher now emits from tail to head and compares both card facts and the next-card address. The new deterministic test fails with the old publisher (`approval-order-negative.log`); the full terminal/native gate passes with the fix.
 
 ## Decision Log
+
+
+Decision: accept the owner’s 2026-11-14 grant to auto-approve completed EPs and continue through subsequent EPs. Rationale: the owner is going to sleep and explicitly removed the need for a human pause between EPs. Keep all checks and the direct review; record each approval honestly and continue only after the EP is actually complete. This does not authorize merge/push/install actions. Date/Author: 2026-11-14, owner/Codex.
 
 
 Decision: begin EP019b after the owner's explicit “OK. Approved. Ack.” Rationale: the requested EP019a review gate is satisfied; no further routine confirmation is needed. Date/Author: 2026-11-14, owner/Codex.
@@ -129,12 +132,12 @@ Run every existing terminal workflow through the actual daemon. Assert visible s
 
 Make a separate buildable commit named `tui: remove embedded session and backend path`. Delete terminal backend/session ownership, direct native launch/control calls, obsolete report enums/bridge consumers and temporary execute_embedded adapters. Keep only remote platform launch/discovery and pure rendering helpers. Review the deletion diff for hidden privileged paths. Production terminal dependencies must not pull native engine code after the move; test utilities may exercise core independently without restoring a production shortcut.
 
-Run final feature/lint/release/dependency/native/terminal gates and compare matching release binaries with preserved EP019a and the original architecture reference. Exercise socket replay with the same synthetic/captured fixture; separate core apply, export/encoding, socket/client and terminal render costs. Measure resident memory rather than infer heap from wire budgets. Preserve raw samples, exact source/compiler/binary identities and honest workload limitations. Use the engineering reviewer prompt directly, label self-review honestly per the owner's no-subagent request, and resolve blocking findings. Write final reports, archive this completed plan unchanged, update PROGRAM_PLAN and stop at owner review before EP020.
+Run final feature/lint/release/dependency/native/terminal gates and compare matching release binaries with preserved EP019a and the original architecture reference. Exercise socket replay with the same synthetic/captured fixture; separate core apply, export/encoding, socket/client and terminal render costs. Measure resident memory rather than infer heap from wire budgets. Preserve raw samples, exact source/compiler/binary identities and honest workload limitations. Use the engineering reviewer prompt directly, label self-review honestly per the owner's no-subagent request, and resolve blocking findings. Write final reports, archive this completed plan unchanged, update PROGRAM_PLAN, record the delegated auto-approval and continue to EP020.
 
 ## Concrete Steps
 
 
-All commands run from `/var/home/wegel/work/perso/carlos-daemon`. Preserve accepted `/tmp/carlos-ep019a/final-carlos` and `final-carlosd` into `/tmp/carlos-ep019b/` with hashes before rebuilding. If they are missing, build source `58e9901` in an isolated worktree/target and record the new compiler/hash. Keep the installed `~/.local/bin/carlos` unchanged until owner review.
+All commands run from `/var/home/wegel/work/perso/carlos-daemon`. Preserve accepted `/tmp/carlos-ep019a/final-carlos` and `final-carlosd` into `/tmp/carlos-ep019b/` with hashes before rebuilding. If they are missing, build source `58e9901` in an isolated worktree/target and record the new compiler/hash. Keep the installed `~/.local/bin/carlos` unchanged while building the spike.
 
     rtk proxy cargo test --workspace
     rtk proxy cargo test --workspace --no-default-features
@@ -159,7 +162,7 @@ The final production terminal owns no core SessionState, BackendClient or native
 ## Idempotence and Recovery
 
 
-Tests use private temporary state/native homes and only stop captured owned processes. Reject unsafe socket paths and refuse to unlink a live daemon. Preserve original source and native history; failed reads or changed cursors request explicit refresh without altering backend facts. Treat possibly written mutations as uncertain and recover by operation identity, never automatic replay. Keep small buildable commits throughout, including the explicit deletion commit; do not edit archived plans or install experimental runtime changes before owner review.
+Tests use private temporary state/native homes and only stop captured owned processes. Reject unsafe socket paths and refuse to unlink a live daemon. Preserve original source and native history; failed reads or changed cursors request explicit refresh without altering backend facts. Treat possibly written mutations as uncertain and recover by operation identity, never automatic replay. Keep small buildable commits throughout, including the explicit deletion commit; do not edit archived plans or install experimental runtime changes without an explicit install request.
 
 ## Artifacts and Notes
 
@@ -174,7 +177,7 @@ Keep public wire types in serde-only `carlos-proto`. Add typed source chunk/curs
 ## Engineering Review
 
 
-Plan author self-check: the source, native command families, report-field map and terminal inventory were read before writing this plan. EP019a owner acceptance is explicit; the next gate is after working terminal parity and deletion, not after writing this plan. No runtime proof or independent review is claimed yet. Use `.agents/reviewers/engineering_reviewer.md` for the final direct review and copy findings, guidance and verdict here.
+Plan author self-check: the source, native command families, report-field map and terminal inventory were read before writing this plan. EP019a owner acceptance is explicit; the EP can be auto-approved only after working terminal parity, deletion and all final checks, not after writing this plan. No runtime proof or independent review is claimed yet. Use `.agents/reviewers/engineering_reviewer.md` for the final direct review and copy findings, guidance and verdict here.
 
 Update note (2026-11-14): created EP019b after owner acceptance of EP019a. Require bounded raw source and large-row support, complete typed terminal controls, a pure shared client, actual socket workflow parity and a separate deletion commit before owner review. Preserve the existing no-install/no-merge/no-push spike rules.
 
@@ -195,3 +198,5 @@ Update note (2026-11-14, client groundwork): the approval-order regression now h
 Update note (2026-11-14, client data tests passed): approval publisher fix is committed as `d6ef2b3`. The shared client codec/fact windows now pass twelve client tests plus workspace tests and strict Clippy (`client-data-{tests,clippy}.log`); the new dependency guard passes all 15 architecture checks. Complete snapshots bridge gaps atomically, late snapshots cannot roll facts backward, history rejects changed unseen rows, and bounded older windows do not splice in a separated live tail. Request bytes are capped while serializing, before a full oversized output allocation. Private reconnect/operations and body caches are next; no terminal cutover is claimed.
 
 Update note (2026-11-14, private client state): client fact groundwork is committed as `2d8b1bb`. Added checked greeting generations, private lease credentials and lossless counters that preserve locally issued but unadmitted ids and never wrap. Added bounded private text/result tracking, exact recovery checks, shared-row echo binding and no resend path on lease loss. Twenty pure client tests plus a real Unix daemon greeting/resume/expired-operation/list test pass with workspace tests and strict Clippy in `client-private-{tests,clippy}.log`; the test creates no native session. All 15 architecture checks pass. Its temporary directory explicitly uses mode 0700, as the daemon requires. Body windows, client orchestration, the remaining typed native facade and terminal cutover/deletion are still incomplete.
+
+Update note (2026-11-14, delegated EP approval): the owner is going to sleep and expressly authorized Codex to auto-approve completed EPs and continue to the next EP. Updated current plan/program/architecture instructions to remove the human pause after passing all checks and direct review. Historical reports and archived plans remain unchanged. EP019b is still incomplete; this grant is not an early approval of unfinished work. Main, remote and installed-binary constraints remain unchanged.

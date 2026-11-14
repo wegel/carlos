@@ -190,7 +190,7 @@ Types:
 3. EP018: numbered core events consumed in process, provisional protocol types and separate removal of the old redraw-report path. Complete.
 4. EP018a: bounded running output, client-owned drafts, prepared backend waits, terminal workflow inventory and reduced guards. Complete and accepted by the owner.
 5. EP019a, complete and awaiting owner review: real backend handles and a headless daemon with basic commands and two concurrent clients. Sessions survive client disconnect. Tests prove bounded queues, ordered commands, priority controls and private recovery. Archived plan: `.agents/done/EXECPLAN_019a_headless_daemon.md`; evidence: `.agents/reports/exec019a-final-report.md`.
-6. EP019b: add typed terminal-control families and carlos-client, preserve source/color/copy behavior, drive every terminal workflow through the daemon, then delete the embedded path in a separate commit. Stop for owner review. Scope: `docs/terminal-client-migration.md`; write the full plan after EP019a.
+6. EP019b: add typed terminal-control families and carlos-client, preserve source/color/copy behavior, drive every terminal workflow through the daemon, then delete the embedded path in a separate commit. Pass review and record the delegated auto-approval before EP020. Scope: `docs/terminal-client-migration.md`; write the full plan after EP019a.
 7. EP020: WebSocket listener, device tokens and perf-session replay through the socket. Add schema output only when a real client needs it.
 8. EP021: paged native history, Grok approvals and richer tool summaries as data.
 9. EP022: UniFFI bindings, iOS packaging and the iPhone app. Compile on the remote Mac; see `docs/ios-build.md`.
@@ -242,8 +242,7 @@ this branch; `etc/mac-build.env` lives in the `carlos-daemon` checkout.
 - Gates per task: `cargo test`, `bash scripts/test.sh`, `carlos perf-session`
   against the baseline. A fresh Codex run reviews with
   `.agents/reviewers/engineering_reviewer.md`.
-- The human reviews after each ExecPlan. Nobody installs the binary to
-  `~/.local/bin/carlos` before that review.
+- On 2026-11-14, the owner delegated approval of completed ExecPlans to Codex and asked it to continue to the next EP while the owner sleeps. Codex must pass the checks, perform the direct engineering review and record each auto-approval before continuing. This supersedes the earlier per-EP human pause. Keep the installed binary unchanged and do not merge or push without the owner’s request.
 
 ## Open items
 
@@ -273,3 +272,5 @@ Version 1 remains provisional until real remote consumers exercise it. UniFFI st
 EP018a closeout, 2026-11-13: bounded running output, correlated recovery, prepared send/fork/name waits and the terminal inventory are complete. The source lexer was removed. The branch now includes main's Escape-burst fix. Final feature/release/terminal/native checks and original-reference/common-base measurements pass; `.agents/reports/exec018a-final-report.md` records exact evidence and remaining EP019 work. The owner accepted this step on 2026-11-13. The independent follow-up review is `.agents/reports/exec018a-fable-followup-review.md`; the owner agreed to separate daemon proof from terminal cutover. EP019a is the next execution, with owner review before EP019b. No spike executable was installed, merged or pushed.
 
 EP019a now has the local carlosd executable, fixed native command handles, one owner per session, bounded ordered command admission, independent control workers, authenticated private retry results, encoded shared replay, per-device output watches and a minimal SQLite session catalogue. Codex, the compiled Claude controller and Grok pass deterministic process tests. One shared synthetic generator drives terminal and headless measurements. The terminal remains embedded until EP019b, which must migrate all inventoried workflows and then delete that path. Version 1 remains provisional, the network listener stays in EP020, richer native data stays in EP021, and iPhone code stays in EP022.
+
+Owner direction (2026-11-14): Codex may auto-approve completed EPs and must continue to the next EP rather than pause for human review. The earlier historical review gates above remain as context; this direction governs current execution. Checks, code quality, performance evidence, the separate cutover deletion commit and hard-blocker rules still apply.
