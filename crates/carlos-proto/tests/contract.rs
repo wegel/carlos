@@ -36,6 +36,30 @@ fn cursors_preserve_all_bits_and_never_wrap() {
 }
 
 #[test]
+fn source_byte_positions_and_lengths_preserve_all_bits_as_decimal_strings() {
+    use carlos_proto::bytes::{ByteLength, ByteOffset};
+    assert_eq!(
+        to_value(ByteOffset::new(u64::MAX)).expect("offset"),
+        json!("18446744073709551615")
+    );
+    assert_eq!(
+        from_value::<ByteLength>(json!("18446744073709551615"))
+            .expect("length")
+            .get(),
+        u64::MAX
+    );
+    for invalid in [
+        json!(1),
+        json!("01"),
+        json!("-1"),
+        json!("18446744073709551616"),
+    ] {
+        assert!(from_value::<ByteOffset>(invalid.clone()).is_err());
+        assert!(from_value::<ByteLength>(invalid).is_err());
+    }
+}
+
+#[test]
 fn requests_roundtrip_and_enforce_rpc_version() {
     let value = json!({"jsonrpc":"2.0","id":"hello-1","method":"hello",
         "params":{"protocol":1,"client":"test","token":"device-token"}});

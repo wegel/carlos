@@ -43,6 +43,7 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Request, Failure> {
             | "entry/output/subscribe"
             | "entry/output/unsubscribe"
             | "entry/source"
+            | "entry/source/seek"
             | "entry/source/subscribe"
             | "entry/source/unsubscribe"
     );

@@ -37,6 +37,23 @@ impl Manager {
                     limit: usize::from(limit),
                 },
             ),
+            Command::SourceSeek {
+                session,
+                entry,
+                revision,
+                offset,
+                limit,
+            } => self.rpc_read(
+                peer,
+                id,
+                session,
+                EngineCommand::SourceAt {
+                    entry,
+                    revision,
+                    offset,
+                    limit: limit.unwrap_or(65536).min(65536) as usize,
+                },
+            ),
             body @ (Command::Output { .. }
             | Command::OutputSubscribe { .. }
             | Command::OutputUnsubscribe { .. }
@@ -184,7 +201,9 @@ impl Manager {
         }
         let reserved = match command {
             EngineCommand::Changes { .. } => 16 * 1024 * 1024,
-            EngineCommand::Output { .. } | EngineCommand::Source { .. } => 512 * 1024,
+            EngineCommand::Output { .. }
+            | EngineCommand::Source { .. }
+            | EngineCommand::SourceAt { .. } => 512 * 1024,
             _ => crate::limits::FRAME_BYTES,
         };
         if reserved > crate::limits::READ_BYTES.saturating_sub(self.read_bytes) {

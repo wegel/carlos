@@ -60,6 +60,12 @@ class SourceTests:
             return next((entry for entry in snapshot["entries"] if entry.get("source", {}).get("bytes") == str(len(expected.encode())) and entry["done"]), None)
         entry = wait_for(ready, "large original body complete", timeout=15)
         self.assertEqual(entry["text"], "")
+        seek = first.call("entry/source/seek", session=session, entry=entry["id"], revision=entry["source"]["revision"], offset=str(len(expected.encode())-11), limit=65536)
+        self.assertEqual(seek["text"], "\0🌍\x1b[31m\n")
+        self.assertEqual(int(seek["offset"]), len(expected.encode())-11)
+        self.assertTrue(seek["done"])
+        invalid = first.response(first.send("entry/source/seek", session=session, entry=entry["id"], revision=entry["source"]["revision"], offset="18446744073709551615", limit=65536))
+        self.assertIn("invalid", invalid["error"]["message"])
         cursor = None
         parts = []
         while True:

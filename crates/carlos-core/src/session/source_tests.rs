@@ -1,6 +1,8 @@
 //! Prove exact bounded source, format/entry binding, replacement and large plain-page recovery.
 
+use carlos_proto::bytes::ByteOffset;
 use carlos_proto::events::Event;
+use carlos_proto::output::OutputRevision;
 use carlos_proto::source::{SourceCursor, INLINE_SOURCE_BYTES};
 
 use super::models::{MessageKind, Role};
@@ -9,6 +11,68 @@ use super::state::SessionState;
 
 fn session() -> SessionState {
     SessionState::new("root".into(), Default::default(), false)
+}
+
+#[test]
+fn source_seek_returns_a_bounded_utf8_window_without_reading_its_prefix() {
+    let mut state = session();
+    let source = format!("{}🌍tail", "x".repeat(8 * 1024 * 1024));
+    state.append_message(Role::Assistant, &source);
+    let id = state.messages()[0].id.to_wire();
+    let batch = state.publish();
+    for inside in 0..4 {
+        let chunk = batch
+            .source_at(
+                &id,
+                OutputRevision::new(0),
+                ByteOffset::new(8 * 1024 * 1024 + inside),
+                4,
+            )
+            .expect("direct seek");
+        assert_eq!(chunk.offset.get(), 8 * 1024 * 1024);
+        assert_eq!(chunk.text, "🌍");
+        assert!(chunk.has_more);
+        let tail = batch
+            .source_chunk(&id, Some(&chunk.next), 4)
+            .expect("continue after seek");
+        assert_eq!(tail.text, "tail");
+        assert!(tail.done);
+    }
+}
+
+#[test]
+fn source_seek_rejects_old_revisions_and_positions_past_the_body() {
+    let mut state = session();
+    state.append_message(Role::Assistant, "original");
+    let id = state.messages()[0].id.to_wire();
+    state.publish();
+    assert_eq!(
+        state
+            .publish()
+            .source_at(&id, OutputRevision::new(0), ByteOffset::new(u64::MAX), 4),
+        Err(OutputReadError::InvalidCursor)
+    );
+    state.messages.update(
+        0,
+        Role::Assistant,
+        Some("new body".into()),
+        MessageKind::Plain,
+        None,
+    );
+    assert_eq!(
+        state
+            .publish()
+            .source_at(&id, OutputRevision::new(0), ByteOffset::new(0), 4),
+        Err(OutputReadError::Replaced)
+    );
+    assert_eq!(
+        state
+            .publish()
+            .source_at(&id, OutputRevision::new(1), ByteOffset::new(0), 4)
+            .expect("current body")
+            .text,
+        "new "
+    );
 }
 
 #[test]

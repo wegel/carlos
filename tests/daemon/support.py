@@ -1,6 +1,7 @@
 """Run the actual daemon with private homes, deterministic peers and captured wire traffic."""
 
 import json
+from contextlib import closing
 import os
 from pathlib import Path
 import select
@@ -173,7 +174,7 @@ class Fixture:
             shutil.rmtree(self.root)
 
     def saved(self):
-        with sqlite3.connect(self.root / "state/sessions.sqlite3") as database:
+        with closing(sqlite3.connect(self.root / "state/sessions.sqlite3")) as database:
             return database.execute("SELECT id,name,native_thread,ralph FROM sessions ORDER BY id").fetchall()
 
     def memory(self, label):

@@ -219,6 +219,18 @@
         "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
         "text": "edited prompt"
       }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "source-seek",
+      "method": "entry/source/seek",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+        "revision": "0",
+        "offset": "9007199254740993",
+        "limit": 65536
+      }
     }
   ],
   "notifications": [
@@ -549,7 +561,8 @@
           "text": "\u001b[3",
           "has_more": true,
           "done": false,
-          "seq": "1"
+          "seq": "1",
+          "offset": "0"
         }
       }
     },

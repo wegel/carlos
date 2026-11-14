@@ -148,6 +148,17 @@ impl Owner {
                 .map(EngineReply::Source)
                 .map_err(|error| failure(error.to_string())),
             EngineCommand::Updates { since } => self.updates(since),
+            EngineCommand::SourceAt {
+                entry,
+                revision,
+                offset,
+                limit,
+            } => self
+                .session
+                .sealed()
+                .source_at(&entry, revision, offset, limit)
+                .map(EngineReply::Source)
+                .map_err(|error| failure(error.to_string())),
             EngineCommand::Outcomes => Ok(EngineReply::Outcomes(self.results.collect())),
             _ => Err(failure("mutation entered the read lane")),
         };

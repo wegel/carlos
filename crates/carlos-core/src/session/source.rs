@@ -1,6 +1,7 @@
 //! Slice the single original entry body without parsing controls or cloning its previous prefix.
 
-use carlos_proto::ids::{EntryId as WireEntryId, Sequence};
+use carlos_proto::bytes::{ByteLength, ByteOffset};
+use carlos_proto::ids::EntryId as WireEntryId;
 use carlos_proto::output::OutputRevision;
 use carlos_proto::source::{Source, SourceChunk, SourceCursor};
 
@@ -14,12 +15,40 @@ impl SessionState {
     pub(super) fn export_source(&self, message: &Message) -> Source {
         Source {
             revision: OutputRevision::new(self.messages.output_revision(message.id)),
-            bytes: Sequence::new(message.text.len() as u64),
+            bytes: ByteLength::new(message.text.len() as u64),
         }
     }
 }
 
 impl Published<'_> {
+    /// Seek directly in a checked body; round down at most three bytes to a UTF-8 boundary.
+    pub fn source_at(
+        &self,
+        entry: &WireEntryId,
+        revision: OutputRevision,
+        offset: ByteOffset,
+        limit: usize,
+    ) -> Result<SourceChunk, OutputReadError> {
+        let id = EntryId::from_wire(entry);
+        let message = self
+            .session
+            .messages
+            .entry(id)
+            .ok_or(OutputReadError::EntryNotFound)?;
+        if self.session.messages.output_revision(id) != revision.get() {
+            return Err(OutputReadError::Replaced);
+        }
+        let mut offset =
+            usize::try_from(offset.get()).map_err(|_| OutputReadError::InvalidCursor)?;
+        if offset > message.text.len() {
+            return Err(OutputReadError::InvalidCursor);
+        }
+        while !message.text.is_char_boundary(offset) {
+            offset -= 1;
+        }
+        self.source_chunk(entry, Some(&encode(entry, revision.get(), offset)), limit)
+    }
+
     /// Read exact original text from any entry, including large plain rows and terminal escapes.
     pub fn source_chunk(
         &self,
@@ -50,6 +79,7 @@ impl Published<'_> {
         let has_more = end < message.text.len();
         Ok(SourceChunk {
             entry: entry.clone(),
+            offset: ByteOffset::new(offset as u64),
             next: encode(entry, source.revision.get(), end),
             source,
             from: from.cloned(),

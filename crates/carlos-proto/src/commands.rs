@@ -139,6 +139,14 @@ pub enum Command {
         cursor: Option<crate::source::SourceCursor>,
         limit: Option<u32>,
     },
+    #[serde(rename = "entry/source/seek")]
+    SourceSeek {
+        session: SessionId,
+        entry: EntryId,
+        revision: crate::output::OutputRevision,
+        offset: crate::bytes::ByteOffset,
+        limit: Option<u32>,
+    },
     #[serde(rename = "entry/source/subscribe")]
     SourceSubscribe {
         session: SessionId,

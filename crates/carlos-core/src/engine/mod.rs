@@ -55,6 +55,12 @@ pub enum EngineCommand {
         cursor: Option<carlos_proto::source::SourceCursor>,
         limit: usize,
     },
+    SourceAt {
+        entry: EntryId,
+        revision: carlos_proto::output::OutputRevision,
+        offset: carlos_proto::bytes::ByteOffset,
+        limit: usize,
+    },
     Outcomes,
     Updates {
         since: Sequence,

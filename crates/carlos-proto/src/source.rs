@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::bytes::{ByteLength, ByteOffset};
 use crate::ids::{EntryId, InvalidId, Sequence, SessionId};
 use crate::output::OutputRevision;
 
@@ -41,13 +42,14 @@ impl From<SourceCursor> for String {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Source {
     pub revision: OutputRevision,
-    pub bytes: Sequence,
+    pub bytes: ByteLength,
 }
 
 /// A bounded exact UTF-8 slice; concatenate text in cursor order before interpreting controls.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceChunk {
     pub entry: EntryId,
+    pub offset: ByteOffset,
     pub source: Source,
     pub from: Option<SourceCursor>,
     pub next: SourceCursor,
