@@ -10,12 +10,14 @@ from daemon_recorder import DaemonRecorder
 
 
 class DaemonClient:
-    def daemon_session(self, name):
+    def daemon_session(self, name, history=None):
         runner = sys.modules[type(self).__module__]
         daemon_support.BINARY = runner.BINARY.parent / "carlosd"
         daemon_support.ARTIFACTS = runner.ARTIFACTS / "daemon"
         fixture = daemon_support.Fixture(name, codex=True)
         self.addCleanup(fixture.close)
+        if history is not None:
+            fixture.native.history = history
         client = daemon_support.Client(fixture, "terminal-test-owner")
         self.addCleanup(client.close)
         create = client.operation(1)
@@ -31,8 +33,10 @@ class DaemonClient:
         directory.mkdir(parents=True, exist_ok=True)
         recorder = DaemonRecorder(fixture.root / (name+".sock"), fixture.socket, directory, source_error_once=source_error_once)
         self.addCleanup(recorder.close)
-        return self.launch(directory=directory, width=width, resume=session,
-                           extra_args=["--daemon-socket", str(recorder.path)], extra_env=extra_env)
+        terminal = self.launch(directory=directory, width=width, resume=session,
+                               extra_args=["--daemon-socket", str(recorder.path)], extra_env=extra_env)
+        terminal.daemon_recorder = recorder
+        return terminal
 
     def test_daemon_terminals_keep_drafts_private_while_native_control_releases_a_held_send(self):
         fixture, client, session = self.daemon_session("terminal-control")
@@ -211,7 +215,9 @@ class DaemonClient:
 
     def test_daemon_terminal_does_not_reopen_a_source_after_a_failed_rpc_reply(self):
         import asyncio
-        fixture, client, session = self.daemon_session("terminal-read-error")
+        fixture, client, session = self.daemon_session("terminal-read-error", history=lambda: {
+            "id":"native-root", "status":{"type":"idle"}, "model":"fixture-model",
+            "reasoningEffort":"low", "turns":[]})
         async def live_source(link, request):
             await fixture.native.notify(link, "turn/started", turn={"id":"read-error-turn"})
             await fixture.native.notify(link, "item/agentMessage/delta", turnId="read-error-turn",
@@ -241,6 +247,15 @@ class DaemonClient:
         terminal.wait(lambda: terminal.input_is("draft after failed read"), "failed RPC leaves composer usable")
         self.assertEqual(terminal.requests("session/send"), [])
         terminal.snapshot("failed-rpc-stays-closed")
+        failed_entry = terminal.requests("entry/source/subscribe")[0]["params"]["entry"]
+        before = len([request for request in terminal.requests("entry/source/subscribe")
+                      if request["params"]["entry"] == failed_entry])
+        terminal.send(b"\x1b[17~")
+        terminal.wait(lambda: len([request for request in terminal.requests("entry/source/subscribe")
+                      if request["params"]["entry"] == failed_entry]) == before+1, "F6 explicitly retries failed read")
+        terminal.wait(lambda: "Injected daemon source read failure" not in terminal.text, "retry clears failed-read hint")
+        self.assertTrue(terminal.input_is("draft after failed read"))
+        self.assertEqual(terminal.requests("session/send"), [])
 
     def test_daemon_terminal_folds_resizes_scrolls_and_copies_unicode_without_a_send(self):
         import json

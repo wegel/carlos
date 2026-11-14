@@ -36,10 +36,11 @@ impl AppState {
         hidden_user_message_idx: Option<usize>,
     ) {
         self.consume_core_events();
-        if self.view.render_cache.rendered_width != width
-            || self.view.render_cache.rendered_compact != self.view.tool_output.compact()
-            || self.view.render_cache.rendered_theme != self.view.layout.active
-        {
+        if !self.view.render_cache.matches_view(
+            width,
+            self.view.tool_output.compact(),
+            self.view.layout.active,
+        ) {
             self.view.viewport.selection = None;
             self.view.viewport.mouse_drag_mode = super::selection::MouseDragMode::Undecided;
         }

@@ -61,6 +61,14 @@ impl<'a> RenderInput<'a> {
             None => &entry.text,
         };
         Some(Self {
+            text,
+            ..Self::client_facts(entry)
+        })
+    }
+
+    /// Borrow only metadata; an unavailable source never becomes invented original text.
+    pub fn client_facts(entry: &'a Entry) -> Self {
+        Self {
             role: match entry.kind {
                 EntryKind::User => Role::User,
                 EntryKind::Reasoning => Role::Reasoning,
@@ -75,7 +83,7 @@ impl<'a> RenderInput<'a> {
                 EntryFormat::UserSteer => MessageKind::UserSteer,
                 EntryFormat::Diff => MessageKind::Diff,
             },
-            text,
+            text: &entry.text,
             file_path: entry.file_path.as_deref(),
             label: entry
                 .tool
@@ -90,6 +98,6 @@ impl<'a> RenderInput<'a> {
                 .tool
                 .as_ref()
                 .is_some_and(|tool| tool.status == ToolStatus::Failed),
-        })
+        }
     }
 }

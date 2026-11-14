@@ -95,7 +95,11 @@ fn switching_layouts_at_the_same_width_keeps_the_scrolled_message_visible() {
     let mut app = transcript();
     set_layout(&mut app, TranscriptTheme::Gutter);
     app.view.viewport.auto_follow_bottom = false;
-    app.view.viewport.scroll_top = app.view.render_cache.rendered_block_offsets[2];
+    app.view.viewport.scroll_top = app
+        .view
+        .render_cache
+        .block_start(2)
+        .expect("rendered entry");
     for mode in [
         TranscriptTheme::Flow,
         TranscriptTheme::Gutter,
@@ -105,7 +109,10 @@ fn switching_layouts_at_the_same_width_keeps_the_scrolled_message_visible() {
         app.snapshot_rendered_lines();
         assert_eq!(
             app.view.viewport.scroll_top,
-            app.view.render_cache.rendered_block_offsets[2]
+            app.view
+                .render_cache
+                .block_start(2)
+                .expect("rendered entry")
         );
         let body = app.view.viewport.scroll_top + app.view.render_cache.first_content_row(2);
         assert!(app

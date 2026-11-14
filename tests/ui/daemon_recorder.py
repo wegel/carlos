@@ -9,6 +9,9 @@ class DaemonRecorder:
     def __init__(self, path, upstream, root, source_error_once=False):
         self.source_error_once = source_error_once
         self.device_write = threading.Lock()
+        self.drop_text_once = False
+        self.hold_sources = False
+        self.held_sources = []
         self.path = path
         self.upstream = upstream
         self.root = root
@@ -71,7 +74,13 @@ class DaemonRecorder:
                             source.sendall(json.dumps(error).encode()+b"\n")
                     elif direction == "server":
                         with self.device_write:
-                            target.sendall(line+b"\n")
+                            if self.drop_text_once and message.get("method") == "session/event" and message.get("params",{}).get("event",{}).get("kind") == "text_appended":
+                                self.drop_text_once = False
+                            elif self.hold_sources and message.get("method") == "entry/source":
+                                self.held_sources.append((target, line+b"\n"))
+                                assert sum(len(data) for _,data in self.held_sources) <= 1024*1024
+                            else:
+                                target.sendall(line+b"\n")
                     else:
                         target.sendall(line+b"\n")
         except OSError:
@@ -88,6 +97,17 @@ class DaemonRecorder:
     def record(self, direction, message):
         with self.lock, (self.root / "rpc.jsonl").open("a") as output:
             output.write(json.dumps({"direction":direction,"message":message}, ensure_ascii=False)+"\n")
+
+    def pause_sources(self):
+        with self.device_write:
+            self.hold_sources = True
+
+    def resume_sources(self):
+        with self.device_write:
+            self.hold_sources = False
+            for target, data in self.held_sources:
+                target.sendall(data)
+            self.held_sources.clear()
 
     def close(self):
         self.stop.set()

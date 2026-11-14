@@ -14,6 +14,8 @@ use crate::app::render_input::{is_newline_enter, normalize_pasted_text, textarea
 
 impl Device {
     pub(super) fn receive(&mut self, link: &mut Transport, incoming: Incoming) -> Result<bool> {
+        self.reserve_source_growth(link, &incoming)?;
+        self.reading.received(&incoming);
         let effects = self.client.receive(link.connection, incoming)?;
         self.apply_effects(link, effects)
     }
@@ -47,12 +49,6 @@ impl Device {
             let ids = self.changed_entries(update.changes);
             for id in ids {
                 self.dirty_entry(&id);
-                if let Err(error) =
-                    self.documents
-                        .observe(&mut self.client, link, &self.session, &id)
-                {
-                    self.view.status_hint = Some(error.to_string());
-                }
             }
             changed = true;
         }
@@ -60,6 +56,7 @@ impl Device {
             self.view.status_hint = Some(failure.error.message);
         }
 
+        self.settle_history();
         Ok(changed)
     }
 
@@ -69,16 +66,9 @@ impl Device {
     ) -> Vec<carlos_proto::ids::EntryId> {
         if changes.reset || changes.removed_front > 0 || changes.removed_back > 0 {
             self.dirty_from(0);
-            self.documents.prune(&self.client, &self.session);
-            return self
-                .client
-                .session(&self.session)
-                .into_iter()
-                .flat_map(|replica| replica.entries())
-                .rev()
-                .take(32)
-                .map(|entry| entry.id.clone())
-                .collect();
+            if changes.reset {
+                self.view.render_cache.invalidate_all();
+            }
         }
         changes.entries
     }
@@ -184,6 +174,12 @@ impl Device {
             .session(&self.session)
             .and_then(|replica| replica.entry_position(entry))
         {
+            self.view.render_cache.invalidate_entry(
+                position,
+                &crate::app::render_entry_cache::RenderKey::Entry(
+                    carlos_core::session::entry_id::EntryId::from_wire(entry),
+                ),
+            );
             self.dirty_from(position);
         }
     }

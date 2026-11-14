@@ -15,10 +15,16 @@ use crate::clipboard::{clipboard_backend_label, try_copy_clipboard};
 
 impl Device {
     pub(super) fn navigation_key(&mut self, key: KeyEvent) -> Result<bool> {
+        let mut scroll = false;
         match (key.code, key.modifiers) {
+            (KeyCode::F(6), _) => {
+                self.documents.retry_failed();
+                self.view.status_hint = None;
+            }
             (KeyCode::Char('y'), KeyModifiers::CONTROL) => self.copy(),
             (KeyCode::Char('l'), KeyModifiers::CONTROL) => self.view.viewport.selection = None,
             (KeyCode::Home, _) if self.view.input.is_empty() => {
+                scroll = true;
                 self.view.viewport.scroll_top = 0;
                 self.view.viewport.auto_follow_bottom = false;
             }
@@ -26,6 +32,7 @@ impl Device {
                 self.view.viewport.auto_follow_bottom = true
             }
             (KeyCode::PageUp, _) | (KeyCode::PageDown, _) => {
+                scroll = key.code == KeyCode::PageUp;
                 let (height, _) = self.geometry()?;
                 let max_scroll = self
                     .view
@@ -38,6 +45,7 @@ impl Device {
             }
             _ => return Ok(false),
         }
+        self.reading.older_requested |= scroll && self.view.viewport.scroll_top == 0;
         Ok(true)
     }
 
@@ -73,6 +81,7 @@ impl Device {
         match mouse.kind {
             MouseEventKind::ScrollUp => {
                 mouse_gestures::wheel(&mut self.view.viewport, &hit, true);
+                self.reading.older_requested |= self.view.viewport.scroll_top == 0;
             }
             MouseEventKind::ScrollDown => {
                 mouse_gestures::wheel(&mut self.view.viewport, &hit, false);

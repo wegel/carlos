@@ -28,16 +28,18 @@ impl Device {
             2
         };
         let width = size.width.saturating_sub(content_x + 1);
-        if self.view.render_cache.rendered_width != width
-            || self.view.render_cache.rendered_compact != self.view.tool_output.compact()
-            || self.view.render_cache.rendered_theme != self.view.layout.active
-        {
+        if !self.view.render_cache.matches_view(
+            width,
+            self.view.tool_output.compact(),
+            self.view.layout.active,
+        ) {
             self.view.viewport.selection = None;
             self.view.viewport.mouse_drag_mode = crate::app::selection::MouseDragMode::Undecided;
         }
         let layout = compute_composer_layout(&self.view.input, size, content_x);
         self.draw_transcript(frame.buffer_mut(), size, &layout, content_x);
         self.draw_footer(frame.buffer_mut(), size, &layout, content_x);
+        self.remember_anchor();
         frame.set_cursor_position((
             layout.cursor_x.min(size.width.saturating_sub(1)) as u16,
             layout.cursor_y.min(size.height.saturating_sub(1)) as u16,
@@ -57,6 +59,9 @@ impl Device {
             .session(&self.session)
             .map(|replica| replica.info());
         let status = self.view.status_hint.clone().unwrap_or_else(|| {
+            if self.reading.loading {
+                return "Loading visible source… · F6 retries failed reads".into();
+            }
             info.map_or_else(|| "Connecting…".into(), |info| format!("{:?}", info.phase))
         });
         crate::app::render::draw_status_separator(
@@ -92,10 +97,10 @@ impl Device {
     ) {
         let height = layout.msg_bottom;
         let width = size.width.saturating_sub(content_x + 1);
-        let anchor = self
-            .client
-            .session(&self.session)
-            .and_then(|replica| scroll_anchor(replica, &self.view));
+        let anchor = self.reading.anchor.as_ref();
+        self.reading.wanted.clear();
+        self.reading.visible.clear();
+        self.reading.loading = false;
         if let Some(transcript) = Transcript::new(&self.client, &self.session, &self.documents) {
             let cache = &mut self.view.render_cache;
             cache.ensure_inputs(
@@ -107,7 +112,7 @@ impl Device {
             );
             if let Some(line) = anchor.and_then(|(id, row)| {
                 let position = self.client.session(&self.session)?.entry_position(id)?;
-                cache.line_for_anchor((position, row))
+                cache.line_for_anchor((position, *row))
             }) {
                 self.view.viewport.scroll_top = line;
             }
@@ -117,7 +122,8 @@ impl Device {
             }
             self.view.viewport.scroll_top = self.view.viewport.scroll_top.min(max_scroll);
             let first = self.view.viewport.scroll_top;
-            cache.materialize_inputs(&transcript, first, first + height.saturating_sub(1));
+            let last = first + height.saturating_sub(1);
+            cache.materialize_inputs(&transcript, first, last);
             for row in 0..height {
                 if let Some(line) = cache.rendered_line_at(first + row) {
                     let selected = self.view.viewport.selected_cells(first + row, line.cells);
@@ -138,6 +144,7 @@ impl Device {
                 }
             }
         }
+        self.collect_visible(height);
     }
 }
 
@@ -191,15 +198,4 @@ fn draw_body_row(
         role_text_style(line.role),
         selected,
     );
-}
-
-fn scroll_anchor<'a>(
-    replica: &'a carlos_client::Replica,
-    view: &crate::app::view_state::ViewState,
-) -> Option<(&'a carlos_proto::ids::EntryId, usize)> {
-    if view.viewport.auto_follow_bottom {
-        return None;
-    }
-    let (index, row) = view.render_cache.message_anchor(view.viewport.scroll_top)?;
-    Some((&replica.entry_at(index)?.id, row))
 }

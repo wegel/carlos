@@ -271,7 +271,11 @@ impl AppState {
         let upto = msg_idx.min(self.session.messages().len().saturating_sub(1));
         self.view.layout.update_size(size);
         self.ensure_rendered_lines(width, Some(msg_idx));
-        let rendered_upto = self.view.render_cache.rendered_block_offsets[upto];
+        let rendered_upto = self
+            .view
+            .render_cache
+            .block_start(upto)
+            .expect("rendered entry");
         if rendered_upto == 0 {
             return;
         }

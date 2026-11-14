@@ -7,6 +7,7 @@ use carlos_proto::ids::SessionId;
 use super::bodies::DocumentReads;
 
 use super::super::render_cache_state::TranscriptSource;
+use super::super::render_entry_cache::{RenderKey, RowSource};
 use super::super::transcript_input::RenderInput;
 
 pub(super) struct Transcript<'a> {
@@ -40,6 +41,32 @@ impl<'a> Transcript<'a> {
 impl TranscriptSource for Transcript<'_> {
     fn len(&self) -> usize {
         self.replica.entry_count() + self.echoes.len()
+    }
+    fn row(&self, index: usize) -> Option<RowSource<'_>> {
+        if let Some(entry) = self.replica.entry_at(index) {
+            return Some(RowSource {
+                key: RenderKey::Entry(carlos_core::session::entry_id::EntryId::from_wire(
+                    &entry.id,
+                )),
+                generation: entry
+                    .source
+                    .as_ref()
+                    .map(|source| source.revision)
+                    .or_else(|| entry.tool.as_ref().map(|tool| tool.output_revision)),
+                input: self.input(index),
+                facts: RenderInput::client_facts(entry),
+            });
+        }
+        let echo = self
+            .echoes
+            .get(index.checked_sub(self.replica.entry_count())?)?;
+        let input = self.input(index)?;
+        Some(RowSource {
+            key: RenderKey::Echo(echo.operation.clone()),
+            generation: None,
+            input: Some(input),
+            facts: input,
+        })
     }
     fn input(&self, index: usize) -> Option<RenderInput<'_>> {
         if let Some(entry) = self.replica.entry_at(index) {

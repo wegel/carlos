@@ -4,13 +4,12 @@ use carlos_core::session::models::Message;
 use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
 
-use super::flow_transcript::{inline_reasoning, section_header};
+use super::flow_transcript::{inline_reasoning, section_header_from_context, EntryContext};
 use super::layout_state::TranscriptTheme;
 use super::tool_output_state::compact_tool_message;
 use super::tool_summary::{summary_lines, tool_failed, tool_gutter};
 use super::transcript_body::{prepend_symbol, BlockBody};
 use super::transcript_input::RenderInput;
-use super::transcript_spacing::should_insert_separator_between;
 use super::transcript_styles::RenderCountCache;
 use super::view_models::{DisplayKind, DisplayMessage, RenderedLine};
 use crate::theme::role_gutter_fg;
@@ -34,8 +33,26 @@ impl BlockPlan {
     }
 
     /// Plan headings and labels directly from one borrowed client or core entry.
+    #[cfg(test)]
     pub(super) fn from_input(
         previous: Option<RenderInput<'_>>,
+        display: DisplayMessage<'_>,
+        width: usize,
+        theme: TranscriptTheme,
+    ) -> Self {
+        Self::from_context(
+            previous.map(|entry| EntryContext::new(entry, width, theme)),
+            EntryContext::new(display.source, width, theme),
+            display,
+            width,
+            theme,
+        )
+    }
+
+    /// Build a row using the saved heading facts of its previous visible entry.
+    pub(super) fn from_context(
+        previous: Option<EntryContext>,
+        context: EntryContext,
         display: DisplayMessage<'_>,
         width: usize,
         theme: TranscriptTheme,
@@ -49,14 +66,11 @@ impl BlockPlan {
             return plan;
         }
         let flow = theme.is_flow();
-        let spacing_width = width.saturating_sub(if flow { 2 } else { 0 });
-        if previous.is_some_and(|previous| {
-            should_insert_separator_between(previous, original, spacing_width)
-        }) {
+        if previous.is_some_and(|previous| previous.separates(context)) {
             plan.prefix.push(blank_line());
         }
         if flow || original.kind == MessageKind::UserSteer {
-            if let Some(header) = section_header(previous, original, width) {
+            if let Some(header) = section_header_from_context(previous, context, original, width) {
                 plan.prefix.push(header);
             }
         }
@@ -115,7 +129,7 @@ pub(super) fn has_visible_content(message: &Message) -> bool {
     visible_input(message.into())
 }
 
-fn visible_input(message: RenderInput<'_>) -> bool {
+pub(super) fn visible_input(message: RenderInput<'_>) -> bool {
     (message.role == Role::ToolCall && message.label.is_some()) || !message.text.trim().is_empty()
 }
 
@@ -147,6 +161,27 @@ pub(super) fn plan_input_block<'a>(
     compact: bool,
     theme: TranscriptTheme,
 ) -> BlockPlan {
+    plan_context_block(
+        cache,
+        previous.map(|entry| EntryContext::new(entry, width, theme)),
+        EntryContext::new(message, width, theme),
+        message,
+        width,
+        compact,
+        theme,
+    )
+}
+
+/// Plan one source without requiring its neighbor's source to stay resident.
+pub(super) fn plan_context_block<'a>(
+    cache: &mut RenderCountCache<'a>,
+    previous: Option<EntryContext>,
+    context: EntryContext,
+    message: RenderInput<'a>,
+    width: usize,
+    compact: bool,
+    theme: TranscriptTheme,
+) -> BlockPlan {
     let full = DisplayMessage {
         source: message,
         kind: DisplayKind::Full,
@@ -160,7 +195,7 @@ pub(super) fn plan_input_block<'a>(
     } else {
         full
     };
-    BlockPlan::from_input(previous, display, width, theme)
+    BlockPlan::from_context(previous, context, display, width, theme)
 }
 
 fn needs_tool_label(display: DisplayMessage<'_>, flow: bool) -> bool {

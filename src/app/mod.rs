@@ -102,6 +102,7 @@ mod rate_limits;
 mod remote;
 mod render;
 mod render_cache_state;
+mod render_entry_cache;
 mod render_input;
 mod render_status;
 mod render_transcript;

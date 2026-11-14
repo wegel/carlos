@@ -76,9 +76,11 @@ fn draw_transcript_row(
         selection,
     );
     if active {
-        let last = app.view.render_cache.rendered_message_blocks[message_index]
-            .as_ref()
-            .is_some_and(|block| row + 1 == block.len());
+        let last = app
+            .view
+            .render_cache
+            .block_len(message_index)
+            .is_some_and(|length| row + 1 == length);
         let inline = app.view.layout.active.is_flow() && inline_reasoning(message, width);
         paint_active_step(
             buf,

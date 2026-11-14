@@ -1,275 +1,316 @@
-//! Lazy render cache that counts lines eagerly and materializes blocks on demand.
+//! Index per-entry layouts by chronological position while source windows load or evict.
 
-use carlos_core::session::models::Message;
-use carlos_core::session::models::Role;
+use std::sync::Arc;
 
+use carlos_core::session::models::{Message, Role};
+
+use super::flow_transcript::EntryContext;
 use super::layout_state::TranscriptTheme;
-use super::transcript_block::{plan_display_block, plan_input_block, BlockPlan};
+use super::render_entry_cache::{EntryMemos, PreparedRow, RenderKey, RowFormat, RowSource};
+use super::transcript_block::plan_display_block;
 use super::transcript_input::RenderInput;
 use super::transcript_styles::RenderCountCache;
 use super::view_models::RenderedLine;
 
-/// Lend source facts by chronological position without copying a second transcript.
+/// Lend stable row identity, facts and optional source without copying another transcript.
 pub(super) trait TranscriptSource {
     fn len(&self) -> usize;
-    fn input(&self, index: usize) -> Option<RenderInput<'_>>;
+    fn row(&self, index: usize) -> Option<RowSource<'_>>;
+    fn input(&self, index: usize) -> Option<RenderInput<'_>> {
+        self.row(index)?.input
+    }
 }
 
 impl TranscriptSource for [Message] {
     fn len(&self) -> usize {
         self.len()
     }
-    fn input(&self, index: usize) -> Option<RenderInput<'_>> {
-        self.get(index).map(Into::into)
+    fn row(&self, index: usize) -> Option<RowSource<'_>> {
+        let message = self.get(index)?;
+        let input = message.into();
+        Some(RowSource {
+            key: RenderKey::Entry(message.id),
+            generation: None,
+            input: Some(input),
+            facts: input,
+        })
     }
 }
 
-// --- Cache State ---
+struct IndexedRow {
+    start: usize,
+    count: usize,
+    lines: Option<Arc<Vec<RenderedLine>>>,
+    context: EntryContext,
+    loading: bool,
+}
+
+impl IndexedRow {
+    fn new(start: usize, row: PreparedRow) -> Self {
+        Self {
+            start,
+            count: row.count,
+            lines: row.lines,
+            context: row.context,
+            loading: row.loading,
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct ViewFormat {
+    width: usize,
+    compact: bool,
+    theme: TranscriptTheme,
+    hidden: Option<usize>,
+}
 
 pub(super) struct RenderCacheState {
-    pub(super) rendered_message_blocks: Vec<Option<Vec<RenderedLine>>>,
-    pub(super) rendered_block_line_counts: Vec<usize>,
-    pub(super) rendered_block_offsets: Vec<usize>,
+    rows: Vec<IndexedRow>,
+    entries: EntryMemos,
+    format: ViewFormat,
     pub(super) rendered_total_lines: usize,
-    pub(super) rendered_width: usize,
-    pub(super) rendered_compact: bool,
-    pub(super) rendered_theme: TranscriptTheme,
-    block_plans: Vec<Option<Box<BlockPlan>>>,
-    pub(super) rendered_hidden_user_message_idx: Option<usize>,
     pub(super) transcript_dirty_from: Option<usize>,
 }
 
 impl RenderCacheState {
+    /// Keep accepted rows visible but require them to be checked against replacement facts.
+    pub(super) fn invalidate_all(&mut self) {
+        self.entries.invalidate_all();
+        self.transcript_dirty_from = Some(0);
+    }
+
     pub(super) fn new() -> Self {
         Self {
-            rendered_message_blocks: Vec::new(),
-            rendered_block_line_counts: Vec::new(),
-            rendered_block_offsets: Vec::new(),
+            rows: Vec::new(),
+            entries: EntryMemos::default(),
             rendered_total_lines: 0,
-            rendered_width: 0,
-            rendered_compact: false,
-            rendered_theme: TranscriptTheme::Gutter,
-            block_plans: Vec::new(),
-            rendered_hidden_user_message_idx: None,
+            format: ViewFormat {
+                width: 0,
+                compact: false,
+                theme: TranscriptTheme::Gutter,
+                hidden: None,
+            },
             transcript_dirty_from: Some(0),
         }
     }
 
-    // --- Cache Lifecycle ---
-    pub(super) fn mark_transcript_dirty_from(&mut self, messages_len: usize, idx: usize) {
-        let idx = idx.min(messages_len);
-        self.transcript_dirty_from = Some(match self.transcript_dirty_from {
-            Some(current) => current.min(idx),
-            None => idx,
-        });
+    /// Invalidate one changed source, independently of its current list position.
+    pub(super) fn invalidate_entry(&mut self, index: usize, key: &RenderKey) {
+        let may_have_moved = self
+            .transcript_dirty_from
+            .is_some_and(|start| start < self.rows.len());
+        if index < self.rows.len() || may_have_moved {
+            self.entries.invalidate(index, key);
+        }
     }
 
-    // --- Count Pass ---
+    pub(super) fn mark_transcript_dirty_from(&mut self, messages_len: usize, index: usize) {
+        let index = index.min(messages_len);
+        self.transcript_dirty_from = Some(
+            self.transcript_dirty_from
+                .map_or(index, |old| old.min(index)),
+        );
+    }
+
+    /// Check choices that clear a device's selection before changing its wrapped rows.
+    pub(super) fn matches_view(&self, width: usize, compact: bool, theme: TranscriptTheme) -> bool {
+        self.format.width == width && self.format.compact == compact && self.format.theme == theme
+    }
+
+    /// Keep the embedded caller's suffix invalidation while it still emits positional changes.
     pub(super) fn ensure_rendered_lines(
         &mut self,
         messages: &[Message],
         width: usize,
-        hidden_user_message_idx: Option<usize>,
+        hidden: Option<usize>,
         compact: bool,
         theme: TranscriptTheme,
     ) {
-        self.ensure_inputs(messages, width, hidden_user_message_idx, compact, theme);
+        if let Some(start) = self.transcript_dirty_from {
+            self.entries.invalidate_suffix(start);
+        }
+        self.ensure_inputs(messages, width, hidden, compact, theme);
     }
 
-    /// Count client facts with the same lazy plans used by the embedded transcript.
+    /// Count changed entries and reuse saved counts for source windows that have evicted.
     pub(super) fn ensure_inputs<S: TranscriptSource + ?Sized>(
         &mut self,
-        messages: &S,
+        source: &S,
         width: usize,
-        hidden_user_message_idx: Option<usize>,
+        hidden: Option<usize>,
         compact: bool,
         theme: TranscriptTheme,
     ) {
-        let rebuild_from = if self.rendered_width != width
-            || self.rendered_compact != compact
-            || self.rendered_theme != theme
-            || self.rendered_hidden_user_message_idx != hidden_user_message_idx
-        {
+        let format = ViewFormat {
+            width,
+            compact,
+            theme,
+            hidden,
+        };
+        let start = if self.format != format {
             Some(0)
         } else {
             self.transcript_dirty_from
         };
-
-        let Some(dirty_from) = rebuild_from else {
-            return;
-        };
-
-        self.rendered_theme = theme;
-        self.truncate_rendered_blocks_to(dirty_from);
-        self.rebuild_rendered_blocks_from(
-            messages,
-            width,
-            hidden_user_message_idx,
-            dirty_from,
-            compact,
-        );
-
-        self.rendered_width = width;
-        self.rendered_compact = compact;
-        self.rendered_hidden_user_message_idx = hidden_user_message_idx;
+        let Some(start) = start else { return };
+        self.format = format;
+        self.rebuild(source, start.min(self.rows.len()));
         self.transcript_dirty_from = None;
     }
 
-    fn truncate_rendered_blocks_to(&mut self, dirty_from: usize) {
-        if dirty_from == 0 {
-            self.rendered_message_blocks.clear();
-            self.block_plans.clear();
-            self.rendered_block_line_counts.clear();
-            self.rendered_block_offsets.clear();
+    fn rebuild<S: TranscriptSource + ?Sized>(&mut self, source: &S, start: usize) {
+        // Keep geometric headroom so the first live append does not move the whole cache.
+        let capacity = source
+            .len()
+            .checked_next_power_of_two()
+            .unwrap_or(source.len());
+        self.entries.reserve(capacity);
+        self.rows.reserve(capacity.saturating_sub(self.rows.len()));
+        let mut retired = self.entries.begin_suffix(start);
+        self.rendered_total_lines = self
+            .rows
+            .get(start)
+            .map_or(self.rendered_total_lines, |row| row.start);
+        self.rows.truncate(start);
+        if start == 0 {
             self.rendered_total_lines = 0;
-            return;
         }
-        let start_offset = self
-            .rendered_block_offsets
-            .get(dirty_from)
-            .copied()
-            .unwrap_or(self.rendered_total_lines);
-        self.rendered_message_blocks.truncate(dirty_from);
-        self.block_plans.truncate(dirty_from);
-        self.rendered_block_line_counts.truncate(dirty_from);
-        self.rendered_block_offsets.truncate(dirty_from);
-        self.rendered_total_lines = start_offset;
-    }
-
-    fn rebuild_rendered_blocks_from<S: TranscriptSource + ?Sized>(
-        &mut self,
-        messages: &S,
-        width: usize,
-        hidden_user_message_idx: Option<usize>,
-        dirty_from: usize,
-        compact: bool,
-    ) {
-        let mut previous_visible_idx = self
-            .rendered_block_line_counts
+        let mut previous = self
+            .rows
             .iter()
-            .rposition(|count| *count > 0);
-        let mut count_cache = RenderCountCache::new();
-
-        for idx in dirty_from..messages.len() {
-            self.rendered_block_offsets.push(self.rendered_total_lines);
-            self.block_plans.push(None);
-
-            let Some(msg) = messages.input(idx) else {
-                self.rendered_message_blocks.push(None);
-                self.rendered_block_line_counts.push(0);
-                continue;
+            .rev()
+            .find(|row| row.count > 0)
+            .map(|row| row.context);
+        let mut cache = RenderCountCache::new();
+        for index in start..source.len() {
+            let row = source.row(index).expect("current transcript row");
+            let format = RowFormat {
+                width: self.format.width,
+                compact: self.format.compact,
+                theme: self.format.theme,
+                hidden: self.format.hidden == Some(index) && row.facts.role == Role::User,
             };
-            let hidden = hidden_user_message_idx == Some(idx) && msg.role == Role::User;
-            // Backends may retain empty tool placeholders beside a separate result.
-            if hidden || msg.text.trim().is_empty() {
-                self.rendered_message_blocks.push(None);
-                self.rendered_block_line_counts.push(0);
-                continue;
+            let row = self
+                .entries
+                .prepare(row, format, previous, &mut cache, &mut retired);
+            if row.count > 0 {
+                previous = Some(row.context);
             }
-
-            let previous_visible =
-                previous_visible_idx.and_then(|prev_idx| messages.input(prev_idx));
-            let plan = plan_input_block(
-                &mut count_cache,
-                previous_visible,
-                msg,
-                width,
-                compact,
-                self.rendered_theme,
-            );
-            let line_count = plan.count_input(&mut count_cache, msg);
-            self.block_plans[idx] = Some(Box::new(plan));
-            self.rendered_block_line_counts.push(line_count);
-            if line_count == 0 {
-                self.rendered_message_blocks.push(None);
-                continue;
-            }
-            self.rendered_total_lines += line_count;
-            self.rendered_message_blocks.push(None);
-            previous_visible_idx = Some(idx);
+            let row = IndexedRow::new(self.rendered_total_lines, row);
+            self.rendered_total_lines += row.count;
+            self.rows.push(row);
         }
+        // Dropping the unused suffix retires entries absent from the current facts.
     }
 
-    // --- Line Access ---
+    /// Count chronological entries without exposing parallel mutable index arrays.
+    pub(super) fn entry_count(&self) -> usize {
+        self.rows.len()
+    }
+    /// Locate an entry's first wrapped row.
+    pub(super) fn block_start(&self, index: usize) -> Option<usize> {
+        Some(self.rows.get(index)?.start)
+    }
+    /// Count materialized rows for active-step painting.
+    pub(super) fn block_len(&self, index: usize) -> Option<usize> {
+        Some(self.rows.get(index)?.lines.as_ref()?.len())
+    }
+    /// Determine whether visible rows still need original source for this layout.
+    pub(super) fn needs_source(&self, index: usize) -> bool {
+        self.rows
+            .get(index)
+            .is_some_and(|row| row.count > 0 && (row.loading || row.lines.is_none()))
+    }
+    /// Report a visible loading state while keeping the entry's estimated or last-known height.
+    pub(super) fn has_loading_rows(&self, start: usize, end: usize) -> bool {
+        if start > end || self.rendered_total_lines == 0 {
+            return false;
+        }
+        let first = self.message_anchor(start).map_or(0, |(index, _)| index);
+        let last = self
+            .message_anchor(end.min(self.rendered_total_lines - 1))
+            .map_or(first, |(index, _)| index);
+        self.rows
+            .get(first..=last)
+            .is_some_and(|rows| rows.iter().any(|row| row.loading && row.count > 0))
+    }
+
     pub(super) fn rendered_line_count(&self) -> usize {
         self.rendered_total_lines
     }
-
-    pub(super) fn rendered_line_at(&self, idx: usize) -> Option<&RenderedLine> {
-        if idx >= self.rendered_total_lines {
+    pub(super) fn rendered_line_at(&self, index: usize) -> Option<&RenderedLine> {
+        if index >= self.rendered_total_lines {
             return None;
         }
-        let block_idx = self
-            .rendered_block_offsets
-            .partition_point(|&start| start <= idx)
-            .checked_sub(1)?;
-        let block_start = *self.rendered_block_offsets.get(block_idx)?;
-        let block = self.rendered_message_blocks.get(block_idx)?.as_ref()?;
-        block.get(idx - block_start)
+        let (entry, row) = self.message_anchor(index)?;
+        self.rows.get(entry)?.lines.as_ref()?.get(row)
     }
-
-    /// Return the first body row after blank lines and section headings.
-    pub(super) fn first_content_row(&self, message: usize) -> usize {
-        self.rendered_message_blocks
-            .get(message)
-            .and_then(Option::as_ref)
-            .map_or(0, |block| {
-                block.iter().take_while(|line| line.separator).count()
+    /// Identify the first body row after blank lines and section headings.
+    pub(super) fn first_content_row(&self, index: usize) -> usize {
+        self.rows
+            .get(index)
+            .and_then(|row| row.lines.as_ref())
+            .map_or(0, |lines| {
+                lines.iter().take_while(|line| line.separator).count()
             })
     }
-
-    /// Locate a message and row before a resize or view change changes row counts.
+    /// Locate a chronological entry and row against the current prefix sums.
     pub(super) fn message_anchor(&self, line: usize) -> Option<(usize, usize)> {
         let index = self
-            .rendered_block_offsets
-            .partition_point(|&start| start <= line)
+            .rows
+            .partition_point(|row| row.start <= line)
             .checked_sub(1)?;
-        Some((
-            index,
-            line.saturating_sub(self.rendered_block_offsets[index]),
-        ))
+        Some((index, line.saturating_sub(self.rows[index].start)))
     }
-
-    /// Keep the same message visible after rebuilding the row counts.
     pub(super) fn line_for_anchor(&self, (index, row): (usize, usize)) -> Option<usize> {
-        let start = *self.rendered_block_offsets.get(index)?;
-        let count = *self.rendered_block_line_counts.get(index)?;
-        Some(start + row.min(count.saturating_sub(1)))
+        let entry = self.rows.get(index)?;
+        Some(entry.start + row.min(entry.count.saturating_sub(1)))
     }
 
-    // --- Materialization ---
     pub(super) fn ensure_rendered_range_materialized(
         &mut self,
         messages: &[Message],
-        start_idx: usize,
-        end_idx: usize,
+        start: usize,
+        end: usize,
     ) {
-        self.materialize_inputs(messages, start_idx, end_idx);
+        self.materialize_inputs(messages, start, end);
     }
-
-    /// Materialize visible client blocks without constructing core messages.
     pub(super) fn materialize_inputs<S: TranscriptSource + ?Sized>(
         &mut self,
-        messages: &S,
-        start_idx: usize,
-        end_idx: usize,
+        source: &S,
+        start: usize,
+        end: usize,
     ) {
-        if start_idx > end_idx || self.rendered_total_lines == 0 {
+        if start > end || self.rendered_total_lines == 0 {
             return;
         }
-
-        let start_block = self
-            .rendered_block_offsets
-            .partition_point(|&start| start <= start_idx)
-            .saturating_sub(1);
-        let end_block = self
-            .rendered_block_offsets
-            .partition_point(|&start| start <= end_idx)
-            .saturating_sub(1);
-
-        for block_idx in start_block..=end_block {
-            self.materialize_block(messages, block_idx);
+        let first = self.message_anchor(start).map_or(0, |(index, _)| index);
+        let last = self
+            .message_anchor(end.min(self.rendered_total_lines - 1))
+            .map_or(first, |(index, _)| index);
+        for index in first..=last {
+            self.materialize(source, index);
         }
+    }
+    fn materialize<S: TranscriptSource + ?Sized>(&mut self, source: &S, index: usize) {
+        let Some(row) = self
+            .rows
+            .get_mut(index)
+            .filter(|row| row.count > 0 && row.lines.is_none())
+        else {
+            return;
+        };
+        let Some(input) = source.input(index) else {
+            return;
+        };
+        let Some(plan) = self.entries.plan(index) else {
+            return;
+        };
+        let lines = Arc::new(plan.render_input(input));
+        debug_assert_eq!(lines.len(), row.count);
+        row.lines = Some(lines.clone());
+        self.entries.painted(index, lines);
     }
 
     #[cfg(test)]
@@ -277,55 +318,15 @@ impl RenderCacheState {
         if self.rendered_total_lines > 0 {
             self.ensure_rendered_range_materialized(messages, 0, self.rendered_total_lines - 1);
         }
-        let mut out = Vec::with_capacity(self.rendered_total_lines);
-        for block in self.rendered_message_blocks.iter().flatten() {
-            out.extend(block.iter().cloned());
-        }
-        out
-    }
-
-    fn materialize_block<S: TranscriptSource + ?Sized>(&mut self, messages: &S, block_idx: usize) {
-        if self
-            .rendered_message_blocks
-            .get(block_idx)
-            .and_then(Option::as_ref)
-            .is_some()
-        {
-            return;
-        }
-        if self
-            .rendered_block_line_counts
-            .get(block_idx)
-            .copied()
-            .unwrap_or(0)
-            == 0
-        {
-            return;
-        }
-
-        let Some(msg) = messages.input(block_idx) else {
-            return;
-        };
-        let Some(plan) = self.block_plans.get(block_idx).and_then(Option::as_deref) else {
-            return;
-        };
-        let block = plan.render_input(msg);
-        debug_assert_eq!(
-            block.len(),
-            self.rendered_block_line_counts
-                .get(block_idx)
-                .copied()
-                .unwrap_or(0)
-        );
-        if let Some(slot) = self.rendered_message_blocks.get_mut(block_idx) {
-            *slot = Some(block);
-        }
+        self.rows
+            .iter()
+            .filter_map(|row| row.lines.as_ref())
+            .flat_map(|lines| lines.iter().cloned())
+            .collect()
     }
 }
 
-// --- Visibility Lookup ---
-
-/// Count the same shared plan used by the lazy render cache.
+/// Count the same complete plan used by the lazy render cache.
 pub(super) fn count_display_block<'a>(
     cache: &mut RenderCountCache<'a>,
     previous: Option<&Message>,

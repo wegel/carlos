@@ -18,12 +18,3 @@ pub(super) fn inline_entry(message: RenderInput<'_>, width: usize) -> bool {
     matches!(message.role, Role::ToolCall | Role::ToolOutput)
         || single_line_reasoning(message, width)
 }
-
-/// Separate messages with a blank row unless both belong to the activity block.
-pub(super) fn should_insert_separator_between(
-    previous: RenderInput<'_>,
-    next: RenderInput<'_>,
-    width: usize,
-) -> bool {
-    !(inline_entry(previous, width) && inline_entry(next, width))
-}

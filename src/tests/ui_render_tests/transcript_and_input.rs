@@ -98,15 +98,7 @@ fn ensure_rendered_lines_incremental_append_matches_full_rebuild() {
         rendered_signature(&expected)
     );
     assert_eq!(
-        app.view.render_cache.rendered_message_blocks.len(),
-        app.session.messages().len()
-    );
-    assert_eq!(
-        app.view.render_cache.rendered_block_line_counts.len(),
-        app.session.messages().len()
-    );
-    assert_eq!(
-        app.view.render_cache.rendered_block_offsets.len(),
+        app.view.render_cache.entry_count(),
         app.session.messages().len()
     );
     assert_eq!(app.view.render_cache.transcript_dirty_from, None);
@@ -135,15 +127,7 @@ fn ensure_rendered_lines_incremental_agent_delta_matches_full_rebuild() {
         rendered_signature(&expected)
     );
     assert_eq!(
-        app.view.render_cache.rendered_message_blocks.len(),
-        app.session.messages().len()
-    );
-    assert_eq!(
-        app.view.render_cache.rendered_block_line_counts.len(),
-        app.session.messages().len()
-    );
-    assert_eq!(
-        app.view.render_cache.rendered_block_offsets.len(),
+        app.view.render_cache.entry_count(),
         app.session.messages().len()
     );
     assert_eq!(app.view.render_cache.transcript_dirty_from, None);

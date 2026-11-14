@@ -192,13 +192,20 @@ fn changing_modes_keeps_a_scrolled_message_in_view() {
     long_output(&mut app);
     app.append_message(Role::Assistant, "read this answer");
     app.ensure_rendered_lines(80, None);
-    app.view.viewport.scroll_top = app.view.render_cache.rendered_block_offsets[1];
+    app.view.viewport.scroll_top = app
+        .view
+        .render_cache
+        .block_start(1)
+        .expect("rendered entry");
     app.view.viewport.auto_follow_bottom = false;
     app.view.tool_output.mode = ToolOutputMode::Compact;
     app.ensure_rendered_lines(80, None);
     assert_eq!(
         app.view.viewport.scroll_top,
-        app.view.render_cache.rendered_block_offsets[1]
+        app.view
+            .render_cache
+            .block_start(1)
+            .expect("rendered entry")
     );
     app.ensure_rendered_range_materialized(
         app.view.viewport.scroll_top + 1,

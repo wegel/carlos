@@ -99,6 +99,11 @@ pub struct Bodies {
 }
 
 impl Bodies {
+    /// Maximum simultaneously retained source and normalized-output windows together.
+    pub const WINDOW_LIMIT: usize = MAX_WINDOWS;
+    /// Maximum retained body-data bytes across both formats; other client facts are separate.
+    pub const BYTE_LIMIT: usize = BODY_BYTES;
+
     pub(crate) fn contains(&self, token: &BodyToken) -> bool {
         self.window(token).is_some()
     }
