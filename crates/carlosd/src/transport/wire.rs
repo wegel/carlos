@@ -40,6 +40,9 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Request, Failure> {
             | "entry/output"
             | "entry/output/subscribe"
             | "entry/output/unsubscribe"
+            | "entry/source"
+            | "entry/source/subscribe"
+            | "entry/source/unsubscribe"
     );
     if !known {
         return Err(failure(id, -32601, "unknown Carlos method"));

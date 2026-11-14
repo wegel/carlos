@@ -15,7 +15,7 @@ impl Published<'_> {
     /// Fetch older stored rows; retired or foreign cursors fail instead of changing position.
     pub fn history(&self, before: &WireEntryId, limit: usize) -> Option<History> {
         let end = self.session.messages.position(EntryId::from_wire(before))?;
-        let start = end.saturating_sub(limit.clamp(1, 1000));
+        let start = super::event_rows::page_start(&self.session.messages[..end], limit);
         Some(History {
             entries: self.session.messages[start..end]
                 .iter()
@@ -30,7 +30,7 @@ impl Published<'_> {
 impl crate::session::state::SessionState {
     pub(super) fn export_snapshot(&self, limit: usize) -> Snapshot {
         let count = self.messages.len();
-        let start = count.saturating_sub(limit.clamp(1, 1000));
+        let start = super::event_rows::page_start(&self.messages[..count], limit);
         Snapshot {
             info: self.events.info.clone().expect("published info"),
             entries: self.messages[start..]

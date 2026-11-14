@@ -19,9 +19,9 @@ impl Manager {
                 connection.sessions.remove(&session);
                 connection
                     .outputs
-                    .retain(|(target, _), _| target != &session);
+                    .retain(|(target, _, _), _| target != &session);
                 connection.socket.outbox.discard(|kind| matches!(kind,
-                    Kind::Shared(target) | Kind::Snapshot(target) | Kind::Output(target, _) if target == &session));
+                    Kind::Shared(target) | Kind::Snapshot(target) | Kind::Output(target, _) | Kind::Source(target, _) if target == &session));
                 self.reply(peer, id, ());
             }
             Command::History {
@@ -37,35 +37,12 @@ impl Manager {
                     limit: usize::from(limit),
                 },
             ),
-            Command::Output {
-                session,
-                entry,
-                cursor,
-                limit,
-            } => self.rpc_read(
-                peer,
-                id,
-                session,
-                EngineCommand::Output {
-                    entry,
-                    cursor,
-                    limit: limit.unwrap_or(65536).min(65536) as usize,
-                },
-            ),
-            Command::OutputSubscribe {
-                session,
-                entry,
-                cursor,
-            } => self.watch_output(peer, id, session, entry, cursor),
-            Command::OutputUnsubscribe { session, entry } => {
-                let connection = self.peers.get_mut(&peer).expect("peer");
-                connection.outputs.remove(&(session.clone(), entry.clone()));
-                connection
-                    .socket
-                    .outbox
-                    .discard(|kind| *kind == Kind::Output(session.clone(), entry.clone()));
-                self.reply(peer, id, ());
-            }
+            body @ (Command::Output { .. }
+            | Command::OutputSubscribe { .. }
+            | Command::OutputUnsubscribe { .. }
+            | Command::Source { .. }
+            | Command::SourceSubscribe { .. }
+            | Command::SourceUnsubscribe { .. }) => self.body_command(peer, id, body),
             _ => unreachable!("authenticated read route"),
         }
     }
@@ -183,7 +160,13 @@ impl Manager {
         self.waiting = remaining;
     }
 
-    fn rpc_read(&mut self, peer: u64, id: RequestId, session: SessionId, command: EngineCommand) {
+    pub(super) fn rpc_read(
+        &mut self,
+        peer: u64,
+        id: RequestId,
+        session: SessionId,
+        command: EngineCommand,
+    ) {
         if let Err(reason) = self.queue_read(peer, session, ReadKind::Rpc(id.clone()), command) {
             self.fail(peer, id, reason);
         }
@@ -201,7 +184,7 @@ impl Manager {
         }
         let reserved = match command {
             EngineCommand::Changes { .. } => 16 * 1024 * 1024,
-            EngineCommand::Output { .. } => 512 * 1024,
+            EngineCommand::Output { .. } | EngineCommand::Source { .. } => 512 * 1024,
             _ => crate::limits::FRAME_BYTES,
         };
         if reserved > crate::limits::READ_BYTES.saturating_sub(self.read_bytes) {

@@ -119,6 +119,21 @@ pub enum Command {
     },
     #[serde(rename = "entry/output/unsubscribe")]
     OutputUnsubscribe { session: SessionId, entry: EntryId },
+    #[serde(rename = "entry/source")]
+    Source {
+        session: SessionId,
+        entry: EntryId,
+        cursor: Option<crate::source::SourceCursor>,
+        limit: Option<u32>,
+    },
+    #[serde(rename = "entry/source/subscribe")]
+    SourceSubscribe {
+        session: SessionId,
+        entry: EntryId,
+        cursor: Option<crate::source::SourceCursor>,
+    },
+    #[serde(rename = "entry/source/unsubscribe")]
+    SourceUnsubscribe { session: SessionId, entry: EntryId },
 }
 
 /// Explicitly steer running work or queue text for a later turn.

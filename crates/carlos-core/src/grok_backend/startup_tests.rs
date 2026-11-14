@@ -61,7 +61,7 @@ fn owner_drains_large_grok_history_before_dispatching_a_queued_human_prompt() {
         let snapshot = snapshot(&engine);
         if snapshot.entries.len() >= 2 {
             assert_eq!(snapshot.info.availability, Availability::Ready);
-            assert_eq!(snapshot.entries[0].text, "x".repeat(6000));
+            assert_restored_source(&engine, &snapshot.entries[0]);
             assert_eq!(snapshot.entries[1].text, "after restore");
             break;
         }
@@ -71,6 +71,25 @@ fn owner_drains_large_grok_history_before_dispatching_a_queued_human_prompt() {
     }
     engine.shutdown();
     engine.join().expect("owned native process stops");
+}
+
+fn assert_restored_source(engine: &EngineHandle, entry: &carlos_proto::session::Entry) {
+    assert!(entry.text.is_empty());
+    assert_eq!(
+        entry.source.as_ref().expect("bounded source").bytes.get(),
+        6000
+    );
+    let EngineReply::Source(source) = request(
+        engine,
+        EngineCommand::Source {
+            entry: entry.id.clone(),
+            cursor: None,
+            limit: 65536,
+        },
+    ) else {
+        panic!("restored original source");
+    };
+    assert_eq!(source.text, "x".repeat(6000));
 }
 
 fn snapshot(engine: &EngineHandle) -> Box<carlos_proto::session::Snapshot> {

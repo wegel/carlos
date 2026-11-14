@@ -11,6 +11,7 @@ pub(crate) enum Kind {
     Shared(SessionId),
     Snapshot(SessionId),
     Output(SessionId, EntryId),
+    Source(SessionId, EntryId),
 }
 
 pub(crate) struct Frame {
@@ -32,7 +33,10 @@ pub(crate) struct Outbox(Arc<(Mutex<State>, Condvar)>);
 impl Outbox {
     pub(crate) fn push(&self, frame: Frame) -> bool {
         let mut state = self.0 .0.lock().expect("peer output queue");
-        let cap = if matches!(frame.kind, Kind::Shared(_) | Kind::Output(..)) {
+        let cap = if matches!(
+            frame.kind,
+            Kind::Shared(_) | Kind::Output(..) | Kind::Source(..)
+        ) {
             crate::limits::SHARED_BYTES
         } else {
             crate::limits::OUT_BYTES

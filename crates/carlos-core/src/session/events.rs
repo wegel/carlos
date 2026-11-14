@@ -279,23 +279,7 @@ impl Published<'_> {
             Change::Replaced(id) => Event::EntryUpdated {
                 entry: session.export_entry(session.messages.entry(id)?),
             },
-            Change::Text { entry, from } => {
-                let message = session.messages.entry(entry)?;
-                if is_tool(message) {
-                    Event::OutputChanged {
-                        entry: entry.to_wire(),
-                        revision: carlos_proto::output::OutputRevision::new(
-                            session.messages.output_revision(entry),
-                        ),
-                        has_output: !message.text.is_empty(),
-                    }
-                } else {
-                    Event::TextAppended {
-                        entry: entry.to_wire(),
-                        text: message.text.get(from..)?.to_owned(),
-                    }
-                }
-            }
+            Change::Text { entry, from } => self.text_event(entry, from)?,
             Change::Facts(id) => Event::EntryFactsChanged {
                 entry: id.to_wire(),
                 facts: session.export_entry_facts(session.messages.entry(id)?),
@@ -316,6 +300,30 @@ impl Published<'_> {
             session: session.session_id().clone(),
             seq: record.seq,
             event,
+        })
+    }
+
+    fn text_event(&self, entry: EntryId, from: usize) -> Option<Event> {
+        let session = self.session;
+        let message = session.messages.entry(entry)?;
+        Some(if is_tool(message) {
+            Event::OutputChanged {
+                entry: entry.to_wire(),
+                revision: carlos_proto::output::OutputRevision::new(
+                    session.messages.output_revision(entry),
+                ),
+                has_output: !message.text.is_empty(),
+            }
+        } else if message.text.len() > carlos_proto::source::INLINE_SOURCE_BYTES {
+            Event::SourceChanged {
+                entry: entry.to_wire(),
+                source: session.export_source(message),
+            }
+        } else {
+            Event::TextAppended {
+                entry: entry.to_wire(),
+                text: message.text.get(from..)?.to_owned(),
+            }
         })
     }
 }

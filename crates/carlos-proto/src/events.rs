@@ -38,6 +38,10 @@ pub enum Event {
         revision: OutputRevision,
         has_output: bool,
     },
+    SourceChanged {
+        entry: EntryId,
+        source: crate::source::Source,
+    },
     ApprovalRequested {
         approval: Approval,
         before: Option<EntryId>,
@@ -66,6 +70,14 @@ pub struct SessionEvent {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "method", content = "params")]
 pub enum Notification {
+    #[serde(rename = "entry/source")]
+    Source(crate::source::SourceUpdate),
+    #[serde(rename = "entry/source/reset")]
+    SourceReset {
+        session: SessionId,
+        entry: EntryId,
+        message: String,
+    },
     #[serde(rename = "session/syncFailed")]
     SyncFailed {
         session: SessionId,

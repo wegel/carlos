@@ -130,6 +130,9 @@ pub struct Entry {
     pub id: EntryId,
     pub kind: EntryKind,
     pub text: String,
+    /// When present, text is not the body; fetch original source through entry/source.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<crate::source::Source>,
     pub done: bool,
     pub tool: Option<Tool>,
     pub operation: Option<crate::submissions::ClientOperation>,

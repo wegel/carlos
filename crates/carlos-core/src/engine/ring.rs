@@ -9,9 +9,9 @@ use carlos_proto::events::{Notification, NotificationMessage};
 use carlos_proto::ids::Sequence;
 use carlos_proto::session::Snapshot;
 
-use crate::session::event_rows::is_tool;
+use crate::session::event_rows::{page_start, wire_row_bytes};
 use crate::session::events::{Change, Published};
-use crate::session::models::{Message, Role};
+use crate::session::models::Message;
 use crate::session::state::SessionState;
 
 pub(super) const MAX_FRAME: usize = 8 * 1024 * 1024;
@@ -118,10 +118,7 @@ pub(super) fn snapshot(session: &SessionState, limit: usize) -> Result<Snapshot,
 }
 
 fn check_snapshot(session: &SessionState, limit: usize) -> Result<(), RpcError> {
-    let start = session
-        .messages()
-        .len()
-        .saturating_sub(limit.clamp(1, 1000));
+    let start = page_start(session.messages(), limit);
     let mut bytes = row_bytes(&session.messages()[start..]);
     for card in session.approval().live() {
         let facts = card.facts();
@@ -153,23 +150,8 @@ pub(super) fn check_rows(rows: &[Message]) -> Result<(), RpcError> {
 }
 
 fn row_bytes(rows: &[Message]) -> usize {
-    rows.iter().fold(0usize, |sum, row| {
-        let text = if !is_tool(row) {
-            row.text.len()
-        } else {
-            row.tool_output
-                .as_ref()
-                .map(|tool| tool.summary.len())
-                .unwrap_or_else(|| {
-                    if row.role == Role::ToolCall {
-                        row.text.lines().next().map_or(0, str::len)
-                    } else {
-                        0
-                    }
-                })
-        };
-        sum.saturating_add(text).saturating_add(1024)
-    })
+    rows.iter()
+        .fold(0usize, |sum, row| sum.saturating_add(wire_row_bytes(row)))
 }
 
 struct Limited(Vec<u8>);

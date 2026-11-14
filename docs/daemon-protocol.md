@@ -6,6 +6,14 @@ failure, pressure and shutdown checks. Final feature/release checks and measurem
 pass; `.agents/reports/exec019a-final-report.md` records the evidence. The completed
 headless step awaits owner review before EP019b.
 
+The owner accepted EP019a on 2026-11-14. EP019b is active and adds exact original
+source through `entry/source` reads/watches. Each chunk consumes at most 64 KiB,
+preserves controls/UTF-8, and uses a format-specific entry/revision cursor. Both
+formats share the existing watch count, reply-byte and socket limits. A large
+plain row has an explicit source descriptor rather than inline body text; newest
+and older pages shrink before cloning to stay within the encoded frame budget.
+The terminal remains embedded while the rest of EP019b is being implemented.
+
 ## Clients and commands
 
 The daemon serves newline-delimited JSON-RPC on a private Unix socket. It checks

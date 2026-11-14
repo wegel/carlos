@@ -48,6 +48,7 @@ impl Manager {
             ReadKind::Rpc(id) => match reply {
                 EngineReply::History(history) => self.reply(peer, id, history),
                 EngineReply::Output(chunk) => self.reply(peer, id, chunk),
+                EngineReply::Source(chunk) => self.reply(peer, id, chunk),
                 EngineReply::Failure(reason) => self.fail(peer, id, reason),
                 _ => self.fail(peer, id, error(-32603, "unexpected owner reply")),
             },
@@ -67,14 +68,17 @@ impl Manager {
                     _ => self.peers[&peer].socket.close(),
                 }
             }
-            ReadKind::Output { entry, generation } => {
-                self.finish_output(peer, session, entry, generation, None, reply)
-            }
+            ReadKind::Output {
+                entry,
+                format,
+                generation,
+            } => self.finish_output(peer, (session, entry, format), generation, None, reply),
             ReadKind::OutputFirst {
                 id,
+                format,
                 entry,
                 generation,
-            } => self.finish_output(peer, session, entry, generation, Some(id), reply),
+            } => self.finish_output(peer, (session, entry, format), generation, Some(id), reply),
         }
     }
 

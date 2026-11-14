@@ -49,6 +49,11 @@ pub enum EngineCommand {
         cursor: Option<OutputCursor>,
         limit: usize,
     },
+    Source {
+        entry: EntryId,
+        cursor: Option<carlos_proto::source::SourceCursor>,
+        limit: usize,
+    },
     Outcomes,
     Updates {
         since: Sequence,
@@ -83,6 +88,7 @@ pub enum EngineReply {
     Changes(EngineChanges),
     History(History),
     Output(OutputChunk),
+    Source(carlos_proto::source::SourceChunk),
     Operation(OperationResult),
     Outcomes(Vec<OperationResult>),
     Updates(Box<EngineUpdate>),

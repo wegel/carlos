@@ -16,7 +16,7 @@ const TIMEOUT: Duration = Duration::from_secs(5);
 fn an_oversized_shared_page_does_not_hide_a_private_result_or_create_read_feedback() {
     let (client, events) = receiver_test_support::client(Vec::new());
     let mut session = SessionState::new("root".into(), Default::default(), false);
-    session.append_message(Role::Assistant, "x".repeat(8 * 1024 * 1024));
+    session.append_message(Role::ToolCall, "x".repeat(8 * 1024 * 1024));
     let (owner, _notices) = EngineHandle::spawn(session, Box::new(client), events);
     let operation = ClientOperation {
         client: "a".repeat(32).parse().expect("client"),

@@ -15,7 +15,8 @@ The daemon already proves basic chat, approvals, running output, independent cli
 
 - [x] (2026-11-14) Read repository rules, the terminal workflow inventory, current daemon interfaces and prior acceptance evidence. Confirm clean `iphone-spike` and main `a29b1a1`.
 - [x] (2026-11-14) Record owner acceptance of EP019a and write this executable plan.
-- [ ] Preserve EP019a release identities and rerunnable latency/memory evidence; run the initial workspace tests.
+- [x] (2026-11-14) Preserve EP019a release identities under `/tmp/carlos-ep019b/baseline-identities.json` with both executables; initial workspace tests pass. Prior repeatable measurements remain identified in EP019a's report.
+- [x] (2026-11-14) Add exact bounded source reads, separate source cursors, independent format watches, large-plain source descriptors and byte-budgeted pages. Five new core tests and two actual-daemon source workflows pass; full terminal/native gate is running.
 - [ ] Add bounded original-source reads and watches, explicit format-bound cursors, and bounded handling of large plain entries/pages. Prove split controls, Unicode, body replacement, exact source and independent clients through the daemon.
 - [ ] Add typed native facts/commands for names, prompt edits, task reads/stops, queues, goals, settings/context/quota, summaries, host defaults and lifecycle. Preserve existing tokens and target/generation guards; prove two clients can choose different read targets.
 - [ ] Add pure `carlos-client` for greeting, private retry rights, numbered facts, history, source/output cursors and operation-owned local echo. Test gaps, replacement, reconnect, malformed input and private recovery without sockets or clocks inside the crate.
@@ -27,6 +28,8 @@ The daemon already proves basic chat, approvals, running output, independent cli
 
 
 The terminal still embeds `SessionState` in `src/app/state.rs`, consumes borrowed change records in `src/app/core_events.rs`, and reads native panel state directly. Replacing only the backend trait with socket forwarding would leave a second privileged session and cannot meet the deletion gate. The terminal must render a client-owned fact copy instead.
+
+An old Grok restore check waited for “History complete” inside a wire notification. With the new explicit large-body descriptor, that full text belongs in a source read. The check now waits for Ready and reads the restored source before asserting its contents. A new Codex fixture initially sent an item-completed record without its required final text, which correctly replaced the body with empty text; the fixture now uses the turn-completed boundary after its streamed deltas. No native completion behavior was weakened.
 
 EP019a's normalized tool chunks deliberately strip terminal controls. `crates/carlos-core/src/session/output.rs` reads that normalized view from the single original body. The terminal needs the original bytes for its existing safe color renderer and exact copy, so it must request a separate source format with a cursor that cannot be reused for normalized output. The old eight-MiB snapshot preflight rejects a whole page or large plain row; the new path must bound text independently from metadata rather than raise frame budgets.
 
@@ -46,7 +49,7 @@ Decision: implement the shared client without sockets, threads or clocks. Ration
 ## Outcomes & Retrospective
 
 
-The owner accepted the working headless daemon; EP019b is now active. No terminal cutover or new runtime behavior is claimed yet. The next action is preserving the accepted binaries and proving bounded original-source transfer before changing terminal ownership. The final result must include a separate deletion commit, not a permanent switch between two terminal modes.
+The owner accepted the working headless daemon; EP019b is now active. The core and daemon now serve original source in UTF-8-safe chunks of at most 64 KiB, with separate entry/revision-bound cursors from normalized output. Both watch formats share the existing scheduler and combined count/byte budgets. Large plain rows carry explicit source descriptors instead of inline bulk text; escaped small rows reduce a page's row count before cloning. Five core tests and two daemon workflows prove exact source, split controls, format rejection, replacement and large-body/page recovery. Full terminal/native checks are running before the first runtime commit. No terminal cutover is claimed. The final result must include a separate deletion commit, not a permanent switch between two terminal modes.
 
 ## Context and Orientation
 
@@ -145,3 +148,5 @@ Keep public wire types in serde-only `carlos-proto`. Add typed source chunk/curs
 Plan author self-check: the source, native command families, report-field map and terminal inventory were read before writing this plan. EP019a owner acceptance is explicit; the next gate is after working terminal parity and deletion, not after writing this plan. No runtime proof or independent review is claimed yet. Use `.agents/reviewers/engineering_reviewer.md` for the final direct review and copy findings, guidance and verdict here.
 
 Update note (2026-11-14): created EP019b after owner acceptance of EP019a. Require bounded raw source and large-row support, complete typed terminal controls, a pure shared client, actual socket workflow parity and a separate deletion commit before owner review. Preserve the existing no-install/no-merge/no-push spike rules.
+
+Update note (2026-11-14, source proof): preserved accepted executables and passed initial/full workspace tests and strict Clippy. Added exact-source core/protocol/daemon routes, independent format watches using one shared scheduler, byte-budgeted pages and explicit out-of-line plain source. Added five core boundary tests and two real daemon source tests. Existing restore assertions now read a descriptor-backed body; full terminal/native runner is being rerun. Remaining work includes terminal source consumer/color/copy proof, typed native controls, shared client, socket parity, deletion and final review/measurements.

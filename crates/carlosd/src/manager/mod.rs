@@ -1,5 +1,6 @@
 //! Admit typed commands and fan out owner facts without waiting for native, disk or socket I/O.
 
+mod body;
 mod commands;
 mod lifecycle;
 mod output;

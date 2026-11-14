@@ -1,7 +1,6 @@
 //! Keep sparse body revisions while ordinary new rows need no extra per-row storage.
 
 use super::entry_id::EntryId;
-use super::event_rows::is_tool;
 use super::models::EntryDraft;
 use super::transcript::Transcript;
 
@@ -15,7 +14,7 @@ impl Transcript {
         if index >= self.journal.published {
             return;
         }
-        if let Some(message) = self.entries.get(index).filter(|message| is_tool(message)) {
+        if let Some(message) = self.entries.get(index) {
             let next = self
                 .output_revision(message.id)
                 .checked_add(1)
@@ -35,7 +34,7 @@ impl Transcript {
         };
         let changed = old.text != draft.text || old.kind != draft.kind;
         let revision = self.output_revision(id);
-        let next = if changed && is_tool(old) {
+        let next = if changed {
             revision.checked_add(1).expect("output revision exhausted")
         } else {
             revision

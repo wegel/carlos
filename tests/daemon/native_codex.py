@@ -20,6 +20,8 @@ class NativeCodex:
         self.interrupts = 0
         self.prompts = 0
         self.history_padding = ""
+        self.tool_first = "chunk-a\n"
+        self.tool_second = "chunk-b\n"
         self.hold_interrupts = False
         self.ready = threading.Event()
         self.loop = asyncio.new_event_loop()
@@ -132,7 +134,7 @@ class NativeCodex:
         await self.notify(link, "turn/started", turn={"id": "live"})
         await self.notify(link, "item/agentMessage/delta", itemId="waiting", turnId="live", delta="fact while send waits")
         await self.notify(link, "item/started", turnId="live", item={"type": "commandExecution", "id": "live-tool", "command": "tail -f log", "status": "inProgress"})
-        await self.notify(link, "item/commandExecution/outputDelta", turnId="live", itemId="live-tool", delta="chunk-a\n")
+        await self.notify(link, "item/commandExecution/outputDelta", turnId="live", itemId="live-tool", delta=self.tool_first)
         await self.send(link, {"id": "card", "method": "item/commandExecution/requestApproval", "params": {
             "threadId": "native-root", "turnId": "live", "itemId": "live-tool", "command": "true"}})
 
@@ -140,7 +142,7 @@ class NativeCodex:
         text = request["params"]["input"][0]["text"]
         if request["method"] == "turn/steer":
             assert self.answers == 1 and self.interrupts == 1, "ordinary send passed held reply"
-            await self.notify(link, "item/commandExecution/outputDelta", turnId="live", itemId="live-tool", delta="chunk-b\n")
+            await self.notify(link, "item/commandExecution/outputDelta", turnId="live", itemId="live-tool", delta=self.tool_second)
             return
         self.prompts += 1
         turn = f"turn-{self.prompts}"
@@ -149,6 +151,9 @@ class NativeCodex:
             for index in range(1500):
                 await self.notify(link, "item/completed", turnId=turn, item={
                     "type": "agentMessage", "id": f"row-{self.prompts}-{index}", "phase": "final_answer", "text": f"row {index}"})
+        if text == "large-plain-source":
+            for _ in range(224):
+                await self.notify(link, "item/agentMessage/delta", turnId=turn, itemId="large-source", delta="\0🌍\x1b[31m\n"*4096)
         if text == "flood-tool":
             await self.notify(link, "item/started", turnId=turn, item={"type": "commandExecution", "id": "flood-tool", "command": "cat big.log", "status": "inProgress"})
             for index in range(256):

@@ -129,7 +129,7 @@ impl Manager {
             Err(reason) => self.sync_failed(id, reason),
         }
         for peer in self.peers.values_mut() {
-            for ((session, _), watch) in &mut peer.outputs {
+            for ((session, _, _), watch) in &mut peer.outputs {
                 if session == id {
                     watch.dirty = true;
                 }

@@ -55,6 +55,9 @@ fn apply(client: &mut Snapshot, event: SessionEvent) {
         } => {
             apply_output_facts(client, entry, revision, has_output);
         }
+        Event::SourceChanged { entry, source } => {
+            apply_source(client, entry, source);
+        }
         Event::ApprovalRequested { approval, before } => {
             client.approvals.retain(|old| old.id != approval.id);
             let index = before
@@ -72,6 +75,20 @@ fn apply(client: &mut Snapshot, event: SessionEvent) {
         }
     }
     client.seq = event.seq;
+}
+
+fn apply_source(
+    client: &mut Snapshot,
+    entry: carlos_proto::ids::EntryId,
+    source: carlos_proto::source::Source,
+) {
+    let row = client
+        .entries
+        .iter_mut()
+        .find(|row| row.id == entry)
+        .expect("live row");
+    row.text.clear();
+    row.source = Some(source);
 }
 
 fn apply_output_facts(

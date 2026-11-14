@@ -10,9 +10,10 @@ import support
 from support import Client, Fixture
 from test_recovery import RecoveryTests
 from test_failures import FailureTests
+from test_source import SourceTests
 
 
-class DaemonTests(FailureTests, RecoveryTests, unittest.TestCase):
+class DaemonTests(FailureTests, RecoveryTests, SourceTests, unittest.TestCase):
     def test_codex_reads_controls_fifo_and_independent_output_cursors_while_send_waits(self):
         fixture = Fixture("codex-held", codex=True)
         self.addCleanup(fixture.close)
@@ -114,10 +115,12 @@ class DaemonTests(FailureTests, RecoveryTests, unittest.TestCase):
         support.wait_for(lambda: fixture.native_requests("session/load"), "one lazy native restore")
         self.assertEqual(len(fixture.native_requests("session/load")), 1)
         (fixture.root / "release-history").write_text("go")
-        restarted.message(lambda message: "History complete" in json.dumps(message))
         support.wait_for(lambda: next((row for row in restarted.call("sessions/watch")["sessions"] if row["id"] == session and row["availability"] == "ready"), None), "native history adopted")
         ready = restarted.call("session/subscribe", session=session, since=None)["snapshot"]
         self.assertEqual(ready["info"]["availability"], "ready")
+        history = next(entry for entry in ready["entries"] if entry.get("source"))
+        source = restarted.call("entry/source", session=session, entry=history["id"], cursor=None, limit=65536)
+        self.assertIn("History complete", source["text"])
         print("Headless example:", {"hello": first.hello["client"], "session/create": params, "session/subscribe": session})
 
     def test_claude_startup_approval_is_answerable_before_create_finishes(self):

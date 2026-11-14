@@ -137,6 +137,16 @@ impl Owner {
                 .output_chunk(&entry, cursor.as_ref(), limit)
                 .map(EngineReply::Output)
                 .map_err(|error| failure(error.to_string())),
+            EngineCommand::Source {
+                entry,
+                cursor,
+                limit,
+            } => self
+                .session
+                .sealed()
+                .source_chunk(&entry, cursor.as_ref(), limit)
+                .map(EngineReply::Source)
+                .map_err(|error| failure(error.to_string())),
             EngineCommand::Updates { since } => self.updates(since),
             EngineCommand::Outcomes => Ok(EngineReply::Outcomes(self.results.collect())),
             _ => Err(failure("mutation entered the read lane")),
@@ -171,7 +181,7 @@ impl Owner {
             .messages
             .position(EntryId::from_wire(before))
             .ok_or_else(|| failure("retired or foreign history cursor"))?;
-        let start = end.saturating_sub(limit.clamp(1, 1000));
+        let start = crate::session::event_rows::page_start(&self.session.messages()[..end], limit);
         ring::check_rows(&self.session.messages()[start..end])?;
         let history = self
             .session

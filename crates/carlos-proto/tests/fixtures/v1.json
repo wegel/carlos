@@ -162,6 +162,36 @@
         "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001"
       }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "source-0",
+      "method": "entry/source",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+        "cursor": null,
+        "limit": 65536
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "source-1",
+      "method": "entry/source/subscribe",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+        "cursor": "s1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001:0000000000000000:0000000000000004"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "source-2",
+      "method": "entry/source/unsubscribe",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001"
+      }
     }
   ],
   "notifications": [
@@ -473,6 +503,51 @@
         "error": {
           "code": -32011,
           "message": "requested row exceeds the page budget; native work remains alive"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "entry/source",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "chunk": {
+          "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+          "source": {
+            "revision": "0",
+            "bytes": "5000"
+          },
+          "from": null,
+          "next": "s1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001:0000000000000000:0000000000000004",
+          "text": "\u001b[3",
+          "has_more": true,
+          "done": false,
+          "seq": "1"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "entry/source/reset",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+        "message": "body replaced"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/event",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "seq": "2",
+        "event": {
+          "kind": "source_changed",
+          "entry": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001",
+          "source": {
+            "revision": "0",
+            "bytes": "5000"
+          }
         }
       }
     }

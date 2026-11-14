@@ -157,6 +157,9 @@ mod event_input_tests;
 pub mod output;
 mod output_cursor;
 mod output_normalize;
+pub mod source;
+#[cfg(test)]
+mod source_tests;
 mod transcript_output;
 
 #[cfg(test)]

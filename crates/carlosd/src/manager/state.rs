@@ -8,7 +8,6 @@ use carlos_core::engine::{EngineHandle, EngineReply};
 use carlos_core::launch_cancel::LaunchCancellation;
 use carlos_proto::commands::RequestId;
 use carlos_proto::ids::{ClientId, EntryId, Sequence, SessionId};
-use carlos_proto::output::OutputCursor;
 use carlos_proto::session::SessionInfo;
 use carlos_proto::submissions::OperationResult;
 
@@ -21,7 +20,7 @@ pub(super) struct Peer {
     pub replay_allowed: bool,
     pub list: bool,
     pub sessions: HashMap<SessionId, Interest>,
-    pub outputs: HashMap<(SessionId, EntryId), OutputWatch>,
+    pub outputs: HashMap<(SessionId, EntryId, super::body::Format), OutputWatch>,
     pub generation: u64,
 }
 
@@ -32,7 +31,7 @@ pub(super) struct Interest {
 }
 
 pub(super) struct OutputWatch {
-    pub cursor: Option<OutputCursor>,
+    pub cursor: super::body::Cursor,
     pub generation: u64,
     pub reading: bool,
     pub dirty: bool,
@@ -77,11 +76,13 @@ pub(super) enum ReadKind {
     },
     Output {
         entry: EntryId,
+        format: super::body::Format,
         generation: u64,
     },
     OutputFirst {
         id: RequestId,
         entry: EntryId,
+        format: super::body::Format,
         generation: u64,
     },
 }
