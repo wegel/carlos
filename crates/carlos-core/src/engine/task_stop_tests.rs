@@ -45,6 +45,7 @@ fn fixture() -> (Fixture, ClientOperation) {
         notice: mpsc::sync_channel(1).0,
         stop: Arc::default(),
         changed: Arc::default(),
+        goal_interest: Arc::default(),
     };
     let mut owner = Owner::new(
         session,

@@ -28,10 +28,10 @@ class DaemonClient:
                                 ['snapshot']['info']['availability'] == "ready", "native session ready")
         return fixture, client, session
 
-    def attach_daemon(self, fixture, session, name, width=100, source_error_once=False, extra_env=None):
+    def attach_daemon(self, fixture, session, name, width=100, source_error_once=False, extra_env=None, goal_error_once=False):
         directory = self.summary_root() / name
         directory.mkdir(parents=True, exist_ok=True)
-        recorder = DaemonRecorder(fixture.root / (name+".sock"), fixture.socket, directory, source_error_once=source_error_once)
+        recorder = DaemonRecorder(fixture.root / (name+".sock"), fixture.socket, directory, source_error_once=source_error_once, goal_error_once=goal_error_once)
         self.addCleanup(recorder.close)
         terminal = self.launch(directory=directory, width=width, resume=session,
                                extra_args=["--daemon-socket", str(recorder.path)], extra_env=extra_env)
@@ -80,16 +80,50 @@ class DaemonClient:
         fixture.stop()
         terminal.contains("F5 reconnects")
         terminal.wait(lambda: terminal.input_is("keep this draft 🌍"), "offline draft retained")
+        import asyncio
+        import threading
+        released = threading.Event()
+        resume_seen = threading.Event()
+        self.addCleanup(released.set)
+        handle = fixture.native.handle
+        async def held_resume(link, request):
+            if request.get("method") == "thread/resume":
+                resume_seen.set()
+                while not released.is_set():
+                    await asyncio.sleep(.005)
+            await handle(link, request)
+        fixture.native.handle = held_resume
         fixture.start()
         terminal.send(b"\x1b[15~")
         terminal.wait(lambda: len(terminal.requests("hello")) == 2, "second socket greeting")
+        terminal.wait(resume_seen.is_set, "native resume deliberately waits")
+        terminal.send(b"\r")
+        terminal.contains("Waiting for the session to become ready")
+        self.assertTrue(terminal.input_is("keep this draft 🌍"))
+        self.assertEqual(terminal.requests("session/send"), [], "early Enter allocates no send")
+        released.set()
         terminal.wait(lambda: len(terminal.requests("session/subscribe")) >= 2, "same logical session resubscribed")
-        terminal.wait(lambda: "F5 reconnects" not in terminal.text, "fresh facts after daemon replacement")
+        def replacement_ready():
+            messages = terminal.messages("server")
+            hello = terminal.requests("hello")[-1]["id"]
+            start = next((index + 1 for index, message in enumerate(messages)
+                          if message.get("id") == hello), len(messages))
+            for message in messages[start:]:
+                params = message.get("params", {})
+                info = message.get("result", {}).get("snapshot", {}).get("info")
+                info = info or params.get("snapshot", {}).get("info") or params.get("event", {}).get("info")
+                info = info or params.get("event", {}).get("snapshot", {}).get("info")
+                if info and info["id"] == session and info["availability"] == "ready":
+                    return True
+            return False
+        terminal.wait(replacement_ready, "fresh ready facts from the replacement daemon")
+        terminal.contains("Idle")
         self.assertTrue(terminal.input_is("keep this draft 🌍"))
         self.assertEqual(terminal.requests("session/send"), [])
         terminal.send(b"\r")
         terminal.contains("Answer: keep this draft 🌍")
         self.assertEqual(len(terminal.requests("session/send")), 1)
+        self.assertEqual(terminal.requests("session/send")[0]["params"]["operation"]["id"], "1")
         self.assertEqual(terminal.requests("session/send")[0]["params"]["text"], "keep this draft 🌍")
         terminal.snapshot("socket-reconnected")
 

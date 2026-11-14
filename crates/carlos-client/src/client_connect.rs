@@ -30,6 +30,7 @@ impl Client {
         self.current = None;
         self.requests.clear();
         self.watches.disconnected();
+        self.goals.disconnected();
         self.recover.clear();
         self.history = Default::default();
         for slot in self.sessions.values_mut() {
@@ -50,7 +51,7 @@ impl Client {
     ) -> Result<(), ClientError> {
         let previous = self.connection.client().cloned();
         let welcome = self.connection.accept(connection, hello)?;
-        if matches!(welcome, Welcome::Replaced { .. }) {
+        if let Welcome::Replaced { instance_changed } = welcome {
             if let Some(client) = previous {
                 self.operations.lose_rights(&client);
                 effects.operations.extend(
@@ -64,6 +65,11 @@ impl Client {
             self.watches = Default::default();
             self.catalog = Default::default();
             effects.catalog = true;
+            if instance_changed {
+                for slot in self.sessions.values_mut() {
+                    slot.replica = None;
+                }
+            }
         }
         if welcome == Welcome::Resumed {
             self.recover = self
@@ -137,5 +143,6 @@ impl Client {
             }
         }
         self.restore_watches(effects);
+        self.restore_goal_watches(effects);
     }
 }

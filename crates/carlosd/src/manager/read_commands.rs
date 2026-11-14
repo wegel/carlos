@@ -13,6 +13,15 @@ use crate::transport::wire::error;
 impl Manager {
     pub(super) fn read_command(&mut self, peer: u64, id: RequestId, command: Command) {
         match command {
+            Command::GoalSubscribe { session } => self.subscribe_goal(peer, id, session),
+            Command::GoalUnsubscribe { session } => {
+                self.peers
+                    .get_mut(&peer)
+                    .expect("peer")
+                    .goals
+                    .remove(&session);
+                self.reply(peer, id, ());
+            }
             command @ (Command::TaskRun { .. }
             | Command::TaskList { .. }
             | Command::TaskDetail { .. }
@@ -21,16 +30,7 @@ impl Manager {
             | Command::QueueText { .. }
             | Command::GoalRead { .. }) => self.native_read_command(peer, id, command),
             Command::Subscribe { session, since } => self.subscribe(peer, id, session, since),
-            Command::Unsubscribe { session } => {
-                let connection = self.peers.get_mut(&peer).expect("peer");
-                connection.sessions.remove(&session);
-                connection
-                    .outputs
-                    .retain(|(target, _, _), _| target != &session);
-                connection.socket.outbox.discard(|kind| matches!(kind,
-                    Kind::Shared(target) | Kind::Snapshot(target) | Kind::Output(target, _) | Kind::Source(target, _) if target == &session));
-                self.reply(peer, id, ());
-            }
+            Command::Unsubscribe { session } => self.unsubscribe(peer, id, session),
             Command::History {
                 session,
                 before,
@@ -69,6 +69,18 @@ impl Manager {
             | Command::SourceUnsubscribe { .. }) => self.body_command(peer, id, body),
             _ => unreachable!("authenticated read route"),
         }
+    }
+
+    fn unsubscribe(&mut self, peer: u64, id: RequestId, session: SessionId) {
+        let connection = self.peers.get_mut(&peer).expect("peer");
+        connection.sessions.remove(&session);
+        connection.goals.remove(&session);
+        connection
+            .outputs
+            .retain(|(target, _, _), _| target != &session);
+        connection.socket.outbox.discard(|kind| matches!(kind,
+            Kind::Shared(target) | Kind::Snapshot(target) | Kind::Output(target, _) | Kind::Source(target, _) if target == &session));
+        self.reply(peer, id, ());
     }
 
     fn native_read_command(&mut self, peer: u64, id: RequestId, command: Command) {

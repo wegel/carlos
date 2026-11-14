@@ -1,5 +1,6 @@
 //! Wake native reads and automatic prompts at their existing deadlines.
 
+use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use super::owner::Owner;
@@ -38,7 +39,14 @@ impl Owner {
                 panel_scope,
                 &mut Default::default(),
             );
-            goals::tick(self.client.as_ref(), &mut self.session, scope, now, true);
+            let goals_visible = self.channels.goal_interest.load(Ordering::SeqCst);
+            goals::tick(
+                self.client.as_ref(),
+                &mut self.session,
+                scope,
+                now,
+                goals_visible,
+            );
             queue::tick(
                 self.client.as_ref(),
                 &mut self.session,
@@ -54,6 +62,16 @@ impl Owner {
         [
             self.session.claude_context_wait(now),
             self.session.pending_ralph_continuation_wait(now),
+            (!self.native.closed)
+                .then(|| {
+                    goals::wait(
+                        &self.session,
+                        self.session.codex_scope(),
+                        now,
+                        self.channels.goal_interest.load(Ordering::SeqCst),
+                    )
+                })
+                .flatten(),
         ]
         .into_iter()
         .flatten()

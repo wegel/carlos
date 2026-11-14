@@ -442,6 +442,22 @@
         "task": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "expected_run": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
       }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "goal/subscribe",
+      "method": "goal/subscribe",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "goal/unsubscribe",
+      "method": "goal/unsubscribe",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
     }
   ],
   "notifications": [

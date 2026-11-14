@@ -83,12 +83,17 @@ pub struct Client {
     pub(crate) detach: VecDeque<SessionId>,
     pub(crate) history: crate::client_history::WaitingHistory,
     pub(crate) watches: crate::client_watches::Watches,
+    pub(crate) goals: crate::goal_watches::GoalWatches,
 }
 
 impl Client {
     /// Borrow a session copy; a stale copy remains visibly stale until a complete refresh arrives.
     pub fn session(&self, session: &SessionId) -> Option<&Replica> {
         self.sessions.get(session)?.replica.as_ref()
+    }
+    /// Report whether this device still wants a session's shared facts, including during refresh.
+    pub fn wants_session(&self, session: &SessionId) -> bool {
+        self.sessions.get(session).is_some_and(|slot| slot.wanted)
     }
     /// Borrow the current shared catalogue without duplicating large transcript rows.
     pub fn catalog(&self) -> impl Iterator<Item = &carlos_proto::session::SessionInfo> {

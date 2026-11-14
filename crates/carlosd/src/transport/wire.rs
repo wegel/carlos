@@ -39,6 +39,8 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Request, Failure> {
             | "session/approve"
             | "session/setRalph"
             | "goal/read"
+            | "goal/subscribe"
+            | "goal/unsubscribe"
             | "goal/set"
             | "goal/clear"
             | "task/run"

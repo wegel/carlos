@@ -23,6 +23,8 @@ pub(crate) enum Kind {
     Mutation(ClientOperation),
     Operation(ClientOperation),
     Goal(SessionId),
+    GoalWatch(SessionId),
+    GoalUnwatch(SessionId),
     Queue {
         session: SessionId,
         expected: Option<carlos_proto::ids::QueueRevision>,
@@ -171,6 +173,8 @@ pub(crate) fn read_kind(command: &Command) -> Result<Kind, ClientError> {
         },
         Command::Operation { operation } => Kind::Operation(operation.clone()),
         Command::GoalRead { session, .. } => Kind::Goal(session.clone()),
+        Command::GoalSubscribe { session } => Kind::GoalWatch(session.clone()),
+        Command::GoalUnsubscribe { session } => Kind::GoalUnwatch(session.clone()),
         Command::QueueRead {
             session, expected, ..
         } => Kind::Queue {

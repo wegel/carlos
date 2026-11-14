@@ -66,7 +66,7 @@ impl Client {
         effects: &mut Effects,
     ) -> Result<(), ClientError> {
         let reply = match kind {
-            Kind::Goal(session) => {
+            Kind::Goal(session) | Kind::GoalWatch(session) => {
                 let goal: carlos_proto::goals::GoalSnapshot = parse(value)?;
                 same_session(&session, &goal.session)?;
                 ReadReply::Goal(goal)
@@ -77,7 +77,10 @@ impl Client {
             Kind::QueueText(target) => ReadReply::QueueText(self.queue_text_reply(target, value)?),
             Kind::Source(target) => return self.source_reply(serial, target, value, effects),
             Kind::Output(target) => return self.output_reply(serial, target, value, effects),
-            Kind::Unit | Kind::Unsubscribe(_) | Kind::BodyUnsubscribe { .. } => {
+            Kind::Unit
+            | Kind::GoalUnwatch(_)
+            | Kind::Unsubscribe(_)
+            | Kind::BodyUnsubscribe { .. } => {
                 let _: () = parse(value)?;
                 return Ok(());
             }
@@ -188,6 +191,7 @@ impl Client {
             return;
         };
         match kind {
+            Kind::GoalWatch(session) => self.goals.failed(&session, serial),
             Kind::Hello => {
                 if let Some(connection) = self.current {
                     self.disconnect(connection);

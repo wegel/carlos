@@ -4,7 +4,8 @@ use anyhow::Result;
 use carlos_client::codec::Incoming;
 use carlos_client::Effects;
 use carlos_proto::commands::Command;
-use crossterm::event::{Event, KeyCode, KeyModifiers};
+use carlos_proto::session::Availability;
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 
 use super::transport::Transport;
 use super::Device;
@@ -16,19 +17,26 @@ impl Device {
     pub(super) fn receive(&mut self, link: &mut Transport, incoming: Incoming) -> Result<bool> {
         self.reserve_source_growth(link, &incoming)?;
         self.reading.received(&incoming);
+        let goal_read = self.client.pending_goal_read(&self.session);
         let effects = self.client.receive(link.connection, incoming)?;
+        if self.goals.read.is_none() {
+            self.goals.read = goal_read.or_else(|| self.client.pending_goal_read(&self.session));
+        }
         self.apply_effects(link, effects)
     }
 
-    fn apply_effects(&mut self, link: &mut Transport, effects: Effects) -> Result<bool> {
+    fn apply_effects(&mut self, link: &mut Transport, mut effects: Effects) -> Result<bool> {
+        let goal_changed = self.apply_goal_reads(&mut effects)?;
         let private_changed = !effects.operations.is_empty();
         self.apply_operations(&effects.operations);
-        let mut changed =
-            effects.welcome.is_some() || private_changed || !effects.failures.is_empty();
+        let mut changed = effects.welcome.is_some()
+            || private_changed
+            || goal_changed
+            || !effects.failures.is_empty();
         for outgoing in effects.outgoing {
             link.send(outgoing)?;
         }
-        if effects.welcome.is_some() && self.client.session(&self.session).is_none() {
+        if effects.welcome.is_some() && !self.client.wants_session(&self.session) {
             link.send(self.client.read(
                 link.connection,
                 Command::Subscribe {
@@ -56,6 +64,11 @@ impl Device {
             self.view.status_hint = Some(failure.error.message);
         }
 
+        if self.client.session(&self.session).is_some_and(|replica| {
+            replica.info().availability == Availability::Ready && !replica.is_stale()
+        }) {
+            self.waiting_ready = false;
+        }
         self.settle_history();
         Ok(changed)
     }
@@ -73,54 +86,89 @@ impl Device {
         changes.entries
     }
 
-    pub(super) fn event(&mut self, mut link: Option<&mut Transport>, event: Event) -> Result<bool> {
+    pub(super) fn event(&mut self, link: Option<&mut Transport>, event: Event) -> Result<bool> {
         match event {
-            Event::Mouse(mouse) => self.mouse(mouse)?,
+            Event::Mouse(mouse) if !self.view.codex_goals.show => self.mouse(mouse)?,
             Event::Paste(text) => {
-                self.view.input.insert_str(normalize_pasted_text(&text));
-            }
-            Event::Key(key) if is_key_press_like(key.kind) => {
-                if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
-                    return Ok(true);
-                }
-                match self.approval_key(link.as_deref_mut(), key) {
-                    Ok(true) => return Ok(false),
-                    Err(error) => {
-                        self.view.status_hint = Some(error.to_string());
-                        return Ok(false);
-                    }
-                    Ok(false) => {}
-                }
-                if self.navigation_key(key)? {
-                    return Ok(false);
-                }
-                if key.code == KeyCode::Enter && !is_newline_enter(key.modifiers) {
-                    let result = self.submit(link);
-                    if let Err(error) = result {
-                        self.view.status_hint = Some(error.to_string());
-                    }
-                } else if key.code == KeyCode::Esc {
-                    if let Some(link) = link {
-                        if let Err(error) = self.interrupt(link) {
-                            self.view.status_hint = Some(error.to_string());
-                        }
-                    }
+                if self.view.codex_goals.show {
+                    self.goal_paste(&normalize_pasted_text(&text));
                 } else {
-                    self.view.input.input(textarea_input_from_key(key));
+                    self.view.input.insert_str(normalize_pasted_text(&text));
                 }
             }
+            Event::Key(key) if is_key_press_like(key.kind) => return self.key_event(link, key),
             _ => {}
         }
         Ok(false)
     }
 
+    fn key_event(&mut self, mut link: Option<&mut Transport>, key: KeyEvent) -> Result<bool> {
+        if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            return Ok(true);
+        }
+        if self.overlay_key(link.as_deref_mut(), key) {
+            return Ok(false);
+        }
+        if self.navigation_key(key)? {
+            return Ok(false);
+        }
+        if key.code == KeyCode::Enter && !is_newline_enter(key.modifiers) {
+            let result = self.submit(link);
+            if let Err(error) = result {
+                self.view.status_hint = Some(error.to_string());
+            }
+        } else if key.code == KeyCode::Esc {
+            if let Some(link) = link {
+                if let Err(error) = self.interrupt(link) {
+                    self.view.status_hint = Some(error.to_string());
+                }
+            }
+        } else {
+            self.view.input.input(textarea_input_from_key(key));
+        }
+        Ok(false)
+    }
+
+    fn overlay_key(&mut self, mut link: Option<&mut Transport>, key: KeyEvent) -> bool {
+        match self.goal_key(link.as_deref_mut(), key) {
+            Ok(true) => return true,
+            Err(error) => {
+                self.view.codex_goals.error = Some(error.to_string());
+                return true;
+            }
+            Ok(false) => {}
+        }
+        match self.approval_key(link, key) {
+            Ok(true) => return true,
+            Err(error) => {
+                self.view.status_hint = Some(error.to_string());
+                return true;
+            }
+            Ok(false) => {}
+        }
+        false
+    }
+
     fn submit(&mut self, link: Option<&mut Transport>) -> Result<()> {
         let text = self.view.input.lines().join("\n");
+        if text.trim() == "/goal" {
+            self.view.input = make_input_area();
+            if let Err(error) = self.open_goal(link) {
+                self.view.codex_goals.error = Some(error.to_string());
+            }
+            return Ok(());
+        }
         if self.local_command(&text) {
             return Ok(());
         }
         let link = link.ok_or_else(|| anyhow::anyhow!("Disconnected; F5 reconnects"))?;
         let session = self.session.clone();
+        if !self.client.session(&session).is_some_and(|replica| {
+            replica.info().availability == Availability::Ready && !replica.is_stale()
+        }) {
+            self.waiting_ready = true;
+            return Ok(());
+        }
         if self
             .client
             .session(&session)

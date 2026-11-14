@@ -12,6 +12,7 @@ mod client_watches;
 mod codec;
 mod connection;
 mod goal;
+mod goal_watches;
 mod operations;
 mod queue;
 mod replica;

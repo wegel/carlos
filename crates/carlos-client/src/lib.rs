@@ -20,6 +20,7 @@ pub mod codec;
 mod connection;
 mod error;
 mod goal;
+mod goal_watches;
 mod history;
 mod operations;
 mod pending;

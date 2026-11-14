@@ -6,8 +6,10 @@ import threading
 
 
 class DaemonRecorder:
-    def __init__(self, path, upstream, root, source_error_once=False):
+    def __init__(self, path, upstream, root, source_error_once=False, goal_error_once=False):
         self.source_error_once = source_error_once
+        self.goal_error_once = goal_error_once
+        self.goal_error_id = None
         self.device_write = threading.Lock()
         self.drop_text_once = False
         self.hold_sources = False
@@ -64,6 +66,14 @@ class DaemonRecorder:
                 while b"\n" in retained:
                     line, _, retained = retained.partition(b"\n")
                     message = json.loads(line)
+                    if direction == "client" and self.goal_error_once and message.get("method") == "goal/subscribe":
+                        self.goal_error_once = False
+                        self.goal_error_id = message["id"]
+                    elif direction == "server" and self.goal_error_id is not None and message.get("id") == self.goal_error_id:
+                        self.goal_error_id = None
+                        message = {"jsonrpc":"2.0", "id":message["id"], "error":{
+                            "code":-32012, "message":"Injected admitted goal read failure"}}
+                        line = json.dumps(message).encode()
                     self.record(direction, message)
                     if direction == "client" and self.source_error_once and message.get("method") == "entry/source/subscribe":
                         self.source_error_once = False

@@ -3,7 +3,7 @@
 use carlos_proto::goals::{GoalFacts, GoalSnapshot};
 use carlos_proto::ids::Sequence;
 
-use crate::{ChangeSet, ClientError, Replica};
+use crate::{ChangeSet, Client, ClientError, Effects, Replica};
 
 impl Replica {
     /// Keep unrelated newer transcript deltas while refusing late goal reads or replacement races.
@@ -28,5 +28,22 @@ impl Replica {
         changed.goal = self.goal != goal;
         self.goal = goal;
         self.goal_seq = seq;
+    }
+}
+
+impl Client {
+    /// Merge a goal read through the same sequence fences and byte budget as numbered facts.
+    pub fn merge_goal(&mut self, snapshot: GoalSnapshot) -> Result<Effects, ClientError> {
+        let session = snapshot.session.clone();
+        let replica = self
+            .sessions
+            .get_mut(&session)
+            .and_then(|slot| slot.replica.as_mut())
+            .ok_or(ClientError::ForeignSession)?;
+        let changes = replica.merge_goal(snapshot)?;
+        let mut effects = Effects::default();
+        self.changed(&session, changes, &mut effects)?;
+        self.drive(&mut effects);
+        Ok(effects)
     }
 }

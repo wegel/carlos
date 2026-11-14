@@ -5,7 +5,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::buffer::Buffer;
 use ratatui::style::Style;
 
-use super::codex_goal_state::GoalConfirm;
+use super::codex_goal_state::{GoalConfirm, GoalDraft, GoalView};
 use super::input_events::TerminalEventResult;
 use super::render::{draw_str, fill_rect, textarea_input_from_key};
 use super::state::AppState;
@@ -98,6 +98,11 @@ fn editor_key(client: &dyn BackendClient, app: &mut AppState, key: KeyEvent, siz
         return;
     }
     let draft = app.view.codex_goals.editor.as_mut().expect("goal editor");
+    edit_draft(draft, key, size);
+}
+
+/// Edit a local goal draft without borrowing shared session facts.
+pub(super) fn edit_draft(draft: &mut GoalDraft, key: KeyEvent, size: TerminalSize) {
     match key.code {
         KeyCode::Tab => draft.field = (draft.field + 1) % 3,
         KeyCode::BackTab => draft.field = (draft.field + 2) % 3,
@@ -132,16 +137,36 @@ pub(super) fn paste(app: &mut AppState, text: &str, size: TerminalSize) {
         return;
     }
     if let Some(draft) = app.view.codex_goals.editor.as_mut() {
-        if draft.field == 0 && draft.objective.lines().join("\n").len() + text.len() <= 32 * 1024 {
-            draft.objective.insert_str(text);
-        } else if draft.field == 1 && text.len() <= 32 {
-            draft.budget.insert_str(text.lines().next().unwrap_or(""));
-        }
+        paste_draft(draft, text);
+    }
+}
+
+/// Insert pasted text into only the chosen goal field.
+pub(super) fn paste_draft(draft: &mut GoalDraft, text: &str) {
+    if draft.field == 0 && draft.objective.lines().join("\n").len() + text.len() <= 32 * 1024 {
+        draft.objective.insert_str(text);
+    } else if draft.field == 1 && text.len() <= 32 {
+        draft.budget.insert_str(text.lines().next().unwrap_or(""));
     }
 }
 
 /// Draw native facts or one active editor field without covering the visible control footer.
 pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
+    draw_panel(
+        buf,
+        &app.view.codex_goals,
+        super::codex_goal_text::body(app, size),
+        size,
+    );
+}
+
+/// Draw the same goal widget for embedded and daemon facts.
+pub(super) fn draw_panel(
+    buf: &mut Buffer,
+    state: &GoalView,
+    lines: Vec<String>,
+    size: TerminalSize,
+) {
     fill_rect(
         buf,
         0,
@@ -161,16 +186,11 @@ pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
         Style::default().fg(COLOR_PRIMARY),
         size.width,
     );
-    let footer = footer(app, size.width);
+    let footer = footer(state, size.width);
     let footer_rows = footer.len().min(size.height.saturating_sub(2));
     let body_height = size.height.saturating_sub(footer_rows + 1);
-    let lines = super::codex_goal_text::body(app, size);
     let wrapped = super::claude_question_view::wrap_lines(lines, size.width.max(1));
-    let offset = app
-        .view
-        .codex_goals
-        .scroll
-        .min(wrapped.len().saturating_sub(body_height));
+    let offset = state.scroll.min(wrapped.len().saturating_sub(body_height));
     for (row, line) in wrapped.iter().skip(offset).take(body_height).enumerate() {
         draw_str(
             buf,
@@ -181,8 +201,8 @@ pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
             size.width,
         );
     }
-    if app.view.codex_goals.editing && app.view.codex_goals.confirm.is_none() && editable(size) {
-        draw_editor(buf, app, size, body_height);
+    if state.editing && state.confirm.is_none() && editable(size) {
+        draw_editor(buf, state, size, body_height);
     }
     for (row, line) in footer.iter().take(footer_rows).enumerate() {
         draw_str(
@@ -196,8 +216,8 @@ pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
     }
 }
 
-fn draw_editor(buf: &mut Buffer, app: &AppState, size: TerminalSize, height: usize) {
-    if let Some((text, column)) = editor_line(app, size.width) {
+fn draw_editor(buf: &mut Buffer, state: &GoalView, size: TerminalSize, height: usize) {
+    if let Some((text, column)) = editor_line(state, size.width) {
         let _ = column;
         draw_str(
             buf,
@@ -220,7 +240,12 @@ fn draw_editor(buf: &mut Buffer, app: &AppState, size: TerminalSize, height: usi
 
 /// Restore the independent goal caret after resizing; ordinary composer coordinates stay untouched.
 pub(super) fn cursor(app: &AppState, size: TerminalSize) -> (usize, usize) {
-    if !editable(size) || app.view.codex_goals.confirm.is_some() {
+    cursor_for(&app.view.codex_goals, size)
+}
+
+/// Locate the independent goal caret for either session transport.
+pub(super) fn cursor_for(state: &GoalView, size: TerminalSize) -> (usize, usize) {
+    if !editable(size) || state.confirm.is_some() {
         return (0, 0);
     }
     let footer = super::claude_question_view::wrap_lines(
@@ -228,11 +253,11 @@ pub(super) fn cursor(app: &AppState, size: TerminalSize) -> (usize, usize) {
         size.width.max(1),
     );
     let y = size.height.saturating_sub(footer.len() + 1);
-    editor_line(app, size.width).map_or((0, 0), |(_, column)| (column, y))
+    editor_line(state, size.width).map_or((0, 0), |(_, column)| (column, y))
 }
 
-fn editor_line(app: &AppState, width: usize) -> Option<(String, usize)> {
-    let draft = app.view.codex_goals.editor.as_ref()?;
+fn editor_line(state: &GoalView, width: usize) -> Option<(String, usize)> {
+    let draft = state.editor.as_ref()?;
     let editor = match draft.field {
         0 => &draft.objective,
         1 => &draft.budget,
@@ -250,14 +275,15 @@ fn editor_line(app: &AppState, width: usize) -> Option<(String, usize)> {
     ))
 }
 
-fn editable(size: TerminalSize) -> bool {
+/// Report whether the terminal has room for the goal editor.
+pub(super) fn editable(size: TerminalSize) -> bool {
     size.width >= 22 && size.height >= 12
 }
 
-fn footer(app: &AppState, width: usize) -> Vec<String> {
-    let footer = if app.view.codex_goals.confirm.is_some() {
+fn footer(state: &GoalView, width: usize) -> Vec<String> {
+    let footer = if state.confirm.is_some() {
         "y confirms · n cancels · Esc back"
-    } else if app.view.codex_goals.editing {
+    } else if state.editing {
         "Tab field · Ctrl+S save · Ctrl+R Ralph · Esc back"
     } else {
         "e edit · p pause · a resume · d clear · r refresh · PgDn · Esc back"

@@ -97,6 +97,11 @@ impl Client {
                 return Err(ClientError::Capacity("client session windows are full"));
             }
         }
+        if let Kind::GoalWatch(session) = kind {
+            if !self.sessions.get(session).is_some_and(|slot| slot.wanted) {
+                return Err(ClientError::ForeignSession);
+            }
+        }
         if let Kind::Operation(operation) = kind {
             if Some(&operation.client) != self.connection.client() {
                 return Err(ClientError::InvalidConnection);
@@ -106,6 +111,7 @@ impl Client {
     }
 
     pub(crate) fn record_interest(&mut self, outgoing: &Outbound) {
+        self.record_goal_watch(outgoing);
         match self
             .requests
             .kind(outgoing.id)
@@ -130,6 +136,7 @@ impl Client {
             }
             Kind::Unsubscribe(session) => {
                 self.sessions.remove(&session);
+                self.goals.forget(&session);
                 self.bodies.forget_session(&session);
             }
             Kind::BodyUnsubscribe {

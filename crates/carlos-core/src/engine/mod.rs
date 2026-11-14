@@ -203,6 +203,7 @@ struct Shared {
     wake: mpsc::SyncSender<()>,
     stop: Arc<AtomicBool>,
     changed: Arc<AtomicBool>,
+    goal_interest: Arc<AtomicBool>,
     thread: Mutex<Option<thread::JoinHandle<()>>>,
 }
 
@@ -224,6 +225,7 @@ impl EngineHandle {
         let (notice, notice_rx) = mpsc::sync_channel(1);
         let stop = Arc::new(AtomicBool::new(false));
         let changed = Arc::new(AtomicBool::new(true));
+        let goal_interest = Arc::new(AtomicBool::new(false));
         let channels = owner::Channels {
             ordinary: ordinary_rx,
             control: control_rx,
@@ -233,6 +235,7 @@ impl EngineHandle {
             notice,
             stop: stop.clone(),
             changed: changed.clone(),
+            goal_interest: goal_interest.clone(),
         };
         let owner = owner::Owner::new(session, client, events, channels);
         let thread = thread::spawn(move || owner.run());
@@ -244,6 +247,7 @@ impl EngineHandle {
                 wake,
                 stop,
                 changed,
+                goal_interest,
                 thread: Mutex::new(Some(thread)),
             })),
             notice_rx,
@@ -267,6 +271,13 @@ impl EngineHandle {
         let reply = mailbox.request(command)?;
         let _ = self.0.wake.try_send(());
         Ok(reply)
+    }
+
+    /// Enable the existing native goal timer while at least one connected client reads goals.
+    pub fn set_goal_interest(&self, active: bool) {
+        if self.0.goal_interest.swap(active, Ordering::SeqCst) != active {
+            let _ = self.0.wake.try_send(());
+        }
     }
 
     /// Distinguish fact/result changes from a wake caused only by a completed read.

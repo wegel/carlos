@@ -103,6 +103,10 @@ pub enum Command {
         expected: crate::ids::QueueRevision,
         change: crate::queue::QueueChange,
     },
+    #[serde(rename = "goal/subscribe")]
+    GoalSubscribe { session: SessionId },
+    #[serde(rename = "goal/unsubscribe")]
+    GoalUnsubscribe { session: SessionId },
     #[serde(rename = "goal/read")]
     GoalRead {
         session: SessionId,

@@ -1,6 +1,6 @@
 //! Retain only launch metadata, bounded socket interests and outstanding owner reads.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 
@@ -20,6 +20,7 @@ pub(super) struct Peer {
     pub replay_allowed: bool,
     pub list: bool,
     pub sessions: HashMap<SessionId, Interest>,
+    pub goals: HashSet<SessionId>,
     pub outputs: HashMap<(SessionId, EntryId, super::body::Format), OutputWatch>,
     pub generation: u64,
 }

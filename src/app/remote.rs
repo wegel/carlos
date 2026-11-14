@@ -4,6 +4,8 @@ mod approvals;
 mod bodies;
 mod drafts;
 mod events;
+mod goals;
+mod goals_commands;
 mod local_commands;
 mod navigation;
 mod reading;
@@ -31,6 +33,8 @@ struct Device {
     view: ViewState,
     documents: DocumentReads,
     reading: reading::ReadingState,
+    goals: goals::Goals,
+    waiting_ready: bool,
 }
 
 /// Attach the terminal without creating or borrowing a native backend in this process.
@@ -46,6 +50,8 @@ pub(super) fn run(socket: &Path, options: &CliOptions) -> Result<()> {
         view: ViewState::new(super::tool_output_preferences::load_summary_enabled()),
         documents: DocumentReads::default(),
         reading: reading::ReadingState::default(),
+        goals: goals::Goals::default(),
+        waiting_ready: false,
     };
     device.view.layout.themes = super::tool_output_preferences::load_themes();
     device.view.tool_output.mode = super::tool_output_preferences::load_mode();
@@ -64,6 +70,7 @@ impl Device {
                         Err(error) => {
                             self.client.disconnect(link.connection);
                             self.reading.disconnected();
+                            self.goals.read = None;
                             self.view.status_hint = Some(format!("F5 reconnects: {error}"));
                             transport = None;
                             redraw = true;

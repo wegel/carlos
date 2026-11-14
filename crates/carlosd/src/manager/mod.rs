@@ -2,6 +2,7 @@
 
 mod body;
 mod commands;
+mod goals;
 mod lifecycle;
 mod mutation_work;
 mod output;
@@ -108,6 +109,7 @@ impl Manager {
                 self.command(incoming.peer, incoming.request);
             }
             self.drain_launches();
+            self.refresh_goal_interests();
             self.drain_updates();
             self.drain_reads();
             self.drain_saves();
@@ -137,6 +139,7 @@ impl Manager {
                     replay_allowed: false,
                     list: false,
                     sessions: HashMap::new(),
+                    goals: Default::default(),
                     outputs: HashMap::new(),
                     generation: 0,
                 },

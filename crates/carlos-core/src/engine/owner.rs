@@ -22,6 +22,7 @@ pub(super) struct Channels {
     pub notice: mpsc::SyncSender<()>,
     pub stop: Arc<AtomicBool>,
     pub changed: Arc<AtomicBool>,
+    pub goal_interest: Arc<AtomicBool>,
 }
 
 pub(super) struct Owner {

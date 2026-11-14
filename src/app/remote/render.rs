@@ -1,6 +1,7 @@
 //! Draw the existing lazy transcript blocks and composer from client-owned facts.
 
 use carlos_core::session::models::Role;
+use carlos_proto::session::Availability;
 use ratatui::buffer::Buffer;
 use ratatui::style::Style;
 use ratatui::Frame;
@@ -20,7 +21,13 @@ impl Device {
             width: frame.area().width as usize,
             height: frame.area().height as usize,
         };
+        self.goals.size = size;
         self.view.layout.update_size(size);
+        if self.view.codex_goals.show {
+            let (x, y) = self.draw_goal(frame.buffer_mut(), size);
+            frame.set_cursor_position((x as u16, y as u16));
+            return;
+        }
         self.view.tool_output.update_size(size);
         let content_x = if self.view.layout.active.is_flow() {
             1
@@ -59,10 +66,22 @@ impl Device {
             .session(&self.session)
             .map(|replica| replica.info());
         let status = self.view.status_hint.clone().unwrap_or_else(|| {
+            if self.waiting_ready {
+                return "Waiting for the session to become ready; your draft is kept. Press Enter again when ready".into();
+            }
             if self.reading.loading {
                 return "Loading visible source… · F6 retries failed reads".into();
             }
-            info.map_or_else(|| "Connecting…".into(), |info| format!("{:?}", info.phase))
+            info.map_or_else(
+                || "Connecting…".into(),
+                |info| {
+                    if info.availability == Availability::Ready {
+                        format!("{:?}", info.phase)
+                    } else {
+                        format!("{:?}", info.availability)
+                    }
+                },
+            )
         });
         crate::app::render::draw_status_separator(
             buffer,
