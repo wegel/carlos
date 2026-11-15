@@ -36,30 +36,32 @@ fn activity_sweeps_redraw_only_once_per_animation_step_while_work_is_running() {
 
 #[test]
 fn native_transient_then_thinking_then_process_state_keep_the_existing_label_order() {
-    let mut activity = MainActivity {
-        state: TaskMainState::Running,
-        thinking_tokens: Some(43),
-        transient: Some(TaskLabel {
-            text: "Requesting".into(),
-            bytes: ByteLength::new(10),
-            complete: true,
-        }),
-    };
-    assert_eq!(activity_label(&activity).as_deref(), Some("Requesting"));
-    activity.transient = None;
-    assert_eq!(
-        activity_label(&activity).as_deref(),
-        Some("Thinking ~43 tokens")
-    );
-    activity.thinking_tokens = None;
-    assert_eq!(activity_label(&activity).as_deref(), Some("Running"));
-    activity.state = TaskMainState::RequiresAction;
-    assert_eq!(
-        activity_label(&activity).as_deref(),
-        Some("Requires action")
-    );
-    activity.state = TaskMainState::Idle;
-    assert_eq!(activity_label(&activity), None);
+    for (transient, tokens) in [("Requesting", 43), ("Temporary", 42)] {
+        let mut activity = MainActivity {
+            state: TaskMainState::Running,
+            thinking_tokens: Some(tokens),
+            transient: Some(TaskLabel {
+                text: transient.into(),
+                bytes: ByteLength::new(transient.len() as u64),
+                complete: true,
+            }),
+        };
+        assert_eq!(activity_label(&activity).as_deref(), Some(transient));
+        activity.transient = None;
+        assert_eq!(
+            activity_label(&activity).as_deref(),
+            Some(format!("Thinking ~{tokens} tokens").as_str())
+        );
+        activity.thinking_tokens = None;
+        assert_eq!(activity_label(&activity).as_deref(), Some("Running"));
+        activity.state = TaskMainState::RequiresAction;
+        assert_eq!(
+            activity_label(&activity).as_deref(),
+            Some("Requires action")
+        );
+        activity.state = TaskMainState::Idle;
+        assert_eq!(activity_label(&activity), None);
+    }
 }
 
 #[path = "status_footer_tests.rs"]

@@ -25,3 +25,7 @@ impl From<WeeklyUsage> for WeeklyIndicator {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "weekly_usage_tests.rs"]
+mod tests;

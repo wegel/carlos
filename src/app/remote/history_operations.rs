@@ -172,3 +172,7 @@ impl Device {
 #[cfg(test)]
 #[path = "history_recovery_contract_tests.rs"]
 mod recovery_tests;
+
+#[cfg(test)]
+#[path = "history_progress_tests.rs"]
+mod progress_tests;

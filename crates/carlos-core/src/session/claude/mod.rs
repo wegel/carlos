@@ -66,3 +66,6 @@ mod callback_contract_tests;
 
 #[cfg(test)]
 mod quota_legacy_contract_tests;
+
+#[cfg(test)]
+mod quota_contract_tests;

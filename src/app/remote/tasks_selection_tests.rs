@@ -185,3 +185,72 @@ fn choosing_a_row_clears_only_its_devices_stop_error_and_scroll() {
         Some("Private exact stop rejection")
     );
 }
+
+#[test]
+fn native_reset_and_closed_info_keep_the_exact_selected_process_and_private_composer() {
+    let (mut device, connection) = device();
+    accept_page(
+        &mut device,
+        connection,
+        2,
+        &[(1, "running"), (2, "running")],
+    );
+    key(&mut device, KeyCode::F(2));
+    device.set_composer("keep this draft");
+    let snapshot = reset_snapshot(&device);
+    let mut info = snapshot.info.clone();
+    let (stream, _peer) = std::os::unix::net::UnixStream::pair().expect("local socket");
+    let mut link =
+        super::transport::Transport::from_stream(stream, &mut carlos_client::Client::default())
+            .expect("nonblocking device transport");
+    link.connection = connection;
+    info.availability = carlos_proto::session::Availability::Closed;
+    for (sequence, event) in [
+        (
+            3,
+            Event::Reset {
+                snapshot: Box::new(snapshot),
+            },
+        ),
+        (4, Event::InfoChanged { info }),
+    ] {
+        device
+            .receive(
+                &mut link,
+                Incoming::Notification(Box::new(Notification::SessionEvent(SessionEvent {
+                    session: device.session.clone(),
+                    seq: Sequence::new(sequence),
+                    event,
+                }))),
+            )
+            .expect("actual device accepts current native state");
+        assert_eq!(device.tasks.view.selected, Some(id(1)));
+        assert_eq!(device.view.input.lines().join("\n"), "keep this draft");
+        let selected = device
+            .tasks
+            .pages
+            .selected(Some(&id(1)))
+            .expect("retained task row");
+        assert_eq!(selected.id, id(1));
+        assert_eq!(selected.kind, TaskKind::Task);
+        assert!(device.client.operations().iter().next().is_none());
+    }
+}
+
+fn reset_snapshot(device: &Device) -> Snapshot {
+    let accepted = device
+        .client
+        .session(&device.session)
+        .expect("accepted session");
+    Snapshot {
+        info: accepted.info().clone(),
+        seq: Sequence::new(3),
+        tasks: accepted.tasks().cloned(),
+        entries: Vec::new(),
+        approvals: Vec::new(),
+        has_older: false,
+        goal: None,
+        queue: None,
+        settings: None,
+    }
+}

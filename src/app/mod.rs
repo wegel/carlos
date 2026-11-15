@@ -203,10 +203,6 @@ pub(crate) fn run() -> Result<()> {
 mod tests;
 
 #[cfg(test)]
-#[path = "../tests/claude_quota_tests.rs"]
-mod claude_quota_tests;
-
-#[cfg(test)]
 #[path = "../tests/claude_process_parity_tests.rs"]
 mod claude_process_parity_tests;
 
