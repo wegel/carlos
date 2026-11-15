@@ -8,27 +8,6 @@ use serde_json::Value;
 
 use super::state::AppState;
 
-/// Show one escaped copy of a session-owned native notice.
-pub(super) fn show(app: &mut AppState, key: String, text: String) {
-    app.session.record_claude_notice(key, &text);
-    app.consume_core_events();
-}
-
-/// Apply native warning decisions and redraw reports.
-pub(super) fn receive(app: &mut AppState, message: &Value) {
-    let notices = app.session.receive_claude_notice(message);
-    for (key, text) in notices {
-        show(app, key, text);
-    }
-}
-
-/// Show the native usage rows selected and bounded by the session.
-pub(super) fn usage(app: &mut AppState, message: &Value) {
-    for (key, text) in app.session.claude_usage_notice(message) {
-        show(app, key, text);
-    }
-}
-
 /// Update one compaction notice per attempt and invalidate stale context counts.
 pub(super) fn compact(app: &mut AppState, message: &Value) {
     let notice = app.session.compact_claude_context(message);

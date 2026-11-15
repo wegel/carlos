@@ -1,12 +1,6 @@
 //! Hydrates paged SDK history without turning automatic or unknown records into human prompts.
 
-#[cfg(test)]
-use anyhow::Result;
-#[cfg(test)]
-use carlos_core::session::actions::ServerRequestAction;
 use carlos_core::session::models::Role;
-#[cfg(test)]
-use serde_json::Value;
 
 use super::state::AppState;
 
@@ -17,41 +11,6 @@ pub(super) fn switch_session(app: &mut AppState, generation: u64, id: &str) {
     app.session
         .switch_claude_session(generation, id, &mut update);
     let _ = app.apply_claude_update(update);
-}
-
-/// Continue reading one stable history snapshot, then start the native query asynchronously.
-#[cfg(test)]
-pub(super) fn receive(
-    app: &mut AppState,
-    method: &str,
-    result: &Value,
-) -> Result<ServerRequestAction> {
-    let (next_method, params) = app.session.claude_history_control(method, result)?;
-    if method == "sessions.info" {
-        app.set_thread_name(result["customTitle"].as_str());
-        app.set_status("Reading Claude history");
-    }
-    Ok(control(next_method, params))
-}
-
-/// Append a classified history prompt and apply its original redraw and cursor effects.
-#[cfg(test)]
-pub(super) fn append_prompt(app: &mut AppState, facts: &Value) {
-    let uuid = facts["uuid"].as_str().unwrap_or("");
-    let key = app.item_key(&format!("claude-prompt:{uuid}"));
-    let update = app.session.append_claude_history_prompt(facts, &key);
-    app.consume_core_events();
-    if update.reset_navigation {
-        app.reset_input_history_navigation();
-    }
-}
-
-#[cfg(test)]
-fn control(method: &str, params: Value) -> ServerRequestAction {
-    ServerRequestAction::ClaudeControl {
-        method: method.to_string(),
-        params,
-    }
 }
 
 /// Report whether the user can explicitly recover a retained draft in any helper phase.

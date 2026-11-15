@@ -1,24 +1,30 @@
-//! Keeps private Claude workstreams out of live and loaded main transcripts.
+//! Keep every child envelope private while preserving main human anchors, tools and reports.
 
-use carlos_core::session::claude::ClaudePhase;
-use carlos_core::session::models::Role;
 use serde_json::{json, Value};
 
-use self::normalized_app::{handle_server_message_line, NormalizedApp as AppState};
-use crate::app::normalized_test_app as normalized_app;
+use super::backend_test_support::normalize;
+use super::claude::ClaudePhase;
+use super::models::Role;
+use super::state::SessionState;
+use crate::claude_backend::{is_child_report_notice, FixtureNormalizer};
 
-fn frame(app: &mut AppState, frame: Value, method: Option<&str>) {
-    let _ = handle_server_message_line(
-        app,
-        &json!({"method":"claude/controller",
-        "params":{"frame":frame,"requestMethod":method}})
-        .to_string(),
+fn frame(
+    core: &mut SessionState,
+    decoder: &mut FixtureNormalizer,
+    frame: Value,
+    method: Option<&str>,
+) {
+    let _ = normalize(
+        core,
+        decoder,
+        &json!({"method":"claude/controller","params":{"frame":frame,"requestMethod":method}}),
     );
 }
 
-fn sdk(app: &mut AppState, message: Value) {
+fn sdk(core: &mut SessionState, decoder: &mut FixtureNormalizer, message: Value) {
     frame(
-        app,
+        core,
+        decoder,
         json!({"type":"event","event":"sdk","message":message}),
         None,
     );
@@ -40,7 +46,8 @@ fn child_tags() -> Vec<Value> {
 
 #[test]
 fn every_child_envelope_hides_text_thinking_tools_results_and_session_state() {
-    let mut app = AppState::new("session".to_string());
+    let mut core = SessionState::new("session".into(), Default::default(), false);
+    let mut decoder = FixtureNormalizer::default();
     for tags in child_tags() {
         for mut message in [
             assistant("PRIVATE_CHILD"),
@@ -59,44 +66,48 @@ fn every_child_envelope_hides_text_thinking_tools_results_and_session_state() {
                 .as_object_mut()
                 .expect("message")
                 .extend(tags.as_object().expect("tags").clone());
-            sdk(&mut app, message);
+            sdk(&mut core, &mut decoder, message);
         }
     }
-    assert!(app.session.messages().is_empty());
-    assert_eq!(app.session.thread_id(), "session");
-    assert!(app.session.runtime_settings().current_model().is_none());
-    assert!(app.session.claude().activity().thinking().is_none());
-    assert!(app.session.active_turn_id().is_none());
-    assert!(app.session.claude().phase() == ClaudePhase::Ready);
+    assert!(core.messages().is_empty());
+    assert_eq!(core.thread_id(), "session");
+    assert!(core.runtime_settings().current_model().is_none());
+    assert!(core.claude().activity().thinking().is_none());
+    assert!(core.active_turn_id().is_none());
+    assert!(core.claude().phase() == ClaudePhase::Ready);
 }
 
 #[test]
 fn main_tools_reports_and_child_callbacks_survive_without_task_detail_rows() {
-    let mut app = AppState::new("session".to_string());
+    let mut core = SessionState::new("session".into(), Default::default(), false);
+    let mut decoder = FixtureNormalizer::default();
     sdk(
-        &mut app,
+        &mut core,
+        &mut decoder,
         json!({"type":"assistant","message":{"id":"main-tool","role":"assistant","content":[
         {"type":"tool_use","id":"main-call","name":"Bash","input":{"command":"echo MAIN_COMMAND","agent_id":"tool-argument"}}]}}),
     );
     sdk(
-        &mut app,
+        &mut core,
+        &mut decoder,
         json!({"type":"user","message":{"role":"user","content":[
         {"type":"tool_result","tool_use_id":"main-call","content":"MAIN_OUTPUT"}]}}),
     );
-    sdk(&mut app, assistant("MAIN_REPORT"));
+    sdk(&mut core, &mut decoder, assistant("MAIN_REPORT"));
     sdk(
-        &mut app,
+        &mut core,
+        &mut decoder,
         json!({"type":"system","subtype":"task_progress","agent_id":"child",
         "task_id":"child","run_id":"z","description":"PANEL_DESCRIPTION","summary":"PANEL_SUMMARY"}),
     );
     frame(
-        &mut app,
+        &mut core,
+        &mut decoder,
         json!({"type":"callback","callbackId":"child-permission","kind":"permission",
         "payload":{"toolName":"Bash","input":{"command":"echo child"},"options":{"agentId":"child"}}}),
         None,
     );
-    let text = app
-        .session
+    let text = core
         .messages()
         .iter()
         .map(|message| message.text.as_str())
@@ -107,12 +118,11 @@ fn main_tools_reports_and_child_callbacks_survive_without_task_detail_rows() {
     }
     assert!(!text.contains("PANEL_"));
     assert_eq!(
-        app.session.claude().tasks().data("child").expect("task")["summary"],
+        core.claude().tasks().data("child").expect("task")["summary"],
         "PANEL_SUMMARY"
     );
     assert_eq!(
-        app.session
-            .approval()
+        core.approval()
             .pending()
             .expect("child callback")
             .facts()
@@ -123,7 +133,8 @@ fn main_tools_reports_and_child_callbacks_survive_without_task_detail_rows() {
 
 #[test]
 fn history_retains_raw_child_metadata_without_transcript_or_rewind_entries() {
-    let mut app = AppState::new("session".to_string());
+    let mut core = SessionState::new("session".into(), Default::default(), false);
+    let mut decoder = FixtureNormalizer::default();
     let mut rows = Vec::new();
     for tags in child_tags() {
         for mut message in [
@@ -144,17 +155,25 @@ fn history_retains_raw_child_metadata_without_transcript_or_rewind_entries() {
     );
     rows.push(json!({"source":"system","message":assistant("MAIN_HISTORY_REPORT")}));
     frame(
-        &mut app,
+        &mut core,
+        &mut decoder,
         json!({"type":"reply","ok":true,"result":{"messages":rows,"nextOffset":null}}),
         Some("sessions.read"),
     );
-    assert_eq!(app.session.claude_history().records().len(), 10);
-    assert!(app.session.claude_history().unknown().is_empty());
-    assert_eq!(app.session.messages().len(), 2);
-    assert_eq!(app.session.messages()[0].role, Role::User);
-    assert_eq!(app.session.messages()[1].text, "MAIN_HISTORY_REPORT");
-    app.enter_rewind_mode();
-    assert_eq!(app.input_text(), "Human <task-notification> literal");
+    assert_eq!(core.claude_history().records().len(), 10);
+    assert!(core.claude_history().unknown().is_empty());
+    assert_eq!(core.messages().len(), 2);
+    assert_eq!(core.messages()[0].role, Role::User);
+    assert_eq!(core.messages()[1].text, "MAIN_HISTORY_REPORT");
+    assert_eq!(core.input_history().history_len(), 1);
+    assert_eq!(
+        core.input_history().text(0),
+        "Human <task-notification> literal"
+    );
+    assert_eq!(
+        core.input_history().entry_id(0),
+        Some(core.messages()[0].id)
+    );
 }
 
 #[test]
@@ -179,25 +198,22 @@ fn only_positively_identified_child_report_notices_are_hidden() {
         .chain(visible.into_iter().map(|origin| (origin, false)))
     {
         let notice = json!({"type":"user","origin":origin,"message":{"content":"<task-notification>text</task-notification>"}});
-        assert_eq!(
-            carlos_core::claude_backend::is_child_report_notice(&notice),
-            expected
-        );
+        assert_eq!(is_child_report_notice(&notice), expected);
         let mut report = assistant("Main agent report");
         report["origin"] = notice["origin"].clone();
-        assert!(!carlos_core::claude_backend::is_child_report_notice(
-            &report
-        ));
-        let mut app = AppState::new("session".to_string());
+        assert!(!is_child_report_notice(&report));
+        let mut core = SessionState::new("session".into(), Default::default(), false);
+        let mut decoder = FixtureNormalizer::default();
         let mut record = notice;
         record["session_id"] = json!("session");
         record["uuid"] = json!("notice");
         frame(
-            &mut app,
+            &mut core,
+            &mut decoder,
             json!({"type":"reply","ok":true,"result":{"messages":[{"source":"automatic","message":record}],"nextOffset":null}}),
             Some("sessions.read"),
         );
-        assert_eq!(app.session.messages().is_empty(), expected);
-        assert_eq!(app.session.claude_history().records().len(), 1);
+        assert_eq!(core.messages().is_empty(), expected);
+        assert_eq!(core.claude_history().records().len(), 1);
     }
 }

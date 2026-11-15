@@ -306,3 +306,9 @@ mod claude_context_contract_tests;
 
 #[cfg(test)]
 mod claude_read_guard_tests;
+
+#[cfg(test)]
+mod claude_history_contract_tests;
+
+#[cfg(test)]
+mod claude_visibility_tests;

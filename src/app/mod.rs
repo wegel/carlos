@@ -217,9 +217,6 @@ mod tests;
 #[cfg(test)]
 #[path = "../tests/claude_native_state_tests.rs"]
 mod claude_native_state_tests;
-#[cfg(test)]
-#[path = "../tests/claude_visibility_tests.rs"]
-mod claude_visibility_tests;
 
 #[cfg(test)]
 #[path = "../tests/claude_quota_tests.rs"]
@@ -261,9 +258,6 @@ mod claude_edit_parity_tests;
 #[cfg(test)]
 #[path = "../tests/claude_fence_parity_tests.rs"]
 mod claude_fence_parity_tests;
-#[cfg(test)]
-#[path = "../tests/claude_history_parity_tests.rs"]
-mod claude_history_parity_tests;
 
 mod codex_settings_view;
 

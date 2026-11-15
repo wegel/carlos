@@ -32,12 +32,6 @@ impl AppState {
         }
     }
 
-    /// Keep a single-line, terminal-safe name for display and inline editing.
-    #[cfg(test)]
-    pub(super) fn set_thread_name(&mut self, name: Option<&str>) {
-        self.session.observe_name(name);
-    }
-
     /// Apply a title only when metadata belongs to the current thread and includes a name field.
     pub(super) fn read_thread_name(&mut self, thread: &Value) {
         self.session.observe_thread_name(thread);
