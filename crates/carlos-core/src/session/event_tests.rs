@@ -213,8 +213,17 @@ fn approvals_emit_requests_submission_and_retirement_without_native_routes() {
     let mut client = core.publish().snapshot(100);
     let _ = core.set_pending_approval(approval());
     let id = core.approval.pending().expect("card").entry_id();
-    let events = synchronize(&mut core, &mut client);
+    let mut events = synchronize(&mut core, &mut client);
     assert_eq!(client.approvals.len(), 1);
+    for event in &mut events {
+        if let Event::ApprovalRequested { approval, .. } = &mut event.event {
+            assert_eq!(
+                approval.display_id.as_deref(),
+                Some("\"secret-native-request\"")
+            );
+            approval.display_id = None;
+        }
+    }
     assert!(!to_string(&events)
         .expect("encode")
         .contains("secret-native-request"));

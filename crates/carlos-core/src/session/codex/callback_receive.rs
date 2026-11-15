@@ -67,6 +67,7 @@ impl SessionState {
                 candidate: None,
                 candidate_card: None,
                 checking: false,
+                schema_error: None,
                 interrupting: false,
                 bytes,
             },

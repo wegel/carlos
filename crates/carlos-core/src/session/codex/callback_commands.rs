@@ -94,6 +94,11 @@ impl SessionState {
                         .unwrap_or("Unsupported form schema"),
                 ));
             }
+            entry.schema_error = update
+                .unsupported
+                .as_ref()
+                .map(|error| crate::session::task_rows::clipped(error, 2048).to_owned());
+            self.approval.refresh_metadata();
             return Some(update);
         }
         if revision != entry.revision {

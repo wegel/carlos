@@ -43,7 +43,7 @@ impl SessionState {
     }
 
     pub(super) fn event_phase(&self) -> Phase {
-        if self.approval.pending().is_some() {
+        if self.approval.live().any(|card| self.approval_blocks(card)) {
             Phase::Approval
         } else if self.active_turn_id.is_some() {
             Phase::Running
@@ -125,3 +125,7 @@ impl SessionState {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "event_phase_tests.rs"]
+mod phase_tests;

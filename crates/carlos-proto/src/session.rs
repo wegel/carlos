@@ -181,9 +181,15 @@ pub struct Approval {
     pub title: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub caller: Option<String>,
+    /// Bounded readonly native request caption; commands must use the opaque `id`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_id: Option<String>,
     pub details: Vec<String>,
     pub choices: Vec<Decision>,
     pub input: Option<ApprovalInput>,
+    /// Bounded readonly preflight failure; the original schema and target stay unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_error: Option<String>,
     pub submitted: bool,
     pub active: bool,
     #[serde(default = "blocking_default", skip_serializing_if = "is_blocking")]

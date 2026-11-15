@@ -69,6 +69,7 @@ mod thinking;
 mod tool_results;
 mod translate;
 mod transport;
+pub(crate) use transport::ControllerFailure;
 #[cfg(all(test, target_os = "linux"))]
 mod transport_drop_support;
 #[cfg(all(test, target_os = "linux"))]

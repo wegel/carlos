@@ -11,6 +11,40 @@ use serde_json::{json, Value};
 
 struct NoRetrieval;
 
+/// Describe bounded fields and remove absent native defaults without compiling a schema.
+pub fn fields(schema: &Value) -> Result<Vec<crate::session::questions::QuestionField>> {
+    ensure!(
+        schema.to_string().len() <= 65536,
+        "Form schema exceeds 64 KiB"
+    );
+    let properties = schema["properties"]
+        .as_object()
+        .context("Missing form properties")?;
+    ensure!(properties.len() <= 64, "Form exceeds 64 fields");
+    crate::session::questions::mcp_fields(&normalize(schema)?).map_err(anyhow::Error::msg)
+}
+
+/// Reject integer answers that Claude's JavaScript helper cannot represent exactly.
+pub fn validate_claude_integers(schema: &Value, answer: &Value) -> Result<()> {
+    const MAX: i64 = 9_007_199_254_740_991;
+    for (name, rule) in schema["properties"].as_object().into_iter().flatten() {
+        let Some(value) = answer.get(name).filter(|_| rule["type"] == "integer") else {
+            continue;
+        };
+        let safe = if let Some(value) = value.as_i64() {
+            (-MAX..=MAX).contains(&value)
+        } else if let Some(value) = value.as_u64() {
+            value <= MAX as u64
+        } else {
+            value
+                .as_f64()
+                .is_some_and(|value| value.abs() <= MAX as f64)
+        };
+        ensure!(safe, "{name}: enter a safe integer between -9007199254740991 and 9007199254740991; larger integers lose precision");
+    }
+    Ok(())
+}
+
 impl Retrieve for NoRetrieval {
     fn retrieve(
         &self,

@@ -72,6 +72,15 @@ fn answer_card(
     }
     client
         .respond(&claim.facts.request_id, body)
-        .map_err(|error| ControlFailure::Native(error.to_string()))?;
+        .map_err(|error| {
+            if matches!(
+                error.downcast_ref::<crate::claude_backend::ControllerFailure>(),
+                Some(crate::claude_backend::ControllerFailure::Rejected(_))
+            ) {
+                ControlFailure::Invalid(error.to_string())
+            } else {
+                ControlFailure::Native(error.to_string())
+            }
+        })?;
     Ok((Some(choice), json!(null)))
 }

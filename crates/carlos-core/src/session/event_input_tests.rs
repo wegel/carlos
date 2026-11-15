@@ -44,7 +44,14 @@ fn codex_and_claude_questions_use_the_same_field_contract() {
             fields[0].multiple,
             kind == ApprovalRequestKind::ClaudeNative
         );
-        let wire = serde_json::to_string(&snapshot).expect("snapshot");
+        assert_eq!(
+            snapshot.approvals[0].display_id.as_deref(),
+            Some("\"secret-request\"")
+        );
+        let mut without_caption = snapshot.clone();
+        without_caption.approvals[0].display_id = None;
+        let wire = serde_json::to_string(&without_caption)
+            .expect("snapshot excluding its readonly request caption");
         for secret in [
             "secret-thread",
             "secret-tool",
@@ -239,8 +246,11 @@ fn browser_consent_offers_once_and_retains_the_backend_default_no_fact() {
             .choices
             .contains(&carlos_proto::session::Decision::Once));
         assert!(matches!(card.input, Some(ApprovalInput::Browser { .. })));
-        assert!(!serde_json::to_string(card)
-            .expect("card")
+        assert_eq!(card.display_id.as_deref(), Some("\"private-route\""));
+        let mut without_caption = card.clone();
+        without_caption.display_id = None;
+        assert!(!serde_json::to_string(&without_caption)
+            .expect("card excluding its readonly request caption")
             .contains("private-route"));
     }
 }

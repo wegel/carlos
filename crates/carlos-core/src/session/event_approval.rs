@@ -35,13 +35,18 @@ impl SessionState {
         self.approval
             .live()
             .map(|card| {
-                export_card(
+                let mut exported = export_card(
                     card,
                     active == Some(card.entry_id()),
                     self.approval_blocks(card),
                     self.approval_browser_completed(card),
                     self.approval_caller(card),
-                )
+                );
+                exported.input_error = self
+                    .codex_callbacks()
+                    .get(&card.facts().request_id)
+                    .and_then(|callback| callback.schema_error.clone());
+                exported
             })
             .collect()
     }
@@ -107,9 +112,11 @@ pub(super) fn export_card(
         kind: kind.to_owned(),
         title: facts.title.clone(),
         caller,
+        display_id: Some(request_label(&facts.request_id)),
         details,
         choices,
         input,
+        input_error: None,
         submitted: card.submitted(),
         active,
         blocking,
@@ -117,6 +124,26 @@ pub(super) fn export_card(
             .requested_permissions
             .as_ref()
             .is_some_and(|payload| payload["defaultToNo"] == true),
+    }
+}
+
+fn request_label(id: &serde_json::Value) -> String {
+    let (text, shortened) = match id {
+        serde_json::Value::String(id) => {
+            let prefix = super::task_rows::clipped(id, 4096);
+            (
+                serde_json::to_string(prefix).expect("native string id"),
+                prefix.len() < id.len(),
+            )
+        }
+        serde_json::Value::Number(id) => (id.to_string(), false),
+        _ => ("unavailable".into(), false),
+    };
+    let text = super::text::safe_label(&text);
+    if shortened || text.len() > 4096 {
+        format!("{}…", super::task_rows::clipped(&text, 4093))
+    } else {
+        text
     }
 }
 
@@ -153,7 +180,10 @@ fn export_form(payload: &serde_json::Value, codex: bool) -> ApprovalInput {
         return unsupported(reason.to_owned());
     }
     if codex && payload["mode"] != "form" {
-        return unsupported(format!("Unsupported request mode: {}", payload["mode"]));
+        return unsupported(format!(
+            "Unsupported request mode: {}",
+            payload["mode"].as_str().unwrap_or("missing")
+        ));
     }
     match payload.get("requestedSchema") {
         Some(schema) => ApprovalInput::Form {
@@ -247,3 +277,7 @@ fn export_choices(facts: &ApprovalRequestDraft, input: Option<&ApprovalInput>) -
     })
     .collect()
 }
+
+#[cfg(test)]
+#[path = "event_approval_labels_tests.rs"]
+mod tests;

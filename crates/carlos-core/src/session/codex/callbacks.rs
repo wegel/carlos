@@ -44,6 +44,7 @@ pub struct CodexCallback {
     pub(in crate::session) candidate: Option<Value>,
     pub(in crate::session) candidate_card: Option<EntryId>,
     pub(in crate::session) checking: bool,
+    pub(in crate::session) schema_error: Option<String>,
     pub(in crate::session) interrupting: bool,
     pub(in crate::session) bytes: usize,
 }

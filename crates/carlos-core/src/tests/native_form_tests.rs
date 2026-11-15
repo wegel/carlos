@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::json;
 
-use super::{compile, url_host, validate};
+use super::{compile, fields, url_host, validate, validate_claude_integers};
 
 #[test]
 fn flat_forms_keep_types_unicode_optional_omissions_and_native_titled_enums() {
@@ -96,6 +96,40 @@ fn codex_integer_answers_keep_exact_native_rust_precision() {
     let value = json!({"n":9007199254740993u64});
     validate(&schema, &value).expect("no JavaScript bridge");
     assert_eq!(value["n"].as_u64(), Some(9007199254740993));
+}
+
+#[test]
+fn editor_fields_drop_null_defaults_without_changing_the_original_schema() {
+    let schema = json!({"type":"object","properties":{
+        "absent":{"type":"string","default":null},
+        "off":{"type":"boolean","default":false}}});
+    let descriptions = fields(&schema).expect("bounded field descriptions");
+    assert!(descriptions[0].schema().get("default").is_none());
+    assert_eq!(descriptions[1].schema()["default"], false);
+    assert_eq!(
+        schema["properties"]["absent"]["default"],
+        serde_json::Value::Null
+    );
+}
+
+#[test]
+fn claude_integer_limits_reject_before_a_native_write_and_allow_correction() {
+    let schema = json!({"type":"object","properties":{"n":{"type":"integer"}}});
+    for n in [
+        9_007_199_254_740_992_i64,
+        9_007_199_254_740_993,
+        -9_007_199_254_740_992,
+    ] {
+        assert!(validate_claude_integers(&schema, &json!({"n":n}))
+            .expect_err("unsafe JS integer")
+            .to_string()
+            .contains("lose precision"));
+    }
+    for n in [9_007_199_254_740_991_i64, -9_007_199_254_740_991, 0] {
+        validate_claude_integers(&schema, &json!({"n":n})).expect("exact JS integer");
+    }
+    validate(&schema, &json!({"n":9_007_199_254_740_993_u64}))
+        .expect("Codex retains Rust precision");
 }
 
 #[test]

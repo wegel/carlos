@@ -52,6 +52,24 @@ impl Cards {
 
     pub fn insert(&mut self, card: Approval, before: Option<EntryId>) -> Result<(), ClientError> {
         if card
+            .display_id
+            .as_ref()
+            .is_some_and(|label| label.len() > 4096)
+        {
+            return Err(ClientError::InvalidPayload(
+                "approval request caption exceeds its display byte bound".into(),
+            ));
+        }
+        if card
+            .input_error
+            .as_ref()
+            .is_some_and(|error| error.len() > 2048)
+        {
+            return Err(ClientError::InvalidPayload(
+                "approval input error exceeds its display byte bound".into(),
+            ));
+        }
+        if card
             .caller
             .as_ref()
             .is_some_and(|caller| caller.len() > 4096)

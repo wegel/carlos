@@ -84,6 +84,43 @@ fn form_preflight_and_stale_worker_reply_need_no_editor() {
     );
 }
 
+#[test]
+fn preflight_errors_export_bounded_metadata_without_replacing_the_original_card_or_schema() {
+    let mut session = SessionState::new("root".into(), Default::default(), false);
+    let schema = json!({"type":"object","properties":{"secret":{"type":"string"}}});
+    let frame = json!({"id":"form","params":{"threadId":"child","serverName":"server",
+        "mode":"form","requestedSchema":schema}});
+    session.route_codex_callback("mcpServer/elicitation/request", &frame, scope(&session));
+    let original = session.export_approvals()[0].clone();
+    let revision = session.approval().revision;
+    session.checked_codex_callback(
+        &json!({"requestId":"form","revision":0,"ok":false,"error":"é".repeat(3000)}),
+    );
+    let checked = session.export_approvals()[0].clone();
+    assert_eq!(checked.id, original.id);
+    assert_eq!(checked.input, original.input);
+    assert_eq!(checked.choices, original.choices);
+    assert_eq!(
+        checked.input_error.as_ref().expect("checked error").len(),
+        2048
+    );
+    assert!(session.approval().revision > revision);
+    session.checked_codex_callback(&json!({"requestId":"form","revision":99,"ok":true}));
+    assert_eq!(
+        session.export_approvals()[0],
+        checked,
+        "a stale answer check cannot erase preflight facts"
+    );
+    session.retire_codex_callback(&json!("form"));
+    session.checked_codex_callback(
+        &json!({"requestId":"form","revision":0,"ok":false,"error":"late"}),
+    );
+    assert!(
+        session.export_approvals().is_empty(),
+        "retired checks cannot recreate a callback"
+    );
+}
+
 fn scope(session: &SessionState) -> PanelScope<'static> {
     PanelScope {
         native: session.codex_scope(),

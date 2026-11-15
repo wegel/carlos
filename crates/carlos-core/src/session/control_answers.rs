@@ -61,6 +61,9 @@ pub(super) fn convert(
             {
                 ApprovalInput::Fields { fields } => field_reply(facts, fields, value)?,
                 ApprovalInput::Form { schema } => {
+                    if facts.method == "claude/native" {
+                        crate::native_form::validate_claude_integers(schema, value)?;
+                    }
                     crate::native_form::validate(schema, value)?;
                     json!({"action":"accept","content":value})
                 }

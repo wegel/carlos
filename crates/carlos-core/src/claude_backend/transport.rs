@@ -31,7 +31,7 @@ pub(super) type Trace = Option<Arc<Mutex<File>>>;
 
 /// Preserve an explicit helper refusal separately from a closed transport.
 #[derive(Debug)]
-pub(super) enum ControllerFailure {
+pub(crate) enum ControllerFailure {
     Rejected(String),
     Uncertain(String),
 }

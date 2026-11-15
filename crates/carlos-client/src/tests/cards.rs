@@ -102,3 +102,45 @@ fn caller_labels_accept_exact_utf8_bound_and_reject_oversized_updates_without_re
     initial.approvals.push(oversized);
     assert!(Replica::new(initial).is_err());
 }
+
+#[test]
+fn preflight_error_metadata_obeys_its_utf8_byte_bound_without_replacing_good_facts() {
+    let mut accepted = card(3);
+    accepted.input_error = Some("🌍".repeat(512));
+    let mut initial = snapshot();
+    initial.approvals.push(accepted.clone());
+    let mut replica = Replica::new(initial).expect("exact 2048-byte preflight error");
+    let mut oversized = accepted.clone();
+    oversized.input_error.as_mut().expect("error").push('a');
+    assert!(replica
+        .apply(event(
+            11,
+            Event::ApprovalRequested {
+                approval: oversized,
+                before: None,
+            }
+        ))
+        .is_err());
+    assert_eq!(replica.approvals(), [accepted]);
+}
+
+#[test]
+fn request_captions_obey_their_byte_bound_and_keep_the_opaque_card_address() {
+    let mut accepted = card(3);
+    accepted.display_id = Some("🌍".repeat(1024));
+    let mut initial = snapshot();
+    initial.approvals.push(accepted.clone());
+    let mut replica = Replica::new(initial).expect("exact 4096-byte display caption");
+    let mut oversized = accepted.clone();
+    oversized.display_id.as_mut().expect("caption").push('a');
+    assert!(replica
+        .apply(event(
+            11,
+            Event::ApprovalRequested {
+                approval: oversized,
+                before: None
+            }
+        ))
+        .is_err());
+    assert_eq!(replica.approvals(), [accepted]);
+}

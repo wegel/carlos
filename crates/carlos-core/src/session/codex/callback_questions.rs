@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use serde_json::Value;
 
 use crate::session::approval_state::{ApprovalRequestDraft, ApprovalRequestKind};
-use crate::session::questions::{mcp_fields, question_fields, QuestionField};
+use crate::session::questions::{question_fields, QuestionField};
 use crate::session::text::{safe_label, safe_text};
 
 /// Describe the fields and initial notices for one local editor.
@@ -89,23 +89,12 @@ pub fn build(
 fn build_form(params: &Value, draft: &mut CallbackEditor, details: &mut Vec<String>) {
     match params["mode"].as_str() {
         Some("form") => {
-            let mut schema = params["requestedSchema"].clone();
-            if let Some(properties) = schema["properties"].as_object_mut() {
-                for value in properties.values_mut() {
-                    if let Some(rule) = value.as_object_mut() {
-                        rule.retain(|_, value| !value.is_null());
-                    }
-                }
-            }
-            if schema.to_string().len() > 65536 {
-                draft.unsupported = Some("Form schema exceeds64 KiB".into());
-                return;
-            }
             draft.defaults = true;
-            draft.fields = mcp_fields(&schema).unwrap_or_else(|error| {
-                draft.unsupported = Some(error);
-                Vec::new()
-            });
+            draft.fields =
+                crate::native_form::fields(&params["requestedSchema"]).unwrap_or_else(|error| {
+                    draft.unsupported = Some(error.to_string());
+                    Vec::new()
+                });
             draft.notice = Some("Checking the form schema…".into());
         }
         Some("url") => {

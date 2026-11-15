@@ -30,24 +30,38 @@ impl CodexClient {
             connection,
             generation: self.shared.generation.load(Ordering::SeqCst),
         };
-        commands.check()?;
+        commands.check_current()?;
         Ok(CommandHandle::new(commands))
     }
 }
 
 impl Commands {
-    fn write_permission(&self) -> DispatchGuard {
+    fn write_permission(&self, initializing: bool) -> DispatchGuard {
         let captured = self.clone();
-        self.permission
-            .clone()
-            .and(DispatchGuard::new(move || captured.check().is_ok()))
+        self.permission.clone().and(DispatchGuard::new(move || {
+            if initializing {
+                captured.check_current()
+            } else {
+                captured.check()
+            }
+            .is_ok()
+        }))
     }
 
     fn check(&self) -> Result<()> {
+        self.check_current()?;
+        let owner = self.owner.upgrade().context("Codex owner has stopped")?;
+        ensure!(
+            !owner.reconnecting.load(Ordering::SeqCst),
+            "captured Codex connection has not finished initializing"
+        );
+        Ok(())
+    }
+
+    fn check_current(&self) -> Result<()> {
         let owner = self.owner.upgrade().context("Codex owner has stopped")?;
         ensure!(
             !owner.stopped.load(Ordering::SeqCst)
-                && !owner.reconnecting.load(Ordering::SeqCst)
                 && owner.generation.load(Ordering::SeqCst) == self.generation,
             "captured Codex connection has retired"
         );
@@ -83,7 +97,7 @@ impl BackendCommands for Commands {
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String> {
         self.check()?;
         self.connection
-            .call_guarded(method, params, timeout, self.write_permission())
+            .call_guarded(method, params, timeout, self.write_permission(false))
     }
     fn fork_from_rewind(
         &self,
@@ -109,21 +123,25 @@ impl BackendCommands for Commands {
         context: Value,
     ) -> Result<()> {
         self.check()?;
-        self.connection
-            .request_control_guarded(method, params, context, self.write_permission())
+        self.connection.request_control_guarded(
+            method,
+            params,
+            context,
+            self.write_permission(false),
+        )
     }
     fn refresh_context(&self) -> Result<()> {
         self.check()?;
         self.connection.refresh_context()
     }
     fn respond(&self, id: &Value, result: Value) -> Result<()> {
-        self.check()?;
+        self.check_current()?;
         self.connection
-            .respond_guarded(id, result, self.write_permission())
+            .respond_guarded(id, result, self.write_permission(true))
     }
     fn respond_error(&self, id: &Value, code: i64, message: &str) -> Result<()> {
-        self.check()?;
+        self.check_current()?;
         self.connection
-            .respond_error_guarded(id, code, message, self.write_permission())
+            .respond_error_guarded(id, code, message, self.write_permission(true))
     }
 }
