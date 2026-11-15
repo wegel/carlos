@@ -16,8 +16,8 @@ MAJOR: the closed non-Codex F5 path could wait indefinitely for a helper it neve
 
 MINOR: panels recognized disconnect text by string prefix. Root replaced that test with an explicit Device disconnect reason and reused the existing disconnect/reconnect workflows.
 
-The measured source0c interactive path is faster than both references; its full cold replay and admission have small real fixed costs. The dense Unicode index and two unattributed historical timeouts remain explicit limits. None should be described as fixed by ordinary-corpus results. Refreshed corrected-source measurements remain required for final acceptance.
+The measured source0c interactive path is faster than both references; its full cold replay and admission have small real fixed costs. The dense Unicode index and two unattributed historical timeouts remain explicit limits. None should be described as fixed by ordinary-corpus results. Final source23d6e707 measurements preserve the interactive gains: scroll0.68ms versus0.81, typing0.48 versus0.61. Cold replay adds a paired2.06ms and peak RSS adds a paired1,784KiB versus EP019a. Actual admission p95 is0.209ms versus0.203ms. Root accepts these measured fixed costs with the smaller terminal and keeps the dense-index limit explicit.
 
 ## Verdict
 
-PASS on the inspected code after the listed corrections. Final corrected-source feature/release/UI/native checks and measurements are still pending; this verdict does not approve the EP before those checks finish. Fable's complete PASS WITH ISSUES findings and root's dispositions remain in exec019b-review-disposition.md.
+PASS on the inspected code after the listed corrections. The final source23d6e707 default/no-default/release/143-daemon/306-terminal/23-Codex/10-Claude checks and all quiet measurements now pass. Root approves the EP under the owner's delegated authority on2026-11-15 at21:27UTC. Fable's complete PASS WITH ISSUES findings and root's dispositions remain in exec019b-review-disposition.md.

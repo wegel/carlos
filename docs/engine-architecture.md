@@ -1,6 +1,6 @@
 # Engine architecture: daemon and clients
 
-Status: agreed 2026-11-11, revised 2026-11-13. EP016 through EP018a are complete. The owner accepted EP018a. EP019 is now split into EP019a (headless daemon) and EP019b (terminal cutover), with owner review between them.
+Status: EP016 through EP019b are complete and accepted. EP019b runs the terminal through the daemon and has removed the embedded runtime. Its final checks, measurements and reviews pass; root recorded delegated approval on 2026-11-15. PROGRAM_PLAN.md records the approval delegated by the owner for completed EPs and the separate restrictions on installation, merging and pushing.
 
 This note records the design for splitting `carlos` into a daemon and several
 clients, and the reasons. Update it when a decision changes. Keep raw logs out.
@@ -43,7 +43,7 @@ baseline; a regression blocks a commit.
 - `carlos-core`: backends, session facts, tool labels and Ralph. Cargo forbids terminal dependencies; the compiler protects private facts.
 - `carlosd` (EP019a): session manager and Unix listener; WebSocket access follows in EP020. No terminal dependency.
 - `carlos-client` (EP019b): pure wire codec, connection steps and local session facts shared by clients. No sockets, threads, async runtime or terminal dependency.
-- `carlos`: terminal client with local view state after EP019b parity checks. It currently uses the core in process.
+- `carlos`: terminal client with its own composer, widgets, render cache and dictation. It connects to carlosd over a Unix socket and owns no backend or mutable core session.
 
 ## Session core
 
@@ -189,9 +189,9 @@ Types:
 2. EP017: Cargo workspace and a terminal-free carlos-core. Complete.
 3. EP018: numbered core events consumed in process, provisional protocol types and separate removal of the old redraw-report path. Complete.
 4. EP018a: bounded running output, client-owned drafts, prepared backend waits, terminal workflow inventory and reduced guards. Complete and accepted by the owner.
-5. EP019a, complete and awaiting owner review: real backend handles and a headless daemon with basic commands and two concurrent clients. Sessions survive client disconnect. Tests prove bounded queues, ordered commands, priority controls and private recovery. Archived plan: `.agents/done/EXECPLAN_019a_headless_daemon.md`; evidence: `.agents/reports/exec019a-final-report.md`.
-6. EP019b: add typed terminal-control families and carlos-client, preserve source/color/copy behavior, drive every terminal workflow through the daemon, then delete the embedded path in a separate commit. Pass review and record the delegated auto-approval before EP020. Scope: `docs/terminal-client-migration.md`; write the full plan after EP019a.
-7. EP020: WebSocket listener, device tokens and perf-session replay through the socket. Add schema output only when a real client needs it.
+5. EP019a, complete and accepted by the owner: real backend handles and a headless daemon with basic commands and two concurrent clients. Sessions survive client disconnect. Tests prove bounded queues, ordered commands, priority controls and private recovery. Archived plan: `.agents/done/EXECPLAN_019a_headless_daemon.md`; evidence: `.agents/reports/exec019a-final-report.md`.
+6. EP019b, complete and approved under delegated authority: typed terminal controls and pure carlos-client preserve source/color/copy and every terminal workflow through the daemon. Commit cc2a5f5 separately deletes the embedded path. Final evidence and whole-roadmap review are in `.agents/reports/exec019b-final-report.md`; archived plan: `.agents/done/EXECPLAN_019b_terminal_client.md`.
+7. EP020: first add explicit session stop/reopen and prove owner slots are released without losing saved conversations; then add the WebSocket listener, device tokens and perf-session replay through the socket. Add schema output only when a real client needs it.
 8. EP021: paged native history, Grok approvals and richer tool summaries as data.
 9. EP022: UniFFI bindings, iOS packaging and the iPhone app. Compile on the remote Mac; see `docs/ios-build.md`.
 

@@ -20,4 +20,4 @@ Fable 5.2 medium reviewed the complete EP and EP016–022 roadmap in read-only s
 
 9. **Command/module count (MINOR).** Keep typed command families for existing controls and keep version 1 provisional. The phone should consume only the commands its screens need. Do not add speculative phone APIs or a second session owner. The reviewer accepted the measured cold-replay, daemon-memory and admission costs; no timed merger or crate redesign follows from these figures.
 
-No reviewer requested a broad redesign. Root chose the concrete repairs above and did not start another optimization lane. Final corrected-source checks and refreshed measurements must pass before delegated approval.
+No reviewer requested a broad redesign. Root chose the concrete repairs above and did not start another optimization lane. Final corrected-source checks and refreshed measurements pass on source23d6e707. Root records delegated approval at2026-11-15 21:27UTC. The first EP020 milestone must repair stop/reopen before network access.

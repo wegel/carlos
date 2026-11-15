@@ -52,14 +52,23 @@ and the direct engineering self-review are in `.agents/reports/exec019a-final-re
 `.agents/reports/exec019a-engineering-review.md`. The owner explicitly accepted this step
 on 2026-11-14 in the current conversation. Its archived plan remains unchanged.
 
-The active plan is `.agents/execplans/EXECPLAN_019b_terminal_client.md`. It adds the remaining typed terminal commands and the shared Rust
-client, proves terminal workflow parity, then deletes the embedded session/backend path in a
-separate commit. Its scope and deletion gate are in `docs/terminal-client-migration.md`;
-the full plan now uses EP019a's working interfaces. Protocol version 1
-remains provisional until real remote clients exercise it.
+EP019b is complete and archived at `.agents/done/EXECPLAN_019b_terminal_client.md`.
+Root approved it under the owner's delegated grant on 2026-11-15 at 21:27 UTC after
+complete final checks, exact-pair measurements, direct engineering PASS and independent
+Fable 5.2 medium PASS WITH ISSUES. The final report and every finding/decision are in
+`.agents/reports/exec019b-final-report.md` and `exec019b-review-disposition.md`.
+Commit `cc2a5f5` separately removes the embedded runtime; final review corrections are
+`cbdca8f`, runtime source `23d6e70775c623b8106074957efb103d`.
+
+The next plan to write and execute is EP020. It must first add explicit typed session
+stop/reopen and prove reuse of the 16 owner slots while preserving saved conversations,
+private drafts and explicit retry choices. Only then add WebSocket/device-token access.
+Protocol version 1 remains provisional. Keep main and the installed binary unchanged.
 
 ExecPlans 019a through 022 are listed in `docs/engine-architecture.md`. Only the next plan
 is written in full. On 2026-11-14, the owner delegated approval of completed EPs to Codex and asked it to continue through the next EPs while the owner sleeps. Before each auto-approval, also obtain a Fable 5.2 medium review of the code and whole roadmap, as the owner requested in the same conversation. Use judgment to address or explain each finding, then record the auto-approval and continue after all checks and the direct engineering review pass. Do not stop at the former per-EP human gate. On 2026-11-14, the owner further directed: no more reviewers until the end of EP019b. Continue implementation and tests without new slice or follow-up reviewer sessions; obtain the final engineering and Fable reviews when the whole EP is ready. This instruction supersedes the repository's earlier per-slice review cadence, not its correctness checks. This grant does not authorize merging, pushing or replacing the installed spike binary; keep those actions separate.
+
+The final EP019b Fable review found that live owners remain allocated until daemon shutdown and closed non-Codex sessions need an explicit recovery command. EP020 must first add a typed session stop/reopen path, with actual multi-client/native tests, before enabling its network listener. Stopping a session releases its owner and native processes while keeping the saved conversation. This is a required first milestone, not optional later cleanup. The review remains `.agents/reports/exec019b-fable-final-review.md`; its final EP019b dispositions belong in the final report.
 
 ExecPlans 009 to 015 remain under `.agents/execplans/`. Their status was not reviewed when the
 daemon split started. They remain outside the iPhone spike; its current step is EP019b.
@@ -81,3 +90,5 @@ daemon split started. They remain outside the iPhone spike; its current step is 
 
 - [x] `.agents/done/EXECPLAN_018a_pre_daemon_cleanup.md` (owner accepted 2026-11-13; archived plan unchanged)
 - [x] `.agents/done/EXECPLAN_019a_headless_daemon.md` (completed and owner accepted 2026-11-14; archived plan unchanged)
+
+- [x] `.agents/done/EXECPLAN_019b_terminal_client.md` (completed and approved under delegated authority 2026-11-15; final checks and whole-roadmap review pass)

@@ -43,18 +43,22 @@ Alpha.
 
 ## Local daemon spike
 
-The `iphone-spike` branch also builds `carlosd`, a separate process that keeps
-Codex, Claude and Grok sessions alive when a client disconnects. Run it with
-explicit private paths:
+The `iphone-spike` branch runs the terminal through `carlosd`, the separate
+process that owns Codex, Claude and Grok sessions. An ordinary `carlos` command
+connects to the managed local daemon, starting it when needed. Keep the matching
+`carlosd` executable beside `carlos`. Closing the terminal leaves its conversation
+running; each terminal keeps its own draft, scroll position and open panels.
+
+To run a separate daemon with explicit private paths:
 
 ```sh
-cargo build -p carlosd
+cargo build
 runtime_dir=$(mktemp -d)
 target/debug/carlosd --socket "$runtime_dir/daemon.sock" --state-dir "$runtime_dir/state"
 ```
 
-It serves typed JSON-RPC over a same-user Unix socket. It has no network listener.
-The terminal still owns its sessions in process until EP019b completes the switch.
+Attach with `target/debug/carlos --daemon-socket <socket-path>`. The daemon serves typed
+JSON-RPC over a same-user Unix socket. It has no network listener yet.
 [The local contract](docs/daemon-protocol.md) explains retry identities, saved
 sessions and bounded tool watches. `scripts/test.sh` exercises the real daemon
 with two clients and deterministic native peers, without an account or inference.
@@ -636,7 +640,8 @@ No normal test uses the user's account or needs paid inference.
 To test an installed executable directly:
 
 ```bash
-target/ui-venv/bin/python tests/ui/test_workflows.py --binary ~/.local/bin/carlos -v
+target/ui-venv/bin/python tests/ui/test_workflows.py \
+  --binary ~/.local/bin/carlos --daemon-binary ~/.local/bin/carlosd -v
 ```
 
 ## controls

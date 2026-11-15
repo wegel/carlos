@@ -1,0 +1,854 @@
+{
+  "runtime_source": "23d6e70775c623b8106074957efb103d",
+  "commit": "cbdca8f70cf1e71461bba6985b5ed95d30e09e45",
+  "files": {
+    "carlos": {
+      "path": "/tmp/carlos-ep019b/review-accepted-pair/carlos",
+      "sha256": "af9e3bb220fe4515f74adf8dc379874d3624478c8db14977864c9dd159777384",
+      "bytes": 17334632
+    },
+    "carlosd": {
+      "path": "/tmp/carlos-ep019b/review-accepted-pair/carlosd",
+      "sha256": "2ecdbcd9be452ee835993dc5f410e310999a17de222c7f7e0386609b32c32551",
+      "bytes": 17361096
+    },
+    "carlos-claude-controller": {
+      "path": "/tmp/carlos-ep019b/review-accepted-pair/carlos-claude-controller",
+      "sha256": "01a3485c9dabd395a0a763c58e49fcc22234cdd3d1081969d4266be8e0b7a42f",
+      "bytes": 104780090
+    }
+  },
+  "renderer": {
+    "synthetic": {
+      "samples": 15,
+      "counts": [
+        6001,
+        39347,
+        6000
+      ],
+      "medians": {
+        "preplan": {
+          "apply": 14.08,
+          "replay": 46.26,
+          "layout": 14.6,
+          "draw": 3.41,
+          "scroll_draw_p50": 0.71,
+          "scroll_draw_p95": 0.81,
+          "scroll_draw_max": 0.83,
+          "typing_draw_p50": 0.6,
+          "typing_draw_p95": 0.61,
+          "typing_draw_max": 0.65,
+          "working_draw_p50": 0.6,
+          "working_draw_p95": 0.61,
+          "working_draw_max": 0.65,
+          "append_total_p50": 0.61,
+          "append_total_p95": 0.65,
+          "append_total_max": 0.65,
+          "peak_rss_kib": 23980
+        },
+        "ep019a": {
+          "apply": 14.0,
+          "replay": 45.49,
+          "layout": 14.33,
+          "draw": 3.37,
+          "scroll_draw_p50": 0.71,
+          "scroll_draw_p95": 0.81,
+          "scroll_draw_max": 0.83,
+          "typing_draw_p50": 0.6,
+          "typing_draw_p95": 0.61,
+          "typing_draw_max": 0.65,
+          "working_draw_p50": 0.6,
+          "working_draw_p95": 0.61,
+          "working_draw_max": 0.65,
+          "append_total_p50": 0.61,
+          "append_total_p95": 0.65,
+          "append_total_max": 0.65,
+          "peak_rss_kib": 23976
+        },
+        "current": {
+          "apply": 13.99,
+          "replay": 47.61,
+          "layout": 14.75,
+          "draw": 3.18,
+          "scroll_draw_p50": 0.58,
+          "scroll_draw_p95": 0.68,
+          "scroll_draw_max": 0.7,
+          "typing_draw_p50": 0.47,
+          "typing_draw_p95": 0.48,
+          "typing_draw_max": 0.53,
+          "working_draw_p50": 0.47,
+          "working_draw_p95": 0.48,
+          "working_draw_max": 0.52,
+          "append_total_p50": 0.48,
+          "append_total_p95": 0.51,
+          "append_total_max": 0.51,
+          "peak_rss_kib": 25736
+        }
+      },
+      "paired_changes": {
+        "preplan": {
+          "apply": {
+            "median": -0.08999999999999986,
+            "median_95_interval": [
+              -0.11000000000000121,
+              -0.019999999999999574
+            ]
+          },
+          "replay": {
+            "median": 1.5700000000000003,
+            "median_95_interval": [
+              1.490000000000002,
+              1.8999999999999986
+            ]
+          },
+          "layout": {
+            "median": 0.15000000000000036,
+            "median_95_interval": [
+              0.11000000000000121,
+              0.22000000000000064
+            ]
+          },
+          "draw": {
+            "median": -0.22999999999999998,
+            "median_95_interval": [
+              -0.27,
+              -0.17000000000000037
+            ]
+          },
+          "scroll_draw_p50": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.12
+            ]
+          },
+          "scroll_draw_p95": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.13
+            ]
+          },
+          "scroll_draw_max": {
+            "median": -0.12,
+            "median_95_interval": [
+              -0.13,
+              -0.12
+            ]
+          },
+          "typing_draw_p50": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.13
+            ]
+          },
+          "typing_draw_p95": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.13
+            ]
+          },
+          "typing_draw_max": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.12
+            ]
+          },
+          "working_draw_p50": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.13
+            ]
+          },
+          "working_draw_p95": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.13
+            ]
+          },
+          "working_draw_max": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.13
+            ]
+          },
+          "append_total_p50": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.12
+            ]
+          },
+          "append_total_p95": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.13
+            ]
+          },
+          "append_total_max": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.13
+            ]
+          },
+          "peak_rss_kib": {
+            "median": 1828,
+            "median_95_interval": [
+              1628,
+              2012
+            ]
+          }
+        },
+        "ep019a": {
+          "apply": {
+            "median": -0.02000000000000135,
+            "median_95_interval": [
+              -0.040000000000000924,
+              0.030000000000001137
+            ]
+          },
+          "replay": {
+            "median": 2.0600000000000023,
+            "median_95_interval": [
+              1.8399999999999963,
+              2.280000000000001
+            ]
+          },
+          "layout": {
+            "median": 0.41000000000000014,
+            "median_95_interval": [
+              0.2400000000000002,
+              0.41999999999999993
+            ]
+          },
+          "draw": {
+            "median": -0.20000000000000018,
+            "median_95_interval": [
+              -0.27,
+              -0.1299999999999999
+            ]
+          },
+          "scroll_draw_p50": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.12
+            ]
+          },
+          "scroll_draw_p95": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.1200000000000001
+            ]
+          },
+          "scroll_draw_max": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.12
+            ]
+          },
+          "typing_draw_p50": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.13
+            ]
+          },
+          "typing_draw_p95": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.13
+            ]
+          },
+          "typing_draw_max": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.12
+            ]
+          },
+          "working_draw_p50": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.13
+            ]
+          },
+          "working_draw_p95": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.12
+            ]
+          },
+          "working_draw_max": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.13
+            ]
+          },
+          "append_total_p50": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.13
+            ]
+          },
+          "append_total_p95": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.13
+            ]
+          },
+          "append_total_max": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.13
+            ]
+          },
+          "peak_rss_kib": {
+            "median": 1784,
+            "median_95_interval": [
+              1696,
+              1888
+            ]
+          }
+        }
+      }
+    },
+    "fixture": {
+      "samples": 15,
+      "counts": [
+        5,
+        9,
+        4
+      ],
+      "medians": {
+        "preplan": {
+          "apply": 0.01,
+          "replay": 0.97,
+          "layout": 0.01,
+          "draw": 0.48,
+          "scroll_draw_p50": 0.44,
+          "scroll_draw_p95": 0.44,
+          "scroll_draw_max": 0.44,
+          "typing_draw_p50": 0.37,
+          "typing_draw_p95": 0.39,
+          "typing_draw_max": 0.44,
+          "working_draw_p50": 0.37,
+          "working_draw_p95": 0.38,
+          "working_draw_max": 0.44,
+          "append_total_p50": 0.4,
+          "append_total_p95": 0.45,
+          "append_total_max": 0.45,
+          "peak_rss_kib": 11680
+        },
+        "ep019a": {
+          "apply": 0.01,
+          "replay": 0.99,
+          "layout": 0.01,
+          "draw": 0.49,
+          "scroll_draw_p50": 0.44,
+          "scroll_draw_p95": 0.44,
+          "scroll_draw_max": 0.44,
+          "typing_draw_p50": 0.37,
+          "typing_draw_p95": 0.39,
+          "typing_draw_max": 0.44,
+          "working_draw_p50": 0.37,
+          "working_draw_p95": 0.38,
+          "working_draw_max": 0.45,
+          "append_total_p50": 0.4,
+          "append_total_p95": 0.46,
+          "append_total_max": 0.46,
+          "peak_rss_kib": 11564
+        },
+        "current": {
+          "apply": 0.0,
+          "replay": 0.77,
+          "layout": 0.01,
+          "draw": 0.32,
+          "scroll_draw_p50": 0.31,
+          "scroll_draw_p95": 0.31,
+          "scroll_draw_max": 0.31,
+          "typing_draw_p50": 0.24,
+          "typing_draw_p95": 0.26,
+          "typing_draw_max": 0.31,
+          "working_draw_p50": 0.24,
+          "working_draw_p95": 0.24,
+          "working_draw_max": 0.32,
+          "append_total_p50": 0.27,
+          "append_total_p95": 0.32,
+          "append_total_max": 0.32,
+          "peak_rss_kib": 11024
+        }
+      },
+      "paired_changes": {
+        "preplan": {
+          "apply": {
+            "median": -0.01,
+            "median_95_interval": [
+              -0.01,
+              0.0
+            ]
+          },
+          "replay": {
+            "median": -0.21999999999999997,
+            "median_95_interval": [
+              -0.22999999999999998,
+              -0.17999999999999994
+            ]
+          },
+          "layout": {
+            "median": 0.01,
+            "median_95_interval": [
+              0.0,
+              0.01
+            ]
+          },
+          "draw": {
+            "median": -0.15999999999999998,
+            "median_95_interval": [
+              -0.16999999999999998,
+              -0.14
+            ]
+          },
+          "scroll_draw_p50": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.12
+            ]
+          },
+          "scroll_draw_p95": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.12
+            ]
+          },
+          "scroll_draw_max": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.12
+            ]
+          },
+          "typing_draw_p50": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.13
+            ]
+          },
+          "typing_draw_p95": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.12
+            ]
+          },
+          "typing_draw_max": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.12
+            ]
+          },
+          "working_draw_p50": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.13
+            ]
+          },
+          "working_draw_p95": {
+            "median": -0.14,
+            "median_95_interval": [
+              -0.14,
+              -0.13
+            ]
+          },
+          "working_draw_max": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.12
+            ]
+          },
+          "append_total_p50": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.13
+            ]
+          },
+          "append_total_p95": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.13
+            ]
+          },
+          "append_total_max": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.13
+            ]
+          },
+          "peak_rss_kib": {
+            "median": -660,
+            "median_95_interval": [
+              -868,
+              -544
+            ]
+          }
+        },
+        "ep019a": {
+          "apply": {
+            "median": -0.01,
+            "median_95_interval": [
+              -0.01,
+              -0.01
+            ]
+          },
+          "replay": {
+            "median": -0.22999999999999998,
+            "median_95_interval": [
+              -0.27,
+              -0.17999999999999994
+            ]
+          },
+          "layout": {
+            "median": 0.0,
+            "median_95_interval": [
+              0.0,
+              0.01
+            ]
+          },
+          "draw": {
+            "median": -0.15999999999999998,
+            "median_95_interval": [
+              -0.16999999999999998,
+              -0.14999999999999997
+            ]
+          },
+          "scroll_draw_p50": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.12
+            ]
+          },
+          "scroll_draw_p95": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.12
+            ]
+          },
+          "scroll_draw_max": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.13
+            ]
+          },
+          "typing_draw_p50": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.13
+            ]
+          },
+          "typing_draw_p95": {
+            "median": -0.14,
+            "median_95_interval": [
+              -0.14,
+              -0.12
+            ]
+          },
+          "typing_draw_max": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.15000000000000002,
+              -0.13
+            ]
+          },
+          "working_draw_p50": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.13
+            ]
+          },
+          "working_draw_p95": {
+            "median": -0.14,
+            "median_95_interval": [
+              -0.14,
+              -0.14
+            ]
+          },
+          "working_draw_max": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14,
+              -0.12
+            ]
+          },
+          "append_total_p50": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.13,
+              -0.13
+            ]
+          },
+          "append_total_p95": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14999999999999997,
+              -0.13
+            ]
+          },
+          "append_total_max": {
+            "median": -0.13,
+            "median_95_interval": [
+              -0.14999999999999997,
+              -0.13
+            ]
+          },
+          "peak_rss_kib": {
+            "median": -536,
+            "median_95_interval": [
+              -644,
+              -476
+            ]
+          }
+        }
+      }
+    }
+  },
+  "socket": {
+    "ep019a": {
+      "rounds": 1000,
+      "median_ms": 0.16072,
+      "p95_ms": 0.203011,
+      "max_ms": 0.799403,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 2918797,
+          "metrics": {
+            "VmHWM": 7272,
+            "VmRSS": 7272,
+            "RssAnon": 796,
+            "RssFile": 6476,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 2918797,
+          "metrics": {
+            "VmHWM": 14248,
+            "VmRSS": 14248,
+            "RssAnon": 5280,
+            "RssFile": 8968,
+            "Threads": 18
+          }
+        }
+      ],
+      "scope": "actual carlosd Unix socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion"
+    },
+    "current": {
+      "rounds": 1000,
+      "median_ms": 0.1641755,
+      "p95_ms": 0.208911,
+      "max_ms": 0.670192,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 2918829,
+          "metrics": {
+            "VmHWM": 8772,
+            "VmRSS": 8772,
+            "RssAnon": 820,
+            "RssFile": 7952,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 2918829,
+          "metrics": {
+            "VmHWM": 17440,
+            "VmRSS": 17440,
+            "RssAnon": 5752,
+            "RssFile": 11688,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual carlosd Unix socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion"
+    }
+  },
+  "pinned_socket": {
+    "rounds": 1000,
+    "median_ms": 0.504837,
+    "p95_ms": 0.646612,
+    "max_ms": 1.122164,
+    "daemon_memory": [
+      {
+        "label": "hello:measured-client",
+        "daemon_pid": 2918356,
+        "metrics": {
+          "VmHWM": 8544,
+          "VmRSS": 8544,
+          "RssAnon": 820,
+          "RssFile": 7724,
+          "Threads": 5
+        }
+      },
+      {
+        "label": "after-native-admissions",
+        "daemon_pid": 2918356,
+        "metrics": {
+          "VmHWM": 17412,
+          "VmRSS": 17412,
+          "RssAnon": 5764,
+          "RssFile": 11648,
+          "Threads": 20
+        }
+      }
+    ],
+    "scope": "actual carlosd Unix socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion"
+  },
+  "owner_replay": {
+    "client_decode_ms": 3.5779169999999887,
+    "frames": 1060,
+    "output_chunks": 1000,
+    "publish_export_encode_ms": 13.39051199999999,
+    "rss_kib": {
+      "after_apply": 7536,
+      "after_transfer": 7944,
+      "before": 2680
+    },
+    "scope": "same core synthetic fixture, production page/output types, real Unix pipe; no native startup, manager admission or terminal render; concurrent costs overlap",
+    "seed": 1,
+    "source_apply_ms": 13.863887,
+    "source_bytes": 3698790,
+    "source_rows": 6000,
+    "tool_lines": 24,
+    "transfer_wall_ms": 25.577556,
+    "turns": 1000,
+    "wire_bytes": 4896929,
+    "writer_wait_send_ms": 5.771202000000011
+  },
+  "formatter": [
+    {
+      "admission_ms": 38.065746999999995,
+      "cache_data_bytes_high_water": 262144,
+      "case": "ansi",
+      "final_memory": {
+        "peak_rss_kib": 77480,
+        "rss_kib": 77480
+      },
+      "final_source_bytes": 67109222,
+      "indexed_memory": {
+        "peak_rss_kib": 77264,
+        "rss_kib": 77264
+      },
+      "initial_layout_ms": 124.020042,
+      "initial_source_bytes": 67108864,
+      "logical_rows": 3195660,
+      "painted_row_payload_capacity_bytes_high_water": 18720,
+      "painted_rows_high_water": 48,
+      "payload_excludes": "spare row-vector slots and allocator overhead; kernel RSS includes both",
+      "process_before_source": {
+        "peak_rss_kib": 9376,
+        "rss_kib": 9376
+      },
+      "run_id": "4a034bb96b064bf788f30f987c75e873",
+      "scope": "actual formatter worker and checked Client cache; admission finishes before first layout; samples await count/head and final tail frames; socket/terminal paint overhead measured separately",
+      "source_blake3": "292a6e746b04c159594b6d792d710862ef59efee1636f1bb6c4c03089572999d",
+      "source_only_memory": {
+        "peak_rss_kib": 76344,
+        "rss_kib": 76344
+      },
+      "source_path": "/var/home/wegel/work/perso/carlos-daemon/target/large-source-probe/ansi/clipboard-120.txt",
+      "append": {
+        "p95_ms": 0.737292,
+        "sample_count": 16
+      },
+      "resize_28_to_120": {
+        "p95_ms": 133.484324,
+        "sample_count": 16
+      },
+      "resize_120_to_28": {
+        "p95_ms": 132.45335,
+        "sample_count": 16
+      }
+    },
+    {
+      "admission_ms": 14.319857,
+      "cache_data_bytes_high_water": 262144,
+      "case": "markdown",
+      "final_memory": {
+        "peak_rss_kib": 106096,
+        "rss_kib": 106096
+      },
+      "final_source_bytes": 16777574,
+      "indexed_memory": {
+        "peak_rss_kib": 72816,
+        "rss_kib": 64652
+      },
+      "initial_layout_ms": 38.046246,
+      "initial_source_bytes": 16777216,
+      "logical_rows": 629146,
+      "painted_row_payload_capacity_bytes_high_water": 18336,
+      "painted_rows_high_water": 48,
+      "payload_excludes": "spare row-vector slots and allocator overhead; kernel RSS includes both",
+      "process_before_source": {
+        "peak_rss_kib": 9288,
+        "rss_kib": 9288
+      },
+      "run_id": "88f832512d3144679110f9b339764728",
+      "scope": "actual formatter worker and checked Client cache; admission finishes before first layout; samples await count/head and final tail frames; socket/terminal paint overhead measured separately",
+      "source_blake3": "5ba2d99c437834b457afc44bd29e03e49f5eee71317470aa51c8f6b2206950dc",
+      "source_only_memory": {
+        "peak_rss_kib": 26912,
+        "rss_kib": 26912
+      },
+      "source_path": "/var/home/wegel/work/perso/carlos-daemon/target/large-source-probe/markdown/clipboard-120.txt",
+      "append": {
+        "p95_ms": 30.19777,
+        "sample_count": 16
+      },
+      "resize_28_to_120": {
+        "p95_ms": 21.03294,
+        "sample_count": 16
+      },
+      "resize_120_to_28": {
+        "p95_ms": 22.178405,
+        "sample_count": 16
+      }
+    }
+  ],
+  "evidence_root": "/tmp/carlos-ep019b/review-acceptance-evidence",
+  "matched_renderer_root": "/tmp/carlos-ep019b/review-matched-latency",
+  "validation_log": "/tmp/carlos-ep019b/final-release-gate-09.log"
+}
