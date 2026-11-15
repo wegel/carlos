@@ -114,6 +114,8 @@ pub mod item_history;
 mod item_deltas;
 
 #[cfg(test)]
+mod common_native_tests;
+#[cfg(test)]
 mod native_item_headless_tests;
 #[cfg(test)]
 mod native_translation_tests;

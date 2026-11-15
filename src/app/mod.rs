@@ -305,10 +305,6 @@ mod codex_settings_view;
 
 mod claude_updates;
 
-#[cfg(test)]
-#[path = "../tests/idless_item_tests.rs"]
-mod idless_item_tests;
-
 mod backend_updates;
 
 #[cfg(test)]

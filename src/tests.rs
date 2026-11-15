@@ -99,8 +99,6 @@ mod codex_startup_settings_tests;
 mod grok_backend_tests;
 #[path = "tests/input_tests.rs"]
 mod input_tests;
-#[path = "tests/native_activity_tests.rs"]
-mod native_activity_tests;
 #[path = "tests/notification_tests.rs"]
 mod notification_tests;
 #[path = "tests/phone_layout_tests.rs"]

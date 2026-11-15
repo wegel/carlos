@@ -2,8 +2,7 @@
 
 use serde_json::{json, Value};
 
-use crate::app::notifications::handle_server_message_line;
-use crate::app::state::AppState;
+use super::{feed as handle_server_message_line, session};
 
 #[test]
 fn idless_items_keep_pre_plan_rows_for_every_backend_and_item_label() {
@@ -86,16 +85,16 @@ fn item(kind: &str, content: usize, id: Option<Value>) -> Value {
 }
 
 fn run_case(backend: &str, kind: &str, method: &str, content: usize, id: Option<Value>) -> Value {
-    let mut app = AppState::new("thread".into());
-    app.session.set_codex_enabled_for_test(backend == "codex");
-    app.session.set_claude_enabled_for_test(backend == "claude");
-    app.session.set_summary_enabled_for_test(false);
+    let mut app = session("thread");
+    app.set_codex_enabled_for_test(backend == "codex");
+    app.set_claude_enabled_for_test(backend == "claude");
+    app.set_summary_enabled_for_test(false);
     let item = item(kind, content, id);
     handle_server_message_line(
         &mut app,
         &json!({"method":method,"params":{"item":item}}).to_string(),
     );
-    let messages = app.session.messages();
+    let messages = app.messages();
     assert!(
         messages.items().is_empty(),
         "id-less rows must stay unkeyed"
