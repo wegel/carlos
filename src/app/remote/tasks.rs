@@ -1,6 +1,7 @@
 //! Keep each terminal's task panel, selected opaque id and mode independent of daemon facts.
 
 use std::cell::{Cell, RefCell};
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use carlos_proto::commands::SendPolicy;
@@ -130,7 +131,7 @@ impl Device {
         }
         if key.code == KeyCode::F(3) && key.modifiers.is_empty() {
             if self.task_backend() == Some(Backend::Claude) {
-                self.tasks.view.queue_mode = !self.tasks.view.queue_mode;
+                self.toggle_claude_queue_mode();
                 return Ok(true);
             }
             if self.tasks.view.show {
@@ -209,6 +210,13 @@ impl Device {
     }
 
     /// Preserve Claude's explicit native Queue mode independently of the Codex queue editor.
+    fn toggle_claude_queue_mode(&mut self) {
+        self.tasks.view.queue_mode = !self.tasks.view.queue_mode;
+        self.view.viewport.steer_notice_until =
+            (!self.tasks.view.queue_mode).then(|| Instant::now() + Duration::from_secs(2));
+    }
+
+    /// Choose the captured Enter policy without changing another device's queue mode.
     pub(super) fn task_send_policy(&self) -> SendPolicy {
         if self.task_backend() == Some(Backend::Claude) && self.tasks.view.queue_mode {
             SendPolicy::Queue

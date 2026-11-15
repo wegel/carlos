@@ -16,7 +16,7 @@ class ToolOutput:
 
     def open_tool_settings(self, terminal, expected):
         terminal.send(b"\x1b[109;5u")  # Ctrl+M, encoded distinctly from Enter.
-        terminal.contains("Settings")
+        terminal.wait_settings_editor()
         terminal.contains("Tool output")
         terminal.contains(expected)
         terminal.send(b"\x1b[Z")  # Backtab from Model selects Tool output.
@@ -99,7 +99,7 @@ class ToolOutput:
                       "local tools command saved")
 
     def start_tools(self, terminal):
-        terminal.wait(lambda: terminal.input_is(""), "thread ready")
+        terminal.wait_ready_composer()
         terminal.paste("inspect source")
         terminal.send(b"\r")
         terminal.contains("Answer: inspect source")
@@ -188,7 +188,7 @@ class ToolOutput:
 
     def test_bare_tools_cycles_and_unknown_arguments_stay_local(self):
         terminal = self.launch(resume=None)
-        terminal.wait(lambda: terminal.input_is(""), "thread ready")
+        terminal.wait_ready_composer()
         for label in ["compact", "full", "auto"]:
             self.tools_command(terminal, "/tools", label)
         terminal.paste("/tools invalid")

@@ -48,7 +48,7 @@ class DaemonSettingsContext:
         terminal.send(CTRL_M)
         terminal.contains("Tab field, arrows, Enter save")
         terminal.send(b"\t\t")
-        terminal.contains("Next backend launch applies size")
+        terminal.contains("Start a new session to apply size")
 
     def test_daemon_context_cancel_refresh_and_explicit_save_keep_the_process_and_composer(self):
         fixture, client, session, terminal = self.backend_settings_terminal("context-ui-private")
@@ -71,7 +71,7 @@ class DaemonSettingsContext:
         refreshed = terminal.requests("settings/context/read")[-1]["id"]
         terminal.wait(lambda:any(message.get("id") == refreshed and message.get("result", {}).get("saved_tokens") == 750000
                                    for message in terminal.messages("server")), "fresh context reply reports the independently changed host default")
-        terminal.contains("Next backend launch applies size")
+        terminal.contains("Start a new session to apply size")
         terminal.contains("500k")
         self.assertEqual(terminal.requests("settings/context/set"), [])
         terminal.send(b"\r")

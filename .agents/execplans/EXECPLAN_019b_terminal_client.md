@@ -79,7 +79,30 @@ The daemon already proves basic chat, approvals, running output, independent cli
 - [x] (2026-11-15) Commit exact prompt reads and private fork progress as be5f883. The terminal consumer now recalls full originals, preserves rapid arrows/private drafts, reveals an older selected row, handles explicit unknown-source choice, renames and shares help. Focused actual-daemon proofs and prior mixed-gate limits are in exec019b-prompt-history.md. A complete actual-daemon terminal run is underway; it has exposed readiness assumptions in old fixtures. The embedded route remains until those workflows pass.
 - [x] (2026-11-15) Move production offline perf commands off AppState/SessionState in4cd1f39/1677ef9. Four baseline/candidate CLI count comparisons and32 styled-row comparisons pass; no formatter/cache policy changed. The managed opt-in launcher and matching terminal/daemon/helper packages are committed as b682266/096f1a7. The default cutover remains open.
 
+- [x] (2026-11-15) Commit terminal prompt/history/rename/help as603ffde and correct asynchronous Claude fork adoption as1658ecc. Isolated prefix tests and strict lint plus normal hooks pass. A real pre-fork failure now preserves its target and Escape cancel; a post-fork failure retries only the send.
+- [ ] (2026-11-15) Complete the all-daemon terminal parity gate. The first full291-case run exposes clustered readiness assumptions and real consumer gaps (61failures/1error); the first root-focused rerun passes34/42 after repairs. Remaining card/task/current-Restoring checks, interrupted-result ordering, current native-ID deduplication, mode notices and screen details are active work. Keep the failed traces and re-run each affected group before another complete pass.
+- [x] (2026-11-15) Commit same-owner explicit Claude reopen foundation2e7fe5e and owner/manager routebe239de. Actual helper failures/reopens, concurrent opens, blank New versus saved Resume, confirmed inherited settings and private edit recovery pass four daemon and one terminal case. Current native-ID deduplication has an actual failing-before proof and remains an immediate follow-up.
+
 ## Surprises & Discoveries
+
+The first complete existing terminal run through private daemons finished291
+tests with61 failures and one error. These include repeated cleanup failures;
+the counts are not61 independent product bugs. Preserve the full log and each
+screen/native trace at `/tmp/carlos-ep019b/history-ui-all-daemon-third*`.
+The targeted root rerun passes34 of42 affected cases after explicit ready-frame
+fixtures, exact source-fact painting, F5 subscription recovery and corrected
+fork progress. Remaining callback/task cases belong to the current worker;
+the root still owns settings hints, mode notices and reconnect consumers.
+
+Claude admits its asynchronous fork request before the SDK fork succeeds.
+Treating `EditStarted` as adoption made a later pre-fork failure discard rewind
+mode. Commit1658ecc introduces a distinct private core adoption effect, emitted
+only after the checked helper switch. Exact index tests/lint and the unchanged
+actual failure workflow prove the correction; exec019b-prompt-history.md records
+both failed and repaired runs. A separate actual interrupt fixture also exposes
+pending intent being treated as an acknowledged interrupt when a native result
+precedes its rejected reply. The backend worker is investigating that bounded
+lifecycle issue after finishing live-native-ID deduplication.
 
 The new startup workflow exposed a stale metadata read: the daemon read old choices before sending the queued startup change, then treated that read's later reply as newer authoritative settings. Shared reconnect_runtime::tick now waits while a settings write is deferred or pending. The settings dispatcher retires any metadata read that started before a user save and requests one fresh read after settlement. A legacy server's metadata cannot erase Carlos's explicit next-turn fallback. The regression test checks that the old reply is ignored, both native scopes settle, and exactly one fresh read can start. These checks reuse existing tokens, deadlines and workers; no new scheduler or read version counter was added.
 
@@ -726,3 +749,5 @@ Update note (2026-11-15, Ralph controls committed): acad30f passed its normal in
 Update note (2026-11-15, prompt foundation gate): acad30f Ralph report is prepared. c54cda6 saved-open,6af6034 build identity,918df1e unscoped archive and4cd1f39 complete offline perf-row factory are committed. Root stages bounded prompt/select and prompt/text plus an operation-private adopted-fork fact; Core records dispatched Codex human prompts before native echo and removes rejected unbound steering text. Three core/two prompt-client/two progress-client tests pass; four actual daemon cases pass in the isolated broad gate, with negative evidence for the missing record and missing rollback. The old first candidate passes the fork-progress/retired cases but fails recall; the second candidate fails the rejected-steer case as intended. All132actualdaemon cases pass after an existing model-catalog fixture waits for the revision changed by its own native notice. The bare terminal-screen fixture now initializes owned_daemon=None, preserving its snapshot-failure cleanup assertion. Isolated Cargo, architecture, dependency, helper, harness and ownership checks pass; full terminal/copy/dictation/native remainder remains running. Root prepares the buildable foundation commit with normal hook, then releases the index to checked Bootstrap and perf consumers. Its terminal history/rename files are still unregistered drafts. Native F5 and launcher process/package work have checked isolated cases but remain uncommitted. No reviewer or EP approval ran; main and installed executable still match their protected identities.
 
 2026-11-15 update: refreshed stale settings checkboxes and the current outcome; recorded prompt/history consumer proofs, launcher/package and offline-perf checkpoints. The complete actual-daemon terminal gate now determines remaining parity fixes before deletion.
+
+2026-11-15 update: recorded603ffde/1658ecc and the first complete actual-daemon terminal gate, including its failures. Kept current native lifecycle and terminal parity work explicit before the deletion gate.

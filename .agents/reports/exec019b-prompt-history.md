@@ -58,3 +58,23 @@ still need individual checks and explicit readiness fences. Closed-Claude
 explicit reopen, metrics, the old runtime deletion and final whole-EP release,
 performance and review gates remain open. No reviewer, auto-approval, install,
 main change, merge or push belongs to this checkpoint.
+
+## Correct asynchronous Claude fork progress
+
+Commit `1658ecc` fixes a real error found by the full daemon run. Claude's
+`EditStarted` report means its asynchronous request was admitted. It does not
+mean the SDK fork succeeded. The owner now marks `rewound` only after a checked
+new helper switch emits `EditAdopted` for the exact operation. An SDK refusal
+before that switch leaves the old prompt target and Escape behavior intact.
+Reopening a closed helper emits no edit-adoption fact.
+
+Two core tests check admission followed by refusal, mismatched operations, old
+generations and successful adoption. Five focused rewind-owner tests pass.
+The unchanged actual Claude pre-fork failure test fails on the third frozen pair
+and passes on the fourth; the post-fork startup-failure and repeated-edit cases
+also pass. The fourth-pair five-case run has four passes and one separate F5
+notice failure, kept in `history-ui-adoption-fourth.log`. That notice issue is
+being fixed with the broader terminal checks, not claimed as part of1658ecc.
+The exact five-path index passed full workspace tests and strict no-default
+Clippy in `claude-adoption-index-{tests,clippy}.log`, followed by the normal full
+commit hook in `claude-adoption-commit.log`.

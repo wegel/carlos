@@ -104,10 +104,13 @@ impl Device {
     }
 
     pub(super) fn recover_rename(&mut self) -> bool {
-        if !self.view.input.is_empty()
-            || !self.rename.as_ref().is_some_and(|rename| rename.retained)
-        {
+        if !self.rename.as_ref().is_some_and(|rename| rename.retained) {
             return false;
+        }
+        if !self.view.input.is_empty() {
+            self.view.status_hint =
+                Some("Copy or clear the current draft before F5 loads the saved rename".into());
+            return true;
         }
         let rename = self.rename.take().expect("retained rename");
         self.set_composer(&rename.command);

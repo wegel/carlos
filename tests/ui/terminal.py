@@ -150,6 +150,16 @@ class Terminal:
             return line == ("" if self.phone_layout else "❯ ") + text
         return line == ("" if self.phone_layout else "❯") or self.placeholder_is()
 
+    def wait_ready_composer(self):
+        self.wait(lambda: self.input_is(""), "empty composer before a new prompt")
+        if self.owned_daemon or hasattr(self, "daemon_recorder"):
+            self.wait(self.daemon_is_idle, "accepted ready snapshot before a new prompt")
+
+    def wait_settings_editor(self):
+        self.contains("Settings")
+        if self.owned_daemon or hasattr(self, "daemon_recorder"):
+            self.contains("Tab field, arrows, Enter save")
+
     def placeholder_is(self, name=None):
         line = self.screen.display[-1]
         cells = [self.screen.buffer[self.screen.lines - 1][x]

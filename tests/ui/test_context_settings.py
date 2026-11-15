@@ -95,7 +95,7 @@ class ContextSettings:
         terminal.paste("500k")
         terminal.send(b"\r")
         self.wait_saved_context(terminal, "codex", 500000)
-        terminal.contains("restart Carlos to apply it")
+        terminal.contains("saved the size for the next Codex or Claude launch" if terminal.owned_daemon or hasattr(terminal, "daemon_recorder") else "restart Carlos to apply it")
         self.assertEqual(terminal.requests("config/value/write"), [])
         self.assertEqual(terminal.requests("config/batchWrite"), [])
         self.assertEqual(terminal.requests("turn/start"), [])

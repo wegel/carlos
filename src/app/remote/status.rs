@@ -100,6 +100,9 @@ impl Device {
     }
 
     fn footer_hint(&self, info: Option<&SessionInfo>, width: usize) -> Option<String> {
+        if let Some(hint) = &self.view.status_hint {
+            return Some(hint.clone());
+        }
         if self.history.failed
             && info.is_some_and(|info| {
                 info.backend == Backend::Claude && info.availability == Availability::Closed
@@ -109,9 +112,6 @@ impl Device {
         }
         if let Some(hint) = self.history_hint(width) {
             return Some(hint.into());
-        }
-        if let Some(hint) = &self.view.status_hint {
-            return Some(hint.clone());
         }
         if self.waiting_ready {
             return Some("Waiting for the session to become ready; your draft is kept. Press Enter again when ready".into());

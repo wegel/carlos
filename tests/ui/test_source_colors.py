@@ -24,7 +24,7 @@ class SourceColors:
 
     def test_live_read_and_diff_show_source_colors(self):
         terminal = self.launch(mode="source-colors", resume=None)
-        terminal.wait(lambda: terminal.input_is(""), "new thread ready")
+        terminal.wait_ready_composer()
         terminal.paste("show source")
         terminal.send(b"\r")
         terminal.contains("Answer: show source")

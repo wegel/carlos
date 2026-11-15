@@ -133,7 +133,7 @@ impl Device {
             Ok(false)
         } else if matches!(&input, Event::Key(key) if key.code == KeyCode::F(5)) {
             if let Some(link) = transport.as_mut() {
-                self.native_reconnect(link)?;
+                self.retry_session(link)?;
             }
             Ok(false)
         } else {

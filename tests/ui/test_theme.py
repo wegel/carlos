@@ -34,7 +34,7 @@ class Theme:
 
     def test_gutter_cursor_and_mouse_selection_follow_terminal_size(self):
         terminal = self.launch(resume=None)
-        terminal.wait(lambda: terminal.input_is(""), "thread ready")
+        terminal.wait_ready_composer()
         terminal.paste("ABCDEFGHIJK")
         terminal.send(b"\r")
         terminal.contains("Answer: ABCDEFGHIJK")
@@ -198,7 +198,7 @@ class Theme:
 
     def test_active_reasoning_has_a_spinner_and_returns_to_italic_when_stopped(self):
         terminal = self.launch(mode="theme-active", resume=None, width=54, layout="desktop")
-        terminal.wait(lambda: terminal.input_is(""), "thread ready")
+        terminal.wait_ready_composer()
         terminal.paste("check theme")
         terminal.send(b"\r")
         self.assert_theme_row(terminal, "Analyzing key config files", "◆", "cba6f7", "cba6f7")

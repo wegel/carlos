@@ -49,10 +49,14 @@ impl Device {
                 .as_deref()
                 .unwrap_or(if self.settings_refreshing() {
                     "Refreshing backend facts; edited fields stay private"
-                } else if selected == ModelSettingsField::Context {
-                    self.settings_context_help()
                 } else {
-                    "Tab field, arrows, Enter save"
+                    match selected {
+                        ModelSettingsField::Context => self.settings_context_help(),
+                        ModelSettingsField::DesktopTheme => "Theme for wide screens",
+                        ModelSettingsField::PhoneTheme => "Theme for small screens",
+                        ModelSettingsField::DictationEndpoint => "Arrows/Enter toggle, Esc close",
+                        _ => "Tab field, arrows, Enter save",
+                    }
                 }),
         }
     }

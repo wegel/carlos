@@ -39,7 +39,16 @@ impl Device {
             return Ok(());
         }
         let link = link.ok_or_else(|| anyhow::anyhow!("Disconnected; F5 reconnects"))?;
+        self.submit_current(link, text)
+    }
+
+    fn submit_current(&mut self, link: &mut Transport, text: String) -> Result<()> {
         let session = self.session.clone();
+        if let Some(info) = self.client.session(&session).map(|replica| replica.info()) {
+            if info.availability == Availability::Closed {
+                anyhow::bail!("{:?} is closed; draft kept", info.backend);
+            }
+        }
         if !self.session_can_accept_input(link)
             || (self.view.codex_queue.mode
                 && !self.client.session_is_ready(link.connection, &session))

@@ -249,7 +249,17 @@ impl Device {
         Ok(false)
     }
 
-    fn retry_session(&mut self, link: &mut Transport) -> Result<()> {
+    pub(super) fn retry_session(&mut self, link: &mut Transport) -> Result<()> {
+        if self
+            .client
+            .session_has_current_snapshot(link.connection, &self.session)
+            && self.client.session(&self.session).is_some_and(|replica| {
+                replica.info().backend == carlos_proto::session::Backend::Codex
+                    && replica.info().availability == carlos_proto::session::Availability::Closed
+            })
+        {
+            return self.native_reconnect(link);
+        }
         if self.client.is_ready(link.connection)
             && !self.client.session_is_ready(link.connection, &self.session)
         {

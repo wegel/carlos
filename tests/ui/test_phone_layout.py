@@ -26,7 +26,7 @@ class PhoneLayout:
 
     def open_theme_settings(self, terminal, profile):
         terminal.send(b"\x1b[109;5u")
-        terminal.contains("Settings")
+        terminal.wait_settings_editor()
         terminal.contains("Desktop")
         terminal.contains("Phone")
         terminal.send(b"\x1b[Z" * (3 if profile == "desktop" else 2))
@@ -98,6 +98,7 @@ class PhoneLayout:
 
     def test_per_screen_themes_cancel_save_restart_resize_and_keep_tool_mode(self):
         terminal = self.launch(mode="tool-history")
+        terminal.wait_ready_composer()
         self.tools_command(terminal, "/tools full", "full")
         settings = terminal.root / "config/carlos/ui-settings.json"
         saved = settings.read_bytes()
@@ -152,7 +153,7 @@ class PhoneLayout:
 
     def test_phone_reasoning_symbol_and_heading_follow_activity_and_width(self):
         terminal = self.launch(mode="theme-active", resume=None, width=54)
-        terminal.wait(lambda: terminal.input_is(""), "thread ready")
+        terminal.wait_ready_composer()
         terminal.paste("inspect config")
         terminal.send(b"\r")
         terminal.contains("◆ Analyzing key config files")

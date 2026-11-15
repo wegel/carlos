@@ -212,36 +212,8 @@ fn compute_composer_layout_wraps_input_at_word_boundaries() {
 }
 
 #[test]
-fn input_history_up_down_cycles_and_restores_draft() {
-    let mut app = AppState::new("thread-1".to_string());
-    app.push_input_history("first");
-    app.push_input_history("second");
-    app.set_input_text("draft text");
-
-    assert!(app.navigate_input_history_up());
-    assert_eq!(app.input_text(), "second");
-
-    assert!(app.navigate_input_history_up());
-    assert_eq!(app.input_text(), "first");
-
-    assert!(app.navigate_input_history_down());
-    assert_eq!(app.input_text(), "second");
-
-    assert!(app.navigate_input_history_down());
-    assert_eq!(app.input_text(), "draft text");
-}
-
-#[test]
-fn input_history_up_noops_when_empty() {
-    let mut app = AppState::new("thread-1".to_string());
-    app.set_input_text("draft");
-    assert!(!app.navigate_input_history_up());
-    assert_eq!(app.input_text(), "draft");
-}
-
-#[test]
 fn esc_chord_triggers_on_second_press_within_window() {
-    let mut app = AppState::new("thread-1".to_string());
+    let mut app = crate::app::view_state::ViewState::new(false);
     let now = std::time::Instant::now();
     assert!(!app.register_escape_press(now));
     assert!(app.register_escape_press(now + std::time::Duration::from_millis(100)));
@@ -249,7 +221,7 @@ fn esc_chord_triggers_on_second_press_within_window() {
 
 #[test]
 fn esc_chord_expires_after_window() {
-    let mut app = AppState::new("thread-1".to_string());
+    let mut app = crate::app::view_state::ViewState::new(false);
     let now = std::time::Instant::now();
     assert!(!app.register_escape_press(now));
     app.expire_esc_chord(now + std::time::Duration::from_millis(800));
@@ -257,20 +229,13 @@ fn esc_chord_expires_after_window() {
 }
 
 #[test]
-fn rewind_mode_populates_latest_history_and_restores_draft() {
-    let mut app = AppState::new("thread-1".to_string());
-    app.push_input_history("first");
-    app.push_input_history("second");
-    app.set_input_text("draft");
-
-    app.enter_rewind_mode();
-    assert!(app.rewind_mode());
-    assert_eq!(app.input_text(), "second");
-
-    let _ = app.navigate_input_history_up();
-    assert_eq!(app.input_text(), "first");
-
-    app.exit_rewind_mode_restore();
-    assert!(!app.rewind_mode());
-    assert_eq!(app.input_text(), "draft");
+fn esc_chord_requires_a_quiet_interval_after_interrupting() {
+    let mut view = crate::app::view_state::ViewState::new(false);
+    let now = std::time::Instant::now();
+    let after = |milliseconds| now + std::time::Duration::from_millis(milliseconds);
+    view.suppress_esc_chord_after_interrupt(now);
+    assert!(!view.register_escape_press(after(100)));
+    assert!(!view.register_escape_press(after(200)));
+    assert!(!view.register_escape_press(after(1000)));
+    assert!(view.register_escape_press(after(1100)));
 }

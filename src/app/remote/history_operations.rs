@@ -123,7 +123,12 @@ impl Device {
             return true;
         }
         if !self.view.input.is_empty() {
-            return false;
+            if self.history.recoveries.is_empty() {
+                return false;
+            }
+            self.view.status_hint =
+                Some("Copy or clear the current draft before F5 loads a saved draft".into());
+            return true;
         }
         while let Some(id) = self.history.recoveries.pop_front() {
             if let Some(text) = self

@@ -17,7 +17,7 @@ class MarkdownTables:
 
     def test_markdown_table_cells_reflow_while_streaming_and_resizing(self):
         terminal = self.launch(mode="markdown-table",resume=None,width=120)
-        terminal.wait(lambda: terminal.input_is(""),"table session ready")
+        terminal.wait_ready_composer()
         terminal.paste("Show wrapped table")
         terminal.send(b"\r")
         terminal.contains("CELL_END")
@@ -43,7 +43,7 @@ class MarkdownTables:
 
     def test_markdown_table_phone_fallback_preserves_every_label_and_value(self):
         terminal = self.launch(mode="markdown-table",resume=None,width=18)
-        terminal.wait(lambda: terminal.input_is(""),"narrow table session ready")
+        terminal.wait_ready_composer()
         terminal.paste("Show narrow table")
         terminal.send(b"\r")
         for field,value in [("First","VALUE_A"),("Second","VALUE_B"),("Third","VALUE_C"),("Fourth","VALUE_D")]:

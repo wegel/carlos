@@ -7,31 +7,10 @@ use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
 use carlos_core::session::models::ToolOutputDetails;
 
-use super::{AppState, TerminalSize};
+use super::TerminalSize;
 use crate::app::layout_state::TranscriptTheme;
 use crate::app::selection::Selection;
 use crate::app::tool_output_state::ToolOutputMode;
-
-fn transcript() -> AppState {
-    let mut app = AppState::new("thread".into());
-    app.view.tool_output.mode = ToolOutputMode::Compact;
-    app.append_message(Role::User, "Inspect these files");
-    app.append_message(Role::ToolCall, "→ Read a.rs");
-    app.append_message(Role::ToolCall, "→ Read b.rs");
-    app.append_message(Role::Assistant, "The files are ready.");
-    app
-}
-
-fn set_layout(app: &mut AppState, mode: TranscriptTheme) {
-    app.view.layout.themes.desktop = mode;
-    app.view.layout.themes.phone = mode;
-    app.view.layout.update_size(TerminalSize {
-        width: 100,
-        height: 32,
-    });
-    // Keep width identical to ensure the cache also keys on the layout itself.
-    app.ensure_rendered_lines(50, None);
-}
 
 fn plain_transcript() -> PerfView {
     let mut view = render_fixture::view(vec![
@@ -108,16 +87,6 @@ fn phone_groups_adjacent_reads_and_copy_keeps_only_the_body_text() {
         .filter(|line| line.separator)
         .all(|line| line.text.is_empty()));
     assert_ne!(desktop.len(), lines.len());
-}
-
-#[test]
-fn fork_and_history_reload_keep_the_local_layout_choice() {
-    let mut app = transcript();
-    set_layout(&mut app, TranscriptTheme::Flow);
-    app.replace_transcript_for_test(transcript());
-    assert_eq!(app.view.layout.themes.desktop, TranscriptTheme::Flow);
-    app.reset_for_forked_thread("fork");
-    assert_eq!(app.view.layout.themes.desktop, TranscriptTheme::Flow);
 }
 
 #[test]

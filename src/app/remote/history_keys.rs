@@ -1,6 +1,6 @@
 //! Route recall and the idle Escape chord without changing another terminal's editor.
 
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use anyhow::{bail, Result};
 use carlos_proto::commands::Command;
@@ -9,8 +9,6 @@ use crossterm::event::{KeyCode, KeyEvent};
 
 use super::transport::Transport;
 use super::Device;
-
-const ESCAPE_INTERVAL: Duration = Duration::from_millis(700);
 
 impl Device {
     pub(super) fn history_key(&mut self, link: Option<&mut Transport>, key: KeyEvent) -> bool {
@@ -104,27 +102,14 @@ impl Device {
                 .session(&self.session)
                 .is_some_and(|session| session.info().ralph)
         {
-            self.view.esc_armed_at = None;
-            self.view.esc_interrupted_at = Some(now);
+            self.view.suppress_esc_chord_after_interrupt(now);
             let link = link.ok_or_else(|| anyhow::anyhow!("Disconnected; F5 reconnects"))?;
             self.stop_ralph_for_escape(link)?;
             return self.interrupt(link);
         }
-        if self
-            .view
-            .esc_interrupted_at
-            .take()
-            .is_some_and(|last| now.duration_since(last) <= ESCAPE_INTERVAL)
-        {
-            self.view.esc_armed_at = None;
-            self.view.esc_interrupted_at = Some(now);
+        if !self.view.register_escape_press(now) {
             return Ok(());
         }
-        let previous = self.view.esc_armed_at.replace(now);
-        if !previous.is_some_and(|previous| now.duration_since(previous) <= ESCAPE_INTERVAL) {
-            return Ok(());
-        }
-        self.view.esc_armed_at = None;
         self.history.reset_navigation();
         if !self.view.input.is_empty() {
             self.set_composer("");

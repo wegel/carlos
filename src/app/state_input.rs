@@ -1,14 +1,12 @@
 //! AppState impl: text input editing, escape-chord, history navigation, and rewind mode.
 
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use super::render::{compute_input_layout, textarea_input_from_key};
 
 use super::state::AppState;
 use super::view_models::TerminalSize;
 use super::MSG_TOP;
-
-const ESC_CHORD_WINDOW: Duration = Duration::from_millis(700);
 
 impl AppState {
     // --- Input handling ---
@@ -42,35 +40,17 @@ impl AppState {
         self.view.esc_interrupted_at = None;
     }
 
-    /// Require a quiet Escape interval after stopping work before accepting an idle chord.
+    /// Preserve the embedded caller until the terminal runtime is removed.
     pub(super) fn suppress_esc_chord_after_interrupt(&mut self, now: Instant) {
-        self.view.esc_armed_at = None;
-        self.view.esc_interrupted_at = Some(now);
+        self.view.suppress_esc_chord_after_interrupt(now);
     }
 
     pub(super) fn expire_esc_chord(&mut self, now: Instant) {
-        if let Some(armed_at) = self.view.esc_armed_at {
-            if now.duration_since(armed_at) > ESC_CHORD_WINDOW {
-                self.view.esc_armed_at = None;
-            }
-        }
+        self.view.expire_esc_chord(now);
     }
 
     pub(super) fn register_escape_press(&mut self, now: Instant) -> bool {
-        if let Some(interrupted_at) = self.view.esc_interrupted_at.take() {
-            if now.duration_since(interrupted_at) <= ESC_CHORD_WINDOW {
-                self.suppress_esc_chord_after_interrupt(now);
-                return false;
-            }
-        }
-        if let Some(armed_at) = self.view.esc_armed_at {
-            if now.duration_since(armed_at) <= ESC_CHORD_WINDOW {
-                self.view.esc_armed_at = None;
-                return true;
-            }
-        }
-        self.view.esc_armed_at = Some(now);
-        false
+        self.view.register_escape_press(now)
     }
 
     // --- Rewind ---

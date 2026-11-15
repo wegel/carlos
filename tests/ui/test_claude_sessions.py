@@ -300,7 +300,7 @@ class ClaudeSessions:
         prompt.parent.mkdir(parents=True)
         prompt.write_text("automatic work must not become a draft")
         terminal = self.launch(backend="claude", resume=None, directory=root, mode="claude-startup-closed")
-        terminal.contains("___k/___k")
+        terminal.contains("Starting" if terminal.owned_daemon or hasattr(terminal, "daemon_recorder") else "___k/___k")
         terminal.send(b"\x12")
         for text in ["first queued human", "second queued 你好 🦊"]:
             terminal.paste(text)

@@ -1,7 +1,7 @@
 //! Own terminal widgets, cached rows, and local display choices.
 
 use std::cell::Cell;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use carlos_core::session::entry_id::EntryId;
 use carlos_proto::ids::ClientId;
@@ -23,6 +23,8 @@ use super::runtime_settings_state::RuntimeSettingsView;
 use super::state_approval_view::ApprovalHints;
 use super::tool_output_state::ToolOutputState;
 use super::viewport_state::ViewportState;
+
+const ESC_CHORD_WINDOW: Duration = Duration::from_millis(700);
 
 pub(super) struct ViewState {
     pub(super) client_id: ClientId,
@@ -101,6 +103,44 @@ impl ViewState {
             approval_hints: ApprovalHints::default(),
             confirm_allow: None,
         }
+    }
+}
+
+impl ViewState {
+    /// Require a quiet Escape interval after interrupting native work.
+    pub(super) fn suppress_esc_chord_after_interrupt(&mut self, now: Instant) {
+        self.esc_armed_at = None;
+        self.esc_interrupted_at = Some(now);
+    }
+
+    pub(super) fn expire_esc_chord(&mut self, now: Instant) {
+        if self
+            .esc_armed_at
+            .is_some_and(|at| now.duration_since(at) > ESC_CHORD_WINDOW)
+        {
+            self.esc_armed_at = None;
+        }
+    }
+
+    /// Complete only a second quiet Escape within the existing 700 ms interval.
+    pub(super) fn register_escape_press(&mut self, now: Instant) -> bool {
+        if self
+            .esc_interrupted_at
+            .take()
+            .is_some_and(|at| now.duration_since(at) <= ESC_CHORD_WINDOW)
+        {
+            self.suppress_esc_chord_after_interrupt(now);
+            return false;
+        }
+        if self
+            .esc_armed_at
+            .is_some_and(|at| now.duration_since(at) <= ESC_CHORD_WINDOW)
+        {
+            self.esc_armed_at = None;
+            return true;
+        }
+        self.esc_armed_at = Some(now);
+        false
     }
 }
 

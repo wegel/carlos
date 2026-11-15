@@ -99,8 +99,10 @@ class InputStatus:
                 # The first count can arrive before native init adopts the session and resets mode.
                 terminal.wait(lambda:any(request["params"].get("revision",0) >= 2
                     for request in self.helper_requests(terminal,"context")),"Claude native init applied before mode keys")
-            else: terminal.wait(lambda:terminal.input_is(""),"Codex ready")
+                terminal.wait_ready_composer()
+            else: terminal.wait_ready_composer()
             terminal.resize(36,12)
+            terminal.wait(lambda: terminal.input_is(""), "empty composer in the short phone frame")
             self.assert_quiet_status(terminal)
             terminal.send(F3)
             terminal.wait(lambda:"Queue" in terminal.screen.display[-2],"Queue changes Enter")
@@ -204,6 +206,8 @@ class InputStatus:
             terminal.contains("Answer: selection hint after completion")
             label = (" sdk-sonnet ~32k/123k 26% " if backend == "claude" else
                      " gpt-5.6-sol/high ___k/___k __% ")
+            if terminal.owned_daemon or hasattr(terminal, "daemon_recorder"):
+                label = " Idle" + label
             completed_band = "━" * (terminal.screen.columns - len(label)) + label
             terminal.wait(lambda: terminal.screen.display[-2] == completed_band,
                           "completed turn status band")
@@ -229,6 +233,8 @@ class InputStatus:
         terminal.send(b"\r")
         terminal.contains("Answer: original prompt")
         label = " sdk-sonnet ~32k/123k 26% "
+        if terminal.owned_daemon or hasattr(terminal, "daemon_recorder"):
+            label = " Idle" + label
         completed_band = "━" * (terminal.screen.columns - len(label)) + label
         terminal.wait(lambda: terminal.screen.display[-2] == completed_band,
                       "completed original turn before rewind")

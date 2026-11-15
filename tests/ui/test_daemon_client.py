@@ -238,6 +238,7 @@ class DaemonClient:
         chunks = []
         for message in terminal.messages("server"):
             chunk = message.get("result",{})
+            chunk = chunk if isinstance(chunk, dict) else {}
             if "source" not in chunk:
                 chunk = message.get("params",{}).get("chunk",{})
             if chunk.get("source",{}).get("bytes") == str(len(("$ printf probe\n"+body+"\nexit code: 0").encode())):

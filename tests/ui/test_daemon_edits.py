@@ -1,7 +1,47 @@
 """Exercise local prompt recall, explicit branches, rename and help through the actual daemon."""
 
+import json
+
 
 class DaemonEdits:
+    def test_daemon_empty_prompt_history_preserves_the_private_composer(self):
+        fixture, client, session = self.daemon_session("empty-prompt-history")
+        terminal = self.attach_daemon(fixture, session, "empty-prompts")
+        terminal.contains("history-output 9999")
+        terminal.paste("private draft without any earlier prompt 🌍")
+        terminal.send(b"\x1b[A")
+        terminal.wait(lambda: bool(terminal.requests("prompt/select")), "explicit history read")
+        request = terminal.requests("prompt/select")[-1]
+        terminal.wait(lambda: any(message.get("id") == request["id"] and
+                      isinstance(message.get("result"), dict) and
+                      message["result"].get("record", "missing") is None
+                      for message in terminal.messages("server")), "empty history reply")
+        terminal.send(b"\x1b[B")
+        terminal.wait(lambda: terminal.input_is("private draft without any earlier prompt 🌍"),
+                      "empty history leaves the original composer intact")
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertEqual(terminal.requests("session/rewind"), [])
+
+    def test_daemon_fork_and_history_reset_keep_the_local_theme(self):
+        fixture, client, session = self.daemon_session("flow-rewind", configure=lambda f: setattr(f.native, "history_user", True))
+        directory = self.summary_root() / "flow-editor"
+        settings = directory / "config/carlos/ui-settings.json"
+        settings.parent.mkdir(parents=True)
+        original = json.dumps({"themes":{"desktop":"flow", "phone":"flow"}})
+        settings.write_text(original)
+        terminal = self.attach_daemon(fixture, session, "flow-editor")
+        terminal.contains("history-output 9999")
+        terminal.rewind("original prompt")
+        terminal.replace_input("edited flow branch")
+        terminal.send(b"\r")
+        terminal.contains("Answer: edited flow branch")
+        terminal.contains("─ ✓ answer")
+        row = next(y for y, line in enumerate(terminal.screen.display) if "Answer: edited flow branch" in line)
+        self.assertEqual(terminal.screen.buffer[row][0].data, " ")
+        self.assertEqual(settings.read_text(), original)
+        self.assertEqual(len(terminal.requests("session/rewind")), 1)
+        self.assertEqual(sum(r.get("method") == "thread/fork" for r in fixture.native.requests), 1)
+
     def editable_terminal(self, name, configure=None):
         def setup(fixture):
             fixture.native.history_user = True
