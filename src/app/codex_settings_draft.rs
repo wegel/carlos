@@ -6,9 +6,8 @@ use carlos_core::session::runtime_settings::RuntimeSetting;
 use serde_json::{json, Value};
 
 use super::persist_runtime_defaults;
+use super::runtime_settings_state::{model_supports_effort, THREAD_SUMMARY};
 use super::state::AppState;
-
-const THREAD_SUMMARY: &str = "Use thread setting";
 
 /// Apply Carlos defaults to new threads and only explicit launch choices to resumed threads.
 pub(super) fn initialize(
@@ -77,66 +76,36 @@ pub(super) fn validate_editor(app: &mut AppState) -> bool {
 
 /// Hide effort controls when the selected native model advertises no effort choices.
 pub(super) fn refresh_editor(app: &mut AppState) {
-    if !supports_effort(app, app.model_settings_model_value()) {
-        app.view
-            .runtime_settings
-            .model_settings_effort_options
-            .clear();
-    }
-    if app.session.runtime_settings().current_summary().is_none()
-        && app.session.runtime_settings().pending_summary().is_none()
-        && !app
-            .view
-            .runtime_settings
-            .model_settings_summary_options
-            .iter()
-            .any(|value| value == THREAD_SUMMARY)
-    {
-        app.view
-            .runtime_settings
-            .model_settings_summary_options
-            .insert(0, THREAD_SUMMARY.into());
-        app.view.runtime_settings.model_settings_summary_index = 0;
-    }
+    app.view
+        .runtime_settings
+        .refresh_native_editor(app.session.runtime_settings().into(), false);
 }
 
 /// Show an inherited unknown summary without turning its displayed fallback into a choice.
 pub(super) fn open_editor(app: &mut AppState) {
-    refresh_editor(app);
-    if app.session.runtime_settings().current_summary().is_none()
-        && app.session.runtime_settings().pending_summary().is_none()
-    {
-        app.view.runtime_settings.model_settings_summary_index = app
-            .view
-            .runtime_settings
-            .model_settings_summary_options
-            .iter()
-            .position(|value| value == THREAD_SUMMARY)
-            .unwrap_or(0);
-    }
+    app.view
+        .runtime_settings
+        .refresh_native_editor(app.session.runtime_settings().into(), true);
 }
 
 /// Keep an unadvertised effort out of the saved choices when changing model families.
 pub(super) fn normalize_saved(app: &mut AppState, defaults: &mut RuntimeDefaults) {
-    if defaults.summary.as_deref() == Some(THREAD_SUMMARY) {
-        defaults.summary = None;
+    let omissions = app
+        .view
+        .runtime_settings
+        .normalize_native_choices(app.session.runtime_settings().into(), defaults);
+    if omissions.summary {
         app.session
             .clear_pending_runtime_choice(RuntimeSetting::Summary);
     }
-    if !supports_effort(app, defaults.model.as_deref().unwrap_or("")) {
-        defaults.effort = None;
+    if omissions.effort {
         app.session
             .clear_pending_runtime_choice(RuntimeSetting::Effort);
     }
 }
 
 fn supports_effort(app: &AppState, model: &str) -> bool {
-    app.session
-        .runtime_settings()
-        .available_models()
-        .iter()
-        .find(|entry| entry.model == model)
-        .is_none_or(|entry| !entry.supported_efforts.is_empty())
+    model_supports_effort(app.session.runtime_settings().into(), model)
 }
 
 /// Reopen attempted values without changing last-valid runtime settings.

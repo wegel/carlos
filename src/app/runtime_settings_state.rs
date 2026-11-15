@@ -6,7 +6,11 @@ mod runtime_settings_model_settings;
 #[path = "runtime_settings_facts.rs"]
 mod facts;
 
+#[path = "runtime_settings_native_fields.rs"]
+mod native_fields;
+
 pub(in crate::app) use self::facts::RuntimeSettingsRef;
+pub(in crate::app) use self::native_fields::{model_supports_effort, THREAD_SUMMARY};
 
 use crate::app::tool_output_state::ToolOutputMode;
 
