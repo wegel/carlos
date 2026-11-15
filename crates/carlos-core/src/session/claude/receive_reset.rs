@@ -17,7 +17,6 @@ impl SessionState {
         self.switch_claude_runtime_choices();
         self.reset_claude_thread(id.to_string(), false, update);
         self.reset_claude_for_switch(generation);
-        update.effects.push(ClaudeEffect::SwitchControls);
         update.effects.push(ClaudeEffect::Cards(
             self.clear_approval_queue(ApprovalQueue::Claude),
         ));
@@ -34,7 +33,6 @@ impl SessionState {
         self.reset_claude_thread(self.thread_id().clone(), true, update);
         self.set_thread_name(None);
         self.clear_claude_history();
-        update.effects.push(ClaudeEffect::ResetControls);
         self.finish_claude_reset();
     }
 
@@ -108,7 +106,6 @@ impl SessionState {
                     .effects
                     .push(ClaudeEffect::CodexRetired(self.retire_codex_callback(&id)));
             }
-            update.effects.push(ClaudeEffect::CodexUnfocus);
         } else {
             update
                 .effects

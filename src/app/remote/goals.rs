@@ -333,13 +333,8 @@ impl Device {
             },
             size,
         );
-        if let Some(status) = self
-            .view
-            .status_hint
-            .as_deref()
-            .filter(|status| status.starts_with("F5 reconnects:"))
-        {
-            lines.insert(0, status.to_string());
+        if let Some(status) = self.disconnect_hint() {
+            lines.insert(0, status);
         }
         draw_panel(buffer, &self.view.codex_goals, lines, size);
         cursor_for(&self.view.codex_goals, size)

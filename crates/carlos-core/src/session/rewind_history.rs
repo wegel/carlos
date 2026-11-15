@@ -62,7 +62,6 @@ impl SessionState {
                     .effects
                     .push(ClaudeEffect::CodexRetired(self.retire_codex_callback(&id)));
             }
-            update.effects.push(ClaudeEffect::CodexUnfocus);
         } else {
             update
                 .effects

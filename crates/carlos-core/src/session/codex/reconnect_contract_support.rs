@@ -28,7 +28,7 @@ pub(super) fn receive(
         json!({"method":"carlos/codex/frame","params":{"generation":generation,"event":event}})
             .to_string();
     let mut batch = session
-        .receive_native_line(peer, &line, &context(session), None)
+        .receive_native_line(peer, &line, &context(session))
         .expect("actual native frame");
     let mut updates = Vec::new();
     while let Some(update) = batch.next(session, peer, &context(session)) {

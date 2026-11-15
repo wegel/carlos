@@ -1,0 +1,62 @@
+{
+  "result": "## Engineering review \u2014 EP019b final result and EP016\u2013022 roadmap\n\n### 1. What was reviewed\n\nEP019b at HEAD `0421d92` relative to EP019a, read-only and by source inspection; I ran no builds or tests, so every measurement below is the final report's, not mine.\n\n- **Docs:** `PROGRAM_PLAN.md`, `docs/engine-architecture.md`, `docs/terminal-client-migration.md`, `.agents/reports/exec019b-final-report.md`, and the limits section of `docs/daemon-protocol.md`.\n- **Public boundaries:** `carlos-proto/src/commands.rs`, `carlos-client` (`lib.rs`, `client.rs`), `carlosd` (`limits.rs`, `transport/outbox.rs`, the manager's open/lifecycle paths).\n- **Core and terminal:** core `engine/reports.rs` and the prompt/rewind paths; terminal `src/app/remote` (loop, transport, reconnect, status, submit, source formatter) and `daemon_launcher`.\n- **Not read:** `.agents/CODE_STYLE.md` and the active ExecPlan.\n\nOverall: the architecture is sound and the roadmap does not need a redesign. The crate split is real and the client is pure. Session ownership is single, queues are bounded, and typing/scrolling stay local. The findings are concrete repairs, mostly lifecycle gaps that daemon ownership newly exposes.\n\n### 2. Findings\n\n**BLOCKER** \u2014 none.\n\n**MAJOR 1 \u2014 Live session owners are never released; the daemon fills up at 16.**\n- `Command` (`crates/carlos-proto/src/commands.rs`) has no session stop/close, although `docs/terminal-client-migration.md:28` says \"only explicit session stop closes backend work\".\n- `session.live` is only cleared in `Manager::shutdown` (`crates/carlosd/src/manager/lifecycle.rs:334`).\n- `owner_count()` counts every live or launching session, and create/open/subscribe reject at `limits::OWNERS = 16` (`lifecycle.rs:102`, `startup/open.rs:239`, `read_commands.rs:229`).\n- Before EP019b, quitting the terminal killed the backend. Now each opened session keeps its owner threads and native process until the daemon exits, and I found no terminal command or documented procedure to stop the managed daemon.\n- Consequence: after 16 distinct sessions in one daemon lifetime, the next `carlos` launch fails with \"capacity is full\", and RSS grows with each abandoned session. The single-session RSS figures in the report don't cover this.\n- Fix, either one, before the phone makes long-lived daemons normal:\n  - add a typed `session/stop {session, operation}` with a terminal affordance; or\n  - retire an owner that is idle (no turn, no Ralph, no pending card, no subscribers) back to dormant, since saved sessions already restore on subscribe.\n- At minimum, make the capacity rejection name the remedy and document it. I'd treat this as an EP019b repair or the first EP020 item, not optional.\n\n**MAJOR 2 \u2014 Closed Claude/Grok sessions have no in-client recovery, and F5 gives a misleading hint.**\n- For a closed non-Codex session, `retry_session` (`src/app/remote/events.rs:241-265`) re-sends `Subscribe` and sets `waiting_ready`. The footer then says \"Waiting for the session to become ready\u2026 Press Enter again when ready\" (`status.rs:116`). `waiting_ready` only clears on Ready (`events.rs:108`), and nothing in this path reopens the helper, so it stays up indefinitely.\n- Claude reopens only through `session/open` (`startup/open.rs:161-164`), which means quitting and relaunching the terminal. That matches the legacy \"restart Carlos\" behaviour, but a phone has no equivalent.\n- Closed Grok appears to have no reopen path at all: `install_open` falls through to `attach_open` on the still-live closed owner. I did not trace Grok's owner end to end, so confirm with a test.\n- Fix: do not set `waiting_ready` when availability is `Closed`; show a truthful hint. Preferably make F5 send the existing `session/open` reopen for closed Claude, and define or explicitly reject Grok reopen.\n\n**MAJOR 3 \u2014 Core still writes terminal key instructions into shared facts.**\n`docs/terminal-client-migration.md:69` requires replacing \"key instructions such as F5 with client-local hints\". These remain and go into the numbered transcript or status that every client, including the phone, will see:\n- `crates/carlos-core/src/session/prompt_commands.rs:206` and `:227` (`append_message`)\n- `crates/carlos-core/src/session/codex/lifecycle.rs:63` (transcript) and `:70` (hint)\n- `crates/carlos-core/src/session/codex/frame_install.rs:62` (\"; F5 retries\")\n- `crates/carlos-core/src/codex_connection.rs:97`\n\n\"Restart Carlos\" is also wrong in spirit under a daemon; the user restarts a terminal, not the session owner. Fix: state only the fact in core (\"Codex is closed; draft kept\"). The terminal already adds its own F5 hints from `Availability` (`status.rs:132`). This is small and in scope now.\n\n**MINOR 4 \u2014 Dead report fields after the deletion commit.**\n- `Owner::turn_report` (`crates/carlos-core/src/engine/reports.rs:35-37`) consumes only `report.changes`.\n- `TurnUpdate.clear_selection` (set only at `rewind_settle.rs:83`) and `TurnUpdate.hint` (`prompt_commands.rs:209/224`, `rewind_commands.rs:36`, `name_commands.rs:70`) have no production reader.\n- `name_saved` has no reader under `engine/`; `submitted` did not show one either. I did not grep the rest of core, so check both before deleting.\n- `ClaudeEffect::{CodexUnfocus, SwitchControls, ResetControls}` are still produced in several core files and discarded as \"device hints\" at `reports.rs:60-62`, and `BackendChange::Installed.editor` survives only as a `debug_assert`. The migration doc says no exported report may tell a terminal to unfocus or reset.\n- Fix: delete the fields, variants and their producers. The comment at `reports.rs:26` (\"no remote producer before EP019b\") is stale.\n\n**MINOR 5 \u2014 Panels pick out the disconnect banner by string prefix.**\n- `status_hint.starts_with(\"F5 reconnects:\")` in `src/app/remote/tasks_render.rs:203`, `queue_render.rs:130` and `goals.rs:340` matches the text formatted at `remote.rs:138`.\n- Fix: store the disconnect reason as a typed field on `Device` and render from that.\n\n**MINOR 6 \u2014 The terminal loop polls the socket on an 8 ms tick.**\n- `event::poll(8ms)` (`metrics.rs:77`) followed by a non-blocking `service()` adds up to 8 ms latency to streamed output and wakes about 125 times a second while idle.\n- It mirrors the legacy loop and the measured p95s are fine, so no change is needed for EP019b. Do not carry the pattern into the phone or WebSocket platform loop; the pure client already allows event-driven wakeups.\n\n**MINOR 7 \u2014 The dense-Unicode worst case is still unbounded.**\n- About 6 s, about 1.3 GiB peak and about 238 MiB retained for a 64 MiB dense body. The report states this honestly.\n- It becomes more reachable once EP020 lets remote clients trigger source reads on large bodies. Decide on a cap or degraded wrap above a size threshold before network exposure, not after.\n\n**MINOR 8 \u2014 Two unattributed timeouts remain.**\n- The Claude settings-reset and Markdown-copy timeouts have traces preserved and no cause claimed, which is correct. Keep the failure-only harness, and treat any recurrence in EP020 as a defect to root-cause rather than rerun.\n\n**MINOR 9 \u2014 Bloat watch (no action now).**\n- The protocol has about 60 typed commands; the task family alone has about 17 (window, activity, overview, text, run).\n- `carlos-client` has about 40 modules, and `src/app/remote` about 60 non-test files, many of them thin splits (`settings_*` \u00d710, `tasks_*` \u00d715).\n- This is the cost of \"no generic backend JSON\" and is defensible, but file count is hiding the real size.\n- EP020\u2013022 should add no new command families for the phone beyond what its screen needs. The phone should use the basic set, and v1 should stay provisional so terminal-only families can be marked as such.\n- The +2.5 ms cold replay, +2.7 MB daemon RSS and +0.04 ms admission p95 are acceptable fixed costs.\n\n### 3. Necessary repairs versus optional redesign\n\n| Class | Items |\n|---|---|\n| Repair now (small, in EP019b scope) | 3 and 4 (delete terminal text and dead fields from core), the hint part of 2, 5 |\n| Repair before or at the start of EP020 | 1 (owner release or stop), the reopen part of 2, a decision on 7 |\n| Optional, later | 6 and 9; no redesign of crates, transport or ownership is warranted |\n\nEP020's plan (thread-per-connection tungstenite, device tokens) fits the existing peer and outbox bounds without structural change. Note that `Hello.token` currently defaults to an empty string (`commands.rs:272-273`), so the daemon must require a non-empty token on network listeners.\n\n### 4. Verdict\n\n**PASS WITH ISSUES**\n\nEP019b meets its objective and the path to EP020\u2013022 is sound. Findings 3 and 4 are residue the EP's own deletion gate named and should be fixed before closeout. Finding 1 and the reopen half of 2 must be scheduled explicitly, in EP019b or as the first EP020 milestone, because daemon-owned sessions make them user-visible.",
+  "session_id": "18025da3-df89-49de-8da1-92d64ef99e8b",
+  "model": "fable",
+  "effort": "medium",
+  "access_mode": "read-only",
+  "total_cost_usd": 2.6469278000000003,
+  "usage": {
+    "input_tokens": 34,
+    "cache_creation_input_tokens": 115387,
+    "cache_read_input_tokens": 1327119,
+    "output_tokens": 13376,
+    "output_tokens_details": {
+      "thinking_tokens": 2470
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 115387,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 3458,
+        "cache_read_input_tokens": 117394,
+        "cache_creation_input_tokens": 2065,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 2065
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "model_usage": {
+    "claude-fable-5-2": {
+      "inputTokens": 34,
+      "outputTokens": 13376,
+      "cacheReadInputTokens": 1327119,
+      "cacheCreationInputTokens": 115387,
+      "webSearchRequests": 0,
+      "costUSD": 2.6469278000000003,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 2470,
+      "cacheCreationEphemeral5mInputTokens": 0,
+      "cacheCreationEphemeral1hInputTokens": 115387,
+      "canonicalModel": "claude-fable-5-2",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "exit_code": 0,
+  "signal": null
+}

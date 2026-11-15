@@ -1,25 +1,17 @@
 //! Adopt a complete native snapshot before replaying its charged journal one frame at a time.
 
-use serde_json::{json, Value};
+use serde_json::json;
 
 use super::frame_batch::NativeBatch;
-use super::reconnect_install::ReconnectInstalled;
 use crate::backend::BackendClient;
 use crate::session::backend_update::{BackendChange, BackendUpdate};
 use crate::session::state::SessionState;
-
-/// Return the checked native report and the client's captured unsubmitted choices.
-pub struct NativeInstalled {
-    pub facts: ReconnectInstalled,
-    pub editor: Option<Value>,
-}
 
 impl SessionState {
     /// Adopt the complete native snapshot before starting its ordered journal drain.
     pub(in crate::session) fn begin_native_ready(
         &mut self,
         client: &dyn BackendClient,
-        editor: Option<Value>,
         charged: usize,
     ) -> NativeBatch {
         let Some(snapshot) = client.take_reconnect_snapshot(self.codex_connection().generation())
@@ -37,9 +29,7 @@ impl SessionState {
         match installed {
             Ok(facts) => {
                 let mut batch = NativeBatch::new(charged);
-                batch.initial = Some(BackendUpdate::new(BackendChange::Installed(
-                    NativeInstalled { facts, editor },
-                )));
+                batch.initial = Some(BackendUpdate::new(BackendChange::Installed(facts)));
                 batch.replay = Some(goal_changed);
                 batch
             }
@@ -59,7 +49,7 @@ impl SessionState {
     ) -> NativeBatch {
         self.drain_codex_replay(client);
         let mut batch = NativeBatch::new(charged);
-        batch.initial = Some(self.native_frame_closed(&json!({"message":message}), "; F5 retries"));
+        batch.initial = Some(self.native_frame_closed(&json!({"message":message}), ""));
         batch.abort = true;
         batch
     }

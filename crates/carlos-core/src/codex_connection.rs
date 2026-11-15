@@ -94,7 +94,7 @@ impl CodexClient {
             .lock()
             .expect("Codex connection poisoned")
             .clone()
-            .context("Codex connection is unavailable; F5 reconnects")
+            .context("Codex connection is unavailable")
     }
 
     fn reconnect(&self, thread: String) -> Result<u64> {

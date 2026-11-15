@@ -123,13 +123,8 @@ impl Device {
             lines
                 .push("Unsent private draft retained; v recovers it into an empty composer".into());
         }
-        if let Some(status) = self
-            .view
-            .status_hint
-            .as_deref()
-            .filter(|status| status.starts_with("F5 reconnects:"))
-        {
-            lines.insert(1, status.into());
+        if let Some(status) = self.disconnect_hint() {
+            lines.insert(1, status);
         }
     }
 

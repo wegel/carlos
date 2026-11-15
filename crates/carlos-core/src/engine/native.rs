@@ -83,7 +83,7 @@ impl Owner {
         let context = self.session.backend_context();
         if let Some(mut batch) =
             self.session
-                .receive_native_line(self.client.as_ref(), line, &context, None)
+                .receive_native_line(self.client.as_ref(), line, &context)
         {
             let mut installed = false;
             while let Some(update) = batch.next(&mut self.session, self.client.as_ref(), &context) {

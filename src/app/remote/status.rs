@@ -100,15 +100,24 @@ impl Device {
     }
 
     fn footer_hint(&self, info: Option<&SessionInfo>, width: usize) -> Option<String> {
+        if let Some(hint) = self.disconnect_hint() {
+            return Some(hint);
+        }
         if let Some(hint) = &self.view.status_hint {
             return Some(hint.clone());
         }
-        if self.history.failed
-            && info.is_some_and(|info| {
-                info.backend == Backend::Claude && info.availability == Availability::Closed
-            })
-        {
-            return Some("Claude is closed · edited draft kept".into());
+        if let Some(info) = info.filter(|info| {
+            info.backend != Backend::Codex && info.availability == Availability::Closed
+        }) {
+            let remedy = if info.backend == Backend::Claude {
+                "reopen this saved session"
+            } else {
+                "start a new session"
+            };
+            return Some(format!(
+                "{:?} is closed; {remedy}; draft kept",
+                info.backend
+            ));
         }
         if let Some(hint) = self.history_hint(width) {
             return Some(hint.into());

@@ -14,7 +14,6 @@ impl SessionState {
         client: &dyn BackendClient,
         line: &str,
         context: &BackendContext<'_>,
-        editor: Option<Value>,
     ) -> Option<NativeBatch> {
         let frame: Value = serde_json::from_str(line).ok()?;
         if frame["method"] != "carlos/codex/frame" {
@@ -32,7 +31,7 @@ impl SessionState {
             self.stop_codex_rebuild();
             batch.initial = Some(self.native_frame_closed(&event["params"], ""));
         } else if method == "carlos/codex/ready" && self.codex_connection().rebuilding() {
-            return Some(self.begin_native_ready(client, editor, line.len()));
+            return Some(self.begin_native_ready(client, line.len()));
         } else if self.codex_connection().rebuilding() && !callback(event) {
             if self.hold_codex_replay(event.clone(), line.len()) {
                 batch.root_charge = None;

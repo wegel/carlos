@@ -14,7 +14,7 @@ A device hint changes an editor, focus, selection or display cache. The daemon d
 
 - BackendUpdate.change selects the current report family; it is never a public wire envelope. Consume each variant below. BackendUpdate.nested contains an already-applied history report and must be consumed recursively, including its action, before the next native frame.
 - BackendChange.Items carries ItemChanges. reset_navigation is a device hint. history_replaced is a device hint over the shared reset/snapshot already recorded by core. Neither flag replaces the numbered transcript stream.
-- BackendChange.Installed carries NativeInstalled. facts.history follows ItemChanges; facts.goal follows GoalUpdate below. editor is an unsent device draft and must be absent from the daemon path. Core history adoption and native connection facts must already be recorded before publishing a reset.
+- BackendChange.Installed carries ReconnectInstalled directly. history follows ItemChanges; goal follows GoalUpdate below. EP019b removed the NativeInstalled wrapper and its captured unsent editor. Core history adoption and native connection facts are already recorded before publishing a reset.
 - BackendChange.Common, Claude, Codex and Closed select the maps below. None contributes no extra route.
 - ThreadChanged.codex_reset is a device reset hint over shared connection/history changes. callbacks contains CallbackRetired values mapped below. The owner never sends a native callback key to a client.
 
@@ -26,13 +26,13 @@ ClaudeUpdate.items follows ItemChanges. effects is an ordered list of the varian
 - Cancelled.id is internal routing; Cancelled.card becomes shared card retirement. The client drops only hints attached to the retired card.
 - Browser carries an internal native callback id. Browser URL/consent facts belong in the live card; each client opens its own browser after an explicit choice. Never issue a device browser command from the daemon.
 - Thread follows ThreadChanged. HistoryReset follows the numbered reset. Cleared follows ApprovalCleared. Cards contains shared retired ids, already recorded by the card owner. CodexRetired follows CallbackRetired.
-- CodexUnfocus, SwitchControls and ResetControls are device hints and have no daemon route.
+- EP019b removed CodexUnfocus, SwitchControls and ResetControls and their producers. Clients derive their own focus and controls from shared state.
 - Submission carries SubmissionOutcome, a private result tied to its originating operation. Automatic work without a human owner has no private recipient. Do not broadcast recovered text into another client's composer.
 - SessionClosed is a shared connection/availability fact and must stop accepting work against that native generation. Keep its durable session description available for explicit recovery.
 
 ## TurnUpdate
 
-TurnUpdate.changes follows ClaudeUpdate. hint is a private diagnostic for the current command; remove key instructions and keep the client's recovery choice local. clear_selection and rewound are device hints over the accepted command/reset. submitted and name_saved are legacy text-match acknowledgements, replaced by operation-owned acceptance. Do not clear an editor because it happens to contain equal text. The accepted user entry carries ClientOperation; the accepted session name appears in shared SessionInfo. EP019a handles sends; EP019b adds rename/rewind consumers and removes these legacy fields.
+TurnUpdate.changes follows ClaudeUpdate. Its only other field, rewound, records that this exact edit adopted a fork; the owner retains that fact in the originating private operation result. EP019b removed hint, clear_selection, submitted and name_saved and all their producers. Clients recover drafts and clear editors from their own operation results, never from equal text. Accepted user entries carry ClientOperation; accepted names appear in shared SessionInfo. PreparedStatus reports rejected commands. Shared Core diagnostics contain no terminal key instructions.
 
 ## CommonUpdate, approvals and closure
 

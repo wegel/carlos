@@ -34,11 +34,7 @@ pub struct PromptOptions {
 #[derive(Default)]
 pub struct TurnUpdate {
     pub changes: ClaudeUpdate,
-    pub hint: Option<String>,
-    pub clear_selection: bool,
     pub rewound: bool,
-    pub submitted: Option<String>,
-    pub name_saved: Option<String>,
 }
 
 impl SessionState {
@@ -102,7 +98,6 @@ impl SessionState {
             options,
             context: context.clone(),
             steer,
-            edited,
         };
         prepared.work = Some(self.prompt_work(submission));
         Ok(prepared)
@@ -203,10 +198,9 @@ impl SessionState {
                 ));
                 self.append_message(
                     Role::System,
-                    "Could not send message: Codex is closed; F5 reconnects; draft kept",
+                    "Could not send message: Codex is closed; draft kept",
                 );
             }
-            update.hint = Some("Codex is closed; F5 reconnects; draft kept".into());
             return true;
         }
         if kind == BackendKind::Claude && self.claude().phase() == ClaudePhase::Closed {
@@ -221,11 +215,7 @@ impl SessionState {
                     },
                     kind: RecoveryKind::Prompt,
                 }));
-            update.hint = Some("Claude is closed; restart Carlos to send this draft".into());
-            self.append_message(
-                Role::System,
-                "Claude is closed; restart Carlos to send this draft",
-            );
+            self.append_message(Role::System, "Claude is closed; draft kept");
             return true;
         }
         false

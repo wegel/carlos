@@ -33,8 +33,6 @@ impl SessionState {
             });
         }
         let Some((index, entry, turn)) = self.rewind_anchor(selected) else {
-            update.hint =
-                Some("The selected prompt is no longer available; choose it again".into());
             return Ok(PreparedCommand {
                 update,
                 status: PreparedStatus::Failed("selected prompt is retired or not editable".into()),
@@ -69,7 +67,6 @@ impl SessionState {
             context: context.clone(),
             options,
             steer: false,
-            edited: true,
         };
         let context = if kind == BackendKind::Claude {
             self.begin_claude_edit_for(

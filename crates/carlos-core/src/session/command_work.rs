@@ -72,7 +72,6 @@ pub(super) struct PromptSubmission {
     pub(super) options: PromptOptions,
     pub(super) context: PromptContext,
     pub(super) steer: bool,
-    pub(super) edited: bool,
 }
 
 /// Busy commands were not sent; stale completions may have reached the backend and must not retry.

@@ -80,7 +80,6 @@ impl SessionState {
         next.update.changes.items.reset_navigation |= changes.items.reset_navigation;
         next.update.changes.items.history_replaced |= changes.items.history_replaced;
         next.update.rewound = true;
-        next.update.clear_selection = true;
         next
     }
 }

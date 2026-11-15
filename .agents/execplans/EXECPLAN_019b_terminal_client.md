@@ -12,12 +12,19 @@ The daemon already proves basic chat, approvals, running output, independent cli
 
 ## Progress
 
+- [x] (2026-11-15) Pass the final source23d6e707 default/no-default Rust tests, strict lint, release tests/build, architecture/dependencies, compiled helper and all143 actual-daemon cases (72.816 s) in gate09. All306 terminal workflows pass416.236s, installed Codex23 pass33.355s, installed Claude10 pass27.826s, plus selection/source-failure/dictation/ANSI/package/contract checks. Gate09 exits0. Final measurements will refresh the same exact pair after the commit hooks and artifact builds finish.
+
+- [x] (2026-11-15) Receive the independent final Fable 5.2 medium whole-roadmap verdict PASS WITH ISSUES (session 18025da3-df89-49de-8da1-92d64ef99e8b, model claude-fable-5-2). Preserve the raw review and record every disposition. Apply bounded residue/hint repairs: shared Core notices have no keys; remove unused TurnUpdate fields/control effects/captured reconnect editor; panels use an explicit disconnect reason; closed non-Codex F5 does not wait forever or resend. The actual closed-Claude regression fails the previously accepted pair. Final corrected-source checks remain running.
+
+- [x] (2026-11-15) Capture final default-release identities, all quiet measurements and complete functional checks. Keep both historical unexplained timeouts and the dense Unicode memory limit explicit.
+- [ ] (2026-11-15) Resolve the final engineering/Fable review findings. The direct audit found terminal key instructions in shared Core notices and unused TurnUpdate fields left after the embedded terminal was removed. The independent review reads the frozen complete EP and whole phone roadmap before any correction.
+
 - [x] (2026-11-15) Complete final-source0c6328b2a7092fb34375d8ece4e8d65e feature/release/daemon/306terminal/23installed-Codex checks. Add the installed unmodified Claude2.1.322 contracts: all10 pass28.146s after reusing the ready-context helper/current hint and replacing blind50ms task stepping with actual native-heading/stop-control fences. Original threshold, exact native task target, stopped notification, prompt/history and deadlines remain. Log final-native-claude-recheck-02.log; reports retain both prior fixture failures honestly. Runtime code is unchanged by the fixture correction.
 
 - [x] (2026-11-15) Reproduce lost keyboard readiness in Crossterm0.29 with a controlled PTY: old backend returns only Resize, new built-in use-dev-tty backend passes eight fresh batches. Private combined64MiB ANSI/16MiBMarkdown passes14.592s with all immediate resize→End, source/style/typing/copy/reconnect assertions. Apply exactly four checked Cargo/lock/regression/fixture paths; source0c6328b2a7092fb34375d8ece4e8d65e matches private proof. Both feature test/lint matrices pass privately; root joined checks/commit and final gate are next. See exec019b-resize-input.md.
 
 - [x] (2026-11-15) Pass final-sourcefc0ee1 package/306terminal/source-selection/dictation/ANSI/23native remainder, then all143 daemon cases in73.169s through the unchanged-deadline failure-only runner. Original Claude reset timeout remains unexplained; original-case, coalesced-frame and six-case family probes pass, no runtime fix is claimed. Record all logs separately, not a fictitious clean gate05.
-- [ ] (2026-11-15) Finish exact-source large-body checks and metrics. The new frozen pair passes single-CPU1000send stress and nine managed-launcher cases;64MiBANSI passes. The16MiBMarkdown resize28→End case stays near the early viewport despite a decoded End and fails its40s deadline. Preserve /tmp/carlos-ep019b/final-evidence-fixed/large-source.log and artifacts. The original formatter worker is proving this order privately; no timing samples or final reviews have started.
+- [x] (2026-11-15) Finish exact-source large-body checks and quiet measurements on source 0c6328b2a7092fb34375d8ece4e8d65e. Both actual 64 MiB ANSI/16 MiB Markdown workflows pass in 14.509 s, with immediate resize→End preserved. The accepted evidence runner also passes 1,000-send single-CPU stress, nine managed-launcher cases, real formatter/cache probes, matched renderer/socket samples and owner/export replay. Preserve the earlier failure as the Crossterm defect proof. Final engineering and Fable whole-roadmap reviews are now running at the end of the EP; see exec019b-final-report.md.
 
 - [x] (2026-11-15) Finish the final fc0ee1 release feature/terminal/native checks through the original runner, complete terminal/native remainder and full143-case diagnostic daemon rerun. Keep the original142/143 failure separate: the settings worker found no reproducible cause in the original, coalesced-frame and six-case family probes, and made no product change. Native trace and bounded diagnostic handoff remain in the final report. The remaining final-source gap is the large Markdown resize→End case below.
 
@@ -55,7 +62,7 @@ The daemon already proves basic chat, approvals, running output, independent cli
 - [x] (2026-11-14) Prove the first actual socket terminal consumer through the shared Client, borrowed lazy render cache, composer and ordinary approval painter. The opt-in attach path creates no SessionState or native backend in the terminal. Six screen/RPC tests cover two independent drafts and held-send controls, daemon restart/F5 without resend,130 handled clientId echoes, local cache pressure, a daemon read-RPC fault and a456-KiB ANSI source with exact bytes/red tail. The engineering reviewer found missing failed-RPC token retirement; it is fixed, the negative proof reproduces the extra subscription and the narrow follow-up is PASS. The restored full49-daemon/189-terminal gate, strict lint, no-default tests and release smoke pass. Evidence: `.agents/reports/exec019b-first-socket-terminal.md`. Main and installed binary remain unchanged.
 - [x] (2026-11-14) Share local display commands, pointer/page gestures, selected-cell/copy rules and status separator with the socket terminal. New actual-socket checks preserve exact Unicode selection, phone-width ANSI color, offline folding and complete552-KiB Markdown copy without a chat send. Restored full gate passes49 daemon/191 terminal/67 helper/15 architecture checks at run-xB3tHI; strict lint and both engineering reviews are PASS. Matched explicit releases preserve counts and keep p95 near the original/pre-local figures; the stale/mixed-profile probe is excluded and its correction is recorded. Focused evidence: `.agents/reports/exec019b-socket-local-views.md`.
 - [x] (2026-11-14) Keep every entry reachable through bounded source reads, actual history paging and eviction. All200 source texts appear while scrolling, the old prefix survives a prepend/resize and watch high water stays32. Delayed live source retains the accepted raster; explicit F6 retries a failed visible read without replaying chat. Reset/empty-source/live-growth/tool-budget regressions each have an actual-socket proof and a failing single-fix negative. A separate embedded prepend+changed-id regression fails before its repair and passes in both themes at12/28/80columns. All reviewer findings are fixed, with final narrow verdict PASS. Exact final gates pass824main Rust/58client tests, strict lint,49daemon/197terminal/67helper/15architecture checks and explicit release. The15-round matched release comparison removes the initial-layout regression and preserves counts/p95; seven-round append comparisons cover1501/24001entries. Evidence: `.agents/reports/exec019b-sparse-source-history.md`.
-- [ ] Measure64MiB ANSI/16MiB Markdown source versus rendered-block high water, append/resize p95 and exact above-cache copy before choosing storage or checkpoints. The second Fable5.2medium whole-roadmap report remains `.agents/reports/exec019b-fable-source-cache-review.md`; no file fallback has started and no product body cap is accepted. Use the actual above-cache caller to justify a pure-client pass-through and a single pinned-document candidate; do not build file/mmap or stream Markdown without evidence.
+- [x] Measure 64 MiB ANSI/16 MiB Markdown source versus rendered-block high water, append/resize p95 and exact above-cache copy. The final caller keeps one active original with bounded rendered rows; no file fallback or body cap is needed for the accepted corpus. Final evidence is in exec019b-final-report.md. Historical design context follows: The second Fable5.2medium whole-roadmap report remains `.agents/reports/exec019b-fable-source-cache-review.md`; no file fallback has started and no product body cap is accepted. Use the actual above-cache caller to justify a pure-client pass-through and a single pinned-document candidate; do not build file/mmap or stream Markdown without evidence.
 - [x] (2026-11-14) Measure a test-only ANSI source/style checkpoint candidate and repair the measured64MiB single-word prefix walk. Six differential tests, isolated full no-default workspace tests, strict Clippy, exact source/private-copy digests and size checks pass. The engineering verdict is PASS WITH ISSUES with one MINOR in stale copy evidence; unique run files and a successful backend guard fix it, two negative proofs reject stale results, and the narrow follow-up is PASS. The final exact release test is731c23831eee366b7afcfb0703225636110bcc89a1fdd80920e32a985c50c739; report: `.agents/reports/exec019b-ansi-checkpoint-prototype.md`. This closes an offline prototype only; general long mixed-style/Unicode row indexes, Markdown, worker ownership and actual socket above-cache copy/input checks remain open.
 - [x] (2026-11-14) Port the existing native goal panel through the daemon with shared widgets, private drafts, budgets/status/clear, frozen revision confirmations and Ralph guards. The Sol 6.1 High worker committed d24366f. Explicit goal read interests preserve the existing native timer across multiple clients and stop it after the final reader leaves; offline and failed-admitted reads are covered. Actual restart tests fixed lower-sequence new-instance snapshots, duplicate subscriptions and early Enter during restore without replaying private mutations. All1270 Rust tests, strict lint and the full49daemon/207terminal/23native-monitor plus installed-Codex/helper/architecture gate pass. The initial engineering FAIL findings are fixed and the final verdict is PASS. Report with both raw verdicts: `.agents/reports/exec019b-daemon-goal-panel.md`.
 - [x] (2026-11-14) Port the native Codex queue panel through the shared Client and daemon. The Sol6.1 High worker committed c4bdbca; pages, full selected text, independent editors, F3 Add/private recovery, stale revision/run/root guards and reconnect all pass actual screen/RPC tests. The narrow ordinary-lane repair allows only a head QueueChange beside a pending Prompt, with held rename/fork barriers intact. Initial engineering FAIL findings and the follow-up obsolete-footer MINOR are fixed; final verdict PASS. The exact full contract gate passes1280Rust/53daemon/219terminal/23native-monitor plus67helper/15architecture/package checks at run-cVnMvz. Root inspected the handoff and replaced the string control selector with an exhaustive enum; its repeat gate passes1281Rust/53daemon/219terminal at run-ws9dsg. Evidence and raw reviews: `.agents/reports/exec019b-daemon-queue-panel.md`. Claude queue mode, other panels/startup and the cutover remain open.
@@ -141,6 +148,8 @@ The daemon already proves basic chat, approvals, running output, independent cli
 - [x] (2026-11-15) Complete all old-owner test moves through314823f: native32 and committed phone/client counterparts replace the final35cases; unused Peer/NormalizedApp/support and AppState::new retire. All three final native indexed prefixes and normal hooks pass. A source-frozen private deletion has no pending native modules; its first full no-default run passes1558/tenignored. Exact test-list comparison catches two pure status sweeps attached to the old renderer; move only their registration unchanged before deletion.
 
 ## Surprises & Discoveries
+
+The end review found concrete residue after the terminal deletion: Core still wrote F5/restart instructions, several TurnUpdate fields and focus effects had no reader, and F5 could wait for a closed non-Codex helper without restarting it. The complete old release pair fails the strengthened Claude workflow. Root removed the dead state and shows the truthful local remedy without a native send or subscription. The daemon also retains its 16 live owners until shutdown; EP020 must first add explicit stop/reopen and prove slot reuse. The dated paragraphs below preserve earlier discoveries, not unresolved current work.
 
 The optional installed-Claude contract group still carried two embedded-route assumptions: Restart Carlos text with no popup-readiness fence, and two task arrows separated only by50ms. The ordinary daemon workflow helper already handles the new start-a-session wording and readiness. Actual native-detail replies must reach the screen before the next selection; keep the exact stop target and native notification assertions. All ten cases pass after these fixture corrections without a runtime edit.
 
@@ -232,6 +241,8 @@ The cutover draft no longer calls the source-reader helper from the terminal exe
 The installed Codex CLI distinguishes a new, unmaterialized thread from an existing empty saved thread. A native probe in `/tmp/carlos-ep019b/native-fresh-read-probe/rpc.jsonl` shows thread/start succeeds with turns=[], metadata/queue/goal reads succeed, and thread/turns/list returns-32600 before a user message. Treating that failure as a general empty-history fallback would discard real resumed history, so the caller must carry the known launch scope.
 
 ## Decision Log
+
+- 2026-11-15: Accept Fable's overall sound-architecture assessment and fix findings 3/4/5 plus the misleading-hint half of 2 within EP019b. Put explicit owner release/stop and non-Codex reopen first in EP020 before network access, as the reviewer allows. Keep the bound, private drafts and explicit retry semantics. Keep the measured dense Unicode limit visible; the formatter index is terminal-only and must not be imported into the phone or daemon. See exec019b-review-disposition.md for every finding and rationale. No new optimization or speculative transport framework is justified.
 
 - 2026-11-15: Include installed Claude CLI contracts in final acceptance. Reuse the existing context fixture helper and wait for actual selected task details/stop control; preserve source, native request, history and original deadline assertions. Rerun the ten-case group rather than repeating already-passing Rust and306-terminal checks for a Python-only fixture change.
 
@@ -328,6 +339,8 @@ Decision: cap retained session facts across one Client at 64 MiB and defer futur
   Date/Author: 2026-11-15, Codex.
 
 ## Outcomes & Retrospective
+
+Current state: source0c completed all final checks and quiet matched measurements; the authorized final Fable review returns PASS WITH ISSUES. Root applied the concrete final-review corrections in source23d6e70775c623b8106074957efb103d. The candidate cdfeda3c passed its Rust/release and 143-daemon checks but the focused reopen case caught a sticky local hint; gate07 was deliberately interrupted before continuing its terminal matrix. Gate08 was interrupted during its release rebuild to complete the disconnect-retry reason and strengthen the final subscription assertion. Neither interrupted gate is claimed as a complete pass. Both Rust feature matrices and strict lint pass. The complete corrected-source release/terminal/native gate is running; final measurements and approval must name that source. The checkpoint paragraphs below retain the earlier path to this result and do not reopen their completed gaps.
 
 All final-source feature, release, daemon, terminal, installed Codex and installed Claude checks now pass. Record their separate logs accurately. The code is frozen at source0c6328b2a7092fb34375d8ece4e8d65e; quiet matched measurements and final engineering/Fable reviews are the remaining acceptance work.
 
@@ -946,3 +959,102 @@ Update2026-11-15: all native/private owner migrations are committed and clean. T
 Revision2026-11-15: record the complete owner-test move, checked physical cutover and uid-specific test-artifact relocation. The release runner is still active; no final acceptance is claimed.
 
 Revision2026-11-15: retain passed removal/source/performance evidence and record the real Grok race exposed by final stress. Continue the focused identity repair before final review; no EP approval is claimed.
+
+Revision 2026-11-15: record completed final-source checks and quiet measurements, close the obsolete large-body gap, and start the authorized end-of-EP reviews. No approval or archive has occurred.
+
+Revision 2026-11-15: record the final independent review and its small corrections. Put owner release and explicit non-Codex reopen first in EP020; do not add a body cap contrary to the accepted source contract or a timed merger without measured need.
+
+## Final review: Fable 5.2 medium, complete EP and whole roadmap
+
+Read-only session 18025da3-df89-49de-8da1-92d64ef99e8b, canonical model claude-fable-5-2, medium, exit 0. Reviewed HEAD0421d92 before the bounded corrections. Text follows with its table rendered as a list for the owner's narrow-screen rule. The JSON report preserves the exact reply. Root's decisions are in exec019b-review-disposition.md; approval waits for corrected-source checks and measurements.
+
+## Engineering review: EP019b final result and EP016–022 roadmap
+
+### 1. What was reviewed
+
+EP019b at HEAD `0421d92` relative to EP019a, read-only and by source inspection; I ran no builds or tests, so every measurement below is the final report's, not mine.
+
+- **Docs:** `PROGRAM_PLAN.md`, `docs/engine-architecture.md`, `docs/terminal-client-migration.md`, `.agents/reports/exec019b-final-report.md`, and the limits section of `docs/daemon-protocol.md`.
+- **Public boundaries:** `carlos-proto/src/commands.rs`, `carlos-client` (`lib.rs`, `client.rs`), `carlosd` (`limits.rs`, `transport/outbox.rs`, the manager's open/lifecycle paths).
+- **Core and terminal:** core `engine/reports.rs` and the prompt/rewind paths; terminal `src/app/remote` (loop, transport, reconnect, status, submit, source formatter) and `daemon_launcher`.
+- **Not read:** `.agents/CODE_STYLE.md` and the active ExecPlan.
+
+Overall: the architecture is sound and the roadmap does not need a redesign. The crate split is real and the client is pure. Session ownership is single, queues are bounded, and typing/scrolling stay local. The findings are concrete repairs, mostly lifecycle gaps that daemon ownership newly exposes.
+
+### 2. Findings
+
+**BLOCKER**: none.
+
+**MAJOR 1: Live session owners are never released; the daemon fills up at 16.**
+- `Command` (`crates/carlos-proto/src/commands.rs`) has no session stop/close, although `docs/terminal-client-migration.md:28` says "only explicit session stop closes backend work".
+- `session.live` is only cleared in `Manager::shutdown` (`crates/carlosd/src/manager/lifecycle.rs:334`).
+- `owner_count()` counts every live or launching session, and create/open/subscribe reject at `limits::OWNERS = 16` (`lifecycle.rs:102`, `startup/open.rs:239`, `read_commands.rs:229`).
+- Before EP019b, quitting the terminal killed the backend. Now each opened session keeps its owner threads and native process until the daemon exits, and I found no terminal command or documented procedure to stop the managed daemon.
+- Consequence: after 16 distinct sessions in one daemon lifetime, the next `carlos` launch fails with "capacity is full", and RSS grows with each abandoned session. The single-session RSS figures in the report don't cover this.
+- Fix, either one, before the phone makes long-lived daemons normal:
+  - add a typed `session/stop {session, operation}` with a terminal affordance; or
+  - retire an owner that is idle (no turn, no Ralph, no pending card, no subscribers) back to dormant, since saved sessions already restore on subscribe.
+- At minimum, make the capacity rejection name the remedy and document it. I'd treat this as an EP019b repair or the first EP020 item, not optional.
+
+**MAJOR 2: Closed Claude/Grok sessions have no in-client recovery, and F5 gives a misleading hint.**
+- For a closed non-Codex session, `retry_session` (`src/app/remote/events.rs:241-265`) re-sends `Subscribe` and sets `waiting_ready`. The footer then says "Waiting for the session to become ready… Press Enter again when ready" (`status.rs:116`). `waiting_ready` only clears on Ready (`events.rs:108`), and nothing in this path reopens the helper, so it stays up indefinitely.
+- Claude reopens only through `session/open` (`startup/open.rs:161-164`), which means quitting and relaunching the terminal. That matches the legacy "restart Carlos" behaviour, but a phone has no equivalent.
+- Closed Grok appears to have no reopen path at all: `install_open` falls through to `attach_open` on the still-live closed owner. I did not trace Grok's owner end to end, so confirm with a test.
+- Fix: do not set `waiting_ready` when availability is `Closed`; show a truthful hint. Preferably make F5 send the existing `session/open` reopen for closed Claude, and define or explicitly reject Grok reopen.
+
+**MAJOR 3: Core still writes terminal key instructions into shared facts.**
+`docs/terminal-client-migration.md:69` requires replacing "key instructions such as F5 with client-local hints". These remain and go into the numbered transcript or status that every client, including the phone, will see:
+- `crates/carlos-core/src/session/prompt_commands.rs:206` and `:227` (`append_message`)
+- `crates/carlos-core/src/session/codex/lifecycle.rs:63` (transcript) and `:70` (hint)
+- `crates/carlos-core/src/session/codex/frame_install.rs:62` ("; F5 retries")
+- `crates/carlos-core/src/codex_connection.rs:97`
+
+"Restart Carlos" is also wrong in spirit under a daemon; the user restarts a terminal, not the session owner. Fix: state only the fact in core ("Codex is closed; draft kept"). The terminal already adds its own F5 hints from `Availability` (`status.rs:132`). This is small and in scope now.
+
+**MINOR 4: Dead report fields after the deletion commit.**
+- `Owner::turn_report` (`crates/carlos-core/src/engine/reports.rs:35-37`) consumes only `report.changes`.
+- `TurnUpdate.clear_selection` (set only at `rewind_settle.rs:83`) and `TurnUpdate.hint` (`prompt_commands.rs:209/224`, `rewind_commands.rs:36`, `name_commands.rs:70`) have no production reader.
+- `name_saved` has no reader under `engine/`; `submitted` did not show one either. I did not grep the rest of core, so check both before deleting.
+- `ClaudeEffect::{CodexUnfocus, SwitchControls, ResetControls}` are still produced in several core files and discarded as "device hints" at `reports.rs:60-62`, and `BackendChange::Installed.editor` survives only as a `debug_assert`. The migration doc says no exported report may tell a terminal to unfocus or reset.
+- Fix: delete the fields, variants and their producers. The comment at `reports.rs:26` ("no remote producer before EP019b") is stale.
+
+**MINOR 5: Panels pick out the disconnect banner by string prefix.**
+- `status_hint.starts_with("F5 reconnects:")` in `src/app/remote/tasks_render.rs:203`, `queue_render.rs:130` and `goals.rs:340` matches the text formatted at `remote.rs:138`.
+- Fix: store the disconnect reason as a typed field on `Device` and render from that.
+
+**MINOR 6: The terminal loop polls the socket on an 8 ms tick.**
+- `event::poll(8ms)` (`metrics.rs:77`) followed by a non-blocking `service()` adds up to 8 ms latency to streamed output and wakes about 125 times a second while idle.
+- It mirrors the legacy loop and the measured p95s are fine, so no change is needed for EP019b. Do not carry the pattern into the phone or WebSocket platform loop; the pure client already allows event-driven wakeups.
+
+**MINOR 7: The dense-Unicode worst case is still unbounded.**
+- About 6 s, about 1.3 GiB peak and about 238 MiB retained for a 64 MiB dense body. The report states this honestly.
+- It becomes more reachable once EP020 lets remote clients trigger source reads on large bodies. Decide on a cap or degraded wrap above a size threshold before network exposure, not after.
+
+**MINOR 8: Two unattributed timeouts remain.**
+- The Claude settings-reset and Markdown-copy timeouts have traces preserved and no cause claimed, which is correct. Keep the failure-only harness, and treat any recurrence in EP020 as a defect to root-cause rather than rerun.
+
+**MINOR 9: Bloat watch (no action now).**
+- The protocol has about 60 typed commands; the task family alone has about 17 (window, activity, overview, text, run).
+- `carlos-client` has about 40 modules, and `src/app/remote` about 60 non-test files, many of them thin splits (`settings_*` ×10, `tasks_*` ×15).
+- This is the cost of "no generic backend JSON" and is defensible, but file count is hiding the real size.
+- EP020–022 should add no new command families for the phone beyond what its screen needs. The phone should use the basic set, and v1 should stay provisional so terminal-only families can be marked as such.
+- The +2.5 ms cold replay, +2.7 MB daemon RSS and +0.04 ms admission p95 are acceptable fixed costs.
+
+### 3. Necessary repairs versus optional redesign
+
+- Repair now (small, in EP019b scope): 3 and 4 (delete terminal text and dead fields from core), the hint part of 2, 5.
+- Repair before or at the start of EP020: 1 (owner release or stop), the reopen part of 2, a decision on 7.
+- Optional, later: 6 and 9; no redesign of crates, transport or ownership is warranted.
+
+EP020's plan (thread-per-connection tungstenite, device tokens) fits the existing peer and outbox bounds without structural change. Note that `Hello.token` currently defaults to an empty string (`commands.rs:272-273`), so the daemon must require a non-empty token on network listeners.
+
+### 4. Verdict
+
+**PASS WITH ISSUES**
+
+EP019b meets its objective and the path to EP020–022 is sound. Findings 3 and 4 are residue the EP's own deletion gate named and should be fixed before closeout. Finding 1 and the reopen half of 2 must be scheduled explicitly, in EP019b or as the first EP020 milestone, because daemon-owned sessions make them user-visible.
+
+
+Revision 2026-11-15: finish the corrected-source hint lifecycle, update failed reconnect reasons, and check the subscription count again after the full native reopen/send workflow. Gate09 runs the complete frozen source23d6e707; retain the candidate failure and interrupted gates accurately.
+
+Revision 2026-11-15: gate09 passes every final corrected-source check. Commit the bounded final review repairs, then refresh exact identities and quiet measurements before delegated approval.

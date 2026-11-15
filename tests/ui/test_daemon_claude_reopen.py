@@ -30,6 +30,14 @@ class DaemonClaudeReopen:
         first.wait(lambda: first.input_is("edited text stays private 🦊"), "failed replacement returns the edited text")
         first.contains("Claude is closed")
         self.assertEqual(len(fixture.pids()), 2)
+        subscriptions = len(first.requests("session/subscribe"))
+        first.send(b"\x1b[15~")
+        first.contains("reopen this saved session")
+        self.assertNotIn("Waiting for the session to become ready", first.text)
+        self.assertTrue(first.input_is("edited text stays private 🦊"))
+        self.assertEqual(len(first.requests("session/subscribe")), subscriptions,
+                         "F5 cannot make a closed Claude helper ready by subscribing")
+        self.assertEqual(len(fixture.pids()), 2, "no implicit native restart or resend")
         (fixture.root / "first-native-session").unlink()
         second = self.attach_daemon(fixture, session, "claude-reopened")
         second.contains("Idle")
@@ -50,6 +58,8 @@ class DaemonClaudeReopen:
         first.send(b"\r")
         first.contains("Answer: edited text stays private 🦊")
         second.contains("Answer: edited text stays private 🦊")
+        self.assertEqual(len(first.requests("session/subscribe")), subscriptions,
+                         "F5 on the closed session did not add a subscription")
         self.assertEqual(len(first.requests("session/send")), 2, "only a new Enter sends recovered text")
         self.assertEqual(second.requests("session/send"), [])
         first.snapshot("failed-edit-draft-explicit-claude-open")

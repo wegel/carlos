@@ -242,12 +242,21 @@ impl Device {
         if self
             .client
             .session_has_current_snapshot(link.connection, &self.session)
-            && self.client.session(&self.session).is_some_and(|replica| {
-                replica.info().backend == carlos_proto::session::Backend::Codex
-                    && replica.info().availability == carlos_proto::session::Availability::Closed
-            })
         {
-            return self.native_reconnect(link);
+            if let Some(info) = self
+                .client
+                .session(&self.session)
+                .map(|replica| replica.info())
+            {
+                if info.availability == carlos_proto::session::Availability::Closed {
+                    if info.backend == carlos_proto::session::Backend::Codex {
+                        return self.native_reconnect(link);
+                    }
+                    self.waiting_ready = false;
+                    self.view.status_hint = None;
+                    return Ok(());
+                }
+            }
         }
         if self.client.is_ready(link.connection)
             && !self.client.session_is_ready(link.connection, &self.session)

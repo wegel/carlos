@@ -49,7 +49,7 @@ impl SessionState {
             options,
             context,
             steer,
-            edited,
+            ..
         } = submission;
         let uuid = response["result"]["turn"]["id"].as_str();
         let completed = uuid
@@ -85,9 +85,6 @@ impl SessionState {
             }
         }
         record_prompt_acceptance(update, submission);
-        if *edited {
-            update.submitted = Some(text.clone());
-        }
     }
 
     pub(super) fn prompt_failed(

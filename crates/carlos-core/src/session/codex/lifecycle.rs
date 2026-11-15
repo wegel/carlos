@@ -60,14 +60,14 @@ impl SessionState {
             "Codex stopped"
         };
         let transcript = ItemChanges::default();
-        self.append_message(Role::System, format!("{label}: {message}{guidance}. F5 reconnects; drafts are kept. Unconfirmed input will not be resent."));
+        self.append_message(Role::System, format!("{label}: {message}{guidance}. Drafts are kept. Unconfirmed input will not be resent."));
         self.set_status(format!("{label}: {message}"));
         Some(CodexClosed {
             settings,
             recovery,
             retired,
             transcript,
-            hint: format!("{label}: {message}{guidance}. F5 reconnects"),
+            hint: format!("{label}: {message}{guidance}"),
         })
     }
 

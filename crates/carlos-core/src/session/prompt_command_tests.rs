@@ -150,11 +150,13 @@ fn discarded_prompt_id_cannot_select_a_later_identical_draft() {
     state.record_prompt_history("same", None);
     assert_ne!(state.input_history().prompt_id(0), Some(retired));
     let peer = Peer::new(BackendKind::Grok);
-    let update = rewind(&mut state, &peer, retired, "edit".into(), &context(), false);
-    assert!(update
-        .hint
-        .expect("stale choice")
-        .contains("no longer available"));
+    let prepared = state
+        .prepare_rewind_text(BackendKind::Grok, retired, "edit".into(), &context(), false)
+        .expect("retired choice is rejected without backend work");
+    assert!(prepared.work.is_none());
+    assert!(matches!(prepared.status,
+        crate::session::command_work::PreparedStatus::Failed(message)
+        if message.contains("retired or not editable")));
     assert!(peer.forks.lock().expect("forks").is_empty());
     assert!(peer.calls.lock().expect("calls").is_empty());
 }

@@ -2,9 +2,9 @@
 
 use super::claude::receive_update::ClaudeUpdate;
 use super::codex::callback_update::CallbackUpdate;
-use super::codex::frame_install::NativeInstalled;
 use super::codex::lifecycle::CodexClosed;
 use super::codex::panel_scope::PanelScope;
+use super::codex::reconnect_install::ReconnectInstalled;
 use super::common_update::CommonUpdate;
 use super::item_changes::ItemChanges;
 
@@ -23,7 +23,7 @@ pub struct BackendUpdate {
 pub enum BackendChange {
     None,
     Items(ItemChanges),
-    Installed(NativeInstalled),
+    Installed(ReconnectInstalled),
     Common(CommonUpdate),
     Codex(CallbackUpdate),
     Claude(ClaudeUpdate),

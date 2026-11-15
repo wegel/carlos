@@ -105,6 +105,7 @@ struct Device {
     history: history::History,
     rename: Option<rename::Rename>,
     waiting_ready: bool,
+    disconnected: Option<String>,
     reconnect: Option<carlos_proto::submissions::ClientOperation>,
 }
 
@@ -126,6 +127,12 @@ pub(super) fn run_connected(
 }
 
 impl Device {
+    fn disconnect_hint(&self) -> Option<String> {
+        self.disconnected
+            .as_ref()
+            .map(|error| format!("F5 reconnects: {error}"))
+    }
+
     fn connection_closed(&mut self, link: &Transport, error: &anyhow::Error) {
         self.client.disconnect(link.connection);
         self.reading.disconnected();
@@ -135,7 +142,8 @@ impl Device {
         self.queue_disconnected();
         self.tasks_disconnected();
         self.settings_disconnected();
-        self.view.status_hint = Some(format!("F5 reconnects: {error}"));
+        self.disconnected = Some(error.to_string());
+        self.view.status_hint = None;
     }
 
     fn service(&mut self, link: &mut Transport) -> Result<bool> {

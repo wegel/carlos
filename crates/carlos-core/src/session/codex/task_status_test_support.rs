@@ -116,7 +116,7 @@ pub(super) fn panel_tick(peer: &TestBackend, core: &mut SessionState) {
 pub(super) fn native(core: &mut SessionState, peer: &TestBackend, line: &str) {
     let context = core.backend_context();
     let mut batch = core
-        .receive_native_line(peer, line, &context, None)
+        .receive_native_line(peer, line, &context)
         .expect("native frame");
     loop {
         let context = core.backend_context();

@@ -196,13 +196,8 @@ impl Device {
                 lines.push("Native connection is closed; task controls are unavailable".into());
             }
         }
-        if let Some(status) = self
-            .view
-            .status_hint
-            .as_deref()
-            .filter(|status| status.starts_with("F5 reconnects:"))
-        {
-            lines.push(status.into());
+        if let Some(status) = self.disconnect_hint() {
+            lines.push(status);
         }
         lines
     }

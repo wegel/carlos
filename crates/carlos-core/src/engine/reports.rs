@@ -12,9 +12,7 @@ impl Owner {
     pub(super) fn report(&mut self, report: BackendUpdate) {
         match report.change {
             BackendChange::None | BackendChange::Items(_) => {}
-            BackendChange::Installed(installed) => {
-                debug_assert!(installed.editor.is_none());
-            }
+            BackendChange::Installed(_) => {}
             BackendChange::Common(report) => {
                 if let Some(action) = report.action {
                     self.action(action);
@@ -23,7 +21,6 @@ impl Owner {
             BackendChange::Claude(report) => self.claude_report(report),
             BackendChange::Codex(report) => self.codex_report(report),
             BackendChange::Closed(_) => {
-                // Native queue/settings mutation families have no remote producer before EP019b.
                 self.close_native();
             }
         }
@@ -57,9 +54,6 @@ impl Owner {
                 | ClaudeEffect::Cleared(_)
                 | ClaudeEffect::Cards(_)
                 | ClaudeEffect::CodexRetired(_) => { /* core already recorded shared facts */ }
-                ClaudeEffect::CodexUnfocus
-                | ClaudeEffect::SwitchControls
-                | ClaudeEffect::ResetControls => { /* device hints */ }
             }
         }
         if let Some(action) = report.action {

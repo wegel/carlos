@@ -89,6 +89,7 @@ fn local_device(client: Client, session: SessionId) -> Device {
         history: Default::default(),
         rename: None,
         waiting_ready: false,
+        disconnected: None,
         reconnect: None,
     }
 }

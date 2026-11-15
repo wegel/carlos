@@ -28,7 +28,7 @@ fn held_frames_and_ready_are_acknowledged_only_after_their_reports() {
     );
     for line in [&item, &name] {
         let mut batch = session
-            .receive_native_line(&client, line, &context(&session), None)
+            .receive_native_line(&client, line, &context(&session))
             .expect("wrapped");
         assert!(advance(&mut batch, &mut session, &client).is_none());
     }
@@ -41,20 +41,13 @@ fn held_frames_and_ready_are_acknowledged_only_after_their_reports() {
     assert!(client.snapshot.lock().expect("snapshot").is_some());
     let ready = frame(7, json!({"method":"carlos/codex/ready"}));
     let mut batch = session
-        .receive_native_line(
-            &client,
-            &ready,
-            &context(&session),
-            Some(json!({"model":"unsent"})),
-        )
+        .receive_native_line(&client, &ready, &context(&session))
         .expect("ready");
     let installed = advance(&mut batch, &mut session, &client).expect("installed report");
-    match installed.change {
-        BackendChange::Installed(report) => {
-            assert_eq!(report.editor.expect("captured editor")["model"], "unsent")
-        }
-        _ => panic!("snapshot must precede replay"),
-    }
+    assert!(
+        matches!(installed.change, BackendChange::Installed(_)),
+        "snapshot must precede replay"
+    );
     assert_eq!(session.messages()[0].text, "original");
     assert_eq!(acks(&client), [stale.len()]);
     advance(&mut batch, &mut session, &client).expect("replayed item report");
@@ -151,7 +144,7 @@ fn frame(generation: u64, event: Value) -> String {
 
 fn drain(session: &mut SessionState, client: &TestBackend, line: &str) {
     let mut batch: NativeBatch = session
-        .receive_native_line(client, line, &context(session), None)
+        .receive_native_line(client, line, &context(session))
         .expect("native frame");
     while advance(&mut batch, session, client).is_some() {}
 }

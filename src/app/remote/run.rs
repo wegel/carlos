@@ -46,6 +46,7 @@ impl Device {
             history: Default::default(),
             rename: None,
             waiting_ready: false,
+            disconnected: None,
             reconnect: None,
         };
         device.view.layout.themes = crate::app::tool_output_preferences::load_themes();
@@ -123,9 +124,10 @@ impl Device {
             match Transport::connect(socket, &mut self.client) {
                 Ok(link) => {
                     *transport = Some(link);
+                    self.disconnected = None;
                     self.view.status_hint = None;
                 }
-                Err(error) => self.view.status_hint = Some(error.to_string()),
+                Err(error) => self.disconnected = Some(error.to_string()),
             }
             Ok(false)
         } else if matches!(&input, Event::Key(key) if key.code == KeyCode::F(5)) {
