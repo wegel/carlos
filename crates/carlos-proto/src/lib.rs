@@ -7,6 +7,7 @@ pub mod goals;
 pub mod ids;
 pub mod output;
 pub mod queue;
+pub mod rpc;
 pub mod session;
 pub mod settings;
 pub mod source;
