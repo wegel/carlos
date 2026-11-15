@@ -51,7 +51,8 @@ impl Manager {
             | Command::ToolLabelsSet { .. }
             | Command::TaskStop { .. }
             | Command::Approve { .. }
-            | Command::Interrupt { .. } => self.mutate(peer, id, command, client),
+            | Command::Interrupt { .. }
+            | Command::Reconnect { .. } => self.mutate(peer, id, command, client),
             Command::Watch {} => {
                 self.peers.get_mut(&peer).expect("peer").list = true;
                 let sessions = self

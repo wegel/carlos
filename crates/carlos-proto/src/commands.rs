@@ -14,6 +14,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "method", content = "params")]
 pub enum Command {
+    #[serde(rename = "session/reconnect")]
+    Reconnect {
+        session: SessionId,
+        operation: ClientOperation,
+    },
     #[serde(rename = "prompt/select")]
     PromptSelect {
         session: SessionId,

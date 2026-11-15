@@ -15,6 +15,7 @@ mod owner;
 mod queue_changes;
 mod queue_reads;
 mod ralph_toggle;
+mod reconnect;
 mod reports;
 mod results;
 mod ring;
@@ -44,6 +45,9 @@ pub use self::ring::EngineFrame;
 
 /// Only explicit session reads and commands enter the owner, never native method strings.
 pub enum EngineCommand {
+    Reconnect {
+        operation: ClientOperation,
+    },
     Prompts(crate::session::prompt_reads::PromptCommand),
     ContextRead,
     ContextSet {
@@ -292,6 +296,7 @@ impl EngineHandle {
             | EngineCommand::SettingsSet { .. }
             | EngineCommand::ToolLabelsSet { .. } => &self.0.ordinary,
             EngineCommand::TaskStop { .. }
+            | EngineCommand::Reconnect { .. }
             | EngineCommand::Interrupt { .. }
             | EngineCommand::Approve { .. } => &self.0.control,
             _ => &self.0.reads,

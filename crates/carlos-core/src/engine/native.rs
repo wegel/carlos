@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use super::owner::Owner;
 use crate::backend::EventReceiver;
+use crate::session::backend_update::BackendChange;
 
 pub(super) struct Native {
     pub receiver: Option<mpsc::Receiver<String>>,
@@ -84,8 +85,13 @@ impl Owner {
             self.session
                 .receive_native_line(self.client.as_ref(), line, &context, None)
         {
+            let mut installed = false;
             while let Some(update) = batch.next(&mut self.session, self.client.as_ref(), &context) {
+                installed |= matches!(update.change, BackendChange::Installed(_));
                 self.report(update);
+            }
+            if installed {
+                self.finish_native_reconnect();
             }
             return;
         }

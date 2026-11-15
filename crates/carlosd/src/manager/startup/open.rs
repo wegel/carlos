@@ -110,7 +110,8 @@ impl Manager {
                 .values()
                 .find(|session| {
                     session.saved.backend == request.target.backend
-                        && session.saved.cwd == cwd
+                        && (request.target.backend == carlos_proto::session::Backend::Codex
+                            || session.saved.cwd == cwd)
                         && session.saved.native_thread == request.target.native
                 })
                 .map(|session| session.saved.id.clone())

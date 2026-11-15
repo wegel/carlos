@@ -48,7 +48,10 @@ impl Ingress {
             | Command::ContextSet { .. }
             | Command::ToolLabelsSet { .. }
             | Command::Rewind { .. } => 0,
-            Command::TaskStop { .. } | Command::Interrupt { .. } | Command::Approve { .. } => 1,
+            Command::TaskStop { .. }
+            | Command::Interrupt { .. }
+            | Command::Approve { .. }
+            | Command::Reconnect { .. } => 1,
             _ => 2,
         };
         let limits = [

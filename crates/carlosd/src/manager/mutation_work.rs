@@ -30,9 +30,9 @@ pub(super) fn prepare(command: Command) -> Result<Prepared, carlos_proto::comman
             policy,
         } => prepare_send(session, operation, text, policy),
         ralph @ (Command::SetRalph { .. } | Command::ToggleRalph { .. }) => prepare_ralph(ralph),
-        control @ (Command::Approve { .. } | Command::Interrupt { .. }) => {
-            Ok(prepare_control(control))
-        }
+        control @ (Command::Approve { .. }
+        | Command::Interrupt { .. }
+        | Command::Reconnect { .. }) => Ok(prepare_control(control)),
         command @ (Command::Rename { .. } | Command::Rewind { .. }) => prepare_edit(command),
         _ => unreachable!("mutation route"),
     }
@@ -215,6 +215,13 @@ fn prepare_task_stop(command: Command) -> Result<Prepared, carlos_proto::command
 
 fn prepare_control(command: Command) -> Prepared {
     match command {
+        Command::Reconnect { session, operation } => (
+            session,
+            operation.clone(),
+            EngineCommand::Reconnect { operation },
+            None,
+            Class::Control,
+        ),
         Command::Approve {
             session,
             operation,

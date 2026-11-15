@@ -214,6 +214,9 @@ impl Manager {
         for session in self.sessions.values_mut() {
             if session.saving.is_none()
                 && !session.save_failed
+                && (session.durable.is_some()
+                    || session.saved.native_thread.is_none()
+                    || session.info.availability == Availability::Ready)
                 && session.durable.as_ref() != Some(&session.saved)
                 && self.store.save(session.saved.clone())
             {

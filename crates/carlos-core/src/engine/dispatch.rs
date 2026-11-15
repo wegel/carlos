@@ -41,6 +41,7 @@ impl Owner {
             | EngineCommand::TaskStop { operation, .. }
             | EngineCommand::Approve { operation, .. }
             | EngineCommand::Interrupt { operation, .. } => operation,
+            EngineCommand::Reconnect { operation } => operation,
             _ => {
                 let _ = envelope.reply.try_send(EngineReply::Failure(failure(
                     "read entered a mutation lane",
@@ -89,6 +90,10 @@ impl Owner {
     }
 
     fn dispatch_control(&mut self, command: EngineCommand) {
+        if let EngineCommand::Reconnect { operation } = command {
+            self.reconnect_codex(operation);
+            return;
+        }
         let commands = match self.client.capture_commands() {
             Ok(commands) => commands,
             Err(error) => {

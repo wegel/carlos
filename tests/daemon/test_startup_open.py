@@ -79,6 +79,15 @@ class StartupOpenTests(unittest.TestCase):
         other = self._open_params(fixture, second, {"kind":"resume", "address":native}, cwd=str(alias))
         same = second.call("session/open", **other)
         self.assertEqual(same["session"], opened["session"])
+        different_cwd = fixture.root / "other-project"
+        different_cwd.mkdir()
+        cross_cwd = self._open_params(fixture, second, {"kind":"resume", "address":native},
+                                      counter=2, cwd=str(different_cwd))
+        self.assertEqual(second.call("session/open", **cross_cwd)["session"], opened["session"],
+                         "one configured Codex endpoint owns each native ID once across client cwds")
+        invalid = self._open_params(fixture, second, {"kind":"resume", "address":native},
+                                   counter=3, cwd=str(fixture.root / "missing-project"))
+        self.assertIn("cwd", second.response(second.send("session/open", **invalid))["error"]["message"])
         self.assertEqual(fixture.native.resumed, 1)
         hello = first.hello
         first.close()
@@ -89,6 +98,9 @@ class StartupOpenTests(unittest.TestCase):
         fixture.native.release_saved("resume")
         self.assertEqual(resumed.outcome(params["operation"])["state"]["kind"], "accepted")
         self.assertEqual(second.outcome(other["operation"])["state"]["kind"], "accepted")
+        self.assertEqual(second.outcome(cross_cwd["operation"])["state"]["kind"], "accepted")
+        snapshot = second.call("session/subscribe", session=opened["session"], since=None)["snapshot"]
+        self.assertEqual(snapshot["info"]["cwd"], str(fixture.root), "the first owner's cwd remains authoritative")
         self.assertEqual(len(fixture.saved()), 1)
         self.assertEqual(fixture.saved()[0][0], opened["session"])
         self.assertEqual(fixture.saved()[0][2], native)
@@ -156,6 +168,30 @@ class StartupOpenTests(unittest.TestCase):
         self.assertEqual(resumed.call("session/open", **retry)["session"], opened["session"])
         self.assertEqual(resumed.outcome(retry["operation"])["state"]["kind"], "accepted")
         self.assertEqual(fixture.native.resumed, 2)
+
+    def test_unconfirmed_import_is_not_saved_or_reopened_by_a_restart_subscription(self):
+        fixture = self._open_fixture("failed-restart", count=0)
+        fixture.native.saved_fail_resume = True
+        first = self._open_client(fixture, "first")
+        params = self._open_params(fixture, first, {"kind":"resume", "address":"unconfirmed-native"})
+        failed = first.call("session/open", **params)["session"]
+        self.assertEqual(first.outcome(params["operation"])["state"]["kind"], "uncertain")
+        barrier = first.operation(2)
+        confirmed = first.call("session/create", operation=barrier, backend="codex", cwd=str(fixture.root), name=None)["session"]
+        self.assertEqual(first.outcome(barrier)["state"]["kind"], "accepted")
+        self.assertEqual([row[0] for row in fixture.saved()], [confirmed],
+                         "a confirmed create fences earlier disk jobs; failed native imports are not durable")
+        hello = first.hello
+        first.close()
+        fixture.stop()
+        fixture.start()
+        resumed = self._open_client(fixture, "replacement", resume=hello)
+        self.assertFalse(resumed.hello["resumed"])
+        self.assertEqual([row["id"] for row in resumed.call("sessions/watch")["sessions"]], [confirmed])
+        response = resumed.response(resumed.send("session/subscribe", session=failed, since=None))
+        self.assertIn("error", response)
+        self.assertEqual(fixture.native.resumed, 1, "restart subscribe never retries the unconfirmed native open")
+        self.assertEqual(fixture.native.started, 1)
 
     def test_held_discovery_keeps_live_controls_responsive_and_close_cancels_its_original_reader(self):
         fixture = self._open_fixture("held")

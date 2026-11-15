@@ -43,6 +43,7 @@ fn known_method(method: &str) -> bool {
             | "session/rename"
             | "session/rewind"
             | "session/interrupt"
+            | "session/reconnect"
             | "session/approve"
             | "session/setRalph"
             | "prompt/select"

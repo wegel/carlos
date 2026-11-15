@@ -183,6 +183,7 @@ fn mutation(command: &Command) -> Option<(&ClientOperation, Option<&SessionId>)>
         | Command::Interrupt {
             operation, session, ..
         }
+        | Command::Reconnect { operation, session }
         | Command::GoalSet {
             operation, session, ..
         }
