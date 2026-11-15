@@ -1,7 +1,5 @@
 //! Read native goals and send only explicit user-authorized root mutations.
 
-#[cfg(test)]
-use std::time::Duration;
 use std::time::Instant;
 
 use carlos_core::backend::BackendClient;
@@ -24,17 +22,6 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant)
     );
     app.consume_core_events();
     changed
-}
-
-/// Add only an appropriate future timer to the idle wait; unavailable/closed goals do not spin.
-#[cfg(test)]
-pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
-    goals::wait(
-        &app.session,
-        super::codex_queue::scope(app),
-        now,
-        app.view.codex_goals.show,
-    )
 }
 
 /// Recognize only the local command; the caller routes literal rewind edits first.
@@ -169,12 +156,6 @@ fn mutate(client: &dyn BackendClient, app: &mut AppState, method: &str, params: 
     let mut update = GoalUpdate::default();
     goals::mutate(client, &mut app.session, scope, &mut update, method, params);
     apply(app, update);
-}
-
-/// Refuse a competing automatic driver until native facts establish a safe state.
-#[cfg(test)]
-pub(super) fn ralph_error(app: &AppState) -> Option<&'static str> {
-    goals::ralph_error(&app.session, super::codex_queue::scope(app))
 }
 
 /// Apply only the editor changes and transcript rows named by the native goal command.

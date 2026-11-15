@@ -1,8 +1,5 @@
 //! Apply local task-panel changes after session-owned reads and controls.
 
-#[cfg(test)]
-use std::time::{Duration, Instant};
-
 use carlos_core::backend::BackendClient;
 use carlos_core::session::codex::connection_state::ConnectionState;
 use carlos_core::session::codex::panel;
@@ -71,20 +68,6 @@ pub(super) fn stop(app: &mut AppState) {
         &app.view.codex_panel,
     );
     panel::stop(&mut app.session, scope);
-}
-
-/// Read the next native deadline without creating a timer for a hidden idle panel.
-#[cfg(test)]
-pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
-    panel::wait(
-        &app.session,
-        scope(
-            app.session.codex_scope(),
-            app.session.codex_connection(),
-            &app.view.codex_panel,
-        ),
-        now,
-    )
 }
 
 /// Preserve selection identity while explicit arrows discard the previous child read.

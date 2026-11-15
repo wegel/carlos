@@ -79,18 +79,6 @@ mod transcript_spacing_tests;
 #[path = "tests/ui_render_tests.rs"]
 mod ui_render_tests;
 
-#[path = "tests/codex_panel_tests.rs"]
-mod codex_panel_tests;
-
-#[path = "tests/codex_panel_read_tests.rs"]
-mod codex_panel_read_tests;
-
-#[path = "tests/codex_goal_tests.rs"]
-mod codex_goal_tests;
-
-#[path = "tests/codex_goal_lifecycle_tests.rs"]
-mod codex_goal_lifecycle_tests;
-
 #[path = "tests/shell_directory_tests.rs"]
 mod shell_directory_tests;
 
@@ -103,9 +91,6 @@ fn test_message(draft: carlos_core::session::models::EntryDraft) -> Message {
 
 #[path = "tests/review_label_tests.rs"]
 mod review_label_tests;
-
-#[path = "tests/codex_panel_support.rs"]
-mod codex_panel_support;
 
 pub(super) use carlos_core::session::thread_list::parse_thread_list;
 

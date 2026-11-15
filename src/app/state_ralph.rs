@@ -12,12 +12,4 @@ impl AppState {
         self.apply_item_changes(changes);
         result
     }
-    /// Apply a deferred toggle only after the session checks native goal ownership.
-    #[cfg(test)]
-    pub(super) fn apply_pending_ralph_toggle(&mut self) -> Result<()> {
-        let changes = Default::default();
-        let result = self.session.apply_pending_ralph_toggle();
-        self.apply_item_changes(changes);
-        result
-    }
 }

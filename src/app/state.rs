@@ -173,9 +173,4 @@ impl AppState {
     pub(super) fn rewind_mode(&self) -> bool {
         self.view.input_history.rewind_mode()
     }
-
-    #[cfg(test)]
-    pub(super) fn ralph_toggle_pending(&self) -> bool {
-        self.session.ralph_toggle_pending()
-    }
 }
