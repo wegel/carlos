@@ -266,15 +266,6 @@ mod claude_updates;
 mod backend_updates;
 
 #[cfg(test)]
-mod event_forwarder_support;
-
-#[cfg(test)]
-mod event_forwarder_tests;
-
-#[cfg(test)]
-mod event_shutdown_tests;
-
-#[cfg(test)]
 #[path = "../tests/claude_process_support.rs"]
 mod claude_process_test_support;
 #[cfg(test)]

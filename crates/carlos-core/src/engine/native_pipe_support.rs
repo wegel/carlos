@@ -1,15 +1,19 @@
-//! Drives the production event forwarder between real helper pipes and a handler-owned client.
+//! Drive the real actor forwarder between helper pipes and handler-owned Claude facts.
 
 use std::process::Command;
 use std::sync::mpsc;
 
-use carlos_core::backend::{BackendClient, EventReceiver};
-use carlos_core::claude_backend::forwarder_test_support::DEADLINE;
-use carlos_core::claude_backend::forwarder_test_support::{command_client, helper_call, submit};
-use carlos_core::claude_backend::ClaudeClient;
+use crate::backend::{BackendClient, EventReceiver};
+use crate::claude_backend::forwarder_test_support::DEADLINE;
+use crate::claude_backend::forwarder_test_support::{command_client, helper_call, submit};
+use crate::claude_backend::ClaudeClient;
 use serde_json::{json, Value};
 
-use crate::event::UiEvent;
+use super::super::owner::Channels;
+use super::Native;
+use std::ops::Deref;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 pub(super) fn peer(order: &str, accepted: bool) -> (ClaudeClient, EventReceiver) {
     let mut command = Command::new("python3");
@@ -17,18 +21,44 @@ pub(super) fn peer(order: &str, accepted: bool) -> (ClaudeClient, EventReceiver)
     command_client(command, 1024)
 }
 
-pub(super) fn forward(receiver: EventReceiver) -> EventReceiver<UiEvent> {
-    let (_, summaries) = mpsc::channel();
-    #[cfg(feature = "dictation")]
-    {
-        let (_, dictation) = mpsc::channel();
-        crate::event::spawn_event_forwarders_with_dictation(receiver, dictation, summaries)
+/// Own the real actor forwarder and close its bounded receiver on fixture teardown.
+pub(super) struct Forwarded {
+    native: Native,
+    stop: Arc<AtomicBool>,
+}
+impl Deref for Forwarded {
+    type Target = mpsc::Receiver<String>;
+    fn deref(&self) -> &Self::Target {
+        self.native.receiver.as_ref().expect("live forwarder")
     }
-    #[cfg(not(feature = "dictation"))]
-    crate::event::spawn_event_forwarders(receiver, summaries)
+}
+impl Drop for Forwarded {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::SeqCst);
+        self.native.stop();
+    }
+}
+pub(super) fn forward_native(receiver: EventReceiver) -> Forwarded {
+    let channels = Channels {
+        ordinary: mpsc::channel().1,
+        control: mpsc::channel().1,
+        reads: mpsc::channel().1,
+        wake: mpsc::sync_channel(1).0,
+        wake_rx: mpsc::channel().1,
+        notice: mpsc::sync_channel(1).0,
+        stop: Arc::default(),
+        changed: Arc::default(),
+        goal_interest: Arc::default(),
+        task_interest: Arc::default(),
+    };
+    let native = Native::start(receiver, &channels);
+    Forwarded {
+        native,
+        stop: channels.stop,
+    }
 }
 
-pub(super) fn ready(client: &ClaudeClient, ui: &mpsc::Receiver<UiEvent>) -> String {
+pub(super) fn ready(client: &ClaudeClient, ui: &mpsc::Receiver<String>) -> String {
     let id = submit(client);
     mark(client, "ready");
     through(client, ui, "ready");
@@ -41,19 +71,18 @@ pub(super) fn mark(client: &ClaudeClient, marker: &str) {
 
 pub(super) fn through(
     client: &ClaudeClient,
-    ui: &mpsc::Receiver<UiEvent>,
+    ui: &mpsc::Receiver<String>,
     marker: &str,
 ) -> Vec<Value> {
     let mut output = Vec::new();
     loop {
-        if let UiEvent::ServerLine(line) = ui.recv_timeout(DEADLINE).expect("forwarded event") {
-            let value: Value = serde_json::from_str(&line).expect("JSON");
-            let done = value["method"] == "claude/callbackCancelled"
-                && value["params"]["callbackId"] == marker;
-            output.extend(apply(client, &line));
-            if done {
-                return output;
-            }
+        let line = ui.recv_timeout(DEADLINE).expect("forwarded event");
+        let value: Value = serde_json::from_str(&line).expect("JSON");
+        let done = value["method"] == "claude/callbackCancelled"
+            && value["params"]["callbackId"] == marker;
+        output.extend(apply(client, &line));
+        if done {
+            return output;
         }
     }
 }

@@ -3,25 +3,24 @@
 use std::sync::mpsc::Receiver;
 use std::thread;
 
-use carlos_core::backend::{BackendClient, EventReceiver};
-use carlos_core::claude_backend::forwarder_test_support::MAX_EVENT_BYTES;
-use carlos_core::claude_backend::forwarder_test_support::{
+use crate::backend::{BackendClient, EventReceiver};
+use crate::claude_backend::forwarder_test_support::MAX_EVENT_BYTES;
+use crate::claude_backend::forwarder_test_support::{
     completions_empty, helper_call, records, submit,
 };
-use carlos_core::claude_backend::forwarder_test_support::{ForwarderHarness, DEADLINE};
-use carlos_core::claude_backend::ClaudeClient;
+use crate::claude_backend::forwarder_test_support::{ForwarderHarness, DEADLINE};
+use crate::claude_backend::ClaudeClient;
 use serde_json::json;
 
-use super::event_forwarder_support::{apply, completions, forward, mark, peer, ready, through};
-use crate::event::UiEvent;
+use super::native_pipe_support::{apply, completions, forward_native, mark, peer, ready, through};
 
 #[test]
-fn forwarded_result_idle_reset_reply_preserves_completion() {
+fn native_forwarded_result_idle_reset_reply_preserves_completion() {
     check_later("reset");
 }
 
 #[test]
-fn forwarded_result_idle_second_prompt_reply_preserves_completion() {
+fn native_forwarded_result_idle_second_prompt_reply_preserves_completion() {
     check_later("second");
 }
 
@@ -34,7 +33,7 @@ fn check_later(later: &str) {
                 "result,idle"
             };
             let (client, receiver) = peer(&format!("{pair},{later},reply"), accepted);
-            let ui = forward(receiver);
+            let ui = forward_native(receiver);
             let id = ready(&client, &ui);
             if later == "second" {
                 submit(&client);
@@ -73,9 +72,9 @@ fn check_later(later: &str) {
 }
 
 #[test]
-fn forwarded_reader_ahead_interrupt_captures_handled_prompt() {
+fn native_forwarded_reader_ahead_interrupt_captures_handled_prompt() {
     let (client, receiver) = peer("reply", true);
-    let ui = forward(receiver);
+    let ui = forward_native(receiver);
     let id = ready(&client, &ui);
     helper_call(&client, "queued", json!({})).expect("reader has read result and idle");
     // Both lines may already be in ui; neither has reached the handler-owned lifecycle.
@@ -90,9 +89,9 @@ fn forwarded_reader_ahead_interrupt_captures_handled_prompt() {
 }
 
 #[test]
-fn forwarded_result_rejected_reply_idle_preserves_success() {
+fn native_forwarded_result_rejected_reply_idle_preserves_success() {
     let (client, receiver) = peer("result,reply,idle", false);
-    let ui = forward(receiver);
+    let ui = forward_native(receiver);
     let id = ready(&client, &ui);
     client
         .call("turn/interrupt", json!({}), DEADLINE)
@@ -105,12 +104,12 @@ fn forwarded_result_rejected_reply_idle_preserves_success() {
 }
 
 #[test]
-fn forwarded_stderr_byte_limit_with_unanswered_interrupt_stops_helper() {
+fn native_forwarded_stderr_byte_limit_with_unanswered_interrupt_stops_helper() {
     check_overflow(true);
 }
 
 #[test]
-fn forwarded_stderr_frame_limit_with_unanswered_interrupt_stops_helper() {
+fn native_forwarded_stderr_frame_limit_with_unanswered_interrupt_stops_helper() {
     check_overflow(false);
 }
 
@@ -135,19 +134,14 @@ fn check_overflow(bytes: bool) {
             .to_string(),
         "Claude controller is closed"
     );
-    let ui = forward(receiver);
+    let ui = forward_native(receiver);
     let mut output = Vec::new();
     for _ in 0..2 {
-        let UiEvent::ServerLine(line) = ui.recv_timeout(DEADLINE).expect("queued native fact")
-        else {
-            panic!("expected native fact");
-        };
+        let line = ui.recv_timeout(DEADLINE).expect("queued native fact");
         output.extend(apply(&client, &line));
     }
     drain_filler(&client, &ui, count, &filler);
-    let UiEvent::ServerLine(line) = ui.recv_timeout(DEADLINE).expect("terminal failure") else {
-        panic!("expected failure");
-    };
+    let line = ui.recv_timeout(DEADLINE).expect("terminal failure");
     output.extend(apply(&client, &line));
     assert_eq!(output.last().expect("failure")["method"], "claude/error");
     assert_eq!(
@@ -193,20 +187,18 @@ fn saturate_unanswered(
     (receiver, filler, count)
 }
 
-fn drain_filler(client: &ClaudeClient, ui: &Receiver<UiEvent>, count: usize, filler: &str) {
+fn drain_filler(client: &ClaudeClient, ui: &Receiver<String>, count: usize, filler: &str) {
     for _ in 0..count {
-        let UiEvent::ServerLine(line) = ui.recv_timeout(DEADLINE).expect("forwarded filler") else {
-            panic!("expected server line");
-        };
+        let line = ui.recv_timeout(DEADLINE).expect("forwarded filler");
         assert_eq!(line, filler);
         client.acknowledge_event(line.len());
     }
 }
 
 #[test]
-fn forwarded_4096_interrupts_after_eof_retain_no_requests() {
+fn native_forwarded_4096_interrupts_after_eof_retain_no_requests() {
     let (client, receiver) = peer("", false);
-    let ui = forward(receiver);
+    let ui = forward_native(receiver);
     ready(&client, &ui);
     let transport = ForwarderHarness::new(&client);
     let eof = transport.notify("reader_eof");
@@ -214,9 +206,7 @@ fn forwarded_4096_interrupts_after_eof_retain_no_requests() {
         .request_native_control("exit", json!({}))
         .expect("exit");
     eof.recv_timeout(DEADLINE).expect("reader EOF");
-    let UiEvent::ServerLine(line) = ui.recv_timeout(DEADLINE).expect("EOF fact") else {
-        panic!("expected EOF");
-    };
+    let line = ui.recv_timeout(DEADLINE).expect("EOF fact");
     apply(&client, &line);
     for _ in 0..4096 {
         assert!(client.call("turn/interrupt", json!({}), DEADLINE).is_err());

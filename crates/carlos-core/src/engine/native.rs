@@ -137,3 +137,15 @@ impl Owner {
         self.notice();
     }
 }
+
+#[cfg(test)]
+#[path = "native_pipe_support.rs"]
+mod native_pipe_support;
+
+#[cfg(test)]
+#[path = "native_pipe_order_tests.rs"]
+mod native_pipe_order_tests;
+
+#[cfg(test)]
+#[path = "native_pipe_shutdown_tests.rs"]
+mod native_pipe_shutdown_tests;

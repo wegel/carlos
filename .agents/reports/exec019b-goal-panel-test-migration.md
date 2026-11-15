@@ -12,6 +12,8 @@ Each native command receives an explicit borrowed target. Core neither stores pr
 
 ## Checks and limits
 
-The six new test files in /tmp/carlos-ep019b/root-goal-panel pass the isolated Core no-default test suite: 872 passed and two ignored. Strict all-target Core Clippy passes. The largest new file has293lines; the longest function has56lines. proof.json records the exact source hashes and base commit1ca2be5. These checks precede registration on iphone-spike and do not claim final whole-EP acceptance.
+The six new test files in /tmp/carlos-ep019b/root-goal-panel pass the isolated Core no-default test suite: 872 passed and two ignored. Strict all-target Core Clippy passes. The largest new file has295lines; the longest function has56lines. proof.json records the exact source hashes and base commit1ca2be5. These checks precede registration on iphone-spike and do not claim final whole-EP acceptance.
 
 Keep all original goal/panel bodies registered until the exact Device and actual-terminal successors for their private clauses are recorded and pass. These include preserved rejected goal drafts, explicit activation confirmation, unsaved objective versus status-only pause, question/plain-approval priority, composer preservation and older/vanished task selection.
+
+Branch checkpoint d1adc18 registers all nineteen native successors and passes the normal full-workspace hook. The hook first rejected four wildcard imports; explicit imports replace them before the successful commit. Original mixed goal/panel bodies remain until their private clauses pass.
