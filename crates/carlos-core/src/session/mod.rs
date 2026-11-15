@@ -115,6 +115,8 @@ mod item_deltas;
 
 #[cfg(test)]
 mod native_item_headless_tests;
+#[cfg(test)]
+mod native_translation_tests;
 
 pub mod actions;
 

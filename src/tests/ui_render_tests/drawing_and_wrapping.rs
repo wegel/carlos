@@ -81,13 +81,15 @@ fn count_rendered_block_for_ansi_tool_output_matches_materialized_block_len() {
 #[test]
 
 fn build_rendered_lines_tool_output_uses_ansi_styles_without_escape_text() {
-    let messages = vec![crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
-        tool_output: None,
-        role: Role::ToolOutput,
-        text: "$ printf hello\n\u{001b}[31mhello\u{001b}[0m".to_string(),
-        kind: MessageKind::Plain,
-        file_path: None,
-    })];
+    let messages = vec![crate::app::tests::test_message(
+        carlos_core::session::models::EntryDraft {
+            tool_output: None,
+            role: Role::ToolOutput,
+            text: "$ printf hello\n\u{001b}[31mhello\u{001b}[0m".to_string(),
+            kind: MessageKind::Plain,
+            file_path: None,
+        },
+    )];
 
     let rendered = build_rendered_lines(&messages, 120);
     assert_eq!(rendered.len(), 2);
@@ -101,52 +103,12 @@ fn build_rendered_lines_tool_output_uses_ansi_styles_without_escape_text() {
 }
 
 #[test]
-fn reasoning_summary_delta_inserts_newline_between_bold_chunks() {
-    let mut app = AppState::new("thread-1".to_string());
-    let idx = app.append_message(Role::Reasoning, String::new());
-    app.put_item_mapping("reason-1", idx);
-
-    app.upsert_reasoning_summary_delta("reason-1", "**First thought**");
-    app.upsert_reasoning_summary_delta("reason-1", "**Second thought**");
-
-    assert_eq!(
-        app.session.messages()[idx].text,
-        "**First thought**\n**Second thought**"
-    );
-}
-
-#[test]
-fn reasoning_summary_delta_trims_space_before_split_closing_marker() {
-    let mut app = AppState::new("thread-1".to_string());
-    let idx = app.append_message(Role::Reasoning, String::new());
-    app.put_item_mapping("reason-1", idx);
-
-    app.upsert_reasoning_summary_delta("reason-1", "**Preparing concise, evidence-based answer ");
-    app.upsert_reasoning_summary_delta("reason-1", "**");
-
-    assert_eq!(
-        app.session.messages()[idx].text,
-        "**Preparing concise, evidence-based answer**"
-    );
-}
-
-#[test]
-fn reasoning_summary_delta_normalizes_split_adjacent_bold_chunks() {
-    let mut app = AppState::new("thread-1".to_string());
-    let idx = app.append_message(Role::Reasoning, String::new());
-    app.put_item_mapping("reason-1", idx);
-
-    app.upsert_reasoning_summary_delta("reason-1", "**Investigating display bug causes ");
-    app.upsert_reasoning_summary_delta("reason-1", "**");
-    app.upsert_reasoning_summary_delta("reason-1", " **Analyzing markdown rendering issues ");
-    app.upsert_reasoning_summary_delta("reason-1", "**");
-
-    assert_eq!(
-        app.session.messages()[idx].text,
-        "**Investigating display bug causes**\n**Analyzing markdown rendering issues**"
-    );
-
-    let rendered = build_rendered_lines(app.session.messages(), 120);
+fn normalized_adjacent_reasoning_headings_paint_as_two_rows() {
+    let mut view = render_fixture::view(vec![render_fixture::row(
+        Role::Reasoning,
+        "**Investigating display bug causes**\n**Analyzing markdown rendering issues**",
+    )]);
+    let rendered = render_fixture::snapshot(&mut view, 120);
     assert_eq!(rendered.len(), 2);
     assert_eq!(rendered[0].text, "Investigating display bug causes");
     assert_eq!(rendered[1].text, "Analyzing markdown rendering issues");

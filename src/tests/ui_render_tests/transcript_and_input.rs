@@ -25,20 +25,14 @@ fn build_rendered_lines_with_hidden_omits_selected_user_message() {
 }
 
 #[test]
-fn append_message_coalesces_successive_read_summaries() {
-    let mut app = AppState::new("thread".to_string());
-    app.append_message(Role::ToolCall, "→ Read src/main.rs [offset=10]");
-    app.append_message(Role::ToolCall, "→ Read src/main.rs");
-    app.append_message(Role::ToolCall, "→ Read src/main.rs [offset=30]");
-    app.append_message(Role::ToolCall, "→ Read src/lib.rs");
-
-    assert_eq!(app.session.messages().len(), 4);
-    assert_eq!(app.session.messages()[0].text, "→ Read src/main.rs ×3");
-    assert_eq!(app.session.messages()[1].text, "");
-    assert_eq!(app.session.messages()[2].text, "");
-    assert_eq!(app.session.messages()[3].text, "→ Read src/lib.rs");
-
-    let rendered = build_rendered_lines_with_hidden(app.session.messages(), 80, None);
+fn grouped_read_summaries_paint_the_combined_count_and_both_filenames() {
+    let mut view = render_fixture::view(
+        ["→ Read src/main.rs ×3", "", "", "→ Read src/lib.rs"]
+            .into_iter()
+            .map(|text| render_fixture::row(Role::ToolCall, text))
+            .collect(),
+    );
+    let rendered = render_fixture::snapshot(&mut view, 80);
     let visible: Vec<_> = rendered
         .iter()
         .filter(|line| !line.separator)
@@ -46,32 +40,6 @@ fn append_message_coalesces_successive_read_summaries() {
         .collect();
     assert!(visible.contains(&"src/main.rs ×3"));
     assert!(visible.contains(&"src/lib.rs"));
-}
-
-#[test]
-fn append_message_does_not_coalesce_read_summaries_across_other_messages() {
-    let mut app = AppState::new("thread".to_string());
-    app.append_message(Role::ToolCall, "→ Read src/main.rs");
-    app.append_message(Role::Assistant, "working");
-    app.append_message(Role::ToolCall, "→ Read src/main.rs");
-
-    assert_eq!(app.session.messages().len(), 3);
-    assert_eq!(app.session.messages()[0].text, "→ Read src/main.rs");
-    assert_eq!(app.session.messages()[1].text, "working");
-    assert_eq!(app.session.messages()[2].text, "→ Read src/main.rs");
-}
-
-#[test]
-fn set_command_override_coalesces_with_previous_read_summary() {
-    let mut app = AppState::new("thread".to_string());
-    app.append_message(Role::ToolCall, "→ Read src/main.rs");
-    let idx = app.append_message(Role::ToolCall, "");
-    app.put_item_mapping("call-2", idx);
-
-    app.set_command_override("call-2", "→ Read src/main.rs [offset=40]".to_string());
-
-    assert_eq!(app.session.messages()[0].text, "→ Read src/main.rs ×2");
-    assert_eq!(app.session.messages()[1].text, "");
 }
 
 #[test]

@@ -9,10 +9,7 @@ use serde_json::json;
 
 use super::{
     build_rendered_block_for_message, build_rendered_lines, count_rendered_block_for_message,
-    AppState,
 };
-use crate::app::item_history::append_history_from_thread;
-use crate::app::notifications::handle_notification_line;
 use crate::app::source_highlight::SourceHighlighter;
 use crate::app::transcript_render::count_rendered_block_for_message_cached;
 use crate::app::transcript_styles::RenderCountCache;
@@ -204,45 +201,37 @@ fn colored_reads_and_diffs_keep_scroll_counts_and_wrapped_text() {
 }
 
 #[test]
-fn read_metadata_reaches_live_and_resumed_transcripts() {
-    let item = json!({"type":"toolOutput", "id":"read-1", "name":"Read", "input":{"file_path":"main.rs"}, "output":"1:let value = \"hello\";"});
-    let mut live = AppState::new("thread-1".to_string());
-    handle_notification_line(
-        &mut live,
-        &json!({"method":"item/completed", "params":{"item":item}}).to_string(),
+fn read_source_facts_color_the_body_without_changing_original_text() {
+    let message = crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+        role: Role::ToolOutput,
+        kind: MessageKind::Plain,
+        text: "1:let value = \"hello\";".into(),
+        file_path: Some("main.rs".into()),
+        tool_output: None,
+    });
+    let lines = build_rendered_lines(&[message], 120);
+    assert_eq!(lines[0].text, "1:let value = \"hello\";");
+    assert_ne!(
+        token_color(&lines, "let value", "let"),
+        token_color(&lines, "let value", "\""),
     );
-    let mut resumed = AppState::new("thread-1".to_string());
-    append_history_from_thread(&mut resumed, &json!({"turns":[{"items":[item]}]}));
-    for app in [live, resumed] {
-        assert_eq!(
-            app.session.messages()[0].file_path.as_deref(),
-            Some("main.rs")
-        );
-        let lines = build_rendered_lines(app.session.messages(), 120);
-        assert_eq!(lines[0].text, "1:let value = \"hello\";");
-        assert_ne!(
-            token_color(&lines, "let value", "let"),
-            token_color(&lines, "let value", "\"")
-        );
-    }
 }
 
 #[test]
 fn saved_command_reads_color_source_but_leave_command_and_status_plain() {
-    let mut app = AppState::new("thread-1".to_string());
-    append_history_from_thread(
-        &mut app,
-        &json!({"turns":[{"items":[{
-            "type":"commandExecution", "id":"read", "command":"cat main.rs", "commandActions":[{"type":"read","command":"cat main.rs","path":"main.rs"}],
-            "aggregatedOutput":"let value = \"hello\";", "exitCode":0
-        }]}]}),
-    );
-    let lines = build_rendered_lines(app.session.messages(), 120);
+    let message = crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+        role: Role::ToolOutput,
+        kind: MessageKind::Plain,
+        text: "$ cat main.rs\nlet value = \"hello\";\nexit code: 0".into(),
+        file_path: Some("main.rs".into()),
+        tool_output: None,
+    });
+    let lines = build_rendered_lines(&[message], 120);
     assert_eq!(lines[0].text, "$ cat main.rs");
     assert_eq!(lines[0].styled_segments[0].style, Style::default());
     assert_ne!(
         token_color(&lines, "let value", "let"),
-        token_color(&lines, "let value", "\"")
+        token_color(&lines, "let value", "\""),
     );
     assert_eq!(lines.last().expect("status").text, "exit code: 0");
 }
