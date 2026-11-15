@@ -16,16 +16,6 @@ impl AppState {
         self.session.set_runtime_settings(model, effort, summary);
     }
 
-    #[cfg(test)]
-    pub(super) fn merge_runtime_settings(
-        &mut self,
-        model: Option<String>,
-        effort: Option<String>,
-        summary: Option<String>,
-    ) {
-        self.session.merge_runtime_settings(model, effort, summary);
-    }
-
     pub(super) fn set_available_models(
         &mut self,
         models: Vec<carlos_core::protocol_params::ModelInfo>,

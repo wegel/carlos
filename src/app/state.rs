@@ -150,11 +150,6 @@ impl AppState {
             .queue_turn_input_with_history(text, record_input_history)
     }
 
-    #[cfg(test)]
-    pub(super) fn promote_ready_continuation(&mut self, now: Instant) {
-        self.session.promote_ready_continuation(now)
-    }
-
     pub(super) fn has_pending_ralph_continuation(&self) -> bool {
         self.session.has_pending_ralph_continuation()
     }
@@ -177,18 +172,6 @@ impl AppState {
         self.session.record_turn_started(turn_id)
     }
 
-    #[cfg(test)]
-    pub(super) fn maybe_disable_ralph_on_blocked_marker(&mut self) {
-        self.session.maybe_disable_ralph_on_blocked_marker();
-        self.consume_core_events();
-    }
-
-    #[cfg(test)]
-    pub(super) fn handle_ralph_turn_completed(&mut self, interrupted: bool) {
-        self.session.handle_ralph_turn_completed(interrupted);
-        self.consume_core_events();
-    }
-
     // --- Query helpers & test utilities ---
 
     pub(super) fn ralph_enabled(&self) -> bool {
@@ -200,23 +183,8 @@ impl AppState {
     }
 
     #[cfg(test)]
-    pub(super) fn queued_turn_inputs_is_empty(&self) -> bool {
-        self.session.queued_turn_inputs_is_empty()
-    }
-
-    #[cfg(test)]
     pub(super) fn ralph_toggle_pending(&self) -> bool {
         self.session.ralph_toggle_pending()
-    }
-
-    #[cfg(test)]
-    pub(super) fn ralph_pending_continuation_deadline(&self) -> Option<Instant> {
-        self.session.ralph_pending_continuation_deadline()
-    }
-
-    #[cfg(test)]
-    pub(super) fn ralph_waiting_for_user(&self) -> bool {
-        self.session.ralph_waiting_for_user()
     }
 
     #[cfg(test)]

@@ -254,3 +254,6 @@ mod control_work_tests;
 pub mod engine;
 
 mod grok_startup;
+
+#[cfg(test)]
+mod runtime_behavior_tests;

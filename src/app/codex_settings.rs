@@ -40,12 +40,6 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
     changed
 }
 
-/// Adopt native future choices without touching an unsubmitted editor.
-#[cfg(test)]
-pub(super) fn observed(app: &mut AppState, params: &Value) {
-    settings::observed(&mut app.session, params);
-}
-
 /// Capture settings when the native turn starts, without relabeling in-flight work.
 #[cfg(test)]
 pub(super) fn started(app: &mut AppState, turn: &str) {
