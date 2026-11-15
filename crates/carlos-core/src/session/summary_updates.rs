@@ -19,6 +19,20 @@ impl SessionState {
         self.summaries.flush();
     }
 
+    /// Use the existing label worker with a bounded daemon result queue and its owner wake.
+    pub(crate) fn configure_summary_worker_waking(
+        &mut self,
+        tx: mpsc::SyncSender<SummaryEvent>,
+        wake: mpsc::SyncSender<()>,
+    ) {
+        self.summaries.service = Some(SummaryService::spawn_waking(
+            tx,
+            wake,
+            self.summaries.enabled,
+        ));
+        self.summaries.flush();
+    }
+
     /// Check current content bindings, never saved row numbers, when a result arrives.
     pub fn handle_summary_event(&mut self, event: SummaryEvent) -> Vec<EntryId> {
         let mut changed = Vec::new();

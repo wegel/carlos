@@ -27,6 +27,8 @@ pub(super) struct Channels {
 }
 
 pub(super) struct Owner {
+    pub(super) tool_labels: Option<mpsc::Receiver<crate::summaries::SummaryEvent>>,
+    pub(super) tool_labels_save: Option<carlos_proto::submissions::ClientOperation>,
     pub(super) task_activity_reads: Vec<super::mailbox::Envelope>,
     pub(super) task_window_reads: Vec<super::mailbox::Envelope>,
     pub(super) task_stops:
@@ -55,6 +57,8 @@ impl Owner {
         let native = super::native::Native::start(events, &channels);
         let workers = super::workers::Workers::new(&channels.wake);
         Self {
+            tool_labels: None,
+            tool_labels_save: None,
             task_activity_reads: Vec::new(),
             task_window_reads: Vec::new(),
             task_stops: HashMap::new(),
@@ -77,6 +81,7 @@ impl Owner {
         self.publish();
         while !self.channels.stop.load(Ordering::SeqCst) {
             self.drain_native();
+            self.drain_tool_labels();
             self.drain_completions();
             self.retire_settings_scope();
             self.retire_goal_scope();

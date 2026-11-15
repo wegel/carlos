@@ -225,3 +225,34 @@ fn queue_changes_reject_native_routes_inputs_and_unoffered_moves() {
     )
     .is_err());
 }
+
+#[test]
+fn explicit_first_launch_labels_and_label_mutations_require_real_booleans() {
+    let mut create = serde_json::json!({"jsonrpc":"2.0","id":1,"method":"session/create","params":{
+        "operation":{"client":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","id":"1"},"backend":"codex","cwd":"/work","name":null
+    }});
+    let request: carlos_proto::commands::Request =
+        serde_json::from_value(create.clone()).expect("old create caller");
+    assert!(matches!(
+        request.command,
+        carlos_proto::commands::Command::Create {
+            tool_labels: None,
+            ..
+        }
+    ));
+    for enabled in [false, true] {
+        create["params"]["tool_labels"] = serde_json::json!(enabled);
+        let request: carlos_proto::commands::Request =
+            serde_json::from_value(create.clone()).expect("explicit first launch");
+        assert!(
+            matches!(request.command, carlos_proto::commands::Command::Create { tool_labels: Some(value), .. } if value == enabled)
+        );
+    }
+    create["params"]["tool_labels"] = serde_json::json!("false");
+    assert!(serde_json::from_value::<carlos_proto::commands::Request>(create).is_err());
+    let labels = serde_json::json!({"jsonrpc":"2.0","id":2,"method":"settings/tool-labels/set","params":{
+        "session":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","operation":{"client":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","id":"2"},
+        "expected":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","enabled":"false"
+    }});
+    assert!(serde_json::from_value::<carlos_proto::commands::Request>(labels).is_err());
+}

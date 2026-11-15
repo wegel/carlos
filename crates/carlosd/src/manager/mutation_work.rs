@@ -17,6 +17,24 @@ pub(super) type Prepared = (
 
 pub(super) fn prepare(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
     let parts = match command {
+        Command::ToolLabelsSet {
+            session,
+            operation,
+            expected,
+            enabled,
+            save_default,
+        } => (
+            session,
+            operation.clone(),
+            EngineCommand::ToolLabelsSet {
+                operation,
+                expected,
+                enabled,
+                save_default,
+            },
+            None,
+            Class::Ordinary,
+        ),
         settings @ Command::SettingsSet { .. } => return prepare_settings(settings),
         command @ Command::TaskStop { .. } => return prepare_task_stop(command),
         command @ Command::QueueChange { .. } => return prepare_queue(command),

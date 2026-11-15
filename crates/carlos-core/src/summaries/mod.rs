@@ -2,6 +2,7 @@
 
 pub mod config;
 pub mod eligibility;
+mod output;
 mod process;
 mod provider;
 pub mod reader;

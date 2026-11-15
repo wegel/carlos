@@ -18,11 +18,13 @@ mod results;
 mod ring;
 mod settings;
 mod settle;
+mod spawn;
 mod target;
 mod task_activity;
 mod task_stops;
 mod task_windows;
 mod timers;
+mod tool_labels;
 mod workers;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -35,14 +37,17 @@ use carlos_proto::output::{OutputChunk, OutputCursor};
 use carlos_proto::session::{History, SessionInfo, Snapshot};
 use carlos_proto::submissions::{ClientOperation, OperationResult};
 
-use crate::backend::{BackendClient, EventReceiver};
-use crate::session::state::SessionState;
-
 use self::mailbox::Mailbox;
 pub use self::ring::EngineFrame;
 
 /// Only explicit session reads and commands enter the owner, never native method strings.
 pub enum EngineCommand {
+    ToolLabelsSet {
+        operation: ClientOperation,
+        expected: carlos_proto::ids::SettingsRevision,
+        enabled: bool,
+        save_default: bool,
+    },
     TaskActivity(crate::session::task_activity::ActivityCommand),
     SettingsSet {
         operation: ClientOperation,
@@ -257,51 +262,6 @@ struct Shared {
 pub struct EngineHandle(Arc<Shared>);
 
 impl EngineHandle {
-    /// Transfer a backend, its event consumer and the session to one owner thread.
-    pub fn spawn(
-        session: SessionState,
-        client: Box<dyn BackendClient>,
-        events: EventReceiver,
-    ) -> (Self, mpsc::Receiver<()>) {
-        let (ordinary, ordinary_rx) = Mailbox::new(64, 8 * 1024 * 1024);
-        let (control, control_rx) = Mailbox::new(16, 2 * 1024 * 1024);
-        let (reads, reads_rx) = Mailbox::new(64, 1024 * 1024);
-        let (wake, wake_rx) = mpsc::sync_channel(1);
-        let (notice, notice_rx) = mpsc::sync_channel(1);
-        let stop = Arc::new(AtomicBool::new(false));
-        let changed = Arc::new(AtomicBool::new(true));
-        let goal_interest = Arc::new(AtomicBool::new(false));
-        let task_interest = Arc::new(AtomicBool::new(false));
-        let channels = owner::Channels {
-            ordinary: ordinary_rx,
-            control: control_rx,
-            reads: reads_rx,
-            wake: wake.clone(),
-            wake_rx,
-            notice,
-            stop: stop.clone(),
-            changed: changed.clone(),
-            goal_interest: goal_interest.clone(),
-            task_interest: task_interest.clone(),
-        };
-        let owner = owner::Owner::new(session, client, events, channels);
-        let thread = thread::spawn(move || owner.run());
-        (
-            Self(Arc::new(Shared {
-                ordinary,
-                control,
-                reads,
-                wake,
-                stop,
-                changed,
-                goal_interest,
-                task_interest,
-                thread: Mutex::new(Some(thread)),
-            })),
-            notice_rx,
-        )
-    }
-
     /// Admit a bounded request without waiting for native work or a socket write.
     pub fn request(&self, command: EngineCommand) -> Result<mpsc::Receiver<EngineReply>, RpcError> {
         let mailbox = match &command {
@@ -310,9 +270,9 @@ impl EngineHandle {
             | EngineCommand::Rename { .. }
             | EngineCommand::Rewind { .. } => &self.0.ordinary,
             EngineCommand::GoalSet { .. } | EngineCommand::GoalClear { .. } => &self.0.ordinary,
-            EngineCommand::QueueChange { .. } | EngineCommand::SettingsSet { .. } => {
-                &self.0.ordinary
-            }
+            EngineCommand::QueueChange { .. }
+            | EngineCommand::SettingsSet { .. }
+            | EngineCommand::ToolLabelsSet { .. } => &self.0.ordinary,
             EngineCommand::TaskStop { .. }
             | EngineCommand::Interrupt { .. }
             | EngineCommand::Approve { .. } => &self.0.control,

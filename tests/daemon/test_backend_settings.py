@@ -9,7 +9,7 @@ from support import Client, Fixture, wait_for
 
 
 class BackendSettingsTests:
-    def clients(self, name, backend="claude"):
+    def backend_settings_clients(self, name, backend="claude"):
         fixture = Fixture(name, mode="claude-settings-normal" if backend == "claude" else "modern")
         self.addCleanup(fixture.close)
         first, other = Client(fixture, "settings-owner"), Client(fixture, "settings-observer")
@@ -48,7 +48,7 @@ class BackendSettingsTests:
                                                             "effort":{"kind":"value", "value":"high"}}, save_default=save)
 
     def test_claude_exact_native_choices_private_result_and_captured_defaults(self):
-        fixture, first, other, session = self.clients("claude-settings-save")
+        fixture, first, other, session = self.backend_settings_clients("claude-settings-save")
         params = self.params(first, session)
         first.call("settings/set", **params)
         outcome = first.outcome(params["operation"])
@@ -63,7 +63,7 @@ class BackendSettingsTests:
         self.assertEqual(current, {"model":"sdk-opus", "effort":"high", "summary":None})
 
     def test_claude_appearance_and_explicit_inherit_keep_native_in_charge(self):
-        fixture, first, _, session = self.clients("claude-settings-inherit")
+        fixture, first, _, session = self.backend_settings_clients("claude-settings-inherit")
         params = self.params(first, session, {})
         first.call("settings/set", **params)
         self.assertEqual(first.outcome(params["operation"])["state"]["kind"], "accepted")
@@ -80,7 +80,7 @@ class BackendSettingsTests:
         self.assertEqual(json.loads(self.preferences(fixture).read_text()), {"model":None, "effort":None, "summary":None})
 
     def test_claude_partial_refusal_keeps_confirmed_model_and_never_saves_defaults(self):
-        fixture, first, _, session = self.clients("claude-settings-partial")
+        fixture, first, _, session = self.backend_settings_clients("claude-settings-partial")
         (fixture.root / "settings-config.json").write_text(json.dumps({"reject":["apply_flag_settings"]}))
         params = self.params(first, session)
         first.call("settings/set", **params)
@@ -94,7 +94,7 @@ class BackendSettingsTests:
         self.assertFalse(self.preferences(fixture).exists())
 
     def test_claude_held_change_keeps_controls_fifo_and_reconnect_without_resend(self):
-        fixture, first, other, session = self.clients("claude-settings-held")
+        fixture, first, other, session = self.backend_settings_clients("claude-settings-held")
         send = first.operation(2)
         first.call("session/send", session=session, operation=send, text="hold this turn")
         self.assertEqual(first.outcome(send)["state"]["kind"], "accepted")
@@ -129,7 +129,7 @@ class BackendSettingsTests:
     def test_claude_disconnect_is_uncertain_and_disk_failure_remains_native_success(self):
         for failure in ("closed", "disk"):
             with self.subTest(failure=failure):
-                fixture, first, _, session = self.clients("claude-settings-" + failure)
+                fixture, first, _, session = self.backend_settings_clients("claude-settings-" + failure)
                 if failure == "closed":
                     (fixture.root / "settings-config.json").write_text(json.dumps({"close":["set_model"]}))
                 else:
@@ -146,7 +146,7 @@ class BackendSettingsTests:
                 self.assertEqual(len(self.helper_requests(fixture, "model.set")), 1)
 
     def test_claude_root_reset_retires_the_original_settings_without_defaults_or_effort(self):
-        fixture, first, _, session = self.clients("claude-settings-reset")
+        fixture, first, _, session = self.backend_settings_clients("claude-settings-reset")
         (fixture.root / "settings-config.json").write_text(json.dumps({"reset_on_model":True}))
         params = self.params(first, session)
         first.call("settings/set", **params)
@@ -157,7 +157,7 @@ class BackendSettingsTests:
         self.assertFalse(first.call("settings/read", session=session)["settings"]["native_pending"])
 
     def test_grok_keeps_future_choices_until_prompt_and_rejects_unsupported_fields(self):
-        fixture, first, _, session = self.clients("grok-settings-future", backend="grok")
+        fixture, first, _, session = self.backend_settings_clients("grok-settings-future", backend="grok")
         params = self.params(first, session, {"model":{"kind":"value", "value":"grok-4.5"},
                                             "effort":{"kind":"value", "value":"low"}})
         first.call("settings/set", **params)

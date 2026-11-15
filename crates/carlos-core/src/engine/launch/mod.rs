@@ -28,6 +28,8 @@ pub struct LaunchRequest {
     pub name: Option<String>,
     pub restore: Option<RestoreSession>,
     pub codex_socket: Option<PathBuf>,
+    /// Override only an explicitly requested first launch; restored sessions use host defaults.
+    pub tool_labels: Option<bool>,
 }
 
 /// Own the adapter until the manager transfers it to one session thread.
@@ -69,6 +71,11 @@ pub fn launch(
         .session
         .set_client_identity(request.backend, "local".into());
     launched.session.set_summary_cwd(request.cwd.clone());
+    launched.session.apply_summary_setting(
+        request
+            .tool_labels
+            .unwrap_or_else(crate::ui_preferences::load_summary_enabled),
+    );
     launched
         .session
         .configure_ralph_options(request.cwd, None, None, None, None);
@@ -93,7 +100,7 @@ impl Launched {
 
     /// Transfer the whole adapter without exposing mutable session fields to the daemon manager.
     pub fn spawn(self) -> (EngineHandle, mpsc::Receiver<()>) {
-        EngineHandle::spawn(self.session, self.backend, self.events)
+        EngineHandle::spawn_with_tool_labels(self.session, self.backend, self.events)
     }
 }
 

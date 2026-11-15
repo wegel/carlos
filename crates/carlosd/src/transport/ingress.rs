@@ -41,6 +41,8 @@ impl Ingress {
             | Command::GoalSet { .. }
             | Command::GoalClear { .. }
             | Command::QueueChange { .. }
+            | Command::SettingsSet { .. }
+            | Command::ToolLabelsSet { .. }
             | Command::Rewind { .. } => 0,
             Command::TaskStop { .. } | Command::Interrupt { .. } | Command::Approve { .. } => 1,
             _ => 2,

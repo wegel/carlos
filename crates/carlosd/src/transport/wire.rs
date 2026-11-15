@@ -48,6 +48,7 @@ fn known_method(method: &str) -> bool {
             | "goal/read"
             | "settings/read"
             | "settings/set"
+            | "settings/tool-labels/set"
             | "goal/subscribe"
             | "goal/unsubscribe"
             | "goal/set"

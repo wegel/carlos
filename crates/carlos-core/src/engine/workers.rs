@@ -11,6 +11,10 @@ use crate::session::control_work::ControlCompletion;
 use crate::session::ralph::RalphConfig;
 
 pub(super) enum Completion {
+    ToolLabelsSaved {
+        operation: ClientOperation,
+        error: Option<String>,
+    },
     BackendSettings {
         operation: ClientOperation,
         result: crate::backend_commands::SettingsResult,

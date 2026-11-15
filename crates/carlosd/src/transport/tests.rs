@@ -6,7 +6,7 @@ use std::sync::{mpsc, Arc};
 use std::time::Duration;
 
 use carlos_proto::commands::{Command, Request, RequestId, RpcVersion};
-use carlos_proto::ids::SessionId;
+use carlos_proto::ids::{SessionId, SettingsRevision};
 
 use super::ingress::Ingress;
 use super::outbox::{Frame, Kind, Outbox};
@@ -191,4 +191,58 @@ fn request(id: i64, command: Command) -> Request {
         id: RequestId::Integer(id),
         command,
     }
+}
+
+#[test]
+fn settings_writes_share_the_ordinary_budget_and_leave_reads_available() {
+    let (wake, _) = mpsc::sync_channel(1);
+    let ingress = Ingress::new(wake);
+    let operation = carlos_proto::submissions::ClientOperation {
+        client: "11111111111111111111111111111111".parse().expect("client"),
+        id: carlos_proto::ids::OperationId::new(1).expect("counter"),
+    };
+    let expected: SettingsRevision = "a".repeat(64).parse().expect("settings revision");
+    for id in 0..64 {
+        assert!(ingress.push(
+            1,
+            request(
+                id,
+                Command::ToolLabelsSet {
+                    session: session(),
+                    operation: operation.clone(),
+                    expected: expected.clone(),
+                    enabled: false,
+                    save_default: true,
+                }
+            ),
+            100
+        ));
+    }
+    assert!(!ingress.push(
+        1,
+        request(
+            64,
+            Command::SettingsSet {
+                session: session(),
+                operation,
+                expected,
+                change: Default::default(),
+                save_default: true,
+            }
+        ),
+        100
+    ));
+    assert!(ingress.push(
+        1,
+        request(
+            65,
+            Command::SettingsRead {
+                session: session(),
+                expected: None,
+                offset: 0,
+                limit: Some(1),
+            }
+        ),
+        100
+    ));
 }

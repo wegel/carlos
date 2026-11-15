@@ -15,6 +15,7 @@ fn request(root: &std::path::Path) -> LaunchRequest {
         name: None,
         restore: None,
         codex_socket: Some(root.join("nonexistent-native.sock")),
+        tool_labels: None,
     }
 }
 

@@ -37,6 +37,7 @@ impl Manager {
             | Command::GoalClear { .. }
             | Command::QueueChange { .. }
             | Command::SettingsSet { .. }
+            | Command::ToolLabelsSet { .. }
             | Command::TaskStop { .. }
             | Command::Approve { .. }
             | Command::Interrupt { .. } => self.mutate(peer, id, command, client),

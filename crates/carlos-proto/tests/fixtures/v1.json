@@ -551,6 +551,36 @@
         "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "window": null
       }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 34,
+      "method": "settings/tool-labels/set",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "operation": {
+          "client": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "100"
+        },
+        "expected": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "enabled": false,
+        "save_default": true
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 35,
+      "method": "session/create",
+      "params": {
+        "backend": "claude",
+        "cwd": "/work",
+        "name": null,
+        "operation": {
+          "client": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "101"
+        },
+        "tool_labels": false
+      }
     }
   ],
   "notifications": [

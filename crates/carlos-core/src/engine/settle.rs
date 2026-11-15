@@ -11,6 +11,9 @@ impl Owner {
     pub(super) fn drain_completions(&mut self) {
         while let Ok(completion) = self.workers.completed.try_recv() {
             match completion {
+                Completion::ToolLabelsSaved { operation, error } => {
+                    self.finish_tool_labels_save(operation, error)
+                }
                 Completion::BackendSettings { operation, result } => {
                     self.finish_backend_settings(operation, result);
                 }

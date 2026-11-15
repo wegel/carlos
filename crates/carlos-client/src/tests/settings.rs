@@ -124,3 +124,45 @@ fn catalog_page() -> carlos_proto::settings::SettingsPage {
         next: None,
     }
 }
+
+#[test]
+fn tool_label_mutations_keep_private_outcomes_separate_from_shared_facts() {
+    let (mut client, connection) = super::client::attached();
+    let outgoing = client
+        .submit(connection, |operation| {
+            carlos_proto::commands::Command::ToolLabelsSet {
+                session: super::session(),
+                operation,
+                expected: facts('a').revision,
+                enabled: false,
+                save_default: true,
+            }
+        })
+        .expect("typed label mutation");
+    let request: carlos_proto::commands::Request =
+        serde_json::from_slice(outgoing.bytes()).expect("wire request");
+    let carlos_proto::commands::Command::ToolLabelsSet {
+        operation,
+        enabled,
+        save_default,
+        ..
+    } = request.command
+    else {
+        panic!("typed label request");
+    };
+    assert!(!enabled);
+    assert!(save_default);
+    let effects = super::client::reply(
+        &mut client,
+        &outgoing,
+        serde_json::json!({
+            "operation":operation,"session":super::session(),"state":{"kind":"accepted","entry":null,"notice":null}
+        }),
+    );
+    assert_eq!(effects.operations, vec![operation]);
+    assert!(client
+        .session(&super::session())
+        .expect("shared session")
+        .settings()
+        .is_none());
+}

@@ -35,6 +35,7 @@ impl Owner {
             | EngineCommand::GoalClear { operation, .. }
             | EngineCommand::QueueChange { operation, .. }
             | EngineCommand::SettingsSet { operation, .. }
+            | EngineCommand::ToolLabelsSet { operation, .. }
             | EngineCommand::TaskStop { operation, .. }
             | EngineCommand::Approve { operation, .. }
             | EngineCommand::Interrupt { operation, .. } => operation,
@@ -182,6 +183,12 @@ impl Owner {
                 policy,
             } => self.send(Some(operation), text, policy, PromptOrigin::Human, false),
             EngineCommand::SetRalph { operation, on } => self.set_ralph(operation, on),
+            EngineCommand::ToolLabelsSet {
+                operation,
+                expected,
+                enabled,
+                save_default,
+            } => self.change_tool_labels(operation, expected, enabled, save_default),
             EngineCommand::SettingsSet {
                 operation,
                 expected,

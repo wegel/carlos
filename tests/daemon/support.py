@@ -102,7 +102,7 @@ class Client:
 
 
 class Fixture:
-    def __init__(self, name, codex=None, mode="modern"):
+    def __init__(self, name, codex=None, mode="modern", tool_summaries="off"):
         ARTIFACTS.mkdir(parents=True, exist_ok=True)
         self.root = Path(tempfile.mkdtemp(prefix="carlos-daemon-" + name + "-", dir="/tmp"))
         self.artifacts = ARTIFACTS / self.root.name
@@ -124,6 +124,10 @@ class Fixture:
                         CARLOS_CLAUDE_CONTROLLER=str(REPO / "target/claude-controller/carlos-claude-controller"),
                         CARLOS_CLAUDE_WIRE_TRACE=str(self.root / "claude-controller.jsonl"),
                         CARLOS_CLAUDE_EXECUTABLE=str(shim / "claude"))
+        if tool_summaries is None:
+            self.env.pop("CARLOS_TOOL_SUMMARIES", None)
+        else:
+            self.env["CARLOS_TOOL_SUMMARIES"] = tool_summaries
         self.native = None
         if codex is True:
             from native_codex import NativeCodex

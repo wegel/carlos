@@ -14,6 +14,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "method", content = "params")]
 pub enum Command {
+    #[serde(rename = "settings/tool-labels/set")]
+    ToolLabelsSet {
+        session: SessionId,
+        operation: ClientOperation,
+        expected: crate::ids::SettingsRevision,
+        enabled: bool,
+        #[serde(default)]
+        save_default: bool,
+    },
     #[serde(rename = "settings/set")]
     SettingsSet {
         session: SessionId,
@@ -217,6 +226,8 @@ pub enum Command {
         backend: Backend,
         cwd: String,
         name: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tool_labels: Option<bool>,
     },
     #[serde(rename = "session/subscribe")]
     Subscribe {

@@ -200,7 +200,7 @@ impl Manager {
                 .expect("known session")
                 .info
                 .availability = Availability::Restoring;
-            self.start_launch(&session, true);
+            self.start_launch(&session, true, None);
             self.list_changed(&session);
         }
         self.resume_subscriptions(&session);

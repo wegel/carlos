@@ -10,6 +10,7 @@ use std::time::Duration;
 use anyhow::Result;
 
 use super::config::Config;
+use super::output::Output;
 use super::provider;
 use super::store::Store;
 use super::{Control, Label, Request, SummaryEvent};
@@ -27,16 +28,32 @@ struct Finished(String, u64, Result<Label>);
 impl SummaryService {
     /// Start the tool-label worker and return its command sender.
     pub fn spawn(output: mpsc::Sender<SummaryEvent>, enabled: bool) -> Self {
-        Self::start(output, enabled, Config::load)
+        Self::start(Output::Embedded(output), enabled, Config::load)
+    }
+
+    /// Start the same worker with a bounded daemon result queue and its existing wake signal.
+    pub fn spawn_waking(
+        output: mpsc::SyncSender<SummaryEvent>,
+        wake: mpsc::SyncSender<()>,
+        enabled: bool,
+    ) -> Self {
+        Self::start(
+            Output::Owner {
+                sender: output,
+                wake,
+            },
+            enabled,
+            Config::load,
+        )
     }
 
     #[cfg(test)]
     pub(super) fn spawn_config(output: mpsc::Sender<SummaryEvent>, config: Config) -> Self {
-        Self::start(output, true, move || Ok(config))
+        Self::start(Output::Embedded(output), true, move || Ok(config))
     }
 
     fn start(
-        output: mpsc::Sender<SummaryEvent>,
+        output: Output,
         enabled: bool,
         load: impl FnOnce() -> Result<Config> + Send + 'static,
     ) -> Self {
@@ -100,7 +117,7 @@ fn terminate(control: &Control) {
 
 fn serve(
     rx: mpsc::Receiver<Queued>,
-    output: &mpsc::Sender<SummaryEvent>,
+    output: &Output,
     control: &Arc<Control>,
     config: Config,
 ) -> Result<()> {
@@ -175,7 +192,7 @@ fn generate(
 fn finish(
     store: &Store,
     config: &Config,
-    output: &mpsc::Sender<SummaryEvent>,
+    output: &Output,
     pending: &mut HashMap<String, Vec<Request>>,
     finished: &mpsc::Receiver<Finished>,
     current_epoch: u64,
@@ -207,7 +224,7 @@ fn queue(
     control: &Control,
     jobs: &mpsc::SyncSender<Job>,
     pending: &mut HashMap<String, Vec<Request>>,
-    output: &mpsc::Sender<SummaryEvent>,
+    output: &Output,
 ) {
     if !request.generate || !control.enabled.load(Ordering::Relaxed) {
         let _ = output.send(SummaryEvent::Ready(request.key, request.binding, None));

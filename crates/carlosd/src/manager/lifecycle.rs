@@ -26,6 +26,7 @@ impl Manager {
             backend,
             cwd,
             name,
+            tool_labels,
         } = command
         else {
             unreachable!()
@@ -74,7 +75,7 @@ impl Manager {
         state.info.availability = Availability::Starting;
         state.create = Some(result.clone());
         self.sessions.insert(session.clone(), state);
-        self.start_launch(&session, false);
+        self.start_launch(&session, false, tool_labels);
         self.list_changed(&session);
         self.reply(peer, id, result);
     }
@@ -97,7 +98,12 @@ impl Manager {
         }
     }
 
-    pub(super) fn start_launch(&mut self, id: &SessionId, restore: bool) {
+    pub(super) fn start_launch(
+        &mut self,
+        id: &SessionId,
+        restore: bool,
+        tool_labels: Option<bool>,
+    ) {
         let state = self.sessions.get_mut(id).expect("known session");
         if state.live.is_some() || state.launch.is_some() {
             return;
@@ -110,6 +116,7 @@ impl Manager {
             cwd: PathBuf::from(&saved.cwd),
             name: saved.name.clone(),
             codex_socket: self.codex_socket.clone(),
+            tool_labels,
             restore: restore.then(|| RestoreSession {
                 native_thread: saved.native_thread.clone().expect("validated restore"),
                 ralph_was_on: saved.ralph_was_on,
