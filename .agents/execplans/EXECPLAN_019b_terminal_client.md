@@ -12,6 +12,8 @@ The daemon already proves basic chat, approvals, running output, independent cli
 
 ## Progress
 
+- [x] (2026-11-15) Pass release gate04 on c7370:306 terminal cases,143 daemon cases and23 installed native cases with the first Grok repair. A matching private real-pipe check then catches the supported empty explicit-native completion route bypassing its new identity. Four named cases now share the common completion emitter and preserve unsolicited-before-prompt behavior; all43 Grok cases/strict Core lint pass privately. Apply only the checked two-file follow-up, then renew final-source gates.
+
 - [x] (2026-11-15) Reproduce the real Grok completion-before-write-ack race with an OS-pipe/Core test, then pass all40 Grok cases, full default/no-default workspace tests and strict lint in both modes. The repaired debug daemon passes1000 single-CPU sends with exactly1000 native prompts; a new actual terminal case sends three instant follow-ups. Preserve failed old-source traces and exclude debug timings from acceptance. Renew final release checks and measurements before review. See exec019b-grok-early-completion.md.
 
 - [x] (2026-11-15) Commit the110-path physical runtime removal ascc2a5f5 after the actual release parity gate. Normal fmt/workspace test hook passes. Nine final launcher cases pass in7.192s with ordinary launches omitting --daemon; the explicit compatibility case still covers that flag. Final evidence runner56164 now checks64MiB ANSI/16MiB Markdown and then quiet measured worker/renderer/socket/owner cases.
@@ -131,6 +133,8 @@ The daemon already proves basic chat, approvals, running output, independent cli
 
 ## Surprises & Discoveries
 
+Grok can finish through either an ACP request result or an explicit _x.ai/session/update notification. An empty explicit notification bypassed the first repair. The same real-pipe schedule fails before moving empty-turn identity into the existing common emitter and passes afterward. The existing prompt epoch prevents a completion received before any prompt from inventing a turn. No extra field or mechanism is added.
+
 A final one-CPU socket stress exposes a real Grok acknowledgement race in both EP019a and current source. The native reader can complete a prompt before the send worker reports its write; Grok returned no exact turn ID, so core settlement could revive a finished turn and strand the next queued prompt. The real OS-pipe/Core test deliberately receives completion before settlement and fails on the old source. Unrestricted1000-send runs pass, but do not cover this schedule. Preserve socket-current-pinned and both pinned historical failures. Final approval remains open until the identity repair and renewed final-source gates pass.
 
 The final143-case daemon gate passed141 and found two old assertions requiring unchanged public process task IDs after a native PID/item replacement. The intentionally strengthened identity72da0bc changes those IDs. Corrected cases preserve exact Unicode/late acknowledgement/private-error checks, reject old targets without native writes, and fail on the preserved pre-fix daemon. Both pass on the final cutover pair. No product fix is needed.
@@ -211,6 +215,8 @@ The cutover draft no longer calls the source-reader helper from the terminal exe
 The installed Codex CLI distinguishes a new, unmaterialized thread from an existing empty saved thread. A native probe in `/tmp/carlos-ep019b/native-fresh-read-probe/rpc.jsonl` shows thread/start succeeds with turns=[], metadata/queue/goal reads succeed, and thread/turns/list returns-32600 before a user message. Treating that failure as a general empty-history fallback would discard real resumed history, so the caller must carry the known launch scope.
 
 ## Decision Log
+
+- 2026-11-15: Share empty-turn identity at emit_turn_completed rather than only finish_prompt_turn, because both native completion forms call the emitter. Preserve unsolicited-before-prompt behavior with the existing prompt epoch. Keep four named causal cases and stop adding mechanisms to this focused repair.
 
 - 2026-11-15: Return Groks existing translated turn identity in its write acknowledgement. Empty native results must receive that same turn start/completion identity. Reuse core terminal-status checks and the current translator sequence; add no retry, scheduler, per-client state or completion cache. Keep original dense-Unicode memory limits visible and do not confuse the faster captured ANSI corpus with that separate stress case.
 
@@ -297,6 +303,8 @@ Decision: cap retained session facts across one Client at 64 MiB and defer futur
   Date/Author: 2026-11-15, Codex.
 
 ## Outcomes & Retrospective
+
+The first repaired-source release gate also passes in full. The complete native-completion check finds and closes the remaining empty explicit-notification route in the same existing emitter. Final approval still requires renewed checks and measurements on that source, then the final engineering and Fable reviews.
 
 The removal commit and final release parity gate pass. Above-cache64MiB ANSI/16MiB Markdown, nine default-launcher cases and quiet worker metrics pass on source813a5f5. Both reference renderer comparisons pass their exact counts and improve interactive draw times. The single-CPU socket stress then finds the preexisting Grok turn-acknowledgement race. Its focused repair is now under test; source813a5f5 evidence remains valid for that prefix, but final-source checks and measurements must include the repair before review.
 

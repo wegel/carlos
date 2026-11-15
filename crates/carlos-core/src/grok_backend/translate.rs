@@ -58,9 +58,6 @@ pub(super) fn interrupt_prompt_turn(state: &mut GrokTranslationState) -> Transla
 /// Finish the current Grok prompt and emit its remaining item and turn messages.
 pub fn finish_prompt_turn(state: &mut GrokTranslationState, interrupted: bool) -> TranslateOutput {
     let mut out = TranslateOutput::default();
-    if !state.replaying && !state.turn_completed_emitted && state.current_turn_id.is_none() {
-        start_turn(state, &mut out);
-    }
     flush_open_items(state, &mut out);
     if !state.replaying {
         emit_turn_completed(state, interrupted, &mut out);
@@ -319,6 +316,9 @@ fn emit_turn_completed(
 ) {
     if state.turn_completed_emitted && state.current_turn_id.is_none() {
         return;
+    }
+    if state.current_turn_id.is_none() && state.prompt_epoch > 0 {
+        start_turn(state, out);
     }
     let turn_id = state
         .current_turn_id
