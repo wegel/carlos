@@ -197,7 +197,8 @@ fn wrap_natural_count_slow_by_cells(text: &str, width: usize) -> usize {
     debug_assert!(width > 0);
     debug_assert!(!text.is_empty());
 
-    if text.is_ascii() {
+    // textwrap gives ANSI escapes zero width; byte lengths only match ordinary ASCII.
+    if text.is_ascii() && !text.contains('\u{1b}') {
         return wrap_natural_count_ascii_slow_by_cells(text, width);
     }
 
@@ -360,3 +361,7 @@ pub(super) fn wrap_input_line(line: &str, width: usize) -> Vec<String> {
 pub(super) fn wrap_input_line_count(line: &str, width: usize) -> usize {
     wrap_natural_count_by_cells(line, width)
 }
+
+#[cfg(test)]
+#[path = "text_wrap_parity_tests.rs"]
+mod parity_tests;
