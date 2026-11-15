@@ -51,7 +51,7 @@ def question(identifier, single=False, default_to_no=False):
 
 def start(text, prompt, send, result, state, native_session):
     global sender, finish_result, set_state, prompt_id, scenario, parent_finished, session_id
-    if text not in {"ask native", "ask single", "mcp form", "typed form", "browser consent", "native plan", "native plan missing",
+    if text not in {"ask native", "ask single", "mcp form", "typed form", "legacy form defaults", "browser consent", "native plan", "native plan missing",
                     "permission flags", "concurrent questions", "cancel questions", "unsupported form", "prepare questions", "undeclared dialog", "browser early", "precise integer", "ask default no"}:
         return False
     sender, finish_result, set_state, prompt_id, scenario = send, result, state, prompt, text
@@ -82,6 +82,11 @@ def start(text, prompt, send, result, state, native_session):
             "e_optin": {"type": "boolean", "title": "Opt in", "default": False},
             "f_note": {"type": "string", "title": "Note", "default": "Draft note"}},
             "required": ["a_age", "b_email", "c_color", "d_tags", "e_optin"]})
+    elif text == "legacy form defaults":
+        form("legacy-form-question", schema={"type": "object", "properties": {
+            "a_tags": {"type": "array", "title": "Tags", "items": {"enum": ["a", "b"]}, "default": ["b", "a"]},
+            "b_choice": {"type": "string", "title": "Choice", "anyOf": [{"const": "y", "title": "Yellow"}], "default": "y"},
+            "c_optional": {"type": "string", "title": "Optional"}}})
     elif text == "precise integer":
         form("integer-question", schema={"type": "object", "properties": {"count": {"type": "integer", "title": "Count"}}, "required": ["count"]})
     elif text in {"browser consent", "browser early"}:

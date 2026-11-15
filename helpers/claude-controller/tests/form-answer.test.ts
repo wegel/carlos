@@ -46,10 +46,37 @@ test("unknown keywords and ambiguous or incorrectly typed enum schemas remain un
   for (const rule of [{ type: "object" }, { type: "string", enum: [{ const: "x", title: "X" }] },
     { type: "string", enum: ["x"], oneOf: [{ const: "y", title: "Y" }] }, { type: "string", oneOf: ["x"] },
     { type: "string", enum: ["x"], enumNames: [] }, { type: "string", not: { const: "x" } },
-    { type: "array", items: { type: "number", enum: ["x"] } }, { type: "array", items: { enum: ["x"] } },
+    { type: "array", items: { type: "number", enum: ["x"] } }, { type: "array", items: { enum: ["x", 1] } },
     { type: "array", items: { type: "string", enum: ["x"], anyOf: [{ const: "y", title: "Y" }] } }]) {
     expect(formIssue(schema(rule))).toBeDefined();
   }
+});
+
+test("legacy flat enum spellings preserve values, defaults and the original schema", () => {
+  const requested = { type: "object", properties: {
+    many: { type: "array", items: { enum: ["a", "b"] }, default: ["b", "a"], maxItems: 2 },
+    one: { type: "string", anyOf: [{ const: "y", title: "日本語" }], default: "y" },
+  } };
+  const before = structuredClone(requested);
+  expect(formIssue(requested)).toBeUndefined();
+  expect(() => validateForm(requested, { many: ["a", "b"], one: "y" })).not.toThrow();
+  expect(requested).toEqual(before);
+  for (const content of [{ many: [1] }, { many: ["unknown"] }, { many: ["a", "b", "a"] },
+    { one: "unknown" }, { extra: "field" }]) {
+    expect(() => validateForm(requested, content)).toThrow();
+  }
+});
+
+test("legacy choice aliases still reject unknown keys, refs, mixed types and duplicates", () => {
+  for (const rule of [
+    { type: "array", items: { enum: ["a", "a"] } },
+    { type: "array", items: { enum: ["a"], unknownConstraint: true } },
+    { type: "string", anyOf: [{ const: 1, title: "one" }] },
+    { type: "string", anyOf: [{ const: "a", title: "first" }, { const: "a", title: "second" }] },
+    { type: "string", anyOf: [{ const: "a", title: "A", unknownConstraint: true }] },
+    { type: "string", anyOf: [{ const: "a", title: "A" }], $ref: "https://example.invalid/private" },
+    { type: "string", anyOf: [{ const: "a", title: "A" }], oneOf: [{ const: "b", title: "B" }] },
+  ]) expect(formIssue(schema(rule))).toBeDefined();
 });
 
 test("prototype names do not satisfy missing required or declared fields", () => {

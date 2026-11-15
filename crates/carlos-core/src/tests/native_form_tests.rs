@@ -172,3 +172,52 @@ fn answer_errors_show_expected_limits_types_and_formats_without_secret_values() 
     assert_eq!(error, "Count: enter a whole number");
     assert!(!error.contains("PRIVATE_SECRET"));
 }
+
+#[test]
+fn legacy_flat_choices_keep_labels_defaults_order_and_the_original_schema() {
+    let schema = json!({"type":"object","properties":{
+        "many":{"type":"array","items":{"enum":["a","b"]},"default":["b","a"],"maxItems":2},
+        "one":{"type":"string","anyOf":[{"const":"y","title":"日本語"}],"default":"y"}}});
+    let original = schema.clone();
+    validate(&schema, &json!({"many":["a","b"],"one":"y"})).expect("existing editor choice shapes");
+    assert_eq!(
+        schema, original,
+        "checking never changes callback facts or fingerprints"
+    );
+    let fields = fields(&schema).expect("existing cheap field parser");
+    assert_eq!(fields[0].options()[0].value(), &json!("a"));
+    assert_eq!(fields[0].options()[1].value(), &json!("b"));
+    assert_eq!(fields[1].options()[0].label(), "日本語");
+    for bad in [
+        json!({"many":[1],"one":"y"}),
+        json!({"many":["unknown"],"one":"y"}),
+        json!({"many":["a","b","a"],"one":"y"}),
+        json!({"one":"unknown"}),
+        json!({"extra":"field"}),
+    ] {
+        assert!(
+            validate(&schema, &bad).is_err(),
+            "original constraints still reject {bad}"
+        );
+    }
+}
+
+#[test]
+fn legacy_choice_spellings_never_hide_unknown_keys_refs_mixed_types_or_duplicates() {
+    for rule in [
+        json!({"type":"array","items":{"enum":["a",1]}}),
+        json!({"type":"array","items":{"enum":["a","a"]}}),
+        json!({"type":"array","items":{"type":"number","enum":["a"]}}),
+        json!({"type":"array","items":{"enum":["a"],"unknownConstraint":true}}),
+        json!({"type":"string","anyOf":[{"const":1,"title":"one"}]}),
+        json!({"type":"string","anyOf":[{"const":"a","title":"first"},{"const":"a","title":"second"}]}),
+        json!({"type":"string","anyOf":[{"const":"a","title":"A","unknownConstraint":true}]}),
+        json!({"type":"string","anyOf":[{"const":"a","title":"A"}],"$ref":"https://example.invalid/private"}),
+        json!({"type":"string","anyOf":[{"const":"a","title":"A"}],"oneOf":[{"const":"b","title":"B"}]}),
+    ] {
+        assert!(
+            compile(&json!({"type":"object","properties":{"x":rule}})).is_err(),
+            "must reject {rule}"
+        );
+    }
+}

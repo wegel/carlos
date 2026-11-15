@@ -74,7 +74,7 @@ function validateSchema(rule: ObjectValue, name: string): void {
   const common = ["type", ...annotations];
   switch (rule.type) {
     case "string":
-      keys(rule, [...common, "minLength", "maxLength", "pattern", "format", "enum", "enumNames", "oneOf"]);
+      keys(rule, [...common, "minLength", "maxLength", "pattern", "format", "enum", "enumNames", "oneOf", "anyOf"]);
       bounds(rule, "minLength", "maxLength", true);
       if (rule.pattern !== undefined) {
         if (typeof rule.pattern !== "string") fail(`${name}: pattern must be text`);
@@ -82,7 +82,7 @@ function validateSchema(rule: ObjectValue, name: string): void {
       if (rule.format !== undefined && !["email", "uri", "date", "date-time"].includes(String(rule.format))) {
         fail(`${name}: unsupported format ${String(rule.format)}`);
       }
-      if (rule.enum !== undefined || rule.oneOf !== undefined || rule.enumNames !== undefined) enumValues(rule);
+      if (rule.enum !== undefined || rule.oneOf !== undefined || rule.anyOf !== undefined || rule.enumNames !== undefined) enumValues(rule);
       break;
     case "number": case "integer":
       keys(rule, [...common, "minimum", "maximum"]);
@@ -102,7 +102,7 @@ function enumValues(rule: ObjectValue, array = false): string[] {
   if (array) keys(rule, ["type", "enum", "enumNames", "anyOf"]);
   const count = ["enum", "oneOf", "anyOf"].filter(key => Object.hasOwn(rule, key)).length;
   if (count !== 1) fail("Unsupported form: use exactly one choice constraint");
-  if (array && rule.enum !== undefined && rule.type !== "string") fail("Unsupported form: array items must be strings");
+  if (array && rule.enum !== undefined && rule.type !== undefined && rule.type !== "string") fail("Unsupported form: array items must be strings");
   if (array && rule.anyOf !== undefined && rule.type !== undefined && rule.type !== "string") fail("Unsupported form: array items must be strings");
   const options = rule.enum ?? rule.oneOf ?? rule.anyOf;
   if (!Array.isArray(options) || options.length === 0) fail("Unsupported form: empty choices");
@@ -133,7 +133,7 @@ function validateValue(rule: ObjectValue, value: unknown, name: string): void {
         if (!pattern.test(value)) fail(`${name}: must match ${rule.pattern}`);
       }
       if (typeof rule.format === "string" && !matchesFormat(value, rule.format)) fail(`${name}: enter a valid ${rule.format}`);
-      if ((rule.enum !== undefined || rule.oneOf !== undefined) && !enumValues(rule).includes(value)) fail(`${name}: choose a listed value`);
+      if ((rule.enum !== undefined || rule.oneOf !== undefined || rule.anyOf !== undefined) && !enumValues(rule).includes(value)) fail(`${name}: choose a listed value`);
       break;
     }
     case "number": case "integer":

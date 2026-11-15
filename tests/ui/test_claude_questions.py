@@ -102,6 +102,26 @@ class ClaudeQuestions:
             "a_age": 30, "b_email": "a@b", "c_color": "#0f0", "d_tags": ["r", "w"], "e_optin": False})
         terminal.snapshot("typed-native-form")
 
+    def test_claude_legacy_flat_enum_defaults_keep_native_values_and_optional_omit(self):
+        terminal = self.open_question("legacy form defaults")
+        terminal.contains("Tags")
+        terminal.contains("[x] a")
+        terminal.contains("[x] b")
+        terminal.send(b"\t")
+        terminal.contains("Choice")
+        terminal.contains("[x] Yellow")
+        terminal.send(b"\t")
+        terminal.contains("Optional")
+        terminal.send(b"\t")
+        terminal.contains("Review answers")
+        terminal.send(b"\x13")
+        terminal.contains("Native callbacks settled")
+        self.assertEqual(self.native_answers(terminal)["legacy-form-question"], {
+            "action": "accept", "content": {"a_tags": ["a", "b"], "b_choice": "y"}})
+        self.assertEqual(len(self.helper_requests(terminal, "callback.respond")), 1)
+        self.assertEqual(len(self.helper_requests(terminal, "prompt")), 1)
+        terminal.snapshot("legacy-flat-native-values")
+
     def test_claude_concurrent_child_requests_keep_independent_drafts_and_lifetimes(self):
         terminal = self.open_question("concurrent questions")
         terminal.contains("4 waiting")

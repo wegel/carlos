@@ -68,8 +68,11 @@ pub(crate) fn compile(schema: &Value) -> Result<Validator> {
     let meta = meta
         .as_ref()
         .map_err(|error| anyhow::anyhow!(error.clone()))?;
-    if let Err(error) = meta.validate(schema) {
-        bail!("Unsupported form schema at {}", error.instance_path());
+    {
+        let compatible = compatible_choices(schema.clone());
+        if let Err(error) = meta.validate(&compatible) {
+            bail!("Unsupported form schema at {}", error.instance_path());
+        }
     }
     let mut required = std::collections::HashSet::new();
     for name in schema["required"].as_array().into_iter().flatten() {
@@ -132,6 +135,41 @@ fn meta_schema() -> &'static std::result::Result<Validator, String> {
         schema["definitions"]["McpElicitationStringSchema"]["properties"]["pattern"] = json!({"type":"string","maxLength":4096});
         options().build(&schema).map_err(|_|"Could not compile the native MCP schema".into())
     })
+}
+
+// The editor already accepts these two flat enum spellings. Canonicalize only
+// those spellings; the native meta-schema still checks every key and constraint.
+fn compatible_choices(mut schema: Value) -> Value {
+    for field in schema["properties"]
+        .as_object_mut()
+        .into_iter()
+        .flatten()
+        .map(|(_, field)| field)
+    {
+        let Some(field) = field.as_object_mut() else {
+            continue;
+        };
+        if field.get("type").and_then(Value::as_str) == Some("string")
+            && !field.contains_key("oneOf")
+        {
+            if let Some(options) = field.remove("anyOf") {
+                field.insert("oneOf".into(), options);
+            }
+        }
+        if field.get("type").and_then(Value::as_str) == Some("array") {
+            if let Some(items) = field.get_mut("items").and_then(Value::as_object_mut) {
+                if !items.contains_key("type")
+                    && items
+                        .get("enum")
+                        .and_then(Value::as_array)
+                        .is_some_and(|values| values.iter().all(Value::is_string))
+                {
+                    items.insert("type".into(), json!("string"));
+                }
+            }
+        }
+    }
+    schema
 }
 
 fn normalize(schema: &Value) -> Result<Value> {
