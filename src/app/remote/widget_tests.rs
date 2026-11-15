@@ -367,3 +367,6 @@ fn accept_event(
         )
         .expect("accepted numbered event");
 }
+
+#[path = "tool_output_device_tests.rs"]
+mod tool_output_device_tests;

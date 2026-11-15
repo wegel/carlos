@@ -85,7 +85,8 @@ fn local_device(client: Client, session: SessionId) -> Device {
     }
 }
 
-fn install_source(device: &mut Device, row: PerfRow) {
+/// Feed complete bytes at the current accepted snapshot sequence.
+pub(super) fn install_source(device: &mut Device, row: PerfRow) {
     let Some((source, text)) = row.source else {
         return;
     };
@@ -98,6 +99,11 @@ fn install_source(device: &mut Device, row: PerfRow) {
             source.revision,
         )
         .expect("source lifetime");
+    let sequence = device
+        .client
+        .session(&device.session)
+        .expect("accepted snapshot")
+        .sequence();
     device
         .client
         .bodies_mut()
@@ -112,7 +118,7 @@ fn install_source(device: &mut Device, row: PerfRow) {
                 text,
                 has_more: false,
                 done: true,
-                seq: Sequence::new(1),
+                seq: sequence,
             },
         )
         .expect("accepted full source");

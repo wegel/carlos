@@ -34,24 +34,3 @@ impl AppState {
         }
     }
 }
-
-#[cfg(test)]
-impl AppState {
-    pub(super) fn replace_transcript_for_test(&mut self, replacement: AppState) {
-        self.session.clear_summaries();
-        self.session.transcript_adopt_unkeyed(
-            replacement
-                .session
-                .messages()
-                .entries()
-                .iter()
-                .cloned()
-                .map(Into::into)
-                .collect(),
-            carlos_core::session::history_identity::HistoryMode::SameThread,
-        );
-        self.view.render_cache = RenderCacheState::new();
-        self.view.viewport = ViewportState::new();
-        self.mark_transcript_dirty();
-    }
-}

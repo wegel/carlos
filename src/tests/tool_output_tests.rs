@@ -2,46 +2,17 @@
 
 use std::fs;
 
-use carlos_core::session::models::MessageKind;
-use carlos_core::session::models::Role;
-use carlos_core::session::models::ToolOutputDetails;
+use carlos_core::perf_fixture::PerfRow;
+use carlos_core::session::models::{EntryDraft, MessageKind, Role, ToolOutputDetails};
 
-use super::{render_fixture, AppState, TerminalSize};
+use super::render_fixture;
 use crate::app::perf_view::PerfView;
-use crate::app::state::ModelSettingsField;
 use crate::app::tool_output_preferences::{load_mode_from, save_mode_to};
 use crate::app::tool_output_state::{ToolOutputMode, ToolOutputState};
-use carlos_core::perf_fixture::PerfRow;
-use carlos_core::session::models::EntryDraft;
+use crate::app::view_models::TerminalSize;
 
 fn size(width: usize, height: usize) -> TerminalSize {
     TerminalSize { width, height }
-}
-
-fn long_output(app: &mut AppState) -> usize {
-    let text = (0..12)
-        .map(|i| format!("source line {i}"))
-        .collect::<Vec<_>>()
-        .join("\n");
-    let idx = app.append_message(Role::ToolOutput, text);
-    app.session.transcript_set_tool(
-        idx,
-        ToolOutputDetails {
-            generated: false,
-            summary: "→ Read main.rs".into(),
-            failed: false,
-        },
-    );
-    idx
-}
-
-fn screen(app: &mut AppState, width: usize) -> String {
-    app.ensure_rendered_lines(width, None);
-    app.snapshot_rendered_lines()
-        .iter()
-        .map(|line| line.text.as_str())
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 fn plain_output() -> PerfRow {
@@ -106,33 +77,6 @@ fn manual_modes_override_resize_until_the_user_returns_to_auto() {
     assert!(state.compact());
     state.mode = ToolOutputMode::Auto;
     assert!(!state.compact());
-}
-
-#[test]
-fn settings_open_with_the_current_choice_and_apply_or_cancel_the_draft() {
-    let mut app = AppState::new("thread".into());
-    app.view.tool_output.mode = ToolOutputMode::Full;
-    app.open_model_settings();
-    app.model_settings_move_field(false);
-    assert_eq!(
-        app.view.runtime_settings.model_settings_field,
-        ModelSettingsField::ToolOutput
-    );
-    assert_eq!(
-        app.view.runtime_settings.model_settings_tool_output,
-        ToolOutputMode::Full
-    );
-    app.view.runtime_settings.model_settings_tool_output = ToolOutputMode::Compact;
-    app.close_model_settings();
-    assert_eq!(app.view.tool_output.mode, ToolOutputMode::Full);
-    app.open_model_settings();
-    assert_eq!(
-        app.view.runtime_settings.model_settings_tool_output,
-        ToolOutputMode::Full
-    );
-    app.view.runtime_settings.model_settings_tool_output = ToolOutputMode::Compact;
-    app.apply_model_settings();
-    assert_eq!(app.view.tool_output.mode, ToolOutputMode::Compact);
 }
 
 #[test]
@@ -212,19 +156,6 @@ fn a_folded_diff_keeps_filename_and_change_counts() {
     assert!(plain_screen(&mut view, 80).contains("main.rs +4 −4"));
     view.view.tool_output.mode = ToolOutputMode::Full;
     assert!(plain_screen(&mut view, 80).contains("+new4"));
-}
-
-#[test]
-fn reload_and_fork_keep_the_preference_but_replace_message_contents() {
-    let mut app = AppState::new("thread".into());
-    app.view.tool_output.mode = ToolOutputMode::Compact;
-    let mut replacement = AppState::new("thread".into());
-    long_output(&mut replacement);
-    app.replace_transcript_for_test(replacement);
-    assert!(screen(&mut app, 80).trim_end().ends_with("12"));
-    app.reset_for_forked_thread("fork");
-    assert_eq!(app.view.tool_output.mode, ToolOutputMode::Compact);
-    assert!(app.session.messages().is_empty());
 }
 
 #[test]

@@ -20,18 +20,6 @@ impl AppState {
 
     // --- Transcript mutation ---
 
-    #[cfg(test)]
-    pub(super) fn mark_transcript_dirty(&mut self) {
-        self.mark_transcript_dirty_from(0);
-    }
-
-    #[cfg(test)]
-    pub(super) fn mark_transcript_dirty_from(&mut self, idx: usize) {
-        self.view
-            .render_cache
-            .mark_transcript_dirty_from(self.session.messages().len(), idx);
-    }
-
     pub(super) fn ensure_rendered_lines(
         &mut self,
         width: usize,
@@ -99,14 +87,6 @@ impl AppState {
             start_idx,
             end_idx,
         );
-    }
-
-    #[cfg(test)]
-    pub(super) fn snapshot_rendered_lines(&mut self) -> Vec<RenderedLine> {
-        self.consume_core_events();
-        self.view
-            .render_cache
-            .snapshot_rendered_lines(self.session.messages())
     }
 
     pub(super) fn selected_text(&mut self, selection: Selection) -> String {
