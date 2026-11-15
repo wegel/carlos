@@ -375,10 +375,12 @@ class NativeMonitor(NativeCodexControls,NativeCodexPanel,NativeCodexGoals,Native
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
+    parser.add_argument("--daemon-binary", type=Path, help="run ordinary terminal launches through private test-owned daemons")
     parser.add_argument("--codex", default="codex")
     parser.add_argument("--artifacts", type=Path)
     args, remaining = parser.parse_known_args()
     BINARY = args.binary.resolve()
+    Terminal.daemon_binary = args.daemon_binary.resolve() if args.daemon_binary else None
     CODEX = Path(shutil.which(args.codex) or args.codex).resolve()
     ARTIFACTS = (args.artifacts or Path(tempfile.mkdtemp(prefix="carlos-native-monitor-"))).resolve()
     unittest.main(argv=[__file__, *remaining])

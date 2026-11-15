@@ -20,9 +20,12 @@ from terminal_screen import TerminalScreen
 
 
 class Terminal:
+    daemon_binary = None
+
     def __init__(self, binary, root, mode="modern", resume="thread-original", width=100, backend="codex",
                  codex=None, claude=None, extra_env=None, extra_args=None):
         self.root = root
+        self.owned_daemon = None
         self.root.mkdir(parents=True, exist_ok=True)
         shim = root / "bin"
         shim.mkdir(exist_ok=True)
@@ -40,7 +43,7 @@ class Terminal:
         inherited = os.environ if not claude else {key:value for key,value in os.environ.items() if not key.startswith(("ANTHROPIC_", "CLAUDE_", "CARLOS_CLAUDE_"))}
         env = {**inherited, "TERM": "xterm-256color", "CARLOS_TEST_ROOT": str(root),
                "CARLOS_TEST_SERVER": mode, "HOME": str(root),
-               "CODEX_HOME": str(root / "codex-home"), "CARLOS_METRICS": "0",
+               "CODEX_HOME": str(root / "codex-home"), "GROK_HOME": str(root / "grok-home"), "CARLOS_METRICS": "0",
                "XDG_CONFIG_HOME": str(root / "config"),
                "XDG_STATE_HOME": str(root / "state"),
                "CARLOS_TOOL_SUMMARIES": "on" if mode.startswith("summary") else "off",
@@ -58,18 +61,36 @@ class Terminal:
             fixture = "flaky_claude_controller.py" if mode == "claude-reply-error" else "approval_switch_controller.py"
             env["CARLOS_CLAUDE_CONTROLLER"] = str(Path(__file__).with_name(fixture).resolve())
             env["CARLOS_REAL_CLAUDE_CONTROLLER"] = str(binary.parent.parent / "claude-controller/carlos-claude-controller")
-        args = [str(binary), "--backend", backend, *(extra_args or [])]
+        arguments = list(extra_args or [])
+        args = [str(binary), "--backend", backend, *arguments]
         if resume == "__continue__":
             args += ["continue"]
         elif resume == "__picker__":
             args += ["resume"]
         elif resume:
             args += ["resume", resume]
+        try:
+            if self.daemon_binary and "--daemon-socket" not in arguments:
+                from terminal_daemon import OwnedDaemon
+                codex_socket = arguments[arguments.index("--codex-socket") + 1] if "--codex-socket" in arguments else None
+                self.owned_daemon = OwnedDaemon(self.daemon_binary, root, env, codex_socket)
+                args[1:1] = ["--daemon-socket", str(self.owned_daemon.endpoint)]
+            self.open_process(args, env, width)
+        except BaseException:
+            self.output.close()
+            if self.owned_daemon:
+                self.owned_daemon.close()
+            raise
+
+    def open_process(self, args, env, width):
         self.fd, slave = pty.openpty()
         try:
             self.process = subprocess.Popen(
                 [sys.executable, str(Path(__file__).with_name("terminal_child.py")), *args],
-                stdin=slave, stdout=slave, stderr=slave, cwd=root, env=env, start_new_session=True)
+                stdin=slave, stdout=slave, stderr=slave, cwd=self.root, env=env, start_new_session=True)
+        except BaseException:
+            os.close(self.fd)
+            raise
         finally:
             os.close(slave)
         self.pid = self.process.pid
@@ -169,13 +190,24 @@ class Terminal:
     def requests(self, method):
         return [message for message in self.messages() if message.get("method") == method]
 
+    def daemon_messages(self, direction="client"):
+        if self.owned_daemon:
+            return self.owned_daemon.messages(direction)
+        return self.messages(direction) if hasattr(self, "daemon_recorder") else []
+
+    def daemon_requests(self, method):
+        return [message for message in self.daemon_messages() if message.get("method") == method]
+
     def close(self):
-        if self.output.closed:
-            return
         try:
-            self.snapshot("last-screen")
+            if not self.output.closed:
+                try:
+                    self.snapshot("last-screen")
+                finally:
+                    self.close_process()
         finally:
-            self.close_process()
+            if self.owned_daemon:
+                self.owned_daemon.close()
 
     def close_process(self):
         try:

@@ -252,9 +252,11 @@ class Workflows(DaemonTaskQuestions, DaemonQuestionForms, DaemonQuestionBrowser,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", type=Path, required=True)
+    parser.add_argument("--daemon-binary", type=Path, help="run ordinary terminal launches through private test-owned daemons")
     parser.add_argument("--artifacts", type=Path)
     options, test_args = parser.parse_known_args()
     BINARY = options.binary.resolve()
+    Terminal.daemon_binary = options.daemon_binary.resolve() if options.daemon_binary else None
     ARTIFACTS = (options.artifacts or Path(tempfile.mkdtemp(prefix="carlos-ui-"))).resolve()
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     print("UI artifacts:", ARTIFACTS, flush=True)
