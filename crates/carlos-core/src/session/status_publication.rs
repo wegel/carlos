@@ -24,6 +24,9 @@ impl SessionState {
         });
         StatusFacts {
             context_fresh: !self.claude.enabled() || self.claude.context_fresh(),
+            active_reasoning: self
+                .active_reasoning_step()
+                .map(|index| self.messages()[index].id.to_wire()),
             activity,
             callbacks_pending: self
                 .approval

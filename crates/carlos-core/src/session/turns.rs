@@ -32,7 +32,7 @@ impl SessionState {
         self.turn_suffix_start()
     }
 
-    /// Resolve the active reasoning row for an in-process renderer.
+    /// Resolve the current turn's unfinished reasoning row for readers and header facts.
     pub fn active_reasoning_step(&self) -> Option<usize> {
         self.active_turn_id.as_ref()?;
         let start = self.turn_suffix_start().unwrap_or(0);

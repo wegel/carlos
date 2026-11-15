@@ -29,6 +29,13 @@ pub(super) struct TranscriptFrame<'a, S: TranscriptSource + ?Sized> {
     pub active: Option<usize>,
 }
 
+impl<S: TranscriptSource + ?Sized> TranscriptFrame<'_, S> {
+    fn row_input(&self, index: usize) -> Option<RenderInput<'_>> {
+        let row = self.source.row(index)?;
+        Some(row.input.unwrap_or(row.facts))
+    }
+}
+
 /// Preserve the embedded caller until its separate deletion commit.
 pub(super) fn draw_transcript(buf: &mut Buffer, app: &AppState, height: usize, width: usize) {
     let frame = TranscriptFrame {
@@ -71,7 +78,7 @@ fn draw_transcript_row<S: TranscriptSource + ?Sized>(
     let Some((message_index, row)) = frame.cache.message_anchor(index) else {
         return;
     };
-    let Some(message) = frame.source.input(message_index) else {
+    let Some(message) = frame.row_input(message_index) else {
         return;
     };
     if line.separator {
@@ -102,7 +109,11 @@ fn draw_transcript_row<S: TranscriptSource + ?Sized>(
             .cache
             .block_len(message_index)
             .is_some_and(|length| row + 1 == length);
-        let inline = frame.flow && inline_reasoning(message, width);
+        let inline = frame.flow
+            && frame
+                .source
+                .input(message_index)
+                .is_some_and(|input| inline_reasoning(input, width));
         paint_active_step(
             buf,
             y,
@@ -123,8 +134,12 @@ fn heading_is_active<S: TranscriptSource + ?Sized>(
     frame.active.is_some_and(|active| {
         index <= active
             && (index..=active).all(|row| {
-                frame.source.input(row).is_some_and(|message| {
-                    message.role == Role::Reasoning && !inline_reasoning(message, width)
+                frame.source.row(row).is_some_and(|message| {
+                    message.facts.role == Role::Reasoning
+                        && !frame
+                            .source
+                            .input(row)
+                            .is_some_and(|input| inline_reasoning(input, width))
                 })
             })
     })

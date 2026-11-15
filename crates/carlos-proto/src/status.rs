@@ -27,6 +27,9 @@ pub struct RalphStatus {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StatusFacts {
     pub context_fresh: bool,
+    /// The owner's current unfinished reasoning step, scoped to its active turn.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub active_reasoning: Option<crate::ids::EntryId>,
     pub activity: Option<MainActivity>,
     pub callbacks_pending: u32,
     pub tasks_uncertain: bool,

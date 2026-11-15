@@ -1,17 +1,12 @@
 //! Draw the existing lazy transcript blocks and composer from client-owned facts.
 
-use carlos_core::session::models::Role;
 use ratatui::buffer::Buffer;
-use ratatui::style::Style;
 use ratatui::Frame;
 
 use super::transcript::Transcript;
 use super::Device;
-use crate::app::render::{draw_rendered_line, draw_str, fill_rect};
-use crate::app::render_cache_state::TranscriptSource;
-use crate::app::tool_summary::tool_gutter;
+use crate::app::render_transcript::{draw_rows, TranscriptFrame};
 use crate::app::view_models::TerminalSize;
-use crate::theme::{role_gutter_fg, role_gutter_symbol, role_row_bg, role_text_style};
 
 impl Device {
     pub(super) fn draw(&mut self, frame: &mut Frame<'_>) {
@@ -134,100 +129,20 @@ impl Device {
             let first = self.view.viewport.scroll_top;
             let last = first + height.saturating_sub(1);
             cache.materialize_inputs(&transcript, first, last);
-            draw_rows(
-                buffer,
-                &transcript,
+            let active = self.client.session(&self.session).and_then(|replica| {
+                let id = replica.info().status.as_ref()?.active_reasoning.as_ref()?;
+                replica.entry_position(id)
+            });
+            let frame = TranscriptFrame {
+                source: &transcript,
                 cache,
-                &self.view.viewport,
-                size,
+                viewport: &self.view.viewport,
+                flow: self.view.layout.active.is_flow(),
                 content_x,
-                height,
-            );
+                active,
+            };
+            draw_rows(buffer, &frame, height, width);
         }
         self.collect_visible(height);
-    }
-}
-
-fn draw_gutter(
-    buffer: &mut Buffer,
-    row: usize,
-    input: crate::app::transcript_input::RenderInput<'_>,
-    first: bool,
-    separator: bool,
-) {
-    if separator {
-        return;
-    }
-    let (glyph, color) = if matches!(input.role, Role::ToolCall | Role::ToolOutput) {
-        tool_gutter(input)
-    } else {
-        (role_gutter_symbol(input.role), role_gutter_fg(input.role))
-    };
-    let glyph = if first {
-        glyph
-    } else if input.role == Role::Assistant {
-        " "
-    } else {
-        "┃"
-    };
-    draw_str(buffer, 0, row, glyph, Style::default().fg(color), 2);
-}
-
-fn draw_body_row(
-    buffer: &mut Buffer,
-    row: usize,
-    content_x: usize,
-    width: usize,
-    line: &crate::app::view_models::RenderedLine,
-    selected: Option<(usize, usize)>,
-) {
-    fill_rect(
-        buffer,
-        0,
-        row,
-        buffer.area.width as usize,
-        1,
-        Style::default().bg(role_row_bg(line.role)),
-    );
-    draw_rendered_line(
-        buffer,
-        content_x,
-        row,
-        width,
-        line,
-        role_text_style(line.role),
-        selected,
-    );
-}
-
-fn draw_rows(
-    buffer: &mut Buffer,
-    transcript: &Transcript<'_>,
-    cache: &crate::app::render_cache_state::RenderCacheState,
-    viewport: &crate::app::viewport_state::ViewportState,
-    size: TerminalSize,
-    content_x: usize,
-    height: usize,
-) {
-    let first = viewport.scroll_top;
-    let width = size.width.saturating_sub(content_x + 1);
-    for row in 0..height {
-        if let Some(line) = cache.rendered_line_at(first + row) {
-            let selected = viewport.selected_cells(first + row, line.cells);
-            draw_body_row(buffer, row, content_x, width, line, selected);
-            if content_x != 1 {
-                if let Some((index, body_row)) = cache.message_anchor(first + row) {
-                    if let Some(input) = transcript.row(index).map(|row| row.facts) {
-                        draw_gutter(
-                            buffer,
-                            row,
-                            input,
-                            body_row == cache.first_content_row(index),
-                            line.separator,
-                        );
-                    }
-                }
-            }
-        }
     }
 }

@@ -7,6 +7,7 @@ use carlos_proto::task_overview::TaskMainState;
 use serde_json::json;
 
 use super::status_label;
+use crate::session::models::Role;
 use crate::session::ralph::RalphConfig;
 use crate::session::state::SessionState;
 
@@ -119,6 +120,25 @@ fn ralph_flags_preserve_pending_work_without_exporting_queued_prompt_text() {
     let status = session.export_status();
     assert!(!status.ralph.toggle_pending);
     assert!(!status.ralph.continuation_pending);
+}
+
+#[test]
+fn reasoning_identity_follows_the_active_turn_boundary_and_clears_on_completion() {
+    let mut session = session();
+    let old = session.append_message(Role::Reasoning, "old unfinished step");
+    session.messages.activate(session.messages()[old].id);
+    session.set_active_turn_id(Some("new turn".into()));
+    session.restore_turn_boundary();
+    assert!(session.export_status().active_reasoning.is_none());
+    let current = session.append_message(Role::Reasoning, "current step");
+    let id = session.messages()[current].id;
+    session.messages.activate(id);
+    assert_eq!(session.export_status().active_reasoning, Some(id.to_wire()));
+    session.set_active_turn_id(None);
+    assert!(session.export_status().active_reasoning.is_none());
+    session.set_active_turn_id(Some("next turn".into()));
+    session.restore_turn_boundary();
+    assert!(session.export_status().active_reasoning.is_none());
 }
 
 fn session() -> SessionState {
