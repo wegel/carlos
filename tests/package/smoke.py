@@ -11,6 +11,8 @@ import tempfile
 import threading
 import uuid
 
+import daemon_smoke
+
 
 class Helper:
     def __init__(self, executable, cwd, env, timeout=8):
@@ -156,6 +158,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--helper",type=Path,required=True)
     parser.add_argument("--binary",type=Path)
+    parser.add_argument("--daemon",type=Path)
     parser.add_argument("--artifacts",type=Path)
     options = parser.parse_args()
     root = (options.artifacts or Path(tempfile.mkdtemp(prefix="carlos-package-"))).resolve()
@@ -163,6 +166,9 @@ def main():
     if options.binary:
         run = subprocess.run([str(options.binary.resolve()),"--help"],env={**os.environ,"CARLOS_TOOL_SUMMARIES":"off"},capture_output=True,text=True,timeout=5,check=True)
         assert "carlos" in (run.stdout+run.stderr).lower(),run.stdout+run.stderr
+    if options.daemon:
+        assert options.binary, "--daemon smoke also needs the packaged terminal"
+        daemon_smoke.check(options.binary.resolve(),options.daemon.resolve(),root/"daemon")
     check(options.helper.resolve(),root)
     print("PASS standalone hostile-cwd, explicit environment, sessions, and validator; artifacts:",root)
 

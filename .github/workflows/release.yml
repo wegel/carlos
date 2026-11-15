@@ -66,10 +66,6 @@ jobs:
             target: aarch64-apple-darwin
             extension: ''
             archive: carlos-macos-aarch64.tar.gz
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            extension: '.exe'
-            archive: carlos-windows-x86_64.zip
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -86,30 +82,20 @@ jobs:
       - name: Install native dictation build dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev libclang-dev cmake pkg-config
-      - name: Install native CLI for zero-inference smoke (Unix)
-        if: runner.os != 'Windows'
+      - name: Install native CLI for zero-inference smoke
         shell: bash
         run: curl -fsSL https://claude.ai/install.sh | bash -s 2.1.322
-      - name: Install native CLI for zero-inference smoke (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: '& ([scriptblock]::Create((irm https://claude.ai/install.ps1))) 2.1.322'
       - name: Build Rust and matching standalone helper
         run: |
           cargo build --release --target ${{ matrix.target }}
           python scripts/build-claude-controller.py --target ${{ matrix.target }} --output target/${{ matrix.target }}/release/carlos-claude-controller${{ matrix.extension }} --skip-tests
       - name: Stage archive with notices and relink bundle
-        run: python scripts/package-release.py --target ${{ matrix.target }} --binary target/${{ matrix.target }}/release/carlos${{ matrix.extension }} --helper target/${{ matrix.target }}/release/carlos-claude-controller${{ matrix.extension }} --output target/package/${{ matrix.target }} --archive dist/${{ matrix.archive }}
+        run: python scripts/package-release.py --target ${{ matrix.target }} --binary target/${{ matrix.target }}/release/carlos${{ matrix.extension }} --daemon target/${{ matrix.target }}/release/carlosd${{ matrix.extension }} --helper target/${{ matrix.target }}/release/carlos-claude-controller${{ matrix.extension }} --output target/package/${{ matrix.target }} --archive dist/${{ matrix.archive }}
       - name: Standalone package smoke on its native host
-        run: python tests/package/smoke.py --binary target/package/${{ matrix.target }}/carlos${{ matrix.extension }} --helper target/package/${{ matrix.target }}/carlos-claude-controller${{ matrix.extension }} --artifacts target/package-smoke
-      - name: Native SDK controls without inference (Unix)
-        if: runner.os != 'Windows'
+        run: python tests/package/smoke.py --binary target/package/${{ matrix.target }}/carlos${{ matrix.extension }} --daemon target/package/${{ matrix.target }}/carlosd${{ matrix.extension }} --helper target/package/${{ matrix.target }}/carlos-claude-controller${{ matrix.extension }} --artifacts target/package-smoke
+      - name: Native SDK controls without inference
         shell: bash
         run: python tests/package/native_control_smoke.py --helper target/package/${{ matrix.target }}/carlos-claude-controller --claude "$HOME/.local/bin/claude" --artifacts target/native-controls
-      - name: Native SDK controls without inference (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: python tests/package/native_control_smoke.py --helper target/package/${{ matrix.target }}/carlos-claude-controller.exe --claude "$env:USERPROFILE/.local/bin/claude.exe" --artifacts target/native-controls
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:

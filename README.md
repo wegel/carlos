@@ -492,30 +492,34 @@ libclang-dev libasound2-dev`.
 
 ## release packages and local install
 
-Release archives contain `carlos`, `carlos-claude-controller`, their license
+Release archives contain `carlos`, `carlosd`, `carlos-claude-controller`, their license
 notices, a build manifest, checksums, and an optional helper relink bundle.
-Windows uses `.exe` for both executables. Keep the pair together when unpacking;
-you can put that directory on PATH. For a local Linux install, copy both as
+Keep all three executables together when unpacking;
+you can put that directory on PATH. For a local Linux install, copy all three as
 regular executable files to `~/.local/bin/carlos` and
-`~/.local/bin/carlos-claude-controller`. Keep the notices, relink folder, build
+`~/.local/bin/carlosd` and `~/.local/bin/carlos-claude-controller`. Keep the notices, relink folder, build
 manifest, and checksums in the saved package folder. Back up existing executables
-before replacing them. Copy the new pair to temporary files in `~/.local/bin`,
-then rename the helper into place first and Carlos second.
+before replacing them. Copy the new executables to temporary files in `~/.local/bin`,
+then rename the helper and daemon into place before Carlos. The terminal checks
+the daemon's protocol, package version and deterministic source marker; the
+package checksums separately identify the exact executable bytes.
 
-The release workflow builds Linux x64, macOS Intel, macOS Apple Silicon, and
-Windows x64 on matching native hosts. Each host runs package/runtime smoke checks
+The release workflow builds Linux x64, macOS Intel and macOS Apple Silicon on
+matching native hosts. Windows packages are temporarily unsupported because the
+daemon transport currently requires Unix sockets. Each host runs package/runtime smoke checks
 and native Claude startup/controls without inference. Linux also runs the full
 terminal contracts against real native CLIs and localhost model fixtures. A
 cross-compiled helper alone does not prove that its foreign platform works.
 The default Linux build includes dictation and needs the usual ALSA/C++ system
 libraries; Whisper models remain separate. The helper adds roughly 100 MiB on
-Linux, 59–64 MiB on macOS, and 110 MiB on Windows before archive compression.
+Linux and 59–64 MiB on macOS before archive compression.
 
-Build a fresh local package explicitly after the two executables are ready:
+Build a fresh local package after both Rust executables and the helper are ready:
 
 ```sh
 python3 scripts/package-release.py --target x86_64-unknown-linux-gnu \
   --binary target/release/carlos \
+  --daemon target/release/carlosd \
   --helper target/claude-controller/carlos-claude-controller \
   --output target/local-package --archive target/carlos-linux-x86_64.tar.gz
 ```
@@ -525,8 +529,15 @@ Carlos looks for `CARLOS_CLAUDE_CONTROLLER`, a helper beside its executable,
 `target/debug` or `target/release`. These are paths to an already-built helper;
 Carlos never downloads or builds one at launch. `CARLOS_CLAUDE_EXECUTABLE` can
 select your native Claude executable explicitly; otherwise Carlos searches PATH.
-Windows drive and UNC paths are supported. Native Windows users should use the
-native `claude.exe` installation.
+
+Use `carlos --daemon` to connect or start one managed local daemon. The daemon
+keeps running when a terminal closes. `--daemon-socket PATH` attaches to an
+explicit daemon and never starts another process. The first managed start fixes
+its native Codex endpoint; a later conflicting `--codex-socket` fails without
+restarting the daemon or creating another catalogue. The launcher uses private
+directories under `XDG_RUNTIME_DIR` and `XDG_STATE_HOME`, with a private state
+directory fallback when the runtime variable is absent. The launcher waits at
+most five seconds for its lock, companion identity and initial greeting.
 
 ## dictation
 

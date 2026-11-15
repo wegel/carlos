@@ -68,6 +68,7 @@ def main():
          "src/main.ts","--outfile",str(relink / "controller.js")])
     (output.parent / "claude-controller-build.json").write_text(json.dumps({
         "sdk": "0.3.322", "bun": version, "rustTarget": target, "bunTarget": TARGETS[target],
+        "sourceId": subprocess.check_output([sys.executable, str(ROOT / "scripts/source-identity.py")], text=True).strip(),
         "runtimeAutoload": {"dotenv":False,"bunfig":False,"tsconfig":False,"packageJson":False},
     }, indent=2) + "\n")
     if native_tests:

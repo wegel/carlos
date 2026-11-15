@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Stage the matching Rust/helper pair, notices, and optional relink bundle without installing it."""
+"""Stage matching terminal, daemon and helper executables without installing them."""
 import argparse
 import hashlib
 import json
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tarfile
 import zipfile
 
@@ -23,7 +24,8 @@ def copy_licenses(source,destination):
 def rust_notices(destination,target):
     metadata = json.loads(subprocess.check_output(["cargo","metadata","--locked","--format-version=1","--filter-platform="+target],cwd=ROOT))
     nodes = {node["id"]:node for node in metadata["resolve"]["nodes"]}
-    pending,used = [metadata["resolve"]["root"]],set()
+    roots = [package["id"] for package in metadata["packages"] if package["name"] in {"carlos", "carlosd"}]
+    pending,used = roots or [metadata["resolve"]["root"]],set()
     while pending:
         node = pending.pop()
         if node in used: continue
@@ -100,26 +102,53 @@ def check_binary_target(path,target):
     if not valid: raise RuntimeError(f"{path} does not contain the selected {target} binary")
 
 
-def package(binary,helper,target,output):
+def sha256_file(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda:stream.read(1024*1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def matching_build(binary,daemon,helper_build):
+    identities = []
+    for executable in (binary,daemon):
+        result = subprocess.run([str(executable),"--build-info"],check=True,capture_output=True,text=True,timeout=5)
+        identities.append(json.loads(result.stdout))
+    source = subprocess.check_output([sys.executable,str(ROOT/"scripts/source-identity.py")],text=True).strip()
+    if identities[0] != identities[1] or identities[0].get("source") != source:
+        raise RuntimeError("Terminal and daemon must come from the same current source build")
+    if helper_build.get("sourceId") != source:
+        raise RuntimeError("Helper source does not match the Rust pair; rebuild the standalone helper")
+    return identities[0]
+
+
+def package(binary,daemon,helper,target,output):
+    if "windows" in target:
+        raise RuntimeError("Windows packages are temporarily unsupported: the daemon uses Unix sockets")
     if output.exists() and any(output.iterdir()):
         raise RuntimeError("Choose a fresh empty package folder: "+str(output))
     build = json.loads((helper.parent/"claude-controller-build.json").read_text())
     if build["rustTarget"] != target or build["sdk"] != "0.3.322" or build["bun"] != "1.3.10":
         raise RuntimeError("Helper does not match the selected pinned release target")
     check_binary_target(binary,target)
+    check_binary_target(daemon,target)
     check_binary_target(helper,target)
+    identity = matching_build(binary,daemon,build)
     output.mkdir(parents=True,exist_ok=True)
     extension = ".exe" if "windows" in target else ""
     shutil.copy2(binary,output/("carlos"+extension))
+    shutil.copy2(daemon,output/("carlosd"+extension))
     shutil.copy2(helper,output/("carlos-claude-controller"+extension))
     shutil.copy2(ROOT/"LICENSE",output/"LICENSE")
     shutil.copy2(ROOT/"README.md",output/"README.md")
     shutil.copy2(helper.parent/"claude-controller-build.json",output/"claude-controller-build.json")
+    (output/"carlos-build.json").write_text(json.dumps(identity,indent=2)+"\n")
     shutil.copytree(helper.parent/"relink",output/"relink",dirs_exist_ok=True)
     shutil.copy2(ROOT/"helpers/claude-controller/RELINK.md",output/"relink/README.md")
     notices(output/"third-party-notices",target,helper.parent/"controller-metafile.json")
     files = sorted(file for file in output.rglob("*") if file.is_file())
-    (output/"SHA256SUMS").write_text("".join(hashlib.sha256(file.read_bytes()).hexdigest()+"  "+file.relative_to(output).as_posix()+"\n" for file in files))
+    (output/"SHA256SUMS").write_text("".join(sha256_file(file)+"  "+file.relative_to(output).as_posix()+"\n" for file in files))
     return output
 
 
@@ -137,14 +166,15 @@ def archive(folder,path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary",type=Path,required=True)
+    parser.add_argument("--daemon",type=Path,required=True)
     parser.add_argument("--helper",type=Path,required=True)
     parser.add_argument("--target",required=True)
     parser.add_argument("--output",type=Path,required=True)
     parser.add_argument("--archive",type=Path)
     options = parser.parse_args()
-    folder = package(options.binary.resolve(),options.helper.resolve(),options.target,options.output.resolve())
+    folder = package(options.binary.resolve(),options.daemon.resolve(),options.helper.resolve(),options.target,options.output.resolve())
     if options.archive: archive(folder,options.archive.resolve())
-    print("Staged release pair:",folder)
+    print("Staged terminal, daemon and helper:",folder)
 
 
 if __name__ == "__main__":
