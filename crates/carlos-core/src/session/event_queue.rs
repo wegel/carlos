@@ -129,6 +129,7 @@ impl SessionState {
     fn queue_scope_hash(&self) -> blake3::Hasher {
         let mut digest = blake3::Hasher::new();
         digest.update(b"carlos.queue.v1");
+        digest.update(self.events.owner.as_bytes());
         hash_text(&mut digest, self.session_id().as_str());
         hash_text(&mut digest, self.thread_id());
         let (root, helper) = self.command_connection(BackendKind::Codex);

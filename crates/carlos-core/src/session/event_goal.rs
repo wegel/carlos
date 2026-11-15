@@ -71,6 +71,7 @@ impl SessionState {
     fn goal_content_hash(&self) -> blake3::Hash {
         let mut digest = blake3::Hasher::new();
         digest.update(b"carlos.goal.v1");
+        digest.update(self.events.owner.as_bytes());
         digest.update(self.session_id().as_str().as_bytes());
         hash_text(&mut digest, self.thread_id());
         let (root, helper) = self.command_connection(BackendKind::Codex);

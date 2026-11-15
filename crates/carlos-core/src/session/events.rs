@@ -56,6 +56,8 @@ pub(super) struct EventState {
     pub(super) ralph_restore_notice: bool,
     pub(super) launch_name: Option<String>,
     pub(super) id: SessionId,
+    /// Keep old controls distinct when another owner reuses this logical session address.
+    pub(super) owner: Uuid,
     pub(super) backend: Backend,
     pub(super) host: String,
     pub(super) seq: Sequence,
@@ -80,6 +82,7 @@ impl EventState {
             ralph_restore_notice: false,
             launch_name: None,
             id: Uuid::new_v4().simple().to_string().parse().expect("uuid"),
+            owner: Uuid::new_v4(),
             backend: Backend::Codex,
             host: "local".to_owned(),
             seq: Sequence::default(),
@@ -379,3 +382,7 @@ impl Published<'_> {
         })
     }
 }
+
+#[cfg(test)]
+#[path = "owner_namespace_tests.rs"]
+mod owner_namespace_tests;

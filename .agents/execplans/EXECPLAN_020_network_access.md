@@ -13,6 +13,8 @@ The daemon can run shell commands as its user. Network access stays off unless t
 
 ## Progress
 
+- [x] (2026-11-15) Give each Core owner a fresh internal UUID for settings/goal/queue/task capability hashes. Two new tests pass with identical logical/native IDs and connection counters: old queue/task addresses and task runs cannot match the replacement, and unrelated root text does not rotate the same owner's scope. Both full workspace feature/lint matrices pass; logs are /tmp/carlos-ep020/owner-namespace/. Event cursor continuity and manager routes remain incomplete.
+
 - [x] (2026-11-15) Add the durable stopped flag and transactional catalogue v1→v2 migration. Three new cases pass with the original registry cases: exact stopped native identity after restart, repeatable old-schema upgrade, and rollback of both column/version for an invalid old row. Stopped metadata cannot record Ralph enabled. Both full workspace feature/lint matrices and all143 actual-daemon regressions pass (75.739s); logs are /tmp/carlos-ep020/registry/. Public stop/reopen remains incomplete.
 
 
@@ -46,6 +48,8 @@ The Unix transport uses independent bounded reader/writer threads. A network Web
 The locked tungstenite version is 0.30.0. Its config allocates a read buffer eagerly and leaves the write-buffer maximum unlimited by default. Set every buffer/message bound explicitly. The existing BLAKE3 Hash type compares digests in constant time; keep the Hash type when checking token verifiers rather than converting it to byte slices for equality.
 
 ## Decision Log
+
+- 2026-11-15, root: Use one private UUID in EventState and the existing five digest roots to retire replacement-owner controls. Entry/card/source addresses already use their allocator's fresh UUID, so keep them unchanged. No new wire field, logical ID, timer or generic scope framework is needed. Preserve the same owner's scope across native conversation reset and let existing helper-generation guards handle native replacement within that owner.
 
 - 2026-11-15, root: Reopen must preserve logical session identity while advancing the numbered stream beyond the stopped owner and publishing a reset. Add failing-before/passing-after client tests for this boundary. Give replacement owners fresh internal capability scope where existing hashes could repeat; verify actual shared hash roots before choosing the minimal change. Old operation retries still return retained outcomes before inspecting the replacement.
 
@@ -189,3 +193,5 @@ Revision 2026-11-15: persist stopped metadata with a checked, repeatable migrati
 Revision 2026-11-15: correct the recorded daemon-run elapsed time to75.739s from its actual log. Before recreating an owner within the same daemon instance, verify numbered-event continuity and stale capability rejection; the existing daemon-restart handshake is not a substitute for that proof.
 
 Revision 2026-11-15: preserve cursor continuity and stale control references across same-daemon owner replacement, before adding the manager stop/reopen routes. Registry commit04edc7c passes both feature/lint matrices and143 actual-daemon cases in75.739s; the recorded earlier elapsed time is corrected above.
+
+Revision 2026-11-15: add the minimal private owner UUID to existing control digests and test stale controls without changing public command shapes. Carry the event sequence before wiring manager replacement.

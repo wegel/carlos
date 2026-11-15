@@ -63,6 +63,7 @@ impl SessionState {
     pub fn settings_revision(&self) -> SettingsRevision {
         let mut hash = blake3::Hasher::new();
         hash.update(b"carlos.settings.v1");
+        hash.update(self.events.owner.as_bytes());
         hash_text(&mut hash, self.session_id().as_str());
         hash_text(&mut hash, self.thread_id());
         let (kind, tag) = match self.events.backend {

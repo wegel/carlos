@@ -16,6 +16,7 @@ impl SessionState {
         };
         let mut hash = blake3::Hasher::new();
         hash.update(b"carlos.task.v1");
+        hash.update(self.events.owner.as_bytes());
         for text in [self.session_id().as_str(), self.thread_id(), name] {
             hash_text(&mut hash, text);
         }
@@ -36,6 +37,7 @@ impl TaskRef<'_> {
         // replaces the helper, so its generation still retires every old address.
         let mut hash = blake3::Hasher::new();
         hash.update(b"carlos.task.claude-process.v1");
+        hash.update(session.events.owner.as_bytes());
         hash_text(&mut hash, session.session_id().as_str());
         hash.update(
             &session
