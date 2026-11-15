@@ -55,6 +55,7 @@ impl Device {
         }
         if key.code == KeyCode::Esc && !card.blocking {
             self.questions.shown = false;
+            self.sync_questions(false);
             return Ok(true);
         }
         if card.input.is_some()

@@ -4,6 +4,7 @@ use carlos_client::{codec::Incoming, ConnectionId};
 use carlos_proto::events::{Event, Notification, SessionEvent};
 use carlos_proto::ids::{EntryId, Sequence};
 use carlos_proto::session::{Approval, Backend, Phase, Snapshot};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::json;
 
 use super::Device;
@@ -252,4 +253,49 @@ fn a_waiting_browser_draft_survives_reset_until_its_exact_native_cancellation() 
         "main composer stays private"
     );
     assert_eq!(device.client.operations().iter().count(), 0);
+}
+
+#[test]
+fn escape_promotes_an_existing_blocking_card_without_answering_or_changing_shared_focus() {
+    for blocking in [false, true] {
+        let mut original = card(1);
+        original.blocking = false;
+        let (mut device, connection) = device(Backend::Codex, vec![original.clone()]);
+        device.next_question();
+        edit(&mut device, 1, "private nonblocking answer");
+        let mut waiting = card(2);
+        waiting.blocking = blocking;
+        replace(
+            &mut device,
+            connection,
+            Backend::Codex,
+            vec![original, waiting],
+            2,
+        );
+        assert_eq!(
+            device.selected_approval().expect("explicit focus").id,
+            id(1)
+        );
+        device
+            .question_key(None, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE))
+            .expect("escape from the nonblocking question");
+        assert_eq!(
+            device.selected_approval().map(|card| card.id.clone()),
+            blocking.then(|| id(2))
+        );
+        assert_eq!(text(&device, 1), "private nonblocking answer");
+        assert_eq!(device.questions.drafts.len(), 2);
+        let accepted = device
+            .client
+            .session(&device.session)
+            .expect("accepted shared cards")
+            .approvals();
+        assert!(accepted[0].active);
+        assert!(!accepted[1].active);
+        assert_eq!(
+            device.view.input.lines().join("\n"),
+            "main composer stays private"
+        );
+        assert_eq!(device.client.operations().iter().count(), 0);
+    }
 }
