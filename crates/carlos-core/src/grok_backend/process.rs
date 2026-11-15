@@ -8,14 +8,10 @@ mod process_io;
 mod process_reader;
 #[path = "process_writer.rs"]
 mod process_writer;
-use self::process_reader::{spawn_reader_thread, spawn_stderr_thread};
-use crate::launch_cancel::LaunchCancellation;
-use crate::protocol_events::EventQueue;
-
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::path::Path;
-use std::process::{Child, Command, Stdio};
+use std::process::{Command, Stdio};
 use std::sync::atomic::AtomicU64;
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
@@ -24,15 +20,19 @@ use std::time::{Duration, Instant};
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 
+use self::process_reader::{spawn_reader_thread, spawn_stderr_thread};
 use self::process_writer::InputWriter;
 use super::types::{GrokRuntimeSettings, GrokTranslationState};
+use crate::launch_cancel::LaunchCancellation;
+use crate::owned_child::OwnedChild;
+use crate::protocol_events::EventQueue;
 
 const INITIALIZE_TIMEOUT: Duration = Duration::from_secs(20);
 
 // --- Process ---
 
 pub(super) struct GrokProcess {
-    child: Arc<Mutex<Child>>,
+    child: Arc<Mutex<OwnedChild>>,
     io: Arc<GrokIo>,
     reader_thread: Option<thread::JoinHandle<()>>,
     stderr_thread: Option<thread::JoinHandle<()>>,
@@ -84,9 +84,8 @@ pub(super) fn start_with_events(
     cancel: &LaunchCancellation,
 ) -> Result<GrokProcess> {
     cancel.check()?;
-    let mut child = command
-        .spawn()
-        .context("failed to spawn `grok agent stdio`")?;
+    let mut child =
+        OwnedChild::spawn(&mut command).context("failed to spawn `grok agent stdio`")?;
     let stdin = child.stdin.take().context("missing Grok stdin")?;
     let stdout = child.stdout.take().context("missing Grok stdout")?;
     let stderr = child.stderr.take().context("missing Grok stderr")?;

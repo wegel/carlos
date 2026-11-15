@@ -4,15 +4,13 @@ use std::process::Command;
 use std::sync::{Arc, Mutex};
 
 use super::InputWriter;
+use crate::owned_child::OwnedChild;
 use crate::writer_guard_test_support::Sink;
 
 #[test]
 fn grok_writer_discards_a_retired_queued_frame_and_keeps_the_connection() {
     let child = Arc::new(Mutex::new(
-        Command::new("sleep")
-            .arg("30")
-            .spawn()
-            .expect("owned Grok fixture"),
+        OwnedChild::spawn(Command::new("sleep").arg("30")).expect("owned Grok fixture"),
     ));
     let (sink, proof) = Sink::new();
     let writer = InputWriter::start(sink, child.clone());

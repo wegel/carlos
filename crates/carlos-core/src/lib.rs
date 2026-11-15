@@ -13,6 +13,7 @@ pub mod dispatch_guard;
 pub mod grok_backend;
 pub mod launch_cancel;
 pub mod native_form;
+mod owned_child;
 pub mod perf_fixture;
 pub mod protocol;
 mod protocol_capabilities;

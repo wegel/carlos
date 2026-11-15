@@ -1,10 +1,11 @@
 //! Separates a closed stdout pipe from a requested and completed child shutdown.
 
-use std::process::Child;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
-use super::transport::{reject_pending, request_stop, Pending};
+use crate::owned_child::OwnedChild;
+
+use super::transport::{reject_pending, Pending};
 use super::transport_workers::TransportWorkers;
 
 pub(super) const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(3);
@@ -67,7 +68,7 @@ impl TransportState {
     /// Claim child shutdown once, reject calls now, and reap within the bounded grace.
     pub(super) fn request_shutdown(
         self: &Arc<Self>,
-        child: Arc<Mutex<Child>>,
+        child: Arc<Mutex<OwnedChild>>,
         pending: &Pending,
         workers: &Arc<TransportWorkers>,
         request: ShutdownRequest,
@@ -89,7 +90,7 @@ impl TransportState {
         if matches!(request, ShutdownRequest::Terminate) {
             if let Ok(mut child) = child.lock() {
                 if matches!(child.try_wait(), Ok(None)) {
-                    request_stop(child.id());
+                    child.terminate();
                 }
             }
         }
@@ -102,7 +103,7 @@ impl TransportState {
     }
 
     /// Wait only within the original grace, then use main's kill-and-reap fallback.
-    pub(super) fn wait_for_shutdown(&self, child: &Mutex<Child>, deadline: Instant) {
+    pub(super) fn wait_for_shutdown(&self, child: &Mutex<OwnedChild>, deadline: Instant) {
         let (state, _) = self
             .changed
             .wait_timeout_while(
@@ -136,7 +137,7 @@ impl TransportState {
     }
 }
 
-fn reap_child(child: &Mutex<Child>, deadline: Instant) {
+fn reap_child(child: &Mutex<OwnedChild>, deadline: Instant) {
     loop {
         {
             let Ok(mut child) = child.lock() else {

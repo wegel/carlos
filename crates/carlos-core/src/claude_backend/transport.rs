@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
-use std::process::{Child, Command, Stdio};
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -13,6 +13,8 @@ use anyhow::{anyhow, bail, Context, Result};
 use serde_json::{json, Value};
 
 use crate::dispatch_guard::{DispatchGuard, DispatchRetired};
+
+use crate::owned_child::OwnedChild;
 
 use super::conversation::ConversationGuard;
 use super::event_emitter::EventEmitter;
@@ -73,7 +75,7 @@ pub(super) struct ControllerTransport {
     pub(super) state: Arc<TransportState>,
     pub(super) trace: Trace,
     pub(super) conversation: Arc<Mutex<ConversationGuard>>,
-    pub(super) child: Arc<Mutex<Child>>,
+    pub(super) child: Arc<Mutex<OwnedChild>>,
 }
 
 impl ControllerTransport {
@@ -116,12 +118,11 @@ impl ControllerTransport {
             .map(|path| OpenOptions::new().create(true).append(true).open(path))
             .transpose()?
             .map(|file| Arc::new(Mutex::new(file)));
-        let mut child = command
+        command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .context("start Claude SDK controller")?;
+            .stderr(Stdio::piped());
+        let mut child = OwnedChild::spawn(&mut command).context("start Claude SDK controller")?;
         let state = Arc::new(TransportState::default());
         let workers = Arc::new(TransportWorkers::default());
         let events = events.with_workers(workers.clone());
@@ -336,22 +337,6 @@ pub(super) fn trace_frame(trace: &Trace, direction: &str, frame: &Value) {
             let record = format!("{}\n", json!({ "direction": direction, "message": frame }));
             let _ = file.write_all(record.as_bytes());
         }
-    }
-}
-
-/// Signal a failed helper before its bounded kill-and-reap fallback.
-pub(super) fn request_stop(pid: u32) {
-    #[cfg(unix)]
-    unsafe {
-        libc::kill(pid as i32, libc::SIGTERM);
-    }
-    #[cfg(windows)]
-    {
-        let _ = Command::new("taskkill")
-            .args(["/PID", &pid.to_string(), "/T", "/F"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn();
     }
 }
 

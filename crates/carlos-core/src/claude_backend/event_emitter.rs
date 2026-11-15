@@ -1,10 +1,11 @@
 //! Serializes native batches and history continuations without holding native state while sending.
 
-use std::process::Child;
 use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, bail, Result};
 use serde_json::Value;
+
+use crate::owned_child::OwnedChild;
 
 use super::event_batch::{BatchGate, BatchPermit};
 use super::event_normalizer::EventNormalizer;
@@ -17,7 +18,7 @@ pub(super) struct EventEmitter {
     batch: BatchGate,
     events: EventSender,
     owner: Arc<Mutex<EventNormalizer>>,
-    child: Arc<Mutex<Child>>,
+    child: Arc<Mutex<OwnedChild>>,
     state: Arc<TransportState>,
     pending: Pending,
 }
@@ -27,7 +28,7 @@ impl EventEmitter {
     pub(super) fn new(
         events: EventSender,
         owner: Arc<Mutex<EventNormalizer>>,
-        child: Arc<Mutex<Child>>,
+        child: Arc<Mutex<OwnedChild>>,
         state: Arc<TransportState>,
         pending: Pending,
     ) -> Self {

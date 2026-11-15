@@ -162,6 +162,9 @@ if pid:
  os.close(exit_write); holder.close(); control.close()
  os.read(exit_read,1)
  os._exit(0)
+# This holder intentionally escapes the helper's owned process group. Dropping
+# Carlos must stay bounded even when an unowned process retains an inherited pipe.
+os.setsid()
 os.close(exit_read); parent.close()
 keep={'stdin':0,'stdout':1,'stderr':2}[mode]
 for fd in range(3):

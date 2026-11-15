@@ -34,6 +34,7 @@ from test_context_defaults import ContextDefaultTests
 from test_ralph import RalphTests
 from test_prompt_history import PromptHistoryTests
 from test_session_lifecycle import SessionLifecycleTests
+from test_owned_processes import OwnedProcessTests
 
 
 class DaemonTests(SessionLifecycleTests, PromptHistoryTests, RalphTests, TaskQuestionTests, ContextDefaultTests, ToolLabelTests, BackendSettingsTests, TaskActivityTests, SettingsChangeTests, TaskWindowTests, SettingsFactTests, TaskInterestTests, FailureTests, RecoveryTests, SourceTests, EditTests, GoalTests, QueueTests, TaskTests, TaskStopTests, unittest.TestCase):

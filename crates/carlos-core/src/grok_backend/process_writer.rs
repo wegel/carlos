@@ -1,11 +1,12 @@
 //! Bound ACP input bytes and wait time without locking the Grok event owner.
 
 use std::io::Write;
-use std::process::Child;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+
+use crate::owned_child::OwnedChild;
 
 use crate::dispatch_guard::{DispatchGuard, DispatchRetired};
 use anyhow::{bail, ensure, Result};
@@ -20,11 +21,14 @@ pub(super) struct InputWriter {
     sender: mpsc::SyncSender<Job>,
     queued: Arc<AtomicUsize>,
     closed: Arc<AtomicBool>,
-    child: Arc<Mutex<Child>>,
+    child: Arc<Mutex<OwnedChild>>,
 }
 
 impl InputWriter {
-    pub(super) fn start(mut stdin: impl Write + Send + 'static, child: Arc<Mutex<Child>>) -> Self {
+    pub(super) fn start(
+        mut stdin: impl Write + Send + 'static,
+        child: Arc<Mutex<OwnedChild>>,
+    ) -> Self {
         let (sender, receiver) = mpsc::sync_channel::<Job>(8);
         let queued = Arc::new(AtomicUsize::new(0));
         let closed = Arc::new(AtomicBool::new(false));
