@@ -21,12 +21,6 @@ pub(super) fn waiting(app: &AppState) -> bool {
     app.session.claude_edit_progress().is_some()
 }
 
-/// Move recovery responsibility from the local queue to the dispatched edit.
-#[cfg(test)]
-pub(super) fn dispatching(app: &mut AppState, text: &str, origin: PromptOrigin) {
-    app.session.dispatch_claude_edit(text, origin, None);
-}
-
 /// Bind the exact human submission to the native response UUID.
 #[cfg(test)]
 pub(super) fn bind_submission(

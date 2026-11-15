@@ -339,3 +339,6 @@ mod approval_fact_contract_tests;
 
 #[cfg(test)]
 mod claude_process_contract_tests;
+
+#[cfg(test)]
+mod claude_edit_parity_contract_tests;

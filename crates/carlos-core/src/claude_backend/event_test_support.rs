@@ -42,7 +42,7 @@ pub(super) fn scripted(
         " if encoded is not None and r['method']=='sessions.read':\n",
         "  offset=r['params'].get('chunkOffset',0); end=min(len(encoded),offset+262144)\n",
         "  answer={'chunk':{'offset':offset,'totalBytes':len(encoded),'data':base64.b64encode(encoded[offset:end]).decode()},'nextOffset':0 if end<len(encoded) else None,'chunkOffset':end if end<len(encoded) else None}\n",
-        " print(json.dumps({'v':1,'type':'reply','id':r['id'],'ok':(r['method']!='interrupt' or result.get('_interruptOk',False)) and r['method'] not in result.get('_failedMethods',[]),'error':{'message':'failed interrupt'},'result':answer}),flush=True)\n",
+        " print(json.dumps({'v':1,'type':'reply','id':r['id'],'ok':(r['method']!='interrupt' or result.get('_interruptOk',False)) and r['method'] not in result.get('_failedMethods',[]),'error':{'message':result.get('_failureMessage','failed interrupt')},'result':answer}),flush=True)\n",
         " if r['method']=='shutdown': break\n"
     ), &serde_json::to_string(&frames).expect("peer frames"), &result.to_string()]);
     command_client(command, capacity)

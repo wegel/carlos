@@ -102,16 +102,6 @@ impl AppState {
     // --- Turn input queue ---
 
     #[cfg(test)]
-    pub(super) fn queue_ralph_continuation(&mut self, text: impl Into<String>) {
-        self.session.queue_ralph_continuation(text)
-    }
-
-    #[cfg(test)]
-    pub(super) fn queue_turn_input(&mut self, text: impl Into<String>) {
-        self.session.queue_turn_input(text)
-    }
-
-    #[cfg(test)]
     pub(super) fn queue_turn_input_with_history(
         &mut self,
         text: impl Into<String>,

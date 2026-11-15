@@ -52,28 +52,6 @@ pub(super) fn submit_turn_text_with_history(
     );
 }
 
-/// Dispatch one accepted queue record with its original origin.
-#[cfg(test)]
-pub(super) fn submit_dequeued_turn_text(
-    client: &dyn BackendClient,
-    app: &mut AppState,
-    text: String,
-    record_input_history: bool,
-    origin: PromptOrigin,
-) {
-    let mut context = context(&app.view);
-    context.operation = None; // Legacy fixtures enqueue unowned drafts; production keeps the queue origin.
-    let options = PromptOptions {
-        record_history: record_input_history,
-        force_start: true,
-        origin,
-    };
-    let prepared = app
-        .session
-        .prepare_turn_text(client.kind(), text, options, &context);
-    run_prepared(client, app, prepared);
-}
-
 fn submit(
     client: &dyn BackendClient,
     app: &mut AppState,

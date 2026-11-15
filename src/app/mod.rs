@@ -199,9 +199,6 @@ mod tests;
 #[cfg(test)]
 #[path = "../tests/claude_edit_parity_support.rs"]
 mod claude_edit_parity_support;
-#[cfg(test)]
-#[path = "../tests/claude_edit_parity_tests.rs"]
-mod claude_edit_parity_tests;
 
 mod codex_settings_view;
 

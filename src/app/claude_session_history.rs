@@ -4,15 +4,6 @@ use carlos_core::session::models::Role;
 
 use super::state::AppState;
 
-/// Start the new helper generation before accepting its callbacks or metadata.
-#[cfg(test)]
-pub(super) fn switch_session(app: &mut AppState, generation: u64, id: &str) {
-    let mut update = Default::default();
-    app.session
-        .switch_claude_session(generation, id, &mut update);
-    let _ = app.apply_claude_update(update);
-}
-
 /// Report whether the user can explicitly recover a retained draft in any helper phase.
 pub(super) fn has_unsent(app: &AppState) -> bool {
     !app.view.claude_edit.unsent_drafts.is_empty()
