@@ -33,15 +33,11 @@ pub(super) use ratatui::layout::Rect;
 pub(super) use ratatui::style::Style;
 pub(super) use serde_json::json;
 
-#[path = "tests/claude_edit_tests.rs"]
-mod claude_edit_tests;
 #[path = "tests/daemon_resume_hint_tests.rs"]
 mod daemon_resume_hint_tests;
 
 #[path = "tests/codex_order_tests.rs"]
 mod codex_order_tests;
-#[path = "tests/codex_question_support.rs"]
-mod codex_question_support;
 #[path = "tests/grouped_render_tests.rs"]
 mod grouped_render_tests;
 #[path = "tests/late_summary_render_tests.rs"]

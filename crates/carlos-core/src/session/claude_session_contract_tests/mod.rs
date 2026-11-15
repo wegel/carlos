@@ -12,7 +12,8 @@ use super::claude::receive_update::ClaudeEffect;
 use super::state::SessionState;
 use crate::claude_backend::FixtureNormalizer;
 
-fn send(
+/// Reduce a native fixture through its real normalizer and preserve submission effects.
+pub(super) fn send(
     core: &mut SessionState,
     native: &mut FixtureNormalizer,
     method: &str,
@@ -59,7 +60,8 @@ fn switch(core: &mut SessionState, native: &mut FixtureNormalizer) -> Vec<Submis
     )
 }
 
-fn recovered(
+/// Borrow exact recovery text, source and operation from native submission effects.
+pub(super) fn recovered(
     outcomes: &[SubmissionOutcome],
 ) -> Vec<(String, RecoveryKind, Option<ClientOperation>)> {
     outcomes

@@ -3,11 +3,7 @@
 // --- Imports ---
 
 use std::path::PathBuf;
-#[cfg(test)]
-use std::time::Instant;
 
-#[cfg(test)]
-use carlos_core::session::ralph_runtime_state::QueuedTurnInput;
 use carlos_core::session::state::SessionState;
 
 use super::perf::PerfMetrics;
@@ -25,14 +21,6 @@ pub(super) struct AppState {
 // --- Construction ---
 
 impl AppState {
-    #[cfg(test)]
-    pub(super) fn new(thread_id: String) -> Self {
-        Self::with_runtime_defaults(
-            thread_id,
-            carlos_core::session::runtime_settings::RuntimeDefaults::default(),
-        )
-    }
-
     /// Pass startup choices to the session without letting it read client files.
     pub(super) fn with_runtime_defaults(
         thread_id: String,
@@ -101,23 +89,8 @@ impl AppState {
 
     // --- Turn input queue ---
 
-    #[cfg(test)]
-    pub(super) fn queue_turn_input_with_history(
-        &mut self,
-        text: impl Into<String>,
-        record_input_history: bool,
-    ) {
-        self.session
-            .queue_turn_input_with_history(text, record_input_history)
-    }
-
     pub(super) fn has_pending_ralph_continuation(&self) -> bool {
         self.session.has_pending_ralph_continuation()
-    }
-
-    #[cfg(test)]
-    pub(super) fn dequeue_turn_input(&mut self, now: Instant) -> Option<QueuedTurnInput> {
-        self.session.dequeue_turn_input(now)
     }
 
     // --- Turn lifecycle ---

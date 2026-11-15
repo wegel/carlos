@@ -16,8 +16,6 @@ mod claude_context;
 mod claude_edit;
 mod claude_edit_view;
 mod claude_models;
-#[cfg(test)]
-mod claude_notifications;
 mod claude_question_field;
 mod claude_question_input;
 mod claude_question_state;
@@ -196,25 +194,13 @@ pub(crate) fn run() -> Result<()> {
 #[path = "../tests.rs"]
 mod tests;
 
-#[cfg(test)]
-#[path = "../tests/claude_edit_parity_support.rs"]
-mod claude_edit_parity_support;
-
 mod codex_settings_view;
 
 mod claude_updates;
 
 mod backend_updates;
 
-#[cfg(test)]
-#[path = "../tests/claude_backend_tests/normalized_app.rs"]
-mod normalized_test_app;
-
 mod core_events;
-
-#[cfg(test)]
-#[path = "../tests/client_recovery_tests.rs"]
-mod client_recovery_tests;
 
 #[cfg(test)]
 mod local_input_tests;
