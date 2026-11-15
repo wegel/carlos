@@ -321,3 +321,6 @@ mod claude_browser_contract_tests;
 
 #[cfg(test)]
 mod claude_fence_contract_tests;
+
+#[cfg(test)]
+mod claude_sdk_contract_tests;

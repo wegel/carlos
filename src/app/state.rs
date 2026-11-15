@@ -9,8 +9,6 @@ use std::time::Instant;
 #[cfg(test)]
 use carlos_core::session::approval_state::ApprovalRequestDraft;
 #[cfg(test)]
-use carlos_core::session::ralph::RalphConfig;
-#[cfg(test)]
 use carlos_core::session::ralph_runtime_state::QueuedTurnInput;
 use carlos_core::session::state::SessionState;
 
@@ -70,11 +68,6 @@ impl AppState {
             blocked_marker_override,
             waiting_marker_override,
         )
-    }
-
-    #[cfg(test)]
-    pub(super) fn enable_ralph_mode(&mut self, config: RalphConfig) {
-        self.session.enable_ralph_mode(config)
     }
 
     pub(super) fn disable_ralph_mode(&mut self) {
@@ -158,11 +151,6 @@ impl AppState {
     }
 
     // --- Turn lifecycle ---
-
-    #[cfg(test)]
-    pub(super) fn record_turn_started(&mut self, turn_id: &str) -> bool {
-        self.session.record_turn_started(turn_id)
-    }
 
     // --- Query helpers & test utilities ---
 

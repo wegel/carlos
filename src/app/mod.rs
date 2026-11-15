@@ -30,9 +30,6 @@ mod claude_quota;
 #[cfg(test)]
 mod claude_reset;
 mod claude_rewind;
-#[cfg(test)]
-#[path = "../tests/claude_sdk_tests.rs"]
-mod claude_sdk_tests;
 mod claude_session_history;
 #[cfg(test)]
 #[path = "../tests/claude_session_tests.rs"]
