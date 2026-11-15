@@ -13,7 +13,7 @@ The daemon can run shell commands as its user. Network access stays off unless t
 
 ## Progress
 
-- [x] (2026-11-15) Add the durable stopped flag and transactional catalogue v1→v2 migration. Three new cases pass with the original registry cases: exact stopped native identity after restart, repeatable old-schema upgrade, and rollback of both column/version for an invalid old row. Stopped metadata cannot record Ralph enabled. Both full workspace feature/lint matrices and all143 actual-daemon regressions pass (73.191s); logs are /tmp/carlos-ep020/registry/. Public stop/reopen remains incomplete.
+- [x] (2026-11-15) Add the durable stopped flag and transactional catalogue v1→v2 migration. Three new cases pass with the original registry cases: exact stopped native identity after restart, repeatable old-schema upgrade, and rollback of both column/version for an invalid old row. Stopped metadata cannot record Ralph enabled. Both full workspace feature/lint matrices and all143 actual-daemon regressions pass (75.739s); logs are /tmp/carlos-ep020/registry/. Public stop/reopen remains incomplete.
 
 
 - [x] (2026-11-15) Read the accepted EP019b result, final Fable findings, current manager/owner/transport/store interfaces and the architecture roadmap. Confirm clean closeout commit `07bad8c` and preserved protected main/installed executable.
@@ -27,6 +27,8 @@ The daemon can run shell commands as its user. Network access stays off unless t
 - [ ] Finish the direct engineering and Fable whole-roadmap reviews, record every disposition and delegated approval, archive this completed plan unchanged and continue to EP021.
 
 ## Surprises & Discoveries
+
+A recreated owner starts EventState.seq at zero, while Replica.apply ignores events at or below its current sequence. Same-daemon stop/reopen therefore needs explicit cursor continuity and a reset/snapshot before new facts; a daemon-restart hello cannot solve it. Settings revisions currently hash the logical session/native thread/connection counters, which can repeat in a new owner. Before enabling replacement, prove stale settings/task/queue/goal and source/card references cannot match that replacement. Inspect existing per-entry namespaces and hash roots; prefer an internal fresh owner namespace plus carried sequence over adding a second logical session ID or a speculative generic transport layer.
 
 The manager's apply_update expects Live to remain installed while it publishes changes. Retain that Live until the stop worker joins the owner, but gate all new mutations/reads and move its pending updates receiver and notice join into the worker. This lets the manager apply prior/final frames through the existing duplicate-sequence checks before dropping the owner. Also cover stop during native launch: cancel the captured launch and drain its exact late result instead of accepting a replacement or dropping a live native handle.
 
@@ -44,6 +46,8 @@ The Unix transport uses independent bounded reader/writer threads. A network Web
 The locked tungstenite version is 0.30.0. Its config allocates a read buffer eagerly and leaves the write-buffer maximum unlimited by default. Set every buffer/message bound explicitly. The existing BLAKE3 Hash type compares digests in constant time; keep the Hash type when checking token verifiers rather than converting it to byte slices for equality.
 
 ## Decision Log
+
+- 2026-11-15, root: Reopen must preserve logical session identity while advancing the numbered stream beyond the stopped owner and publishing a reset. Add failing-before/passing-after client tests for this boundary. Give replacement owners fresh internal capability scope where existing hashes could repeat; verify actual shared hash roots before choosing the minimal change. Old operation retries still return retained outcomes before inspecting the replacement.
 
 - 2026-11-15, root: Add a one-shot shutdown read, not another polling queue. Register its bounded reply before setting the stop flag; return final changes/outcomes after native cleanup. Keep existing shutdown/join callers and collect in-flight manager replies in the stop worker. Move only handle methods to engine/handle.rs to preserve file size caps.
 
@@ -181,3 +185,7 @@ Revision 2026-11-15: create EP020 after approved EP019b. Incorporate the final r
 Revision 2026-11-15: add and test the Core one-shot final report. Record the in-flight owner-result receiver that a manager stop must also drain, and keep the public lifecycle milestone incomplete until actual process/slot tests pass.
 
 Revision 2026-11-15: persist stopped metadata with a checked, repeatable migration and record the manager live-report/launch lifetimes that the next public stop slice must preserve.
+
+Revision 2026-11-15: correct the recorded daemon-run elapsed time to75.739s from its actual log. Before recreating an owner within the same daemon instance, verify numbered-event continuity and stale capability rejection; the existing daemon-restart handshake is not a substitute for that proof.
+
+Revision 2026-11-15: preserve cursor continuity and stale control references across same-daemon owner replacement, before adding the manager stop/reopen routes. Registry commit04edc7c passes both feature/lint matrices and143 actual-daemon cases in75.739s; the recorded earlier elapsed time is corrected above.
