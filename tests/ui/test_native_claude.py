@@ -296,6 +296,7 @@ def package(binary,helper,root):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary",type=Path,required=True)
+    parser.add_argument("--daemon-binary",type=Path,help="run terminal launches through private packaged daemons")
     parser.add_argument("--helper",type=Path,required=True)
     parser.add_argument("--claude",type=Path)
     parser.add_argument("--artifacts",type=Path,required=True)
@@ -307,5 +308,8 @@ if __name__ == "__main__":
     version = subprocess.check_output([str(NATIVE),"--version"],text=True).strip()
     (ARTIFACTS/"native-version.txt").write_text(version+"\n")
     BINARY = package(options.binary.resolve(),options.helper.resolve(),ARTIFACTS)
+    if options.daemon_binary:
+        Terminal.daemon_binary = BINARY.parent / "carlosd"
+        shutil.copy2(options.daemon_binary.resolve(),Terminal.daemon_binary)
     print("Packaged native Claude contracts:",version,"Artifacts:",ARTIFACTS,flush=True)
     unittest.main(argv=[__file__,*arguments])
