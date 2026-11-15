@@ -1,95 +1,12 @@
 //! Claude backend test tree: CLI handshake, history recovery, translation, and failures.
 
 use std::sync::{Mutex, OnceLock};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use anyhow::{bail, Result};
-use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
-use carlos_core::claude_backend::{translate_claude_line, ClaudeTranslationState};
-use carlos_core::session::models::Role;
+use carlos_core::backend::{BackendClient, EventReceiver};
 use serde_json::Value;
 
-use super::{
-    handle_notification_line, parse_cli_args, submit_turn_text, submit_turn_text_with_history,
-    AppState, Backend,
-};
-
-fn collect_synthetic_lines(lines: &[&str]) -> Vec<String> {
-    let mut state = ClaudeTranslationState::default();
-    let mut out = Vec::new();
-    for line in lines {
-        let translated = translate_claude_line(&mut state, line).expect("translate");
-        out.extend(translated.lines);
-    }
-    out
-}
-
-struct ClaudeSteerMock {
-    calls: std::sync::Mutex<Vec<String>>,
-}
-
-impl ClaudeSteerMock {
-    fn new() -> Self {
-        Self {
-            calls: std::sync::Mutex::new(Vec::new()),
-        }
-    }
-}
-
-impl BackendClient for ClaudeSteerMock {
-    fn kind(&self) -> BackendKind {
-        BackendKind::Claude
-    }
-
-    fn call(&self, method: &str, _params: Value, _timeout: Duration) -> Result<String> {
-        self.calls
-            .lock()
-            .expect("calls lock")
-            .push(method.to_string());
-        Ok("{\"jsonrpc\":\"2.0\",\"result\":{}}".to_string())
-    }
-
-    fn respond(&self, _request_id: &Value, _result: Value) -> Result<()> {
-        bail!("unused in test")
-    }
-
-    fn respond_error(&self, _request_id: &Value, _code: i64, _message: &str) -> Result<()> {
-        bail!("unused in test")
-    }
-
-    fn take_events_rx(&mut self) -> Result<EventReceiver> {
-        bail!("unused in test")
-    }
-
-    fn stop(&mut self) {}
-}
-
-struct ClaudeStartMock;
-
-impl BackendClient for ClaudeStartMock {
-    fn kind(&self) -> BackendKind {
-        BackendKind::Claude
-    }
-
-    fn call(&self, method: &str, _params: Value, _timeout: Duration) -> Result<String> {
-        assert_eq!(method, "turn/start");
-        Ok("{\"jsonrpc\":\"2.0\",\"result\":{}}".to_string())
-    }
-
-    fn respond(&self, _request_id: &Value, _result: Value) -> Result<()> {
-        bail!("unused in test")
-    }
-
-    fn respond_error(&self, _request_id: &Value, _code: i64, _message: &str) -> Result<()> {
-        bail!("unused in test")
-    }
-
-    fn take_events_rx(&mut self) -> Result<EventReceiver> {
-        bail!("unused in test")
-    }
-
-    fn stop(&mut self) {}
-}
+use super::{parse_cli_args, AppState, Backend};
 
 fn env_lock() -> &'static Mutex<()> {
     static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -97,9 +14,5 @@ fn env_lock() -> &'static Mutex<()> {
 }
 
 include!("claude_backend_tests/cli_and_session_history.rs");
-
-include!("claude_backend_tests/translation_and_submit.rs");
-
-include!("claude_backend_tests/local_history_recovery.rs");
 
 include!("claude_backend_tests/review_receiver_tests.rs");

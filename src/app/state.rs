@@ -186,16 +186,6 @@ impl AppState {
     }
 
     #[cfg(test)]
-    pub(super) fn input_history_message_indices(&self) -> Vec<Option<usize>> {
-        self.session
-            .input_history()
-            .message_ids()
-            .iter()
-            .map(|id| id.and_then(|id| self.session.messages().position(id)))
-            .collect()
-    }
-
-    #[cfg(test)]
     pub(super) fn input_history_len(&self) -> usize {
         self.session.input_history().history_len()
     }

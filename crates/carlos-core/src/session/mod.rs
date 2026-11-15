@@ -277,3 +277,9 @@ mod approval_operation_sequences;
 
 #[cfg(test)]
 mod grok_submission_tests;
+
+#[cfg(test)]
+mod claude_submission_tests;
+
+#[cfg(test)]
+mod claude_reducer_tests;
