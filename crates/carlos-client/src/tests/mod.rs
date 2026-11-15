@@ -12,6 +12,7 @@ mod client_reconnect;
 mod client_watches;
 mod codec;
 mod connection;
+mod context_defaults;
 mod goal;
 mod goal_watches;
 mod operations;

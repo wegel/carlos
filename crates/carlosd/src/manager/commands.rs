@@ -36,6 +36,7 @@ impl Manager {
             | Command::GoalSet { .. }
             | Command::GoalClear { .. }
             | Command::QueueChange { .. }
+            | Command::ContextSet { .. }
             | Command::SettingsSet { .. }
             | Command::ToolLabelsSet { .. }
             | Command::TaskStop { .. }

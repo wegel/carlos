@@ -183,6 +183,9 @@ fn mutation(command: &Command) -> Option<(&ClientOperation, Option<&SessionId>)>
         | Command::ToolLabelsSet {
             operation, session, ..
         }
+        | Command::ContextSet {
+            operation, session, ..
+        }
         | Command::SettingsSet {
             operation, session, ..
         }

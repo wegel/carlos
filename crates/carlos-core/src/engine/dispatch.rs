@@ -34,6 +34,7 @@ impl Owner {
             | EngineCommand::GoalSet { operation, .. }
             | EngineCommand::GoalClear { operation, .. }
             | EngineCommand::QueueChange { operation, .. }
+            | EngineCommand::ContextSet { operation, .. }
             | EngineCommand::SettingsSet { operation, .. }
             | EngineCommand::ToolLabelsSet { operation, .. }
             | EngineCommand::TaskStop { operation, .. }
@@ -189,6 +190,9 @@ impl Owner {
                 enabled,
                 save_default,
             } => self.change_tool_labels(operation, expected, enabled, save_default),
+            EngineCommand::ContextSet { operation, choice } => {
+                self.save_context_default(operation, choice)
+            }
             EngineCommand::SettingsSet {
                 operation,
                 expected,

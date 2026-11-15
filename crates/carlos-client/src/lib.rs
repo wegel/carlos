@@ -18,6 +18,7 @@ mod client_subscriptions;
 mod client_watches;
 pub mod codec;
 mod connection;
+mod context_defaults;
 mod error;
 mod goal;
 mod goal_watches;

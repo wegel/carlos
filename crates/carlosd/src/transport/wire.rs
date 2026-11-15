@@ -46,6 +46,8 @@ fn known_method(method: &str) -> bool {
             | "session/approve"
             | "session/setRalph"
             | "goal/read"
+            | "settings/context/read"
+            | "settings/context/set"
             | "settings/read"
             | "settings/set"
             | "settings/tool-labels/set"

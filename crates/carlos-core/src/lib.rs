@@ -7,6 +7,7 @@ pub mod codex_connection;
 mod codex_diagnostics;
 pub mod codex_snapshot;
 mod codex_snapshot_reads;
+pub(crate) mod context_defaults;
 pub mod context_preferences;
 pub mod dispatch_guard;
 pub mod grok_backend;

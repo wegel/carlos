@@ -81,6 +81,7 @@ impl Manager {
 
     fn finish_rpc_read(&mut self, peer: u64, id: RequestId, reply: EngineReply) {
         match reply {
+            EngineReply::ContextDefaults(defaults) => self.reply(peer, id, defaults),
             EngineReply::TaskOverview(page) => self.reply(peer, id, page),
             EngineReply::TaskOverviewText(text) => self.reply(peer, id, text),
             EngineReply::TaskRun(run) => self.reply(peer, id, run),

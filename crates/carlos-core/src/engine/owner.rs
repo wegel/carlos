@@ -105,6 +105,9 @@ impl Owner {
                 let Some(envelope) = self.defer_task_activity_read(envelope) else {
                     continue;
                 };
+                let Some(envelope) = self.defer_context_read(envelope) else {
+                    continue;
+                };
                 let reply = self.read(envelope.command);
                 let _ = envelope.reply.try_send(reply);
                 let _ = self.channels.notice.try_send(());

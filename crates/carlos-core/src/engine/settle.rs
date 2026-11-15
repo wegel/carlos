@@ -11,6 +11,12 @@ impl Owner {
     pub(super) fn drain_completions(&mut self) {
         while let Ok(completion) = self.workers.completed.try_recv() {
             match completion {
+                Completion::ContextRead { pending, result } => {
+                    self.finish_context_read(*pending, result)
+                }
+                Completion::ContextSaved { operation, result } => {
+                    self.finish_context_save(operation, result)
+                }
                 Completion::ToolLabelsSaved { operation, error } => {
                     self.finish_tool_labels_save(operation, error)
                 }

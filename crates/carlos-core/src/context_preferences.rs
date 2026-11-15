@@ -6,6 +6,7 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
+use carlos_proto::context_defaults::{MAX_CONTEXT_TOKENS, MIN_CONTEXT_TOKENS};
 use serde_json::{json, Value};
 
 use crate::backend::BackendKind;
@@ -13,7 +14,7 @@ use crate::runtime_preferences::{write_atomic, AtomicWriteError};
 
 /// Accept the token range shared by the settings editor and Claude's native control.
 pub fn validate(tokens: u64) -> Result<u64> {
-    if !(100_000..=1_000_000).contains(&tokens) {
+    if !(MIN_CONTEXT_TOKENS..=MAX_CONTEXT_TOKENS).contains(&tokens) {
         bail!("Choose Auto or 100k to 1M tokens");
     }
     Ok(tokens)

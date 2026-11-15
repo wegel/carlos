@@ -11,6 +11,7 @@ use crate::{BodyToken, ClientError, ConnectionId};
 
 #[derive(Clone)]
 pub(crate) enum Kind {
+    ContextDefaults(SessionId),
     TaskActivity(crate::task_activity::ActivityTarget),
     TaskActivityPage(crate::task_activity::PageTarget),
     Hello,
@@ -207,6 +208,7 @@ pub(crate) fn read_kind(command: &Command) -> Result<Kind, ClientError> {
         overview @ (Command::TaskOverview { .. } | Command::TaskOverviewText { .. }) => {
             overview_kind(overview)
         }
+        Command::ContextRead { session } => Kind::ContextDefaults(session.clone()),
         settings @ Command::SettingsRead { .. } => crate::settings_reads::kind(settings),
         Command::GoalRead { session, .. } => Kind::Goal(session.clone()),
         Command::GoalSubscribe { session } => Kind::GoalWatch(session.clone()),

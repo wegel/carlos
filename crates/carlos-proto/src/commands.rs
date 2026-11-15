@@ -14,6 +14,14 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "method", content = "params")]
 pub enum Command {
+    #[serde(rename = "settings/context/read")]
+    ContextRead { session: SessionId },
+    #[serde(rename = "settings/context/set")]
+    ContextSet {
+        session: SessionId,
+        operation: ClientOperation,
+        choice: crate::context_defaults::ContextChoice,
+    },
     #[serde(rename = "settings/tool-labels/set")]
     ToolLabelsSet {
         session: SessionId,

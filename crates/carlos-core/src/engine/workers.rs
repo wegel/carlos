@@ -11,6 +11,14 @@ use crate::session::control_work::ControlCompletion;
 use crate::session::ralph::RalphConfig;
 
 pub(super) enum Completion {
+    ContextRead {
+        pending: Box<super::mailbox::Envelope>,
+        result: Result<carlos_proto::context_defaults::ContextDefaults, String>,
+    },
+    ContextSaved {
+        operation: ClientOperation,
+        result: Result<(), String>,
+    },
     ToolLabelsSaved {
         operation: ClientOperation,
         error: Option<String>,

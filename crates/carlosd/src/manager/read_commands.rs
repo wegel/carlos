@@ -88,6 +88,9 @@ impl Manager {
 
     fn native_read_command(&mut self, peer: u64, id: RequestId, command: Command) {
         match command {
+            Command::ContextRead { session } => {
+                self.rpc_read(peer, id, session, EngineCommand::ContextRead)
+            }
             settings @ Command::SettingsRead { .. } => {
                 self.settings_read_command(peer, id, settings)
             }
@@ -348,7 +351,8 @@ impl Manager {
 fn is_native_panel_read(command: &Command) -> bool {
     matches!(
         command,
-        Command::SettingsRead { .. }
+        Command::ContextRead { .. }
+            | Command::SettingsRead { .. }
             | Command::TaskRun { .. }
             | Command::TaskList { .. }
             | Command::TaskDetail { .. }

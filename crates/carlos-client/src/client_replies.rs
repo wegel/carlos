@@ -66,6 +66,9 @@ impl Client {
         effects: &mut Effects,
     ) -> Result<(), ClientError> {
         let reply = match kind {
+            Kind::ContextDefaults(session) => {
+                ReadReply::ContextDefaults(crate::context_defaults::reply(session, value)?)
+            }
             kind @ (Kind::TaskActivity(_) | Kind::TaskActivityPage(_)) => {
                 crate::task_activity::reply(kind, value)?
             }
@@ -81,11 +84,7 @@ impl Client {
                 ReadReply::Queue(self.queue_page_reply(session, expected, value)?)
             }
             Kind::QueueText(target) => ReadReply::QueueText(self.queue_text_reply(target, value)?),
-            Kind::TaskWatch(session) => {
-                let snapshot: carlos_proto::task_facts::TaskSnapshot = parse(value)?;
-                same_session(&session, &snapshot.session)?;
-                ReadReply::TaskSnapshot(snapshot)
-            }
+            Kind::TaskWatch(session) => task_snapshot_reply(&session, value)?,
             Kind::TaskOverview(target) => {
                 ReadReply::TaskOverview(crate::task_overview::page(target, value)?)
             }
@@ -257,6 +256,15 @@ impl Client {
             _ => {}
         }
     }
+}
+
+fn task_snapshot_reply(
+    session: &carlos_proto::ids::SessionId,
+    value: Value,
+) -> Result<ReadReply, ClientError> {
+    let snapshot: carlos_proto::task_facts::TaskSnapshot = parse(value)?;
+    same_session(session, &snapshot.session)?;
+    Ok(ReadReply::TaskSnapshot(snapshot))
 }
 
 pub(crate) fn parse<T: DeserializeOwned>(value: Value) -> Result<T, ClientError> {

@@ -3,6 +3,7 @@
 mod actions;
 mod automatic;
 mod backend_settings;
+mod context_defaults;
 mod dispatch;
 mod goals;
 pub mod launch;
@@ -42,6 +43,11 @@ pub use self::ring::EngineFrame;
 
 /// Only explicit session reads and commands enter the owner, never native method strings.
 pub enum EngineCommand {
+    ContextRead,
+    ContextSet {
+        operation: ClientOperation,
+        choice: carlos_proto::context_defaults::ContextChoice,
+    },
     ToolLabelsSet {
         operation: ClientOperation,
         expected: carlos_proto::ids::SettingsRevision,
@@ -211,6 +217,7 @@ pub enum EngineReply {
     TaskText(carlos_proto::tasks::TaskText),
     Queue(carlos_proto::queue::QueuePage),
     QueueText(carlos_proto::queue::QueueText),
+    ContextDefaults(carlos_proto::context_defaults::ContextDefaults),
     Settings(carlos_proto::settings::SettingsPage),
     Goal(carlos_proto::goals::GoalSnapshot),
     Info {
@@ -271,6 +278,7 @@ impl EngineHandle {
             | EngineCommand::Rewind { .. } => &self.0.ordinary,
             EngineCommand::GoalSet { .. } | EngineCommand::GoalClear { .. } => &self.0.ordinary,
             EngineCommand::QueueChange { .. }
+            | EngineCommand::ContextSet { .. }
             | EngineCommand::SettingsSet { .. }
             | EngineCommand::ToolLabelsSet { .. } => &self.0.ordinary,
             EngineCommand::TaskStop { .. }
