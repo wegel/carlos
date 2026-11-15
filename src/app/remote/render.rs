@@ -97,7 +97,7 @@ impl Device {
                 },
             )
         });
-        let status = self.task_status(self.queue_status(status));
+        let status = self.dictation_status(self.task_status(self.queue_status(status)));
         crate::app::render::draw_status_separator(
             buffer,
             layout.input_top.saturating_sub(2),

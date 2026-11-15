@@ -3,7 +3,7 @@
 #[cfg(feature = "dictation")]
 use std::sync::Arc;
 
-use super::super::view_state::ViewState;
+use crate::app::view_state::ViewState;
 #[cfg(feature = "dictation")]
 use crate::dictation::capture::DictationCaptureSession;
 #[cfg(feature = "dictation")]
@@ -12,6 +12,31 @@ use crate::dictation::events::DictationEvent;
 use crate::dictation::worker::{DictationCancelToken, DictationWorker, DictationWorkerProfile};
 
 impl ViewState {
+    /// Connect capture and inference to this device without forwarding their events to a daemon.
+    #[cfg(feature = "dictation")]
+    pub(in crate::app) fn connect_local_dictation_events(&mut self) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.configure_dictation_event_sender(tx);
+        self.dictation_io.local_events = Some(rx);
+    }
+
+    /// Handle a bounded local event batch so terminal input can run between batches.
+    #[cfg(feature = "dictation")]
+    pub(in crate::app) fn drain_local_dictation_events(&mut self) -> bool {
+        let mut changed = false;
+        for _ in 0..32 {
+            let event = self
+                .dictation_io
+                .local_events
+                .as_ref()
+                .and_then(|rx| rx.try_recv().ok());
+            let Some(event) = event else { break };
+            self.handle_dictation_event(event);
+            changed = true;
+        }
+        changed
+    }
+
     #[cfg(feature = "dictation")]
     pub(in crate::app) fn configure_dictation_event_sender(
         &mut self,
@@ -24,8 +49,22 @@ impl ViewState {
     #[cfg(feature = "dictation")]
     pub(in crate::app) fn handle_dictation_event(&mut self, event: DictationEvent) {
         match event {
-            DictationEvent::CaptureAutoStopped(samples) => self.handle_dictation_auto_stop(samples),
-            DictationEvent::CaptureError(err) => self.handle_dictation_capture_error(err),
+            DictationEvent::CaptureAutoStopped {
+                capture_id,
+                samples,
+            } => {
+                if self.accept_capture_event(capture_id) {
+                    self.handle_dictation_auto_stop(samples);
+                }
+            }
+            DictationEvent::CaptureError {
+                capture_id,
+                message,
+            } => {
+                if self.accept_capture_event(capture_id) {
+                    self.handle_dictation_capture_error(message);
+                }
+            }
             DictationEvent::TranscriptionCancelled { request_id } => {
                 self.handle_dictation_transcription_cancelled(request_id);
             }
@@ -47,8 +86,24 @@ impl ViewState {
 
 impl ViewState {
     #[cfg(feature = "dictation")]
+    fn accept_capture_event(&mut self, capture_id: u64) -> bool {
+        if self.dictation_io.capture_id != Some(capture_id) {
+            return false;
+        }
+        self.dictation_io.capture_id = None;
+        true
+    }
+
+    #[cfg(feature = "dictation")]
     pub(super) fn start_dictation_capture(&mut self) {
         self.dictation_io.last_audio = None;
+        let Some(capture_id) = self.dictation_io.last_capture_id.checked_add(1) else {
+            self.cancel_dictation();
+            self.dictation_hint("dictation capture counter exhausted");
+            return;
+        };
+        self.dictation_io.last_capture_id = capture_id;
+        self.dictation_io.capture_id = Some(capture_id);
         let Some(tx) = self.dictation_io.events_tx.clone() else {
             #[cfg(test)]
             {
@@ -57,6 +112,7 @@ impl ViewState {
             }
             #[cfg(not(test))]
             {
+                self.dictation_io.capture_id = None;
                 self.dictation.cancel();
                 self.dictation_hint("dictation unavailable: event channel is not ready");
                 return;
@@ -64,6 +120,7 @@ impl ViewState {
         };
         match DictationCaptureSession::start_default_input(
             tx,
+            capture_id,
             self.dictation.auto_endpoint_enabled(),
         ) {
             Ok(session) => {
@@ -71,6 +128,7 @@ impl ViewState {
                 self.dictation_hint("dictation recording");
             }
             Err(err) => {
+                self.dictation_io.capture_id = None;
                 self.dictation.cancel();
                 self.dictation_hint(format!("dictation capture unavailable: {err}"));
             }

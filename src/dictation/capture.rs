@@ -19,11 +19,34 @@ use super::vad::{frame_len, VadDecision, VadGate, WebRtcVad, VAD_FRAME_MS};
 
 // --- Types ---
 
+/// Own one microphone stream and its bounded audio buffer.
 pub(crate) struct DictationCaptureSession {
     stream: Stream,
     state: Arc<Mutex<CaptureState>>,
     auto_stop_enabled: Arc<AtomicBool>,
     stopped: Arc<AtomicBool>,
+}
+
+#[derive(Clone)]
+struct CaptureEvents {
+    capture_id: u64,
+    tx: mpsc::Sender<DictationEvent>,
+}
+
+impl CaptureEvents {
+    fn auto_stopped(&self, samples: Arc<Vec<f32>>) {
+        let _ = self.tx.send(DictationEvent::CaptureAutoStopped {
+            capture_id: self.capture_id,
+            samples,
+        });
+    }
+
+    fn error(&self, message: impl Into<String>) {
+        let _ = self.tx.send(DictationEvent::CaptureError {
+            capture_id: self.capture_id,
+            message: message.into(),
+        });
+    }
 }
 
 struct CaptureState {
@@ -41,8 +64,10 @@ struct CaptureState {
 // --- Public API ---
 
 impl DictationCaptureSession {
+    /// Record the default microphone and stamp callbacks with this capture's id.
     pub(crate) fn start_default_input(
         tx: mpsc::Sender<DictationEvent>,
+        capture_id: u64,
         auto_stop_enabled: bool,
     ) -> Result<Self> {
         let host = cpal::default_host();
@@ -58,8 +83,14 @@ impl DictationCaptureSession {
             auto_stop_enabled.clone(),
         )?));
         let stopped = Arc::new(AtomicBool::new(false));
-        let stream =
-            build_input_stream(device, supported_config, state.clone(), stopped.clone(), tx)?;
+        let events = CaptureEvents { capture_id, tx };
+        let stream = build_input_stream(
+            device,
+            supported_config,
+            state.clone(),
+            stopped.clone(),
+            events,
+        )?;
         stream.play().context("failed to start input stream")?;
         Ok(Self {
             stream,
@@ -69,10 +100,12 @@ impl DictationCaptureSession {
         })
     }
 
+    /// Choose whether silence can stop this recording.
     pub(crate) fn set_auto_stop_enabled(&self, enabled: bool) {
         self.auto_stop_enabled.store(enabled, Ordering::SeqCst);
     }
 
+    /// Stop the microphone and return its captured audio samples.
     pub(crate) fn finish(self) -> Result<Vec<f32>> {
         self.stopped.store(true, Ordering::SeqCst);
         drop(self.stream);
@@ -83,6 +116,7 @@ impl DictationCaptureSession {
         state.take_audio()
     }
 
+    /// Stop the microphone without transcribing its buffered samples.
     pub(crate) fn cancel(self) {
         self.stopped.store(true, Ordering::SeqCst);
         drop(self.stream);
@@ -181,7 +215,7 @@ fn build_input_stream(
     supported_config: SupportedStreamConfig,
     state: Arc<Mutex<CaptureState>>,
     stopped: Arc<AtomicBool>,
-    tx: mpsc::Sender<DictationEvent>,
+    events: CaptureEvents,
 ) -> Result<Stream> {
     let config = supported_config.config();
     match supported_config.sample_format() {
@@ -190,7 +224,7 @@ fn build_input_stream(
             &config,
             state,
             stopped,
-            tx,
+            events,
             CaptureState::push_f32_interleaved,
         ),
         SampleFormat::I16 => build_typed_input_stream(
@@ -198,7 +232,7 @@ fn build_input_stream(
             &config,
             state,
             stopped,
-            tx,
+            events,
             CaptureState::push_i16_interleaved,
         ),
         SampleFormat::U16 => build_typed_input_stream(
@@ -206,7 +240,7 @@ fn build_input_stream(
             &config,
             state,
             stopped,
-            tx,
+            events,
             CaptureState::push_u16_interleaved,
         ),
         other => bail!("unsupported input sample format: {other:?}"),
@@ -220,7 +254,7 @@ fn build_typed_input_stream<T>(
     config: &cpal::StreamConfig,
     state: Arc<Mutex<CaptureState>>,
     stopped: Arc<AtomicBool>,
-    tx: mpsc::Sender<DictationEvent>,
+    events: CaptureEvents,
     push: PushSamples<T>,
 ) -> Result<Stream>
 where
@@ -228,16 +262,20 @@ where
 {
     let callback_state = state.clone();
     let callback_stopped = stopped.clone();
-    let callback_tx = tx.clone();
+    let callback_events = events.clone();
     let data_callback = move |data: &[T], _: &cpal::InputCallbackInfo| {
-        handle_input_data(data, &callback_state, &callback_stopped, &callback_tx, push);
+        handle_input_data(
+            data,
+            &callback_state,
+            &callback_stopped,
+            &callback_events,
+            push,
+        );
     };
     let error_stopped = stopped;
     let error_callback = move |err| {
         if !error_stopped.swap(true, Ordering::SeqCst) {
-            let _ = tx.send(DictationEvent::CaptureError(format!(
-                "dictation stream error: {err}"
-            )));
+            events.error(format!("dictation stream error: {err}"));
         }
     };
     device
@@ -249,7 +287,7 @@ fn handle_input_data<T>(
     data: &[T],
     state: &Arc<Mutex<CaptureState>>,
     stopped: &Arc<AtomicBool>,
-    tx: &mpsc::Sender<DictationEvent>,
+    events: &CaptureEvents,
     push: PushSamples<T>,
 ) {
     if stopped.load(Ordering::SeqCst) {
@@ -262,51 +300,18 @@ fn handle_input_data<T>(
     match result {
         Ok(Some(samples)) => {
             if !stopped.swap(true, Ordering::SeqCst) {
-                let _ = tx.send(DictationEvent::CaptureAutoStopped(samples));
+                events.auto_stopped(samples);
             }
         }
         Ok(None) => {}
         Err(err) => {
             if !stopped.swap(true, Ordering::SeqCst) {
-                let _ = tx.send(DictationEvent::CaptureError(err.to_string()));
+                events.error(err.to_string());
             }
         }
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use std::sync::atomic::AtomicBool;
-    use std::sync::Arc;
-
-    use super::{
-        frame_len, BoundedAudioBuffer, CaptureState, VadGate, WebRtcVad, MAX_RECORDING_SAMPLES,
-        TARGET_SAMPLE_RATE, VAD_FRAME_MS,
-    };
-
-    fn test_capture_state() -> CaptureState {
-        CaptureState {
-            channels: 1,
-            sample_rate: TARGET_SAMPLE_RATE,
-            buffer: BoundedAudioBuffer::new(MAX_RECORDING_SAMPLES),
-            completed: None,
-            vad_pending: Vec::new(),
-            vad_frame_samples: frame_len(TARGET_SAMPLE_RATE, VAD_FRAME_MS),
-            vad: WebRtcVad::new_aggressive_16khz(),
-            gate: VadGate::for_dictation(),
-            auto_stop_enabled: Arc::new(AtomicBool::new(true)),
-        }
-    }
-
-    #[test]
-    fn completed_audio_can_be_taken_after_auto_stop_drains_buffer() {
-        let mut state = test_capture_state();
-        state.buffer.push_samples(&[0.1, 0.2, 0.3]);
-
-        let auto_stop_samples = state.complete_audio().expect("complete audio");
-        let manual_stop_samples = state.take_audio().expect("take completed audio");
-
-        assert_eq!(auto_stop_samples.as_slice(), &[0.1, 0.2, 0.3]);
-        assert_eq!(manual_stop_samples, vec![0.1, 0.2, 0.3]);
-    }
-}
+#[path = "capture_tests.rs"]
+mod tests;

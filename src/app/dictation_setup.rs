@@ -1,8 +1,8 @@
 //! Load the same device dictation profiles for embedded and socket terminals.
 
 #[cfg(feature = "dictation")]
-use super::super::dictation_state::DictationProfileState;
-use super::super::view_state::ViewState;
+use crate::app::dictation_state::DictationProfileState;
+use crate::app::view_state::ViewState;
 
 impl ViewState {
     /// Read device preferences without starting capture or contacting the daemon.

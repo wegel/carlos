@@ -21,7 +21,10 @@ use crate::dictation::worker::{DictationCancelToken, DictationWorker};
 #[cfg(feature = "dictation")]
 pub(super) struct DictationCaptureState {
     pub(super) capture: Option<DictationCaptureSession>,
+    pub(super) capture_id: Option<u64>,
+    pub(super) last_capture_id: u64,
     pub(super) events_tx: Option<mpsc::Sender<DictationEvent>>,
+    pub(super) local_events: Option<mpsc::Receiver<DictationEvent>>,
     pub(super) worker: Option<DictationWorker>,
     pub(super) cancel: Option<DictationCancelToken>,
     pub(super) request_id: Option<u64>,
@@ -34,12 +37,27 @@ impl Default for DictationCaptureState {
     fn default() -> Self {
         Self {
             capture: None,
+            capture_id: None,
+            last_capture_id: 0,
             events_tx: None,
+            local_events: None,
             worker: None,
             cancel: None,
             request_id: None,
             next_request_id: 1,
             last_audio: None,
+        }
+    }
+}
+
+#[cfg(feature = "dictation")]
+impl Drop for DictationCaptureState {
+    fn drop(&mut self) {
+        if let Some(cancel) = self.cancel.take() {
+            cancel.cancel();
+        }
+        if let Some(capture) = self.capture.take() {
+            capture.cancel();
         }
     }
 }

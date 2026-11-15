@@ -1,12 +1,5 @@
 //! Delegate embedded-terminal dictation to the shared device view.
 
-#[path = "view_dictation_io.rs"]
-mod io;
-#[path = "dictation_setup.rs"]
-mod setup;
-#[path = "view_dictation.rs"]
-mod view;
-
 #[cfg(test)]
 use super::dictation_state::{DictationPhase, DictationProfileState};
 use super::state::AppState;

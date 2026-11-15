@@ -3,6 +3,7 @@
 mod approvals;
 mod bodies;
 mod drafts;
+mod dictation;
 mod events;
 mod formatting;
 mod goals;
@@ -81,6 +82,7 @@ pub(super) fn run(socket: &Path, options: &CliOptions) -> Result<()> {
     };
     device.view.layout.themes = super::tool_output_preferences::load_themes();
     device.view.tool_output.mode = super::tool_output_preferences::load_mode();
+    device.configure_dictation(options);
     device.run(socket)
 }
 
@@ -117,6 +119,7 @@ impl Device {
                     redraw = false;
                 }
                 if !event::poll(Duration::from_millis(8))? {
+                    redraw |= self.drain_dictation();
                     continue;
                 }
                 let input = event::read()?;
@@ -137,6 +140,7 @@ impl Device {
                 } else if self.event(transport.as_mut(), input)? {
                     return Ok(());
                 }
+                self.drain_dictation();
                 self.remember_anchor();
                 redraw = true;
             }

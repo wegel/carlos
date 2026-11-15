@@ -1,13 +1,43 @@
 //! Share local dictation profiles, controls and private text insertion between terminal paths.
 
+use crossterm::event::{KeyCode, KeyEvent};
+
 #[cfg(test)]
-use super::super::dictation_state::DictationPhase;
+use crate::app::dictation_state::DictationPhase;
 #[cfg(any(test, feature = "dictation"))]
-use super::super::dictation_state::DictationProfileState;
-use super::super::dictation_state::{DictationEndpointMode, DictationRuntimeState};
-use super::super::view_state::ViewState;
+use crate::app::dictation_state::DictationProfileState;
+use crate::app::dictation_state::{DictationEndpointMode, DictationRuntimeState};
+use crate::app::notifications::is_ctrl_char;
+use crate::app::view_state::ViewState;
 
 impl ViewState {
+    /// Consume the existing dictation gestures after higher-priority editors and overlays.
+    pub(in crate::app) fn dictation_key(&mut self, key: KeyEvent, turn_active: bool) -> bool {
+        match (key.code, key.modifiers) {
+            (code, mods) if is_ctrl_char(code, mods, 'd') => {
+                if self.dictation_recording() {
+                    self.stop_dictation_recording();
+                } else if self.dictation_active() {
+                    self.restart_dictation_recording(turn_active);
+                } else {
+                    self.start_dictation_recording(turn_active);
+                }
+            }
+            (KeyCode::F(7), mods) if mods.is_empty() => self.switch_dictation_profile_next(),
+            (KeyCode::F(9), mods) if mods.is_empty() => self.toggle_dictation_endpoint_mode(),
+            (KeyCode::Enter, mods) if mods.is_empty() && self.dictation_recording() => {
+                self.stop_dictation_recording()
+            }
+            (KeyCode::Esc, mods) if mods.is_empty() && self.dictation_active() => {
+                self.cancel_dictation()
+            }
+            _ => return false,
+        }
+        self.esc_armed_at = None;
+        self.esc_interrupted_at = None;
+        true
+    }
+
     // --- Configuration ---
 
     #[cfg(test)]
@@ -84,6 +114,10 @@ impl ViewState {
         if !self.dictation.stop_recording() {
             return;
         }
+        #[cfg(feature = "dictation")]
+        {
+            self.dictation_io.capture_id = None;
+        }
         self.finish_dictation_capture();
     }
 
@@ -95,6 +129,7 @@ impl ViewState {
                     cancel.cancel();
                 }
                 self.dictation_io.request_id = None;
+                self.dictation_io.capture_id = None;
                 if let Some(session) = self.dictation_io.capture.take() {
                     session.cancel();
                 }
@@ -170,3 +205,7 @@ impl ViewState {
         self.input.insert_str(text);
     }
 }
+
+#[cfg(test)]
+#[path = "view_dictation_tests.rs"]
+mod tests;

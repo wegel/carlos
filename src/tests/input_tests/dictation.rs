@@ -90,7 +90,10 @@ fn f9_toggles_dictation_endpoint_mode() {
         Event::Key(KeyEvent::new(KeyCode::F(9), KeyModifiers::empty())),
         size,
     );
-    assert_eq!(app.view.status_hint.as_ref().expect("local hint"), "dictation endpoint: manual (Enter to stop)");
+    assert_eq!(
+        app.view.status_hint.as_ref().expect("local hint"),
+        "dictation endpoint: manual (Enter to stop)"
+    );
 
     app.start_dictation_recording();
     assert_eq!(
@@ -104,7 +107,10 @@ fn f9_toggles_dictation_endpoint_mode() {
         Event::Key(KeyEvent::new(KeyCode::F(9), KeyModifiers::empty())),
         size,
     );
-    assert_eq!(app.view.status_hint.as_ref().expect("local hint"), "dictation endpoint: auto");
+    assert_eq!(
+        app.view.status_hint.as_ref().expect("local hint"),
+        "dictation endpoint: auto"
+    );
     assert_eq!(
         app.dictation_status_label(),
         Some("DICTATING AUTO [English]".to_string())
@@ -133,7 +139,10 @@ fn model_settings_can_toggle_dictation_endpoint_mode() {
     );
 
     assert!(app.view.runtime_settings.show_model_settings);
-    assert_eq!(app.view.status_hint.as_ref().expect("local hint"), "dictation endpoint: manual (Enter to stop)");
+    assert_eq!(
+        app.view.status_hint.as_ref().expect("local hint"),
+        "dictation endpoint: manual (Enter to stop)"
+    );
     assert_eq!(
         app.dictation_status_label(),
         None,
@@ -208,7 +217,10 @@ fn dictation_does_not_start_during_active_turn() {
     app.start_dictation_recording();
 
     assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
-    assert_eq!(app.view.status_hint.as_ref().expect("local hint"), "dictation unavailable while turn is active");
+    assert_eq!(
+        app.view.status_hint.as_ref().expect("local hint"),
+        "dictation unavailable while turn is active"
+    );
 }
 
 #[test]
@@ -248,7 +260,10 @@ fn dictation_final_text_commits_and_returns_to_idle() {
 
     assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
     assert_eq!(app.input_text(), "final text");
-    assert_eq!(app.view.status_hint.as_ref().expect("local hint"), "dictation inserted");
+    assert_eq!(
+        app.view.status_hint.as_ref().expect("local hint"),
+        "dictation inserted"
+    );
 }
 
 #[cfg(feature = "dictation")]
@@ -259,7 +274,10 @@ fn dictation_auto_stop_event_moves_recording_to_transcribing() {
 
     app.start_dictation_recording();
     app.handle_dictation_event(
-        crate::dictation::events::DictationEvent::CaptureAutoStopped(Arc::new(vec![0.1, 0.2, 0.3])),
+        crate::dictation::events::DictationEvent::CaptureAutoStopped {
+            capture_id: app.view.dictation_io.capture_id.expect("active capture"),
+            samples: Arc::new(vec![0.1, 0.2, 0.3]),
+        },
     );
 
     assert!(matches!(
@@ -267,7 +285,10 @@ fn dictation_auto_stop_event_moves_recording_to_transcribing() {
         DictationPhase::Transcribing { .. }
     ));
     assert_eq!(app.last_dictation_audio_len(), Some(3));
-    assert_eq!(app.view.status_hint.as_ref().expect("local hint"), "dictation transcribing (3 samples)");
+    assert_eq!(
+        app.view.status_hint.as_ref().expect("local hint"),
+        "dictation transcribing (3 samples)"
+    );
 }
 
 #[cfg(feature = "dictation")]
@@ -277,12 +298,16 @@ fn dictation_capture_error_returns_to_idle() {
     app.configure_dictation(usable_dictation_profile());
 
     app.start_dictation_recording();
-    app.handle_dictation_event(crate::dictation::events::DictationEvent::CaptureError(
-        "device disconnected".to_string(),
-    ));
+    app.handle_dictation_event(crate::dictation::events::DictationEvent::CaptureError {
+        capture_id: app.view.dictation_io.capture_id.expect("active capture"),
+        message: "device disconnected".to_string(),
+    });
 
     assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
-    assert_eq!(app.view.status_hint.as_ref().expect("local hint"), "dictation capture failed: device disconnected");
+    assert_eq!(
+        app.view.status_hint.as_ref().expect("local hint"),
+        "dictation capture failed: device disconnected"
+    );
 }
 
 #[cfg(feature = "dictation")]
@@ -303,7 +328,10 @@ fn dictation_worker_final_commits_matching_request() {
 
     assert!(matches!(app.dictation_phase(), DictationPhase::Idle));
     assert_eq!(app.input_text(), "final dictation");
-    assert_eq!(app.view.status_hint.as_ref().expect("local hint"), "dictation inserted");
+    assert_eq!(
+        app.view.status_hint.as_ref().expect("local hint"),
+        "dictation inserted"
+    );
 }
 
 #[cfg(feature = "dictation")]

@@ -173,6 +173,9 @@ impl Device {
         if self.overlay_key(link.as_deref_mut(), key) {
             return Ok(false);
         }
+        if self.dictation_key(key) {
+            return Ok(false);
+        }
         if self.navigation_key(key)? {
             return Ok(false);
         }
