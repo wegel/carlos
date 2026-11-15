@@ -163,6 +163,7 @@ mod event_queue_tests;
 mod event_reads;
 mod event_rows;
 pub mod events;
+pub(crate) mod perf_rows;
 mod queue_preview;
 mod status_publication;
 pub mod task_activity;

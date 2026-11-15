@@ -1,5 +1,11 @@
 //! Synthetic performance data generation: deterministic RNG, message builders, and word lists.
 
+#[path = "perf_fixture_rows.rs"]
+mod rows;
+pub use rows::{replay_perf_rows, synthetic_perf_rows, PerfData, PerfRow};
+#[path = "perf_fixture_replay.rs"]
+mod replay;
+
 use crate::session::models::{EntryDraft, MessageKind, Role};
 use crate::session::read_summary::format_read_summary_with_count;
 use crate::session::state::SessionState;
