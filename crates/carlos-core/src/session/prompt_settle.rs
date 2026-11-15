@@ -86,9 +86,6 @@ impl SessionState {
         }
         record_prompt_acceptance(update, submission);
         if *edited {
-            if *kind == BackendKind::Codex {
-                update.changes.items.reset_navigation |= self.record_prompt_history(text, None);
-            }
             update.submitted = Some(text.clone());
         }
     }

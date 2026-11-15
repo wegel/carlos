@@ -292,3 +292,6 @@ mod claude_prompt_tests;
 
 #[cfg(test)]
 mod claude_thinking_tests;
+
+#[cfg(test)]
+mod prompt_echo_race_tests;

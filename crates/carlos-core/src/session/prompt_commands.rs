@@ -92,6 +92,10 @@ impl SessionState {
         if !steer && self.queue_behind_pending(kind, &text, options, context) {
             return Ok(prepared);
         }
+        if edited && kind == BackendKind::Codex && options.record_history {
+            prepared.update.changes.items.reset_navigation |=
+                self.record_prompt_history(&text, None);
+        }
         let submission = PromptSubmission {
             kind,
             text,

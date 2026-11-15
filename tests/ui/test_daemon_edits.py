@@ -1,6 +1,9 @@
 """Exercise local prompt recall, explicit branches, rename and help through the actual daemon."""
 
+import asyncio
 import json
+import threading
+
 
 
 class DaemonEdits:
@@ -154,4 +157,75 @@ class DaemonEdits:
         terminal.paste("must not enter the hidden composer")
         terminal.send(b"\r\x1b")
         terminal.wait(lambda:terminal.input_is(""), "help consumes paste and Enter")
+        self.assertEqual(terminal.requests("session/send"), [])
+
+    def test_daemon_early_native_prompt_echo_stays_editable_after_held_send_reply(self):
+        echoed, release = threading.Event(), threading.Event()
+
+        def configure(fixture):
+            original = fixture.native.handle
+            native_history = fixture.native.history
+            live_turns = []
+
+            def history():
+                thread = native_history()
+                thread["turns"].extend(live_turns)
+                return thread
+            fixture.native.history = history
+
+            async def handle(link, request):
+                method, params = request.get("method"), request.get("params", {})
+                if method == "thread/fork" and params["beforeTurnId"] == "turn-1":
+                    fixture.native.thread_id = "native-second-fork"
+                    live_turns.clear()
+                    await fixture.native.send(link, {"id":request["id"], "result":{"thread":fixture.native.history()}})
+                    return
+                if method != "turn/start":
+                    await original(link, request)
+                    return
+                fixture.native.prompts += 1
+                turn = f"turn-{fixture.native.prompts}"
+                text = params["input"][0]["text"]
+                user = {"type":"userMessage", "id":turn + "-user", "clientId":params["clientUserMessageId"],
+                        "content":[{"type":"text", "text":text}]}
+                answer = {"type":"agentMessage", "id":turn + "-answer", "text":"Answer: " + text}
+                live_turns.append({"id":turn, "status":"completed", "items":[user, answer]})
+                await fixture.native.notify(link, "turn/started", turn={"id":turn})
+                await fixture.native.notify(link, "item/completed", turnId=turn, item=user)
+                await fixture.native.notify(link, "item/completed", turnId=turn, item=answer)
+                await fixture.native.notify(link, "turn/completed", turn={"id":turn, "status":"completed"})
+                if text == "edited second":
+                    echoed.set()
+                    while not release.is_set():
+                        await asyncio.sleep(.005)
+                await fixture.native.send(link, {"id":request["id"], "result":{"turn":{"id":turn}}})
+            fixture.native.handle = handle
+
+        fixture, client, session, terminal = self.editable_terminal("early-native-edit-echo", configure)
+        self.addCleanup(release.set)
+        terminal.rewind("original prompt")
+        terminal.replace_input("edited second")
+        terminal.send(b"\r")
+        terminal.contains("Answer: edited second")
+        self.assertTrue(echoed.is_set())
+        admitted = terminal.requests("session/rewind")[0]
+        first = admitted["params"]["operation"]
+        result = next(row["result"] for row in terminal.messages("server") if row.get("id") == admitted["id"])
+        self.assertIn(result["state"]["kind"], ("pending", "queued"))
+        release.set()
+        terminal.wait(lambda: any(row.get("params", {}).get("operation") == first
+                      and row["params"]["state"]["kind"] == "accepted"
+                      for row in terminal.messages("server") if row.get("method") == "operation/updated"),
+                      "original edit settles only after its native echo is visible")
+        terminal.rewind("edited second")
+        selected = terminal.requests("prompt/select")[-1]
+        result = next(row["result"] for row in terminal.messages("server") if row.get("id") == selected["id"])
+        self.assertIsNotNone(result["record"]["entry"], "latest prompt keeps its native transcript link")
+        terminal.replace_input("edited again")
+        terminal.send(b"\r")
+        terminal.contains("Answer: edited again")
+        forks = [request["params"]["beforeTurnId"] for request in fixture.native.requests if request.get("method") == "thread/fork"]
+        self.assertEqual(forks, ["history-turn", "turn-1"])
+        self.assertEqual([request["params"]["input"][0]["text"] for request in fixture.native.requests if request.get("method") == "turn/start"],
+                         ["edited second", "edited again"])
         self.assertEqual(terminal.requests("session/send"), [])
