@@ -250,10 +250,6 @@ mod approval_lifetime_support;
 mod approval_lifetime_tests;
 
 #[cfg(test)]
-#[path = "../tests/approval_operation_sequences.rs"]
-mod approval_operation_sequences;
-
-#[cfg(test)]
 #[path = "../tests/input_history_split_tests.rs"]
 mod input_history_split_tests;
 

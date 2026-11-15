@@ -267,3 +267,6 @@ mod approval_control_test_support;
 mod input_contract_test_support;
 #[cfg(test)]
 mod input_contract_tests;
+
+#[cfg(test)]
+mod approval_operation_sequences;

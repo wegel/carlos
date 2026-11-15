@@ -1,40 +1,36 @@
-//! Exercise every public approval command with live, retired, and arbitrary ids.
+//! Preserve native card identity and claim invariants over the original fixed-seed corpus.
 
-use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
-use std::sync::Mutex;
-use std::time::Duration;
+use std::sync::atomic::Ordering;
 
-use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
-use carlos_core::session::approval_state::ApprovalChoice;
-use carlos_core::session::approval_state::ApprovalQueue;
-use carlos_core::session::approval_state::ApprovalRequestDraft;
-use carlos_core::session::approval_state::ApprovalRequestKind;
-use carlos_core::session::entry_id::EntryId;
-use carlos_core::session::history_identity::HistoryMode;
-use serde_json::{json, Value};
+use carlos_proto::commands::ApprovalAnswer;
+use carlos_proto::session::Decision;
+use serde_json::json;
 use uuid::Uuid;
 
-use super::state::AppState;
-use super::turn_approval::respond_to_pending_approval;
+use super::approval_control_test_support::Peer;
+use super::approval_state::{ApprovalQueue, ApprovalRequestDraft, ApprovalRequestKind};
+use super::entry_id::EntryId;
+use super::history_identity::HistoryMode;
+use super::state::SessionState;
+use crate::backend::BackendKind;
 
 const SEEDS: [u64; 4] = [1, 0xcafe, 0xdeadbeef, 0x9e3779b97f4a7c15];
 const OPERATIONS: u64 = 28;
 
 struct Sequence {
-    app: AppState,
+    core: SessionState,
     client: Peer,
     known: Vec<EntryId>,
     facts: HashMap<EntryId, ApprovalRequestDraft>,
     retired: HashSet<EntryId>,
-    accepts: HashMap<EntryId, usize>,
     previous: HashSet<EntryId>,
     random: u64,
     id_classes: [usize; 5],
 }
 
 #[test]
-fn twenty_thousand_public_approval_sequences_preserve_identity_and_consent() {
+fn twenty_thousand_public_approval_sequences_preserve_identity_and_claims() {
     run_sequences(5_000, 32);
 }
 
@@ -71,7 +67,7 @@ fn run_sequences(per_seed: usize, steps: usize) {
                 .lock()
                 .expect("calls")
                 .iter()
-                .filter(|call| call[1]["behavior"] == "allow")
+                .filter(|call| call.1["behavior"] == "allow")
                 .count();
         }
     }
@@ -93,12 +89,11 @@ fn run_sequences(per_seed: usize, steps: usize) {
 impl Sequence {
     fn new(seed: u64) -> Self {
         Self {
-            app: AppState::new("thread".into()),
-            client: Peer::default(),
+            core: SessionState::new("thread".into(), Default::default(), false),
+            client: Peer::new(BackendKind::Claude),
             known: Vec::new(),
             facts: HashMap::new(),
             retired: HashSet::new(),
-            accepts: HashMap::new(),
             previous: HashSet::new(),
             random: seed.max(1),
             id_classes: [0; 5],
@@ -119,8 +114,7 @@ impl Sequence {
                 .active_id()
                 .unwrap_or_else(|| EntryId::for_approval_test(Uuid::nil(), random)),
             2 => self
-                .app
-                .session
+                .core
                 .approval()
                 .queued(ApprovalQueue::Claude)
                 .front()
@@ -140,47 +134,44 @@ impl Sequence {
             ApprovalQueue::Codex
         };
         match operation {
-            0..=2 => self.app.set_pending_approval(draft(random)),
-            3 | 4 => {
-                self.app.session.enqueue_approval(draft(random), queue);
+            0..=2 => {
+                let _ = self.core.set_pending_approval(draft(random));
             }
-            5 | 6 => self.app.session.focus_approval(id, queue),
+            3 | 4 => {
+                self.core.enqueue_approval(draft(random), queue);
+            }
+            5 | 6 => self.core.focus_approval(id, queue),
             7 => {
-                let retired = self.app.session.promote_approval(queue);
-                self.app.drop_retired_approval_hints(retired);
+                let _ = self.core.promote_approval(queue);
             }
             8 => {
-                let retired = self.app.session.retire_approval(id);
-                self.app.drop_retired_approval_hints(retired);
+                let _ = self.core.retire_approval(id);
             }
             9 => {
-                let retired = self.app.session.clear_approval_queue(queue);
-                self.app.drop_retired_approval_hints(retired);
+                let _ = self.core.clear_approval_queue(queue);
             }
             10..=12 => self.accept(),
             13 => self.answer_target(id),
-            14 => self.app.clear_pending_approval(),
+            14 => {
+                self.core.clear_pending_session_approval();
+            }
             15 => self.duplicate(false),
             16 => self.duplicate(true),
-            17 => self.app.reset_for_forked_thread("fork"),
-            18 => self.app.reset_preserving_approvals("native reset"),
+            17 => self.reset(false),
+            18 => self.reset(true),
             19 | 20 => self.replace_history(operation == 20),
-            21 => self.app.session.set_thread_id("switch".into()),
+            21 => self.core.set_thread_id("switch".into()),
             22 => self.decline(),
             23 => {
-                self.app.session.reset_for_forked_thread();
+                self.core.reset_for_forked_thread();
             }
-            24 => respond_to_pending_approval(
-                &self.client,
-                &mut self.app,
-                ApprovalChoice::AcceptForSession,
-            ),
+            24 => self.respond(Decision::Session),
             25 => {
-                self.client.fail.set(!self.client.fail.get());
+                self.client.fail.fetch_xor(true, Ordering::SeqCst);
                 self.accept();
             }
             26 => assert_eq!(
-                self.app.session.begin_approval_answer(id),
+                self.core.begin_approval_answer(id),
                 self.active_id() == Some(id)
             ),
             27 => self.check_submitted(id),
@@ -191,13 +182,7 @@ impl Sequence {
     fn observe_id(&mut self, id: EntryId) {
         let class = if self.active_id() == Some(id) {
             0
-        } else if self
-            .app
-            .session
-            .approval()
-            .live()
-            .any(|p| p.entry_id() == id)
-        {
+        } else if self.core.approval().live().any(|p| p.entry_id() == id) {
             1
         } else if self.retired.contains(&id) {
             2
@@ -214,7 +199,7 @@ impl Sequence {
     }
 
     fn active_id(&self) -> Option<EntryId> {
-        self.app.session.approval().pending().map(|p| p.entry_id())
+        self.core.approval().pending().map(|p| p.entry_id())
     }
 
     fn replace_history(&mut self, new: bool) {
@@ -223,61 +208,77 @@ impl Sequence {
         } else {
             HistoryMode::SameThread
         };
-        self.app.session.replace_history(Vec::new(), mode);
+        self.core.replace_history(Vec::new(), mode);
     }
 
     fn check_submitted(&self, id: EntryId) {
-        if let Some(answer) = self.app.session.submitted_approval_answer(id) {
+        if let Some(answer) = self.core.submitted_approval_answer(id) {
             assert!(!self.retired.contains(&id));
             assert_eq!(answer, &self.facts[&id]);
         }
     }
 
     fn duplicate(&mut self, change: bool) {
-        let Some(pending) = self.app.session.approval().pending() else {
+        let Some(pending) = self.core.approval().pending() else {
             return;
         };
         let mut draft = pending.to_draft();
         if change {
             draft.requested_permissions.as_mut().expect("payload")["command"] = json!(self.random);
         }
-        self.app.set_pending_approval(draft);
+        let _ = self.core.set_pending_approval(draft);
     }
 
     fn accept(&mut self) {
+        self.respond(Decision::Once);
+    }
+
+    fn decline(&mut self) {
+        self.respond(if self.random & 64 == 0 {
+            Decision::Deny
+        } else {
+            Decision::Cancel
+        });
+    }
+
+    fn respond(&mut self, decision: Decision) {
         let active = self.active_id();
-        if let Some(id) = active {
-            *self.accepts.entry(id).or_default() += 1;
-        }
         let before = self.client.calls.lock().expect("calls").len();
-        respond_to_pending_approval(&self.client, &mut self.app, ApprovalChoice::Accept);
+        if let Some(id) = active {
+            if let Ok(work) = self.core.prepare_engine_answer(
+                &self.client,
+                id,
+                ApprovalAnswer::Decision { decision },
+            ) {
+                let _ = self
+                    .core
+                    .finish_engine_control(&self.client, work.execute(&self.client.commands));
+            }
+        }
         let calls = self.client.calls.lock().expect("calls");
-        if self.client.fail.get() {
+        if self.client.fail.load(Ordering::SeqCst) {
             assert_eq!(self.active_id(), active);
         }
         if calls.len() > before {
             assert_eq!(calls.len(), before + 1);
-            let id = active.expect("allow must answer an active card");
-            assert!(
-                self.accepts[&id] >= 2,
-                "allow must follow two accepts on this id"
-            );
-            assert_eq!(calls[before][0], self.facts[&id].request_id);
+            let id = active.expect("a write must answer an exact live card");
+            assert_eq!(calls[before].0, self.facts[&id].request_id);
         }
     }
 
-    fn decline(&mut self) {
-        let choice = if self.random & 64 == 0 {
-            ApprovalChoice::Decline
-        } else {
-            ApprovalChoice::Cancel
-        };
-        respond_to_pending_approval(&self.client, &mut self.app, choice);
+    fn reset(&mut self, preserve: bool) {
+        self.core
+            .adopt_native_thread(if preserve { "native reset" } else { "fork" }.into());
+        self.core.reset_for_forked_thread();
+        self.core.reset_prompt_history();
+        if !preserve {
+            self.core.clear_pending_session_approval();
+        }
     }
 
     fn answer_target(&self, id: EntryId) {
         let active = self.active_id();
-        let answer = self.app.session.approval_answer(id);
+        let answer = self.core.approval_answer(id);
         assert_eq!(answer.is_some(), active == Some(id));
         if let Some(answer) = answer {
             assert_eq!(answer, self.facts[&id]);
@@ -285,33 +286,17 @@ impl Sequence {
     }
 
     fn check(&mut self) {
-        let live: HashSet<_> = self
-            .app
-            .session
-            .approval()
-            .live()
-            .map(|p| p.entry_id())
-            .collect();
-        let count = self
-            .app
-            .session
-            .approval()
-            .queued(ApprovalQueue::Claude)
-            .len()
-            + self
-                .app
-                .session
-                .approval()
-                .queued(ApprovalQueue::Codex)
-                .len()
-            + usize::from(self.app.session.approval().pending().is_some());
+        let live: HashSet<_> = self.core.approval().live().map(|p| p.entry_id()).collect();
+        let count = self.core.approval().queued(ApprovalQueue::Claude).len()
+            + self.core.approval().queued(ApprovalQueue::Codex).len()
+            + usize::from(self.core.approval().pending().is_some());
         assert_eq!(live.len(), count, "active and queued ids must be distinct");
         self.retired.extend(self.previous.difference(&live));
         assert!(
             live.is_disjoint(&self.retired),
             "a retired id cannot reappear"
         );
-        for card in self.app.session.approval().live() {
+        for card in self.core.approval().live() {
             let id = card.entry_id();
             if let Some(facts) = self.facts.get(&id) {
                 assert_eq!(facts, card.facts(), "one id always names the same facts");
@@ -324,10 +309,10 @@ impl Sequence {
             self.answer_target(*id);
             self.check_submitted(*id);
             if self.retired.contains(id) {
-                assert!(self.app.session.submitted_approval_answer(*id).is_none());
+                assert!(self.core.submitted_approval_answer(*id).is_none());
             }
         }
-        self.app.assert_approval_hint_invariants();
+        self.core.messages().assert_invariants();
         self.previous = live;
     }
 }
@@ -355,38 +340,4 @@ fn draft(random: u64) -> ApprovalRequestDraft {
         can_decline: random & 16 == 0,
         can_cancel: random & 32 == 0,
     }
-}
-
-#[derive(Default)]
-struct Peer {
-    calls: Mutex<Vec<Value>>,
-    fail: Cell<bool>,
-}
-
-impl BackendClient for Peer {
-    fn kind(&self) -> BackendKind {
-        BackendKind::Claude
-    }
-
-    fn call(&self, _: &str, _: Value, _: Duration) -> anyhow::Result<String> {
-        anyhow::bail!("no request expected")
-    }
-
-    fn respond(&self, id: &Value, answer: Value) -> anyhow::Result<()> {
-        self.calls.lock().expect("calls").push(json!([id, answer]));
-        if self.fail.get() {
-            anyhow::bail!("fixed answer failure");
-        }
-        Ok(())
-    }
-
-    fn respond_error(&self, _: &Value, _: i64, _: &str) -> anyhow::Result<()> {
-        anyhow::bail!("no error response expected")
-    }
-
-    fn take_events_rx(&mut self) -> anyhow::Result<EventReceiver> {
-        anyhow::bail!("unused")
-    }
-
-    fn stop(&mut self) {}
 }

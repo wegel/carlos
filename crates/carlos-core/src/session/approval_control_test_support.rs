@@ -16,6 +16,7 @@ pub(super) type Calls = Arc<Mutex<Vec<(Value, Value)>>>;
 pub(super) struct Peer {
     pub(super) commands: CommandHandle,
     pub(super) calls: Calls,
+    pub(super) fail: Arc<AtomicBool>,
 }
 
 #[derive(Clone)]
@@ -36,7 +37,11 @@ impl Peer {
             fail: fail.clone(),
             permission: Default::default(),
         });
-        Self { commands, calls }
+        Self {
+            commands,
+            calls,
+            fail,
+        }
     }
 }
 
