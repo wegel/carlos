@@ -30,12 +30,50 @@ pub(super) struct Questions {
     pub(super) size: Option<TerminalSize>,
     pub(super) drafts: HashMap<EntryId, AnswerDraft>,
     pub(super) operations: HashMap<ClientOperation, AnswerTarget>,
+    receipt: Option<(EntryId, String)>,
     retired: HashSet<EntryId>,
     pub(super) focus: Option<EntryId>,
     pub(super) shown: bool,
 }
 
 impl Questions {
+    pub(super) fn clear_retry_hint(&self, card: &EntryId, hint: &mut Option<String>) {
+        let error = self
+            .drafts
+            .get(card)
+            .and_then(|draft| draft.editor.error.as_ref());
+        if error.is_some() && hint.as_ref() == error {
+            *hint = None;
+        }
+    }
+
+    pub(super) fn accept_receipt(
+        &mut self,
+        card: &EntryId,
+        message: String,
+        cards: &[Approval],
+        hint: &mut Option<String>,
+    ) {
+        self.retire_receipt(cards, hint);
+        if cards.iter().any(|live| &live.id == card) {
+            *hint = Some(message.clone());
+            self.receipt = Some((card.clone(), message));
+        }
+    }
+
+    fn retire_receipt(&mut self, cards: &[Approval], hint: &mut Option<String>) {
+        let Some((id, message)) = &self.receipt else {
+            return;
+        };
+        if cards.iter().any(|card| &card.id == id) {
+            return;
+        }
+        if hint.as_ref() == Some(message) {
+            *hint = None;
+        }
+        self.receipt = None;
+    }
+
     pub(super) fn synchronize(&mut self, cards: &[Approval]) {
         self.operations.retain(|_, target| {
             !target.finished || cards.iter().any(|card| card.id == target.card)
@@ -158,6 +196,8 @@ impl Device {
 
     pub(super) fn sync_questions(&mut self, replaced: bool) {
         if replaced {
+            self.questions
+                .retire_receipt(&[], &mut self.view.status_hint);
             self.questions.drafts.clear();
             self.questions.retired.clear();
             self.questions.focus = None;
@@ -167,6 +207,8 @@ impl Device {
             return;
         }
         if let Some(replica) = self.client.session(&self.session) {
+            self.questions
+                .retire_receipt(replica.approvals(), &mut self.view.status_hint);
             self.questions.synchronize(replica.approvals());
         }
     }

@@ -37,6 +37,8 @@ impl Device {
         self.questions
             .operations
             .insert(submitted.expect("allocated private answer"), target);
+        self.questions
+            .clear_retry_hint(&id, &mut self.view.status_hint);
         if let Some(draft) = self.questions.drafts.get_mut(&id) {
             draft.editor.error = None;
             draft.editor.notice = Some(
@@ -132,26 +134,19 @@ impl Device {
         let Some(record) = self.client.operations().get(id) else {
             return true;
         };
-        let message = match &record.state {
-            OperationState::Pending | OperationState::Queued => return true,
-            OperationState::Accepted { .. } if target.interrupt => {
-                "Interrupt query requested; question remains pending".into()
-            }
-            OperationState::Accepted { .. } => {
-                "Answer accepted; waiting for the original native request to retire".to_owned()
-            }
-            OperationState::Rejected { message, .. } => format!("Answer rejected: {message}"),
-            OperationState::Uncertain { message, .. } => {
-                format!("Answer outcome uncertain: {message}; no automatic retry")
-            }
+        let Some(message) = outcome_message(&record.state, target.interrupt) else {
+            return true;
         };
+        let card = target.card.clone();
+        let fingerprint = target.fingerprint;
+        let interrupt = target.interrupt;
         let accepted = matches!(record.state, OperationState::Accepted { .. });
         let uncertain = matches!(record.state, OperationState::Uncertain { .. });
         if let Some(draft) = self
             .questions
             .drafts
-            .get_mut(&target.card)
-            .filter(|draft| draft.fingerprint == target.fingerprint)
+            .get_mut(&card)
+            .filter(|draft| draft.fingerprint == fingerprint)
         {
             if accepted {
                 draft.editor.notice = Some(message.clone())
@@ -160,8 +155,17 @@ impl Device {
                 draft.editor.notice = None;
             }
         }
-        self.view.status_hint = Some(message);
-        if accepted && !target.interrupt {
+        if accepted {
+            let cards = self
+                .client
+                .session(&self.session)
+                .map_or(&[][..], |replica| replica.approvals());
+            self.questions
+                .accept_receipt(&card, message, cards, &mut self.view.status_hint);
+        } else {
+            self.view.status_hint = Some(message);
+        }
+        if accepted && !interrupt {
             self.questions
                 .operations
                 .get_mut(id)
@@ -175,4 +179,20 @@ impl Device {
         }
         true
     }
+}
+
+fn outcome_message(state: &OperationState, interrupt: bool) -> Option<String> {
+    Some(match state {
+        OperationState::Pending | OperationState::Queued => return None,
+        OperationState::Accepted { .. } if interrupt => {
+            "Interrupt query requested; question remains pending".into()
+        }
+        OperationState::Accepted { .. } => {
+            "Answer accepted; waiting for the original native request to retire".into()
+        }
+        OperationState::Rejected { message, .. } => format!("Answer rejected: {message}"),
+        OperationState::Uncertain { message, .. } => {
+            format!("Answer outcome uncertain: {message}; no automatic retry")
+        }
+    })
 }

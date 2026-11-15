@@ -112,3 +112,53 @@ fn retiring_one_card_keeps_another_cards_editor_and_explicit_focus() {
     assert!(!state.drafts.contains_key(&id(1)));
     assert_eq!(text(&state, 2), "surviving private answer");
 }
+
+#[test]
+fn accepted_receipt_retires_with_its_exact_card_in_either_reply_order() {
+    let cards = [card(1), card(2)];
+    let mut state = Questions::default();
+    let mut hint = None;
+    state.accept_receipt(&id(1), "accepted first".into(), &cards, &mut hint);
+    state.retire_receipt(&cards[..1], &mut hint);
+    assert_eq!(hint.as_deref(), Some("accepted first"));
+    state.retire_receipt(&cards[1..], &mut hint);
+    assert!(hint.is_none());
+    state.accept_receipt(&id(1), "late accepted".into(), &cards[1..], &mut hint);
+    assert!(
+        hint.is_none(),
+        "a late success must not mask current status"
+    );
+    state.accept_receipt(&id(2), "accepted second".into(), &cards[1..], &mut hint);
+    state.retire_receipt(&[], &mut hint);
+    assert!(hint.is_none());
+}
+
+#[test]
+fn retired_receipt_preserves_a_newer_hint_and_other_cards_private_draft() {
+    let cards = [card(1), card(2)];
+    let mut state = Questions::default();
+    let mut hint = None;
+    state.synchronize(&cards);
+    insert(&mut state, 2, "another private answer");
+    state.accept_receipt(&id(1), "accepted".into(), &cards, &mut hint);
+    hint = Some("newer unrelated failure".into());
+    state.retire_receipt(&cards[1..], &mut hint);
+    state.synchronize(&cards[1..]);
+    assert_eq!(hint.as_deref(), Some("newer unrelated failure"));
+    assert_eq!(text(&state, 2), "another private answer");
+}
+
+#[test]
+fn an_explicit_retry_clears_only_the_same_cards_previous_error_hint() {
+    let mut state = Questions::default();
+    state.synchronize(&[card(1)]);
+    state.drafts.get_mut(&id(1)).expect("draft").editor.error = Some("own rejection".into());
+    let mut hint = Some("newer unrelated failure".into());
+    state.clear_retry_hint(&id(1), &mut hint);
+    assert_eq!(hint.as_deref(), Some("newer unrelated failure"));
+    hint = Some("own rejection".into());
+    state.clear_retry_hint(&id(2), &mut hint);
+    assert_eq!(hint.as_deref(), Some("own rejection"));
+    state.clear_retry_hint(&id(1), &mut hint);
+    assert!(hint.is_none());
+}
