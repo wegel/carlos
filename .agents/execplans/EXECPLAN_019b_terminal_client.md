@@ -12,6 +12,8 @@ The daemon already proves basic chat, approvals, running output, independent cli
 
 ## Progress
 
+- [x] (2026-11-15) Complete final-source0c6328b2a7092fb34375d8ece4e8d65e feature/release/daemon/306terminal/23installed-Codex checks. Add the installed unmodified Claude2.1.322 contracts: all10 pass28.146s after reusing the ready-context helper/current hint and replacing blind50ms task stepping with actual native-heading/stop-control fences. Original threshold, exact native task target, stopped notification, prompt/history and deadlines remain. Log final-native-claude-recheck-02.log; reports retain both prior fixture failures honestly. Runtime code is unchanged by the fixture correction.
+
 - [x] (2026-11-15) Reproduce lost keyboard readiness in Crossterm0.29 with a controlled PTY: old backend returns only Resize, new built-in use-dev-tty backend passes eight fresh batches. Private combined64MiB ANSI/16MiBMarkdown passes14.592s with all immediate resize→End, source/style/typing/copy/reconnect assertions. Apply exactly four checked Cargo/lock/regression/fixture paths; source0c6328b2a7092fb34375d8ece4e8d65e matches private proof. Both feature test/lint matrices pass privately; root joined checks/commit and final gate are next. See exec019b-resize-input.md.
 
 - [x] (2026-11-15) Pass final-sourcefc0ee1 package/306terminal/source-selection/dictation/ANSI/23native remainder, then all143 daemon cases in73.169s through the unchanged-deadline failure-only runner. Original Claude reset timeout remains unexplained; original-case, coalesced-frame and six-case family probes pass, no runtime fix is claimed. Record all logs separately, not a fictitious clean gate05.
@@ -140,6 +142,8 @@ The daemon already proves basic chat, approvals, running output, independent cli
 
 ## Surprises & Discoveries
 
+The optional installed-Claude contract group still carried two embedded-route assumptions: Restart Carlos text with no popup-readiness fence, and two task arrows separated only by50ms. The ordinary daemon workflow helper already handles the new start-a-session wording and readiness. Actual native-detail replies must reach the screen before the next selection; keep the exact stop target and native notification assertions. All ten cases pass after these fixture corrections without a runtime edit.
+
 The private metadata trace establishes the resize→End cause: Crossterms default Unix readiness reader returns Resize before reading a simultaneous keyboard token, then waits for a fresh edge. End reaches the handler only after cleanup sends Ctrl+C. Earlier keys.log presence proved eventual decoding, not timely handling. The common terminal-descriptor policy is unchanged by selecting the existing level-triggered backend. A separate saved-mode fixture predicate could match the old empty screen; wait for the exact accepted preference without adding any resize/layout fence.
 
 The final16MiBMarkdown source check passes its first120-column End/Home frames, then fails resize28 followed immediately by End. The key log proves resize and End were decoded with an empty composer; the screen remains near early text without a source error or panic. The64MiBANSI case passes. This is a concrete local gesture to preserve, not a reason to fence the fixture behind completed layout. The formatter worker is checking a causal source/layout ordering proof before a minimal repair.
@@ -228,6 +232,8 @@ The cutover draft no longer calls the source-reader helper from the terminal exe
 The installed Codex CLI distinguishes a new, unmaterialized thread from an existing empty saved thread. A native probe in `/tmp/carlos-ep019b/native-fresh-read-probe/rpc.jsonl` shows thread/start succeeds with turns=[], metadata/queue/goal reads succeed, and thread/turns/list returns-32600 before a user message. Treating that failure as a general empty-history fallback would discard real resumed history, so the caller must carry the known launch scope.
 
 ## Decision Log
+
+- 2026-11-15: Include installed Claude CLI contracts in final acceptance. Reuse the existing context fixture helper and wait for actual selected task details/stop control; preserve source, native request, history and original deadline assertions. Rerun the ten-case group rather than repeating already-passing Rust and306-terminal checks for a Python-only fixture change.
 
 - 2026-11-15: Select Crossterms existing use-dev-tty backend on Unix, with its one newly locked filedescriptor dependency. The causal PTY and clean full-source checks prove the repair. Preserve all viewport state and input parsing, the immediate user gesture and original deadlines; add no custom poller or extra application state.
 
@@ -322,6 +328,8 @@ Decision: cap retained session facts across one Client at 64 MiB and defer futur
   Date/Author: 2026-11-15, Codex.
 
 ## Outcomes & Retrospective
+
+All final-source feature, release, daemon, terminal, installed Codex and installed Claude checks now pass. Record their separate logs accurately. The code is frozen at source0c6328b2a7092fb34375d8ece4e8d65e; quiet matched measurements and final engineering/Fable reviews are the remaining acceptance work.
 
 The large-source failure now has a causal library-level proof and a minimal feature repair. All original developer tasks and focused follow-ups are complete. Root owns the joined final gate, fresh matching default release evidence, final reviews and delegated approval; no review or approval has occurred yet.
 

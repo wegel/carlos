@@ -11,6 +11,7 @@ import unittest
 from claude_native_api import NativeClaudeAPI
 from terminal import Terminal
 from test_claude_sdk import ClaudeSdk
+from test_context_settings import ContextSettings
 from test_native_claude_rewind import NativeClaudeRewind
 from test_native_claude_labels import NativeClaudeLabels
 
@@ -65,10 +66,7 @@ class NativeClaude(NativeClaudeRewind,NativeClaudeLabels,unittest.TestCase):
 
     def test_native_context_size_changes_threshold_after_restart_without_a_model_request(self):
         terminal = self.start()
-        terminal.send(b"\x1b[109;5u")
-        terminal.contains("Settings")
-        terminal.send(b"\t\t")
-        terminal.contains("Restart Carlos")
+        ContextSettings.open_context(self, terminal, "claude")
         terminal.paste("500k")
         terminal.send(b"\r")
         saved = terminal.root / "config/carlos/claude-context.json"
@@ -262,11 +260,18 @@ class NativeClaude(NativeClaudeRewind,NativeClaudeLabels,unittest.TestCase):
         terminal.contains("Tasks")
         tasks = [frame["message"] for frame in self.helper_messages(terminal,"server") if frame.get("event") == "sdk" and frame["message"].get("subtype") == "task_started"]
         stop_id = tasks[-1]["task_id"]
+        def selected_native_task():
+            return next((line.split(" · ", 1)[0] for line in terminal.screen.display
+                         if line.startswith("Task ") and " · " in line), None)
+        terminal.wait(lambda: selected_native_task() is not None, "initial native task details loaded")
         for _ in range(2):
             if "Task " + stop_id + " ·" in terminal.text: break
+            previous = selected_native_task()
             terminal.send(b"\x1b[B")
-            terminal.pump(.05)
+            terminal.wait(lambda: selected_native_task() is not None and selected_native_task() != previous,
+                          "next native task details loaded")
         terminal.contains("Task " + stop_id + " ·")
+        terminal.contains("x stop")
         terminal.send(b"x")
         terminal.wait(lambda: any(frame.get("event") == "sdk" and frame["message"].get("subtype") == "task_notification" and frame["message"].get("status") == "stopped"
                       for frame in self.helper_messages(terminal,"server")),"actual native task stopped",timeout=20)

@@ -1,0 +1,9 @@
+# EP019b installed Claude contracts
+
+All ten contracts pass against the installed unmodified Claude Code 2.1.322 in 28.146 seconds, with the packaged terminal/daemon/helper and final source 0c6328b2a7092fb34375d8ece4e8d65e. Each case uses private native homes and a localhost HTTP peer; no user account or paid inference is used. The actual native tests cover context defaults, rewind/fork after compaction, callbacks, labels, queued clear, background completion and exact task stop. Raw passing log: /tmp/carlos-ep019b/final-native-claude-recheck-02.log; artifacts: /tmp/carlos-ep019b-final-native-claude-recheck-02.
+
+Two old fixture assumptions needed updates. The context test expected Restart Carlos and sent tabs immediately after the popup title appeared. It now reuses ContextSettings.open_context, which waits for the ready editor and the daemon-specific Start a new session hint. The actual smaller native threshold, saved500k value, restart and zero-model-request assertions remain. Its focused proof passes in1.820 seconds.
+
+The task-stop test advanced twice with fixed50ms pumps. Its failed wire trace requested details only for the old completed task while the desired active task was present. It now waits for an initial native task heading, then a changed native heading after each arrow and the advertised x stop control. The exact selected native task ID, stopped notification, four submitted prompts and persisted human history checks remain. No product code or deadline changed.
+
+Preserve final-release-gate-06.log, which passes all feature/release/daemon/306terminal/23Codex checks and nine Claude cases before the old context fixture fails. Preserve the first full Claude recheck, which exposes the task-selection fixture. The final full ten-case run is green on the same compiled Rust/helper hashes; do not describe those earlier failures as clean runs. Only tests/ui/test_native_claude.py changes for these fixtures.
