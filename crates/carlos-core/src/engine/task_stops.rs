@@ -164,6 +164,10 @@ impl Owner {
         };
         if matches!(state, OperationState::Accepted { .. }) {
             pending.work.acknowledged(&mut self.session);
+            if self.client.kind() == BackendKind::Codex {
+                let scope = self.task_read_scope();
+                crate::session::codex::panel::refresh(&mut self.session, scope, false);
+            }
         } else if let OperationState::Rejected { message, .. }
         | OperationState::Uncertain { message, .. } = &state
         {

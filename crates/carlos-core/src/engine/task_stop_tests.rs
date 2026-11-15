@@ -1,5 +1,6 @@
 //! Keep write uncertainty and early native acknowledgements ordered under one private operation.
 
+use std::sync::atomic::Ordering;
 use std::sync::{mpsc, Arc};
 use std::time::Instant;
 
@@ -20,10 +21,7 @@ struct Fixture(Owner);
 
 impl Drop for Fixture {
     fn drop(&mut self) {
-        self.0
-            .channels
-            .stop
-            .store(true, std::sync::atomic::Ordering::SeqCst);
+        self.0.channels.stop.store(true, Ordering::SeqCst);
         self.0.native.stop();
         self.0.workers.stop();
     }
@@ -143,4 +141,125 @@ fn a_task_stop_retired_before_writing_is_a_definite_private_rejection() {
         OperationState::Rejected { .. }
     ));
     assert!(fixture.0.task_stops.is_empty());
+}
+
+fn native_reply(
+    fixture: &Fixture,
+    operation: &ClientOperation,
+    state: OperationState,
+) -> TaskStopReply {
+    let work = &fixture.0.task_stops[operation].work;
+    TaskStopReply {
+        operation: operation.clone(),
+        task: work.claim.task.clone(),
+        run: work.claim.run.clone(),
+        kind: TaskKind::Agent,
+        state,
+    }
+}
+
+fn accepted() -> OperationState {
+    OperationState::Accepted {
+        entry: None,
+        notice: None,
+    }
+}
+
+#[test]
+fn an_accepted_child_stop_refreshes_metadata_once_without_list_interest() {
+    let (mut fixture, operation) = fixture();
+    assert!(!fixture.0.channels.task_interest.load(Ordering::SeqCst));
+    let old = fixture
+        .0
+        .session
+        .task_page(None, None, 1)
+        .expect("original rows");
+    let reply = native_reply(&fixture, &operation, accepted());
+    let duplicate = native_reply(&fixture, &operation, accepted());
+    fixture.0.finish_task_stop(reply);
+    assert!(
+        fixture.0.session.codex_panel.snapshot.is_some(),
+        "detail stop needs one readonly refresh"
+    );
+    let outgoing = &fixture.0.session.codex_panel.outgoing;
+    assert_eq!(outgoing.len(), 1);
+    assert_eq!(outgoing[0].method, "thread/list");
+    assert_eq!(outgoing[0].params["ancestorThreadId"], "root");
+    assert!(!fixture.0.channels.task_interest.load(Ordering::SeqCst));
+    let current = fixture
+        .0
+        .session
+        .task_page(None, None, 1)
+        .expect("retained rows");
+    assert_eq!(
+        current.tasks, old.tasks,
+        "refresh retains accepted metadata while reading"
+    );
+    fixture.0.finish_task_stop(duplicate);
+    assert_eq!(
+        fixture.0.session.codex_panel.outgoing.len(),
+        1,
+        "late duplicate cannot add a read"
+    );
+}
+
+#[test]
+fn rejected_uncertain_and_mismatched_stops_never_refresh_metadata() {
+    for state in [
+        OperationState::Rejected {
+            message: "native refusal".into(),
+            recovery: None,
+        },
+        OperationState::Uncertain {
+            message: "missing native acknowledgement".into(),
+            recovery: None,
+        },
+    ] {
+        let (mut fixture, operation) = fixture();
+        let reply = native_reply(&fixture, &operation, state);
+        fixture.0.finish_task_stop(reply);
+        assert!(fixture.0.session.codex_panel.snapshot.is_none());
+        assert!(fixture.0.session.codex_panel.outgoing.is_empty());
+    }
+    let (mut fixture, operation) = fixture();
+    let mut reply = native_reply(
+        &fixture,
+        &operation,
+        OperationState::Accepted {
+            entry: None,
+            notice: None,
+        },
+    );
+    reply.task = "f".repeat(64).parse().expect("foreign task");
+    fixture.0.finish_task_stop(reply);
+    assert!(fixture.0.session.codex_panel.snapshot.is_none());
+    assert!(fixture.0.session.codex_panel.outgoing.is_empty());
+    assert!(matches!(
+        fixture.0.results.collect()[0].state,
+        OperationState::Uncertain { .. }
+    ));
+}
+
+#[test]
+fn an_old_root_stop_acknowledgement_does_not_read_the_replacement_root() {
+    let (mut fixture, operation) = fixture();
+    let reply = native_reply(
+        &fixture,
+        &operation,
+        OperationState::Accepted {
+            entry: None,
+            notice: None,
+        },
+    );
+    fixture
+        .0
+        .session
+        .adopt_native_thread("replacement-root".into());
+    fixture.0.finish_task_stop(reply);
+    assert!(fixture.0.session.codex_panel.snapshot.is_none());
+    assert!(fixture.0.session.codex_panel.outgoing.is_empty());
+    assert!(matches!(
+        fixture.0.results.collect()[0].state,
+        OperationState::Uncertain { .. }
+    ));
 }
