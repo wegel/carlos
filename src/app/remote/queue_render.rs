@@ -60,16 +60,22 @@ impl Device {
                 .filter(|_| current)
                 .map_or(0, |index| index + 1),
             count,
-            self.view
-                .codex_queue
-                .selected
-                .as_deref()
-                .map(short_id)
-                .unwrap_or_else(|| "none".into())
+            self.selected_queue_display_id()
         ));
         self.queue_notices(&mut lines);
         self.queue_selected_lines(&mut lines, current);
         lines
+    }
+
+    fn selected_queue_display_id(&self) -> String {
+        let selected = self.view.codex_queue.selected.as_deref();
+        self.queue
+            .pages
+            .selected(selected)
+            .and_then(|entry| entry.display_id.as_deref())
+            .map(str::to_owned)
+            .or_else(|| selected.map(short_id))
+            .unwrap_or_else(|| "none".into())
     }
 
     fn queue_notices(&self, lines: &mut Vec<String>) {

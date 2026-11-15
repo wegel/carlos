@@ -13,6 +13,31 @@ SUBMIT = b"\x13"
 
 
 class DaemonTaskQuestions:
+    def test_daemon_structured_question_keeps_its_answer_private_while_native_queue_mode_is_on(self):
+        fixture, client, session, terminal = self.daemon_tasks("question-queue-editor")
+        terminal.paste("ordinary main draft before native question")
+        terminal.wait(lambda:terminal.input_is("ordinary main draft before native question"), "main draft before queue mode")
+        terminal.send(b"\x1bOR")
+        terminal.contains("Queue")
+        fixture.native.emit_question(question(9))
+        original = self.question_cards(client, session)[0]
+        terminal.contains("request waiting (1)")
+        terminal.send(F4)
+        terminal.contains("Native int field")
+        self.edit_other_answer(terminal, "private callback answer 日本語")
+        terminal.contains("private callback answer 日本語")
+        terminal.send(b"\r" + SUBMIT)
+        daemon_support.wait_for(lambda:fixture.native.task_answers, "Enter stays in the question; explicit submit answers it")
+        self.assertEqual(fixture.native.task_answers, [{"id":9, "result":{"answers":{"field-int":{"answers":["user_note: private callback answer 日本語"]}}}}])
+        answer = terminal.requests("session/approve")[-1]["params"]
+        self.assertEqual(answer["approval"], original["id"])
+        self.assertEqual(answer["answer"]["value"], {"fields":[{"key":"field-int", "values":[], "text":"private callback answer 日本語"}]})
+        self.assertEqual(terminal.requests("queue/change"), [])
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertEqual(fixture.native.queue_entries, [])
+        terminal.wait(lambda:terminal.input_is("ordinary main draft before native question"), "structured editor leaves composer intact in queue mode")
+        terminal.snapshot("structured-question-keeps-native-queue-empty")
+
     def question_cards(self, client, session, count=1):
         return daemon_support.wait_for(lambda:(cards if len(cards := client.call("session/subscribe", session=session, since=None)["snapshot"]["approvals"]) == count else None), "exact pending native cards")
 

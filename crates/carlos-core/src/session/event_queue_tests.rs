@@ -1,6 +1,7 @@
 //! Preserve shared queue bounds and scope while keeping private edits out of published facts.
 
 use carlos_proto::events::Event;
+use carlos_proto::queue::{QueueChange, MAX_DISPLAY_ID_BYTES};
 use serde_json::{json, Value};
 
 use super::event_tests::synchronize;
@@ -27,7 +28,12 @@ fn queue_pages_share_one_revision_but_no_selection_and_publish_only_shared_read_
     assert_eq!(other.queue.revision, page.queue.revision);
     assert!(!other.has_more);
     let wire = serde_json::to_string(&page).expect("queue page");
-    assert!(!wire.contains("native-"));
+    assert!(wire.contains("\"display_id\":\"native-0\""));
+    let command = serde_json::to_string(&QueueChange::Delete {
+        entry: page.entries[0].id.clone(),
+    })
+    .expect("opaque command");
+    assert!(!command.contains("native-"));
     assert!(!wire.contains("threadId"));
     core.codex_queue.error = Some("PRIVATE QUEUE ERROR".into());
     assert!(core.publish().records().is_empty());
@@ -40,6 +46,30 @@ fn queue_pages_share_one_revision_but_no_selection_and_publish_only_shared_read_
         client.queue.expect("shared facts").read_error.as_deref(),
         Some("shared read failure")
     );
+}
+
+#[test]
+fn queue_display_ids_are_bounded_sanitized_and_never_resolve_native_targets() {
+    let mut core = session();
+    let native = "b".repeat(64);
+    core.codex_queue.entries[0]["id"] = json!(native);
+    core.codex_queue.entries[1]["id"] = json!("🌍\n\x1b\u{202e}".repeat(1000));
+    core.publish();
+    let page = core.queue_page(0, 32);
+    assert_eq!(page.entries[0].display_id.as_deref(), Some(native.as_str()));
+    assert_ne!(page.entries[0].id.as_str(), native);
+    assert!(core
+        .queue_entry(&native.parse().expect("valid opaque shape"))
+        .is_none());
+    assert!(core.queue_entry(&page.entries[0].id).is_some());
+    let label = page.entries[1]
+        .display_id
+        .as_deref()
+        .expect("display label");
+    assert!(label.len() <= MAX_DISPLAY_ID_BYTES);
+    assert!(label.ends_with('…'));
+    assert!(!label.chars().any(|ch| ch.is_control() || ch == '\u{202e}'));
+    assert!(label.contains("\\n") && label.contains("\\u{1b}"));
 }
 
 #[test]

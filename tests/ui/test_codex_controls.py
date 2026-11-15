@@ -80,6 +80,10 @@ class CodexControls:
         terminal.contains("Codex queue")
         terminal.wait(lambda:"Refreshing" not in terminal.text,"queue snapshot ready")
 
+    def control_queue_editor(self,terminal):
+        terminal.send(b"e")
+        terminal.contains("Ctrl+S save")
+
     def test_codex_native_queue_edit_reorder_delete_interrupt_and_manual_start(self):
         terminal=self.launch(mode="codex-controls-busy",width=100)
         terminal.contains("Answer: second")
@@ -97,7 +101,7 @@ class CodexControls:
         self.assertEqual(add["input"][0]["text"],"queued 日本語")
         self.queue_panel(terminal)
         terminal.contains("queued Alpha")
-        terminal.send(b"e")
+        self.control_queue_editor(terminal)
         terminal.replace_input("edited Alpha")
         terminal.send(b"\x13")
         terminal.contains("acknowledged the queue change")
@@ -136,7 +140,7 @@ class CodexControls:
         terminal.paste("keep main draft")
         self.queue_panel(terminal)
         terminal.contains("queued Alpha")
-        terminal.send(b"e")
+        self.control_queue_editor(terminal)
         terminal.replace_input("persisted queued 日本語")
         terminal.send(b"\x13")
         terminal.contains("acknowledged the queue change")
@@ -190,7 +194,7 @@ class CodexControls:
         terminal.contains("Answer: second")
         terminal.paste("main untouched")
         self.queue_panel(terminal)
-        terminal.send(b"e")
+        self.control_queue_editor(terminal)
         terminal.replace_input("my independent draft")
         (terminal.root/"controls-step").write_text("external-edit")
         terminal.contains("Changed by another client")

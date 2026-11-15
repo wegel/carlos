@@ -113,7 +113,7 @@ class DaemonTaskControls:
         self.assertEqual(client.outcome(create)["state"]["kind"], "accepted")
         daemon_support.wait_for(lambda:client.call("session/subscribe",session=session,since=None)["snapshot"]["info"]["availability"] == "ready", "Claude daemon ready")
         terminal = self.attach_daemon(fixture,session,name,width=120)
-        terminal.wait(lambda:any(message.get("result",{}).get("snapshot",{}).get("info",{}).get("availability") == "ready" for message in terminal.messages("server")), "terminal accepts Claude subscription")
+        terminal.wait(lambda:any(isinstance(message.get("result"), dict) and message["result"].get("snapshot",{}).get("info",{}).get("availability") == "ready" for message in terminal.messages("server")), "terminal accepts Claude subscription")
         terminal.contains("Idle")
         return fixture,client,session,terminal
 

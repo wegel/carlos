@@ -199,7 +199,7 @@ class DaemonTaskRecovery:
         fixture, client, session, terminal = self.daemon_tasks("tasks-large-responsive", count=0, processes=[process], width=36)
         terminal.paste("large command private composer")
         self.open_daemon_tasks(terminal,"Process: large-process")
-        terminal.wait(lambda:any(message.get("result",{}).get("complete") and
+        terminal.wait(lambda:any(isinstance(message.get("result"), dict) and message["result"].get("complete") and
             message["result"].get("field") == "command" for message in terminal.messages("server")), "complete four MiB native field read", timeout=30)
         started = time.monotonic()
         terminal.send(b"\x1b[6~")

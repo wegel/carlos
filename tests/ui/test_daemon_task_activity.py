@@ -134,7 +134,9 @@ class DaemonTaskActivity:
             start = next((index + 1 for index, row in enumerate(messages) if row.get("id") == hello), len(messages))
             for row in messages[start:]:
                 event = row.get("params", {}).get("event", {})
-                info = row.get("result", {}).get("snapshot", {}).get("info") or event.get("info") or event.get("snapshot", {}).get("info")
+                result = row.get("result")
+                snapshot = result.get("snapshot", {}) if isinstance(result, dict) else {}
+                info = snapshot.get("info") or event.get("info") or event.get("snapshot", {}).get("info")
                 if info and info["id"] == session and info["availability"] == "ready":
                     return True
             return False

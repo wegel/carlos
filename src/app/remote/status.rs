@@ -290,7 +290,7 @@ impl Device {
 
     fn status_mode(&self, info: &SessionInfo) -> Option<&'static str> {
         let queued = if info.backend == Backend::Claude {
-            self.view.claude_queue
+            self.tasks.view.queue_mode
         } else {
             self.view.codex_queue.mode
         };

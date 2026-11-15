@@ -9,6 +9,8 @@ use crate::ids::{QueueEntryId, QueueRevision, Sequence, SessionId};
 pub const MAX_TEXT_BYTES: usize = 512 * 1024;
 /// Keep even escaped previews below a half-MiB reply reservation.
 pub const MAX_PAGE_ENTRIES: usize = 32;
+/// Keep the native identifier shown by the old queue header within a small display-only label.
+pub const MAX_DISPLAY_ID_BYTES: usize = 256;
 
 /// Shared queue facts contain no selected entry, editor or mutation failure.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,6 +28,9 @@ pub struct QueueFacts {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QueueEntry {
     pub id: QueueEntryId,
+    /// Read-only native label; commands must use the opaque id above.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_id: Option<String>,
     pub client_message: String,
     pub preview: String,
     pub preview_complete: bool,

@@ -1,7 +1,7 @@
 //! Publish compact native queue facts and serve independently addressed preview pages.
 
 use carlos_proto::ids::{QueueEntryId, QueueRevision};
-use carlos_proto::queue::{QueueEntry, QueueFacts, QueuePage};
+use carlos_proto::queue::{QueueEntry, QueueFacts, QueuePage, MAX_DISPLAY_ID_BYTES};
 use carlos_proto::session::Backend;
 use serde_json::Value;
 
@@ -95,6 +95,7 @@ impl SessionState {
         let (preview, preview_complete) = super::queue_preview::preview(&entry["input"]);
         QueueEntry {
             id: self.queue_entry_id(entry),
+            display_id: entry["id"].as_str().map(display_id),
             client_message: entry["clientUserMessageId"]
                 .as_str()
                 .unwrap_or_default()
@@ -141,4 +142,17 @@ impl SessionState {
 fn hash_text(digest: &mut blake3::Hasher, text: &str) {
     digest.update(&(text.len() as u64).to_le_bytes());
     digest.update(text.as_bytes());
+}
+
+fn display_id(value: &str) -> String {
+    let prefix = super::task_rows::clipped(value, MAX_DISPLAY_ID_BYTES);
+    let label = super::text::safe_label(prefix);
+    if value.len() <= MAX_DISPLAY_ID_BYTES && label.len() <= MAX_DISPLAY_ID_BYTES {
+        label
+    } else {
+        format!(
+            "{}…",
+            super::task_rows::clipped(&label, MAX_DISPLAY_ID_BYTES - 3)
+        )
+    }
 }

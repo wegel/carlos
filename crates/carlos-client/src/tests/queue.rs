@@ -1,12 +1,15 @@
 //! Keep queue facts numbered while selections, submitted text and editors stay outside them.
 
+use carlos_proto::commands::Command;
 use carlos_proto::events::{Event, Notification};
 use carlos_proto::ids::Sequence;
-use carlos_proto::queue::{QueueFacts, QueuePage};
+use carlos_proto::queue::{QueueFacts, QueuePage, MAX_DISPLAY_ID_BYTES};
+use serde_json::json;
 
 use super::client::{attached, notify};
 use super::{entry_id, event, session, snapshot};
-use crate::{ClientError, Replica};
+use crate::codec::Incoming;
+use crate::{ClientError, ReadReply, Replica};
 
 #[test]
 fn queue_events_replace_only_shared_facts_and_duplicate_delivery_has_no_effect() {
@@ -141,4 +144,56 @@ fn client_merges_queue_reads_into_its_single_numbered_fact_copy() {
         client.session(&session()).expect("current").queue(),
         Some(&queue_page(11, "b").queue)
     );
+}
+
+#[test]
+fn public_queue_reads_bound_readonly_display_labels_and_accept_old_pages_without_them() {
+    for (label, valid) in [
+        (None, true),
+        (Some("native 🌍 日本語".into()), true),
+        (Some("x".repeat(MAX_DISPLAY_ID_BYTES)), true),
+        (Some("🌍".repeat(MAX_DISPLAY_ID_BYTES / 4)), true),
+        (Some("x".repeat(MAX_DISPLAY_ID_BYTES + 1)), false),
+        (Some("native\nline".into()), false),
+        (Some("\x1b[31m".into()), false),
+        (Some("native\u{202e}".into()), false),
+    ] {
+        let (mut client, connection) = attached();
+        let mut page = serde_json::to_value(queue_page(10, "a")).expect("queue page");
+        page["queue"]["count"] = json!(1);
+        let mut entry = json!({"id":"b".repeat(64), "client_message":"human", "preview":"row",
+            "preview_complete":true, "text_bytes":"3"});
+        if let Some(label) = &label {
+            entry["display_id"] = json!(label);
+        }
+        page["entries"] = json!([entry]);
+        let request = client
+            .read(
+                connection,
+                Command::QueueRead {
+                    session: session(),
+                    expected: None,
+                    after: None,
+                    limit: Some(32),
+                    refresh: false,
+                },
+            )
+            .expect("typed queue read");
+        let result = client.receive(
+            connection,
+            Incoming::Success {
+                id: request.id(),
+                result: page,
+            },
+        );
+        if valid {
+            let effects = result.expect("safe readonly label");
+            let ReadReply::Queue(page) = &effects.replies[0].reply else {
+                panic!("queue page")
+            };
+            assert_eq!(page.entries[0].display_id, label);
+        } else {
+            assert!(matches!(result, Err(ClientError::InvalidPayload(_))));
+        }
+    }
 }

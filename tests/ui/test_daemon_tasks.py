@@ -118,7 +118,7 @@ class DaemonTasks(DaemonTaskControls, DaemonTaskRecovery):
         fixture, client, session, terminal = self.daemon_tasks("tasks-full-command", count=0, processes=[process])
         terminal.paste("private Unicode command composer")
         self.open_daemon_tasks(terminal,"Process: unicode-process")
-        terminal.wait(lambda:any(message.get("result",{}).get("complete") and
+        terminal.wait(lambda:any(isinstance(message.get("result"), dict) and message["result"].get("complete") and
             message["result"].get("field") == "command" for message in terminal.messages("server")), "named command reaches exact EOF")
         terminal.send(b"\x1b[6~" * 220)
         terminal.contains("COMPLETE_NATIVE_COMMAND_END")

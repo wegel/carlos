@@ -30,8 +30,7 @@ impl Device {
             return Ok(true);
         }
         if card.input.is_none() {
-            let handled = self.question_decision_key(link, key, &card)?;
-            return Ok(handled || self.task_backend() != Some(Backend::Grok));
+            return self.question_decision_key(link, key, &card);
         }
         self.question_editor_key(link, key, &card)?;
         Ok(true)
@@ -51,7 +50,10 @@ impl Device {
             self.questions.shown = false;
             return Ok(true);
         }
-        if key.code == KeyCode::Char('y') && key.modifiers == KeyModifiers::CONTROL {
+        if card.input.is_some()
+            && key.code == KeyCode::Char('y')
+            && key.modifiers == KeyModifiers::CONTROL
+        {
             self.copy_question_url(card)?;
             return Ok(true);
         }
@@ -156,7 +158,7 @@ impl Device {
             return Ok(false);
         };
         if !card.choices.contains(&decision) {
-            return Ok(true);
+            return Ok(card.input.is_some());
         }
         if matches!(decision, Decision::Once | Decision::Session) {
             if let Some(error) = self
@@ -180,7 +182,6 @@ impl Device {
                 draft.confirm = true;
                 draft.editor.notice = Some(default_no_hint(false, true).into());
             }
-            self.view.status_hint = Some("Press y again to allow this request".into());
             return Ok(true);
         }
         self.send_question_answer(link, card.id.clone(), ApprovalAnswer::Decision { decision })?;
@@ -193,7 +194,7 @@ impl Device {
             return false;
         };
         let id = card.id.clone();
-        if card.input.is_none() && self.task_backend() == Some(Backend::Grok) {
+        if card.input.is_none() {
             return false;
         }
         let editable = self.questions.size.is_some_and(can_edit_question);
