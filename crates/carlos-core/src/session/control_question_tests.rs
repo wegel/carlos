@@ -228,3 +228,44 @@ fn malformed_question_without_original_turn_never_creates_an_interrupt_target() 
     assert_eq!(state.approval().live().count(), 0);
     assert!(state.export_approvals().is_empty());
 }
+
+#[test]
+fn question_skip_and_interrupt_keep_distinct_native_paths_and_the_exact_child_turn() {
+    let mut state = SessionState::new("root".into(), Default::default(), false);
+    state.enable_codex();
+    state.set_active_turn_id(Some("root-working".into()));
+    let card = question(&mut state, json!("q"), "child", json!("request-turn"), true);
+    let (client, calls) = endpoint(false);
+    let work = state
+        .prepare_engine_answer(&client, card, interrupt())
+        .expect("original child query");
+    state
+        .finish_engine_control(&client, work.execute(&client))
+        .expect("query interrupt accepted");
+    assert_eq!(
+        *calls.lock().expect("native interrupt"),
+        [(
+            json!("turn/interrupt"),
+            json!({"threadId":"child","turnId":"request-turn"}),
+        )]
+    );
+    assert!(state.codex_callbacks().get(&json!("q")).is_some());
+    assert_eq!(state.active_turn_id().as_deref(), Some("root-working"));
+    let work = state
+        .prepare_engine_answer(
+            &client,
+            card,
+            ApprovalAnswer::Decision {
+                decision: carlos_proto::session::Decision::Deny,
+            },
+        )
+        .expect("separate explicit skip");
+    state
+        .finish_engine_control(&client, work.execute(&client))
+        .expect("skip acknowledged");
+    assert_eq!(
+        calls.lock().expect("native skip")[1],
+        (json!("q"), json!({"answers":{}}))
+    );
+    assert_eq!(state.active_turn_id().as_deref(), Some("root-working"));
+}

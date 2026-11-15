@@ -330,3 +330,9 @@ mod claude_native_state_contract_tests;
 
 #[cfg(test)]
 mod claude_session_contract_tests;
+
+#[cfg(test)]
+mod codex_question_contract_tests;
+
+#[cfg(test)]
+mod approval_fact_contract_tests;

@@ -170,3 +170,6 @@ mod queue_contract_support;
 mod queue_contract_tests;
 #[cfg(test)]
 mod queue_read_contract_tests;
+
+#[cfg(test)]
+mod callback_question_parser_tests;

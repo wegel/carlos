@@ -22,18 +22,3 @@ impl AppState {
         self.consume_core_events();
     }
 }
-
-#[cfg(test)]
-impl AppState {
-    pub(super) fn assert_entry_invariants(&self) {
-        self.assert_approval_hint_invariants();
-        self.session.messages().assert_invariants();
-        self.session
-            .input_history()
-            .assert_invariants(self.session.messages());
-        self.session.assert_summary_invariants();
-        for prompt in self.session.claude_history().unknown() {
-            assert!(self.session.messages().entry(prompt.entry_id()).is_some());
-        }
-    }
-}

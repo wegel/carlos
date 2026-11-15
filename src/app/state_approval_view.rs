@@ -1,8 +1,6 @@
 //! Keep consent keys and their card hints in the terminal that received them.
 
 use std::collections::HashMap;
-#[cfg(test)]
-use std::collections::HashSet;
 
 use carlos_core::session::approval_state::PendingApprovalRequest;
 use carlos_core::session::entry_id::EntryId;
@@ -37,33 +35,11 @@ impl ApprovalHints {
 }
 
 impl AppState {
-    /// Visit focused and queued cards without scanning transcript rows.
-    #[cfg(test)]
-    pub(super) fn live_approval_cards(&self) -> impl Iterator<Item = &PendingApprovalRequest> {
-        self.session.approval().live()
-    }
-
     /// Drop hints for the cards retired by a session command.
     pub(super) fn drop_retired_approval_hints(&mut self, retired: Vec<EntryId>) {
         for id in retired {
             self.view.approval_hints.cards.remove(&id);
         }
-    }
-
-    #[cfg(test)]
-    pub(super) fn assert_approval_hint_invariants(&self) {
-        let live: HashSet<_> = self.live_approval_cards().map(|p| p.entry_id()).collect();
-        assert!(self
-            .view
-            .approval_hints
-            .cards
-            .keys()
-            .all(|id| live.contains(id)));
-    }
-
-    #[cfg(test)]
-    pub(super) fn approval_hint_count(&self) -> usize {
-        self.view.approval_hints.cards.len()
     }
 
     /// Prepend the same hint as HEAD, including repeated consent after focus changes.

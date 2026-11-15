@@ -6,13 +6,6 @@ use serde_json::Value;
 use super::AppState;
 
 impl AppState {
-    /// Clear the previous session's name when the client switches thread IDs.
-    #[cfg(test)]
-    pub(super) fn set_thread_id(&mut self, thread_id: impl Into<String>) {
-        let changed = self.session.adopt_native_thread(thread_id.into());
-        self.apply_thread_change(changed);
-    }
-
     /// Reset only local controls named by an accepted native thread change.
     pub(super) fn apply_thread_change(
         &mut self,

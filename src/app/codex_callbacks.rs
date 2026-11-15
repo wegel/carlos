@@ -13,13 +13,6 @@ mod updates;
 
 pub(super) use self::updates::apply;
 
-/// Remove only the answered or cancelled request's local editor.
-#[cfg(test)]
-pub(super) fn retire(app: &mut AppState, id: &Value) {
-    let retired = app.session.retire_codex_callback(id);
-    apply_retired(app, retired);
-}
-
 /// Recompute the old focus rule after the session promotes a queued card.
 pub(super) fn apply_retired(app: &mut AppState, retired: CallbackRetired) {
     app.drop_retired_approval_hints(retired.cards);
@@ -133,13 +126,4 @@ pub(super) fn reply_hint(app: &mut AppState, id: &Value, error: &str) {
 pub(super) fn reply_error(app: &mut AppState, id: &Value, error: &str) {
     reply_hint(app, id, error);
     app.set_status(safe_text(error));
-}
-
-/// Retire every old-session callback before the replacement transcript is activated.
-#[cfg(test)]
-pub(super) fn reset(app: &mut AppState) {
-    for id in app.session.codex_callback_ids() {
-        retire(app, &id);
-    }
-    app.view.codex_callbacks.focused = false;
 }

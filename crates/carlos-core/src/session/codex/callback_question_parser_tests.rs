@@ -1,8 +1,8 @@
-//! Enumerate parser guards with the same public editor builders as the old code.
+//! Keep the original question-parser guard order in the native owner.
 
 use serde_json::{json, Value};
 
-use crate::app::codex_questions::build;
+use super::callback_questions::build;
 
 #[test]
 fn codex_question_errors_keep_the_original_checks_and_order() {

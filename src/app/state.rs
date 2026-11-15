@@ -7,8 +7,6 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 #[cfg(test)]
-use carlos_core::session::approval_state::ApprovalRequestDraft;
-#[cfg(test)]
 use carlos_core::session::ralph_runtime_state::QueuedTurnInput;
 use carlos_core::session::state::SessionState;
 
@@ -81,24 +79,6 @@ impl AppState {
     /// Store a backend, turn, or Ralph fact; local notices use `set_hint`.
     pub(super) fn set_status(&mut self, s: impl Into<String>) {
         self.session.set_status(s)
-    }
-
-    #[cfg(test)]
-    pub(super) fn set_pending_approval(&mut self, approval: ApprovalRequestDraft) {
-        let before = self.session.approval().pending().map(|p| p.entry_id());
-        let retired = self.session.set_pending_approval(approval);
-        let current = self.session.approval().pending().map(|p| p.entry_id());
-        // A duplicate delivery keeps the active card; only its extra hint lines reset.
-        if current == before {
-            self.view.approval_hints.clear_extra_lines(current);
-        }
-        self.drop_retired_approval_hints(retired);
-    }
-
-    #[cfg(test)]
-    pub(super) fn clear_pending_approval(&mut self) {
-        let cleared = self.session.clear_pending_session_approval();
-        self.apply_cleared_approval(cleared);
     }
 
     /// Discard only the editor and hints named by the session's retirement result.

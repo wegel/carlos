@@ -326,3 +326,7 @@ mod answer_tests;
 #[cfg(test)]
 #[path = "questions_lifetime_tests.rs"]
 mod lifetime_tests;
+
+#[cfg(test)]
+#[path = "questions_submission_tests.rs"]
+mod submission_tests;

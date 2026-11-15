@@ -1,26 +1,10 @@
 //! Build Codex question editors and native replies without changing prompt text.
 
-#[cfg(test)]
-use anyhow::Result;
-#[cfg(test)]
-use carlos_core::session::approval_state::ApprovalRequestDraft;
 use carlos_core::session::text::safe_label;
 use serde_json::{json, Map, Value};
 
 use super::claude_question_field::AnswerField;
 use super::claude_question_state::NativeDraft;
-
-/// Build the local editor from the session's plain request description.
-#[cfg(test)]
-pub(super) fn build(
-    method: &str,
-    params: &Value,
-    id: Value,
-) -> Result<(ApprovalRequestDraft, NativeDraft)> {
-    let (pending, editor) =
-        carlos_core::session::codex::callback_questions::build(method, params, id)?;
-    Ok((pending, from_description(editor)))
-}
 
 /// Create editors once, applying defaults only for MCP fields.
 pub(super) fn from_description(

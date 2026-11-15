@@ -207,17 +207,6 @@ mod tests;
 mod claude_quota_tests;
 
 #[cfg(test)]
-#[path = "../tests/view_hint_support.rs"]
-mod view_hint_support;
-
-#[cfg(test)]
-#[path = "../tests/approval_lifetime_support.rs"]
-mod approval_lifetime_support;
-#[cfg(test)]
-#[path = "../tests/approval_lifetime_tests.rs"]
-mod approval_lifetime_tests;
-
-#[cfg(test)]
 #[path = "../tests/claude_process_parity_tests.rs"]
 mod claude_process_parity_tests;
 

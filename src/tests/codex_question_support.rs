@@ -1,16 +1,11 @@
-//! Test native callbacks with exact IDs while forbidding synthetic user turns.
+//! Record native calls for the remaining legacy edit tests; forbid synthetic turns by default.
 
 use std::cell::{Cell, RefCell};
 use std::time::Duration;
 
 use anyhow::Result;
 use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
-use carlos_core::session::actions::ServerRequestAction;
-use carlos_core::session::codex::callbacks::CallbackKey;
 use serde_json::{json, Value};
-
-use crate::app::notifications::handle_server_message_line;
-use crate::app::state::AppState;
 
 #[derive(Default)]
 pub(super) struct Peer {
@@ -60,32 +55,4 @@ impl BackendClient for Peer {
         unimplemented!()
     }
     fn stop(&mut self) {}
-}
-
-pub(super) fn app() -> AppState {
-    let mut app = AppState::new("root".into());
-    app.session.set_codex_enabled_for_test(true);
-    app.session.enable_native_history();
-    app
-}
-
-pub(super) fn question(id: Value, thread: &str, blocking: bool) -> Value {
-    json!({"id":id,"method":"item/tool/requestUserInput","params":{"threadId":thread,"turnId":"request-turn","itemId":"question-tool","isBlocking":blocking,
-        "questions":[{"id":"native-q-7","header":"Native question","question":"Do not use this prose as the answer key","isSecret":false,"options":null}]}})
-}
-
-pub(super) fn receive(app: &mut AppState, frame: Value) -> Option<ServerRequestAction> {
-    handle_server_message_line(app, &frame.to_string())
-}
-
-pub(super) fn field_text(app: &AppState, id: Value) -> String {
-    app.view
-        .codex_callbacks
-        .drafts
-        .get(&CallbackKey::new(&id).expect("typed id"))
-        .expect("native callback")
-        .fields[0]
-        .editor
-        .lines()
-        .join("\n")
 }
