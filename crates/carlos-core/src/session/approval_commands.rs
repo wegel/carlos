@@ -53,6 +53,7 @@ impl ApprovalState {
 
 // Only this module can name a command or write the card containers.
 enum ApprovalChange<'a> {
+    MetadataRefresh,
     Adopt(ApprovalRequestDraft, EntryId),
     Enqueue(ApprovalRequestDraft, EntryId, ApprovalQueue),
     Focus(EntryId, ApprovalQueue),
@@ -66,6 +67,10 @@ enum ApprovalChange<'a> {
 }
 
 impl ApprovalState {
+    /// Refresh readonly card details after native progress without changing any card's identity.
+    pub(in crate::session) fn refresh_metadata(&mut self) {
+        self.change(ApprovalChange::MetadataRefresh);
+    }
     // This is the sole write point for the active card and both queues. Id-only
     // moves search the live containers. No retired-id ledger is needed: absent
     // ids cannot be inserted, and only the session allocator can mint a card.
@@ -76,6 +81,7 @@ impl ApprovalState {
             .expect("approval revision exhausted");
         let mut retired = Vec::new();
         match change {
+            ApprovalChange::MetadataRefresh => {}
             ApprovalChange::Adopt(facts, entry_id) => {
                 retired.extend(self.pending.take().map(|p| p.entry_id()));
                 self.pending = Some(PendingApprovalRequest {

@@ -17,6 +17,7 @@ impl Device {
         self.reading.received(&incoming);
         let failed_sources = self.documents.received(&incoming);
         let was_ready = self.client.session_is_ready(link.connection, &self.session);
+        let had_question_facts = self.question_facts_are_current();
         let goal_read = self.client.pending_goal_read(&self.session);
         let task_read = self.client.pending_task_read(&self.session);
         let mut effects = self.client.receive(link.connection, incoming)?;
@@ -38,7 +39,11 @@ impl Device {
         if readiness_changed {
             self.tasks.paint_dirty.set(true);
         }
-        Ok(changed || readiness_changed)
+        let question_readiness_changed = had_question_facts != self.question_facts_are_current();
+        if question_readiness_changed {
+            self.sync_questions(false);
+        }
+        Ok(changed || readiness_changed || question_readiness_changed)
     }
 
     pub(super) fn apply_effects(
@@ -47,6 +52,7 @@ impl Device {
         mut effects: Effects,
     ) -> Result<bool> {
         self.replace_source_frames(effects.welcome.as_ref());
+        self.question_effects(&effects);
         let mut task_changed = self.apply_task_reads(&mut effects)?;
         task_changed |= self.task_operations_changed(&effects.operations);
         let goal_changed = self.apply_goal_reads(&mut effects)?;
@@ -140,6 +146,15 @@ impl Device {
     pub(super) fn event(&mut self, link: Option<&mut Transport>, event: Event) -> Result<bool> {
         match event {
             Event::Mouse(mouse)
+                if self.selected_approval().is_some()
+                    && !self.view.runtime_settings.show_model_settings
+                    && !self.view.codex_goals.show
+                    && !self.view.codex_queue.show
+                    && !self.tasks.view.show =>
+            {
+                self.question_mouse(mouse);
+            }
+            Event::Mouse(mouse)
                 if !self.view.codex_goals.show
                     && !self.view.codex_queue.show
                     && !self.tasks.view.show =>
@@ -155,6 +170,7 @@ impl Device {
                     self.goal_paste(&normalize_pasted_text(&text));
                 } else if self.view.codex_queue.show {
                     self.queue_paste(&normalize_pasted_text(&text));
+                } else if self.question_paste(&normalize_pasted_text(&text)) {
                 } else {
                     self.view.input.insert_str(normalize_pasted_text(&text));
                 }
@@ -246,10 +262,10 @@ impl Device {
             }
             Ok(false) => {}
         }
-        match self.approval_key(link, key) {
+        match self.question_key(link, key) {
             Ok(true) => return true,
             Err(error) => {
-                self.view.status_hint = Some(error.to_string());
+                self.question_error(error.to_string());
                 return true;
             }
             Ok(false) => {}
@@ -276,11 +292,12 @@ impl Device {
             }
             return Ok(());
         }
-        if self
-            .client
-            .session(&session)
-            .is_some_and(|replica| replica.approvals().iter().any(|card| card.active))
-        {
+        if self.client.session(&session).is_some_and(|replica| {
+            replica
+                .approvals()
+                .iter()
+                .any(|card| card.blocking && !card.submitted)
+        }) {
             return Ok(());
         }
         if text.is_empty() {
@@ -321,7 +338,7 @@ impl Device {
         self.local_command(text)
     }
 
-    fn interrupt(&mut self, link: &mut Transport) -> Result<()> {
+    pub(super) fn interrupt(&mut self, link: &mut Transport) -> Result<()> {
         let turn = self
             .client
             .session(&self.session)

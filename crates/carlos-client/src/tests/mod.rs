@@ -2,6 +2,7 @@
 
 mod bodies;
 mod body_documents;
+mod callback_snapshot;
 mod cards;
 mod client;
 mod client_body_pressure;

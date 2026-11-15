@@ -177,13 +177,25 @@ pub struct Approval {
     pub id: EntryId,
     pub kind: String,
     pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub caller: Option<String>,
     pub details: Vec<String>,
     pub choices: Vec<Decision>,
     pub input: Option<ApprovalInput>,
     pub submitted: bool,
     pub active: bool,
+    #[serde(default = "blocking_default", skip_serializing_if = "is_blocking")]
+    pub blocking: bool,
     #[serde(default)]
     pub default_to_no: bool,
+}
+
+fn blocking_default() -> bool {
+    true
+}
+
+fn is_blocking(value: &bool) -> bool {
+    *value
 }
 
 /// Structured input selected explicitly from a backend request; no routing ids.

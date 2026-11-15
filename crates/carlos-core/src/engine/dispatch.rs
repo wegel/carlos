@@ -114,7 +114,7 @@ impl Owner {
             } => (
                 operation,
                 self.session.prepare_engine_answer(
-                    self.client.kind(),
+                    self.client.as_ref(),
                     EntryId::from_wire(&card),
                     answer,
                 ),

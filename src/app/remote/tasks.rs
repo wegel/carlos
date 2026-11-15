@@ -140,6 +140,15 @@ impl Device {
         if !self.tasks.view.show {
             return Ok(false);
         }
+        if key.code == KeyCode::F(4) {
+            self.close_tasks(link)?;
+            self.next_question();
+            return Ok(true);
+        }
+        self.task_panel_key(link, key)
+    }
+
+    fn task_panel_key(&mut self, link: Option<&mut Transport>, key: KeyEvent) -> Result<bool> {
         match (key.code, key.modifiers) {
             (KeyCode::Enter, _) => self.open_task_activity(link)?,
             (KeyCode::Esc, _) if self.tasks.activity.show => self.close_task_activity(true)?,

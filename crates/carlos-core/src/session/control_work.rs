@@ -2,13 +2,12 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::{ensure, Context, Result};
 use carlos_proto::commands::ApprovalAnswer;
 use carlos_proto::ids::{SessionId, TurnId};
 use carlos_proto::session::Approval;
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use super::approval_state::{ApprovalChoice, ApprovalClaim};
 use super::entry_id::EntryId;
@@ -24,7 +23,12 @@ pub struct ControlWork {
     call: ControlCall,
 }
 
-enum ControlCall {
+pub(super) enum ControlCall {
+    QuestionInterrupt {
+        claim: Box<ApprovalClaim>,
+        params: Value,
+        intent: Option<InterruptIntent>,
+    },
     NativeAnswer {
         claim: Box<ApprovalClaim>,
         body: Value,
@@ -70,12 +74,12 @@ impl ControlWork {
         } else {
             let live = match &self.call {
                 ControlCall::Interrupt { live, .. } => live.clone(),
-                ControlCall::Answer { claim, .. } | ControlCall::NativeAnswer { claim, .. } => {
-                    claim.live.clone()
-                }
+                ControlCall::Answer { claim, .. }
+                | ControlCall::NativeAnswer { claim, .. }
+                | ControlCall::QuestionInterrupt { claim, .. } => claim.live.clone(),
             };
             match client.guarded(crate::dispatch_guard::DispatchGuard::from_flag(live)) {
-                Ok(commands) => execute(&self.call, &commands),
+                Ok(commands) => super::control_execute::execute(&self.call, &commands),
                 Err(error) => Err(ControlFailure::Native(error.to_string())),
             }
         };
@@ -129,10 +133,14 @@ impl SessionState {
     /// Claim an exact live card once while the worker validates its answer.
     pub fn prepare_engine_answer(
         &mut self,
-        kind: BackendKind,
+        client: &dyn BackendClient,
         id: EntryId,
         answer: ApprovalAnswer,
     ) -> Result<ControlWork> {
+        let kind = client.kind();
+        if kind == BackendKind::Claude && matches!(answer, ApprovalAnswer::InterruptQuery) {
+            self.refresh_wire_turn();
+        }
         let pending = self
             .approval()
             .live()
@@ -142,8 +150,15 @@ impl SessionState {
             .approval()
             .pending()
             .is_some_and(|card| card.entry_id() == id);
-        let card = super::event_approval::export_card(pending, active);
+        let card = super::event_approval::export_card(
+            pending,
+            active,
+            self.approval_blocks(pending),
+            self.approval_browser_completed(pending),
+            self.approval_caller(pending),
+        );
         ensure!(!card.submitted, "approval already has a submitted answer");
+        let interrupt = self.question_interrupt(kind, &card, &answer)?;
         let claim = self
             .claim_live_approval(id)
             .context("approval already has a submitted answer")?;
@@ -151,10 +166,18 @@ impl SessionState {
             session: self.session_id().clone(),
             generation: self.control_generation(kind),
             kind,
-            call: ControlCall::Answer {
-                claim: Box::new(claim),
-                card,
-                answer,
+            call: if let Some(params) = interrupt {
+                ControlCall::QuestionInterrupt {
+                    claim: Box::new(claim),
+                    params,
+                    intent: (kind == BackendKind::Claude).then(|| client.prepare_interrupt()),
+                }
+            } else {
+                ControlCall::Answer {
+                    claim: Box::new(claim),
+                    card,
+                    answer,
+                }
             },
         })
     }
@@ -204,6 +227,19 @@ impl SessionState {
                     }
                 }
             }
+            ControlCall::QuestionInterrupt { claim, .. } => {
+                if claim.live.load(Ordering::SeqCst) {
+                    self.reopen_claimed_approval(claim);
+                    if completion.result.is_ok() {
+                        self.edit_codex_callback(&claim.facts.request_id);
+                        if let Some(callback) =
+                            self.codex_callbacks.get_mut(&claim.facts.request_id)
+                        {
+                            callback.interrupting = true;
+                        }
+                    }
+                }
+            }
             ControlCall::Answer { claim, .. } | ControlCall::NativeAnswer { claim, .. } => {
                 match &completion.result {
                     Ok((Some(choice), _)) if claim.live.load(Ordering::SeqCst) => {
@@ -214,8 +250,13 @@ impl SessionState {
                 }
             }
         }
-        if let ControlCall::Interrupt { intent, .. } = completion.call {
-            client.finish_interrupt(intent, completion.result.is_ok());
+        match completion.call {
+            ControlCall::Interrupt { intent, .. }
+            | ControlCall::QuestionInterrupt {
+                intent: Some(intent),
+                ..
+            } => client.finish_interrupt(intent, completion.result.is_ok()),
+            _ => {}
         }
         completion.result.map(|_| ())
     }
@@ -258,54 +299,6 @@ impl SessionState {
             let _ = self.retire_approval(claim.card);
         }
         self.set_status("answer sent");
-    }
-}
-
-fn execute(
-    call: &ControlCall,
-    client: &CommandHandle,
-) -> Result<(Option<ApprovalChoice>, Value), ControlFailure> {
-    match call {
-        ControlCall::NativeAnswer { claim, body } => {
-            if !claim.live.load(Ordering::SeqCst) {
-                return Err(ControlFailure::Retired);
-            }
-            client
-                .respond(&claim.facts.request_id, body.clone())
-                .map_err(|error| ControlFailure::Native(error.to_string()))?;
-            Ok((Some(ApprovalChoice::Accept), json!(null)))
-        }
-        ControlCall::Interrupt { params, live, .. } => {
-            if !live.load(Ordering::SeqCst) {
-                return Err(ControlFailure::Retired);
-            }
-            client
-                .call("turn/interrupt", params.clone(), Duration::from_secs(10))
-                .and_then(|line| crate::protocol_params::extract_result_object(&line))
-                .map(|value| (None, value))
-                .map_err(|error| ControlFailure::Native(error.to_string()))
-        }
-        ControlCall::Answer {
-            claim,
-            card,
-            answer,
-        } => {
-            if !claim.live.load(Ordering::SeqCst) {
-                return Err(ControlFailure::Retired);
-            }
-            let (choice, body) = super::control_answers::convert(&claim.facts, card, answer)
-                .map_err(|error| ControlFailure::Invalid(error.to_string()))?;
-            if body.to_string().len() > 1024 * 1024 {
-                return Err(ControlFailure::Invalid("answer exceeds one MiB".into()));
-            }
-            if !claim.live.load(Ordering::SeqCst) {
-                return Err(ControlFailure::Retired);
-            }
-            client
-                .respond(&claim.facts.request_id, body)
-                .map_err(|error| ControlFailure::Native(error.to_string()))?;
-            Ok((Some(choice), json!(null)))
-        }
     }
 }
 

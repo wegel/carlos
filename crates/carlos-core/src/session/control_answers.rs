@@ -9,12 +9,26 @@ use serde_json::{json, Map, Value};
 
 use super::approval_state::{ApprovalChoice, ApprovalRequestDraft, ApprovalRequestKind};
 
+/// A Codex question may interrupt only the thread and turn captured by its original callback.
+pub(super) fn question_interrupt_params(params: &Value) -> Option<Value> {
+    let thread = params["threadId"]
+        .as_str()
+        .filter(|id| !id.is_empty() && id.len() <= 4096)?;
+    let turn = params["turnId"]
+        .as_str()
+        .filter(|id| !id.is_empty() && id.len() <= 4096)?;
+    Some(json!({"threadId":thread,"turnId":turn}))
+}
+
 pub(super) fn convert(
     facts: &ApprovalRequestDraft,
     card: &Approval,
     answer: &ApprovalAnswer,
 ) -> Result<(ApprovalChoice, Value)> {
     match answer {
+        ApprovalAnswer::InterruptQuery => {
+            bail!("query interrupts require their original guarded control")
+        }
         ApprovalAnswer::Decision { decision } => {
             ensure!(
                 card.choices.contains(decision),
@@ -88,7 +102,11 @@ fn field_reply(
             .iter()
             .find(|field| field.key == answer.key)
             .context("unknown field key")?;
-        let values = validate_field(field, &answer)?;
+        let values = validate_field(
+            field,
+            &answer,
+            facts.kind == ApprovalRequestKind::CodexQuestion,
+        )?;
         let value = if facts.kind == ApprovalRequestKind::CodexQuestion {
             json!({"answers":values})
         } else {
@@ -118,7 +136,7 @@ fn field_reply(
     Ok(json!({"behavior":"allow","updatedInput":input}))
 }
 
-fn validate_field(field: &InputField, answer: &FieldAnswer) -> Result<Vec<String>> {
+fn validate_field(field: &InputField, answer: &FieldAnswer, codex: bool) -> Result<Vec<String>> {
     ensure!(
         field.multiple || answer.values.len() <= 1,
         "field accepts only one value"
@@ -137,13 +155,18 @@ fn validate_field(field: &InputField, answer: &FieldAnswer) -> Result<Vec<String
         values.push(option.label.clone());
     }
     let text = answer.text.as_deref().unwrap_or("");
+    let text = if codex { text.trim() } else { text };
     if !text.is_empty() {
         ensure!(field.other, "field does not offer free text");
         ensure!(
             !field.notes_only || !values.is_empty(),
             "notes require a listed value"
         );
-        values.push(text.to_owned());
+        values.push(if codex {
+            format!("user_note: {text}")
+        } else {
+            text.to_owned()
+        });
     }
     ensure!(
         !field.required || !values.is_empty(),

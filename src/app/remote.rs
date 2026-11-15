@@ -10,6 +10,12 @@ mod goals;
 mod goals_commands;
 mod local_commands;
 mod navigation;
+mod questions;
+mod questions_answers;
+mod questions_keys;
+mod questions_operations;
+mod questions_render;
+mod questions_url;
 mod queue;
 mod queue_commands;
 mod queue_editor;
@@ -73,6 +79,7 @@ struct Device {
     goals: goals::Goals,
     queue: queue::Queue,
     tasks: tasks::Tasks,
+    questions: questions::Questions,
     settings: settings::Settings,
     waiting_ready: bool,
 }
@@ -93,6 +100,7 @@ pub(super) fn run(socket: &Path, options: &CliOptions) -> Result<()> {
         goals: goals::Goals::default(),
         queue: queue::Queue::default(),
         tasks: tasks::Tasks::default(),
+        questions: questions::Questions::default(),
         settings: settings::Settings::default(),
         waiting_ready: false,
     };
@@ -120,6 +128,7 @@ impl Device {
                         }
                     }
                 }
+                redraw |= self.question_url_tick();
                 redraw |= self.source_tick(transport.as_mut());
                 redraw |= self.poll_settings_appearance();
                 if redraw {

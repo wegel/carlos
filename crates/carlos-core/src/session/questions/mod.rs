@@ -1,10 +1,13 @@
 //! Parse native question descriptions independently of answer editors.
 
+mod caller;
 mod claude;
 mod codex;
 mod field;
 
-pub(crate) use claude::{ask_fields, mcp_fields};
+pub use caller::caller_label;
+pub(crate) use claude::ask_fields;
+pub use claude::mcp_fields;
 pub(crate) use codex::question_fields;
 pub use field::QuestionField;
 

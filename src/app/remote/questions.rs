@@ -1,0 +1,217 @@
+//! Keep each terminal's callback focus and answer editors bound to exact live card descriptions.
+
+use std::collections::{HashMap, HashSet};
+
+use carlos_proto::ids::EntryId;
+use carlos_proto::session::{Approval, Availability};
+use carlos_proto::submissions::ClientOperation;
+
+use super::Device;
+use crate::app::claude_question_state::NativeDraft;
+use crate::app::claude_question_view::default_no_hint;
+use crate::app::view_models::TerminalSize;
+
+pub(super) struct AnswerDraft {
+    pub(super) editor: NativeDraft,
+    pub(super) fingerprint: [u8; 32],
+    pub(super) confirm: bool,
+}
+
+pub(super) struct AnswerTarget {
+    pub(super) card: EntryId,
+    pub(super) fingerprint: [u8; 32],
+    pub(super) finished: bool,
+    pub(super) interrupt: bool,
+}
+
+#[derive(Default)]
+pub(super) struct Questions {
+    pub(super) url: Option<super::questions_url::UrlCopy>,
+    pub(super) size: Option<TerminalSize>,
+    pub(super) drafts: HashMap<EntryId, AnswerDraft>,
+    pub(super) operations: HashMap<ClientOperation, AnswerTarget>,
+    retired: HashSet<EntryId>,
+    pub(super) focus: Option<EntryId>,
+    pub(super) shown: bool,
+}
+
+impl Questions {
+    pub(super) fn synchronize(&mut self, cards: &[Approval]) {
+        self.operations.retain(|_, target| {
+            !target.finished || cards.iter().any(|card| card.id == target.card)
+        });
+        self.drafts
+            .retain(|id, _| cards.iter().any(|card| &card.id == id));
+        self.retired
+            .retain(|id| cards.iter().any(|card| &card.id == id));
+        for card in cards {
+            self.ensure_draft(card);
+        }
+        if !cards
+            .iter()
+            .any(|card| Some(&card.id) == self.focus.as_ref())
+        {
+            self.focus = None;
+            self.shown = false;
+        }
+        if !self.shown {
+            let next = cards
+                .iter()
+                .filter(|card| !card.submitted && card.blocking && !self.retired.contains(&card.id))
+                .find(|card| card.active)
+                .or_else(|| {
+                    cards.iter().find(|card| {
+                        !card.submitted && card.blocking && !self.retired.contains(&card.id)
+                    })
+                });
+            if let Some(card) = next {
+                self.focus = Some(card.id.clone());
+                self.shown = true;
+            }
+        }
+    }
+
+    fn ensure_draft(&mut self, card: &Approval) {
+        let fingerprint = fingerprint(card);
+        if self
+            .drafts
+            .get(&card.id)
+            .is_some_and(|draft| draft.fingerprint != fingerprint)
+        {
+            self.drafts.remove(&card.id);
+            self.retired.insert(card.id.clone());
+            if self.focus.as_ref() == Some(&card.id) {
+                self.focus = None;
+                self.shown = false;
+            }
+        }
+        if self.retired.contains(&card.id) {
+            return;
+        }
+        self.drafts
+            .entry(card.id.clone())
+            .or_insert_with(|| AnswerDraft {
+                editor: initial_editor(card),
+                fingerprint,
+                confirm: false,
+            });
+    }
+
+    pub(super) fn next(&mut self, cards: &[Approval]) {
+        let live: Vec<_> = cards.iter().filter(|card| !card.submitted).collect();
+        if live.is_empty() {
+            return;
+        }
+        let index = self
+            .focus
+            .as_ref()
+            .and_then(|id| live.iter().position(|card| &card.id == id));
+        let index = if self.shown {
+            index.map_or(0, |index| (index + 1) % live.len())
+        } else {
+            index.unwrap_or(0)
+        };
+        self.focus = Some(live[index].id.clone());
+        if self.retired.remove(&live[index].id) {
+            self.drafts.insert(
+                live[index].id.clone(),
+                AnswerDraft {
+                    editor: initial_editor(live[index]),
+                    fingerprint: fingerprint(live[index]),
+                    confirm: false,
+                },
+            );
+        }
+        if let Some(draft) = self.drafts.get_mut(&live[index].id) {
+            if draft.confirm && live[index].default_to_no {
+                draft.editor.notice =
+                    Some(default_no_hint(!draft.editor.fields.is_empty(), false).into());
+            }
+            draft.confirm = false;
+        }
+        self.shown = true;
+    }
+}
+
+fn initial_editor(card: &Approval) -> NativeDraft {
+    let mut editor = NativeDraft::from_approval(card.input.as_ref());
+    if card.default_to_no {
+        editor.notice = Some(default_no_hint(!editor.fields.is_empty(), false).into());
+    }
+    editor
+}
+
+impl Device {
+    pub(super) fn question_effects(&mut self, effects: &carlos_client::Effects) {
+        let replaced = matches!(
+            effects.welcome,
+            Some(carlos_client::Welcome::Replaced { .. })
+        );
+        if replaced
+            || effects.sessions.iter().any(|update| {
+                update.session == self.session && (update.changes.reset || update.changes.approvals)
+            })
+        {
+            self.sync_questions(replaced);
+        }
+    }
+
+    pub(super) fn sync_questions(&mut self, replaced: bool) {
+        if replaced {
+            self.questions.drafts.clear();
+            self.questions.retired.clear();
+            self.questions.focus = None;
+            self.questions.shown = false;
+        }
+        if !self.question_facts_are_current() {
+            return;
+        }
+        if let Some(replica) = self.client.session(&self.session) {
+            self.questions.synchronize(replica.approvals());
+        }
+    }
+
+    pub(super) fn next_question(&mut self) {
+        self.view.confirm_allow = None;
+        if let Some(replica) = self.client.session(&self.session) {
+            self.questions.next(replica.approvals());
+        }
+    }
+
+    pub(super) fn selected_approval(&self) -> Option<&Approval> {
+        if !self.questions.shown {
+            return None;
+        }
+        self.client
+            .session(&self.session)?
+            .approvals()
+            .iter()
+            .find(|card| Some(&card.id) == self.questions.focus.as_ref())
+    }
+
+    pub(super) fn question_facts_are_current(&self) -> bool {
+        self.client.current_session_has_snapshot(&self.session)
+            && self.client.session(&self.session).is_some_and(|replica| {
+                matches!(
+                    replica.info().availability,
+                    Availability::Ready | Availability::Starting
+                )
+            })
+    }
+}
+
+pub(super) fn fingerprint(card: &Approval) -> [u8; 32] {
+    let bytes = serde_json::to_vec(&(
+        &card.kind,
+        &card.input,
+        &card.choices,
+        card.default_to_no,
+        card.blocking,
+    ))
+    .expect("typed callback description");
+    *blake3::hash(&bytes).as_bytes()
+}
+
+#[cfg(test)]
+#[path = "questions_tests.rs"]
+mod tests;

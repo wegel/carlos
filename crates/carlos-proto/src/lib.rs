@@ -1,5 +1,7 @@
 //! Versioned client messages without sockets, threads, clocks or terminal types.
 
+#[cfg(test)]
+mod approval_tests;
 pub mod bytes;
 mod command_types;
 pub mod commands;

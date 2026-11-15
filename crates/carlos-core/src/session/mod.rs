@@ -15,7 +15,9 @@ pub mod claude;
 pub mod codex;
 pub mod context_usage;
 mod control_answers;
+mod control_execute;
 mod control_liveness;
+mod control_query;
 pub mod control_work;
 mod item_sources;
 mod item_updates;
@@ -234,6 +236,10 @@ mod output_control_tests;
 #[cfg(test)]
 mod submission_identity_tests;
 
+#[cfg(test)]
+mod approval_metadata_tests;
+#[cfg(test)]
+mod control_question_tests;
 #[cfg(test)]
 mod control_work_tests;
 

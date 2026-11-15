@@ -99,9 +99,13 @@ class NativeCodex(NativeQueue, NativeTasks, NativeSettings):
                 self.record("client", request)
                 self.requests.append(request)
                 if "method" not in request:
+                    if await self.task_question_response(link, request):
+                        continue
                     assert request["id"] == "card" and self.answers == 0, request
                     self.answers += 1
                     controlled.add("answer")
+                elif request["method"] == "turn/interrupt" and await self.task_question_request(link, request):
+                    self.interrupts += 1
                 elif request["method"] == "turn/start" and request["params"]["input"][0]["text"] == "held":
                     assert held is None
                     held = request["id"]

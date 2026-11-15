@@ -91,10 +91,10 @@ fn only_one_client_can_claim_a_card_and_queued_cards_need_no_focus_switch() {
     let second = card(&mut state, "second");
     let (client, calls) = endpoint(false);
     let work = state
-        .prepare_engine_answer(BackendKind::Claude, second, allow())
+        .prepare_engine_answer(&client, second, allow())
         .expect("claim queued card");
     assert!(state
-        .prepare_engine_answer(BackendKind::Claude, second, allow())
+        .prepare_engine_answer(&client, second, allow())
         .is_err());
     assert_eq!(
         state
@@ -129,7 +129,7 @@ fn a_validation_error_reopens_only_its_card_without_native_io() {
     let (client, calls) = endpoint(false);
     let work = state
         .prepare_engine_answer(
-            BackendKind::Claude,
+            &client,
             id,
             ApprovalAnswer::Decision {
                 decision: Decision::Session,
@@ -141,9 +141,7 @@ fn a_validation_error_reopens_only_its_card_without_native_io() {
         Err(ControlFailure::Invalid(_))
     ));
     assert!(calls.lock().expect("calls").is_empty());
-    assert!(state
-        .prepare_engine_answer(BackendKind::Claude, id, allow())
-        .is_ok());
+    assert!(state.prepare_engine_answer(&client, id, allow()).is_ok());
 }
 
 #[test]
@@ -152,16 +150,14 @@ fn an_uncertain_native_answer_keeps_the_card_claimed() {
     let id = card(&mut state, "first");
     let (client, calls) = endpoint(true);
     let work = state
-        .prepare_engine_answer(BackendKind::Claude, id, allow())
+        .prepare_engine_answer(&client, id, allow())
         .expect("claim");
     assert!(matches!(
         state.finish_engine_control(&client, work.execute(&client)),
         Err(ControlFailure::Native(_))
     ));
     assert_eq!(calls.lock().expect("calls").len(), 1);
-    assert!(state
-        .prepare_engine_answer(BackendKind::Claude, id, allow())
-        .is_err());
+    assert!(state.prepare_engine_answer(&client, id, allow()).is_err());
 }
 
 #[test]
@@ -170,7 +166,7 @@ fn withdrawing_a_card_cancels_its_undispatched_answer() {
     let id = card(&mut state, "first");
     let (client, calls) = endpoint(false);
     let work = state
-        .prepare_engine_answer(BackendKind::Claude, id, allow())
+        .prepare_engine_answer(&client, id, allow())
         .expect("claim");
     let _ = state.retire_approval(id);
     assert!(matches!(
@@ -256,7 +252,7 @@ fn a_control_completion_cannot_mutate_another_session() {
     let id = card(&mut original, "first");
     let (client, _calls) = endpoint(false);
     let work = original
-        .prepare_engine_answer(BackendKind::Claude, id, allow())
+        .prepare_engine_answer(&client, id, allow())
         .expect("claim");
     let mut other = state();
     other.set_status("other session");
@@ -287,11 +283,7 @@ fn structured_question_answers_validate_card_keys_values_and_required_fields() {
         json!({"fields":[{"key":"Pick one","values":["A","B"],"text":null}]}),
     ] {
         let work = state
-            .prepare_engine_answer(
-                BackendKind::Claude,
-                id,
-                ApprovalAnswer::Input { value: input },
-            )
+            .prepare_engine_answer(&client, id, ApprovalAnswer::Input { value: input })
             .expect("claim");
         assert!(matches!(
             state.finish_engine_control(&client, work.execute(&client)),
@@ -301,7 +293,7 @@ fn structured_question_answers_validate_card_keys_values_and_required_fields() {
     assert!(calls.lock().expect("calls").is_empty());
     let work = state
         .prepare_engine_answer(
-            BackendKind::Claude,
+            &client,
             id,
             ApprovalAnswer::Input {
                 value: json!({"fields":[{"key":"Pick one","values":[],"text":"日本語"}]}),
@@ -324,7 +316,7 @@ fn answering_the_active_card_promotes_the_next_without_leaving_an_idle_gap() {
     let second = card(&mut state, "second");
     let (client, _calls) = endpoint(false);
     let work = state
-        .prepare_engine_answer(BackendKind::Claude, first, allow())
+        .prepare_engine_answer(&client, first, allow())
         .expect("claim active");
     state
         .finish_engine_control(&client, work.execute(&client))
@@ -359,7 +351,7 @@ fn an_approval_uses_no_ordinary_mutation_slot() {
         .expect("work");
     let (client, calls) = endpoint(false);
     let control = state
-        .prepare_engine_answer(BackendKind::Claude, id, allow())
+        .prepare_engine_answer(&client, id, allow())
         .expect("control during send");
     state
         .finish_engine_control(&client, control.execute(&client))

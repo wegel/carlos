@@ -112,16 +112,33 @@ impl Client {
     }
     /// Require an accepted subscription on this greeted connection before using Ready session facts.
     pub fn session_is_ready(&self, connection: ConnectionId, session: &SessionId) -> bool {
+        self.session_has_current_snapshot(connection, session)
+            && self
+                .session(session)
+                .is_some_and(|replica| replica.info().availability == Availability::Ready)
+    }
+    /// Check accepted subscription facts without treating a retained copy as current after reconnect.
+    pub fn session_has_current_snapshot(
+        &self,
+        connection: ConnectionId,
+        session: &SessionId,
+    ) -> bool {
         self.is_ready(connection)
             && self.sessions.get(session).is_some_and(|slot| {
                 slot.wanted
                     && !slot.refresh
                     && slot.syncing.is_none()
                     && slot.subscribed == Some(connection)
-                    && slot.replica.as_ref().is_some_and(|replica| {
-                        !replica.is_stale() && replica.info().availability == Availability::Ready
-                    })
+                    && slot
+                        .replica
+                        .as_ref()
+                        .is_some_and(|replica| !replica.is_stale())
             })
+    }
+    /// Let callback consumers inspect accepted Starting facts while preserving reconnect fences.
+    pub fn current_session_has_snapshot(&self, session: &SessionId) -> bool {
+        self.current
+            .is_some_and(|connection| self.session_has_current_snapshot(connection, session))
     }
     /// Let renderers distinguish current Ready facts from a retained copy during reconnect.
     pub fn current_session_is_ready(&self, session: &SessionId) -> bool {

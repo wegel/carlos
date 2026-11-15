@@ -11,6 +11,30 @@ use super::claude_question_state::NativeDraft;
 use super::state::AppState;
 use super::text::{visual_width, wrap_natural_by_cells};
 
+/// Borrow only offered keys and the question's blocking rule when painting its controls.
+#[derive(Clone, Copy)]
+pub(super) struct QuestionControls {
+    pub(super) claude: bool,
+    pub(super) accept: bool,
+    pub(super) session: bool,
+    pub(super) decline: bool,
+    pub(super) cancel: bool,
+    pub(super) blocking: Option<bool>,
+}
+
+impl QuestionControls {
+    pub(super) fn from_native(pending: &ApprovalRequestDraft, blocking: Option<bool>) -> Self {
+        Self {
+            claude: pending.method == "claude/native",
+            accept: pending.can_accept_once(),
+            session: pending.can_accept_for_session,
+            decline: pending.can_decline,
+            cancel: pending.can_cancel,
+            blocking,
+        }
+    }
+}
+
 /// Name the actual approval key without treating answer text as consent.
 pub(super) fn default_no_hint(has_fields: bool, again: bool) -> &'static str {
     match (has_fields, again) {
@@ -23,37 +47,13 @@ pub(super) fn default_no_hint(has_fields: bool, again: bool) -> &'static str {
 
 /// Keep the requesting server or child tool visible above the answer field.
 pub(super) fn caller(pending: &ApprovalRequestDraft) -> String {
-    let payload = pending
-        .requested_permissions
-        .as_ref()
-        .unwrap_or(&Value::Null);
-    if payload["threadId"].is_string() && pending.method != "claude/native" {
-        let thread = payload["threadId"].as_str().unwrap_or("unknown");
-        let tail = thread
-            .chars()
-            .rev()
-            .take(8)
-            .collect::<String>()
-            .chars()
-            .rev()
-            .collect::<String>();
-        return format!(
-            "Thread: …{}  {}",
-            safe_label(&tail),
-            safe_label(payload["serverName"].as_str().unwrap_or("Codex question"))
-        );
-    }
-    if let Some(server) = payload["serverName"].as_str() {
-        return format!("MCP server: {}", safe_label(server));
-    }
-    let mut label = format!(
-        "Tool: {}",
-        safe_label(payload["toolName"].as_str().unwrap_or("unknown"))
-    );
-    if let Some(agent) = payload["agentID"].as_str() {
-        label.push_str(&format!("  Child: {}", safe_label(agent)));
-    }
-    label
+    carlos_core::session::questions::caller_label(
+        &pending.method,
+        pending
+            .requested_permissions
+            .as_ref()
+            .unwrap_or(&Value::Null),
+    )
 }
 
 /// Show the current editor line with enough horizontal room for its caret.
@@ -92,6 +92,17 @@ pub(super) fn body_lines(
     pending: &PendingApprovalRequest,
     draft: &NativeDraft,
 ) -> Vec<String> {
+    let mut lines = draft_lines(draft);
+    lines.push(format!(
+        "Request: {}",
+        super::native_questions::id_label(&pending.facts().request_id)
+    ));
+    lines.extend(app.approval_detail_lines(pending).map(str::to_string));
+    lines
+}
+
+/// Paint answer fields and review text independently of a native callback owner.
+pub(super) fn draft_lines(draft: &NativeDraft) -> Vec<String> {
     let mut lines = Vec::new();
     if let Some(notice) = &draft.notice {
         lines.push(notice.clone());
@@ -117,22 +128,17 @@ pub(super) fn body_lines(
             lines.extend(field_lines(&draft.fields[draft.current]));
         }
     }
-    lines.push(format!(
-        "Request: {}",
-        super::native_questions::id_label(&pending.facts().request_id)
-    ));
-    lines.extend(app.approval_detail_lines(pending).map(str::to_string));
     lines
 }
 
 /// Keep compact answer keys on screen even on a short phone terminal.
 pub(super) fn footer_lines(
     draft: &NativeDraft,
-    pending: &ApprovalRequestDraft,
+    controls: QuestionControls,
     width: usize,
     compact: bool,
-    blocking: Option<bool>,
 ) -> Vec<String> {
+    let blocking = controls.blocking;
     if draft.unsupported.is_some() {
         let question = blocking.is_some();
         return wrap_lines(
@@ -159,8 +165,8 @@ pub(super) fn footer_lines(
             },
         ];
     }
-    if draft.fields.is_empty() && pending.method != "claude/native" {
-        return approval_footer(pending, width);
+    if draft.fields.is_empty() && !controls.claude {
+        return approval_footer(controls, width);
     }
     if compact {
         return vec![
@@ -185,6 +191,11 @@ pub(super) fn footer_lines(
 
 /// Wrap prose while keeping empty lines and explicit line breaks.
 pub(super) fn wrap_lines(lines: Vec<String>, width: usize) -> Vec<String> {
+    wrap_borrowed_lines(&lines, width)
+}
+
+/// Reuse borrowed card text without cloning every body string before wrapping it.
+pub(super) fn wrap_borrowed_lines(lines: &[String], width: usize) -> Vec<String> {
     lines
         .iter()
         .flat_map(|line| {
@@ -306,18 +317,18 @@ fn field_guidance(field: &AnswerField) -> String {
     parts.join("; ")
 }
 
-fn approval_footer(pending: &ApprovalRequestDraft, width: usize) -> Vec<String> {
+fn approval_footer(controls: QuestionControls, width: usize) -> Vec<String> {
     let mut choices = Vec::new();
-    if pending.can_accept_once() {
+    if controls.accept {
         choices.push("y accept");
     }
-    if pending.can_accept_for_session {
+    if controls.session {
         choices.push("s accept session");
     }
-    if pending.can_decline {
+    if controls.decline {
         choices.push("n decline");
     }
-    if pending.can_cancel {
+    if controls.cancel {
         choices.push("c cancel");
     }
     let mut lines = wrap_lines(vec![choices.join("  ")], width);

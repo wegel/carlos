@@ -19,6 +19,7 @@ from test_task_interests import TaskInterestTests
 from test_task_stops import TaskStopTests
 from test_task_windows import TaskWindowTests
 from test_task_activity import TaskActivityTests
+from test_task_questions import TaskQuestionTests
 from test_settings_facts import SettingsFactTests
 from test_settings_changes import SettingsChangeTests
 from test_backend_settings import BackendSettingsTests
@@ -26,7 +27,7 @@ from test_tool_labels import ToolLabelTests
 from test_context_defaults import ContextDefaultTests
 
 
-class DaemonTests(ContextDefaultTests, ToolLabelTests, BackendSettingsTests, TaskActivityTests, SettingsChangeTests, TaskWindowTests, SettingsFactTests, TaskInterestTests, FailureTests, RecoveryTests, SourceTests, EditTests, GoalTests, QueueTests, TaskTests, TaskStopTests, unittest.TestCase):
+class DaemonTests(TaskQuestionTests, ContextDefaultTests, ToolLabelTests, BackendSettingsTests, TaskActivityTests, SettingsChangeTests, TaskWindowTests, SettingsFactTests, TaskInterestTests, FailureTests, RecoveryTests, SourceTests, EditTests, GoalTests, QueueTests, TaskTests, TaskStopTests, unittest.TestCase):
     def test_codex_reads_controls_fifo_and_independent_output_cursors_while_send_waits(self):
         fixture = Fixture("codex-held", codex=True)
         self.addCleanup(fixture.close)

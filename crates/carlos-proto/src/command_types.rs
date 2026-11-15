@@ -20,8 +20,14 @@ pub enum SendPolicy {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ApprovalAnswer {
-    Decision { decision: Decision },
-    Input { value: Value },
+    /// Interrupt the original callback's captured query without answering or retiring its card.
+    InterruptQuery,
+    Decision {
+        decision: Decision,
+    },
+    Input {
+        value: Value,
+    },
 }
 
 /// Structured question answers retain card-local keys and exact option values.

@@ -47,22 +47,7 @@ impl Device {
     ) -> Result<bool> {
         let mut changed = false;
         for update in self.documents.formatting.poll()? {
-            match update {
-                Update::Rows(entry) => self.dirty_entry(&entry),
-                Update::Copied { copy, backend } => {
-                    if !self.selection_copied(copy, backend) {
-                        self.copied_original(copy, backend);
-                    }
-                }
-                Update::Selected(copy) => self.selection_part_copied(copy),
-                Update::CopyFailed(error) => {
-                    self.documents.selection = None;
-                    self.documents.copy = None;
-                    self.documents.formatting.end_selection();
-                    self.view.status_hint = Some(format!("Cannot copy selected text: {error:?}"));
-                }
-            }
-            changed = true;
+            changed |= self.apply_formatter_update(update);
         }
         changed |= self.cancel_unavailable_copy();
         self.drive_selection_copy()?;
@@ -92,6 +77,49 @@ impl Device {
         self.documents
             .drive_reads(&mut self.client, link, Some(&token), accepting)?;
         Ok(changed)
+    }
+
+    fn apply_formatter_update(&mut self, update: Update) -> bool {
+        match update {
+            Update::Rows(entry) => self.dirty_entry(&entry),
+            Update::Copied { copy, backend } => {
+                if !self.question_url_copied(copy, backend) && !self.selection_copied(copy, backend)
+                {
+                    self.copied_original(copy, backend);
+                }
+            }
+            Update::Selected(copy) => self.selection_part_copied(copy),
+            Update::CopyFailed { copy, error } => return self.copy_failed(copy, &error),
+        }
+        true
+    }
+
+    fn copy_failed(
+        &mut self,
+        copy: u64,
+        error: &crate::app::transcript_body::formatter::TransferError,
+    ) -> bool {
+        if self.question_url_failed(copy, error) {
+            return true;
+        }
+        let selected = self
+            .documents
+            .selection
+            .as_ref()
+            .is_some_and(|selection| selection.id == Some(copy));
+        let original = self
+            .documents
+            .copy
+            .as_ref()
+            .is_some_and(|original| original.queued == Some(copy));
+        if !selected && !original {
+            return false;
+        }
+        self.documents.selection = None;
+        self.documents.copy = None;
+        self.documents.formatting.end_selection();
+        self.view.status_hint = Some(format!("Cannot copy selected text: {error:?}"));
+        true
     }
 
     fn formatter_candidate(&mut self) -> Option<(carlos_proto::ids::EntryId, View)> {

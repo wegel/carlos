@@ -2,11 +2,13 @@
 
 import asyncio
 from native_task_activity import NativeTaskActivity
+from native_task_questions import NativeTaskQuestions
 
 
-class NativeTasks(NativeTaskActivity):
+class NativeTasks(NativeTaskActivity, NativeTaskQuestions):
     def init_tasks(self):
         self.init_task_activity()
+        self.init_task_questions()
         self.task_agents = None
         self.task_processes = {}
         self.task_errors = set()
@@ -25,6 +27,8 @@ class NativeTasks(NativeTaskActivity):
         self.task_process_pending = {}
 
     async def task_request(self, link, request):
+        if await self.task_question_request(link, request):
+            return True
         if self.task_agents is None:
             return False
         method, params = request["method"], request["params"]

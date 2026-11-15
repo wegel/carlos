@@ -161,6 +161,7 @@ impl Device {
         }
         if key.code == KeyCode::F(4) {
             self.close_goal_panel(link)?;
+            self.next_question();
         } else if key.code == KeyCode::Char('r') && key.modifiers.contains(KeyModifiers::CONTROL) {
             self.goal_ralph(link)?;
         } else if key.code == KeyCode::Esc {

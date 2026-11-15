@@ -7,6 +7,7 @@ use std::sync::Arc;
 use carlos_proto::source::Source;
 
 use super::frame::{FormattedBlock, View};
+use super::literal::{self, Literal};
 use super::selected::{self, Selected, Target};
 use super::{Job, Reply, Request, TransferError, Wanted};
 use crate::app::transcript_body::accepted_source::SourcePiece;
@@ -28,20 +29,17 @@ struct Active {
 pub(super) fn run(requests: Receiver<Request>, replies: SyncSender<Reply>, wanted: Arc<Wanted>) {
     let mut active = None;
     let mut selected: Option<Selected> = None;
+    let mut literal: Option<Literal> = None;
     while let Ok(request) = requests.recv() {
-        if selected
-            .as_ref()
-            .is_some_and(|copy| copy.id != wanted.copy.load(Ordering::Acquire))
-        {
-            selected = None;
-        }
-        if active
-            .as_ref()
-            .is_some_and(|active: &Active| active.job.id.0 != wanted.job.load(Ordering::Acquire))
-        {
-            active = None;
-        }
-        if let Err(error) = apply(&mut active, request, &replies, &wanted, &mut selected) {
+        retire_changed(&mut active, &mut selected, &mut literal, &wanted);
+        if let Err(error) = apply(
+            &mut active,
+            request,
+            &replies,
+            &wanted,
+            &mut selected,
+            &mut literal,
+        ) {
             let Some(failed) = active.take() else {
                 continue;
             };
@@ -83,14 +81,43 @@ pub(super) fn run(requests: Receiver<Request>, replies: SyncSender<Reply>, wante
     }
 }
 
+fn retire_changed(
+    active: &mut Option<Active>,
+    selected: &mut Option<Selected>,
+    literal: &mut Option<Literal>,
+    wanted: &Wanted,
+) {
+    let copy = wanted.copy.load(Ordering::Acquire);
+    if literal.as_ref().is_some_and(|literal| literal.copy != copy) {
+        *literal = None;
+    }
+    if selected
+        .as_ref()
+        .is_some_and(|selected| selected.id != copy)
+    {
+        *selected = None;
+    }
+    if active
+        .as_ref()
+        .is_some_and(|active| active.job.id.0 != wanted.job.load(Ordering::Acquire))
+    {
+        *active = None;
+    }
+}
+
 fn apply(
     active: &mut Option<Active>,
     request: Request,
     replies: &SyncSender<Reply>,
     wanted: &Wanted,
     selected: &mut Option<Selected>,
+    literal: &mut Option<Literal>,
 ) -> Result<(), TransferError> {
     match request {
+        Request::LiteralCopy(piece) if wanted.copy.load(Ordering::Acquire) == piece.copy => {
+            *selected = None;
+            literal::receive(literal, piece, replies)?;
+        }
         Request::Open(job) if wanted.job.load(Ordering::Acquire) == job.id.0 => {
             *active = Some(Active::new(job));
         }
@@ -110,6 +137,9 @@ fn apply(
             first,
             length,
         } => {
+            if wanted.copy.load(Ordering::Acquire) == slice.copy {
+                *literal = None;
+            }
             let reply = selected::reply(selected, wanted, &slice, &rows, first, length);
             replies.send(reply).map_err(|_| TransferError::Closed)?;
         }

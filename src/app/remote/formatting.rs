@@ -35,7 +35,10 @@ pub(super) enum Update {
         backend: crate::clipboard::ClipboardBackend,
     },
     Selected(u64),
-    CopyFailed(super::super::transcript_body::formatter::TransferError),
+    CopyFailed {
+        copy: u64,
+        error: super::super::transcript_body::formatter::TransferError,
+    },
 }
 
 /// Retain small frames independently of the active worker's original source.
@@ -117,7 +120,9 @@ impl Formatting {
                     changed.push(Update::Copied { copy, backend })
                 }
                 Reply::Selected { copy } => changed.push(Update::Selected(copy)),
-                Reply::CopyFailed { error, .. } => changed.push(Update::CopyFailed(error)),
+                Reply::CopyFailed { copy, error } => {
+                    changed.push(Update::CopyFailed { copy, error })
+                }
                 Reply::Failed { error, .. } => return Err(format_error(error)),
                 #[cfg(test)]
                 Reply::Digest { .. } => {}
@@ -168,6 +173,28 @@ impl Formatting {
             .expect("copy worker")
             .begin_copy()
             .map_err(format_error)
+    }
+
+    /// Queue a bounded literal chunk under the same permission as source and selection copies.
+    pub fn literal_copy(
+        &self,
+        copy: u64,
+        offset: usize,
+        text: &str,
+        finish: bool,
+    ) -> anyhow::Result<bool> {
+        self.worker
+            .as_ref()
+            .expect("copy worker")
+            .literal_copy(copy, offset, text, finish)
+            .map_err(format_error)
+    }
+
+    /// Reject stale copy status or chunks without canceling a newer explicit shortcut.
+    pub fn copy_is_current(&self, copy: u64) -> bool {
+        self.worker
+            .as_ref()
+            .is_some_and(|worker| worker.copy_is_current(copy))
     }
 
     /// Queue shared rows without copying their strings into another terminal cache.

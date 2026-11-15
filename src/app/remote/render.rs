@@ -23,6 +23,7 @@ impl Device {
         };
         self.goals.size = size;
         self.queue.size = Some(size);
+        self.questions.size = Some(size);
         self.view.layout.update_size(size);
         if self.tasks.view.show {
             self.draw_tasks(frame.buffer_mut(), size);
@@ -63,10 +64,28 @@ impl Device {
         if self.draw_settings(frame, size) {
             return;
         }
+        if self.draw_question_cursor(frame, size) {
+            return;
+        }
         frame.set_cursor_position((
             layout.cursor_x.min(size.width.saturating_sub(1)) as u16,
             layout.cursor_y.min(size.height.saturating_sub(1)) as u16,
         ));
+    }
+
+    fn question_waiting_status(&self, status: String) -> String {
+        let count = self.client.session(&self.session).map_or(0, |replica| {
+            replica
+                .approvals()
+                .iter()
+                .filter(|card| !card.submitted)
+                .count()
+        });
+        if self.selected_approval().is_none() && count > 0 {
+            format!("{status} · F4: request waiting ({count})")
+        } else {
+            status
+        }
     }
 
     fn draw_footer(
@@ -104,6 +123,7 @@ impl Device {
             )
         });
         let status = self.dictation_status(self.task_status(self.queue_status(status)));
+        let status = self.question_waiting_status(status);
         crate::app::render::draw_status_separator(
             buffer,
             layout.input_top.saturating_sub(2),
@@ -126,6 +146,15 @@ impl Device {
             .flatten();
         draw_composer(buffer, size, layout, content_x, false, name);
         self.draw_approval(buffer, size);
+    }
+
+    fn draw_question_cursor(&self, frame: &mut Frame<'_>, size: TerminalSize) -> bool {
+        if let Some((x, y)) = self.question_cursor(size) {
+            frame.set_cursor_position((x as u16, y as u16));
+            return true;
+        }
+        self.selected_approval().is_some()
+            && self.task_backend() != Some(carlos_proto::session::Backend::Grok)
     }
 
     fn draw_transcript(

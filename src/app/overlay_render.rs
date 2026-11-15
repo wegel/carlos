@@ -9,6 +9,9 @@ mod overlay_render_model_settings;
 #[path = "overlay_render_model_bridge.rs"]
 mod overlay_render_model_bridge;
 
+#[path = "question_card.rs"]
+pub(super) mod question_card;
+
 #[path = "overlay_render_claude.rs"]
 mod overlay_render_claude;
 

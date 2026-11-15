@@ -1,5 +1,6 @@
 //! Describe native answer fields without editor state.
 
+use carlos_proto::session::InputField;
 use serde_json::Value;
 
 /// One choice retains its native value while Carlos displays its label.
@@ -24,6 +25,30 @@ pub struct QuestionField {
 }
 
 impl QuestionField {
+    /// Reuse the native field editor with one checked neutral daemon description.
+    pub fn from_input_field(field: InputField) -> Self {
+        let other = field.other && !field.options.is_empty();
+        Self {
+            name: field.key,
+            secret: field.secret,
+            title: field.title,
+            description: field.description,
+            multiple: field.multiple,
+            other,
+            notes_only: field.notes_only,
+            required: field.required,
+            schema: field.schema,
+            options: field
+                .options
+                .into_iter()
+                .map(|option| AnswerOption {
+                    value: option.value,
+                    label: option.label,
+                    description: option.description,
+                })
+                .collect(),
+        }
+    }
     /// Describe one native field without constructing an answer editor.
     pub(in crate::session) fn new(name: &str, schema: Value, required: bool) -> Self {
         Self {

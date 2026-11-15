@@ -8,7 +8,6 @@ use carlos_core::session::approval_state::ApprovalQueue;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::json;
 
-use super::claude_question_state::NativeDraft;
 use super::input_events::TerminalEventResult;
 use super::state::AppState;
 use super::turn_submit::{interrupt_active_turn, respond_to_pending_approval};
@@ -46,9 +45,7 @@ pub(super) fn handle_key(
         super::codex_callbacks::edited(app);
     }
     if let Some(draft) = super::native_questions::draft_mut(app) {
-        if !page(draft, key) && !draft.fields.is_empty() {
-            edit_question(draft, key);
-        }
+        super::question_editor::key(draft, key);
     }
     result
 }
@@ -117,30 +114,6 @@ fn answer_choice(app: &AppState, key: KeyEvent, editable: bool) -> Option<Approv
     }
 }
 
-fn page(draft: &mut NativeDraft, key: KeyEvent) -> bool {
-    match key.code {
-        KeyCode::PageUp => draft.viewport.scroll.set(
-            draft
-                .viewport
-                .scroll
-                .get()
-                .min(draft.viewport.max_scroll.get())
-                .saturating_sub(5),
-        ),
-        KeyCode::PageDown => draft.viewport.scroll.set(
-            draft
-                .viewport
-                .scroll
-                .get()
-                .saturating_add(5)
-                .min(draft.viewport.max_scroll.get()),
-        ),
-        _ => return false,
-    }
-    draft.viewport.follow_focus.set(false);
-    true
-}
-
 /// Keep native pasted answers out of the main composer, including during startup.
 pub(super) fn paste(app: &mut AppState, text: &str, size: super::TerminalSize) -> bool {
     if !super::native_questions::modal(app) {
@@ -158,58 +131,6 @@ pub(super) fn paste(app: &mut AppState, text: &str, size: super::TerminalSize) -
         return true;
     }
     true
-}
-
-fn edit_question(draft: &mut NativeDraft, key: KeyEvent) {
-    match key.code {
-        KeyCode::Tab => {
-            draft.advance(false);
-            return;
-        }
-        KeyCode::BackTab => {
-            draft.advance(true);
-            return;
-        }
-        _ => {}
-    }
-    if draft.review {
-        return;
-    }
-    draft.error = None;
-    draft.viewport.scroll.set(0);
-    draft.viewport.follow_focus.set(true);
-    let Some(field) = draft.fields.get_mut(draft.current) else {
-        return;
-    };
-    if key.code == KeyCode::Char('o') && key.modifiers == KeyModifiers::CONTROL {
-        if !field.spec.required() {
-            field.omitted = !field.omitted;
-        }
-        return;
-    }
-    let count = field.spec.options().len() + usize::from(field.spec.other());
-    match key.code {
-        KeyCode::Up if count > 0 => field.cursor = (field.cursor + count - 1) % count,
-        KeyCode::Down if count > 0 => field.cursor = (field.cursor + 1) % count,
-        KeyCode::Enter if count > 0 && !field.spec.multiple() => {
-            let was_text = field.use_text;
-            field.select();
-            if !field.use_text || was_text {
-                draft.advance(false);
-            }
-        }
-        KeyCode::Enter => draft.advance(false),
-        KeyCode::Char(' ') if count > 0 && field.cursor < field.spec.options().len() => {
-            field.select()
-        }
-        _ if count == 0 || (field.spec.other() && field.cursor == field.spec.options().len()) => {
-            if field.spec.other() {
-                field.select();
-            }
-            field.edit(key);
-        }
-        _ => {}
-    }
 }
 
 fn next_request(app: &mut AppState) {

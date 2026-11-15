@@ -49,7 +49,7 @@ pub(crate) fn ask_fields(input: &Value) -> Result<Vec<QuestionField>, String> {
 }
 
 /// Describe MCP properties without applying defaults to a draft.
-pub(crate) fn mcp_fields(schema: &Value) -> Result<Vec<QuestionField>, String> {
+pub fn mcp_fields(schema: &Value) -> Result<Vec<QuestionField>, String> {
     let properties = schema["properties"]
         .as_object()
         .ok_or("Missing form properties")?;

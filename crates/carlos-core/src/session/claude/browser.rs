@@ -26,6 +26,12 @@ pub(crate) struct BrowserCompletion {
 }
 
 impl SessionState {
+    /// Read first known completion for the exact callback that still requires browser consent.
+    pub(in crate::session) fn claude_browser_completed(&self, callback: &str) -> bool {
+        self.claude.browser.values().any(|request| {
+            request.callback_id == callback && request.completed && !request.consented
+        })
+    }
     /// Remember a browser request when its callback is accepted by the app.
     pub fn register_claude_browser(&mut self, id: &str, payload: &Value) {
         let Some(key) = browser_key(payload) else {
@@ -131,6 +137,9 @@ impl SessionState {
     /// Append a once-only completion and identify any editor still waiting for consent.
     pub fn receive_claude_browser_completion(&mut self, message: &Value) -> Option<Option<String>> {
         let completion = self.complete_claude_browser(message)?;
+        if completion.callback_id.is_some() {
+            self.approval.refresh_metadata();
+        }
         let _ = self.append_message(
             Role::System,
             format!(

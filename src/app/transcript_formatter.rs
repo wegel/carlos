@@ -15,6 +15,9 @@ mod transfer;
 #[path = "transcript_formatter_selection.rs"]
 mod selected;
 
+#[path = "transcript_formatter_literal.rs"]
+mod literal;
+
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 use std::sync::Arc;
@@ -74,6 +77,7 @@ pub(in crate::app) enum Transfer {
 }
 
 enum Request {
+    LiteralCopy(literal::Piece),
     Open(Job),
     Data(JobId, SourcePiece),
     View(JobId, u64, View),

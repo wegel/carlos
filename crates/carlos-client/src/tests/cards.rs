@@ -78,3 +78,27 @@ fn missing_anchors_and_body_collisions_leave_existing_cards_untouched() {
         .is_err());
     assert!(replica.approvals().is_empty());
 }
+
+#[test]
+fn caller_labels_accept_exact_utf8_bound_and_reject_oversized_updates_without_replacement() {
+    let mut accepted = card(3);
+    accepted.caller = Some("🌍".repeat(1024));
+    let mut initial = snapshot();
+    initial.approvals.push(accepted.clone());
+    let mut replica = Replica::new(initial).expect("exact 4096-byte caller");
+    let mut oversized = accepted.clone();
+    oversized.caller.as_mut().expect("caller").push('a');
+    assert!(replica
+        .apply(event(
+            11,
+            Event::ApprovalRequested {
+                approval: oversized.clone(),
+                before: None,
+            }
+        ))
+        .is_err());
+    assert_eq!(replica.approvals(), [accepted]);
+    let mut initial = snapshot();
+    initial.approvals.push(oversized);
+    assert!(Replica::new(initial).is_err());
+}
