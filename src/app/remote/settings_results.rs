@@ -25,6 +25,7 @@ impl Device {
                 let intent = self.settings.submitted.as_mut().expect("submitted save");
                 if matches!(intent.step.take(), Some(Step::Context(_))) {
                     self.settings.submitted = None;
+                    self.settings.keep_draft = true;
                     self.view.status_hint = Some(message.clone());
                     self.settings.error = Some(message);
                 } else {

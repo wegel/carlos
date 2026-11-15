@@ -96,6 +96,7 @@ impl Device {
             (None, notice) => notice,
         };
         self.settings.error = intent.error;
+        self.settings.keep_draft = self.settings.error.is_some();
         if self.settings.error.is_none() {
             self.view.runtime_settings.close_model_settings();
             self.settings.catalog = None;

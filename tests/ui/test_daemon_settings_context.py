@@ -108,6 +108,21 @@ class DaemonSettingsContext:
         self.assertEqual(len(terminal.requests("settings/context/set")), 1)
         self.assertEqual(self.context_helper_requests(fixture, "model.set"), [])
 
+    def test_daemon_context_cancel_after_local_validation_drops_the_unsent_edit(self):
+        fixture, client, session, terminal = self.backend_settings_terminal("context-ui-cancel-invalid")
+        self.open_remote_context(terminal)
+        terminal.paste("99k")
+        terminal.send(b"\r")
+        terminal.contains("Choose Auto or 100k to 1M")
+        terminal.send(b"\x1b")
+        terminal.wait(lambda:"Settings" not in terminal.text, "cancel closes the invalid unsent editor")
+        self.open_remote_context(terminal)
+        terminal.contains("Auto")
+        self.assertNotIn("99k", terminal.text)
+        self.assertEqual(terminal.requests("settings/context/set"), [])
+        self.assertEqual(terminal.requests("settings/set"), [])
+        self.assertFalse(self.daemon_context_file(fixture).exists())
+
     def test_daemon_context_uses_the_daemon_shell_policy_and_allows_auto(self):
         fixture, client, session, terminal = self.backend_settings_terminal("context-ui-shell", shell="200000")
         path = self.daemon_context_file(fixture)

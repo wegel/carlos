@@ -41,6 +41,7 @@ pub(super) struct Settings {
     pub submitted: Option<super::settings_intent::SaveIntent>,
     pub appearance_save: Option<super::settings_appearance::Save>,
     pub context: super::settings_context::Context,
+    pub keep_draft: bool,
     restore: Option<SettingsChange>,
     read: Option<RequestId>,
     fetch: Option<Fetch>,
@@ -50,7 +51,7 @@ impl Device {
     pub(super) fn open_settings(&mut self, link: Option<&mut Transport>) -> Result<()> {
         self.view.runtime_settings.show_model_settings = true;
         if self.settings.submitted.is_some()
-            || self.settings.catalog.is_some() && self.settings.error.is_some()
+            || self.settings.catalog.is_some() && self.settings.keep_draft
         {
             return Ok(());
         }
@@ -223,6 +224,7 @@ impl Device {
             self.view.summary_enabled_draft = catalog.facts.summaries_enabled;
         }
         self.settings.error = None;
+        self.settings.keep_draft = false;
         self.settings.catalog = Some(catalog);
     }
 
@@ -286,6 +288,7 @@ impl Device {
         self.settings.read = None;
         self.settings.fetch = self.settings.catalog.is_none().then(Fetch::default);
         if self.view.runtime_settings.show_model_settings {
+            self.settings.keep_draft = true;
             self.settings.error = Some("Disconnected; F5 reconnects. Your draft is kept".into());
         }
     }
@@ -297,6 +300,7 @@ impl Device {
         }
         self.settings.submitted = None;
         if self.settings.catalog.is_some() {
+            self.settings.keep_draft = true;
             self.settings.error =
                 Some("Daemon changed; F6 refreshes facts without resending your draft".into());
         }
@@ -304,12 +308,13 @@ impl Device {
 
     pub(super) fn close_settings(&mut self) {
         self.view.runtime_settings.close_model_settings();
-        if self.settings.operation.is_none() && self.settings.error.is_none() {
+        if self.settings.submitted.is_none() && !self.settings.keep_draft {
             self.settings.catalog = None;
             self.settings.initial = None;
             self.settings.restore = None;
             self.settings.fetch = None;
             self.settings.context.edited = false;
+            self.settings.error = None;
         }
     }
 }

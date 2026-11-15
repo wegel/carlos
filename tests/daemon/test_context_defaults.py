@@ -11,7 +11,7 @@ import support
 from support import Client, Fixture, wait_for
 
 
-class ContextDefaultTests(unittest.TestCase):
+class ContextDefaultTests:
     def _context_fixture(self, name, codex=False, mode="modern", shell=None):
         fixture = Fixture("context-" + name, codex=codex, mode=mode)
         self.addCleanup(fixture.close)
@@ -235,6 +235,9 @@ class ContextDefaultTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    class StandaloneContextDefaultTests(ContextDefaultTests, unittest.TestCase):
+        pass
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--artifacts", type=Path, required=True)
