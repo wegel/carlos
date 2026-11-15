@@ -7,9 +7,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
-use uuid::Uuid;
 
 use crate::backend::BackendKind;
+use crate::runtime_preferences::{write_atomic, AtomicWriteError};
 
 /// Accept the token range shared by the settings editor and Claude's native control.
 pub fn validate(tokens: u64) -> Result<u64> {
@@ -90,18 +90,14 @@ fn save_to(path: &Path, tokens: Option<u64>) -> Result<()> {
     if let Some(tokens) = tokens {
         validate(tokens)?;
     }
-    fs::create_dir_all(path.parent().context("Invalid context settings path")?)?;
-    let temporary = path.with_extension(format!("{}.tmp", Uuid::new_v4()));
-    fs::write(
-        &temporary,
-        serde_json::to_vec_pretty(&json!({"tokens":tokens}))?,
-    )
-    .context("Write Carlos context settings")?;
-    if let Err(error) = fs::rename(&temporary, path) {
-        let _ = fs::remove_file(temporary);
-        return Err(error).context("Save Carlos context settings");
+    path.parent().context("Invalid context settings path")?;
+    let bytes = serde_json::to_vec_pretty(&json!({"tokens":tokens}))?;
+    match write_atomic(path, &bytes) {
+        Ok(()) => Ok(()),
+        Err(AtomicWriteError::Prepare(error)) => Err(error.into()),
+        Err(AtomicWriteError::Write(error)) => Err(error).context("Write Carlos context settings"),
+        Err(AtomicWriteError::Publish(error)) => Err(error).context("Save Carlos context settings"),
     }
-    Ok(())
 }
 
 #[cfg(test)]

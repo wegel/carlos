@@ -52,27 +52,56 @@ pub fn save(defaults: &RuntimeDefaults) -> io::Result<()> {
 
 /// Publish one complete JSON file, preserving links to existing regular files.
 pub fn save_to(path: &Path, defaults: &RuntimeDefaults) -> io::Result<()> {
-    let destination = destination(path)?;
-    let parent = destination.parent().ok_or_else(|| {
-        io::Error::new(io::ErrorKind::InvalidInput, "invalid runtime defaults path")
-    })?;
-    fs::create_dir_all(parent)?;
     let bytes = serde_json::to_vec_pretty(&json!({
         "model": defaults.model,
         "effort": defaults.effort,
         "summary": defaults.summary,
     }))?;
-    publish(&destination, parent, &bytes)
+    write_atomic(path, &bytes).map_err(AtomicWriteError::into_io)
 }
 
-fn publish(destination: &Path, parent: &Path, bytes: &[u8]) -> io::Result<()> {
-    let mut temporary = NamedTempFile::new_in(parent)?;
-    temporary.write_all(bytes)?;
-    temporary.as_file().sync_all()?;
-    require_regular_or_absent(destination)?;
+/// Keep existing caller error contexts attached to the failing whole-file write phase.
+#[derive(Debug)]
+pub(crate) enum AtomicWriteError {
+    Prepare(io::Error),
+    Write(io::Error),
+    Publish(io::Error),
+}
+
+impl AtomicWriteError {
+    fn into_io(self) -> io::Error {
+        match self {
+            Self::Prepare(error) | Self::Write(error) | Self::Publish(error) => error,
+        }
+    }
+}
+
+/// Write complete bytes beside their destination, then replace that file atomically.
+pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), AtomicWriteError> {
+    let destination = destination(path).map_err(AtomicWriteError::Publish)?;
+    let parent = destination.parent().ok_or_else(|| {
+        AtomicWriteError::Publish(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid runtime defaults path",
+        ))
+    })?;
+    fs::create_dir_all(parent).map_err(AtomicWriteError::Prepare)?;
+    publish(&destination, parent, bytes)
+}
+
+fn publish(destination: &Path, parent: &Path, bytes: &[u8]) -> Result<(), AtomicWriteError> {
+    let mut temporary = NamedTempFile::new_in(parent).map_err(AtomicWriteError::Write)?;
+    temporary
+        .write_all(bytes)
+        .map_err(AtomicWriteError::Write)?;
+    temporary
+        .as_file()
+        .sync_all()
+        .map_err(AtomicWriteError::Write)?;
+    require_regular_or_absent(destination).map_err(AtomicWriteError::Publish)?;
     temporary
         .persist(destination)
-        .map_err(|error| error.error)?;
+        .map_err(|error| AtomicWriteError::Publish(error.error))?;
     Ok(())
 }
 
