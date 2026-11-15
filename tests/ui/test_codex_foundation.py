@@ -56,7 +56,10 @@ class CodexFoundation:
         terminal.contains("stdout closed")
         self.assertTrue(terminal.input_is("recover me 日本語"))
         terminal.send(b"\r")
-        terminal.contains("Could not send message:")
+        if terminal.owned_daemon or hasattr(terminal, "daemon_recorder"):
+            terminal.contains("Codex is closed; draft kept")
+        else:
+            terminal.contains("Could not send message:")
         self.assertTrue(terminal.input_is("recover me 日本語"))
         self.assertEqual(len(terminal.requests("turn/start")),1)
         terminal.snapshot("closed-draft-kept")

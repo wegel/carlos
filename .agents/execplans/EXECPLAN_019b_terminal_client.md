@@ -99,6 +99,11 @@ The daemon already proves basic chat, approvals, running output, independent cli
 
 ## Surprises & Discoveries
 
+The next full committed-prefix gate passes all143 daemon cases and297 of298 terminal cases. Its only failure expects the old send-error prefix after the daemon client already knows Codex is closed. The corrected fixture retains the draft and exactly one native start. A later repeat with flat frozen binaries exposes a test-wrapper helper path assumption and a real renderer fault: the plain ASCII counter includes ANSI escape bytes in word widths while the painter ignores them. Captured stderr reproduces that mismatch;9aa4c79 sends ESC-containing text through the existing exact counter and adds a causal actual-terminal regression. Do not treat these failed traces as successful whole-EP gates.
+
+The daemon also rejected the private source-reader mode used by its own AI label provider. The actual-process test fails before wiring the existing reader into carlosd and passes after the fix, without inference. The terminal still has its old entrypoint until the separate deletion. The private cutover already compiles production without AppState/native event-loop registrations; remaining dead-helper cleanup, migrated-test integration and default-launcher checks are still in progress.
+
+
 The first complete existing terminal run through private daemons finished291
 tests with61 failures and one error. These include repeated cleanup failures;
 the counts are not61 independent product bugs. Preserve the full log and each
@@ -153,6 +158,11 @@ Main has not advanced beyond `a29b1a1` at plan start. EP019a's final source is `
 The shared client exposed a card-order defect: the publisher sent new cards before the new cards used as their anchors, and omitted order-only moves. The publisher now emits from tail to head and compares both card facts and the next-card address. The new deterministic test fails with the old publisher (`approval-order-negative.log`); the full terminal/native gate passes with the fix.
 
 ## Decision Log
+
+- (2026-11-15, Codex) Reuse the existing exact text counter for ASCII that contains ESC; retain the fast path for ordinary ASCII. Keep the cache assertion and reproduce the failure with captured raw stderr, rather than hiding a count/painter mismatch.
+- (2026-11-15, Codex) Run the existing private source reader under carlosd, because the daemon owns the label provider that launches its current executable. Keep the reader's existing read authority and audit; remove the terminal's helper entrypoint during cutover.
+- (2026-11-15, Codex) Share immutable approval facts through Arc for pending cards and captured claims after the original100k allocation test proves a second full clone during checked-answer preparation. Keep the existing live/claim guards and borrowed facts API; add no cache or store. Export missing-plan refusal through the existing Unsupported input and enforce the refusal before native writes.
+
 
 Decision: validate every popup field before sending any change, then save an edited next-launch context choice, the original native intent and the independent AI-label boolean. Rationale: native choices keep the original settings revision and are never silently rebased or retried. A later label-only command may use newer numbered facts only while the original label boolean still matches; it cannot overwrite newer model choices. Uncertain results retain the original private operation and stop the remaining steps. A definite context failure aborts other writes; a definite native refusal may still save the independent labels and device appearance, preserving the old terminal behavior. Date/Author: 2026-11-15, Codex.
 
@@ -209,6 +219,9 @@ Decision: correlate requests inside one pure Client and activate each body watch
 Decision: cap retained session facts across one Client at 64 MiB and defer future history pages under one eight-MiB/32-page allowance. Rationale: multiplying each session's standalone budget by 32 would retain too much client data. On overflow, detach only the overflowing fact window and retain private submitted text and backend work. A history RPC can arrive before its numbered events; hold the fixed page until that cursor arrives instead of repeatedly reading a continuously advancing backend. These data-byte counts include fixed metadata allowances and do not claim exact allocator/RSS measurements. Date/Author: 2026-11-14, Codex.
 
 ## Outcomes & Retrospective
+
+Current checkpoint: the ordinary daemon workflows, mobile fallbacks and private dictated-text/history races have focused positive evidence. Native and UI test moves now preserve names, startup choices, task ownership and immutable native IDs without an AppState fixture. The final clean daemon-only/release run, remaining old test moves, separate runtime deletion, performance evidence and end-of-EP reviews remain open. No spike binary has been installed and main has not been merged or pushed.
+
 
 The opt-in socket terminal now covers shared settings, structured callbacks, native panels, startup/discovery, exact prompt recall/edit/rename, help and local dictation. The managed launcher and matching companion package work without replacing an existing owner. The offline performance command uses plain render data rather than a session owner. The full existing terminal suite is being run through private daemons before deleting the embedded route. Closed-Claude explicit reopen, detailed metrics, migration of pure render tests, final release/native/performance checks and whole-EP reviews remain open. The dense Unicode source index still peaks near1.3 GiB; no product body limit was added. Main and the installed binary remain unchanged; EP019b is incomplete.
 

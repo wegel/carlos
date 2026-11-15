@@ -60,7 +60,10 @@ class Terminal:
         if mode in {"claude-reply-error", "claude-approval-switch"}:
             fixture = "flaky_claude_controller.py" if mode == "claude-reply-error" else "approval_switch_controller.py"
             env["CARLOS_CLAUDE_CONTROLLER"] = str(Path(__file__).with_name(fixture).resolve())
-            env["CARLOS_REAL_CLAUDE_CONTROLLER"] = str(binary.parent.parent / "claude-controller/carlos-claude-controller")
+            helper = binary.with_name("carlos-claude-controller")
+            if not helper.is_file():
+                helper = binary.parent.parent / "claude-controller/carlos-claude-controller"
+            env["CARLOS_REAL_CLAUDE_CONTROLLER"] = str(helper)
         arguments = list(extra_args or [])
         args = [str(binary), "--backend", backend, *arguments]
         if resume == "__continue__":

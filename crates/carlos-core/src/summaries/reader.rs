@@ -131,7 +131,7 @@ fn dispatch(request: &Value, reader: &mut Reader) -> Result<Value> {
     })
 }
 
-/// Handle only the private reader subcommand before starting a terminal/backend.
+/// Handle the private source-reader subcommand before starting the host program.
 pub fn maybe_run() -> Result<bool> {
     let mut args = std::env::args_os().skip(1);
     if args.next().as_deref() != Some(std::ffi::OsStr::new("__summary-reader")) {

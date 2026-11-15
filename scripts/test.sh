@@ -69,6 +69,9 @@ target/ui-venv/bin/python tests/ui/test_daemon_source_failures.py \
 target/ui-venv/bin/python tests/ui/test_daemon_dictation.py \
   --binary "target/$profile/carlos" --daemon "target/$profile/carlosd" \
   --artifacts "$artifacts/dictation"
+target/ui-venv/bin/python tests/ui/test_daemon_ansi_notice.py \
+  --binary "target/$profile/carlos" --daemon "target/$profile/carlosd" \
+  --artifacts "$artifacts/ansi-notice"
 if [[ "$check_codex" == true ]]; then
   python3 tests/ui/test_codex_contract.py --artifacts "$artifacts/codex"
   target/ui-venv/bin/python tests/ui/test_native_monitor.py \

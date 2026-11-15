@@ -16,6 +16,9 @@ fn main() -> Result<()> {
         println!("{}", serde_json::to_string(&carlosd::build_info())?);
         return Ok(());
     }
+    if carlos_core::summaries::reader::maybe_run()? {
+        return Ok(());
+    }
     let Some(config) = arguments()? else {
         return Ok(());
     };
