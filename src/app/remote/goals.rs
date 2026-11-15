@@ -345,3 +345,7 @@ impl Device {
         cursor_for(&self.view.codex_goals, size)
     }
 }
+
+#[cfg(test)]
+#[path = "goals_private_tests.rs"]
+mod private_tests;

@@ -337,3 +337,63 @@ class DaemonGoals:
         self.assertEqual(len([r for r in fixture.native.requests if r.get("method") == "thread/goal/get"]), reads)
         self.assertEqual(terminal.requests("session/send"), [])
         terminal.snapshot("daemon-failed-admitted-read-released")
+
+    def test_daemon_goal_objective_edits_keep_all_five_observed_nonactive_statuses(self):
+        fixture, client, session, terminal = self.daemon_goals("goal-observed-statuses")
+        terminal.paste("independent five-status composer")
+        terminal.wait(lambda:terminal.input_is("independent five-status composer"), "main draft before goals")
+        self.open_daemon_goal(terminal)
+        for index, status in enumerate(["paused", "blocked", "usageLimited", "budgetLimited", "complete"], 1):
+            fixture.native.goal = {"threadId":"native-root", "objective":f"observed {status}", "status":status,
+                "tokensUsed":0, "timeUsedSeconds":0, "createdAt":1, "updatedAt":index}
+            terminal.send(b"r")
+            terminal.contains(f"Status: {status}")
+            terminal.contains(f"observed {status}")
+            terminal.send(b"e\x01\x0b")
+            terminal.paste(f"edited {status}")
+            terminal.contains(f"edited {status}")
+            # Native clear is deliberately unseen: the client must still send its observed status.
+            fixture.native.goal = None
+            terminal.send(b"\x13")
+            self.daemon_goal_saved(terminal, index)
+            typed = terminal.requests("goal/set")[-1]["params"]["change"]
+            self.assertEqual(typed, {"objective":f"edited {status}", "token_budget":None, "status":status})
+            native = [row for row in fixture.native.requests if row.get("method") == "thread/goal/set"]
+            self.assertEqual(native[-1]["params"], {"threadId":"native-root", "origin":"user",
+                "objective":f"edited {status}", "status":status})
+        self.assertEqual(len(native), 5)
+        terminal.send(b"\x1b")
+        terminal.wait(lambda:terminal.input_is("independent five-status composer"), "five edits retain main composer")
+        self.assertEqual(terminal.requests("session/send"), [])
+        terminal.snapshot("goal-five-observed-statuses-remain-explicit")
+
+    def test_daemon_goal_pending_save_ignores_keys_and_paste_until_its_original_reply(self):
+        fixture, client, session, terminal = self.daemon_goals("goal-held-editor")
+        terminal.paste("independent held-goal composer")
+        terminal.wait(lambda:terminal.input_is("independent held-goal composer"), "main draft before held goal")
+        self.open_daemon_goal(terminal)
+        terminal.send(b"e")
+        terminal.paste("held original objective")
+        terminal.contains("held original objective")
+        fixture.native.goal_hold = True
+        terminal.send(b"\x13")
+        terminal.wait(lambda:fixture.native.goal_pending is not None and "Goal change pending" in terminal.text,
+                      "original native write held while editor is frozen")
+        terminal.paste("DO_NOT_EDIT_PENDING")
+        terminal.send(b"X\t")
+        terminal.wait(lambda:"key code=Tab" in (terminal.root/"keys.log").read_text(), "pending keys consumed")
+        self.assertNotIn("DO_NOT_EDIT_PENDING", terminal.text)
+        self.assertEqual(len(terminal.requests("goal/set")), 1)
+        self.assertEqual(terminal.requests("goal/set")[0]["params"]["change"]["objective"], "held original objective")
+        fixture.native.release_goal()
+        self.daemon_goal_saved(terminal, 1)
+        terminal.send(b"e")
+        terminal.contains("Field 1/3: Objective")
+        terminal.contains("held original objective")
+        self.assertNotIn("DO_NOT_EDIT_PENDING", terminal.text)
+        terminal.send(b"\x1b")
+        terminal.wait(lambda:"Field 1/3" not in terminal.text, "editor returns to goal overview")
+        terminal.send(b"\x1b")
+        terminal.wait(lambda:terminal.input_is("independent held-goal composer"), "held save retains main composer")
+        self.assertEqual(terminal.requests("session/send"), [])
+        terminal.snapshot("goal-original-pending-write-keeps-editor-frozen")

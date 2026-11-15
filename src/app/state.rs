@@ -178,9 +178,4 @@ impl AppState {
     pub(super) fn ralph_toggle_pending(&self) -> bool {
         self.session.ralph_toggle_pending()
     }
-
-    #[cfg(test)]
-    pub(super) fn input_history_len(&self) -> usize {
-        self.session.input_history().history_len()
-    }
 }

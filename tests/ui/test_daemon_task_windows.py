@@ -29,7 +29,7 @@ class DaemonTaskWindows:
 
     def test_daemon_f2_failed_older_window_keeps_selected_row_and_explicit_retry(self):
         fixture, client, session, terminal, _ = self.window_terminals("task-window-error-ui", count=270)
-        terminal.paste("failed older composer")
+        terminal.paste("preserve 日本語 draft")
         self.open_daemon_tasks(terminal)
         terminal.send(b"\x1b[B")
         terminal.contains("Thread: native-child-1")
@@ -43,7 +43,7 @@ class DaemonTaskWindows:
         terminal.send(b"l")
         terminal.contains("Thread: native-child-256")
         terminal.send(F2)
-        terminal.wait(lambda:terminal.input_is("failed older composer"), "failed older read keeps private composer")
+        terminal.wait(lambda:terminal.input_is("preserve 日本語 draft"), "failed older read keeps private composer")
         self.assertEqual(terminal.requests("session/send"), [])
         terminal.snapshot("failed-older-explicit-retry")
 
