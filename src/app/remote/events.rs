@@ -144,7 +144,7 @@ impl Device {
     fn replace_source_frames(&mut self, welcome: Option<&carlos_client::Welcome>) {
         if matches!(welcome, Some(carlos_client::Welcome::Replaced { .. })) {
             if let Some(operation) = self.history.operation.take() {
-                self.retain_failed_text(&operation);
+                self.retain_failed_edit_text(&operation);
                 self.history.failed = true;
             }
             self.history.reset_navigation();

@@ -5,7 +5,7 @@ use carlos_client::{Client, ConnectionId, Outbound};
 use carlos_core::perf_fixture::PerfRow;
 use carlos_proto::bytes::ByteOffset;
 use carlos_proto::commands::{Command, HelloResult};
-use carlos_proto::ids::{Sequence, SessionId};
+use carlos_proto::ids::{ClientId, Sequence, SessionId};
 use carlos_proto::session::{Availability, Backend, Phase, SessionInfo, Snapshot};
 use carlos_proto::source::SourceChunk;
 use serde_json::{json, Value};
@@ -39,13 +39,21 @@ pub(super) fn device_with_info(rows: Vec<PerfRow>, info: SessionInfo) -> Device 
 
 /// Feed a complete snapshot through a greeted client and retain its real connection token.
 pub(super) fn device_with_snapshot(snapshot: Snapshot) -> (Device, ConnectionId) {
+    device_with_snapshot_for_client(snapshot, "c".repeat(32).parse().expect("fixture client"))
+}
+
+/// Feed the same checked snapshot with an explicit device's private client identity.
+pub(super) fn device_with_snapshot_for_client(
+    snapshot: Snapshot,
+    client_id: ClientId,
+) -> (Device, ConnectionId) {
     let session = snapshot.info.id.clone();
     let mut client = Client::default();
     let hello = client.begin("widget-fixture".into()).expect("greet");
     reply(
         &mut client,
         &hello,
-        serde_json::to_value(greeting()).expect("hello facts"),
+        serde_json::to_value(greeting(client_id)).expect("hello facts"),
     );
     let request = client
         .read(
@@ -139,14 +147,14 @@ fn reply(client: &mut Client, request: &Outbound, result: Value) {
         .expect("accepted fixture reply");
 }
 
-fn greeting() -> HelloResult {
+fn greeting(client: ClientId) -> HelloResult {
     HelloResult {
         identity: None,
         protocol: carlos_proto::PROTOCOL_VERSION,
         host: "fixture".into(),
         daemon_version: "fixture".into(),
         instance: "b".repeat(32).parse().expect("instance"),
-        client: "c".repeat(32).parse().expect("client"),
+        client,
         resumed: false,
         next_operation: carlos_proto::ids::OperationId::new(1),
         resume_token: "d".repeat(64).parse().expect("credential"),

@@ -79,11 +79,29 @@ impl Device {
         self.history.failed = failed;
         if failed {
             self.view.status_hint = None;
-            self.retain_failed_text(id);
+            self.retain_failed_edit_text(id);
         } else {
             self.client.forget_operation(id);
         }
         true
+    }
+
+    /// Keep an edited prompt once when its exact text is already in the composer.
+    pub(super) fn retain_failed_edit_text(&mut self, id: &ClientOperation) {
+        let present = self
+            .client
+            .operations()
+            .get(id)
+            .and_then(|record| record.text())
+            .is_some_and(|text| {
+                text.split('\n')
+                    .eq(self.view.input.lines().iter().map(String::as_str))
+            });
+        if present {
+            self.client.forget_operation(id);
+        } else {
+            self.retain_failed_text(id);
+        }
     }
 
     pub(super) fn retain_failed_text(&mut self, id: &ClientOperation) {
