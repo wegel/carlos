@@ -111,7 +111,9 @@ class FailureTests:
         wait_for(lambda: (fixture.root / "initialize-held").exists(), "real Grok adapter waits for native initialize")
         self.assertEqual(client.call("operation/read", operation=operation)["state"]["kind"], "pending")
         child = fixture.pids()[0]["pid"]
+        self.assertTrue(alive(child))
         fixture.stop()
+        wait_for(lambda: not alive(child), "cancelled native initialize child stopped and was reaped")
         self.assertFalse(alive(child))
 
     def test_invalid_envelopes_credentials_and_foreign_targets_do_not_reach_a_backend(self):
