@@ -160,12 +160,6 @@ impl AppState {
     // --- Turn lifecycle ---
 
     #[cfg(test)]
-    pub(super) fn append_turn_interrupted_marker(&mut self) {
-        self.session.append_turn_interrupted_marker();
-        self.consume_core_events();
-    }
-
-    #[cfg(test)]
     pub(super) fn record_turn_started(&mut self, turn_id: &str) -> bool {
         self.session.record_turn_started(turn_id)
     }

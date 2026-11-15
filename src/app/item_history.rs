@@ -26,10 +26,3 @@ pub(super) fn replace_history_from_thread(app: &mut AppState, thread: &Value) ->
     app.apply_item_changes(changes);
     Ok(())
 }
-
-#[cfg(test)]
-pub(super) fn append_history_from_thread(app: &mut AppState, thread: &Value) {
-    let changes =
-        carlos_core::session::item_history::append_history_from_thread(&mut app.session, thread);
-    app.apply_item_changes(changes);
-}

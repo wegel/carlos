@@ -62,6 +62,8 @@ mod codex_queue_tests;
 mod grouped_render_tests;
 #[path = "tests/late_summary_render_tests.rs"]
 mod late_summary_render_tests;
+#[path = "tests/notification_render_tests.rs"]
+mod notification_render_tests;
 #[path = "tests/notification_tests.rs"]
 mod notification_tests;
 #[path = "tests/phone_layout_tests.rs"]
@@ -127,7 +129,4 @@ mod review_label_tests;
 #[path = "tests/codex_panel_support.rs"]
 mod codex_panel_support;
 
-pub(super) use super::item_history::{
-    append_history_from_thread, load_history_from_start_or_resume,
-};
 pub(super) use carlos_core::session::thread_list::parse_thread_list;

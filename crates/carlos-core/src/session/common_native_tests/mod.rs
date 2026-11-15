@@ -3,11 +3,14 @@
 mod activity;
 mod codex_history;
 mod codex_steer;
+mod context_notifications;
+mod diff_notifications;
 mod forks;
 mod grouped_updates;
 mod head_reference;
 mod history_conversation;
 mod history_identity;
+mod history_notifications;
 mod identity;
 mod identity_late;
 mod identity_support;

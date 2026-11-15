@@ -1,133 +1,4 @@
-// Tests for context-usage updates and approval-request notifications.
-
-#[test]
-fn handle_notification_updates_context_usage_when_present() {
-    let mut app = AppState::new("thread-1".to_string());
-    handle_notification_line(
-            &mut app,
-            "{\"method\":\"turn/completed\",\"params\":{\"usage\":{\"context_window\":256000,\"context_tokens\":128000}}}",
-        );
-
-    assert_eq!(app.session.context_usage(), None);
-}
-
-#[test]
-fn handle_notification_thread_initialized_updates_thread_id() {
-    let mut app = AppState::new("claude-pending-session".to_string());
-
-    handle_notification_line(
-        &mut app,
-        "{\"method\":\"thread/initialized\",\"params\":{\"thread\":{\"id\":\"session-123\"},\"model\":\"claude-opus-4-6\"}}",
-    );
-
-    assert_eq!(app.session.thread_id(), "session-123");
-    assert_eq!(app.runtime_settings_label(), "claude-opus-4-6");
-}
-
-#[test]
-fn handle_notification_thread_initialized_clears_context_usage_when_thread_changes() {
-    let mut app = AppState::new("claude-pending-session".to_string());
-    app.session.set_context_usage(Some(ContextUsage {
-        used: 1_000_000,
-        max: 1_000_000,
-    }));
-
-    handle_notification_line(
-        &mut app,
-        "{\"method\":\"thread/initialized\",\"params\":{\"thread\":{\"id\":\"session-123\"},\"model\":\"claude-opus-4-6\"}}",
-    );
-
-    assert_eq!(app.session.thread_id(), "session-123");
-    assert_eq!(app.session.context_usage(), None);
-}
-
-#[test]
-fn handle_notification_thread_initialized_preserves_context_usage_for_same_thread() {
-    let mut app = AppState::new("session-123".to_string());
-    app.session.set_context_usage(Some(ContextUsage {
-        used: 80_495,
-        max: 1_000_000,
-    }));
-
-    handle_notification_line(
-        &mut app,
-        "{\"method\":\"thread/initialized\",\"params\":{\"thread\":{\"id\":\"session-123\"},\"model\":\"claude-opus-4-6\"}}",
-    );
-
-    assert_eq!(
-        app.session.context_usage(),
-        Some(ContextUsage {
-            used: 80_495,
-            max: 1_000_000,
-        })
-    );
-}
-
-#[test]
-fn handle_notification_thread_initialized_preserves_existing_effort_when_only_model_arrives() {
-    let mut app = AppState::new("claude-pending-session".to_string());
-    app.set_runtime_settings(None, Some("high".to_string()), None);
-
-    handle_notification_line(
-        &mut app,
-        "{\"method\":\"thread/initialized\",\"params\":{\"thread\":{\"id\":\"session-123\"},\"model\":\"claude-opus-4-6\"}}",
-    );
-
-    assert_eq!(app.session.thread_id(), "session-123");
-    assert_eq!(app.runtime_settings_label(), "claude-opus-4-6/high");
-}
-
-#[test]
-fn handle_notification_thread_compacted_clears_context_usage() {
-    let mut app = AppState::new("thread-1".to_string());
-    app.session.set_context_usage(Some(ContextUsage {
-        used: 80_495,
-        max: 1_000_000,
-    }));
-
-    handle_notification_line(
-        &mut app,
-        "{\"method\":\"thread/compacted\",\"params\":{\"threadId\":\"thread-1\"}}",
-    );
-
-    assert_eq!(app.session.context_usage(), None);
-    assert_eq!(app.session.messages().len(), 1);
-    assert_eq!(app.session.messages()[0].text, "↻ Context compacted");
-}
-
-#[test]
-fn handle_notification_turn_completed_interrupted_appends_system_message() {
-    let mut app = AppState::new("thread-1".to_string());
-    app.session.set_active_turn_id(Some("turn-1".to_string()));
-
-    handle_notification_line(
-        &mut app,
-        "{\"method\":\"turn/completed\",\"params\":{\"threadId\":\"thread-1\",\"turn\":{\"id\":\"turn-1\",\"status\":\"interrupted\"}}}",
-    );
-
-    assert_eq!(*app.session.active_turn_id(), None);
-    assert_eq!(app.session.messages().len(), 1);
-    assert_eq!(app.session.messages()[0].role, Role::System);
-    assert_eq!(app.session.messages()[0].text, "Turn interrupted");
-}
-
-#[test]
-fn incoming_agent_delta_does_not_reenable_auto_follow_when_scrolled_up() {
-    let mut app = AppState::new("thread-1".to_string());
-    let idx = app.append_message(Role::Assistant, "hello");
-    app.put_item_mapping("item-1", idx);
-    app.view.viewport.auto_follow_bottom = false;
-    app.view.viewport.scroll_top = 4;
-
-    handle_notification_line(
-        &mut app,
-        "{\"method\":\"item/agentMessage/delta\",\"params\":{\"itemId\":\"item-1\",\"delta\":\" world\"}}",
-    );
-
-    assert!(!app.view.viewport.auto_follow_bottom);
-    assert_eq!(app.view.viewport.scroll_top, 4);
-    assert_eq!(app.session.messages()[idx].text, "hello world");
-}
+// Keep native callback parsing and choices until their Core and Device successors land.
 
 #[test]
 fn handle_server_request_command_execution_sets_pending_approval() {
@@ -140,7 +11,10 @@ fn handle_server_request_command_execution_sets_pending_approval() {
 
     assert!(action.is_none());
     let pending = app.session.approval().pending().expect("pending approval");
-    assert_eq!(pending.facts().method, "item/commandExecution/requestApproval");
+    assert_eq!(
+        pending.facts().method,
+        "item/commandExecution/requestApproval"
+    );
     assert_eq!(pending.facts().title, "Approve command execution");
     assert_eq!(pending.facts().detail_lines[0], "git diff -- src/main.rs");
     assert!(pending.facts().can_accept_for_session);
@@ -167,7 +41,9 @@ fn permissions_approval_response_allows_turn_or_session_grant() {
         Some(json!({"permissions":{"network":{"enabled":true}}}))
     );
     assert_eq!(
-        request.response_for_choice(carlos_core::session::approval_state::ApprovalChoice::AcceptForSession),
+        request.response_for_choice(
+            carlos_core::session::approval_state::ApprovalChoice::AcceptForSession
+        ),
         Some(json!({"permissions":{"network":{"enabled":true}},"scope":"session"}))
     );
     assert_eq!(
@@ -193,9 +69,14 @@ fn handle_server_request_claude_exit_plan_sets_pending_approval() {
         pending.facts().detail_lines[0],
         "Claude wants to exit plan mode and continue with this plan."
     );
-    assert!(pending.facts().detail_lines.iter().any(|line| line == "# Plan"));
     assert!(pending
-        .facts().detail_lines
+        .facts()
+        .detail_lines
+        .iter()
+        .any(|line| line == "# Plan"));
+    assert!(pending
+        .facts()
+        .detail_lines
         .iter()
         .any(|line| line == "allowed: run cargo test (Bash)"));
     assert!(!pending.facts().can_accept_for_session);
@@ -226,7 +107,9 @@ fn claude_exit_plan_approval_response_supports_accept_and_decline() {
         Some(json!({"decision":"decline"}))
     );
     assert_eq!(
-        request.response_for_choice(carlos_core::session::approval_state::ApprovalChoice::AcceptForSession),
+        request.response_for_choice(
+            carlos_core::session::approval_state::ApprovalChoice::AcceptForSession
+        ),
         None
     );
 }
@@ -278,48 +161,4 @@ fn turn_completed_keeps_pending_claude_exit_plan_approval() {
 
     assert!(app.session.approval().pending().is_some());
     assert_eq!(*app.session.active_turn_id(), None);
-}
-
-#[test]
-fn append_turn_interrupted_marker_is_deduplicated() {
-    let mut app = AppState::new("thread-1".to_string());
-    app.append_turn_interrupted_marker();
-    app.append_turn_interrupted_marker();
-    assert_eq!(app.session.messages().len(), 1);
-    assert_eq!(app.session.messages()[0].role, Role::System);
-    assert_eq!(app.session.messages()[0].text, "Turn interrupted");
-}
-
-#[test]
-fn handle_notification_thread_token_usage_updated_sets_context_usage() {
-    let mut app = AppState::new("thread-1".to_string());
-    handle_notification_line(
-            &mut app,
-            "{\"method\":\"thread/tokenUsage/updated\",\"params\":{\"threadId\":\"thread-1\",\"turnId\":\"turn-1\",\"tokenUsage\":{\"modelContextWindow\":256000,\"last\":{\"cachedInputTokens\":0,\"inputTokens\":0,\"outputTokens\":0,\"reasoningOutputTokens\":0,\"totalTokens\":0},\"total\":{\"cachedInputTokens\":0,\"inputTokens\":100000,\"outputTokens\":22000,\"reasoningOutputTokens\":0,\"totalTokens\":122000}}}}",
-        );
-
-    assert_eq!(
-        app.session.context_usage(),
-        Some(ContextUsage {
-            used: 122_000,
-            max: 256_000
-        })
-    );
-}
-
-#[test]
-fn handle_notification_thread_token_usage_prefers_last_when_total_exceeds_window() {
-    let mut app = AppState::new("thread-1".to_string());
-    handle_notification_line(
-            &mut app,
-            "{\"method\":\"thread/tokenUsage/updated\",\"params\":{\"threadId\":\"thread-1\",\"turnId\":\"turn-1\",\"tokenUsage\":{\"modelContextWindow\":258400,\"last\":{\"cachedInputTokens\":0,\"inputTokens\":46000,\"outputTokens\":300,\"reasoningOutputTokens\":37,\"totalTokens\":46337},\"total\":{\"cachedInputTokens\":0,\"inputTokens\":301000,\"outputTokens\":2104,\"reasoningOutputTokens\":30,\"totalTokens\":303134}}}}",
-        );
-
-    assert_eq!(
-        app.session.context_usage(),
-        Some(ContextUsage {
-            used: 46_337,
-            max: 258_400
-        })
-    );
 }

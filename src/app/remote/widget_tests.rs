@@ -260,3 +260,110 @@ fn weekly_and_context_labels_keep_their_cells_when_the_model_must_shorten() {
         assert_eq!(line, expected, "width={width}");
     }
 }
+
+#[test]
+fn incoming_agent_delta_does_not_reenable_auto_follow_when_scrolled_up() {
+    let (mut device, mut link, _peer) = scrolled_inline_device();
+    let entry = device
+        .client
+        .session(&device.session)
+        .expect("accepted facts")
+        .entry_at(0)
+        .expect("assistant")
+        .id
+        .clone();
+    accept_event(
+        &mut device,
+        &mut link,
+        2,
+        carlos_proto::events::Event::TextAppended {
+            entry: entry.clone(),
+            text: " world".into(),
+        },
+    );
+    assert!(!device.view.viewport.auto_follow_bottom);
+    assert_eq!(device.view.viewport.scroll_top, 4);
+    let replica = device
+        .client
+        .session(&device.session)
+        .expect("accepted facts");
+    assert_eq!(
+        replica.entry(&entry).expect("same assistant").text,
+        "hello world"
+    );
+    let mut later = render_fixture::row(Role::Assistant, "new answer").entry;
+    later.source = None;
+    later.text = "new answer".into();
+    let id = later.id.clone();
+    accept_event(
+        &mut device,
+        &mut link,
+        3,
+        carlos_proto::events::Event::EntryAdded { entry: later },
+    );
+    let replica = device
+        .client
+        .session(&device.session)
+        .expect("accepted facts");
+    assert_eq!(replica.entry_count(), 2);
+    assert_eq!(
+        replica.entry(&id).expect("new assistant").text,
+        "new answer"
+    );
+    assert!(!device.view.viewport.auto_follow_bottom);
+    assert_eq!(device.view.viewport.scroll_top, 4);
+    assert!(device.client.operations().iter().next().is_none());
+}
+
+fn scrolled_inline_device() -> (
+    Device,
+    super::transport::Transport,
+    std::os::unix::net::UnixStream,
+) {
+    let session = "a".repeat(32).parse().expect("fixture session");
+    let mut row = render_fixture::row(Role::Assistant, "hello").entry;
+    row.source = None;
+    row.text = "hello".into();
+    let snapshot = carlos_proto::session::Snapshot {
+        info: super::widget_fixture::info(session, false),
+        entries: vec![row],
+        approvals: Vec::new(),
+        seq: carlos_proto::ids::Sequence::new(1),
+        has_older: false,
+        goal: None,
+        queue: None,
+        settings: None,
+        tasks: None,
+    };
+    let (mut device, connection) = super::widget_fixture::device_with_snapshot(snapshot);
+    let (stream, peer) = std::os::unix::net::UnixStream::pair().expect("local pipe");
+    let mut link =
+        super::transport::Transport::from_stream(stream, &mut carlos_client::Client::default())
+            .expect("nonblocking local transport");
+    link.connection = connection;
+    device.view.viewport.auto_follow_bottom = false;
+    device.view.viewport.scroll_top = 4;
+    (device, link, peer)
+}
+
+fn accept_event(
+    device: &mut Device,
+    link: &mut super::transport::Transport,
+    seq: u64,
+    event: carlos_proto::events::Event,
+) {
+    device
+        .receive(
+            link,
+            carlos_client::codec::Incoming::Notification(Box::new(
+                carlos_proto::events::Notification::SessionEvent(
+                    carlos_proto::events::SessionEvent {
+                        session: device.session.clone(),
+                        seq: carlos_proto::ids::Sequence::new(seq),
+                        event,
+                    },
+                ),
+            )),
+        )
+        .expect("accepted numbered event");
+}
