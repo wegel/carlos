@@ -54,7 +54,10 @@ def attach_shared(case,binary,codex,root,resume=None,width=100):
     terminal=Terminal(binary,root,resume=resume,codex=codex,width=width,extra_args=["--codex-socket",str(endpoint)])
     terminal.socket_recorder=recorder
     case.addCleanup(terminal.close)
-    terminal.wait(lambda:terminal.input_is(""),"attached composer")
+    if resume is None:
+        terminal.wait_ready_composer()
+    else:
+        terminal.wait(lambda:terminal.input_is(""),"attached composer")
     return terminal,server,endpoint
 
 

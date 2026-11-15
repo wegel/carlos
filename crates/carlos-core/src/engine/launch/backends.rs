@@ -9,6 +9,7 @@ use super::{LaunchRequest, Launched};
 use crate::backend::BackendClient;
 use crate::claude_backend::{ClaudeClient, ClaudeLaunchMode};
 use crate::codex_connection::CodexClient;
+use crate::codex_snapshot::BootstrapHistory;
 use crate::grok_backend::{GrokClient, GrokLaunchMode};
 use crate::launch_cancel::LaunchCancellation;
 use crate::protocol_params::{
@@ -74,7 +75,12 @@ fn codex(
         session.events.launch = Some(carlos_proto::session::Availability::Starting);
     }
     // The owner starts before snapshot reads so replayed native approvals remain answerable.
-    client.bootstrap(thread, response)?;
+    let history = if request.restore.is_some() {
+        BootstrapHistory::ExistingThread
+    } else {
+        BootstrapHistory::NewThread
+    };
+    client.bootstrap(thread, response, history)?;
     let events = client.take_events_rx()?;
     Ok(Launched {
         session,

@@ -62,7 +62,11 @@ pub(in crate::app) fn run_codex_backend(
     )?;
     if launch.deferred_history {
         app.session.begin_initial_codex_rebuild();
-        client.bootstrap(app.session.thread_id().clone(), launch.runtime_response)?;
+        client.bootstrap(
+            app.session.thread_id().clone(),
+            launch.runtime_response,
+            carlos_core::codex_snapshot::BootstrapHistory::ExistingThread,
+        )?;
     }
     finish_run(&mut app, opts.backend, &client, server_events_rx)
 }

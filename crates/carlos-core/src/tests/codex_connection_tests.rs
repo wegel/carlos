@@ -276,3 +276,6 @@ fn a_large_full_turn_response_stays_off_the_socket_event_stream() {
     release.send(()).expect("release");
     server.join().expect("fixture ended");
 }
+
+#[path = "codex_startup_history_tests.rs"]
+mod startup_history;

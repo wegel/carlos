@@ -42,8 +42,15 @@ class NativeCodexReconnect:
         terminal.snapshot("native-shared-reconnected-running-turn")
         terminal.close()
         self.assertIsNone(server.poll(),"normal Carlos exit only closes its local socket")
-        self.assertIn("--codex-socket",(terminal.root/"terminal.ansi").read_text(errors="replace"))
-        self.assertIn(str(socket),(terminal.root/"terminal.ansi").read_text(errors="replace"))
+        hint=(terminal.root/"terminal.ansi").read_text(errors="replace").split("to resume this session use:")[-1]
+        if terminal.owned_daemon:
+            session=terminal.daemon_requests("session/subscribe")[-1]["params"]["session"]
+            self.assertIn("--daemon-socket " + str(terminal.owned_daemon.endpoint),hint)
+            self.assertIn("resume " + session,hint)
+            self.assertNotIn(root,hint)
+        else:
+            self.assertIn("--codex-socket",hint)
+            self.assertIn(str(socket),hint)
 
     def test_native_shared_root_question_replays_with_its_exact_id_and_no_old_answer(self):
         def reply(body):

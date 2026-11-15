@@ -94,7 +94,7 @@ class NativeCodexControls:
         terminal.wait(lambda:len(model.requests)==1,"captured native request")
         captured=json.loads(json.dumps(model.requests[0]))
         terminal.send(b"\x1b[109;5u")
-        terminal.contains("Settings")
+        terminal.wait_settings_editor()
         terminal.send(b"\x1b[B\x1b[C\r")
         terminal.contains("Published for later steps only")
         future=terminal.requests("thread/settings/update")[-1]

@@ -44,6 +44,7 @@ class NativeMonitor(NativeCodexControls,NativeCodexPanel,NativeCodexGoals,Native
     def resume_native_goal(self,root,thread):
         terminal=Terminal(BINARY,root,resume=thread,codex=CODEX)
         self.addCleanup(terminal.close)
+        terminal.wait_ready_composer()
         return terminal
 
     def test_rename_uses_native_codex_metadata_and_survives_reload(self):
@@ -191,7 +192,7 @@ class NativeMonitor(NativeCodexControls,NativeCodexPanel,NativeCodexGoals,Native
         config.write_text(config.read_text()+"default_mode_request_user_input = true\n")
         terminal=Terminal(BINARY,root,resume=None,codex=CODEX)
         self.addCleanup(terminal.close)
-        terminal.wait(lambda:terminal.input_is(""),"native composer")
+        terminal.wait_ready_composer()
         terminal.paste("Ask the isolated native question")
         terminal.send(b"\r")
         terminal.contains("F4: Codex request waiting")
@@ -230,7 +231,7 @@ class NativeMonitor(NativeCodexControls,NativeCodexPanel,NativeCodexGoals,Native
             config.write_text(config.read_text()+"default_mode_request_user_input = true\n")
             terminal=Terminal(BINARY,root,resume=None,codex=CODEX)
             self.addCleanup(terminal.close)
-            terminal.wait(lambda:terminal.input_is(""),"native composer")
+            terminal.wait_ready_composer()
             terminal.paste("Ask the isolated pending question")
             terminal.send(b"\r")
             terminal.contains("F4: Codex request waiting")
@@ -272,7 +273,7 @@ class NativeMonitor(NativeCodexControls,NativeCodexPanel,NativeCodexGoals,Native
         config.write_text(config.read_text().replace('approval_policy = "never"','approval_policy = "on-request"')+f'\n[mcp_servers.forms]\ncommand = "{shutil.which("python3")}"\nargs = [{json.dumps(str(server))}]\nenv = {{ CARLOS_TEST_ROOT = {json.dumps(str(root))} }}\n')
         terminal=Terminal(BINARY,root,resume=None,codex=CODEX)
         self.addCleanup(terminal.close)
-        terminal.wait(lambda:terminal.input_is(""),"MCP native composer")
+        terminal.wait_ready_composer()
         terminal.paste("Ask the isolated local MCP form")
         terminal.send(b"\r")
         terminal.wait(lambda:"Native MCP form" in terminal.text or "One-time human approval" in terminal.text,"native MCP form or managed approval")
@@ -305,7 +306,7 @@ class NativeMonitor(NativeCodexControls,NativeCodexPanel,NativeCodexGoals,Native
                           f'sandbox_mode = "{sandbox_mode}"')+feature_config)
         terminal = Terminal(BINARY, root, resume=None, codex=CODEX)
         self.addCleanup(terminal.close)
-        terminal.wait(lambda: terminal.input_is(""), "composer ready")
+        terminal.wait_ready_composer()
         return terminal, model
 
     def test_native_sleep_wakes_on_user_input_without_an_extra_turn(self):

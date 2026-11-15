@@ -29,8 +29,12 @@ class NativeCodexPanel:
         terminal.contains("Codex agents / processes")
         terminal.wait(lambda:bool([request for request in terminal.requests("thread/list") if "ancestorThreadId" in request["params"]]),"native descendant list")
         root=terminal.requests("turn/start")[0]["params"]["threadId"]
-        request=next(request for request in terminal.requests("thread/list") if request["params"].get("ancestorThreadId")==root)
-        terminal.wait(lambda:self.native_reply(terminal,request) is not None,"native descendants returned")
+        def descendants():
+            return [request for request in terminal.requests("thread/list")
+                    if request["params"].get("ancestorThreadId")==root
+                    and (self.native_reply(terminal,request) or {}).get("result",{}).get("data")]
+        terminal.wait(lambda:bool(descendants()),"native descendants returned after the child starts")
+        request=descendants()[0]
         result=self.native_reply(terminal,request)
         self.assertNotIn("error",result)
         child=result["result"]["data"][0]

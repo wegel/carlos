@@ -11,6 +11,15 @@ use crate::protocol::AppServerClient;
 use crate::protocol_history::load_thread_history;
 use crate::protocol_params::{extract_result_object, initialize_client, params_thread_resume};
 
+/// Distinguish a newly created native thread from an existing thread with saved turns.
+#[derive(Clone, Copy)]
+pub enum BootstrapHistory {
+    /// The successful thread/start response proves that this thread has no turns yet.
+    NewThread,
+    /// Resume and reconnect must read every saved turn before replacing session facts.
+    ExistingThread,
+}
+
 /// Retain at most one complete read: 64 MiB history, 16 MiB queue, 8 MiB panel,
 /// eight MiB catalog/runtime and 128 KiB goal, before UI replacement.
 pub struct CodexSnapshot {
@@ -31,34 +40,36 @@ pub fn read(client: &AppServerClient, thread: &str, deadline: Instant) -> Result
         params_thread_resume(thread),
         Duration::from_secs(20),
     )?;
-    read_inner(reader, thread, runtime)
+    read_inner(reader, thread, runtime, BootstrapHistory::ExistingThread)
 }
 
-/// Reuse the initial handshake/resume while the UI handles replayed questions during history reads.
+/// Reuse the initial handshake while the owner handles replayed questions during history reads.
 pub(crate) fn read_initialized(
     client: &AppServerClient,
     thread: &str,
     runtime: String,
+    history: BootstrapHistory,
 ) -> Result<CodexSnapshot> {
     read_inner(
         SnapshotReader::new(client, Instant::now() + Duration::from_secs(20)),
         thread,
         runtime,
+        history,
     )
 }
 
-fn read_inner(reader: SnapshotReader<'_>, thread: &str, runtime: String) -> Result<CodexSnapshot> {
+fn read_inner(
+    reader: SnapshotReader<'_>,
+    thread: &str,
+    runtime: String,
+    history: BootstrapHistory,
+) -> Result<CodexSnapshot> {
     let parsed = extract_result_object(&runtime)?;
     ensure!(
         parsed["result"]["thread"]["id"] == thread,
         "Codex resumed a different thread"
     );
-    let history = load_thread_history(
-        &reader,
-        &runtime,
-        reader.deadline.saturating_duration_since(Instant::now()),
-    )?;
-    let mut history = crate::session::codex::history::preferred_codex_thread(&history, thread)?;
+    let mut history = initial_history(&reader, &parsed, &runtime, thread, history)?;
     let catalog = reader.catalog()?;
     ensure!(
         catalog.to_string().len() + runtime.len() <= 8 * 1024 * 1024,
@@ -103,4 +114,28 @@ fn read_inner(reader: SnapshotReader<'_>, thread: &str, runtime: String) -> Resu
         goal,
         panel,
     })
+}
+
+fn initial_history(
+    reader: &SnapshotReader<'_>,
+    parsed: &Value,
+    runtime: &str,
+    thread: &str,
+    history: BootstrapHistory,
+) -> Result<Value> {
+    if matches!(history, BootstrapHistory::NewThread) {
+        let fresh = &parsed["result"]["thread"];
+        ensure!(
+            fresh["turns"].as_array().is_some_and(Vec::is_empty),
+            "New Codex thread unexpectedly contains history"
+        );
+        // Codex does not materialize a new thread's saved history until its first prompt.
+        return Ok(fresh.clone());
+    }
+    let history = load_thread_history(
+        reader,
+        runtime,
+        reader.deadline.saturating_duration_since(Instant::now()),
+    )?;
+    crate::session::codex::history::preferred_codex_thread(&history, thread)
 }

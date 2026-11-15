@@ -80,7 +80,7 @@ The daemon already proves basic chat, approvals, running output, independent cli
 - [x] (2026-11-15) Move production offline perf commands off AppState/SessionState in4cd1f39/1677ef9. Four baseline/candidate CLI count comparisons and32 styled-row comparisons pass; no formatter/cache policy changed. The managed opt-in launcher and matching terminal/daemon/helper packages are committed as b682266/096f1a7. The default cutover remains open.
 
 - [x] (2026-11-15) Commit terminal prompt/history/rename/help as603ffde and correct asynchronous Claude fork adoption as1658ecc. Isolated prefix tests and strict lint plus normal hooks pass. A real pre-fork failure now preserves its target and Escape cancel; a post-fork failure retries only the send.
-- [ ] (2026-11-15) Complete the all-daemon terminal parity gate. The first full291-case run exposes clustered readiness assumptions and real consumer gaps (61failures/1error); the first root-focused rerun passes34/42 after repairs. Remaining card/task/current-Restoring checks, interrupted-result ordering, current native-ID deduplication, mode notices and screen details are active work. Keep the failed traces and re-run each affected group before another complete pass.
+- [x] (2026-11-15) Pass the complete actual-daemon terminal matrix against frozen cutover draft marker60be796480143a4ea0347638ba1f5f4a:299 terminal workflows,143 daemon cases, selection2, source-failure5, dictation2 and ANSI-notice1 all pass. Preserve the earlier failures and fixture corrections: packaged helper lookup, ready/closed Settings fences and wrapped ANSI tail text. The old counter still crashes the ANSI regression. These checks precede the native fresh-thread/process-group/task-refresh repairs below and do not replace the final joined-source gate.
 - [x] (2026-11-15) Commit same-owner explicit Claude reopen foundation2e7fe5e and owner/manager routebe239de. Actual helper failures/reopens, concurrent opens, blank New versus saved Resume, confirmed inherited settings and private edit recovery pass four daemon and one terminal case. Current native-ID deduplication has an actual failing-before proof and remains an immediate follow-up.
 
 - [x] (2026-11-15) Commit shared active-step painting as c8fa69a, current native-ID ownership/deduplication as 8ec8398 and terminal draft/local-key parity as 4cf7912. Root actual follow-ups cover empty prompt history, fork/theme survival and replacement-helper two-stage approval. Reports preserve isolated versus combined-source evidence. The callback/task worker has 21 of23 affected terminal cases passing and is checking the last two fixes; the backend worker is correcting result-before-interrupt ordering. No reviewer ran.
@@ -98,6 +98,10 @@ The daemon already proves basic chat, approvals, running output, independent cli
 - [x] (2026-11-15) Repair dictated-text versus delayed prompt-read ownership. The actual Device test fails before the fix and passes afterward; stale results cannot cancel current navigation. Preserve the exact selected prompt record during rewind. The default dictation group passes57 tests/one ignored hardware case and strict workspace lint passes. See exec019b-dictation-history.md. No review, final approval or runtime cutover has run.
 
 - [x] (2026-11-15) Prove the private terminal cutover draft builds with and without dictation, then run the managed launcher without `--daemon`: all9 startup, concurrent-owner, detach/reattach, deadline and incompatible-companion cases pass. The physical deletion draft removes87 old runtime files in its isolated checkout; it is not yet the branch default or the deletion commit. New actual Device footer3 and history2 checks pass privately, and the phone help test now checks exact one-row Up, five-row PageUp and Home frames for both backends. The full298 actual-daemon workflow run is active against the frozen draft pair. Final joined source, release/native/performance checks, deletion commit and reviews remain open. See `.agents/reports/exec019b-cutover-draft.md`.
+
+- [x] (2026-11-15) Move Core/native/device checks in cf629dc, adddb0b and worker checkpoints through eea74c5. The two original frozen approval JSON files move unchanged into Core; all470/273 native-answer clauses retain their original kind/method and native targets. The old whole-overlay hashes are retired with named actual Device and terminal successors, without recreating a frontend session owner. Unique settings/reconnect/Claude/history cases remain in progress.
+- [x] (2026-11-15) Reproduce the installed Codex fresh-start failure, then pass three actual native workflows and three Core startup checks with explicit NewThread versus ExistingThread history scope. Codex0.167.1 permits new-thread metadata/queue/goal reads but rejects saved turn pages before the first user prompt. The fix skips those pages only after the trusted successful thread/start; resumed history errors still fail and an unexpected nonempty new-thread history is rejected. See `.agents/reports/exec019b-native-startup-and-shutdown.md`.
+- [ ] (2026-11-15) Finish the native cutover gate after two additional causal repairs: stop the owned Codex wrapper's process group without harming a bystander, and refresh native task metadata once after a matching accepted child stop when the list has no reader interest. The old process test proves a live orphan; the private fix passes. The F2 owner test reproduces the missing refresh and its worker is fixing the existing path. Freeze a joined pair and rerun the native matrix, then the final full/release/performance gates before deletion approval.
 
 ## Surprises & Discoveries
 
@@ -160,6 +164,8 @@ Main has not advanced beyond `a29b1a1` at plan start. EP019a's final source is `
 The shared client exposed a card-order defect: the publisher sent new cards before the new cards used as their anchors, and omitted order-only moves. The publisher now emits from tail to head and compares both card facts and the next-card address. The new deterministic test fails with the old publisher (`approval-order-negative.log`); the full terminal/native gate passes with the fix.
 
 The cutover draft no longer calls the source-reader helper from the terminal executable. Core starts that helper through its owning process, so `carlosd` now handles `__summary-reader`; the actual daemon executable test fails before the fix and passes afterward. The terminal can drop the old helper entry point with the embedded session path.
+
+The installed Codex CLI distinguishes a new, unmaterialized thread from an existing empty saved thread. A native probe in `/tmp/carlos-ep019b/native-fresh-read-probe/rpc.jsonl` shows thread/start succeeds with turns=[], metadata/queue/goal reads succeed, and thread/turns/list returns-32600 before a user message. Treating that failure as a general empty-history fallback would discard real resumed history, so the caller must carry the known launch scope.
 
 ## Decision Log
 
@@ -226,6 +232,10 @@ Decision: cap retained session facts across one Client at 64 MiB and defer futur
   Rationale: Workers can move tests without replacing executables under a running test. The ordinary launcher fixture omits the compatibility flag so it proves the eventual default route. The final branch commit must join migrated test hooks and rerun whole-source checks.
   Date/Author: 2026-11-15, Codex.
 
+- Decision: Pass explicit BootstrapHistory from the native launch caller, with NewThread only for thread/start and ExistingThread for resume/reconnect. Keep all ordinary snapshot reads and existing history checks.
+  Rationale: The actual native failure concerns the absence of a newly created thread's saved pages. No native error or empty metadata reply proves that an existing history can be discarded.
+  Date/Author: 2026-11-15, Codex.
+
 ## Outcomes & Retrospective
 
 Current checkpoint: the ordinary daemon workflows, mobile fallbacks and private dictated-text/history races have focused positive evidence. Native and UI test moves now preserve names, startup choices, task ownership and immutable native IDs without an AppState fixture. The final clean daemon-only/release run, remaining old test moves, separate runtime deletion, performance evidence and end-of-EP reviews remain open. No spike binary has been installed and main has not been merged or pushed.
@@ -243,6 +253,8 @@ The owner accepted the working headless daemon; EP019b is now active. The core a
 Typed names and earlier-prompt edits now run through the actual dispatcher. Ordered fork/send chains keep one private retry identity, definite validation failures preserve only their owner's text, and asynchronous Claude forks retain checked edit lifetimes and exact acknowledgement. The full edit gate passes 21 daemon workflows, 183 terminal workflows, 23 native-monitor workflows, installed Codex contracts, 61 helper tests and 13 architecture checks. New core/native tests prove early helper adoption and retirement at writer dispatch and while awaiting a fork reply. The final additional Codex guard test passes and fails with the old unguarded code restored. Next are the remaining typed native panels/settings/lifecycle, the pure shared client, terminal source/render consumers and actual socket cutover. No terminal cutover is claimed. The final result must include a separate deletion commit, not a permanent switch between two terminal modes.
 
 The default route is ready in an isolated draft and its actual process checks pass. The spike branch still retains the embedded route until unique old tests reach their Core, Device or plain-widget successors. No reviewer has run during these final changes, and no spike binary has been installed, pushed or merged.
+
+The full deterministic daemon/terminal draft matrix now passes. Actual installed-CLI checks found startup and shutdown assumptions that the deterministic peers had not modeled; the new Core tests capture those behaviors without inference. The final branch deletion and joined native/release/performance checks remain open, and no reviewers have run during these repairs.
 
 ## Context and Orientation
 
@@ -790,3 +802,5 @@ Update note (2026-11-15, prompt foundation gate): acad30f Ralph report is prepar
 2026-11-15 update: recorded603ffde/1658ecc and the first complete actual-daemon terminal gate, including its failures. Kept current native lifecycle and terminal parity work explicit before the deletion gate.
 
 2026-11-15 checkpoint: recorded the private physical-deletion draft and actual default-launch evidence separately from the still-open branch deletion/final gates. This prevents a passing draft build from being mistaken for a completed EP.
+
+2026-11-15 checkpoint: closed the299-workflow draft parity item with its exact binary marker, recorded unchanged native approval oracles at their Core owner, and separated the native startup/shutdown/task-refresh gaps from the still-open final deletion and release gates.

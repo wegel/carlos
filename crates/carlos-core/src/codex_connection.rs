@@ -9,7 +9,7 @@ use std::thread;
 use anyhow::{ensure, Context, Result};
 use serde_json::json;
 
-use crate::codex_snapshot::CodexSnapshot;
+use crate::codex_snapshot::{BootstrapHistory, CodexSnapshot};
 use crate::protocol::AppServerClient;
 use crate::protocol_events::EventQueue;
 
@@ -65,8 +65,13 @@ impl CodexClient {
         })
     }
 
-    /// Finish initial resume history off the UI thread without repeating initialize or resume.
-    pub fn bootstrap(&self, thread: String, runtime: String) -> Result<()> {
+    /// Read initial thread facts off the owner loop without repeating initialize, start or resume.
+    pub fn bootstrap(
+        &self,
+        thread: String,
+        runtime: String,
+        history: BootstrapHistory,
+    ) -> Result<()> {
         ensure!(
             !self.shared.reconnecting.swap(true, Ordering::SeqCst),
             "Codex rebuild already pending"
@@ -75,8 +80,9 @@ impl CodexClient {
         let shared = self.shared.clone();
         let generation = shared.generation.load(Ordering::SeqCst);
         thread::spawn(move || {
-            let result = crate::codex_snapshot::read_initialized(&client, &thread, runtime)
-                .and_then(|snapshot| publish(&shared, generation, &thread, snapshot));
+            let result =
+                crate::codex_snapshot::read_initialized(&client, &thread, runtime, history)
+                    .and_then(|snapshot| publish(&shared, generation, &thread, snapshot));
             finish_attempt(&shared, generation, result);
         });
         Ok(())
