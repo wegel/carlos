@@ -143,7 +143,8 @@ impl Manager {
 
     fn daemon_identity(&self) -> carlos_proto::identity::DaemonIdentity {
         carlos_proto::identity::DaemonIdentity {
-            build: carlos_proto::identity::BuildInfo::current(),
+            build: crate::build_info(),
+            process: std::process::id(),
             codex_socket: self
                 .codex_socket
                 .as_ref()

@@ -1,16 +1,19 @@
 //! Give colocated executables the same deterministic source compatibility marker.
 
-use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 const OFFSET: u128 = 0x6c62272e07bb014262b821756295c58d;
 const PRIME: u128 = 0x0000000001000000000000000000013b;
 
-fn main() {
-    let manifest = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("manifest directory"));
-    let root = manifest.parent().and_then(Path::parent).expect("workspace");
-    let mut inputs = vec![root.join("Cargo.toml"), root.join("Cargo.lock")];
+/// Publish one marker from sorted relative source names and bytes for a binary package.
+pub fn emit(root: &Path) {
+    let mut inputs = vec![
+        root.join("Cargo.toml"),
+        root.join("Cargo.lock"),
+        root.join("build.rs"),
+        root.join("scripts/source_fingerprint.rs"),
+    ];
     collect(&root.join("src"), &mut inputs);
     for package in fs::read_dir(root.join("crates")).expect("workspace crates") {
         let package = package.expect("crate directory").path();

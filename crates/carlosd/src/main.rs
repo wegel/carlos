@@ -13,10 +13,7 @@ fn main() -> Result<()> {
         .nth(1)
         .is_some_and(|arg| arg == "--build-info")
     {
-        println!(
-            "{}",
-            serde_json::to_string(&carlos_proto::identity::BuildInfo::current())?
-        );
+        println!("{}", serde_json::to_string(&carlosd::build_info())?);
         return Ok(());
     }
     let Some(config) = arguments()? else {

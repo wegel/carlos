@@ -14,8 +14,7 @@ fn main() {
     {
         println!(
             "{}",
-            serde_json::to_string(&carlos_proto::identity::BuildInfo::current())
-                .expect("build identity JSON")
+            serde_json::to_string(&build_info()).expect("build identity JSON")
         );
         return;
     }
@@ -30,4 +29,8 @@ fn main() {
         eprintln!("error: {err:#}");
         std::process::exit(1);
     }
+}
+
+fn build_info() -> carlos_proto::identity::BuildInfo {
+    carlos_proto::identity::BuildInfo::new(env!("CARGO_PKG_VERSION"), env!("CARLOS_SOURCE_ID"))
 }

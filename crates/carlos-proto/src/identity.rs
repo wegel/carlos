@@ -11,12 +11,12 @@ pub struct BuildInfo {
 }
 
 impl BuildInfo {
-    /// Report this workspace build's compatibility marker, independent of its directory.
-    pub fn current() -> Self {
+    /// Pair a binary package version and source marker with this protocol version.
+    pub fn new(version: &str, source: &str) -> Self {
         Self {
             protocol: crate::PROTOCOL_VERSION,
-            version: env!("CARGO_PKG_VERSION").into(),
-            source: env!("CARLOS_SOURCE_ID").into(),
+            version: version.into(),
+            source: source.into(),
         }
     }
 }
@@ -25,6 +25,9 @@ impl BuildInfo {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct DaemonIdentity {
     pub build: BuildInfo,
+    /// Name the daemon process so a user can stop a mismatched build explicitly.
+    #[serde(default)]
+    pub process: u32,
     /// Preserve Unix path bytes; None means the daemon starts its own Codex process.
     pub codex_socket: Option<Vec<u8>>,
 }

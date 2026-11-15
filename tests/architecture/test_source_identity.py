@@ -27,7 +27,9 @@ def fixture(root):
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content)
-    shutil.copy2(ROOT / "crates/carlos-proto/build.rs", root / "crates/carlos-proto/build.rs")
+    (root / "scripts").mkdir()
+    shutil.copy2(ROOT / "build.rs", root / "build.rs")
+    shutil.copy2(ROOT / "scripts/source_fingerprint.rs", root / "scripts/source_fingerprint.rs")
 
 
 class SourceIdentityTests(unittest.TestCase):
@@ -40,12 +42,12 @@ class SourceIdentityTests(unittest.TestCase):
             compiler = shutil.which("rustc")
             self.assertIsNotNone(compiler, "Cargo checks require rustc")
             tool = root / "fingerprint"
-            subprocess.run([compiler, "--edition=2021", str(ROOT / "crates/carlos-proto/build.rs"),
+            subprocess.run([compiler, "--edition=2021", str(ROOT / "build.rs"),
                             "-o", str(tool)], check=True, capture_output=True)
             markers = []
             for source in (first, second):
                 output = subprocess.check_output([str(tool)], text=True, env={**os.environ,
-                    "CARGO_MANIFEST_DIR": str(source / "crates/carlos-proto")})
+                    "CARGO_MANIFEST_DIR": str(source)})
                 rust = output.split("CARLOS_SOURCE_ID=", 1)[1].strip()
                 self.assertEqual(rust, IDENTITY.source_identity(source))
                 markers.append(rust)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Print the length-framed FNV-1a128 source marker shared with carlos-proto/build.rs."""
+"""Print the length-framed FNV-1a128 source marker shared with scripts/source_fingerprint.rs."""
 
 import argparse
 from pathlib import Path
@@ -10,7 +10,8 @@ MASK = (1 << 128) - 1
 
 
 def source_identity(root):
-    inputs = [root / "Cargo.toml", root / "Cargo.lock"]
+    inputs = [root / "Cargo.toml", root / "Cargo.lock", root / "build.rs",
+              root / "scripts/source_fingerprint.rs"]
     inputs.extend(path for path in (root / "src").rglob("*") if path.is_file())
     for package in (root / "crates").iterdir():
         inputs.append(package / "Cargo.toml")
