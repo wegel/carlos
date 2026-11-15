@@ -9,6 +9,16 @@ use carlosd::server::{run, Config};
 use signal_hook::consts::{SIGINT, SIGTERM};
 
 fn main() -> Result<()> {
+    if std::env::args_os()
+        .nth(1)
+        .is_some_and(|arg| arg == "--build-info")
+    {
+        println!(
+            "{}",
+            serde_json::to_string(&carlos_proto::identity::BuildInfo::current())?
+        );
+        return Ok(());
+    }
     let Some(config) = arguments()? else {
         return Ok(());
     };

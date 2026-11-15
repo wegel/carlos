@@ -7,6 +7,7 @@ use crate::{Connection, Welcome};
 
 pub(super) fn hello() -> HelloResult {
     HelloResult {
+        identity: None,
         protocol: carlos_proto::PROTOCOL_VERSION,
         host: "test".into(),
         daemon_version: "test".into(),

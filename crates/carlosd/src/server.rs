@@ -28,10 +28,15 @@ pub enum ServerError {
 
 /// Run until an explicit signal while device disconnects leave native session owners alive.
 pub fn run(config: Config, stop: Arc<AtomicBool>) -> Result<(), ServerError> {
+    let codex_socket = config
+        .codex_socket
+        .map(absolute)
+        .transpose()
+        .map_err(ServerError::Io)?;
     let bound = BoundSocket::bind(&config.socket, &config.state).map_err(ServerError::Io)?;
     let state_guard = bound.state_guard().map_err(ServerError::Io)?;
-    let mut manager = Manager::new(config.state, config.codex_socket, state_guard)
-        .map_err(ServerError::Registry)?;
+    let mut manager =
+        Manager::new(config.state, codex_socket, state_guard).map_err(ServerError::Registry)?;
     let listener = bound.listener().try_clone().map_err(ServerError::Io)?;
     let (opened, accepted) = mpsc::sync_channel(16);
     let wake = manager.wake();
@@ -80,6 +85,15 @@ pub fn run(config: Config, stop: Arc<AtomicBool>) -> Result<(), ServerError> {
     stop.store(true, Ordering::SeqCst);
     let _ = acceptor.join();
     Ok(())
+}
+
+fn absolute(path: PathBuf) -> io::Result<PathBuf> {
+    let absolute = if path.is_absolute() {
+        path
+    } else {
+        std::env::current_dir()?.join(path)
+    };
+    Ok(absolute.canonicalize().unwrap_or(absolute))
 }
 
 impl fmt::Display for ServerError {

@@ -8,6 +8,7 @@ pub mod commands;
 pub mod context_defaults;
 pub mod events;
 pub mod goals;
+pub mod identity;
 pub mod ids;
 pub mod output;
 pub mod queue;

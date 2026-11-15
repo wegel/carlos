@@ -49,6 +49,8 @@ pub struct FieldAnswer {
 /// The server's greeting after version and token checks succeed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HelloResult {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identity: Option<crate::identity::DaemonIdentity>,
     pub protocol: u32,
     pub host: String,
     pub daemon_version: String,

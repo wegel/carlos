@@ -114,6 +114,7 @@ impl Clients {
 
 fn greeting(instance: &DaemonId, id: ClientId, client: &Client, resumed: bool) -> HelloResult {
     HelloResult {
+        identity: None,
         protocol: carlos_proto::PROTOCOL_VERSION,
         host: "local".into(),
         daemon_version: env!("CARGO_PKG_VERSION").into(),

@@ -1,5 +1,6 @@
 //! Authenticate once, bind operation counters, and route only supported daemon methods.
 
+use std::os::unix::ffi::OsStrExt;
 use std::time::Instant;
 
 use carlos_proto::commands::{check_protocol, Command, Request, RequestId, Sessions};
@@ -117,7 +118,14 @@ impl Manager {
             }
         };
         match self.retry.hello(resume, Instant::now()) {
-            Ok(hello) => {
+            Ok(mut hello) => {
+                hello.identity = Some(carlos_proto::identity::DaemonIdentity {
+                    build: carlos_proto::identity::BuildInfo::current(),
+                    codex_socket: self
+                        .codex_socket
+                        .as_ref()
+                        .map(|path| path.as_os_str().as_bytes().to_vec()),
+                });
                 let connection = self.peers.get_mut(&peer).expect("peer");
                 connection.client = Some(hello.client.clone());
                 connection.replay_allowed = hello.resumed;
