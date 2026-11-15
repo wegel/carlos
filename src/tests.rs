@@ -151,13 +151,8 @@ mod codex_reconnect_tests;
 #[path = "tests/codex_reconnect_identity_tests.rs"]
 mod codex_reconnect_identity_tests;
 
-#[path = "tests/codex_task_status_tests.rs"]
-mod codex_task_status_tests;
 #[path = "tests/input_status_tests.rs"]
 mod input_status_tests;
-
-#[path = "tests/codex_task_ownership_tests.rs"]
-mod codex_task_ownership_tests;
 
 #[path = "tests/shell_directory_tests.rs"]
 mod shell_directory_tests;

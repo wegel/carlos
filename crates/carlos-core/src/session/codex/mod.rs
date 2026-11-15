@@ -116,3 +116,10 @@ mod frame_receive;
 mod frame_tests;
 
 mod startup;
+
+#[cfg(test)]
+mod task_status_native_tests;
+#[cfg(test)]
+mod task_status_ownership_tests;
+#[cfg(test)]
+mod task_status_test_support;
