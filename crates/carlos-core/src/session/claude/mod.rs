@@ -60,3 +60,6 @@ mod quota_read_tests;
 
 #[cfg(test)]
 mod task_behavior_tests;
+
+#[cfg(test)]
+mod callback_contract_tests;

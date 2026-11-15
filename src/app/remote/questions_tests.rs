@@ -1,10 +1,14 @@
 //! Keep local focus, confirmations and private fields independent from shared callback metadata.
 
-use carlos_proto::ids::EntryId;
-use carlos_proto::session::{Approval, ApprovalInput};
+use carlos_client::codec::Incoming;
+use carlos_client::ConnectionId;
+use carlos_proto::events::{Event, Notification, SessionEvent};
+use carlos_proto::ids::{EntryId, Sequence};
+use carlos_proto::session::{Approval, ApprovalInput, Snapshot};
 use serde_json::json;
 
 use super::Questions;
+use crate::app::remote::Device;
 
 fn id(index: u64) -> EntryId {
     format!("{}-{index:016x}", "a".repeat(32))
@@ -235,4 +239,59 @@ fn late_preflight_error_keeps_the_exact_schema_draft_and_confirmation() {
         state.drafts[&id(1)].editor.unsupported.as_deref(),
         Some("Unsupported form schema")
     );
+}
+
+#[test]
+fn unknown_resolution_keeps_both_actual_device_drafts_and_explicit_focus() {
+    let (mut device, connection) = question_device(vec![card(1), card(2)]);
+    device.sync_questions(false);
+    insert(&mut device.questions, 1, "first private answer");
+    insert(&mut device.questions, 2, "second private answer");
+    device.next_question();
+    device.next_question();
+    device
+        .questions
+        .drafts
+        .get_mut(&id(2))
+        .expect("second draft")
+        .confirm = true;
+    device
+        .client
+        .receive(
+            connection,
+            Incoming::Notification(Box::new(Notification::SessionEvent(SessionEvent {
+                session: device.session.clone(),
+                seq: Sequence::new(2),
+                event: Event::ApprovalResolved {
+                    approval: id(99),
+                    decision: None,
+                },
+            }))),
+        )
+        .expect("accepted unknown resolution");
+    device.sync_questions(false);
+    let replica = device.client.session(&device.session).expect("session");
+    assert_eq!(replica.approvals().len(), 2);
+    assert_eq!(replica.sequence(), Sequence::new(2));
+    assert_eq!(device.questions.focus, Some(id(2)));
+    assert!(device.questions.shown);
+    assert_eq!(text(&device.questions, 1), "first private answer");
+    assert_eq!(text(&device.questions, 2), "second private answer");
+    assert!(device.questions.drafts[&id(2)].confirm);
+}
+
+fn question_device(cards: Vec<Approval>) -> (Device, ConnectionId) {
+    let session = "a".repeat(32).parse().expect("session");
+    let snapshot = Snapshot {
+        info: crate::app::remote::widget_fixture::info(session, false),
+        entries: Vec::new(),
+        approvals: cards,
+        seq: Sequence::new(1),
+        has_older: false,
+        goal: None,
+        queue: None,
+        settings: None,
+        tasks: None,
+    };
+    crate::app::remote::widget_fixture::device_with_snapshot(snapshot)
 }

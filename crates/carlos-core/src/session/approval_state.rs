@@ -246,3 +246,7 @@ impl ApprovalRequestDraft {
         )
     }
 }
+
+#[cfg(test)]
+#[path = "approval_native_identity_tests.rs"]
+mod native_identity_tests;
