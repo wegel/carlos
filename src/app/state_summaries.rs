@@ -25,22 +25,6 @@ impl AppState {
 
 #[cfg(test)]
 impl AppState {
-    pub(super) fn summary_binding_for_test(&self, item: &str) -> Option<String> {
-        let id = self
-            .session
-            .messages()
-            .entry_id_for_item(&self.item_key(item))?;
-        self.session.summary_binding_for_test(id)
-    }
-
-    pub(super) fn summary_token_for_test(&self, item: &str) -> String {
-        self.summary_binding_for_test(item)
-            .expect("summary binding")
-    }
-}
-
-#[cfg(test)]
-impl AppState {
     pub(super) fn assert_entry_invariants(&self) {
         self.assert_approval_hint_invariants();
         self.session.messages().assert_invariants();

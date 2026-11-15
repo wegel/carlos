@@ -1,27 +1,27 @@
 //! Keep late labels scoped to their items and leave tool bodies and failures intact.
 
-use carlos_core::summaries::{command_key, SummaryEvent};
 use serde_json::{json, Value};
 
-use crate::app::item_history::load_history_from_start_or_resume;
-use crate::app::notifications::handle_server_message_line;
-use crate::app::transcript_render::build_rendered_lines;
-use crate::app::AppState;
+use super::feed as handle_server_message_line;
+use super::identity_support::{reset, summary_token};
+use super::session;
+use crate::session::item_history::load_history_from_start_or_resume;
+use crate::session::state::SessionState;
+use crate::summaries::{command_key, SummaryEvent};
 
 fn item() -> Value {
     json!({"type":"commandExecution","id":"command","command":"python3 process.py",
         "aggregatedOutput":"original output","exitCode":2})
 }
 
-fn notify(app: &mut AppState, method: &str) {
-    let line = json!({"method":method,"params":{"threadId":app.session.thread_id(),"turnId":"turn","item":item()}});
+fn notify(app: &mut SessionState, method: &str) {
+    let line = json!({"method":method,"params":{"threadId":app.thread_id(),"turnId":"turn","item":item()}});
     handle_server_message_line(app, &line.to_string());
 }
 
-fn app() -> AppState {
-    let mut app = AppState::new("thread".into());
-    app.session.set_summary_enabled_for_test(true);
-    app.view.summary_enabled_draft = true;
+fn app() -> SessionState {
+    let mut app = session("thread");
+    app.set_summary_enabled_for_test(true);
     app
 }
 
@@ -29,37 +29,35 @@ fn app() -> AppState {
 fn late_labels_preserve_command_output_failure_and_survive_duplicate_completion() {
     let mut app = app();
     notify(&mut app, "item/started");
-    let visible = build_rendered_lines(app.session.messages(), 100);
-    assert!(visible.iter().any(|l| l.text.contains("process.py")));
+    assert!(app.messages()[0]
+        .tool_output
+        .as_ref()
+        .expect("literal label")
+        .summary
+        .contains("process.py"));
     notify(&mut app, "item/completed");
-    let idx = app.item_message_index("command").expect("command entry");
-    let original = app.session.messages()[idx].text.clone();
+    let idx = app
+        .item_message_index(&app.backend_entry_key("command"))
+        .expect("command entry");
+    let original = app.messages()[idx].text.clone();
     app.handle_summary_event(SummaryEvent::Ready(
         command_key("python3 process.py"),
-        app.summary_token_for_test("command"),
+        summary_token(&app, "command"),
         Some("Rewrite the report".into()),
     ));
     notify(&mut app, "item/completed");
-    assert_eq!(app.session.messages()[idx].text, original);
-    let tool = app.session.messages()[idx]
-        .tool_output
-        .as_ref()
-        .expect("metadata");
+    assert_eq!(app.messages()[idx].text, original);
+    let tool = app.messages()[idx].tool_output.as_ref().expect("metadata");
     assert_eq!(tool.summary, "run Rewrite the report");
     assert!(tool.failed && tool.generated);
-    let visible = build_rendered_lines(app.session.messages(), 100);
-    assert!(visible
-        .iter()
-        .any(|l| l.text.contains("Rewrite the report")));
-    assert!(visible.iter().any(|l| l.text.contains("original output")));
 }
 
 #[test]
 fn old_results_cannot_update_a_new_thread_with_the_same_command_and_item_id() {
     let mut app = app();
     notify(&mut app, "item/completed");
-    let old_token = app.summary_token_for_test("command");
-    app.reset_for_forked_thread("other-thread");
+    let old_token = summary_token(&app, "command");
+    reset(&mut app, "other-thread");
     notify(&mut app, "item/completed");
     app.handle_summary_event(SummaryEvent::Ready(
         command_key("python3 process.py"),
@@ -67,7 +65,7 @@ fn old_results_cannot_update_a_new_thread_with_the_same_command_and_item_id() {
         Some("Wrong old label".into()),
     ));
     assert!(
-        !app.session.messages()[0]
+        !app.messages()[0]
             .tool_output
             .as_ref()
             .expect("metadata")
@@ -79,29 +77,28 @@ fn old_results_cannot_update_a_new_thread_with_the_same_command_and_item_id() {
 fn disabling_restores_the_original_label_without_changing_its_body() {
     let mut app = app();
     notify(&mut app, "item/completed");
-    let original = app.session.messages()[0]
+    let original = app.messages()[0]
         .tool_output
         .as_ref()
         .expect("metadata")
         .summary
         .clone();
-    let body = app.session.messages()[0].text.clone();
+    let body = app.messages()[0].text.clone();
     app.handle_summary_event(SummaryEvent::Ready(
         command_key("python3 process.py"),
-        app.summary_token_for_test("command"),
+        summary_token(&app, "command"),
         Some("Rewrite the report".into()),
     ));
-    app.view.summary_enabled_draft = false;
-    app.apply_summary_setting();
+    app.apply_summary_setting(false);
     assert_eq!(
-        app.session.messages()[0]
+        app.messages()[0]
             .tool_output
             .as_ref()
             .expect("metadata")
             .summary,
         original
     );
-    assert_eq!(app.session.messages()[0].text, body);
+    assert_eq!(app.messages()[0].text, body);
 }
 
 #[test]
@@ -112,11 +109,11 @@ fn restored_labels_are_accepted_for_saved_items_without_creating_a_model_job() {
     load_history_from_start_or_resume(&mut app, &response.to_string()).expect("history");
     app.handle_summary_event(SummaryEvent::Ready(
         command_key("python3 process.py"),
-        app.summary_token_for_test("command"),
+        summary_token(&app, "command"),
         Some("Saved label".into()),
     ));
     assert_eq!(
-        app.session.messages()[0]
+        app.messages()[0]
             .tool_output
             .as_ref()
             .expect("metadata")
@@ -139,10 +136,10 @@ fn ep130_scripts_inside_ssh_receive_labels_without_reading_remote_files_locally(
     handle_server_message_line(&mut app, &line.to_string());
     app.handle_summary_event(SummaryEvent::Ready(
         command_key(&remote),
-        app.summary_token_for_test("remote"),
+        summary_token(&app, "remote"),
         Some("Read simulator preferences on the remote host".into()),
     ));
-    let tool = app.session.messages()[0]
+    let tool = app.messages()[0]
         .tool_output
         .as_ref()
         .expect("tool metadata");
@@ -152,14 +149,18 @@ fn ep130_scripts_inside_ssh_receive_labels_without_reading_remote_files_locally(
     let line = json!({"method":"item/completed","params":{"threadId":"thread","item":{
         "type":"commandExecution","id":"remote-file","command":command,"exitCode":0}}});
     handle_server_message_line(&mut app, &line.to_string());
-    assert!(app.summary_binding_for_test("remote-file").is_none());
+    assert!(app
+        .messages()
+        .entry_id_for_item(&app.backend_entry_key("remote-file"))
+        .and_then(|id| app.summary_binding_for_test(id))
+        .is_none());
     app.handle_summary_event(SummaryEvent::Ready(
         command_key(command),
         "unbound remote file".into(),
         Some("Wrong local source".into()),
     ));
     assert!(
-        !app.session.messages()[1]
+        !app.messages()[1]
             .tool_output
             .as_ref()
             .expect("metadata")
@@ -180,10 +181,10 @@ mod worker {
 
     use serde_json::{json, Value};
 
-    use crate::app::item_history::load_history_from_start_or_resume;
-    use crate::app::notifications::handle_server_message_line;
-    use crate::app::state::AppState;
-    use carlos_core::summaries::SummaryEvent;
+    use super::super::{feed as handle_server_message_line, session};
+    use crate::session::item_history::load_history_from_start_or_resume;
+    use crate::session::state::SessionState;
+    use crate::summaries::SummaryEvent;
 
     const CHILD: &str = "CARLOS_M5C_SUMMARY_TEST_ROOT";
 
@@ -194,7 +195,7 @@ mod worker {
         let output = Command::new(std::env::current_exe().expect("test executable"))
             .args([
                 "--exact",
-                "app::tests::summary_tests::worker::isolated_summary_worker",
+                "session::common_native_tests::summaries::worker::isolated_summary_worker",
                 "--nocapture",
             ])
             .env(CHILD, root.path())
@@ -234,9 +235,9 @@ mod worker {
         };
         let root = std::path::PathBuf::from(root);
         let listener = UnixListener::bind(root.join("provider.sock")).expect("provider receipt");
-        let mut app = AppState::new("thread".into());
-        app.session.set_summary_enabled_for_test(true);
-        app.session.set_summary_cwd(root.clone());
+        let mut app = session("thread");
+        app.set_summary_enabled_for_test(true);
+        app.set_summary_cwd(root.clone());
         let (tx, rx) = mpsc::channel();
         app.configure_summary_worker(tx);
         let live = json!({"method":"item/completed","params":{"threadId":"thread","item":item("live","python3 cancelled.py")}});
@@ -283,7 +284,7 @@ mod worker {
         ]}]}}})
     }
 
-    fn accept_history_labels(app: &mut AppState, rx: &mpsc::Receiver<SummaryEvent>) {
+    fn accept_history_labels(app: &mut SessionState, rx: &mpsc::Receiver<SummaryEvent>) {
         for expected in [Some("Saved source label"), Some("Saved inline label"), None] {
             let event = rx
                 .recv_timeout(Duration::from_secs(30))
@@ -299,7 +300,7 @@ mod worker {
             (1, "run Saved inline label"),
             (2, "run python3 missing.py"),
         ] {
-            let entry = &app.session.messages()[index];
+            let entry = &app.messages()[index];
             assert_eq!(
                 entry.tool_output.as_ref().expect("tool details").summary,
                 expected

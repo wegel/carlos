@@ -86,6 +86,8 @@ mod codex_startup_settings_tests;
 mod grok_backend_tests;
 #[path = "tests/input_tests.rs"]
 mod input_tests;
+#[path = "tests/late_summary_render_tests.rs"]
+mod late_summary_render_tests;
 #[path = "tests/notification_tests.rs"]
 mod notification_tests;
 #[path = "tests/phone_layout_tests.rs"]
@@ -100,8 +102,6 @@ mod runtime_tests;
 mod shell_command_tests;
 #[path = "tests/summary_render_tests.rs"]
 mod summary_render_tests;
-#[path = "tests/summary_tests.rs"]
-mod summary_tests;
 #[path = "tests/theme_preferences_tests.rs"]
 mod theme_preferences_tests;
 #[path = "tests/three_c_tests.rs"]
@@ -147,9 +147,6 @@ mod input_status_tests;
 
 #[path = "tests/shell_directory_tests.rs"]
 mod shell_directory_tests;
-
-#[path = "tests/tool_command_view_tests.rs"]
-mod tool_command_view_tests;
 
 /// Construct test rows through the same allocator used by production appends.
 fn test_message(draft: carlos_core::session::models::EntryDraft) -> Message {

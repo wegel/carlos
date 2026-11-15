@@ -15,6 +15,8 @@ mod lookup_extra;
 mod names;
 mod review_cursor;
 mod review_history;
+mod summaries;
+mod tool_command_views;
 
 use super::actions::ServerRequestAction;
 use super::backend_test_support::{action, context};

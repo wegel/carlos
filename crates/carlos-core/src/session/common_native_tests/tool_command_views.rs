@@ -2,21 +2,22 @@
 
 use std::path::{Path, PathBuf};
 
-use carlos_core::session::models::Role;
-use carlos_core::session::summary_request::summary_input;
-use carlos_core::session::tool_command_view::ToolCommandView;
-use carlos_core::summaries::{command_key, SummaryEvent};
+use crate::session::models::Role;
+use crate::session::summary_request::summary_input;
+use crate::session::tool_command_view::ToolCommandView;
+use crate::summaries::{command_key, SummaryEvent};
 use serde_json::{json, Value};
 
-use crate::app::item_history::load_history_from_start_or_resume;
-use crate::app::notifications::handle_server_message_line;
-use crate::app::AppState;
+use super::feed as handle_server_message_line;
+use super::identity_support::summary_token;
+use super::session;
+use crate::session::item_history::load_history_from_start_or_resume;
+use crate::session::state::SessionState;
 
-fn app() -> AppState {
-    let mut app = AppState::new("thread".into());
-    app.session
-        .set_summary_cwd(PathBuf::from("/workspace/project"));
-    app.session.set_summary_enabled_for_test(true);
+fn app() -> SessionState {
+    let mut app = session("thread");
+    app.set_summary_cwd(PathBuf::from("/workspace/project"));
+    app.set_summary_enabled_for_test(true);
     app
 }
 
@@ -24,8 +25,8 @@ fn item(command: &str) -> Value {
     json!({"id":"shell","type":"commandExecution","command":command,"aggregatedOutput":"kept stdout","exitCode":0})
 }
 
-fn complete(app: &mut AppState, item: &Value) {
-    let frame = json!({"method":"item/completed","params":{"threadId":app.session.thread_id(),"turnId":"turn","item":item}});
+fn complete(app: &mut SessionState, item: &Value) {
+    let frame = json!({"method":"item/completed","params":{"threadId":app.thread_id(),"turnId":"turn","item":item}});
     handle_server_message_line(app, &frame.to_string());
 }
 
@@ -105,18 +106,18 @@ fn literal_shell_launchers_keep_exact_bodies_and_do_not_strip_unicode_whitespace
         )),
         json!({"command":["/bin/bash","-lc",script]}),
     ] {
-        let view = ToolCommandView::from_item(&native, app.session.summary_cwd())
-            .expect("literal launcher");
+        let view =
+            ToolCommandView::from_item(&native, app.summary_cwd()).expect("literal launcher");
         assert_eq!(view.command, body);
     }
     assert!(ToolCommandView::from_item(
         &item("\u{a0}cd /workspace/project && python3 process.py"),
-        app.session.summary_cwd()
+        app.summary_cwd()
     )
     .is_none());
     let view = ToolCommandView::from_item(
         &item("cd /workspace/project && \u{a0}program"),
-        app.session.summary_cwd(),
+        app.summary_cwd(),
     )
     .expect("prefix");
     assert_eq!(view.command, "\u{a0}program");
@@ -184,34 +185,33 @@ fn long_prefix_cannot_force_a_trivial_read_into_ai_or_merge_different_directory_
         let native = item(&format!(
             "cd '/workspace/project/{directory}' && rtk read file.rs"
         ));
-        assert!(summary_input(&native, app.session.summary_cwd()).is_none());
-        let label = app.tool_command_summary(&native).expect("read label");
+        assert!(summary_input(&native, app.summary_cwd()).is_none());
+        let label = app.tool_command_summary(&native, None).expect("read label");
         assert!(label.contains(directory));
         app.append_message(Role::ToolCall, label);
     }
-    assert!(!app.session.messages()[0].text.is_empty());
-    assert!(!app.session.messages()[1].text.is_empty());
-    assert_ne!(
-        app.session.messages()[0].text,
-        app.session.messages()[1].text
-    );
-    assert!(app.session.messages()[2].text.contains("one [a]"));
-    assert!(app.session.messages()[3].text.contains("one [b]"));
+    assert!(!app.messages()[0].text.is_empty());
+    assert!(!app.messages()[1].text.is_empty());
+    assert_ne!(app.messages()[0].text, app.messages()[1].text);
+    assert!(app.messages()[2].text.contains("one [a]"));
+    assert!(app.messages()[3].text.contains("one [b]"));
 }
 
 #[test]
 fn multiline_builtin_search_keeps_directory_in_its_compact_first_line() {
     let mut app = app();
     let native = item("cd /workspace/project/scripts && rg 'a\nb' file");
-    let label = app.tool_command_summary(&native).expect("builtin search");
+    let label = app
+        .tool_command_summary(&native, None)
+        .expect("builtin search");
     assert!(label
         .lines()
         .next()
         .expect("first line")
         .contains("(in scripts)"));
     app.append_message(Role::ToolCall, "fallback");
-    app.describe_tool_output(0, &native);
-    assert!(app.session.messages()[0]
+    app.describe_tool_output(0, &native, None);
+    assert!(app.messages()[0]
         .tool_output
         .as_ref()
         .expect("compact label")
@@ -225,12 +225,12 @@ fn long_cd_cannot_spend_an_ai_request_on_a_short_cat_head_pipeline() {
     let body = "cat file | head -150";
     let command = format!("cd '{}' && {body}", root.trim_end_matches('/'));
     assert!(command.len() >= 200);
-    assert!(carlos_core::summaries::eligibility::eligible(&command));
+    assert!(crate::summaries::eligibility::eligible(&command));
     let native = item(&command);
     let view = ToolCommandView::from_item(&native, Path::new(&root)).expect("prefix");
     assert_eq!(view.command, body);
     assert!(body.len() < 200);
-    assert!(!carlos_core::summaries::eligibility::eligible(body));
+    assert!(!crate::summaries::eligibility::eligible(body));
     assert!(summary_input(&native, Path::new(&root)).is_none());
 }
 
@@ -265,37 +265,36 @@ fn normalized_ai_inputs_scope_raw_command_version_directory_and_read_authority()
 fn late_cwd_metadata_retires_generated_labels_and_old_results_even_across_off_on_toggle() {
     let mut app = app();
     let mut native = item("cd /workspace/project/scripts && python3 process.py");
-    let old = summary_input(&native, app.session.summary_cwd())
+    let old = summary_input(&native, app.summary_cwd())
         .expect("old request")
         .key;
     complete(&mut app, &native);
     app.handle_summary_event(SummaryEvent::Ready(
         old,
-        app.summary_token_for_test("shell"),
+        summary_token(&app, "shell"),
         Some("Old directory label".into()),
     ));
     assert!(
-        app.session.messages()[0]
+        app.messages()[0]
             .tool_output
             .as_ref()
             .expect("label")
             .generated
     );
     native["cwd"] = json!("/workspace/project/other");
-    let new = summary_input(&native, app.session.summary_cwd())
+    let new = summary_input(&native, app.summary_cwd())
         .expect("new request")
         .key;
     complete(&mut app, &native);
     assert!(
-        !app.session.messages()[0]
+        !app.messages()[0]
             .tool_output
             .as_ref()
             .expect("new fallback")
             .generated
     );
-    app.view.summary_enabled_draft = false;
-    app.apply_summary_setting();
-    assert!(!app.session.messages()[0]
+    app.apply_summary_setting(false);
+    assert!(!app.messages()[0]
         .tool_output
         .as_ref()
         .expect("AI off")
@@ -303,17 +302,16 @@ fn late_cwd_metadata_retires_generated_labels_and_old_results_even_across_off_on
         .contains("Old directory"));
     app.handle_summary_event(SummaryEvent::Ready(
         old,
-        app.summary_token_for_test("shell"),
+        summary_token(&app, "shell"),
         Some("Stale result".into()),
     ));
     app.handle_summary_event(SummaryEvent::Ready(
         new,
-        app.summary_token_for_test("shell"),
+        summary_token(&app, "shell"),
         Some("Fresh directory label".into()),
     ));
-    app.view.summary_enabled_draft = true;
-    app.apply_summary_setting();
-    let label = &app.session.messages()[0]
+    app.apply_summary_setting(true);
+    let label = &app.messages()[0]
         .tool_output
         .as_ref()
         .expect("AI on")
@@ -326,21 +324,21 @@ fn late_cwd_metadata_retires_generated_labels_and_old_results_even_across_off_on
 fn history_replacement_uses_known_workspace_before_formatting_and_only_restores_cached_labels() {
     let mut app = app();
     let native = item("cd /workspace/project && python3 process.py");
-    let key = summary_input(&native, app.session.summary_cwd())
+    let key = summary_input(&native, app.summary_cwd())
         .expect("label identity")
         .key;
     let frame = json!({"result":{"thread":{"id":"thread","turns":[{"id":"past","status":"completed","items":[native]}]}}});
     load_history_from_start_or_resume(&mut app, &frame.to_string()).expect("history");
-    assert!(!app.session.messages()[0].text.contains("cd /workspace"));
-    assert!(!app.session.messages()[0].text.contains("(in "));
-    assert_eq!(app.session.summary_cwd(), Path::new("/workspace/project"));
+    assert!(!app.messages()[0].text.contains("cd /workspace"));
+    assert!(!app.messages()[0].text.contains("(in "));
+    assert_eq!(app.summary_cwd(), Path::new("/workspace/project"));
     app.handle_summary_event(SummaryEvent::Ready(
         key,
-        app.summary_token_for_test("shell"),
+        summary_token(&app, "shell"),
         Some("Saved snapshot".into()),
     ));
     assert_eq!(
-        app.session.messages()[0]
+        app.messages()[0]
             .tool_output
             .as_ref()
             .expect("cached")
