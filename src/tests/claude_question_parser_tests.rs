@@ -1,5 +1,6 @@
 //! Preserve tolerant MCP choice metadata in the answer editor.
 
+use carlos_core::session::claude::callback_questions::ClaudeQuestion;
 use serde_json::json;
 
 use crate::app::claude_question_state::NativeDraft;
@@ -12,10 +13,13 @@ fn incomplete_choice_metadata_remains_accepted_in_mcp_forms() {
         json!({"type":"string","anyOf":[{"const":17}],"default":17}),
     ] {
         let payload = json!({"requestedSchema":{"properties":{"value":rule}}});
-        let draft = NativeDraft::from_payload("elicitation", &payload);
+        let draft =
+            NativeDraft::from_description(ClaudeQuestion::from_payload("elicitation", &payload));
         assert_eq!(
-            draft.answer(&payload).expect("existing tolerant choice"),
-            json!({"action":"accept","content":{"value":17}})
+            draft.fields[0]
+                .mcp_value()
+                .expect("existing tolerant choice"),
+            Some(json!(17))
         );
     }
 }

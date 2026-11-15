@@ -311,3 +311,7 @@ pub(super) fn fingerprint(card: &Approval) -> [u8; 32] {
 #[cfg(test)]
 #[path = "questions_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "questions_editor_tests.rs"]
+mod editor_tests;

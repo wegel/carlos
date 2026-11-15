@@ -189,6 +189,22 @@ class ClaudeQuestions:
             self.assertEqual(len(self.helper_requests(terminal, "prompt")), 1)
             terminal.close()
 
+    def test_claude_missing_plan_blocks_acceptance_and_keeps_native_decline(self):
+        terminal = self.open_question("native plan missing")
+        terminal.contains("Claude supplied no plan text")
+        terminal.send(b"y\x13")
+        terminal.wait(lambda: "key code=Char('s')" in (terminal.root / "keys.log").read_text(), "unsupported acceptance keys applied")
+        self.assertNotIn("missing-plan-question", self.native_answers(terminal))
+        self.assertEqual(len(self.helper_requests(terminal, "prompt")), 1)
+        terminal.send(b"n")
+        terminal.contains("Native callbacks settled")
+        self.assertEqual(self.native_answers(terminal)["missing-plan-question"],
+                         {"behavior":"deny", "message":"User declined",
+                          "toolUseID":"tool-missing-plan-question"})
+        self.assertEqual(len(self.helper_requests(terminal, "prompt")), 1)
+        self.assertEqual(len(self.helper_requests(terminal, "callback.respond")), 1)
+        terminal.snapshot("missing-plan-native-decline")
+
     def test_claude_browser_consent_displays_host_and_reports_only_known_completion_once(self):
         terminal = self.open_question("browser consent")
         terminal.contains("MCP server: counter-server")

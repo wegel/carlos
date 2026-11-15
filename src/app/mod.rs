@@ -29,9 +29,6 @@ mod claude_prompts;
 mod claude_question_field;
 mod claude_question_input;
 mod claude_question_state;
-#[cfg(test)]
-#[path = "../tests/claude_question_tests.rs"]
-mod claude_question_tests;
 mod claude_question_view;
 mod claude_quota;
 #[cfg(test)]

@@ -51,7 +51,7 @@ def question(identifier, single=False, default_to_no=False):
 
 def start(text, prompt, send, result, state, native_session):
     global sender, finish_result, set_state, prompt_id, scenario, parent_finished, session_id
-    if text not in {"ask native", "ask single", "mcp form", "typed form", "browser consent", "native plan",
+    if text not in {"ask native", "ask single", "mcp form", "typed form", "browser consent", "native plan", "native plan missing",
                     "permission flags", "concurrent questions", "cancel questions", "unsupported form", "prepare questions", "undeclared dialog", "browser early", "precise integer", "ask default no"}:
         return False
     sender, finish_result, set_state, prompt_id, scenario = send, result, state, prompt, text
@@ -89,6 +89,8 @@ def start(text, prompt, send, result, state, native_session):
         if text == "browser early":
             sender({"type": "system", "subtype": "elicitation_complete", "session_id": session_id,
                     "uuid": str(uuid.uuid4()), "mcp_server_name": "counter-server", "elicitation_id": "browser-1"})
+    elif text == "native plan missing":
+        permission("missing-plan-question", "ExitPlanMode", "Review native plan", input={"planFilePath":"/tmp/missing.md"})
     elif text == "native plan":
         permission("plan-question", "ExitPlanMode", "Review native plan", input={
             "plan": "# Proposed native plan\n" + "\n".join(f"Step {i}: review source" for i in range(1, 25)) + "\nFinal plan line",

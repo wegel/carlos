@@ -6,6 +6,7 @@ use carlos_proto::session::{Approval, ApprovalInput, Decision, InputField, Input
 use super::approval_state::{
     ApprovalChoice, ApprovalRequestDraft, ApprovalRequestKind, PendingApprovalRequest,
 };
+use super::claude::callback_questions::ClaudeQuestion;
 use super::entry_id::EntryId;
 use super::events::Published;
 use super::questions::{ask_fields, question_fields, QuestionField};
@@ -158,6 +159,11 @@ fn export_input(card: &PendingApprovalRequest) -> Option<ApprovalInput> {
             payload,
             facts.kind == ApprovalRequestKind::CodexForm,
         )),
+        ApprovalRequestKind::ClaudeNative if payload["toolName"] == "ExitPlanMode" => {
+            ClaudeQuestion::from_payload("permission", payload)
+                .unsupported
+                .map(|reason| ApprovalInput::Unsupported { reason })
+        }
         ApprovalRequestKind::ClaudeNative if payload["toolName"] == "AskUserQuestion" => {
             Some(export_fields(ask_fields(&payload["input"])))
         }
@@ -251,7 +257,10 @@ fn export_choices(facts: &ApprovalRequestDraft, input: Option<&ApprovalInput>) -
             Decision::Deny => facts.can_decline,
             Decision::Cancel => facts.can_cancel,
         };
-        if !offered {
+        if !offered
+            || matches!(decision, Decision::Once | Decision::Session)
+                && matches!(input, Some(ApprovalInput::Unsupported { .. }))
+        {
             return None;
         }
         // Browser consent needs no form body. Permission replies may clone a large
