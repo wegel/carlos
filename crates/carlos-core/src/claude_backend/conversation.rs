@@ -12,6 +12,7 @@ use super::message_visibility::is_child_message;
 pub(super) struct ConversationGuard {
     pub(super) expected: Option<String>,
     pub(super) epoch: u64,
+    pub(super) launch: Option<super::reopen::LaunchPlan>,
     permit: bool,
     resets: VecDeque<String>,
     held: Vec<Value>,
@@ -97,6 +98,12 @@ impl ConversationGuard {
                 "Claude resumed {actual} but {} was requested; session stopped",
                 self.expected.as_deref().unwrap_or("unknown")
             );
+        }
+        if self.permit {
+            self.launch = Some(super::reopen::LaunchPlan {
+                id: actual.to_string(),
+                mode: super::types::ClaudeLaunchMode::New,
+            });
         }
         self.expected = Some(actual.to_string());
         self.permit = false;

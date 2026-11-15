@@ -49,12 +49,36 @@ pub(super) fn begin_session(
     settings: &ClaudeRuntimeSettings,
     fresh_id: &str,
 ) -> Result<()> {
+    begin_session_guarded(
+        transport,
+        cwd,
+        launch,
+        settings,
+        fresh_id,
+        Default::default(),
+    )
+}
+
+/// Keep explicit reopen permission through the first native history or startup writer.
+pub(super) fn begin_session_guarded(
+    transport: &ControllerTransport,
+    cwd: &Path,
+    launch: &ClaudeLaunchMode,
+    settings: &ClaudeRuntimeSettings,
+    fresh_id: &str,
+    permission: crate::dispatch_guard::DispatchGuard,
+) -> Result<()> {
+    super::reopen::record_launch(transport, launch, fresh_id)?;
     if let ClaudeLaunchMode::Resume(id) = launch {
-        transport.request("sessions.info", json!({"cwd": cwd, "sessionId": id}))
+        transport.request_guarded(
+            "sessions.info",
+            json!({"cwd": cwd, "sessionId": id}),
+            permission,
+        )
     } else {
         let mut params = start_params(cwd, launch, settings)?;
         params["sessionId"] = json!(fresh_id);
-        transport.request("start", params)
+        transport.request_guarded("start", params, permission)
     }
 }
 

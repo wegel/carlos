@@ -27,13 +27,13 @@ use crate::dispatch_guard::DispatchGuard;
 
 #[derive(Clone)]
 pub(super) struct Commands {
-    permission: DispatchGuard,
+    pub(super) permission: DispatchGuard,
     pub(super) transport: Arc<ControllerTransport>,
     pub(super) owner: Weak<Mutex<Arc<ControllerTransport>>>,
     pub(super) events_tx: EventSender,
     pub(super) cwd: PathBuf,
     pub(super) runtime_settings: Arc<Mutex<ClaudeRuntimeSettings>>,
-    epoch: u64,
+    pub(super) epoch: u64,
 }
 
 impl ClaudeClient {
@@ -266,6 +266,14 @@ impl BackendCommands for Commands {
         }
         self.transport
             .request_guarded(method, params, self.write_permission(false))
+    }
+    fn reopen_session(
+        &self,
+        thread: &str,
+        model: Option<String>,
+        effort: Option<String>,
+    ) -> Result<u64> {
+        self.reopen(thread, model, effort)
     }
     fn change_settings(&self, patch: SettingsPatch) -> SettingsResult {
         self.change_checked_settings(patch)

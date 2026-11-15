@@ -58,6 +58,9 @@ mod lifecycle_schedule_support;
 mod message_visibility;
 #[cfg(all(test, unix))]
 mod pipe_test_support;
+mod reopen;
+#[cfg(test)]
+mod reopen_tests;
 mod sessions;
 mod snapshot;
 #[cfg(any(test, feature = "test-support"))]
@@ -180,6 +183,13 @@ impl ClaudeClient {
 impl BackendClient for ClaudeClient {
     fn kind(&self) -> BackendKind {
         BackendKind::Claude
+    }
+
+    fn connection_generation(&self) -> Option<u64> {
+        self.transport
+            .try_lock()
+            .ok()
+            .map(|helper| helper.generation)
     }
 
     fn prepare_interrupt(&self) -> crate::backend_commands::InterruptIntent {

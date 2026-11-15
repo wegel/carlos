@@ -95,6 +95,15 @@ pub trait BackendCommands: Send + Sync {
     ) -> Result<()> {
         self.request_native_control(method, params)
     }
+    /// Restart only the captured closed Claude helper for an explicit logical open.
+    fn reopen_session(
+        &self,
+        _thread: &str,
+        _model: Option<String>,
+        _effort: Option<String>,
+    ) -> Result<u64> {
+        bail!("backend does not support explicit helper reopen")
+    }
     /// Apply only explicitly edited settings and retain each confirmed native field.
     fn change_settings(&self, _patch: SettingsPatch) -> SettingsResult {
         SettingsResult::unsupported()
