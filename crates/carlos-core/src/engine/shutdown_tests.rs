@@ -71,6 +71,10 @@ fn oversized_shared_history_does_not_hide_final_private_draft_recovery() {
     else {
         panic!("shutdown update");
     };
+    assert!(
+        final_state.seq > Sequence::default(),
+        "the final cursor survives a page error"
+    );
     assert_eq!(
         final_state.changes.err().expect("oversized page").code,
         -32011

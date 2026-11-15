@@ -231,6 +231,7 @@ impl Owner {
                 .map(|snapshot| EngineChanges::Snapshot(Box::new(snapshot))),
         };
         Ok(EngineReply::Updates(Box::new(super::EngineUpdate {
+            seq: self.ring.sequence(),
             info: self.session.export_info(),
             native_thread: self.session.thread_id().clone(),
             changes,

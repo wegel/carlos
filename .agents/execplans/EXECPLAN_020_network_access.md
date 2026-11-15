@@ -13,6 +13,8 @@ The daemon can run shell commands as its user. Network access stays off unless t
 
 ## Progress
 
+- [x] (2026-11-15) Add the pre-publication event-stream continuation and Launched.spawn_after API. Three Core cases pass: reset an existing client at exactly the old cursor plus one, reject a live owner rebase, and reject exhaustion without mutation. Expose EngineUpdate.seq independently of page encoding so a failed shared page cannot hide the final cursor. Both full workspace feature/lint matrices pass; logs are /tmp/carlos-ep020/owner-stream/. Manager replacement remains incomplete.
+
 - [x] (2026-11-15) Give each Core owner a fresh internal UUID for settings/goal/queue/task capability hashes. Two new tests pass with identical logical/native IDs and connection counters: old queue/task addresses and task runs cannot match the replacement, and unrelated root text does not rotate the same owner's scope. Both full workspace feature/lint matrices pass; logs are /tmp/carlos-ep020/owner-namespace/. Event cursor continuity and manager routes remain incomplete.
 
 - [x] (2026-11-15) Add the durable stopped flag and transactional catalogue v1→v2 migration. Three new cases pass with the original registry cases: exact stopped native identity after restart, repeatable old-schema upgrade, and rollback of both column/version for an invalid old row. Stopped metadata cannot record Ralph enabled. Both full workspace feature/lint matrices and all143 actual-daemon regressions pass (75.739s); logs are /tmp/carlos-ep020/registry/. Public stop/reopen remains incomplete.
@@ -29,6 +31,10 @@ The daemon can run shell commands as its user. Network access stays off unless t
 - [ ] Finish the direct engineering and Fable whole-roadmap reviews, record every disposition and delegated approval, archive this completed plan unchanged and continue to EP021.
 
 ## Surprises & Discoveries
+
+An attached Codex app-server is not owned by Carlos and may serve other conversations. Explicit stop must request interruption of only the captured selected native turn before closing its Carlos owner; it cannot kill that external server. Native interruption failure must stay visible rather than claim the remote turn definitely stopped. Owned helpers still close their owned process groups. Inspect the existing captured interrupt command and its bounded teardown before wiring the public stop action.
+
+EngineUpdate previously exposed its cursor only inside successful encoded changes. A shared-page error can therefore hide a newer owner cursor even though a client received a smaller direct snapshot. Carry EngineUpdate.seq independently and seed the next owner from that actual final value, not only the manager's last successful broadcast. The oversized shutdown case now checks both private recovery and the retained final cursor.
 
 A recreated owner starts EventState.seq at zero, while Replica.apply ignores events at or below its current sequence. Same-daemon stop/reopen therefore needs explicit cursor continuity and a reset/snapshot before new facts; a daemon-restart hello cannot solve it. Settings revisions currently hash the logical session/native thread/connection counters, which can repeat in a new owner. Before enabling replacement, prove stale settings/task/queue/goal and source/card references cannot match that replacement. Inspect existing per-entry namespaces and hash roots; prefer an internal fresh owner namespace plus carried sequence over adding a second logical session ID or a speculative generic transport layer.
 
@@ -195,3 +201,7 @@ Revision 2026-11-15: correct the recorded daemon-run elapsed time to75.739s from
 Revision 2026-11-15: preserve cursor continuity and stale control references across same-daemon owner replacement, before adding the manager stop/reopen routes. Registry commit04edc7c passes both feature/lint matrices and143 actual-daemon cases in75.739s; the recorded earlier elapsed time is corrected above.
 
 Revision 2026-11-15: add the minimal private owner UUID to existing control digests and test stale controls without changing public command shapes. Carry the event sequence before wiring manager replacement.
+
+Revision 2026-11-15: continue replacement streams with a forced reset, reject live rebasing/exhaustion, and retain the final cursor independently of a shared-page encoding failure.
+
+Revision 2026-11-15: complete both owner-stream Rust feature/lint matrices and preserve the owned-versus-attached backend stop boundary.

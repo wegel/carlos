@@ -7,7 +7,7 @@ use std::fmt;
 use std::path::PathBuf;
 use std::sync::mpsc;
 
-use carlos_proto::ids::SessionId;
+use carlos_proto::ids::{Sequence, SessionId};
 use carlos_proto::session::{Backend, SessionInfo};
 
 use super::EngineHandle;
@@ -109,6 +109,17 @@ impl Launched {
     /// Capture the live native address separately from its last confirmed catalogue entry.
     pub fn native_thread(&self) -> &str {
         self.session.thread_id()
+    }
+
+    /// Replace a stopped owner while continuing its logical session's published cursor.
+    pub fn spawn_after(
+        mut self,
+        after: Sequence,
+    ) -> Result<(EngineHandle, mpsc::Receiver<()>), LaunchError> {
+        self.session
+            .continue_owner_stream(after)
+            .map_err(|error| LaunchError::Invalid(error.to_string()))?;
+        Ok(self.spawn())
     }
 
     /// Transfer the whole adapter without exposing mutable session fields to the daemon manager.

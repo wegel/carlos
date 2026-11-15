@@ -270,6 +270,8 @@ pub enum EngineChanges {
 
 /// The manager collects one ordered batch without exposing private outcomes to a device socket.
 pub struct EngineUpdate {
+    /// Remain available even when a shared page exceeds its encoding budget.
+    pub seq: Sequence,
     pub info: SessionInfo,
     pub native_thread: String,
     pub changes: Result<EngineChanges, RpcError>,
