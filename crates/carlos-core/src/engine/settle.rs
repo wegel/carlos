@@ -11,6 +11,7 @@ impl Owner {
     pub(super) fn drain_completions(&mut self) {
         while let Ok(completion) = self.workers.completed.try_recv() {
             self.finish_completion(completion);
+            self.drain_control_events();
             self.notice();
         }
     }

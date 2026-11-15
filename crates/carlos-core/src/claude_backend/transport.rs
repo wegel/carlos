@@ -5,7 +5,7 @@ use std::ffi::OsString;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::process::{Child, Command, Stdio};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -67,6 +67,7 @@ pub(super) struct ControllerTransport {
     #[cfg(any(test, feature = "test-support"))]
     pub(super) events: EventSender,
     pub(super) generation: u64,
+    pub(super) control_closed: AtomicBool,
     pub(super) pending: Pending,
     pub(super) next_id: Arc<AtomicU64>,
     pub(super) state: Arc<TransportState>,
@@ -151,6 +152,7 @@ impl ControllerTransport {
             #[cfg(any(test, feature = "test-support"))]
             events: events.clone(),
             generation: events.generation,
+            control_closed: AtomicBool::new(false),
             pending,
             next_id: Arc::new(AtomicU64::new(1)),
             state,

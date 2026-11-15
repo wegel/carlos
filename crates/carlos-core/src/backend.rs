@@ -134,6 +134,14 @@ pub trait BackendClient: Send {
     /// Undo only matching owner intent when a native interrupt fails.
     fn finish_interrupt(&self, _intent: crate::backend_commands::InterruptIntent, _accepted: bool) {
     }
+    /// Drain normalized facts made eligible by a settled control on the owner thread.
+    fn take_control_events(&self) -> Vec<String> {
+        Vec::new()
+    }
+    /// Keep a prior result ahead of its held terminal cause when a native channel closes.
+    fn defers_terminal_events(&self) -> bool {
+        false
+    }
     /// Capture commands for the current helper without transferring its event consumer.
     fn capture_commands(&self) -> Result<crate::backend_commands::CommandHandle> {
         bail!("backend does not expose captured command handles")

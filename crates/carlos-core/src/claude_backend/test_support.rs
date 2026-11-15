@@ -76,7 +76,9 @@ impl FixtureNormalizer {
 
     /// Capture the native interrupt intent in tests that previously reached into the app.
     pub fn begin_interrupt(&mut self) -> Vec<String> {
-        self.handler.lifecycle.begin_interrupt()
+        let captured = self.handler.lifecycle.begin_interrupt();
+        self.handler.lifecycle.finish_interrupt(&captured, true);
+        captured
     }
 
     /// Undo an interrupt that a fixture failed to send.

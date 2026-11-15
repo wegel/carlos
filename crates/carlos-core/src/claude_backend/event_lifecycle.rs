@@ -1,6 +1,6 @@
 //! Completes accepted Claude prompts only after their native result and idle facts agree.
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use anyhow::{bail, Result};
 use serde_json::{json, Value};
@@ -10,8 +10,9 @@ use serde_json::{json, Value};
 pub(super) struct Lifecycle {
     pending: VecDeque<String>,
     cycle: Vec<String>,
-    results: Vec<(String, &'static str)>,
+    results: Vec<(String, &'static str, bool)>,
     interrupted: HashSet<String>,
+    interrupting: HashMap<String, usize>,
     current: Option<String>,
     consumed: HashSet<String>,
     clear: HashSet<String>,
@@ -37,6 +38,7 @@ impl Lifecycle {
         self.consumed.remove(id);
         self.clear.remove(id);
         self.interrupted.remove(id);
+        self.interrupting.remove(id);
     }
 
     /// Bind a native reply to every prompt UUID it names.
@@ -73,15 +75,45 @@ impl Lifecycle {
         if ids.is_empty() {
             ids = self.current.clone().into_iter().collect();
         }
-        self.interrupted.extend(ids.iter().cloned());
+        for id in ids.iter().filter(|id| self.pending.contains(id)) {
+            if !self.interrupting.contains_key(id) {
+                // A later synchronous attempt replaces prior intent; overlapping attempts share it.
+                self.interrupted.remove(id);
+            }
+            *self.interrupting.entry(id.clone()).or_default() += 1;
+        }
         ids
     }
 
-    /// Undo captured intent when the synchronous control fails.
+    /// Resolve only the captured prompts; overlapping accepted controls stay accepted.
+    pub(super) fn finish_interrupt(&mut self, ids: &[String], accepted: bool) {
+        for id in ids {
+            if let Some(pending) = self.interrupting.get_mut(id) {
+                *pending -= 1;
+                if *pending == 0 {
+                    self.interrupting.remove(id);
+                }
+            }
+            if accepted && self.pending.contains(id) {
+                self.interrupted.insert(id.clone());
+            }
+        }
+    }
+
+    /// Keep legacy synchronous receiver fixtures' accepted-intent rollback API.
+    #[cfg(any(test, feature = "test-support"))]
     pub(super) fn rollback_interrupt(&mut self, ids: &[String]) {
+        self.finish_interrupt(ids, false);
         for id in ids {
             self.interrupted.remove(id);
         }
+    }
+
+    /// Retain only successful native results whose exact interrupt is still unresolved.
+    pub(super) fn has_waiting_success(&self) -> bool {
+        self.results.iter().any(|(id, status, ready)| {
+            *ready && *status == "completed" && self.interrupting.contains_key(id)
+        })
     }
 
     /// Store terminal results until the native session also reports idle.
@@ -100,7 +132,6 @@ impl Lifecycle {
                 retired.push(id);
                 continue;
             }
-            let requested = self.interrupted.remove(&id);
             let status = if matches!(
                 message["terminal_reason"].as_str(),
                 Some("aborted_streaming" | "aborted_tools")
@@ -108,13 +139,11 @@ impl Lifecycle {
                 "interrupted"
             } else if message["is_error"] == true || message["subtype"] != "success" {
                 "failed"
-            } else if requested {
-                "interrupted"
             } else {
                 "completed"
             };
-            if !self.results.iter().any(|(existing, _)| existing == &id) {
-                self.results.push((id, status));
+            if !self.results.iter().any(|(existing, _, _)| existing == &id) {
+                self.results.push((id, status, self.idle));
             }
         }
         self.current = None;
@@ -125,19 +154,37 @@ impl Lifecycle {
     /// Record whether the native main turn has stopped running.
     pub(super) fn set_idle(&mut self, idle: bool) {
         self.idle = idle;
+        if idle {
+            for (_, _, ready) in &mut self.results {
+                *ready = true;
+            }
+        }
     }
 
     /// Release results at the handler position where native idle and result agree.
     pub(super) fn completions(&mut self) -> Vec<String> {
-        if !self.idle {
-            return Vec::new();
-        }
-        self.results.drain(..).map(|(id, status)| {
+        let mut completed = Vec::new();
+        for (id, native_status, ready) in std::mem::take(&mut self.results) {
+            if !ready || (native_status == "completed" && self.interrupting.contains_key(&id)) {
+                self.results.push((id, native_status, ready));
+                continue;
+            }
+            let interrupted = self.interrupted.remove(&id);
+            let status = if native_status == "completed" && interrupted {
+                "interrupted"
+            } else {
+                native_status
+            };
+            self.interrupting.remove(&id);
             self.pending.retain(|pending| pending != &id);
             self.consumed.remove(&id);
             self.clear.remove(&id);
-            json!({ "method": "turn/completed", "params": { "turn": { "id": id, "status": status } } }).to_string()
-        }).collect()
+            completed.push(
+                json!({"method":"turn/completed","params":{"turn":{"id":id,"status":status}}})
+                    .to_string(),
+            );
+        }
+        completed
     }
 
     /// Clear consumed work while preserving accepted inputs that native Claude has not run yet.
@@ -153,15 +200,18 @@ impl Lifecycle {
         self.current = None;
         self.results.clear();
         self.interrupted.clear();
+        self.interrupting.clear();
         self.idle = false;
     }
 
     /// Fail pending prompts when the helper session closes.
     pub(super) fn fail_pending(&mut self) -> Vec<String> {
-        self.interrupted.clear();
-        self.results.clear();
-        self.results
-            .extend(self.pending.drain(..).map(|id| (id, "failed")));
+        self.results.retain(|(_, _, ready)| *ready);
+        for id in &self.pending {
+            if !self.results.iter().any(|(existing, _, _)| existing == id) {
+                self.results.push((id.clone(), "failed", true));
+            }
+        }
         self.idle = true;
         self.completions()
     }

@@ -110,7 +110,9 @@ impl Owner {
         }
         self.client.acknowledge_event(line.len());
         self.finish_claude_ready();
-        if self.session.events.backend_closed && !self.native.closed {
+        if (self.session.events.backend_closed || self.client.defers_terminal_events())
+            && !self.native.closed
+        {
             self.close_native();
         }
     }
@@ -122,13 +124,15 @@ impl Owner {
         self.retire_goal_scope();
         self.retire_queue_scope();
         self.retire_task_stops();
-        self.session.events.backend_closed = true;
         self.session.retire_backend_command();
-        self.session.set_active_turn_id(None);
         self.session.ralph_stop_after_failure();
         for draft in self.session.ralph_take_queued_human_drafts() {
             self.results
                 .recover(draft, "backend closed before queued text was sent", false);
+        }
+        if !self.client.defers_terminal_events() {
+            self.session.events.backend_closed = true;
+            self.session.set_active_turn_id(None);
         }
         self.notice();
     }

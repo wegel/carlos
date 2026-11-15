@@ -104,6 +104,7 @@ impl Owner {
     pub(super) fn finish_claude_ready(&mut self) {
         if self.client.kind() == BackendKind::Claude
             && self.native.closed
+            && !self.client.defers_terminal_events()
             && self.session.event_availability() == Availability::Ready
             && self.client.connection_generation()
                 == Some(self.session.command_connection(BackendKind::Claude).1)

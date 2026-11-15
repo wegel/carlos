@@ -223,7 +223,7 @@ impl SessionState {
                 {
                     current.interrupting = false;
                     if let Ok((_, response)) = &completion.result {
-                        self.record_interrupt_ack(response);
+                        self.record_interrupt_ack(response, client.kind());
                     }
                 }
             }
@@ -261,14 +261,16 @@ impl SessionState {
         completion.result.map(|_| ())
     }
 
-    fn record_interrupt_ack(&mut self, response: &Value) {
+    fn record_interrupt_ack(&mut self, response: &Value, kind: BackendKind) {
         if let Some(ids) = response["result"]["still_queued"]
             .as_array()
             .filter(|ids| !ids.is_empty())
         {
             self.append_message(super::models::Role::System, format!("Main-turn interrupt requested; {} accepted queued prompt(s) remain with Claude and will still run", ids.len()));
         }
-        self.append_turn_interrupted_marker();
+        if kind != BackendKind::Claude {
+            self.append_turn_interrupted_marker();
+        }
         self.set_status("interrupt requested");
     }
 

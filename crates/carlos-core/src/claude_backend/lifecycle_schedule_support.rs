@@ -73,8 +73,10 @@ impl Replay<'_> {
         self.depth += 1;
         self.read_to(call.reply.max(self.read));
         self.forward();
+        self.owner
+            .lifecycle
+            .finish_interrupt(&captured, call.accepted == Some(true));
         if call.accepted != Some(true) {
-            self.owner.lifecycle.rollback_interrupt(&captured);
             self.reference.state.rollback_interrupt(&original);
         }
         self.depth += 1;

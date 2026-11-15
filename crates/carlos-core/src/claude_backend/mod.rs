@@ -43,10 +43,17 @@ mod event_race_tests;
 #[cfg(test)]
 mod event_source_tests;
 mod event_sources;
+mod event_terminal;
 #[cfg(any(test, feature = "test-support"))]
 mod event_test_support;
 mod fact_transfer;
 mod helper;
+#[cfg(all(test, unix))]
+mod interrupt_owner_support;
+#[cfg(all(test, unix))]
+mod interrupt_owner_tests;
+#[cfg(test)]
+mod interrupt_pending_tests;
 #[cfg(test)]
 mod lifecycle_differential_tests;
 #[cfg(test)]
@@ -87,6 +94,7 @@ mod user_record;
 
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -204,9 +212,19 @@ impl BackendClient for ClaudeClient {
 
     fn finish_interrupt(&self, intent: crate::backend_commands::InterruptIntent, accepted: bool) {
         let mut handler = self.handler.borrow_mut();
-        if !accepted && handler.generation == intent.generation && handler.epoch == intent.epoch {
-            handler.lifecycle.rollback_interrupt(&intent.prompts);
+        if handler.generation == intent.generation && handler.epoch == intent.epoch {
+            handler
+                .lifecycle
+                .finish_interrupt(&intent.prompts, accepted);
         }
+    }
+
+    fn take_control_events(&self) -> Vec<String> {
+        self.handler.borrow_mut().take_control_events()
+    }
+
+    fn defers_terminal_events(&self) -> bool {
+        self.handler.borrow().defers_terminal()
     }
 
     fn capture_commands(&self) -> Result<CommandHandle> {
@@ -248,7 +266,16 @@ impl BackendClient for ClaudeClient {
     }
 
     fn handle_event(&self, line: &str) -> Option<Vec<String>> {
-        Some(self.handler.borrow_mut().handle(line))
+        let mut handler = self.handler.borrow_mut();
+        let output = handler.handle(line);
+        if handler.defers_terminal() {
+            if let Ok(helper) = self.transport.try_lock() {
+                if helper.generation == handler.generation {
+                    helper.control_closed.store(true, Ordering::Release);
+                }
+            }
+        }
+        Some(output)
     }
 
     fn acknowledge_event(&self, length: usize) {

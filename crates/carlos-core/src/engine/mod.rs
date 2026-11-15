@@ -8,6 +8,7 @@ mod claude_reopen;
 #[cfg(test)]
 mod claude_reopen_tests;
 mod context_defaults;
+mod control_events;
 mod dispatch;
 mod goals;
 pub mod launch;

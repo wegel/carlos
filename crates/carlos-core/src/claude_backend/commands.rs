@@ -8,6 +8,7 @@ mod fork_guard_tests;
 mod task_guard_tests;
 
 use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
@@ -65,6 +66,15 @@ impl ClaudeClient {
 
 impl Commands {
     pub(super) fn write_permission(&self, callback: bool) -> DispatchGuard {
+        let helper = self.transport.clone();
+        self.identity_permission(callback)
+            .and(DispatchGuard::new(move || {
+                !helper.control_closed.load(Ordering::Acquire)
+            }))
+    }
+
+    /// Fence the captured helper and conversation without requiring its query to remain writable.
+    pub(super) fn identity_permission(&self, callback: bool) -> DispatchGuard {
         let captured = self.clone();
         self.permission.clone().and(DispatchGuard::new(move || {
             if callback {
@@ -73,6 +83,29 @@ impl Commands {
                 captured.check().is_ok()
             }
         }))
+    }
+
+    /// Keep metadata reads available while retiring mutating controls after a held terminal fact.
+    pub(super) fn control_permission(&self, method: &str) -> DispatchGuard {
+        if matches!(
+            method,
+            "start"
+                | "prompt"
+                | "interrupt"
+                | "model.set"
+                | "effort.set"
+                | "permission.set"
+                | "task.stop"
+                | "callback.respond"
+                | "sessions.rename"
+                | "sessions.forkBefore"
+                | "sessions.delete"
+        ) {
+            self.write_permission(false)
+        } else {
+            // Read-only SDK metadata and correlated transport probes remain usable after query EOF.
+            self.identity_permission(false)
+        }
     }
 
     fn check_helper(&self) -> Result<()> {
@@ -110,8 +143,9 @@ impl Commands {
         timeout: Duration,
     ) -> Result<Value> {
         self.check()?;
+        let permission = self.control_permission(method);
         self.transport
-            .call_guarded(method, params, timeout, self.write_permission(false))
+            .call_guarded(method, params, timeout, permission)
     }
 
     pub(super) fn apply_runtime_settings(
@@ -268,7 +302,7 @@ impl BackendCommands for Commands {
             )?;
         }
         self.transport
-            .request_guarded(method, params, self.write_permission(false))
+            .request_guarded(method, params, self.control_permission(method))
     }
     fn reopen_session(
         &self,

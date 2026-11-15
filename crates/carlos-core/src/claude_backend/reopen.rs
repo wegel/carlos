@@ -84,7 +84,7 @@ impl Commands {
                 "sessions.info",
                 json!({"cwd":self.cwd,"sessionId":plan.id}),
                 Duration::from_secs(20),
-                self.write_permission(false),
+                self.identity_permission(false),
             )?;
             self.check()?;
             if !saved.is_null() {

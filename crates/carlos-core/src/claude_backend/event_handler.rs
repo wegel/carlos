@@ -12,6 +12,7 @@ pub(super) struct EventHandler {
     pub(super) epoch: u64,
     closed: bool,
     reset_key: Option<String>,
+    terminal: Option<String>,
 }
 
 impl Default for EventHandler {
@@ -22,6 +23,7 @@ impl Default for EventHandler {
             epoch: 0,
             closed: false,
             reset_key: None,
+            terminal: None,
         }
     }
 }
@@ -34,16 +36,17 @@ impl EventHandler {
         };
         let method = value["method"].as_str().unwrap_or("");
         let params = &value["params"];
-        if method == "claude/sessionChanged"
-            && params["generation"]
-                .as_u64()
-                .is_some_and(|g| g > self.generation)
+        self.observe_generation(method, params);
+        if self.terminal.is_some()
+            && !matches!(
+                method,
+                "claude/promptSubmitted"
+                    | "claude/promptRejected"
+                    | "claude/stderr"
+                    | "claude/callbackCancelled"
+            )
         {
-            self.generation = params["generation"].as_u64().expect("checked generation");
-            self.lifecycle = Lifecycle::default();
-            self.epoch = 0;
-            self.closed = false;
-            self.reset_key = None;
+            return Vec::new();
         }
         if params["generation"]
             .as_u64()
@@ -79,10 +82,46 @@ impl EventHandler {
         output
     }
 
+    fn observe_generation(&mut self, method: &str, params: &Value) {
+        if method == "claude/sessionChanged"
+            && params["generation"]
+                .as_u64()
+                .is_some_and(|g| g > self.generation)
+        {
+            self.generation = params["generation"].as_u64().expect("checked generation");
+            self.lifecycle = Lifecycle::default();
+            self.epoch = 0;
+            self.closed = false;
+            self.reset_key = None;
+            self.terminal = None;
+        }
+    }
+
+    /// Keep closure behind the exact successful result awaiting its captured interrupt.
+    pub(super) fn defers_terminal(&self) -> bool {
+        self.terminal.is_some()
+    }
+
+    /// Release eligible results and the first held closure after an owner settles a control.
+    pub(super) fn take_control_events(&mut self) -> Vec<String> {
+        let mut output = self.lifecycle.completions();
+        if self.terminal.is_some() && !self.lifecycle.has_waiting_success() {
+            output.extend(self.lifecycle.fail_pending());
+            output.push(self.terminal.take().expect("first bounded terminal cause"));
+        }
+        for line in &mut output {
+            let mut value: Value = serde_json::from_str(line).expect("normalized owner fact");
+            value["params"]["generation"] = json!(self.generation);
+            value["params"]["epoch"] = json!(self.epoch);
+            *line = value.to_string();
+        }
+        output
+    }
+
     fn apply(&mut self, method: &str, params: &Value, line: &str) -> Vec<String> {
         match method {
             "claude/promptSubmitted" => {
-                if let Some(id) = params["uuid"].as_str() {
+                if let Some(id) = params["uuid"].as_str().filter(|_| self.terminal.is_none()) {
                     if self.lifecycle.submitted(id).is_err() {
                         // The app's prompt register reports the same bound and closes the helper.
                         self.closed = true;
@@ -111,7 +150,18 @@ impl EventHandler {
         let mut output = vec![line.to_string()];
         if fatal(method, params) {
             self.closed = true;
-            output.extend(self.lifecycle.fail_pending());
+            let waiting = self.lifecycle.has_waiting_success();
+            let failed = self.lifecycle.fail_pending();
+            if waiting {
+                self.terminal = Some(super::event_terminal::bounded_terminal(
+                    method,
+                    params,
+                    self.generation,
+                    self.epoch,
+                ));
+                return failed;
+            }
+            output.extend(failed);
         }
         output
     }
