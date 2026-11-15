@@ -78,13 +78,17 @@ fn fixture_hello() -> carlos_proto::commands::HelloResult {
 fn a_companion_that_never_reports_its_identity_is_killed_before_the_deadline_returns() {
     let root = tempfile::tempdir().expect("stuck companion fixture");
     let daemon = root.path().join("carlosd");
-    std::fs::write(&daemon, "#!/bin/sh\nexec /bin/sleep 60\n").expect("companion fixture");
-    std::fs::set_permissions(&daemon, std::fs::Permissions::from_mode(0o700))
-        .expect("executable companion");
+    // A freshly written executable can stay writable in another test's fork until exec.
+    let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("src/app/daemon_launcher/fixtures/stuck-companion.sh");
+    symlink(fixture, &daemon).expect("stable companion fixture");
     let started = Instant::now();
     let error = super::companion::check(&daemon, started + Duration::from_millis(80))
         .expect_err("identity request must time out");
-    assert!(format!("{error:#}").contains("startup deadline"));
+    assert!(
+        format!("{error:#}").contains("startup deadline"),
+        "unexpected companion error: {error:#}"
+    );
     assert!(started.elapsed() < Duration::from_secs(1));
 }
 
