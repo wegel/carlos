@@ -107,6 +107,11 @@ impl ViewState {
 }
 
 impl ViewState {
+    pub(super) fn reset_esc_chord(&mut self) {
+        self.esc_armed_at = None;
+        self.esc_interrupted_at = None;
+    }
+
     /// Require a quiet Escape interval after interrupting native work.
     pub(super) fn suppress_esc_chord_after_interrupt(&mut self, now: Instant) {
         self.esc_armed_at = None;

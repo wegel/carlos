@@ -18,8 +18,7 @@ impl Device {
             KeyCode::F(4) if self.history.rewind_draft.is_some() => self.switch_prompt_source(link),
             KeyCode::Esc if key.modifiers.is_empty() => self.history_escape(link),
             _ => {
-                self.view.esc_armed_at = None;
-                self.view.esc_interrupted_at = None;
+                self.view.reset_esc_chord();
                 self.history.cancel_read();
                 if self.history.rewind_draft.is_none() {
                     self.history.reset_navigation();
@@ -38,8 +37,7 @@ impl Device {
         link: Option<&mut Transport>,
         older: bool,
     ) -> Result<()> {
-        self.view.esc_armed_at = None;
-        self.view.esc_interrupted_at = None;
+        self.view.reset_esc_chord();
         if self.history.pending.is_some() {
             if self.history.moves.len() == 128 {
                 bail!("History navigation is busy; wait for the selected prompt");
@@ -159,3 +157,7 @@ impl Device {
         })
     }
 }
+
+#[cfg(test)]
+#[path = "history_keys_tests.rs"]
+mod tests;

@@ -36,8 +36,7 @@ impl AppState {
     }
 
     pub(super) fn reset_esc_chord(&mut self) {
-        self.view.esc_armed_at = None;
-        self.view.esc_interrupted_at = None;
+        self.view.reset_esc_chord();
     }
 
     /// Preserve the embedded caller until the terminal runtime is removed.

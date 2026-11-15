@@ -227,15 +227,3 @@ fn esc_chord_expires_after_window() {
     app.expire_esc_chord(now + std::time::Duration::from_millis(800));
     assert!(!app.register_escape_press(now + std::time::Duration::from_millis(900)));
 }
-
-#[test]
-fn esc_chord_requires_a_quiet_interval_after_interrupting() {
-    let mut view = crate::app::view_state::ViewState::new(false);
-    let now = std::time::Instant::now();
-    let after = |milliseconds| now + std::time::Duration::from_millis(milliseconds);
-    view.suppress_esc_chord_after_interrupt(now);
-    assert!(!view.register_escape_press(after(100)));
-    assert!(!view.register_escape_press(after(200)));
-    assert!(!view.register_escape_press(after(1000)));
-    assert!(view.register_escape_press(after(1100)));
-}

@@ -4,7 +4,7 @@ use anyhow::Result;
 use carlos_client::codec::Incoming;
 use carlos_client::Effects;
 use carlos_proto::commands::Command;
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
 use super::transport::Transport;
 use super::Device;
@@ -185,6 +185,7 @@ impl Device {
                     self.queue_paste(&normalize_pasted_text(&text));
                 } else if self.question_paste(&normalize_pasted_text(&text)) {
                 } else {
+                    self.view.reset_esc_chord();
                     self.history.cancel_read();
                     if self.history.rewind_draft.is_none() {
                         self.history.reset_navigation();
@@ -192,6 +193,7 @@ impl Device {
                     self.view.input.insert_str(normalize_pasted_text(&text));
                 }
             }
+            Event::Key(key) if key.code == KeyCode::Esc && key.kind == KeyEventKind::Repeat => {}
             Event::Key(key) if is_key_press_like(key.kind) => return self.key_event(link, key),
             _ => {}
         }
