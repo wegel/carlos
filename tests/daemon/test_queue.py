@@ -45,7 +45,12 @@ class QueueTests:
         rich = native_entry("native-rich", "attachment preview", rich=True)
         fixture, first, other, session, page = self.queue_clients("queue-changes", [native_entry("native-plain", "original 🌍"), rich])
         plain_id, rich_id = [entry["id"] for entry in page["entries"]]
-        self.assertNotIn("native-", json.dumps(page))
+        self.assertEqual([entry["display_id"] for entry in page["entries"]], ["native-plain", "native-rich"])
+        self.assertTrue(all("native-" not in entry["id"] for entry in page["entries"]))
+        invalid = other.response(other.send("queue/change", session=session, operation=other.operation(1),
+            expected=page["queue"]["revision"], change={"kind":"edit", "entry":"native-plain", "text":"never addressed by caption"}))
+        self.assertIn("error", invalid)
+        self.assertFalse(any(request.get("method") == "thread/queue/update" for request in fixture.native.requests))
         self.assertIsNone(page["entries"][1]["text_bytes"])
         self.queue_change(first, session, 2, page, {"kind": "edit", "entry": rich_id, "text": "discard attachments"}, "rejected")
         self.assertEqual(fixture.native.queue_entries[1], rich)

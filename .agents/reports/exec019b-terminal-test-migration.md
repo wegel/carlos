@@ -18,7 +18,9 @@ These batches preserve useful assertions while removing the frontend tests' need
 
 ## Evidence
 
-- Focused core runtime: eighteen original cases pass; the catalog-order successor is added afterward.
+- Focused core runtime: eighteen original cases pass; the catalog-order successor also passes in the later workspace hooks.
 - Focused borrowed editor: four tests pass.
-- Default and no-default strict all-target lint pass. The full workspace run reaches888 passing frontend cases before the backend worker's in-progress fatal-write fixture; that unrelated fixture now passes on the worker's fresh build. A final workspace run remains required before committing.
+- Default and no-default strict all-target lint pass. The full workspace run reaches888 passing frontend cases before the backend worker's in-progress fatal-write fixture; that unrelated fixture now passes on the worker's fresh build. The later normal full-workspace hooks pass after the backend fix and the three readonly-caption expectations are updated.
 - The exact4cf7912 prefix plus the corrected readonly queue-caption fixture passes the full script: 1539Rust cases,143daemon,296terminal,2selection,5source-failure,2dictation and23native-monitor cases, plus installed Codex contracts, helper, architecture, dependency, package and recorder checks. Log /tmp/carlos-ep019b/terminal-parity-index-gate-retry.log; artifacts run-5sMH0x under the recorded private checkout. That runner still mixes embedded and socket workflows; it does not replace the complete all-daemon gate.
+
+The buildable commits are7aab348 (Escape), a7eef0e (core runtime) and9db4965 (borrowed editor/device dictation). Each normal fmt/full-workspace hook passes. They preserve the production embedded wrappers until the separate cutover commit.
