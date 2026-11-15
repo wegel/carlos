@@ -8,6 +8,7 @@ use serde_json::{json, Value};
 
 use super::runtime_settings::RuntimeDefaults;
 use super::state::SessionState;
+use crate::backend_commands::SettingsPatch;
 
 /// One checked user intent, independent of later metadata or another client's editor.
 pub(crate) struct SettingsIntent {
@@ -22,21 +23,7 @@ impl SessionState {
         expected: &SettingsRevision,
         change: SettingsChange,
     ) -> Result<SettingsIntent, RpcError> {
-        if expected != &self.settings_revision() {
-            return Err(invalid(
-                "settings changed; refresh current settings before saving this draft",
-            ));
-        }
-        if self.events.backend_closed {
-            return Err(invalid(
-                "native backend is disconnected; your choices have not been sent",
-            ));
-        }
-        if self.codex_settings.pending.is_some() || self.codex_settings.deferred.is_some() {
-            return Err(invalid(
-                "another native settings request is still pending; nothing sent",
-            ));
-        }
+        self.check_settings_revision(expected)?;
         let mut defaults = self.settings_defaults();
         let mut native = json!({});
         for (name, value, destination) in [
@@ -51,15 +38,49 @@ impl SessionState {
                         *destination = Some(value.clone());
                         native[name] = json!(value);
                     }
-                    SettingValue::Inherit => *destination = None,
+                    SettingValue::Inherit => {
+                        *destination = None;
+                        native[name] = Value::Null;
+                    }
                 }
             }
         }
         let clear_effort = self.check_model_choices(&change, &defaults)?;
         if clear_effort {
             defaults.effort = None;
+            if self.events.backend == Backend::Claude {
+                native["effort"] = Value::Null;
+            }
+        }
+        if self.events.backend == Backend::Claude && defaults.effort.as_deref() == Some("auto") {
+            defaults.effort = None;
+            if native.get("effort").is_some() {
+                native["effort"] = Value::Null;
+            }
         }
         Ok(SettingsIntent { defaults, native })
+    }
+
+    fn check_settings_revision(&self, expected: &SettingsRevision) -> Result<(), RpcError> {
+        if expected != &self.settings_revision() {
+            return Err(invalid(
+                "settings changed; refresh current settings before saving this draft",
+            ));
+        }
+        if self.events.backend_closed {
+            return Err(invalid(
+                "native backend is disconnected; your choices have not been sent",
+            ));
+        }
+        if self.runtime.native_settings_pending
+            || self.codex_settings.pending.is_some()
+            || self.codex_settings.deferred.is_some()
+        {
+            return Err(invalid(
+                "another native settings request is still pending; nothing sent",
+            ));
+        }
+        Ok(())
     }
 
     /// Capture explicit overrides for persistence; observed inherited Claude values stay inherited.
@@ -75,6 +96,26 @@ impl SessionState {
             effort,
             summary,
         }
+    }
+
+    /// Publish a held Claude request without replacing observed choices with guesses.
+    pub(crate) fn set_native_settings_pending(&mut self, pending: bool) {
+        self.runtime.native_settings_pending = pending;
+    }
+
+    /// Apply only fields the captured Claude helper confirmed, including explicit inheritance.
+    pub(crate) fn accept_claude_settings(&mut self, patch: SettingsPatch) {
+        if let Some(model) = patch.model {
+            self.claude.inherits_model = model.is_none();
+            self.runtime.current_model = model;
+            self.runtime.pending_model = None;
+        }
+        if let Some(effort) = patch.effort {
+            self.claude.inherits_effort = effort.is_none();
+            self.runtime.current_effort = effort;
+            self.runtime.pending_effort = None;
+        }
+        self.invalidate_claude_context();
     }
 
     fn check_setting(&self, name: &str, value: &SettingValue) -> Result<(), RpcError> {
@@ -133,10 +174,16 @@ impl SessionState {
                 ));
             }
         }
-        Ok(self.events.backend == Backend::Claude
-            && change.model.is_some()
+        Ok(matches!(change.model, Some(SettingValue::Value(_)))
             && change.effort.is_none()
-            && model.is_some_and(|model| model.supported_efforts.is_empty()))
+            && model.is_some_and(|model| {
+                model.supported_efforts.is_empty()
+                    || self.events.backend == Backend::Claude
+                        && model
+                            .supported_efforts
+                            .iter()
+                            .all(|effort| effort == "auto")
+            }))
     }
 }
 

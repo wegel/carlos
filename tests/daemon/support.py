@@ -210,6 +210,8 @@ if {command!r} == "grok" and os.environ.get("CARLOS_TEST_SERVER") == "grok-held-
 script = {script!r}
 if {command!r} == "grok" and os.environ.get("CARLOS_TEST_SERVER") == "grok-held-prompt":
     script = {str(REPO / "tests/daemon/native_grok.py")!r}
+if {command!r} == "claude" and os.environ.get("CARLOS_TEST_SERVER", "").startswith("claude-settings-"):
+    script = {str(REPO / "tests/daemon/native_claude_settings.py")!r}
 os.execv(sys.executable, [sys.executable, script, *sys.argv[1:]])
 '''
 

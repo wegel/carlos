@@ -2,6 +2,7 @@
 
 mod actions;
 mod automatic;
+mod backend_settings;
 mod dispatch;
 mod goals;
 pub mod launch;

@@ -7,6 +7,10 @@ use std::time::Duration;
 use anyhow::{bail, Result};
 use serde_json::Value;
 
+#[path = "backend_settings.rs"]
+mod settings;
+pub use settings::{SettingsFailure, SettingsPatch, SettingsResult};
+
 use crate::backend::{
     BackendClient, BackendKind, EventReceiver, PromptOrigin, PromptPriority, RewindForkRequest,
 };
@@ -90,6 +94,10 @@ pub trait BackendCommands: Send + Sync {
         _context: Value,
     ) -> Result<()> {
         self.request_native_control(method, params)
+    }
+    /// Apply only explicitly edited settings and retain each confirmed native field.
+    fn change_settings(&self, _patch: SettingsPatch) -> SettingsResult {
+        SettingsResult::unsupported()
     }
     /// Apply accepted model choices without borrowing the owner.
     fn apply_runtime_settings(&self, _model: Option<&str>, _effort: Option<&str>) -> Result<bool> {

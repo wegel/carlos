@@ -72,3 +72,80 @@ fn appearance_only_claude_defaults_keep_observed_choices_inherited() {
     assert_eq!(intent.defaults, RuntimeDefaults::default());
     assert_eq!(intent.native, serde_json::json!({}));
 }
+
+#[test]
+fn claude_inheritance_is_an_explicit_native_edit_and_changes_same_value_revision() {
+    let mut session = SessionState::new("root".into(), Default::default(), false);
+    session.set_client_identity(Backend::Claude, "host".into());
+    session.start_claude_settings();
+    session.observe_claude_model("observed");
+    let inherited = session.settings_revision();
+    session.accept_claude_settings(crate::backend_commands::SettingsPatch {
+        model: Some(Some("observed".into())),
+        effort: None,
+    });
+    assert_ne!(inherited, session.settings_revision());
+    assert_eq!(
+        session.settings_defaults().model.as_deref(),
+        Some("observed")
+    );
+    let intent = session
+        .prepare_settings_change(
+            &session.settings_revision(),
+            SettingsChange {
+                model: Some(SettingValue::Inherit),
+                effort: Some(SettingValue::Inherit),
+                summary: None,
+            },
+        )
+        .expect("inherit native settings");
+    assert_eq!(
+        intent.native,
+        serde_json::json!({"model":null,"effort":null})
+    );
+    assert_eq!(intent.defaults.model, None);
+    assert_eq!(intent.defaults.effort, None);
+}
+
+#[test]
+fn models_without_effort_clear_captured_defaults_without_pinning_omitted_native_fields() {
+    for (backend, efforts, expected) in [
+        (
+            Backend::Codex,
+            Vec::new(),
+            serde_json::json!({"model":"chosen"}),
+        ),
+        (
+            Backend::Grok,
+            Vec::new(),
+            serde_json::json!({"model":"chosen"}),
+        ),
+        (
+            Backend::Claude,
+            vec!["auto".into()],
+            serde_json::json!({"model":"chosen","effort":null}),
+        ),
+    ] {
+        let mut session = SessionState::new("root".into(), Default::default(), false);
+        session.set_client_identity(backend, "host".into());
+        session.set_runtime_settings(Some("previous".into()), Some("high".into()), None);
+        session.set_available_models(vec![ModelInfo {
+            model: "chosen".into(),
+            display_name: "Chosen".into(),
+            supported_efforts: efforts,
+            default_effort: None,
+            is_default: true,
+        }]);
+        let intent = session
+            .prepare_settings_change(
+                &session.settings_revision(),
+                SettingsChange {
+                    model: Some(SettingValue::Value("chosen".into())),
+                    ..Default::default()
+                },
+            )
+            .expect("model-only change");
+        assert_eq!(intent.defaults.effort, None);
+        assert_eq!(intent.native, expected);
+    }
+}

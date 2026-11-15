@@ -23,6 +23,7 @@ pub enum RuntimeSetting {
 #[cfg_attr(any(test, feature = "test-support"), derive(Debug))]
 pub struct RuntimeSettingsState {
     startup_preferences: RuntimeDefaults,
+    pub(in crate::session) native_settings_pending: bool,
     pub(in crate::session) supports_effort: bool,
     pub(in crate::session) supports_summary: bool,
     pub(in crate::session) current_model: Option<String>,
@@ -39,6 +40,7 @@ impl RuntimeSettingsState {
     pub(in crate::session) fn new(preferences: RuntimeDefaults) -> Self {
         Self {
             startup_preferences: preferences,
+            native_settings_pending: false,
             supports_effort: true,
             supports_summary: true,
             current_model: None,

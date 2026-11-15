@@ -16,7 +16,13 @@ use super::transport::ControllerTransport;
 use super::types::{normalize_runtime_arg, ClaudeRuntimeSettings};
 use super::{sessions, ClaudeClient};
 use crate::backend::{BackendKind, PromptOrigin, PromptPriority, RewindForkRequest};
-use crate::backend_commands::{BackendCommands, CommandHandle};
+use crate::backend_commands::{BackendCommands, CommandHandle, SettingsPatch, SettingsResult};
+
+#[path = "settings.rs"]
+mod settings;
+#[cfg(test)]
+#[path = "settings_tests.rs"]
+mod settings_tests;
 use crate::dispatch_guard::DispatchGuard;
 
 #[derive(Clone)]
@@ -260,6 +266,9 @@ impl BackendCommands for Commands {
         }
         self.transport
             .request_guarded(method, params, self.write_permission(false))
+    }
+    fn change_settings(&self, patch: SettingsPatch) -> SettingsResult {
+        self.change_checked_settings(patch)
     }
     fn apply_runtime_settings(&self, model: Option<&str>, effort: Option<&str>) -> Result<bool> {
         Commands::apply_runtime_settings(self, model, effort)

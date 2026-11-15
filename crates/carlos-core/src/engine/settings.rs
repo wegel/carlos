@@ -1,5 +1,8 @@
 //! Settle one settings intent before later ordinary commands and save its captured defaults off-owner.
 
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
 use carlos_proto::ids::SettingsRevision;
 use carlos_proto::settings::SettingsChange;
 use carlos_proto::submissions::{ClientOperation, OperationState};
@@ -13,8 +16,9 @@ use crate::session::codex::settings::{self, SettingsUpdate};
 use crate::session::runtime_settings::RuntimeDefaults;
 
 pub(super) struct PendingSettings {
-    operation: ClientOperation,
-    target: Target,
+    pub(super) operation: ClientOperation,
+    pub(super) target: Target,
+    pub(super) permission: Arc<AtomicBool>,
     defaults: Option<RuntimeDefaults>,
     accepted: Option<OperationState>,
 }
@@ -30,16 +34,16 @@ impl Owner {
         let prepared = self.session.prepare_settings_change(&expected, change);
         let intent = match prepared {
             Ok(intent)
-                if self.client.kind() == BackendKind::Codex
-                    && self.session.codex_scope().enabled()
-                    && !self.session.codex_scope().closed() =>
+                if self.client.kind() != BackendKind::Codex
+                    || self.session.codex_scope().enabled()
+                        && !self.session.codex_scope().closed() =>
             {
                 intent
             }
             Ok(_) => {
                 self.results.update(
                     &operation,
-                    rejected("this backend's remote settings save is not available yet"),
+                    rejected("native Codex settings are not ready; nothing sent"),
                 );
                 self.notice();
                 return;
@@ -71,8 +75,9 @@ impl Owner {
         self.settings = Some(PendingSettings {
             operation: operation.clone(),
             target: Target::capture(&self.session, self.client.kind()),
-            defaults: save_default.then_some(intent.defaults),
+            defaults: save_default.then_some(intent.defaults.clone()),
             accepted: None,
+            permission: Arc::new(AtomicBool::new(true)),
         });
         if intent
             .native
@@ -82,6 +87,21 @@ impl Owner {
             self.settings_confirmed(OperationState::Accepted {
                 entry: None,
                 notice: None,
+            });
+        } else if self.client.kind() == BackendKind::Claude {
+            self.start_backend_settings(commands, intent.native, operation);
+        } else if self.client.kind() == BackendKind::Grok {
+            self.session.queue_runtime_settings(
+                intent.defaults.model,
+                intent.defaults.effort,
+                intent.defaults.summary,
+            );
+            self.settings_confirmed(OperationState::Accepted {
+                entry: None,
+                notice: Some(
+                    "Choices saved for the next prompt; the running Grok request was not changed."
+                        .into(),
+                ),
             });
         } else {
             let scope = self.session.codex_scope();
@@ -116,7 +136,7 @@ impl Owner {
         self.settings_confirmed(state);
     }
 
-    fn settings_confirmed(&mut self, state: OperationState) {
+    pub(super) fn settings_confirmed(&mut self, state: OperationState) {
         let pending = self
             .settings
             .as_mut()
@@ -138,6 +158,7 @@ impl Owner {
             }
         }
         let pending = self.settings.take().expect("settled settings request");
+        pending.permission.store(false, Ordering::SeqCst);
         self.results.update(&pending.operation, state);
         self.notice();
     }
@@ -181,6 +202,8 @@ impl Owner {
         });
         if retire {
             let pending = self.settings.take().expect("retired settings request");
+            pending.permission.store(false, Ordering::SeqCst);
+            self.session.set_native_settings_pending(false);
             self.session.retire_owned_settings(&pending.operation);
             self.results.update(&pending.operation, uncertain("native settings connection changed before its outcome was confirmed; no automatic retry"));
             self.notice();

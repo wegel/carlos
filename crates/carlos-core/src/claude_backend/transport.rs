@@ -28,10 +28,26 @@ pub(super) type Pending = Arc<Mutex<HashMap<String, RequestTarget>>>;
 /// Holds an optional caller-requested wire log.
 pub(super) type Trace = Option<Arc<Mutex<File>>>;
 
+/// Preserve an explicit helper refusal separately from a closed transport.
+#[derive(Debug)]
+pub(super) enum ControllerFailure {
+    Rejected(String),
+    Uncertain(String),
+}
+
+impl std::fmt::Display for ControllerFailure {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Rejected(message) | Self::Uncertain(message) => formatter.write_str(message),
+        }
+    }
+}
+impl std::error::Error for ControllerFailure {}
+
 /// Chooses where one controller reply should go.
 pub(super) enum RequestTarget {
     Reply {
-        sender: mpsc::Sender<std::result::Result<Value, String>>,
+        sender: mpsc::Sender<std::result::Result<Value, ControllerFailure>>,
     },
     Event {
         method: String,
@@ -146,7 +162,7 @@ impl ControllerTransport {
         }
         match receiver.recv_timeout(timeout) {
             Ok(Ok(value)) => Ok(value),
-            Ok(Err(message)) => bail!(message),
+            Ok(Err(error)) => Err(error.into()),
             Err(_) => {
                 if let Ok(mut pending) = self.pending.lock() {
                     pending.remove(&id);
@@ -311,7 +327,9 @@ pub(super) fn reject_pending(pending: &Pending) {
     if let Ok(mut pending) = pending.lock() {
         for (_, target) in pending.drain() {
             if let RequestTarget::Reply { sender } = target {
-                let _ = sender.send(Err("Claude controller closed before replying".to_string()));
+                let _ = sender.send(Err(ControllerFailure::Uncertain(
+                    "Claude controller closed before replying".to_string(),
+                )));
             }
         }
     }

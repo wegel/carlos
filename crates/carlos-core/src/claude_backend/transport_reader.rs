@@ -9,7 +9,9 @@ use serde_json::Value;
 
 use super::conversation::ConversationGuard;
 use super::event_emitter::EventEmitter;
-use super::transport::{trace_frame, ControllerTransport, Pending, RequestTarget, Trace};
+use super::transport::{
+    trace_frame, ControllerFailure, ControllerTransport, Pending, RequestTarget, Trace,
+};
 use super::transport_state::TransportState;
 
 struct Reader {
@@ -100,11 +102,12 @@ impl Reader {
             Some(RequestTarget::Reply { sender }) => {
                 let result = if frame["ok"] == true {
                     Ok(frame["result"].clone())
+                } else if frame["ok"] == false {
+                    Err(controller_failure(&frame))
                 } else {
-                    Err(frame["error"]["message"]
-                        .as_str()
-                        .unwrap_or("Claude SDK request failed")
-                        .to_string())
+                    Err(ControllerFailure::Uncertain(
+                        "Claude sent a malformed acknowledgement".into(),
+                    ))
                 };
                 let _ = sender.send(result);
             }
@@ -120,5 +123,18 @@ impl Reader {
 
     fn stop_and_report(&self, message: &str) {
         self.emitter.stop_and_report(message);
+    }
+}
+
+fn controller_failure(frame: &Value) -> ControllerFailure {
+    let message = frame["error"]["message"]
+        .as_str()
+        .unwrap_or("Claude SDK request failed")
+        .to_string();
+    // The SDK uses sdk_error for both native refusals and a response lost on EOF.
+    // A negative controller reply alone cannot prove that the native write was refused.
+    match frame["error"]["code"].as_str() {
+        Some("sdk_error" | "closed" | "sdk_stream_error") => ControllerFailure::Uncertain(message),
+        _ => ControllerFailure::Rejected(message),
     }
 }

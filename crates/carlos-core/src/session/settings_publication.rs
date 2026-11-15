@@ -86,6 +86,8 @@ impl SessionState {
             hash_option(&mut hash, choice.as_deref());
         }
         hash.update(&[
+            u8::from(self.claude.inherits_model),
+            u8::from(self.claude.inherits_effort),
             u8::from(self.runtime.supports_effort()),
             u8::from(self.runtime.supports_summary()),
             u8::from(self.native_settings_pending()),
@@ -110,7 +112,9 @@ impl SessionState {
     }
 
     fn native_settings_pending(&self) -> bool {
-        self.codex_settings.pending.is_some() || self.codex_settings.deferred.is_some()
+        self.runtime.native_settings_pending
+            || self.codex_settings.pending.is_some()
+            || self.codex_settings.deferred.is_some()
     }
 }
 
