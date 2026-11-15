@@ -137,3 +137,39 @@ class DaemonTasks(DaemonTaskControls, DaemonTaskRecovery):
         self.assertEqual(terminal.requests("task/stop"), [])
         self.assertEqual(terminal.requests("session/send"), [])
         terminal.snapshot("daemon-task-complete-named-unicode-command")
+
+    def test_daemon_f2_reused_process_id_needs_fresh_selection_before_stopping(self):
+        process = {"processId":"7", "itemId":"old-item", "command":"old process command"}
+        fixture, client, session, terminal = self.daemon_tasks("tasks-process-reused-item", count=0, processes=[process])
+        terminal.paste("private process composer")
+        terminal.wait(lambda:terminal.input_is("private process composer"), "main draft before opening processes")
+        self.open_daemon_tasks(terminal, "Process: 7")
+        terminal.contains("old process command")
+        original = terminal.requests("task/detail")[-1]["params"]["task"]
+        fixture.native.task_processes["native-root"][0] = {
+            "processId":"7", "itemId":"new-item", "command":"replacement process command"}
+        terminal.send(b"r")
+        terminal.wait(lambda:"Selected row unavailable" in terminal.text or ("Item: new-item" in terminal.text and
+                      "Reading selected native details" not in terminal.text and "Reading complete named task fields" not in terminal.text),
+                      "replacement native process details applied")
+        terminal.send(b"x")
+        def terminations():
+            return [row for row in fixture.native.requests if row.get("method") == "thread/backgroundTerminals/terminate"]
+        terminal.wait(lambda:"key code=Char('x')" in (terminal.root/"keys.log").read_text() and
+                      ("use arrows" in terminal.text or bool(terminations())), "stop cannot follow a reused process id")
+        self.assertEqual(terminations(), [], "the old selected item cannot stop a replacement process")
+        self.assertEqual(terminal.requests("task/stop"), [])
+        terminal.contains("Selected row unavailable")
+        terminal.send(b"\x1b[B")
+        terminal.contains("Item: new-item")
+        terminal.wait(lambda:"Reading selected native details" not in terminal.text and
+                      "Reading complete named task fields" not in terminal.text, "freshly selected process details applied")
+        current = terminal.requests("task/detail")[-1]["params"]["task"]
+        self.assertNotEqual(current, original, "fresh native process identity has its own opaque address")
+        terminal.send(b"x")
+        terminal.wait(lambda:len(terminations()) == 1, "explicitly selected replacement process stops once")
+        self.assertEqual(terminations()[0]["params"], {"threadId":"native-root", "processId":"7"})
+        terminal.send(F2)
+        terminal.wait(lambda:terminal.input_is("private process composer"), "process replacement preserves the main draft")
+        self.assertEqual(terminal.requests("session/send"), [])
+        terminal.snapshot("daemon-process-reuse-fresh-selection")

@@ -101,9 +101,6 @@ mod codex_goal_tests;
 #[path = "tests/codex_goal_lifecycle_tests.rs"]
 mod codex_goal_lifecycle_tests;
 
-#[path = "tests/codex_reconnect_identity_tests.rs"]
-mod codex_reconnect_identity_tests;
-
 #[path = "tests/shell_directory_tests.rs"]
 mod shell_directory_tests;
 

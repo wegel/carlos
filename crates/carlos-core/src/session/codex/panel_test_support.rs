@@ -32,10 +32,6 @@ impl SessionState {
     pub fn clear_codex_processes_for_test(&mut self) {
         self.codex_panel.processes.clear();
     }
-    /// Set the native item id of the selected fixture process.
-    pub fn set_codex_process_item_for_test(&mut self, index: usize, item: Value) {
-        self.codex_panel.processes[index].data["itemId"] = item;
-    }
     /// Mark all fixture child agents as verified for the supplied connection epoch.
     pub fn verify_codex_agent_owners_for_test(&mut self, epoch: u64) {
         self.codex_panel.ownership = VerifiedOwners::new(

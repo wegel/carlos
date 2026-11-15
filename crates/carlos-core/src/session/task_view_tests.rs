@@ -141,7 +141,7 @@ fn process_fields_keep_exact_unicode_bytes_with_small_previews_and_revision_chec
     assert_eq!(complete_command(&session, &page.revision, id), text);
     session.codex_panel.processes[0].data["itemId"] = json!("replacement-item");
     let replacement = session.task_page(None, None, 1).expect("new process run");
-    assert_eq!(replacement.tasks[0].id, *id);
+    assert_ne!(replacement.tasks[0].id, *id);
     assert_ne!(replacement.tasks[0].run, page.tasks[0].run);
     assert!(session
         .task_text(
@@ -232,5 +232,42 @@ fn complete_command(session: &SessionState, revision: &TaskRevision, id: &TaskId
         if chunk.complete {
             return exact;
         }
+    }
+}
+
+#[test]
+fn process_addresses_keep_metadata_but_retire_on_native_item_or_pid_replacement() {
+    let mut session = codex();
+    session.codex_panel.agents.clear();
+    session.codex_panel.processes.push(Process {
+        thread: "root".into(),
+        data: json!({"processId":"7","itemId":"original","osPid":101,"command":"old"}),
+    });
+    let first = session.task_page(None, None, 1).expect("original process");
+    let original = &first.tasks[0];
+    session.codex_panel.processes[0].data["command"] = json!("new label");
+    let renamed = session.task_page(None, None, 1).expect("renamed process");
+    assert_eq!(renamed.tasks[0].id, original.id);
+    assert_eq!(renamed.tasks[0].run, original.run);
+    for (field, replacement) in [("itemId", json!("replacement")), ("osPid", json!(102))] {
+        let previous = session.task_page(None, None, 1).expect("previous process");
+        session.codex_panel.processes[0].data[field] = replacement;
+        let current = session
+            .task_page(None, None, 1)
+            .expect("replacement process");
+        assert_ne!(current.tasks[0].id, previous.tasks[0].id, "{field}");
+        assert_ne!(current.tasks[0].run, previous.tasks[0].run, "{field}");
+        assert!(
+            session
+                .task_detail(&current.revision, &previous.tasks[0].id)
+                .is_err(),
+            "old selection cannot read the replacement {field}"
+        );
+        assert!(
+            session
+                .prepare_task_run(&previous.tasks[0].id, None, false)
+                .is_err(),
+            "old selection cannot acquire the replacement run {field}"
+        );
     }
 }

@@ -285,6 +285,8 @@ impl TaskRef<'_> {
         hash_text(hash, tag);
         if let Self::Process(row) | Self::WindowProcess { row, .. } = self {
             hash_text(hash, &row.thread);
+            hash_value(hash, &row.data["itemId"]);
+            hash_value(hash, &row.data["osPid"]);
         }
         hash_text(hash, self.native_id());
     }
