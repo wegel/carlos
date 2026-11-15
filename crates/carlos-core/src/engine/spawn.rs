@@ -41,8 +41,9 @@ impl EngineHandle {
         let (wake, wake_rx) = mpsc::sync_channel(1);
         let (notice, notice_rx) = mpsc::sync_channel(1);
         let stop = Arc::new(AtomicBool::new(false));
+        let stopping = Arc::new(AtomicBool::new(false));
         let changed = Arc::new(AtomicBool::new(true));
-        let final_read = Arc::new(Mutex::new(None));
+        let stop_request = Arc::new(Mutex::new(None));
         let goal_interest = Arc::new(AtomicBool::new(false));
         let task_interest = Arc::new(AtomicBool::new(false));
         let channels = Channels {
@@ -53,7 +54,8 @@ impl EngineHandle {
             wake_rx,
             notice,
             stop: stop.clone(),
-            final_read: final_read.clone(),
+            stopping: stopping.clone(),
+            stop_request: stop_request.clone(),
             changed: changed.clone(),
             goal_interest: goal_interest.clone(),
             task_interest: task_interest.clone(),
@@ -70,8 +72,9 @@ impl EngineHandle {
                 reads,
                 wake,
                 stop,
+                stopping,
                 changed,
-                final_read,
+                stop_request,
                 goal_interest,
                 task_interest,
                 thread: Mutex::new(Some(thread)),

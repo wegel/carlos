@@ -2,6 +2,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::{ensure, Context, Result};
 use carlos_proto::commands::ApprovalAnswer;
@@ -64,6 +65,14 @@ pub enum ControlFailure {
 impl ControlWork {
     /// Run the captured control without borrowing its session.
     pub fn execute(self, client: &CommandHandle) -> ControlCompletion {
+        self.execute_timeout(client, Duration::from_secs(10))
+    }
+
+    pub(crate) fn execute_timeout(
+        self,
+        client: &CommandHandle,
+        timeout: Duration,
+    ) -> ControlCompletion {
         let result = if client.kind() != self.kind
             || self
                 .generation
@@ -79,7 +88,7 @@ impl ControlWork {
                 | ControlCall::QuestionInterrupt { claim, .. } => claim.live.clone(),
             };
             match client.guarded(crate::dispatch_guard::DispatchGuard::from_flag(live)) {
-                Ok(commands) => super::control_execute::execute(&self.call, &commands),
+                Ok(commands) => super::control_execute::execute(&self.call, &commands, timeout),
                 Err(error) => Err(ControlFailure::Native(error.to_string())),
             }
         };

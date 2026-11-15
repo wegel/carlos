@@ -30,14 +30,16 @@ fn explicit_shutdown_returns_closed_facts_after_deferred_native_cleanup() {
         },
     );
     request(&owner, EngineCommand::Info);
-    let final_read = owner
-        .shutdown_with_updates(Sequence::new(0))
-        .expect("first stop");
-    assert!(owner.shutdown_with_updates(Sequence::new(0)).is_err());
-    let EngineReply::Updates(final_state) = final_read.recv_timeout(TIMEOUT).expect("final state")
+    let stop_request = owner.stop_session(Sequence::new(0)).expect("first stop");
+    assert!(owner.stop_session(Sequence::new(0)).is_err());
+    let EngineReply::Stopped {
+        update: final_state,
+        native,
+    } = stop_request.recv_timeout(TIMEOUT).expect("final state")
     else {
         panic!("shutdown update");
     };
+    assert!(native.is_ok());
     assert_eq!(final_state.info.availability, Availability::Closed);
     assert!(final_state.info.current_turn.is_none());
     assert!(!final_state.info.ralph);
@@ -64,13 +66,17 @@ fn oversized_shared_history_does_not_hide_final_private_draft_recovery() {
         },
     );
     request(&owner, EngineCommand::Info);
-    let final_read = owner
-        .shutdown_with_updates(Sequence::new(0))
+    let stop_request = owner
+        .stop_session(Sequence::new(0))
         .expect("capture final outcome");
-    let EngineReply::Updates(final_state) = final_read.recv_timeout(TIMEOUT).expect("final state")
+    let EngineReply::Stopped {
+        update: final_state,
+        native,
+    } = stop_request.recv_timeout(TIMEOUT).expect("final state")
     else {
         panic!("shutdown update");
     };
+    assert!(native.is_ok());
     assert!(
         final_state.seq > Sequence::default(),
         "the final cursor survives a page error"

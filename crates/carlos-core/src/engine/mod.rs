@@ -28,6 +28,7 @@ mod ring;
 mod settings;
 mod settle;
 mod spawn;
+mod stop_native;
 mod target;
 mod task_activity;
 mod task_stops;
@@ -256,6 +257,10 @@ pub enum EngineReply {
     Operation(OperationResult),
     Outcomes(Vec<OperationResult>),
     Updates(Box<EngineUpdate>),
+    Stopped {
+        update: Box<EngineUpdate>,
+        native: Result<(), RpcError>,
+    },
     Failure(RpcError),
 }
 
@@ -278,7 +283,7 @@ pub struct EngineUpdate {
     pub outcomes: Vec<OperationResult>,
 }
 
-struct FinalRead {
+struct StopRequest {
     since: Sequence,
     reply: mpsc::SyncSender<EngineReply>,
 }
@@ -289,11 +294,12 @@ struct Shared {
     reads: Mailbox,
     wake: mpsc::SyncSender<()>,
     stop: Arc<AtomicBool>,
+    stopping: Arc<AtomicBool>,
     changed: Arc<AtomicBool>,
     goal_interest: Arc<AtomicBool>,
     task_interest: Arc<AtomicBool>,
     thread: Mutex<Option<thread::JoinHandle<()>>>,
-    final_read: Arc<Mutex<Option<FinalRead>>>,
+    stop_request: Arc<Mutex<Option<StopRequest>>>,
 }
 
 /// The manager retains this handle after device sockets disconnect.
@@ -339,3 +345,6 @@ mod quota_tests;
 
 #[cfg(test)]
 mod shutdown_tests;
+
+#[cfg(test)]
+mod stop_native_tests;

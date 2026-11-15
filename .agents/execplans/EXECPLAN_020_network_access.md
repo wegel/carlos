@@ -13,6 +13,8 @@ The daemon can run shell commands as its user. Network access stays off unless t
 
 ## Progress
 
+- [x] (2026-11-15) Add explicit Core stop_session with EngineReply::Stopped carrying final updates and a separate native interrupt result. Preserve ordinary shutdown behavior. Five captured-writer cases pass for exact attached turn/bystander, lost acknowledgement, normal shutdown, confirmed idle read, and native activity without a safe turn ID. A deterministic held-ACK case then exposes a second request accepted after the reply slot was consumed; its before-failure is /tmp/carlos-ep020/attached-stop/duplicate-before.log. The stopping guard now passes all six cases and both full workspace feature/lint matrices; logs are /tmp/carlos-ep020/attached-stop/. The public manager/CLI path is still incomplete.
+
 - [x] (2026-11-15) Add the pre-publication event-stream continuation and Launched.spawn_after API. Three Core cases pass: reset an existing client at exactly the old cursor plus one, reject a live owner rebase, and reject exhaustion without mutation. Expose EngineUpdate.seq independently of page encoding so a failed shared page cannot hide the final cursor. Both full workspace feature/lint matrices pass; logs are /tmp/carlos-ep020/owner-stream/. Manager replacement remains incomplete.
 
 - [x] (2026-11-15) Give each Core owner a fresh internal UUID for settings/goal/queue/task capability hashes. Two new tests pass with identical logical/native IDs and connection counters: old queue/task addresses and task runs cannot match the replacement, and unrelated root text does not rotate the same owner's scope. Both full workspace feature/lint matrices pass; logs are /tmp/carlos-ep020/owner-namespace/. Event cursor continuity and manager routes remain incomplete.
@@ -31,6 +33,8 @@ The daemon can run shell commands as its user. Network access stays off unless t
 - [ ] Finish the direct engineering and Fable whole-roadmap reviews, record every disposition and delegated approval, archive this completed plan unchanged and continue to EP021.
 
 ## Surprises & Discoveries
+
+Explicit stop needs its own stopping flag: setting the normal shutdown flag first would stop the native event forwarder before an attached-turn interrupt could be acknowledged. Freeze the owner loop with stopping, retain the native reader until interruption/idle verification finishes, then run the existing shutdown. Once the owner consumes its stop reply slot, the stopping flag must also reject a second request; otherwise that request can remain pending forever. A held native acknowledgement reproduces this race without sleeps.
 
 An attached Codex app-server is not owned by Carlos and may serve other conversations. Explicit stop must request interruption of only the captured selected native turn before closing its Carlos owner; it cannot kill that external server. Native interruption failure must stay visible rather than claim the remote turn definitely stopped. Owned helpers still close their owned process groups. Inspect the existing captured interrupt command and its bounded teardown before wiring the public stop action.
 
@@ -55,6 +59,8 @@ The locked tungstenite version is 0.30.0. Its config allocates a read buffer eag
 
 ## Decision Log
 
+- 2026-11-15, root: Rename the new Core API to stop_session and return a typed Stopped reply with independent native confirmation. Interrupt only the captured attached Codex turn through existing guarded ControlWork with a two-second stop deadline; ordinary controls retain ten seconds. If no safe local turn is known and no send is in flight, read native thread status without materializing history and confirm idle; an active/unknown result remains uncertain. Keep ordinary daemon teardown unchanged and never kill the unowned app-server.
+
 - 2026-11-15, root: Use one private UUID in EventState and the existing five digest roots to retire replacement-owner controls. Entry/card/source addresses already use their allocator's fresh UUID, so keep them unchanged. No new wire field, logical ID, timer or generic scope framework is needed. Preserve the same owner's scope across native conversation reset and let existing helper-generation guards handle native replacement within that owner.
 
 - 2026-11-15, root: Reopen must preserve logical session identity while advancing the numbered stream beyond the stopped owner and publishing a reset. Add failing-before/passing-after client tests for this boundary. Give replacement owners fresh internal capability scope where existing hashes could repeat; verify actual shared hash roots before choosing the minimal change. Old operation retries still return retained outcomes before inspecting the replacement.
@@ -72,6 +78,8 @@ The locked tungstenite version is 0.30.0. Its config allocates a read buffer eag
 - 2026-11-15, root: Leave the terminal-only dense Unicode index out of the daemon, client library and phone. Preserve its measured limit in the handoff. Do not introduce the source-body cap or file/mmap fallback rejected in EP019b.
 
 ## Outcomes & Retrospective
+
+The Core foundations and durable stopped metadata now pass their checks. Core stop_session returns final facts/private results plus native confirmation; event continuation preserves attached clients; fresh internal owner UUIDs retire stale control addresses. The catalogue migration preserves native addresses and rejects inconsistent stopped/Ralph metadata. The public manager, CLI/terminal lifecycle actions and network listener are still incomplete. Next wire the bounded manager stop worker, exact old-owner results and durable acceptance, then prove actual native process/16-slot behavior.
 
 
 The first owner shutdown-report piece is implemented and its two new cases pass. Both workspace feature/lint matrices pass. The public session stop/reopen command and durable stopped metadata are still incomplete. Next implement the manager stop worker, including its existing pending updates reply and unconsumed retry records, then prove real-native owner release. The accepted EP019b pair and measurements remain frozen for matched comparisons.
@@ -205,3 +213,7 @@ Revision 2026-11-15: add the minimal private owner UUID to existing control dige
 Revision 2026-11-15: continue replacement streams with a forced reset, reject live rebasing/exhaustion, and retain the final cursor independently of a shared-page encoding failure.
 
 Revision 2026-11-15: complete both owner-stream Rust feature/lint matrices and preserve the owned-versus-attached backend stop boundary.
+
+Revision 2026-11-15: implement attached-turn stop confirmation and separate stopping/transport-shutdown flags; preserve the held-ACK failing regression before applying the duplicate-request guard.
+
+Revision 2026-11-15: finish all attached-stop cases and both feature/lint matrices, with the held-ACK before/after proof. Core foundations are checked; public stop/reopen remains the next required work.

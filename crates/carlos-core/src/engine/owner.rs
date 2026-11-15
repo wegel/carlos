@@ -21,7 +21,8 @@ pub(super) struct Channels {
     pub wake_rx: mpsc::Receiver<()>,
     pub notice: mpsc::SyncSender<()>,
     pub stop: Arc<AtomicBool>,
-    pub final_read: Arc<Mutex<Option<super::FinalRead>>>,
+    pub stopping: Arc<AtomicBool>,
+    pub stop_request: Arc<Mutex<Option<super::StopRequest>>>,
     pub changed: Arc<AtomicBool>,
     pub goal_interest: Arc<AtomicBool>,
     pub task_interest: Arc<AtomicBool>,
@@ -82,7 +83,9 @@ impl Owner {
 
     pub fn run(mut self) {
         self.publish();
-        while !self.channels.stop.load(Ordering::SeqCst) {
+        while !self.channels.stop.load(Ordering::SeqCst)
+            && !self.channels.stopping.load(Ordering::SeqCst)
+        {
             self.drain_native();
             self.drain_tool_labels();
             self.drain_completions();
@@ -117,6 +120,21 @@ impl Owner {
             }
             let _ = self.channels.wake_rx.recv_timeout(self.wait());
         }
+        self.finish_shutdown();
+    }
+
+    fn finish_shutdown(&mut self) {
+        let stop = self
+            .channels
+            .stop_request
+            .lock()
+            .expect("session stop request")
+            .take();
+        let native = if stop.is_some() {
+            self.stop_attached_turn()
+        } else {
+            Ok(())
+        };
         self.close_native();
         self.client.stop();
         self.channels.stop.store(true, Ordering::SeqCst);
@@ -126,21 +144,20 @@ impl Owner {
         self.session.events.backend_closed = true;
         self.session.set_active_turn_id(None);
         self.publish();
-        self.finish_shutdown_read();
+        self.finish_stop_request(stop, native);
     }
 
-    fn finish_shutdown_read(&mut self) {
-        let final_read = self
-            .channels
-            .final_read
-            .lock()
-            .expect("final shutdown read")
-            .take();
-        if let Some(read) = final_read {
-            let report = self
-                .updates(read.since)
-                .unwrap_or_else(EngineReply::Failure);
-            let _ = read.reply.try_send(report);
+    fn finish_stop_request(
+        &mut self,
+        stop: Option<super::StopRequest>,
+        native: Result<(), RpcError>,
+    ) {
+        if let Some(stop) = stop {
+            let report = EngineReply::Stopped {
+                update: Box::new(self.updates(stop.since)),
+                native,
+            };
+            let _ = stop.reply.try_send(report);
         }
     }
 
@@ -203,7 +220,9 @@ impl Owner {
                 .source_chunk(&entry, cursor.as_ref(), limit)
                 .map(EngineReply::Source)
                 .map_err(|error| failure(error.to_string())),
-            EngineCommand::Updates { since } => self.updates(since),
+            EngineCommand::Updates { since } => {
+                Ok(EngineReply::Updates(Box::new(self.updates(since))))
+            }
             EngineCommand::SourceAt {
                 entry,
                 revision,
@@ -221,7 +240,7 @@ impl Owner {
         result.unwrap_or_else(EngineReply::Failure)
     }
 
-    fn updates(&mut self, since: carlos_proto::ids::Sequence) -> Result<EngineReply, RpcError> {
+    fn updates(&mut self, since: carlos_proto::ids::Sequence) -> super::EngineUpdate {
         let changes = match self.ring.replay(since) {
             Some(frames) => Ok(EngineChanges::Replay {
                 frames,
@@ -230,13 +249,13 @@ impl Owner {
             None => ring::snapshot(&self.session, 100)
                 .map(|snapshot| EngineChanges::Snapshot(Box::new(snapshot))),
         };
-        Ok(EngineReply::Updates(Box::new(super::EngineUpdate {
+        super::EngineUpdate {
             seq: self.ring.sequence(),
             info: self.session.export_info(),
             native_thread: self.session.thread_id().clone(),
             changes,
             outcomes: self.results.collect(),
-        })))
+        }
     }
 
     fn history(

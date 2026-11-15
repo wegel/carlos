@@ -140,7 +140,7 @@ impl Deref for CommandHandle {
     }
 }
 
-// Temporary embedded-terminal bridge; EP019b removes BackendClient command consumers.
+// Shared Core helpers use captured commands without taking ownership of an event receiver.
 impl BackendClient for CommandHandle {
     fn fork_with_context(
         &self,

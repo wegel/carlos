@@ -14,6 +14,7 @@ use crate::backend_commands::CommandHandle;
 pub(super) fn execute(
     call: &ControlCall,
     client: &CommandHandle,
+    timeout: Duration,
 ) -> Result<(Option<ApprovalChoice>, Value), ControlFailure> {
     match call {
         ControlCall::QuestionInterrupt { claim, params, .. } => {
@@ -21,7 +22,7 @@ pub(super) fn execute(
                 return Err(ControlFailure::Retired);
             }
             client
-                .call("turn/interrupt", params.clone(), Duration::from_secs(10))
+                .call("turn/interrupt", params.clone(), timeout)
                 .and_then(|line| crate::protocol_params::extract_result_object(&line))
                 .map(|value| (None, value))
                 .map_err(|error| ControlFailure::Native(error.to_string()))
@@ -40,7 +41,7 @@ pub(super) fn execute(
                 return Err(ControlFailure::Retired);
             }
             client
-                .call("turn/interrupt", params.clone(), Duration::from_secs(10))
+                .call("turn/interrupt", params.clone(), timeout)
                 .and_then(|line| crate::protocol_params::extract_result_object(&line))
                 .map(|value| (None, value))
                 .map_err(|error| ControlFailure::Native(error.to_string()))

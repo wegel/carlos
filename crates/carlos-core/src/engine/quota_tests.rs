@@ -148,7 +148,8 @@ fn fixture() -> Fixture {
     session.enable_claude();
     session.set_client_identity(carlos_proto::session::Backend::Claude, "test".into());
     let channels = Channels {
-        final_read: Default::default(),
+        stop_request: Default::default(),
+        stopping: Default::default(),
         ordinary: mpsc::channel().1,
         control: mpsc::channel().1,
         reads: mpsc::channel().1,

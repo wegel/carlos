@@ -7,7 +7,7 @@ use std::thread;
 use carlos_proto::commands::RpcError;
 use carlos_proto::ids::Sequence;
 
-use super::{EngineCommand, EngineHandle, EngineReply, FinalRead};
+use super::{EngineCommand, EngineHandle, EngineReply, StopRequest};
 
 impl EngineHandle {
     /// Admit a bounded request without waiting for native work or a socket write.
@@ -60,21 +60,22 @@ impl EngineHandle {
         let _ = self.0.wake.try_send(());
     }
 
-    /// Stop once and return the final published changes and private outcomes after native cleanup.
-    pub fn shutdown_with_updates(
-        &self,
-        since: Sequence,
-    ) -> Result<mpsc::Receiver<EngineReply>, RpcError> {
-        let mut final_read = self.0.final_read.lock().expect("final shutdown read");
-        if final_read.is_some() || self.0.stop.load(Ordering::SeqCst) {
+    /// Stop this owner, interrupt its attached native turn, and return the final outcomes after cleanup.
+    pub fn stop_session(&self, since: Sequence) -> Result<mpsc::Receiver<EngineReply>, RpcError> {
+        let mut stop_request = self.0.stop_request.lock().expect("session stop request");
+        if stop_request.is_some()
+            || self.0.stop.load(Ordering::SeqCst)
+            || self.0.stopping.load(Ordering::SeqCst)
+        {
             return Err(RpcError {
                 code: -32012,
                 message: "session shutdown was already requested".into(),
             });
         }
         let (reply, received) = mpsc::sync_channel(1);
-        *final_read = Some(FinalRead { since, reply });
-        self.shutdown();
+        *stop_request = Some(StopRequest { since, reply });
+        self.0.stopping.store(true, Ordering::SeqCst);
+        let _ = self.0.wake.try_send(());
         Ok(received)
     }
 
