@@ -295,3 +295,9 @@ mod claude_thinking_tests;
 
 #[cfg(test)]
 mod prompt_echo_race_tests;
+
+#[cfg(test)]
+mod claude_context_contract_tests;
+
+#[cfg(test)]
+mod claude_read_guard_tests;

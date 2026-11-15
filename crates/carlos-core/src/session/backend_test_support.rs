@@ -1,9 +1,12 @@
 //! Drive real receiver fixtures through the production session API without a terminal.
 
+use serde_json::Value;
+
 use super::actions::ServerRequestAction;
 use super::backend_update::{BackendChange, BackendContext, BackendUpdate};
 use super::state::SessionState;
 use crate::backend::BackendClient;
+use crate::claude_backend::FixtureNormalizer;
 
 /// Supply no client selection, draft, editor or consent token to the session.
 pub(super) fn context(session: &SessionState) -> BackendContext<'static> {
@@ -43,4 +46,29 @@ pub(super) fn action(update: BackendUpdate) -> Option<ServerRequestAction> {
         | BackendChange::Items(_)
         | BackendChange::Installed(_) => None,
     }
+}
+
+/// Normalize fixture frames at the actual backend boundary, collecting every ordered Core action.
+pub(super) fn normalize(
+    core: &mut SessionState,
+    native: &mut FixtureNormalizer,
+    parsed: &Value,
+) -> Vec<ServerRequestAction> {
+    let generation = parsed["params"]["generation"]
+        .as_u64()
+        .unwrap_or(core.claude().generation());
+    if parsed["method"] == "claude/sessionChanged" && generation > core.claude().generation() {
+        *native = Default::default();
+    }
+    if parsed["method"] == "claude/controller" && generation != core.claude().generation() {
+        return Vec::new();
+    }
+    native
+        .lines(parsed, core.thread_id(), generation)
+        .into_iter()
+        .filter_map(|line| {
+            let update = core.handle_backend_line(&line, &context(core));
+            action(update)
+        })
+        .collect()
 }

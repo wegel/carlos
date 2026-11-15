@@ -1,7 +1,5 @@
 //! Supply native activity facts to the session-owned optional context reader.
 
-#[cfg(test)]
-use std::time::Duration;
 use std::time::Instant;
 
 use carlos_core::backend::BackendClient;
@@ -9,12 +7,6 @@ use carlos_core::backend::BackendClient;
 use serde_json::Value;
 
 use super::state::AppState;
-
-/// Request another snapshot without invalidating the last known count.
-#[cfg(test)]
-pub(super) fn refresh(app: &mut AppState) {
-    app.session.refresh_claude_context();
-}
 
 /// Fence reads at the existing native context revision boundary.
 pub(super) fn invalidate(app: &mut AppState) {
@@ -24,12 +16,6 @@ pub(super) fn invalidate(app: &mut AppState) {
 /// Send at most one optional summary read.
 pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState, now: Instant) -> bool {
     app.session.tick_claude_context(client, now)
-}
-
-/// Wake for pending reads and stale-count markers.
-#[cfg(test)]
-pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
-    app.session.claude_context_wait(now)
 }
 
 /// Settle the matching optional read before checking its context revision.

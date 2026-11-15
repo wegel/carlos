@@ -4,122 +4,14 @@ use std::time::{Duration, Instant};
 
 use carlos_core::backend::BackendKind;
 use carlos_core::session::claude::ClaudePhase;
-use carlos_core::session::context_usage::ContextUsage;
 use serde_json::{json, Value};
 
-use crate::app::claude_context::{receive, tick, wait};
 use crate::app::state::AppState;
 
 fn app() -> AppState {
     let mut app = AppState::new("root".into());
     app.session.set_claude_enabled_for_test(true);
     app
-}
-
-#[test]
-fn context_token_and_revision_guards_settle_only_the_owned_read() {
-    for (request, expected, retry) in [
-        (json!({"contextToken":1,"revision":0}), Some(17), false),
-        (json!({"contextToken":2,"revision":0}), None, false),
-        (json!({"contextToken":1,"revision":99}), None, true),
-        (json!({"revision":0}), Some(17), false),
-        (
-            json!({"contextToken":"bad","revision":"bad"}),
-            Some(17),
-            false,
-        ),
-    ] {
-        let mut app = app();
-        let peer = QuotaPeer::default();
-        let now = Instant::now();
-        assert!(!tick(&peer, &mut app, now));
-        assert_eq!(
-            peer.calls.borrow()[0],
-            ("context".into(), json!({"revision":0,"contextToken":1}))
-        );
-        receive(
-            &mut app,
-            &json!({"ok":true,"result":{"totalTokens":17,"rawMaxTokens":100}}),
-            &request,
-        );
-        assert_eq!(
-            app.session.context_usage().map(|usage| usage.used),
-            expected,
-            "{request}"
-        );
-        tick(&peer, &mut app, now);
-        assert_eq!(peer.calls.borrow().len(), if retry { 2 } else { 1 });
-    }
-}
-
-#[test]
-fn context_reply_defaults_keep_known_counts_when_the_reply_cannot_supply_valid_counts() {
-    for (ok, result, expected, fresh) in [
-        (
-            true,
-            json!({"totalTokens":7,"rawMaxTokens":100,"maxTokens":200}),
-            (7, 100),
-            true,
-        ),
-        (
-            true,
-            json!({"totalTokens":7,"maxTokens":200}),
-            (7, 200),
-            true,
-        ),
-        (
-            true,
-            json!({"totalTokens":7,"rawMaxTokens":0,"maxTokens":200}),
-            (42, 1000),
-            false,
-        ),
-        (
-            true,
-            json!({"totalTokens":-1,"maxTokens":200}),
-            (42, 1000),
-            false,
-        ),
-        (true, json!({"maxTokens":200}), (42, 1000), false),
-        (
-            false,
-            json!({"totalTokens":7,"maxTokens":200}),
-            (42, 1000),
-            false,
-        ),
-    ] {
-        let mut app = app();
-        app.session.set_context_usage(Some(ContextUsage {
-            used: 42,
-            max: 1000,
-        }));
-        receive(&mut app, &json!({"ok":ok,"result":result}), &Value::Null);
-        let usage = app
-            .session
-            .context_usage()
-            .expect("last known counts remain");
-        assert_eq!((usage.used, usage.max), expected);
-        assert_eq!(app.session.claude().context_fresh(), fresh);
-    }
-}
-
-#[test]
-fn unavailable_context_readers_never_send_or_wake() {
-    for (enabled, phase, label) in [
-        (false, ClaudePhase::Ready, None),
-        (true, ClaudePhase::Starting, None),
-        (true, ClaudePhase::Closed, None),
-        (true, ClaudePhase::Ready, Some("Compacting")),
-    ] {
-        let mut app = app();
-        app.session.set_claude_enabled_for_test(enabled);
-        app.session.set_claude_phase_for_test(phase);
-        app.session.record_claude_status(&json!({"label":label}));
-        let peer = QuotaPeer::default();
-        let now = Instant::now();
-        assert!(!tick(&peer, &mut app, now));
-        assert!(wait(&app, now).is_none());
-        assert!(peer.calls.borrow().is_empty());
-    }
 }
 
 #[test]
