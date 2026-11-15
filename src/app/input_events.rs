@@ -69,20 +69,7 @@ pub(super) fn is_mobile_mouse_key_candidate(
     code: KeyCode,
     modifiers: KeyModifiers,
 ) -> bool {
-    if app.view.viewport.mobile_plain_pending_coords
-        || app.view.viewport.mobile_plain_suppress_coords
-    {
-        return matches!(code, KeyCode::Char(ch) if ch.is_ascii_digit() || ch == ';');
-    }
-    if !app.view.viewport.mobile_mouse_buffer.is_empty() {
-        return matches!(code, KeyCode::Char(_));
-    }
-    let KeyCode::Char(ch) = code else {
-        return false;
-    };
-    ch == '<'
-        || (modifiers.contains(KeyModifiers::ALT)
-            && matches!(ch, '[' | '<' | ';' | 'M' | 'm' | '0'..='9'))
+    super::mobile_mouse::is_mobile_mouse_key_candidate(&app.view.viewport, code, modifiers)
 }
 
 // --- Transcript layout ---

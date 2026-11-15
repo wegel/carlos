@@ -4,9 +4,7 @@ use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
 
 use super::input_events::{ensure_transcript_layout, TerminalEventResult};
 
-use super::mobile_mouse::{
-    apply_mobile_mouse_scroll, parse_mobile_mouse_coords, parse_repeated_plain_mobile_pair,
-};
+use super::mobile_mouse::{begin_plain, consume_paste};
 
 use super::render::{compute_input_layout, normalize_pasted_text};
 
@@ -98,10 +96,7 @@ fn apply_pointer(
 // --- Mouse helpers ---
 
 fn handle_mobile_middle_click(app: &mut AppState) {
-    app.view.viewport.mobile_plain_pending_coords = true;
-    app.view.viewport.mobile_plain_suppress_coords = false;
-    app.view.viewport.mobile_plain_new_gesture = true;
-    app.view.viewport.mobile_mouse_buffer.clear();
+    begin_plain(&mut app.view.viewport);
 }
 
 fn handle_mouse_up_left(app: &mut AppState, hit: &MouseHitContext) -> bool {
@@ -146,15 +141,8 @@ pub(super) fn handle_paste_event(
         super::codex_queue_view::paste(app, &normalize_pasted_text(&pasted), size);
         return TerminalEventResult::Continue { needs_draw: true };
     }
-    if let Some((_, y)) = parse_repeated_plain_mobile_pair(&pasted) {
-        apply_mobile_mouse_scroll(app, y);
+    if consume_paste(&mut app.view.viewport, app.view.input.is_empty(), &pasted) {
         return TerminalEventResult::Continue { needs_draw: true };
-    }
-    if app.input_is_empty() {
-        if let Some((_, y)) = parse_mobile_mouse_coords(&pasted) {
-            apply_mobile_mouse_scroll(app, y);
-            return TerminalEventResult::Continue { needs_draw: true };
-        }
     }
     let normalized = normalize_pasted_text(&pasted);
     if !normalized.is_empty() {

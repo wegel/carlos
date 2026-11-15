@@ -66,7 +66,7 @@ class DaemonSettings:
         first.contains("chosen")
         first.send(b"\r")
         first.wait(lambda: first.input_is("first private draft 🌍")
-                   and "Tab field, arrows, Enter save" not in first.text,
+                   and "Settings" not in first.text,
                    "accepted save closes the first editor and keeps its composer")
         self.assertIn("fixture-model", second.text)
         self.assertNotIn("chosen", second.text)

@@ -88,6 +88,14 @@ impl History {
 }
 
 impl Device {
+    /// Prevent an older prompt read from replacing this device's newly edited text.
+    pub(super) fn cancel_prompt_read_for_edit(&mut self) {
+        self.history.cancel_read();
+        if self.history.rewind_draft.is_none() {
+            self.history.reset_navigation();
+        }
+    }
+
     pub(super) fn select_prompt(
         &mut self,
         link: &mut Transport,

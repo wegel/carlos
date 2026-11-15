@@ -9,7 +9,7 @@ use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use super::transport::Transport;
 use super::Device;
 use crate::app::notifications::is_key_press_like;
-use crate::app::render_input::{is_newline_enter, normalize_pasted_text, textarea_input_from_key};
+use crate::app::render_input::{is_newline_enter, textarea_input_from_key};
 
 impl Device {
     pub(super) fn receive(&mut self, link: &mut Transport, incoming: Incoming) -> Result<bool> {
@@ -174,25 +174,7 @@ impl Device {
             {
                 self.mouse(mouse)?
             }
-            Event::Paste(text) => {
-                if self.view.runtime_settings.show_model_settings {
-                    self.settings_paste(&normalize_pasted_text(&text));
-                } else if self.tasks.view.show {
-                    // Task views consume paste without changing any hidden draft.
-                } else if self.view.codex_goals.show {
-                    self.goal_paste(&normalize_pasted_text(&text));
-                } else if self.view.codex_queue.show {
-                    self.queue_paste(&normalize_pasted_text(&text));
-                } else if self.question_paste(&normalize_pasted_text(&text)) {
-                } else {
-                    self.view.reset_esc_chord();
-                    self.history.cancel_read();
-                    if self.history.rewind_draft.is_none() {
-                        self.history.reset_navigation();
-                    }
-                    self.view.input.insert_str(normalize_pasted_text(&text));
-                }
-            }
+            Event::Paste(text) => self.paste_text(text),
             Event::Key(key) if key.code == KeyCode::Esc && key.kind == KeyEventKind::Repeat => {}
             Event::Key(key) if is_key_press_like(key.kind) => return self.key_event(link, key),
             _ => {}
@@ -229,6 +211,9 @@ impl Device {
             return Ok(false);
         }
         if self.dictation_key(key) {
+            return Ok(false);
+        }
+        if self.mobile_key(key) {
             return Ok(false);
         }
         if self.navigation_key(key)? {

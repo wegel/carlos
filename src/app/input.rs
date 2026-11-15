@@ -38,8 +38,6 @@ pub(super) use self::input_queue_rules::can_submit_queued_turn;
 #[cfg(test)]
 pub(super) use self::input_queue_rules::is_priority_server_line;
 pub(super) use self::input_queue_rules::prioritize_events;
-#[cfg(test)]
-pub(super) use super::input_events::is_mobile_mouse_key_candidate;
 
 const MAX_UI_DRAIN_PER_CYCLE: usize = 4096;
 const SERVER_BUDGET_WITH_INPUT: usize = 8;

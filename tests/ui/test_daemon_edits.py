@@ -42,6 +42,35 @@ class DaemonEdits:
         self.assertEqual(len(terminal.requests("session/rewind")), 1)
         self.assertEqual(sum(r.get("method") == "thread/fork" for r in fixture.native.requests), 1)
 
+    def test_daemon_mobile_coordinate_pastes_scroll_without_entering_the_composer(self):
+        fixture, client, session = self.daemon_session("mobile-coordinate-paste")
+        terminal = self.attach_daemon(fixture, session, "mobile-coordinates")
+        terminal.contains("history-output 9999")
+        terminal.paste("66;52")
+        terminal.wait(lambda: any('66;52' in line for line in (terminal.root / "keys.log").read_text().splitlines()),
+                      "terminal received the first mobile coordinate paste")
+        terminal.paste("64;47")
+        terminal.wait(lambda: "history-output 9994" in terminal.text and "history-output 9999" not in terminal.text,
+                      "mobile coordinate paste moves the actual visible transcript upward")
+        terminal.wait(lambda: terminal.input_is(""), "coordinate pastes never enter the private composer")
+        self.assertNotIn("history-output 9999", terminal.text)
+        terminal.paste("private draft")
+        terminal.paste("ordinary 66;52 text")
+        terminal.wait(lambda: terminal.input_is("private draftordinary 66;52 text"),
+                      "a nonempty composer retains ordinary pasted coordinate-like text")
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertEqual(terminal.requests("session/rewind"), [])
+
+    def test_daemon_mobile_fallback_keeps_ordinary_empty_composer_pastes_literal(self):
+        fixture, client, session = self.daemon_session("ordinary-coordinate-like-paste")
+        terminal = self.attach_daemon(fixture, session, "ordinary-paste")
+        terminal.contains("history-output 9999")
+        terminal.paste("let x = 1; let y = 2;")
+        terminal.wait(lambda: terminal.input_is("let x = 1; let y = 2;"),
+                      "ordinary code in an empty composer remains literal text")
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertEqual(terminal.requests("session/rewind"), [])
+
     def editable_terminal(self, name, configure=None):
         def setup(fixture):
             fixture.native.history_user = True

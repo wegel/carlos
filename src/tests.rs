@@ -12,13 +12,9 @@ pub(super) use super::cli::{
     resolve_initial_runtime_settings, resume_hint, styled_resume_hint, Backend,
 };
 pub(super) use super::context_usage::context_usage_label;
-pub(super) use super::input::{
-    can_submit_queued_turn, is_mobile_mouse_key_candidate, is_priority_server_line,
-    prioritize_events,
-};
+pub(super) use super::input::{can_submit_queued_turn, is_priority_server_line, prioritize_events};
 pub(super) use super::mobile_mouse::{
-    apply_mobile_mouse_scroll, consume_mobile_mouse_char, parse_mobile_mouse_coords,
-    parse_repeated_plain_mobile_pair, MobileMouseConsume,
+    consume_mobile_mouse_char, parse_mobile_mouse_coords, MobileMouseConsume,
 };
 pub(super) use super::notifications::{
     handle_notification_line, handle_server_message_line, is_key_press_like, kitt_head_index,

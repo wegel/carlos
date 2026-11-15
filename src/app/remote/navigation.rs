@@ -77,6 +77,13 @@ impl Device {
             MouseEventKind::ScrollDown => {
                 mouse_gestures::wheel(&mut self.view.viewport, &hit, false);
             }
+            MouseEventKind::Down(MouseButton::Middle)
+                if mouse
+                    .modifiers
+                    .contains(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
+            {
+                crate::app::mobile_mouse::begin_plain(&mut self.view.viewport);
+            }
             MouseEventKind::Down(MouseButton::Left) => {
                 mouse_gestures::start(&mut self.view.viewport, &hit);
             }

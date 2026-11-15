@@ -286,10 +286,10 @@ fn parse_mobile_mouse_coords_accepts_plain_and_sgr_fragments() {
 
 #[test]
 fn consume_mobile_mouse_char_does_not_swallow_plain_digits() {
-    let mut app = AppState::new("thread-1".to_string());
+    let mut app = crate::app::viewport_state::ViewportState::new();
     assert!(matches!(
         consume_mobile_mouse_char(&mut app, '2'),
         MobileMouseConsume::PassThrough
     ));
-    assert!(app.view.viewport.mobile_mouse_buffer.is_empty());
+    assert!(app.mobile_mouse_buffer.is_empty());
 }

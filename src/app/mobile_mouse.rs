@@ -1,6 +1,8 @@
 //! Mobile terminal mouse-event parsing and scroll emulation.
 
-use super::AppState;
+use crossterm::event::{KeyCode, KeyModifiers};
+
+use super::viewport_state::ViewportState;
 
 // --- Mouse Types ---
 
@@ -15,7 +17,12 @@ pub(super) enum MobileMouseConsume {
 // --- Coord Parsing ---
 
 pub(super) fn parse_mobile_mouse_coords(s: &str) -> Option<(usize, usize)> {
-    if !s.contains(';') {
+    if s.len() > 24
+        || !s.contains(';')
+        || !s.bytes().all(|byte| {
+            byte.is_ascii_digit() || matches!(byte, b';' | b'<' | b'[' | b'M' | b'm' | 0x1b)
+        })
+    {
         return None;
     }
 
@@ -33,31 +40,31 @@ pub(super) fn parse_mobile_mouse_coords(s: &str) -> Option<(usize, usize)> {
 
 // --- Scroll Helpers ---
 
-pub(super) fn apply_mobile_mouse_scroll(app: &mut AppState, y: usize) {
-    if let Some(prev) = app.view.viewport.mobile_mouse_last_y {
-        app.view.viewport.auto_follow_bottom = false;
+pub(super) fn apply_mobile_mouse_scroll(viewport: &mut ViewportState, y: usize) {
+    if let Some(prev) = viewport.mobile_mouse_last_y {
+        viewport.auto_follow_bottom = false;
         let step = y.abs_diff(prev).min(8);
         let step = step.max(1);
         let drag_down = y > prev;
-        let move_down_history = if app.view.viewport.scroll_inverted {
+        let move_down_history = if viewport.scroll_inverted {
             !drag_down
         } else {
             drag_down
         };
         if move_down_history {
-            app.view.viewport.scroll_top = app.view.viewport.scroll_top.saturating_add(step);
+            viewport.scroll_top = viewport.scroll_top.saturating_add(step);
         } else if y != prev {
-            app.view.viewport.scroll_top = app.view.viewport.scroll_top.saturating_sub(step);
+            viewport.scroll_top = viewport.scroll_top.saturating_sub(step);
         }
     }
-    app.view.viewport.mobile_mouse_last_y = Some(y);
+    viewport.mobile_mouse_last_y = Some(y);
 }
 
-fn apply_mobile_plain_scroll(app: &mut AppState, y: usize) {
-    let direction = if app.view.viewport.mobile_plain_new_gesture {
-        app.view.viewport.mobile_plain_new_gesture = false;
-        match app.view.viewport.mobile_plain_last_direction {
-            0 => match app.view.viewport.mobile_mouse_last_y {
+fn apply_mobile_plain_scroll(viewport: &mut ViewportState, y: usize) {
+    let direction = if viewport.mobile_plain_new_gesture {
+        viewport.mobile_plain_new_gesture = false;
+        match viewport.mobile_plain_last_direction {
+            0 => match viewport.mobile_mouse_last_y {
                 Some(prev) if y > prev => 1,
                 Some(prev) if y < prev => -1,
                 _ => 0,
@@ -65,141 +72,125 @@ fn apply_mobile_plain_scroll(app: &mut AppState, y: usize) {
             prev_dir => prev_dir,
         }
     } else {
-        match app.view.viewport.mobile_mouse_last_y {
+        match viewport.mobile_mouse_last_y {
             Some(prev) if y > prev => 1,
             Some(prev) if y < prev => -1,
-            _ => app.view.viewport.mobile_plain_last_direction,
+            _ => viewport.mobile_plain_last_direction,
         }
     };
 
-    app.view.viewport.auto_follow_bottom = false;
-    let move_down_history = if app.view.viewport.scroll_inverted {
+    viewport.auto_follow_bottom = false;
+    let move_down_history = if viewport.scroll_inverted {
         direction < 0
     } else {
         direction > 0
     };
     if move_down_history {
-        app.view.viewport.scroll_top = app
-            .view
-            .viewport
-            .scroll_top
-            .saturating_add(MOBILE_PLAIN_SCROLL_STEP);
+        viewport.scroll_top = viewport.scroll_top.saturating_add(MOBILE_PLAIN_SCROLL_STEP);
     } else if direction != 0 {
-        app.view.viewport.scroll_top = app
-            .view
-            .viewport
-            .scroll_top
-            .saturating_sub(MOBILE_PLAIN_SCROLL_STEP);
+        viewport.scroll_top = viewport.scroll_top.saturating_sub(MOBILE_PLAIN_SCROLL_STEP);
     }
 
-    app.view.viewport.mobile_mouse_last_y = Some(y);
-    app.view.viewport.mobile_plain_last_direction = direction;
+    viewport.mobile_mouse_last_y = Some(y);
+    viewport.mobile_plain_last_direction = direction;
 }
 
 // --- Public API ---
 
-pub(super) fn take_mobile_mouse_buffer(app: &mut AppState) -> Option<String> {
-    if app.view.viewport.mobile_mouse_buffer.is_empty() {
+pub(super) fn take_mobile_mouse_buffer(viewport: &mut ViewportState) -> Option<String> {
+    if viewport.mobile_mouse_buffer.is_empty() {
         return None;
     }
-    Some(std::mem::take(&mut app.view.viewport.mobile_mouse_buffer))
+    Some(std::mem::take(&mut viewport.mobile_mouse_buffer))
 }
 
-pub(super) fn consume_mobile_mouse_char(app: &mut AppState, c: char) -> MobileMouseConsume {
-    if app.view.viewport.mobile_mouse_buffer.is_empty() {
-        return consume_first_char(app, c);
+pub(super) fn consume_mobile_mouse_char(
+    viewport: &mut ViewportState,
+    c: char,
+) -> MobileMouseConsume {
+    if viewport.mobile_mouse_buffer.is_empty() {
+        return consume_first_char(viewport, c);
     }
-    if !is_valid_continuation(app, c) {
-        let mut out = std::mem::take(&mut app.view.viewport.mobile_mouse_buffer);
-        reset_plain_state(app);
+    if !is_valid_continuation(viewport, c) {
+        let mut out = std::mem::take(&mut viewport.mobile_mouse_buffer);
+        reset_plain_state(viewport);
         out.push(c);
         return MobileMouseConsume::Emit(out);
     }
-    app.view.viewport.mobile_mouse_buffer.push(c);
-    if app.view.viewport.mobile_plain_pending_coords
-        || app.view.viewport.mobile_plain_suppress_coords
-    {
-        return consume_plain_coords_char(app);
+    viewport.mobile_mouse_buffer.push(c);
+    if viewport.mobile_plain_pending_coords || viewport.mobile_plain_suppress_coords {
+        return consume_plain_coords_char(viewport);
     }
-    consume_csi_sgr_char(app, c)
+    consume_csi_sgr_char(viewport, c)
 }
 
 // --- State Machine ---
 
-fn consume_first_char(app: &mut AppState, c: char) -> MobileMouseConsume {
-    let in_plain = app.view.viewport.mobile_plain_pending_coords
-        || app.view.viewport.mobile_plain_suppress_coords;
+fn consume_first_char(viewport: &mut ViewportState, c: char) -> MobileMouseConsume {
+    let in_plain = viewport.mobile_plain_pending_coords || viewport.mobile_plain_suppress_coords;
     if in_plain && (c.is_ascii_digit() || c == ';') {
-        app.view.viewport.mobile_mouse_buffer.push(c);
+        viewport.mobile_mouse_buffer.push(c);
         return MobileMouseConsume::Consumed;
     }
     // Activate only on explicit CSI/SGR-style prefix to avoid swallowing normal typing.
     if c == '<' || c == '[' {
-        app.view.viewport.mobile_mouse_buffer.push(c);
+        viewport.mobile_mouse_buffer.push(c);
         return MobileMouseConsume::Consumed;
     }
     MobileMouseConsume::PassThrough
 }
 
-fn is_valid_continuation(app: &AppState, c: char) -> bool {
-    if app.view.viewport.mobile_plain_pending_coords
-        || app.view.viewport.mobile_plain_suppress_coords
-    {
+fn is_valid_continuation(viewport: &ViewportState, c: char) -> bool {
+    if viewport.mobile_plain_pending_coords || viewport.mobile_plain_suppress_coords {
         c.is_ascii_digit() || c == ';'
     } else {
         matches!(c, '0'..='9' | ';' | 'M' | 'm' | '<' | '[')
     }
 }
 
-fn consume_plain_coords_char(app: &mut AppState) -> MobileMouseConsume {
-    if let Some((_, y)) = parse_plain_mobile_pair(&app.view.viewport.mobile_mouse_buffer) {
-        if app.view.viewport.mobile_plain_pending_coords {
-            apply_mobile_plain_scroll(app, y);
+fn consume_plain_coords_char(viewport: &mut ViewportState) -> MobileMouseConsume {
+    if let Some((_, y)) = parse_plain_mobile_pair(&viewport.mobile_mouse_buffer) {
+        if viewport.mobile_plain_pending_coords {
+            apply_mobile_plain_scroll(viewport, y);
         }
-        app.view.viewport.mobile_mouse_buffer.clear();
-        app.view.viewport.mobile_plain_pending_coords = false;
-        app.view.viewport.mobile_plain_suppress_coords = false;
+        viewport.mobile_mouse_buffer.clear();
+        viewport.mobile_plain_pending_coords = false;
+        viewport.mobile_plain_suppress_coords = false;
         return MobileMouseConsume::Consumed;
     }
-    if app.view.viewport.mobile_mouse_buffer.len() > 8 {
-        let emit = app.view.viewport.mobile_plain_pending_coords;
-        reset_plain_state(app);
+    if viewport.mobile_mouse_buffer.len() > 8 {
+        let emit = viewport.mobile_plain_pending_coords;
+        reset_plain_state(viewport);
         if emit {
-            return MobileMouseConsume::Emit(std::mem::take(
-                &mut app.view.viewport.mobile_mouse_buffer,
-            ));
+            return MobileMouseConsume::Emit(std::mem::take(&mut viewport.mobile_mouse_buffer));
         }
-        app.view.viewport.mobile_mouse_buffer.clear();
+        viewport.mobile_mouse_buffer.clear();
         return MobileMouseConsume::Consumed;
     }
     MobileMouseConsume::Consumed
 }
 
 /// Handle CSI/SGR-style mouse sequences — apply on explicit terminator.
-fn consume_csi_sgr_char(app: &mut AppState, c: char) -> MobileMouseConsume {
+fn consume_csi_sgr_char(viewport: &mut ViewportState, c: char) -> MobileMouseConsume {
     if c == 'M' || c == 'm' {
-        if let Some((_, y)) = parse_mobile_mouse_coords(&app.view.viewport.mobile_mouse_buffer) {
-            apply_mobile_mouse_scroll(app, y);
-            app.view.viewport.mobile_mouse_buffer.clear();
+        if let Some((_, y)) = parse_mobile_mouse_coords(&viewport.mobile_mouse_buffer) {
+            apply_mobile_mouse_scroll(viewport, y);
+            viewport.mobile_mouse_buffer.clear();
             return MobileMouseConsume::Consumed;
         }
-        return MobileMouseConsume::Emit(std::mem::take(
-            &mut app.view.viewport.mobile_mouse_buffer,
-        ));
+        return MobileMouseConsume::Emit(std::mem::take(&mut viewport.mobile_mouse_buffer));
     }
-    if app.view.viewport.mobile_mouse_buffer.len() > 24 {
-        return MobileMouseConsume::Emit(std::mem::take(
-            &mut app.view.viewport.mobile_mouse_buffer,
-        ));
+    if viewport.mobile_mouse_buffer.len() > 24 {
+        return MobileMouseConsume::Emit(std::mem::take(&mut viewport.mobile_mouse_buffer));
     }
     MobileMouseConsume::Consumed
 }
 
-fn reset_plain_state(app: &mut AppState) {
-    app.view.viewport.mobile_plain_pending_coords = false;
-    app.view.viewport.mobile_plain_suppress_coords = false;
-    app.view.viewport.mobile_plain_last_direction = 0;
-    app.view.viewport.mobile_plain_new_gesture = false;
+fn reset_plain_state(viewport: &mut ViewportState) {
+    viewport.mobile_plain_pending_coords = false;
+    viewport.mobile_plain_suppress_coords = false;
+    viewport.mobile_plain_last_direction = 0;
+    viewport.mobile_plain_new_gesture = false;
 }
 
 // --- Plain Parsing ---
@@ -228,13 +219,15 @@ pub(super) fn parse_repeated_plain_mobile_pair(s: &str) -> Option<(usize, usize)
         if s.len() < unit_len * 2 {
             continue;
         }
-        let unit = &s[..unit_len];
+        let Some(unit) = s.get(..unit_len) else {
+            continue;
+        };
         let Some((x, y)) = parse_plain_mobile_pair(unit) else {
             continue;
         };
         let mut idx = 0usize;
         let mut repeats = 0usize;
-        while idx + unit_len <= s.len() && &s[idx..idx + unit_len] == unit {
+        while idx + unit_len <= s.len() && s.get(idx..idx + unit_len) == Some(unit) {
             idx += unit_len;
             repeats += 1;
         }
@@ -245,3 +238,46 @@ pub(super) fn parse_repeated_plain_mobile_pair(s: &str) -> Option<(usize, usize)
 
     None
 }
+
+/// Capture the next broken mobile coordinate pair after its modified middle click.
+pub(super) fn begin_plain(viewport: &mut ViewportState) {
+    viewport.mobile_plain_pending_coords = true;
+    viewport.mobile_plain_suppress_coords = false;
+    viewport.mobile_plain_new_gesture = true;
+    viewport.mobile_mouse_buffer.clear();
+}
+
+/// Recognize mouse fragments without swallowing ordinary unmodified digits.
+pub(super) fn is_mobile_mouse_key_candidate(
+    viewport: &ViewportState,
+    code: KeyCode,
+    modifiers: KeyModifiers,
+) -> bool {
+    if viewport.mobile_plain_pending_coords || viewport.mobile_plain_suppress_coords {
+        return matches!(code, KeyCode::Char(ch) if ch.is_ascii_digit() || ch == ';');
+    }
+    if !viewport.mobile_mouse_buffer.is_empty() {
+        return matches!(code, KeyCode::Char(_));
+    }
+    let KeyCode::Char(ch) = code else {
+        return false;
+    };
+    ch == '<'
+        || (modifiers.contains(KeyModifiers::ALT)
+            && matches!(ch, '[' | '<' | ';' | 'M' | 'm' | '0'..='9'))
+}
+
+/// Preserve pasted mobile gestures while leaving ordinary nonempty drafts alone.
+pub(super) fn consume_paste(viewport: &mut ViewportState, empty: bool, pasted: &str) -> bool {
+    let coords = parse_repeated_plain_mobile_pair(pasted)
+        .or_else(|| empty.then(|| parse_mobile_mouse_coords(pasted)).flatten());
+    if let Some((_, y)) = coords {
+        apply_mobile_mouse_scroll(viewport, y);
+        return true;
+    }
+    false
+}
+
+#[cfg(test)]
+#[path = "mobile_mouse_tests.rs"]
+mod tests;

@@ -219,7 +219,7 @@ fn handle_mobile_mouse_keys(
     if is_mobile_mouse_key_candidate(app, k.code, k.modifiers) {
         if let KeyCode::Char(ch) = k.code {
             let was_plain_capture = app.view.viewport.mobile_plain_pending_coords;
-            match consume_mobile_mouse_char(app, ch) {
+            match consume_mobile_mouse_char(&mut app.view.viewport, ch) {
                 MobileMouseConsume::PassThrough => {}
                 MobileMouseConsume::Consumed => {
                     return Some(TerminalEventResult::Continue { needs_draw: true });
@@ -232,7 +232,7 @@ fn handle_mobile_mouse_keys(
                 }
             }
         }
-    } else if let Some(text) = take_mobile_mouse_buffer(app) {
+    } else if let Some(text) = take_mobile_mouse_buffer(&mut app.view.viewport) {
         if !text.is_empty()
             && !app.view.viewport.mobile_plain_pending_coords
             && !app.view.viewport.mobile_plain_suppress_coords
