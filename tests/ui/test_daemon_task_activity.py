@@ -142,9 +142,18 @@ class DaemonTaskActivity:
             return False
         terminal.wait(replacement_ready, "fresh ready facts from replacement daemon")
         self.assertEqual(len(terminal.requests("task/activity/open")), 1)
+        # A new owner retires its old opaque task addresses. Keep the old display,
+        # but require a fresh selection before opening that native child again.
+        terminal.contains("Selected row unavailable")
+        terminal.send(b"\r")
+        terminal.contains("Select an available child first")
+        self.assertEqual(len(terminal.requests("task/activity/open")), 1)
+        terminal.send(b"\x1b[B")
         terminal.contains("Thread: native-child-0")
         terminal.send(b"\r")
         terminal.wait(lambda:len(terminal.requests("task/activity/open")) == 2, "explicit child reopen")
+        addresses = [request["params"]["task"] for request in terminal.requests("task/activity/open")]
+        self.assertNotEqual(addresses[0], addresses[1], "old consent addresses cannot name the replacement owner")
         terminal.contains("CHILD_DETAIL_ONLY_19")
         terminal.send(F2)
         terminal.wait(lambda:terminal.input_is("child reconnect draft"), "reconnect retains composer")

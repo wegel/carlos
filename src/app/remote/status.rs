@@ -109,11 +109,7 @@ impl Device {
         if let Some(info) = info.filter(|info| {
             info.backend != Backend::Codex && info.availability == Availability::Closed
         }) {
-            let remedy = if info.backend == Backend::Claude {
-                "reopen this saved session"
-            } else {
-                "start a new session"
-            };
+            let remedy = "reopen this saved session with /session reopen";
             return Some(format!(
                 "{:?} is closed; {remedy}; draft kept",
                 info.backend
@@ -138,7 +134,9 @@ impl Device {
                 Availability::Closed if self.reconnect.is_some() => {
                     return Some("Requesting Codex reconnect…".into())
                 }
-                Availability::Closed => return Some("Codex offline · F5 reconnect".into()),
+                Availability::Closed => {
+                    return Some("Codex offline · F5 reconnect · /session reopen".into())
+                }
                 Availability::Restoring => return Some("Restoring Codex…".into()),
                 _ => {}
             }

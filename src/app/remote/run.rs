@@ -45,6 +45,7 @@ impl Device {
             },
             history: Default::default(),
             rename: None,
+            lifecycle: None,
             waiting_ready: false,
             disconnected: None,
             reconnect: None,

@@ -16,7 +16,7 @@ impl Device {
             lines.push(if self.tasks.windows.current.is_some() {
                 "Child activity reader retired; accepted display kept. Esc returns to the older list; r refreshes latest tasks before Enter reopens".into()
             } else {
-                "Child activity reader retired; accepted display kept. Enter explicitly reopens its selected task after the current task page is accepted".into()
+                "Child activity reader retired; accepted display kept. Use arrows to select a current task, then Enter to reopen.".into()
             });
         }
         if let Some(error) = &activity.error {

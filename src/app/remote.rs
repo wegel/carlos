@@ -12,6 +12,7 @@ mod help;
 mod history;
 mod history_keys;
 mod history_operations;
+mod lifecycle;
 mod local_commands;
 mod metrics;
 mod mobile;
@@ -104,6 +105,7 @@ struct Device {
     ralph_options: carlos_proto::ralph::RalphOptions,
     history: history::History,
     rename: Option<rename::Rename>,
+    lifecycle: Option<lifecycle::Intent>,
     waiting_ready: bool,
     disconnected: Option<String>,
     reconnect: Option<carlos_proto::submissions::ClientOperation>,

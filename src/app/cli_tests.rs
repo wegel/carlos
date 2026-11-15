@@ -58,3 +58,56 @@ fn styled_resume_hint_colors_only_the_logical_command_line() {
     assert_eq!(super::styled_daemon_resume_hint(std::path::Path::new("/tmp/carlos.sock"), &session),
         format!("to resume this session use:\n\x1b[94mcarlos --daemon-socket /tmp/carlos.sock resume {session}\x1b[0m"));
 }
+
+#[test]
+fn session_controls_accept_logical_ids_and_both_socket_option_orders() {
+    let session = "a".repeat(32);
+    for args in [
+        vec![
+            "session",
+            "stop",
+            &session,
+            "--daemon-socket",
+            "/tmp/private.sock",
+        ],
+        vec![
+            "--daemon-socket",
+            "/tmp/private.sock",
+            "session",
+            "reopen",
+            &session,
+        ],
+    ] {
+        let parsed = parse_cli_args(args.into_iter().map(str::to_owned)).expect("session command");
+        let control = parsed.session_control.expect("scoped control");
+        assert_eq!(control.session.as_str(), session);
+        assert_eq!(
+            parsed.daemon_socket.as_deref(),
+            Some(std::path::Path::new("/tmp/private.sock"))
+        );
+        assert!(!parsed.mode_resume);
+        assert!(!parsed.mode_continue);
+    }
+}
+
+#[test]
+fn session_controls_reject_native_ids_missing_actions_and_conflicting_modes() {
+    let session = "a".repeat(32);
+    for args in [
+        vec!["session"],
+        vec!["session", "stop"],
+        vec!["session", "delete", &session],
+        vec!["session", "stop", "native-thread"],
+        vec!["session", "stop", &session, "continue"],
+        vec!["resume", &session, "session", "reopen", &session],
+        vec![
+            "session",
+            "stop",
+            &session,
+            "--codex-socket",
+            "/tmp/native.sock",
+        ],
+    ] {
+        assert!(parse_cli_args(args.into_iter().map(str::to_owned)).is_err());
+    }
+}

@@ -14,6 +14,9 @@ impl Device {
         if self.local_command(&text) {
             return Ok(());
         }
+        if self.lifecycle_command(link.as_deref_mut(), &text)? {
+            return Ok(());
+        }
         if self.history.rewind_draft.is_some() {
             let selected = self
                 .history

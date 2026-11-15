@@ -205,3 +205,50 @@ class SessionLifecycleTests:
         self.assertEqual(client.call("sessions/watch")["sessions"][0]["availability"], "closed")
         self.assertEqual(self.lifecycle(client, session, "reopen", 4)["state"]["kind"], "accepted")
         self.assertEqual(fixture.native.resumed, 1)
+
+    def test_stop_result_survives_disconnect_while_its_durable_acknowledgement_waits(self):
+        fixture, first = self.lifecycle_fixture("lost-stop-reply")
+        session = self.create_owner(fixture, first, 1)
+        database = sqlite3.connect(fixture.root / "state/sessions.sqlite3")
+        self.addCleanup(database.close)
+        database.execute("BEGIN IMMEDIATE")
+        operation = first.operation(2)
+        first.call("session/stop", session=session, operation=operation)
+        wait_for(lambda: not alive(fixture.pids()[0]["pid"]), "captured owner joined before disconnect")
+        first.close()
+        resumed = Client(fixture, "resume-stop-result", resume=first.hello)
+        self.addCleanup(resumed.close)
+        self.assertTrue(resumed.hello["resumed"])
+        self.assertEqual(resumed.call("operation/read", operation=operation)["state"]["kind"], "pending")
+        database.rollback()
+        self.assertEqual(resumed.outcome(operation)["state"]["kind"], "accepted")
+        self.assertEqual(resumed.call("session/stop", session=session, operation=operation)["state"]["kind"], "accepted")
+        self.assertEqual(len(fixture.pids()), 1)
+
+    def test_stop_settles_a_held_native_queue_write_and_keeps_its_text_private(self):
+        fixture, first, other, session, page = self.queue_clients("lifecycle-held-queue")
+        fixture.native.queue_hold = True
+        operation = first.operation(2)
+        first.call("queue/change", session=session, operation=operation, expected=page["queue"]["revision"],
+                   change={"kind": "add", "text": "held native queue 🦊"})
+        wait_for(lambda: fixture.native.queue_pending, "native queue acknowledgement waits")
+        self.assertEqual(self.lifecycle(other, session, "stop", 1)["state"]["kind"], "accepted")
+        result = first.outcome(operation)["state"]
+        self.assertEqual(result["kind"], "uncertain")
+        self.assertEqual(result["recovery"], {"operation": operation, "text": "held native queue 🦊"})
+        denied = other.response(other.send("operation/read", operation=operation))
+        self.assertEqual(denied["error"]["code"], -32003)
+        self.assertEqual(sum(r.get("method") == "thread/queue/add" for r in fixture.native.requests), 1)
+
+    def test_stop_settles_held_settings_and_never_saves_unconfirmed_defaults(self):
+        fixture, first, other, session, facts = self.settings_clients("lifecycle-held-settings")
+        fixture.native.settings_hold.add("thread/settings/update")
+        params = self.settings_params(first, session, facts)
+        first.call("settings/set", **params)
+        wait_for(lambda: fixture.native.settings_pending, "native settings acknowledgement waits")
+        self.assertEqual(self.lifecycle(other, session, "stop", 1)["state"]["kind"], "accepted")
+        result = first.outcome(params["operation"])["state"]
+        self.assertEqual(result["kind"], "uncertain")
+        self.assertIsNone(result["recovery"])
+        self.assertFalse(self.settings_path(fixture).exists())
+        self.assertEqual(len(self.settings_writes(fixture)), 1)

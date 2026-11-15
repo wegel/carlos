@@ -188,6 +188,8 @@ fn help_lines(width: usize) -> Vec<String> {
         "Ctrl+Y copy selection or last answer",
         "Home/End jump transcript; wheel scroll; drag to copy",
         "/rename [name] changes the saved session name",
+        "/session stop stops this session and keeps its saved conversation",
+        "/session reopen restores this saved conversation; drafts stay unsent",
         "/tools [auto|compact|full] folds long tool output",
         "? closes this help; arrows or PgUp/PgDn scroll",
     ]

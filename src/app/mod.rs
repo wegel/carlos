@@ -46,6 +46,7 @@ mod render_input;
 mod render_transcript;
 mod runtime_settings_state;
 mod selection;
+mod session_cli;
 mod source_highlight;
 mod status_line;
 mod style_convert;
@@ -80,9 +81,8 @@ pub(crate) fn run() -> Result<()> {
     let options = match cli::parse_cli_args(env::args().skip(1)) {
         Ok(options) => options,
         Err(error) => {
-            eprintln!("error: {error}");
             cli::usage();
-            return Ok(());
+            return Err(error);
         }
     };
     if options.show_help {
@@ -91,6 +91,9 @@ pub(crate) fn run() -> Result<()> {
     }
     if options.mode_perf_session {
         return perf_session::run_perf_session(&options);
+    }
+    if options.session_control.is_some() {
+        return session_cli::run(&options);
     }
     if let Some(socket) = &options.daemon_socket {
         return remote::run(socket, &options);

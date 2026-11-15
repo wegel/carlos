@@ -38,13 +38,14 @@ pub(super) struct CliOptions {
     pub(super) ralph_waiting_marker: Option<String>,
     pub(super) dictation_profile: Option<String>,
     pub(super) show_help: bool,
+    pub(super) session_control: Option<super::session_cli::SessionControl>,
 }
 
 // --- Runtime Settings ---
 
 pub(super) fn usage() {
     eprintln!(
-        "Usage:\n  carlos [resume [SESSION_ID] | continue] [options]\n  carlos perf-session <SESSION_JSONL> [--width N] [--height N]\n  carlos perf-session --synthetic [--turns N] [--seed N] [--tool-lines N] [--width N] [--height N]\n\nOptions:\n  --backend <codex|claude|grok>  backend to use (default: codex)\n  --codex-socket <path>          attach to an existing local Codex server\n  --daemon                      use the managed local daemon (the default)\n  --daemon-socket <path>         connect the terminal to a local Carlos daemon\n  --dictation-profile <name>     dictation profile to activate for this session\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  --ralph-waiting-marker <text>  human gate marker (default: @@AWAITING_HUMAN@@)\n  --width <n>                    perf-session viewport width (default: 160)\n  --height <n>                   perf-session viewport height (default: 48)\n  --seed <n>                     perf-session synthetic seed (default: 1)\n  --turns <n>                    perf-session synthetic turns (default: 1000)\n  --tool-lines <n>               perf-session synthetic tool-output lines (default: 24)\n  --synthetic                    use generated perf-session content instead of a jsonl file\n  -h, --help                     show this help\n\nKeys:\n  F5                             reconnect a disconnected Codex session\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_BACKEND=claude|grok     use Claude Code or Grok instead of codex app-server\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)\n  CARLOS_REASONING_SUMMARY=...   auto | concise | detailed | none (default: concise)"
+        "Usage:\n  carlos [resume [SESSION_ID] | continue] [options]\n  carlos session <stop|reopen> ID [--daemon-socket PATH]\n  carlos perf-session <SESSION_JSONL> [--width N] [--height N]\n  carlos perf-session --synthetic [--turns N] [--seed N] [--tool-lines N] [--width N] [--height N]\n\nOptions:\n  --backend <codex|claude|grok>  backend to use (default: codex)\n  --codex-socket <path>          attach to an existing local Codex server\n  --daemon                      use the managed local daemon (the default)\n  --daemon-socket <path>         connect the terminal to a local Carlos daemon\n  --dictation-profile <name>     dictation profile to activate for this session\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  --ralph-waiting-marker <text>  human gate marker (default: @@AWAITING_HUMAN@@)\n  --width <n>                    perf-session viewport width (default: 160)\n  --height <n>                   perf-session viewport height (default: 48)\n  --seed <n>                     perf-session synthetic seed (default: 1)\n  --turns <n>                    perf-session synthetic turns (default: 1000)\n  --tool-lines <n>               perf-session synthetic tool-output lines (default: 24)\n  --synthetic                    use generated perf-session content instead of a jsonl file\n  -h, --help                     show this help\n\nKeys:\n  F5                             reconnect a disconnected Codex session\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_BACKEND=claude|grok     use Claude Code or Grok instead of codex app-server\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)\n  CARLOS_REASONING_SUMMARY=...   auto | concise | detailed | none (default: concise)"
     );
 }
 
@@ -114,7 +115,7 @@ pub(super) fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<C
             "--ralph-waiting-marker" => {
                 opts.ralph_waiting_marker = Some(take_value(&mut args, &arg)?);
             }
-            sub @ ("resume" | "continue" | "perf-session") => {
+            sub @ ("resume" | "continue" | "perf-session" | "session") => {
                 parse_mode_subcommand(sub, &mut opts, &mut args)?;
             }
             _ => bail!("unknown argument: {arg}"),
@@ -125,6 +126,9 @@ pub(super) fn parse_cli_args(args: impl IntoIterator<Item = String>) -> Result<C
 }
 
 fn validate_routes(opts: &CliOptions) -> Result<()> {
+    if opts.session_control.is_some() && opts.codex_socket.is_some() {
+        bail!("Session controls use a logical ID; --codex-socket is a conversation launch choice");
+    }
     if opts.codex_socket.is_some() && (opts.backend != Backend::Codex || opts.mode_perf_session) {
         bail!("--codex-socket requires the Codex conversation backend");
     }
@@ -157,10 +161,15 @@ fn parse_mode_subcommand(
     opts: &mut CliOptions,
     args: &mut std::iter::Peekable<impl Iterator<Item = String>>,
 ) -> Result<()> {
-    if opts.mode_resume || opts.mode_continue || opts.mode_perf_session {
+    if opts.mode_resume
+        || opts.mode_continue
+        || opts.mode_perf_session
+        || opts.session_control.is_some()
+    {
         bail!("choose only one mode");
     }
     match sub {
+        "session" => opts.session_control = Some(super::session_cli::parse(args)?),
         "resume" => {
             opts.mode_resume = true;
             if args.peek().is_some_and(|n| !n.starts_with('-')) {

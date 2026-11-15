@@ -35,6 +35,18 @@ pub(super) fn run(options: &CliOptions) -> Result<()> {
     remote::run_connected(&paths.socket, &options, client, transport)
 }
 
+/// Greet the managed daemon without launching or restoring a native session.
+pub(super) fn connect_local() -> Result<(Client, Transport)> {
+    let paths = Paths::discover()?;
+    let executable = std::env::current_exe().context("locate Carlos executable")?;
+    prepare(
+        &paths,
+        &executable,
+        None,
+        Instant::now() + Duration::from_secs(5),
+    )
+}
+
 fn prepare(
     paths: &Paths,
     executable: &Path,

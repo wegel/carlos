@@ -88,6 +88,7 @@ fn local_device(client: Client, session: SessionId) -> Device {
         ralph_options: Default::default(),
         history: Default::default(),
         rename: None,
+        lifecycle: None,
         waiting_ready: false,
         disconnected: None,
         reconnect: None,

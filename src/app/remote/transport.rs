@@ -2,8 +2,10 @@
 
 use std::collections::VecDeque;
 use std::io::{ErrorKind, Read, Write};
+use std::os::fd::AsRawFd;
 use std::os::unix::net::UnixStream;
 use std::path::Path;
+use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use carlos_client::codec::{Framer, Incoming};
@@ -23,6 +25,34 @@ pub(in crate::app) struct Transport {
 }
 
 impl Transport {
+    /// Wait for protocol bytes or a queued write without polling a terminal redraw timer.
+    pub fn wait(&self, timeout: Duration) -> std::io::Result<()> {
+        let mut fd = libc::pollfd {
+            fd: self.stream.as_raw_fd(),
+            events: libc::POLLIN
+                | if self.writes.is_empty() {
+                    0
+                } else {
+                    libc::POLLOUT
+                },
+            revents: 0,
+        };
+        if unsafe {
+            libc::poll(
+                &mut fd,
+                1,
+                timeout.as_millis().clamp(1, i32::MAX as u128) as i32,
+            )
+        } < 0
+        {
+            let error = std::io::Error::last_os_error();
+            if error.kind() != ErrorKind::Interrupted {
+                return Err(error);
+            }
+        }
+        Ok(())
+    }
+
     pub fn connect(path: &Path, client: &mut Client) -> Result<Self> {
         let stream = UnixStream::connect(path).context("connect to Carlos daemon")?;
         Self::from_stream(stream, client)

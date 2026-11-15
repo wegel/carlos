@@ -7,7 +7,8 @@ use super::Device;
 impl Device {
     pub(super) fn apply_operations(&mut self, operations: &[ClientOperation]) {
         for id in operations {
-            if self.apply_history_operation(id)
+            if self.apply_lifecycle_operation(id)
+                || self.apply_history_operation(id)
                 || self.apply_rename_operation(id)
                 || self.apply_settings_operation(id)
                 || self.apply_question_operation(id)
