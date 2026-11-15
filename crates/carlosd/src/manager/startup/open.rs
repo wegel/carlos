@@ -148,7 +148,7 @@ impl Manager {
         &mut self,
         peer: u64,
         id: RequestId,
-        request: OpenRequest,
+        mut request: OpenRequest,
         cwd: String,
         known: bool,
         result: OperationResult,
@@ -172,18 +172,7 @@ impl Manager {
             return;
         }
         if !known {
-            let mut state = Session::dormant(SavedSession {
-                id: session.clone(),
-                backend: request.target.backend,
-                cwd,
-                name: None,
-                native_thread: request.target.native,
-                ralph_was_on: false,
-            });
-            state.durable = None;
-            state.info.availability = Availability::Restoring;
-            state.info.name = request.target.name;
-            self.sessions.insert(session.clone(), state);
+            self.import_open(&session, &mut request, cwd);
         }
         let state = self
             .sessions
@@ -203,6 +192,22 @@ impl Manager {
         self.finish_create(&session);
         self.list_changed(&session);
         self.reply_open_result(peer, id, result);
+    }
+
+    fn import_open(&mut self, session: &SessionId, request: &mut OpenRequest, cwd: String) {
+        let mut state = Session::dormant(SavedSession {
+            id: session.clone(),
+            backend: request.target.backend,
+            cwd,
+            name: None,
+            native_thread: request.target.native.take(),
+            ralph_was_on: false,
+            stopped: false,
+        });
+        state.durable = None;
+        state.info.availability = Availability::Restoring;
+        state.info.name = request.target.name.take();
+        self.sessions.insert(session.clone(), state);
     }
 
     fn reply_open_result(&mut self, peer: u64, id: RequestId, result: OperationResult) {

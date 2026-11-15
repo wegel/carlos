@@ -12,6 +12,7 @@ fn saved() -> SavedSession {
         cwd: "/work".into(),
         native_thread: Some("native-thread".into()),
         ralph_was_on: true,
+        stopped: false,
     }
 }
 
@@ -62,11 +63,98 @@ fn a_newer_catalogue_is_rejected_without_rewriting_its_version() {
     let path = root.path().join("db");
     let connection = rusqlite::Connection::open(&path).expect("future catalogue");
     connection
-        .pragma_update(None, "user_version", 2)
+        .pragma_update(None, "user_version", 3)
         .expect("future version");
     assert!(Registry::open(&path).is_err());
     let version: u32 = connection
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .expect("version unchanged");
+    assert_eq!(version, 3);
+}
+
+#[test]
+fn stopped_catalogue_retains_the_native_address_and_never_claims_ready_or_ralph() {
+    let root = tempfile::tempdir().expect("private catalogue");
+    let path = root.path().join("db");
+    let mut stopped = saved();
+    stopped.stopped = true;
+    stopped.ralph_was_on = false;
+    Registry::open(&path)
+        .expect("open")
+        .save(&stopped)
+        .expect("save stopped work");
+    let restored = Registry::open(&path)
+        .expect("restart")
+        .load()
+        .expect("load");
+    assert_eq!(restored, [stopped]);
+    assert_eq!(
+        restored[0].dormant_info().availability,
+        Availability::Closed
+    );
+    assert!(!restored[0].dormant_info().ralph);
+    let mut invalid = restored[0].clone();
+    invalid.ralph_was_on = true;
+    assert!(Registry::open(&path).expect("open").save(&invalid).is_err());
+}
+
+#[test]
+fn version_one_upgrade_preserves_native_metadata_and_is_repeatable() {
+    let root = tempfile::tempdir().expect("private catalogue");
+    let path = root.path().join("db");
+    let connection = old_catalogue(&path, saved().id.as_str());
+    for _ in 0..2 {
+        let registry = Registry::open(&path).expect("migrate or reopen");
+        assert_eq!(registry.load().expect("original descriptions"), [saved()]);
+    }
+    let version: u32 = connection
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .expect("version");
     assert_eq!(version, 2);
+    let stopped: bool = connection
+        .query_row("SELECT stopped FROM sessions", [], |row| row.get(0))
+        .expect("new flag");
+    assert!(!stopped);
+}
+
+#[test]
+fn invalid_old_rows_roll_back_the_column_and_version_together() {
+    let root = tempfile::tempdir().expect("private catalogue");
+    let path = root.path().join("db");
+    let connection = old_catalogue(&path, "");
+    assert!(Registry::open(&path).is_err());
+    let version: u32 = connection
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .expect("version");
+    assert_eq!(version, 1);
+    let columns: u32 = connection
+        .query_row(
+            "SELECT count(*) FROM pragma_table_info('sessions') WHERE name='stopped'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("old schema");
+    assert_eq!(columns, 0);
+    let id: String = connection
+        .query_row("SELECT id FROM sessions", [], |row| row.get(0))
+        .expect("original bad row");
+    assert!(id.is_empty());
+}
+
+fn old_catalogue(path: &std::path::Path, id: &str) -> rusqlite::Connection {
+    let connection = rusqlite::Connection::open(path).expect("version-one fixture");
+    connection
+        .execute_batch(
+            "CREATE TABLE sessions (
+        id TEXT PRIMARY KEY, name TEXT, backend TEXT NOT NULL, cwd TEXT NOT NULL,
+        native_thread TEXT, ralph INTEGER NOT NULL CHECK(ralph IN (0,1)));
+        PRAGMA user_version=1;",
+        )
+        .expect("old schema");
+    let original = saved();
+    connection.execute("INSERT INTO sessions(id,name,backend,cwd,native_thread,ralph) VALUES(?1,?2,?3,?4,?5,?6)", rusqlite::params![
+        id, original.name, serde_json::to_string(&original.backend).expect("backend"),
+        original.cwd, original.native_thread, original.ralph_was_on,
+    ]).expect("old description");
+    connection
 }

@@ -13,6 +13,8 @@ The daemon can run shell commands as its user. Network access stays off unless t
 
 ## Progress
 
+- [x] (2026-11-15) Add the durable stopped flag and transactional catalogue v1→v2 migration. Three new cases pass with the original registry cases: exact stopped native identity after restart, repeatable old-schema upgrade, and rollback of both column/version for an invalid old row. Stopped metadata cannot record Ralph enabled. Both full workspace feature/lint matrices and all143 actual-daemon regressions pass (73.191s); logs are /tmp/carlos-ep020/registry/. Public stop/reopen remains incomplete.
+
 
 - [x] (2026-11-15) Read the accepted EP019b result, final Fable findings, current manager/owner/transport/store interfaces and the architecture roadmap. Confirm clean closeout commit `07bad8c` and preserved protected main/installed executable.
 - [x] (2026-11-15) Choose explicit stop/reopen before network work, durable stopped metadata, bounded off-manager joins, one network WebSocket owner per connection and operator-provisioned device tokens.
@@ -25,6 +27,8 @@ The daemon can run shell commands as its user. Network access stays off unless t
 - [ ] Finish the direct engineering and Fable whole-roadmap reviews, record every disposition and delegated approval, archive this completed plan unchanged and continue to EP021.
 
 ## Surprises & Discoveries
+
+The manager's apply_update expects Live to remain installed while it publishes changes. Retain that Live until the stop worker joins the owner, but gate all new mutations/reads and move its pending updates receiver and notice join into the worker. This lets the manager apply prior/final frames through the existing duplicate-sequence checks before dropping the owner. Also cover stop during native launch: cancel the captured launch and drain its exact late result instead of accepting a replacement or dropping a live native handle.
 
 A final owner read alone is insufficient if the manager already requested Live.updates: Core may have collected private results into that pending reply before shutdown. The stop worker must consume that existing receiver as well as the final read, preserving exact outcomes before using canonical-command uncertainty for commands the owner never saw. Explicit final shutdown also marks deferred-native availability closed after late completions, rather than exporting a stale Ready state.
 
@@ -175,3 +179,5 @@ Add tungstenite 0.30.0 and blake3 as direct daemon dependencies using versions a
 Revision 2026-11-15: create EP020 after approved EP019b. Incorporate the final review's owner-release/reopen repair as the first required milestone and specify the complete authenticated network outcome and its acceptance checks.
 
 Revision 2026-11-15: add and test the Core one-shot final report. Record the in-flight owner-result receiver that a manager stop must also drain, and keep the public lifecycle milestone incomplete until actual process/slot tests pass.
+
+Revision 2026-11-15: persist stopped metadata with a checked, repeatable migration and record the manager live-report/launch lifetimes that the next public stop slice must preserve.

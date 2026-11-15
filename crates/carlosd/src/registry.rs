@@ -4,6 +4,11 @@ use std::fmt;
 use std::path::Path;
 use std::time::Duration;
 
+#[path = "registry_rows.rs"]
+mod rows;
+#[path = "registry_schema.rs"]
+mod schema;
+
 use carlos_proto::ids::SessionId;
 use carlos_proto::session::{Availability, Backend, Phase, SessionInfo};
 use rusqlite::{params, Connection};
@@ -18,6 +23,8 @@ pub struct SavedSession {
     pub cwd: String,
     pub native_thread: Option<String>,
     pub ralph_was_on: bool,
+    #[serde(default)]
+    pub stopped: bool,
 }
 
 /// One disk worker owns this connection; owners and the manager never borrow it through a lock.
@@ -43,7 +50,7 @@ impl Registry {
                 ));
             }
         }
-        let connection = Connection::open(path)?;
+        let mut connection = Connection::open(path)?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -51,70 +58,23 @@ impl Registry {
                 .map_err(RegistryError::Io)?;
         }
         connection.busy_timeout(Duration::from_secs(5))?;
-        let version: u32 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
-        if version > 1 {
-            return Err(RegistryError::Invalid(format!(
-                "catalogue version {version} is newer than this daemon; no rows changed"
-            )));
-        }
-        connection.execute_batch(
-            "PRAGMA journal_mode=WAL;
-            CREATE TABLE IF NOT EXISTS sessions (
-                id TEXT PRIMARY KEY, name TEXT, backend TEXT NOT NULL, cwd TEXT NOT NULL,
-                native_thread TEXT, ralph INTEGER NOT NULL CHECK(ralph IN (0,1)));
-            PRAGMA user_version=1;",
-        )?;
+        schema::prepare(&mut connection)?;
+        connection.pragma_update(None, "journal_mode", "WAL")?;
         Ok(Self { connection })
     }
 
     /// Load descriptions only; this call never opens a native backend.
     pub fn load(&self) -> Result<Vec<SavedSession>, RegistryError> {
-        let mut statement = self.connection.prepare(
-            "SELECT id,name,backend,cwd,native_thread,ralph FROM sessions ORDER BY id LIMIT ?1",
-        )?;
-        let rows = statement.query_map([(crate::limits::SESSIONS + 1) as i64], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, Option<String>>(1)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, String>(3)?,
-                row.get::<_, Option<String>>(4)?,
-                row.get::<_, bool>(5)?,
-            ))
-        })?;
-        let mut saved = Vec::new();
-        for row in rows {
-            let (id, name, backend, cwd, native_thread, ralph_was_on) = row?;
-            let session = SavedSession {
-                id: id.parse().map_err(|_| {
-                    RegistryError::Invalid("catalogue contains a malformed logical id".into())
-                })?,
-                name,
-                backend: serde_json::from_str(&backend).map_err(|_| {
-                    RegistryError::Invalid("catalogue contains an unsupported backend".into())
-                })?,
-                cwd,
-                native_thread,
-                ralph_was_on,
-            };
-            session.validate()?;
-            saved.push(session);
-        }
-        if saved.len() > crate::limits::SESSIONS {
-            return Err(RegistryError::Invalid(
-                "catalogue exceeds 256 saved sessions".into(),
-            ));
-        }
-        Ok(saved)
+        rows::load(&self.connection)
     }
 
     /// Replace one description atomically after its durable fields actually change.
     pub fn save(&self, session: &SavedSession) -> Result<(), RegistryError> {
         session.validate()?;
-        let inserted = self.connection.execute("INSERT INTO sessions(id,name,backend,cwd,native_thread,ralph)
-            SELECT ?1,?2,?3,?4,?5,?6 WHERE EXISTS(SELECT 1 FROM sessions WHERE id=?1) OR (SELECT count(*) FROM sessions) < ?7
-            ON CONFLICT(id) DO UPDATE SET name=excluded.name,backend=excluded.backend,cwd=excluded.cwd,native_thread=excluded.native_thread,ralph=excluded.ralph",
-            params![session.id.as_str(), session.name, serde_json::to_string(&session.backend).expect("backend enum"), session.cwd, session.native_thread, session.ralph_was_on, crate::limits::SESSIONS as i64])?;
+        let inserted = self.connection.execute("INSERT INTO sessions(id,name,backend,cwd,native_thread,ralph,stopped)
+            SELECT ?1,?2,?3,?4,?5,?6,?7 WHERE EXISTS(SELECT 1 FROM sessions WHERE id=?1) OR (SELECT count(*) FROM sessions) < ?8
+            ON CONFLICT(id) DO UPDATE SET name=excluded.name,backend=excluded.backend,cwd=excluded.cwd,native_thread=excluded.native_thread,ralph=excluded.ralph,stopped=excluded.stopped",
+            params![session.id.as_str(), session.name, serde_json::to_string(&session.backend).expect("backend enum"), session.cwd, session.native_thread, session.ralph_was_on, session.stopped, crate::limits::SESSIONS as i64])?;
         if inserted == 0 {
             return Err(RegistryError::Invalid(
                 "saved-session capacity is full".into(),
@@ -135,7 +95,11 @@ impl SavedSession {
             host: "local".into(),
             model: None,
             phase: Phase::Idle,
-            availability: Availability::Dormant,
+            availability: if self.stopped {
+                Availability::Closed
+            } else {
+                Availability::Dormant
+            },
             current_turn: None,
             ralph: false,
             turn_started_at: None,
@@ -156,12 +120,18 @@ impl SavedSession {
             })?,
             native_thread: Some(native_thread),
             ralph_was_on: info.ralph,
+            stopped: false,
         };
         saved.validate()?;
         Ok(saved)
     }
 
     fn validate(&self) -> Result<(), RegistryError> {
+        if self.stopped && self.ralph_was_on {
+            return Err(RegistryError::Invalid(
+                "stopped sessions must keep Ralph off".into(),
+            ));
+        }
         if !Path::new(&self.cwd).is_absolute()
             || self.cwd.len() > 16384
             || self.name.as_ref().is_some_and(|name| name.len() > 4096)

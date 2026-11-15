@@ -72,6 +72,7 @@ impl Manager {
             name,
             native_thread: None,
             ralph_was_on: false,
+            stopped: false,
         };
         self.launch_created(saved, result.clone(), tool_labels, launch);
         self.reply(peer, id, result);
