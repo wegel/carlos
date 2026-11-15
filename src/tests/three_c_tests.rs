@@ -4,12 +4,8 @@ use carlos_core::session::models::Message;
 use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
 use carlos_core::session::models::ToolOutputDetails;
-use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-use ratatui::backend::TestBackend;
-use ratatui::Terminal;
 
-use super::{render_main_view, AppState, TerminalSize};
-use crate::app::mouse_events::handle_mouse_event;
+use super::render_fixture;
 use crate::app::tool_output_state::ToolOutputMode;
 use crate::app::tool_summary::summary_line;
 use crate::app::transcript_render::{
@@ -52,15 +48,23 @@ fn failed_read_headers_and_grouped_blocks_keep_both_count_passes_in_sync() {
             ),
             expected
         );
-        let mut app = AppState::new("thread".into());
-        app.session.transcript_adopt_unkeyed(
-            vec![read.clone().into(), read.clone().into()],
-            carlos_core::session::history_identity::HistoryMode::NewConversation,
+        let mut app = render_fixture::view(
+            (0..2)
+                .map(|_| {
+                    render_fixture::draft(carlos_core::session::models::EntryDraft {
+                        role: read.role,
+                        kind: read.kind,
+                        text: read.text.clone(),
+                        file_path: read.file_path.clone(),
+                        tool_output: read.tool_output.clone(),
+                    })
+                })
+                .collect(),
         );
         app.view.tool_output.mode = ToolOutputMode::Compact;
-        app.ensure_rendered_lines(width, None);
+        app.ensure_rendered_lines(width);
         let count = app.rendered_line_count();
-        let lines = app.snapshot_rendered_lines();
+        let lines = render_fixture::snapshot_current(&mut app);
         assert_eq!(lines.len(), count);
         assert!(lines.iter().all(|line| line.cells <= width));
         assert!(lines.iter().all(|line| !line.separator));
@@ -103,36 +107,4 @@ fn context_warnings_use_the_actual_fraction_without_overflow_or_rounding() {
     }
     assert_eq!(context_color(0, 0), COLOR_GUTTER_USER);
     assert_eq!(context_color(u64::MAX, u64::MAX), COLOR_DIFF_REMOVE);
-}
-
-#[test]
-fn mouse_selection_uses_the_same_gutter_as_the_terminal_after_resize() {
-    let mut app = AppState::new("thread".into());
-    app.append_message(Role::User, "abcdefghij");
-    for (width, height, content_x) in [(100, 32, 2), (54, 32, 1), (100, 18, 1), (100, 32, 2)] {
-        let size = TerminalSize { width, height };
-        let mut terminal =
-            Terminal::new(TestBackend::new(width as u16, height as u16)).expect("terminal");
-        terminal
-            .draw(|frame| render_main_view(frame, &mut app))
-            .expect("draw after resize");
-        let row = u16::from(app.view.layout.active.is_flow());
-        for (kind, column) in [
-            (MouseEventKind::Down(MouseButton::Left), content_x + 2),
-            (MouseEventKind::Drag(MouseButton::Left), content_x + 4),
-        ] {
-            handle_mouse_event(
-                &mut app,
-                MouseEvent {
-                    kind,
-                    column,
-                    row,
-                    modifiers: KeyModifiers::NONE,
-                },
-                size,
-            );
-        }
-        let selection = app.view.viewport.selection.expect("drag selects text");
-        assert_eq!(app.selected_text(selection), "cde");
-    }
 }

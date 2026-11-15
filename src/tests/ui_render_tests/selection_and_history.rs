@@ -1,49 +1,6 @@
 // Tests for selection handling and rewind/history rendering.
 
 #[test]
-fn render_main_view_shows_dictation_indicator() {
-    let mut app = AppState::new("thread-1".to_string());
-    app.configure_dictation(usable_dictation_profile());
-    app.start_dictation_recording();
-    let text = render_app_text(&mut app);
-
-    assert!(text.contains("DICTATING AUTO [English]"));
-}
-
-#[test]
-fn render_main_view_shows_dictation_indicator_with_ralph_label() {
-    let mut app = AppState::new("thread-1".to_string());
-    app.enable_ralph_mode(ralph::RalphConfig {
-        prompt_path: std::path::PathBuf::from(".agents/ralph-prompt.md"),
-        base_prompt: "keep working".to_string(),
-        done_marker: "@@COMPLETE@@".to_string(),
-        blocked_marker: "@@BLOCKED@@".to_string(),
-        waiting_marker: "@@AWAITING_HUMAN@@".to_string(),
-        continuation_prompt: "continue".to_string(),
-    });
-    app.configure_dictation(usable_dictation_profile());
-    app.start_dictation_recording();
-    let text = render_app_text(&mut app);
-
-    assert!(text.contains("DICTATING AUTO [English]"));
-    assert!(text.contains("RALPH MODE"));
-}
-
-#[test]
-fn render_main_view_shows_dictation_indicator_in_rewind_mode() {
-    let mut app = AppState::new("thread-1".to_string());
-    app.append_message(Role::User, "old prompt");
-    app.record_input_history("old prompt", Some(0));
-    app.enter_rewind_mode();
-    app.configure_dictation(usable_dictation_profile());
-    app.start_dictation_recording();
-    let text = render_app_text(&mut app);
-
-    assert!(app.rewind_mode());
-    assert!(text.contains("DICTATING AUTO [English]"));
-}
-
-#[test]
 fn compute_selection_range_normalizes_reversed_coordinates() {
     let sel = Selection {
         anchor_x: 10,

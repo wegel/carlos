@@ -67,6 +67,10 @@ mod tasks_text;
 mod tasks_windows;
 mod transcript;
 mod transport;
+#[cfg(test)]
+mod widget_fixture;
+#[cfg(test)]
+mod widget_tests;
 
 use std::path::Path;
 

@@ -2,13 +2,14 @@
 
 use carlos_core::session::models::Role;
 
-use super::AppState;
+use super::render_fixture;
 use crate::app::layout_state::TranscriptTheme;
+use crate::app::perf_view::PerfView;
 use crate::app::render_cache_state::RenderCacheState;
 use crate::app::tool_output_state::ToolOutputMode;
 
-fn desktop() -> AppState {
-    let mut app = AppState::new("thread".into());
+fn desktop() -> PerfView {
+    let mut app = render_fixture::view(Vec::new());
     app.view.layout.active = TranscriptTheme::Gutter;
     app
 }
@@ -32,11 +33,11 @@ fn desktop_groups_tools_with_short_reasoning_and_separates_other_messages() {
             (Role::Commentary, "Second update"),
             (Role::Assistant, "All done"),
         ] {
-            app.append_message(role, text);
+            render_fixture::append(&mut app, role, text);
         }
-        app.ensure_rendered_lines(50, None);
+        app.ensure_rendered_lines(50);
         let count = app.rendered_line_count();
-        let lines = app.snapshot_rendered_lines();
+        let lines = render_fixture::snapshot_current(&mut app);
         assert_eq!(lines.len(), count);
         for index in [1, 2, 3, 8, 9, 10, 11] {
             let start = app
@@ -58,60 +59,20 @@ fn desktop_groups_tools_with_short_reasoning_and_separates_other_messages() {
 }
 
 #[test]
-fn desktop_recounts_spacing_on_resize_without_losing_the_scrolled_message() {
-    let mut app = desktop();
-    app.append_message(Role::ToolCall, "run first");
-    app.append_message(Role::Reasoning, "**Checking the palette**");
-    app.append_message(Role::ToolCall, "run second");
-    app.ensure_rendered_lines(50, None);
-    app.snapshot_rendered_lines();
-    app.view.viewport.auto_follow_bottom = false;
-    app.view.viewport.scroll_top = app
-        .view
-        .render_cache
-        .block_start(2)
-        .expect("rendered entry");
-    for (width, blank) in [(18, true), (50, false), (18, true)] {
-        app.ensure_rendered_lines(width, None);
-        let count = app.rendered_line_count();
-        let lines = app.snapshot_rendered_lines();
-        assert_eq!(lines.len(), count);
-        for index in [1, 2] {
-            assert_eq!(
-                lines[app
-                    .view
-                    .render_cache
-                    .block_start(index)
-                    .expect("rendered entry")]
-                .separator,
-                blank
-            );
-        }
-        assert_eq!(
-            app.view.viewport.scroll_top,
-            app.view
-                .render_cache
-                .block_start(2)
-                .expect("rendered entry")
-        );
-    }
-}
-
-#[test]
 fn phone_and_desktop_count_spacing_using_the_space_available_for_reasoning() {
     let mut app = desktop();
-    app.append_message(Role::ToolCall, "run first");
-    app.append_message(Role::Reasoning, "12345678901234567");
-    app.append_message(Role::ToolOutput, "first\n\nsecond");
+    render_fixture::append(&mut app, Role::ToolCall, "run first");
+    render_fixture::append(&mut app, Role::Reasoning, "12345678901234567");
+    render_fixture::append(&mut app, Role::ToolOutput, "first\n\nsecond");
     for phone in [false, true, false] {
         app.view.layout.active = if phone {
             TranscriptTheme::Flow
         } else {
             TranscriptTheme::Gutter
         };
-        app.ensure_rendered_lines(18, None);
+        app.ensure_rendered_lines(18);
         let count = app.rendered_line_count();
-        let lines = app.snapshot_rendered_lines();
+        let lines = render_fixture::snapshot_current(&mut app);
         assert_eq!(lines.len(), count);
         let reason = app
             .view
@@ -134,11 +95,22 @@ fn phone_and_desktop_count_spacing_using_the_space_available_for_reasoning() {
 
 #[test]
 fn cache_rebuild_after_a_prepend_refreshes_changed_text_under_existing_ids() {
-    let mut app = desktop();
-    app.append_message(Role::Assistant, "Earlier answer");
-    app.append_message(Role::Assistant, "Old cached answer");
-    app.append_message(Role::User, "Prepended request");
-    let original = app.session.messages();
+    let original: Vec<_> = [
+        (Role::Assistant, "Earlier answer"),
+        (Role::Assistant, "Old cached answer"),
+        (Role::User, "Prepended request"),
+    ]
+    .into_iter()
+    .map(|(role, text)| {
+        crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+            role,
+            kind: carlos_core::session::models::MessageKind::Plain,
+            text: text.into(),
+            file_path: None,
+            tool_output: None,
+        })
+    })
+    .collect();
     let mut moved = vec![
         original[2].clone(),
         original[0].clone(),

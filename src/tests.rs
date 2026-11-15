@@ -28,8 +28,7 @@ pub(super) use super::notifications::{
 pub(super) use super::perf::{DurationSamples, PerfMetrics};
 pub(super) use super::picker_delete_dialog::draw_picker_delete_dialog;
 pub(super) use super::render::{
-    compute_input_layout, draw_rendered_line, is_newline_enter, normalize_pasted_text,
-    render_main_view,
+    draw_rendered_line, is_newline_enter, normalize_pasted_text, render_main_view,
 };
 pub(super) use super::render_input::input_cursor_visual_position;
 pub(super) use super::selection::{
@@ -106,6 +105,8 @@ mod native_activity_tests;
 mod notification_tests;
 #[path = "tests/phone_layout_tests.rs"]
 mod phone_layout_tests;
+#[path = "tests/render_fixture.rs"]
+pub(super) mod render_fixture;
 #[path = "tests/rtk_transcript_tests.rs"]
 mod rtk_transcript_tests;
 #[path = "tests/runtime_tests.rs"]
@@ -210,5 +211,3 @@ pub(super) use super::item_history::{
     append_history_from_thread, load_history_from_start_or_resume,
 };
 pub(super) use carlos_core::session::thread_list::parse_thread_list;
-
-pub(super) use carlos_core::session::ralph;

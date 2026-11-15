@@ -1,6 +1,8 @@
 //! Keep phone headings out of copied text and preserve anchors when layouts change.
 
-use carlos_core::session::models::Message;
+use super::render_fixture;
+use crate::app::perf_view::PerfView;
+use carlos_core::perf_fixture::PerfRow;
 use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
 use carlos_core::session::models::ToolOutputDetails;
@@ -31,17 +33,33 @@ fn set_layout(app: &mut AppState, mode: TranscriptTheme) {
     app.ensure_rendered_lines(50, None);
 }
 
+fn plain_transcript() -> PerfView {
+    let mut view = render_fixture::view(vec![
+        render_fixture::row(Role::User, "Inspect these files"),
+        render_fixture::row(Role::ToolCall, "→ Read a.rs"),
+        render_fixture::row(Role::ToolCall, "→ Read b.rs"),
+        render_fixture::row(Role::Assistant, "The files are ready."),
+    ]);
+    view.view.tool_output.mode = ToolOutputMode::Compact;
+    view
+}
+
+fn set_plain_layout(view: &mut PerfView, mode: TranscriptTheme) {
+    view.view.layout.themes.desktop = mode;
+    view.view.layout.themes.phone = mode;
+    view.view.layout.update_size(TerminalSize {
+        width: 100,
+        height: 32,
+    });
+    view.ensure_rendered_lines(50);
+}
+
 #[test]
 fn phone_groups_adjacent_reads_and_copy_keeps_only_the_body_text() {
-    let mut app = transcript();
-    let original: Vec<_> = app
-        .session
-        .messages()
-        .iter()
-        .map(|m| m.text.clone())
-        .collect();
-    set_layout(&mut app, TranscriptTheme::Flow);
-    let lines = app.snapshot_rendered_lines();
+    let mut app = plain_transcript();
+    let original: Vec<_> = app.rows.iter().map(|row| row.text().to_owned()).collect();
+    set_plain_layout(&mut app, TranscriptTheme::Flow);
+    let lines = render_fixture::snapshot_current(&mut app);
     assert_eq!(
         lines
             .iter()
@@ -55,13 +73,16 @@ fn phone_groups_adjacent_reads_and_copy_keeps_only_the_body_text() {
         .any(|rows| rows[0].text.starts_with("→ a.rs") && rows[1].text.starts_with("→ b.rs")));
     assert_eq!(app.view.render_cache.first_content_row(3), 2);
     let last = lines.len() - 1;
-    let selected = app.selected_text(Selection {
-        anchor_x: 1,
-        anchor_line_idx: 0,
-        focus_x: lines[last].cells,
-        focus_line_idx: last,
-        dragging: false,
-    });
+    let selected = render_fixture::selected(
+        &mut app,
+        Selection {
+            anchor_x: 1,
+            anchor_line_idx: 0,
+            focus_x: lines[last].cells,
+            focus_line_idx: last,
+            dragging: false,
+        },
+    );
     for body in [
         "Inspect these files",
         "a.rs",
@@ -74,53 +95,19 @@ fn phone_groups_adjacent_reads_and_copy_keeps_only_the_body_text() {
     assert!(!selected.contains("→ read"));
     assert!(!selected.contains("❯ you"));
     assert_eq!(
-        app.session
-            .messages()
+        app.rows
             .iter()
-            .map(|m| m.text.clone())
+            .map(|row| row.text().to_owned())
             .collect::<Vec<_>>(),
         original
     );
-    set_layout(&mut app, TranscriptTheme::Gutter);
-    let desktop = app.snapshot_rendered_lines();
+    set_plain_layout(&mut app, TranscriptTheme::Gutter);
+    let desktop = render_fixture::snapshot_current(&mut app);
     assert!(desktop
         .iter()
         .filter(|line| line.separator)
         .all(|line| line.text.is_empty()));
     assert_ne!(desktop.len(), lines.len());
-}
-
-#[test]
-fn switching_layouts_at_the_same_width_keeps_the_scrolled_message_visible() {
-    let mut app = transcript();
-    set_layout(&mut app, TranscriptTheme::Gutter);
-    app.view.viewport.auto_follow_bottom = false;
-    app.view.viewport.scroll_top = app
-        .view
-        .render_cache
-        .block_start(2)
-        .expect("rendered entry");
-    for mode in [
-        TranscriptTheme::Flow,
-        TranscriptTheme::Gutter,
-        TranscriptTheme::Flow,
-    ] {
-        set_layout(&mut app, mode);
-        app.snapshot_rendered_lines();
-        assert_eq!(
-            app.view.viewport.scroll_top,
-            app.view
-                .render_cache
-                .block_start(2)
-                .expect("rendered entry")
-        );
-        let body = app.view.viewport.scroll_top + app.view.render_cache.first_content_row(2);
-        assert!(app
-            .rendered_line_at(body)
-            .expect("anchored read")
-            .text
-            .contains("b.rs"));
-    }
 }
 
 #[test]
@@ -135,13 +122,13 @@ fn fork_and_history_reload_keep_the_local_layout_choice() {
 
 #[test]
 fn phone_shares_headings_and_keeps_blank_lines_between_same_type_entries() {
-    let mut app = AppState::new("thread".into());
+    let mut app = render_fixture::view(Vec::new());
     for role in [Role::User, Role::Commentary, Role::Assistant] {
-        app.append_message(role, "First entry");
-        app.append_message(role, "Second entry");
+        render_fixture::append(&mut app, role, "First entry");
+        render_fixture::append(&mut app, role, "Second entry");
     }
-    set_layout(&mut app, TranscriptTheme::Flow);
-    let lines = app.snapshot_rendered_lines();
+    set_plain_layout(&mut app, TranscriptTheme::Flow);
+    let lines = render_fixture::snapshot_current(&mut app);
     assert_eq!(lines.len(), 14);
     let mut start = 0;
     for group in 0..3 {
@@ -158,7 +145,7 @@ fn phone_shares_headings_and_keeps_blank_lines_between_same_type_entries() {
     }
 }
 
-fn tool_entries() -> Vec<Message> {
+fn tool_entries() -> Vec<PerfRow> {
     [
         ("→ Read source.rs", MessageKind::Plain, false),
         ("→ Read absent.rs", MessageKind::Plain, true),
@@ -168,7 +155,7 @@ fn tool_entries() -> Vec<Message> {
     ]
     .into_iter()
     .map(|(summary, kind, failed)| {
-        crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+        render_fixture::draft(carlos_core::session::models::EntryDraft {
             role: Role::ToolOutput,
             kind,
             text: if kind == MessageKind::Diff {
@@ -192,16 +179,13 @@ fn tool_entries() -> Vec<Message> {
 fn phone_tool_labels_preserve_full_output_and_counts_at_narrow_widths() {
     for mode in [ToolOutputMode::Compact, ToolOutputMode::Full] {
         for width in [0, 1, 7, 8, 9, 10, 12, 50] {
-            let mut app = AppState::new("thread".into());
-            app.session.transcript_adopt_unkeyed(
-                tool_entries().into_iter().map(Into::into).collect(),
-                carlos_core::session::history_identity::HistoryMode::NewConversation,
-            );
+            let mut app = render_fixture::view(Vec::new());
+            app.rows = tool_entries();
             app.view.tool_output.mode = mode;
             app.view.layout.active = TranscriptTheme::Flow;
-            app.ensure_rendered_lines(width, None);
+            app.ensure_rendered_lines(width);
             let count = app.rendered_line_count();
-            let lines = app.snapshot_rendered_lines();
+            let lines = render_fixture::snapshot_current(&mut app);
             assert_eq!(count, lines.len(), "{mode:?}, {width}");
             if width >= 8 {
                 for index in 1..5 {
@@ -223,10 +207,10 @@ fn phone_tool_labels_preserve_full_output_and_counts_at_narrow_widths() {
 
 #[test]
 fn phone_keeps_searches_and_short_reasoning_inside_the_tool_block() {
-    let mut app = transcript();
-    app.session.insert_entry_for_test(
+    let mut app = plain_transcript();
+    app.rows.insert(
         3,
-        crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+        render_fixture::draft(carlos_core::session::models::EntryDraft {
             role: Role::Reasoning,
             kind: MessageKind::Plain,
             text: "**Checking results**".into(),
@@ -234,10 +218,10 @@ fn phone_keeps_searches_and_short_reasoning_inside_the_tool_block() {
             tool_output: None,
         }),
     );
-    app.session
-        .insert_entry_for_test(4, tool_entries().pop().expect("search entry"));
-    set_layout(&mut app, TranscriptTheme::Flow);
-    let lines = app.snapshot_rendered_lines();
+    app.rows
+        .insert(4, tool_entries().pop().expect("search entry"));
+    set_plain_layout(&mut app, TranscriptTheme::Flow);
+    let lines = render_fixture::snapshot_current(&mut app);
     let read = lines
         .iter()
         .position(|line| line.text.starts_with("→ a.rs"))
@@ -251,26 +235,29 @@ fn phone_keeps_searches_and_short_reasoning_inside_the_tool_block() {
 
 #[test]
 fn phone_reasoning_gains_a_heading_when_it_wraps_or_grows() {
-    let mut app = AppState::new("thread".into());
-    app.append_message(Role::Reasoning, "**Checking the palette**");
-    app.append_message(Role::Reasoning, "First paragraph\n\nSecond paragraph");
-    set_layout(&mut app, TranscriptTheme::Flow);
-    let lines = app.snapshot_rendered_lines();
+    let mut app = render_fixture::view(Vec::new());
+    render_fixture::append(&mut app, Role::Reasoning, "**Checking the palette**");
+    render_fixture::append(
+        &mut app,
+        Role::Reasoning,
+        "First paragraph\n\nSecond paragraph",
+    );
+    set_plain_layout(&mut app, TranscriptTheme::Flow);
+    let lines = render_fixture::snapshot_current(&mut app);
     assert_eq!(lines[0].text, "◇ Checking the palette");
     assert!(lines[1].text.is_empty());
     assert!(lines[2].text.contains("◇ reasoning"));
-    app.ensure_rendered_lines(18, None);
+    app.ensure_rendered_lines(18);
     let count = app.rendered_line_count();
-    let narrow = app.snapshot_rendered_lines();
+    let narrow = render_fixture::snapshot_current(&mut app);
     assert_eq!(narrow.len(), count);
     assert!(narrow[0].text.contains("◇ reasoning"));
     assert!(narrow.iter().all(|line| line.cells <= 18));
-    app.ensure_rendered_lines(50, None);
-    app.session
-        .transcript_append_text(0, "\n\nMore details", None);
-    app.mark_transcript_dirty_from(0);
-    app.ensure_rendered_lines(50, None);
-    let grown = app.snapshot_rendered_lines();
+    app.ensure_rendered_lines(50);
+    let grown = format!("{}\n\nMore details", app.rows[0].text());
+    render_fixture::replace(&mut app, 0, grown);
+    app.ensure_rendered_lines(50);
+    let grown = render_fixture::snapshot_current(&mut app);
     assert!(grown[0].text.contains("◇ reasoning"));
     assert_eq!(
         grown

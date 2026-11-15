@@ -49,33 +49,25 @@ impl Device {
     }
 
     pub(super) fn mouse(&mut self, mouse: MouseEvent) -> Result<()> {
-        if self
-            .client
-            .session(&self.session)
-            .is_some_and(|replica| replica.approvals().iter().any(|card| card.active))
-        {
+        if self.mouse_blocked() {
             return Ok(());
         }
-        let (height, content_x) = self.geometry()?;
-        if height == 0 {
+        let (width, height) = crossterm::terminal::size()?;
+        self.mouse_at(
+            mouse,
+            TerminalSize {
+                width: width as usize,
+                height: height as usize,
+            },
+        )
+    }
+
+    pub(super) fn mouse_at(&mut self, mouse: MouseEvent, size: TerminalSize) -> Result<()> {
+        if self.mouse_blocked() {
             return Ok(());
         }
-        let row = (mouse.row as usize).min(height - 1);
-        let hit = MouseHitContext {
-            in_messages: (mouse.row as usize) < height,
-            norm_x: normalize_selection_x(mouse.column as usize, content_x),
-            clamped_y: row + 1,
-            clamped_line_idx: self.view.viewport.scroll_top + row,
-            max_scroll: self
-                .view
-                .render_cache
-                .rendered_line_count()
-                .saturating_sub(height),
-            last_line: self
-                .view
-                .render_cache
-                .rendered_line_count()
-                .saturating_sub(1),
+        let Some(hit) = self.mouse_hit(mouse, size) else {
+            return Ok(());
         };
         match mouse.kind {
             MouseEventKind::ScrollUp => {
@@ -102,21 +94,55 @@ impl Device {
         Ok(())
     }
 
+    fn mouse_blocked(&self) -> bool {
+        self.client
+            .session(&self.session)
+            .is_some_and(|replica| replica.approvals().iter().any(|card| card.active))
+    }
+
+    fn mouse_hit(&self, mouse: MouseEvent, size: TerminalSize) -> Option<MouseHitContext> {
+        let (height, content_x) = self.geometry_at(size);
+        if height == 0 {
+            return None;
+        }
+        let row = (mouse.row as usize).min(height - 1);
+        Some(MouseHitContext {
+            in_messages: (mouse.row as usize) < height,
+            norm_x: normalize_selection_x(mouse.column as usize, content_x),
+            clamped_y: row + 1,
+            clamped_line_idx: self.view.viewport.scroll_top + row,
+            max_scroll: self
+                .view
+                .render_cache
+                .rendered_line_count()
+                .saturating_sub(height),
+            last_line: self
+                .view
+                .render_cache
+                .rendered_line_count()
+                .saturating_sub(1),
+        })
+    }
+
     fn geometry(&self) -> Result<(usize, usize)> {
         let (width, height) = crossterm::terminal::size()?;
         let size = TerminalSize {
             width: width as usize,
             height: height as usize,
         };
+        Ok(self.geometry_at(size))
+    }
+
+    fn geometry_at(&self, size: TerminalSize) -> (usize, usize) {
         let content_x = if self.view.layout.uses_flow(size) {
             1
         } else {
             2
         };
-        Ok((
+        (
             compute_composer_layout(&self.view.input, size, content_x).msg_bottom,
             content_x,
-        ))
+        )
     }
 
     fn copy(&mut self) {

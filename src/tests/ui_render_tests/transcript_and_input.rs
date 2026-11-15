@@ -76,79 +76,69 @@ fn set_command_override_coalesces_with_previous_read_summary() {
 
 #[test]
 fn ensure_rendered_lines_incremental_append_matches_full_rebuild() {
-    let mut app = AppState::new("thread".to_string());
-    app.append_message(Role::User, "prompt one");
-    app.append_message(Role::Assistant, "reply one");
-    app.append_message(Role::ToolOutput, "line one\nline two");
-
-    app.ensure_rendered_lines(48, None);
-    let before_lines = app.rendered_line_count();
-
-    let idx = app.append_message(
+    let mut view = render_fixture::view(vec![
+        render_fixture::row(Role::User, "prompt one"),
+        render_fixture::row(Role::Assistant, "reply one"),
+        render_fixture::row(Role::ToolOutput, "line one\nline two"),
+    ]);
+    view.ensure_rendered_lines(48);
+    let before_lines = view.rendered_line_count();
+    let index = render_fixture::append(
+        &mut view,
         Role::Assistant,
         "tail reply with enough text to wrap across multiple transcript rows for cache testing",
     );
-    assert_eq!(app.view.render_cache.transcript_dirty_from, Some(idx));
-
-    app.ensure_rendered_lines(48, None);
-
-    let expected = build_rendered_lines_with_hidden(app.session.messages(), 48, None);
-    assert_eq!(
-        rendered_signature(&app.snapshot_rendered_lines()),
-        rendered_signature(&expected)
-    );
-    assert_eq!(
-        app.view.render_cache.entry_count(),
-        app.session.messages().len()
-    );
-    assert_eq!(app.view.render_cache.transcript_dirty_from, None);
-    assert!(app.rendered_line_count() > before_lines);
+    assert_eq!(view.view.render_cache.transcript_dirty_from, Some(index));
+    let actual = render_fixture::snapshot(&mut view, 48);
+    let mut fresh = render_fixture::view(view.rows.clone());
+    let expected = render_fixture::snapshot(&mut fresh, 48);
+    assert_eq!(rendered_signature(&actual), rendered_signature(&expected));
+    assert_eq!(view.view.render_cache.entry_count(), view.rows.len());
+    assert_eq!(view.view.render_cache.transcript_dirty_from, None);
+    assert!(view.rendered_line_count() > before_lines);
 }
 
 #[test]
-fn ensure_rendered_lines_incremental_agent_delta_matches_full_rebuild() {
-    let mut app = AppState::new("thread".to_string());
-    app.append_message(Role::User, "prompt one");
-    let idx = app.append_message(Role::Assistant, "starting answer");
-    app.put_item_mapping("item-1", idx);
-
-    app.ensure_rendered_lines(52, None);
-    app.upsert_agent_delta(
-        "item-1",
-        "\ncontinued answer with more text so the last message grows substantially",
+fn ensure_rendered_lines_incremental_answer_growth_matches_full_rebuild() {
+    let mut view = render_fixture::view(vec![
+        render_fixture::row(Role::User, "prompt one"),
+        render_fixture::row(Role::Assistant, "starting answer"),
+    ]);
+    view.ensure_rendered_lines(52);
+    let text = format!(
+        "{}{}",
+        view.rows[1].text(),
+        "\ncontinued answer with more text so the last message grows substantially"
     );
-    assert_eq!(app.view.render_cache.transcript_dirty_from, Some(idx));
-
-    app.ensure_rendered_lines(52, None);
-
-    let expected = build_rendered_lines_with_hidden(app.session.messages(), 52, None);
-    assert_eq!(
-        rendered_signature(&app.snapshot_rendered_lines()),
-        rendered_signature(&expected)
-    );
-    assert_eq!(
-        app.view.render_cache.entry_count(),
-        app.session.messages().len()
-    );
-    assert_eq!(app.view.render_cache.transcript_dirty_from, None);
+    render_fixture::replace(&mut view, 1, text);
+    assert_eq!(view.view.render_cache.transcript_dirty_from, Some(1));
+    let actual = render_fixture::snapshot(&mut view, 52);
+    let mut fresh = render_fixture::view(view.rows.clone());
+    let expected = render_fixture::snapshot(&mut fresh, 52);
+    assert_eq!(rendered_signature(&actual), rendered_signature(&expected));
+    assert_eq!(view.view.render_cache.entry_count(), view.rows.len());
+    assert_eq!(view.view.render_cache.transcript_dirty_from, None);
 }
 
 #[test]
 fn ensure_rendered_lines_non_user_fence_counts_match_rendered_block() {
-    let mut app = AppState::new("thread".to_string());
-    app.append_message(
-        Role::ToolOutput,
-        "before\n```text\nliteral fence payload that should remain visible\n```\nafter",
+    let text = "before\n```text\nliteral fence payload that should remain visible\n```\nafter";
+    let mut view = render_fixture::view(vec![render_fixture::row(Role::ToolOutput, text)]);
+    let actual = render_fixture::snapshot(&mut view, 48);
+    let expected = build_rendered_lines(
+        &[crate::app::tests::test_message(
+            carlos_core::session::models::EntryDraft {
+                role: Role::ToolOutput,
+                kind: MessageKind::Plain,
+                text: text.into(),
+                file_path: None,
+                tool_output: None,
+            },
+        )],
+        48,
     );
-
-    app.ensure_rendered_lines(48, None);
-
-    let expected = build_rendered_lines_with_hidden(app.session.messages(), 48, None);
-    assert_eq!(app.rendered_line_count(), expected.len());
-    assert_eq!(
-        rendered_signature(&app.snapshot_rendered_lines()),
-        rendered_signature(&expected)
-    );
+    assert_eq!(view.rendered_line_count(), expected.len());
+    assert_eq!(rendered_signature(&actual), rendered_signature(&expected));
 }
 
 #[test]
@@ -198,13 +188,15 @@ fn wrap_input_line_keeps_trailing_space_visible() {
 
 #[test]
 fn build_rendered_lines_expands_user_tabs_for_display() {
-    let messages = vec![crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
-        tool_output: None,
-        role: Role::User,
-        text: "col1\tcol2".to_string(),
-        kind: MessageKind::Plain,
-        file_path: None,
-    })];
+    let messages = vec![crate::app::tests::test_message(
+        carlos_core::session::models::EntryDraft {
+            tool_output: None,
+            role: Role::User,
+            text: "col1\tcol2".to_string(),
+            kind: MessageKind::Plain,
+            file_path: None,
+        },
+    )];
 
     let rendered = build_rendered_lines(&messages, 120);
     assert_eq!(rendered.len(), 1);
@@ -235,18 +227,17 @@ fn input_cursor_visual_position_tracks_wrapped_rows() {
 }
 
 #[test]
-fn compute_input_layout_wraps_input_at_word_boundaries() {
-    let mut app = AppState::new("thread-1".to_string());
-    let _ = app.view.input.insert_str("alpha beta gamma");
-
-    let layout = compute_input_layout(
-        &app,
+fn compute_composer_layout_wraps_input_at_word_boundaries() {
+    let mut input = crate::app::input::make_input_area();
+    input.insert_str("alpha beta gamma");
+    let layout = crate::app::render_input::compute_composer_layout(
+        &input,
         TerminalSize {
             width: 1 + 1 + 10,
             height: 8,
         },
+        1,
     );
-
     assert_eq!(layout.visible_lines, vec!["alpha beta", "gamma"]);
     assert_eq!(layout.input_height, 2);
     assert_eq!(layout.cursor_x, 1 + 5);
