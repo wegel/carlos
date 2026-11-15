@@ -150,3 +150,7 @@ pub(super) fn sweep_status_line(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/status_sweep_tests.rs"]
+mod status_sweep_tests;

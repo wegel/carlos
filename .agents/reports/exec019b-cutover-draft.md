@@ -26,3 +26,10 @@ The old pure dictation test now keeps its exact composer/chord assertions; its p
 This preflight changes no primary runtime file. C2 still owns the checked Esc/private-goal proofs, the backend worker still ports its remaining native families, and the final removal commit plus release/runtime/performance gates remain open.
 
 The refreshed preview also passes all344 retained frontend tests with seven ignored under no-default features, using deletion-join-target. This remains a pure/frontend preflight; it is not the final complete workspace/runtime gate.
+
+
+## Exact test-list comparison before deletion
+
+The first full no-default removal candidate passes1558tests with ten ignored. Comparing the complete frontend test lists catches two pure phone-sweep cases still registered under render_status, the obsolete combined renderer. Their registration now moves to status_line, the actual shared painter. Both original test bodies remain byte-identical, including symbols, colors, backgrounds, modifiers, empty width and one-column Unicode assertions. No new renderer or owner wrapper is added.
+
+The two input_codex_order tests deliberately retire with the old terminal/native queue; the actual daemon reader's ten pipe schedules and held-send terminal workflow retain their meaningful checks. The dictation case changes only its owner split: exact composer/chord checks remain pure, and the existing actual Device keeps the exact before-rewind text. The corrected candidate should therefore contain precisely two fewer ordinary frontend cases than the branch before runtime removal, with no other lost cases. Final source and runtime acceptance remain open.

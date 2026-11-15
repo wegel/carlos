@@ -17,10 +17,6 @@ use crate::theme::{
     COLOR_GUTTER_USER, COLOR_STEP8,
 };
 
-#[cfg(test)]
-#[path = "../tests/status_sweep_tests.rs"]
-mod status_sweep_tests;
-
 struct StatusPlan {
     line_len: usize,
     anim_end: usize,

@@ -121,6 +121,8 @@ The daemon already proves basic chat, approvals, running output, independent cli
 
 - [x] (2026-11-15) Land the six native57 Claude test checkpoints through e294ae6, queue split/recovery guard badb6e6 and final callback23 split d91cc6c. Each normal full-workspace hook passes; all six native staged prefixes also pass isolated all-target checks. Only Claude native edit/process33 and their private phone/status/reset counterparts plus quota3 remain before the physical runtime deletion.
 
+- [x] (2026-11-15) Complete all old-owner test moves through314823f: native32 and committed phone/client counterparts replace the final35cases; unused Peer/NormalizedApp/support and AppState::new retire. All three final native indexed prefixes and normal hooks pass. A source-frozen private deletion has no pending native modules; its first full no-default run passes1558/tenignored. Exact test-list comparison catches two pure status sweeps attached to the old renderer; move only their registration unchanged before deletion.
+
 ## Surprises & Discoveries
 
 The old queue tests exposed a missing local rewind guard. The Core actor cannot see a terminal's unsent queue recovery text, and the Device did not check it. The exact guarded/unguarded Device test fails without the three-line local check, then passes with zero submitted operations; explicit recovery permits the same captured rewind target. The patch adds no protocol or shared owner state.
@@ -197,6 +199,8 @@ The cutover draft no longer calls the source-reader helper from the terminal exe
 The installed Codex CLI distinguishes a new, unmaterialized thread from an existing empty saved thread. A native probe in `/tmp/carlos-ep019b/native-fresh-read-probe/rpc.jsonl` shows thread/start succeeds with turns=[], metadata/queue/goal reads succeed, and thread/turns/list returns-32600 before a user message. Treating that failure as a general empty-history fallback would discard real resumed history, so the caller must carry the known launch scope.
 
 ## Decision Log
+
+- 2026-11-15: Compare complete test lists at the removal boundary. Move the two byte-identical sweep tests to their actual shared painter. Retire only the obsolete terminal/native ordering tests with named actor-reader and actual-terminal replacements; do not drop a pure test merely because its old module disappears.
 
 - 2026-11-15: Measure the actual formatter thread through checked Bodies cache admission in one ignored test. Keep input pieces bounded and sample both resize directions and tail readiness. Report kernel memory separately from retained row payload; exclude the busy-host dev smoke timings. Add no runtime instrumentation API or new worker.
 
@@ -875,3 +879,5 @@ Update2026-11-15: d1adc18 and7f6bf13 pass normal full-workspace hooks; the sourc
 Update2026-11-15: refreshed three stale feature checkboxes separately from final acceptance. The explicit socket terminal, typed command families and pure client are implemented; old-test retirement, physical default cutover, joined runtime checks and final measurements/reviews remain open. Fresh private deletion preview8e07c18 retains all current pure tests, explicitly omits ten pending native modules, and uses its own deletion-join-target; it is not acceptance.
 
 Update2026-11-15: record the six native57 commits, final callback/queue owner retirement and causal local queue recovery guard. Prepare actual-worker memory/append/resize measurements without claiming timing from concurrent builds. All final review and approval gates remain open.
+
+Update2026-11-15: all native/private owner migrations are committed and clean. The private removal now has no omitted native owners; an exact test-list diff caught and preserves two pure status tests before the separate physical removal. Final default/no-default, runtime/release/performance and review gates remain open.
