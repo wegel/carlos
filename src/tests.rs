@@ -158,10 +158,8 @@ fn test_message(draft: carlos_core::session::models::EntryDraft) -> Message {
     transcript.entry(id).expect("adopted test row").clone()
 }
 
-#[path = "tests/entry_review_cursor_tests.rs"]
-mod entry_review_cursor_tests;
-#[path = "tests/entry_review_history_tests.rs"]
-mod entry_review_history_tests;
+#[path = "tests/review_label_tests.rs"]
+mod review_label_tests;
 
 #[path = "tests/codex_panel_support.rs"]
 mod codex_panel_support;
