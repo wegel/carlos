@@ -84,6 +84,7 @@ impl AppState {
                 self.view.claude_edit = Default::default();
             }
             ClaudeEffect::Submission(outcome) => self.apply_submission_outcome(outcome),
+            ClaudeEffect::EditAdopted(_) => {}
             ClaudeEffect::SessionClosed => self.view.claude_edit.failed = true,
         }
     }

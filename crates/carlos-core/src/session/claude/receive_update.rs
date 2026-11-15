@@ -1,6 +1,6 @@
 //! Report Claude session facts and correlated submitted text without reading a client editor.
 
-use carlos_proto::submissions::SubmissionOutcome;
+use carlos_proto::submissions::{ClientOperation, SubmissionOutcome};
 use serde_json::Value;
 
 use super::callbacks::ClaudeCallback;
@@ -37,6 +37,7 @@ pub enum ClaudeEffect {
     CodexUnfocus,
     SwitchControls,
     ResetControls,
+    EditAdopted(ClientOperation),
     Submission(SubmissionOutcome),
     SessionClosed,
 }

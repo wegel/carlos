@@ -45,6 +45,7 @@ impl Owner {
             match effect {
                 ClaudeEffect::TaskStop(reply) => self.finish_task_stop(reply),
                 ClaudeEffect::Submission(outcome) => self.submission(outcome),
+                ClaudeEffect::EditAdopted(operation) => self.results.rewound(&operation),
                 ClaudeEffect::SessionClosed => {
                     self.close_native();
                 }
@@ -99,7 +100,6 @@ impl Owner {
 
     fn submission(&mut self, outcome: SubmissionOutcome) {
         match outcome {
-            SubmissionOutcome::EditStarted(Some(operation)) => self.results.rewound(&operation),
             SubmissionOutcome::PromptAccepted(Some(operation))
             | SubmissionOutcome::EditAccepted(Some(operation)) => {
                 self.results.update(
@@ -126,7 +126,7 @@ impl Owner {
             ),
             SubmissionOutcome::PromptAccepted(None)
             | SubmissionOutcome::EditAccepted(None)
-            | SubmissionOutcome::EditStarted(None)
+            | SubmissionOutcome::EditStarted(_)
             | SubmissionOutcome::EditRejected(None) => {}
         }
         self.notice();

@@ -45,9 +45,7 @@ impl SessionState {
         }
         self.enable_claude();
         if method == "claude/sessionChanged" {
-            if let Some((generation, id)) = self.claude_session_change(params) {
-                self.switch_claude_session(generation, id, update);
-            }
+            self.receive_claude_switch(params, update);
             return;
         }
         if !self.accept_claude_fact(method, params) {
@@ -166,6 +164,19 @@ impl SessionState {
             update.effects.push(ClaudeEffect::Cleared(cleared));
         }
     }
+    fn receive_claude_switch(
+        &mut self,
+        params: &serde_json::Map<String, Value>,
+        update: &mut ClaudeUpdate,
+    ) {
+        if let Some((generation, id)) = self.claude_session_change(params) {
+            self.switch_claude_session(generation, id, update);
+            if let Some(operation) = self.claude_edit_operation().cloned() {
+                update.effects.push(ClaudeEffect::EditAdopted(operation));
+            }
+        }
+    }
+
     fn current_fork_fact(&self, method: &str, params: &serde_json::Map<String, Value>) -> bool {
         if !matches!(
             method,
