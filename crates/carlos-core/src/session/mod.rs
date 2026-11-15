@@ -270,3 +270,6 @@ mod input_contract_tests;
 
 #[cfg(test)]
 mod approval_operation_sequences;
+
+#[cfg(test)]
+mod grok_submission_tests;

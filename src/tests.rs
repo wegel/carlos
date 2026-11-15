@@ -8,6 +8,7 @@ pub(super) use super::cli::{
     resolve_initial_runtime_settings, resume_hint, styled_resume_hint, Backend,
 };
 pub(super) use super::notifications::{handle_notification_line, handle_server_message_line};
+pub(super) use super::perf_session;
 pub(super) use super::picker_delete_dialog::draw_picker_delete_dialog;
 pub(super) use super::render::draw_rendered_line;
 pub(super) use super::render_input::input_cursor_visual_position;
@@ -24,11 +25,8 @@ pub(super) use super::transcript_render::{
     build_rendered_block_for_message, build_rendered_lines, build_rendered_lines_with_hidden,
     count_rendered_block_for_message, normalize_styled_segments_for_part,
 };
-pub(super) use super::turn_submit::{
-    submit_dequeued_turn_text, submit_turn_text, submit_turn_text_with_history,
-};
+pub(super) use super::turn_submit::{submit_turn_text, submit_turn_text_with_history};
 pub(super) use super::view_models::{RenderedLine, StyledSegment, TerminalSize};
-pub(super) use super::{perf_session, turn_submit};
 pub(super) use crate::clipboard::{
     detect_osc52_wrap, is_ssh_session, osc52_sequences_for_env, Osc52Wrap,
 };
@@ -69,8 +67,6 @@ mod codex_queue_tests;
 mod codex_settings_tests;
 #[path = "tests/codex_startup_settings_tests.rs"]
 mod codex_startup_settings_tests;
-#[path = "tests/grok_backend_tests.rs"]
-mod grok_backend_tests;
 #[path = "tests/late_summary_render_tests.rs"]
 mod late_summary_render_tests;
 #[path = "tests/notification_tests.rs"]

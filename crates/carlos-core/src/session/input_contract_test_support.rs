@@ -19,14 +19,25 @@ pub(super) struct Writes {
 
 #[derive(Clone)]
 struct Writer {
+    kind: BackendKind,
     writes: Arc<Mutex<Writes>>,
     permission: DispatchGuard,
 }
 
 /// Capture the command interface used by the ordinary worker and its exact request trace.
 pub(super) fn rewind_peer() -> (CommandHandle, Arc<Mutex<Writes>>) {
+    peer(BackendKind::Codex)
+}
+
+/// Capture the fixed guarded write seam with Grok's native fork response.
+pub(super) fn grok_peer() -> (CommandHandle, Arc<Mutex<Writes>>) {
+    peer(BackendKind::Grok)
+}
+
+fn peer(kind: BackendKind) -> (CommandHandle, Arc<Mutex<Writes>>) {
     let writes = Arc::new(Mutex::new(Writes::default()));
     let commands = CommandHandle::new(Writer {
+        kind,
         writes: writes.clone(),
         permission: Default::default(),
     });
@@ -35,7 +46,7 @@ pub(super) fn rewind_peer() -> (CommandHandle, Arc<Mutex<Writes>>) {
 
 impl BackendCommands for Writer {
     fn kind(&self) -> BackendKind {
-        BackendKind::Codex
+        self.kind
     }
     fn guarded(&self, permission: DispatchGuard) -> Result<CommandHandle> {
         Ok(CommandHandle::new(Self {
@@ -61,6 +72,9 @@ impl BackendCommands for Writer {
             .expect("writes")
             .forks
             .push((thread.into(), request));
+        if self.kind == BackendKind::Grok {
+            return Ok(json!({"jsonrpc":"2.0","result":{"thread":{"id":"grok-fork"}}}).to_string());
+        }
         Ok(
             json!({"jsonrpc":"2.0","result":{"thread":{"id":"thread-fork","turns":[{"items":[
                 {"type":"userMessage","content":[{"type":"text","text":"first"}]},

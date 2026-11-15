@@ -188,3 +188,7 @@ fn rpc_result(response: &str) -> Result<Value> {
 fn is_method_not_found(message: &str) -> bool {
     message.contains("method not found")
 }
+
+#[cfg(test)]
+#[path = "rewind_tests.rs"]
+mod tests;

@@ -1,60 +1,30 @@
-// CLI, command, catalog, and ACP translation tests for the Grok backend.
+//! Preserve native ACP text, tools, replay and completion rules through the real translator.
 
-#[test]
-fn parse_cli_args_supports_grok_backend_flag() {
-    let parsed = parse_cli_args(vec![
-        "--backend".to_string(),
-        "grok".to_string(),
-        "continue".to_string(),
-    ])
-    .expect("parse");
+use serde_json::{json, Value};
 
-    assert_eq!(parsed.backend, Backend::Grok);
-    assert!(parsed.mode_continue);
+use super::{finish_prompt_turn, translate_grok_notification};
+use crate::grok_backend::GrokTranslationState;
+
+fn collect_lines(state: &mut GrokTranslationState, events: &[(&str, Value)]) -> Vec<String> {
+    let mut out = Vec::new();
+    for (method, params) in events {
+        out.extend(translate_grok_notification(state, method, params).lines);
+    }
+    out
 }
 
-#[test]
-fn build_grok_command_uses_agent_stdio_always_approve() {
-    let command = build_grok_command_for_test(Path::new("/repo"), &GrokRuntimeSettings::default());
-    let args = command
-        .get_args()
-        .map(|arg| arg.to_string_lossy().into_owned())
-        .collect::<Vec<_>>();
-    assert_eq!(args, ["agent", "--always-approve", "--no-leader", "stdio"]);
-}
-
-#[test]
-fn build_grok_command_includes_model_and_effort() {
-    let command = build_grok_command_for_test(
-        Path::new("/repo"),
-        &GrokRuntimeSettings::new(Some("grok-4.5".to_string()), Some("medium".to_string())),
-    );
-    let args = command
-        .get_args()
-        .map(|arg| arg.to_string_lossy().into_owned())
-        .collect::<Vec<_>>();
-    assert!(args
-        .windows(2)
-        .any(|window| window == ["--model", "grok-4.5"]));
-    assert!(args
-        .windows(2)
-        .any(|window| window == ["--reasoning-effort", "medium"]));
-}
-
-#[test]
-fn grok_model_catalog_includes_current_models() {
-    let catalog = grok_model_catalog();
-    let models = catalog
+fn methods(lines: &[String]) -> Vec<String> {
+    lines
         .iter()
-        .map(|model| model.model.as_str())
-        .collect::<Vec<_>>();
-    assert_eq!(models.first().copied(), Some("grok-4.6"));
-    assert!(catalog.first().is_some_and(|model| model.is_default));
-    assert!(models.contains(&"grok-4.5"));
-    assert_eq!(
-        catalog[0].supported_efforts,
-        ["xhigh", "high", "medium", "low"]
-    );
+        .filter_map(|line| {
+            serde_json::from_str::<Value>(line).ok().and_then(|value| {
+                value
+                    .get("method")
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
+        })
+        .collect()
 }
 
 #[test]
@@ -85,7 +55,7 @@ fn translate_grok_streams_text_and_completes_turn() {
             ),
         ],
     );
-    lines.extend(finish_grok_prompt_turn_for_test(&mut state, false).lines);
+    lines.extend(finish_prompt_turn(&mut state, false).lines);
 
     let methods = methods(&lines);
     assert!(methods.contains(&"turn/started".to_string()));
@@ -277,7 +247,7 @@ fn translate_grok_emits_turn_completed_once() {
             ),
         ],
     );
-    lines.extend(finish_grok_prompt_turn_for_test(&mut state, false).lines);
+    lines.extend(finish_prompt_turn(&mut state, false).lines);
     let completed = methods(&lines)
         .into_iter()
         .filter(|method| method == "turn/completed")
@@ -301,7 +271,7 @@ fn translate_grok_drops_stale_chunks_after_interrupt() {
         )],
     );
     assert!(methods(&started).contains(&"turn/started".to_string()));
-    let _ = finish_grok_prompt_turn_for_test(&mut state, true);
+    let _ = finish_prompt_turn(&mut state, true);
     let stale = collect_lines(
         &mut state,
         &[(

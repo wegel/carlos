@@ -287,3 +287,16 @@ fn runtime_defaults_round_trip_json_file() {
 
     assert_eq!(loaded, defaults);
 }
+
+#[test]
+fn parse_cli_args_supports_grok_backend_flag() {
+    let parsed = parse_cli_args(vec![
+        "--backend".to_string(),
+        "grok".to_string(),
+        "continue".to_string(),
+    ])
+    .expect("parse");
+
+    assert_eq!(parsed.backend, Backend::Grok);
+    assert!(parsed.mode_continue);
+}

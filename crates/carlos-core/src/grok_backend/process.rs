@@ -154,12 +154,6 @@ fn build_grok_command(cwd: &Path, runtime: &GrokRuntimeSettings) -> Command {
     command
 }
 
-#[cfg(any(test, feature = "test-support"))]
-/// Build the exact Grok launch command without starting a process.
-pub fn build_grok_command_for_test(cwd: &Path, runtime: &GrokRuntimeSettings) -> Command {
-    build_grok_command(cwd, runtime)
-}
-
 fn initialize_agent(process: &GrokProcess) -> Result<()> {
     let response = process.request(
         "initialize",
@@ -212,3 +206,7 @@ impl Drop for GrokProcess {
         self.stop();
     }
 }
+
+#[cfg(test)]
+#[path = "launch_command_tests.rs"]
+mod tests;

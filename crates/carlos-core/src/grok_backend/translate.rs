@@ -380,3 +380,7 @@ pub fn translate_grok_notification_for_test(
 ) -> TranslateOutput {
     translate_grok_notification(state, method, &params)
 }
+
+#[cfg(test)]
+#[path = "translate_tests.rs"]
+mod tests;

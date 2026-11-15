@@ -34,17 +34,7 @@ use self::types::{
 pub(crate) use self::catalogue::visit_local_sessions;
 pub use self::history::{load_grok_thread_summaries, GrokSessionSummary};
 #[cfg(any(test, feature = "test-support"))]
-pub use self::history::{load_grok_thread_summaries_from, parse_iso_timestamp_secs};
-#[cfg(any(test, feature = "test-support"))]
-pub use self::process::build_grok_command_for_test;
-#[cfg(any(test, feature = "test-support"))]
-pub use self::rewind::{
-    is_hidden_rewind_point, parse_rewind_points, resolve_rewind_target, GrokRewindPoint,
-};
-#[cfg(any(test, feature = "test-support"))]
-pub use self::translate::{
-    finish_prompt_turn as finish_grok_prompt_turn_for_test, translate_grok_notification_for_test,
-};
+pub use self::translate::translate_grok_notification_for_test;
 pub use self::types::{
     grok_model_catalog, GrokLaunchMode, GrokRuntimeSettings, GrokTranslationState,
 };
