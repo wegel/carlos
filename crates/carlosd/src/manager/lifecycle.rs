@@ -38,7 +38,7 @@ impl Manager {
         let result = match self.retry.admit(
             &client,
             operation,
-            session.clone(),
+            Some(session.clone()),
             canonical,
             Class::Ordinary,
             Instant::now(),

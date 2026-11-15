@@ -1,5 +1,6 @@
 //! Bound private picker reads and path checks on the existing lifecycle-worker allowance.
 
+mod archive;
 mod open;
 mod saved;
 mod targets;
@@ -11,8 +12,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use carlos_core::launch_cancel::LaunchCancellation;
-use carlos_core::saved_sessions::SavedPage;
-use carlos_proto::commands::{Command, RequestId};
+use carlos_core::saved_sessions::{ArchiveResult, PageAnchor, SavedPage};
+use carlos_proto::commands::{Command, RequestId, RpcError};
 use carlos_proto::ids::{ClientId, SavedChoiceId, SavedScopeId, SessionId};
 use carlos_proto::session::Backend;
 use carlos_proto::startup::{NativeLaunchOptions, SavedPurpose};
@@ -37,6 +38,8 @@ struct Scope {
     rows: Vec<(SavedChoiceId, carlos_core::session::models::ThreadSummary)>,
     has_newer: bool,
     has_older: bool,
+    newer_anchor: Option<PageAnchor>,
+    older_anchor: Option<PageAnchor>,
 }
 
 struct Job {
@@ -54,6 +57,7 @@ enum JobKind {
         purpose: SavedPurpose,
     },
     Open(Box<OpenRequest>),
+    Archive(Box<archive::ArchiveJob>),
 }
 
 struct OpenRequest {
@@ -83,6 +87,7 @@ struct Completion {
 enum Completed {
     Page { cwd: String, page: SavedPage },
     Checked { cwd: String },
+    Archived(ArchiveResult),
 }
 
 impl Startup {
@@ -99,7 +104,11 @@ impl Startup {
 
     pub(in crate::manager) fn close(&mut self, peer: u64) {
         self.scopes.remove(&peer);
-        for job in self.jobs.values_mut().filter(|job| job.peer == peer) {
+        for job in self
+            .jobs
+            .values_mut()
+            .filter(|job| job.peer == peer && !matches!(job.kind, JobKind::Archive(_)))
+        {
             job.retired = true;
             job.cancel.cancel();
         }
@@ -134,6 +143,7 @@ impl Manager {
                 self.saved_command(peer, id, command)
             }
             Command::Open { .. } => self.open_command(peer, id, command, client),
+            Command::SavedArchive { .. } => self.archive_command(peer, id, command, client),
             _ => unreachable!("typed startup command"),
         }
     }
@@ -145,17 +155,8 @@ impl Manager {
         kind: JobKind,
         work: impl FnOnce(&LaunchCancellation, Instant) -> Result<Completed, String> + Send + 'static,
     ) {
-        if self.lifecycle_workers() >= crate::limits::OWNERS
-            || self.startup.jobs.values().any(|job| job.peer == peer)
-        {
-            self.fail(
-                peer,
-                id,
-                error(
-                    -32010,
-                    "a lifecycle read is already pending or its workers are full",
-                ),
-            );
+        if let Err(reason) = self.startup_admission(peer) {
+            self.fail(peer, id, reason);
             return;
         }
         let Some(token) = self.startup.next.checked_add(1) else {
@@ -194,6 +195,16 @@ impl Manager {
             let Some(job) = self.startup.jobs.remove(&completion.token) else {
                 continue;
             };
+            if let JobKind::Archive(archive) = job.kind {
+                let outcome = match completion.result {
+                    Ok(Completed::Archived(outcome)) => outcome,
+                    _ => ArchiveResult::Uncertain(
+                        "native archive worker stopped without confirmation".into(),
+                    ),
+                };
+                self.finish_archive(*archive, outcome);
+                continue;
+            }
             if job.retired || !self.peers.contains_key(&job.peer) {
                 continue;
             }
@@ -205,7 +216,22 @@ impl Manager {
                 ),
                 Ok(Completed::Page { cwd, page }) => self.finish_saved(job, cwd, page),
                 Ok(Completed::Checked { cwd }) => self.finish_open(job, cwd),
+                Ok(Completed::Archived(_)) => unreachable!("archive worker is settled privately"),
             }
+        }
+    }
+
+    fn startup_admission(&self, peer: u64) -> Result<(), RpcError> {
+        if self.lifecycle_workers() >= crate::limits::OWNERS
+            || self.startup.jobs.values().any(|job| job.peer == peer)
+            || self.startup.next == u64::MAX
+        {
+            Err(error(
+                -32010,
+                "a lifecycle job is already pending or its workers are full",
+            ))
+        } else {
+            Ok(())
         }
     }
 }

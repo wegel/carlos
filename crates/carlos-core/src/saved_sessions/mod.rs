@@ -1,5 +1,6 @@
 //! Read bounded saved-session pages off the daemon manager without opening conversations.
 
+mod archive;
 mod backends;
 mod window;
 
@@ -12,6 +13,7 @@ use carlos_proto::session::Backend;
 use crate::launch_cancel::LaunchCancellation;
 use crate::session::models::ThreadSummary;
 
+pub use self::archive::{archive_codex, ArchiveRequest, ArchiveResult};
 use self::window::Window;
 pub use self::window::{PageAnchor, PageDirection};
 

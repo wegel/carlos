@@ -31,7 +31,7 @@ fn admit(
         .admit(
             client,
             operation(client, id),
-            session(),
+            Some(session()),
             body.as_bytes().to_vec(),
             class,
             now,
@@ -64,7 +64,7 @@ fn lost_create_reply_reuses_its_original_session_and_private_result() {
         .admit(
             &resumed.client,
             op.clone(),
-            proposed_new_session,
+            Some(proposed_new_session),
             b"create".to_vec(),
             Class::Ordinary,
             now,
@@ -113,7 +113,7 @@ fn changed_work_and_another_clients_query_never_gain_retry_rights() {
             .admit(
                 &first.client,
                 operation(&first.client, 1),
-                session(),
+                Some(session()),
                 b"send changed".to_vec(),
                 Class::Ordinary,
                 now
@@ -163,7 +163,7 @@ fn evicted_completed_outcomes_remain_expired_instead_of_executing_again() {
             .admit(
                 &hello.client,
                 operation(&hello.client, 1),
-                session(),
+                Some(session()),
                 b"first".to_vec(),
                 Class::Ordinary,
                 now
@@ -194,7 +194,7 @@ fn pending_ordinary_work_cannot_consume_control_result_space_or_block_reads() {
             .admit(
                 &hello.client,
                 operation(&hello.client, 2),
-                session(),
+                Some(session()),
                 b"second".to_vec(),
                 Class::Ordinary,
                 now
@@ -295,7 +295,7 @@ fn exhausted_counter_preserves_reads_and_never_wraps_to_one() {
             .admit(
                 &resumed.client,
                 operation(&resumed.client, 1),
-                session(),
+                Some(session()),
                 b"new".to_vec(),
                 Class::Control,
                 now

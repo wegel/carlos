@@ -30,6 +30,7 @@ impl Manager {
         }
         match command {
             command @ (Command::Open { .. }
+            | Command::SavedArchive { .. }
             | Command::SavedOpen { .. }
             | Command::SavedPage { .. }
             | Command::SavedClose { .. }) => self.startup_command(peer, id, command, client),
@@ -154,7 +155,7 @@ impl Manager {
         let result = match self.retry.admit(
             &client,
             operation,
-            session.clone(),
+            Some(session.clone()),
             canonical,
             class,
             Instant::now(),

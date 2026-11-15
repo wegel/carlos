@@ -46,7 +46,8 @@ pub enum SubmissionOutcome {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperationResult {
     pub operation: ClientOperation,
-    pub session: crate::ids::SessionId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session: Option<crate::ids::SessionId>,
     pub state: OperationState,
 }
 

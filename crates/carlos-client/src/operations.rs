@@ -24,6 +24,7 @@ pub struct LocalOperation {
     pub state: OperationState,
     pub entry: Option<EntryId>,
     text: Option<LocalText>,
+    unscoped: bool,
 }
 
 impl LocalOperation {
@@ -112,7 +113,15 @@ impl Operations {
             state: OperationState::Pending,
             entry: None,
             text,
+            unscoped: false,
         });
+        Ok(())
+    }
+
+    /// Keep an archive outcome outside any conversation; it must never bind a session later.
+    pub(crate) fn begin_unscoped(&mut self, operation: ClientOperation) -> Result<(), ClientError> {
+        self.begin(operation, None, None)?;
+        self.records.last_mut().expect("just admitted").unscoped = true;
         Ok(())
     }
 
@@ -156,10 +165,10 @@ impl Operations {
         {
             return Ok(false);
         }
-        if record.state == result.state && record.session.as_ref() == Some(&result.session) {
+        if record.state == result.state && record.session == result.session {
             return Ok(false);
         }
-        record.session = Some(result.session);
+        record.session = result.session;
         record.state = result.state;
         Ok(true)
     }
@@ -189,6 +198,9 @@ impl Operations {
         else {
             return Ok(false);
         };
+        if record.unscoped {
+            return Err(ClientError::ForeignSession);
+        }
         if record
             .session
             .as_ref()
@@ -224,10 +236,12 @@ impl Operations {
 }
 
 fn validate_result(record: &LocalOperation, result: &OperationResult) -> Result<(), ClientError> {
-    if record
-        .session
-        .as_ref()
-        .is_some_and(|session| session != &result.session)
+    if (record.unscoped && result.session.is_some())
+        || (!record.unscoped && result.session.is_none())
+        || record
+            .session
+            .as_ref()
+            .is_some_and(|session| Some(session) != result.session.as_ref())
     {
         return Err(ClientError::ForeignSession);
     }

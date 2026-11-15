@@ -12,6 +12,9 @@ class NativeSaved:
         self.saved_fail_resume = False
         self.saved_pending = []
         self.saved_archives = []
+        self.saved_hold_archive = False
+        self.saved_reject_archive = False
+        self.saved_disconnect_archive = False
 
     async def saved_request(self, link, request):
         if self.saved_rows is None:
@@ -58,14 +61,22 @@ class NativeSaved:
         if method == "thread/archive":
             target = request["params"]["threadId"]
             self.saved_archives.append(target)
+            if self.saved_reject_archive:
+                await self.send(link, {"id":request["id"], "error":{"code":-32602, "message":"fixture rejected archive"}})
+                return True
             self.saved_rows = [row for row in self.saved_rows if row["id"] != target]
-            await self.send(link, {"id":request["id"], "result":{}})
+            if self.saved_disconnect_archive:
+                await link.close(code=1012, reason="archive reply lost")
+            elif self.saved_hold_archive:
+                self.saved_pending.append(("archive", link, request, {}))
+            else:
+                await self.send(link, {"id":request["id"], "result":{}})
             return True
         return False
 
     def release_saved(self, kind):
         async def release():
-            self.saved_hold_list = self.saved_hold_resume = False
+            self.saved_hold_list = self.saved_hold_resume = self.saved_hold_archive = False
             pending, self.saved_pending = self.saved_pending, []
             for target, link, request, result in pending:
                 if target != kind:

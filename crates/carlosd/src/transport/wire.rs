@@ -35,6 +35,7 @@ fn known_method(method: &str) -> bool {
         method,
         "hello"
             | "saved/open"
+            | "saved/archive"
             | "saved/page"
             | "saved/close"
             | "session/open"

@@ -97,7 +97,7 @@ impl RetryStore {
         &mut self,
         client: &ClientId,
         operation: ClientOperation,
-        session: SessionId,
+        session: Option<SessionId>,
         canonical: Vec<u8>,
         class: Class,
         now: Instant,

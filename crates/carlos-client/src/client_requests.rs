@@ -55,8 +55,12 @@ impl Client {
             return Err(ClientError::InvalidConnection);
         }
         let text = submitted_text(&command)?;
-        self.operations
-            .begin(operation.clone(), session.cloned(), text)?;
+        if matches!(command, Command::SavedArchive { .. }) {
+            self.operations.begin_unscoped(operation.clone())?;
+        } else {
+            self.operations
+                .begin(operation.clone(), session.cloned(), text)?;
+        }
         match self
             .requests
             .issue(connection, command, Kind::Mutation(operation.clone()))
@@ -155,7 +159,9 @@ impl Client {
 
 fn mutation(command: &Command) -> Option<(&ClientOperation, Option<&SessionId>)> {
     Some(match command {
-        Command::Create { operation, .. } | Command::Open { operation, .. } => (operation, None),
+        Command::Create { operation, .. }
+        | Command::Open { operation, .. }
+        | Command::SavedArchive { operation, .. } => (operation, None),
         Command::Send {
             operation, session, ..
         }

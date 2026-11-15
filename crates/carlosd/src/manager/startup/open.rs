@@ -119,7 +119,7 @@ impl Manager {
         let result = match self.retry.admit(
             &request.client,
             request.operation.clone(),
-            session.clone(),
+            Some(session.clone()),
             std::mem::take(&mut request.canonical),
             Class::Ordinary,
             Instant::now(),
@@ -146,7 +146,10 @@ impl Manager {
         known: bool,
         result: OperationResult,
     ) {
-        let session = result.session.clone();
+        let session = result
+            .session
+            .clone()
+            .expect("open binds a logical session");
         if known && self.sessions[&session].live.is_some() {
             self.attach_open(peer, id, result);
             return;

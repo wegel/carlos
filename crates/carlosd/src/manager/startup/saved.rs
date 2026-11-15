@@ -114,6 +114,7 @@ impl Manager {
             let captured = match &job.kind {
                 JobKind::Page { scope, .. } => Some(scope),
                 JobKind::Open(request) => request.target.scope.as_ref(),
+                JobKind::Archive(_) => None,
             };
             if captured.is_some_and(|current| scope.as_ref().is_none_or(|scope| scope == current)) {
                 job.retired = true;
@@ -171,6 +172,8 @@ impl Manager {
                 backend,
                 cwd,
                 purpose,
+                newer_anchor: rows.first().map(|(_, row)| PageAnchor::from_row(row)),
+                older_anchor: rows.last().map(|(_, row)| PageAnchor::from_row(row)),
                 rows,
                 has_newer: paged && page.has_newer,
                 has_older: paged && page.has_older,
@@ -184,14 +187,12 @@ fn page_direction(current: &Scope, direction: SavedDirection) -> Option<PageDire
     match direction {
         SavedDirection::Newest => Some(PageDirection::Newest),
         SavedDirection::Oldest => Some(PageDirection::Oldest),
-        SavedDirection::Older if current.has_older => current
-            .rows
-            .last()
-            .map(|(_, row)| PageDirection::Older(PageAnchor::from_row(row))),
-        SavedDirection::Newer if current.has_newer => current
-            .rows
-            .first()
-            .map(|(_, row)| PageDirection::Newer(PageAnchor::from_row(row))),
+        SavedDirection::Older if current.has_older => {
+            current.older_anchor.clone().map(PageDirection::Older)
+        }
+        SavedDirection::Newer if current.has_newer => {
+            current.newer_anchor.clone().map(PageDirection::Newer)
+        }
         _ => None,
     }
 }

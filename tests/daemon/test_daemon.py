@@ -27,6 +27,7 @@ from test_tool_labels import ToolLabelTests
 from test_startup_launch import StartupLaunchTests
 from test_startup_open import StartupOpenTests
 from test_startup_grok import StartupGrokTests
+from test_startup_archive import StartupArchiveTests
 from test_context_defaults import ContextDefaultTests
 from test_ralph import RalphTests
 

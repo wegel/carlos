@@ -25,7 +25,7 @@ fn draft(text: &str) -> Option<LocalText> {
 fn result(operation: &ClientOperation, state: OperationState) -> OperationResult {
     OperationResult {
         operation: operation.clone(),
-        session: session(),
+        session: Some(session()),
         state,
     }
 }

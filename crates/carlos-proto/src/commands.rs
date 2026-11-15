@@ -14,6 +14,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "method", content = "params")]
 pub enum Command {
+    #[serde(rename = "saved/archive")]
+    SavedArchive {
+        operation: ClientOperation,
+        scope: crate::ids::SavedScopeId,
+        choice: crate::ids::SavedChoiceId,
+    },
     #[serde(rename = "saved/open")]
     SavedOpen {
         backend: Backend,

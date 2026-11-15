@@ -27,7 +27,7 @@ impl Results {
     ) -> OperationResult {
         let result = OperationResult {
             operation: operation.clone(),
-            session: session.clone(),
+            session: Some(session.clone()),
             state: OperationState::Pending,
         };
         self.records.insert(
