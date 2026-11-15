@@ -233,9 +233,6 @@ mod claude_quota_tests;
 mod view_hint_support;
 
 #[cfg(test)]
-#[path = "../tests/approval_lifetime_sequences.rs"]
-mod approval_lifetime_sequences;
-#[cfg(test)]
 #[path = "../tests/approval_lifetime_support.rs"]
 mod approval_lifetime_support;
 #[cfg(test)]

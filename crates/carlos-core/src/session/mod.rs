@@ -269,6 +269,10 @@ mod input_contract_test_support;
 mod input_contract_tests;
 
 #[cfg(test)]
+mod approval_frozen_inputs;
+#[cfg(test)]
+mod approval_frozen_oracle;
+#[cfg(test)]
 mod approval_operation_sequences;
 
 #[cfg(test)]

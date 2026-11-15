@@ -5,7 +5,6 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use carlos_core::backend::{BackendClient, BackendKind, EventReceiver, RewindForkRequest};
-use carlos_core::session::approval_state::ApprovalQueue;
 use carlos_core::session::entry_id::EntryId;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use serde_json::{json, Value};
@@ -165,28 +164,6 @@ pub(super) fn callback(client: &Client, app: &mut AppState, id: &str, kind: &str
         json!({"method":"claude/callback","params":{
         "generation":app.session.claude().generation(),"callbackId":id,"kind":kind,"payload":payload}}),
     );
-}
-
-pub(super) fn fill(client: &Client, app: &mut AppState) {
-    if let Some(draft) = super::native_questions::draft(app) {
-        if !draft.fields.is_empty() {
-            if draft.fields[0].spec.options().is_empty() {
-                event(client, app, UiEvent::Terminal(Event::Paste("2".into())));
-            } else {
-                key(client, app, KeyCode::Char(' '), KeyModifiers::NONE);
-            }
-        }
-    }
-}
-
-pub(super) fn snapshot(client: &Client, app: &AppState) -> Value {
-    json!({"calls":*client.calls.lock().expect("backend log"),
-        "card":super::view_hint_support::card(app),
-        "pending":app.session.approval().pending().map(|p| &p.facts().request_id),
-        "details":app.session.approval().pending()
-            .map(|p| app.approval_detail_lines(p).collect::<Vec<_>>()),
-        "queue":app.session.approval().queued(ApprovalQueue::Claude).iter().chain(app.session.approval().queued(ApprovalQueue::Codex).iter())
-            .map(|p| &p.facts().request_id).collect::<Vec<_>>()})
 }
 
 pub(super) fn payloads() -> Vec<(&'static str, Value)> {
