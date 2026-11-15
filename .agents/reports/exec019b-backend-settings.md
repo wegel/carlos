@@ -1,0 +1,13 @@
+# Claude and Grok settings through the daemon
+
+Commits `2377ba0` and `39c014f` extend the typed settings save to Claude and Grok. The daemon captures native work and runs it on its existing ordinary worker. Clients send explicit model/effort/inheritance choices; they cannot send native method names or arbitrary JSON.
+
+Claude sends a native setter for every explicit edit, even when the visible value already matches. An appearance-only save issues no setter. If the model succeeds and effort then fails, the session keeps only the confirmed model change, reports the partial result and leaves host defaults unwritten. Inheritance changes only after the matching native reply. A controller sdk_error can also mean a closed/lost reply, so Carlos reports an uncertain result and never resends it automatically. It does not infer certainty from an error string.
+
+Grok keeps its existing future-prompt choices and tells the requesting client that the current turn did not receive a live native change. Model choices without effort clear only the captured saved effort; Carlos does not invent a native null. Default writes retain the original captured choices even if another client later changes the session. A retired native completion clears only its own pending marker before the old-root result is rejected.
+
+Nineteen focused settings cases, workspace Rust tests, normal commit hooks and strict Clippy passed. Seven actual-daemon tests cover eight native scenarios using the compiled Claude controller, including partial results, inheritance, errors, uncertain replies and Grok future-only behavior. Logs and SHA256 records are in `/tmp/carlos-ep019b/backend-settings-manifest.json`; the final socket log is `/tmp/carlos-ep019b/backend-settings-socket-04.log`.
+
+The tested daemon SHA256 is `723742f1ce50b5e3ffb69add529fe8a4262719685158fd17992f5ed6bcd93c87`; the compiled controller SHA256 is `f8f3aa63fc787042b613b69c995a106ecb805c4d87eb2904041f1e39deff7c68`. The developer built these in the shared working tree with unrelated unfinished edits. These identities do not claim an isolated HEAD-only or final EP build. Strict all-features lint could not build the optional Whisper CUDA feature because the host has no CUDA toolkit; no source workaround was added.
+
+The first socket run exposed an incorrect certainty choice on SDK EOF and a fixture assumption about Pending versus Queued. Both were fixed before the final run. Later combined daemon tests exposed an older Python helper name shadowing another mixin; renaming that helper made all93 cases pass with the same executable. The rejected logs remain in the manifest. The terminal popup and final integrated checks remain separate work. No new reviewer, EP approval, install, merge or push ran.
