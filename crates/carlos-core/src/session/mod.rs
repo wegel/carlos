@@ -40,6 +40,9 @@ mod turn_boundary_tests;
 
 pub mod runtime_settings;
 mod runtime_settings_updates;
+mod settings_publication;
+#[cfg(test)]
+mod settings_publication_tests;
 
 pub mod model_info;
 

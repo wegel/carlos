@@ -896,6 +896,37 @@
           }
         }
       }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/event",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "seq": "12",
+        "event": {
+          "kind": "settings_changed",
+          "settings": {
+            "revision": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "current": {
+              "model": "model",
+              "effort": null,
+              "summary": null
+            },
+            "pending": {
+              "model": null,
+              "effort": null,
+              "summary": null
+            },
+            "supports_effort": true,
+            "supports_summary": false,
+            "model_count": 1,
+            "native_pending": false,
+            "legacy_overrides": false,
+            "label": "model",
+            "summaries_enabled": false
+          }
+        }
+      }
     }
   ]
 }

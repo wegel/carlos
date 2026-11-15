@@ -13,6 +13,7 @@ use crate::ClientError;
 /// Platforms redraw changed rows and invalidate body caches without rescanning the transcript.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct ChangeSet {
+    pub settings: bool,
     pub tasks: bool,
     pub queue: bool,
     pub goal: bool,
@@ -27,6 +28,7 @@ pub struct ChangeSet {
 
 /// One bounded chronological window; the daemon keeps older/newer rows outside this copy.
 pub struct Replica {
+    pub(crate) settings: Option<carlos_proto::settings::SettingsFacts>,
     pub(crate) tasks: Option<TaskFacts>,
     pub(crate) tasks_seq: Sequence,
     pub(crate) queue: Option<carlos_proto::queue::QueueFacts>,
@@ -70,6 +72,7 @@ impl Replica {
             + goal
             + queue
             + tasks
+            + self.settings_bytes()
             + 4096
     }
     /// Adopt a full snapshot atomically; duplicate ids fail before replacing an existing copy.
@@ -83,6 +86,7 @@ impl Replica {
             }
         }
         Ok(Self {
+            settings: snapshot.settings,
             tasks: snapshot.tasks,
             tasks_seq: snapshot.seq,
             queue: snapshot.queue,
@@ -173,6 +177,7 @@ impl Replica {
         }
         *self = Self::new(snapshot)?;
         Ok(ChangeSet {
+            settings: true,
             tasks: true,
             queue: true,
             goal: true,
@@ -218,6 +223,7 @@ impl Replica {
     fn apply_fact(&mut self, event: Event, seq: Sequence) -> Result<ChangeSet, ClientError> {
         let mut changed = ChangeSet::default();
         match event {
+            Event::SettingsChanged { settings } => self.replace_settings(settings, &mut changed),
             Event::TasksChanged { tasks } => self.replace_tasks(tasks, seq, &mut changed),
             Event::QueueChanged { queue } => self.replace_queue(queue, seq, &mut changed),
             Event::GoalChanged { goal } => self.replace_goal(goal, seq, &mut changed),

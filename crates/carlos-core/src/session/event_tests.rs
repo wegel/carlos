@@ -22,6 +22,7 @@ fn apply(client: &mut Snapshot, event: SessionEvent) {
     match event.event {
         Event::QueueChanged { queue } => client.queue = queue,
         Event::TasksChanged { tasks } => client.tasks = tasks,
+        Event::SettingsChanged { settings } => client.settings = settings,
         Event::EntryAdded { entry } => client.entries.push(entry),
         Event::EntryUpdated { entry } => {
             let old = client

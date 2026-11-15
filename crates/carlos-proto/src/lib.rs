@@ -8,6 +8,7 @@ pub mod ids;
 pub mod output;
 pub mod queue;
 pub mod session;
+pub mod settings;
 pub mod source;
 pub mod submissions;
 pub mod task_facts;

@@ -108,6 +108,11 @@ opaque_id!(
     "An opaque precondition for one native root goal and connection, never a backend id."
 );
 opaque_id!(
+    SettingsRevision,
+    64,
+    "One backend settings state and root/connection precondition."
+);
+opaque_id!(
     QueueRevision,
     64,
     "One accepted native queue and root/connection precondition."

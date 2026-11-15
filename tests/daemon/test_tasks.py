@@ -140,7 +140,10 @@ class TaskTests:
         b = other.call("task/detail", session=session, expected=page["revision"], task=last["tasks"][0]["id"])
         self.assertEqual(a["task"]["label"], "Child 0")
         self.assertEqual(b["task"]["label"], "Child 32")
-        self.assertEqual(first.call("task/list", session=session), page)
+        repeated = first.call("task/list", session=session)
+        self.assertGreaterEqual(int(repeated["seq"]), int(page["seq"]))
+        self.assertEqual({key:value for key,value in repeated.items() if key != "seq"},
+                         {key:value for key,value in page.items() if key != "seq"})
         self.assertFalse(any(r.get("method") == "thread/resume" for r in fixture.native.requests))
         fixture.native.task_agents[0]["name"] = "Renamed child"
         first.call("task/list", session=session, refresh=True)

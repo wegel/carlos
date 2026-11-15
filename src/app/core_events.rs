@@ -26,7 +26,8 @@ impl AppState {
                 | Change::Info
                 | Change::Goal
                 | Change::Queue
-                | Change::Tasks => None,
+                | Change::Tasks
+                | Change::Settings => None,
             };
             if let Some(index) = index {
                 dirty = Some(dirty.map_or(index, |old: usize| old.min(index)));

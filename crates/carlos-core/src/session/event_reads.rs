@@ -33,6 +33,7 @@ impl crate::session::state::SessionState {
         let start = super::event_rows::page_start(&self.messages[..count], limit);
         Snapshot {
             info: self.events.info.clone().expect("published info"),
+            settings: self.events.settings.clone(),
             goal: self.export_goal(),
             queue: self.export_queue(),
             tasks: self.export_tasks(),

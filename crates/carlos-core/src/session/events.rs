@@ -31,6 +31,7 @@ pub enum Change {
     Goal,
     Queue,
     Tasks,
+    Settings,
     Reset {
         dirty_from: Option<EntryId>,
     },
@@ -45,6 +46,7 @@ pub struct NumberedChange {
 
 #[derive(Debug)]
 pub(super) struct EventState {
+    pub(super) settings: Option<carlos_proto::settings::SettingsFacts>,
     pub(super) queue_fingerprint: Option<blake3::Hash>,
     pub(super) goal_fingerprint: Option<blake3::Hash>,
     pub(super) operations: super::submission_identity::OperationEchoes,
@@ -68,6 +70,7 @@ pub(super) struct EventState {
 impl EventState {
     pub(super) fn new() -> Self {
         Self {
+            settings: None,
             queue_fingerprint: None,
             goal_fingerprint: None,
             operations: Default::default(),
@@ -182,6 +185,7 @@ impl SessionState {
         self.publish_approvals(changes);
         self.publish_goal(changes);
         self.publish_queue(changes);
+        self.publish_settings(changes);
         if self.refresh_task_facts() {
             changes.push(Change::Tasks);
         }
@@ -329,6 +333,9 @@ impl Published<'_> {
             },
             Change::Tasks => Event::TasksChanged {
                 tasks: self.session.export_tasks(),
+            },
+            Change::Settings => Event::SettingsChanged {
+                settings: self.session.events.settings.clone(),
             },
             Change::ApprovalResolved { approval, decision } => Event::ApprovalResolved {
                 approval: approval.to_wire(),

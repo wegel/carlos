@@ -25,6 +25,9 @@ pub struct EntryFacts {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Event {
+    SettingsChanged {
+        settings: Option<crate::settings::SettingsFacts>,
+    },
     TasksChanged {
         tasks: Option<crate::task_facts::TaskFacts>,
     },

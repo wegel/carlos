@@ -17,9 +17,10 @@ from test_queue import QueueTests
 from test_tasks import TaskTests
 from test_task_interests import TaskInterestTests
 from test_task_stops import TaskStopTests
+from test_settings_facts import SettingsFactTests
 
 
-class DaemonTests(TaskInterestTests, FailureTests, RecoveryTests, SourceTests, EditTests, GoalTests, QueueTests, TaskTests, TaskStopTests, unittest.TestCase):
+class DaemonTests(SettingsFactTests, TaskInterestTests, FailureTests, RecoveryTests, SourceTests, EditTests, GoalTests, QueueTests, TaskTests, TaskStopTests, unittest.TestCase):
     def test_codex_reads_controls_fifo_and_independent_output_cursors_while_send_waits(self):
         fixture = Fixture("codex-held", codex=True)
         self.addCleanup(fixture.close)
@@ -30,8 +31,13 @@ class DaemonTests(TaskInterestTests, FailureTests, RecoveryTests, SourceTests, E
         create = first.operation(1)
         session = first.call("session/create", operation=create, backend="codex", cwd=str(fixture.root), name="Headless alias")["session"]
         self.assertEqual(first.outcome(create)["state"]["kind"], "accepted")
-        a = first.call("session/subscribe", session=session, since=None)["snapshot"]
-        b = second.call("session/subscribe", session=session, since=None)["snapshot"]
+        # Native startup reads can publish settings between two independent snapshots.
+        def common_snapshot():
+            a = first.call("session/subscribe", session=session, since=None)["snapshot"]
+            b = second.call("session/subscribe", session=session, since=None)["snapshot"]
+            return (a, b) if a["seq"] == b["seq"] else None
+
+        a, b = support.wait_for(common_snapshot, "both readers reach the same shared cursor")
         self.assertEqual(a, b)
         self.assertEqual(a["info"]["name"], "Headless alias")
         self.assertTrue(a["has_older"])

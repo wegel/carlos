@@ -32,6 +32,7 @@ pub struct RuntimeSettingsState {
     pub(in crate::session) pending_effort: Option<String>,
     pub(in crate::session) pending_summary: Option<String>,
     pub(in crate::session) available_models: Vec<ModelInfo>,
+    pub(in crate::session) catalog_hash: blake3::Hash,
 }
 
 impl RuntimeSettingsState {
@@ -47,6 +48,7 @@ impl RuntimeSettingsState {
             pending_effort: None,
             pending_summary: None,
             available_models: Vec::new(),
+            catalog_hash: blake3::hash(&[]),
         }
     }
 
@@ -158,6 +160,7 @@ impl SessionState {
     /// Set available models.
     pub fn set_available_models(&mut self, mut models: Vec<ModelInfo>) {
         models.sort_by_key(|m| !m.is_default);
+        self.runtime.catalog_hash = super::settings_publication::catalog_hash(&models);
         self.runtime.available_models = models;
     }
 

@@ -18,6 +18,7 @@ mod operations;
 mod queue;
 mod queue_ranges;
 mod replica;
+mod settings;
 mod task_overview;
 mod task_state;
 mod task_watches;
