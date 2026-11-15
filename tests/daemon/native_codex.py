@@ -24,6 +24,7 @@ class NativeCodex(NativeQueue, NativeTasks):
         self.interrupts = 0
         self.prompts = 0
         self.history_padding = ""
+        self.models = []
         self.history_user = False
         self.thread_id = "native-root"
         self.forked = False
@@ -154,7 +155,9 @@ class NativeCodex(NativeQueue, NativeTasks):
         elif method.startswith("thread/queue/"):
             await self.queue_request(link, request)
             return
-        elif method in ("model/list", "thread/list", "thread/backgroundTerminals/list"):
+        elif method == "model/list":
+            result = {"data": self.models, "nextCursor": None}
+        elif method in ("thread/list", "thread/backgroundTerminals/list"):
             result = {"data": [], "nextCursor": None}
         elif method in ("turn/start", "turn/steer"):
             await self.prompt(link, request)

@@ -66,6 +66,9 @@ impl Client {
         effects: &mut Effects,
     ) -> Result<(), ClientError> {
         let reply = match kind {
+            Kind::Settings(target) => {
+                ReadReply::Settings(crate::settings_reads::page(target, value)?)
+            }
             Kind::Goal(session) | Kind::GoalWatch(session) => {
                 let goal: carlos_proto::goals::GoalSnapshot = parse(value)?;
                 same_session(&session, &goal.session)?;

@@ -1,22 +1,22 @@
 //! Model-settings overlay state: field cycling, value edits, and apply/persist logic.
 
-use carlos_core::session::runtime_settings::{
-    normalize_non_empty, RuntimeDefaults, RuntimeSettingsState,
-};
+use carlos_core::session::runtime_settings::{normalize_non_empty, RuntimeDefaults};
 
-use super::{default_effort_vec, effort_index, ModelSettingsField, RuntimeSettingsView};
+use super::{
+    default_effort_vec, effort_index, ModelSettingsField, RuntimeSettingsRef, RuntimeSettingsView,
+};
 
 impl RuntimeSettingsView {
     /// List the visible settings in the same order for drawing and keyboard focus.
     pub(in crate::app) fn model_settings_fields(
         &self,
-        runtime: &RuntimeSettingsState,
+        runtime: RuntimeSettingsRef<'_>,
     ) -> Vec<ModelSettingsField> {
         let mut fields = vec![ModelSettingsField::Model];
-        if runtime.supports_effort() && !self.model_settings_effort_options.is_empty() {
+        if runtime.supports_effort && !self.model_settings_effort_options.is_empty() {
             fields.push(ModelSettingsField::Effort);
         }
-        if runtime.supports_summary() {
+        if runtime.supports_summary {
             fields.push(ModelSettingsField::Summary);
         }
         if self.context.backend.is_some() {
@@ -33,14 +33,14 @@ impl RuntimeSettingsView {
     }
 
     /// Collect edited choices without changing session facts or closing the overlay.
-    pub(in crate::app) fn saved_choices(&self, runtime: &RuntimeSettingsState) -> RuntimeDefaults {
+    pub(in crate::app) fn saved_choices(&self, runtime: RuntimeSettingsRef<'_>) -> RuntimeDefaults {
         let model = normalize_non_empty(self.model_settings_model_value(runtime).to_string());
         let effort = runtime
-            .supports_effort()
+            .supports_effort
             .then(|| normalize_non_empty(self.model_settings_effort_value().to_string()))
             .flatten();
         let summary = runtime
-            .supports_summary()
+            .supports_summary
             .then(|| normalize_non_empty(self.model_settings_summary_value(runtime).to_string()))
             .flatten();
         RuntimeDefaults {
@@ -52,12 +52,9 @@ impl RuntimeSettingsView {
 
     pub(in crate::app) fn model_settings_model_value<'a>(
         &'a self,
-        runtime: &'a RuntimeSettingsState,
+        runtime: RuntimeSettingsRef<'a>,
     ) -> &'a str {
-        if let Some(model) = runtime
-            .available_models()
-            .get(self.model_settings_model_index)
-        {
+        if let Some(model) = runtime.models.get(self.model_settings_model_index) {
             return model.model.as_str();
         }
         self.model_settings_model_input.as_str()
@@ -72,9 +69,9 @@ impl RuntimeSettingsView {
 
     pub(in crate::app) fn model_settings_summary_value(
         &self,
-        runtime: &RuntimeSettingsState,
+        runtime: RuntimeSettingsRef<'_>,
     ) -> &str {
-        if !runtime.supports_summary() {
+        if !runtime.supports_summary {
             return "";
         }
         self.model_settings_summary_options
@@ -83,27 +80,26 @@ impl RuntimeSettingsView {
             .unwrap_or("auto")
     }
 
-    pub(super) fn refresh_model_settings_efforts(&mut self, runtime: &RuntimeSettingsState) {
+    pub(super) fn refresh_model_settings_efforts(&mut self, runtime: RuntimeSettingsRef<'_>) {
         let requested = runtime
-            .pending_effort()
+            .pending
+            .effort
             .as_deref()
-            .or(runtime.current_effort().as_deref())
+            .or(runtime.current.effort.as_deref())
             .unwrap_or("medium")
             .to_string();
 
-        let (options, default_effort) = if let Some(model) = runtime
-            .available_models()
-            .get(self.model_settings_model_index)
-        {
-            let options = if model.supported_efforts.is_empty() {
-                default_effort_vec()
+        let (options, default_effort) =
+            if let Some(model) = runtime.models.get(self.model_settings_model_index) {
+                let options = if model.supported_efforts.is_empty() {
+                    default_effort_vec()
+                } else {
+                    model.supported_efforts.clone()
+                };
+                (options, model.default_effort.clone())
             } else {
-                model.supported_efforts.clone()
+                (default_effort_vec(), None)
             };
-            (options, model.default_effort.clone())
-        } else {
-            (default_effort_vec(), None)
-        };
 
         self.model_settings_effort_options = options;
         self.model_settings_effort_index = self

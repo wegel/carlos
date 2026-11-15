@@ -91,6 +91,7 @@ impl Manager {
             EngineReply::TaskText(text) => self.reply(peer, id, text),
             EngineReply::Queue(queue) => self.reply(peer, id, queue),
             EngineReply::QueueText(text) => self.reply(peer, id, text),
+            EngineReply::Settings(page) => self.reply(peer, id, page),
             EngineReply::Goal(goal) => self.reply(peer, id, goal),
             EngineReply::History(history) => self.reply(peer, id, history),
             EngineReply::Output(chunk) => self.reply(peer, id, chunk),

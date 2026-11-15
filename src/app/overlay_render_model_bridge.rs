@@ -9,7 +9,7 @@ pub(super) fn frame(app: &AppState) -> SettingsFrame<'_> {
     let fields = app
         .view
         .runtime_settings
-        .model_settings_fields(app.session.runtime_settings());
+        .model_settings_fields(app.session.runtime_settings().into());
     let help = app
         .view
         .codex_settings

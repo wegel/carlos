@@ -78,7 +78,7 @@ impl AppState {
         self.view.summary_enabled_draft = self.session.summaries_enabled();
         self.view
             .runtime_settings
-            .open_model_settings(self.session.runtime_settings());
+            .open_model_settings(self.session.runtime_settings().into());
         if self.session.codex_scope().enabled() {
             super::codex_settings_draft::open_editor(self);
             super::codex_settings_draft::restore_editor(self);
@@ -100,7 +100,7 @@ impl AppState {
     pub(super) fn model_settings_move_field(&mut self, forward: bool) {
         self.view
             .runtime_settings
-            .model_settings_move_field(self.session.runtime_settings(), forward);
+            .model_settings_move_field(self.session.runtime_settings().into(), forward);
     }
 
     pub(super) fn model_settings_cycle_effort(&mut self, step: isize) {
@@ -110,7 +110,7 @@ impl AppState {
     pub(super) fn model_settings_cycle_model(&mut self, step: isize) {
         self.view
             .runtime_settings
-            .model_settings_cycle_model(self.session.runtime_settings(), step);
+            .model_settings_cycle_model(self.session.runtime_settings().into(), step);
     }
 
     pub(super) fn model_settings_cycle_summary(&mut self, step: isize) {
@@ -122,7 +122,7 @@ impl AppState {
     pub(super) fn model_settings_has_model_choices(&self) -> bool {
         self.view
             .runtime_settings
-            .model_settings_has_model_choices(self.session.runtime_settings())
+            .model_settings_has_model_choices(self.session.runtime_settings().into())
     }
 
     pub(super) fn model_settings_insert_char(&mut self, ch: char) {
@@ -140,7 +140,7 @@ impl AppState {
         let defaults = self
             .view
             .runtime_settings
-            .saved_choices(self.session.runtime_settings());
+            .saved_choices(self.session.runtime_settings().into());
         self.queue_runtime_settings(
             defaults.model.clone(),
             defaults.effort.clone(),
@@ -163,7 +163,7 @@ impl AppState {
     pub(super) fn model_settings_model_value(&self) -> &str {
         self.view
             .runtime_settings
-            .model_settings_model_value(self.session.runtime_settings())
+            .model_settings_model_value(self.session.runtime_settings().into())
     }
 
     pub(super) fn model_settings_effort_value(&self) -> &str {
@@ -173,7 +173,7 @@ impl AppState {
     pub(super) fn model_settings_summary_value(&self) -> &str {
         self.view
             .runtime_settings
-            .model_settings_summary_value(self.session.runtime_settings())
+            .model_settings_summary_value(self.session.runtime_settings().into())
     }
 
     #[cfg(test)]

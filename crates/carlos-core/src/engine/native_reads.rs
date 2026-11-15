@@ -16,6 +16,16 @@ impl Owner {
     pub(super) fn read_native(&mut self, command: EngineCommand) -> Result<EngineReply, RpcError> {
         match command {
             EngineCommand::TaskWindow(command) => self.read_task_window(command),
+            EngineCommand::SettingsRead {
+                expected,
+                offset,
+                limit,
+            } => {
+                self.publish();
+                self.session
+                    .settings_page(expected.as_ref(), offset, limit)
+                    .map(EngineReply::Settings)
+            }
             EngineCommand::GoalRead { refresh } => self.read_goal(refresh),
             command @ (EngineCommand::QueueRead { .. } | EngineCommand::QueueText { .. }) => {
                 self.read_queue(command)

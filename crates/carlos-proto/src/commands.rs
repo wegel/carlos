@@ -16,6 +16,14 @@ use crate::submissions::ClientOperation;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "method", content = "params")]
 pub enum Command {
+    #[serde(rename = "settings/read")]
+    SettingsRead {
+        session: SessionId,
+        expected: Option<crate::ids::SettingsRevision>,
+        #[serde(default)]
+        offset: u32,
+        limit: Option<u16>,
+    },
     #[serde(rename = "task/subscribe")]
     TaskSubscribe { session: SessionId },
     #[serde(rename = "task/unsubscribe")]

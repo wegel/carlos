@@ -43,6 +43,7 @@ mod runtime_settings_updates;
 mod settings_publication;
 #[cfg(test)]
 mod settings_publication_tests;
+mod settings_reads;
 
 pub mod model_info;
 

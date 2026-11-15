@@ -314,7 +314,7 @@ fn a_native_model_without_effort_choices_never_gets_an_invented_effort_override(
     assert!(!app
         .view
         .runtime_settings
-        .model_settings_fields(app.session.runtime_settings())
+        .model_settings_fields(app.session.runtime_settings().into())
         .contains(&crate::app::state::ModelSettingsField::Effort));
     save(&peer, &mut app);
     assert!(peer.controls.borrow()[0].1.get("effort").is_none());

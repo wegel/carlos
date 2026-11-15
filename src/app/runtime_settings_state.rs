@@ -3,7 +3,10 @@
 #[path = "runtime_settings_model_settings.rs"]
 mod runtime_settings_model_settings;
 
-use carlos_core::session::runtime_settings::RuntimeSettingsState;
+#[path = "runtime_settings_facts.rs"]
+mod facts;
+
+pub(in crate::app) use self::facts::RuntimeSettingsRef;
 
 use crate::app::tool_output_state::ToolOutputMode;
 
@@ -64,30 +67,32 @@ impl RuntimeSettingsView {
         }
     }
 
-    pub(super) fn open_model_settings(&mut self, runtime: &RuntimeSettingsState) {
+    pub(super) fn open_model_settings(&mut self, runtime: RuntimeSettingsRef<'_>) {
         self.context.open();
         self.show_model_settings = true;
         self.model_settings_field = ModelSettingsField::Model;
         let preferred_model = runtime
-            .pending_model()
+            .pending
+            .model
             .as_deref()
-            .or(runtime.current_model().as_deref())
+            .or(runtime.current.model.as_deref())
             .unwrap_or("");
         self.model_settings_model_index = runtime
-            .available_models()
+            .models
             .iter()
             .position(|m| m.model == preferred_model)
             .unwrap_or(0);
         self.model_settings_model_input = runtime
-            .available_models()
+            .models
             .get(self.model_settings_model_index)
             .map(|m| m.model.clone())
             .unwrap_or_else(|| preferred_model.to_string());
         self.refresh_model_settings_efforts(runtime);
         let preferred_summary = runtime
-            .pending_summary()
+            .pending
+            .summary
             .as_deref()
-            .or(runtime.current_summary().as_deref())
+            .or(runtime.current.summary.as_deref())
             .unwrap_or("auto");
         self.model_settings_summary_index = self
             .model_settings_summary_options
@@ -102,7 +107,7 @@ impl RuntimeSettingsView {
 
     pub(super) fn model_settings_move_field(
         &mut self,
-        runtime: &RuntimeSettingsState,
+        runtime: RuntimeSettingsRef<'_>,
         forward: bool,
     ) {
         let fields = self.model_settings_fields(runtime);
@@ -135,20 +140,17 @@ impl RuntimeSettingsView {
 
     pub(super) fn model_settings_cycle_model(
         &mut self,
-        runtime: &RuntimeSettingsState,
+        runtime: RuntimeSettingsRef<'_>,
         step: isize,
     ) {
-        if runtime.available_models().is_empty() {
+        if runtime.models.is_empty() {
             return;
         }
-        let len = runtime.available_models().len() as isize;
+        let len = runtime.models.len() as isize;
         let cur = self.model_settings_model_index as isize;
         let next = (cur + step).rem_euclid(len);
         self.model_settings_model_index = next as usize;
-        if let Some(model) = runtime
-            .available_models()
-            .get(self.model_settings_model_index)
-        {
+        if let Some(model) = runtime.models.get(self.model_settings_model_index) {
             self.model_settings_model_input = model.model.clone();
         }
         self.refresh_model_settings_efforts(runtime);
@@ -161,8 +163,8 @@ impl RuntimeSettingsView {
         self.model_settings_summary_index = next as usize;
     }
 
-    pub(super) fn model_settings_has_model_choices(&self, runtime: &RuntimeSettingsState) -> bool {
-        !runtime.available_models().is_empty()
+    pub(super) fn model_settings_has_model_choices(&self, runtime: RuntimeSettingsRef<'_>) -> bool {
+        !runtime.models.is_empty()
     }
 
     pub(super) fn model_settings_insert_char(&mut self, ch: char) {

@@ -103,6 +103,11 @@ pub enum EngineCommand {
         offset: carlos_proto::bytes::ByteOffset,
         limit: usize,
     },
+    SettingsRead {
+        expected: Option<carlos_proto::ids::SettingsRevision>,
+        offset: u32,
+        limit: usize,
+    },
     GoalRead {
         refresh: bool,
     },
@@ -188,6 +193,7 @@ pub enum EngineReply {
     TaskText(carlos_proto::tasks::TaskText),
     Queue(carlos_proto::queue::QueuePage),
     QueueText(carlos_proto::queue::QueueText),
+    Settings(carlos_proto::settings::SettingsPage),
     Goal(carlos_proto::goals::GoalSnapshot),
     Info {
         info: SessionInfo,

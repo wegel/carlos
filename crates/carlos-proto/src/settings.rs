@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::ids::SettingsRevision;
 
+/// One reply carries at most this many model records; clients may request later records.
+pub const MAX_MODELS_PER_PAGE: usize = 128;
+
 /// Missing values preserve the backend's inherited or unknown choice.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RuntimeChoices {
@@ -35,4 +38,15 @@ pub struct SettingsFacts {
     pub legacy_overrides: bool,
     pub label: String,
     pub summaries_enabled: bool,
+}
+
+/// A model catalog page belongs to one exact accepted settings state and event cursor.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SettingsPage {
+    pub session: crate::ids::SessionId,
+    pub seq: crate::ids::Sequence,
+    pub settings: SettingsFacts,
+    pub offset: u32,
+    pub models: Vec<ModelInfo>,
+    pub next: Option<u32>,
 }

@@ -20,7 +20,8 @@ impl Manager {
             Command::GoalUnsubscribe { session } => self.unsubscribe_goal(peer, id, session),
             Command::TaskSubscribe { session } => self.subscribe_tasks(peer, id, session),
             Command::TaskUnsubscribe { session } => self.unsubscribe_tasks(peer, id, session),
-            command @ (Command::TaskRun { .. }
+            command @ (Command::SettingsRead { .. }
+            | Command::TaskRun { .. }
             | Command::TaskList { .. }
             | Command::TaskDetail { .. }
             | Command::TaskOverview { .. }
@@ -87,6 +88,9 @@ impl Manager {
 
     fn native_read_command(&mut self, peer: u64, id: RequestId, command: Command) {
         match command {
+            settings @ Command::SettingsRead { .. } => {
+                self.settings_read_command(peer, id, settings)
+            }
             command @ (Command::TaskRun { .. }
             | Command::TaskList { .. }
             | Command::TaskDetail { .. }
@@ -132,6 +136,28 @@ impl Manager {
             }
             _ => unreachable!("typed native read"),
         }
+    }
+
+    fn settings_read_command(&mut self, peer: u64, id: RequestId, command: Command) {
+        let Command::SettingsRead {
+            session,
+            expected,
+            offset,
+            limit,
+        } = command
+        else {
+            unreachable!("typed settings read")
+        };
+        self.rpc_read(
+            peer,
+            id,
+            session,
+            EngineCommand::SettingsRead {
+                expected,
+                offset,
+                limit: usize::from(limit.unwrap_or(32)),
+            },
+        );
     }
 
     fn subscribe(&mut self, peer: u64, id: RequestId, session: SessionId, since: Option<Sequence>) {
