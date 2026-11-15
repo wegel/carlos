@@ -18,8 +18,6 @@ use super::perf::PerfMetrics;
 use super::view_state::ViewState;
 
 pub(super) use super::runtime_settings_state::ModelSettingsField;
-#[cfg(test)]
-pub(super) use super::runtime_settings_state::{DEFAULT_EFFORT_OPTIONS, DEFAULT_SUMMARY_OPTIONS};
 
 // --- Types ---
 

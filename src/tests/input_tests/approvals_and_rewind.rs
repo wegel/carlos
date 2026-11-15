@@ -1,37 +1,5 @@
 // Tests for approval prompts and rewind-mode keyboard handling.
 
-#[cfg(feature = "dictation")]
-#[test]
-fn f7_cycles_dictation_profiles() {
-    let client = ApprovalRespondMock::new();
-    let mut app = AppState::new("thread-1".to_string());
-    app.configure_dictation_profiles(
-        vec![
-            usable_dictation_profile_with("en", "English"),
-            usable_dictation_profile_with("fr", "French"),
-        ],
-        "en",
-    );
-    let size = TerminalSize {
-        width: 100,
-        height: 30,
-    };
-
-    handle_terminal_event(
-        &client,
-        &mut app,
-        Event::Key(KeyEvent::new(KeyCode::F(7), KeyModifiers::empty())),
-        size,
-    );
-
-    app.start_dictation_recording();
-    assert_eq!(
-        app.dictation_status_label(),
-        Some("DICTATING AUTO [French]".to_string())
-    );
-    assert_eq!(app.view.status_hint.as_deref(), Some("dictation recording"));
-}
-
 #[test]
 fn prioritize_events_drains_deferred_server_lines_without_new_input() {
     let mut deferred = std::collections::VecDeque::new();
@@ -248,9 +216,7 @@ fn build_two_turn_rewind_app() -> AppState {
 fn submit_rewind_turn_text_forks_codex_thread_before_resubmitting() {
     let client = CodexRewindMock::new(build_rewind_fork_response());
     let mut app = build_two_turn_rewind_app();
-    let selected = app
-        .rewind_prompt_id()
-        .expect("rewind history index");
+    let selected = app.rewind_prompt_id().expect("rewind history index");
 
     super::turn_submit::submit_rewind_turn_text(
         &client,

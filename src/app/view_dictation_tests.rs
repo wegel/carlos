@@ -289,3 +289,6 @@ fn a_late_capture_error_cannot_cancel_the_matching_transcription() {
     });
     assert_eq!(view.input.lines(), &["current speech"]);
 }
+
+#[path = "view_dictation_capture_tests.rs"]
+mod capture;

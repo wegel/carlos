@@ -43,3 +43,7 @@ impl Device {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "dictation_tests.rs"]
+mod tests;

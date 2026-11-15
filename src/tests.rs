@@ -12,12 +12,10 @@ pub(super) use super::cli::{
     resolve_initial_runtime_settings, resume_hint, styled_resume_hint, Backend,
 };
 pub(super) use super::context_usage::context_usage_label;
-pub(super) use super::dictation_state::{DictationPhase, DictationProfileState};
 pub(super) use super::input::{
     can_submit_queued_turn, is_mobile_mouse_key_candidate, is_priority_server_line,
     prioritize_events,
 };
-pub(super) use super::input_events::handle_terminal_event;
 pub(super) use super::mobile_mouse::{
     apply_mobile_mouse_scroll, consume_mobile_mouse_char, parse_mobile_mouse_coords,
     parse_repeated_plain_mobile_pair, MobileMouseConsume,
@@ -49,7 +47,7 @@ pub(super) use super::turn_submit::{
     submit_dequeued_turn_text, submit_turn_text, submit_turn_text_with_history,
 };
 pub(super) use super::view_models::{RenderedLine, StyledSegment, TerminalSize};
-pub(super) use super::{input_events, perf_session, state, turn_submit};
+pub(super) use super::{input_events, perf_session, turn_submit};
 pub(super) use crate::clipboard::{
     detect_osc52_wrap, is_ssh_session, osc52_sequences_for_env, Osc52Wrap,
 };

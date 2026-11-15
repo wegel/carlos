@@ -1,7 +1,5 @@
 //! Input subsystem test tree: dictation, approvals/rewind, and mobile mouse/perf.
 
-#[cfg(feature = "dictation")]
-use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -13,12 +11,11 @@ use serde_json::Value;
 
 use super::{
     apply_mobile_mouse_scroll, can_submit_queued_turn, consume_mobile_mouse_char,
-    context_usage_label, decide_mouse_drag_mode, handle_terminal_event, is_key_press_like,
-    is_mobile_mouse_key_candidate, is_newline_enter, is_priority_server_line, json,
-    kitt_head_index, normalize_pasted_text, parse_mobile_mouse_coords,
-    parse_repeated_plain_mobile_pair, prioritize_events, AppState, DictationPhase,
-    DictationProfileState, DurationSamples, Event, KeyCode, KeyEventKind, KeyModifiers,
-    MobileMouseConsume, MouseDragMode, PerfMetrics, TerminalSize, UiEvent,
+    context_usage_label, decide_mouse_drag_mode, is_key_press_like, is_mobile_mouse_key_candidate,
+    is_newline_enter, is_priority_server_line, json, kitt_head_index, normalize_pasted_text,
+    parse_mobile_mouse_coords, parse_repeated_plain_mobile_pair, prioritize_events, AppState,
+    DurationSamples, Event, KeyCode, KeyEventKind, KeyModifiers, MobileMouseConsume, MouseDragMode,
+    PerfMetrics, TerminalSize, UiEvent,
 };
 
 struct ApprovalRespondMock {
@@ -117,34 +114,6 @@ impl BackendClient for CodexRewindMock {
     }
 
     fn stop(&mut self) {}
-}
-
-fn usable_dictation_profile() -> DictationProfileState {
-    DictationProfileState {
-        id: "en".to_string(),
-        name: "English".to_string(),
-        model_label: Some("/tmp/model.bin".to_string()),
-        model_usable: true,
-        #[cfg(feature = "dictation")]
-        model_path: Some(std::path::PathBuf::from("/tmp/model.bin")),
-        #[cfg(feature = "dictation")]
-        language: Some("en".to_string()),
-        #[cfg(feature = "dictation")]
-        vocabulary: None,
-    }
-}
-
-#[cfg(feature = "dictation")]
-fn usable_dictation_profile_with(id: &str, name: &str) -> DictationProfileState {
-    DictationProfileState {
-        id: id.to_string(),
-        name: name.to_string(),
-        model_label: Some(format!("/tmp/{id}.bin")),
-        model_usable: true,
-        model_path: Some(std::path::PathBuf::from(format!("/tmp/{id}.bin"))),
-        language: Some(id.to_string()),
-        vocabulary: None,
-    }
 }
 
 include!("input_tests/dictation.rs");

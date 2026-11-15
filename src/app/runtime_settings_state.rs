@@ -193,3 +193,7 @@ fn effort_index(value: &str) -> usize {
         .position(|v| v.eq_ignore_ascii_case(value))
         .unwrap_or(3)
 }
+
+#[cfg(test)]
+#[path = "runtime_settings_editor_tests.rs"]
+mod tests;
