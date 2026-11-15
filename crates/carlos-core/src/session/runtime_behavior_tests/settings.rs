@@ -4,7 +4,10 @@ use serde_json::json;
 
 use crate::session::state::SessionState;
 
-fn settings_values(values: [Option<&str>; 3]) -> (Option<String>, Option<String>, Option<String>) {
+/// Build comparable settings tuples without involving a terminal view.
+pub(super) fn settings_values(
+    values: [Option<&str>; 3],
+) -> (Option<String>, Option<String>, Option<String>) {
     (
         values[0].map(str::to_string),
         values[1].map(str::to_string),
@@ -12,7 +15,8 @@ fn settings_values(values: [Option<&str>; 3]) -> (Option<String>, Option<String>
     )
 }
 
-fn seed_runtime_choices() -> SessionState {
+/// Start a session with the known choices shared by settings behavior cases.
+pub(super) fn seed_runtime_choices() -> SessionState {
     let mut session = SessionState::new("settings".into(), Default::default(), false);
     session.set_runtime_settings(
         Some("old".into()),

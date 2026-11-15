@@ -148,6 +148,3 @@ pub(super) fn load_claude_thread_summaries(
         })
         .collect())
 }
-
-#[cfg(test)]
-pub(super) use self::backend_setup_launch::configure_new_codex_for_test;

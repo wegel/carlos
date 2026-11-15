@@ -41,13 +41,6 @@ impl AppState {
         self.session.queue_runtime_settings(model, effort, summary);
     }
 
-    #[cfg(test)]
-    pub(super) fn take_pending_runtime_settings(
-        &mut self,
-    ) -> (Option<String>, Option<String>, Option<String>) {
-        self.session.pending_runtime_settings()
-    }
-
     pub(super) fn next_turn_runtime_settings(
         &self,
     ) -> (Option<String>, Option<String>, Option<String>) {
@@ -164,10 +157,5 @@ impl AppState {
         self.view
             .runtime_settings
             .model_settings_summary_value(self.session.runtime_settings().into())
-    }
-
-    #[cfg(test)]
-    pub(super) fn apply_default_reasoning_summary(&mut self, summary: Option<String>) {
-        self.session.apply_default_reasoning_summary(summary);
     }
 }

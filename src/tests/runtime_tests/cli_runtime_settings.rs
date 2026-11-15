@@ -152,7 +152,12 @@ fn synthetic_perf_messages_are_reproducible() {
 
     assert_eq!(left.messages().len(), spec.turns * 6);
     assert_eq!(left.messages().len(), right.messages().len());
-    for (index, (lhs, rhs)) in left.messages().iter().zip(right.messages().iter()).enumerate() {
+    for (index, (lhs, rhs)) in left
+        .messages()
+        .iter()
+        .zip(right.messages().iter())
+        .enumerate()
+    {
         assert_ne!(lhs.id, rhs.id);
         assert_eq!(left.messages().position(lhs.id), Some(index));
         assert_eq!(lhs.role, rhs.role);
@@ -177,13 +182,17 @@ fn synthetic_perf_messages_change_with_seed() {
 
     assert_eq!(base.messages().len(), changed.messages().len());
     assert!(base
-        .messages().iter()
+        .messages()
+        .iter()
         .zip(changed.messages().iter())
         .any(|(lhs, rhs)| lhs.text != rhs.text));
 }
 
-fn synthetic_session(spec: perf_session::SyntheticPerfSpec) -> carlos_core::session::state::SessionState {
-    let mut session = carlos_core::session::state::SessionState::new("perf".into(), Default::default(), false);
+fn synthetic_session(
+    spec: perf_session::SyntheticPerfSpec,
+) -> carlos_core::session::state::SessionState {
+    let mut session =
+        carlos_core::session::state::SessionState::new("perf".into(), Default::default(), false);
     perf_session::populate_synthetic_perf_session(spec, &mut session);
     session
 }
@@ -254,66 +263,6 @@ fn params_thread_archive_includes_thread_id() {
     let params = params_thread_archive("thread-123");
 
     assert_eq!(params["threadId"], "thread-123");
-}
-
-#[test]
-fn runtime_settings_label_shows_pending_summary_override() {
-    let mut app = AppState::new("thread-1".to_string());
-    app.set_runtime_settings(Some("gpt-5".to_string()), Some("high".to_string()), None);
-    app.apply_default_reasoning_summary(Some("auto".to_string()));
-
-    assert_eq!(app.runtime_settings_label(), "gpt-5/high/auto*");
-}
-
-#[test]
-fn runtime_settings_label_omits_missing_trailing_fields() {
-    let mut app = AppState::new("thread-1".to_string());
-    app.set_runtime_settings(Some("claude-opus-4-6".to_string()), None, None);
-
-    assert_eq!(app.runtime_settings_label(), "claude-opus-4-6");
-}
-
-#[test]
-fn next_turn_runtime_settings_falls_back_to_current_values() {
-    let mut app = AppState::new("thread-1".to_string());
-    app.set_runtime_settings(
-        Some("gpt-5.4".to_string()),
-        Some("high".to_string()),
-        Some("concise".to_string()),
-    );
-
-    assert_eq!(
-        app.next_turn_runtime_settings(),
-        (
-            Some("gpt-5.4".to_string()),
-            Some("high".to_string()),
-            Some("concise".to_string())
-        )
-    );
-}
-
-#[test]
-fn next_turn_runtime_settings_prefers_pending_over_current_values() {
-    let mut app = AppState::new("thread-1".to_string());
-    app.set_runtime_settings(
-        Some("gpt-5.4".to_string()),
-        Some("high".to_string()),
-        Some("concise".to_string()),
-    );
-    app.queue_runtime_settings(
-        Some("gpt-5.4-mini".to_string()),
-        Some("medium".to_string()),
-        Some("auto".to_string()),
-    );
-
-    assert_eq!(
-        app.next_turn_runtime_settings(),
-        (
-            Some("gpt-5.4-mini".to_string()),
-            Some("medium".to_string()),
-            Some("auto".to_string())
-        )
-    );
 }
 
 #[test]

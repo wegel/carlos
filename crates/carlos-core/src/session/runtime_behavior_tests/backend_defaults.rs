@@ -1,4 +1,11 @@
-// Tests for backend-specific startup runtime settings.
+//! Preserve backend defaults and catalog compatibility at their core owner.
+
+use crate::protocol_params::{ModelInfo, ThreadRuntimeSettings};
+use crate::session::runtime_settings::RuntimeDefaults;
+use crate::session::runtime_startup::{
+    claude_runtime_defaults, codex_runtime_defaults, resolve_backend_runtime_settings,
+};
+use crate::session::runtime_startup_catalog::complete_codex_model_catalog;
 
 fn runtime_test_model(
     model: &str,
@@ -112,10 +119,7 @@ fn codex_model_catalog_refreshes_stale_gpt56_efforts() {
         .map(String::as_str)
         .collect::<Vec<_>>();
 
-    assert_eq!(
-        efforts,
-        ["low", "medium", "high", "xhigh", "max", "ultra"]
-    );
+    assert_eq!(efforts, ["low", "medium", "high", "xhigh", "max", "ultra"]);
     assert_eq!(model.default_effort.as_deref(), Some("medium"));
 }
 
