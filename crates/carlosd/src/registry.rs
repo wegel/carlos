@@ -141,6 +141,7 @@ impl SavedSession {
             turn_started_at: None,
             context: None,
             quota: None,
+            status: None,
         }
     }
 

@@ -1,19 +1,18 @@
 //! Draw the existing lazy transcript blocks and composer from client-owned facts.
 
 use carlos_core::session::models::Role;
-use carlos_proto::session::Availability;
 use ratatui::buffer::Buffer;
 use ratatui::style::Style;
 use ratatui::Frame;
 
 use super::transcript::Transcript;
 use super::Device;
-use crate::app::render::{draw_composer, draw_rendered_line, draw_str, fill_rect};
+use crate::app::render::{draw_rendered_line, draw_str, fill_rect};
 use crate::app::render_cache_state::TranscriptSource;
 use crate::app::render_input::compute_composer_layout;
 use crate::app::tool_summary::tool_gutter;
 use crate::app::view_models::TerminalSize;
-use crate::theme::{role_gutter_fg, role_gutter_symbol, role_row_bg, role_text_style, COLOR_TEXT};
+use crate::theme::{role_gutter_fg, role_gutter_symbol, role_row_bg, role_text_style};
 
 impl Device {
     pub(super) fn draw(&mut self, frame: &mut Frame<'_>) {
@@ -71,81 +70,6 @@ impl Device {
             layout.cursor_x.min(size.width.saturating_sub(1)) as u16,
             layout.cursor_y.min(size.height.saturating_sub(1)) as u16,
         ));
-    }
-
-    fn question_waiting_status(&self, status: String) -> String {
-        let count = self.client.session(&self.session).map_or(0, |replica| {
-            replica
-                .approvals()
-                .iter()
-                .filter(|card| !card.submitted)
-                .count()
-        });
-        if self.selected_approval().is_none() && count > 0 {
-            format!("{status} · F4: request waiting ({count})")
-        } else {
-            status
-        }
-    }
-
-    fn draw_footer(
-        &self,
-        buffer: &mut Buffer,
-        size: TerminalSize,
-        layout: &crate::app::render_input::InputLayout,
-        content_x: usize,
-    ) {
-        let width = size.width.saturating_sub(content_x + 1);
-        let info = self
-            .client
-            .session(&self.session)
-            .map(|replica| replica.info());
-        let status = self.view.status_hint.clone().unwrap_or_else(|| {
-            if self.waiting_ready {
-                return "Waiting for the session to become ready; your draft is kept. Press Enter again when ready".into();
-            }
-            if self.reading.loading {
-                return "Loading visible source… · F6 retries failed reads".into();
-            }
-            info.map_or_else(
-                || "Connecting…".into(),
-                |info| {
-                    if info.availability == Availability::Ready
-                        && !self.client.current_session_is_ready(&self.session)
-                    {
-                        "Restoring session…".into()
-                    } else if info.availability == Availability::Ready {
-                        format!("{:?}", info.phase)
-                    } else {
-                        format!("{:?}", info.availability)
-                    }
-                },
-            )
-        });
-        let status = self.dictation_status(self.task_status(self.queue_status(status)));
-        let status = self.question_waiting_status(status);
-        crate::app::render::draw_status_separator(
-            buffer,
-            layout.input_top.saturating_sub(2),
-            size.width.saturating_sub(1),
-            false,
-        );
-        draw_str(
-            buffer,
-            content_x,
-            layout.input_top.saturating_sub(2),
-            &status,
-            Style::default().fg(COLOR_TEXT),
-            width,
-        );
-        let name = self
-            .view
-            .input
-            .is_empty()
-            .then(|| info.and_then(|info| info.name.as_deref()))
-            .flatten();
-        draw_composer(buffer, size, layout, content_x, false, name);
-        self.draw_approval(buffer, size);
     }
 
     fn draw_question_cursor(&self, frame: &mut Frame<'_>, size: TerminalSize) -> bool {

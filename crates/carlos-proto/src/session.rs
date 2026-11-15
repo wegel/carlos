@@ -66,6 +66,8 @@ pub struct SessionInfo {
     pub turn_started_at: Option<i64>,
     pub context: Option<Context>,
     pub quota: Option<Quota>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<Box<crate::status::StatusFacts>>,
 }
 
 /// Source text classifications; clients decide how to wrap and style each kind.

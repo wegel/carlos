@@ -90,13 +90,18 @@ impl ClaudeQuota {
 
     /// Reuse Carlos's weekly pace color only for the shared seven-day bucket.
     pub fn indicator(&self) -> Option<WeeklyUsage> {
+        self.indicator_at(unix_now())
+    }
+
+    /// Preserve the exact native reset timestamp when publishing with a captured clock.
+    pub fn indicator_at(&self, now: i64) -> Option<WeeklyUsage> {
         let window = self.windows.get("seven_day")?;
         RateWindow::new(
             window.used.round() as u64,
             Some(WEEK_MINUTES),
             Some(window.reset),
         )
-        .indicator(unix_now())
+        .indicator(now)
     }
 
     fn fraction(&mut self, key: &str, value: &Value) {

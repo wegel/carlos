@@ -38,6 +38,7 @@ mod settings_save;
 mod settings_submit;
 mod source_copy;
 mod source_formatter;
+mod status;
 mod tasks;
 mod tasks_activity;
 mod tasks_activity_reads;
@@ -81,6 +82,7 @@ struct Device {
     tasks: tasks::Tasks,
     questions: questions::Questions,
     settings: settings::Settings,
+    status: status::StatusClock,
     waiting_ready: bool,
 }
 
@@ -102,6 +104,7 @@ pub(super) fn run(socket: &Path, options: &CliOptions) -> Result<()> {
         tasks: tasks::Tasks::default(),
         questions: questions::Questions::default(),
         settings: settings::Settings::default(),
+        status: status::StatusClock::default(),
         waiting_ready: false,
     };
     device.view.layout.themes = super::tool_output_preferences::load_themes();
@@ -118,6 +121,7 @@ impl Device {
             loop {
                 redraw |= self.expire_queue_mode_notice();
                 redraw |= self.tick_task_countdowns();
+                redraw |= self.tick_status_clock();
                 if let Some(link) = transport.as_mut() {
                     match self.service(link) {
                         Ok(changed) => redraw |= changed,

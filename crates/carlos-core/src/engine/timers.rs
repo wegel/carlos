@@ -7,6 +7,7 @@ use super::owner::Owner;
 use crate::backend::BackendKind;
 use crate::session::actions::ServerRequestAction;
 use crate::session::codex::{goals, queue, reconnect_runtime, reconnect_streams, settings};
+use crate::session::state::SessionState;
 
 impl Owner {
     pub(super) fn tick(&mut self) {
@@ -17,6 +18,7 @@ impl Owner {
         if self.client.kind() == BackendKind::Claude {
             self.tick_claude_reads(now);
         } else if self.client.kind() == BackendKind::Codex {
+            self.session.tick_rate_limits(self.client.as_ref(), now);
             let scope = self.session.codex_scope();
             reconnect_streams::tick(self.client.as_ref(), &mut self.session, now);
             reconnect_runtime::tick(self.client.as_ref(), &mut self.session);
@@ -73,6 +75,7 @@ impl Owner {
         let now = Instant::now();
         [
             self.session.claude_context_wait(now),
+            rate_limits_wait(&self.session, self.native.closed, now),
             crate::session::codex::panel::wait(&self.session, self.task_read_scope(), now),
             crate::session::codex::task_status::wait(&self.session, self.task_read_scope(), now),
             self.session.pending_ralph_continuation_wait(now),
@@ -94,3 +97,13 @@ impl Owner {
         .min(Duration::from_secs(1))
     }
 }
+
+fn rate_limits_wait(session: &SessionState, closed: bool, now: Instant) -> Option<Duration> {
+    (!closed && session.backend_reads_ready())
+        .then(|| session.rate_limits().wait(now))
+        .flatten()
+}
+
+#[cfg(test)]
+#[path = "timers_tests.rs"]
+mod tests;

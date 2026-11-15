@@ -53,11 +53,13 @@ impl SessionState {
     }
 
     pub(super) fn event_quota(&self) -> Option<Quota> {
-        if self.events.backend != Backend::Codex {
-            return None;
-        }
         let now = unix_now();
-        self.rate_limits.indicator_at(now).map(|quota| Quota {
+        let quota = match self.events.backend {
+            Backend::Codex => self.rate_limits.indicator_at(now),
+            Backend::Claude => self.claude.quota().indicator_at(now),
+            Backend::Grok => None,
+        };
+        quota.map(|quota| Quota {
             remaining_pct: quota.remaining() as f64,
             resets_at: Some(now + quota.remaining_seconds()),
         })
@@ -83,6 +85,7 @@ impl SessionState {
                     max: c.max,
                 })
             || info.quota != self.event_quota()
+            || info.status.as_deref() != Some(&self.export_status())
     }
 
     fn event_turn_start(&self) -> Option<i64> {
@@ -118,6 +121,7 @@ impl SessionState {
                 max: c.max,
             }),
             quota: self.event_quota(),
+            status: Some(Box::new(self.export_status())),
         }
     }
 }

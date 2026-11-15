@@ -164,6 +164,7 @@ mod event_reads;
 mod event_rows;
 pub mod events;
 mod queue_preview;
+mod status_publication;
 pub mod task_activity;
 mod task_activity_reads;
 #[cfg(test)]

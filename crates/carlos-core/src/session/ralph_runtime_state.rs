@@ -272,6 +272,12 @@ impl RalphRuntimeState {
         self.toggle_pending
     }
 
+    pub(crate) fn is_waiting_for_user(&self) -> bool {
+        self.current
+            .as_ref()
+            .is_some_and(|ralph| ralph.waiting_for_user)
+    }
+
     /// Mark user turn submitted.
     pub fn mark_user_turn_submitted(&mut self) {
         if let Some(ralph) = self.current.as_mut() {

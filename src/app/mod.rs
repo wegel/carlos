@@ -126,6 +126,7 @@ mod state_status;
 mod state_summaries;
 mod state_thread;
 mod state_transcript;
+mod status_line;
 mod style_convert;
 mod task_badge;
 mod task_panel_rows;

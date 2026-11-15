@@ -52,6 +52,12 @@ impl Replica {
             + info.model.as_ref().map_or(0, String::len)
             + info.host.len()
             + info.cwd.as_ref().map_or(0, String::len);
+        let status = info
+            .status
+            .as_ref()
+            .and_then(|status| status.activity.as_ref())
+            .and_then(|activity| activity.transient.as_ref())
+            .map_or(0, |label| label.text.len());
         let goal = self.goal.as_ref().map_or(0, |facts| {
             facts.read_error.as_ref().map_or(0, String::len)
                 + facts.notice.len()
@@ -69,6 +75,7 @@ impl Replica {
         self.rows.retained_bytes()
             + self.approvals.retained_bytes()
             + strings
+            + status
             + goal
             + queue
             + tasks
