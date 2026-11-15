@@ -336,3 +336,6 @@ mod codex_question_contract_tests;
 
 #[cfg(test)]
 mod approval_fact_contract_tests;
+
+#[cfg(test)]
+mod claude_process_contract_tests;

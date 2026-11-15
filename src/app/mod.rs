@@ -17,16 +17,12 @@ mod claude_edit;
 mod claude_edit_view;
 mod claude_models;
 #[cfg(test)]
-mod claude_notices;
-#[cfg(test)]
 mod claude_notifications;
 mod claude_question_field;
 mod claude_question_input;
 mod claude_question_state;
 mod claude_question_view;
 mod claude_quota;
-#[cfg(test)]
-mod claude_reset;
 mod claude_rewind;
 mod claude_session_history;
 mod claude_task_view;
@@ -99,8 +95,6 @@ mod state;
 mod state_approval_view;
 mod state_dictation;
 mod state_input;
-#[cfg(test)]
-mod state_items;
 mod state_ralph;
 mod state_settings;
 mod state_status;
@@ -203,10 +197,6 @@ pub(crate) fn run() -> Result<()> {
 mod tests;
 
 #[cfg(test)]
-#[path = "../tests/claude_process_parity_tests.rs"]
-mod claude_process_parity_tests;
-
-#[cfg(test)]
 #[path = "../tests/claude_edit_parity_support.rs"]
 mod claude_edit_parity_support;
 #[cfg(test)]
@@ -219,9 +209,6 @@ mod claude_updates;
 
 mod backend_updates;
 
-#[cfg(test)]
-#[path = "../tests/claude_process_support.rs"]
-mod claude_process_test_support;
 #[cfg(test)]
 #[path = "../tests/claude_backend_tests/normalized_app.rs"]
 mod normalized_test_app;
