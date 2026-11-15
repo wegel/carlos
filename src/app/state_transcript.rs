@@ -82,13 +82,6 @@ impl AppState {
         index
     }
 
-    #[cfg(test)]
-    pub(super) fn set_command_override(&mut self, call_id: &str, summary: String) {
-        let key = self.item_key(call_id);
-        self.session.set_command_override(&key, summary);
-        self.consume_core_events();
-    }
-
     // --- Rendered lines & selection ---
 
     pub(super) fn rendered_line_count(&self) -> usize {

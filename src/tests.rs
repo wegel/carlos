@@ -35,9 +35,7 @@ pub(super) use carlos_core::protocol_params::{
 };
 pub(super) use carlos_core::session::actions::ServerRequestAction;
 pub(super) use carlos_core::session::models::Message;
-pub(super) use carlos_core::session::tools::{
-    command_execution_diff_output, extract_diff_blocks, format_tool_item,
-};
+pub(super) use carlos_core::session::tools::{command_execution_diff_output, extract_diff_blocks};
 pub(super) use ratatui::buffer::Buffer;
 pub(super) use ratatui::layout::Rect;
 pub(super) use ratatui::style::Style;
@@ -74,8 +72,6 @@ mod notification_tests;
 mod phone_layout_tests;
 #[path = "tests/render_fixture.rs"]
 pub(super) mod render_fixture;
-#[path = "tests/rtk_transcript_tests.rs"]
-mod rtk_transcript_tests;
 #[path = "tests/runtime_tests.rs"]
 mod runtime_tests;
 #[path = "tests/shell_command_tests.rs"]
@@ -90,10 +86,10 @@ mod summary_render_tests;
 mod theme_preferences_tests;
 #[path = "tests/three_c_tests.rs"]
 mod three_c_tests;
-#[path = "tests/tool_output_item_tests.rs"]
-mod tool_output_item_tests;
 #[path = "tests/tool_output_tests.rs"]
 mod tool_output_tests;
+#[path = "tests/tool_result_render_tests.rs"]
+mod tool_result_render_tests;
 #[path = "tests/transcript_spacing_tests.rs"]
 mod transcript_spacing_tests;
 #[path = "tests/ui_render_tests.rs"]

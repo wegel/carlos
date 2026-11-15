@@ -1,10 +1,11 @@
-//! Check original RTK commands, read colors, and full/compact views across reloads.
+//! Keep RTK native command bytes, parsed read facts and full failure references exact.
 
-use carlos_core::session::models::Role;
+use crate::session::models::Role;
 use serde_json::{json, Value};
 
-use super::{append_history_from_thread, format_tool_item, handle_notification_line, AppState};
-use crate::app::tool_output_state::ToolOutputMode;
+use super::{feed as handle_notification_line, session};
+use crate::session::item_history::append_history_from_thread;
+use crate::session::tools::format_tool_item;
 
 fn read_item() -> Value {
     json!({"type":"commandExecution", "id":"rtk-read",
@@ -46,87 +47,53 @@ fn wrapped_ssh_keeps_its_original_transport_command() {
 #[test]
 fn live_and_reopened_rtk_reads_have_the_same_path_colors_and_gutter() {
     let item = read_item();
-    let mut live = AppState::new("thread".into());
+    let mut live = session("thread");
     handle_notification_line(
         &mut live,
         &json!({"method":"item/completed", "params":{"item":item}}).to_string(),
     );
-    let mut history = AppState::new("thread".into());
+    let mut history = session("thread");
     append_history_from_thread(&mut history, &json!({"turns":[{"items":[item]}]}));
-    assert_eq!(
-        live.session.messages()[0].text,
-        history.session.messages()[0].text
-    );
-    for mut app in [live, history] {
+    assert_eq!(live.messages()[0].text, history.messages()[0].text);
+    for app in [live, history] {
         assert_eq!(
-            app.session.messages()[0].file_path.as_deref(),
+            app.messages()[0].file_path.as_deref(),
             Some("src/main file.rs")
         );
         assert_eq!(
-            app.session.messages()[0]
+            app.messages()[0]
                 .tool_output
                 .as_ref()
                 .expect("details")
                 .summary,
             "→ Read src/main file.rs"
         );
-        app.ensure_rendered_lines(100, None);
-        let lines = app.snapshot_rendered_lines();
-        assert!(lines[0]
-            .text
-            .starts_with("$ rtk --verbose proxy --skip-env -- rtk read"));
-        let line = lines
-            .iter()
-            .find(|line| line.text.contains("let value"))
-            .expect("source row");
-        assert_eq!(line.text, "2 │     let value = \"hello\";");
-        let keyword = line
-            .styled_segments
-            .iter()
-            .find(|span| span.text.contains("let"))
-            .expect("keyword")
-            .style
-            .fg;
-        let string = line
-            .styled_segments
-            .iter()
-            .find(|span| span.text.contains("hello"))
-            .expect("string")
-            .style
-            .fg;
-        assert_ne!(keyword, string);
-        app.view.tool_output.mode = ToolOutputMode::Compact;
-        app.ensure_rendered_lines(50, None);
-        assert!(app
-            .snapshot_rendered_lines()
-            .iter()
-            .any(|line| line.text.contains("src/main file.rs")));
     }
 }
 
 #[test]
 fn rtk_failures_keep_received_details_and_saved_log_references_in_full() {
-    let mut app = AppState::new("thread".into());
+    let mut app = session("thread");
     let item = json!({"type":"commandExecution", "id":"test", "command":"rtk cargo test -p example",
         "aggregatedOutput":"FAILED: 1/3 tests\n[full output: /tmp/rtk-fixture-test.log]", "exitCode":101});
     handle_notification_line(
         &mut app,
         &json!({"method":"item/completed", "params":{"item":item}}).to_string(),
     );
-    assert!(app.session.messages()[0]
+    assert!(app.messages()[0]
         .text
         .contains("[full output: /tmp/rtk-fixture-test.log]"));
-    app.view.tool_output.mode = ToolOutputMode::Compact;
-    app.ensure_rendered_lines(80, None);
-    assert!(app
-        .snapshot_rendered_lines()
-        .iter()
-        .any(
-            |line| line.text.contains("Test cargo test -p example") && line.text.contains("failed")
-        ));
-    app.view.tool_output.mode = ToolOutputMode::Full;
-    app.ensure_rendered_lines(80, None);
-    assert!(app.snapshot_rendered_lines().iter().any(|line| line
-        .text
-        .contains("[full output: /tmp/rtk-fixture-test.log]")));
+    assert!(
+        app.messages()[0]
+            .tool_output
+            .as_ref()
+            .expect("details")
+            .failed
+    );
+    assert!(app.messages()[0]
+        .tool_output
+        .as_ref()
+        .expect("details")
+        .summary
+        .contains("Test cargo test -p example"));
 }

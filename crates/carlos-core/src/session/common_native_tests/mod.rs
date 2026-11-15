@@ -21,11 +21,13 @@ mod prompt_bindings;
 mod review_cursor;
 mod review_history;
 mod rewind_anchors;
+mod rtk_results;
 mod shell_rendering;
 mod summaries;
 mod tool_command_views;
 mod tool_fallbacks;
 mod tool_overrides;
+mod tool_results;
 mod turn_lifecycle;
 
 use super::actions::ServerRequestAction;

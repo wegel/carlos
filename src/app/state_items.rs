@@ -70,11 +70,4 @@ impl AppState {
         self.session.normalize_reasoning_at(idx);
         self.consume_core_events();
     }
-
-    #[cfg(test)]
-    pub(super) fn upsert_command_output_delta(&mut self, item_id: &str, delta: &str) {
-        let key = self.item_key(item_id);
-        self.session.upsert_command_output_delta(&key, delta);
-        self.consume_core_events();
-    }
 }
