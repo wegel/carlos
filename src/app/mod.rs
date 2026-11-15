@@ -245,10 +245,6 @@ mod input_history_split_tests;
 mod claude_metadata_parity_tests;
 
 #[cfg(test)]
-#[path = "../tests/claude_read_parity_tests.rs"]
-mod claude_read_parity_tests;
-
-#[cfg(test)]
 #[path = "../tests/claude_browser_parity_tests.rs"]
 mod claude_browser_parity_tests;
 #[cfg(test)]

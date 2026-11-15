@@ -63,3 +63,6 @@ mod task_behavior_tests;
 
 #[cfg(test)]
 mod callback_contract_tests;
+
+#[cfg(test)]
+mod quota_legacy_contract_tests;

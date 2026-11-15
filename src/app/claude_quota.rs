@@ -22,14 +22,3 @@ pub(super) fn tick(app: &mut AppState, client: &dyn BackendClient, now: Instant)
     app.session.tick_claude_quota(client, now);
     redraw
 }
-
-/// Wake for the earlier countdown draw or optional backend read.
-#[cfg(test)]
-pub(super) fn wait(app: &AppState, now: Instant) -> Option<Duration> {
-    app.view
-        .claude_quota_next_draw
-        .into_iter()
-        .map(|deadline| deadline.saturating_duration_since(now))
-        .chain(app.session.claude().quota().wait(now))
-        .min()
-}
