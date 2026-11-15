@@ -1,6 +1,6 @@
 //! Keep widget colors, footer labels and viewport anchors on the live device's draw path.
 
-use carlos_core::session::models::Role;
+use carlos_core::session::models::{EntryDraft, MessageKind, Role, ToolOutputDetails};
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
@@ -195,5 +195,68 @@ fn mouse_selection_uses_the_same_gutter_as_the_terminal_after_resize() {
             crate::app::selection::selected_text(selection, &all_rows(&mut device)),
             "cde"
         );
+    }
+}
+
+#[test]
+fn changing_tool_modes_keeps_a_scrolled_message_in_view() {
+    let mut device = device(
+        vec![
+            render_fixture::draft(EntryDraft {
+                role: Role::ToolOutput,
+                kind: MessageKind::Plain,
+                text: (0..12)
+                    .map(|i| format!("source line {i}"))
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                file_path: None,
+                tool_output: Some(ToolOutputDetails {
+                    generated: false,
+                    summary: "→ Read main.rs".into(),
+                    failed: false,
+                }),
+            }),
+            render_fixture::row(Role::Assistant, "read this answer"),
+        ],
+        false,
+    );
+    device.view.tool_output.mode = ToolOutputMode::Full;
+    device.view.viewport.auto_follow_bottom = false;
+    layout(&mut device, TranscriptTheme::Gutter, 80);
+    device.view.viewport.scroll_top = device.view.render_cache.block_start(1).expect("answer");
+    device.remember_anchor();
+    device.view.tool_output.mode = ToolOutputMode::Compact;
+    layout(&mut device, TranscriptTheme::Gutter, 80);
+    assert_eq!(
+        device.view.viewport.scroll_top,
+        device.view.render_cache.block_start(1).expect("answer")
+    );
+    let row = device.view.viewport.scroll_top + 1;
+    assert_eq!(all_rows(&mut device)[row].text, "read this answer");
+}
+
+#[test]
+fn weekly_and_context_labels_keep_their_cells_when_the_model_must_shorten() {
+    let session = "a".repeat(32).parse().expect("fixture session");
+    let mut info = super::widget_fixture::info(session, false);
+    info.model = Some("abcdefghijklmnopqrstuvwxyz".into());
+    info.context = Some(carlos_proto::session::Context {
+        used: 90_000,
+        max: 100_000,
+    });
+    info.quota = Some(carlos_proto::session::Quota {
+        remaining_pct: 50.0,
+        resets_at: Some(carlos_core::session::usage::unix_now() + 3 * 86_400),
+    });
+    let mut device = super::widget_fixture::device_with_info(Vec::new(), info);
+    for (width, expected) in [
+        (28, "━ a… 90k/100k 90% W50%/3.0d "),
+        (36, "━ abcdefghi… 90k/100k 90% W50%/3.0d "),
+        (54, "━━━ abcdefghijklmnopqrstuvwxyz 90k/100k 90% W50%/3.0d "),
+    ] {
+        let screen = draw(&mut device, width, 3);
+        let start = width as usize;
+        let line: String = screen.chars().skip(start).take(width as usize).collect();
+        assert_eq!(line, expected, "width={width}");
     }
 }

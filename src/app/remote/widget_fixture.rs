@@ -15,6 +15,11 @@ use crate::app::view_state::ViewState;
 
 pub(super) fn device(rows: Vec<PerfRow>, ralph: bool) -> Device {
     let session: SessionId = "a".repeat(32).parse().expect("fixture session");
+    device_with_info(rows, info(session, ralph))
+}
+
+pub(super) fn device_with_info(rows: Vec<PerfRow>, info: SessionInfo) -> Device {
+    let session = info.id.clone();
     let mut client = Client::default();
     let hello = client.begin("widget-fixture".into()).expect("greet");
     reply(
@@ -32,7 +37,7 @@ pub(super) fn device(rows: Vec<PerfRow>, ralph: bool) -> Device {
         )
         .expect("subscribe");
     let snapshot = Snapshot {
-        info: info(session.clone(), ralph),
+        info,
         entries: rows.iter().map(|row| row.entry.clone()).collect(),
         approvals: Vec::new(),
         seq: Sequence::new(1),
@@ -137,7 +142,7 @@ fn greeting() -> HelloResult {
     }
 }
 
-fn info(id: SessionId, ralph: bool) -> SessionInfo {
+pub(super) fn info(id: SessionId, ralph: bool) -> SessionInfo {
     SessionInfo {
         id,
         name: None,

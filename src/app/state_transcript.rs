@@ -83,18 +83,6 @@ impl AppState {
     }
 
     #[cfg(test)]
-    pub(super) fn append_diff_message(
-        &mut self,
-        role: Role,
-        file_path: Option<String>,
-        diff: impl Into<String>,
-    ) -> usize {
-        let index = self.session.append_diff_message(role, file_path, diff);
-        self.consume_core_events();
-        index
-    }
-
-    #[cfg(test)]
     pub(super) fn upsert_turn_diff(&mut self, turn_id: &str, diff: &str) {
         self.session.upsert_turn_diff(turn_id, diff);
         self.consume_core_events();

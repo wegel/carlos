@@ -6,10 +6,13 @@ use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
 use carlos_core::session::models::ToolOutputDetails;
 
-use super::{AppState, TerminalSize};
+use super::{render_fixture, AppState, TerminalSize};
+use crate::app::perf_view::PerfView;
 use crate::app::state::ModelSettingsField;
 use crate::app::tool_output_preferences::{load_mode_from, save_mode_to};
 use crate::app::tool_output_state::{ToolOutputMode, ToolOutputState};
+use carlos_core::perf_fixture::PerfRow;
+use carlos_core::session::models::EntryDraft;
 
 fn size(width: usize, height: usize) -> TerminalSize {
     TerminalSize { width, height }
@@ -35,6 +38,31 @@ fn long_output(app: &mut AppState) -> usize {
 fn screen(app: &mut AppState, width: usize) -> String {
     app.ensure_rendered_lines(width, None);
     app.snapshot_rendered_lines()
+        .iter()
+        .map(|line| line.text.as_str())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn plain_output() -> PerfRow {
+    render_fixture::draft(EntryDraft {
+        role: Role::ToolOutput,
+        kind: MessageKind::Plain,
+        text: (0..12)
+            .map(|i| format!("source line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n"),
+        file_path: None,
+        tool_output: Some(ToolOutputDetails {
+            generated: false,
+            summary: "→ Read main.rs".into(),
+            failed: false,
+        }),
+    })
+}
+
+fn plain_screen(view: &mut PerfView, width: usize) -> String {
+    render_fixture::snapshot(view, width)
         .iter()
         .map(|line| line.text.as_str())
         .collect::<Vec<_>>()
@@ -120,34 +148,30 @@ fn settings_report_the_automatic_choice_and_arrow_keys_wrap_both_ways() {
 
 #[test]
 fn folding_and_unfolding_never_changes_the_saved_message() {
-    let mut app = AppState::new("thread".into());
-    let idx = long_output(&mut app);
-    let original = app.session.messages()[idx].text.clone();
-    assert!(screen(&mut app, 80).contains("source line 11"));
-    app.view.tool_output.mode = ToolOutputMode::Compact;
-    let compact = screen(&mut app, 80);
+    let mut view = render_fixture::view(vec![plain_output()]);
+    let original = view.rows[0].text().to_owned();
+    assert!(plain_screen(&mut view, 80).contains("source line 11"));
+    view.view.tool_output.mode = ToolOutputMode::Compact;
+    let compact = plain_screen(&mut view, 80);
     assert!(compact.contains("main.rs"));
     assert!(compact.trim_end().ends_with("12"));
     assert!(!compact.contains("source line 11"));
-    assert_eq!(app.session.messages()[idx].text, original);
-    app.view.tool_output.mode = ToolOutputMode::Full;
-    assert_eq!(screen(&mut app, 80), original);
+    assert_eq!(view.rows[0].text(), original);
+    view.view.tool_output.mode = ToolOutputMode::Full;
+    assert_eq!(plain_screen(&mut view, 80), original);
 }
 
 #[test]
 fn compact_hides_short_results_and_failure_details_but_keeps_answers_visible() {
-    let mut app = AppState::new("thread".into());
-    app.view.tool_output.mode = ToolOutputMode::Compact;
-    app.append_message(Role::ToolOutput, "short output");
-    let idx = long_output(&mut app);
-    let mut details = app.session.messages()[idx]
-        .tool_output
-        .clone()
-        .expect("details");
-    details.failed = true;
-    app.session.transcript_set_tool(idx, details);
-    app.append_message(Role::Assistant, "answer\n".repeat(10));
-    let text = screen(&mut app, 80);
+    let mut failed = plain_output();
+    failed.entry.tool.as_mut().expect("details").status = carlos_proto::session::ToolStatus::Failed;
+    let mut view = render_fixture::view(vec![
+        render_fixture::row(Role::ToolOutput, "short output"),
+        failed,
+        render_fixture::row(Role::Assistant, "answer\n".repeat(10)),
+    ]);
+    view.view.tool_output.mode = ToolOutputMode::Compact;
+    let text = plain_screen(&mut view, 80);
     assert!(!text.contains("short output"));
     assert!(!text.contains("source line 11"));
     assert!(text.contains("failed"));
@@ -158,65 +182,36 @@ fn compact_hides_short_results_and_failure_details_but_keeps_answers_visible() {
 #[test]
 fn compact_counts_wrapped_rows_and_keeps_the_cache_consistent_at_phone_widths() {
     for width in [8, 20, 40, 80] {
-        let mut app = AppState::new("thread".into());
-        app.view.tool_output.mode = ToolOutputMode::Compact;
-        app.append_message(Role::ToolOutput, "let greeting = \"héllo 🌍\"; ".repeat(30));
-        app.ensure_rendered_lines(width, None);
-        let count = app.rendered_line_count();
-        assert_eq!(app.snapshot_rendered_lines().len(), count);
-        assert!(app
-            .snapshot_rendered_lines()
-            .iter()
-            .all(|line| line.cells <= width));
+        let mut view = render_fixture::view(vec![render_fixture::row(
+            Role::ToolOutput,
+            "let greeting = \"héllo 🌍\"; ".repeat(30),
+        )]);
+        view.view.tool_output.mode = ToolOutputMode::Compact;
+        view.ensure_rendered_lines(width);
+        let count = view.rendered_line_count();
+        let lines = render_fixture::snapshot_current(&mut view);
+        assert_eq!(lines.len(), count);
+        assert!(lines.iter().all(|line| line.cells <= width));
     }
 }
 
 #[test]
 fn a_folded_diff_keeps_filename_and_change_counts() {
-    let mut app = AppState::new("thread".into());
-    app.view.tool_output.mode = ToolOutputMode::Compact;
-    app.append_diff_message(
-        Role::ToolOutput,
-        Some("main.rs".into()),
-        "@@ -1,4 +1,4 @@\n-old1\n-old2\n-old3\n-old4\n+new1\n+new2\n+new3\n+new4\n",
-    );
-    assert_eq!(app.session.messages()[0].kind, MessageKind::Diff);
-    assert!(screen(&mut app, 80).contains("main.rs +4 −4"));
-    app.view.tool_output.mode = ToolOutputMode::Full;
-    assert!(screen(&mut app, 80).contains("+new4"));
-}
-
-#[test]
-fn changing_modes_keeps_a_scrolled_message_in_view() {
-    let mut app = AppState::new("thread".into());
-    long_output(&mut app);
-    app.append_message(Role::Assistant, "read this answer");
-    app.ensure_rendered_lines(80, None);
-    app.view.viewport.scroll_top = app
-        .view
-        .render_cache
-        .block_start(1)
-        .expect("rendered entry");
-    app.view.viewport.auto_follow_bottom = false;
-    app.view.tool_output.mode = ToolOutputMode::Compact;
-    app.ensure_rendered_lines(80, None);
+    let mut view = render_fixture::view(vec![render_fixture::draft(EntryDraft {
+        role: Role::ToolOutput,
+        kind: MessageKind::Diff,
+        file_path: Some("main.rs".into()),
+        text: "@@ -1,4 +1,4 @@\n-old1\n-old2\n-old3\n-old4\n+new1\n+new2\n+new3\n+new4\n".into(),
+        tool_output: None,
+    })]);
+    view.view.tool_output.mode = ToolOutputMode::Compact;
     assert_eq!(
-        app.view.viewport.scroll_top,
-        app.view
-            .render_cache
-            .block_start(1)
-            .expect("rendered entry")
+        view.rows[0].entry.format,
+        carlos_proto::session::EntryFormat::Diff
     );
-    app.ensure_rendered_range_materialized(
-        app.view.viewport.scroll_top + 1,
-        app.view.viewport.scroll_top + 1,
-    );
-    assert_eq!(
-        app.rendered_line_at(app.view.viewport.scroll_top + 1)
-            .expect("answer")
-            .text,
-        "read this answer"
-    );
+    assert!(plain_screen(&mut view, 80).contains("main.rs +4 −4"));
+    view.view.tool_output.mode = ToolOutputMode::Full;
+    assert!(plain_screen(&mut view, 80).contains("+new4"));
 }
 
 #[test]

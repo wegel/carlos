@@ -60,39 +60,3 @@ fn phone_sweep_handles_empty_and_single_column_lines() {
     assert_eq!(frame[(0, 0)].symbol(), "界");
     assert_eq!(frame[(0, 0)].fg, kitt_color_for_distance(0, false));
 }
-
-#[test]
-fn weekly_and_context_labels_keep_their_cells_when_the_model_must_shorten() {
-    use crate::app::state::AppState;
-    use crate::app::view_models::TerminalSize;
-    use carlos_core::session::context_usage::ContextUsage;
-
-    let mut app = AppState::new("thread".into());
-    app.set_runtime_settings(Some("abcdefghijklmnopqrstuvwxyz".into()), None, None);
-    app.session.set_context_usage(Some(ContextUsage {
-        used: 90000,
-        max: 100000,
-    }));
-    let reset = carlos_core::session::usage::unix_now() + 3 * 86400;
-    app.session
-        .update_rate_limits(&serde_json::json!({"secondary":{
-        "usedPercent":50,"windowDurationMins":10080,"resetsAt":reset}}));
-    for (width, expected) in [
-        (28, "━ a… 90k/100k 90% W50%/3.0d "),
-        (36, "━ abcdefghi… 90k/100k 90% W50%/3.0d "),
-        (54, "━━━ abcdefghijklmnopqrstuvwxyz 90k/100k 90% W50%/3.0d "),
-    ] {
-        let mut frame = Buffer::empty(Rect::new(0, 0, width, 3));
-        super::draw_status_bar(
-            &mut frame,
-            &app,
-            TerminalSize {
-                width: width as usize,
-                height: 32,
-            },
-            3,
-        );
-        let line: String = (0..width).map(|x| frame[(x, 1)].symbol()).collect();
-        assert_eq!(line, expected, "width={width}");
-    }
-}
