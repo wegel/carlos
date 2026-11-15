@@ -12,10 +12,6 @@ use super::state::AppState;
 pub(super) use super::turn_approval::respond_to_pending_approval;
 pub(super) use super::turn_interrupt::interrupt_active_turn;
 
-#[cfg(test)]
-#[path = "turn_submit_history.rs"]
-mod history;
-
 /// Submit an ordinary human prompt through the session owner.
 pub(super) fn submit_turn_text(client: &dyn BackendClient, app: &mut AppState, text: String) {
     submit_turn_text_with_history(client, app, text, true);

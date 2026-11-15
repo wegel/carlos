@@ -83,12 +83,6 @@ impl AppState {
     }
 
     #[cfg(test)]
-    pub(super) fn upsert_turn_diff(&mut self, turn_id: &str, diff: &str) {
-        self.session.upsert_turn_diff(turn_id, diff);
-        self.consume_core_events();
-    }
-
-    #[cfg(test)]
     pub(super) fn set_command_override(&mut self, call_id: &str, summary: String) {
         let key = self.item_key(call_id);
         self.session.set_command_override(&key, summary);

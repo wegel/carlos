@@ -14,20 +14,6 @@ impl AppState {
         self.session.backend_entry_key(item_id)
     }
 
-    /// Keep native IDs unchanged while selecting a separate display part.
-    #[cfg(test)]
-    pub(super) fn with_item_part<R>(
-        &mut self,
-        item: &str,
-        part: usize,
-        apply: impl FnOnce(&mut Self, &str) -> R,
-    ) -> R {
-        let previous = self.session.replace_codex_item_part(part);
-        let result = apply(self, item);
-        self.session.replace_codex_item_part(previous);
-        result
-    }
-
     /// Resolve an id only at the boundary of an in-process store operation.
     #[cfg(test)]
     pub(super) fn item_message_index(&self, item_id: &str) -> Option<usize> {
@@ -46,22 +32,8 @@ impl AppState {
     }
 
     #[cfg(test)]
-    pub(super) fn mark_item_completed(&mut self, item_id: &str) {
-        let key = self.item_key(item_id);
-        self.session.mark_item_completed(&key);
-    }
-
-    #[cfg(test)]
     pub(super) fn is_item_completed(&self, item_id: &str) -> bool {
         self.session.is_item_completed(&self.item_key(item_id))
-    }
-
-    #[cfg(test)]
-    pub(super) fn ensure_item_placeholder(&mut self, item_id: &str, role: Role) -> bool {
-        let key = self.item_key(item_id);
-        let result = self.session.ensure_item_placeholder(&key, role);
-        self.consume_core_events();
-        result
     }
 
     // --- Completed Items ---

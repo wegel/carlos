@@ -1,10 +1,10 @@
 //! Unchanged HEAD row updates; only imports and method visibility are adapted.
 
-use carlos_core::session::read_summary::{format_read_summary_with_count, parse_read_summary};
+use crate::session::read_summary::{format_read_summary_with_count, parse_read_summary};
 
 use super::models::{Message, MessageKind, Role};
 use super::state::AppState;
-pub(super) use carlos_core::session::reasoning::normalize_reasoning_summary_stream;
+pub(super) use crate::session::reasoning::normalize_reasoning_summary_stream;
 
 impl AppState {
     pub(crate) fn append_message(&mut self, role: Role, text: impl Into<String>) -> usize {

@@ -2,11 +2,16 @@
 
 mod activity;
 mod forks;
+mod head_reference;
 mod history_conversation;
+mod history_identity;
 mod identity;
 mod identity_late;
 mod identity_support;
 mod idless_items;
+mod item_sources;
+mod lookup_differential;
+mod lookup_extra;
 
 use super::actions::ServerRequestAction;
 use super::backend_test_support::{action, context};

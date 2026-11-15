@@ -1,15 +1,15 @@
 //! Compare id-based lookups to the former index-map algorithm over generated edit sequences.
 
-use carlos_core::backend::BackendKind;
-use carlos_core::session::models::EntryDraft;
-use carlos_core::session::models::MessageKind;
-use carlos_core::session::models::Role;
+use crate::backend::BackendKind;
+use crate::session::models::EntryDraft;
+use crate::session::models::MessageKind;
+use crate::session::models::Role;
 use serde_json::json;
 
-use super::entry_identity_tests::app;
-use super::head_entry_reference::HeadReference as IndexReference;
-use crate::app::item_history::load_history_from_start_or_resume;
-use crate::app::state::AppState;
+use super::head_reference::HeadReference as IndexReference;
+use super::identity_support::{assert_entries, session_for as app, truncate};
+use crate::session::item_history::load_history_from_start_or_resume;
+use crate::session::state::SessionState;
 
 fn old_key(turn: &str, item: &str, part: usize) -> String {
     format!("codex:{}", json!([turn, item, part]))
@@ -20,19 +20,19 @@ fn reference_upsert(old: &mut IndexReference, key: String, row: EntryDraft) {
 }
 
 fn check(
-    app: &AppState,
+    app: &SessionState,
     old: &IndexReference,
     seed: u64,
     step: usize,
     absent: Option<(&str, &str, usize)>,
 ) {
-    app.assert_entry_invariants();
+    assert_entries(app);
     assert_eq!(
-        app.session.messages().len(),
+        app.messages().len(),
         old.messages.len(),
         "seed {seed} step {step}"
     );
-    for (message, row) in app.session.messages().iter().zip(&old.messages) {
+    for (message, row) in app.messages().iter().zip(&old.messages) {
         assert_eq!(
             (
                 message.role,
@@ -56,11 +56,7 @@ fn check(
             "seed {seed} step {step}"
         );
         assert_eq!(
-            app.session
-                .messages()
-                .entry(message.id)
-                .expect("live id")
-                .id,
+            app.messages().entry(message.id).expect("live id").id,
             message.id
         );
     }
@@ -68,7 +64,7 @@ fn check(
 }
 
 fn check_keys(
-    app: &AppState,
+    app: &SessionState,
     old: &IndexReference,
     seed: u64,
     step: usize,
@@ -77,18 +73,17 @@ fn check_keys(
     for turn in ["t0", "t1", "t2"] {
         for item in ["a", "b", "x#part-1"] {
             for part in 0..3 {
-                let key = carlos_core::session::entry_key::BackendEntryKey {
+                let key = crate::session::entry_key::BackendEntryKey {
                     backend: BackendKind::Codex,
                     conversation: "thread".into(),
                     turn: Some(turn.into()),
-                    item: carlos_core::session::entry_key::NativeEntryKey::Item(item.into()),
+                    item: crate::session::entry_key::NativeEntryKey::Item(item.into()),
                     part,
                 };
                 let actual = app
-                    .session
                     .messages()
                     .entry_id_for_item(&key)
-                    .and_then(|id| app.session.messages().position(id));
+                    .and_then(|id| app.messages().position(id));
                 assert_eq!(
                     actual,
                     if absent.is_some_and(|(t, i, count)| t == turn && i == item && part >= count) {
@@ -105,33 +100,31 @@ fn check_keys(
             }
         }
         assert_eq!(
-            app.session
-                .messages()
+            app.messages()
                 .turn_diff(turn)
-                .and_then(|id| app.session.messages().position(id)),
+                .and_then(|id| app.messages().position(id)),
             old.turn_diff_to_index.get(turn).copied()
         );
     }
 }
 
 fn change_parts(
-    app: &mut AppState,
+    app: &mut SessionState,
     old: &mut IndexReference,
     turn: &str,
     item: &str,
     count: usize,
 ) {
-    app.session
-        .transcript_retain_parts(&app.item_key(item), count);
+    app.transcript_retain_parts(&app.backend_entry_key(item), count);
     for part in 0..count {
         let row = EntryDraft {
             kind: MessageKind::Diff,
             file_path: Some(format!("{part}.rs")),
             ..EntryDraft::plain(Role::ToolOutput, format!("+part {part}"))
         };
-        app.with_item_part(item, part, |app, id| {
+        app.with_native_item_part(item, part, |app, id| {
             app.upsert_mapped_message(
-                id,
+                &app.backend_entry_key(id),
                 row.role,
                 row.text.clone(),
                 row.kind,
@@ -142,7 +135,7 @@ fn change_parts(
     }
 }
 
-fn replace(app: &mut AppState, old: &mut IndexReference, turn: &str, discovered: bool) {
+fn replace(app: &mut SessionState, old: &mut IndexReference, turn: &str, discovered: bool) {
     let mut items = vec![json!({"type":"agentMessage","id":"a","text":"corrected"})];
     if discovered {
         items.insert(0, json!({"type":"agentMessage","id":"b","text":"inserted"}));
@@ -164,13 +157,13 @@ fn replace(app: &mut AppState, old: &mut IndexReference, turn: &str, discovered:
     );
 }
 
-fn aggregate(app: &mut AppState, old: &mut IndexReference, turn: &str) {
+fn aggregate(app: &mut SessionState, old: &mut IndexReference, turn: &str) {
     app.upsert_turn_diff(turn, "+aggregate");
     old.upsert_turn_diff(turn, "+aggregate");
 }
 
 fn complete_or_read(
-    app: &mut AppState,
+    app: &mut SessionState,
     old: &mut IndexReference,
     bits: u64,
     item: &str,
@@ -197,7 +190,7 @@ fn complete_or_read(
         row
     };
     app.upsert_mapped_message(
-        item,
+        &app.backend_entry_key(item),
         row.role,
         row.text.clone(),
         row.kind,
@@ -205,29 +198,29 @@ fn complete_or_read(
     );
     reference_upsert(old, key.clone(), row);
     if bits % 9 == 2 {
-        app.mark_item_completed(item);
+        app.mark_item_completed(&app.backend_entry_key(item));
         old.mark_item_completed(&key);
     }
 }
 
 fn apply(
-    app: &mut AppState,
+    app: &mut SessionState,
     old: &mut IndexReference,
     bits: u64,
 ) -> Option<(&'static str, &'static str, usize)> {
     let turn = ["t0", "t1", "t2"][(bits as usize / 11) % 3];
     let item = ["a", "b", "x#part-1"][(bits as usize / 37) % 3];
-    app.session.replace_codex_item_turn(Some(turn.into()));
+    app.replace_codex_item_turn(Some(turn.into()));
     let key = old_key(turn, item, 0);
     match bits % 9 {
         0 => {
-            app.ensure_item_placeholder(item, Role::Assistant);
+            app.ensure_item_placeholder(&app.backend_entry_key(item), Role::Assistant);
             if !old.item_to_message_index.contains_key(&key) {
                 reference_upsert(old, key, EntryDraft::plain(Role::Assistant, ""));
             }
         }
         1 => {
-            app.upsert_agent_delta(item, " delta");
+            app.upsert_agent_delta(&app.backend_entry_key(item), " delta");
             old.upsert_agent_delta(&key, " delta");
         }
         2 | 3 => {
@@ -244,7 +237,7 @@ fn apply(
         }
         5 => {
             let cut = bits as usize / 97 % (old.messages.len() + 1);
-            app.rewind_fork_from_message_idx(Some(cut));
+            truncate(app, cut);
             old.truncate(cut);
         }
         6 => replace(app, old, turn, bits & 16 != 0),
@@ -275,7 +268,7 @@ fn generated_sequences_resolve_the_same_entries_as_the_old_index_maps() {
             if absent.is_some() {
                 // End this trace at the documented exception. A separate test
                 // checks regrowth, whose new row intentionally differs from HEAD.
-                app = super::entry_identity_tests::app(BackendKind::Codex);
+                app = super::identity_support::session_for(BackendKind::Codex);
                 old = IndexReference::default();
             }
         }

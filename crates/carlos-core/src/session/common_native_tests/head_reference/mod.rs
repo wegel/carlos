@@ -5,15 +5,15 @@
 
 use std::collections::{HashMap, HashSet};
 
-use carlos_core::session::models::EntryDraft;
+use crate::session::models::EntryDraft;
 
 mod items;
 pub(crate) mod native;
 #[path = "transcript.rs"]
 mod state_transcript;
 mod models {
-    pub(super) use carlos_core::session::models::EntryDraft as Message;
-    pub(super) use carlos_core::session::models::{MessageKind, Role};
+    pub(super) use crate::session::models::EntryDraft as Message;
+    pub(super) use crate::session::models::{MessageKind, Role};
 }
 mod state {
     pub(super) use super::HeadReference as AppState;

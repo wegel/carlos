@@ -93,7 +93,7 @@ fn claude_start_failure_after_adoption_keeps_the_new_session_and_ids() {
     }
 }
 
-fn switch_session(session: &mut SessionState, generation: u64, id: &str) {
+pub(super) fn switch_session(session: &mut SessionState, generation: u64, id: &str) {
     let mut update = Default::default();
     session.switch_claude_session(generation, id, &mut update);
     session.publish();

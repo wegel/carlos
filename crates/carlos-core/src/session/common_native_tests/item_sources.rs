@@ -1,30 +1,32 @@
 //! Keep native Codex and Grok rows bound when Claude has no evidence about them.
 
-use carlos_core::backend::BackendKind;
-use carlos_core::session::entry_key::NativeEntryKey;
-use carlos_core::session::models::{MessageKind, Role};
+use crate::backend::BackendKind;
+use crate::session::entry_key::NativeEntryKey;
+use crate::session::models::{MessageKind, Role};
 use serde_json::{json, Value};
 
-use super::entry_identity_tests::app;
-use crate::app::notifications::handle_server_message_line;
+use super::feed as handle_server_message_line;
+use super::identity_support::{assert_entries, session_for as app};
 
 fn check_stream(events: &[Value], text: &str) {
     for backend in [BackendKind::Codex, BackendKind::Grok] {
         let mut app = app(backend);
-        app.session.set_summary_enabled_for_test(false);
+        app.set_summary_enabled_for_test(false);
         // Codex wins when both flags are set; Grok uses its own native keys.
-        app.session
-            .set_claude_enabled_for_test(backend == BackendKind::Codex);
+        app.set_claude_enabled_for_test(backend == BackendKind::Codex);
         let mut first = None;
         for event in events {
             handle_server_message_line(&mut app, &event.to_string());
-            let id = *first.get_or_insert(app.session.messages()[0].id);
-            assert_eq!(app.session.messages().len(), 1, "{backend:?}: {event}");
-            assert_eq!(app.session.messages()[0].id, id);
-            assert!(matches!(app.item_key("x").item, NativeEntryKey::Item(_)));
-            app.assert_entry_invariants();
+            let id = *first.get_or_insert(app.messages()[0].id);
+            assert_eq!(app.messages().len(), 1, "{backend:?}: {event}");
+            assert_eq!(app.messages()[0].id, id);
+            assert!(matches!(
+                app.backend_entry_key("x").item,
+                NativeEntryKey::Item(_)
+            ));
+            assert_entries(&app);
         }
-        assert_eq!(app.session.messages()[0].text, text);
+        assert_eq!(app.messages()[0].text, text);
     }
 }
 
@@ -79,24 +81,18 @@ fn an_unrelated_claude_flag_cannot_unbind_codex_or_grok_native_keys() {
         for role in [Role::Assistant, Role::Reasoning, Role::ToolCall] {
             for completed in [false, true] {
                 let mut app = app(backend);
-                let key = app.item_key("x");
-                app.session.upsert_mapped_message(
-                    &key,
-                    role,
-                    "original".into(),
-                    MessageKind::Plain,
-                    None,
-                );
+                let key = app.backend_entry_key("x");
+                app.upsert_mapped_message(&key, role, "original".into(), MessageKind::Plain, None);
                 if completed {
-                    app.session.mark_item_completed(&key);
+                    app.mark_item_completed(&key);
                 }
-                let id = app.session.messages()[0].id;
-                app.session.set_claude_enabled_for_test(true);
+                let id = app.messages()[0].id;
+                app.set_claude_enabled_for_test(true);
                 for all_parts in [false, true] {
-                    app.session.prepare_item_source(&key, None, all_parts);
-                    assert_eq!(app.session.item_message_index(&key), Some(0));
-                    assert_eq!(app.session.messages()[0].id, id);
-                    assert_eq!(app.session.is_item_completed(&key), completed);
+                    app.prepare_item_source(&key, None, all_parts);
+                    assert_eq!(app.item_message_index(&key), Some(0));
+                    assert_eq!(app.messages()[0].id, id);
+                    assert_eq!(app.is_item_completed(&key), completed);
                 }
             }
         }

@@ -1,17 +1,18 @@
 //! Native reloads update ids, prompt references and view caches together.
 
-use carlos_core::session::models::Role;
+use crate::session::models::Role;
 use serde_json::json;
 
-use crate::app::item_history::load_history_from_start_or_resume;
-use crate::app::state::AppState;
+use super::session;
+use crate::session::item_history::load_history_from_start_or_resume;
+use crate::session::state::SessionState;
 
 #[test]
 fn native_reload_retains_turn_scoped_ids_and_rewind_targets_after_insertions() {
     for insertion in 0..3 {
-        let mut app = AppState::new("thread".into());
-        app.session.set_codex_enabled_for_test(true);
-        app.session.enable_native_history();
+        let mut app = session("thread");
+        app.set_codex_enabled_for_test(true);
+        app.enable_native_history();
         let turn = |name: &str, answer: &str| {
             json!({"id":name,"status":"completed","items":[
             {"type":"userMessage","id":"same-user","content":[{"type":"text","text":"same"}]},
@@ -19,25 +20,26 @@ fn native_reload_retains_turn_scoped_ids_and_rewind_targets_after_insertions() {
         };
         let old = json!({"result":{"thread":{"id":"thread","turns":[turn("a", "old a"), turn("b", "old b")]}}});
         load_history_from_start_or_resume(&mut app, &old.to_string()).expect("initial history");
-        let ids: Vec<_> = app.session.messages().iter().map(|row| row.id).collect();
+        let ids: Vec<_> = app.messages().iter().map(|row| row.id).collect();
         let mut turns = vec![turn("a", "corrected a"), turn("b", "corrected b")];
         turns.insert(insertion, turn("x", "discovered"));
         let new = json!({"result":{"thread":{"id":"thread","turns":turns}}});
         load_history_from_start_or_resume(&mut app, &new.to_string()).expect("reload");
         for (old_turn, name) in ["a", "b"].into_iter().enumerate() {
             let position = (old_turn + usize::from(insertion <= old_turn)) * 2;
-            assert_eq!(app.session.messages()[position].id, ids[old_turn * 2]);
-            assert_eq!(
-                app.session.messages()[position + 1].id,
-                ids[old_turn * 2 + 1]
-            );
-            assert!(app.session.messages()[position + 1]
-                .text
-                .starts_with("corrected"));
-            app.set_rewind_selection_for_test(Some(position / 2));
-            assert_eq!(app.rewind_selected_message_idx(), Some(position));
-            assert_eq!(app.rewind_selected_turn_id(), Some(name));
-            let request = app.rewind_native_request().expect("native rewind");
+            assert_eq!(app.messages()[position].id, ids[old_turn * 2]);
+            assert_eq!(app.messages()[position + 1].id, ids[old_turn * 2 + 1]);
+            assert!(app.messages()[position + 1].text.starts_with("corrected"));
+            let entry = app
+                .input_history()
+                .entry_id(position / 2)
+                .expect("prompt entry");
+            assert_eq!(app.messages().position(entry), Some(position));
+            assert_eq!(app.input_history().turn_id(entry), Some(name));
+            let request = app
+                .input_history()
+                .native_request(position / 2, entry)
+                .expect("native rewind");
             assert_eq!(request.item_id, "same-user");
             assert_eq!(request.position, 0);
         }
@@ -46,30 +48,33 @@ fn native_reload_retains_turn_scoped_ids_and_rewind_targets_after_insertions() {
 
 #[test]
 fn history_prompts_notices_and_unknown_authors_get_distinct_carlos_ids() {
-    let mut app = AppState::new("thread".into());
-    app.session.set_claude_enabled_for_test(true);
+    let mut app = session("thread");
+    app.set_claude_enabled_for_test(true);
     for source in ["human", "unknown", "automatic"] {
         for suffix in ["a", "b"] {
             let facts = json!({"source":source,"uuid":format!("{source}-{suffix}"),"text":"same"});
-            crate::app::claude_session_history::append_prompt(&mut app, &facts);
-            let count = app.session.messages().len();
-            let id = app.session.messages()[count - 1].id;
-            crate::app::claude_session_history::append_prompt(&mut app, &facts);
-            assert_eq!(app.session.messages().len(), count);
-            assert_eq!(app.session.messages()[count - 1].id, id);
+            let uuid = facts["uuid"].as_str().expect("native prompt");
+            let key = app.backend_entry_key(&format!("claude-prompt:{uuid}"));
+            app.append_claude_history_prompt(&facts, &key);
+            let count = app.messages().len();
+            let id = app.messages()[count - 1].id;
+            let uuid = facts["uuid"].as_str().expect("native prompt");
+            let key = app.backend_entry_key(&format!("claude-prompt:{uuid}"));
+            app.append_claude_history_prompt(&facts, &key);
+            assert_eq!(app.messages().len(), count);
+            assert_eq!(app.messages()[count - 1].id, id);
         }
     }
     app.append_message(Role::System, "notice");
-    let ids: std::collections::HashSet<_> =
-        app.session.messages().iter().map(|row| row.id).collect();
+    let ids: std::collections::HashSet<_> = app.messages().iter().map(|row| row.id).collect();
     assert_eq!(ids.len(), 7);
     assert_eq!(
-        app.session.claude_history().unknown()[0].entry_id(),
-        app.session.messages()[2].id
+        app.claude_history().unknown()[0].entry_id(),
+        app.messages()[2].id
     );
     assert_eq!(
-        app.session.claude_history().unknown()[1].entry_id(),
-        app.session.messages()[3].id
+        app.claude_history().unknown()[1].entry_id(),
+        app.messages()[3].id
     );
 }
 
@@ -86,22 +91,21 @@ fn complete_history_drafts_keep_the_same_read_groups_as_incremental_history() {
                 );
             }
             let thread = json!({"id":"thread","turns":[{"id":"turn","items":items}]});
-            let mut reference = super::head_entry_reference::HeadReference::default();
+            let mut reference = super::head_reference::HeadReference::default();
             for item in thread["turns"][0]["items"].as_array().expect("items") {
                 reference.upsert_mapped_message(
                     item["id"].as_str().expect("id"),
                     Role::ToolCall,
                     "→ Read a.rs".into(),
-                    carlos_core::session::models::MessageKind::Plain,
+                    crate::session::models::MessageKind::Plain,
                     Some("a.rs".into()),
                 );
             }
-            let mut reloaded = AppState::new("thread".into());
-            crate::app::item_history::replace_history_from_thread(&mut reloaded, &thread)
+            let mut reloaded = session("thread");
+            crate::session::item_history::replace_history_from_thread(&mut reloaded, &thread)
                 .expect("same-thread history");
-            let rows = |app: &AppState| {
-                app.session
-                    .messages()
+            let rows = |app: &SessionState| {
+                app.messages()
                     .iter()
                     .map(|row| (row.role, row.kind, row.text.clone(), row.file_path.clone()))
                     .collect::<Vec<_>>()
@@ -112,7 +116,7 @@ fn complete_history_drafts_keep_the_same_read_groups_as_incremental_history() {
                 .map(|row| (row.role, row.kind, row.text.clone(), row.file_path.clone()))
                 .collect();
             assert_eq!(expected, rows(&reloaded));
-            reloaded.session.messages().assert_invariants();
+            reloaded.messages().assert_invariants();
         }
     }
 }

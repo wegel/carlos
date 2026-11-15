@@ -1,21 +1,21 @@
 //! Exercise unscoped keys and named differences against the literal HEAD row algorithms.
 
-use carlos_core::backend::BackendKind;
-use carlos_core::session::models::MessageKind;
-use carlos_core::session::models::Role;
-use carlos_core::session::models::ToolOutputDetails;
+use crate::backend::BackendKind;
+use crate::session::models::MessageKind;
+use crate::session::models::Role;
+use crate::session::models::ToolOutputDetails;
 use serde_json::json;
 
-use super::entry_identity_tests::app;
-use super::head_entry_reference::native::NativeUserHistory;
-use super::head_entry_reference::HeadReference;
-use crate::app::item_history::replace_history_from_thread;
-use crate::app::state::AppState;
+use super::head_reference::native::NativeUserHistory;
+use super::head_reference::HeadReference;
+use super::identity_support::{assert_entries, session_for as app, truncate};
+use crate::session::item_history::replace_history_from_thread;
+use crate::session::state::SessionState;
 
-fn check(app: &AppState, old: &HeadReference) {
-    app.assert_entry_invariants();
-    assert_eq!(app.session.messages().len(), old.messages.len());
-    for (new, old) in app.session.messages().iter().zip(&old.messages) {
+fn check(app: &SessionState, old: &HeadReference) {
+    assert_entries(app);
+    assert_eq!(app.messages().len(), old.messages.len());
+    for (new, old) in app.messages().iter().zip(&old.messages) {
         assert_eq!(
             (new.role, new.kind, &new.text, &new.file_path),
             (old.role, old.kind, &old.text, &old.file_path)
@@ -30,29 +30,32 @@ fn check(app: &AppState, old: &HeadReference) {
         );
     }
     for key in ["a", "b", "x#part-1"] {
-        assert_eq!(app.item_message_index(key), old.item_message_index(key));
+        assert_eq!(
+            app.item_message_index(&app.backend_entry_key(key)),
+            old.item_message_index(key)
+        );
     }
 }
 
-fn operate(app: &mut AppState, old: &mut HeadReference, bits: u64) {
+fn operate(app: &mut SessionState, old: &mut HeadReference, bits: u64) {
     let key = ["a", "b", "x#part-1"][(bits as usize / 17) % 3];
     match bits % 11 {
         0 => {
-            app.ensure_item_placeholder(key, Role::Assistant);
+            app.ensure_item_placeholder(&app.backend_entry_key(key), Role::Assistant);
             old.ensure_item_placeholder(key, Role::Assistant);
         }
         1 => {
-            app.upsert_agent_delta(key, "delta");
+            app.upsert_agent_delta(&app.backend_entry_key(key), "delta");
             old.upsert_agent_delta(key, "delta");
         }
         2 => attach_tool(app, old, key, bits),
         3 => {
-            app.set_command_override(key, "native".into());
+            app.set_command_override(&app.backend_entry_key(key), "native".into());
             old.set_command_override(key, "native".into());
         }
         4 => {
             app.upsert_mapped_message(
-                key,
+                &app.backend_entry_key(key),
                 Role::ToolOutput,
                 "+diff".into(),
                 MessageKind::Diff,
@@ -67,12 +70,12 @@ fn operate(app: &mut AppState, old: &mut HeadReference, bits: u64) {
             );
         }
         5 => {
-            app.mark_item_completed(key);
+            app.mark_item_completed(&app.backend_entry_key(key));
             old.mark_item_completed(key);
         }
         6 => {
             let cut = bits as usize / 31 % (old.messages.len() + 1);
-            app.rewind_fork_from_message_idx(Some(cut));
+            truncate(app, cut);
             old.truncate(cut);
         }
         _ => failed_boundary(app, old, bits % 11),
@@ -101,7 +104,7 @@ fn unscoped_keys_preserve_heads_tool_facts_for_all_backends() {
 fn native_prompt_positions_match_the_unchanged_head_counter() {
     for count in 0..16 {
         let mut app = app(BackendKind::Codex);
-        app.session.enable_native_history();
+        app.enable_native_history();
         let mut native = NativeUserHistory::default();
         let mut items = Vec::new();
         for n in 0..count {
@@ -115,13 +118,16 @@ fn native_prompt_positions_match_the_unchanged_head_counter() {
             &json!({"id":"thread","turns":[{"id":"turn","items":items}]}),
         )
         .expect("same-thread history");
-        app.set_rewind_selection_for_test(Some(0));
+        let entry = app.input_history().entry_id(0).expect("prompt entry");
         assert_eq!(
-            app.rewind_native_request().expect("native").position,
+            app.input_history()
+                .native_request(0, entry)
+                .expect("native")
+                .position,
             position
         );
         assert_eq!(
-            app.session.messages()[0].kind,
+            app.messages()[0].kind,
             if position == 0 {
                 MessageKind::Plain
             } else {
@@ -139,35 +145,46 @@ fn named_exception_absent_diff_parts_retire_and_regrow_with_a_fresh_row() {
     let mut app = app(BackendKind::Codex);
     let mut head = HeadReference::default();
     for part in 0..3 {
-        app.with_item_part("diff", part, |a, k| {
-            a.upsert_mapped_message(k, Role::ToolOutput, "+old".into(), MessageKind::Diff, None);
+        app.with_native_item_part("diff", part, |a, k| {
+            a.upsert_mapped_message(
+                &a.backend_entry_key(k),
+                Role::ToolOutput,
+                "+old".into(),
+                MessageKind::Diff,
+                None,
+            );
         });
         head.with_item_part("diff", part, |a, k| {
             a.upsert_mapped_message(k, Role::ToolOutput, "+old".into(), MessageKind::Diff, None);
         });
     }
-    let retired = app.session.messages()[2].id;
-    app.session
-        .transcript_retain_parts(&app.item_key("diff"), 1);
-    app.with_item_part("diff", 2, |a, k| {
-        assert_eq!(a.item_message_index(k), None);
-        a.upsert_mapped_message(k, Role::ToolOutput, "+new".into(), MessageKind::Diff, None);
+    let retired = app.messages()[2].id;
+    app.transcript_retain_parts(&app.backend_entry_key("diff"), 1);
+    app.with_native_item_part("diff", 2, |a, k| {
+        assert_eq!(a.item_message_index(&a.backend_entry_key(k)), None);
+        a.upsert_mapped_message(
+            &a.backend_entry_key(k),
+            Role::ToolOutput,
+            "+new".into(),
+            MessageKind::Diff,
+            None,
+        );
     });
     head.with_item_part("diff", 2, |a, k| {
         assert_eq!(a.item_message_index(k), Some(2));
         a.upsert_mapped_message(k, Role::ToolOutput, "+new".into(), MessageKind::Diff, None);
     });
     assert_eq!(head.messages.len(), 3);
-    assert_eq!(app.session.messages().len(), 4);
-    assert_eq!(app.session.messages()[2].text, "+old");
+    assert_eq!(app.messages().len(), 4);
+    assert_eq!(app.messages()[2].text, "+old");
     assert_eq!(head.messages[2].text, "+new");
-    assert_ne!(app.session.messages()[3].id, retired);
-    app.assert_entry_invariants();
+    assert_ne!(app.messages()[3].id, retired);
+    assert_entries(&app);
 }
 
-fn attach_tool(app: &mut AppState, old: &mut HeadReference, key: &str, bits: u64) {
+fn attach_tool(app: &mut SessionState, old: &mut HeadReference, key: &str, bits: u64) {
     app.upsert_mapped_message(
-        key,
+        &app.backend_entry_key(key),
         Role::ToolOutput,
         "body".into(),
         MessageKind::Plain,
@@ -185,42 +202,53 @@ fn attach_tool(app: &mut AppState, old: &mut HeadReference, key: &str, bits: u64
         generated: true,
         failed: bits & 16 != 0,
     };
-    app.session
-        .transcript_set_tool(app.item_message_index(key).expect("row"), details.clone());
+    app.transcript_set_tool(
+        app.item_message_index(&app.backend_entry_key(key))
+            .expect("row"),
+        details.clone(),
+    );
     let index = old.item_message_index(key).expect("row");
     old.messages[index].tool_output = Some(details);
 }
 
-fn failed_boundary(app: &mut AppState, old: &mut HeadReference, operation: u64) {
-    use crate::app::claude_session_history::{receive, switch_session};
+fn failed_boundary(app: &mut SessionState, old: &mut HeadReference, operation: u64) {
+    use super::forks::switch_session;
 
-    use crate::app::item_history::load_history_from_start_or_resume;
-    use crate::app::notifications::handle_server_message_line;
+    use super::feed as handle_server_message_line;
+    use crate::session::item_history::load_history_from_start_or_resume;
 
-    if !app.session.claude().enabled() {
+    if !app.claude().enabled() {
         let error = if operation & 1 == 0 {
             "not json"
         } else {
             r#"{"error":{"message":"rejected"}}"#
         };
-        assert!(app.reject_fork_for_test(error, app.session.codex_scope().enabled()));
+        let result = if app.codex_scope().enabled() {
+            app.adopt_codex_fork(error)
+        } else {
+            app.adopt_grok_fork(error, Vec::new())
+        };
+        assert!(result.is_err());
         return;
     }
     match operation {
         7 => {
-            assert!(receive(app, "sessions.info", &json!({"sessionId":"wrong"})).is_err());
+            assert!(app
+                .claude_history_control("sessions.info", &json!({"sessionId":"wrong"}))
+                .is_err());
         }
         8 => {
-            crate::app::claude_reset::receive(
-                app,
-                &json!({"new_conversation_id":format!("reset-{}",app.session.messages().len())}),
+            let mut update = Default::default();
+            app.receive_claude_reset(
+                &json!({"new_conversation_id":format!("reset-{}",app.messages().len())}),
+                &mut update,
             );
-            if app.session.messages().is_empty() {
+            if app.messages().is_empty() {
                 *old = HeadReference::default();
             }
         }
         9 => {
-            let generation = app.session.claude().generation() + 1;
+            let generation = app.claude().generation() + 1;
             switch_session(app, generation, "fork");
             handle_server_message_line(app,&json!({"method":"claude/sessionStartFailed","params":{"generation":generation,"message":"startup failed"}}).to_string());
             *old = HeadReference::default();

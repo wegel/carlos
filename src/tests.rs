@@ -164,25 +164,11 @@ fn test_message(draft: carlos_core::session::models::EntryDraft) -> Message {
 
 #[path = "tests/approval_identity_tests.rs"]
 mod approval_identity_tests;
-#[path = "tests/entry_history_identity_tests.rs"]
-mod entry_history_identity_tests;
-#[path = "tests/entry_identity_tests.rs"]
-mod entry_identity_tests;
-#[path = "tests/entry_lookup_differential_tests.rs"]
-mod entry_lookup_differential_tests;
-#[path = "tests/item_source_backend_tests.rs"]
-mod item_source_backend_tests;
 
 #[path = "tests/entry_review_cursor_tests.rs"]
 mod entry_review_cursor_tests;
 #[path = "tests/entry_review_history_tests.rs"]
 mod entry_review_history_tests;
-
-#[path = "tests/head_entry_reference/mod.rs"]
-mod head_entry_reference;
-
-#[path = "tests/entry_lookup_extra_tests.rs"]
-mod entry_lookup_extra_tests;
 
 #[path = "tests/codex_panel_support.rs"]
 mod codex_panel_support;
