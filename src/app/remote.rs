@@ -61,6 +61,8 @@ mod tasks_overview;
 mod tasks_pages;
 mod tasks_reads;
 mod tasks_render;
+#[cfg(test)]
+mod tasks_selection_tests;
 mod tasks_stop_results;
 mod tasks_stops;
 mod tasks_text;

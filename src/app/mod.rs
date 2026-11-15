@@ -44,9 +44,6 @@ mod claude_session_history;
 #[cfg(test)]
 #[path = "../tests/claude_session_tests.rs"]
 mod claude_session_tests;
-#[cfg(test)]
-#[path = "../tests/claude_task_tests.rs"]
-mod claude_task_tests;
 mod claude_task_view;
 mod claude_tasks;
 #[cfg(test)]
@@ -279,10 +276,6 @@ mod claude_browser_parity_tests;
 #[cfg(test)]
 #[path = "../tests/claude_process_parity_tests.rs"]
 mod claude_process_parity_tests;
-
-#[cfg(test)]
-#[path = "../tests/claude_task_bounds_tests.rs"]
-mod claude_task_bounds_tests;
 
 #[cfg(test)]
 #[path = "../tests/claude_edit_parity_support.rs"]

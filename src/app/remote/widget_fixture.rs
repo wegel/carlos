@@ -1,7 +1,7 @@
 //! Feed the real device accepted plain facts without opening sockets or reading user settings.
 
 use carlos_client::codec::Incoming;
-use carlos_client::{Client, Outbound};
+use carlos_client::{Client, ConnectionId, Outbound};
 use carlos_core::perf_fixture::PerfRow;
 use carlos_proto::bytes::ByteOffset;
 use carlos_proto::commands::{Command, HelloResult};
@@ -19,7 +19,27 @@ pub(super) fn device(rows: Vec<PerfRow>, ralph: bool) -> Device {
 }
 
 pub(super) fn device_with_info(rows: Vec<PerfRow>, info: SessionInfo) -> Device {
-    let session = info.id.clone();
+    let snapshot = Snapshot {
+        info,
+        entries: rows.iter().map(|row| row.entry.clone()).collect(),
+        approvals: Vec::new(),
+        seq: Sequence::new(1),
+        has_older: false,
+        goal: None,
+        queue: None,
+        settings: None,
+        tasks: None,
+    };
+    let (mut device, _) = device_with_snapshot(snapshot);
+    for row in rows {
+        install_source(&mut device, row);
+    }
+    device
+}
+
+/// Feed a complete snapshot through a greeted client and retain its real connection token.
+pub(super) fn device_with_snapshot(snapshot: Snapshot) -> (Device, ConnectionId) {
+    let session = snapshot.info.id.clone();
     let mut client = Client::default();
     let hello = client.begin("widget-fixture".into()).expect("greet");
     reply(
@@ -36,27 +56,12 @@ pub(super) fn device_with_info(rows: Vec<PerfRow>, info: SessionInfo) -> Device 
             },
         )
         .expect("subscribe");
-    let snapshot = Snapshot {
-        info,
-        entries: rows.iter().map(|row| row.entry.clone()).collect(),
-        approvals: Vec::new(),
-        seq: Sequence::new(1),
-        has_older: false,
-        goal: None,
-        queue: None,
-        settings: None,
-        tasks: None,
-    };
     reply(
         &mut client,
         &request,
         json!({"kind":"snapshot", "snapshot":snapshot}),
     );
-    let mut device = local_device(client, session);
-    for row in rows {
-        install_source(&mut device, row);
-    }
-    device
+    (local_device(client, session), hello.connection())
 }
 
 fn local_device(client: Client, session: SessionId) -> Device {
