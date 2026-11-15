@@ -256,6 +256,9 @@ fn task_stops_keep_private_operation_ownership_without_creating_prompt_text() {
             .get(&operation)
             .expect("accepted stop")
             .state,
-        OperationState::Accepted { entry: None }
+        OperationState::Accepted {
+            entry: None,
+            notice: None
+        }
     ));
 }

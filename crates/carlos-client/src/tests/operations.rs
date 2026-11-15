@@ -31,6 +31,42 @@ fn result(operation: &ClientOperation, state: OperationState) -> OperationResult
 }
 
 #[test]
+fn private_success_notes_keep_partial_native_results_without_accepting_oversized_data() {
+    let mut operations = Operations::default();
+    let own = operation("c", 1);
+    operations
+        .begin(own.clone(), Some(session()), None)
+        .expect("submit settings");
+    assert!(operations
+        .apply(result(
+            &own,
+            OperationState::Accepted {
+                entry: None,
+                notice: Some("界".repeat(1366)),
+            }
+        ))
+        .is_err());
+    assert!(matches!(
+        operations.get(&own).expect("kept submission").state,
+        OperationState::Pending
+    ));
+    let notice = "Future settings acknowledged; live turn is no longer available";
+    let accepted = result(
+        &own,
+        OperationState::Accepted {
+            entry: None,
+            notice: Some(notice.into()),
+        },
+    );
+    assert!(operations.apply(accepted.clone()).expect("scoped success"));
+    assert_eq!(
+        operations.get(&own).expect("private result").state,
+        accepted.state
+    );
+    assert!(!operations.apply(accepted).expect("duplicate"));
+}
+
+#[test]
 fn early_shared_rows_and_late_admission_replies_never_duplicate_another_clients_echo() {
     let mut operations = Operations::default();
     let own = operation("c", 1);
@@ -55,6 +91,7 @@ fn early_shared_rows_and_late_admission_replies_never_duplicate_another_clients_
             &own,
             OperationState::Accepted {
                 entry: Some(entry_id(20)),
+                notice: None,
             },
         ))
         .expect("accepted");

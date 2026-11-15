@@ -12,11 +12,21 @@ impl Owner {
     pub(super) fn set_ralph(&mut self, operation: ClientOperation, on: bool) {
         if !on {
             self.session.ralph_stop_after_failure();
-            self.results
-                .update(&operation, OperationState::Accepted { entry: None });
+            self.results.update(
+                &operation,
+                OperationState::Accepted {
+                    entry: None,
+                    notice: None,
+                },
+            );
         } else if self.session.ralph_enabled() {
-            self.results
-                .update(&operation, OperationState::Accepted { entry: None });
+            self.results.update(
+                &operation,
+                OperationState::Accepted {
+                    entry: None,
+                    notice: None,
+                },
+            );
         } else if self.native.closed {
             self.results
                 .update(&operation, rejected("backend closed; Ralph remains off"));
@@ -53,7 +63,10 @@ impl Owner {
         });
         self.results.update(
             &operation,
-            result.map_or_else(rejected, |()| OperationState::Accepted { entry: None }),
+            result.map_or_else(rejected, |()| OperationState::Accepted {
+                entry: None,
+                notice: None,
+            }),
         );
     }
 }

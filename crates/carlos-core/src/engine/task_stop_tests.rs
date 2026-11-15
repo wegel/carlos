@@ -109,7 +109,10 @@ fn a_native_ack_before_writer_completion_cannot_be_overwritten_by_a_late_local_e
         task: work.claim.task.clone(),
         run: work.claim.run.clone(),
         kind: TaskKind::Agent,
-        state: OperationState::Accepted { entry: None },
+        state: OperationState::Accepted {
+            entry: None,
+            notice: None,
+        },
     });
     fixture
         .0

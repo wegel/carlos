@@ -183,7 +183,13 @@ impl RetryStore {
         match &mut result.state {
             OperationState::Rejected { message, .. }
             | OperationState::Uncertain { message, .. } => *message = diagnostic(message),
-            OperationState::Pending | OperationState::Queued | OperationState::Accepted { .. } => {}
+            OperationState::Accepted {
+                notice: Some(notice),
+                ..
+            } => *notice = diagnostic(notice),
+            OperationState::Pending
+            | OperationState::Queued
+            | OperationState::Accepted { notice: None, .. } => {}
         }
         let bytes = record.canonical.len().saturating_add(
             serde_json::to_vec(&result)

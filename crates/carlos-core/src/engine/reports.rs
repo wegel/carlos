@@ -97,8 +97,13 @@ impl Owner {
         match outcome {
             SubmissionOutcome::PromptAccepted(Some(operation))
             | SubmissionOutcome::EditAccepted(Some(operation)) => {
-                self.results
-                    .update(&operation, OperationState::Accepted { entry: None });
+                self.results.update(
+                    &operation,
+                    OperationState::Accepted {
+                        entry: None,
+                        notice: None,
+                    },
+                );
             }
             SubmissionOutcome::Recovered { draft, .. } => self.results.recover(
                 draft,

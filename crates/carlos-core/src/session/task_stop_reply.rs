@@ -33,7 +33,10 @@ pub(in crate::session) fn codex(params: &Value) -> Option<TaskStopReply> {
     } else if response["result"].is_object()
         && (kind != TaskKind::Process || response["result"]["terminated"].is_boolean())
     {
-        OperationState::Accepted { entry: None }
+        OperationState::Accepted {
+            entry: None,
+            notice: None,
+        }
     } else {
         uncertain("Native task stop acknowledgement is malformed; stop was not confirmed")
     };
@@ -60,7 +63,10 @@ pub(in crate::session) fn claude(frame: &Value, context: &Value) -> Option<TaskS
         && frame["result"]["taskId"] == context["taskId"]
         && frame["result"]["stopRequested"] == true
     {
-        OperationState::Accepted { entry: None }
+        OperationState::Accepted {
+            entry: None,
+            notice: None,
+        }
     } else {
         uncertain("Native task stop acknowledgement does not match its original task")
     };

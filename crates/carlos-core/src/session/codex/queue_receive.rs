@@ -222,7 +222,10 @@ fn private_outcome(
                 }
             }
         } else {
-            OperationState::Accepted { entry: None }
+            OperationState::Accepted {
+                entry: None,
+                notice: None,
+            }
         };
         update.outcome = Some((owner.clone(), state));
     }

@@ -58,6 +58,8 @@ pub enum OperationState {
     Queued,
     Accepted {
         entry: Option<crate::ids::EntryId>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        notice: Option<String>,
     },
     Rejected {
         message: String,

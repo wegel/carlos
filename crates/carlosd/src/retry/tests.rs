@@ -78,7 +78,10 @@ fn lost_create_reply_reuses_its_original_session_and_private_result() {
         .complete(OperationResult {
             operation: op.clone(),
             session: first.session,
-            state: OperationState::Accepted { entry: None },
+            state: OperationState::Accepted {
+                entry: None,
+                notice: None,
+            },
         })
         .expect("retained result");
     assert!(matches!(
@@ -149,7 +152,10 @@ fn evicted_completed_outcomes_remain_expired_instead_of_executing_again() {
     else {
         panic!("new");
     };
-    first.state = OperationState::Accepted { entry: None };
+    first.state = OperationState::Accepted {
+        entry: None,
+        notice: None,
+    };
     store.complete(first).expect("complete");
     admit(&mut store, &hello.client, 2, "second", Class::Ordinary, now);
     assert_eq!(

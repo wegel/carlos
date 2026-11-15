@@ -231,6 +231,12 @@ fn validate_result(record: &LocalOperation, result: &OperationResult) -> Result<
     {
         return Err(ClientError::ForeignSession);
     }
+    if matches!(&result.state, OperationState::Accepted { notice: Some(notice), .. } if notice.len() > 4096)
+    {
+        return Err(ClientError::InvalidPayload(
+            "private success notice exceeds its diagnostic budget".into(),
+        ));
+    }
     if let OperationState::Rejected { message, recovery }
     | OperationState::Uncertain { message, recovery } = &result.state
     {

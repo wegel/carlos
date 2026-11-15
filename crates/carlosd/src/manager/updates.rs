@@ -144,7 +144,10 @@ impl Manager {
             && session.durable.as_ref() == Some(&session.saved)
         {
             if let Some(mut result) = session.create.take() {
-                result.state = OperationState::Accepted { entry: None };
+                result.state = OperationState::Accepted {
+                    entry: None,
+                    notice: None,
+                };
                 self.result(result);
             }
         }

@@ -29,7 +29,10 @@ impl Owner {
                         .session
                         .finish_engine_control(self.client.as_ref(), completion)
                     {
-                        Ok(()) => OperationState::Accepted { entry: None },
+                        Ok(()) => OperationState::Accepted {
+                            entry: None,
+                            notice: None,
+                        },
                         Err(ControlFailure::Invalid(message)) => rejected(message),
                         Err(error) => OperationState::Uncertain {
                             message: error.to_string(),

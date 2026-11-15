@@ -96,8 +96,13 @@ impl Owner {
             }
         } else if !matches!(prepared.status, PreparedStatus::Awaiting) {
             if let Some(operation) = operation {
-                self.results
-                    .update(&operation, OperationState::Accepted { entry: None });
+                self.results.update(
+                    &operation,
+                    OperationState::Accepted {
+                        entry: None,
+                        notice: None,
+                    },
+                );
             }
         }
         self.notice();

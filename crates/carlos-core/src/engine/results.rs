@@ -51,7 +51,13 @@ impl Results {
             | OperationState::Uncertain { message, .. } => {
                 *message = crate::protocol_events::bounded_diagnostic(message)
             }
-            OperationState::Pending | OperationState::Queued | OperationState::Accepted { .. } => {}
+            OperationState::Accepted {
+                notice: Some(notice),
+                ..
+            } => *notice = crate::protocol_events::bounded_diagnostic(notice),
+            OperationState::Pending
+            | OperationState::Queued
+            | OperationState::Accepted { notice: None, .. } => {}
         }
         if let Some(record) = self.records.get_mut(operation) {
             record.result.state = state;

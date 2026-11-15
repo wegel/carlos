@@ -186,7 +186,14 @@ fn finish_mutation(
         if request.params.get("objective").is_some() {
             update.clear_editor = true;
         }
-        set_outcome(update, request, OperationState::Accepted { entry: None });
+        set_outcome(
+            update,
+            request,
+            OperationState::Accepted {
+                entry: None,
+                notice: None,
+            },
+        );
     }
     session.codex_goals.last_read = None;
 }
