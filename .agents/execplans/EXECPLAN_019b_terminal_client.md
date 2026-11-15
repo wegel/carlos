@@ -113,7 +113,14 @@ The daemon already proves basic chat, approvals, running output, independent cli
 
 - [x] (2026-11-15) Move the last synthetic/startup/picker4 pure owner cases into Core and keep plain renderer/persistence tests on direct current APIs. Preserve the two exit-hint assertions on logical daemon IDs and restore the blue command-only style. Primary no-default workspace/strictlint pass. A complete removal preview now retains all18 known pure top-level modules and local/perf tests:1309Rust including317frontend pass; its explicitly omitted pending native families and scratch target exclude it from final acceptance. Report: exec019b-pure-test-owner-cleanup.md.
 
+- [x] (2026-11-15) Prepare exact native goal8/panel11 successors on actual Core APIs without terminal state. Isolated no-default Core872passed/twoignored, strict lint and293/56caps pass; preserve mixed original cases until exact Device/PTY clauses are mapped. The separate ten real pipe/order/shutdown tests also pass on the actual daemon Native bridge, preserving original barriers and byte accounting. Both drafts await the normal primary hook; they do not close the deletion gate.
+
 ## Surprises & Discoveries
+
+The joined deterministic/native matrix exposed two real owner races and two test-order assumptions. An early native user echo could precede edited-send settlement and create a duplicate unbound prompt; the causal Core and real terminal held-reply negatives now fail before ce12be7 and pass after it. A reused native processId could keep a stale terminal selection pointed at a new native item/PID;72da0bc changes only opaque process identity and the actual terminal negative/positive preserves explicit reselection. A compatible peer may also return materialized turns from thread/start; only an explicit empty new thread skips saved-page reads. Existing history errors still fail. SIGKILL death and PTY paste/OS-resize order require observed completion in fixtures, rather than an immediate PID check or an unconsumed paste.
+
+The current full terminal run passed297of300 before those focused repairs. The remaining complete-Markdown copy timeout has not repeated in20 unchanged isolated runs; no cause or copy repair is claimed. A failure-only runner at /tmp/run_carlos_ui_copy_diagnostic.py captures process/thread state before cleanup if the next unchanged-deadline full gate reproduces it. The earlier failed logs remain evidence, not passing gates.
+
 
 The next full committed-prefix gate passes all143 daemon cases and297 of298 terminal cases. Its only failure expects the old send-error prefix after the daemon client already knows Codex is closed. The corrected fixture retains the draft and exactly one native start. A later repeat with flat frozen binaries exposes a test-wrapper helper path assumption and a real renderer fault: the plain ASCII counter includes ANSI escape bytes in word widths while the painter ignores them. Captured stderr reproduces that mismatch;9aa4c79 sends ESC-containing text through the existing exact counter and adds a causal actual-terminal regression. Do not treat these failed traces as successful whole-EP gates.
 
@@ -178,6 +185,11 @@ The cutover draft no longer calls the source-reader helper from the terminal exe
 The installed Codex CLI distinguishes a new, unmaterialized thread from an existing empty saved thread. A native probe in `/tmp/carlos-ep019b/native-fresh-read-probe/rpc.jsonl` shows thread/start succeeds with turns=[], metadata/queue/goal reads succeed, and thread/turns/list returns-32600 before a user message. Treating that failure as a general empty-history fallback would discard real resumed history, so the caller must carry the known launch scope.
 
 ## Decision Log
+
+Decision: record edited Codex prompts before native dispatch and bind their existing pending owner record in either reply order. Refine only Process/WindowProcess opaque IDs with native item/PID so stale local selections cannot adopt replacement processes; preserve stable agent IDs and all existing run/root/generation writer checks. Rationale: actual terminal negatives reproduce both gaps, and the repairs need no new public API, owner, timer or retry state. Date/Author:2026-11-15,Codex.
+
+Decision: finish each remaining unique native/private test split and retain the full pure renderer tree before the separate default/deletion commit. Rationale: the expanded private removal preview passes1309Rust cases including317frontend checks and strict lint, while its metadata explicitly excludes unfinished native families. Final acceptance must use a fresh joined source/target, a matching terminal/daemon/helper, quiet matched perf inputs and all actual workflows; scratch/minimal test registries cannot substitute. Date/Author:2026-11-15,Codex.
+
 
 - (2026-11-15, Codex) Reuse the existing exact text counter for ASCII that contains ESC; retain the fast path for ordinary ASCII. Keep the cache assertion and reproduce the failure with captured raw stderr, rather than hiding a count/painter mismatch.
 - (2026-11-15, Codex) Run the existing private source reader under carlosd, because the daemon owns the label provider that launches its current executable. Keep the reader's existing read authority and audit; remove the terminal's helper entrypoint during cutover.
@@ -265,6 +277,9 @@ Typed names and earlier-prompt edits now run through the actual dispatcher. Orde
 The default route is ready in an isolated draft and its actual process checks pass. The spike branch still retains the embedded route until unique old tests reach their Core, Device or plain-widget successors. No reviewer has run during these final changes, and no spike binary has been installed, pushed or merged.
 
 The full deterministic daemon/terminal draft matrix now passes. Actual installed-CLI checks found startup and shutdown assumptions that the deterministic peers had not modeled; the new Core tests capture those behaviors without inference. The final branch deletion and joined native/release/performance checks remain open, and no reviewers have run during these repairs.
+
+
+Current2026-11-15 checkpoint: the branch has ce12be7's exact edited-prompt repair,72da0bc's process reselection guard and16ec540's direct pure test owners/styled logical resume command. Native23 passes on the repaired echo pair; daemon143 passes on the joined prior pair with the bounded death-observation fence. The full final default/release matrix, large-source high water, matched perf and end-of-EP reviews remain open. The remaining owner moves are bounded test families, not optional optimization. Root will take native goal16/panel11 directly while the existing workers finish Claude, callbacks and private history. Final perf references and exact64MiBANSI/16MiBMarkdown captures are verified in /tmp/carlos-ep019b/final-gate-preparation/perf-inputs.json; no timing was collected during concurrent builds. The known pre-EP016 zero RSS display remains excluded; use kernel peak RSS.
 
 ## Context and Orientation
 
@@ -826,3 +841,7 @@ Update2026-11-15: the joined frozen runtime passes native23 and, after the bound
 Update2026-11-15: reconnect tests now consume the actual Core native frame batch and keep private composers, catalog values and recovery order on real Device tests. The terminal no longer needs old combined-owner fixtures for those cases. Keep the remaining quota/process tests until their exact successors pass; the full embedded-path deletion remains a separate commit.
 
 Update2026-11-15: the private deletion preview now compiles the full retained pure renderer test tree, rather than the earlier minimal scaffold. Native families still need their named successor checks before deletion. Pure tests now call the actual Core picker/startup/generator and borrowed painter. The logical daemon exit command keeps the original command-only blue style. No final default cutover, approval or install is claimed by these preview checks.
+
+Update2026-11-15: refresh all four living sections with the causal prompt/process repairs, bounded fixture fences, unresolved non-reproducing copy timeout and current separate-deletion limits. Record the remaining goal/panel native split and prepared final evidence inputs so the next author can resume without treating provisional preview checks as acceptance.
+
+Update2026-11-15: native goal/panel successors are privately green; ten additional terminal-forwarder tests now pass on the actual daemon reader. Keep the original mixed tests until named private UI clauses pass and keep branch registration separate from isolated proof. No review or EP approval has run.

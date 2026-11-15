@@ -145,3 +145,21 @@ mod reconnect_contract_tests;
 
 #[cfg(test)]
 mod weekly_ready_tests;
+
+#[cfg(test)]
+mod goal_contract_support;
+
+#[cfg(test)]
+mod goal_contract_tests;
+
+#[cfg(test)]
+mod goal_lifecycle_contract_tests;
+
+#[cfg(test)]
+mod panel_contract_support;
+
+#[cfg(test)]
+mod panel_contract_tests;
+
+#[cfg(test)]
+mod panel_read_contract_tests;
