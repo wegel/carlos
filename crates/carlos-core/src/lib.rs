@@ -27,6 +27,7 @@ mod protocol_socket;
 mod protocol_state;
 mod protocol_writer;
 pub mod runtime_preferences;
+pub mod saved_sessions;
 pub mod session;
 pub use session::engine;
 pub mod summaries;

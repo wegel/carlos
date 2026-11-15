@@ -92,7 +92,15 @@ fn collect_group_summaries(
 
 fn summarize_session_file(path: &Path, cwd: &str) -> Option<GrokSessionSummary> {
     let contents = fs::read_to_string(path).ok()?;
-    let parsed: Value = serde_json::from_str(&contents).ok()?;
+    summarize_session_contents(path, cwd, &contents)
+}
+
+pub(super) fn summarize_session_contents(
+    path: &Path,
+    cwd: &str,
+    contents: &str,
+) -> Option<GrokSessionSummary> {
+    let parsed: Value = serde_json::from_str(contents).ok()?;
     let session_cwd = parsed
         .pointer("/info/cwd")
         .and_then(Value::as_str)

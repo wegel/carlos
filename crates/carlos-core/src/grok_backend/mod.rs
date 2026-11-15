@@ -1,5 +1,6 @@
 //! Grok ACP backend: process lifecycle and BackendClient implementation.
 
+mod catalogue;
 mod client;
 mod commands;
 mod history;
@@ -30,6 +31,7 @@ use self::types::{
     synthetic_start_response, token_usage_line,
 };
 
+pub(crate) use self::catalogue::visit_local_sessions;
 pub use self::history::{load_grok_thread_summaries, GrokSessionSummary};
 #[cfg(any(test, feature = "test-support"))]
 pub use self::history::{load_grok_thread_summaries_from, parse_iso_timestamp_secs};

@@ -23,7 +23,7 @@ export class Sessions {
     if (method === "sessions.list") {
       const sessions = await this.api.listSessions({ dir, offset, limit,
         includeProgrammatic: true, includeWorktrees: params.includeWorktrees !== false });
-      return page(sessions, offset, limit, "sessions");
+      return page(params.compact === true ? compactSummaries(sessions) : sessions, offset, limit, "sessions");
     }
     const sessionId = string(params.sessionId, "sessionId");
     if (method === "sessions.info") return await this.api.getSessionInfo(sessionId, { dir }) ?? null;
@@ -86,6 +86,30 @@ export class Sessions {
     this.archives.set(archive.id, archive);
     return archive;
   }
+}
+
+function compactSummaries(sessions: unknown[]): ObjectValue[] {
+  return sessions.map(entry => {
+    const row = entry as ObjectValue;
+    const validId = typeof row.sessionId === "string" && Buffer.byteLength(row.sessionId) <= 4096;
+    const validCwd = typeof row.cwd !== "string" || Buffer.byteLength(row.cwd) <= 16384;
+    return { sessionId: validId && validCwd ? row.sessionId : undefined, customTitle: clipped(row.customTitle, 512),
+      summary: clipped(row.summary, 4096), cwd: clipped(row.cwd, 16384),
+      createdAt: row.createdAt, lastModified: row.lastModified };
+  });
+}
+
+function clipped(value: unknown, bytes: number): string | undefined {
+  if (typeof value !== "string") return undefined;
+  let used = 0;
+  let end = 0;
+  for (const char of value) {
+    const size = Buffer.byteLength(char);
+    if (used + size > bytes) break;
+    used += size;
+    end += char.length;
+  }
+  return value.slice(0, end);
 }
 
 function integer(value: unknown, label: string, min: number, max: number): number {

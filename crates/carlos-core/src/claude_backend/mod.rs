@@ -1,5 +1,6 @@
 //! Claude Agent SDK client backed by a compiled local controller and the native CLI.
 
+mod catalogue;
 mod client_controls;
 mod client_prompt;
 mod commands;
@@ -91,6 +92,7 @@ use serde_json::{json, Value};
 use crate::backend::{BackendClient, BackendKind, EventReceiver, PromptOrigin, PromptPriority};
 use crate::backend_commands::{BackendCommands, CommandHandle};
 
+pub(crate) use self::catalogue::visit_saved_sessions;
 pub(crate) use self::fact_transfer::FactTransfer;
 #[cfg(any(test, feature = "test-support"))]
 pub use self::message_visibility::is_child_report_notice;
