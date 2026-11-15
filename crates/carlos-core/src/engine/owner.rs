@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Arc};
+use std::sync::{mpsc, Arc, Mutex};
 
 use carlos_proto::commands::RpcError;
 
@@ -21,6 +21,7 @@ pub(super) struct Channels {
     pub wake_rx: mpsc::Receiver<()>,
     pub notice: mpsc::SyncSender<()>,
     pub stop: Arc<AtomicBool>,
+    pub final_read: Arc<Mutex<Option<super::FinalRead>>>,
     pub changed: Arc<AtomicBool>,
     pub goal_interest: Arc<AtomicBool>,
     pub task_interest: Arc<AtomicBool>,
@@ -122,7 +123,25 @@ impl Owner {
         self.native.stop();
         self.workers.stop();
         self.drain_completions();
+        self.session.events.backend_closed = true;
+        self.session.set_active_turn_id(None);
         self.publish();
+        self.finish_shutdown_read();
+    }
+
+    fn finish_shutdown_read(&mut self) {
+        let final_read = self
+            .channels
+            .final_read
+            .lock()
+            .expect("final shutdown read")
+            .take();
+        if let Some(read) = final_read {
+            let report = self
+                .updates(read.since)
+                .unwrap_or_else(EngineReply::Failure);
+            let _ = read.reply.try_send(report);
+        }
     }
 
     pub(super) fn notice(&self) {

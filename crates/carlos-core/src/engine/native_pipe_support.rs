@@ -40,6 +40,7 @@ impl Drop for Forwarded {
 }
 pub(super) fn forward_native(receiver: EventReceiver) -> Forwarded {
     let channels = Channels {
+        final_read: Default::default(),
         ordinary: mpsc::channel().1,
         control: mpsc::channel().1,
         reads: mpsc::channel().1,

@@ -16,7 +16,8 @@ The daemon can run shell commands as its user. Network access stays off unless t
 
 - [x] (2026-11-15) Read the accepted EP019b result, final Fable findings, current manager/owner/transport/store interfaces and the architecture roadmap. Confirm clean closeout commit `07bad8c` and preserved protected main/installed executable.
 - [x] (2026-11-15) Choose explicit stop/reopen before network work, durable stopped metadata, bounded off-manager joins, one network WebSocket owner per connection and operator-provisioned device tokens.
-- [ ] Implement typed session stop and explicit reopen, retain every admitted private draft/outcome, persist stopped metadata and prove reuse of all 16 owner slots without an implicit restart.
+- [x] (2026-11-15) Add EngineHandle.shutdown_with_updates, a one-shot final report after native/worker cleanup. Move handle methods into their own module. Two new Core cases pass alongside existing shutdown cases: deferred-native closure with retained private acceptance, and exact private draft recovery despite an oversized shared page. Both full workspace feature/lint matrices pass; logs are /tmp/carlos-ep020/owner-report/{default,no-default}-{tests,clippy}.log.
+- [ ] Implement manager typed session stop/reopen, persist stopped metadata and prove reuse of all 16 owner slots without an implicit restart. Collect any already-issued Live.updates reply before discarding the old Live; its outcomes may already have been drained from Core into that channel.
 - [ ] Add terminal and command-line stop/reopen controls with visible/request assertions, including recovery when owner capacity is already full.
 - [ ] Add durable per-device token records and local-only operator controls. Bind network retry credentials to the authenticated device and revoke existing connections promptly.
 - [ ] Add the optional bounded WebSocket listener and its real clients without a new async runtime, second session owner or unbounded buffers.
@@ -24,6 +25,8 @@ The daemon can run shell commands as its user. Network access stays off unless t
 - [ ] Finish the direct engineering and Fable whole-roadmap reviews, record every disposition and delegated approval, archive this completed plan unchanged and continue to EP021.
 
 ## Surprises & Discoveries
+
+A final owner read alone is insufficient if the manager already requested Live.updates: Core may have collected private results into that pending reply before shutdown. The stop worker must consume that existing receiver as well as the final read, preserving exact outcomes before using canonical-command uncertainty for commands the owner never saw. Explicit final shutdown also marks deferred-native availability closed after late completions, rather than exporting a stale Ready state.
 
 
 The accepted daemon has no public stop command. `Session.live` is taken only during `Manager::shutdown`; create/restore/open count live or launching owners against a hard bound of 16. Dropping a client correctly leaves a conversation alive, but it also leaves an abandoned owner allocated forever. Stopping must therefore free an owner while keeping its saved native address.
@@ -38,6 +41,8 @@ The locked tungstenite version is 0.30.0. Its config allocates a read buffer eag
 
 ## Decision Log
 
+- 2026-11-15, root: Add a one-shot shutdown read, not another polling queue. Register its bounded reply before setting the stop flag; return final changes/outcomes after native cleanup. Keep existing shutdown/join callers and collect in-flight manager replies in the stop worker. Move only handle methods to engine/handle.rs to preserve file size caps.
+
 
 - 2026-11-15, root: Treat session stop/reopen as the first required milestone, as Fable explicitly allowed in its EP019b final review. Do not enable network access before its actual multi-client/native acceptance checks pass.
 - 2026-11-15, root: Stop explicitly rather than silently evicting idle conversations. A stop keeps saved native metadata, turns Ralph off, closes native processes and publishes closure. A reconnecting subscription never reopens an explicitly stopped session. Only a new explicit reopen/open operation may do so.
@@ -51,7 +56,7 @@ The locked tungstenite version is 0.30.0. Its config allocates a read buffer eag
 ## Outcomes & Retrospective
 
 
-Orientation is complete. No EP020 runtime code has changed yet. The next action is to add the owner shutdown report and manager stop path, with deterministic real-native tests that fail against EP019b. The accepted EP019b pair and measurements remain frozen for matched comparisons.
+The first owner shutdown-report piece is implemented and its two new cases pass. Both workspace feature/lint matrices pass. The public session stop/reopen command and durable stopped metadata are still incomplete. Next implement the manager stop worker, including its existing pending updates reply and unconsumed retry records, then prove real-native owner release. The accepted EP019b pair and measurements remain frozen for matched comparisons.
 
 ## Context and Orientation
 
@@ -168,3 +173,5 @@ Extend EngineHandle with a one-shot final update read associated with explicit s
 Add tungstenite 0.30.0 and blake3 as direct daemon dependencies using versions already in Cargo.lock. Standard threads, nonblocking sockets, the existing ingress/outbox and a bounded wake descriptor are sufficient. Do not add an async runtime, generic transport framework, HTTP application server, cloud broker or device-pairing service. The future phone can use its native WebSocket API around the same pure client; richer native history remains EP021 and the actual Swift/UniFFI app remains EP022.
 
 Revision 2026-11-15: create EP020 after approved EP019b. Incorporate the final review's owner-release/reopen repair as the first required milestone and specify the complete authenticated network outcome and its acceptance checks.
+
+Revision 2026-11-15: add and test the Core one-shot final report. Record the in-flight owner-result receiver that a manager stop must also drain, and keep the public lifecycle milestone incomplete until actual process/slot tests pass.

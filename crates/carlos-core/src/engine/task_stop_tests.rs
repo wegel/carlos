@@ -35,6 +35,7 @@ fn fixture() -> (Fixture, ClientOperation) {
     ]);
     session.verify_codex_agent_owners_for_test(session.codex_scope().epoch());
     let channels = Channels {
+        final_read: Default::default(),
         ordinary: mpsc::channel().1,
         control: mpsc::channel().1,
         reads: mpsc::channel().1,

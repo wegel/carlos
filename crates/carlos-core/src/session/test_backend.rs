@@ -21,9 +21,13 @@ pub struct TestBackend {
     pub calls: Mutex<Vec<(String, Value, Value)>>,
     pub replies: Mutex<Vec<(Value, Value)>>,
     pub fail: bool,
+    pub deferred: bool,
 }
 
 impl BackendClient for TestBackend {
+    fn defers_terminal_events(&self) -> bool {
+        self.deferred
+    }
     fn kind(&self) -> BackendKind {
         BackendKind::Codex
     }
