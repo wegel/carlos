@@ -176,7 +176,7 @@ fn live_notice(state: &OperationState, prior: bool, ready: bool) -> Option<Strin
             }
         }
         OperationState::Uncertain { message, .. } => format!(
-            "stop uncertain: {}. No automatic retry",
+            "Stop failed: {}. stop uncertain; No automatic retry",
             display_message(message)
         ),
         _ => return None,

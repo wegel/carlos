@@ -58,6 +58,6 @@ fn pending_and_uncertain_original_stops_keep_their_prior_run_label() {
     };
     assert_eq!(
         live_notice(&state, true, true).as_deref(),
-        Some("Prior-run: stop uncertain: native response missing. No automatic retry")
+        Some("Prior-run: Stop failed: native response missing. stop uncertain; No automatic retry")
     );
 }

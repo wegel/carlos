@@ -42,7 +42,8 @@ class CodexPanel:
         terminal.contains("Process: 101")
         terminal.send(b"x")
         terminal.contains("Selected fixture")
-        terminal.contains("stop denied")
+        terminal.wait(lambda: "Selected fixture stop denied" in " ".join(terminal.text.split()),
+                      "complete native stop error across phone rows")
         self.assertEqual(terminal.requests("thread/backgroundTerminals/terminate")[0]["params"],
             {"threadId":"thread-original","processId":"101"})
         terminal.resize(18,10)

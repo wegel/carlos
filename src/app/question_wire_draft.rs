@@ -1,6 +1,6 @@
 //! Adapt checked daemon input descriptions to the shared native answer editor.
 
-use carlos_core::session::questions::{mcp_fields, QuestionField};
+use carlos_core::session::questions::QuestionField;
 use carlos_proto::session::ApprovalInput;
 
 use super::claude_question_state::NativeDraft;
@@ -30,9 +30,9 @@ impl NativeDraft {
                 None,
                 false,
             ),
-            ApprovalInput::Form { schema } => match mcp_fields(schema) {
+            ApprovalInput::Form { schema } => match carlos_core::native_form::fields(schema) {
                 Ok(fields) => (fields, None, true),
-                Err(error) => (Vec::new(), Some(error), true),
+                Err(error) => (Vec::new(), Some(error.to_string()), true),
             },
             ApprovalInput::Browser { .. } => (Vec::new(), None, false),
             ApprovalInput::Unsupported { reason } => (Vec::new(), Some(reason.clone()), false),

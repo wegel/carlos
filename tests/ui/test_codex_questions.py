@@ -15,6 +15,8 @@ class CodexQuestions:
         terminal.send(b"\x1b")
         self.callback_step(terminal,"quiet")
         terminal.wait(lambda:any(message.get("method")=="turn/completed" and message["params"]["turn"]["id"]=="root-busy" for message in terminal.messages("server")),"root finished")
+        if terminal.owned_daemon or hasattr(terminal, "daemon_recorder"):
+            terminal.contains("Idle")  # The proxy log can precede the terminal's accepted idle frame.
         self.edit(terminal,"second","forked question cleanup")
         self.callback_step(terminal,"old-replay")
         terminal.wait(lambda:any(message.get("method")=="serverRequest/resolved" and message["params"].get("requestId")=="nonblocking" for message in terminal.messages("server")),"old resolution delivered")

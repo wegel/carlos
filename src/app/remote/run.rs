@@ -112,10 +112,7 @@ impl Device {
         transport: &mut Option<Transport>,
         input: Event,
     ) -> Result<bool> {
-        let secret = self
-            .client
-            .session(&self.session)
-            .is_some_and(|replica| replica.approvals().iter().any(|card| card.input.is_some()));
+        let secret = self.question_input_is_secret();
         crate::app::input_events::trace_terminal_event(&input, secret);
         if matches!(&input, Event::Key(key) if key.code == KeyCode::F(5))
             && self.recover_saved_draft()

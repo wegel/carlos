@@ -1,12 +1,16 @@
 //! Build only the offered typed answer from the original local card editor.
 
 use carlos_proto::commands::{ApprovalAnswer, FieldAnswer, FieldAnswers};
-use carlos_proto::session::{ApprovalInput, Decision};
+use carlos_proto::session::{ApprovalInput, Backend, Decision};
 use serde_json::{Map, Value};
 
 use crate::app::claude_question_state::NativeDraft;
 
-pub(super) fn answer(input: &ApprovalInput, draft: &NativeDraft) -> Result<ApprovalAnswer, String> {
+pub(super) fn answer(
+    input: &ApprovalInput,
+    draft: &NativeDraft,
+    backend: Option<Backend>,
+) -> Result<ApprovalAnswer, String> {
     if let Some(error) = &draft.unsupported {
         return Err(error.clone());
     }
@@ -20,6 +24,10 @@ pub(super) fn answer(input: &ApprovalInput, draft: &NativeDraft) -> Result<Appro
                 }
             }
             let value = Value::Object(content);
+            if backend == Some(Backend::Claude) {
+                carlos_core::native_form::validate_claude_integers(schema, &value)
+                    .map_err(|error| error.to_string())?;
+            }
             carlos_core::native_form::validate(schema, &value)
                 .map_err(|error| error.to_string())?;
             value

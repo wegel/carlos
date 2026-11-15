@@ -31,8 +31,15 @@ impl Device {
             body.push(
                 "Ctrl+Y copies this offered URL; accepting sends only browser consent".into(),
             );
+            body.push(
+                "Accept consents to this browser interaction; it does not confirm completion."
+                    .into(),
+            );
         }
-        body.push(format!("Request: {}", card.id));
+        body.push(format!(
+            "Request: {}",
+            card.display_id.as_deref().unwrap_or(card.id.as_str())
+        ));
         body.extend(card.details.iter().map(|line| safe_text(line)));
         question_card::draw(
             buffer,

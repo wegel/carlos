@@ -71,6 +71,7 @@ fn readonly_caller_and_browser_progress_details_keep_private_confirmation_and_an
     card.details
         .push("The server reported browser completion; consent is still required".into());
     card.caller = Some("Thread: same original caller with updated display metadata".into());
+    card.display_id = Some("same native display caption".into());
     state.synchronize(&[card]);
     assert_eq!(text(&state, 1), "answer stays private");
     assert!(state.drafts[&id(1)].confirm);
@@ -161,4 +162,77 @@ fn an_explicit_retry_clears_only_the_same_cards_previous_error_hint() {
     assert_eq!(hint.as_deref(), Some("own rejection"));
     state.clear_retry_hint(&id(1), &mut hint);
     assert!(hint.is_none());
+}
+
+#[test]
+fn tail_first_card_events_follow_the_active_card_until_the_user_explicitly_focuses() {
+    let mut cards = [card(1), card(2)];
+    for card in &mut cards {
+        card.blocking = true;
+    }
+    let mut state = Questions::default();
+    state.synchronize(&cards[1..]);
+    assert_eq!(state.focus, Some(id(2)));
+    state.synchronize(&cards);
+    assert_eq!(
+        state.focus,
+        Some(id(1)),
+        "the first native request wins its tail-first batch"
+    );
+    state.next(&cards);
+    insert(&mut state, 2, "keep explicit local focus");
+    state.synchronize(&cards);
+    assert_eq!(state.focus, Some(id(2)));
+    assert_eq!(text(&state, 2), "keep explicit local focus");
+}
+
+#[test]
+fn retiring_an_explicitly_selected_card_advances_to_its_successor() {
+    let mut cards = [card(1), card(2), card(3)];
+    for card in &mut cards {
+        card.blocking = true;
+    }
+    let mut state = Questions::default();
+    state.synchronize(&cards);
+    state.next(&cards);
+    assert_eq!(state.focus, Some(id(2)));
+    state.synchronize(&[cards[0].clone(), cards[2].clone()]);
+    assert_eq!(state.focus, Some(id(3)));
+}
+
+#[test]
+fn finishing_a_blocking_card_does_not_reopen_a_hidden_nonblocking_answer() {
+    let mut cards = [card(1), card(2)];
+    cards[1].blocking = true;
+    let mut state = Questions::default();
+    state.synchronize(&cards[..1]);
+    state.next(&cards[..1]);
+    insert(&mut state, 1, "private hidden answer");
+    state.shown = false;
+    state.synchronize(&cards);
+    assert_eq!(state.focus, Some(id(2)));
+    state.synchronize(&cards[..1]);
+    assert!(!state.shown);
+    assert_eq!(text(&state, 1), "private hidden answer");
+}
+
+#[test]
+fn late_preflight_error_keeps_the_exact_schema_draft_and_confirmation() {
+    let mut original = card(1);
+    let mut state = Questions::default();
+    state.synchronize(&[original.clone()]);
+    state.next(&[original.clone()]);
+    insert(&mut state, 1, "private correction stays here");
+    state.drafts.get_mut(&id(1)).expect("draft").confirm = true;
+    let fingerprint = state.drafts[&id(1)].fingerprint;
+    original.input_error = Some("Unsupported form schema".into());
+    state.synchronize(&[original]);
+    assert_eq!(state.focus, Some(id(1)));
+    assert_eq!(text(&state, 1), "private correction stays here");
+    assert_eq!(state.drafts[&id(1)].fingerprint, fingerprint);
+    assert!(state.drafts[&id(1)].confirm);
+    assert_eq!(
+        state.drafts[&id(1)].editor.unsupported.as_deref(),
+        Some("Unsupported form schema")
+    );
 }

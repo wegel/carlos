@@ -26,6 +26,13 @@ impl Device {
         let Some(card) = self.selected_approval().cloned() else {
             return Ok(false);
         };
+        self.questions.auto_focus = false;
+        if matches!(key.code, KeyCode::PageUp | KeyCode::PageDown) {
+            if let Some(draft) = self.questions.drafts.get_mut(&card.id) {
+                question_editor::key(&mut draft.editor, key);
+            }
+            return Ok(true);
+        }
         if self.question_control_key(link.as_deref_mut(), key, &card)? {
             return Ok(true);
         }
@@ -116,6 +123,7 @@ impl Device {
         if !self.questions.size.is_some_and(can_edit_question) {
             return Ok(());
         }
+        let backend = self.task_backend();
         if key.code == KeyCode::Char('s') && key.modifiers == KeyModifiers::CONTROL {
             let draft = self.questions.drafts.get_mut(&card.id).ok_or_else(|| {
                 anyhow::anyhow!("Original question changed; F4 opens a fresh editor")
@@ -126,8 +134,8 @@ impl Device {
                     Some(default_no_hint(!draft.editor.fields.is_empty(), true).into());
                 return Ok(());
             }
-            let answer =
-                questions_answers::answer(input, &draft.editor).map_err(anyhow::Error::msg)?;
+            let answer = questions_answers::answer(input, &draft.editor, backend)
+                .map_err(anyhow::Error::msg)?;
             self.send_question_answer(link, card.id.clone(), answer)?;
         } else if let Some(draft) = self.questions.drafts.get_mut(&card.id) {
             if draft.editor.review
@@ -158,7 +166,7 @@ impl Device {
             return Ok(false);
         };
         if !card.choices.contains(&decision) {
-            return Ok(card.input.is_some());
+            return Ok(true);
         }
         if matches!(decision, Decision::Once | Decision::Session) {
             if let Some(error) = self
@@ -197,6 +205,7 @@ impl Device {
         if card.input.is_none() {
             return false;
         }
+        self.questions.auto_focus = false;
         let editable = self.questions.size.is_some_and(can_edit_question);
         if let Some(draft) = self.questions.drafts.get_mut(&id) {
             if editable && !draft.editor.review {

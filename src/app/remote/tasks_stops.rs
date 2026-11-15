@@ -71,7 +71,7 @@ impl Device {
             !self.tasks.stops.results.pending(&self.client, &task.id),
             "This task stop is already pending"
         );
-        if task.kind != TaskKind::Agent {
+        if task.kind == TaskKind::Process {
             ensure!(
                 self.tasks
                     .details

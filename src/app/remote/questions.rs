@@ -34,6 +34,8 @@ pub(super) struct Questions {
     retired: HashSet<EntryId>,
     pub(super) focus: Option<EntryId>,
     pub(super) shown: bool,
+    pub(super) auto_focus: bool,
+    successor: Option<EntryId>,
 }
 
 impl Questions {
@@ -75,6 +77,7 @@ impl Questions {
     }
 
     pub(super) fn synchronize(&mut self, cards: &[Approval]) {
+        let successor = self.shown.then(|| self.successor.clone()).flatten();
         self.operations.retain(|_, target| {
             !target.finished || cards.iter().any(|card| card.id == target.card)
         });
@@ -91,8 +94,33 @@ impl Questions {
         {
             self.focus = None;
             self.shown = false;
+            if let Some(card) = cards.iter().find(|card| {
+                Some(&card.id) == successor.as_ref() && !card.submitted && card.blocking
+            }) {
+                self.focus = Some(card.id.clone());
+                self.shown = true;
+                self.auto_focus = false;
+            }
         }
-        if !self.shown {
+        self.select_automatic(cards);
+        self.remember_successor(cards);
+    }
+
+    fn remember_successor(&mut self, cards: &[Approval]) {
+        self.successor = self.focus.as_ref().and_then(|focus| {
+            let index = cards.iter().position(|card| &card.id == focus)?;
+            cards
+                .iter()
+                .cycle()
+                .skip(index + 1)
+                .take(cards.len().saturating_sub(1))
+                .find(|card| !card.submitted)
+                .map(|card| card.id.clone())
+        });
+    }
+
+    fn select_automatic(&mut self, cards: &[Approval]) {
+        if !self.shown || self.auto_focus {
             let next = cards
                 .iter()
                 .filter(|card| !card.submitted && card.blocking && !self.retired.contains(&card.id))
@@ -105,6 +133,7 @@ impl Questions {
             if let Some(card) = next {
                 self.focus = Some(card.id.clone());
                 self.shown = true;
+                self.auto_focus = true;
             }
         }
     }
@@ -126,16 +155,21 @@ impl Questions {
         if self.retired.contains(&card.id) {
             return;
         }
-        self.drafts
+        let draft = self
+            .drafts
             .entry(card.id.clone())
             .or_insert_with(|| AnswerDraft {
                 editor: initial_editor(card),
                 fingerprint,
                 confirm: false,
             });
+        if let Some(error) = &card.input_error {
+            draft.editor.unsupported = Some(error.clone());
+        }
     }
 
     pub(super) fn next(&mut self, cards: &[Approval]) {
+        self.auto_focus = false;
         let live: Vec<_> = cards.iter().filter(|card| !card.submitted).collect();
         if live.is_empty() {
             return;
@@ -168,11 +202,15 @@ impl Questions {
             draft.confirm = false;
         }
         self.shown = true;
+        self.remember_successor(cards);
     }
 }
 
 fn initial_editor(card: &Approval) -> NativeDraft {
     let mut editor = NativeDraft::from_approval(card.input.as_ref());
+    if let Some(error) = &card.input_error {
+        editor.unsupported = Some(error.clone());
+    }
     if card.default_to_no {
         editor.notice = Some(default_no_hint(!editor.fields.is_empty(), false).into());
     }
@@ -231,12 +269,28 @@ impl Device {
             .find(|card| Some(&card.id) == self.questions.focus.as_ref())
     }
 
+    pub(super) fn question_input_is_secret(&self) -> bool {
+        self.selected_approval()
+            .and_then(|card| self.questions.drafts.get(&card.id))
+            .is_some_and(|draft| {
+                if draft.editor.review {
+                    draft.editor.fields.iter().any(|field| field.spec.secret())
+                } else {
+                    draft
+                        .editor
+                        .fields
+                        .get(draft.editor.current)
+                        .is_some_and(|field| field.spec.secret())
+                }
+            })
+    }
+
     pub(super) fn question_facts_are_current(&self) -> bool {
         self.client.current_session_has_snapshot(&self.session)
             && self.client.session(&self.session).is_some_and(|replica| {
                 matches!(
                     replica.info().availability,
-                    Availability::Ready | Availability::Starting
+                    Availability::Ready | Availability::Starting | Availability::Restoring
                 )
             })
     }
