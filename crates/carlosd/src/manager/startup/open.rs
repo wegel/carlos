@@ -108,12 +108,18 @@ impl Manager {
         let existing = request.target.known.clone().or_else(|| {
             self.sessions
                 .values()
-                .find(|session| {
+                .filter(|session| {
                     session.saved.backend == request.target.backend
                         && (request.target.backend == carlos_proto::session::Backend::Codex
                             || session.saved.cwd == cwd)
-                        && session.saved.native_thread == request.target.native
+                        && session
+                            .live
+                            .as_ref()
+                            .map(|live| live.native_thread.as_str())
+                            .or(session.saved.native_thread.as_deref())
+                            == request.target.native.as_deref()
                 })
+                .min_by_key(|session| session.live.is_none() && session.launch.is_none())
                 .map(|session| session.saved.id.clone())
         });
         let session = existing.clone().unwrap_or_else(opaque_id::<SessionId>);
@@ -196,7 +202,14 @@ impl Manager {
         }
         self.finish_create(&session);
         self.list_changed(&session);
-        self.reply(peer, id, result);
+        self.reply_open_result(peer, id, result);
+    }
+
+    fn reply_open_result(&mut self, peer: u64, id: RequestId, result: OperationResult) {
+        let retained = self
+            .retry
+            .read(&result.operation.client, &result.operation, Instant::now());
+        self.reply(peer, id, retained.unwrap_or(result));
     }
 
     fn open_failure(&self, id: &SessionId, known: bool) -> Option<&'static str> {

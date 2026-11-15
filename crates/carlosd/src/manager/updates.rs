@@ -83,8 +83,7 @@ impl Manager {
 
     fn apply_update(&mut self, id: &SessionId, update: EngineUpdate) {
         let session = self.sessions.get_mut(id).expect("known session");
-        let changed = session.info != update.info;
-        session.info = update.info;
+        let changed = session.observe_owner_info(update.info, &update.native_thread);
         if matches!(
             session.info.availability,
             Availability::Closed | Availability::Unavailable

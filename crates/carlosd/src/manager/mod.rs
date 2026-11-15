@@ -9,6 +9,7 @@ mod output;
 mod prompt_reads;
 mod read_commands;
 mod reads;
+mod restore_admission;
 mod startup;
 mod state;
 mod store;

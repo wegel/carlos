@@ -54,6 +54,7 @@ pub(super) struct Session {
 }
 
 pub(super) struct Live {
+    pub native_thread: String,
     pub handle: EngineHandle,
     pub notice: JoinHandle<()>,
     pub updates: Option<mpsc::Receiver<EngineReply>>,
@@ -101,4 +102,15 @@ pub(super) struct Waiting {
     pub session: SessionId,
     pub since: Option<Sequence>,
     pub generation: u64,
+}
+
+impl Session {
+    pub(super) fn observe_owner_info(&mut self, info: SessionInfo, native_thread: &str) -> bool {
+        let changed = self.info != info;
+        self.info = info;
+        if let Some(live) = &mut self.live {
+            live.native_thread = native_thread.to_owned();
+        }
+        changed
+    }
 }

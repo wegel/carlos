@@ -120,6 +120,9 @@ impl Manager {
         tool_labels: Option<bool>,
         native: carlos_proto::startup::NativeLaunchOptions,
     ) {
+        if restore && self.reject_restore_conflict(id) {
+            return;
+        }
         let state = self.sessions.get_mut(id).expect("known session");
         if state.live.is_some() || state.launch.is_some() {
             return;
@@ -173,6 +176,7 @@ impl Manager {
             match result {
                 Ok(mut launched) => {
                     session.info = launched.info();
+                    let native_thread = launched.native_thread().to_owned();
                     let (handle, notices) = launched.spawn();
                     let wake = self.wake.clone();
                     let notice = thread::spawn(move || {
@@ -181,6 +185,7 @@ impl Manager {
                         }
                     });
                     session.live = Some(Live {
+                        native_thread,
                         handle,
                         notice,
                         updates: None,

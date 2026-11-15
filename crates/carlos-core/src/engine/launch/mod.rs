@@ -106,6 +106,11 @@ impl Launched {
         self.session.export_info()
     }
 
+    /// Capture the live native address separately from its last confirmed catalogue entry.
+    pub fn native_thread(&self) -> &str {
+        self.session.thread_id()
+    }
+
     /// Transfer the whole adapter without exposing mutable session fields to the daemon manager.
     pub fn spawn(self) -> (EngineHandle, mpsc::Receiver<()>) {
         EngineHandle::spawn_with_tool_labels(self.session, self.backend, self.events)
