@@ -44,6 +44,11 @@ impl AppServerClient {
 
     /// Prepare a child outside the manager lock; publish its handle before reading callbacks.
     pub(crate) fn prepare_with_events(mut command: Command, events: EventQueue) -> Result<Self> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            command.process_group(0);
+        }
         let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -385,3 +390,7 @@ mod stop_tests;
 
 #[path = "protocol_calls.rs"]
 mod calls;
+
+#[cfg(test)]
+#[path = "tests/protocol_owned_process_tests.rs"]
+mod owned_process_tests;

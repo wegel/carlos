@@ -254,6 +254,11 @@ impl ClientState {
             match &mut *endpoint {
                 Endpoint::Process(child) => {
                     if !matches!(child.try_wait(), Ok(Some(_))) {
+                        // The unreaped child reserves its PID while this lock excludes reapers.
+                        #[cfg(unix)]
+                        unsafe {
+                            libc::kill(-(child.id() as i32), libc::SIGKILL);
+                        }
                         let _ = child.kill();
                     }
                 }
