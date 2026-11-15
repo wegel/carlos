@@ -9,6 +9,9 @@ class ContextSettings:
     def open_context(self, terminal, backend, expected="Restart Carlos"):
         terminal.send(SETTINGS)
         terminal.contains("Settings")
+        if terminal.owned_daemon or hasattr(terminal, "daemon_recorder"):
+            terminal.contains("Tab field, arrows, Enter save")
+            expected = {"Restart Carlos":"Start a new session", "Shell sets size":"Daemon shell sets size"}.get(expected, expected)
         terminal.send(b"\t" * (2 if backend == "claude" else 3))
         terminal.contains(expected)
 
@@ -64,7 +67,8 @@ class ContextSettings:
         terminal.send(b"\x1b")
         terminal.wait(lambda: "Settings" not in terminal.text, "cancel invalid size")
         self.context_file(terminal, "claude").mkdir(parents=True)  # A directory cannot receive the saved file.
-        self.open_context(terminal, "claude")
+        expected = "Read " if terminal.owned_daemon or hasattr(terminal, "daemon_recorder") else "Restart Carlos"
+        self.open_context(terminal, "claude", expected=expected)
         terminal.paste("500k")
         terminal.send(b"\r")
         terminal.contains("Save Carlos context settings")

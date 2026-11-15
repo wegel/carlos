@@ -10,6 +10,7 @@ use carlos_proto::task_overview::TaskMainState;
 use ratatui::buffer::Buffer;
 use ratatui::style::Style;
 
+use super::ralph_keys::ralph_badges;
 use super::Device;
 use crate::app::notifications::animation_tick;
 use crate::app::render::{draw_composer, draw_status_separator, draw_str};
@@ -57,7 +58,7 @@ impl Device {
             .session(&self.session)
             .map(|replica| replica.info());
         let y = layout.input_top.saturating_sub(2);
-        if let Some(hint) = self.footer_hint(info) {
+        if let Some(hint) = self.footer_hint(info, size.width) {
             let hint = self.dictation_status(self.task_status(self.queue_status(hint)));
             let mut edge = size.width.saturating_sub(1);
             let mut labels = Vec::new();
@@ -87,11 +88,28 @@ impl Device {
             .is_empty()
             .then(|| info.and_then(|info| info.name.as_deref()))
             .flatten();
-        draw_composer(buffer, size, layout, content_x, false, name);
+        draw_composer(
+            buffer,
+            size,
+            layout,
+            content_x,
+            self.history.rewind_draft.is_some(),
+            name,
+        );
         self.draw_approval(buffer, size);
     }
 
-    fn footer_hint(&self, info: Option<&SessionInfo>) -> Option<String> {
+    fn footer_hint(&self, info: Option<&SessionInfo>, width: usize) -> Option<String> {
+        if self.history.failed
+            && info.is_some_and(|info| {
+                info.backend == Backend::Claude && info.availability == Availability::Closed
+            })
+        {
+            return Some("Claude is closed · edited draft kept".into());
+        }
+        if let Some(hint) = self.history_hint(width) {
+            return Some(hint.into());
+        }
         if let Some(hint) = &self.view.status_hint {
             return Some(hint.clone());
         }
@@ -371,24 +389,3 @@ fn activity_label(activity: &carlos_proto::status::MainActivity) -> Option<Strin
 #[cfg(test)]
 #[path = "status_tests.rs"]
 mod tests;
-
-fn ralph_badges(info: &SessionInfo) -> Vec<Label> {
-    let mut badges = Vec::new();
-    if info
-        .status
-        .as_ref()
-        .is_some_and(|status| status.ralph.toggle_pending)
-    {
-        badges.push(Label::plain(
-            "Ralph pending".into(),
-            COLOR_GUTTER_AGENT_THINKING,
-        ));
-    }
-    if info.ralph {
-        badges.push(Label {
-            parts: vec![("RALPH MODE".into(), COLOR_GUTTER_AGENT_THINKING)],
-            bold: true,
-        });
-    }
-    badges
-}

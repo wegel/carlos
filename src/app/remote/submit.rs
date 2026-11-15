@@ -11,6 +11,30 @@ use crate::app::input::make_input_area;
 impl Device {
     pub(super) fn submit(&mut self, mut link: Option<&mut Transport>) -> Result<()> {
         let text = self.view.input.lines().join("\n");
+        if self.local_command(&text) {
+            return Ok(());
+        }
+        if self.history.rewind_draft.is_some() {
+            let selected = self
+                .history
+                .selection
+                .as_ref()
+                .is_some_and(|s| s.record.is_some());
+            let claude = self
+                .client
+                .session(&self.session)
+                .is_some_and(|r| r.info().backend == Backend::Claude);
+            if selected || claude {
+                return self.submit_rewind(link, text);
+            }
+            self.history.rewind_draft = None;
+        }
+        if self.history.operation.is_some() {
+            anyhow::bail!("Preparing edited branch; newer composer draft kept");
+        }
+        if self.rename_command(link.as_deref_mut(), &text)? {
+            return Ok(());
+        }
         if self.panel_command(link.as_deref_mut(), &text) {
             return Ok(());
         }
@@ -42,6 +66,13 @@ impl Device {
         if text.is_empty() {
             return Ok(());
         }
+        self.send_user_text(link, text)
+    }
+
+    fn send_user_text(&mut self, link: &mut Transport, text: String) -> Result<()> {
+        let session = self.session.clone();
+        self.history.failed = false;
+        self.history.reset_navigation();
         let policy = self.task_send_policy();
         let outgoing = self
             .client
@@ -86,6 +117,6 @@ impl Device {
             self.open_queue();
             return true;
         }
-        self.local_command(text)
+        false
     }
 }

@@ -52,8 +52,10 @@ target/ui-venv/bin/python tests/daemon/test_daemon.py \
   --binary "target/$profile/carlosd" --artifacts "$artifacts/daemon" -v
 release_target="$(python3 -c 'import json; print(json.load(open("target/claude-controller/claude-controller-build.json"))["rustTarget"])')"
 python3 scripts/package-release.py --target "$release_target" --binary "target/$profile/carlos" \
+  --daemon "target/$profile/carlosd" \
   --helper target/claude-controller/carlos-claude-controller --output "$artifacts/package"
 python3 tests/package/smoke.py --binary "$artifacts/package/carlos" \
+  --daemon "$artifacts/package/carlosd" \
   --helper "$artifacts/package/carlos-claude-controller" --artifacts "$artifacts/package-smoke"
 target/ui-venv/bin/python tests/ui/test_workflows.py \
   --binary "target/$profile/carlos" "${daemon_arguments[@]}" --artifacts "$artifacts/ui" -v

@@ -52,6 +52,7 @@ impl Device {
     ) -> Result<bool> {
         self.replace_source_frames(effects.welcome.as_ref());
         self.question_effects(&effects);
+        let history_changed = self.apply_prompt_reads(link, &mut effects)?;
         let mut task_changed = self.apply_task_reads(&mut effects)?;
         task_changed |= self.task_operations_changed(&effects.operations);
         let goal_changed = self.apply_goal_reads(&mut effects)?;
@@ -59,7 +60,8 @@ impl Device {
         let queue_changed = self.apply_queue_reads(&mut effects)?;
         let private_changed = !effects.operations.is_empty();
         self.apply_operations(&effects.operations);
-        let mut changed = effects.welcome.is_some()
+        let mut changed = history_changed
+            || effects.welcome.is_some()
             || private_changed
             || goal_changed
             || settings_changed
@@ -98,11 +100,15 @@ impl Device {
             self.view.status_hint = Some(failure.error.message);
         }
 
+        self.settle_ready_history(link);
+        Ok(self.redraw_after_updates(changed, task_changed))
+    }
+
+    fn settle_ready_history(&mut self, link: &Transport) {
         if self.client.session_is_ready(link.connection, &self.session) {
             self.waiting_ready = false;
         }
         self.settle_history();
-        Ok(self.redraw_after_updates(changed, task_changed))
     }
 
     fn redraw_after_updates(&self, changed: bool, task_changed: bool) -> bool {
@@ -135,6 +141,11 @@ impl Device {
 
     fn replace_source_frames(&mut self, welcome: Option<&carlos_client::Welcome>) {
         if matches!(welcome, Some(carlos_client::Welcome::Replaced { .. })) {
+            if let Some(operation) = self.history.operation.take() {
+                self.retain_failed_text(&operation);
+                self.history.failed = true;
+            }
+            self.history.reset_navigation();
             self.settings_replaced();
             self.documents.replaced();
             self.view.render_cache.forget_all();
@@ -143,6 +154,9 @@ impl Device {
     }
 
     pub(super) fn event(&mut self, link: Option<&mut Transport>, event: Event) -> Result<bool> {
+        if self.view.viewport.show_help && !matches!(&event, Event::Key(_) | Event::Resize(_, _)) {
+            return Ok(false);
+        }
         match event {
             Event::Mouse(mouse)
                 if self.selected_approval().is_some()
@@ -171,6 +185,10 @@ impl Device {
                     self.queue_paste(&normalize_pasted_text(&text));
                 } else if self.question_paste(&normalize_pasted_text(&text)) {
                 } else {
+                    self.history.cancel_read();
+                    if self.history.rewind_draft.is_none() {
+                        self.history.reset_navigation();
+                    }
                     self.view.input.insert_str(normalize_pasted_text(&text));
                 }
             }
@@ -184,10 +202,23 @@ impl Device {
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             return Ok(true);
         }
+        if self.help_key(key) {
+            return Ok(false);
+        }
         if key.code == KeyCode::F(5) {
+            if self.recover_saved_draft() {
+                return Ok(false);
+            }
             if let Some(link) = link.as_deref_mut() {
                 self.retry_session(link)?;
             }
+            return Ok(false);
+        }
+        if key.code == KeyCode::F(4)
+            && self.history.rewind_draft.is_some()
+            && self.selected_approval().is_none()
+        {
+            self.history_key(link.as_deref_mut(), key);
             return Ok(false);
         }
         if self.settings_key(link.as_deref_mut(), key)?
@@ -204,16 +235,13 @@ impl Device {
         if self.ralph_key(link.as_deref_mut(), key) {
             return Ok(false);
         }
+        if self.history_key(link.as_deref_mut(), key) {
+            return Ok(false);
+        }
         if key.code == KeyCode::Enter && !is_newline_enter(key.modifiers) {
             let result = self.submit(link);
             if let Err(error) = result {
                 self.view.status_hint = Some(error.to_string());
-            }
-        } else if key.code == KeyCode::Esc {
-            if let Some(link) = link {
-                if let Err(error) = self.interrupt(link) {
-                    self.view.status_hint = Some(error.to_string());
-                }
             }
         } else {
             self.view.input.input(textarea_input_from_key(key));

@@ -171,6 +171,6 @@ impl Device {
         {
             return "Daemon shell sets size; choose Auto";
         }
-        "Next backend launch applies size; current session stays unchanged"
+        "Start a new session to apply size"
     }
 }

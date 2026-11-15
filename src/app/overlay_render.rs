@@ -148,6 +148,11 @@ pub(super) fn claude_question_cursor(app: &AppState, size: TerminalSize) -> Opti
 // ---------------------------------------------------------------------------
 
 pub(super) fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize, app: &AppState) {
+    draw_help_frame(buf, size, app.view.viewport.help_scroll);
+}
+
+/// Paint the same help rows using only the device's scroll position.
+pub(super) fn draw_help_frame(buf: &mut Buffer, size: TerminalSize, scroll: usize) {
     fill_fullscreen_overlay(buf, size);
     if size.width == 0 || size.height < 2 {
         return;
@@ -162,11 +167,7 @@ pub(super) fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize, app: &AppS
         size.width,
     );
     let height = size.height.saturating_sub(2);
-    let offset = app
-        .view
-        .viewport
-        .help_scroll
-        .min(lines.len().saturating_sub(height));
+    let offset = scroll.min(lines.len().saturating_sub(height));
     for (row, line) in lines.iter().skip(offset).take(height).enumerate() {
         draw_str(
             buf,

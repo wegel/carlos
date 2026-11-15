@@ -16,6 +16,9 @@ use crate::theme::{role_gutter_fg, role_gutter_symbol, role_row_bg, role_text_st
 
 impl Device {
     pub(super) fn draw(&mut self, frame: &mut Frame<'_>) {
+        if self.draw_help(frame) {
+            return;
+        }
         let size = TerminalSize {
             width: frame.area().width as usize,
             height: frame.area().height as usize,
@@ -90,7 +93,6 @@ impl Device {
     ) {
         let height = layout.msg_bottom;
         let width = size.width.saturating_sub(content_x + 1);
-        let anchor = self.reading.anchor.as_ref();
         self.reading.wanted.clear();
         self.reading.visible.clear();
         self.reading.loading = false;
@@ -103,6 +105,14 @@ impl Device {
                 self.view.tool_output.compact(),
                 self.view.layout.active,
             );
+            self.history.align_view(
+                self.client.session(&self.session),
+                cache,
+                &mut self.view.viewport,
+                &mut self.reading,
+                height,
+            );
+            let anchor = self.reading.anchor.as_ref();
             if let Some(line) = anchor.and_then(|(id, row)| {
                 let position = self.client.session(&self.session)?.entry_position(id)?;
                 cache.line_for_anchor((position, *row))
@@ -117,25 +127,15 @@ impl Device {
             let first = self.view.viewport.scroll_top;
             let last = first + height.saturating_sub(1);
             cache.materialize_inputs(&transcript, first, last);
-            for row in 0..height {
-                if let Some(line) = cache.rendered_line_at(first + row) {
-                    let selected = self.view.viewport.selected_cells(first + row, line.cells);
-                    draw_body_row(buffer, row, content_x, width, line, selected);
-                    if !self.view.layout.active.is_flow() {
-                        if let Some((index, body_row)) = cache.message_anchor(first + row) {
-                            if let Some(input) = transcript.row(index).map(|row| row.facts) {
-                                draw_gutter(
-                                    buffer,
-                                    row,
-                                    input,
-                                    body_row == cache.first_content_row(index),
-                                    line.separator,
-                                );
-                            }
-                        }
-                    }
-                }
-            }
+            draw_rows(
+                buffer,
+                &transcript,
+                cache,
+                &self.view.viewport,
+                size,
+                content_x,
+                height,
+            );
         }
         self.collect_visible(height);
     }
@@ -191,4 +191,36 @@ fn draw_body_row(
         role_text_style(line.role),
         selected,
     );
+}
+
+fn draw_rows(
+    buffer: &mut Buffer,
+    transcript: &Transcript<'_>,
+    cache: &crate::app::render_cache_state::RenderCacheState,
+    viewport: &crate::app::viewport_state::ViewportState,
+    size: TerminalSize,
+    content_x: usize,
+    height: usize,
+) {
+    let first = viewport.scroll_top;
+    let width = size.width.saturating_sub(content_x + 1);
+    for row in 0..height {
+        if let Some(line) = cache.rendered_line_at(first + row) {
+            let selected = viewport.selected_cells(first + row, line.cells);
+            draw_body_row(buffer, row, content_x, width, line, selected);
+            if content_x != 1 {
+                if let Some((index, body_row)) = cache.message_anchor(first + row) {
+                    if let Some(input) = transcript.row(index).map(|row| row.facts) {
+                        draw_gutter(
+                            buffer,
+                            row,
+                            input,
+                            body_row == cache.first_content_row(index),
+                            line.separator,
+                        );
+                    }
+                }
+            }
+        }
+    }
 }

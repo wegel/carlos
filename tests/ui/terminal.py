@@ -166,12 +166,28 @@ class Terminal:
         self.send(b"\x1b[200~" + text.encode() + b"\x1b[201~")
 
     def rewind(self, expected):
+        if self.owned_daemon or hasattr(self, "daemon_recorder"):
+            self.wait(self.daemon_is_idle, "current daemon facts finish the turn before idle rewind")
         self.send(b"\x1b")
         for _ in range(3):
             self.pump(0.05)
         self.send(b"\x1b")
         self.wait(lambda: self.input_is(expected),
                   "rewind composer contains " + repr(expected))
+
+    def daemon_is_idle(self):
+        for message in reversed(self.daemon_messages("server")):
+            result = message.get("result")
+            result = result if isinstance(result, dict) else {}
+            params = message.get("params", {})
+            event = params.get("event", {})
+            info = (result.get("snapshot", {}).get("info") or params.get("snapshot", {}).get("info")
+                    or event.get("info") or event.get("snapshot", {}).get("info"))
+            if info:
+                activity = (info.get("status") or {}).get("activity") or {}
+                return (info["availability"] == "ready" and info["phase"] == "idle"
+                        and info.get("current_turn") is None and activity.get("state") != "running")
+        return False
 
     def replace_input(self, text):
         self.send(b"\x01\x0b")  # Ctrl+A, Ctrl+K: start of line, delete to end.

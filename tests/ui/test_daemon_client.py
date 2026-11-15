@@ -112,7 +112,8 @@ class DaemonClient:
                           if message.get("id") == hello), len(messages))
             for message in messages[start:]:
                 params = message.get("params", {})
-                info = message.get("result", {}).get("snapshot", {}).get("info")
+                result = message.get("result")
+                info = result.get("snapshot", {}).get("info") if isinstance(result, dict) else None
                 info = info or params.get("snapshot", {}).get("info") or params.get("event", {}).get("info")
                 info = info or params.get("event", {}).get("snapshot", {}).get("info")
                 if info and info["id"] == session and info["availability"] == "ready":

@@ -8,6 +8,10 @@ mod events;
 mod formatting;
 mod goals;
 mod goals_commands;
+mod help;
+mod history;
+mod history_keys;
+mod history_operations;
 mod local_commands;
 mod navigation;
 mod questions;
@@ -26,6 +30,7 @@ mod queue_render;
 mod ralph_keys;
 mod reading;
 mod reconnect;
+mod rename;
 mod render;
 mod run;
 mod selection_copy;
@@ -86,6 +91,8 @@ struct Device {
     settings: settings::Settings,
     status: status::StatusClock,
     ralph_options: carlos_proto::ralph::RalphOptions,
+    history: history::History,
+    rename: Option<rename::Rename>,
     waiting_ready: bool,
     reconnect: Option<carlos_proto::submissions::ClientOperation>,
 }
@@ -111,6 +118,7 @@ impl Device {
     fn connection_closed(&mut self, link: &Transport, error: &anyhow::Error) {
         self.client.disconnect(link.connection);
         self.reading.disconnected();
+        self.history.cancel_read();
         self.documents.disconnected();
         self.goals.read = None;
         self.queue_disconnected();

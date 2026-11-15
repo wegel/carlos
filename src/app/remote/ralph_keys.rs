@@ -2,10 +2,13 @@
 
 use anyhow::{bail, Result};
 use carlos_proto::commands::Command;
+use carlos_proto::session::SessionInfo;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::transport::Transport;
 use super::Device;
+use crate::app::status_line::Label;
+use crate::theme::COLOR_GUTTER_AGENT_THINKING;
 
 impl Device {
     pub(super) fn ralph_key(&mut self, link: Option<&mut Transport>, key: KeyEvent) -> bool {
@@ -47,4 +50,25 @@ impl Device {
         self.goals.ralph = submitted;
         link.send(outgoing)
     }
+}
+
+pub(super) fn ralph_badges(info: &SessionInfo) -> Vec<Label> {
+    let mut badges = Vec::new();
+    if info
+        .status
+        .as_ref()
+        .is_some_and(|status| status.ralph.toggle_pending)
+    {
+        badges.push(Label::plain(
+            "Ralph pending".into(),
+            COLOR_GUTTER_AGENT_THINKING,
+        ));
+    }
+    if info.ralph {
+        badges.push(Label {
+            parts: vec![("RALPH MODE".into(), COLOR_GUTTER_AGENT_THINKING)],
+            bold: true,
+        });
+    }
+    badges
 }

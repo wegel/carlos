@@ -71,12 +71,17 @@ class ClaudeQuestions:
         terminal.contains("at least 18")
         terminal.contains("› 17")
         self.assertNotIn("form-question", self.native_answers(terminal))
+        daemon = terminal.owned_daemon or hasattr(terminal, "daemon_recorder")
+        if daemon:
+            self.assertEqual(terminal.daemon_requests("session/approve"), [],
+                             "the socket editor validates the card's schema before submitting")
+            self.assertEqual(self.helper_requests(terminal, "callback.respond"), [])
         terminal.snapshot("invalid-number-retained")
         terminal.replace_input("23")
         terminal.send(b"\x13")
         terminal.contains("Native callbacks settled")
         self.assertEqual(self.native_answers(terminal)["form-question"], {"action": "accept", "content": {"age": 23}})
-        self.assertEqual(len(self.helper_requests(terminal, "callback.respond")), 2)
+        self.assertEqual(len(self.helper_requests(terminal, "callback.respond")), 1 if daemon else 2)
 
     def test_claude_mcp_titled_enums_boolean_defaults_and_optional_omit_keep_types(self):
         terminal = self.open_question("typed form")

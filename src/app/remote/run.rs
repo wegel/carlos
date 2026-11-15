@@ -44,6 +44,8 @@ impl Device {
                 blocked_marker: options.ralph_blocked_marker.clone(),
                 waiting_marker: options.ralph_waiting_marker.clone(),
             },
+            history: Default::default(),
+            rename: None,
             waiting_ready: false,
             reconnect: None,
         };
@@ -114,6 +116,11 @@ impl Device {
             .session(&self.session)
             .is_some_and(|replica| replica.approvals().iter().any(|card| card.input.is_some()));
         crate::app::input_events::trace_terminal_event(&input, secret);
+        if matches!(&input, Event::Key(key) if key.code == KeyCode::F(5))
+            && self.recover_saved_draft()
+        {
+            return Ok(false);
+        }
         if matches!(&input, Event::Key(key) if key.code == KeyCode::F(5)) && transport.is_none() {
             match Transport::connect(socket, &mut self.client) {
                 Ok(link) => {
