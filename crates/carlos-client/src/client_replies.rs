@@ -66,6 +66,7 @@ impl Client {
         effects: &mut Effects,
     ) -> Result<(), ClientError> {
         let reply = match kind {
+            Kind::SavedPage(target) => ReadReply::SavedPage(crate::startup::reply(target, value)?),
             Kind::ContextDefaults(session) => {
                 ReadReply::ContextDefaults(crate::context_defaults::reply(session, value)?)
             }

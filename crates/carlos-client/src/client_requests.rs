@@ -155,7 +155,7 @@ impl Client {
 
 fn mutation(command: &Command) -> Option<(&ClientOperation, Option<&SessionId>)> {
     Some(match command {
-        Command::Create { operation, .. } => (operation, None),
+        Command::Create { operation, .. } | Command::Open { operation, .. } => (operation, None),
         Command::Send {
             operation, session, ..
         }

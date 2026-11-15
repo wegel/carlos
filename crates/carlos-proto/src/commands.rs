@@ -14,6 +14,33 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "method", content = "params")]
 pub enum Command {
+    #[serde(rename = "saved/open")]
+    SavedOpen {
+        backend: Backend,
+        cwd: String,
+        codex_socket: Option<String>,
+        purpose: crate::startup::SavedPurpose,
+    },
+    #[serde(rename = "saved/page")]
+    SavedPage {
+        scope: crate::ids::SavedScopeId,
+        direction: crate::startup::SavedDirection,
+    },
+    #[serde(rename = "saved/close")]
+    SavedClose {
+        scope: Option<crate::ids::SavedScopeId>,
+    },
+    #[serde(rename = "session/open")]
+    Open {
+        operation: ClientOperation,
+        backend: Backend,
+        cwd: String,
+        target: crate::startup::OpenTarget,
+        #[serde(default)]
+        launch: crate::startup::NativeLaunchOptions,
+        #[serde(default)]
+        tool_labels: Option<bool>,
+    },
     #[serde(rename = "settings/context/read")]
     ContextRead { session: SessionId },
     #[serde(rename = "settings/context/set")]

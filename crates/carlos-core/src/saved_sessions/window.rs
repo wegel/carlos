@@ -17,6 +17,7 @@ pub struct PageAnchor {
 #[derive(Clone, Debug)]
 pub enum PageDirection {
     Newest,
+    Oldest,
     Older(PageAnchor),
     Newer(PageAnchor),
 }
@@ -86,7 +87,7 @@ impl Window {
             self.last = Some(key.clone());
         }
         let eligible = match &self.direction {
-            PageDirection::Newest => true,
+            PageDirection::Newest | PageDirection::Oldest => true,
             PageDirection::Older(anchor) => key.compare(anchor).is_gt(),
             PageDirection::Newer(anchor) => key.compare(anchor).is_lt(),
         };
@@ -99,7 +100,10 @@ impl Window {
             .unwrap_or_else(|index| index);
         self.rows.insert(index, row);
         if self.rows.len() > PAGE_ROWS {
-            if matches!(self.direction, PageDirection::Newer(_)) {
+            if matches!(
+                self.direction,
+                PageDirection::Newer(_) | PageDirection::Oldest
+            ) {
                 self.rows.remove(0);
             } else {
                 self.rows.pop();
@@ -109,6 +113,13 @@ impl Window {
 
     pub(super) fn is_complete_before(&self, updated_at: i64) -> bool {
         match &self.direction {
+            PageDirection::Oldest => {
+                self.rows.len() == PAGE_ROWS
+                    && self
+                        .rows
+                        .first()
+                        .is_some_and(|first| updated_at > first.updated_at)
+            }
             PageDirection::Newer(anchor) => updated_at < anchor.updated_at,
             PageDirection::Newest | PageDirection::Older(_) => {
                 self.rows.len() == PAGE_ROWS

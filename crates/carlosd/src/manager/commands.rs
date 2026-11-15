@@ -28,6 +28,10 @@ impl Manager {
             return;
         }
         match command {
+            command @ (Command::Open { .. }
+            | Command::SavedOpen { .. }
+            | Command::SavedPage { .. }
+            | Command::SavedClose { .. }) => self.startup_command(peer, id, command, client),
             Command::Create { .. } => self.create(peer, id, command, client),
             Command::Send { .. }
             | Command::Rename { .. }

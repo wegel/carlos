@@ -49,12 +49,22 @@ impl ReasoningSummary {
     }
 }
 
-/// Keep Grok's explicit continue behavior distinct from its local-file picker fallback.
+/// Keep a continue lookup distinct from browsing; Grok uses one native candidate and no local fallback.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SavedPurpose {
     Picker,
     Continue,
+}
+
+/// Navigate within one private picker without sending a native backend cursor.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SavedDirection {
+    Newest,
+    Older,
+    Newer,
+    Oldest,
 }
 
 /// Select an earlier opaque picker choice or import one explicit legacy address at this boundary.
@@ -87,6 +97,7 @@ pub struct SavedPage {
     pub scope: SavedScopeId,
     pub backend: Backend,
     pub rows: Vec<SavedChoice>,
+    /// Offer another picker page; continue lookups never offer page navigation.
     pub has_newer: bool,
     pub has_older: bool,
     pub can_archive: bool,

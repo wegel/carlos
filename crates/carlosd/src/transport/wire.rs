@@ -34,6 +34,10 @@ fn known_method(method: &str) -> bool {
     matches!(
         method,
         "hello"
+            | "saved/open"
+            | "saved/page"
+            | "saved/close"
+            | "session/open"
             | "sessions/watch"
             | "session/create"
             | "session/subscribe"

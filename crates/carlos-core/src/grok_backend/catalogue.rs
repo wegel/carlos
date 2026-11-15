@@ -1,7 +1,9 @@
 //! Scan local Grok summaries one bounded file at a time for the saved-session picker fallback.
 
-use std::fs::{self, File};
+use std::fs::{self, OpenOptions};
 use std::io::Read;
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 use std::time::Instant;
 
@@ -14,6 +16,10 @@ use crate::saved_sessions::remaining;
 use crate::session::models::ThreadSummary;
 
 const SUMMARY_BYTES: u64 = 8 * 1024 * 1024;
+
+#[cfg(test)]
+#[path = "catalogue_tests.rs"]
+mod tests;
 
 pub(crate) fn visit_local_sessions(
     cwd: &Path,
@@ -60,9 +66,16 @@ fn visit_group(
 
 fn read_summary(path: &Path, cwd: &Path) -> Result<Option<ThreadSummary>> {
     let mut contents = String::new();
-    let Ok(file) = File::open(path) else {
+    let mut options = OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    options.custom_flags(libc::O_NONBLOCK);
+    let Ok(file) = options.open(path) else {
         return Ok(None);
     };
+    if !file.metadata()?.is_file() {
+        return Ok(None);
+    }
     if file
         .take(SUMMARY_BYTES + 1)
         .read_to_string(&mut contents)

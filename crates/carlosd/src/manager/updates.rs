@@ -67,7 +67,7 @@ impl Manager {
                 Err(reason) => {
                     let session = self.sessions.get_mut(&id).expect("known session");
                     session.info.availability = Availability::Closed;
-                    if let Some(mut result) = session.create.take() {
+                    for mut result in std::mem::take(&mut session.create) {
                         result.state = OperationState::Uncertain {
                             message: reason.message.clone(),
                             recovery: None,
@@ -89,7 +89,7 @@ impl Manager {
             session.info.availability,
             Availability::Closed | Availability::Unavailable
         ) {
-            if let Some(mut result) = session.create.take() {
+            for mut result in std::mem::take(&mut session.create) {
                 result.state = OperationState::Uncertain {
                     message: "backend closed before creation could be confirmed and saved".into(),
                     recovery: None,
@@ -143,7 +143,7 @@ impl Manager {
         if session.info.availability == Availability::Ready
             && session.durable.as_ref() == Some(&session.saved)
         {
-            if let Some(mut result) = session.create.take() {
+            for mut result in std::mem::take(&mut session.create) {
                 result.state = OperationState::Accepted {
                     entry: None,
                     notice: None,

@@ -8,6 +8,7 @@ mod mutation_work;
 mod output;
 mod read_commands;
 mod reads;
+mod startup;
 mod state;
 mod store;
 mod task_activity;
@@ -43,6 +44,7 @@ use self::store::Store;
 pub(crate) struct Manager {
     peers: HashMap<u64, Peer>,
     sessions: HashMap<SessionId, Session>,
+    startup: startup::Startup,
     reads: Vec<Read>,
     read_bytes: usize,
     waiting: Vec<Waiting>,
@@ -74,6 +76,7 @@ impl Manager {
         Ok(Self {
             peers: HashMap::new(),
             sessions,
+            startup: startup::Startup::new(),
             reads: Vec::new(),
             read_bytes: 0,
             waiting: Vec::new(),
@@ -112,6 +115,7 @@ impl Manager {
                 self.command(incoming.peer, incoming.request);
             }
             self.drain_launches();
+            self.drain_startup();
             self.refresh_goal_interests();
             self.refresh_task_interests();
             self.drain_updates();
@@ -162,6 +166,7 @@ impl Manager {
             .map(|(id, _)| *id)
             .collect();
         for id in closed {
+            self.startup.close(id);
             if let Some(client) = self.peers.remove(&id).and_then(|peer| peer.client.clone()) {
                 self.retry.disconnect(&client, Instant::now());
             }

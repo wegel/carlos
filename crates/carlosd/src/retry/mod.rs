@@ -1,6 +1,7 @@
 //! Bind commands to one authenticated client and reject expired retries before native dispatch.
 
 mod clients;
+mod existing;
 
 use std::collections::HashMap;
 use std::time::Instant;
@@ -101,18 +102,8 @@ impl RetryStore {
         class: Class,
         now: Instant,
     ) -> Result<Admission, RpcError> {
-        self.authorize(client, &operation, now)?;
-        if let Some(record) = self.records.get(&operation) {
-            if record.canonical != canonical {
-                return Err(error(
-                    -32005,
-                    "operation counter already names different work",
-                ));
-            }
-            return Ok(Admission::Existing(record.result.clone()));
-        }
-        if operation.id.get() <= self.clients.records[client].high_water {
-            return Err(expired());
+        if let Some(result) = self.existing(client, &operation, &canonical, now)? {
+            return Ok(Admission::Existing(result));
         }
         let reserved = canonical
             .len()

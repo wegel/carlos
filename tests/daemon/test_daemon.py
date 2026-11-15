@@ -24,6 +24,9 @@ from test_settings_facts import SettingsFactTests
 from test_settings_changes import SettingsChangeTests
 from test_backend_settings import BackendSettingsTests
 from test_tool_labels import ToolLabelTests
+from test_startup_launch import StartupLaunchTests
+from test_startup_open import StartupOpenTests
+from test_startup_grok import StartupGrokTests
 from test_context_defaults import ContextDefaultTests
 from test_ralph import RalphTests
 

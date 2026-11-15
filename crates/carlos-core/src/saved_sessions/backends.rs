@@ -7,7 +7,7 @@ use anyhow::{ensure, Context, Result};
 use carlos_proto::session::Backend;
 use serde_json::{json, Value};
 
-use super::{remaining, SavedPageRequest};
+use super::{remaining, PageDirection, SavedPageRequest};
 use crate::backend::BackendClient;
 use crate::claude_backend::visit_saved_sessions;
 use crate::codex_connection::CodexClient;
@@ -49,7 +49,8 @@ fn codex(
     loop {
         let response = client.call(
             "thread/list",
-            json!({"cwd":cwd,"limit":64,"cursor":cursor,"sortKey":"updated_at"}),
+            json!({"cwd":cwd,"limit":64,"cursor":cursor,"sortKey":"updated_at",
+                "sortDirection":if matches!(request.direction, PageDirection::Oldest) { "asc" } else { "desc" }}),
             remaining(cancel, deadline)?,
         )?;
         let parsed: Value = serde_json::from_str(&response)?;
@@ -89,6 +90,15 @@ fn grok(
     remaining(cancel, deadline)?;
     match listed {
         Ok(rows) if !rows.is_empty() || !request.allow_grok_fallback => {
+            // The existing Grok continue rule takes the last native row on an updated-time tie.
+            let rows: Vec<_> = if request.allow_grok_fallback {
+                rows
+            } else {
+                rows.into_iter()
+                    .max_by_key(|row| row.updated_at)
+                    .into_iter()
+                    .collect()
+            };
             for row in rows {
                 visitor(ThreadSummary {
                     id: row.session_id,

@@ -8,13 +8,15 @@ from websockets.asyncio.server import unix_serve
 from native_queue import NativeQueue
 from native_tasks import NativeTasks
 from native_settings import NativeSettings
+from native_saved import NativeSaved
 
 
-class NativeCodex(NativeQueue, NativeTasks, NativeSettings):
+class NativeCodex(NativeQueue, NativeTasks, NativeSettings, NativeSaved):
     def __init__(self, root):
         self.init_queue()
         self.init_tasks()
         self.init_settings()
+        self.init_saved()
         self.root = root
         self.path = root / "native.sock"
         self.requests = []
@@ -134,6 +136,8 @@ class NativeCodex(NativeQueue, NativeTasks, NativeSettings):
     async def handle(self, link, request):
         method = request["method"]
         if "id" not in request:
+            return
+        if await self.saved_request(link, request):
             return
         if await self.settings_request(link, request):
             return

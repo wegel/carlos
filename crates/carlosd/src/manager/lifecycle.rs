@@ -73,14 +73,25 @@ impl Manager {
             native_thread: None,
             ralph_was_on: false,
         };
+        self.launch_created(saved, result.clone(), tool_labels, launch);
+        self.reply(peer, id, result);
+    }
+
+    fn launch_created(
+        &mut self,
+        saved: SavedSession,
+        result: OperationResult,
+        tool_labels: Option<bool>,
+        launch: carlos_proto::startup::NativeLaunchOptions,
+    ) {
+        let session = saved.id.clone();
         let mut state = Session::dormant(saved);
         state.durable = None;
         state.info.availability = Availability::Starting;
-        state.create = Some(result.clone());
+        state.create.push(result.clone());
         self.sessions.insert(session.clone(), state);
         self.start_launch(&session, false, tool_labels, launch);
         self.list_changed(&session);
-        self.reply(peer, id, result);
     }
 
     fn create_failure(&self, cwd: &str, name: &Option<String>) -> Option<&'static str> {
@@ -89,6 +100,7 @@ impl Manager {
         }
         if self.sessions.len() == crate::limits::SESSIONS
             || self.owner_count() == crate::limits::OWNERS
+            || self.lifecycle_workers() >= crate::limits::OWNERS
         {
             Some("session capacity is full; nothing launched")
         } else if !PathBuf::from(cwd).is_absolute()
@@ -178,10 +190,10 @@ impl Manager {
                 }
                 Err(reason) => {
                     session.info.availability = Availability::Unavailable;
-                    if let Some(mut result) = session.create.take() {
-                        result.state = match reason {
+                    for mut result in std::mem::take(&mut session.create) {
+                        result.state = match &reason {
                             LaunchError::Invalid(message) => OperationState::Rejected {
-                                message,
+                                message: message.clone(),
                                 recovery: None,
                             },
                             reason => OperationState::Uncertain {
@@ -229,7 +241,7 @@ impl Manager {
                 Ok(()) => session.durable = Some(saved.description),
                 Err(reason) => {
                     session.save_failed = true;
-                    if let Some(mut result) = session.create.take() {
+                    for mut result in std::mem::take(&mut session.create) {
                         result.state = OperationState::Uncertain {
                             message: format!(
                                 "backend may be open but catalogue save failed: {reason}"
@@ -251,7 +263,7 @@ impl Manager {
         for session in self.sessions.values_mut() {
             session.saving = None;
             session.save_failed = true;
-            if let Some(mut result) = session.create.take() {
+            for mut result in std::mem::take(&mut session.create) {
                 result.state = OperationState::Uncertain {
                     message: "backend may be open but catalogue worker stopped".into(),
                     recovery: None,
@@ -283,6 +295,7 @@ impl Manager {
     }
 
     pub(super) fn shutdown(&mut self) {
+        self.startup.stop();
         for session in self.sessions.values() {
             if let Some(cancel) = &session.launch {
                 cancel.cancel();
@@ -327,7 +340,7 @@ impl Session {
             saving: None,
             live: None,
             launch: None,
-            create: None,
+            create: Vec::new(),
             save_failed: false,
         }
     }

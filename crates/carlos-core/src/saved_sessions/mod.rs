@@ -37,6 +37,16 @@ pub struct SavedPageRequest {
 
 /// Read pages into a fixed-size sorted window and stop the temporary reader before returning.
 pub fn read_page(request: SavedPageRequest, cancel: &LaunchCancellation) -> Result<SavedPage> {
+    read_page_until(request, cancel, Instant::now() + Duration::from_secs(30))
+}
+
+/// Keep a queued lifecycle read under the deadline captured when the daemon accepted it.
+pub fn read_page_until(
+    request: SavedPageRequest,
+    cancel: &LaunchCancellation,
+    deadline: Instant,
+) -> Result<SavedPage> {
+    remaining(cancel, deadline)?;
     cancel.check()?;
     ensure!(request.cwd.is_absolute(), "session cwd must be absolute");
     let cwd = request.cwd.canonicalize()?;
@@ -44,14 +54,13 @@ pub fn read_page(request: SavedPageRequest, cancel: &LaunchCancellation) -> Resu
         cwd.is_dir() && cwd.to_str().is_some(),
         "invalid session cwd"
     );
-    let deadline = Instant::now() + Duration::from_secs(30);
     let mut window = Window::new(request.direction.clone());
     backends::visit(&request, &cwd, cancel, deadline, &mut |row| {
         let updated_at = row.updated_at;
         window.push(row);
         window.is_complete_before(updated_at)
     })?;
-    cancel.check()?;
+    remaining(cancel, deadline)?;
     Ok(window.finish())
 }
 

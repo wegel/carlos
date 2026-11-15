@@ -30,6 +30,7 @@ mod replica;
 mod rows;
 mod settings_reads;
 mod settings_state;
+mod startup;
 mod task_activity;
 mod task_overview;
 mod task_state;

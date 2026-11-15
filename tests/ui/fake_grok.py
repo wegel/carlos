@@ -48,7 +48,12 @@ def handle(request):
         send({"jsonrpc": "2.0", "id": request["id"], "result": result})
 
 
-for line in sys.stdin:
-    request = json.loads(line)
-    record("client", request)
-    handle(request)
+def main():
+    for line in sys.stdin:
+        request = json.loads(line)
+        record("client", request)
+        handle(request)
+
+
+if __name__ == "__main__":
+    main()

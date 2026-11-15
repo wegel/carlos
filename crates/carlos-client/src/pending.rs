@@ -11,6 +11,7 @@ use crate::{BodyToken, ClientError, ConnectionId};
 
 #[derive(Clone)]
 pub(crate) enum Kind {
+    SavedPage(crate::startup::PageTarget),
     ContextDefaults(SessionId),
     TaskActivity(crate::task_activity::ActivityTarget),
     TaskActivityPage(crate::task_activity::PageTarget),
@@ -176,6 +177,9 @@ impl Requests {
 
 pub(crate) fn read_kind(command: &Command) -> Result<Kind, ClientError> {
     Ok(match command {
+        saved @ (Command::SavedOpen { .. }
+        | Command::SavedPage { .. }
+        | Command::SavedClose { .. }) => saved_kind(saved),
         activity @ (Command::TaskActivityOpen { .. }
         | Command::TaskActivityRead { .. }
         | Command::TaskActivityPage { .. }
@@ -225,12 +229,27 @@ pub(crate) fn read_kind(command: &Command) -> Result<Kind, ClientError> {
         | Command::OutputSubscribe { .. }
         | Command::SourceUnsubscribe { .. }
         | Command::OutputUnsubscribe { .. }) => body_kind(body),
-        _ => {
-            return Err(ClientError::InvalidPayload(
-                "use submit for mutations and begin for hello".into(),
-            ))
-        }
+        _ => return Err(invalid_read()),
     })
+}
+
+fn invalid_read() -> ClientError {
+    ClientError::InvalidPayload("use submit for mutations and begin for hello".into())
+}
+
+fn saved_kind(command: &Command) -> Kind {
+    match command {
+        Command::SavedOpen { backend, .. } => Kind::SavedPage(crate::startup::PageTarget {
+            scope: None,
+            backend: Some(*backend),
+        }),
+        Command::SavedPage { scope, .. } => Kind::SavedPage(crate::startup::PageTarget {
+            scope: Some(scope.clone()),
+            backend: None,
+        }),
+        Command::SavedClose { .. } => Kind::Unit,
+        _ => unreachable!("typed saved-session read"),
+    }
 }
 
 fn overview_kind(command: &Command) -> Kind {

@@ -279,3 +279,34 @@ fn context_writes_cannot_consume_the_reserved_read_budget() {
         100
     ));
 }
+
+#[test]
+fn native_open_preparation_uses_the_ordinary_reserve() {
+    let (wake, _) = mpsc::sync_channel(1);
+    let ingress = Ingress::new(wake);
+    let operation = carlos_proto::submissions::ClientOperation {
+        client: "1".repeat(32).parse().expect("client"),
+        id: carlos_proto::ids::OperationId::new(1).expect("counter"),
+    };
+    for id in 0..65 {
+        let admitted = ingress.push(
+            1,
+            request(
+                id,
+                Command::Open {
+                    operation: operation.clone(),
+                    backend: carlos_proto::session::Backend::Codex,
+                    cwd: "/project".into(),
+                    target: carlos_proto::startup::OpenTarget::Resume {
+                        address: "legacy-native".into(),
+                    },
+                    launch: Default::default(),
+                    tool_labels: None,
+                },
+            ),
+            100,
+        );
+        assert_eq!(admitted, id < 64);
+    }
+    assert!(ingress.push(1, request(66, Command::Watch {}), 100));
+}

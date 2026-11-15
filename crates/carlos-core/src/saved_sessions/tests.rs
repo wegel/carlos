@@ -4,6 +4,26 @@ use super::window::Window;
 use super::{PageAnchor, PageDirection, PAGE_ROWS};
 use crate::session::models::ThreadSummary;
 
+#[test]
+fn expired_original_deadline_never_starts_a_replacement_reader() {
+    let root = tempfile::tempdir().expect("private native address");
+    let request = super::SavedPageRequest {
+        backend: carlos_proto::session::Backend::Codex,
+        cwd: root.path().to_owned(),
+        codex_socket: Some(root.path().join("missing.sock")),
+        direction: PageDirection::Newest,
+        allow_grok_fallback: false,
+    };
+    let error = super::read_page_until(
+        request,
+        &crate::launch_cancel::LaunchCancellation::default(),
+        std::time::Instant::now() - std::time::Duration::from_secs(1),
+    )
+    .err()
+    .expect("expired read");
+    assert!(error.to_string().contains("deadline"), "{error}");
+}
+
 fn row(index: usize) -> ThreadSummary {
     ThreadSummary {
         id: format!("native-{index:05}"),
@@ -40,6 +60,18 @@ fn large_unordered_catalogue_keeps_nearest_forward_and_backward_pages() {
         newest.rows.iter().map(|row| &row.id).collect::<Vec<_>>()
     );
     assert!(!back.has_newer && back.has_older);
+}
+
+#[test]
+fn oldest_page_keeps_the_global_last_rows_under_the_same_unordered_scan() {
+    let oldest = page(PageDirection::Oldest);
+    assert_eq!(oldest.rows.len(), PAGE_ROWS);
+    assert_eq!(oldest.rows[0].id, "native-00031");
+    assert_eq!(oldest.rows[31].id, "native-00000");
+    assert!(oldest.has_newer && !oldest.has_older);
+    let newer = page(PageDirection::Newer(PageAnchor::from_row(&oldest.rows[0])));
+    assert_eq!(newer.rows[0].id, "native-00063");
+    assert_eq!(newer.rows[31].id, "native-00032");
 }
 
 #[test]

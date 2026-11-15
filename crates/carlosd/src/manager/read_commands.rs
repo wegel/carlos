@@ -226,7 +226,9 @@ impl Manager {
                     "saved native session is unavailable; no replacement was created",
                 ));
             }
-            if self.owner_count() == crate::limits::OWNERS {
+            if self.owner_count() == crate::limits::OWNERS
+                || self.lifecycle_workers() >= crate::limits::OWNERS
+            {
                 return Err(error(-32010, "live session capacity is full"));
             }
         }

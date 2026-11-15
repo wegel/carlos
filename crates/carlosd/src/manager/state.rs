@@ -49,7 +49,7 @@ pub(super) struct Session {
     pub saving: Option<SavedSession>,
     pub live: Option<Live>,
     pub launch: Option<LaunchCancellation>,
-    pub create: Option<OperationResult>,
+    pub create: Vec<OperationResult>,
     pub save_failed: bool,
 }
 
