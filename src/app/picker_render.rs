@@ -3,14 +3,11 @@
 #[path = "picker_render_time.rs"]
 mod picker_render_time;
 
-#[path = "picker_render_legacy.rs"]
-mod legacy;
 #[path = "picker_rows.rs"]
 mod picker_rows;
 #[path = "picker_render_rows.rs"]
 mod rows;
 
-pub(in crate::app) use self::legacy::draw_picker;
 pub(in crate::app) use self::picker_rows::PickerRow;
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};

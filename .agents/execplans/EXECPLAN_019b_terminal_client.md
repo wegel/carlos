@@ -12,6 +12,8 @@ The daemon already proves basic chat, approvals, running output, independent cli
 
 ## Progress
 
+- [x] (2026-11-15) Pass final physical-cutover release gate03 on source813a5f51e0fbc97d9163db24d232d97d:305 actual-daemon terminal workflows,143 daemon cases,23 installed-native cases,1600 release all-target Rust tests/11ignored, source/selection/dictation/ANSI/ownership/helper/architecture/package/contract checks. Artifacts /tmp/carlos-ep019b-final-ui-JIdoy7. The failure-only copy diagnostic never triggers. The uid-specific artifact-root change and corrected process expectations remain explicit in the report.
+
 
 - [x] (2026-11-14) Read repository rules, the terminal workflow inventory, current daemon interfaces and prior acceptance evidence. Confirm clean `iphone-spike` and main `a29b1a1`.
 - [x] (2026-11-14) Record owner acceptance of EP019a and write this executable plan.
@@ -53,7 +55,7 @@ The daemon already proves basic chat, approvals, running output, independent cli
 - [x] (2026-11-14) Add bounded original-source and normalized-output windows with separate cursors, retired-read guards, exact UTF-8 byte intervals and explicit missing prefixes. Six new tests pass with workspace tests/strict lint. Removing the source byte bound fails the large-source test; restored source passes. Actual terminal layout/color/copy consumers remain unfinished.
 - [x] (2026-11-14) Add one coherent Client for the current wire methods, with correlated replies, automatic snapshot reads after gaps, private outcome queries, source/output watch lifetimes, bounded future-history pages and a combined fact budget. Fifty-one client tests and two actual Unix-listener tests pass; whole workspace tests/strict lint pass. Remaining native families and actual terminal consumers still need to use this interface.
 - [x] (2026-11-15) Complete `carlos-client` for greeting, private retry rights, numbered facts, history, source/output cursors and operation-owned local echo. The crate tests gaps, replacement, reconnect, malformed input and private recovery without owning sockets or clocks. Normal full-workspace hooks pass; the final default/no-default gate will check the exact deletion source.
-- [ ] Route terminal startup and every existing workflow through the actual daemon and shared client. Preserve drafts, dictation, color/copy behavior, panels and startup choices. Add screen/request tests for any broken workflow.
+- [x] Route terminal startup and every existing workflow through the actual daemon and shared client. Preserve drafts, dictation, color/copy behavior, panels and startup choices. Add screen/request tests for any broken workflow.
 - [ ] After socket parity passes, make the separate buildable commit `tui: remove embedded session and backend path`; remove direct session/backend ownership, temporary adapters and obsolete report consumers. Review that deletion explicitly.
 - [ ] Pass final default/no-default tests, strict lint, release/native/terminal/process/dependency checks and matched socket speed/memory comparisons. Review directly, report exact identities/limits, archive the completed plan unchanged, record delegated auto-approval and continue to EP020.
 

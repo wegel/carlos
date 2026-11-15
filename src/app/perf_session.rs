@@ -9,12 +9,13 @@ use carlos_core::perf_fixture::{replay_perf_rows, synthetic_perf_rows};
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
 
+use super::cli::CliOptions;
 use super::perf_bench::{
     benchmark_append_draws, benchmark_scroll_draws, benchmark_typing_draws,
     benchmark_working_draws, profile_layout_count_pass, PerfReplayStats,
 };
 use super::perf_view::PerfView;
-use super::{CliOptions, TerminalSize};
+use super::TerminalSize;
 
 // Re-export synthetic types so tests can access them via the `perf_session` module path.
 pub(super) use carlos_core::perf_fixture::SyntheticPerfSpec;

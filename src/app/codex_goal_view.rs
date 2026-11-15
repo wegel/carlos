@@ -1,105 +1,14 @@
 //! Keep explicit goal controls and independent objective/budget edits visible on narrow terminals.
 
-use carlos_core::backend::BackendClient;
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::buffer::Buffer;
 use ratatui::style::Style;
 
-use super::codex_goal_state::{GoalConfirm, GoalDraft, GoalView};
-use super::input_events::TerminalEventResult;
+use super::codex_goal_state::{GoalDraft, GoalView};
 use super::render::{draw_str, fill_rect, textarea_input_from_key};
-use super::state::AppState;
 use super::text::{split_at_cells, visual_width};
 use super::TerminalSize;
 use crate::theme::{COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_TEXT};
-
-/// Keep goal keys separate from ordinary chat, question answers and queue drafts.
-pub(super) fn key(
-    client: &dyn BackendClient,
-    app: &mut AppState,
-    key: KeyEvent,
-    size: TerminalSize,
-) -> Option<TerminalEventResult> {
-    if !app.session.codex_scope().enabled() {
-        return None;
-    }
-    if !app.view.codex_goals.show {
-        if key.code == KeyCode::Char('g') && key.modifiers.contains(KeyModifiers::ALT) {
-            app.view.codex_goals.show = true;
-            app.session.refresh_codex_goal();
-        } else {
-            return None;
-        }
-    } else if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
-        return Some(TerminalEventResult::Quit);
-    } else if key.code == KeyCode::F(4) {
-        app.view.codex_goals.show = false;
-        super::codex_callbacks::next(app);
-    } else if key.code == KeyCode::Char('r') && key.modifiers.contains(KeyModifiers::CONTROL) {
-        if let Err(error) = app.request_ralph_toggle() {
-            app.view.codex_goals.error = Some(error.to_string());
-        }
-    } else if key.code == KeyCode::Esc {
-        if app.view.codex_goals.confirm.take().is_none() {
-            if app.view.codex_goals.editing {
-                app.view.codex_goals.editing = false;
-            } else {
-                app.view.codex_goals.show = false;
-            }
-        }
-    } else if app.view.codex_goals.confirm.is_some() {
-        match key.code {
-            KeyCode::Char('y') => super::codex_goals::confirm(client, app),
-            KeyCode::Char('n') => app.view.codex_goals.confirm = None,
-            KeyCode::PageUp => {
-                app.view.codex_goals.scroll = app.view.codex_goals.scroll.saturating_sub(5)
-            }
-            KeyCode::PageDown => {
-                app.view.codex_goals.scroll = app.view.codex_goals.scroll.saturating_add(5)
-            }
-            _ => {}
-        }
-    } else if app.view.codex_goals.editing {
-        editor_key(client, app, key, size);
-    } else {
-        overview_key(client, app, key);
-    }
-    Some(TerminalEventResult::Continue { needs_draw: true })
-}
-
-fn overview_key(client: &dyn BackendClient, app: &mut AppState, key: KeyEvent) {
-    match key.code {
-        KeyCode::Char('e') => super::codex_goals::edit(app),
-        KeyCode::Char('p') => super::codex_goals::status(client, app, "paused"),
-        KeyCode::Char('a') => super::codex_goals::status(client, app, "active"),
-        KeyCode::Char('d') => {
-            app.view.codex_goals.scroll = 0;
-            app.view.codex_goals.confirm = Some(GoalConfirm::Clear);
-        }
-        KeyCode::Char('r') => app.session.refresh_codex_goal(),
-        KeyCode::PageUp => {
-            app.view.codex_goals.scroll = app.view.codex_goals.scroll.saturating_sub(5)
-        }
-        KeyCode::PageDown => {
-            app.view.codex_goals.scroll = app.view.codex_goals.scroll.saturating_add(5)
-        }
-        _ => {}
-    }
-}
-
-fn editor_key(client: &dyn BackendClient, app: &mut AppState, key: KeyEvent, size: TerminalSize) {
-    if app.session.codex_goals().pending() {
-        return;
-    }
-    if key.code == KeyCode::Char('s') && key.modifiers.contains(KeyModifiers::CONTROL) {
-        if editable(size) {
-            super::codex_goals::save(client, app);
-        }
-        return;
-    }
-    let draft = app.view.codex_goals.editor.as_mut().expect("goal editor");
-    edit_draft(draft, key, size);
-}
 
 /// Edit a local goal draft without borrowing shared session facts.
 pub(super) fn edit_draft(draft: &mut GoalDraft, key: KeyEvent, size: TerminalSize) {
@@ -127,20 +36,6 @@ pub(super) fn edit_draft(draft: &mut GoalDraft, key: KeyEvent, size: TerminalSiz
     }
 }
 
-/// Consume goal paste even on the resize fallback or while a mutation locks its draft.
-pub(super) fn paste(app: &mut AppState, text: &str, size: TerminalSize) {
-    if !app.view.codex_goals.editing
-        || !editable(size)
-        || app.session.codex_goals().pending()
-        || app.view.codex_goals.confirm.is_some()
-    {
-        return;
-    }
-    if let Some(draft) = app.view.codex_goals.editor.as_mut() {
-        paste_draft(draft, text);
-    }
-}
-
 /// Insert pasted text into only the chosen goal field.
 pub(super) fn paste_draft(draft: &mut GoalDraft, text: &str) {
     if draft.field == 0 && draft.objective.lines().join("\n").len() + text.len() <= 32 * 1024 {
@@ -148,16 +43,6 @@ pub(super) fn paste_draft(draft: &mut GoalDraft, text: &str) {
     } else if draft.field == 1 && text.len() <= 32 {
         draft.budget.insert_str(text.lines().next().unwrap_or(""));
     }
-}
-
-/// Draw native facts or one active editor field without covering the visible control footer.
-pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
-    draw_panel(
-        buf,
-        &app.view.codex_goals,
-        super::codex_goal_text::body(app, size),
-        size,
-    );
 }
 
 /// Draw the same goal widget for embedded and daemon facts.
@@ -236,11 +121,6 @@ fn draw_editor(buf: &mut Buffer, state: &GoalView, size: TerminalSize, height: u
             size.width,
         );
     }
-}
-
-/// Restore the independent goal caret after resizing; ordinary composer coordinates stay untouched.
-pub(super) fn cursor(app: &AppState, size: TerminalSize) -> (usize, usize) {
-    cursor_for(&app.view.codex_goals, size)
 }
 
 /// Locate the independent goal caret for either session transport.

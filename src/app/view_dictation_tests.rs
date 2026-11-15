@@ -90,9 +90,8 @@ fn active_turn_guard_precedes_capture_and_preserves_the_local_draft() {
 }
 
 #[test]
-fn final_text_resets_escape_chords_and_preserves_a_rewind_draft() {
+fn final_text_resets_escape_chords_and_preserves_composer_text() {
     let mut view = view();
-    view.input_history.enter_rewind_mode("before rewind".into());
     view.input.insert_str("edited ");
     view.esc_armed_at = Some(Instant::now());
     view.esc_interrupted_at = Some(Instant::now());
@@ -102,10 +101,6 @@ fn final_text_resets_escape_chords_and_preserves_a_rewind_draft() {
     assert_eq!(view.input.lines(), &["edited speech 🌍"]);
     assert!(view.esc_armed_at.is_none());
     assert!(view.esc_interrupted_at.is_none());
-    assert_eq!(
-        view.input_history.exit_rewind_mode_restore().as_deref(),
-        Some("before rewind")
-    );
 }
 
 #[cfg(feature = "dictation")]

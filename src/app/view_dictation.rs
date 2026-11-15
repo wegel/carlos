@@ -199,9 +199,6 @@ impl ViewState {
     pub(super) fn insert_dictation_text(&mut self, text: String) {
         self.esc_armed_at = None;
         self.esc_interrupted_at = None;
-        if !self.input_history.rewind_mode() {
-            self.input_history.reset_navigation();
-        }
         self.input.insert_str(text);
     }
 }

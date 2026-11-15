@@ -1,11 +1,7 @@
 //! Edit and save backend context sizes for the next Carlos launch.
 
-use anyhow::Result;
-
-use super::state::AppState;
-use carlos_core::backend::{BackendClient, BackendKind};
+use carlos_core::backend::BackendKind;
 use carlos_core::context_preferences;
-use carlos_core::session::models::Role;
 
 const PRESETS: [Option<u64>; 7] = [
     None,
@@ -100,73 +96,4 @@ impl ContextSettings {
         self.replace_on_type = false;
         self.error = None;
     }
-
-    /// Explain what the selected size changes in the active backend.
-    pub(super) fn help(&self) -> &str {
-        if let Some(error) = self.error.as_deref() {
-            return error;
-        }
-        if self.attached {
-            return "Attached Codex server owns the size";
-        }
-        if self.backend == Some(BackendKind::Claude) && shell_override() {
-            return "Shell sets size; choose Auto";
-        }
-        "Restart Carlos to apply size"
-    }
-}
-
-/// Load one backend's default without enabling unsupported controls for Grok.
-pub(super) fn initialize(app: &mut AppState, backend: BackendKind, attached: bool) -> Result<()> {
-    let saved = if attached {
-        None
-    } else {
-        context_preferences::load(backend)?
-    };
-    app.view.runtime_settings.context = ContextSettings {
-        backend: Some(backend),
-        attached,
-        saved,
-        ..Default::default()
-    };
-    app.view.runtime_settings.context.open();
-    Ok(())
-}
-
-/// Reject invalid drafts before any settings or appearance choices are applied.
-pub(super) fn save(client: &dyn BackendClient, app: &mut AppState) -> bool {
-    if app.view.runtime_settings.context.backend.is_none()
-        || app.view.runtime_settings.context.attached
-    {
-        return true;
-    }
-    let tokens = match context_preferences::parse(&app.view.runtime_settings.context.draft) {
-        Ok(tokens) => tokens,
-        Err(error) => {
-            app.view.runtime_settings.context.error = Some(error.to_string());
-            return false;
-        }
-    };
-    if tokens == app.view.runtime_settings.context.saved {
-        return true;
-    }
-    if client.kind() == BackendKind::Claude && tokens.is_some() && shell_override() {
-        app.view.runtime_settings.context.error =
-            Some("Unset CLAUDE_CODE_AUTO_COMPACT_WINDOW before choosing a size".into());
-        return false;
-    }
-    if let Err(error) = context_preferences::save(client.kind(), tokens) {
-        app.view.runtime_settings.context.error = Some(error.to_string());
-        return false;
-    }
-    app.view.runtime_settings.context.saved = tokens;
-    app.append_message(
-        Role::System,
-        "Context size saved; restart Carlos to apply it. The model may use a smaller maximum.",
-    );
-    true
-}
-
-fn shell_override() -> bool {
-    std::env::var("CLAUDE_CODE_AUTO_COMPACT_WINDOW").is_ok_and(|value| !value.is_empty())
 }

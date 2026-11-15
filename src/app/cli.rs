@@ -4,9 +4,6 @@ use std::env;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
-use carlos_core::protocol_params::ThreadRuntimeSettings;
-use carlos_core::runtime_preferences;
-use carlos_core::session::runtime_settings::RuntimeDefaults;
 
 // --- CLI Types ---
 
@@ -16,16 +13,6 @@ pub(super) enum Backend {
     Codex,
     Claude,
     Grok,
-}
-
-impl Backend {
-    fn cli_name(self) -> &'static str {
-        match self {
-            Self::Codex => "codex",
-            Self::Claude => "claude",
-            Self::Grok => "grok",
-        }
-    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -55,47 +42,10 @@ pub(super) struct CliOptions {
 
 // --- Runtime Settings ---
 
-pub(super) fn resolve_initial_runtime_settings(
-    runtime: ThreadRuntimeSettings,
-    defaults: &RuntimeDefaults,
-    default_summary: Option<String>,
-) -> ThreadRuntimeSettings {
-    ThreadRuntimeSettings {
-        model: runtime.model.or_else(|| defaults.model.clone()),
-        effort: runtime.effort.or_else(|| defaults.effort.clone()),
-        summary: runtime.summary.or(default_summary),
-    }
-}
-
 pub(super) fn usage() {
     eprintln!(
-        "Usage:\n  carlos [resume [SESSION_ID] | continue] [options]\n  carlos perf-session <SESSION_JSONL> [--width N] [--height N]\n  carlos perf-session --synthetic [--turns N] [--seed N] [--tool-lines N] [--width N] [--height N]\n\nOptions:\n  --backend <codex|claude|grok>  backend to use (default: codex)\n  --codex-socket <path>          attach to an existing local Codex server\n  --daemon                      connect or start the managed local daemon\n  --daemon-socket <path>         connect the terminal to a local Carlos daemon\n  --dictation-profile <name>     dictation profile to activate for this session\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  --ralph-waiting-marker <text>  human gate marker (default: @@AWAITING_HUMAN@@)\n  --width <n>                    perf-session viewport width (default: 160)\n  --height <n>                   perf-session viewport height (default: 48)\n  --seed <n>                     perf-session synthetic seed (default: 1)\n  --turns <n>                    perf-session synthetic turns (default: 1000)\n  --tool-lines <n>               perf-session synthetic tool-output lines (default: 24)\n  --synthetic                    use generated perf-session content instead of a jsonl file\n  -h, --help                     show this help\n\nKeys:\n  F5                             reconnect a disconnected Codex session\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_BACKEND=claude|grok     use Claude Code or Grok instead of codex app-server\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)\n  CARLOS_REASONING_SUMMARY=...   auto | concise | detailed | none (default: concise)"
+        "Usage:\n  carlos [resume [SESSION_ID] | continue] [options]\n  carlos perf-session <SESSION_JSONL> [--width N] [--height N]\n  carlos perf-session --synthetic [--turns N] [--seed N] [--tool-lines N] [--width N] [--height N]\n\nOptions:\n  --backend <codex|claude|grok>  backend to use (default: codex)\n  --codex-socket <path>          attach to an existing local Codex server\n  --daemon                      use the managed local daemon (the default)\n  --daemon-socket <path>         connect the terminal to a local Carlos daemon\n  --dictation-profile <name>     dictation profile to activate for this session\n  --ralph-prompt <path>          prompt file (default: .agents/ralph-prompt.md)\n  --ralph-done-marker <text>     completion marker (default: @@COMPLETE@@)\n  --ralph-blocked-marker <text>  blocked marker (default: @@BLOCKED@@)\n  --ralph-waiting-marker <text>  human gate marker (default: @@AWAITING_HUMAN@@)\n  --width <n>                    perf-session viewport width (default: 160)\n  --height <n>                   perf-session viewport height (default: 48)\n  --seed <n>                     perf-session synthetic seed (default: 1)\n  --turns <n>                    perf-session synthetic turns (default: 1000)\n  --tool-lines <n>               perf-session synthetic tool-output lines (default: 24)\n  --synthetic                    use generated perf-session content instead of a jsonl file\n  -h, --help                     show this help\n\nKeys:\n  F5                             reconnect a disconnected Codex session\n  Ctrl+R                         toggle Ralph mode on/off\n\nEnv:\n  CARLOS_BACKEND=claude|grok     use Claude Code or Grok instead of codex app-server\n  CARLOS_METRICS=1               enable perf overlay + exit report (toggle: F8 or Ctrl+P)\n  CARLOS_REASONING_SUMMARY=...   auto | concise | detailed | none (default: concise)"
     );
-}
-
-pub(super) fn resume_hint_with_socket(
-    backend: Backend,
-    thread_id: &str,
-    socket: Option<&Path>,
-) -> String {
-    let socket = socket
-        .map(|path| format!(" --codex-socket {}", shell_quote(&path.to_string_lossy())))
-        .unwrap_or_default();
-    format!(
-        "to resume this session use:\ncarlos --backend {}{socket} resume {}",
-        backend.cli_name(),
-        shell_quote(thread_id)
-    )
-}
-
-pub(super) fn styled_resume_hint_with_socket(
-    backend: Backend,
-    thread_id: &str,
-    socket: Option<&Path>,
-) -> String {
-    let plain = resume_hint_with_socket(backend, thread_id, socket);
-    let (label, command) = plain.split_once('\n').expect("resume command");
-    format!("{label}\n\x1b[94m{command}\x1b[0m")
 }
 
 /// Print the daemon's logical address without exposing a native backend ID.
@@ -260,17 +210,6 @@ pub(super) fn env_flag_enabled(name: &str) -> bool {
     }
 }
 
-pub(super) fn env_reasoning_summary_override() -> Option<String> {
-    match env::var("CARLOS_REASONING_SUMMARY") {
-        Ok(value) => match value.trim() {
-            "" => Some("auto".to_string()),
-            "auto" | "concise" | "detailed" | "none" => Some(value.trim().to_string()),
-            _ => Some("auto".to_string()),
-        },
-        Err(_) => None,
-    }
-}
-
 fn parse_backend_name(value: &str) -> Result<Backend> {
     match value.trim().to_ascii_lowercase().as_str() {
         "codex" => Ok(Backend::Codex),
@@ -286,15 +225,6 @@ fn env_backend() -> Option<Backend> {
 }
 
 // --- Runtime Defaults ---
-
-pub(super) fn load_runtime_defaults() -> RuntimeDefaults {
-    runtime_preferences::load()
-}
-
-pub(super) fn persist_runtime_defaults(defaults: &RuntimeDefaults) -> Result<()> {
-    runtime_preferences::save(defaults)?;
-    Ok(())
-}
 
 /// Print the logical daemon address with only the command in the existing blue style.
 pub(super) fn styled_daemon_resume_hint(

@@ -6,11 +6,13 @@ use crate::theme::TOUCH_SCROLL_DRAG_MIN_ROWS;
 
 // --- Selection Types ---
 
+#[cfg(test)]
 pub(super) trait RenderedLineSource {
     fn len(&self) -> usize;
     fn get(&self, idx: usize) -> Option<&RenderedLine>;
 }
 
+#[cfg(test)]
 impl RenderedLineSource for [RenderedLine] {
     fn len(&self) -> usize {
         <[RenderedLine]>::len(self)
@@ -21,6 +23,7 @@ impl RenderedLineSource for [RenderedLine] {
     }
 }
 
+#[cfg(test)]
 impl RenderedLineSource for Vec<RenderedLine> {
     fn len(&self) -> usize {
         self.as_slice().len()
@@ -155,6 +158,7 @@ impl SelectionText {
     }
 }
 
+#[cfg(test)]
 pub(super) fn selected_text<S: RenderedLineSource + ?Sized>(
     selection: Selection,
     rendered_lines: &S,

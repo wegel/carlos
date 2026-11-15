@@ -24,10 +24,6 @@ pub(super) fn load_summary_enabled() -> bool {
     carlos_core::ui_preferences::load_summary_enabled()
 }
 
-pub(super) fn save_summary_enabled(enabled: bool) -> Result<()> {
-    carlos_core::ui_preferences::save_summary_enabled(enabled)
-}
-
 /// Read a saved choice, defaulting to Auto for missing or invalid settings.
 pub(super) fn load_mode() -> ToolOutputMode {
     preferences_path()

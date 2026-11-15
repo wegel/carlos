@@ -1,18 +1,12 @@
 //! Terminal setup, thread picker UI, and raw-mode lifecycle helpers.
 
-#[path = "terminal_ui_picker_events.rs"]
-mod terminal_ui_picker_events;
-
-use std::cmp::Reverse;
 use std::env;
 use std::io;
-use std::time::Duration;
 
 use anyhow::{Context, Result};
-use carlos_core::session::models::ThreadSummary;
 use crossterm::event::{
-    self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
-    Event, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+    DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
+    KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
 use crossterm::execute;
 use crossterm::style::Print;
@@ -21,11 +15,6 @@ use crossterm::terminal::{
 };
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
-
-use self::terminal_ui_picker_events::{handle_picker_key, handle_picker_mouse};
-use super::notifications::is_key_press_like;
-use super::picker_render::{compute_picker_layout, draw_picker};
-use super::TerminalSize;
 
 // --- Terminal Policy ---
 
@@ -65,12 +54,6 @@ fn should_enable_alternate_scroll() -> bool {
 
 const MOUSE_CAPTURE_ENABLE_SEQ: &str = "\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1006h\x1b[?1015h";
 const MOUSE_CAPTURE_DISABLE_SEQ: &str = "\x1b[?1015l\x1b[?1006l\x1b[?1003l\x1b[?1002l\x1b[?1000l";
-
-pub(crate) fn sort_threads_for_picker(threads: &[ThreadSummary]) -> Vec<ThreadSummary> {
-    let mut sorted = threads.to_vec();
-    sorted.sort_by_key(|t| (Reverse(t.updated_at), Reverse(t.created_at), t.id.clone()));
-    sorted
-}
 
 // --- Terminal Lifecycle ---
 
@@ -137,117 +120,9 @@ pub(super) fn with_terminal<T>(
 
 // --- Picker Types ---
 
-/// Outcome of processing a single event in the picker loop.
-enum PickerAction {
-    Continue,
-    Exit,
-    Select(String),
-}
-
-pub(super) struct PickerState {
-    selected: usize,
-    top: usize,
-    last_size: TerminalSize,
-    confirm_delete: bool,
-    status: Option<String>,
-}
-
 // --- Thread Picker ---
 
-pub(crate) fn pick_thread<F>(
-    threads: &[ThreadSummary],
-    allow_delete: bool,
-    mut on_delete: F,
-) -> Result<Option<String>>
-where
-    F: FnMut(&ThreadSummary) -> Result<()>,
-{
-    let mut threads = sort_threads_for_picker(threads);
-    if threads.is_empty() {
-        return Ok(None);
-    }
-
-    with_terminal(|terminal| {
-        let mut st = PickerState {
-            selected: 0,
-            top: 0,
-            last_size: TerminalSize {
-                width: 0,
-                height: 0,
-            },
-            confirm_delete: false,
-            status: None,
-        };
-
-        loop {
-            draw_picker_frame(terminal, &threads, &mut st, allow_delete)?;
-
-            if !event::poll(Duration::from_millis(15))? {
-                continue;
-            }
-
-            let ev = event::read()?;
-            let action = match ev {
-                Event::Key(k) if is_key_press_like(k.kind) => {
-                    handle_picker_key(&mut st, &mut threads, allow_delete, &mut on_delete, k)?
-                }
-                Event::Mouse(m) => handle_picker_mouse(&mut st, &threads, terminal, m)?,
-                _ => PickerAction::Continue,
-            };
-
-            match action {
-                PickerAction::Continue => {}
-                PickerAction::Exit => return Ok(None),
-                PickerAction::Select(id) => return Ok(Some(id)),
-            }
-        }
-    })
-}
-
 // --- Picker Rendering ---
-
-fn draw_picker_frame(
-    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
-    threads: &[ThreadSummary],
-    st: &mut PickerState,
-    allow_delete: bool,
-) -> Result<()> {
-    terminal.draw(|frame| {
-        let area = frame.area();
-        let size = TerminalSize {
-            width: area.width as usize,
-            height: area.height as usize,
-        };
-
-        if size.width != st.last_size.width || size.height != st.last_size.height {
-            st.last_size = size;
-        }
-
-        let layout = compute_picker_layout(size);
-        let list_height = layout.list_h.saturating_sub(1).max(1);
-        if st.selected < st.top {
-            st.top = st.selected;
-        }
-        if st.selected >= st.top + list_height {
-            st.top = st.selected + 1 - list_height;
-        }
-
-        let delete_target = st
-            .confirm_delete
-            .then(|| threads.get(st.selected))
-            .flatten();
-        draw_picker(
-            frame,
-            threads,
-            st.selected,
-            st.top,
-            allow_delete,
-            delete_target,
-            st.status.as_deref(),
-        );
-    })?;
-    Ok(())
-}
 
 /// Share the old picker movement rules across embedded rows and daemon pages.
 pub(in crate::app) fn move_picker_selection(

@@ -1,55 +1,21 @@
-//! Application entry point plus shared app-module exports.
+//! Launch the terminal client and keep its widgets separate from daemon-owned sessions.
 
 use std::env;
 
 use anyhow::Result;
 
-use self::state::AppState;
 use self::view_models::{RenderedLine, TerminalSize};
 
-// --- Module Tree ---
-
-mod backend_setup;
 mod child_activity_view;
-mod claude_activity;
-mod claude_context;
-mod claude_edit;
-mod claude_edit_view;
-mod claude_models;
 mod claude_question_field;
-mod claude_question_input;
 mod claude_question_state;
 mod claude_question_view;
-mod claude_quota;
-mod claude_rewind;
-mod claude_session_history;
-mod claude_task_view;
-mod claude_tasks;
 mod cli;
-mod codex_callbacks;
 mod codex_goal_state;
 mod codex_goal_text;
 mod codex_goal_view;
-mod codex_goals;
-mod codex_lifecycle;
-mod codex_panel;
-mod codex_panel_state;
-mod codex_panel_text;
-mod codex_panel_view;
-mod codex_questions;
-mod codex_queue;
-mod codex_queue_receive;
 mod codex_queue_state;
 mod codex_queue_view;
-mod codex_reconnect;
-mod codex_reconnect_install;
-mod codex_reconnect_runtime;
-mod codex_reconnect_streams;
-mod codex_reply;
-mod codex_settings;
-mod codex_settings_draft;
-mod codex_state;
-mod codex_task_status;
 mod context_settings;
 mod context_usage;
 mod daemon_launcher;
@@ -58,15 +24,10 @@ mod dictation_state;
 mod flow_transcript;
 mod input;
 mod input_events;
-mod input_history_state;
-mod input_mode;
-mod item_history;
 mod layout_state;
 mod markdown_tables;
 mod mobile_mouse;
-mod mouse_events;
 mod mouse_gestures;
-mod native_questions;
 mod notifications;
 mod overlay_render;
 mod perf;
@@ -77,31 +38,17 @@ mod picker_delete_dialog;
 mod picker_render;
 mod question_editor;
 mod question_wire_draft;
-mod rate_limits;
 mod remote;
 mod render;
 mod render_cache_state;
 mod render_entry_cache;
 mod render_input;
-mod render_status;
 mod render_transcript;
 mod runtime_settings_state;
 mod selection;
-mod session_name;
 mod source_highlight;
-mod state;
-mod state_approval_view;
-mod state_dictation;
-mod state_input;
-mod state_ralph;
-mod state_settings;
-mod state_status;
-mod state_summaries;
-mod state_thread;
-mod state_transcript;
 mod status_line;
 mod style_convert;
-mod task_badge;
 mod task_panel_rows;
 mod task_panel_view;
 mod terminal_ui;
@@ -120,9 +67,6 @@ mod transcript_source;
 mod transcript_spacing;
 mod transcript_styles;
 mod transcript_wrap;
-mod turn_approval;
-mod turn_interrupt;
-mod turn_submit;
 mod view_dictation;
 mod view_dictation_io;
 mod view_models;
@@ -130,77 +74,33 @@ mod view_state;
 mod viewport_state;
 mod weekly_usage;
 
-// --- Shared Types ---
-
 const MSG_TOP: usize = 1;
-const MSG_CONTENT_X: usize = 2;
-
-// --- Runtime Wiring ---
-
-use self::backend_setup::{run_claude_backend, run_codex_backend, run_grok_backend};
-use self::cli::{
-    env_reasoning_summary_override, load_runtime_defaults, parse_cli_args,
-    persist_runtime_defaults, usage, Backend, CliOptions,
-};
-
-// --- App Entry ---
 
 pub(crate) fn run() -> Result<()> {
-    let opts = match parse_cli_args(env::args().skip(1)) {
-        Ok(v) => v,
-        Err(err) => {
-            eprintln!("error: {err}");
-            usage();
+    let options = match cli::parse_cli_args(env::args().skip(1)) {
+        Ok(options) => options,
+        Err(error) => {
+            eprintln!("error: {error}");
+            cli::usage();
             return Ok(());
         }
     };
-    if opts.show_help {
-        usage();
+    if options.show_help {
+        cli::usage();
         return Ok(());
     }
-    if opts.mode_perf_session {
-        return perf_session::run_perf_session(&opts);
+    if options.mode_perf_session {
+        return perf_session::run_perf_session(&options);
     }
-
-    if let Some(socket) = &opts.daemon_socket {
-        return remote::run(socket, &opts);
+    if let Some(socket) = &options.daemon_socket {
+        return remote::run(socket, &options);
     }
-    if opts.daemon {
-        return daemon_launcher::run(&opts);
-    }
-    let cwd_path = env::current_dir()?;
-    let cwd = cwd_path.to_string_lossy().to_string();
-    let persisted_defaults = load_runtime_defaults();
-    let default_summary = env_reasoning_summary_override()
-        .or(persisted_defaults.summary.clone())
-        .or(Some("concise".to_string()));
-
-    match opts.backend {
-        Backend::Codex => {
-            run_codex_backend(&opts, &cwd_path, &cwd, persisted_defaults, default_summary)
-        }
-        Backend::Claude => {
-            run_claude_backend(&opts, &cwd_path, &cwd, persisted_defaults, default_summary)
-        }
-        Backend::Grok => {
-            run_grok_backend(&opts, &cwd_path, &cwd, persisted_defaults, default_summary)
-        }
-    }
+    daemon_launcher::run(&options)
 }
-
-// --- Test Bridge ---
 
 #[cfg(test)]
 #[path = "../tests.rs"]
 mod tests;
-
-mod codex_settings_view;
-
-mod claude_updates;
-
-mod backend_updates;
-
-mod core_events;
 
 #[cfg(test)]
 mod local_input_tests;

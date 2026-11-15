@@ -1,12 +1,9 @@
 //! Keep keyboard and animation helpers beside immediate client effects of backend messages.
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use carlos_core::session::actions::ServerRequestAction;
-use carlos_core::session::common_update::CommonUpdate;
 use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
 
-use super::state::AppState;
 use crate::theme::ANIMATION_STEP_MS;
 
 // --- Key helpers ---
@@ -39,24 +36,6 @@ pub(super) fn animation_tick_for_step(step_ms: u128) -> u128 {
         .unwrap_or(0)
 }
 
-pub(super) fn working_animation_step_ms() -> u128 {
-    ANIMATION_STEP_MS
-}
-
-pub(super) fn animation_poll_timeout() -> Duration {
-    animation_poll_timeout_for_step(working_animation_step_ms())
-}
-
-pub(super) fn animation_poll_timeout_for_step(step_ms: u128) -> Duration {
-    let now_ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0);
-    let step_ms = step_ms.max(1);
-    let rem = step_ms - (now_ms % step_ms);
-    Duration::from_millis(rem.max(1) as u64)
-}
-
 pub(super) fn kitt_head_index(width: usize, tick: u128) -> usize {
     if width <= 1 {
         return 0;
@@ -78,39 +57,4 @@ pub(super) fn kitt_head_index(width: usize, tick: u128) -> usize {
 
 pub(super) fn is_key_press_like(kind: KeyEventKind) -> bool {
     matches!(kind, KeyEventKind::Press | KeyEventKind::Repeat)
-}
-
-pub(crate) fn handle_server_message_line(
-    app: &mut AppState,
-    line: &str,
-) -> Option<ServerRequestAction> {
-    let context = app.session.backend_context();
-    let update = app.session.handle_backend_line(line, &context);
-    app.apply_backend_update(update)
-}
-
-impl AppState {
-    /// Consume one common-message report before handling another terminal event.
-    pub(super) fn apply_common_update(
-        &mut self,
-        update: CommonUpdate,
-    ) -> Option<ServerRequestAction> {
-        if let Some(changed) = update.thread {
-            self.apply_thread_change(changed);
-        }
-        if let Some(approval) = update.approval {
-            if approval.clear_extra_lines {
-                self.view.approval_hints.clear_extra_lines(approval.current);
-            }
-            self.drop_retired_approval_hints(approval.retired);
-        }
-        if let Some(cleared) = update.cleared {
-            self.apply_cleared_approval(cleared);
-        }
-        if update.clear_quota_countdown {
-            self.view.quota_next_draw = None;
-        }
-        self.apply_item_changes(update.items);
-        update.action
-    }
 }

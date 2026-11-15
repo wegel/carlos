@@ -10,7 +10,6 @@ mod facts;
 mod native_fields;
 
 pub(in crate::app) use self::facts::RuntimeSettingsRef;
-pub(in crate::app) use self::native_fields::{model_supports_effort, THREAD_SUMMARY};
 
 use crate::app::tool_output_state::ToolOutputMode;
 
@@ -165,10 +164,6 @@ impl RuntimeSettingsView {
         let cur = self.model_settings_summary_index as isize;
         let next = (cur + step).rem_euclid(len);
         self.model_settings_summary_index = next as usize;
-    }
-
-    pub(super) fn model_settings_has_model_choices(&self, runtime: RuntimeSettingsRef<'_>) -> bool {
-        !runtime.models.is_empty()
     }
 
     pub(super) fn model_settings_insert_char(&mut self, ch: char) {

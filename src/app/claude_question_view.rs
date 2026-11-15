@@ -1,14 +1,10 @@
 //! Formats native question fields and caller metadata as safe terminal text.
 
-use carlos_core::session::approval_state::ApprovalRequestDraft;
-use carlos_core::session::approval_state::PendingApprovalRequest;
 use carlos_core::session::text::safe_label;
 use carlos_core::session::text::safe_text;
-use serde_json::Value;
 
 use super::claude_question_field::AnswerField;
 use super::claude_question_state::NativeDraft;
-use super::state::AppState;
 use super::text::{visual_width, wrap_natural_by_cells};
 
 /// Borrow only offered keys and the question's blocking rule when painting its controls.
@@ -22,18 +18,7 @@ pub(super) struct QuestionControls {
     pub(super) blocking: Option<bool>,
 }
 
-impl QuestionControls {
-    pub(super) fn from_native(pending: &ApprovalRequestDraft, blocking: Option<bool>) -> Self {
-        Self {
-            claude: pending.method == "claude/native",
-            accept: pending.can_accept_once(),
-            session: pending.can_accept_for_session,
-            decline: pending.can_decline,
-            cancel: pending.can_cancel,
-            blocking,
-        }
-    }
-}
+impl QuestionControls {}
 
 /// Name the actual approval key without treating answer text as consent.
 pub(super) fn default_no_hint(has_fields: bool, again: bool) -> &'static str {
@@ -43,17 +28,6 @@ pub(super) fn default_no_hint(has_fields: bool, again: bool) -> &'static str {
         (false, false) => "Press y twice to allow this request; n declines",
         (false, true) => "Press y again to allow; n declines",
     }
-}
-
-/// Keep the requesting server or child tool visible above the answer field.
-pub(super) fn caller(pending: &ApprovalRequestDraft) -> String {
-    carlos_core::session::questions::caller_label(
-        &pending.method,
-        pending
-            .requested_permissions
-            .as_ref()
-            .unwrap_or(&Value::Null),
-    )
 }
 
 /// Show the current editor line with enough horizontal room for its caret.
@@ -84,21 +58,6 @@ pub(super) fn editor_line(draft: &NativeDraft, width: usize) -> Option<(String, 
         visible = &visible[visible.chars().next()?.len_utf8()..];
     }
     Some((format!("› {visible}{suffix}"), 2 + visual_width(visible)))
-}
-
-/// Describe answers and metadata without displaying raw terminal control bytes.
-pub(super) fn body_lines(
-    app: &AppState,
-    pending: &PendingApprovalRequest,
-    draft: &NativeDraft,
-) -> Vec<String> {
-    let mut lines = draft_lines(draft);
-    lines.push(format!(
-        "Request: {}",
-        super::native_questions::id_label(&pending.facts().request_id)
-    ));
-    lines.extend(app.approval_detail_lines(pending).map(str::to_string));
-    lines
 }
 
 /// Paint answer fields and review text independently of a native callback owner.

@@ -146,7 +146,8 @@ impl RenderCacheState {
         self.format.width == width && self.format.compact == compact && self.format.theme == theme
     }
 
-    /// Keep the embedded caller's suffix invalidation while it still emits positional changes.
+    /// Rebuild a plain message-vector fixture after its positional changes.
+    #[cfg(test)]
     pub(super) fn ensure_rendered_lines(
         &mut self,
         messages: &[Message],
@@ -300,6 +301,7 @@ impl RenderCacheState {
         Some(entry.start + row.min(entry.count.saturating_sub(1)))
     }
 
+    #[cfg(test)]
     pub(super) fn ensure_rendered_range_materialized(
         &mut self,
         messages: &[Message],
@@ -358,6 +360,7 @@ impl RenderCacheState {
     }
 }
 
+#[cfg(test)]
 impl super::selection::RenderedLineSource for RenderCacheState {
     fn len(&self) -> usize {
         self.rendered_line_count()

@@ -8,11 +8,9 @@ use super::flow_transcript::inline_reasoning;
 use super::notifications::spinner_frame;
 use super::render::{draw_rendered_line, draw_str, fill_rect};
 use super::render_cache_state::{RenderCacheState, TranscriptSource};
-use super::state::AppState;
 use super::text::visual_width;
 use super::tool_summary::tool_gutter;
 use super::transcript_input::RenderInput;
-use super::view_models::TerminalSize;
 use super::viewport_state::ViewportState;
 use super::MSG_TOP;
 use crate::theme::{
@@ -34,22 +32,6 @@ impl<S: TranscriptSource + ?Sized> TranscriptFrame<'_, S> {
         let row = self.source.row(index)?;
         Some(row.input.unwrap_or(row.facts))
     }
-}
-
-/// Preserve the embedded caller until its separate deletion commit.
-pub(super) fn draw_transcript(buf: &mut Buffer, app: &AppState, height: usize, width: usize) {
-    let frame = TranscriptFrame {
-        source: app.session.messages().entries(),
-        cache: &app.view.render_cache,
-        viewport: &app.view.viewport,
-        flow: app.view.layout.active.is_flow(),
-        content_x: app.content_x(TerminalSize {
-            width: buf.area.width as usize,
-            height: buf.area.height as usize,
-        }),
-        active: app.session.active_reasoning_step(),
-    };
-    draw_rows(buf, &frame, height, width);
 }
 
 /// Draw the same body rows for borrowed native or exported offline facts.

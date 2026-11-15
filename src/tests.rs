@@ -36,8 +36,6 @@ pub(super) use serde_json::json;
 #[path = "tests/daemon_resume_hint_tests.rs"]
 mod daemon_resume_hint_tests;
 
-#[path = "tests/codex_order_tests.rs"]
-mod codex_order_tests;
 #[path = "tests/grouped_render_tests.rs"]
 mod grouped_render_tests;
 #[path = "tests/late_summary_render_tests.rs"]

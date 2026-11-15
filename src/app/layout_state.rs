@@ -1,6 +1,5 @@
 //! Choose a transcript theme independently for wide and small terminals.
 
-use super::state::AppState;
 use super::view_models::TerminalSize;
 
 /// Choose how Carlos separates transcript entries.
@@ -110,21 +109,5 @@ impl LayoutState {
     /// Resolve Flow without depending on the last render pass.
     pub(super) fn uses_flow(&self, size: TerminalSize) -> bool {
         self.themes.for_size(size).is_flow()
-    }
-}
-
-impl AppState {
-    /// Reserve blank padding in Flow or a glyph and space in Gutter.
-    pub(super) fn content_x(&self, size: TerminalSize) -> usize {
-        if self.view.layout.uses_flow(size) {
-            1
-        } else {
-            super::MSG_CONTENT_X
-        }
-    }
-
-    /// Leave a blank column at each body row’s right edge.
-    pub(super) fn transcript_width(&self, size: TerminalSize) -> usize {
-        size.width.saturating_sub(self.content_x(size) + 1)
     }
 }

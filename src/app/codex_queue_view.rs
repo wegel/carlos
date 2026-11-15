@@ -1,117 +1,13 @@
 //! Edit native queued messages in a separate panel with a pinned selected identity.
 
-use carlos_core::backend::BackendClient;
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::buffer::Buffer;
 use ratatui::style::Style;
 use ratatui_textarea::TextArea;
 
-use super::codex_queue::{begin_edit, open, operate, save_edit};
-use super::input_events::TerminalEventResult;
-use super::render::{draw_str, fill_rect, textarea_input_from_key};
-use super::state::AppState;
+use super::render::{draw_str, fill_rect};
 use super::text::{split_at_cells, visual_width, wrap_natural_by_cells};
 use super::TerminalSize;
 use crate::theme::{COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_TEXT};
-
-/// Keep queue keys separate from textarea newline keys and independent callbacks.
-pub(super) fn key(
-    client: &dyn BackendClient,
-    app: &mut AppState,
-    key: KeyEvent,
-    size: TerminalSize,
-) -> Option<TerminalEventResult> {
-    if !app.session.codex_scope().enabled() {
-        return None;
-    }
-    if key.code == KeyCode::F(3) && key.modifiers.is_empty() {
-        super::input_mode::toggle(app, std::time::Instant::now());
-        return Some(TerminalEventResult::Continue { needs_draw: true });
-    }
-    if !app.view.codex_queue.show {
-        if key.code == KeyCode::Char('q') && key.modifiers.contains(KeyModifiers::ALT) {
-            open(app);
-            return Some(TerminalEventResult::Continue { needs_draw: true });
-        }
-        return None;
-    }
-    if key.code == KeyCode::Esc {
-        if app.view.codex_queue.edit.is_some() {
-            app.view.codex_queue.edit = None;
-        } else {
-            app.view.codex_queue.show = false;
-        }
-    } else if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
-        return Some(TerminalEventResult::Quit);
-    } else if app.view.codex_queue.edit.is_some() {
-        if key.code == KeyCode::Char('s') && key.modifiers.contains(KeyModifiers::CONTROL) {
-            save_edit(client, app);
-        } else if editable(size) {
-            app.view
-                .codex_queue
-                .edit
-                .as_mut()
-                .expect("queue editor")
-                .editor
-                .input(textarea_input_from_key(key));
-        }
-    } else {
-        list_key(client, app, key);
-    }
-    Some(TerminalEventResult::Continue { needs_draw: true })
-}
-
-fn list_key(client: &dyn BackendClient, app: &mut AppState, key: KeyEvent) {
-    match (key.code, key.modifiers) {
-        (KeyCode::Up, KeyModifiers::ALT) => operate(client, app, "up"),
-        (KeyCode::Down, KeyModifiers::ALT) => operate(client, app, "down"),
-        (KeyCode::Up, _) => app
-            .view
-            .codex_queue
-            .move_selection(-1, app.session.codex_queue()),
-        (KeyCode::Down, _) => app
-            .view
-            .codex_queue
-            .move_selection(1, app.session.codex_queue()),
-        (KeyCode::Char('e'), _) => begin_edit(app),
-        (KeyCode::Char('d'), _) => operate(client, app, "delete"),
-        (KeyCode::Char('s'), _) => operate(client, app, "start"),
-        (KeyCode::Char('r'), _) => open(app),
-        (KeyCode::Char('v'), _) => {
-            if app.input_is_empty() {
-                if let Some(text) = app.view.codex_queue.recovery.take() {
-                    app.set_input_text(&text);
-                }
-                app.view.codex_queue.show = false;
-            } else {
-                super::codex_queue::fail(
-                    app,
-                    "Clear or save the main draft before recovering another",
-                );
-            }
-        }
-        _ => {}
-    }
-}
-
-/// Consume queue paste without leaking it into the main composer or a hidden editor.
-pub(super) fn paste(app: &mut AppState, text: &str, size: TerminalSize) {
-    if editable(size) {
-        if let Some(edit) = app.view.codex_queue.edit.as_mut() {
-            edit.editor.insert_str(text);
-        }
-    }
-}
-
-/// Show selected identity before entries, so external changes cannot hide a stop/start target.
-pub(super) fn draw(buf: &mut Buffer, app: &AppState, size: TerminalSize) {
-    draw_panel(
-        buf,
-        app.view.codex_queue.edit.as_ref().map(|edit| &edit.editor),
-        body_lines(app, size),
-        size,
-    );
-}
 
 /// Draw the same queue controls from either embedded or daemon facts.
 pub(super) fn draw_panel(
@@ -174,72 +70,6 @@ pub(super) fn draw_panel(
     }
 }
 
-fn body_lines(app: &AppState, size: TerminalSize) -> Vec<String> {
-    let queue = &app.view.codex_queue;
-    let facts = app.session.codex_queue();
-    let mut lines = vec!["Codex queue · Esc back".to_string()];
-    if !editable(size) {
-        lines.push("Resize to edit".into());
-    }
-    let state = if facts.reading() {
-        "Refreshing"
-    } else if facts.known() {
-        "Current"
-    } else {
-        "Unknown"
-    };
-    lines.push(format!("{state}: {} queued", facts.entries().len()));
-    let position = facts
-        .entries()
-        .iter()
-        .position(|entry| entry["id"].as_str() == queue.selected.as_deref());
-    lines.push(format!(
-        "Selected {}/{}: {}",
-        position.map_or(0, |index| index + 1),
-        facts.entries().len(),
-        queue.selected.as_deref().unwrap_or("none")
-    ));
-    if let Some(error) = super::codex_queue::error(app) {
-        lines.push(error.to_string());
-    } else if !facts.notice().is_empty() {
-        lines.push(facts.notice().to_string());
-    }
-    if queue.selected.is_some() && queue.selected_entry(facts).is_none() {
-        lines.push("Selected entry left the queue; arrows choose another".into());
-    }
-    if let Some(entry) = queue.selected_entry(facts) {
-        lines.push(format!(
-            "Client: {}",
-            entry["clientUserMessageId"].as_str().unwrap_or("unknown")
-        ));
-        let text = entry["input"]
-            .as_array()
-            .map(|input| {
-                input
-                    .iter()
-                    .map(|part| {
-                        part["text"]
-                            .as_str()
-                            .map(str::to_string)
-                            .unwrap_or_else(|| part.to_string())
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            })
-            .unwrap_or_default();
-        lines.push(preview(&text));
-    }
-    lines
-}
-
-/// Keep the independent edit caret visible after horizontal scrolling and resizing.
-pub(super) fn cursor(app: &AppState, size: TerminalSize) -> (usize, usize) {
-    cursor_for(
-        app.view.codex_queue.edit.as_ref().map(|edit| &edit.editor),
-        size,
-    )
-}
-
 /// Keep a local queue editor's caret independent of the ordinary composer.
 pub(super) fn cursor_for(editor: Option<&TextArea<'_>>, size: TerminalSize) -> (usize, usize) {
     if !editable(size) {
@@ -277,14 +107,6 @@ fn footer_lines(editing: bool, size: TerminalSize) -> Vec<String> {
         "↑↓ select · e edit · d delete · s start · Alt+↑↓ reorder · r refresh · v recover draft · F3 mode · Esc back"
     };
     wrap_natural_by_cells(text, size.width.saturating_sub(2).max(1))
-}
-
-fn preview(text: &str) -> String {
-    let mut shortened = text.chars().take(1024).collect::<String>();
-    if shortened.len() < text.len() {
-        shortened.push_str("\n[Preview only; full native input is retained]");
-    }
-    shortened
 }
 
 /// Report whether the terminal has room for queue edits.

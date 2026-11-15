@@ -1,9 +1,6 @@
 //! Explain native goal state, budget semantics and pending work without inventing execution progress.
 
-use carlos_core::session::codex::goal_state::GoalKnowledge;
-
 use super::codex_goal_state::{GoalConfirm, GoalView};
-use super::state::AppState;
 use super::TerminalSize;
 
 /// Borrow accepted goal facts without a backend or a mutable session.
@@ -17,38 +14,6 @@ pub(super) struct PanelFacts<'a> {
     pub(super) notice: &'a str,
     pub(super) thread: &'a str,
     pub(super) ralph: &'a str,
-}
-
-/// Put errors and the active editable field before long objectives on a narrow screen.
-pub(super) fn body(app: &AppState, size: TerminalSize) -> Vec<String> {
-    let facts = app.session.codex_goals();
-    let knowledge = match facts.knowledge() {
-        GoalKnowledge::Unknown => "Unknown",
-        GoalKnowledge::Known => "Known",
-        GoalKnowledge::Unavailable => "Unavailable/disabled",
-    };
-    let ralph = if app.ralph_enabled() {
-        "on"
-    } else if app.session.ralph_runtime().toggle_pending() {
-        "toggle pending"
-    } else {
-        "off"
-    };
-    panel_body(
-        &app.view.codex_goals,
-        PanelFacts {
-            goal: facts.goal(),
-            knowledge,
-            reading: facts.reading(),
-            pending: facts.pending(),
-            read_error: facts.read_error(),
-            error: super::codex_goals::error(app),
-            notice: facts.notice(),
-            thread: app.session.thread_id(),
-            ralph,
-        },
-        size,
-    )
 }
 
 /// Explain accepted goal facts and local controls for either session transport.

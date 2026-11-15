@@ -4,7 +4,6 @@ mod app;
 mod clipboard;
 #[cfg(feature = "dictation")]
 mod dictation;
-mod event;
 mod theme;
 
 fn main() {
@@ -18,14 +17,7 @@ fn main() {
         );
         return;
     }
-    let result = carlos_core::summaries::reader::maybe_run().and_then(|handled| {
-        if handled {
-            Ok(())
-        } else {
-            app::run()
-        }
-    });
-    if let Err(err) = result {
+    if let Err(err) = app::run() {
         eprintln!("error: {err:#}");
         std::process::exit(1);
     }

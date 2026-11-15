@@ -1,12 +1,10 @@
 //! Input layout computation and textarea input helpers.
 
-use carlos_core::session::models::Message;
-use carlos_core::session::models::Role;
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui_textarea::{Input as TextInput, Key as TextKey};
 
 use super::text::{char_to_byte_idx, visual_width, wrap_input_line};
-use super::{AppState, TerminalSize};
+use super::TerminalSize;
 
 // --- Types ---
 
@@ -114,10 +112,6 @@ fn wrap_input_with_cursor(
     (wrapped, cursor_wrapped_row, cursor_wrapped_col, cursor_set)
 }
 
-pub(super) fn compute_input_layout(app: &AppState, size: TerminalSize) -> InputLayout {
-    compute_composer_layout(&app.view.input, size, app.content_x(size))
-}
-
 /// Lay out the same terminal composer for a client-owned editor.
 pub(super) fn compute_composer_layout(
     input: &ratatui_textarea::TextArea<'_>,
@@ -171,11 +165,3 @@ pub(super) fn compute_composer_layout(
 }
 
 // --- Transcript helpers ---
-
-pub(super) fn last_assistant_message(messages: &[Message]) -> Option<&str> {
-    messages
-        .iter()
-        .rev()
-        .find(|m| matches!(m.role, Role::Assistant) && !m.text.is_empty())
-        .map(|m| m.text.as_str())
-}

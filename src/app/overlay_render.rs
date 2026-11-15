@@ -6,14 +6,8 @@ mod overlay_render_perf;
 #[path = "overlay_render_model_settings.rs"]
 mod overlay_render_model_settings;
 
-#[path = "overlay_render_model_bridge.rs"]
-mod overlay_render_model_bridge;
-
 #[path = "question_card.rs"]
 pub(super) mod question_card;
-
-#[path = "overlay_render_claude.rs"]
-mod overlay_render_claude;
 
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
@@ -21,11 +15,10 @@ use ratatui::style::{Modifier, Style};
 use super::render::{draw_str, fill_rect};
 
 use super::text::wrap_natural_by_cells;
-use super::{AppState, TerminalSize};
+use super::TerminalSize;
 
 use crate::theme::{COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_STEP2, COLOR_STEP7, COLOR_TEXT};
 
-pub(super) use self::overlay_render_model_bridge::model_settings_cursor_position;
 use self::overlay_render_model_settings::{draw_model_settings_fields, model_settings_overlay_box};
 pub(super) use self::overlay_render_model_settings::{settings_cursor_position, SettingsFrame};
 pub(super) use self::overlay_render_perf::draw_perf_overlay;
@@ -137,19 +130,9 @@ pub(super) fn content_width(ob: &OverlayBox) -> usize {
     ob.box_w.saturating_sub(6)
 }
 
-/// Locate the current native answer caret without moving the main composer.
-pub(super) fn claude_question_cursor(app: &AppState, size: TerminalSize) -> Option<(usize, usize)> {
-    let draft = crate::app::native_questions::draft(app)?;
-    overlay_render_claude::cursor(size, draft, app.session.approval().pending()?, app)
-}
-
 // ---------------------------------------------------------------------------
 // Help overlay
 // ---------------------------------------------------------------------------
-
-pub(super) fn draw_help_overlay(buf: &mut Buffer, size: TerminalSize, app: &AppState) {
-    draw_help_frame(buf, size, app.view.viewport.help_scroll);
-}
 
 /// Paint the same help rows using only the device's scroll position.
 pub(super) fn draw_help_frame(buf: &mut Buffer, size: TerminalSize, scroll: usize) {
@@ -217,10 +200,6 @@ fn help_lines(width: usize) -> Vec<String> {
 // Model-settings overlay
 // ---------------------------------------------------------------------------
 
-pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, app: &AppState) {
-    draw_settings_frame(buf, size, &overlay_render_model_bridge::frame(app));
-}
-
 /// Paint the same settings rows for an embedded editor or a daemon client's private editor.
 pub(super) fn draw_settings_frame(buf: &mut Buffer, size: TerminalSize, frame: &SettingsFrame<'_>) {
     if size.height < 12 || size.width < 36 {
@@ -237,23 +216,6 @@ pub(super) fn draw_settings_frame(buf: &mut Buffer, size: TerminalSize, frame: &
 // ---------------------------------------------------------------------------
 // Approval overlay
 // ---------------------------------------------------------------------------
-
-pub(super) fn draw_approval_overlay(buf: &mut Buffer, size: TerminalSize, app: &AppState) {
-    let Some(approval) = app.session.approval().pending() else {
-        return;
-    };
-    if let Some(draft) = crate::app::native_questions::draft(app) {
-        return overlay_render_claude::draw(buf, size, app, approval, draft);
-    }
-    draw_approval_card(
-        buf,
-        size,
-        &approval.facts().title,
-        &approval.facts().method,
-        app.approval_detail_lines(approval),
-        &build_approval_footer(approval),
-    );
-}
 
 /// Paint the same approval box for borrowed wire facts or native session facts.
 pub(super) fn draw_approval_card<'a>(
@@ -303,19 +265,6 @@ fn build_approval_detail_lines<'a>(
         }
     }
     detail_lines
-}
-
-fn build_approval_footer(
-    approval: &carlos_core::session::approval_state::PendingApprovalRequest,
-) -> String {
-    let mut parts = vec!["y accept", "n decline"];
-    if approval.facts().can_accept_for_session {
-        parts.push("s accept session");
-    }
-    if approval.facts().can_cancel {
-        parts.push("c cancel turn");
-    }
-    parts.join("  ")
 }
 
 fn draw_approval_content(

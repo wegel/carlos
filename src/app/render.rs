@@ -3,29 +3,20 @@
 #[path = "render_sections.rs"]
 mod render_sections;
 
-use std::time::Instant;
-
 use ratatui::buffer::Buffer;
 use ratatui::style::Style;
 
-use super::render_transcript::draw_transcript;
 use super::text::{slice_by_cells, visual_width};
 
-use super::{AppState, RenderedLine, TerminalSize, MSG_TOP};
+use super::RenderedLine;
 
-use crate::theme::{
-    COLOR_DIFF_REMOVE, COLOR_STATUS_SEPARATOR, COLOR_STEP2, COLOR_STEP8, COLOR_TEXT,
-};
+use crate::theme::{COLOR_DIFF_REMOVE, COLOR_STATUS_SEPARATOR, COLOR_STEP8, COLOR_TEXT};
 
 pub(super) use self::render_sections::draw_composer;
-use self::render_sections::{cursor_position, draw_input_area, draw_overlays};
-use super::render_status::draw_status_bar;
 
 // --- Re-exports: items moved to render_input but accessed via super::render:: by other modules ---
 
-pub(super) use super::render_input::{
-    compute_input_layout, is_newline_enter, normalize_pasted_text, textarea_input_from_key,
-};
+pub(super) use super::render_input::textarea_input_from_key;
 
 // --- Drawing primitives (used by picker_render, overlay_render, and render_lines) ---
 
@@ -202,82 +193,4 @@ pub(super) fn fill_rect(buf: &mut Buffer, x: usize, y: usize, w: usize, h: usize
 
 // --- Main view rendering ---
 
-pub(super) fn render_main_view(frame: &mut ratatui::Frame<'_>, app: &mut AppState) {
-    let area = frame.area();
-    let size = TerminalSize {
-        width: area.width as usize,
-        height: area.height as usize,
-    };
-    if size.width == 0 || size.height == 0 {
-        return;
-    }
-    app.view.layout.update_size(size);
-    app.view.tool_output.update_size(size);
-    let hidden = app
-        .rewind_mode()
-        .then(|| app.rewind_selected_message_idx())
-        .flatten();
-    app.ensure_rendered_lines(app.transcript_width(size), hidden);
-
-    // --- Layout ---
-    let input_layout_started = Instant::now();
-    let input_layout = compute_input_layout(app, size);
-    if let Some(perf) = app.view.perf.as_mut() {
-        perf.input_layout.push(input_layout_started.elapsed());
-    }
-    let msg_height = input_layout
-        .msg_bottom
-        .checked_sub(MSG_TOP)
-        .map_or(0, |rows| rows + 1);
-    let msg_width = app.transcript_width(size);
-    sync_transcript_viewport(app, msg_height);
-
-    // --- Draw ---
-    let buf = frame.buffer_mut();
-    fill_rect(
-        buf,
-        0,
-        0,
-        size.width,
-        size.height,
-        Style::default().bg(COLOR_STEP2),
-    );
-    if msg_height > 0 {
-        fill_rect(
-            buf,
-            0,
-            MSG_TOP - 1,
-            size.width,
-            msg_height,
-            Style::default().bg(COLOR_STEP2),
-        );
-    }
-    draw_transcript(buf, app, msg_height, msg_width);
-    draw_input_area(buf, app, size, &input_layout);
-    draw_status_bar(buf, app, size, input_layout.input_top);
-    draw_overlays(buf, size, app);
-
-    // --- Cursor ---
-    let (cursor_x, cursor_y) = cursor_position(app, size, &input_layout);
-    frame.set_cursor_position((cursor_x as u16, cursor_y as u16));
-}
-
 // --- Transcript viewport ---
-
-fn sync_transcript_viewport(app: &mut AppState, msg_height: usize) {
-    let total_lines = app.rendered_line_count();
-    let max_scroll = total_lines.saturating_sub(msg_height);
-    if app.view.viewport.scroll_top > max_scroll {
-        app.view.viewport.scroll_top = max_scroll;
-    }
-    if app.view.viewport.auto_follow_bottom && max_scroll > 0 {
-        app.view.viewport.scroll_top = max_scroll;
-    }
-    if msg_height == 0 || total_lines == 0 {
-        return;
-    }
-    let end_idx = (app.view.viewport.scroll_top + msg_height)
-        .saturating_sub(1)
-        .min(total_lines - 1);
-    app.ensure_rendered_range_materialized(app.view.viewport.scroll_top, end_idx);
-}

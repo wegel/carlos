@@ -5,13 +5,12 @@ cd "$(dirname "$0")/.."
 profile=debug
 check_codex=false
 check_claude=false
-daemon_terminal=false
 for argument in "$@"; do
   case "$argument" in
     --release) profile=release ;;
     --codex-contract) check_codex=true ;;
     --claude-contract) check_claude=true ;;
-    --daemon-terminal) daemon_terminal=true ;;
+    --daemon-terminal) ;; # Accepted for callers from the migration period.
     *) printf 'usage: %s [--release] [--codex-contract] [--claude-contract] [--daemon-terminal]\n' "$0" >&2; exit 2 ;;
   esac
 done
@@ -44,10 +43,7 @@ artifacts="$(mktemp -d "$PWD/target/ui-artifacts/run-XXXXXX")"
 printf 'Test artifacts: %s\n' "$artifacts"
 target/ui-venv/bin/python tests/ui/test_terminal_daemon_native.py \
   --daemon-binary "target/$profile/carlosd" --artifacts "$artifacts/daemon-ownership"
-daemon_arguments=()
-if [[ "$daemon_terminal" == true ]]; then
-  daemon_arguments=(--daemon-binary "$PWD/target/$profile/carlosd")
-fi
+daemon_arguments=(--daemon-binary "$PWD/target/$profile/carlosd")
 target/ui-venv/bin/python tests/daemon/test_daemon.py \
   --binary "target/$profile/carlosd" --artifacts "$artifacts/daemon" -v
 release_target="$(python3 -c 'import json; print(json.load(open("target/claude-controller/claude-controller-build.json"))["rustTarget"])')"

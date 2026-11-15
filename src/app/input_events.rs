@@ -1,30 +1,10 @@
-//! Terminal event dispatch: keyboard event routing and resize handling.
-//! Re-evaluate if a new overlay mode or input subsystem is added.
-
-#[path = "input_events_keys.rs"]
-mod input_events_keys;
+//! Trace local terminal events while masking the currently focused secret editor.
 
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::sync::{Mutex, OnceLock};
-use std::time::Instant;
 
-use carlos_core::backend::BackendClient;
-use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
-
-use self::input_events_keys::handle_key_event;
-use super::mouse_events::{handle_mouse_event, handle_paste_event};
-use super::state::AppState;
-use super::TerminalSize;
-
-// --- Types ---
-
-pub(super) enum TerminalEventResult {
-    Quit,
-    Continue { needs_draw: bool },
-}
-
-// --- Event tracing ---
+use crossterm::event::Event;
 
 pub(super) fn trace_terminal_event(ev: &Event, secret: bool) {
     static TRACE_FILE: OnceLock<Option<Mutex<std::fs::File>>> = OnceLock::new();
@@ -60,60 +40,4 @@ pub(super) fn trace_terminal_event(ev: &Event, secret: bool) {
         Event::Resize(w, h) => writeln!(&mut *file, "resize {} {}", w, h),
         _ => writeln!(&mut *file, "event {:?}", ev),
     };
-}
-
-// --- Mobile mouse detection ---
-
-pub(super) fn is_mobile_mouse_key_candidate(
-    app: &AppState,
-    code: KeyCode,
-    modifiers: KeyModifiers,
-) -> bool {
-    super::mobile_mouse::is_mobile_mouse_key_candidate(&app.view.viewport, code, modifiers)
-}
-
-// --- Transcript layout ---
-
-fn hidden_user_message_idx(app: &AppState) -> Option<usize> {
-    if app.rewind_mode() {
-        app.rewind_selected_message_idx()
-    } else {
-        None
-    }
-}
-
-pub(super) fn ensure_transcript_layout(app: &mut AppState, size: TerminalSize) {
-    let render_started = Instant::now();
-    app.view.tool_output.update_size(size);
-    app.view.layout.update_size(size);
-    app.ensure_rendered_lines(app.transcript_width(size), hidden_user_message_idx(app));
-    if let Some(perf) = app.view.perf.as_mut() {
-        perf.transcript_render.push(render_started.elapsed());
-    }
-}
-
-// --- Event dispatch ---
-
-pub(super) fn handle_terminal_event(
-    client: &dyn BackendClient,
-    app: &mut AppState,
-    ev: Event,
-    size: TerminalSize,
-) -> TerminalEventResult {
-    trace_terminal_event(&ev, super::native_questions::secret_active(app));
-    match ev {
-        Event::Key(k) if k.code == KeyCode::Esc && k.kind == KeyEventKind::Repeat => {
-            TerminalEventResult::Continue { needs_draw: false }
-        }
-        Event::Key(k) => handle_key_event(client, app, k, size),
-        Event::Mouse(m) => handle_mouse_event(app, m, size),
-        Event::Paste(pasted) => handle_paste_event(app, pasted, size),
-        Event::Resize(_, _) => {
-            if let Some(perf) = app.view.perf.as_mut() {
-                perf.resize_events = perf.resize_events.saturating_add(1);
-            }
-            TerminalEventResult::Continue { needs_draw: true }
-        }
-        _ => TerminalEventResult::Continue { needs_draw: false },
-    }
 }
