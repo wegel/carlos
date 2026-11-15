@@ -1,5 +1,6 @@
-//! Apply session prompt changes to the local transcript caches and history cursor.
+//! Attach native fixture echoes until the remaining session-state tests move to Core.
 
+#[cfg(test)]
 use super::state::AppState;
 
 /// Associate a local echo with its native UUID before the next SDK frame is handled.
@@ -8,22 +9,4 @@ pub(super) fn attach_echo(app: &mut AppState, id: &str, kind: Option<&str>) {
     let key = app.item_key(&format!("claude-prompt:{id}"));
     app.session.attach_claude_prompt_echo(id, &key, kind);
     app.consume_core_events();
-}
-
-/// Preserve the redraw calls and navigation reset for each consumed native input.
-pub(super) fn consume(app: &mut AppState, ids: &[String]) {
-    for id in ids {
-        let key = app.item_key(&format!("claude-prompt:{id}"));
-        let update = app.session.consume_claude_prompt(id, &key);
-        app.consume_core_events();
-        if update.reset_navigation {
-            app.reset_input_history_navigation();
-        }
-    }
-}
-
-/// Preserve accepted queued inputs when native Claude clears consumed conversation work.
-#[cfg(test)]
-pub(super) fn reset(app: &mut AppState, clear: Option<&str>) {
-    app.session.reset_claude_prompts(clear);
 }

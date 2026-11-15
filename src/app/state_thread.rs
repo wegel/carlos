@@ -15,17 +15,11 @@ impl AppState {
 
     #[cfg(test)]
     pub(super) fn reset_for_forked_thread(&mut self, thread_id: impl Into<String>) {
-        self.reset_thread(thread_id, false);
-    }
-
-    /// Clear native transcript rows while process callbacks remain live.
-    #[cfg(test)]
-    pub(super) fn reset_preserving_approvals(&mut self, thread_id: impl Into<String>) {
-        self.reset_thread(thread_id, true);
+        self.reset_thread(thread_id);
     }
 
     #[cfg(test)]
-    fn reset_thread(&mut self, thread_id: impl Into<String>, preserve: bool) {
+    fn reset_thread(&mut self, thread_id: impl Into<String>) {
         self.set_thread_id(thread_id);
         self.session.reset_for_forked_thread();
         self.consume_core_events();
@@ -33,9 +27,6 @@ impl AppState {
         self.session.reset_prompt_history();
         self.view.input_history = InputHistoryView::default();
         self.view.viewport = ViewportState::new();
-        if preserve {
-            return;
-        }
         if self.session.codex_scope().enabled() {
             super::codex_callbacks::reset(self);
         } else {

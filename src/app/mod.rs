@@ -43,9 +43,6 @@ mod claude_session_history;
 mod claude_session_tests;
 mod claude_task_view;
 mod claude_tasks;
-#[cfg(test)]
-#[path = "../tests/claude_thinking_tests.rs"]
-mod claude_thinking_tests;
 mod cli;
 mod codex_callbacks;
 mod codex_goal_state;
@@ -264,9 +261,6 @@ mod claude_edit_parity_support;
 #[cfg(test)]
 #[path = "../tests/claude_edit_parity_tests.rs"]
 mod claude_edit_parity_tests;
-#[cfg(test)]
-#[path = "../tests/claude_prompt_parity_tests.rs"]
-mod claude_prompt_parity_tests;
 
 #[cfg(test)]
 #[path = "../tests/claude_fence_parity_tests.rs"]

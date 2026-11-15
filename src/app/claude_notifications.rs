@@ -25,13 +25,6 @@ pub(super) fn route(app: &mut AppState, method: &str, facts: &Value) -> ClaudeRo
     ClaudeRoute::Handled(app.apply_backend_update(update))
 }
 
-/// Attach a submitted UUID before its existing local acceptance rule.
-#[cfg(test)]
-pub(super) fn record_submitted_prompt(app: &mut AppState, response: &Value) {
-    let update = app.session.receive_claude_submission(response);
-    let _ = app.apply_claude_update(update);
-}
-
 /// Drive a named fixture through the same production reducer.
 #[cfg(test)]
 pub(super) fn handle(

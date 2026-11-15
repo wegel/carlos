@@ -286,3 +286,9 @@ mod claude_reducer_tests;
 
 #[cfg(test)]
 mod claude_receiver_tests;
+
+#[cfg(test)]
+mod claude_prompt_tests;
+
+#[cfg(test)]
+mod claude_thinking_tests;
