@@ -1,24 +1,6 @@
 // Tests for markdown rendering and diff hunk display.
 
 #[test]
-fn rewind_fork_drops_selected_message_and_newer_history() {
-    let mut app = AppState::new("thread-1".to_string());
-    let u1 = app.append_message(Role::User, "first");
-    app.record_input_history("first", Some(u1));
-    let _ = app.append_message(Role::Assistant, "reply one");
-    let u2 = app.append_message(Role::User, "second");
-    app.record_input_history("second", Some(u2));
-    let _ = app.append_message(Role::Assistant, "reply two");
-
-    app.rewind_fork_from_message_idx(Some(u2));
-
-    assert_eq!(app.session.messages().len(), u2);
-    assert!(app.session.messages().iter().all(|m| m.text != "second"));
-    assert!(app.session.messages().iter().all(|m| m.text != "reply two"));
-    assert_eq!(app.input_history_message_indices(), &[Some(u1), None]);
-}
-
-#[test]
 fn rewind_edit_keeps_selected_anchor_for_fork() {
     let mut app = AppState::new("thread-1".to_string());
     let u1 = app.append_message(Role::User, "first");
@@ -39,19 +21,6 @@ fn rewind_edit_keeps_selected_anchor_for_fork() {
     assert_eq!(app.session.messages().len(), u1);
     assert!(app.session.messages().iter().all(|m| m.text != "first"));
     assert!(app.session.messages().iter().all(|m| m.text != "reply one"));
-}
-
-#[test]
-fn record_input_history_backfills_pending_message_index() {
-    let mut app = AppState::new("thread-1".to_string());
-    app.push_input_history("prompt");
-    assert_eq!(app.input_history_message_indices(), &[None]);
-
-    for _ in 0..42 { app.append_message(Role::System, "earlier"); }
-    let index = app.append_message(Role::User, "prompt");
-    app.record_input_history("prompt", Some(index));
-    assert_eq!(app.input_history_len(), 1);
-    assert_eq!(app.input_history_message_indices(), &[Some(42)]);
 }
 
 #[test]

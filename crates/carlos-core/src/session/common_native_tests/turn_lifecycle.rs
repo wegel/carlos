@@ -1,68 +1,66 @@
 //! Regression tests for terminal turns, repeated starts, and Claude interrupts.
 
-use carlos_core::claude_backend::claude_interrupted_turn_notification;
-use carlos_core::session::models::Role;
-use carlos_core::session::models::TurnStatus;
+use crate::claude_backend::claude_interrupted_turn_notification;
+use crate::session::models::Role;
+use crate::session::models::TurnStatus;
 use serde_json::json;
 
-use super::{handle_notification_line, AppState};
+use super::{feed as handle_notification_line, session};
+use crate::session::state::SessionState;
 
 #[test]
 fn replayed_start_cannot_reopen_a_terminal_turn() {
     for terminal_status in ["completed", "interrupted", "failed"] {
-        let mut app = AppState::new("thread-root".to_string());
+        let mut app = session("thread-root");
         notify_turn(&mut app, "turn/started", "turn-done", "inProgress");
         notify_turn(&mut app, "turn/completed", "turn-done", terminal_status);
-        let completed_status = app.session.status().clone();
+        let completed_status = app.status().clone();
 
         notify_turn(&mut app, "turn/started", "turn-done", "inProgress");
 
-        assert_eq!(*app.session.active_turn_id(), None);
-        assert_eq!(*app.session.status(), completed_status);
-        assert!(app.session.turn_status_by_id()["turn-done"].is_terminal());
+        assert_eq!(*app.active_turn_id(), None);
+        assert_eq!(*app.status(), completed_status);
+        assert!(app.turn_status_by_id()["turn-done"].is_terminal());
     }
 }
 
 #[test]
 fn replayed_old_start_cannot_replace_a_newer_active_turn() {
-    let mut app = AppState::new("thread-root".to_string());
+    let mut app = session("thread-root");
     notify_turn(&mut app, "turn/completed", "turn-old", "completed");
     notify_turn(&mut app, "turn/started", "turn-new", "inProgress");
 
     notify_turn(&mut app, "turn/started", "turn-old", "inProgress");
 
-    assert_eq!(app.session.active_turn_id().as_deref(), Some("turn-new"));
-    assert_eq!(
-        app.session.turn_status_by_id()["turn-old"],
-        TurnStatus::Completed
-    );
+    assert_eq!(app.active_turn_id().as_deref(), Some("turn-new"));
+    assert_eq!(app.turn_status_by_id()["turn-old"], TurnStatus::Completed);
 }
 
 #[test]
 fn repeated_start_preserves_the_current_turn_message_boundary() {
-    let mut app = AppState::new("thread-root".to_string());
+    let mut app = session("thread-root");
     notify_turn(&mut app, "turn/started", "turn-live", "inProgress");
     app.append_message(Role::Assistant, "already streamed");
 
     notify_turn(&mut app, "turn/started", "turn-live", "inProgress");
 
-    assert_eq!(app.session.turn_start(), Some(0));
+    assert_eq!(app.turn_start(), Some(0));
 }
 
 #[test]
 fn completion_with_in_progress_status_cannot_end_a_turn() {
-    let mut app = AppState::new("thread-root".to_string());
+    let mut app = session("thread-root");
     notify_turn(&mut app, "turn/started", "turn-live", "inProgress");
 
     notify_turn(&mut app, "turn/completed", "turn-live", "inProgress");
 
-    assert_eq!(app.session.active_turn_id().as_deref(), Some("turn-live"));
+    assert_eq!(app.active_turn_id().as_deref(), Some("turn-live"));
 }
 
 #[test]
 fn claude_interrupt_ends_the_requested_turn_once() {
     for turn_id in ["claude-stream-1-turn-1", "claude-turn-pending"] {
-        let mut app = AppState::new("thread-root".to_string());
+        let mut app = session("thread-root");
         notify_turn(&mut app, "turn/started", turn_id, "inProgress");
         let completion = claude_interrupted_turn_notification(&json!({
             "threadId": "thread-root", "turnId": turn_id
@@ -72,15 +70,15 @@ fn claude_interrupt_ends_the_requested_turn_once() {
         handle_notification_line(&mut app, &completion);
         handle_notification_line(&mut app, &completion);
 
-        assert_eq!(*app.session.active_turn_id(), None);
-        assert_eq!(*app.session.status(), "turn interrupted");
-        assert_eq!(app.session.messages().len(), 1);
+        assert_eq!(*app.active_turn_id(), None);
+        assert_eq!(*app.status(), "turn interrupted");
+        assert_eq!(app.messages().len(), 1);
     }
 }
 
 #[test]
 fn late_claude_interrupt_cannot_end_a_newer_turn() {
-    let mut app = AppState::new("thread-root".to_string());
+    let mut app = session("thread-root");
     notify_turn(&mut app, "turn/started", "claude-turn-new", "inProgress");
     let completion = claude_interrupted_turn_notification(&json!({
         "threadId": "thread-root", "turnId": "claude-turn-old"
@@ -89,10 +87,7 @@ fn late_claude_interrupt_cannot_end_a_newer_turn() {
 
     handle_notification_line(&mut app, &completion);
 
-    assert_eq!(
-        app.session.active_turn_id().as_deref(),
-        Some("claude-turn-new")
-    );
+    assert_eq!(app.active_turn_id().as_deref(), Some("claude-turn-new"));
 }
 
 #[test]
@@ -106,7 +101,7 @@ fn claude_interrupt_requires_thread_and_turn_ids() {
     }
 }
 
-fn notify_turn(app: &mut AppState, method: &str, turn_id: &str, status: &str) {
+fn notify_turn(app: &mut SessionState, method: &str, turn_id: &str, status: &str) {
     let line = json!({
         "method": method,
         "params": {"threadId": "thread-root", "turn": {"id": turn_id, "status": status}}

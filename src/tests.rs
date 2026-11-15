@@ -41,10 +41,8 @@ pub(super) use carlos_core::session::codex::history::{
     parse_rollout_history, prefer_complete_rollout_history,
 };
 pub(super) use carlos_core::session::models::Message;
-pub(super) use carlos_core::session::tool_shell::parse_ssh_remote_command;
 pub(super) use carlos_core::session::tools::{
-    command_execution_diff_output, extract_diff_blocks, format_tool_item, strip_terminal_controls,
-    strip_terminal_controls_preserving_sgr,
+    command_execution_diff_output, extract_diff_blocks, format_tool_item,
 };
 pub(super) use ratatui::buffer::Buffer;
 pub(super) use ratatui::layout::Rect;
@@ -98,12 +96,8 @@ mod three_c_tests;
 mod tool_output_item_tests;
 #[path = "tests/tool_output_tests.rs"]
 mod tool_output_tests;
-#[path = "tests/tool_tests.rs"]
-mod tool_tests;
 #[path = "tests/transcript_spacing_tests.rs"]
 mod transcript_spacing_tests;
-#[path = "tests/turn_lifecycle_tests.rs"]
-mod turn_lifecycle_tests;
 #[path = "tests/ui_render_tests.rs"]
 mod ui_render_tests;
 

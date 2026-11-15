@@ -13,10 +13,15 @@ mod item_sources;
 mod lookup_differential;
 mod lookup_extra;
 mod names;
+mod prompt_bindings;
 mod review_cursor;
 mod review_history;
+mod shell_rendering;
 mod summaries;
 mod tool_command_views;
+mod tool_fallbacks;
+mod tool_overrides;
+mod turn_lifecycle;
 
 use super::actions::ServerRequestAction;
 use super::backend_test_support::{action, context};

@@ -1,8 +1,17 @@
-// Tests for shell command rendering, SSH rewrites, and ANSI stripping.
+//! Keep native diff classifications, shell echoes and ANSI controls exact.
+
+use serde_json::json;
+
+use super::{feed as handle_notification_line, session};
+use crate::session::models::{MessageKind, Role};
+use crate::session::tool_shell::parse_ssh_remote_command;
+use crate::session::tools::{
+    format_tool_item, strip_terminal_controls, strip_terminal_controls_preserving_sgr,
+};
 
 #[test]
 fn exec_command_end_shell_git_diff_is_summarized_as_diff() {
-    let mut app = AppState::new("thread-1".to_string());
+    let mut app = session("thread-1");
     handle_notification_line(
             &mut app,
             "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_git_diff\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
@@ -16,13 +25,13 @@ fn exec_command_end_shell_git_diff_is_summarized_as_diff() {
             "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_git_diff\",\"aggregatedOutput\":\"diff --git a/src/main.rs b/src/main.rs\\n@@ -1 +1 @@\\n-old\\n+new\\n\",\"exitCode\":1},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
         );
 
-    assert_eq!(app.session.messages().len(), 1);
-    assert_eq!(app.session.messages()[0].kind, MessageKind::Diff);
+    assert_eq!(app.messages().len(), 1);
+    assert_eq!(app.messages()[0].kind, MessageKind::Diff);
 }
 
 #[test]
 fn exec_command_end_parsed_edit_type_is_summarized_as_edit() {
-    let mut app = AppState::new("thread-1".to_string());
+    let mut app = session("thread-1");
     handle_notification_line(
             &mut app,
             "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_edit_1\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
@@ -36,14 +45,21 @@ fn exec_command_end_parsed_edit_type_is_summarized_as_edit() {
             "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_edit_1\",\"aggregatedOutput\":\"patched\\n\",\"exitCode\":0},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
         );
 
-    assert_eq!(app.session.messages().len(), 1);
-    assert_eq!(app.session.messages()[0].tool_output.as_ref().expect("tool details").summary, "← Edit src/main.rs");
-    assert_eq!(app.session.messages()[0].role, Role::ToolOutput);
+    assert_eq!(app.messages().len(), 1);
+    assert_eq!(
+        app.messages()[0]
+            .tool_output
+            .as_ref()
+            .expect("tool details")
+            .summary,
+        "← Edit src/main.rs"
+    );
+    assert_eq!(app.messages()[0].role, Role::ToolOutput);
 }
 
 #[test]
 fn item_completed_command_execution_diff_output_renders_diff_message_kind() {
-    let mut app = AppState::new("thread-1".to_string());
+    let mut app = session("thread-1");
     handle_notification_line(
             &mut app,
             "{\"method\":\"item/started\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_diff_1\"},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
@@ -53,9 +69,9 @@ fn item_completed_command_execution_diff_output_renders_diff_message_kind() {
             "{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"commandExecution\",\"id\":\"call_diff_1\",\"aggregatedOutput\":\"diff --git a/test.txt b/test.txt\\n@@ -1 +1 @@\\n-old\\n+new\\n\",\"exitCode\":1},\"threadId\":\"thread-1\",\"turnId\":\"turn-1\"}}",
         );
 
-    assert_eq!(app.session.messages().len(), 1);
-    assert_eq!(app.session.messages()[0].kind, MessageKind::Diff);
-    assert!(app.session.messages()[0].text.contains("+new"));
+    assert_eq!(app.messages().len(), 1);
+    assert_eq!(app.messages()[0].kind, MessageKind::Diff);
+    assert!(app.messages()[0].text.contains("+new"));
 }
 
 #[test]
