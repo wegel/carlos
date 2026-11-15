@@ -5,12 +5,14 @@ cd "$(dirname "$0")/.."
 profile=debug
 check_codex=false
 check_claude=false
+daemon_terminal=false
 for argument in "$@"; do
   case "$argument" in
     --release) profile=release ;;
     --codex-contract) check_codex=true ;;
     --claude-contract) check_claude=true ;;
-    *) printf 'usage: %s [--release] [--codex-contract] [--claude-contract]\n' "$0" >&2; exit 2 ;;
+    --daemon-terminal) daemon_terminal=true ;;
+    *) printf 'usage: %s [--release] [--codex-contract] [--claude-contract] [--daemon-terminal]\n' "$0" >&2; exit 2 ;;
   esac
 done
 
@@ -36,9 +38,16 @@ target/ui-venv/bin/python -m pip install --disable-pip-version-check -q \
   -r tests/ui/requirements.txt
 target/ui-venv/bin/python tests/ui/test_socket_recorder.py
 target/ui-venv/bin/python tests/ui/test_terminal_screen.py
+target/ui-venv/bin/python tests/ui/test_terminal_daemon.py
 mkdir -p target/ui-artifacts
 artifacts="$(mktemp -d "$PWD/target/ui-artifacts/run-XXXXXX")"
 printf 'Test artifacts: %s\n' "$artifacts"
+target/ui-venv/bin/python tests/ui/test_terminal_daemon_native.py \
+  --daemon-binary "target/$profile/carlosd" --artifacts "$artifacts/daemon-ownership"
+daemon_arguments=()
+if [[ "$daemon_terminal" == true ]]; then
+  daemon_arguments=(--daemon-binary "$PWD/target/$profile/carlosd")
+fi
 target/ui-venv/bin/python tests/daemon/test_daemon.py \
   --binary "target/$profile/carlosd" --artifacts "$artifacts/daemon" -v
 release_target="$(python3 -c 'import json; print(json.load(open("target/claude-controller/claude-controller-build.json"))["rustTarget"])')"
@@ -47,7 +56,7 @@ python3 scripts/package-release.py --target "$release_target" --binary "target/$
 python3 tests/package/smoke.py --binary "$artifacts/package/carlos" \
   --helper "$artifacts/package/carlos-claude-controller" --artifacts "$artifacts/package-smoke"
 target/ui-venv/bin/python tests/ui/test_workflows.py \
-  --binary "target/$profile/carlos" --artifacts "$artifacts/ui" -v
+  --binary "target/$profile/carlos" "${daemon_arguments[@]}" --artifacts "$artifacts/ui" -v
 # The small committed oracle keeps paged selection checks in CI without an old executable.
 target/ui-venv/bin/python tests/ui/test_daemon_selection_copy.py \
   --binary "target/$profile/carlos" --daemon "target/$profile/carlosd" \
@@ -61,11 +70,11 @@ target/ui-venv/bin/python tests/ui/test_daemon_dictation.py \
 if [[ "$check_codex" == true ]]; then
   python3 tests/ui/test_codex_contract.py --artifacts "$artifacts/codex"
   target/ui-venv/bin/python tests/ui/test_native_monitor.py \
-    --binary "target/$profile/carlos" --artifacts "$artifacts/native-monitor" -v
+    --binary "target/$profile/carlos" "${daemon_arguments[@]}" --artifacts "$artifacts/native-monitor" -v
 fi
 
 if [[ "$check_claude" == true ]]; then
   target/ui-venv/bin/python tests/ui/test_native_claude.py \
     --binary "$artifacts/package/carlos" --helper "$artifacts/package/carlos-claude-controller" \
-    --artifacts "$artifacts/native-claude" -v
+    "${daemon_arguments[@]}" --artifacts "$artifacts/native-claude" -v
 fi
