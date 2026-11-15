@@ -6,6 +6,9 @@ mod overlay_render_perf;
 #[path = "overlay_render_model_settings.rs"]
 mod overlay_render_model_settings;
 
+#[path = "overlay_render_model_bridge.rs"]
+mod overlay_render_model_bridge;
+
 #[path = "overlay_render_claude.rs"]
 mod overlay_render_claude;
 
@@ -19,7 +22,8 @@ use super::{AppState, TerminalSize};
 
 use crate::theme::{COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_STEP2, COLOR_STEP7, COLOR_TEXT};
 
-pub(super) use self::overlay_render_model_settings::model_settings_cursor_position;
+pub(super) use self::overlay_render_model_bridge::model_settings_cursor_position;
+pub(super) use self::overlay_render_model_settings::SettingsFrame;
 use self::overlay_render_model_settings::{draw_model_settings_fields, model_settings_overlay_box};
 pub(super) use self::overlay_render_perf::draw_perf_overlay;
 
@@ -210,6 +214,11 @@ fn help_lines(width: usize) -> Vec<String> {
 // ---------------------------------------------------------------------------
 
 pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, app: &AppState) {
+    draw_settings_frame(buf, size, &overlay_render_model_bridge::frame(app));
+}
+
+/// Paint the same settings rows for an embedded editor or a daemon client's private editor.
+pub(super) fn draw_settings_frame(buf: &mut Buffer, size: TerminalSize, frame: &SettingsFrame<'_>) {
     if size.height < 12 || size.width < 36 {
         return;
     }
@@ -218,7 +227,7 @@ pub(super) fn draw_model_settings_overlay(buf: &mut Buffer, size: TerminalSize, 
     draw_rounded_border(buf, &ob);
 
     draw_overlay_title(buf, &ob, "Settings");
-    draw_model_settings_fields(buf, &ob, app);
+    draw_model_settings_fields(buf, &ob, frame);
 }
 
 // ---------------------------------------------------------------------------

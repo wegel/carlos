@@ -6,7 +6,7 @@ use ratatui::style::{Modifier, Style};
 use super::{compute_overlay_box, content_width, OverlayBox};
 
 use crate::app::render::draw_str;
-use crate::app::state::{AppState, ModelSettingsField};
+use crate::app::runtime_settings_state::ModelSettingsField;
 
 use crate::app::text::visual_width;
 use crate::app::view_models::TerminalSize;
@@ -19,58 +19,58 @@ pub(super) fn model_settings_overlay_box(size: TerminalSize) -> OverlayBox {
     compute_overlay_box(size, box_w, box_h.min(size.height))
 }
 
+/// Borrow display values without granting the painter access to a session or editor mutation.
+pub(in crate::app) struct SettingsFrame<'a> {
+    pub fields: Vec<(ModelSettingsField, &'a str)>,
+    pub selected: ModelSettingsField,
+    pub help: &'a str,
+}
+
 /// Place the cursor beside the selected value without crossing the panel edge.
-pub(in crate::app) fn model_settings_cursor_position(
-    app: &AppState,
+pub(in crate::app) fn settings_cursor_position(
+    frame: &SettingsFrame<'_>,
     size: TerminalSize,
 ) -> (usize, usize) {
     let ob = model_settings_overlay_box(size);
-    let layout = FieldLayout::new(&ob, app);
-    let fields = app
-        .view
-        .runtime_settings
-        .model_settings_fields(app.session.runtime_settings());
-    let index = fields
+    let layout = FieldLayout::new(&ob, frame);
+    let index = frame
+        .fields
         .iter()
-        .position(|&field| field == app.view.runtime_settings.model_settings_field)
+        .position(|(field, _)| *field == frame.selected)
         .unwrap_or(0);
-    let value_width = visual_width(field_value(
-        app,
-        app.view.runtime_settings.model_settings_field,
-    ));
+    let value = frame.fields.get(index).map_or("", |(_, value)| *value);
+    let value_width = visual_width(value);
     let x = (layout.x_value + value_width.min(layout.value_w)).min(ob.right.saturating_sub(1));
     let y = layout.row_y(&ob, index).min(size.height.saturating_sub(1));
     (x, y)
 }
 
-pub(super) fn draw_model_settings_fields(buf: &mut Buffer, ob: &OverlayBox, app: &AppState) {
-    let layout = FieldLayout::new(ob, app);
-    let fields = app
-        .view
-        .runtime_settings
-        .model_settings_fields(app.session.runtime_settings());
-    for (index, &field) in fields
+pub(super) fn draw_model_settings_fields(
+    buf: &mut Buffer,
+    ob: &OverlayBox,
+    frame: &SettingsFrame<'_>,
+) {
+    let layout = FieldLayout::new(ob, frame);
+    for (index, &(field, value)) in frame
+        .fields
         .iter()
         .enumerate()
         .skip(layout.first)
         .take(layout.rows)
     {
-        layout.draw_row(buf, app, layout.row_y(ob, index), field);
+        layout.draw_row(
+            buf,
+            layout.row_y(ob, index),
+            field,
+            value,
+            frame.selected == field,
+        );
     }
-    let help = app.view.codex_settings.editor_error.as_deref().unwrap_or(
-        match app.view.runtime_settings.model_settings_field {
-            ModelSettingsField::DictationEndpoint => "Arrows/Enter toggle, Esc close",
-            ModelSettingsField::DesktopTheme => "Theme for wide screens",
-            ModelSettingsField::PhoneTheme => "Theme for small screens",
-            ModelSettingsField::Context => app.view.runtime_settings.context.help(),
-            _ => "Tab field, arrows, Enter save",
-        },
-    );
     draw_str(
         buf,
         layout.x_label,
         ob.bottom.saturating_sub(1),
-        help,
+        frame.help,
         Style::default().fg(COLOR_DIM),
         content_width(ob),
     );
@@ -87,11 +87,8 @@ struct FieldLayout {
 }
 
 impl FieldLayout {
-    fn new(ob: &OverlayBox, app: &AppState) -> Self {
-        let fields = app
-            .view
-            .runtime_settings
-            .model_settings_fields(app.session.runtime_settings());
+    fn new(ob: &OverlayBox, frame: &SettingsFrame<'_>) -> Self {
+        let fields = &frame.fields;
         let height = ob.bottom.saturating_sub(ob.top) + 1;
         let padding = if height < 13 { 2 } else { 3 };
         let row_step = if height >= fields.len() * 2 + padding + 3 {
@@ -102,7 +99,7 @@ impl FieldLayout {
         let rows = (height.saturating_sub(padding + 3) / row_step).max(1);
         let selected = fields
             .iter()
-            .position(|field| *field == app.view.runtime_settings.model_settings_field)
+            .position(|(field, _)| *field == frame.selected)
             .unwrap_or(0);
         Self {
             x_label: ob.start_x + 3,
@@ -119,7 +116,14 @@ impl FieldLayout {
         ob.start_y + self.padding + index.saturating_sub(self.first) * self.row_step
     }
 
-    fn draw_row(&self, buf: &mut Buffer, app: &AppState, y: usize, field: ModelSettingsField) {
+    fn draw_row(
+        &self,
+        buf: &mut Buffer,
+        y: usize,
+        field: ModelSettingsField,
+        value: &str,
+        active: bool,
+    ) {
         let label = match field {
             ModelSettingsField::Model => "Model",
             ModelSettingsField::Effort => "Thinking",
@@ -143,36 +147,10 @@ impl FieldLayout {
             buf,
             self.x_value,
             y,
-            field_value(app, field),
-            field_style(app.view.runtime_settings.model_settings_field == field),
+            value,
+            field_style(active),
             self.value_w,
         );
-    }
-}
-
-fn field_value(app: &AppState, field: ModelSettingsField) -> &str {
-    match field {
-        ModelSettingsField::Model => app.model_settings_model_value(),
-        ModelSettingsField::Effort => app.model_settings_effort_value(),
-        ModelSettingsField::Summary => app.model_settings_summary_value(),
-        ModelSettingsField::Context if app.view.runtime_settings.context.attached => {
-            "Server default"
-        }
-        ModelSettingsField::Context => &app.view.runtime_settings.context.draft,
-        ModelSettingsField::DictationEndpoint => app.dictation_endpoint_mode_label(),
-        ModelSettingsField::DesktopTheme => app.view.layout.draft.desktop.label(),
-        ModelSettingsField::PhoneTheme => app.view.layout.draft.phone.label(),
-        ModelSettingsField::ToolLabels => {
-            if app.view.summary_enabled_draft {
-                "On"
-            } else {
-                "Off"
-            }
-        }
-        ModelSettingsField::ToolOutput => app
-            .view
-            .tool_output
-            .settings_label(app.view.runtime_settings.model_settings_tool_output),
     }
 }
 
