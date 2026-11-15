@@ -57,6 +57,7 @@ pub mod model_info;
 pub mod input_history;
 mod input_history_commands;
 pub(crate) mod input_history_native;
+pub mod prompt_reads;
 
 pub mod shell_command;
 pub mod shell_directory;

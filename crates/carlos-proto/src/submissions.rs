@@ -48,7 +48,14 @@ pub struct OperationResult {
     pub operation: ClientOperation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session: Option<crate::ids::SessionId>,
+    /// The owner adopted this operation's fork; a later send failure must not fork again.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub rewound: bool,
     pub state: OperationState,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 /// A command keeps submitted text recoverable when its outcome cannot be confirmed.

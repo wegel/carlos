@@ -11,6 +11,7 @@ use crate::{BodyToken, ClientError, ConnectionId};
 
 #[derive(Clone)]
 pub(crate) enum Kind {
+    Prompts(crate::prompts::PromptTarget),
     SavedPage(crate::startup::PageTarget),
     ContextDefaults(SessionId),
     TaskActivity(crate::task_activity::ActivityTarget),
@@ -177,6 +178,9 @@ impl Requests {
 
 pub(crate) fn read_kind(command: &Command) -> Result<Kind, ClientError> {
     Ok(match command {
+        prompt @ (Command::PromptSelect { .. } | Command::PromptText { .. }) => {
+            crate::prompts::kind(prompt)
+        }
         saved @ (Command::SavedOpen { .. }
         | Command::SavedPage { .. }
         | Command::SavedClose { .. }) => saved_kind(saved),

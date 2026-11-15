@@ -28,6 +28,7 @@ impl Results {
         let result = OperationResult {
             operation: operation.clone(),
             session: Some(session.clone()),
+            rewound: false,
             state: OperationState::Pending,
         };
         self.records.insert(
@@ -43,6 +44,14 @@ impl Results {
 
     pub fn contains(&self, operation: &ClientOperation) -> bool {
         self.records.contains_key(operation)
+    }
+
+    /// Retain this operation's adopted fork even if its later prompt send fails.
+    pub fn rewound(&mut self, operation: &ClientOperation) {
+        if let Some(record) = self.records.get_mut(operation) {
+            record.result.rewound = true;
+            record.dirty = true;
+        }
     }
 
     pub fn update(&mut self, operation: &ClientOperation, mut state: OperationState) {

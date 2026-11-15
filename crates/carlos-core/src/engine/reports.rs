@@ -99,6 +99,7 @@ impl Owner {
 
     fn submission(&mut self, outcome: SubmissionOutcome) {
         match outcome {
+            SubmissionOutcome::EditStarted(Some(operation)) => self.results.rewound(&operation),
             SubmissionOutcome::PromptAccepted(Some(operation))
             | SubmissionOutcome::EditAccepted(Some(operation)) => {
                 self.results.update(
@@ -125,7 +126,7 @@ impl Owner {
             ),
             SubmissionOutcome::PromptAccepted(None)
             | SubmissionOutcome::EditAccepted(None)
-            | SubmissionOutcome::EditStarted(_)
+            | SubmissionOutcome::EditStarted(None)
             | SubmissionOutcome::EditRejected(None) => {}
         }
         self.notice();

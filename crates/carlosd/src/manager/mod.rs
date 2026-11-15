@@ -6,6 +6,7 @@ mod goals;
 mod lifecycle;
 mod mutation_work;
 mod output;
+mod prompt_reads;
 mod read_commands;
 mod reads;
 mod startup;

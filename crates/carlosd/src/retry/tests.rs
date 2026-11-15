@@ -78,6 +78,7 @@ fn lost_create_reply_reuses_its_original_session_and_private_result() {
         .complete(OperationResult {
             operation: op.clone(),
             session: first.session,
+            rewound: false,
             state: OperationState::Accepted {
                 entry: None,
                 notice: None,

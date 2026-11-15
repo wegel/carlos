@@ -30,13 +30,15 @@ class SettingsFactTests:
 
         wait_for(catalog, "startup catalog is available through bounded typed reads")
         startup_boundary = self.startup_boundary(first, fixture, session)
+        startup_revision = catalog()["settings"]["revision"]
 
         # A newer native notice fences late startup replies before comparing independent pages.
         self.announce_settings(fixture, {"model":"model-000", "effort":"high"})
 
         def current_catalog():
             page = catalog()
-            return page if page and page["settings"]["current"]["model"] == "model-000" else None
+            return page if (page and page["settings"]["revision"] != startup_revision
+                            and page["settings"]["current"]["model"] == "model-000") else None
 
         page = wait_for(current_catalog, "newer native choices fence startup catalog reads")
         self.assertEqual((page["offset"], page["next"], len(page["models"])), (0, 32, 32))

@@ -301,6 +301,7 @@ impl Manager {
             return Err(error(-32010, "pending reads are full"));
         }
         let reserved = match command {
+            EngineCommand::Prompts(_) => 512 * 1024,
             EngineCommand::TaskActivity(_) => 512 * 1024,
             EngineCommand::TaskWindow(_) => 512 * 1024,
             EngineCommand::TaskSnapshot

@@ -54,6 +54,7 @@ fn a_session_mutation_requires_its_exact_session_and_archive_requires_no_session
     let pending = |session| OperationResult {
         operation: operation.clone(),
         session,
+        rewound: false,
         state: OperationState::Pending,
     };
     let mut scoped = Operations::default();

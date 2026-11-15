@@ -34,11 +34,6 @@ fn known_method(method: &str) -> bool {
     matches!(
         method,
         "hello"
-            | "saved/open"
-            | "saved/archive"
-            | "saved/page"
-            | "saved/close"
-            | "session/open"
             | "sessions/watch"
             | "session/create"
             | "session/subscribe"
@@ -50,6 +45,8 @@ fn known_method(method: &str) -> bool {
             | "session/interrupt"
             | "session/approve"
             | "session/setRalph"
+            | "prompt/select"
+            | "prompt/text"
             | "session/toggleRalph"
             | "goal/read"
             | "settings/context/read"
@@ -89,6 +86,13 @@ fn known_method(method: &str) -> bool {
             | "entry/source/seek"
             | "entry/source/subscribe"
             | "entry/source/unsubscribe"
+    ) || known_saved_method(method)
+}
+
+fn known_saved_method(method: &str) -> bool {
+    matches!(
+        method,
+        "saved/open" | "saved/archive" | "saved/page" | "saved/close" | "session/open"
     )
 }
 

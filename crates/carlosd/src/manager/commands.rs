@@ -29,6 +29,9 @@ impl Manager {
             return;
         }
         match command {
+            command @ (Command::PromptSelect { .. } | Command::PromptText { .. }) => {
+                self.prompt_read_command(peer, id, command)
+            }
             command @ (Command::Open { .. }
             | Command::SavedArchive { .. }
             | Command::SavedOpen { .. }
@@ -119,20 +122,31 @@ impl Manager {
             }
         };
         match self.retry.hello(resume, Instant::now()) {
-            Ok(mut hello) => {
-                hello.identity = Some(carlos_proto::identity::DaemonIdentity {
-                    build: carlos_proto::identity::BuildInfo::current(),
-                    codex_socket: self
-                        .codex_socket
-                        .as_ref()
-                        .map(|path| path.as_os_str().as_bytes().to_vec()),
-                });
-                let connection = self.peers.get_mut(&peer).expect("peer");
-                connection.client = Some(hello.client.clone());
-                connection.replay_allowed = hello.resumed;
-                self.reply(peer, id, hello);
-            }
+            Ok(hello) => self.accept_hello(peer, id, hello),
             Err(reason) => self.fail(peer, id, reason),
+        }
+    }
+
+    fn accept_hello(
+        &mut self,
+        peer: u64,
+        id: RequestId,
+        mut hello: carlos_proto::commands::HelloResult,
+    ) {
+        hello.identity = Some(self.daemon_identity());
+        let connection = self.peers.get_mut(&peer).expect("peer");
+        connection.client = Some(hello.client.clone());
+        connection.replay_allowed = hello.resumed;
+        self.reply(peer, id, hello);
+    }
+
+    fn daemon_identity(&self) -> carlos_proto::identity::DaemonIdentity {
+        carlos_proto::identity::DaemonIdentity {
+            build: carlos_proto::identity::BuildInfo::current(),
+            codex_socket: self
+                .codex_socket
+                .as_ref()
+                .map(|path| path.as_os_str().as_bytes().to_vec()),
         }
     }
 

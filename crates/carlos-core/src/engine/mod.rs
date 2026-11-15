@@ -44,6 +44,7 @@ pub use self::ring::EngineFrame;
 
 /// Only explicit session reads and commands enter the owner, never native method strings.
 pub enum EngineCommand {
+    Prompts(crate::session::prompt_reads::PromptCommand),
     ContextRead,
     ContextSet {
         operation: ClientOperation,
@@ -209,6 +210,8 @@ pub enum EngineCommand {
 
 /// Replies carry facts or typed failures without retaining any client's editor.
 pub enum EngineReply {
+    PromptSelection(carlos_proto::prompts::PromptSelection),
+    PromptText(carlos_proto::prompts::PromptText),
     TaskActivity(carlos_proto::task_activity::TaskActivityHeader),
     TaskActivityPage(carlos_proto::task_activity::TaskActivityPage),
     TaskActivityClosed,

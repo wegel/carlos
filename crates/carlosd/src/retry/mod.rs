@@ -120,6 +120,7 @@ impl RetryStore {
             operation: operation.clone(),
             session,
             state: OperationState::Pending,
+            rewound: false,
         };
         self.clients
             .records
@@ -171,6 +172,7 @@ impl RetryStore {
         if terminal(&record.result.state) && !terminal(&result.state) {
             return Ok(Some(record.result.clone()));
         }
+        result.rewound |= record.result.rewound;
         match &mut result.state {
             OperationState::Rejected { message, .. }
             | OperationState::Uncertain { message, .. } => *message = diagnostic(message),

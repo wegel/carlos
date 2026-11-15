@@ -14,6 +14,20 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "method", content = "params")]
 pub enum Command {
+    #[serde(rename = "prompt/select")]
+    PromptSelect {
+        session: SessionId,
+        source: crate::prompts::PromptSource,
+        anchor: Option<EntryId>,
+        direction: crate::prompts::PromptDirection,
+    },
+    #[serde(rename = "prompt/text")]
+    PromptText {
+        session: SessionId,
+        prompt: EntryId,
+        offset: crate::bytes::ByteOffset,
+        limit: Option<u32>,
+    },
     #[serde(rename = "saved/archive")]
     SavedArchive {
         operation: ClientOperation,

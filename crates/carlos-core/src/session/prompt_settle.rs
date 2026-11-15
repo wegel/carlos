@@ -19,7 +19,13 @@ impl SessionState {
         let mut prepared = PreparedCommand::default();
         match result {
             Ok(response) => self.apply_prompt_success(&submission, &response, &mut prepared.update),
-            Err(error) if submission.steer => self.set_status(error),
+            Err(error) if submission.steer => {
+                if submission.options.record_history {
+                    prepared.update.changes.items.reset_navigation |=
+                        self.discard_pending_prompt(&submission.text);
+                }
+                self.set_status(error);
+            }
             Err(error) => self.prompt_failed(
                 &submission.text,
                 submission.options,

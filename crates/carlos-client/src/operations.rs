@@ -23,6 +23,8 @@ pub struct LocalOperation {
     pub session: Option<SessionId>,
     pub state: OperationState,
     pub entry: Option<EntryId>,
+    /// This exact edit adopted a fork; retrying its failed prompt must not fork again.
+    pub rewound: bool,
     text: Option<LocalText>,
     unscoped: bool,
 }
@@ -112,6 +114,7 @@ impl Operations {
             session,
             state: OperationState::Pending,
             entry: None,
+            rewound: false,
             text,
             unscoped: false,
         });
@@ -165,9 +168,14 @@ impl Operations {
         {
             return Ok(false);
         }
-        if record.state == result.state && record.session == result.session {
+        let rewound = record.rewound || result.rewound;
+        if record.state == result.state
+            && record.session == result.session
+            && record.rewound == rewound
+        {
             return Ok(false);
         }
+        record.rewound = rewound;
         record.session = result.session;
         record.state = result.state;
         Ok(true)
@@ -236,6 +244,16 @@ impl Operations {
 }
 
 fn validate_result(record: &LocalOperation, result: &OperationResult) -> Result<(), ClientError> {
+    if result.rewound
+        && record
+            .text
+            .as_ref()
+            .is_none_or(|text| text.kind != RecoveryKind::Edit)
+    {
+        return Err(ClientError::InvalidPayload(
+            "only an edited prompt can adopt a fork".into(),
+        ));
+    }
     if (record.unscoped && result.session.is_some())
         || (!record.unscoped && result.session.is_none())
         || record

@@ -353,6 +353,7 @@ impl Owner {
                 }
                 self.turn_report(prepared.update);
                 if let Some(work) = prepared.work {
+                    self.record_dispatched_prompt(&work);
                     self.workers.ordinary_busy = true;
                     self.workers.ordinary.submit(move || Completion::Ordinary {
                         operation,
@@ -368,6 +369,14 @@ impl Owner {
             }
         }
         self.notice();
+    }
+
+    fn record_dispatched_prompt(&mut self, work: &crate::session::command_work::BackendWork) {
+        if let crate::session::command_work::Finish::Prompt(submission) = &work.finish {
+            if submission.kind == BackendKind::Codex && submission.options.record_history {
+                self.session.record_prompt_history(&submission.text, None);
+            }
+        }
     }
 }
 

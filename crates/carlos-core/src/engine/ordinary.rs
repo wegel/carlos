@@ -78,6 +78,11 @@ impl Owner {
         native_error: Option<String>,
         after_native: bool,
     ) {
+        if prepared.update.rewound {
+            if let Some(operation) = operation.as_ref() {
+                self.results.rewound(operation);
+            }
+        }
         self.turn_report(prepared.update);
         if let Some(message) = native_error {
             self.edit_failed(operation.as_ref(), recovery, message, true);

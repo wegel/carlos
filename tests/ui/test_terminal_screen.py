@@ -48,6 +48,7 @@ class TerminalScreenTests(unittest.TestCase):
 
     def test_snapshot_failure_still_closes_terminal_files_and_propagates(self):
         terminal = Terminal.__new__(Terminal)
+        terminal.owned_daemon = None
         terminal.output = tempfile.TemporaryFile()
         terminal.fd = os.open(os.devnull, os.O_RDWR)
         self.addCleanup(terminal.output.close)
