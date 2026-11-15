@@ -25,6 +25,10 @@ pub(in crate::app) struct Transport {
 impl Transport {
     pub fn connect(path: &Path, client: &mut Client) -> Result<Self> {
         let stream = UnixStream::connect(path).context("connect to Carlos daemon")?;
+        Self::from_stream(stream, client)
+    }
+
+    pub fn from_stream(stream: UnixStream, client: &mut Client) -> Result<Self> {
         stream.set_nonblocking(true)?;
         let hello = client.begin("terminal".into())?;
         let mut link = Self {

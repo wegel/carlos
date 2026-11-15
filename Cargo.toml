@@ -39,6 +39,7 @@ ratatui-textarea = "0.8.0"
 rubato = { version = "2.0.0", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = "1"
+socket2 = "0.6.5"
 textwrap = "0.16"
 pulldown-cmark = "0.13.5"
 toml = { version = "1.1.2", optional = true }

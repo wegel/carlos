@@ -79,6 +79,7 @@ mod codex_state;
 mod codex_task_status;
 mod context_settings;
 mod context_usage;
+mod daemon_launcher;
 mod dictation_setup;
 mod dictation_state;
 mod flow_transcript;
@@ -193,6 +194,9 @@ pub(crate) fn run() -> Result<()> {
 
     if let Some(socket) = &opts.daemon_socket {
         return remote::run(socket, &opts);
+    }
+    if opts.daemon {
+        return daemon_launcher::run(&opts);
     }
     let cwd_path = env::current_dir()?;
     let cwd = cwd_path.to_string_lossy().to_string();
