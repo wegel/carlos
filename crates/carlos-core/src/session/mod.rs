@@ -262,3 +262,8 @@ mod runtime_behavior_tests;
 mod approval_allocation_tests;
 #[cfg(test)]
 mod approval_control_test_support;
+
+#[cfg(test)]
+mod input_contract_test_support;
+#[cfg(test)]
+mod input_contract_tests;

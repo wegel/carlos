@@ -7,21 +7,12 @@ pub(super) use super::cli::{
     load_runtime_defaults_from, parse_cli_args, persist_runtime_defaults_to,
     resolve_initial_runtime_settings, resume_hint, styled_resume_hint, Backend,
 };
-pub(super) use super::context_usage::context_usage_label;
-pub(super) use super::input::{can_submit_queued_turn, is_priority_server_line, prioritize_events};
-pub(super) use super::mobile_mouse::{
-    consume_mobile_mouse_char, parse_mobile_mouse_coords, MobileMouseConsume,
-};
-pub(super) use super::notifications::{
-    handle_notification_line, handle_server_message_line, is_key_press_like, kitt_head_index,
-};
-pub(super) use super::perf::{DurationSamples, PerfMetrics};
+pub(super) use super::notifications::{handle_notification_line, handle_server_message_line};
 pub(super) use super::picker_delete_dialog::draw_picker_delete_dialog;
-pub(super) use super::render::{draw_rendered_line, is_newline_enter, normalize_pasted_text};
+pub(super) use super::render::draw_rendered_line;
 pub(super) use super::render_input::input_cursor_visual_position;
 pub(super) use super::selection::{
-    compute_selection_range, decide_mouse_drag_mode, selected_text, shift_selection_focus,
-    MouseDragMode, Selection,
+    compute_selection_range, selected_text, shift_selection_focus, Selection,
 };
 pub(super) use super::state::AppState;
 pub(super) use super::terminal_ui::sort_threads_for_picker;
@@ -37,11 +28,10 @@ pub(super) use super::turn_submit::{
     submit_dequeued_turn_text, submit_turn_text, submit_turn_text_with_history,
 };
 pub(super) use super::view_models::{RenderedLine, StyledSegment, TerminalSize};
-pub(super) use super::{input_events, perf_session, turn_submit};
+pub(super) use super::{perf_session, turn_submit};
 pub(super) use crate::clipboard::{
     detect_osc52_wrap, is_ssh_session, osc52_sequences_for_env, Osc52Wrap,
 };
-pub(super) use crate::event::UiEvent;
 pub(super) use crate::theme::{COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_PRIMARY, COLOR_TEXT};
 pub(super) use carlos_core::protocol_params::{
     params_thread_archive, params_turn_interrupt, params_turn_start, parse_thread_runtime_settings,
@@ -56,7 +46,6 @@ pub(super) use carlos_core::session::tools::{
     command_execution_diff_output, extract_diff_blocks, format_tool_item, strip_terminal_controls,
     strip_terminal_controls_preserving_sgr,
 };
-pub(super) use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 pub(super) use ratatui::buffer::Buffer;
 pub(super) use ratatui::layout::Rect;
 pub(super) use ratatui::style::Style;
@@ -84,8 +73,6 @@ mod codex_settings_tests;
 mod codex_startup_settings_tests;
 #[path = "tests/grok_backend_tests.rs"]
 mod grok_backend_tests;
-#[path = "tests/input_tests.rs"]
-mod input_tests;
 #[path = "tests/late_summary_render_tests.rs"]
 mod late_summary_render_tests;
 #[path = "tests/notification_tests.rs"]
@@ -102,6 +89,7 @@ mod runtime_tests;
 mod shell_command_tests;
 #[path = "tests/summary_render_tests.rs"]
 mod summary_render_tests;
+
 #[path = "tests/theme_preferences_tests.rs"]
 mod theme_preferences_tests;
 #[path = "tests/three_c_tests.rs"]

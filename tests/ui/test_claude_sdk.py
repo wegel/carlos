@@ -232,6 +232,14 @@ class ClaudeSdk:
             terminal.contains("Answer: hold this turn")
             terminal.send(b"\x1b")
             terminal.contains("Turn interrupted")
+            if terminal.owned_daemon or hasattr(terminal, "daemon_recorder"):
+                terminal.wait(lambda: len(terminal.daemon_requests("session/setRalph")) == 1,
+                              "Escape sends one explicit shared Ralph stop")
+                stop = terminal.daemon_requests("session/setRalph")[0]["params"]
+                self.assertIs(stop["on"], False)
+                self.assertNotIn("options", stop)
+            terminal.wait(lambda: "RALPH MODE" not in terminal.text,
+                          "accepted stop clears the local Ralph badge")
             deadline = time.monotonic() + 1
             while time.monotonic() < deadline:
                 terminal.pump(.05)

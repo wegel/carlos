@@ -1,4 +1,11 @@
-// Test metric windows and the status sweep without a session owner.
+//! Preserve metric windows, key-repeat buckets and the local status sweep without a session.
+
+use std::time::Duration;
+
+use crossterm::event::KeyEventKind;
+
+use super::notifications::kitt_head_index;
+use super::perf::{DurationSamples, PerfMetrics};
 
 #[test]
 fn kitt_head_index_bounces_across_separator() {

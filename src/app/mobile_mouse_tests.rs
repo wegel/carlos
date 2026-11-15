@@ -4,7 +4,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 
 use super::{
     apply_mobile_mouse_scroll, consume_mobile_mouse_char, is_mobile_mouse_key_candidate,
-    parse_repeated_plain_mobile_pair, MobileMouseConsume,
+    parse_mobile_mouse_coords, parse_repeated_plain_mobile_pair, MobileMouseConsume,
 };
 use crate::app::viewport_state::ViewportState;
 
@@ -216,4 +216,24 @@ fn coordinate_detector_does_not_consume_ordinary_pasted_text() {
     for text in ["ordinary 66;52 text", "let x = 1; let y = 2;", "🦀 76;46"] {
         assert!(!super::consume_paste(&mut viewport, true, text), "{text}");
     }
+}
+
+#[test]
+fn parse_mobile_mouse_coords_accepts_plain_and_sgr_fragments() {
+    assert_eq!(parse_mobile_mouse_coords("76;46"), Some((76, 46)));
+    assert_eq!(
+        parse_mobile_mouse_coords("\u{1b}[<64;76;46M"),
+        Some((76, 46))
+    );
+    assert_eq!(parse_mobile_mouse_coords("hello"), None);
+}
+
+#[test]
+fn consume_mobile_mouse_char_does_not_swallow_plain_digits() {
+    let mut app = ViewportState::new();
+    assert!(matches!(
+        consume_mobile_mouse_char(&mut app, '2'),
+        MobileMouseConsume::PassThrough
+    ));
+    assert!(app.mobile_mouse_buffer.is_empty());
 }

@@ -316,3 +316,8 @@ mod core_events;
 #[cfg(test)]
 #[path = "../tests/client_recovery_tests.rs"]
 mod client_recovery_tests;
+
+#[cfg(test)]
+mod local_input_tests;
+#[cfg(test)]
+mod perf_tests;

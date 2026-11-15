@@ -33,10 +33,6 @@ use crate::event::UiEvent;
 #[path = "input_forwarders.rs"]
 mod input_forwarders;
 
-#[cfg(test)]
-pub(super) use self::input_queue_rules::can_submit_queued_turn;
-#[cfg(test)]
-pub(super) use self::input_queue_rules::is_priority_server_line;
 pub(super) use self::input_queue_rules::prioritize_events;
 
 const MAX_UI_DRAIN_PER_CYCLE: usize = 4096;
