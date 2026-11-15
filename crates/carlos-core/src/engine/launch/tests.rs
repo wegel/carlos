@@ -2,7 +2,7 @@
 
 use carlos_proto::session::Backend;
 
-use super::{launch, LaunchError, LaunchRequest, RestoreSession};
+use super::{launch, LaunchError, LaunchOptions, LaunchRequest, RestoreSession};
 use crate::launch_cancel::LaunchCancellation;
 
 fn request(root: &std::path::Path) -> LaunchRequest {
@@ -14,8 +14,10 @@ fn request(root: &std::path::Path) -> LaunchRequest {
         cwd: root.to_owned(),
         name: None,
         restore: None,
-        codex_socket: Some(root.join("nonexistent-native.sock")),
-        tool_labels: None,
+        options: LaunchOptions {
+            codex_socket: Some(root.join("nonexistent-native.sock")),
+            ..LaunchOptions::default()
+        },
     }
 }
 

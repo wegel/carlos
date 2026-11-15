@@ -125,13 +125,25 @@ pub struct ClaudeClient {
 impl ClaudeClient {
     /// Start the helper and let the UI answer questions during SDK startup.
     pub fn start(cwd: &Path, launch: ClaudeLaunchMode) -> Result<Self> {
+        Self::start_with_context_window(cwd, launch, None)
+    }
+
+    /// Override only this native child's raw context environment; existing attached owners stay intact.
+    pub fn start_with_context_window(
+        cwd: &Path,
+        launch: ClaudeLaunchMode,
+        value: Option<&str>,
+    ) -> Result<Self> {
         let (events_tx, events_rx) = EventSender::channel(1024);
         let settings = ClaudeRuntimeSettings::default();
         let session_id = match &launch {
             ClaudeLaunchMode::Resume(id) => id.clone(),
             _ => sessions::fresh_session_id(),
         };
-        let transport = Arc::new(ControllerTransport::start(events_tx.clone())?);
+        let transport = Arc::new(ControllerTransport::start_with_context_window(
+            events_tx.clone(),
+            value,
+        )?);
         sessions::begin_session(&transport, cwd, &launch, &settings, &session_id)?;
         Ok(Self {
             handler: RefCell::default(),

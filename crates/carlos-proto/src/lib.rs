@@ -13,6 +13,7 @@ pub mod rpc;
 pub mod session;
 pub mod settings;
 pub mod source;
+pub mod startup;
 pub mod submissions;
 pub mod task_activity;
 pub mod task_facts;

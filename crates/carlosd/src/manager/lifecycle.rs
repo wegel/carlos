@@ -4,7 +4,9 @@ use std::path::PathBuf;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use carlos_core::engine::launch::{launch, LaunchError, LaunchRequest, RestoreSession};
+use carlos_core::engine::launch::{
+    launch, LaunchError, LaunchOptions, LaunchRequest, RestoreSession,
+};
 use carlos_core::launch_cancel::LaunchCancellation;
 use carlos_proto::commands::{Command, RequestId};
 use carlos_proto::events::{Notification, SessionChange};
@@ -27,6 +29,7 @@ impl Manager {
             cwd,
             name,
             tool_labels,
+            launch,
         } = command
         else {
             unreachable!()
@@ -75,7 +78,7 @@ impl Manager {
         state.info.availability = Availability::Starting;
         state.create = Some(result.clone());
         self.sessions.insert(session.clone(), state);
-        self.start_launch(&session, false, tool_labels);
+        self.start_launch(&session, false, tool_labels, launch);
         self.list_changed(&session);
         self.reply(peer, id, result);
     }
@@ -103,6 +106,7 @@ impl Manager {
         id: &SessionId,
         restore: bool,
         tool_labels: Option<bool>,
+        native: carlos_proto::startup::NativeLaunchOptions,
     ) {
         let state = self.sessions.get_mut(id).expect("known session");
         if state.live.is_some() || state.launch.is_some() {
@@ -115,8 +119,11 @@ impl Manager {
             backend: saved.backend,
             cwd: PathBuf::from(&saved.cwd),
             name: saved.name.clone(),
-            codex_socket: self.codex_socket.clone(),
-            tool_labels,
+            options: LaunchOptions {
+                codex_socket: self.codex_socket.clone(),
+                tool_labels,
+                native,
+            },
             restore: restore.then(|| RestoreSession {
                 native_thread: saved.native_thread.clone().expect("validated restore"),
                 ralph_was_on: saved.ralph_was_on,

@@ -236,6 +236,11 @@ pub enum Command {
         name: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         tool_labels: Option<bool>,
+        #[serde(
+            default,
+            skip_serializing_if = "crate::startup::NativeLaunchOptions::is_empty"
+        )]
+        launch: crate::startup::NativeLaunchOptions,
     },
     #[serde(rename = "session/subscribe")]
     Subscribe {

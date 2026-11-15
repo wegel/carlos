@@ -205,7 +205,8 @@ import json, os, sys, time
 from pathlib import Path
 root = Path(os.environ["CARLOS_TEST_ROOT"])
 with (root / "native-pids.jsonl").open("a") as log:
-    log.write(json.dumps({{"backend": {command!r}, "pid": os.getpid(), "argv": sys.argv[1:]}}) + "\\n")
+    log.write(json.dumps({{"backend": {command!r}, "pid": os.getpid(), "argv": sys.argv[1:],
+        "context_window": os.environ.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW")}}) + "\\n")
 if {command!r} == "grok" and os.environ.get("CARLOS_TEST_SERVER") == "grok-held-initialize":
     sys.stdin.readline()
     (root / "initialize-held").write_text("waiting")

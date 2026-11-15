@@ -77,6 +77,16 @@ opaque_id!(
     "An opaque session address independent of native conversation ids."
 );
 opaque_id!(
+    SavedScopeId,
+    32,
+    "One private saved-session picker on an authenticated connection."
+);
+opaque_id!(
+    SavedChoiceId,
+    32,
+    "One captured saved-session choice, never a native session id."
+);
+opaque_id!(
     EntryId,
     49,
     "An opaque row or approval address, never a vector offset."

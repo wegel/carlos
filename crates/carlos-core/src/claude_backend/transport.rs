@@ -1,6 +1,7 @@
 //! Correlates versioned controller requests while a separate thread forwards native callbacks.
 
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::process::{Child, Command, Stdio};
@@ -58,6 +59,7 @@ pub(super) enum RequestTarget {
 
 /// Owns the helper process and its bounded request writer.
 pub(super) struct ControllerTransport {
+    context_window: Option<OsString>,
     writer: InputWriter,
     pub(super) workers: Arc<TransportWorkers>,
     pub(super) normalizer: Arc<Mutex<EventNormalizer>>,
@@ -79,8 +81,36 @@ impl ControllerTransport {
         Self::start_command(Command::new(controller_executable()?), events)
     }
 
+    /// Preserve an explicit terminal child value without changing the daemon's environment.
+    pub(super) fn start_with_context_window(
+        events: EventSender,
+        value: Option<&str>,
+    ) -> Result<Self> {
+        let mut command = Command::new(controller_executable()?);
+        if let Some(value) = value {
+            command.env("CLAUDE_CODE_AUTO_COMPACT_WINDOW", value);
+        }
+        Self::start_command(command, events)
+    }
+
+    /// Carry the captured child's environment through the existing fork helper replacement.
+    pub(super) fn replacement(&self, events: EventSender) -> Result<Self> {
+        let mut command = Command::new(controller_executable()?);
+        if let Some(value) = &self.context_window {
+            command.env("CLAUDE_CODE_AUTO_COMPACT_WINDOW", value);
+        } else {
+            command.env_remove("CLAUDE_CODE_AUTO_COMPACT_WINDOW");
+        }
+        Self::start_command(command, events)
+    }
+
     /// Start a supplied helper command for production or deterministic pipe tests.
     pub(super) fn start_command(mut command: Command, events: EventSender) -> Result<Self> {
+        let context_window = command
+            .get_envs()
+            .find(|(name, _)| *name == "CLAUDE_CODE_AUTO_COMPACT_WINDOW")
+            .map(|(_, value)| value.map(OsString::from))
+            .unwrap_or_else(|| std::env::var_os("CLAUDE_CODE_AUTO_COMPACT_WINDOW"));
         let trace = std::env::var_os("CARLOS_CLAUDE_WIRE_TRACE")
             .map(|path| OpenOptions::new().create(true).append(true).open(path))
             .transpose()?
@@ -113,6 +143,7 @@ impl ControllerTransport {
             pending.clone(),
         ));
         let transport = Self {
+            context_window,
             writer,
             workers,
             normalizer,

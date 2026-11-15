@@ -1,6 +1,7 @@
 //! Launch native adapters off the manager and transfer each session directly to its owner.
 
 mod backends;
+mod options;
 
 use std::fmt;
 use std::path::PathBuf;
@@ -13,6 +14,8 @@ use super::EngineHandle;
 use crate::backend::{BackendClient, EventReceiver};
 use crate::launch_cancel::LaunchCancellation;
 use crate::session::state::SessionState;
+
+pub use self::options::{validate_endpoint, LaunchOptions};
 
 /// Restore only the selected native conversation; saved automatic work always needs a fresh choice.
 pub struct RestoreSession {
@@ -27,9 +30,7 @@ pub struct LaunchRequest {
     pub cwd: PathBuf,
     pub name: Option<String>,
     pub restore: Option<RestoreSession>,
-    pub codex_socket: Option<PathBuf>,
-    /// Override only an explicitly requested first launch; restored sessions use host defaults.
-    pub tool_labels: Option<bool>,
+    pub options: LaunchOptions,
 }
 
 /// Own the adapter until the manager transfers it to one session thread.
@@ -56,7 +57,13 @@ pub fn launch(
     validate(&mut request)?;
     cancel.check().map_err(|_| LaunchError::Cancelled)?;
     let preferences = crate::runtime_preferences::load();
-    let summary_override = summary_override();
+    let summary_override = request
+        .options
+        .native
+        .reasoning_summary
+        .as_ref()
+        .map(|choice| choice.as_str().to_owned())
+        .or_else(summary_override);
     cancel.check().map_err(|_| LaunchError::Cancelled)?;
     let mut launched =
         backends::start(&request, cancel, preferences, summary_override).map_err(|error| {
@@ -73,6 +80,7 @@ pub fn launch(
     launched.session.set_summary_cwd(request.cwd.clone());
     launched.session.apply_summary_setting(
         request
+            .options
             .tool_labels
             .unwrap_or_else(crate::ui_preferences::load_summary_enabled),
     );
@@ -118,6 +126,7 @@ fn parse_summary_override(value: &str) -> String {
 }
 
 fn validate(request: &mut LaunchRequest) -> Result<(), LaunchError> {
+    options::validate_options(request.backend, &request.options)?;
     if !request.cwd.is_absolute() {
         return Err(LaunchError::Invalid(
             "session cwd must be an absolute directory".into(),

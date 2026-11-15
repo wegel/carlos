@@ -151,7 +151,7 @@ fn replace_after_fork(
     source.check_current(transport)?;
     let generation = events.generation + 1;
     let next_events = events.for_generation(generation);
-    let replacement = Arc::new(ControllerTransport::start(next_events.clone())?);
+    let replacement = Arc::new(original.replacement(next_events.clone())?);
     let launch = if result["fresh"] == true {
         ClaudeLaunchMode::New
     } else {

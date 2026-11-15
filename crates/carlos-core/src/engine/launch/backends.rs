@@ -40,7 +40,7 @@ fn codex(
     preferences: RuntimeDefaults,
     summary_override: Option<String>,
 ) -> Result<Launched> {
-    let mut client = CodexClient::start(request.codex_socket.clone())?;
+    let mut client = CodexClient::start(request.options.codex_socket.clone())?;
     let commands = client.capture_commands()?;
     cancel.register(move || commands.abort())?;
     initialize_client(&client)?;
@@ -65,7 +65,7 @@ fn codex(
     session.enable_codex();
     session.configure_codex_connection(
         client.connection_generation().expect("Codex generation"),
-        request.codex_socket.clone(),
+        request.options.codex_socket.clone(),
     );
     session.set_runtime_capabilities(true, true);
     session.prepare_codex_startup(request.restore.is_some(), summary_override);
@@ -93,12 +93,17 @@ fn claude(
         .as_ref()
         .map(|saved| ClaudeLaunchMode::Resume(saved.native_thread.clone()))
         .unwrap_or(ClaudeLaunchMode::New);
-    let mut client = ClaudeClient::start(&request.cwd, mode)?;
+    let context_window = request.options.native.claude_context_window.as_deref();
+    let effective_context = context_window
+        .map(str::to_owned)
+        .or_else(|| std::env::var("CLAUDE_CODE_AUTO_COMPACT_WINDOW").ok());
+    let mut client = ClaudeClient::start_with_context_window(&request.cwd, mode, context_window)?;
     let commands = client.capture_commands()?;
     cancel.register(move || commands.abort())?;
     let mut session = SessionState::new(client.session_id().into(), preferences, false);
     session.set_runtime_capabilities(true, false);
     session.enable_claude();
+    session.configure_context_shell_override(effective_context.as_deref());
     seed_settings(&mut session, &claude_runtime_defaults());
     session.start_claude_settings();
     let events = client.take_events_rx()?;
