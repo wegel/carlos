@@ -1,11 +1,11 @@
 //! CLI parsing, environment helpers, and runtime defaults persistence.
 
 use std::env;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use carlos_core::protocol_params::ThreadRuntimeSettings;
+use carlos_core::runtime_preferences;
 use carlos_core::session::runtime_settings::RuntimeDefaults;
 
 // --- CLI Types ---
@@ -278,68 +278,22 @@ fn env_backend() -> Option<Backend> {
 
 // --- Runtime Defaults ---
 
-fn runtime_defaults_path() -> Option<PathBuf> {
-    let base = env::var_os("XDG_CONFIG_HOME")
-        .filter(|v| !v.is_empty())
-        .map(PathBuf::from)
-        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))?;
-    Some(base.join("carlos").join("runtime-defaults.json"))
-}
-
+#[cfg(test)]
 pub(super) fn load_runtime_defaults_from(path: &Path) -> RuntimeDefaults {
-    let Ok(contents) = fs::read_to_string(path) else {
-        return RuntimeDefaults::default();
-    };
-    let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&contents) else {
-        return RuntimeDefaults::default();
-    };
-    RuntimeDefaults {
-        model: parsed
-            .get("model")
-            .and_then(serde_json::Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(ToOwned::to_owned),
-        effort: parsed
-            .get("effort")
-            .and_then(serde_json::Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(ToOwned::to_owned),
-        summary: parsed
-            .get("summary")
-            .and_then(serde_json::Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(ToOwned::to_owned),
-    }
+    runtime_preferences::load_from(path)
 }
 
 pub(super) fn load_runtime_defaults() -> RuntimeDefaults {
-    let Some(path) = runtime_defaults_path() else {
-        return RuntimeDefaults::default();
-    };
-    load_runtime_defaults_from(&path)
+    runtime_preferences::load()
 }
 
+#[cfg(test)]
 pub(super) fn persist_runtime_defaults_to(path: &Path, defaults: &RuntimeDefaults) -> Result<()> {
-    let Some(parent) = path.parent() else {
-        bail!("invalid runtime defaults path");
-    };
-    fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
-    let payload = serde_json::json!({
-        "model": defaults.model,
-        "effort": defaults.effort,
-        "summary": defaults.summary,
-    });
-    let bytes = serde_json::to_vec_pretty(&payload)?;
-    fs::write(path, bytes).with_context(|| format!("write {}", path.display()))?;
+    runtime_preferences::save_to(path, defaults)?;
     Ok(())
 }
 
 pub(super) fn persist_runtime_defaults(defaults: &RuntimeDefaults) -> Result<()> {
-    let Some(path) = runtime_defaults_path() else {
-        bail!("cannot determine config directory");
-    };
-    persist_runtime_defaults_to(&path, defaults)
+    runtime_preferences::save(defaults)?;
+    Ok(())
 }
