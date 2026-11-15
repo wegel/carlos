@@ -52,7 +52,7 @@ class Host:
             "phase":"final_answer", "text":"Launcher fixture ready"}]}]}
 
     def terminal(self, name, resume="native-root", arguments=None, expected=0):
-        args = arguments if arguments is not None else ["--daemon", "--codex-socket", str(self.native.path)]
+        args = arguments if arguments is not None else ["--codex-socket", str(self.native.path)]
         terminal = Terminal(self.binary, self.root / name, resume=resume, extra_args=args, extra_env=self.env)
         self.terminals.append((terminal, expected))
         return terminal

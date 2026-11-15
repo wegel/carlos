@@ -118,7 +118,8 @@ impl BackendWork {
         }
     }
 
-    /// Bridge the embedded terminal until EP019b removes direct backend ownership.
+    #[cfg(any(test, feature = "test-support"))]
+    /// Drive fixed backend fixtures that do not capture a native command handle.
     pub fn execute_embedded(self, client: &dyn BackendClient) -> BackendCompletion {
         match client.capture_commands() {
             Ok(commands) => self.execute(&commands),
