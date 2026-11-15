@@ -15,6 +15,7 @@ pub struct ConnectionState {
     pub(in crate::session) runtime_refresh: bool,
     pub(in crate::session) initial_rebuild: bool,
     pub(in crate::session) initial_choices: Option<Value>,
+    pub(in crate::session) startup: Option<super::startup::StartupChoices>,
     pub(in crate::session) streams: super::reconnect_streams::Streams,
     pub(in crate::session) socket: Option<PathBuf>,
     pub(in crate::session) rebuilding: bool,

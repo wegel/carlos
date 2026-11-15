@@ -53,13 +53,17 @@ pub fn launch(
     cancel.check().map_err(|_| LaunchError::Cancelled)?;
     validate(&mut request)?;
     cancel.check().map_err(|_| LaunchError::Cancelled)?;
-    let mut launched = backends::start(&request, cancel).map_err(|error| {
-        if cancel.check().is_err() {
-            LaunchError::Cancelled
-        } else {
-            LaunchError::Native(error.to_string())
-        }
-    })?;
+    let preferences = crate::runtime_preferences::load();
+    let summary_override = summary_override();
+    cancel.check().map_err(|_| LaunchError::Cancelled)?;
+    let mut launched =
+        backends::start(&request, cancel, preferences, summary_override).map_err(|error| {
+            if cancel.check().is_err() {
+                LaunchError::Cancelled
+            } else {
+                LaunchError::Native(error.to_string())
+            }
+        })?;
     launched.session.events.id = request.session;
     launched
         .session
@@ -90,6 +94,19 @@ impl Launched {
     /// Transfer the whole adapter without exposing mutable session fields to the daemon manager.
     pub fn spawn(self) -> (EngineHandle, mpsc::Receiver<()>) {
         EngineHandle::spawn(self.session, self.backend, self.events)
+    }
+}
+
+fn summary_override() -> Option<String> {
+    std::env::var("CARLOS_REASONING_SUMMARY")
+        .ok()
+        .map(|value| parse_summary_override(&value))
+}
+
+fn parse_summary_override(value: &str) -> String {
+    match value.trim() {
+        "auto" | "concise" | "detailed" | "none" => value.trim().to_owned(),
+        _ => "auto".into(),
     }
 }
 

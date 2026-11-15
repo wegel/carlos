@@ -51,3 +51,18 @@ fn relative_cwd_does_not_depend_on_the_daemons_working_directory() {
         Err(LaunchError::Invalid(_))
     ));
 }
+
+#[test]
+fn explicit_summary_environment_values_keep_the_legacy_trim_and_auto_fallback() {
+    for (value, expected) in [
+        ("auto", "auto"),
+        (" concise ", "concise"),
+        ("detailed", "detailed"),
+        (" none ", "none"),
+        ("", "auto"),
+        ("UNKNOWN", "auto"),
+        ("NONE", "auto"),
+    ] {
+        assert_eq!(super::parse_summary_override(value), expected);
+    }
+}

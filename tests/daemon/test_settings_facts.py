@@ -29,14 +29,10 @@ class SettingsFactTests:
             return page if page["settings"]["model_count"] == 170 else None
 
         wait_for(catalog, "startup catalog is available through bounded typed reads")
-
-        async def set_native(model):
-            for link in list(fixture.native.connections):
-                await fixture.native.notify(link, "thread/settings/updated",
-                                            threadSettings={"model":model, "effort":"high"})
+        startup_boundary = self.startup_boundary(first, fixture, session)
 
         # A newer native notice fences late startup replies before comparing independent pages.
-        asyncio.run_coroutine_threadsafe(set_native("model-000"), fixture.native.loop).result(timeout=5)
+        self.announce_settings(fixture, {"model":"model-000", "effort":"high"})
 
         def current_catalog():
             page = catalog()
@@ -56,7 +52,7 @@ class SettingsFactTests:
         beyond = first.response(first.send("settings/read", session=session, expected=expected, offset=171))
         self.assertIn("offset", beyond["error"]["message"])
 
-        asyncio.run_coroutine_threadsafe(set_native("model-169"), fixture.native.loop).result(timeout=5)
+        self.announce_settings(fixture, {"model":"model-169", "effort":"high"})
 
         def newer():
             snapshot = first.call("session/subscribe", session=session, since=None)["snapshot"]
@@ -66,8 +62,9 @@ class SettingsFactTests:
         stale = second.response(second.send("settings/read", session=session, expected=expected, offset=32))
         self.assertIn("settings changed", stale["error"]["message"])
         self.assertEqual(len([r for r in fixture.native.requests if r.get("method") == "model/list"]), 1)
-        self.assertFalse(any(r.get("method") in ("turn/start", "thread/settings/update")
-                             for r in fixture.native.requests))
+        self.assertFalse(any(r.get("method") == "turn/start" for r in fixture.native.requests))
+        self.assertFalse(any(r.get("method") == "thread/settings/update"
+                             for r in fixture.native.requests[startup_boundary:]))
 
     def test_native_settings_reach_both_clients_without_exposing_or_changing_editors(self):
         fixture = Fixture("shared-settings", codex=True)
@@ -79,16 +76,12 @@ class SettingsFactTests:
         session = first.call("session/create", operation=operation, backend="codex",
                              cwd=str(fixture.root), name=None)["session"]
         self.assertEqual(first.outcome(operation)["state"]["kind"], "accepted")
+        startup_boundary = self.startup_boundary(first, fixture, session)
         a = first.call("session/subscribe", session=session, since=None)["snapshot"]
         b = second.call("session/subscribe", session=session, since=None)["snapshot"]
         self.assertEqual(a["settings"], b["settings"])
 
-        async def announce():
-            for link in list(fixture.native.connections):
-                await fixture.native.notify(link, "thread/settings/updated", threadSettings={
-                    "model":"native-new-model", "effort":"high", "summary":None})
-
-        asyncio.run_coroutine_threadsafe(announce(), fixture.native.loop).result(timeout=5)
+        self.announce_settings(fixture, {"model":"native-new-model", "effort":"high", "summary":None})
 
         def changed(message):
             event = message.get("params", {}).get("event", {})
@@ -120,6 +113,23 @@ class SettingsFactTests:
 
         page = wait_for(barrier, "ordinary native text follows the foreign settings notice")
         self.assertEqual(page["settings"], facts)
-        self.assertFalse(any(request.get("method") in ("turn/start", "turn/steer", "turn/interrupt",
-                                                        "thread/settings/update", "turn/settings/update")
+        self.assertFalse(any(request.get("method") in ("turn/start", "turn/steer", "turn/interrupt")
                              for request in fixture.native.requests))
+        self.assertFalse(any(request.get("method") in ("thread/settings/update", "turn/settings/update")
+                             for request in fixture.native.requests[startup_boundary:]))
+
+    def startup_boundary(self, client, fixture, session):
+        def settled():
+            snapshot = client.call("session/subscribe", session=session, since=None)["snapshot"]
+            settings = snapshot["settings"]
+            return (snapshot["info"]["availability"] == "ready"
+                    and not settings["native_pending"] and not any(settings["pending"].values()))
+        wait_for(settled, "initial native settings finish before later read-only assertions")
+        return len(fixture.native.requests)
+
+
+    def announce_settings(self, fixture, choices):
+        async def announce():
+            for link in list(fixture.native.connections):
+                await fixture.native.notify(link, "thread/settings/updated", threadSettings=choices)
+        asyncio.run_coroutine_threadsafe(announce(), fixture.native.loop).result(timeout=5)

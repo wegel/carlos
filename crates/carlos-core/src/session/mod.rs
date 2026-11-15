@@ -40,6 +40,8 @@ mod turn_boundary_tests;
 
 pub mod runtime_settings;
 mod runtime_settings_updates;
+pub mod runtime_startup;
+pub mod runtime_startup_catalog;
 pub(crate) mod settings_changes;
 #[cfg(test)]
 mod settings_changes_tests;

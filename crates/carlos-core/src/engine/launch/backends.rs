@@ -13,19 +13,33 @@ use crate::grok_backend::{GrokClient, GrokLaunchMode};
 use crate::launch_cancel::LaunchCancellation;
 use crate::protocol_params::{
     initialize_client, params_thread_resume, params_thread_start,
-    parse_thread_id_from_start_or_resume,
+    parse_thread_id_from_start_or_resume, ThreadRuntimeSettings,
+};
+use crate::session::runtime_settings::RuntimeDefaults;
+use crate::session::runtime_startup::{
+    claude_runtime_defaults, grok_runtime_defaults, resolve_backend_runtime_settings,
 };
 use crate::session::state::SessionState;
 
-pub(super) fn start(request: &LaunchRequest, cancel: &LaunchCancellation) -> Result<Launched> {
+pub(super) fn start(
+    request: &LaunchRequest,
+    cancel: &LaunchCancellation,
+    preferences: RuntimeDefaults,
+    summary_override: Option<String>,
+) -> Result<Launched> {
     match request.backend {
-        Backend::Codex => codex(request, cancel),
-        Backend::Claude => claude(request, cancel),
-        Backend::Grok => grok(request, cancel),
+        Backend::Codex => codex(request, cancel, preferences, summary_override),
+        Backend::Claude => claude(request, cancel, preferences),
+        Backend::Grok => grok(request, cancel, preferences),
     }
 }
 
-fn codex(request: &LaunchRequest, cancel: &LaunchCancellation) -> Result<Launched> {
+fn codex(
+    request: &LaunchRequest,
+    cancel: &LaunchCancellation,
+    preferences: RuntimeDefaults,
+    summary_override: Option<String>,
+) -> Result<Launched> {
     let mut client = CodexClient::start(request.codex_socket.clone())?;
     let commands = client.capture_commands()?;
     cancel.register(move || commands.abort())?;
@@ -46,7 +60,7 @@ fn codex(request: &LaunchRequest, cancel: &LaunchCancellation) -> Result<Launche
             "native resume selected another thread"
         );
     }
-    let mut session = SessionState::new(thread.clone(), Default::default(), false);
+    let mut session = SessionState::new(thread.clone(), preferences, false);
     session.enable_native_history();
     session.enable_codex();
     session.configure_codex_connection(
@@ -54,6 +68,7 @@ fn codex(request: &LaunchRequest, cancel: &LaunchCancellation) -> Result<Launche
         request.codex_socket.clone(),
     );
     session.set_runtime_capabilities(true, true);
+    session.prepare_codex_startup(request.restore.is_some(), summary_override);
     session.begin_initial_codex_rebuild();
     if request.restore.is_none() {
         session.events.launch = Some(carlos_proto::session::Availability::Starting);
@@ -68,7 +83,11 @@ fn codex(request: &LaunchRequest, cancel: &LaunchCancellation) -> Result<Launche
     })
 }
 
-fn claude(request: &LaunchRequest, cancel: &LaunchCancellation) -> Result<Launched> {
+fn claude(
+    request: &LaunchRequest,
+    cancel: &LaunchCancellation,
+    preferences: RuntimeDefaults,
+) -> Result<Launched> {
     let mode = request
         .restore
         .as_ref()
@@ -77,9 +96,10 @@ fn claude(request: &LaunchRequest, cancel: &LaunchCancellation) -> Result<Launch
     let mut client = ClaudeClient::start(&request.cwd, mode)?;
     let commands = client.capture_commands()?;
     cancel.register(move || commands.abort())?;
-    let mut session = SessionState::new(client.session_id().into(), Default::default(), false);
+    let mut session = SessionState::new(client.session_id().into(), preferences, false);
     session.set_runtime_capabilities(true, false);
     session.enable_claude();
+    seed_settings(&mut session, &claude_runtime_defaults());
     session.start_claude_settings();
     let events = client.take_events_rx()?;
     Ok(Launched {
@@ -89,7 +109,11 @@ fn claude(request: &LaunchRequest, cancel: &LaunchCancellation) -> Result<Launch
     })
 }
 
-fn grok(request: &LaunchRequest, cancel: &LaunchCancellation) -> Result<Launched> {
+fn grok(
+    request: &LaunchRequest,
+    cancel: &LaunchCancellation,
+    preferences: RuntimeDefaults,
+) -> Result<Launched> {
     let mut client = GrokClient::start_cancellable(&request.cwd, cancel)?;
     let mode = request
         .restore
@@ -100,9 +124,10 @@ fn grok(request: &LaunchRequest, cancel: &LaunchCancellation) -> Result<Launched
         .restore
         .as_ref()
         .map_or("grok-starting", |saved| saved.native_thread.as_str());
-    let mut session = SessionState::new(native.into(), Default::default(), false);
+    let mut session = SessionState::new(native.into(), preferences, false);
     session.set_runtime_capabilities(true, false);
     session.set_available_models(client.available_models());
+    seed_settings(&mut session, &grok_runtime_defaults());
     session.begin_grok_start(request.restore.is_some());
     let events = client.take_events_rx()?;
     client.open_session_async(mode)?;
@@ -112,3 +137,18 @@ fn grok(request: &LaunchRequest, cancel: &LaunchCancellation) -> Result<Launched
         events,
     })
 }
+
+fn seed_settings(session: &mut SessionState, fallback: &RuntimeDefaults) {
+    let selected = resolve_backend_runtime_settings(
+        ThreadRuntimeSettings::default(),
+        session.runtime_settings().startup_preferences(),
+        fallback,
+        session.runtime_settings().available_models(),
+        false,
+    );
+    session.set_runtime_settings(selected.model, selected.effort, selected.summary);
+}
+
+#[cfg(test)]
+#[path = "startup_tests.rs"]
+mod tests;

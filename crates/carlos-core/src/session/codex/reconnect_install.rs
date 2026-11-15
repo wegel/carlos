@@ -114,6 +114,7 @@ fn install_history_runtime(
     session.queue_runtime_settings(None, None, None);
     let future = session.codex_runtime_choices();
     session.install_codex_settings(future);
+    session.install_codex_startup();
     Ok(history)
 }
 
