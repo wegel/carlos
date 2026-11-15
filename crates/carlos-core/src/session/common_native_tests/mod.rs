@@ -12,6 +12,7 @@ mod idless_items;
 mod item_sources;
 mod lookup_differential;
 mod lookup_extra;
+mod names;
 
 use super::actions::ServerRequestAction;
 use super::backend_test_support::{action, context};

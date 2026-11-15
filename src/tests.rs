@@ -17,9 +17,7 @@ pub(super) use super::notifications::{
 };
 pub(super) use super::perf::{DurationSamples, PerfMetrics};
 pub(super) use super::picker_delete_dialog::draw_picker_delete_dialog;
-pub(super) use super::render::{
-    draw_rendered_line, is_newline_enter, normalize_pasted_text, render_main_view,
-};
+pub(super) use super::render::{draw_rendered_line, is_newline_enter, normalize_pasted_text};
 pub(super) use super::render_input::input_cursor_visual_position;
 pub(super) use super::selection::{
     compute_selection_range, decide_mouse_drag_mode, selected_text, shift_selection_focus,
@@ -98,8 +96,6 @@ pub(super) mod render_fixture;
 mod rtk_transcript_tests;
 #[path = "tests/runtime_tests.rs"]
 mod runtime_tests;
-#[path = "tests/session_name_tests.rs"]
-mod session_name_tests;
 #[path = "tests/shell_command_tests.rs"]
 mod shell_command_tests;
 #[path = "tests/summary_render_tests.rs"]

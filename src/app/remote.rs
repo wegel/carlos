@@ -37,6 +37,8 @@ mod rename;
 mod render;
 mod run;
 mod selection_copy;
+#[cfg(test)]
+mod session_name_tests;
 mod settings;
 mod settings_appearance;
 mod settings_changes;
