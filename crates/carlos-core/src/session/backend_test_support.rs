@@ -54,6 +54,32 @@ pub(super) fn normalize(
     native: &mut FixtureNormalizer,
     parsed: &Value,
 ) -> Vec<ServerRequestAction> {
+    native_fixture_lines(core, native, parsed)
+        .into_iter()
+        .filter_map(|line| {
+            let update = core.handle_backend_line(&line, &context(core));
+            action(update)
+        })
+        .collect()
+}
+
+/// Keep actual private submission effects when a native fixture returns recoverable text.
+pub(super) fn normalize_updates(
+    core: &mut SessionState,
+    native: &mut FixtureNormalizer,
+    parsed: &Value,
+) -> Vec<BackendUpdate> {
+    native_fixture_lines(core, native, parsed)
+        .into_iter()
+        .map(|line| core.handle_backend_line(&line, &context(core)))
+        .collect()
+}
+
+fn native_fixture_lines(
+    core: &SessionState,
+    native: &mut FixtureNormalizer,
+    parsed: &Value,
+) -> Vec<String> {
     let generation = parsed["params"]["generation"]
         .as_u64()
         .unwrap_or(core.claude().generation());
@@ -63,12 +89,5 @@ pub(super) fn normalize(
     if parsed["method"] == "claude/controller" && generation != core.claude().generation() {
         return Vec::new();
     }
-    native
-        .lines(parsed, core.thread_id(), generation)
-        .into_iter()
-        .filter_map(|line| {
-            let update = core.handle_backend_line(&line, &context(core));
-            action(update)
-        })
-        .collect()
+    native.lines(parsed, core.thread_id(), generation)
 }

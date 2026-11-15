@@ -104,19 +104,6 @@ impl AppState {
         }
     }
 
-    #[cfg(test)]
-    pub(super) fn rewind_selected_turn_id(&self) -> Option<&str> {
-        self.view
-            .claude_unknown_selection
-            .and_then(|index| self.session.claude_history().unknown().get(index))
-            .map(|prompt| prompt.uuid())
-            .or_else(|| {
-                self.session
-                    .input_history()
-                    .turn_id(self.view.input_history.rewind_selected_entry_id()?)
-            })
-    }
-
     pub(super) fn navigate_input_history_up(&mut self) -> bool {
         if super::claude_rewind::navigate(self, true) {
             return true;

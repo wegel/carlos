@@ -29,9 +29,6 @@ mod claude_quota;
 mod claude_reset;
 mod claude_rewind;
 mod claude_session_history;
-#[cfg(test)]
-#[path = "../tests/claude_session_tests.rs"]
-mod claude_session_tests;
 mod claude_task_view;
 mod claude_tasks;
 mod cli;
