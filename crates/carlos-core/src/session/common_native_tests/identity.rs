@@ -2,8 +2,10 @@
 
 use super::identity_support::{notify, session_for as app};
 use crate::backend::BackendKind;
+use crate::session::entry_id::EntryId;
 use crate::session::history_identity::{HistoryEntry, HistoryMode};
 use crate::session::models::{EntryDraft, MessageKind, Role};
+use crate::session::state::SessionState;
 use serde_json::{json, Value};
 
 #[test]
@@ -82,32 +84,7 @@ fn diff_parts_do_not_alias_literal_suffix_ids() {
     for backend in [BackendKind::Codex, BackendKind::Claude, BackendKind::Grok] {
         for count in 1..5 {
             let mut app = app(backend);
-            app.upsert_mapped_message(
-                &app.backend_entry_key("x#part-1"),
-                Role::Assistant,
-                "literal".into(),
-                MessageKind::Plain,
-                None,
-            );
-            let literal = app.messages()[0].id;
-            let mut ids = Vec::new();
-            for part in 0..count {
-                app.with_native_item_part("x", part, |app, key| {
-                    app.upsert_mapped_message(
-                        &app.backend_entry_key(key),
-                        Role::ToolOutput,
-                        "diff".into(),
-                        MessageKind::Diff,
-                        Some(part.to_string()),
-                    );
-                    ids.push(
-                        app.messages()[app
-                            .item_message_index(&app.backend_entry_key(key))
-                            .expect("part")]
-                        .id,
-                    );
-                });
-            }
+            let (literal, ids) = seed_diff_parts(&mut app, count);
             for retained in 0..=count {
                 app.transcript_retain_parts(&app.backend_entry_key("x"), retained);
                 for part in 0..count {
@@ -198,4 +175,34 @@ fn claude_native_evidence_matches_live_and_history_but_generated_counters_do_not
             matches!(kind, "assistant" | "tool" | "user")
         );
     }
+}
+
+fn seed_diff_parts(app: &mut SessionState, count: usize) -> (EntryId, Vec<EntryId>) {
+    app.upsert_mapped_message(
+        &app.backend_entry_key("x#part-1"),
+        Role::Assistant,
+        "literal".into(),
+        MessageKind::Plain,
+        None,
+    );
+    let literal = app.messages()[0].id;
+    let mut ids = Vec::new();
+    for part in 0..count {
+        app.with_native_item_part("x", part, |app, key| {
+            app.upsert_mapped_message(
+                &app.backend_entry_key(key),
+                Role::ToolOutput,
+                "diff".into(),
+                MessageKind::Diff,
+                Some(part.to_string()),
+            );
+            ids.push(
+                app.messages()[app
+                    .item_message_index(&app.backend_entry_key(key))
+                    .expect("part")]
+                .id,
+            );
+        });
+    }
+    (literal, ids)
 }

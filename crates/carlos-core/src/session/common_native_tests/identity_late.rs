@@ -5,6 +5,7 @@ use super::identity_support::{notify, reset, session_for as app, summary_token, 
 use crate::backend::BackendKind;
 use crate::session::item_history::load_history_from_start_or_resume;
 use crate::session::models::Role;
+use crate::session::state::SessionState;
 use crate::summaries::{command_key, SummaryEvent};
 use serde_json::{json, Value};
 
@@ -16,25 +17,7 @@ fn stale_summary_cannot_write_to_a_replacement_entry() {
         notify(&mut app, "item/completed", command.clone(), Value::Null);
         let id = app.messages()[0].id;
         let token = summary_token(&app, "command");
-        if change == "fork" {
-            reset(&mut app, "fork");
-        }
-        if change == "truncate" {
-            truncate(&mut app, 0);
-        }
-        let prefix = if change == "insert" {
-            vec![json!({"id":"new","type":"agentMessage","text":"before"})]
-        } else {
-            vec![]
-        };
-        let mut items = prefix;
-        let mut command = command;
-        if change == "correct" {
-            command["aggregatedOutput"] = json!("corrected");
-        }
-        items.push(command);
-        let response = json!({"result":{"thread":{"id":app.thread_id(),"turns":[{"id":"turn","items":items}]}}});
-        load_history_from_start_or_resume(&mut app, &response.to_string()).expect("history");
+        reload_command(&mut app, command, change);
         app.handle_summary_event(SummaryEvent::Ready(
             command_key("python3 process.py"),
             token,
@@ -171,4 +154,27 @@ fn a_new_claude_cursor_cannot_append_to_completed_native_work() {
         assert_eq!(app.messages()[0].id, id);
         assert_eq!(app.messages()[0].text, "final");
     }
+}
+
+fn reload_command(app: &mut SessionState, command: Value, change: &str) {
+    if change == "fork" {
+        reset(app, "fork");
+    }
+    if change == "truncate" {
+        truncate(app, 0);
+    }
+    let prefix = if change == "insert" {
+        vec![json!({"id":"new","type":"agentMessage","text":"before"})]
+    } else {
+        vec![]
+    };
+    let mut items = prefix;
+    let mut command = command;
+    if change == "correct" {
+        command["aggregatedOutput"] = json!("corrected");
+    }
+    items.push(command);
+    let response =
+        json!({"result":{"thread":{"id":app.thread_id(),"turns":[{"id":"turn","items":items}]}}});
+    load_history_from_start_or_resume(app, &response.to_string()).expect("history");
 }

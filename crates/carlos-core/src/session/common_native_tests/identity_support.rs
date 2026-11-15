@@ -42,3 +42,14 @@ pub(super) fn notify(app: &mut SessionState, method: &str, item: Value, source: 
         "item":item,"sourceKey":source}});
     handle_server_message_line(app, &line.to_string());
 }
+
+pub(super) fn assert_entries(session: &SessionState) {
+    session.messages().assert_invariants();
+    session
+        .input_history()
+        .assert_invariants(session.messages());
+    session.assert_summary_invariants();
+    for prompt in session.claude_history().unknown() {
+        assert!(session.messages().entry(prompt.entry_id()).is_some());
+    }
+}
