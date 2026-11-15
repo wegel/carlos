@@ -253,3 +253,20 @@ fn preferences_save_only_the_explicit_choice_and_preserve_other_ui_fields() {
     assert_eq!(load_mode_from(&path), ToolOutputMode::Auto);
     fs::remove_dir_all(root).expect("remove private settings directory and retained lock");
 }
+
+#[test]
+fn compact_tool_display_borrows_the_exact_original_body() {
+    let message = crate::app::tests::test_message(EntryDraft {
+        role: Role::ToolOutput,
+        kind: MessageKind::Plain,
+        text: "late shell output".into(),
+        file_path: None,
+        tool_output: None,
+    });
+    let display =
+        crate::app::tool_output_state::compact_tool_message(&message, 0).expect("compact tool");
+    assert!(
+        std::ptr::eq(display.source.text.as_ptr(), message.text.as_ptr()),
+        "folded view borrows its original entry without copying it"
+    );
+}

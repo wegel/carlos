@@ -1,6 +1,9 @@
 //! Keep native parser and transcript lifetime checks inside the session owner.
 
 mod activity;
+mod identity;
+mod identity_late;
+mod identity_support;
 mod idless_items;
 
 use super::actions::ServerRequestAction;
