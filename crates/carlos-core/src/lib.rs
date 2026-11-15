@@ -29,6 +29,7 @@ pub mod runtime_preferences;
 pub mod session;
 pub use session::engine;
 pub mod summaries;
+pub mod ui_preferences;
 
 #[cfg(test)]
 #[path = "tests/backend_owner_codex_tests.rs"]
