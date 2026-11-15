@@ -154,6 +154,7 @@ class BackendSettingsTests:
         self.assertEqual(len(self.helper_requests(fixture, "model.set")), 1)
         self.assertEqual(self.helper_requests(fixture, "effort.set"), [])
         self.assertFalse(self.preferences(fixture).exists())
+        self.assertFalse(first.call("settings/read", session=session)["settings"]["native_pending"])
 
     def test_grok_keeps_future_choices_until_prompt_and_rejects_unsupported_fields(self):
         fixture, first, _, session = self.clients("grok-settings-future", backend="grok")

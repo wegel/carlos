@@ -56,10 +56,10 @@ impl Owner {
         else {
             return;
         };
-        let state = if pending.target.matches(&self.session, self.client.kind())
-            && !self.native.closed
-        {
-            self.session.set_native_settings_pending(false);
+        let current =
+            pending.target.matches(&self.session, self.client.kind()) && !self.native.closed;
+        self.session.set_native_settings_pending(false);
+        let state = if current {
             let fields = confirmed_fields(&result.accepted);
             self.session.accept_claude_settings(result.accepted);
             match result.failure {
