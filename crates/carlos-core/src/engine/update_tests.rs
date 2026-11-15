@@ -27,6 +27,7 @@ fn an_oversized_shared_page_does_not_hide_a_private_result_or_create_read_feedba
         EngineCommand::SetRalph {
             operation: operation.clone(),
             on: false,
+            options: None,
         },
     );
     let EngineReply::Updates(update) = request(

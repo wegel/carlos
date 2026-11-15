@@ -45,7 +45,7 @@ pub(super) enum Completion {
     },
     InternalControl(ControlCompletion),
     Ralph {
-        operation: ClientOperation,
+        operation: Option<ClientOperation>,
         result: Result<RalphConfig, String>,
         target: super::target::Target,
     },

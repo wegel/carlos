@@ -4,6 +4,7 @@ use serde_json::Value;
 
 /// Return one existing backend reply or control for immediate execution by the caller.
 pub enum ServerRequestAction {
+    ApplyRalphToggle,
     CodexQueuePage {
         token: u64,
         cursor: Value,

@@ -202,6 +202,9 @@ impl Device {
         if self.navigation_key(key)? {
             return Ok(false);
         }
+        if self.ralph_key(link.as_deref_mut(), key) {
+            return Ok(false);
+        }
         if key.code == KeyCode::Enter && !is_newline_enter(key.modifiers) {
             let result = self.submit(link);
             if let Err(error) = result {

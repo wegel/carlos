@@ -189,12 +189,7 @@ impl Device {
                 bold: true,
             });
         }
-        if info.ralph {
-            badges.push(Label {
-                parts: vec![("RALPH MODE".into(), COLOR_GUTTER_AGENT_THINKING)],
-                bold: true,
-            });
-        }
+        badges.extend(ralph_badges(info));
         let model = self
             .client
             .session(&self.session)
@@ -365,3 +360,24 @@ fn activity_label(activity: &carlos_proto::status::MainActivity) -> Option<Strin
 #[cfg(test)]
 #[path = "status_tests.rs"]
 mod tests;
+
+fn ralph_badges(info: &SessionInfo) -> Vec<Label> {
+    let mut badges = Vec::new();
+    if info
+        .status
+        .as_ref()
+        .is_some_and(|status| status.ralph.toggle_pending)
+    {
+        badges.push(Label::plain(
+            "Ralph pending".into(),
+            COLOR_GUTTER_AGENT_THINKING,
+        ));
+    }
+    if info.ralph {
+        badges.push(Label {
+            parts: vec![("RALPH MODE".into(), COLOR_GUTTER_AGENT_THINKING)],
+            bold: true,
+        });
+    }
+    badges
+}

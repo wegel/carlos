@@ -294,6 +294,15 @@ pub enum Command {
         session: SessionId,
         operation: ClientOperation,
         on: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        options: Option<Box<crate::ralph::RalphOptions>>,
+    },
+    #[serde(rename = "session/toggleRalph")]
+    ToggleRalph {
+        session: SessionId,
+        operation: ClientOperation,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        options: Option<Box<crate::ralph::RalphOptions>>,
     },
     #[serde(rename = "operation/read")]
     Operation { operation: ClientOperation },

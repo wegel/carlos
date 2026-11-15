@@ -36,6 +36,10 @@ pub(super) struct Actions {
 
 impl Owner {
     pub(super) fn action(&mut self, action: ServerRequestAction) {
+        if matches!(action, ServerRequestAction::ApplyRalphToggle) {
+            // The ordinary dispatcher applies the existing pending flag when its worker is free.
+            return;
+        }
         let bytes = size(&action);
         if self.actions.pending.len() >= 64
             || bytes > (8 * 1024 * 1024usize).saturating_sub(self.actions.bytes)
@@ -196,6 +200,7 @@ impl Owner {
                 Box::new(move || commands.refresh_context().map(|()| false)),
             ),
             ServerRequestAction::ReplyNative { .. }
+            | ServerRequestAction::ApplyRalphToggle
             | ServerRequestAction::CodexQueuePage { .. }
             | ServerRequestAction::ValidateCodexForm { .. } => {
                 unreachable!("asynchronous owner action")
@@ -247,9 +252,9 @@ fn size(action: &ServerRequestAction) -> usize {
         ServerRequestAction::CodexQueuePage { cursor, .. } => cursor,
         ServerRequestAction::ValidateCodexForm { schema, .. } => schema,
         ServerRequestAction::ReplyError { request_id, .. } => request_id,
-        ServerRequestAction::ApplyClaudeSettings | ServerRequestAction::RefreshContext => {
-            &Value::Null
-        }
+        ServerRequestAction::ApplyClaudeSettings
+        | ServerRequestAction::ApplyRalphToggle
+        | ServerRequestAction::RefreshContext => &Value::Null,
     };
     512usize.saturating_add(serde_json::to_vec(value).map_or(usize::MAX - 512, |bytes| bytes.len()))
 }

@@ -14,6 +14,7 @@ mod ordinary;
 mod owner;
 mod queue_changes;
 mod queue_reads;
+mod ralph_toggle;
 mod reports;
 mod results;
 mod ring;
@@ -198,6 +199,11 @@ pub enum EngineCommand {
     SetRalph {
         operation: ClientOperation,
         on: bool,
+        options: Option<Box<carlos_proto::ralph::RalphOptions>>,
+    },
+    ToggleRalph {
+        operation: ClientOperation,
+        options: Option<Box<carlos_proto::ralph::RalphOptions>>,
     },
 }
 
@@ -274,6 +280,7 @@ impl EngineHandle {
         let mailbox = match &command {
             EngineCommand::Send { .. }
             | EngineCommand::SetRalph { .. }
+            | EngineCommand::ToggleRalph { .. }
             | EngineCommand::Rename { .. }
             | EngineCommand::Rewind { .. } => &self.0.ordinary,
             EngineCommand::GoalSet { .. } | EngineCommand::GoalClear { .. } => &self.0.ordinary,

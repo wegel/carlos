@@ -11,6 +11,7 @@ pub mod goals;
 pub mod ids;
 pub mod output;
 pub mod queue;
+pub mod ralph;
 pub mod rpc;
 pub mod session;
 pub mod settings;

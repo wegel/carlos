@@ -94,13 +94,13 @@ impl Owner {
     fn finish_ralph_completion(
         &mut self,
         target: super::target::Target,
-        operation: carlos_proto::submissions::ClientOperation,
+        operation: Option<carlos_proto::submissions::ClientOperation>,
         result: Result<crate::session::ralph::RalphConfig, String>,
     ) {
         self.workers.ordinary_busy = false;
         if target.matches(&self.session, self.client.kind()) {
             self.finish_ralph(operation, result);
-        } else {
+        } else if let Some(operation) = operation {
             self.results.update(
                 &operation,
                 rejected("session changed while reading Ralph prompt; nothing enabled"),

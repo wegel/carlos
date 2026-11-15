@@ -20,6 +20,7 @@ impl SessionState {
         _context: &BackendContext<'_>,
     ) -> BackendUpdate {
         let change = match action {
+            ServerRequestAction::ApplyRalphToggle => self.apply_inline_ralph_toggle(),
             ServerRequestAction::CodexQueuePage { token, cursor } => {
                 let mut update = QueueUpdate::default();
                 super::codex::queue::page(
@@ -71,6 +72,13 @@ impl SessionState {
             }
         };
         BackendUpdate::new(change)
+    }
+
+    fn apply_inline_ralph_toggle(&mut self) -> BackendChange {
+        if let Err(error) = self.apply_pending_ralph_toggle() {
+            self.set_status(format!("ralph: {error}"));
+        }
+        BackendChange::None
     }
 
     /// Retain the submitted callback and show its exact worker/reply failure locally.

@@ -31,6 +31,7 @@ impl Owner {
             | EngineCommand::Rename { operation, .. }
             | EngineCommand::Rewind { operation, .. }
             | EngineCommand::SetRalph { operation, .. }
+            | EngineCommand::ToggleRalph { operation, .. }
             | EngineCommand::GoalSet { operation, .. }
             | EngineCommand::GoalClear { operation, .. }
             | EngineCommand::QueueChange { operation, .. }
@@ -152,6 +153,9 @@ impl Owner {
         if self.workers.ordinary_busy || self.session.command_idle().is_err() {
             return;
         }
+        if self.dispatch_pending_ralph_toggle() {
+            return;
+        }
         if self.dispatch_queued() {
             return;
         }
@@ -183,7 +187,14 @@ impl Owner {
                 text,
                 policy,
             } => self.send(Some(operation), text, policy, PromptOrigin::Human, false),
-            EngineCommand::SetRalph { operation, on } => self.set_ralph(operation, on),
+            EngineCommand::SetRalph {
+                operation,
+                on,
+                options,
+            } => self.set_ralph(operation, on, options),
+            EngineCommand::ToggleRalph { operation, options } => {
+                self.toggle_ralph(operation, options)
+            }
             EngineCommand::ToolLabelsSet {
                 operation,
                 expected,
@@ -240,6 +251,15 @@ impl Owner {
 
     fn dispatch_queued(&mut self) -> bool {
         if self.session.active_turn_id().is_some() || self.native.closed {
+            return false;
+        }
+        if !self.ordinary.is_empty()
+            && self
+                .session
+                .ralph_runtime()
+                .next_input_origin(Instant::now())
+                == Some(PromptOrigin::Automatic)
+        {
             return false;
         }
         let Some(turn) =

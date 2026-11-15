@@ -37,6 +37,7 @@ impl Ingress {
             Command::Create { .. }
             | Command::Send { .. }
             | Command::SetRalph { .. }
+            | Command::ToggleRalph { .. }
             | Command::Rename { .. }
             | Command::GoalSet { .. }
             | Command::GoalClear { .. }

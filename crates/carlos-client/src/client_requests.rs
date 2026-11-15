@@ -168,6 +168,9 @@ fn mutation(command: &Command) -> Option<(&ClientOperation, Option<&SessionId>)>
         | Command::SetRalph {
             operation, session, ..
         }
+        | Command::ToggleRalph {
+            operation, session, ..
+        }
         | Command::Approve {
             operation, session, ..
         }

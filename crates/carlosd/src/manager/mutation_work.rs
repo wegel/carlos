@@ -16,41 +16,26 @@ pub(super) type Prepared = (
 );
 
 pub(super) fn prepare(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
-    let parts = match command {
-        labels @ Command::ToolLabelsSet { .. } => return prepare_tool_labels(labels),
-        context @ Command::ContextSet { .. } => return prepare_context(context),
-        settings @ Command::SettingsSet { .. } => return prepare_settings(settings),
-        command @ Command::TaskStop { .. } => return prepare_task_stop(command),
-        command @ Command::QueueChange { .. } => return prepare_queue(command),
-        command @ (Command::GoalSet { .. } | Command::GoalClear { .. }) => {
-            return prepare_goal(command)
-        }
+    match command {
+        labels @ Command::ToolLabelsSet { .. } => prepare_tool_labels(labels),
+        context @ Command::ContextSet { .. } => prepare_context(context),
+        settings @ Command::SettingsSet { .. } => prepare_settings(settings),
+        command @ Command::TaskStop { .. } => prepare_task_stop(command),
+        command @ Command::QueueChange { .. } => prepare_queue(command),
+        command @ (Command::GoalSet { .. } | Command::GoalClear { .. }) => prepare_goal(command),
         Command::Send {
             session,
             operation,
             text,
             policy,
-        } => return prepare_send(session, operation, text, policy),
-        Command::SetRalph {
-            session,
-            operation,
-            on,
-        } => (
-            session,
-            operation.clone(),
-            EngineCommand::SetRalph { operation, on },
-            None,
-            Class::Ordinary,
-        ),
+        } => prepare_send(session, operation, text, policy),
+        ralph @ (Command::SetRalph { .. } | Command::ToggleRalph { .. }) => prepare_ralph(ralph),
         control @ (Command::Approve { .. } | Command::Interrupt { .. }) => {
-            return Ok(prepare_control(control))
+            Ok(prepare_control(control))
         }
-        command @ (Command::Rename { .. } | Command::Rewind { .. }) => {
-            return prepare_edit(command)
-        }
+        command @ (Command::Rename { .. } | Command::Rewind { .. }) => prepare_edit(command),
         _ => unreachable!("mutation route"),
-    };
-    Ok(parts)
+    }
 }
 
 fn prepare_send(
@@ -327,6 +312,41 @@ fn prepare_tool_labels(command: Command) -> Result<Prepared, carlos_proto::comma
         None,
         Class::Ordinary,
     ))
+}
+
+fn prepare_ralph(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
+    let (session, operation, work) = match command {
+        Command::SetRalph {
+            session,
+            operation,
+            on,
+            options,
+        } => {
+            if !on && options.is_some() {
+                return Err(error(-32602, "prompt options require Ralph on"));
+            }
+            (
+                session,
+                operation.clone(),
+                EngineCommand::SetRalph {
+                    operation,
+                    on,
+                    options,
+                },
+            )
+        }
+        Command::ToggleRalph {
+            session,
+            operation,
+            options,
+        } => (
+            session,
+            operation.clone(),
+            EngineCommand::ToggleRalph { operation, options },
+        ),
+        _ => unreachable!("typed Ralph request"),
+    };
+    Ok((session, operation, work, None, Class::Ordinary))
 }
 
 #[cfg(test)]

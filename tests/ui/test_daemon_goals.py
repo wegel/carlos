@@ -169,7 +169,7 @@ class DaemonGoals:
         fixture.native.release_goal()
         terminal.wait(lambda: fixture.native.goal_pending is None, "held native acknowledgement released")
         self.assertEqual(len(terminal.requests("goal/set")), 1)
-        self.assertEqual(len(terminal.requests("session/setRalph")), 1)
+        self.assertEqual(len(terminal.requests("session/toggleRalph")), 1)
         self.assertEqual([r["params"]["text"] for r in terminal.requests("session/send")],
                          ["human while activation pending"])
         self.assertNotIn("RALPH_MUST_NOT_RUN", str(fixture.native.requests))

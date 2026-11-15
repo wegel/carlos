@@ -33,6 +33,7 @@ impl Manager {
             | Command::Rename { .. }
             | Command::Rewind { .. }
             | Command::SetRalph { .. }
+            | Command::ToggleRalph { .. }
             | Command::GoalSet { .. }
             | Command::GoalClear { .. }
             | Command::QueueChange { .. }

@@ -170,30 +170,6 @@ impl Device {
         link.send(outgoing)
     }
 
-    /// Submit a private Ralph toggle and let the daemon check its native goal conflict.
-    pub(super) fn goal_ralph(&mut self, link: Option<&mut Transport>) -> Result<()> {
-        if self.goals.ralph.is_some() {
-            bail!("Ralph toggle pending");
-        }
-        let link = link.ok_or_else(|| anyhow::anyhow!("Disconnected; F5 reconnects"))?;
-        let session = self.session.clone();
-        let on = !self
-            .client
-            .session(&session)
-            .is_some_and(|replica| replica.info().ralph);
-        let mut submitted = None;
-        let outgoing = self.client.submit(link.connection, |operation| {
-            submitted = Some(operation.clone());
-            Command::SetRalph {
-                session,
-                operation,
-                on,
-            }
-        })?;
-        self.goals.ralph = submitted;
-        link.send(outgoing)
-    }
-
     /// Settle only this terminal's goal or Ralph command without touching other drafts.
     pub(super) fn apply_goal_operation(&mut self, id: &ClientOperation) -> bool {
         let is_goal = self.goals.operation.as_ref() == Some(id);
@@ -215,10 +191,12 @@ impl Device {
                 }
             }
             OperationState::Rejected { message, .. } => {
-                self.view.codex_goals.error = Some(message.clone());
+                let message = message.clone();
+                self.goal_operation_failed(&message, is_ralph);
             }
             OperationState::Uncertain { message, .. } => {
-                self.view.codex_goals.error = Some(message.clone());
+                let message = message.clone();
+                self.goal_operation_failed(&message, is_ralph);
                 if is_goal {
                     self.goals.clear_editor = false;
                 }
@@ -237,6 +215,13 @@ impl Device {
         }
         self.client.forget_operation(id);
         true
+    }
+
+    fn goal_operation_failed(&mut self, message: &str, is_ralph: bool) {
+        self.view.codex_goals.error = Some(message.to_owned());
+        if is_ralph {
+            self.view.status_hint = Some(format!("ralph: {message}"));
+        }
     }
 }
 

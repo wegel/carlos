@@ -45,6 +45,7 @@ fn known_method(method: &str) -> bool {
             | "session/interrupt"
             | "session/approve"
             | "session/setRalph"
+            | "session/toggleRalph"
             | "goal/read"
             | "settings/context/read"
             | "settings/context/set"

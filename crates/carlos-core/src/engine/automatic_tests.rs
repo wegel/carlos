@@ -101,7 +101,8 @@ fn start_read(fixture: &Fixture) {
             &fixture.engine,
             EngineCommand::SetRalph {
                 operation,
-                on: true
+                on: true,
+                options: None,
             }
         ),
         EngineReply::Operation(_)

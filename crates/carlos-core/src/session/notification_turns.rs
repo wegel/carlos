@@ -84,7 +84,7 @@ pub(in crate::session) fn handle_turn_completed(
     if turn_status != TurnStatus::Failed {
         session.handle_ralph_turn_completed(interrupted);
     }
-    if let Err(e) = session.apply_pending_ralph_toggle() {
-        session.set_status(format!("ralph: {e}"));
+    if session.ralph_runtime().toggle_pending() {
+        update.action = Some(super::actions::ServerRequestAction::ApplyRalphToggle);
     }
 }

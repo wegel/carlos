@@ -146,6 +146,19 @@ impl RalphRuntimeState {
         self.waiting_marker_override = waiting_marker_override;
     }
 
+    /// Capture explicit prompt choices without changing the daemon session's accepted cwd.
+    pub(crate) fn configure_request_options(&mut self, options: carlos_proto::ralph::RalphOptions) {
+        self.prompt_path_override = options.prompt_path;
+        self.done_marker_override = options.done_marker;
+        self.blocked_marker_override = options.blocked_marker;
+        self.waiting_marker_override = options.waiting_marker;
+    }
+
+    /// Let an accepted absolute on/off command replace an earlier queued toggle.
+    pub(crate) fn reset_pending_toggle(&mut self) {
+        self.toggle_pending = false;
+    }
+
     /// Is enabled.
     pub(crate) fn is_enabled(&self) -> bool {
         self.current.is_some()

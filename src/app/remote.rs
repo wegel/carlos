@@ -23,6 +23,7 @@ mod queue_outcomes;
 mod queue_pages;
 mod queue_reads;
 mod queue_render;
+mod ralph_keys;
 mod reading;
 mod render;
 mod selection_copy;
@@ -83,6 +84,7 @@ struct Device {
     questions: questions::Questions,
     settings: settings::Settings,
     status: status::StatusClock,
+    ralph_options: carlos_proto::ralph::RalphOptions,
     waiting_ready: bool,
 }
 
@@ -105,6 +107,12 @@ pub(super) fn run(socket: &Path, options: &CliOptions) -> Result<()> {
         questions: questions::Questions::default(),
         settings: settings::Settings::default(),
         status: status::StatusClock::default(),
+        ralph_options: carlos_proto::ralph::RalphOptions {
+            prompt_path: options.ralph_prompt_path.clone(),
+            done_marker: options.ralph_done_marker.clone(),
+            blocked_marker: options.ralph_blocked_marker.clone(),
+            waiting_marker: options.ralph_waiting_marker.clone(),
+        },
         waiting_ready: false,
     };
     device.view.layout.themes = super::tool_output_preferences::load_themes();

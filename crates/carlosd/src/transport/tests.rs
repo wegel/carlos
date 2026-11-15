@@ -95,7 +95,8 @@ fn input_reserves_leave_control_capacity_without_reordering_counters() {
                 Command::SetRalph {
                     session: session(),
                     operation: operation.clone(),
-                    on: false
+                    on: false,
+                    options: None,
                 }
             ),
             100
@@ -108,7 +109,8 @@ fn input_reserves_leave_control_capacity_without_reordering_counters() {
             Command::SetRalph {
                 session: session(),
                 operation: operation.clone(),
-                on: false
+                on: false,
+                options: None,
             }
         ),
         100

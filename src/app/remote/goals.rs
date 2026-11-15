@@ -163,7 +163,7 @@ impl Device {
             self.close_goal_panel(link)?;
             self.next_question();
         } else if key.code == KeyCode::Char('r') && key.modifiers.contains(KeyModifiers::CONTROL) {
-            self.goal_ralph(link)?;
+            self.toggle_ralph(link)?;
         } else if key.code == KeyCode::Esc {
             self.goal_back(link)?;
         } else if self.view.codex_goals.confirm.is_some() {
@@ -295,7 +295,14 @@ impl Device {
             Some(GoalKnowledge::Unavailable) => "Unavailable/disabled",
             _ => "Unknown",
         };
-        let ralph = if self.goals.ralph.is_some() {
+        let ralph = if self.goals.ralph.is_some()
+            || self.client.session(&self.session).is_some_and(|session| {
+                session
+                    .info()
+                    .status
+                    .as_ref()
+                    .is_some_and(|status| status.ralph.toggle_pending)
+            }) {
             "toggle pending"
         } else if self
             .client
