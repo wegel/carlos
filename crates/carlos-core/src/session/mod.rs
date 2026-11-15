@@ -318,3 +318,6 @@ mod claude_metadata_contract_tests;
 
 #[cfg(test)]
 mod claude_browser_contract_tests;
+
+#[cfg(test)]
+mod claude_fence_contract_tests;

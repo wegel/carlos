@@ -240,10 +240,6 @@ mod claude_edit_parity_support;
 #[path = "../tests/claude_edit_parity_tests.rs"]
 mod claude_edit_parity_tests;
 
-#[cfg(test)]
-#[path = "../tests/claude_fence_parity_tests.rs"]
-mod claude_fence_parity_tests;
-
 mod codex_settings_view;
 
 mod claude_updates;
