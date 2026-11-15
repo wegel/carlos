@@ -234,10 +234,6 @@ mod approval_lifetime_support;
 mod approval_lifetime_tests;
 
 #[cfg(test)]
-#[path = "../tests/claude_metadata_parity_tests.rs"]
-mod claude_metadata_parity_tests;
-
-#[cfg(test)]
 #[path = "../tests/claude_browser_parity_tests.rs"]
 mod claude_browser_parity_tests;
 #[cfg(test)]

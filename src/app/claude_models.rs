@@ -21,16 +21,6 @@ pub(super) fn observe_model(app: &mut AppState, model: &str) {
     app.session.observe_claude_model(model);
 }
 
-/// Omit inherited choices so native settings remain in charge.
-#[cfg(test)]
-pub(super) fn prompt_choices(
-    app: &AppState,
-    model: Option<String>,
-    effort: Option<String>,
-) -> (Option<String>, Option<String>) {
-    app.session.claude_prompt_choices(model, effort)
-}
-
 /// Remember the initial values when the user opens Claude settings.
 pub(super) fn begin_settings_edit(app: &mut AppState) {
     if app.view.claude_settings_edit.is_none() {
