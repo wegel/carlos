@@ -13,6 +13,7 @@ pub mod session;
 pub mod settings;
 pub mod source;
 pub mod submissions;
+pub mod task_activity;
 pub mod task_facts;
 pub mod task_overview;
 pub mod task_windows;

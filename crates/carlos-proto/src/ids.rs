@@ -147,6 +147,16 @@ opaque_id!(
     64,
     "A captured native task-list window bound to its reader and native root."
 );
+opaque_id!(
+    TaskActivityId,
+    64,
+    "One reader's child activity and native paging lifetime."
+);
+opaque_id!(
+    TaskActivityItemId,
+    64,
+    "One native item within a captured child activity revision."
+);
 
 opaque_id!(
     TaskOverviewId,

@@ -31,6 +31,39 @@ pub enum Command {
         offset: u32,
         limit: Option<u16>,
     },
+    #[serde(rename = "task/activity/open")]
+    TaskActivityOpen {
+        session: SessionId,
+        task: crate::ids::TaskId,
+        expected: crate::ids::TaskRevision,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        window: Option<crate::ids::TaskWindowId>,
+    },
+    #[serde(rename = "task/activity/read")]
+    TaskActivityRead {
+        session: SessionId,
+        activity: crate::ids::TaskActivityId,
+        since: Option<Sequence>,
+    },
+    #[serde(rename = "task/activity/page")]
+    TaskActivityPage {
+        session: SessionId,
+        activity: crate::ids::TaskActivityId,
+        expected: crate::ids::TaskRevision,
+        after: Option<crate::ids::TaskActivityItemId>,
+        limit: Option<u16>,
+    },
+    #[serde(rename = "task/activity/advance")]
+    TaskActivityAdvance {
+        session: SessionId,
+        activity: crate::ids::TaskActivityId,
+        older: bool,
+    },
+    #[serde(rename = "task/activity/close")]
+    TaskActivityClose {
+        session: SessionId,
+        activity: Option<crate::ids::TaskActivityId>,
+    },
     #[serde(rename = "task/subscribe")]
     TaskSubscribe { session: SessionId },
     #[serde(rename = "task/unsubscribe")]

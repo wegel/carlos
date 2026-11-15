@@ -136,6 +136,7 @@ pub struct Snapshot {
 /// Keep only the selected child's recent read-only items and bounded live tail.
 #[derive(Debug)]
 pub struct Activity {
+    pub(in crate::session) owner: Option<crate::session::task_activity::ActivityOwner>,
     pub(in crate::session) thread: String,
     pub(in crate::session) request: Option<Request>,
     pub(in crate::session) started: Instant,
@@ -179,6 +180,18 @@ impl PanelState {
                 .as_ref()
                 .is_some_and(|pending| pending.token == token)
         })
+    }
+
+    pub(in crate::session) fn child_key(&self, token: u64) -> Option<String> {
+        self.activities
+            .iter()
+            .find(|(_, activity)| {
+                activity
+                    .request
+                    .as_ref()
+                    .is_some_and(|request| request.token == token)
+            })
+            .map(|(key, _)| key.clone())
     }
 
     /// List each native row once, with agents before their background terminals.

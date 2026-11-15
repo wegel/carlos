@@ -10,6 +10,7 @@ mod read_commands;
 mod reads;
 mod state;
 mod store;
+mod task_activity;
 mod task_windows;
 mod tasks;
 mod updates;
@@ -145,6 +146,7 @@ impl Manager {
                     goals: Default::default(),
                     tasks: Default::default(),
                     task_windows: Default::default(),
+                    activities: Default::default(),
                     outputs: HashMap::new(),
                     generation: 0,
                 },

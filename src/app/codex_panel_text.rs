@@ -106,47 +106,26 @@ fn activity(app: &AppState, id: &str, lines: &mut Vec<String>) {
     let Some(activity) = app.session.codex_panel().activity_for(id) else {
         return;
     };
-    if let Some(error) = activity.error() {
-        lines.push(error.to_string());
-    }
-    lines.push(format!(
-        "Read-only child activity: {} items retained (max128/8MiB)",
-        activity.items().len()
-    ));
-    if activity.reading() {
-        lines.push("Reading child items…".into());
-    }
-    if activity.items().is_empty() && !activity.reading() {
-        lines.push("No native item records returned. This does not mean no work ran; some native tools have no saved display record.".into());
-    }
-    if activity.more() {
-        lines.push("Older activity exists: l loads more, r reloads latest".into());
-    }
-    if activity.items().len() >= 128 {
-        lines.push("128-item view limit reached; r reloads latest".into());
-    }
-    let mut remaining = 128 * 1024;
-    for entry in activity.items().iter().rev() {
-        if remaining == 0 {
-            lines.push("Display limited to128KiB; native records remain retained".into());
-            break;
-        }
+    let view = super::child_activity_view::ActivityView {
+        error: activity.error(),
+        known: !activity.reading() && activity.error().is_none(),
+        reading: activity.reading(),
+        count: activity.items().len(),
+        older: activity.more(),
+        tail: activity.tail(),
+    };
+    let records = activity.items().iter().rev().map(|entry| {
         let item = &entry["item"];
-        lines.push(format!(
-            "{} · {} · {}",
-            text(&entry["turnId"]),
-            text(&item["id"]),
-            text(&item["type"])
-        ));
-        let content = content(item);
-        let content = bounded(&content, remaining.min(32 * 1024));
-        remaining = remaining.saturating_sub(content.len());
-        lines.extend(content.lines().map(str::to_string));
-    }
-    if !activity.tail().is_empty() {
-        lines.push("Live output since the last native item snapshot (last16KiB):".into());
-        lines.extend(activity.tail().lines().map(str::to_string));
-    }
+        let content = carlos_core::session::task_activity_text::display_item(item, 32 * 1024);
+        super::child_activity_view::ActivityRecord {
+            turn: entry["turnId"].as_str().unwrap_or("unavailable"),
+            item: item["id"].as_str().unwrap_or("unavailable"),
+            kind: item["type"].as_str().unwrap_or("unavailable"),
+            text: std::borrow::Cow::Owned(content.text),
+            complete: content.complete,
+        }
+    });
+    lines.extend(super::child_activity_view::lines(view, records));
 }
 
 fn process_row(
@@ -183,19 +162,6 @@ fn process_row(
     lines.push(
         "Present in the native background-process list; x terminates only this process.".into(),
     );
-}
-
-fn content(item: &Value) -> String {
-    match item["type"].as_str() {
-        Some("agentMessage" | "plan") => text(&item["text"]),
-        Some("commandExecution") => format!(
-            "{} [{}]\n{}",
-            text(&item["command"]),
-            text(&item["status"]),
-            text(&item["aggregatedOutput"])
-        ),
-        _ => serde_json::to_string_pretty(item).unwrap_or_default(),
-    }
 }
 
 fn text(value: &Value) -> String {

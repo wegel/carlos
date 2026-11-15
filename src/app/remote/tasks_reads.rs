@@ -127,14 +127,11 @@ impl Device {
     }
 
     fn drive_task_reads(&mut self, link: &mut Transport) -> Result<bool> {
-        if self.client.session_is_ready(link.connection, &self.session) {
-            self.drive_task_windows(link)?;
-        }
-        if let Err(error) = self.drive_task_stop(link) {
-            self.tasks.view.error = Some(error.to_string());
-            self.tasks.paint_dirty.set(true);
-        }
+        self.drive_task_children_and_stops(link)?;
         let changed = self.settle_task_page()?;
+        if self.tasks.activity.show && !self.tasks.activity.stale {
+            return Ok(changed);
+        }
         if !self.tasks.view.show || !self.client.session_is_ready(link.connection, &self.session) {
             return Ok(changed);
         }
@@ -184,6 +181,33 @@ impl Device {
         self.drive_task_details(link)?;
         self.drive_task_overview(link)?;
         Ok(changed)
+    }
+
+    fn drive_task_children_and_stops(&mut self, link: &mut Transport) -> Result<()> {
+        if self.client.session_is_ready(link.connection, &self.session) {
+            self.drive_task_windows(link)?;
+            self.drive_task_activity(link)?;
+            self.restore_stale_child_list(link)?;
+        }
+        if let Err(error) = self.drive_task_stop(link) {
+            self.tasks.view.error = Some(error.to_string());
+            self.tasks.paint_dirty.set(true);
+        }
+        Ok(())
+    }
+
+    fn restore_stale_child_list(&mut self, link: &mut Transport) -> Result<()> {
+        if self.tasks.activity.show
+            && self.tasks.activity.stale
+            && self.tasks.windows.current.is_none()
+        {
+            let effects = self.client.watch_tasks(&self.session)?;
+            self.tasks.reads.header = self.client.pending_task_read(&self.session);
+            for outgoing in effects.outgoing {
+                link.send(outgoing)?;
+            }
+        }
+        Ok(())
     }
 
     fn refresh_latest_tasks(&mut self, link: &mut Transport) -> Result<()> {

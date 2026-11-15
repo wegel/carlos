@@ -22,6 +22,8 @@ pub struct SessionChanges {
 
 /// Non-transcript panels consume typed one-shot reads and keep their own selection and drafts.
 pub enum ReadReply {
+    TaskActivity(carlos_proto::task_activity::TaskActivityHeader),
+    TaskActivityPage(carlos_proto::task_activity::TaskActivityPage),
     TaskWindow(carlos_proto::task_windows::TaskWindow),
     Settings(carlos_proto::settings::SettingsPage),
     Goal(carlos_proto::goals::GoalSnapshot),

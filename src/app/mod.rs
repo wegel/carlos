@@ -10,6 +10,7 @@ use self::view_models::{RenderedLine, TerminalSize};
 // --- Module Tree ---
 
 mod backend_setup;
+mod child_activity_view;
 mod claude_activity;
 #[cfg(test)]
 mod claude_browser;

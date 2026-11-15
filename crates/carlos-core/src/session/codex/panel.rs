@@ -33,6 +33,7 @@ pub fn tick(
         refresh(session, scope, false);
     }
     session.expire_task_windows();
+    session.expire_task_activities();
     let mut changed = expire(session);
     while let Some(request) = session.codex_panel.outgoing.pop_front() {
         let context = json!({"operation":"panel","epoch":scope.native.epoch,

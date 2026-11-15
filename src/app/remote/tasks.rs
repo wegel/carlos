@@ -30,6 +30,7 @@ pub(super) struct TaskView {
 /// A device retains only bounded display data and the private operations it initiated.
 #[derive(Default)]
 pub(super) struct Tasks {
+    pub(super) activity: super::tasks_activity::ChildActivity,
     pub(super) windows: super::tasks_windows::Windows,
     pub(super) view: TaskView,
     pub(super) pages: Pages,
@@ -89,6 +90,7 @@ impl Device {
     }
 
     fn close_tasks(&mut self, link: Option<&mut Transport>) -> Result<()> {
+        self.close_task_activity(false)?;
         self.tasks.view.show = false;
         self.retire_task_windows(false);
         self.tasks.reads.close();
@@ -103,6 +105,7 @@ impl Device {
 
     /// Retire only unfinished read rights; selected rows and private stop results survive EOF.
     pub(super) fn tasks_disconnected(&mut self) {
+        self.task_activity_disconnected();
         self.tasks.paint_dirty.set(true);
         self.retire_task_windows(false);
         self.tasks.windows.disconnected();
@@ -138,14 +141,32 @@ impl Device {
             return Ok(false);
         }
         match (key.code, key.modifiers) {
+            (KeyCode::Enter, _) => self.open_task_activity(link)?,
+            (KeyCode::Esc, _) if self.tasks.activity.show => self.close_task_activity(true)?,
             (KeyCode::Esc, _) => self.close_tasks(link)?,
-            (KeyCode::Up, _) => self.select_task(-1),
-            (KeyCode::Down, _) => self.select_task(1),
+            (KeyCode::Up, _) => {
+                if self.tasks.activity.show {
+                    self.close_task_activity(true)?;
+                }
+                self.select_task(-1)
+            }
+            (KeyCode::Down, _) => {
+                if self.tasks.activity.show {
+                    self.close_task_activity(true)?;
+                }
+                self.select_task(1)
+            }
             (KeyCode::PageUp, _) => {
                 self.tasks.view.scroll = self.tasks.view.scroll.saturating_sub(5)
             }
             (KeyCode::PageDown, _) => {
                 self.tasks.view.scroll = self.tasks.view.scroll.saturating_add(5)
+            }
+            (KeyCode::Char('r' | 'l'), KeyModifiers::NONE) if self.tasks.activity.show => {
+                let link = link.ok_or_else(|| {
+                    anyhow::anyhow!("Reconnect before reading native child history")
+                })?;
+                self.advance_task_activity(link, key.code == KeyCode::Char('l'))?;
             }
             (KeyCode::Char('r'), KeyModifiers::NONE) => self.refresh_tasks(),
             (KeyCode::Char('l'), KeyModifiers::NONE) => self.open_older_tasks(link)?,

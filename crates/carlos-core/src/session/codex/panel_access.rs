@@ -39,7 +39,9 @@ impl SessionState {
     }
     /// Drop the previous selected-child read after explicit client navigation.
     pub fn clear_codex_panel_activity(&mut self) {
-        self.codex_panel.activities.clear();
+        self.codex_panel
+            .activities
+            .retain(|_, activity| activity.owner.is_some());
     }
     /// Release only one child's read after its last explicit client interest ends.
     pub fn forget_codex_child(&mut self, thread: &str) {

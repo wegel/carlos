@@ -117,6 +117,7 @@ impl Device {
             lines.push("Reading agents and background processes…".into());
         }
         lines.extend(super::tasks_text::overview(&self.tasks.overview.entries));
+        lines.extend(self.task_activity_lines());
         lines
     }
 
@@ -207,6 +208,15 @@ impl Device {
     }
 
     fn task_footer(&self, size: TerminalSize, selected: Option<&Task>) -> &'static str {
+        if self.tasks.activity.show {
+            return if size.width < 24 {
+                "Esc list F2 back"
+            } else if size.width < 40 {
+                "l older r new F2 back"
+            } else {
+                "↑↓ select · l older activity · r reload activity · x stop · PgDn · Esc list · F2 close"
+            };
+        }
         if self.task_backend() == Some(Backend::Claude) {
             let can_stop =
                 selected.is_some() && self.tasks.details.field(TaskField::CanStop) == Some("true");
@@ -222,7 +232,7 @@ impl Device {
         } else if size.width < 40 {
             "l older x F2 back"
         } else {
-            "↑↓ select · x stop · l older · r latest · PgDn · F2/Esc close"
+            "↑↓ select · Enter activity · x stop · l older · r latest · PgDn · F2/Esc close"
         }
     }
 }

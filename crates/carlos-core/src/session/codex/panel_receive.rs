@@ -100,11 +100,13 @@ fn apply_page(
                 .expect("native run target"),
             result,
         ),
-        "thread/items/list" => super::panel_activity::page(
-            session,
-            request.params["threadId"].as_str().expect("child target"),
-            result,
-        ),
+        "thread/items/list" => {
+            let key = session
+                .codex_panel
+                .child_key(request.token)
+                .ok_or("Original child read retired")?;
+            super::panel_activity::page(session, &key, result)
+        }
         _ => super::panel_pages::page(session, scope, update, result),
     }
 }
@@ -148,7 +150,8 @@ pub fn failed(
         super::panel_runs::failed(session, &key, &message);
     } else if let Some(activity) = session.codex_panel.child_read_mut(request.token) {
         activity.request = None;
-        activity.error = Some(message);
+        activity.error = Some(crate::session::task_rows::clipped(&message, 4096).into());
+        activity.changed(true);
     } else if session
         .codex_panel
         .snapshot

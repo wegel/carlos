@@ -11,6 +11,8 @@ use crate::{BodyToken, ClientError, ConnectionId};
 
 #[derive(Clone)]
 pub(crate) enum Kind {
+    TaskActivity(crate::task_activity::ActivityTarget),
+    TaskActivityPage(crate::task_activity::PageTarget),
     Hello,
     Watch,
     Subscribe(SessionId),
@@ -173,6 +175,11 @@ impl Requests {
 
 pub(crate) fn read_kind(command: &Command) -> Result<Kind, ClientError> {
     Ok(match command {
+        activity @ (Command::TaskActivityOpen { .. }
+        | Command::TaskActivityRead { .. }
+        | Command::TaskActivityPage { .. }
+        | Command::TaskActivityAdvance { .. }
+        | Command::TaskActivityClose { .. }) => crate::task_activity::read_kind(activity),
         Command::Watch {} => Kind::Watch,
         Command::Subscribe { session, .. } => Kind::Subscribe(session.clone()),
         Command::Unsubscribe { session } => Kind::Unsubscribe(session.clone()),

@@ -15,6 +15,7 @@ use crate::session::codex::panel_scope::PanelScope;
 impl Owner {
     pub(super) fn read_native(&mut self, command: EngineCommand) -> Result<EngineReply, RpcError> {
         match command {
+            EngineCommand::TaskActivity(command) => self.read_task_activity(command),
             EngineCommand::TaskWindow(command) => self.read_task_window(command),
             EngineCommand::SettingsRead {
                 expected,

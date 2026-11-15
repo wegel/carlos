@@ -162,6 +162,14 @@ mod event_reads;
 mod event_rows;
 pub mod events;
 mod queue_preview;
+pub mod task_activity;
+mod task_activity_reads;
+#[cfg(test)]
+mod task_activity_tests;
+pub mod task_activity_text;
+#[cfg(test)]
+mod task_activity_text_tests;
+mod task_activity_views;
 mod task_digest;
 mod task_fields;
 mod task_overview;

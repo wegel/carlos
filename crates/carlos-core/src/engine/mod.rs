@@ -18,6 +18,7 @@ mod ring;
 mod settings;
 mod settle;
 mod target;
+mod task_activity;
 mod task_stops;
 mod task_windows;
 mod timers;
@@ -41,6 +42,7 @@ pub use self::ring::EngineFrame;
 
 /// Only explicit session reads and commands enter the owner, never native method strings.
 pub enum EngineCommand {
+    TaskActivity(crate::session::task_activity::ActivityCommand),
     SettingsSet {
         operation: ClientOperation,
         expected: carlos_proto::ids::SettingsRevision,
@@ -189,6 +191,9 @@ pub enum EngineCommand {
 
 /// Replies carry facts or typed failures without retaining any client's editor.
 pub enum EngineReply {
+    TaskActivity(carlos_proto::task_activity::TaskActivityHeader),
+    TaskActivityPage(carlos_proto::task_activity::TaskActivityPage),
+    TaskActivityClosed,
     TaskWindow(carlos_proto::task_windows::TaskWindow),
     TaskWindowClosed,
     TaskSnapshot(carlos_proto::task_facts::TaskSnapshot),

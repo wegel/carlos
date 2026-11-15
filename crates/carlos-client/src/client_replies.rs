@@ -66,6 +66,9 @@ impl Client {
         effects: &mut Effects,
     ) -> Result<(), ClientError> {
         let reply = match kind {
+            kind @ (Kind::TaskActivity(_) | Kind::TaskActivityPage(_)) => {
+                crate::task_activity::reply(kind, value)?
+            }
             Kind::Settings(target) => {
                 ReadReply::Settings(crate::settings_reads::page(target, value)?)
             }

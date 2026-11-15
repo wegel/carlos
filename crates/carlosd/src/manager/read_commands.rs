@@ -12,7 +12,16 @@ use crate::transport::wire::error;
 
 impl Manager {
     pub(super) fn read_command(&mut self, peer: u64, id: RequestId, command: Command) {
+        if is_native_panel_read(&command) {
+            self.native_read_command(peer, id, command);
+            return;
+        }
         match command {
+            command @ (Command::TaskActivityOpen { .. }
+            | Command::TaskActivityRead { .. }
+            | Command::TaskActivityPage { .. }
+            | Command::TaskActivityAdvance { .. }
+            | Command::TaskActivityClose { .. }) => self.task_activity_command(peer, id, command),
             command @ (Command::TaskWindowOpen { .. }
             | Command::TaskWindowRead { .. }
             | Command::TaskWindowClose { .. }) => self.task_window_command(peer, id, command),
@@ -20,16 +29,6 @@ impl Manager {
             Command::GoalUnsubscribe { session } => self.unsubscribe_goal(peer, id, session),
             Command::TaskSubscribe { session } => self.subscribe_tasks(peer, id, session),
             Command::TaskUnsubscribe { session } => self.unsubscribe_tasks(peer, id, session),
-            command @ (Command::SettingsRead { .. }
-            | Command::TaskRun { .. }
-            | Command::TaskList { .. }
-            | Command::TaskDetail { .. }
-            | Command::TaskOverview { .. }
-            | Command::TaskOverviewText { .. }
-            | Command::TaskText { .. }
-            | Command::QueueRead { .. }
-            | Command::QueueText { .. }
-            | Command::GoalRead { .. }) => self.native_read_command(peer, id, command),
             Command::Subscribe { session, since } => self.subscribe(peer, id, session, since),
             Command::Unsubscribe { session } => self.unsubscribe(peer, id, session),
             Command::History {
@@ -78,6 +77,7 @@ impl Manager {
         connection.goals.remove(&session);
         connection.tasks.remove(&session);
         connection.task_windows.remove(&session);
+        connection.activities.remove(&session);
         connection
             .outputs
             .retain(|(target, _, _), _| target != &session);
@@ -296,6 +296,7 @@ impl Manager {
             return Err(error(-32010, "pending reads are full"));
         }
         let reserved = match command {
+            EngineCommand::TaskActivity(_) => 512 * 1024,
             EngineCommand::TaskWindow(_) => 512 * 1024,
             EngineCommand::TaskSnapshot
             | EngineCommand::TaskOverview { .. }
@@ -342,4 +343,20 @@ impl Manager {
             .and_then(|connection| connection.sessions.get(session))
             .is_some_and(|interest| interest.generation == generation)
     }
+}
+
+fn is_native_panel_read(command: &Command) -> bool {
+    matches!(
+        command,
+        Command::SettingsRead { .. }
+            | Command::TaskRun { .. }
+            | Command::TaskList { .. }
+            | Command::TaskDetail { .. }
+            | Command::TaskOverview { .. }
+            | Command::TaskOverviewText { .. }
+            | Command::TaskText { .. }
+            | Command::QueueRead { .. }
+            | Command::QueueText { .. }
+            | Command::GoalRead { .. }
+    )
 }

@@ -1,10 +1,12 @@
 """Opt-in native task pages for actual daemon tests; ordinary peers keep their empty lists."""
 
 import asyncio
+from native_task_activity import NativeTaskActivity
 
 
-class NativeTasks:
+class NativeTasks(NativeTaskActivity):
     def init_tasks(self):
+        self.init_task_activity()
         self.task_agents = None
         self.task_processes = {}
         self.task_errors = set()
@@ -26,6 +28,8 @@ class NativeTasks:
         if self.task_agents is None:
             return False
         method, params = request["method"], request["params"]
+        if await self.task_activity_request(link, request):
+            return True
         if method in ("turn/interrupt", "thread/backgroundTerminals/terminate"):
             owner = params["threadId"]
             identity = params.get("processId", owner)

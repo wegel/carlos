@@ -23,6 +23,7 @@ pub(super) struct Peer {
     pub goals: HashSet<SessionId>,
     pub tasks: HashMap<SessionId, u64>,
     pub task_windows: HashMap<SessionId, super::task_windows::Reader>,
+    pub activities: HashMap<SessionId, super::task_windows::Reader>,
     pub outputs: HashMap<(SessionId, EntryId, super::body::Format), OutputWatch>,
     pub generation: u64,
 }

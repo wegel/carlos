@@ -32,6 +32,7 @@ pub fn event(
         }
         return false;
     }
+    super::panel_activity::event(session, method, params);
     if !known(session, id) {
         return true;
     }
@@ -44,7 +45,6 @@ pub fn event(
     if !apply_child(session, index, method, params) {
         return true;
     }
-    super::panel_activity::event(session, method, params);
     true
 }
 
