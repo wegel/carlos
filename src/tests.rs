@@ -58,10 +58,6 @@ mod codex_question_support;
 mod codex_question_tests;
 #[path = "tests/codex_queue_tests.rs"]
 mod codex_queue_tests;
-#[path = "tests/codex_settings_tests.rs"]
-mod codex_settings_tests;
-#[path = "tests/codex_startup_settings_tests.rs"]
-mod codex_startup_settings_tests;
 #[path = "tests/grouped_render_tests.rs"]
 mod grouped_render_tests;
 #[path = "tests/late_summary_render_tests.rs"]

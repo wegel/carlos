@@ -335,3 +335,7 @@ fn model_bytes(models: &[ModelInfo]) -> usize {
         })
         .sum()
 }
+
+#[cfg(test)]
+#[path = "settings_editor_contract_tests.rs"]
+mod settings_editor_contract_tests;

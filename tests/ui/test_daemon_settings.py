@@ -87,9 +87,10 @@ class DaemonSettings:
         fixture, client, session, terminal = self.settings_terminal("settings-rejected-ui")
         fixture.native.settings_errors["thread/settings/update"] = {"code":-32602, "message":"MODEL_CHOICE_REFUSED"}
         self.open_daemon_settings(terminal)
-        terminal.send(b"\x1b[C\r")
+        terminal.send(b"\x1b[C\t\x1b[C\r")
         terminal.contains("MODEL_CHOICE_REFUSED")
         self.assertIn("chosen", terminal.text)
+        self.assertIn("high", terminal.text)
         self.assertFalse(self.settings_defaults(fixture).exists())
         reads = len(terminal.requests("settings/read"))
         terminal.send(b"\x1b")
@@ -98,6 +99,7 @@ class DaemonSettings:
         terminal.contains("Thinking")
         terminal.contains("MODEL_CHOICE_REFUSED")
         self.assertIn("chosen", terminal.text)
+        self.assertIn("high", terminal.text)
         self.assertEqual(len(terminal.requests("settings/read")), reads)
         self.assertEqual(len(self.settings_native_writes(fixture)), 1)
         fixture.native.settings_errors.clear()
@@ -105,9 +107,11 @@ class DaemonSettings:
         terminal.wait(lambda:len(terminal.requests("settings/read")) > reads, "F6 starts only a fresh read")
         terminal.contains("Tab field, arrows, Enter save")
         self.assertIn("chosen", terminal.text)
+        self.assertIn("high", terminal.text)
         terminal.send(b"\r")
         terminal.wait(lambda:self.settings_defaults(fixture).exists(), "explicit save accepts retained choices")
-        self.assertEqual(len(self.settings_native_writes(fixture)), 2)
+        self.assertEqual([request["params"] for request in self.settings_native_writes(fixture)],
+                         [{"threadId":"native-root", "model":"chosen", "effort":"high"}] * 2)
         self.assertEqual(terminal.requests("session/send"), [])
 
     def test_daemon_settings_held_save_keeps_input_and_native_controls_responsive(self):

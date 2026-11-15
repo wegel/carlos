@@ -6,13 +6,6 @@ use serde_json::Value;
 
 use super::state::AppState;
 
-/// Submit the explicit runtime choices used by the settings fixtures.
-#[cfg(test)]
-pub(super) fn save(client: &dyn BackendClient, app: &mut AppState) {
-    let desired = super::codex_settings_draft::choices(app);
-    save_values(client, app, desired);
-}
-
 /// Pass chosen values and the unsent save preference to the session exactly once.
 pub(super) fn save_values(client: &dyn BackendClient, app: &mut AppState, desired: Value) {
     let scope = super::codex_queue::scope(app);
@@ -38,12 +31,6 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
     let changed = settings::tick(client, &mut app.session, scope, &mut update);
     apply(app, update);
     changed
-}
-
-/// Capture settings when the native turn starts, without relabeling in-flight work.
-#[cfg(test)]
-pub(super) fn started(app: &mut AppState, turn: &str) {
-    settings::started(&mut app.session, turn);
 }
 
 /// Read the existing current-turn/future settings label.
