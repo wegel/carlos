@@ -1,6 +1,7 @@
 //! Keep native parser and transcript lifetime checks inside the session owner.
 
 mod activity;
+mod callback_notifications;
 mod codex_history;
 mod codex_steer;
 mod context_notifications;

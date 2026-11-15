@@ -89,11 +89,6 @@ pub(crate) fn handle_server_message_line(
     app.apply_backend_update(update)
 }
 
-#[cfg(test)]
-pub(super) fn handle_notification_line(app: &mut AppState, line: &str) {
-    let _ = handle_server_message_line(app, line);
-}
-
 impl AppState {
     /// Consume one common-message report before handling another terminal event.
     pub(super) fn apply_common_update(

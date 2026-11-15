@@ -319,3 +319,10 @@ mod editor_tests;
 #[cfg(test)]
 #[path = "questions_ownership_tests.rs"]
 mod ownership_tests;
+
+#[cfg(test)]
+#[path = "questions_answer_tests.rs"]
+mod answer_tests;
+#[cfg(test)]
+#[path = "questions_lifetime_tests.rs"]
+mod lifetime_tests;

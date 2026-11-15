@@ -4,14 +4,12 @@
 mod markdown_table_tests;
 
 pub(super) use super::cli::{parse_cli_args, Backend};
-pub(super) use super::notifications::{handle_notification_line, handle_server_message_line};
 pub(super) use super::picker_delete_dialog::draw_picker_delete_row;
 pub(super) use super::render::draw_rendered_line;
 pub(super) use super::render_input::input_cursor_visual_position;
 pub(super) use super::selection::{
     compute_selection_range, selected_text, shift_selection_focus, Selection,
 };
-pub(super) use super::state::AppState;
 pub(super) use super::text::{
     slice_by_cells, visual_width, wrap_input_line, wrap_input_line_count, wrap_natural_by_cells,
     wrap_natural_count_by_cells,
@@ -28,7 +26,6 @@ pub(super) use crate::theme::{COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_PRIMARY, 
 pub(super) use carlos_core::protocol_params::{
     params_thread_archive, params_turn_interrupt, params_turn_start, parse_thread_runtime_settings,
 };
-pub(super) use carlos_core::session::actions::ServerRequestAction;
 pub(super) use carlos_core::session::models::Message;
 pub(super) use carlos_core::session::tools::{command_execution_diff_output, extract_diff_blocks};
 pub(super) use ratatui::buffer::Buffer;
@@ -55,8 +52,6 @@ mod grouped_render_tests;
 mod late_summary_render_tests;
 #[path = "tests/notification_render_tests.rs"]
 mod notification_render_tests;
-#[path = "tests/notification_tests.rs"]
-mod notification_tests;
 #[path = "tests/phone_layout_tests.rs"]
 mod phone_layout_tests;
 #[path = "tests/render_fixture.rs"]

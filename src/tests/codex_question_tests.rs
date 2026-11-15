@@ -379,17 +379,5 @@ fn secret_review_is_redacted_while_the_hidden_main_composer_remains_ordinary() {
     assert!(!crate::app::native_questions::secret_active(&app));
 }
 
-#[path = "question_split_answers.rs"]
-mod split_answers;
-
-#[path = "question_split_lifetimes.rs"]
-mod split_lifetimes;
-
 #[path = "question_split_parser_tests.rs"]
 mod split_parser_tests;
-
-#[path = "question_split_peer.rs"]
-mod split_peer;
-
-#[path = "codex_callback_split_tests.rs"]
-mod callback_split_tests;

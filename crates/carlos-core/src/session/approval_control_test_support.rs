@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::{bail, Result};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use crate::backend::{BackendClient, BackendKind, EventReceiver};
 use crate::backend_commands::{BackendCommands, CommandHandle};
@@ -17,6 +17,7 @@ pub(super) struct Peer {
     pub(super) commands: CommandHandle,
     pub(super) calls: Calls,
     pub(super) fail: Arc<AtomicBool>,
+    pub(super) checks: Arc<Mutex<Vec<Value>>>,
 }
 
 #[derive(Clone)]
@@ -41,6 +42,7 @@ impl Peer {
             commands,
             calls,
             fail,
+            checks: Default::default(),
         }
     }
 }
@@ -87,7 +89,17 @@ impl BackendClient for Peer {
     fn respond_error(&self, id: &Value, code: i64, message: &str) -> Result<()> {
         self.commands.respond_error(id, code, message)
     }
-    fn validate_form(&self, _: Value, _: Value, _: Option<Value>, _: u64) -> Result<()> {
+    fn validate_form(
+        &self,
+        id: Value,
+        schema: Value,
+        answer: Option<Value>,
+        revision: u64,
+    ) -> Result<()> {
+        self.checks
+            .lock()
+            .expect("form worker jobs")
+            .push(json!([id, schema, answer, revision]));
         Ok(())
     }
     fn capture_commands(&self) -> Result<CommandHandle> {

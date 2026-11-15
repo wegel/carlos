@@ -76,25 +76,6 @@ fn submit_answer(
     }
 }
 
-/// Send a worker reply only through its original submitted card token.
-#[cfg(test)]
-pub(super) fn send(
-    client: &dyn BackendClient,
-    app: &mut AppState,
-    card_id: EntryId,
-    answer: Value,
-) {
-    let Some(pending) = app.session.submitted_approval_answer(card_id) else {
-        return;
-    };
-    let id = pending.request_id.clone();
-    match app.session.send_codex_callback(client, card_id, answer) {
-        Ok(Some(retired)) => apply_retired(app, retired),
-        Ok(None) => {}
-        Err(error) => reply_error(app, &id, &error),
-    }
-}
-
 /// Show local progress after the session interrupts the request's own turn.
 pub(super) fn interrupt(client: &dyn BackendClient, app: &mut AppState) {
     let Some(id) = app

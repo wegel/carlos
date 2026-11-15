@@ -288,6 +288,11 @@ mod claude_reducer_tests;
 mod claude_receiver_tests;
 
 #[cfg(test)]
+mod approval_answer_contract_tests;
+#[cfg(test)]
+mod callback_boundary_tests;
+
+#[cfg(test)]
 mod claude_prompt_tests;
 
 #[cfg(test)]

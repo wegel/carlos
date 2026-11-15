@@ -1,7 +1,5 @@
 //! Apply local editor and focus changes reported by the Codex callback owner.
 
-#[cfg(test)]
-use carlos_core::session::actions::ServerRequestAction;
 use carlos_core::session::approval_state::ApprovalQueue;
 use carlos_core::session::codex::callback_commands::CallbackRetired;
 use carlos_core::session::codex::callbacks::CallbackKey;
@@ -117,13 +115,6 @@ pub(super) fn edited(app: &mut AppState) {
     {
         app.session.edit_codex_callback(&id);
     }
-}
-
-/// Apply the matching worker's editor changes and return its guarded native reply.
-#[cfg(test)]
-pub(super) fn checked(app: &mut AppState, params: &Value) -> Option<ServerRequestAction> {
-    let update = app.session.checked_codex_callback(params);
-    updates::apply(app, update)
 }
 
 /// Keep reply and worker failures beside their own answer field.
