@@ -141,6 +141,14 @@ impl Owner {
         self.native.stop();
         self.workers.stop();
         self.drain_completions();
+        self.session.clear_codex_callbacks();
+        for queue in [
+            crate::session::approval_state::ApprovalQueue::Claude,
+            crate::session::approval_state::ApprovalQueue::Codex,
+        ] {
+            let _ = self.session.clear_approval_queue(queue);
+        }
+        let _ = self.session.retire_active_approval();
         self.session.events.backend_closed = true;
         self.session.set_active_turn_id(None);
         self.publish();

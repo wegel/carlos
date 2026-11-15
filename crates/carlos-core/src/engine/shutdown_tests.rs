@@ -8,12 +8,43 @@ use carlos_proto::ids::Sequence;
 use carlos_proto::session::Availability;
 use carlos_proto::submissions::{ClientOperation, OperationState};
 
-use super::{EngineCommand, EngineHandle, EngineReply};
+use super::{EngineChanges, EngineCommand, EngineHandle, EngineReply};
+use crate::session::approval_state::{ApprovalQueue, ApprovalRequestDraft, ApprovalRequestKind};
 use crate::session::models::Role;
 use crate::session::state::SessionState;
 use crate::session::test_backend::TestBackend;
 
 const TIMEOUT: Duration = Duration::from_secs(5);
+
+#[test]
+fn stop_retires_active_and_queued_cards_without_promoting_another_question() {
+    let mut session = SessionState::new("root".into(), Default::default(), false);
+    let draft = ApprovalRequestDraft {
+        request_id: serde_json::json!("question"),
+        method: "claude/native".into(),
+        kind: ApprovalRequestKind::ClaudeNative,
+        title: "Allow tool?".into(),
+        detail_lines: vec!["echo original".into()],
+        requested_permissions: None,
+        can_accept_for_session: false,
+        can_decline: true,
+        can_cancel: true,
+    };
+    let _ = session.set_pending_approval(draft.clone());
+    session.enqueue_approval(draft.clone(), ApprovalQueue::Claude);
+    session.enqueue_approval(draft, ApprovalQueue::Codex);
+    let owner = owner(session);
+    let reply = owner.stop_session(Sequence::new(u64::MAX)).expect("stop");
+    let EngineReply::Stopped { update, .. } = reply.recv_timeout(TIMEOUT).expect("closed") else {
+        panic!("final update");
+    };
+    let EngineChanges::Snapshot(snapshot) = update.changes.expect("snapshot") else {
+        panic!("fresh consumer needs a snapshot");
+    };
+    assert!(snapshot.approvals.is_empty());
+    assert_eq!(snapshot.info.availability, Availability::Closed);
+    owner.join().expect("owner cleanup");
+}
 
 #[test]
 fn explicit_shutdown_returns_closed_facts_after_deferred_native_cleanup() {

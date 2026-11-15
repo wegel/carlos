@@ -13,6 +13,8 @@ The daemon can run shell commands as its user. Network access stays off unless t
 
 ## Progress
 
+- [x] (2026-11-15) Retire active and queued approval cards after final worker cleanup, even if the owner stops before reducing the native close message. The focused Core shutdown cases pass. One initial test incorrectly assumed cursor zero forced a snapshot; request a deliberately unmatched cursor to verify the final full snapshot instead. Public lifecycle routes remain incomplete.
+
 - [x] (2026-11-15) Add explicit Core stop_session with EngineReply::Stopped carrying final updates and a separate native interrupt result. Preserve ordinary shutdown behavior. Five captured-writer cases pass for exact attached turn/bystander, lost acknowledgement, normal shutdown, confirmed idle read, and native activity without a safe turn ID. A deterministic held-ACK case then exposes a second request accepted after the reply slot was consumed; its before-failure is /tmp/carlos-ep020/attached-stop/duplicate-before.log. The stopping guard now passes all six cases and both full workspace feature/lint matrices; logs are /tmp/carlos-ep020/attached-stop/. The public manager/CLI path is still incomplete.
 
 - [x] (2026-11-15) Add the pre-publication event-stream continuation and Launched.spawn_after API. Three Core cases pass: reset an existing client at exactly the old cursor plus one, reject a live owner rebase, and reject exhaustion without mutation. Expose EngineUpdate.seq independently of page encoding so a failed shared page cannot hide the final cursor. Both full workspace feature/lint matrices pass; logs are /tmp/carlos-ep020/owner-stream/. Manager replacement remains incomplete.
@@ -33,6 +35,8 @@ The daemon can run shell commands as its user. Network access stays off unless t
 - [ ] Finish the direct engineering and Fable whole-roadmap reviews, record every disposition and delegated approval, archive this completed plan unchanged and continue to EP021.
 
 ## Surprises & Discoveries
+
+Explicit owner stop can skip the final normalized native-close message. Retire both approval queues and the active card after worker completions, before publishing the final Closed state, so a closed session cannot keep a live question.
 
 Explicit stop needs its own stopping flag: setting the normal shutdown flag first would stop the native event forwarder before an attached-turn interrupt could be acknowledged. Freeze the owner loop with stopping, retain the native reader until interruption/idle verification finishes, then run the existing shutdown. Once the owner consumes its stop reply slot, the stopping flag must also reject a second request; otherwise that request can remain pending forever. A held native acknowledgement reproduces this race without sleeps.
 
@@ -58,6 +62,8 @@ The Unix transport uses independent bounded reader/writer threads. A network Web
 The locked tungstenite version is 0.30.0. Its config allocates a read buffer eagerly and leaves the write-buffer maximum unlimited by default. Set every buffer/message bound explicitly. The existing BLAKE3 Hash type compares digests in constant time; keep the Hash type when checking token verifiers rather than converting it to byte slices for equality.
 
 ## Decision Log
+
+- 2026-11-15, root: Reuse existing card retirement methods after workers join. Do not synthesize native answers or promote a queued question during stop.
 
 - 2026-11-15, root: Rename the new Core API to stop_session and return a typed Stopped reply with independent native confirmation. Interrupt only the captured attached Codex turn through existing guarded ControlWork with a two-second stop deadline; ordinary controls retain ten seconds. If no safe local turn is known and no send is in flight, read native thread status without materializing history and confirm idle; an active/unknown result remains uncertain. Keep ordinary daemon teardown unchanged and never kill the unowned app-server.
 
