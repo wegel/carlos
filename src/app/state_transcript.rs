@@ -20,10 +20,12 @@ impl AppState {
 
     // --- Transcript mutation ---
 
+    #[cfg(test)]
     pub(super) fn mark_transcript_dirty(&mut self) {
         self.mark_transcript_dirty_from(0);
     }
 
+    #[cfg(test)]
     pub(super) fn mark_transcript_dirty_from(&mut self, idx: usize) {
         self.view
             .render_cache
@@ -80,6 +82,7 @@ impl AppState {
         index
     }
 
+    #[cfg(test)]
     pub(super) fn append_diff_message(
         &mut self,
         role: Role,

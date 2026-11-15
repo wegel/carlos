@@ -3,17 +3,19 @@
 use std::time::Instant;
 
 use anyhow::Result;
-use carlos_core::session::models::Message;
 use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
 
 use super::perf::DurationSamples;
-use super::render::{compute_input_layout, render_main_view};
-use super::render_cache_state::count_display_block;
+use super::perf_view::PerfView;
+use super::render_cache_state::TranscriptSource;
+use super::render_input::compute_composer_layout;
+use super::transcript_block::plan_input_block;
+use super::transcript_input::RenderInput;
 use super::transcript_render::RenderCountCache;
-use super::{AppState, TerminalSize, MSG_TOP};
+use super::{TerminalSize, MSG_TOP};
 
 const PERF_SAMPLE_WINDOW: usize = 4096;
 const APPEND_BENCH_STEPS: usize = 16;
@@ -61,13 +63,13 @@ pub(super) struct LayoutBreakdownRow {
 // --- Draw Benchmarks ---
 
 pub(super) fn benchmark_scroll_draws(
-    app: &mut AppState,
+    app: &mut PerfView,
     size: TerminalSize,
     stats: &mut PerfReplayStats,
 ) -> Result<()> {
     let mut terminal = Terminal::new(TestBackend::new(size.width as u16, size.height as u16))?;
-    app.ensure_rendered_lines(app.transcript_width(size), None);
-    let input_layout = compute_input_layout(app, size);
+    app.ensure_rendered_lines(app.transcript_width(size));
+    let input_layout = compute_composer_layout(&app.view.input, size, app.content_x(size));
     let msg_height = if input_layout.msg_bottom >= MSG_TOP {
         input_layout.msg_bottom - MSG_TOP + 1
     } else {
@@ -83,7 +85,7 @@ pub(super) fn benchmark_scroll_draws(
         app.view.viewport.scroll_top = pos;
         app.view.viewport.auto_follow_bottom = pos >= max_scroll;
         let draw_started = Instant::now();
-        terminal.draw(|frame| render_main_view(frame, app))?;
+        terminal.draw(|frame| app.draw(frame))?;
         stats.scroll_draw.push(draw_started.elapsed());
         if pos == max_scroll {
             break;
@@ -97,61 +99,59 @@ pub(super) fn benchmark_scroll_draws(
 }
 
 pub(super) fn benchmark_typing_draws(
-    app: &mut AppState,
+    app: &mut PerfView,
     size: TerminalSize,
     stats: &mut PerfReplayStats,
 ) -> Result<()> {
     let mut terminal = Terminal::new(TestBackend::new(size.width as u16, size.height as u16))?;
-    let original = app.input_text();
+    let original = app.view.input.lines().join("\n");
 
     for ch in TYPING_BENCH_TEXT.chars() {
-        app.input_insert_text(ch.to_string());
+        app.view.input.insert_str(ch.to_string());
         let draw_started = Instant::now();
-        terminal.draw(|frame| render_main_view(frame, app))?;
+        terminal.draw(|frame| app.draw(frame))?;
         stats.typing_draw.push(draw_started.elapsed());
     }
 
-    app.set_input_text(&original);
+    app.view.input = super::input::make_input_area();
+    app.view.input.insert_str(original);
     Ok(())
 }
 
 pub(super) fn benchmark_working_draws(
-    app: &mut AppState,
+    app: &mut PerfView,
     size: TerminalSize,
     stats: &mut PerfReplayStats,
 ) -> Result<()> {
     const WORKING_DRAW_SAMPLES: usize = 64;
 
     let mut terminal = Terminal::new(TestBackend::new(size.width as u16, size.height as u16))?;
-    let original_turn_id = app.session.active_turn_id().clone();
-    app.session
-        .set_active_turn_id(Some("perf-turn".to_string()));
+    let original = app.working;
+    app.working = true;
 
     for _ in 0..WORKING_DRAW_SAMPLES {
         let draw_started = Instant::now();
-        terminal.draw(|frame| render_main_view(frame, app))?;
+        terminal.draw(|frame| app.draw(frame))?;
         stats.working_draw.push(draw_started.elapsed());
     }
 
-    app.session.set_active_turn_id(original_turn_id);
+    app.working = original;
     Ok(())
 }
 
 pub(super) fn benchmark_append_draws(
-    app: &mut AppState,
+    app: &mut PerfView,
     size: TerminalSize,
     stats: &mut PerfReplayStats,
 ) -> Result<()> {
     let mut terminal = Terminal::new(TestBackend::new(size.width as u16, size.height as u16))?;
-    let idx = app.append_message(Role::Assistant, String::new());
+    let idx = app.append_answer();
 
     for _ in 0..APPEND_BENCH_STEPS {
         let started = Instant::now();
-        app.session
-            .transcript_append_text(idx, "\nappend bench line", None);
-        app.mark_transcript_dirty_from(idx);
-        app.ensure_rendered_lines(app.transcript_width(size), None);
-        terminal.draw(|frame| render_main_view(frame, app))?;
+        app.append_text(idx, "\nappend bench line");
+        app.ensure_rendered_lines(app.transcript_width(size));
+        terminal.draw(|frame| app.draw(frame))?;
         stats.append_total.push(started.elapsed());
     }
 
@@ -160,7 +160,7 @@ pub(super) fn benchmark_append_draws(
 
 // --- Layout Profiling ---
 
-pub(super) fn profile_layout_count_pass(app: &AppState, width: usize) -> Vec<LayoutBreakdownRow> {
+pub(super) fn profile_layout_count_pass(app: &PerfView, width: usize) -> Vec<LayoutBreakdownRow> {
     use std::collections::BTreeMap;
 
     if width == 0 {
@@ -171,21 +171,25 @@ pub(super) fn profile_layout_count_pass(app: &AppState, width: usize) -> Vec<Lay
     let mut buckets: BTreeMap<&'static str, (usize, usize, f64)> = BTreeMap::new();
     let mut count_cache = RenderCountCache::new();
 
-    for (idx, msg) in app.session.messages().iter().enumerate() {
+    for idx in 0..app.rows.len() {
+        let Some(msg) = app.rows.as_slice().input(idx) else {
+            continue;
+        };
         if msg.text.trim().is_empty() {
             continue;
         }
         let previous_visible =
-            previous_visible_idx.and_then(|prev_idx| app.session.messages().get(prev_idx));
+            previous_visible_idx.and_then(|prev_idx| app.rows.as_slice().input(prev_idx));
         let started = Instant::now();
-        let lines = count_display_block(
+        let lines = plan_input_block(
             &mut count_cache,
             previous_visible,
             msg,
             width,
             app.view.tool_output.compact(),
             app.view.layout.active,
-        );
+        )
+        .count_input(&mut count_cache, msg);
         let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
         let entry = buckets
             .entry(layout_breakdown_label(msg))
@@ -211,7 +215,7 @@ pub(super) fn profile_layout_count_pass(app: &AppState, width: usize) -> Vec<Lay
 
 // --- Bucket Labels ---
 
-fn layout_breakdown_label(msg: &Message) -> &'static str {
+fn layout_breakdown_label(msg: RenderInput<'_>) -> &'static str {
     match (msg.kind, msg.role) {
         (MessageKind::Diff, _) => "diff",
         (MessageKind::Plain, Role::Reasoning) => "reasoning_markdown",

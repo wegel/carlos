@@ -31,6 +31,7 @@ pub(super) struct AppState {
 // --- Construction ---
 
 impl AppState {
+    #[cfg(test)]
     pub(super) fn new(thread_id: String) -> Self {
         Self::with_runtime_defaults(
             thread_id,

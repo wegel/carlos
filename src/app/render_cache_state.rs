@@ -9,7 +9,6 @@ use super::layout_state::TranscriptTheme;
 use super::render_entry_cache::{
     EntryMemos, PaintedRows, PreparedRow, RenderKey, RowFormat, RowSource,
 };
-use super::transcript_block::plan_display_block;
 use super::transcript_input::RenderInput;
 use super::transcript_styles::RenderCountCache;
 use super::view_models::RenderedLine;
@@ -357,18 +356,6 @@ impl RenderCacheState {
             .flat_map(|lines| lines.retained().cloned())
             .collect()
     }
-}
-
-/// Count the same complete plan used by the lazy render cache.
-pub(super) fn count_display_block<'a>(
-    cache: &mut RenderCountCache<'a>,
-    previous: Option<&Message>,
-    message: &'a Message,
-    width: usize,
-    compact: bool,
-    theme: TranscriptTheme,
-) -> usize {
-    plan_display_block(cache, previous, message, width, compact, theme).count(cache, message)
 }
 
 impl super::selection::RenderedLineSource for RenderCacheState {

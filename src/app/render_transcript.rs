@@ -1,6 +1,5 @@
 //! Paint transcript blocks with the 3c glyphs, continuation bars, and active step.
 
-use carlos_core::session::models::Message;
 use carlos_core::session::models::Role;
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
@@ -8,67 +7,90 @@ use ratatui::style::{Modifier, Style};
 use super::flow_transcript::inline_reasoning;
 use super::notifications::spinner_frame;
 use super::render::{draw_rendered_line, draw_str, fill_rect};
+use super::render_cache_state::{RenderCacheState, TranscriptSource};
 use super::state::AppState;
 use super::text::visual_width;
 use super::tool_summary::tool_gutter;
+use super::transcript_input::RenderInput;
 use super::view_models::TerminalSize;
+use super::viewport_state::ViewportState;
 use super::MSG_TOP;
 use crate::theme::{
     role_gutter_fg, role_gutter_symbol, role_row_bg, role_text_style, COLOR_PRIMARY,
 };
 
-/// Draw only visible rows while leaving cached text unchanged for selection.
+/// Borrow only renderer facts and device-local viewport state, without a mutable session owner.
+pub(super) struct TranscriptFrame<'a, S: TranscriptSource + ?Sized> {
+    pub source: &'a S,
+    pub cache: &'a RenderCacheState,
+    pub viewport: &'a ViewportState,
+    pub flow: bool,
+    pub content_x: usize,
+    pub active: Option<usize>,
+}
+
+/// Preserve the embedded caller until its separate deletion commit.
 pub(super) fn draw_transcript(buf: &mut Buffer, app: &AppState, height: usize, width: usize) {
-    let active = active_step_index(app);
-    let content_x = app.content_x(TerminalSize {
-        width: buf.area.width as usize,
-        height: buf.area.height as usize,
-    });
+    let frame = TranscriptFrame {
+        source: app.session.messages().entries(),
+        cache: &app.view.render_cache,
+        viewport: &app.view.viewport,
+        flow: app.view.layout.active.is_flow(),
+        content_x: app.content_x(TerminalSize {
+            width: buf.area.width as usize,
+            height: buf.area.height as usize,
+        }),
+        active: app.session.active_reasoning_step(),
+    };
+    draw_rows(buf, &frame, height, width);
+}
+
+/// Draw the same body rows for borrowed native or exported offline facts.
+pub(super) fn draw_rows<S: TranscriptSource + ?Sized>(
+    buf: &mut Buffer,
+    frame: &TranscriptFrame<'_, S>,
+    height: usize,
+    width: usize,
+) {
     for row in 0..height {
-        let index = app.view.viewport.scroll_top + row;
-        draw_transcript_row(buf, app, index, MSG_TOP + row - 1, width, active, content_x);
+        let index = frame.viewport.scroll_top + row;
+        draw_transcript_row(buf, frame, index, MSG_TOP + row - 1, width);
     }
 }
 
-fn active_step_index(app: &AppState) -> Option<usize> {
-    app.session.active_reasoning_step()
-}
-
-fn draw_transcript_row(
+fn draw_transcript_row<S: TranscriptSource + ?Sized>(
     buf: &mut Buffer,
-    app: &AppState,
+    frame: &TranscriptFrame<'_, S>,
     index: usize,
     y: usize,
     width: usize,
-    active: Option<usize>,
-    content_x: usize,
 ) {
-    let Some(line) = app.rendered_line_at(index) else {
+    let Some(line) = frame.cache.rendered_line_at(index) else {
         return;
     };
-    let Some((message_index, row)) = app.view.render_cache.message_anchor(index) else {
+    let Some((message_index, row)) = frame.cache.message_anchor(index) else {
         return;
     };
-    let Some(message) = app.session.messages().get(message_index) else {
+    let Some(message) = frame.source.input(message_index) else {
         return;
     };
     if line.separator {
         if !line.text.is_empty() {
-            let active = heading_is_active(app, message_index, active, width);
-            draw_section_header(buf, line, y, content_x, width, active);
+            let active = heading_is_active(frame, message_index, width);
+            draw_section_header(buf, line, y, frame.content_x, width, active);
         }
         return;
     }
-    let first = row == app.view.render_cache.first_content_row(message_index);
-    let active = active == Some(message_index);
+    let first = row == frame.cache.first_content_row(message_index);
+    let active = frame.active == Some(message_index);
     fill_message_row(buf, y, line.role);
-    if !app.view.layout.active.is_flow() {
+    if !frame.flow {
         draw_gutter(buf, message, y, first, active);
     }
-    let selection = app.view.viewport.selected_cells(index, line.cells);
+    let selection = frame.viewport.selected_cells(index, line.cells);
     draw_rendered_line(
         buf,
-        content_x,
+        frame.content_x,
         y,
         width,
         line,
@@ -76,12 +98,11 @@ fn draw_transcript_row(
         selection,
     );
     if active {
-        let last = app
-            .view
-            .render_cache
+        let last = frame
+            .cache
             .block_len(message_index)
             .is_some_and(|length| row + 1 == length);
-        let inline = app.view.layout.active.is_flow() && inline_reasoning(message, width);
+        let inline = frame.flow && inline_reasoning(message, width);
         paint_active_step(
             buf,
             y,
@@ -89,17 +110,23 @@ fn draw_transcript_row(
             &line.text,
             selection,
             (last, inline),
-            content_x,
+            frame.content_x,
         );
     }
 }
 
-fn heading_is_active(app: &AppState, index: usize, active: Option<usize>, width: usize) -> bool {
-    active.is_some_and(|active| {
+fn heading_is_active<S: TranscriptSource + ?Sized>(
+    frame: &TranscriptFrame<'_, S>,
+    index: usize,
+    width: usize,
+) -> bool {
+    frame.active.is_some_and(|active| {
         index <= active
-            && app.session.messages()[index..=active]
-                .iter()
-                .all(|message| message.role == Role::Reasoning && !inline_reasoning(message, width))
+            && (index..=active).all(|row| {
+                frame.source.input(row).is_some_and(|message| {
+                    message.role == Role::Reasoning && !inline_reasoning(message, width)
+                })
+            })
     })
 }
 
@@ -134,7 +161,7 @@ fn draw_section_header(
     draw_str(buf, x, y, &text, style, width);
 }
 
-fn draw_gutter(buf: &mut Buffer, message: &Message, y: usize, first: bool, active: bool) {
+fn draw_gutter(buf: &mut Buffer, message: RenderInput<'_>, y: usize, first: bool, active: bool) {
     let (icon, color) = if active {
         ("◆", COLOR_PRIMARY)
     } else if matches!(message.role, Role::ToolCall | Role::ToolOutput) {

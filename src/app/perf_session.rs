@@ -1,29 +1,25 @@
 //! Offline performance benchmarking: session replay, JSONL parsing, and metric reporting.
 
 use std::fs::File;
-use std::io::{BufRead, BufReader};
-use std::path::Path;
+use std::io::BufReader;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
-use carlos_core::session::models::Role;
-use carlos_core::session::tools::{
-    extract_diff_blocks, format_tool_item, raw_function_call_output_to_tool_item,
-    raw_function_call_to_tool_item,
-};
+use carlos_core::perf_fixture::{replay_perf_rows, synthetic_perf_rows};
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
-use serde_json::Value;
 
 use super::perf_bench::{
     benchmark_append_draws, benchmark_scroll_draws, benchmark_typing_draws,
     benchmark_working_draws, profile_layout_count_pass, PerfReplayStats,
 };
-use super::render::render_main_view;
-use super::{AppState, CliOptions, TerminalSize};
+use super::perf_view::PerfView;
+use super::{CliOptions, TerminalSize};
 
 // Re-export synthetic types so tests can access them via the `perf_session` module path.
-pub(super) use carlos_core::perf_fixture::{populate_synthetic_perf_session, SyntheticPerfSpec};
+#[cfg(test)]
+pub(super) use carlos_core::perf_fixture::populate_synthetic_perf_session;
+pub(super) use carlos_core::perf_fixture::SyntheticPerfSpec;
 
 // --- Session Replay ---
 
@@ -93,7 +89,7 @@ struct ReplayMemory {
 }
 
 fn print_perf_report(
-    app: &AppState,
+    app: &PerfView,
     stats: &PerfReplayStats,
     source_label: &str,
     size: TerminalSize,
@@ -105,7 +101,7 @@ fn print_perf_report(
     println!("viewport: {}x{}", size.width, size.height);
     println!(
         "transcript: messages={} rendered_lines={} relevant_items={} replay_elapsed_ms={:.2}",
-        app.session.messages().len(),
+        app.rows.len(),
         app.rendered_line_count(),
         stats.relevant_items,
         replay_elapsed.as_secs_f64() * 1000.0
@@ -134,213 +130,45 @@ fn print_perf_report(
     }
 }
 
-fn replay_perf_session(path: &str, size: TerminalSize) -> Result<(AppState, PerfReplayStats)> {
+fn replay_perf_session(path: &str, size: TerminalSize) -> Result<(PerfView, PerfReplayStats)> {
     let file = File::open(path).with_context(|| format!("open {path}"))?;
-    let reader = BufReader::new(file);
-    let thread_id = thread_id_from_session_path(path);
-    let mut app = AppState::new(thread_id);
     let mut stats = PerfReplayStats::new();
-
-    for line in reader.lines() {
-        let line = line?;
-        let value: Value = match serde_json::from_str(&line) {
-            Ok(v) => v,
-            Err(_) => continue,
-        };
-        if value.get("type").and_then(Value::as_str) != Some("response_item") {
-            continue;
-        }
-        let Some(payload) = value.get("payload") else {
-            continue;
-        };
-
-        let apply_started = Instant::now();
-        if !append_perf_session_item(&mut app, payload) {
-            continue;
-        }
-        stats.replay_apply.push(apply_started.elapsed());
-        stats.relevant_items = stats.relevant_items.saturating_add(1);
-    }
-
-    let mut terminal = Terminal::new(TestBackend::new(size.width as u16, size.height as u16))?;
-    app.view.tool_output.update_size(size);
-    app.view.layout.update_size(size);
-    stats.layout_breakdown = profile_layout_count_pass(&app, app.transcript_width(size));
-    let render_started = Instant::now();
-    app.ensure_rendered_lines(app.transcript_width(size), None);
-    stats.full_layout_ms = render_started.elapsed().as_secs_f64() * 1000.0;
-
-    let draw_started = Instant::now();
-    terminal.draw(|frame| render_main_view(frame, &mut app))?;
-    stats.full_draw_ms = draw_started.elapsed().as_secs_f64() * 1000.0;
-
-    Ok((app, stats))
+    let data = replay_perf_rows(BufReader::new(file), |duration| {
+        stats.replay_apply.push(duration)
+    })?;
+    stats.relevant_items = data.relevant_items;
+    prepare_view(PerfView::new(data), stats, size)
 }
 
 fn replay_synthetic_perf_session(
     spec: SyntheticPerfSpec,
     size: TerminalSize,
-) -> Result<(AppState, PerfReplayStats)> {
-    let mut app = AppState::new(format!("synthetic-{:016x}", spec.seed));
+) -> Result<(PerfView, PerfReplayStats)> {
     let mut stats = PerfReplayStats::new();
-    let apply_started = Instant::now();
-    populate_synthetic_perf_session(spec, &mut app.session);
-    app.mark_transcript_dirty();
-    stats.replay_apply.push(apply_started.elapsed());
-    stats.relevant_items = app.session.messages().len();
+    let data = synthetic_perf_rows(spec, |duration| stats.replay_apply.push(duration));
+    stats.relevant_items = data.relevant_items;
+    prepare_view(PerfView::new(data), stats, size)
+}
 
+fn prepare_view(
+    mut app: PerfView,
+    mut stats: PerfReplayStats,
+    size: TerminalSize,
+) -> Result<(PerfView, PerfReplayStats)> {
     let mut terminal = Terminal::new(TestBackend::new(size.width as u16, size.height as u16))?;
     app.view.tool_output.update_size(size);
     app.view.layout.update_size(size);
     stats.layout_breakdown = profile_layout_count_pass(&app, app.transcript_width(size));
-    let render_started = Instant::now();
-    app.ensure_rendered_lines(app.transcript_width(size), None);
-    stats.full_layout_ms = render_started.elapsed().as_secs_f64() * 1000.0;
-
-    let draw_started = Instant::now();
-    terminal.draw(|frame| render_main_view(frame, &mut app))?;
-    stats.full_draw_ms = draw_started.elapsed().as_secs_f64() * 1000.0;
-
+    let started = Instant::now();
+    app.ensure_rendered_lines(app.transcript_width(size));
+    stats.full_layout_ms = started.elapsed().as_secs_f64() * 1000.0;
+    let started = Instant::now();
+    terminal.draw(|frame| app.draw(frame))?;
+    stats.full_draw_ms = started.elapsed().as_secs_f64() * 1000.0;
     Ok((app, stats))
 }
 
-// --- JSONL Parsing ---
-
-fn append_perf_session_item(app: &mut AppState, payload: &Value) -> bool {
-    let Some(kind) = payload.get("type").and_then(Value::as_str) else {
-        return false;
-    };
-    match kind {
-        "message" => append_perf_message(app, payload),
-        "reasoning" => append_perf_reasoning(app, payload),
-        "function_call" => append_perf_function_call(app, payload),
-        "function_call_output" => append_perf_function_call_output(app, payload),
-        _ => false,
-    }
-}
-
-fn append_perf_message(app: &mut AppState, payload: &Value) -> bool {
-    let role = match payload.get("role").and_then(Value::as_str) {
-        Some("user") => Role::User,
-        Some("assistant") => {
-            if payload.get("phase").and_then(Value::as_str) == Some("commentary") {
-                Role::Commentary
-            } else {
-                Role::Assistant
-            }
-        }
-        _ => return false,
-    };
-    let text = payload
-        .get("text")
-        .and_then(Value::as_str)
-        .map(ToOwned::to_owned)
-        .or_else(|| session_message_text(payload));
-    if let Some(text) = text.filter(|text| !text.trim().is_empty()) {
-        app.append_message(role, text);
-        return true;
-    }
-    false
-}
-
-fn append_perf_reasoning(app: &mut AppState, payload: &Value) -> bool {
-    let Some(text) = reasoning_summary_text(payload) else {
-        return false;
-    };
-    app.append_message(Role::Reasoning, text);
-    true
-}
-
-fn append_perf_function_call(app: &mut AppState, payload: &Value) -> bool {
-    let Some((_, tool_item)) = raw_function_call_to_tool_item(payload) else {
-        return false;
-    };
-    let Some(text) = format_tool_item(&tool_item, Role::ToolCall) else {
-        return false;
-    };
-    if text.trim().is_empty() {
-        return false;
-    }
-    app.append_message(Role::ToolCall, text);
-    true
-}
-
-fn append_perf_function_call_output(app: &mut AppState, payload: &Value) -> bool {
-    let Some((_, tool_item)) = raw_function_call_output_to_tool_item(payload) else {
-        return false;
-    };
-    let diffs = extract_diff_blocks(&tool_item);
-    if let Some(first) = diffs.first() {
-        app.append_diff_message(
-            Role::ToolOutput,
-            first.file_path.clone(),
-            first.diff.clone(),
-        );
-        for block in diffs.iter().skip(1) {
-            app.append_diff_message(
-                Role::ToolOutput,
-                block.file_path.clone(),
-                block.diff.clone(),
-            );
-        }
-        return true;
-    }
-    let Some(text) = format_tool_item(&tool_item, Role::ToolOutput) else {
-        return false;
-    };
-    if text.trim().is_empty() {
-        return false;
-    }
-    app.append_message(Role::ToolOutput, text);
-    true
-}
-
-// --- Utilities ---
-
-fn reasoning_summary_text(item: &Value) -> Option<String> {
-    let summary = item.get("summary")?.as_array()?;
-    let mut parts = Vec::new();
-    for entry in summary {
-        if let Some(text) = entry.as_str() {
-            if !text.trim().is_empty() {
-                parts.push(text.to_string());
-            }
-            continue;
-        }
-
-        let text = entry.get("text").and_then(Value::as_str).or_else(|| {
-            entry
-                .get("content")
-                .and_then(Value::as_array)
-                .and_then(|parts| parts.first())
-                .and_then(|part| part.get("text"))
-                .and_then(Value::as_str)
-        });
-        if let Some(text) = text.filter(|t| !t.trim().is_empty()) {
-            parts.push(text.to_string());
-        }
-    }
-    (!parts.is_empty()).then(|| parts.join("\n"))
-}
-
-fn session_message_text(item: &Value) -> Option<String> {
-    let content = item.get("content").and_then(Value::as_array)?;
-    let mut parts = Vec::new();
-    for part in content {
-        let Some(kind) = part.get("type").and_then(Value::as_str) else {
-            continue;
-        };
-        if !matches!(kind, "text" | "output_text" | "input_text") {
-            continue;
-        }
-        if let Some(text) = part.get("text").and_then(Value::as_str) {
-            if !text.is_empty() {
-                parts.push(text.to_string());
-            }
-        }
-    }
-    (!parts.is_empty()).then(|| parts.join("\n"))
-}
+// --- Process memory ---
 
 fn current_rss_kib() -> Option<u64> {
     let status = std::fs::read_to_string("/proc/self/status").ok()?;
@@ -352,13 +180,4 @@ fn current_rss_kib() -> Option<u64> {
         }
     }
     None
-}
-
-fn thread_id_from_session_path(path: &str) -> String {
-    Path::new(path)
-        .file_stem()
-        .and_then(|stem| stem.to_str())
-        .and_then(|stem| stem.rsplit('-').next())
-        .unwrap_or("perf-session")
-        .to_string()
 }

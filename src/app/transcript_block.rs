@@ -1,5 +1,6 @@
 //! Plan headings, labels, body width, and spacing once for both count and draw passes.
 
+#[cfg(test)]
 use carlos_core::session::models::Message;
 use carlos_core::session::models::MessageKind;
 use carlos_core::session::models::Role;
@@ -91,6 +92,7 @@ impl BlockPlan {
     }
 
     /// Count the exact stored headings and body choices.
+    #[cfg(test)]
     pub(super) fn count<'a>(
         &self,
         cache: &mut RenderCountCache<'a>,
@@ -139,6 +141,7 @@ pub(super) fn visible_input(message: RenderInput<'_>) -> bool {
 }
 
 /// Plan a full or folded view while borrowing the stored source message.
+#[cfg(test)]
 pub(super) fn plan_display_block<'a>(
     cache: &mut RenderCountCache<'a>,
     previous: Option<&Message>,
