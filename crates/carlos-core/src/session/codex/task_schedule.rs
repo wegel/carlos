@@ -128,7 +128,11 @@ pub(super) fn prune(session: &mut SessionState, scope: PanelScope<'_>) {
     status.dirty.retain(|owner| valid.contains(owner));
     status.uncertain.retain(|owner| valid.contains(owner));
     status.errors.retain(|owner, _| valid.contains(owner));
-    status.revisions.retain(|owner, _| valid.contains(owner));
+    let window_owners = session.window_process_owners();
+    let status = &mut session.codex_task_status;
+    status
+        .revisions
+        .retain(|owner, _| valid.contains(owner) || window_owners.contains(owner));
     status.allowed.retain(|owner, _| valid.contains(owner));
     if owners(session, scope).is_empty()
         && session.codex_task_status.read.is_none()

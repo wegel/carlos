@@ -10,6 +10,7 @@ use carlos_proto::tasks::{
 use super::state::SessionState;
 use super::task_fields::FIELDS;
 use super::task_rows::{clipped, TaskRef};
+use super::task_windows::WindowContext;
 
 impl SessionState {
     pub(super) fn task_page(
@@ -18,8 +19,18 @@ impl SessionState {
         after: Option<&TaskId>,
         limit: usize,
     ) -> Result<TaskPage, RpcError> {
-        let rows = self.task_rows();
-        let revision = self.task_revision(&rows);
+        self.task_page_in(None, expected, after, limit)
+    }
+
+    pub(super) fn task_page_in(
+        &self,
+        context: Option<&WindowContext>,
+        expected: Option<&TaskRevision>,
+        after: Option<&TaskId>,
+        limit: usize,
+    ) -> Result<TaskPage, RpcError> {
+        let rows = self.task_rows_in(context)?;
+        let revision = self.task_revision_in(context, &rows)?;
         require_revision(expected, &revision)?;
         if after.is_some() && expected.is_none() {
             return Err(failure("task page needs its expected revision"));
@@ -40,30 +51,50 @@ impl SessionState {
             session: self.session_id().clone(),
             seq: self.events.seq,
             revision,
-            known: self.task_known(),
-            reading: self.codex_panel.snapshot.is_some(),
+            known: context.is_some() || self.task_known(),
+            reading: context.is_none() && self.codex_panel.snapshot.is_some(),
             closed: self.events.backend_closed,
             tasks: rows[start..end]
                 .iter()
                 .map(|row| row.export(self))
                 .collect(),
             has_more: end < rows.len(),
-            native_older_available: !self.codex_panel.older.is_null(),
-            read_error: self
-                .codex_panel
-                .error
-                .as_ref()
-                .map(|error| clipped(error, 2048).into()),
+            native_older_available: if let Some(context) = context {
+                !self.task_window_capture(context)?.older.is_null()
+            } else {
+                !self.codex_panel.older.is_null()
+            },
+            read_error: if let Some(context) = context {
+                self.task_window_capture(context)?
+                    .read_error
+                    .as_deref()
+                    .map(|error| clipped(error, 2048).into())
+            } else {
+                self.codex_panel
+                    .error
+                    .as_deref()
+                    .map(|error| clipped(error, 2048).into())
+            },
         })
     }
 
+    #[cfg(test)]
     pub(super) fn task_detail(
         &self,
         expected: &TaskRevision,
         id: &TaskId,
     ) -> Result<TaskDetail, RpcError> {
-        let rows = self.task_rows();
-        require_revision(Some(expected), &self.task_revision(&rows))?;
+        self.task_detail_in(None, expected, id)
+    }
+
+    pub(super) fn task_detail_in(
+        &self,
+        context: Option<&WindowContext>,
+        expected: &TaskRevision,
+        id: &TaskId,
+    ) -> Result<TaskDetail, RpcError> {
+        let rows = self.task_rows_in(context)?;
+        require_revision(Some(expected), &self.task_revision_in(context, &rows)?)?;
         let row = find(self, &rows, id)?;
         Ok(TaskDetail {
             session: self.session_id().clone(),
@@ -85,6 +116,7 @@ impl SessionState {
         })
     }
 
+    #[cfg(test)]
     pub(super) fn task_text(
         &self,
         expected: &TaskRevision,
@@ -93,8 +125,20 @@ impl SessionState {
         offset: ByteOffset,
         limit: usize,
     ) -> Result<TaskText, RpcError> {
-        let rows = self.task_rows();
-        require_revision(Some(expected), &self.task_revision(&rows))?;
+        self.task_text_in(None, expected, id, field, offset, limit)
+    }
+
+    pub(super) fn task_text_in(
+        &self,
+        context: Option<&WindowContext>,
+        expected: &TaskRevision,
+        id: &TaskId,
+        field: TaskField,
+        offset: ByteOffset,
+        limit: usize,
+    ) -> Result<TaskText, RpcError> {
+        let rows = self.task_rows_in(context)?;
+        require_revision(Some(expected), &self.task_revision_in(context, &rows)?)?;
         let value = find(self, &rows, id)?
             .field(self, field)
             .ok_or_else(|| failure("this task has no readable scalar for the requested field"))?;

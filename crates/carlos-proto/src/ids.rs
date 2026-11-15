@@ -142,6 +142,11 @@ opaque_id!(
     64,
     "One native task run read; a replacement never retargets its poller."
 );
+opaque_id!(
+    TaskWindowId,
+    64,
+    "A captured native task-list window bound to its reader and native root."
+);
 
 opaque_id!(
     TaskOverviewId,

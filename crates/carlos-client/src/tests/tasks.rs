@@ -36,6 +36,7 @@ fn task_list_and_details_remain_explicit_typed_reads() {
         .read(
             connection,
             Command::TaskList {
+                window: None,
                 session: session(),
                 expected: Some(revision()),
                 after: None,
@@ -58,6 +59,7 @@ fn task_list_and_details_remain_explicit_typed_reads() {
         .read(
             connection,
             Command::TaskDetail {
+                window: None,
                 session: session(),
                 expected: revision(),
                 task: task(),
@@ -89,6 +91,7 @@ fn task_pages_reject_foreign_revisions_repeated_rows_and_excess_rows() {
             .read(
                 connection,
                 Command::TaskList {
+                    window: None,
                     session: session(),
                     expected: Some(revision()),
                     after: None,
@@ -142,6 +145,7 @@ fn named_task_text_checks_the_original_field_revision_and_utf8_range() {
             .read(
                 connection,
                 Command::TaskText {
+                    window: None,
                     session: session(),
                     expected: revision(),
                     task: task(),
@@ -203,6 +207,7 @@ fn task_run_continuations_cannot_follow_a_replaced_native_read() {
         .read(
             connection,
             Command::TaskRun {
+                window: None,
                 session: session(),
                 task: task(),
                 read: Some(read),
@@ -227,6 +232,7 @@ fn task_stops_keep_private_operation_ownership_without_creating_prompt_text() {
     let (mut client, connection) = attached();
     let request = client
         .submit(connection, |operation| Command::TaskStop {
+            window: None,
             session: session(),
             operation,
             task: task(),

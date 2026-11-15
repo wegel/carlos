@@ -38,6 +38,10 @@ pub(crate) enum Kind {
     TaskDetail(crate::tasks::TaskTarget),
     TaskText(crate::tasks::TaskTextTarget),
     TaskRun(crate::tasks::TaskRunTarget),
+    TaskWindow {
+        session: SessionId,
+        window: Option<carlos_proto::ids::TaskWindowId>,
+    },
     Source(BodyTarget),
     Output(BodyTarget),
     BodyUnsubscribe {
@@ -183,6 +187,15 @@ pub(crate) fn read_kind(command: &Command) -> Result<Kind, ClientError> {
         Command::Operation { operation } => Kind::Operation(operation.clone()),
         Command::TaskSubscribe { session } => Kind::TaskWatch(session.clone()),
         Command::TaskUnsubscribe { session } => Kind::TaskUnwatch(session.clone()),
+        Command::TaskWindowOpen { session, .. } => Kind::TaskWindow {
+            session: session.clone(),
+            window: None,
+        },
+        Command::TaskWindowRead { session, window } => Kind::TaskWindow {
+            session: session.clone(),
+            window: Some(window.clone()),
+        },
+        Command::TaskWindowClose { .. } => Kind::Unit,
         overview @ (Command::TaskOverview { .. } | Command::TaskOverviewText { .. }) => {
             overview_kind(overview)
         }

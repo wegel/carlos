@@ -28,6 +28,9 @@ pub fn reply(
             && params["requestMethod"] == request.method
             && params["requestParams"] == request.params
     };
+    if session.receive_task_window(params) {
+        return true;
+    }
     if session
         .codex_panel
         .stop
@@ -74,6 +77,21 @@ fn apply_page(
     request: &Request,
     result: &Value,
 ) -> Result<(), String> {
+    let process = session
+        .codex_panel
+        .runs
+        .iter()
+        .find(|(_, read)| {
+            read.process.is_some()
+                && read
+                    .request
+                    .as_ref()
+                    .is_some_and(|pending| pending.token == request.token)
+        })
+        .map(|(key, _)| key.clone());
+    if let Some(key) = process {
+        return super::panel_process_runs::page(session, &key, result);
+    }
     match request.method.as_str() {
         "thread/turns/list" => super::panel_runs::reply(
             session,
@@ -99,6 +117,9 @@ pub fn failed(
     request: &Request,
     message: &str,
 ) {
+    if session.fail_task_window(request, message) {
+        return;
+    }
     let message = crate::session::text::safe_text(message);
     if session
         .codex_panel
@@ -113,18 +134,18 @@ pub fn failed(
         if scope.visible {
             super::panel::refresh(session, scope, false);
         }
-    } else if let Some(pending) = session
+    } else if let Some(key) = session
         .codex_panel
-        .run_request(Some(request.token))
-        .cloned()
+        .runs
+        .iter()
+        .find(|(_, read)| {
+            read.request
+                .as_ref()
+                .is_some_and(|pending| pending.token == request.token)
+        })
+        .map(|(key, _)| key.clone())
     {
-        super::panel_runs::failed(
-            session,
-            pending.params["threadId"]
-                .as_str()
-                .expect("native run target"),
-            &message,
-        );
+        super::panel_runs::failed(session, &key, &message);
     } else if let Some(activity) = session.codex_panel.child_read_mut(request.token) {
         activity.request = None;
         activity.error = Some(message);

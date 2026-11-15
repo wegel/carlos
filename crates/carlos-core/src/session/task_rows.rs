@@ -16,8 +16,13 @@ pub(super) enum TaskRef<'a> {
     Agent {
         data: &'a Value,
         accepted_run: Option<&'a RunRead>,
+        report: Option<&'a Value>,
     },
     Process(&'a Process),
+    WindowProcess {
+        row: &'a Process,
+        error: Option<&'a str>,
+    },
     Claude {
         id: &'a str,
         data: &'a Value,
@@ -34,6 +39,9 @@ impl SessionState {
                 .filter(|agent| agent["id"].as_str().is_some_and(|id| self.task_owns(id)))
                 .map(|data| TaskRef::Agent {
                     data,
+                    report: data["id"]
+                        .as_str()
+                        .and_then(|id| self.codex_panel.reports.get(id)),
                     accepted_run: panel_runs::ready(
                         self,
                         data["id"].as_str().expect("verified agent id"),
@@ -198,7 +206,7 @@ impl TaskRef<'_> {
     pub(super) fn export(&self, session: &SessionState) -> Task {
         let kind = match self {
             Self::Agent { .. } => TaskKind::Agent,
-            Self::Process(_) => TaskKind::Process,
+            Self::Process(_) | Self::WindowProcess { .. } => TaskKind::Process,
             Self::Claude { .. } => TaskKind::Task,
         };
         let state = self.native_state(session);
@@ -221,6 +229,13 @@ impl TaskRef<'_> {
                 .unwrap_or("unknown"),
             Self::Process(row) => {
                 if session.process_known(&row.thread) {
+                    "present"
+                } else {
+                    "unknown"
+                }
+            }
+            Self::WindowProcess { error, .. } => {
+                if error.is_none() {
                     "present"
                 } else {
                     "unknown"
@@ -250,7 +265,9 @@ impl TaskRef<'_> {
                 .as_str()
                 .or(data["name"].as_str())
                 .unwrap_or_else(|| self.native_id()),
-            Self::Process(row) => row.data["command"].as_str().unwrap_or("Background process"),
+            Self::Process(row) | Self::WindowProcess { row, .. } => {
+                row.data["command"].as_str().unwrap_or("Background process")
+            }
             Self::Claude { data, .. } => data["description"]
                 .as_str()
                 .or(data["summary"].as_str())
@@ -261,14 +278,16 @@ impl TaskRef<'_> {
     pub(super) fn data(&self) -> &Value {
         match self {
             Self::Agent { data, .. } | Self::Claude { data, .. } => data,
-            Self::Process(row) => &row.data,
+            Self::Process(row) | Self::WindowProcess { row, .. } => &row.data,
         }
     }
 
     pub(super) fn native_id(&self) -> &str {
         match self {
             Self::Agent { data, .. } => data["id"].as_str().unwrap_or_default(),
-            Self::Process(row) => row.data["processId"].as_str().unwrap_or_default(),
+            Self::Process(row) | Self::WindowProcess { row, .. } => {
+                row.data["processId"].as_str().unwrap_or_default()
+            }
             Self::Claude { id, .. } => id,
         }
     }
@@ -276,18 +295,21 @@ impl TaskRef<'_> {
     fn hash_identity(&self, hash: &mut blake3::Hasher) {
         let tag = match self {
             Self::Agent { .. } => "agent",
-            Self::Process(_) => "process",
+            Self::Process(_) | Self::WindowProcess { .. } => "process",
             Self::Claude { .. } => "task",
         };
         hash_text(hash, tag);
-        if let Self::Process(row) = self {
+        if let Self::Process(row) | Self::WindowProcess { row, .. } = self {
             hash_text(hash, &row.thread);
         }
         hash_text(hash, self.native_id());
     }
 
     pub(super) fn agent_run(&self) -> Option<(&str, &str)> {
-        let Self::Agent { data, accepted_run } = self else {
+        let Self::Agent {
+            data, accepted_run, ..
+        } = self
+        else {
             return None;
         };
         if let Some(read) = accepted_run {
@@ -309,8 +331,10 @@ impl TaskRef<'_> {
                 &mut hash,
                 data["run_id"].as_str().filter(|id| !id.is_empty())?,
             ),
-            Self::Process(row) => {
-                if !session.process_known(&row.thread) {
+            Self::Process(row) | Self::WindowProcess { row, .. } => {
+                if matches!(self, Self::WindowProcess { error: Some(_), .. })
+                    || matches!(self, Self::Process(_)) && !session.process_known(&row.thread)
+                {
                     return None;
                 }
                 super::task_stop_target::process_identity(&row.data)?;

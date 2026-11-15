@@ -27,6 +27,7 @@ pub(super) struct Channels {
 }
 
 pub(super) struct Owner {
+    pub(super) task_window_reads: Vec<super::mailbox::Envelope>,
     pub(super) task_stops:
         HashMap<carlos_proto::submissions::ClientOperation, super::task_stops::PendingTaskStop>,
     pub(super) queue: Option<super::queue_changes::PendingQueue>,
@@ -52,6 +53,7 @@ impl Owner {
         let native = super::native::Native::start(events, &channels);
         let workers = super::workers::Workers::new(&channels.wake);
         Self {
+            task_window_reads: Vec::new(),
             task_stops: HashMap::new(),
             queue: None,
             goal: None,
@@ -81,9 +83,13 @@ impl Owner {
             self.tick();
             self.dispatch_ordinary();
             self.publish();
+            self.finish_task_window_reads();
             for _ in 0..64 {
                 let Ok(envelope) = self.channels.reads.try_recv() else {
                     break;
+                };
+                let Some(envelope) = self.defer_task_window_read(envelope) else {
+                    continue;
                 };
                 let reply = self.read(envelope.command);
                 let _ = envelope.reply.try_send(reply);

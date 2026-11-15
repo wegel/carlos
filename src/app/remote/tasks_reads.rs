@@ -212,6 +212,7 @@ impl Device {
         let outgoing = self.client.read(
             link.connection,
             Command::TaskList {
+                window: None,
                 session: self.session.clone(),
                 expected,
                 after,

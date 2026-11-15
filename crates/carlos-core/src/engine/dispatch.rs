@@ -71,12 +71,13 @@ impl Owner {
                 continue;
             };
             if let EngineCommand::TaskStop {
+                window,
                 operation,
                 task,
                 expected_run,
             } = command
             {
-                self.stop_task(operation, task, expected_run);
+                self.stop_task(window, operation, task, expected_run);
                 continue;
             }
             self.dispatch_control(command);

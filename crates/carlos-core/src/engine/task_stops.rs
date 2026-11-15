@@ -21,6 +21,7 @@ pub(super) struct PendingTaskStop {
 impl Owner {
     pub(super) fn stop_task(
         &mut self,
+        window: Option<crate::session::task_windows::WindowContext>,
         operation: ClientOperation,
         task: TaskId,
         expected: TaskRun,
@@ -42,18 +43,19 @@ impl Owner {
                 return;
             }
         };
-        let work = match self
-            .session
-            .prepare_task_stop(operation.clone(), task, expected)
-        {
-            Ok(work) => work,
-            Err(error) => {
-                self.results
-                    .update(&operation, super::dispatch::rejected(error.message));
-                self.notice();
-                return;
-            }
-        };
+        let work =
+            match self
+                .session
+                .prepare_task_stop_in(window, operation.clone(), task, expected)
+            {
+                Ok(work) => work,
+                Err(error) => {
+                    self.results
+                        .update(&operation, super::dispatch::rejected(error.message));
+                    self.notice();
+                    return;
+                }
+            };
         let target = Target::capture(&self.session, self.client.kind());
         self.task_stops.insert(
             operation.clone(),

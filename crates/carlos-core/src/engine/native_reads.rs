@@ -15,6 +15,7 @@ use crate::session::codex::panel_scope::PanelScope;
 impl Owner {
     pub(super) fn read_native(&mut self, command: EngineCommand) -> Result<EngineReply, RpcError> {
         match command {
+            EngineCommand::TaskWindow(command) => self.read_task_window(command),
             EngineCommand::GoalRead { refresh } => self.read_goal(refresh),
             command @ (EngineCommand::QueueRead { .. } | EngineCommand::QueueText { .. }) => {
                 self.read_queue(command)
@@ -42,21 +43,39 @@ impl Owner {
             command @ (EngineCommand::TaskOverview { .. }
             | EngineCommand::TaskOverviewText { .. }) => self.read_task_overview(command),
             EngineCommand::TaskRun {
+                window,
                 task,
                 read,
                 refresh,
-            } => self.read_task_run(task, read, refresh),
+            } => self.read_task_run_in(window.as_ref(), task, read, refresh),
             EngineCommand::TaskList {
+                window,
                 expected,
                 after,
                 limit,
                 refresh,
-            } => self.list_tasks(expected, after, limit, refresh),
-            EngineCommand::TaskDetail { expected, task } => self
+            } => {
+                if let Some(window) = window {
+                    if refresh {
+                        return Err(failure("refresh the latest task list explicitly"));
+                    }
+                    self.session
+                        .task_page_in(Some(&window), expected.as_ref(), after.as_ref(), limit)
+                        .map(EngineReply::TaskList)
+                } else {
+                    self.list_tasks(expected, after, limit, refresh)
+                }
+            }
+            EngineCommand::TaskDetail {
+                window,
+                expected,
+                task,
+            } => self
                 .session
-                .task_detail(&expected, &task)
+                .task_detail_in(window.as_ref(), &expected, &task)
                 .map(EngineReply::TaskDetail),
             EngineCommand::TaskText {
+                window,
                 expected,
                 task,
                 field,
@@ -64,7 +83,7 @@ impl Owner {
                 limit,
             } => self
                 .session
-                .task_text(&expected, &task, field, offset, limit)
+                .task_text_in(window.as_ref(), &expected, &task, field, offset, limit)
                 .map(EngineReply::TaskText),
             _ => unreachable!("typed task read"),
         }
@@ -95,14 +114,15 @@ impl Owner {
         }))
     }
 
-    fn read_task_run(
+    fn read_task_run_in(
         &mut self,
+        window: Option<&crate::session::task_windows::WindowContext>,
         task: TaskId,
         read: Option<TaskReadId>,
         refresh: bool,
     ) -> Result<EngineReply, RpcError> {
         self.session
-            .prepare_task_run(&task, read.as_ref(), refresh)?;
+            .prepare_task_run_in(window, &task, read.as_ref(), refresh)?;
         let scope = self.task_read_scope();
         panel::tick(
             self.client.as_ref(),
@@ -112,7 +132,7 @@ impl Owner {
         );
         self.publish();
         self.session
-            .task_run_snapshot(&task)
+            .task_run_snapshot_in(window, &task)
             .map(EngineReply::TaskRun)
     }
 

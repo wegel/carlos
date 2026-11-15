@@ -84,6 +84,8 @@ impl Manager {
             EngineReply::TaskOverview(page) => self.reply(peer, id, page),
             EngineReply::TaskOverviewText(text) => self.reply(peer, id, text),
             EngineReply::TaskRun(run) => self.reply(peer, id, run),
+            EngineReply::TaskWindow(window) => self.reply(peer, id, window),
+            EngineReply::TaskWindowClosed => self.reply(peer, id, ()),
             EngineReply::TaskList(page) => self.reply(peer, id, page),
             EngineReply::TaskDetail(detail) => self.reply(peer, id, detail),
             EngineReply::TaskText(text) => self.reply(peer, id, text),

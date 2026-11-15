@@ -11,6 +11,7 @@ use carlos_proto::submissions::ClientOperation;
 use super::codex::panel_state::Process;
 use super::state::SessionState;
 use super::task_stop_target::StopTarget;
+use super::task_windows::WindowContext;
 
 #[derive(Debug, Default)]
 pub(in crate::session) struct TaskStopClaims {
@@ -20,6 +21,7 @@ pub(in crate::session) struct TaskStopClaims {
 /// The session owns retirement while the prepared command shares its checked native target.
 #[derive(Debug)]
 pub(in crate::session) struct StopClaim {
+    pub window: Option<WindowContext>,
     pub task: TaskId,
     pub run: TaskRun,
     pub target: StopTarget,
@@ -36,12 +38,13 @@ impl Drop for Guard {
 }
 
 impl TaskStopClaims {
-    pub fn begin(
+    pub fn begin_in(
         &mut self,
         operation: ClientOperation,
         task: TaskId,
         run: TaskRun,
         target: StopTarget,
+        window: Option<WindowContext>,
     ) -> Result<Arc<StopClaim>, RpcError> {
         if self.entries.len() >= 8 || self.entries.contains_key(&operation) {
             return Err(failure(
@@ -56,6 +59,7 @@ impl TaskStopClaims {
             return Err(failure("a stop for this exact task run is already pending"));
         }
         let claim = Arc::new(StopClaim {
+            window,
             task,
             run,
             target,
@@ -75,7 +79,14 @@ impl TaskStopClaims {
 
     pub fn refresh_processes(&self, session: &SessionState) {
         for claim in self.entries.values() {
-            if !claim.0.target.process_is_current(session) {
+            let current = if let Some(context) = &claim.0.window {
+                session.task_window_capture(context).is_ok()
+                    && (!matches!(claim.0.target, StopTarget::Process { .. })
+                        || session.window_process_verified(context, &claim.0.task))
+            } else {
+                claim.0.target.process_is_current(session)
+            };
+            if !current {
                 claim.0.live.store(false, Ordering::SeqCst);
             }
         }
@@ -91,6 +102,9 @@ impl TaskStopClaims {
 
     pub fn reconcile_processes(&self, owner: Option<&str>, rows: &[Process]) {
         for claim in self.entries.values() {
+            if owner.is_none() && claim.0.window.is_some() {
+                continue;
+            }
             if let StopTarget::Process { thread, .. } = &claim.0.target {
                 if owner.is_none_or(|owner| thread == owner)
                     && !rows.iter().any(|row| claim.0.target.matches_process(row))

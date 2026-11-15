@@ -458,6 +458,99 @@
       "params": {
         "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "window-task/list",
+      "method": "task/list",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expected": null,
+        "after": null,
+        "limit": 32,
+        "refresh": false,
+        "window": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "window-task/detail",
+      "method": "task/detail",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expected": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "task": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "window": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "window-task/text",
+      "method": "task/text",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expected": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "task": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "field": "command",
+        "offset": "9007199254740993",
+        "limit": 65536,
+        "window": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "window-task/run",
+      "method": "task/run",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "task": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "refresh": false,
+        "read": null,
+        "window": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "window-task/stop",
+      "method": "task/stop",
+      "params": {
+        "session": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "operation": {
+          "client": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "17"
+        },
+        "task": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "expected_run": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "window": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "task-window-open",
+      "method": "task/window/open",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expected": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "after": null
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "task-window-read",
+      "method": "task/window/read",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "window": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "task-window-close",
+      "method": "task/window/close",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "window": null
+      }
     }
   ],
   "notifications": [

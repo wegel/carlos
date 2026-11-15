@@ -94,6 +94,7 @@ impl Device {
         let outgoing = self.client.read(
             link.connection,
             Command::TaskRun {
+                window: None,
                 session: self.session.clone(),
                 task: task.clone(),
                 read: None,
@@ -196,6 +197,7 @@ impl Device {
         let outgoing = self.client.read(
             link.connection,
             Command::TaskRun {
+                window: None,
                 session: self.session.clone(),
                 task: intent.task.clone(),
                 read: intent.read.token.clone(),
@@ -222,6 +224,7 @@ impl Device {
         let outgoing = self.client.submit(link.connection, |operation| {
             identity = Some(operation.clone());
             Command::TaskStop {
+                window: None,
                 session,
                 operation,
                 task: task.clone(),

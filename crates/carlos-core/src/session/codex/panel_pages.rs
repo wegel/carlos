@@ -102,6 +102,13 @@ fn publish(
     update: &mut PanelUpdate,
     read: Snapshot,
 ) -> Result<(), String> {
+    if session
+        .task_snapshot_bytes(&read)
+        .saturating_add(session.task_windows.bytes())
+        > carlos_proto::task_windows::MAX_NATIVE_TASK_BYTES
+    {
+        return Err("Native task windows share an 8 MiB allowance; latest rows retained".into());
+    }
     session.task_metadata_changed();
     if read.root != *session.thread_id() {
         return Err("Task read belongs to a retired root; previous rows retained".into());
@@ -109,6 +116,12 @@ fn publish(
     session
         .task_stops
         .reconcile_processes(None, &read.processes);
+    for owner in read.process_scopes.keys() {
+        session
+            .task_stops
+            .reconcile_processes(Some(owner), &read.processes);
+        super::panel_process_runs::reconcile(session, owner, &read.processes);
+    }
     session.codex_panel.ownership = super::panel_state::VerifiedOwners::new(
         &read.root,
         scope.native.epoch,

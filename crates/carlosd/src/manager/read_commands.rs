@@ -13,6 +13,9 @@ use crate::transport::wire::error;
 impl Manager {
     pub(super) fn read_command(&mut self, peer: u64, id: RequestId, command: Command) {
         match command {
+            command @ (Command::TaskWindowOpen { .. }
+            | Command::TaskWindowRead { .. }
+            | Command::TaskWindowClose { .. }) => self.task_window_command(peer, id, command),
             Command::GoalSubscribe { session } => self.subscribe_goal(peer, id, session),
             Command::GoalUnsubscribe { session } => self.unsubscribe_goal(peer, id, session),
             Command::TaskSubscribe { session } => self.subscribe_tasks(peer, id, session),
@@ -73,6 +76,7 @@ impl Manager {
         connection.sessions.remove(&session);
         connection.goals.remove(&session);
         connection.tasks.remove(&session);
+        connection.task_windows.remove(&session);
         connection
             .outputs
             .retain(|(target, _, _), _| target != &session);
@@ -266,6 +270,7 @@ impl Manager {
             return Err(error(-32010, "pending reads are full"));
         }
         let reserved = match command {
+            EngineCommand::TaskWindow(_) => 512 * 1024,
             EngineCommand::TaskSnapshot
             | EngineCommand::TaskOverview { .. }
             | EngineCommand::TaskOverviewText { .. }

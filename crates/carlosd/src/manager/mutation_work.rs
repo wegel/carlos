@@ -228,6 +228,7 @@ fn prepare_queue(command: Command) -> Result<Prepared, carlos_proto::commands::R
 fn prepare_task_stop(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
     Ok(match command {
         Command::TaskStop {
+            window: _,
             session,
             operation,
             task,
@@ -236,6 +237,7 @@ fn prepare_task_stop(command: Command) -> Result<Prepared, carlos_proto::command
             session,
             operation.clone(),
             EngineCommand::TaskStop {
+                window: None,
                 operation,
                 task,
                 expected_run,

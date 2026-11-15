@@ -90,6 +90,9 @@ impl Client {
             Kind::TaskDetail(target) => ReadReply::TaskDetail(crate::tasks::detail(target, value)?),
             Kind::TaskText(target) => ReadReply::TaskText(crate::tasks::text(target, value)?),
             Kind::TaskRun(target) => ReadReply::TaskRun(crate::tasks::run(target, value)?),
+            Kind::TaskWindow { session, window } => {
+                ReadReply::TaskWindow(crate::task_windows::header(session, window, value)?)
+            }
             Kind::Source(target) => return self.source_reply(serial, target, value, effects),
             Kind::Output(target) => return self.output_reply(serial, target, value, effects),
             Kind::Unit

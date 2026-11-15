@@ -129,31 +129,46 @@ impl Manager {
     }
 
     pub(super) fn task_read_command(&mut self, peer: u64, id: RequestId, command: Command) {
+        let window = match self.task_command_context(peer, &command) {
+            Ok(window) => window,
+            Err(reason) => {
+                self.fail(peer, id, reason);
+                return;
+            }
+        };
         let (session, command) = match command {
             Command::TaskRun {
                 session,
+                window: _,
                 task,
                 read,
                 refresh,
             } => (
                 session,
                 EngineCommand::TaskRun {
+                    window,
                     task,
                     read,
                     refresh,
                 },
             ),
-            page @ (Command::TaskList { .. } | Command::TaskOverview { .. }) => page_command(page),
-            value => value_command(value),
+            page @ (Command::TaskList { .. } | Command::TaskOverview { .. }) => {
+                page_command(page, window)
+            }
+            value => value_command(value, window),
         };
         self.rpc_read(peer, id, session, command);
     }
 }
 
-fn page_command(command: Command) -> (SessionId, EngineCommand) {
+fn page_command(
+    command: Command,
+    window: Option<carlos_core::session::task_windows::WindowContext>,
+) -> (SessionId, EngineCommand) {
     match command {
         Command::TaskList {
             session,
+            window: _,
             expected,
             after,
             limit,
@@ -161,6 +176,7 @@ fn page_command(command: Command) -> (SessionId, EngineCommand) {
         } => (
             session,
             EngineCommand::TaskList {
+                window,
                 expected,
                 after,
                 limit: usize::from(limit.unwrap_or(32)),
@@ -184,15 +200,27 @@ fn page_command(command: Command) -> (SessionId, EngineCommand) {
     }
 }
 
-fn value_command(command: Command) -> (SessionId, EngineCommand) {
+fn value_command(
+    command: Command,
+    window: Option<carlos_core::session::task_windows::WindowContext>,
+) -> (SessionId, EngineCommand) {
     match command {
         Command::TaskDetail {
             session,
+            window: _,
             expected,
             task,
-        } => (session, EngineCommand::TaskDetail { expected, task }),
+        } => (
+            session,
+            EngineCommand::TaskDetail {
+                window,
+                expected,
+                task,
+            },
+        ),
         Command::TaskText {
             session,
+            window: _,
             expected,
             task,
             field,
@@ -201,6 +229,7 @@ fn value_command(command: Command) -> (SessionId, EngineCommand) {
         } => (
             session,
             EngineCommand::TaskText {
+                window,
                 expected,
                 task,
                 field,

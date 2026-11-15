@@ -8,9 +8,9 @@ use crate::ids::{
     ClientId, DaemonId, EntryId, OperationId, ResumeToken, Sequence, SessionId, TurnId,
 };
 use crate::output::OutputCursor;
+pub use crate::rpc::{check_protocol, Failure, Request, RequestId, RpcError, RpcVersion, Success};
 use crate::session::{Backend, Decision, SessionInfo, Snapshot};
 use crate::submissions::ClientOperation;
-pub use crate::rpc::{check_protocol, Failure, Request, RequestId, RpcError, RpcVersion, Success};
 
 /// Commands use opaque addresses and never accept native backend request ids.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -42,10 +42,14 @@ pub enum Command {
         operation: ClientOperation,
         task: crate::ids::TaskId,
         expected_run: crate::ids::TaskRun,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        window: Option<crate::ids::TaskWindowId>,
     },
     #[serde(rename = "task/run")]
     TaskRun {
         session: SessionId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        window: Option<crate::ids::TaskWindowId>,
         task: crate::ids::TaskId,
         read: Option<crate::ids::TaskReadId>,
         #[serde(default)]
@@ -54,6 +58,8 @@ pub enum Command {
     #[serde(rename = "task/list")]
     TaskList {
         session: SessionId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        window: Option<crate::ids::TaskWindowId>,
         expected: Option<crate::ids::TaskRevision>,
         after: Option<crate::ids::TaskId>,
         limit: Option<u16>,
@@ -63,17 +69,37 @@ pub enum Command {
     #[serde(rename = "task/detail")]
     TaskDetail {
         session: SessionId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        window: Option<crate::ids::TaskWindowId>,
         expected: crate::ids::TaskRevision,
         task: crate::ids::TaskId,
     },
     #[serde(rename = "task/text")]
     TaskText {
         session: SessionId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        window: Option<crate::ids::TaskWindowId>,
         expected: crate::ids::TaskRevision,
         task: crate::ids::TaskId,
         field: crate::tasks::TaskField,
         offset: crate::bytes::ByteOffset,
         limit: Option<u32>,
+    },
+    #[serde(rename = "task/window/open")]
+    TaskWindowOpen {
+        session: SessionId,
+        expected: crate::ids::TaskRevision,
+        after: Option<crate::ids::TaskWindowId>,
+    },
+    #[serde(rename = "task/window/read")]
+    TaskWindowRead {
+        session: SessionId,
+        window: crate::ids::TaskWindowId,
+    },
+    #[serde(rename = "task/window/close")]
+    TaskWindowClose {
+        session: SessionId,
+        window: Option<crate::ids::TaskWindowId>,
     },
     #[serde(rename = "queue/read")]
     QueueRead {

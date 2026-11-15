@@ -22,6 +22,7 @@ mod settings;
 mod task_overview;
 mod task_state;
 mod task_watches;
+mod task_windows;
 mod tasks;
 mod windows;
 

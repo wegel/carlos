@@ -43,9 +43,20 @@ struct Read {
 
 /// Native command IDs justify a read; idle/completed observations invalidate older reads.
 pub fn observed(session: &mut SessionState, scope: PanelScope<'_>, method: &str, params: &Value) {
+    if !matches!(
+        method,
+        "item/started"
+            | "item/completed"
+            | "turn/completed"
+            | "thread/closed"
+            | "thread/status/changed"
+    ) {
+        return;
+    }
+    let window_owners = session.window_process_owners();
     let Some(owner) = params["threadId"]
         .as_str()
-        .filter(|id| super::task_badge::owns(session, scope, id))
+        .filter(|id| super::task_badge::owns(session, scope, id) || window_owners.contains(*id))
     else {
         return;
     };
@@ -53,6 +64,7 @@ pub fn observed(session: &mut SessionState, scope: PanelScope<'_>, method: &str,
     let command = matches!(method, "item/started" | "item/completed")
         && item["type"] == "commandExecution"
         && (item["processId"].as_str().is_some_and(|id| !id.is_empty())
+            || window_owners.contains(owner)
             || session
                 .codex_panel
                 .processes
@@ -63,11 +75,12 @@ pub fn observed(session: &mut SessionState, scope: PanelScope<'_>, method: &str,
         || method == "thread/status/changed" && params["status"]["type"] != "active";
     if command
         || settled
-            && session
-                .codex_panel
-                .processes
-                .iter()
-                .any(|row| row.thread == owner)
+            && (window_owners.contains(owner)
+                || session
+                    .codex_panel
+                    .processes
+                    .iter()
+                    .any(|row| row.thread == owner))
     {
         session.task_stops.retire_process_owner(owner);
         invalidate(session, owner, true);
@@ -239,6 +252,9 @@ pub fn wait(session: &SessionState, scope: PanelScope<'_>, now: Instant) -> Opti
 }
 
 impl TaskStatus {
+    pub(in crate::session) fn owner_revision(&self, owner: &str) -> u64 {
+        self.revisions.get(owner).copied().unwrap_or(0)
+    }
     /// Borrow failures for verified native owners.
     pub fn errors(&self) -> &HashMap<String, String> {
         &self.errors

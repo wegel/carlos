@@ -16,6 +16,11 @@ class NativeTasks:
         self.task_stop_hold = set()
         self.task_stop_pending = {}
         self.task_stop_errors = set()
+        self.task_window_hold = False
+        self.task_window_pending = None
+        self.task_window_error = False
+        self.task_process_hold = set()
+        self.task_process_pending = {}
 
     async def task_request(self, link, request):
         if self.task_agents is None:
@@ -65,12 +70,38 @@ class NativeTasks:
         offset = int((params.get("cursor") or "task:0").split(":")[1])
         end = min(len(data), offset + params.get("limit", 1))
         result = {"data": data[offset:end], "nextCursor": f"task:{end}" if end < len(data) else None}
+        if method == "thread/list" and offset >= 256 and self.task_window_error:
+            await self.send(link, {"id":request["id"], "error":{"code":-32000,"message":"OLDER_NATIVE_READ_FAILED"}})
+            return True
+        if method == "thread/list" and offset >= 256 and self.task_window_hold:
+            assert self.task_window_pending is None
+            self.task_window_pending = (link, request["id"], result)
+            return True
+        if method == "thread/backgroundTerminals/list" and params["threadId"] in self.task_process_hold:
+            assert params["threadId"] not in self.task_process_pending
+            self.task_process_pending[params["threadId"]] = (link, request["id"], result)
+            return True
         if self.task_hold:
             assert self.task_pending is None
             self.task_pending = (link, request["id"], result)
         else:
             await self.send(link, {"id": request["id"], "result": result})
         return True
+
+    def release_task_window(self):
+        async def release():
+            link, identity, result = self.task_window_pending
+            self.task_window_pending = None
+            self.task_window_hold = False
+            await self.send(link, {"id": identity, "result": result})
+        asyncio.run_coroutine_threadsafe(release(), self.loop).result(timeout=3)
+
+    def release_task_process(self, owner):
+        async def release():
+            link, identity, result = self.task_process_pending.pop(owner)
+            self.task_process_hold.discard(owner)
+            await self.send(link, {"id": identity, "result": result})
+        asyncio.run_coroutine_threadsafe(release(), self.loop).result(timeout=3)
 
     def release_tasks(self):
         async def release():

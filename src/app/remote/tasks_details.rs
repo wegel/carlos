@@ -140,6 +140,7 @@ impl Device {
         let outgoing = self.client.read(
             link.connection,
             Command::TaskDetail {
+                window: None,
                 session: self.session.clone(),
                 expected: revision.clone(),
                 task: task.clone(),
@@ -225,6 +226,7 @@ impl Device {
         let outgoing = self.client.read(
             link.connection,
             Command::TaskText {
+                window: None,
                 session: self.session.clone(),
                 expected: value.revision.clone(),
                 task: value.task.id.clone(),

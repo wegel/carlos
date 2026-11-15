@@ -32,6 +32,7 @@ pub fn tick(
     {
         refresh(session, scope, false);
     }
+    session.expire_task_windows();
     let mut changed = expire(session);
     while let Some(request) = session.codex_panel.outgoing.pop_front() {
         let context = json!({"operation":"panel","epoch":scope.native.epoch,
@@ -111,6 +112,13 @@ pub fn request(session: &mut SessionState, method: &str, params: Value) -> Reque
         .values()
         .filter_map(|activity| activity.request.as_ref().map(|request| request.token))
         .collect();
+    tokens.extend(session.task_windows.slots.values().filter_map(|slot| {
+        if let crate::session::task_window_state::Contents::Reading(read) = &slot.contents {
+            Some(read.request.token)
+        } else {
+            None
+        }
+    }));
     tokens.extend(
         session
             .codex_panel
@@ -192,5 +200,6 @@ pub fn wait(session: &SessionState, scope: PanelScope<'_>, now: Instant) -> Opti
         .chain(activity)
         .chain(runs)
         .chain(refresh)
+        .chain(session.task_windows.wait(now))
         .min()
 }

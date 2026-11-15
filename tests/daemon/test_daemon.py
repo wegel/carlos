@@ -17,10 +17,11 @@ from test_queue import QueueTests
 from test_tasks import TaskTests
 from test_task_interests import TaskInterestTests
 from test_task_stops import TaskStopTests
+from test_task_windows import TaskWindowTests
 from test_settings_facts import SettingsFactTests
 
 
-class DaemonTests(SettingsFactTests, TaskInterestTests, FailureTests, RecoveryTests, SourceTests, EditTests, GoalTests, QueueTests, TaskTests, TaskStopTests, unittest.TestCase):
+class DaemonTests(TaskWindowTests, SettingsFactTests, TaskInterestTests, FailureTests, RecoveryTests, SourceTests, EditTests, GoalTests, QueueTests, TaskTests, TaskStopTests, unittest.TestCase):
     def test_codex_reads_controls_fifo_and_independent_output_cursors_while_send_waits(self):
         fixture = Fixture("codex-held", codex=True)
         self.addCleanup(fixture.close)

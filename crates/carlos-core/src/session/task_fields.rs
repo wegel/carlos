@@ -58,7 +58,7 @@ impl TaskRef<'_> {
                 return self.agent_run().map(|(_, state)| Cow::Borrowed(state))
             }
             TaskField::Owner => {
-                return if let Self::Process(row) = self {
+                return if let Self::Process(row) | Self::WindowProcess { row, .. } = self {
                     Some(Cow::Borrowed(&row.thread))
                 } else {
                     None
@@ -67,13 +67,16 @@ impl TaskRef<'_> {
             _ => {}
         }
         if field == TaskField::Error {
+            if let Self::WindowProcess { error, .. } = self {
+                return error.map(Cow::Borrowed);
+            }
             if let Self::Process(row) = self {
                 return session.process_read_error(&row.thread).map(Cow::Borrowed);
             }
         }
         let value = match self {
-            Self::Agent { data, .. } => agent_field(data, session, field)?,
-            Self::Process(row) => {
+            Self::Agent { data, report, .. } => agent_field(data, *report, field)?,
+            Self::Process(row) | Self::WindowProcess { row, .. } => {
                 &row.data[match field {
                     TaskField::ProcessItem => "itemId",
                     TaskField::Command => "command",
@@ -95,7 +98,7 @@ impl TaskRef<'_> {
         }
         match self {
             Self::Agent { .. } => true,
-            Self::Process(_) => self.run(session).is_some(),
+            Self::Process(_) | Self::WindowProcess { .. } => self.run(session).is_some(),
             Self::Claude { id, .. } => {
                 session.claude.tasks.can_stop(id) && self.run(session).is_some()
             }
@@ -123,7 +126,7 @@ impl TaskRef<'_> {
 
 fn agent_field<'a>(
     data: &'a Value,
-    session: &'a SessionState,
+    report: Option<&'a Value>,
     field: TaskField,
 ) -> Option<&'a Value> {
     Some(match field {
@@ -131,7 +134,7 @@ fn agent_field<'a>(
         TaskField::Parent => &data["parentThreadId"],
         TaskField::DirectInput => &data["canAcceptDirectInput"],
         TaskField::Report | TaskField::ReportState => {
-            let report = session.codex_panel.reports.get(data["id"].as_str()?)?;
+            let report = report?;
             &report[if field == TaskField::Report {
                 "message"
             } else {

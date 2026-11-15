@@ -127,14 +127,14 @@ impl Manager {
         client: carlos_proto::ids::ClientId,
     ) {
         let canonical = serde_json::to_vec(&command).expect("typed command");
-        let (session, operation, work, recovery, class) =
-            match super::mutation_work::prepare(command) {
-                Ok(parts) => parts,
-                Err(reason) => {
-                    self.fail(peer, id, reason);
-                    return;
-                }
-            };
+        let (session, operation, work, recovery, class) = match self.prepare_mutation(peer, command)
+        {
+            Ok(parts) => parts,
+            Err(reason) => {
+                self.fail(peer, id, reason);
+                return;
+            }
+        };
         let result = match self.retry.admit(
             &client,
             operation,
@@ -173,5 +173,19 @@ impl Manager {
                 self.reply(peer, id, result);
             }
         }
+    }
+
+    fn prepare_mutation(
+        &self,
+        peer: u64,
+        command: Command,
+    ) -> Result<super::mutation_work::Prepared, carlos_proto::commands::RpcError> {
+        let window = self.task_command_context(peer, &command)?;
+        let mut prepared = super::mutation_work::prepare(command)?;
+        if let carlos_core::engine::EngineCommand::TaskStop { window: target, .. } = &mut prepared.2
+        {
+            *target = window;
+        }
+        Ok(prepared)
     }
 }

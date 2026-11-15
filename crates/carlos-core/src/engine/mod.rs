@@ -18,6 +18,7 @@ mod ring;
 mod settle;
 mod target;
 mod task_stops;
+mod task_windows;
 mod timers;
 mod workers;
 
@@ -39,6 +40,7 @@ pub use self::ring::EngineFrame;
 
 /// Only explicit session reads and commands enter the owner, never native method strings.
 pub enum EngineCommand {
+    TaskWindow(crate::session::task_windows::WindowCommand),
     TaskSnapshot,
     TaskOverview {
         expected: Option<carlos_proto::ids::TaskRevision>,
@@ -53,26 +55,31 @@ pub enum EngineCommand {
         limit: usize,
     },
     TaskStop {
+        window: Option<crate::session::task_windows::WindowContext>,
         operation: ClientOperation,
         task: carlos_proto::ids::TaskId,
         expected_run: carlos_proto::ids::TaskRun,
     },
     TaskRun {
+        window: Option<crate::session::task_windows::WindowContext>,
         task: carlos_proto::ids::TaskId,
         read: Option<carlos_proto::ids::TaskReadId>,
         refresh: bool,
     },
     TaskList {
+        window: Option<crate::session::task_windows::WindowContext>,
         expected: Option<carlos_proto::ids::TaskRevision>,
         after: Option<carlos_proto::ids::TaskId>,
         limit: usize,
         refresh: bool,
     },
     TaskDetail {
+        window: Option<crate::session::task_windows::WindowContext>,
         expected: carlos_proto::ids::TaskRevision,
         task: carlos_proto::ids::TaskId,
     },
     TaskText {
+        window: Option<crate::session::task_windows::WindowContext>,
         expected: carlos_proto::ids::TaskRevision,
         task: carlos_proto::ids::TaskId,
         field: carlos_proto::tasks::TaskField,
@@ -170,6 +177,8 @@ pub enum EngineCommand {
 
 /// Replies carry facts or typed failures without retaining any client's editor.
 pub enum EngineReply {
+    TaskWindow(carlos_proto::task_windows::TaskWindow),
+    TaskWindowClosed,
     TaskSnapshot(carlos_proto::task_facts::TaskSnapshot),
     TaskOverview(carlos_proto::task_overview::TaskOverviewPage),
     TaskOverviewText(carlos_proto::task_overview::TaskOverviewText),

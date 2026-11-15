@@ -14,6 +14,7 @@ use super::state::SessionState;
 use super::task_rows::TaskRef;
 use super::task_stop_claims::StopClaim;
 use super::task_stop_target::{process_identity, StopTarget};
+use super::task_windows::WindowContext;
 use crate::backend::BackendKind;
 use crate::backend_commands::CommandHandle;
 use crate::dispatch_guard::DispatchGuard;
@@ -50,16 +51,40 @@ impl TaskStopWork {
 }
 
 impl SessionState {
+    #[cfg(test)]
     pub(in crate::session) fn prepare_task_stop(
         &mut self,
         operation: ClientOperation,
         task: TaskId,
         expected: TaskRun,
     ) -> Result<TaskStopWork, RpcError> {
-        let target = self.task_stop_target(&task, &expected)?;
-        let claim =
-            self.task_stops
-                .begin(operation.clone(), task.clone(), expected.clone(), target)?;
+        self.prepare_task_stop_in(None, operation, task, expected)
+    }
+
+    pub(in crate::session) fn prepare_task_stop_in(
+        &mut self,
+        window: Option<WindowContext>,
+        operation: ClientOperation,
+        task: TaskId,
+        expected: TaskRun,
+    ) -> Result<TaskStopWork, RpcError> {
+        let target = self.task_stop_target_in(window.as_ref(), &task, &expected)?;
+        if matches!(target, StopTarget::Process { .. })
+            && window
+                .as_ref()
+                .is_some_and(|context| !self.window_process_verified(context, &task))
+        {
+            return Err(failure(
+                "the original process needs a fresh item/PID proof; no stop sent",
+            ));
+        }
+        let claim = self.task_stops.begin_in(
+            operation.clone(),
+            task.clone(),
+            expected.clone(),
+            target,
+            window,
+        )?;
         if let StopTarget::Claude { task, run } = &claim.target {
             match self.claude.tasks.stops.begin(task, Some(run)) {
                 Ok(true) => {}
@@ -78,13 +103,18 @@ impl SessionState {
         })
     }
 
-    fn task_stop_target(&self, task: &TaskId, expected: &TaskRun) -> Result<StopTarget, RpcError> {
+    fn task_stop_target_in(
+        &self,
+        window: Option<&WindowContext>,
+        task: &TaskId,
+        expected: &TaskRun,
+    ) -> Result<StopTarget, RpcError> {
         if self.events.backend_closed {
             return Err(failure(
                 "the native backend is closed; task stop was not sent",
             ));
         }
-        let rows = self.task_rows();
+        let rows = self.task_control_rows_in(window)?;
         let row = rows
             .iter()
             .find(|row| row.id(self) == *task)
@@ -94,6 +124,10 @@ impl SessionState {
                 "the task run changed or is unknown; task stop was not sent",
             ));
         }
+        self.checked_stop_target(row)
+    }
+
+    fn checked_stop_target(&self, row: &TaskRef<'_>) -> Result<StopTarget, RpcError> {
         match row {
             TaskRef::Agent { .. } => {
                 let (turn, status) = row
@@ -107,7 +141,7 @@ impl SessionState {
                     turn: turn.into(),
                 })
             }
-            TaskRef::Process(process) => {
+            TaskRef::Process(process) | TaskRef::WindowProcess { row: process, .. } => {
                 let (item, pid) = process_identity(&process.data)
                     .ok_or_else(|| failure("native process identity is unsupported or unknown"))?;
                 Ok(StopTarget::Process {

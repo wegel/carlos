@@ -53,6 +53,7 @@ impl Default for TaskPublication {
 impl SessionState {
     /// Mark an actual native metadata write without touching the transcript journal.
     pub(in crate::session) fn task_metadata_changed(&mut self) {
+        self.task_windows.latest_bytes = None;
         self.task_publication.metadata_dirty = true;
         self.task_publication.overview_dirty = true;
     }
@@ -71,6 +72,9 @@ impl SessionState {
             && self.task_publication.approval_revision != self.approval.revision;
         if !overview_changed && !counts_changed {
             return false;
+        }
+        if metadata_changed {
+            self.enforce_task_window_bytes();
         }
         #[cfg(test)]
         {
@@ -137,7 +141,7 @@ impl SessionState {
         for row in rows {
             match row {
                 TaskRef::Agent { .. } => counts.agents += 1,
-                TaskRef::Process(_) => counts.processes += 1,
+                TaskRef::Process(_) | TaskRef::WindowProcess { .. } => counts.processes += 1,
                 TaskRef::Claude { .. } => counts.tasks += 1,
             }
         }

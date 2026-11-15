@@ -103,7 +103,7 @@ pub(super) fn timeout(session: &SessionState, request: &Request) -> u64 {
                 })
                 .map(|read| read.started)
         });
-    if let Some(started) = started {
+    if let Some(started) = started.or_else(|| session.task_windows.started(request.token)) {
         return Duration::from_secs(20)
             .saturating_sub(started.elapsed())
             .as_millis()

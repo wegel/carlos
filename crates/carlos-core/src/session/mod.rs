@@ -173,6 +173,13 @@ mod task_stop_work;
 #[cfg(test)]
 mod task_view_tests;
 mod task_views;
+mod task_window_bytes;
+mod task_window_receive;
+mod task_window_rows;
+mod task_window_state;
+#[cfg(test)]
+mod task_window_tests;
+pub mod task_windows;
 mod transcript_journal;
 
 #[cfg(test)]

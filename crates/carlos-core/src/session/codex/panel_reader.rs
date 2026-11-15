@@ -9,7 +9,7 @@ use super::panel_lineage::belongs;
 use super::panel_state::{Process, Request, Snapshot, MAX_AGENTS, MAX_BYTES, MAX_PROCESSES};
 
 /// Let the caller retain its native request token, allocate a new one, or publish a complete read.
-pub(super) enum PageStep {
+pub(in crate::session) enum PageStep {
     Continue(Value),
     Read { method: &'static str, params: Value },
     Complete,
@@ -17,7 +17,12 @@ pub(super) enum PageStep {
 
 impl Snapshot {
     /// Capture one root and bounded window before the caller queues its first native request.
-    pub(super) fn new(root: &str, revision: u64, cursor: Value, older_window: bool) -> Self {
+    pub(in crate::session) fn new(
+        root: &str,
+        revision: u64,
+        cursor: Value,
+        older_window: bool,
+    ) -> Self {
         Self {
             root: root.into(),
             request: Request {
@@ -44,8 +49,10 @@ impl Snapshot {
     }
 
     /// Keep the last complete window usable when a malformed or oversized native page fails.
-    pub(super) fn page(&mut self, result: &Value) -> Result<PageStep, String> {
-        self.bytes = self.bytes.saturating_add(result.to_string().len());
+    pub(in crate::session) fn page(&mut self, result: &Value) -> Result<PageStep, String> {
+        self.bytes = self
+            .bytes
+            .saturating_add(crate::session::task_window_bytes::encoded_bytes(result));
         if self.bytes > MAX_BYTES || self.started.elapsed() > Duration::from_secs(20) {
             return Err("Panel read exceeds 8 MiB or 20 seconds; previous rows retained".into());
         }
@@ -58,7 +65,7 @@ impl Snapshot {
     }
 
     /// Retain an unavailable process scope without treating it as a successful empty list.
-    pub(super) fn process_failed(&mut self, message: &str) -> PageStep {
+    pub(in crate::session) fn process_failed(&mut self, message: &str) -> PageStep {
         let short: String = crate::session::text::safe_text(message)
             .chars()
             .take(256)
@@ -75,7 +82,7 @@ impl Snapshot {
     }
 
     /// Export only ids whose native parent chains reach the root captured at the start.
-    pub(super) fn verified_owners(&self) -> impl Iterator<Item = String> + '_ {
+    pub(in crate::session) fn verified_owners(&self) -> impl Iterator<Item = String> + '_ {
         self.lineage
             .keys()
             .filter(|id| belongs(id, &self.root, &self.lineage))

@@ -65,6 +65,7 @@ pub(crate) fn read_kind(command: &Command) -> Kind {
         }),
         Command::TaskDetail {
             session,
+            window: _,
             expected,
             task,
         } => Kind::TaskDetail(TaskTarget {
@@ -74,6 +75,7 @@ pub(crate) fn read_kind(command: &Command) -> Kind {
         }),
         Command::TaskText {
             session,
+            window: _,
             expected,
             task,
             field,
