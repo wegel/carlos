@@ -12,7 +12,7 @@ use crate::codex_connection::CodexClient;
 use crate::codex_snapshot::{BootstrapHistory, CodexSnapshot};
 use crate::protocol_params::initialize_client;
 
-fn serve(listener: UnixListener) -> Vec<String> {
+fn serve(listener: UnixListener, saved: Option<Value>) -> Vec<String> {
     let mut socket = tungstenite::accept(listener.accept().expect("native connection").0)
         .expect("native WebSocket");
     let mut methods = Vec::new();
@@ -23,6 +23,9 @@ fn serve(listener: UnixListener) -> Vec<String> {
         let result = match method {
             "initialize" => json!({}),
             "initialized" => continue,
+            "thread/turns/list" if saved.is_some() => {
+                json!({"data": saved, "nextCursor": null})
+            }
             "thread/turns/list" => {
                 socket
                     .send(Message::Text(
@@ -54,7 +57,11 @@ fn bootstrap(
     ready: bool,
 ) -> (Option<CodexSnapshot>, Value, Vec<String>) {
     let (directory, listener) = endpoint();
-    let server = thread::spawn(move || serve(listener));
+    let saved = turns
+        .as_array()
+        .filter(|turns| !turns.is_empty())
+        .map(|_| turns.clone());
+    let server = thread::spawn(move || serve(listener, saved));
     let mut client =
         CodexClient::start(Some(directory.path().join("rpc.sock"))).expect("native attach");
     let receiver = client.take_events_rx().expect("ordered events");
@@ -105,13 +112,14 @@ fn existing_thread_history_errors_cannot_turn_into_a_successful_empty_snapshot()
 }
 
 #[test]
-fn new_thread_cannot_silently_drop_turns_from_its_start_response() {
-    let (snapshot, frame, methods) = bootstrap(
-        BootstrapHistory::NewThread,
-        json!([{"id":"unexpected","items":[]}]),
-        false,
+fn a_start_response_with_materialized_turns_still_reads_every_saved_turn() {
+    let turns = json!([{"id":"materialized","status":"completed","items":[{
+        "id":"saved-answer","type":"agentMessage","text":"Keep this exact native answer"}]}]);
+    let (snapshot, _, methods) = bootstrap(BootstrapHistory::NewThread, turns.clone(), true);
+    assert_eq!(
+        snapshot.expect("complete materialized snapshot").thread["turns"],
+        turns
     );
-    assert!(snapshot.is_none());
-    assert!(frame.to_string().contains("unexpectedly contains history"));
-    assert_eq!(methods, ["initialize", "initialized"]);
+    assert!(methods.iter().any(|method| method == "thread/turns/list"));
+    assert!(methods.iter().any(|method| method == "thread/read"));
 }

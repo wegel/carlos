@@ -14,7 +14,7 @@ use crate::protocol_params::{extract_result_object, initialize_client, params_th
 /// Distinguish a newly created native thread from an existing thread with saved turns.
 #[derive(Clone, Copy)]
 pub enum BootstrapHistory {
-    /// The successful thread/start response proves that this thread has no turns yet.
+    /// A thread/start response with no turns does not yet have saved history to read.
     NewThread,
     /// Resume and reconnect must read every saved turn before replacing session facts.
     ExistingThread,
@@ -123,13 +123,11 @@ fn initial_history(
     thread: &str,
     history: BootstrapHistory,
 ) -> Result<Value> {
-    if matches!(history, BootstrapHistory::NewThread) {
-        let fresh = &parsed["result"]["thread"];
-        ensure!(
-            fresh["turns"].as_array().is_some_and(Vec::is_empty),
-            "New Codex thread unexpectedly contains history"
-        );
-        // Codex does not materialize a new thread's saved history until its first prompt.
+    let fresh = &parsed["result"]["thread"];
+    if matches!(history, BootstrapHistory::NewThread)
+        && fresh["turns"].as_array().is_some_and(Vec::is_empty)
+    {
+        // Codex does not materialize an empty new thread until its first prompt.
         return Ok(fresh.clone());
     }
     let history = load_thread_history(
