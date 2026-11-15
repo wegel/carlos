@@ -318,3 +318,6 @@ fn assert_complete_rows(text: &str, prepared: crate::app::render_entry_cache::Pr
 
 #[path = "transcript_formatter_selection_tests.rs"]
 mod selection_tests;
+
+#[path = "transcript_formatter_worker_probe.rs"]
+mod worker_probe;

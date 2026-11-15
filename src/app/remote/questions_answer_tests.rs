@@ -57,6 +57,23 @@ fn claude_single_multiple_and_other_fields_preserve_selected_values_and_whitespa
     }
 }
 
+fn codex_field_draft(
+    input: &ApprovalInput,
+    selected: bool,
+    text: &str,
+    omitted: bool,
+) -> NativeDraft {
+    let mut draft = NativeDraft::from_input(input);
+    let field = &mut draft.fields[0];
+    if selected {
+        field.select();
+    }
+    field.use_text = !text.is_empty();
+    field.editor.insert_str(text);
+    field.omitted = omitted;
+    draft
+}
+
 #[test]
 fn codex_fields_keep_choice_values_raw_notes_and_explicit_omission_for_the_owner() {
     for (options, is_other, selected, text, omitted, expected_values, expected_text) in [
@@ -109,14 +126,7 @@ fn codex_fields_keep_choice_values_raw_notes_and_explicit_omission_for_the_owner
             },
             notes,
         );
-        let mut draft = NativeDraft::from_input(&input);
-        let field = &mut draft.fields[0];
-        if selected {
-            field.select();
-        }
-        field.use_text = !text.is_empty();
-        field.editor.insert_str(text);
-        field.omitted = omitted;
+        let draft = codex_field_draft(&input, selected, text, omitted);
         assert_eq!(
             content(&input, &draft, Backend::Codex),
             json!({"fields":[{

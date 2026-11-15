@@ -119,7 +119,11 @@ The daemon already proves basic chat, approvals, running output, independent cli
 
 - [x] (2026-11-15) Close the mixed goal/panel test split after native19 and committed private map64430e6 pass: actual Device4, new goalPTY2, existing goal/panelPTY8 and strengthened installed-native1. Retire exactly27 old cases plus their single-use support and five proven-dead cfgtest forwards. Preserve the documented unreachable orphan-focus distinction and ordinary plain-consent F3 behavior. The separate Esc repair3a6ab36 keeps a queued blocking card visible using the existing automatic question chooser.
 
+- [x] (2026-11-15) Land the six native57 Claude test checkpoints through e294ae6, queue split/recovery guard badb6e6 and final callback23 split d91cc6c. Each normal full-workspace hook passes; all six native staged prefixes also pass isolated all-target checks. Only Claude native edit/process33 and their private phone/status/reset counterparts plus quota3 remain before the physical runtime deletion.
+
 ## Surprises & Discoveries
+
+The old queue tests exposed a missing local rewind guard. The Core actor cannot see a terminal's unsent queue recovery text, and the Device did not check it. The exact guarded/unguarded Device test fails without the three-line local check, then passes with zero submitted operations; explicit recovery permits the same captured rewind target. The patch adds no protocol or shared owner state.
 
 The old plain-approval paste case fabricated focused=true after deleting every callback and editor. The actual terminal has no corresponding accepted-card state. The private map preserves typed unsupported/form paste safety and the existing plain-consent composer/F3 workflow, rather than restore that orphan flag. Five additional test-only goal/panel/Ralph forwards became unused after their final callers moved; strict lint found them and they retire with the old tests.
 
@@ -193,6 +197,8 @@ The cutover draft no longer calls the source-reader helper from the terminal exe
 The installed Codex CLI distinguishes a new, unmaterialized thread from an existing empty saved thread. A native probe in `/tmp/carlos-ep019b/native-fresh-read-probe/rpc.jsonl` shows thread/start succeeds with turns=[], metadata/queue/goal reads succeed, and thread/turns/list returns-32600 before a user message. Treating that failure as a general empty-history fallback would discard real resumed history, so the caller must carry the known launch scope.
 
 ## Decision Log
+
+- 2026-11-15: Measure the actual formatter thread through checked Bodies cache admission in one ignored test. Keep input pieces bounded and sample both resize directions and tail readiness. Report kernel memory separately from retained row payload; exclude the busy-host dev smoke timings. Add no runtime instrumentation API or new worker.
 
 - 2026-11-15: Retire the original goal/panel tests only after the exact private map passes. Keep Core native19, Device4 and actual terminal/native proofs; remove only the five now-unused cfgtest delegates. Preserve ordinary plain-consent paste/F3 behavior instead of fabricating the old orphan focus flag.
 
@@ -271,6 +277,8 @@ Decision: cap retained session facts across one Client at 64 MiB and defer futur
   Date/Author: 2026-11-15, Codex.
 
 ## Outcomes & Retrospective
+
+Native57, queuebadb6e6 and callbackd91cc6c are committed with passing normal hooks. Their exact native/private maps retire the old owner fixtures without a replacement frontend facade. Root registers a checked test-only formatter measurement probe; its two small functional smokes pass privately and no final timing is claimed. Final input/binary identities and real socket measurement driver are prepared under final-gate-preparation. The physical deletion, final runtime/release matrices, large-source high water and quiet matched timings remain open. Backend owns native33; the existing renderer worker owns only their remaining local phone/process/quota clauses.
 
 The original27 mixed goal/panel tests are ready to retire against d1adc18 and64430e6. C2 Esc3a6ab36 and renderer Reset8e07c18 are committed with passing normal hooks. The fresh private deletion preview retains344 passing frontend tests/sevenignored and passes all-target no-default workspace checking on its own target; ten pending native modules still exclude that preview from final acceptance. Backend57 successors are privately green and await coherent registration after this retirement. The existing renderer worker takes the independent queue8 split while C2 finishes parent questions/approval lifetime. No final runtime/performance gate or review has run.
 
@@ -865,3 +873,5 @@ Update2026-11-15: native goal/panel successors are privately green; ten addition
 Update2026-11-15: d1adc18 and7f6bf13 pass normal full-workspace hooks; the source/index slot passes to the checked Reset fix, then the exact Esc/private-goal cases. The old runtime is still registered until every native/private test clause is mapped.
 
 Update2026-11-15: refreshed three stale feature checkboxes separately from final acceptance. The explicit socket terminal, typed command families and pure client are implemented; old-test retirement, physical default cutover, joined runtime checks and final measurements/reviews remain open. Fresh private deletion preview8e07c18 retains all current pure tests, explicitly omits ten pending native modules, and uses its own deletion-join-target; it is not acceptance.
+
+Update2026-11-15: record the six native57 commits, final callback/queue owner retirement and causal local queue recovery guard. Prepare actual-worker memory/append/resize measurements without claiming timing from concurrent builds. All final review and approval gates remain open.
