@@ -86,7 +86,7 @@ impl ApprovalState {
                 retired.extend(self.pending.take().map(|p| p.entry_id()));
                 self.pending = Some(PendingApprovalRequest {
                     entry_id,
-                    facts,
+                    facts: Arc::new(facts),
                     answer_submitted: false,
                     live: Arc::new(AtomicBool::new(true)),
                 });
@@ -94,7 +94,7 @@ impl ApprovalState {
             ApprovalChange::Enqueue(facts, entry_id, queue) => {
                 self.queue_mut(queue).push_back(PendingApprovalRequest {
                     entry_id,
-                    facts,
+                    facts: Arc::new(facts),
                     answer_submitted: false,
                     live: Arc::new(AtomicBool::new(true)),
                 });

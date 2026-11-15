@@ -55,7 +55,7 @@ pub struct ApprovalRequestDraft {
 #[derive(Debug)]
 pub struct PendingApprovalRequest {
     entry_id: crate::session::entry_id::EntryId,
-    facts: ApprovalRequestDraft,
+    facts: Arc<ApprovalRequestDraft>,
     answer_submitted: bool,
     live: Arc<AtomicBool>,
 }
@@ -63,7 +63,7 @@ pub struct PendingApprovalRequest {
 /// One claimed live card; dropping the session card invalidates undispatched worker work.
 pub(crate) struct ApprovalClaim {
     pub(crate) card: crate::session::entry_id::EntryId,
-    pub(crate) facts: ApprovalRequestDraft,
+    pub(crate) facts: Arc<ApprovalRequestDraft>,
     pub(crate) live: Arc<AtomicBool>,
 }
 
@@ -99,7 +99,7 @@ impl PendingApprovalRequest {
 
     /// Copy facts into a new draft without copying the card's identity.
     pub fn to_draft(&self) -> ApprovalRequestDraft {
-        self.facts.clone()
+        self.facts.as_ref().clone()
     }
 }
 

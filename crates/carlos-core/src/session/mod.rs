@@ -257,3 +257,8 @@ mod grok_startup;
 
 #[cfg(test)]
 mod runtime_behavior_tests;
+
+#[cfg(test)]
+mod approval_allocation_tests;
+#[cfg(test)]
+mod approval_control_test_support;
