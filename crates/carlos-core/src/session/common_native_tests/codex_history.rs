@@ -2,13 +2,13 @@
 
 use std::io::Cursor;
 
-use carlos_core::session::models::Role;
+use crate::session::models::Role;
+use crate::session::state::SessionState;
 use serde_json::{json, Value};
 
-use super::{
-    handle_notification_line, load_history_from_start_or_resume, parse_rollout_history,
-    prefer_complete_rollout_history, AppState,
-};
+use super::{feed as handle_notification_line, session};
+use crate::session::codex::history::{parse_rollout_history, prefer_complete_rollout_history};
+use crate::session::item_history::load_history_from_start_or_resume;
 
 const STALE_REPLAY: &str = include_str!("fixtures/stale_transcript_replay.jsonl");
 
@@ -19,7 +19,7 @@ fn later_completed_turn_survives_unfinished_turn_and_duplicate_ordinal() {
     let server = truncated_server_thread(&rollout);
     let chosen = prefer_complete_rollout_history(server, rollout).expect("eligible legacy merge");
     let response = json!({"result": {"thread": chosen}}).to_string();
-    let mut app = AppState::new("thread-root".to_string());
+    let mut app = session("thread-root");
 
     load_history_from_start_or_resume(&mut app, &response).expect("load first snapshot");
     load_history_from_start_or_resume(&mut app, &response).expect("reload same snapshot");
@@ -32,14 +32,12 @@ fn later_completed_turn_survives_unfinished_turn_and_duplicate_ordinal() {
         1
     );
     let latest_assistant = app
-        .session
         .messages()
         .iter()
         .rfind(|message| message.role == Role::Assistant)
         .expect("latest assistant message");
     assert!(latest_assistant.text.starts_with("Committed EP118:"));
     assert!(app
-        .session
         .messages()
         .iter()
         .any(|message| message.role == Role::Commentary));
@@ -50,16 +48,16 @@ fn raw_records_cannot_duplicate_lifecycle_items() {
     let rollout = parse_rollout_history(Cursor::new(STALE_REPLAY), "thread-root")
         .expect("parse rollout fixture");
     let response = json!({"result": {"thread": rollout}}).to_string();
-    let mut app = AppState::new("thread-root".to_string());
+    let mut app = session("thread-root");
     load_history_from_start_or_resume(&mut app, &response).expect("load snapshot");
-    let initial_count = app.session.messages().len();
+    let initial_count = app.messages().len();
 
     handle_notification_line(
         &mut app,
         r#"{"method":"codex/event/raw_response_item","params":{"msg":{"item":{"type":"function_call_output","call_id":"command-old","output":"old command output"}}}}"#,
     );
 
-    assert_eq!(app.session.messages().len(), initial_count);
+    assert_eq!(app.messages().len(), initial_count);
     assert_eq!(message_count(&app, "old command output"), 1);
 }
 
@@ -102,7 +100,7 @@ fn reconnect_during_stream_replaces_snapshot_and_completed_item_once() {
         }]}}
     })
     .to_string();
-    let mut app = AppState::new("thread-root".to_string());
+    let mut app = session("thread-root");
     load_history_from_start_or_resume(&mut app, &snapshot).expect("load streamed snapshot");
     load_history_from_start_or_resume(&mut app, &snapshot).expect("reload streamed snapshot");
 
@@ -118,14 +116,14 @@ fn reconnect_during_stream_replaces_snapshot_and_completed_item_once() {
         r#"{"method":"item/agentMessage/delta","params":{"threadId":"thread-root","turnId":"turn-stream","itemId":"message-stream","delta":" continued"}}"#,
     );
 
-    assert_eq!(app.session.messages().len(), 1);
-    assert_eq!(app.session.messages()[0].role, Role::Assistant);
-    assert_eq!(app.session.messages()[0].text, "partial continued");
+    assert_eq!(app.messages().len(), 1);
+    assert_eq!(app.messages()[0].role, Role::Assistant);
+    assert_eq!(app.messages()[0].text, "partial continued");
 }
 
 #[test]
 fn late_turn_completion_cannot_finish_a_newer_active_turn() {
-    let mut app = AppState::new("thread-root".to_string());
+    let mut app = session("thread-root");
     handle_notification_line(
         &mut app,
         r#"{"method":"turn/started","params":{"threadId":"thread-root","turn":{"id":"turn-new","status":"inProgress"}}}"#,
@@ -134,18 +132,18 @@ fn late_turn_completion_cannot_finish_a_newer_active_turn() {
         &mut app,
         r#"{"method":"turn/completed","params":{"threadId":"thread-root","turn":{"id":"turn-old","status":"completed"}}}"#,
     );
-    assert_eq!(app.session.active_turn_id().as_deref(), Some("turn-new"));
+    assert_eq!(app.active_turn_id().as_deref(), Some("turn-new"));
 
     handle_notification_line(
         &mut app,
         r#"{"method":"turn/completed","params":{"threadId":"thread-root","turn":{"id":"turn-new","status":"completed"}}}"#,
     );
-    assert_eq!(*app.session.active_turn_id(), None);
+    assert_eq!(*app.active_turn_id(), None);
 }
 
 #[test]
 fn command_output_completion_replaces_streamed_output() {
-    let mut app = AppState::new("thread-root".to_string());
+    let mut app = session("thread-root");
     handle_notification_line(
         &mut app,
         r#"{"method":"item/started","params":{"threadId":"thread-root","turnId":"turn-stream","item":{"type":"commandExecution","id":"command-stream"}}}"#,
@@ -163,21 +161,21 @@ fn command_output_completion_replaces_streamed_output() {
         r#"{"method":"item/commandExecution/outputDelta","params":{"threadId":"thread-root","turnId":"turn-stream","itemId":"command-stream","delta":"partial"}}"#,
     );
 
-    assert_eq!(app.session.messages().len(), 1);
-    assert_eq!(app.session.messages()[0].role, Role::ToolOutput);
-    assert_eq!(app.session.messages()[0].text, "final output\nexit code: 1");
+    assert_eq!(app.messages().len(), 1);
+    assert_eq!(app.messages()[0].role, Role::ToolOutput);
+    assert_eq!(app.messages()[0].text, "final output\nexit code: 1");
 }
 
 #[test]
 fn notification_for_another_thread_cannot_change_transcript() {
-    let mut app = AppState::new("thread-root".to_string());
+    let mut app = session("thread-root");
 
     handle_notification_line(
         &mut app,
         r#"{"method":"item/completed","params":{"threadId":"thread-other","turnId":"turn-other","item":{"type":"agentMessage","id":"message-other","phase":"final_answer","text":"wrong thread"}}}"#,
     );
 
-    assert!(app.session.messages().is_empty());
+    assert!(app.messages().is_empty());
 }
 
 #[test]
@@ -197,19 +195,15 @@ fn user_items_keep_their_turn_ids_after_reload_and_live_completion() {
     let rollout = parse_rollout_history(Cursor::new(STALE_REPLAY), "thread-root")
         .expect("parse rollout fixture");
     let response = json!({"result": {"thread": rollout}}).to_string();
-    let mut app = AppState::new("thread-root".to_string());
+    let mut app = session("thread-root");
     load_history_from_start_or_resume(&mut app, &response).expect("load snapshot");
-    app.enter_rewind_mode();
-    assert_eq!(app.rewind_selected_turn_id(), Some("turn-later"));
-    app.exit_rewind_mode_restore();
+    assert_eq!(latest_prompt_turn(&app), Some("turn-later"));
 
     let completed = r#"{"method":"item/completed","params":{"threadId":"thread-root","turnId":"turn-live","item":{"type":"userMessage","id":"user-live","content":[{"type":"text","text":"Commit EP118"}]}}}"#;
     handle_notification_line(&mut app, completed);
     handle_notification_line(&mut app, completed);
-    app.enter_rewind_mode();
-
-    assert_eq!(app.submitted_turn_count(), 2);
-    assert_eq!(app.rewind_selected_turn_id(), Some("turn-live"));
+    assert_eq!(app.input_history().history_len(), 2);
+    assert_eq!(latest_prompt_turn(&app), Some("turn-live"));
 }
 
 fn truncated_server_thread(rollout: &Value) -> Value {
@@ -219,9 +213,8 @@ fn truncated_server_thread(rollout: &Value) -> Value {
     })
 }
 
-fn message_count(app: &AppState, needle: &str) -> usize {
-    app.session
-        .messages()
+fn message_count(app: &SessionState, needle: &str) -> usize {
+    app.messages()
         .iter()
         .filter(|message| message.text.contains(needle))
         .count()
@@ -323,16 +316,15 @@ fn legacy_recovery_rejects_conflicting_shared_item_order() {
 }
 
 #[test]
-fn terminal_codex_close_fences_late_turn_items_callbacks_and_keeps_the_composer() {
-    let mut app = AppState::new("thread-root".into());
-    app.set_input_text("keep my 日本語 draft");
+fn terminal_codex_close_fences_late_turn_items_and_callbacks() {
+    let mut app = session("thread-root");
     handle_notification_line(&mut app,&json!({"method":"turn/started","params":{"threadId":"thread-root","turn":{"id":"active"}}}).to_string());
     handle_notification_line(
         &mut app,
         &json!({"method":"carlos/codex/closed","params":{"message":"native EOF"}}).to_string(),
     );
-    assert!(app.session.codex_scope().closed());
-    let count = app.session.messages().len();
+    assert!(app.codex_scope().closed());
+    let count = app.messages().len();
     for event in [
         json!({"method":"turn/started","params":{"threadId":"thread-root","turn":{"id":"late"}}}),
         json!({"method":"item/completed","params":{"threadId":"thread-root","turnId":"late","item":{"type":"agentMessage","id":"late-text","text":"must not reactivate"}}}),
@@ -341,8 +333,13 @@ fn terminal_codex_close_fences_late_turn_items_callbacks_and_keeps_the_composer(
     ] {
         handle_notification_line(&mut app, &event.to_string());
     }
-    assert!(app.session.active_turn_id().is_none());
-    assert!(app.session.approval().pending().is_none());
-    assert_eq!(app.session.messages().len(), count);
-    assert_eq!(app.view.input.lines().join("\n"), "keep my 日本語 draft");
+    assert!(app.active_turn_id().is_none());
+    assert!(app.approval().pending().is_none());
+    assert_eq!(app.messages().len(), count);
+}
+
+fn latest_prompt_turn(app: &SessionState) -> Option<&str> {
+    let history = app.input_history();
+    let index = history.history_len().checked_sub(1)?;
+    history.turn_id(history.entry_id(index)?)
 }

@@ -1,6 +1,8 @@
 //! Keep native parser and transcript lifetime checks inside the session owner.
 
 mod activity;
+mod codex_history;
+mod codex_steer;
 mod forks;
 mod head_reference;
 mod history_conversation;
@@ -9,6 +11,7 @@ mod identity;
 mod identity_late;
 mod identity_support;
 mod idless_items;
+mod input_classification;
 mod item_sources;
 mod lookup_differential;
 mod lookup_extra;

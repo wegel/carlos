@@ -35,9 +35,6 @@ pub(super) use carlos_core::protocol_params::{
     params_thread_archive, params_turn_interrupt, params_turn_start, parse_thread_runtime_settings,
 };
 pub(super) use carlos_core::session::actions::ServerRequestAction;
-pub(super) use carlos_core::session::codex::history::{
-    parse_rollout_history, prefer_complete_rollout_history,
-};
 pub(super) use carlos_core::session::models::Message;
 pub(super) use carlos_core::session::tools::{
     command_execution_diff_output, extract_diff_blocks, format_tool_item,
@@ -53,8 +50,6 @@ mod claude_backend_tests;
 mod claude_context_tests;
 #[path = "tests/claude_edit_tests.rs"]
 mod claude_edit_tests;
-#[path = "tests/codex_history_tests.rs"]
-mod codex_history_tests;
 #[path = "tests/codex_order_tests.rs"]
 mod codex_order_tests;
 #[path = "tests/codex_question_support.rs"]
@@ -81,6 +76,9 @@ mod rtk_transcript_tests;
 mod runtime_tests;
 #[path = "tests/shell_command_tests.rs"]
 mod shell_command_tests;
+#[path = "tests/steer_render_tests.rs"]
+mod steer_render_tests;
+
 #[path = "tests/summary_render_tests.rs"]
 mod summary_render_tests;
 
@@ -96,9 +94,6 @@ mod tool_output_tests;
 mod transcript_spacing_tests;
 #[path = "tests/ui_render_tests.rs"]
 mod ui_render_tests;
-
-#[path = "tests/codex_steer_tests.rs"]
-mod codex_steer_tests;
 
 #[path = "tests/codex_panel_tests.rs"]
 mod codex_panel_tests;
@@ -119,9 +114,6 @@ mod codex_reconnect_tests;
 
 #[path = "tests/codex_reconnect_identity_tests.rs"]
 mod codex_reconnect_identity_tests;
-
-#[path = "tests/input_status_tests.rs"]
-mod input_status_tests;
 
 #[path = "tests/shell_directory_tests.rs"]
 mod shell_directory_tests;
