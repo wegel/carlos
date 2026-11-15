@@ -30,7 +30,8 @@ ansi-to-tui = "8.0.1"
 base64 = "0.22"
 blake3 = "1"
 cpal = { version = "0.17.3", optional = true }
-crossterm = "0.29"
+# Keep resize signals from stranding readable keyboard input on Unix.
+crossterm = { version = "0.29", features = ["use-dev-tty"] }
 libc = "0.2"
 ratatui = "0.29"
 ratatui-core = "0.1.0"

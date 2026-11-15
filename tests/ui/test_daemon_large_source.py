@@ -224,7 +224,10 @@ class DaemonLargeSource(unittest.TestCase):
             self.assert_text_color(terminal, late, "cd0000")
             terminal.paste("/tools full")
             terminal.send(b"\r")
-            terminal.wait(lambda: terminal.input_is(""), "local full-output preference accepted")
+            settings_path = terminal.root / "config/carlos/ui-settings.json"
+            terminal.wait(lambda: terminal.input_is("") and settings_path.exists()
+                          and json.loads(settings_path.read_text()).get("tool_output") == "full",
+                          "local full-output preference accepted")
             settings = json.loads((terminal.root / "config/carlos/ui-settings.json").read_text())
             self.assertEqual(settings["tool_output"], "full")
         terminal.daemon_recorder.pause_sources()

@@ -1,7 +1,7 @@
 # EP019b: run the terminal through the daemon and delete the embedded path
 
 
-This living ExecPlan follows `.agents/PLANS.md`. Keep Progress, Surprises & Discoveries, Decision Log and Outcomes & Retrospective current. The owner explicitly accepted EP019a in this conversation on 2026-11-14 and then requested autonomous execution. The owner originally requested direct work, then authorized natural independent Sol 6.1 High developer work. Root owns the physical terminal-path removal and final checks. The existing workers finish Claude native tests, question/goal private tests, and the independent eight-case native queue test family. The formatter and reset changes have landed. Keep these code areas separate and coordinate source and index slots for shared hooks. The owner separately authorized a Fable 5.2 medium review before each auto-approval; this reviewer may read but must not implement changes. Do not edit archived plans.
+This living ExecPlan follows `.agents/PLANS.md`. Keep Progress, Surprises & Discoveries, Decision Log and Outcomes & Retrospective current. The owner explicitly accepted EP019a in this conversation on 2026-11-14 and then requested autonomous execution. The owner originally requested direct work, then authorized natural independent Sol 6.1 High developer work. Root owns the physical terminal-path removal and final checks. All original developer assignments are complete. The existing Sol formatter worker completed the causal resize/input proof and four-path handoff; root applied the checked patch. It adds no viewport state. The existing backend-settings worker finished bounded diagnostics for one unexplained reset timeout and made no product change. Root owns final checks, measured evidence and closeout. Keep these code areas separate and coordinate source and index slots for shared hooks. The owner separately authorized a Fable 5.2 medium review before each auto-approval; this reviewer may read but must not implement changes. Do not edit archived plans.
 
 ## Purpose / Big Picture
 
@@ -11,6 +11,13 @@ After this step, closing a terminal leaves its conversation running in `carlosd`
 The daemon already proves basic chat, approvals, running output, independent clients, private command recovery and saved-session restore. This step completes the terminal-facing commands, adds a pure shared Rust client, and removes the temporary embedded route. It does not add TCP, device pairing or phone code. The owner delegated approval of completed EPs on 2026-11-14 and requested continued work through the next EPs. Pass every check and the direct engineering review; obtain the owner-requested Fable 5.2 medium whole-roadmap review and address its findings using judgment. Record the auto-approval, then begin EP020. Keep the installed executable unchanged; do not merge into main or push without the owner's request.
 
 ## Progress
+
+- [x] (2026-11-15) Reproduce lost keyboard readiness in Crossterm0.29 with a controlled PTY: old backend returns only Resize, new built-in use-dev-tty backend passes eight fresh batches. Private combined64MiB ANSI/16MiBMarkdown passes14.592s with all immediate resize→End, source/style/typing/copy/reconnect assertions. Apply exactly four checked Cargo/lock/regression/fixture paths; source0c6328b2a7092fb34375d8ece4e8d65e matches private proof. Both feature test/lint matrices pass privately; root joined checks/commit and final gate are next. See exec019b-resize-input.md.
+
+- [x] (2026-11-15) Pass final-sourcefc0ee1 package/306terminal/source-selection/dictation/ANSI/23native remainder, then all143 daemon cases in73.169s through the unchanged-deadline failure-only runner. Original Claude reset timeout remains unexplained; original-case, coalesced-frame and six-case family probes pass, no runtime fix is claimed. Record all logs separately, not a fictitious clean gate05.
+- [ ] (2026-11-15) Finish exact-source large-body checks and metrics. The new frozen pair passes single-CPU1000send stress and nine managed-launcher cases;64MiBANSI passes. The16MiBMarkdown resize28→End case stays near the early viewport despite a decoded End and fails its40s deadline. Preserve /tmp/carlos-ep019b/final-evidence-fixed/large-source.log and artifacts. The original formatter worker is proving this order privately; no timing samples or final reviews have started.
+
+- [x] (2026-11-15) Finish the final fc0ee1 release feature/terminal/native checks through the original runner, complete terminal/native remainder and full143-case diagnostic daemon rerun. Keep the original142/143 failure separate: the settings worker found no reproducible cause in the original, coalesced-frame and six-case family probes, and made no product change. Native trace and bounded diagnostic handoff remain in the final report. The remaining final-source gap is the large Markdown resize→End case below.
 
 - [x] (2026-11-15) Pass release gate04 on c7370:306 terminal cases,143 daemon cases and23 installed native cases with the first Grok repair. A matching private real-pipe check then catches the supported empty explicit-native completion route bypassing its new identity. Four named cases now share the common completion emitter and preserve unsolicited-before-prompt behavior; all43 Grok cases/strict Core lint pass privately. Apply only the checked two-file follow-up, then renew final-source gates.
 
@@ -133,6 +140,12 @@ The daemon already proves basic chat, approvals, running output, independent cli
 
 ## Surprises & Discoveries
 
+The private metadata trace establishes the resize→End cause: Crossterms default Unix readiness reader returns Resize before reading a simultaneous keyboard token, then waits for a fresh edge. End reaches the handler only after cleanup sends Ctrl+C. Earlier keys.log presence proved eventual decoding, not timely handling. The common terminal-descriptor policy is unchanged by selecting the existing level-triggered backend. A separate saved-mode fixture predicate could match the old empty screen; wait for the exact accepted preference without adding any resize/layout fence.
+
+The final16MiBMarkdown source check passes its first120-column End/Home frames, then fails resize28 followed immediately by End. The key log proves resize and End were decoded with an empty composer; the screen remains near early text without a source error or panic. The64MiBANSI case passes. This is a concrete local gesture to preserve, not a reason to fence the fixture behind completed layout. The formatter worker is checking a causal source/layout ordering proof before a minimal repair.
+
+Gate05 exposes one intermittent Claude settings-reset wait after142 daemon passes. This case passed gates03/04. The native trace shows conversation_reset, init and set_model response; the Rust-side helper trace records context reply rust-4 but no later frames until shutdown. That trace is written before Reader::route, so it cannot by itself distinguish a Rust routing stall from a helper stream stall. Preserve /tmp/carlos-ep019b-final-ui-SmGH8L/daemon/carlos-daemon-claude-settings-reset-2xl7ecej and the8second failure. No cause or product repair is claimed yet.
+
 Grok can finish through either an ACP request result or an explicit _x.ai/session/update notification. An empty explicit notification bypassed the first repair. The same real-pipe schedule fails before moving empty-turn identity into the existing common emitter and passes afterward. The existing prompt epoch prevents a completion received before any prompt from inventing a turn. No extra field or mechanism is added.
 
 A final one-CPU socket stress exposes a real Grok acknowledgement race in both EP019a and current source. The native reader can complete a prompt before the send worker reports its write; Grok returned no exact turn ID, so core settlement could revive a finished turn and strand the next queued prompt. The real OS-pipe/Core test deliberately receives completion before settlement and fails on the old source. Unrestricted1000-send runs pass, but do not cover this schedule. Preserve socket-current-pinned and both pinned historical failures. Final approval remains open until the identity repair and renewed final-source gates pass.
@@ -215,6 +228,12 @@ The cutover draft no longer calls the source-reader helper from the terminal exe
 The installed Codex CLI distinguishes a new, unmaterialized thread from an existing empty saved thread. A native probe in `/tmp/carlos-ep019b/native-fresh-read-probe/rpc.jsonl` shows thread/start succeeds with turns=[], metadata/queue/goal reads succeed, and thread/turns/list returns-32600 before a user message. Treating that failure as a general empty-history fallback would discard real resumed history, so the caller must carry the known launch scope.
 
 ## Decision Log
+
+- 2026-11-15: Select Crossterms existing use-dev-tty backend on Unix, with its one newly locked filedescriptor dependency. The causal PTY and clean full-source checks prove the repair. Preserve all viewport state and input parsing, the immediate user gesture and original deadlines; add no custom poller or extra application state.
+
+- 2026-11-15: Preserve the original resize→End gesture and40s deadline. Reuse the authorized formatter worker for a bounded independent proof in an isolated checkout, with no primary/index edits until handoff. Do not add a generic scheduler/cache or reopen optional Unicode-index optimization. Keep the unexplained Claude-reset trace visible after its successful bounded probes and full143-case diagnostic recheck.
+
+- 2026-11-15: Reuse the existing authorized Sol backend-settings worker for this natural independent follow-up. Keep source/index frozen, obtain process/pipe evidence before changing code, preserve the original deadline and native assertions, and run the remaining terminal matrix in parallel. No additional reviewer or optional redesign is authorized by this step.
 
 - 2026-11-15: Share empty-turn identity at emit_turn_completed rather than only finish_prompt_turn, because both native completion forms call the emitter. Preserve unsolicited-before-prompt behavior with the existing prompt epoch. Keep four named causal cases and stop adding mechanisms to this focused repair.
 
@@ -303,6 +322,12 @@ Decision: cap retained session facts across one Client at 64 MiB and defer futur
   Date/Author: 2026-11-15, Codex.
 
 ## Outcomes & Retrospective
+
+The large-source failure now has a causal library-level proof and a minimal feature repair. All original developer tasks and focused follow-ups are complete. Root owns the joined final gate, fresh matching default release evidence, final reviews and delegated approval; no review or approval has occurred yet.
+
+All finalfc0ee1 Rust, terminal and native checks now pass with the original failed Claude-reset trace retained separately. Fresh single-CPU1000send and launcher9 checks also pass. The large-body check identifies resize→End behavior that still needs repair before final performance evidence, review or approval.
+
+Sourcefc0ee1 passes the Rust gates, and all43 focused Grok schedules remain checked. The final integrated daemon run exposes one unrelated settings-reset wait. Its original owner is collecting causal evidence while the root finishes terminal/native parity; measurements and reviews remain pending.
 
 The first repaired-source release gate also passes in full. The complete native-completion check finds and closes the remaining empty explicit-notification route in the same existing emitter. Final approval still requires renewed checks and measurements on that source, then the final engineering and Fable reviews.
 
