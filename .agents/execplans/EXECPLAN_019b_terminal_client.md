@@ -97,6 +97,8 @@ The daemon already proves basic chat, approvals, running output, independent cli
 - [x] (2026-11-15) Land mobile input as230c4e4. Reuse the pure viewport decoder, keep private ordinary code literal, and retain all prior fragment/direction rules. Fifteen focused tests and seven actual final-pair workflows pass, including two new causal regressions. The two-editor settings fixture now waits for the Settings title to disappear; its earlier footer-only fence was too weak while Save was pending. See exec019b-mobile-input.md.
 - [x] (2026-11-15) Repair dictated-text versus delayed prompt-read ownership. The actual Device test fails before the fix and passes afterward; stale results cannot cancel current navigation. Preserve the exact selected prompt record during rewind. The default dictation group passes57 tests/one ignored hardware case and strict workspace lint passes. See exec019b-dictation-history.md. No review, final approval or runtime cutover has run.
 
+- [x] (2026-11-15) Prove the private terminal cutover draft builds with and without dictation, then run the managed launcher without `--daemon`: all9 startup, concurrent-owner, detach/reattach, deadline and incompatible-companion cases pass. The physical deletion draft removes87 old runtime files in its isolated checkout; it is not yet the branch default or the deletion commit. New actual Device footer3 and history2 checks pass privately, and the phone help test now checks exact one-row Up, five-row PageUp and Home frames for both backends. The full298 actual-daemon workflow run is active against the frozen draft pair. Final joined source, release/native/performance checks, deletion commit and reviews remain open. See `.agents/reports/exec019b-cutover-draft.md`.
+
 ## Surprises & Discoveries
 
 The next full committed-prefix gate passes all143 daemon cases and297 of298 terminal cases. Its only failure expects the old send-error prefix after the daemon client already knows Codex is closed. The corrected fixture retains the draft and exactly one native start. A later repeat with flat frozen binaries exposes a test-wrapper helper path assumption and a real renderer fault: the plain ASCII counter includes ANSI escape bytes in word widths while the painter ignores them. Captured stderr reproduces that mismatch;9aa4c79 sends ESC-containing text through the existing exact counter and adds a causal actual-terminal regression. Do not treat these failed traces as successful whole-EP gates.
@@ -156,6 +158,8 @@ EP019a's normalized tool chunks deliberately strip terminal controls. `crates/ca
 Main has not advanced beyond `a29b1a1` at plan start. EP019a's final source is `58e9901`, closeout `614f296`. Its terminal binary is 20,346,176 bytes, SHA-256 `f03799c8ef130bc5967b6eb9cb24abf3aca2e312d747a4426281ec674711f979`. EP019a's raw artifacts remain under `/tmp/carlos-ep019a/`; its tracked report contains the exact methods if temporary evidence disappears.
 
 The shared client exposed a card-order defect: the publisher sent new cards before the new cards used as their anchors, and omitted order-only moves. The publisher now emits from tail to head and compares both card facts and the next-card address. The new deterministic test fails with the old publisher (`approval-order-negative.log`); the full terminal/native gate passes with the fix.
+
+The cutover draft no longer calls the source-reader helper from the terminal executable. Core starts that helper through its owning process, so `carlosd` now handles `__summary-reader`; the actual daemon executable test fails before the fix and passes afterward. The terminal can drop the old helper entry point with the embedded session path.
 
 ## Decision Log
 
@@ -218,6 +222,10 @@ Decision: correlate requests inside one pure Client and activate each body watch
 
 Decision: cap retained session facts across one Client at 64 MiB and defer future history pages under one eight-MiB/32-page allowance. Rationale: multiplying each session's standalone budget by 32 would retain too much client data. On overflow, detach only the overflowing fact window and retain private submitted text and backend work. A history RPC can arrive before its numbered events; hold the fixed page until that cursor arrives instead of repeatedly reading a continuously advancing backend. These data-byte counts include fixed metadata allowances and do not claim exact allocator/RSS measurements. Date/Author: 2026-11-14, Codex.
 
+- Decision: Keep the private cutover draft on a dedicated Cargo output directory and freeze each executable pair before actual process checks.
+  Rationale: Workers can move tests without replacing executables under a running test. The ordinary launcher fixture omits the compatibility flag so it proves the eventual default route. The final branch commit must join migrated test hooks and rerun whole-source checks.
+  Date/Author: 2026-11-15, Codex.
+
 ## Outcomes & Retrospective
 
 Current checkpoint: the ordinary daemon workflows, mobile fallbacks and private dictated-text/history races have focused positive evidence. Native and UI test moves now preserve names, startup choices, task ownership and immutable native IDs without an AppState fixture. The final clean daemon-only/release run, remaining old test moves, separate runtime deletion, performance evidence and end-of-EP reviews remain open. No spike binary has been installed and main has not been merged or pushed.
@@ -233,6 +241,8 @@ Current task groundwork captures each native root, reuses one bounded parser dur
 The owner accepted the working headless daemon; EP019b is now active. The core and daemon serve original source in UTF-8-safe chunks of at most 64 KiB, with separate entry/revision-bound cursors from normalized output. Both watch formats share the existing scheduler and combined count/byte budgets. Large plain rows carry explicit source descriptors instead of inline bulk text; escaped small rows reduce a page's row count before cloning. Five core tests and two daemon workflows prove exact source, split controls, format rejection, replacement and large-body/page recovery. Source commit `5e1d793` passes the complete existing gate.
 
 Typed names and earlier-prompt edits now run through the actual dispatcher. Ordered fork/send chains keep one private retry identity, definite validation failures preserve only their owner's text, and asynchronous Claude forks retain checked edit lifetimes and exact acknowledgement. The full edit gate passes 21 daemon workflows, 183 terminal workflows, 23 native-monitor workflows, installed Codex contracts, 61 helper tests and 13 architecture checks. New core/native tests prove early helper adoption and retirement at writer dispatch and while awaiting a fork reply. The final additional Codex guard test passes and fails with the old unguarded code restored. Next are the remaining typed native panels/settings/lifecycle, the pure shared client, terminal source/render consumers and actual socket cutover. No terminal cutover is claimed. The final result must include a separate deletion commit, not a permanent switch between two terminal modes.
+
+The default route is ready in an isolated draft and its actual process checks pass. The spike branch still retains the embedded route until unique old tests reach their Core, Device or plain-widget successors. No reviewer has run during these final changes, and no spike binary has been installed, pushed or merged.
 
 ## Context and Orientation
 
@@ -778,3 +788,5 @@ Update note (2026-11-15, prompt foundation gate): acad30f Ralph report is prepar
 2026-11-15 update: refreshed stale settings checkboxes and the current outcome; recorded prompt/history consumer proofs, launcher/package and offline-perf checkpoints. The complete actual-daemon terminal gate now determines remaining parity fixes before deletion.
 
 2026-11-15 update: recorded603ffde/1658ecc and the first complete actual-daemon terminal gate, including its failures. Kept current native lifecycle and terminal parity work explicit before the deletion gate.
+
+2026-11-15 checkpoint: recorded the private physical-deletion draft and actual default-launch evidence separately from the still-open branch deletion/final gates. This prevents a passing draft build from being mistaken for a completed EP.

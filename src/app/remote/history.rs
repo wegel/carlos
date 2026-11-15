@@ -261,3 +261,7 @@ impl Device {
         self.view.input.insert_str(text);
     }
 }
+
+#[cfg(test)]
+#[path = "history_view_tests.rs"]
+mod view_tests;

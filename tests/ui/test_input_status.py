@@ -113,16 +113,20 @@ class InputStatus:
             terminal.send(b"?")
             terminal.contains("F2 tasks")
             terminal.contains("F3 switches")
+            terminal.contains("↑↓ · Esc close")
+            original_help = terminal.text
             terminal.send(b"\x1b[F")
             terminal.wait(lambda:"/tools" in terminal.text,"End reaches final help lines")
-            bottom = terminal.text
+            bottom = list(terminal.screen.display)
             terminal.send(b"\x1b[A")
-            terminal.wait(lambda:terminal.text != bottom,"Up moves after End")
-            before_page = terminal.text
+            terminal.wait(lambda:terminal.screen.display[2:-1] == bottom[1:-2],
+                          "Up moves exactly one visible help row after End")
+            before_page = list(terminal.screen.display)
             terminal.send(b"\x1b[5~")
-            terminal.wait(lambda:terminal.text != before_page,"PageUp moves through help")
+            terminal.wait(lambda:terminal.screen.display[6:-1] == before_page[1:-6],
+                          "PageUp moves exactly five visible help rows")
             terminal.send(b"\x1b[H")
-            terminal.contains("F3 switches")
+            terminal.wait(lambda:terminal.text == original_help,"Home restores the exact first help frame")
             terminal.send(b"\x1b")
             terminal.wait(lambda:terminal.input_is(""),"help preserves empty composer")
             self.assertEqual(terminal.requests("turn/start"),[])

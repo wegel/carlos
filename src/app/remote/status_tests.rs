@@ -61,3 +61,6 @@ fn native_transient_then_thinking_then_process_state_keep_the_existing_label_ord
     activity.state = TaskMainState::Idle;
     assert_eq!(activity_label(&activity), None);
 }
+
+#[path = "status_footer_tests.rs"]
+mod footer;
