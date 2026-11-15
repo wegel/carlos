@@ -44,6 +44,7 @@ from test_daemon_question_forms import DaemonQuestionForms
 from test_daemon_question_browser import DaemonQuestionBrowser
 from test_daemon_client import DaemonClient
 from test_daemon_startup import DaemonStartup
+from test_daemon_claude_reopen import DaemonClaudeReopen
 from test_daemon_saved_picker import DaemonSavedPicker
 from test_daemon_settings import DaemonSettings
 from test_daemon_ralph import DaemonRalph
@@ -53,7 +54,7 @@ from test_daemon_history import DaemonHistory
 from test_daemon_source_recovery import DaemonSourceRecovery
 
 
-class Workflows(DaemonEdits, DaemonSavedPicker, DaemonStartup, DaemonRalph, DaemonTaskQuestions, DaemonQuestionForms, DaemonQuestionBrowser, DaemonSettingsContext, DaemonSettings, DaemonTaskActivity, DaemonTaskWindows, DaemonTasks, DaemonQueue, DaemonGoals, DaemonSourceRecovery, DaemonHistory, DaemonClient, GrokStartup, EntryIdentity, SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, CommandDirectory, WeeklyUsage, ClaudeSdk, ClaudeInterrupt, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, CodexRewind, CodexFoundation, CodexQuestions, CodexControls, CodexPanel, CodexGoals, CodexReconnect, InputStatus, ContextSettings, unittest.TestCase):
+class Workflows(DaemonClaudeReopen, DaemonEdits, DaemonSavedPicker, DaemonStartup, DaemonRalph, DaemonTaskQuestions, DaemonQuestionForms, DaemonQuestionBrowser, DaemonSettingsContext, DaemonSettings, DaemonTaskActivity, DaemonTaskWindows, DaemonTasks, DaemonQueue, DaemonGoals, DaemonSourceRecovery, DaemonHistory, DaemonClient, GrokStartup, EntryIdentity, SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, CommandDirectory, WeeklyUsage, ClaudeSdk, ClaudeInterrupt, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, CodexRewind, CodexFoundation, CodexQuestions, CodexControls, CodexPanel, CodexGoals, CodexReconnect, InputStatus, ContextSettings, unittest.TestCase):
     def summary_root(self):
         root = ARTIFACTS / self._testMethodName
         root.mkdir(parents=True, exist_ok=True)

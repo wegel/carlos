@@ -1,8 +1,12 @@
 //! Own one session while native workers wait and clients read bounded shared facts.
 
 mod actions;
+mod admission;
 mod automatic;
 mod backend_settings;
+mod claude_reopen;
+#[cfg(test)]
+mod claude_reopen_tests;
 mod context_defaults;
 mod dispatch;
 mod goals;
@@ -45,6 +49,11 @@ pub use self::ring::EngineFrame;
 
 /// Only explicit session reads and commands enter the owner, never native method strings.
 pub enum EngineCommand {
+    /// Explicit open only; the owner captures its accepted generation during admission.
+    Reopen {
+        operation: ClientOperation,
+        generation: Option<u64>,
+    },
     Reconnect {
         operation: ClientOperation,
     },
@@ -285,7 +294,8 @@ impl EngineHandle {
     /// Admit a bounded request without waiting for native work or a socket write.
     pub fn request(&self, command: EngineCommand) -> Result<mpsc::Receiver<EngineReply>, RpcError> {
         let mailbox = match &command {
-            EngineCommand::Send { .. }
+            EngineCommand::Reopen { .. }
+            | EngineCommand::Send { .. }
             | EngineCommand::SetRalph { .. }
             | EngineCommand::ToggleRalph { .. }
             | EngineCommand::Rename { .. }

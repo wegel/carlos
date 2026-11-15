@@ -170,9 +170,17 @@ impl SessionState {
         update: &mut ClaudeUpdate,
     ) {
         if let Some((generation, id)) = self.claude_session_change(params) {
-            self.switch_claude_session(generation, id, update);
-            if let Some(operation) = self.claude_edit_operation().cloned() {
-                update.effects.push(ClaudeEffect::EditAdopted(operation));
+            if params.get("reopen").and_then(Value::as_bool) == Some(true) {
+                self.restore_claude_edit(update);
+                self.end_claude_edit();
+                self.events.backend_closed = false;
+                self.switch_claude_session(generation, id, update);
+                self.set_status("Claude reopens the native session");
+            } else {
+                self.switch_claude_session(generation, id, update);
+                if let Some(operation) = self.claude_edit_operation().cloned() {
+                    update.effects.push(ClaudeEffect::EditAdopted(operation));
+                }
             }
         }
     }

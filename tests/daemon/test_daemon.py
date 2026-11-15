@@ -29,6 +29,7 @@ from test_startup_open import StartupOpenTests
 from test_startup_grok import StartupGrokTests
 from test_startup_archive import StartupArchiveTests
 from test_startup_reconnect import StartupReconnectTests
+from test_claude_reopen import ClaudeReopenTests
 from test_context_defaults import ContextDefaultTests
 from test_ralph import RalphTests
 from test_prompt_history import PromptHistoryTests

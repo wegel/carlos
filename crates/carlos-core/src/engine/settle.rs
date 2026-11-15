@@ -10,62 +10,69 @@ use crate::session::control_work::ControlFailure;
 impl Owner {
     pub(super) fn drain_completions(&mut self) {
         while let Ok(completion) = self.workers.completed.try_recv() {
-            match completion {
-                Completion::ContextRead { pending, result } => {
-                    self.finish_context_read(*pending, result)
-                }
-                Completion::ContextSaved { operation, result } => {
-                    self.finish_context_save(operation, result)
-                }
-                Completion::ToolLabelsSaved { operation, error } => {
-                    self.finish_tool_labels_save(operation, error)
-                }
-                Completion::BackendSettings { operation, result } => {
-                    self.finish_backend_settings(operation, result);
-                }
-                Completion::SettingsSaved { operation, error } => {
-                    self.finish_settings_save(operation, error);
-                }
-                Completion::TaskStopDispatch { operation, result } => {
-                    self.finish_task_stop_dispatch(operation, result);
-                }
-                Completion::Ordinary {
-                    operation,
-                    completion,
-                } => {
-                    self.finish_ordinary(operation, completion);
-                }
-                Completion::Control {
-                    operation,
-                    completion,
-                } => {
-                    self.finish_control(operation, completion);
-                }
-                Completion::InternalControl(completion) => {
-                    self.workers.actions_busy -= 1;
-                    if let Err(error) = self
-                        .session
-                        .finish_engine_control(self.client.as_ref(), completion)
-                    {
-                        self.session.set_status(error.to_string());
-                    }
-                }
-                Completion::Ralph {
-                    operation,
-                    result,
-                    target,
-                } => {
-                    self.finish_ralph_completion(target, operation, result);
-                }
-                Completion::Action {
-                    target,
-                    result,
-                    kind,
-                } => {
-                    self.finish_action_completion(target, kind, result);
+            self.finish_completion(completion);
+            self.notice();
+        }
+    }
+
+    fn finish_completion(&mut self, completion: Completion) {
+        match completion {
+            Completion::ClaudeReopened { operation, result } => {
+                self.finish_claude_reopen(operation, result)
+            }
+            Completion::ContextRead { pending, result } => {
+                self.finish_context_read(*pending, result)
+            }
+            Completion::ContextSaved { operation, result } => {
+                self.finish_context_save(operation, result)
+            }
+            Completion::ToolLabelsSaved { operation, error } => {
+                self.finish_tool_labels_save(operation, error)
+            }
+            Completion::BackendSettings { operation, result } => {
+                self.finish_backend_settings(operation, result);
+            }
+            Completion::SettingsSaved { operation, error } => {
+                self.finish_settings_save(operation, error);
+            }
+            Completion::TaskStopDispatch { operation, result } => {
+                self.finish_task_stop_dispatch(operation, result);
+            }
+            Completion::Ordinary {
+                operation,
+                completion,
+            } => {
+                self.finish_ordinary(operation, completion);
+            }
+            Completion::Control {
+                operation,
+                completion,
+            } => {
+                self.finish_control(operation, completion);
+            }
+            Completion::InternalControl(completion) => {
+                self.workers.actions_busy -= 1;
+                if let Err(error) = self
+                    .session
+                    .finish_engine_control(self.client.as_ref(), completion)
+                {
+                    self.session.set_status(error.to_string());
                 }
             }
-            self.notice();
+            Completion::Ralph {
+                operation,
+                result,
+                target,
+            } => {
+                self.finish_ralph_completion(target, operation, result);
+            }
+            Completion::Action {
+                target,
+                result,
+                kind,
+            } => {
+                self.finish_action_completion(target, kind, result);
+            }
         }
     }
     fn finish_control(

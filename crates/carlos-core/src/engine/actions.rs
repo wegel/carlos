@@ -34,6 +34,13 @@ pub(super) struct Actions {
     bytes: usize,
 }
 
+impl Actions {
+    pub(super) fn retire(&mut self) {
+        self.pending.clear();
+        self.bytes = 0;
+    }
+}
+
 impl Owner {
     pub(super) fn action(&mut self, action: ServerRequestAction) {
         if matches!(action, ServerRequestAction::ApplyRalphToggle) {

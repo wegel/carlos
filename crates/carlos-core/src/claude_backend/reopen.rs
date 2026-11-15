@@ -134,15 +134,16 @@ impl Commands {
                     .is_some_and(|current| current.id == plan.id),
             "Claude reopen conversation changed"
         );
+        let mut runtime = self
+            .runtime_settings
+            .lock()
+            .map_err(|_| anyhow!("Claude settings lock poisoned"))?;
         events.send(
             json!({"method":"claude/sessionChanged","params":{"sessionId":plan.id,"reopen":true}})
                 .to_string(),
         )?;
         *slot = replacement.clone();
-        *self
-            .runtime_settings
-            .lock()
-            .map_err(|_| anyhow!("Claude settings lock poisoned"))? = settings.clone();
+        *runtime = settings.clone();
         Ok(())
     }
 }

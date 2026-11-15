@@ -152,7 +152,13 @@ impl Manager {
             .clone()
             .expect("open binds a logical session");
         if known && self.sessions[&session].live.is_some() {
-            self.attach_open(peer, id, result);
+            if self.sessions[&session].saved.backend == carlos_proto::session::Backend::Claude
+                && self.sessions[&session].info.availability == Availability::Closed
+            {
+                self.reopen_claude_owner(peer, id, result);
+            } else {
+                self.attach_open(peer, id, result);
+            }
             return;
         }
         if let Some(reason) = self.open_failure(&session, known) {
@@ -232,6 +238,23 @@ impl Manager {
         };
         self.result(result.clone());
         self.reply(peer, id, result);
+    }
+
+    fn reopen_claude_owner(&mut self, peer: u64, id: RequestId, result: OperationResult) {
+        let session = result.session.as_ref().expect("scoped explicit open");
+        let live = self.sessions[session]
+            .live
+            .as_ref()
+            .expect("same live owner");
+        let command = carlos_core::engine::EngineCommand::Reopen {
+            operation: result.operation.clone(),
+            generation: None,
+        };
+        if let Err(reason) = live.handle.request(command) {
+            self.reject_open(peer, id, result, &reason.message);
+        } else {
+            self.reply(peer, id, result);
+        }
     }
 
     fn attach_open(&mut self, peer: u64, id: RequestId, mut result: OperationResult) {

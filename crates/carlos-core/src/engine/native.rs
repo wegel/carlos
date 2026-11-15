@@ -109,6 +109,7 @@ impl Owner {
             }
         }
         self.client.acknowledge_event(line.len());
+        self.finish_claude_ready();
         if self.session.events.backend_closed && !self.native.closed {
             self.close_native();
         }

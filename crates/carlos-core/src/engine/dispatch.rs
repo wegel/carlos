@@ -5,10 +5,9 @@ use std::time::Instant;
 use carlos_proto::commands::SendPolicy;
 use carlos_proto::submissions::{ClientOperation, OperationState, SubmittedText};
 
-use super::mailbox::Envelope;
-use super::owner::{failure, Owner};
+use super::owner::Owner;
 use super::workers::Completion;
-use super::{EngineCommand, EngineReply};
+use super::EngineCommand;
 use crate::backend::{BackendKind, PromptOrigin};
 use crate::session::entry_id::EntryId;
 use crate::session::prompt_commands::{PromptContext, PromptOptions};
@@ -23,45 +22,6 @@ impl Owner {
                 self.ordinary.push_back(command);
             }
         }
-    }
-
-    fn admit(&mut self, envelope: Envelope) -> Option<EngineCommand> {
-        let operation = match &envelope.command {
-            EngineCommand::Send { operation, .. }
-            | EngineCommand::Rename { operation, .. }
-            | EngineCommand::Rewind { operation, .. }
-            | EngineCommand::SetRalph { operation, .. }
-            | EngineCommand::ToggleRalph { operation, .. }
-            | EngineCommand::GoalSet { operation, .. }
-            | EngineCommand::GoalClear { operation, .. }
-            | EngineCommand::QueueChange { operation, .. }
-            | EngineCommand::ContextSet { operation, .. }
-            | EngineCommand::SettingsSet { operation, .. }
-            | EngineCommand::ToolLabelsSet { operation, .. }
-            | EngineCommand::TaskStop { operation, .. }
-            | EngineCommand::Approve { operation, .. }
-            | EngineCommand::Interrupt { operation, .. } => operation,
-            EngineCommand::Reconnect { operation } => operation,
-            _ => {
-                let _ = envelope.reply.try_send(EngineReply::Failure(failure(
-                    "read entered a mutation lane",
-                )));
-                return None;
-            }
-        };
-        if self.results.contains(operation) {
-            let _ = envelope.reply.try_send(EngineReply::Failure(failure(
-                "operation already admitted; query its retained result",
-            )));
-            return None;
-        }
-        let result = self.results.admit(
-            self.session.session_id(),
-            operation.clone(),
-            envelope.permit,
-        );
-        let _ = envelope.reply.try_send(EngineReply::Operation(result));
-        Some(envelope.command)
     }
 
     pub(super) fn dispatch_controls(&mut self) {
@@ -187,6 +147,13 @@ impl Owner {
 
     fn dispatch_command(&mut self, command: EngineCommand) {
         match command {
+            EngineCommand::Reopen {
+                operation,
+                generation,
+            } => {
+                self.reopen_claude(operation, generation.unwrap_or_default());
+                self.notice();
+            }
             EngineCommand::Send {
                 operation,
                 text,
