@@ -315,3 +315,6 @@ mod claude_visibility_tests;
 
 #[cfg(test)]
 mod claude_metadata_contract_tests;
+
+#[cfg(test)]
+mod claude_browser_contract_tests;

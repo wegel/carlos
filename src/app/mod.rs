@@ -12,10 +12,6 @@ use self::view_models::{RenderedLine, TerminalSize};
 mod backend_setup;
 mod child_activity_view;
 mod claude_activity;
-#[cfg(test)]
-mod claude_browser;
-#[cfg(test)]
-mod claude_callbacks;
 mod claude_context;
 mod claude_edit;
 mod claude_edit_view;
@@ -233,9 +229,6 @@ mod approval_lifetime_support;
 #[path = "../tests/approval_lifetime_tests.rs"]
 mod approval_lifetime_tests;
 
-#[cfg(test)]
-#[path = "../tests/claude_browser_parity_tests.rs"]
-mod claude_browser_parity_tests;
 #[cfg(test)]
 #[path = "../tests/claude_process_parity_tests.rs"]
 mod claude_process_parity_tests;
