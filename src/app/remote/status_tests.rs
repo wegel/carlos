@@ -64,3 +64,6 @@ fn native_transient_then_thinking_then_process_state_keep_the_existing_label_ord
 
 #[path = "status_footer_tests.rs"]
 mod footer;
+
+#[path = "weekly_clock_tests.rs"]
+mod weekly_clock_tests;

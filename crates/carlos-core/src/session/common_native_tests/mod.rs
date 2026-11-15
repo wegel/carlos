@@ -32,6 +32,9 @@ mod tool_fallbacks;
 mod tool_overrides;
 mod tool_results;
 mod turn_lifecycle;
+mod weekly_facts;
+mod weekly_test_support;
+mod weekly_timers;
 
 use super::actions::ServerRequestAction;
 use super::backend_test_support::{action, context};

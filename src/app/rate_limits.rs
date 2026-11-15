@@ -23,28 +23,4 @@ impl AppState {
         self.session.tick_rate_limits(client, now);
         redraw
     }
-
-    #[cfg(test)]
-    pub(super) fn rate_limits_wait(&self, now: Instant) -> Option<Duration> {
-        self.view
-            .quota_next_draw
-            .into_iter()
-            .map(|deadline| deadline.saturating_duration_since(now))
-            .chain(self.session.rate_limits().wait(now))
-            .min()
-    }
-
-    #[cfg(test)]
-    pub(super) fn clear_rate_limits(&mut self) {
-        self.session.clear_rate_limits();
-        self.view.quota_next_draw = None;
-    }
 }
-
-#[cfg(test)]
-#[path = "../tests/weekly_usage_tests.rs"]
-mod tests;
-
-#[cfg(test)]
-#[path = "../tests/weekly_usage_parity_tests.rs"]
-mod parity_tests;

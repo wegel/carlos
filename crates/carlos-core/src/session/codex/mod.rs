@@ -142,3 +142,6 @@ mod reconnect_catalog_contract_tests;
 mod reconnect_contract_support;
 #[cfg(test)]
 mod reconnect_contract_tests;
+
+#[cfg(test)]
+mod weekly_ready_tests;

@@ -101,11 +101,6 @@ mod codex_goal_tests;
 #[path = "tests/codex_goal_lifecycle_tests.rs"]
 mod codex_goal_lifecycle_tests;
 
-#[path = "tests/codex_reconnect_support.rs"]
-mod codex_reconnect_support;
-#[path = "tests/codex_reconnect_tests.rs"]
-mod codex_reconnect_tests;
-
 #[path = "tests/codex_reconnect_identity_tests.rs"]
 mod codex_reconnect_identity_tests;
 
@@ -126,3 +121,6 @@ mod review_label_tests;
 mod codex_panel_support;
 
 pub(super) use carlos_core::session::thread_list::parse_thread_list;
+
+#[path = "tests/weekly_indicator_tests.rs"]
+mod weekly_indicator_tests;
