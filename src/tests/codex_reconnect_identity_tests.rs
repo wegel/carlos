@@ -1,87 +1,9 @@
 //! Keep native item IDs exact across turns, display parts and fresh settings catalogs.
 
-use carlos_core::session::models::Role;
 use serde_json::json;
 
 use super::codex_question_support::app;
 use super::codex_reconnect_support::{ready, receive, snapshot, Peer};
-use crate::app::item_history::replace_history_from_thread;
-use crate::app::notifications::handle_server_message_line;
-
-fn message(app: &mut crate::app::state::AppState, turn: &str, kind: &str, text: &str) {
-    handle_server_message_line(
-        app,
-        &json!({"method":"item/completed","params":{"threadId":"root","turnId":turn,
-        "item":{"id":if kind=="userMessage" {"same-user"} else {"same-answer"},"type":kind,"text":text,"content":[{"type":"text","text":text}]}}})
-        .to_string(),
-    );
-}
-
-#[test]
-fn repeated_native_item_and_user_ids_stay_distinct_in_live_history_and_reconnect() {
-    let mut app = app();
-    app.session.enable_native_history();
-    for turn in ["one", "two"] {
-        message(&mut app, turn, "userMessage", turn);
-        message(&mut app, turn, "agentMessage", &format!("answer-{turn}"));
-    }
-    assert_eq!(app.session.messages().len(), 4);
-    let history = json!({"id":"root","status":{"type":"idle"},"turns":[
-        {"id":"one","status":"completed","items":[{"id":"same-user","type":"userMessage","content":[{"type":"text","text":"identical"}]},{"id":"same-answer","type":"agentMessage","text":"answer-one"}]},
-        {"id":"two","status":"completed","items":[{"id":"same-user","type":"userMessage","content":[{"type":"text","text":"identical"}]},{"id":"same-answer","type":"agentMessage","text":"answer-two"}]}]});
-    replace_history_from_thread(&mut app, &history).expect("same-thread history");
-    assert_eq!(app.session.messages().len(), 4);
-    assert_eq!(app.session.messages()[1].text, "answer-one");
-    assert_eq!(app.session.messages()[3].text, "answer-two");
-    app.session.replace_codex_item_turn(Some("outside".into()));
-    handle_server_message_line(&mut app,&json!({"method":"item/agentMessage/delta","params":{"threadId":"root","turnId":"one","itemId":"same-answer","delta":"LATE_OLD"}}).to_string());
-    assert_eq!(app.session.codex_item_turn().as_deref(), Some("outside"));
-    assert_eq!(app.session.messages()[3].text, "answer-two");
-    app.session.replace_codex_item_turn(None);
-    app.enter_rewind_mode();
-    let selected = app.rewind_native_request().expect("native user anchor");
-    assert_eq!(selected.item_id, "same-user");
-    assert_eq!(app.rewind_selected_turn_id(), Some("two"));
-    let peer = Peer::default();
-    app.session.close_codex();
-    app.session.set_codex_generation_for_test(2);
-    app.session.set_codex_rebuilding_for_test(true);
-    let mut current = snapshot("unused", "idle");
-    current.thread = history;
-    ready(&peer, &mut app, current);
-    assert_eq!(
-        app.session
-            .messages()
-            .iter()
-            .filter(|row| row.role == Role::Assistant)
-            .map(|row| row.text.as_str())
-            .collect::<Vec<_>>(),
-        ["answer-one", "answer-two"]
-    );
-}
-
-#[test]
-fn native_suffix_and_unicode_ids_cannot_collide_with_display_parts() {
-    let mut app = app();
-    let item = json!({"type":"toolOutput","id":"x","files":[
-        {"path":"a.rs","kind":{"type":"update"},"diff":"@@ -1 +1 @@\n-old-a\n+new-a\n"},
-        {"path":"b.rs","kind":{"type":"update"},"diff":"@@ -1 +1 @@\n-old-b\n+new-b\n"}]});
-    replace_history_from_thread(
-        &mut app,
-        &json!({"id":"root","turns":[{"id":"日本語:","status":"completed","items":[
-        item,{"id":"x#part-1","type":"agentMessage","text":"NATIVE_SUFFIX"}]}]}),
-    )
-    .expect("same-thread history");
-    assert_eq!(app.session.messages().len(), 3);
-    assert!(app.session.messages()[0].text.contains("new-a"));
-    assert!(app.session.messages()[1].text.contains("new-b"));
-    assert_eq!(app.session.messages()[2].text, "NATIVE_SUFFIX");
-    app.session.replace_codex_item_turn(Some("a:b".into()));
-    let first = app.item_key("日本語:c");
-    app.session.replace_codex_item_turn(Some("a".into()));
-    assert_ne!(first, app.item_key("b:日本語:c"));
-    assert_eq!(app.session.codex_item_part(), 0);
-}
 
 #[test]
 fn fresh_catalog_preserves_editor_values_and_drops_old_direct_override_fallback() {
@@ -182,53 +104,4 @@ fn a_reused_process_id_with_a_different_native_item_never_retargets_stop() {
         .session
         .codex_panel()
         .contains_target(app.view.codex_panel.selected.as_ref()));
-}
-
-#[test]
-fn socket_option_requires_codex_conversations_and_resume_hints_quote_exact_paths() {
-    use crate::app::cli::{parse_cli_args, resume_hint_with_socket, Backend};
-
-    use std::path::Path;
-    let args = |values: &[&str]| {
-        values
-            .iter()
-            .map(|value| value.to_string())
-            .collect::<Vec<_>>()
-    };
-    let parsed = parse_cli_args(args(&[
-        "--backend",
-        "codex",
-        "--codex-socket",
-        "socket with spaces",
-        "resume",
-        "root",
-    ]))
-    .expect("explicit socket");
-    assert!(parsed.codex_socket.expect("socket").is_absolute());
-    assert!(parse_cli_args(args(&["--codex-socket", "/tmp/rpc", "--backend", "claude"])).is_err());
-    assert!(parse_cli_args(args(&[
-        "perf-session",
-        "--synthetic",
-        "--codex-socket",
-        "/tmp/rpc"
-    ]))
-    .is_err());
-    let hint = resume_hint_with_socket(
-        Backend::Codex,
-        "root' id",
-        Some(Path::new("/tmp/a' socket")),
-    );
-    let words = shlex::split(hint.lines().nth(1).expect("command")).expect("shell-safe hint");
-    assert_eq!(
-        words,
-        [
-            "carlos",
-            "--backend",
-            "codex",
-            "--codex-socket",
-            "/tmp/a' socket",
-            "resume",
-            "root' id"
-        ]
-    );
 }

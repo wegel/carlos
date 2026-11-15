@@ -69,7 +69,7 @@ def write_legacy(root, provider="openai"):
     header = {"timestamp":stamp,"type":"session_meta","payload":{
         "id":thread,"timestamp":stamp,"cwd":str(root),"originator":"carlos-contract-test",
         "cli_version":"0.167.1","source":"cli","model_provider":provider}}
-    fixture = Path(__file__).resolve().parents[2] / "src/tests/fixtures/stale_transcript_replay.jsonl"
+    fixture = Path(__file__).resolve().parents[2] / "crates/carlos-core/src/session/common_native_tests/fixtures/stale_transcript_replay.jsonl"
     path = root / "codex-home/sessions" / ("rollout-2026-09-01T00-00-00-" + thread + ".jsonl")
     path.parent.mkdir(parents=True,exist_ok=True)
     path.write_text(json.dumps(header) + "\n" + fixture.read_text())

@@ -102,6 +102,9 @@ mod connection_test_support;
 #[cfg(test)]
 mod reconnect_headless_tests;
 
+#[cfg(test)]
+mod reconnect_identity_tests;
+
 pub(crate) mod callback_route;
 pub mod callback_update;
 

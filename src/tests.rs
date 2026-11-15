@@ -49,6 +49,9 @@ mod claude_backend_tests;
 mod claude_context_tests;
 #[path = "tests/claude_edit_tests.rs"]
 mod claude_edit_tests;
+#[path = "tests/daemon_resume_hint_tests.rs"]
+mod daemon_resume_hint_tests;
+
 #[path = "tests/codex_order_tests.rs"]
 mod codex_order_tests;
 #[path = "tests/codex_question_support.rs"]
