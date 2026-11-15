@@ -16,6 +16,7 @@ mod connection;
 mod context_defaults;
 mod goal;
 mod goal_watches;
+mod lifecycle;
 mod operations;
 mod prompts;
 mod queue;

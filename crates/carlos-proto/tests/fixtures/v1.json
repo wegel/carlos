@@ -581,6 +581,30 @@
         },
         "tool_labels": false
       }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "session/stop",
+      "method": "session/stop",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "operation": {
+          "client": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "1"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "session/reopen",
+      "method": "session/reopen",
+      "params": {
+        "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "operation": {
+          "client": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "1"
+        }
+      }
     }
   ],
   "notifications": [

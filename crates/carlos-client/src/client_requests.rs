@@ -1,6 +1,6 @@
 //! Admit explicit device commands and remember only the targets needed to match their replies.
 
-use carlos_proto::commands::Command;
+use carlos_proto::commands::{Command, SessionOperation};
 use carlos_proto::ids::SessionId;
 use carlos_proto::submissions::{ClientOperation, RecoveryKind};
 
@@ -162,7 +162,9 @@ fn mutation(command: &Command) -> Option<(&ClientOperation, Option<&SessionId>)>
         Command::Create { operation, .. }
         | Command::Open { operation, .. }
         | Command::SavedArchive { operation, .. } => (operation, None),
-        Command::Send {
+        Command::Stop(SessionOperation { operation, session })
+        | Command::Reopen(SessionOperation { operation, session })
+        | Command::Send {
             operation, session, ..
         }
         | Command::Rename {

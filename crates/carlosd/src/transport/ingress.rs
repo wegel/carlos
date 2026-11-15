@@ -15,7 +15,7 @@ pub(crate) struct Incoming {
 #[derive(Default)]
 struct State {
     queue: VecDeque<Incoming>,
-    used: [(usize, usize); 3],
+    used: [(usize, usize); 4],
 }
 
 #[derive(Clone)]
@@ -34,7 +34,8 @@ impl Ingress {
 
     pub(crate) fn push(&self, peer: u64, request: Request, bytes: usize) -> bool {
         let class = match request.command {
-            Command::Create { .. }
+            Command::Reopen(_)
+            | Command::Create { .. }
             | Command::SavedArchive { .. }
             | Command::Open { .. }
             | Command::Send { .. }
@@ -52,12 +53,14 @@ impl Ingress {
             | Command::Interrupt { .. }
             | Command::Approve { .. }
             | Command::Reconnect { .. } => 1,
+            Command::Stop(_) => 3,
             _ => 2,
         };
         let limits = [
             (64, 8 * 1024 * 1024),
             (32, 2 * 1024 * 1024),
             (128, 2 * 1024 * 1024),
+            (16, 64 * 1024),
         ];
         let mut state = self.state.lock().expect("incoming commands");
         let used = &mut state.used[class];

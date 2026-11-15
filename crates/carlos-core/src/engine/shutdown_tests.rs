@@ -34,7 +34,7 @@ fn stop_retires_active_and_queued_cards_without_promoting_another_question() {
     session.enqueue_approval(draft.clone(), ApprovalQueue::Claude);
     session.enqueue_approval(draft, ApprovalQueue::Codex);
     let owner = owner(session);
-    let reply = owner.stop_session(Sequence::new(u64::MAX)).expect("stop");
+    let reply = owner.stop_session().expect("stop");
     let EngineReply::Stopped { update, .. } = reply.recv_timeout(TIMEOUT).expect("closed") else {
         panic!("final update");
     };
@@ -61,8 +61,8 @@ fn explicit_shutdown_returns_closed_facts_after_deferred_native_cleanup() {
         },
     );
     request(&owner, EngineCommand::Info);
-    let stop_request = owner.stop_session(Sequence::new(0)).expect("first stop");
-    assert!(owner.stop_session(Sequence::new(0)).is_err());
+    let stop_request = owner.stop_session().expect("first stop");
+    assert!(owner.stop_session().is_err());
     let EngineReply::Stopped {
         update: final_state,
         native,
@@ -97,9 +97,7 @@ fn oversized_shared_history_does_not_hide_final_private_draft_recovery() {
         },
     );
     request(&owner, EngineCommand::Info);
-    let stop_request = owner
-        .stop_session(Sequence::new(0))
-        .expect("capture final outcome");
+    let stop_request = owner.stop_session().expect("capture final outcome");
     let EngineReply::Stopped {
         update: final_state,
         native,

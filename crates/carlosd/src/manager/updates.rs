@@ -18,6 +18,9 @@ use crate::transport::wire::{self, error};
 impl Manager {
     pub(super) fn schedule_updates(&mut self) {
         for state in self.sessions.values_mut() {
+            if state.stopping.is_some() {
+                continue;
+            }
             let Some(live) = &mut state.live else {
                 continue;
             };
@@ -81,8 +84,9 @@ impl Manager {
         }
     }
 
-    fn apply_update(&mut self, id: &SessionId, update: EngineUpdate) {
+    pub(super) fn apply_update(&mut self, id: &SessionId, update: EngineUpdate) {
         let session = self.sessions.get_mut(id).expect("known session");
+        session.last_seq = session.last_seq.max(update.seq);
         let changed = session.observe_owner_info(update.info, &update.native_thread);
         if matches!(
             session.info.availability,
@@ -97,7 +101,7 @@ impl Manager {
             }
         }
         let session = self.sessions.get_mut(id).expect("known session");
-        if session.info.availability == Availability::Ready {
+        if session.info.availability == Availability::Ready && session.stopping.is_none() {
             match SavedSession::from_info(&session.info, update.native_thread) {
                 Ok(saved) => session.saved = saved,
                 Err(reason) => {
@@ -251,6 +255,7 @@ impl Manager {
         for (peer, connection) in &self.peers {
             for (id, interest) in &connection.sessions {
                 if !interest.syncing
+                    && self.sessions[id].stopping.is_none()
                     && self.sessions[id]
                         .live
                         .as_ref()

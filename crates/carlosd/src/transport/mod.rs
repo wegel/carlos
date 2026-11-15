@@ -124,3 +124,6 @@ fn write_frame(mut stream: &UnixStream, mut bytes: &[u8]) -> io::Result<()> {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod lifecycle_tests;

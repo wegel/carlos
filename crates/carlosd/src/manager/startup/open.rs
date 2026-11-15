@@ -157,6 +157,15 @@ impl Manager {
             .session
             .clone()
             .expect("open binds a logical session");
+        if known && self.sessions[&session].stopping.is_some() {
+            self.reject_open(
+                peer,
+                id,
+                result,
+                "Session is still stopping; explicitly reopen after stop finishes",
+            );
+            return;
+        }
         if known && self.sessions[&session].live.is_some() {
             if self.sessions[&session].saved.backend == carlos_proto::session::Backend::Claude
                 && self.sessions[&session].info.availability == Availability::Closed

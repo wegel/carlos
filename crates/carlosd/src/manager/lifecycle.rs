@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use carlos_core::engine::launch::{
     launch, LaunchError, LaunchOptions, LaunchRequest, RestoreSession,
@@ -14,7 +14,7 @@ use carlos_proto::ids::{ClientId, Sequence, SessionId};
 use carlos_proto::session::Availability;
 use carlos_proto::submissions::{OperationResult, OperationState};
 
-use super::state::{Live, Session};
+use super::state::Session;
 use super::Manager;
 use crate::registry::SavedSession;
 use crate::retry::{Admission, Class};
@@ -168,59 +168,13 @@ impl Manager {
             .count()
     }
 
-    pub(super) fn drain_launches(&mut self) {
-        while let Ok((id, result)) = self.launches.try_recv() {
-            let Some(session) = self.sessions.get_mut(&id) else {
-                continue;
-            };
-            session.launch = None;
-            match result {
-                Ok(mut launched) => {
-                    session.info = launched.info();
-                    let native_thread = launched.native_thread().to_owned();
-                    let (handle, notices) = launched.spawn();
-                    let wake = self.wake.clone();
-                    let notice = thread::spawn(move || {
-                        while notices.recv().is_ok() {
-                            let _ = wake.try_send(());
-                        }
-                    });
-                    session.live = Some(Live {
-                        native_thread,
-                        handle,
-                        notice,
-                        updates: None,
-                        seq: Sequence::default(),
-                        dirty: true,
-                    });
-                }
-                Err(reason) => {
-                    session.info.availability = Availability::Unavailable;
-                    for mut result in std::mem::take(&mut session.create) {
-                        result.state = match &reason {
-                            LaunchError::Invalid(message) => OperationState::Rejected {
-                                message: message.clone(),
-                                recovery: None,
-                            },
-                            reason => OperationState::Uncertain {
-                                message: reason.to_string(),
-                                recovery: None,
-                            },
-                        };
-                        self.result(result);
-                    }
-                }
-            }
-            self.list_changed(&id);
-            self.resume_subscriptions(&id);
-        }
-    }
-
     pub(super) fn schedule_saves(&mut self) {
         for session in self.sessions.values_mut() {
             if session.saving.is_none()
                 && !session.save_failed
-                && (session.durable.is_some()
+                && session.stopping.as_ref().is_none_or(|stop| stop.joined)
+                && (session.saved.stopped
+                    || session.durable.is_some()
                     || session.saved.native_thread.is_none()
                     || session.info.availability == Availability::Ready)
                 && session.durable.as_ref() != Some(&session.saved)
@@ -302,42 +256,6 @@ impl Manager {
             }
         }
     }
-
-    pub(super) fn shutdown(&mut self) {
-        self.startup.stop();
-        for session in self.sessions.values() {
-            if let Some(cancel) = &session.launch {
-                cancel.cancel();
-            }
-            if let Some(live) = &session.live {
-                live.handle.shutdown();
-            }
-        }
-        for peer in self.peers.values() {
-            peer.socket.close();
-        }
-        self.peers.clear();
-        let deadline = Instant::now() + Duration::from_secs(5);
-        loop {
-            self.drain_saves();
-            self.schedule_saves();
-            if self
-                .sessions
-                .values()
-                .all(|session| session.saving.is_none())
-                || Instant::now() >= deadline
-            {
-                break;
-            }
-            let _ = self.wake_rx.recv_timeout(Duration::from_millis(25));
-        }
-        for session in self.sessions.values_mut() {
-            if let Some(live) = session.live.take() {
-                let _ = live.handle.join();
-                let _ = live.notice.join();
-            }
-        }
-    }
 }
 
 impl Session {
@@ -351,6 +269,8 @@ impl Session {
             launch: None,
             create: Vec::new(),
             save_failed: false,
+            stopping: None,
+            last_seq: Sequence::default(),
         }
     }
 }

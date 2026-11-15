@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod approval_tests;
 pub mod bytes;
+mod command;
 mod command_types;
 pub mod commands;
 pub mod context_defaults;

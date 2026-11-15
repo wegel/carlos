@@ -5,7 +5,6 @@ use std::sync::{mpsc, Arc, Condvar, Mutex};
 use std::time::Duration;
 
 use anyhow::{bail, ensure, Result};
-use carlos_proto::ids::Sequence;
 use carlos_proto::session::Availability;
 use serde_json::{json, Value};
 
@@ -162,7 +161,7 @@ fn explicit_stop_interrupts_only_the_selected_attached_turn_before_closing() {
     let other = fixture("bystander", calls.clone(), false);
     let reply = selected
         .owner
-        .stop_session(Sequence::default())
+        .stop_session()
         .expect("explicit stop")
         .recv_timeout(Duration::from_secs(5))
         .expect("stop finishes");
@@ -199,7 +198,7 @@ fn failed_native_interrupt_remains_uncertain_even_after_the_owner_is_released() 
     let selected = fixture("selected", calls.clone(), true);
     let reply = selected
         .owner
-        .stop_session(Sequence::default())
+        .stop_session()
         .expect("explicit stop")
         .recv_timeout(Duration::from_secs(5))
         .expect("local owner still closes");
@@ -231,7 +230,7 @@ fn a_missing_local_turn_is_checked_against_native_idle_before_detaching() {
     let selected = fixture_state("selected", calls.clone(), false, false, false);
     let reply = selected
         .owner
-        .stop_session(Sequence::default())
+        .stop_session()
         .expect("explicit stop")
         .recv_timeout(Duration::from_secs(5))
         .expect("stop finishes");
@@ -256,7 +255,7 @@ fn native_activity_without_a_safe_turn_id_stays_uncertain_and_is_never_interrupt
     let selected = fixture_state("selected", calls.clone(), false, false, true);
     let reply = selected
         .owner
-        .stop_session(Sequence::default())
+        .stop_session()
         .expect("explicit stop")
         .recv_timeout(Duration::from_secs(5))
         .expect("local owner closes");
@@ -320,15 +319,12 @@ fn a_second_stop_cannot_claim_a_request_while_the_first_native_acknowledgement_w
         false,
         Some(gate.clone()),
     );
-    let stopped = selected
-        .owner
-        .stop_session(Sequence::default())
-        .expect("first explicit stop");
+    let stopped = selected.owner.stop_session().expect("first explicit stop");
     entered
         .recv_timeout(Duration::from_secs(1))
         .expect("owner consumed the first request");
     assert!(
-        selected.owner.stop_session(Sequence::default()).is_err(),
+        selected.owner.stop_session().is_err(),
         "a second request must not be accepted after the owner took the first reply slot"
     );
     gate.release();

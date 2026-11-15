@@ -93,7 +93,13 @@ fn known_method(method: &str) -> bool {
 fn known_saved_method(method: &str) -> bool {
     matches!(
         method,
-        "saved/open" | "saved/archive" | "saved/page" | "saved/close" | "session/open"
+        "saved/open"
+            | "saved/archive"
+            | "saved/page"
+            | "saved/close"
+            | "session/open"
+            | "session/stop"
+            | "session/reopen"
     )
 }
 

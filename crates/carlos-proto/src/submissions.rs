@@ -11,6 +11,14 @@ pub struct ClientOperation {
     pub id: OperationId,
 }
 
+/// Address one logical session with the caller's retained operation counter.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionOperation {
+    pub session: crate::ids::SessionId,
+    pub operation: ClientOperation,
+}
+
 /// Accepted command text retained for asynchronous queue or fork recovery.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SubmittedText {

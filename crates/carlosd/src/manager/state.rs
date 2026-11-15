@@ -51,12 +51,22 @@ pub(super) struct Session {
     pub launch: Option<LaunchCancellation>,
     pub create: Vec<OperationResult>,
     pub save_failed: bool,
+    pub stopping: Option<Stopping>,
+    pub last_seq: Sequence,
+}
+
+pub(super) struct Stopping {
+    pub waiters: Vec<OperationResult>,
+    pub reopen: Vec<OperationResult>,
+    pub worker: Option<JoinHandle<super::stop_worker::Stopped>>,
+    pub joined: bool,
+    pub error: Option<String>,
 }
 
 pub(super) struct Live {
     pub native_thread: String,
     pub handle: EngineHandle,
-    pub notice: JoinHandle<()>,
+    pub notice: Option<JoinHandle<()>>,
     pub updates: Option<mpsc::Receiver<EngineReply>>,
     pub seq: Sequence,
     pub dirty: bool,

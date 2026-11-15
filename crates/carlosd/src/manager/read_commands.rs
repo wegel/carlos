@@ -214,6 +214,12 @@ impl Manager {
             .sessions
             .get(id)
             .ok_or_else(|| error(-32004, "unknown session"))?;
+        if state.stopping.is_some() || state.saved.stopped {
+            return Err(error(
+                -32012,
+                "Session stopped; explicitly reopen it before subscribing",
+            ));
+        }
         if self.reads.len() + self.waiting.len() >= 256 {
             return Err(error(-32010, "pending reads are full"));
         }
@@ -329,6 +335,7 @@ impl Manager {
         let live = self
             .sessions
             .get(&session)
+            .filter(|state| state.stopping.is_none())
             .and_then(|state| state.live.as_ref())
             .ok_or_else(|| error(-32012, "session has no live owner"))?;
         let reply = live.handle.request(command)?;

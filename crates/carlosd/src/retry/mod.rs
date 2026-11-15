@@ -2,6 +2,7 @@
 
 mod clients;
 mod existing;
+mod stopped;
 
 use std::collections::HashMap;
 use std::time::Instant;
@@ -24,6 +25,7 @@ pub struct Resume {
 pub enum Class {
     Ordinary,
     Control,
+    Lifecycle,
 }
 
 /// A retry returns its retained result; only a new admission may start native work.
@@ -51,7 +53,7 @@ pub struct RetryStore {
     instance: DaemonId,
     clients: Clients,
     records: HashMap<ClientOperation, Record>,
-    windows: [Window; 2],
+    windows: [Window; 3],
     issued: u64,
 }
 
@@ -66,6 +68,7 @@ impl RetryStore {
             windows: [
                 Window::new(768, 12 * 1024 * 1024),
                 Window::new(256, 4 * 1024 * 1024),
+                Window::new(64, 512 * 1024),
             ],
         }
     }
@@ -268,6 +271,7 @@ impl Class {
         match self {
             Self::Ordinary => 0,
             Self::Control => 1,
+            Self::Lifecycle => 2,
         }
     }
 }
@@ -320,3 +324,6 @@ fn diagnostic(message: &str) -> String {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod stopped_tests;

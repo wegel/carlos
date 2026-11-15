@@ -284,7 +284,6 @@ pub struct EngineUpdate {
 }
 
 struct StopRequest {
-    since: Sequence,
     reply: mpsc::SyncSender<EngineReply>,
 }
 

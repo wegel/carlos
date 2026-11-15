@@ -162,7 +162,7 @@ impl Owner {
     ) {
         if let Some(stop) = stop {
             let report = EngineReply::Stopped {
-                update: Box::new(self.updates(stop.since)),
+                update: Box::new(self.updates(None)),
                 native,
             };
             let _ = stop.reply.try_send(report);
@@ -229,7 +229,7 @@ impl Owner {
                 .map(EngineReply::Source)
                 .map_err(|error| failure(error.to_string())),
             EngineCommand::Updates { since } => {
-                Ok(EngineReply::Updates(Box::new(self.updates(since))))
+                Ok(EngineReply::Updates(Box::new(self.updates(Some(since)))))
             }
             EngineCommand::SourceAt {
                 entry,
@@ -248,8 +248,8 @@ impl Owner {
         result.unwrap_or_else(EngineReply::Failure)
     }
 
-    fn updates(&mut self, since: carlos_proto::ids::Sequence) -> super::EngineUpdate {
-        let changes = match self.ring.replay(since) {
+    fn updates(&mut self, since: Option<carlos_proto::ids::Sequence>) -> super::EngineUpdate {
+        let changes = match since.and_then(|seq| self.ring.replay(seq)) {
             Some(frames) => Ok(EngineChanges::Replay {
                 frames,
                 seq: self.ring.sequence(),

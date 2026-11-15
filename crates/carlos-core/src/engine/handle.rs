@@ -5,7 +5,6 @@ use std::sync::mpsc;
 use std::thread;
 
 use carlos_proto::commands::RpcError;
-use carlos_proto::ids::Sequence;
 
 use super::{EngineCommand, EngineHandle, EngineReply, StopRequest};
 
@@ -61,7 +60,7 @@ impl EngineHandle {
     }
 
     /// Stop this owner, interrupt its attached native turn, and return the final outcomes after cleanup.
-    pub fn stop_session(&self, since: Sequence) -> Result<mpsc::Receiver<EngineReply>, RpcError> {
+    pub fn stop_session(&self) -> Result<mpsc::Receiver<EngineReply>, RpcError> {
         let mut stop_request = self.0.stop_request.lock().expect("session stop request");
         if stop_request.is_some()
             || self.0.stop.load(Ordering::SeqCst)
@@ -73,7 +72,7 @@ impl EngineHandle {
             });
         }
         let (reply, received) = mpsc::sync_channel(1);
-        *stop_request = Some(StopRequest { since, reply });
+        *stop_request = Some(StopRequest { reply });
         self.0.stopping.store(true, Ordering::SeqCst);
         let _ = self.0.wake.try_send(());
         Ok(received)

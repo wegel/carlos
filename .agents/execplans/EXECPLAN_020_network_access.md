@@ -13,6 +13,8 @@ The daemon can run shell commands as its user. Network access stays off unless t
 
 ## Progress
 
+- [x] (2026-11-15) Wire typed stop/reopen through the protocol, pure client and daemon. Keep joined stops pending until their exact stopped metadata is saved; preserve private results from both owner receivers and recover unconsumed canonical commands without resending. A separate bounded ingress/result reserve keeps stop available when ordinary/native-control work fills. Four actual-daemon cases pass: 16-slot release/reuse/history, stopped restart/subscription, held SQLite save/reopen order and exact queued drafts for two clients. The next three actual cases also pass: failed stopped-row save, cancelled held launch and coalesced reopen with exact stream continuity. Two real attached-socket cases then pass: selected-turn interruption/card retirement without closing an external bystander connection, and visible lost-ACK uncertainty followed by explicit reopen. Both workspace feature matrices and strict lint pass; the full prior daemon suite plus the first seven new cases passes150 tests in76.617s at /tmp/carlos-ep020/manager-regression-venv.log. The first full attempt used system Python and failed111 imports because websockets belongs to target/ui-venv; it was an environment error, not150 runtime failures. Actual helper/descendant teardown and terminal/CLI checks remain required before this milestone is complete. First traces: /tmp/carlos-ep020/manager-first; corrected queued-work check: /tmp/carlos-ep020/manager-third.
+
 - [x] (2026-11-15) Retire active and queued approval cards after final worker cleanup, even if the owner stops before reducing the native close message. The focused Core shutdown cases pass. One initial test incorrectly assumed cursor zero forced a snapshot; request a deliberately unmatched cursor to verify the final full snapshot instead. Public lifecycle routes remain incomplete.
 
 - [x] (2026-11-15) Add explicit Core stop_session with EngineReply::Stopped carrying final updates and a separate native interrupt result. Preserve ordinary shutdown behavior. Five captured-writer cases pass for exact attached turn/bystander, lost acknowledgement, normal shutdown, confirmed idle read, and native activity without a safe turn ID. A deterministic held-ACK case then exposes a second request accepted after the reply slot was consumed; its before-failure is /tmp/carlos-ep020/attached-stop/duplicate-before.log. The stopping guard now passes all six cases and both full workspace feature/lint matrices; logs are /tmp/carlos-ep020/attached-stop/. The public manager/CLI path is still incomplete.
@@ -35,6 +37,10 @@ The daemon can run shell commands as its user. Network access stays off unless t
 - [ ] Finish the direct engineering and Fable whole-roadmap reviews, record every disposition and delegated approval, archive this completed plan unchanged and continue to EP021.
 
 ## Surprises & Discoveries
+
+A stop cancels old owner reads before replacement. Its final report must contain a full bounded snapshot, so a client waiting for a gap-repair snapshot can adopt Closed facts even though its original read was cancelled. Remove the unnecessary cursor argument from the new internal stop API and retain EngineUpdate.seq independently. Ordinary update reads still use their incremental cursor.
+
+The Grok fixture acknowledges a prompt when its stdin write succeeds, before the turn finishes. Accepted input must stay accepted during stop. The two-client recovery case explicitly queues later text behind the visible running turn, instead of mistaking a completed stdin write for an unconfirmed prompt. The first fixture attempt used an unsupported trigger and the second omitted queue policy; their failures and wire traces remain under manager-first/manager-second.
 
 Explicit owner stop can skip the final normalized native-close message. Retire both approval queues and the active card after worker completions, before publishing the final Closed state, so a closed session cannot keep a live question.
 
@@ -63,6 +69,9 @@ The locked tungstenite version is 0.30.0. Its config allocates a read buffer eag
 
 ## Decision Log
 
+- 2026-11-15, root: Keep stopped owner joins off the manager, retain Live until both prior/final reports are applied, then free its native slot. Stop acknowledgement waits for matching durable metadata. Stop/reopen commands use the existing exact operation store; an old identical stop cannot reach a replacement. Reserve 16 ingress messages/64 KiB and 64 retained lifecycle results/512 KiB independently of ordinary and urgent native work. Preserve FIFO counter order.
+- 2026-11-15, root: Return a full final snapshot for explicit stop, including retirement of all cards. Cancel old native/body reads and watches before replacement, retain session interests for closure/reopen facts, and join outstanding stop workers even when the daemon itself shuts down.
+
 - 2026-11-15, root: Reuse existing card retirement methods after workers join. Do not synthesize native answers or promote a queued question during stop.
 
 - 2026-11-15, root: Rename the new Core API to stop_session and return a typed Stopped reply with independent native confirmation. Interrupt only the captured attached Codex turn through existing guarded ControlWork with a two-second stop deadline; ordinary controls retain ten seconds. If no safe local turn is known and no send is in flight, read native thread status without materializing history and confirm idle; an active/unknown result remains uncertain. Keep ordinary daemon teardown unchanged and never kill the unowned app-server.
@@ -85,7 +94,7 @@ The locked tungstenite version is 0.30.0. Its config allocates a read buffer eag
 
 ## Outcomes & Retrospective
 
-The Core foundations and durable stopped metadata now pass their checks. Core stop_session returns final facts/private results plus native confirmation; event continuation preserves attached clients; fresh internal owner UUIDs retire stale control addresses. The catalogue migration preserves native addresses and rejects inconsistent stopped/Ralph metadata. The public manager, CLI/terminal lifecycle actions and network listener are still incomplete. Next wire the bounded manager stop worker, exact old-owner results and durable acceptance, then prove actual native process/16-slot behavior.
+The Core foundations and durable stopped metadata now pass their checks. Core stop_session returns final facts/private results plus native confirmation; event continuation preserves attached clients; fresh internal owner UUIDs retire stale control addresses. The catalogue migration preserves native addresses and rejects inconsistent stopped/Ralph metadata. The public manager stop/reopen path now passes actual 16-slot/native-process, restart, disk-order, private queued-draft, save-failure, cancelled-launch, cursor and attached-server cases, plus150 daemon regressions. Its remaining helper/descendant and disconnect cases, CLI/terminal lifecycle actions and network listener are incomplete. Finish those lifecycle checks before enabling network access.
 
 
 The first owner shutdown-report piece is implemented and its two new cases pass. Both workspace feature/lint matrices pass. The public session stop/reopen command and durable stopped metadata are still incomplete. Next implement the manager stop worker, including its existing pending updates reply and unconsumed retry records, then prove real-native owner release. The accepted EP019b pair and measurements remain frozen for matched comparisons.
@@ -223,3 +232,5 @@ Revision 2026-11-15: complete both owner-stream Rust feature/lint matrices and p
 Revision 2026-11-15: implement attached-turn stop confirmation and separate stopping/transport-shutdown flags; preserve the held-ACK failing regression before applying the duplicate-request guard.
 
 Revision 2026-11-15: finish all attached-stop cases and both feature/lint matrices, with the held-ACK before/after proof. Core foundations are checked; public stop/reopen remains the next required work.
+
+Revision 2026-11-15: connect retained stop/reopen commands through Core, the pure client, manager workers and durable saves. Record both Rust matrices, strict lint,150 full daemon cases and two additional attached-server cases. Keep the lifecycle milestone open for helper/descendant, lost-reply and terminal/CLI proof.

@@ -38,6 +38,8 @@ impl Manager {
             | Command::SavedPage { .. }
             | Command::SavedClose { .. }) => self.startup_command(peer, id, command, client),
             Command::Create { .. } => self.create(peer, id, command, client),
+            Command::Stop(_) => self.stop_command(peer, id, command, client),
+            Command::Reopen(_) => self.reopen_command(peer, id, command, client),
             Command::Send { .. }
             | Command::Rename { .. }
             | Command::Rewind { .. }
@@ -53,15 +55,7 @@ impl Manager {
             | Command::Approve { .. }
             | Command::Interrupt { .. }
             | Command::Reconnect { .. } => self.mutate(peer, id, command, client),
-            Command::Watch {} => {
-                self.peers.get_mut(&peer).expect("peer").list = true;
-                let sessions = self
-                    .sessions
-                    .values()
-                    .map(|session| session.info.clone())
-                    .collect();
-                self.reply(peer, id, Sessions { sessions });
-            }
+            Command::Watch {} => self.watch_sessions(peer, id),
             Command::Operation { operation } => {
                 match self.retry.read(&client, &operation, Instant::now()) {
                     Ok(result) => self.reply(peer, id, result),
@@ -70,6 +64,16 @@ impl Manager {
             }
             command => self.read_command(peer, id, command),
         }
+    }
+
+    fn watch_sessions(&mut self, peer: u64, id: RequestId) {
+        self.peers.get_mut(&peer).expect("peer").list = true;
+        let sessions = self
+            .sessions
+            .values()
+            .map(|state| state.info.clone())
+            .collect();
+        self.reply(peer, id, Sessions { sessions });
     }
 
     fn hello(&mut self, peer: u64, id: RequestId, command: Command) {
@@ -189,6 +193,7 @@ impl Manager {
         let admitted = self
             .sessions
             .get(&session)
+            .filter(|session| session.stopping.is_none())
             .and_then(|session| session.live.as_ref())
             .ok_or_else(|| error(-32012, "session has no live owner; subscribe to restore it"))
             .and_then(|live| live.handle.request(work));
