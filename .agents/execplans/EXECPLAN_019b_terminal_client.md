@@ -85,7 +85,7 @@ The daemon already proves basic chat, approvals, running output, independent cli
 
 - [x] (2026-11-15) Commit shared active-step painting as c8fa69a, current native-ID ownership/deduplication as 8ec8398 and terminal draft/local-key parity as 4cf7912. Root actual follow-ups cover empty prompt history, fork/theme survival and replacement-helper two-stage approval. Reports preserve isolated versus combined-source evidence. The callback/task worker has 21 of23 affected terminal cases passing and is checking the last two fixes; the backend worker is correcting result-before-interrupt ordering. No reviewer ran.
 - [x] (2026-11-15) Reproduce and repair two Escape regressions through the actual Device event handler: repeated Escape must not finish a chord, and composer paste must reset the post-interrupt cooldown. The failing-before run has two failures; the same three tests pass after the fixes, followed by strict no-default lint. Logs: /tmp/carlos-ep019b/escape-device-{before,after,clippy}.log.
-- [ ] (2026-11-15) Finish moving the old frontend tests to their actual owners. Renderer/tool-widget and native translation batches are committed; common native identity/history batches and core runtime/device input batches are underway. Keep unique native, screen, timing and byte-for-byte oracles; delete obsolete forwarding tests only with named successor coverage.
+- [x] (2026-11-15) Finish moving the old frontend tests to their actual owners through314823f and a3e68b6. Native/Core/Device/pure renderer successors preserve the unique native, screen, timing and exact-byte assertions. The final test-list comparison retires only two obsolete keyboard/native queue tests; ten actual Native pipe schedules and real terminal checks cover their remaining behavior.
 
 - [x] (2026-11-15) The exact4cf7912 prefix plus one corrected queue-caption fixture passes scripts/test.sh --codex-contract:1539Rust,143daemon,296terminal,2selection,5source-failure,2dictation and23native monitors, plus helper/package/architecture/dependency/installed-Codex checks. The run still mixes embedded/socket workflows. Final callback/task28-case actual-daemon rerun passes; a fresh complete all-daemon matrix is running against the frozen matching complete pair. See exec019b-terminal-test-migration.md and raw logs for identities/limits.
 
@@ -124,6 +124,10 @@ The daemon already proves basic chat, approvals, running output, independent cli
 - [x] (2026-11-15) Complete all old-owner test moves through314823f: native32 and committed phone/client counterparts replace the final35cases; unused Peer/NormalizedApp/support and AppState::new retire. All three final native indexed prefixes and normal hooks pass. A source-frozen private deletion has no pending native modules; its first full no-default run passes1558/tenignored. Exact test-list comparison catches two pure status sweeps attached to the old renderer; move only their registration unchanged before deletion.
 
 ## Surprises & Discoveries
+
+The final143-case daemon gate passed141 and found two old assertions requiring unchanged public process task IDs after a native PID/item replacement. The intentionally strengthened identity72da0bc changes those IDs. Corrected cases preserve exact Unicode/late acknowledgement/private-error checks, reject old targets without native writes, and fail on the preserved pre-fix daemon. Both pass on the final cutover pair. No product fix is needed.
+
+The final release runner first stopped before daemon ownership checks because this shell now has uid0 while /var/home/wegel belongs to uid1000. The daemon correctly rejects that ancestor. Preserve final-release-gate-01.log. The second runner changes only its artifact directory from the checkout to a fresh /tmp directory; every build, assertion and deadline remains unchanged. Do not weaken daemon path checks or change home ownership.
 
 The old queue tests exposed a missing local rewind guard. The Core actor cannot see a terminal's unsent queue recovery text, and the Device did not check it. The exact guarded/unguarded Device test fails without the three-line local check, then passes with zero submitted operations; explicit recovery permits the same captured rewind target. The patch adds no protocol or shared owner state.
 
@@ -199,6 +203,8 @@ The cutover draft no longer calls the source-reader helper from the terminal exe
 The installed Codex CLI distinguishes a new, unmaterialized thread from an existing empty saved thread. A native probe in `/tmp/carlos-ep019b/native-fresh-read-probe/rpc.jsonl` shows thread/start succeeds with turns=[], metadata/queue/goal reads succeed, and thread/turns/list returns-32600 before a user message. Treating that failure as a general empty-history fallback would discard real resumed history, so the caller must carry the known launch scope.
 
 ## Decision Log
+
+- 2026-11-15: Keep the final uncommitted runtime removal frozen during release checks. The corrected private candidate passes1603 default/1560 no-default tests and strict lint in both modes. The actual branch has the same checked110-path removal, preserves current remote modules, and retains the two pure sweep tests on status_line. Commit only after actual release terminal/native parity.
 
 - 2026-11-15: Compare complete test lists at the removal boundary. Move the two byte-identical sweep tests to their actual shared painter. Retire only the obsolete terminal/native ordering tests with named actor-reader and actual-terminal replacements; do not drop a pure test merely because its old module disappears.
 
@@ -281,6 +287,8 @@ Decision: cap retained session facts across one Client at 64 MiB and defer futur
   Date/Author: 2026-11-15, Codex.
 
 ## Outcomes & Retrospective
+
+All original frontend owner families now have named Core, Native, Device or pure-renderer successors. The working branch removes the old runtime route; the final release terminal/native run is active. Quiet matched measurements, final reviews and approval remain open.
 
 Native57, queuebadb6e6 and callbackd91cc6c are committed with passing normal hooks. Their exact native/private maps retire the old owner fixtures without a replacement frontend facade. Root registers a checked test-only formatter measurement probe; its two small functional smokes pass privately and no final timing is claimed. Final input/binary identities and real socket measurement driver are prepared under final-gate-preparation. The physical deletion, final runtime/release matrices, large-source high water and quiet matched timings remain open. Backend owns native33; the existing renderer worker owns only their remaining local phone/process/quota clauses.
 
@@ -881,3 +889,5 @@ Update2026-11-15: refreshed three stale feature checkboxes separately from final
 Update2026-11-15: record the six native57 commits, final callback/queue owner retirement and causal local queue recovery guard. Prepare actual-worker memory/append/resize measurements without claiming timing from concurrent builds. All final review and approval gates remain open.
 
 Update2026-11-15: all native/private owner migrations are committed and clean. The private removal now has no omitted native owners; an exact test-list diff caught and preserves two pure status tests before the separate physical removal. Final default/no-default, runtime/release/performance and review gates remain open.
+
+Revision2026-11-15: record the complete owner-test move, checked physical cutover and uid-specific test-artifact relocation. The release runner is still active; no final acceptance is claimed.

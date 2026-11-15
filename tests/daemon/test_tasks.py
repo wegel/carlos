@@ -186,8 +186,12 @@ class TaskTests:
         fixture.native.task_processes["native-root"] = [changed]
         first.call("task/list", session=session, refresh=True)
         current = self.known_tasks(first, session)
-        self.assertEqual(current["tasks"][0]["id"], task)
+        self.assertNotEqual(current["tasks"][0]["id"], task)
         self.assertNotEqual(current["tasks"][0]["run"], page["tasks"][0]["run"])
+        retired = first.response(first.send("task/text", session=session, expected=current["revision"], task=task, field="command", offset="0"))
+        self.assertIn("error", retired)
+        fresh = first.call("task/text", session=session, expected=current["revision"], task=current["tasks"][0]["id"], field="command", offset="0", limit=4)
+        self.assertEqual((fresh["offset"], fresh["text"]), ("0", "🌍"))
         stale = first.response(first.send("task/text", session=session, expected=page["revision"], task=task, field="command", offset="0"))
         self.assertIn("error", stale)
 

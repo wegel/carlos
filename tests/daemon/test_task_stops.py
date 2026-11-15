@@ -81,8 +81,11 @@ class TaskStopTests:
         fixture.native.task_processes["native-root"][0]["osPid"] = 12
         other.call("task/list", session=session, refresh=True)
         replacement = self.known_tasks(other, session)["tasks"][0]
-        self.assertEqual(replacement["id"], task["id"])
+        self.assertNotEqual(replacement["id"], task["id"])
         self.assertNotEqual(replacement["run"], task["run"])
+        stale, _ = self.stop_task(other, session, task, 1)
+        self.assertEqual(other.outcome(stale)["state"]["kind"], "rejected")
+        self.assertEqual(len(self.native_stops(fixture)), 1, "stale selection cannot stop the replacement")
         fixture.native.release_task_stop("process")
         self.assertEqual(first.outcome(operation)["state"]["kind"], "accepted")
         self.assertEqual(first.call("task/list", session=session)["tasks"][0]["run"], replacement["run"])
