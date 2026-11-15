@@ -21,21 +21,11 @@ fn preferences_path() -> Option<PathBuf> {
 
 /// Keep automatic labels optional while allowing an explicit startup override.
 pub(super) fn load_summary_enabled() -> bool {
-    if let Ok(value) = env::var("CARLOS_TOOL_SUMMARIES") {
-        return matches!(value.as_str(), "on" | "true" | "1");
-    }
-    preferences_path()
-        .and_then(|path| fs::read(path).ok())
-        .and_then(|raw| serde_json::from_slice::<Value>(&raw).ok())
-        .and_then(|value| value["ai_tool_labels"].as_bool())
-        .unwrap_or(true)
+    carlos_core::ui_preferences::load_summary_enabled()
 }
 
 pub(super) fn save_summary_enabled(enabled: bool) -> Result<()> {
-    save_fields(
-        &preferences_path().context("cannot determine config directory")?,
-        &[("ai_tool_labels", json!(enabled))],
-    )
+    carlos_core::ui_preferences::save_summary_enabled(enabled)
 }
 
 /// Read a saved choice, defaulting to Auto for missing or invalid settings.
@@ -116,22 +106,5 @@ pub(super) fn save_appearance_to(
 }
 
 fn save_fields(path: &Path, fields: &[(&str, Value)]) -> Result<()> {
-    let parent = path.parent().context("invalid UI settings path")?;
-    fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
-    let mut value = fs::read(path)
-        .ok()
-        .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
-        .filter(Value::is_object)
-        .unwrap_or_else(|| json!({}));
-    for (key, setting) in fields {
-        value[key] = setting.clone();
-        if *key == "themes" {
-            if let Some(object) = value.as_object_mut() {
-                object.remove("layout");
-            }
-        }
-    }
-    let temporary = parent.join(format!(".ui-settings-{}.json", std::process::id()));
-    fs::write(&temporary, serde_json::to_vec_pretty(&value)?).context("write UI settings")?;
-    fs::rename(&temporary, path).context("save UI settings")
+    carlos_core::ui_preferences::save_fields_to(path, fields)
 }

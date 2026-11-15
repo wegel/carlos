@@ -256,6 +256,5 @@ fn preferences_save_only_the_explicit_choice_and_preserve_other_ui_fields() {
     assert_eq!(load_mode_from(&path), ToolOutputMode::Auto);
     fs::write(&path, "broken").expect("write invalid JSON");
     assert_eq!(load_mode_from(&path), ToolOutputMode::Auto);
-    fs::remove_file(path).expect("remove test settings");
-    fs::remove_dir(root).expect("remove test directory");
+    fs::remove_dir_all(root).expect("remove private settings directory and retained lock");
 }
