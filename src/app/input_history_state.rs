@@ -112,10 +112,4 @@ impl InputHistoryView {
     pub(super) fn rewind_selected_entry_id(&self) -> Option<EntryId> {
         self.selected_entry_id
     }
-
-    /// Read the prompt-record cursor used for backend rewind.
-    #[cfg(test)]
-    pub(super) fn rewind_selected_history_index(&self) -> Option<usize> {
-        self.input_history_index
-    }
 }

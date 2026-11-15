@@ -265,3 +265,7 @@ impl Device {
 #[cfg(test)]
 #[path = "history_view_tests.rs"]
 mod view_tests;
+
+#[cfg(test)]
+#[path = "history_cursor_contract_tests.rs"]
+mod cursor_contract_tests;

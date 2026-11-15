@@ -22,6 +22,7 @@ mod lookup_differential;
 mod lookup_extra;
 mod names;
 mod prompt_bindings;
+mod prompt_record_flags;
 mod review_cursor;
 mod review_history;
 mod rewind_anchors;

@@ -95,13 +95,6 @@ impl AppState {
     }
 
     #[cfg(test)]
-    pub(super) fn discard_pending_input_history(&mut self, text: &str) {
-        if self.session.discard_pending_prompt(text) {
-            self.reset_input_history_navigation();
-        }
-    }
-
-    #[cfg(test)]
     pub(super) fn record_input_history(&mut self, text: &str, message_idx: Option<usize>) {
         self.record_prompt_history(
             text,
@@ -182,14 +175,6 @@ impl AppState {
             .and_then(|index| self.session.claude_history().unknown().get(index))
             .map(|prompt| prompt.entry_id())
             .or_else(|| self.view.input_history.rewind_prompt_id())
-    }
-
-    #[cfg(test)]
-    pub(super) fn rewind_selected_history_index(&self) -> Option<usize> {
-        self.view
-            .claude_unknown_selection
-            .map(|_| usize::MAX)
-            .or_else(|| self.view.input_history.rewind_selected_history_index())
     }
 
     #[cfg(test)]

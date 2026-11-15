@@ -129,6 +129,8 @@ impl Device {
         if changes.reset || changes.removed_front > 0 || changes.removed_back > 0 {
             self.dirty_from(0);
             if changes.reset {
+                self.history.reset_navigation();
+                self.history.rewind_draft = None;
                 self.documents.selection = None;
                 self.documents.copy = None;
                 self.documents.formatting.clear();
