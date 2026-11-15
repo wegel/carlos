@@ -11,6 +11,14 @@ use crate::dictation::events::DictationEvent;
 #[cfg(feature = "dictation")]
 use crate::dictation::worker::{DictationCancelToken, DictationWorker, DictationWorkerProfile};
 
+/// Describe local event work and whether a matching event inserted private composer text.
+#[cfg(feature = "dictation")]
+#[derive(Default)]
+pub(in crate::app) struct DictationUpdate {
+    pub(in crate::app) changed: bool,
+    pub(in crate::app) inserted: bool,
+}
+
 impl ViewState {
     /// Connect capture and inference to this device without forwarding their events to a daemon.
     #[cfg(feature = "dictation")]
@@ -22,8 +30,8 @@ impl ViewState {
 
     /// Handle a bounded local event batch so terminal input can run between batches.
     #[cfg(feature = "dictation")]
-    pub(in crate::app) fn drain_local_dictation_events(&mut self) -> bool {
-        let mut changed = false;
+    pub(in crate::app) fn drain_local_dictation_events(&mut self) -> DictationUpdate {
+        let mut update = DictationUpdate::default();
         for _ in 0..32 {
             let event = self
                 .dictation_io
@@ -31,10 +39,10 @@ impl ViewState {
                 .as_ref()
                 .and_then(|rx| rx.try_recv().ok());
             let Some(event) = event else { break };
-            self.handle_dictation_event(event);
-            changed = true;
+            update.inserted |= self.handle_dictation_event(event);
+            update.changed = true;
         }
-        changed
+        update
     }
 
     #[cfg(feature = "dictation")]
@@ -46,8 +54,9 @@ impl ViewState {
         self.dictation_io.events_tx = Some(tx);
     }
 
+    /// Return whether a matching capture or worker event inserted composer text.
     #[cfg(feature = "dictation")]
-    pub(in crate::app) fn handle_dictation_event(&mut self, event: DictationEvent) {
+    pub(in crate::app) fn handle_dictation_event(&mut self, event: DictationEvent) -> bool {
         match event {
             DictationEvent::CaptureAutoStopped {
                 capture_id,
@@ -73,9 +82,10 @@ impl ViewState {
                 message,
             } => self.handle_dictation_transcription_error(request_id, message),
             DictationEvent::TranscriptionFinal { request_id, text } => {
-                self.handle_dictation_transcription_final(request_id, text);
+                return self.handle_dictation_transcription_final(request_id, text);
             }
         }
+        false
     }
 
     #[cfg(all(test, feature = "dictation"))]
@@ -212,18 +222,25 @@ impl ViewState {
     }
 
     #[cfg(feature = "dictation")]
-    pub(super) fn handle_dictation_transcription_final(&mut self, request_id: u64, text: String) {
+    pub(super) fn handle_dictation_transcription_final(
+        &mut self,
+        request_id: u64,
+        text: String,
+    ) -> bool {
         if self.dictation_io.request_id != Some(request_id) {
-            return;
+            return false;
         }
         self.dictation_io.cancel = None;
         self.dictation_io.request_id = None;
-        if self.dictation.finish_transcription().is_some() {
-            if !text.is_empty() {
-                self.insert_dictation_text(text);
-            }
-            self.dictation_hint("dictation inserted");
+        if self.dictation.finish_transcription().is_none() {
+            return false;
         }
+        let inserted = !text.is_empty();
+        if inserted {
+            self.insert_dictation_text(text);
+        }
+        self.dictation_hint("dictation inserted");
+        inserted
     }
 
     #[cfg(feature = "dictation")]

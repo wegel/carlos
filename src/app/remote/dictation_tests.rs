@@ -134,3 +134,7 @@ fn settings_endpoint_field_changes_only_local_dictation_and_never_starts_recordi
         Some("DICTATING MANUAL [English]")
     );
 }
+
+#[cfg(feature = "dictation")]
+#[path = "dictation_history_tests.rs"]
+mod history;

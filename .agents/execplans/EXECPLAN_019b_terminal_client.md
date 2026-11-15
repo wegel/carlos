@@ -93,6 +93,10 @@ The daemon already proves basic chat, approvals, running output, independent cli
 
 - [x] (2026-11-15) Land Escape7aab348, core runtime-owner tests a7eef0e and borrowed editor/device dictation tests9db4965 with normal fmt/full-workspace hooks. Preserve thirteen Ralph/queue, five settings matrices and the stable model-order rule in core; keep borrowed editor and local capture/input assertions without AppState. The migration report names their successors. Callback facts/task/UI checkpoints5abe777/0dcf8e9/9a9ba91 also pass normal hooks and the28-case actual cluster.
 
+- [x] (2026-11-15) Land native interrupt ordering as f26a85b after87 backend tests, eight real-owner schedules, the46458-sequence reference and five unchanged actual terminal interrupt cases. Successful native results wait only for their captured pending interrupt reply; error/abort facts retain precedence. Normal full-workspace hook and strict lint pass. Keep exact held-result/EOF diagnostics and fixture native-running fence in the worker handoff.
+- [x] (2026-11-15) Land mobile input as230c4e4. Reuse the pure viewport decoder, keep private ordinary code literal, and retain all prior fragment/direction rules. Fifteen focused tests and seven actual final-pair workflows pass, including two new causal regressions. The two-editor settings fixture now waits for the Settings title to disappear; its earlier footer-only fence was too weak while Save was pending. See exec019b-mobile-input.md.
+- [x] (2026-11-15) Repair dictated-text versus delayed prompt-read ownership. The actual Device test fails before the fix and passes afterward; stale results cannot cancel current navigation. Preserve the exact selected prompt record during rewind. The default dictation group passes57 tests/one ignored hardware case and strict workspace lint passes. See exec019b-dictation-history.md. No review, final approval or runtime cutover has run.
+
 ## Surprises & Discoveries
 
 The first complete existing terminal run through private daemons finished291

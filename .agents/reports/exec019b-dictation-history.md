@@ -1,0 +1,7 @@
+# EP019b dictated text and prompt reads
+
+The shared ViewState handler inserted dictated text but reset only the old embedded history cursor. The socket Device owns a different asynchronous prompt reader. A matching voice result therefore left an older prompt read able to replace the newly inserted text. The actual Device regression fails before the repair; its stale-result companion already passes.
+
+The local event drain now reports whether a checked event inserted text. Device cancels its pending prompt read and queued arrows only for that change. Ordinary navigation drops its old selection/draft; a rewind keeps the exact selected opaque prompt record and original rewind draft. A stale final still leaves the current prompt read and composer alone. Dictation shortcuts use the same private-read cancellation as ordinary composer edits. The decoder and paste handler share that small helper; no text comparison, new protocol command, extra audio channel or native owner is introduced.
+
+The default frontend dictation group passes57 tests with one existing ignored hardware case. The enhanced target test checks an actual typed PromptRecord address. Default strict workspace/all-target Clippy passes. Raw logs under /tmp/carlos-ep019b are dictation-history-before.log, dictation-history-after.log, dictation-history-target-after.log and dictation-history-clippy.log. Physical microphone capture and actual inference remain untested. The normal integrated hook and final whole-EP gates still follow.

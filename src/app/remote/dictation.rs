@@ -18,7 +18,11 @@ impl Device {
     pub(super) fn drain_dictation(&mut self) -> bool {
         #[cfg(feature = "dictation")]
         {
-            self.view.drain_local_dictation_events()
+            let update = self.view.drain_local_dictation_events();
+            if update.inserted {
+                self.cancel_prompt_read_for_edit();
+            }
+            update.changed
         }
         #[cfg(not(feature = "dictation"))]
         {
@@ -32,7 +36,11 @@ impl Device {
             .client
             .session(&self.session)
             .is_some_and(|replica| replica.info().current_turn.is_some());
-        self.view.dictation_key(key, turn_active)
+        let consumed = self.view.dictation_key(key, turn_active);
+        if consumed {
+            self.cancel_prompt_read_for_edit();
+        }
+        consumed
     }
 
     /// Add the active profile and endpoint label beside the ordinary status.

@@ -178,10 +178,10 @@ fn local_event_drain_inserts_only_the_matching_final_into_this_view() {
         text: "local 🌍".into(),
     })
     .expect("current final");
-    assert!(view.drain_local_dictation_events());
+    assert!(view.drain_local_dictation_events().changed);
     assert_eq!(view.input.lines(), &["prefix local 🌍"]);
     assert!(matches!(view.dictation_phase(), DictationPhase::Idle));
-    assert!(!view.drain_local_dictation_events());
+    assert!(!view.drain_local_dictation_events().changed);
     assert_eq!(other.input.lines(), &["another private draft"]);
 }
 
@@ -198,7 +198,7 @@ fn local_event_drain_yields_between_bounded_batches() {
         })
         .expect("capture error");
     }
-    assert!(view.drain_local_dictation_events());
+    assert!(view.drain_local_dictation_events().changed);
     let remaining = view
         .dictation_io
         .local_events
