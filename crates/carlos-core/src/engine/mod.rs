@@ -15,6 +15,7 @@ mod queue_reads;
 mod reports;
 mod results;
 mod ring;
+mod settings;
 mod settle;
 mod target;
 mod task_stops;
@@ -40,6 +41,12 @@ pub use self::ring::EngineFrame;
 
 /// Only explicit session reads and commands enter the owner, never native method strings.
 pub enum EngineCommand {
+    SettingsSet {
+        operation: ClientOperation,
+        expected: carlos_proto::ids::SettingsRevision,
+        change: carlos_proto::settings::SettingsChange,
+        save_default: bool,
+    },
     TaskWindow(crate::session::task_windows::WindowCommand),
     TaskSnapshot,
     TaskOverview {
@@ -297,7 +304,9 @@ impl EngineHandle {
             | EngineCommand::Rename { .. }
             | EngineCommand::Rewind { .. } => &self.0.ordinary,
             EngineCommand::GoalSet { .. } | EngineCommand::GoalClear { .. } => &self.0.ordinary,
-            EngineCommand::QueueChange { .. } => &self.0.ordinary,
+            EngineCommand::QueueChange { .. } | EngineCommand::SettingsSet { .. } => {
+                &self.0.ordinary
+            }
             EngineCommand::TaskStop { .. }
             | EngineCommand::Interrupt { .. }
             | EngineCommand::Approve { .. } => &self.0.control,
@@ -357,6 +366,9 @@ impl EngineCommand {
             Self::Rename { name, .. } => name.len(),
             Self::GoalSet { change, .. } => change.objective.as_ref().map_or(0, String::len),
             Self::QueueChange { change, .. } => change.text().map_or(0, str::len),
+            Self::SettingsSet { change, .. } => {
+                serde_json::to_vec(change).map_or(usize::MAX - 256, |bytes| bytes.len())
+            }
             Self::Approve { answer, .. } => {
                 serde_json::to_vec(answer).map_or(usize::MAX - 256, |bytes| bytes.len())
             }

@@ -34,6 +34,7 @@ impl Owner {
             | EngineCommand::GoalSet { operation, .. }
             | EngineCommand::GoalClear { operation, .. }
             | EngineCommand::QueueChange { operation, .. }
+            | EngineCommand::SettingsSet { operation, .. }
             | EngineCommand::TaskStop { operation, .. }
             | EngineCommand::Approve { operation, .. }
             | EngineCommand::Interrupt { operation, .. } => operation,
@@ -140,6 +141,9 @@ impl Owner {
         ) {
             return;
         }
+        if self.settings.is_some() {
+            return;
+        }
         if self.dispatch_front_queue() {
             return;
         }
@@ -164,6 +168,13 @@ impl Owner {
         let Some(command) = self.ordinary.pop_front() else {
             return;
         };
+        self.dispatch_command(command);
+        if !self.ordinary.is_empty() && !self.workers.ordinary_busy {
+            let _ = self.channels.wake.try_send(());
+        }
+    }
+
+    fn dispatch_command(&mut self, command: EngineCommand) {
         match command {
             EngineCommand::Send {
                 operation,
@@ -171,6 +182,12 @@ impl Owner {
                 policy,
             } => self.send(Some(operation), text, policy, PromptOrigin::Human, false),
             EngineCommand::SetRalph { operation, on } => self.set_ralph(operation, on),
+            EngineCommand::SettingsSet {
+                operation,
+                expected,
+                change,
+                save_default,
+            } => self.change_settings(operation, expected, change, save_default),
             EngineCommand::QueueChange {
                 operation,
                 expected,
@@ -183,9 +200,6 @@ impl Owner {
                 self.edit(command)
             }
             _ => unreachable!("typed ordinary lane"),
-        }
-        if !self.ordinary.is_empty() && !self.workers.ordinary_busy {
-            let _ = self.channels.wake.try_send(());
         }
     }
 

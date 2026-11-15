@@ -40,9 +40,8 @@ impl<'a> From<&'a RuntimeSettingsState> for RuntimeSettingsRef<'a> {
     }
 }
 
-impl<'a> RuntimeSettingsRef<'a> {
-    /// Borrow the client's captured settings and catalog while its private editor remains open.
-    pub fn from_client(settings: &'a SettingsFacts, models: &'a [ModelInfo]) -> Self {
+impl<'a> From<(&'a SettingsFacts, &'a [ModelInfo])> for RuntimeSettingsRef<'a> {
+    fn from((settings, models): (&'a SettingsFacts, &'a [ModelInfo])) -> Self {
         Self {
             current: ChoiceRefs {
                 model: &settings.current.model,

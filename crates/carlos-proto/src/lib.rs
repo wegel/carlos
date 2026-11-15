@@ -1,6 +1,7 @@
 //! Versioned client messages without sockets, threads, clocks or terminal types.
 
 pub mod bytes;
+mod command_types;
 pub mod commands;
 pub mod events;
 pub mod goals;

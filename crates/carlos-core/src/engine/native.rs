@@ -111,6 +111,7 @@ impl Owner {
     pub(super) fn close_native(&mut self) {
         self.native.closed = true;
         self.session.task_stops.clear();
+        self.retire_settings_scope();
         self.retire_goal_scope();
         self.retire_queue_scope();
         self.retire_task_stops();

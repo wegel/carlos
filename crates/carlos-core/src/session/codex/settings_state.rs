@@ -1,5 +1,11 @@
 //! Own accepted native settings and submitted update requests without editor drafts.
 
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+
+use carlos_proto::submissions::{ClientOperation, OperationState};
 use serde_json::Value;
 
 /// Retain requested side effects with accepted work until the native request starts.
@@ -25,6 +31,8 @@ pub struct SettingsState {
 /// Settle future and current-turn writes independently for one requested choice.
 #[derive(Debug)]
 pub(in crate::session) struct Change {
+    pub(in crate::session) request: SettingsRequest,
+    pub(in crate::session) future_result: Option<OperationState>,
     pub(in crate::session) token: u64,
     pub(in crate::session) desired: Value,
     pub(in crate::session) revision: u64,
@@ -33,6 +41,19 @@ pub(in crate::session) struct Change {
     pub(in crate::session) turn_id: Option<String>,
     pub(in crate::session) persist: bool,
     pub(in crate::session) announce: bool,
+}
+
+/// Retire a remote write's permission when its original pending request leaves the session.
+#[derive(Debug)]
+pub(in crate::session) struct SettingsRequest {
+    pub operation: Option<ClientOperation>,
+    pub live: Arc<AtomicBool>,
+}
+
+impl Drop for SettingsRequest {
+    fn drop(&mut self) {
+        self.live.store(false, Ordering::SeqCst);
+    }
 }
 
 impl SettingsState {

@@ -36,6 +36,9 @@ mod goal_tests;
 
 pub mod settings;
 mod settings_access;
+mod settings_dispatch;
+#[cfg(test)]
+mod settings_owned_tests;
 pub(crate) mod settings_reply;
 pub(crate) mod settings_state;
 

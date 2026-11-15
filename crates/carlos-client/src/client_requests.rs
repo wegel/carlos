@@ -180,6 +180,9 @@ fn mutation(command: &Command) -> Option<(&ClientOperation, Option<&SessionId>)>
         | Command::GoalClear {
             operation, session, ..
         }
+        | Command::SettingsSet {
+            operation, session, ..
+        }
         | Command::QueueChange {
             operation, session, ..
         }

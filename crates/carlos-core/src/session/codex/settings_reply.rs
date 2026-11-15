@@ -2,6 +2,8 @@
 
 use serde_json::{json, Value};
 
+use carlos_proto::submissions::OperationState;
+
 use super::scope::CodexScope;
 use super::settings::{reject, SettingsEffect, SettingsUpdate};
 use crate::session::state::SessionState;
@@ -33,7 +35,15 @@ pub fn reply(
     if params["requestParams"] != expected {
         return;
     }
-    let error = params["response"].get("error").cloned();
+    let mut error = params["response"].get("error").cloned();
+    if params["requestMethod"] == "thread/settings/update"
+        && error.is_none()
+        && !params["response"]["result"].is_object()
+    {
+        error = Some(
+            json!({"code":-32000,"message":"native settings reply did not confirm the future change"}),
+        );
+    }
     match params["requestMethod"].as_str() {
         Some("thread/settings/update") if change.thread.is_none() => {
             future_reply(session, update, error)
@@ -57,14 +67,23 @@ fn future_reply(session: &mut SessionState, update: &mut SettingsUpdate, error: 
     let desired = change.desired.clone();
     let persist = change.persist;
     let fallback = unsupported && change.revision == session.codex_settings.revision;
+    change.future_result = Some(future_outcome(accepted || fallback, error.as_ref()));
     if error.is_some() && !fallback {
         change.announce = true;
     }
-    change.thread = Some(error.as_ref().map_or_else(|| "Acknowledged".into(), |error| {
-        let message = error_text(error);
-        if fallback { format!("API unavailable: {message}; direct next-turn overrides saved locally") }
-        else { format!("Rejected: {message}; previous future settings retained. Ctrl+M reopens the attempted choices") }
-    }));
+    change.thread = Some(error.as_ref().map_or_else(
+        || "Acknowledged".into(),
+        |error| {
+            let message = error_text(error);
+            if fallback {
+                format!("API unavailable: {message}; direct next-turn overrides saved locally")
+            } else if error["code"] == -32000 {
+                format!("Not confirmed: {message}; read current native settings before retrying")
+            } else {
+                format!("Rejected: {message}; previous future settings retained")
+            }
+        },
+    ));
     let apply = accepted && change.revision == session.codex_settings.revision;
     if !unsupported {
         session.codex_settings.legacy_overrides = false;
@@ -89,6 +108,25 @@ fn future_reply(session: &mut SessionState, update: &mut SettingsUpdate, error: 
     }
 }
 
+fn future_outcome(accepted: bool, error: Option<&Value>) -> OperationState {
+    if accepted {
+        OperationState::Accepted {
+            entry: None,
+            notice: None,
+        }
+    } else if error.is_some_and(|error| error["code"] == -32000) {
+        OperationState::Uncertain {
+            message: error_text(error.expect("error")),
+            recovery: None,
+        }
+    } else {
+        OperationState::Rejected {
+            message: error_text(error.expect("rejection")),
+            recovery: None,
+        }
+    }
+}
+
 fn live_reply(session: &mut SessionState, params: &Value, error: Option<Value>) {
     if let Some(error) = &error {
         session.codex_settings.errors["live"] = error.clone();
@@ -108,7 +146,16 @@ fn live_reply(session: &mut SessionState, params: &Value, error: Option<Value>) 
             }
             _ => "Unrecognized native reply; no live change was confirmed".into(),
         },
-        |error| format!("Failed: {}; active turn unchanged", error_text(&error)),
+        |error| {
+            if error["code"] == -32000 {
+                format!(
+                    "Not confirmed: {}; read live state before retrying",
+                    error_text(&error)
+                )
+            } else {
+                format!("Failed: {}; active turn unchanged", error_text(&error))
+            }
+        },
     ));
 }
 
@@ -121,7 +168,26 @@ pub(in crate::session) fn finish(session: &mut SessionState, update: &mut Settin
     };
     let message = format!("Codex future turns: {thread}. Live turn: {turn}.");
     let announce = change.announce;
-    session.codex_settings.pending = None;
+    let change = session
+        .codex_settings
+        .pending
+        .take()
+        .expect("settled change");
+    if let Some(operation) = &change.request.operation {
+        let mut state = change.future_result.expect("settled future scope");
+        if let OperationState::Accepted { notice, .. } = &mut state {
+            *notice = Some(message.clone());
+        } else if let OperationState::Rejected {
+            message: reason, ..
+        }
+        | OperationState::Uncertain {
+            message: reason, ..
+        } = &mut state
+        {
+            *reason = message.clone();
+        }
+        update.outcome = Some((operation.clone(), state));
+    }
     if announce {
         update.effects.push(SettingsEffect::Notice(message));
     }

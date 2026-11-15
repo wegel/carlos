@@ -15,6 +15,28 @@ pub struct RuntimeChoices {
     pub summary: Option<String>,
 }
 
+/// Choose an explicit value or the backend's default where that backend supports it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    content = "value",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
+pub enum SettingValue {
+    Inherit,
+    Value(String),
+}
+
+/// Omitted fields leave their existing choices untouched, including inherited unknown values.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SettingsChange {
+    pub model: Option<SettingValue>,
+    pub effort: Option<SettingValue>,
+    pub summary: Option<SettingValue>,
+}
+
 /// One advertised model and the reasoning efforts that its backend offers.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelInfo {

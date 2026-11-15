@@ -11,6 +11,10 @@ use crate::session::control_work::ControlCompletion;
 use crate::session::ralph::RalphConfig;
 
 pub(super) enum Completion {
+    SettingsSaved {
+        operation: ClientOperation,
+        error: Option<String>,
+    },
     TaskStopDispatch {
         operation: ClientOperation,
         result: Result<(), String>,

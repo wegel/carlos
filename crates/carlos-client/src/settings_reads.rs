@@ -42,3 +42,23 @@ pub(crate) fn page(target: SettingsTarget, value: Value) -> Result<SettingsPage,
     }
     Ok(page)
 }
+
+/// Retain only the interval and precondition needed to check this read's reply.
+pub(crate) fn kind(command: &carlos_proto::commands::Command) -> crate::pending::Kind {
+    let carlos_proto::commands::Command::SettingsRead {
+        session,
+        expected,
+        offset,
+        limit,
+    } = command
+    else {
+        unreachable!("typed settings read")
+    };
+    crate::pending::Kind::Settings(SettingsTarget {
+        session: session.clone(),
+        expected: expected.clone(),
+        offset: *offset,
+        limit: usize::from(limit.unwrap_or(32))
+            .clamp(1, carlos_proto::settings::MAX_MODELS_PER_PAGE),
+    })
+}

@@ -11,6 +11,9 @@ impl Owner {
     pub(super) fn drain_completions(&mut self) {
         while let Ok(completion) = self.workers.completed.try_recv() {
             match completion {
+                Completion::SettingsSaved { operation, error } => {
+                    self.finish_settings_save(operation, error);
+                }
                 Completion::TaskStopDispatch { operation, result } => {
                     self.finish_task_stop_dispatch(operation, result);
                 }
@@ -24,22 +27,7 @@ impl Owner {
                     operation,
                     completion,
                 } => {
-                    self.workers.controls_busy -= 1;
-                    let state = match self
-                        .session
-                        .finish_engine_control(self.client.as_ref(), completion)
-                    {
-                        Ok(()) => OperationState::Accepted {
-                            entry: None,
-                            notice: None,
-                        },
-                        Err(ControlFailure::Invalid(message)) => rejected(message),
-                        Err(error) => OperationState::Uncertain {
-                            message: error.to_string(),
-                            recovery: None,
-                        },
-                    };
-                    self.results.update(&operation, state);
+                    self.finish_control(operation, completion);
                 }
                 Completion::InternalControl(completion) => {
                     self.workers.actions_busy -= 1;
@@ -68,6 +56,29 @@ impl Owner {
             self.notice();
         }
     }
+    fn finish_control(
+        &mut self,
+        operation: carlos_proto::submissions::ClientOperation,
+        completion: crate::session::control_work::ControlCompletion,
+    ) {
+        self.workers.controls_busy -= 1;
+        let state = match self
+            .session
+            .finish_engine_control(self.client.as_ref(), completion)
+        {
+            Ok(()) => OperationState::Accepted {
+                entry: None,
+                notice: None,
+            },
+            Err(ControlFailure::Invalid(message)) => rejected(message),
+            Err(error) => OperationState::Uncertain {
+                message: error.to_string(),
+                recovery: None,
+            },
+        };
+        self.results.update(&operation, state);
+    }
+
     fn finish_ralph_completion(
         &mut self,
         target: super::target::Target,

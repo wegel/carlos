@@ -12,6 +12,8 @@ pub fn tick(client: &dyn BackendClient, session: &mut SessionState) -> bool {
         || session.codex_scope().closed()
         || !session.codex_connection.runtime_refresh
         || session.codex_connection.runtime_read.is_some()
+        || session.codex_settings.pending.is_some()
+        || session.codex_settings.deferred.is_some()
     {
         return false;
     }
@@ -58,6 +60,10 @@ pub fn reply(session: &mut SessionState, params: &Value) -> bool {
         session.observe_thread_name(thread);
     } else {
         session.codex_connection.runtime_refresh = true;
+    }
+    // A legacy server cannot report the explicit next-turn overrides that Carlos keeps locally.
+    if session.codex_settings.legacy_overrides {
+        return true;
     }
     if read.settings_revision == session.codex_settings().revision() {
         let settings = json!({"model":thread["model"],"effort":thread["reasoningEffort"],"summary":thread["summary"]});

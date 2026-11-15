@@ -138,32 +138,7 @@ fn finish_mutation(
     request: &GoalRequest,
     response: &Value,
 ) {
-    let result = &response["result"];
-    let outcome = if request.method == "thread/goal/clear" {
-        if result["cleared"].is_boolean() {
-            invalid(
-                session,
-                "Goal clear acknowledged; waiting for a fresh native snapshot",
-            );
-            Ok(())
-        } else {
-            Err("Codex did not confirm whether the goal was cleared".into())
-        }
-    } else if request.revision == session.codex_goals.revision {
-        result
-            .get("goal")
-            .filter(|goal| goal.is_object())
-            .ok_or_else(|| "Codex did not return the changed goal".to_string())
-            .and_then(|goal| apply(session, goal))
-    } else {
-        if request.may_activate {
-            invalid(
-                session,
-                "Goal activation awaits a fresh native snapshot; Ralph stays off",
-            );
-        }
-        Ok(())
-    };
+    let outcome = apply_mutation(session, request, response);
     if let Err(error) = outcome {
         invalid(session, &error);
         update.clear_error = true;
@@ -196,6 +171,39 @@ fn finish_mutation(
         );
     }
     session.codex_goals.last_read = None;
+}
+
+fn apply_mutation(
+    session: &mut SessionState,
+    request: &GoalRequest,
+    response: &Value,
+) -> Result<(), String> {
+    let result = &response["result"];
+    if request.method == "thread/goal/clear" {
+        if result["cleared"].is_boolean() {
+            invalid(
+                session,
+                "Goal clear acknowledged; waiting for a fresh native snapshot",
+            );
+            Ok(())
+        } else {
+            Err("Codex did not confirm whether the goal was cleared".into())
+        }
+    } else if request.revision == session.codex_goals.revision {
+        result
+            .get("goal")
+            .filter(|goal| goal.is_object())
+            .ok_or_else(|| "Codex did not return the changed goal".to_string())
+            .and_then(|goal| apply(session, goal))
+    } else {
+        if request.may_activate {
+            invalid(
+                session,
+                "Goal activation awaits a fresh native snapshot; Ralph stays off",
+            );
+        }
+        Ok(())
+    }
 }
 
 fn set_outcome(update: &mut GoalUpdate, request: &GoalRequest, state: OperationState) {

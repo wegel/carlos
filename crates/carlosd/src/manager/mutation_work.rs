@@ -17,6 +17,7 @@ pub(super) type Prepared = (
 
 pub(super) fn prepare(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
     let parts = match command {
+        settings @ Command::SettingsSet { .. } => return prepare_settings(settings),
         command @ Command::TaskStop { .. } => return prepare_task_stop(command),
         command @ Command::QueueChange { .. } => return prepare_queue(command),
         command @ (Command::GoalSet { .. } | Command::GoalClear { .. }) => {
@@ -39,33 +40,9 @@ pub(super) fn prepare(command: Command) -> Result<Prepared, carlos_proto::comman
             None,
             Class::Ordinary,
         ),
-        Command::Approve {
-            session,
-            operation,
-            approval,
-            answer,
-        } => (
-            session,
-            operation.clone(),
-            EngineCommand::Approve {
-                operation,
-                card: approval,
-                answer,
-            },
-            None,
-            Class::Control,
-        ),
-        Command::Interrupt {
-            session,
-            operation,
-            turn,
-        } => (
-            session,
-            operation.clone(),
-            EngineCommand::Interrupt { operation, turn },
-            None,
-            Class::Control,
-        ),
+        control @ (Command::Approve { .. } | Command::Interrupt { .. }) => {
+            return Ok(prepare_control(control))
+        }
         command @ (Command::Rename { .. } | Command::Rewind { .. }) => {
             return prepare_edit(command)
         }
@@ -247,4 +224,62 @@ fn prepare_task_stop(command: Command) -> Result<Prepared, carlos_proto::command
         ),
         _ => unreachable!("typed task stop route"),
     })
+}
+
+fn prepare_control(command: Command) -> Prepared {
+    match command {
+        Command::Approve {
+            session,
+            operation,
+            approval,
+            answer,
+        } => (
+            session,
+            operation.clone(),
+            EngineCommand::Approve {
+                operation,
+                card: approval,
+                answer,
+            },
+            None,
+            Class::Control,
+        ),
+        Command::Interrupt {
+            session,
+            operation,
+            turn,
+        } => (
+            session,
+            operation.clone(),
+            EngineCommand::Interrupt { operation, turn },
+            None,
+            Class::Control,
+        ),
+        _ => unreachable!("typed control command"),
+    }
+}
+
+fn prepare_settings(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
+    let Command::SettingsSet {
+        session,
+        operation,
+        expected,
+        change,
+        save_default,
+    } = command
+    else {
+        unreachable!("typed settings change")
+    };
+    Ok((
+        session,
+        operation.clone(),
+        EngineCommand::SettingsSet {
+            operation,
+            expected,
+            change,
+            save_default,
+        },
+        None,
+        Class::Ordinary,
+    ))
 }

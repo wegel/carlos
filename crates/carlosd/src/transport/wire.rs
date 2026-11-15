@@ -47,6 +47,7 @@ fn known_method(method: &str) -> bool {
             | "session/setRalph"
             | "goal/read"
             | "settings/read"
+            | "settings/set"
             | "goal/subscribe"
             | "goal/unsubscribe"
             | "goal/set"

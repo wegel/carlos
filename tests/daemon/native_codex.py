@@ -7,12 +7,14 @@ import threading
 from websockets.asyncio.server import unix_serve
 from native_queue import NativeQueue
 from native_tasks import NativeTasks
+from native_settings import NativeSettings
 
 
-class NativeCodex(NativeQueue, NativeTasks):
+class NativeCodex(NativeQueue, NativeTasks, NativeSettings):
     def __init__(self, root):
         self.init_queue()
         self.init_tasks()
+        self.init_settings()
         self.root = root
         self.path = root / "native.sock"
         self.requests = []
@@ -24,7 +26,9 @@ class NativeCodex(NativeQueue, NativeTasks):
         self.interrupts = 0
         self.prompts = 0
         self.history_padding = ""
-        self.models = []
+        self.models = [{"model":"fixture-model", "displayName":"Fixture model", "isDefault":True,
+                        "defaultReasoningEffort":"low", "supportedReasoningEfforts":[
+                            {"reasoningEffort":"low"}, {"reasoningEffort":"high"}]}]
         self.history_user = False
         self.thread_id = "native-root"
         self.forked = False
@@ -82,7 +86,7 @@ class NativeCodex(NativeQueue, NativeTasks):
         if self.forked:
             turns = []
         return {"id": self.thread_id, "status": {"type": "idle"}, "turns": turns,
-                "model": "fixture-model", "reasoningEffort": "low"}
+                **self.native_runtime_response()}
 
     async def accept(self, link):
         self.connections.add(link)
@@ -127,15 +131,17 @@ class NativeCodex(NativeQueue, NativeTasks):
         method = request["method"]
         if "id" not in request:
             return
+        if await self.settings_request(link, request):
+            return
         if await self.task_request(link, request):
             return
         result = {}
         if method == "thread/start":
             self.started += 1
-            result = {"thread": self.history(), "model": "fixture-model", "reasoningEffort": "low"}
+            result = {"thread": self.history(), **self.native_runtime_response()}
         elif method in ("thread/resume", "thread/read"):
             self.resumed += method == "thread/resume"
-            result = {"thread": self.history(), "model": "fixture-model", "reasoningEffort": "low"}
+            result = {"thread": self.history(), **self.native_runtime_response()}
         elif method == "thread/turns/list":
             result = {"data": self.history()["turns"], "nextCursor": None}
         elif method == "thread/fork":

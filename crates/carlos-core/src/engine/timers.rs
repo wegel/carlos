@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use super::owner::Owner;
 use crate::backend::BackendKind;
 use crate::session::actions::ServerRequestAction;
-use crate::session::codex::{goals, queue, reconnect_runtime, reconnect_streams};
+use crate::session::codex::{goals, queue, reconnect_runtime, reconnect_streams, settings};
 
 impl Owner {
     pub(super) fn tick(&mut self) {
@@ -33,6 +33,11 @@ impl Owner {
                 panel_scope,
                 &mut Default::default(),
             );
+            if let Ok(commands) = self.client.capture_commands() {
+                let mut update = settings::SettingsUpdate::default();
+                settings::tick_captured(&commands, &mut self.session, scope, &mut update);
+                self.finish_settings(update);
+            }
             let goals_visible = self.channels.goal_interest.load(Ordering::SeqCst);
             goals::tick(
                 self.client.as_ref(),

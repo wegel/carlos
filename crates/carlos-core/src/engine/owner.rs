@@ -32,6 +32,7 @@ pub(super) struct Owner {
         HashMap<carlos_proto::submissions::ClientOperation, super::task_stops::PendingTaskStop>,
     pub(super) queue: Option<super::queue_changes::PendingQueue>,
     pub(super) goal: Option<super::goals::PendingGoal>,
+    pub(super) settings: Option<super::settings::PendingSettings>,
     pub session: SessionState,
     pub client: Box<dyn BackendClient>,
     pub ring: EventRing,
@@ -57,6 +58,7 @@ impl Owner {
             task_stops: HashMap::new(),
             queue: None,
             goal: None,
+            settings: None,
             session,
             client,
             native,
@@ -74,6 +76,7 @@ impl Owner {
         while !self.channels.stop.load(Ordering::SeqCst) {
             self.drain_native();
             self.drain_completions();
+            self.retire_settings_scope();
             self.retire_goal_scope();
             self.retire_queue_scope();
             self.retire_task_stops();

@@ -3,13 +3,16 @@
 use serde_json::{json, Value};
 
 use super::scope::CodexScope;
-use super::settings_state::Change;
 use crate::backend::BackendClient;
 use crate::session::state::SessionState;
 
 /// Return ordered local work without retaining an editor or calling client persistence.
 #[derive(Default)]
 pub struct SettingsUpdate {
+    pub outcome: Option<(
+        carlos_proto::submissions::ClientOperation,
+        carlos_proto::submissions::OperationState,
+    )>,
     pub accepted: bool,
     pub effects: Vec<SettingsEffect>,
 }
@@ -77,58 +80,57 @@ pub fn tick(
     scope: CodexScope,
     update: &mut SettingsUpdate,
 ) -> bool {
-    if !scope.enabled || scope.closed || session.codex_settings.pending.is_some() {
-        return false;
-    }
-    let Some(desired) = session.codex_settings.deferred.take() else {
-        return false;
-    };
-    session.advance_codex_serial();
-    let token = session.codex_serial();
-    let turn_id = session.active_turn_id().clone();
-    let mut change = Change {
-        token,
-        desired: desired.clone(),
-        revision: session.codex_settings.revision,
-        thread: None,
-        turn: turn_id.is_none().then(|| "No live turn to update".into()),
-        turn_id: turn_id.clone(),
-        persist: std::mem::take(&mut session.codex_settings.flags.persist),
-        announce: std::mem::take(&mut session.codex_settings.flags.announce),
-    };
-    let mut params = desired.clone();
-    params["threadId"] = json!(session.thread_id());
-    let context = json!({"epoch":scope.epoch,"token":token,"operation":"settings"});
-    if let Err(error) = client.request_control_with_context(
-        "thread/settings/update",
-        params.clone(),
-        context.clone(),
-    ) {
-        change.thread = Some(format!(
-            "Failed to send: {error}; previous future settings remain"
-        ));
-        reject(
-            session,
-            update,
-            &desired,
-            json!({"code":-32000,"message":error.to_string()}),
-        );
-    }
-    if let Some(turn_id) = turn_id {
-        params["turnId"] = json!(turn_id);
-        if let Err(error) =
-            client.request_control_with_context("turn/settings/update", params, context)
-        {
-            change.turn = Some(format!("Failed: {error}"));
-        }
-    }
-    let announce = change.announce;
-    session.codex_settings.pending = Some(change);
-    if announce {
-        update.effects.push(SettingsEffect::Notice( "Codex settings pending: future turns and any live turn are updated separately. Already running model requests keep their captured settings.".into()));
-    }
-    super::settings_reply::finish(session, update);
-    true
+    super::settings_dispatch::dispatch(
+        session,
+        scope,
+        update,
+        None,
+        |method, params, context, _| client.request_control_with_context(method, params, context),
+    )
+}
+
+/// Send one checked remote intent through its captured connection and original write lifetime.
+pub(crate) fn save_owned(
+    commands: &crate::backend_commands::CommandHandle,
+    session: &mut SessionState,
+    scope: CodexScope,
+    desired: Value,
+    operation: carlos_proto::submissions::ClientOperation,
+) -> SettingsUpdate {
+    let mut update = SettingsUpdate::default();
+    session.codex_settings.deferred = Some(desired);
+    session.codex_settings.flags.announce = true;
+    captured_dispatch(commands, session, scope, &mut update, Some(operation));
+    update
+}
+
+/// Drive deferred startup work through the captured writer and the pending change's lifetime.
+pub(crate) fn tick_captured(
+    commands: &crate::backend_commands::CommandHandle,
+    session: &mut SessionState,
+    scope: CodexScope,
+    update: &mut SettingsUpdate,
+) -> bool {
+    captured_dispatch(commands, session, scope, update, None)
+}
+
+fn captured_dispatch(
+    commands: &crate::backend_commands::CommandHandle,
+    session: &mut SessionState,
+    scope: CodexScope,
+    update: &mut SettingsUpdate,
+    operation: Option<carlos_proto::submissions::ClientOperation>,
+) -> bool {
+    super::settings_dispatch::dispatch(
+        session,
+        scope,
+        update,
+        operation,
+        |method, params, context, permission| {
+            let guarded = commands.guarded(permission)?;
+            std::ops::Deref::deref(&guarded).request_control_with_context(method, params, context)
+        },
+    )
 }
 
 /// Adopt newer authoritative choices before considering an older reply.

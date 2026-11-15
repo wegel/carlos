@@ -6,6 +6,19 @@ use super::settings_state::SettingsState;
 use crate::session::state::SessionState;
 
 impl SessionState {
+    pub(crate) fn retire_owned_settings(
+        &mut self,
+        operation: &carlos_proto::submissions::ClientOperation,
+    ) {
+        if self
+            .codex_settings
+            .pending
+            .as_ref()
+            .is_some_and(|change| change.request.operation.as_ref() == Some(operation))
+        {
+            self.codex_settings.pending = None;
+        }
+    }
     /// Borrow native settings facts without exposing pending writes for mutation.
     pub fn codex_settings(&self) -> &SettingsState {
         &self.codex_settings

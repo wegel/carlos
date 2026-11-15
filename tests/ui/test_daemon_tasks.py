@@ -56,6 +56,7 @@ class DaemonTasks(DaemonTaskControls, DaemonTaskRecovery):
         fixture, client, session, terminal = self.daemon_tasks("tasks-process-stop", count=0, processes=[process], width=36)
         fixture.native.task_stop_errors.add("101")
         terminal.paste("phone draft 日本語")
+        terminal.wait(lambda:terminal.input_is("phone draft 日本語"), "phone draft painted before resize")
         terminal.resize(36, 14)
         terminal.wait(lambda:terminal.input_is("phone draft 日本語"), "phone resize applied before opening F2")
         self.open_daemon_tasks(terminal, "Process: 101")

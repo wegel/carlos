@@ -200,18 +200,7 @@ pub(crate) fn read_kind(command: &Command) -> Result<Kind, ClientError> {
         overview @ (Command::TaskOverview { .. } | Command::TaskOverviewText { .. }) => {
             overview_kind(overview)
         }
-        Command::SettingsRead {
-            session,
-            expected,
-            offset,
-            limit,
-        } => Kind::Settings(crate::settings_reads::SettingsTarget {
-            session: session.clone(),
-            expected: expected.clone(),
-            offset: *offset,
-            limit: usize::from(limit.unwrap_or(32))
-                .clamp(1, carlos_proto::settings::MAX_MODELS_PER_PAGE),
-        }),
+        settings @ Command::SettingsRead { .. } => crate::settings_reads::kind(settings),
         Command::GoalRead { session, .. } => Kind::Goal(session.clone()),
         Command::GoalSubscribe { session } => Kind::GoalWatch(session.clone()),
         Command::GoalUnsubscribe { session } => Kind::GoalUnwatch(session.clone()),
