@@ -75,6 +75,12 @@ mod test_support;
 mod thinking;
 mod tool_results;
 mod translate;
+#[cfg(test)]
+mod translation_contract_tests;
+#[cfg(test)]
+mod translation_identity_tests;
+#[cfg(test)]
+mod translation_path_tests;
 mod transport;
 pub(crate) use transport::ControllerFailure;
 #[cfg(all(test, target_os = "linux"))]
@@ -110,9 +116,7 @@ pub(crate) use self::fact_transfer::FactTransfer;
 pub use self::message_visibility::is_child_report_notice;
 pub use self::sessions::list_claude_sessions;
 #[cfg(any(test, feature = "test-support"))]
-pub use self::test_support::{
-    collect_live_forwarded_lines_for_test, session_misroute_event, FixtureNormalizer,
-};
+pub use self::test_support::FixtureNormalizer;
 #[cfg(any(test, feature = "test-support"))]
 pub use self::translate::translate_claude_line;
 pub use self::types::ClaudeLaunchMode;

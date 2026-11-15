@@ -1,16 +1,11 @@
 //! Claude backend test tree: CLI handshake, history recovery, translation, and failures.
 
-use std::fs;
-use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Result};
 use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
-use carlos_core::claude_backend::{
-    collect_live_forwarded_lines_for_test, session_misroute_event, translate_claude_line,
-    ClaudeTranslationState,
-};
+use carlos_core::claude_backend::{translate_claude_line, ClaudeTranslationState};
 use carlos_core::session::models::Role;
 use serde_json::Value;
 
@@ -27,28 +22,6 @@ fn collect_synthetic_lines(lines: &[&str]) -> Vec<String> {
         out.extend(translated.lines);
     }
     out
-}
-
-fn parse_method(line: &str) -> Option<String> {
-    serde_json::from_str::<Value>(line).ok().and_then(|value| {
-        value
-            .get("method")
-            .and_then(Value::as_str)
-            .map(str::to_string)
-    })
-}
-
-fn temp_test_dir(name: &str) -> PathBuf {
-    let unique = format!(
-        "carlos-{}-{}-{}",
-        name,
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("unix epoch")
-            .as_nanos()
-    );
-    std::env::temp_dir().join(unique)
 }
 
 struct ClaudeSteerMock {
@@ -128,7 +101,5 @@ include!("claude_backend_tests/cli_and_session_history.rs");
 include!("claude_backend_tests/translation_and_submit.rs");
 
 include!("claude_backend_tests/local_history_recovery.rs");
-
-include!("claude_backend_tests/failure_paths.rs");
 
 include!("claude_backend_tests/review_receiver_tests.rs");
