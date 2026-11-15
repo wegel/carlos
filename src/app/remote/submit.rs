@@ -1,0 +1,91 @@
+//! Submit exact composer text after local controls consume their own commands.
+
+use anyhow::Result;
+use carlos_proto::commands::Command;
+use carlos_proto::session::{Availability, Backend};
+
+use super::transport::Transport;
+use super::Device;
+use crate::app::input::make_input_area;
+
+impl Device {
+    pub(super) fn submit(&mut self, mut link: Option<&mut Transport>) -> Result<()> {
+        let text = self.view.input.lines().join("\n");
+        if self.panel_command(link.as_deref_mut(), &text) {
+            return Ok(());
+        }
+        let link = link.ok_or_else(|| anyhow::anyhow!("Disconnected; F5 reconnects"))?;
+        let session = self.session.clone();
+        if !self.session_can_accept_input(link)
+            || (self.view.codex_queue.mode
+                && !self.client.session_is_ready(link.connection, &session))
+        {
+            self.waiting_ready = true;
+            self.view.status_hint = None;
+            return Ok(());
+        }
+        if self.view.codex_queue.mode {
+            if let Err(error) = self.submit_queue(link, text) {
+                self.view.codex_queue.error = Some(error.to_string());
+                self.view.codex_queue.show = true;
+            }
+            return Ok(());
+        }
+        if self.client.session(&session).is_some_and(|replica| {
+            replica
+                .approvals()
+                .iter()
+                .any(|card| card.blocking && !card.submitted)
+        }) {
+            return Ok(());
+        }
+        if text.is_empty() {
+            return Ok(());
+        }
+        let policy = self.task_send_policy();
+        let outgoing = self
+            .client
+            .submit(link.connection, |operation| Command::Send {
+                session,
+                operation,
+                text,
+                policy,
+            })?;
+        link.send(outgoing)?;
+        self.view.input = make_input_area();
+        let count = self
+            .client
+            .session(&self.session)
+            .map_or(0, |replica| replica.entry_count());
+        self.dirty_from(count);
+        Ok(())
+    }
+
+    fn session_can_accept_input(&self, link: &Transport) -> bool {
+        self.client
+            .session_has_current_snapshot(link.connection, &self.session)
+            && self.client.session(&self.session).is_some_and(|replica| {
+                matches!(
+                    replica.info().availability,
+                    Availability::Ready | Availability::Starting
+                ) || (replica.info().backend == Backend::Grok
+                    && replica.info().availability == Availability::Restoring)
+            })
+    }
+
+    fn panel_command(&mut self, link: Option<&mut Transport>, text: &str) -> bool {
+        if text.trim() == "/goal" {
+            self.view.input = make_input_area();
+            if let Err(error) = self.open_goal(link) {
+                self.view.codex_goals.error = Some(error.to_string());
+            }
+            return true;
+        }
+        if text.trim() == "/queue" {
+            self.view.input = make_input_area();
+            self.open_queue();
+            return true;
+        }
+        self.local_command(text)
+    }
+}

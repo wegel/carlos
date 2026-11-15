@@ -3,18 +3,23 @@
 #[path = "picker_render_time.rs"]
 mod picker_render_time;
 
-use carlos_core::session::models::ThreadSummary;
+#[path = "picker_render_legacy.rs"]
+mod legacy;
+#[path = "picker_rows.rs"]
+mod picker_rows;
+#[path = "picker_render_rows.rs"]
+mod rows;
+
+pub(in crate::app) use self::legacy::draw_picker;
+pub(in crate::app) use self::picker_rows::PickerRow;
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
-use self::picker_render_time::format_picker_timestamp;
-use super::picker_delete_dialog::draw_picker_delete_dialog;
+use self::rows::draw_picker_list_row;
+use super::picker_delete_dialog::draw_picker_delete_row;
 use super::render::{draw_str, fill_rect};
-use super::text::{split_at_cells, visual_width};
 use super::TerminalSize;
-use crate::theme::{
-    COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_STEP1, COLOR_STEP2, COLOR_STEP7, COLOR_TEXT,
-};
+use crate::theme::{COLOR_DIM, COLOR_OVERLAY, COLOR_STEP1, COLOR_STEP2, COLOR_STEP7, COLOR_TEXT};
 
 // --- Picker Types ---
 
@@ -99,13 +104,13 @@ fn compute_picker_columns(layout: &PickerLayout) -> PickerColumns {
 
 // --- Panel Rendering ---
 
-pub(super) fn draw_picker(
+pub(in crate::app) fn draw_picker_rows(
     frame: &mut ratatui::Frame<'_>,
-    threads: &[ThreadSummary],
+    threads: &[PickerRow<'_>],
     selected: usize,
     top: usize,
     allow_delete: bool,
-    delete_target: Option<&ThreadSummary>,
+    delete_target: Option<&PickerRow<'_>>,
     status: Option<&str>,
 ) {
     let area = frame.area();
@@ -151,7 +156,7 @@ pub(super) fn draw_picker(
     draw_picker_footer(buf, &layout, threads.len(), status);
 
     if let Some(target) = delete_target {
-        draw_picker_delete_dialog(buf, size, target);
+        draw_picker_delete_row(buf, size, target);
     }
 }
 
@@ -262,112 +267,6 @@ fn draw_picker_column_headers(buf: &mut Buffer, layout: &PickerLayout, cols: &Pi
             header_style,
             cols.ts_col_w,
         );
-    }
-}
-
-// --- Row Rendering ---
-
-fn draw_picker_list_row(
-    buf: &mut Buffer,
-    layout: &PickerLayout,
-    cols: &PickerColumns,
-    t: &ThreadSummary,
-    active: bool,
-    row: usize,
-) {
-    let y = layout.list_y + 1 + row;
-    if active && layout.list_w > 0 {
-        fill_rect(
-            buf,
-            layout.list_x,
-            y,
-            layout.list_w,
-            1,
-            Style::default().bg(COLOR_PRIMARY),
-        );
-    }
-    let (bullet_style, line_style) = row_styles(active);
-    draw_str(
-        buf,
-        layout.list_x,
-        y,
-        if active { "●" } else { " " },
-        bullet_style,
-        1,
-    );
-    draw_str(
-        buf,
-        layout.list_x + 2,
-        y,
-        &format_row_left_text(t, cols.left_col_w),
-        line_style,
-        cols.left_col_w.saturating_sub(2),
-    );
-    if cols.ts_col_w > 0 {
-        draw_row_timestamps(buf, layout, cols, t, y, line_style);
-    }
-}
-
-fn draw_row_timestamps(
-    buf: &mut Buffer,
-    layout: &PickerLayout,
-    cols: &PickerColumns,
-    t: &ThreadSummary,
-    y: usize,
-    line_style: Style,
-) {
-    draw_str(
-        buf,
-        layout.list_x + cols.left_col_w + cols.gap_w,
-        y,
-        &format_picker_timestamp(t.created_at),
-        line_style,
-        cols.ts_col_w,
-    );
-    draw_str(
-        buf,
-        layout.list_x + cols.left_col_w + cols.gap_w + cols.ts_col_w + cols.gap_w,
-        y,
-        &format_picker_timestamp(t.updated_at),
-        line_style,
-        cols.ts_col_w,
-    );
-}
-
-fn format_row_left_text(t: &ThreadSummary, left_col_w: usize) -> String {
-    let preview_w = if left_col_w > 32 { left_col_w - 32 } else { 10 };
-    let label = t.name.as_deref().unwrap_or(&t.preview);
-    let label = if visual_width(label) > preview_w {
-        let cut = split_at_cells(label, preview_w);
-        &label[..cut]
-    } else {
-        label
-    };
-
-    let cwd_tail = if t.cwd.is_empty() { "" } else { &t.cwd };
-    let mut left = format!("{}  {}  {}", t.id, label, cwd_tail);
-    let left_view_w = left_col_w.saturating_sub(2);
-    if visual_width(&left) > left_view_w {
-        let cut = split_at_cells(&left, left_view_w);
-        left.truncate(cut);
-    }
-    left
-}
-
-fn row_styles(active: bool) -> (Style, Style) {
-    if active {
-        (
-            Style::default().fg(COLOR_STEP1).bg(COLOR_PRIMARY),
-            Style::default()
-                .fg(COLOR_STEP1)
-                .bg(COLOR_PRIMARY)
-                .add_modifier(Modifier::BOLD),
-        )
-    } else {
-        (
-            Style::default().fg(COLOR_DIM),
-            Style::default().fg(COLOR_TEXT),
-        )
     }
 }
 

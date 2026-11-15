@@ -248,3 +248,21 @@ fn draw_picker_frame(
     })?;
     Ok(())
 }
+
+/// Share the old picker movement rules across embedded rows and daemon pages.
+pub(in crate::app) fn move_picker_selection(
+    code: crossterm::event::KeyCode,
+    selected: usize,
+    len: usize,
+) -> Option<usize> {
+    use crossterm::event::KeyCode;
+    Some(match code {
+        KeyCode::Up | KeyCode::Char('k') => selected.saturating_sub(1),
+        KeyCode::Down | KeyCode::Char('j') => (selected + 1).min(len.saturating_sub(1)),
+        KeyCode::PageUp => selected.saturating_sub(10),
+        KeyCode::PageDown => (selected + 10).min(len.saturating_sub(1)),
+        KeyCode::Home | KeyCode::Char('g') => 0,
+        KeyCode::End | KeyCode::Char('G') => len.saturating_sub(1),
+        _ => return None,
+    })
+}

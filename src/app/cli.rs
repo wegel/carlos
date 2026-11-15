@@ -107,6 +107,15 @@ pub(super) fn styled_resume_hint_with_socket(
     format!("{label}\n\x1b[94m{command}\x1b[0m")
 }
 
+/// Print the daemon's logical address without exposing a native backend ID.
+pub(super) fn daemon_resume_hint(socket: &Path, session: &carlos_proto::ids::SessionId) -> String {
+    format!(
+        "to resume this session use:\ncarlos --daemon-socket {} resume {}",
+        shell_quote(&socket.to_string_lossy()),
+        session
+    )
+}
+
 fn shell_quote(value: &str) -> String {
     if !value.is_empty()
         && value

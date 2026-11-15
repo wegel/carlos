@@ -14,7 +14,7 @@ struct PendingWrite {
     offset: usize,
 }
 
-pub(super) struct Transport {
+pub(in crate::app) struct Transport {
     stream: UnixStream,
     pub connection: ConnectionId,
     framer: Framer,

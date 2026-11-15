@@ -25,7 +25,9 @@ mod queue_reads;
 mod queue_render;
 mod ralph_keys;
 mod reading;
+mod reconnect;
 mod render;
+mod run;
 mod selection_copy;
 mod settings;
 mod settings_appearance;
@@ -39,7 +41,9 @@ mod settings_save;
 mod settings_submit;
 mod source_copy;
 mod source_formatter;
+mod startup;
 mod status;
+mod submit;
 mod tasks;
 mod tasks_activity;
 mod tasks_activity_reads;
@@ -59,17 +63,14 @@ mod transcript;
 mod transport;
 
 use std::path::Path;
-use std::time::Duration;
 
 use anyhow::Result;
 use carlos_client::Client;
 use carlos_proto::ids::SessionId;
-use crossterm::event::{self, Event, KeyCode};
 
 use self::bodies::DocumentReads;
-use self::transport::Transport;
+pub(in crate::app) use self::transport::Transport;
 use super::cli::CliOptions;
-use super::terminal_ui::with_terminal;
 use super::view_state::ViewState;
 
 struct Device {
@@ -86,99 +87,27 @@ struct Device {
     status: status::StatusClock,
     ralph_options: carlos_proto::ralph::RalphOptions,
     waiting_ready: bool,
+    reconnect: Option<carlos_proto::submissions::ClientOperation>,
 }
 
-/// Attach the terminal without creating or borrowing a native backend in this process.
+/// Start or attach the terminal through the daemon that owns its native backend.
 pub(super) fn run(socket: &Path, options: &CliOptions) -> Result<()> {
-    let session = options
-        .resume_id
-        .as_deref()
-        .ok_or_else(|| anyhow::anyhow!("--daemon-socket currently requires resume SESSION_ID"))?
-        .parse()?;
-    let mut device = Device {
-        client: Client::default(),
-        session,
-        view: ViewState::new(super::tool_output_preferences::load_summary_enabled()),
-        documents: DocumentReads::default(),
-        reading: reading::ReadingState::default(),
-        goals: goals::Goals::default(),
-        queue: queue::Queue::default(),
-        tasks: tasks::Tasks::default(),
-        questions: questions::Questions::default(),
-        settings: settings::Settings::default(),
-        status: status::StatusClock::default(),
-        ralph_options: carlos_proto::ralph::RalphOptions {
-            prompt_path: options.ralph_prompt_path.clone(),
-            done_marker: options.ralph_done_marker.clone(),
-            blocked_marker: options.ralph_blocked_marker.clone(),
-            waiting_marker: options.ralph_waiting_marker.clone(),
-        },
-        waiting_ready: false,
-    };
-    device.view.layout.themes = super::tool_output_preferences::load_themes();
-    device.view.tool_output.mode = super::tool_output_preferences::load_mode();
-    device.configure_dictation(options);
-    device.run(socket)
+    let mut client = Client::default();
+    let transport = Transport::connect(socket, &mut client)?;
+    run_connected(socket, options, client, transport)
+}
+
+/// Reuse one live client and transport through startup and the session screen.
+pub(super) fn run_connected(
+    socket: &Path,
+    options: &CliOptions,
+    client: Client,
+    transport: Transport,
+) -> Result<()> {
+    startup::run_connected(socket, options, client, transport)
 }
 
 impl Device {
-    fn run(&mut self, socket: &Path) -> Result<()> {
-        let mut transport = Some(Transport::connect(socket, &mut self.client)?);
-        with_terminal(|terminal| {
-            let mut redraw = true;
-            loop {
-                redraw |= self.expire_queue_mode_notice();
-                redraw |= self.tick_task_countdowns();
-                redraw |= self.tick_status_clock();
-                if let Some(link) = transport.as_mut() {
-                    match self.service(link) {
-                        Ok(changed) => redraw |= changed,
-                        Err(error) => {
-                            self.connection_closed(link, &error);
-                            transport = None;
-                            redraw = true;
-                        }
-                    }
-                }
-                redraw |= self.question_url_tick();
-                redraw |= self.source_tick(transport.as_mut());
-                redraw |= self.poll_settings_appearance();
-                if redraw {
-                    terminal.draw(|frame| self.draw(frame))?;
-                    if let Some(link) = transport.as_mut() {
-                        self.request_visible(link)?;
-                    }
-                    redraw = false;
-                }
-                if !event::poll(Duration::from_millis(8))? {
-                    redraw |= self.drain_dictation();
-                    continue;
-                }
-                let input = event::read()?;
-                let secret = self.client.session(&self.session).is_some_and(|replica| {
-                    replica.approvals().iter().any(|card| card.input.is_some())
-                });
-                super::input_events::trace_terminal_event(&input, secret);
-                if matches!(&input, Event::Key(key) if key.code == KeyCode::F(5))
-                    && transport.is_none()
-                {
-                    match Transport::connect(socket, &mut self.client) {
-                        Ok(link) => {
-                            transport = Some(link);
-                            self.view.status_hint = None;
-                        }
-                        Err(error) => self.view.status_hint = Some(error.to_string()),
-                    }
-                } else if self.event(transport.as_mut(), input)? {
-                    return Ok(());
-                }
-                self.drain_dictation();
-                self.remember_anchor();
-                redraw = true;
-            }
-        })
-    }
-
     fn connection_closed(&mut self, link: &Transport, error: &anyhow::Error) {
         self.client.disconnect(link.connection);
         self.reading.disconnected();
@@ -199,6 +128,7 @@ impl Device {
         changed |= self.drive_queue(link)?;
         changed |= self.drive_tasks(link)?;
         changed |= self.drive_settings(link)?;
+        changed |= self.drive_reconnect();
         link.flush()?;
         Ok(changed)
     }

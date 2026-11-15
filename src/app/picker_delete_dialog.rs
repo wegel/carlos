@@ -1,6 +1,9 @@
 //! Rendering for the picker's delete-confirmation dialog overlay.
 
+#[cfg(test)]
 use carlos_core::session::models::ThreadSummary;
+
+use super::picker_render::PickerRow;
 use ratatui::buffer::Buffer;
 use ratatui::style::{Modifier, Style};
 
@@ -8,11 +11,16 @@ use super::render::{draw_str, fill_rect};
 use super::TerminalSize;
 use crate::theme::{COLOR_DIFF_REMOVE, COLOR_DIM, COLOR_STEP2, COLOR_TEXT};
 
+#[cfg(test)]
 pub(super) fn draw_picker_delete_dialog(
     buf: &mut Buffer,
     size: TerminalSize,
     target: &ThreadSummary,
 ) {
+    draw_picker_delete_row(buf, size, &PickerRow::from(target));
+}
+
+pub(super) fn draw_picker_delete_row(buf: &mut Buffer, size: TerminalSize, target: &PickerRow<'_>) {
     if size.width < 24 || size.height < 8 {
         return;
     }
@@ -70,7 +78,7 @@ fn draw_delete_dialog_content(
     left: usize,
     top: usize,
     dialog_w: usize,
-    target: &ThreadSummary,
+    target: &PickerRow<'_>,
 ) {
     let text_w = dialog_w.saturating_sub(4);
     draw_str(
@@ -85,7 +93,7 @@ fn draw_delete_dialog_content(
         buf,
         left + 2,
         top + 3,
-        target.name.as_deref().unwrap_or(&target.preview),
+        target.name.unwrap_or(target.preview),
         Style::default().fg(COLOR_TEXT),
         text_w,
     );
@@ -93,7 +101,7 @@ fn draw_delete_dialog_content(
         buf,
         left + 2,
         top + 4,
-        &target.id,
+        target.id,
         Style::default().fg(COLOR_DIM),
         text_w,
     );

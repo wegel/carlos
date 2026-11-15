@@ -105,6 +105,17 @@ impl Device {
             Some(info) => info,
             None => return Some("Connecting…".into()),
         };
+        if info.backend == Backend::Codex && self.client.current_session_has_snapshot(&self.session)
+        {
+            match info.availability {
+                Availability::Closed if self.reconnect.is_some() => {
+                    return Some("Requesting Codex reconnect…".into())
+                }
+                Availability::Closed => return Some("Codex offline · F5 reconnect".into()),
+                Availability::Restoring => return Some("Restoring Codex…".into()),
+                _ => {}
+            }
+        }
         if info.availability == Availability::Ready {
             (!self.client.current_session_is_ready(&self.session))
                 .then(|| "Restoring session…".into())

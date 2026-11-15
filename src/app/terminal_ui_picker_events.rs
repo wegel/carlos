@@ -88,35 +88,14 @@ fn handle_normal_key(
     allow_delete: bool,
     k: crossterm::event::KeyEvent,
 ) -> Result<PickerAction> {
+    if let Some(index) = super::move_picker_selection(k.code, st.selected, threads.len()) {
+        st.selected = index;
+        st.status = None;
+        return Ok(PickerAction::Continue);
+    }
     match (k.code, k.modifiers) {
         (code, mods) if is_ctrl_char(code, mods, 'c') => return Ok(PickerAction::Exit),
         (KeyCode::Esc, _) => return Ok(PickerAction::Exit),
-        (KeyCode::Up | KeyCode::Char('k'), _) => {
-            st.selected = st.selected.saturating_sub(1);
-            st.status = None;
-        }
-        (KeyCode::Down | KeyCode::Char('j'), _) => {
-            if st.selected + 1 < threads.len() {
-                st.selected += 1;
-                st.status = None;
-            }
-        }
-        (KeyCode::PageUp, _) => {
-            st.selected = st.selected.saturating_sub(10);
-            st.status = None;
-        }
-        (KeyCode::PageDown, _) => {
-            st.selected = (st.selected + 10).min(threads.len().saturating_sub(1));
-            st.status = None;
-        }
-        (KeyCode::Home | KeyCode::Char('g'), _) => {
-            st.selected = 0;
-            st.status = None;
-        }
-        (KeyCode::End | KeyCode::Char('G'), _) => {
-            st.selected = threads.len().saturating_sub(1);
-            st.status = None;
-        }
         (KeyCode::Char('d'), _) if allow_delete => {
             st.confirm_delete = true;
             st.status = None;
