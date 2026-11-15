@@ -102,11 +102,3 @@ pub(super) fn ready(peer: &Peer, app: &mut AppState, snapshot: CodexSnapshot) {
         json!({"method":"carlos/codex/ready","params":{"generation":2,"threadId":"root"}}),
     );
 }
-
-pub(super) fn delta(text: &str) -> Value {
-    json!({"method":"item/agentMessage/delta","params":{"threadId":"root","turnId":"turn","itemId":"answer","delta":text}})
-}
-
-pub(super) fn complete(text: &str) -> Value {
-    json!({"method":"item/completed","params":{"threadId":"root","turnId":"turn","item":{"id":"answer","type":"agentMessage","text":text}}})
-}

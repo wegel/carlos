@@ -165,3 +165,7 @@ impl Device {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "history_recovery_contract_tests.rs"]
+mod recovery_tests;

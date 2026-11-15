@@ -135,3 +135,10 @@ mod settings_contract_tests;
 mod settings_prompt_contract_tests;
 #[cfg(test)]
 mod settings_startup_contract_tests;
+
+#[cfg(test)]
+mod reconnect_catalog_contract_tests;
+#[cfg(test)]
+mod reconnect_contract_support;
+#[cfg(test)]
+mod reconnect_contract_tests;

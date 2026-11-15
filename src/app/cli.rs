@@ -316,3 +316,7 @@ pub(super) fn persist_runtime_defaults(defaults: &RuntimeDefaults) -> Result<()>
     runtime_preferences::save(defaults)?;
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "cli_tests.rs"]
+mod tests;

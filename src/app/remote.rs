@@ -152,3 +152,7 @@ impl Device {
         Ok(changed)
     }
 }
+
+#[cfg(test)]
+#[path = "remote/session_view_contract_tests.rs"]
+mod session_view_contract_tests;

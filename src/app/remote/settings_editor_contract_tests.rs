@@ -238,3 +238,33 @@ fn an_invalid_effort_stays_in_the_private_editor_for_the_owner_to_reject() {
     );
     assert!(device.client.operations().iter().next().is_none());
 }
+
+#[test]
+fn catalog_reordering_preserves_the_private_model_by_value() {
+    let model = |name: &str| ModelInfo {
+        model: name.into(),
+        display_name: name.to_uppercase(),
+        supported_efforts: Vec::new(),
+        default_effort: None,
+        is_default: false,
+    };
+    let mut initial = catalog(vec![model("a"), model("b")]);
+    initial.facts.current.model = Some("a".into());
+    let mut device = device(initial);
+    device.view.runtime_settings.model_settings_model_index = 1;
+    device.settings_disconnected();
+    let mut fresh = catalog(vec![model("b"), model("a")]);
+    fresh.facts.current.model = Some("a".into());
+    device.install_settings_catalog(fresh);
+    let accepted = device.settings.catalog.as_ref().expect("new catalog");
+    assert_eq!(
+        device
+            .view
+            .runtime_settings
+            .model_settings_model_value(accepted.runtime()),
+        "b"
+    );
+    assert_eq!(accepted.facts.current.model.as_deref(), Some("a"));
+    assert_eq!(accepted.facts.pending.model, None);
+    assert!(device.client.operations().iter().next().is_none());
+}

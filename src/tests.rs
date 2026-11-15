@@ -41,8 +41,6 @@ pub(super) use ratatui::layout::Rect;
 pub(super) use ratatui::style::Style;
 pub(super) use serde_json::json;
 
-#[path = "tests/claude_backend_tests.rs"]
-mod claude_backend_tests;
 #[path = "tests/claude_context_tests.rs"]
 mod claude_context_tests;
 #[path = "tests/claude_edit_tests.rs"]
