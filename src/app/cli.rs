@@ -73,11 +73,6 @@ pub(super) fn usage() {
     );
 }
 
-#[cfg(test)]
-pub(super) fn resume_hint(backend: Backend, thread_id: &str) -> String {
-    resume_hint_with_socket(backend, thread_id, None)
-}
-
 pub(super) fn resume_hint_with_socket(
     backend: Backend,
     thread_id: &str,
@@ -91,11 +86,6 @@ pub(super) fn resume_hint_with_socket(
         backend.cli_name(),
         shell_quote(thread_id)
     )
-}
-
-#[cfg(test)]
-pub(super) fn styled_resume_hint(backend: Backend, thread_id: &str) -> String {
-    styled_resume_hint_with_socket(backend, thread_id, None)
 }
 
 pub(super) fn styled_resume_hint_with_socket(
@@ -297,24 +287,23 @@ fn env_backend() -> Option<Backend> {
 
 // --- Runtime Defaults ---
 
-#[cfg(test)]
-pub(super) fn load_runtime_defaults_from(path: &Path) -> RuntimeDefaults {
-    runtime_preferences::load_from(path)
-}
-
 pub(super) fn load_runtime_defaults() -> RuntimeDefaults {
     runtime_preferences::load()
-}
-
-#[cfg(test)]
-pub(super) fn persist_runtime_defaults_to(path: &Path, defaults: &RuntimeDefaults) -> Result<()> {
-    runtime_preferences::save_to(path, defaults)?;
-    Ok(())
 }
 
 pub(super) fn persist_runtime_defaults(defaults: &RuntimeDefaults) -> Result<()> {
     runtime_preferences::save(defaults)?;
     Ok(())
+}
+
+/// Print the logical daemon address with only the command in the existing blue style.
+pub(super) fn styled_daemon_resume_hint(
+    socket: &Path,
+    session: &carlos_proto::ids::SessionId,
+) -> String {
+    let plain = daemon_resume_hint(socket, session);
+    let (label, command) = plain.split_once('\n').expect("resume command");
+    format!("{label}\n{}", crate::theme::ansi_blue(command))
 }
 
 #[cfg(test)]

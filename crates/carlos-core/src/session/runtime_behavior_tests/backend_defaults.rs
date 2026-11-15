@@ -196,3 +196,29 @@ fn backend_runtime_settings_drop_summary_when_backend_cannot_use_it() {
     assert_eq!(resolved.effort.as_deref(), Some("medium"));
     assert_eq!(resolved.summary, None);
 }
+
+#[test]
+fn resolve_initial_runtime_settings_falls_back_to_persisted_defaults() {
+    let runtime = ThreadRuntimeSettings {
+        model: None,
+        effort: None,
+        summary: None,
+    };
+    let defaults = RuntimeDefaults {
+        model: Some("gpt-5.4".to_string()),
+        effort: Some("high".to_string()),
+        summary: Some("concise".to_string()),
+    };
+
+    let resolved = resolve_backend_runtime_settings(
+        runtime,
+        &defaults,
+        &RuntimeDefaults::default(),
+        &[],
+        true,
+    );
+
+    assert_eq!(resolved.model.as_deref(), Some("gpt-5.4"));
+    assert_eq!(resolved.effort.as_deref(), Some("high"));
+    assert_eq!(resolved.summary.as_deref(), Some("concise"));
+}

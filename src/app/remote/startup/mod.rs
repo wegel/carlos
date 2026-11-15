@@ -84,7 +84,10 @@ pub(super) fn run_connected(
         Ok(())
     });
     if let Some(session) = resumed {
-        eprintln!("{}", crate::app::cli::daemon_resume_hint(socket, &session));
+        eprintln!(
+            "{}",
+            crate::app::cli::styled_daemon_resume_hint(socket, &session)
+        );
     }
     if let Some(report) = report {
         eprintln!("{report}");

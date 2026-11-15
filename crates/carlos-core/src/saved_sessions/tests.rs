@@ -110,3 +110,41 @@ fn previews_stop_at_utf8_boundaries_without_rewriting_native_addresses() {
     assert!(page.rows[0].preview.len() <= 4096);
     assert!(page.rows[0].preview.starts_with("é🦊"));
 }
+
+#[test]
+fn sort_threads_for_picker_prefers_most_recent_update_first() {
+    let threads = vec![
+        ThreadSummary {
+            id: "older".to_string(),
+            name: None,
+            preview: "older".to_string(),
+            cwd: "/repo".to_string(),
+            created_at: 10,
+            updated_at: 20,
+        },
+        ThreadSummary {
+            id: "newer".to_string(),
+            name: None,
+            preview: "newer".to_string(),
+            cwd: "/repo".to_string(),
+            created_at: 11,
+            updated_at: 30,
+        },
+        ThreadSummary {
+            id: "same-update-later-created".to_string(),
+            name: None,
+            preview: "same".to_string(),
+            cwd: "/repo".to_string(),
+            created_at: 15,
+            updated_at: 20,
+        },
+    ];
+
+    let mut window = Window::new(PageDirection::Newest);
+    for thread in threads {
+        window.push(thread);
+    }
+    let sorted = window.finish().rows;
+    let ids: Vec<&str> = sorted.iter().map(|t| t.id.as_str()).collect();
+    assert_eq!(ids, vec!["newer", "same-update-later-created", "older"]);
+}

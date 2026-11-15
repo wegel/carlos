@@ -1,0 +1,13 @@
+# Keep the final pure tests when the terminal drops its session owner
+
+Four existing tests now run at their Core owners: deterministic synthetic messages and different-seed behavior, saved-default fallback, and newest-first saved-session order with the original timestamps and names. The synthetic tests retain all row, role, kind, path, identity and text assertions. The picker test drives the actual bounded SavedSessions Window, so it checks the order that the daemon sends. No new public API or test owner facade is added.
+
+The remaining frontend persistence test calls Core.runtime_preferences.load_from/save_to directly. Plain drawing tests borrow the actual PickerRow used by the daemon terminal, and keyboard/paste helper tests import their actual render_input functions. Their screen, key and text assertions stay unchanged. The unused old test-only persistence, picker and native resume-hint delegates are retired.
+
+The two old plain/styled native resume-hint assertions now check the logical daemon socket/session command required by this split. The actual daemon startup path had been printing that command without the old blue command-line style. It now uses the styled logical helper; only the command is blue and the label stays plain. A single theme helper owns those ANSI bytes. Existing shell quoting and explicit Codex endpoint rules remain checked separately.
+
+Private Core logs pure-{perf,startup,picker}-owner-private-02.log pass2/1/1 cases. The private cutover CLI group passes all4 cases in logical-cli-cutover-private.log. The full primary no-default workspace and strict all-target lint pass in pure-owner-primary.log and pure-owner-primary-lint.log.
+
+The complete removal preview at /tmp/carlos-ep019b/complete-cutover-preview starts from e3fa987, applies the proposed product deletion, and retains all18 known pure top-level test modules plus local-input/performance tests. It passes1309 Rust cases, including317 frontend cases, and strict no-default lint. Logs: complete-cutover-pure-preview-02.log and complete-cutover-pure-lint-03.log. This is a compile/test preview, not final acceptance: it omits the explicitly recorded native families still being moved, predates subsequent worker commits, and used the earlier private scratch target. The final joined deletion must use its own target and rerun every required check. Its metadata records that limit rather than presenting the former minimal test registry as complete coverage.
+
+The preview found two stale imports and one unused old test-only summary-save delegate. They are corrected only at their actual owners. The branch still retains the embedded production path until the separate deletion commit and all remaining native test successors pass.

@@ -5,7 +5,7 @@ use crossterm::event::{KeyEventKind, KeyModifiers};
 
 use super::context_usage::context_usage_label;
 use super::notifications::is_key_press_like;
-use super::render::{is_newline_enter, normalize_pasted_text};
+use super::render_input::{is_newline_enter, normalize_pasted_text};
 use super::selection::{decide_mouse_drag_mode, MouseDragMode};
 
 #[test]

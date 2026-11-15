@@ -194,16 +194,16 @@ fn draw_rendered_line_renders_uncovered_styled_tail() {
 #[test]
 fn draw_picker_delete_dialog_shows_prompt_and_session_id() {
     let mut buf = Buffer::empty(Rect::new(0, 0, 72, 20));
-    let target = ThreadSummary {
-        id: "thread-123".to_string(),
-        name: Some("Parser follow-up".to_string()),
-        preview: "preview".to_string(),
-        cwd: "/repo".to_string(),
+    let target = PickerRow {
+        id: "thread-123",
+        name: Some("Parser follow-up"),
+        preview: "preview",
+        cwd: "/repo",
         created_at: 1,
         updated_at: 2,
     };
 
-    draw_picker_delete_dialog(
+    draw_picker_delete_row(
         &mut buf,
         TerminalSize {
             width: 72,

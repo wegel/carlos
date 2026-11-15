@@ -127,3 +127,8 @@ pub(crate) fn kitt_color_for_distance(distance: usize, ralph_mode: bool) -> Colo
         _ => COLOR_KITT_BASE,
     }
 }
+
+/// Color terminal command text with the existing bright-blue ANSI foreground.
+pub(crate) fn ansi_blue(text: &str) -> String {
+    format!("\x1b[94m{text}\x1b[0m")
+}

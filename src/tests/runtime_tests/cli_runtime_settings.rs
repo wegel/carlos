@@ -141,63 +141,6 @@ fn parse_cli_args_supports_synthetic_perf_session_mode() {
 }
 
 #[test]
-fn synthetic_perf_messages_are_reproducible() {
-    let spec = perf_session::SyntheticPerfSpec {
-        seed: 7,
-        turns: 12,
-        tool_output_lines: 8,
-    };
-    let left = synthetic_session(spec);
-    let right = synthetic_session(spec);
-
-    assert_eq!(left.messages().len(), spec.turns * 6);
-    assert_eq!(left.messages().len(), right.messages().len());
-    for (index, (lhs, rhs)) in left
-        .messages()
-        .iter()
-        .zip(right.messages().iter())
-        .enumerate()
-    {
-        assert_ne!(lhs.id, rhs.id);
-        assert_eq!(left.messages().position(lhs.id), Some(index));
-        assert_eq!(lhs.role, rhs.role);
-        assert_eq!(lhs.kind, rhs.kind);
-        assert_eq!(lhs.text, rhs.text);
-        assert_eq!(lhs.file_path, rhs.file_path);
-    }
-}
-
-#[test]
-fn synthetic_perf_messages_change_with_seed() {
-    let base = synthetic_session(perf_session::SyntheticPerfSpec {
-        seed: 7,
-        turns: 4,
-        tool_output_lines: 4,
-    });
-    let changed = synthetic_session(perf_session::SyntheticPerfSpec {
-        seed: 8,
-        turns: 4,
-        tool_output_lines: 4,
-    });
-
-    assert_eq!(base.messages().len(), changed.messages().len());
-    assert!(base
-        .messages()
-        .iter()
-        .zip(changed.messages().iter())
-        .any(|(lhs, rhs)| lhs.text != rhs.text));
-}
-
-fn synthetic_session(
-    spec: perf_session::SyntheticPerfSpec,
-) -> carlos_core::session::state::SessionState {
-    let mut session =
-        carlos_core::session::state::SessionState::new("perf".into(), Default::default(), false);
-    perf_session::populate_synthetic_perf_session(spec, &mut session);
-    session
-}
-
-#[test]
 fn parse_thread_runtime_settings_reads_model_and_effort() {
     let response = json!({
         "jsonrpc": "2.0",

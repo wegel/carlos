@@ -3,20 +3,15 @@
 #[path = "tests/markdown_table_tests.rs"]
 mod markdown_table_tests;
 
-pub(super) use super::cli::{
-    load_runtime_defaults_from, parse_cli_args, persist_runtime_defaults_to,
-    resolve_initial_runtime_settings, resume_hint, styled_resume_hint, Backend,
-};
+pub(super) use super::cli::{parse_cli_args, Backend};
 pub(super) use super::notifications::{handle_notification_line, handle_server_message_line};
-pub(super) use super::perf_session;
-pub(super) use super::picker_delete_dialog::draw_picker_delete_dialog;
+pub(super) use super::picker_delete_dialog::draw_picker_delete_row;
 pub(super) use super::render::draw_rendered_line;
 pub(super) use super::render_input::input_cursor_visual_position;
 pub(super) use super::selection::{
     compute_selection_range, selected_text, shift_selection_focus, Selection,
 };
 pub(super) use super::state::AppState;
-pub(super) use super::terminal_ui::sort_threads_for_picker;
 pub(super) use super::text::{
     slice_by_cells, visual_width, wrap_input_line, wrap_input_line_count, wrap_natural_by_cells,
     wrap_natural_count_by_cells,

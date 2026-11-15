@@ -17,8 +17,6 @@ use super::perf_view::PerfView;
 use super::{CliOptions, TerminalSize};
 
 // Re-export synthetic types so tests can access them via the `perf_session` module path.
-#[cfg(test)]
-pub(super) use carlos_core::perf_fixture::populate_synthetic_perf_session;
 pub(super) use carlos_core::perf_fixture::SyntheticPerfSpec;
 
 // --- Session Replay ---
