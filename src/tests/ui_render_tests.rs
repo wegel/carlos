@@ -10,9 +10,9 @@ use super::{
     draw_picker_delete_dialog, draw_rendered_line, extract_diff_blocks,
     input_cursor_visual_position, json, normalize_styled_segments_for_part, params_turn_interrupt,
     selected_text, shift_selection_focus, slice_by_cells, visual_width, wrap_input_line,
-    wrap_input_line_count, wrap_natural_by_cells, wrap_natural_count_by_cells, AppState, Buffer,
-    Rect, RenderedLine, Selection, Style, StyledSegment, TerminalSize, COLOR_DIFF_ADD,
-    COLOR_DIFF_REMOVE, COLOR_PRIMARY, COLOR_TEXT,
+    wrap_input_line_count, wrap_natural_by_cells, wrap_natural_count_by_cells, Buffer, Rect,
+    RenderedLine, Selection, Style, StyledSegment, TerminalSize, COLOR_DIFF_ADD, COLOR_DIFF_REMOVE,
+    COLOR_PRIMARY, COLOR_TEXT,
 };
 
 use super::render_fixture;

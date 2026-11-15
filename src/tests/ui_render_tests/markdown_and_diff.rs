@@ -1,57 +1,6 @@
 // Tests for markdown rendering and diff hunk display.
 
 #[test]
-fn rewind_edit_keeps_selected_anchor_for_fork() {
-    let mut app = AppState::new("thread-1".to_string());
-    let u1 = app.append_message(Role::User, "first");
-    app.record_input_history("first", Some(u1));
-    let _ = app.append_message(Role::Assistant, "reply one");
-    let u2 = app.append_message(Role::User, "second");
-    app.record_input_history("second", Some(u2));
-    let _ = app.append_message(Role::Assistant, "reply two");
-
-    app.enter_rewind_mode();
-    let _ = app.navigate_input_history_up(); // select first
-    assert_eq!(app.rewind_selected_message_idx(), Some(u1));
-
-    app.input_insert_text(" edited".to_string()); // mutate text while rewinding
-    assert_eq!(app.rewind_selected_message_idx(), Some(u1));
-
-    app.rewind_fork_from_message_idx(app.rewind_selected_message_idx());
-    assert_eq!(app.session.messages().len(), u1);
-    assert!(app.session.messages().iter().all(|m| m.text != "first"));
-    assert!(app.session.messages().iter().all(|m| m.text != "reply one"));
-}
-
-#[test]
-fn rewind_scroll_aligns_to_selected_prompt_history_position() {
-    let mut app = AppState::new("thread-1".to_string());
-    let u1 = app.append_message(Role::User, "first");
-    app.record_input_history("first", Some(u1));
-    let _ = app.append_message(Role::Assistant, "reply one");
-    let u2 = app.append_message(Role::User, "second");
-    app.record_input_history("second", Some(u2));
-    let _ = app.append_message(Role::Assistant, "reply two");
-    let _ = app.append_message(Role::Assistant, "tail");
-
-    app.set_rewind_selection_for_test(Some(1));
-    app.align_rewind_scroll_to_selected_prompt(TerminalSize {
-        width: 100,
-        height: 6,
-    });
-    let newer_scroll = app.view.viewport.scroll_top;
-
-    app.set_rewind_selection_for_test(Some(0));
-    app.align_rewind_scroll_to_selected_prompt(TerminalSize {
-        width: 100,
-        height: 6,
-    });
-    let older_scroll = app.view.viewport.scroll_top;
-
-    assert!(older_scroll <= newer_scroll);
-}
-
-#[test]
 fn build_rendered_lines_hides_markdown_fence_delimiters() {
     let messages = vec![crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
         tool_output: None,

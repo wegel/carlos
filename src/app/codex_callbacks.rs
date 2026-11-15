@@ -15,25 +15,6 @@ mod updates;
 
 pub(super) use self::updates::apply;
 
-/// Create exactly one editor after the session accepts the native callback.
-#[cfg(test)]
-pub(super) fn receive(
-    app: &mut AppState,
-    method: &str,
-    frame: &Value,
-) -> Option<ServerRequestAction> {
-    let update = app.session.accept_codex_callback(method, frame);
-    updates::apply(app, update)
-}
-
-/// Match resolutions in the session before removing the exact local editor.
-#[cfg(test)]
-pub(super) fn resolved(app: &mut AppState, params: &Value) {
-    if let Some(retired) = app.session.resolve_codex_callback(params) {
-        apply_retired(app, retired);
-    }
-}
-
 /// Remove only the answered or cancelled request's local editor.
 #[cfg(test)]
 pub(super) fn retire(app: &mut AppState, id: &Value) {

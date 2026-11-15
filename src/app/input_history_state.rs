@@ -118,21 +118,4 @@ impl InputHistoryView {
     pub(super) fn rewind_selected_history_index(&self) -> Option<usize> {
         self.input_history_index
     }
-
-    #[cfg(test)]
-    pub(super) fn refresh_selected_entry(&mut self, history: &PromptHistory) {
-        self.selected_prompt_id = self
-            .input_history_index
-            .and_then(|index| history.prompt_id(index));
-        self.selected_entry_id = self
-            .input_history_index
-            .and_then(|index| history.entry_id(index));
-    }
-
-    #[cfg(test)]
-    pub(super) fn set_rewind_selection(&mut self, index: Option<usize>, history: &PromptHistory) {
-        self.rewind_mode = true;
-        self.input_history_index = index;
-        self.refresh_selected_entry(history);
-    }
 }

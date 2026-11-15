@@ -86,32 +86,6 @@ impl AppState {
         self.view.viewport.auto_follow_bottom = true;
     }
 
-    #[cfg(test)]
-    pub(super) fn rewind_fork_from_message_idx(&mut self, message_idx: Option<usize>) {
-        let Some(idx) = message_idx else {
-            return;
-        };
-        if idx > self.session.messages().len() {
-            return;
-        }
-
-        let dirty_from = self.session.truncate_at(idx);
-        self.view.viewport.selection = None;
-        self.view.viewport.mouse_drag_mode = super::selection::MouseDragMode::Undecided;
-        self.view.viewport.auto_follow_bottom = true;
-        self.view.viewport.scroll_top = self
-            .view
-            .viewport
-            .scroll_top
-            .min(self.session.messages().len());
-        self.session.retain_summary_items();
-        self.session.retain_prompt_entries();
-        self.view
-            .input_history
-            .refresh_selected_entry(self.session.input_history());
-        self.mark_transcript_dirty_from(dirty_from);
-    }
-
     pub(super) fn mark_user_turn_submitted(&mut self) {
         self.session.ralph_mark_user_turn_submitted();
     }

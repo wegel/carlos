@@ -229,15 +229,8 @@ mod claude_visibility_tests;
 mod claude_quota_tests;
 
 #[cfg(test)]
-#[path = "../tests/view_hint_sequences.rs"]
-mod view_hint_sequences;
-#[cfg(test)]
 #[path = "../tests/view_hint_support.rs"]
 mod view_hint_support;
-
-#[cfg(test)]
-#[path = "../tests/view_ownership_tests.rs"]
-mod view_ownership_tests;
 
 #[cfg(test)]
 #[path = "../tests/approval_lifetime_sequences.rs"]

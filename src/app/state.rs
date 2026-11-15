@@ -199,11 +199,4 @@ impl AppState {
     pub(super) fn input_history_len(&self) -> usize {
         self.session.input_history().history_len()
     }
-
-    #[cfg(test)]
-    pub(super) fn set_rewind_selection_for_test(&mut self, index: Option<usize>) {
-        self.view
-            .input_history
-            .set_rewind_selection(index, self.session.input_history());
-    }
 }

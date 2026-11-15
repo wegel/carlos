@@ -1,69 +1,12 @@
-//! Shared deterministic terminal and backend fixtures for view-owned hints.
+//! Capture the remaining legacy lifetime oracle until its native successor is joined.
 
-use std::sync::Mutex;
-use std::time::Duration;
-
-use carlos_core::backend::{BackendClient, BackendKind, EventReceiver};
-use carlos_core::session::approval_state::ApprovalRequestDraft;
-use carlos_core::session::approval_state::ApprovalRequestKind;
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+use carlos_core::session::approval_state::{ApprovalRequestDraft, ApprovalRequestKind};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use serde_json::{json, Value};
+use serde_json::json;
 
-use super::input_events::handle_terminal_event;
 use super::state::AppState;
 use super::view_models::TerminalSize;
-
-pub(super) struct Client {
-    pub(super) kind: BackendKind,
-    pub(super) calls: Mutex<Vec<Value>>,
-}
-
-impl Client {
-    pub(super) fn new(kind: BackendKind) -> Self {
-        Self {
-            kind,
-            calls: Mutex::new(Vec::new()),
-        }
-    }
-}
-
-impl BackendClient for Client {
-    fn kind(&self) -> BackendKind {
-        self.kind
-    }
-    fn call(&self, method: &str, params: Value, _: Duration) -> anyhow::Result<String> {
-        self.calls
-            .lock()
-            .expect("calls")
-            .push(json!([method, params]));
-        Ok("{\"result\":{}}".into())
-    }
-    fn respond(&self, id: &Value, answer: Value) -> anyhow::Result<()> {
-        self.calls.lock().expect("calls").push(json!([id, answer]));
-        Ok(())
-    }
-    fn respond_error(&self, _: &Value, _: i64, _: &str) -> anyhow::Result<()> {
-        panic!("unexpected reply error")
-    }
-    fn take_events_rx(&mut self) -> anyhow::Result<EventReceiver> {
-        anyhow::bail!("unused")
-    }
-    fn stop(&mut self) {}
-}
-
-pub(super) fn key(client: &Client, app: &mut AppState, code: KeyCode, modifiers: KeyModifiers) {
-    handle_terminal_event(
-        client,
-        app,
-        Event::Key(KeyEvent::new(code, modifiers)),
-        TerminalSize {
-            width: 100,
-            height: 30,
-        },
-    );
-}
 
 pub(super) fn request(kind: ApprovalRequestKind, id: &str) -> ApprovalRequestDraft {
     carlos_core::session::approval_state::ApprovalRequestDraft {
@@ -98,9 +41,4 @@ pub(super) fn card(app: &AppState) -> String {
     blake3::hash(cells.join("\n").as_bytes())
         .to_hex()
         .to_string()
-}
-
-pub(super) fn snapshot(client: &Client, app: &AppState) -> Value {
-    json!({"card":card(app),"calls":*client.calls.lock().expect("calls"),
-        "confirm":app.view.confirm_allow.is_some(),"pending":app.session.approval().pending().map(|p| &p.facts().request_id)})
 }

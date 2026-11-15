@@ -261,3 +261,89 @@ fn earliest(session: &mut SessionState) -> Option<EntryId> {
         })
         .min_by_key(|id| batch.position(*id))
 }
+
+#[test]
+fn queued_and_retired_copies_receive_new_addresses_when_adopted() {
+    use super::approval_state::ApprovalQueue;
+    for queued in [false, true] {
+        let mut session = SessionState::new("thread".into(), Default::default(), false);
+        let _ = session.set_pending_approval(approval_draft());
+        let original = if queued {
+            let mut next = approval_draft();
+            next.request_id = json!("two");
+            session.enqueue_approval(next, ApprovalQueue::Claude)
+        } else {
+            session.approval().pending().expect("active").entry_id()
+        };
+        let copied = session
+            .approval()
+            .live()
+            .find(|card| card.entry_id() == original)
+            .expect("original live draft")
+            .to_draft();
+        if !queued {
+            assert_eq!(session.retire_approval(original), vec![original]);
+        }
+        let _ = session.set_pending_approval(copied);
+        let fresh = session
+            .approval()
+            .pending()
+            .expect("new adoption")
+            .entry_id();
+        assert_ne!(fresh, original);
+        assert!(session.approval_answer(original).is_none());
+        assert!(session.approval_answer(fresh).is_some());
+        session.messages().assert_invariants();
+    }
+}
+
+#[test]
+fn retired_native_request_cannot_return_through_either_queue_or_answer_a_reused_id() {
+    use super::approval_control_test_support::Peer;
+    use super::approval_state::ApprovalQueue;
+    use carlos_proto::commands::ApprovalAnswer;
+    use carlos_proto::session::Decision;
+    for replacement in [false, true] {
+        let peer = Peer::new(BackendKind::Claude);
+        let mut session = SessionState::new("thread".into(), Default::default(), false);
+        session.set_claude_enabled_for_test(true);
+        let _ = session.set_pending_approval(approval_draft());
+        let retired = session.approval().pending().expect("original").entry_id();
+        let _ = session.retire_approval(retired);
+        if replacement {
+            let mut changed = approval_draft();
+            changed.detail_lines = vec!["echo different".into()];
+            let _ = session.set_pending_approval(changed);
+        }
+        let current = session.approval().pending().map(|card| card.entry_id());
+        assert_ne!(current, Some(retired));
+        for queue in [ApprovalQueue::Claude, ApprovalQueue::Codex] {
+            session.focus_approval(retired, queue);
+            assert_eq!(
+                session.approval().pending().map(|card| card.entry_id()),
+                current
+            );
+        }
+        assert!(session.approval_answer(retired).is_none());
+        let answer = || ApprovalAnswer::Decision {
+            decision: Decision::Once,
+        };
+        assert!(session
+            .prepare_engine_answer(&peer, retired, answer())
+            .is_err());
+        assert!(peer.calls.lock().expect("no stale write").is_empty());
+        if let Some(current) = current {
+            let work = session
+                .prepare_engine_answer(&peer, current, answer())
+                .expect("fresh target");
+            session
+                .finish_engine_control(&peer, work.execute(&peer.commands))
+                .expect("native answer");
+        }
+        assert_eq!(
+            peer.calls.lock().expect("exact writes").len(),
+            usize::from(replacement)
+        );
+        session.messages().assert_invariants();
+    }
+}

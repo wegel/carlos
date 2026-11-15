@@ -315,3 +315,7 @@ mod tests;
 #[cfg(test)]
 #[path = "questions_editor_tests.rs"]
 mod editor_tests;
+
+#[cfg(test)]
+#[path = "questions_ownership_tests.rs"]
+mod ownership_tests;
