@@ -140,8 +140,8 @@ impl Device {
         let outgoing = self.client.read(
             link.connection,
             Command::TaskDetail {
-                window: None,
                 session: self.session.clone(),
+                window: self.task_window_id(),
                 expected: revision.clone(),
                 task: task.clone(),
             },
@@ -178,9 +178,7 @@ impl Device {
         if read.task != value.task.id
             || read.revision != value.revision
             || self.tasks.view.selected.as_ref() != Some(&read.task)
-            || self
-                .task_facts()
-                .is_none_or(|facts| facts.revision != read.revision)
+            || self.task_view_revision() != Some(&read.revision)
         {
             return true;
         }
@@ -226,8 +224,8 @@ impl Device {
         let outgoing = self.client.read(
             link.connection,
             Command::TaskText {
-                window: None,
                 session: self.session.clone(),
+                window: self.task_window_id(),
                 expected: value.revision.clone(),
                 task: value.task.id.clone(),
                 field: property.field,

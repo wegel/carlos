@@ -19,10 +19,17 @@ impl Device {
                 continue;
             }
             match result.reply {
+                ReadReply::TaskWindow(header) => {
+                    changed |= self.accept_task_window(result.id, header)
+                }
                 ReadReply::TaskSnapshot(snapshot) => {
                     changed |= self.accept_task_header(result.id, snapshot, effects)?;
                 }
                 ReadReply::TaskPage(page) => {
+                    if self.accept_task_window_page(result.id.as_ref(), &page)? {
+                        changed = true;
+                        continue;
+                    }
                     if self
                         .tasks
                         .reads
@@ -91,6 +98,7 @@ impl Device {
         for failure in std::mem::take(&mut effects.failures) {
             let handled = failure.id.as_ref().is_some_and(|id| {
                 self.tasks.reads.take_retired(id)
+                    || self.fail_task_window(id, &failure.error.message)
                     || self.tasks.reads.fail(id, &failure.error.message, sequence)
                     || self
                         .tasks

@@ -2,8 +2,8 @@
 
 mod approvals;
 mod bodies;
-mod drafts;
 mod dictation;
+mod drafts;
 mod events;
 mod formatting;
 mod goals;
@@ -33,6 +33,7 @@ mod tasks_render;
 mod tasks_stop_results;
 mod tasks_stops;
 mod tasks_text;
+mod tasks_windows;
 mod transcript;
 mod transport;
 

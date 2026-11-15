@@ -20,6 +20,7 @@ struct RunRead {
 
 struct Intent {
     task: TaskId,
+    window: Option<carlos_proto::ids::TaskWindowId>,
     connection: ConnectionId,
     read: RunRead,
 }
@@ -56,10 +57,7 @@ impl Device {
             "A current-run read is already pending"
         );
         ensure!(
-            self.task_facts()
-                .is_some_and(|facts| facts.known && !facts.reading && !facts.closed)
-                && self.tasks.pages.revision.as_ref()
-                    == self.task_facts().map(|facts| &facts.revision),
+            self.task_view_is_current(),
             "Refresh current task facts before stopping"
         );
         let task = self
@@ -82,7 +80,11 @@ impl Device {
                 "Stop unavailable for this native task"
             );
         }
-        self.request_stop_run(link, task.id.clone(), task.kind == TaskKind::Agent)
+        self.request_stop_run(
+            link,
+            task.id.clone(),
+            task.kind == TaskKind::Agent || self.task_window_id().is_some(),
+        )
     }
 
     fn request_stop_run(
@@ -94,8 +96,8 @@ impl Device {
         let outgoing = self.client.read(
             link.connection,
             Command::TaskRun {
-                window: None,
                 session: self.session.clone(),
+                window: self.task_window_id(),
                 task: task.clone(),
                 read: None,
                 refresh,
@@ -103,6 +105,7 @@ impl Device {
         )?;
         self.tasks.stops.intent = Some(Intent {
             task: task.clone(),
+            window: self.task_window_id(),
             connection: link.connection,
             read: RunRead {
                 request: Some(outgoing.id()),
@@ -168,7 +171,7 @@ impl Device {
                 return Ok(());
             }
             if !run.reading {
-                return self.submit_task_stop(link, intent.task, run);
+                return self.submit_task_stop(link, intent.window, intent.task, run);
             }
             if run.read.is_none() {
                 self.tasks.view.error =
@@ -197,8 +200,8 @@ impl Device {
         let outgoing = self.client.read(
             link.connection,
             Command::TaskRun {
-                window: None,
                 session: self.session.clone(),
+                window: intent.window.clone(),
                 task: intent.task.clone(),
                 read: intent.read.token.clone(),
                 refresh: false,
@@ -212,6 +215,7 @@ impl Device {
     fn submit_task_stop(
         &mut self,
         link: &mut Transport,
+        window: Option<carlos_proto::ids::TaskWindowId>,
         task: TaskId,
         run: TaskRunSnapshot,
     ) -> Result<()> {
@@ -224,8 +228,8 @@ impl Device {
         let outgoing = self.client.submit(link.connection, |operation| {
             identity = Some(operation.clone());
             Command::TaskStop {
-                window: None,
                 session,
+                window,
                 operation,
                 task: task.clone(),
                 expected_run: expected_run.clone(),

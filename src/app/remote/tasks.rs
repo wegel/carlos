@@ -30,6 +30,7 @@ pub(super) struct TaskView {
 /// A device retains only bounded display data and the private operations it initiated.
 #[derive(Default)]
 pub(super) struct Tasks {
+    pub(super) windows: super::tasks_windows::Windows,
     pub(super) view: TaskView,
     pub(super) pages: Pages,
     pub(super) reads: Reads,
@@ -58,6 +59,9 @@ impl Device {
     }
 
     pub(super) fn task_count(&self) -> usize {
+        if let Some(header) = &self.tasks.windows.current {
+            return header.rows as usize;
+        }
         self.task_facts().map_or(0, |facts| {
             (facts.counts.agents + facts.counts.processes + facts.counts.tasks) as usize
         })
@@ -70,7 +74,11 @@ impl Device {
         self.tasks.view.scroll = 0;
         self.tasks.view.error = None;
         self.tasks.reads.header_error = None;
-        let effects = self.client.watch_tasks(&self.session)?;
+        let effects = if self.tasks.windows.current.is_none() {
+            self.client.watch_tasks(&self.session)?
+        } else {
+            Default::default()
+        };
         self.tasks.reads.header = self.client.pending_task_read(&self.session);
         if let Some(link) = link {
             for outgoing in effects.outgoing {
@@ -82,6 +90,7 @@ impl Device {
 
     fn close_tasks(&mut self, link: Option<&mut Transport>) -> Result<()> {
         self.tasks.view.show = false;
+        self.retire_task_windows(false);
         self.tasks.reads.close();
         let effects = self.client.close_tasks(&self.session);
         if let Some(link) = link {
@@ -95,6 +104,8 @@ impl Device {
     /// Retire only unfinished read rights; selected rows and private stop results survive EOF.
     pub(super) fn tasks_disconnected(&mut self) {
         self.tasks.paint_dirty.set(true);
+        self.retire_task_windows(false);
+        self.tasks.windows.disconnected();
         self.tasks.reads.disconnected();
         self.tasks.details.disconnected();
         self.tasks.overview.disconnected();
@@ -137,6 +148,7 @@ impl Device {
                 self.tasks.view.scroll = self.tasks.view.scroll.saturating_add(5)
             }
             (KeyCode::Char('r'), KeyModifiers::NONE) => self.refresh_tasks(),
+            (KeyCode::Char('l'), KeyModifiers::NONE) => self.open_older_tasks(link)?,
             (KeyCode::Char('x'), KeyModifiers::NONE) => self.begin_task_stop(link)?,
             _ => {}
         }
@@ -156,6 +168,7 @@ impl Device {
     }
 
     fn refresh_tasks(&mut self) {
+        self.retire_task_windows(true);
         self.tasks.paint_dirty.set(true);
         self.tasks.refresh = true;
         self.tasks.reads.clear();

@@ -127,6 +127,9 @@ impl Device {
     }
 
     fn drive_task_reads(&mut self, link: &mut Transport) -> Result<bool> {
+        if self.client.session_is_ready(link.connection, &self.session) {
+            self.drive_task_windows(link)?;
+        }
         if let Err(error) = self.drive_task_stop(link) {
             self.tasks.view.error = Some(error.to_string());
             self.tasks.paint_dirty.set(true);
@@ -145,23 +148,21 @@ impl Device {
             return Ok(changed);
         }
         if self.tasks.refresh {
-            self.tasks.refresh = false;
-            let before = self.client.pending_task_read(&self.session);
-            let effects = self.client.watch_tasks(&self.session)?;
-            self.tasks.reads.header = self.client.pending_task_read(&self.session);
-            let subscribed = self.tasks.reads.header.is_some() && self.tasks.reads.header != before;
-            for outgoing in effects.outgoing {
-                link.send(outgoing)?;
-            }
-            if !subscribed {
-                self.request_task_page(link, None, None, 0, true)?;
-            }
+            self.refresh_latest_tasks(link)?;
             return Ok(true);
         }
+        if self.tasks.windows.stale {
+            return Ok(changed);
+        }
         let Some(revision) = self
-            .task_facts()
-            .filter(|facts| facts.known && !facts.reading)
-            .map(|facts| facts.revision.clone())
+            .task_view_revision()
+            .filter(|_| {
+                self.tasks.windows.current.is_some()
+                    || self
+                        .task_facts()
+                        .is_some_and(|facts| facts.known && !facts.reading)
+            })
+            .cloned()
         else {
             return Ok(changed);
         };
@@ -183,6 +184,21 @@ impl Device {
         self.drive_task_details(link)?;
         self.drive_task_overview(link)?;
         Ok(changed)
+    }
+
+    fn refresh_latest_tasks(&mut self, link: &mut Transport) -> Result<()> {
+        self.tasks.refresh = false;
+        let before = self.client.pending_task_read(&self.session);
+        let effects = self.client.watch_tasks(&self.session)?;
+        self.tasks.reads.header = self.client.pending_task_read(&self.session);
+        let subscribed = self.tasks.reads.header.is_some() && self.tasks.reads.header != before;
+        for outgoing in effects.outgoing {
+            link.send(outgoing)?;
+        }
+        if !subscribed {
+            self.request_task_page(link, None, None, 0, true)?;
+        }
+        Ok(())
     }
 
     fn wait_for_task_header(&mut self) -> bool {
@@ -212,8 +228,8 @@ impl Device {
         let outgoing = self.client.read(
             link.connection,
             Command::TaskList {
-                window: None,
                 session: self.session.clone(),
+                window: self.task_window_id(),
                 expected,
                 after,
                 limit: Some(32),
@@ -232,7 +248,11 @@ impl Device {
         let Some((read, page)) = self.tasks.reads.future.take() else {
             return Ok(false);
         };
-        match self.client.check_task_page(&page) {
+        match if self.tasks.windows.current.is_some() {
+            Ok(())
+        } else {
+            self.client.check_task_page(&page)
+        } {
             Ok(()) => {}
             Err(ClientError::StaleTasks) => {
                 if self

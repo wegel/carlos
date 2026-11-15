@@ -98,11 +98,7 @@ impl Device {
             lines.push(notice);
         }
         let current = self.client.current_session_is_ready(&self.session)
-            && self.task_facts().is_some_and(|facts| {
-                facts.known
-                    && !facts.reading
-                    && self.tasks.pages.revision.as_ref() == Some(&facts.revision)
-            });
+            && (self.task_view_is_current() || self.tasks.windows.current.is_some());
         if current {
             match selected {
                 Some(task) => self.selected_task_body(task, &mut lines),
@@ -136,6 +132,16 @@ impl Device {
             lines.push("Reading complete named task fields…".into());
         }
         if task.kind == TaskKind::Agent {
+            if let Some(window) = &self.tasks.windows.current {
+                lines.push(format!(
+                    "{} rows in this private native window; ↑↓ selects",
+                    window.rows
+                ));
+                if window.older_available {
+                    lines.push("Older native tasks exist".into());
+                }
+                return;
+            }
             if let Some(facts) = self.task_facts() {
                 lines.push(format!(
                     "{} agents / {} background processes; ↑↓ selects",
@@ -150,6 +156,23 @@ impl Device {
 
     fn task_notices(&self) -> Vec<String> {
         let mut lines = Vec::new();
+        if self.tasks.windows.current.is_some() {
+            lines.push(if self.tasks.windows.stale {
+                "Older native task window retired; displayed rows kept. r latest before controls"
+            } else { "Private older native task window; l older, r latest" }.into());
+        }
+        if self.older_tasks_reading() {
+            lines.push("Reading older tasks; current page kept…".into());
+        }
+        if let Some(error) = self
+            .tasks
+            .windows
+            .current
+            .as_ref()
+            .and_then(|window| window.read_error.as_ref())
+        {
+            lines.push(error.clone());
+        }
         for error in [
             self.tasks.view.error.as_deref(),
             self.tasks.reads.error(),
@@ -194,10 +217,12 @@ impl Device {
                 (false, false) => "↑↓ tasks · stop unavailable · PgDn · F3 mode · F2/Esc close",
             };
         }
-        if size.width < 40 {
-            "x stop F2 back"
+        if size.width < 24 {
+            "l x F2 back"
+        } else if size.width < 40 {
+            "l older x F2 back"
         } else {
-            "↑↓ select · x stop · r latest · PgDn · F3 mode · F2/Esc close"
+            "↑↓ select · x stop · l older · r latest · PgDn · F2/Esc close"
         }
     }
 }
