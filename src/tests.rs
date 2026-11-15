@@ -64,6 +64,8 @@ mod codex_queue_tests;
 mod codex_settings_tests;
 #[path = "tests/codex_startup_settings_tests.rs"]
 mod codex_startup_settings_tests;
+#[path = "tests/grouped_render_tests.rs"]
+mod grouped_render_tests;
 #[path = "tests/late_summary_render_tests.rs"]
 mod late_summary_render_tests;
 #[path = "tests/notification_tests.rs"]

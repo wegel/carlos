@@ -34,7 +34,8 @@ pub(super) fn grok_peer() -> (CommandHandle, Arc<Mutex<Writes>>) {
     peer(BackendKind::Grok)
 }
 
-fn peer(kind: BackendKind) -> (CommandHandle, Arc<Mutex<Writes>>) {
+/// Capture the same guarded writer for each backend without changing its fixed fork replies.
+pub(super) fn peer(kind: BackendKind) -> (CommandHandle, Arc<Mutex<Writes>>) {
     let writes = Arc::new(Mutex::new(Writes::default()));
     let commands = CommandHandle::new(Writer {
         kind,

@@ -57,13 +57,6 @@ impl AppState {
     // --- Streamed Items ---
 
     #[cfg(test)]
-    pub(super) fn upsert_agent_delta(&mut self, item_id: &str, delta: &str) {
-        let key = self.item_key(item_id);
-        self.session.upsert_agent_delta(&key, delta);
-        self.consume_core_events();
-    }
-
-    #[cfg(test)]
     pub(super) fn upsert_reasoning_summary_delta(&mut self, item_id: &str, delta: &str) {
         if self.is_item_completed(item_id) {
             return;

@@ -148,7 +148,3 @@ impl RenderedLineSource for AppState {
         self.rendered_line_at(idx)
     }
 }
-
-#[cfg(test)]
-#[path = "state_transcript_checks.rs"]
-mod checks;

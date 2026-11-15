@@ -121,14 +121,6 @@ impl AppState {
     }
 
     #[cfg(test)]
-    pub(super) fn rewind_native_request(&self) -> Option<carlos_core::backend::RewindUserMessage> {
-        self.session.input_history().native_request(
-            self.view.input_history.rewind_selected_history_index()?,
-            self.view.input_history.rewind_selected_entry_id()?,
-        )
-    }
-
-    #[cfg(test)]
     pub(super) fn rewind_selected_turn_id(&self) -> Option<&str> {
         self.view
             .claude_unknown_selection
