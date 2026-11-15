@@ -188,6 +188,31 @@ class Terminal:
         self.wait(lambda: self.input_is(expected),
                   "rewind composer contains " + repr(expected))
 
+    def wait_prompt_read(self, text, after=0):
+        """Fence an asynchronous selected-prompt read before editing an identical-text entry."""
+        if not self.owned_daemon and not hasattr(self, "daemon_recorder"):
+            self.wait(lambda:self.input_is(text), "selected prompt composer")
+            return
+        def loaded():
+            selections = self.daemon_requests("prompt/select")[after:]
+            if not selections:
+                return False
+            replies = {row["id"]:row.get("result") for row in self.daemon_messages("server")
+                       if "id" in row and isinstance(row.get("result"), dict)}
+            selected = replies.get(selections[-1]["id"], {}).get("record")
+            if not selected:
+                return False
+            sent = self.daemon_messages("client")
+            start = next(index for index in range(len(sent) - 1, -1, -1)
+                         if sent[index].get("id") == selections[-1]["id"])
+            requests = [row for row in sent[start + 1:] if row.get("method") == "prompt/text"
+                        and row["params"]["prompt"] == selected["id"]]
+            chunks = [replies.get(row["id"]) for row in requests]
+            return (bool(chunks) and all(chunks) and chunks[-1].get("next") is None
+                    and "".join(chunk["text"] for chunk in chunks) == text
+                    and "Reading saved prompt" not in self.text and self.input_is(text))
+        self.wait(loaded, "complete selected-prompt read before editing")
+
     def daemon_is_idle(self):
         for message in reversed(self.daemon_messages("server")):
             result = message.get("result")

@@ -114,7 +114,9 @@ class NativeMonitor(NativeCodexControls,NativeCodexPanel,NativeCodexGoals,Native
         resumed.contains("NATIVE_AFTER_STEER")
         resumed.contains("you (steer)")
         resumed.rewind("same native prompt")
+        before = len(resumed.daemon_requests("prompt/select"))
         resumed.send(b"\x1b[A")  # Same text, but the earlier exact user item.
+        resumed.wait_prompt_read("same native prompt", after=before)
         resumed.replace_input("edited initial native")
         resumed.send(b"\r")
         resumed.contains("NATIVE_EDITED_INITIAL")

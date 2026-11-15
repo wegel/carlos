@@ -119,9 +119,12 @@ class Fixture:
             path = shim / command
             path.write_text(native_wrapper(command))
             path.chmod(0o755)
+        helper = BINARY.with_name("carlos-claude-controller")
+        if not helper.is_file():
+            helper = REPO / "target/claude-controller/carlos-claude-controller"
         self.env.update(PATH=str(shim) + os.pathsep + os.environ["PATH"], CARLOS_TEST_ROOT=str(self.root),
                         CARLOS_TEST_SERVER=mode,
-                        CARLOS_CLAUDE_CONTROLLER=str(REPO / "target/claude-controller/carlos-claude-controller"),
+                        CARLOS_CLAUDE_CONTROLLER=str(helper),
                         CARLOS_CLAUDE_WIRE_TRACE=str(self.root / "claude-controller.jsonl"),
                         CARLOS_CLAUDE_EXECUTABLE=str(shim / "claude"))
         if tool_summaries is None:

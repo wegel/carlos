@@ -27,7 +27,7 @@ class DaemonAnsiNotice(unittest.TestCase):
         terminal.wait(lambda:terminal.input_is("private error draft"), "private draft after native failure")
         for width in (28, 72, 100):
             terminal.resize(width, 32)
-            terminal.wait(lambda:"ANSI notice END" in terminal.text
+            terminal.wait(lambda:"ANSI notice END" in " ".join(terminal.text.split())
                           and terminal.input_is("private error draft"),
                           "resized frame retains its notice and private composer")
             terminal.snapshot(f"ansi-error-{width}")
