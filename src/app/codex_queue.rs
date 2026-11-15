@@ -10,16 +10,6 @@ use uuid::Uuid;
 use super::codex_queue_state::QueueEdit;
 use super::state::AppState;
 
-/// Keep uncertain queue writes and recoverable drafts in their original thread before a fork.
-#[cfg(test)]
-pub(super) fn reject_switch(app: &mut AppState) -> bool {
-    if !app.session.codex_queue().pending() && app.view.codex_queue.recovery.is_none() {
-        return false;
-    }
-    app.append_message(carlos_core::session::models::Role::System, "Finish or recover the Codex queue request before editing earlier history. This edited prompt is preserved.");
-    true
-}
-
 /// Consume local queue commands before normal prompt/history submission.
 pub(super) fn command(client: &dyn BackendClient, app: &mut AppState, text: &str) -> bool {
     if !app.session.codex_scope().enabled() {
@@ -62,15 +52,6 @@ pub(super) fn tick(client: &dyn BackendClient, app: &mut AppState) -> bool {
     );
     apply(app, update);
     changed
-}
-
-/// Read one record per frame so large persisted inputs do not overflow a native reply.
-#[cfg(test)]
-pub(super) fn page(client: &dyn BackendClient, app: &mut AppState, token: u64, cursor: Value) {
-    let scope = scope(app);
-    let mut update = QueueUpdate::default();
-    queue::page(client, &mut app.session, scope, &mut update, token, cursor);
-    apply(app, update);
 }
 
 /// Queue a human message once; only native consumed user items enter transcript/history.
@@ -185,12 +166,6 @@ pub(super) fn operate(client: &dyn BackendClient, app: &mut AppState, command: &
 pub(super) fn fail(app: &mut AppState, message: &str) {
     app.view.codex_queue.error = Some(carlos_core::session::text::safe_text(message));
     app.view.codex_queue.show = true;
-}
-
-/// Let Carlos automatic work run only after an authoritative empty native queue read.
-#[cfg(test)]
-pub(super) fn allows_automatic(app: &AppState) -> bool {
-    queue::allows_automatic(&app.session, scope(app))
 }
 
 /// Describe the current native connection for the queue controller.

@@ -180,3 +180,7 @@ impl Device {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "queue_contract_tests.rs"]
+mod contract_tests;

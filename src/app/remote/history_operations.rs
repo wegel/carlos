@@ -13,6 +13,9 @@ impl Device {
         link: Option<&mut Transport>,
         text: String,
     ) -> Result<()> {
+        if self.view.codex_queue.recovery.is_some() {
+            bail!("Finish or recover the Codex queue request before editing earlier history. This edited prompt is preserved.");
+        }
         if self.history.operation.is_some() {
             bail!("Preparing edited branch; newer composer draft kept");
         }

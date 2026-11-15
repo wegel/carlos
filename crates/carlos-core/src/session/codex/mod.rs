@@ -163,3 +163,10 @@ mod panel_contract_tests;
 
 #[cfg(test)]
 mod panel_read_contract_tests;
+
+#[cfg(test)]
+mod queue_contract_support;
+#[cfg(test)]
+mod queue_contract_tests;
+#[cfg(test)]
+mod queue_read_contract_tests;

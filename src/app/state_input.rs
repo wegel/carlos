@@ -155,11 +155,6 @@ impl AppState {
             .or_else(|| self.view.input_history.rewind_prompt_id())
     }
 
-    #[cfg(test)]
-    pub(super) fn submitted_turn_count(&self) -> usize {
-        self.session.input_history().history_len()
-    }
-
     pub(super) fn align_rewind_scroll_to_selected_prompt(&mut self, size: TerminalSize) {
         if !self.rewind_mode()
             || (self.session.claude_edit_progress().is_some() || self.view.claude_edit.failed)
