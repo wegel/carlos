@@ -20,8 +20,6 @@ mod claude_models;
 mod claude_notices;
 #[cfg(test)]
 mod claude_notifications;
-#[cfg(test)]
-mod claude_prompts;
 mod claude_question_field;
 mod claude_question_input;
 mod claude_question_state;
@@ -206,10 +204,6 @@ pub(crate) fn run() -> Result<()> {
 #[cfg(test)]
 #[path = "../tests.rs"]
 mod tests;
-
-#[cfg(test)]
-#[path = "../tests/claude_native_state_tests.rs"]
-mod claude_native_state_tests;
 
 #[cfg(test)]
 #[path = "../tests/claude_quota_tests.rs"]

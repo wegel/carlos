@@ -94,15 +94,6 @@ impl AppState {
         self.record_prompt_history(text, None);
     }
 
-    #[cfg(test)]
-    pub(super) fn record_input_history(&mut self, text: &str, message_idx: Option<usize>) {
-        self.record_prompt_history(
-            text,
-            message_idx
-                .and_then(|index| self.session.messages().get(index).map(|message| message.id)),
-        );
-    }
-
     fn record_prompt_history(
         &mut self,
         text: &str,
