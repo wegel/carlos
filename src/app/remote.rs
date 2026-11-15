@@ -20,6 +20,16 @@ mod queue_render;
 mod reading;
 mod render;
 mod selection_copy;
+mod settings;
+mod settings_appearance;
+mod settings_changes;
+mod settings_context;
+mod settings_intent;
+mod settings_keys;
+mod settings_render;
+mod settings_results;
+mod settings_save;
+mod settings_submit;
 mod source_copy;
 mod source_formatter;
 mod tasks;
@@ -63,6 +73,7 @@ struct Device {
     goals: goals::Goals,
     queue: queue::Queue,
     tasks: tasks::Tasks,
+    settings: settings::Settings,
     waiting_ready: bool,
 }
 
@@ -82,6 +93,7 @@ pub(super) fn run(socket: &Path, options: &CliOptions) -> Result<()> {
         goals: goals::Goals::default(),
         queue: queue::Queue::default(),
         tasks: tasks::Tasks::default(),
+        settings: settings::Settings::default(),
         waiting_ready: false,
     };
     device.view.layout.themes = super::tool_output_preferences::load_themes();
@@ -102,19 +114,14 @@ impl Device {
                     match self.service(link) {
                         Ok(changed) => redraw |= changed,
                         Err(error) => {
-                            self.client.disconnect(link.connection);
-                            self.reading.disconnected();
-                            self.documents.disconnected();
-                            self.goals.read = None;
-                            self.queue_disconnected();
-                            self.tasks_disconnected();
-                            self.view.status_hint = Some(format!("F5 reconnects: {error}"));
+                            self.connection_closed(link, &error);
                             transport = None;
                             redraw = true;
                         }
                     }
                 }
                 redraw |= self.source_tick(transport.as_mut());
+                redraw |= self.poll_settings_appearance();
                 if redraw {
                     terminal.draw(|frame| self.draw(frame))?;
                     if let Some(link) = transport.as_mut() {
@@ -151,6 +158,17 @@ impl Device {
         })
     }
 
+    fn connection_closed(&mut self, link: &Transport, error: &anyhow::Error) {
+        self.client.disconnect(link.connection);
+        self.reading.disconnected();
+        self.documents.disconnected();
+        self.goals.read = None;
+        self.queue_disconnected();
+        self.tasks_disconnected();
+        self.settings_disconnected();
+        self.view.status_hint = Some(format!("F5 reconnects: {error}"));
+    }
+
     fn service(&mut self, link: &mut Transport) -> Result<bool> {
         let mut changed = false;
         for incoming in link.receive()? {
@@ -159,6 +177,7 @@ impl Device {
         }
         changed |= self.drive_queue(link)?;
         changed |= self.drive_tasks(link)?;
+        changed |= self.drive_settings(link)?;
         link.flush()?;
         Ok(changed)
     }

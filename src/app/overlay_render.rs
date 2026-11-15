@@ -23,8 +23,8 @@ use super::{AppState, TerminalSize};
 use crate::theme::{COLOR_DIM, COLOR_OVERLAY, COLOR_PRIMARY, COLOR_STEP2, COLOR_STEP7, COLOR_TEXT};
 
 pub(super) use self::overlay_render_model_bridge::model_settings_cursor_position;
-pub(super) use self::overlay_render_model_settings::SettingsFrame;
 use self::overlay_render_model_settings::{draw_model_settings_fields, model_settings_overlay_box};
+pub(super) use self::overlay_render_model_settings::{settings_cursor_position, SettingsFrame};
 pub(super) use self::overlay_render_perf::draw_perf_overlay;
 
 pub(super) struct OverlayBox {

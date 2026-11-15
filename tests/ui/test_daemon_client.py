@@ -10,7 +10,7 @@ from daemon_recorder import DaemonRecorder
 
 
 class DaemonClient:
-    def daemon_session(self, name, history=None):
+    def daemon_session(self, name, history=None, configure=None):
         runner = sys.modules[type(self).__module__]
         daemon_support.BINARY = runner.BINARY.parent / "carlosd"
         daemon_support.ARTIFACTS = runner.ARTIFACTS / "daemon"
@@ -18,6 +18,8 @@ class DaemonClient:
         self.addCleanup(fixture.close)
         if history is not None:
             fixture.native.history = history
+        if configure is not None:
+            configure(fixture)
         client = daemon_support.Client(fixture, "terminal-test-owner")
         self.addCleanup(client.close)
         create = client.operation(1)

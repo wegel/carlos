@@ -50,12 +50,14 @@ impl Device {
         let mut task_changed = self.apply_task_reads(&mut effects)?;
         task_changed |= self.task_operations_changed(&effects.operations);
         let goal_changed = self.apply_goal_reads(&mut effects)?;
+        let settings_changed = self.apply_settings_reads(&mut effects);
         let queue_changed = self.apply_queue_reads(&mut effects)?;
         let private_changed = !effects.operations.is_empty();
         self.apply_operations(&effects.operations);
         let mut changed = effects.welcome.is_some()
             || private_changed
             || goal_changed
+            || settings_changed
             || queue_changed
             || task_changed
             || !effects.failures.is_empty();
@@ -128,6 +130,7 @@ impl Device {
 
     fn replace_source_frames(&mut self, welcome: Option<&carlos_client::Welcome>) {
         if matches!(welcome, Some(carlos_client::Welcome::Replaced { .. })) {
+            self.settings_replaced();
             self.documents.replaced();
             self.view.render_cache.forget_all();
             self.view.viewport.selection = None;
@@ -144,7 +147,9 @@ impl Device {
                 self.mouse(mouse)?
             }
             Event::Paste(text) => {
-                if self.tasks.view.show {
+                if self.view.runtime_settings.show_model_settings {
+                    self.settings_paste(&normalize_pasted_text(&text));
+                } else if self.tasks.view.show {
                     // Task views consume paste without changing any hidden draft.
                 } else if self.view.codex_goals.show {
                     self.goal_paste(&normalize_pasted_text(&text));
@@ -170,7 +175,9 @@ impl Device {
             }
             return Ok(false);
         }
-        if self.overlay_key(link.as_deref_mut(), key) {
+        if self.settings_key(link.as_deref_mut(), key)?
+            || self.overlay_key(link.as_deref_mut(), key)
+        {
             return Ok(false);
         }
         if self.dictation_key(key) {

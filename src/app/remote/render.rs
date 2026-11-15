@@ -26,16 +26,19 @@ impl Device {
         self.view.layout.update_size(size);
         if self.tasks.view.show {
             self.draw_tasks(frame.buffer_mut(), size);
+            self.draw_settings(frame, size);
             return;
         }
         if self.view.codex_goals.show {
             let (x, y) = self.draw_goal(frame.buffer_mut(), size);
             frame.set_cursor_position((x as u16, y as u16));
+            self.draw_settings(frame, size);
             return;
         }
         if self.view.codex_queue.show {
             let (x, y) = self.draw_queue(frame.buffer_mut(), size);
             frame.set_cursor_position((x as u16, y as u16));
+            self.draw_settings(frame, size);
             return;
         }
         self.view.tool_output.update_size(size);
@@ -57,6 +60,9 @@ impl Device {
         self.draw_transcript(frame.buffer_mut(), size, &layout, content_x);
         self.draw_footer(frame.buffer_mut(), size, &layout, content_x);
         self.remember_anchor();
+        if self.draw_settings(frame, size) {
+            return;
+        }
         frame.set_cursor_position((
             layout.cursor_x.min(size.width.saturating_sub(1)) as u16,
             layout.cursor_y.min(size.height.saturating_sub(1)) as u16,

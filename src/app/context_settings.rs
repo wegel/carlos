@@ -29,6 +29,22 @@ pub(super) struct ContextSettings {
 }
 
 impl ContextSettings {
+    /// Build an editor from checked backend facts without reading this device's host files.
+    pub(super) fn from_saved(
+        backend: Option<BackendKind>,
+        attached: bool,
+        saved: Option<u64>,
+    ) -> Self {
+        let mut editor = Self {
+            backend,
+            attached,
+            saved,
+            ..Default::default()
+        };
+        editor.open();
+        editor
+    }
+
     /// Restore the saved value whenever the user opens the editor.
     pub(super) fn open(&mut self) {
         self.draft = context_preferences::label(self.saved);
