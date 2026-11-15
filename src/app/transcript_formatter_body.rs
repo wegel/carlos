@@ -17,6 +17,7 @@ use crate::app::view_models::{RenderedLine, StyledSegment};
 pub(super) enum BodyPages {
     Empty(Arc<String>),
     Plain(PlainPages),
+    UnparsedOutput(PlainPages),
     Ansi(AnsiPages),
     Styled {
         original: Arc<String>,
@@ -52,11 +53,23 @@ impl BodyPages {
         }
     }
 
+    /// Reindex only the unfinished tail for plain or already-ANSI bodies.
+    pub fn append(&mut self, text: &str) -> Result<bool, PageError> {
+        match self {
+            Self::Plain(pages) if !text.contains(['\x1b', '\u{009b}']) => {
+                pages.append(text);
+                Ok(true)
+            }
+            Self::Ansi(pages) => pages.append(text).map(|()| true),
+            _ => Ok(false),
+        }
+    }
+
     /// Borrow every original byte for exact copy, including skipped tool-call headings.
     pub fn original(&self) -> &str {
         match self {
             Self::Empty(original) | Self::Styled { original, .. } => original,
-            Self::Plain(pages) => pages.original_text(),
+            Self::Plain(pages) | Self::UnparsedOutput(pages) => pages.original_text(),
             Self::Ansi(pages) => pages.original_text(),
         }
     }
@@ -65,7 +78,7 @@ impl BodyPages {
     pub fn into_original(self) -> Arc<String> {
         match self {
             Self::Empty(original) | Self::Styled { original, .. } => original,
-            Self::Plain(pages) => pages.into_original(),
+            Self::Plain(pages) | Self::UnparsedOutput(pages) => pages.into_original(),
             Self::Ansi(pages) => pages.into_original(),
         }
     }
@@ -74,7 +87,7 @@ impl BodyPages {
     pub fn rows(&self) -> usize {
         match self {
             Self::Empty(_) => 0,
-            Self::Plain(pages) => pages.rows(),
+            Self::Plain(pages) | Self::UnparsedOutput(pages) => pages.rows(),
             Self::Ansi(pages) => pages.rows(),
             Self::Styled {
                 document, prefix, ..
@@ -86,7 +99,7 @@ impl BodyPages {
     pub fn window(&self, first: usize, length: usize) -> Result<Vec<RenderedLine>, PageError> {
         match self {
             Self::Empty(_) => Ok(Vec::new()),
-            Self::Plain(pages) => Ok(pages.window(first, length)),
+            Self::Plain(pages) | Self::UnparsedOutput(pages) => Ok(pages.window(first, length)),
             Self::Ansi(pages) => pages.window(first, length),
             Self::Styled {
                 document, prefix, ..
@@ -117,7 +130,16 @@ impl BodyPages {
         // Trying the ANSI parser briefly shares the Arc, never the String's bytes.
         match AnsiPages::new(Arc::clone(&original), facts.role, width) {
             Ok(pages) => Ok(Self::Ansi(pages)),
-            Err(_) => PlainPages::new(original, facts.role, width).map(Self::Plain),
+            Err(_) => {
+                let incomplete = original.contains(['\x1b', '\u{009b}']);
+                PlainPages::new(original, facts.role, width).map(|pages| {
+                    if incomplete {
+                        Self::UnparsedOutput(pages)
+                    } else {
+                        Self::Plain(pages)
+                    }
+                })
+            }
         }
     }
 

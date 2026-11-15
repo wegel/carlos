@@ -107,10 +107,16 @@ class DaemonLargeSource(unittest.TestCase):
 
     def ready(self, terminal, marker):
         failures = ("exceeds the body cache", "output queue filled", "Cannot format accepted source")
-        terminal.wait(lambda: marker in terminal.text or any(error in terminal.text for error in failures),
+        terminal.wait(lambda: (marker in terminal.text and self.frame_finished(terminal))
+                      or any(error in terminal.text for error in failures),
                       "captured viewport or explicit source failure", timeout=40)
         self.assertIn(marker, terminal.text, "the terminal must paint the large captured original")
         self.assertNotIn("exceeds the body cache", terminal.text)
+
+    @staticmethod
+    def frame_finished(terminal):
+        cursor = terminal.screen.cursor
+        return not cursor.hidden and cursor.y == terminal.screen.lines - 1
 
     def check_viewports(self, terminal, early, late, draft):
         terminal.send(b"\x1b[5~")
@@ -129,7 +135,8 @@ class DaemonLargeSource(unittest.TestCase):
             self.ready(terminal, late)
             terminal.snapshot(f"late-{width}")
             terminal.send(b"\x1b[H")
-            terminal.wait(lambda: early in terminal.text and late not in terminal.text,
+            terminal.wait(lambda: early in terminal.text and late not in terminal.text
+                          and self.frame_finished(terminal),
                           "Home paints the original early viewport", timeout=40)
             terminal.snapshot(f"early-{width}")
         terminal.send(b"\x1b[F")

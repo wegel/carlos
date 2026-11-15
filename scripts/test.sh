@@ -48,6 +48,13 @@ python3 tests/package/smoke.py --binary "$artifacts/package/carlos" \
   --helper "$artifacts/package/carlos-claude-controller" --artifacts "$artifacts/package-smoke"
 target/ui-venv/bin/python tests/ui/test_workflows.py \
   --binary "target/$profile/carlos" --artifacts "$artifacts/ui" -v
+# The small committed oracle keeps paged selection checks in CI without an old executable.
+target/ui-venv/bin/python tests/ui/test_daemon_selection_copy.py \
+  --binary "target/$profile/carlos" --daemon "target/$profile/carlosd" \
+  --artifacts "$artifacts/selection"
+target/ui-venv/bin/python tests/ui/test_daemon_source_failures.py \
+  --binary "target/$profile/carlos" --daemon "target/$profile/carlosd" \
+  --artifacts "$artifacts/source-failures"
 if [[ "$check_codex" == true ]]; then
   python3 tests/ui/test_codex_contract.py --artifacts "$artifacts/codex"
   target/ui-venv/bin/python tests/ui/test_native_monitor.py \

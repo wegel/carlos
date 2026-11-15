@@ -168,18 +168,14 @@ mod socket_probe;
 #[path = "transcript_large_probe.rs"]
 mod large_probe;
 
-#[cfg(test)]
 #[path = "accepted_source.rs"]
 mod accepted_source;
 
-#[cfg(test)]
 #[path = "transcript_markdown_document.rs"]
 mod document;
 
-#[cfg(test)]
 #[path = "transcript_formatter.rs"]
-mod formatter;
+pub(super) mod formatter;
 
-#[cfg(test)]
 #[path = "transcript_ansi_pages.rs"]
 mod ansi_pages;

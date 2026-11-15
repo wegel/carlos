@@ -51,6 +51,7 @@ impl TranscriptSource for [Message] {
 struct IndexedRow {
     start: usize,
     count: usize,
+    source: Option<carlos_proto::source::Source>,
     lines: Option<PaintedRows>,
     context: EntryContext,
     loading: bool,
@@ -61,6 +62,7 @@ impl IndexedRow {
         Self {
             start,
             count: row.count,
+            source: row.source,
             lines: row.lines,
             context: row.context,
             loading: row.loading,
@@ -96,6 +98,11 @@ pub(super) struct RenderCacheState {
 }
 
 impl RenderCacheState {
+    /// Drop saved source rows when a new daemon can reuse old entry and revision addresses.
+    pub(super) fn forget_all(&mut self) {
+        *self = Self::new();
+    }
+
     /// Keep accepted rows visible but require them to be checked against replacement facts.
     pub(super) fn invalidate_all(&mut self) {
         self.entries.invalidate_all();
@@ -376,3 +383,8 @@ impl super::selection::RenderedLineSource for RenderCacheState {
 #[cfg(test)]
 #[path = "render_row_window_tests.rs"]
 mod window_tests;
+
+#[path = "render_format_window.rs"]
+mod format_window;
+
+pub(super) use self::format_window::SelectionBlock;

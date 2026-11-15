@@ -4,11 +4,10 @@ use anyhow::Result;
 use carlos_proto::session::{ApprovalInput, EntryKind};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 
-use super::transcript::Transcript;
 use super::Device;
 use crate::app::mouse_gestures::{self, MouseHitContext};
 use crate::app::render_input::compute_composer_layout;
-use crate::app::selection::{normalize_selection_x, selected_text, Selection};
+use crate::app::selection::{normalize_selection_x, Selection};
 use crate::app::transcript_input::RenderInput;
 use crate::app::view_models::TerminalSize;
 use crate::clipboard::{clipboard_backend_label, try_copy_clipboard};
@@ -145,6 +144,10 @@ impl Device {
             })
         });
         let Some(entry) = entry else { return };
+        if let Some(source) = entry.source.as_ref() {
+            self.copy_original(entry.id.clone(), source.clone());
+            return;
+        }
         let source = self
             .documents
             .token(&entry.id)
@@ -162,17 +165,8 @@ impl Device {
     }
 
     fn copy_selection(&mut self, selection: Selection) {
-        let Some(transcript) = Transcript::new(&self.client, &self.session, &self.documents) else {
-            return;
-        };
-        self.view.render_cache.materialize_inputs(
-            &transcript,
-            selection.anchor_line_idx.min(selection.focus_line_idx),
-            selection.anchor_line_idx.max(selection.focus_line_idx),
-        );
-        let text = selected_text(selection, &self.view.render_cache);
-        if !text.is_empty() {
-            let _ = try_copy_clipboard(&text);
+        if let Err(error) = self.begin_selection_copy(selection) {
+            self.view.status_hint = Some(error.to_string());
         }
     }
 }

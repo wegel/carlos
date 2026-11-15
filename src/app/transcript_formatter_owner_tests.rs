@@ -11,9 +11,12 @@ use carlos_proto::source::SourceChunk;
 use serde_json::json;
 
 use super::{Formatter, Reply, Request, Transfer};
+use crate::app::flow_transcript::EntryContext;
 use crate::app::layout_state::TranscriptTheme;
 use crate::app::render_entry_cache::RowFormat;
+use crate::app::transcript_block::plan_context_block;
 use crate::app::transcript_input::RenderInput;
+use crate::app::transcript_styles::RenderCountCache;
 
 fn cache() -> (Bodies, BodyToken) {
     let mut cache = Bodies::default();
@@ -249,3 +252,69 @@ fn polling_delivers_the_latest_view_after_backpressure_without_new_source_bytes(
     assert_eq!(view, latest);
     assert!(prepared.lines.expect("viewport rows").get(5).is_some());
 }
+
+#[test]
+fn live_plain_and_split_ansi_appends_match_the_complete_formatter() {
+    for chunks in [
+        vec!["plain ", "\x1b[", "31mred", "\x1b[0m\nlast"],
+        vec!["\x1b[31mred", "\x1b[", "0m\nplain", " appended\n"],
+        vec!["```rs\n", "let x = 1;\n", "```\n", "after"],
+    ] {
+        let (mut cache, token) = cache();
+        let mut formatter = Formatter::new().expect("worker");
+        formatter
+            .open(token.clone(), OutputRevision::new(3))
+            .expect("job");
+        show(&mut formatter, 0);
+        let mut original = String::new();
+        for chunk in chunks {
+            let offset = original.len();
+            original.push_str(chunk);
+            push(&mut cache, &token, offset, chunk, original.len());
+            feed(&mut formatter, &cache, original.len());
+            let Reply::Frame {
+                source, prepared, ..
+            } = reply(&mut formatter)
+            else {
+                panic!("updated complete frame")
+            };
+            assert_eq!(source.bytes.get(), original.len() as u64);
+            assert_complete_rows(&original, prepared);
+        }
+    }
+}
+
+fn assert_complete_rows(text: &str, prepared: crate::app::render_entry_cache::PreparedRow) {
+    let input = RenderInput {
+        role: Role::ToolOutput,
+        kind: MessageKind::Plain,
+        text,
+        file_path: None,
+        label: None,
+        label_generated: false,
+        failed: false,
+    };
+    let context = EntryContext::new(input, 28, TranscriptTheme::Gutter);
+    let expected = plan_context_block(
+        &mut RenderCountCache::new(),
+        None,
+        context,
+        input,
+        28,
+        false,
+        TranscriptTheme::Gutter,
+    )
+    .render_input(input);
+    assert_eq!(prepared.count, expected.len());
+    let actual = prepared.lines.expect("painted viewport");
+    for (index, line) in expected.iter().enumerate().take(8) {
+        assert_eq!(
+            format!("{:?}", actual.get(index).expect("row")),
+            format!("{line:?}"),
+            "{text:?}/{index}"
+        );
+    }
+}
+
+#[path = "transcript_formatter_selection_tests.rs"]
+mod selection_tests;

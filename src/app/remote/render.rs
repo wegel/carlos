@@ -164,7 +164,7 @@ impl Device {
                     draw_body_row(buffer, row, content_x, width, line, selected);
                     if !self.view.layout.active.is_flow() {
                         if let Some((index, body_row)) = cache.message_anchor(first + row) {
-                            if let Some(input) = transcript.input(index) {
+                            if let Some(input) = transcript.row(index).map(|row| row.facts) {
                                 draw_gutter(
                                     buffer,
                                     row,

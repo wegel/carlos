@@ -1,5 +1,6 @@
 //! Save exact wraps and style cursor positions for a long retained Markdown, source or diff line.
 
+#[cfg(test)]
 use std::mem::size_of;
 use std::ops::Range;
 
@@ -96,6 +97,7 @@ impl StyledLine {
     }
 
     /// Include spare row/span/map slots when measuring retained index storage.
+    #[cfg(test)]
     pub fn capacity_bytes(&self) -> usize {
         self.text.capacity_bytes()
             + self.ends.capacity() * size_of::<usize>()

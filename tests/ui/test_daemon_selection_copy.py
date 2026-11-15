@@ -1,4 +1,4 @@
-"""Compare real-terminal copies across evicted source rows with a real old-binary oracle."""
+"""Check copied rows against bytes captured from the old terminal or a supplied reference binary."""
 
 import argparse
 import hashlib
@@ -155,7 +155,10 @@ target.replace(root/'copied.bin')
         fixture, terminal = self.prepare(label, binary)
         terminal.send(b"\x1b[F" if reverse else b"\x1b[H")
         anchor, focus = (LAST, "Ω begin") if reverse else ("Ω begin", LAST)
-        terminal.contains(anchor)
+        edge = f"row-{ROWS - 1:03}" if reverse else "row-000"
+        terminal.wait(lambda: anchor in terminal.text and focus not in terminal.text
+                      and edge in terminal.text,
+                      "Home or End paints the complete source edge before selecting", timeout=20)
         self.assertNotIn(focus, terminal.text)
         terminal.paste(DRAFT)
         terminal.wait(lambda: terminal.input_is(DRAFT), "private draft before selecting")
@@ -181,7 +184,8 @@ target.replace(root/'copied.bin')
         return keyboard
 
     def compare(self, reverse):
-        expected = self.select_and_copy("reference", REFERENCE, reverse)
+        expected = (self.select_and_copy("reference", REFERENCE, reverse) if REFERENCE else
+                    (Path(__file__).parent / "fixtures/daemon-selection-copy.txt").read_bytes())
         text = expected.decode()
         self.assertTrue(text.startswith(FIRST))
         self.assertTrue(text.endswith(LAST))
@@ -209,7 +213,7 @@ def identity(path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", type=Path, required=True)
-    parser.add_argument("--reference-binary", type=Path, required=True)
+    parser.add_argument("--reference-binary", type=Path)
     parser.add_argument("--daemon", type=Path, required=True)
     parser.add_argument("--artifacts", type=Path)
     parser.add_argument("case", choices=("both", "forward", "reversed"), nargs="?", default="both")
@@ -221,11 +225,11 @@ if __name__ == "__main__":
     BINARY = pair / "carlos"
     BINARY.symlink_to(options.binary.resolve())
     (pair / "carlosd").symlink_to(options.daemon.resolve())
-    REFERENCE = options.reference_binary.resolve()
+    REFERENCE = options.reference_binary.resolve() if options.reference_binary else None
     body = source_text().encode()
     assert 4096 < len(body) < 1024 * 1024
     (ARTIFACTS / "identities.json").write_text(json.dumps({
-        "candidate": identity(BINARY), "reference": identity(REFERENCE),
+        "candidate": identity(BINARY), "reference": identity(REFERENCE) if REFERENCE else None,
         "daemon": identity(options.daemon), "test": identity(Path(__file__)),
         "source_bytes": len(body), "source_sha256": hashlib.sha256(body).hexdigest()}, indent=2) + "\n")
     names = ("test_forward_selection_copies_inline_and_evicted_unicode_source_rows",

@@ -155,41 +155,46 @@ class DaemonClient:
         terminal.wait(lambda: terminal.input_is(""), "composer after more than 128 handled operations")
         terminal.snapshot("handled-private-results")
 
-    def test_daemon_terminal_does_not_reopen_a_source_after_local_cache_failure(self):
+    def test_daemon_terminal_reads_beyond_the_cache_and_keeps_live_appends(self):
         import asyncio
         fixture, client, session = self.daemon_session("terminal-source-pressure")
+        tail = "\n\npressure tail"
 
         async def large_source(link, request):
             await fixture.native.notify(link, "turn/started", turn={"id":"pressure-turn"})
             for _ in range(145):
                 await fixture.native.notify(link, "item/agentMessage/delta", turnId="pressure-turn",
                                             itemId="pressure-source", delta="x"*65536)
+            await fixture.native.notify(link, "item/agentMessage/delta", turnId="pressure-turn",
+                                        itemId="pressure-source", delta=tail)
         fixture.native.prompt = large_source
         send = client.operation(2)
         client.call("session/send", session=session, operation=send, text="source pressure")
         client.outcome(send)
-        daemon_support.wait_for(lambda: any(int(entry.get("source",{}).get("bytes",0)) == 145*65536
+        expected = 145*65536+len(tail)
+        daemon_support.wait_for(lambda: any(int(entry.get("source",{}).get("bytes",0)) == expected
                                 for entry in client.call("session/subscribe", session=session, since=None)
-                                ["snapshot"]["entries"]), "large native source published before watching")
+                                ["snapshot"]["entries"]), "large source published before attaching")
         terminal = self.attach_daemon(fixture, session, "pressure")
-        terminal.contains("source document exceeds the body cache")
-        daemon_support.wait_for(lambda: len(terminal.requests("entry/source/unsubscribe")) >= 1,
-                                "failed source watch cancelled")
+        terminal.wait(lambda: "pressure tail" in terminal.text, "body above the pure cache limit", timeout=30)
+        terminal.wait(lambda: bool(terminal.requests("entry/source/subscribe")), "live watch starts at the accepted tail")
         count = len(terminal.requests("entry/source/subscribe"))
         for index in range(3):
+            addition = f"\n\nappended-{index}"
             async def append():
                 for link in list(fixture.native.connections):
                     await fixture.native.notify(link, "item/agentMessage/delta", turnId="pressure-turn",
-                                                itemId="pressure-source", delta=f"appended-{index}")
+                                                itemId="pressure-source", delta=addition)
             asyncio.run_coroutine_threadsafe(append(), fixture.native.loop).result(timeout=3)
-            terminal.wait(lambda: any(message.get("params",{}).get("event",{}).get("source",{}).get("bytes") ==
-                          str(145*65536+len("appended-0")*(index+1)) for message in terminal.messages("server")),
-                          "new numbered source size after failed watch")
+            terminal.contains(f"appended-{index}")
         self.assertEqual(len(terminal.requests("entry/source/subscribe")), count)
+        self.assertGreater(len(terminal.requests("entry/source")), 128)
+        self.assertNotIn("exceeds the body cache", terminal.text)
+        terminal.paste("private draft after large source")
+        terminal.wait(lambda: terminal.input_is("private draft after large source"), "large source leaves composer usable")
+        self.assertEqual(terminal.requests("session/send"), [])
         self.assertEqual(terminal.requests("session/interrupt"), [])
-        terminal.paste("newer private draft")
-        terminal.wait(lambda: terminal.input_is("newer private draft"), "cache failure leaves composer usable")
-        terminal.snapshot("local-source-pressure")
+        terminal.snapshot("above-cache-source-and-appends")
 
     def ansi_session(self, name):
         fixture, client, session = self.daemon_session(name)

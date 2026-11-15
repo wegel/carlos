@@ -148,10 +148,10 @@ class DaemonSourceRecovery:
         self.assertEqual(terminal.requests("session/send"),[])
         terminal.snapshot("empty-source-becomes-visible")
 
-    def test_daemon_terminal_evicts_unused_source_before_a_visible_watch_grows_over_the_shared_budget(self):
+    def test_daemon_terminal_keeps_bounded_suffixes_when_logical_source_sizes_exceed_the_cache(self):
         self.check_source_growth(False)
 
-    def test_daemon_terminal_counts_an_unused_tool_source_when_a_visible_answer_grows(self):
+    def test_daemon_terminal_keeps_an_unused_tool_suffix_while_a_visible_answer_grows(self):
         self.check_source_growth(True)
 
     def check_source_growth(self, unused_tool):
@@ -179,10 +179,16 @@ class DaemonSourceRecovery:
         self.source_append(fixture,"growing-answer","\nvisible-grown-tail 🌍")
         terminal.contains("visible-grown-tail 🌍")
         self.assertTrue(terminal.input_is("draft during growth"))
-        self.assertTrue(any(request["params"]["entry"] == unused["id"]
-                            for request in terminal.requests("entry/source/unsubscribe")))
-        self.assertEqual(len([request for request in terminal.requests("entry/source/subscribe")
-                             if request["params"]["entry"] == growing["id"]]),1)
+        # Both pure-cache suffixes remain bounded even though their original bodies total >8MiB.
+        self.assertFalse(any(request["params"]["entry"] == unused["id"]
+                             for request in terminal.requests("entry/source/unsubscribe")))
+        subscriptions = [request for request in terminal.requests("entry/source/subscribe")
+                         if request["params"]["entry"] == growing["id"]]
+        pauses = [request for request in terminal.requests("entry/source/unsubscribe")
+                  if request["params"]["entry"] == growing["id"]]
+        self.assertEqual(len(subscriptions), len(pauses)+1, "each paused watch resumes once")
+        cursors = [request["params"]["cursor"] for request in subscriptions]
+        self.assertEqual(len(cursors), len(set(cursors)), "backlog recovery advances the accepted cursor")
         self.assertFalse(any("error" in message for message in terminal.messages("server")))
         self.assertEqual(terminal.requests("session/send"),[])
         terminal.snapshot("visible-source-survives-growth")

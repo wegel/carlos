@@ -16,7 +16,7 @@ use crate::app::view_models::{DisplayKind, DisplayMessage, RenderedLine};
 
 /// Copy only one selected body's metadata across the formatter boundary.
 #[derive(Clone, PartialEq, Eq)]
-pub(super) struct Facts {
+pub(in crate::app) struct Facts {
     role: Role,
     kind: MessageKind,
     path: Option<String>,
@@ -27,8 +27,9 @@ pub(super) struct Facts {
 
 /// Match one viewport request without including another full source string.
 #[derive(Clone, PartialEq, Eq)]
-pub(super) struct View {
+pub(in crate::app) struct View {
     pub facts: Facts,
+    pub target: super::selected::Target,
     pub format: RowFormat,
     pub previous: Option<EntryContext>,
     pub first: usize,
@@ -36,7 +37,7 @@ pub(super) struct View {
 }
 
 /// Keep only source checkpoints/logical lines plus small shared block headings.
-pub(super) struct FormattedBlock {
+pub(in crate::app) struct FormattedBlock {
     pages: BodyPages,
     prefix: Arc<Vec<RenderedLine>>,
     body: Option<BlockBody>,
@@ -104,6 +105,15 @@ impl FormattedBlock {
         Ok(block)
     }
 
+    /// Keep checkpoint indexes for ordinary live appends instead of rebuilding the complete body.
+    pub fn append(&mut self, text: &str, view: &View) -> Result<bool, PageError> {
+        if !self.pages.append(text)? {
+            return Ok(false);
+        }
+        self.fold(view);
+        Ok(true)
+    }
+
     /// Borrow every original byte for copy or a checked source append.
     pub fn original(&self) -> &str {
         self.pages.original()
@@ -139,6 +149,7 @@ impl FormattedBlock {
         }
         let prefix = self.visible.then(|| Arc::clone(&self.prefix));
         Ok(PreparedRow {
+            source: None,
             count,
             lines: Some(PaintedRows::window(
                 prefix,

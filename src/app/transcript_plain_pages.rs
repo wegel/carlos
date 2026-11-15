@@ -5,6 +5,7 @@ mod lines;
 #[path = "transcript_plain_long_line.rs"]
 mod long_line;
 
+#[cfg(test)]
 use std::mem::size_of;
 use std::sync::Arc;
 
@@ -33,6 +34,7 @@ pub(in crate::app) struct PlainPages {
     width: usize,
     checkpoints: Vec<Checkpoint>,
     rows: usize,
+    #[cfg(test)]
     offset: usize,
 }
 
@@ -61,6 +63,7 @@ impl PlainPages {
             width,
             checkpoints: Vec::new(),
             rows: 0,
+            #[cfg(test)]
             offset: start,
         };
         pages.index_from(start, 0, false);
@@ -80,6 +83,7 @@ impl PlainPages {
     }
 
     /// Recount the same source at a new width without copying the original.
+    #[cfg(test)]
     pub fn resize(mut self, width: usize) -> Result<Self, PageError> {
         if width < 8 {
             return Err(PageError::WidthTooSmall);
@@ -106,6 +110,7 @@ impl PlainPages {
     }
 
     /// Charge every retained checkpoint, source run and wrapped-row range.
+    #[cfg(test)]
     pub fn index_capacity_bytes(&self) -> usize {
         self.checkpoints.capacity() * size_of::<Checkpoint>()
             + self

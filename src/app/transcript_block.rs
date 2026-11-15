@@ -86,7 +86,6 @@ impl BlockPlan {
     }
 
     /// Move the small headings and body choices to a viewport formatter.
-    #[cfg(test)]
     pub(super) fn into_parts(self) -> (Vec<RenderedLine>, Option<BlockBody>) {
         (self.prefix, self.body)
     }

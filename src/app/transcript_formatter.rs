@@ -9,8 +9,14 @@ mod frame;
 #[path = "transcript_formatter_owner.rs"]
 mod owner;
 
+#[path = "transcript_formatter_transfer.rs"]
+mod transfer;
+
+#[path = "transcript_formatter_selection.rs"]
+mod selected;
+
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::mpsc::{sync_channel, Receiver, SyncSender, TrySendError};
+use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 use std::sync::Arc;
 use std::thread;
 
@@ -19,15 +25,20 @@ use carlos_proto::bytes::ByteOffset;
 use carlos_proto::output::OutputRevision;
 use carlos_proto::source::Source;
 
-use self::frame::{Facts, View};
-use super::accepted_source::{SourcePiece, SourcePieceError};
+pub(in crate::app) use self::frame::{Facts, View};
+pub(in crate::app) use self::selected::{SelectionSlice, SelectionTarget, Target};
+use super::accepted_source::SourcePiece;
+#[cfg(test)]
 use crate::app::flow_transcript::EntryContext;
-use crate::app::render_entry_cache::{PreparedRow, RowFormat};
+use crate::app::render_entry_cache::PreparedRow;
+#[cfg(test)]
+use crate::app::render_entry_cache::RowFormat;
+#[cfg(test)]
 use crate::app::transcript_input::RenderInput;
 
 /// A formatter job outlives socket reconnects but never a replaced source or cache.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) struct JobId(u64);
+pub(in crate::app) struct JobId(u64);
 
 #[derive(Clone)]
 struct Job {
@@ -38,7 +49,7 @@ struct Job {
 
 /// Distinguish backpressure from invalid or retired accepted source pieces.
 #[derive(Debug, PartialEq, Eq)]
-pub(super) enum TransferError {
+pub(in crate::app) enum TransferError {
     Closed,
     Exhausted,
     Retired,
@@ -55,7 +66,7 @@ pub(super) enum TransferError {
 
 /// Tell the platform whether it should pause its source watch or await more accepted bytes.
 #[derive(Debug, PartialEq, Eq)]
-pub(super) enum Transfer {
+pub(in crate::app) enum Transfer {
     Queued,
     Busy,
     Waiting,
@@ -67,6 +78,14 @@ enum Request {
     Data(JobId, SourcePiece),
     View(JobId, u64, View),
     Retire(JobId),
+    Copy(JobId, u64, Source),
+    CancelCopy,
+    SelectionRows {
+        slice: SelectionSlice,
+        rows: crate::app::render_entry_cache::PaintedRows,
+        first: usize,
+        length: usize,
+    },
     #[cfg(test)]
     Barrier(std::sync::mpsc::Sender<()>),
     #[cfg(test)]
@@ -76,7 +95,7 @@ enum Request {
 }
 
 /// Return rows and identity alone; the original string stays in the worker.
-pub(super) enum Reply {
+pub(in crate::app) enum Reply {
     Frame {
         job: JobId,
         view: u64,
@@ -85,6 +104,17 @@ pub(super) enum Reply {
     },
     Failed {
         job: JobId,
+        error: TransferError,
+    },
+    Copied {
+        copy: u64,
+        backend: crate::clipboard::ClipboardBackend,
+    },
+    Selected {
+        copy: u64,
+    },
+    CopyFailed {
+        copy: u64,
         error: TransferError,
     },
     #[cfg(test)]
@@ -98,6 +128,7 @@ pub(super) enum Reply {
 struct Wanted {
     job: AtomicU64,
     view: AtomicU64,
+    copy: AtomicU64,
 }
 
 struct Producer {
@@ -108,16 +139,18 @@ struct Producer {
     view: Option<(u64, View)>,
     view_sent: bool,
     known: bool,
+    copy: Option<(u64, Source)>,
 }
 
 /// Bound queued bytes to four64KiB pieces and one unsent piece outside the pure cache.
-pub(super) struct Formatter {
+pub(in crate::app) struct Formatter {
     sender: SyncSender<Request>,
     replies: Receiver<Reply>,
     wanted: Arc<Wanted>,
     producer: Option<Producer>,
     next_job: u64,
     next_view: u64,
+    next_copy: u64,
 }
 
 impl Formatter {
@@ -137,6 +170,7 @@ impl Formatter {
             producer: None,
             next_job: 0,
             next_view: 0,
+            next_copy: 0,
         })
     }
 
@@ -165,11 +199,13 @@ impl Formatter {
             view: None,
             view_sent: false,
             known: false,
+            copy: None,
         });
         Ok(id)
     }
 
     /// Coalesce the latest viewport request without copying its complete source.
+    #[cfg(test)]
     pub fn show(
         &mut self,
         facts: RenderInput<'_>,
@@ -178,14 +214,35 @@ impl Formatter {
         first: usize,
         length: usize,
     ) -> Result<u64, TransferError> {
-        let producer = self.producer.as_mut().ok_or(TransferError::Retired)?;
         let view = View {
+            target: Default::default(),
             facts: Facts::from_input(facts),
             format,
             previous,
             first,
             length,
         };
+        self.request_view(view)
+    }
+
+    /// Keep display and private selection requests distinct while reusing their body layout.
+    pub fn request_view(&mut self, view: View) -> Result<u64, TransferError> {
+        let producer = self.producer.as_mut().ok_or(TransferError::Retired)?;
+        if let Target::Selection(target) = &view.target {
+            if let Some(piece) = &mut producer.pending {
+                let remaining = target.source.bytes.get().saturating_sub(piece.offset.get());
+                if remaining == 0 {
+                    producer.pending = None;
+                } else if remaining < piece.text.len() as u64 {
+                    let length = remaining as usize;
+                    if !piece.text.is_char_boundary(length) {
+                        return Err(TransferError::InvalidOffset);
+                    }
+                    piece.text.truncate(length);
+                    piece.done = false;
+                }
+            }
+        }
         if let Some((id, old)) = &producer.view {
             if old == &view {
                 return Ok(*id);
@@ -208,13 +265,34 @@ impl Formatter {
             return Ok(Transfer::Busy);
         }
         let producer = self.producer.as_mut().ok_or(TransferError::Retired)?;
-        let piece = SourcePiece::from_cache(
+        let limit = producer
+            .view
+            .as_ref()
+            .and_then(|(_, view)| match &view.target {
+                Target::Selection(target) => Some(target.source.bytes.get()),
+                Target::Display => None,
+            });
+        if limit.is_some_and(|limit| producer.offset.get() >= limit) {
+            return Ok(Transfer::CaughtUp);
+        }
+        let mut piece = SourcePiece::from_cache(
             cache,
             &producer.job.token,
             producer.job.revision,
             producer.offset,
         )
         .map_err(TransferError::from_source)?;
+        if let Some(limit) = limit {
+            let length = usize::try_from(limit - producer.offset.get())
+                .map_err(|_| TransferError::InvalidOffset)?;
+            if length < piece.text.len() {
+                if !piece.text.is_char_boundary(length) {
+                    return Err(TransferError::InvalidOffset);
+                }
+                piece.text.truncate(length);
+                piece.done = false;
+            }
+        }
         if piece.text.is_empty() && producer.known {
             return Ok(if producer.offset.get() == piece.source.bytes.get() {
                 Transfer::CaughtUp
@@ -237,17 +315,22 @@ impl Formatter {
             let Ok(reply) = self.replies.try_recv() else {
                 break;
             };
-            let Some(producer) = &self.producer else {
-                continue;
-            };
             let accepted = match &reply {
-                Reply::Frame { job, view, .. } => {
-                    *job == producer.job.id
-                        && producer.view.as_ref().is_some_and(|(id, _)| id == view)
+                Reply::Copied { copy, .. }
+                | Reply::Selected { copy }
+                | Reply::CopyFailed { copy, .. } => {
+                    self.wanted.copy.load(Ordering::Acquire) == *copy
                 }
-                Reply::Failed { job, .. } => *job == producer.job.id,
-                #[cfg(test)]
-                Reply::Digest { job, .. } => *job == producer.job.id,
+                _ => self.producer.as_ref().is_some_and(|producer| match &reply {
+                    Reply::Frame { job, view, .. } => {
+                        *job == producer.job.id
+                            && producer.view.as_ref().is_some_and(|(id, _)| id == view)
+                    }
+                    Reply::Failed { job, .. } => *job == producer.job.id,
+                    #[cfg(test)]
+                    Reply::Digest { job, .. } => *job == producer.job.id,
+                    _ => false,
+                }),
             };
             if accepted {
                 replies.push(reply);
@@ -262,6 +345,15 @@ impl Formatter {
         replies
     }
 
+    /// Forget a completed private layout without dropping its untruncated original.
+    pub fn clear_view(&mut self) {
+        self.wanted.view.store(0, Ordering::Release);
+        if let Some(producer) = &mut self.producer {
+            producer.view = None;
+            producer.view_sent = false;
+        }
+    }
+
     /// Locate the last piece admitted to the worker before an explicit source seek.
     pub fn offset(&self) -> Option<ByteOffset> {
         self.producer.as_ref().map(|producer| producer.offset)
@@ -274,82 +366,12 @@ impl Formatter {
             let _ = self.sender.try_send(Request::Retire(producer.job.id));
         }
     }
-
-    fn pump(&mut self) -> Result<bool, TransferError> {
-        let producer = self.producer.as_mut().ok_or(TransferError::Retired)?;
-        if producer.opening {
-            if !send(&self.sender, Request::Open(producer.job.clone()))? {
-                return Ok(false);
-            }
-            producer.opening = false;
-        }
-        if !producer.view_sent {
-            if let Some((id, view)) = &producer.view {
-                if !send(
-                    &self.sender,
-                    Request::View(producer.job.id, *id, view.clone()),
-                )? {
-                    return Ok(false);
-                }
-                producer.view_sent = true;
-            }
-        }
-        let Some(piece) = producer.pending.take() else {
-            return Ok(true);
-        };
-        let end = piece
-            .offset
-            .get()
-            .checked_add(piece.text.len() as u64)
-            .ok_or(TransferError::InvalidOffset)?;
-        match self.sender.try_send(Request::Data(producer.job.id, piece)) {
-            Ok(()) => {
-                producer.offset = ByteOffset::new(end);
-                producer.known = true;
-                Ok(true)
-            }
-            Err(TrySendError::Full(Request::Data(_, piece))) => {
-                producer.pending = Some(piece);
-                Ok(false)
-            }
-            Err(TrySendError::Disconnected(_)) => Err(TransferError::Closed),
-            Err(TrySendError::Full(_)) => {
-                unreachable!("the failed request is the admitted source piece")
-            }
-        }
-    }
 }
 
 impl Drop for Formatter {
     fn drop(&mut self) {
         self.wanted.job.store(0, Ordering::Release);
-    }
-}
-
-impl TransferError {
-    fn from_source(error: SourcePieceError) -> Self {
-        match error {
-            SourcePieceError::Retired => Self::Retired,
-            SourcePieceError::Unknown => Self::Unknown,
-            SourcePieceError::Replaced => Self::Replaced,
-            SourcePieceError::MissingPrefix {
-                requested,
-                available,
-            } => Self::MissingPrefix {
-                requested,
-                available,
-            },
-            SourcePieceError::InvalidOffset => Self::InvalidOffset,
-            SourcePieceError::Allocation => Self::Allocation,
-        }
-    }
-}
-
-fn send(sender: &SyncSender<Request>, request: Request) -> Result<bool, TransferError> {
-    match sender.try_send(request) {
-        Ok(()) => Ok(true),
-        Err(TrySendError::Full(_)) => Ok(false),
-        Err(TrySendError::Disconnected(_)) => Err(TransferError::Closed),
+        self.wanted.copy.store(0, Ordering::Release);
     }
 }
 

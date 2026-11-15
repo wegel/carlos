@@ -7,6 +7,7 @@ use std::sync::Arc;
 use carlos_proto::source::Source;
 
 use super::frame::{FormattedBlock, View};
+use super::selected::{self, Selected, Target};
 use super::{Job, Reply, Request, TransferError, Wanted};
 use crate::app::transcript_body::accepted_source::SourcePiece;
 
@@ -26,14 +27,21 @@ struct Active {
 
 pub(super) fn run(requests: Receiver<Request>, replies: SyncSender<Reply>, wanted: Arc<Wanted>) {
     let mut active = None;
+    let mut selected: Option<Selected> = None;
     while let Ok(request) = requests.recv() {
+        if selected
+            .as_ref()
+            .is_some_and(|copy| copy.id != wanted.copy.load(Ordering::Acquire))
+        {
+            selected = None;
+        }
         if active
             .as_ref()
             .is_some_and(|active: &Active| active.job.id.0 != wanted.job.load(Ordering::Acquire))
         {
             active = None;
         }
-        if let Err(error) = apply(&mut active, request, &replies, &wanted) {
+        if let Err(error) = apply(&mut active, request, &replies, &wanted, &mut selected) {
             let Some(failed) = active.take() else {
                 continue;
             };
@@ -51,7 +59,7 @@ pub(super) fn run(requests: Receiver<Request>, replies: SyncSender<Reply>, wante
             if wanted.job.load(Ordering::Acquire) != current.job.id.0 {
                 continue;
             }
-            match current.render(&wanted) {
+            match current.render(&wanted, &mut selected) {
                 Ok(Some(reply)) => {
                     if replies.send(reply).is_err() {
                         break;
@@ -80,17 +88,11 @@ fn apply(
     request: Request,
     replies: &SyncSender<Reply>,
     wanted: &Wanted,
+    selected: &mut Option<Selected>,
 ) -> Result<(), TransferError> {
     match request {
         Request::Open(job) if wanted.job.load(Ordering::Acquire) == job.id.0 => {
-            *active = Some(Active {
-                job,
-                content: Some(Content::Bytes(Arc::new(String::new()))),
-                source: None,
-                view: None,
-                built: None,
-                sent: None,
-            });
+            *active = Some(Active::new(job));
         }
         Request::Data(id, piece) if wanted.job.load(Ordering::Acquire) == id.0 => {
             if let Some(active) = active.as_mut().filter(|active| active.job.id == id) {
@@ -102,28 +104,27 @@ fn apply(
                 active.view = Some((serial, view));
             }
         }
-        Request::Retire(id) => {
-            if active.as_ref().is_some_and(|active| active.job.id == id) {
-                *active = None;
-            }
+        Request::SelectionRows {
+            slice,
+            rows,
+            first,
+            length,
+        } => {
+            let reply = selected::reply(selected, wanted, &slice, &rows, first, length);
+            replies.send(reply).map_err(|_| TransferError::Closed)?;
+        }
+        Request::Copy(id, serial, source)
+            if wanted.job.load(Ordering::Acquire) == id.0
+                && wanted.copy.load(Ordering::Acquire) == serial =>
+        {
+            copy_source(active.as_ref(), id, serial, &source, replies)?;
+        }
+        Request::Retire(id) if active.as_ref().is_some_and(|active| active.job.id == id) => {
+            *active = None;
         }
         #[cfg(test)]
-        Request::Hold(entered, release) => {
-            let _ = entered.send(());
-            let _ = release.recv();
-        }
-        #[cfg(test)]
-        Request::Barrier(done) => {
-            let _ = done.send(());
-        }
-        #[cfg(test)]
-        Request::Digest(id) => {
-            if let Some(active) = active.as_ref().filter(|active| active.job.id == id) {
-                let digest = blake3::hash(active.original().as_bytes());
-                replies
-                    .send(Reply::Digest { job: id, digest })
-                    .map_err(|_| TransferError::Closed)?;
-            }
+        request @ (Request::Hold(..) | Request::Barrier(..) | Request::Digest(..)) => {
+            diagnostic(active.as_ref(), request, replies)?;
         }
         _ => {}
     }
@@ -131,6 +132,17 @@ fn apply(
 }
 
 impl Active {
+    fn new(job: Job) -> Self {
+        Self {
+            job,
+            content: Some(Content::Bytes(Arc::new(String::new()))),
+            source: None,
+            view: None,
+            built: None,
+            sent: None,
+        }
+    }
+
     fn original(&self) -> &str {
         match self.content.as_ref().expect("owned original") {
             Content::Bytes(bytes) => bytes,
@@ -160,26 +172,80 @@ impl Active {
         {
             return Err(TransferError::InvalidOffset);
         }
-        let mut original = self.take_original();
-        let text = Arc::make_mut(&mut original);
-        text.try_reserve(piece.text.len())
-            .map_err(|_| TransferError::Allocation)?;
-        text.push_str(&piece.text);
-        self.content = Some(Content::Bytes(original));
+        let updated = match (self.content.as_mut().expect("owned source"), &self.built) {
+            (Content::Block(block), Some(view)) => block.append(&piece.text, view).unwrap_or(false),
+            _ => false,
+        };
+        if !updated {
+            let mut original = self.take_original();
+            let text = Arc::make_mut(&mut original);
+            if text.len() as u64 != end {
+                text.try_reserve(piece.text.len())
+                    .map_err(|_| TransferError::Allocation)?;
+                text.push_str(&piece.text);
+            }
+            self.content = Some(Content::Bytes(original));
+            self.built = None;
+        }
         self.source = Some(piece.source);
-        self.built = None;
         self.sent = None;
         Ok(())
     }
 
-    fn render(&mut self, wanted: &Wanted) -> Result<Option<Reply>, TransferError> {
-        let Some(source) = self.source.clone() else {
+    fn select_prefix(&mut self, source: &Source) -> Result<(), TransferError> {
+        if source.revision != self.job.revision {
+            return Err(TransferError::Replaced);
+        }
+        let length =
+            usize::try_from(source.bytes.get()).map_err(|_| TransferError::InvalidOffset)?;
+        if self.original().len() != length {
+            if !self.original().is_char_boundary(length) {
+                return Err(TransferError::InvalidOffset);
+            }
+            let mut original = self.take_original();
+            Arc::make_mut(&mut original).truncate(length);
+            self.content = Some(Content::Bytes(original));
+            self.built = None;
+        }
+        Ok(())
+    }
+
+    fn render(
+        &mut self,
+        wanted: &Wanted,
+        selected: &mut Option<Selected>,
+    ) -> Result<Option<Reply>, TransferError> {
+        let Some(mut source) = self.source.clone() else {
             return Ok(None);
         };
         let Some((id, view)) = self.view.clone() else {
             return Ok(None);
         };
-        if wanted.view.load(Ordering::Acquire) != id
+        if let Target::Selection(target) = &view.target {
+            if wanted.copy.load(Ordering::Acquire) != target.slice.copy
+                || wanted.view.load(Ordering::Acquire) != id
+            {
+                return Ok(None);
+            }
+            if target.source.revision != self.job.revision {
+                return Ok(Some(Reply::CopyFailed {
+                    copy: target.slice.copy,
+                    error: TransferError::Replaced,
+                }));
+            }
+            if (self.original().len() as u64) < target.source.bytes.get() {
+                return Ok(None);
+            }
+            if let Err(error) = self.select_prefix(&target.source) {
+                return Ok(Some(Reply::CopyFailed {
+                    copy: target.slice.copy,
+                    error,
+                }));
+            }
+            source = target.source.clone();
+        }
+        if view.length == 0
+            || wanted.view.load(Ordering::Acquire) != id
             || source.bytes.get() != self.original().len() as u64
             || self.sent == Some((id, source.bytes.get()))
         {
@@ -195,22 +261,102 @@ impl Active {
             self.content = Some(Content::Block(block));
             self.built = Some(view.clone());
         }
+        self.sent = Some((id, source.bytes.get()));
+        self.reply(id, source, &view, wanted, selected)
+    }
+
+    fn reply(
+        &self,
+        id: u64,
+        source: Source,
+        view: &View,
+        wanted: &Wanted,
+        selected: &mut Option<Selected>,
+    ) -> Result<Option<Reply>, TransferError> {
         let Some(Content::Block(block)) = &self.content else {
             unreachable!("prepared body")
         };
-        let prepared = block
-            .window(view.first, view.length)
-            .map_err(|_| TransferError::Format)?;
-        self.sent = Some((id, source.bytes.get()));
-        Ok(Some(Reply::Frame {
-            job: self.job.id,
-            view: id,
-            source,
-            prepared,
+        Ok(Some(match &view.target {
+            Target::Display => {
+                let mut prepared = block
+                    .window(view.first, view.length)
+                    .map_err(|_| TransferError::Format)?;
+                prepared.source = Some(source.clone());
+                Reply::Frame {
+                    job: self.job.id,
+                    view: id,
+                    source,
+                    prepared,
+                }
+            }
+            Target::Selection(target) => {
+                selected::block(selected, wanted, target, block, view.first, view.length)
+                    .unwrap_or_else(|error| Reply::CopyFailed {
+                        copy: target.slice.copy,
+                        error,
+                    })
+            }
         }))
     }
 }
 
 fn same_layout(left: &View, right: &View) -> bool {
     left.facts == right.facts && left.format == right.format && left.previous == right.previous
+}
+
+fn copy_source(
+    active: Option<&Active>,
+    id: super::JobId,
+    serial: u64,
+    source: &Source,
+    replies: &SyncSender<Reply>,
+) -> Result<(), TransferError> {
+    let Some(current) = active.filter(|active| active.job.id == id) else {
+        return Ok(());
+    };
+    let end = usize::try_from(source.bytes.get()).map_err(|_| TransferError::InvalidOffset)?;
+    if source.revision != current.job.revision {
+        return Err(TransferError::Replaced);
+    }
+    let text = current
+        .original()
+        .get(..end)
+        .ok_or(TransferError::InvalidOffset)?;
+    let backend = crate::clipboard::try_copy_clipboard(text);
+    replies
+        .send(Reply::Copied {
+            copy: serial,
+            backend,
+        })
+        .map_err(|_| TransferError::Closed)
+}
+
+#[cfg(test)]
+fn diagnostic(
+    active: Option<&Active>,
+    request: Request,
+    replies: &SyncSender<Reply>,
+) -> Result<(), TransferError> {
+    match request {
+        #[cfg(test)]
+        Request::Hold(entered, release) => {
+            let _ = entered.send(());
+            let _ = release.recv();
+        }
+        #[cfg(test)]
+        Request::Barrier(done) => {
+            let _ = done.send(());
+        }
+        #[cfg(test)]
+        Request::Digest(id) => {
+            if let Some(active) = active.filter(|active| active.job.id == id) {
+                let digest = blake3::hash(active.original().as_bytes());
+                replies
+                    .send(Reply::Digest { job: id, digest })
+                    .map_err(|_| TransferError::Closed)?;
+            }
+        }
+        _ => unreachable!("test diagnostic request"),
+    }
+    Ok(())
 }

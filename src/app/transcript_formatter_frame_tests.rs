@@ -72,6 +72,7 @@ fn check_block(input: RenderInput<'_>, width: usize, compact: bool, theme: Trans
     );
     let expected = plan.render_input(input);
     let view = View {
+        target: Default::default(),
         facts: Facts::from_input(input),
         format: RowFormat {
             width,

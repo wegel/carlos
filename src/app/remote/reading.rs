@@ -3,11 +3,12 @@
 use anyhow::Result;
 use carlos_client::codec::Incoming;
 use carlos_proto::commands::{Command, RequestId};
-use carlos_proto::events::Notification;
-use carlos_proto::ids::{EntryId, SessionId};
+use carlos_proto::ids::EntryId;
 
 use super::transport::Transport;
 use super::Device;
+use crate::app::transcript_body::formatter::{Facts, View};
+use crate::app::transcript_input::RenderInput;
 
 struct HistoryRead {
     id: RequestId,
@@ -19,6 +20,7 @@ pub(super) struct ReadingState {
     pub anchor: Option<(EntryId, usize)>,
     pub wanted: Vec<EntryId>,
     pub visible: Vec<EntryId>,
+    pub formats: Vec<(EntryId, View)>,
     pub loading: bool,
     pub older_requested: bool,
     history: Option<HistoryRead>,
@@ -63,6 +65,7 @@ impl Device {
 
     /// Resolve only the current viewport into stable source addresses.
     pub(super) fn collect_visible(&mut self, height: usize) {
+        self.reading.formats.clear();
         let cache = &self.view.render_cache;
         let first = self.view.viewport.scroll_top;
         let last =
@@ -86,6 +89,24 @@ impl Device {
                     .filter(|index| cache.needs_source(*index, first, last))
                     .filter_map(|index| replica.entry_at(index).map(|entry| entry.id.clone())),
             );
+            self.reading
+                .formats
+                .extend(self.reading.wanted.iter().filter_map(|id| {
+                    let index = replica.entry_position(id)?;
+                    let entry = replica.entry_at(index)?;
+                    let (format, previous, offset) = cache.format_window(index, first)?;
+                    Some((
+                        id.clone(),
+                        View {
+                            target: Default::default(),
+                            facts: Facts::from_input(RenderInput::client_facts(entry)),
+                            format,
+                            previous,
+                            first: offset,
+                            length: height,
+                        },
+                    ))
+                }));
         }
     }
 
@@ -96,11 +117,25 @@ impl Device {
         }
         self.documents
             .prune(&mut self.client, link, &self.session)?;
+        let mut wanted = self.reading.wanted.clone();
+        if let Some(id) = self
+            .documents
+            .selection
+            .as_ref()
+            .and_then(|selection| selection.entry())
+        {
+            wanted.retain(|entry| entry != id);
+            wanted.insert(0, id.clone());
+        }
+        if let Some(copy) = &self.documents.copy {
+            wanted.retain(|id| id != &copy.entry);
+            wanted.insert(0, copy.entry.clone());
+        }
         if let Err(error) = self.documents.request_visible(
             &mut self.client,
             link,
             &self.session,
-            &self.reading.wanted,
+            &wanted,
             &self.reading.visible,
         ) {
             self.view.status_hint = Some(error.to_string());
@@ -121,28 +156,6 @@ impl Device {
         }) {
             self.reading.history = None;
         }
-    }
-
-    /// Release unused body data before a live source chunk reaches the checked client cache.
-    pub(super) fn reserve_source_growth(
-        &mut self,
-        link: &mut Transport,
-        incoming: &Incoming,
-    ) -> Result<()> {
-        let Some((entry, bytes)) = announced_source(incoming, &self.session) else {
-            return Ok(());
-        };
-        if self.reading.visible.contains(&entry) {
-            self.documents.reserve_growth(
-                &mut self.client,
-                link,
-                &self.session,
-                &entry,
-                bytes,
-                &self.reading.visible,
-            )?;
-        }
-        Ok(())
     }
 
     fn request_history(&mut self, link: &mut Transport) -> Result<()> {
@@ -173,23 +186,5 @@ impl Device {
         });
         link.send(outgoing)?;
         Ok(())
-    }
-}
-
-// These hints can release only unused cache data. Client::receive still checks the reply's
-// request/token, revision, offset and bytes before accepting any of its original text.
-fn announced_source(incoming: &Incoming, session: &SessionId) -> Option<(EntryId, u64)> {
-    match incoming {
-        Incoming::Notification(notification) => match notification.as_ref() {
-            Notification::Source(update) if &update.session == session => {
-                Some((update.chunk.entry.clone(), update.chunk.source.bytes.get()))
-            }
-            _ => None,
-        },
-        Incoming::Success { result, .. } => Some((
-            result.get("entry")?.as_str()?.parse().ok()?,
-            result.get("source")?.get("bytes")?.as_str()?.parse().ok()?,
-        )),
-        _ => None,
     }
 }

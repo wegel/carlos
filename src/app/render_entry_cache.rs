@@ -50,6 +50,7 @@ pub(super) struct RowFormat {
 #[derive(Clone)]
 pub(super) struct PreparedRow {
     pub count: usize,
+    pub source: Option<carlos_proto::source::Source>,
     pub lines: Option<PaintedRows>,
     pub context: EntryContext,
     pub loading: bool,
@@ -239,6 +240,7 @@ fn ready_row<'a>(
     if format.hidden || !visible_input(input) || format.width < 8 {
         return (
             PreparedRow {
+                source: None,
                 count: 0,
                 lines: None,
                 context,
@@ -259,6 +261,7 @@ fn ready_row<'a>(
     let count = plan.count_input(cache, input);
     (
         PreparedRow {
+            source: None,
             count,
             lines: None,
             context,
@@ -277,7 +280,7 @@ fn missing_row(
 ) -> PreparedRow {
     if let Some(memo) = memo.filter(|memo| memo.format == format && memo.generation == generation) {
         let mut row = memo.row.clone();
-        row.loading = memo.stale || memo.previous != previous || row.lines.is_none();
+        row.loading |= memo.stale || memo.previous != previous || row.lines.is_none();
         if row.loading && !format.hidden && format.width >= 8 {
             row.count = row.count.max(1);
         }
@@ -292,6 +295,7 @@ fn missing_row(
         memo.map_or(1, |memo| memo.row.count.max(1))
     };
     PreparedRow {
+        source: None,
         count,
         lines: Some(loading_lines(facts, format.width)),
         context: EntryContext::new(facts, format.width, format.theme),

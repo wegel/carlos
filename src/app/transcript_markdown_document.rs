@@ -4,6 +4,7 @@
 mod styled_line;
 
 use std::borrow::Cow;
+#[cfg(test)]
 use std::mem::size_of;
 
 use carlos_core::session::models::Role;
@@ -31,6 +32,7 @@ pub(super) struct DocumentFrame {
 
 impl DocumentFrame {
     /// Parse the complete source so late references, tables and nested constructs retain meaning.
+    #[cfg(test)]
     pub fn parse(text: &str, width: usize) -> Self {
         Self::parse_role(Role::Assistant, text, width)
     }
@@ -99,6 +101,7 @@ impl DocumentFrame {
     }
 
     /// Count retained logical-line storage separately from its row index.
+    #[cfg(test)]
     pub fn document_capacity_bytes(&self) -> usize {
         self.lines.capacity() * size_of::<Vec<StyledSegment>>()
             + self
@@ -112,6 +115,7 @@ impl DocumentFrame {
     }
 
     /// Count the row prefix sums and saved ranges within long logical lines.
+    #[cfg(test)]
     pub fn index_capacity_bytes(&self) -> usize {
         self.starts.capacity() * size_of::<usize>()
             + self.long.capacity() * size_of::<(usize, StyledLine)>()

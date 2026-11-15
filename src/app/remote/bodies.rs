@@ -7,12 +7,17 @@ use carlos_client::{Bodies, BodyToken, Client};
 use carlos_proto::ids::{EntryId, SessionId};
 use carlos_proto::output::OutputRevision;
 
+use super::formatting::Formatting;
+use super::selection_copy::SelectionCopy;
+use super::source_copy::CopySource;
 use super::transport::Transport;
 
 struct SourceRead {
     token: BodyToken,
     revision: OutputRevision,
     failed: bool,
+    watched: bool,
+    pending: Option<carlos_proto::commands::RequestId>,
     used: u64,
 }
 
@@ -20,9 +25,17 @@ struct SourceRead {
 pub(super) struct DocumentReads {
     reads: HashMap<EntryId, SourceRead>,
     clock: u64,
+    pub(super) formatting: Formatting,
+    pub(super) copy: Option<CopySource>,
+    pub(super) selection: Option<SelectionCopy>,
 }
 
 impl DocumentReads {
+    /// Keep an explicit source failure distinct from a window that has not opened yet.
+    pub fn failed(&self, id: &EntryId) -> bool {
+        self.reads.get(id).is_some_and(|read| read.failed)
+    }
+
     pub fn token(&self, id: &EntryId) -> Option<&BodyToken> {
         self.reads
             .get(id)
@@ -59,13 +72,7 @@ impl DocumentReads {
             }) {
                 continue;
             }
-            if !self.make_room(
-                client,
-                transport,
-                session,
-                (id, source_bytes(client, session, id)),
-                &needed,
-            )? {
+            if !self.make_room(client, transport, id, &needed)? {
                 break;
             }
             self.observe(client, transport, session, id, revision)?;
@@ -84,11 +91,10 @@ impl DocumentReads {
         if self.reads.contains_key(id) {
             self.release(client, transport, id)?;
         }
-        let token =
-            client
-                .bodies_mut()
-                .open_source_document(session.clone(), id.clone(), revision)?;
-        let outgoing = match client.watch_body(transport.connection, &token) {
+        let token = client
+            .bodies_mut()
+            .open_source(session.clone(), id.clone(), revision)?;
+        let outgoing = match client.read_body(transport.connection, &token) {
             Ok(outgoing) => outgoing,
             Err(error) => {
                 client.bodies_mut().close(&token);
@@ -101,6 +107,8 @@ impl DocumentReads {
                 token,
                 revision,
                 failed: false,
+                watched: false,
+                pending: Some(outgoing.id()),
                 used: self.clock,
             },
         );
@@ -112,31 +120,16 @@ impl DocumentReads {
         &mut self,
         client: &mut Client,
         transport: &mut Transport,
-        session: &SessionId,
-        target: (&EntryId, u64),
+        id: &EntryId,
         needed: &HashSet<&EntryId>,
     ) -> Result<bool> {
-        let (id, incoming_bytes) = target;
         loop {
             let live: Vec<_> = self
                 .reads
                 .iter()
                 .filter(|(key, read)| *key != id && client.bodies().source(&read.token).is_some())
                 .collect();
-            let bytes: u64 = live
-                .iter()
-                .map(|(id, read)| {
-                    let cached = client
-                        .bodies()
-                        .source(&read.token)
-                        .and_then(|window| window.descriptor())
-                        .map_or(0, |source| source.bytes.get());
-                    cached.max(source_bytes(client, session, id))
-                })
-                .sum();
-            // An individually oversized document still gets one attempt and a latched failure.
-            let reserve = incoming_bytes.min(Bodies::BYTE_LIMIT as u64);
-            if live.len() < Bodies::WINDOW_LIMIT && bytes + reserve <= Bodies::BYTE_LIMIT as u64 {
+            if live.len() < Bodies::WINDOW_LIMIT {
                 return Ok(true);
             }
             let victim = live
@@ -151,23 +144,16 @@ impl DocumentReads {
         }
     }
 
-    /// Reserve a visible append using its announced byte length without accepting its contents.
-    pub fn reserve_growth(
+    /// Reopen an evicted prefix explicitly before giving it to a new owner.
+    pub fn restart(
         &mut self,
         client: &mut Client,
         transport: &mut Transport,
         session: &SessionId,
         id: &EntryId,
-        bytes: u64,
-        visible: &[EntryId],
     ) -> Result<()> {
-        if self
-            .token(id)
-            .and_then(|token| client.bodies().source(token))
-            .is_some()
-        {
-            let needed = visible.iter().collect();
-            self.make_room(client, transport, session, (id, bytes), &needed)?;
+        if let Some(revision) = revision(client, session, id) {
+            self.observe(client, transport, session, id, revision)?;
         }
         Ok(())
     }
@@ -178,6 +164,7 @@ impl DocumentReads {
         transport: &mut Transport,
         id: &EntryId,
     ) -> Result<()> {
+        self.formatting.remove(id);
         if let Some(read) = self.reads.remove(id) {
             for outgoing in client.close_body(&read.token).outgoing {
                 transport.send(outgoing)?;
@@ -209,6 +196,22 @@ impl DocumentReads {
         Ok(())
     }
 
+    /// Latch a formatter failure until the user explicitly retries this source.
+    pub fn fail(&mut self, id: &EntryId) -> Option<BodyToken> {
+        self.formatting.remove(id);
+        let read = self.reads.get_mut(id)?;
+        read.failed = true;
+        Some(read.token.clone())
+    }
+
+    /// A replaced greeting has already discarded the client's old windows and watches.
+    pub fn replaced(&mut self) {
+        self.reads.clear();
+        self.copy = None;
+        self.selection = None;
+        self.formatting.clear();
+    }
+
     /// Retry failed reads only after an explicit user action, never on each live append.
     pub fn retry_failed(&mut self) {
         self.reads.retain(|_, read| !read.failed);
@@ -217,12 +220,16 @@ impl DocumentReads {
     pub fn changed(&mut self, client: &Client, session: &SessionId, token: &BodyToken) {
         if client.bodies().source(token).is_some() {
             if let Some(revision) = revision(client, session, token.entry()) {
+                let old = self.reads.get(token.entry());
+                let watched = old.is_some_and(|read| read.watched);
                 self.reads.insert(
                     token.entry().clone(),
                     SourceRead {
                         token: token.clone(),
                         revision,
                         failed: false,
+                        watched,
+                        pending: None,
                         used: self.clock,
                     },
                 );
@@ -246,10 +253,5 @@ fn revision(client: &Client, session: &SessionId, id: &EntryId) -> Option<Output
         .or_else(|| entry.tool.as_ref().map(|tool| tool.output_revision))
 }
 
-fn source_bytes(client: &Client, session: &SessionId, id: &EntryId) -> u64 {
-    client
-        .session(session)
-        .and_then(|replica| replica.entry(id))
-        .and_then(|entry| entry.source.as_ref())
-        .map_or(0, |source| source.bytes.get())
-}
+#[path = "source_reads.rs"]
+mod source_reads;

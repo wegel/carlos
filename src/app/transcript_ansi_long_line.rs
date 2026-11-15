@@ -1,5 +1,6 @@
 //! Save wrapped row and style-consumption ranges for oversized ANSI physical lines.
 
+#[cfg(test)]
 use std::mem::size_of;
 use std::ops::Range;
 
@@ -99,6 +100,7 @@ impl LongLine {
     }
 
     /// Count every retained range and span slot separately from the source bytes.
+    #[cfg(test)]
     pub fn capacity_bytes(&self) -> usize {
         size_of::<Self>()
             + self.text.capacity_bytes()

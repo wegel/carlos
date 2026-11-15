@@ -14,12 +14,17 @@ use crate::app::render_input::{is_newline_enter, normalize_pasted_text, textarea
 
 impl Device {
     pub(super) fn receive(&mut self, link: &mut Transport, incoming: Incoming) -> Result<bool> {
-        self.reserve_source_growth(link, &incoming)?;
         self.reading.received(&incoming);
+        let failed_sources = self.documents.received(&incoming);
         let was_ready = self.client.session_is_ready(link.connection, &self.session);
         let goal_read = self.client.pending_goal_read(&self.session);
         let task_read = self.client.pending_task_read(&self.session);
-        let effects = self.client.receive(link.connection, incoming)?;
+        let mut effects = self.client.receive(link.connection, incoming)?;
+        for token in failed_sources {
+            effects
+                .outgoing
+                .extend(self.client.close_body(&token).outgoing);
+        }
         if self.goals.read.is_none() {
             self.goals.read = goal_read.or_else(|| self.client.pending_goal_read(&self.session));
         }
@@ -41,6 +46,7 @@ impl Device {
         link: &mut Transport,
         mut effects: Effects,
     ) -> Result<bool> {
+        self.replace_source_frames(effects.welcome.as_ref());
         let mut task_changed = self.apply_task_reads(&mut effects)?;
         task_changed |= self.task_operations_changed(&effects.operations);
         let goal_changed = self.apply_goal_reads(&mut effects)?;
@@ -110,10 +116,22 @@ impl Device {
         if changes.reset || changes.removed_front > 0 || changes.removed_back > 0 {
             self.dirty_from(0);
             if changes.reset {
+                self.documents.selection = None;
+                self.documents.copy = None;
+                self.documents.formatting.clear();
+                self.view.viewport.selection = None;
                 self.view.render_cache.invalidate_all();
             }
         }
         changes.entries
+    }
+
+    fn replace_source_frames(&mut self, welcome: Option<&carlos_client::Welcome>) {
+        if matches!(welcome, Some(carlos_client::Welcome::Replaced { .. })) {
+            self.documents.replaced();
+            self.view.render_cache.forget_all();
+            self.view.viewport.selection = None;
+        }
     }
 
     pub(super) fn event(&mut self, link: Option<&mut Transport>, event: Event) -> Result<bool> {
@@ -312,7 +330,7 @@ impl Device {
         Ok(())
     }
 
-    fn dirty_entry(&mut self, entry: &carlos_proto::ids::EntryId) {
+    pub(super) fn dirty_entry(&mut self, entry: &carlos_proto::ids::EntryId) {
         if let Some(position) = self
             .client
             .session(&self.session)

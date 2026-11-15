@@ -4,6 +4,7 @@ mod approvals;
 mod bodies;
 mod drafts;
 mod events;
+mod formatting;
 mod goals;
 mod goals_commands;
 mod local_commands;
@@ -17,6 +18,9 @@ mod queue_reads;
 mod queue_render;
 mod reading;
 mod render;
+mod selection_copy;
+mod source_copy;
+mod source_formatter;
 mod tasks;
 mod tasks_details;
 mod tasks_incoming;
@@ -94,6 +98,7 @@ impl Device {
                         Err(error) => {
                             self.client.disconnect(link.connection);
                             self.reading.disconnected();
+                            self.documents.disconnected();
                             self.goals.read = None;
                             self.queue_disconnected();
                             self.tasks_disconnected();
@@ -103,6 +108,7 @@ impl Device {
                         }
                     }
                 }
+                redraw |= self.source_tick(transport.as_mut());
                 if redraw {
                     terminal.draw(|frame| self.draw(frame))?;
                     if let Some(link) = transport.as_mut() {
@@ -141,6 +147,7 @@ impl Device {
         let mut changed = false;
         for incoming in link.receive()? {
             changed |= self.receive(link, incoming)?;
+            changed |= self.source_tick(Some(link));
         }
         changed |= self.drive_queue(link)?;
         changed |= self.drive_tasks(link)?;

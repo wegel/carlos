@@ -14,6 +14,7 @@ mod segment_cursor;
 #[path = "transcript_plain_pages.rs"]
 pub(super) mod plain;
 
+#[cfg(test)]
 use std::mem::size_of;
 use std::sync::Arc;
 
@@ -97,6 +98,7 @@ impl AnsiPages {
     }
 
     /// Revisit the same original at a new width without copying the retained source.
+    #[cfg(test)]
     pub fn resize(mut self, width: usize) -> Result<Self, PageError> {
         if width < 8 {
             return Err(PageError::WidthTooSmall);
@@ -208,6 +210,7 @@ impl AnsiPages {
     }
 
     /// Measure retained checkpoint storage separately from the original source.
+    #[cfg(test)]
     pub fn index_capacity_bytes(&self) -> usize {
         self.checkpoints.capacity() * size_of::<Checkpoint>()
             + self

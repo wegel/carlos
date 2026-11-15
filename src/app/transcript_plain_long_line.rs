@@ -1,5 +1,6 @@
 //! Retain source and row ranges for oversized plain logical lines.
 
+#[cfg(test)]
 use std::mem::size_of;
 use std::ops::Range;
 
@@ -88,6 +89,7 @@ impl LongLine {
     }
 
     /// Charge all retained source-run and row slots to the formatter index.
+    #[cfg(test)]
     pub fn capacity_bytes(&self) -> usize {
         size_of::<Self>() + self.text.capacity_bytes() + self.rows.capacity() * size_of::<Row>()
     }

@@ -41,6 +41,7 @@ impl PagedSource {
                 .collect(),
         );
         PreparedRow {
+            source: None,
             count: 2_000_001,
             lines: Some(PaintedRows::window(Some(prefix), first, rows)),
             context: EntryContext::new((&self.entries[1]).into(), 28, TranscriptTheme::Gutter),
@@ -179,4 +180,26 @@ fn a_replacement_or_resize_cannot_reuse_rows_from_a_different_source_or_width() 
     draw(&mut cache, &source, 80);
     assert!(cache.rendered_line_at(start + 1_000_000).is_none());
     assert!(cache.has_loading_rows(start, start + 49));
+}
+
+#[test]
+fn a_partial_append_frame_stays_loading_after_its_source_window_is_evicted() {
+    let mut source = PagedSource::new(1_000_000);
+    source.frame.as_mut().expect("partial frame").loading = true;
+    let mut cache = RenderCacheState::new();
+    draw(&mut cache, &source, 28);
+    let first = cache.block_start(1).expect("large block") + 1_000_000;
+    assert!(cache.has_loading_rows(first, first + 49));
+    source.frame = None;
+    cache.mark_transcript_dirty_from(2, 1);
+    draw(&mut cache, &source, 28);
+    assert!(cache.has_loading_rows(first, first + 49));
+    assert!(cache.needs_source(1, first, first + 49));
+    assert_eq!(
+        cache
+            .rendered_line_at(first)
+            .expect("accepted old row")
+            .text,
+        "row 1000000"
+    );
 }
