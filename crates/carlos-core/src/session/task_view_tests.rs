@@ -187,6 +187,37 @@ fn claude_run_replacement_preserves_task_address_and_does_not_export_unknown_jso
         .is_err());
 }
 
+#[test]
+fn claude_process_task_identity_survives_native_reset_but_retires_with_its_helper() {
+    let mut session = SessionState::new("before-clear".into(), Default::default(), false);
+    session.set_client_identity(Backend::Claude, "host".into());
+    session.enable_claude();
+    session.set_claude_generation_for_test(1);
+    session
+        .update_claude_task(&json!({"subtype":"task_started","task_id":"child","run_id":"run-a"}))
+        .expect("native task");
+    let before = session
+        .task_page(None, None, 1)
+        .expect("original task page");
+    session.set_thread_id("after-clear".into());
+    let reset = session
+        .task_page(None, None, 1)
+        .expect("same helper after native clear");
+    assert_eq!(reset.tasks[0].id, before.tasks[0].id);
+    assert_eq!(reset.tasks[0].run, before.tasks[0].run);
+    assert_ne!(
+        reset.revision, before.revision,
+        "the native transcript context did change"
+    );
+    session.set_claude_generation_for_test(2);
+    let replaced = session.task_page(None, None, 1).expect("new helper");
+    assert_ne!(replaced.tasks[0].id, before.tasks[0].id);
+    assert_ne!(replaced.tasks[0].run, before.tasks[0].run);
+    assert!(session
+        .task_detail(&replaced.revision, &before.tasks[0].id)
+        .is_err());
+}
+
 fn complete_command(session: &SessionState, revision: &TaskRevision, id: &TaskId) -> String {
     let mut offset = ByteOffset::new(0);
     let mut exact = String::new();

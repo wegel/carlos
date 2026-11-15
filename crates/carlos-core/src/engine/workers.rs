@@ -37,7 +37,7 @@ pub(super) enum Completion {
     },
     TaskStopDispatch {
         operation: ClientOperation,
-        result: Result<(), String>,
+        result: Result<(), super::task_stops::DispatchFailure>,
     },
     Ordinary {
         operation: Option<ClientOperation>,

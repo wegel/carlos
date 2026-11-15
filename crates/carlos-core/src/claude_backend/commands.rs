@@ -3,6 +3,9 @@
 #[cfg(test)]
 #[path = "fork_guard_tests.rs"]
 mod fork_guard_tests;
+#[cfg(test)]
+#[path = "task_guard_tests.rs"]
+mod task_guard_tests;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, Weak};

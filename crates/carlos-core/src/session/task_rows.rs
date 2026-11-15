@@ -9,7 +9,9 @@ use super::codex::panel_runs::{self, RunRead};
 use super::codex::panel_state::Process;
 use super::state::SessionState;
 use super::task_digest::{hash_text, hash_value};
-use crate::backend::BackendKind;
+
+#[path = "task_scope.rs"]
+mod scope;
 
 /// Borrow native metadata only for the duration of one owner read.
 pub(super) enum TaskRef<'a> {
@@ -171,29 +173,11 @@ impl SessionState {
                 .ownership
                 .contains(self.thread_id(), self.codex_scope().epoch(), id)
     }
-
-    pub(super) fn task_scope(&self) -> blake3::Hasher {
-        let (name, kind) = match self.events.backend {
-            Backend::Codex => ("codex", BackendKind::Codex),
-            Backend::Claude => ("claude", BackendKind::Claude),
-            Backend::Grok => ("grok", BackendKind::Grok),
-        };
-        let mut hash = blake3::Hasher::new();
-        hash.update(b"carlos.task.v1");
-        for text in [self.session_id().as_str(), self.thread_id(), name] {
-            hash_text(&mut hash, text);
-        }
-        let (root, helper) = self.command_connection(kind);
-        hash.update(&root.to_le_bytes());
-        hash.update(&helper.to_le_bytes());
-        hash.update(&[u8::from(self.events.backend_closed)]);
-        hash
-    }
 }
 
 impl TaskRef<'_> {
     pub(super) fn id(&self, session: &SessionState) -> TaskId {
-        let mut hash = session.task_scope();
+        let mut hash = self.identity_scope(session);
         hash.update(b"task");
         self.hash_identity(&mut hash);
         hash.finalize()
@@ -322,7 +306,7 @@ impl TaskRef<'_> {
     }
 
     pub(super) fn run(&self, session: &SessionState) -> Option<TaskRun> {
-        let mut hash = session.task_scope();
+        let mut hash = self.identity_scope(session);
         hash.update(b"run");
         self.hash_identity(&mut hash);
         match self {

@@ -7,7 +7,7 @@ use carlos_proto::submissions::{ClientOperation, OperationState};
 use carlos_proto::tasks::TaskKind;
 use serde_json::json;
 
-use super::{PendingTaskStop, Target};
+use super::{DispatchFailure, PendingTaskStop, Target};
 use crate::backend::BackendKind;
 use crate::engine::mailbox::Mailbox;
 use crate::engine::owner::{Channels, Owner};
@@ -88,7 +88,9 @@ fn a_task_stop_write_error_is_uncertain_without_a_native_acknowledgement() {
     let (mut fixture, operation) = fixture();
     fixture.0.finish_task_stop_dispatch(
         operation.clone(),
-        Err("pipe timed out after a possible write".into()),
+        Err(DispatchFailure::Uncertain(
+            "pipe timed out after a possible write".into(),
+        )),
     );
     assert_eq!(fixture.0.workers.controls_busy, 0);
     let results = fixture.0.results.collect();
@@ -114,12 +116,31 @@ fn a_native_ack_before_writer_completion_cannot_be_overwritten_by_a_late_local_e
             notice: None,
         },
     });
-    fixture
-        .0
-        .finish_task_stop_dispatch(operation, Err("late local writer failure".into()));
+    fixture.0.finish_task_stop_dispatch(
+        operation,
+        Err(DispatchFailure::Uncertain(
+            "late local writer failure".into(),
+        )),
+    );
     assert_eq!(fixture.0.workers.controls_busy, 0);
     assert!(matches!(
         fixture.0.results.collect()[0].state,
         OperationState::Accepted { .. }
     ));
+}
+
+#[test]
+fn a_task_stop_retired_before_writing_is_a_definite_private_rejection() {
+    let (mut fixture, operation) = fixture();
+    fixture.0.finish_task_stop_dispatch(
+        operation,
+        Err(DispatchFailure::from(anyhow::Error::new(
+            crate::dispatch_guard::DispatchRetired,
+        ))),
+    );
+    assert!(matches!(
+        fixture.0.results.collect()[0].state,
+        OperationState::Rejected { .. }
+    ));
+    assert!(fixture.0.task_stops.is_empty());
 }
