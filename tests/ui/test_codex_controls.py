@@ -211,6 +211,8 @@ class CodexControls:
         terminal.resize(18,10)
         terminal.contains("Resize to edit")
         terminal.paste("MUST_NOT_EDIT")
+        terminal.wait(lambda:'paste bytes=13 "MUST_NOT_EDIT"' in (terminal.root/"keys.log").read_text(),
+                      "phone paste consumed before widening the terminal")
         terminal.resize(72,20)
         terminal.contains("my independent draft")
         self.assertNotIn("MUST_NOT_EDIT",terminal.text)
