@@ -60,7 +60,7 @@ Fable 5.2 medium PASS WITH ISSUES. The final report and every finding/decision a
 Commit `cc2a5f5` separately removes the embedded runtime; final review corrections are
 `cbdca8f`, runtime source `23d6e70775c623b8106074957efb103d`.
 
-The next plan to write and execute is EP020. It must first add explicit typed session
+The active plan is `.agents/execplans/EXECPLAN_020_network_access.md`. It must first add explicit typed session
 stop/reopen and prove reuse of the 16 owner slots while preserving saved conversations,
 private drafts and explicit retry choices. Only then add WebSocket/device-token access.
 Protocol version 1 remains provisional. Keep main and the installed binary unchanged.
@@ -71,7 +71,7 @@ is written in full. On 2026-11-14, the owner delegated approval of completed EPs
 The final EP019b Fable review found that live owners remain allocated until daemon shutdown and closed non-Codex sessions need an explicit recovery command. EP020 must first add a typed session stop/reopen path, with actual multi-client/native tests, before enabling its network listener. Stopping a session releases its owner and native processes while keeping the saved conversation. This is a required first milestone, not optional later cleanup. The review remains `.agents/reports/exec019b-fable-final-review.md`; its final EP019b dispositions belong in the final report.
 
 ExecPlans 009 to 015 remain under `.agents/execplans/`. Their status was not reviewed when the
-daemon split started. They remain outside the iPhone spike; its current step is EP019b.
+daemon split started. They remain outside the iPhone spike; its current step is EP020.
 
 
 ## Done ExecPlans
