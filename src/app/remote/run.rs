@@ -2,7 +2,6 @@
 
 use std::io;
 use std::path::Path;
-use std::time::Duration;
 
 use anyhow::Result;
 use carlos_client::Client;
@@ -52,6 +51,7 @@ impl Device {
         device.view.layout.themes = crate::app::tool_output_preferences::load_themes();
         device.view.tool_output.mode = crate::app::tool_output_preferences::load_mode();
         device.configure_dictation(options);
+        device.configure_metrics();
         device
     }
 
@@ -64,6 +64,7 @@ impl Device {
         let mut transport = Some(transport);
         let mut redraw = true;
         loop {
+            self.metrics_loop();
             redraw |= self.expire_queue_mode_notice();
             redraw |= self.tick_task_countdowns();
             redraw |= self.tick_status_clock();
@@ -72,17 +73,17 @@ impl Device {
             redraw |= self.source_tick(transport.as_mut());
             redraw |= self.poll_settings_appearance();
             if redraw {
-                terminal.draw(|frame| self.draw(frame))?;
+                self.metrics_draw(terminal)?;
                 if let Some(link) = transport.as_mut() {
                     self.request_visible(link)?;
                 }
                 redraw = false;
             }
-            if !event::poll(Duration::from_millis(8))? {
+            if !self.metrics_poll()? {
                 redraw |= self.drain_dictation();
                 continue;
             }
-            if self.event_with_reconnect(socket, &mut transport, event::read()?)? {
+            if self.metrics_input(socket, &mut transport, event::read()?)? {
                 return Ok(());
             }
             self.drain_dictation();
@@ -105,7 +106,7 @@ impl Device {
         }
     }
 
-    fn event_with_reconnect(
+    pub(super) fn event_with_reconnect(
         &mut self,
         socket: &Path,
         transport: &mut Option<Transport>,

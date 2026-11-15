@@ -13,6 +13,7 @@ mod history;
 mod history_keys;
 mod history_operations;
 mod local_commands;
+mod metrics;
 mod navigation;
 mod questions;
 mod questions_answers;
@@ -130,7 +131,7 @@ impl Device {
     fn service(&mut self, link: &mut Transport) -> Result<bool> {
         let mut changed = false;
         for incoming in link.receive()? {
-            changed |= self.receive(link, incoming)?;
+            changed |= self.metrics_receive(link, incoming)?;
             changed |= self.source_tick(Some(link));
         }
         changed |= self.drive_queue(link)?;

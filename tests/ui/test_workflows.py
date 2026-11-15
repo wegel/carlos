@@ -40,6 +40,7 @@ from test_daemon_tasks import DaemonTasks
 from test_daemon_task_windows import DaemonTaskWindows
 from test_daemon_task_activity import DaemonTaskActivity
 from test_daemon_task_questions import DaemonTaskQuestions
+from test_daemon_metrics import DaemonMetrics
 from test_daemon_question_forms import DaemonQuestionForms
 from test_daemon_question_browser import DaemonQuestionBrowser
 from test_daemon_client import DaemonClient
@@ -54,7 +55,7 @@ from test_daemon_history import DaemonHistory
 from test_daemon_source_recovery import DaemonSourceRecovery
 
 
-class Workflows(DaemonClaudeReopen, DaemonEdits, DaemonSavedPicker, DaemonStartup, DaemonRalph, DaemonTaskQuestions, DaemonQuestionForms, DaemonQuestionBrowser, DaemonSettingsContext, DaemonSettings, DaemonTaskActivity, DaemonTaskWindows, DaemonTasks, DaemonQueue, DaemonGoals, DaemonSourceRecovery, DaemonHistory, DaemonClient, GrokStartup, EntryIdentity, SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, CommandDirectory, WeeklyUsage, ClaudeSdk, ClaudeInterrupt, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, CodexRewind, CodexFoundation, CodexQuestions, CodexControls, CodexPanel, CodexGoals, CodexReconnect, InputStatus, ContextSettings, unittest.TestCase):
+class Workflows(DaemonClaudeReopen, DaemonEdits, DaemonSavedPicker, DaemonStartup, DaemonRalph, DaemonMetrics, DaemonTaskQuestions, DaemonQuestionForms, DaemonQuestionBrowser, DaemonSettingsContext, DaemonSettings, DaemonTaskActivity, DaemonTaskWindows, DaemonTasks, DaemonQueue, DaemonGoals, DaemonSourceRecovery, DaemonHistory, DaemonClient, GrokStartup, EntryIdentity, SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, CommandDirectory, WeeklyUsage, ClaudeSdk, ClaudeInterrupt, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, CodexRewind, CodexFoundation, CodexQuestions, CodexControls, CodexPanel, CodexGoals, CodexReconnect, InputStatus, ContextSettings, unittest.TestCase):
     def summary_root(self):
         root = ARTIFACTS / self._testMethodName
         root.mkdir(parents=True, exist_ok=True)

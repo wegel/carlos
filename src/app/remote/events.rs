@@ -202,7 +202,7 @@ impl Device {
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             return Ok(true);
         }
-        if self.help_key(key) {
+        if self.metrics_key(key) || self.help_key(key) {
             return Ok(false);
         }
         if key.code == KeyCode::F(5) {

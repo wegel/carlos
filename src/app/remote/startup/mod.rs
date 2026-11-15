@@ -72,18 +72,24 @@ pub(super) fn run_connected(
         error: None,
     };
     let mut resumed = None;
-    with_terminal(|terminal| {
+    let mut report = None;
+    let result = with_terminal(|terminal| {
         if let Some((client, transport, session)) = startup.run(socket, terminal, transport)? {
             let mut device = Device::new(client, session.clone(), options);
             resumed = Some(session);
-            device.run_connected(socket, terminal, transport)?;
+            let result = device.run_connected(socket, terminal, transport);
+            report = device.metrics_report();
+            result?;
         }
         Ok(())
-    })?;
+    });
     if let Some(session) = resumed {
         eprintln!("{}", crate::app::cli::daemon_resume_hint(socket, &session));
     }
-    Ok(())
+    if let Some(report) = report {
+        eprintln!("{report}");
+    }
+    result
 }
 
 impl Bootstrap {

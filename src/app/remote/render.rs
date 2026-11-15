@@ -9,14 +9,13 @@ use super::transcript::Transcript;
 use super::Device;
 use crate::app::render::{draw_rendered_line, draw_str, fill_rect};
 use crate::app::render_cache_state::TranscriptSource;
-use crate::app::render_input::compute_composer_layout;
 use crate::app::tool_summary::tool_gutter;
 use crate::app::view_models::TerminalSize;
 use crate::theme::{role_gutter_fg, role_gutter_symbol, role_row_bg, role_text_style};
 
 impl Device {
     pub(super) fn draw(&mut self, frame: &mut Frame<'_>) {
-        if self.draw_help(frame) {
+        if self.metrics_help(frame) {
             return;
         }
         let size = TerminalSize {
@@ -27,21 +26,7 @@ impl Device {
         self.queue.size = Some(size);
         self.questions.size = Some(size);
         self.view.layout.update_size(size);
-        if self.tasks.view.show {
-            self.draw_tasks(frame.buffer_mut(), size);
-            self.draw_settings(frame, size);
-            return;
-        }
-        if self.view.codex_goals.show {
-            let (x, y) = self.draw_goal(frame.buffer_mut(), size);
-            frame.set_cursor_position((x as u16, y as u16));
-            self.draw_settings(frame, size);
-            return;
-        }
-        if self.view.codex_queue.show {
-            let (x, y) = self.draw_queue(frame.buffer_mut(), size);
-            frame.set_cursor_position((x as u16, y as u16));
-            self.draw_settings(frame, size);
+        if self.draw_panel(frame, size) {
             return;
         }
         self.view.tool_output.update_size(size);
@@ -59,8 +44,9 @@ impl Device {
             self.view.viewport.selection = None;
             self.view.viewport.mouse_drag_mode = crate::app::selection::MouseDragMode::Undecided;
         }
-        let layout = compute_composer_layout(&self.view.input, size, content_x);
-        self.draw_transcript(frame.buffer_mut(), size, &layout, content_x);
+        let layout = self.metrics_layout(size, content_x);
+        self.metrics_transcript(frame.buffer_mut(), size, &layout, content_x);
+        self.draw_metrics(frame.buffer_mut(), size);
         self.draw_footer(frame.buffer_mut(), size, &layout, content_x);
         self.remember_anchor();
         if self.draw_settings(frame, size) {
@@ -75,6 +61,27 @@ impl Device {
         ));
     }
 
+    fn draw_panel(&mut self, frame: &mut Frame<'_>, size: TerminalSize) -> bool {
+        let cursor = if self.tasks.view.show {
+            self.draw_tasks(frame.buffer_mut(), size);
+            None
+        } else if self.view.codex_goals.show {
+            Some(self.draw_goal(frame.buffer_mut(), size))
+        } else if self.view.codex_queue.show {
+            Some(self.draw_queue(frame.buffer_mut(), size))
+        } else {
+            return false;
+        };
+        if let Some((x, y)) = cursor {
+            frame.set_cursor_position((x as u16, y as u16));
+        }
+        if !self.tasks.view.show {
+            self.draw_metrics(frame.buffer_mut(), size);
+        }
+        self.draw_settings(frame, size);
+        true
+    }
+
     fn draw_question_cursor(&self, frame: &mut Frame<'_>, size: TerminalSize) -> bool {
         if let Some((x, y)) = self.question_cursor(size) {
             frame.set_cursor_position((x as u16, y as u16));
@@ -84,7 +91,7 @@ impl Device {
             && self.task_backend() != Some(carlos_proto::session::Backend::Grok)
     }
 
-    fn draw_transcript(
+    pub(super) fn draw_transcript(
         &mut self,
         buffer: &mut Buffer,
         size: TerminalSize,
