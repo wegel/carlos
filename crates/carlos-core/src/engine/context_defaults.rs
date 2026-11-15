@@ -23,13 +23,14 @@ impl Owner {
         let session = self.session.session_id().clone();
         let backend = self.client.kind();
         let attached = self.session.codex_connection().socket().is_some();
+        let shell_override = self.session.context_shell_override();
         self.workers.actions_busy += 1;
         let pending = Box::new(envelope);
         self.workers
             .actions
             .submit(move || Completion::ContextRead {
                 pending,
-                result: context_defaults::read(session, backend, attached)
+                result: context_defaults::read(session, backend, attached, shell_override)
                     .map_err(|error| error.to_string()),
             });
         None
@@ -52,12 +53,13 @@ impl Owner {
     ) {
         let backend = self.client.kind();
         let attached = self.session.codex_connection().socket().is_some();
+        let shell_override = self.session.context_shell_override();
         self.workers.ordinary_busy = true;
         self.workers
             .ordinary
             .submit(move || Completion::ContextSaved {
                 operation,
-                result: context_defaults::save(backend, attached, choice)
+                result: context_defaults::save(backend, attached, shell_override, choice)
                     .map_err(|error| error.to_string()),
             });
     }

@@ -23,6 +23,7 @@ pub enum RuntimeSetting {
 #[cfg_attr(any(test, feature = "test-support"), derive(Debug))]
 pub struct RuntimeSettingsState {
     startup_preferences: RuntimeDefaults,
+    context_shell_override: Option<bool>,
     pub(in crate::session) native_settings_pending: bool,
     pub(in crate::session) supports_effort: bool,
     pub(in crate::session) supports_summary: bool,
@@ -40,6 +41,7 @@ impl RuntimeSettingsState {
     pub(in crate::session) fn new(preferences: RuntimeDefaults) -> Self {
         Self {
             startup_preferences: preferences,
+            context_shell_override: None,
             native_settings_pending: false,
             supports_effort: true,
             supports_summary: true,
@@ -106,6 +108,17 @@ impl RuntimeSettingsState {
 }
 
 impl SessionState {
+    /// Capture whether the launched child's context-size variable has a nonempty value.
+    pub fn configure_context_shell_override(&mut self, effective: Option<&str>) {
+        self.runtime.context_shell_override =
+            Some(effective.is_some_and(|value| !value.is_empty()));
+    }
+
+    /// Prefer captured child settings while legacy callers retain worker-side environment reads.
+    pub(crate) fn context_shell_override(&self) -> Option<bool> {
+        self.runtime.context_shell_override
+    }
+
     /// Borrow backend settings without exposing mutable facts.
     pub fn runtime_settings(&self) -> &RuntimeSettingsState {
         &self.runtime

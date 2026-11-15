@@ -12,14 +12,20 @@ pub(crate) fn read(
     session: SessionId,
     backend: BackendKind,
     attached: bool,
+    captured_shell_override: Option<bool>,
 ) -> Result<ContextDefaults> {
-    let policy = policy(backend, attached, shell_override());
+    let policy = policy(backend, attached, shell_override(captured_shell_override));
     read_with(session, policy, || context_preferences::load(backend))
 }
 
 /// Save the captured backend's host default without touching any native conversation.
-pub(crate) fn save(backend: BackendKind, attached: bool, choice: ContextChoice) -> Result<()> {
-    let policy = policy(backend, attached, shell_override());
+pub(crate) fn save(
+    backend: BackendKind,
+    attached: bool,
+    captured_shell_override: Option<bool>,
+    choice: ContextChoice,
+) -> Result<()> {
+    let policy = policy(backend, attached, shell_override(captured_shell_override));
     save_with(policy, choice, |tokens| {
         context_preferences::save(backend, tokens)
     })
@@ -69,8 +75,14 @@ fn save_with(
     write(tokens)
 }
 
-fn shell_override() -> bool {
-    std::env::var("CLAUDE_CODE_AUTO_COMPACT_WINDOW").is_ok_and(|value| !value.is_empty())
+fn shell_override(captured: Option<bool>) -> bool {
+    resolve_shell_override(captured, || {
+        std::env::var("CLAUDE_CODE_AUTO_COMPACT_WINDOW").is_ok_and(|value| !value.is_empty())
+    })
+}
+
+fn resolve_shell_override(captured: Option<bool>, inherited: impl FnOnce() -> bool) -> bool {
+    captured.unwrap_or_else(inherited)
 }
 
 #[cfg(test)]

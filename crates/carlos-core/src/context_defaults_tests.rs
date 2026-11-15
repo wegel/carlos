@@ -6,8 +6,62 @@ use anyhow::anyhow;
 use carlos_proto::context_defaults::{ContextChoice, ContextPolicy};
 use carlos_proto::ids::SessionId;
 
-use super::{policy, read_with, save_with};
+use super::{policy, read_with, resolve_shell_override, save_with};
 use crate::backend::BackendKind;
+use crate::session::runtime_settings::RuntimeDefaults;
+use crate::session::state::SessionState;
+
+#[test]
+fn child_context_environment_preserves_absent_empty_and_nonempty_values() {
+    let mut session = SessionState::new("native-thread".into(), RuntimeDefaults::default(), false);
+    assert_eq!(
+        session.context_shell_override(),
+        None,
+        "legacy caller inherits on the worker"
+    );
+    for (effective, expected) in [
+        (None, false),
+        (Some(""), false),
+        (Some("200000"), true),
+        (Some(" "), true),
+        (Some("窗"), true),
+    ] {
+        session.configure_context_shell_override(effective);
+        assert_eq!(session.context_shell_override(), Some(expected));
+    }
+}
+
+#[test]
+fn captured_child_context_policy_never_reads_a_different_daemon_environment() {
+    for (captured, expected) in [
+        (false, ContextPolicy::Owned),
+        (true, ContextPolicy::ClaudeShellOverride),
+    ] {
+        let resolved = resolve_shell_override(Some(captured), || panic!("child value is known"));
+        let actual = policy(BackendKind::Claude, false, resolved);
+        assert_eq!(actual, expected);
+        let written = Cell::new(false);
+        let result = save_with(actual, ContextChoice::Tokens(500_000), |_| {
+            written.set(true);
+            Ok(())
+        });
+        assert_eq!(result.is_ok(), !captured);
+        assert_eq!(written.get(), !captured);
+    }
+}
+
+#[test]
+fn legacy_context_policy_reads_inherited_environment_only_when_child_value_is_unknown() {
+    for inherited in [false, true] {
+        let calls = Cell::new(0);
+        let resolved = resolve_shell_override(None, || {
+            calls.set(calls.get() + 1);
+            inherited
+        });
+        assert_eq!(resolved, inherited);
+        assert_eq!(calls.get(), 1);
+    }
+}
 
 #[test]
 fn policy_distinguishes_owned_attached_shell_and_unsupported_backends() {
