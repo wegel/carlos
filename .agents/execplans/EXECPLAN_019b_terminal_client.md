@@ -12,6 +12,10 @@ The daemon already proves basic chat, approvals, running output, independent cli
 
 ## Progress
 
+- [x] (2026-11-15) Reproduce the real Grok completion-before-write-ack race with an OS-pipe/Core test, then pass all40 Grok cases, full default/no-default workspace tests and strict lint in both modes. The repaired debug daemon passes1000 single-CPU sends with exactly1000 native prompts; a new actual terminal case sends three instant follow-ups. Preserve failed old-source traces and exclude debug timings from acceptance. Renew final release checks and measurements before review. See exec019b-grok-early-completion.md.
+
+- [x] (2026-11-15) Commit the110-path physical runtime removal ascc2a5f5 after the actual release parity gate. Normal fmt/workspace test hook passes. Nine final launcher cases pass in7.192s with ordinary launches omitting --daemon; the explicit compatibility case still covers that flag. Final evidence runner56164 now checks64MiB ANSI/16MiB Markdown and then quiet measured worker/renderer/socket/owner cases.
+
 - [x] (2026-11-15) Pass final physical-cutover release gate03 on source813a5f51e0fbc97d9163db24d232d97d:305 actual-daemon terminal workflows,143 daemon cases,23 installed-native cases,1600 release all-target Rust tests/11ignored, source/selection/dictation/ANSI/ownership/helper/architecture/package/contract checks. Artifacts /tmp/carlos-ep019b-final-ui-JIdoy7. The failure-only copy diagnostic never triggers. The uid-specific artifact-root change and corrected process expectations remain explicit in the report.
 
 
@@ -56,7 +60,7 @@ The daemon already proves basic chat, approvals, running output, independent cli
 - [x] (2026-11-14) Add one coherent Client for the current wire methods, with correlated replies, automatic snapshot reads after gaps, private outcome queries, source/output watch lifetimes, bounded future-history pages and a combined fact budget. Fifty-one client tests and two actual Unix-listener tests pass; whole workspace tests/strict lint pass. Remaining native families and actual terminal consumers still need to use this interface.
 - [x] (2026-11-15) Complete `carlos-client` for greeting, private retry rights, numbered facts, history, source/output cursors and operation-owned local echo. The crate tests gaps, replacement, reconnect, malformed input and private recovery without owning sockets or clocks. Normal full-workspace hooks pass; the final default/no-default gate will check the exact deletion source.
 - [x] Route terminal startup and every existing workflow through the actual daemon and shared client. Preserve drafts, dictation, color/copy behavior, panels and startup choices. Add screen/request tests for any broken workflow.
-- [ ] After socket parity passes, make the separate buildable commit `tui: remove embedded session and backend path`; remove direct session/backend ownership, temporary adapters and obsolete report consumers. Review that deletion explicitly.
+- [x] After socket parity passes, make the separate buildable commit `tui: remove embedded session and backend path`; remove direct session/backend ownership, temporary adapters and obsolete report consumers. Review that deletion explicitly.
 - [ ] Pass final default/no-default tests, strict lint, release/native/terminal/process/dependency checks and matched socket speed/memory comparisons. Review directly, report exact identities/limits, archive the completed plan unchanged, record delegated auto-approval and continue to EP020.
 
 - [x] (2026-11-14) Land latest native task panel A3 as4f78349, after shared painter06e265d. Root inspected the small client/run-read/Claude Queue changes. Final engineering follow-ups PASS; full Codex-contract gate passes1351Rust/61daemon/237terminal/23native plus helper/architecture/package/schema at run-HAZxTM. The actual4MiB scroll/F2 check is0.0886seconds. After the gate, behavior-preserving helper splits pass workspace/strictlint/build and exact large/phone checks. Full evidence and raw review verdicts are `.agents/reports/exec019b-task-terminal.md`. Root reclaimed shared files; older task windows and child activity/history/questions remain deferred, not complete.
@@ -126,6 +130,8 @@ The daemon already proves basic chat, approvals, running output, independent cli
 - [x] (2026-11-15) Complete all old-owner test moves through314823f: native32 and committed phone/client counterparts replace the final35cases; unused Peer/NormalizedApp/support and AppState::new retire. All three final native indexed prefixes and normal hooks pass. A source-frozen private deletion has no pending native modules; its first full no-default run passes1558/tenignored. Exact test-list comparison catches two pure status sweeps attached to the old renderer; move only their registration unchanged before deletion.
 
 ## Surprises & Discoveries
+
+A final one-CPU socket stress exposes a real Grok acknowledgement race in both EP019a and current source. The native reader can complete a prompt before the send worker reports its write; Grok returned no exact turn ID, so core settlement could revive a finished turn and strand the next queued prompt. The real OS-pipe/Core test deliberately receives completion before settlement and fails on the old source. Unrestricted1000-send runs pass, but do not cover this schedule. Preserve socket-current-pinned and both pinned historical failures. Final approval remains open until the identity repair and renewed final-source gates pass.
 
 The final143-case daemon gate passed141 and found two old assertions requiring unchanged public process task IDs after a native PID/item replacement. The intentionally strengthened identity72da0bc changes those IDs. Corrected cases preserve exact Unicode/late acknowledgement/private-error checks, reject old targets without native writes, and fail on the preserved pre-fix daemon. Both pass on the final cutover pair. No product fix is needed.
 
@@ -205,6 +211,8 @@ The cutover draft no longer calls the source-reader helper from the terminal exe
 The installed Codex CLI distinguishes a new, unmaterialized thread from an existing empty saved thread. A native probe in `/tmp/carlos-ep019b/native-fresh-read-probe/rpc.jsonl` shows thread/start succeeds with turns=[], metadata/queue/goal reads succeed, and thread/turns/list returns-32600 before a user message. Treating that failure as a general empty-history fallback would discard real resumed history, so the caller must carry the known launch scope.
 
 ## Decision Log
+
+- 2026-11-15: Return Groks existing translated turn identity in its write acknowledgement. Empty native results must receive that same turn start/completion identity. Reuse core terminal-status checks and the current translator sequence; add no retry, scheduler, per-client state or completion cache. Keep original dense-Unicode memory limits visible and do not confuse the faster captured ANSI corpus with that separate stress case.
 
 - 2026-11-15: Keep the final uncommitted runtime removal frozen during release checks. The corrected private candidate passes1603 default/1560 no-default tests and strict lint in both modes. The actual branch has the same checked110-path removal, preserves current remote modules, and retains the two pure sweep tests on status_line. Commit only after actual release terminal/native parity.
 
@@ -290,7 +298,9 @@ Decision: cap retained session facts across one Client at 64 MiB and defer futur
 
 ## Outcomes & Retrospective
 
-All original frontend owner families now have named Core, Native, Device or pure-renderer successors. The working branch removes the old runtime route; the final release terminal/native run is active. Quiet matched measurements, final reviews and approval remain open.
+The removal commit and final release parity gate pass. Above-cache64MiB ANSI/16MiB Markdown, nine default-launcher cases and quiet worker metrics pass on source813a5f5. Both reference renderer comparisons pass their exact counts and improve interactive draw times. The single-CPU socket stress then finds the preexisting Grok turn-acknowledgement race. Its focused repair is now under test; source813a5f5 evidence remains valid for that prefix, but final-source checks and measurements must include the repair before review.
+
+All original frontend owner families now have named Core, Native, Device or pure-renderer successors. Commit cc2a5f5 removes the old runtime route after the passing final release terminal/native gate. Quiet matched measurements, final reviews and approval remain open.
 
 Native57, queuebadb6e6 and callbackd91cc6c are committed with passing normal hooks. Their exact native/private maps retire the old owner fixtures without a replacement frontend facade. Root registers a checked test-only formatter measurement probe; its two small functional smokes pass privately and no final timing is claimed. Final input/binary identities and real socket measurement driver are prepared under final-gate-preparation. The physical deletion, final runtime/release matrices, large-source high water and quiet matched timings remain open. Backend owns native33; the existing renderer worker owns only their remaining local phone/process/quota clauses.
 
@@ -893,3 +903,5 @@ Update2026-11-15: record the six native57 commits, final callback/queue owner re
 Update2026-11-15: all native/private owner migrations are committed and clean. The private removal now has no omitted native owners; an exact test-list diff caught and preserves two pure status tests before the separate physical removal. Final default/no-default, runtime/release/performance and review gates remain open.
 
 Revision2026-11-15: record the complete owner-test move, checked physical cutover and uid-specific test-artifact relocation. The release runner is still active; no final acceptance is claimed.
+
+Revision2026-11-15: retain passed removal/source/performance evidence and record the real Grok race exposed by final stress. Continue the focused identity repair before final review; no EP approval is claimed.

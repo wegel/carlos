@@ -50,7 +50,7 @@ impl GrokCommands {
                     permission.clone(),
                 )?;
                 let text = turn_input_text(&params)?;
-                self.begin_prompt_translation()?;
+                let turn_id = self.begin_prompt_translation()?;
                 let process = &self.process;
                 process.start_prompt(
                     json!({
@@ -59,7 +59,7 @@ impl GrokCommands {
                     }),
                     permission,
                 )?;
-                Ok(json!({ "jsonrpc": "2.0", "result": {} }).to_string())
+                Ok(json!({ "jsonrpc": "2.0", "result": {"turn":{"id":turn_id}} }).to_string())
             }
             "turn/steer" => bail!("Grok does not support mid-turn steer"),
             "turn/interrupt" => self.interrupt_session(

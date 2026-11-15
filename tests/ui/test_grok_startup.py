@@ -2,6 +2,20 @@
 
 
 class GrokStartup:
+    def test_grok_instant_answers_leave_each_follow_up_prompt_sendable(self):
+        terminal = self.launch(backend="grok", resume=None)
+        terminal.wait_ready_composer()
+        texts = ["instant first", "instant second", "instant third"]
+        for text in texts:
+            terminal.paste(text)
+            terminal.send(b"\r")
+            terminal.contains("Answer: " + text)
+        prompts = terminal.requests("session/prompt")
+        self.assertEqual([p["params"]["prompt"][0]["text"] for p in prompts], texts)
+        self.assertEqual(len(terminal.requests("session/new")), 1)
+        self.assertNotIn("Grok closed", terminal.text)
+        terminal.snapshot("three-instant-answers-and-no-stranded-follow-up")
+
     def test_grok_restores_more_than_one_native_queue_window_before_sending_queued_text(self):
         terminal = self.launch(backend="grok", resume="grok-saved")
         terminal.wait(lambda: terminal.requests("session/load"), "native restore waits at its gate")

@@ -297,13 +297,18 @@ impl GrokCommands {
         Ok(())
     }
 
-    fn begin_prompt_translation(&self) -> Result<()> {
+    fn begin_prompt_translation(&self) -> Result<String> {
         let mut state = self
             .translation
             .lock()
             .map_err(|_| anyhow!("Grok translation lock poisoned"))?;
         mark_prompt_started(&mut state);
-        Ok(())
+        // The reader uses this ID on its first fact, or when an empty result arrives.
+        // The owner may process completion before the send worker reports its write.
+        Ok(state
+            .current_turn_id
+            .clone()
+            .unwrap_or_else(|| format!("grok-turn-{}", state.next_turn_seq.saturating_add(1))))
     }
 
     pub(super) fn emit(&self, line: String) -> Result<()> {
@@ -322,3 +327,6 @@ mod process_bounds_tests;
 
 #[cfg(test)]
 mod startup_tests;
+
+#[cfg(test)]
+mod prompt_completion_tests;

@@ -1,0 +1,11 @@
+# EP019b Grok completion before send acknowledgement
+
+The final socket stress put the daemon, Python client and instant Grok peer on CPU6. Both the preserved EP019a daemon and source813a5f51e0fbc97d9163db24d232d97d eventually stranded a later queued prompt. Their native traces show completed replies before the owner applies the earlier send acknowledgement. Unrestricted runs of1000 sends pass; they do not prove this schedule. Keep the failed pinned traces under /tmp/carlos-ep019b/final-evidence/socket-{ep019a,matched-ep019a,current-pinned}.
+
+Grok returned an empty write acknowledgement. The core already checks the acknowledgement turn ID against terminal native facts, but without an ID it could mark the finished turn running again. Grok now returns its existing translator identity. The translator uses that same sequence for a result with no text, publishing one start/completion pair. The patch adds no persistent field, queue, worker, timer or retry and does not change public socket types. It preserves duplicate completion suppression, native connection checks and prompt write permission.
+
+The new real OS-pipe/Core case receives native completion before applying the captured send result. It runs two sequential prompts with and without answer text, then requires the owner to remain idle. It fails on the previous source with late write acknowledgement cannot restart first prompt and passes after the repair. All40 focused Grok tests pass. Full default and no-default workspace tests and strict all-target Clippy also pass. Logs: /tmp/carlos-ep019b/grok-completion-{before,after,final-rust}.log.
+
+A real debug daemon now passes the original single-CPU1000-send case with exactly1000 native prompts. The new real terminal workflow sends three instant answers and checks their exact native text/order and one native session. These are causal functional checks; exclude debug timings from release speed claims. Raw log: /tmp/carlos-ep019b/grok-causal-build-and-socket.log; artifacts: /tmp/carlos-ep019b/grok-causal-{pinned-debug,terminal-debug}.
+
+The release parity gate and measurements will run again on the repaired final source before review. Earlier valid measurements remain tied to their earlier source. The shared source marker and executable hashes will identify the final pair. No spike executable was installed, merged or pushed.
