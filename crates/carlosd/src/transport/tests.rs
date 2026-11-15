@@ -6,6 +6,7 @@ use std::sync::{mpsc, Arc};
 use std::time::Duration;
 
 use carlos_proto::commands::{Command, Request, RequestId, RpcVersion};
+use carlos_proto::context_defaults::ContextChoice;
 use carlos_proto::ids::{SessionId, SettingsRevision};
 
 use super::ingress::Ingress;
@@ -243,6 +244,36 @@ fn settings_writes_share_the_ordinary_budget_and_leave_reads_available() {
                 limit: Some(1),
             }
         ),
+        100
+    ));
+}
+
+#[test]
+fn context_writes_cannot_consume_the_reserved_read_budget() {
+    let (wake, _) = mpsc::sync_channel(1);
+    let ingress = Ingress::new(wake);
+    let operation = carlos_proto::submissions::ClientOperation {
+        client: "11111111111111111111111111111111".parse().expect("client"),
+        id: carlos_proto::ids::OperationId::new(1).expect("counter"),
+    };
+    for id in 0..65 {
+        let admitted = ingress.push(
+            1,
+            request(
+                id,
+                Command::ContextSet {
+                    session: session(),
+                    operation: operation.clone(),
+                    choice: ContextChoice::Tokens(500_000),
+                },
+            ),
+            100,
+        );
+        assert_eq!(admitted, id < 64);
+    }
+    assert!(ingress.push(
+        1,
+        request(66, Command::ContextRead { session: session() }),
         100
     ));
 }

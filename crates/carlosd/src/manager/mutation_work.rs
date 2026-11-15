@@ -17,6 +17,7 @@ pub(super) type Prepared = (
 
 pub(super) fn prepare(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
     let parts = match command {
+        labels @ Command::ToolLabelsSet { .. } => return prepare_tool_labels(labels),
         context @ Command::ContextSet { .. } => return prepare_context(context),
         settings @ Command::SettingsSet { .. } => return prepare_settings(settings),
         command @ Command::TaskStop { .. } => return prepare_task_stop(command),
@@ -302,3 +303,32 @@ fn prepare_settings(command: Command) -> Result<Prepared, carlos_proto::commands
         Class::Ordinary,
     ))
 }
+
+fn prepare_tool_labels(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
+    let Command::ToolLabelsSet {
+        session,
+        operation,
+        expected,
+        enabled,
+        save_default,
+    } = command
+    else {
+        unreachable!("typed tool-label change");
+    };
+    Ok((
+        session,
+        operation.clone(),
+        EngineCommand::ToolLabelsSet {
+            operation,
+            expected,
+            enabled,
+            save_default,
+        },
+        None,
+        Class::Ordinary,
+    ))
+}
+
+#[cfg(test)]
+#[path = "mutation_work_tests.rs"]
+mod tests;
