@@ -134,18 +134,51 @@ class NativeHistoryTests:
         self.assertEqual(len(peer.pages), 3)
         self.assertEqual(fixture.native.prompts, 0)
 
-    def native_history_fixture(self, name, empty=()):
+    def native_history_fixture(self, name, empty=(), unrendered=()):
         fixture = Fixture("native-history-" + name, codex=True)
         self.addCleanup(fixture.close)
         peer = NativeHistoryWindows(fixture.native)
         for index in empty:
             peer.turns[index]["items"] = []
+        for index in unrendered:
+            peer.turns[index]["items"] = [
+                {"type":"futureOpaqueItem", "id":f"opaque-{index}"},
+                {"type":"userMessage", "id":f"empty-user-{index}", "content":[]},
+            ]
         client = Client(fixture, "history-reader")
         self.addCleanup(client.close)
         opened = client.operation(1)
         session = client.call("session/open", operation=opened, backend="codex", cwd=str(fixture.root),
                               target={"kind":"resume", "address":fixture.native.thread_id})["session"]
         return fixture, peer, client, session, opened
+
+    def test_codex_unrendered_newest_items_cannot_publish_ready_without_a_history_anchor(self):
+        fixture, peer, client, session, opened = self.native_history_fixture("unrendered-newest", unrendered=range(140,240))
+        self.assertEqual(client.outcome(opened)["state"]["kind"], "accepted")
+        snapshot = client.call("session/subscribe", session=session, since=None)["snapshot"]
+        self.assertEqual(snapshot["info"]["availability"], "ready")
+        self.assertTrue(snapshot["entries"], "Ready must supply an anchor for supported older entries")
+        self.assertEqual(snapshot["entries"][-1]["text"], "native answer 139 🌍")
+        self.assertEqual(len(peer.pages), 2)
+        collected, page = list(snapshot["entries"]), snapshot
+        while page["has_older"]:
+            page = client.call("session/history", session=session, before=collected[0]["id"], limit=100)
+            self.assertTrue(page["entries"])
+            collected = page["entries"] + collected
+        self.assertEqual([row["text"] for row in collected],
+                         [f"native {kind} {index} 🌍" for index in range(140) for kind in ("user","answer")])
+        self.assertEqual(len(peer.pages), 3)
+        self.assertEqual(fixture.native.prompts, 0)
+
+    def test_codex_overlap_only_native_windows_cannot_return_an_empty_continuation(self):
+        fixture, peer, client, session, opened = self.native_history_fixture("overlap-only")
+        before = self.native_prefix_boundary(client, session, opened)
+        peer.turns[40:140] = list(peer.turns[140:240])
+        page = client.call("session/history", session=session, before=before, limit=100)
+        self.assertEqual(page["entries"][0]["text"], "native user 0 🌍")
+        self.assertFalse(page["has_older"])
+        self.assertEqual(len(peer.pages), 3)
+        self.assertEqual(fixture.native.prompts, 0)
 
     def test_codex_opens_the_newest_native_window_before_fetching_older_turns(self):
         fixture, peer, client, session, opened = self.native_history_fixture("newest")

@@ -145,11 +145,7 @@ fn command_payload(item: &Value) -> Option<String> {
 impl SessionState {
     /// Format a disposable display copy, leaving native items and approval commands untouched.
     pub fn format_tool_item(&self, item: &Value, role: Role) -> Option<String> {
-        let view = ToolCommandView::from_item(item, self.summary_cwd());
-        let item = view
-            .as_ref()
-            .map_or(Cow::Borrowed(item), |view| view.item(item));
-        format_tool_item(&item, role)
+        format_tool_item_at(item, role, self.summary_cwd())
     }
 
     /// Classify the effective program before considering native labels for an unfiltered command.
@@ -177,16 +173,30 @@ impl SessionState {
 
     /// Infer read coloring from the same display command without opening any source file.
     pub(crate) fn tool_source_path(&self, item: &Value) -> Option<String> {
-        if item["type"] == "mcpToolCall" {
-            return None;
-        }
-        let view = ToolCommandView::from_item(item, self.summary_cwd());
-        if view.as_ref().is_some_and(|view| !view.can_classify()) {
-            return None;
-        }
-        let item = view
-            .as_ref()
-            .map_or(Cow::Borrowed(item), |view| view.item(item));
-        crate::session::tool_source::source_path_from_item(&item)
+        tool_source_path_at(item, self.summary_cwd())
     }
+}
+
+/// Format a native row with only its directory context, without constructing session state.
+pub(super) fn format_tool_item_at(item: &Value, role: Role, cwd: &Path) -> Option<String> {
+    let view = ToolCommandView::from_item(item, cwd);
+    let item = view
+        .as_ref()
+        .map_or(Cow::Borrowed(item), |view| view.item(item));
+    format_tool_item(&item, role)
+}
+
+/// Infer a native source path with the same directory policy as its display row.
+pub(super) fn tool_source_path_at(item: &Value, cwd: &Path) -> Option<String> {
+    if item["type"] == "mcpToolCall" {
+        return None;
+    }
+    let view = ToolCommandView::from_item(item, cwd);
+    if view.as_ref().is_some_and(|view| !view.can_classify()) {
+        return None;
+    }
+    let item = view
+        .as_ref()
+        .map_or(Cow::Borrowed(item), |view| view.item(item));
+    crate::session::tool_source::source_path_from_item(&item)
 }

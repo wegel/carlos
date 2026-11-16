@@ -143,9 +143,13 @@ impl HistoryReader<'_> {
             if let Some(next) = next.as_str() {
                 visited.push(next.to_owned());
             }
-            let empty = rows
-                .iter()
-                .all(|turn| turn["items"].as_array().is_some_and(Vec::is_empty));
+            let empty = !rows.iter().any(|turn| {
+                turn["items"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .any(crate::session::item_history_draft::has_rows)
+            });
             for row in rows {
                 let id = row["id"].as_str().expect("checked turn id").to_owned();
                 if let Some(index) = positions.get(&id).copied() {

@@ -27,6 +27,11 @@ run is needed for these corrections.
   continues under the same deadline and cumulative byte allowance. The failing
   original daemon test and corrected daemon/terminal tests cover unsupported
   middle items, exact native cursor progress and the oldest visible row.
+  A follow-up boundary check also reproduces a newest page with no visible anchor.
+  The native reader now uses the actual row projector to skip such windows before
+  Ready, including empty user records. Directory-only formatting helpers avoid
+  constructing another session or maintaining a second supported-type list.
+  Separate overlap-only tests still exercise the owner's zero-row continuation.
 - m2, failed cancellation leaves dead Grok cards: accepted. Mark choices cancelling
   and emit owner-card retirement before attempting the cancel write. Cancellation
   enqueue returns its captured tokens even on failure, so the owner still retires

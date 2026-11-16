@@ -1,6 +1,7 @@
 //! Collect complete native history as plain drafts before allocating any Carlos ids.
 
 use std::collections::HashMap;
+use std::path::Path;
 
 use serde_json::Value;
 
@@ -15,6 +16,7 @@ use crate::session::models::{MessageKind, Role, TurnStatus};
 use crate::session::native_activity::format_native_activity;
 use crate::session::read_summary::{format_read_summary_with_count, parse_read_summary};
 use crate::session::state::SessionState;
+use crate::session::tool_command_view::{format_tool_item_at, tool_source_path_at};
 use crate::session::tools::{
     command_execution_diff_output, extract_diff_blocks, is_tool_call_type, is_tool_output_type,
     item_text_from_content, native_tool_source, role_for_tool_item,
@@ -203,6 +205,15 @@ fn upsert_row(
 
 /// Parse the same plain rows for full history and incremental reconnect records.
 pub fn rows(session: &SessionState, item: &Value) -> Vec<EntryDraft> {
+    rows_at(session.summary_cwd(), item)
+}
+
+/// Use the actual row projector to decide whether a native window provides a client anchor.
+pub(crate) fn has_rows(item: &Value) -> bool {
+    !rows_at(Path::new("."), item).is_empty()
+}
+
+fn rows_at(cwd: &Path, item: &Value) -> Vec<EntryDraft> {
     if let Some(text) = format_native_activity(item) {
         return item["id"]
             .as_str()
@@ -238,13 +249,13 @@ pub fn rows(session: &SessionState, item: &Value) -> Vec<EntryDraft> {
             || is_tool_call_type(kind)
             || is_tool_output_type(kind) =>
         {
-            tool_rows(session, item, kind)
+            tool_rows(cwd, item, kind)
         }
         _ => Vec::new(),
     }
 }
 
-fn tool_rows(session: &SessionState, item: &Value, kind: &str) -> Vec<EntryDraft> {
+fn tool_rows(cwd: &Path, item: &Value, kind: &str) -> Vec<EntryDraft> {
     let role = if kind == "commandExecution" {
         Role::ToolOutput
     } else {
@@ -273,11 +284,11 @@ fn tool_rows(session: &SessionState, item: &Value, kind: &str) -> Vec<EntryDraft
         }
     }
     if let Some(formatted) = native_tool_source(item)
-        .or_else(|| session.format_tool_item(item, role))
+        .or_else(|| format_tool_item_at(item, role, cwd))
         .filter(|text| !text.is_empty())
     {
         return vec![EntryDraft {
-            file_path: session.tool_source_path(item),
+            file_path: tool_source_path_at(item, cwd),
             ..EntryDraft::plain(role, formatted)
         }];
     }

@@ -2,6 +2,30 @@
 
 
 class DaemonHistory:
+    def test_daemon_terminal_opens_supported_rows_before_an_unrendered_native_tail(self):
+        import sys
+        from test_daemon_client import daemon_support
+        from test_native_history import NativeHistoryTests
+        runner = sys.modules[type(self).__module__]
+        daemon_support.BINARY = runner.BINARY.parent / "carlosd"
+        daemon_support.ARTIFACTS = runner.ARTIFACTS / "daemon"
+        fixture, peer, client, session, opened = NativeHistoryTests.native_history_fixture(
+            self, "terminal-unrendered-tail", unrendered=range(140,240))
+        self.assertEqual(client.outcome(opened)["state"]["kind"], "accepted")
+        terminal = self.attach_daemon(fixture, session, "unrendered-tail")
+        terminal.contains("native answer 139 🌍")
+        self.assertEqual(len(peer.pages), 2, "startup finds a real row anchor before Ready")
+        def oldest_visible():
+            if "native user 0 🌍" in terminal.text:
+                return True
+            terminal.send(b"\x1b[H")
+            return False
+        terminal.wait(oldest_visible, "every supported older native row remains reachable")
+        self.assertEqual(len(peer.pages), 3)
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertEqual(fixture.native.prompts, 0)
+        terminal.snapshot("unrendered-native-tail-keeps-oldest-supported-history")
+
     def test_daemon_terminal_shares_a_held_older_read_and_crosses_unrendered_native_items(self):
         import sys
         from test_daemon_client import daemon_support

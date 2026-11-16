@@ -93,3 +93,14 @@ Full/paged exported-state comparisons, live Claude bookkeeping, both backend con
 readers, queued-reader stop, exact terminal history/private draft and broken native cancel
 checks pass. The existing fallback-name table now covers every recognized name.
 The corrected complete release/native gate and fresh matching measurements remain pending.
+
+
+The final startup-anchor correction adds21 more nonblank Core lines. The combined
+end-review count versus46c6367 is now191 added/94 deleted, net97; total97364,
+2494 above EP021a. The count JSON now records that combined final scope. The native
+reader reuses the actual row projector for both empty user records and unknown
+items, with directory-only formatting helpers and no extra session model or type
+list. The owner still handles zero-row windows caused by overlapping native turns.
+The first gate04 was deliberately cancelled before daemon/terminal checks after
+this startup defect was reproduced; its log is not a passing gate. Complete gate05
+and fresh frozen-pair evidence remain pending.
