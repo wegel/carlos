@@ -85,7 +85,6 @@ impl Client {
             panel.windows.stale = false;
         }
         panel.windows.error = None;
-        panel.current = false;
         panel.dirty = true;
         if let Some(id) = cancel {
             self.requests.take(&id);

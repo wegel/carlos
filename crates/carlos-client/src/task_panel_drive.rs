@@ -11,10 +11,27 @@ use crate::{ChangeSet, Client, ClientError, Effects, Outbound};
 impl Client {
     /// Require live subscribed facts as well as the task panel's accepted page and window checks.
     pub fn task_panel_is_current(&self, session: &SessionId) -> bool {
-        self.current_session_is_ready(session)
-            && self
-                .task_panel(session)
-                .is_some_and(|panel| panel.wanted && panel.current)
+        if !self.current_session_is_ready(session) {
+            return false;
+        }
+        let Some(panel) = self.task_panel(session).filter(|panel| panel.wanted) else {
+            return false;
+        };
+        if let Some(window) = &panel.windows.current {
+            return !panel.windows.stale && panel.pages.revision() == Some(&window.revision);
+        }
+        self.session(session)
+            .and_then(|replica| replica.tasks())
+            .is_some_and(|facts| {
+                let count = u64::from(facts.counts.agents)
+                    + u64::from(facts.counts.processes)
+                    + u64::from(facts.counts.tasks);
+                facts.known
+                    && !facts.reading
+                    && !facts.closed
+                    && count <= MAX_TASK_ROWS as u64
+                    && panel.pages.revision() == Some(&facts.revision)
+            })
     }
 
     pub(crate) fn record_task_panel_read(
@@ -60,9 +77,6 @@ impl Client {
                     .is_some_and(|failed| failed.sequence < replica.task_sequence())
         });
         panel.dirty |= changes.tasks || changes.reset || changes.info || reached;
-        if changes.tasks || changes.reset || changes.info {
-            panel.current = false;
-        }
     }
 
     pub(crate) fn drive_task_panels(&mut self, effects: &mut Effects) {
@@ -74,7 +88,6 @@ impl Client {
             .collect();
         for session in sessions {
             if !self.current_session_is_ready(&session) {
-                self.task_panel_mut(&session).expect("task model").current = false;
                 continue;
             }
             if !self.drain_task_window_closes(&session, effects) {
@@ -121,7 +134,7 @@ impl Client {
             self.request_task_panel_page(session, None, None, 0, true, effects);
             return;
         }
-        let Some((revision, count, live)) = self.current_task_view(session) else {
+        let Some((revision, count, _)) = self.current_task_view(session) else {
             if self
                 .task_panel(session)
                 .is_some_and(|panel| panel.read_error().is_some())
@@ -153,7 +166,6 @@ impl Client {
                 .reset(revision.clone(), panel.selected.is_some());
             effects.panel_changed(session, PanelKind::Tasks);
         }
-        panel.current = live && panel.pages.revision() == Some(&revision);
         if let Some((start, after)) = panel.pages.next() {
             self.request_task_panel_page(session, Some(revision), after, start, false, effects);
         }
@@ -187,7 +199,6 @@ impl Client {
         if count > MAX_TASK_ROWS as u64 {
             let panel = self.task_panel_mut(session).expect("open tasks");
             panel.reads.header_error = Some("Task count exceeds the supported native view".into());
-            panel.current = false;
             return None;
         }
         Some((facts.revision.clone(), count as usize, !facts.closed))

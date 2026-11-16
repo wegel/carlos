@@ -15,7 +15,7 @@ impl Device {
         };
         let mut lines = Vec::new();
         if activity.is_stale() {
-            lines.push(if self.tasks.windows.current.is_some() {
+            lines.push(if self.task_window().is_some() {
                 "Child activity reader retired; accepted display kept. Esc returns to the older list; r refreshes latest tasks before Enter reopens".into()
             } else {
                 "Child activity reader retired; accepted display kept. Use arrows to select a current task, then Enter to reopen.".into()

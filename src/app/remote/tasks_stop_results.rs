@@ -108,7 +108,7 @@ impl Device {
     }
 
     pub(super) fn missing_task_stop_notice(&self) -> Option<String> {
-        self.task_stop_notice_for(self.tasks.view.selected.as_ref()?, None, true)
+        self.task_stop_notice_for(self.selected_task_id()?, None, true)
     }
 
     fn task_stop_notice_for(

@@ -117,7 +117,6 @@ impl Client {
         self.release_task_watch(session);
         if let Some(panel) = self.task_panel_mut(session) {
             panel.wanted = false;
-            panel.current = false;
             panel.dirty = true;
         }
         let mut effects = Effects::default();

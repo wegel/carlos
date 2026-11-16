@@ -142,7 +142,7 @@ impl Device {
     }
 
     fn service(&mut self, link: &mut Transport) -> Result<bool> {
-        let mut changed = false;
+        let mut changed = self.flush_task_effects(link)?;
         for incoming in link.receive()? {
             changed |= self.metrics_receive(link, incoming)?;
             changed |= self.source_tick(Some(link));

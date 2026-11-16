@@ -1,7 +1,8 @@
 //! Keep selected task identities and private stop errors on the real daemon device.
 
 use carlos_client::codec::Incoming;
-use carlos_client::ConnectionId;
+use carlos_client::{ConnectionId, Effects};
+use carlos_proto::commands::{Command, Request};
 use carlos_proto::events::{Event, Notification, SessionEvent};
 use carlos_proto::ids::{Sequence, TaskId};
 use carlos_proto::session::{Backend, Snapshot};
@@ -10,6 +11,7 @@ use carlos_proto::tasks::{Task, TaskKind, TaskPage};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
+use serde_json::{json, Value};
 
 use super::widget_fixture::{device_with_snapshot, info};
 use super::Device;
@@ -74,22 +76,35 @@ fn accept_page(
         read_error: None,
         notice: String::new(),
     };
-    device
-        .client
-        .receive(
-            connection,
-            Incoming::Notification(Box::new(Notification::SessionEvent(SessionEvent {
-                session: device.session.clone(),
-                seq: Sequence::new(version),
-                event: Event::TasksChanged { tasks: Some(tasks) },
-            }))),
-        )
-        .expect("accept numbered task facts");
-    install_page(device, version, rows);
+    let mut pending = std::mem::take(&mut device.tasks.effects);
+    if device.client.task_panel(&device.session).is_none() {
+        pending.push(
+            device
+                .client
+                .open_task_panel(&device.session, None)
+                .expect("shared task reader"),
+        );
+    }
+    pending.push(
+        device
+            .client
+            .receive(
+                connection,
+                Incoming::Notification(Box::new(Notification::SessionEvent(SessionEvent {
+                    session: device.session.clone(),
+                    seq: Sequence::new(version),
+                    event: Event::TasksChanged { tasks: Some(tasks) },
+                }))),
+            )
+            .expect("accept numbered task facts"),
+    );
+    let page = task_page(device, version, rows);
+    answer_task_reads(device, pending, page);
+    device.tasks.paint_dirty.set(true);
 }
 
-fn install_page(device: &mut Device, version: u64, rows: &[(usize, &str)]) {
-    let page = TaskPage {
+fn task_page(device: &Device, version: u64, rows: &[(usize, &str)]) -> TaskPage {
+    TaskPage {
         session: device.session.clone(),
         seq: Sequence::new(version),
         revision: format!("{version:064x}").parse().expect("task revision"),
@@ -110,17 +125,36 @@ fn install_page(device: &mut Device, version: u64, rows: &[(usize, &str)]) {
         has_more: false,
         native_older_available: false,
         read_error: None,
-    };
-    device.client.check_task_page(&page).expect("page fence");
-    let tasks = &mut device.tasks;
-    tasks
-        .pages
-        .reset(page.revision.clone(), tasks.view.selected.is_some());
-    tasks
-        .pages
-        .accept(page, 0, rows.len(), &mut tasks.view.selected)
-        .expect("bounded task page");
-    tasks.paint_dirty.set(true);
+    }
+}
+
+fn answer_task_reads(device: &mut Device, pending: Vec<Effects>, page: TaskPage) {
+    let mut pending = pending;
+    while let Some(effects) = pending.pop() {
+        for outgoing in effects.outgoing {
+            let request: Request =
+                serde_json::from_slice(outgoing.bytes()).expect("typed task request");
+            let result = match request.command {
+                Command::TaskSubscribe { .. } => json!({"session":device.session,"seq":page.seq,
+                    "tasks":device.client.session(&device.session).expect("session facts").tasks()}),
+                Command::TaskList { .. } => serde_json::to_value(&page).expect("checked task page"),
+                Command::TaskUnsubscribe { .. } => Value::Null,
+                _ => continue,
+            };
+            pending.push(
+                device
+                    .client
+                    .receive(
+                        outgoing.connection(),
+                        Incoming::Success {
+                            id: outgoing.id(),
+                            result,
+                        },
+                    )
+                    .expect("owned task reply"),
+            );
+        }
+    }
 }
 
 #[test]
@@ -133,28 +167,28 @@ fn opening_keeps_the_same_task_through_completion_eviction_and_reopening() {
         &[(1, "running"), (2, "running")],
     );
     key(&mut device, KeyCode::F(2));
-    assert_eq!(device.tasks.view.selected, Some(id(1)));
+    assert_eq!(device.selected_task_id().cloned(), Some(id(1)));
     accept_page(
         &mut device,
         connection,
         3,
         &[(1, "completed"), (2, "running")],
     );
-    assert_eq!(device.tasks.view.selected, Some(id(1)));
+    assert_eq!(device.selected_task_id().cloned(), Some(id(1)));
     accept_page(&mut device, connection, 4, &[(2, "running")]);
-    assert_eq!(device.tasks.view.selected, Some(id(1)));
-    assert!(device.tasks.pages.selected(Some(&id(1))).is_none());
+    assert_eq!(device.selected_task_id().cloned(), Some(id(1)));
+    assert!(device.selected_task().is_none());
     assert!(draw(&mut device).contains("Selected row unavailable; use arrows"));
     key(&mut device, KeyCode::F(2));
     key(&mut device, KeyCode::F(2));
     assert_eq!(
-        device.tasks.view.selected,
+        device.selected_task_id().cloned(),
         Some(id(1)),
         "reopening cannot retarget x"
     );
     assert!(draw(&mut device).contains("Selected row unavailable; use arrows"));
     key(&mut device, KeyCode::Down);
-    assert_eq!(device.tasks.view.selected, Some(id(2)));
+    assert_eq!(device.selected_task_id().cloned(), Some(id(2)));
 }
 
 #[test]
@@ -174,11 +208,11 @@ fn choosing_a_row_clears_only_its_devices_stop_error_and_scroll() {
     assert!(draw(&mut first).contains("Private exact stop rejection"));
     first.tasks.view.scroll = 17;
     key(&mut first, KeyCode::Down);
-    assert_eq!(first.tasks.view.selected, Some(id(2)));
+    assert_eq!(first.selected_task_id().cloned(), Some(id(2)));
     assert_eq!(first.tasks.view.scroll, 0);
     assert!(first.tasks.view.error.is_none());
     assert!(!draw(&mut first).contains("Private exact stop rejection"));
-    assert_eq!(second.tasks.view.selected, Some(id(1)));
+    assert_eq!(second.selected_task_id().cloned(), Some(id(1)));
     assert_eq!(second.tasks.view.scroll, 17);
     assert_eq!(
         second.tasks.view.error.as_deref(),
@@ -224,13 +258,9 @@ fn native_reset_and_closed_info_keep_the_exact_selected_process_and_private_comp
                 }))),
             )
             .expect("actual device accepts current native state");
-        assert_eq!(device.tasks.view.selected, Some(id(1)));
+        assert_eq!(device.selected_task_id().cloned(), Some(id(1)));
         assert_eq!(device.view.input.lines().join("\n"), "keep this draft");
-        let selected = device
-            .tasks
-            .pages
-            .selected(Some(&id(1)))
-            .expect("retained task row");
+        let selected = device.selected_task().expect("retained task row");
         assert_eq!(selected.id, id(1));
         assert_eq!(selected.kind, TaskKind::Task);
         assert!(device.client.operations().iter().next().is_none());

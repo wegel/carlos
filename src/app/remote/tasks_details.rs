@@ -23,15 +23,13 @@ impl Device {
     }
 
     pub(super) fn drive_task_details(&mut self, link: &mut Transport) -> Result<()> {
-        let Some(task) = self.tasks.pages.selected(self.tasks.view.selected.as_ref()) else {
+        let Some(task) = self.selected_task() else {
             return Ok(());
         };
         let target = TaskDetailTarget {
             window: self.task_window_id(),
             expected: self
-                .tasks
-                .pages
-                .revision()
+                .task_page_revision()
                 .cloned()
                 .expect("accepted task page"),
             task: task.id.clone(),

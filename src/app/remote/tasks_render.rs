@@ -14,11 +14,11 @@ use crate::theme::COLOR_PRIMARY;
 impl Device {
     pub(super) fn draw_tasks(&self, buffer: &mut Buffer, size: TerminalSize) {
         let claude = self.task_backend() == Some(Backend::Claude);
-        let selected = self.tasks.pages.selected(self.tasks.view.selected.as_ref());
+        let selected = self.selected_task();
         let title = if claude {
             format!(
                 "Tasks {}/{} · {} active",
-                self.tasks.pages.position().map_or(0, |index| index + 1),
+                self.task_position().map_or(0, |index| index + 1),
                 self.task_count(),
                 self.task_facts().map_or(0, |facts| facts.counts.active)
             )
@@ -62,9 +62,9 @@ impl Device {
 
     fn task_caption(&self, selected: Option<&Task>) -> String {
         let Some(task) = selected else {
-            return if !self.tasks.pages.is_settled() {
+            return if !self.task_pages_settled() {
                 "Reading native task page; selected id kept"
-            } else if self.tasks.view.selected.is_some() {
+            } else if self.selected_task_id().is_some() {
                 "Selected row unavailable; use arrows"
             } else {
                 "No selected agent/process"
@@ -96,12 +96,12 @@ impl Device {
             lines.push(notice);
         }
         let current = self.client.current_session_is_ready(&self.session)
-            && (self.task_view_is_current() || self.tasks.windows.current.is_some());
+            && (self.task_view_is_current() || self.task_window().is_some());
         if current {
             match selected {
                 Some(task) => self.selected_task_body(task, &mut lines),
-                None if self.tasks.pages.is_settled() => {
-                    lines.push(if self.tasks.view.selected.is_some() {
+                None if self.task_pages_settled() => {
+                    lines.push(if self.selected_task_id().is_some() {
                         "Selected row unavailable; use arrows to choose another".into()
                     } else {
                         "No native tasks reported".into()
@@ -126,7 +126,7 @@ impl Device {
             .task_details()
             .and_then(|details| details.value())
             .is_some_and(|value| {
-                value.task.id == task.id && Some(&value.revision) == self.tasks.pages.revision()
+                value.task.id == task.id && Some(&value.revision) == self.task_page_revision()
             })
         {
             lines.extend(super::tasks_text::detail(
@@ -143,7 +143,7 @@ impl Device {
             lines.push("Reading complete named task fields…".into());
         }
         if task.kind == TaskKind::Agent {
-            if let Some(window) = &self.tasks.windows.current {
+            if let Some(window) = self.task_window() {
                 lines.push(format!(
                     "{} rows in this private native window; ↑↓ selects",
                     window.rows
@@ -167,8 +167,8 @@ impl Device {
 
     fn task_notices(&self) -> Vec<String> {
         let mut lines = Vec::new();
-        if self.tasks.windows.current.is_some() {
-            lines.push(if self.tasks.windows.stale {
+        if self.task_window().is_some() {
+            lines.push(if self.task_window_is_stale() {
                 "Older native task window retired; displayed rows kept. r latest before controls"
             } else { "Private older native task window; l older, r latest" }.into());
         }
@@ -176,17 +176,16 @@ impl Device {
             lines.push("Reading older tasks; current page kept…".into());
         }
         if let Some(error) = self
-            .tasks
-            .windows
-            .current
-            .as_ref()
+            .task_window()
             .and_then(|window| window.read_error.as_ref())
         {
             lines.push(error.clone());
         }
         for error in [
             self.tasks.view.error.as_deref(),
-            self.tasks.reads.error(),
+            self.client
+                .task_panel(&self.session)
+                .and_then(|panel| panel.read_error()),
             self.task_details().and_then(|details| details.read_error()),
             self.client
                 .task_overview(&self.session)

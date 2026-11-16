@@ -17,16 +17,11 @@ impl Device {
         let failed_sources = self.documents.received(&incoming);
         let was_ready = self.client.session_is_ready(link.connection, &self.session);
         let had_question_facts = self.question_facts_are_current();
-        let task_read = self.client.pending_task_read(&self.session);
         let mut effects = self.client.receive(link.connection, incoming)?;
         for token in failed_sources {
             effects
                 .outgoing
                 .extend(self.client.close_body(&token).outgoing);
-        }
-        if self.tasks.reads.header.is_none() {
-            self.tasks.reads.header =
-                task_read.or_else(|| self.client.pending_task_read(&self.session));
         }
         let changed = self.apply_effects(link, effects)?;
         let readiness_changed =
@@ -49,7 +44,7 @@ impl Device {
         self.replace_source_frames(effects.welcome.as_ref());
         self.question_effects(&effects);
         let history_changed = self.apply_prompt_reads(link, &mut effects)?;
-        let mut task_changed = self.apply_task_reads(&mut effects)?;
+        let mut task_changed = self.apply_task_reads(&mut effects);
         task_changed |= self.task_operations_changed(&effects.operations);
         let goal_changed = self.goal_model_changed(&effects);
         let settings_changed = self.apply_settings_reads(&mut effects);

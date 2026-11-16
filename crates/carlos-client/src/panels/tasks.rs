@@ -58,7 +58,6 @@ pub struct TaskPanel {
     pub(crate) refresh: bool,
     pub(crate) dirty: bool,
     pub(crate) count: usize,
-    pub(crate) current: bool,
     pub(crate) charge: usize,
 }
 
@@ -184,7 +183,6 @@ impl TaskPanel {
         self.windows.retired.clear();
         self.windows.stale |= self.windows.current.is_some();
         self.paused = false;
-        self.current = false;
         self.dirty = true;
     }
 }

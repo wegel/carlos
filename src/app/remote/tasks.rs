@@ -4,14 +4,13 @@ use std::cell::{Cell, RefCell};
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use carlos_client::panels::TaskPageWindow;
+use carlos_client::Effects;
 use carlos_proto::commands::SendPolicy;
-use carlos_proto::ids::{Sequence, TaskId};
+
 use carlos_proto::session::Backend;
 use carlos_proto::task_facts::TaskFacts;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use super::tasks_reads::Reads;
 use super::tasks_stops::Stops;
 use super::transport::Transport;
 use super::Device;
@@ -20,7 +19,6 @@ use crate::app::task_panel_rows::PanelRows;
 #[derive(Default)]
 pub(super) struct TaskView {
     pub(super) show: bool,
-    pub(super) selected: Option<TaskId>,
     pub(super) scroll: usize,
     pub(super) error: Option<String>,
     pub(super) queue_mode: bool,
@@ -31,12 +29,9 @@ pub(super) struct TaskView {
 #[derive(Default)]
 pub(super) struct Tasks {
     pub(super) activity: super::tasks_activity::ChildActivity,
-    pub(super) windows: super::tasks_windows::Windows,
     pub(super) view: TaskView,
-    pub(super) pages: TaskPageWindow,
-    pub(super) reads: Reads,
     pub(super) stops: Stops,
-    pub(super) refresh: bool,
+    pub(super) effects: Vec<Effects>,
     pub(super) paint: RefCell<PanelRows>,
     pub(super) paint_dirty: Cell<bool>,
 }
@@ -47,23 +42,14 @@ impl Device {
         self.client.session(&self.session)?.tasks()
     }
 
-    pub(super) fn task_sequence(&self) -> Sequence {
-        self.client
-            .session(&self.session)
-            .map_or(Sequence::default(), |replica| replica.task_sequence())
-    }
-
     pub(super) fn task_backend(&self) -> Option<Backend> {
         Some(self.client.session(&self.session)?.info().backend)
     }
 
     pub(super) fn task_count(&self) -> usize {
-        if let Some(header) = &self.tasks.windows.current {
-            return header.rows as usize;
-        }
-        self.task_facts().map_or(0, |facts| {
-            (facts.counts.agents + facts.counts.processes + facts.counts.tasks) as usize
-        })
+        self.client
+            .task_panel(&self.session)
+            .map_or(0, |panel| panel.count())
     }
 
     /// Open explicit native task interest while preserving any underlying composer or editor.
@@ -72,44 +58,25 @@ impl Device {
         self.tasks.view.show = true;
         self.tasks.view.scroll = 0;
         self.tasks.view.error = None;
-        self.tasks.reads.header_error = None;
-        let effects = if self.tasks.windows.current.is_none() {
-            self.client.watch_tasks(&self.session)?
-        } else {
-            Default::default()
-        };
-        self.tasks.reads.header = self.client.pending_task_read(&self.session);
-        if let Some(link) = link {
-            for outgoing in effects.outgoing {
-                link.send(outgoing)?;
-            }
-        }
+        let effects = self.client.open_task_panel(&self.session, None)?;
+        self.apply_or_queue_task_effects(link, effects)?;
         Ok(())
     }
 
     fn close_tasks(&mut self, link: Option<&mut Transport>) -> Result<()> {
         self.close_task_activity(false)?;
         self.tasks.view.show = false;
-        self.retire_task_windows(false);
-        self.tasks.reads.close();
         self.clear_task_details();
         self.client.close_task_overview(&self.session);
-        let effects = self.client.close_tasks(&self.session);
-        if let Some(link) = link {
-            for outgoing in effects.outgoing {
-                link.send(outgoing)?;
-            }
-        }
+        let effects = self.client.close_task_panel(&self.session);
+        self.apply_or_queue_task_effects(link, effects)?;
         Ok(())
     }
 
     /// Retire only unfinished read rights; selected rows and private stop results survive EOF.
     pub(super) fn tasks_disconnected(&mut self) {
-        self.task_activity_disconnected();
         self.tasks.paint_dirty.set(true);
-        self.retire_task_windows(false);
-        self.tasks.windows.disconnected();
-        self.tasks.reads.disconnected();
+        self.tasks.effects.clear();
         if self.tasks.stops.disconnected() {
             self.tasks.view.error =
                 Some("Native run read interrupted; x explicitly rereads before stopping".into());
@@ -185,15 +152,12 @@ impl Device {
 
     fn select_task(&mut self, direction: isize) {
         self.tasks.paint_dirty.set(true);
-        let count = self.task_count();
-        self.tasks.reads.page_changed();
-        if let Err(error) =
-            self.tasks
-                .pages
-                .navigate(direction, count, &mut self.tasks.view.selected)
-        {
-            self.tasks.view.error = Some(error.to_string());
-            return;
+        match self.client.move_task_panel(&self.session, direction) {
+            Ok(effects) => self.tasks.effects.push(effects),
+            Err(error) => {
+                self.tasks.view.error = Some(error.to_string());
+                return;
+            }
         }
         self.tasks.view.scroll = 0;
         self.tasks.view.error = None;
@@ -201,10 +165,14 @@ impl Device {
     }
 
     fn refresh_tasks(&mut self) {
-        self.retire_task_windows(true);
         self.tasks.paint_dirty.set(true);
-        self.tasks.refresh = true;
-        self.tasks.reads.clear();
+        match self.client.refresh_task_panel(&self.session) {
+            Ok(effects) => self.tasks.effects.push(effects),
+            Err(error) => {
+                self.tasks.view.error = Some(error.to_string());
+                return;
+            }
+        }
         self.clear_task_details();
         self.client.close_task_overview(&self.session);
         self.tasks.view.overview_next_draw = None;

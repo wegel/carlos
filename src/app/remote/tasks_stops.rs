@@ -60,13 +60,9 @@ impl Device {
             self.task_view_is_current(),
             "Refresh current task facts before stopping"
         );
-        let task = self
-            .tasks
-            .pages
-            .selected(self.tasks.view.selected.as_ref())
-            .ok_or_else(|| {
-                anyhow::anyhow!("Selected row unavailable; use arrows before stopping")
-            })?;
+        let task = self.selected_task().ok_or_else(|| {
+            anyhow::anyhow!("Selected row unavailable; use arrows before stopping")
+        })?;
         ensure!(
             !self.tasks.stops.results.pending(&self.client, &task.id),
             "This task stop is already pending"
