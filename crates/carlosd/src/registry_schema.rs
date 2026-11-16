@@ -1,8 +1,8 @@
-//! Upgrade catalogue metadata atomically after validating every saved session description.
+//! Upgrade session and device metadata atomically after validating their stored rows.
 
 use rusqlite::{Connection, TransactionBehavior};
 
-use super::{rows, RegistryError};
+use super::{devices, rows, RegistryError};
 
 pub(super) fn prepare(connection: &mut Connection) -> Result<(), RegistryError> {
     let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -22,16 +22,25 @@ pub(super) fn prepare(connection: &mut Connection) -> Result<(), RegistryError> 
             add_claude_fresh(&transaction)?;
         }
         2 => add_claude_fresh(&transaction)?,
-        3 => {}
+        3 | 4 => {}
         _ => {
             return Err(RegistryError::Invalid(format!(
                 "catalogue version {version} is newer than this daemon; no rows changed"
             )))
         }
     }
+    if version < 4 {
+        transaction.execute_batch(
+            "CREATE TABLE devices (
+             id TEXT PRIMARY KEY NOT NULL CHECK(length(id)=32),
+             name TEXT NOT NULL CHECK(length(name) BETWEEN 1 AND 256),
+             verifier TEXT NOT NULL CHECK(length(verifier)=64));",
+        )?;
+    }
     rows::load(&transaction)?;
-    if version < 3 {
-        transaction.pragma_update(None, "user_version", 3)?;
+    devices::load(&transaction)?;
+    if version < 4 {
+        transaction.pragma_update(None, "user_version", 4)?;
     }
     transaction.commit()?;
     Ok(())

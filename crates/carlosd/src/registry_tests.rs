@@ -41,7 +41,10 @@ fn restart_lists_the_same_logical_session_without_restarting_automatic_work() {
             |row| row.get(0),
         )
         .expect("table count");
-    assert_eq!(count, 1, "the catalogue stores no transcript or job table");
+    assert_eq!(
+        count, 2,
+        "only session metadata and device verifiers, no transcript or job table"
+    );
 }
 
 #[test]
@@ -64,13 +67,13 @@ fn a_newer_catalogue_is_rejected_without_rewriting_its_version() {
     let path = root.path().join("db");
     let connection = rusqlite::Connection::open(&path).expect("future catalogue");
     connection
-        .pragma_update(None, "user_version", 4)
+        .pragma_update(None, "user_version", 5)
         .expect("future version");
     assert!(Registry::open(&path).is_err());
     let version: u32 = connection
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .expect("version unchanged");
-    assert_eq!(version, 4);
+    assert_eq!(version, 5);
 }
 
 #[test]
@@ -111,7 +114,7 @@ fn version_one_upgrade_preserves_native_metadata_and_is_repeatable() {
     let version: u32 = connection
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .expect("version");
-    assert_eq!(version, 3);
+    assert_eq!(version, 4);
     let stopped: bool = connection
         .query_row("SELECT stopped FROM sessions", [], |row| row.get(0))
         .expect("new flag");
@@ -203,5 +206,5 @@ fn version_two_stopped_row_keeps_its_exact_saved_target_during_upgrade() {
     let version: u32 = connection
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .expect("new version");
-    assert_eq!(version, 3);
+    assert_eq!(version, 4);
 }

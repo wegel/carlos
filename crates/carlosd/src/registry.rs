@@ -1,9 +1,11 @@
-//! Save only session addresses and launch choices, without persisting transcripts or native jobs.
+//! Save bounded session launch choices and device verifiers without transcripts or native jobs.
 
 use std::fmt;
 use std::path::Path;
 use std::time::Duration;
 
+#[path = "registry_devices.rs"]
+mod devices;
 #[path = "registry_rows.rs"]
 mod rows;
 #[path = "registry_schema.rs"]
@@ -13,6 +15,8 @@ use carlos_proto::ids::SessionId;
 use carlos_proto::session::{Availability, Backend, Phase, SessionInfo};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
+
+pub use self::devices::SavedDevice;
 
 /// The catalogue preserves a logical address even when its native backend is dormant.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
