@@ -1,7 +1,9 @@
 //! Validate native panel replies against their original explicit session, entry and revision.
 
 use carlos_proto::ids::{QueueRevision, SessionId};
-use carlos_proto::queue::{QueuePage, QueueText, MAX_DISPLAY_ID_BYTES, MAX_PAGE_ENTRIES};
+use carlos_proto::queue::{
+    QueuePage, QueueText, MAX_DISPLAY_ID_BYTES, MAX_ENTRIES, MAX_PAGE_ENTRIES,
+};
 use serde_json::Value;
 
 use crate::client::Client;
@@ -25,7 +27,7 @@ impl Client {
             .as_ref()
             .is_some_and(|expected| expected != &page.queue.revision)
             || page.entries.len() > MAX_PAGE_ENTRIES
-            || page.queue.count > 4096
+            || page.queue.count as usize > MAX_ENTRIES
             || page.entries.iter().any(|entry| {
                 entry.preview.chars().take(1025).count() > 1024
                     || entry.client_message.chars().take(129).count() > 128

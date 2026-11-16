@@ -24,6 +24,7 @@ mod goal;
 mod goal_watches;
 mod history;
 mod operations;
+pub mod panels;
 mod pending;
 mod prompts;
 mod queue;

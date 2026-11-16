@@ -25,8 +25,8 @@ impl Device {
             && !self.queue.refresh
             && !self.queue.reads.busy()
             && facts.is_some_and(|facts| facts.known && !facts.reading)
-            && self.queue.pages.settled
-            && self.queue.pages.revision.as_ref() == facts.map(|facts| &facts.revision);
+            && self.queue.pages.is_settled()
+            && self.queue.pages.revision() == facts.map(|facts| &facts.revision);
         let mut lines = vec!["Codex queue · Esc back".into()];
         if !editable(size) {
             lines.push("Resize to edit".into());
@@ -56,7 +56,7 @@ impl Device {
             "Selected {}/{}: {}",
             self.queue
                 .pages
-                .position
+                .position()
                 .filter(|_| current)
                 .map_or(0, |index| index + 1),
             count,

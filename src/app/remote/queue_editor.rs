@@ -46,7 +46,7 @@ impl Device {
         }
         self.queue.editing.loading = Some(EditorRead {
             entry: entry.id.clone(),
-            expected: self.queue.pages.revision.clone().expect("current page"),
+            expected: self.queue.pages.revision().cloned().expect("current page"),
             bytes,
             text: String::new(),
             request: None,

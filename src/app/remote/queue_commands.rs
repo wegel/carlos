@@ -24,8 +24,8 @@ impl Device {
         let revision = self.queue_revision()?;
         if self.queue.refresh
             || self.queue.reads.busy()
-            || !self.queue.pages.settled
-            || self.queue.pages.revision.as_ref() != Some(&revision)
+            || !self.queue.pages.is_settled()
+            || self.queue.pages.revision() != Some(&revision)
         {
             bail!("Select a current queued message after the queue finishes refreshing");
         }

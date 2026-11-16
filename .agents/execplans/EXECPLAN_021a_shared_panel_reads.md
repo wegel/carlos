@@ -13,6 +13,9 @@ EP021 is split at a natural boundary. This plan shares existing read behavior an
 
 ## Progress
 
+- [x] (2026-11-16) Commit exhaustive command admission as3248fab after all186 actual-daemon cases, default1657 Rust cases, strict lint and400/60 audit pass. The first follow-ups are047d6fd.
+- [ ] (2026-11-16) Begin the shared queue proof by moving the one-page/cursor window into carlos-client::panels::QueuePageWindow and deleting src/app/remote/queue_pages.rs. Terminal callers use read-only accessors; selection/editor ownership stays local. Four pure tests prove a third-page selection, explicit wrap through unknown bookmarks, no retargeting after replacement, and atomic rejection of bad intervals/revisions. Default workspace1661 tests pass18.88s and strict lint/source audit pass. Matching debug executables build, and all12 actual queue terminal workflows pass9.351s at /tmp/carlos-ep021a-queue-window.log, including long text, opaque/rich input refusal, cross-page selection, two editors, reconnect, stale errors, tiny layouts and Ralph ordering. Request/reply/future/text orchestration still lives in the terminal and must move next; this is not the completed shared-reader milestone.
+
 - [x] (2026-11-16) Add one exhaustive command_info.rs description used by ingress, manager routing and every mutation retry-class choice, including asynchronous open. Remove wildcard read fallback and repeated Native/Core class literals; name Prepared fields instead of tuple positions. The intermediate49 daemon Rust cases and full1657 default workspace cases pass, strict default lint and400/60 audit pass, and matching debug executables build. The complete186 actual-daemon regression passes106.507s at /tmp/carlos-ep021a-admission.log. Both feature/final release/performance checks remain required at this plan's end.
 
 
@@ -27,6 +30,8 @@ EP021 is split at a natural boundary. This plan shares existing read behavior an
 - [ ] Complete direct engineering and Fable whole-roadmap reviews, record dispositions and delegated approval, archive unchanged, then write EP021b and continue.
 
 ## Surprises & Discoveries
+
+The first queue extraction can remove the terminal's page-window copy immediately while leaving its I/O controller for the next step. QueuePageWindow retains only one preview page plus at most128 bookmarks; the existing4096-entry validator is now a named protocol constant, not a new limit. Preserve the last displayed row when invalidating its revision, because the stale header can still show that readonly label while native actions remain blocked by the separate current-facts check. A public page accept also rejects mismatched revisions and overflowing intervals before touching the old window.
 
 The command description needs distinct handler, ingress and retry fields: device/list uses the operator ingress reserve without a retained mutation result; stop uses lifecycle reserve; reopen is ordinary; asynchronous native open must retain the same ordinary class after its checked target completes. A single role cannot replace these independent rules. Named Prepared fields also remove a tuple-position dependency when attaching a captured task window. No command method names, wire payloads or canonical bytes changed.
 
@@ -54,6 +59,8 @@ EP020's focused Fable follow-up approves closure with three MINORs. A reader tha
 - Decision: prototype the queue family first, then use the demonstrated pattern for the other families. Rationale: it exercises cursor walks, long text, future replies and editor independence without inventing abstractions for every panel before one works. Date/author: 2026-11-16, Root.
 
 ## Outcomes & Retrospective
+
+Exhaustive command admission is committed and all186 actual-daemon cases pass. The first shared queue component now replaces the terminal page-window code, with four direct pure-client behavior tests and1661 default workspace cases passing. All12 actual queue UI workflows now pass; moving the request/reply/future/full-text controller into Client is next. The other panel families, final full feature/release/performance checks and end-only reviews remain unfinished.
 
 
 The first two EP020 follow-ups are implemented and the default workspace tests pass: native timeout text now says returned, and a real progressing-then-stalled reader closes automatically and releases its active charge. The accepted EP020 pair remains unchanged as the baseline. The exhaustive description now drives ingress, typed handlers and mutation retry classes; unit/default/lint checks and all186 actual-daemon cases pass. The first shared queue reader remains next after that proof. This plan must end with one reusable set of read controllers and fewer matching terminal controllers, not a parallel implementation kept indefinitely.
@@ -176,3 +183,7 @@ Revision 2026-11-16: finish the two focused EP020 follow-ups, record the real pa
 Revision 2026-11-16: connect exhaustive command descriptions to actual ingress/routing/retry admission, retain the existing reserves/scopes and record the green Rust/lint/build checks while the full daemon regression runs. No independent reviewer has started in EP021a.
 
 Revision 2026-11-16: complete the unified admission slice after all186 actual-daemon cases and default/lint/source checks pass. The shared queue reader is the next incomplete milestone; the full final feature/release/performance/review gates remain required after all reader migrations.
+
+Revision 2026-11-16: record the first real shared queue component, deleted terminal copy, four pure behavior tests and remaining actual UI/controller work. This is an incremental migration, not a second permanent controller path or a finished panel API.
+
+Revision 2026-11-16: verify the extracted window with all12 real queue UI workflows after1661 Rust tests and strict lint pass. Preserve the complete queue range, stale readonly labels and private editor behavior; keep the shared request/reply controller unfinished.

@@ -7,6 +7,8 @@ use crate::ids::{QueueEntryId, QueueRevision, Sequence, SessionId};
 
 /// Match the terminal's ordinary submitted-text bound without limiting persisted native inputs.
 pub const MAX_TEXT_BYTES: usize = 512 * 1024;
+/// Preserve the existing complete native queue allowance without growing cursor storage indefinitely.
+pub const MAX_ENTRIES: usize = 4096;
 /// Keep even escaped previews below a half-MiB reply reservation.
 pub const MAX_PAGE_ENTRIES: usize = 32;
 /// Keep the native identifier shown by the old queue header within a small display-only label.

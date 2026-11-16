@@ -161,7 +161,7 @@ impl Device {
         if self.queue.reads.error().is_some() {
             return Ok(changed);
         }
-        if self.queue.pages.revision.as_ref() != Some(&revision) {
+        if self.queue.pages.revision() != Some(&revision) {
             self.queue
                 .pages
                 .reset(revision.clone(), self.view.codex_queue.selected.is_some());
@@ -222,7 +222,7 @@ impl Device {
                     self.queue.reads.future = Some((read, page));
                     return Ok(false);
                 }
-                self.queue.pages.revision = None;
+                self.queue.pages.invalidate();
                 return Ok(true);
             }
             Err(error) => return Err(error.into()),
@@ -230,7 +230,7 @@ impl Device {
         if !page.queue.known || page.queue.reading {
             return Ok(true);
         }
-        if self.queue.pages.revision.as_ref() != Some(&page.queue.revision) {
+        if self.queue.pages.revision() != Some(&page.queue.revision) {
             self.queue.pages.reset(
                 page.queue.revision.clone(),
                 self.view.codex_queue.selected.is_some(),
@@ -242,7 +242,7 @@ impl Device {
                 .accept(page, read.start, &mut self.view.codex_queue.selected)
         {
             self.queue.reads.failure = Some(ReadFailure {
-                revision: self.queue.pages.revision.clone(),
+                revision: self.queue.pages.revision().cloned(),
                 message: error.to_string(),
             });
         }

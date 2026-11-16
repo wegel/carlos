@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
+use carlos_client::panels::QueuePageWindow;
 use carlos_proto::ids::{QueueEntryId, QueueRevision};
 use carlos_proto::queue::{QueueDirection, QueueFacts};
 use carlos_proto::session::Backend;
@@ -14,7 +15,6 @@ use ratatui_textarea::TextArea;
 use super::queue_commands::QueueControl;
 use super::queue_editor::Editors;
 use super::queue_outcomes::OwnedQueue;
-use super::queue_pages::Pages;
 use super::queue_reads::Reads;
 use super::transport::Transport;
 use super::Device;
@@ -33,7 +33,7 @@ pub(super) struct QueueEditor {
 /// Keep page reads and private operation ownership separate from the shared queue facts.
 #[derive(Default)]
 pub(super) struct Queue {
-    pub(super) pages: Pages,
+    pub(super) pages: QueuePageWindow,
     pub(super) reads: Reads,
     pub(super) editing: Editors,
     pub(super) operations: HashMap<ClientOperation, OwnedQueue>,

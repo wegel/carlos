@@ -1,8 +1,9 @@
-//! Keep one bounded queue preview page and opaque cursors while preserving the selected identity.
+//! Retain one queue preview page and its bookmarks while finding the requested row.
 
-use anyhow::{bail, Result};
 use carlos_proto::ids::{QueueEntryId, QueueRevision};
-use carlos_proto::queue::{QueueEntry, QueuePage, MAX_PAGE_ENTRIES};
+use carlos_proto::queue::{QueueEntry, QueuePage, MAX_ENTRIES, MAX_PAGE_ENTRIES};
+
+use crate::ClientError;
 
 #[derive(Default)]
 enum Target {
@@ -13,20 +14,45 @@ enum Target {
 
 /// Keep previews for one page and addresses for at most the native queue's 128 pages.
 #[derive(Default)]
-pub(super) struct Pages {
-    pub(super) revision: Option<QueueRevision>,
-    pub(super) entries: Vec<QueueEntry>,
-    pub(super) position: Option<usize>,
-    pub(super) settled: bool,
+pub struct QueuePageWindow {
+    revision: Option<QueueRevision>,
+    entries: Vec<QueueEntry>,
+    position: Option<usize>,
+    settled: bool,
     start: usize,
     next_start: usize,
     cursors: Vec<Option<QueueEntryId>>,
     target: Target,
 }
 
-impl Pages {
+impl QueuePageWindow {
+    /// Borrow the revision that proves this window's rows.
+    pub fn revision(&self) -> Option<&QueueRevision> {
+        self.revision.as_ref()
+    }
+
+    /// Borrow the single retained preview page, not every page walked to find a target.
+    pub fn entries(&self) -> &[QueueEntry] {
+        &self.entries
+    }
+
+    /// Borrow the resolved global position of the device's requested target.
+    pub fn position(&self) -> Option<usize> {
+        self.position
+    }
+
+    /// Report whether the requested position or identity has finished its cursor walk.
+    pub fn is_settled(&self) -> bool {
+        self.settled
+    }
+
+    /// Require a fresh revision before native use while retaining the last displayed row.
+    pub fn invalidate(&mut self) {
+        self.revision = None;
+    }
+
     /// Retire stale previews without selecting a different native entry.
-    pub(super) fn reset(&mut self, revision: QueueRevision, selected: bool) {
+    pub fn reset(&mut self, revision: QueueRevision, selected: bool) {
         *self = Self {
             revision: Some(revision),
             cursors: vec![None],
@@ -39,8 +65,8 @@ impl Pages {
         };
     }
 
-    /// Borrow only the selected entry currently proven by this page's revision.
-    pub(super) fn selected(&self, selected: Option<&str>) -> Option<&QueueEntry> {
+    /// Borrow the requested row once the last page walk has settled; callers still check freshness.
+    pub fn selected(&self, selected: Option<&str>) -> Option<&QueueEntry> {
         self.settled.then_some(())?;
         self.entries
             .iter()
@@ -48,7 +74,7 @@ impl Pages {
     }
 
     /// Return the next explicit page address without retaining its preview text.
-    pub(super) fn next(&self) -> Option<(usize, Option<QueueEntryId>)> {
+    pub fn next(&self) -> Option<(usize, Option<QueueEntryId>)> {
         if self.settled {
             return None;
         }
@@ -60,13 +86,8 @@ impl Pages {
         ))
     }
 
-    /// Move only after an explicit arrow, reading intervening pages when their addresses are unknown.
-    pub(super) fn navigate(
-        &mut self,
-        direction: isize,
-        count: usize,
-        selected: &mut Option<String>,
-    ) {
+    /// Move the requested list target, reading intervening pages only when their bookmarks are unknown.
+    pub fn navigate(&mut self, direction: isize, count: usize, selected: &mut Option<String>) {
         if count == 0 {
             *selected = None;
             self.position = None;
@@ -77,7 +98,7 @@ impl Pages {
             _ => self.position,
         };
         let index = current.map_or(0, |index| {
-            (index as isize + direction).rem_euclid(count as isize) as usize
+            (index as i128 + direction as i128).rem_euclid(count as i128) as usize
         });
         self.target = Target::Position(index);
         self.settled = false;
@@ -95,25 +116,35 @@ impl Pages {
     }
 
     /// Accept a bounded page, stopping once the selected id or requested ordinal is present.
-    pub(super) fn accept(
+    pub fn accept(
         &mut self,
         page: QueuePage,
         start: usize,
         selected: &mut Option<String>,
-    ) -> Result<()> {
+    ) -> Result<(), ClientError> {
+        if self.revision.as_ref() != Some(&page.queue.revision) {
+            return Err(ClientError::StaleQueue);
+        }
         let count = page.queue.count as usize;
-        let end = start + page.entries.len();
-        if end > count
+        let end = start
+            .checked_add(page.entries.len())
+            .ok_or_else(|| ClientError::InvalidPayload("Queue page interval overflowed".into()))?;
+        if count > MAX_ENTRIES
+            || end > count
             || page.entries.len() > MAX_PAGE_ENTRIES
             || page.has_more && (page.entries.len() != MAX_PAGE_ENTRIES || end >= count)
             || !page.has_more && end != count
         {
-            bail!("Queue page does not match its declared count; refresh before editing");
+            return Err(ClientError::InvalidPayload(
+                "Queue page does not match its declared count; refresh before editing".into(),
+            ));
         }
         if page.has_more {
             let next = start / MAX_PAGE_ENTRIES + 1;
             if next > self.cursors.len() {
-                bail!("Queue page skipped an unknown cursor");
+                return Err(ClientError::InvalidPayload(
+                    "Queue page skipped an unknown cursor".into(),
+                ));
             }
             let cursor = page.entries.last().expect("nonempty page").id.clone();
             if next == self.cursors.len() {
