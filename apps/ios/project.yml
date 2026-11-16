@@ -1,4 +1,8 @@
 name: Carlos
+configs:
+  Debug: debug
+  Release: release
+  Fixture: debug
 options:
   deploymentTarget:
     iOS: "18.0"
@@ -16,17 +20,30 @@ targets:
     sources:
       - path: ${CARLOS_APP}/Sources
       - path: ${CARLOS_GENERATED}/Swift
+      - path: ${CARLOS_APP}/Resources
+        buildPhase: resources
     dependencies:
       - framework: ${CARLOS_GENERATED}/CarlosPhone.xcframework
         embed: false
+    info:
+      path: ${CARLOS_GENERATED}/CarlosInfo.plist
+      properties:
+        CFBundleDisplayName: Carlos
+        UILaunchScreen: {}
+        UIUserInterfaceStyle: Dark
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIAppFonts: [InterVariable.ttf, InterVariable-Italic.ttf, JetBrainsMono-Regular.ttf]
+        NSLocalNetworkUsageDescription: Carlos connects to the daemon you choose on your private network.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.carlos.phone
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Carlos
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        GENERATE_INFOPLIST_FILE: NO
         OTHER_LDFLAGS: ["$(inherited)", "-lc++", "-liconv"]
+      configs:
+        Fixture:
+          PRODUCT_BUNDLE_IDENTIFIER: app.carlos.phone.fixture
   CarlosTests:
     type: bundle.unit-test
     platform: iOS
@@ -37,11 +54,26 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.carlos.phone.tests
         GENERATE_INFOPLIST_FILE: YES
+  CarlosUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: ${CARLOS_APP}/UITests
+      - path: ${CARLOS_GENERATED}/UIFixtures
+        optional: true
+        buildPhase: resources
+    dependencies:
+      - target: Carlos
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.carlos.phone.ui-tests
+        GENERATE_INFOPLIST_FILE: YES
 schemes:
   Carlos:
     build:
       targets:
         Carlos: all
         CarlosTests: [test]
+        CarlosUITests: [test]
     test:
-      targets: [CarlosTests]
+      targets: [CarlosTests, CarlosUITests]

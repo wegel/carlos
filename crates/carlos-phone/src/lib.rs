@@ -1,7 +1,9 @@
 //! Expose the shared checked client to Swift while the phone owns its socket and UI.
 
+mod approvals;
 mod changes;
 mod client;
+mod controls;
 mod entries;
 mod error;
 mod operations;
@@ -10,6 +12,7 @@ mod session_calls;
 mod sessions;
 mod transcript;
 
+pub use approvals::{PhoneApproval, PhoneApprovalCaption, PhoneDecision};
 pub use changes::{PhoneSessionChange, PhoneWindowChange};
 pub use client::PhoneClient;
 pub use entries::{
@@ -32,3 +35,6 @@ mod test_support;
 
 #[cfg(test)]
 mod session_call_tests;
+
+#[cfg(test)]
+mod control_tests;

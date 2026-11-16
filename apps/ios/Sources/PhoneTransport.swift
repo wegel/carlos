@@ -23,6 +23,7 @@ final class PhoneTransport: @unchecked Sendable {
     private var callbacks: PhoneCallbacks?
     private var writes: [PhoneFrame] = []
     private var writing = false
+    private var greeted = false
 
     deinit { session.invalidateAndCancel() }
 
@@ -137,7 +138,7 @@ final class PhoneTransport: @unchecked Sendable {
             }
             let batch = try client.receive(generation: generation, message: data)
             try enqueue(batch.outgoing)
-            if batch.ready { emit(.connected) }
+            if batch.ready && !greeted { greeted = true; emit(.connected) }
             let rejected = !batch.ready && !batch.failures.isEmpty
             guard let callbacks else { return }
             DispatchQueue.main.async {
@@ -169,6 +170,7 @@ final class PhoneTransport: @unchecked Sendable {
         generation = nil
         writes.removeAll(keepingCapacity: true)
         writing = false
+        greeted = false
         emit(.disconnected(message))
     }
 

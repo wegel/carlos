@@ -7,6 +7,7 @@ struct PhoneHostUpdate: Sendable {
     var order: [String]?
     var rows: [PhoneEntry] = []
     var operations: [PhoneOperation] = []
+    var approvals: [PhoneApproval]?
 
     static func read(
         client: PhoneClient, batch: PhoneBatch, selected: String?,
@@ -18,6 +19,9 @@ struct PhoneHostUpdate: Sendable {
         guard let selected else { return update }
         let changes = batch.sessions.filter { $0.session == selected }
         guard !changes.isEmpty else { return update }
+        if changes.contains(where: { $0.approvals || $0.window.reset }) {
+            update.approvals = try client.approvals(session: selected)
+        }
         update.transcript = try client.transcript(session: selected)
         let changed = Set(changes.flatMap(\.entries))
         let reorder = changes.contains { $0.window.reset || $0.window.removedFront > 0 || $0.window.removedBack > 0 }

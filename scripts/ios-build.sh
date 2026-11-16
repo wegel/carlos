@@ -23,6 +23,7 @@ run() {
     local directory identity simulator dependencies
     directory="$(python3 scripts/ios-prepare.py)"
     identity="$(basename "$directory")"
+    printf 'source: %s\n' "$identity"
     dependencies="$(cat "$directory/dependencies-id")"
     [[ "$dependencies" =~ ^[a-f0-9]{20}$ ]] || { echo "invalid dependency bundle" >&2; exit 2; }
     "${MAC[@]}" sync "target/ios-dependencies/$dependencies" "ios-dependencies/$dependencies"
@@ -35,14 +36,19 @@ run() {
     [[ "$1" == build ]] && return
     simulator="$("${MAC[@]}" sim-create)"
     [[ "$simulator" =~ ^[A-F0-9-]{36}$ ]] || { echo "invalid Carlos simulator UUID" >&2; exit 2; }
-    "${MAC[@]}" ssh "$remote $1 $simulator"
+    "${MAC[@]}" ssh "$remote $1 $simulator ${2:-}"
 }
 
 case "${1:-}" in
 check) "${MAC[@]}" check ;;
 toolchain) toolchain ;;
-framework|build|test|launch)
-    run "$1" 2>&1 | tee "target/ios-artifacts/$1-$(date -u +%Y%m%dT%H%M%S).log"
+framework|build|test|launch|ui-test)
+    fixture="${2:-}"
+    if [[ "$1" == ui-test && ( ! "$fixture" =~ ^fixture/[a-zA-Z0-9_-]+$ || "$fixture" == *..* ) ]]; then
+        echo "ui-test needs an owned fixture/<run> directory" >&2
+        exit 2
+    fi
+    run "$1" "$fixture" 2>&1 | tee "target/ios-artifacts/$1-$(date -u +%Y%m%dT%H%M%S).log"
     ;;
 *) echo "usage: ios-build.sh check|toolchain|framework|build|test|launch" >&2; exit 2 ;;
 esac

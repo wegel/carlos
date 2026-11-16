@@ -58,6 +58,22 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   tests and native socket/Keychain/model code compile. The partial-write test retains
   exact text and proves reconnect emits operation/read rather than session/send.
   Remaining: connect the actual SwiftUI controls and exercise real socket/native traces.
+  Update: the actual app now connects, creates a Codex session, sends an exact Unicode
+  prompt and shows its real daemon answer. The corrected full harness passed at
+  `target/ios-artifacts/phone-d32e09f8acd8`, Mac bundleb7744b8a156a9c2b8287,
+  ui-tests-20261116T170702.xcresult. Native unit tests pass4/4 at
+  tests-20261116T170918.xcresult, including actual Keychain and bundled font checks.
+  Rust boundary tests pass9/9, including original offered cards, Starting approvals,
+  captured Stop turns and non-optimistic Ralph. Complete the remaining socket/control,
+  reconnect/private-draft and other-backend workflows before closing this milestone.
+- [x] (2026-11-16 22:55Z) Build, sign and install the checked early preview on the owner’s
+  iPhone18 Pro after the Mac reboot restores live device access. The exact simulator-checked
+  bundle b7744b8a156a9c2b8287 builds Release for arm64; the existing development profile
+  includes this phone, and strict signature/entitlement checks pass. Apple’s install receipt
+  confirms app.carlos.phone. Launch was denied only because the phone locked again; the
+  owner has been told to unlock/open it. A separate frozen EP021b daemon is ready on the
+  private LAN, with a new private device-token file and an empty catalogue. No model call
+  was made. Complete app acceptance remains below.
 - [ ] Implement the specified header, transcript, composer, activity line, Latest button,
   sessions/settings sheets, native approval inputs and complete source/output reads.
 - [ ] Complete stable scrolling, running-tool expansion, Markdown/copy, Ralph, native
@@ -135,6 +151,26 @@ sessions/read/send/approval/Stop, separate from complete EP022. Signing settings
 but the read-only physical-device detail query timed out after15seconds. Simulator work
 continues; no phone unlock, installation or App Store publishing has been requested.
 
+The owner subsequently unlocked the iPhone18 Pro, requested repeated access checks and
+pointed Root to Stormvault's `.agents/knowledge/mobile-deployment.md`. That page records
+the installed pymobiledevice3 native-tunnel/Cryptex1 image workaround for this exact
+phone. Direct Apple queries timed out, and the documented mount failed before reaching
+the image at RemotePairing.CreateAssertionCommand. Scoped resets touched only current-
+account Mac-host device/pairing helpers, not simulator helpers; the login Keychain was
+prepared through the documented stdin-only password path. No app or phone data changed.
+The user then rebooted the Mac. A fresh hardware-UDID details query now confirms iOS27.2,
+Developer Mode enabled, developer services available and the live localNetwork tunnel
+connected. The system DNS lookup also succeeds again. The former USB/network question
+is superseded. Proceed with the early phone build/install checks; keep EP022 open and
+retain the simulator/full-plan gates. Never publish a store build under this test grant.
+
+The first UI workflow exposed two test-selector errors: the switch's actual nested
+control must be tapped, and the composer must be selected as a TextField rather than
+an ambiguous Any query. The next run passed its visible answer assertion but its Python
+post-check read the wrong trace family (rpc.jsonl instead of the actual NativeCodex
+peer). Its retained codex.jsonl proves the exact Unicode prompt. The corrected complete
+rerun passes both sides. Preserve those failed harness runs and their XCResult records.
+
 ## Decision Log
 
 Decision (2026-11-16,Root): keep one EP with small buildable milestones. Start with an
@@ -172,11 +208,14 @@ the Mac's DNS service, global toolchain, other projects or simulators to finish 
 
 ## Outcomes & Retrospective
 
-The first real Swift caller now passes against the generated Rust boundary on the
-owned simulator. Both Apple targets compile, the SwiftUI shell links, and two native
-tests prove greeting/reconnect/error behavior. This establishes the actual boundary
-before broader UI work; it does not claim a socket connection or session screen yet.
-Continue with the real daemon transport and only the records those screens consume.
+The actual app now passes an authenticated connect/create/send/answer workflow against
+a real daemon and deterministic native Codex peer. All9 Rust boundary tests and4 native
+unit tests pass. The exact checked source also builds and signs for the owner’s physical
+iPhone18 Pro, where Apple confirms successful installation. Launch awaits an unlocked
+phone; no physical-screen or physical-backend success is claimed yet. This is an early
+preview with basic plain rows and simple approval/Stop controls, not complete EP022.
+Complete body/output/Markdown, scrolling, preferences, native inputs, dictation, the
+remaining socket/backend tests and final gates before review or delegated approval.
 
 ## Context and Orientation
 
@@ -411,3 +450,21 @@ checked milestones on the owned Mac, keeping the shared-client and review bounda
 
 Revision2026-11-16: record the small Rust/Swift boundary and Mac DNS failure. Add a
 verified offline build path rather than changing the Mac's global toolchain or network.
+
+Revision2026-11-16: record the real authenticated app workflow and explicit early-phone
+test request. The owner's Mac reboot restored live iPhone18 Pro access and DNS; prepare
+the phone preview without claiming EP022 complete or starting its end reviews.
+
+Update (2026-11-16 22:55Z,Root): recorded the successful physical install and early
+preview without closing EP022. Mac receipts are device-check/iphone18-install.json and
+iphone18-launch.json below ~/carlos-ios-build. The signed executable SHA256 is
+5cb981e4bb5c43f8327c533a6348b47dc89c187952a25643ad814e9c8c5e82bc. Its profile and
+identity receipt are beside previews/b7744b8a156a9c2b8287-20261116T225036Z/Carlos.app.
+The separate engine receipt is target/phone-preview-b7744b8/identity.json, with private
+state and token under /var/tmp/carlos-phone-preview-b7744b8. Mac-to-listener reachability
+and an authenticated empty catalogue read pass. A first state location under the home
+directory was rejected because this execution environment maps the home ancestor to a
+different UID; the daemon’s ownership checks were preserved, and the owned /var/tmp
+directory passes them. The first hand-written health check used watch rather than
+sessions/watch and correctly failed; the corrected check passed. No user session was
+started. Keep this daemon/package alive for the owner’s test and do not replace it.

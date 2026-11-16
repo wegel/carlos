@@ -45,8 +45,8 @@ rust_build() {
 }
 
 app() {
-    xcodebuild -project "$BUILD/Carlos.xcodeproj" -scheme Carlos \
-        -configuration Debug -sdk iphonesimulator -derivedDataPath "$BUILD/DerivedData" \
+    xcodebuild -quiet -project "$BUILD/Carlos.xcodeproj" -scheme Carlos \
+        -configuration "${CARLOS_BUILD_CONFIGURATION:-Debug}" -sdk iphonesimulator -derivedDataPath "$BUILD/DerivedData" \
         CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- "$@"
 }
 
@@ -56,8 +56,20 @@ build) app build -destination 'generic/platform=iOS Simulator' ;;
 test)
     : "${2:?pass the owned Carlos simulator UUID}"
     app test -destination "platform=iOS Simulator,id=$2" \
+        -only-testing:CarlosTests \
         -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
         -resultBundlePath "$BUILD/tests-$(date +%Y%m%dT%H%M%S).xcresult"
+    ;;
+ui-test)
+    : "${2:?pass the owned Carlos simulator UUID}" "${3:?pass the owned fixture path}"
+    mkdir -p "$CARLOS_GENERATED/UIFixtures"
+    cp "$BASE/$3/fixture.json" "$CARLOS_GENERATED/UIFixtures/fixture.json"
+    cp "$SOURCE/apps/ios/project.yml" "$BUILD/project.yml"
+    xcodegen generate --spec "$BUILD/project.yml" --project "$BUILD"
+    CARLOS_BUILD_CONFIGURATION=Fixture app test -destination "platform=iOS Simulator,id=$2" \
+        -only-testing:CarlosUITests -parallel-testing-enabled NO \
+        -maximum-concurrent-test-simulator-destinations 1 \
+        -resultBundlePath "$BUILD/ui-tests-$(date +%Y%m%dT%H%M%S).xcresult"
     ;;
 launch)
     : "${2:?pass the owned Carlos simulator UUID}"

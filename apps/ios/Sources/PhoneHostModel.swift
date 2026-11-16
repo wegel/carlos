@@ -13,6 +13,11 @@ final class PhoneHostModel: Identifiable {
     var orderedEntries: [String] = []
     var rows: [String: PhoneEntry] = [:]
     var operations: [String: PhoneOperation] = [:]
+    var operationOrder: [String] = []
+    var approvals: [PhoneApproval] = []
+    var ralphRequest: PhoneOperation?
+    var desiredRalph: Bool?
+    var controlSubmitting = false
     var draft = ""
     var submitting = false
     var creating = false
@@ -48,6 +53,7 @@ final class PhoneHostModel: Identifiable {
         transcript = nil
         orderedEntries = []
         rows = [:]
+        approvals = []
         if let old, old != session {
             transport.command({ try $0.unsubscribe(session: old) }, completion: report)
         }
@@ -61,9 +67,8 @@ final class PhoneHostModel: Identifiable {
             guard let self else { return }
             switch result {
             case .success(let operation):
-                operations[operation.key] = operation
                 creation = operation.key
-                completeCreation(operation)
+                accept(operation)
             case .failure(let failure):
                 creating = false
                 error = failure.localizedDescription
@@ -81,8 +86,51 @@ final class PhoneHostModel: Identifiable {
             submitting = false
             switch result {
             case .success(let operation):
-                operations[operation.key] = operation
+                accept(operation)
                 if self.selected == selected && draft == text { draft = "" }
+            case .failure(let failure): error = failure.localizedDescription
+            }
+        }
+    }
+
+    func interrupt() {
+        guard let selected, connected, !controlSubmitting else { return }
+        submitControl { try $0.interrupt(session: selected) }
+    }
+
+    func approve(_ card: PhoneApproval, decision: PhoneDecision) {
+        guard let selected, connected, !controlSubmitting else { return }
+        submitControl { try $0.approve(session: selected, approval: card.id, decision: decision) }
+    }
+
+    func reopen() {
+        guard let selected, connected, !controlSubmitting else { return }
+        submitControl { try $0.reopen(session: selected) }
+    }
+
+    func setRalph(_ on: Bool) {
+        guard let selected, connected, !controlSubmitting else { return }
+        controlSubmitting = true
+        transport.submit({ try $0.setRalph(session: selected, on: on) }) { [weak self] result in
+            guard let self else { return }
+            controlSubmitting = false
+            switch result {
+            case .success(let operation):
+                desiredRalph = on
+                ralphRequest = operation
+                accept(operation)
+            case .failure(let failure): error = failure.localizedDescription
+            }
+        }
+    }
+
+    private func submitControl(_ call: @escaping @Sendable (PhoneClient) throws -> PhoneSubmission) {
+        controlSubmitting = true
+        transport.submit(call) { [weak self] result in
+            guard let self else { return }
+            controlSubmitting = false
+            switch result {
+            case .success(let operation): accept(operation)
             case .failure(let failure): error = failure.localizedDescription
             }
         }
@@ -104,6 +152,11 @@ final class PhoneHostModel: Identifiable {
 
     private func changedLink(_ state: PhoneLinkState) {
         link = state
+        if case .connected = state {} else if var cached = transcript {
+            cached.currentSnapshot = false
+            cached.ready = false
+            transcript = cached
+        }
         if case .connected = state, !catalogRequested {
             catalogRequested = true
             transport.command({ try $0.watchSessions() }) { [weak self] result in
@@ -129,6 +182,7 @@ final class PhoneHostModel: Identifiable {
             case .success(let update):
                 if let catalog = update.catalog { self.catalog = catalog }
                 if self.selected == selected {
+                    if let approvals = update.approvals { self.approvals = approvals }
                     if let transcript = update.transcript { self.transcript = transcript }
                     if let order = update.order {
                         orderedEntries = order
@@ -138,11 +192,26 @@ final class PhoneHostModel: Identifiable {
                     for entry in update.rows { rows[entry.id] = entry }
                 }
                 for operation in update.operations {
-                    operations[operation.key] = operation
-                    completeCreation(operation)
+                    accept(operation)
                 }
             case .failure(let failure): error = failure.localizedDescription
             }
+        }
+    }
+
+    private func accept(_ operation: PhoneOperation) {
+        if operations[operation.key] == nil { operationOrder.append(operation.key) }
+        operations[operation.key] = operation
+        if ralphRequest?.key == operation.key { ralphRequest = operation }
+        completeCreation(operation)
+        switch operation.state {
+        case .accepted where !operation.needsEcho:
+            operations.removeValue(forKey: operation.key)
+            operationOrder.removeAll { $0 == operation.key }
+            let key = operation.key
+            transport.read({ try $0.forgetOperation(operation: key) }, completion: report)
+        case .rejected(let message), .uncertain(let message): error = message
+        default: break
         }
     }
 
