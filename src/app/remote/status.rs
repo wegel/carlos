@@ -1,6 +1,6 @@
 //! Paint the shared footer from accepted facts and advance only this device's display clocks.
 
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use carlos_core::session::context_usage::ContextUsage;
 use carlos_core::session::text::safe_label;
@@ -27,23 +27,9 @@ use crate::theme::{
     COLOR_TEXT,
 };
 
-#[derive(Default)]
-pub(super) struct StatusClock {
-    minute: Option<Instant>,
-    animation: Option<u128>,
-}
-
-impl StatusClock {
-    fn tick(&mut self, now: Instant, animation: u128, running: bool) -> bool {
-        let animated = running && self.animation != Some(animation);
-        self.animation = Some(animation);
-        let minute = self.minute.is_none_or(|until| until <= now);
-        if minute {
-            self.minute = Some(now + Duration::from_secs(60));
-        }
-        animated || minute
-    }
-}
+#[path = "status_clock.rs"]
+mod clock;
+pub(super) use clock::StatusClock;
 
 impl Device {
     pub(super) fn draw_footer(
@@ -194,12 +180,7 @@ impl Device {
         draw_status_separator(buffer, y, edge, false);
         draw_labels(buffer, y, &labels);
         if self.status_running() {
-            let width = if self.view.layout.uses_flow(size) || size.is_small() || edge < 8 {
-                size.width.saturating_sub(1)
-            } else {
-                edge
-            };
-            sweep_status_line(buffer, y, width, info.ralph, animation_tick());
+            sweep_status_line(buffer, y, edge, info.ralph, animation_tick());
         }
     }
 
@@ -373,8 +354,15 @@ impl Device {
 
     pub(super) fn tick_status_clock(&mut self) -> bool {
         let running = self.status_running();
-        let changed = self.status.tick(Instant::now(), animation_tick(), running);
-        !self.tasks.view.show && changed
+        let now = Instant::now();
+        let expired = self.status.expire_notice(&mut self.view.status_hint, now);
+        let changed = self.status.tick(now, animation_tick(), running);
+        expired || (!self.tasks.view.show && changed)
+    }
+
+    pub(super) fn set_status_notice(&mut self, message: String) {
+        self.status
+            .notice(&mut self.view.status_hint, message, Instant::now());
     }
 }
 
@@ -382,6 +370,7 @@ fn activity_label(activity: &carlos_proto::status::MainActivity) -> Option<Strin
     activity
         .transient
         .as_ref()
+        .filter(|label| !label.text.trim().eq_ignore_ascii_case("requesting"))
         .map(|label| safe_label(&label.text))
         .or_else(|| {
             activity

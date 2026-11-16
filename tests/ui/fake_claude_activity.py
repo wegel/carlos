@@ -96,7 +96,7 @@ class Activity:
             self.queued.append(message)
             self.emit("command_lifecycle", command_uuid=prompt, state="queued")
             return True
-        if text not in ("native tasks", "native compact", "native thinking", "native quotas", "finish task", "task levels", "failed task", "native notice", "native phone tasks", "reset questions", "native changing tasks", "native hidden children"):
+        if text not in ("native tasks", "native compact", "native thinking", "native requesting", "native quotas", "finish task", "task levels", "failed task", "native notice", "native phone tasks", "reset questions", "native changing tasks", "native hidden children"):
             return False
         self.h.sessions.prompt(message)
         self.h.state("running")
@@ -164,7 +164,11 @@ class Activity:
             self.done(prompt, "Only ambient remains")
 
     def state_prompt(self,text,prompt):
-        if text == "native compact":
+        if text == "native requesting":
+            self.init(prompt)
+            self.emit("thinking_tokens", estimated_tokens=43, estimated_tokens_delta=43)
+            self.emit("status", status="requesting")
+        elif text == "native compact":
             self.emit("status", status="compacting")
             self.emit("status", status=None, compact_result="failed", compact_error="Fixture compaction refused")
             self.emit("status", status="compacting")

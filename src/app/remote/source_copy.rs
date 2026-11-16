@@ -139,7 +139,7 @@ impl Device {
             .is_some_and(|copy| copy.queued == Some(id))
         {
             self.documents.copy = None;
-            self.view.status_hint = Some(format!(
+            self.set_status_notice(format!(
                 "copied last assistant message ({})",
                 clipboard_backend_label(backend)
             ));

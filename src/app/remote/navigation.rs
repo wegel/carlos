@@ -188,7 +188,7 @@ impl Device {
         let source = source.and_then(|window| Some((window.descriptor()?, window.document()?)));
         if let Some(input) = RenderInput::from_client(entry, source) {
             let backend = try_copy_clipboard(input.text);
-            self.view.status_hint = Some(format!(
+            self.set_status_notice(format!(
                 "copied last assistant message ({})",
                 clipboard_backend_label(backend)
             ));

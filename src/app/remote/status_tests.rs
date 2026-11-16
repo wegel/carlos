@@ -35,8 +35,8 @@ fn activity_sweeps_redraw_only_once_per_animation_step_while_work_is_running() {
 }
 
 #[test]
-fn native_transient_then_thinking_then_process_state_keep_the_existing_label_order() {
-    for (transient, tokens) in [("Requesting", 43), ("Temporary", 42)] {
+fn useful_native_transients_then_thinking_then_process_state_keep_the_existing_label_order() {
+    for (transient, tokens) in [("Temporary", 42), ("Compacting", 77)] {
         let mut activity = MainActivity {
             state: TaskMainState::Running,
             thinking_tokens: Some(tokens),
@@ -62,6 +62,44 @@ fn native_transient_then_thinking_then_process_state_keep_the_existing_label_ord
         activity.state = TaskMainState::Idle;
         assert_eq!(activity_label(&activity), None);
     }
+}
+
+#[test]
+fn requesting_cannot_hide_native_thinking_or_replace_the_running_state() {
+    let mut activity = MainActivity {
+        state: TaskMainState::Running,
+        thinking_tokens: Some(43),
+        transient: Some(TaskLabel {
+            text: "Requesting".into(),
+            bytes: ByteLength::new(10),
+            complete: true,
+        }),
+    };
+    assert_eq!(
+        activity_label(&activity).as_deref(),
+        Some("Thinking ~43 tokens")
+    );
+    activity.thinking_tokens = None;
+    assert_eq!(activity_label(&activity).as_deref(), Some("Running"));
+}
+
+#[test]
+fn a_copy_notice_expires_without_input_and_cannot_clear_a_newer_error() {
+    let mut clock = StatusClock::default();
+    let mut hint = None;
+    let now = Instant::now();
+    clock.notice(&mut hint, "copied selection".into(), now);
+    assert!(!clock.expire_notice(&mut hint, now + Duration::from_millis(1999)));
+    assert_eq!(hint.as_deref(), Some("copied selection"));
+    assert!(clock.expire_notice(&mut hint, now + Duration::from_secs(2)));
+    assert!(hint.is_none());
+    clock.notice(&mut hint, "copied selection".into(), now);
+    hint = Some("Native write failed; keep this draft".into());
+    assert!(!clock.expire_notice(&mut hint, now + Duration::from_secs(3)));
+    assert_eq!(
+        hint.as_deref(),
+        Some("Native write failed; keep this draft")
+    );
 }
 
 #[path = "status_footer_tests.rs"]

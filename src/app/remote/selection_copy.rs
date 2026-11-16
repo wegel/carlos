@@ -205,7 +205,7 @@ impl Device {
         }
         self.documents.selection = None;
         self.documents.formatting.end_selection();
-        self.view.status_hint = Some(format!(
+        self.set_status_notice(format!(
             "copied selection ({})",
             clipboard_backend_label(backend)
         ));

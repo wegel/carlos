@@ -32,6 +32,7 @@ from test_codex_panel import CodexPanel
 from test_codex_goals import CodexGoals
 from test_codex_reconnect import CodexReconnect
 from test_input_status import InputStatus
+from test_footer_feedback import FooterFeedback
 from test_context_settings import ContextSettings
 from test_entry_identity import EntryIdentity
 from test_daemon_goals import DaemonGoals
@@ -56,7 +57,7 @@ from test_daemon_source_recovery import DaemonSourceRecovery
 from test_daemon_session_lifecycle import SessionLifecycle
 
 
-class Workflows(SessionLifecycle, DaemonClaudeReopen, DaemonEdits, DaemonSavedPicker, DaemonStartup, DaemonRalph, DaemonMetrics, DaemonTaskQuestions, DaemonQuestionForms, DaemonQuestionBrowser, DaemonSettingsContext, DaemonSettings, DaemonTaskActivity, DaemonTaskWindows, DaemonTasks, DaemonQueue, DaemonGoals, DaemonSourceRecovery, DaemonHistory, DaemonClient, GrokStartup, EntryIdentity, SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, CommandDirectory, WeeklyUsage, ClaudeSdk, ClaudeInterrupt, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, CodexRewind, CodexFoundation, CodexQuestions, CodexControls, CodexPanel, CodexGoals, CodexReconnect, InputStatus, ContextSettings, unittest.TestCase):
+class Workflows(FooterFeedback, SessionLifecycle, DaemonClaudeReopen, DaemonEdits, DaemonSavedPicker, DaemonStartup, DaemonRalph, DaemonMetrics, DaemonTaskQuestions, DaemonQuestionForms, DaemonQuestionBrowser, DaemonSettingsContext, DaemonSettings, DaemonTaskActivity, DaemonTaskWindows, DaemonTasks, DaemonQueue, DaemonGoals, DaemonSourceRecovery, DaemonHistory, DaemonClient, GrokStartup, EntryIdentity, SessionNames, SourceColors, ToolOutput, RtkWorkflows, Theme, PhoneLayout, Summaries, CommandDirectory, WeeklyUsage, ClaudeSdk, ClaudeInterrupt, ClaudeQuestions, ClaudeSessions, ClaudeActivity, MarkdownTables, CodexRewind, CodexFoundation, CodexQuestions, CodexControls, CodexPanel, CodexGoals, CodexReconnect, InputStatus, ContextSettings, unittest.TestCase):
     def summary_root(self):
         root = ARTIFACTS / self._testMethodName
         root.mkdir(parents=True, exist_ok=True)

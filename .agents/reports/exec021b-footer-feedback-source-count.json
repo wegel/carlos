@@ -1,0 +1,122 @@
+{
+  "baseline": {
+    "commit": "8922ea179c33a1949634650a5ed5955549673e58",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 385,
+        "nonblank": 48755,
+        "physical": 54729,
+        "bytes": 1847086
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8318,
+        "physical": 8909,
+        "bytes": 291904
+      },
+      "terminal": {
+        "files": 193,
+        "nonblank": 25593,
+        "physical": 28999,
+        "bytes": 952106
+      },
+      "helper": {
+        "files": 24,
+        "nonblank": 1708,
+        "physical": 1881,
+        "bytes": 91519
+      }
+    },
+    "total": {
+      "files": 762,
+      "nonblank": 97057,
+      "physical": 108255,
+      "bytes": 3646927
+    }
+  },
+  "footer_feedback": {
+    "commit": "working",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 385,
+        "nonblank": 48755,
+        "physical": 54729,
+        "bytes": 1847086
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8318,
+        "physical": 8909,
+        "bytes": 291904
+      },
+      "terminal": {
+        "files": 194,
+        "nonblank": 25620,
+        "physical": 29031,
+        "bytes": 953159
+      },
+      "helper": {
+        "files": 24,
+        "nonblank": 1708,
+        "physical": 1881,
+        "bytes": 91519
+      }
+    },
+    "total": {
+      "files": 763,
+      "nonblank": 97084,
+      "physical": 108287,
+      "bytes": 3647980
+    }
+  },
+  "delta_nonblank": 27,
+  "changes": {
+    "src/app/remote/navigation.rs": {
+      "added": 1,
+      "deleted": 1
+    },
+    "src/app/remote/selection_copy.rs": {
+      "added": 1,
+      "deleted": 1
+    },
+    "src/app/remote/source_copy.rs": {
+      "added": 1,
+      "deleted": 1
+    },
+    "src/app/remote/status.rs": {
+      "added": 14,
+      "deleted": 25
+    },
+    "src/app/remote/status_clock.rs": {
+      "added": 38,
+      "deleted": 0
+    }
+  },
+  "added_nonblank": 55,
+  "deleted_nonblank": 28,
+  "note": "Same production traversal and test exclusions as the accepted ledger. Owner-reported footer/copy fixes versus8922ea1: four actual terminal regressions fail on owner preview87ceab5 and pass after the fix. Both full Rust configurations/lints,31 surrounding terminal workflows, selection2, source-failure5, ANSI1 and400/60/fmt/diff checks pass. Native recall red tests remain unrelated and pending; the full EP release/performance gate remains pending."
+}
