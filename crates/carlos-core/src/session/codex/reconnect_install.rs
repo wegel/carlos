@@ -22,7 +22,7 @@ pub struct ReconnectInstalled {
 /// Validate all fallible fields before replacing transcript or native control snapshots.
 pub(crate) fn install(
     session: &mut SessionState,
-    snapshot: CodexSnapshot,
+    mut snapshot: CodexSnapshot,
     active: Option<String>,
 ) -> Result<ReconnectInstalled> {
     let runtime = parse_thread_runtime_settings(&snapshot.runtime)?;
@@ -54,6 +54,7 @@ pub(crate) fn install(
         session.record_turn_started(&turn);
     }
     session.reopen_codex();
+    session.install_native_history(&snapshot.thread, snapshot.older_history.take());
     Ok(ReconnectInstalled { history, goal })
 }
 

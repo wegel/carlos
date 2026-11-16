@@ -12,6 +12,7 @@ mod control_events;
 mod dispatch;
 mod goals;
 mod handle;
+mod history;
 pub mod launch;
 mod mailbox;
 mod native;

@@ -21,7 +21,7 @@ impl Published<'_> {
                 .iter()
                 .map(|m| self.session.export_entry(m))
                 .collect(),
-            has_older: start > 0,
+            has_older: start > 0 || self.session.has_older_native_history(),
             seq: self.sequence(),
         })
     }
@@ -43,7 +43,7 @@ impl crate::session::state::SessionState {
                 .collect(),
             approvals: self.events.approvals.clone(),
             seq: self.events.seq,
-            has_older: start > 0,
+            has_older: start > 0 || self.has_older_native_history(),
         }
     }
 }

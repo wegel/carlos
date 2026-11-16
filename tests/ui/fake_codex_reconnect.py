@@ -53,6 +53,7 @@ def handle(server,request):
         if (server.root/"fail-history").exists(): server.reply(request,error="Isolated history failure")
         else:
             turns=copy.deepcopy(server.threads[params["threadId"]]["turns"])
+            if params.get("sortDirection") == "desc": turns.reverse()
             for turn in turns: turn["items"],turn["itemsView"]=[],"notLoaded"
             server.reply(request,{"data":turns,"nextCursor":None})
     elif method=="thread/items/list":

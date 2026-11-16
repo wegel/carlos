@@ -1,0 +1,182 @@
+{
+  "baseline": {
+    "commit": "bb304ed99fe99ec4ca98f148a443e706f01cdb3b",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 377,
+        "nonblank": 47626,
+        "physical": 53522,
+        "bytes": 1804013
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8318,
+        "physical": 8909,
+        "bytes": 291904
+      },
+      "terminal": {
+        "files": 193,
+        "nonblank": 25593,
+        "physical": 28999,
+        "bytes": 952106
+      },
+      "helper": {
+        "files": 23,
+        "nonblank": 1653,
+        "physical": 1821,
+        "bytes": 88846
+      }
+    },
+    "total": {
+      "files": 753,
+      "nonblank": 95873,
+      "physical": 106988,
+      "bytes": 3601181
+    }
+  },
+  "codex_history": {
+    "commit": "working",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 382,
+        "nonblank": 48236,
+        "physical": 54173,
+        "bytes": 1827171
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8318,
+        "physical": 8909,
+        "bytes": 291904
+      },
+      "terminal": {
+        "files": 193,
+        "nonblank": 25593,
+        "physical": 28999,
+        "bytes": 952106
+      },
+      "helper": {
+        "files": 23,
+        "nonblank": 1653,
+        "physical": 1821,
+        "bytes": 88846
+      }
+    },
+    "total": {
+      "files": 758,
+      "nonblank": 96483,
+      "physical": 107639,
+      "bytes": 3624339
+    }
+  },
+  "delta_nonblank": 610,
+  "changes": {
+    "crates/carlos-core/src/codex_snapshot.rs": {
+      "added": 18,
+      "deleted": 14
+    },
+    "crates/carlos-core/src/engine/history.rs": {
+      "added": 83,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/engine/mod.rs": {
+      "added": 1,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/engine/owner.rs": {
+      "added": 6,
+      "deleted": 1
+    },
+    "crates/carlos-core/src/engine/settle.rs": {
+      "added": 21,
+      "deleted": 9
+    },
+    "crates/carlos-core/src/engine/workers.rs": {
+      "added": 6,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/protocol_history.rs": {
+      "added": 6,
+      "deleted": 3
+    },
+    "crates/carlos-core/src/protocol_history_window.rs": {
+      "added": 209,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/codex/reconnect_install.rs": {
+      "added": 2,
+      "deleted": 1
+    },
+    "crates/carlos-core/src/session/event_reads.rs": {
+      "added": 2,
+      "deleted": 2
+    },
+    "crates/carlos-core/src/session/history_prepend.rs": {
+      "added": 66,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/input_history.rs": {
+      "added": 15,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/mod.rs": {
+      "added": 2,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/native_history.rs": {
+      "added": 149,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/state.rs": {
+      "added": 2,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/state_commands.rs": {
+      "added": 1,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/transcript.rs": {
+      "added": 2,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/transcript_history_prepend.rs": {
+      "added": 32,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/transcript_journal.rs": {
+      "added": 9,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/transcript_positions.rs": {
+      "added": 8,
+      "deleted": 0
+    }
+  },
+  "added_nonblank": 640,
+  "deleted_nonblank": 30,
+  "note": "Same production traversal and test exclusions as the accepted ledger. First Codex native-window piece versus checked Grok commit bb304ed. Debug gate02 passes all components before its outdated native-monitor assertions; the complete corrected23-test native suite passes against that same frozen pair. Both full Rust configurations, both strict lints and400/60/fmt/diff checks pass. Claude history, native item coverage and final EP release/performance checks remain."
+}

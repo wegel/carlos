@@ -32,6 +32,7 @@ impl SessionState {
 #[cfg(test)]
 pub(super) fn snapshot() -> CodexSnapshot {
     CodexSnapshot {
+        older_history: None,
         thread: json!({"id":"root","status":{"type":"idle"},"turns":[{"id":"turn","status":"completed","items":[{"id":"item","type":"agentMessage","text":"original"}]}]}),
         runtime: json!({"result":{"thread":{"id":"root"},"model":"native-model"}}).to_string(),
         catalog: json!({"data":[{"model":"native-model","displayName":"Native"}]}),

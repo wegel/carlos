@@ -9,9 +9,13 @@ use serde_json::{json, Value};
 use crate::backend::BackendClient;
 use crate::protocol_params::{extract_result_object, parse_thread_id_from_start_or_resume};
 
-const MAX_HISTORY_BYTES: usize = 64 * 1024 * 1024;
-const MAX_RECORDS: usize = 500_000;
-const MAX_PAGES: usize = 65536;
+#[path = "protocol_history_window.rs"]
+mod window;
+pub(crate) use window::{newest_window, older_window, HistoryCursor, HistoryPage};
+
+pub(crate) const MAX_HISTORY_BYTES: usize = 64 * 1024 * 1024;
+pub(crate) const MAX_RECORDS: usize = 500_000;
+pub(crate) const MAX_PAGES: usize = 65536;
 
 struct HistoryReader<'a> {
     client: &'a dyn BackendClient,

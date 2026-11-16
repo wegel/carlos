@@ -290,3 +290,6 @@ mod active_tests;
 
 #[path = "transcript_edits.rs"]
 mod edits;
+
+#[path = "transcript_history_prepend.rs"]
+mod history_prepend;

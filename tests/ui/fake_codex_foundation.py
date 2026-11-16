@@ -18,6 +18,7 @@ def handle(server, request):
             server.send({"id":request["id"],"error":{"code":-32000,"data":"irrelevant-large-error-data"*10000,"message":"Fixture history denied: " + "日本語\n"*20000}})
             return True
         turns = copy.deepcopy(server.threads[params["threadId"]]["turns"])
+        if params.get("sortDirection") == "desc": turns.reverse()
         for turn in turns:
             if server.mode == "codex-current-full":
                 turn["itemsView"] = "full"

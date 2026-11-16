@@ -149,6 +149,22 @@ impl PromptHistory {
         true
     }
 
+    pub(in crate::session) fn prepend_history(&mut self, rows: Vec<(EntryId, String)>) {
+        let rows: Vec<_> = rows
+            .into_iter()
+            .filter(|(id, text)| !text.is_empty() && self.recorded.insert(*id))
+            .collect();
+        let mut ids: Vec<_> = rows.iter().map(|(id, _)| *id).collect();
+        let mut entries: Vec<_> = ids.iter().copied().map(Some).collect();
+        let mut texts: Vec<_> = rows.into_iter().map(|(_, text)| text).collect();
+        ids.append(&mut self.prompt_ids);
+        entries.append(&mut self.input_history_entry_ids);
+        texts.append(&mut self.input_history);
+        self.prompt_ids = ids;
+        self.input_history_entry_ids = entries;
+        self.input_history = texts;
+    }
+
     #[cfg(any(test, feature = "test-support"))]
     pub(in crate::session) fn retain_entries(&mut self, transcript: &Transcript) {
         for id in &mut self.input_history_entry_ids {

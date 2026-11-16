@@ -2,6 +2,44 @@
 
 
 class DaemonHistory:
+    def test_daemon_terminal_fetches_native_older_windows_without_resetting_its_anchor(self):
+        import json
+        import sys
+        from test_daemon_client import daemon_support
+        from native_history_windows import NativeHistoryWindows
+        runner = sys.modules[type(self).__module__]
+        daemon_support.BINARY = runner.BINARY.parent / "carlosd"
+        daemon_support.ARTIFACTS = runner.ARTIFACTS / "daemon"
+        fixture = daemon_support.Fixture("terminal-native-history", codex=True)
+        self.addCleanup(fixture.close)
+        peer = NativeHistoryWindows(fixture.native)
+        client = daemon_support.Client(fixture, "history-owner")
+        self.addCleanup(client.close)
+        operation = client.operation(1)
+        session = client.call("session/open", operation=operation, backend="codex", cwd=str(fixture.root),
+                              target={"kind":"resume", "address":fixture.native.thread_id})["session"]
+        client.outcome(operation)
+        terminal = self.attach_daemon(fixture, session, "native-history")
+        terminal.contains("native answer 239 🌍")
+        for count, anchor in enumerate((190, 140, 90, 40), 1):
+            terminal.send(b"\x1b[H")
+            terminal.wait(lambda: len(terminal.requests("session/history")) == count, "one explicit older client page")
+            terminal.wait(lambda: sum(isinstance(message.get("result"), dict) and "has_older" in message["result"]
+                          for message in terminal.messages("server")) == count, "older page reached the client")
+            terminal.resize(90 if count % 2 else 100, 40)
+            terminal.contains(f"native user {anchor} 🌍")
+        terminal.send(b"\x1b[H")
+        terminal.contains("native user 0 🌍")
+        self.assertEqual(len(peer.pages), 3)
+        terminal.snapshot("oldest-native-window-with-preserved-anchor")
+        terminal.send(b"\x1b[F")
+        terminal.contains("native answer 239 🌍")
+        terminal.wait(lambda: terminal.input_is(""), "history never adds text to the composer")
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertNotIn("PRIVATE_HISTORY", json.dumps(terminal.messages("server")))
+        self.assertEqual(fixture.native.prompts, 0)
+        terminal.snapshot("newest-native-window-after-complete-older-traversal")
+
     @staticmethod
     def many_tool_history():
         items = [{"type":"commandExecution", "id":f"tool-{index}",

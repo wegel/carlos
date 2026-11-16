@@ -167,12 +167,8 @@ class NativeMonitor(NativeCodexControls,NativeCodexPanel,NativeCodexGoals,Native
                 self.assertEqual(len(terminal.requests("thread/turns/list")),1)
                 self.assertLess(elapsed,10,"dense history should fit comfortably within the20s read deadline")
             if mode == "paged":
-                self.assertGreaterEqual(len(terminal.requests("thread/turns/list")),2)
-                self.assertEqual(len(terminal.requests("thread/items/list")),0)
-                terminal.rewind("history human 104")
-                terminal.send(b"\x1b[A")
-                terminal.wait(lambda: terminal.input_is("history human 103"), "exact adjacent paged human")
-                terminal.send(b"\x1b")
+                from native_history_regression import check_older_windows
+                check_older_windows(self, terminal, model)
             terminal.snapshot(mode + "-complete-history")
             terminal.close()
 

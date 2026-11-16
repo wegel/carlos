@@ -9,6 +9,42 @@ from terminal import Terminal
 from test_codex_contract import Codex
 
 
+def check_older_windows(case, terminal, model):
+    """Read the prefix on demand and keep exact native rewind anchors."""
+    pages = terminal.requests("thread/turns/list")
+    case.assertEqual(len(pages), 1, "startup reads only the newest complete native window")
+    case.assertEqual(pages[0]["params"]["sortDirection"], "desc")
+    case.assertEqual(terminal.requests("thread/items/list"), [])
+    terminal.rewind("history human 104")
+    terminal.send(b"\x1b[A")
+    terminal.wait(lambda: terminal.input_is("history human 103"), "exact adjacent paged human")
+    terminal.send(b"\x1b")
+    terminal.wait(lambda: terminal.input_is(""), "rewind closes before transcript Home")
+    for count in (1, 2):
+        terminal.send(b"\x1b[H")
+        terminal.wait(lambda: len(terminal.daemon_requests("session/history")) == count,
+                      "one explicit older native history read")
+        request_id = terminal.daemon_requests("session/history")[-1]["id"]
+        terminal.wait(lambda: any(message.get("id") == request_id
+                      for message in terminal.daemon_messages("server")), "older native page replied")
+        response = next(message for message in terminal.daemon_messages("server")
+                        if message.get("id") == request_id)
+        case.assertIn("result", response)
+        case.assertTrue(response["result"]["entries"])
+
+    def oldest_visible():
+        if "history human 0" in terminal.text:
+            return True
+        # The recorder sees a reply before the client applies it. Home stays idempotent.
+        terminal.send(b"\x1b[H")
+        return False
+
+    terminal.wait(oldest_visible, "the client applies the older page and scrolls to the first human")
+    case.assertEqual(len(terminal.requests("thread/turns/list")), 2)
+    case.assertEqual(terminal.requests("thread/items/list"), [])
+    case.assertEqual(model.requests, [])
+
+
 def check_history(case, binary, codex, root, socket_mode=False):
     root.mkdir(parents=True)
     model = Model(root, lambda _body: case.fail("History must never call a model"))
@@ -40,11 +76,12 @@ def check_history(case, binary, codex, root, socket_mode=False):
     pages = terminal.requests("thread/turns/list")
     case.assertEqual(len(pages),1)
     case.assertEqual(pages[0]["params"]["itemsView"],"full")
+    case.assertEqual(pages[0]["params"]["sortDirection"],"desc")
     case.assertEqual(terminal.requests("thread/items/list"),[])
     response = next(row for row in terminal.messages("server") if row.get("id") == pages[0]["id"] and "method" not in row)
     projected = response["result"]["data"]
     case.assertGreater(len(json.dumps(response)),8*1024*1024,"exercise a real oversized public history page")
-    case.assertEqual([turn["id"] for turn in projected],turns[:31])
+    case.assertEqual([turn["id"] for turn in projected],list(reversed(turns[:31])))
     case.assertEqual(len([item for turn in projected for item in turn["items"]]),30*57+1)
     case.assertNotIn("HISTORY_REPLY:30",json.dumps(projected),"the ancestor's excluded tail must stay excluded")
     terminal.rewind("history human 29")

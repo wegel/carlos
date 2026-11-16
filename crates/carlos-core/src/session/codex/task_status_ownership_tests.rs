@@ -191,6 +191,7 @@ fn failed_f2_scope_retires_older_targeted_success_without_erasing_uncertainty() 
 
 fn snapshot() -> CodexSnapshot {
     CodexSnapshot {
+        older_history: None,
         thread: json!({"id":"root","status":{"type":"idle"},"turns":[{"id":"turn",
             "status":"inProgress","items":[{"id":"answer","type":"agentMessage","text":"root answer"}]}]}),
         runtime: json!({"result":{"thread":{"id":"root"},"model":"a","reasoningEffort":"low"}})

@@ -39,6 +39,7 @@ pub(super) struct Owner {
     pub(super) goal: Option<super::goals::PendingGoal>,
     pub(super) settings: Option<super::settings::PendingSettings>,
     pub(super) reopening: bool,
+    pub(super) history_busy: bool,
     pub session: SessionState,
     pub client: Box<dyn BackendClient>,
     pub ring: EventRing,
@@ -69,6 +70,7 @@ impl Owner {
             goal: None,
             settings: None,
             reopening: false,
+            history_busy: false,
             session,
             client,
             native,
@@ -109,6 +111,9 @@ impl Owner {
                     continue;
                 };
                 let Some(envelope) = self.defer_task_activity_read(envelope) else {
+                    continue;
+                };
+                let Some(envelope) = self.defer_history_read(envelope) else {
                     continue;
                 };
                 let Some(envelope) = self.defer_context_read(envelope) else {
@@ -268,7 +273,7 @@ impl Owner {
         }
     }
 
-    fn history(
+    pub(super) fn history(
         &mut self,
         before: &carlos_proto::ids::EntryId,
         limit: usize,

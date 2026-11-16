@@ -1,4 +1,4 @@
-//! Read complete reconnect facts into one bounded slot without an oversized UI frame.
+//! Read reconnect facts and the newest complete history window without an oversized UI frame.
 
 use std::time::{Duration, Instant};
 
@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 use crate::backend::BackendClient;
 use crate::codex_snapshot_reads::SnapshotReader;
 use crate::protocol::AppServerClient;
-use crate::protocol_history::load_thread_history;
+use crate::protocol_history::{newest_window, HistoryCursor, HistoryPage};
 use crate::protocol_params::{extract_result_object, initialize_client, params_thread_resume};
 
 /// Distinguish a newly created native thread from an existing thread with saved turns.
@@ -16,14 +16,15 @@ use crate::protocol_params::{extract_result_object, initialize_client, params_th
 pub enum BootstrapHistory {
     /// A thread/start response with no turns does not yet have saved history to read.
     NewThread,
-    /// Resume and reconnect must read every saved turn before replacing session facts.
+    /// Resume and reconnect read the newest complete window and retain its older cursor.
     ExistingThread,
 }
 
-/// Retain at most one complete read: 64 MiB history, 16 MiB queue, 8 MiB panel,
+/// Retain at most one checked read: 64 MiB history window, 16 MiB queue, 8 MiB panel,
 /// eight MiB catalog/runtime and 128 KiB goal, before UI replacement.
 pub struct CodexSnapshot {
     pub thread: Value,
+    pub(crate) older_history: Option<(HistoryCursor, Vec<String>)>,
     pub runtime: String,
     pub catalog: Value,
     pub queue: Option<Value>,
@@ -69,7 +70,7 @@ fn read_inner(
         parsed["result"]["thread"]["id"] == thread,
         "Codex resumed a different thread"
     );
-    let mut history = initial_history(&reader, &parsed, &runtime, thread, history)?;
+    let mut history = initial_history(&reader, &parsed, &runtime, history)?;
     let catalog = reader.catalog()?;
     ensure!(
         catalog.to_string().len() + runtime.len() <= 8 * 1024 * 1024,
@@ -92,9 +93,9 @@ fn read_inner(
         live["thread"]["id"] == thread,
         "Codex metadata belongs to another thread"
     );
-    history["status"] = live["thread"]["status"].clone();
+    history.thread["status"] = live["thread"]["status"].clone();
     if let Some(name) = live["thread"].get("name") {
-        history["name"] = name.clone();
+        history.thread["name"] = name.clone();
     }
     let mut runtime = parsed;
     for key in ["model", "reasoningEffort"] {
@@ -107,7 +108,8 @@ fn read_inner(
         "Codex reconnect exceeded20 seconds"
     );
     Ok(CodexSnapshot {
-        thread: history,
+        thread: history.thread,
+        older_history: history.older.map(|cursor| (cursor, history.visited)),
         runtime,
         catalog,
         queue,
@@ -120,20 +122,22 @@ fn initial_history(
     reader: &SnapshotReader<'_>,
     parsed: &Value,
     runtime: &str,
-    thread: &str,
     history: BootstrapHistory,
-) -> Result<Value> {
+) -> Result<HistoryPage> {
     let fresh = &parsed["result"]["thread"];
     if matches!(history, BootstrapHistory::NewThread)
         && fresh["turns"].as_array().is_some_and(Vec::is_empty)
     {
         // Codex does not materialize an empty new thread until its first prompt.
-        return Ok(fresh.clone());
+        return Ok(HistoryPage {
+            thread: fresh.clone(),
+            older: None,
+            visited: Vec::new(),
+        });
     }
-    let history = load_thread_history(
+    newest_window(
         reader,
         runtime,
         reader.deadline.saturating_duration_since(Instant::now()),
-    )?;
-    crate::session::codex::history::preferred_codex_thread(&history, thread)
+    )
 }

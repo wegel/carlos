@@ -35,6 +35,16 @@ impl Default for Journal {
 }
 
 impl Journal {
+    pub(super) fn prepend_stored(&mut self, count: usize) {
+        self.published += count;
+        if self.earliest != usize::MAX {
+            self.earliest += count;
+        }
+        for change in &mut self.rows {
+            change.index += count;
+        }
+    }
+
     pub(super) fn record(&mut self, change: RowChange) {
         if self.reset || change.index >= self.published {
             return;

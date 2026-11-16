@@ -266,6 +266,13 @@ def check_paged_history(binary, root):
         assert [turn["id"] for turn in history] == turns
         assert sum(item["type"] == "contextCompaction" for turn in history for item in turn["items"]) == 1
         assert history[-1]["items"][-1]["text"] == "HISTORY_REPLY:104"
+        newest = server.call("thread/turns/list", {"threadId":thread, "sortDirection":"desc", "itemsView":"full", "limit":100})
+        assert [turn["id"] for turn in newest["data"]] == list(reversed(turns))[:100]
+        assert all(turn["itemsView"] == "full" and isinstance(turn["items"], list) for turn in newest["data"])
+        assert newest["nextCursor"] is not None
+        older = server.call("thread/turns/list", {"threadId":thread, "sortDirection":"desc", "itemsView":"full", "limit":100, "cursor":newest["nextCursor"]})
+        assert [turn["id"] for turn in older["data"]] == list(reversed(turns))[100:]
+        assert older["nextCursor"] is None
         fork = server.call("thread/fork",{"threadId":thread,"beforeTurnId":turns[-1],"excludeTurns":True})
         assert fork["thread"]["turns"] == []
         fork_history = paged_history(server,fork["thread"]["id"])

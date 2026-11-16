@@ -58,8 +58,7 @@ impl EntryPositions {
         }
     }
 
-    #[cfg(any(test, feature = "test-support"))]
-    /// Rebuild the test fixture after inserting a row in the middle.
+    /// Rebuild exact positions after inserting older rows before the current prefix.
     pub(super) fn rebuild(&mut self, entries: &[Message]) {
         *self = Self::default();
         self.reserve(entries.len());

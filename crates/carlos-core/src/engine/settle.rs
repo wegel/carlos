@@ -18,6 +18,14 @@ impl Owner {
 
     fn finish_completion(&mut self, completion: Completion) {
         match completion {
+            Completion::History {
+                pending,
+                target,
+                cursor,
+                result,
+            } => {
+                self.finish_history_read(*pending, target, cursor, result);
+            }
             Completion::ClaudeReopened { operation, result } => {
                 self.finish_claude_reopen(operation, result)
             }
@@ -51,15 +59,7 @@ impl Owner {
             } => {
                 self.finish_control(operation, completion);
             }
-            Completion::InternalControl(completion) => {
-                self.workers.actions_busy -= 1;
-                if let Err(error) = self
-                    .session
-                    .finish_engine_control(self.client.as_ref(), completion)
-                {
-                    self.session.set_status(error.to_string());
-                }
-            }
+            Completion::InternalControl(completion) => self.finish_internal_control(completion),
             Completion::Ralph {
                 operation,
                 result,
@@ -76,6 +76,19 @@ impl Owner {
             }
         }
     }
+    fn finish_internal_control(
+        &mut self,
+        completion: crate::session::control_work::ControlCompletion,
+    ) {
+        self.workers.actions_busy -= 1;
+        if let Err(error) = self
+            .session
+            .finish_engine_control(self.client.as_ref(), completion)
+        {
+            self.session.set_status(error.to_string());
+        }
+    }
+
     fn finish_control(
         &mut self,
         operation: carlos_proto::submissions::ClientOperation,

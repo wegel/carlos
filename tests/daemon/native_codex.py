@@ -151,7 +151,8 @@ class NativeCodex(NativeQueue, NativeTasks, NativeSettings, NativeSaved):
             self.resumed += method == "thread/resume"
             result = {"thread": self.history(), **self.native_runtime_response()}
         elif method == "thread/turns/list":
-            result = {"data": self.history()["turns"], "nextCursor": None}
+            turns = self.history()["turns"]
+            result = {"data": list(reversed(turns)) if request["params"].get("sortDirection") == "desc" else turns, "nextCursor": None}
         elif method == "thread/fork":
             assert request["params"]["beforeTurnId"] == "history-turn"
             self.thread_id = "native-fork"

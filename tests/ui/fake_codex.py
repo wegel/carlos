@@ -230,7 +230,8 @@ class Server:
             self.send({"id": request["id"], "error": {
                 "code": -32601, "message": "Unknown method: thread/turns/list"}})
             return
-        turns = self.threads[params["threadId"]]["turns"]
+        turns = list(self.threads[params["threadId"]]["turns"])
+        if params.get("sortDirection") == "desc": turns.reverse()
         if self.mode == "paginated" and len(turns) > 1 and not params.get("cursor"):
             self.reply(request, {"data": turns[:1], "nextCursor": "page-2"})
         else:

@@ -11,6 +11,12 @@ use crate::session::control_work::ControlCompletion;
 use crate::session::ralph::RalphConfig;
 
 pub(super) enum Completion {
+    History {
+        pending: Box<super::mailbox::Envelope>,
+        target: super::target::Target,
+        cursor: crate::protocol_history::HistoryCursor,
+        result: Result<crate::protocol_history::HistoryPage, String>,
+    },
     ClaudeReopened {
         operation: ClientOperation,
         result: Result<u64, String>,

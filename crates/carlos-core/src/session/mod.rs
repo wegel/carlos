@@ -257,6 +257,8 @@ pub mod engine;
 
 mod grok_permissions;
 mod grok_startup;
+mod history_prepend;
+mod native_history;
 
 #[cfg(test)]
 mod runtime_behavior_tests;
