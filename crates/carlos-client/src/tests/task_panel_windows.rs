@@ -1,6 +1,7 @@
 //! Preserve candidate windows, exact close rights and readonly older rows across reconnect.
 
 use carlos_proto::commands::{Command, RpcError};
+use carlos_proto::tasks::TaskField;
 use serde_json::{json, Value};
 
 use super::client::{command, greet, reply};
@@ -8,6 +9,7 @@ use super::queue_panel::single_read;
 use super::session;
 use super::task_panel::{header, id, page, read, settled};
 use crate::codec::Incoming;
+use crate::panels::{TaskDetailTarget, TaskFieldRead};
 use crate::{Client, Effects, ReadReply};
 
 fn window(known: bool) -> Value {
@@ -227,4 +229,64 @@ fn an_older_window_keeps_readonly_rows_after_eof_and_only_explicit_refresh_resto
         "explicit latest cannot select another task for a stop"
     );
     assert!(model.selected().is_none());
+}
+
+#[test]
+fn closing_a_captured_window_keeps_accepted_details_readonly_and_retires_its_pending_text() {
+    let (mut client, _) = settled();
+    accept_older(&mut client);
+    let target = TaskDetailTarget {
+        window: Some("d".repeat(64).parse().expect("owned window")),
+        expected: "d".repeat(64).parse().expect("captured revision"),
+        task: id(8),
+    };
+    let opened = client
+        .open_task_details(&session(), target)
+        .expect("selected detail");
+    reply(
+        &mut client,
+        single_read(&opened),
+        json!({"session":session(), "revision":"d".repeat(64),
+        "task":page(10,"d",8,9,2)["tasks"][0],
+        "properties":[{"field":"report","text":"kept","bytes":"8","complete":false}]}),
+    );
+    let pending = client
+        .read_task_fields(
+            &session(),
+            vec![TaskFieldRead {
+                field: TaskField::Report,
+                bytes: 8,
+            }],
+        )
+        .expect("long report");
+    let closed = client.close_task_panel(&session());
+    read(&closed, "task/window/close");
+    let detail = client
+        .task_details(&session())
+        .expect("readonly accepted details");
+    assert!(detail.is_stale());
+    assert!(!detail.is_reading());
+    assert_eq!(detail.field(TaskField::Report), Some("kept"));
+    let late = reply(
+        &mut client,
+        single_read(&pending),
+        json!({"session":session(),
+        "revision":"d".repeat(64),"task":id(8),"field":"report",
+        "offset":"4","next_offset":"8","text":"late","complete":true}),
+    );
+    assert!(late.outgoing.is_empty() && late.replies.is_empty());
+    assert_eq!(
+        client
+            .task_details(&session())
+            .expect("retained")
+            .field(TaskField::Report),
+        Some("kept")
+    );
+    let reopened = client
+        .open_task_panel(&session(), None)
+        .expect("explicit reopen");
+    assert!(
+        reopened.outgoing.is_empty(),
+        "do not read the retired native window"
+    );
 }

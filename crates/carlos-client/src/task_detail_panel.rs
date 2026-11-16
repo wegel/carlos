@@ -2,7 +2,7 @@
 
 use carlos_proto::bytes::ByteOffset;
 use carlos_proto::commands::Command;
-use carlos_proto::ids::SessionId;
+use carlos_proto::ids::{SessionId, TaskWindowId};
 
 use crate::panels::task_details::{Pending, MAX_TASK_DETAIL_BYTES};
 use crate::panels::{PanelKind, TaskDetailTarget, TaskDetails, TaskFieldRead};
@@ -103,6 +103,26 @@ impl Client {
         if let Some(pending) = pending {
             self.requests.take(&pending.id);
         }
+    }
+
+    /// Keep accepted fields readonly when their exact parent window releases its native rights.
+    pub(crate) fn retire_task_window_details(
+        &mut self,
+        session: &SessionId,
+        window: &TaskWindowId,
+        effects: &mut Effects,
+    ) {
+        if self
+            .task_details(session)
+            .is_none_or(|panel| panel.target.window.as_ref() != Some(window))
+        {
+            return;
+        }
+        self.cancel_task_detail_read(session);
+        let panel = self.task_details_mut(session).expect("captured details");
+        panel.stale = true;
+        panel.dirty = false;
+        effects.panel_changed(session, PanelKind::TaskDetails);
     }
 
     pub(crate) fn wake_task_details(&mut self, session: &SessionId, changes: &ChangeSet) {

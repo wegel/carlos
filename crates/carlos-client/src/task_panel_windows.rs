@@ -104,6 +104,7 @@ impl Client {
             else {
                 return true;
             };
+            self.retire_task_window_details(session, &window, effects);
             let command = Command::TaskWindowClose {
                 session: session.clone(),
                 window: Some(window),

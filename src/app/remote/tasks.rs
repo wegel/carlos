@@ -66,7 +66,9 @@ impl Device {
     fn close_tasks(&mut self, link: Option<&mut Transport>) -> Result<()> {
         self.close_task_activity(false)?;
         self.tasks.view.show = false;
-        self.clear_task_details();
+        if self.task_window_id().is_none() {
+            self.clear_task_details();
+        }
         self.client.close_task_overview(&self.session);
         let effects = self.client.close_task_panel(&self.session);
         self.apply_or_queue_task_effects(link, effects)?;

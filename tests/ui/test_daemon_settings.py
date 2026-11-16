@@ -160,6 +160,19 @@ class DaemonSettings:
         terminal.contains("Daemon changed")
         self.assertIn("chosen", terminal.text)
         self.assertEqual(len(terminal.requests("settings/set")), 1)
+        restored = daemon_support.Client(fixture, "settings-restored-observer")
+        self.addCleanup(restored.close)
+        daemon_support.wait_for(lambda: restored.call("session/subscribe", session=session,
+            since=None)["snapshot"]["info"]["availability"] == "ready", "restored native owner is ready")
+
+        async def fence():
+            for peer in list(fixture.native.connections):
+                await fixture.native.notify(peer, "thread/settings/updated",
+                    threadSettings=dict(fixture.native.native_runtime))
+                await fixture.native.notify(peer, "item/agentMessage/delta",
+                    itemId="settings-restart-fence", delta="settings restart fence")
+        asyncio.run_coroutine_threadsafe(fence(), fixture.native.loop).result(timeout=3)
+        terminal.contains("settings restart fence")
         terminal.send(F6)
         terminal.contains("Tab field, arrows, Enter save")
         self.assertIn("chosen", terminal.text)
