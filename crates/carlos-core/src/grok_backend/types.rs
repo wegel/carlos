@@ -50,6 +50,13 @@ pub(super) struct GrokContextUsage {
 
 // --- Translation ---
 
+/// Retain only the active native text-message boundary, without another history index.
+#[derive(Debug)]
+pub(super) struct GrokTextCursor {
+    pub(super) kind: &'static str,
+    pub(super) native: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct GrokToolCall {
     pub(super) name: String,
@@ -68,6 +75,8 @@ pub struct GrokTranslationState {
     pub(super) model: Option<String>,
     pub(super) effort: Option<String>,
     pub(super) next_turn_seq: u64,
+    pub(super) next_text_seq: u64,
+    pub(super) current_text: Option<GrokTextCursor>,
     pub(super) prompt_epoch: u64,
     pub(super) current_turn_id: Option<String>,
     pub(super) current_message_id: Option<String>,
@@ -84,6 +93,14 @@ pub struct GrokTranslationState {
 }
 
 impl GrokTranslationState {
+    pub(super) fn next_text_id(&mut self, kind: &str) -> String {
+        self.next_text_seq = self
+            .next_text_seq
+            .checked_add(1)
+            .expect("Grok text counter exhausted");
+        format!("grok-{kind}-{}", self.next_text_seq)
+    }
+
     #[cfg(any(test, feature = "test-support"))]
     /// Create a fixture translator that treats incoming records as saved history.
     pub fn replaying() -> Self {

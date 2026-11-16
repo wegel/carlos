@@ -193,6 +193,12 @@ Types:
   - approval: `command`, `reason`, `choices`, `resolution?`.
 - `Snapshot`: `info`, `entries` (newest page), `seq`, `has_older`.
 
+## Complete native windows before Ready
+
+Codex and Claude owners adopt a complete newest native window before publishing Ready. The public history cursor remains a checked Carlos entry id. The owner keeps original native cursors, archive snapshots and backend/root/connection targets private; its existing bounded history worker reads earlier windows only when requested. Historical rows keep fresh stable entry ids without renumbering current rows or replacing newer source. Prompt recall uses that same path when the oldest matching stored prompt has an unread native prefix, so a phone or terminal need not scroll the transcript first. See docs/client-protocol-v1.md for the complete reply rules.
+
+Claude's SDK can still scan/import the complete file before its first archive window. Grok's ACP load must replay the complete conversation before Ready and has no invented native paging method. Carlos preserves complete replayed rows and pages its stored history afterward. Measure these backend costs separately from the first window's transport/read cost. These limits do not justify truncating source, hiding older rows or replacing accepted live data.
+
 ## Order of work
 
 1. EP016: stable entry ids, separate SessionState/ViewState, and Claude translation in its backend. Complete.
@@ -203,7 +209,7 @@ Types:
 6. EP019b, complete and approved under delegated authority: typed terminal controls and pure carlos-client preserve source/color/copy and every terminal workflow through the daemon. Commit cc2a5f5 separately deletes the embedded path. Final evidence and whole-roadmap review are in `.agents/reports/exec019b-final-report.md`; archived plan: `.agents/done/EXECPLAN_019b_terminal_client.md`.
 7. EP020, complete and approved under delegated authority: explicit stop/reopen releases owner slots while preserving saved conversations/private results; opt-in authenticated WebSockets share the same manager. Final source6a31fd059ad6f8f0e7e92b1f001bc765 passes complete gates and matched measurements. Both final Fable reviews and all remaining limits are in `.agents/reports/exec020-final-report.md`.
 8. EP021a: share panel read/paging rules in carlos-client, remove terminal copies and make daemon command admission exhaustive. Add the non-blocking partial-progress stall test and truthful write-return diagnostic label. Complete: `.agents/done/EXECPLAN_021a_shared_panel_reads.md`.
-9. EP021b: paged native history, Grok approvals and richer tool summaries as data, after the common readers are checked. Next: write `.agents/execplans/EXECPLAN_021b_native_phone_data.md` in full before code.
+9. EP021b, active: native history windows, real Grok approval choices and accurate compact tool facts. `.agents/execplans/EXECPLAN_021b_native_phone_data.md` records the checked changes and remaining release/performance/review gates.
 10. EP022: UniFFI bindings, iOS packaging and the iPhone app. Compile on the remote Mac; see `docs/ios-build.md`.
 
 Only the next ExecPlan is written in full. Each later plan is written when the

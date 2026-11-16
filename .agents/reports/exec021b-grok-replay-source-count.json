@@ -1,0 +1,114 @@
+{
+  "baseline": {
+    "commit": "13478916c820d86d137dbc81e9f85f2f8e1fc3a1",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 385,
+        "nonblank": 48897,
+        "physical": 54880,
+        "bytes": 1852211
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8324,
+        "physical": 8915,
+        "bytes": 292403
+      },
+      "terminal": {
+        "files": 194,
+        "nonblank": 25603,
+        "physical": 29027,
+        "bytes": 952992
+      },
+      "helper": {
+        "files": 24,
+        "nonblank": 1708,
+        "physical": 1881,
+        "bytes": 91519
+      }
+    },
+    "total": {
+      "files": 763,
+      "nonblank": 97215,
+      "physical": 108440,
+      "bytes": 3653437
+    }
+  },
+  "grok_replay": {
+    "commit": "working",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 386,
+        "nonblank": 48949,
+        "physical": 54942,
+        "bytes": 1854054
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8324,
+        "physical": 8915,
+        "bytes": 292403
+      },
+      "terminal": {
+        "files": 194,
+        "nonblank": 25603,
+        "physical": 29027,
+        "bytes": 952992
+      },
+      "helper": {
+        "files": 24,
+        "nonblank": 1708,
+        "physical": 1881,
+        "bytes": 91519
+      }
+    },
+    "total": {
+      "files": 764,
+      "nonblank": 97267,
+      "physical": 108502,
+      "bytes": 3655280
+    }
+  },
+  "delta_nonblank": 52,
+  "changes": {
+    "crates/carlos-core/src/grok_backend/translate.rs": {
+      "added": 6,
+      "deleted": 141
+    },
+    "crates/carlos-core/src/grok_backend/translate_text.rs": {
+      "added": 172,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/grok_backend/types.rs": {
+      "added": 15,
+      "deleted": 0
+    }
+  },
+  "added_nonblank": 193,
+  "deleted_nonblank": 141,
+  "note": "Same production traversal and test exclusions as the accepted ledger. Grok full-replay text fidelity versus1347891: move existing text reducers into their own module, preserve fresh private text-item ids and optional native message boundaries. The old actual-daemon check loses358 rows. Both full Rust configurations/lints, six actual Grok daemon cases, four actual Grok terminal workflows and400/60/fmt/diff checks pass. The complete EP release/native/performance gate remains pending."
+}

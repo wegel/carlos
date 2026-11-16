@@ -1,16 +1,19 @@
 //! Grok ACP `session/update` translation into the Codex notification protocol.
 
+#[path = "translate_text.rs"]
+mod text;
 #[path = "translate_tools.rs"]
 mod translate_tools;
 
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 
+use self::text::{translate_agent_chunk, translate_thought_chunk, translate_user_chunk};
 use self::translate_tools::{
     parse_usage, translate_tool_call, translate_tool_update, translate_usage_update,
 };
-use super::types::{
-    content_text, jsonrpc_notification, token_usage_line, GrokTranslationState, TranslateOutput,
-};
+use super::types::{jsonrpc_notification, token_usage_line, GrokTranslationState, TranslateOutput};
+
+pub(super) use self::text::flush_open_items;
 
 // --- Public entry ---
 
@@ -170,127 +173,6 @@ fn translate_session_notification(
 
 // --- Chunks ---
 
-fn translate_user_chunk(
-    state: &mut GrokTranslationState,
-    update: &Map<String, Value>,
-    out: &mut TranslateOutput,
-) {
-    let Some(text) = content_text(update.get("content").unwrap_or(&Value::Null)) else {
-        return;
-    };
-    if state.replaying {
-        state.current_user_text.push_str(&text);
-        return;
-    }
-    if state.suppress_user_echo {
-        return;
-    }
-    state.ignore_stale_updates = false;
-    flush_thought(state, out);
-    flush_message(state, out);
-    ensure_turn_started(state, out);
-    state.current_user_text.push_str(&text);
-    flush_user_text(state, out);
-}
-
-fn translate_agent_chunk(
-    state: &mut GrokTranslationState,
-    update: &Map<String, Value>,
-    out: &mut TranslateOutput,
-) {
-    let Some(text) = content_text(update.get("content").unwrap_or(&Value::Null)) else {
-        return;
-    };
-    flush_user_text(state, out);
-    flush_thought(state, out);
-    ensure_turn_started(state, out);
-    let item_id = ensure_message_item(state, out);
-    state.current_message_text.push_str(&text);
-    out.lines.push(jsonrpc_notification(
-        "item/agentMessage/delta",
-        json!({ "itemId": item_id, "delta": text }),
-    ));
-}
-
-fn translate_thought_chunk(
-    state: &mut GrokTranslationState,
-    update: &Map<String, Value>,
-    out: &mut TranslateOutput,
-) {
-    let Some(text) = content_text(update.get("content").unwrap_or(&Value::Null)) else {
-        return;
-    };
-    flush_user_text(state, out);
-    flush_message(state, out);
-    ensure_turn_started(state, out);
-    let item_id = ensure_thought_item(state, out);
-    state.current_thought_text.push_str(&text);
-    out.lines.push(jsonrpc_notification(
-        "item/reasoning/summaryTextDelta",
-        json!({ "itemId": item_id, "delta": text }),
-    ));
-}
-
-// --- Flush / emit ---
-
-pub(super) fn flush_open_items(state: &mut GrokTranslationState, out: &mut TranslateOutput) {
-    flush_user_text(state, out);
-    flush_thought(state, out);
-    flush_message(state, out);
-}
-
-fn flush_user_text(state: &mut GrokTranslationState, out: &mut TranslateOutput) {
-    if state.current_user_text.trim().is_empty() {
-        state.current_user_text.clear();
-        return;
-    }
-    let text = std::mem::take(&mut state.current_user_text);
-    out.lines.push(jsonrpc_notification(
-        "item/started",
-        json!({
-            "item": {
-                "id": format!("grok-user-{}", state.next_turn_seq),
-                "type": "userMessage",
-                "content": [{ "type": "text", "text": text }],
-            }
-        }),
-    ));
-}
-
-fn flush_message(state: &mut GrokTranslationState, out: &mut TranslateOutput) {
-    let Some(item_id) = state.current_message_id.take() else {
-        return;
-    };
-    let text = std::mem::take(&mut state.current_message_text);
-    out.lines.push(jsonrpc_notification(
-        "item/completed",
-        json!({
-            "item": {
-                "id": item_id,
-                "type": "agentMessage",
-                "text": text,
-            }
-        }),
-    ));
-}
-
-fn flush_thought(state: &mut GrokTranslationState, out: &mut TranslateOutput) {
-    let Some(item_id) = state.current_thought_id.take() else {
-        return;
-    };
-    let text = std::mem::take(&mut state.current_thought_text);
-    out.lines.push(jsonrpc_notification(
-        "item/completed",
-        json!({
-            "item": {
-                "id": item_id,
-                "type": "reasoning",
-                "text": text,
-            }
-        }),
-    ));
-}
-
 pub(super) fn ensure_turn_started(state: &mut GrokTranslationState, out: &mut TranslateOutput) {
     if state.replaying || state.current_turn_id.is_some() || state.ignore_stale_updates {
         return;
@@ -339,32 +221,6 @@ fn emit_turn_completed(
 
 fn should_drop_stale(state: &GrokTranslationState, kind: Option<&str>) -> bool {
     state.ignore_stale_updates && !matches!(kind, Some("user_message_chunk" | "usage_update"))
-}
-
-fn ensure_message_item(state: &mut GrokTranslationState, out: &mut TranslateOutput) -> String {
-    if let Some(item_id) = state.current_message_id.clone() {
-        return item_id;
-    }
-    let item_id = format!("grok-msg-{}", state.next_turn_seq);
-    state.current_message_id = Some(item_id.clone());
-    out.lines.push(jsonrpc_notification(
-        "item/started",
-        json!({ "item": { "id": item_id, "type": "agentMessage" } }),
-    ));
-    item_id
-}
-
-fn ensure_thought_item(state: &mut GrokTranslationState, out: &mut TranslateOutput) -> String {
-    if let Some(item_id) = state.current_thought_id.clone() {
-        return item_id;
-    }
-    let item_id = format!("grok-thought-{}", state.next_turn_seq);
-    state.current_thought_id = Some(item_id.clone());
-    out.lines.push(jsonrpc_notification(
-        "item/started",
-        json!({ "item": { "id": item_id, "type": "reasoning" } }),
-    ));
-    item_id
 }
 
 fn remember_session_id(state: &mut GrokTranslationState, params: &Value) {

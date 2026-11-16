@@ -8,6 +8,33 @@ from test_daemon_client import daemon_support
 
 
 class GrokStartup:
+    def test_grok_complete_native_replay_keeps_oldest_and_newest_rows_reachable(self):
+        from test_startup_grok import StartupGrokTests
+        runner = sys.modules[type(self).__module__]
+        daemon_support.BINARY = runner.BINARY.parent / "carlosd"
+        daemon_support.ARTIFACTS = runner.ARTIFACTS / "daemon"
+        fixture, client = StartupGrokTests._grok_saved_fixture(self, "terminal-complete-replay")
+        (fixture.root / "grok-saved.json").write_text(json.dumps({"replay_turns":180}))
+        operation = client.operation(1)
+        session = client.call("session/open", operation=operation, backend="grok", cwd=str(fixture.root),
+            target={"kind":"resume", "address":"terminal-native-replay"})["session"]
+        self.assertEqual(client.outcome(operation)["state"]["kind"], "accepted")
+        terminal = self.attach_daemon(fixture, session, "complete-grok-replay")
+        terminal.contains("Grok answer 179 🌍")
+        for count in range(1,4):
+            terminal.send(b"\x1b[H")
+            terminal.wait(lambda: len(terminal.requests("session/history")) == count, "one stored older history page")
+            request = terminal.requests("session/history")[-1]["id"]
+            terminal.wait(lambda: any(message.get("id") == request for message in terminal.messages("server")), "older history page replied")
+        terminal.send(b"\x1b[H")
+        terminal.contains("Grok user 0 🌍")
+        terminal.snapshot("complete-grok-oldest-human")
+        terminal.send(b"\x1b[F")
+        terminal.contains("Grok answer 179 🌍")
+        self.assertEqual(len(fixture.native_requests("session/load")),1)
+        self.assertEqual(fixture.native_requests("session/prompt"), [])
+        self.assertEqual(terminal.requests("session/send"), [])
+
     def test_grok_offered_permission_choices_work_through_the_terminal_without_a_prompt(self):
         runner = sys.modules[type(self).__module__]
         daemon_support.BINARY = runner.BINARY.parent / "carlosd"

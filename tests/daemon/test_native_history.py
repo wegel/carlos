@@ -5,6 +5,75 @@ from support import Client, Fixture, wait_for
 
 
 class NativeHistoryTests:
+    def test_codex_held_native_history_keeps_other_readers_cached_cursors_independent(self):
+        fixture, peer, reader, session, opened = self.native_history_fixture("two-readers")
+        before = self.native_prefix_boundary(reader, session, opened)
+        other = Client(fixture, "independent-history")
+        self.addCleanup(other.close)
+        latest = other.call("session/subscribe", session=session, since=None)["snapshot"]
+        peer.pause = True
+        pending = reader.send("session/history", session=session, before=before, limit=100)
+        wait_for(lambda: peer.held, "first native prefix read is held")
+        cached = other.call("session/history", session=session, before=latest["entries"][0]["id"], limit=20)
+        self.assertEqual(len(cached["entries"]),20)
+        self.assertNotEqual(cached["entries"][0]["id"],before)
+        self.assertEqual(len(peer.pages),2)
+        peer.release()
+        prefix = reader.response(pending)["result"]
+        self.assertEqual(other.call("session/history", session=session, before=before, limit=100), prefix)
+        self.assertEqual(len(peer.pages),2)
+        self.assertEqual(fixture.native.prompts,0)
+
+    def test_codex_stopping_the_owner_retires_its_original_held_history_read(self):
+        fixture, peer, reader, session, opened = self.native_history_fixture("stop-held")
+        before = self.native_prefix_boundary(reader, session, opened)
+        peer.pause = True
+        pending = reader.send("session/history", session=session, before=before, limit=100)
+        wait_for(lambda: peer.held, "native prefix read is held")
+        other = Client(fixture, "stop-operator")
+        self.addCleanup(other.close)
+        stopped = other.operation(1)
+        other.call("session/stop", session=session, operation=stopped)
+        self.assertEqual(other.outcome(stopped)["state"]["kind"], "accepted")
+        self.assertIn("error", reader.response(pending))
+        self.assertEqual(fixture.native.prompts,0)
+        self.assertTrue(other.call("sessions/watch")["sessions"])
+
+    def test_codex_busy_native_history_refuses_a_fork_without_changing_root_then_allows_explicit_retry(self):
+        fixture, peer, reader, session, opened = self.native_history_fixture("fork-held")
+        before = self.native_prefix_boundary(reader, session, opened)
+        old = reader.call("session/subscribe", session=session, since=None)["snapshot"]["entries"]
+        original = peer.handle
+        async def fork(link, request):
+            if request.get("method") != "thread/fork":
+                return await original(link, request)
+            self.assertEqual(request["params"]["beforeTurnId"], "turn-239")
+            fixture.native.thread_id = "new-native-fork"
+            fixture.native.forked = True
+            peer.turns = []
+            await fixture.native.send(link, {"id":request["id"], "result":{"thread":fixture.native.history()}})
+        peer.handle = fork
+        peer.pause = True
+        pending = reader.send("session/history", session=session, before=before, limit=100)
+        wait_for(lambda: peer.held, "original root's native prefix read is held")
+        other = Client(fixture, "fork-operator")
+        self.addCleanup(other.close)
+        edit = other.operation(1)
+        other.call("session/rewind", session=session, operation=edit, entry=old[-2]["id"], text="new native branch")
+        refused = other.outcome(edit)
+        self.assertEqual(refused["state"]["kind"], "uncertain")
+        self.assertIn("active large history read", refused["state"]["message"])
+        self.assertFalse(refused.get("rewound",False))
+        self.assertEqual(fixture.native.thread_id, "native-root")
+        peer.release()
+        self.assertTrue(reader.response(pending)["result"]["entries"])
+        retry = other.operation(2)
+        other.call("session/rewind", session=session, operation=retry, entry=old[-2]["id"], text="new native branch")
+        self.assertEqual(other.outcome(retry)["state"]["kind"], "accepted")
+        fresh = other.call("session/subscribe", session=session, since=None)["snapshot"]
+        self.assertTrue(all(row["id"] not in {entry["id"] for entry in old} for row in fresh["entries"]))
+        self.assertEqual(fixture.native.prompts,1)
+
     def test_codex_recall_crosses_windows_without_humans_and_does_not_search_unknown_sources(self):
         from test_prompt_history import check_native_recall
         fixture, peer, client, session, opened = self.native_history_fixture("recall-sparse")
