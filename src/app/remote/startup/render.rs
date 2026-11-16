@@ -2,7 +2,7 @@
 
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 
 use super::{Bootstrap, Phase};
 use crate::app::picker_render::{compute_picker_layout, draw_picker_rows, PickerRow};
@@ -30,6 +30,7 @@ impl Bootstrap {
                     Line::from(""),
                     Line::from(Span::styled("Esc exits", Style::default().fg(COLOR_DIM))),
                 ])
+                .wrap(Wrap { trim: false })
                 .style(Style::default().fg(COLOR_TEXT).bg(COLOR_OVERLAY))
                 .block(Block::default().borders(Borders::ALL)),
                 frame.area(),

@@ -8,6 +8,19 @@ from test_daemon_client import daemon_support
 
 
 class DaemonClaudeReopen:
+    def test_unknown_carlos_claude_address_shows_how_to_resume_without_starting_a_native_query(self):
+        terminal = self.launch(backend="claude", resume="e"*32, width=120)
+        terminal.contains("Carlos session ID")
+        terminal.contains("native Claude session UUID")
+        self.assertNotIn("submitted text retained", terminal.text)
+        self.assertEqual(self.helper_messages(terminal), [])
+        self.assertEqual(terminal.requests("session/send"), [])
+        terminal.resize(36, 32)
+        terminal.wait(lambda: "native Claude session UUID" in " ".join(
+            " ".join(line.strip("│ ").split()) for line in terminal.screen.display),
+            "complete recovery advice wraps at phone width")
+        terminal.snapshot("unknown-carlos-id-needs-original-catalogue-or-native-uuid")
+
     def test_daemon_explicit_resume_reopens_failed_fresh_claude_branch_and_preserves_closed_draft(self):
         runner = sys.modules[type(self).__module__]
         daemon_support.BINARY = runner.BINARY.parent / "carlosd"

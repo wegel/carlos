@@ -41,6 +41,12 @@ impl Manager {
                         "explicit saved-session address is missing or exceeds four KiB",
                     ));
                 }
+                // Claude requires a 36-character native UUID; a 32-hex Carlos id belongs
+                // to a catalogue and cannot be imported through Claude's native API.
+                if backend == Backend::Claude && address.parse::<SessionId>().is_ok() {
+                    return Err(error(-32602,
+                        "Carlos session ID is not in this daemon's catalogue; resume it with the original Carlos state directory, or use its native Claude session UUID"));
+                }
                 Ok(Target {
                     known: None,
                     backend,

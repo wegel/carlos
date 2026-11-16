@@ -11,6 +11,18 @@ from support import Client, Fixture, wait_for
 
 
 class StartupOpenTests(unittest.TestCase):
+    def test_unknown_carlos_claude_address_explains_the_catalogue_boundary_without_native_launch(self):
+        fixture = self._open_fixture("unknown-claude-address", count=0)
+        client = self._open_client(fixture, "other-preview")
+        result = client.response(client.send("session/open", operation=client.operation(1),
+            backend="claude", cwd=str(fixture.root), target={"kind":"resume", "address":"e"*32}))
+        self.assertIn("error", result)
+        self.assertIn("Carlos session ID", result["error"]["message"])
+        self.assertIn("native Claude session UUID", result["error"]["message"])
+        self.assertEqual(client.call("sessions/watch")["sessions"], [])
+        self.assertEqual(fixture.pids(), [])
+        self.assertFalse((fixture.root / "claude-controller.jsonl").exists())
+
     def _open_fixture(self, name, count=80):
         fixture = Fixture("startup-open-" + name, codex=True)
         self.addCleanup(fixture.close)
