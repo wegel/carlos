@@ -1,0 +1,62 @@
+{
+  "result": "# Size and design review: `iphone-spike` at 6746fe8 plus the uncommitted resume-target fix\n\nModel: `claude-fable-5-2`. I cannot see the configured effort level from inside the session. Read-only; no builds, tests or edits.\n\n## 1. Verdict\n\n**Some avoidable bloat, concentrated in the native panel families (tasks, queue, settings, goals); the ownership architecture itself is proportionate.** Confidence: medium.\n\nEvidence limits:\n- I read about 45 production files end to end across proto, client, daemon, Core engine and terminal, plus the plans and prior Fable reviews.\n- I could not diff against `main` (no git access) or open the `/tmp/carlos-ep020` count artifact (permission denied), so the scale figures below are sums of files I read, not measured deltas.\n- Most of Core `session/claude`, `session/codex` and the backend adapters is unread.\n\n## 2. Additions justified by the phone/web goal\n\n- **Owner model in Core:** one thread per session, three mailboxes, and captured command handles so interrupt and approve bypass a waiting send (`engine/dispatch.rs:27-102`).\n- **Numbered events and replica:** stable entry ids, sequence ring, snapshot fallback, and `Replica`/codec/`Operations` in `carlos-client`.\n- **Private retry results:** `retry/mod.rs` is about 325 lines with three reserved classes; it is small for what it guarantees.\n- **Daemon plumbing:** bounded outbox and ingress, explicit `limits.rs`, and the SQLite catalogue.\n- **Stop/reopen:** `manager/stop.rs` (241 lines) and `stop_worker.rs` (62) are tight for the cases they cover; owned process families likewise.\n- **Source and output cursors:** needed because clients render at their own width.\n\n## 3. Biggest questionable areas, ranked by payoff\n\n1. **Panels use a paged, chunked, revision-hashed, per-reader-capability protocol where a capped snapshot would do.**\n   - A task label goes through a 2 KiB preview, then 64 KiB offset reads (`session/task_views.rs:103-163`), with reply validators in `carlos-client/src/tasks.rs:108-200`.\n   - The terminal then keeps cursor arrays and a \"relative movement\" resolver to keep a selection across 32-row pages (`remote/tasks_pages.rs:73-226`).\n   - Task windows add server-side captured windows (8 slots, 8 MiB) guarded by a per-socket `Arc<AtomicBool>` (`manager/task_windows.rs:14-64`, `session/task_windows.rs:37-92`). That guard only fences off the same user's other devices.\n   - Task lists and queues are human-scale. The existing 4,352-row ceiling at 1 KiB labels fits one 8 MiB frame.\n   - Simplification: one capped page per panel revision with a `truncated` flag, and a single shared `text/read {handle, offset}` for the rare long field. Boundedness is preserved.\n   - Scale: roughly 60 production files across five crates serve tasks and queue; the 13 I read total about 2.9k lines. Low thousands recoverable; I would not defend a tighter number.\n\n2. **Panel read drivers live in the terminal, duplicated per family, on top of a second request-id correlation.**\n   - `remote/queue_reads.rs:135-250` and `remote/tasks_reads.rs:129-315` are the same state machine: request, future, failure, revision reset, wait until `replica.sequence() >= page.seq`.\n   - `queue_pages.rs` and `tasks_pages.rs` are the same pager; `tasks_overview.rs:86-267` is a third variant.\n   - The client already maps id to `Kind` and validates (`pending.rs:179-341`, `client_replies.rs:61-120`). It then hands back `ReadResult{id}`, and the terminal matches the id again, with a 128-entry `retired` deque (`tasks_reads.rs:33-57`) and take-and-push-back routing (`queue_reads.rs:76-107`, `events.rs:55-60`).\n   - Simplification: one generic pager in `carlos-client` that owns outstanding reads; UIs read settled rows. This removes the duplicates now.\n\n3. **`Command`, `EngineCommand`, `EngineReply` and `ReadReply` are hand-copied mirrors.**\n   - `manager/mutation_work.rs` is 361 lines, about 90% field-for-field rewrap plus five size checks.\n   - The same pattern repeats in `manager/tasks.rs:131-259`, `read_commands.rs:34-164`, and 21 identical `self.reply` arms in `reads.rs:82-108`.\n   - Limit defaults and clamps are restated in three crates (`pending.rs:270`, `manager/tasks.rs:182`, `task_views.rs:48`).\n   - Core already depends on proto types throughout, so make each variant payload a named proto struct that `EngineCommand` carries, move size checks to one proto `validate()`, and let the owner reply with one serialisable value.\n   - Scale: about 500-700 lines, and a new command drops from roughly eight edit sites to three.\n\n4. **Bounded body conduit feeding an unbounded store (terminal only; lower confidence).**\n   - Client windows and pause/resume backpressure (`bodies.rs`, `remote/source_formatter.rs:65-78`, `transcript_formatter.rs:267-313`) bound transit.\n   - The formatter worker then keeps the whole original (`transcript_ansi_pages.rs:54-55`), which matches the recorded 238 MiB retention.\n   - That file's own doc comment still says \"Prototype\" (lines 1 and 37) while being production.\n   - The owner explicitly rejected a body cap, so I list this as a cost, not a cut.\n\n5. **Fragmentation driven by the caps.**\n   - `Device` is one 18-field object (`remote.rs:93-112`) whose `impl` is spread over about 70 files.\n   - Several files sit just under 400 lines (`command.rs` 399, `transcript_formatter.rs` 393).\n   - EP020's decision log moves `handle.rs` out \"to preserve file size caps\" (plan line 96).\n   - This costs navigation and per-file import and doc overhead more than logic. Do not fix it on its own; items 1-3 dissolve much of it.\n\n## 4. Sequencing\n\n- **Before the WebSocket listener and Swift consumer make v1 sticky:** do item 3, ahead of EP020 milestone 3's device and operator commands. Decide item 1's wire shape, or mark the task-window, task-activity and overview families terminal-only. Move item 2's pager into `carlos-client`, or commit that the phone will not consume those panels.\n- **Safe to defer:** item 4, item 5, and the 8 ms poll.\n- **Do not rewrite:** owner threads and mailboxes, the retry store, outbox bounds, `Replica`, source cursors, stop/reopen, and process-family teardown.\n\n## 5. Will each new UI multiply code?\n\n- **Transcript, approvals, send, interrupt, operations: no.** `Replica`, `Operations` and `Bodies` are genuinely shared.\n- **Panels: yes, as written.** The driver logic in item 2 sits in `src/app/remote`, not in `carlos-client`, which contradicts the \"one copy\" rule in `docs/engine-architecture.md`. A Swift client wanting queue or tasks would reimplement about 1.3k lines of subtle revision and sequence handling per panel pair.\n- Fixing items 1 and 2 before EP022 is what keeps the per-UI cost down to layout only.",
+  "session_id": "6426dd2a-bdc0-44f8-b1d2-d3b087fe019c",
+  "model": "fable",
+  "effort": "medium",
+  "access_mode": "read-only",
+  "total_cost_usd": 4.394385,
+  "usage": {
+    "input_tokens": 36,
+    "cache_creation_input_tokens": 211161,
+    "cache_read_input_tokens": 1849205,
+    "output_tokens": 16142,
+    "output_tokens_details": {
+      "thinking_tokens": 7471
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 211161,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 6941,
+        "cache_read_input_tokens": 202829,
+        "cache_creation_input_tokens": 12404,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 12404
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "model_usage": {
+    "claude-fable-5-2": {
+      "inputTokens": 36,
+      "outputTokens": 16142,
+      "cacheReadInputTokens": 1849205,
+      "cacheCreationInputTokens": 211161,
+      "webSearchRequests": 0,
+      "costUSD": 4.394385,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 7471,
+      "cacheCreationEphemeral5mInputTokens": 0,
+      "cacheCreationEphemeral1hInputTokens": 211161,
+      "canonicalModel": "claude-fable-5-2",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "exit_code": 0,
+  "signal": null
+}
