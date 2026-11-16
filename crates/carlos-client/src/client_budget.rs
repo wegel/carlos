@@ -43,6 +43,8 @@ impl Client {
         effects.panel_changed(session, crate::panels::PanelKind::TaskDetails);
         effects.panel_changed(session, crate::panels::PanelKind::TaskOverview);
         effects.panel_changed(session, crate::panels::PanelKind::TaskActivity);
+        effects.panel_changed(session, crate::panels::PanelKind::Tasks);
+        effects.panel_changed(session, crate::panels::PanelKind::TaskWindow);
         if !self.detach.contains(session) {
             self.detach.push_back(session.clone());
         }

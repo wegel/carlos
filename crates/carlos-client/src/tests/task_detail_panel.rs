@@ -247,3 +247,40 @@ fn an_unowned_detail_read_stays_available_without_replacing_the_shared_model() {
         Some("owned")
     );
 }
+
+#[test]
+fn same_value_numbered_task_facts_wake_a_scoped_field_failure_without_a_polling_clock() {
+    let (mut client, connection, read) = opened(true, "a", 5, MAX_TASK_DETAIL_BYTES);
+    let failed = client
+        .receive(
+            connection,
+            Incoming::Failure {
+                id: Some(single_read(&read).id()),
+                error: RpcError {
+                    code: -32001,
+                    message: "native field failure".into(),
+                },
+            },
+        )
+        .expect("owned failure");
+    assert!(failed.outgoing.is_empty());
+    let retry = notify(
+        &mut client,
+        connection,
+        Notification::SessionEvent(super::event(
+            11,
+            Event::TasksChanged {
+                tasks: Some(facts("a")),
+            },
+        )),
+    );
+    let done = reply(&mut client, single_read(&retry), text(1, "🌍", true));
+    assert!(done.outgoing.is_empty());
+    assert_eq!(
+        client
+            .task_details(&session())
+            .expect("retried complete field")
+            .field(TaskField::Report),
+        Some("a🌍")
+    );
+}

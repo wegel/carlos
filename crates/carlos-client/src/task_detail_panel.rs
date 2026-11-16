@@ -120,6 +120,7 @@ impl Client {
         }) {
             panel.failed_sequence = None;
             panel.error = None;
+            panel.dirty = true;
         }
     }
 

@@ -35,6 +35,17 @@ impl TaskWatches {
 }
 
 impl Client {
+    pub(crate) fn task_watch_is_active(&self, session: &SessionId) -> bool {
+        self.task_watches.active.contains_key(session)
+    }
+
+    pub(crate) fn release_task_watch(&mut self, session: &SessionId) {
+        self.task_watches.wanted.remove(session);
+        if self.task_watches.active.remove(session).is_some() {
+            self.task_watches.cancelled.insert(session.clone());
+        }
+    }
+
     /// Identify this session's outstanding task subscribe read without exposing transport internals.
     pub fn pending_task_read(&self, session: &SessionId) -> Option<RequestId> {
         let serial = *self.task_watches.active.get(session)?;
@@ -56,10 +67,7 @@ impl Client {
 
     /// Release a device's task panel, including while offline, without ending the session.
     pub fn close_tasks(&mut self, session: &SessionId) -> Effects {
-        self.task_watches.wanted.remove(session);
-        if self.task_watches.active.remove(session).is_some() {
-            self.task_watches.cancelled.insert(session.clone());
-        }
+        self.release_task_watch(session);
         let mut effects = Effects::default();
         self.drive(&mut effects);
         effects
@@ -99,8 +107,16 @@ impl Client {
             .cloned()
             .collect();
         for session in wanted {
-            match self.read(connection, Command::TaskSubscribe { session }) {
-                Ok(outgoing) => effects.outgoing.push(outgoing),
+            match self.read(
+                connection,
+                Command::TaskSubscribe {
+                    session: session.clone(),
+                },
+            ) {
+                Ok(outgoing) => {
+                    self.record_task_panel_read(&session, &outgoing, effects);
+                    effects.outgoing.push(outgoing);
+                }
                 Err(_) => return,
             }
         }

@@ -23,6 +23,9 @@ impl Client {
                 ReadReply::TaskActivity(_) | ReadReply::TaskActivityPage(_) => {
                     self.accept_task_activity_reply(result, effects)
                 }
+                ReadReply::TaskSnapshot(_) | ReadReply::TaskPage(_) | ReadReply::TaskWindow(_) => {
+                    self.accept_task_panel_reply(result, effects)
+                }
                 _ => Some(result),
             };
             if let Some(result) = unowned {
@@ -36,7 +39,8 @@ impl Client {
                 || self.fail_goal_panel_read(&failure, effects)
                 || self.fail_task_detail_read(&failure, effects)
                 || self.fail_task_overview_read(&failure, effects)
-                || self.fail_task_activity_read(&failure, effects))
+                || self.fail_task_activity_read(&failure, effects)
+                || self.fail_task_panel_read(&failure, effects))
             {
                 effects.failures.push(failure);
             }
@@ -57,6 +61,7 @@ impl Client {
         self.wake_goal_panel(session, changes);
         self.wake_task_details(session, changes);
         self.wake_task_overview(session, changes);
+        self.wake_task_panel(session, changes);
     }
 
     pub(crate) fn drive_panels(&mut self, effects: &mut Effects) {
@@ -67,6 +72,7 @@ impl Client {
         self.drive_task_details(effects);
         self.drive_task_overviews(effects);
         self.drive_task_activities(effects);
+        self.drive_task_panels(effects);
     }
 
     pub(crate) fn cancel_panel_reads(&mut self, session: &SessionId) {
@@ -77,5 +83,6 @@ impl Client {
         self.cancel_task_detail_read(session);
         self.cancel_task_overview_read(session);
         self.cancel_task_activity_reads(session);
+        self.cancel_task_panel_reads(session);
     }
 }

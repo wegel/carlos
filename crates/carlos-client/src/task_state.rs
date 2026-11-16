@@ -44,6 +44,17 @@ impl Replica {
 impl Client {
     /// Merge task subscription replies through the same changed-fact and combined byte budget path.
     pub fn merge_tasks(&mut self, snapshot: &TaskSnapshot) -> Result<Effects, ClientError> {
+        let mut effects = Effects::default();
+        self.apply_task_header(snapshot, &mut effects)?;
+        self.drive(&mut effects);
+        Ok(effects)
+    }
+
+    pub(crate) fn apply_task_header(
+        &mut self,
+        snapshot: &TaskSnapshot,
+        effects: &mut Effects,
+    ) -> Result<(), ClientError> {
         let session = snapshot.session.clone();
         let replica = self
             .sessions
@@ -51,10 +62,7 @@ impl Client {
             .and_then(|slot| slot.replica.as_mut())
             .ok_or(ClientError::ForeignSession)?;
         let changes = replica.merge_tasks(snapshot)?;
-        let mut effects = Effects::default();
-        self.changed(&session, changes, &mut effects)?;
-        self.drive(&mut effects);
-        Ok(effects)
+        self.changed(&session, changes, effects)
     }
 
     /// Check a private metadata page against this client's one accepted current session copy.

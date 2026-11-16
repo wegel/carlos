@@ -31,6 +31,16 @@ pub struct TaskPageWindow {
 }
 
 impl TaskPageWindow {
+    pub(crate) fn retained_bytes(&self) -> usize {
+        std::mem::size_of::<Self>()
+            + self
+                .entries
+                .iter()
+                .map(|task| 512 + task.label.capacity() + task.state.capacity())
+                .sum::<usize>()
+            + self.cursors.len() * (64 + std::mem::size_of::<Option<TaskId>>())
+    }
+
     /// Borrow the revision that proves the retained rows.
     pub fn revision(&self) -> Option<&TaskRevision> {
         self.revision.as_ref()

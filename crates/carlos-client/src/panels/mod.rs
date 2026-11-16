@@ -12,6 +12,7 @@ pub(crate) mod task_details;
 mod task_move;
 mod task_overview;
 mod task_pages;
+pub(crate) mod tasks;
 
 pub use context::ContextPanel;
 pub use goal::GoalPanel;
@@ -23,6 +24,7 @@ pub use task_activity::{TaskActivityPanel, MAX_TASK_ACTIVITY_BYTES};
 pub use task_details::{TaskDetailTarget, TaskDetails, TaskFieldRead, MAX_TASK_DETAIL_BYTES};
 pub use task_overview::TaskOverviewPanel;
 pub use task_pages::TaskPageWindow;
+pub use tasks::TaskPanel;
 
 use carlos_proto::ids::SessionId;
 
@@ -36,6 +38,8 @@ pub enum PanelKind {
     TaskDetails,
     TaskOverview,
     TaskActivity,
+    Tasks,
+    TaskWindow,
 }
 
 /// A platform redraws only the panel whose checked data or read status changed.
@@ -54,6 +58,7 @@ pub(crate) struct Panels {
     pub task_details: Option<Box<TaskDetails>>,
     pub task_overview: Option<Box<TaskOverviewPanel>>,
     pub task_activity: Option<Box<TaskActivityPanel>>,
+    pub tasks: Option<Box<TaskPanel>>,
 }
 
 impl Panels {
@@ -82,6 +87,10 @@ impl Panels {
                 .task_activity
                 .as_ref()
                 .map_or(0, |activity| activity.retained_bytes())
+            + self
+                .tasks
+                .as_ref()
+                .map_or(0, |tasks| tasks.retained_bytes())
     }
 
     pub(crate) fn disconnected(&mut self) {
@@ -105,6 +114,9 @@ impl Panels {
         }
         if let Some(activity) = &mut self.task_activity {
             activity.disconnected();
+        }
+        if let Some(tasks) = &mut self.tasks {
+            tasks.disconnected();
         }
     }
 }
