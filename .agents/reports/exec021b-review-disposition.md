@@ -61,9 +61,9 @@ run is needed for these corrections.
   this phone-data plan. Keep it visible alongside the Claude SDK scan and Grok
   full replay, without introducing an unmeasured cache/controller here.
 
-Focused checks pass. The complete corrected release/native gate, fresh matching
-measurements and Root's final follow-up verdict remain pending; this document
-does not yet approve EP021b.
+Corrected full gate06 and fresh exact-pair measurements pass. Root's final follow-up
+verdict is PASS; the final report records delegated approval at20:33:35 UTC on2026-11-16.
+Every failed/cancelled gate remains preserved separately.
 
 Gate05 separately finds an intermittent Claude startup without context counts.
 The unchanged isolated terminal rerun passes; the trace alone does not prove the

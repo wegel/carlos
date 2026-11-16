@@ -77,24 +77,30 @@ narrow review correction06f13ce, checked tree3ffd3eb. Final evidence, every revi
 and the unchanged archive hash are recorded under `.agents/reports/exec021a-*`.
 The checked baseline for the next plan is `/tmp/carlos-ep021a/reviewed-pair/identity.json`.
 
-The active next incomplete plan is
-`.agents/execplans/EXECPLAN_021b_native_phone_data.md`, now written in full.
-Execute its compact tool-fact milestone first, then Grok approvals and checked native history windows.
-It must cover paged native history, actual Grok approval replies and richer tool summaries
-as data, using the checked common client instead of adding another UI controller.
-Begin by reading `crates/carlos-core/src/protocol_history.rs`, the existing native history
-loaders, Grok's current `process_client.rs`/session startup and the shared tool records.
-Keep exact native identities, complete supported data, original request scopes and urgent
-controls. Keep the active plan's living sections current and continue without a routine
-human gate. EP022 still builds UniFFI and the actual iPhone app on the remote Mac.
+EP021b is complete and archived at `.agents/done/EXECPLAN_021b_native_phone_data.md`.
+Root approved it under the owner's grant on2026-11-16 at20:33:35 UTC after corrected
+full gate06, fresh exact-pair/native measurements, the single end-only Fable5.2 medium
+PASS WITH ISSUES and Root's final engineering PASS. Runtime6de40a2, source
+67a1a38a348a6343400594a6d06dbe4a and checked treefb5ed10 are frozen under
+`/tmp/carlos-ep021b/reviewed/final-pair/identity.json`. Final reports and every finding,
+failed/cancelled gate and decision are `.agents/reports/exec021b-*`.
+The unchanged archive SHA256 is58df8613825d47d1e869b5940e9cf2368d6903fd7f2387a689acd533b18300bb.
+
+The active next incomplete plan is `.agents/execplans/EXECPLAN_022_iphone_app.md`,
+now written in full. Build the actual SwiftUI iPhone app with a narrow generated UniFFI
+interface to carlos-client. Prove a small real Swift caller and owned simulator build
+first, then implement the specified screens and real socket workflows. Keep Root direct,
+no developer subagents, no intermediate reviewers and no routine human approval gate.
+Read docs/ios-build.md and tmp/main-screen.md before writing app code. Use only the owned
+Mac directory/simulator and leave its global Rust default and other projects untouched.
 
 The first iPhone binding must follow the screens in tmp/main-screen.md section11,
 rather than mirror every public Rust method. Export only session listing/lifecycle,
 greeting/reconnect, transcript/history/source/output, prompt/interrupt/approval, context
 display and Ralph calls those screens use. Queue, host context-default, goal and native
 task-panel readers stay Rust-only until a phone screen needs them; the terminal uses them
-already. A later web binding follows its actual screens too. EP021b must record production
-lines added/deleted per native feature and remove obsolete paths. Correctness and complete
+already. A later web binding follows its actual screens too. EP021b records production
+lines added/deleted per native feature and removes replaced paths. Correctness and complete
 supported data take precedence over an arbitrary line quota. Phone-specific cache and ABI
 error policies wait for the real EP022 facade. Version1 remains provisional.
 
@@ -134,7 +140,7 @@ is written in full. On 2026-11-14, the owner delegated approval of completed EPs
 The final EP019b Fable review found that live owners remain allocated until daemon shutdown and closed non-Codex sessions need an explicit recovery command. EP020 must first add a typed session stop/reopen path, with actual multi-client/native tests, before enabling its network listener. Stopping a session releases its owner and native processes while keeping the saved conversation. This is a required first milestone, not optional later cleanup. The review remains `.agents/reports/exec019b-fable-final-review.md`; its final EP019b dispositions belong in the final report.
 
 ExecPlans 009 to 015 remain under `.agents/execplans/`. Their status was not reviewed when the
-daemon split started. They remain outside the iPhone spike; its next step is EP021b.
+daemon split started. They remain outside the iPhone spike; its next step is EP022.
 
 
 ## Done ExecPlans
@@ -160,4 +166,8 @@ daemon split started. They remain outside the iPhone spike; its next step is EP0
 
 - [x] `.agents/done/EXECPLAN_021a_shared_panel_reads.md` (completed and approved under delegated authority2026-11-16; corrected full gate, exact-pair measurements and both end reviews recorded)
 
-On2026-11-16 the owner explicitly requested pushing the current branch upstream. Codex pushed iphone-spike to origin atbb9be01 and configured origin/iphone-spike tracking. No merge or force push occurred. The later local evidence/review work continues under the same spike plan.
+On2026-11-16 the owner explicitly requested pushing the current branch upstream. Codex first pushed iphone-spike atbb9be01 and later pushed through46c6367, with origin/iphone-spike tracking. No merge or force push occurred. The later local evidence/review work continues under the same spike plan.
+
+- [x] `.agents/done/EXECPLAN_021b_native_phone_data.md` (approved under delegated authority
+  on2026-11-16 at20:33:35 UTC; corrected full gate06, fresh exact-pair evidence and final
+  engineering/Fable decisions recorded; archived plan unchanged)

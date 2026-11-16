@@ -1,6 +1,6 @@
 # EP021b native phone data
 
-This report remains a draft. The pre-review gate and measurements pass. The end-only Fable review returned PASS WITH ISSUES, and its concrete corrections are committed. The corrected complete release/native gate06 passes; fresh matching measurements remain pending. No delegated approval has been recorded.
+Root approved EP021b under the owner's delegated grant on2026-11-16 at20:33:35 UTC. The corrected full gate06, fresh exact-pair measurements and Root's follow-up engineering PASS are complete. The single end-only Fable5.2 medium review returned PASS WITH ISSUES; every finding has a recorded decision and its concrete corrections are checked. EP022 is next. No installation or merge is included.
 
 ## What the owner can use
 
@@ -16,7 +16,7 @@ The accepted EP021a baseline is checked tree3ffd3eb, source896435d22d03d85dba4ce
 
 The owner still has one native session owner and its existing bounded workers. Native cursors, snapshots, original callback ids and connection/root guards stay private. No new wire family, client controller or native history parser was added. Existing unsupported-method/full-history ancestry paths remain. Typed Swift bindings and the actual iPhone app remain EP022; queue/context-default/goal/task readers stay Rust-only until a screen needs them.
 
-## Checks completed so far
+## Checks
 
 Both Rust configurations, both strict lints and400-line/60-line/fmt/diff checks pass. Actual process/daemon/terminal checks cover native kind/outcome/source fidelity, every offered Grok approval option, startup callbacks, callback replacement/cancellation, complete Codex/Claude older traversal, skipped empty/child-only windows, failed reads/retry, UTF-8 chunk boundaries and prompt source filtering. A held native read preserves independent cached cursors, sends, approvals, interrupt, private typing and viewport anchors. Explicit stop retires that read. The existing transport refuses a concurrent fork during a large history read and permits a new explicit edit after release; no guard or deadline was weakened.
 
@@ -48,6 +48,59 @@ Grok emits card retirement even when a cancel write or enqueue fails, never rest
 
 A final boundary check reproduces an unrendered newest Codex window reporting Ready with no row anchor for supported older data. The native reader now uses the actual row projector to skip such pages; directory-only formatter functions avoid another session model or supported-type list. Empty user records and unsupported items at startup, overlap-only older turns and actual terminal traversal pass. Gate04 was deliberately cancelled (exit143) before daemon/terminal checks when this boundary defect was found; it is not a passing full gate. Gate05 subsequently passes225 daemon cases and329/330 terminal cases, failing the unchanged Claude context-readiness check before any follow-up send. A deterministic owner regression reproduces a matching stranded pending token after native command capture fails; clear only that token through the existing failure/backoff path. Keep all original readiness assertions and deadlines. The corrected complete release/native gate06 exits0 at runtime6de40a2:225 daemon tests128.034s,330 terminal tests444.642s, selection2, source failures5, dictation2, ANSI1, installed Codex contracts and23 native Codex checks32.987s,10 packaged native Claude28.767s. Both75-test helper suites, Rust/release/strict lint and19 architecture/dependency checks pass. Artifacts are /tmp/carlos-ep021b/native-history-gate-iNaf7m; the exact log is /tmp/carlos-ep021b/reviewed/final-release-gate-06.log. Fresh matching measurements under /tmp/carlos-ep021b/reviewed remain pending. Preserve the earlier successful pair and failed/cancelled logs separately.
 
+## Final checked pair and delegated approval
+
+exec021b-performance-reviewed.json records the corrected gate06 package, runtime6de40a2,
+checked documentation treefb5ed10 and source67a1a38a348a6343400594a6d06dbe4a. Exact files
+and hashes are frozen under /tmp/carlos-ep021b/reviewed/final-pair/identity.json. CLI17507856,
+daemon20400400, helper104781343 and probe2686144 bytes. The runner builds the probe once
+before timing and copies the CLI/daemon/helper from the checked package; it never
+substitutes a later mutable-target daemon. All timing is sequential onCPU6, with no
+other builds/tests/hooks/reviewers. The old pair and pre-review measurements remain separate.
+
+Fifteen alternating renderer samples preserve6001 messages/39347 lines/6000 items.
+Cold medians are51.00/50.46ms baseline/current; paired median change-0.04ms with95-percent
+interval-0.60..2.07ms. Scroll p95 is0.69/0.69ms and typing p95 is0.48/0.48ms. Current cold
+replay is2.4percent above the original EP01649.27ms reference, below its10-percent limit.
+Synthetic RSS HWM medians are26520/25188KiB. Captured fixture counts stay5/9/4, cold0.80/0.86ms.
+
+Three1000-prompt runs per pair/transport yield admission medians0.528377/0.526673ms Unix,
+0.667053/0.667733ms WebSocket; per-run p95 medians0.685533/0.697003 and0.864004/0.878744ms.
+Worst current maxima are1.811ms Unix and1.539ms WebSocket. These fresh runs do not erase
+the earlier6.010ms outlier. All12 two-second idle samples record0 process CPU ticks.
+Source transfer keeps10092544 bytes/155 chunks and the same exact SHA256 in both pairs
+and transports. Wall medians are113.606/113.891ms Unix and129.343/129.103ms WebSocket.
+The synthetic socket probe keeps6000 rows/3698790 source bytes/4896929 payload bytes/
+1060 frames/1000 chunks exactly.
+
+Three1000-turn native runs preserve all2000 Codex/Claude rows. Confirmed Ready medians
+are40.271/11.705ms Codex and745.737/457.445ms Claude. Native calls before Ready fall
+10→1 and32→1, with complete traversal still10/32. Ready/retained daemon RSS medians
+are27536/27540 versus15748/22652KiB Codex and28908/28924 versus14936/30212KiB Claude.
+The SDK first-read cost remains265.813/269.670ms, warm5.879/6.134ms; first helper RSS/HWM
+is115056/115056 versus111824/113596KiB, maximum sampled HWM119992/119040KiB. These are
+per-process observations, not summed physical memory. Grok current Ready116.246ms
+preserves2000 rows; the old106.201ms two-row defect is not equivalent-workload evidence.
+
+With older native replies held, real PTY typing paints in0.897/0.883ms Codex/Claude,
+approval completes in6.196/5.944ms and interrupt in6.105/7.116ms. Release returns100/64
+older rows in3.983/4.123ms with no terminal send and the exact private draft intact.
+Original write/read deadlines and native guards remain unchanged.
+
+Root's final engineering follow-up is PASS. M1/M2 and the concrete minor bugs are
+resolved; optional/deferred choices and the review's scope limits remain explicit in
+exec021b-review-disposition.md. The gate-found context-capture bug has a deterministic
+red/green owner test and unchanged terminal readiness checks. Gates01/02/05 remain
+failed evidence; gate04 remains deliberately cancelled. Gate06 is the final passing
+full gate. The installed binary, main HEAD and archived EP021a hash remain unchanged.
+Root approves and archives the completed plan unchanged under the owner's grant,
+then writes and executes EP022 for the real Swift/iPhone consumer.
+
 ## Limits to carry forward
 
 The previously measured dense-Unicode terminal cost remains about6 seconds and1.3GiB temporary memory, with about238MiB retained. The earlier unexplained500ms native writer timeout remains recorded; this plan does not lengthen that deadline. Loaded older rows remain in owner memory within existing caps as devices scroll back; eviction must preserve native identities, source and rewind semantics. First-window paging does not make the Claude SDK scan or Grok ACP full replay disappear. Preserve complete source and supported older data through the first real Swift/WebSocket consumer in EP022. No install, merge or push is authorized by this report.
+
+
+The completed plan is archived unchanged at .agents/done/EXECPLAN_021b_native_phone_data.md,
+SHA25658df8613825d47d1e869b5940e9cf2368d6903fd7f2387a689acd533b18300bb.
+PROGRAM_PLAN.md now names the full EP022 iPhone app plan as the active next step.

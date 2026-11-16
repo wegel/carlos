@@ -2,7 +2,7 @@
 
 ## Subject
 
-Root reviewed the runtime range4407f6e..cf50440, the subsequent test-only corrections, complete release gate03 and the frozen-pair evidence in exec021b-performance.json. The goal is native data needed by the first iPhone screens and later web UI: accurate compact tool facts, real Grok approval choices and complete history reached through the shared client. EP022 owns the actual Swift app and bindings. This review follows .agents/reviewers/engineering_reviewer.md and does not approve the EP by itself; the requested independent end-only Fable review remains pending.
+Root reviewed the runtime range4407f6e..cf50440, the subsequent test-only corrections, complete release gate03 and the frozen-pair evidence in exec021b-performance.json. The goal is native data needed by the first iPhone screens and later web UI: accurate compact tool facts, real Grok approval choices and complete history reached through the shared client. EP022 owns the actual Swift app and bindings. This review follows .agents/reviewers/engineering_reviewer.md and does not approve the EP by itself; the requested independent end-only Fable review was pending at that point; its findings and the final follow-up are below.
 
 ## Findings
 
@@ -55,3 +55,18 @@ Focused checks and both Rust configurations/lints pass, with400/60/fmt/diff chec
 The complete gate05 and fresh matching measurements remain pending. Root will
 record the final follow-up verdict after those checks; no extra reviewer session
 is requested.
+
+
+## Final follow-up verdict
+
+PASS,2026-11-16 at20:33:35 UTC. Root reviewed corrections through6de40a2, including the
+nine-line optional-context capture-failure settlement. A deterministic owner test fails
+before and passes after it; no readiness assertion, native guard, known count or backoff
+was weakened. Corrected gate06 passes225 daemon/330 terminal/23 native Codex/10 packaged
+Claude cases, both75-test helper suites and all Rust/release/architecture/dependency/source
+checks. Fresh exact-pair evidence is exec021b-performance-reviewed.json, source
+67a1a38a348a6343400594a6d06dbe4a. Cold50.46ms, scroll p950.69ms and typing p950.48ms remain
+within the original limits; all counts/source hashes, native traversals and held controls
+pass. There is no remaining blocking finding. Keep the documented native scans/replay,
+retained older rows, dense-Unicode cost and earlier writer-timeout observation explicit.
+No additional external review was run after the single requested Fable review.

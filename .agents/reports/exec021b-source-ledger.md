@@ -112,3 +112,10 @@ its exact pending token adds9 Core lines without changing guards, known counts o
 backoff. The combined final correction count versus46c6367 is now200 added/94 deleted,
 net106; total97373,2503 above EP021a. Gate05 remains failed at1/330 terminal tests after
 225 passing daemon tests. Gate06 and fresh measurements remain pending.
+
+
+Final gate06, fresh exact-pair measurements and Root's follow-up PASS are complete.
+The final authored production count remains97373,2503 above EP021a. Runtime6de40a2
+and checked source67a1a38a348a6343400594a6d06dbe4a are approved under the owner's grant
+on2026-11-16 at20:33:35 UTC. The final report records every failed/cancelled run and
+all review decisions; this ledger does not remove those earlier observations.
