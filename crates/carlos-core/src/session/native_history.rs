@@ -48,7 +48,7 @@ impl SessionState {
 
     /// Report an older native continuation without treating a failed read as the end.
     pub(crate) fn has_older_native_history(&self) -> bool {
-        self.native_history.cursor.is_some()
+        self.native_history.cursor.is_some() || self.has_older_claude_history()
     }
 
     /// Fetch a native window only when stored rows cannot fill this checked client page.

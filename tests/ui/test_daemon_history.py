@@ -2,6 +2,66 @@
 
 
 class DaemonHistory:
+    def claude_history_terminal(self, name, hold=False):
+        import sys
+        from test_daemon_client import daemon_support
+        from test_claude_history import ClaudeHistoryTests
+        runner = sys.modules[type(self).__module__]
+        daemon_support.BINARY = runner.BINARY.parent / "carlosd"
+        daemon_support.ARTIFACTS = runner.ARTIFACTS / "daemon"
+        fixture, native, client, session, snapshot = ClaudeHistoryTests.claude_history_fixture(self, name, hold=hold)
+        terminal = self.attach_daemon(fixture, session, name, width=100)
+        terminal.contains("native Claude assistant 149 🌍")
+        return fixture, native, client, session, snapshot, terminal
+
+    def test_daemon_terminal_pages_complete_native_claude_history_with_stable_anchors(self):
+        _, native, _, _, _, terminal = self.claude_history_terminal("terminal-claude-history")
+        self.assertEqual(len(native.requests()), 1)
+        for count, anchor in enumerate((118, 86, 54, 22), 1):
+            terminal.send(b"\x1b[H")
+            terminal.wait(lambda: len(terminal.requests("session/history")) == count, "one explicit SDK prefix read")
+            request_id = terminal.requests("session/history")[-1]["id"]
+            terminal.wait(lambda: any(message.get("id") == request_id for message in terminal.messages("server")), "SDK prefix replied")
+            terminal.resize(90 if count % 2 else 100, 40)
+            terminal.wait(lambda: terminal.input_is(""), "terminal applies the resized viewport")
+            terminal.contains(f"native Claude user {anchor} 🌍")
+        terminal.send(b"\x1b[H")
+        terminal.contains("native Claude user 0 🌍")
+        terminal.snapshot("oldest-native-claude-window")
+        terminal.send(b"\x1b[F")
+        terminal.contains("native Claude assistant 149 🌍")
+        self.assertEqual(len(native.requests()), 5)
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertEqual(native.path.read_text(), native.original)
+
+    def test_daemon_terminal_keeps_a_private_draft_and_anchor_during_held_native_claude_history(self):
+        from test_daemon_client import daemon_support
+        fixture, native, _, session, _, terminal = self.claude_history_terminal("terminal-claude-held", hold=True)
+        terminal.send(b"\x1b[H")
+        daemon_support.wait_for(lambda: (fixture.root / "history-held").exists(), "SDK reply held")
+        terminal.paste("private draft while native history waits 🌍")
+        terminal.wait(lambda: terminal.input_is("private draft while native history waits 🌍"), "private draft stays editable")
+        other = daemon_support.Client(fixture, "other-native-client")
+        self.addCleanup(other.close)
+        sent = other.operation(1)
+        other.call("session/send", session=session, operation=sent, text="hold this turn")
+        self.assertEqual(other.outcome(sent)["state"]["kind"], "accepted")
+        live = daemon_support.wait_for(lambda: value if (value := other.call("session/subscribe", session=session, since=None)["snapshot"])
+                                      ["info"]["current_turn"] is not None else None, "native streaming beside history")
+        interrupted = other.operation(2)
+        other.call("session/interrupt", session=session, operation=interrupted, turn=live["info"]["current_turn"])
+        self.assertEqual(other.outcome(interrupted)["state"]["kind"], "accepted")
+        (fixture.root / "release-history").write_text("release")
+        request_id = terminal.requests("session/history")[0]["id"]
+        terminal.wait(lambda: any(message.get("id") == request_id for message in terminal.messages("server")), "original older read completed")
+        terminal.resize(90, 40)
+        terminal.wait(lambda: terminal.input_is("private draft while native history waits 🌍"), "resized composer redraws the same draft")
+        terminal.contains("native Claude user 118 🌍")
+        self.assertTrue(terminal.input_is("private draft while native history waits 🌍"))
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertTrue(native.path.read_text().startswith(native.original))
+        terminal.snapshot("private-draft-and-anchor-after-older-native-read")
+
     def test_daemon_terminal_expands_native_file_changes_and_complete_mcp_results(self):
         from native_items import PATCH, MCP
         history = {"id":"native-root", "status":{"type":"idle"}, "turns":[

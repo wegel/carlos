@@ -111,7 +111,7 @@ fn history_controls_keep_snapshot_fields_and_default_chunk_offset() {
             }),
         ),
         "sessions.read",
-        json!({"sessionId":"session"}),
+        json!({"sessionId":"session","newest":true}),
     );
     assert_eq!(core.thread_name().as_deref(), Some("named"));
     assert_eq!(core.status(), "Reading Claude history");

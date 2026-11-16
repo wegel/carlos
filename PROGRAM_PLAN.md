@@ -98,10 +98,19 @@ lines added/deleted per native feature and remove obsolete paths. Correctness an
 supported data take precedence over an arbitrary line quota. Phone-specific cache and ABI
 error policies wait for the real EP022 facade. Version1 remains provisional.
 
-Keep main, the installed binary and both frozen owner preview packages unchanged.
+Keep main, the installed binary and all frozen owner preview packages unchanged.
 The owner can test `target/preview-9cc99ff/try-carlos`, a fully checked snapshot that predates
 only the narrow final API/compiler corrections; it keeps separate Carlos session state.
 No installation, merge or push is included in delegated approval.
+
+On2026-11-16 the owner also asked to test the current branch's CLI. The new frozen
+`target/preview-87ceab5/try-carlos` copies the matching CLI/daemon/helper package from
+the complete EP021b debug/native gate02, artifacts native-history-gate-AeiLPS. It includes
+checked Codex paging and complete fileChange/MCP sources, before unfinished Claude Core
+paging. Its launcher uses separate Carlos state at~/.local/state/carlos-spike-87ceab5.
+preview-source.json records all three hashes and the checked runtime commit87ceab5.
+The original two previews and the installed Carlos remain unchanged. Do not overwrite
+this new owner preview during further builds either.
 
 The owner requested a mid-EP whole-roadmap size review on2026-11-16. Fable5.2 medium
 found avoidable panel-driver and command-wrapper repetition while supporting the shared

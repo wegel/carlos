@@ -13,6 +13,7 @@ impl SessionState {
     pub fn set_thread_id(&mut self, id: String) {
         if self.thread_id != id {
             self.native_history = Default::default();
+            self.clear_claude_history_window();
             self.task_stops.clear();
             self.retire_backend_command();
             self.events.current_turn = None;

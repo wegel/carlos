@@ -14,8 +14,8 @@ pub(super) enum Completion {
     History {
         pending: Box<super::mailbox::Envelope>,
         target: super::target::Target,
-        cursor: crate::protocol_history::HistoryCursor,
-        result: Result<crate::protocol_history::HistoryPage, String>,
+        cursor: crate::session::history_window::HistoryCursor,
+        result: Result<crate::session::history_window::HistoryPage, String>,
     },
     ClaudeReopened {
         operation: ClientOperation,

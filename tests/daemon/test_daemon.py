@@ -43,9 +43,10 @@ from test_shared_panels import SharedPanelTests
 from test_grok_permissions import GrokPermissionTests
 from test_native_history import NativeHistoryTests
 from test_native_items import NativeItemTests
+from test_claude_history import ClaudeHistoryTests
 
 
-class DaemonTests(NativeItemTests, NativeHistoryTests, GrokPermissionTests, SharedPanelTests, NetworkSourceTests, NetworkLimitTests, NetworkTests, DeviceTests, SessionLifecycleTests, PromptHistoryTests, RalphTests, TaskQuestionTests, ContextDefaultTests, ToolLabelTests, BackendSettingsTests, TaskActivityTests, SettingsChangeTests, TaskWindowTests, SettingsFactTests, TaskInterestTests, FailureTests, RecoveryTests, SourceTests, EditTests, GoalTests, QueueTests, TaskTests, TaskStopTests, unittest.TestCase):
+class DaemonTests(ClaudeHistoryTests, NativeItemTests, NativeHistoryTests, GrokPermissionTests, SharedPanelTests, NetworkSourceTests, NetworkLimitTests, NetworkTests, DeviceTests, SessionLifecycleTests, PromptHistoryTests, RalphTests, TaskQuestionTests, ContextDefaultTests, ToolLabelTests, BackendSettingsTests, TaskActivityTests, SettingsChangeTests, TaskWindowTests, SettingsFactTests, TaskInterestTests, FailureTests, RecoveryTests, SourceTests, EditTests, GoalTests, QueueTests, TaskTests, TaskStopTests, unittest.TestCase):
     def test_codex_reads_controls_fifo_and_independent_output_cursors_while_send_waits(self):
         fixture = Fixture("codex-held", codex=True)
         self.addCleanup(fixture.close)

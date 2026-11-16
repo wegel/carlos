@@ -7,14 +7,14 @@ use super::owner::{failure, Owner};
 use super::target::Target;
 use super::workers::Completion;
 use super::{EngineCommand, EngineReply};
-use crate::protocol_history::{older_window, HistoryCursor, HistoryPage};
+use crate::session::history_window::{older_window, HistoryCursor, HistoryPage};
 
 impl Owner {
     pub(super) fn defer_history_read(&mut self, envelope: Envelope) -> Option<Envelope> {
         let EngineCommand::History { before, limit } = &envelope.command else {
             return Some(envelope);
         };
-        let cursor = match self.session.older_native_cursor(before, *limit) {
+        let cursor = match self.session.history_window_cursor(before, *limit) {
             Ok(Some(cursor)) => cursor,
             Ok(None) => return Some(envelope),
             Err(error) => {
@@ -61,7 +61,7 @@ impl Owner {
         let result = if target.matches(&self.session, self.client.kind()) {
             result.and_then(|page| {
                 self.session
-                    .accept_older_native_history(&cursor, page)
+                    .accept_history_window(&cursor, page)
                     .map_err(|error| error.to_string())
             })
         } else {

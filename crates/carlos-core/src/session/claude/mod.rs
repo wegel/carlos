@@ -10,6 +10,9 @@ mod context;
 mod edit;
 mod events;
 mod history;
+mod history_window;
+#[cfg(test)]
+mod history_window_tests;
 mod model_choices;
 mod models;
 mod notices;

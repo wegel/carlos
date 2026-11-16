@@ -258,6 +258,7 @@ pub mod engine;
 mod grok_permissions;
 mod grok_startup;
 mod history_prepend;
+pub(crate) mod history_window;
 mod native_history;
 
 #[cfg(test)]

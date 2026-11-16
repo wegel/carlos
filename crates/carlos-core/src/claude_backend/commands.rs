@@ -208,6 +208,11 @@ impl BackendCommands for Commands {
     }
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String> {
         let result = match method {
+            "sessions.read" => {
+                let mut params = params;
+                params["cwd"] = json!(self.cwd);
+                self.helper_call("sessions.read", params, timeout)?
+            }
             "thread/name/set" => self.helper_call(
                 "sessions.rename",
                 json!({"cwd":self.cwd,"sessionId":params["threadId"],"title":params["name"]}),

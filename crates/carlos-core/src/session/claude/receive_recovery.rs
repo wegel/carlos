@@ -13,6 +13,7 @@ use crate::session::text::safe_text;
 impl SessionState {
     /// Fail helper work once, returning unsent text without replacing a newer draft.
     pub fn fail_claude(&mut self, update: &mut ClaudeUpdate) {
+        self.finish_claude_history_window();
         self.recover_sending_claude_edit();
         self.restore_claude_edit(update);
         if self.close_claude() {

@@ -20,10 +20,16 @@ pub(super) struct HistoryDecoder {
     translation: ClaudeTranslationState,
     sources: HistorySources,
     chunk: Vec<u8>,
+    pub(super) has_entries: bool,
     pub(super) delivery: VecDeque<String>,
 }
 
 impl HistoryDecoder {
+    /// Report the exact next byte only while an incomplete native record is retained.
+    pub(super) fn pending_chunk_offset(&self) -> Option<u64> {
+        (!self.chunk.is_empty()).then_some(self.chunk.len() as u64)
+    }
+
     /// Translate a complete page or one bounded piece of a single large record.
     pub(super) fn page(&mut self, result: &Value, output: &mut Vec<String>) -> Result<()> {
         let records = if let Some(chunk) = result.get("chunk") {
@@ -79,6 +85,10 @@ impl HistoryDecoder {
         }
         if message["type"] == "user" {
             if let Some(text) = prompt_text(&message["message"]["content"]) {
+                self.has_entries |= matches!(
+                    record["source"].as_str().unwrap_or("unknown"),
+                    "human" | "unknown" | "automatic"
+                );
                 let mut prompt = json!({"source":record["source"].as_str().unwrap_or("unknown"),"inputKind":record["inputKind"],"uuid":message["uuid"],"text":text});
                 if let Some(uuid) = message["uuid"].as_str().filter(|id| !id.is_empty()) {
                     prompt["sourceKey"] =
@@ -88,6 +98,7 @@ impl HistoryDecoder {
             }
         }
         if message["type"] == "system" && message["subtype"] == "compact_boundary" {
+            self.has_entries = true;
             output.push(fact("claude/historyCompacted", json!({})));
         }
         if !matches!(message["type"].as_str(), Some("user" | "assistant")) {
@@ -110,6 +121,7 @@ impl HistoryDecoder {
                     value["params"]["sourceKey"]["block"] = json!(block + base as u64);
                 }
                 value["params"]["history"] = json!(true);
+                self.has_entries = true;
                 output.push(value.to_string());
             }
         }

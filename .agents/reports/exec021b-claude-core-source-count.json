@@ -1,0 +1,162 @@
+{
+  "baseline": {
+    "commit": "e69575ca899c2f5526c965860e40271173374794",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 382,
+        "nonblank": 48278,
+        "physical": 54217,
+        "bytes": 1828872
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8318,
+        "physical": 8909,
+        "bytes": 291904
+      },
+      "terminal": {
+        "files": 193,
+        "nonblank": 25593,
+        "physical": 28999,
+        "bytes": 952106
+      },
+      "helper": {
+        "files": 24,
+        "nonblank": 1708,
+        "physical": 1881,
+        "bytes": 91519
+      }
+    },
+    "total": {
+      "files": 759,
+      "nonblank": 96580,
+      "physical": 107743,
+      "bytes": 3628713
+    }
+  },
+  "claude_core": {
+    "commit": "working",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 385,
+        "nonblank": 48755,
+        "physical": 54729,
+        "bytes": 1847086
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8318,
+        "physical": 8909,
+        "bytes": 291904
+      },
+      "terminal": {
+        "files": 193,
+        "nonblank": 25593,
+        "physical": 28999,
+        "bytes": 952106
+      },
+      "helper": {
+        "files": 24,
+        "nonblank": 1708,
+        "physical": 1881,
+        "bytes": 91519
+      }
+    },
+    "total": {
+      "files": 762,
+      "nonblank": 97057,
+      "physical": 108255,
+      "bytes": 3646927
+    }
+  },
+  "delta_nonblank": 477,
+  "changes": {
+    "crates/carlos-core/src/claude_backend/commands.rs": {
+      "added": 5,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/claude_backend/event_history.rs": {
+      "added": 11,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/claude_backend/history_window.rs": {
+      "added": 191,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/claude_backend/mod.rs": {
+      "added": 1,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/engine/history.rs": {
+      "added": 3,
+      "deleted": 3
+    },
+    "crates/carlos-core/src/engine/workers.rs": {
+      "added": 2,
+      "deleted": 2
+    },
+    "crates/carlos-core/src/session/claude/history.rs": {
+      "added": 30,
+      "deleted": 9
+    },
+    "crates/carlos-core/src/session/claude/history_window.rs": {
+      "added": 156,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/claude/mod.rs": {
+      "added": 1,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/claude/receive_recovery.rs": {
+      "added": 1,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/history_window.rs": {
+      "added": 72,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/mod.rs": {
+      "added": 1,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/native_history.rs": {
+      "added": 1,
+      "deleted": 1
+    },
+    "crates/carlos-core/src/session/state_commands.rs": {
+      "added": 1,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/transcript_history_prepend.rs": {
+      "added": 20,
+      "deleted": 4
+    }
+  },
+  "added_nonblank": 496,
+  "deleted_nonblank": 19,
+  "note": "Claude Core complete-window consumer versus checked helper commit e69575c. Both full Rust configurations/lints and400/60/fmt/diff checks pass.31 actual Claude daemon workflows plus a held-read send/approval/interrupt check,2 new actual terminal workflows and the existing paged rewind/fork workflow pass. Final EP release/performance checks and remaining native-history cases remain."
+}

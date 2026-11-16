@@ -48,6 +48,9 @@ mod event_terminal;
 mod event_test_support;
 mod fact_transfer;
 mod helper;
+pub(crate) mod history_window;
+#[cfg(test)]
+mod history_window_tests;
 #[cfg(all(test, unix))]
 mod interrupt_owner_support;
 #[cfg(all(test, unix))]
