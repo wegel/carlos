@@ -27,7 +27,7 @@ final class BridgeTests: XCTestCase {
         }
         let frame = try client.begin(name: "phone", token: token)
         XCTAssertThrowsError(try client.receive(generation: frame.generation, message: Data("bad".utf8))) { error in
-            guard case PhoneError.Protocol = error else { return XCTFail("Expected typed protocol error") }
+            guard case PhoneError.InvalidMessage = error else { return XCTFail("Expected typed invalid message") }
         }
         XCTAssertEqual(client.maximumMessageBytes(), 8 * 1024 * 1024)
     }

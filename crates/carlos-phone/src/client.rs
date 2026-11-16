@@ -2,14 +2,14 @@
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use carlos_client::{codec, Client, ConnectionId};
+use carlos_client::{codec, Client, ConnectionId, Effects};
 use carlos_proto::devices::AccessToken;
 
 use crate::{PhoneBatch, PhoneError, PhoneFailure, PhoneFrame};
 
 #[derive(Default)]
-struct State {
-    client: Client,
+pub(crate) struct State {
+    pub(crate) client: Client,
     generation: u64,
     current: Option<ConnectionId>,
 }
@@ -59,24 +59,7 @@ impl PhoneClient {
         };
         let incoming = codec::decode(&message)?;
         let effects = state.client.receive(connection, incoming)?;
-        let outgoing = effects
-            .outgoing
-            .into_iter()
-            .map(|outgoing| PhoneFrame::from_outbound(generation, outgoing))
-            .collect::<Result<_, _>>()?;
-        let failures = effects
-            .failures
-            .into_iter()
-            .map(|failure| PhoneFailure {
-                code: failure.error.code,
-                message: failure.error.message,
-            })
-            .collect();
-        Ok(PhoneBatch {
-            outgoing,
-            ready: state.ready(),
-            failures,
-        })
+        state.batch(effects)
     }
 
     /// Retire one original socket without discarding the client's private reconnect rights.
@@ -96,7 +79,7 @@ impl PhoneClient {
 }
 
 impl PhoneClient {
-    fn lock(&self) -> Result<MutexGuard<'_, State>, PhoneError> {
+    pub(crate) fn lock(&self) -> Result<MutexGuard<'_, State>, PhoneError> {
         self.state.lock().map_err(|_| PhoneError::Internal {
             message: "phone client is unavailable; retain private text and reconnect".into(),
         })
@@ -104,13 +87,56 @@ impl PhoneClient {
 }
 
 impl State {
-    fn connection(&self, generation: u64) -> Option<ConnectionId> {
+    pub(crate) fn require_connection(&self) -> Result<ConnectionId, PhoneError> {
+        self.current.ok_or_else(|| PhoneError::State {
+            message: "Connect to the daemon first".into(),
+        })
+    }
+
+    pub(crate) fn frame(
+        &self,
+        outgoing: carlos_client::Outbound,
+    ) -> Result<PhoneFrame, PhoneError> {
+        PhoneFrame::from_outbound(self.generation, outgoing)
+    }
+
+    pub(crate) fn batch(&self, effects: Effects) -> Result<PhoneBatch, PhoneError> {
+        Ok(PhoneBatch {
+            outgoing: effects
+                .outgoing
+                .into_iter()
+                .map(|out| self.frame(out))
+                .collect::<Result<_, _>>()?,
+            ready: self.ready(),
+            failures: effects
+                .failures
+                .into_iter()
+                .map(|failure| PhoneFailure {
+                    code: failure.error.code,
+                    message: failure.error.message,
+                })
+                .collect(),
+            catalog_changed: effects.catalog,
+            sessions: effects.sessions.into_iter().map(Into::into).collect(),
+            operations: effects
+                .operations
+                .into_iter()
+                .map(|op| crate::operations::key(&op))
+                .collect(),
+        })
+    }
+
+    pub(crate) fn retire(&mut self) {
+        self.current = None;
+    }
+
+    pub(crate) fn connection(&self, generation: u64) -> Option<ConnectionId> {
         (self.generation == generation)
             .then_some(self.current)
             .flatten()
     }
 
-    fn ready(&self) -> bool {
+    pub(crate) fn ready(&self) -> bool {
         self.current
             .is_some_and(|connection| self.client.is_ready(connection))
     }

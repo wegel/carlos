@@ -1,21 +1,9 @@
 //! Prove the typed boundary uses real client greeting rights and rejects stale socket callbacks.
 
-use serde_json::{json, Value};
+use serde_json::Value;
 
+use crate::test_support::{hello, token};
 use crate::{PhoneClient, PhoneError};
-
-fn token() -> String {
-    format!("{}.{}", "1".repeat(32), "2".repeat(64))
-}
-
-fn hello(id: i64, resumed: bool) -> Vec<u8> {
-    serde_json::to_vec(&json!({"jsonrpc":"2.0","id":id,"result":{
-        "protocol":1,"client":"3".repeat(32),"instance":"4".repeat(32),
-        "resume_token":"5".repeat(64),"next_operation":"1","resumed":resumed,
-        "host":"fixture","daemon_version":"0.1.0"
-    }}))
-    .expect("greeting reply")
-}
 
 #[test]
 fn greeting_and_reconnect_preserve_private_rights_without_replaying_work() {
@@ -65,7 +53,7 @@ fn invalid_credentials_and_frames_have_typed_errors_without_exposing_a_secret() 
     let first = client.begin("iPhone".into(), token()).expect("valid token");
     assert!(matches!(
         client.receive(first.generation, b"invalid frame".to_vec()),
-        Err(PhoneError::Protocol { .. })
+        Err(PhoneError::InvalidMessage { .. })
     ));
     assert_eq!(client.maximum_message_bytes(), 8 * 1024 * 1024);
 }

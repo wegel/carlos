@@ -45,14 +45,19 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   compiles and links both generated Swift and the actual Rust static library. Evidence:
   `/tmp/carlos-ep022/first-swift-test.log`; Mac bundle3303d44c00c224ba856c,
   tests-20261116T160903.xcresult, owned simulator4C821FE4-54D8-452D-A46C-3187AAED6C61.
-- [ ] Finish the repeatable offline build/cache path and capture the launched shell.
+- [x] (2026-11-16 21:35Z) Finish the repeatable offline build/cache path and capture the launched shell.
   Completed: project-local pinned Rust/LLVM tools, both Apple library slices,
   generated Swift/headers/XCFramework, XcodeGen project and successful real simulator
   test. The launched shell's actual screenshot is
-  `target/ios-artifacts/first-shell/screen.png`. Remaining: check the current
-  stable-vendor wrapper end to end with all three Apple targets.
+  `target/ios-artifacts/first-shell/screen.png`. The current wrapper passes generic
+  Intel/arm64 simulator app compilation and both actual native tests with all three
+  Rust targets: bundle324d2d6bcadf1f77cbea, tests-20261116T163525.xcresult.
 - [ ] Connect the actual app to a deterministic daemon over WebSocket; prove greeting,
   session selection/create, private prompt submission, reconnect and uncertain-write handling.
+  Completed: narrow typed catalogue/session/prompt/private-result/row calls, five Rust
+  tests and native socket/Keychain/model code compile. The partial-write test retains
+  exact text and proves reconnect emits operation/read rather than session/send.
+  Remaining: connect the actual SwiftUI controls and exercise real socket/native traces.
 - [ ] Implement the specified header, transcript, composer, activity line, Latest button,
   sessions/settings sheets, native approval inputs and complete source/output reads.
 - [ ] Complete stable scrolling, running-tool expansion, Markdown/copy, Ralph, native

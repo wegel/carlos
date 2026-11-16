@@ -14,7 +14,7 @@ pub enum PhoneError {
     /// The socket generation or client state cannot perform this call.
     State { message: String },
     /// The peer sent invalid facts; close this transport before attempting recovery.
-    Protocol { message: String },
+    InvalidMessage { message: String },
     /// The binding cannot safely access its client; retain private input and replace it.
     Internal { message: String },
 }
@@ -25,7 +25,7 @@ impl From<ClientError> for PhoneError {
         match error {
             ClientError::Capacity(_) => Self::Capacity { message },
             ClientError::InvalidConnection => Self::State { message },
-            _ => Self::Protocol { message },
+            _ => Self::InvalidMessage { message },
         }
     }
 }
@@ -35,7 +35,7 @@ impl fmt::Display for PhoneError {
         let (Self::InvalidInput { message }
         | Self::Capacity { message }
         | Self::State { message }
-        | Self::Protocol { message }
+        | Self::InvalidMessage { message }
         | Self::Internal { message }) = self;
         formatter.write_str(message)
     }

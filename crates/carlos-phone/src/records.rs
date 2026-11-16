@@ -3,7 +3,7 @@
 use carlos_client::Outbound;
 use carlos_proto::commands::RequestId;
 
-use crate::PhoneError;
+use crate::{PhoneError, PhoneSessionChange};
 
 /// One ordered socket write; its payload can contain credentials and must never be logged.
 #[derive(uniffi::Record)]
@@ -45,6 +45,9 @@ pub struct PhoneBatch {
     pub outgoing: Vec<PhoneFrame>,
     pub ready: bool,
     pub failures: Vec<PhoneFailure>,
+    pub catalog_changed: bool,
+    pub sessions: Vec<PhoneSessionChange>,
+    pub operations: Vec<String>,
 }
 
 impl PhoneBatch {
@@ -53,6 +56,9 @@ impl PhoneBatch {
             outgoing: Vec::new(),
             ready,
             failures: Vec::new(),
+            catalog_changed: false,
+            sessions: Vec::new(),
+            operations: Vec::new(),
         }
     }
 }
