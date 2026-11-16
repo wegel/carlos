@@ -1,6 +1,9 @@
 //! Count diff changes and split files without terminal styles or layout.
 
+use std::borrow::Cow;
+
 use crate::session::models::Message;
+use crate::session::tools::strip_terminal_controls;
 
 /// Summarize all changed lines, naming one file or the number of files.
 pub fn diff_summary(message: &Message) -> String {
@@ -34,11 +37,16 @@ pub fn diff_summary_parts(text: &str, file_path: Option<&str>) -> String {
 
 /// Count changed source lines without counting the two file headers.
 pub(crate) fn diff_counts(text: &str) -> (u64, u64) {
+    let text = if text.contains(['\u{1b}', '\u{9b}']) {
+        Cow::Owned(strip_terminal_controls(text))
+    } else {
+        Cow::Borrowed(text)
+    };
     let (mut added, mut removed) = (0, 0);
     let mut remaining = None;
     for line in text.lines() {
         if let Some(counts) = hunk_counts(line) {
-            remaining = Some(counts);
+            remaining = (counts != (0, 0)).then_some(counts);
             continue;
         }
         if line.starts_with("diff --git ") {

@@ -245,3 +245,68 @@ fn terminal_native_history_retires_stale_running_tool_facts() {
     assert_eq!(tool.kind, ToolKind::Read);
     assert_eq!(tool.status, ToolStatus::Unknown);
 }
+
+#[test]
+fn split_diff_rows_summarize_their_own_source_instead_of_the_combined_output() {
+    let mut core = session("root");
+    let first = "@@ -1 +1 @@\n-old\n+new 🌍\n";
+    let second = "@@ -0,0 +1 @@\n+another\n";
+    notify(
+        &mut core,
+        "item/completed",
+        json!({
+            "id":"diff", "type":"toolOutput", "output":format!("{first}{second}"),
+            "files":[{"filePath":"a.rs", "diff":first}, {"filePath":"b.rs", "diff":second}],
+        }),
+    );
+    let snapshot = core.publish().snapshot(100);
+    for (path, source, summary) in [("a.rs", first, "3 lines"), ("b.rs", second, "2 lines")] {
+        let row = snapshot
+            .entries
+            .iter()
+            .find(|row| row.file_path.as_deref() == Some(path))
+            .expect("native diff part");
+        assert_eq!(
+            row.tool.as_ref().expect("tool").summary.as_deref(),
+            Some(summary)
+        );
+        assert_eq!(
+            core.messages()
+                .entry(crate::session::entry_id::EntryId::from_wire(&row.id))
+                .expect("source row")
+                .text,
+            source
+        );
+    }
+}
+
+#[test]
+fn empty_diff_hunks_do_not_count_the_following_file_headers() {
+    let mut core = session("root");
+    notify(
+        &mut core,
+        "item/completed",
+        json!({
+            "id":"diff", "type":"toolOutput", "files":[{"filePath":"a.rs",
+            "diff":"--- a/a.rs\n+++ b/a.rs\n@@ -0,0 +0,0 @@\n--- a/b.rs\n+++ b/b.rs\n@@ -0,0 +1 @@\n+new\n"}],
+        }),
+    );
+    let tool = first_tool(&mut core);
+    assert_eq!((tool.added, tool.removed), (Some(1), Some(0)));
+}
+
+#[test]
+fn colored_diff_lines_keep_their_source_bytes_and_count_as_changes() {
+    let mut core = session("root");
+    let source = "diff --git a/é.rs b/é.rs\n--- a/é.rs\n+++ b/é.rs\n@@ -1 +1 @@\n\u{1b}[31m-old\u{1b}[0m\n\u{1b}[32m+new 🌍\u{1b}[0m\n";
+    notify(
+        &mut core,
+        "item/completed",
+        json!({
+            "id":"diff", "type":"toolOutput", "files":[{"filePath":"é.rs", "diff":source}],
+        }),
+    );
+    let tool = first_tool(&mut core);
+    assert_eq!((tool.added, tool.removed), (Some(1), Some(1)));
+    assert_eq!(core.messages()[0].text, source);
+}

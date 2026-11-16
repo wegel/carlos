@@ -1,7 +1,30 @@
 """Check source token colors in the real terminal, including saved reads."""
 
+import json
+
 
 class SourceColors:
+    def test_compact_diff_counts_include_header_like_and_colored_source_lines(self):
+        cases = [
+            ("header-like.rs", "--- a/header-like.rs\n+++ b/header-like.rs\n@@ -1 +1 @@\n--- old source\n+++ new source\n", "+1 −1"),
+            ("colored.rs", "diff --git a/colored.rs b/colored.rs\n--- a/colored.rs\n+++ b/colored.rs\n@@ -1 +1 @@\n\x1b[31m-old\x1b[0m\n\x1b[32m+new 🌍\x1b[0m\n", "+1 −1"),
+            ("empty.rs", "--- a/empty.rs\n+++ b/empty.rs\n@@ -0,0 +0,0 @@\n--- a/next.rs\n+++ b/next.rs\n@@ -0,0 +1 @@\n+new\n", "+1 −0"),
+        ]
+        items = [{"type":"toolOutput", "id":path, "files":[{"filePath":path, "diff":diff}]} for path, diff, _ in cases]
+        directory = self.summary_root()
+        (directory / "server-state.json").write_text(json.dumps({"thread-original":{
+            "id":"thread-original", "turns":[{"id":"diff-counts", "status":"completed", "items":items}],
+        }}))
+        terminal = self.launch(directory=directory, width=54)
+        terminal.wait_ready_composer()
+        for path, _, counts in cases:
+            terminal.contains(f"{path} {counts}")
+        self.assertTrue(terminal.requests("thread/resume"))
+        self.assertTrue(terminal.requests("thread/turns/list"))
+        self.assertEqual(terminal.requests("turn/start"), [])
+        self.assertEqual(terminal.requests("turn/steer"), [])
+        terminal.snapshot("compact-native-diff-counts")
+
     def source_cell(self, terminal, line_text, token):
         row = next(y for y, line in enumerate(terminal.screen.display) if line_text in line)
         column = terminal.screen.display[row].index(token)

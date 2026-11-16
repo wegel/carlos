@@ -31,7 +31,12 @@ pub(super) fn collect(message: &Message, item: &Value) -> ToolFacts {
         (None, None)
     };
     let summary = (message.role == Role::ToolOutput && !message.text.is_empty()).then(|| {
-        let lines = result_text(item).unwrap_or(&message.text).lines().count();
+        let text = if message.kind == MessageKind::Diff {
+            &message.text
+        } else {
+            result_text(item).unwrap_or(&message.text)
+        };
+        let lines = text.lines().count();
         format!("{lines} {}", if lines == 1 { "line" } else { "lines" })
     });
     ToolFacts {

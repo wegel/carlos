@@ -1,0 +1,174 @@
+{
+  "baseline": {
+    "commit": "3ffd3eb378de1372dad614e8ddf5f4ea64c8981e",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 374,
+        "nonblank": 46623,
+        "physical": 52443,
+        "bytes": 1768155
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8318,
+        "physical": 8909,
+        "bytes": 291904
+      },
+      "terminal": {
+        "files": 193,
+        "nonblank": 25593,
+        "physical": 28999,
+        "bytes": 952106
+      },
+      "helper": {
+        "files": 23,
+        "nonblank": 1653,
+        "physical": 1821,
+        "bytes": 88846
+      }
+    },
+    "total": {
+      "files": 750,
+      "nonblank": 94870,
+      "physical": 105909,
+      "bytes": 3565323
+    }
+  },
+  "tool_facts": {
+    "commit": "working",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 375,
+        "nonblank": 46928,
+        "physical": 52764,
+        "bytes": 1779976
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8318,
+        "physical": 8909,
+        "bytes": 291904
+      },
+      "terminal": {
+        "files": 193,
+        "nonblank": 25593,
+        "physical": 28999,
+        "bytes": 952106
+      },
+      "helper": {
+        "files": 23,
+        "nonblank": 1653,
+        "physical": 1821,
+        "bytes": 88846
+      }
+    },
+    "total": {
+      "files": 751,
+      "nonblank": 95175,
+      "physical": 106230,
+      "bytes": 3577144
+    }
+  },
+  "delta_nonblank": 305,
+  "changes": {
+    "crates/carlos-core/src/claude_backend/tool_results.rs": {
+      "added": 3,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/grok_backend/translate_tools.rs": {
+      "added": 41,
+      "deleted": 19
+    },
+    "crates/carlos-core/src/grok_backend/types.rs": {
+      "added": 1,
+      "deleted": 1
+    },
+    "crates/carlos-core/src/perf_fixture.rs": {
+      "added": 7,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/event_rows.rs": {
+      "added": 33,
+      "deleted": 17
+    },
+    "crates/carlos-core/src/session/history_receive.rs": {
+      "added": 2,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/item_history.rs": {
+      "added": 4,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/item_history_draft.rs": {
+      "added": 1,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/mod.rs": {
+      "added": 1,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/models.rs": {
+      "added": 14,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/notification_items.rs": {
+      "added": 53,
+      "deleted": 1
+    },
+    "crates/carlos-core/src/session/notification_tools.rs": {
+      "added": 2,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/tool_diff_summary.rs": {
+      "added": 44,
+      "deleted": 8
+    },
+    "crates/carlos-core/src/session/tool_facts.rs": {
+      "added": 126,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/tool_output_items.rs": {
+      "added": 12,
+      "deleted": 24
+    },
+    "crates/carlos-core/src/session/transcript.rs": {
+      "added": 14,
+      "deleted": 1
+    },
+    "crates/carlos-core/src/session/transcript_edits.rs": {
+      "added": 18,
+      "deleted": 1
+    },
+    "crates/carlos-core/src/session/transcript_updates.rs": {
+      "added": 1,
+      "deleted": 0
+    }
+  },
+  "added_nonblank": 377,
+  "deleted_nonblank": 72,
+  "note": "Same production module traversal and cfg(test)/test-support exclusions as EP021a; includes authored helper/src TypeScript and comments. Working tree at the complete tool-fact milestone after 0e26578; exact runtime passed gate02 and both configurations/lints."
+}
