@@ -4,28 +4,7 @@ use crate::panels::PanelKind;
 use crate::{Client, Effects, ReadReply, ReadResult, RequestFailure};
 
 impl Client {
-    pub(crate) fn accept_panel_replies(&mut self, effects: &mut Effects) {
-        for result in std::mem::take(&mut effects.replies) {
-            if let Some(result) = self.accept_queue_panel_reply(result, effects) {
-                effects.replies.push(result);
-            }
-        }
-        for failure in std::mem::take(&mut effects.failures) {
-            if !self.fail_queue_panel_read(&failure, effects) {
-                effects.failures.push(failure);
-            }
-        }
-        let sessions: Vec<_> = effects
-            .panels
-            .iter()
-            .map(|change| change.session.clone())
-            .collect();
-        for session in sessions {
-            self.enforce_fact_budget(&session, effects);
-        }
-    }
-
-    fn accept_queue_panel_reply(
+    pub(crate) fn accept_queue_panel_reply(
         &mut self,
         result: ReadResult,
         effects: &mut Effects,
@@ -73,7 +52,11 @@ impl Client {
         None
     }
 
-    fn fail_queue_panel_read(&mut self, failure: &RequestFailure, effects: &mut Effects) -> bool {
+    pub(crate) fn fail_queue_panel_read(
+        &mut self,
+        failure: &RequestFailure,
+        effects: &mut Effects,
+    ) -> bool {
         let input = self.sessions.iter().find_map(|(session, slot)| {
             slot.panels
                 .queue

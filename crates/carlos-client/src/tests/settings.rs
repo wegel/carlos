@@ -6,7 +6,7 @@ use carlos_proto::settings::{RuntimeChoices, SettingsFacts};
 use super::{event, snapshot};
 use crate::Replica;
 
-fn facts(version: char) -> SettingsFacts {
+pub(super) fn facts(version: char) -> SettingsFacts {
     SettingsFacts {
         revision: version.to_string().repeat(64).parse().expect("revision"),
         current: RuntimeChoices {

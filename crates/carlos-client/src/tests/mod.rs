@@ -28,6 +28,7 @@ mod queue_ranges;
 mod replica;
 mod rewind_progress;
 mod settings;
+mod settings_panel;
 mod startup;
 mod task_activity;
 mod task_overview;

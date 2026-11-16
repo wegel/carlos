@@ -146,7 +146,7 @@ impl Client {
                 slot.refresh = false;
             }
             Kind::Unsubscribe(session) => {
-                self.cancel_queue_reads(&session);
+                self.cancel_panel_reads(&session);
                 self.sessions.remove(&session);
                 self.goals.forget(&session);
                 self.task_watches.forget(&session);

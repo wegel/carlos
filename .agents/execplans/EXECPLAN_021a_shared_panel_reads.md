@@ -13,6 +13,7 @@ EP021 is split at a natural boundary. This plan shares existing read behavior an
 
 ## Progress
 
+- [ ] (2026-11-16) Add SettingsPanel/SettingsCatalog and typed open/refresh/close/take APIs to Client, with one owned request, one future page, exact model intervals, the existing eight MiB list ceiling and cached combined-budget charges. Five pure-client workflows pass with all140 client cases:65-model traversal/future facts, changed-revision failure, unowned reads/retired failures/offline close, oversized list refusal and partial-versus-transferred reconnect. Common reply routing now serves both queue and settings; unknown retired error ids are ignored just like unknown success ids. Default1680 workspace cases pass18.85s, strict lint and400/60 audit pass. Commit this buildable reader, then replace and delete the terminal Catalog/Fetch driver. The host context-size reader remains a separate later step in this milestone.
 - [x] (2026-11-16) All51 actual queue/settings/command-directory workflows pass37.773s at /tmp/carlos-ep021a/queue-settings-corrections.log after the cached-mode/exact-input fixes and queued explicit Save fix. Default1675 tests pass18.87s, strict lint and400/60 audit pass, and72 helper tests/build pass. Preserve the first full debug failure; the final complete corrected release/terminal/native gate still follows all remaining reader migrations.
 
 - [x] (2026-11-16) Reproduce rapid-reopen settings Save refusal with the frozen pre-correction package and a held real device-file lock: settings-queue-before.log fails8.475s. Queue the explicit second Save in the existing SaveIntent and hold its steps behind the first appearance writer; no extra queue, thread or retry. The same actual terminal test passes0.540s in settings-queue-after.log, preserving immediate composer typing, captured choices, exact native writes and unknown device fields. Current1675 default Rust cases pass18.87s, strict lint and400/60 audit pass, the72 helper tests/build pass and the focused actual queue/settings/directory cases are checked before small commits. The complete corrected release/terminal/native gate remains required after all reader families, so this focused proof does not claim the first full debug run passed.
@@ -38,6 +39,8 @@ EP021 is split at a natural boundary. This plan shares existing read behavior an
 - [ ] Complete direct engineering and Fable whole-roadmap reviews, record dispositions and delegated approval, archive unchanged, then write EP021b and continue.
 
 ## Surprises & Discoveries
+
+An error for an already retired point-read id previously escaped into the global failure list even though a success for that same id was ignored. Close/reopen must not let an obsolete read replace a newer error. Client.receive now reports only a matched request error or a daemon-wide id-null error, so cancellation needs no extra unbounded retired-id set. The settings model tests this with an old failed id after reopening alongside a still-usable direct application read.
 
 Changing only the composer policy with F3 must not force native invalidation when accepted queue facts are already known. Sending the new refresh inside the key handler moves it ahead of an immediate Add, which previously reached the daemon before the terminal's later service tick. QueueReadMode now states Cached versus Refresh at open time. Cached reads use the accepted revision and still discover an unknown queue; an explicit sheet open/refresh retains the native refresh. The two formerly failing workflows pass without new waits or weaker assertions.
 
@@ -89,6 +92,8 @@ EP020's focused Fable follow-up approves closure with three MINORs. A reader tha
 - Decision: prototype the queue family first, then use the demonstrated pattern for the other families. Rationale: it exercises cursor walks, long text, future replies and editor independence without inventing abstractions for every panel before one works. Date/author: 2026-11-16, Root.
 
 ## Outcomes & Retrospective
+
+Queue corrections are committed as81b8022 and the minimal explicit-Save ordering fix as5718d94 after all51 affected real terminal cases pass. The first complete debug run remains a recorded failure with concrete corrections, not a passing final gate. The shared settings controller now passes140 client cases; remove its terminal reader next. The complete final release/native/performance gates and end-only reviews remain unfinished.
 
 The terminal now consumes the shared queue controller and no longer owns pending page ids, future pages or partial native input text. The adapter removes330 net terminal production lines in this slice; the earlier QueuePageWindow extraction separately removed its terminal copy. All13 actual queue workflows pass, and the133 pure-client cases include full-range, stale/reconnect/private input and combined64MiB budget behavior. Settings, goals and tasks are next; no reviewer has run in this plan.
 

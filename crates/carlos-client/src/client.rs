@@ -238,8 +238,10 @@ impl Client {
             }
             Incoming::Failure { id, error } => {
                 let pending = id.as_ref().and_then(|id| self.requests.take(id));
-                self.failed(pending, &error, &mut effects);
-                effects.failures.push(RequestFailure { id, error });
+                if pending.is_some() || id.is_none() {
+                    self.failed(pending, &error, &mut effects);
+                    effects.failures.push(RequestFailure { id, error });
+                }
             }
         }
         self.accept_panel_replies(&mut effects);
@@ -260,7 +262,7 @@ impl Client {
         changes: ChangeSet,
         effects: &mut Effects,
     ) -> Result<(), ClientError> {
-        self.wake_queue_panel(session, &changes);
+        self.wake_panels(session, &changes);
         if changes == ChangeSet::default() {
             return Ok(());
         }

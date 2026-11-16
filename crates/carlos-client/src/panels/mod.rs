@@ -4,10 +4,12 @@ mod queue;
 pub(crate) mod queue_input;
 mod queue_pages;
 pub(crate) mod queue_reads;
+pub(crate) mod settings;
 
 pub use queue::{QueuePanel, QueueReadMode};
 pub use queue_input::QueueInput;
 pub use queue_pages::QueuePageWindow;
+pub use settings::{SettingsCatalog, SettingsPanel};
 
 use carlos_proto::ids::SessionId;
 
@@ -15,6 +17,7 @@ use carlos_proto::ids::SessionId;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PanelKind {
     Queue,
+    Settings,
 }
 
 /// A platform redraws only the panel whose checked data or read status changed.
@@ -27,6 +30,7 @@ pub struct PanelChange {
 #[derive(Default)]
 pub(crate) struct Panels {
     pub queue: Option<Box<QueuePanel>>,
+    pub settings: Option<Box<SettingsPanel>>,
 }
 
 impl Panels {
@@ -34,6 +38,19 @@ impl Panels {
         self.queue
             .as_ref()
             .map_or(0, |queue| queue.retained_bytes())
+            + self
+                .settings
+                .as_ref()
+                .map_or(0, |settings| settings.retained_bytes())
+    }
+
+    pub(crate) fn disconnected(&mut self) {
+        if let Some(queue) = &mut self.queue {
+            queue.disconnected();
+        }
+        if let Some(settings) = &mut self.settings {
+            settings.disconnected();
+        }
     }
 }
 

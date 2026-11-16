@@ -27,7 +27,7 @@ impl Client {
         if bytes <= MAX_FACT_BYTES {
             return true;
         }
-        self.cancel_queue_reads(session);
+        self.cancel_panel_reads(session);
         if let Some(slot) = self.sessions.get_mut(session) {
             slot.panels = Default::default();
             slot.replica = None;
@@ -37,6 +37,7 @@ impl Client {
         }
         self.bodies.forget_session(session);
         effects.panel_changed(session, crate::panels::PanelKind::Queue);
+        effects.panel_changed(session, crate::panels::PanelKind::Settings);
         if !self.detach.contains(session) {
             self.detach.push_back(session.clone());
         }
