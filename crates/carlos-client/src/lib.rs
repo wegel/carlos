@@ -44,6 +44,8 @@ mod settings_reads;
 mod settings_state;
 mod startup;
 mod task_activity;
+mod task_detail_panel;
+mod task_detail_replies;
 mod task_overview;
 mod task_state;
 mod task_watches;

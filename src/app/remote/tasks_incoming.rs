@@ -1,6 +1,7 @@
 //! Match task replies and read failures to this device's original private request identities.
 
 use anyhow::Result;
+use carlos_client::panels::PanelKind;
 use carlos_client::{ClientError, Effects, ReadReply};
 use carlos_proto::commands::RequestId;
 use carlos_proto::task_facts::TaskSnapshot;
@@ -9,7 +10,10 @@ use super::Device;
 
 impl Device {
     pub(super) fn apply_task_reads(&mut self, effects: &mut Effects) -> Result<bool> {
-        let mut changed = false;
+        let mut changed = effects
+            .panels
+            .iter()
+            .any(|change| change.session == self.session && change.kind == PanelKind::TaskDetails);
         for result in std::mem::take(&mut effects.replies) {
             if result
                 .id
@@ -48,10 +52,6 @@ impl Device {
                         changed = true;
                     }
                 }
-                ReadReply::TaskDetail(detail) => {
-                    changed |= self.accept_task_detail(result.id, detail)
-                }
-                ReadReply::TaskText(text) => changed |= self.accept_task_text(result.id, text),
                 ReadReply::TaskOverview(page) => {
                     changed |= self.accept_task_overview(result.id, page)
                 }
@@ -107,10 +107,6 @@ impl Device {
                     || self.fail_task_activity(id, &failure.error.message)
                     || self.fail_task_window(id, &failure.error.message)
                     || self.tasks.reads.fail(id, &failure.error.message, sequence)
-                    || self
-                        .tasks
-                        .details
-                        .failed(id, &failure.error.message, sequence)
                     || self.tasks.overview.failed(id, &failure.error.message)
                     || self.fail_task_stop_read(id, &failure.error.message)
             });

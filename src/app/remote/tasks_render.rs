@@ -72,9 +72,7 @@ impl Device {
             .into();
         };
         let label = if task.kind == TaskKind::Process {
-            self.tasks
-                .details
-                .field(TaskField::NativeId)
+            self.task_detail_field(TaskField::NativeId)
                 .unwrap_or(&task.label)
         } else {
             &task.label
@@ -122,14 +120,24 @@ impl Device {
     }
 
     fn selected_task_body(&self, task: &Task, lines: &mut Vec<String>) {
-        if self.tasks.details.value.as_ref().is_some_and(|value| {
-            value.task.id == task.id && Some(&value.revision) == self.tasks.pages.revision()
-        }) {
-            lines.extend(super::tasks_text::detail(&self.tasks.details, task.kind));
+        if self
+            .task_details()
+            .and_then(|details| details.value())
+            .is_some_and(|value| {
+                value.task.id == task.id && Some(&value.revision) == self.tasks.pages.revision()
+            })
+        {
+            lines.extend(super::tasks_text::detail(
+                self.task_details().expect("selected detail"),
+                task.kind,
+            ));
         } else {
             lines.push("Reading selected native details…".into());
         }
-        if self.tasks.details.pending() {
+        if self
+            .task_details()
+            .is_some_and(|details| details.is_reading())
+        {
             lines.push("Reading complete named task fields…".into());
         }
         if task.kind == TaskKind::Agent {
@@ -177,7 +185,7 @@ impl Device {
         for error in [
             self.tasks.view.error.as_deref(),
             self.tasks.reads.error(),
-            self.tasks.details.error.as_deref(),
+            self.task_details().and_then(|details| details.read_error()),
             self.tasks.overview.error.as_deref(),
         ]
         .into_iter()
@@ -214,7 +222,7 @@ impl Device {
         }
         if self.task_backend() == Some(Backend::Claude) {
             let can_stop =
-                selected.is_some() && self.tasks.details.field(TaskField::CanStop) == Some("true");
+                selected.is_some() && self.task_detail_field(TaskField::CanStop) == Some("true");
             return match (size.width < 40, can_stop) {
                 (true, true) => "↑↓ x stop F2 back",
                 (true, false) => "↑↓ no stop F2 back",

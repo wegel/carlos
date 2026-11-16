@@ -3,10 +3,12 @@
 use carlos_proto::task_overview::{TaskMainState, TaskOverviewData, TaskOverviewEntry};
 use carlos_proto::tasks::{TaskField, TaskKind};
 
-use super::tasks_details::Details;
+use carlos_client::panels::TaskDetails;
 
-pub(super) fn detail(details: &Details, kind: TaskKind) -> Vec<String> {
-    let field = |field| details.field(field).unwrap_or("unavailable");
+use super::tasks_details::displayed_field;
+
+pub(super) fn detail(details: &TaskDetails, kind: TaskKind) -> Vec<String> {
+    let field = |field| displayed_field(details, field).unwrap_or("unavailable");
     match kind {
         TaskKind::Agent => agent(details),
         TaskKind::Process => vec![
@@ -27,8 +29,8 @@ pub(super) fn detail(details: &Details, kind: TaskKind) -> Vec<String> {
     }
 }
 
-fn agent(details: &Details) -> Vec<String> {
-    let field = |field| details.field(field).unwrap_or("unavailable");
+fn agent(details: &TaskDetails) -> Vec<String> {
+    let field = |field| displayed_field(details, field).unwrap_or("unavailable");
     let mut lines = vec![
         format!("Thread: {}", field(TaskField::NativeId)),
         format!("Role: {}", field(TaskField::Role)),
@@ -39,16 +41,16 @@ fn agent(details: &Details) -> Vec<String> {
             field(TaskField::DirectInput)
         ),
     ];
-    if let Some(turn) = details.field(TaskField::LastTurn) {
+    if let Some(turn) = displayed_field(details, TaskField::LastTurn) {
         lines.push(format!(
             "Last observed turn: {turn} ({})",
             field(TaskField::LastTurnState)
         ));
     }
-    if let Some(report) = details.field(TaskField::Report) {
+    if let Some(report) = displayed_field(details, TaskField::Report) {
         lines.push(format!("Agent report ({}):", field(TaskField::ReportState)));
         lines.push(report.into());
-        if details.value.as_ref().is_some_and(|value| {
+        if details.value().is_some_and(|value| {
             value.properties.iter().any(|property| {
                 property.field == TaskField::Report
                     && !property.complete
@@ -64,11 +66,11 @@ fn agent(details: &Details) -> Vec<String> {
     lines
 }
 
-fn claude(details: &Details) -> Vec<String> {
-    let value = details.value.as_ref().expect("selected typed task");
+fn claude(details: &TaskDetails) -> Vec<String> {
+    let value = details.value().expect("selected typed task");
     let mut lines = vec![format!(
         "Task {} · {}",
-        details.field(TaskField::NativeId).unwrap_or("unavailable"),
+        displayed_field(details, TaskField::NativeId).unwrap_or("unavailable"),
         value.task.state
     )];
     for (field, label) in [
@@ -85,7 +87,7 @@ fn claude(details: &Details) -> Vec<String> {
         (TaskField::UsageTools, "tool uses"),
         (TaskField::UsageDurationMillis, "duration ms"),
     ] {
-        if let Some(text) = details.field(field).filter(|text| !text.is_empty()) {
+        if let Some(text) = displayed_field(details, field).filter(|text| !text.is_empty()) {
             lines.push(format!("{label}: {text}"));
         }
     }

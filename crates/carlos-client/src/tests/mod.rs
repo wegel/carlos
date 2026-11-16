@@ -33,6 +33,7 @@ mod settings;
 mod settings_panel;
 mod startup;
 mod task_activity;
+mod task_detail_panel;
 mod task_overview;
 mod task_state;
 mod task_watches;

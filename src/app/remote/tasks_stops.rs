@@ -73,10 +73,7 @@ impl Device {
         );
         if task.kind == TaskKind::Process {
             ensure!(
-                self.tasks
-                    .details
-                    .field(carlos_proto::tasks::TaskField::CanStop)
-                    == Some("true"),
+                self.task_detail_field(carlos_proto::tasks::TaskField::CanStop) == Some("true"),
                 "Stop unavailable for this native task"
             );
         }

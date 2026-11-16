@@ -11,7 +11,6 @@ use carlos_proto::session::Backend;
 use carlos_proto::task_facts::TaskFacts;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use super::tasks_details::Details;
 use super::tasks_overview::Overview;
 use super::tasks_reads::Reads;
 use super::tasks_stops::Stops;
@@ -36,7 +35,6 @@ pub(super) struct Tasks {
     pub(super) view: TaskView,
     pub(super) pages: TaskPageWindow,
     pub(super) reads: Reads,
-    pub(super) details: Details,
     pub(super) overview: Overview,
     pub(super) stops: Stops,
     pub(super) refresh: bool,
@@ -95,6 +93,7 @@ impl Device {
         self.tasks.view.show = false;
         self.retire_task_windows(false);
         self.tasks.reads.close();
+        self.clear_task_details();
         let effects = self.client.close_tasks(&self.session);
         if let Some(link) = link {
             for outgoing in effects.outgoing {
@@ -111,7 +110,6 @@ impl Device {
         self.retire_task_windows(false);
         self.tasks.windows.disconnected();
         self.tasks.reads.disconnected();
-        self.tasks.details.disconnected();
         self.tasks.overview.disconnected();
         if self.tasks.stops.disconnected() {
             self.tasks.view.error =

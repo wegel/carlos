@@ -5,6 +5,38 @@ from test_daemon_client import daemon_support
 
 
 class DaemonTaskWindows:
+    def test_daemon_f2_older_process_reads_complete_text_in_its_captured_window(self):
+        fixture, client, session, terminal = self.daemon_tasks("task-window-long-command", count=257)
+        for agent in fixture.native.task_agents:
+            agent["status"] = {"type":"notLoaded"}
+        fixture.native.task_agents[256]["status"] = {"type":"active"}
+        command = "older command 🌍 " * 300 + "OLDER_COMMAND_END"
+        fixture.native.task_processes["native-child-256"] = [{"processId":"older-long",
+            "itemId":"older-long-item", "osPid":123, "command":command, "cwd":"/tmp/older"}]
+        terminal.paste("older long command composer")
+        self.open_daemon_tasks(terminal)
+        terminal.send(b"l")
+        terminal.contains("Thread: native-child-256")
+        terminal.send(b"\x1b[B")
+        terminal.contains("Process: older-long")
+        terminal.wait(lambda:"Reading complete named task fields" not in terminal.text,
+                      "captured older command finishes without rereading the same offset")
+        terminal.send(b"\x1b[6~" * 25)
+        terminal.contains("OLDER_COMMAND_END")
+        detail = terminal.requests("task/detail")[-1]["params"]
+        reads = [row for row in terminal.requests("task/text") if row["params"]["field"] == "command"]
+        self.assertEqual(len(reads), 1)
+        self.assertIsNotNone(detail["window"])
+        self.assertTrue(all(row["params"]["window"] == detail["window"] and
+            row["params"]["expected"] == detail["expected"] and
+            row["params"]["task"] == detail["task"] for row in reads))
+        self.assertNotEqual(client.call("task/list", session=session, limit=32)["revision"], detail["expected"])
+        terminal.send(F2)
+        terminal.wait(lambda:terminal.input_is("older long command composer"), "older text retains private draft")
+        self.assertEqual(terminal.requests("task/stop"), [])
+        self.assertEqual(terminal.requests("session/send"), [])
+        terminal.snapshot("older-command-complete-captured-window")
+
     def test_daemon_f2_older_agent_reads_and_stops_only_its_original_native_turn(self):
         fixture, client, session, terminal, _ = self.window_terminals("task-window-agent-ui", count=257)
         terminal.paste("older child composer")
