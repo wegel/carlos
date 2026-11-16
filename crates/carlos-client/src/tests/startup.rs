@@ -65,7 +65,7 @@ fn admitted_open_uses_the_returned_logical_address_and_never_replays_its_native_
     let Command::Open { operation, .. } = command(&outgoing).command else {
         panic!("typed import")
     };
-    reply(
+    let _ = reply(
         &mut client,
         &outgoing,
         json!({"operation":operation,"session":session(),"state":{"kind":"pending"}}),

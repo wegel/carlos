@@ -114,12 +114,12 @@ fn cached_queue_interest_keeps_known_facts_usable_without_forcing_native_invalid
     let opened = client
         .open_queue_panel(&session(), None, QueueReadMode::Refresh)
         .expect("sheet refresh");
-    reply(
+    let _ = reply(
         &mut client,
         single_read(&opened),
         json!(page(0, 1, 10, 'a')),
     );
-    client.close_queue_panel(&session());
+    let _ = client.close_queue_panel(&session());
     let watched = client
         .open_queue_panel(&session(), None, QueueReadMode::Cached)
         .expect("queue mode");
@@ -206,7 +206,7 @@ fn closing_offline_never_restores_the_panel_and_reopening_cannot_accept_old_repl
     let old = client
         .open_queue_panel(&session(), None, QueueReadMode::Refresh)
         .expect("open");
-    client.close_queue_panel(&session());
+    let _ = client.close_queue_panel(&session());
     let reopened = client
         .open_queue_panel(&session(), None, QueueReadMode::Refresh)
         .expect("reopen");
@@ -218,7 +218,7 @@ fn closing_offline_never_restores_the_panel_and_reopening_cannot_accept_old_repl
         .page()
         .entries()
         .is_empty());
-    reply(
+    let _ = reply(
         &mut client,
         single_read(&reopened),
         json!(page(0, 1, 10, 'b')),
@@ -240,7 +240,7 @@ fn closing_offline_never_restores_the_panel_and_reopening_cannot_accept_old_repl
 #[test]
 fn an_unfinished_explicit_refresh_restarts_only_after_current_subscription_acceptance() {
     let (mut client, connection) = attached();
-    client
+    let _ = client
         .open_queue_panel(&session(), None, QueueReadMode::Refresh)
         .expect("open before EOF");
     client.disconnect(connection);
@@ -260,7 +260,7 @@ fn an_unfinished_explicit_refresh_restarts_only_after_current_subscription_accep
     assert!(refresh);
     assert!(expected.is_none());
     assert!(client.session_is_ready(new_connection, &session()));
-    reply(
+    let _ = reply(
         &mut client,
         single_read(&restored),
         json!(page(0, 1, 10, 'a')),

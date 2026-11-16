@@ -22,7 +22,7 @@ impl Client {
             .task_details(session)
             .is_none_or(|panel| panel.target() != &target)
         {
-            self.close_task_details(session);
+            let _ = self.close_task_details(session);
             self.sessions
                 .get_mut(session)
                 .expect("wanted session")

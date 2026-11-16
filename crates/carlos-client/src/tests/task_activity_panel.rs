@@ -89,7 +89,7 @@ fn a_child_display_walks_pages_and_reloads_without_changing_the_captured_task_or
         header("a", "e", 3),
     );
     assert_eq!(records(&client).len(), 2);
-    reply(
+    let _ = reply(
         &mut client,
         read(&new_page, "task/activity/page"),
         page("a", "e", 2, false),
@@ -112,7 +112,7 @@ fn closing_before_an_open_reply_later_closes_only_its_exact_reader_and_keeps_a_n
     let fresh = client
         .open_task_activity(&session(), target())
         .expect("new child reader");
-    reply(
+    let _ = reply(
         &mut client,
         read(&fresh, "task/activity/open"),
         header("e", "c", 1),
@@ -146,7 +146,7 @@ fn closing_before_an_open_reply_later_closes_only_its_exact_reader_and_keeps_a_n
 #[test]
 fn closing_and_reopening_a_known_reader_emits_the_close_before_the_new_open() {
     let (mut client, _, opened) = opened();
-    reply(
+    let _ = reply(
         &mut client,
         read(&opened, "task/activity/open"),
         header("a", "c", 1),
@@ -175,7 +175,7 @@ fn a_failed_page_keeps_the_accepted_display_and_waits_for_explicit_reload_or_a_n
         read(&opened, "task/activity/open"),
         header("a", "c", 1),
     );
-    reply(
+    let _ = reply(
         &mut client,
         read(&first, "task/activity/page"),
         page("a", "c", 0, false),
@@ -216,7 +216,7 @@ fn a_failed_page_keeps_the_accepted_display_and_waits_for_explicit_reload_or_a_n
         read(&retry, "task/activity/advance"),
         header("a", "f", 3),
     );
-    reply(
+    let _ = reply(
         &mut client,
         read(&pending, "task/activity/page"),
         page("a", "f", 1, false),
@@ -236,7 +236,7 @@ fn eof_keeps_a_readonly_child_and_neither_reconnect_nor_offline_close_reopens_it
         read(&opened, "task/activity/open"),
         header("a", "c", 1),
     );
-    reply(
+    let _ = reply(
         &mut client,
         read(&first, "task/activity/page"),
         page("a", "c", 0, false),
@@ -276,7 +276,7 @@ fn eof_keeps_a_readonly_child_and_neither_reconnect_nor_offline_close_reopens_it
 #[test]
 fn explicit_unowned_child_opens_keep_their_reply_and_are_never_closed_by_the_panel() {
     let (mut client, connection, opened) = opened();
-    reply(
+    let _ = reply(
         &mut client,
         read(&opened, "task/activity/open"),
         header("a", "c", 1),
@@ -316,7 +316,7 @@ fn a_closed_native_header_still_releases_its_exact_interest_on_explicit_close() 
     let (mut client, _, opened) = opened();
     let mut closed = header("a", "c", 1);
     closed["closed"] = json!(true);
-    reply(&mut client, read(&opened, "task/activity/open"), closed);
+    let _ = reply(&mut client, read(&opened, "task/activity/open"), closed);
     assert!(client
         .task_activity(&session())
         .expect("native closed")

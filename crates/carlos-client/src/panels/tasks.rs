@@ -6,7 +6,7 @@ use carlos_proto::task_facts::TaskSnapshot;
 use carlos_proto::task_windows::TaskWindow;
 use carlos_proto::tasks::{Task, TaskPage};
 
-use super::TaskPageWindow;
+use super::{TaskDetailTarget, TaskPageWindow};
 
 pub(crate) struct PageRead {
     pub id: RequestId,
@@ -75,6 +75,17 @@ impl TaskPanel {
     /// Borrow a selected row only after its page and requested movement settle.
     pub fn selected(&self) -> Option<&Task> {
         self.pages.selected(self.selected.as_ref())
+    }
+
+    /// Capture checked metadata for the selected row without granting native control rights.
+    pub fn selected_detail_target(&self) -> Option<TaskDetailTarget> {
+        let task = self.selected()?;
+        let expected = self.pages.revision()?;
+        Some(TaskDetailTarget {
+            window: self.window().map(|window| window.window.clone()),
+            expected: expected.clone(),
+            task: task.id.clone(),
+        })
     }
 
     /// Borrow the accepted captured older header without exposing mutable native scope.

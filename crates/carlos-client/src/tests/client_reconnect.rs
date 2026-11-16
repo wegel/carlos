@@ -47,7 +47,7 @@ fn resumed_connections_replay_facts_and_query_missing_private_outcomes_without_a
     assert!(
         matches!(command(&recovery).command, Command::Operation { operation: ref read } if read == &operation)
     );
-    reply(
+    let _ = reply(
         &mut client,
         &subscription,
         json!({"kind":"replay", "events":[], "seq":"10"}),
@@ -179,7 +179,7 @@ fn definite_and_possible_write_failures_preserve_text_but_only_possible_writes_n
         let Command::Send { operation, .. } = command(&request).command else {
             panic!("send");
         };
-        client.write_failed(
+        let _ = client.write_failed(
             connection,
             request.id(),
             "platform writer stopped",
@@ -225,7 +225,7 @@ fn a_late_platform_write_failure_cannot_undo_authoritative_private_acceptance() 
         json!({"operation":operation,"session":session(),"state":{"kind":"accepted","entry":null}}),
     )
     .expect("native acceptance");
-    notify(&mut client, connection, Notification::Operation(result));
+    let _ = notify(&mut client, connection, Notification::Operation(result));
     let failed = client.write_failed(connection, request.id(), "late writer callback", true);
     assert!(failed.operations.is_empty());
     assert!(matches!(

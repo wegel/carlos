@@ -79,7 +79,7 @@ fn closing_before_the_initial_reply_sends_one_unsubscribe_and_ignores_late_data_
         )
         .expect("retired failure");
     assert!(ignored.failures.is_empty());
-    reply(&mut client, single_read(&fresh), snapshot(10, 'b'));
+    let _ = reply(&mut client, single_read(&fresh), snapshot(10, 'b'));
     assert!(client
         .goal_panel(&session())
         .expect("new reader")
@@ -91,7 +91,7 @@ fn closing_before_the_initial_reply_sends_one_unsubscribe_and_ignores_late_data_
 fn repeated_explicit_refresh_during_session_restore_keeps_one_unissued_read_intent() {
     let (mut client, connection) = attached();
     let opened = client.open_goal_panel(&session()).expect("open");
-    reply(&mut client, single_read(&opened), snapshot(10, 'a'));
+    let _ = reply(&mut client, single_read(&opened), snapshot(10, 'a'));
     let restoring = client
         .read(
             connection,
@@ -117,7 +117,7 @@ fn repeated_explicit_refresh_during_session_restore_keeps_one_unissued_read_inte
         command(single_read(&ready)).command,
         Command::GoalRead { refresh: true, .. }
     ));
-    reply(&mut client, single_read(&ready), snapshot(10, 'a'));
+    let _ = reply(&mut client, single_read(&ready), snapshot(10, 'a'));
     assert!(!client.goal_panel(&session()).expect("reader").is_reading());
 }
 
@@ -165,7 +165,7 @@ fn a_failed_initial_watch_closes_the_native_reader_and_only_explicit_refresh_reo
         command(single_read(&explicit)).command,
         Command::GoalSubscribe { .. }
     ));
-    reply(&mut client, single_read(&explicit), snapshot(11, 'a'));
+    let _ = reply(&mut client, single_read(&explicit), snapshot(11, 'a'));
     assert!(client
         .goal_panel(&session())
         .expect("reader")
@@ -177,7 +177,7 @@ fn a_failed_initial_watch_closes_the_native_reader_and_only_explicit_refresh_reo
 fn independent_goal_reads_remain_unowned_and_offline_close_does_not_restore_a_watch() {
     let (mut client, connection) = attached();
     let opened = client.open_goal_panel(&session()).expect("open");
-    reply(&mut client, single_read(&opened), snapshot(10, 'a'));
+    let _ = reply(&mut client, single_read(&opened), snapshot(10, 'a'));
     let direct = client
         .read(
             connection,

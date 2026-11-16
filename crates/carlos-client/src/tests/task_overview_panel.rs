@@ -15,7 +15,7 @@ use crate::{Client, ConnectionId, Effects};
 
 fn opened() -> (Client, ConnectionId, Effects) {
     let (mut client, connection) = attached();
-    client
+    let _ = client
         .merge_tasks(&TaskSnapshot {
             session: session(),
             seq: Sequence::new(10),
@@ -147,7 +147,7 @@ fn a_new_overview_revision_retires_an_old_error_and_its_future_page() {
     assert!(
         matches!(command(single_read(&changed)).command,Command::TaskOverview { expected:Some(ref expected), .. } if expected.as_str()=="d".repeat(64))
     );
-    reply(
+    let _ = reply(
         &mut client,
         single_read(&changed),
         page(11, "d", vec![row(1, "fresh", 5)], false),
@@ -202,7 +202,7 @@ fn a_rounded_field_cannot_duplicate_bytes_and_an_error_does_not_refetch_on_root_
         )),
     );
     assert!(unrelated.outgoing.is_empty());
-    client.close_task_overview(&session());
+    let _ = client.close_task_overview(&session());
     assert_eq!(
         client
             .open_task_overview(&session())
@@ -216,13 +216,13 @@ fn a_rounded_field_cannot_duplicate_bytes_and_an_error_does_not_refetch_on_root_
 #[test]
 fn closing_an_overview_offline_does_not_restore_its_partial_pages_or_interests() {
     let (mut client, connection, opened) = opened();
-    reply(
+    let _ = reply(
         &mut client,
         single_read(&opened),
         page(10, "c", vec![row(0, "quota", 5)], true),
     );
     client.disconnect(connection);
-    client.close_task_overview(&session());
+    let _ = client.close_task_overview(&session());
     let (_, hello) = greet(&mut client, true, "d");
     let ready = reply(
         &mut client,

@@ -57,7 +57,7 @@ fn context_writes_use_existing_private_operations_without_capturing_composer_tex
             .text(),
         None
     );
-    reply(
+    let _ = reply(
         &mut client,
         &outgoing,
         json!({"operation":operation, "session":session(),

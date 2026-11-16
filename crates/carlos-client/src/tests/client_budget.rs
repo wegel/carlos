@@ -68,7 +68,7 @@ fn future_history_pages_share_one_budget_and_overflow_preserves_all_live_windows
         let page = session_page(index, 1);
         let id = page.info.id.clone();
         let before = page.entries[0].id.clone();
-        adopt(&mut client, connection, page);
+        let _ = adopt(&mut client, connection, page);
         let read = client
             .read(
                 connection,

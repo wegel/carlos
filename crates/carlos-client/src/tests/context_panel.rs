@@ -85,7 +85,7 @@ fn offline_interest_waits_for_current_subscription_and_offline_close_prevents_re
 fn retired_errors_and_explicit_reads_cannot_consume_a_reopened_readers_result() {
     let (mut client, connection) = attached();
     let old = client.open_context_panel(&session()).expect("old reader");
-    client.close_context_panel(&session());
+    let _ = client.close_context_panel(&session());
     let current = client.open_context_panel(&session()).expect("new reader");
     let late = client
         .receive(
@@ -116,7 +116,7 @@ fn retired_errors_and_explicit_reads_cannot_consume_a_reopened_readers_result() 
         .context_panel(&session())
         .expect("new reader")
         .is_reading());
-    reply(
+    let _ = reply(
         &mut client,
         single_read(&current),
         json!({"session":session(),"saved_tokens":null,"policy":"owned"}),
@@ -166,7 +166,7 @@ fn owned_errors_wait_for_explicit_refresh_without_allocating_native_work() {
     let refreshed = client
         .refresh_context_panel(&session())
         .expect("explicit retry");
-    reply(
+    let _ = reply(
         &mut client,
         single_read(&refreshed),
         json!({"session":session(),"saved_tokens":null,"policy":"attached_codex"}),

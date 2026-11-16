@@ -65,6 +65,7 @@ pub struct ReadResult {
 
 /// One input message yields changed facts and explicit outgoing reads, never automatic mutation replay.
 #[derive(Default)]
+#[must_use = "send outgoing frames and apply the returned changes"]
 pub struct Effects {
     pub bodies: Vec<crate::BodyToken>,
     pub outgoing: Vec<Outbound>,

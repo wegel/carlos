@@ -102,8 +102,8 @@ impl Device {
         self.settings.error = intent.error;
         self.settings.keep_draft = self.settings.error.is_some();
         if self.settings.error.is_none() {
-            self.client.close_settings_panel(&self.session);
-            self.client.close_context_panel(&self.session);
+            let _ = self.client.close_settings_panel(&self.session);
+            let _ = self.client.close_context_panel(&self.session);
             self.view.runtime_settings.close_model_settings();
             self.settings.catalog = None;
             self.settings.initial = None;

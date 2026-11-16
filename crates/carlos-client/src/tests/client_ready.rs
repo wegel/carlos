@@ -25,7 +25,7 @@ fn failed_resumed_subscription_stays_blocked_until_an_explicit_successful_retry(
             .availability,
         Availability::Ready
     );
-    client
+    let _ = client
         .receive(
             connection,
             Incoming::Failure {
@@ -43,7 +43,7 @@ fn failed_resumed_subscription_stays_blocked_until_an_explicit_successful_retry(
         .expect("old ready copy")
         .info()
         .clone();
-    notify(
+    let _ = notify(
         &mut client,
         connection,
         Notification::SessionEvent(event(11, Event::InfoChanged { info })),
@@ -63,7 +63,7 @@ fn failed_resumed_subscription_stays_blocked_until_an_explicit_successful_retry(
         .expect("explicit retry");
     let mut current = snapshot();
     current.seq = Sequence::new(11);
-    reply(
+    let _ = reply(
         &mut client,
         &retry,
         json!({"kind":"snapshot", "snapshot":current}),
@@ -93,13 +93,13 @@ fn superseded_subscription_reply_cannot_accept_a_newer_pending_subscription() {
             },
         )
         .expect("newer refresh");
-    reply(
+    let _ = reply(
         &mut client,
         &first,
         json!({"kind":"snapshot", "snapshot":snapshot()}),
     );
     assert!(!client.current_session_is_ready(&session()));
-    reply(
+    let _ = reply(
         &mut client,
         &second,
         json!({"kind":"snapshot", "snapshot":snapshot()}),

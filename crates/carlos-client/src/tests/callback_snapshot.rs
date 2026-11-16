@@ -25,7 +25,7 @@ fn an_accepted_starting_snapshot_does_not_make_ordinary_sends_ready() {
     assert!(!client.session_has_current_snapshot(connection, &session()));
     let mut starting = snapshot();
     starting.info.availability = Availability::Starting;
-    reply(
+    let _ = reply(
         &mut client,
         &refresh,
         json!({"kind":"snapshot","snapshot":starting}),
@@ -42,7 +42,7 @@ fn a_held_or_failed_resumed_subscribe_cannot_grant_callback_write_rights() {
     let (connection, welcome) = greet(&mut client, true, "d");
     assert!(!client.session_has_current_snapshot(connection, &session()));
     assert!(!client.session_has_current_snapshot(old, &session()));
-    client
+    let _ = client
         .receive(
             connection,
             Incoming::Failure {
@@ -60,7 +60,7 @@ fn a_held_or_failed_resumed_subscribe_cannot_grant_callback_write_rights() {
         .info()
         .clone();
     info.availability = Availability::Starting;
-    notify(
+    let _ = notify(
         &mut client,
         connection,
         Notification::SessionEvent(event(11, Event::InfoChanged { info })),
@@ -81,7 +81,7 @@ fn a_held_or_failed_resumed_subscribe_cannot_grant_callback_write_rights() {
     let mut current = snapshot();
     current.seq = Sequence::new(11);
     current.info.availability = Availability::Starting;
-    reply(
+    let _ = reply(
         &mut client,
         &retry,
         json!({"kind":"snapshot","snapshot":current}),
@@ -111,13 +111,13 @@ fn an_older_reply_or_sequence_gap_cannot_accept_a_callback_snapshot() {
             },
         )
         .expect("replacement refresh");
-    reply(
+    let _ = reply(
         &mut client,
         &first,
         json!({"kind":"snapshot","snapshot":snapshot()}),
     );
     assert!(!client.current_session_has_snapshot(&session()));
-    reply(
+    let _ = reply(
         &mut client,
         &second,
         json!({"kind":"snapshot","snapshot":snapshot()}),
@@ -128,7 +128,7 @@ fn an_older_reply_or_sequence_gap_cannot_accept_a_callback_snapshot() {
         .expect("current facts")
         .info()
         .clone();
-    notify(
+    let _ = notify(
         &mut client,
         connection,
         Notification::SessionEvent(event(13, Event::InfoChanged { info })),

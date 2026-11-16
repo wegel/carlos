@@ -75,7 +75,7 @@ share checked panel read/paging rules in carlos-client and delete matching termi
 controllers. Preserve complete supported lists, private drafts and reader/root/window
 checks. Do not add native features or Swift/web consumers before this cleanup passes.
 Then write EP021b in full for paged native history, Grok approvals and richer tool data.
-EP022 still builds UniFFI and the actual iPhone app. Only the next plan is written in full.
+EP022 still builds UniFFI and the actual iPhone app. Only the next plan is written in full. The first iPhone binding must follow the screens in tmp/main-screen.md section11, rather than mirror every public Rust method. Export only session listing/lifecycle, greeting/reconnect, transcript/history/source/output, prompt/interrupt/approval, context display and Ralph calls that those screens use. Keep queue, host context-default, goal and native task-panel readers Rust-only until a phone screen calls for them; the terminal already uses them. Apply the same rule to a later web binding. EP021b must record production lines added/deleted per native feature and remove obsolete paths, rather than hide net growth behind moved files. Correctness and complete supported data take precedence over an arbitrary line quota.
 Protocol version 1 remains provisional. Keep main, the installed binary and the owner's
 frozen `target/preview-e6be8122` package unchanged. No installation, merge or push is
 included in delegated approval.

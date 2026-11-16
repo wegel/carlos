@@ -15,7 +15,7 @@ fn tool(client: &mut Client, connection: ConnectionId, seq: u64, revision: u64) 
         "added":null,"removed":null,"has_output":true,"output_revision":revision.to_string()}}),
     )
     .expect("tool facts");
-    notify(
+    let _ = notify(
         client,
         connection,
         Notification::SessionEvent(event(seq, Event::EntryUpdated { entry })),
@@ -40,7 +40,7 @@ fn an_old_watch_reset_before_the_replacement_reply_cannot_close_the_new_read() {
     tool(&mut client, connection, 11, 3);
     let old = window(&mut client);
     let first = client.watch_body(connection, &old).expect("first watch");
-    reply(&mut client, &first, source("original", None, "old-end"));
+    let _ = reply(&mut client, &first, source("original", None, "old-end"));
     let current = window(&mut client);
     let second = client
         .watch_body(connection, &current)
@@ -112,7 +112,7 @@ fn output_resets_retire_only_normalized_pieces_and_leave_the_source_watch_alive(
     tool(&mut client, connection, 11, 3);
     let raw = window(&mut client);
     let read = client.watch_body(connection, &raw).expect("source watch");
-    reply(&mut client, &read, source("raw source", None, "raw-end"));
+    let _ = reply(&mut client, &read, source("raw source", None, "raw-end"));
     let normalized = client
         .bodies_mut()
         .open_output(session(), entry_id(10), OutputRevision::new(3), None)
@@ -120,12 +120,12 @@ fn output_resets_retire_only_normalized_pieces_and_leave_the_source_watch_alive(
     let read = client
         .watch_body(connection, &normalized)
         .expect("normalized watch");
-    reply(
+    let _ = reply(
         &mut client,
         &read,
         json!({"entry":entry_id(10),"revision":"3","from":null,"next":"normalized-end","segments":[],"has_more":false,"done":false,"seq":"12"}),
     );
-    notify(
+    let _ = notify(
         &mut client,
         connection,
         Notification::OutputReset {
@@ -155,7 +155,7 @@ fn a_body_replacement_cancels_the_old_cursor_before_watching_the_new_generation(
         .open_source_document(session(), entry_id(10), OutputRevision::new(3))
         .expect("document window");
     let read = client.watch_body(connection, &token).expect("old watch");
-    reply(&mut client, &read, source("original", None, "old-end"));
+    let _ = reply(&mut client, &read, source("original", None, "old-end"));
     let replacement = serde_json::from_value(
         json!({"id":entry_id(10),"kind":"tool","text":"", "done":false,"operation":null,
         "tool":{"kind":"command","label":"replacement","label_source":"literal","status":"running",
@@ -197,9 +197,9 @@ fn fill_replacement_document(
             "next":format!("at-{}",index+1),"text":text,
             "has_more":index<4,"done":false,"seq":"12"});
         if index == 0 {
-            reply(client, read, chunk);
+            let _ = reply(client, read, chunk);
         } else {
-            notify(
+            let _ = notify(
                 client,
                 connection,
                 Notification::Source(
@@ -227,7 +227,7 @@ fn a_resumed_watch_uses_its_accepted_cursor_after_the_session_replay_and_never_d
     tool(&mut client, connection, 11, 3);
     let token = window(&mut client);
     let read = client.watch_body(connection, &token).expect("source watch");
-    reply(&mut client, &read, source("raw", None, "raw-end"));
+    let _ = reply(&mut client, &read, source("raw", None, "raw-end"));
     client.disconnect(connection);
     let (_, welcome) = greet(&mut client, true, "d");
     assert_eq!(
@@ -268,7 +268,7 @@ fn old_bulk_output_before_the_replacement_reply_does_not_unsubscribe_the_replace
     tool(&mut client, connection, 11, 3);
     let old = window(&mut client);
     let read = client.watch_body(connection, &old).expect("old watch");
-    reply(&mut client, &read, source("prefix", None, "old-end"));
+    let _ = reply(&mut client, &read, source("prefix", None, "old-end"));
     let current = window(&mut client);
     let replacement = client
         .watch_body(connection, &current)
@@ -281,7 +281,7 @@ fn old_bulk_output_before_the_replacement_reply_does_not_unsubscribe_the_replace
         "old output cannot queue cancellation of the replacement native watch"
     );
     assert!(client.bodies().source(&current).is_some());
-    reply(
+    let _ = reply(
         &mut client,
         &replacement,
         source("prefixmore", None, "new-end"),

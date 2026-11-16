@@ -54,7 +54,7 @@ pub(super) fn settled() -> (Client, ConnectionId) {
         read(&opened, "task/subscribe"),
         header(10, "c", 2),
     );
-    reply(
+    let _ = reply(
         &mut client,
         read(&next, "task/list"),
         page(10, "c", 0, 2, 2),
@@ -156,7 +156,7 @@ fn both_an_owned_header_and_page_wait_for_numbered_facts_without_copying_session
 #[test]
 fn a_removed_selected_task_stays_unavailable_until_an_explicit_arrow_chooses_another_identity() {
     let (mut client, connection) = settled();
-    client
+    let _ = client
         .move_task_panel(&session(), 1)
         .expect("select second task");
     let changed = notify(
@@ -169,7 +169,7 @@ fn a_removed_selected_task_stays_unavailable_until_an_explicit_arrow_chooses_ano
             },
         )),
     );
-    reply(
+    let _ = reply(
         &mut client,
         read(&changed, "task/list"),
         page(11, "d", 0, 1, 1),
@@ -179,7 +179,7 @@ fn a_removed_selected_task_stays_unavailable_until_an_explicit_arrow_chooses_ano
         .expect("removed selected task");
     assert_eq!(panel.selected_id(), Some(&id(1)));
     assert!(panel.selected().is_none());
-    client
+    let _ = client
         .move_task_panel(&session(), 1)
         .expect("explicit replacement selection");
     assert_eq!(
@@ -234,7 +234,7 @@ fn a_page_failure_ignores_root_text_but_retries_after_even_same_value_numbered_t
             },
         )),
     );
-    reply(
+    let _ = reply(
         &mut client,
         read(&retry, "task/list"),
         page(12, "c", 0, 2, 2),
@@ -309,7 +309,7 @@ fn unsupported_counts_do_not_overflow_or_start_a_partial_native_view() {
 #[test]
 fn ordered_arrows_wait_for_the_original_identity_and_use_the_refreshed_counts() {
     let (mut client, connection) = settled();
-    client
+    let _ = client
         .move_task_panel(&session(), 1)
         .expect("select original second row");
     let gap = notify(
@@ -337,7 +337,7 @@ fn ordered_arrows_wait_for_the_original_identity_and_use_the_refreshed_counts() 
     }
     let mut rows = page(11, "d", 0, 3, 3);
     rows["tasks"].as_array_mut().expect("task rows").reverse();
-    reply(&mut client, read(&latest, "task/list"), rows.clone());
+    let _ = reply(&mut client, read(&latest, "task/list"), rows.clone());
     assert_eq!(
         client
             .task_panel(&session())

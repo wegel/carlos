@@ -26,7 +26,13 @@ impl Client {
                 ReadReply::TaskSnapshot(_) | ReadReply::TaskPage(_) | ReadReply::TaskWindow(_) => {
                     self.accept_task_panel_reply(result, effects)
                 }
-                _ => Some(result),
+                ReadReply::Devices(_)
+                | ReadReply::PromptSelection(_)
+                | ReadReply::PromptText(_)
+                | ReadReply::SavedPage(_)
+                | ReadReply::TaskRun(_)
+                | ReadReply::Source { .. }
+                | ReadReply::Output { .. } => Some(result),
             };
             if let Some(result) = unowned {
                 effects.replies.push(result);

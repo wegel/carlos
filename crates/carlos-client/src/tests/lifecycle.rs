@@ -33,7 +33,7 @@ fn stop_and_reopen_remain_private_scoped_operations_without_prompt_echoes() {
             .expect("private command");
         assert_eq!(retained.session, Some(session()));
         assert!(retained.text().is_none());
-        reply(
+        let _ = reply(
             &mut client,
             &outgoing,
             json!({"operation":request.operation,"session":session(),"state":{"kind":"pending"}}),

@@ -69,7 +69,7 @@ impl Device {
         if self.task_window_id().is_none() {
             self.clear_task_details();
         }
-        self.client.close_task_overview(&self.session);
+        let _ = self.client.close_task_overview(&self.session);
         let effects = self.client.close_task_panel(&self.session);
         self.apply_or_queue_task_effects(link, effects)?;
         Ok(())
@@ -176,7 +176,7 @@ impl Device {
             }
         }
         self.clear_task_details();
-        self.client.close_task_overview(&self.session);
+        let _ = self.client.close_task_overview(&self.session);
         self.tasks.view.overview_next_draw = None;
         self.tasks.view.error = None;
     }

@@ -127,7 +127,7 @@ fn a_failed_admitted_subscribe_cancels_its_server_reader_without_cancelling_a_ne
         .expect("old pending reader")
         .outgoing
         .remove(0);
-    client.close_goal(&session());
+    let _ = client.close_goal(&session());
     let new = client
         .watch_goal(&session())
         .expect("new reader")

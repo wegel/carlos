@@ -33,7 +33,7 @@ fn a_future_history_reply_waits_for_its_fixed_cursor_while_new_live_text_keeps_a
         client.session(&session()).expect("facts").entries().count(),
         1
     );
-    append(&mut client, connection, 11, " first");
+    let _ = append(&mut client, connection, 11, " first");
     let reached = append(&mut client, connection, 12, " second");
     assert_eq!(
         reached.sessions.len(),
@@ -69,7 +69,7 @@ fn a_changed_unseen_history_row_rejects_only_that_page_and_keeps_the_connection_
             },
         )
         .expect("older page");
-    notify(
+    let _ = notify(
         &mut client,
         connection,
         Notification::SessionEvent(event(

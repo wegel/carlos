@@ -108,7 +108,7 @@ impl Device {
 
     pub(super) fn close_hidden_queue_reader(&mut self) {
         if !(self.view.codex_queue.show || self.view.codex_queue.mode) {
-            self.client.close_queue_panel(&self.session);
+            let _ = self.client.close_queue_panel(&self.session);
         }
     }
 
@@ -184,7 +184,7 @@ impl Device {
 
     fn queue_back(&mut self) {
         let loading = self.queue_panel().is_some_and(QueuePanel::is_reading_input);
-        self.client.cancel_queue_input(&self.session);
+        let _ = self.client.cancel_queue_input(&self.session);
         if self.queue.editing.draft.take().is_none() && !loading {
             self.view.codex_queue.show = false;
         }

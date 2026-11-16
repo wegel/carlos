@@ -142,7 +142,7 @@ fn replace(device: &mut Device, connection: ConnectionId, seq: u64, card: Approv
             }),
         },
     };
-    device
+    let _ = device
         .client
         .receive(
             connection,

@@ -47,7 +47,8 @@ pub(super) fn connect(
                     endpoint,
                 )?;
             }
-            client.receive(transport.connection, message)?;
+            // This fresh client only greets; it has no session reads or watches to drive.
+            let _ = client.receive(transport.connection, message)?;
             if client.is_ready(transport.connection) {
                 // The private parent protects bind's brief interval before the daemon chmods.
                 if path.symlink_metadata()?.permissions().mode() & 0o077 != 0 {

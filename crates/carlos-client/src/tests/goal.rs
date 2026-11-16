@@ -101,7 +101,7 @@ fn client_goal_reads_use_one_fact_copy_and_reject_future_or_superseded_cursors()
         client.session(&session()).expect("unchanged").goal(),
         Some(&facts("a"))
     );
-    notify(
+    let _ = notify(
         &mut client,
         connection,
         Notification::SessionEvent(event(
@@ -124,7 +124,7 @@ fn client_goal_reads_use_one_fact_copy_and_reject_future_or_superseded_cursors()
         .expect("equal read")
         .sessions
         .is_empty());
-    notify(
+    let _ = notify(
         &mut client,
         connection,
         Notification::SessionEvent(event(
@@ -145,13 +145,13 @@ fn a_new_daemon_adopts_lower_sequence_goal_facts_instead_of_retaining_an_old_pen
     let (mut client, connection) = attached();
     let mut pending = read(10, "a");
     pending.goal.pending = true;
-    client.merge_goal(pending).expect("old pending fact");
+    let _ = client.merge_goal(pending).expect("old pending fact");
     client.disconnect(connection);
     let (_, welcome) = greet(&mut client, false, "1");
     let mut reset = snapshot();
     reset.seq = Sequence::new(1);
     reset.goal = Some(facts("b"));
-    reply(
+    let _ = reply(
         &mut client,
         &welcome.outgoing[0],
         serde_json::json!({"kind":"snapshot", "snapshot":reset}),

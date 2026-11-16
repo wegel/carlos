@@ -1,7 +1,7 @@
 //! Choose terminal field prefixes while the shared client owns requests and text assembly.
 
 use anyhow::Result;
-use carlos_client::panels::{TaskDetailTarget, TaskDetails, TaskFieldRead};
+use carlos_client::panels::{TaskDetails, TaskFieldRead};
 use carlos_proto::tasks::{TaskField, TaskKind};
 
 use super::transport::Transport;
@@ -19,20 +19,16 @@ impl Device {
     }
 
     pub(super) fn clear_task_details(&mut self) {
-        self.client.close_task_details(&self.session);
+        let _ = self.client.close_task_details(&self.session);
     }
 
     pub(super) fn drive_task_details(&mut self, link: &mut Transport) -> Result<()> {
-        let Some(task) = self.selected_task() else {
+        let Some(target) = self
+            .client
+            .task_panel(&self.session)
+            .and_then(|panel| panel.selected_detail_target())
+        else {
             return Ok(());
-        };
-        let target = TaskDetailTarget {
-            window: self.task_window_id(),
-            expected: self
-                .task_page_revision()
-                .cloned()
-                .expect("accepted task page"),
-            task: task.id.clone(),
         };
         if self
             .task_details()

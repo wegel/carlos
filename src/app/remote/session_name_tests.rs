@@ -148,7 +148,7 @@ fn accept_name(
         .clone();
     metadata.id = session.clone();
     metadata.name = name.map(str::to_string);
-    device
+    let _ = device
         .client
         .receive(
             connection,

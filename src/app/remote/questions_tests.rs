@@ -255,7 +255,7 @@ fn unknown_resolution_keeps_both_actual_device_drafts_and_explicit_focus() {
         .get_mut(&id(2))
         .expect("second draft")
         .confirm = true;
-    device
+    let _ = device
         .client
         .receive(
             connection,

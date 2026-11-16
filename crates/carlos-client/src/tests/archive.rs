@@ -22,7 +22,7 @@ fn archive_reconnect_reads_the_original_unscoped_result_without_replaying_a_writ
     let Command::SavedArchive { operation, .. } = command(&outgoing).command else {
         panic!("archive");
     };
-    reply(
+    let _ = reply(
         &mut client,
         &outgoing,
         json!({"operation":operation,"state":{"kind":"pending"}}),

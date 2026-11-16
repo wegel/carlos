@@ -57,7 +57,7 @@ fn a_complete_candidate_replaces_the_page_but_never_the_sessions_latest_header()
             ..
         }
     ));
-    reply(
+    let _ = reply(
         &mut client,
         read(&first, "task/list"),
         page(10, "d", 8, 10, 2),
@@ -114,7 +114,7 @@ fn a_failed_older_read_keeps_selection_and_closes_only_its_original_candidate() 
         .read_error()
         .expect("candidate error")
         .contains("native older failure"));
-    client
+    let _ = client
         .move_task_panel(&session(), 1)
         .expect("current page still navigates");
     assert_eq!(
@@ -137,11 +137,11 @@ fn a_retired_open_reply_closes_its_exact_window_without_replacing_a_reopened_lat
     let old = client
         .open_older_task_window(&session())
         .expect("allocating older open");
-    client.close_task_panel(&session());
+    let _ = client.close_task_panel(&session());
     let fresh = client
         .open_task_panel(&session(), None)
         .expect("reopened task panel");
-    reply(
+    let _ = reply(
         &mut client,
         read(&fresh, "task/subscribe"),
         header(10, "c", 2),
@@ -216,7 +216,7 @@ fn an_older_window_keeps_readonly_rows_after_eof_and_only_explicit_refresh_resto
         read(&refresh, "task/subscribe"),
         header(10, "c", 2),
     );
-    reply(
+    let _ = reply(
         &mut client,
         read(&next, "task/list"),
         page(10, "c", 0, 2, 2),
@@ -243,7 +243,7 @@ fn closing_a_captured_window_keeps_accepted_details_readonly_and_retires_its_pen
     let opened = client
         .open_task_details(&session(), target)
         .expect("selected detail");
-    reply(
+    let _ = reply(
         &mut client,
         single_read(&opened),
         json!({"session":session(), "revision":"d".repeat(64),

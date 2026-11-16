@@ -62,13 +62,13 @@ fn current_task_headers_merge_once_and_private_pages_never_replace_shared_facts(
     assert_eq!(effects.sessions.len(), 1);
     assert!(effects.sessions[0].changes.tasks);
     let info = client.session(&session()).expect("session").info().clone();
-    notify(
+    let _ = notify(
         &mut client,
         connection,
         Notification::SessionEvent(event(11, Event::InfoChanged { info })),
     );
     assert_eq!(task_sequence(&client), Sequence::new(10));
-    notify(
+    let _ = notify(
         &mut client,
         connection,
         Notification::SessionEvent(event(
@@ -103,14 +103,14 @@ fn current_task_headers_merge_once_and_private_pages_never_replace_shared_facts(
 #[test]
 fn late_future_and_reset_task_headers_cannot_overwrite_the_accepted_copy() {
     let (mut client, connection) = attached();
-    client
+    let _ = client
         .merge_tasks(&header(10, "a"))
         .expect("initial header");
     assert!(matches!(
         client.merge_tasks(&header(11, "b")),
         Err(ClientError::StaleTasks)
     ));
-    notify(
+    let _ = notify(
         &mut client,
         connection,
         Notification::SessionEvent(event(
@@ -132,7 +132,7 @@ fn late_future_and_reset_task_headers_cannot_overwrite_the_accepted_copy() {
     let mut reset = snapshot();
     reset.seq = Sequence::new(12);
     reset.tasks = Some(facts("c"));
-    notify(
+    let _ = notify(
         &mut client,
         connection,
         Notification::Snapshot {

@@ -14,7 +14,7 @@ fn an_explicit_source_unsubscribe_preserves_the_checked_window_and_resumes_its_c
     tool(&mut client, connection, 11, 3);
     let token = window(&mut client);
     let watching = client.watch_body(connection, &token).expect("source watch");
-    reply(&mut client, &watching, source("raw", None, "accepted-end"));
+    let _ = reply(&mut client, &watching, source("raw", None, "accepted-end"));
     let paused = client
         .read(
             connection,

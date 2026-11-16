@@ -107,7 +107,7 @@ fn a_failed_old_continuation_restarts_from_the_new_revision_without_mixing_model
     };
     assert_eq!(offset, 0);
     assert!(expected.is_none());
-    reply(
+    let _ = reply(
         &mut client,
         single_read(&next),
         json!(page(0, 1, 11, 'b', 8)),
@@ -128,7 +128,7 @@ fn a_failed_old_continuation_restarts_from_the_new_revision_without_mixing_model
 fn explicit_reads_remain_usable_and_closed_read_failures_cannot_replace_a_reopened_reader() {
     let (mut client, connection) = with_settings(1);
     let old = client.open_settings_panel(&session()).expect("old reader");
-    client.close_settings_panel(&session());
+    let _ = client.close_settings_panel(&session());
     let fresh = client
         .open_settings_panel(&session())
         .expect("fresh reader");
@@ -155,7 +155,7 @@ fn explicit_reads_remain_usable_and_closed_read_failures_cannot_replace_a_reopen
         .expect("unowned direct read");
     let unowned = reply(&mut client, &direct, json!(page(0, 1, 10, 'a', 8)));
     assert!(matches!(unowned.replies[0].reply, ReadReply::Settings(_)));
-    reply(
+    let _ = reply(
         &mut client,
         single_read(&fresh),
         json!(page(0, 1, 10, 'a', 8)),
@@ -220,7 +220,7 @@ fn reconnect_restarts_an_incomplete_list_but_keeps_an_already_transferred_editor
     let opened = client
         .open_settings_panel(&session())
         .expect("initial reader");
-    reply(
+    let _ = reply(
         &mut client,
         single_read(&opened),
         json!(page(0, 33, 10, 'a', 8)),
@@ -245,7 +245,7 @@ fn reconnect_restarts_an_incomplete_list_but_keeps_an_already_transferred_editor
         single_read(&initial),
         json!(page(0, 33, 10, 'a', 8)),
     );
-    reply(
+    let _ = reply(
         &mut client,
         single_read(&next),
         json!(page(32, 33, 10, 'a', 8)),
@@ -272,7 +272,7 @@ fn with_settings(count: u32) -> (Client, ConnectionId) {
     let (mut client, connection) = attached();
     let mut state = snapshot();
     state.settings = Some(page(0, count, 10, 'a', 8).settings);
-    notify(
+    let _ = notify(
         &mut client,
         connection,
         Notification::Snapshot {

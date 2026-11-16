@@ -205,8 +205,8 @@ impl Device {
     }
 
     pub(super) fn close_settings(&mut self) {
-        self.client.close_settings_panel(&self.session);
-        self.client.close_context_panel(&self.session);
+        let _ = self.client.close_settings_panel(&self.session);
+        let _ = self.client.close_context_panel(&self.session);
         self.view.runtime_settings.close_model_settings();
         if self.settings.submitted.is_none() && !self.settings.keep_draft {
             self.settings.catalog = None;

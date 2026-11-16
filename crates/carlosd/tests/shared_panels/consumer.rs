@@ -145,12 +145,10 @@ fn select(client: &mut Client, wire: &mut Wire, session: &SessionId, direction: 
 }
 
 fn target(client: &Client, session: &SessionId) -> TaskDetailTarget {
-    let panel = client.task_panel(session).expect("checked task list");
-    TaskDetailTarget {
-        window: panel.window().map(|window| window.window.clone()),
-        expected: panel.revision().cloned().expect("accepted page revision"),
-        task: panel.selected_id().cloned().expect("selected original id"),
-    }
+    client
+        .task_panel(session)
+        .and_then(|panel| panel.selected_detail_target())
+        .expect("checked selected task target")
 }
 
 fn open_details(client: &mut Client, wire: &mut Wire, session: &SessionId) {

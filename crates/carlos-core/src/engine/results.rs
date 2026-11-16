@@ -85,6 +85,7 @@ impl Results {
             })
             .collect();
         // One owner batch must not reorder returned drafts from the same originating device.
+        // The manager admits strictly increasing counters within each private client lease.
         results.sort_unstable_by(|left, right| {
             left.operation
                 .client

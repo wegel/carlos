@@ -39,7 +39,7 @@ fn accepted_body_watch(normalized: bool) -> (Client, ConnectionId, BodyToken) {
     } else {
         source("raw", None, "raw-end")
     };
-    reply(&mut client, &read, value);
+    let _ = reply(&mut client, &read, value);
     (client, connection, token)
 }
 

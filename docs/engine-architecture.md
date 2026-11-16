@@ -103,6 +103,12 @@ copy, tested once against the daemon, where four copies would drift apart.
 - Native code keeps layout, scroll, text wrap, sheets, dictation, device
   settings and notifications.
 
+## First phone binding
+
+EP022 binds the Rust calls needed by the specified first iPhone screens. The starting list is greeting/reconnect, session listing and lifecycle, transcript/history/source/output, prompts, interrupts, approvals, context display and Ralph. It is not the full list of public carlos-client methods. The terminal uses the shared queue, host context-default, goal and native task-panel readers now; keep them Rust-only until a phone screen needs them. Do not create Swift mirror records or sheets for those families merely because Rust exposes them. A later web binding follows its actual screens too.
+
+Choose the phone's cache limit, typed capacity notice and fatal client-error handling against its real facade and measured memory. Do not add those speculative knobs to the current terminal/shared reader code. EP021b records production lines added and deleted for each native feature and removes replaced paths. A line count is review evidence, never permission to discard supported data or weaken correctness.
+
 ## Transport
 
 Decision: WebSocket carrying JSON-RPC 2.0 for network clients; the same

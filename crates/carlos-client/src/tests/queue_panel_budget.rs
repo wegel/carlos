@@ -97,7 +97,7 @@ fn input_reader(client: &mut Client, connection: ConnectionId, session: &Session
             },
         )
         .expect("session reader");
-    reply(
+    let _ = reply(
         client,
         &subscribe,
         json!({"kind":"snapshot","snapshot":facts}),
@@ -108,7 +108,7 @@ fn input_reader(client: &mut Client, connection: ConnectionId, session: &Session
     let mut preview = page(0, 1, 10, 'a');
     preview.session = session.clone();
     preview.entries[0].text_bytes = Some(ByteLength::new(16 * 1024 * 1024));
-    reply(client, single_read(&opened), json!(preview));
+    let _ = reply(client, single_read(&opened), json!(preview));
     client
         .begin_queue_input(session)
         .expect("read complete native input")

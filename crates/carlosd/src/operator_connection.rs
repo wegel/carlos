@@ -115,7 +115,8 @@ impl Exchange {
 
     fn send(&mut self, outgoing: Outbound) -> Result<()> {
         if self.socket.write_all(outgoing.bytes()).is_err() {
-            self.client.write_failed(
+            // The connection exits below; preserve uncertainty without sending another frame.
+            let _ = self.client.write_failed(
                 self.connection,
                 outgoing.id(),
                 "operator write was not confirmed",

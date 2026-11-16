@@ -35,7 +35,7 @@ fn pressure(client: &mut Client, connection: ConnectionId, watch: bool) {
             command(&effects.outgoing[0]).command,
             Command::SourceUnsubscribe { .. }
         ));
-        reply(client, &effects.outgoing[0], json!(null));
+        let _ = reply(client, &effects.outgoing[0], json!(null));
     } else {
         assert!(client
             .bodies()
@@ -133,7 +133,7 @@ fn live_cache_pressure_cancels_only_the_failed_format_without_restarting_it() {
         }
         .expect("watched window");
         let watch = client.watch_body(connection, &token).expect("watch");
-        reply(&mut client, &watch, live_chunk(source, false));
+        let _ = reply(&mut client, &watch, live_chunk(source, false));
         let other = client
             .bodies_mut()
             .open_source_document(session(), entry_id(20), OutputRevision::new(3))
@@ -185,7 +185,7 @@ fn fail_live_watch(client: &mut Client, connection: ConnectionId, source: bool) 
         }
         _ => panic!("only failed watch should stop"),
     }
-    reply(client, &failed.outgoing[0], json!(null));
+    let _ = reply(client, &failed.outgoing[0], json!(null));
     let late = notify(client, connection, notification);
     assert!(late.outgoing.is_empty());
     assert!(late.bodies.is_empty());

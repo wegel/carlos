@@ -42,7 +42,7 @@ fn opened(
     wanted: usize,
 ) -> (Client, ConnectionId, Effects) {
     let (mut client, connection) = attached();
-    client
+    let _ = client
         .merge_tasks(&TaskSnapshot {
             session: session(),
             seq: Sequence::new(10),
@@ -80,7 +80,7 @@ fn an_older_field_finishes_in_its_original_window_without_replacing_the_latest_h
             ..
         }
     ));
-    notify(
+    let _ = notify(
         &mut client,
         connection,
         Notification::SessionEvent(super::event(
@@ -105,7 +105,7 @@ fn an_older_field_finishes_in_its_original_window_without_replacing_the_latest_h
 #[test]
 fn a_latest_reply_cannot_replace_a_new_root_and_a_retired_failure_cannot_poison_a_new_target() {
     let (mut client, connection, read) = opened(false, "a", 5, MAX_TASK_DETAIL_BYTES);
-    notify(
+    let _ = notify(
         &mut client,
         connection,
         Notification::SessionEvent(super::event(
@@ -124,7 +124,7 @@ fn a_latest_reply_cannot_replace_a_new_root_and_a_retired_failure_cannot_poison_
             .field(TaskField::Report),
         Some("a")
     );
-    client.close_task_details(&session());
+    let _ = client.close_task_details(&session());
     let fresh = client
         .open_task_details(&session(), target(true))
         .expect("different captured target");
@@ -141,7 +141,7 @@ fn a_latest_reply_cannot_replace_a_new_root_and_a_retired_failure_cannot_poison_
         )
         .expect("retired error");
     assert!(ignored.failures.is_empty());
-    reply(&mut client, single_read(&fresh), detail("done", 4));
+    let _ = reply(&mut client, single_read(&fresh), detail("done", 4));
     assert!(client
         .task_details(&session())
         .expect("new reader")
@@ -211,7 +211,7 @@ fn disconnect_keeps_captured_fields_readonly_and_offline_close_does_not_restore_
         .outgoing
         .is_empty());
     client.disconnect(single_read(&hello).connection());
-    client.close_task_details(&session());
+    let _ = client.close_task_details(&session());
     let (_, hello) = greet(&mut client, true, "d");
     let ready = reply(
         &mut client,

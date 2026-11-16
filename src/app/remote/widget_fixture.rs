@@ -138,7 +138,7 @@ pub(super) fn install_source(device: &mut Device, row: PerfRow) {
 }
 
 fn reply(client: &mut Client, request: &Outbound, result: Value) {
-    client
+    let _ = client
         .receive(
             request.connection(),
             Incoming::Success {

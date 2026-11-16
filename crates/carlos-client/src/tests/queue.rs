@@ -122,7 +122,7 @@ fn client_merges_queue_reads_into_its_single_numbered_fact_copy() {
         client.session(&session()).expect("session").queue(),
         Some(&queue_page(10, "a").queue)
     );
-    notify(
+    let _ = notify(
         &mut client,
         connection,
         Notification::SessionEvent(event(

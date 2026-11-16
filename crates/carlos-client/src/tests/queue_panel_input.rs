@@ -39,7 +39,7 @@ fn clients_receive_complete_utf8_text_without_sharing_drafts_or_retaining_a_seco
         &text[..65535],
         false,
     );
-    text_reply(
+    let _ = text_reply(
         &mut second,
         single_read(&second_chunk),
         &text[65535..],
@@ -128,14 +128,14 @@ fn changed_revisions_and_cancelled_reads_cannot_publish_old_input_or_restore_it_
         )),
     );
     assert_eq!(changed.outgoing.len(), 1, "replacement previews first");
-    text_reply(&mut client, single_read(&read), "old", true);
+    let _ = text_reply(&mut client, single_read(&read), "old", true);
     assert!(client.take_queue_input(&session()).is_none());
     assert!(client
         .queue_panel(&session())
         .expect("panel")
         .input_error()
         .is_some());
-    reply(
+    let _ = reply(
         &mut client,
         single_read(&changed),
         json!(page(0, 1, 11, 'b')),
@@ -143,11 +143,11 @@ fn changed_revisions_and_cancelled_reads_cannot_publish_old_input_or_restore_it_
     let pending = client
         .begin_queue_input(&session())
         .expect("new selected input");
-    client.cancel_queue_input(&session());
+    let _ = client.cancel_queue_input(&session());
     let late = text_reply(&mut client, single_read(&pending), "new", true);
     assert!(late.replies.is_empty());
     assert!(client.take_queue_input(&session()).is_none());
-    client
+    let _ = client
         .begin_queue_input(&session())
         .expect("read before EOF");
     client.disconnect(connection);
@@ -167,7 +167,7 @@ fn attachment_inputs_and_native_ceiling_fail_before_any_text_request_is_allocate
             .expect("open");
         let mut preview = page(0, 1, 10, 'a');
         preview.entries[0].text_bytes = bytes.map(ByteLength::new);
-        reply(&mut client, single_read(&opened), json!(preview));
+        let _ = reply(&mut client, single_read(&opened), json!(preview));
         assert!(matches!(
             client.begin_queue_input(&session()),
             Err(ClientError::Capacity(_) | ClientError::InvalidPayload(_))
@@ -205,7 +205,7 @@ fn a_native_input_failure_stops_reading_until_the_user_explicitly_retries() {
     let retry = client
         .begin_queue_input(&session())
         .expect("explicit retry");
-    text_reply(&mut client, single_read(&retry), "row", true);
+    let _ = text_reply(&mut client, single_read(&retry), "row", true);
     assert_eq!(
         client
             .take_queue_input(&session())
@@ -222,7 +222,7 @@ fn reading(bytes: u64) -> (Client, ConnectionId, Effects) {
         .expect("open");
     let mut preview = page(0, 1, 10, 'a');
     preview.entries[0].text_bytes = Some(ByteLength::new(bytes));
-    reply(&mut client, single_read(&opened), json!(preview));
+    let _ = reply(&mut client, single_read(&opened), json!(preview));
     let read = client.begin_queue_input(&session()).expect("read input");
     (client, connection, read)
 }

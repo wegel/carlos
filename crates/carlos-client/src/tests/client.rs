@@ -54,7 +54,7 @@ pub(super) fn attached() -> (Client, ConnectionId) {
     let (connection, welcome) = greet(&mut client, false, "d");
     assert_eq!(welcome.welcome, Some(Welcome::Fresh));
     let request = subscribe(&mut client, connection);
-    reply(
+    let _ = reply(
         &mut client,
         &request,
         json!({"kind":"snapshot", "snapshot":snapshot()}),
@@ -148,7 +148,7 @@ fn authoritative_echo_and_private_acceptance_before_the_admission_reply_never_du
         .expect("submitted text")
         .needs_echo());
     let accepted = json!({"operation":operation, "session":session(), "state":{"kind":"accepted", "entry":null}});
-    notify(
+    let _ = notify(
         &mut client,
         connection,
         Notification::Operation(serde_json::from_value(accepted).expect("acceptance")),
@@ -167,7 +167,7 @@ fn authoritative_echo_and_private_acceptance_before_the_admission_reply_never_du
         .get(&operation)
         .expect("bound echo")
         .needs_echo());
-    reply(
+    let _ = reply(
         &mut client,
         &request,
         json!({"operation":operation, "session":session(), "state":{"kind":"pending"}}),
@@ -194,7 +194,7 @@ fn a_late_superseded_subscription_reply_cannot_replace_the_current_session_windo
     let mut old = snapshot();
     old.seq = carlos_proto::ids::Sequence::new(100);
     old.entries[0].text = "superseded response".into();
-    reply(
+    let _ = reply(
         &mut client,
         &first,
         json!({"kind":"snapshot", "snapshot":old}),
@@ -207,7 +207,7 @@ fn a_late_superseded_subscription_reply_cannot_replace_the_current_session_windo
             .get(),
         10
     );
-    reply(
+    let _ = reply(
         &mut client,
         &second,
         json!({"kind":"snapshot", "snapshot":snapshot()}),

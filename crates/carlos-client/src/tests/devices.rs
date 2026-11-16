@@ -36,7 +36,7 @@ fn device_writes_recover_their_unscoped_result_without_reprovisioning_or_revokin
             Command::DeviceRevoke(request) => request.operation,
             _ => panic!("operator request"),
         };
-        reply(
+        let _ = reply(
             &mut client,
             &outgoing,
             json!({"operation":operation,"state":{"kind":"pending"}}),

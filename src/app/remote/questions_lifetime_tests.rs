@@ -57,7 +57,7 @@ fn replace(
     cards: Vec<Approval>,
     sequence: u64,
 ) {
-    device
+    let _ = device
         .client
         .receive(
             connection,
