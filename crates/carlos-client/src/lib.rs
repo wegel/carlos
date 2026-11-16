@@ -20,6 +20,7 @@ mod client_watches;
 pub mod codec;
 mod connection;
 mod context_defaults;
+mod context_panel;
 mod error;
 mod goal;
 mod goal_watches;

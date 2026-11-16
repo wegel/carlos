@@ -33,25 +33,26 @@ pub(super) struct Settings {
 impl Device {
     pub(super) fn open_settings(&mut self, link: Option<&mut Transport>) -> Result<()> {
         self.view.runtime_settings.show_model_settings = true;
-        if self.settings.submitted.is_some()
-            || self.settings.catalog.is_some() && self.settings.keep_draft
-        {
+        if self.settings.submitted.is_some() {
+            return Ok(());
+        }
+        if self.settings.catalog.is_some() && self.settings.keep_draft {
+            self.open_settings_context(link)?;
             return Ok(());
         }
         let appearance_save = self.settings.appearance_save.take();
-        let mut context = std::mem::take(&mut self.settings.context);
-        context.reopen();
         self.view.runtime_settings.context = Default::default();
         self.settings = Settings {
             appearance_save,
-            context,
             ..Default::default()
         };
         let effects = self.client.open_settings_panel(&self.session)?;
         if let Some(link) = link {
             self.apply_effects(link, effects)?;
+            self.open_settings_context(Some(&mut *link))?;
             self.drive_settings(link)?;
         } else {
+            self.open_settings_context(None)?;
             self.settings.error = Some("Disconnected; F5 reconnects. Your draft is kept".into());
         }
         Ok(())
@@ -72,13 +73,9 @@ impl Device {
         changed
     }
 
-    /// Drive only this terminal's save choices and host context editor; Client owns model pages.
+    /// Drive only this terminal's captured saves; Client owns model and host-default reads.
     pub(super) fn drive_settings(&mut self, link: &mut Transport) -> Result<bool> {
-        let changed = self.drive_settings_save(link)?;
-        if self.view.runtime_settings.show_model_settings {
-            self.drive_settings_context(link)?;
-        }
-        Ok(changed)
+        self.drive_settings_save(link)
     }
 
     fn install_settings_catalog(&mut self, catalog: Catalog) {
@@ -142,11 +139,13 @@ impl Device {
         } else {
             self.client.open_settings_panel(&self.session)?
         };
-        self.settings.context.refresh();
         self.settings.error = None;
         if let Some(link) = link {
             self.apply_effects(link, effects)?;
+            self.refresh_settings_context(Some(&mut *link))?;
             self.drive_settings(link)?;
+        } else {
+            self.refresh_settings_context(None)?;
         }
         Ok(())
     }
@@ -155,7 +154,10 @@ impl Device {
         self.client
             .settings_panel(&self.session)
             .is_some_and(|panel| panel.is_reading())
-            || self.settings.context.pending()
+            || self
+                .client
+                .context_panel(&self.session)
+                .is_some_and(|panel| panel.is_reading())
     }
 
     pub(super) fn settings_error(&self) -> Option<&str> {
@@ -183,7 +185,6 @@ impl Device {
 
     pub(super) fn settings_disconnected(&mut self) {
         self.retain_settings_draft();
-        self.settings.context.disconnected();
         if self.view.runtime_settings.show_model_settings {
             self.settings.keep_draft = true;
             self.settings.error = Some("Disconnected; F5 reconnects. Your draft is kept".into());
@@ -205,6 +206,7 @@ impl Device {
 
     pub(super) fn close_settings(&mut self) {
         self.client.close_settings_panel(&self.session);
+        self.client.close_context_panel(&self.session);
         self.view.runtime_settings.close_model_settings();
         if self.settings.submitted.is_none() && !self.settings.keep_draft {
             self.settings.catalog = None;

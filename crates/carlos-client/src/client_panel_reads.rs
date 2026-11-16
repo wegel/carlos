@@ -12,6 +12,7 @@ impl Client {
                     self.accept_queue_panel_reply(result, effects)
                 }
                 ReadReply::Settings(_) => self.accept_settings_panel_reply(result, effects),
+                ReadReply::ContextDefaults(_) => self.accept_context_panel_reply(result, effects),
                 _ => Some(result),
             };
             if let Some(result) = unowned {
@@ -20,7 +21,8 @@ impl Client {
         }
         for failure in std::mem::take(&mut effects.failures) {
             if !(self.fail_queue_panel_read(&failure, effects)
-                || self.fail_settings_panel_read(&failure, effects))
+                || self.fail_settings_panel_read(&failure, effects)
+                || self.fail_context_panel_read(&failure, effects))
             {
                 effects.failures.push(failure);
             }
@@ -43,10 +45,12 @@ impl Client {
     pub(crate) fn drive_panels(&mut self, effects: &mut Effects) {
         self.drive_queue_panels(effects);
         self.drive_settings_panels(effects);
+        self.drive_context_panels(effects);
     }
 
     pub(crate) fn cancel_panel_reads(&mut self, session: &SessionId) {
         self.cancel_queue_reads(session);
         self.cancel_settings_read(session);
+        self.cancel_context_read(session);
     }
 }

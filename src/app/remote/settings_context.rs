@@ -1,10 +1,10 @@
 //! Read the daemon host's next-launch size while keeping this terminal's draft private.
 
 use anyhow::{bail, Result};
-use carlos_client::{Effects, ReadReply};
+use carlos_client::panels::PanelKind;
+use carlos_client::Effects;
 use carlos_core::backend::BackendKind;
 use carlos_core::context_preferences;
-use carlos_proto::commands::{Command, RequestId};
 use carlos_proto::context_defaults::{ContextChoice, ContextDefaults, ContextPolicy};
 use carlos_proto::session::Backend;
 
@@ -12,83 +12,58 @@ use super::transport::Transport;
 use super::Device;
 use crate::app::context_settings::ContextSettings;
 
+/// Keep only the editor's saved-choice baseline, errors and explicit text-edit flag.
 #[derive(Default)]
 pub(super) struct Context {
-    read: Option<RequestId>,
-    waiting: bool,
     defaults: Option<ContextDefaults>,
     error: Option<String>,
     pub edited: bool,
 }
 
-impl Context {
-    pub fn reopen(&mut self) {
-        *self = Self {
-            read: self.read.take(),
-            waiting: true,
-            ..Default::default()
-        };
-    }
-
-    pub fn refresh(&mut self) {
-        self.waiting = true;
-    }
-
-    pub fn disconnected(&mut self) {
-        self.read = None;
-        self.waiting = true;
-    }
-
-    pub fn pending(&self) -> bool {
-        self.waiting || self.read.is_some()
-    }
-}
-
 impl Device {
-    pub(super) fn drive_settings_context(&mut self, link: &mut Transport) -> Result<()> {
-        let context = &mut self.settings.context;
-        if context.waiting
-            && context.read.is_none()
-            && self.client.session_is_ready(link.connection, &self.session)
-        {
-            let request = self.client.read(
-                link.connection,
-                Command::ContextRead {
-                    session: self.session.clone(),
-                },
-            )?;
-            context.read = Some(request.id());
-            context.waiting = false;
-            link.send(request)?;
+    pub(super) fn open_settings_context(&mut self, link: Option<&mut Transport>) -> Result<()> {
+        let effects = self.client.open_context_panel(&self.session)?;
+        if let Some(link) = link {
+            self.apply_effects(link, effects)?;
         }
         Ok(())
     }
 
-    pub(super) fn apply_context_reads(&mut self, effects: &mut Effects) -> bool {
-        let mut changed = false;
-        for reply in std::mem::take(&mut effects.replies) {
-            if self.settings.context.read.is_some() && reply.id == self.settings.context.read {
-                self.settings.context.read = None;
-                if let ReadReply::ContextDefaults(defaults) = reply.reply {
-                    self.settings.context.defaults = Some(defaults);
-                    self.settings.context.error = None;
-                    self.install_context_editor();
-                    changed = true;
-                    continue;
-                }
-            }
-            effects.replies.push(reply);
+    pub(super) fn refresh_settings_context(&mut self, link: Option<&mut Transport>) -> Result<()> {
+        let effects = if self.client.context_panel(&self.session).is_some() {
+            self.client.refresh_context_panel(&self.session)?
+        } else {
+            self.client.open_context_panel(&self.session)?
+        };
+        if let Some(link) = link {
+            self.apply_effects(link, effects)?;
         }
-        for failure in &effects.failures {
-            if self.settings.context.read.is_some() && failure.id == self.settings.context.read {
-                self.settings.context.read = None;
+        Ok(())
+    }
+
+    pub(super) fn apply_context_reads(&mut self, effects: &Effects) -> bool {
+        if !effects
+            .panels
+            .iter()
+            .any(|change| change.session == self.session && change.kind == PanelKind::Context)
+        {
+            return false;
+        }
+        let Some(result) = self.client.take_context_defaults(&self.session) else {
+            return false;
+        };
+        match result {
+            Ok(defaults) => {
+                self.settings.context.defaults = Some(defaults);
+                self.settings.context.error = None;
+            }
+            Err(error) => {
                 self.settings.context.defaults = None;
-                self.settings.context.error = Some(failure.error.message.clone());
-                self.install_context_editor();
-                changed = true;
+                self.settings.context.error = Some(error);
             }
         }
-        changed
+        self.install_context_editor();
+        true
     }
 
     pub(super) fn install_context_editor(&mut self) {
