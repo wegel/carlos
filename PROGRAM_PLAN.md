@@ -70,7 +70,9 @@ found avoidable panel-driver and command-wrapper repetition while supporting the
 owner/client design. Its full report and checked decisions are
 `.agents/reports/exec020-fable-bloat-review.md` and `exec020-bloat-review-disposition.md`.
 EP021 must first share panel read settlement/paging in carlos-client and remove the
-matching terminal code before Swift/web consumers use it. Preserve complete supported
+matching terminal code before Swift/web consumers use it. The final EP020 review also
+requires one exhaustive daemon command-admission class before EP021 adds commands,
+so a new mutation cannot silently use the read allowance. Preserve complete supported
 lists and stale-reader checks. Use named payloads for new operator commands; examine
 the existing wrappers alongside that shared-read cleanup. WebSocket access does not
 freeze the provisional protocol. This advisory review does not replace EP020's final reviews.

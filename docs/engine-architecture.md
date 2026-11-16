@@ -192,7 +192,7 @@ Types:
 5. EP019a, complete and accepted by the owner: real backend handles and a headless daemon with basic commands and two concurrent clients. Sessions survive client disconnect. Tests prove bounded queues, ordered commands, priority controls and private recovery. Archived plan: `.agents/done/EXECPLAN_019a_headless_daemon.md`; evidence: `.agents/reports/exec019a-final-report.md`.
 6. EP019b, complete and approved under delegated authority: typed terminal controls and pure carlos-client preserve source/color/copy and every terminal workflow through the daemon. Commit cc2a5f5 separately deletes the embedded path. Final evidence and whole-roadmap review are in `.agents/reports/exec019b-final-report.md`; archived plan: `.agents/done/EXECPLAN_019b_terminal_client.md`.
 7. EP020: first add explicit session stop/reopen and prove owner slots are released without losing saved conversations; then add the WebSocket listener, device tokens and perf-session replay through the socket. Add schema output only when a real client needs it.
-8. EP021: paged native history, Grok approvals and richer tool summaries as data.
+8. EP021: first share panel read/paging rules in carlos-client, remove terminal copies and make daemon command admission exhaustive; then add paged native history, Grok approvals and richer tool summaries as data.
 9. EP022: UniFFI bindings, iOS packaging and the iPhone app. Compile on the remote Mac; see `docs/ios-build.md`.
 
 Only the next ExecPlan is written in full. Each later plan is written when the

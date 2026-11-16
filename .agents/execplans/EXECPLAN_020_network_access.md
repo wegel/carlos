@@ -13,6 +13,15 @@ The daemon can run shell commands as its user. Network access stays off unless t
 
 ## Progress
 
+- [x] (2026-11-16) Commit the paced-reader repair as3c83655 and native writer timing/trace-off parsing as272fae3. Both corrected workspace configurations pass (1656 default,1613 no-default), strict lint and the400/60 source audit pass. The paced-reader test fails before and passes after while the blocked writer remains charged. The real blocked Grok test passes0.50s and its timing snapshot is captured before cleanup can unblock the pipe. The original500ms unexplained event remains a risk, not a claimed repair. Record every final Fable finding in exec020-review-disposition.md and require shared panel readers plus exhaustive command admission first in EP021. The final corrected release gate, new frozen pair, matched measurements and narrow follow-up remain pending.
+
+- [ ] (2026-11-16) Final Fable5.2 medium returns PASS WITH ISSUES at source45775d7635fed16302193845c0c4b69b, after the complete EP and initial final gates. Accept its healthy-reader defect in EP020 now: a new paced1MiB socket regression fails before with ResetWithoutClosingHandshake and passes after changing the500ms whole-frame deadline into a no-write-progress deadline. The original stalled-reader/charged-byte test still passes; absolute5s login remains. Add shared native timing stages to Claude/Grok timeout errors and skip Claude's JSON re-parse when tracing is off. A real blocked Grok pipe checks stage evidence/private-text redaction, while the Claude blocked pipe checks ready/written fields. Both writes retain500ms and no resend. The corrected default matrix passes1656 cases and no-default1613 with the new Grok case; both strict lint matrices and the400/60 source audit pass. Full lint/default/final release/perf checks and a narrow Fable follow-up remain.
+
+- [x] (2026-11-16) Pass the complete final release gate03 at source45775d7635fed16302193845c0c4b69b:186 daemon cases104.975s,310 terminal workflows417.614s,23 installed-Codex33.457s,10 packaged-Claude27.693s; both helper72-case runs, release Rust, lint, architecture/dependencies, ownership, packaging and copy/source/dictation/ANSI checks pass. The command exits0 with artifacts lifecycle-gate-rq97z5 and log network-release-gate-03.log. Keep both previous failed gates and the21 syscall probes, including the unexplained500ms writer failure. No runtime/assertion/deadline changed for gate03.
+- [x] (2026-11-16) Freeze the checked pair/helper/example under /tmp/carlos-ep020/final-pair and run matched CPU6 measurements with no compiler/test/review worker active. Fifteen paired renderer samples preserve all counts and interactive p95 values within0.01ms; paired cold replay rises1.02ms and peak RSS about0.8MiB. Three actual-daemon samples per path each accept exactly1000 native prompts: median0.5533ms accepted Unix,0.5504ms current Unix,0.6922ms authenticated WebSocket; worst WebSocket7.984ms retained. All source samples transfer the same10,092,544 bytes/155 chunks/hash; wall medians115.55/116.04/128.52ms. Fifteen synthetic samples per transport preserve6000 rows/1060 frames/1000 chunks/4,896,929 payload bytes, wall28.55/31.31ms. Final release slow-reader controls3.689ms; all idle samples0 CPU ticks. Full scopes, fixed costs, identities and risks are in exec020-final-report.md and exec020-final-measurements.json. Final reviews/approval remain.
+
+- [x] (2026-11-16) Investigate release gate02: it passes all186 daemon cases103.228s and309/310 terminal workflows430.018s, then stops at Claude Ralph follow-up. Its second automatic prompt hits the original500ms controller stdin deadline; the trace records the attempted frame, then SIGTERM, without a second native user message. No malformed fixture JSON appears. Inspect the writer, its trace lock, child ownership and prompt path;21 focused system-call-traced runs pass without a timeout. First probe: ralph-followup-strace-01;20 bounded probes: ralph-followup-diagnostic. Their ordinary writes are short; the original trace does not explain the stalled write. Keep lifecycle-gate-gid8ii and network-release-gate-02.log, do not increase deadlines or claim this fixed. One complete final rerun remains required after the bounded investigation; a recurrence requires fresh evidence rather than another blind rerun.
+
 - [x] (2026-11-16) Investigate the full network release gate failure: it fails one of186 daemon cases after release Rust/lint/helper checks: the Claude partial-refusal fixture exits on JSONDecodeError while a test truncates settings-config.json before rewriting it. Its concurrent context read sees an empty file. Preserve /tmp/carlos-ep020/network-release-gate.log and lifecycle-gate-N7SJm2; neither terminal nor later contracts ran. Publish fixture control files with atomic replacement in both writers, keep the native reader strict and keep all original assertions/deadlines. The failing case passes0.472s, then all three other affected held/disconnect/reset cases pass1.472s without changing their assertions or deadlines. Logs: settings-file-race-fixed.log and settings-file-race-related-checked.log. An initial related-test command also named a nonexistent test and failed the loader; the corrected command names the actual three methods. The complete gate still needs rerunning.
 
 - [x] (2026-11-16) Commit the complete listener as76de5f1 after186 daemon cases and both Rust/lint matrices. Add a WebSocket mode to the existing synthetic page exporter, keeping its four queued frames plus one active write and separating JSON payload bytes from socket framing. Add actual authenticated socket admission and exact large-source measurement scripts, with startup/RSS and idle thread counters. A new example import failed because client_with_config lives under tungstenite::client rather than the crate root; correct that import. The no-default all-target check now passes1611 cases including the example. Smoke runs prove both actual socket paths transfer the identical10,092,544 source bytes in155 chunks, SHA256 f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e. These smoke timings ran during compilation and are not acceptance measurements. Full release proof and the timed comparisons remain next.
@@ -51,10 +60,12 @@ The daemon can run shell commands as its user. Network access stays off unless t
 - [x] (2026-11-16) Add durable per-device verifier records and local-only operator controls, including the private-file CLI. Scoped retry rights and revocation are implemented; real network authentication/connection closure still needs the listener below.
 - [x] (2026-11-16) Bind real network sockets to verified DeviceId, preserve local connection/hello/operator reserves at full network capacity and prove revocation closes only that device's sockets/leases while its native conversation and other clients survive.
 - [x] (2026-11-16) Add the optional bounded WebSocket listener and actual clients without a new async runtime, second session owner or unbounded buffers.
-- [ ] Run the complete feature/release/terminal/native/dependency checks, actual authenticated socket fault tests and matched renderer/socket/source measurements.
+- [x] (2026-11-16) Run both feature/lint matrices, the complete final release/terminal/native/dependency checks, actual authenticated socket fault tests and matched renderer/socket/source measurements. Preserve all earlier failed traces and limits in the final report.
 - [ ] Finish the direct engineering and Fable whole-roadmap reviews, record every disposition and delegated approval, archive this completed plan unchanged and continue to EP021.
 
 ## Surprises & Discoveries
+
+A separate Claude automatic continuation reaches the helper writer trace but times out before its write confirmation. The original fixture/helper trace lacks syscall timing, so it cannot distinguish scheduling/trace-file delay from a blocked pipe. The bounded21-run syscall probe passes; that is evidence of the intermittent scope, not proof of a repair. Preserve this risk in the final review and report even if the final gate passes. The settings-file JSON race has a concrete cause and a separate repair; do not conflate them.
 
 The release trace proves a fixture file race, not a model-setting refusal or transport fault: native_claude_settings.py dies in settings_config/json.loads while handling get_context_usage, before replying to model.set. Four test writes and the native held-release write used truncate/write. Publish the new JSON file by rename so a concurrent read sees a complete old or new value. This explains this exact failed run; it does not prove the cause of EP019b's older unexplained timeouts.
 
@@ -111,6 +122,9 @@ The locked tungstenite version is 0.30.0. Its config allocates a read buffer eag
 
 ## Decision Log
 
+- (2026-11-16) Repair Fable's healthy-reader defect in EP020 rather than leave a known transport bug for the phone. Only actual TCP write progress re-arms the500ms stall deadline; keep the5s login deadline absolute and every queued/active outbox byte charged. The counter wraps safely because one bounded flush cannot write2^64 bytes.
+- (2026-11-16) Add one shared monotonic timing record to Claude/Grok jobs, preserve the500ms native deadlines and report pending stages without private frame text. Capture Grok's snapshot before killing its child, because cleanup itself can finish a blocked write. Gate Claude's extra JSON parse on tracing. Do not claim this diagnoses the old event retroactively.
+
 - (2026-11-16) Fix the producer of concurrently read fixture JSON with atomic file replacement. Do not catch malformed JSON in the native peer, extend timeouts, weaken the partial-refusal assertion or change runtime settings behavior to make the release gate pass.
 
 - 2026-11-16, root: Reuse the existing4MiB Unix request limit after network authentication, rather than widening requests to the draft's8MiB suggestion. Replies keep their8MiB limit and original bodies remain uncapped/read in bounded chunks. The human-send512KiB limit is unchanged. This keeps both transports on one decoder/admission contract.
@@ -155,24 +169,11 @@ The locked tungstenite version is 0.30.0. Its config allocates a read buffer eag
 
 ## Outcomes & Retrospective
 
-The stop/reopen milestone now passes all161 actual-daemon cases, including owned descendants, attached-server isolation, exact fresh-Claude restore targets, unconfirmed Grok startup,16-slot reuse, private drafts, durable save ordering and old-operation retries. Both Rust feature/lint matrices pass. The terminal/CLI cases passed their focused checks; the final complete release/terminal gate remains required after the rest of EP020. The owner-requested bloat review supports the shared architecture but identifies repeated panel drivers and command wrappers to examine before more clients consume them. Device credentials and the network listener remain unimplemented.
+Users can stop/reopen saved conversations and provision/revoke authenticated WebSocket devices through one manager. Actual process tests prove owned descendants exit, attached Codex servers remain independent, all16 native slots can be reused, fresh Claude targets retain the exact UUID and private uncertain text is never automatically resent. Device grants wait for durable saves, revocation blocks immediately, other devices cannot borrow private retry rights and local operator access survives full network capacity. Exact source crosses reconnects and exceeds8MiB through bounded reads without truncation.
 
+Source45775d7635fed16302193845c0c4b69b passed the complete release gate, both feature/lint matrices and matched measurements. Scroll/typing/working/append p95 remain steady; cold replay adds about1ms and terminal RSS about0.8MiB. WebSocket native acceptance adds about0.14ms median; source transfer adds about12.5ms for10MB. The daemon executable grows about2.6MB. The final report preserves all scope/cost details, the repaired fixture-file race and a separate unexplained500ms native-writer event with21 passing syscall probes. It does not claim the intermittent event was fixed.
 
-The accepted EP019b pair and measurements remain frozen for matched comparisons. The mid-EP review is recorded below and does not replace the required final whole-roadmap review.
-
-The full lifecycle release gate now exits0, including all310 terminal workflows and both installed native contract suites. The earlier debug failure remains preserved and its corrected task-selection workflow now passes in release. Lifecycle work is ready for the next milestone: durable device credentials, then the optional listener. The review decisions preserve bounded native pages while requiring shared read drivers before the phone/web consumers.
-
-The retry store now has the device boundary and separate local identity reserve, with direct checked privacy/revocation cases and a green default workspace/lint. No network peer or token record is active yet. Next add durable device records and typed local operator commands on the existing disk worker; then exercise these lease boundaries through real authenticated sockets.
-
-The protocol and pure client now describe device access without platform I/O or extra command mirrors. All1642 default workspace tests and lint pass after the typed greeting change. These are data/API foundations; durable device records, manager operator dispatch and the listener still remain.
-
-The catalogue now saves checked device verifiers and preserves all previous session metadata through schema version4. All1646 default workspace tests, strict lint and architecture/dependency checks pass. The next slice must connect those writes to the existing worker and retained local operator results, then create exclusive private token files through the CLI. The manager does not authenticate network devices yet.
-
-The local RPC slice and its four actual-daemon cases pass. A held device write leaves a native prompt and private reads responsive; failed writes remain uncertain, and old provision retries do not regrant access. All1650 default workspace tests and strict lint pass after the final typed-credential/reserve changes. Next build the user-facing operator CLI on the shared pure client; then enable the optional authenticated WebSocket path.
-
-The operator CLI and full170-case actual-daemon suite now pass. Both Rust feature/lint matrices and dependency/source checks pass. Local device provision/revoke is usable without creating native work and remains available at full owner capacity. The next slice is the optional bounded listener: verified token identity, separate network/local admission reserves, one WebSocket owner and actual revocation/backpressure tests. The existing final full release/terminal/performance/review gates remain required after that code lands.
-
-The optional listener and complete186-case daemon regression now pass. Source data crosses network reconnects exactly, native actions stay independent of a slow network writer, and token durability/revocation/scope boundaries hold on real sockets. Both Rust feature/lint matrices and source/dependency checks pass. Next extend the existing synthetic owner/export replay to loopback WebSocket and measure actual authenticated admission/source costs against Unix and the frozen EP019b pair. Then run the complete release/terminal/native gate and final direct/Fable reviews before delegated approval.
+The final Fable review then identifies a healthy progressing reader being closed by the whole-frame500ms deadline. A new failing-before/passing-after regression now demonstrates the repair, retaining charged writes and the500ms stall bound. Native timeout-stage records now make future stalls attributable, and trace-off Claude writes avoid JSON re-parsing. These corrections need their final full gates, matched measurements and narrow reviewer follow-up before delegated approval. Broader command-class/panel-driver cleanup is required first in EP021, before its new commands and before Swift/web consumers. The complete review and dispositions follow below; no later EP has started and no spike binary was installed, merged or pushed.
 
 ## Owner-requested mid-EP bloat review
 
@@ -181,29 +182,29 @@ Canonical claude-fable-5-2, medium effort, read-only session6426dd2a-bdc0-44f8-b
 ### Full advisory reviewer output
 
 > # Size and design review: `iphone-spike` at 6746fe8 plus the uncommitted resume-target fix
-> 
+>
 > Model: `claude-fable-5-2`. I cannot see the configured effort level from inside the session. Read-only; no builds, tests or edits.
-> 
+>
 > ## 1. Verdict
-> 
+>
 > **Some avoidable bloat, concentrated in the native panel families (tasks, queue, settings, goals); the ownership architecture itself is proportionate.** Confidence: medium.
-> 
+>
 > Evidence limits:
 > - I read about 45 production files end to end across proto, client, daemon, Core engine and terminal, plus the plans and prior Fable reviews.
 > - I could not diff against `main` (no git access) or open the `/tmp/carlos-ep020` count artifact (permission denied), so the scale figures below are sums of files I read, not measured deltas.
 > - Most of Core `session/claude`, `session/codex` and the backend adapters is unread.
-> 
+>
 > ## 2. Additions justified by the phone/web goal
-> 
+>
 > - **Owner model in Core:** one thread per session, three mailboxes, and captured command handles so interrupt and approve bypass a waiting send (`engine/dispatch.rs:27-102`).
 > - **Numbered events and replica:** stable entry ids, sequence ring, snapshot fallback, and `Replica`/codec/`Operations` in `carlos-client`.
 > - **Private retry results:** `retry/mod.rs` is about 325 lines with three reserved classes; it is small for what it guarantees.
 > - **Daemon plumbing:** bounded outbox and ingress, explicit `limits.rs`, and the SQLite catalogue.
 > - **Stop/reopen:** `manager/stop.rs` (241 lines) and `stop_worker.rs` (62) are tight for the cases they cover; owned process families likewise.
 > - **Source and output cursors:** needed because clients render at their own width.
-> 
+>
 > ## 3. Biggest questionable areas, ranked by payoff
-> 
+>
 > 1. **Panels use a paged, chunked, revision-hashed, per-reader-capability protocol where a capped snapshot would do.**
 >    - A task label goes through a 2 KiB preview, then 64 KiB offset reads (`session/task_views.rs:103-163`), with reply validators in `carlos-client/src/tasks.rs:108-200`.
 >    - The terminal then keeps cursor arrays and a "relative movement" resolver to keep a selection across 32-row pages (`remote/tasks_pages.rs:73-226`).
@@ -211,43 +212,147 @@ Canonical claude-fable-5-2, medium effort, read-only session6426dd2a-bdc0-44f8-b
 >    - Task lists and queues are human-scale. The existing 4,352-row ceiling at 1 KiB labels fits one 8 MiB frame.
 >    - Simplification: one capped page per panel revision with a `truncated` flag, and a single shared `text/read {handle, offset}` for the rare long field. Boundedness is preserved.
 >    - Scale: roughly 60 production files across five crates serve tasks and queue; the 13 I read total about 2.9k lines. Low thousands recoverable; I would not defend a tighter number.
-> 
+>
 > 2. **Panel read drivers live in the terminal, duplicated per family, on top of a second request-id correlation.**
 >    - `remote/queue_reads.rs:135-250` and `remote/tasks_reads.rs:129-315` are the same state machine: request, future, failure, revision reset, wait until `replica.sequence() >= page.seq`.
 >    - `queue_pages.rs` and `tasks_pages.rs` are the same pager; `tasks_overview.rs:86-267` is a third variant.
 >    - The client already maps id to `Kind` and validates (`pending.rs:179-341`, `client_replies.rs:61-120`). It then hands back `ReadResult{id}`, and the terminal matches the id again, with a 128-entry `retired` deque (`tasks_reads.rs:33-57`) and take-and-push-back routing (`queue_reads.rs:76-107`, `events.rs:55-60`).
 >    - Simplification: one generic pager in `carlos-client` that owns outstanding reads; UIs read settled rows. This removes the duplicates now.
-> 
+>
 > 3. **`Command`, `EngineCommand`, `EngineReply` and `ReadReply` are hand-copied mirrors.**
 >    - `manager/mutation_work.rs` is 361 lines, about 90% field-for-field rewrap plus five size checks.
 >    - The same pattern repeats in `manager/tasks.rs:131-259`, `read_commands.rs:34-164`, and 21 identical `self.reply` arms in `reads.rs:82-108`.
 >    - Limit defaults and clamps are restated in three crates (`pending.rs:270`, `manager/tasks.rs:182`, `task_views.rs:48`).
 >    - Core already depends on proto types throughout, so make each variant payload a named proto struct that `EngineCommand` carries, move size checks to one proto `validate()`, and let the owner reply with one serialisable value.
 >    - Scale: about 500-700 lines, and a new command drops from roughly eight edit sites to three.
-> 
+>
 > 4. **Bounded body conduit feeding an unbounded store (terminal only; lower confidence).**
 >    - Client windows and pause/resume backpressure (`bodies.rs`, `remote/source_formatter.rs:65-78`, `transcript_formatter.rs:267-313`) bound transit.
 >    - The formatter worker then keeps the whole original (`transcript_ansi_pages.rs:54-55`), which matches the recorded 238 MiB retention.
 >    - That file's own doc comment still says "Prototype" (lines 1 and 37) while being production.
 >    - The owner explicitly rejected a body cap, so I list this as a cost, not a cut.
-> 
+>
 > 5. **Fragmentation driven by the caps.**
 >    - `Device` is one 18-field object (`remote.rs:93-112`) whose `impl` is spread over about 70 files.
 >    - Several files sit just under 400 lines (`command.rs` 399, `transcript_formatter.rs` 393).
 >    - EP020's decision log moves `handle.rs` out "to preserve file size caps" (plan line 96).
 >    - This costs navigation and per-file import and doc overhead more than logic. Do not fix it on its own; items 1-3 dissolve much of it.
-> 
+>
 > ## 4. Sequencing
-> 
+>
 > - **Before the WebSocket listener and Swift consumer make v1 sticky:** do item 3, ahead of EP020 milestone 3's device and operator commands. Decide item 1's wire shape, or mark the task-window, task-activity and overview families terminal-only. Move item 2's pager into `carlos-client`, or commit that the phone will not consume those panels.
 > - **Safe to defer:** item 4, item 5, and the 8 ms poll.
 > - **Do not rewrite:** owner threads and mailboxes, the retry store, outbox bounds, `Replica`, source cursors, stop/reopen, and process-family teardown.
-> 
+>
 > ## 5. Will each new UI multiply code?
-> 
+>
 > - **Transcript, approvals, send, interrupt, operations: no.** `Replica`, `Operations` and `Bodies` are genuinely shared.
 > - **Panels: yes, as written.** The driver logic in item 2 sits in `src/app/remote`, not in `carlos-client`, which contradicts the "one copy" rule in `docs/engine-architecture.md`. A Swift client wanting queue or tasks would reimplement about 1.3k lines of subtle revision and sequence handling per panel pair.
 > - Fixing items 1 and 2 before EP022 is what keeps the per-UI cost down to layout only.
+
+## Final Fable review of source45775d7635fed16302193845c0c4b69b
+
+Fable 5.2 medium (canonical claude-fable-5-2), read-only session3bc8da7b-aa0e-4400-8448-0fce937435de, returns PASS WITH ISSUES. This review found a real healthy-reader deadline defect after the implementation and all initial final checks were complete. Root accepts that repair in EP020 plus native stage timing and trace-off parsing cleanup. Detailed decisions for all eight findings are in .agents/reports/exec020-review-disposition.md. Corrected-runtime checks and a narrow final follow-up remain pending. Full output follows unchanged:
+
+> # EP020 final engineering review
+>
+> **Verdict: PASS WITH ISSUES.** I found no blocker. One MAJOR defect needs repair before the phone is tested on a real link, and the unresolved 500 ms stdin event can stay a recorded risk if it gets stage timing.
+>
+> ## 1. What was reviewed
+>
+> I read the source directly rather than the patch, for range `cc2a5f5..b851d73`:
+>
+> - **Network path:** `transport/{websocket,websocket_poll,outbox,ingress,mod}.rs`, `network/{mod,handshake}.rs`, `acceptor.rs`, `server.rs`, `limits.rs`.
+> - **Devices:** `manager/devices.rs`, `registry_devices.rs`, `carlos-proto/src/devices.rs`, `device_cli.rs`, `operator_connection.rs`.
+> - **Stop/reopen and retry:** `manager/{mod,commands,stop,stop_worker,reopen}.rs`, `retry/{mod,clients,stopped}.rs`, `owned_child.rs`, `engine/stop_native.rs`.
+> - **Claude stdin writer:** `claude_backend/transport_writer.rs` and its caller in `transport.rs`.
+> - **Evidence:** the final report, the self-review, `docs/daemon-protocol.md` budgets and `websocket_write_tests.rs`.
+>
+> The design matches the goal: one manager and owner model, WebSocket as a second socket worker on the same `Ingress`/`Outbox`, and no framework, runtime or broker.
+>
+> ## 2. Findings
+>
+> ### MAJOR 1 — WebSocket write deadline is per whole frame, not per progress
+>
+> - **Where:** `crates/carlosd/src/transport/websocket.rs:194-198` sets one 500 ms deadline when a frame is taken; `:217-218` aborts unless the entire frame has left tungstenite's buffer by then.
+> - **Why it matters:** the kernel send buffer is pinned to 64 KiB (`network/handshake.rs:42`), while replies may be 8 MiB (`limits.rs:6`; cards, task windows and panels all allow 8 MiB). A healthy but slow reader is disconnected on any frame larger than roughly 64 KiB plus half a second of link throughput. At 10 Mbit/s that is about 700 KiB.
+> - **Failure shape:** deterministic. The client reconnects, asks again, gets the same frame and is dropped again, so that item is unreadable from the phone.
+> - **Test gap:** the evidence covers only stalled readers on loopback (`websocket_write_tests.rs`, `test_network_source.py:98`). No test has a slow reader that keeps making progress.
+> - **Does it block?** It does not block starting EP021. It does block the phone/web path in practice, so fix it before EP022 device testing.
+> - **Fix:** make the deadline progress-based. `HandshakeStream::write` (`handshake.rs:124-130`) already wraps every TCP write; count bytes there and re-arm the 500 ms stall deadline in `Worker::write` whenever the count advanced. The outbox charge (128 frames / 16 MiB, held until flush) remains the memory bound, so this needs no body cap, truncation or new machinery. Add one test with a throttled reader draining a multi-MiB frame, and correct the wording at `docs/daemon-protocol.md:123`.
+>
+> ### MAJOR 2 (non-blocking, recorded risk) — unresolved 500 ms Claude stdin timeout
+>
+> - **Fail-closed holds:** `transport_writer.rs:71-75` reports "may already have been accepted"; `transport.rs:292-299` removes the pending entry and stops the emitter. There is no resend and no false acknowledgement.
+> - **Recommendation:** it may remain a recorded diagnostic risk; it does not need a speculative repair or a longer deadline. I would rank it above the self-review's MINOR, because each occurrence ends a live owner's transport and the cause is unknown.
+> - **Why the cause is unknowable today:** the single `recv_timeout` at `:72` covers queue wait behind up to eight requests, the guard check, a full JSON re-parse of the line (`:54`), the trace-file write under a mutex (`:55`), `write_all`, `flush` and the reply hop. The trace line proves only that the writer thread dequeued the frame.
+> - **Fix:** record monotonic timestamps at enqueue, dequeue, after trace and after write, and include them in the timeout error. Apply the same change to the near-identical `grok_backend/process_writer.rs:65-77`. This does not change the deadline. Do this early in EP021 so the next occurrence is attributable.
+> - **Related cheap fix:** `transport_writer.rs:54` re-parses every outgoing frame (up to 4 MiB) even when tracing is off. Gate it on `trace.is_some()`.
+>
+> ### MINOR 3 — command classification lives in three hand-kept lists
+>
+> - **Where:** `transport/ingress.rs:44-67`, `manager/commands.rs:31-68`, and retry `Class` in mutation prep.
+> - **Risk:** the ingress default `_ => 2` silently admits any new mutation under the read allowance. EP021 adds Grok approvals and history commands, so this will be hit.
+> - **Fix:** one exhaustive `match` (no wildcard) returning the admission class, used by both ingress and routing.
+>
+> ### MINOR 4 — network ingress allowances are shared across devices
+>
+> - **Where:** `ingress.rs:17,75` keeps one counter set for all network peers; a failed push closes the pushing socket (`websocket.rs:183-189`).
+> - **Risk:** one authenticated device flooding reads can get another device disconnected. Local operator access is correctly isolated. This is acceptable for one operator's own devices.
+> - **Fix:** document it, or stop reading from that peer instead of closing it.
+>
+> ### MINOR 5 — device identities share one 128-entry pool
+>
+> - **Where:** `retry/clients.rs:89-108`.
+> - **Risk:** one provisioned device that greets fresh repeatedly can evict another device's inactive identity and its retained private results. It cannot read them.
+> - **Fix:** a small per-device cap (for example 8) in `make_room`.
+>
+> ### MINOR 6 — a failed network greeting keeps its slot for the full 5 s
+>
+> - **Where:** `manager/commands.rs:113-118` replies but leaves the socket open; there are only four unauthenticated slots.
+> - **Fix:** close the peer after queuing the refusal.
+>
+> ### MINOR 7 — plain `ws://` on any specific unicast address is accepted silently
+>
+> - **Where:** `server.rs:77-84` rejects only unspecified, multicast and broadcast addresses.
+> - **Risk:** the bearer token travels in the first clear-text frame, and the loopback/WireGuard rule exists only in docs.
+> - **Fix:** print a one-line startup warning for non-loopback binds. No policy engine is needed.
+>
+> ### MINOR 8 — avoidable repetition
+>
+> - `Manager::accept` and `accept_network` (`manager/mod.rs:157-195`) differ by one predicate and one constructor.
+> - The Claude and Grok stdin writers are near copies.
+> - The terminal panel read/paging repetition is already assigned to the start of EP021; I agree it must land before Swift or web consumes panels.
+>
+> ## 3. What I checked and found sound
+>
+> - **Outbox accounting:** a frame stays charged through real flush or teardown (`websocket.rs:222-224,244-246`), and `close` subtracts only queued frames, so there is no underflow.
+> - **No idle spin:** the worker blocks on TCP readiness plus a wake socket with deadline-only timeouts (`websocket_poll.rs`).
+> - **Admission:** counters are released exactly once via `Drop` (`network/mod.rs:73-80`).
+> - **Pre-auth limits:** the 4 KiB message cap is raised only after the manager authorises, and a second pre-auth frame closes the socket.
+> - **Origin rule:** it rejects browsers unless the origin matches exactly, which also covers DNS rebinding.
+> - **Credentials:** token comparison goes through `blake3::Hash` equality (constant-time), and only verifiers are stored. The token file is created `O_EXCL|O_NOFOLLOW` with mode 0600 and synced before the grant.
+> - **Revocation:** it blocks immediately and stays blocked if the save is uncertain.
+> - **Stop/reopen:** stop joins off the manager thread and acknowledges only after the durable save. Reopen refuses without a confirmed native address. Unconsumed commands become private Uncertain with their exact text.
+> - **Process ownership:** `OwnedChild` kills the group before reaping the leader.
+>
+> ## 4. Costs: fixed, necessary, avoidable
+>
+> - **Measured fixed costs (accept and keep visible):** about +1 ms cold replay, about +0.8 MiB RSS, +2.6 MB daemon binary, about +0.14 ms WebSocket admission median, and about 11% on source transfer.
+> - **Necessary safety bounds:** the 4/16 admission split, the 5 s login window, 8 KiB HTTP and 4 KiB hello, charged writes, separate local allowances, and the retry windows.
+> - **Avoidable:** findings 3 and 8, and the unconditional trace re-parse.
+>
+> ## 5. Review limits
+>
+> - This was read-only; I ran no builds, tests or measurements and took the gate results and numbers from the reports.
+> - I did not read the full patch, the terminal `src/app/remote/*` changes, the Claude `reopen`/`startup` and Grok changes, the registry schema migration, or the Python tests beyond a targeted grep.
+> - I did not open the tungstenite source; the buffering reasoning in MAJOR 1 rests on its documented behaviour.
+> - I inferred the 8 MiB frame producers from constants and did not trace them through each call site.
+> - The link-speed arithmetic in MAJOR 1 is derived from the code, not measured.
+>
+> ## 6. Verdict
+>
+> **PASS WITH ISSUES.** EP021 may start. Fix MAJOR 1 before any real-link phone or web testing in EP022. Land the stage timing from MAJOR 2 and the single classification table (finding 3) at the start of EP021, alongside the already-required panel sharing.
 
 ## Context and Orientation
 
@@ -388,3 +493,9 @@ Revision 2026-11-15: connect retained stop/reopen commands through Core, the pur
 Revision 2026-11-15: add CLI/terminal lifecycle controls and record full/focused checks without claiming a failed gate passed. Preserve changed-owner task guards and reproduce surviving owned descendants before repairing process-family teardown.
 
 Revision 2026-11-15: prove and repair owned descendant cleanup without changing attached-server ownership or inherited unowned-pipe latency. Reproduce the fresh-Claude saved-versus-new target defect before changing its durable restore descriptor.
+
+Revision 2026-11-16: complete optional bounded network access, preserve the owner’s frozen CLI preview, repair the proven fixture JSON race, retain the separate unexplained writer timeout, and record the complete final release and matched socket/renderer evidence. Final reviews and delegated approval remain pending.
+
+Revision 2026-11-16: record the final Fable PASS WITH ISSUES and all dispositions; reproduce/repair the healthy progressing reader defect now, add native timeout-stage evidence and trace-off parsing cleanup, and replace stale milestone-outcome paragraphs with the current state. Corrected-runtime final checks remain pending.
+
+Revision 2026-11-16: commit the two final-review corrections separately, preserve the before/after paced-reader proof and real native-pipe diagnostics, record the eight reviewer decisions, and add the accepted first EP021 command-admission cleanup to PROGRAM_PLAN. Corrected final release/performance/follow-up gates remain.
