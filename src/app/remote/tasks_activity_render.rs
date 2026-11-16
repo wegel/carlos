@@ -7,33 +7,30 @@ use crate::app::child_activity_view::{self, ActivityRecord, ActivityView};
 
 impl Device {
     pub(super) fn task_activity_lines(&self) -> Vec<String> {
-        let activity = &self.tasks.activity;
-        if !activity.show {
+        if !self.tasks.activity.show {
             return Vec::new();
         }
+        let Some(activity) = self.client.task_activity(&self.session) else {
+            return Vec::new();
+        };
         let mut lines = Vec::new();
-        if activity.stale {
+        if activity.is_stale() {
             lines.push(if self.tasks.windows.current.is_some() {
                 "Child activity reader retired; accepted display kept. Esc returns to the older list; r refreshes latest tasks before Enter reopens".into()
             } else {
                 "Child activity reader retired; accepted display kept. Use arrows to select a current task, then Enter to reopen.".into()
             });
         }
-        if let Some(error) = &activity.error {
-            lines.push(error.clone());
+        if let Some(error) = activity.read_error() {
+            lines.push(error.into());
         }
-        let header = activity.header.as_ref();
-        let records = activity
-            .accepted
-            .as_ref()
-            .map(|display| display.records.as_slice())
-            .unwrap_or_default();
+        let header = activity.header();
+        let records = activity.records();
         lines.extend(child_activity_view::lines(
             ActivityView {
                 error: header.and_then(|header| header.error.as_deref()),
                 known: header.is_some_and(|header| header.known),
-                reading: header.is_none_or(|header| header.reading)
-                    || activity.requests.advance.is_some(),
+                reading: header.is_none_or(|header| header.reading) || activity.is_advancing(),
                 count: header.map_or(records.len(), |header| usize::from(header.items)),
                 older: header.is_some_and(|header| header.has_older),
                 tail: header.map_or("", |header| header.tail.as_str()),
@@ -46,7 +43,7 @@ impl Device {
                 complete: record.complete,
             }),
         ));
-        if activity.pending.is_some() {
+        if activity.is_reading_pages() {
             lines.push("Reading accepted child display pages…".into());
         }
         lines

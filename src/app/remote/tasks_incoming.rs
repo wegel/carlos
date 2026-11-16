@@ -14,7 +14,7 @@ impl Device {
             change.session == self.session
                 && matches!(
                     change.kind,
-                    PanelKind::TaskDetails | PanelKind::TaskOverview
+                    PanelKind::TaskDetails | PanelKind::TaskOverview | PanelKind::TaskActivity
                 )
         });
         for result in std::mem::take(&mut effects.replies) {
@@ -26,12 +26,6 @@ impl Device {
                 continue;
             }
             match result.reply {
-                ReadReply::TaskActivity(header) => {
-                    changed |= self.accept_activity_header(result.id.as_ref(), header)
-                }
-                ReadReply::TaskActivityPage(page) => {
-                    changed |= self.accept_activity_page(result.id.as_ref(), page)?
-                }
                 ReadReply::TaskWindow(header) => {
                     changed |= self.accept_task_window(result.id, header)
                 }
@@ -101,7 +95,6 @@ impl Device {
         for failure in std::mem::take(&mut effects.failures) {
             let handled = failure.id.as_ref().is_some_and(|id| {
                 self.tasks.reads.take_retired(id)
-                    || self.fail_task_activity(id, &failure.error.message)
                     || self.fail_task_window(id, &failure.error.message)
                     || self.tasks.reads.fail(id, &failure.error.message, sequence)
                     || self.fail_task_stop_read(id, &failure.error.message)

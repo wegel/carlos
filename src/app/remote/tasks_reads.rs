@@ -129,7 +129,7 @@ impl Device {
     fn drive_task_reads(&mut self, link: &mut Transport) -> Result<bool> {
         self.drive_task_children_and_stops(link)?;
         let changed = self.settle_task_page()?;
-        if self.tasks.activity.show && !self.tasks.activity.stale {
+        if self.tasks.activity.show && !self.task_activity_is_stale() {
             return Ok(changed);
         }
         if !self.tasks.view.show || !self.client.session_is_ready(link.connection, &self.session) {
@@ -198,7 +198,7 @@ impl Device {
 
     fn restore_stale_child_list(&mut self, link: &mut Transport) -> Result<()> {
         if self.tasks.activity.show
-            && self.tasks.activity.stale
+            && self.task_activity_is_stale()
             && self.tasks.windows.current.is_none()
         {
             let effects = self.client.watch_tasks(&self.session)?;

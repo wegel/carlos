@@ -20,6 +20,9 @@ impl Client {
                 ReadReply::TaskOverview(_) | ReadReply::TaskOverviewText(_) => {
                     self.accept_task_overview_reply(result, effects)
                 }
+                ReadReply::TaskActivity(_) | ReadReply::TaskActivityPage(_) => {
+                    self.accept_task_activity_reply(result, effects)
+                }
                 _ => Some(result),
             };
             if let Some(result) = unowned {
@@ -32,7 +35,8 @@ impl Client {
                 || self.fail_context_panel_read(&failure, effects)
                 || self.fail_goal_panel_read(&failure, effects)
                 || self.fail_task_detail_read(&failure, effects)
-                || self.fail_task_overview_read(&failure, effects))
+                || self.fail_task_overview_read(&failure, effects)
+                || self.fail_task_activity_read(&failure, effects))
             {
                 effects.failures.push(failure);
             }
@@ -62,6 +66,7 @@ impl Client {
         self.drive_goal_panels(effects);
         self.drive_task_details(effects);
         self.drive_task_overviews(effects);
+        self.drive_task_activities(effects);
     }
 
     pub(crate) fn cancel_panel_reads(&mut self, session: &SessionId) {
@@ -71,5 +76,6 @@ impl Client {
         self.cancel_goal_read(session);
         self.cancel_task_detail_read(session);
         self.cancel_task_overview_read(session);
+        self.cancel_task_activity_reads(session);
     }
 }

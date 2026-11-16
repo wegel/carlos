@@ -7,6 +7,7 @@ pub(crate) mod queue_input;
 mod queue_pages;
 pub(crate) mod queue_reads;
 pub(crate) mod settings;
+mod task_activity;
 pub(crate) mod task_details;
 mod task_move;
 mod task_overview;
@@ -18,6 +19,7 @@ pub use queue::{QueuePanel, QueueReadMode};
 pub use queue_input::QueueInput;
 pub use queue_pages::QueuePageWindow;
 pub use settings::{SettingsCatalog, SettingsPanel};
+pub use task_activity::{TaskActivityPanel, MAX_TASK_ACTIVITY_BYTES};
 pub use task_details::{TaskDetailTarget, TaskDetails, TaskFieldRead, MAX_TASK_DETAIL_BYTES};
 pub use task_overview::TaskOverviewPanel;
 pub use task_pages::TaskPageWindow;
@@ -33,6 +35,7 @@ pub enum PanelKind {
     Goal,
     TaskDetails,
     TaskOverview,
+    TaskActivity,
 }
 
 /// A platform redraws only the panel whose checked data or read status changed.
@@ -50,6 +53,7 @@ pub(crate) struct Panels {
     pub goal: Option<Box<GoalPanel>>,
     pub task_details: Option<Box<TaskDetails>>,
     pub task_overview: Option<Box<TaskOverviewPanel>>,
+    pub task_activity: Option<Box<TaskActivityPanel>>,
 }
 
 impl Panels {
@@ -74,6 +78,10 @@ impl Panels {
                 .task_overview
                 .as_ref()
                 .map_or(0, |overview| overview.retained_bytes())
+            + self
+                .task_activity
+                .as_ref()
+                .map_or(0, |activity| activity.retained_bytes())
     }
 
     pub(crate) fn disconnected(&mut self) {
@@ -94,6 +102,9 @@ impl Panels {
         }
         if let Some(overview) = &mut self.task_overview {
             overview.disconnected();
+        }
+        if let Some(activity) = &mut self.task_activity {
+            activity.disconnected();
         }
     }
 }

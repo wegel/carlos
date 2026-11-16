@@ -55,7 +55,6 @@ mod status;
 mod submit;
 mod tasks;
 mod tasks_activity;
-mod tasks_activity_reads;
 mod tasks_activity_render;
 mod tasks_details;
 mod tasks_incoming;
