@@ -97,6 +97,22 @@ class CoreDependencyTests(unittest.TestCase):
         sample["workspace_members"].append("daemon")
         self.assertIn("carlosd: unreviewed direct package tokio", GUARD.check_graph(sample))
 
+    def test_phone_cannot_link_a_backend_transport_terminal_or_audio_indirectly(self):
+        for name in GUARD.FORBIDDEN | GUARD.PHONE_FORBIDDEN:
+            sample = graph({"core": ("carlos-core", []),
+                            "phone": ("carlos-phone", ["ffi"]),
+                            "ffi": ("uniffi", ["hidden"]), "hidden": (name, [])})
+            sample["workspace_members"].append("phone")
+            self.assertIn(f"carlos-phone: forbidden resolved package {name}", GUARD.check_graph(sample))
+
+    def test_phone_keeps_binding_tools_separate_from_the_pure_client(self):
+        sample = graph({"core": ("carlos-core", []),
+                        "phone": ("carlos-phone", ["ffi", "client"]),
+                        "ffi": ("uniffi", ["cli"]), "cli": ("clap", []),
+                        "client": ("carlos-client", ["proto"]), "proto": ("carlos-proto", [])})
+        sample["workspace_members"].extend(["phone", "client", "proto"])
+        self.assertEqual(GUARD.check_graph(sample), [])
+
 
 
 

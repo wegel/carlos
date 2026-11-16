@@ -1,0 +1,24 @@
+[package]
+name = "carlos-phone"
+version = "0.1.0"
+edition = "2021"
+license-file = "../../LICENSE"
+
+[lib]
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[features]
+bindgen = ["uniffi/cli"]
+
+[dependencies]
+carlos-client = { path = "../carlos-client" }
+carlos-proto = { path = "../carlos-proto" }
+uniffi = { version = "=0.32.2", default-features = false }
+
+[dev-dependencies]
+serde_json = "1"
+
+[[bin]]
+name = "carlos-bindgen-swift"
+path = "src/bin/bindgen-swift.rs"
+required-features = ["bindgen"]

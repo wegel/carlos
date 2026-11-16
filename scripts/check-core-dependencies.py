@@ -15,6 +15,11 @@ DAEMON_REVIEWED = {
     "carlos-core", "carlos-proto", "carlos-client", "anyhow", "getrandom", "libc", "rusqlite",
     "serde", "serde_json", "signal-hook", "socket2", "uuid", "tempfile", "blake3", "tungstenite",
 }
+PHONE_REVIEWED = {"carlos-client", "carlos-proto", "serde_json", "uniffi"}
+PHONE_FORBIDDEN = {
+    "carlos-core", "carlosd", "tokio", "async-std", "reqwest", "tungstenite",
+    "socket2", "mio", "rustls",
+}
 FORBIDDEN = {
     "carlos", "crossterm", "ratatui", "termion", "tui", "ansi-to-tui",
     "cpal", "rubato", "webrtc-vad", "whisper-rs", "whisper-rs-sys", "alsa",
@@ -55,11 +60,13 @@ def check_graph(metadata):
     nodes = {node["id"]: node for node in metadata["resolve"]["nodes"]}
     issues = check_pure_package(packages, nodes, "carlos-proto")
     issues.extend(check_pure_package(packages, nodes, "carlos-client"))
-    selected = [owners[0]] + [key for key in metadata["workspace_members"] if packages[key]["name"] == "carlosd"]
+    selected = [owners[0]] + [key for key in metadata["workspace_members"]
+                              if packages[key]["name"] in {"carlosd", "carlos-phone"}]
+    reviewed_by_owner = {"carlos-core": REVIEWED, "carlosd": DAEMON_REVIEWED,
+                         "carlos-phone": PHONE_REVIEWED}
     for owner in selected:
         name = packages[owner]["name"]
-        reviewed = REVIEWED if name == "carlos-core" else DAEMON_REVIEWED
-        issues.extend(check_owner(packages, nodes, owner, reviewed))
+        issues.extend(check_owner(packages, nodes, owner, reviewed_by_owner[name]))
     return sorted(set(issues))
 
 
@@ -67,6 +74,7 @@ def check_owner(packages, nodes, owner, reviewed):
     """Check both native-service crates without letting the UI graph enter either."""
     label = packages[owner]["name"]
     issues = []
+    forbidden = FORBIDDEN | (PHONE_FORBIDDEN if label == "carlos-phone" else set())
     if packages[owner].get("features", {}).get("default", []):
         issues.append(f"{label}: default features must stay empty; fixture helpers are opt-in")
     for key in nodes[owner]["dependencies"]:
@@ -80,7 +88,7 @@ def check_owner(packages, nodes, owner, reviewed):
             continue
         visited.add(key)
         name = packages[key]["name"]
-        if name in FORBIDDEN or name.startswith(("ratatui-", "tui-")):
+        if name in forbidden or name.startswith(("ratatui-", "tui-")):
             issues.append(f"{label}: forbidden resolved package {name}")
         pending.extend(nodes[key]["dependencies"])
     return issues
@@ -100,4 +108,4 @@ if __name__ == "__main__":
     if errors:
         print("\n".join(errors), file=sys.stderr)
         sys.exit(1)
-    print("Core/daemon: no terminal/audio/speech; protocol/client: only reviewed data packages in every target branch")
+    print("Core/daemon/phone: no terminal/audio/speech; phone: no backend/transport runtime; protocol/client: reviewed data only")

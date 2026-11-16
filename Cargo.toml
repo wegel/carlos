@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/carlos-core", "crates/carlos-proto", "crates/carlos-client", "crates/carlosd"]
+members = ["crates/carlos-core", "crates/carlos-proto", "crates/carlos-client", "crates/carlosd", "crates/carlos-phone"]
 default-members = [".", "crates/carlos-core", "crates/carlos-proto", "crates/carlos-client", "crates/carlosd"]
 resolver = "2"
 

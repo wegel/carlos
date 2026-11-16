@@ -41,6 +41,10 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   EP021b; preparation notes are `/tmp/carlos-ep021b/ep022-preparation.md`.
 - [ ] Prove a small real Swift caller and simulator app against a narrow generated Rust
   interface before building the rest of the UI. Establish repeatable Mac build/test scripts.
+  Completed: two Rust boundary tests pass for actual greeting/reconnect rights, typed
+  invalid-input/frame errors and stale socket callbacks. A minimal SwiftUI connection
+  shell and real-library XCTest caller exist; neither is claimed compiled yet.
+  Remaining: the offline Mac toolchain, XCFramework build and actual simulator tests.
 - [ ] Connect the actual app to a deterministic daemon over WebSocket; prove greeting,
   session selection/create, private prompt submission, reconnect and uncertain-write handling.
 - [ ] Implement the specified header, transcript, composer, activity line, Latest button,
@@ -74,6 +78,16 @@ Do not guess that these bounds permit another full Swift copy of every body. EP0
 owner retains loaded older rows within existing caps. Claude can still scan the native
 file before its first archive window; Grok still replays its native conversation in full.
 These are carried limits, not permission to hide data.
+
+The Mac cannot resolve static.rust-lang.org or index.crates.io. Linux can fetch the
+official release. `scripts/ios-toolchain.py` verifies each Apple Rust component against
+the release manifest and relays only those archives; the installer writes below the
+owned build directory. `scripts/ios-prepare.py` stages only phone/client/protocol source
+and Cargo-vendored locked dependencies. Its reduced workspace may remove optional
+features unified by unrelated CLI crates, but it rejects any new package/version.
+Published UniFFI0.32.2 includes macros without the main branch's macro-scaffolding
+feature; the first build exposed that difference and the manifest now matches the
+published crate. No runtime async feature is enabled.
 
 ## Decision Log
 
@@ -341,3 +355,6 @@ panel screen or blanket protocol schema export belongs in this plan.
 Revision2026-11-16: write EP022 in full after EP021b delegated approval and unchanged
 archive. Start with the smallest real Swift consumer, then grow the specified app through
 checked milestones on the owned Mac, keeping the shared-client and review boundaries.
+
+Revision2026-11-16: record the small Rust/Swift boundary and Mac DNS failure. Add a
+verified offline build path rather than changing the Mac's global toolchain or network.
