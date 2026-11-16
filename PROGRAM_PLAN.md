@@ -65,6 +65,16 @@ stop/reopen and prove reuse of the 16 owner slots while preserving saved convers
 private drafts and explicit retry choices. Only then add WebSocket/device-token access.
 Protocol version 1 remains provisional. Keep main and the installed binary unchanged.
 
+The owner requested a mid-EP whole-roadmap size review on2026-11-16. Fable5.2 medium
+found avoidable panel-driver and command-wrapper repetition while supporting the shared
+owner/client design. Its full report and checked decisions are
+`.agents/reports/exec020-fable-bloat-review.md` and `exec020-bloat-review-disposition.md`.
+EP021 must first share panel read settlement/paging in carlos-client and remove the
+matching terminal code before Swift/web consumers use it. Preserve complete supported
+lists and stale-reader checks. Use named payloads for new operator commands; examine
+the existing wrappers alongside that shared-read cleanup. WebSocket access does not
+freeze the provisional protocol. This advisory review does not replace EP020's final reviews.
+
 ExecPlans 019a through 022 are listed in `docs/engine-architecture.md`. Only the next plan
 is written in full. On 2026-11-14, the owner delegated approval of completed EPs to Codex and asked it to continue through the next EPs while the owner sleeps. Before each auto-approval, also obtain a Fable 5.2 medium review of the code and whole roadmap, as the owner requested in the same conversation. Use judgment to address or explain each finding, then record the auto-approval and continue after all checks and the direct engineering review pass. Do not stop at the former per-EP human gate. On 2026-11-14, the owner further directed: no more reviewers until the end of EP019b. Continue implementation and tests without new slice or follow-up reviewer sessions; obtain the final engineering and Fable reviews when the whole EP is ready. This instruction supersedes the repository's earlier per-slice review cadence, not its correctness checks. This grant does not authorize merging, pushing or replacing the installed spike binary; keep those actions separate.
 

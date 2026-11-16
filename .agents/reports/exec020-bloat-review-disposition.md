@@ -1,0 +1,15 @@
+# Decisions after the owner-requested bloat review
+
+Fable 5.2 at medium effort reviewed the current branch and the phone/web goal in read-only session6426dd2a-bdc0-44f8-b1d2-d3b087fe019c. Its full report is exec020-fable-bloat-review.md. This is an advisory review during EP020, not final EP approval. Fable read about45 production files but could not diff main or read the temporary size counts. Its estimates of recoverable lines are unverified.
+
+Keep the shared session owner, numbered facts, pure client, private retry store, bounded socket queues, source cursors and explicit stop/reopen. Fable found these proportionate to several clients sharing one native conversation. No second runtime or generic transport framework is needed for WebSockets.
+
+Move panel read settlement and repeated paging code into carlos-client before Swift or a web client consumes those panels. This is a real gap in the shared-client goal: terminal queue_reads.rs and tasks_reads.rs currently track requests and wait for numbered facts themselves. EP021 should first move that logic, preserving local UI focus/drafts and checking that the terminal loses the corresponding code. Do not merely add a second client driver beside the first. EP021 already deals with native pages, so its first milestone is the appropriate place to share these reads before bindings.
+
+Decline a single capped/truncated task snapshot as currently proposed. Core task_windows.rs captures older native pages independently for each reader; task_window_tests.rs proves that another reader, a closed reader and a later root cannot borrow that window. manager/task_windows.rs::Reader also invalidates outstanding work on drop. These guards do more than distinguish devices. One large list reply would also enlarge each client's decode work even if its labels fitted an8MiB frame. Preserve complete supported lists, bounded reads and old-target rejection. Simplify the code that drives those reads rather than dropping the behavior.
+
+Accept the named-payload direction for command wrappers, starting with new device/operator methods. Those methods belong to the manager and need no EngineCommand mirror. Existing mutation_work.rs does repeat fields, but it also selects retry reserves, keeps exact recovery text and supplies trusted reader context. A broader change must preserve those differences and remove actual code. Fold that change into EP021's shared-read cleanup before foreign-language consumers depend on the Rust API. The WebSocket listener alone does not freeze provisional protocol version1 or introduce a separate command implementation.
+
+Keep the measured terminal dense-source cost visible; do not reintroduce the body cap or file/mmap fallback the owner rejected. Do not regroup modules just to change their count. The file/function caps remain authoritative, and shared drivers should remove the corresponding extra modules naturally.
+
+EP020 continues with bounded device credentials and one optional WebSocket transport. No extra reviewer session is required for each slice; the whole EP still needs its final direct engineering and Fable reviews before delegated approval.
