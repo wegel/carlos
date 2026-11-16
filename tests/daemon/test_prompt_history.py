@@ -9,6 +9,22 @@ import support
 from support import Client, Fixture, wait_for
 
 
+def check_native_recall(case, client, session, expected, source="human"):
+    selected = client.call("prompt/select", session=session, source=source, anchor=None, direction="latest")
+    seen, texts = set(), []
+    while selected["record"]:
+        record = selected["record"]
+        case.assertNotIn(record["id"], seen, "older recall must advance its original prompt anchor")
+        seen.add(record["id"])
+        texts.append(client.call("prompt/text", session=session, prompt=record["id"], offset="0", limit=65536)["text"])
+        if not selected["has_older"]:
+            break
+        selected = client.call("prompt/select", session=session, source=source, anchor=record["id"], direction="older")
+    case.assertEqual(len(texts), len(expected), "native recall must reach every matching prompt without transcript paging")
+    case.assertEqual(texts, list(reversed(expected)))
+    case.assertFalse(any(row.get("method") == "session/history" for row in client.messages))
+
+
 class PromptHistoryTests:
     def prompt_fixture(self, name):
         fixture = Fixture(name, codex=True)

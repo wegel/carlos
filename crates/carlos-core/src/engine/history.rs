@@ -1,6 +1,6 @@
 //! Fetch one earlier native window on a bounded worker while the owner handles live controls.
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use super::mailbox::{full, Envelope};
 use super::owner::{failure, Owner};
@@ -9,19 +9,60 @@ use super::workers::Completion;
 use super::{EngineCommand, EngineReply};
 use crate::session::history_window::{older_window, HistoryCursor, HistoryPage};
 
+/// Keep repeated windows of one prompt request within its original time and byte allowance.
+pub(super) struct ReadScope {
+    deadline: Instant,
+    bytes: usize,
+}
+
 impl Owner {
     pub(super) fn defer_history_read(&mut self, envelope: Envelope) -> Option<Envelope> {
-        let EngineCommand::History { before, limit } = &envelope.command else {
-            return Some(envelope);
+        self.defer_history_with_scope(
+            envelope,
+            ReadScope {
+                deadline: Instant::now() + Duration::from_secs(20),
+                bytes: 0,
+            },
+        )
+    }
+
+    fn defer_history_with_scope(
+        &mut self,
+        envelope: Envelope,
+        scope: ReadScope,
+    ) -> Option<Envelope> {
+        let cursor = match &envelope.command {
+            EngineCommand::History { before, limit } => self
+                .session
+                .history_window_cursor(before, *limit)
+                .map_err(|error| failure(error.to_string())),
+            EngineCommand::Prompts(command) => self.session.prompt_history_cursor(command),
+            _ => return Some(envelope),
         };
-        let cursor = match self.session.history_window_cursor(before, *limit) {
+        let cursor = match cursor {
             Ok(Some(cursor)) => cursor,
             Ok(None) => return Some(envelope),
             Err(error) => {
-                finish(envelope, EngineReply::Failure(failure(error.to_string())));
+                finish(envelope, EngineReply::Failure(error));
                 return None;
             }
         };
+        self.queue_history_read(envelope, scope, cursor)
+    }
+
+    fn queue_history_read(
+        &mut self,
+        envelope: Envelope,
+        scope: ReadScope,
+        cursor: HistoryCursor,
+    ) -> Option<Envelope> {
+        if scope.deadline <= Instant::now() {
+            finish(
+                envelope,
+                EngineReply::Failure(failure("native history read timed out")),
+            );
+            return None;
+        }
         if self.history_busy || self.workers.actions_busy >= 2 {
             finish(envelope, EngineReply::Failure(full()));
             return None;
@@ -37,13 +78,18 @@ impl Owner {
         self.workers.actions_busy += 1;
         let target = Target::capture(&self.session, self.client.kind());
         self.workers.actions.submit(move || {
-            let result = older_window(&client, &cursor, Duration::from_secs(20))
+            let result = scope
+                .deadline
+                .checked_duration_since(Instant::now())
+                .ok_or_else(|| anyhow::anyhow!("native history read timed out"))
+                .and_then(|remaining| older_window(&client, &cursor, remaining, scope.bytes))
                 .map_err(|error| error.to_string());
             Completion::History {
                 pending: Box::new(envelope),
                 target,
                 cursor,
                 result,
+                scope,
             }
         });
         None
@@ -55,11 +101,13 @@ impl Owner {
         target: Target,
         cursor: HistoryCursor,
         result: Result<HistoryPage, String>,
+        mut scope: ReadScope,
     ) {
         self.history_busy = false;
         self.workers.actions_busy -= 1;
         let result = if target.matches(&self.session, self.client.kind()) {
             result.and_then(|page| {
+                scope.bytes = page.read_bytes();
                 self.session
                     .accept_history_window(&cursor, page)
                     .map_err(|error| error.to_string())
@@ -67,18 +115,27 @@ impl Owner {
         } else {
             Err("native history read retired with its original root or connection".into())
         };
-        let reply = match result {
+        match result {
             Ok(_) => {
                 self.publish();
-                let EngineCommand::History { before, limit } = &pending.command else {
-                    unreachable!("captured history read");
+                let pending = if matches!(pending.command, EngineCommand::Prompts(_)) {
+                    let Some(pending) = self.defer_history_with_scope(pending, scope) else {
+                        return;
+                    };
+                    pending
+                } else {
+                    pending
                 };
-                self.history(before, *limit)
-                    .unwrap_or_else(EngineReply::Failure)
+                let reply = match &pending.command {
+                    EngineCommand::History { before, limit } => self.history(before, *limit),
+                    EngineCommand::Prompts(command) => self.read_prompt(command),
+                    _ => unreachable!("captured history or prompt read"),
+                }
+                .unwrap_or_else(EngineReply::Failure);
+                finish(pending, reply);
             }
-            Err(error) => EngineReply::Failure(failure(error)),
+            Err(error) => finish(pending, EngineReply::Failure(failure(error))),
         };
-        finish(pending, reply);
         let _ = self.channels.notice.try_send(());
     }
 }

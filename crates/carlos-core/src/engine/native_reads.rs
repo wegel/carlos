@@ -15,7 +15,7 @@ use crate::session::codex::panel_scope::PanelScope;
 impl Owner {
     pub(super) fn read_native(&mut self, command: EngineCommand) -> Result<EngineReply, RpcError> {
         match command {
-            EngineCommand::Prompts(command) => self.read_prompt(command),
+            EngineCommand::Prompts(command) => self.read_prompt(&command),
             EngineCommand::TaskActivity(command) => self.read_task_activity(command),
             EngineCommand::TaskWindow(command) => self.read_task_window(command),
             EngineCommand::SettingsRead {
@@ -43,9 +43,9 @@ impl Owner {
         }
     }
 
-    fn read_prompt(
+    pub(super) fn read_prompt(
         &self,
-        command: crate::session::prompt_reads::PromptCommand,
+        command: &crate::session::prompt_reads::PromptCommand,
     ) -> Result<EngineReply, RpcError> {
         use crate::session::prompt_reads::PromptCommand;
         match command {
@@ -55,7 +55,7 @@ impl Owner {
                 direction,
             } => self
                 .session
-                .select_prompt(source, anchor.as_ref(), direction)
+                .select_prompt(*source, anchor.as_ref(), *direction)
                 .map(EngineReply::PromptSelection),
             PromptCommand::Text {
                 prompt,
@@ -63,7 +63,7 @@ impl Owner {
                 limit,
             } => self
                 .session
-                .prompt_text(&prompt, offset, limit)
+                .prompt_text(prompt, *offset, *limit)
                 .map(EngineReply::PromptText),
         }
     }

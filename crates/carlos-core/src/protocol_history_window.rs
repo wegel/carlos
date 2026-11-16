@@ -25,6 +25,7 @@ pub(crate) struct HistoryPage {
     pub(crate) thread: Value,
     pub(crate) older: Option<HistoryCursor>,
     pub(crate) visited: Vec<String>,
+    pub(crate) read_bytes: usize,
 }
 
 struct Window {
@@ -52,6 +53,7 @@ pub(crate) fn newest_window(
             thread: preferred_codex_thread(&complete, &thread)?,
             older: None,
             visited: Vec::new(),
+            read_bytes: reader.bytes,
         });
     };
     // Older projections retain complete native/rollout recovery.
@@ -66,6 +68,7 @@ pub(crate) fn newest_window(
         thread: preferred_codex_thread(&completed, &thread)?,
         older,
         visited: window.visited,
+        read_bytes: reader.bytes,
     })
 }
 
@@ -74,8 +77,10 @@ pub(crate) fn older_window(
     client: &dyn BackendClient,
     cursor: &HistoryCursor,
     timeout: Duration,
+    read_bytes: usize,
 ) -> Result<HistoryPage> {
     let mut reader = reader(client, cursor.thread.clone(), timeout);
+    reader.bytes = read_bytes;
     let window = reader
         .full_window(json!(cursor.next))?
         .context("Native history reader disappeared")?;
@@ -90,6 +95,7 @@ pub(crate) fn older_window(
         thread: extract_result_object(&completed)?["result"]["thread"].take(),
         older,
         visited: window.visited,
+        read_bytes: reader.bytes,
     })
 }
 
@@ -113,6 +119,7 @@ fn complete_compatibility(reader: &HistoryReader<'_>, response: &str) -> Result<
         thread: preferred_codex_thread(&complete, &reader.thread)?,
         older: None,
         visited: Vec::new(),
+        read_bytes: reader.bytes,
     })
 }
 

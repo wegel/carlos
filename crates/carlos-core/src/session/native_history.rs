@@ -64,6 +64,11 @@ impl SessionState {
         if end >= limit.clamp(1, 1000) {
             return Ok(None);
         }
+        self.native_history_cursor()
+    }
+
+    /// Capture the next native prefix after the caller validates its own prompt or row anchor.
+    pub(crate) fn native_history_cursor(&self) -> Result<Option<HistoryCursor>> {
         let Some(cursor) = &self.native_history.cursor else {
             return Ok(None);
         };

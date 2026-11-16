@@ -67,6 +67,28 @@ fn page(turns: Vec<Value>, next: Value) -> Value {
 }
 
 #[test]
+fn older_prompt_reads_keep_the_bytes_already_spent_on_earlier_windows() {
+    let peer = Peer::new(vec![(
+        "thread/turns/list",
+        page(vec![turn("one")], Value::Null),
+    )]);
+    let cursor = super::HistoryCursor {
+        thread: "root".into(),
+        next: "older".into(),
+    };
+    let error = older_window(
+        &peer,
+        &cursor,
+        Duration::from_secs(5),
+        crate::protocol_history::MAX_HISTORY_BYTES - 1,
+    )
+    .err()
+    .expect("original request byte allowance is exhausted");
+    assert!(error.to_string().contains("64 MiB"));
+    assert_eq!(peer.calls.borrow().len(), 1);
+}
+
+#[test]
 fn newest_window_reads_once_and_older_window_uses_the_original_native_cursor() {
     let peer = Peer::new(vec![
         (
@@ -84,7 +106,7 @@ fn newest_window_reads_once_and_older_window_uses_the_original_native_cursor() {
     assert_eq!(newest.thread["turns"][0]["id"], "three");
     let cursor = newest.older.expect("original older continuation");
     let older =
-        older_window(&peer, &cursor, Duration::from_secs(5)).expect("older complete window");
+        older_window(&peer, &cursor, Duration::from_secs(5), 0).expect("older complete window");
     assert_eq!(older.thread["turns"][0]["id"], "one");
     assert!(older.older.is_none());
     let calls = peer.calls.borrow();
@@ -155,7 +177,7 @@ fn invalid_items_and_repeated_native_continuations_fail_without_a_partial_page()
         ),
     ]);
     let cursor = peer.newest().expect("newest").older.expect("cursor");
-    let error = older_window(&peer, &cursor, Duration::from_secs(5))
+    let error = older_window(&peer, &cursor, Duration::from_secs(5), 0)
         .err()
         .expect("repeated cursor");
     assert!(error.to_string().contains("cursor"));

@@ -2,6 +2,20 @@
 
 
 class DaemonHistory:
+    def test_daemon_terminal_recalls_older_native_claude_prompts_without_scrolling_history(self):
+        _, native, _, _, _, terminal = self.claude_history_terminal("terminal-claude-recall")
+        terminal.paste("private draft before native recall 🌍")
+        terminal.send(b"\x1b[A" * 34)
+        terminal.wait(lambda: terminal.input_is("native Claude user 116 🌍"), "rapid Up keys cross the native window boundary")
+        self.assertEqual(len(native.requests()), 2)
+        terminal.send(b"\x1b[B" * 34)
+        terminal.wait(lambda: terminal.input_is("private draft before native recall 🌍"), "Down restores the exact private draft")
+        self.assertEqual(terminal.requests("session/history"), [])
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertEqual(terminal.requests("session/rewind"), [])
+        self.assertEqual(native.path.read_text(), native.original)
+        terminal.snapshot("native-prompt-recall-keeps-private-draft")
+
     def claude_history_terminal(self, name, hold=False):
         import sys
         from test_daemon_client import daemon_support

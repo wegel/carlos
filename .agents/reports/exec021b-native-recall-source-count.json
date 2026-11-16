@@ -1,0 +1,142 @@
+{
+  "baseline": {
+    "commit": "229378d7599e0dd508f9ce49e7eedb33a85e5ae3",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 385,
+        "nonblank": 48755,
+        "physical": 54729,
+        "bytes": 1847086
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8324,
+        "physical": 8915,
+        "bytes": 292403
+      },
+      "terminal": {
+        "files": 194,
+        "nonblank": 25603,
+        "physical": 29027,
+        "bytes": 952992
+      },
+      "helper": {
+        "files": 24,
+        "nonblank": 1708,
+        "physical": 1881,
+        "bytes": 91519
+      }
+    },
+    "total": {
+      "files": 763,
+      "nonblank": 97073,
+      "physical": 108289,
+      "bytes": 3648312
+    }
+  },
+  "native_recall": {
+    "commit": "working",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 385,
+        "nonblank": 48897,
+        "physical": 54880,
+        "bytes": 1852211
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8324,
+        "physical": 8915,
+        "bytes": 292403
+      },
+      "terminal": {
+        "files": 194,
+        "nonblank": 25603,
+        "physical": 29027,
+        "bytes": 952992
+      },
+      "helper": {
+        "files": 24,
+        "nonblank": 1708,
+        "physical": 1881,
+        "bytes": 91519
+      }
+    },
+    "total": {
+      "files": 763,
+      "nonblank": 97215,
+      "physical": 108440,
+      "bytes": 3653437
+    }
+  },
+  "delta_nonblank": 142,
+  "changes": {
+    "crates/carlos-core/src/claude_backend/history_window.rs": {
+      "added": 32,
+      "deleted": 12
+    },
+    "crates/carlos-core/src/codex_snapshot.rs": {
+      "added": 1,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/engine/history.rs": {
+      "added": 67,
+      "deleted": 13
+    },
+    "crates/carlos-core/src/engine/native_reads.rs": {
+      "added": 5,
+      "deleted": 5
+    },
+    "crates/carlos-core/src/engine/settle.rs": {
+      "added": 2,
+      "deleted": 3
+    },
+    "crates/carlos-core/src/engine/workers.rs": {
+      "added": 1,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/protocol_history_window.rs": {
+      "added": 7,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/history_window.rs": {
+      "added": 31,
+      "deleted": 2
+    },
+    "crates/carlos-core/src/session/native_history.rs": {
+      "added": 4,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/prompt_reads.rs": {
+      "added": 29,
+      "deleted": 2
+    }
+  },
+  "added_nonblank": 179,
+  "deleted_nonblank": 37,
+  "note": "Same production traversal and test exclusions as the accepted ledger. Compare the staged footer-only tree with the pending native prompt-recall piece. It reuses the bounded history worker, original envelope, native cursors, deadline and byte allowance. Both Rust configurations/lints and19 actual daemon cases pass; the actual terminal crosses a Claude window with rapid arrows and restores its private draft. Complete EP release/native/performance checks remain pending."
+}

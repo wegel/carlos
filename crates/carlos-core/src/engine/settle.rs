@@ -23,9 +23,8 @@ impl Owner {
                 target,
                 cursor,
                 result,
-            } => {
-                self.finish_history_read(*pending, target, cursor, result);
-            }
+                scope,
+            } => self.finish_history_read(*pending, target, cursor, result, scope),
             Completion::ClaudeReopened { operation, result } => {
                 self.finish_claude_reopen(operation, result)
             }

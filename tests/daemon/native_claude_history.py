@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 class NativeClaudeHistory:
-    def __init__(self, fixture, count=150, hidden=(), boundary_tool=False):
+    def __init__(self, fixture, count=150, hidden=(), boundary_tool=False, sources=None):
         self.fixture = fixture
         self.session = str(uuid.uuid4())
         self.rows = []
@@ -22,6 +22,8 @@ class NativeClaudeHistory:
                     "origin":{"kind":"human"}, "message":{"role":role, "content":content}})
         for index in hidden:
             self.rows[index].update(agent_id="private-child", parent_tool_use_id="child-call")
+        for index, source in (sources or {}).items():
+            self.rows[index*2]["origin"] = {"kind":source}
         if boundary_tool:
             self.rows[-65]["message"]["content"].append({"type":"tool_use", "id":"across-window",
                 "name":"Read", "input":{"file_path":"src/é.rs"}})

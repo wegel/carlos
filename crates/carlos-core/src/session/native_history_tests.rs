@@ -34,6 +34,7 @@ fn state() -> SessionState {
 }
 fn page(turns: Vec<Value>, next: Option<&str>) -> HistoryPage {
     HistoryPage {
+        read_bytes: 0,
         thread: json!({"id":"root","turns":turns}),
         older: next.map(cursor),
         visited: next.into_iter().map(str::to_owned).collect(),

@@ -133,6 +133,7 @@ fn initial_history(
             thread: fresh.clone(),
             older: None,
             visited: Vec::new(),
+            read_bytes: 0,
         });
     }
     newest_window(

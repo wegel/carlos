@@ -16,6 +16,7 @@ pub(super) enum Completion {
         target: super::target::Target,
         cursor: crate::session::history_window::HistoryCursor,
         result: Result<crate::session::history_window::HistoryPage, String>,
+        scope: super::history::ReadScope,
     },
     ClaudeReopened {
         operation: ClientOperation,

@@ -91,7 +91,7 @@ fn complete_chunked_window_keeps_native_records_and_original_snapshot() {
         make(split, bytes.len(), Value::Null, Value::Null),
     ]);
     let result =
-        older_window(&peer, &cursor(1), Duration::from_secs(1)).expect("whole native record");
+        older_window(&peer, &cursor(1), Duration::from_secs(1), 0).expect("whole native record");
     assert!(result.older.is_none());
     let facts: Vec<Value> = result
         .lines
@@ -120,7 +120,7 @@ fn archive_scope_holes_and_premature_exhaustion_are_read_errors() {
         result[field] = value;
         let peer = Peer::new(vec![result]);
         assert!(
-            older_window(&peer, &cursor(2), Duration::from_secs(1)).is_err(),
+            older_window(&peer, &cursor(2), Duration::from_secs(1), 0).is_err(),
             "invalid {field} accepted"
         );
         assert_eq!(peer.calls.borrow().len(), 1);
@@ -132,9 +132,24 @@ fn a_late_foreign_snapshot_discards_the_whole_unadopted_window() {
     let mut second = page(1, Value::Null);
     second["snapshotId"] = json!("foreign");
     let peer = Peer::new(vec![page(0, json!(1)), second]);
-    let error = older_window(&peer, &cursor(2), Duration::from_secs(1))
+    let error = older_window(&peer, &cursor(2), Duration::from_secs(1), 0)
         .err()
         .expect("late scope failure");
     assert!(error.to_string().contains("snapshot changed"));
     assert_eq!(peer.calls.borrow().len(), 2);
+}
+
+#[test]
+fn older_prompt_reads_keep_the_original_native_byte_allowance() {
+    let peer = Peer::new(vec![page(0, Value::Null)]);
+    let error = older_window(
+        &peer,
+        &cursor(1),
+        Duration::from_secs(1),
+        crate::protocol_history::MAX_HISTORY_BYTES - 1,
+    )
+    .err()
+    .expect("prior windows consumed the original request allowance");
+    assert!(error.to_string().contains("64 MiB"));
+    assert_eq!(peer.calls.borrow().len(), 1);
 }

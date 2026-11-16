@@ -5,6 +5,30 @@ from support import Client, Fixture, wait_for
 
 
 class NativeHistoryTests:
+    def test_codex_recall_crosses_windows_without_humans_and_does_not_search_unknown_sources(self):
+        from test_prompt_history import check_native_recall
+        fixture, peer, client, session, opened = self.native_history_fixture("recall-sparse")
+        self.assertEqual(client.outcome(opened)["state"]["kind"], "accepted")
+        for turn in peer.turns[:140]:
+            turn["items"] = [item for item in turn["items"] if item["type"] != "userMessage"]
+        # The newest window is already loaded; remove humans only from the unread middle.
+        unknown = client.call("prompt/select", session=session, source="unknown", anchor=None, direction="latest")
+        self.assertIsNone(unknown["record"])
+        self.assertEqual(len(peer.pages), 1, "Codex never exposes an unknown prompt source")
+        peer.turns[0]["items"].insert(0, {"type":"userMessage", "id":"user-0",
+            "content":[{"type":"text","text":"native user 0 🌍"}]})
+        check_native_recall(self, client, session, ["native user 0 🌍"] + [f"native user {i} 🌍" for i in range(140,240)])
+        self.assertEqual(len(peer.pages), 3)
+        self.assertEqual(fixture.native.prompts, 0)
+
+    def test_codex_native_recall_reads_all_humans_without_transcript_paging(self):
+        from test_prompt_history import check_native_recall
+        fixture, peer, client, session, opened = self.native_history_fixture("recall")
+        self.assertEqual(client.outcome(opened)["state"]["kind"], "accepted")
+        check_native_recall(self, client, session, [f"native user {index} 🌍" for index in range(240)])
+        self.assertEqual(len(peer.pages), 3)
+        self.assertEqual(fixture.native.prompts, 0)
+
     def native_history_fixture(self, name, empty=()):
         fixture = Fixture("native-history-" + name, codex=True)
         self.addCleanup(fixture.close)

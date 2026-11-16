@@ -7,6 +7,25 @@ from support import Client, Fixture, wait_for
 
 
 class ClaudeHistoryTests:
+    def test_claude_recall_finds_older_unknown_records_without_adopting_automatic_prompts(self):
+        from test_prompt_history import check_native_recall
+        sources = {index:"auto-continuation" for index in range(150)}
+        sources.update({0:"unclassified",40:"unclassified"})
+        _, native, client, session, _ = self.claude_history_fixture("recall-unknown", sources=sources)
+        self.assertEqual(len(native.requests()), 1)
+        check_native_recall(self, client, session, ["native Claude user 0 🌍","native Claude user 40 🌍"], source="unknown")
+        human = client.call("prompt/select", session=session, source="human", anchor=None, direction="latest")
+        self.assertIsNone(human["record"], "automatic and unclassified records cannot become human recall")
+        self.assertEqual(len(native.requests()), 5)
+        self.assertEqual(native.path.read_text(), native.original)
+
+    def test_claude_native_recall_reads_all_humans_without_transcript_paging(self):
+        from test_prompt_history import check_native_recall
+        _, native, client, session, _ = self.claude_history_fixture("recall")
+        check_native_recall(self, client, session, [f"native Claude user {index} 🌍" for index in range(150)])
+        self.assertEqual(len(native.requests()), 5)
+        self.assertEqual(native.path.read_text(), native.original)
+
     def claude_history_fixture(self, name, hold=False, **options):
         fixture = Fixture("claude-history-" + name)
         self.addCleanup(fixture.close)

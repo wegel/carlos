@@ -61,9 +61,38 @@ impl SessionState {
                 source,
                 bytes: ByteLength::new(record.text.len() as u64),
             }),
-            has_older: index.is_some_and(|index| index > 0),
+            has_older: index
+                .is_some_and(|index| index > 0 || self.prompt_has_native_history(source)),
             has_newer: index.is_some_and(|index| index + 1 < count),
         })
+    }
+
+    /// Keep human/unknown recall independent from transcript paging and other device cursors.
+    pub(crate) fn prompt_needs_history(&self, command: &PromptCommand) -> Result<bool, RpcError> {
+        let PromptCommand::Select {
+            source,
+            anchor,
+            direction,
+        } = command
+        else {
+            return Ok(false);
+        };
+        let selected = self.select_prompt(*source, anchor.as_ref(), *direction)?;
+        let stalled = match direction {
+            PromptDirection::Latest => selected.record.is_none(),
+            PromptDirection::Older => {
+                selected.record.as_ref().map(|record| &record.id) == anchor.as_ref()
+            }
+            PromptDirection::Newer => false,
+        };
+        Ok(stalled && self.prompt_has_native_history(*source))
+    }
+
+    fn prompt_has_native_history(&self, source: PromptSource) -> bool {
+        match source {
+            PromptSource::Human => self.has_older_native_history(),
+            PromptSource::Unknown => self.has_older_claude_history(),
+        }
     }
 
     /// Copy only the requested piece; a retired prompt cannot select a replacement with equal text.
@@ -138,7 +167,7 @@ impl SessionState {
     }
 }
 
-fn failure(message: &str) -> RpcError {
+pub(super) fn failure(message: &str) -> RpcError {
     RpcError {
         code: -32012,
         message: message.into(),

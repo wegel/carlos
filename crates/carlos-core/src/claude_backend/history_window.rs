@@ -22,6 +22,7 @@ pub(crate) struct HistoryCursor {
 pub(crate) struct HistoryPage {
     pub(crate) lines: Vec<String>,
     pub(crate) older: Option<HistoryCursor>,
+    pub(crate) read_bytes: usize,
 }
 
 #[derive(Default)]
@@ -35,11 +36,15 @@ pub(crate) fn older_window(
     client: &dyn BackendClient,
     cursor: &HistoryCursor,
     timeout: Duration,
+    read_bytes: usize,
 ) -> Result<HistoryPage> {
     let deadline = Instant::now() + timeout;
     let mut current = cursor.clone();
     let mut newer = Vec::new();
-    let mut bytes = WindowBytes::default();
+    let mut bytes = WindowBytes {
+        native: read_bytes,
+        facts: 0,
+    };
     loop {
         let (mut page, visible) = read_window(client, &current, deadline, &mut bytes)?;
         if visible || page.older.is_none() {
@@ -71,16 +76,7 @@ fn read_window(
             seen.insert(params.to_string()),
             "Claude history repeated a page or chunk"
         );
-        let remaining = deadline
-            .checked_duration_since(Instant::now())
-            .context("Claude history read timed out")?;
-        let reply = client.call("sessions.read", params.clone(), remaining)?;
-        bytes.native += reply.len();
-        ensure!(
-            bytes.native <= MAX_HISTORY_BYTES,
-            "Claude history window exceeds 64 MiB"
-        );
-        let result: Value = serde_json::from_str(&reply)?;
+        let result = bytes.read(client, params.clone(), deadline)?;
         let result = &result["result"];
         let offset = checked_window(cursor, result, &mut start)?;
         ensure!(
@@ -105,8 +101,33 @@ fn read_window(
                 end,
                 ..cursor.clone()
             });
-            return Ok((HistoryPage { lines, older }, decoder.has_entries));
+            let page = HistoryPage {
+                lines,
+                older,
+                read_bytes: bytes.native,
+            };
+            return Ok((page, decoder.has_entries));
         }
+    }
+}
+
+impl WindowBytes {
+    fn read(
+        &mut self,
+        client: &dyn BackendClient,
+        params: Value,
+        deadline: Instant,
+    ) -> Result<Value> {
+        let remaining = deadline
+            .checked_duration_since(Instant::now())
+            .context("Claude history read timed out")?;
+        let reply = client.call("sessions.read", params, remaining)?;
+        self.native = self.native.saturating_add(reply.len());
+        ensure!(
+            self.native <= MAX_HISTORY_BYTES,
+            "Claude history window exceeds 64 MiB"
+        );
+        Ok(serde_json::from_str(&reply)?)
     }
 }
 

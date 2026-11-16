@@ -39,7 +39,11 @@ fn page() -> HistoryPage {
         json!({"method":"item/completed","params":{"history":true,"sourceKey":{"sessionId":"root","kind":"assistant","id":"older-answer","block":0},
             "item":{"type":"agentMessage","id":"claude-msg-0-1-0","text":"older answer"}}}),
     ].into_iter().map(|line|line.to_string()).collect();
-    HistoryPage { lines, older: None }
+    HistoryPage {
+        lines,
+        older: None,
+        read_bytes: 0,
+    }
 }
 
 #[test]
