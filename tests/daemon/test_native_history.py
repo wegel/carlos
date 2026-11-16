@@ -5,6 +5,38 @@ from support import Client, Fixture, wait_for
 
 
 class NativeHistoryTests:
+    def test_codex_concurrent_older_reads_share_the_accepted_native_window(self):
+        fixture, peer, reader, session, opened = self.native_history_fixture("concurrent")
+        before = self.native_prefix_boundary(reader, session, opened)
+        other = Client(fixture, "second-prefix-reader")
+        self.addCleanup(other.close)
+        peer.pause = True
+        pending = reader.send("session/history", session=session, before=before, limit=100)
+        wait_for(lambda: peer.held, "first native prefix read held")
+        second = other.send("session/history", session=session, before=before, limit=100)
+        other.call("session/subscribe", session=session, since=None)
+        self.assertFalse(any(message.get("id") == second for message in other.messages),
+                         "a concurrent reader waits instead of receiving a queue-full error")
+        self.assertEqual(len(peer.pages), 2)
+        peer.release()
+        first_page = reader.response(pending)["result"]
+        self.assertEqual(other.response(second)["result"], first_page)
+        self.assertEqual(len(peer.pages), 2, "both readers use one native fetch")
+        self.assertEqual(fixture.native.prompts, 0)
+
+    def test_codex_skips_nonempty_native_windows_with_no_visible_rows(self):
+        fixture, peer, client, session, opened = self.native_history_fixture("unrendered")
+        self.assertEqual(client.outcome(opened)["state"]["kind"], "accepted")
+        for turn in peer.turns[40:140]:
+            turn["items"] = [{"type":"futureOpaqueItem", "id":"opaque-" + turn["id"]}]
+        before = self.native_prefix_boundary(client, session, opened)
+        page = client.call("session/history", session=session, before=before, limit=100)
+        self.assertTrue(page["entries"], "unrendered items cannot strand the public cursor")
+        self.assertEqual(page["entries"][0]["text"], "native user 0 🌍")
+        self.assertFalse(page["has_older"])
+        self.assertEqual(len(peer.pages), 3)
+        self.assertEqual(fixture.native.prompts, 0)
+
     def test_codex_held_native_history_keeps_other_readers_cached_cursors_independent(self):
         fixture, peer, reader, session, opened = self.native_history_fixture("two-readers")
         before = self.native_prefix_boundary(reader, session, opened)

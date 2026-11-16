@@ -2,20 +2,58 @@
 
 use std::time::{Duration, Instant};
 
-use super::mailbox::{full, Envelope};
+use super::mailbox::Envelope;
 use super::owner::{failure, Owner};
 use super::target::Target;
 use super::workers::Completion;
 use super::{EngineCommand, EngineReply};
 use crate::session::history_window::{older_window, HistoryCursor, HistoryPage};
 
-/// Keep repeated windows of one prompt request within its original time and byte allowance.
+/// Keep repeated windows of one read within its original time and byte allowance.
 pub(super) struct ReadScope {
     deadline: Instant,
     bytes: usize,
 }
 
+/// Retain the mailbox permit, deadline and original owner while another worker runs.
+pub(super) struct WaitingRead {
+    envelope: Envelope,
+    scope: ReadScope,
+    target: Target,
+}
+
 impl Owner {
+    pub(super) fn finish_waiting_history_reads(&mut self) {
+        // The mailbox permit bounds this list by the existing read count and byte budgets.
+        for _ in 0..self.history_waiters.len() {
+            let waiting = self.history_waiters.pop_front().expect("waiting read");
+            if waiting.scope.deadline <= Instant::now() {
+                finish(
+                    waiting.envelope,
+                    EngineReply::Failure(failure("native history read timed out")),
+                );
+            } else if !waiting.target.matches(&self.session, self.client.kind()) {
+                finish(
+                    waiting.envelope,
+                    EngineReply::Failure(failure(
+                        "native history read retired with its original root or connection",
+                    )),
+                );
+            } else if let Some(envelope) =
+                self.defer_history_with_scope(waiting.envelope, waiting.scope)
+            {
+                // An earlier accepted window may already satisfy this reader's original anchor.
+                let reply = match &envelope.command {
+                    EngineCommand::History { before, limit } => self.history(before, *limit),
+                    EngineCommand::Prompts(command) => self.read_prompt(command),
+                    _ => unreachable!("waiting history read"),
+                }
+                .unwrap_or_else(EngineReply::Failure);
+                finish(envelope, reply);
+            }
+        }
+    }
+
     pub(super) fn defer_history_read(&mut self, envelope: Envelope) -> Option<Envelope> {
         self.defer_history_with_scope(
             envelope,
@@ -64,7 +102,11 @@ impl Owner {
             return None;
         }
         if self.history_busy || self.workers.actions_busy >= 2 {
-            finish(envelope, EngineReply::Failure(full()));
+            self.history_waiters.push_back(WaitingRead {
+                envelope,
+                scope,
+                target: Target::capture(&self.session, self.client.kind()),
+            });
             return None;
         }
         let client = match self.client.capture_commands() {
@@ -116,9 +158,10 @@ impl Owner {
             Err("native history read retired with its original root or connection".into())
         };
         match result {
-            Ok(_) => {
+            Ok(added) => {
                 self.publish();
-                let pending = if matches!(pending.command, EngineCommand::Prompts(_)) {
+                let pending = if added == 0 || matches!(pending.command, EngineCommand::Prompts(_))
+                {
                     let Some(pending) = self.defer_history_with_scope(pending, scope) else {
                         return;
                     };

@@ -40,6 +40,7 @@ pub(super) struct Owner {
     pub(super) settings: Option<super::settings::PendingSettings>,
     pub(super) reopening: bool,
     pub(super) history_busy: bool,
+    pub(super) history_waiters: VecDeque<super::history::WaitingRead>,
     pub session: SessionState,
     pub client: Box<dyn BackendClient>,
     pub ring: EventRing,
@@ -71,6 +72,7 @@ impl Owner {
             settings: None,
             reopening: false,
             history_busy: false,
+            history_waiters: VecDeque::new(),
             session,
             client,
             native,
@@ -103,6 +105,7 @@ impl Owner {
             self.publish();
             self.finish_task_window_reads();
             self.finish_task_activity_reads();
+            self.finish_waiting_history_reads();
             for _ in 0..64 {
                 let Ok(envelope) = self.channels.reads.try_recv() else {
                     break;
