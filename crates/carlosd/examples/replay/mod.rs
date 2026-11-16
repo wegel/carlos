@@ -1,6 +1,7 @@
-//! Transfer bounded typed pages with a charged four-frame handoff and a real Unix socket.
+//! Transfer identical typed pages through four queued frames plus one active socket write.
 
 mod produce;
+mod websocket;
 
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
@@ -34,7 +35,15 @@ pub(super) struct Measured {
     pub wall_ms: f64,
 }
 
-pub(super) fn measure(session: SessionState) -> Result<Measured> {
+pub(super) fn measure(session: SessionState, transport: &str) -> Result<Measured> {
+    match transport {
+        "unix" => unix(session),
+        "websocket" => websocket::measure(session),
+        _ => anyhow::bail!("transport must be unix or websocket"),
+    }
+}
+
+fn unix(session: SessionState) -> Result<Measured> {
     let (mut writer, reader) = UnixStream::pair()?;
     socket2::SockRef::from(&writer).set_send_buffer_size(64 * 1024)?;
     let (frames, incoming) = mpsc::sync_channel::<Vec<u8>>(4);
@@ -61,17 +70,24 @@ fn consume(reader: UnixStream) -> Result<Measured> {
     let mut reader = BufReader::new(reader);
     let mut line = Vec::new();
     while reader.read_until(b'\n', &mut line)? != 0 {
-        let start = Instant::now();
-        let packet: Packet = serde_json::from_slice(&line)?;
-        measured.decode_ms += start.elapsed().as_secs_f64() * 1000.0;
-        match packet {
-            Packet::Snapshot(snapshot) => measured.rows += snapshot.entries.len(),
-            Packet::History(history) => measured.rows += history.entries.len(),
-            Packet::Output(_) => measured.outputs += 1,
-        }
-        measured.bytes += line.len();
-        measured.frames += 1;
+        measured.accept(&line)?;
         line.clear();
     }
     Ok(measured)
+}
+
+impl Measured {
+    fn accept(&mut self, bytes: &[u8]) -> Result<()> {
+        let start = Instant::now();
+        let packet: Packet = serde_json::from_slice(bytes)?;
+        self.decode_ms += start.elapsed().as_secs_f64() * 1000.0;
+        match packet {
+            Packet::Snapshot(snapshot) => self.rows += snapshot.entries.len(),
+            Packet::History(history) => self.rows += history.entries.len(),
+            Packet::Output(_) => self.outputs += 1,
+        }
+        self.bytes += bytes.len();
+        self.frames += 1;
+        Ok(())
+    }
 }

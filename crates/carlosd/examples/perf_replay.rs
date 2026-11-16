@@ -15,6 +15,7 @@ fn main() -> Result<()> {
         .map(|value| value.parse())
         .transpose()?
         .unwrap_or(1000);
+    let transport = std::env::args().nth(2).unwrap_or_else(|| "unix".into());
     let before = rss();
     let mut session = SessionState::new(
         "synthetic-0000000000000001".into(),
@@ -34,20 +35,20 @@ fn main() -> Result<()> {
     let after_apply = rss();
     let source_rows = session.messages().len();
     let source_bytes: usize = session.messages().iter().map(|row| row.text.len()).sum();
-    let measured = replay::measure(session)?;
+    let measured = replay::measure(session, &transport)?;
     assert_eq!(
         measured.rows, source_rows,
         "bounded pages transfer every source row once"
     );
     println!(
         "{}",
-        json!({"turns":turns,"seed":1,"tool_lines":24,"source_rows":source_rows,
+        json!({"turns":turns,"seed":1,"tool_lines":24,"transport":transport,"source_rows":source_rows,
         "source_bytes":source_bytes,"source_apply_ms":apply_ms,
         "publish_export_encode_ms":measured.encode_ms,"writer_wait_send_ms":measured.write_ms,
         "client_decode_ms":measured.decode_ms,"transfer_wall_ms":measured.wall_ms,
-        "wire_bytes":measured.bytes,"frames":measured.frames,"output_chunks":measured.outputs,
+        "payload_bytes":measured.bytes,"frames":measured.frames,"output_chunks":measured.outputs,
         "rss_kib":{"before":before,"after_apply":after_apply,"after_transfer":rss()},
-        "scope":"same core synthetic fixture, production page/output types, real Unix pipe; no native startup, manager admission or terminal render; concurrent costs overlap"})
+        "scope":"same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap"})
     );
     Ok(())
 }
