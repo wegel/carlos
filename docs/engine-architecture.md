@@ -1,6 +1,10 @@
 # Engine architecture: daemon and clients
 
-Status: EP016 through EP019b are complete and accepted. EP019b runs the terminal through the daemon and has removed the embedded runtime. Its final checks, measurements and reviews pass; root recorded delegated approval on 2026-11-15. PROGRAM_PLAN.md records the approval delegated by the owner for completed EPs and the separate restrictions on installation, merging and pushing.
+Status: EP016 through EP021a are complete and approved. The terminal runs through the daemon;
+local/network access and the shared checked panel readers pass their final checks and reviews.
+Root approved EP021a under the owner's grant on2026-11-16 at11:34:22 UTC. PROGRAM_PLAN.md
+records the exact source/evidence and the separate restrictions on installation, merging
+and pushing. EP021b is next; actual UniFFI/iPhone work remains EP022.
 
 This note records the design for splitting `carlos` into a daemon and several
 clients, and the reasons. Update it when a decision changes. Keep raw logs out.
@@ -198,8 +202,8 @@ Types:
 5. EP019a, complete and accepted by the owner: real backend handles and a headless daemon with basic commands and two concurrent clients. Sessions survive client disconnect. Tests prove bounded queues, ordered commands, priority controls and private recovery. Archived plan: `.agents/done/EXECPLAN_019a_headless_daemon.md`; evidence: `.agents/reports/exec019a-final-report.md`.
 6. EP019b, complete and approved under delegated authority: typed terminal controls and pure carlos-client preserve source/color/copy and every terminal workflow through the daemon. Commit cc2a5f5 separately deletes the embedded path. Final evidence and whole-roadmap review are in `.agents/reports/exec019b-final-report.md`; archived plan: `.agents/done/EXECPLAN_019b_terminal_client.md`.
 7. EP020, complete and approved under delegated authority: explicit stop/reopen releases owner slots while preserving saved conversations/private results; opt-in authenticated WebSockets share the same manager. Final source6a31fd059ad6f8f0e7e92b1f001bc765 passes complete gates and matched measurements. Both final Fable reviews and all remaining limits are in `.agents/reports/exec020-final-report.md`.
-8. EP021a: share panel read/paging rules in carlos-client, remove terminal copies and make daemon command admission exhaustive. Add the non-blocking partial-progress stall test and truthful write-return diagnostic label. Active plan: `.agents/execplans/EXECPLAN_021a_shared_panel_reads.md`.
-9. EP021b: paged native history, Grok approvals and richer tool summaries as data, after the common readers are checked. Write this plan after EP021a.
+8. EP021a: share panel read/paging rules in carlos-client, remove terminal copies and make daemon command admission exhaustive. Add the non-blocking partial-progress stall test and truthful write-return diagnostic label. Complete: `.agents/done/EXECPLAN_021a_shared_panel_reads.md`.
+9. EP021b: paged native history, Grok approvals and richer tool summaries as data, after the common readers are checked. Next: write `.agents/execplans/EXECPLAN_021b_native_phone_data.md` in full before code.
 10. EP022: UniFFI bindings, iOS packaging and the iPhone app. Compile on the remote Mac; see `docs/ios-build.md`.
 
 Only the next ExecPlan is written in full. Each later plan is written when the

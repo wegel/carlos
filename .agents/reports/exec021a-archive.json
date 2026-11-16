@@ -1,0 +1,8 @@
+{
+  "approved_at": "2026-11-16 11:34:22 UTC",
+  "authority": "owner delegated per-EP approval",
+  "plan": ".agents/done/EXECPLAN_021a_shared_panel_reads.md",
+  "sha256": "2104819e6ca9f8eb4f6648a2efdf2645d50a1778db4abadb240e2e3d51d632a0",
+  "source": "896435d22d03d85dba4cef0f58ba68e8",
+  "checked_head": "3ffd3eb378de1372dad614e8ddf5f4ea64c8981e"
+}
