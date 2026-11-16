@@ -92,6 +92,17 @@ impl TaskPanel {
         self.windows.pending.is_some()
     }
 
+    /// Report pending headers, pages, captured candidates or replies awaiting numbered facts.
+    pub fn is_reading(&self) -> bool {
+        self.refresh
+            || self.reads.header.is_some()
+            || self.reads.page.is_some()
+            || self.reads.future_header.is_some()
+            || self.reads.future_page.is_some()
+            || self.windows.pending.is_some()
+            || !self.pages.is_settled()
+    }
+
     /// Report the count checked against the existing native task-list allowance.
     pub fn count(&self) -> usize {
         self.count

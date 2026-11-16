@@ -27,6 +27,8 @@ else
   cargo build
 fi
 
+export CARLOS_PANEL_CONSUMER="$(python3 tests/daemon/build_panel_consumer.py "$profile")"
+
 # The Claude terminal fixtures exercise the compiled SDK controller, never a stub helper.
 bash scripts/build-claude-controller.sh
 
