@@ -73,3 +73,23 @@ Versus the staged footer-only tree, this piece adds179/deletes37 nonblank produc
 The full-replay proof exposes an inherited translator bug: every saved user reuses one item id, and answers remain open across later users. A180-turn native replay therefore keeps only the final user plus one concatenated answer. The adapter now gives each text row a fresh private item id, independent from native turn numbering, and closes rows at native role/tool/message-id boundaries. Chunks of one message still join. Native optional messageId is held only for the current text boundary, without another history map. Move existing text handlers into their own module to preserve the400-line cap.
 
 Versus1347891, this piece adds193/deletes141 nonblank production lines, net52, all Core. Total97267,2397 above EP021a. exec021b-grok-replay-source-count.json retains file counts. All360 exact native rows now survive the original one ACP load, with normal stored-row pages after Ready. Six actual Grok daemon cases pass in1.994s; four actual terminal replay/permission/follow-up/startup cases pass in2.164s. Full Rust and new boundary tests pass. Both full Rust configurations and both strict lints now pass, as do400/60/fmt/diff checks. The full EP release/native/performance gate remains pending. No wire/client/helper family or native paging method was added.
+
+
+## End-review corrections
+
+Fable's end review identified concurrent older-read failures, duplicated restore reducers,
+and Grok error paths. Waiting read envelopes now retain the existing mailbox permit,
+original deadline and native target. Zero-row projected windows continue under the same
+scope. Codex full/prefix restores share one reducer, with newest-first missing child
+reports that preserve newer state. Claude's scratch/live boundary is explicit and tested.
+Grok retires cards even when cancel writes/enqueues fail; native reader rejections enqueue
+without waiting, and the writer closes its owned process on asynchronous I/O errors.
+
+Versus46c6367 (includingf00b92e), this piece adds147/deletes71 nonblank production lines,
+net76, allCore, including5 explanatory Claude policy comment lines. Total97343,2473 above
+EP021a. exec021b-review-corrections-source-count.json retains per-file counts and the
+unchanged production traversal/test exclusions. No wire/client/helper family was added.
+Full/paged exported-state comparisons, live Claude bookkeeping, both backend concurrent
+readers, queued-reader stop, exact terminal history/private draft and broken native cancel
+checks pass. The existing fallback-name table now covers every recognized name.
+The corrected complete release/native gate and fresh matching measurements remain pending.

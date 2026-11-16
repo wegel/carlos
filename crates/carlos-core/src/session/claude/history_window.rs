@@ -73,6 +73,11 @@ impl SessionState {
 
     fn prepend_claude_history(&mut self, lines: Vec<String>) -> Result<usize> {
         // This is a pure scratch model: no backend, threads, timers or transport are created.
+        // The archive decoder emits records, classified prompts and historical item facts,
+        // never current task membership, callbacks or turn lifecycle. Move the transcript
+        // (including tool facts, labels and per-row completion) and native prompt records.
+        // Keep the owner's live turn/status, tasks, command overrides and completion guards;
+        // scratch bookkeeping must not retire current work or replace newer native state.
         let mut prefix = SessionState::new(self.thread_id().clone(), Default::default(), false);
         prefix.enable_claude();
         prefix.set_client_identity(Backend::Claude, String::new());

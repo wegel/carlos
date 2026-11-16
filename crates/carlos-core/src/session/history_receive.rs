@@ -6,6 +6,11 @@ use super::item_history_draft::{HistoryDraft, HistoryRecord};
 use super::state::SessionState;
 use crate::session::models::MessageKind;
 
+pub(super) enum RestoreMode<'a> {
+    Replace(&'a mut ItemChanges),
+    Prepend,
+}
+
 impl SessionState {
     /// Adopt all rows before restoring prompt, tool and turn facts in native order.
     pub(crate) fn replace_native_history(
@@ -24,16 +29,23 @@ impl SessionState {
             self.record_historical_turn_status(&turn, status);
         }
         for record in draft.records {
-            self.restore_history_record(&mut changes, record);
+            self.restore_history_record(record, RestoreMode::Replace(&mut changes));
         }
         self.restore_turn_boundary();
         changes
     }
 
-    fn restore_history_record(&mut self, changes: &mut ItemChanges, record: HistoryRecord) {
+    pub(super) fn restore_history_record(
+        &mut self,
+        mut record: HistoryRecord,
+        mode: RestoreMode<'_>,
+    ) {
         self.replace_codex_item_turn(record.turn.clone());
-        super::codex::panel_events::report(self, &record.item);
-        for (index, row, describe) in record.updates {
+        match &mode {
+            RestoreMode::Replace(_) => super::codex::panel_events::report(self, &record.item),
+            RestoreMode::Prepend => {} // The prefix visits reports newest first before this pass.
+        }
+        for (index, row, describe) in std::mem::take(&mut record.updates) {
             self.transcript_update(index, row.role, Some(row.text), row.kind, row.file_path);
             if describe {
                 self.describe_tool_output(
@@ -48,12 +60,18 @@ impl SessionState {
                 self.describe_tool_facts(index, &record.item);
             }
         }
-        for (index, text) in record.prompts {
-            super::item_receive::record_prompt(self, changes, &text, Some(index));
+        if let RestoreMode::Replace(changes) = mode {
+            for (index, text) in &record.prompts {
+                super::item_receive::record_prompt(self, changes, text, Some(*index));
+            }
         }
         if record.observe {
             super::item_receive::receive_summary(self, &record.item, false);
         }
+        self.restore_history_identity(&record);
+    }
+
+    fn restore_history_identity(&mut self, record: &HistoryRecord) {
         let Some(id) = record.item["id"].as_str() else {
             return;
         };

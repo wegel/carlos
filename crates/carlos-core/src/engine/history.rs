@@ -25,7 +25,8 @@ pub(super) struct WaitingRead {
 impl Owner {
     pub(super) fn finish_waiting_history_reads(&mut self) {
         // The mailbox permit bounds this list by the existing read count and byte budgets.
-        for _ in 0..self.history_waiters.len() {
+        let count = self.history_waiters.len();
+        for _ in 0..count {
             let waiting = self.history_waiters.pop_front().expect("waiting read");
             if waiting.scope.deadline <= Instant::now() {
                 finish(
@@ -51,6 +52,9 @@ impl Owner {
                 .unwrap_or_else(EngineReply::Failure);
                 finish(envelope, reply);
             }
+        }
+        if self.history_waiters.len() != count {
+            let _ = self.channels.notice.try_send(());
         }
     }
 

@@ -7,6 +7,23 @@ from support import Client, Fixture, wait_for
 
 
 class ClaudeHistoryTests:
+    def test_claude_concurrent_older_readers_keep_their_anchors_and_share_one_window(self):
+        fixture, native, reader, session, snapshot = self.claude_history_fixture("concurrent", hold=True)
+        before = snapshot["entries"][0]["id"]
+        pending = reader.send("session/history", session=session, before=before, limit=50)
+        wait_for(lambda: (fixture.root / "history-held").exists(), "original SDK read held")
+        other = Client(fixture, "second-claude-history-reader")
+        self.addCleanup(other.close)
+        waiting = other.send("session/history", session=session, before=before, limit=50)
+        other.call("session/subscribe", session=session, since=None)
+        self.assertFalse(any(message.get("id") == waiting for message in other.messages),
+                         "concurrent SDK read waits rather than failing busy")
+        (fixture.root / "release-history").write_text("release")
+        first_page = reader.response(pending)["result"]
+        self.assertEqual(other.response(waiting)["result"], first_page)
+        self.assertEqual(len(native.requests()), 2)
+        self.assertEqual(native.path.read_text(), native.original)
+
     def test_claude_recall_finds_older_unknown_records_without_adopting_automatic_prompts(self):
         from test_prompt_history import check_native_recall
         sources = {index:"auto-continuation" for index in range(150)}

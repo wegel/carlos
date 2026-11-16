@@ -50,6 +50,15 @@ pub fn event(
 
 /// Retain bounded child report bodies in F2, including those embedded in root collaboration tools.
 pub fn report(session: &mut SessionState, item: &Value) {
+    retain_reports(session, item, true);
+}
+
+/// Fill older reports without overwriting a report from newer history or live events.
+pub(in crate::session) fn report_older(session: &mut SessionState, item: &Value) {
+    retain_reports(session, item, false);
+}
+
+fn retain_reports(session: &mut SessionState, item: &Value, replace: bool) {
     if !session.codex_scope().enabled() || item["type"] != "collabAgentToolCall" {
         return;
     }
@@ -57,6 +66,9 @@ pub fn report(session: &mut SessionState, item: &Value) {
         return;
     };
     for (id, state) in states {
+        if !replace && session.codex_panel.reports.contains_key(id) {
+            continue;
+        }
         if id.is_empty() || id.len() > 4096 || state.to_string().len() > 64 * 1024 {
             continue;
         }

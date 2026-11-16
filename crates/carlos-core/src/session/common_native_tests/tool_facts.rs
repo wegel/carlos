@@ -111,8 +111,22 @@ fn diff_counts_keep_known_zero_and_native_diff_exit_one_is_success() {
 fn tool_calls_keep_their_native_kind_before_a_result_exists() {
     for (name, kind) in [
         ("Read", ToolKind::Read),
+        ("read_file", ToolKind::Read),
         ("Grep", ToolKind::Search),
+        ("rg", ToolKind::Search),
+        ("search", ToolKind::Search),
+        ("Glob", ToolKind::Search),
+        ("find", ToolKind::Search),
+        ("codesearch", ToolKind::Search),
+        ("semeja", ToolKind::Search),
         ("Edit", ToolKind::Edit),
+        ("Write", ToolKind::Edit),
+        ("applypatch", ToolKind::Edit),
+        ("apply_patch", ToolKind::Edit),
+        ("replace", ToolKind::Edit),
+        ("Bash", ToolKind::Command),
+        ("shell", ToolKind::Command),
+        ("exec_command", ToolKind::Command),
     ] {
         let mut core = session("root");
         notify(

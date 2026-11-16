@@ -2,6 +2,56 @@
 
 
 class DaemonHistory:
+    def test_daemon_terminal_shares_a_held_older_read_and_crosses_unrendered_native_items(self):
+        import sys
+        from test_daemon_client import daemon_support
+        from native_history_windows import NativeHistoryWindows
+        runner = sys.modules[type(self).__module__]
+        daemon_support.BINARY = runner.BINARY.parent / "carlosd"
+        daemon_support.ARTIFACTS = runner.ARTIFACTS / "daemon"
+        fixture = daemon_support.Fixture("terminal-concurrent-native-history", codex=True)
+        self.addCleanup(fixture.close)
+        peer = NativeHistoryWindows(fixture.native)
+        client = daemon_support.Client(fixture, "other-history-reader")
+        self.addCleanup(client.close)
+        opened = client.operation(1)
+        session = client.call("session/open", operation=opened, backend="codex", cwd=str(fixture.root),
+                              target={"kind":"resume", "address":fixture.native.thread_id})["session"]
+        self.assertEqual(client.outcome(opened)["state"]["kind"], "accepted")
+        for turn in peer.turns[40:140]:
+            turn["items"] = [{"type":"futureOpaqueItem", "id":"opaque-" + turn["id"]}]
+        snapshot = client.call("session/subscribe", session=session, since=None)["snapshot"]
+        cached = client.call("session/history", session=session, before=snapshot["entries"][0]["id"], limit=100)
+        peer.pause = True
+        pending = client.send("session/history", session=session, before=cached["entries"][0]["id"], limit=100)
+        daemon_support.wait_for(lambda: peer.held, "other device holds the native read")
+        terminal = self.attach_daemon(fixture, session, "concurrent-native-history")
+        terminal.contains("native answer 239 🌍")
+        for count in (1, 2):
+            terminal.send(b"\x1b[H")
+            terminal.wait(lambda: len(terminal.requests("session/history")) == count, "terminal requests older page")
+            if count == 1:
+                terminal.wait(lambda: any(message.get("id") == terminal.requests("session/history")[0]["id"]
+                              for message in terminal.messages("server")), "cached page arrives")
+                terminal.resize(90, 40)
+        terminal.paste("private draft during shared read 🌍")
+        terminal.wait(lambda: terminal.input_is("private draft during shared read 🌍"), "private draft while shared read waits")
+        self.assertEqual(len(peer.pages), 2, "one shared native fetch remains held")
+        peer.release()
+        self.assertTrue(client.response(pending)["result"]["entries"])
+        def oldest_visible():
+            if "native user 0 🌍" in terminal.text:
+                return True
+            terminal.send(b"\x1b[5~")
+            return False
+        terminal.wait(oldest_visible, "terminal crosses opaque native items without a stale page")
+        self.assertTrue(terminal.input_is("private draft during shared read 🌍"))
+        self.assertNotIn("queue is full", terminal.text)
+        self.assertEqual(len(peer.pages), 3)
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertEqual(fixture.native.prompts, 0)
+        terminal.snapshot("shared-native-history-reaches-oldest-with-private-draft")
+
     def test_daemon_terminal_recalls_older_native_claude_prompts_without_scrolling_history(self):
         _, native, _, _, _, terminal = self.claude_history_terminal("terminal-claude-recall")
         terminal.paste("private draft before native recall 🌍")

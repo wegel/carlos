@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 
 use crate::claude_backend::history_window::{HistoryCursor, HistoryPage};
 use crate::session::events::Change;
-use crate::session::models::Role;
+use crate::session::models::{Role, TurnStatus};
 use crate::session::state::SessionState;
 
 fn state() -> SessionState {
@@ -129,4 +129,43 @@ fn invalid_newest_metadata_preserves_the_original_older_cursor() {
             Some(cursor())
         );
     }
+}
+
+#[test]
+fn archive_adoption_keeps_live_bookkeeping_and_carries_only_historical_row_facts() {
+    let mut state = state();
+    state.set_active_turn_id(Some("live-turn".into()));
+    state.record_historical_turn_status("live-turn", TurnStatus::InProgress);
+    let key = state.backend_entry_key("live-command");
+    state.set_command_override(&key, "newer command label".into());
+    state.mark_item_completed(&state.backend_entry_key("completed-live-item"));
+    state
+        .update_claude_task(&json!({"subtype":"task_started","task_id":"live-task","run_id":"run"}))
+        .expect("current native task");
+    let statuses = state.turn_status_by_id.clone();
+    let overrides = state.command_render_overrides.clone();
+    let completed = state.completed_item_ids.clone();
+    let tasks = serde_json::to_value(state.export_tasks()).expect("task facts");
+    state
+        .accept_older_claude_history(&cursor(), page())
+        .expect("archive prefix");
+    assert_eq!(state.active_turn_id().as_deref(), Some("live-turn"));
+    assert_eq!(state.turn_status_by_id, statuses);
+    assert_eq!(state.command_render_overrides, overrides);
+    assert_eq!(
+        state.completed_item_ids, completed,
+        "archive keys do not replace live guards"
+    );
+    assert_eq!(
+        serde_json::to_value(state.export_tasks()).expect("task facts"),
+        tasks
+    );
+    assert!(
+        state.messages().is_complete(state.messages()[1].id),
+        "completed archive answer is carried with its row"
+    );
+    assert!(
+        !state.messages().is_complete(state.messages()[2].id),
+        "live answer remains active"
+    );
 }
