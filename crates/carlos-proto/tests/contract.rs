@@ -62,11 +62,11 @@ fn source_byte_positions_and_lengths_preserve_all_bits_as_decimal_strings() {
 #[test]
 fn requests_roundtrip_and_enforce_rpc_version() {
     let value = json!({"jsonrpc":"2.0","id":"hello-1","method":"hello",
-        "params":{"protocol":1,"client":"test","token":"device-token"}});
+        "params":{"protocol":1,"client":"test","token":format!("{}.{}", "a".repeat(32), "b".repeat(64))}});
     let request: Request = from_value(value.clone()).expect("request");
     assert!(matches!(
         request.command,
-        Command::Hello { protocol: 1, .. }
+        Command::Hello(carlos_proto::commands::Hello { protocol: 1, .. })
     ));
     assert_eq!(to_value(request).expect("encode"), value);
     let mut bad = value;

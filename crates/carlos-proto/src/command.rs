@@ -2,8 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::command_types::{ApprovalAnswer, SendPolicy};
-use crate::ids::{ClientId, DaemonId, EntryId, ResumeToken, Sequence, SessionId, TurnId};
+use crate::command_types::{ApprovalAnswer, Hello, SendPolicy};
+use crate::ids::{EntryId, Sequence, SessionId, TurnId};
 use crate::output::OutputCursor;
 use crate::session::Backend;
 use crate::startup::NativeLaunchOptions;
@@ -13,6 +13,12 @@ use crate::submissions::{ClientOperation, SessionOperation};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "method", content = "params")]
 pub enum Command {
+    #[serde(rename = "device/add")]
+    DeviceAdd(crate::devices::DeviceAdd),
+    #[serde(rename = "device/revoke")]
+    DeviceRevoke(crate::devices::DeviceRevoke),
+    #[serde(rename = "device/list")]
+    DeviceList {},
     #[serde(rename = "session/stop")]
     Stop(SessionOperation),
     #[serde(rename = "session/reopen")]
@@ -269,18 +275,7 @@ pub enum Command {
         expected: crate::ids::GoalRevision,
     },
     #[serde(rename = "hello")]
-    Hello {
-        protocol: u32,
-        client: String,
-        #[serde(default)]
-        token: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        resume: Option<ClientId>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        resume_token: Option<ResumeToken>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        instance: Option<DaemonId>,
-    },
+    Hello(Hello),
     #[serde(rename = "sessions/watch")]
     Watch {},
     #[serde(rename = "session/create")]

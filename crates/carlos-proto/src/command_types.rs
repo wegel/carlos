@@ -1,11 +1,40 @@
 //! Preserve typed command answers and transport replies independently of the command method list.
 
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::events::SessionEvent;
 use crate::ids::{ClientId, DaemonId, OperationId, ResumeToken, Sequence};
 use crate::session::{Decision, SessionInfo, Snapshot};
+
+/// Greet once with device access and optional independent private retry credentials.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Hello {
+    pub protocol: u32,
+    pub client: String,
+    #[serde(default)]
+    pub token: crate::devices::AccessToken,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resume: Option<ClientId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resume_token: Option<ResumeToken>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instance: Option<DaemonId>,
+}
+
+impl fmt::Debug for Hello {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Hello")
+            .field("protocol", &self.protocol)
+            .field("client", &self.client)
+            .field("resume", &self.resume)
+            .field("instance", &self.instance)
+            .finish_non_exhaustive()
+    }
+}
 
 /// Explicitly steer running work or queue text for a later turn.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

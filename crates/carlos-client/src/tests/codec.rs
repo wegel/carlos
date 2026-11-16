@@ -62,14 +62,14 @@ fn requests_keep_their_rpc_version_and_private_failure_shape_is_explicit() {
 fn escaped_request_growth_and_stream_overflow_fail_before_retaining_oversized_bytes() {
     let huge = codec::request(
         RequestId::Integer(1),
-        Command::Hello {
+        Command::Hello(carlos_proto::commands::Hello {
             protocol: 1,
             client: "\0".repeat(1024 * 1024),
-            token: String::new(),
+            token: Default::default(),
             resume: None,
             resume_token: None,
             instance: None,
-        },
+        }),
     );
     assert!(matches!(
         codec::encode(&huge),

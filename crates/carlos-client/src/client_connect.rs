@@ -10,7 +10,16 @@ use crate::{ClientError, ConnectionId, Outbound, Welcome};
 impl Client {
     /// Start a fresh socket generation and offer private retry rights in its greeting.
     pub fn begin(&mut self, name: String) -> Result<Outbound, ClientError> {
-        let (connection, hello) = self.connection.begin(name)?;
+        self.begin_with_token(name, carlos_proto::devices::AccessToken::default())
+    }
+
+    /// Greet a network daemon with explicit device access, without owning or replaying a socket.
+    pub fn begin_with_token(
+        &mut self,
+        name: String,
+        token: carlos_proto::devices::AccessToken,
+    ) -> Result<Outbound, ClientError> {
+        let (connection, hello) = self.connection.begin_with_token(name, token)?;
         self.current = Some(connection);
         match self.requests.issue(connection, hello, Kind::Hello) {
             Ok(outgoing) => Ok(outgoing),

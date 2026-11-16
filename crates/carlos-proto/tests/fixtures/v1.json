@@ -7,7 +7,32 @@
       "params": {
         "protocol": 1,
         "client": "test",
-        "token": "token"
+        "token": ""
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "device-add",
+      "method": "device/add",
+      "params": {
+        "operation": {"client": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "id": "1"},
+        "device": {"id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "name": "Phone"},
+        "verifier": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "device-list",
+      "method": "device/list",
+      "params": {}
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "device-revoke",
+      "method": "device/revoke",
+      "params": {
+        "operation": {"client": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "id": "2"},
+        "device": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       }
     },
     {

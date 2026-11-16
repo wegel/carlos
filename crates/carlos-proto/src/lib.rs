@@ -7,6 +7,7 @@ mod command;
 mod command_types;
 pub mod commands;
 pub mod context_defaults;
+pub mod devices;
 pub mod events;
 pub mod goals;
 pub mod identity;

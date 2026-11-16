@@ -1,6 +1,7 @@
 //! Retain private retry rights across socket reconnects without owning a socket or resending work.
 
-use carlos_proto::commands::{Command, HelloResult};
+use carlos_proto::commands::{Command, Hello, HelloResult};
+use carlos_proto::devices::AccessToken;
 use carlos_proto::ids::{ClientId, DaemonId, OperationId, ResumeToken};
 use carlos_proto::submissions::ClientOperation;
 
@@ -44,6 +45,15 @@ pub struct Connection {
 impl Connection {
     /// Begin one fresh transport generation and offer existing private retry rights, if any.
     pub fn begin(&mut self, name: String) -> Result<(ConnectionId, Command), ClientError> {
+        self.begin_with_token(name, AccessToken::default())
+    }
+
+    /// Supply device access separately from the retained private retry credential on each socket.
+    pub fn begin_with_token(
+        &mut self,
+        name: String,
+        token: AccessToken,
+    ) -> Result<(ConnectionId, Command), ClientError> {
         if self.phase != Phase::Disconnected || name.len() > 256 {
             return Err(ClientError::InvalidConnection);
         }
@@ -56,14 +66,14 @@ impl Connection {
         let old = self.credential.as_ref();
         Ok((
             ConnectionId(generation),
-            Command::Hello {
+            Command::Hello(Hello {
                 protocol: carlos_proto::PROTOCOL_VERSION,
                 client: name,
-                token: String::new(),
+                token,
                 resume: old.map(|value| value.client.clone()),
                 resume_token: old.map(|value| value.token.clone()),
                 instance: old.map(|value| value.instance.clone()),
-            },
+            }),
         ))
     }
 

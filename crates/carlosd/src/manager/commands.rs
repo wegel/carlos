@@ -3,7 +3,7 @@
 use std::os::unix::ffi::OsStrExt;
 use std::time::Instant;
 
-use carlos_proto::commands::{check_protocol, Command, Request, RequestId, Sessions};
+use carlos_proto::commands::{check_protocol, Command, Hello, Request, RequestId, Sessions};
 use carlos_proto::submissions::{OperationResult, OperationState};
 
 use super::Manager;
@@ -16,7 +16,7 @@ impl Manager {
         let Some(connection) = self.peers.get(&peer) else {
             return;
         };
-        if matches!(command, Command::Hello { .. }) {
+        if matches!(command, Command::Hello(_)) {
             self.hello(peer, id, command);
             return;
         }
@@ -77,14 +77,14 @@ impl Manager {
     }
 
     fn hello(&mut self, peer: u64, id: RequestId, command: Command) {
-        let Command::Hello {
+        let Command::Hello(Hello {
             protocol,
             client,
             token,
             resume,
             resume_token,
             instance,
-        } = command
+        }) = command
         else {
             unreachable!()
         };

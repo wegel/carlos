@@ -88,6 +88,11 @@ fn known_method(method: &str) -> bool {
             | "entry/source/subscribe"
             | "entry/source/unsubscribe"
     ) || known_saved_method(method)
+        || known_operator_method(method)
+}
+
+fn known_operator_method(method: &str) -> bool {
+    matches!(method, "device/add" | "device/list" | "device/revoke")
 }
 
 fn known_saved_method(method: &str) -> bool {

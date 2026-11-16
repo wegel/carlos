@@ -2,7 +2,8 @@
 
 pub use crate::command::Command;
 pub use crate::command_types::{
-    ApprovalAnswer, FieldAnswer, FieldAnswers, HelloResult, SendPolicy, Sessions, SubscribeResult,
+    ApprovalAnswer, FieldAnswer, FieldAnswers, Hello, HelloResult, SendPolicy, Sessions,
+    SubscribeResult,
 };
 pub use crate::rpc::{check_protocol, Failure, Request, RequestId, RpcError, RpcVersion, Success};
 pub use crate::submissions::SessionOperation;

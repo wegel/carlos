@@ -1,6 +1,6 @@
 //! Check private resume rights, late socket callbacks and counter exhaustion without a transport.
 
-use carlos_proto::commands::{Command, HelloResult};
+use carlos_proto::commands::{Command, Hello, HelloResult};
 use carlos_proto::ids::OperationId;
 
 use crate::{Connection, Welcome};
@@ -23,7 +23,10 @@ pub(super) fn hello() -> HelloResult {
 fn reconnect_keeps_unadmitted_counters_and_ignores_old_socket_callbacks() {
     let mut connection = Connection::default();
     let (first, command) = connection.begin("terminal".into()).expect("begin");
-    assert!(matches!(command, Command::Hello { resume: None, .. }));
+    assert!(matches!(
+        command,
+        Command::Hello(Hello { resume: None, .. })
+    ));
     assert_eq!(
         connection.accept(first, hello()).expect("greet"),
         Welcome::Fresh
@@ -43,12 +46,12 @@ fn reconnect_keeps_unadmitted_counters_and_ignores_old_socket_callbacks() {
     connection.disconnect(first);
     assert!(connection.next_operation(first).is_err());
     let (second, command) = connection.begin("terminal".into()).expect("reconnect");
-    let Command::Hello {
+    let Command::Hello(Hello {
         resume,
         resume_token,
         instance,
         ..
-    } = command
+    }) = command
     else {
         panic!("hello");
     };
@@ -93,6 +96,29 @@ fn a_claimed_resume_cannot_change_its_identity_secret_or_daemon() {
         assert!(connection.accept(second, changed).is_err());
         assert!(!connection.is_ready(second));
     }
+}
+
+#[test]
+fn device_access_is_resupplied_without_replacing_private_retry_rights() {
+    let token: carlos_proto::devices::AccessToken =
+        format!("{}.{}", "a".repeat(32), "b".repeat(64))
+            .parse()
+            .expect("device token");
+    let mut connection = Connection::default();
+    let (first, _) = connection
+        .begin_with_token("phone".into(), token.clone())
+        .expect("begin");
+    connection.accept(first, hello()).expect("greet");
+    connection.disconnect(first);
+    let (_, command) = connection
+        .begin_with_token("phone".into(), token.clone())
+        .expect("reconnect");
+    let Command::Hello(greeting) = command else {
+        panic!("hello")
+    };
+    assert_eq!(greeting.token, token);
+    assert_eq!(greeting.resume, Some(hello().client));
+    assert_eq!(greeting.resume_token, Some(hello().resume_token));
 }
 
 #[test]
