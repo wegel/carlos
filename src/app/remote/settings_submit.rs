@@ -9,6 +9,7 @@ use super::Device;
 impl Device {
     pub(super) fn drive_settings_save(&mut self, link: &mut Transport) -> Result<bool> {
         if self.settings.operation.is_some()
+            || self.settings.appearance_save.is_some()
             || self.settings.submitted.is_none()
             || !self.client.session_is_ready(link.connection, &self.session)
         {

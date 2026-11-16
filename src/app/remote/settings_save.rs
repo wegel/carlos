@@ -10,7 +10,7 @@ use super::Device;
 
 impl Device {
     pub(super) fn save_settings(&mut self, link: Option<&mut Transport>) -> Result<()> {
-        if self.settings.submitted.is_some() || self.settings.appearance_save.is_some() {
+        if self.settings.submitted.is_some() {
             self.settings.error =
                 Some("A settings save is still pending; your draft is kept".into());
             return Ok(());
@@ -34,6 +34,10 @@ impl Device {
                 self.settings.error = Some(error.to_string());
                 return Ok(());
             }
+        }
+        if self.settings.appearance_save.is_some() {
+            self.settings.error =
+                Some("Finishing the previous save; these choices are queued".into());
         }
         self.drive_settings_save(link)?;
         Ok(())

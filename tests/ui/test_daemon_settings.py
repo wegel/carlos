@@ -223,11 +223,20 @@ class DaemonSettings:
         terminal.paste("typing during a device file wait 日本語")
         terminal.wait(lambda:terminal.input_is("typing during a device file wait 日本語"), "device disk wait keeps typing responsive", timeout=1)
         self.assertEqual(json.loads(device.read_text()), {"keep":"old field"})
+        self.open_daemon_settings(terminal)
+        terminal.send(b"\x1b[C\r")
+        terminal.contains("Finishing the previous save; these choices are queued")
+        terminal.contains("chosen")
+        self.assertEqual(len(terminal.requests("settings/set")), 1)
+        self.assertEqual(self.settings_native_writes(fixture), [])
         fcntl.flock(lock, fcntl.LOCK_UN)
         terminal.wait(lambda:"themes" in json.loads(device.read_text()), "unlock lets the same appearance job finish")
+        terminal.wait(lambda:"Thinking" not in terminal.text and terminal.input_is("typing during a device file wait 日本語"),
+                      "the explicit second Save finishes after the first device write")
         self.assertEqual(json.loads(device.read_text())["keep"], "old field")
-        self.assertEqual(self.settings_native_writes(fixture), [])
-        self.assertEqual(len(terminal.requests("settings/set")), 1)
+        self.assertEqual([request["params"] for request in self.settings_native_writes(fixture)],
+                         [{"threadId":"native-root", "model":"chosen", "effort":"low"}])
+        self.assertEqual(len(terminal.requests("settings/set")), 2)
         self.assertEqual(terminal.requests("session/send"), [])
 
     def test_daemon_settings_no_effort_model_does_not_pin_the_previous_model_effort(self):
