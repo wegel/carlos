@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use carlos_proto::commands::{HelloResult, RpcError};
-use carlos_proto::ids::{ClientId, DaemonId, ResumeToken, SessionId};
+use carlos_proto::ids::{ClientId, DaemonId, DeviceId, ResumeToken, SessionId};
 use carlos_proto::submissions::{ClientOperation, OperationResult, OperationState};
 
 use self::clients::Clients;
@@ -18,6 +18,19 @@ pub struct Resume {
     pub client: ClientId,
     pub secret: ResumeToken,
     pub instance: DaemonId,
+}
+
+/// Trusted Unix callers and independently authenticated devices keep separate retry rights.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ClientScope {
+    Local,
+    Device(DeviceId),
+}
+
+impl ClientScope {
+    fn is_local(&self) -> bool {
+        matches!(self, Self::Local)
+    }
 }
 
 /// Urgent operations retain space independently from ordinary sends and creates.
@@ -75,14 +88,40 @@ impl RetryStore {
 
     /// Authenticate or issue a lease; unknown ids receive new rights and a new secret.
     pub fn hello(&mut self, resume: Option<Resume>, now: Instant) -> Result<HelloResult, RpcError> {
+        self.hello_in(ClientScope::Local, resume, now)
+    }
+
+    /// Bind a lease to the device already authenticated by the manager, independently of its name.
+    pub fn hello_in(
+        &mut self,
+        scope: ClientScope,
+        resume: Option<Resume>,
+        now: Instant,
+    ) -> Result<HelloResult, RpcError> {
         for client in self.clients.expire(now) {
             self.forget(&client);
         }
-        let (hello, evicted) = self.clients.hello(&self.instance, resume, now)?;
+        let (hello, evicted) = self.clients.hello(&self.instance, scope, resume, now)?;
         if let Some(client) = evicted {
             self.forget(&client);
         }
         Ok(hello)
+    }
+
+    /// Revoke this device's retry rights; late owner results cannot recreate forgotten records.
+    pub fn revoke_device(&mut self, device: &DeviceId) {
+        let scope = ClientScope::Device(device.clone());
+        let clients: Vec<_> = self
+            .clients
+            .records
+            .iter()
+            .filter(|(_, client)| client.scope == scope)
+            .map(|(id, _)| id.clone())
+            .collect();
+        for client in clients {
+            self.clients.records.remove(&client);
+            self.forget(&client);
+        }
     }
 
     /// Closing a device connection leaves admitted commands running.
@@ -327,3 +366,6 @@ mod tests;
 
 #[cfg(test)]
 mod stopped_tests;
+
+#[cfg(test)]
+mod scope_tests;

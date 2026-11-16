@@ -7,10 +7,11 @@ use carlos_proto::commands::{HelloResult, RpcError};
 use carlos_proto::ids::{ClientId, DaemonId, OperationId, ResumeToken};
 use uuid::Uuid;
 
-use super::{error, Resume};
+use super::{error, ClientScope, Resume};
 
 pub(super) struct Client {
     secret: ResumeToken,
+    pub scope: ClientScope,
     pub high_water: u64,
     active: usize,
     seen: Instant,
@@ -19,6 +20,7 @@ pub(super) struct Client {
 pub(super) struct Clients {
     pub records: HashMap<ClientId, Client>,
     pub capacity: usize,
+    pub network_capacity: usize,
     pub lease: Duration,
 }
 
@@ -27,6 +29,7 @@ impl Default for Clients {
         Self {
             records: HashMap::new(),
             capacity: 128,
+            network_capacity: 128,
             lease: Duration::from_secs(24 * 60 * 60),
         }
     }
@@ -51,12 +54,13 @@ impl Clients {
     pub fn hello(
         &mut self,
         instance: &DaemonId,
+        scope: ClientScope,
         resume: Option<Resume>,
         now: Instant,
     ) -> Result<(HelloResult, Option<ClientId>), RpcError> {
         if let Some(resume) = resume.filter(|resume| &resume.instance == instance) {
             if let Some(client) = self.records.get_mut(&resume.client) {
-                if !equal_secret(&client.secret, &resume.secret) {
+                if client.scope != scope || !equal_secret(&client.secret, &resume.secret) {
                     return Err(error(-32003, "invalid client resume credential"));
                 }
                 client.active += 1;
@@ -71,26 +75,36 @@ impl Clients {
             .expect("UUID client id");
         let client = Client {
             secret: secret()?,
+            scope: scope.clone(),
             high_water: 0,
             active: 1,
             seen: now,
         };
-        let evicted = if self.records.len() >= self.capacity {
-            let id = self
-                .records
-                .iter()
-                .filter(|(_, client)| client.active == 0)
-                .min_by_key(|(_, client)| client.seen)
-                .map(|(id, _)| id.clone())
-                .ok_or_else(|| error(-32010, "client identity capacity is full"))?;
-            self.records.remove(&id);
-            Some(id)
-        } else {
-            None
-        };
+        let evicted = self.make_room(&scope)?;
         let result = greeting(instance, id, &client, false);
         self.records.insert(result.client.clone(), client);
         Ok((result, evicted))
+    }
+
+    fn make_room(&mut self, scope: &ClientScope) -> Result<Option<ClientId>, RpcError> {
+        let same_class = |client: &&Client| client.scope.is_local() == scope.is_local();
+        let limit = if scope.is_local() {
+            self.capacity
+        } else {
+            self.network_capacity
+        };
+        if self.records.values().filter(same_class).count() < limit {
+            return Ok(None);
+        }
+        let id = self
+            .records
+            .iter()
+            .filter(|(_, client)| client.active == 0 && same_class(client))
+            .min_by_key(|(_, client)| client.seen)
+            .map(|(id, _)| id.clone())
+            .ok_or_else(|| error(-32010, "client identity capacity is full"))?;
+        self.records.remove(&id);
+        Ok(Some(id))
     }
 
     pub fn touch(&mut self, id: &ClientId, now: Instant) -> Result<&mut Client, RpcError> {

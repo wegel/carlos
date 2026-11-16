@@ -98,6 +98,11 @@ opaque_id!(
     "A client identity bound to an authenticated daemon connection."
 );
 opaque_id!(
+    DeviceId,
+    32,
+    "One provisioned device; its public id alone grants no access."
+);
+opaque_id!(
     DaemonId,
     32,
     "One daemon lifetime; a restart invalidates old retry and event cursors."
