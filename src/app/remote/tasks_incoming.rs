@@ -10,10 +10,13 @@ use super::Device;
 
 impl Device {
     pub(super) fn apply_task_reads(&mut self, effects: &mut Effects) -> Result<bool> {
-        let mut changed = effects
-            .panels
-            .iter()
-            .any(|change| change.session == self.session && change.kind == PanelKind::TaskDetails);
+        let mut changed = effects.panels.iter().any(|change| {
+            change.session == self.session
+                && matches!(
+                    change.kind,
+                    PanelKind::TaskDetails | PanelKind::TaskOverview
+                )
+        });
         for result in std::mem::take(&mut effects.replies) {
             if result
                 .id
@@ -51,12 +54,6 @@ impl Device {
                         self.tasks.reads.future = Some((read, page));
                         changed = true;
                     }
-                }
-                ReadReply::TaskOverview(page) => {
-                    changed |= self.accept_task_overview(result.id, page)
-                }
-                ReadReply::TaskOverviewText(text) => {
-                    changed |= self.accept_task_overview_text(result.id, text)
                 }
                 ReadReply::TaskRun(run) => changed |= self.accept_task_run(result.id, run),
                 _ => effects.replies.push(result),
@@ -107,7 +104,6 @@ impl Device {
                     || self.fail_task_activity(id, &failure.error.message)
                     || self.fail_task_window(id, &failure.error.message)
                     || self.tasks.reads.fail(id, &failure.error.message, sequence)
-                    || self.tasks.overview.failed(id, &failure.error.message)
                     || self.fail_task_stop_read(id, &failure.error.message)
             });
             changed |= handled;

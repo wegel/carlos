@@ -11,7 +11,6 @@ use carlos_proto::session::Backend;
 use carlos_proto::task_facts::TaskFacts;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use super::tasks_overview::Overview;
 use super::tasks_reads::Reads;
 use super::tasks_stops::Stops;
 use super::transport::Transport;
@@ -25,6 +24,7 @@ pub(super) struct TaskView {
     pub(super) scroll: usize,
     pub(super) error: Option<String>,
     pub(super) queue_mode: bool,
+    pub(super) overview_next_draw: Option<Instant>,
 }
 
 /// A device retains only bounded display data and the private operations it initiated.
@@ -35,7 +35,6 @@ pub(super) struct Tasks {
     pub(super) view: TaskView,
     pub(super) pages: TaskPageWindow,
     pub(super) reads: Reads,
-    pub(super) overview: Overview,
     pub(super) stops: Stops,
     pub(super) refresh: bool,
     pub(super) paint: RefCell<PanelRows>,
@@ -94,6 +93,7 @@ impl Device {
         self.retire_task_windows(false);
         self.tasks.reads.close();
         self.clear_task_details();
+        self.client.close_task_overview(&self.session);
         let effects = self.client.close_tasks(&self.session);
         if let Some(link) = link {
             for outgoing in effects.outgoing {
@@ -110,7 +110,6 @@ impl Device {
         self.retire_task_windows(false);
         self.tasks.windows.disconnected();
         self.tasks.reads.disconnected();
-        self.tasks.overview.disconnected();
         if self.tasks.stops.disconnected() {
             self.tasks.view.error =
                 Some("Native run read interrupted; x explicitly rereads before stopping".into());
@@ -207,8 +206,8 @@ impl Device {
         self.tasks.refresh = true;
         self.tasks.reads.clear();
         self.clear_task_details();
-        let retired = self.tasks.overview.clear();
-        self.tasks.reads.retire(retired);
+        self.client.close_task_overview(&self.session);
+        self.tasks.view.overview_next_draw = None;
         self.tasks.view.error = None;
     }
 

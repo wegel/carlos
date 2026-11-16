@@ -47,6 +47,7 @@ mod task_activity;
 mod task_detail_panel;
 mod task_detail_replies;
 mod task_overview;
+mod task_overview_panel;
 mod task_state;
 mod task_watches;
 mod task_windows;

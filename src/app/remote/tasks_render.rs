@@ -114,7 +114,9 @@ impl Device {
         } else if matches!(self.task_backend(), Some(Backend::Codex | Backend::Claude)) {
             lines.push("Reading agents and background processes…".into());
         }
-        lines.extend(super::tasks_text::overview(&self.tasks.overview.entries));
+        if let Some(overview) = self.client.task_overview(&self.session) {
+            lines.extend(super::tasks_text::overview(overview.entries()));
+        }
         lines.extend(self.task_activity_lines());
         lines
     }
@@ -186,7 +188,9 @@ impl Device {
             self.tasks.view.error.as_deref(),
             self.tasks.reads.error(),
             self.task_details().and_then(|details| details.read_error()),
-            self.tasks.overview.error.as_deref(),
+            self.client
+                .task_overview(&self.session)
+                .and_then(|overview| overview.read_error()),
         ]
         .into_iter()
         .flatten()
