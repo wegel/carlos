@@ -6,6 +6,8 @@ from pathlib import Path
 import select
 import sys
 
+from support import write_json
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ui"))
 import fake_claude as peer
 
@@ -46,7 +48,7 @@ while True:
     if held and (peer.ROOT / "release-settings").exists():
         config = settings_config()
         config["hold"] = []
-        (peer.ROOT / "settings-config.json").write_text(json.dumps(config))
+        write_json(peer.ROOT / "settings-config.json", config)
         for request in held:
             control(request)
         held.clear()

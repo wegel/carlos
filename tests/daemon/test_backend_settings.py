@@ -5,7 +5,7 @@ from pathlib import Path
 import unittest
 
 import support
-from support import Client, Fixture, wait_for
+from support import Client, Fixture, wait_for, write_json
 
 
 class BackendSettingsTests:
@@ -81,7 +81,7 @@ class BackendSettingsTests:
 
     def test_claude_partial_refusal_keeps_confirmed_model_and_never_saves_defaults(self):
         fixture, first, _, session = self.backend_settings_clients("claude-settings-partial")
-        (fixture.root / "settings-config.json").write_text(json.dumps({"reject":["apply_flag_settings"]}))
+        write_json(fixture.root / "settings-config.json", {"reject":["apply_flag_settings"]})
         params = self.params(first, session)
         first.call("settings/set", **params)
         outcome = first.outcome(params["operation"])["state"]
@@ -99,7 +99,7 @@ class BackendSettingsTests:
         first.call("session/send", session=session, operation=send, text="hold this turn")
         self.assertEqual(first.outcome(send)["state"]["kind"], "accepted")
         turn = wait_for(lambda: other.call("session/subscribe", session=session, since=None)["snapshot"]["info"]["current_turn"], "running turn")
-        (fixture.root / "settings-config.json").write_text(json.dumps({"hold":["set_model"], "approval_on_hold":True}))
+        write_json(fixture.root / "settings-config.json", {"hold":["set_model"], "approval_on_hold":True})
         params = self.params(first, session, counter=3)
         first.call("settings/set", **params)
         wait_for(lambda: (fixture.root / "settings-held").exists(), "held native model")
@@ -131,7 +131,7 @@ class BackendSettingsTests:
             with self.subTest(failure=failure):
                 fixture, first, _, session = self.backend_settings_clients("claude-settings-" + failure)
                 if failure == "closed":
-                    (fixture.root / "settings-config.json").write_text(json.dumps({"close":["set_model"]}))
+                    write_json(fixture.root / "settings-config.json", {"close":["set_model"]})
                 else:
                     path = self.preferences(fixture)
                     path.parent.mkdir(parents=True, exist_ok=True)
@@ -147,7 +147,7 @@ class BackendSettingsTests:
 
     def test_claude_root_reset_retires_the_original_settings_without_defaults_or_effort(self):
         fixture, first, _, session = self.backend_settings_clients("claude-settings-reset")
-        (fixture.root / "settings-config.json").write_text(json.dumps({"reset_on_model":True}))
+        write_json(fixture.root / "settings-config.json", {"reset_on_model":True})
         params = self.params(first, session)
         first.call("settings/set", **params)
         self.assertEqual(first.outcome(params["operation"])["state"]["kind"], "uncertain")

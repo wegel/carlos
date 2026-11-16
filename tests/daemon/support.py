@@ -17,6 +17,18 @@ BINARY = REPO / "target/debug/carlosd"
 ARTIFACTS = REPO / "target/daemon-artifacts"
 
 
+def write_json(path, value):
+    """Publish fixture controls as a complete file, including while native reads overlap."""
+    with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False) as pending:
+        temporary = Path(pending.name)
+        try:
+            json.dump(value, pending)
+            pending.close()
+            temporary.replace(path)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+
 def wait_for(predicate, description, timeout=8):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
