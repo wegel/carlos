@@ -1,0 +1,1968 @@
+{
+  "scope": "Frozen checked gate03 package versus authoritative EP021a pair, CPU6, alternating samples; no concurrent builds/tests/hooks/reviewers during timing.",
+  "current_identity": {
+    "head": "bb9be0199f13368906fc266f1d0cead00d0291e9",
+    "build_info": {
+      "carlos": {
+        "protocol": 1,
+        "version": "0.1.0",
+        "source": "65650112dca1ea94136cbea01c8d9918"
+      },
+      "carlosd": {
+        "protocol": 1,
+        "version": "0.1.0",
+        "source": "65650112dca1ea94136cbea01c8d9918"
+      }
+    },
+    "files": {
+      "carlos": {
+        "path": "/tmp/carlos-ep021b/final-pair/carlos",
+        "bytes": 17507848,
+        "sha256": "505aaf89ddaa85d45499f2916f047b61bfa24f5be01c79362537de1eb7ef103a"
+      },
+      "carlosd": {
+        "path": "/tmp/carlos-ep021b/final-pair/carlosd",
+        "bytes": 20392848,
+        "sha256": "573d2233672333bd2505aae2c6ef561417295c50779b51c31fe946f5b9d1dc90"
+      },
+      "carlos-claude-controller": {
+        "path": "/tmp/carlos-ep021b/final-pair/carlos-claude-controller",
+        "bytes": 104781343,
+        "sha256": "9b201307f67de29cadabdabc3f9a4df5ddd736bc5b4d145c0b6d3831dc2a8ad3"
+      },
+      "perf_replay": {
+        "path": "/tmp/carlos-ep021b/final-pair/perf_replay",
+        "bytes": 2686144,
+        "sha256": "45663b32a217fdc6454135b091a41c2e04ec08d485c5983530b15dd5e56954a3"
+      }
+    },
+    "gate_package": "/tmp/carlos-ep021b/native-history-gate-Na7Pg8/package",
+    "validation_logs": [
+      "/tmp/carlos-ep021b/final-release-gate-03.log"
+    ]
+  },
+  "baseline_identity": {
+    "head": "3ffd3eb378de1372dad614e8ddf5f4ea64c8981e",
+    "build_info": {
+      "carlos": {
+        "protocol": 1,
+        "version": "0.1.0",
+        "source": "896435d22d03d85dba4cef0f58ba68e8"
+      },
+      "carlosd": {
+        "protocol": 1,
+        "version": "0.1.0",
+        "source": "896435d22d03d85dba4cef0f58ba68e8"
+      }
+    },
+    "files": {
+      "carlos": {
+        "path": "/tmp/carlos-ep021a/reviewed-pair/carlos",
+        "bytes": 17499736,
+        "sha256": "02eb1437359424ab87985328a22ece518576fef52f5974f6b56336447f063836"
+      },
+      "carlosd": {
+        "path": "/tmp/carlos-ep021a/reviewed-pair/carlosd",
+        "bytes": 20158568,
+        "sha256": "1aa1b37fefc64532b74cc1711ac4529a9df43618c945079671b2a2601c38a1cf"
+      },
+      "carlos-claude-controller": {
+        "path": "/tmp/carlos-ep021a/reviewed-pair/carlos-claude-controller",
+        "bytes": 104780090,
+        "sha256": "01a3485c9dabd395a0a763c58e49fcc22234cdd3d1081969d4266be8e0b7a42f"
+      },
+      "perf_replay": {
+        "path": "/tmp/carlos-ep021a/reviewed-pair/perf_replay",
+        "bytes": 2675560,
+        "sha256": "6ade298cba75940929f3ead21da3929bb88d8cdd5b333957b23834ae7772fcd2"
+      }
+    }
+  },
+  "renderer": {
+    "synthetic": {
+      "samples": 15,
+      "counts": [
+        6001,
+        39347,
+        6000
+      ],
+      "medians": {
+        "ep021a": {
+          "apply": 14.03,
+          "replay": 49.93,
+          "layout": 15.78,
+          "draw": 3.21,
+          "scroll_draw_p50": 0.58,
+          "scroll_draw_p95": 0.69,
+          "scroll_draw_max": 0.71,
+          "typing_draw_p50": 0.47,
+          "typing_draw_p95": 0.49,
+          "typing_draw_max": 0.53,
+          "working_draw_p50": 0.47,
+          "working_draw_p95": 0.48,
+          "working_draw_max": 0.52,
+          "append_total_p50": 0.48,
+          "append_total_p95": 0.52,
+          "append_total_max": 0.52,
+          "peak_rss_kib": 26652
+        },
+        "current": {
+          "apply": 13.99,
+          "replay": 49.72,
+          "layout": 15.52,
+          "draw": 3.24,
+          "scroll_draw_p50": 0.58,
+          "scroll_draw_p95": 0.68,
+          "scroll_draw_max": 0.71,
+          "typing_draw_p50": 0.47,
+          "typing_draw_p95": 0.48,
+          "typing_draw_max": 0.53,
+          "working_draw_p50": 0.47,
+          "working_draw_p95": 0.48,
+          "working_draw_max": 0.52,
+          "append_total_p50": 0.48,
+          "append_total_p95": 0.54,
+          "append_total_max": 0.54,
+          "peak_rss_kib": 25240
+        }
+      },
+      "paired_changes": {
+        "ep021a": {
+          "apply": {
+            "median": -0.02999999999999936,
+            "median_95_interval": [
+              -0.09999999999999964,
+              0.4499999999999993
+            ]
+          },
+          "replay": {
+            "median": -0.30000000000000426,
+            "median_95_interval": [
+              -0.5600000000000023,
+              0.740000000000002
+            ]
+          },
+          "layout": {
+            "median": -0.14000000000000057,
+            "median_95_interval": [
+              -0.23999999999999844,
+              -0.11999999999999922
+            ]
+          },
+          "draw": {
+            "median": 0.06000000000000005,
+            "median_95_interval": [
+              0.029999999999999805,
+              0.1200000000000001
+            ]
+          },
+          "scroll_draw_p50": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.0
+            ]
+          },
+          "scroll_draw_p95": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.019999999999999907,
+              0.0
+            ]
+          },
+          "scroll_draw_max": {
+            "median": -0.010000000000000009,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.12
+            ]
+          },
+          "typing_draw_p50": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.0
+            ]
+          },
+          "typing_draw_p95": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.010000000000000009
+            ]
+          },
+          "typing_draw_max": {
+            "median": 0.0,
+            "median_95_interval": [
+              0.0,
+              0.010000000000000009
+            ]
+          },
+          "working_draw_p50": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.010000000000000009
+            ]
+          },
+          "working_draw_p95": {
+            "median": 0.0,
+            "median_95_interval": [
+              0.0,
+              0.0
+            ]
+          },
+          "working_draw_max": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.010000000000000009
+            ]
+          },
+          "append_total_p50": {
+            "median": 0.0,
+            "median_95_interval": [
+              0.0,
+              0.0
+            ]
+          },
+          "append_total_p95": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.030000000000000027
+            ]
+          },
+          "append_total_max": {
+            "median": 0.0,
+            "median_95_interval": [
+              0.0,
+              0.020000000000000018
+            ]
+          },
+          "peak_rss_kib": {
+            "median": -1396,
+            "median_95_interval": [
+              -1452,
+              -1300
+            ]
+          }
+        }
+      }
+    },
+    "fixture": {
+      "samples": 15,
+      "counts": [
+        5,
+        9,
+        4
+      ],
+      "medians": {
+        "ep021a": {
+          "apply": 0.0,
+          "replay": 0.78,
+          "layout": 0.01,
+          "draw": 0.33,
+          "scroll_draw_p50": 0.31,
+          "scroll_draw_p95": 0.31,
+          "scroll_draw_max": 0.31,
+          "typing_draw_p50": 0.24,
+          "typing_draw_p95": 0.26,
+          "typing_draw_max": 0.31,
+          "working_draw_p50": 0.24,
+          "working_draw_p95": 0.25,
+          "working_draw_max": 0.32,
+          "append_total_p50": 0.27,
+          "append_total_p95": 0.33,
+          "append_total_max": 0.33,
+          "peak_rss_kib": 12048
+        },
+        "current": {
+          "apply": 0.0,
+          "replay": 0.84,
+          "layout": 0.0,
+          "draw": 0.33,
+          "scroll_draw_p50": 0.31,
+          "scroll_draw_p95": 0.31,
+          "scroll_draw_max": 0.31,
+          "typing_draw_p50": 0.24,
+          "typing_draw_p95": 0.26,
+          "typing_draw_max": 0.31,
+          "working_draw_p50": 0.24,
+          "working_draw_p95": 0.25,
+          "working_draw_max": 0.32,
+          "append_total_p50": 0.27,
+          "append_total_p95": 0.33,
+          "append_total_max": 0.33,
+          "peak_rss_kib": 10460
+        }
+      },
+      "paired_changes": {
+        "ep021a": {
+          "apply": {
+            "median": 0.0,
+            "median_95_interval": [
+              0.0,
+              0.0
+            ]
+          },
+          "replay": {
+            "median": 0.06999999999999995,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.10999999999999999
+            ]
+          },
+          "layout": {
+            "median": -0.01,
+            "median_95_interval": [
+              -0.02,
+              -0.01
+            ]
+          },
+          "draw": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.020000000000000018
+            ]
+          },
+          "scroll_draw_p50": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.010000000000000009
+            ]
+          },
+          "scroll_draw_p95": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.010000000000000009
+            ]
+          },
+          "scroll_draw_max": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.010000000000000009
+            ]
+          },
+          "typing_draw_p50": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.0
+            ]
+          },
+          "typing_draw_p95": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.010000000000000009
+            ]
+          },
+          "typing_draw_max": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.020000000000000018,
+              0.0
+            ]
+          },
+          "working_draw_p50": {
+            "median": 0.0,
+            "median_95_interval": [
+              0.0,
+              0.0
+            ]
+          },
+          "working_draw_p95": {
+            "median": 0.0,
+            "median_95_interval": [
+              0.0,
+              0.0
+            ]
+          },
+          "working_draw_max": {
+            "median": -0.010000000000000009,
+            "median_95_interval": [
+              -0.020000000000000018,
+              0.010000000000000009
+            ]
+          },
+          "append_total_p50": {
+            "median": 0.0,
+            "median_95_interval": [
+              0.0,
+              0.0
+            ]
+          },
+          "append_total_p95": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.010000000000000009
+            ]
+          },
+          "append_total_max": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.010000000000000009
+            ]
+          },
+          "peak_rss_kib": {
+            "median": -1600,
+            "median_95_interval": [
+              -1768,
+              -1516
+            ]
+          }
+        }
+      }
+    }
+  },
+  "admissions": {
+    "ep021a_unix": {
+      "runs": 3,
+      "medians": {
+        "median_ms": 0.523837,
+        "p95_ms": 0.682993,
+        "max_ms": 1.419525
+      },
+      "worst_max_ms": 1.607587,
+      "rounds": 1000,
+      "idle": [
+        {
+          "seconds": 2.0007225739536807,
+          "process_cpu_ticks": 0,
+          "thread_context_switch_deltas": {
+            "823292:voluntary_ctxt_switches": 7,
+            "823292:nonvoluntary_ctxt_switches": 0,
+            "823293:voluntary_ctxt_switches": 0,
+            "823293:nonvoluntary_ctxt_switches": 0,
+            "823294:voluntary_ctxt_switches": 20,
+            "823294:nonvoluntary_ctxt_switches": 0,
+            "823295:voluntary_ctxt_switches": 7,
+            "823295:nonvoluntary_ctxt_switches": 0,
+            "823296:voluntary_ctxt_switches": 0,
+            "823296:nonvoluntary_ctxt_switches": 0,
+            "823299:voluntary_ctxt_switches": 0,
+            "823299:nonvoluntary_ctxt_switches": 0,
+            "823300:voluntary_ctxt_switches": 0,
+            "823300:nonvoluntary_ctxt_switches": 0,
+            "823301:voluntary_ctxt_switches": 0,
+            "823301:nonvoluntary_ctxt_switches": 0,
+            "823303:voluntary_ctxt_switches": 20,
+            "823303:nonvoluntary_ctxt_switches": 0,
+            "823304:voluntary_ctxt_switches": 0,
+            "823304:nonvoluntary_ctxt_switches": 0,
+            "823305:voluntary_ctxt_switches": 0,
+            "823305:nonvoluntary_ctxt_switches": 0,
+            "823306:voluntary_ctxt_switches": 0,
+            "823306:nonvoluntary_ctxt_switches": 0,
+            "823307:voluntary_ctxt_switches": 0,
+            "823307:nonvoluntary_ctxt_switches": 0,
+            "823308:voluntary_ctxt_switches": 0,
+            "823308:nonvoluntary_ctxt_switches": 0,
+            "823309:voluntary_ctxt_switches": 0,
+            "823309:nonvoluntary_ctxt_switches": 0,
+            "823310:voluntary_ctxt_switches": 0,
+            "823310:nonvoluntary_ctxt_switches": 0,
+            "823311:voluntary_ctxt_switches": 99,
+            "823311:nonvoluntary_ctxt_switches": 0,
+            "823312:voluntary_ctxt_switches": 2,
+            "823312:nonvoluntary_ctxt_switches": 0,
+            "823313:voluntary_ctxt_switches": 0,
+            "823313:nonvoluntary_ctxt_switches": 0,
+            "823314:voluntary_ctxt_switches": 0,
+            "823314:nonvoluntary_ctxt_switches": 0
+          },
+          "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+        },
+        {
+          "seconds": 2.000725157908164,
+          "process_cpu_ticks": 0,
+          "thread_context_switch_deltas": {
+            "823484:voluntary_ctxt_switches": 8,
+            "823484:nonvoluntary_ctxt_switches": 0,
+            "823485:voluntary_ctxt_switches": 0,
+            "823485:nonvoluntary_ctxt_switches": 0,
+            "823486:voluntary_ctxt_switches": 20,
+            "823486:nonvoluntary_ctxt_switches": 0,
+            "823487:voluntary_ctxt_switches": 7,
+            "823487:nonvoluntary_ctxt_switches": 0,
+            "823488:voluntary_ctxt_switches": 0,
+            "823488:nonvoluntary_ctxt_switches": 0,
+            "823491:voluntary_ctxt_switches": 0,
+            "823491:nonvoluntary_ctxt_switches": 0,
+            "823492:voluntary_ctxt_switches": 0,
+            "823492:nonvoluntary_ctxt_switches": 0,
+            "823493:voluntary_ctxt_switches": 0,
+            "823493:nonvoluntary_ctxt_switches": 0,
+            "823495:voluntary_ctxt_switches": 20,
+            "823495:nonvoluntary_ctxt_switches": 0,
+            "823496:voluntary_ctxt_switches": 0,
+            "823496:nonvoluntary_ctxt_switches": 0,
+            "823497:voluntary_ctxt_switches": 0,
+            "823497:nonvoluntary_ctxt_switches": 0,
+            "823498:voluntary_ctxt_switches": 0,
+            "823498:nonvoluntary_ctxt_switches": 0,
+            "823499:voluntary_ctxt_switches": 0,
+            "823499:nonvoluntary_ctxt_switches": 0,
+            "823500:voluntary_ctxt_switches": 0,
+            "823500:nonvoluntary_ctxt_switches": 0,
+            "823501:voluntary_ctxt_switches": 0,
+            "823501:nonvoluntary_ctxt_switches": 0,
+            "823502:voluntary_ctxt_switches": 0,
+            "823502:nonvoluntary_ctxt_switches": 0,
+            "823503:voluntary_ctxt_switches": 99,
+            "823503:nonvoluntary_ctxt_switches": 0,
+            "823504:voluntary_ctxt_switches": 2,
+            "823504:nonvoluntary_ctxt_switches": 0,
+            "823505:voluntary_ctxt_switches": 0,
+            "823505:nonvoluntary_ctxt_switches": 0,
+            "823506:voluntary_ctxt_switches": 0,
+            "823506:nonvoluntary_ctxt_switches": 0
+          },
+          "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+        },
+        {
+          "seconds": 2.000766661018133,
+          "process_cpu_ticks": 0,
+          "thread_context_switch_deltas": {
+            "823509:voluntary_ctxt_switches": 8,
+            "823509:nonvoluntary_ctxt_switches": 0,
+            "823510:voluntary_ctxt_switches": 0,
+            "823510:nonvoluntary_ctxt_switches": 0,
+            "823511:voluntary_ctxt_switches": 20,
+            "823511:nonvoluntary_ctxt_switches": 0,
+            "823512:voluntary_ctxt_switches": 7,
+            "823512:nonvoluntary_ctxt_switches": 0,
+            "823513:voluntary_ctxt_switches": 0,
+            "823513:nonvoluntary_ctxt_switches": 0,
+            "823516:voluntary_ctxt_switches": 0,
+            "823516:nonvoluntary_ctxt_switches": 0,
+            "823517:voluntary_ctxt_switches": 0,
+            "823517:nonvoluntary_ctxt_switches": 0,
+            "823518:voluntary_ctxt_switches": 0,
+            "823518:nonvoluntary_ctxt_switches": 0,
+            "823520:voluntary_ctxt_switches": 20,
+            "823520:nonvoluntary_ctxt_switches": 0,
+            "823521:voluntary_ctxt_switches": 0,
+            "823521:nonvoluntary_ctxt_switches": 0,
+            "823522:voluntary_ctxt_switches": 0,
+            "823522:nonvoluntary_ctxt_switches": 0,
+            "823523:voluntary_ctxt_switches": 0,
+            "823523:nonvoluntary_ctxt_switches": 0,
+            "823524:voluntary_ctxt_switches": 0,
+            "823524:nonvoluntary_ctxt_switches": 0,
+            "823525:voluntary_ctxt_switches": 0,
+            "823525:nonvoluntary_ctxt_switches": 0,
+            "823526:voluntary_ctxt_switches": 0,
+            "823526:nonvoluntary_ctxt_switches": 0,
+            "823527:voluntary_ctxt_switches": 0,
+            "823527:nonvoluntary_ctxt_switches": 0,
+            "823528:voluntary_ctxt_switches": 99,
+            "823528:nonvoluntary_ctxt_switches": 0,
+            "823529:voluntary_ctxt_switches": 2,
+            "823529:nonvoluntary_ctxt_switches": 0,
+            "823530:voluntary_ctxt_switches": 0,
+            "823530:nonvoluntary_ctxt_switches": 0,
+            "823531:voluntary_ctxt_switches": 0,
+            "823531:nonvoluntary_ctxt_switches": 0
+          },
+          "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+        }
+      ],
+      "daemon_memory": [
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823292,
+            "metrics": {
+              "VmHWM": 8004,
+              "VmRSS": 8004,
+              "RssAnon": 876,
+              "RssFile": 7128,
+              "Threads": 5
+            }
+          },
+          {
+            "label": "after-native-admissions",
+            "daemon_pid": 823292,
+            "metrics": {
+              "VmHWM": 17132,
+              "VmRSS": 17132,
+              "RssAnon": 5692,
+              "RssFile": 11440,
+              "Threads": 20
+            }
+          }
+        ],
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823484,
+            "metrics": {
+              "VmHWM": 8312,
+              "VmRSS": 8312,
+              "RssAnon": 876,
+              "RssFile": 7436,
+              "Threads": 5
+            }
+          },
+          {
+            "label": "after-native-admissions",
+            "daemon_pid": 823484,
+            "metrics": {
+              "VmHWM": 17564,
+              "VmRSS": 17564,
+              "RssAnon": 5808,
+              "RssFile": 11756,
+              "Threads": 20
+            }
+          }
+        ],
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823509,
+            "metrics": {
+              "VmHWM": 8004,
+              "VmRSS": 8004,
+              "RssAnon": 876,
+              "RssFile": 7128,
+              "Threads": 5
+            }
+          },
+          {
+            "label": "after-native-admissions",
+            "daemon_pid": 823509,
+            "metrics": {
+              "VmHWM": 17164,
+              "VmRSS": 17164,
+              "RssAnon": 5808,
+              "RssFile": 11356,
+              "Threads": 20
+            }
+          }
+        ]
+      ]
+    },
+    "current_unix": {
+      "runs": 3,
+      "medians": {
+        "median_ms": 0.541127,
+        "p95_ms": 0.710063,
+        "max_ms": 1.479816
+      },
+      "worst_max_ms": 6.009885,
+      "rounds": 1000,
+      "idle": [
+        {
+          "seconds": 2.0009436880936846,
+          "process_cpu_ticks": 0,
+          "thread_context_switch_deltas": {
+            "823317:voluntary_ctxt_switches": 7,
+            "823317:nonvoluntary_ctxt_switches": 0,
+            "823318:voluntary_ctxt_switches": 0,
+            "823318:nonvoluntary_ctxt_switches": 0,
+            "823319:voluntary_ctxt_switches": 20,
+            "823319:nonvoluntary_ctxt_switches": 0,
+            "823320:voluntary_ctxt_switches": 7,
+            "823320:nonvoluntary_ctxt_switches": 0,
+            "823321:voluntary_ctxt_switches": 0,
+            "823321:nonvoluntary_ctxt_switches": 0,
+            "823324:voluntary_ctxt_switches": 0,
+            "823324:nonvoluntary_ctxt_switches": 0,
+            "823325:voluntary_ctxt_switches": 0,
+            "823325:nonvoluntary_ctxt_switches": 0,
+            "823326:voluntary_ctxt_switches": 0,
+            "823326:nonvoluntary_ctxt_switches": 0,
+            "823328:voluntary_ctxt_switches": 20,
+            "823328:nonvoluntary_ctxt_switches": 0,
+            "823329:voluntary_ctxt_switches": 0,
+            "823329:nonvoluntary_ctxt_switches": 0,
+            "823330:voluntary_ctxt_switches": 0,
+            "823330:nonvoluntary_ctxt_switches": 0,
+            "823331:voluntary_ctxt_switches": 0,
+            "823331:nonvoluntary_ctxt_switches": 0,
+            "823332:voluntary_ctxt_switches": 0,
+            "823332:nonvoluntary_ctxt_switches": 0,
+            "823333:voluntary_ctxt_switches": 0,
+            "823333:nonvoluntary_ctxt_switches": 0,
+            "823334:voluntary_ctxt_switches": 0,
+            "823334:nonvoluntary_ctxt_switches": 0,
+            "823335:voluntary_ctxt_switches": 0,
+            "823335:nonvoluntary_ctxt_switches": 0,
+            "823336:voluntary_ctxt_switches": 100,
+            "823336:nonvoluntary_ctxt_switches": 0,
+            "823337:voluntary_ctxt_switches": 2,
+            "823337:nonvoluntary_ctxt_switches": 0,
+            "823338:voluntary_ctxt_switches": 0,
+            "823338:nonvoluntary_ctxt_switches": 0,
+            "823339:voluntary_ctxt_switches": 0,
+            "823339:nonvoluntary_ctxt_switches": 0
+          },
+          "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+        },
+        {
+          "seconds": 2.0008860350353643,
+          "process_cpu_ticks": 0,
+          "thread_context_switch_deltas": {
+            "823459:voluntary_ctxt_switches": 7,
+            "823459:nonvoluntary_ctxt_switches": 0,
+            "823460:voluntary_ctxt_switches": 0,
+            "823460:nonvoluntary_ctxt_switches": 0,
+            "823461:voluntary_ctxt_switches": 20,
+            "823461:nonvoluntary_ctxt_switches": 0,
+            "823462:voluntary_ctxt_switches": 7,
+            "823462:nonvoluntary_ctxt_switches": 0,
+            "823463:voluntary_ctxt_switches": 0,
+            "823463:nonvoluntary_ctxt_switches": 0,
+            "823466:voluntary_ctxt_switches": 0,
+            "823466:nonvoluntary_ctxt_switches": 0,
+            "823467:voluntary_ctxt_switches": 0,
+            "823467:nonvoluntary_ctxt_switches": 0,
+            "823468:voluntary_ctxt_switches": 0,
+            "823468:nonvoluntary_ctxt_switches": 0,
+            "823470:voluntary_ctxt_switches": 20,
+            "823470:nonvoluntary_ctxt_switches": 0,
+            "823471:voluntary_ctxt_switches": 0,
+            "823471:nonvoluntary_ctxt_switches": 0,
+            "823472:voluntary_ctxt_switches": 0,
+            "823472:nonvoluntary_ctxt_switches": 0,
+            "823473:voluntary_ctxt_switches": 0,
+            "823473:nonvoluntary_ctxt_switches": 0,
+            "823474:voluntary_ctxt_switches": 0,
+            "823474:nonvoluntary_ctxt_switches": 0,
+            "823475:voluntary_ctxt_switches": 0,
+            "823475:nonvoluntary_ctxt_switches": 0,
+            "823476:voluntary_ctxt_switches": 0,
+            "823476:nonvoluntary_ctxt_switches": 0,
+            "823477:voluntary_ctxt_switches": 0,
+            "823477:nonvoluntary_ctxt_switches": 0,
+            "823478:voluntary_ctxt_switches": 99,
+            "823478:nonvoluntary_ctxt_switches": 0,
+            "823479:voluntary_ctxt_switches": 2,
+            "823479:nonvoluntary_ctxt_switches": 0,
+            "823480:voluntary_ctxt_switches": 0,
+            "823480:nonvoluntary_ctxt_switches": 0,
+            "823481:voluntary_ctxt_switches": 0,
+            "823481:nonvoluntary_ctxt_switches": 0
+          },
+          "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+        },
+        {
+          "seconds": 2.0010002839844674,
+          "process_cpu_ticks": 0,
+          "thread_context_switch_deltas": {
+            "823534:voluntary_ctxt_switches": 8,
+            "823534:nonvoluntary_ctxt_switches": 1,
+            "823535:voluntary_ctxt_switches": 0,
+            "823535:nonvoluntary_ctxt_switches": 0,
+            "823536:voluntary_ctxt_switches": 20,
+            "823536:nonvoluntary_ctxt_switches": 0,
+            "823537:voluntary_ctxt_switches": 8,
+            "823537:nonvoluntary_ctxt_switches": 0,
+            "823538:voluntary_ctxt_switches": 0,
+            "823538:nonvoluntary_ctxt_switches": 0,
+            "823541:voluntary_ctxt_switches": 0,
+            "823541:nonvoluntary_ctxt_switches": 0,
+            "823542:voluntary_ctxt_switches": 0,
+            "823542:nonvoluntary_ctxt_switches": 0,
+            "823543:voluntary_ctxt_switches": 0,
+            "823543:nonvoluntary_ctxt_switches": 0,
+            "823545:voluntary_ctxt_switches": 20,
+            "823545:nonvoluntary_ctxt_switches": 0,
+            "823546:voluntary_ctxt_switches": 0,
+            "823546:nonvoluntary_ctxt_switches": 0,
+            "823547:voluntary_ctxt_switches": 0,
+            "823547:nonvoluntary_ctxt_switches": 0,
+            "823548:voluntary_ctxt_switches": 0,
+            "823548:nonvoluntary_ctxt_switches": 0,
+            "823549:voluntary_ctxt_switches": 0,
+            "823549:nonvoluntary_ctxt_switches": 0,
+            "823550:voluntary_ctxt_switches": 0,
+            "823550:nonvoluntary_ctxt_switches": 0,
+            "823551:voluntary_ctxt_switches": 0,
+            "823551:nonvoluntary_ctxt_switches": 0,
+            "823552:voluntary_ctxt_switches": 0,
+            "823552:nonvoluntary_ctxt_switches": 0,
+            "823553:voluntary_ctxt_switches": 99,
+            "823553:nonvoluntary_ctxt_switches": 0,
+            "823554:voluntary_ctxt_switches": 2,
+            "823554:nonvoluntary_ctxt_switches": 0,
+            "823555:voluntary_ctxt_switches": 0,
+            "823555:nonvoluntary_ctxt_switches": 0,
+            "823556:voluntary_ctxt_switches": 0,
+            "823556:nonvoluntary_ctxt_switches": 0
+          },
+          "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+        }
+      ],
+      "daemon_memory": [
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823317,
+            "metrics": {
+              "VmHWM": 8356,
+              "VmRSS": 8356,
+              "RssAnon": 880,
+              "RssFile": 7476,
+              "Threads": 5
+            }
+          },
+          {
+            "label": "after-native-admissions",
+            "daemon_pid": 823317,
+            "metrics": {
+              "VmHWM": 17564,
+              "VmRSS": 17564,
+              "RssAnon": 5840,
+              "RssFile": 11724,
+              "Threads": 20
+            }
+          }
+        ],
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823459,
+            "metrics": {
+              "VmHWM": 8012,
+              "VmRSS": 8012,
+              "RssAnon": 876,
+              "RssFile": 7136,
+              "Threads": 5
+            }
+          },
+          {
+            "label": "after-native-admissions",
+            "daemon_pid": 823459,
+            "metrics": {
+              "VmHWM": 17344,
+              "VmRSS": 17344,
+              "RssAnon": 5836,
+              "RssFile": 11508,
+              "Threads": 20
+            }
+          }
+        ],
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823534,
+            "metrics": {
+              "VmHWM": 8080,
+              "VmRSS": 8080,
+              "RssAnon": 880,
+              "RssFile": 7200,
+              "Threads": 5
+            }
+          },
+          {
+            "label": "after-native-admissions",
+            "daemon_pid": 823534,
+            "metrics": {
+              "VmHWM": 17168,
+              "VmRSS": 17168,
+              "RssAnon": 5732,
+              "RssFile": 11436,
+              "Threads": 20
+            }
+          }
+        ]
+      ]
+    },
+    "ep021a_websocket": {
+      "runs": 3,
+      "medians": {
+        "median_ms": 0.6817875,
+        "p95_ms": 0.890924,
+        "max_ms": 1.444346
+      },
+      "worst_max_ms": 1.773547,
+      "rounds": 1000,
+      "idle": [
+        {
+          "seconds": 2.0007220399565995,
+          "process_cpu_ticks": 0,
+          "thread_context_switch_deltas": {
+            "823342:voluntary_ctxt_switches": 7,
+            "823342:nonvoluntary_ctxt_switches": 0,
+            "823343:voluntary_ctxt_switches": 0,
+            "823343:nonvoluntary_ctxt_switches": 0,
+            "823344:voluntary_ctxt_switches": 20,
+            "823344:nonvoluntary_ctxt_switches": 0,
+            "823350:voluntary_ctxt_switches": 0,
+            "823350:nonvoluntary_ctxt_switches": 0,
+            "823353:voluntary_ctxt_switches": 0,
+            "823353:nonvoluntary_ctxt_switches": 0,
+            "823354:voluntary_ctxt_switches": 0,
+            "823354:nonvoluntary_ctxt_switches": 0,
+            "823355:voluntary_ctxt_switches": 0,
+            "823355:nonvoluntary_ctxt_switches": 0,
+            "823357:voluntary_ctxt_switches": 19,
+            "823357:nonvoluntary_ctxt_switches": 0,
+            "823358:voluntary_ctxt_switches": 0,
+            "823358:nonvoluntary_ctxt_switches": 0,
+            "823359:voluntary_ctxt_switches": 0,
+            "823359:nonvoluntary_ctxt_switches": 0,
+            "823360:voluntary_ctxt_switches": 0,
+            "823360:nonvoluntary_ctxt_switches": 0,
+            "823361:voluntary_ctxt_switches": 0,
+            "823361:nonvoluntary_ctxt_switches": 0,
+            "823362:voluntary_ctxt_switches": 0,
+            "823362:nonvoluntary_ctxt_switches": 0,
+            "823363:voluntary_ctxt_switches": 0,
+            "823363:nonvoluntary_ctxt_switches": 0,
+            "823364:voluntary_ctxt_switches": 0,
+            "823364:nonvoluntary_ctxt_switches": 0,
+            "823365:voluntary_ctxt_switches": 99,
+            "823365:nonvoluntary_ctxt_switches": 0,
+            "823366:voluntary_ctxt_switches": 2,
+            "823366:nonvoluntary_ctxt_switches": 0,
+            "823367:voluntary_ctxt_switches": 0,
+            "823367:nonvoluntary_ctxt_switches": 0,
+            "823368:voluntary_ctxt_switches": 0,
+            "823368:nonvoluntary_ctxt_switches": 0
+          },
+          "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+        },
+        {
+          "seconds": 2.000832660938613,
+          "process_cpu_ticks": 0,
+          "thread_context_switch_deltas": {
+            "823430:voluntary_ctxt_switches": 8,
+            "823430:nonvoluntary_ctxt_switches": 0,
+            "823431:voluntary_ctxt_switches": 0,
+            "823431:nonvoluntary_ctxt_switches": 0,
+            "823432:voluntary_ctxt_switches": 20,
+            "823432:nonvoluntary_ctxt_switches": 0,
+            "823438:voluntary_ctxt_switches": 0,
+            "823438:nonvoluntary_ctxt_switches": 0,
+            "823441:voluntary_ctxt_switches": 0,
+            "823441:nonvoluntary_ctxt_switches": 0,
+            "823442:voluntary_ctxt_switches": 0,
+            "823442:nonvoluntary_ctxt_switches": 0,
+            "823443:voluntary_ctxt_switches": 0,
+            "823443:nonvoluntary_ctxt_switches": 0,
+            "823445:voluntary_ctxt_switches": 20,
+            "823445:nonvoluntary_ctxt_switches": 0,
+            "823446:voluntary_ctxt_switches": 0,
+            "823446:nonvoluntary_ctxt_switches": 0,
+            "823447:voluntary_ctxt_switches": 0,
+            "823447:nonvoluntary_ctxt_switches": 0,
+            "823448:voluntary_ctxt_switches": 0,
+            "823448:nonvoluntary_ctxt_switches": 0,
+            "823449:voluntary_ctxt_switches": 0,
+            "823449:nonvoluntary_ctxt_switches": 0,
+            "823450:voluntary_ctxt_switches": 0,
+            "823450:nonvoluntary_ctxt_switches": 0,
+            "823451:voluntary_ctxt_switches": 0,
+            "823451:nonvoluntary_ctxt_switches": 0,
+            "823452:voluntary_ctxt_switches": 0,
+            "823452:nonvoluntary_ctxt_switches": 0,
+            "823453:voluntary_ctxt_switches": 99,
+            "823453:nonvoluntary_ctxt_switches": 0,
+            "823454:voluntary_ctxt_switches": 2,
+            "823454:nonvoluntary_ctxt_switches": 0,
+            "823455:voluntary_ctxt_switches": 0,
+            "823455:nonvoluntary_ctxt_switches": 0,
+            "823456:voluntary_ctxt_switches": 0,
+            "823456:nonvoluntary_ctxt_switches": 0
+          },
+          "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+        },
+        {
+          "seconds": 2.0009061470627785,
+          "process_cpu_ticks": 0,
+          "thread_context_switch_deltas": {
+            "823560:voluntary_ctxt_switches": 8,
+            "823560:nonvoluntary_ctxt_switches": 0,
+            "823561:voluntary_ctxt_switches": 0,
+            "823561:nonvoluntary_ctxt_switches": 0,
+            "823562:voluntary_ctxt_switches": 20,
+            "823562:nonvoluntary_ctxt_switches": 0,
+            "823568:voluntary_ctxt_switches": 0,
+            "823568:nonvoluntary_ctxt_switches": 0,
+            "823571:voluntary_ctxt_switches": 0,
+            "823571:nonvoluntary_ctxt_switches": 0,
+            "823572:voluntary_ctxt_switches": 0,
+            "823572:nonvoluntary_ctxt_switches": 0,
+            "823573:voluntary_ctxt_switches": 0,
+            "823573:nonvoluntary_ctxt_switches": 0,
+            "823575:voluntary_ctxt_switches": 20,
+            "823575:nonvoluntary_ctxt_switches": 0,
+            "823576:voluntary_ctxt_switches": 0,
+            "823576:nonvoluntary_ctxt_switches": 0,
+            "823577:voluntary_ctxt_switches": 0,
+            "823577:nonvoluntary_ctxt_switches": 0,
+            "823578:voluntary_ctxt_switches": 0,
+            "823578:nonvoluntary_ctxt_switches": 0,
+            "823579:voluntary_ctxt_switches": 0,
+            "823579:nonvoluntary_ctxt_switches": 0,
+            "823580:voluntary_ctxt_switches": 0,
+            "823580:nonvoluntary_ctxt_switches": 0,
+            "823581:voluntary_ctxt_switches": 0,
+            "823581:nonvoluntary_ctxt_switches": 0,
+            "823582:voluntary_ctxt_switches": 0,
+            "823582:nonvoluntary_ctxt_switches": 0,
+            "823583:voluntary_ctxt_switches": 99,
+            "823583:nonvoluntary_ctxt_switches": 0,
+            "823584:voluntary_ctxt_switches": 2,
+            "823584:nonvoluntary_ctxt_switches": 0,
+            "823585:voluntary_ctxt_switches": 0,
+            "823585:nonvoluntary_ctxt_switches": 0,
+            "823586:voluntary_ctxt_switches": 0,
+            "823586:nonvoluntary_ctxt_switches": 0
+          },
+          "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+        }
+      ],
+      "daemon_memory": [
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823342,
+            "metrics": {
+              "VmHWM": 9132,
+              "VmRSS": 9132,
+              "RssAnon": 1000,
+              "RssFile": 8132,
+              "Threads": 4
+            }
+          },
+          {
+            "label": "after-native-admissions",
+            "daemon_pid": 823342,
+            "metrics": {
+              "VmHWM": 17444,
+              "VmRSS": 17444,
+              "RssAnon": 5824,
+              "RssFile": 11620,
+              "Threads": 19
+            }
+          }
+        ],
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823430,
+            "metrics": {
+              "VmHWM": 9080,
+              "VmRSS": 9080,
+              "RssAnon": 1004,
+              "RssFile": 8076,
+              "Threads": 4
+            }
+          },
+          {
+            "label": "after-native-admissions",
+            "daemon_pid": 823430,
+            "metrics": {
+              "VmHWM": 17356,
+              "VmRSS": 17356,
+              "RssAnon": 5856,
+              "RssFile": 11500,
+              "Threads": 19
+            }
+          }
+        ],
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823560,
+            "metrics": {
+              "VmHWM": 9212,
+              "VmRSS": 9212,
+              "RssAnon": 1000,
+              "RssFile": 8212,
+              "Threads": 4
+            }
+          },
+          {
+            "label": "after-native-admissions",
+            "daemon_pid": 823560,
+            "metrics": {
+              "VmHWM": 17792,
+              "VmRSS": 17792,
+              "RssAnon": 5840,
+              "RssFile": 11952,
+              "Threads": 19
+            }
+          }
+        ]
+      ]
+    },
+    "current_websocket": {
+      "runs": 3,
+      "medians": {
+        "median_ms": 0.658903,
+        "p95_ms": 0.859483,
+        "max_ms": 1.564457
+      },
+      "worst_max_ms": 1.945788,
+      "rounds": 1000,
+      "idle": [
+        {
+          "seconds": 2.000769734964706,
+          "process_cpu_ticks": 0,
+          "thread_context_switch_deltas": {
+            "823372:voluntary_ctxt_switches": 8,
+            "823372:nonvoluntary_ctxt_switches": 0,
+            "823373:voluntary_ctxt_switches": 0,
+            "823373:nonvoluntary_ctxt_switches": 0,
+            "823374:voluntary_ctxt_switches": 20,
+            "823374:nonvoluntary_ctxt_switches": 0,
+            "823380:voluntary_ctxt_switches": 0,
+            "823380:nonvoluntary_ctxt_switches": 0,
+            "823383:voluntary_ctxt_switches": 0,
+            "823383:nonvoluntary_ctxt_switches": 0,
+            "823384:voluntary_ctxt_switches": 0,
+            "823384:nonvoluntary_ctxt_switches": 0,
+            "823385:voluntary_ctxt_switches": 0,
+            "823385:nonvoluntary_ctxt_switches": 0,
+            "823387:voluntary_ctxt_switches": 20,
+            "823387:nonvoluntary_ctxt_switches": 0,
+            "823388:voluntary_ctxt_switches": 0,
+            "823388:nonvoluntary_ctxt_switches": 0,
+            "823389:voluntary_ctxt_switches": 0,
+            "823389:nonvoluntary_ctxt_switches": 0,
+            "823390:voluntary_ctxt_switches": 0,
+            "823390:nonvoluntary_ctxt_switches": 0,
+            "823391:voluntary_ctxt_switches": 0,
+            "823391:nonvoluntary_ctxt_switches": 0,
+            "823392:voluntary_ctxt_switches": 0,
+            "823392:nonvoluntary_ctxt_switches": 0,
+            "823393:voluntary_ctxt_switches": 0,
+            "823393:nonvoluntary_ctxt_switches": 0,
+            "823394:voluntary_ctxt_switches": 0,
+            "823394:nonvoluntary_ctxt_switches": 0,
+            "823395:voluntary_ctxt_switches": 99,
+            "823395:nonvoluntary_ctxt_switches": 0,
+            "823396:voluntary_ctxt_switches": 2,
+            "823396:nonvoluntary_ctxt_switches": 0,
+            "823397:voluntary_ctxt_switches": 0,
+            "823397:nonvoluntary_ctxt_switches": 0,
+            "823398:voluntary_ctxt_switches": 0,
+            "823398:nonvoluntary_ctxt_switches": 0
+          },
+          "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+        },
+        {
+          "seconds": 2.0007406980730593,
+          "process_cpu_ticks": 0,
+          "thread_context_switch_deltas": {
+            "823401:voluntary_ctxt_switches": 8,
+            "823401:nonvoluntary_ctxt_switches": 0,
+            "823402:voluntary_ctxt_switches": 0,
+            "823402:nonvoluntary_ctxt_switches": 0,
+            "823403:voluntary_ctxt_switches": 20,
+            "823403:nonvoluntary_ctxt_switches": 0,
+            "823409:voluntary_ctxt_switches": 0,
+            "823409:nonvoluntary_ctxt_switches": 0,
+            "823412:voluntary_ctxt_switches": 0,
+            "823412:nonvoluntary_ctxt_switches": 0,
+            "823413:voluntary_ctxt_switches": 0,
+            "823413:nonvoluntary_ctxt_switches": 0,
+            "823414:voluntary_ctxt_switches": 0,
+            "823414:nonvoluntary_ctxt_switches": 0,
+            "823416:voluntary_ctxt_switches": 20,
+            "823416:nonvoluntary_ctxt_switches": 0,
+            "823417:voluntary_ctxt_switches": 0,
+            "823417:nonvoluntary_ctxt_switches": 0,
+            "823418:voluntary_ctxt_switches": 0,
+            "823418:nonvoluntary_ctxt_switches": 0,
+            "823419:voluntary_ctxt_switches": 0,
+            "823419:nonvoluntary_ctxt_switches": 0,
+            "823420:voluntary_ctxt_switches": 0,
+            "823420:nonvoluntary_ctxt_switches": 0,
+            "823421:voluntary_ctxt_switches": 0,
+            "823421:nonvoluntary_ctxt_switches": 0,
+            "823422:voluntary_ctxt_switches": 0,
+            "823422:nonvoluntary_ctxt_switches": 0,
+            "823423:voluntary_ctxt_switches": 0,
+            "823423:nonvoluntary_ctxt_switches": 0,
+            "823424:voluntary_ctxt_switches": 99,
+            "823424:nonvoluntary_ctxt_switches": 0,
+            "823425:voluntary_ctxt_switches": 2,
+            "823425:nonvoluntary_ctxt_switches": 0,
+            "823426:voluntary_ctxt_switches": 0,
+            "823426:nonvoluntary_ctxt_switches": 0,
+            "823427:voluntary_ctxt_switches": 0,
+            "823427:nonvoluntary_ctxt_switches": 0
+          },
+          "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+        },
+        {
+          "seconds": 2.000679539050907,
+          "process_cpu_ticks": 0,
+          "thread_context_switch_deltas": {
+            "823589:voluntary_ctxt_switches": 8,
+            "823589:nonvoluntary_ctxt_switches": 0,
+            "823590:voluntary_ctxt_switches": 0,
+            "823590:nonvoluntary_ctxt_switches": 0,
+            "823591:voluntary_ctxt_switches": 20,
+            "823591:nonvoluntary_ctxt_switches": 0,
+            "823597:voluntary_ctxt_switches": 0,
+            "823597:nonvoluntary_ctxt_switches": 0,
+            "823600:voluntary_ctxt_switches": 0,
+            "823600:nonvoluntary_ctxt_switches": 0,
+            "823601:voluntary_ctxt_switches": 0,
+            "823601:nonvoluntary_ctxt_switches": 0,
+            "823602:voluntary_ctxt_switches": 0,
+            "823602:nonvoluntary_ctxt_switches": 0,
+            "823604:voluntary_ctxt_switches": 20,
+            "823604:nonvoluntary_ctxt_switches": 0,
+            "823605:voluntary_ctxt_switches": 0,
+            "823605:nonvoluntary_ctxt_switches": 0,
+            "823606:voluntary_ctxt_switches": 0,
+            "823606:nonvoluntary_ctxt_switches": 0,
+            "823607:voluntary_ctxt_switches": 0,
+            "823607:nonvoluntary_ctxt_switches": 0,
+            "823608:voluntary_ctxt_switches": 0,
+            "823608:nonvoluntary_ctxt_switches": 0,
+            "823609:voluntary_ctxt_switches": 0,
+            "823609:nonvoluntary_ctxt_switches": 0,
+            "823610:voluntary_ctxt_switches": 0,
+            "823610:nonvoluntary_ctxt_switches": 0,
+            "823611:voluntary_ctxt_switches": 0,
+            "823611:nonvoluntary_ctxt_switches": 0,
+            "823612:voluntary_ctxt_switches": 99,
+            "823612:nonvoluntary_ctxt_switches": 0,
+            "823613:voluntary_ctxt_switches": 2,
+            "823613:nonvoluntary_ctxt_switches": 0,
+            "823614:voluntary_ctxt_switches": 0,
+            "823614:nonvoluntary_ctxt_switches": 0,
+            "823615:voluntary_ctxt_switches": 0,
+            "823615:nonvoluntary_ctxt_switches": 0
+          },
+          "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+        }
+      ],
+      "daemon_memory": [
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823372,
+            "metrics": {
+              "VmHWM": 9124,
+              "VmRSS": 9124,
+              "RssAnon": 1008,
+              "RssFile": 8116,
+              "Threads": 4
+            }
+          },
+          {
+            "label": "after-native-admissions",
+            "daemon_pid": 823372,
+            "metrics": {
+              "VmHWM": 17668,
+              "VmRSS": 17668,
+              "RssAnon": 5880,
+              "RssFile": 11788,
+              "Threads": 19
+            }
+          }
+        ],
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823401,
+            "metrics": {
+              "VmHWM": 9044,
+              "VmRSS": 9044,
+              "RssAnon": 1004,
+              "RssFile": 8040,
+              "Threads": 4
+            }
+          },
+          {
+            "label": "after-native-admissions",
+            "daemon_pid": 823401,
+            "metrics": {
+              "VmHWM": 17740,
+              "VmRSS": 17740,
+              "RssAnon": 5872,
+              "RssFile": 11868,
+              "Threads": 19
+            }
+          }
+        ],
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823589,
+            "metrics": {
+              "VmHWM": 8856,
+              "VmRSS": 8856,
+              "RssAnon": 1004,
+              "RssFile": 7852,
+              "Threads": 4
+            }
+          },
+          {
+            "label": "after-native-admissions",
+            "daemon_pid": 823589,
+            "metrics": {
+              "VmHWM": 17360,
+              "VmRSS": 17360,
+              "RssAnon": 5860,
+              "RssFile": 11500,
+              "Threads": 19
+            }
+          }
+        ]
+      ]
+    }
+  },
+  "source": {
+    "ep021a_unix": {
+      "runs": 3,
+      "medians": {
+        "median_ms": 0.671863,
+        "p95_ms": 0.755763,
+        "max_ms": 1.145965,
+        "wall_ms": 115.233879
+      },
+      "worst_max_ms": 1.212565,
+      "source_bytes": 10092544,
+      "chunks": 155,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "daemon_memory": [
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823620,
+            "metrics": {
+              "VmHWM": 8380,
+              "VmRSS": 8380,
+              "RssAnon": 872,
+              "RssFile": 7508,
+              "Threads": 5
+            }
+          },
+          {
+            "label": "after-source-transfer",
+            "daemon_pid": 823620,
+            "metrics": {
+              "VmHWM": 27992,
+              "VmRSS": 27992,
+              "RssAnon": 15760,
+              "RssFile": 12232,
+              "Threads": 21
+            }
+          }
+        ],
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823841,
+            "metrics": {
+              "VmHWM": 8160,
+              "VmRSS": 8160,
+              "RssAnon": 876,
+              "RssFile": 7284,
+              "Threads": 5
+            }
+          },
+          {
+            "label": "after-source-transfer",
+            "daemon_pid": 823841,
+            "metrics": {
+              "VmHWM": 27944,
+              "VmRSS": 27944,
+              "RssAnon": 15980,
+              "RssFile": 11964,
+              "Threads": 21
+            }
+          }
+        ],
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823870,
+            "metrics": {
+              "VmHWM": 8292,
+              "VmRSS": 8292,
+              "RssAnon": 876,
+              "RssFile": 7416,
+              "Threads": 5
+            }
+          },
+          {
+            "label": "after-source-transfer",
+            "daemon_pid": 823870,
+            "metrics": {
+              "VmHWM": 29504,
+              "VmRSS": 29504,
+              "RssAnon": 17388,
+              "RssFile": 12116,
+              "Threads": 21
+            }
+          }
+        ]
+      ]
+    },
+    "current_unix": {
+      "runs": 3,
+      "medians": {
+        "median_ms": 0.676663,
+        "p95_ms": 0.823024,
+        "max_ms": 1.243365,
+        "wall_ms": 117.122245
+      },
+      "worst_max_ms": 1.333566,
+      "source_bytes": 10092544,
+      "chunks": 155,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "daemon_memory": [
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823649,
+            "metrics": {
+              "VmHWM": 8116,
+              "VmRSS": 8116,
+              "RssAnon": 880,
+              "RssFile": 7236,
+              "Threads": 5
+            }
+          },
+          {
+            "label": "after-source-transfer",
+            "daemon_pid": 823649,
+            "metrics": {
+              "VmHWM": 28016,
+              "VmRSS": 28016,
+              "RssAnon": 15908,
+              "RssFile": 12108,
+              "Threads": 21
+            }
+          }
+        ],
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823812,
+            "metrics": {
+              "VmHWM": 8244,
+              "VmRSS": 8244,
+              "RssAnon": 880,
+              "RssFile": 7364,
+              "Threads": 5
+            }
+          },
+          {
+            "label": "after-source-transfer",
+            "daemon_pid": 823812,
+            "metrics": {
+              "VmHWM": 27608,
+              "VmRSS": 27516,
+              "RssAnon": 15600,
+              "RssFile": 11916,
+              "Threads": 21
+            }
+          }
+        ],
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823900,
+            "metrics": {
+              "VmHWM": 8204,
+              "VmRSS": 8204,
+              "RssAnon": 884,
+              "RssFile": 7320,
+              "Threads": 5
+            }
+          },
+          {
+            "label": "after-source-transfer",
+            "daemon_pid": 823900,
+            "metrics": {
+              "VmHWM": 29044,
+              "VmRSS": 29044,
+              "RssAnon": 16900,
+              "RssFile": 12144,
+              "Threads": 21
+            }
+          }
+        ]
+      ]
+    },
+    "ep021a_websocket": {
+      "runs": 3,
+      "medians": {
+        "median_ms": 0.752803,
+        "p95_ms": 0.869073,
+        "max_ms": 1.358905,
+        "wall_ms": 128.583323
+      },
+      "worst_max_ms": 1.428456,
+      "source_bytes": 10092544,
+      "chunks": 155,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "daemon_memory": [
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823679,
+            "metrics": {
+              "VmHWM": 9168,
+              "VmRSS": 9168,
+              "RssAnon": 1004,
+              "RssFile": 8164,
+              "Threads": 4
+            }
+          },
+          {
+            "label": "after-source-transfer",
+            "daemon_pid": 823679,
+            "metrics": {
+              "VmHWM": 28792,
+              "VmRSS": 28792,
+              "RssAnon": 16752,
+              "RssFile": 12040,
+              "Threads": 20
+            }
+          }
+        ],
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823779,
+            "metrics": {
+              "VmHWM": 9076,
+              "VmRSS": 9076,
+              "RssAnon": 1004,
+              "RssFile": 8072,
+              "Threads": 4
+            }
+          },
+          {
+            "label": "after-source-transfer",
+            "daemon_pid": 823779,
+            "metrics": {
+              "VmHWM": 27676,
+              "VmRSS": 27676,
+              "RssAnon": 15468,
+              "RssFile": 12208,
+              "Threads": 20
+            }
+          }
+        ],
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823929,
+            "metrics": {
+              "VmHWM": 9200,
+              "VmRSS": 9200,
+              "RssAnon": 1004,
+              "RssFile": 8196,
+              "Threads": 4
+            }
+          },
+          {
+            "label": "after-source-transfer",
+            "daemon_pid": 823929,
+            "metrics": {
+              "VmHWM": 28512,
+              "VmRSS": 28512,
+              "RssAnon": 16308,
+              "RssFile": 12204,
+              "Threads": 20
+            }
+          }
+        ]
+      ]
+    },
+    "current_websocket": {
+      "runs": 3,
+      "medians": {
+        "median_ms": 0.758273,
+        "p95_ms": 0.912244,
+        "max_ms": 1.302185,
+        "wall_ms": 129.430047
+      },
+      "worst_max_ms": 1.415536,
+      "source_bytes": 10092544,
+      "chunks": 155,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "daemon_memory": [
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823712,
+            "metrics": {
+              "VmHWM": 9220,
+              "VmRSS": 9220,
+              "RssAnon": 1008,
+              "RssFile": 8212,
+              "Threads": 4
+            }
+          },
+          {
+            "label": "after-source-transfer",
+            "daemon_pid": 823712,
+            "metrics": {
+              "VmHWM": 29184,
+              "VmRSS": 29184,
+              "RssAnon": 16904,
+              "RssFile": 12280,
+              "Threads": 20
+            }
+          }
+        ],
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823745,
+            "metrics": {
+              "VmHWM": 9032,
+              "VmRSS": 9032,
+              "RssAnon": 1008,
+              "RssFile": 8024,
+              "Threads": 4
+            }
+          },
+          {
+            "label": "after-source-transfer",
+            "daemon_pid": 823745,
+            "metrics": {
+              "VmHWM": 29056,
+              "VmRSS": 29056,
+              "RssAnon": 17064,
+              "RssFile": 11992,
+              "Threads": 20
+            }
+          }
+        ],
+        [
+          {
+            "label": "hello:measured-client",
+            "daemon_pid": 823962,
+            "metrics": {
+              "VmHWM": 9204,
+              "VmRSS": 9204,
+              "RssAnon": 1008,
+              "RssFile": 8196,
+              "Threads": 4
+            }
+          },
+          {
+            "label": "after-source-transfer",
+            "daemon_pid": 823962,
+            "metrics": {
+              "VmHWM": 28316,
+              "VmRSS": 28316,
+              "RssAnon": 16052,
+              "RssFile": 12264,
+              "Threads": 20
+            }
+          }
+        ]
+      ]
+    }
+  },
+  "synthetic_socket": {
+    "ep021a_unix": {
+      "runs": 15,
+      "medians": {
+        "rss_kib": {
+          "after_apply": 8008,
+          "after_transfer": 8516,
+          "before": 3248
+        },
+        "client_decode_ms": 3.741618999999987,
+        "publish_export_encode_ms": 16.569644000000014,
+        "source_apply_ms": 14.189248999999998,
+        "transfer_wall_ms": 29.300462,
+        "writer_wait_send_ms": 6.686106000000011
+      },
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "payload_bytes": 4896929,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "turns": 1000,
+      "seed": 1,
+      "tool_lines": 24
+    },
+    "current_unix": {
+      "runs": 15,
+      "medians": {
+        "rss_kib": {
+          "after_apply": 7784,
+          "after_transfer": 8328,
+          "before": 2712
+        },
+        "client_decode_ms": 3.701254999999992,
+        "publish_export_encode_ms": 16.581331,
+        "source_apply_ms": 14.160949,
+        "transfer_wall_ms": 29.505083000000003,
+        "writer_wait_send_ms": 6.837106000000008
+      },
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "payload_bytes": 4896929,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "turns": 1000,
+      "seed": 1,
+      "tool_lines": 24
+    },
+    "ep021a_websocket": {
+      "runs": 15,
+      "medians": {
+        "rss_kib": {
+          "after_apply": 7956,
+          "after_transfer": 8636,
+          "before": 3296
+        },
+        "client_decode_ms": 3.802084999999998,
+        "publish_export_encode_ms": 17.10357500000002,
+        "source_apply_ms": 14.132119,
+        "transfer_wall_ms": 32.838746,
+        "writer_wait_send_ms": 10.996838999999964
+      },
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "payload_bytes": 4896929,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "turns": 1000,
+      "seed": 1,
+      "tool_lines": 24
+    },
+    "current_websocket": {
+      "runs": 15,
+      "medians": {
+        "rss_kib": {
+          "after_apply": 7784,
+          "after_transfer": 8544,
+          "before": 2728
+        },
+        "client_decode_ms": 3.7880959999999915,
+        "publish_export_encode_ms": 16.765539000000008,
+        "source_apply_ms": 14.189169999999999,
+        "transfer_wall_ms": 32.555595,
+        "writer_wait_send_ms": 10.81505399999998
+      },
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "payload_bytes": 4896929,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "turns": 1000,
+      "seed": 1,
+      "tool_lines": 24
+    }
+  },
+  "native": {
+    "ep021a_codex": {
+      "runs": 3,
+      "ready_confirmed_ms": 39.26936,
+      "scope": "CPU6; no parallel builds/tests/reviewers. Ready timing includes native load, initial adoption and durable open confirmation. First snapshot is client facts, not a pixel-paint claim.",
+      "native_calls_before_ready": 10,
+      "native_calls_after_traversal": 10,
+      "complete_rows": 2000,
+      "expected_rows": 2000,
+      "exact_equivalent_rows": true,
+      "ready_memory": {
+        "VmRSS": 27560,
+        "VmHWM": 30484
+      },
+      "retained_memory": {
+        "VmRSS": 27572,
+        "VmHWM": 30484
+      },
+      "cached_older_reads": {
+        "samples": 57,
+        "median_ms": 0.300621,
+        "p95_ms": 0.465442,
+        "max_ms": 2.31242
+      }
+    },
+    "current_codex": {
+      "runs": 3,
+      "ready_confirmed_ms": 12.529605,
+      "scope": "CPU6; no parallel builds/tests/reviewers. Ready timing includes native load, initial adoption and durable open confirmation. First snapshot is client facts, not a pixel-paint claim.",
+      "native_calls_before_ready": 1,
+      "native_calls_after_traversal": 10,
+      "complete_rows": 2000,
+      "expected_rows": 2000,
+      "exact_equivalent_rows": true,
+      "ready_memory": {
+        "VmRSS": 15552,
+        "VmHWM": 15552
+      },
+      "retained_memory": {
+        "VmRSS": 22472,
+        "VmHWM": 22516
+      },
+      "native_older_reads": {
+        "samples": 27,
+        "median_ms": 2.564661,
+        "p95_ms": 4.049637,
+        "max_ms": 5.081812
+      },
+      "cached_older_reads": {
+        "samples": 30,
+        "median_ms": 0.311331,
+        "p95_ms": 0.479443,
+        "max_ms": 0.508663
+      }
+    },
+    "ep021a_claude": {
+      "runs": 3,
+      "ready_confirmed_ms": 805.139404,
+      "scope": "CPU6; no parallel builds/tests/reviewers. Ready timing includes native load, initial adoption and durable open confirmation. First snapshot is client facts, not a pixel-paint claim.",
+      "native_calls_before_ready": 32,
+      "native_calls_after_traversal": 32,
+      "complete_rows": 2000,
+      "expected_rows": 2000,
+      "exact_equivalent_rows": true,
+      "ready_memory": {
+        "VmRSS": 28956,
+        "VmHWM": 28956
+      },
+      "retained_memory": {
+        "VmRSS": 28972,
+        "VmHWM": 28972
+      },
+      "cached_older_reads": {
+        "samples": 57,
+        "median_ms": 0.563493,
+        "p95_ms": 1.633208,
+        "max_ms": 3.336394
+      }
+    },
+    "current_claude": {
+      "runs": 3,
+      "ready_confirmed_ms": 468.854806,
+      "scope": "CPU6; no parallel builds/tests/reviewers. Ready timing includes native load, initial adoption and durable open confirmation. First snapshot is client facts, not a pixel-paint claim.",
+      "native_calls_before_ready": 1,
+      "native_calls_after_traversal": 32,
+      "complete_rows": 2000,
+      "expected_rows": 2000,
+      "exact_equivalent_rows": true,
+      "ready_memory": {
+        "VmRSS": 14948,
+        "VmHWM": 14948
+      },
+      "retained_memory": {
+        "VmRSS": 30216,
+        "VmHWM": 30216
+      },
+      "native_older_reads": {
+        "samples": 93,
+        "median_ms": 9.087559,
+        "p95_ms": 11.43524,
+        "max_ms": 13.102117
+      }
+    },
+    "ep021a_grok": {
+      "runs": 3,
+      "ready_confirmed_ms": 106.510074,
+      "scope": "CPU6; no parallel builds/tests/reviewers. Ready timing includes native load, initial adoption and durable open confirmation. First snapshot is client facts, not a pixel-paint claim.",
+      "native_calls_before_ready": 1,
+      "native_calls_after_traversal": 1,
+      "complete_rows": 2,
+      "expected_rows": 2000,
+      "exact_equivalent_rows": false,
+      "ready_memory": {
+        "VmRSS": 13784,
+        "VmHWM": 13784
+      },
+      "retained_memory": {
+        "VmRSS": 13816,
+        "VmHWM": 13816
+      },
+      "limitation": "Old translator merges replay text into two rows; startup/RSS timings are not equivalent-workload speed evidence."
+    },
+    "current_grok": {
+      "runs": 3,
+      "ready_confirmed_ms": 111.860898,
+      "scope": "CPU6; no parallel builds/tests/reviewers. Ready timing includes native load, initial adoption and durable open confirmation. First snapshot is client facts, not a pixel-paint claim.",
+      "native_calls_before_ready": 1,
+      "native_calls_after_traversal": 1,
+      "complete_rows": 2000,
+      "expected_rows": 2000,
+      "exact_equivalent_rows": true,
+      "ready_memory": {
+        "VmRSS": 17620,
+        "VmHWM": 17620
+      },
+      "retained_memory": {
+        "VmRSS": 17620,
+        "VmHWM": 17620
+      },
+      "cached_older_reads": {
+        "samples": 57,
+        "median_ms": 0.335531,
+        "p95_ms": 0.957644,
+        "max_ms": 1.362296
+      }
+    }
+  },
+  "claude_archive": {
+    "ep021a": {
+      "runs": 3,
+      "first_read_median_ms": 274.780106,
+      "warm_read_median_ms": 6.288968,
+      "first_read_helper_memory_kib": {
+        "VmRSS": 113160,
+        "VmHWM": 113160
+      },
+      "max_helper_hwm_kib": 117540,
+      "scope": "First read includes complete SDK import/archive projection plus first-page encoding/pipe; later reads reuse that archive. This is not a pure SDK-only stopwatch."
+    },
+    "current": {
+      "runs": 3,
+      "first_read_median_ms": 274.599664,
+      "warm_read_median_ms": 5.910486,
+      "first_read_helper_memory_kib": {
+        "VmRSS": 117128,
+        "VmHWM": 117128
+      },
+      "max_helper_hwm_kib": 118708,
+      "scope": "First read includes complete SDK import/archive projection plus first-page encoding/pipe; later reads reuse that archive. This is not a pure SDK-only stopwatch."
+    }
+  },
+  "held_native": [
+    {
+      "backend": "codex",
+      "scope": "current frozen pair; older native reply deliberately held while actual PTY input and independent native controls complete",
+      "typing_to_painted_composer_ms": 0.892034,
+      "send_to_native_approval_ms": 1.110655,
+      "native_approval_ms": 0.956244,
+      "native_interrupt_ms": 0.859363,
+      "release_to_older_reply_ms": 3.837607,
+      "held_request_wall_ms": 48.655622,
+      "older_rows": 100,
+      "terminal_send_requests": 0
+    },
+    {
+      "backend": "claude",
+      "scope": "current frozen pair; older native reply deliberately held while actual PTY input and independent native controls complete",
+      "typing_to_painted_composer_ms": 0.856844,
+      "send_to_native_approval_ms": 4.063487,
+      "native_approval_ms": 5.671255,
+      "native_interrupt_ms": 9.523072,
+      "release_to_older_reply_ms": 10.982578,
+      "held_request_wall_ms": 88.468816,
+      "older_rows": 64,
+      "terminal_send_requests": 0
+    }
+  ],
+  "setup_failures": [
+    "The first native probe compared Grok large-body inline text instead of full source. Preserve native-history-measurements.log/native-history-measurements-setup-01. The corrected probe fetches source chunks and asserts the old exact two-row defect, not arbitrary loss.",
+    "The first RSS sampler saw direct children (the timing proxy). A separate three-run Claude probe captures actual helper RSS/HWM at every reply; it does not replace completed native traversal results."
+  ]
+}

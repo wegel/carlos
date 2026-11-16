@@ -159,3 +159,5 @@ daemon split started. They remain outside the iPhone spike; its next step is EP0
 - [x] `.agents/done/EXECPLAN_020_network_access.md` (completed and approved under delegated authority 2026-11-16; corrected full gate, matched measurements and both final Fable passes recorded)
 
 - [x] `.agents/done/EXECPLAN_021a_shared_panel_reads.md` (completed and approved under delegated authority2026-11-16; corrected full gate, exact-pair measurements and both end reviews recorded)
+
+On2026-11-16 the owner explicitly requested pushing the current branch upstream. Codex pushed iphone-spike to origin atbb9be01 and configured origin/iphone-spike tracking. No merge or force push occurred. The later local evidence/review work continues under the same spike plan.
