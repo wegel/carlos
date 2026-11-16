@@ -75,7 +75,7 @@ impl Results {
     }
 
     pub fn collect(&mut self) -> Vec<OperationResult> {
-        let results = self
+        let mut results: Vec<_> = self
             .records
             .values_mut()
             .filter(|record| record.dirty)
@@ -84,6 +84,14 @@ impl Results {
                 record.result.clone()
             })
             .collect();
+        // One owner batch must not reorder returned drafts from the same originating device.
+        results.sort_unstable_by(|left, right| {
+            left.operation
+                .client
+                .as_str()
+                .cmp(right.operation.client.as_str())
+                .then_with(|| left.operation.id.get().cmp(&right.operation.id.get()))
+        });
         self.records.retain(|_, record| {
             matches!(
                 record.result.state,
@@ -108,3 +116,7 @@ impl Results {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "results_tests.rs"]
+mod tests;
