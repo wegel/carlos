@@ -8,7 +8,8 @@
 #   scripts/ios-mac.sh ssh <command...>   run one command on the Mac
 #   scripts/ios-mac.sh sim-create         create the carlos simulator if missing
 #   scripts/ios-mac.sh sim-udid           print the carlos simulator UDID
-#   scripts/ios-mac.sh sync <local-dir>   copy an app source directory to the Mac
+#   scripts/ios-mac.sh sync <dir> [path] copy sources below the Carlos build directory
+#   scripts/ios-mac.sh fetch <path> <dir> retrieve Carlos screenshots or test results
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -61,10 +62,26 @@ sim-udid)
     ;;
 sync)
     src="${2:?usage: ios-mac.sh sync <local-dir>}"
-    mac "mkdir -p ~/$MAC_BUILD_DIR"
+    destination="${3:-}"
+    if [[ "$destination" == /* || "$destination" == *..* || ! "$destination" =~ ^[a-zA-Z0-9/_-]*$ ]]; then
+        echo "sync path must stay below the Carlos build directory" >&2
+        exit 2
+    fi
+    mac "mkdir -p ~/$MAC_BUILD_DIR/$destination"
     # No --delete: Xcode writes generated files into the build directory on the Mac.
     rsync -a --exclude build --exclude DerivedData --exclude .git \
-        -e "ssh ${SSH_OPTS[*]}" "$src/" "$MAC_BUILD_HOST:$MAC_BUILD_DIR/"
+        --exclude target --exclude node_modules --exclude etc \
+        -e "ssh ${SSH_OPTS[*]}" "$src/" "$MAC_BUILD_HOST:$MAC_BUILD_DIR/$destination/"
+    ;;
+fetch)
+    source_path="${2:?usage: ios-mac.sh fetch <relative-path> <local-directory>}"
+    local_directory="${3:?usage: ios-mac.sh fetch <relative-path> <local-directory>}"
+    if [[ "$source_path" == /* || "$source_path" == *..* || ! "$source_path" =~ ^[a-zA-Z0-9/_.-]+$ ]]; then
+        echo "fetch path must stay below the Carlos build directory" >&2
+        exit 2
+    fi
+    mkdir -p "$local_directory"
+    rsync -a -e "ssh ${SSH_OPTS[*]}" "$MAC_BUILD_HOST:$MAC_BUILD_DIR/$source_path" "$local_directory/"
     ;;
 *)
     sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'

@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# Build and test only Carlos sources, libraries, app and simulator on the owned Mac.
+set -euo pipefail
+
+SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE="$(cd "$SOURCE/../.." && pwd)"
+BUILD="$BASE/builds/$(basename "$SOURCE")"
+export PATH="$BASE/toolchains/rust-1.100.0/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export CARGO_HOME="$BASE/toolchains/cargo"
+export CARGO_TARGET_DIR="$BASE/rust-target"
+export CARLOS_GENERATED="$BUILD/generated"
+export CARLOS_APP="$SOURCE/apps/ios"
+DEPENDENCIES="$(cat "$SOURCE/dependencies-id")"
+VENDOR="$BASE/ios-dependencies/$DEPENDENCIES/vendor"
+mkdir -p "$BUILD" "$CARLOS_GENERATED"
+cd "$SOURCE"
+
+framework() {
+    rust_build --target x86_64-apple-ios
+    rust_build --target aarch64-apple-ios
+    rust_build --target aarch64-apple-ios-sim
+    rust_build --features bindgen --bin carlos-bindgen-swift
+    local library="$CARLOS_GENERATED/libcarlos_phone.a"
+    lipo -create "$CARGO_TARGET_DIR/x86_64-apple-ios/release/libcarlos_phone.a" \
+        "$CARGO_TARGET_DIR/aarch64-apple-ios-sim/release/libcarlos_phone.a" -output "$library"
+    "$CARGO_TARGET_DIR/release/carlos-bindgen-swift" "$library" "$CARLOS_GENERATED/Swift" --swift-sources
+    "$CARGO_TARGET_DIR/release/carlos-bindgen-swift" "$library" "$CARLOS_GENERATED/Headers" \
+        --headers --modulemap --module-name carlos_phoneFFI --modulemap-filename module.modulemap
+    # Each immutable source bundle has its own product directory; do not replace checked frameworks.
+    if [[ ! -d "$CARLOS_GENERATED/CarlosPhone.xcframework" ]]; then
+        xcodebuild -create-xcframework \
+            -library "$library" -headers "$CARLOS_GENERATED/Headers" \
+            -library "$CARGO_TARGET_DIR/aarch64-apple-ios/release/libcarlos_phone.a" \
+            -headers "$CARLOS_GENERATED/Headers" -output "$CARLOS_GENERATED/CarlosPhone.xcframework"
+    fi
+    # Keep the spec and project together: framework references are relative to the spec.
+    cp "$SOURCE/apps/ios/project.yml" "$BUILD/project.yml"
+    xcodegen generate --spec "$BUILD/project.yml" --project "$BUILD"
+}
+
+rust_build() {
+    # An absolute shared vendor path keeps Cargo fingerprints stable between source bundles.
+    cargo build --offline --locked --release -p carlos-phone \
+        --config "source.vendored-sources.directory=\"$VENDOR\"" "$@"
+}
+
+app() {
+    xcodebuild -project "$BUILD/Carlos.xcodeproj" -scheme Carlos \
+        -configuration Debug -sdk iphonesimulator -derivedDataPath "$BUILD/DerivedData" \
+        CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- "$@"
+}
+
+case "${1:-}" in
+framework) framework ;;
+build) app build -destination 'generic/platform=iOS Simulator' ;;
+test)
+    : "${2:?pass the owned Carlos simulator UUID}"
+    app test -destination "platform=iOS Simulator,id=$2" \
+        -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
+        -resultBundlePath "$BUILD/tests-$(date +%Y%m%dT%H%M%S).xcresult"
+    ;;
+launch)
+    : "${2:?pass the owned Carlos simulator UUID}"
+    xcrun simctl bootstatus "$2" -b
+    xcrun simctl install "$2" "$BUILD/DerivedData/Build/Products/Debug-iphonesimulator/Carlos.app"
+    xcrun simctl launch "$2" app.carlos.phone
+    xcrun simctl io "$2" screenshot "$BUILD/screen.png"
+    ;;
+*) echo "usage: ios-remote.sh framework|build|test <simulator>|launch <simulator>" >&2; exit 2 ;;
+esac

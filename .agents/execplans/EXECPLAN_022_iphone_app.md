@@ -39,12 +39,18 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 - [x] (2026-11-16) Read the full phone spec, architecture, client API and Mac build notes.
   The earlier read-only Mac check passed. No app source or Mac build was created during
   EP021b; preparation notes are `/tmp/carlos-ep021b/ep022-preparation.md`.
-- [ ] Prove a small real Swift caller and simulator app against a narrow generated Rust
-  interface before building the rest of the UI. Establish repeatable Mac build/test scripts.
-  Completed: two Rust boundary tests pass for actual greeting/reconnect rights, typed
-  invalid-input/frame errors and stale socket callbacks. A minimal SwiftUI connection
-  shell and real-library XCTest caller exist; neither is claimed compiled yet.
-  Remaining: the offline Mac toolchain, XCFramework build and actual simulator tests.
+- [x] (2026-11-16 21:10Z) Prove the small real Swift caller before expanding the UI.
+  Both Rust boundary tests and both Swift XCTest cases pass for actual greeting/reconnect
+  rights, typed invalid-input/frame errors and stale socket callbacks. The SwiftUI shell
+  compiles and links both generated Swift and the actual Rust static library. Evidence:
+  `/tmp/carlos-ep022/first-swift-test.log`; Mac bundle3303d44c00c224ba856c,
+  tests-20261116T160903.xcresult, owned simulator4C821FE4-54D8-452D-A46C-3187AAED6C61.
+- [ ] Finish the repeatable offline build/cache path and capture the launched shell.
+  Completed: project-local pinned Rust/LLVM tools, both Apple library slices,
+  generated Swift/headers/XCFramework, XcodeGen project and successful real simulator
+  test. The launched shell's actual screenshot is
+  `target/ios-artifacts/first-shell/screen.png`. Remaining: check the current
+  stable-vendor wrapper end to end with all three Apple targets.
 - [ ] Connect the actual app to a deterministic daemon over WebSocket; prove greeting,
   session selection/create, private prompt submission, reconnect and uncertain-write handling.
 - [ ] Implement the specified header, transcript, composer, activity line, Latest button,
@@ -79,7 +85,11 @@ owner retains loaded older rows within existing caps. Claude can still scan the 
 file before its first archive window; Grok still replays its native conversation in full.
 These are carried limits, not permission to hide data.
 
-The Mac cannot resolve static.rust-lang.org or index.crates.io. Linux can fetch the
+The Mac’s system name lookup cannot resolve static.rust-lang.org or index.crates.io.
+Direct dig queries get valid answers from its configured DNS server, while Python
+getaddrinfo and curl fail; curl with an explicit address succeeds over HTTPS. This
+narrows the failure to the system resolver but does not establish its underlying
+cause. No resolver setting or service was changed. Linux can fetch the
 official release. `scripts/ios-toolchain.py` verifies each Apple Rust component against
 the release manifest and relays only those archives; the installer writes below the
 owned build directory. `scripts/ios-prepare.py` stages only phone/client/protocol source
@@ -88,6 +98,37 @@ features unified by unrelated CLI crates, but it rejects any new package/version
 Published UniFFI0.32.2 includes macros without the main branch's macro-scaffolding
 feature; the first build exposed that difference and the manifest now matches the
 published crate. No runtime async feature is enabled.
+
+The first Mac build compiled both Apple static libraries and generated the XCFramework,
+then failed because XcodeGen calculated a framework path relative to the spec while the
+project lived elsewhere. The spec is now copied into its build directory before project
+generation. The generated Swift imports carlos_phoneFFI, so the C module map must use
+that exact name. A missing libLLVM for rust-objcopy also produced stripping warnings;
+the project-local official llvm-tools component fixes that toolchain dependency.
+
+Putting vendor sources inside each versioned source directory caused Cargo to compile
+all third-party crates again after an app edit. Stage them separately by their content
+hash and give Cargo their stable absolute Mac path. Keep app sources versioned and
+build outputs separate; no rsync deletion or broad repository sync is needed.
+
+A generic simulator build also requests arm64, even on the Intel Mac. The package now
+builds aarch64-apple-ios-sim and combines it with x86_64-apple-ios using lipo; the
+XCFramework contains that universal simulator library and the arm64 phone library.
+The specific owned-simulator test already passed before this packaging addition. Keep
+the failed generic-build log instead of calling it a test failure. Never edit a running
+Bash wrapper in place: one run reached its completed framework then stopped when its
+shell read changed file offsets. The subsequent unchanged-source direct XCTest passed.
+
+The first stable-vendor rebuild reused third-party packages: existing Apple library
+builds fell to11.09s/7.82s, followed by the new arm64-simulator target and host generator.
+Later existing-target rebuilds were7.70s/6.86s/6.47s. These are compiler-cache observations,
+not app performance claims. Native compilation also caught Swift's Protocol metatype
+name clash in the error constructor; use the specific InvalidMessage error instead.
+
+The owner asked for an early usable iPhone build. Root estimated2–3hours for basic
+sessions/read/send/approval/Stop, separate from complete EP022. Signing settings exist,
+but the read-only physical-device detail query timed out after15seconds. Simulator work
+continues; no phone unlock, installation or App Store publishing has been requested.
 
 ## Decision Log
 
@@ -119,11 +160,18 @@ unavailable state when the device/language cannot supply it. Never silently send
 to a cloud service or add a server dictation protocol. A test-only transcriber can drive
 draft/permission/error workflows; do not ship canned transcription as product behavior.
 
+Decision (2026-11-16,Root): use a phone-only offline workspace and verified Apple Rust
+components because the Mac's system resolver currently fails. Keep third-party source
+paths stable across app edits so Carlos can reuse its own compiler cache. Do not change
+the Mac's DNS service, global toolchain, other projects or simulators to finish this app.
+
 ## Outcomes & Retrospective
 
-EP022 has started after EP021b approval. No app behavior is claimed complete yet. The
-next concrete step is a minimal typed Rust/Swift bridge and a real remote-Mac build.
-Keep limits and evidence here as each milestone becomes usable.
+The first real Swift caller now passes against the generated Rust boundary on the
+owned simulator. Both Apple targets compile, the SwiftUI shell links, and two native
+tests prove greeting/reconnect/error behavior. This establishes the actual boundary
+before broader UI work; it does not claim a socket connection or session screen yet.
+Continue with the real daemon transport and only the records those screens consume.
 
 ## Context and Orientation
 
