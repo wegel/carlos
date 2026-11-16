@@ -17,7 +17,7 @@ use crate::session::read_summary::{format_read_summary_with_count, parse_read_su
 use crate::session::state::SessionState;
 use crate::session::tools::{
     command_execution_diff_output, extract_diff_blocks, is_tool_call_type, is_tool_output_type,
-    item_text_from_content,
+    item_text_from_content, native_tool_source, role_for_tool_item,
 };
 
 #[path = "item_history_predecessors.rs"]
@@ -112,7 +112,9 @@ fn collect(
             key
         });
         let inserted = key.as_ref().is_none_or(|key| !positions.contains_key(key));
-        let describe = row.role == Role::ToolOutput || row.kind == MessageKind::Diff;
+        let describe = row.role == Role::ToolOutput
+            || row.kind == MessageKind::Diff
+            || item["type"] == "mcpToolCall";
         let prompt = row.role == Role::User && inserted;
         let text = row.text.clone();
         let path = row.file_path.clone();
@@ -243,10 +245,10 @@ pub fn rows(session: &SessionState, item: &Value) -> Vec<EntryDraft> {
 }
 
 fn tool_rows(session: &SessionState, item: &Value, kind: &str) -> Vec<EntryDraft> {
-    let role = if kind == "commandExecution" || is_tool_output_type(kind) {
+    let role = if kind == "commandExecution" {
         Role::ToolOutput
     } else {
-        Role::ToolCall
+        role_for_tool_item(item).expect("checked native tool kind")
     };
     let diffs = extract_diff_blocks(item);
     if !diffs.is_empty() {
@@ -270,8 +272,8 @@ fn tool_rows(session: &SessionState, item: &Value, kind: &str) -> Vec<EntryDraft
             }];
         }
     }
-    if let Some(formatted) = session
-        .format_tool_item(item, role)
+    if let Some(formatted) = native_tool_source(item)
+        .or_else(|| session.format_tool_item(item, role))
         .filter(|text| !text.is_empty())
     {
         return vec![EntryDraft {

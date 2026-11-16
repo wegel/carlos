@@ -2,6 +2,28 @@
 
 
 class DaemonHistory:
+    def test_daemon_terminal_expands_native_file_changes_and_complete_mcp_results(self):
+        from native_items import PATCH, MCP
+        history = {"id":"native-root", "status":{"type":"idle"}, "turns":[
+            {"id":"native-items", "status":"completed", "items":[PATCH, MCP]},
+        ]}
+        fixture, client, session = self.daemon_session("terminal-native-items", lambda: history)
+        terminal = self.attach_daemon(fixture, session, "native-items", width=100)
+        terminal.contains("Lookup")
+        self.tools_command(terminal, "/tools full", "full")
+        terminal.contains('"answer": 42')
+        terminal.contains("native MCP response 🌍")
+        terminal.snapshot("native-mcp-result-expanded")
+        terminal.send(b"\x1b[H")
+        terminal.contains("+new 🌍")
+        terminal.contains("+second 🌍")
+        terminal.snapshot("native-file-changes-expanded")
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertEqual(fixture.native.prompts, 0)
+        self.assertTrue(terminal.requests("entry/source/subscribe"))
+        snapshot = client.call("session/subscribe", session=session, since=None)["snapshot"]
+        self.assertEqual(len([row for row in snapshot["entries"] if row.get("tool")]), 3)
+
     def test_daemon_terminal_fetches_native_older_windows_without_resetting_its_anchor(self):
         import json
         import sys

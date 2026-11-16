@@ -30,6 +30,9 @@ impl ToolCommandView {
     }
     /// Require per-command cwd for relative targets; the session root alone does not prove Bash state.
     pub fn from_item(item: &Value, workspace: &Path) -> Option<Self> {
+        if item["type"] == "mcpToolCall" {
+            return None;
+        }
         let raw = command_payload(item)?;
         let prefix = directory_prefix(&raw)?;
         let path = Path::new(&prefix.directory);
@@ -174,6 +177,9 @@ impl SessionState {
 
     /// Infer read coloring from the same display command without opening any source file.
     pub(crate) fn tool_source_path(&self, item: &Value) -> Option<String> {
+        if item["type"] == "mcpToolCall" {
+            return None;
+        }
         let view = ToolCommandView::from_item(item, self.summary_cwd());
         if view.as_ref().is_some_and(|view| !view.can_classify()) {
             return None;

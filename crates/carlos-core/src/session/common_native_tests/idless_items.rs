@@ -1,4 +1,4 @@
-//! Keep optional-id item handling equal to the pre-plan commit, including unkeyed output.
+//! Keep legacy optional-id rows equal and preserve newly supported native tool sources.
 
 use serde_json::{json, Value};
 
@@ -8,7 +8,59 @@ use super::{feed as handle_server_message_line, session};
 fn idless_items_keep_pre_plan_rows_for_every_backend_and_item_label() {
     let expected: Value =
         serde_json::from_str(include_str!("fixtures/idless_pre_plan.json")).expect("pre-plan rows");
-    assert_eq!(all_cases(), expected);
+    assert_eq!(legacy_cases(all_cases()), legacy_cases(expected));
+}
+
+fn legacy_cases(cases: Value) -> Vec<Value> {
+    cases
+        .as_array()
+        .expect("native cases")
+        .iter()
+        .filter(|case| {
+            !matches!(
+                case["item"]["type"].as_str(),
+                Some("fileChange" | "mcpToolCall")
+            )
+        })
+        .cloned()
+        .collect()
+}
+
+#[test]
+fn idless_native_file_changes_and_mcp_keep_complete_unkeyed_source() {
+    let patch = json!({"type":"fileChange", "status":"completed", "changes":[
+        {"path":"one.rs", "diff":"@@ -1 +1 @@\n-old\n+new 🌍\n"},
+        {"path":"two.rs", "diff":"@@ -0,0 +1 @@\n+second 🌍\n"}
+    ]});
+    let mcp = json!({"type":"mcpToolCall", "status":"completed", "tool":"lookup",
+        "arguments":{"query":"original 🌍"}, "result":{"structuredContent":{"answer":42}}});
+    let mut app = session("thread");
+    for item in [&patch, &mcp] {
+        handle_server_message_line(
+            &mut app,
+            &json!({"method":"item/completed",
+            "params":{"item":item}})
+            .to_string(),
+        );
+    }
+    assert!(
+        app.messages().items().is_empty(),
+        "id-less rows stay unkeyed"
+    );
+    assert_eq!(app.messages().len(), 3);
+    for (row, change) in app
+        .messages()
+        .iter()
+        .take(2)
+        .zip(patch["changes"].as_array().expect("changes"))
+    {
+        assert_eq!(row.text, change["diff"].as_str().expect("original diff"));
+        assert_eq!(row.file_path.as_deref(), change["path"].as_str());
+    }
+    assert_eq!(
+        serde_json::from_str::<Value>(&app.messages()[2].text).expect("complete MCP JSON"),
+        mcp
+    );
 }
 
 pub(super) fn all_cases() -> Value {

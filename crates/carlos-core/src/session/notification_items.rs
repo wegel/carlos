@@ -173,6 +173,9 @@ fn handle_item_started(
         "agentMessage" => start_placeholder(session, item, agent_role_from_phase(item), false),
         "reasoning" => start_placeholder(session, item, Role::Reasoning, false),
         "commandExecution" => start_placeholder(session, item, Role::ToolCall, true),
+        "mcpToolCall" => {
+            complete_tool_item(session, t, &Value::Object(item.clone()));
+        }
         t if is_tool_call_type(t) => start_placeholder(session, item, Role::ToolCall, false),
         t if is_tool_output_type(t) => start_placeholder(session, item, Role::ToolOutput, true),
         _ => {}

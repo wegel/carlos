@@ -111,7 +111,9 @@ pub(crate) fn append_history_item(
     let rows = history_draft::rows(session, item);
     for (part, row) in rows.into_iter().enumerate() {
         let user = row.role == Role::User;
-        let describe = row.role == Role::ToolOutput || row.kind == MessageKind::Diff;
+        let describe = row.role == Role::ToolOutput
+            || row.kind == MessageKind::Diff
+            || item["type"] == "mcpToolCall";
         let text = row.text.clone();
         if let Some(id) = item["id"].as_str() {
             session.with_native_item_part(id, part, |session, key| {

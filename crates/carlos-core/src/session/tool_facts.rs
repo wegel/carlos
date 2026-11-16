@@ -63,7 +63,7 @@ fn result_text(item: &Value) -> Option<&str> {
 }
 
 fn tool_kind(message: &Message, item: &Value) -> ToolKind {
-    if message.kind == MessageKind::Diff {
+    if message.kind == MessageKind::Diff || item["type"] == "fileChange" {
         return ToolKind::Edit;
     }
     if let Some(kind) = item["kind"].as_str() {
@@ -95,10 +95,15 @@ fn tool_kind(message: &Message, item: &Value) -> ToolKind {
 }
 
 fn observed_status(item: &Value) -> Option<ToolStatus> {
+    let native_result = matches!(item["type"].as_str(), Some("mcpToolCall" | "fileChange"));
+    if item["type"] == "mcpToolCall" && !item["error"].is_null() {
+        return Some(ToolStatus::Failed);
+    }
     match item["status"].as_str() {
         Some("pending" | "in_progress" | "inProgress") => return Some(ToolStatus::Running),
         Some("interrupted" | "cancelled" | "canceled") => return Some(ToolStatus::Interrupted),
         Some("failed" | "declined") => return Some(ToolStatus::Failed),
+        Some("completed") if native_result => return Some(ToolStatus::Ok),
         _ => {}
     }
     if item["interrupted"] == true {

@@ -1,0 +1,134 @@
+{
+  "baseline": {
+    "commit": "e5390a5853a860b7f8d78a900145206df02965f4",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 382,
+        "nonblank": 48236,
+        "physical": 54173,
+        "bytes": 1827171
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8318,
+        "physical": 8909,
+        "bytes": 291904
+      },
+      "terminal": {
+        "files": 193,
+        "nonblank": 25593,
+        "physical": 28999,
+        "bytes": 952106
+      },
+      "helper": {
+        "files": 23,
+        "nonblank": 1653,
+        "physical": 1821,
+        "bytes": 88846
+      }
+    },
+    "total": {
+      "files": 758,
+      "nonblank": 96483,
+      "physical": 107639,
+      "bytes": 3624339
+    }
+  },
+  "native_items": {
+    "commit": "working",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 382,
+        "nonblank": 48278,
+        "physical": 54217,
+        "bytes": 1828872
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8318,
+        "physical": 8909,
+        "bytes": 291904
+      },
+      "terminal": {
+        "files": 193,
+        "nonblank": 25593,
+        "physical": 28999,
+        "bytes": 952106
+      },
+      "helper": {
+        "files": 23,
+        "nonblank": 1653,
+        "physical": 1821,
+        "bytes": 88846
+      }
+    },
+    "total": {
+      "files": 758,
+      "nonblank": 96525,
+      "physical": 107683,
+      "bytes": 3626040
+    }
+  },
+  "delta_nonblank": 42,
+  "changes": {
+    "crates/carlos-core/src/session/item_history.rs": {
+      "added": 3,
+      "deleted": 1
+    },
+    "crates/carlos-core/src/session/item_history_draft.rs": {
+      "added": 8,
+      "deleted": 6
+    },
+    "crates/carlos-core/src/session/notification_items.rs": {
+      "added": 3,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/notification_tools.rs": {
+      "added": 7,
+      "deleted": 4
+    },
+    "crates/carlos-core/src/session/tool_command_view.rs": {
+      "added": 6,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/tool_diff.rs": {
+      "added": 3,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/tool_facts.rs": {
+      "added": 6,
+      "deleted": 1
+    },
+    "crates/carlos-core/src/session/tools.rs": {
+      "added": 23,
+      "deleted": 5
+    }
+  },
+  "added_nonblank": 59,
+  "deleted_nonblank": 17,
+  "note": "Native fileChange/MCP support versus checked Codex paging commit e5390a5. Four new actual-daemon regressions and expanded terminal check pass. Both full Rust configurations/lints,400/60/fmt/diff checks and complete corrected debug/Codex/Claude gate02 pass. Gate01 mixed build failure is preserved. Claude paging and final EP release/performance checks remain."
+}

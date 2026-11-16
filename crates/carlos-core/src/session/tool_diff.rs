@@ -66,6 +66,9 @@ pub(crate) fn collect_diff_blocks_recursive(
 
 /// Collect the diff blocks carried by one native item.
 pub fn extract_diff_blocks(item: &Value) -> Vec<DiffBlock> {
+    if item["type"] == "mcpToolCall" {
+        return Vec::new();
+    }
     let mut out = Vec::new();
     let mut seen = HashSet::new();
     collect_diff_blocks_recursive(item, None, &mut seen, &mut out);

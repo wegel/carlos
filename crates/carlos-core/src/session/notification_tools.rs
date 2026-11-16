@@ -6,7 +6,8 @@ use super::item_receive::{command_output_missing, with_streamed_output};
 use super::models::{DiffBlock, MessageKind, Role};
 use super::state::SessionState;
 use super::tools::{
-    command_execution_diff_output, extract_diff_blocks, first_i64_at_paths, role_for_tool_type,
+    command_execution_diff_output, extract_diff_blocks, first_i64_at_paths, native_tool_source,
+    role_for_tool_item,
 };
 
 /// Save a completed tool result without dropping its contents.
@@ -15,7 +16,7 @@ pub(super) fn complete_tool_item(
     kind: &str,
     item_value: &Value,
 ) -> bool {
-    let Some(mut role) = role_for_tool_type(kind) else {
+    let Some(mut role) = role_for_tool_item(item_value) else {
         return true;
     };
     if kind == "commandExecution" {
@@ -72,7 +73,9 @@ fn complete_tool_item_no_diff(
             .as_ref(),
     );
 
-    if let Some(formatted) = session.format_tool_item(item_value, role) {
+    if let Some(formatted) =
+        native_tool_source(item_value).or_else(|| session.format_tool_item(item_value, role))
+    {
         let text = if exit_code.unwrap_or(0) != 0 {
             if let Some(summary) = command_summary {
                 format!("{summary}\n{formatted}")
@@ -154,7 +157,7 @@ fn store_tool_body(
         session.transcript_set_path(index, session.tool_source_path(item));
         index
     };
-    if role == Role::ToolOutput {
+    if role == Role::ToolOutput || item["type"] == "mcpToolCall" {
         super::item_receive::describe_output(session, index, item);
     } else {
         session.describe_tool_facts(index, item);

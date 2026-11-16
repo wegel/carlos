@@ -28,22 +28,39 @@ pub(crate) fn is_tool_call_type(kind: &str) -> bool {
 pub(crate) fn is_tool_output_type(kind: &str) -> bool {
     matches!(
         kind,
-        "toolResult" | "toolOutput" | "tool_result" | "functionCallOutput" | "mcpToolResult"
+        "toolResult"
+            | "toolOutput"
+            | "tool_result"
+            | "functionCallOutput"
+            | "mcpToolResult"
+            | "fileChange"
     )
 }
 
 /// Choose the transcript role for a native tool kind.
 pub(crate) fn role_for_tool_type(kind: &str) -> Option<Role> {
-    if kind == "commandExecution" {
-        return Some(Role::ToolCall);
-    }
-    if is_tool_call_type(kind) {
+    if kind == "commandExecution" || is_tool_call_type(kind) {
         return Some(Role::ToolCall);
     }
     if is_tool_output_type(kind) {
         return Some(Role::ToolOutput);
     }
     None
+}
+
+/// A native MCP item keeps its request and result in the same entry.
+pub(crate) fn role_for_tool_item(item: &Value) -> Option<Role> {
+    if item["type"] == "mcpToolCall" && super::item_history::has_terminal_item_status(item) {
+        return Some(Role::ToolOutput);
+    }
+    role_for_tool_type(item["type"].as_str()?)
+}
+
+/// Retain complete native structured data instead of a label or a nested result alone.
+pub(crate) fn native_tool_source(item: &Value) -> Option<String> {
+    matches!(item["type"].as_str(), Some("mcpToolCall" | "fileChange"))
+        .then(|| serde_json::to_string_pretty(item).ok())
+        .flatten()
 }
 
 /// Read a nested JSON value without inventing missing fields.
@@ -100,6 +117,9 @@ pub(crate) fn tool_name(item: &Value) -> Option<String> {
 
 /// Read the original command and unwrap only known shell launchers.
 pub(crate) fn tool_command(item: &Value) -> Option<String> {
+    if item["type"] == "mcpToolCall" {
+        return None;
+    }
     if item["carlosShellView"] == true {
         return item["command"].as_str().map(str::to_owned);
     }
