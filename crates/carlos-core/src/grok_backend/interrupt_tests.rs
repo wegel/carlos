@@ -82,9 +82,13 @@ fn a_new_native_prompt_before_cancel_enqueue_retires_only_that_control() {
 }
 
 fn fixture() -> (GrokClient, EventReceiver) {
+    fixture_with_peer(PEER)
+}
+
+fn fixture_with_peer(peer: &str) -> (GrokClient, EventReceiver) {
     let mut command = Command::new("python3");
     command
-        .args(["-u", "-c", PEER])
+        .args(["-u", "-c", peer])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -97,6 +101,37 @@ fn fixture() -> (GrokClient, EventReceiver) {
             return (client, events);
         }
     }
+}
+
+#[test]
+fn a_broken_cancel_pipe_still_retires_the_original_permission_card() {
+    let peer = PEER.replace("for line in sys.stdin:", concat!(
+        "import os,time\n",
+        "os.close(0)\n",
+        "print(json.dumps({'id':'permission','method':'session/request_permission','params':{'sessionId':'root'}}),flush=True)\n",
+        "time.sleep(30)\n",
+        "for line in sys.stdin:",
+    ));
+    let (client, events) = fixture_with_peer(&peer);
+    let request: Value = loop {
+        let line = events
+            .recv_timeout(TIMEOUT)
+            .expect("permission before broken cancel");
+        client.acknowledge_event(line.len());
+        let value: Value = serde_json::from_str(&line).expect("native fact");
+        if value["method"] == "carlos/grok/request" {
+            break value;
+        }
+    };
+    let error = client
+        .commands
+        .interrupt_session("root", None, DispatchGuard::default())
+        .expect_err("native stdin is closed");
+    assert!(error.to_string().contains("write Grok stdin"), "{error}");
+    let retired: Value = serde_json::from_str(&events.recv_timeout(TIMEOUT).expect("retired card"))
+        .expect("retirement fact");
+    assert_eq!(retired["method"], "carlos/grok/callback-retired");
+    assert_eq!(retired["params"]["token"], request["params"]["token"]);
 }
 
 const PEER: &str = r#"

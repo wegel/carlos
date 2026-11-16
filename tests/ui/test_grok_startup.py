@@ -8,6 +8,40 @@ from test_daemon_client import daemon_support
 
 
 class GrokStartup:
+    def test_grok_failed_native_cancel_removes_the_visible_card_and_preserves_private_text(self):
+        runner = sys.modules[type(self).__module__]
+        daemon_support.BINARY = runner.BINARY.parent / "carlosd"
+        daemon_support.ARTIFACTS = runner.ARTIFACTS / "daemon"
+        fixture = daemon_support.Fixture("terminal-broken-grok-cancel", mode="grok-permission-broken-input")
+        self.addCleanup(fixture.close)
+        client = daemon_support.Client(fixture, "interrupt-operator")
+        self.addCleanup(client.close)
+        created = client.operation(1)
+        session = client.call("session/create", operation=created, backend="grok", cwd=str(fixture.root), name=None)["session"]
+        self.assertEqual(client.outcome(created)["state"]["kind"], "accepted")
+        terminal = self.attach_daemon(fixture, session, "broken-grok-cancel")
+        terminal.contains("Idle")
+        terminal.paste("private text survives failed cancel 🌍")
+        terminal.wait(lambda: terminal.input_is("private text survives failed cancel 🌍"), "private draft")
+        sent = client.operation(2)
+        client.call("session/send", session=session, operation=sent, text="permission fixture")
+        self.assertEqual(client.outcome(sent)["state"]["kind"], "accepted")
+        terminal.contains("Choose Grok's permission")
+        daemon_support.wait_for(lambda: (fixture.root / "permission-input-closed").exists(), "native input closed")
+        snapshot = client.call("session/subscribe", session=session, since=None)["snapshot"]
+        self.assertTrue(snapshot["approvals"])
+        stop = client.operation(3)
+        client.call("session/interrupt", session=session, operation=stop, turn=snapshot["info"]["current_turn"])
+        self.assertEqual(client.outcome(stop)["state"]["kind"], "uncertain")
+        terminal.wait(lambda: "Choose Grok's permission" not in terminal.text, "failed cancel retires visible card")
+        terminal.wait(lambda: terminal.input_is("private text survives failed cancel 🌍"), "private composer restored after card closes")
+        self.assertEqual(client.call("session/subscribe", session=session, since=None)["snapshot"]["approvals"], [])
+        self.assertFalse((fixture.root / "permission-answers.jsonl").exists(), "failed cancel must never grant")
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertEqual(terminal.requests("session/approve"), [])
+        self.assertEqual(len(fixture.native_requests("session/prompt")), 1)
+        terminal.snapshot("broken-native-cancel-retires-card-with-private-draft")
+
     def test_grok_complete_native_replay_keeps_oldest_and_newest_rows_reachable(self):
         from test_startup_grok import StartupGrokTests
         runner = sys.modules[type(self).__module__]

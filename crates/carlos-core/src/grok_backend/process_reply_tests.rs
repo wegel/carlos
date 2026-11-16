@@ -10,6 +10,9 @@ use serde_json::{json, Value};
 use super::{callback_frame, InputWriter, PendingWrite};
 use crate::dispatch_guard::{DispatchGuard, DispatchRetired};
 use crate::owned_child::OwnedChild;
+use crate::protocol_events::EventQueue;
+
+use super::super::process_client::{cancel_agent_requests, receive_agent_request};
 
 const TIMEOUT: Duration = Duration::from_secs(5);
 type Writes = Arc<Mutex<Vec<Value>>>;
@@ -166,6 +169,7 @@ fn cancellation_replaces_an_admitted_allow_with_exactly_one_native_cancel() {
     fixture
         .writer
         .cancel_callbacks(Some("root"), Some(1))
+        .1
         .expect("cancel admitted");
     fixture.release();
     let error = grant
@@ -185,4 +189,69 @@ fn cancellation_replaces_an_admitted_allow_with_exactly_one_native_cancel() {
         json!({"jsonrpc":"2.0","id":-7,"result":{"outcome":{"outcome":"cancelled"}}})
     );
     assert!(callbacks.get(&json!(original.token)).is_err());
+}
+
+#[test]
+fn reader_rejections_enqueue_without_waiting_for_the_held_native_pipe() {
+    let fixture = Fixture::new();
+    let (events, _received) = EventQueue::new_for("Grok");
+    for (id, method, session, retired) in [
+        (1, "session/request_permission", "", false),
+        (2, "session/request_permission", "root", true),
+        (3, "unsupported/method", "root", false),
+    ] {
+        let request = json!({"id":id,"method":method,"params":{"sessionId":session}});
+        receive_agent_request(request, 100, 1, retired, &fixture.writer, &events)
+            .expect("reader must return while the native writer is still held");
+    }
+    assert_eq!(fixture.written().len(), 0, "pipe remains held");
+    fixture.release();
+    fixture
+        .writer
+        .write(&json!({"method":"barrier"}))
+        .expect("all replies drained");
+    let frames = fixture.written();
+    assert_eq!(frames[1]["id"], 1);
+    assert_eq!(frames[1]["error"]["code"], -32602);
+    assert_eq!(
+        frames[2],
+        json!({"jsonrpc":"2.0","id":2,"result":{"outcome":{"outcome":"cancelled"}}})
+    );
+    assert_eq!(frames[3]["id"], 3);
+    assert_eq!(frames[3]["error"]["code"], -32601);
+}
+
+#[test]
+fn a_full_native_writer_retires_cards_even_when_cancel_cannot_be_enqueued() {
+    let fixture = Fixture::new();
+    let callbacks = fixture.writer.callbacks();
+    let request = callbacks
+        .register(
+            &json!({"id":"permission","params":{"sessionId":"root"}}),
+            100,
+            1,
+        )
+        .expect("pending permission");
+    for _ in 0..8 {
+        fixture
+            .writer
+            .enqueue(&json!({"method":"queued"}), DispatchGuard::default())
+            .expect("fill native queue while writer is held");
+    }
+    let (events, received) = EventQueue::new_for("Grok");
+    let error = cancel_agent_requests(&fixture.writer, &events, Some("root"), Some(1))
+        .expect_err("cancel could not enter the full writer");
+    assert!(error.to_string().contains("queue is full"));
+    let event: Value =
+        serde_json::from_str(&received.recv_timeout(TIMEOUT).expect("card retirement"))
+            .expect("retirement frame");
+    assert_eq!(
+        event,
+        json!({"method":"carlos/grok/callback-retired","params":{"token":request.token}})
+    );
+    assert!(
+        callbacks.get(&json!(request.token)).is_err(),
+        "no dead grant remains"
+    );
+    fixture.release();
 }

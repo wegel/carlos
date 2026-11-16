@@ -71,6 +71,13 @@ def main():
                 # Give interrupt a concrete native turn even before a tool produces output.
                 peer.chunk("Permission fixture waiting")
                 permission()
+                if mode.endswith("broken-input"):
+                    import time
+                    os.close(sys.stdin.fileno())
+                    (peer.ROOT / "permission-input-closed").write_text("closed")
+                    # Keep stdout and the card live until Carlos attempts the broken cancel.
+                    while True:
+                        time.sleep(.01)
             elif method == "session/cancel":
                 if prompt is not None and not completed:
                     peer.send({"id":prompt, "result":{"stopReason":"cancelled"}})

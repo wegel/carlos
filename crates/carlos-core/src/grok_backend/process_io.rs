@@ -7,7 +7,7 @@ use std::time::Duration;
 use anyhow::{anyhow, bail, Result};
 use serde_json::{json, Value};
 
-use super::process_client::cancel_agent_requests;
+use super::process_client::{cancel_agent_requests, retire_cards};
 use super::GrokIo;
 use crate::dispatch_guard::DispatchGuard;
 
@@ -28,10 +28,20 @@ impl GrokIo {
         self.stdin.write_callback(callback, body, error, permission)
     }
 
-    pub(in crate::grok_backend) fn retire_callback_choices(&self, session: &str, epoch: u64) {
-        self.stdin
+    pub(in crate::grok_backend) fn retire_callback_choices(
+        &self,
+        session: &str,
+        epoch: u64,
+    ) -> Result<()> {
+        let tokens = self
+            .stdin
             .callbacks()
-            .cancel_session(Some(session), Some(epoch));
+            .cancel_session(Some(session), Some(epoch))
+            .iter()
+            .map(|callback| callback.token().to_owned())
+            .collect();
+        // Retire the owner cards before a failing or uncertain cancel write can close the table.
+        retire_cards(&self.events, tokens)
     }
 
     pub(in crate::grok_backend) fn cancel_callbacks(

@@ -53,6 +53,7 @@ impl InputWriter {
         let stopped = closed.clone();
         let callbacks = Arc::new(Callbacks::default());
         let targets = callbacks.clone();
+        let owned_child = child.clone();
         thread::spawn(move || {
             while let Ok(job) = receiver.recv() {
                 job.timing.mark(Stage::Dequeued);
@@ -62,6 +63,14 @@ impl InputWriter {
                     .map(|frame| frame.line.len())
                     .sum::<usize>();
                 let result = write_frames(&mut stdin, &job, &stopped, &targets);
+                if result
+                    .as_ref()
+                    .is_err_and(|error| !error.is::<DispatchRetired>())
+                    && !stopped.swap(true, Ordering::SeqCst)
+                {
+                    targets.close();
+                    let _ = owned_child.lock().expect("Grok child").kill();
+                }
                 bytes.fetch_sub(length, Ordering::SeqCst);
                 let _ = job.reply.send(result);
             }
@@ -115,11 +124,22 @@ impl InputWriter {
         self.await_write(self.enqueue_frames(vec![frame], permission, false)?)
     }
 
+    pub(super) fn enqueue_callback(
+        &self,
+        callback: Arc<Callback>,
+        body: Value,
+        error: bool,
+    ) -> Result<()> {
+        let frame = callback_frame(callback, body, error);
+        self.enqueue_frames(vec![frame], DispatchGuard::default(), true)?;
+        Ok(())
+    }
+
     pub(super) fn cancel_callbacks(
         &self,
         session: Option<&str>,
         epoch: Option<u64>,
-    ) -> Result<Vec<String>> {
+    ) -> (Vec<String>, Result<()>) {
         let records = self.callbacks.cancel_session(session, epoch);
         let tokens = records
             .iter()
@@ -131,11 +151,14 @@ impl InputWriter {
                 callback_frame(callback, json!({"outcome":{"outcome":"cancelled"}}), false)
             })
             .collect();
-        if !frames.is_empty() {
+        let result = if frames.is_empty() {
+            Ok(())
+        } else {
             // The reader may enqueue cancellation, but never waits for the native pipe.
-            let _ = self.enqueue_frames(frames, DispatchGuard::default(), true)?;
-        }
-        Ok(tokens)
+            self.enqueue_frames(frames, DispatchGuard::default(), true)
+                .map(|_| ())
+        };
+        (tokens, result)
     }
 
     #[cfg(test)]

@@ -17,7 +17,7 @@ impl GrokCommands {
         permission: DispatchGuard,
     ) -> Result<String> {
         let epoch = self.capture_interrupt(expected, &permission)?;
-        self.process.retire_callback_choices(session, epoch);
+        self.process.retire_callback_choices(session, epoch)?;
         let translation = Arc::clone(&self.translation);
         let permission = permission.and(DispatchGuard::new(move || {
             translation
