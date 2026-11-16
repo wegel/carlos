@@ -126,7 +126,9 @@ impl Device {
         }
         if text.trim() == "/queue" {
             self.view.input = make_input_area();
-            self.open_queue();
+            if let Err(error) = self.open_queue(link) {
+                self.view.codex_queue.error = Some(error.to_string());
+            }
             return true;
         }
         false

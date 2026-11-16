@@ -28,7 +28,6 @@ mod queue;
 mod queue_commands;
 mod queue_editor;
 mod queue_outcomes;
-mod queue_reads;
 mod queue_render;
 mod ralph_keys;
 mod reading;
@@ -140,7 +139,6 @@ impl Device {
         self.history.cancel_read();
         self.documents.disconnected();
         self.goals.read = None;
-        self.queue_disconnected();
         self.tasks_disconnected();
         self.settings_disconnected();
         self.disconnected = Some(error.to_string());
@@ -153,7 +151,7 @@ impl Device {
             changed |= self.metrics_receive(link, incoming)?;
             changed |= self.source_tick(Some(link));
         }
-        changed |= self.drive_queue(link)?;
+        self.open_visible_queue_reader(link)?;
         changed |= self.drive_tasks(link)?;
         changed |= self.drive_settings(link)?;
         changed |= self.drive_reconnect();

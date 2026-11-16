@@ -21,12 +21,11 @@ pub(super) enum QueueControl {
 impl Device {
     /// Require a complete current preview before changing a selected entry.
     pub(super) fn require_current_queue(&self) -> Result<()> {
-        let revision = self.queue_revision()?;
-        if self.queue.refresh
-            || self.queue.reads.busy()
-            || !self.queue.pages.is_settled()
-            || self.queue.pages.revision() != Some(&revision)
-        {
+        self.queue_revision()?;
+        if !self.client.current_session_is_ready(&self.session) {
+            bail!("The daemon is refreshing this conversation; your queue draft is kept");
+        }
+        if !self.client.queue_is_current(&self.session) {
             bail!("Select a current queued message after the queue finishes refreshing");
         }
         Ok(())
@@ -96,9 +95,8 @@ impl Device {
     ) -> Result<()> {
         self.require_current_queue()?;
         let entry = self
-            .queue
-            .pages
-            .selected(self.view.codex_queue.selected.as_deref())
+            .queue_panel()
+            .and_then(|panel| panel.page().selected(panel.selection()))
             .ok_or_else(|| {
                 anyhow::anyhow!(
                     "Select a current queued message after the queue finishes refreshing"
@@ -169,6 +167,7 @@ impl Device {
         }
         self.refill_queue_recovery();
         self.view.codex_queue.show = false;
+        self.close_hidden_queue_reader();
         Ok(())
     }
 }

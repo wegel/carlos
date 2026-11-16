@@ -141,6 +141,24 @@ class DaemonQueue:
         self.assertEqual(fixture.native.queue_entries[0], rich)
         terminal.snapshot("daemon-complete-queue-text-and-rich-input")
 
+    def test_daemon_queue_saves_complete_input_with_trailing_blank_lines_unchanged(self):
+        text = "native source 🌍\n\n"
+        fixture, client, session, terminal = self.daemon_queue(
+            "queue-trailing-newlines", [queue_entry("native-newlines", text)])
+        self.open_daemon_queue(terminal, 1)
+        terminal.send(b"e")
+        terminal.contains("Ctrl+S save")
+        terminal.contains("native source 🌍")
+        terminal.send(b"\x13")
+        self.queue_changed(terminal, 1, 1)
+        terminal.wait(lambda: "Ctrl+S save" not in terminal.text, "accepted unchanged full-text editor")
+        update = next(request for request in fixture.native.requests
+                      if request.get("method") == "thread/queue/update")
+        self.assertEqual(update["params"]["input"][0]["text"], text)
+        self.assertEqual(terminal.requests("queue/change")[0]["params"]["change"]["text"], text)
+        self.assertEqual(terminal.requests("session/send"), [])
+        terminal.snapshot("daemon-complete-queue-input-trailing-newlines")
+
     def test_daemon_queue_two_terminals_keep_paged_selection_and_stale_editor_drafts_private(self):
         entries = [queue_entry(f"native-{index}", f"queued item {index}") for index in range(45)]
         fixture, client, session, first = self.daemon_queue("queue-two", entries)

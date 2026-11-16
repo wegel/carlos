@@ -343,7 +343,9 @@ impl Device {
         } else if self.view.codex_queue.recovery.is_some() {
             Some(if compact { "Draft" } else { "Unsent draft" }.into())
         } else if self.view.codex_queue.error.is_some()
-            || self.queue.reads.error().is_some()
+            || self
+                .queue_panel()
+                .is_some_and(|panel| panel.read_error().is_some() || panel.input_error().is_some())
             || self
                 .queue_facts()
                 .is_some_and(|facts| facts.read_error.is_some())

@@ -57,7 +57,7 @@ impl Device {
         task_changed |= self.task_operations_changed(&effects.operations);
         let goal_changed = self.apply_goal_reads(&mut effects)?;
         let settings_changed = self.apply_settings_reads(&mut effects);
-        let queue_changed = self.apply_queue_reads(&mut effects)?;
+        let queue_changed = self.apply_queue_model(&effects)?;
         let private_changed = !effects.operations.is_empty();
         self.apply_operations(&effects.operations);
         let mut changed = history_changed

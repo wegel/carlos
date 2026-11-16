@@ -21,18 +21,12 @@ impl Device {
 
     fn queue_lines(&self, size: TerminalSize) -> Vec<String> {
         let facts = self.queue_facts();
-        let current = self.client.current_session_is_ready(&self.session)
-            && !self.queue.refresh
-            && !self.queue.reads.busy()
-            && facts.is_some_and(|facts| facts.known && !facts.reading)
-            && self.queue.pages.is_settled()
-            && self.queue.pages.revision() == facts.map(|facts| &facts.revision);
+        let current = self.client.queue_is_current(&self.session);
         let mut lines = vec!["Codex queue · Esc back".into()];
         if !editable(size) {
             lines.push("Resize to edit".into());
         }
-        let status = if self.queue.refresh
-            || self.queue.reads.busy()
+        let status = if self.queue_panel().is_some_and(|panel| panel.is_reading())
             || facts.is_some_and(|facts| facts.reading)
             || !current && facts.is_some_and(|facts| facts.known)
         {
@@ -54,9 +48,8 @@ impl Device {
         ));
         lines.push(format!(
             "Selected {}/{}: {}",
-            self.queue
-                .pages
-                .position()
+            self.queue_panel()
+                .and_then(|panel| panel.page().position())
                 .filter(|_| current)
                 .map_or(0, |index| index + 1),
             count,
@@ -69,9 +62,8 @@ impl Device {
 
     fn selected_queue_display_id(&self) -> String {
         let selected = self.view.codex_queue.selected.as_deref();
-        self.queue
-            .pages
-            .selected(selected)
+        self.queue_panel()
+            .and_then(|panel| panel.page().selected(selected))
             .and_then(|entry| entry.display_id.as_deref())
             .map(str::to_owned)
             .or_else(|| selected.map(short_id))
@@ -85,7 +77,8 @@ impl Device {
             .codex_queue
             .error
             .as_deref()
-            .or_else(|| self.queue.reads.error())
+            .or_else(|| self.queue_panel().and_then(|panel| panel.input_error()))
+            .or_else(|| self.queue_panel().and_then(|panel| panel.read_error()))
             .or_else(|| facts.and_then(|facts| facts.read_error.as_deref()))
         {
             lines.push(error.into());
@@ -98,7 +91,10 @@ impl Device {
         if self.queue_pending() {
             lines.push("Queue request pending; Codex has not acknowledged it".into());
         }
-        if self.queue.editing.loading.is_some() {
+        if self
+            .queue_panel()
+            .is_some_and(|panel| panel.is_reading_input())
+        {
             lines.push("Reading full selected input; the partial preview cannot be edited".into());
         }
     }
@@ -106,9 +102,8 @@ impl Device {
     fn queue_selected_lines(&self, lines: &mut Vec<String>, current: bool) {
         if current {
             if let Some(entry) = self
-                .queue
-                .pages
-                .selected(self.view.codex_queue.selected.as_deref())
+                .queue_panel()
+                .and_then(|panel| panel.page().selected(panel.selection()))
             {
                 lines.push(format!("Client: {}", entry.client_message));
                 lines.push(entry.preview.clone());
