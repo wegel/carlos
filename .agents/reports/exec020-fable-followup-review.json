@@ -1,0 +1,62 @@
+{
+  "result": "# EP020 follow-up review: the two final corrections\n\n**Verdict: PASS WITH ISSUES.** Both corrections are sound and sufficient to close EP020 and proceed to the specified EP021 cleanup. There are no BLOCKER or MAJOR findings; the three MINORs below do not gate closure.\n\n## Scope and limits\n\n- **Reviewed:** `target/ep020-review/corrections.patch` (b851d73..272fae3), plus the current `transport/websocket.rs`, `transport/websocket_poll.rs`, `network/handshake.rs`, `websocket_write_tests.rs`, `grok_backend/process_writer.rs`, `trace_frame` in `claude_backend/transport.rs`, and the daemon slow-reader test in `tests/daemon/test_network_source.py`.\n- **Not run:** I executed nothing. Test results, gate 04 and the measurements are taken from your report as stated, not reproduced.\n- **Not read:** tungstenite's source. My reasoning assumes its `write` and `read` can themselves push buffered bytes to the stream; the code handles that case correctly either way.\n- **Not evaluated:** any minimum-rate or total-duration cap, as instructed. The documented consequence is that a reader draining at a trickle keeps its socket and its charge for as long as it trickles. Memory stays bounded by the per-socket outbox limit.\n\n## Correction 1 (3c83655): WebSocket no-progress deadline\n\nDeadline semantics and accounting are correct.\n\n- **Progress counter:** `written` advances only on a successful `TcpStream::write`. Any re-arm therefore reflects real bytes accepted by the kernel, including pong or close bytes, which are queued in order behind the frame.\n- **Baseline:** `flushing()` captures the baseline when it arms, so handshake bytes never count as progress.\n- **Check order:** `write()` checks progress before testing the deadline and again after `flush()`. Bytes pushed during `socket.write` or `socket.read` are credited before expiry is judged.\n- **Stalled peer:** the counter stays unchanged, poll wakes at the deadline plus 1 ms, and the next `write()` returns `TimedOut`. I see no spin and no periodic timer.\n- **Charge:** `pending.frame` is released only on `Ok(())` from flush or in `Drop`. Re-arming cannot release the charge early or twice.\n- **Login deadline:** the absolute check in `run()` is untouched and still enters the poll timeout as the minimum of the two deadlines. Write progress cannot extend an unauthenticated socket.\n- **Wrap:** the `!=` comparison on a wrapping counter is safe.\n- **Paced test:** 64 reads of at most 16 KiB at 40 ms each force about 2.5 s of delivery. The zero-charge assertion is not racy in practice, because the server's flush completes when the tail enters kernel buffers, well before the client's last read.\n- **Docs:** both protocol documents match the behaviour.\n\n## Correction 2 (272fae3): writer stage timing\n\nThe timing record and both writers are correct.\n\n- **Record consistency:** one writer thread stores marks in order, and `Display` loads them latest-first. A snapshot can never show a later stage without its predecessors.\n- **Pending encoding:** the `micros + 1` encoding with a saturating clamp is right.\n- **No payloads:** the output is numeric only.\n- **Grok snapshot:** the string is built before `close()`, so the kill and resulting EPIPE cannot rewrite the observed stage.\n- **Claude snapshot:** it is taken immediately after the timeout, with no intervening cleanup.\n- **Deadlines and resend:** `WRITE_TIMEOUT` is 500 ms in both writers, and neither path resends.\n- **Trace parse:** making the Claude re-parse conditional on `trace.is_some()` preserves behaviour, since `trace_frame` already did nothing for `None`.\n- **Queue wait:** the snapshot shows `dequeued=pending` when the 500 ms was spent behind earlier jobs. That is the distinction the old intermittent event lacked, and the change claims no more than that.\n- **Grok blocked-pipe test:** it asserts ready, written-pending, redaction and bounded reap against a real pipe.\n\n## Findings\n\n1. **MINOR: no test for a stall after partial progress.** No test covers a WebSocket reader that drains some bytes and then stops, which is the one new state the re-arm introduces.\n   - The Rust blocked-writer test tears down by `drop(peer)`, not by deadline expiry.\n   - The daemon slow-reader test proves slot release within 3 s for a reader that never drains.\n   - The logic is correct by inspection.\n   - Guidance: in EP021, extend the paced fixture to stop reading after a few chunks and assert the worker closes about 500 ms after the last progress, with the charge released.\n\n2. **MINOR: `Stage::Written` is marked on error as well as success.** It records write-return, not success.\n   - It only surfaces in the narrow race where the writer returns just as the waiter times out.\n   - The snapshot could then read `written+…us` beside \"did not finish\", or follow a failed write.\n   - Guidance: rename the printed label to `returned`, or note it in the message as the Claude path does with \"ready is after trace\".\n\n3. **MINOR: the new Grok test depends on `python3` and a wall-clock bound.** Its `< 4 s` bound and the paced test's 40 ms sleeps are timing-sensitive under heavy load.\n   - The margins are wide (about 3.5 s, and roughly 300 ms or more of slack per re-arm).\n   - Guidance: no action unless it flakes.",
+  "session_id": "f964d38f-c56b-495b-bf09-061f334e937b",
+  "model": "fable",
+  "effort": "medium",
+  "access_mode": "read-only",
+  "total_cost_usd": 1.016658,
+  "usage": {
+    "input_tokens": 10,
+    "cache_creation_input_tokens": 40626,
+    "cache_read_input_tokens": 122610,
+    "output_tokens": 8551,
+    "output_tokens_details": {
+      "thinking_tokens": 5130
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 40626,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 2389,
+        "cache_read_input_tokens": 44904,
+        "cache_creation_input_tokens": 2349,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 2349
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "model_usage": {
+    "claude-fable-5-2": {
+      "inputTokens": 10,
+      "outputTokens": 8551,
+      "cacheReadInputTokens": 122610,
+      "cacheCreationInputTokens": 40626,
+      "webSearchRequests": 0,
+      "costUSD": 1.016658,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 5130,
+      "cacheCreationEphemeral5mInputTokens": 0,
+      "cacheCreationEphemeral1hInputTokens": 40626,
+      "canonicalModel": "claude-fable-5-2",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "exit_code": 0,
+  "signal": null
+}

@@ -1,41 +1,41 @@
 {
   "identity": {
-    "head": "b851d733dd0e822af14e00918cfe9fb56ec20c1a",
+    "head": "03658363d88f7f00abedfa3156be2fe578b84040",
     "build_info": {
       "carlos": {
         "protocol": 1,
         "version": "0.1.0",
-        "source": "45775d7635fed16302193845c0c4b69b"
+        "source": "6a31fd059ad6f8f0e7e92b1f001bc765"
       },
       "carlosd": {
         "protocol": 1,
         "version": "0.1.0",
-        "source": "45775d7635fed16302193845c0c4b69b"
+        "source": "6a31fd059ad6f8f0e7e92b1f001bc765"
       }
     },
     "validation_logs": [
-      "/tmp/carlos-ep020/network-release-gate-03.log"
+      "/tmp/carlos-ep020/network-release-gate-04.log"
     ],
     "files": {
       "carlos": {
-        "path": "/tmp/carlos-ep020/final-pair/carlos",
+        "path": "/tmp/carlos-ep020/corrected-pair/carlos",
         "bytes": 17381560,
-        "sha256": "583a9fa46a32f40d73de4a197bfc174c865ef7fa7142ab97bee2ee7a14e45984"
+        "sha256": "319a104313d91073c6ac0232c69635d0088f0eb53aa5d71f43e0b75eead2a009"
       },
       "carlosd": {
-        "path": "/tmp/carlos-ep020/final-pair/carlosd",
-        "bytes": 19975400,
-        "sha256": "a7a3fa0879f80a64ace5290e32bd3ae4867d56c34fad23a6c3f0d8a5aeb34c39"
+        "path": "/tmp/carlos-ep020/corrected-pair/carlosd",
+        "bytes": 19979480,
+        "sha256": "e3edba383b62ef946a29ae9741b5012394b4f8c140f9a0a357f113e0d1fa96ef"
       },
       "carlos-claude-controller": {
-        "path": "/tmp/carlos-ep020/final-pair/carlos-claude-controller",
+        "path": "/tmp/carlos-ep020/corrected-pair/carlos-claude-controller",
         "bytes": 104780090,
         "sha256": "01a3485c9dabd395a0a763c58e49fcc22234cdd3d1081969d4266be8e0b7a42f"
       },
       "perf_replay": {
-        "path": "/tmp/carlos-ep020/final-pair/perf_replay",
-        "bytes": 2675552,
-        "sha256": "ba6b8daf8ceeb804fa929b762a5b83756f201b9856cb3bb43adf7a345b58d2c1"
+        "path": "/tmp/carlos-ep020/corrected-pair/perf_replay",
+        "bytes": 2675560,
+        "sha256": "9856038bbbbe269b01e5371f088bcd4eb8b33d078742d5559d606b70f7171ce9"
       }
     }
   },
@@ -49,42 +49,42 @@
       ],
       "medians": {
         "ep019b": {
-          "apply": 14.19,
-          "replay": 49.79,
-          "layout": 15.34,
-          "draw": 3.3,
+          "apply": 14.21,
+          "replay": 48.75,
+          "layout": 15.06,
+          "draw": 3.24,
+          "scroll_draw_p50": 0.58,
+          "scroll_draw_p95": 0.68,
+          "scroll_draw_max": 0.7,
+          "typing_draw_p50": 0.47,
+          "typing_draw_p95": 0.48,
+          "typing_draw_max": 0.52,
+          "working_draw_p50": 0.47,
+          "working_draw_p95": 0.48,
+          "working_draw_max": 0.53,
+          "append_total_p50": 0.48,
+          "append_total_p95": 0.53,
+          "append_total_max": 0.53,
+          "peak_rss_kib": 25208
+        },
+        "current": {
+          "apply": 14.1,
+          "replay": 49.88,
+          "layout": 15.63,
+          "draw": 3.27,
           "scroll_draw_p50": 0.58,
           "scroll_draw_p95": 0.68,
           "scroll_draw_max": 0.71,
           "typing_draw_p50": 0.47,
           "typing_draw_p95": 0.48,
-          "typing_draw_max": 0.53,
+          "typing_draw_max": 0.52,
           "working_draw_p50": 0.47,
           "working_draw_p95": 0.48,
-          "working_draw_max": 0.52,
+          "working_draw_max": 0.51,
           "append_total_p50": 0.48,
           "append_total_p95": 0.53,
           "append_total_max": 0.53,
-          "peak_rss_kib": 25140
-        },
-        "current": {
-          "apply": 14.09,
-          "replay": 50.9,
-          "layout": 16.01,
-          "draw": 3.27,
-          "scroll_draw_p50": 0.58,
-          "scroll_draw_p95": 0.69,
-          "scroll_draw_max": 0.72,
-          "typing_draw_p50": 0.47,
-          "typing_draw_p95": 0.48,
-          "typing_draw_max": 0.53,
-          "working_draw_p50": 0.47,
-          "working_draw_p95": 0.48,
-          "working_draw_max": 0.52,
-          "append_total_p50": 0.48,
-          "append_total_p95": 0.53,
-          "append_total_max": 0.53,
-          "peak_rss_kib": 25892
+          "peak_rss_kib": 25916
         }
       },
       "paired_changes": {
@@ -92,70 +92,70 @@
           "apply": {
             "median": -0.120000000000001,
             "median_95_interval": [
-              -0.19000000000000128,
-              -0.02000000000000135
+              -0.16999999999999993,
+              -0.019999999999999574
             ]
           },
           "replay": {
-            "median": 1.019999999999996,
+            "median": 1.0699999999999932,
             "median_95_interval": [
-              0.5800000000000054,
-              1.230000000000004
+              0.8299999999999983,
+              1.5800000000000054
             ]
           },
           "layout": {
-            "median": 0.6600000000000001,
+            "median": 0.5399999999999991,
             "median_95_interval": [
-              0.4900000000000002,
-              0.8300000000000001
+              0.19000000000000128,
+              0.7400000000000002
             ]
           },
           "draw": {
-            "median": -0.04999999999999982,
+            "median": 0.019999999999999574,
             "median_95_interval": [
-              -0.20000000000000018,
-              0.1499999999999999
+              -0.050000000000000266,
+              0.16999999999999993
             ]
           },
           "scroll_draw_p50": {
             "median": 0.0,
             "median_95_interval": [
               0.0,
-              0.010000000000000009
+              0.0
             ]
           },
           "scroll_draw_p95": {
             "median": 0.0,
             "median_95_interval": [
-              0.0,
-              0.009999999999999898
+              -0.009999999999999898,
+              0.0
             ]
           },
           "scroll_draw_max": {
-            "median": 0.020000000000000018,
+            "median": 0.010000000000000009,
             "median_95_interval": [
-              -0.010000000000000009,
-              0.040000000000000036
+              -0.020000000000000018,
+              0.020000000000000018
             ]
           },
           "typing_draw_p50": {
             "median": 0.0,
             "median_95_interval": [
               0.0,
-              0.010000000000000009
+              0.0
             ]
           },
           "typing_draw_p95": {
-            "median": 0.0,
+            "median": -0.010000000000000009,
             "median_95_interval": [
-              0.0,
-              0.010000000000000009
+              -0.010000000000000009,
+              0.0
             ]
           },
           "typing_draw_max": {
             "median": 0.0,
             "median_95_interval": [
-              -0.010000000000000009,
+              0.0,
               0.010000000000000009
             ]
           },
@@ -169,15 +169,15 @@
           "working_draw_p95": {
             "median": 0.0,
             "median_95_interval": [
-              0.0,
+              -0.010000000000000009,
               0.0
             ]
           },
           "working_draw_max": {
-            "median": 0.0,
+            "median": -0.010000000000000009,
             "median_95_interval": [
-              -0.010000000000000009,
-              0.0
+              -0.020000000000000018,
+              0.010000000000000009
             ]
           },
           "append_total_p50": {
@@ -190,22 +190,22 @@
           "append_total_p95": {
             "median": 0.0,
             "median_95_interval": [
-              -0.009999999999999898,
+              -0.010000000000000009,
               0.010000000000000009
             ]
           },
           "append_total_max": {
             "median": 0.0,
             "median_95_interval": [
-              -0.009999999999999898,
+              -0.010000000000000009,
               0.010000000000000009
             ]
           },
           "peak_rss_kib": {
-            "median": 788,
+            "median": 736,
             "median_95_interval": [
-              664,
-              852
+              656,
+              776
             ]
           }
         }
@@ -221,7 +221,26 @@
       "medians": {
         "ep019b": {
           "apply": 0.0,
-          "replay": 0.83,
+          "replay": 0.84,
+          "layout": 0.02,
+          "draw": 0.33,
+          "scroll_draw_p50": 0.31,
+          "scroll_draw_p95": 0.31,
+          "scroll_draw_max": 0.31,
+          "typing_draw_p50": 0.24,
+          "typing_draw_p95": 0.25,
+          "typing_draw_max": 0.3,
+          "working_draw_p50": 0.24,
+          "working_draw_p95": 0.24,
+          "working_draw_max": 0.31,
+          "append_total_p50": 0.27,
+          "append_total_p95": 0.32,
+          "append_total_max": 0.32,
+          "peak_rss_kib": 10364
+        },
+        "current": {
+          "apply": 0.0,
+          "replay": 0.78,
           "layout": 0.01,
           "draw": 0.33,
           "scroll_draw_p50": 0.31,
@@ -231,31 +250,12 @@
           "typing_draw_p95": 0.25,
           "typing_draw_max": 0.31,
           "working_draw_p50": 0.24,
-          "working_draw_p95": 0.25,
+          "working_draw_p95": 0.24,
           "working_draw_max": 0.32,
           "append_total_p50": 0.27,
           "append_total_p95": 0.32,
           "append_total_max": 0.32,
-          "peak_rss_kib": 10408
-        },
-        "current": {
-          "apply": 0.0,
-          "replay": 0.79,
-          "layout": 0.01,
-          "draw": 0.33,
-          "scroll_draw_p50": 0.31,
-          "scroll_draw_p95": 0.31,
-          "scroll_draw_max": 0.31,
-          "typing_draw_p50": 0.24,
-          "typing_draw_p95": 0.26,
-          "typing_draw_max": 0.31,
-          "working_draw_p50": 0.24,
-          "working_draw_p95": 0.25,
-          "working_draw_max": 0.32,
-          "append_total_p50": 0.27,
-          "append_total_p95": 0.32,
-          "append_total_max": 0.32,
-          "peak_rss_kib": 11132
+          "peak_rss_kib": 11144
         }
       },
       "paired_changes": {
@@ -268,16 +268,16 @@
             ]
           },
           "replay": {
-            "median": -0.029999999999999916,
+            "median": -0.030000000000000027,
             "median_95_interval": [
-              -0.09999999999999998,
+              -0.08999999999999997,
               -0.010000000000000009
             ]
           },
           "layout": {
             "median": 0.0,
             "median_95_interval": [
-              0.0,
+              -0.01,
               0.0
             ]
           },
@@ -320,11 +320,11 @@
             "median": 0.0,
             "median_95_interval": [
               0.0,
-              0.0
+              0.010000000000000009
             ]
           },
           "typing_draw_max": {
-            "median": 0.0,
+            "median": 0.010000000000000009,
             "median_95_interval": [
               0.0,
               0.010000000000000009
@@ -340,15 +340,15 @@
           "working_draw_p95": {
             "median": 0.0,
             "median_95_interval": [
-              0.0,
+              -0.010000000000000009,
               0.010000000000000009
             ]
           },
           "working_draw_max": {
             "median": 0.0,
             "median_95_interval": [
-              -0.010000000000000009,
-              0.0
+              0.0,
+              0.010000000000000009
             ]
           },
           "append_total_p50": {
@@ -361,22 +361,22 @@
           "append_total_p95": {
             "median": 0.0,
             "median_95_interval": [
-              -0.010000000000000009,
-              0.0
+              0.0,
+              0.010000000000000009
             ]
           },
           "append_total_max": {
             "median": 0.0,
             "median_95_interval": [
-              -0.010000000000000009,
-              0.0
+              0.0,
+              0.010000000000000009
             ]
           },
           "peak_rss_kib": {
-            "median": 828,
+            "median": 744,
             "median_95_interval": [
-              688,
-              860
+              620,
+              828
             ]
           }
         }
@@ -387,572 +387,572 @@
     {
       "rounds": 1000,
       "transport": "unix",
-      "startup_ms": 2.358532976359129,
-      "provision_and_greeting_ms": 0.5475429352372885,
+      "startup_ms": 2.3670230293646455,
+      "provision_and_greeting_ms": 0.5326130194589496,
       "idle": {
-        "seconds": 2.000813369988464,
+        "seconds": 2.000815516919829,
         "process_cpu_ticks": 0,
         "thread_context_switch_deltas": {
-          "3480423:voluntary_ctxt_switches": 8,
-          "3480423:nonvoluntary_ctxt_switches": 0,
-          "3480424:voluntary_ctxt_switches": 0,
-          "3480424:nonvoluntary_ctxt_switches": 0,
-          "3480425:voluntary_ctxt_switches": 20,
-          "3480425:nonvoluntary_ctxt_switches": 0,
-          "3480426:voluntary_ctxt_switches": 7,
-          "3480426:nonvoluntary_ctxt_switches": 0,
-          "3480427:voluntary_ctxt_switches": 0,
-          "3480427:nonvoluntary_ctxt_switches": 0,
-          "3480430:voluntary_ctxt_switches": 0,
-          "3480430:nonvoluntary_ctxt_switches": 0,
-          "3480431:voluntary_ctxt_switches": 0,
-          "3480431:nonvoluntary_ctxt_switches": 0,
-          "3480432:voluntary_ctxt_switches": 0,
-          "3480432:nonvoluntary_ctxt_switches": 0,
-          "3480434:voluntary_ctxt_switches": 20,
-          "3480434:nonvoluntary_ctxt_switches": 0,
-          "3480435:voluntary_ctxt_switches": 0,
-          "3480435:nonvoluntary_ctxt_switches": 0,
-          "3480436:voluntary_ctxt_switches": 0,
-          "3480436:nonvoluntary_ctxt_switches": 0,
-          "3480437:voluntary_ctxt_switches": 0,
-          "3480437:nonvoluntary_ctxt_switches": 0,
-          "3480438:voluntary_ctxt_switches": 0,
-          "3480438:nonvoluntary_ctxt_switches": 0,
-          "3480439:voluntary_ctxt_switches": 0,
-          "3480439:nonvoluntary_ctxt_switches": 0,
-          "3480440:voluntary_ctxt_switches": 0,
-          "3480440:nonvoluntary_ctxt_switches": 0,
-          "3480441:voluntary_ctxt_switches": 0,
-          "3480441:nonvoluntary_ctxt_switches": 0,
-          "3480442:voluntary_ctxt_switches": 99,
-          "3480442:nonvoluntary_ctxt_switches": 0,
-          "3480443:voluntary_ctxt_switches": 2,
-          "3480443:nonvoluntary_ctxt_switches": 0,
-          "3480444:voluntary_ctxt_switches": 0,
-          "3480444:nonvoluntary_ctxt_switches": 0,
-          "3480445:voluntary_ctxt_switches": 0,
-          "3480445:nonvoluntary_ctxt_switches": 0
+          "3573273:voluntary_ctxt_switches": 8,
+          "3573273:nonvoluntary_ctxt_switches": 0,
+          "3573274:voluntary_ctxt_switches": 0,
+          "3573274:nonvoluntary_ctxt_switches": 0,
+          "3573275:voluntary_ctxt_switches": 20,
+          "3573275:nonvoluntary_ctxt_switches": 0,
+          "3573276:voluntary_ctxt_switches": 8,
+          "3573276:nonvoluntary_ctxt_switches": 0,
+          "3573277:voluntary_ctxt_switches": 0,
+          "3573277:nonvoluntary_ctxt_switches": 0,
+          "3573280:voluntary_ctxt_switches": 0,
+          "3573280:nonvoluntary_ctxt_switches": 0,
+          "3573281:voluntary_ctxt_switches": 0,
+          "3573281:nonvoluntary_ctxt_switches": 0,
+          "3573282:voluntary_ctxt_switches": 0,
+          "3573282:nonvoluntary_ctxt_switches": 0,
+          "3573284:voluntary_ctxt_switches": 20,
+          "3573284:nonvoluntary_ctxt_switches": 0,
+          "3573285:voluntary_ctxt_switches": 0,
+          "3573285:nonvoluntary_ctxt_switches": 0,
+          "3573286:voluntary_ctxt_switches": 0,
+          "3573286:nonvoluntary_ctxt_switches": 0,
+          "3573287:voluntary_ctxt_switches": 0,
+          "3573287:nonvoluntary_ctxt_switches": 0,
+          "3573288:voluntary_ctxt_switches": 0,
+          "3573288:nonvoluntary_ctxt_switches": 0,
+          "3573289:voluntary_ctxt_switches": 0,
+          "3573289:nonvoluntary_ctxt_switches": 0,
+          "3573290:voluntary_ctxt_switches": 0,
+          "3573290:nonvoluntary_ctxt_switches": 0,
+          "3573291:voluntary_ctxt_switches": 0,
+          "3573291:nonvoluntary_ctxt_switches": 0,
+          "3573292:voluntary_ctxt_switches": 99,
+          "3573292:nonvoluntary_ctxt_switches": 0,
+          "3573293:voluntary_ctxt_switches": 2,
+          "3573293:nonvoluntary_ctxt_switches": 0,
+          "3573294:voluntary_ctxt_switches": 0,
+          "3573294:nonvoluntary_ctxt_switches": 0,
+          "3573295:voluntary_ctxt_switches": 0,
+          "3573295:nonvoluntary_ctxt_switches": 0
         },
         "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
       },
-      "median_ms": 0.548438,
-      "p95_ms": 0.724354,
-      "max_ms": 1.309287,
+      "median_ms": 0.5516635,
+      "p95_ms": 0.722474,
+      "max_ms": 1.137226,
       "daemon_memory": [
         {
           "label": "hello:measured-client",
-          "daemon_pid": 3480423,
+          "daemon_pid": 3573273,
           "metrics": {
-            "VmHWM": 7968,
-            "VmRSS": 7968,
-            "RssAnon": 820,
-            "RssFile": 7148,
-            "Threads": 5
-          }
-        },
-        {
-          "label": "after-native-admissions",
-          "daemon_pid": 3480423,
-          "metrics": {
-            "VmHWM": 16644,
-            "VmRSS": 16644,
-            "RssAnon": 5760,
-            "RssFile": 10884,
-            "Threads": 20
-          }
-        }
-      ],
-      "scope": "actual carlosd unix socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
-      "binary": "ep019b",
-      "sample": 0
-    },
-    {
-      "rounds": 1000,
-      "transport": "unix",
-      "startup_ms": 2.5905939983204007,
-      "provision_and_greeting_ms": 0.5788230337202549,
-      "idle": {
-        "seconds": 2.0008380790241063,
-        "process_cpu_ticks": 0,
-        "thread_context_switch_deltas": {
-          "3480517:voluntary_ctxt_switches": 8,
-          "3480517:nonvoluntary_ctxt_switches": 0,
-          "3480518:voluntary_ctxt_switches": 0,
-          "3480518:nonvoluntary_ctxt_switches": 0,
-          "3480519:voluntary_ctxt_switches": 20,
-          "3480519:nonvoluntary_ctxt_switches": 0,
-          "3480520:voluntary_ctxt_switches": 8,
-          "3480520:nonvoluntary_ctxt_switches": 0,
-          "3480521:voluntary_ctxt_switches": 0,
-          "3480521:nonvoluntary_ctxt_switches": 0,
-          "3480524:voluntary_ctxt_switches": 0,
-          "3480524:nonvoluntary_ctxt_switches": 0,
-          "3480525:voluntary_ctxt_switches": 0,
-          "3480525:nonvoluntary_ctxt_switches": 0,
-          "3480526:voluntary_ctxt_switches": 0,
-          "3480526:nonvoluntary_ctxt_switches": 0,
-          "3480528:voluntary_ctxt_switches": 20,
-          "3480528:nonvoluntary_ctxt_switches": 0,
-          "3480529:voluntary_ctxt_switches": 0,
-          "3480529:nonvoluntary_ctxt_switches": 0,
-          "3480530:voluntary_ctxt_switches": 0,
-          "3480530:nonvoluntary_ctxt_switches": 0,
-          "3480531:voluntary_ctxt_switches": 0,
-          "3480531:nonvoluntary_ctxt_switches": 0,
-          "3480532:voluntary_ctxt_switches": 0,
-          "3480532:nonvoluntary_ctxt_switches": 0,
-          "3480533:voluntary_ctxt_switches": 0,
-          "3480533:nonvoluntary_ctxt_switches": 0,
-          "3480534:voluntary_ctxt_switches": 0,
-          "3480534:nonvoluntary_ctxt_switches": 0,
-          "3480535:voluntary_ctxt_switches": 0,
-          "3480535:nonvoluntary_ctxt_switches": 0,
-          "3480536:voluntary_ctxt_switches": 99,
-          "3480536:nonvoluntary_ctxt_switches": 0,
-          "3480537:voluntary_ctxt_switches": 2,
-          "3480537:nonvoluntary_ctxt_switches": 0,
-          "3480538:voluntary_ctxt_switches": 0,
-          "3480538:nonvoluntary_ctxt_switches": 0,
-          "3480539:voluntary_ctxt_switches": 0,
-          "3480539:nonvoluntary_ctxt_switches": 0
-        },
-        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
-      },
-      "median_ms": 0.550388,
-      "p95_ms": 0.731674,
-      "max_ms": 1.477408,
-      "daemon_memory": [
-        {
-          "label": "hello:measured-client",
-          "daemon_pid": 3480517,
-          "metrics": {
-            "VmHWM": 8684,
-            "VmRSS": 8684,
-            "RssAnon": 872,
-            "RssFile": 7812,
-            "Threads": 5
-          }
-        },
-        {
-          "label": "after-native-admissions",
-          "daemon_pid": 3480517,
-          "metrics": {
-            "VmHWM": 17780,
-            "VmRSS": 17780,
-            "RssAnon": 5808,
-            "RssFile": 11972,
-            "Threads": 20
-          }
-        }
-      ],
-      "scope": "actual carlosd unix socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
-      "binary": "current",
-      "sample": 0
-    },
-    {
-      "rounds": 1000,
-      "transport": "websocket",
-      "startup_ms": 2.6859850622713566,
-      "provision_and_greeting_ms": 30.663889017887414,
-      "idle": {
-        "seconds": 2.000776079017669,
-        "process_cpu_ticks": 0,
-        "thread_context_switch_deltas": {
-          "3480542:voluntary_ctxt_switches": 8,
-          "3480542:nonvoluntary_ctxt_switches": 0,
-          "3480543:voluntary_ctxt_switches": 0,
-          "3480543:nonvoluntary_ctxt_switches": 0,
-          "3480544:voluntary_ctxt_switches": 20,
-          "3480544:nonvoluntary_ctxt_switches": 0,
-          "3480550:voluntary_ctxt_switches": 0,
-          "3480550:nonvoluntary_ctxt_switches": 0,
-          "3480553:voluntary_ctxt_switches": 0,
-          "3480553:nonvoluntary_ctxt_switches": 0,
-          "3480554:voluntary_ctxt_switches": 0,
-          "3480554:nonvoluntary_ctxt_switches": 0,
-          "3480555:voluntary_ctxt_switches": 0,
-          "3480555:nonvoluntary_ctxt_switches": 0,
-          "3480557:voluntary_ctxt_switches": 20,
-          "3480557:nonvoluntary_ctxt_switches": 0,
-          "3480558:voluntary_ctxt_switches": 0,
-          "3480558:nonvoluntary_ctxt_switches": 0,
-          "3480559:voluntary_ctxt_switches": 0,
-          "3480559:nonvoluntary_ctxt_switches": 0,
-          "3480560:voluntary_ctxt_switches": 0,
-          "3480560:nonvoluntary_ctxt_switches": 0,
-          "3480561:voluntary_ctxt_switches": 0,
-          "3480561:nonvoluntary_ctxt_switches": 0,
-          "3480562:voluntary_ctxt_switches": 0,
-          "3480562:nonvoluntary_ctxt_switches": 0,
-          "3480563:voluntary_ctxt_switches": 0,
-          "3480563:nonvoluntary_ctxt_switches": 0,
-          "3480564:voluntary_ctxt_switches": 0,
-          "3480564:nonvoluntary_ctxt_switches": 0,
-          "3480565:voluntary_ctxt_switches": 99,
-          "3480565:nonvoluntary_ctxt_switches": 0,
-          "3480566:voluntary_ctxt_switches": 2,
-          "3480566:nonvoluntary_ctxt_switches": 0,
-          "3480567:voluntary_ctxt_switches": 0,
-          "3480567:nonvoluntary_ctxt_switches": 0,
-          "3480568:voluntary_ctxt_switches": 0,
-          "3480568:nonvoluntary_ctxt_switches": 0
-        },
-        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
-      },
-      "median_ms": 0.691444,
-      "p95_ms": 0.904665,
-      "max_ms": 7.983945,
-      "daemon_memory": [
-        {
-          "label": "hello:measured-client",
-          "daemon_pid": 3480542,
-          "metrics": {
-            "VmHWM": 9752,
-            "VmRSS": 9752,
-            "RssAnon": 1004,
-            "RssFile": 8748,
-            "Threads": 4
-          }
-        },
-        {
-          "label": "after-native-admissions",
-          "daemon_pid": 3480542,
-          "metrics": {
-            "VmHWM": 18212,
-            "VmRSS": 18212,
-            "RssAnon": 5848,
-            "RssFile": 12364,
-            "Threads": 19
-          }
-        }
-      ],
-      "scope": "actual carlosd websocket socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
-      "binary": "current",
-      "sample": 0
-    },
-    {
-      "rounds": 1000,
-      "transport": "websocket",
-      "startup_ms": 2.487274003215134,
-      "provision_and_greeting_ms": 28.98085000924766,
-      "idle": {
-        "seconds": 2.00079480803106,
-        "process_cpu_ticks": 0,
-        "thread_context_switch_deltas": {
-          "3480571:voluntary_ctxt_switches": 8,
-          "3480571:nonvoluntary_ctxt_switches": 0,
-          "3480572:voluntary_ctxt_switches": 0,
-          "3480572:nonvoluntary_ctxt_switches": 0,
-          "3480573:voluntary_ctxt_switches": 20,
-          "3480573:nonvoluntary_ctxt_switches": 0,
-          "3480579:voluntary_ctxt_switches": 0,
-          "3480579:nonvoluntary_ctxt_switches": 0,
-          "3480582:voluntary_ctxt_switches": 0,
-          "3480582:nonvoluntary_ctxt_switches": 0,
-          "3480583:voluntary_ctxt_switches": 0,
-          "3480583:nonvoluntary_ctxt_switches": 0,
-          "3480584:voluntary_ctxt_switches": 0,
-          "3480584:nonvoluntary_ctxt_switches": 0,
-          "3480586:voluntary_ctxt_switches": 20,
-          "3480586:nonvoluntary_ctxt_switches": 0,
-          "3480587:voluntary_ctxt_switches": 0,
-          "3480587:nonvoluntary_ctxt_switches": 0,
-          "3480588:voluntary_ctxt_switches": 0,
-          "3480588:nonvoluntary_ctxt_switches": 0,
-          "3480589:voluntary_ctxt_switches": 0,
-          "3480589:nonvoluntary_ctxt_switches": 0,
-          "3480590:voluntary_ctxt_switches": 0,
-          "3480590:nonvoluntary_ctxt_switches": 0,
-          "3480591:voluntary_ctxt_switches": 0,
-          "3480591:nonvoluntary_ctxt_switches": 0,
-          "3480592:voluntary_ctxt_switches": 0,
-          "3480592:nonvoluntary_ctxt_switches": 0,
-          "3480593:voluntary_ctxt_switches": 0,
-          "3480593:nonvoluntary_ctxt_switches": 0,
-          "3480594:voluntary_ctxt_switches": 99,
-          "3480594:nonvoluntary_ctxt_switches": 0,
-          "3480595:voluntary_ctxt_switches": 2,
-          "3480595:nonvoluntary_ctxt_switches": 0,
-          "3480596:voluntary_ctxt_switches": 0,
-          "3480596:nonvoluntary_ctxt_switches": 0,
-          "3480597:voluntary_ctxt_switches": 0,
-          "3480597:nonvoluntary_ctxt_switches": 0
-        },
-        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
-      },
-      "median_ms": 0.698339,
-      "p95_ms": 0.911515,
-      "max_ms": 1.422088,
-      "daemon_memory": [
-        {
-          "label": "hello:measured-client",
-          "daemon_pid": 3480571,
-          "metrics": {
-            "VmHWM": 9776,
-            "VmRSS": 9776,
-            "RssAnon": 1004,
-            "RssFile": 8772,
-            "Threads": 4
-          }
-        },
-        {
-          "label": "after-native-admissions",
-          "daemon_pid": 3480571,
-          "metrics": {
-            "VmHWM": 18108,
-            "VmRSS": 18108,
-            "RssAnon": 5720,
-            "RssFile": 12388,
-            "Threads": 19
-          }
-        }
-      ],
-      "scope": "actual carlosd websocket socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
-      "binary": "current",
-      "sample": 1
-    },
-    {
-      "rounds": 1000,
-      "transport": "unix",
-      "startup_ms": 2.3934439523145556,
-      "provision_and_greeting_ms": 0.5175319965928793,
-      "idle": {
-        "seconds": 2.000955188064836,
-        "process_cpu_ticks": 0,
-        "thread_context_switch_deltas": {
-          "3480600:voluntary_ctxt_switches": 8,
-          "3480600:nonvoluntary_ctxt_switches": 0,
-          "3480601:voluntary_ctxt_switches": 0,
-          "3480601:nonvoluntary_ctxt_switches": 0,
-          "3480602:voluntary_ctxt_switches": 20,
-          "3480602:nonvoluntary_ctxt_switches": 0,
-          "3480603:voluntary_ctxt_switches": 8,
-          "3480603:nonvoluntary_ctxt_switches": 0,
-          "3480604:voluntary_ctxt_switches": 0,
-          "3480604:nonvoluntary_ctxt_switches": 0,
-          "3480607:voluntary_ctxt_switches": 0,
-          "3480607:nonvoluntary_ctxt_switches": 0,
-          "3480608:voluntary_ctxt_switches": 0,
-          "3480608:nonvoluntary_ctxt_switches": 0,
-          "3480609:voluntary_ctxt_switches": 0,
-          "3480609:nonvoluntary_ctxt_switches": 0,
-          "3480611:voluntary_ctxt_switches": 20,
-          "3480611:nonvoluntary_ctxt_switches": 0,
-          "3480612:voluntary_ctxt_switches": 0,
-          "3480612:nonvoluntary_ctxt_switches": 0,
-          "3480613:voluntary_ctxt_switches": 0,
-          "3480613:nonvoluntary_ctxt_switches": 0,
-          "3480614:voluntary_ctxt_switches": 0,
-          "3480614:nonvoluntary_ctxt_switches": 0,
-          "3480615:voluntary_ctxt_switches": 0,
-          "3480615:nonvoluntary_ctxt_switches": 0,
-          "3480616:voluntary_ctxt_switches": 0,
-          "3480616:nonvoluntary_ctxt_switches": 0,
-          "3480617:voluntary_ctxt_switches": 0,
-          "3480617:nonvoluntary_ctxt_switches": 0,
-          "3480618:voluntary_ctxt_switches": 0,
-          "3480618:nonvoluntary_ctxt_switches": 0,
-          "3480619:voluntary_ctxt_switches": 99,
-          "3480619:nonvoluntary_ctxt_switches": 0,
-          "3480620:voluntary_ctxt_switches": 2,
-          "3480620:nonvoluntary_ctxt_switches": 0,
-          "3480621:voluntary_ctxt_switches": 0,
-          "3480621:nonvoluntary_ctxt_switches": 0,
-          "3480622:voluntary_ctxt_switches": 0,
-          "3480622:nonvoluntary_ctxt_switches": 0
-        },
-        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
-      },
-      "median_ms": 0.548403,
-      "p95_ms": 0.699104,
-      "max_ms": 1.638219,
-      "daemon_memory": [
-        {
-          "label": "hello:measured-client",
-          "daemon_pid": 3480600,
-          "metrics": {
-            "VmHWM": 8416,
-            "VmRSS": 8416,
-            "RssAnon": 876,
-            "RssFile": 7540,
-            "Threads": 5
-          }
-        },
-        {
-          "label": "after-native-admissions",
-          "daemon_pid": 3480600,
-          "metrics": {
-            "VmHWM": 17308,
-            "VmRSS": 17308,
-            "RssAnon": 5700,
-            "RssFile": 11608,
-            "Threads": 20
-          }
-        }
-      ],
-      "scope": "actual carlosd unix socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
-      "binary": "current",
-      "sample": 1
-    },
-    {
-      "rounds": 1000,
-      "transport": "unix",
-      "startup_ms": 2.3967140587046742,
-      "provision_and_greeting_ms": 0.5558530101552606,
-      "idle": {
-        "seconds": 2.0007958869682625,
-        "process_cpu_ticks": 0,
-        "thread_context_switch_deltas": {
-          "3480625:voluntary_ctxt_switches": 8,
-          "3480625:nonvoluntary_ctxt_switches": 0,
-          "3480626:voluntary_ctxt_switches": 0,
-          "3480626:nonvoluntary_ctxt_switches": 0,
-          "3480627:voluntary_ctxt_switches": 20,
-          "3480627:nonvoluntary_ctxt_switches": 0,
-          "3480628:voluntary_ctxt_switches": 7,
-          "3480628:nonvoluntary_ctxt_switches": 0,
-          "3480629:voluntary_ctxt_switches": 0,
-          "3480629:nonvoluntary_ctxt_switches": 0,
-          "3480632:voluntary_ctxt_switches": 0,
-          "3480632:nonvoluntary_ctxt_switches": 0,
-          "3480633:voluntary_ctxt_switches": 0,
-          "3480633:nonvoluntary_ctxt_switches": 0,
-          "3480634:voluntary_ctxt_switches": 0,
-          "3480634:nonvoluntary_ctxt_switches": 0,
-          "3480636:voluntary_ctxt_switches": 20,
-          "3480636:nonvoluntary_ctxt_switches": 0,
-          "3480637:voluntary_ctxt_switches": 0,
-          "3480637:nonvoluntary_ctxt_switches": 0,
-          "3480638:voluntary_ctxt_switches": 0,
-          "3480638:nonvoluntary_ctxt_switches": 0,
-          "3480639:voluntary_ctxt_switches": 0,
-          "3480639:nonvoluntary_ctxt_switches": 0,
-          "3480640:voluntary_ctxt_switches": 0,
-          "3480640:nonvoluntary_ctxt_switches": 0,
-          "3480641:voluntary_ctxt_switches": 0,
-          "3480641:nonvoluntary_ctxt_switches": 0,
-          "3480642:voluntary_ctxt_switches": 0,
-          "3480642:nonvoluntary_ctxt_switches": 0,
-          "3480643:voluntary_ctxt_switches": 0,
-          "3480643:nonvoluntary_ctxt_switches": 0,
-          "3480644:voluntary_ctxt_switches": 99,
-          "3480644:nonvoluntary_ctxt_switches": 0,
-          "3480645:voluntary_ctxt_switches": 2,
-          "3480645:nonvoluntary_ctxt_switches": 0,
-          "3480646:voluntary_ctxt_switches": 0,
-          "3480646:nonvoluntary_ctxt_switches": 0,
-          "3480647:voluntary_ctxt_switches": 0,
-          "3480647:nonvoluntary_ctxt_switches": 0
-        },
-        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
-      },
-      "median_ms": 0.5590485000000001,
-      "p95_ms": 0.733704,
-      "max_ms": 1.382878,
-      "daemon_memory": [
-        {
-          "label": "hello:measured-client",
-          "daemon_pid": 3480625,
-          "metrics": {
-            "VmHWM": 7968,
-            "VmRSS": 7968,
-            "RssAnon": 820,
-            "RssFile": 7148,
-            "Threads": 5
-          }
-        },
-        {
-          "label": "after-native-admissions",
-          "daemon_pid": 3480625,
-          "metrics": {
-            "VmHWM": 16532,
-            "VmRSS": 16532,
-            "RssAnon": 5632,
-            "RssFile": 10900,
-            "Threads": 20
-          }
-        }
-      ],
-      "scope": "actual carlosd unix socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
-      "binary": "ep019b",
-      "sample": 1
-    },
-    {
-      "rounds": 1000,
-      "transport": "unix",
-      "startup_ms": 2.4920429568737745,
-      "provision_and_greeting_ms": 0.5649740342050791,
-      "idle": {
-        "seconds": 2.0007991269230843,
-        "process_cpu_ticks": 0,
-        "thread_context_switch_deltas": {
-          "3480650:voluntary_ctxt_switches": 8,
-          "3480650:nonvoluntary_ctxt_switches": 0,
-          "3480651:voluntary_ctxt_switches": 0,
-          "3480651:nonvoluntary_ctxt_switches": 0,
-          "3480652:voluntary_ctxt_switches": 20,
-          "3480652:nonvoluntary_ctxt_switches": 0,
-          "3480653:voluntary_ctxt_switches": 8,
-          "3480653:nonvoluntary_ctxt_switches": 0,
-          "3480654:voluntary_ctxt_switches": 0,
-          "3480654:nonvoluntary_ctxt_switches": 0,
-          "3480657:voluntary_ctxt_switches": 0,
-          "3480657:nonvoluntary_ctxt_switches": 0,
-          "3480658:voluntary_ctxt_switches": 0,
-          "3480658:nonvoluntary_ctxt_switches": 0,
-          "3480659:voluntary_ctxt_switches": 0,
-          "3480659:nonvoluntary_ctxt_switches": 0,
-          "3480661:voluntary_ctxt_switches": 20,
-          "3480661:nonvoluntary_ctxt_switches": 0,
-          "3480662:voluntary_ctxt_switches": 0,
-          "3480662:nonvoluntary_ctxt_switches": 0,
-          "3480663:voluntary_ctxt_switches": 0,
-          "3480663:nonvoluntary_ctxt_switches": 0,
-          "3480664:voluntary_ctxt_switches": 0,
-          "3480664:nonvoluntary_ctxt_switches": 0,
-          "3480665:voluntary_ctxt_switches": 0,
-          "3480665:nonvoluntary_ctxt_switches": 0,
-          "3480666:voluntary_ctxt_switches": 0,
-          "3480666:nonvoluntary_ctxt_switches": 0,
-          "3480667:voluntary_ctxt_switches": 0,
-          "3480667:nonvoluntary_ctxt_switches": 0,
-          "3480668:voluntary_ctxt_switches": 0,
-          "3480668:nonvoluntary_ctxt_switches": 0,
-          "3480669:voluntary_ctxt_switches": 99,
-          "3480669:nonvoluntary_ctxt_switches": 0,
-          "3480670:voluntary_ctxt_switches": 2,
-          "3480670:nonvoluntary_ctxt_switches": 0,
-          "3480671:voluntary_ctxt_switches": 0,
-          "3480671:nonvoluntary_ctxt_switches": 0,
-          "3480672:voluntary_ctxt_switches": 0,
-          "3480672:nonvoluntary_ctxt_switches": 0
-        },
-        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
-      },
-      "median_ms": 0.5533079999999999,
-      "p95_ms": 0.719134,
-      "max_ms": 1.342437,
-      "daemon_memory": [
-        {
-          "label": "hello:measured-client",
-          "daemon_pid": 3480650,
-          "metrics": {
-            "VmHWM": 7920,
-            "VmRSS": 7920,
+            "VmHWM": 7904,
+            "VmRSS": 7904,
             "RssAnon": 824,
+            "RssFile": 7080,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 3573273,
+          "metrics": {
+            "VmHWM": 16712,
+            "VmRSS": 16712,
+            "RssAnon": 5636,
+            "RssFile": 11076,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual carlosd unix socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
+      "binary": "ep019b",
+      "sample": 0
+    },
+    {
+      "rounds": 1000,
+      "transport": "unix",
+      "startup_ms": 2.4046030594035983,
+      "provision_and_greeting_ms": 0.5308130057528615,
+      "idle": {
+        "seconds": 2.000776647008024,
+        "process_cpu_ticks": 0,
+        "thread_context_switch_deltas": {
+          "3573368:voluntary_ctxt_switches": 8,
+          "3573368:nonvoluntary_ctxt_switches": 0,
+          "3573369:voluntary_ctxt_switches": 0,
+          "3573369:nonvoluntary_ctxt_switches": 0,
+          "3573370:voluntary_ctxt_switches": 20,
+          "3573370:nonvoluntary_ctxt_switches": 0,
+          "3573371:voluntary_ctxt_switches": 7,
+          "3573371:nonvoluntary_ctxt_switches": 0,
+          "3573372:voluntary_ctxt_switches": 0,
+          "3573372:nonvoluntary_ctxt_switches": 0,
+          "3573375:voluntary_ctxt_switches": 0,
+          "3573375:nonvoluntary_ctxt_switches": 0,
+          "3573376:voluntary_ctxt_switches": 0,
+          "3573376:nonvoluntary_ctxt_switches": 0,
+          "3573377:voluntary_ctxt_switches": 0,
+          "3573377:nonvoluntary_ctxt_switches": 0,
+          "3573379:voluntary_ctxt_switches": 20,
+          "3573379:nonvoluntary_ctxt_switches": 0,
+          "3573380:voluntary_ctxt_switches": 0,
+          "3573380:nonvoluntary_ctxt_switches": 0,
+          "3573381:voluntary_ctxt_switches": 0,
+          "3573381:nonvoluntary_ctxt_switches": 0,
+          "3573382:voluntary_ctxt_switches": 0,
+          "3573382:nonvoluntary_ctxt_switches": 0,
+          "3573383:voluntary_ctxt_switches": 0,
+          "3573383:nonvoluntary_ctxt_switches": 0,
+          "3573384:voluntary_ctxt_switches": 0,
+          "3573384:nonvoluntary_ctxt_switches": 0,
+          "3573385:voluntary_ctxt_switches": 0,
+          "3573385:nonvoluntary_ctxt_switches": 0,
+          "3573386:voluntary_ctxt_switches": 0,
+          "3573386:nonvoluntary_ctxt_switches": 0,
+          "3573387:voluntary_ctxt_switches": 99,
+          "3573387:nonvoluntary_ctxt_switches": 0,
+          "3573388:voluntary_ctxt_switches": 2,
+          "3573388:nonvoluntary_ctxt_switches": 0,
+          "3573389:voluntary_ctxt_switches": 0,
+          "3573389:nonvoluntary_ctxt_switches": 0,
+          "3573390:voluntary_ctxt_switches": 0,
+          "3573390:nonvoluntary_ctxt_switches": 0
+        },
+        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+      },
+      "median_ms": 0.562333,
+      "p95_ms": 0.734534,
+      "max_ms": 1.574979,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 3573368,
+          "metrics": {
+            "VmHWM": 8764,
+            "VmRSS": 8764,
+            "RssAnon": 876,
+            "RssFile": 7888,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 3573368,
+          "metrics": {
+            "VmHWM": 17840,
+            "VmRSS": 17840,
+            "RssAnon": 5816,
+            "RssFile": 12024,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual carlosd unix socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
+      "binary": "current",
+      "sample": 0
+    },
+    {
+      "rounds": 1000,
+      "transport": "websocket",
+      "startup_ms": 2.5125840911641717,
+      "provision_and_greeting_ms": 27.81448303721845,
+      "idle": {
+        "seconds": 2.0007730569923297,
+        "process_cpu_ticks": 0,
+        "thread_context_switch_deltas": {
+          "3573393:voluntary_ctxt_switches": 8,
+          "3573393:nonvoluntary_ctxt_switches": 0,
+          "3573394:voluntary_ctxt_switches": 0,
+          "3573394:nonvoluntary_ctxt_switches": 0,
+          "3573395:voluntary_ctxt_switches": 20,
+          "3573395:nonvoluntary_ctxt_switches": 0,
+          "3573401:voluntary_ctxt_switches": 0,
+          "3573401:nonvoluntary_ctxt_switches": 0,
+          "3573404:voluntary_ctxt_switches": 0,
+          "3573404:nonvoluntary_ctxt_switches": 0,
+          "3573405:voluntary_ctxt_switches": 0,
+          "3573405:nonvoluntary_ctxt_switches": 0,
+          "3573406:voluntary_ctxt_switches": 0,
+          "3573406:nonvoluntary_ctxt_switches": 0,
+          "3573408:voluntary_ctxt_switches": 20,
+          "3573408:nonvoluntary_ctxt_switches": 0,
+          "3573409:voluntary_ctxt_switches": 0,
+          "3573409:nonvoluntary_ctxt_switches": 0,
+          "3573410:voluntary_ctxt_switches": 0,
+          "3573410:nonvoluntary_ctxt_switches": 0,
+          "3573411:voluntary_ctxt_switches": 0,
+          "3573411:nonvoluntary_ctxt_switches": 0,
+          "3573412:voluntary_ctxt_switches": 0,
+          "3573412:nonvoluntary_ctxt_switches": 0,
+          "3573413:voluntary_ctxt_switches": 0,
+          "3573413:nonvoluntary_ctxt_switches": 0,
+          "3573414:voluntary_ctxt_switches": 0,
+          "3573414:nonvoluntary_ctxt_switches": 0,
+          "3573415:voluntary_ctxt_switches": 0,
+          "3573415:nonvoluntary_ctxt_switches": 0,
+          "3573416:voluntary_ctxt_switches": 99,
+          "3573416:nonvoluntary_ctxt_switches": 0,
+          "3573417:voluntary_ctxt_switches": 2,
+          "3573417:nonvoluntary_ctxt_switches": 0,
+          "3573418:voluntary_ctxt_switches": 0,
+          "3573418:nonvoluntary_ctxt_switches": 0,
+          "3573419:voluntary_ctxt_switches": 0,
+          "3573419:nonvoluntary_ctxt_switches": 0
+        },
+        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+      },
+      "median_ms": 0.6972785,
+      "p95_ms": 0.912006,
+      "max_ms": 1.75888,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 3573393,
+          "metrics": {
+            "VmHWM": 9808,
+            "VmRSS": 9808,
+            "RssAnon": 1024,
+            "RssFile": 8784,
+            "Threads": 4
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 3573393,
+          "metrics": {
+            "VmHWM": 18128,
+            "VmRSS": 18128,
+            "RssAnon": 5700,
+            "RssFile": 12428,
+            "Threads": 19
+          }
+        }
+      ],
+      "scope": "actual carlosd websocket socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
+      "binary": "current",
+      "sample": 0
+    },
+    {
+      "rounds": 1000,
+      "transport": "websocket",
+      "startup_ms": 3.0111970845609903,
+      "provision_and_greeting_ms": 29.79768393561244,
+      "idle": {
+        "seconds": 2.000791035941802,
+        "process_cpu_ticks": 0,
+        "thread_context_switch_deltas": {
+          "3573422:voluntary_ctxt_switches": 8,
+          "3573422:nonvoluntary_ctxt_switches": 0,
+          "3573423:voluntary_ctxt_switches": 0,
+          "3573423:nonvoluntary_ctxt_switches": 0,
+          "3573424:voluntary_ctxt_switches": 20,
+          "3573424:nonvoluntary_ctxt_switches": 0,
+          "3573430:voluntary_ctxt_switches": 0,
+          "3573430:nonvoluntary_ctxt_switches": 0,
+          "3573433:voluntary_ctxt_switches": 0,
+          "3573433:nonvoluntary_ctxt_switches": 0,
+          "3573434:voluntary_ctxt_switches": 0,
+          "3573434:nonvoluntary_ctxt_switches": 0,
+          "3573435:voluntary_ctxt_switches": 0,
+          "3573435:nonvoluntary_ctxt_switches": 0,
+          "3573437:voluntary_ctxt_switches": 20,
+          "3573437:nonvoluntary_ctxt_switches": 0,
+          "3573438:voluntary_ctxt_switches": 0,
+          "3573438:nonvoluntary_ctxt_switches": 0,
+          "3573439:voluntary_ctxt_switches": 0,
+          "3573439:nonvoluntary_ctxt_switches": 0,
+          "3573440:voluntary_ctxt_switches": 0,
+          "3573440:nonvoluntary_ctxt_switches": 0,
+          "3573441:voluntary_ctxt_switches": 0,
+          "3573441:nonvoluntary_ctxt_switches": 0,
+          "3573442:voluntary_ctxt_switches": 0,
+          "3573442:nonvoluntary_ctxt_switches": 0,
+          "3573443:voluntary_ctxt_switches": 0,
+          "3573443:nonvoluntary_ctxt_switches": 0,
+          "3573444:voluntary_ctxt_switches": 0,
+          "3573444:nonvoluntary_ctxt_switches": 0,
+          "3573445:voluntary_ctxt_switches": 99,
+          "3573445:nonvoluntary_ctxt_switches": 0,
+          "3573446:voluntary_ctxt_switches": 2,
+          "3573446:nonvoluntary_ctxt_switches": 0,
+          "3573447:voluntary_ctxt_switches": 0,
+          "3573447:nonvoluntary_ctxt_switches": 0,
+          "3573448:voluntary_ctxt_switches": 0,
+          "3573448:nonvoluntary_ctxt_switches": 0
+        },
+        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+      },
+      "median_ms": 0.7097534999999999,
+      "p95_ms": 0.921875,
+      "max_ms": 1.591729,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 3573422,
+          "metrics": {
+            "VmHWM": 9180,
+            "VmRSS": 9180,
+            "RssAnon": 1004,
+            "RssFile": 8176,
+            "Threads": 4
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 3573422,
+          "metrics": {
+            "VmHWM": 17688,
+            "VmRSS": 17688,
+            "RssAnon": 5832,
+            "RssFile": 11856,
+            "Threads": 19
+          }
+        }
+      ],
+      "scope": "actual carlosd websocket socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
+      "binary": "current",
+      "sample": 1
+    },
+    {
+      "rounds": 1000,
+      "transport": "unix",
+      "startup_ms": 2.652783994562924,
+      "provision_and_greeting_ms": 0.5422430112957954,
+      "idle": {
+        "seconds": 2.0007813459960744,
+        "process_cpu_ticks": 0,
+        "thread_context_switch_deltas": {
+          "3573451:voluntary_ctxt_switches": 8,
+          "3573451:nonvoluntary_ctxt_switches": 0,
+          "3573452:voluntary_ctxt_switches": 0,
+          "3573452:nonvoluntary_ctxt_switches": 0,
+          "3573453:voluntary_ctxt_switches": 20,
+          "3573453:nonvoluntary_ctxt_switches": 0,
+          "3573454:voluntary_ctxt_switches": 8,
+          "3573454:nonvoluntary_ctxt_switches": 0,
+          "3573455:voluntary_ctxt_switches": 0,
+          "3573455:nonvoluntary_ctxt_switches": 0,
+          "3573458:voluntary_ctxt_switches": 0,
+          "3573458:nonvoluntary_ctxt_switches": 0,
+          "3573459:voluntary_ctxt_switches": 0,
+          "3573459:nonvoluntary_ctxt_switches": 0,
+          "3573460:voluntary_ctxt_switches": 0,
+          "3573460:nonvoluntary_ctxt_switches": 0,
+          "3573462:voluntary_ctxt_switches": 20,
+          "3573462:nonvoluntary_ctxt_switches": 0,
+          "3573463:voluntary_ctxt_switches": 0,
+          "3573463:nonvoluntary_ctxt_switches": 0,
+          "3573464:voluntary_ctxt_switches": 0,
+          "3573464:nonvoluntary_ctxt_switches": 0,
+          "3573465:voluntary_ctxt_switches": 0,
+          "3573465:nonvoluntary_ctxt_switches": 0,
+          "3573466:voluntary_ctxt_switches": 0,
+          "3573466:nonvoluntary_ctxt_switches": 0,
+          "3573467:voluntary_ctxt_switches": 0,
+          "3573467:nonvoluntary_ctxt_switches": 0,
+          "3573468:voluntary_ctxt_switches": 0,
+          "3573468:nonvoluntary_ctxt_switches": 0,
+          "3573469:voluntary_ctxt_switches": 0,
+          "3573469:nonvoluntary_ctxt_switches": 0,
+          "3573470:voluntary_ctxt_switches": 99,
+          "3573470:nonvoluntary_ctxt_switches": 0,
+          "3573471:voluntary_ctxt_switches": 2,
+          "3573471:nonvoluntary_ctxt_switches": 0,
+          "3573472:voluntary_ctxt_switches": 0,
+          "3573472:nonvoluntary_ctxt_switches": 0,
+          "3573473:voluntary_ctxt_switches": 0,
+          "3573473:nonvoluntary_ctxt_switches": 0
+        },
+        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+      },
+      "median_ms": 0.5566930000000001,
+      "p95_ms": 0.721704,
+      "max_ms": 1.230007,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 3573451,
+          "metrics": {
+            "VmHWM": 8632,
+            "VmRSS": 8632,
+            "RssAnon": 876,
+            "RssFile": 7756,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 3573451,
+          "metrics": {
+            "VmHWM": 17820,
+            "VmRSS": 17820,
+            "RssAnon": 5812,
+            "RssFile": 12008,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual carlosd unix socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
+      "binary": "current",
+      "sample": 1
+    },
+    {
+      "rounds": 1000,
+      "transport": "unix",
+      "startup_ms": 2.670115092769265,
+      "provision_and_greeting_ms": 0.5663129268214107,
+      "idle": {
+        "seconds": 2.0008131959475577,
+        "process_cpu_ticks": 0,
+        "thread_context_switch_deltas": {
+          "3573476:voluntary_ctxt_switches": 8,
+          "3573476:nonvoluntary_ctxt_switches": 0,
+          "3573477:voluntary_ctxt_switches": 0,
+          "3573477:nonvoluntary_ctxt_switches": 0,
+          "3573478:voluntary_ctxt_switches": 20,
+          "3573478:nonvoluntary_ctxt_switches": 0,
+          "3573479:voluntary_ctxt_switches": 8,
+          "3573479:nonvoluntary_ctxt_switches": 0,
+          "3573480:voluntary_ctxt_switches": 0,
+          "3573480:nonvoluntary_ctxt_switches": 0,
+          "3573483:voluntary_ctxt_switches": 0,
+          "3573483:nonvoluntary_ctxt_switches": 0,
+          "3573484:voluntary_ctxt_switches": 0,
+          "3573484:nonvoluntary_ctxt_switches": 0,
+          "3573485:voluntary_ctxt_switches": 0,
+          "3573485:nonvoluntary_ctxt_switches": 0,
+          "3573487:voluntary_ctxt_switches": 20,
+          "3573487:nonvoluntary_ctxt_switches": 0,
+          "3573488:voluntary_ctxt_switches": 0,
+          "3573488:nonvoluntary_ctxt_switches": 0,
+          "3573489:voluntary_ctxt_switches": 0,
+          "3573489:nonvoluntary_ctxt_switches": 0,
+          "3573490:voluntary_ctxt_switches": 0,
+          "3573490:nonvoluntary_ctxt_switches": 0,
+          "3573491:voluntary_ctxt_switches": 0,
+          "3573491:nonvoluntary_ctxt_switches": 0,
+          "3573492:voluntary_ctxt_switches": 0,
+          "3573492:nonvoluntary_ctxt_switches": 0,
+          "3573493:voluntary_ctxt_switches": 0,
+          "3573493:nonvoluntary_ctxt_switches": 0,
+          "3573494:voluntary_ctxt_switches": 0,
+          "3573494:nonvoluntary_ctxt_switches": 0,
+          "3573495:voluntary_ctxt_switches": 99,
+          "3573495:nonvoluntary_ctxt_switches": 0,
+          "3573496:voluntary_ctxt_switches": 2,
+          "3573496:nonvoluntary_ctxt_switches": 0,
+          "3573497:voluntary_ctxt_switches": 0,
+          "3573497:nonvoluntary_ctxt_switches": 0,
+          "3573498:voluntary_ctxt_switches": 0,
+          "3573498:nonvoluntary_ctxt_switches": 0
+        },
+        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+      },
+      "median_ms": 0.557368,
+      "p95_ms": 0.729724,
+      "max_ms": 1.587099,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 3573476,
+          "metrics": {
+            "VmHWM": 7824,
+            "VmRSS": 7824,
+            "RssAnon": 824,
+            "RssFile": 7000,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 3573476,
+          "metrics": {
+            "VmHWM": 16492,
+            "VmRSS": 16492,
+            "RssAnon": 5632,
+            "RssFile": 10860,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual carlosd unix socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
+      "binary": "ep019b",
+      "sample": 1
+    },
+    {
+      "rounds": 1000,
+      "transport": "unix",
+      "startup_ms": 2.40038288757205,
+      "provision_and_greeting_ms": 0.5370129365473986,
+      "idle": {
+        "seconds": 2.000835335929878,
+        "process_cpu_ticks": 0,
+        "thread_context_switch_deltas": {
+          "3573501:voluntary_ctxt_switches": 7,
+          "3573501:nonvoluntary_ctxt_switches": 0,
+          "3573502:voluntary_ctxt_switches": 0,
+          "3573502:nonvoluntary_ctxt_switches": 0,
+          "3573503:voluntary_ctxt_switches": 20,
+          "3573503:nonvoluntary_ctxt_switches": 0,
+          "3573504:voluntary_ctxt_switches": 7,
+          "3573504:nonvoluntary_ctxt_switches": 0,
+          "3573505:voluntary_ctxt_switches": 0,
+          "3573505:nonvoluntary_ctxt_switches": 0,
+          "3573508:voluntary_ctxt_switches": 0,
+          "3573508:nonvoluntary_ctxt_switches": 0,
+          "3573509:voluntary_ctxt_switches": 0,
+          "3573509:nonvoluntary_ctxt_switches": 0,
+          "3573510:voluntary_ctxt_switches": 0,
+          "3573510:nonvoluntary_ctxt_switches": 0,
+          "3573512:voluntary_ctxt_switches": 20,
+          "3573512:nonvoluntary_ctxt_switches": 0,
+          "3573513:voluntary_ctxt_switches": 0,
+          "3573513:nonvoluntary_ctxt_switches": 0,
+          "3573514:voluntary_ctxt_switches": 0,
+          "3573514:nonvoluntary_ctxt_switches": 0,
+          "3573515:voluntary_ctxt_switches": 0,
+          "3573515:nonvoluntary_ctxt_switches": 0,
+          "3573516:voluntary_ctxt_switches": 0,
+          "3573516:nonvoluntary_ctxt_switches": 0,
+          "3573517:voluntary_ctxt_switches": 0,
+          "3573517:nonvoluntary_ctxt_switches": 0,
+          "3573518:voluntary_ctxt_switches": 0,
+          "3573518:nonvoluntary_ctxt_switches": 0,
+          "3573519:voluntary_ctxt_switches": 0,
+          "3573519:nonvoluntary_ctxt_switches": 0,
+          "3573520:voluntary_ctxt_switches": 99,
+          "3573520:nonvoluntary_ctxt_switches": 0,
+          "3573521:voluntary_ctxt_switches": 2,
+          "3573521:nonvoluntary_ctxt_switches": 0,
+          "3573522:voluntary_ctxt_switches": 0,
+          "3573522:nonvoluntary_ctxt_switches": 0,
+          "3573523:voluntary_ctxt_switches": 0,
+          "3573523:nonvoluntary_ctxt_switches": 0
+        },
+        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+      },
+      "median_ms": 0.557248,
+      "p95_ms": 0.714234,
+      "max_ms": 1.300647,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 3573501,
+          "metrics": {
+            "VmHWM": 7916,
+            "VmRSS": 7916,
+            "RssAnon": 820,
             "RssFile": 7096,
             "Threads": 5
           }
         },
         {
           "label": "after-native-admissions",
-          "daemon_pid": 3480650,
+          "daemon_pid": 3573501,
           "metrics": {
-            "VmHWM": 16352,
-            "VmRSS": 16352,
-            "RssAnon": 5648,
-            "RssFile": 10704,
+            "VmHWM": 16516,
+            "VmRSS": 16516,
+            "RssAnon": 5748,
+            "RssFile": 10768,
             "Threads": 20
           }
         }
@@ -964,78 +964,78 @@
     {
       "rounds": 1000,
       "transport": "unix",
-      "startup_ms": 2.6406149845570326,
-      "provision_and_greeting_ms": 0.5461020627990365,
+      "startup_ms": 2.409182023257017,
+      "provision_and_greeting_ms": 0.5476940423250198,
       "idle": {
-        "seconds": 2.0008261159528047,
+        "seconds": 2.0008237860165536,
         "process_cpu_ticks": 0,
         "thread_context_switch_deltas": {
-          "3480675:voluntary_ctxt_switches": 8,
-          "3480675:nonvoluntary_ctxt_switches": 0,
-          "3480676:voluntary_ctxt_switches": 0,
-          "3480676:nonvoluntary_ctxt_switches": 0,
-          "3480677:voluntary_ctxt_switches": 20,
-          "3480677:nonvoluntary_ctxt_switches": 0,
-          "3480678:voluntary_ctxt_switches": 8,
-          "3480678:nonvoluntary_ctxt_switches": 0,
-          "3480679:voluntary_ctxt_switches": 0,
-          "3480679:nonvoluntary_ctxt_switches": 0,
-          "3480682:voluntary_ctxt_switches": 0,
-          "3480682:nonvoluntary_ctxt_switches": 0,
-          "3480683:voluntary_ctxt_switches": 0,
-          "3480683:nonvoluntary_ctxt_switches": 0,
-          "3480684:voluntary_ctxt_switches": 0,
-          "3480684:nonvoluntary_ctxt_switches": 0,
-          "3480686:voluntary_ctxt_switches": 20,
-          "3480686:nonvoluntary_ctxt_switches": 0,
-          "3480687:voluntary_ctxt_switches": 0,
-          "3480687:nonvoluntary_ctxt_switches": 0,
-          "3480688:voluntary_ctxt_switches": 0,
-          "3480688:nonvoluntary_ctxt_switches": 0,
-          "3480689:voluntary_ctxt_switches": 0,
-          "3480689:nonvoluntary_ctxt_switches": 0,
-          "3480690:voluntary_ctxt_switches": 0,
-          "3480690:nonvoluntary_ctxt_switches": 0,
-          "3480691:voluntary_ctxt_switches": 0,
-          "3480691:nonvoluntary_ctxt_switches": 0,
-          "3480692:voluntary_ctxt_switches": 0,
-          "3480692:nonvoluntary_ctxt_switches": 0,
-          "3480693:voluntary_ctxt_switches": 0,
-          "3480693:nonvoluntary_ctxt_switches": 0,
-          "3480694:voluntary_ctxt_switches": 99,
-          "3480694:nonvoluntary_ctxt_switches": 0,
-          "3480695:voluntary_ctxt_switches": 2,
-          "3480695:nonvoluntary_ctxt_switches": 0,
-          "3480696:voluntary_ctxt_switches": 0,
-          "3480696:nonvoluntary_ctxt_switches": 0,
-          "3480697:voluntary_ctxt_switches": 0,
-          "3480697:nonvoluntary_ctxt_switches": 0
+          "3573526:voluntary_ctxt_switches": 7,
+          "3573526:nonvoluntary_ctxt_switches": 0,
+          "3573527:voluntary_ctxt_switches": 0,
+          "3573527:nonvoluntary_ctxt_switches": 0,
+          "3573528:voluntary_ctxt_switches": 20,
+          "3573528:nonvoluntary_ctxt_switches": 0,
+          "3573529:voluntary_ctxt_switches": 8,
+          "3573529:nonvoluntary_ctxt_switches": 0,
+          "3573530:voluntary_ctxt_switches": 0,
+          "3573530:nonvoluntary_ctxt_switches": 0,
+          "3573533:voluntary_ctxt_switches": 0,
+          "3573533:nonvoluntary_ctxt_switches": 0,
+          "3573534:voluntary_ctxt_switches": 0,
+          "3573534:nonvoluntary_ctxt_switches": 0,
+          "3573535:voluntary_ctxt_switches": 0,
+          "3573535:nonvoluntary_ctxt_switches": 0,
+          "3573537:voluntary_ctxt_switches": 20,
+          "3573537:nonvoluntary_ctxt_switches": 0,
+          "3573538:voluntary_ctxt_switches": 0,
+          "3573538:nonvoluntary_ctxt_switches": 0,
+          "3573539:voluntary_ctxt_switches": 0,
+          "3573539:nonvoluntary_ctxt_switches": 0,
+          "3573540:voluntary_ctxt_switches": 0,
+          "3573540:nonvoluntary_ctxt_switches": 0,
+          "3573541:voluntary_ctxt_switches": 0,
+          "3573541:nonvoluntary_ctxt_switches": 0,
+          "3573542:voluntary_ctxt_switches": 0,
+          "3573542:nonvoluntary_ctxt_switches": 0,
+          "3573543:voluntary_ctxt_switches": 0,
+          "3573543:nonvoluntary_ctxt_switches": 0,
+          "3573544:voluntary_ctxt_switches": 0,
+          "3573544:nonvoluntary_ctxt_switches": 0,
+          "3573545:voluntary_ctxt_switches": 99,
+          "3573545:nonvoluntary_ctxt_switches": 0,
+          "3573546:voluntary_ctxt_switches": 2,
+          "3573546:nonvoluntary_ctxt_switches": 0,
+          "3573547:voluntary_ctxt_switches": 0,
+          "3573547:nonvoluntary_ctxt_switches": 0,
+          "3573548:voluntary_ctxt_switches": 0,
+          "3573548:nonvoluntary_ctxt_switches": 0
         },
         "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
       },
-      "median_ms": 0.552118,
-      "p95_ms": 0.713504,
-      "max_ms": 1.514068,
+      "median_ms": 0.5608885,
+      "p95_ms": 0.723574,
+      "max_ms": 1.510408,
       "daemon_memory": [
         {
           "label": "hello:measured-client",
-          "daemon_pid": 3480675,
+          "daemon_pid": 3573526,
           "metrics": {
-            "VmHWM": 8756,
-            "VmRSS": 8756,
+            "VmHWM": 8672,
+            "VmRSS": 8672,
             "RssAnon": 876,
-            "RssFile": 7880,
+            "RssFile": 7796,
             "Threads": 5
           }
         },
         {
           "label": "after-native-admissions",
-          "daemon_pid": 3480675,
+          "daemon_pid": 3573526,
           "metrics": {
-            "VmHWM": 18000,
-            "VmRSS": 18000,
-            "RssAnon": 5816,
-            "RssFile": 12184,
+            "VmHWM": 17860,
+            "VmRSS": 17860,
+            "RssAnon": 5812,
+            "RssFile": 12048,
             "Threads": 20
           }
         }
@@ -1047,76 +1047,76 @@
     {
       "rounds": 1000,
       "transport": "websocket",
-      "startup_ms": 2.7011450147256255,
-      "provision_and_greeting_ms": 31.309562968090177,
+      "startup_ms": 2.9773860005661845,
+      "provision_and_greeting_ms": 29.32443202007562,
       "idle": {
-        "seconds": 2.0007979759247974,
+        "seconds": 2.0007761960150674,
         "process_cpu_ticks": 0,
         "thread_context_switch_deltas": {
-          "3480700:voluntary_ctxt_switches": 8,
-          "3480700:nonvoluntary_ctxt_switches": 0,
-          "3480701:voluntary_ctxt_switches": 0,
-          "3480701:nonvoluntary_ctxt_switches": 0,
-          "3480702:voluntary_ctxt_switches": 20,
-          "3480702:nonvoluntary_ctxt_switches": 0,
-          "3480708:voluntary_ctxt_switches": 0,
-          "3480708:nonvoluntary_ctxt_switches": 0,
-          "3480711:voluntary_ctxt_switches": 0,
-          "3480711:nonvoluntary_ctxt_switches": 0,
-          "3480712:voluntary_ctxt_switches": 0,
-          "3480712:nonvoluntary_ctxt_switches": 0,
-          "3480713:voluntary_ctxt_switches": 0,
-          "3480713:nonvoluntary_ctxt_switches": 0,
-          "3480715:voluntary_ctxt_switches": 19,
-          "3480715:nonvoluntary_ctxt_switches": 0,
-          "3480716:voluntary_ctxt_switches": 0,
-          "3480716:nonvoluntary_ctxt_switches": 0,
-          "3480717:voluntary_ctxt_switches": 0,
-          "3480717:nonvoluntary_ctxt_switches": 0,
-          "3480718:voluntary_ctxt_switches": 0,
-          "3480718:nonvoluntary_ctxt_switches": 0,
-          "3480719:voluntary_ctxt_switches": 0,
-          "3480719:nonvoluntary_ctxt_switches": 0,
-          "3480720:voluntary_ctxt_switches": 0,
-          "3480720:nonvoluntary_ctxt_switches": 0,
-          "3480721:voluntary_ctxt_switches": 0,
-          "3480721:nonvoluntary_ctxt_switches": 0,
-          "3480722:voluntary_ctxt_switches": 0,
-          "3480722:nonvoluntary_ctxt_switches": 0,
-          "3480723:voluntary_ctxt_switches": 99,
-          "3480723:nonvoluntary_ctxt_switches": 0,
-          "3480724:voluntary_ctxt_switches": 2,
-          "3480724:nonvoluntary_ctxt_switches": 0,
-          "3480725:voluntary_ctxt_switches": 0,
-          "3480725:nonvoluntary_ctxt_switches": 0,
-          "3480726:voluntary_ctxt_switches": 0,
-          "3480726:nonvoluntary_ctxt_switches": 0
+          "3573551:voluntary_ctxt_switches": 8,
+          "3573551:nonvoluntary_ctxt_switches": 0,
+          "3573552:voluntary_ctxt_switches": 0,
+          "3573552:nonvoluntary_ctxt_switches": 0,
+          "3573553:voluntary_ctxt_switches": 20,
+          "3573553:nonvoluntary_ctxt_switches": 0,
+          "3573559:voluntary_ctxt_switches": 0,
+          "3573559:nonvoluntary_ctxt_switches": 0,
+          "3573562:voluntary_ctxt_switches": 0,
+          "3573562:nonvoluntary_ctxt_switches": 0,
+          "3573563:voluntary_ctxt_switches": 0,
+          "3573563:nonvoluntary_ctxt_switches": 0,
+          "3573564:voluntary_ctxt_switches": 0,
+          "3573564:nonvoluntary_ctxt_switches": 0,
+          "3573566:voluntary_ctxt_switches": 20,
+          "3573566:nonvoluntary_ctxt_switches": 0,
+          "3573567:voluntary_ctxt_switches": 0,
+          "3573567:nonvoluntary_ctxt_switches": 0,
+          "3573568:voluntary_ctxt_switches": 0,
+          "3573568:nonvoluntary_ctxt_switches": 0,
+          "3573569:voluntary_ctxt_switches": 0,
+          "3573569:nonvoluntary_ctxt_switches": 0,
+          "3573570:voluntary_ctxt_switches": 0,
+          "3573570:nonvoluntary_ctxt_switches": 0,
+          "3573571:voluntary_ctxt_switches": 0,
+          "3573571:nonvoluntary_ctxt_switches": 0,
+          "3573572:voluntary_ctxt_switches": 0,
+          "3573572:nonvoluntary_ctxt_switches": 0,
+          "3573573:voluntary_ctxt_switches": 0,
+          "3573573:nonvoluntary_ctxt_switches": 0,
+          "3573574:voluntary_ctxt_switches": 99,
+          "3573574:nonvoluntary_ctxt_switches": 0,
+          "3573575:voluntary_ctxt_switches": 2,
+          "3573575:nonvoluntary_ctxt_switches": 0,
+          "3573576:voluntary_ctxt_switches": 0,
+          "3573576:nonvoluntary_ctxt_switches": 0,
+          "3573577:voluntary_ctxt_switches": 0,
+          "3573577:nonvoluntary_ctxt_switches": 0
         },
         "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
       },
-      "median_ms": 0.6921685,
-      "p95_ms": 0.901975,
-      "max_ms": 1.444448,
+      "median_ms": 0.699504,
+      "p95_ms": 0.909645,
+      "max_ms": 1.476669,
       "daemon_memory": [
         {
           "label": "hello:measured-client",
-          "daemon_pid": 3480700,
+          "daemon_pid": 3573551,
           "metrics": {
-            "VmHWM": 9184,
-            "VmRSS": 9184,
+            "VmHWM": 9684,
+            "VmRSS": 9684,
             "RssAnon": 1000,
-            "RssFile": 8184,
+            "RssFile": 8684,
             "Threads": 4
           }
         },
         {
           "label": "after-native-admissions",
-          "daemon_pid": 3480700,
+          "daemon_pid": 3573551,
           "metrics": {
-            "VmHWM": 17584,
-            "VmRSS": 17584,
-            "RssAnon": 5720,
-            "RssFile": 11864,
+            "VmHWM": 18264,
+            "VmRSS": 18264,
+            "RssAnon": 5840,
+            "RssFile": 12424,
             "Threads": 19
           }
         }
@@ -1132,30 +1132,30 @@
       "source_bytes": 10092544,
       "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
       "chunks": 155,
-      "wall_ms": 113.505297,
-      "median_ms": 0.667943,
-      "p95_ms": 0.711574,
-      "max_ms": 1.197357,
+      "wall_ms": 112.820061,
+      "median_ms": 0.662103,
+      "p95_ms": 0.722734,
+      "max_ms": 1.229866,
       "daemon_memory": [
         {
           "label": "hello:measured-client",
-          "daemon_pid": 3480731,
+          "daemon_pid": 3573582,
           "metrics": {
-            "VmHWM": 7880,
-            "VmRSS": 7880,
+            "VmHWM": 8040,
+            "VmRSS": 8040,
             "RssAnon": 824,
-            "RssFile": 7056,
+            "RssFile": 7216,
             "Threads": 5
           }
         },
         {
           "label": "after-source-transfer",
-          "daemon_pid": 3480731,
+          "daemon_pid": 3573582,
           "metrics": {
-            "VmHWM": 26424,
-            "VmRSS": 26424,
-            "RssAnon": 15116,
-            "RssFile": 11308,
+            "VmHWM": 27360,
+            "VmRSS": 27360,
+            "RssAnon": 16016,
+            "RssFile": 11344,
             "Threads": 21
           }
         }
@@ -1169,30 +1169,30 @@
       "source_bytes": 10092544,
       "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
       "chunks": 155,
-      "wall_ms": 116.267763,
-      "median_ms": 0.685774,
-      "p95_ms": 0.724454,
-      "max_ms": 1.163357,
+      "wall_ms": 117.103725,
+      "median_ms": 0.690034,
+      "p95_ms": 0.743174,
+      "max_ms": 1.117836,
       "daemon_memory": [
         {
           "label": "hello:measured-client",
-          "daemon_pid": 3480760,
+          "daemon_pid": 3573611,
           "metrics": {
-            "VmHWM": 8840,
-            "VmRSS": 8840,
-            "RssAnon": 876,
-            "RssFile": 7964,
+            "VmHWM": 8604,
+            "VmRSS": 8604,
+            "RssAnon": 872,
+            "RssFile": 7732,
             "Threads": 5
           }
         },
         {
           "label": "after-source-transfer",
-          "daemon_pid": 3480760,
+          "daemon_pid": 3573611,
           "metrics": {
-            "VmHWM": 29116,
-            "VmRSS": 29116,
-            "RssAnon": 16644,
-            "RssFile": 12472,
+            "VmHWM": 28620,
+            "VmRSS": 28620,
+            "RssAnon": 15744,
+            "RssFile": 12876,
             "Threads": 21
           }
         }
@@ -1206,14 +1206,236 @@
       "source_bytes": 10092544,
       "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
       "chunks": 155,
-      "wall_ms": 129.851959,
-      "median_ms": 0.760784,
-      "p95_ms": 0.848405,
-      "max_ms": 1.604849,
+      "wall_ms": 129.091581,
+      "median_ms": 0.766154,
+      "p95_ms": 0.829215,
+      "max_ms": 1.410057,
       "daemon_memory": [
         {
           "label": "hello:measured-client",
-          "daemon_pid": 3480789,
+          "daemon_pid": 3573640,
+          "metrics": {
+            "VmHWM": 9876,
+            "VmRSS": 9876,
+            "RssAnon": 992,
+            "RssFile": 8884,
+            "Threads": 4
+          }
+        },
+        {
+          "label": "after-source-transfer",
+          "daemon_pid": 3573640,
+          "metrics": {
+            "VmHWM": 29612,
+            "VmRSS": 29612,
+            "RssAnon": 16992,
+            "RssFile": 12620,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
+      "binary": "current",
+      "sample": 0
+    },
+    {
+      "transport": "websocket",
+      "source_bytes": 10092544,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "chunks": 155,
+      "wall_ms": 131.055603,
+      "median_ms": 0.769444,
+      "p95_ms": 0.845695,
+      "max_ms": 1.78252,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 3573673,
+          "metrics": {
+            "VmHWM": 9808,
+            "VmRSS": 9808,
+            "RssAnon": 996,
+            "RssFile": 8812,
+            "Threads": 4
+          }
+        },
+        {
+          "label": "after-source-transfer",
+          "daemon_pid": 3573673,
+          "metrics": {
+            "VmHWM": 29896,
+            "VmRSS": 29896,
+            "RssAnon": 17088,
+            "RssFile": 12808,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
+      "binary": "current",
+      "sample": 1
+    },
+    {
+      "transport": "unix",
+      "source_bytes": 10092544,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "chunks": 155,
+      "wall_ms": 116.602092,
+      "median_ms": 0.685054,
+      "p95_ms": 0.744374,
+      "max_ms": 1.259946,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 3573707,
+          "metrics": {
+            "VmHWM": 8268,
+            "VmRSS": 8268,
+            "RssAnon": 872,
+            "RssFile": 7396,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-source-transfer",
+          "daemon_pid": 3573707,
+          "metrics": {
+            "VmHWM": 28336,
+            "VmRSS": 28336,
+            "RssAnon": 16372,
+            "RssFile": 11964,
+            "Threads": 21
+          }
+        }
+      ],
+      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
+      "binary": "current",
+      "sample": 1
+    },
+    {
+      "transport": "unix",
+      "source_bytes": 10092544,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "chunks": 155,
+      "wall_ms": 113.459455,
+      "median_ms": 0.665944,
+      "p95_ms": 0.726004,
+      "max_ms": 1.182606,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 3573736,
+          "metrics": {
+            "VmHWM": 7984,
+            "VmRSS": 7984,
+            "RssAnon": 824,
+            "RssFile": 7160,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-source-transfer",
+          "daemon_pid": 3573736,
+          "metrics": {
+            "VmHWM": 27888,
+            "VmRSS": 27888,
+            "RssAnon": 16544,
+            "RssFile": 11344,
+            "Threads": 21
+          }
+        }
+      ],
+      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
+      "binary": "ep019b",
+      "sample": 1
+    },
+    {
+      "transport": "unix",
+      "source_bytes": 10092544,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "chunks": 155,
+      "wall_ms": 114.078699,
+      "median_ms": 0.665874,
+      "p95_ms": 0.731174,
+      "max_ms": 1.131146,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 3573765,
+          "metrics": {
+            "VmHWM": 8008,
+            "VmRSS": 8008,
+            "RssAnon": 824,
+            "RssFile": 7184,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-source-transfer",
+          "daemon_pid": 3573765,
+          "metrics": {
+            "VmHWM": 28652,
+            "VmRSS": 28652,
+            "RssAnon": 17472,
+            "RssFile": 11180,
+            "Threads": 21
+          }
+        }
+      ],
+      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
+      "binary": "ep019b",
+      "sample": 2
+    },
+    {
+      "transport": "unix",
+      "source_bytes": 10092544,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "chunks": 155,
+      "wall_ms": 116.374061,
+      "median_ms": 0.686033,
+      "p95_ms": 0.736104,
+      "max_ms": 1.114826,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 3573794,
+          "metrics": {
+            "VmHWM": 8908,
+            "VmRSS": 8908,
+            "RssAnon": 876,
+            "RssFile": 8032,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-source-transfer",
+          "daemon_pid": 3573794,
+          "metrics": {
+            "VmHWM": 28160,
+            "VmRSS": 28160,
+            "RssAnon": 15704,
+            "RssFile": 12456,
+            "Threads": 21
+          }
+        }
+      ],
+      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
+      "binary": "current",
+      "sample": 2
+    },
+    {
+      "transport": "websocket",
+      "source_bytes": 10092544,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "chunks": 155,
+      "wall_ms": 130.53071,
+      "median_ms": 0.768895,
+      "p95_ms": 0.829214,
+      "max_ms": 1.8484,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 3573824,
           "metrics": {
             "VmHWM": 9612,
             "VmRSS": 9612,
@@ -1224,234 +1446,12 @@
         },
         {
           "label": "after-source-transfer",
-          "daemon_pid": 3480789,
+          "daemon_pid": 3573824,
           "metrics": {
-            "VmHWM": 28996,
-            "VmRSS": 28996,
-            "RssAnon": 16644,
-            "RssFile": 12352,
-            "Threads": 20
-          }
-        }
-      ],
-      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
-      "binary": "current",
-      "sample": 0
-    },
-    {
-      "transport": "websocket",
-      "source_bytes": 10092544,
-      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
-      "chunks": 155,
-      "wall_ms": 128.145078,
-      "median_ms": 0.757324,
-      "p95_ms": 0.803334,
-      "max_ms": 1.416137,
-      "daemon_memory": [
-        {
-          "label": "hello:measured-client",
-          "daemon_pid": 3480823,
-          "metrics": {
-            "VmHWM": 9908,
-            "VmRSS": 9908,
-            "RssAnon": 1004,
-            "RssFile": 8904,
-            "Threads": 4
-          }
-        },
-        {
-          "label": "after-source-transfer",
-          "daemon_pid": 3480823,
-          "metrics": {
-            "VmHWM": 28716,
-            "VmRSS": 28716,
-            "RssAnon": 15912,
-            "RssFile": 12804,
-            "Threads": 20
-          }
-        }
-      ],
-      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
-      "binary": "current",
-      "sample": 1
-    },
-    {
-      "transport": "unix",
-      "source_bytes": 10092544,
-      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
-      "chunks": 155,
-      "wall_ms": 115.76066,
-      "median_ms": 0.680163,
-      "p95_ms": 0.732024,
-      "max_ms": 1.160527,
-      "daemon_memory": [
-        {
-          "label": "hello:measured-client",
-          "daemon_pid": 3480856,
-          "metrics": {
-            "VmHWM": 8860,
-            "VmRSS": 8860,
-            "RssAnon": 872,
-            "RssFile": 7988,
-            "Threads": 5
-          }
-        },
-        {
-          "label": "after-source-transfer",
-          "daemon_pid": 3480856,
-          "metrics": {
-            "VmHWM": 29044,
-            "VmRSS": 29044,
-            "RssAnon": 16540,
-            "RssFile": 12504,
-            "Threads": 21
-          }
-        }
-      ],
-      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
-      "binary": "current",
-      "sample": 1
-    },
-    {
-      "transport": "unix",
-      "source_bytes": 10092544,
-      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
-      "chunks": 155,
-      "wall_ms": 123.734985,
-      "median_ms": 0.724655,
-      "p95_ms": 0.778784,
-      "max_ms": 1.229877,
-      "daemon_memory": [
-        {
-          "label": "hello:measured-client",
-          "daemon_pid": 3480885,
-          "metrics": {
-            "VmHWM": 8136,
-            "VmRSS": 8136,
-            "RssAnon": 828,
-            "RssFile": 7308,
-            "Threads": 5
-          }
-        },
-        {
-          "label": "after-source-transfer",
-          "daemon_pid": 3480885,
-          "metrics": {
-            "VmHWM": 28108,
-            "VmRSS": 28108,
-            "RssAnon": 16620,
-            "RssFile": 11488,
-            "Threads": 21
-          }
-        }
-      ],
-      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
-      "binary": "ep019b",
-      "sample": 1
-    },
-    {
-      "transport": "unix",
-      "source_bytes": 10092544,
-      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
-      "chunks": 155,
-      "wall_ms": 115.554289,
-      "median_ms": 0.679114,
-      "p95_ms": 0.738004,
-      "max_ms": 1.158006,
-      "daemon_memory": [
-        {
-          "label": "hello:measured-client",
-          "daemon_pid": 3480915,
-          "metrics": {
-            "VmHWM": 7840,
-            "VmRSS": 7840,
-            "RssAnon": 824,
-            "RssFile": 7016,
-            "Threads": 5
-          }
-        },
-        {
-          "label": "after-source-transfer",
-          "daemon_pid": 3480915,
-          "metrics": {
-            "VmHWM": 28472,
-            "VmRSS": 28472,
-            "RssAnon": 17012,
-            "RssFile": 11460,
-            "Threads": 21
-          }
-        }
-      ],
-      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
-      "binary": "ep019b",
-      "sample": 2
-    },
-    {
-      "transport": "unix",
-      "source_bytes": 10092544,
-      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
-      "chunks": 155,
-      "wall_ms": 116.036661,
-      "median_ms": 0.678954,
-      "p95_ms": 0.747344,
-      "max_ms": 1.231326,
-      "daemon_memory": [
-        {
-          "label": "hello:measured-client",
-          "daemon_pid": 3480944,
-          "metrics": {
-            "VmHWM": 8916,
-            "VmRSS": 8916,
-            "RssAnon": 876,
-            "RssFile": 8040,
-            "Threads": 5
-          }
-        },
-        {
-          "label": "after-source-transfer",
-          "daemon_pid": 3480944,
-          "metrics": {
-            "VmHWM": 30040,
-            "VmRSS": 30040,
-            "RssAnon": 17180,
-            "RssFile": 12860,
-            "Threads": 21
-          }
-        }
-      ],
-      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
-      "binary": "current",
-      "sample": 2
-    },
-    {
-      "transport": "websocket",
-      "source_bytes": 10092544,
-      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
-      "chunks": 155,
-      "wall_ms": 128.518511,
-      "median_ms": 0.760754,
-      "p95_ms": 0.824414,
-      "max_ms": 1.381418,
-      "daemon_memory": [
-        {
-          "label": "hello:measured-client",
-          "daemon_pid": 3480973,
-          "metrics": {
-            "VmHWM": 9732,
-            "VmRSS": 9732,
-            "RssAnon": 996,
-            "RssFile": 8736,
-            "Threads": 4
-          }
-        },
-        {
-          "label": "after-source-transfer",
-          "daemon_pid": 3480973,
-          "metrics": {
-            "VmHWM": 28616,
-            "VmRSS": 28616,
-            "RssAnon": 15844,
-            "RssFile": 12772,
+            "VmHWM": 29040,
+            "VmRSS": 29040,
+            "RssAnon": 16384,
+            "RssFile": 12656,
             "Threads": 20
           }
         }
@@ -1463,699 +1463,699 @@
   ],
   "synthetic": [
     {
-      "client_decode_ms": 3.65886199999999,
+      "client_decode_ms": 3.6521369999999953,
       "frames": 1060,
       "output_chunks": 1000,
       "payload_bytes": 4896929,
-      "publish_export_encode_ms": 14.754429999999994,
+      "publish_export_encode_ms": 15.369371,
       "rss_kib": {
-        "after_apply": 8128,
-        "after_transfer": 8596,
-        "before": 3136
+        "after_apply": 7988,
+        "after_transfer": 8424,
+        "before": 3180
       },
       "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
       "seed": 1,
-      "source_apply_ms": 14.331319,
+      "source_apply_ms": 14.091958,
       "source_bytes": 3698790,
       "source_rows": 6000,
       "tool_lines": 24,
-      "transfer_wall_ms": 27.178971,
+      "transfer_wall_ms": 27.840144000000002,
       "transport": "unix",
       "turns": 1000,
-      "writer_wait_send_ms": 6.173718000000007,
+      "writer_wait_send_ms": 6.334099000000006,
       "sample": 0
     },
     {
-      "client_decode_ms": 3.692311999999996,
+      "client_decode_ms": 3.8000319999999927,
       "frames": 1060,
       "output_chunks": 1000,
       "payload_bytes": 4896929,
-      "publish_export_encode_ms": 17.190741000000003,
+      "publish_export_encode_ms": 15.11081199999999,
       "rss_kib": {
-        "after_apply": 7760,
-        "after_transfer": 8520,
-        "before": 2816
+        "after_apply": 8196,
+        "after_transfer": 8636,
+        "before": 3328
       },
       "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
       "seed": 1,
-      "source_apply_ms": 13.668906,
+      "source_apply_ms": 13.893156,
       "source_bytes": 3698790,
       "source_rows": 6000,
       "tool_lines": 24,
-      "transfer_wall_ms": 32.968433,
+      "transfer_wall_ms": 30.524548,
       "transport": "websocket",
       "turns": 1000,
-      "writer_wait_send_ms": 10.161659999999987,
+      "writer_wait_send_ms": 10.636002999999992,
       "sample": 0
     },
     {
-      "client_decode_ms": 3.729353999999992,
+      "client_decode_ms": 3.676485999999987,
       "frames": 1060,
       "output_chunks": 1000,
       "payload_bytes": 4896929,
-      "publish_export_encode_ms": 14.628004000000002,
+      "publish_export_encode_ms": 14.517950999999993,
       "rss_kib": {
-        "after_apply": 8264,
-        "after_transfer": 8720,
-        "before": 3356
+        "after_apply": 7804,
+        "after_transfer": 8564,
+        "before": 2936
       },
       "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
       "seed": 1,
-      "source_apply_ms": 13.783787,
+      "source_apply_ms": 13.982937000000002,
       "source_bytes": 3698790,
       "source_rows": 6000,
       "tool_lines": 24,
-      "transfer_wall_ms": 30.041566,
+      "transfer_wall_ms": 30.009674999999998,
       "transport": "websocket",
       "turns": 1000,
-      "writer_wait_send_ms": 10.47594599999999,
+      "writer_wait_send_ms": 11.644930999999984,
       "sample": 1
     },
     {
-      "client_decode_ms": 3.6549739999999944,
+      "client_decode_ms": 3.664348999999993,
       "frames": 1060,
       "output_chunks": 1000,
       "payload_bytes": 4896929,
-      "publish_export_encode_ms": 16.14464300000001,
+      "publish_export_encode_ms": 17.179895999999975,
       "rss_kib": {
-        "after_apply": 8004,
-        "after_transfer": 8452,
-        "before": 3192
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 14.054948,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 28.665958,
-      "transport": "unix",
-      "turns": 1000,
-      "writer_wait_send_ms": 7.2036599999999975,
-      "sample": 1
-    },
-    {
-      "client_decode_ms": 3.6289569999999904,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 14.458636999999992,
-      "rss_kib": {
-        "after_apply": 8004,
-        "after_transfer": 8452,
-        "before": 3136
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 14.151418000000001,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 26.699478,
-      "transport": "unix",
-      "turns": 1000,
-      "writer_wait_send_ms": 6.40027600000001,
-      "sample": 2
-    },
-    {
-      "client_decode_ms": 3.736260999999994,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 15.725988,
-      "rss_kib": {
-        "after_apply": 8200,
-        "after_transfer": 8652,
-        "before": 3200
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 14.411848999999998,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 31.217723,
-      "transport": "websocket",
-      "turns": 1000,
-      "writer_wait_send_ms": 11.263567000000002,
-      "sample": 2
-    },
-    {
-      "client_decode_ms": 3.731404999999997,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 14.505736999999991,
-      "rss_kib": {
-        "after_apply": 8116,
-        "after_transfer": 8616,
-        "before": 3248
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 13.901047,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 29.726395,
-      "transport": "websocket",
-      "turns": 1000,
-      "writer_wait_send_ms": 11.589222000000001,
-      "sample": 3
-    },
-    {
-      "client_decode_ms": 3.687303999999992,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 14.538559999999999,
-      "rss_kib": {
-        "after_apply": 8120,
-        "after_transfer": 8476,
-        "before": 3280
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 13.859466000000001,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 26.923729,
-      "transport": "unix",
-      "turns": 1000,
-      "writer_wait_send_ms": 6.66490000000001,
-      "sample": 3
-    },
-    {
-      "client_decode_ms": 3.614331999999997,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 16.255602000000003,
-      "rss_kib": {
-        "after_apply": 8128,
-        "after_transfer": 8596,
-        "before": 3136
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 14.046147999999999,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 28.562638,
-      "transport": "unix",
-      "turns": 1000,
-      "writer_wait_send_ms": 5.968867000000002,
-      "sample": 4
-    },
-    {
-      "client_decode_ms": 3.714495999999992,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 16.061094,
-      "rss_kib": {
-        "after_apply": 7864,
-        "after_transfer": 8620,
-        "before": 2932
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 13.923577,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 31.605375,
-      "transport": "websocket",
-      "turns": 1000,
-      "writer_wait_send_ms": 11.49295399999999,
-      "sample": 4
-    },
-    {
-      "client_decode_ms": 3.696492000000003,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 14.792389000000007,
-      "rss_kib": {
-        "after_apply": 8008,
-        "after_transfer": 8508,
-        "before": 3136
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 13.946027999999998,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 30.039686,
-      "transport": "websocket",
-      "turns": 1000,
-      "writer_wait_send_ms": 11.400895000000009,
-      "sample": 5
-    },
-    {
-      "client_decode_ms": 3.641109999999999,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 14.487783999999984,
-      "rss_kib": {
-        "after_apply": 8156,
-        "after_transfer": 8532,
-        "before": 3284
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 13.905057,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 26.541087,
-      "transport": "unix",
-      "turns": 1000,
-      "writer_wait_send_ms": 5.841213999999993,
-      "sample": 5
-    },
-    {
-      "client_decode_ms": 3.6616959999999885,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 14.486084999999983,
-      "rss_kib": {
-        "after_apply": 7868,
-        "after_transfer": 8408,
+        "after_apply": 7928,
+        "after_transfer": 8464,
         "before": 2996
       },
       "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
       "seed": 1,
-      "source_apply_ms": 13.809567,
+      "source_apply_ms": 14.350369,
       "source_bytes": 3698790,
       "source_rows": 6000,
       "tool_lines": 24,
-      "transfer_wall_ms": 26.556617000000003,
+      "transfer_wall_ms": 30.018646,
       "transport": "unix",
       "turns": 1000,
-      "writer_wait_send_ms": 7.034009999999999,
-      "sample": 6
+      "writer_wait_send_ms": 6.651328999999999,
+      "sample": 1
     },
     {
-      "client_decode_ms": 3.7927869999999975,
+      "client_decode_ms": 3.6841649999999904,
       "frames": 1060,
       "output_chunks": 1000,
       "payload_bytes": 4896929,
-      "publish_export_encode_ms": 16.851381999999994,
+      "publish_export_encode_ms": 14.527942999999972,
       "rss_kib": {
-        "after_apply": 7876,
+        "after_apply": 8084,
         "after_transfer": 8516,
-        "before": 3072
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 13.764886,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 32.802862000000005,
-      "transport": "websocket",
-      "turns": 1000,
-      "writer_wait_send_ms": 10.393260000000007,
-      "sample": 6
-    },
-    {
-      "client_decode_ms": 3.713575000000001,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 15.727555999999996,
-      "rss_kib": {
-        "after_apply": 8120,
-        "after_transfer": 8588,
-        "before": 3148
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 13.975088,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 31.314923,
-      "transport": "websocket",
-      "turns": 1000,
-      "writer_wait_send_ms": 10.781319999999996,
-      "sample": 7
-    },
-    {
-      "client_decode_ms": 3.7038189999999944,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 16.52550299999999,
-      "rss_kib": {
-        "after_apply": 7936,
-        "after_transfer": 8472,
-        "before": 3004
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 13.994908,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 29.186561,
-      "transport": "unix",
-      "turns": 1000,
-      "writer_wait_send_ms": 7.484229000000003,
-      "sample": 7
-    },
-    {
-      "client_decode_ms": 3.7544939999999882,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 15.844956999999992,
-      "rss_kib": {
-        "after_apply": 8124,
-        "after_transfer": 8532,
-        "before": 3196
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 13.952097,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 28.545958,
-      "transport": "unix",
-      "turns": 1000,
-      "writer_wait_send_ms": 6.747524,
-      "sample": 8
-    },
-    {
-      "client_decode_ms": 3.709036999999998,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 15.100242999999983,
-      "rss_kib": {
-        "after_apply": 7944,
-        "after_transfer": 8612,
-        "before": 3020
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 13.915106999999999,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 30.633008999999998,
-      "transport": "websocket",
-      "turns": 1000,
-      "writer_wait_send_ms": 11.809964000000013,
-      "sample": 8
-    },
-    {
-      "client_decode_ms": 3.7576139999999913,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 16.482520000000008,
-      "rss_kib": {
-        "after_apply": 7868,
-        "after_transfer": 8628,
-        "before": 3004
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 14.046467,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 32.092637,
-      "transport": "websocket",
-      "turns": 1000,
-      "writer_wait_send_ms": 10.305509999999995,
-      "sample": 9
-    },
-    {
-      "client_decode_ms": 3.6961219999999986,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 16.886353000000007,
-      "rss_kib": {
-        "after_apply": 8000,
-        "after_transfer": 8440,
-        "before": 3080
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 13.844797000000002,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 29.610414000000002,
-      "transport": "unix",
-      "turns": 1000,
-      "writer_wait_send_ms": 6.701453000000002,
-      "sample": 9
-    },
-    {
-      "client_decode_ms": 4.0194999999999945,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 16.25972499999999,
-      "rss_kib": {
-        "after_apply": 8252,
-        "after_transfer": 8596,
-        "before": 3272
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 14.036277,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 29.168142,
-      "transport": "unix",
-      "turns": 1000,
-      "writer_wait_send_ms": 6.709515999999998,
-      "sample": 10
-    },
-    {
-      "client_decode_ms": 3.700113999999992,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 17.005329999999994,
-      "rss_kib": {
-        "after_apply": 8020,
-        "after_transfer": 8544,
-        "before": 3160
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 14.027678,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 33.038533,
-      "transport": "websocket",
-      "turns": 1000,
-      "writer_wait_send_ms": 9.861927000000005,
-      "sample": 10
-    },
-    {
-      "client_decode_ms": 3.7327159999999946,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 16.169280999999984,
-      "rss_kib": {
-        "after_apply": 8064,
-        "after_transfer": 8592,
-        "before": 3132
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 14.050647,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 31.934856999999997,
-      "transport": "websocket",
-      "turns": 1000,
-      "writer_wait_send_ms": 9.929756000000001,
-      "sample": 11
-    },
-    {
-      "client_decode_ms": 3.724328999999991,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 15.835106000000017,
-      "rss_kib": {
-        "after_apply": 8152,
-        "after_transfer": 8528,
-        "before": 3224
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 14.110078,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 28.477697,
-      "transport": "unix",
-      "turns": 1000,
-      "writer_wait_send_ms": 7.8918210000000135,
-      "sample": 11
-    },
-    {
-      "client_decode_ms": 3.643676999999989,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 16.653863000000005,
-      "rss_kib": {
-        "after_apply": 8088,
-        "after_transfer": 8508,
         "before": 3220
       },
       "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
       "seed": 1,
-      "source_apply_ms": 14.064248,
+      "source_apply_ms": 13.870986,
       "source_bytes": 3698790,
       "source_rows": 6000,
       "tool_lines": 24,
-      "transfer_wall_ms": 29.336673,
+      "transfer_wall_ms": 26.693057,
       "transport": "unix",
       "turns": 1000,
-      "writer_wait_send_ms": 6.743570000000009,
-      "sample": 12
+      "writer_wait_send_ms": 5.729875999999994,
+      "sample": 2
     },
     {
-      "client_decode_ms": 3.6958150000000045,
+      "client_decode_ms": 3.715418999999987,
       "frames": 1060,
       "output_chunks": 1000,
       "payload_bytes": 4896929,
-      "publish_export_encode_ms": 14.705470999999996,
+      "publish_export_encode_ms": 15.859141000000008,
       "rss_kib": {
-        "after_apply": 8020,
+        "after_apply": 7920,
+        "after_transfer": 8604,
+        "before": 2988
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.854507,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 31.546164,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.247065000000003,
+      "sample": 2
+    },
+    {
+      "client_decode_ms": 3.691151999999996,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.160586999999996,
+      "rss_kib": {
+        "after_apply": 7876,
+        "after_transfer": 8620,
+        "before": 2940
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.887866,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 31.533853,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.406809999999961,
+      "sample": 3
+    },
+    {
+      "client_decode_ms": 3.650883999999991,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 17.59769600000005,
+      "rss_kib": {
+        "after_apply": 8024,
+        "after_transfer": 8488,
+        "before": 3096
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.982527,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 30.243606999999997,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.515108000000003,
+      "sample": 3
+    },
+    {
+      "client_decode_ms": 3.6715169999999846,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 14.51056200000001,
+      "rss_kib": {
+        "after_apply": 7812,
+        "after_transfer": 8416,
+        "before": 2896
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.896926,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 26.899848000000002,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.880088000000005,
+      "sample": 4
+    },
+    {
+      "client_decode_ms": 3.7389549999999936,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.049798999999982,
+      "rss_kib": {
+        "after_apply": 7728,
+        "after_transfer": 8536,
+        "before": 2860
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.964526999999999,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 30.366307,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 11.072464,
+      "sample": 4
+    },
+    {
+      "client_decode_ms": 3.716255999999993,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.18943600000001,
+      "rss_kib": {
+        "after_apply": 8124,
+        "after_transfer": 8588,
+        "before": 3152
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.880467000000001,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 30.394378,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 11.242923999999984,
+      "sample": 5
+    },
+    {
+      "client_decode_ms": 3.6336609999999974,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.33461599999997,
+      "rss_kib": {
+        "after_apply": 8048,
+        "after_transfer": 8484,
+        "before": 3180
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.991157000000001,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 28.944529,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.65000000000001,
+      "sample": 5
+    },
+    {
+      "client_decode_ms": 3.659305999999999,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.636596000000004,
+      "rss_kib": {
+        "after_apply": 8060,
+        "after_transfer": 8524,
+        "before": 3132
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.999248000000001,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 29.185930999999997,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.940860000000002,
+      "sample": 6
+    },
+    {
+      "client_decode_ms": 4.003056999999994,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.544105999999996,
+      "rss_kib": {
+        "after_apply": 7880,
+        "after_transfer": 8632,
+        "before": 3072
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.980637,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 32.184057,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 9.656030999999999,
+      "sample": 6
+    },
+    {
+      "client_decode_ms": 3.686299999999991,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.190808000000011,
+      "rss_kib": {
+        "after_apply": 8004,
         "after_transfer": 8628,
-        "before": 3136
+        "before": 3088
       },
       "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
       "seed": 1,
-      "source_apply_ms": 13.971127,
+      "source_apply_ms": 13.874846,
       "source_bytes": 3698790,
       "source_rows": 6000,
       "tool_lines": 24,
-      "transfer_wall_ms": 29.677604,
+      "transfer_wall_ms": 30.643708,
       "transport": "websocket",
       "turns": 1000,
-      "writer_wait_send_ms": 11.870831000000017,
-      "sample": 12
+      "writer_wait_send_ms": 10.432437999999996,
+      "sample": 7
     },
     {
-      "client_decode_ms": 3.7199369999999923,
+      "client_decode_ms": 3.8405409999999938,
       "frames": 1060,
       "output_chunks": 1000,
       "payload_bytes": 4896929,
-      "publish_export_encode_ms": 15.692358000000022,
+      "publish_export_encode_ms": 14.563984999999969,
       "rss_kib": {
-        "after_apply": 7956,
-        "after_transfer": 8616,
-        "before": 3144
+        "after_apply": 7952,
+        "after_transfer": 8444,
+        "before": 3028
       },
       "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
       "seed": 1,
-      "source_apply_ms": 13.926686,
+      "source_apply_ms": 13.831876999999999,
       "source_bytes": 3698790,
       "source_rows": 6000,
       "tool_lines": 24,
-      "transfer_wall_ms": 30.799511000000003,
-      "transport": "websocket",
-      "turns": 1000,
-      "writer_wait_send_ms": 10.387152999999973,
-      "sample": 13
-    },
-    {
-      "client_decode_ms": 3.6774029999999893,
-      "frames": 1060,
-      "output_chunks": 1000,
-      "payload_bytes": 4896929,
-      "publish_export_encode_ms": 14.567220999999996,
-      "rss_kib": {
-        "after_apply": 8028,
-        "after_transfer": 8528,
-        "before": 3104
-      },
-      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
-      "seed": 1,
-      "source_apply_ms": 13.961418,
-      "source_bytes": 3698790,
-      "source_rows": 6000,
-      "tool_lines": 24,
-      "transfer_wall_ms": 26.775878,
+      "transfer_wall_ms": 26.669127,
       "transport": "unix",
       "turns": 1000,
-      "writer_wait_send_ms": 6.061808000000003,
-      "sample": 13
+      "writer_wait_send_ms": 9.877996000000008,
+      "sample": 7
     },
     {
-      "client_decode_ms": 3.641756999999994,
+      "client_decode_ms": 3.653075999999996,
       "frames": 1060,
       "output_chunks": 1000,
       "payload_bytes": 4896929,
-      "publish_export_encode_ms": 16.37577200000002,
+      "publish_export_encode_ms": 14.729314000000015,
       "rss_kib": {
-        "after_apply": 7988,
-        "after_transfer": 8448,
+        "after_apply": 7980,
+        "after_transfer": 8496,
+        "before": 3048
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 14.133968,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 26.722457000000002,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 5.9519759999999975,
+      "sample": 8
+    },
+    {
+      "client_decode_ms": 3.7107069999999904,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.084468,
+      "rss_kib": {
+        "after_apply": 8108,
+        "after_transfer": 8572,
         "before": 3184
       },
       "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
       "seed": 1,
-      "source_apply_ms": 14.019228,
+      "source_apply_ms": 13.833217,
       "source_bytes": 3698790,
       "source_rows": 6000,
       "tool_lines": 24,
-      "transfer_wall_ms": 28.714089,
-      "transport": "unix",
+      "transfer_wall_ms": 31.847036000000003,
+      "transport": "websocket",
       "turns": 1000,
-      "writer_wait_send_ms": 6.614836000000002,
-      "sample": 14
+      "writer_wait_send_ms": 10.194283000000006,
+      "sample": 8
     },
     {
-      "client_decode_ms": 3.7870060000000008,
+      "client_decode_ms": 3.7128390000000038,
       "frames": 1060,
       "output_chunks": 1000,
       "payload_bytes": 4896929,
-      "publish_export_encode_ms": 17.074671000000027,
+      "publish_export_encode_ms": 16.20031499999998,
       "rss_kib": {
-        "after_apply": 8124,
-        "after_transfer": 8592,
-        "before": 3320
+        "after_apply": 8072,
+        "after_transfer": 8628,
+        "before": 3196
       },
       "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
       "seed": 1,
-      "source_apply_ms": 13.828797,
+      "source_apply_ms": 13.783456,
       "source_bytes": 3698790,
       "source_rows": 6000,
       "tool_lines": 24,
-      "transfer_wall_ms": 32.013367,
+      "transfer_wall_ms": 31.743863999999995,
       "transport": "websocket",
       "turns": 1000,
-      "writer_wait_send_ms": 10.801605999999992,
+      "writer_wait_send_ms": 9.280522000000005,
+      "sample": 9
+    },
+    {
+      "client_decode_ms": 3.627875999999994,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 14.598463,
+      "rss_kib": {
+        "after_apply": 8088,
+        "after_transfer": 8520,
+        "before": 3220
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.829216,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 26.487226,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 5.829266000000004,
+      "sample": 9
+    },
+    {
+      "client_decode_ms": 3.6344369999999957,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.02081000000002,
+      "rss_kib": {
+        "after_apply": 8112,
+        "after_transfer": 8520,
+        "before": 3248
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.972647,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 28.461257,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 7.475475000000003,
+      "sample": 10
+    },
+    {
+      "client_decode_ms": 3.682854999999999,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.609205000000003,
+      "rss_kib": {
+        "after_apply": 8136,
+        "after_transfer": 8648,
+        "before": 3140
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.884006000000001,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 32.369908,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.519336000000003,
+      "sample": 10
+    },
+    {
+      "client_decode_ms": 3.654690999999992,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 14.922710000000004,
+      "rss_kib": {
+        "after_apply": 7680,
+        "after_transfer": 8536,
+        "before": 2688
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.877947,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 30.508818,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 11.578131999999995,
+      "sample": 11
+    },
+    {
+      "client_decode_ms": 3.6627969999999848,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.854486000000014,
+      "rss_kib": {
+        "after_apply": 8192,
+        "after_transfer": 8552,
+        "before": 3280
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.805216,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 28.223176,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 7.2662260000000085,
+      "sample": 11
+    },
+    {
+      "client_decode_ms": 3.622095999999997,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.797952999999987,
+      "rss_kib": {
+        "after_apply": 8116,
+        "after_transfer": 8424,
+        "before": 3312
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.814296,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 27.962484,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.670994,
+      "sample": 12
+    },
+    {
+      "client_decode_ms": 3.71218099999999,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.195601999999994,
+      "rss_kib": {
+        "after_apply": 8172,
+        "after_transfer": 8632,
+        "before": 3304
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 14.007337999999999,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 32.019517,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.045222999999982,
+      "sample": 12
+    },
+    {
+      "client_decode_ms": 3.7488079999999986,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.997711000000008,
+      "rss_kib": {
+        "after_apply": 8124,
+        "after_transfer": 8592,
+        "before": 3192
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.856267,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 31.761315,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.422139999999985,
+      "sample": 13
+    },
+    {
+      "client_decode_ms": 3.700589999999994,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 14.197300999999998,
+      "rss_kib": {
+        "after_apply": 8160,
+        "after_transfer": 8520,
+        "before": 3304
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.986177000000001,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 26.471466,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.626862999999999,
+      "sample": 13
+    },
+    {
+      "client_decode_ms": 3.724274999999998,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.19098899999999,
+      "rss_kib": {
+        "after_apply": 8004,
+        "after_transfer": 8412,
+        "before": 3136
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.847336,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 28.574028000000002,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 7.484837000000008,
+      "sample": 14
+    },
+    {
+      "client_decode_ms": 3.7096929999999912,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.998004999999981,
+      "rss_kib": {
+        "after_apply": 8148,
+        "after_transfer": 8656,
+        "before": 3288
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 14.054988,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 31.687605,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.489429999999977,
       "sample": 14
     }
   ],
   "release_slow_reader": [
     {
-      "controlSeconds": 0.0036886309972032905
+      "controlSeconds": 0.0031610970618203282
     }
   ],
   "method": {
@@ -2167,7 +2167,399 @@
     "source": "NUL, Unicode and ANSI, 10092544 original bytes in155 chunks, SHA256 f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
     "startup": "fixture directory/shim creation, process spawn and Unix socket readiness; greeting includes grant CLI/file sync in WebSocket mode",
     "scope": "admissions include Python fixture/logging and actual native acceptance, not model completion; synthetic exporter excludes authentication/manager/native startup/terminal layout; payload bytes exclude WebSocket framing",
-    "raw": "/tmp/carlos-ep020/socket-measurements/summary.json and matched-latency/{sampling.jsonl,summary.json}"
+    "raw": "/tmp/carlos-ep020/socket-measurements-02/summary.json and matched-latency-02/{sampling.jsonl,summary.json}"
+  },
+  "pre_correction": {
+    "identity": {
+      "head": "b851d733dd0e822af14e00918cfe9fb56ec20c1a",
+      "build_info": {
+        "carlos": {
+          "protocol": 1,
+          "version": "0.1.0",
+          "source": "45775d7635fed16302193845c0c4b69b"
+        },
+        "carlosd": {
+          "protocol": 1,
+          "version": "0.1.0",
+          "source": "45775d7635fed16302193845c0c4b69b"
+        }
+      },
+      "validation_logs": [
+        "/tmp/carlos-ep020/network-release-gate-03.log"
+      ],
+      "files": {
+        "carlos": {
+          "path": "/tmp/carlos-ep020/final-pair/carlos",
+          "bytes": 17381560,
+          "sha256": "583a9fa46a32f40d73de4a197bfc174c865ef7fa7142ab97bee2ee7a14e45984"
+        },
+        "carlosd": {
+          "path": "/tmp/carlos-ep020/final-pair/carlosd",
+          "bytes": 19975400,
+          "sha256": "a7a3fa0879f80a64ace5290e32bd3ae4867d56c34fad23a6c3f0d8a5aeb34c39"
+        },
+        "carlos-claude-controller": {
+          "path": "/tmp/carlos-ep020/final-pair/carlos-claude-controller",
+          "bytes": 104780090,
+          "sha256": "01a3485c9dabd395a0a763c58e49fcc22234cdd3d1081969d4266be8e0b7a42f"
+        },
+        "perf_replay": {
+          "path": "/tmp/carlos-ep020/final-pair/perf_replay",
+          "bytes": 2675552,
+          "sha256": "ba6b8daf8ceeb804fa929b762a5b83756f201b9856cb3bb43adf7a345b58d2c1"
+        }
+      }
+    },
+    "renderer": {
+      "synthetic": {
+        "samples": 15,
+        "counts": [
+          6001,
+          39347,
+          6000
+        ],
+        "medians": {
+          "ep019b": {
+            "apply": 14.19,
+            "replay": 49.79,
+            "layout": 15.34,
+            "draw": 3.3,
+            "scroll_draw_p50": 0.58,
+            "scroll_draw_p95": 0.68,
+            "scroll_draw_max": 0.71,
+            "typing_draw_p50": 0.47,
+            "typing_draw_p95": 0.48,
+            "typing_draw_max": 0.53,
+            "working_draw_p50": 0.47,
+            "working_draw_p95": 0.48,
+            "working_draw_max": 0.52,
+            "append_total_p50": 0.48,
+            "append_total_p95": 0.53,
+            "append_total_max": 0.53,
+            "peak_rss_kib": 25140
+          },
+          "current": {
+            "apply": 14.09,
+            "replay": 50.9,
+            "layout": 16.01,
+            "draw": 3.27,
+            "scroll_draw_p50": 0.58,
+            "scroll_draw_p95": 0.69,
+            "scroll_draw_max": 0.72,
+            "typing_draw_p50": 0.47,
+            "typing_draw_p95": 0.48,
+            "typing_draw_max": 0.53,
+            "working_draw_p50": 0.47,
+            "working_draw_p95": 0.48,
+            "working_draw_max": 0.52,
+            "append_total_p50": 0.48,
+            "append_total_p95": 0.53,
+            "append_total_max": 0.53,
+            "peak_rss_kib": 25892
+          }
+        },
+        "paired_changes": {
+          "ep019b": {
+            "apply": {
+              "median": -0.120000000000001,
+              "median_95_interval": [
+                -0.19000000000000128,
+                -0.02000000000000135
+              ]
+            },
+            "replay": {
+              "median": 1.019999999999996,
+              "median_95_interval": [
+                0.5800000000000054,
+                1.230000000000004
+              ]
+            },
+            "layout": {
+              "median": 0.6600000000000001,
+              "median_95_interval": [
+                0.4900000000000002,
+                0.8300000000000001
+              ]
+            },
+            "draw": {
+              "median": -0.04999999999999982,
+              "median_95_interval": [
+                -0.20000000000000018,
+                0.1499999999999999
+              ]
+            },
+            "scroll_draw_p50": {
+              "median": 0.0,
+              "median_95_interval": [
+                0.0,
+                0.010000000000000009
+              ]
+            },
+            "scroll_draw_p95": {
+              "median": 0.0,
+              "median_95_interval": [
+                0.0,
+                0.009999999999999898
+              ]
+            },
+            "scroll_draw_max": {
+              "median": 0.020000000000000018,
+              "median_95_interval": [
+                -0.010000000000000009,
+                0.040000000000000036
+              ]
+            },
+            "typing_draw_p50": {
+              "median": 0.0,
+              "median_95_interval": [
+                0.0,
+                0.010000000000000009
+              ]
+            },
+            "typing_draw_p95": {
+              "median": 0.0,
+              "median_95_interval": [
+                0.0,
+                0.010000000000000009
+              ]
+            },
+            "typing_draw_max": {
+              "median": 0.0,
+              "median_95_interval": [
+                -0.010000000000000009,
+                0.010000000000000009
+              ]
+            },
+            "working_draw_p50": {
+              "median": 0.0,
+              "median_95_interval": [
+                0.0,
+                0.0
+              ]
+            },
+            "working_draw_p95": {
+              "median": 0.0,
+              "median_95_interval": [
+                0.0,
+                0.0
+              ]
+            },
+            "working_draw_max": {
+              "median": 0.0,
+              "median_95_interval": [
+                -0.010000000000000009,
+                0.0
+              ]
+            },
+            "append_total_p50": {
+              "median": 0.0,
+              "median_95_interval": [
+                0.0,
+                0.0
+              ]
+            },
+            "append_total_p95": {
+              "median": 0.0,
+              "median_95_interval": [
+                -0.009999999999999898,
+                0.010000000000000009
+              ]
+            },
+            "append_total_max": {
+              "median": 0.0,
+              "median_95_interval": [
+                -0.009999999999999898,
+                0.010000000000000009
+              ]
+            },
+            "peak_rss_kib": {
+              "median": 788,
+              "median_95_interval": [
+                664,
+                852
+              ]
+            }
+          }
+        }
+      },
+      "fixture": {
+        "samples": 15,
+        "counts": [
+          5,
+          9,
+          4
+        ],
+        "medians": {
+          "ep019b": {
+            "apply": 0.0,
+            "replay": 0.83,
+            "layout": 0.01,
+            "draw": 0.33,
+            "scroll_draw_p50": 0.31,
+            "scroll_draw_p95": 0.31,
+            "scroll_draw_max": 0.31,
+            "typing_draw_p50": 0.24,
+            "typing_draw_p95": 0.25,
+            "typing_draw_max": 0.31,
+            "working_draw_p50": 0.24,
+            "working_draw_p95": 0.25,
+            "working_draw_max": 0.32,
+            "append_total_p50": 0.27,
+            "append_total_p95": 0.32,
+            "append_total_max": 0.32,
+            "peak_rss_kib": 10408
+          },
+          "current": {
+            "apply": 0.0,
+            "replay": 0.79,
+            "layout": 0.01,
+            "draw": 0.33,
+            "scroll_draw_p50": 0.31,
+            "scroll_draw_p95": 0.31,
+            "scroll_draw_max": 0.31,
+            "typing_draw_p50": 0.24,
+            "typing_draw_p95": 0.26,
+            "typing_draw_max": 0.31,
+            "working_draw_p50": 0.24,
+            "working_draw_p95": 0.25,
+            "working_draw_max": 0.32,
+            "append_total_p50": 0.27,
+            "append_total_p95": 0.32,
+            "append_total_max": 0.32,
+            "peak_rss_kib": 11132
+          }
+        },
+        "paired_changes": {
+          "ep019b": {
+            "apply": {
+              "median": 0.0,
+              "median_95_interval": [
+                0.0,
+                0.0
+              ]
+            },
+            "replay": {
+              "median": -0.029999999999999916,
+              "median_95_interval": [
+                -0.09999999999999998,
+                -0.010000000000000009
+              ]
+            },
+            "layout": {
+              "median": 0.0,
+              "median_95_interval": [
+                0.0,
+                0.0
+              ]
+            },
+            "draw": {
+              "median": 0.0,
+              "median_95_interval": [
+                -0.010000000000000009,
+                0.010000000000000009
+              ]
+            },
+            "scroll_draw_p50": {
+              "median": 0.0,
+              "median_95_interval": [
+                -0.010000000000000009,
+                0.010000000000000009
+              ]
+            },
+            "scroll_draw_p95": {
+              "median": 0.0,
+              "median_95_interval": [
+                -0.010000000000000009,
+                0.010000000000000009
+              ]
+            },
+            "scroll_draw_max": {
+              "median": 0.0,
+              "median_95_interval": [
+                -0.010000000000000009,
+                0.010000000000000009
+              ]
+            },
+            "typing_draw_p50": {
+              "median": 0.0,
+              "median_95_interval": [
+                0.0,
+                0.0
+              ]
+            },
+            "typing_draw_p95": {
+              "median": 0.0,
+              "median_95_interval": [
+                0.0,
+                0.0
+              ]
+            },
+            "typing_draw_max": {
+              "median": 0.0,
+              "median_95_interval": [
+                0.0,
+                0.010000000000000009
+              ]
+            },
+            "working_draw_p50": {
+              "median": 0.0,
+              "median_95_interval": [
+                0.0,
+                0.0
+              ]
+            },
+            "working_draw_p95": {
+              "median": 0.0,
+              "median_95_interval": [
+                0.0,
+                0.010000000000000009
+              ]
+            },
+            "working_draw_max": {
+              "median": 0.0,
+              "median_95_interval": [
+                -0.010000000000000009,
+                0.0
+              ]
+            },
+            "append_total_p50": {
+              "median": 0.0,
+              "median_95_interval": [
+                0.0,
+                0.0
+              ]
+            },
+            "append_total_p95": {
+              "median": 0.0,
+              "median_95_interval": [
+                -0.010000000000000009,
+                0.0
+              ]
+            },
+            "append_total_max": {
+              "median": 0.0,
+              "median_95_interval": [
+                -0.010000000000000009,
+                0.0
+              ]
+            },
+            "peak_rss_kib": {
+              "median": 828,
+              "median_95_interval": [
+                688,
+                860
+              ]
+            }
+          }
+        }
+      }
+    },
+    "observed_admission_max_ms": {
+      "ep019b:unix": 1.382878,
+      "current:unix": 1.638219,
+      "current:websocket": 7.983945
+    },
+    "raw": "/tmp/carlos-ep020/socket-measurements/summary.json and matched-latency/summary.json"
   },
   "protected": {
     "main": "a29b1a1e3720e48b09e2ca984fb16c29b5857ea3",

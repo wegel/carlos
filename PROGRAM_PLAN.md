@@ -60,18 +60,33 @@ Fable 5.2 medium PASS WITH ISSUES. The final report and every finding/decision a
 Commit `cc2a5f5` separately removes the embedded runtime; final review corrections are
 `cbdca8f`, runtime source `23d6e70775c623b8106074957efb103d`.
 
-The active plan is `.agents/execplans/EXECPLAN_020_network_access.md`. It must first add explicit typed session
-stop/reopen and prove reuse of the 16 owner slots while preserving saved conversations,
-private drafts and explicit retry choices. Only then add WebSocket/device-token access.
-Protocol version 1 remains provisional. Keep main and the installed binary unchanged.
+EP020 is complete and archived at `.agents/done/EXECPLAN_020_network_access.md`.
+Root approved it under the owner's delegated grant on 2026-11-16 at 04:31:57 UTC after
+complete corrected gates, exact-pair measurements, direct engineering PASS WITH ISSUES,
+whole-roadmap Fable PASS WITH ISSUES and focused Fable PASS WITH ISSUES with no remaining
+BLOCKER or MAJOR finding. `.agents/reports/exec020-final-report.md` and
+`exec020-review-disposition.md` retain all findings, costs, failed runs and decisions.
+The final source is `6a31fd059ad6f8f0e7e92b1f001bc765`; the checked pair is frozen at
+`/tmp/carlos-ep020/corrected-pair/identity.json`. The archived plan remains unchanged.
+
+The active plan is `.agents/execplans/EXECPLAN_021a_shared_panel_reads.md`. First finish
+the small socket/write-label follow-ups, make daemon command admission exhaustive,
+share checked panel read/paging rules in carlos-client and delete matching terminal
+controllers. Preserve complete supported lists, private drafts and reader/root/window
+checks. Do not add native features or Swift/web consumers before this cleanup passes.
+Then write EP021b in full for paged native history, Grok approvals and richer tool data.
+EP022 still builds UniFFI and the actual iPhone app. Only the next plan is written in full.
+Protocol version 1 remains provisional. Keep main, the installed binary and the owner's
+frozen `target/preview-e6be8122` package unchanged. No installation, merge or push is
+included in delegated approval.
 
 The owner requested a mid-EP whole-roadmap size review on2026-11-16. Fable5.2 medium
 found avoidable panel-driver and command-wrapper repetition while supporting the shared
 owner/client design. Its full report and checked decisions are
 `.agents/reports/exec020-fable-bloat-review.md` and `exec020-bloat-review-disposition.md`.
-EP021 must first share panel read settlement/paging in carlos-client and remove the
+EP021a must first share panel read settlement/paging in carlos-client and remove the
 matching terminal code before Swift/web consumers use it. The final EP020 review also
-requires one exhaustive daemon command-admission class before EP021 adds commands,
+requires one exhaustive daemon command-admission class in EP021a before EP021b adds commands,
 so a new mutation cannot silently use the read allowance. Preserve complete supported
 lists and stale-reader checks. Use named payloads for new operator commands; examine
 the existing wrappers alongside that shared-read cleanup. WebSocket access does not
@@ -104,3 +119,5 @@ daemon split started. They remain outside the iPhone spike; its current step is 
 - [x] `.agents/done/EXECPLAN_019a_headless_daemon.md` (completed and owner accepted 2026-11-14; archived plan unchanged)
 
 - [x] `.agents/done/EXECPLAN_019b_terminal_client.md` (completed and approved under delegated authority 2026-11-15; final checks and whole-roadmap review pass)
+
+- [x] `.agents/done/EXECPLAN_020_network_access.md` (completed and approved under delegated authority 2026-11-16; corrected full gate, matched measurements and both final Fable passes recorded)
