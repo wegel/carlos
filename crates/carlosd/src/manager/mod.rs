@@ -2,6 +2,7 @@
 
 mod body;
 mod commands;
+mod devices;
 mod goals;
 mod lifecycle;
 mod mutation_work;
@@ -57,6 +58,7 @@ pub(crate) struct Manager {
     waiting: Vec<Waiting>,
     retry: RetryStore,
     store: Store,
+    devices: devices::Devices,
     ingress: Ingress,
     wake: mpsc::SyncSender<()>,
     wake_rx: mpsc::Receiver<()>,
@@ -74,9 +76,10 @@ impl Manager {
     ) -> Result<Self, RegistryError> {
         let (wake, wake_rx) = mpsc::sync_channel(1);
         let (launch_tx, launches) = mpsc::sync_channel(16);
-        let (store, saved) =
+        let (store, loaded) =
             Store::start(state.join("sessions.sqlite3"), wake.clone(), state_guard)?;
-        let sessions = saved
+        let sessions = loaded
+            .sessions
             .into_iter()
             .map(|saved| (saved.id.clone(), Session::dormant(saved)))
             .collect();
@@ -95,6 +98,7 @@ impl Manager {
                     .expect("UUID"),
             ),
             store,
+            devices: devices::Devices::new(loaded.devices),
             ingress: Ingress::new(wake.clone()),
             wake,
             wake_rx,
@@ -134,6 +138,9 @@ impl Manager {
             self.schedule_catchups();
             self.schedule_outputs();
             self.schedule_saves();
+            if !self.ingress.is_empty() {
+                continue;
+            }
             let _ = self.wake_rx.recv_timeout(Duration::from_millis(250));
         }
         self.shutdown();
@@ -153,6 +160,7 @@ impl Manager {
                 Peer {
                     socket,
                     client: None,
+                    scope: None,
                     replay_allowed: false,
                     list: false,
                     sessions: HashMap::new(),

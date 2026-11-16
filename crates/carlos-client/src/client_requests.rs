@@ -55,7 +55,10 @@ impl Client {
             return Err(ClientError::InvalidConnection);
         }
         let text = submitted_text(&command)?;
-        if matches!(command, Command::SavedArchive { .. }) {
+        if matches!(
+            command,
+            Command::SavedArchive { .. } | Command::DeviceAdd(_) | Command::DeviceRevoke(_)
+        ) {
             self.operations.begin_unscoped(operation.clone())?;
         } else {
             self.operations
@@ -159,6 +162,8 @@ impl Client {
 
 fn mutation(command: &Command) -> Option<(&ClientOperation, Option<&SessionId>)> {
     Some(match command {
+        Command::DeviceAdd(request) => (&request.operation, None),
+        Command::DeviceRevoke(request) => (&request.operation, None),
         Command::Create { operation, .. }
         | Command::Open { operation, .. }
         | Command::SavedArchive { operation, .. } => (operation, None),

@@ -28,6 +28,14 @@ fn first_hello_serializes_its_secret_but_debug_and_malformed_token_errors_do_not
     let debug = format!("{command:?}");
     assert!(!debug.contains(&secret));
     assert!(!debug.contains(&"d".repeat(64)));
+    let retry_token = command.clone();
+    let Command::Hello(greeting) = retry_token else {
+        panic!("hello")
+    };
+    assert!(
+        !format!("{:?}", greeting.resume_token.expect("retry credential"))
+            .contains(&"d".repeat(64))
+    );
     let value = serde_json::to_value(&command).expect("wire greeting");
     assert_eq!(value["params"]["token"], supplied);
     assert_eq!(

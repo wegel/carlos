@@ -14,6 +14,7 @@ mod client_watches;
 mod codec;
 mod connection;
 mod context_defaults;
+mod devices;
 mod goal;
 mod goal_watches;
 mod lifecycle;

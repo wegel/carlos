@@ -11,6 +11,7 @@ use crate::{BodyToken, ClientError, ConnectionId};
 
 #[derive(Clone)]
 pub(crate) enum Kind {
+    Devices,
     Prompts(crate::prompts::PromptTarget),
     SavedPage(crate::startup::PageTarget),
     ContextDefaults(SessionId),
@@ -178,6 +179,7 @@ impl Requests {
 
 pub(crate) fn read_kind(command: &Command) -> Result<Kind, ClientError> {
     Ok(match command {
+        Command::DeviceList {} => Kind::Devices,
         prompt @ (Command::PromptSelect { .. } | Command::PromptText { .. }) => {
             crate::prompts::kind(prompt)
         }
@@ -204,15 +206,9 @@ pub(crate) fn read_kind(command: &Command) -> Result<Kind, ClientError> {
         Command::Operation { operation } => Kind::Operation(operation.clone()),
         Command::TaskSubscribe { session } => Kind::TaskWatch(session.clone()),
         Command::TaskUnsubscribe { session } => Kind::TaskUnwatch(session.clone()),
-        Command::TaskWindowOpen { session, .. } => Kind::TaskWindow {
-            session: session.clone(),
-            window: None,
-        },
-        Command::TaskWindowRead { session, window } => Kind::TaskWindow {
-            session: session.clone(),
-            window: Some(window.clone()),
-        },
-        Command::TaskWindowClose { .. } => Kind::Unit,
+        window @ (Command::TaskWindowOpen { .. }
+        | Command::TaskWindowRead { .. }
+        | Command::TaskWindowClose { .. }) => window_kind(window),
         overview @ (Command::TaskOverview { .. } | Command::TaskOverviewText { .. }) => {
             overview_kind(overview)
         }
@@ -239,6 +235,21 @@ pub(crate) fn read_kind(command: &Command) -> Result<Kind, ClientError> {
 
 fn invalid_read() -> ClientError {
     ClientError::InvalidPayload("use submit for mutations and begin for hello".into())
+}
+
+fn window_kind(command: &Command) -> Kind {
+    match command {
+        Command::TaskWindowOpen { session, .. } => Kind::TaskWindow {
+            session: session.clone(),
+            window: None,
+        },
+        Command::TaskWindowRead { session, window } => Kind::TaskWindow {
+            session: session.clone(),
+            window: Some(window.clone()),
+        },
+        Command::TaskWindowClose { .. } => Kind::Unit,
+        _ => unreachable!("typed task window read"),
+    }
 }
 
 fn saved_kind(command: &Command) -> Kind {

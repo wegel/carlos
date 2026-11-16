@@ -22,6 +22,7 @@ pub struct SessionChanges {
 
 /// Non-transcript panels consume typed one-shot reads and keep their own selection and drafts.
 pub enum ReadReply {
+    Devices(carlos_proto::devices::Devices),
     PromptSelection(carlos_proto::prompts::PromptSelection),
     PromptText(carlos_proto::prompts::PromptText),
     SavedPage(carlos_proto::startup::SavedPage),
@@ -73,6 +74,15 @@ pub struct Effects {
     pub failures: Vec<RequestFailure>,
     pub catalog: bool,
     pub welcome: Option<Welcome>,
+}
+
+impl Effects {
+    pub(crate) fn read_reply(&mut self, serial: i64, reply: ReadReply) {
+        self.replies.push(ReadResult {
+            id: Some(RequestId::Integer(serial)),
+            reply,
+        });
+    }
 }
 
 pub(crate) struct Slot {

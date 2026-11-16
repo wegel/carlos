@@ -121,7 +121,7 @@ impl Operations {
         Ok(())
     }
 
-    /// Keep an archive outcome outside any conversation; it must never bind a session later.
+    /// Keep an operator or archive outcome outside conversations; it must never bind a session later.
     pub(crate) fn begin_unscoped(&mut self, operation: ClientOperation) -> Result<(), ClientError> {
         self.begin(operation, None, None)?;
         self.records.last_mut().expect("just admitted").unscoped = true;

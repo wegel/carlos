@@ -29,6 +29,9 @@ impl Manager {
             return;
         }
         match command {
+            command @ (Command::DeviceAdd(_)
+            | Command::DeviceRevoke(_)
+            | Command::DeviceList {}) => self.device_command(peer, id, command, client),
             command @ (Command::PromptSelect { .. } | Command::PromptText { .. }) => {
                 self.prompt_read_command(peer, id, command)
             }
@@ -141,6 +144,7 @@ impl Manager {
         hello.identity = Some(self.daemon_identity());
         let connection = self.peers.get_mut(&peer).expect("peer");
         connection.client = Some(hello.client.clone());
+        connection.scope = Some(crate::retry::ClientScope::Local);
         connection.replay_allowed = hello.resumed;
         self.reply(peer, id, hello);
     }

@@ -197,13 +197,20 @@ impl Manager {
                     break;
                 }
             };
-            let id = saved.description.id.clone();
+            let description = match saved.request {
+                super::store::Write::Session(description) => description,
+                super::store::Write::Device(write) => {
+                    self.finish_device_write(write, saved.result);
+                    continue;
+                }
+            };
+            let id = description.id.clone();
             let Some(session) = self.sessions.get_mut(&id) else {
                 continue;
             };
             session.saving = None;
             match saved.result {
-                Ok(()) => session.durable = Some(saved.description),
+                Ok(()) => session.durable = Some(description),
                 Err(reason) => {
                     session.save_failed = true;
                     for mut result in std::mem::take(&mut session.create) {
@@ -223,6 +230,7 @@ impl Manager {
     }
 
     fn catalogue_failed(&mut self) {
+        self.device_store_failed();
         eprintln!("carlosd: catalogue worker stopped; no further create will launch a backend");
         let mut results = Vec::new();
         for session in self.sessions.values_mut() {

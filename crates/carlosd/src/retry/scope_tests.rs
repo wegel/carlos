@@ -129,3 +129,50 @@ fn revoking_one_device_forgets_its_results_without_affecting_other_devices_or_la
     );
     assert!(store.touch(&local.client, now).is_ok());
 }
+
+#[test]
+fn pending_session_work_cannot_consume_the_local_operator_result_reserve() {
+    let now = Instant::now();
+    let mut store = RetryStore::new("a".repeat(32).parse().expect("instance"));
+    let local = store.hello(None, now).expect("operator");
+    for (index, class) in [Class::Ordinary, Class::Control, Class::Lifecycle]
+        .into_iter()
+        .enumerate()
+    {
+        store.windows[index].count_limit = 1;
+        let operation = ClientOperation {
+            client: local.client.clone(),
+            id: OperationId::new(index as u64 + 1).expect("counter"),
+        };
+        store
+            .admit(&local.client, operation, None, b"held".to_vec(), class, now)
+            .expect("fill session work");
+    }
+    let operation = ClientOperation {
+        client: local.client.clone(),
+        id: OperationId::new(4).expect("counter"),
+    };
+    assert!(store
+        .admit(
+            &local.client,
+            operation.clone(),
+            None,
+            b"full".to_vec(),
+            Class::Ordinary,
+            now
+        )
+        .is_err());
+    assert!(matches!(
+        store
+            .admit(
+                &local.client,
+                operation,
+                None,
+                b"device revoke".to_vec(),
+                Class::Operator,
+                now
+            )
+            .expect("operator reserve"),
+        Admission::New(_)
+    ));
+}

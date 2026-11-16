@@ -19,10 +19,25 @@ impl std::error::Error for InvalidId {}
 
 macro_rules! opaque_id {
     ($name:ident, $length:expr, $doc:literal) => {
+        opaque_id!($name, $length, $doc, public);
+    };
+    (@debug $value:ident, $formatter:ident, $name:ident, public) => {
+        $formatter.debug_tuple(stringify!($name)).field(&$value.0).finish()
+    };
+    (@debug $value:ident, $formatter:ident, $name:ident, redacted) => {
+        $formatter.write_str(concat!(stringify!($name), "([redacted])"))
+    };
+    ($name:ident, $length:expr, $doc:literal, $privacy:ident) => {
         #[doc = $doc]
-        #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+        #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
         #[serde(try_from = "String", into = "String")]
         pub struct $name(String);
+
+        impl fmt::Debug for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                opaque_id!(@debug self, f, $name, $privacy)
+            }
+        }
 
         impl $name {
             /// Borrow the canonical opaque address.
@@ -110,7 +125,8 @@ opaque_id!(
 opaque_id!(
     ResumeToken,
     64,
-    "A private reconnect credential; never publish it with shared client ids."
+    "A private reconnect credential; never publish it with shared client ids.",
+    redacted
 );
 opaque_id!(
     TurnId,

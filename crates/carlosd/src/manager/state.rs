@@ -12,11 +12,13 @@ use carlos_proto::session::SessionInfo;
 use carlos_proto::submissions::OperationResult;
 
 use crate::registry::SavedSession;
+use crate::retry::ClientScope;
 use crate::transport::PeerSocket;
 
 pub(super) struct Peer {
     pub socket: PeerSocket,
     pub client: Option<ClientId>,
+    pub scope: Option<ClientScope>,
     pub replay_allowed: bool,
     pub list: bool,
     pub sessions: HashMap<SessionId, Interest>,

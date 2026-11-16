@@ -33,12 +33,13 @@ impl ClientScope {
     }
 }
 
-/// Urgent operations retain space independently from ordinary sends and creates.
+/// Native controls, session lifecycle and local operators keep independent retained-result space.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Class {
     Ordinary,
     Control,
     Lifecycle,
+    Operator,
 }
 
 /// A retry returns its retained result; only a new admission may start native work.
@@ -66,7 +67,7 @@ pub struct RetryStore {
     instance: DaemonId,
     clients: Clients,
     records: HashMap<ClientOperation, Record>,
-    windows: [Window; 3],
+    windows: [Window; 4],
     issued: u64,
 }
 
@@ -82,6 +83,7 @@ impl RetryStore {
                 Window::new(768, 12 * 1024 * 1024),
                 Window::new(256, 4 * 1024 * 1024),
                 Window::new(64, 512 * 1024),
+                Window::new(16, 128 * 1024),
             ],
         }
     }
@@ -311,6 +313,7 @@ impl Class {
             Self::Ordinary => 0,
             Self::Control => 1,
             Self::Lifecycle => 2,
+            Self::Operator => 3,
         }
     }
 }

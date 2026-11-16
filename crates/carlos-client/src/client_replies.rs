@@ -5,7 +5,7 @@ use carlos_proto::submissions::OperationResult;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
-use crate::client::{Client, Effects, ReadReply, ReadResult};
+use crate::client::{Client, Effects, ReadReply};
 use crate::pending::Kind;
 use crate::{ClientError, ConnectionId};
 
@@ -23,6 +23,13 @@ impl Client {
         }
         match kind {
             Kind::Hello => self.welcomed(connection, parse(value)?, effects)?,
+            Kind::Devices => {
+                let devices: carlos_proto::devices::Devices = parse(value)?;
+                devices
+                    .validate()
+                    .map_err(|error| ClientError::InvalidPayload(error.message))?;
+                effects.read_reply(serial, ReadReply::Devices(devices));
+            }
             Kind::Watch => {
                 let list: Sessions = parse(value)?;
                 self.catalog.replace(list.sessions)?;
@@ -112,10 +119,7 @@ impl Client {
             }
             _ => unreachable!("non-panel reply handled first"),
         };
-        effects.replies.push(ReadResult {
-            id: Some(carlos_proto::commands::RequestId::Integer(serial)),
-            reply,
-        });
+        effects.read_reply(serial, reply);
         Ok(())
     }
 
@@ -135,13 +139,13 @@ impl Client {
             let result = self.bodies.apply_source(&token, chunk);
             return self.body_reply(serial, token, target.watch, result, effects);
         }
-        effects.replies.push(ReadResult {
-            id: Some(carlos_proto::commands::RequestId::Integer(serial)),
-            reply: ReadReply::Source {
+        effects.read_reply(
+            serial,
+            ReadReply::Source {
                 session: target.session,
                 chunk,
             },
-        });
+        );
         Ok(())
     }
 
@@ -161,13 +165,13 @@ impl Client {
             let result = self.bodies.apply_output(&token, chunk);
             return self.body_reply(serial, token, target.watch, result, effects);
         }
-        effects.replies.push(ReadResult {
-            id: Some(carlos_proto::commands::RequestId::Integer(serial)),
-            reply: ReadReply::Output {
+        effects.read_reply(
+            serial,
+            ReadReply::Output {
                 session: target.session,
                 chunk,
             },
-        });
+        );
         Ok(())
     }
 
