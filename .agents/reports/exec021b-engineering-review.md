@@ -23,3 +23,35 @@ No corrective code change is required by this review. Preserve the first-phone b
 ## Verdict
 
 PASS
+
+
+## Follow-up after the independent end review
+
+The PASS above describes the pre-review pair. Fable identified real concurrent-read
+and Grok error-path defects that Root's first pass missed; the original verdict is
+not evidence that those paths were correct. Root reproduced the failures, reviewed
+the corrections throughb3602a8 and added the comparisons and negative-path tests
+listed in exec021b-review-disposition.md. A separate startup-anchor probe also
+reproduced Ready with no visible rows despite supported older history. The native
+reader now reuses the actual row projector, with directory-only formatting helpers
+instead of a second type list or scratch model.
+
+The owner retains each waiting read's original permit, deadline and native target,
+checks waiting reads on every owner pass and answers from accepted shared rows when
+possible. Repeated zero-row windows keep the original cumulative byte allowance.
+The shared Codex restore function covers both modes; prefix reports fill only
+missing children newest first. Claude moves historical row facts and native prompt
+records while preserving live turn/task/override/completion guards. Full-versus-
+paged tests normalize only distinct owner-local addresses/cursors/revision hashes.
+
+Grok retires owner cards before a failing or uncertain cancel can clear transport
+records. It never re-enables an uncertain grant. Nonwaiting negative replies still
+use the original bounded queue and callback IDs; the writer closes its owned child
+on I/O failure even when no caller waits. Replacement/cancellation dispatch guards
+and the500ms waiting deadline remain. The tested terminal keeps its private draft
+and sends no grant or extra prompt after the broken cancel.
+
+Focused checks and both Rust configurations/lints pass, with400/60/fmt/diff checks.
+The complete gate05 and fresh matching measurements remain pending. Root will
+record the final follow-up verdict after those checks; no extra reviewer session
+is requested.

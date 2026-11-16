@@ -64,3 +64,13 @@ run is needed for these corrections.
 Focused checks pass. The complete corrected release/native gate, fresh matching
 measurements and Root's final follow-up verdict remain pending; this document
 does not yet approve EP021b.
+
+Gate05 separately finds an intermittent Claude startup without context counts.
+The unchanged isolated terminal rerun passes; the trace alone does not prove the
+exact cause. A deterministic owner test reproduces a matching bug: a prepared
+optional context read stays pending forever if capturing the native command handle
+fails before dispatch. Clear that exact token through the existing failure path,
+preserving known counts and the5-second backoff. The owner test fails before and
+passes after this narrow fix. Keep the original terminal readiness assertions and
+timeouts unchanged, and rerun the full gate. No inference, user session or extra
+reviewer is involved.

@@ -57,9 +57,9 @@
       },
       "carlos-core": {
         "files": 386,
-        "nonblank": 49046,
-        "physical": 55052,
-        "bytes": 1858373
+        "nonblank": 49055,
+        "physical": 55065,
+        "bytes": 1858879
       },
       "carlos-proto": {
         "files": 28,
@@ -88,13 +88,17 @@
     },
     "total": {
       "files": 764,
-      "nonblank": 97364,
-      "physical": 108612,
-      "bytes": 3659599
+      "nonblank": 97373,
+      "physical": 108625,
+      "bytes": 3660105
     }
   },
-  "delta_nonblank": 97,
+  "delta_nonblank": 106,
   "changes": {
+    "crates/carlos-core/src/engine/actions.rs": {
+      "added": 9,
+      "deleted": 0
+    },
     "crates/carlos-core/src/engine/history.rs": {
       "added": 50,
       "deleted": 5
@@ -148,7 +152,7 @@
       "deleted": 16
     }
   },
-  "added_nonblank": 191,
+  "added_nonblank": 200,
   "deleted_nonblank": 94,
-  "note": "End-review corrections versus46c6367. Shared bounded history waiters, empty projected-page continuation, shared Codex restore reducer and missing older reports, explicit Claude scratch-state policy, nonwaiting Grok reader replies and fail-closed card retirement. Same production traversal/test exclusions; includes f00b92e. Also skip unrendered newest native windows using the actual row projector; share directory-only tool formatting without another session model."
+  "note": "End-review corrections versus46c6367. Shared bounded history waiters, empty projected-page continuation, shared Codex restore reducer and missing older reports, explicit Claude scratch-state policy, nonwaiting Grok reader replies and fail-closed card retirement. Same production traversal/test exclusions; includes f00b92e. Includes the gate-found pre-dispatch Claude context-token settlement; the native handle can be briefly unavailable, so only the prepared optional read is failed and retried under the existing backoff."
 }

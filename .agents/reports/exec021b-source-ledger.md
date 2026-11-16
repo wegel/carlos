@@ -104,3 +104,11 @@ list. The owner still handles zero-row windows caused by overlapping native turn
 The first gate04 was deliberately cancelled before daemon/terminal checks after
 this startup defect was reproduced; its log is not a passing gate. Complete gate05
 and fresh frozen-pair evidence remain pending.
+
+
+Gate05 exposes a separate optional-context startup failure. The owner-side red/green
+test pins a prepared read whose native command capture fails before dispatch; clearing
+its exact pending token adds9 Core lines without changing guards, known counts or
+backoff. The combined final correction count versus46c6367 is now200 added/94 deleted,
+net106; total97373,2503 above EP021a. Gate05 remains failed at1/330 terminal tests after
+225 passing daemon tests. Gate06 and fresh measurements remain pending.

@@ -197,7 +197,7 @@ Types:
 
 Codex and Claude owners adopt a complete newest native window before publishing Ready. The public history cursor remains a checked Carlos entry id. The owner keeps original native cursors, archive snapshots and backend/root/connection targets private; its existing bounded history worker reads earlier windows only when requested. Historical rows keep fresh stable entry ids without renumbering current rows or replacing newer source. Prompt recall uses that same path when the oldest matching stored prompt has an unread native prefix, so a phone or terminal need not scroll the transcript first. See docs/client-protocol-v1.md for the complete reply rules.
 
-Claude's SDK can still scan/import the complete file before its first archive window. Grok's ACP load must replay the complete conversation before Ready and has no invented native paging method. Carlos preserves complete replayed rows and pages its stored history afterward. Measure these backend costs separately from the first window's transport/read cost. These limits do not justify truncating source, hiding older rows or replacing accepted live data.
+Claude's SDK can still scan/import the complete file before its first archive window. Grok's ACP load must replay the complete conversation before Ready and has no invented native paging method. Carlos preserves complete replayed rows and pages its stored history afterward. Measure these backend costs separately from the first window's transport/read cost. These limits do not justify truncating source, hiding older rows or replacing accepted live data. The owner retains loaded older bodies within existing caps as devices scroll back; future eviction must preserve native identities, source and rewind semantics.
 
 ## Order of work
 

@@ -119,6 +119,15 @@ impl Owner {
                     self.session.fail_claude_quota_request(key);
                     return;
                 }
+                if let ServerRequestAction::ClaudeControl { method, params } = &action {
+                    if method == "context" {
+                        self.session.fail_claude_context_request(
+                            params["contextToken"].as_u64().unwrap_or(0),
+                            std::time::Instant::now(),
+                        );
+                        return;
+                    }
+                }
                 self.session
                     .set_status(format!("native control was not sent: {error}"));
                 return;
@@ -274,3 +283,7 @@ fn quota_key(action: &ServerRequestAction) -> Option<QuotaReadKey> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+#[path = "context_capture_tests.rs"]
+mod context_capture_tests;
