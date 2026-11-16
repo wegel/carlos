@@ -1,0 +1,114 @@
+{
+  "baseline": {
+    "commit": "87ceab5bfccce54ab1a24fea13950c49f745175c",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 382,
+        "nonblank": 48278,
+        "physical": 54217,
+        "bytes": 1828872
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8318,
+        "physical": 8909,
+        "bytes": 291904
+      },
+      "terminal": {
+        "files": 193,
+        "nonblank": 25593,
+        "physical": 28999,
+        "bytes": 952106
+      },
+      "helper": {
+        "files": 23,
+        "nonblank": 1653,
+        "physical": 1821,
+        "bytes": 88846
+      }
+    },
+    "total": {
+      "files": 758,
+      "nonblank": 96525,
+      "physical": 107683,
+      "bytes": 3626040
+    }
+  },
+  "claude_archive": {
+    "commit": "working",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 382,
+        "nonblank": 48278,
+        "physical": 54217,
+        "bytes": 1828872
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8318,
+        "physical": 8909,
+        "bytes": 291904
+      },
+      "terminal": {
+        "files": 193,
+        "nonblank": 25593,
+        "physical": 28999,
+        "bytes": 952106
+      },
+      "helper": {
+        "files": 24,
+        "nonblank": 1708,
+        "physical": 1881,
+        "bytes": 91519
+      }
+    },
+    "total": {
+      "files": 759,
+      "nonblank": 96580,
+      "physical": 107743,
+      "bytes": 3628713
+    }
+  },
+  "delta_nonblank": 55,
+  "changes": {
+    "helpers/claude-controller/src/history-windows.ts": {
+      "added": 40,
+      "deleted": 0
+    },
+    "helpers/claude-controller/src/session-archive.ts": {
+      "added": 8,
+      "deleted": 3
+    },
+    "helpers/claude-controller/src/sessions.ts": {
+      "added": 13,
+      "deleted": 3
+    }
+  },
+  "added_nonblank": 61,
+  "deleted_nonblank": 6,
+  "note": "Optional complete Claude SDK archive windows versus checked native-item commit87ceab5. Both75-test source/compiled helper suites, full Rust workspace and10 actual native-Claude workflows pass. Core adoption remains an isolated prototype; the SDK still imports/projects the full native branch."
+}

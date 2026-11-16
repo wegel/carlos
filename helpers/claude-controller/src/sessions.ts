@@ -42,12 +42,22 @@ export class Sessions {
     }
     if (method === "sessions.read") {
       const archive = await this.archive(dir, sessionId, params.snapshotId);
-      const messages = archive.entries(offset, limit);
-      return { ...page(messages.map(message => {
+      const end = params.newest === true
+        ? integer(params.endOffset ?? archive.windows.length, "endOffset", 0, archive.windows.length) : undefined;
+      const start = end === undefined ? 0 : archive.windows.start(end, limit);
+      const readOffset = params.offset === undefined ? start : offset;
+      if (end !== undefined && (readOffset < start || readOffset > end)) {
+        throw new ProtocolError("invalid_request", "History offset is outside its native window");
+      }
+      const messages = archive.entries(readOffset, end === undefined ? limit : Math.min(limit, end - readOffset));
+      const result = page(messages.map(message => {
         const source = this.sources.source(message);
         return { message, source, inputKind: source === "human" ? this.sources.inputKind(String(message.uuid)) : undefined };
       }),
-        offset, limit, "messages", integer(params.chunkOffset ?? 0, "chunkOffset", 0, 16 * 1024 * 1024)), snapshotId: archive.id };
+        readOffset, limit, "messages", integer(params.chunkOffset ?? 0, "chunkOffset", 0, 16 * 1024 * 1024));
+      if (end !== undefined && typeof result.nextOffset === "number" && result.nextOffset >= end) result.nextOffset = null;
+      return { ...result, snapshotId: archive.id,
+        ...(end === undefined ? {} : { windowStart: start, windowEnd: end, olderOffset: start || null }) };
     }
     if (method === "sessions.forkBefore") return forkBefore(this.api, this.sources, this.signal, dir, sessionId,
       string(params.beforeMessageId, "beforeMessageId"), (dir, id) => this.archive(dir, id));

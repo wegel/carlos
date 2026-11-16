@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { ProtocolError, type ObjectValue } from "./protocol";
 import { captureCut, forkTail, type ForkCut } from "./session-fork-tail";
 import type { SessionApi } from "./sessions";
+import { HistoryWindows } from "./history-windows";
 
 type Row = { data: string; uuid: string | null };
 
@@ -18,6 +19,7 @@ export class SessionArchive {
   private database = new Database(join(this.folder, "entries.sqlite"));
   private bytes = 0;
   private projectionBytes = 0;
+  readonly windows = new HistoryWindows();
 
   constructor(readonly sessionId: string, readonly cwd: string) {
     this.database.exec(`CREATE TABLE entries(seq INTEGER PRIMARY KEY, subpath TEXT NOT NULL, uuid TEXT,
@@ -35,14 +37,17 @@ export class SessionArchive {
       seen.add(String(message.uuid));
       if (seen.size > 100000) throw new ProtocolError("history_too_large", "Native history exceeds 100000 visible entries");
       const raw = this.entry(String(message.uuid))?.entry;
-      this.database.query("UPDATE entries SET data=? WHERE subpath='' AND uuid=?")
-        .run(JSON.stringify({ ...raw, ...message, origin: raw?.origin ?? message.origin,
+      const entry = { ...raw, ...message, origin: raw?.origin ?? message.origin,
           agent_id: raw?.agent_id ?? message.agent_id,
           parent_tool_use_id: raw?.parent_tool_use_id ?? message.parent_tool_use_id,
           parent_agent_id: raw?.parent_agent_id ?? message.parent_agent_id,
-          isSidechain: raw?.isSidechain ?? message.isSidechain }), String(message.uuid));
+          isSidechain: raw?.isSidechain ?? message.isSidechain };
+      this.database.query("UPDATE entries SET data=? WHERE subpath='' AND uuid=?")
+        .run(JSON.stringify(entry), String(message.uuid));
+      this.windows.record(entry);
       this.database.query("INSERT INTO branch VALUES (?, ?)").run(seen.size, String(message.uuid));
     }
+    this.windows.seal();
   }
 
   private async expand(api: SessionApi, cutoff: number | undefined, cuts: Set<number>): Promise<ObjectValue[]> {

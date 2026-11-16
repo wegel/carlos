@@ -285,3 +285,84 @@ test("explicit input kinds survive resume and validated fork remaps without gues
   expect(copied.every((row: Frame) => !("inputKind" in row.message))).toBe(true);
   expect(await readFile(path, "utf8")).toBe(original);
 });
+
+
+test("newest native windows keep cross-boundary tools and traverse every original UUID", async () => {
+  const { cli, id, path, records } = await fixture(150);
+  const call = records[235]!;
+  call.message.content = [{ type: "text", text: "tool context" },
+    { type: "tool_use", id: "window-tool", name: "Read", input: {file_path:"src/é.rs"} }];
+  records[236]!.message.content = [{type:"tool_result",tool_use_id:"window-tool",content:"exact 🌍"}];
+  const original = records.map(record => JSON.stringify(record)).join("\n") + "\n";
+  await writeFile(path,original);
+  const all: Frame[] = [];
+  let end: number | undefined;
+  let snapshotId: string | undefined;
+  let first = true;
+  for (;;) {
+    let offset: number | undefined;
+    const window: Frame[] = [];
+    let last: Frame;
+    do {
+      const reply = await cli.send("sessions.read", params(cli,id,{newest:true,
+        ...(end === undefined ? {} : {endOffset:end}),
+        ...(offset === undefined ? {} : {offset}),
+        ...(snapshotId === undefined ? {} : {snapshotId})}));
+      expect(reply.ok,JSON.stringify(reply)).toBe(true);
+      last = reply.result;
+      snapshotId = last.snapshotId;
+      window.push(...last.messages);
+      offset = last.nextOffset ?? undefined;
+    } while (offset !== undefined);
+    if (first) {
+      expect(window).toHaveLength(65);
+      expect(window[0]!.message.uuid).toBe(call.uuid);
+      expect(last!.olderOffset).toBe(235);
+      first = false;
+    }
+    all.unshift(...window);
+    if (last!.olderOffset === null) break;
+    end = last!.olderOffset;
+  }
+  expect(all.map(row => row.message.uuid)).toEqual(records.map(row => row.uuid));
+  expect(await readFile(path,"utf8")).toBe(original);
+});
+
+test("newest window chunks retain the fixed end until every Unicode byte arrives", async () => {
+  const { cli,id,path,records } = await fixture(100);
+  records.at(-1)!.message.content = [{type:"text",text:"é🌍".repeat(180000)}];
+  await writeFile(path,records.map(record => JSON.stringify(record)).join("\n")+"\n");
+  let reply = await cli.send("sessions.read", params(cli,id,{newest:true,limit:1}));
+  const chunks: Buffer[] = [];
+  for (;;) {
+    expect(reply.ok,JSON.stringify(reply)).toBe(true);
+    expect(reply.result.windowStart).toBe(199);
+    expect(reply.result.windowEnd).toBe(200);
+    expect(reply.result.olderOffset).toBe(199);
+    chunks.push(Buffer.from(reply.result.chunk.data,"base64"));
+    if (reply.result.chunkOffset === null) break;
+    reply = await cli.send("sessions.read",params(cli,id,{newest:true,limit:1,endOffset:200,
+      offset:reply.result.nextOffset,chunkOffset:reply.result.chunkOffset,snapshotId:reply.result.snapshotId}));
+  }
+  expect(reply.result.nextOffset).toBeNull();
+  expect(JSON.parse(Buffer.concat(chunks).toString()).message.message.content).toEqual(records.at(-1)!.message.content);
+});
+
+
+test("a newest slice keeps earlier blocks of the same native assistant message", async () => {
+  const {cli,id,path,records} = await fixture(100);
+  for (const index of [197,199]) records[index]!.message.id = "same-native-assistant";
+  await writeFile(path,records.map(record => JSON.stringify(record)).join("\n")+"\n");
+  let reply = await cli.send("sessions.read",params(cli,id,{newest:true,limit:1}));
+  const got: string[] = [];
+  for (;;) {
+    expect(reply.ok,JSON.stringify(reply)).toBe(true);
+    expect(reply.result.windowStart).toBe(197);
+    expect(reply.result.windowEnd).toBe(200);
+    got.push(...reply.result.messages.map((row:Frame)=>row.message.uuid));
+    if (reply.result.nextOffset === null) break;
+    reply = await cli.send("sessions.read",params(cli,id,{newest:true,limit:1,endOffset:200,
+      offset:reply.result.nextOffset,snapshotId:reply.result.snapshotId}));
+  }
+  expect(got).toEqual(records.slice(197).map(row=>row.uuid));
+});
