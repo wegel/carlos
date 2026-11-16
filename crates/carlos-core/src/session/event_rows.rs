@@ -106,6 +106,7 @@ impl SessionState {
 
 fn export_tool(message: &Message, done: bool, revision: u64) -> Tool {
     let details = message.tool_output.as_ref();
+    let facts = message.tool_facts.as_deref();
     let label = details
         .map(|tool| tool.summary.as_str())
         .unwrap_or_else(|| {
@@ -115,20 +116,19 @@ fn export_tool(message: &Message, done: bool, revision: u64) -> Tool {
                 message.text.lines().next().unwrap_or("")
             }
         });
-    let kind = if message.kind == MessageKind::Diff {
-        ToolKind::Edit
-    } else if message.file_path.is_some() {
-        ToolKind::Read
-    } else {
-        ToolKind::Other
-    };
-    let status = if details.is_some_and(|tool| tool.failed) {
-        ToolStatus::Failed
-    } else if !done {
-        ToolStatus::Running
-    } else {
-        ToolStatus::Unknown
-    };
+    let kind = facts.map_or_else(
+        || {
+            if message.kind == MessageKind::Diff {
+                ToolKind::Edit
+            } else if message.file_path.is_some() {
+                ToolKind::Read
+            } else {
+                ToolKind::Other
+            }
+        },
+        |facts| facts.kind,
+    );
+    let status = tool_status(message, done);
     Tool {
         kind,
         label: label.to_owned(),
@@ -140,11 +140,28 @@ fn export_tool(message: &Message, done: bool, revision: u64) -> Tool {
             LabelSource::Literal
         },
         status,
-        summary: None,
-        added: None,
-        removed: None,
+        summary: facts.and_then(|facts| facts.summary.clone()),
+        added: facts.and_then(|facts| facts.added),
+        removed: facts.and_then(|facts| facts.removed),
         output_revision: OutputRevision::new(revision),
         has_output: (message.role == Role::ToolOutput || message.kind == MessageKind::Diff)
             && !message.text.is_empty(),
+    }
+}
+
+fn tool_status(message: &Message, done: bool) -> ToolStatus {
+    if let Some(status) = message
+        .tool_facts
+        .as_deref()
+        .map(|facts| facts.status)
+        .filter(|status| !matches!(status, ToolStatus::Unknown | ToolStatus::Running))
+    {
+        status
+    } else if message.tool_output.as_ref().is_some_and(|tool| tool.failed) {
+        ToolStatus::Failed
+    } else if !done {
+        ToolStatus::Running
+    } else {
+        ToolStatus::Unknown
     }
 }

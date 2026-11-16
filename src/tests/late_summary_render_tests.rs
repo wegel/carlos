@@ -15,6 +15,7 @@ fn late_generated_labels_keep_the_original_failed_output_visible() {
             kind: MessageKind::Plain,
             text: "original output".into(),
             file_path: None,
+            tool_facts: None,
             tool_output: Some(ToolOutputDetails {
                 summary: label.into(),
                 generated,

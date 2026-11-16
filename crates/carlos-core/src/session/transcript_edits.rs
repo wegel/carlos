@@ -2,7 +2,7 @@
 
 use super::Transcript;
 use crate::session::entry_id::EntryId;
-use crate::session::models::{MessageKind, Role, ToolOutputDetails};
+use crate::session::models::{MessageKind, Role, ToolFacts, ToolOutputDetails};
 use crate::session::transcript_journal::RowChange;
 
 impl Transcript {
@@ -52,6 +52,11 @@ impl Transcript {
             let replace =
                 message.kind != MessageKind::Plain || role.is_some_and(|role| role != message.role);
             let facts = replace || role.is_some_and(|role| role != message.role);
+            let facts = facts
+                || (!delta.is_empty()
+                    && message.tool_facts.as_deref().is_some_and(|facts| {
+                        facts.summary.is_some() || facts.added.is_some() || facts.removed.is_some()
+                    }));
             let from = message.text.len();
             if replace || !self.active.contains(&index) && !delta.is_empty() {
                 self.replace_output(index);
@@ -59,6 +64,13 @@ impl Transcript {
             self.record_change(index, replace, Some(from), facts);
         }
         if let Some(message) = self.entries.get_mut(index) {
+            if !delta.is_empty() {
+                if let Some(facts) = message.tool_facts.as_deref_mut() {
+                    facts.summary = None;
+                    facts.added = None;
+                    facts.removed = None;
+                }
+            }
             if let Some(role) = role {
                 message.role = role;
             }
@@ -94,6 +106,12 @@ impl Transcript {
     pub(crate) fn set_tool(&mut self, index: usize, details: ToolOutputDetails) {
         self.record_facts(index);
         self.entries[index].tool_output = Some(details);
+    }
+
+    /// Cache native facts without changing a literal or generated display label.
+    pub(crate) fn set_tool_facts(&mut self, index: usize, facts: ToolFacts) {
+        self.record_facts(index);
+        self.entries[index].tool_facts = Some(Box::new(facts));
     }
 
     /// Change only the label of an existing tool output.

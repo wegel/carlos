@@ -22,6 +22,7 @@ fn failed_read() -> Message {
         kind: MessageKind::Plain,
         text: "$ cat source.rs\nlet value = 1;\nexit code: 2".into(),
         file_path: Some("source.rs".into()),
+        tool_facts: None,
         tool_output: Some(ToolOutputDetails {
             generated: false,
             summary: "→ Read source.rs".into(),
@@ -56,6 +57,7 @@ fn failed_read_headers_and_grouped_blocks_keep_both_count_passes_in_sync() {
                         kind: read.kind,
                         text: read.text.clone(),
                         file_path: read.file_path.clone(),
+                        tool_facts: read.tool_facts.clone(),
                         tool_output: read.tool_output.clone(),
                     })
                 })

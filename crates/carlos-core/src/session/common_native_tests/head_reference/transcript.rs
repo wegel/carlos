@@ -9,6 +9,7 @@ pub(super) use crate::session::reasoning::normalize_reasoning_summary_stream;
 impl AppState {
     pub(crate) fn append_message(&mut self, role: Role, text: impl Into<String>) -> usize {
         self.messages.push(Message {
+            tool_facts: None,
             tool_output: None,
             role,
             text: text.into(),
@@ -28,6 +29,7 @@ impl AppState {
         diff: impl Into<String>,
     ) -> usize {
         self.messages.push(Message {
+            tool_facts: None,
             tool_output: None,
             role,
             text: diff.into(),

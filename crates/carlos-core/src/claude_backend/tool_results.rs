@@ -92,6 +92,9 @@ fn synthetic_bash_result(
     item.insert("command".into(), Value::String(command.to_string()));
     item.insert("carlosCommandEcho".into(), Value::Bool(true));
     item.insert("isError".into(), json!(is_error || interrupted));
+    if interrupted {
+        item.insert("interrupted".into(), Value::Bool(true));
+    }
     if is_probably_diff_text(&raw_output) {
         item.insert("diff".into(), Value::String(raw_output));
     }

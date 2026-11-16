@@ -130,6 +130,8 @@ pub(crate) fn append_history_item(
                 }
                 if describe {
                     super::item_receive::describe_output(session, index, item);
+                } else if row.role == Role::ToolCall {
+                    session.describe_tool_facts(index, item);
                 }
             });
         } else {
@@ -139,6 +141,8 @@ pub(crate) fn append_history_item(
             }
             if describe {
                 super::item_receive::describe_output(session, index, item);
+            } else if session.messages()[index].role == Role::ToolCall {
+                session.describe_tool_facts(index, item);
             }
         }
     }

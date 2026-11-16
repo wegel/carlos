@@ -3,6 +3,7 @@
 #[test]
 fn build_rendered_lines_hides_markdown_fence_delimiters() {
     let messages = vec![crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+        tool_facts: None,
         tool_output: None,
         role: Role::Assistant,
         text: "```zig\nconst x = 1;\n```\n".to_string(),
@@ -17,6 +18,7 @@ fn build_rendered_lines_hides_markdown_fence_delimiters() {
 #[test]
 fn build_rendered_lines_user_code_block_adds_spacing_and_background() {
     let messages = vec![crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+        tool_facts: None,
         tool_output: None,
         role: Role::User,
         text: "before\n```rust\nlet x = 1;\n```\nafter".to_string(),
@@ -41,6 +43,7 @@ fn build_rendered_lines_user_code_block_adds_spacing_and_background() {
 #[test]
 fn build_rendered_lines_styles_assistant_code_lines() {
     let messages = vec![crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+        tool_facts: None,
         tool_output: None,
         role: Role::Assistant,
         text: "```rust\nfn add(a: i32, b: i32) -> i32 {\n    a + b\n}\n```".to_string(),
@@ -65,6 +68,7 @@ fn build_rendered_lines_styles_assistant_code_lines() {
 #[test]
 fn build_rendered_lines_renders_assistant_tables() {
     let messages = vec![crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+        tool_facts: None,
         tool_output: None,
         role: Role::Assistant,
         text: "| Level | Effort |\n|---|---|\n| L0 | Low |\n| L1 | Medium |".to_string(),
@@ -83,6 +87,7 @@ fn build_rendered_lines_renders_assistant_tables() {
 #[test]
 fn build_rendered_lines_reasoning_uses_markdown_text_without_markers() {
     let messages = vec![crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+        tool_facts: None,
         tool_output: None,
         role: Role::Reasoning,
         text: "**Committing cleanup with style**".to_string(),
@@ -101,6 +106,7 @@ fn build_rendered_lines_reasoning_uses_markdown_text_without_markers() {
 fn build_rendered_lines_skips_empty_placeholders_and_their_separators() {
     let messages = vec![
         crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::Assistant,
             text: String::new(),
@@ -108,6 +114,7 @@ fn build_rendered_lines_skips_empty_placeholders_and_their_separators() {
             file_path: None,
         }),
         crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::Reasoning,
             text: "   ".to_string(),
@@ -115,6 +122,7 @@ fn build_rendered_lines_skips_empty_placeholders_and_their_separators() {
             file_path: None,
         }),
         crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::Assistant,
             text: "visible".to_string(),
@@ -132,6 +140,7 @@ fn build_rendered_lines_skips_empty_placeholders_and_their_separators() {
 #[test]
 fn build_rendered_lines_renders_commentary_as_preamble() {
     let messages = vec![crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+        tool_facts: None,
         tool_output: None,
         role: Role::Commentary,
         text: "checking the diff".to_string(),
@@ -148,6 +157,7 @@ fn build_rendered_lines_renders_commentary_as_preamble() {
 fn build_rendered_lines_groups_commentary_with_following_tool_call() {
     let messages = vec![
         crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::Commentary,
             text: "checking the diff".to_string(),
@@ -155,6 +165,7 @@ fn build_rendered_lines_groups_commentary_with_following_tool_call() {
             file_path: None,
         }),
         crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::ToolCall,
             text: "→ Read src/main.rs".to_string(),
@@ -173,6 +184,7 @@ fn build_rendered_lines_groups_commentary_with_following_tool_call() {
 #[test]
 fn build_rendered_lines_tool_output_multiline_has_no_indent() {
     let messages = vec![crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+        tool_facts: None,
         tool_output: None,
         role: Role::ToolOutput,
         text: "$ rg -n foo src/main.rs\n1:fn a()\n2:fn b()".to_string(),
@@ -210,6 +222,7 @@ fn extract_diff_blocks_reads_nested_metadata_files() {
 #[test]
 fn build_rendered_lines_diff_styles_added_and_removed_lines() {
     let messages = vec![crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+        tool_facts: None,
         tool_output: None,
         role: Role::ToolOutput,
         text: "@@ -1,1 +1,1 @@\n-old\n+new\n".to_string(),
@@ -240,6 +253,7 @@ fn build_rendered_lines_diff_styles_added_and_removed_lines() {
 #[test]
 fn build_rendered_lines_diff_viewer_hides_raw_hunk_headers() {
     let messages = vec![crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+        tool_facts: None,
         tool_output: None,
         role: Role::ToolOutput,
         text: "@@ -1,1 +1,1 @@\n-old\n+new\n@@ -10,1 +10,1 @@\n-foo\n+bar\n".to_string(),

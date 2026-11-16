@@ -4,6 +4,7 @@
 fn detect_turn_markers_matches_trimmed_commentary_marker_lines() {
     let messages = vec![
         crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::User,
             text: "@@BLOCKED@@".to_string(),
@@ -11,6 +12,7 @@ fn detect_turn_markers_matches_trimmed_commentary_marker_lines() {
             file_path: None,
         }),
         crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::Commentary,
             text: "working...\n  @@BLOCKED@@ \nnext".to_string(),
@@ -18,6 +20,7 @@ fn detect_turn_markers_matches_trimmed_commentary_marker_lines() {
             file_path: None,
         }),
         crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::Assistant,
             text: "@@COMPLETE@@".to_string(),
@@ -25,6 +28,7 @@ fn detect_turn_markers_matches_trimmed_commentary_marker_lines() {
             file_path: None,
         }),
         crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::Assistant,
             text: "@@AWAITING_HUMAN@@".to_string(),
@@ -48,6 +52,7 @@ fn detect_turn_markers_matches_trimmed_commentary_marker_lines() {
 #[test]
 fn detect_turn_markers_matches_leading_marker_with_summary_tokens() {
     let messages = vec![crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+        tool_facts: None,
         tool_output: None,
         role: Role::Assistant,
         text: "@@COMPLETE@@ @@COMPLETE_SUMMARY_START@@ summary".to_string(),
@@ -70,6 +75,7 @@ fn detect_turn_markers_matches_leading_marker_with_summary_tokens() {
 #[test]
 fn detect_turn_markers_ignore_explanatory_marker_mentions() {
     let messages = vec![crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+        tool_facts: None,
         tool_output: None,
         role: Role::Assistant,
         text: concat!(

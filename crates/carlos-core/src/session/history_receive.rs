@@ -44,6 +44,8 @@ impl SessionState {
                         .map(|id| self.backend_entry_key(id))
                         .as_ref(),
                 );
+            } else if row.role == crate::session::models::Role::ToolCall {
+                self.describe_tool_facts(index, &record.item);
             }
         }
         for (index, text) in record.prompts {

@@ -13,6 +13,7 @@ fn tool(text: String, label: &str, file: Option<&str>, failed: bool) -> PerfView
         kind: MessageKind::Plain,
         text,
         file_path: file.map(str::to_string),
+        tool_facts: None,
         tool_output: Some(ToolOutputDetails {
             summary: label.into(),
             generated: false,

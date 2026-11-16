@@ -14,6 +14,7 @@ fn render(text: &str, role: Role, width: usize) -> Vec<RenderedLine> {
         role,
         text: text.to_string(),
         kind: MessageKind::Plain,
+        tool_facts: None,
         tool_output: None,
         file_path: None,
     });

@@ -30,6 +30,7 @@ mod rtk_results;
 mod shell_rendering;
 mod summaries;
 mod tool_command_views;
+mod tool_facts;
 mod tool_fallbacks;
 mod tool_overrides;
 mod tool_results;

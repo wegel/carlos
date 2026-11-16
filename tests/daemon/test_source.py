@@ -23,6 +23,32 @@ class SourceTests:
         self.assertEqual(diff["text"], "")
         self.assertEqual(first.call("entry/source", session=session, entry=diff["id"], cursor=None, limit=65536)["text"], "@@ -1 +1 @@\n-old\n+new 🌍\n")
 
+    def test_compact_native_tool_facts_keep_outcomes_counts_and_original_source(self):
+        from native_tool_facts import COMMAND, COMMAND_SOURCE, DIFF, configure
+        fixture, first, second, session = self.clients("phone-tool-facts")
+        configure(fixture.native)
+        sent = first.operation(2)
+        first.call("session/send", session=session, operation=sent, text="tool-facts")
+        first.outcome(sent)
+
+        def ready():
+            rows = second.call("session/subscribe", session=session, since=None)["snapshot"]["entries"]
+            command = next((row for row in rows if COMMAND in (row.get("tool") or {}).get("label", "")), None)
+            diff = next((row for row in rows if row.get("file_path") == "src/é.rs"), None)
+            unknown = next((row for row in rows if "observed-only" in (row.get("tool") or {}).get("label", "")), None)
+            return (command, diff, unknown) if command and diff and unknown and all(row["done"] for row in (command, diff, unknown)) else None
+
+        command, diff, unknown = wait_for(ready, "complete native command/diff facts")
+        self.assertEqual(command["tool"]["kind"], "command")
+        self.assertEqual(command["tool"]["status"], "ok")
+        self.assertEqual(command["tool"]["summary"], "2 lines")
+        self.assertEqual((diff["tool"]["kind"], diff["tool"]["added"], diff["tool"]["removed"]), ("edit", 1, 1))
+        self.assertEqual(unknown["tool"]["status"], "unknown", "completion alone does not prove success")
+        for row, expected in ((command, COMMAND_SOURCE), (diff, DIFF)):
+            self.assertEqual(row["text"], "")
+            self.assertEqual(first.call("entry/source", session=session, entry=row["id"], cursor=None, limit=65536)["text"], expected)
+        self.assertFalse(any(message.get("method") in ("entry/source", "entry/output") for message in second.messages))
+
     def clients(self, name):
         fixture = Fixture(name, codex=True)
         self.addCleanup(fixture.close)

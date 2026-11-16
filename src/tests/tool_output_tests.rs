@@ -24,6 +24,7 @@ fn plain_output() -> PerfRow {
             .collect::<Vec<_>>()
             .join("\n"),
         file_path: None,
+        tool_facts: None,
         tool_output: Some(ToolOutputDetails {
             generated: false,
             summary: "→ Read main.rs".into(),
@@ -146,6 +147,7 @@ fn a_folded_diff_keeps_filename_and_change_counts() {
         kind: MessageKind::Diff,
         file_path: Some("main.rs".into()),
         text: "@@ -1,4 +1,4 @@\n-old1\n-old2\n-old3\n-old4\n+new1\n+new2\n+new3\n+new4\n".into(),
+        tool_facts: None,
         tool_output: None,
     })]);
     view.view.tool_output.mode = ToolOutputMode::Compact;
@@ -192,6 +194,7 @@ fn compact_tool_display_borrows_the_exact_original_body() {
         kind: MessageKind::Plain,
         text: "late shell output".into(),
         file_path: None,
+        tool_facts: None,
         tool_output: None,
     });
     let display =

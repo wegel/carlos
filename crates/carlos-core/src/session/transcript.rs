@@ -98,6 +98,7 @@ impl Transcript {
             kind: draft.kind,
             file_path: draft.file_path,
             tool_output: draft.tool_output,
+            tool_facts: draft.tool_facts,
         });
     }
 

@@ -19,6 +19,7 @@ fn generated_output(app: &mut PerfView, failed: bool) {
         kind: MessageKind::Plain,
         text: "raw\n".repeat(11) + "raw",
         file_path: None,
+        tool_facts: None,
         tool_output: Some(ToolOutputDetails {
             generated: true,
             summary: format!("run {LABEL}"),

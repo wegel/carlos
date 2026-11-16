@@ -156,5 +156,7 @@ fn store_tool_body(
     };
     if role == Role::ToolOutput {
         super::item_receive::describe_output(session, index, item);
+    } else {
+        session.describe_tool_facts(index, item);
     }
 }

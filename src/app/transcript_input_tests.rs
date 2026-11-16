@@ -40,6 +40,7 @@ fn message(entry: &Entry, text: String, role: Role, kind: MessageKind) -> Messag
         kind,
         file_path: entry.file_path.clone(),
         text,
+        tool_facts: None,
         tool_output: None,
     }
 }

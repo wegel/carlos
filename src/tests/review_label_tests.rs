@@ -12,6 +12,7 @@ fn generated_native_tool_label_remains_visible_in_full_gutter_rows() {
         kind: MessageKind::Plain,
         text: "body".into(),
         file_path: None,
+        tool_facts: None,
         tool_output: Some(ToolOutputDetails {
             summary: "run native".into(),
             generated: true,

@@ -107,6 +107,7 @@ fn cache_rebuild_after_a_prepend_refreshes_changed_text_under_existing_ids() {
             kind: carlos_core::session::models::MessageKind::Plain,
             text: text.into(),
             file_path: None,
+            tool_facts: None,
             tool_output: None,
         })
     })

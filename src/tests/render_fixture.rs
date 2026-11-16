@@ -22,6 +22,7 @@ pub(in crate::app) fn row(role: Role, text: impl Into<String>) -> PerfRow {
         kind: MessageKind::Plain,
         text: text.into(),
         file_path: None,
+        tool_facts: None,
         tool_output: None,
     })
 }

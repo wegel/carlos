@@ -210,6 +210,7 @@ fn changing_tool_modes_keeps_a_scrolled_message_in_view() {
                     .collect::<Vec<_>>()
                     .join("\n"),
                 file_path: None,
+                tool_facts: None,
                 tool_output: Some(ToolOutputDetails {
                     generated: false,
                     summary: "→ Read main.rs".into(),

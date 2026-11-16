@@ -257,6 +257,7 @@ fn tool_rows(session: &SessionState, item: &Value, kind: &str) -> Vec<EntryDraft
                 text: block.diff,
                 kind: MessageKind::Diff,
                 file_path: block.file_path,
+                tool_facts: None,
                 tool_output: None,
             })
             .collect();

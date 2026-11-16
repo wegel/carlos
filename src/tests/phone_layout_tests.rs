@@ -134,6 +134,7 @@ fn tool_entries() -> Vec<PerfRow> {
             }
             .into(),
             file_path: Some("source.rs".into()),
+            tool_facts: None,
             tool_output: Some(ToolOutputDetails {
                 generated: false,
                 summary: summary.into(),
@@ -184,6 +185,7 @@ fn phone_keeps_searches_and_short_reasoning_inside_the_tool_block() {
             kind: MessageKind::Plain,
             text: "**Checking results**".into(),
             file_path: None,
+            tool_facts: None,
             tool_output: None,
         }),
     );

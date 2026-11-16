@@ -43,6 +43,7 @@ fn captured_ansi_notices_materialize_with_their_exact_cached_height() {
             kind: MessageKind::Plain,
             text,
             file_path: None,
+            tool_facts: None,
             tool_output: None,
         })
         .collect();

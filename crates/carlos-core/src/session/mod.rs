@@ -69,6 +69,7 @@ pub mod summary_request;
 pub mod tool_command_view;
 pub(crate) mod tool_diff;
 pub mod tool_diff_summary;
+mod tool_facts;
 pub(crate) mod tool_format;
 mod tool_output_items;
 pub mod tool_shell;

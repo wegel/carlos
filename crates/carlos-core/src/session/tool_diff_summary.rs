@@ -9,14 +9,7 @@ pub fn diff_summary(message: &Message) -> String {
 
 /// Summarize borrowed diff text and its path without creating another source message.
 pub fn diff_summary_parts(text: &str, file_path: Option<&str>) -> String {
-    let added = text
-        .lines()
-        .filter(|line| line.starts_with('+') && !line.starts_with("+++ "))
-        .count();
-    let removed = text
-        .lines()
-        .filter(|line| line.starts_with('-') && !line.starts_with("--- "))
-        .count();
+    let (added, removed) = diff_counts(text);
     let files = split_file_diffs(text);
     if files.len() > 1 {
         return format!("Δ Diff {} files (+{added}, -{removed})", files.len());
@@ -37,6 +30,16 @@ pub fn diff_summary_parts(text: &str, file_path: Option<&str>) -> String {
         })
         .unwrap_or("files");
     format!("Δ Diff {path} (+{added}, -{removed})")
+}
+
+/// Count changed source lines without counting the two file headers.
+pub(crate) fn diff_counts(text: &str) -> (u64, u64) {
+    text.lines().fold((0, 0), |(added, removed), line| {
+        (
+            added + u64::from(line.starts_with('+') && !line.starts_with("+++ ")),
+            removed + u64::from(line.starts_with('-') && !line.starts_with("--- ")),
+        )
+    })
 }
 
 /// Split a git diff before parsing so each file keeps its own name and language.

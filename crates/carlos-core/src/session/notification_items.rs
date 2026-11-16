@@ -152,6 +152,9 @@ fn start_placeholder(
     if describe {
         let index = session.item_message_index(&key).expect("native item row");
         super::item_receive::describe_output(session, index, &Value::Object(item.clone()));
+    } else if role == Role::ToolCall {
+        let index = session.item_message_index(&key).expect("native item row");
+        session.describe_tool_facts(index, &Value::Object(item.clone()));
     }
 }
 

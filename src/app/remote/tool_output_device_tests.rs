@@ -22,6 +22,7 @@ fn reload_and_fork_keep_the_preference_but_replace_message_contents() {
             .collect::<Vec<_>>()
             .join("\n"),
         file_path: None,
+        tool_facts: None,
         tool_output: Some(ToolOutputDetails {
             generated: false,
             summary: "→ Read main.rs".into(),

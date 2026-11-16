@@ -81,6 +81,7 @@ fn diff_prefixes_are_classified_correctly_even_one_source_fragment_at_a_time() {
         text: "+++ file\n--- file\n@@ hunk\n+é\n-old\n context\n+".into(),
         kind: MessageKind::Diff,
         file_path: None,
+        tool_facts: None,
         tool_output: None,
     });
     let batch = core.publish();

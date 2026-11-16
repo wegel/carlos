@@ -64,6 +64,7 @@ pub fn populate_synthetic_perf_session(spec: SyntheticPerfSpec, session: &mut Se
 
     for turn in 0..spec.turns {
         session.transcript_append(EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::User,
             text: synthetic_user_message(turn, &mut rng),
@@ -71,6 +72,7 @@ pub fn populate_synthetic_perf_session(spec: SyntheticPerfSpec, session: &mut Se
             file_path: None,
         });
         session.transcript_append(EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::Commentary,
             text: synthetic_commentary_message(turn, &mut rng),
@@ -78,6 +80,7 @@ pub fn populate_synthetic_perf_session(spec: SyntheticPerfSpec, session: &mut Se
             file_path: None,
         });
         session.transcript_append(EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::Reasoning,
             text: synthetic_reasoning_message(turn, &mut rng),
@@ -85,6 +88,7 @@ pub fn populate_synthetic_perf_session(spec: SyntheticPerfSpec, session: &mut Se
             file_path: None,
         });
         session.transcript_append(EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::ToolCall,
             text: synthetic_tool_call(turn, &mut rng),
@@ -93,6 +97,7 @@ pub fn populate_synthetic_perf_session(spec: SyntheticPerfSpec, session: &mut Se
         });
         session.transcript_append(synthetic_tool_output(turn, spec, &mut rng));
         session.transcript_append(EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::Assistant,
             text: synthetic_assistant_message(turn, &mut rng),
@@ -164,6 +169,7 @@ fn synthetic_tool_output(
 ) -> EntryDraft {
     if turn.is_multiple_of(9) {
         return EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::ToolOutput,
             kind: MessageKind::Diff,
@@ -192,6 +198,7 @@ fn synthetic_tool_output(
     }
 
     EntryDraft {
+        tool_facts: None,
         tool_output: None,
         role: Role::ToolOutput,
         kind: MessageKind::Plain,

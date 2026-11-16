@@ -17,6 +17,7 @@ use crate::theme::{COLOR_DIFF_ADD, COLOR_DIFF_REMOVE, COLOR_STEP2};
 
 fn diff_message(path: Option<&str>, text: &str) -> Message {
     crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+        tool_facts: None,
         tool_output: None,
         role: Role::ToolOutput,
         kind: MessageKind::Diff,
@@ -157,6 +158,7 @@ fn colored_reads_and_diffs_keep_scroll_counts_and_wrapped_text() {
             "@@ -1 +1 @@\n-old\n+let greeting = \"héllo 🌍 and a long line of source code\";\n",
         ),
         crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::ToolOutput,
             kind: MessageKind::Plain,
@@ -164,6 +166,7 @@ fn colored_reads_and_diffs_keep_scroll_counts_and_wrapped_text() {
             text: "1:let greeting = \"héllo 🌍 and a long line of source code\";\n".to_string(),
         }),
         crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::ToolOutput,
             kind: MessageKind::Plain,
@@ -207,6 +210,7 @@ fn read_source_facts_color_the_body_without_changing_original_text() {
         kind: MessageKind::Plain,
         text: "1:let value = \"hello\";".into(),
         file_path: Some("main.rs".into()),
+        tool_facts: None,
         tool_output: None,
     });
     let lines = build_rendered_lines(&[message], 120);
@@ -224,6 +228,7 @@ fn saved_command_reads_color_source_but_leave_command_and_status_plain() {
         kind: MessageKind::Plain,
         text: "$ cat main.rs\nlet value = \"hello\";\nexit code: 0".into(),
         file_path: Some("main.rs".into()),
+        tool_facts: None,
         tool_output: None,
     });
     let lines = build_rendered_lines(&[message], 120);
@@ -239,6 +244,7 @@ fn saved_command_reads_color_source_but_leave_command_and_status_plain() {
 #[test]
 fn read_output_keeps_explicit_terminal_colors() {
     let msg = crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+        tool_facts: None,
         tool_output: None,
         role: Role::ToolOutput,
         kind: MessageKind::Plain,

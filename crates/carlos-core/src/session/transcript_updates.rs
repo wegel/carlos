@@ -26,6 +26,7 @@ impl SessionState {
         diff: impl Into<String>,
     ) -> usize {
         self.messages.append(EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role,
             text: diff.into(),

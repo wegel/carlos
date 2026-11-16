@@ -268,6 +268,7 @@ fn shift_selection_focus_extends_copy_beyond_visible_screen() {
 fn build_rendered_lines_inserts_separator_rows_between_messages() {
     let messages = vec![
         crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::User,
             text: "first".to_string(),
@@ -275,6 +276,7 @@ fn build_rendered_lines_inserts_separator_rows_between_messages() {
             file_path: None,
         }),
         crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::Assistant,
             text: "second".to_string(),

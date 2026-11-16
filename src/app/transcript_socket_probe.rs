@@ -79,16 +79,21 @@ fn run_case(root: &Path, case: &Value) {
     let input = RenderInput::from_client(&entry, Some((source, text)))
         .expect("contiguous complete candidate");
     assert_eq!(input.text.as_ptr(), text.as_ptr());
-    let message = Message {
+    let message = reference_message(&entry, input);
+    for width in [28, 120] {
+        compare(input, &message, width, case, hydrate_ms, before, after);
+    }
+}
+
+fn reference_message(entry: &Entry, input: RenderInput<'_>) -> Message {
+    Message {
         id: EntryId::from_wire(&entry.id),
         role: input.role,
         kind: input.kind,
         file_path: input.file_path.map(str::to_owned),
+        tool_facts: None,
         tool_output: None,
-        text: text.to_owned(),
-    };
-    for width in [28, 120] {
-        compare(input, &message, width, case, hydrate_ms, before, after);
+        text: input.text.to_owned(),
     }
 }
 

@@ -4,6 +4,7 @@
 fn build_rendered_lines_with_hidden_omits_selected_user_message() {
     let messages = vec![
         crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::User,
             text: "first prompt".to_string(),
@@ -11,6 +12,7 @@ fn build_rendered_lines_with_hidden_omits_selected_user_message() {
             file_path: None,
         }),
         crate::app::tests::test_message(carlos_core::session::models::EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::Assistant,
             text: "reply".to_string(),
@@ -100,6 +102,7 @@ fn ensure_rendered_lines_non_user_fence_counts_match_rendered_block() {
                 kind: MessageKind::Plain,
                 text: text.into(),
                 file_path: None,
+                tool_facts: None,
                 tool_output: None,
             },
         )],
@@ -158,6 +161,7 @@ fn wrap_input_line_keeps_trailing_space_visible() {
 fn build_rendered_lines_expands_user_tabs_for_display() {
     let messages = vec![crate::app::tests::test_message(
         carlos_core::session::models::EntryDraft {
+            tool_facts: None,
             tool_output: None,
             role: Role::User,
             text: "col1\tcol2".to_string(),
