@@ -13,6 +13,7 @@ pub struct PhoneSourceWindow {
     pub start: u64,
     pub end: u64,
     pub total_bytes: Option<u64>,
+    pub revision: Option<u64>,
     pub has_more: bool,
     pub done: bool,
 }
@@ -62,6 +63,7 @@ impl PhoneClient {
             start: window.start().get(),
             end: window.end().get(),
             total_bytes: window.descriptor().map(|s| s.bytes.get()),
+            revision: window.descriptor().map(|s| s.revision.get()),
             has_more: window.has_more(),
             done: window.is_done(),
         })

@@ -360,6 +360,7 @@ name = "carlos-client"
 version = "0.1.0"
 dependencies = [
  "carlos-proto",
+ "pulldown-cmark",
  "serde",
  "serde_json",
 ]

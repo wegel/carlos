@@ -28,6 +28,11 @@ impl PhoneBody {
         self.token.entry().to_string()
     }
 
+    /// Compare checked lifetimes without exposing their cursors or local generation counters.
+    pub fn same_read(&self, other: Arc<PhoneBody>) -> bool {
+        Weak::ptr_eq(&self.owner, &other.owner) && self.token == other.token
+    }
+
     /// Keep original source separate from normalized tool output.
     pub fn is_source(&self) -> bool {
         self.token.is_source()

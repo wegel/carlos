@@ -6,6 +6,7 @@ mod body_views;
 mod changes;
 mod client;
 mod controls;
+mod document;
 mod entries;
 mod error;
 mod operations;
@@ -19,6 +20,10 @@ pub use bodies::PhoneBody;
 pub use body_views::{PhoneOutputKind, PhoneOutputPiece, PhoneOutputWindow, PhoneSourceWindow};
 pub use changes::{PhoneSessionChange, PhoneWindowChange};
 pub use client::PhoneClient;
+pub use document::{
+    PhoneDocument, PhoneMarkdownBlock, PhoneMarkdownColumn, PhoneMarkdownKind, PhoneMarkdownSpan,
+    PhoneMarkdownStyle,
+};
 pub use entries::{
     PhoneDiff, PhoneEntry, PhoneEntryFormat, PhoneEntryKind, PhoneLabelSource, PhoneText,
     PhoneTool, PhoneToolKind, PhoneToolStatus,

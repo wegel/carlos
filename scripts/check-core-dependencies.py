@@ -37,6 +37,11 @@ def check_pure_package(packages, nodes, owner):
     """Keep wire types and shared client free of transport and application packages."""
     pending = [key for key, package in packages.items() if package["name"] == owner]
     allowed = PROTO_PACKAGES | {owner}
+    if owner == "carlos-client":
+        # Cargo unifies optional HTML/CLI features with the terminal in --all-features.
+        # All of these packages are pure parsers/formatters; the phone disables defaults.
+        allowed |= {"pulldown-cmark", "pulldown-cmark-escape", "bitflags", "unicase",
+                    "getopts", "unicode-width"}
     visited, issues = set(), []
     while pending:
         key = pending.pop()
