@@ -97,7 +97,6 @@ impl Device {
         let width = size.width.saturating_sub(content_x + 1);
         self.reading.wanted.clear();
         self.reading.visible.clear();
-        self.reading.loading = false;
         if let Some(transcript) = Transcript::new(&self.client, &self.session, &self.documents) {
             let cache = &mut self.view.render_cache;
             cache.ensure_inputs(

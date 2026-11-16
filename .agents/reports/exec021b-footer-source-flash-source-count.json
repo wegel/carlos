@@ -1,0 +1,118 @@
+{
+  "baseline": {
+    "commit": "36d08626bee81611983e2146ea1e8c763342086c",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 385,
+        "nonblank": 48755,
+        "physical": 54729,
+        "bytes": 1847086
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8324,
+        "physical": 8915,
+        "bytes": 292403
+      },
+      "terminal": {
+        "files": 194,
+        "nonblank": 25621,
+        "physical": 29032,
+        "bytes": 953236
+      },
+      "helper": {
+        "files": 24,
+        "nonblank": 1708,
+        "physical": 1881,
+        "bytes": 91519
+      }
+    },
+    "total": {
+      "files": 763,
+      "nonblank": 97091,
+      "physical": 108294,
+      "bytes": 3648556
+    }
+  },
+  "footer_source_flash": {
+    "commit": "1ce25af3def9a97d075ad55a2e9d3042c9d0a850",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 385,
+        "nonblank": 48755,
+        "physical": 54729,
+        "bytes": 1847086
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8324,
+        "physical": 8915,
+        "bytes": 292403
+      },
+      "terminal": {
+        "files": 194,
+        "nonblank": 25603,
+        "physical": 29027,
+        "bytes": 952992
+      },
+      "helper": {
+        "files": 24,
+        "nonblank": 1708,
+        "physical": 1881,
+        "bytes": 91519
+      }
+    },
+    "total": {
+      "files": 763,
+      "nonblank": 97073,
+      "physical": 108289,
+      "bytes": 3648312
+    }
+  },
+  "delta_nonblank": -18,
+  "changes": {
+    "src/app/remote/reading.rs": {
+      "added": 0,
+      "deleted": 2
+    },
+    "src/app/remote/render.rs": {
+      "added": 0,
+      "deleted": 1
+    },
+    "src/app/remote/status.rs": {
+      "added": 0,
+      "deleted": 3
+    },
+    "src/app/render_cache_state.rs": {
+      "added": 0,
+      "deleted": 12
+    }
+  },
+  "added_nonblank": 0,
+  "deleted_nonblank": 18,
+  "note": "Same production traversal and test exclusions as the accepted ledger. Counts the staged footer-only fix versus36d0862, excluding the pending native recall work. Codex and large-Claude actual terminal regressions reproduce the loading-hint replacement on frozen2fbe4c4 and pass after removing the replacement. Native thinking text rendering itself also passes on the old preview; no new thinking-content claim is made."
+}

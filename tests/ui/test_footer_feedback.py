@@ -6,6 +6,48 @@ from test_daemon_selection_copy import DaemonSelectionCopy
 
 
 class FooterFeedback:
+    def test_claude_large_thinking_keeps_the_footer_while_a_new_line_waits_for_source(self):
+        fixture, _, client, session, _, terminal = self.claude_history_terminal("claude-large-footer-source")
+        terminal.paste("private large-thinking draft 🌍")
+        sent = client.operation(2)
+        client.call("session/send", session=session, operation=sent, text="native large thinking")
+        self.assertEqual(client.outcome(sent)["state"]["kind"], "accepted")
+        terminal.contains("Visible streaming thought 日本語")
+        terminal.contains("Thinking ~300 tokens")
+        terminal.daemon_recorder.pause_sources()
+        (fixture.root / "append-thinking-line").touch()
+        terminal.wait(lambda: terminal.daemon_recorder.held_sources, "the appended thinking source is held")
+        terminal.contains("Thinking ~301 tokens")
+        self.assertIn("Visible streaming thought 日本語", terminal.text)
+        self.assertNotIn("Next thinking line 🌍", terminal.text)
+        self.assertNotIn("Loading visible source", terminal.screen.display[-2])
+        terminal.daemon_recorder.resume_sources()
+        terminal.contains("Next thinking line 🌍")
+        self.assertTrue(terminal.input_is("private large-thinking draft 🌍"))
+        self.assertEqual(terminal.requests("session/send"), [])
+        terminal.snapshot("large-thinking-source-read-keeps-the-normal-footer")
+
+    def test_claude_thinking_text_appends_without_replacing_the_footer(self):
+        fixture, _, client, session, _, terminal = self.claude_history_terminal("claude-footer-source")
+        terminal.paste("private draft during native thinking 🌍")
+        sent = client.operation(2)
+        client.call("session/send", session=session, operation=sent, text="native streaming thinking")
+        self.assertEqual(client.outcome(sent)["state"]["kind"], "accepted")
+        terminal.contains("Visible streaming thought 日本語")
+        terminal.contains("Thinking ~300 tokens")
+        before = len((terminal.root / "terminal.ansi").read_bytes())
+        (fixture.root / "append-thinking-line").touch()
+        terminal.contains("Next thinking line 🌍")
+        terminal.contains("Thinking ~301 tokens")
+        self.assertNotIn("Loading visible source", terminal.screen.display[-2])
+        raw = (terminal.root / "terminal.ansi").read_bytes()[before:]
+        self.assertNotIn(b"Loading visible source", raw, "even an intermediate frame must keep the real footer")
+        self.assertTrue(terminal.input_is("private draft during native thinking 🌍"))
+        terminal.contains("Visible streaming thought 日本語")
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertEqual(terminal.requests("session/history"), [])
+        terminal.snapshot("visible-native-thought-and-steady-footer-after-append")
+
     def footer_copy_fixture(self, name):
         terminal = self.launch(backend="claude", resume=None, directory=self.summary_root()/name,
                                extra_env={"SSH_TTY":"/dev/pts/fixture"})

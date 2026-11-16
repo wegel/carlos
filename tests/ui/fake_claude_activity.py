@@ -96,7 +96,7 @@ class Activity:
             self.queued.append(message)
             self.emit("command_lifecycle", command_uuid=prompt, state="queued")
             return True
-        if text not in ("native tasks", "native compact", "native thinking", "native requesting", "native quotas", "finish task", "task levels", "failed task", "native notice", "native phone tasks", "reset questions", "native changing tasks", "native hidden children"):
+        if text not in ("native tasks", "native compact", "native thinking", "native streaming thinking", "native large thinking", "native requesting", "native quotas", "finish task", "task levels", "failed task", "native notice", "native phone tasks", "reset questions", "native changing tasks", "native hidden children"):
             return False
         self.h.sessions.prompt(message)
         self.h.state("running")
@@ -164,7 +164,9 @@ class Activity:
             self.done(prompt, "Only ambient remains")
 
     def state_prompt(self,text,prompt):
-        if text == "native requesting":
+        if text in ("native streaming thinking", "native large thinking"):
+            self.streaming_thinking(prompt, large=text == "native large thinking")
+        elif text == "native requesting":
             self.init(prompt)
             self.emit("thinking_tokens", estimated_tokens=43, estimated_tokens_delta=43)
             self.emit("status", status="requesting")
@@ -193,6 +195,26 @@ class Activity:
             self.emit("informational", level="warning", content="Native settings warning", prevent_continuation=False)
             self.emit("session_writes_lost", error_code="ENOSPC", lost=["transcript"], transcript_session_ids=[self.h.SESSION])
             self.done(prompt, "Healthy after warning")
+
+    def streaming_thinking(self, prompt, large=False):
+        self.init(prompt)
+        self.h.event("message_start", prompt, message={"id":"live-thinking-api", "role":"assistant", "content":[]})
+        self.h.event("content_block_start", prompt, index=0, content_block={"type":"thinking", "thinking":""})
+        initial = ("Earlier visible thought\n" * 4000 if large else "") + "Visible streaming thought 日本語"
+        self.h.event("content_block_delta", prompt, index=0,
+                     delta={"type":"thinking_delta", "thinking":initial})
+        self.emit("thinking_tokens", estimated_tokens=300, estimated_tokens_delta=300)
+        def append():
+            ready = self.h.ROOT / "append-thinking-line"
+            deadline = time.monotonic() + 15
+            while not ready.exists() and time.monotonic() < deadline:
+                time.sleep(.01)
+            if not ready.exists():
+                return
+            self.h.event("content_block_delta", prompt, index=0,
+                         delta={"type":"thinking_delta", "thinking":"\nNext thinking line 🌍"})
+            self.emit("thinking_tokens", estimated_tokens=301, estimated_tokens_delta=1)
+        threading.Thread(target=append, daemon=True).start()
 
     def reset(self, message):
         old = self.h.SESSION

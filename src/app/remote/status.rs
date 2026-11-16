@@ -107,9 +107,6 @@ impl Device {
         if self.waiting_ready {
             return Some("Waiting for the session to become ready; your draft is kept. Press Enter again when ready".into());
         }
-        if self.reading.loading {
-            return Some("Loading visible source… · F6 retries failed reads".into());
-        }
         let info = match info {
             Some(info) => info,
             None => return Some("Connecting…".into()),

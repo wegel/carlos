@@ -221,6 +221,7 @@ class DaemonHistory:
             "initial original source published")
         terminal = self.attach_daemon(fixture,session,"live-prefix")
         terminal.contains("accepted prefix 🌍")
+        footer = terminal.screen.display[-2]
         watches = len(terminal.requests("entry/source/subscribe"))
         terminal.daemon_recorder.pause_sources()
         delta = "\nnew tail 🌍"
@@ -229,7 +230,9 @@ class DaemonHistory:
                 await fixture.native.notify(link,"item/agentMessage/delta",turnId="prefix-turn",
                                             itemId="prefix-source",delta=delta)
         asyncio.run_coroutine_threadsafe(append(),fixture.native.loop).result(timeout=3)
-        terminal.contains("Loading visible source")
+        terminal.wait(lambda: terminal.daemon_recorder.held_sources, "new tail source is held")
+        terminal.wait(lambda: terminal.screen.display[-2] == footer, "source reads keep the normal footer")
+        self.assertNotIn("Loading visible source", terminal.screen.display[-2])
         self.assertIn("accepted prefix 🌍",terminal.text)
         self.assertNotIn("new tail 🌍",terminal.text)
         terminal.snapshot("prefix-during-delayed-source")

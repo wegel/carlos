@@ -258,6 +258,7 @@ impl RenderCacheState {
             .is_some_and(|row| row.needs_rows(first, last))
     }
     /// Report a visible loading state while keeping the entry's estimated or last-known height.
+    #[cfg(test)]
     pub(super) fn has_loading_rows(&self, start: usize, end: usize) -> bool {
         if start > end || self.rendered_total_lines == 0 {
             return false;

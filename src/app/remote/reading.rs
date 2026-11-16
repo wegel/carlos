@@ -21,7 +21,6 @@ pub(super) struct ReadingState {
     pub wanted: Vec<EntryId>,
     pub visible: Vec<EntryId>,
     pub formats: Vec<(EntryId, View)>,
-    pub loading: bool,
     pub older_requested: bool,
     history: Option<HistoryRead>,
 }
@@ -70,7 +69,6 @@ impl Device {
         let first = self.view.viewport.scroll_top;
         let last =
             (first + height.saturating_sub(1)).min(cache.rendered_line_count().saturating_sub(1));
-        self.reading.loading = cache.has_loading_rows(first, last);
         if height == 0 || cache.entry_count() == 0 {
             return;
         }
