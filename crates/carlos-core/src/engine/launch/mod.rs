@@ -21,6 +21,7 @@ pub use self::options::{validate_endpoint, LaunchOptions};
 pub struct RestoreSession {
     pub native_thread: String,
     pub ralph_was_on: bool,
+    pub claude_fresh: bool,
 }
 
 /// Keep launch choices separate from commands addressed to a running session.
@@ -142,6 +143,15 @@ fn parse_summary_override(value: &str) -> String {
 }
 
 fn validate(request: &mut LaunchRequest) -> Result<(), LaunchError> {
+    if request.restore.as_ref().is_some_and(|saved| {
+        saved.claude_fresh
+            && (request.backend != Backend::Claude
+                || uuid::Uuid::parse_str(&saved.native_thread).is_err())
+    }) {
+        return Err(LaunchError::Invalid(
+            "a fresh Claude restore needs its exact chosen UUID".into(),
+        ));
+    }
     options::validate_options(request.backend, &request.options)?;
     if !request.cwd.is_absolute() {
         return Err(LaunchError::Invalid(

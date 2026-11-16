@@ -212,6 +212,7 @@ impl Manager {
             native_thread: request.target.native.take(),
             ralph_was_on: false,
             stopped: false,
+            claude_fresh: false,
         });
         state.durable = None;
         state.info.availability = Availability::Restoring;

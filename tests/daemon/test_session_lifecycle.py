@@ -252,3 +252,15 @@ class SessionLifecycleTests:
         self.assertIsNone(result["recovery"])
         self.assertFalse(self.settings_path(fixture).exists())
         self.assertEqual(len(self.settings_writes(fixture)), 1)
+
+    def test_stop_during_grok_open_cannot_save_or_resume_its_starting_placeholder(self):
+        fixture, client = self.lifecycle_fixture("unconfirmed-grok", mode="grok-held-open")
+        create = client.operation(1)
+        session = client.call("session/create", backend="grok", cwd=str(fixture.root), name=None, operation=create)["session"]
+        wait_for(lambda: (fixture.root / "native-open-held").exists(), "session/new waits after initialize")
+        self.assertEqual(self.lifecycle(client, session, "stop", 2)["state"]["kind"], "accepted")
+        self.assertEqual(client.outcome(create)["state"]["kind"], "uncertain")
+        self.assertIsNone(fixture.saved()[0][2], "grok-starting is a label, not a native address")
+        self.assertFalse(alive(fixture.pids()[0]["pid"]))
+        self.assertEqual(self.lifecycle(client, session, "reopen", 3)["state"]["kind"], "rejected")
+        self.assertEqual(fixture.native_requests("session/load"), [])

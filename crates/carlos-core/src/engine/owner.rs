@@ -261,6 +261,7 @@ impl Owner {
             seq: self.ring.sequence(),
             info: self.session.export_info(),
             native_thread: self.session.thread_id().clone(),
+            native_resume: self.client.native_resume_kind(self.session.thread_id()),
             changes,
             outcomes: self.results.collect(),
         }

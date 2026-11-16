@@ -103,7 +103,11 @@ impl Manager {
         let session = self.sessions.get_mut(id).expect("known session");
         if session.info.availability == Availability::Ready && session.stopping.is_none() {
             match SavedSession::from_info(&session.info, update.native_thread) {
-                Ok(saved) => session.saved = saved,
+                Ok(mut saved) => {
+                    saved.claude_fresh =
+                        update.native_resume == carlos_core::backend::NativeResumeKind::ClaudeFresh;
+                    session.saved = saved;
+                }
                 Err(reason) => {
                     session.save_failed = true;
                     eprintln!("carlosd: invalid live catalogue fields: {reason}");

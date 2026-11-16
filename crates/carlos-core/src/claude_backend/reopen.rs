@@ -39,7 +39,13 @@ impl Commands {
         self.transport.close();
         self.check()?;
         let replacement = Arc::new(self.transport.replacement(events.clone())?);
-        let plan = self.resolve_reopen_plan(&replacement, plan)?;
+        let plan = resolve_plan(
+            &replacement,
+            &self.cwd,
+            plan,
+            self.identity_permission(false),
+        )?;
+        self.check()?;
         let owner = self.owner.upgrade().context("Claude owner has stopped")?;
         self.install_reopen(&owner, &replacement, &plan, &settings, &events)?;
         let permission =
@@ -71,36 +77,6 @@ impl Commands {
             plan.id == thread,
             "Claude reopen belongs to another native conversation"
         );
-        Ok(plan)
-    }
-
-    fn resolve_reopen_plan(
-        &self,
-        replacement: &ControllerTransport,
-        mut plan: LaunchPlan,
-    ) -> Result<LaunchPlan> {
-        if matches!(plan.mode, ClaudeLaunchMode::New) {
-            let saved = replacement.call_guarded(
-                "sessions.info",
-                json!({"cwd":self.cwd,"sessionId":plan.id}),
-                Duration::from_secs(20),
-                self.identity_permission(false),
-            )?;
-            self.check()?;
-            if !saved.is_null() {
-                ensure!(
-                    saved["sessionId"].as_str() == Some(&plan.id),
-                    "Claude saved metadata belongs to another native session"
-                );
-                if let Some(cwd) = saved["cwd"].as_str() {
-                    ensure!(
-                        std::path::Path::new(cwd) == self.cwd,
-                        "Claude saved metadata belongs to another working directory"
-                    );
-                }
-                plan.mode = ClaudeLaunchMode::Resume(plan.id.clone());
-            }
-        }
         Ok(plan)
     }
 
@@ -176,12 +152,46 @@ pub(super) fn record_launch(
         .map_err(|_| anyhow!("Claude conversation lock poisoned"))?;
     let id = match launch {
         ClaudeLaunchMode::New => fresh_id,
-        ClaudeLaunchMode::Resume(id) => id,
+        ClaudeLaunchMode::Resume(id) | ClaudeLaunchMode::ReopenFresh(id) => id,
     };
     conversation.expected = Some(id.to_string());
     conversation.launch = Some(LaunchPlan {
         id: id.to_string(),
-        mode: launch.clone(),
+        mode: match launch {
+            ClaudeLaunchMode::ReopenFresh(_) => ClaudeLaunchMode::New,
+            other => other.clone(),
+        },
     });
     Ok(())
+}
+
+/// Resolve only a previously chosen fresh UUID, without inventing a different conversation.
+pub(super) fn resolve_plan(
+    helper: &ControllerTransport,
+    cwd: &std::path::Path,
+    mut plan: LaunchPlan,
+    permission: DispatchGuard,
+) -> Result<LaunchPlan> {
+    if matches!(plan.mode, ClaudeLaunchMode::New) {
+        let saved = helper.call_guarded(
+            "sessions.info",
+            json!({"cwd":cwd,"sessionId":plan.id}),
+            Duration::from_secs(20),
+            permission,
+        )?;
+        if !saved.is_null() {
+            ensure!(
+                saved["sessionId"].as_str() == Some(&plan.id),
+                "Claude saved metadata belongs to another native session"
+            );
+            if let Some(saved_cwd) = saved["cwd"].as_str() {
+                ensure!(
+                    std::path::Path::new(saved_cwd) == cwd,
+                    "Claude saved metadata belongs to another working directory"
+                );
+            }
+            plan.mode = ClaudeLaunchMode::Resume(plan.id.clone());
+        }
+    }
+    Ok(plan)
 }

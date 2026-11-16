@@ -70,6 +70,7 @@ mod reopen;
 mod reopen_tests;
 mod sessions;
 mod snapshot;
+mod startup;
 #[cfg(any(test, feature = "test-support"))]
 mod test_support;
 mod thinking;
@@ -99,7 +100,7 @@ mod types;
 mod user_record;
 
 use std::cell::RefCell;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -139,39 +140,6 @@ pub struct ClaudeClient {
 }
 
 impl ClaudeClient {
-    /// Start the helper and let the UI answer questions during SDK startup.
-    pub fn start(cwd: &Path, launch: ClaudeLaunchMode) -> Result<Self> {
-        Self::start_with_context_window(cwd, launch, None)
-    }
-
-    /// Override only this native child's raw context environment; existing attached owners stay intact.
-    pub fn start_with_context_window(
-        cwd: &Path,
-        launch: ClaudeLaunchMode,
-        value: Option<&str>,
-    ) -> Result<Self> {
-        let (events_tx, events_rx) = EventSender::channel(1024);
-        let settings = ClaudeRuntimeSettings::default();
-        let session_id = match &launch {
-            ClaudeLaunchMode::Resume(id) => id.clone(),
-            _ => sessions::fresh_session_id(),
-        };
-        let transport = Arc::new(ControllerTransport::start_with_context_window(
-            events_tx.clone(),
-            value,
-        )?);
-        sessions::begin_session(&transport, cwd, &launch, &settings, &session_id)?;
-        Ok(Self {
-            handler: RefCell::default(),
-            cwd: cwd.to_path_buf(),
-            transport: Arc::new(Mutex::new(transport)),
-            session_id,
-            runtime_settings: Arc::new(Mutex::new(settings)),
-            events_tx,
-            events_rx: Some(events_rx),
-        })
-    }
-
     /// Report the chosen session ID before native startup completes.
     pub fn session_id(&self) -> &str {
         &self.session_id
@@ -196,6 +164,10 @@ impl ClaudeClient {
 impl BackendClient for ClaudeClient {
     fn kind(&self) -> BackendKind {
         BackendKind::Claude
+    }
+
+    fn native_resume_kind(&self, thread: &str) -> crate::backend::NativeResumeKind {
+        self.resume_kind(thread)
     }
 
     fn connection_generation(&self) -> Option<u64> {

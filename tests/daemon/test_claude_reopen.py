@@ -260,6 +260,70 @@ class ClaudeReopenTests(unittest.TestCase):
         self.assertEqual(len([request for request in self.native(fixture) if request.get("type") == "user"]), 1)
         self.assertEqual(len(fixture.pids()), 4)
 
+    def test_explicit_stop_preserves_fresh_uuid_across_restart_then_adopts_saved_history(self):
+        for restart in (False, True):
+            with self.subTest(restart=restart):
+                fixture, client, session = self.fixture("stop-fresh-" + str(restart), seed=False)
+                native = fixture.saved()[0][2]
+                stop = client.operation(2)
+                client.call("session/stop", session=session, operation=stop)
+                self.assertEqual(client.outcome(stop)["state"]["kind"], "accepted")
+                if restart:
+                    fixture.stop()
+                    fixture.start()
+                    client = Client(fixture, "after-stopped-restart")
+                    self.addCleanup(client.close)
+                reopen = client.operation(3)
+                client.call("session/reopen", session=session, operation=reopen)
+                self.assertEqual(client.outcome(reopen)["state"]["kind"], "accepted")
+                self.availability(client, session, "ready")
+                start = [r["params"] for r in self.helpers(fixture) if r["method"] == "start"][-1]
+                self.assertEqual(start["sessionId"], native)
+                self.assertNotIn("resume", start)
+                self.assertEqual(len([r for r in self.native(fixture) if r.get("type") == "user"]), 0)
+                prompt = client.operation(4)
+                client.call("session/send", session=session, operation=prompt, text="first durable after stop")
+                self.assertEqual(client.outcome(prompt)["state"]["kind"], "accepted")
+                wait_for(lambda: any(r["text"] == "Answer: first durable after stop" for r in self.snapshot(client, session)["entries"]), "first native answer persisted")
+                stop = client.operation(5)
+                client.call("session/stop", session=session, operation=stop)
+                client.outcome(stop)
+                reopen = client.operation(6)
+                client.call("session/reopen", session=session, operation=reopen)
+                self.assertEqual(client.outcome(reopen)["state"]["kind"], "accepted")
+                page = self.availability(client, session, "ready")
+                self.assertTrue(any(r["text"] == "first durable after stop" for r in page["entries"]))
+                start = [r["params"] for r in self.helpers(fixture) if r["method"] == "start"][-1]
+                self.assertEqual(start["resume"], native)
+                self.assertNotIn("sessionId", start)
+                self.assertEqual(len([r for r in self.native(fixture) if r.get("type") == "user"]), 1)
+
+    def test_stop_releases_failed_fresh_branch_and_reopens_exact_target_without_resending_edit(self):
+        fixture, client, session = self.fixture("stop-failed-edit", "claude-fork-start-failure")
+        original = fixture.saved()[0][2]
+        entry = next(row["id"] for row in self.snapshot(client, session)["entries"] if row["kind"] == "user")
+        edit = client.operation(3)
+        client.call("session/rewind", session=session, operation=edit, entry=entry, text="private edit after explicit stop 🦊")
+        failed = client.outcome(edit)
+        self.assertEqual(failed["state"]["kind"], "uncertain")
+        self.availability(client, session, "closed")
+        planned = [r["params"] for r in self.helpers(fixture) if r["method"] == "start"][-1]["sessionId"]
+        self.assertNotEqual(planned, original)
+        stop = client.operation(4)
+        client.call("session/stop", session=session, operation=stop)
+        self.assertEqual(client.outcome(stop)["state"]["kind"], "accepted")
+        self.assertEqual(fixture.saved()[0][2], planned)
+        (fixture.root / "first-native-session").unlink()
+        reopen = client.operation(5)
+        client.call("session/reopen", session=session, operation=reopen)
+        self.assertEqual(client.outcome(reopen)["state"]["kind"], "accepted")
+        self.availability(client, session, "ready")
+        start = [r["params"] for r in self.helpers(fixture) if r["method"] == "start"][-1]
+        self.assertEqual(start["sessionId"], planned)
+        self.assertNotIn("resume", start)
+        self.assertEqual(client.call("operation/read", operation=edit), failed)
+        self.assertEqual(len([r for r in self.native(fixture) if r.get("type") == "user"]), 1)
+
     def test_failed_reopen_needs_new_explicit_operation_and_never_retries_on_subscription(self):
         fixture, first, session = self.fixture("failure", "claude-fork-start-failure")
         self.kill(fixture, first, session)

@@ -37,6 +37,7 @@ fn missing_saved_native_id_cannot_become_a_new_session() {
     let root = tempfile::tempdir().expect("isolated native path");
     let mut request = request(root.path());
     request.restore = Some(RestoreSession {
+        claude_fresh: false,
         native_thread: String::new(),
         ralph_was_on: true,
     });

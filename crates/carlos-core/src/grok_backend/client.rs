@@ -6,11 +6,23 @@ use anyhow::{anyhow, bail, Result};
 use serde_json::Value;
 
 use super::GrokClient;
-use crate::backend::{BackendClient, BackendKind, EventReceiver};
+use crate::backend::{BackendClient, BackendKind, EventReceiver, NativeResumeKind};
 
 impl BackendClient for GrokClient {
     fn kind(&self) -> BackendKind {
         BackendKind::Grok
+    }
+
+    fn native_resume_kind(&self, thread: &str) -> NativeResumeKind {
+        if self
+            .session_id
+            .lock()
+            .is_ok_and(|id| id.as_deref() == Some(thread))
+        {
+            NativeResumeKind::Saved
+        } else {
+            NativeResumeKind::Unconfirmed
+        }
     }
 
     fn capture_commands(&self) -> Result<crate::backend_commands::CommandHandle> {

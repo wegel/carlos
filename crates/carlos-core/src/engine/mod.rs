@@ -279,6 +279,7 @@ pub struct EngineUpdate {
     pub seq: Sequence,
     pub info: SessionInfo,
     pub native_thread: String,
+    pub native_resume: crate::backend::NativeResumeKind,
     pub changes: Result<EngineChanges, RpcError>,
     pub outcomes: Vec<OperationResult>,
 }

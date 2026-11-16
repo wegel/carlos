@@ -13,13 +13,16 @@ pub(super) fn prepare(connection: &mut Connection) -> Result<(), RegistryError> 
                 "CREATE TABLE sessions (
                 id TEXT PRIMARY KEY, name TEXT, backend TEXT NOT NULL, cwd TEXT NOT NULL,
                 native_thread TEXT, ralph INTEGER NOT NULL CHECK(ralph IN (0,1)),
-                stopped INTEGER NOT NULL DEFAULT 0 CHECK(stopped IN (0,1)));",
+                stopped INTEGER NOT NULL DEFAULT 0 CHECK(stopped IN (0,1)),
+                claude_fresh INTEGER NOT NULL DEFAULT 0 CHECK(claude_fresh IN (0,1)));",
             )?;
         }
         1 => {
             transaction.execute_batch("ALTER TABLE sessions ADD COLUMN stopped INTEGER NOT NULL DEFAULT 0 CHECK(stopped IN (0,1));")?;
+            add_claude_fresh(&transaction)?;
         }
-        2 => {}
+        2 => add_claude_fresh(&transaction)?,
+        3 => {}
         _ => {
             return Err(RegistryError::Invalid(format!(
                 "catalogue version {version} is newer than this daemon; no rows changed"
@@ -27,9 +30,14 @@ pub(super) fn prepare(connection: &mut Connection) -> Result<(), RegistryError> 
         }
     }
     rows::load(&transaction)?;
-    if version < 2 {
-        transaction.pragma_update(None, "user_version", 2)?;
+    if version < 3 {
+        transaction.pragma_update(None, "user_version", 3)?;
     }
     transaction.commit()?;
+    Ok(())
+}
+
+fn add_claude_fresh(connection: &Connection) -> Result<(), RegistryError> {
+    connection.execute_batch("ALTER TABLE sessions ADD COLUMN claude_fresh INTEGER NOT NULL DEFAULT 0 CHECK(claude_fresh IN (0,1));")?;
     Ok(())
 }

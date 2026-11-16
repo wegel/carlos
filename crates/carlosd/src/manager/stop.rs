@@ -115,8 +115,10 @@ impl Manager {
     pub(super) fn owner_stopped(&mut self, id: &SessionId, stopped: Stopped) {
         for update in stopped.updates {
             let state = self.sessions.get_mut(id).expect("session");
-            if !update.native_thread.is_empty() {
+            if update.native_resume != carlos_core::backend::NativeResumeKind::Unconfirmed {
                 state.saved.native_thread = Some(update.native_thread.clone());
+                state.saved.claude_fresh =
+                    update.native_resume == carlos_core::backend::NativeResumeKind::ClaudeFresh;
             }
             self.apply_update(id, update);
         }

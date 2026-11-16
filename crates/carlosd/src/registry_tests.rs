@@ -13,6 +13,7 @@ fn saved() -> SavedSession {
         native_thread: Some("native-thread".into()),
         ralph_was_on: true,
         stopped: false,
+        claude_fresh: false,
     }
 }
 
@@ -63,13 +64,13 @@ fn a_newer_catalogue_is_rejected_without_rewriting_its_version() {
     let path = root.path().join("db");
     let connection = rusqlite::Connection::open(&path).expect("future catalogue");
     connection
-        .pragma_update(None, "user_version", 3)
+        .pragma_update(None, "user_version", 4)
         .expect("future version");
     assert!(Registry::open(&path).is_err());
     let version: u32 = connection
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .expect("version unchanged");
-    assert_eq!(version, 3);
+    assert_eq!(version, 4);
 }
 
 #[test]
@@ -110,7 +111,7 @@ fn version_one_upgrade_preserves_native_metadata_and_is_repeatable() {
     let version: u32 = connection
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .expect("version");
-    assert_eq!(version, 2);
+    assert_eq!(version, 3);
     let stopped: bool = connection
         .query_row("SELECT stopped FROM sessions", [], |row| row.get(0))
         .expect("new flag");
@@ -157,4 +158,50 @@ fn old_catalogue(path: &std::path::Path, id: &str) -> rusqlite::Connection {
         original.cwd, original.native_thread, original.ralph_was_on,
     ]).expect("old description");
     connection
+}
+
+#[test]
+fn fresh_claude_target_survives_restart_and_cannot_be_assigned_to_another_backend() {
+    let root = tempfile::tempdir().expect("private catalogue");
+    let path = root.path().join("db");
+    let mut session = saved();
+    session.claude_fresh = true;
+    session.stopped = true;
+    session.ralph_was_on = false;
+    session.native_thread = Some("11111111-1111-4111-8111-111111111111".into());
+    Registry::open(&path)
+        .expect("open")
+        .save(&session)
+        .expect("fresh target");
+    assert_eq!(
+        Registry::open(&path)
+            .expect("restart")
+            .load()
+            .expect("load"),
+        [session.clone()]
+    );
+    session.backend = Backend::Grok;
+    assert!(Registry::open(&path).expect("open").save(&session).is_err());
+    session.backend = Backend::Claude;
+    session.native_thread = None;
+    assert!(Registry::open(&path).expect("open").save(&session).is_err());
+}
+
+#[test]
+fn version_two_stopped_row_keeps_its_exact_saved_target_during_upgrade() {
+    let root = tempfile::tempdir().expect("private catalogue");
+    let path = root.path().join("db");
+    let connection = old_catalogue(&path, saved().id.as_str());
+    connection.execute_batch("ALTER TABLE sessions ADD COLUMN stopped INTEGER NOT NULL DEFAULT 0; UPDATE sessions SET stopped=1,ralph=0; PRAGMA user_version=2;").expect("previous stopped schema");
+    let restored = Registry::open(&path)
+        .expect("upgrade")
+        .load()
+        .expect("saved row");
+    assert!(restored[0].stopped);
+    assert!(!restored[0].claude_fresh);
+    assert_eq!(restored[0].native_thread, saved().native_thread);
+    let version: u32 = connection
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .expect("new version");
+    assert_eq!(version, 3);
 }

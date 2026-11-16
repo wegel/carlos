@@ -73,6 +73,7 @@ impl Manager {
             native_thread: None,
             ralph_was_on: false,
             stopped: false,
+            claude_fresh: false,
         };
         self.launch_created(saved, result.clone(), tool_labels, launch);
         self.reply(peer, id, result);
@@ -143,6 +144,7 @@ impl Manager {
             restore: restore.then(|| RestoreSession {
                 native_thread: saved.native_thread.clone().expect("validated restore"),
                 ralph_was_on: saved.ralph_was_on,
+                claude_fresh: saved.claude_fresh,
             }),
         };
         state.launch = Some(cancel.clone());

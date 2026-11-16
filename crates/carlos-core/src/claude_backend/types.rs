@@ -13,6 +13,8 @@ use serde_json::{json, Map, Value};
 pub enum ClaudeLaunchMode {
     New,
     Resume(String),
+    /// Reopen this chosen fresh UUID, using saved history only if the SDK confirms it exists.
+    ReopenFresh(String),
 }
 
 #[derive(Debug, Clone)]

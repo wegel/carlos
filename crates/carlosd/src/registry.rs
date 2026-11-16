@@ -25,6 +25,8 @@ pub struct SavedSession {
     pub ralph_was_on: bool,
     #[serde(default)]
     pub stopped: bool,
+    #[serde(default)]
+    pub claude_fresh: bool,
 }
 
 /// One disk worker owns this connection; owners and the manager never borrow it through a lock.
@@ -71,10 +73,10 @@ impl Registry {
     /// Replace one description atomically after its durable fields actually change.
     pub fn save(&self, session: &SavedSession) -> Result<(), RegistryError> {
         session.validate()?;
-        let inserted = self.connection.execute("INSERT INTO sessions(id,name,backend,cwd,native_thread,ralph,stopped)
-            SELECT ?1,?2,?3,?4,?5,?6,?7 WHERE EXISTS(SELECT 1 FROM sessions WHERE id=?1) OR (SELECT count(*) FROM sessions) < ?8
-            ON CONFLICT(id) DO UPDATE SET name=excluded.name,backend=excluded.backend,cwd=excluded.cwd,native_thread=excluded.native_thread,ralph=excluded.ralph,stopped=excluded.stopped",
-            params![session.id.as_str(), session.name, serde_json::to_string(&session.backend).expect("backend enum"), session.cwd, session.native_thread, session.ralph_was_on, session.stopped, crate::limits::SESSIONS as i64])?;
+        let inserted = self.connection.execute("INSERT INTO sessions(id,name,backend,cwd,native_thread,ralph,stopped,claude_fresh)
+            SELECT ?1,?2,?3,?4,?5,?6,?7,?8 WHERE EXISTS(SELECT 1 FROM sessions WHERE id=?1) OR (SELECT count(*) FROM sessions) < ?9
+            ON CONFLICT(id) DO UPDATE SET name=excluded.name,backend=excluded.backend,cwd=excluded.cwd,native_thread=excluded.native_thread,ralph=excluded.ralph,stopped=excluded.stopped,claude_fresh=excluded.claude_fresh",
+            params![session.id.as_str(), session.name, serde_json::to_string(&session.backend).expect("backend enum"), session.cwd, session.native_thread, session.ralph_was_on, session.stopped, session.claude_fresh, crate::limits::SESSIONS as i64])?;
         if inserted == 0 {
             return Err(RegistryError::Invalid(
                 "saved-session capacity is full".into(),
@@ -121,12 +123,24 @@ impl SavedSession {
             native_thread: Some(native_thread),
             ralph_was_on: info.ralph,
             stopped: false,
+            claude_fresh: false,
         };
         saved.validate()?;
         Ok(saved)
     }
 
     fn validate(&self) -> Result<(), RegistryError> {
+        if self.claude_fresh
+            && (self.backend != Backend::Claude
+                || self
+                    .native_thread
+                    .as_ref()
+                    .is_none_or(|id| uuid::Uuid::parse_str(id).is_err()))
+        {
+            return Err(RegistryError::Invalid(
+                "a fresh Claude target needs its chosen native UUID".into(),
+            ));
+        }
         if self.stopped && self.ralph_was_on {
             return Err(RegistryError::Invalid(
                 "stopped sessions must keep Ralph off".into(),

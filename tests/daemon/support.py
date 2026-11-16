@@ -218,6 +218,8 @@ if {command!r} == "grok" and os.environ.get("CARLOS_TEST_SERVER") == "grok-held-
 script = {script!r}
 if {command!r} == "grok" and os.environ.get("CARLOS_TEST_SERVER") == "grok-held-prompt":
     script = {str(REPO / "tests/daemon/native_grok.py")!r}
+if {command!r} == "grok" and os.environ.get("CARLOS_TEST_SERVER") == "grok-held-open":
+    script = {str(REPO / "tests/daemon/native_grok_start.py")!r}
 if {command!r} == "grok" and os.environ.get("CARLOS_TEST_SERVER", "").startswith("grok-saved-"):
     script = {str(REPO / "tests/daemon/native_grok_saved.py")!r}
 if {command!r} == "claude" and os.environ.get("CARLOS_TEST_SERVER", "").startswith("claude-settings-"):

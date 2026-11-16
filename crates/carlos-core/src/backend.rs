@@ -15,6 +15,14 @@ pub enum BackendKind {
     Grok,
 }
 
+/// Tell the daemon whether this exact native address names saved history or a chosen fresh root.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NativeResumeKind {
+    Saved,
+    ClaudeFresh,
+    Unconfirmed,
+}
+
 impl BackendKind {
     /// Whether the UI should append the user prompt locally after `turn/start`.
     pub(crate) fn echoes_local_user_prompt(self) -> bool {
@@ -127,6 +135,10 @@ pub trait BackendClient: Send {
     }
     /// Identify the native backend that receives these commands.
     fn kind(&self) -> BackendKind;
+    /// Read local native launch facts without querying a backend or inventing a saved address.
+    fn native_resume_kind(&self, _thread: &str) -> NativeResumeKind {
+        NativeResumeKind::Saved
+    }
     /// Mark interrupt intent on the event owner before a worker sends the control.
     fn prepare_interrupt(&self) -> crate::backend_commands::InterruptIntent {
         Default::default()

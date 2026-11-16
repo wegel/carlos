@@ -46,7 +46,6 @@ impl Manager {
         session.info = launched.info();
         let native_thread = launched.native_thread().to_owned();
         // A late successful launch still owns native resources. Stop and join it normally.
-        session.saved.native_thread = Some(native_thread.clone());
         let (handle, notices) = launched.spawn_after(session.last_seq)?;
         let wake = self.wake.clone();
         let notice = thread::spawn(move || {

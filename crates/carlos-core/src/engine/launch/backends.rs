@@ -97,15 +97,19 @@ fn claude(
     let mode = request
         .restore
         .as_ref()
-        .map(|saved| ClaudeLaunchMode::Resume(saved.native_thread.clone()))
+        .map(|saved| {
+            if saved.claude_fresh {
+                ClaudeLaunchMode::ReopenFresh(saved.native_thread.clone())
+            } else {
+                ClaudeLaunchMode::Resume(saved.native_thread.clone())
+            }
+        })
         .unwrap_or(ClaudeLaunchMode::New);
     let context_window = request.options.native.claude_context_window.as_deref();
     let effective_context = context_window
         .map(str::to_owned)
         .or_else(|| std::env::var("CLAUDE_CODE_AUTO_COMPACT_WINDOW").ok());
-    let mut client = ClaudeClient::start_with_context_window(&request.cwd, mode, context_window)?;
-    let commands = client.capture_commands()?;
-    cancel.register(move || commands.abort())?;
+    let mut client = ClaudeClient::start_cancellable(&request.cwd, mode, context_window, cancel)?;
     let mut session = SessionState::new(client.session_id().into(), preferences, false);
     session.set_runtime_capabilities(true, false);
     session.enable_claude();
