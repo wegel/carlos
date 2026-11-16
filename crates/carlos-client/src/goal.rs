@@ -34,6 +34,17 @@ impl Replica {
 impl Client {
     /// Merge a goal read through the same sequence fences and byte budget as numbered facts.
     pub fn merge_goal(&mut self, snapshot: GoalSnapshot) -> Result<Effects, ClientError> {
+        let mut effects = Effects::default();
+        self.apply_goal_header(snapshot, &mut effects)?;
+        self.drive(&mut effects);
+        Ok(effects)
+    }
+
+    pub(crate) fn apply_goal_header(
+        &mut self,
+        snapshot: GoalSnapshot,
+        effects: &mut Effects,
+    ) -> Result<(), ClientError> {
         let session = snapshot.session.clone();
         let replica = self
             .sessions
@@ -41,9 +52,6 @@ impl Client {
             .and_then(|slot| slot.replica.as_mut())
             .ok_or(ClientError::ForeignSession)?;
         let changes = replica.merge_goal(snapshot)?;
-        let mut effects = Effects::default();
-        self.changed(&session, changes, &mut effects)?;
-        self.drive(&mut effects);
-        Ok(effects)
+        self.changed(&session, changes, effects)
     }
 }

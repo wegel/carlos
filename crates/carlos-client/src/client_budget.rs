@@ -39,6 +39,7 @@ impl Client {
         effects.panel_changed(session, crate::panels::PanelKind::Queue);
         effects.panel_changed(session, crate::panels::PanelKind::Settings);
         effects.panel_changed(session, crate::panels::PanelKind::Context);
+        effects.panel_changed(session, crate::panels::PanelKind::Goal);
         if !self.detach.contains(session) {
             self.detach.push_back(session.clone());
         }

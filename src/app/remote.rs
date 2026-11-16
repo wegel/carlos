@@ -138,7 +138,6 @@ impl Device {
         self.reading.disconnected();
         self.history.cancel_read();
         self.documents.disconnected();
-        self.goals.read = None;
         self.tasks_disconnected();
         self.settings_disconnected();
         self.disconnected = Some(error.to_string());

@@ -1,8 +1,8 @@
 //! Keep each terminal's goal draft and keys separate from shared native goal facts.
 
 use anyhow::Result;
-use carlos_client::{ClientError, Effects, ReadReply};
-use carlos_proto::commands::{Command, RequestId};
+use carlos_client::panels::PanelKind;
+use carlos_client::Effects;
 use carlos_proto::goals::{GoalChange, GoalFacts, GoalKnowledge};
 use carlos_proto::ids::GoalRevision;
 use carlos_proto::submissions::ClientOperation;
@@ -28,10 +28,8 @@ pub(super) struct Goals {
     pub(super) operation: Option<ClientOperation>,
     pub(super) ralph: Option<ClientOperation>,
     pub(super) confirm: Option<GoalAction>,
-    pub(super) read: Option<RequestId>,
     pub(super) size: TerminalSize,
     pub(super) clear_editor: bool,
-    read_error: Option<String>,
 }
 
 impl Default for Goals {
@@ -39,10 +37,8 @@ impl Default for Goals {
         Self {
             operation: None,
             clear_editor: false,
-            read_error: None,
             ralph: None,
             confirm: None,
-            read: None,
             size: TerminalSize {
                 width: 0,
                 height: 0,
@@ -52,38 +48,12 @@ impl Default for Goals {
 }
 
 impl Device {
-    /// Merge checked goal reads and keep their failures in this local panel.
-    pub(super) fn apply_goal_reads(&mut self, effects: &mut Effects) -> Result<bool> {
-        let mut changed = false;
-        for result in std::mem::take(&mut effects.replies) {
-            if self.goals.read.is_some() && result.id == self.goals.read {
-                self.goals.read = None;
-                self.goals.read_error = None;
-                changed = true;
-            }
-            if let ReadReply::Goal(snapshot) = result.reply {
-                match self.client.merge_goal(snapshot) {
-                    Ok(merged) => {
-                        effects.sessions.extend(merged.sessions);
-                        effects.outgoing.extend(merged.outgoing);
-                        effects.failures.extend(merged.failures);
-                        changed = true;
-                    }
-                    Err(ClientError::StaleGoal) => {}
-                    Err(error) => return Err(error.into()),
-                }
-            } else {
-                effects.replies.push(result);
-            }
-        }
-        for failure in &effects.failures {
-            if self.goals.read.is_some() && failure.id == self.goals.read {
-                self.goals.read = None;
-                self.goals.read_error = Some(failure.error.message.clone());
-                changed = true;
-            }
-        }
-        Ok(changed)
+    /// Redraw changed read status; checked goal data already lives in the shared Client.
+    pub(super) fn goal_model_changed(&self, effects: &Effects) -> bool {
+        effects
+            .panels
+            .iter()
+            .any(|change| change.session == self.session && change.kind == PanelKind::Goal)
     }
 
     /// Borrow the one accepted goal copy held by the shared Client.
@@ -111,42 +81,18 @@ impl Device {
     pub(super) fn open_goal(&mut self, link: Option<&mut Transport>) -> Result<()> {
         self.view.codex_goals.show = true;
         self.view.codex_goals.scroll = 0;
-        self.watch_goal_panel(link)
-    }
-
-    fn watch_goal_panel(&mut self, link: Option<&mut Transport>) -> Result<()> {
-        let effects = self.client.watch_goal(&self.session)?;
-        self.goals.read = self.client.pending_goal_read(&self.session);
+        let effects = self.client.open_goal_panel(&self.session)?;
         if let Some(link) = link {
-            for outgoing in effects.outgoing {
-                link.send(outgoing)?;
-            }
+            self.apply_effects(link, effects)?;
         }
         Ok(())
     }
 
-    /// Ask the daemon to refresh accepted native facts without writing a goal.
+    /// Ask the shared reader for fresh native facts without changing the private editor.
     pub(super) fn refresh_goal(&mut self, link: Option<&mut Transport>) -> Result<()> {
         let link = link.ok_or_else(|| anyhow::anyhow!("Disconnected; F5 reconnects"))?;
-        self.watch_goal_panel(Some(&mut *link))?;
-        if self.goals.read.is_none() {
-            self.read_goal(link)?;
-        }
-        Ok(())
-    }
-
-    fn read_goal(&mut self, link: &mut Transport) -> Result<()> {
-        if self.goals.read.is_none() {
-            let outgoing = self.client.read(
-                link.connection,
-                Command::GoalRead {
-                    session: self.session.clone(),
-                    refresh: true,
-                },
-            )?;
-            self.goals.read = Some(outgoing.id());
-            link.send(outgoing)?;
-        }
+        let effects = self.client.refresh_goal_panel(&self.session)?;
+        self.apply_effects(link, effects)?;
         Ok(())
     }
 
@@ -193,12 +139,9 @@ impl Device {
 
     fn close_goal_panel(&mut self, link: Option<&mut Transport>) -> Result<()> {
         self.view.codex_goals.show = false;
-        self.goals.read = None;
-        let effects = self.client.close_goal(&self.session);
+        let effects = self.client.close_goal_panel(&self.session);
         if let Some(link) = link {
-            for outgoing in effects.outgoing {
-                link.send(outgoing)?;
-            }
+            self.apply_effects(link, effects)?;
         }
         Ok(())
     }
@@ -319,12 +262,16 @@ impl Device {
             PanelFacts {
                 goal: &goal,
                 knowledge,
-                reading: self.goals.read.is_some() || facts.is_some_and(|facts| facts.reading),
+                reading: self
+                    .client
+                    .goal_panel(&self.session)
+                    .is_some_and(|panel| panel.is_reading())
+                    || facts.is_some_and(|facts| facts.reading),
                 pending: self.goal_pending(),
                 read_error: self
-                    .goals
-                    .read_error
-                    .as_deref()
+                    .client
+                    .goal_panel(&self.session)
+                    .and_then(|panel| panel.read_error())
                     .or_else(|| facts.and_then(|facts| facts.read_error.as_deref())),
                 error: self.view.codex_goals.error.as_deref(),
                 notice: facts.map_or("", |facts| facts.notice.as_str()),

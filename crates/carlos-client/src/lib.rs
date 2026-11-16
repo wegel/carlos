@@ -23,6 +23,7 @@ mod context_defaults;
 mod context_panel;
 mod error;
 mod goal;
+mod goal_panel;
 mod goal_watches;
 mod history;
 mod operations;

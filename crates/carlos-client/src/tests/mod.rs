@@ -17,6 +17,7 @@ mod context_defaults;
 mod context_panel;
 mod devices;
 mod goal;
+mod goal_panel;
 mod goal_watches;
 mod lifecycle;
 mod operations;

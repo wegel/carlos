@@ -35,6 +35,10 @@ impl GoalWatches {
 }
 
 impl Client {
+    pub(crate) fn goal_watch_is_active(&self, session: &SessionId) -> bool {
+        self.goals.active.contains_key(session)
+    }
+
     /// Identify this session's outstanding goal subscribe read without exposing transport internals.
     pub fn pending_goal_read(&self, session: &SessionId) -> Option<RequestId> {
         let serial = *self.goals.active.get(session)?;
@@ -108,8 +112,16 @@ impl Client {
             .cloned()
             .collect();
         for session in wanted {
-            match self.read(connection, Command::GoalSubscribe { session }) {
-                Ok(outgoing) => effects.outgoing.push(outgoing),
+            match self.read(
+                connection,
+                Command::GoalSubscribe {
+                    session: session.clone(),
+                },
+            ) {
+                Ok(outgoing) => {
+                    self.record_goal_panel_read(&session, &outgoing, effects);
+                    effects.outgoing.push(outgoing);
+                }
                 Err(_) => return,
             }
         }

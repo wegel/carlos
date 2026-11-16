@@ -1,6 +1,7 @@
 //! Keep device-owned panel read windows separate from accepted session facts and UI editors.
 
 mod context;
+mod goal;
 mod queue;
 pub(crate) mod queue_input;
 mod queue_pages;
@@ -8,6 +9,7 @@ pub(crate) mod queue_reads;
 pub(crate) mod settings;
 
 pub use context::ContextPanel;
+pub use goal::GoalPanel;
 pub use queue::{QueuePanel, QueueReadMode};
 pub use queue_input::QueueInput;
 pub use queue_pages::QueuePageWindow;
@@ -21,6 +23,7 @@ pub enum PanelKind {
     Queue,
     Settings,
     Context,
+    Goal,
 }
 
 /// A platform redraws only the panel whose checked data or read status changed.
@@ -35,6 +38,7 @@ pub(crate) struct Panels {
     pub queue: Option<Box<QueuePanel>>,
     pub settings: Option<Box<SettingsPanel>>,
     pub context: Option<Box<ContextPanel>>,
+    pub goal: Option<Box<GoalPanel>>,
 }
 
 impl Panels {
@@ -50,6 +54,7 @@ impl Panels {
                 .context
                 .as_ref()
                 .map_or(0, |context| context.retained_bytes())
+            + self.goal.as_ref().map_or(0, |goal| goal.retained_bytes())
     }
 
     pub(crate) fn disconnected(&mut self) {
@@ -61,6 +66,9 @@ impl Panels {
         }
         if let Some(context) = &mut self.context {
             context.disconnected();
+        }
+        if let Some(goal) = &mut self.goal {
+            goal.disconnected();
         }
     }
 }

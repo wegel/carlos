@@ -17,16 +17,12 @@ impl Device {
         let failed_sources = self.documents.received(&incoming);
         let was_ready = self.client.session_is_ready(link.connection, &self.session);
         let had_question_facts = self.question_facts_are_current();
-        let goal_read = self.client.pending_goal_read(&self.session);
         let task_read = self.client.pending_task_read(&self.session);
         let mut effects = self.client.receive(link.connection, incoming)?;
         for token in failed_sources {
             effects
                 .outgoing
                 .extend(self.client.close_body(&token).outgoing);
-        }
-        if self.goals.read.is_none() {
-            self.goals.read = goal_read.or_else(|| self.client.pending_goal_read(&self.session));
         }
         if self.tasks.reads.header.is_none() {
             self.tasks.reads.header =
@@ -55,7 +51,7 @@ impl Device {
         let history_changed = self.apply_prompt_reads(link, &mut effects)?;
         let mut task_changed = self.apply_task_reads(&mut effects)?;
         task_changed |= self.task_operations_changed(&effects.operations);
-        let goal_changed = self.apply_goal_reads(&mut effects)?;
+        let goal_changed = self.goal_model_changed(&effects);
         let settings_changed = self.apply_settings_reads(&mut effects);
         let queue_changed = self.apply_queue_model(&effects)?;
         let private_changed = !effects.operations.is_empty();
