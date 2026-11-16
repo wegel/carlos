@@ -1,5 +1,7 @@
 //! Return explicit socket writes and checked greeting results across the Swift boundary.
 
+use std::sync::Arc;
+
 use carlos_client::Outbound;
 use carlos_proto::commands::RequestId;
 
@@ -48,6 +50,7 @@ pub struct PhoneBatch {
     pub catalog_changed: bool,
     pub sessions: Vec<PhoneSessionChange>,
     pub operations: Vec<String>,
+    pub bodies: Vec<Arc<crate::PhoneBody>>,
 }
 
 impl PhoneBatch {
@@ -59,6 +62,7 @@ impl PhoneBatch {
             catalog_changed: false,
             sessions: Vec::new(),
             operations: Vec::new(),
+            bodies: Vec::new(),
         }
     }
 }

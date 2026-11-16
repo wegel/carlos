@@ -3,6 +3,9 @@ import SwiftUI
 
 struct PhoneTranscriptView: View {
     let host: PhoneHostModel
+    @State private var following = true
+    @State private var userScrolling = false
+    @State private var metrics = TranscriptMetrics()
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -32,7 +35,48 @@ struct PhoneTranscriptView: View {
                 }.padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 20)
             }
             .scrollIndicators(.hidden).defaultScrollAnchor(.bottom)
-            .onChange(of: host.selected) { _, _ in proxy.scrollTo("transcript.bottom", anchor: .bottom) }
+            .onScrollGeometryChange(for: TranscriptMetrics.self) { geometry in
+                TranscriptMetrics(height: geometry.contentSize.height,
+                    viewport: geometry.containerSize.height,
+                    distance: max(0, geometry.contentSize.height + geometry.contentInsets.bottom
+                        - geometry.contentOffset.y - geometry.containerSize.height))
+            } action: { old, new in
+                metrics = new
+                if userScrolling { following = new.distance <= 40 }
+                if following && !userScrolling && (old.height != new.height || old.viewport != new.viewport) {
+                    proxy.scrollTo("transcript.bottom", anchor: .bottom)
+                }
+            }
+            .onScrollPhaseChange { _, phase in
+                switch phase {
+                case .tracking, .interacting, .decelerating: userScrolling = true
+                case .idle:
+                    if userScrolling { following = metrics.distance <= 40 }
+                    userScrolling = false
+                case .animating: break
+                @unknown default: break
+                }
+            }
+            .onChange(of: host.selected) { _, _ in
+                following = true
+                proxy.scrollTo("transcript.bottom", anchor: .bottom)
+            }
+            .onChange(of: host.followRequest) { _, _ in
+                following = true
+                proxy.scrollTo("transcript.bottom", anchor: .bottom)
+            }
+            .overlay(alignment: .bottom) {
+                if !following && metrics.distance > 260 {
+                    Button {
+                        following = true
+                        withAnimation { proxy.scrollTo("transcript.bottom", anchor: .bottom) }
+                    } label: {
+                        Label("Latest", systemImage: "arrow.down").font(PhoneTheme.mono(12))
+                            .padding(.horizontal, 16).frame(minHeight: 44)
+                            .background(PhoneTheme.surface0).clipShape(Capsule())
+                    }.accessibilityIdentifier("transcript.latest").padding(.bottom, 12)
+                }
+            }
         }
         .accessibilityIdentifier("transcript")
     }
@@ -84,4 +128,10 @@ struct PhoneTranscriptView: View {
         case .answer: PhoneTheme.text; case .notice: PhoneTheme.overlay2; case .toolCall, .tool: PhoneTheme.subtext1
         }
     }
+}
+
+private struct TranscriptMetrics: Equatable {
+    var height: CGFloat = 0
+    var viewport: CGFloat = 0
+    var distance: CGFloat = 0
 }

@@ -44,6 +44,23 @@ Run these commands through `rtk proxy bash` from the spike checkout:
     scripts/ios-build.sh test        # actual Rust-backed Swift tests on owned simulator
     scripts/ios-build.sh launch      # build, install, launch and capture screen.png
 
+The actual UI checks use a private authenticated daemon and a deterministic native
+Codex peer on Linux, with an SSH forward bound only to the Mac’s loopback address:
+
+    target/ui-venv/bin/python scripts/ios-fixture.py
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow controls
+
+The first command drives the real connection form, creates a session, types a Unicode
+prompt and checks both the visible answer and the exact native request. The second
+holds the native prompt reply while the UI answers its offered approval and sends Stop
+for the original turn. The fixture emits a native completion only after it receives
+that interrupt. Neither check uses an account or inference. Each command uses a fresh
+daemon, a separate app bundle id, synthetic credentials in the test target only, the
+owned simulator and its own saved native trace/XCResult. Run scripts/test.sh once to
+prepare target/ui-venv if missing, and build the fixture daemon with:
+
+    cargo build -p carlosd --features carlos-core/test-support
+
 The scripts stage a small workspace under `target/ios-source/<hash>` containing
 phone/client/protocol sources, the app, its build script, license and dependencies.
 Cargo verifies the offline vendored crates. The script checks that their versions
@@ -57,7 +74,8 @@ Generated Swift, headers, XCFrameworks, Xcode projects, DerivedData, screenshots
 XCResult bundles stay under those ignored build paths. Local logs and the most
 recent source hash are under `target/ios-artifacts`.
 
-The Mac currently cannot resolve Rust or crates.io hosts. Linux downloads the
+The Mac initially could not resolve Rust or crates.io hosts; the owner’s reboot
+restored its system resolver. The repeatable build remains offline: Linux downloads the
 official Rust1.100.0 release manifest and verifies each required Apple component's
 SHA256 before copying it. The installer writes only `toolchains/rust-1.100.0` and
 leaves the global Rust default untouched. Vendored crates let all subsequent Mac

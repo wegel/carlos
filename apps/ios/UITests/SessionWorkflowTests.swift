@@ -5,6 +5,53 @@ import XCTest
 final class SessionWorkflowTests: XCTestCase {
     @MainActor
     func testConnectCreateAndSendOneExactPrompt() throws {
+        let app = try connectedSession()
+        let draft = app.textFields["composer.draft"]
+        XCTAssertTrue(draft.waitForExistence(timeout: 15))
+        draft.tap()
+        draft.typeText("phone exact prompt 🦀")
+        let send = app.buttons["composer.send"]
+        XCTAssertTrue(wait { send.isEnabled })
+        send.tap()
+        XCTAssertTrue(app.staticTexts["Answer: phone exact prompt 🦀"].waitForExistence(timeout: 15))
+        XCTAssertEqual(draft.value as? String, "")
+        let screen = XCTAttachment(screenshot: app.screenshot())
+        screen.name = "Actual daemon answer"
+        screen.lifetime = .keepAlways
+        add(screen)
+        app.terminate()
+    }
+
+    @MainActor
+    func testApprovalAndStopPassAHeldPromptReply() throws {
+        let app = try connectedSession()
+        let draft = app.textFields["composer.draft"]
+        XCTAssertTrue(draft.waitForExistence(timeout: 15))
+        draft.tap()
+        draft.typeText("held")
+        let send = app.buttons["composer.send"]
+        XCTAssertTrue(wait { send.isEnabled })
+        send.tap()
+        let allow = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'approval.' AND label == 'Allow once'")).firstMatch
+        XCTAssertTrue(allow.waitForExistence(timeout: 15))
+        XCTAssertTrue(wait { allow.isEnabled })
+        allow.tap()
+        let stop = app.buttons["composer.stop"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 15))
+        XCTAssertTrue(wait { stop.isEnabled })
+        stop.tap()
+        // The fixture emits a real native completion after receiving the original interrupt.
+        XCTAssertTrue(app.buttons["composer.send"].waitForExistence(timeout: 15))
+        XCTAssertFalse(app.buttons["composer.send"].isEnabled)
+        let screen = XCTAttachment(screenshot: app.screenshot())
+        screen.name = "Native held approval and Stop completed"
+        screen.lifetime = .keepAlways
+        add(screen)
+        app.terminate()
+    }
+
+    @MainActor
+    private func connectedSession() throws -> XCUIApplication {
         continueAfterFailure = false
         let fixture = try settings()
         let app = XCUIApplication(bundleIdentifier: "app.carlos.phone.fixture")
@@ -31,20 +78,7 @@ final class SessionWorkflowTests: XCTestCase {
         let start = app.buttons["sessions.start"]
         XCTAssertTrue(wait { start.isEnabled })
         start.tap()
-        let draft = app.textFields["composer.draft"]
-        XCTAssertTrue(draft.waitForExistence(timeout: 15))
-        draft.tap()
-        draft.typeText("phone exact prompt 🦀")
-        let send = app.buttons["composer.send"]
-        XCTAssertTrue(wait { send.isEnabled })
-        send.tap()
-        XCTAssertTrue(app.staticTexts["Answer: phone exact prompt 🦀"].waitForExistence(timeout: 15))
-        XCTAssertEqual(draft.value as? String, "")
-        let screen = XCTAttachment(screenshot: app.screenshot())
-        screen.name = "Actual daemon answer"
-        screen.lifetime = .keepAlways
-        add(screen)
-        app.terminate()
+        return app
     }
 
     private func settings() throws -> Fixture {

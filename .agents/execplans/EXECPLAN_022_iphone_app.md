@@ -66,6 +66,11 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   Rust boundary tests pass9/9, including original offered cards, Starting approvals,
   captured Stop turns and non-optimistic Ralph. Complete the remaining socket/control,
   reconnect/private-draft and other-backend workflows before closing this milestone.
+  Update (2026-11-16 23:10Z): actual held-reply UI workflow also passes, with one original
+  offered Allow once and one Stop for the captured native turn, while turn/start remains
+  held. Evidence: target/ios-artifacts/phone-af93de0d4684, Mac source98d2edadc173a4374eed,
+  ui-tests-20261116T180837.xcresult. A real native completion, not a local optimistic
+  phase change, makes the Stop button return to Send.
 - [x] (2026-11-16 22:55Z) Build, sign and install the checked early preview on the owner’s
   iPhone18 Pro after the Mac reboot restores live device access. The exact simulator-checked
   bundle b7744b8a156a9c2b8287 builds Release for arm64; the existing development profile
@@ -171,6 +176,14 @@ post-check read the wrong trace family (rpc.jsonl instead of the actual NativeCo
 peer). Its retained codex.jsonl proves the exact Unicode prompt. The corrected complete
 rerun passes both sides. Preserve those failed harness runs and their XCResult records.
 
+The first held-reply UI run reached the native prompt but never found its approval:
+the app did not follow appended content, so the lazy list left the card below the
+visible area until the held native request timed out. The retained failure is
+phone-905b8e12f997, source0ea129fe0e2f331fffac, ui-tests-20261116T180216.xcresult.
+The corrected native scroll geometry and user-scroll phase checks preserve following
+near the bottom, stop following beyond40pt and expose Latest beyond260pt. The actual
+held-control rerun passes. Pixel-anchor/prepend/expansion tests still remain.
+
 ## Decision Log
 
 Decision (2026-11-16,Root): keep one EP with small buildable milestones. Start with an
@@ -205,6 +218,17 @@ Decision (2026-11-16,Root): use a phone-only offline workspace and verified Appl
 components because the Mac's system resolver currently fails. Keep third-party source
 paths stable across app edits so Carlos can reuse its own compiler cache. Do not change
 the Mac's DNS service, global toolchain, other projects or simulators to finish this app.
+
+Decision (2026-11-16,Root): the phone body handle contains the existing checked BodyToken
+and a weak pointer to its exact client state. No additional token map, cursor parser or
+body counter is needed. Every client call rejects a handle from another host, even if
+both hosts have identical logical addresses and local counters. Changed-body batches
+carry the actual current handles. Source reads cross the native boundary at most64KiB
+at a time, while output reads retain the shared bounded/classified window. StaleRead is
+a distinct ABI error, and explicit close returns all unsubscribe frames. Three new
+Rust tests prove original Unicode/control bytes, foreign-host rejection and old-close
+safety; all12 phone tests and phone clippy pass. The generated Swift app links this
+larger real boundary in the passing held-control run. Native body consumers remain to do.
 
 ## Outcomes & Retrospective
 
@@ -468,3 +492,7 @@ different UID; the daemon’s ownership checks were preserved, and the owned /va
 directory passes them. The first hand-written health check used watch rather than
 sessions/watch and correctly failed; the corrected check passed. No user session was
 started. Keep this daemon/package alive for the owner’s test and do not replace it.
+
+Update (2026-11-16 23:10Z,Root): recorded the actual held-control test, its initial
+scroll failure and the checked body-reader boundary. Continue native long-body/output
+rendering and complete the remaining phone screens; no intermediate reviewer was run.

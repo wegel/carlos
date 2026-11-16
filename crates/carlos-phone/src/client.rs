@@ -17,7 +17,7 @@ pub(crate) struct State {
 /// One host's shared client, with no socket, clock, thread or backend process.
 #[derive(Default, uniffi::Object)]
 pub struct PhoneClient {
-    state: Mutex<State>,
+    pub(crate) state: Arc<Mutex<State>>,
 }
 
 #[uniffi::export]
@@ -59,7 +59,7 @@ impl PhoneClient {
         };
         let incoming = codec::decode(&message)?;
         let effects = state.client.receive(connection, incoming)?;
-        state.batch(effects)
+        state.batch(effects, &self.state)
     }
 
     /// Retire one original socket without discarding the client's private reconnect rights.
@@ -100,7 +100,11 @@ impl State {
         PhoneFrame::from_outbound(self.generation, outgoing)
     }
 
-    pub(crate) fn batch(&self, effects: Effects) -> Result<PhoneBatch, PhoneError> {
+    pub(crate) fn batch(
+        &self,
+        effects: Effects,
+        owner: &Arc<Mutex<State>>,
+    ) -> Result<PhoneBatch, PhoneError> {
         Ok(PhoneBatch {
             outgoing: effects
                 .outgoing
@@ -117,6 +121,11 @@ impl State {
                 })
                 .collect(),
             catalog_changed: effects.catalog,
+            bodies: effects
+                .bodies
+                .into_iter()
+                .map(|token| crate::PhoneBody::new(owner, token))
+                .collect(),
             sessions: effects.sessions.into_iter().map(Into::into).collect(),
             operations: effects
                 .operations

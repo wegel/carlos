@@ -17,6 +17,7 @@ final class PhoneHostModel: Identifiable {
     var approvals: [PhoneApproval] = []
     var ralphRequest: PhoneOperation?
     var desiredRalph: Bool?
+    var followRequest = UUID()
     var controlSubmitting = false
     var draft = ""
     var submitting = false
@@ -87,7 +88,10 @@ final class PhoneHostModel: Identifiable {
             switch result {
             case .success(let operation):
                 accept(operation)
-                if self.selected == selected && draft == text { draft = "" }
+                if self.selected == selected {
+                    followRequest = UUID()
+                    if draft == text { draft = "" }
+                }
             case .failure(let failure): error = failure.localizedDescription
             }
         }
@@ -100,6 +104,7 @@ final class PhoneHostModel: Identifiable {
 
     func approve(_ card: PhoneApproval, decision: PhoneDecision) {
         guard let selected, connected, !controlSubmitting else { return }
+        followRequest = UUID()
         submitControl { try $0.approve(session: selected, approval: card.id, decision: decision) }
     }
 

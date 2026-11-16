@@ -31,6 +31,7 @@ targets:
         CFBundleDisplayName: Carlos
         UILaunchScreen: {}
         UIUserInterfaceStyle: Dark
+        UIRequiresFullScreen: true
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIAppFonts: [InterVariable.ttf, InterVariable-Italic.ttf, JetBrainsMono-Regular.ttf]
         NSLocalNetworkUsageDescription: Carlos connects to the daemon you choose on your private network.

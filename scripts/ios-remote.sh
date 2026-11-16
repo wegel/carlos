@@ -66,8 +66,14 @@ ui-test)
     cp "$BASE/$3/fixture.json" "$CARLOS_GENERATED/UIFixtures/fixture.json"
     cp "$SOURCE/apps/ios/project.yml" "$BUILD/project.yml"
     xcodegen generate --spec "$BUILD/project.yml" --project "$BUILD"
+    workflow="$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("workflow", "prompt"))' "$BASE/$3/fixture.json")"
+    case "$workflow" in
+        prompt) test_case=testConnectCreateAndSendOneExactPrompt ;;
+        controls) test_case=testApprovalAndStopPassAHeldPromptReply ;;
+        *) echo "unknown phone fixture workflow" >&2; exit 2 ;;
+    esac
     CARLOS_BUILD_CONFIGURATION=Fixture app test -destination "platform=iOS Simulator,id=$2" \
-        -only-testing:CarlosUITests -parallel-testing-enabled NO \
+        -only-testing:"CarlosUITests/SessionWorkflowTests/$test_case" -parallel-testing-enabled NO \
         -maximum-concurrent-test-simulator-destinations 1 \
         -resultBundlePath "$BUILD/ui-tests-$(date +%Y%m%dT%H%M%S).xcresult"
     ;;

@@ -159,7 +159,7 @@ impl PhoneClient {
             possibly_written,
         );
         state.retire();
-        state.batch(effects)
+        state.batch(effects, &self.state)
     }
 }
 

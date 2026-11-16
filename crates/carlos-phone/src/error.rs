@@ -11,6 +11,8 @@ pub enum PhoneError {
     InvalidInput { message: String },
     /// A bounded cache or request allowance is full.
     Capacity { message: String },
+    /// The body or history reader was closed or replaced; retain already accepted text.
+    StaleRead { message: String },
     /// The socket generation or client state cannot perform this call.
     State { message: String },
     /// The peer sent invalid facts; close this transport before attempting recovery.
@@ -24,6 +26,7 @@ impl From<ClientError> for PhoneError {
         let message = error.to_string();
         match error {
             ClientError::Capacity(_) => Self::Capacity { message },
+            ClientError::RetiredBody | ClientError::StaleHistory => Self::StaleRead { message },
             ClientError::InvalidConnection => Self::State { message },
             _ => Self::InvalidMessage { message },
         }
@@ -34,6 +37,7 @@ impl fmt::Display for PhoneError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (Self::InvalidInput { message }
         | Self::Capacity { message }
+        | Self::StaleRead { message }
         | Self::State { message }
         | Self::InvalidMessage { message }
         | Self::Internal { message }) = self;

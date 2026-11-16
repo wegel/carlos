@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run the actual iOS UI against a private daemon and native Codex peer, without inference."""
 
+import argparse
 from contextlib import contextmanager
 import json
 import os
@@ -75,18 +76,33 @@ def forward(local_port, artifacts):
         process.stderr.close()
 
 
-def run():
+def configure_controls(native):
+    """Complete only after the native peer receives the captured original Stop turn."""
+    original = native.handle
+
+    async def handle(link, request):
+        await original(link, request)
+        if request["method"] == "turn/interrupt":
+            assert request["params"]["turnId"] == "live", request
+            await native.notify(link, "turn/completed", turn={"id": "live", "status": "interrupted"})
+
+    native.handle = handle
+
+
+def run(workflow):
     """Keep the fixture alive through XCTest, then assert actual native traffic."""
     identity = "phone-" + uuid.uuid4().hex[:12]
     artifacts = ROOT / "target/ios-artifacts" / identity
     artifacts.mkdir(parents=True)
     fixture = Fixture(identity, codex=True, listen="127.0.0.1:0")
     try:
+        if workflow == "controls":
+            configure_controls(fixture.native)
         token = grant(fixture, "native-phone")
         local_port = int(fixture.ws_uri.rsplit(":", 1)[1])
         with forward(local_port, artifacts) as remote_port:
             config = {"url": f"ws://127.0.0.1:{remote_port}", "token": token,
-                      "cwd": str(fixture.root)}
+                      "cwd": str(fixture.root), "workflow": workflow}
             inputs = artifacts / "inputs"
             inputs.mkdir(mode=0o700)
             (inputs / "fixture.json").write_text(json.dumps(config))
@@ -99,11 +115,19 @@ def run():
             (artifacts / "native-prompts.json").write_text(json.dumps(observed, ensure_ascii=False) + "\n")
             if result.returncode:
                 raise RuntimeError(f"Actual phone UI test failed; native evidence: {artifacts}")
-            assert observed == ["phone exact prompt 🦀"], observed
-            print(f"Actual phone screen and one exact native prompt passed: {artifacts}")
+            expected = "held" if workflow == "controls" else "phone exact prompt 🦀"
+            assert observed == [expected], observed
+            if workflow == "controls":
+                assert fixture.native.answers == 1 and fixture.native.interrupts == 1
+                answers = [request for request in fixture.native.requests if request.get("id") == "card"]
+                assert len(answers) == 1 and answers[0]["result"]["decision"] == "accept", answers
+            assert not fixture.native.errors, fixture.native.errors
+            print(f"Actual phone {workflow} screen and native traffic passed: {artifacts}")
     finally:
         fixture.close()
 
 
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--workflow", choices=("prompt", "controls"), default="prompt")
+    run(parser.parse_args().workflow)
