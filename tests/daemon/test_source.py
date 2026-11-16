@@ -63,6 +63,40 @@ class SourceTests:
         second.call("session/subscribe", session=session, since=None)
         return fixture, first, second, session
 
+    def test_grok_tool_kinds_and_outcomes_survive_the_actual_native_process(self):
+        expected_output = "done 🌍\n"
+        fixture = Fixture("grok-tool-facts", mode="grok-tool-facts")
+        self.addCleanup(fixture.close)
+        first = Client(fixture, "reader")
+        second = Client(fixture, "collapsed")
+        self.addCleanup(first.close)
+        self.addCleanup(second.close)
+        operation = first.operation(1)
+        session = first.call("session/create", operation=operation, backend="grok", cwd=str(fixture.root), name=None)["session"]
+        first.outcome(operation)
+        second.call("session/subscribe", session=session, since=None)
+        sent = first.operation(2)
+        first.call("session/send", session=session, operation=sent, text="native facts")
+        first.outcome(sent)
+
+        def ready():
+            snapshot = second.call("session/subscribe", session=session, since=None)["snapshot"]
+            rows = [row for row in snapshot["entries"] if row.get("tool")]
+            return rows if len(rows) == 4 and snapshot["info"]["current_turn"] is None else None
+
+        rows = wait_for(ready, "all real ACP tool updates settled")
+        read, command_call, command, search_call = rows
+        self.assertEqual((read["tool"]["kind"], read["tool"]["status"]), ("read", "ok"))
+        for row in (command_call, command):
+            self.assertEqual((row["tool"]["kind"], row["tool"]["status"]), ("command", "ok"))
+        self.assertEqual((search_call["tool"]["kind"], search_call["tool"]["status"]), ("search", "failed"))
+        self.assertFalse(read["tool"]["has_output"], "read-body visibility stays unchanged")
+        for row in (command,):
+            self.assertEqual(row["text"], "")
+            self.assertEqual(row["tool"]["summary"], "1 line")
+            self.assertEqual(first.call("entry/source", session=session, entry=row["id"], cursor=None, limit=65536)["text"], expected_output)
+        self.assertFalse(any(message.get("method") in ("entry/source", "entry/output") for message in second.messages))
+
     def test_source_and_normalized_watches_keep_independent_cursors_and_split_terminal_controls(self):
         fixture, first, second, session = self.clients("source-watches")
         fixture.native.tool_first = "\x1b[3"

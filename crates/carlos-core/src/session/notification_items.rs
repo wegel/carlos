@@ -61,7 +61,49 @@ fn handle_item(
     match method {
         "codex/event/raw_response_item" => true,
         "item/started" | "item/completed" => handle_item_boundary(session, changes, method, params),
+        "item/toolFacts/updated" => {
+            update_tool_facts(session, params);
+            true
+        }
         _ => super::item_deltas::receive(session, method, params),
+    }
+}
+
+// Adapter-only metadata updates do not replace source or start label inference.
+fn update_tool_facts(session: &mut SessionState, params: &serde_json::Map<String, Value>) {
+    let Some(item) = params.get("item") else {
+        return;
+    };
+    let Some(id) = item["id"].as_str() else {
+        return;
+    };
+    let Some(index) = session.item_message_index(&session.backend_entry_key(id)) else {
+        return;
+    };
+    if session.is_item_completed(&session.backend_entry_key(id))
+        && matches!(
+            item["status"].as_str(),
+            Some("pending" | "in_progress" | "inProgress")
+        )
+    {
+        return;
+    }
+    if super::event_rows::is_tool(&session.messages()[index]) {
+        session.describe_tool_facts(index, item);
+        if session.messages()[index]
+            .tool_facts
+            .as_deref()
+            .is_some_and(|facts| {
+                matches!(
+                    facts.status,
+                    carlos_proto::session::ToolStatus::Ok
+                        | carlos_proto::session::ToolStatus::Failed
+                        | carlos_proto::session::ToolStatus::Interrupted
+                )
+            })
+        {
+            session.mark_item_completed(&session.backend_entry_key(id));
+        }
     }
 }
 
@@ -208,7 +250,15 @@ fn handle_item_completed(
         }
     };
     if let Some(item_id) = item.get("id").and_then(Value::as_str) {
-        session.mark_item_completed(&session.backend_entry_key(item_id));
+        let running_tool =
+            (kind == "commandExecution" || is_tool_call_type(kind) || is_tool_output_type(kind))
+                && matches!(
+                    item.get("status").and_then(Value::as_str),
+                    Some("pending" | "in_progress" | "inProgress")
+                );
+        if !running_tool {
+            session.mark_item_completed(&session.backend_entry_key(item_id));
+        }
     }
     handled
 }

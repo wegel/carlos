@@ -12,13 +12,17 @@ use super::tools::{
 pub(super) fn collect(message: &Message, item: &Value) -> ToolFacts {
     let previous = message.tool_facts.as_deref();
     let kind = tool_kind(message, item);
-    let kind = if kind == ToolKind::Other {
+    let kind = if kind == ToolKind::Other && item["kind"].as_str().is_none() {
         previous.map_or(kind, |facts| facts.kind)
     } else {
         kind
     };
     let status = observed_status(item)
-        .or_else(|| previous.map(|facts| facts.status))
+        .or_else(|| {
+            previous
+                .map(|facts| facts.status)
+                .filter(|status| *status != ToolStatus::Running)
+        })
         .unwrap_or(ToolStatus::Unknown);
     let (added, removed) = if message.kind == MessageKind::Diff {
         let (added, removed) = diff_counts(&message.text);
@@ -57,6 +61,15 @@ fn tool_kind(message: &Message, item: &Value) -> ToolKind {
     if message.kind == MessageKind::Diff {
         return ToolKind::Edit;
     }
+    if let Some(kind) = item["kind"].as_str() {
+        return match kind {
+            "read" => ToolKind::Read,
+            "search" => ToolKind::Search,
+            "edit" | "delete" | "move" => ToolKind::Edit,
+            "execute" => ToolKind::Command,
+            _ => ToolKind::Other,
+        };
+    }
     let name = tool_name(item).unwrap_or_default().to_ascii_lowercase();
     match name.as_str() {
         "read" | "read_file" => return ToolKind::Read,
@@ -78,6 +91,7 @@ fn tool_kind(message: &Message, item: &Value) -> ToolKind {
 
 fn observed_status(item: &Value) -> Option<ToolStatus> {
     match item["status"].as_str() {
+        Some("pending" | "in_progress" | "inProgress") => return Some(ToolStatus::Running),
         Some("interrupted" | "cancelled" | "canceled") => return Some(ToolStatus::Interrupted),
         Some("failed" | "declined") => return Some(ToolStatus::Failed),
         _ => {}

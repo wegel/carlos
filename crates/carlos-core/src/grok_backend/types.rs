@@ -54,7 +54,7 @@ pub(super) struct GrokContextUsage {
 pub(super) struct GrokToolCall {
     pub(super) name: String,
     pub(super) kind: Option<String>,
-    #[allow(dead_code)]
+    pub(super) status: String,
     pub(super) input: Value,
     pub(super) hidden_result: bool,
 }

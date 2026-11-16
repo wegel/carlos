@@ -154,7 +154,7 @@ fn tool_status(message: &Message, done: bool) -> ToolStatus {
         .tool_facts
         .as_deref()
         .map(|facts| facts.status)
-        .filter(|status| !matches!(status, ToolStatus::Unknown | ToolStatus::Running))
+        .filter(|status| *status != ToolStatus::Unknown)
     {
         status
     } else if message.tool_output.as_ref().is_some_and(|tool| tool.failed) {

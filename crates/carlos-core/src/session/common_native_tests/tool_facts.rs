@@ -127,3 +127,121 @@ fn tool_calls_keep_their_native_kind_before_a_result_exists() {
         assert_eq!(tool.summary, None);
     }
 }
+
+#[test]
+fn native_fact_updates_preserve_source_and_can_replace_a_known_kind_with_other() {
+    let mut core = session("root");
+    notify(
+        &mut core,
+        "item/completed",
+        json!({
+            "id":"call", "type":"toolCall", "tool":"Opaque native title 🌍",
+            "input":{"path":"é.rs"}, "kind":"read", "status":"pending",
+        }),
+    );
+    let source = core.messages()[0].text.clone();
+    let id = core.messages()[0].id;
+    assert_eq!(first_tool(&mut core).status, ToolStatus::Running);
+    assert!(!core.publish().snapshot(100).entries[0].done);
+    for (kind, status, outcome) in [
+        ("search", "in_progress", ToolStatus::Running),
+        ("other", "completed", ToolStatus::Ok),
+    ] {
+        let mut item = json!({"id":"call", "kind":kind, "status":status});
+        if status == "completed" {
+            item["isError"] = json!(false);
+        }
+        notify(&mut core, "item/toolFacts/updated", item);
+        let tool = first_tool(&mut core);
+        assert_eq!(
+            tool.kind,
+            if kind == "search" {
+                ToolKind::Search
+            } else {
+                ToolKind::Other
+            }
+        );
+        assert_eq!(tool.status, outcome);
+        assert_eq!(core.messages()[0].id, id);
+        assert_eq!(core.messages()[0].text, source);
+        assert_eq!(core.messages().len(), 1);
+    }
+}
+
+#[test]
+fn a_sparse_completed_command_does_not_retain_a_running_outcome_without_evidence() {
+    let mut core = session("root");
+    notify(
+        &mut core,
+        "item/started",
+        json!({
+            "id":"command", "type":"commandExecution", "command":"echo x", "status":"inProgress",
+        }),
+    );
+    assert_eq!(first_tool(&mut core).status, ToolStatus::Running);
+    notify(
+        &mut core,
+        "item/completed",
+        json!({
+            "id":"command", "type":"commandExecution", "aggregatedOutput":"x",
+        }),
+    );
+    assert_eq!(first_tool(&mut core).status, ToolStatus::Unknown);
+}
+
+#[test]
+fn diff_lines_that_look_like_headers_still_count_inside_the_hunk() {
+    let mut core = session("root");
+    notify(
+        &mut core,
+        "item/completed",
+        json!({
+            "id":"diff", "type":"toolOutput", "files":[{"filePath":"é.rs",
+            "diff":"--- a/é.rs\n+++ b/é.rs\n@@ -1 +1 @@\n--- old source\n+++ new source\n--- a/second.rs\n+++ b/second.rs\n@@ -0,0 +1 @@\n+new 🌍\n"}],
+        }),
+    );
+    let tool = first_tool(&mut core);
+    assert_eq!((tool.added, tool.removed), (Some(2), Some(1)));
+}
+
+#[test]
+fn a_turn_end_retires_an_unfinished_native_tool_without_inventing_success() {
+    let mut core = session("root");
+    core.record_turn_started("turn");
+    notify(
+        &mut core,
+        "item/completed",
+        json!({
+            "id":"call", "type":"toolCall", "tool":"Read", "status":"pending",
+            "input":{"path":"é.rs"}, "kind":"read",
+        }),
+    );
+    assert_eq!(first_tool(&mut core).status, ToolStatus::Running);
+    assert!(!core.publish().snapshot(100).entries[0].done);
+    core.record_turn_completed("turn", crate::session::models::TurnStatus::Completed);
+    let row = core.publish().snapshot(100).entries.remove(0);
+    assert!(row.done);
+    assert_eq!(row.tool.expect("tool").status, ToolStatus::Unknown);
+}
+
+#[test]
+fn terminal_native_history_retires_stale_running_tool_facts() {
+    let mut core = session("root");
+    core.set_codex_enabled_for_test(true);
+    core.enable_native_history();
+    crate::session::item_history::replace_history_from_thread(
+        &mut core,
+        &json!({
+            "id":"root", "turns":[{"id":"turn", "status":"completed", "items":[{
+                "id":"call", "type":"toolCall", "name":"Read", "status":"pending",
+                "input":{"file_path":"é.rs"},
+            }]}],
+        }),
+    )
+    .expect("checked native history");
+    let row = core.publish().snapshot(100).entries.remove(0);
+    assert!(row.done);
+    let tool = row.tool.expect("historical native tool");
+    assert_eq!(tool.kind, ToolKind::Read);
+    assert_eq!(tool.status, ToolStatus::Unknown);
+}

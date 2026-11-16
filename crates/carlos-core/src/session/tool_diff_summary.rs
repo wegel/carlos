@@ -34,12 +34,41 @@ pub fn diff_summary_parts(text: &str, file_path: Option<&str>) -> String {
 
 /// Count changed source lines without counting the two file headers.
 pub(crate) fn diff_counts(text: &str) -> (u64, u64) {
-    text.lines().fold((0, 0), |(added, removed), line| {
-        (
-            added + u64::from(line.starts_with('+') && !line.starts_with("+++ ")),
-            removed + u64::from(line.starts_with('-') && !line.starts_with("--- ")),
-        )
-    })
+    let (mut added, mut removed) = (0, 0);
+    let mut remaining = None;
+    for line in text.lines() {
+        if let Some(counts) = hunk_counts(line) {
+            remaining = Some(counts);
+            continue;
+        }
+        if line.starts_with("diff --git ") {
+            remaining = None;
+        }
+        let addition = line.starts_with('+') && (remaining.is_some() || !line.starts_with("+++ "));
+        let removal = line.starts_with('-') && (remaining.is_some() || !line.starts_with("--- "));
+        added += u64::from(addition);
+        removed += u64::from(removal);
+        if let Some((old, new)) = &mut remaining {
+            *old = old.saturating_sub(u64::from(removal || line.starts_with(' ')));
+            *new = new.saturating_sub(u64::from(addition || line.starts_with(' ')));
+            if *old == 0 && *new == 0 {
+                remaining = None;
+            }
+        }
+    }
+    (added, removed)
+}
+
+fn hunk_counts(line: &str) -> Option<(u64, u64)> {
+    let (old, new) = line.strip_prefix("@@ -")?.split_once(" +")?;
+    let (new, _) = new.split_once(" @@")?;
+    Some((range_count(old)?, range_count(new)?))
+}
+
+fn range_count(range: &str) -> Option<u64> {
+    let (start, count) = range.split_once(',').unwrap_or((range, "1"));
+    start.parse::<u64>().ok()?;
+    count.parse().ok()
 }
 
 /// Split a git diff before parsing so each file keeps its own name and language.

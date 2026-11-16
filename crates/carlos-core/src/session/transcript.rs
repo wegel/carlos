@@ -119,7 +119,14 @@ impl Transcript {
     /// Finish the currently handled mapped row, preserving existing display-step rules.
     pub fn complete(&mut self, key: &BackendEntryKey) {
         if let Some(index) = self.entry_id_for_item(key).and_then(|id| self.position(id)) {
-            if self.active.remove(&index) {
+            let mut changed = self.active.remove(&index);
+            if let Some(facts) = self.entries[index].tool_facts.as_deref_mut() {
+                if facts.status == carlos_proto::session::ToolStatus::Running {
+                    facts.status = carlos_proto::session::ToolStatus::Unknown;
+                    changed = true;
+                }
+            }
+            if changed {
                 self.record_facts(index);
             }
         }
@@ -129,6 +136,11 @@ impl Transcript {
     pub(super) fn finish_from(&mut self, start: usize) {
         while let Some(index) = self.active.range(start..).next().copied() {
             self.active.remove(&index);
+            if let Some(facts) = self.entries[index].tool_facts.as_deref_mut() {
+                if facts.status == carlos_proto::session::ToolStatus::Running {
+                    facts.status = carlos_proto::session::ToolStatus::Unknown;
+                }
+            }
             self.record_facts(index);
         }
     }

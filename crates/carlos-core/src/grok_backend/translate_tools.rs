@@ -34,21 +34,22 @@ pub(super) fn translate_tool_call(
     let tool = GrokToolCall {
         name: name.clone(),
         kind,
+        status: update
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or("pending")
+            .to_owned(),
         input: input.clone(),
         hidden_result,
     };
     if !hidden_result || !is_internal_tool(&name) {
+        let mut item = tool_facts(tool_id, &tool);
+        item["type"] = json!("toolCall");
+        item["name"] = json!(name);
+        item["input"] = tool.input.clone();
         out.lines.push(jsonrpc_notification(
             "item/completed",
-            json!({
-                "item": {
-                    "id": tool_id,
-                    "type": "toolCall",
-                    "tool": name,
-                    "name": name,
-                    "input": input,
-                }
-            }),
+            json!({"item": item}),
         ));
     }
     state.tools.insert(tool_id.to_string(), tool);
@@ -67,11 +68,23 @@ pub(super) fn translate_tool_update(
     else {
         return;
     };
-    if let Some(kind) = update.get("kind").and_then(Value::as_str) {
-        if let Some(tool) = state.tools.get_mut(tool_id) {
+    if let Some(tool) = state.tools.get_mut(tool_id) {
+        if let Some(kind) = update.get("kind").and_then(Value::as_str) {
             tool.kind = Some(kind.to_string());
             tool.hidden_result = should_hide_tool_result(&tool.name, Some(kind));
         }
+        if let Some(status) = update.get("status").and_then(Value::as_str) {
+            tool.status = status.to_owned();
+        }
+        if let Some(input) = update.get("rawInput").filter(|input| !input.is_null()) {
+            tool.input = input.clone();
+        }
+        out.lines.push(jsonrpc_notification(
+            "item/toolFacts/updated",
+            json!({
+                "item": tool_facts(tool_id, tool),
+            }),
+        ));
     }
     let status = update.get("status").and_then(Value::as_str);
     if !matches!(status, Some("completed" | "failed")) {
@@ -86,17 +99,27 @@ pub(super) fn translate_tool_update(
         return;
     }
     let text = tool_result_text(update).unwrap_or_default();
+    let mut item = state.tools.get(tool_id).map_or_else(
+        || json!({"id":format!("{tool_id}-result")}),
+        |tool| tool_facts(&format!("{tool_id}-result"), tool),
+    );
+    item["type"] = json!("toolResult");
+    item["output"] = json!(text);
+    item["text"] = item["output"].clone();
+    item["isError"] = json!(status == Some("failed"));
     out.lines.push(jsonrpc_notification(
         "item/completed",
-        json!({
-            "item": {
-                "id": format!("{tool_id}-result"),
-                "type": "toolResult",
-                "output": text,
-                "text": text,
-            }
-        }),
+        json!({"item": item}),
     ));
+}
+
+fn tool_facts(id: &str, tool: &GrokToolCall) -> Value {
+    let mut item = json!({"id":id, "tool":tool.name,
+        "kind":tool.kind, "status":tool.status});
+    if matches!(tool.status.as_str(), "completed" | "failed") {
+        item["isError"] = json!(tool.status == "failed");
+    }
+    item
 }
 
 pub(super) fn translate_usage_update(
