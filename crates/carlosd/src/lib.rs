@@ -10,6 +10,8 @@ mod transport;
 #[cfg(unix)]
 mod acceptor;
 #[cfg(unix)]
+mod command_info;
+#[cfg(unix)]
 mod manager;
 #[cfg(unix)]
 mod network;

@@ -8,8 +8,9 @@ use carlos_proto::ids::{ClientId, DeviceId};
 use carlos_proto::submissions::{ClientOperation, OperationResult, OperationState};
 
 use super::Manager;
+use crate::command_info::describe;
 use crate::registry::{RegistryError, SavedDevice};
-use crate::retry::{Admission, Class, ClientScope};
+use crate::retry::{Admission, ClientScope};
 use crate::transport::wire::error;
 
 #[derive(Clone)]
@@ -148,6 +149,9 @@ impl Manager {
 
     fn device_mutation(&mut self, peer: u64, id: RequestId, command: Command, client: ClientId) {
         let canonical = serde_json::to_vec(&command).expect("typed device command");
+        let class = describe(&command)
+            .retry
+            .expect("device mutation retry class");
         let (operation, change) = match device_change(command) {
             Ok(parts) => parts,
             Err(reason) => {
@@ -160,7 +164,7 @@ impl Manager {
             operation,
             None,
             canonical,
-            Class::Operator,
+            class,
             std::time::Instant::now(),
         ) {
             Ok(Admission::Existing(result)) => {

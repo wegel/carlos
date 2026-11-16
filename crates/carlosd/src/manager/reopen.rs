@@ -8,6 +8,7 @@ use carlos_proto::session::Availability;
 use carlos_proto::submissions::{OperationResult, OperationState};
 
 use super::Manager;
+use crate::command_info::describe;
 use crate::retry::{Admission, Class};
 
 impl Manager {
@@ -54,9 +55,13 @@ impl Manager {
             unreachable!("reopen");
         };
         let session = session.clone();
-        let Some(mut result) =
-            self.admit_lifecycle(peer, id.clone(), &command, &client, Class::Ordinary)
-        else {
+        let Some(mut result) = self.admit_lifecycle(
+            peer,
+            id.clone(),
+            &command,
+            &client,
+            describe(&command).retry.expect("reopen retry class"),
+        ) else {
             return;
         };
         let reason = self.reopen_failure(&session);

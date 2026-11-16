@@ -8,7 +8,7 @@ use carlos_proto::submissions::{OperationResult, OperationState};
 use super::state::{ReadKind, Stopping};
 use super::stop_worker::{self, Stopped};
 use super::Manager;
-use crate::retry::Class;
+use crate::command_info::describe;
 use crate::transport::wire::error;
 
 impl Manager {
@@ -23,9 +23,13 @@ impl Manager {
             unreachable!("typed session stop");
         };
         let session = session.clone();
-        let Some(result) =
-            self.admit_lifecycle(peer, id.clone(), &command, &client, Class::Lifecycle)
-        else {
+        let Some(result) = self.admit_lifecycle(
+            peer,
+            id.clone(),
+            &command,
+            &client,
+            describe(&command).retry.expect("stop retry class"),
+        ) else {
             return;
         };
         if !self.sessions.contains_key(&session) {

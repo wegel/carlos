@@ -3,7 +3,9 @@
 use std::collections::VecDeque;
 use std::sync::{mpsc, Arc, Mutex};
 
-use carlos_proto::commands::{Command, Request};
+use carlos_proto::commands::Request;
+
+use crate::command_info::describe;
 
 pub(crate) struct Incoming {
     pub peer: u64,
@@ -41,30 +43,7 @@ impl Ingress {
     }
 
     fn push_in(&self, peer: u64, request: Request, bytes: usize, network: bool) -> bool {
-        let kind = match request.command {
-            Command::DeviceAdd(_) | Command::DeviceRevoke(_) | Command::DeviceList {} => 4,
-            Command::Reopen(_)
-            | Command::Create { .. }
-            | Command::SavedArchive { .. }
-            | Command::Open { .. }
-            | Command::Send { .. }
-            | Command::SetRalph { .. }
-            | Command::ToggleRalph { .. }
-            | Command::Rename { .. }
-            | Command::GoalSet { .. }
-            | Command::GoalClear { .. }
-            | Command::QueueChange { .. }
-            | Command::SettingsSet { .. }
-            | Command::ContextSet { .. }
-            | Command::ToolLabelsSet { .. }
-            | Command::Rewind { .. } => 0,
-            Command::TaskStop { .. }
-            | Command::Interrupt { .. }
-            | Command::Approve { .. }
-            | Command::Reconnect { .. } => 1,
-            Command::Stop(_) => 3,
-            _ => 2,
-        };
+        let kind = describe(&request.command).ingress as usize;
         let limits = [
             (64, 8 * 1024 * 1024),
             (32, 2 * 1024 * 1024),

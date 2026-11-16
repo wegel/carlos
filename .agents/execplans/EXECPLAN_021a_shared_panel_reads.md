@@ -13,11 +13,13 @@ EP021 is split at a natural boundary. This plan shares existing read behavior an
 
 ## Progress
 
+- [x] (2026-11-16) Add one exhaustive command_info.rs description used by ingress, manager routing and every mutation retry-class choice, including asynchronous open. Remove wildcard read fallback and repeated Native/Core class literals; name Prepared fields instead of tuple positions. The intermediate49 daemon Rust cases and full1657 default workspace cases pass, strict default lint and400/60 audit pass, and matching debug executables build. The complete186 actual-daemon regression passes106.507s at /tmp/carlos-ep021a-admission.log. Both feature/final release/performance checks remain required at this plan's end.
+
 
 - [x] (2026-11-16) Read the completed EP020 gates, exact-pair measurements, both final Fable reports and all decisions. Identify repeated queue/settings/goal/task read settlement in the terminal and checked low-level reads already present in carlos-client.
 - [x] (2026-11-16) Split shared-reader/admission cleanup into EP021a and leave native feature work in EP021b, whose full plan will be written after this one ends.
 - [x] (2026-11-16) Rename Stage::Written/printed written to Returned/returned in both native writers and real-pipe assertions. Add a signalled real reader that drains256KiB for more than500ms, pauses with its4MiB frame still charged, then observes automatic peer closure and zero charge without external Drop/close. The focused test passes1.86s; all1657 default workspace cases pass18.96s and the400/60 audit passes. The healthy paced and never-reading cases remain. Full final gate/performance checks stay required after the cleanup.
-- [ ] Replace hand-kept daemon admission groups with one exhaustive command description used by ingress, routing and mutation retry class selection.
+- [x] (2026-11-16) Replace hand-kept daemon admission groups with one exhaustive command description used by ingress, typed routing and all mutation retry classes. The complete186 actual-daemon cases pass106.507s at /tmp/carlos-ep021a-admission.log, including full-queue stop/control/operator/local reserves and native/private recovery. Default workspace1657, strict lint, debug pair build and400/60 source audit pass. Preserve FIFO, budgets, scopes and canonical wire bytes.
 - [ ] Prove one shared queue reader in carlos-client and remove its matching terminal page/reply driver.
 - [ ] Move settings, goal and task list/detail/window/activity/overview readers into typed shared client models, preserving all current bounds and stale/root/reader checks; remove matching terminal copies.
 - [ ] Examine duplicate wire/Engine command payload wrappers and replace clear identical records with named payloads, preserving distinct scopes and flat wire shapes. Record any justified remaining wrappers.
@@ -25,6 +27,8 @@ EP021 is split at a natural boundary. This plan shares existing read behavior an
 - [ ] Complete direct engineering and Fable whole-roadmap reviews, record dispositions and delegated approval, archive unchanged, then write EP021b and continue.
 
 ## Surprises & Discoveries
+
+The command description needs distinct handler, ingress and retry fields: device/list uses the operator ingress reserve without a retained mutation result; stop uses lifecycle reserve; reopen is ordinary; asynchronous native open must retain the same ordinary class after its checked target completes. A single role cannot replace these independent rules. Named Prepared fields also remove a tuple-position dependency when attaching a captured task window. No command method names, wire payloads or canonical bytes changed.
 
 A test cannot equate the final application read with the exact final TCP write, because both kernel buffers can still move data afterward. The new test synchronizes the application pause, proves a charged frame remains after more than500ms of real draining, then waits for the worker's own timeout/teardown within a broad bounded allowance. It asserts automatic close and zero charge, not an invented exact500ms delay from the pause signal. A paused client stays open until the server closes it. Capture outbox counts outside the mutex guard before assertions so a failing assertion does not poison the worker's teardown lock.
 
@@ -36,6 +40,8 @@ Current queue/task page windows retain only one bounded preview page and opaque 
 EP020's focused Fable follow-up approves closure with three MINORs. A reader that first makes progress and then stalls still needs an explicit socket test. The timing field currently called written records an I/O attempt returning even on error, so its label should say returned. The real-pipe/Python and paced-reader timing tests have wide margins; change them only if a reproducible failure justifies it. The old unexplained 500 ms Claude event remains a recorded risk, not a root-cause repair.
 
 ## Decision Log
+
+- Decision: keep one small CommandInfo record with handler, ingress and optional retry class, selected by an exhaustive match on all Command variants. Group a few related variants per arm to keep the function readable within60 lines. Existing handlers retain their scopes and static budgets. Asynchronous open uses the same OPEN description rather than a second class literal. Rationale: new commands require an explicit choice without a registry, generic handler framework or broad wire API change. Date/author: 2026-11-16, Root.
 
 - Decision: name the native diagnostic stage Returned and describe an attempted write/flush returning even on error. Keep all timestamps and pre-cleanup snapshots. Rationale: a write returning is not proof of success or native acceptance. Date/author: 2026-11-16, Root.
 - Decision: test partial progress with a paced real TCP stream and explicit pause/release channels, keeping the socket open and frame larger than its kernel buffers. Rationale: it exercises the new deadline state and verifies actual worker cleanup without adding a production observer, generic I/O framework or minimum transfer rate. Date/author: 2026-11-16, Root.
@@ -50,7 +56,7 @@ EP020's focused Fable follow-up approves closure with three MINORs. A reader tha
 ## Outcomes & Retrospective
 
 
-The first two EP020 follow-ups are implemented and the default workspace tests pass: native timeout text now says returned, and a real progressing-then-stalled reader closes automatically and releases its active charge. The accepted EP020 pair remains unchanged as the baseline. Exhaustive admission and the first shared queue reader are next. This plan must end with one reusable set of read controllers and fewer matching terminal controllers, not a parallel implementation kept indefinitely.
+The first two EP020 follow-ups are implemented and the default workspace tests pass: native timeout text now says returned, and a real progressing-then-stalled reader closes automatically and releases its active charge. The accepted EP020 pair remains unchanged as the baseline. The exhaustive description now drives ingress, typed handlers and mutation retry classes; unit/default/lint checks and all186 actual-daemon cases pass. The first shared queue reader remains next after that proof. This plan must end with one reusable set of read controllers and fewer matching terminal controllers, not a parallel implementation kept indefinitely.
 
 ## Context and Orientation
 
@@ -166,3 +172,7 @@ The daemon command description must remain one exhaustive, data-only mapping to 
 Revision 2026-11-16: create EP021a after delegated EP020 approval, splitting required shared-reader/admission cleanup from later native features. Include all accepted whole-roadmap findings and the non-blocking focused follow-up tests/diagnostic label change without reopening EP020's checked runtime.
 
 Revision 2026-11-16: finish the two focused EP020 follow-ups, record the real partial-progress proof and truthful write-return diagnostics, and keep exhaustive admission/shared queue reads next. No reviewer runs before this whole plan is ready.
+
+Revision 2026-11-16: connect exhaustive command descriptions to actual ingress/routing/retry admission, retain the existing reserves/scopes and record the green Rust/lint/build checks while the full daemon regression runs. No independent reviewer has started in EP021a.
+
+Revision 2026-11-16: complete the unified admission slice after all186 actual-daemon cases and default/lint/source checks pass. The shared queue reader is the next incomplete milestone; the full final feature/release/performance/review gates remain required after all reader migrations.

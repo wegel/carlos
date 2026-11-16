@@ -7,6 +7,7 @@ use carlos_proto::commands::{check_protocol, Command, Hello, Request, RequestId,
 use carlos_proto::submissions::{OperationResult, OperationState};
 
 use super::Manager;
+use crate::command_info::{describe, Handler};
 use crate::retry::{Admission, Resume};
 use crate::transport::wire::error;
 
@@ -16,7 +17,8 @@ impl Manager {
         let Some(connection) = self.peers.get(&peer) else {
             return;
         };
-        if matches!(command, Command::Hello(_)) {
+        let info = describe(&command);
+        if info.handler == Handler::Hello {
             self.hello(peer, id, command);
             return;
         }
@@ -28,44 +30,26 @@ impl Manager {
             self.fail(peer, id, reason);
             return;
         }
-        match command {
-            command @ (Command::DeviceAdd(_)
-            | Command::DeviceRevoke(_)
-            | Command::DeviceList {}) => self.device_command(peer, id, command, client),
-            command @ (Command::PromptSelect { .. } | Command::PromptText { .. }) => {
-                self.prompt_read_command(peer, id, command)
-            }
-            command @ (Command::Open { .. }
-            | Command::SavedArchive { .. }
-            | Command::SavedOpen { .. }
-            | Command::SavedPage { .. }
-            | Command::SavedClose { .. }) => self.startup_command(peer, id, command, client),
-            Command::Create { .. } => self.create(peer, id, command, client),
-            Command::Stop(_) => self.stop_command(peer, id, command, client),
-            Command::Reopen(_) => self.reopen_command(peer, id, command, client),
-            Command::Send { .. }
-            | Command::Rename { .. }
-            | Command::Rewind { .. }
-            | Command::SetRalph { .. }
-            | Command::ToggleRalph { .. }
-            | Command::GoalSet { .. }
-            | Command::GoalClear { .. }
-            | Command::QueueChange { .. }
-            | Command::ContextSet { .. }
-            | Command::SettingsSet { .. }
-            | Command::ToolLabelsSet { .. }
-            | Command::TaskStop { .. }
-            | Command::Approve { .. }
-            | Command::Interrupt { .. }
-            | Command::Reconnect { .. } => self.mutate(peer, id, command, client),
-            Command::Watch {} => self.watch_sessions(peer, id),
-            Command::Operation { operation } => {
+        match info.handler {
+            Handler::Hello => unreachable!("greeting handled before client lookup"),
+            Handler::Devices => self.device_command(peer, id, command, client),
+            Handler::Prompts => self.prompt_read_command(peer, id, command),
+            Handler::Startup => self.startup_command(peer, id, command, client),
+            Handler::Create => self.create(peer, id, command, client),
+            Handler::Stop => self.stop_command(peer, id, command, client),
+            Handler::Reopen => self.reopen_command(peer, id, command, client),
+            Handler::Mutation => self.mutate(peer, id, command, client),
+            Handler::Watch => self.watch_sessions(peer, id),
+            Handler::Operation => {
+                let Command::Operation { operation } = command else {
+                    unreachable!("operation description")
+                };
                 match self.retry.read(&client, &operation, Instant::now()) {
                     Ok(result) => self.reply(peer, id, result),
                     Err(reason) => self.fail(peer, id, reason),
                 }
             }
-            command => self.read_command(peer, id, command),
+            Handler::Read => self.read_command(peer, id, command),
         }
     }
 
@@ -192,8 +176,7 @@ impl Manager {
         client: carlos_proto::ids::ClientId,
     ) {
         let canonical = serde_json::to_vec(&command).expect("typed command");
-        let (session, operation, work, recovery, class) = match self.prepare_mutation(peer, command)
-        {
+        let prepared = match self.prepare_mutation(peer, command) {
             Ok(parts) => parts,
             Err(reason) => {
                 self.fail(peer, id, reason);
@@ -202,10 +185,10 @@ impl Manager {
         };
         let result = match self.retry.admit(
             &client,
-            operation,
-            Some(session.clone()),
+            prepared.operation,
+            Some(prepared.session.clone()),
             canonical,
-            class,
+            prepared.class,
             Instant::now(),
         ) {
             Ok(Admission::Existing(result)) => {
@@ -220,18 +203,18 @@ impl Manager {
         };
         let admitted = self
             .sessions
-            .get(&session)
+            .get(&prepared.session)
             .filter(|session| session.stopping.is_none())
             .and_then(|session| session.live.as_ref())
             .ok_or_else(|| error(-32012, "session has no live owner; subscribe to restore it"))
-            .and_then(|live| live.handle.request(work));
+            .and_then(|live| live.handle.request(prepared.work));
         match admitted {
             Ok(_) => self.reply(peer, id, result),
             Err(reason) => {
                 let result = OperationResult {
                     state: OperationState::Rejected {
                         message: reason.message,
-                        recovery,
+                        recovery: prepared.recovery,
                     },
                     ..result
                 };
@@ -248,7 +231,8 @@ impl Manager {
     ) -> Result<super::mutation_work::Prepared, carlos_proto::commands::RpcError> {
         let window = self.task_command_context(peer, &command)?;
         let mut prepared = super::mutation_work::prepare(command)?;
-        if let carlos_core::engine::EngineCommand::TaskStop { window: target, .. } = &mut prepared.2
+        if let carlos_core::engine::EngineCommand::TaskStop { window: target, .. } =
+            &mut prepared.work
         {
             *target = window;
         }

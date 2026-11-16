@@ -4,19 +4,29 @@ use carlos_core::engine::EngineCommand;
 use carlos_proto::commands::Command;
 use carlos_proto::submissions::SubmittedText;
 
+use crate::command_info::describe;
 use crate::retry::Class;
 use crate::transport::wire::error;
 
-pub(super) type Prepared = (
+/// Carry validated native work and its shared command-description retry class.
+pub(super) struct Prepared {
+    pub session: carlos_proto::ids::SessionId,
+    pub operation: carlos_proto::submissions::ClientOperation,
+    pub work: EngineCommand,
+    pub recovery: Option<SubmittedText>,
+    pub class: Class,
+}
+
+type Work = (
     carlos_proto::ids::SessionId,
     carlos_proto::submissions::ClientOperation,
     EngineCommand,
     Option<SubmittedText>,
-    Class,
 );
 
 pub(super) fn prepare(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
-    match command {
+    let class = describe(&command).retry.expect("mutation retry class");
+    let (session, operation, work, recovery) = match command {
         labels @ Command::ToolLabelsSet { .. } => prepare_tool_labels(labels),
         context @ Command::ContextSet { .. } => prepare_context(context),
         settings @ Command::SettingsSet { .. } => prepare_settings(settings),
@@ -35,7 +45,14 @@ pub(super) fn prepare(command: Command) -> Result<Prepared, carlos_proto::comman
         | Command::Reconnect { .. }) => Ok(prepare_control(control)),
         command @ (Command::Rename { .. } | Command::Rewind { .. }) => prepare_edit(command),
         _ => unreachable!("mutation route"),
-    }
+    }?;
+    Ok(Prepared {
+        session,
+        operation,
+        work,
+        recovery,
+        class,
+    })
 }
 
 fn prepare_send(
@@ -43,7 +60,7 @@ fn prepare_send(
     operation: carlos_proto::submissions::ClientOperation,
     text: String,
     policy: carlos_proto::commands::SendPolicy,
-) -> Result<Prepared, carlos_proto::commands::RpcError> {
+) -> Result<Work, carlos_proto::commands::RpcError> {
     if text.len() > crate::limits::SEND_BYTES {
         return Err(error(-32602, "send exceeds 512 KiB; nothing dispatched"));
     }
@@ -60,11 +77,10 @@ fn prepare_send(
             policy,
         },
         recovery,
-        Class::Ordinary,
     ))
 }
 
-fn prepare_edit(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
+fn prepare_edit(command: Command) -> Result<Work, carlos_proto::commands::RpcError> {
     let (session, operation, work, recovery) = match command {
         Command::Rename {
             session,
@@ -107,10 +123,10 @@ fn prepare_edit(command: Command) -> Result<Prepared, carlos_proto::commands::Rp
         }
         _ => unreachable!("typed edit route"),
     };
-    Ok((session, operation, work, recovery, Class::Ordinary))
+    Ok((session, operation, work, recovery))
 }
 
-fn prepare_goal(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
+fn prepare_goal(command: Command) -> Result<Work, carlos_proto::commands::RpcError> {
     Ok(match command {
         Command::GoalSet {
             session,
@@ -134,7 +150,6 @@ fn prepare_goal(command: Command) -> Result<Prepared, carlos_proto::commands::Rp
                     change,
                 },
                 None,
-                Class::Ordinary,
             )
         }
         Command::GoalClear {
@@ -149,13 +164,12 @@ fn prepare_goal(command: Command) -> Result<Prepared, carlos_proto::commands::Rp
                 expected,
             },
             None,
-            Class::Ordinary,
         ),
         _ => unreachable!("typed goal mutation"),
     })
 }
 
-fn prepare_queue(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
+fn prepare_queue(command: Command) -> Result<Work, carlos_proto::commands::RpcError> {
     match command {
         Command::QueueChange {
             session,
@@ -182,14 +196,13 @@ fn prepare_queue(command: Command) -> Result<Prepared, carlos_proto::commands::R
                     change,
                 },
                 recovery,
-                Class::Ordinary,
             ))
         }
         _ => unreachable!("typed queue mutation"),
     }
 }
 
-fn prepare_task_stop(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
+fn prepare_task_stop(command: Command) -> Result<Work, carlos_proto::commands::RpcError> {
     Ok(match command {
         Command::TaskStop {
             window: _,
@@ -207,20 +220,18 @@ fn prepare_task_stop(command: Command) -> Result<Prepared, carlos_proto::command
                 expected_run,
             },
             None,
-            Class::Control,
         ),
         _ => unreachable!("typed task stop route"),
     })
 }
 
-fn prepare_control(command: Command) -> Prepared {
+fn prepare_control(command: Command) -> Work {
     match command {
         Command::Reconnect { session, operation } => (
             session,
             operation.clone(),
             EngineCommand::Reconnect { operation },
             None,
-            Class::Control,
         ),
         Command::Approve {
             session,
@@ -236,7 +247,6 @@ fn prepare_control(command: Command) -> Prepared {
                 answer,
             },
             None,
-            Class::Control,
         ),
         Command::Interrupt {
             session,
@@ -247,13 +257,12 @@ fn prepare_control(command: Command) -> Prepared {
             operation.clone(),
             EngineCommand::Interrupt { operation, turn },
             None,
-            Class::Control,
         ),
         _ => unreachable!("typed control command"),
     }
 }
 
-fn prepare_context(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
+fn prepare_context(command: Command) -> Result<Work, carlos_proto::commands::RpcError> {
     let Command::ContextSet {
         session,
         operation,
@@ -267,11 +276,10 @@ fn prepare_context(command: Command) -> Result<Prepared, carlos_proto::commands:
         operation.clone(),
         EngineCommand::ContextSet { operation, choice },
         None,
-        Class::Ordinary,
     ))
 }
 
-fn prepare_settings(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
+fn prepare_settings(command: Command) -> Result<Work, carlos_proto::commands::RpcError> {
     let Command::SettingsSet {
         session,
         operation,
@@ -292,11 +300,10 @@ fn prepare_settings(command: Command) -> Result<Prepared, carlos_proto::commands
             save_default,
         },
         None,
-        Class::Ordinary,
     ))
 }
 
-fn prepare_tool_labels(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
+fn prepare_tool_labels(command: Command) -> Result<Work, carlos_proto::commands::RpcError> {
     let Command::ToolLabelsSet {
         session,
         operation,
@@ -317,11 +324,10 @@ fn prepare_tool_labels(command: Command) -> Result<Prepared, carlos_proto::comma
             save_default,
         },
         None,
-        Class::Ordinary,
     ))
 }
 
-fn prepare_ralph(command: Command) -> Result<Prepared, carlos_proto::commands::RpcError> {
+fn prepare_ralph(command: Command) -> Result<Work, carlos_proto::commands::RpcError> {
     let (session, operation, work) = match command {
         Command::SetRalph {
             session,
@@ -353,7 +359,7 @@ fn prepare_ralph(command: Command) -> Result<Prepared, carlos_proto::commands::R
         ),
         _ => unreachable!("typed Ralph request"),
     };
-    Ok((session, operation, work, None, Class::Ordinary))
+    Ok((session, operation, work, None))
 }
 
 #[cfg(test)]

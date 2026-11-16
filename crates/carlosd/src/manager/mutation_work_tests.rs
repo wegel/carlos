@@ -4,7 +4,7 @@ use carlos_core::engine::EngineCommand;
 use carlos_proto::commands::Command;
 use serde_json::{json, Value};
 
-use super::prepare;
+use super::{prepare, Prepared};
 use crate::retry::Class;
 use crate::transport::wire::decode;
 
@@ -25,7 +25,12 @@ fn context_native_and_label_settings_reach_their_own_ordinary_work() {
         ),
     ];
     for (index, (method, extra)) in cases.into_iter().enumerate() {
-        let (_, _, work, recovery, class) = prepare(command(method, extra)).expect("settings work");
+        let Prepared {
+            work,
+            recovery,
+            class,
+            ..
+        } = prepare(command(method, extra)).expect("settings work");
         assert!(matches!(class, Class::Ordinary));
         assert!(recovery.is_none());
         match (index, work) {

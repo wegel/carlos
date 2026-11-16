@@ -10,10 +10,11 @@ use carlos_proto::submissions::{OperationResult, OperationState};
 
 use super::saved::opaque_id;
 use super::{workers, Completed, Job, JobKind, OpenRequest};
+use crate::command_info::OPEN;
 use crate::manager::state::Session;
 use crate::manager::Manager;
 use crate::registry::SavedSession;
-use crate::retry::{Admission, Class};
+use crate::retry::Admission;
 
 impl Manager {
     pub(super) fn open_command(
@@ -128,7 +129,7 @@ impl Manager {
             request.operation.clone(),
             Some(session.clone()),
             std::mem::take(&mut request.canonical),
-            Class::Ordinary,
+            OPEN.retry.expect("open retry class"),
             Instant::now(),
         ) {
             Ok(Admission::Existing(result)) => {

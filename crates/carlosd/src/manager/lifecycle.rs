@@ -16,13 +16,15 @@ use carlos_proto::submissions::{OperationResult, OperationState};
 
 use super::state::Session;
 use super::Manager;
+use crate::command_info::describe;
 use crate::registry::SavedSession;
-use crate::retry::{Admission, Class};
+use crate::retry::Admission;
 use crate::transport::wire;
 
 impl Manager {
     pub(super) fn create(&mut self, peer: u64, id: RequestId, command: Command, client: ClientId) {
         let canonical = serde_json::to_vec(&command).expect("typed command");
+        let class = describe(&command).retry.expect("create retry class");
         let Command::Create {
             operation,
             backend,
@@ -40,7 +42,7 @@ impl Manager {
             operation,
             Some(session.clone()),
             canonical,
-            Class::Ordinary,
+            class,
             Instant::now(),
         ) {
             Ok(Admission::Existing(result)) => {

@@ -9,8 +9,9 @@ use carlos_proto::session::Backend;
 use carlos_proto::submissions::{OperationResult, OperationState};
 
 use super::{Completed, JobKind};
+use crate::command_info::describe;
 use crate::manager::Manager;
-use crate::retry::{Admission, Class};
+use crate::retry::Admission;
 use crate::transport::wire::error;
 
 pub(super) struct ArchiveJob {
@@ -28,6 +29,7 @@ impl Manager {
         client: ClientId,
     ) {
         let canonical = serde_json::to_vec(&command).expect("typed archive");
+        let class = describe(&command).retry.expect("archive retry class");
         let Command::SavedArchive {
             operation,
             scope,
@@ -51,18 +53,15 @@ impl Manager {
         if let Err(reason) = self.startup_admission(peer) {
             return self.fail(peer, id, reason);
         }
-        let result = match self.retry.admit(
-            &client,
-            operation,
-            None,
-            canonical,
-            Class::Ordinary,
-            Instant::now(),
-        ) {
-            Ok(Admission::Existing(result)) => return self.reply(peer, id, result),
-            Ok(Admission::New(result)) => result,
-            Err(reason) => return self.fail(peer, id, reason),
-        };
+        let result =
+            match self
+                .retry
+                .admit(&client, operation, None, canonical, class, Instant::now())
+            {
+                Ok(Admission::Existing(result)) => return self.reply(peer, id, result),
+                Ok(Admission::New(result)) => result,
+                Err(reason) => return self.fail(peer, id, reason),
+            };
         self.launch_archive(peer, id, result, scope, choice, request);
     }
 
