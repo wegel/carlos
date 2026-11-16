@@ -30,6 +30,7 @@ mod protocol_writer;
 pub mod runtime_preferences;
 pub mod saved_sessions;
 pub mod session;
+mod write_timing;
 pub use session::engine;
 pub mod summaries;
 pub mod ui_preferences;

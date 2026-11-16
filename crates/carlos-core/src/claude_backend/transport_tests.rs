@@ -26,6 +26,8 @@ fn stuck_helper_stdin_cannot_block_request_or_shutdown_forever() {
         .request("hello", json!({ "text": "x".repeat(2 * 1024 * 1024) }))
         .expect_err("stuck pipe must fail");
     assert!(error.to_string().contains("stdin did not finish"));
+    assert!(error.to_string().contains("ready+"));
+    assert!(error.to_string().contains("written=pending"));
     assert!(transport.state.is_closed());
     transport.stop();
     assert!(
