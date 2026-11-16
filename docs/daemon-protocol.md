@@ -120,7 +120,9 @@ must exercise them before the listener is accepted.
 - Each socket writer: 128 frames/sixteen MiB including the frame being written.
   Ordinary shared facts/output/source use at most 96 frames and eight MiB, leaving 32 frame slots and eight MiB for replies and a replacement
   page or an explicit watch reset. Socket workers request 64 KiB kernel send/receive
-  buffers; the OS may round those limits. A blocked write expires after 500 ms. If the
+  buffers; the OS may round those limits. A Unix write expires after 500 ms. A WebSocket write expires after 500 ms
+  without successful TCP write progress; a healthy throttled reader may take
+  longer to receive a large frame, which stays charged until the actual flush. If the
   writer cannot queue a required private reply or replacement, it closes that
   peer; the session and private results survive.
 - The manager admits incoming frames through one FIFO with separate count/byte
@@ -140,7 +142,12 @@ must exercise them before the listener is accepted.
 
 These byte budgets count encoded or admitted data. The final report measures
 resident memory separately and accounts for decoded structures and native history.
-Wire-byte limits do not describe an exact heap limit.
+Wire-byte limits do not describe an exact heap limit. All network devices share
+the network ingress allowance and the 128-entry network identity pool. A flooding
+device can cause another network socket to close or an inactive lease to expire;
+it cannot borrow that lease's private results or authorize replay. Local ingress
+and identity allowances remain separate. Devices share the operator's session
+controls; the daemon does not promise per-device scheduling or reserved retry slots.
 
 ## Saved sessions and shutdown
 

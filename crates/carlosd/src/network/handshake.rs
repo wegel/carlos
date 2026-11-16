@@ -13,6 +13,7 @@ pub(crate) type Socket = WebSocket<HandshakeStream>;
 
 pub(crate) struct HandshakeStream {
     pub stream: TcpStream,
+    pub written: u64,
     deadline: Instant,
     received: usize,
     handshaking: bool,
@@ -43,6 +44,7 @@ pub(crate) fn upgrade(
     socket2::SockRef::from(&stream).set_recv_buffer_size(64 * 1024)?;
     let stream = HandshakeStream {
         stream,
+        written: 0,
         deadline,
         received: 0,
         handshaking: true,
@@ -126,7 +128,9 @@ impl Write for HandshakeStream {
         if self.handshaking {
             self.stream.set_write_timeout(Some(self.remaining()?))?;
         }
-        self.stream.write(bytes)
+        let count = self.stream.write(bytes)?;
+        self.written = self.written.wrapping_add(count as u64);
+        Ok(count)
     }
 
     fn flush(&mut self) -> io::Result<()> {

@@ -245,7 +245,9 @@ within five seconds of TCP acceptance, including the HTTP upgrade. After a
 successful greeting, each incoming aggregate message may contain at most four
 MiB; outgoing messages may contain at most eight MiB. Binary messages and
 malformed UTF-8 fail without dispatch. Ping/pong and close use WebSocket control
-frames. The daemon closes blocked writes after 500 ms and retains the private
+frames. The daemon closes WebSocket writes after 500 ms without successful TCP write
+progress. A large frame may take longer while the reader keeps draining it; its
+outbox bytes stay charged until flush. The daemon retains the private
 operation results for an authenticated reconnect.
 
 The daemon allows 16 network sockets separately from 16 local sockets, with at

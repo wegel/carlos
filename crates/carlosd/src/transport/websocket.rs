@@ -31,6 +31,7 @@ struct Pending {
     frame: Option<Frame>,
     deadline: Option<Instant>,
     closing: bool,
+    written: u64,
 }
 
 struct Worker {
@@ -192,9 +193,18 @@ impl Worker {
     }
 
     fn flushing(&mut self) {
-        self.pending
-            .deadline
-            .get_or_insert_with(|| Instant::now() + Duration::from_millis(500));
+        if self.pending.deadline.is_none() {
+            self.pending.written = self.socket.get_ref().written;
+            self.pending.deadline = Some(Instant::now() + Duration::from_millis(500));
+        }
+    }
+
+    fn write_progress(&mut self) {
+        let written = self.socket.get_ref().written;
+        if written != self.pending.written {
+            self.pending.written = written;
+            self.pending.deadline = Some(Instant::now() + Duration::from_millis(500));
+        }
     }
 
     fn write(&mut self) -> io::Result<bool> {
@@ -211,13 +221,20 @@ impl Worker {
                 }
             }
         }
-        let Some(deadline) = self.pending.deadline else {
+        if self.pending.deadline.is_none() {
             return Ok(false);
-        };
-        if Instant::now() >= deadline {
+        }
+        self.write_progress();
+        if self
+            .pending
+            .deadline
+            .is_some_and(|deadline| Instant::now() >= deadline)
+        {
             return Err(io::ErrorKind::TimedOut.into());
         }
-        match self.socket.flush() {
+        let flushed = self.socket.flush();
+        self.write_progress();
+        match flushed {
             Ok(()) => {
                 if let Some(frame) = self.pending.frame.take() {
                     self.controls.output.finish(&frame);

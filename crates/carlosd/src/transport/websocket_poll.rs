@@ -1,4 +1,4 @@
-//! Sleep until TCP, queued output or a fixed handshake/write deadline can make progress.
+//! Sleep until TCP, queued output, an absolute login deadline or a write stall needs work.
 
 use std::io::{self, Read};
 use std::net::TcpStream;
