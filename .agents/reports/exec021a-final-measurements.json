@@ -1,0 +1,3449 @@
+{
+  "identity": {
+    "head": "9cc99ffff675c9004425c1cf3d4d1f98c24bea38",
+    "build_info": {
+      "carlos": {
+        "protocol": 1,
+        "version": "0.1.0",
+        "source": "dad5d9c9bf67b420b1cf2625d8a0af6d"
+      },
+      "carlosd": {
+        "protocol": 1,
+        "version": "0.1.0",
+        "source": "dad5d9c9bf67b420b1cf2625d8a0af6d"
+      }
+    },
+    "validation_logs": [
+      "/tmp/carlos-ep021a/release-gate-03.log"
+    ],
+    "files": {
+      "carlos": {
+        "path": "/tmp/carlos-ep021a/final-pair/carlos",
+        "bytes": 17497600,
+        "sha256": "ac03dc965688fa0ccf13489b0851065b5c1542387edb67f1415eff0c98db96c3"
+      },
+      "carlosd": {
+        "path": "/tmp/carlos-ep021a/final-pair/carlosd",
+        "bytes": 20158056,
+        "sha256": "a6b38a4d860692af01a0dac210191e956899d754b880a12446dea448d7e436a3"
+      },
+      "carlos-claude-controller": {
+        "path": "/tmp/carlos-ep021a/final-pair/carlos-claude-controller",
+        "bytes": 104780090,
+        "sha256": "01a3485c9dabd395a0a763c58e49fcc22234cdd3d1081969d4266be8e0b7a42f"
+      },
+      "perf_replay": {
+        "path": "/tmp/carlos-ep021a/final-pair/perf_replay",
+        "bytes": 2675560,
+        "sha256": "6ade298cba75940929f3ead21da3929bb88d8cdd5b333957b23834ae7772fcd2"
+      }
+    }
+  },
+  "renderer": {
+    "synthetic": {
+      "samples": 15,
+      "counts": [
+        6001,
+        39347,
+        6000
+      ],
+      "medians": {
+        "ep020": {
+          "apply": 14.0,
+          "replay": 49.93,
+          "layout": 15.61,
+          "draw": 3.23,
+          "scroll_draw_p50": 0.58,
+          "scroll_draw_p95": 0.68,
+          "scroll_draw_max": 0.7,
+          "typing_draw_p50": 0.47,
+          "typing_draw_p95": 0.48,
+          "typing_draw_max": 0.53,
+          "working_draw_p50": 0.47,
+          "working_draw_p95": 0.48,
+          "working_draw_max": 0.52,
+          "append_total_p50": 0.48,
+          "append_total_p95": 0.52,
+          "append_total_max": 0.52,
+          "peak_rss_kib": 25520
+        },
+        "current": {
+          "apply": 14.12,
+          "replay": 49.61,
+          "layout": 15.4,
+          "draw": 3.17,
+          "scroll_draw_p50": 0.58,
+          "scroll_draw_p95": 0.68,
+          "scroll_draw_max": 0.7,
+          "typing_draw_p50": 0.47,
+          "typing_draw_p95": 0.48,
+          "typing_draw_max": 0.52,
+          "working_draw_p50": 0.47,
+          "working_draw_p95": 0.48,
+          "working_draw_max": 0.52,
+          "append_total_p50": 0.48,
+          "append_total_p95": 0.52,
+          "append_total_max": 0.52,
+          "peak_rss_kib": 25952
+        }
+      },
+      "paired_changes": {
+        "ep020": {
+          "apply": {
+            "median": 0.14000000000000057,
+            "median_95_interval": [
+              0.08999999999999986,
+              0.20999999999999908
+            ]
+          },
+          "replay": {
+            "median": -0.11000000000000654,
+            "median_95_interval": [
+              -0.46000000000000085,
+              0.01999999999999602
+            ]
+          },
+          "layout": {
+            "median": -0.11000000000000121,
+            "median_95_interval": [
+              -0.34999999999999964,
+              -0.05000000000000071
+            ]
+          },
+          "draw": {
+            "median": -0.020000000000000018,
+            "median_95_interval": [
+              -0.1200000000000001,
+              0.0
+            ]
+          },
+          "scroll_draw_p50": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.0
+            ]
+          },
+          "scroll_draw_p95": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.009999999999999898,
+              0.0
+            ]
+          },
+          "scroll_draw_max": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.0
+            ]
+          },
+          "typing_draw_p50": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.0
+            ]
+          },
+          "typing_draw_p95": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.0
+            ]
+          },
+          "typing_draw_max": {
+            "median": -0.010000000000000009,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.0
+            ]
+          },
+          "working_draw_p50": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.0
+            ]
+          },
+          "working_draw_p95": {
+            "median": -0.010000000000000009,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.0
+            ]
+          },
+          "working_draw_max": {
+            "median": 0.0,
+            "median_95_interval": [
+              0.0,
+              0.0
+            ]
+          },
+          "append_total_p50": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.0
+            ]
+          },
+          "append_total_p95": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.010000000000000009
+            ]
+          },
+          "append_total_max": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.010000000000000009
+            ]
+          },
+          "peak_rss_kib": {
+            "median": 280,
+            "median_95_interval": [
+              140,
+              448
+            ]
+          }
+        }
+      }
+    },
+    "fixture": {
+      "samples": 15,
+      "counts": [
+        5,
+        9,
+        4
+      ],
+      "medians": {
+        "ep020": {
+          "apply": 0.0,
+          "replay": 0.77,
+          "layout": 0.01,
+          "draw": 0.32,
+          "scroll_draw_p50": 0.31,
+          "scroll_draw_p95": 0.31,
+          "scroll_draw_max": 0.31,
+          "typing_draw_p50": 0.24,
+          "typing_draw_p95": 0.25,
+          "typing_draw_max": 0.31,
+          "working_draw_p50": 0.24,
+          "working_draw_p95": 0.24,
+          "working_draw_max": 0.32,
+          "append_total_p50": 0.27,
+          "append_total_p95": 0.32,
+          "append_total_max": 0.32,
+          "peak_rss_kib": 10788
+        },
+        "current": {
+          "apply": 0.0,
+          "replay": 0.73,
+          "layout": 0.01,
+          "draw": 0.32,
+          "scroll_draw_p50": 0.31,
+          "scroll_draw_p95": 0.31,
+          "scroll_draw_max": 0.31,
+          "typing_draw_p50": 0.24,
+          "typing_draw_p95": 0.25,
+          "typing_draw_max": 0.3,
+          "working_draw_p50": 0.24,
+          "working_draw_p95": 0.25,
+          "working_draw_max": 0.31,
+          "append_total_p50": 0.27,
+          "append_total_p95": 0.32,
+          "append_total_max": 0.32,
+          "peak_rss_kib": 11228
+        }
+      },
+      "paired_changes": {
+        "ep020": {
+          "apply": {
+            "median": 0.0,
+            "median_95_interval": [
+              0.0,
+              0.0
+            ]
+          },
+          "replay": {
+            "median": -0.050000000000000044,
+            "median_95_interval": [
+              -0.08999999999999997,
+              0.010000000000000009
+            ]
+          },
+          "layout": {
+            "median": 0.0,
+            "median_95_interval": [
+              0.0,
+              0.0
+            ]
+          },
+          "draw": {
+            "median": -0.010000000000000009,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.010000000000000009
+            ]
+          },
+          "scroll_draw_p50": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.010000000000000009
+            ]
+          },
+          "scroll_draw_p95": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.010000000000000009
+            ]
+          },
+          "scroll_draw_max": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.010000000000000009
+            ]
+          },
+          "typing_draw_p50": {
+            "median": 0.0,
+            "median_95_interval": [
+              0.0,
+              0.0
+            ]
+          },
+          "typing_draw_p95": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.010000000000000009
+            ]
+          },
+          "typing_draw_max": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.0
+            ]
+          },
+          "working_draw_p50": {
+            "median": 0.0,
+            "median_95_interval": [
+              0.0,
+              0.0
+            ]
+          },
+          "working_draw_p95": {
+            "median": 0.0,
+            "median_95_interval": [
+              0.0,
+              0.010000000000000009
+            ]
+          },
+          "working_draw_max": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.0
+            ]
+          },
+          "append_total_p50": {
+            "median": 0.0,
+            "median_95_interval": [
+              0.0,
+              0.0
+            ]
+          },
+          "append_total_p95": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.0
+            ]
+          },
+          "append_total_max": {
+            "median": 0.0,
+            "median_95_interval": [
+              -0.010000000000000009,
+              0.0
+            ]
+          },
+          "peak_rss_kib": {
+            "median": 392,
+            "median_95_interval": [
+              244,
+              548
+            ]
+          }
+        }
+      }
+    }
+  },
+  "admissions": [
+    {
+      "rounds": 1000,
+      "transport": "unix",
+      "startup_ms": 2.496524015441537,
+      "provision_and_greeting_ms": 0.5391909508034587,
+      "idle": {
+        "seconds": 2.0008266270160675,
+        "process_cpu_ticks": 0,
+        "thread_context_switch_deltas": {
+          "4130572:voluntary_ctxt_switches": 8,
+          "4130572:nonvoluntary_ctxt_switches": 0,
+          "4130573:voluntary_ctxt_switches": 0,
+          "4130573:nonvoluntary_ctxt_switches": 0,
+          "4130574:voluntary_ctxt_switches": 20,
+          "4130574:nonvoluntary_ctxt_switches": 0,
+          "4130575:voluntary_ctxt_switches": 8,
+          "4130575:nonvoluntary_ctxt_switches": 0,
+          "4130576:voluntary_ctxt_switches": 0,
+          "4130576:nonvoluntary_ctxt_switches": 0,
+          "4130579:voluntary_ctxt_switches": 0,
+          "4130579:nonvoluntary_ctxt_switches": 0,
+          "4130580:voluntary_ctxt_switches": 0,
+          "4130580:nonvoluntary_ctxt_switches": 0,
+          "4130581:voluntary_ctxt_switches": 0,
+          "4130581:nonvoluntary_ctxt_switches": 0,
+          "4130583:voluntary_ctxt_switches": 20,
+          "4130583:nonvoluntary_ctxt_switches": 0,
+          "4130584:voluntary_ctxt_switches": 0,
+          "4130584:nonvoluntary_ctxt_switches": 0,
+          "4130585:voluntary_ctxt_switches": 0,
+          "4130585:nonvoluntary_ctxt_switches": 0,
+          "4130586:voluntary_ctxt_switches": 0,
+          "4130586:nonvoluntary_ctxt_switches": 0,
+          "4130587:voluntary_ctxt_switches": 0,
+          "4130587:nonvoluntary_ctxt_switches": 0,
+          "4130588:voluntary_ctxt_switches": 0,
+          "4130588:nonvoluntary_ctxt_switches": 0,
+          "4130589:voluntary_ctxt_switches": 0,
+          "4130589:nonvoluntary_ctxt_switches": 0,
+          "4130590:voluntary_ctxt_switches": 0,
+          "4130590:nonvoluntary_ctxt_switches": 0,
+          "4130591:voluntary_ctxt_switches": 99,
+          "4130591:nonvoluntary_ctxt_switches": 0,
+          "4130592:voluntary_ctxt_switches": 2,
+          "4130592:nonvoluntary_ctxt_switches": 0,
+          "4130593:voluntary_ctxt_switches": 0,
+          "4130593:nonvoluntary_ctxt_switches": 0,
+          "4130594:voluntary_ctxt_switches": 0,
+          "4130594:nonvoluntary_ctxt_switches": 0
+        },
+        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+      },
+      "median_ms": 0.545811,
+      "p95_ms": 0.728092,
+      "max_ms": 1.303162,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4130572,
+          "metrics": {
+            "VmHWM": 8292,
+            "VmRSS": 8292,
+            "RssAnon": 876,
+            "RssFile": 7416,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 4130572,
+          "metrics": {
+            "VmHWM": 16988,
+            "VmRSS": 16988,
+            "RssAnon": 5700,
+            "RssFile": 11288,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual carlosd unix socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
+      "binary": "ep020",
+      "sample": 0
+    },
+    {
+      "rounds": 1000,
+      "transport": "unix",
+      "startup_ms": 2.534214989282191,
+      "provision_and_greeting_ms": 0.5133900558575988,
+      "idle": {
+        "seconds": 2.00081904605031,
+        "process_cpu_ticks": 0,
+        "thread_context_switch_deltas": {
+          "4130597:voluntary_ctxt_switches": 8,
+          "4130597:nonvoluntary_ctxt_switches": 0,
+          "4130598:voluntary_ctxt_switches": 0,
+          "4130598:nonvoluntary_ctxt_switches": 0,
+          "4130599:voluntary_ctxt_switches": 20,
+          "4130599:nonvoluntary_ctxt_switches": 0,
+          "4130600:voluntary_ctxt_switches": 8,
+          "4130600:nonvoluntary_ctxt_switches": 0,
+          "4130601:voluntary_ctxt_switches": 0,
+          "4130601:nonvoluntary_ctxt_switches": 0,
+          "4130604:voluntary_ctxt_switches": 0,
+          "4130604:nonvoluntary_ctxt_switches": 0,
+          "4130605:voluntary_ctxt_switches": 0,
+          "4130605:nonvoluntary_ctxt_switches": 0,
+          "4130606:voluntary_ctxt_switches": 0,
+          "4130606:nonvoluntary_ctxt_switches": 0,
+          "4130608:voluntary_ctxt_switches": 20,
+          "4130608:nonvoluntary_ctxt_switches": 0,
+          "4130609:voluntary_ctxt_switches": 0,
+          "4130609:nonvoluntary_ctxt_switches": 0,
+          "4130610:voluntary_ctxt_switches": 0,
+          "4130610:nonvoluntary_ctxt_switches": 0,
+          "4130611:voluntary_ctxt_switches": 0,
+          "4130611:nonvoluntary_ctxt_switches": 0,
+          "4130612:voluntary_ctxt_switches": 0,
+          "4130612:nonvoluntary_ctxt_switches": 0,
+          "4130613:voluntary_ctxt_switches": 0,
+          "4130613:nonvoluntary_ctxt_switches": 0,
+          "4130614:voluntary_ctxt_switches": 0,
+          "4130614:nonvoluntary_ctxt_switches": 0,
+          "4130615:voluntary_ctxt_switches": 0,
+          "4130615:nonvoluntary_ctxt_switches": 0,
+          "4130616:voluntary_ctxt_switches": 99,
+          "4130616:nonvoluntary_ctxt_switches": 0,
+          "4130617:voluntary_ctxt_switches": 2,
+          "4130617:nonvoluntary_ctxt_switches": 0,
+          "4130618:voluntary_ctxt_switches": 0,
+          "4130618:nonvoluntary_ctxt_switches": 0,
+          "4130619:voluntary_ctxt_switches": 0,
+          "4130619:nonvoluntary_ctxt_switches": 0
+        },
+        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+      },
+      "median_ms": 0.567401,
+      "p95_ms": 0.739122,
+      "max_ms": 1.342692,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4130597,
+          "metrics": {
+            "VmHWM": 9000,
+            "VmRSS": 9000,
+            "RssAnon": 880,
+            "RssFile": 8120,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 4130597,
+          "metrics": {
+            "VmHWM": 17868,
+            "VmRSS": 17868,
+            "RssAnon": 5688,
+            "RssFile": 12180,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual carlosd unix socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
+      "binary": "current",
+      "sample": 0
+    },
+    {
+      "rounds": 1000,
+      "transport": "websocket",
+      "startup_ms": 2.5686349254101515,
+      "provision_and_greeting_ms": 28.912550071254373,
+      "idle": {
+        "seconds": 2.0007756459526718,
+        "process_cpu_ticks": 0,
+        "thread_context_switch_deltas": {
+          "4130622:voluntary_ctxt_switches": 8,
+          "4130622:nonvoluntary_ctxt_switches": 0,
+          "4130623:voluntary_ctxt_switches": 0,
+          "4130623:nonvoluntary_ctxt_switches": 0,
+          "4130624:voluntary_ctxt_switches": 20,
+          "4130624:nonvoluntary_ctxt_switches": 0,
+          "4130630:voluntary_ctxt_switches": 0,
+          "4130630:nonvoluntary_ctxt_switches": 0,
+          "4130633:voluntary_ctxt_switches": 0,
+          "4130633:nonvoluntary_ctxt_switches": 0,
+          "4130634:voluntary_ctxt_switches": 0,
+          "4130634:nonvoluntary_ctxt_switches": 0,
+          "4130635:voluntary_ctxt_switches": 0,
+          "4130635:nonvoluntary_ctxt_switches": 0,
+          "4130637:voluntary_ctxt_switches": 20,
+          "4130637:nonvoluntary_ctxt_switches": 0,
+          "4130638:voluntary_ctxt_switches": 0,
+          "4130638:nonvoluntary_ctxt_switches": 0,
+          "4130639:voluntary_ctxt_switches": 0,
+          "4130639:nonvoluntary_ctxt_switches": 0,
+          "4130640:voluntary_ctxt_switches": 0,
+          "4130640:nonvoluntary_ctxt_switches": 0,
+          "4130641:voluntary_ctxt_switches": 0,
+          "4130641:nonvoluntary_ctxt_switches": 0,
+          "4130642:voluntary_ctxt_switches": 0,
+          "4130642:nonvoluntary_ctxt_switches": 0,
+          "4130643:voluntary_ctxt_switches": 0,
+          "4130643:nonvoluntary_ctxt_switches": 0,
+          "4130644:voluntary_ctxt_switches": 0,
+          "4130644:nonvoluntary_ctxt_switches": 0,
+          "4130645:voluntary_ctxt_switches": 99,
+          "4130645:nonvoluntary_ctxt_switches": 0,
+          "4130646:voluntary_ctxt_switches": 2,
+          "4130646:nonvoluntary_ctxt_switches": 0,
+          "4130647:voluntary_ctxt_switches": 0,
+          "4130647:nonvoluntary_ctxt_switches": 0,
+          "4130648:voluntary_ctxt_switches": 0,
+          "4130648:nonvoluntary_ctxt_switches": 0
+        },
+        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+      },
+      "median_ms": 0.6966965,
+      "p95_ms": 0.923101,
+      "max_ms": 1.650093,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4130622,
+          "metrics": {
+            "VmHWM": 9140,
+            "VmRSS": 9140,
+            "RssAnon": 1004,
+            "RssFile": 8136,
+            "Threads": 4
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 4130622,
+          "metrics": {
+            "VmHWM": 17476,
+            "VmRSS": 17476,
+            "RssAnon": 5852,
+            "RssFile": 11624,
+            "Threads": 19
+          }
+        }
+      ],
+      "scope": "actual carlosd websocket socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
+      "binary": "ep020",
+      "sample": 0
+    },
+    {
+      "rounds": 1000,
+      "transport": "websocket",
+      "startup_ms": 2.9757149750366807,
+      "provision_and_greeting_ms": 29.511941014789045,
+      "idle": {
+        "seconds": 2.000773675972596,
+        "process_cpu_ticks": 0,
+        "thread_context_switch_deltas": {
+          "4130651:voluntary_ctxt_switches": 7,
+          "4130651:nonvoluntary_ctxt_switches": 0,
+          "4130652:voluntary_ctxt_switches": 0,
+          "4130652:nonvoluntary_ctxt_switches": 0,
+          "4130653:voluntary_ctxt_switches": 20,
+          "4130653:nonvoluntary_ctxt_switches": 0,
+          "4130659:voluntary_ctxt_switches": 0,
+          "4130659:nonvoluntary_ctxt_switches": 0,
+          "4130662:voluntary_ctxt_switches": 0,
+          "4130662:nonvoluntary_ctxt_switches": 0,
+          "4130663:voluntary_ctxt_switches": 0,
+          "4130663:nonvoluntary_ctxt_switches": 0,
+          "4130664:voluntary_ctxt_switches": 0,
+          "4130664:nonvoluntary_ctxt_switches": 0,
+          "4130666:voluntary_ctxt_switches": 20,
+          "4130666:nonvoluntary_ctxt_switches": 0,
+          "4130667:voluntary_ctxt_switches": 0,
+          "4130667:nonvoluntary_ctxt_switches": 0,
+          "4130668:voluntary_ctxt_switches": 0,
+          "4130668:nonvoluntary_ctxt_switches": 0,
+          "4130669:voluntary_ctxt_switches": 0,
+          "4130669:nonvoluntary_ctxt_switches": 0,
+          "4130670:voluntary_ctxt_switches": 0,
+          "4130670:nonvoluntary_ctxt_switches": 0,
+          "4130671:voluntary_ctxt_switches": 0,
+          "4130671:nonvoluntary_ctxt_switches": 0,
+          "4130672:voluntary_ctxt_switches": 0,
+          "4130672:nonvoluntary_ctxt_switches": 0,
+          "4130673:voluntary_ctxt_switches": 0,
+          "4130673:nonvoluntary_ctxt_switches": 0,
+          "4130674:voluntary_ctxt_switches": 99,
+          "4130674:nonvoluntary_ctxt_switches": 0,
+          "4130675:voluntary_ctxt_switches": 2,
+          "4130675:nonvoluntary_ctxt_switches": 0,
+          "4130676:voluntary_ctxt_switches": 0,
+          "4130676:nonvoluntary_ctxt_switches": 0,
+          "4130677:voluntary_ctxt_switches": 0,
+          "4130677:nonvoluntary_ctxt_switches": 0
+        },
+        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+      },
+      "median_ms": 0.706631,
+      "p95_ms": 0.927902,
+      "max_ms": 1.556703,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4130651,
+          "metrics": {
+            "VmHWM": 9620,
+            "VmRSS": 9620,
+            "RssAnon": 1004,
+            "RssFile": 8616,
+            "Threads": 4
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 4130651,
+          "metrics": {
+            "VmHWM": 18004,
+            "VmRSS": 18004,
+            "RssAnon": 5856,
+            "RssFile": 12148,
+            "Threads": 19
+          }
+        }
+      ],
+      "scope": "actual carlosd websocket socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
+      "binary": "current",
+      "sample": 0
+    },
+    {
+      "rounds": 1000,
+      "transport": "websocket",
+      "startup_ms": 2.4366439320147038,
+      "provision_and_greeting_ms": 28.31979899201542,
+      "idle": {
+        "seconds": 2.000795326079242,
+        "process_cpu_ticks": 0,
+        "thread_context_switch_deltas": {
+          "4130680:voluntary_ctxt_switches": 8,
+          "4130680:nonvoluntary_ctxt_switches": 0,
+          "4130681:voluntary_ctxt_switches": 0,
+          "4130681:nonvoluntary_ctxt_switches": 0,
+          "4130682:voluntary_ctxt_switches": 20,
+          "4130682:nonvoluntary_ctxt_switches": 0,
+          "4130688:voluntary_ctxt_switches": 0,
+          "4130688:nonvoluntary_ctxt_switches": 0,
+          "4130691:voluntary_ctxt_switches": 0,
+          "4130691:nonvoluntary_ctxt_switches": 0,
+          "4130692:voluntary_ctxt_switches": 0,
+          "4130692:nonvoluntary_ctxt_switches": 0,
+          "4130693:voluntary_ctxt_switches": 0,
+          "4130693:nonvoluntary_ctxt_switches": 0,
+          "4130695:voluntary_ctxt_switches": 20,
+          "4130695:nonvoluntary_ctxt_switches": 0,
+          "4130696:voluntary_ctxt_switches": 0,
+          "4130696:nonvoluntary_ctxt_switches": 0,
+          "4130697:voluntary_ctxt_switches": 0,
+          "4130697:nonvoluntary_ctxt_switches": 0,
+          "4130698:voluntary_ctxt_switches": 0,
+          "4130698:nonvoluntary_ctxt_switches": 0,
+          "4130699:voluntary_ctxt_switches": 0,
+          "4130699:nonvoluntary_ctxt_switches": 0,
+          "4130700:voluntary_ctxt_switches": 0,
+          "4130700:nonvoluntary_ctxt_switches": 0,
+          "4130701:voluntary_ctxt_switches": 0,
+          "4130701:nonvoluntary_ctxt_switches": 0,
+          "4130702:voluntary_ctxt_switches": 0,
+          "4130702:nonvoluntary_ctxt_switches": 0,
+          "4130703:voluntary_ctxt_switches": 99,
+          "4130703:nonvoluntary_ctxt_switches": 0,
+          "4130704:voluntary_ctxt_switches": 2,
+          "4130704:nonvoluntary_ctxt_switches": 0,
+          "4130705:voluntary_ctxt_switches": 0,
+          "4130705:nonvoluntary_ctxt_switches": 0,
+          "4130706:voluntary_ctxt_switches": 0,
+          "4130706:nonvoluntary_ctxt_switches": 0
+        },
+        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+      },
+      "median_ms": 0.7046315000000001,
+      "p95_ms": 0.914332,
+      "max_ms": 1.440833,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4130680,
+          "metrics": {
+            "VmHWM": 9964,
+            "VmRSS": 9964,
+            "RssAnon": 1008,
+            "RssFile": 8956,
+            "Threads": 4
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 4130680,
+          "metrics": {
+            "VmHWM": 18184,
+            "VmRSS": 18184,
+            "RssAnon": 5856,
+            "RssFile": 12328,
+            "Threads": 19
+          }
+        }
+      ],
+      "scope": "actual carlosd websocket socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
+      "binary": "current",
+      "sample": 1
+    },
+    {
+      "rounds": 1000,
+      "transport": "websocket",
+      "startup_ms": 2.573653939180076,
+      "provision_and_greeting_ms": 28.576859971508384,
+      "idle": {
+        "seconds": 2.000785104930401,
+        "process_cpu_ticks": 0,
+        "thread_context_switch_deltas": {
+          "4130709:voluntary_ctxt_switches": 8,
+          "4130709:nonvoluntary_ctxt_switches": 0,
+          "4130710:voluntary_ctxt_switches": 0,
+          "4130710:nonvoluntary_ctxt_switches": 0,
+          "4130711:voluntary_ctxt_switches": 20,
+          "4130711:nonvoluntary_ctxt_switches": 0,
+          "4130717:voluntary_ctxt_switches": 0,
+          "4130717:nonvoluntary_ctxt_switches": 0,
+          "4130720:voluntary_ctxt_switches": 0,
+          "4130720:nonvoluntary_ctxt_switches": 0,
+          "4130721:voluntary_ctxt_switches": 0,
+          "4130721:nonvoluntary_ctxt_switches": 0,
+          "4130722:voluntary_ctxt_switches": 0,
+          "4130722:nonvoluntary_ctxt_switches": 0,
+          "4130724:voluntary_ctxt_switches": 20,
+          "4130724:nonvoluntary_ctxt_switches": 0,
+          "4130725:voluntary_ctxt_switches": 0,
+          "4130725:nonvoluntary_ctxt_switches": 0,
+          "4130726:voluntary_ctxt_switches": 0,
+          "4130726:nonvoluntary_ctxt_switches": 0,
+          "4130727:voluntary_ctxt_switches": 0,
+          "4130727:nonvoluntary_ctxt_switches": 0,
+          "4130728:voluntary_ctxt_switches": 0,
+          "4130728:nonvoluntary_ctxt_switches": 0,
+          "4130729:voluntary_ctxt_switches": 0,
+          "4130729:nonvoluntary_ctxt_switches": 0,
+          "4130730:voluntary_ctxt_switches": 0,
+          "4130730:nonvoluntary_ctxt_switches": 0,
+          "4130731:voluntary_ctxt_switches": 0,
+          "4130731:nonvoluntary_ctxt_switches": 0,
+          "4130732:voluntary_ctxt_switches": 99,
+          "4130732:nonvoluntary_ctxt_switches": 0,
+          "4130733:voluntary_ctxt_switches": 2,
+          "4130733:nonvoluntary_ctxt_switches": 0,
+          "4130734:voluntary_ctxt_switches": 0,
+          "4130734:nonvoluntary_ctxt_switches": 0,
+          "4130735:voluntary_ctxt_switches": 0,
+          "4130735:nonvoluntary_ctxt_switches": 0
+        },
+        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+      },
+      "median_ms": 0.700982,
+      "p95_ms": 0.909772,
+      "max_ms": 1.438323,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4130709,
+          "metrics": {
+            "VmHWM": 9004,
+            "VmRSS": 9004,
+            "RssAnon": 1000,
+            "RssFile": 8004,
+            "Threads": 4
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 4130709,
+          "metrics": {
+            "VmHWM": 17076,
+            "VmRSS": 17076,
+            "RssAnon": 5712,
+            "RssFile": 11364,
+            "Threads": 19
+          }
+        }
+      ],
+      "scope": "actual carlosd websocket socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
+      "binary": "ep020",
+      "sample": 1
+    },
+    {
+      "rounds": 1000,
+      "transport": "unix",
+      "startup_ms": 2.4812850169837475,
+      "provision_and_greeting_ms": 0.5142409354448318,
+      "idle": {
+        "seconds": 2.000827966025099,
+        "process_cpu_ticks": 0,
+        "thread_context_switch_deltas": {
+          "4130738:voluntary_ctxt_switches": 8,
+          "4130738:nonvoluntary_ctxt_switches": 0,
+          "4130739:voluntary_ctxt_switches": 0,
+          "4130739:nonvoluntary_ctxt_switches": 0,
+          "4130740:voluntary_ctxt_switches": 20,
+          "4130740:nonvoluntary_ctxt_switches": 0,
+          "4130741:voluntary_ctxt_switches": 8,
+          "4130741:nonvoluntary_ctxt_switches": 0,
+          "4130742:voluntary_ctxt_switches": 0,
+          "4130742:nonvoluntary_ctxt_switches": 0,
+          "4130745:voluntary_ctxt_switches": 0,
+          "4130745:nonvoluntary_ctxt_switches": 0,
+          "4130746:voluntary_ctxt_switches": 0,
+          "4130746:nonvoluntary_ctxt_switches": 0,
+          "4130747:voluntary_ctxt_switches": 0,
+          "4130747:nonvoluntary_ctxt_switches": 0,
+          "4130749:voluntary_ctxt_switches": 20,
+          "4130749:nonvoluntary_ctxt_switches": 0,
+          "4130750:voluntary_ctxt_switches": 0,
+          "4130750:nonvoluntary_ctxt_switches": 0,
+          "4130751:voluntary_ctxt_switches": 0,
+          "4130751:nonvoluntary_ctxt_switches": 0,
+          "4130752:voluntary_ctxt_switches": 0,
+          "4130752:nonvoluntary_ctxt_switches": 0,
+          "4130753:voluntary_ctxt_switches": 0,
+          "4130753:nonvoluntary_ctxt_switches": 0,
+          "4130754:voluntary_ctxt_switches": 0,
+          "4130754:nonvoluntary_ctxt_switches": 0,
+          "4130755:voluntary_ctxt_switches": 0,
+          "4130755:nonvoluntary_ctxt_switches": 0,
+          "4130756:voluntary_ctxt_switches": 0,
+          "4130756:nonvoluntary_ctxt_switches": 0,
+          "4130757:voluntary_ctxt_switches": 99,
+          "4130757:nonvoluntary_ctxt_switches": 0,
+          "4130758:voluntary_ctxt_switches": 2,
+          "4130758:nonvoluntary_ctxt_switches": 0,
+          "4130759:voluntary_ctxt_switches": 0,
+          "4130759:nonvoluntary_ctxt_switches": 0,
+          "4130760:voluntary_ctxt_switches": 0,
+          "4130760:nonvoluntary_ctxt_switches": 0
+        },
+        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+      },
+      "median_ms": 0.550366,
+      "p95_ms": 0.707921,
+      "max_ms": 1.557513,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4130738,
+          "metrics": {
+            "VmHWM": 9012,
+            "VmRSS": 9012,
+            "RssAnon": 880,
+            "RssFile": 8132,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 4130738,
+          "metrics": {
+            "VmHWM": 18016,
+            "VmRSS": 18016,
+            "RssAnon": 5820,
+            "RssFile": 12196,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual carlosd unix socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
+      "binary": "current",
+      "sample": 1
+    },
+    {
+      "rounds": 1000,
+      "transport": "unix",
+      "startup_ms": 2.8115150053054094,
+      "provision_and_greeting_ms": 0.6063010077923536,
+      "idle": {
+        "seconds": 2.000820665038191,
+        "process_cpu_ticks": 0,
+        "thread_context_switch_deltas": {
+          "4130763:voluntary_ctxt_switches": 8,
+          "4130763:nonvoluntary_ctxt_switches": 0,
+          "4130764:voluntary_ctxt_switches": 0,
+          "4130764:nonvoluntary_ctxt_switches": 0,
+          "4130765:voluntary_ctxt_switches": 20,
+          "4130765:nonvoluntary_ctxt_switches": 0,
+          "4130766:voluntary_ctxt_switches": 8,
+          "4130766:nonvoluntary_ctxt_switches": 0,
+          "4130767:voluntary_ctxt_switches": 0,
+          "4130767:nonvoluntary_ctxt_switches": 0,
+          "4130770:voluntary_ctxt_switches": 0,
+          "4130770:nonvoluntary_ctxt_switches": 0,
+          "4130771:voluntary_ctxt_switches": 0,
+          "4130771:nonvoluntary_ctxt_switches": 0,
+          "4130772:voluntary_ctxt_switches": 0,
+          "4130772:nonvoluntary_ctxt_switches": 0,
+          "4130774:voluntary_ctxt_switches": 20,
+          "4130774:nonvoluntary_ctxt_switches": 0,
+          "4130775:voluntary_ctxt_switches": 0,
+          "4130775:nonvoluntary_ctxt_switches": 0,
+          "4130776:voluntary_ctxt_switches": 0,
+          "4130776:nonvoluntary_ctxt_switches": 0,
+          "4130777:voluntary_ctxt_switches": 0,
+          "4130777:nonvoluntary_ctxt_switches": 0,
+          "4130778:voluntary_ctxt_switches": 0,
+          "4130778:nonvoluntary_ctxt_switches": 0,
+          "4130779:voluntary_ctxt_switches": 0,
+          "4130779:nonvoluntary_ctxt_switches": 0,
+          "4130780:voluntary_ctxt_switches": 0,
+          "4130780:nonvoluntary_ctxt_switches": 0,
+          "4130781:voluntary_ctxt_switches": 0,
+          "4130781:nonvoluntary_ctxt_switches": 0,
+          "4130782:voluntary_ctxt_switches": 99,
+          "4130782:nonvoluntary_ctxt_switches": 0,
+          "4130783:voluntary_ctxt_switches": 2,
+          "4130783:nonvoluntary_ctxt_switches": 0,
+          "4130784:voluntary_ctxt_switches": 0,
+          "4130784:nonvoluntary_ctxt_switches": 0,
+          "4130785:voluntary_ctxt_switches": 0,
+          "4130785:nonvoluntary_ctxt_switches": 0
+        },
+        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+      },
+      "median_ms": 0.5476859999999999,
+      "p95_ms": 0.704262,
+      "max_ms": 1.275662,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4130763,
+          "metrics": {
+            "VmHWM": 8280,
+            "VmRSS": 8280,
+            "RssAnon": 876,
+            "RssFile": 7404,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 4130763,
+          "metrics": {
+            "VmHWM": 16960,
+            "VmRSS": 16960,
+            "RssAnon": 5688,
+            "RssFile": 11272,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual carlosd unix socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
+      "binary": "ep020",
+      "sample": 1
+    },
+    {
+      "rounds": 1000,
+      "transport": "unix",
+      "startup_ms": 2.735154004767537,
+      "provision_and_greeting_ms": 0.5580809665843844,
+      "idle": {
+        "seconds": 2.0008205249905586,
+        "process_cpu_ticks": 0,
+        "thread_context_switch_deltas": {
+          "4130789:voluntary_ctxt_switches": 8,
+          "4130789:nonvoluntary_ctxt_switches": 0,
+          "4130790:voluntary_ctxt_switches": 0,
+          "4130790:nonvoluntary_ctxt_switches": 0,
+          "4130791:voluntary_ctxt_switches": 20,
+          "4130791:nonvoluntary_ctxt_switches": 0,
+          "4130792:voluntary_ctxt_switches": 8,
+          "4130792:nonvoluntary_ctxt_switches": 0,
+          "4130793:voluntary_ctxt_switches": 0,
+          "4130793:nonvoluntary_ctxt_switches": 0,
+          "4130796:voluntary_ctxt_switches": 0,
+          "4130796:nonvoluntary_ctxt_switches": 0,
+          "4130797:voluntary_ctxt_switches": 0,
+          "4130797:nonvoluntary_ctxt_switches": 0,
+          "4130798:voluntary_ctxt_switches": 0,
+          "4130798:nonvoluntary_ctxt_switches": 0,
+          "4130800:voluntary_ctxt_switches": 20,
+          "4130800:nonvoluntary_ctxt_switches": 0,
+          "4130801:voluntary_ctxt_switches": 0,
+          "4130801:nonvoluntary_ctxt_switches": 0,
+          "4130802:voluntary_ctxt_switches": 0,
+          "4130802:nonvoluntary_ctxt_switches": 0,
+          "4130803:voluntary_ctxt_switches": 0,
+          "4130803:nonvoluntary_ctxt_switches": 0,
+          "4130804:voluntary_ctxt_switches": 0,
+          "4130804:nonvoluntary_ctxt_switches": 0,
+          "4130805:voluntary_ctxt_switches": 0,
+          "4130805:nonvoluntary_ctxt_switches": 0,
+          "4130806:voluntary_ctxt_switches": 0,
+          "4130806:nonvoluntary_ctxt_switches": 0,
+          "4130807:voluntary_ctxt_switches": 0,
+          "4130807:nonvoluntary_ctxt_switches": 0,
+          "4130808:voluntary_ctxt_switches": 99,
+          "4130808:nonvoluntary_ctxt_switches": 0,
+          "4130809:voluntary_ctxt_switches": 2,
+          "4130809:nonvoluntary_ctxt_switches": 0,
+          "4130810:voluntary_ctxt_switches": 0,
+          "4130810:nonvoluntary_ctxt_switches": 0,
+          "4130811:voluntary_ctxt_switches": 0,
+          "4130811:nonvoluntary_ctxt_switches": 0
+        },
+        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+      },
+      "median_ms": 0.5540905,
+      "p95_ms": 0.729372,
+      "max_ms": 1.236303,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4130789,
+          "metrics": {
+            "VmHWM": 8252,
+            "VmRSS": 8252,
+            "RssAnon": 876,
+            "RssFile": 7376,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 4130789,
+          "metrics": {
+            "VmHWM": 16956,
+            "VmRSS": 16956,
+            "RssAnon": 5708,
+            "RssFile": 11248,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual carlosd unix socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
+      "binary": "ep020",
+      "sample": 2
+    },
+    {
+      "rounds": 1000,
+      "transport": "unix",
+      "startup_ms": 2.541474997997284,
+      "provision_and_greeting_ms": 0.5381109658628702,
+      "idle": {
+        "seconds": 2.000807114993222,
+        "process_cpu_ticks": 0,
+        "thread_context_switch_deltas": {
+          "4130814:voluntary_ctxt_switches": 8,
+          "4130814:nonvoluntary_ctxt_switches": 0,
+          "4130815:voluntary_ctxt_switches": 0,
+          "4130815:nonvoluntary_ctxt_switches": 0,
+          "4130816:voluntary_ctxt_switches": 20,
+          "4130816:nonvoluntary_ctxt_switches": 0,
+          "4130817:voluntary_ctxt_switches": 7,
+          "4130817:nonvoluntary_ctxt_switches": 0,
+          "4130818:voluntary_ctxt_switches": 0,
+          "4130818:nonvoluntary_ctxt_switches": 0,
+          "4130821:voluntary_ctxt_switches": 0,
+          "4130821:nonvoluntary_ctxt_switches": 0,
+          "4130822:voluntary_ctxt_switches": 0,
+          "4130822:nonvoluntary_ctxt_switches": 0,
+          "4130823:voluntary_ctxt_switches": 0,
+          "4130823:nonvoluntary_ctxt_switches": 0,
+          "4130825:voluntary_ctxt_switches": 20,
+          "4130825:nonvoluntary_ctxt_switches": 1,
+          "4130826:voluntary_ctxt_switches": 0,
+          "4130826:nonvoluntary_ctxt_switches": 0,
+          "4130827:voluntary_ctxt_switches": 0,
+          "4130827:nonvoluntary_ctxt_switches": 0,
+          "4130828:voluntary_ctxt_switches": 0,
+          "4130828:nonvoluntary_ctxt_switches": 0,
+          "4130829:voluntary_ctxt_switches": 0,
+          "4130829:nonvoluntary_ctxt_switches": 0,
+          "4130830:voluntary_ctxt_switches": 0,
+          "4130830:nonvoluntary_ctxt_switches": 0,
+          "4130831:voluntary_ctxt_switches": 0,
+          "4130831:nonvoluntary_ctxt_switches": 0,
+          "4130832:voluntary_ctxt_switches": 0,
+          "4130832:nonvoluntary_ctxt_switches": 0,
+          "4130833:voluntary_ctxt_switches": 99,
+          "4130833:nonvoluntary_ctxt_switches": 1,
+          "4130834:voluntary_ctxt_switches": 2,
+          "4130834:nonvoluntary_ctxt_switches": 0,
+          "4130835:voluntary_ctxt_switches": 0,
+          "4130835:nonvoluntary_ctxt_switches": 0,
+          "4130836:voluntary_ctxt_switches": 0,
+          "4130836:nonvoluntary_ctxt_switches": 0
+        },
+        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+      },
+      "median_ms": 0.547446,
+      "p95_ms": 0.726201,
+      "max_ms": 1.529993,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4130814,
+          "metrics": {
+            "VmHWM": 8564,
+            "VmRSS": 8564,
+            "RssAnon": 876,
+            "RssFile": 7688,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 4130814,
+          "metrics": {
+            "VmHWM": 17144,
+            "VmRSS": 17144,
+            "RssAnon": 5572,
+            "RssFile": 11572,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual carlosd unix socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
+      "binary": "current",
+      "sample": 2
+    },
+    {
+      "rounds": 1000,
+      "transport": "websocket",
+      "startup_ms": 2.584015019237995,
+      "provision_and_greeting_ms": 29.12447997368872,
+      "idle": {
+        "seconds": 2.0008075040532276,
+        "process_cpu_ticks": 0,
+        "thread_context_switch_deltas": {
+          "4130839:voluntary_ctxt_switches": 8,
+          "4130839:nonvoluntary_ctxt_switches": 0,
+          "4130840:voluntary_ctxt_switches": 0,
+          "4130840:nonvoluntary_ctxt_switches": 0,
+          "4130841:voluntary_ctxt_switches": 20,
+          "4130841:nonvoluntary_ctxt_switches": 0,
+          "4130847:voluntary_ctxt_switches": 0,
+          "4130847:nonvoluntary_ctxt_switches": 0,
+          "4130850:voluntary_ctxt_switches": 0,
+          "4130850:nonvoluntary_ctxt_switches": 0,
+          "4130851:voluntary_ctxt_switches": 0,
+          "4130851:nonvoluntary_ctxt_switches": 0,
+          "4130852:voluntary_ctxt_switches": 0,
+          "4130852:nonvoluntary_ctxt_switches": 0,
+          "4130854:voluntary_ctxt_switches": 20,
+          "4130854:nonvoluntary_ctxt_switches": 0,
+          "4130855:voluntary_ctxt_switches": 0,
+          "4130855:nonvoluntary_ctxt_switches": 0,
+          "4130856:voluntary_ctxt_switches": 0,
+          "4130856:nonvoluntary_ctxt_switches": 0,
+          "4130857:voluntary_ctxt_switches": 0,
+          "4130857:nonvoluntary_ctxt_switches": 0,
+          "4130858:voluntary_ctxt_switches": 0,
+          "4130858:nonvoluntary_ctxt_switches": 0,
+          "4130859:voluntary_ctxt_switches": 0,
+          "4130859:nonvoluntary_ctxt_switches": 0,
+          "4130860:voluntary_ctxt_switches": 0,
+          "4130860:nonvoluntary_ctxt_switches": 0,
+          "4130861:voluntary_ctxt_switches": 0,
+          "4130861:nonvoluntary_ctxt_switches": 0,
+          "4130862:voluntary_ctxt_switches": 99,
+          "4130862:nonvoluntary_ctxt_switches": 0,
+          "4130863:voluntary_ctxt_switches": 2,
+          "4130863:nonvoluntary_ctxt_switches": 0,
+          "4130864:voluntary_ctxt_switches": 0,
+          "4130864:nonvoluntary_ctxt_switches": 0,
+          "4130865:voluntary_ctxt_switches": 0,
+          "4130865:nonvoluntary_ctxt_switches": 0
+        },
+        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+      },
+      "median_ms": 0.688456,
+      "p95_ms": 0.903152,
+      "max_ms": 1.322823,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4130839,
+          "metrics": {
+            "VmHWM": 8932,
+            "VmRSS": 8932,
+            "RssAnon": 1004,
+            "RssFile": 7928,
+            "Threads": 4
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 4130839,
+          "metrics": {
+            "VmHWM": 17080,
+            "VmRSS": 17080,
+            "RssAnon": 5728,
+            "RssFile": 11352,
+            "Threads": 19
+          }
+        }
+      ],
+      "scope": "actual carlosd websocket socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
+      "binary": "ep020",
+      "sample": 2
+    },
+    {
+      "rounds": 1000,
+      "transport": "websocket",
+      "startup_ms": 2.7495049871504307,
+      "provision_and_greeting_ms": 29.160020989365876,
+      "idle": {
+        "seconds": 2.0007810150273144,
+        "process_cpu_ticks": 0,
+        "thread_context_switch_deltas": {
+          "4130873:voluntary_ctxt_switches": 7,
+          "4130873:nonvoluntary_ctxt_switches": 0,
+          "4130874:voluntary_ctxt_switches": 0,
+          "4130874:nonvoluntary_ctxt_switches": 0,
+          "4130875:voluntary_ctxt_switches": 20,
+          "4130875:nonvoluntary_ctxt_switches": 0,
+          "4130881:voluntary_ctxt_switches": 0,
+          "4130881:nonvoluntary_ctxt_switches": 0,
+          "4130884:voluntary_ctxt_switches": 0,
+          "4130884:nonvoluntary_ctxt_switches": 0,
+          "4130885:voluntary_ctxt_switches": 0,
+          "4130885:nonvoluntary_ctxt_switches": 0,
+          "4130886:voluntary_ctxt_switches": 0,
+          "4130886:nonvoluntary_ctxt_switches": 0,
+          "4130888:voluntary_ctxt_switches": 20,
+          "4130888:nonvoluntary_ctxt_switches": 0,
+          "4130889:voluntary_ctxt_switches": 0,
+          "4130889:nonvoluntary_ctxt_switches": 0,
+          "4130890:voluntary_ctxt_switches": 0,
+          "4130890:nonvoluntary_ctxt_switches": 0,
+          "4130891:voluntary_ctxt_switches": 0,
+          "4130891:nonvoluntary_ctxt_switches": 0,
+          "4130892:voluntary_ctxt_switches": 0,
+          "4130892:nonvoluntary_ctxt_switches": 0,
+          "4130893:voluntary_ctxt_switches": 0,
+          "4130893:nonvoluntary_ctxt_switches": 0,
+          "4130894:voluntary_ctxt_switches": 0,
+          "4130894:nonvoluntary_ctxt_switches": 0,
+          "4130895:voluntary_ctxt_switches": 0,
+          "4130895:nonvoluntary_ctxt_switches": 0,
+          "4130896:voluntary_ctxt_switches": 99,
+          "4130896:nonvoluntary_ctxt_switches": 0,
+          "4130897:voluntary_ctxt_switches": 2,
+          "4130897:nonvoluntary_ctxt_switches": 0,
+          "4130898:voluntary_ctxt_switches": 0,
+          "4130898:nonvoluntary_ctxt_switches": 0,
+          "4130899:voluntary_ctxt_switches": 0,
+          "4130899:nonvoluntary_ctxt_switches": 0
+        },
+        "scope": "idle daemon after native startup; each surviving thread context switches, process CPU ticks"
+      },
+      "median_ms": 0.6873210000000001,
+      "p95_ms": 0.908952,
+      "max_ms": 1.291092,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4130873,
+          "metrics": {
+            "VmHWM": 10004,
+            "VmRSS": 10004,
+            "RssAnon": 1008,
+            "RssFile": 8996,
+            "Threads": 4
+          }
+        },
+        {
+          "label": "after-native-admissions",
+          "daemon_pid": 4130873,
+          "metrics": {
+            "VmHWM": 18260,
+            "VmRSS": 18260,
+            "RssAnon": 5840,
+            "RssFile": 12420,
+            "Threads": 19
+          }
+        }
+      ],
+      "scope": "actual carlosd websocket socket, owner and real Grok adapter; deterministic instant native peer, Python client and fixture logging included; admission is not model completion",
+      "binary": "current",
+      "sample": 2
+    }
+  ],
+  "source": [
+    {
+      "transport": "unix",
+      "source_bytes": 10092544,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "chunks": 155,
+      "wall_ms": 116.018991,
+      "median_ms": 0.681911,
+      "p95_ms": 0.747231,
+      "max_ms": 1.112832,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4130905,
+          "metrics": {
+            "VmHWM": 8404,
+            "VmRSS": 8404,
+            "RssAnon": 876,
+            "RssFile": 7528,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-source-transfer",
+          "daemon_pid": 4130905,
+          "metrics": {
+            "VmHWM": 27028,
+            "VmRSS": 27028,
+            "RssAnon": 15180,
+            "RssFile": 11848,
+            "Threads": 21
+          }
+        }
+      ],
+      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
+      "binary": "ep020",
+      "sample": 0
+    },
+    {
+      "transport": "unix",
+      "source_bytes": 10092544,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "chunks": 155,
+      "wall_ms": 115.098699,
+      "median_ms": 0.678532,
+      "p95_ms": 0.728331,
+      "max_ms": 1.105092,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4130934,
+          "metrics": {
+            "VmHWM": 8432,
+            "VmRSS": 8432,
+            "RssAnon": 880,
+            "RssFile": 7552,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-source-transfer",
+          "daemon_pid": 4130934,
+          "metrics": {
+            "VmHWM": 28112,
+            "VmRSS": 28112,
+            "RssAnon": 15992,
+            "RssFile": 12120,
+            "Threads": 21
+          }
+        }
+      ],
+      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
+      "binary": "current",
+      "sample": 0
+    },
+    {
+      "transport": "websocket",
+      "source_bytes": 10092544,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "chunks": 155,
+      "wall_ms": 129.338324,
+      "median_ms": 0.766972,
+      "p95_ms": 0.833181,
+      "max_ms": 1.301982,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4130963,
+          "metrics": {
+            "VmHWM": 8860,
+            "VmRSS": 8860,
+            "RssAnon": 996,
+            "RssFile": 7864,
+            "Threads": 4
+          }
+        },
+        {
+          "label": "after-source-transfer",
+          "daemon_pid": 4130963,
+          "metrics": {
+            "VmHWM": 28740,
+            "VmRSS": 28740,
+            "RssAnon": 16940,
+            "RssFile": 11800,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
+      "binary": "ep020",
+      "sample": 0
+    },
+    {
+      "transport": "websocket",
+      "source_bytes": 10092544,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "chunks": 155,
+      "wall_ms": 127.697451,
+      "median_ms": 0.756362,
+      "p95_ms": 0.814901,
+      "max_ms": 1.441193,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4130997,
+          "metrics": {
+            "VmHWM": 9488,
+            "VmRSS": 9488,
+            "RssAnon": 1000,
+            "RssFile": 8488,
+            "Threads": 4
+          }
+        },
+        {
+          "label": "after-source-transfer",
+          "daemon_pid": 4130997,
+          "metrics": {
+            "VmHWM": 29352,
+            "VmRSS": 29352,
+            "RssAnon": 16732,
+            "RssFile": 12620,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
+      "binary": "current",
+      "sample": 0
+    },
+    {
+      "transport": "websocket",
+      "source_bytes": 10092544,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "chunks": 155,
+      "wall_ms": 127.243771,
+      "median_ms": 0.750761,
+      "p95_ms": 0.825872,
+      "max_ms": 1.310322,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4131032,
+          "metrics": {
+            "VmHWM": 9736,
+            "VmRSS": 9736,
+            "RssAnon": 1000,
+            "RssFile": 8736,
+            "Threads": 4
+          }
+        },
+        {
+          "label": "after-source-transfer",
+          "daemon_pid": 4131032,
+          "metrics": {
+            "VmHWM": 29868,
+            "VmRSS": 29868,
+            "RssAnon": 17260,
+            "RssFile": 12608,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
+      "binary": "current",
+      "sample": 1
+    },
+    {
+      "transport": "websocket",
+      "source_bytes": 10092544,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "chunks": 155,
+      "wall_ms": 129.842795,
+      "median_ms": 0.767151,
+      "p95_ms": 0.838512,
+      "max_ms": 1.453683,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4131079,
+          "metrics": {
+            "VmHWM": 9032,
+            "VmRSS": 9032,
+            "RssAnon": 996,
+            "RssFile": 8036,
+            "Threads": 4
+          }
+        },
+        {
+          "label": "after-source-transfer",
+          "daemon_pid": 4131079,
+          "metrics": {
+            "VmHWM": 28296,
+            "VmRSS": 28296,
+            "RssAnon": 16388,
+            "RssFile": 11908,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
+      "binary": "ep020",
+      "sample": 1
+    },
+    {
+      "transport": "unix",
+      "source_bytes": 10092544,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "chunks": 155,
+      "wall_ms": 116.289142,
+      "median_ms": 0.679431,
+      "p95_ms": 0.768962,
+      "max_ms": 1.138572,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4131112,
+          "metrics": {
+            "VmHWM": 8676,
+            "VmRSS": 8676,
+            "RssAnon": 880,
+            "RssFile": 7796,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-source-transfer",
+          "daemon_pid": 4131112,
+          "metrics": {
+            "VmHWM": 28168,
+            "VmRSS": 28168,
+            "RssAnon": 15724,
+            "RssFile": 12444,
+            "Threads": 21
+          }
+        }
+      ],
+      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
+      "binary": "current",
+      "sample": 1
+    },
+    {
+      "transport": "unix",
+      "source_bytes": 10092544,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "chunks": 155,
+      "wall_ms": 117.112193,
+      "median_ms": 0.689242,
+      "p95_ms": 0.751572,
+      "max_ms": 1.245892,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4131142,
+          "metrics": {
+            "VmHWM": 8340,
+            "VmRSS": 8340,
+            "RssAnon": 876,
+            "RssFile": 7464,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-source-transfer",
+          "daemon_pid": 4131142,
+          "metrics": {
+            "VmHWM": 28964,
+            "VmRSS": 28964,
+            "RssAnon": 17052,
+            "RssFile": 11912,
+            "Threads": 21
+          }
+        }
+      ],
+      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
+      "binary": "ep020",
+      "sample": 1
+    },
+    {
+      "transport": "unix",
+      "source_bytes": 10092544,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "chunks": 155,
+      "wall_ms": 116.386221,
+      "median_ms": 0.685301,
+      "p95_ms": 0.738741,
+      "max_ms": 1.147332,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4131171,
+          "metrics": {
+            "VmHWM": 8140,
+            "VmRSS": 8140,
+            "RssAnon": 876,
+            "RssFile": 7264,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-source-transfer",
+          "daemon_pid": 4131171,
+          "metrics": {
+            "VmHWM": 27884,
+            "VmRSS": 27884,
+            "RssAnon": 16120,
+            "RssFile": 11764,
+            "Threads": 21
+          }
+        }
+      ],
+      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
+      "binary": "ep020",
+      "sample": 2
+    },
+    {
+      "transport": "unix",
+      "source_bytes": 10092544,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "chunks": 155,
+      "wall_ms": 116.077491,
+      "median_ms": 0.684951,
+      "p95_ms": 0.724741,
+      "max_ms": 1.142381,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4131200,
+          "metrics": {
+            "VmHWM": 8772,
+            "VmRSS": 8772,
+            "RssAnon": 876,
+            "RssFile": 7896,
+            "Threads": 5
+          }
+        },
+        {
+          "label": "after-source-transfer",
+          "daemon_pid": 4131200,
+          "metrics": {
+            "VmHWM": 29836,
+            "VmRSS": 29836,
+            "RssAnon": 17392,
+            "RssFile": 12444,
+            "Threads": 21
+          }
+        }
+      ],
+      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
+      "binary": "current",
+      "sample": 2
+    },
+    {
+      "transport": "websocket",
+      "source_bytes": 10092544,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "chunks": 155,
+      "wall_ms": 128.489302,
+      "median_ms": 0.761962,
+      "p95_ms": 0.823491,
+      "max_ms": 1.300412,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4131229,
+          "metrics": {
+            "VmHWM": 8860,
+            "VmRSS": 8860,
+            "RssAnon": 996,
+            "RssFile": 7864,
+            "Threads": 4
+          }
+        },
+        {
+          "label": "after-source-transfer",
+          "daemon_pid": 4131229,
+          "metrics": {
+            "VmHWM": 27656,
+            "VmRSS": 27656,
+            "RssAnon": 15856,
+            "RssFile": 11800,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
+      "binary": "ep020",
+      "sample": 2
+    },
+    {
+      "transport": "websocket",
+      "source_bytes": 10092544,
+      "sha256": "f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e",
+      "chunks": 155,
+      "wall_ms": 128.726203,
+      "median_ms": 0.760291,
+      "p95_ms": 0.819171,
+      "max_ms": 1.558613,
+      "daemon_memory": [
+        {
+          "label": "hello:measured-client",
+          "daemon_pid": 4131263,
+          "metrics": {
+            "VmHWM": 9816,
+            "VmRSS": 9816,
+            "RssAnon": 996,
+            "RssFile": 8820,
+            "Threads": 4
+          }
+        },
+        {
+          "label": "after-source-transfer",
+          "daemon_pid": 4131263,
+          "metrics": {
+            "VmHWM": 28336,
+            "VmRSS": 28336,
+            "RssAnon": 15708,
+            "RssFile": 12628,
+            "Threads": 20
+          }
+        }
+      ],
+      "scope": "actual daemon, deterministic attached Codex fixture; original source with NUL, Unicode and ANSI; Python decode/hash and fixture logging included; source preparation excluded",
+      "binary": "current",
+      "sample": 2
+    }
+  ],
+  "synthetic": [
+    {
+      "client_decode_ms": 3.5959589999999966,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.098386000000005,
+      "rss_kib": {
+        "after_apply": 7852,
+        "after_transfer": 8336,
+        "before": 2848
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 14.249704,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 28.74465,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.972420000000001,
+      "sample": 0,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.6755899999999913,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 14.752103999999983,
+      "rss_kib": {
+        "after_apply": 8036,
+        "after_transfer": 8532,
+        "before": 3160
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.745144000000002,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 27.177537,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.3427269999999965,
+      "sample": 0,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.8127459999999984,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 14.620473999999987,
+      "rss_kib": {
+        "after_apply": 7688,
+        "after_transfer": 8408,
+        "before": 2740
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.839484,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 29.994231,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.965251999999987,
+      "sample": 0,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.7991759999999983,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.244808999999993,
+      "rss_kib": {
+        "after_apply": 8128,
+        "after_transfer": 8500,
+        "before": 3204
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.990674,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 30.924673,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 11.281965999999988,
+      "sample": 0,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.762105999999997,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 14.281953000000023,
+      "rss_kib": {
+        "after_apply": 8188,
+        "after_transfer": 8596,
+        "before": 3320
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.815033,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 29.440671000000002,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 11.470103999999976,
+      "sample": 1,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.7743139999999933,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.091723000000005,
+      "rss_kib": {
+        "after_apply": 7712,
+        "after_transfer": 8524,
+        "before": 2760
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.919174,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 31.668184000000004,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 11.641050999999994,
+      "sample": 1,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.660362999999984,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 14.924662000000023,
+      "rss_kib": {
+        "after_apply": 8060,
+        "after_transfer": 8488,
+        "before": 3192
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.931584,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 27.474128,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.417194000000002,
+      "sample": 1,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.715806999999989,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.390155000000018,
+      "rss_kib": {
+        "after_apply": 7792,
+        "after_transfer": 8392,
+        "before": 2936
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.958485,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 29.20822,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 7.116008000000005,
+      "sample": 1,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.700098999999986,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.927843999999993,
+      "rss_kib": {
+        "after_apply": 7632,
+        "after_transfer": 8160,
+        "before": 2740
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 14.007033999999999,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 28.910020000000003,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 7.324901000000002,
+      "sample": 2,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.651556999999992,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.399296000000003,
+      "rss_kib": {
+        "after_apply": 8128,
+        "after_transfer": 8476,
+        "before": 3312
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.905994,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 28.92486,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.374143999999999,
+      "sample": 2,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.7490069999999984,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 14.373487000000006,
+      "rss_kib": {
+        "after_apply": 7744,
+        "after_transfer": 8536,
+        "before": 2820
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.929884,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 29.658771,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.909879999999976,
+      "sample": 2,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.7297460000000004,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.21856999999997,
+      "rss_kib": {
+        "after_apply": 7744,
+        "after_transfer": 8444,
+        "before": 2812
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.950064,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 31.863374999999998,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 11.134281999999983,
+      "sample": 2,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.78394399999999,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.184047999999965,
+      "rss_kib": {
+        "after_apply": 7880,
+        "after_transfer": 8508,
+        "before": 3072
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.958874,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 31.493505,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 9.88242199999998,
+      "sample": 3,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 4.036667,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.266030000000017,
+      "rss_kib": {
+        "after_apply": 7676,
+        "after_transfer": 8552,
+        "before": 2688
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.877095,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 31.028684000000002,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.482158999999985,
+      "sample": 3,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.649114000000001,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.32446299999999,
+      "rss_kib": {
+        "after_apply": 8112,
+        "after_transfer": 8488,
+        "before": 3208
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 14.006314000000001,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 29.369891,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.242089000000005,
+      "sample": 3,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.6981979999999943,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.927892000000025,
+      "rss_kib": {
+        "after_apply": 7860,
+        "after_transfer": 8304,
+        "before": 2648
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.968594000000001,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 29.552920999999998,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.864961999999995,
+      "sample": 3,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.696549999999996,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.188256000000004,
+      "rss_kib": {
+        "after_apply": 7756,
+        "after_transfer": 8232,
+        "before": 2812
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.962204,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 27.821268,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 5.976305999999994,
+      "sample": 4,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.6834689999999863,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.221564,
+      "rss_kib": {
+        "after_apply": 8196,
+        "after_transfer": 8540,
+        "before": 3328
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.999795,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 28.84686,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.540579999999999,
+      "sample": 4,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.746213999999998,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.021531000000005,
+      "rss_kib": {
+        "after_apply": 7692,
+        "after_transfer": 8576,
+        "before": 2728
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.979744,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 30.335363,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.879677000000001,
+      "sample": 4,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.7824849999999914,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.226260000000012,
+      "rss_kib": {
+        "after_apply": 8188,
+        "after_transfer": 8688,
+        "before": 3192
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 14.180515,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 30.639573,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 9.970546999999984,
+      "sample": 4,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.772816999999991,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 14.723014000000003,
+      "rss_kib": {
+        "after_apply": 7908,
+        "after_transfer": 8476,
+        "before": 3072
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.977585000000001,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 30.718783,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 11.218338999999988,
+      "sample": 5,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.773465999999995,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.012681000000006,
+      "rss_kib": {
+        "after_apply": 7748,
+        "after_transfer": 8572,
+        "before": 2712
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.913464000000001,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 30.528463,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 11.066809000000001,
+      "sample": 5,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.6673539999999973,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 14.472782999999978,
+      "rss_kib": {
+        "after_apply": 7880,
+        "after_transfer": 8352,
+        "before": 3076
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.883473,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 27.017016,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.668408999999995,
+      "sample": 5,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.674077000000002,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.312691,
+      "rss_kib": {
+        "after_apply": 7688,
+        "after_transfer": 8292,
+        "before": 2736
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.791894000000001,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 28.72638,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.471284999999999,
+      "sample": 5,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.66297599999999,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 14.74616099999999,
+      "rss_kib": {
+        "after_apply": 7932,
+        "after_transfer": 8376,
+        "before": 2836
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 14.021145,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 27.261737,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.265266000000007,
+      "sample": 6,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.6551149999999892,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.945001000000001,
+      "rss_kib": {
+        "after_apply": 8064,
+        "after_transfer": 8532,
+        "before": 3136
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.950353999999999,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 28.385818999999998,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 7.2161030000000075,
+      "sample": 6,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.7452909999999986,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.829952000000011,
+      "rss_kib": {
+        "after_apply": 7876,
+        "after_transfer": 8612,
+        "before": 2792
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.859134000000001,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 31.568915000000004,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.18863099999999,
+      "sample": 6,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.7301249999999935,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 14.660151999999991,
+      "rss_kib": {
+        "after_apply": 8000,
+        "after_transfer": 8592,
+        "before": 3068
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.915774,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 29.962072,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 11.083180999999993,
+      "sample": 6,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.719474000000001,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.064676000000002,
+      "rss_kib": {
+        "after_apply": 7736,
+        "after_transfer": 8560,
+        "before": 2808
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.785112999999999,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 31.828065000000002,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.434505999999988,
+      "sample": 7,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.710117999999995,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.96030200000002,
+      "rss_kib": {
+        "after_apply": 7824,
+        "after_transfer": 8552,
+        "before": 2804
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 14.067935,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 31.528355,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.186165999999995,
+      "sample": 7,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.7367129999999933,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.62541399999999,
+      "rss_kib": {
+        "after_apply": 7932,
+        "after_transfer": 8404,
+        "before": 3056
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.879154,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 29.300981,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.713122000000001,
+      "sample": 7,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.6677309999999905,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.46299700000002,
+      "rss_kib": {
+        "after_apply": 7708,
+        "after_transfer": 8364,
+        "before": 2684
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.779463,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 29.292601,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 7.00731300000001,
+      "sample": 7,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.739743999999994,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.698223999999971,
+      "rss_kib": {
+        "after_apply": 7812,
+        "after_transfer": 8352,
+        "before": 2844
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.989964,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 28.68375,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 5.823238000000002,
+      "sample": 8,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.6857379999999886,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 14.463563999999993,
+      "rss_kib": {
+        "after_apply": 8196,
+        "after_transfer": 8584,
+        "before": 3292
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.889774000000001,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 26.838826,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.730797000000004,
+      "sample": 8,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.7194549999999893,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.351472999999977,
+      "rss_kib": {
+        "after_apply": 7728,
+        "after_transfer": 8552,
+        "before": 2724
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.895394,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 32.161944999999996,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.94648099999998,
+      "sample": 8,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.7262199999999974,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.629239999999996,
+      "rss_kib": {
+        "after_apply": 7944,
+        "after_transfer": 8504,
+        "before": 3204
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.858784,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 32.260176,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.127345000000004,
+      "sample": 8,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.686354999999999,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 14.234157000000002,
+      "rss_kib": {
+        "after_apply": 8180,
+        "after_transfer": 8700,
+        "before": 3136
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.891924999999999,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 29.387081,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 11.635333000000003,
+      "sample": 9,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.702463999999989,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.291626000000003,
+      "rss_kib": {
+        "after_apply": 7752,
+        "after_transfer": 8444,
+        "before": 2804
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 14.081625,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 30.836783,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 9.800975999999988,
+      "sample": 9,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.6333649999999897,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 14.46243300000001,
+      "rss_kib": {
+        "after_apply": 8080,
+        "after_transfer": 8548,
+        "before": 3104
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.840034,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 26.461126,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.131100000000002,
+      "sample": 9,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.9560669999999942,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.32908699999998,
+      "rss_kib": {
+        "after_apply": 7608,
+        "after_transfer": 8268,
+        "before": 2744
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.825283,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 29.01115,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.639413000000011,
+      "sample": 9,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.6590269999999943,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 14.616541000000018,
+      "rss_kib": {
+        "after_apply": 7680,
+        "after_transfer": 8404,
+        "before": 2636
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.826284,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 26.787036,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.578356000000011,
+      "sample": 10,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.6888059999999925,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.12493000000002,
+      "rss_kib": {
+        "after_apply": 8016,
+        "after_transfer": 8476,
+        "before": 3016
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.959214,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 28.77825,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.631924000000002,
+      "sample": 10,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.773587999999989,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.961213999999986,
+      "rss_kib": {
+        "after_apply": 7868,
+        "after_transfer": 8564,
+        "before": 2716
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.829724,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 31.639044999999996,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 9.992610999999979,
+      "sample": 10,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.7342909999999927,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.261044999999998,
+      "rss_kib": {
+        "after_apply": 8128,
+        "after_transfer": 8644,
+        "before": 3156
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.842114,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 30.740144,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 11.558365999999994,
+      "sample": 10,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.6828939999999926,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.30868099999997,
+      "rss_kib": {
+        "after_apply": 7996,
+        "after_transfer": 8460,
+        "before": 3124
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.906913999999999,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 32.061715,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.534801999999988,
+      "sample": 11,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.7342469999999937,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.106028999999994,
+      "rss_kib": {
+        "after_apply": 7792,
+        "after_transfer": 8552,
+        "before": 2932
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.933914,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 31.048124,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.983411999999989,
+      "sample": 11,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.7366239999999977,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 18.378390000000014,
+      "rss_kib": {
+        "after_apply": 7932,
+        "after_transfer": 8504,
+        "before": 2880
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 14.031335,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 31.644955000000003,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.623900000000003,
+      "sample": 11,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.689432999999992,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.958420000000007,
+      "rss_kib": {
+        "after_apply": 7616,
+        "after_transfer": 8212,
+        "before": 2692
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.927954,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 28.553769,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 7.217764999999998,
+      "sample": 11,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.8045169999999935,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.38374100000003,
+      "rss_kib": {
+        "after_apply": 7748,
+        "after_transfer": 8464,
+        "before": 2696
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 14.013944,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 29.43554,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 7.273143000000002,
+      "sample": 12,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.649646999999989,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.511418999999979,
+      "rss_kib": {
+        "after_apply": 8124,
+        "after_transfer": 8580,
+        "before": 3248
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 14.014344999999999,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 28.229969,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 7.304201999999999,
+      "sample": 12,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 4.266436999999999,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.554197999999992,
+      "rss_kib": {
+        "after_apply": 7668,
+        "after_transfer": 8424,
+        "before": 2712
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.934804,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 32.438516,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 9.568742000000004,
+      "sample": 12,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.7548979999999954,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.948087999999997,
+      "rss_kib": {
+        "after_apply": 8092,
+        "after_transfer": 8628,
+        "before": 3160
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 15.880807,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 31.477494,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.415591999999997,
+      "sample": 12,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.7715139999999967,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 17.28420199999998,
+      "rss_kib": {
+        "after_apply": 8104,
+        "after_transfer": 8568,
+        "before": 3180
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 14.034253999999999,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 33.238488,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.759415999999986,
+      "sample": 13,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.7461639999999896,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.948562000000013,
+      "rss_kib": {
+        "after_apply": 7696,
+        "after_transfer": 8572,
+        "before": 2788
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 14.053364,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 31.798135,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 11.322870999999996,
+      "sample": 13,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.6664580000000058,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.285015999999978,
+      "rss_kib": {
+        "after_apply": 8080,
+        "after_transfer": 8548,
+        "before": 3152
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.958255,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 27.879898,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 7.0766459999999975,
+      "sample": 13,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.718976999999997,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.113327999999992,
+      "rss_kib": {
+        "after_apply": 7628,
+        "after_transfer": 8280,
+        "before": 2576
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.969693999999999,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 28.729319999999998,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.908847999999999,
+      "sample": 13,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.83062699999999,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.414405000000002,
+      "rss_kib": {
+        "after_apply": 7688,
+        "after_transfer": 8188,
+        "before": 2524
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.928124,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 29.371821,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 6.232101,
+      "sample": 14,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.6522869999999905,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.81903200000001,
+      "rss_kib": {
+        "after_apply": 8200,
+        "after_transfer": 8520,
+        "before": 3292
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 14.042514,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 29.447891000000002,
+      "transport": "unix",
+      "turns": 1000,
+      "writer_wait_send_ms": 7.4734330000000035,
+      "sample": 14,
+      "binary": "current"
+    },
+    {
+      "client_decode_ms": 3.771637,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 16.68323499999999,
+      "rss_kib": {
+        "after_apply": 7632,
+        "after_transfer": 8360,
+        "before": 2592
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.908634,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 32.887548,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 10.230901000000001,
+      "sample": 14,
+      "binary": "ep020"
+    },
+    {
+      "client_decode_ms": 3.7229349999999957,
+      "frames": 1060,
+      "output_chunks": 1000,
+      "payload_bytes": 4896929,
+      "publish_export_encode_ms": 15.462403999999967,
+      "rss_kib": {
+        "after_apply": 8116,
+        "after_transfer": 8640,
+        "before": 3324
+      },
+      "scope": "same core synthetic fixture and production page/output types over real sockets; no authentication, native startup, manager admission or terminal render; JSON payload bytes exclude socket framing; concurrent costs overlap",
+      "seed": 1,
+      "source_apply_ms": 13.968714,
+      "source_bytes": 3698790,
+      "source_rows": 6000,
+      "tool_lines": 24,
+      "transfer_wall_ms": 31.137364,
+      "transport": "websocket",
+      "turns": 1000,
+      "writer_wait_send_ms": 11.269311999999987,
+      "sample": 14,
+      "binary": "current"
+    }
+  ],
+  "large_panel": {
+    "cached_page_rows": 32,
+    "extra_requests_during_moves": 0,
+    "logical_rows": 257,
+    "memory": [
+      "VmHWM:\t   10560 kB",
+      "VmRSS:\t    8736 kB"
+    ],
+    "methods": [
+      "hello",
+      "session/subscribe",
+      "task/subscribe",
+      "task/list",
+      "task/list",
+      "task/list",
+      "task/list",
+      "task/list",
+      "task/list",
+      "task/list",
+      "task/list",
+      "task/list",
+      "task/detail",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/text",
+      "task/list"
+    ],
+    "move_max_ns": 5690,
+    "move_median_ns": 450,
+    "move_p95_ns": 470,
+    "moves": 20000,
+    "original_text_allocation_retained": true,
+    "read_ms": 46.589221,
+    "retained_field_bytes": 2295014
+  },
+  "production_source": {
+    "main": {
+      "commit": "a29b1a1e3720e48b09e2ca984fb16c29b5857ea3",
+      "groups": {
+        "terminal": {
+          "files": 238,
+          "nonblank": 39086,
+          "physical": 43048,
+          "bytes": 1406869
+        },
+        "helper": {
+          "files": 22,
+          "nonblank": 1543,
+          "physical": 1700,
+          "bytes": 83570
+        }
+      },
+      "total": {
+        "files": 260,
+        "nonblank": 40629,
+        "physical": 44748,
+        "bytes": 1490439
+      }
+    },
+    "ep020": {
+      "commit": "03658363d88f7f00abedfa3156be2fe578b84040",
+      "groups": {
+        "carlos-client": {
+          "files": 41,
+          "nonblank": 5288,
+          "physical": 5695,
+          "bytes": 192282
+        },
+        "carlos-core": {
+          "files": 374,
+          "nonblank": 46624,
+          "physical": 52439,
+          "bytes": 1767680
+        },
+        "carlos-proto": {
+          "files": 27,
+          "nonblank": 2390,
+          "physical": 2649,
+          "bytes": 81444
+        },
+        "carlosd": {
+          "files": 56,
+          "nonblank": 8243,
+          "physical": 8823,
+          "bytes": 287392
+        },
+        "terminal": {
+          "files": 198,
+          "nonblank": 27869,
+          "physical": 31389,
+          "bytes": 1030259
+        },
+        "helper": {
+          "files": 23,
+          "nonblank": 1653,
+          "physical": 1821,
+          "bytes": 88846
+        }
+      },
+      "total": {
+        "files": 719,
+        "nonblank": 92067,
+        "physical": 102816,
+        "bytes": 3447903
+      }
+    },
+    "current": {
+      "commit": "9cc99ffff675c9004425c1cf3d4d1f98c24bea38",
+      "groups": {
+        "carlos-client": {
+          "files": 75,
+          "nonblank": 10246,
+          "physical": 11032,
+          "bytes": 380708
+        },
+        "carlos-core": {
+          "files": 374,
+          "nonblank": 46622,
+          "physical": 52442,
+          "bytes": 1768062
+        },
+        "carlos-proto": {
+          "files": 28,
+          "nonblank": 2420,
+          "physical": 2687,
+          "bytes": 82784
+        },
+        "carlosd": {
+          "files": 57,
+          "nonblank": 8317,
+          "physical": 8908,
+          "bytes": 291801
+        },
+        "terminal": {
+          "files": 193,
+          "nonblank": 25596,
+          "physical": 29002,
+          "bytes": 952105
+        },
+        "helper": {
+          "files": 23,
+          "nonblank": 1653,
+          "physical": 1821,
+          "bytes": 88846
+        }
+      },
+      "total": {
+        "files": 750,
+        "nonblank": 94854,
+        "physical": 105892,
+        "bytes": 3564306
+      }
+    },
+    "note": "Follow production Rust modules from binary/library roots; remove cfg(test)/test-support items. Include authored helper/src TypeScript. Exclude tests, examples, build scripts, docs, generated schema/bindings and artifacts. Nonblank source lines include comments."
+  },
+  "method": "Finish all builds/tests/hooks before measurements or reviewers. CPU6, alternating old/current order;15 renderer samples per binary/case,3 actual native admission/source samples per binary/transport,15 synthetic exporter samples per binary/transport. RSS sampled after exec rather than inherited Python wait4 high-water mark. Panel timing measures public Client moves within one cached32-row page while retaining exact2295014-byte text, not terminal painting or all257 logical rows at once.",
+  "artifacts": "/tmp/carlos-ep021a"
+}

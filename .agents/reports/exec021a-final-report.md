@@ -1,0 +1,32 @@
+# EP021a final evidence, pending corrected-source checks
+
+EP021a moves the supported queue, settings, context, goal and native task readers into carlos-client. The terminal now keeps keys, layout, scrolling, private drafts/save intent and stop consent. A second Rust consumer proves that a future phone or web UI can read complete supported panels through the actual daemon without copying terminal cursor or long-text code.
+
+Runtime source dad5d9c9bf67b420b1cf2625d8a0af6d at commit9cc99ffff675c9004425c1cf3d4d1f98c24bea38 passes the final release gate. The exact CLI/daemon/helper/probe files and source hashes are frozen in /tmp/carlos-ep021a/final-pair/identity.json. Main, the installed executable, the owner's e6be8122 preview and the archived EP020 plan remain unchanged. Fable has returned PASS WITH ISSUES; delegated approval now waits for the narrow review corrections to finish their source-matched checks.
+
+The daemon now assigns every command its handler and count/byte allowances in one exhaustive match. The same description supplies retry classes; native controls, lifecycle stops and local operator requests retain separate reserves. SetContext, SetSettings and SetToolLabels reuse payload records while preserving the flat v1 JSON and private native reader/owner checks. Numeric native diagnostics now say a write/flush attempt Returned, and the real WebSocket test proves a progressing writer later closes after progress stops.
+
+## Checks
+
+Default1727 Rust cases pass19.20s; no-default1684 and strict lint pass. The complete corrected gate is /tmp/carlos-ep021a/release-gate-03.log, artifacts release-gate-4vOI23. It passes architecture19, helper72 twice, actual daemon187 in105.094s, terminal312 in418.607s, selection2, source failures5, dictation2, ANSI1, installed Codex23 in35.641s and packaged Claude10 in28.244s. Script/dependency/400-line-file/60-line-function checks pass.
+
+The actual Rust consumer visits257 latest rows and a three-row captured older window, reads exact120017/174018-byte Unicode commands, rejects a held old-window text reply, closes/reopens and reconnects. It uses only public Client/protocol APIs plus test-side Unix I/O and sends no native mutation. The stock gate builds and runs this native fixture; ordinary Cargo test truthfully leaves the fixture harness ignored.
+
+Keep the failed runs. The first debug gate exposed queue shortcut and rapid-reopen Save paths, corrected before later migrations. Final release run01 passed187 daemon and310/312 terminal cases; run02 passed187 and311/312. The corrected older-detail lifecycle and private owner-batch order have red-before/green-after evidence, and the settings restart fixture uses an ordered native notice/transcript fence before F6. No deadline, stale-save guard, text fidelity or supported list bound was weakened to obtain the final pass.
+
+## Measured costs
+
+The durable figures and methods are in exec021a-final-measurements.json. Measurements ran on CPU6 after all builds/tests/hooks finished, before any review worker, in alternating accepted-EP020/current order.
+
+- Fifteen renderer samples per binary/case preserve6001 messages39347 lines6000 relevant items for1000 synthetic turns/seed1/tool-lines24 at160x48. Cold replay medians are49.93ms old and49.61ms current; scroll p95 stays0.68ms and typing p95 stays0.48ms. The captured Core fixture also preserves exact counts and interactive p95. Paired synthetic RSS change is+280KiB median,95% interval140..448KiB.
+- Three actual1000-prompt admission samples per binary/transport give median-of-medians0.547686 to0.550366ms Unix and0.696697 to0.704632ms WebSocket. Median per-run p95 is0.728092 to0.726201ms Unix and0.909772 to0.914332ms WebSocket. Worst current maxima are1.557513/1.556703ms. Every two-second idle sample reports zero process CPU ticks; thread context-switch counts remain effectively unchanged.
+- The exact10092544-byte source still transfers in155 chunks with SHA256 f61a23673ac06e7f0d863d63cf117229db92782f5a5cf48d4472f3787741d73e. Median wall time changes116.386 to116.077ms Unix and129.338 to127.697ms WebSocket. The separate synthetic exporter preserves source rows, source bytes, frames, chunks and payload bytes in all fifteen samples per binary/transport.
+- A separate actual-daemon Rust probe reads2295014 bytes in46.589ms, then performs20000 moves within one cached32-row page in a257-row logical list. It retains the same text allocation, sends no reads during those moves and records median0.45microseconds, p950.47microseconds and max5.69microseconds per client call. RSS is8736KiB and high-water10560KiB. This is a client-model measurement, not terminal painting or257 simultaneously cached previews.
+- The CLI grows116040 bytes to17497600; the daemon grows178576 to20158056. The104780090-byte helper is byte-identical. Actual daemon post-admission RSS medians rise908KiB Unix and1104KiB WebSocket; record these fixed measured costs without claiming a specific allocation caused all of them.
+- Authored nonblank production source, excluding tests/examples/build scripts/docs/generated files, is94854 lines versus92067 at accepted EP020 and40629 on main. Shared client code grows4958; terminal code shrinks2273; total grows2787, about3.03%. This cleanup does not claim a net line-count reduction or pretend the remaining gap from main is small.
+
+The inherited dense-Unicode terminal case still needs roughly six seconds and1.3GiB temporary memory, with about238MiB retained. No body cap hides it. The earlier EP020 native500ms timeout remains unexplained; the new numeric stage labels help investigate a recurrence, but do not prove a fix.
+
+## Review and next step
+
+The direct engineering review is exec021a-engineering-review.md: PASS WITH ISSUES, with no remaining BLOCKER/MAJOR. The shared-command decisions are exec021a-command-records.md. The requested end-only Fable5.2 medium review returns PASS WITH ISSUES; its verbatim report and every decision are recorded in exec021a-fable-final-review.md/.json and exec021a-review-disposition.md. The first-phone facade is now limited to actual screens, and three small API/compiler corrections await final source-matched checks before approval/archive under the owner's grant. Write EP021b for paged native history, Grok approvals and richer tool data before continuing; UniFFI and the actual iPhone app remain EP022. No installation, merge or push is authorized.
