@@ -6,6 +6,7 @@ license-file = "../../LICENSE"
 
 [dependencies]
 carlos-core = { path = "../carlos-core" }
+carlos-client = { path = "../carlos-client" }
 carlos-proto = { path = "../carlos-proto" }
 anyhow = "1"
 blake3 = "1"
@@ -19,5 +20,4 @@ signal-hook = "0.3"
 uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
-carlos-client = { path = "../carlos-client" }
 tempfile = "3"

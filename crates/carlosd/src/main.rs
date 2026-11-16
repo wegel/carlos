@@ -1,5 +1,8 @@
 //! Start the headless local daemon with explicit private socket and catalogue paths.
 
+mod device_cli;
+mod operator_connection;
+
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -19,6 +22,9 @@ fn main() -> Result<()> {
     if carlos_core::summaries::reader::maybe_run()? {
         return Ok(());
     }
+    if device_cli::maybe_run()? {
+        return Ok(());
+    }
     let Some(config) = arguments()? else {
         return Ok(());
     };
@@ -36,6 +42,7 @@ fn arguments() -> Result<Option<Config>> {
     while let Some(option) = arguments.next() {
         if option == "--help" || option == "-h" {
             println!("carlosd --socket PATH --state-dir PATH [--codex-socket PATH]");
+            device_cli::help();
             return Ok(None);
         }
         let target = match option.to_str() {

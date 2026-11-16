@@ -209,3 +209,23 @@ Start without read, using refresh for an explicit new current-run request. If th
 Each overview label contains at most two KiB, full decimal-string byte length and complete. `task/overview/text {session,expected,entry,field,offset,limit?}` reads only label or message from the addressed row, up to 64 KiB with exact offsets and completion. The client rejects foreign or stale identities, repeated page rows, oversized previews, invalid percentages and malformed UTF-8 ranges. A device computes reset countdowns and hides expired quota windows locally.
 
 The daemon schedules Claude's existing optional quota read at its five-minute deadline through bounded native action workers. The embedded wrapper uses the same prepare/reply rules. A full worker backlog skips only that optional read until its next deadline; it cannot stop the session or create a busy retry loop. The native adapter preserves the original read number, root/helper scope and stream revision. A late report cannot overwrite a replacement root or newer native stream facts. This overview adds no settings command or terminal polling clock.
+
+## Local device controls
+
+The operator provisions each device through the private Unix socket:
+
+    carlosd device add --socket PATH --name 'My phone' --token-file NEW_PATH
+    carlosd device list --socket PATH
+    carlosd device revoke DEVICE_ID --socket PATH
+
+The add command creates a new mode-0600 file and refuses existing files or symlinks. It writes and syncs the file and its directory entry before requesting a grant. The file contains one line: a32-character lowercase hexadecimal device id, a dot and a64-character lowercase hexadecimal secret. The command draws the secret's32 bytes from OS randomness. The catalogue stores only the device id, a single-line name of at most256 UTF-8 bytes and the secret's BLAKE3 hash. The command prints the public id and file path; it never prints the secret. A failed or uncertain grant keeps that file and never automatically issues another credential.
+
+These typed methods require a greeted Unix peer with matching OS credentials:
+
+- `device/add {operation,device:{id,name},verifier}` provisions one verifier or its exact duplicate. A different verifier or name under an existing id is rejected. The verifier contains64 lowercase hexadecimal characters, encoding BLAKE3 of the raw32 secret bytes.
+- `device/list {}` returns `{devices:[{id,name}]}` for currently allowed grants. It returns neither hashes nor secrets. A device blocked by an unfinished or failed revoke is omitted.
+- `device/revoke {operation,device}` blocks that device's access and retires its private retry leases. It reports accepted only after the catalogue durably deletes the grant. A disk failure reports uncertain and keeps the device blocked for this daemon lifetime; a restart may reload the unchanged durable grant. Fix the disk and submit a new explicit revoke to finish it.
+
+Add/revoke return the existing private OperationResult without a session address. They reserve their own bounded result and ingress space, so full ordinary/native-control queues cannot consume the operator's allowance. An old add retry returns its retained result and cannot undo a later revoke. The operator CLI greets and submits exactly one action, without opening a native conversation, including when all16 owner slots are full.
+
+A network client supplies the file's token line in hello's `token`, independently of its private `resume_token`. `Client::begin_with_token` constructs that greeting while the platform owns token storage and socket I/O. AccessToken and ResumeToken hide their bytes in Debug output. Retry leases distinguish Unix callers from each authenticated DeviceId; another device cannot borrow even a correct private resume credential. The optional listener remains the next EP020 step; local provision alone does not expose a network endpoint.
