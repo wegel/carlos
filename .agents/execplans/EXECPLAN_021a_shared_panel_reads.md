@@ -16,7 +16,7 @@ EP021 is split at a natural boundary. This plan shares existing read behavior an
 
 - [x] (2026-11-16) Read the completed EP020 gates, exact-pair measurements, both final Fable reports and all decisions. Identify repeated queue/settings/goal/task read settlement in the terminal and checked low-level reads already present in carlos-client.
 - [x] (2026-11-16) Split shared-reader/admission cleanup into EP021a and leave native feature work in EP021b, whose full plan will be written after this one ends.
-- [ ] Rename the native timing label to describe a write returning, add a partial-progress-then-stall socket regression and keep the existing healthy/stalled reader behavior.
+- [x] (2026-11-16) Rename Stage::Written/printed written to Returned/returned in both native writers and real-pipe assertions. Add a signalled real reader that drains256KiB for more than500ms, pauses with its4MiB frame still charged, then observes automatic peer closure and zero charge without external Drop/close. The focused test passes1.86s; all1657 default workspace cases pass18.96s and the400/60 audit passes. The healthy paced and never-reading cases remain. Full final gate/performance checks stay required after the cleanup.
 - [ ] Replace hand-kept daemon admission groups with one exhaustive command description used by ingress, routing and mutation retry class selection.
 - [ ] Prove one shared queue reader in carlos-client and remove its matching terminal page/reply driver.
 - [ ] Move settings, goal and task list/detail/window/activity/overview readers into typed shared client models, preserving all current bounds and stale/root/reader checks; remove matching terminal copies.
@@ -26,6 +26,8 @@ EP021 is split at a natural boundary. This plan shares existing read behavior an
 
 ## Surprises & Discoveries
 
+A test cannot equate the final application read with the exact final TCP write, because both kernel buffers can still move data afterward. The new test synchronizes the application pause, proves a charged frame remains after more than500ms of real draining, then waits for the worker's own timeout/teardown within a broad bounded allowance. It asserts automatic close and zero charge, not an invented exact500ms delay from the pause signal. A paused client stays open until the server closes it. Capture outbox counts outside the mutex guard before assertions so a failing assertion does not poison the worker's teardown lock.
+
 
 The client already parses and validates every low-level panel reply, but Effects.replies still hands those replies to platform code. For example src/app/remote/queue_reads.rs holds one pending request and one future page, calls Client.merge_queue only when the matching numbered facts arrive, and starts each following page/text read. Settings and tasks repeat the pattern. Sharing the decoder alone has not shared the reader.
 
@@ -34,6 +36,9 @@ Current queue/task page windows retain only one bounded preview page and opaque 
 EP020's focused Fable follow-up approves closure with three MINORs. A reader that first makes progress and then stalls still needs an explicit socket test. The timing field currently called written records an I/O attempt returning even on error, so its label should say returned. The real-pipe/Python and paced-reader timing tests have wide margins; change them only if a reproducible failure justifies it. The old unexplained 500 ms Claude event remains a recorded risk, not a root-cause repair.
 
 ## Decision Log
+
+- Decision: name the native diagnostic stage Returned and describe an attempted write/flush returning even on error. Keep all timestamps and pre-cleanup snapshots. Rationale: a write returning is not proof of success or native acceptance. Date/author: 2026-11-16, Root.
+- Decision: test partial progress with a paced real TCP stream and explicit pause/release channels, keeping the socket open and frame larger than its kernel buffers. Rationale: it exercises the new deadline state and verifies actual worker cleanup without adding a production observer, generic I/O framework or minimum transfer rate. Date/author: 2026-11-16, Root.
 
 
 - Decision: share read state inside the existing pure Client, with typed panel models and Effects, rather than add another platform wrapper that each language must drive. Rationale: the platform should feed a message once and obtain changed models plus outgoing requests. Date/author: 2026-11-16, Root.
@@ -45,7 +50,7 @@ EP020's focused Fable follow-up approves closure with three MINORs. A reader tha
 ## Outcomes & Retrospective
 
 
-No EP021a runtime code has changed yet. The accepted EP020 runtime and measurements remain the comparison baseline. The first work is the two small socket/diagnostic follow-ups, then exhaustive admission and a real shared queue reader. This plan must end with one reusable set of read controllers and fewer matching terminal controllers, not a parallel implementation kept indefinitely.
+The first two EP020 follow-ups are implemented and the default workspace tests pass: native timeout text now says returned, and a real progressing-then-stalled reader closes automatically and releases its active charge. The accepted EP020 pair remains unchanged as the baseline. Exhaustive admission and the first shared queue reader are next. This plan must end with one reusable set of read controllers and fewer matching terminal controllers, not a parallel implementation kept indefinitely.
 
 ## Context and Orientation
 
@@ -159,3 +164,5 @@ Keep carlos-client free of I/O, wall-clock reads, threads, terminal, audio, spee
 The daemon command description must remain one exhaustive, data-only mapping to existing handler roles and budgets. Do not add a generic transport/handler framework. Named command payloads must preserve captured-owner scope and checked retry identity. Native feature work belongs to EP021b and iOS/UniFFI work to EP022; only those later consumers justify their bindings or additional dependencies.
 
 Revision 2026-11-16: create EP021a after delegated EP020 approval, splitting required shared-reader/admission cleanup from later native features. Include all accepted whole-roadmap findings and the non-blocking focused follow-up tests/diagnostic label change without reopening EP020's checked runtime.
+
+Revision 2026-11-16: finish the two focused EP020 follow-ups, record the real partial-progress proof and truthful write-return diagnostics, and keep exhaustive admission/shared queue reads next. No reviewer runs before this whole plan is ready.

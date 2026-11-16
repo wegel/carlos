@@ -55,7 +55,7 @@ impl InputWriter {
                         .write_all(line.as_bytes())
                         .and_then(|()| stdin.flush())
                         .map_err(anyhow::Error::from);
-                    timing.mark(Stage::Written);
+                    timing.mark(Stage::Returned);
                     result
                 };
                 bytes.fetch_sub(line.len(), Ordering::SeqCst);

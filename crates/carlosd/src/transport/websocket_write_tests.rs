@@ -2,6 +2,7 @@
 
 use std::io::{self, Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::sync::atomic::Ordering;
 use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 
@@ -39,9 +40,59 @@ fn throttled_websocket_reader_keeps_progressing_past_a_whole_frame_deadline() {
     assert_eq!((state.count, state.bytes), (0, 0));
 }
 
+#[test]
+fn reader_that_progresses_then_stalls_releases_its_charged_frame_without_external_close() {
+    let (mut client, peer) = connected_peer(64 * 1024, Duration::from_millis(40));
+    let (stalled, paused) = mpsc::sync_channel(1);
+    let (resume, continued) = mpsc::sync_channel(1);
+    client.get_mut().pause = Some(Pause {
+        remaining: 256 * 1024,
+        stalled,
+        resume: continued,
+    });
+    let bytes: Arc<[u8]> = vec![b'x'; 4 * 1024 * 1024].into();
+    let began = Instant::now();
+    assert!(peer.outbox.push(Frame {
+        bytes: bytes.clone(),
+        kind: Kind::Reply
+    }));
+    let reader = std::thread::spawn(move || client.read());
+    let stopped = paused
+        .recv_timeout(Duration::from_secs(3))
+        .expect("reader paused after progress");
+    assert!(stopped.duration_since(began) > Duration::from_millis(500));
+    let charged = {
+        let state = peer.outbox.0 .0.lock().expect("active frame");
+        (state.count, state.bytes)
+    };
+    assert_eq!(charged, (1, bytes.len()));
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while !peer.closed.load(Ordering::Acquire) && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    assert!(
+        peer.closed.load(Ordering::Acquire),
+        "write stall must close the peer without Drop"
+    );
+    let charged = {
+        let state = peer.outbox.0 .0.lock().expect("expired frame");
+        (state.count, state.bytes)
+    };
+    assert_eq!(charged, (0, 0));
+    resume.send(()).expect("release paused reader");
+    assert!(reader.join().expect("reader thread").is_err());
+}
+
 struct PacedStream {
     stream: TcpStream,
     delay: Duration,
+    pause: Option<Pause>,
+}
+
+struct Pause {
+    remaining: usize,
+    stalled: mpsc::SyncSender<Instant>,
+    resume: mpsc::Receiver<()>,
 }
 
 fn connected_peer(
@@ -74,8 +125,15 @@ fn connected_peer(
     stream
         .set_read_timeout(Some(Duration::from_secs(10)))
         .expect("bounded fixture read");
-    let (client, _) =
-        client(format!("ws://{address}"), PacedStream { stream, delay }).expect("client upgrade");
+    let (client, _) = client(
+        format!("ws://{address}"),
+        PacedStream {
+            stream,
+            delay,
+            pause: None,
+        },
+    )
+    .expect("client upgrade");
     let peer = accepted
         .recv_timeout(Duration::from_secs(2))
         .expect("network peer");
@@ -85,9 +143,29 @@ fn connected_peer(
 
 impl Read for PacedStream {
     fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+        if self
+            .pause
+            .as_ref()
+            .is_some_and(|pause| pause.remaining == 0)
+        {
+            let pause = self.pause.take().expect("completed drain");
+            let _ = pause.stalled.send(Instant::now());
+            pause
+                .resume
+                .recv_timeout(Duration::from_secs(3))
+                .map_err(|_| io::ErrorKind::TimedOut)?;
+        }
         std::thread::sleep(self.delay);
-        let count = bytes.len().min(16 * 1024);
-        self.stream.read(&mut bytes[..count])
+        let count = bytes.len().min(16 * 1024).min(
+            self.pause
+                .as_ref()
+                .map_or(usize::MAX, |pause| pause.remaining),
+        );
+        let count = self.stream.read(&mut bytes[..count])?;
+        if let Some(pause) = &mut self.pause {
+            pause.remaining = pause.remaining.saturating_sub(count);
+        }
+        Ok(count)
     }
 }
 

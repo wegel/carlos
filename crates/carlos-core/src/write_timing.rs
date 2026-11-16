@@ -4,13 +4,13 @@ use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
-#[derive(Clone, Copy)]
 /// Name the last completed step without retaining the frame that was written.
+#[derive(Clone, Copy)]
 pub(crate) enum Stage {
     Dequeued,
     Checked,
     Ready,
-    Written,
+    Returned,
 }
 
 /// Share monotonic elapsed times between a native writer and its bounded waiter.
@@ -28,7 +28,7 @@ impl WriteTiming {
         }
     }
 
-    /// Record a completed stage; Ready follows optional tracing and Written follows flush.
+    /// Record a completed stage; Ready follows optional tracing; Returned follows the write/flush attempt, even on error.
     pub(crate) fn mark(&self, stage: Stage) {
         let micros = self
             .enqueued
@@ -47,7 +47,7 @@ impl fmt::Display for WriteTiming {
             marks[index] = self.marks[index].load(Ordering::Acquire);
         }
         write!(formatter, "enqueue+0us")?;
-        for (name, value) in ["dequeued", "checked", "ready", "written"]
+        for (name, value) in ["dequeued", "checked", "ready", "returned"]
             .into_iter()
             .zip(marks)
         {

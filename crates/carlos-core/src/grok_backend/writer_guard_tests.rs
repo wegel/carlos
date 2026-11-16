@@ -43,7 +43,7 @@ fn grok_blocked_pipe_reports_its_writer_stage_without_private_frame_text() {
         .to_string();
     assert!(error.contains("stdin did not finish"));
     assert!(error.contains("ready+"));
-    assert!(error.contains("written=pending"));
+    assert!(error.contains("returned=pending"));
     assert!(!error.contains("PRIVATE_STAGE_TEST"));
     child
         .lock()

@@ -70,7 +70,7 @@ impl InputWriter {
                         .write_all(line.as_bytes())
                         .and_then(|_| stdin.flush())
                         .map_err(|error| anyhow::anyhow!("write Claude controller stdin: {error}"));
-                    timing.mark(Stage::Written);
+                    timing.mark(Stage::Returned);
                     result
                 };
                 let _ = reply.send(result);
