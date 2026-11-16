@@ -112,6 +112,8 @@ preview-source.json records all three hashes and the checked runtime commit87cea
 The original two previews and the installed Carlos remain unchanged. Do not overwrite
 this new owner preview during further builds either.
 
+On2026-11-16 the owner reported flashing footer labels, an unhelpful Requesting label and permanent copy confirmations. Checked runtime2fbe4c4 fixes those issues. The new immutable target/preview-2fbe4c4/try-carlos packages a matching CLI/daemon/helper after both full Rust configurations/lints,31 surrounding terminal workflows, copy/source/notice checks and all four exact frozen-preview regressions pass. It includes the checked Claude native-window consumer, with separate state at~/.local/state/carlos-spike-2fbe4c4. preview-source.json records hashes and the narrower preview-check scope; the final EP021b release/native/performance gate remains pending. Do not overwrite any existing owner preview.
+
 The owner requested a mid-EP whole-roadmap size review on2026-11-16. Fable5.2 medium
 found avoidable panel-driver and command-wrapper repetition while supporting the shared
 owner/client design. Its full report and checked decisions are
